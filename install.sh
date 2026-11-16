@@ -1,5 +1,7 @@
 #!/bin/sh
-# Hub Workflow bootstrap (manual-first): Node, pnpm, dependencies, then the minimal tokenless `pnpm hub setup`.
+# Hub Workflow bootstrap (manual-first): Node, pnpm, dependencies, then the minimal tokenless `hub setup` of an instance.
+# `hub setup` writes into an instance, so it runs only when HUB_HOME is set (an instance's ./run.sh sets it);
+# without HUB_HOME this script installs the core's dependencies and stops.
 # Safe to rerun: every step first checks and does nothing when already done.
 # No sudo, nothing deleted, no secrets read or printed. Extra arguments go to `hub setup`
 # (for example --dry-run; --automation turns on the OPTIONAL background automation, off by default).
@@ -21,7 +23,7 @@ usage: ./install.sh [--dry-run] [--automation [--non-interactive]]
      brew exists, otherwise prints the one-line fix and stops)
   2. enables pnpm through corepack (user-level shims; never sudo)
   3. pnpm install --frozen-lockfile in app/ (never edits pnpm-lock.yaml)
-  4. runs `pnpm hub setup`: minimal and tokenless (folders, config, skills, project registry, doctor table);
+  4. with HUB_HOME set, runs `pnpm hub setup` for that instance (without it: stops after step 3 and says how to set up an instance): minimal and tokenless (folders, config, skills, project registry, doctor table);
      no Claude token, no Notion token, no launchd. `--automation` adds the OPTIONAL Notion token, mail login, Telegram token
   5. `hub setup` also puts `hub` on PATH (~/.local/bin/hub); it ends with `ready: run hub agent`, then you hand the session one instruction (skills/README.md)
 
@@ -127,6 +129,10 @@ fi
 # ---- 4. minimal setup ------------------------------------------------------
 if [ "$DRY" -eq 1 ] && [ ! -d "$APP/node_modules" ]; then
   say "dependencies are not installed yet, so the dry run stops here; rerun without --dry-run"
+  exit 0
+fi
+if [ -z "${HUB_HOME:-}" ]; then
+  printf '\ndependencies are installed. Next: make an instance (@docs/LAYERS.md), then run ./run.sh setup from it (or export HUB_HOME and rerun this script).\n'
   exit 0
 fi
 say "running: pnpm hub setup${1:+ $*}"

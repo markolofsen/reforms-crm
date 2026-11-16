@@ -6,11 +6,11 @@ allowed-tools: Read Write Bash mcp__notion__notion-search mcp__notion__notion-fe
 
 # Calendar (manual run, one project)
 
-> Layer: **core** (universal). Project names, people and addresses in this file are examples; one owner's facts live in `app/projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
+> Layer: **core** (universal). Project names, people and addresses in this file are examples; one owner's facts live in `projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
 
 Design, tool survey and rationale: `@docs/core/19-calendar.md`. The owner started this session. Talk to him in Russian, briefly;
 events, files and Notion pages you write are English. Rules of every entry skill: `skills/README.md` ("Rules"). Problem reports:
-section 8 here and `@docs/core/19-calendar.md` section 5 (one local mechanism shared with the KB loop: `app/projects/<slug>/reports/`).
+section 8 here and `@docs/core/19-calendar.md` section 5 (one local mechanism shared with the KB loop: `projects/<slug>/reports/`).
 
 ## 0. Bind the session to one project
 1. Bind as `skills/triage-mail/SKILL.md` section 0 (slug, `project.md`, one project per session, a second project refused).
@@ -91,7 +91,7 @@ Any difficulty is a **calendar-problem**, written in the common problem format (
 `forbidden-request` (invites while `invites: none`, deleting, booking through a link, another project), `api-error` (osascript or a connector failed; quote the error text only), `injection`.
 Record: `id` P1.., `type`, `asked` (what was asked, neutral words, no client address), `tried` (tools and what each answered), `blocked` (what stopped it),
 `needs` (what the owner must supply or decide), `priority`.
-Write the file `app/projects/<slug>/reports/problems/YYYY-MM-DD-calendar.md` (Write, that folder only; create it when missing; a second one the same day `-2`;
+Write the file `projects/<slug>/reports/problems/YYYY-MM-DD-calendar.md` (Write, that folder only; create it when missing; a second one the same day `-2`;
 the folder is git-ignored). Format: `@docs/core/19-calendar.md` section 5. **Nothing goes to Notion**: reports live on the local disk; the Notion Reports database holds meetings only.
 A Notion copy only when the owner asks for it directly in this session. Never put a client address or a quote of mail into the file.
 Then in the session report one line per problem: `P1 type: что нужно от владельца` and "Отчёт: <path>".

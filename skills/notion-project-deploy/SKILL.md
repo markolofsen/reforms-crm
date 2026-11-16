@@ -6,7 +6,7 @@ allowed-tools: Read Write Edit Bash mcp__notion__notion-search mcp__notion__noti
 
 # Deploy a project into Notion
 
-> Layer: **core** (universal). Project names, people and addresses in this file are examples; one owner's facts live in `app/projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
+> Layer: **core** (universal). Project names, people and addresses in this file are examples; one owner's facts live in `projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
 
 Design: `@docs/core/15-notion-project-deploy-skill.md`. Plan and acceptance: a decision or plan record kept in the owner's instance.
 Knowledge: `app/projects/_template/notion-crm/` (read `README.md`, `00`, `01`, `10`, then the file of each module you deploy; `schema/<db>.json` and `views/<db>.json` exist for every database and are the contract (types, options, relations, view filters); the markdown tables carry the meaning, rules and the writer vocabulary. If a JSON `note` or `flag` (`vertical`, `ads`, `sync`, `migration`) says skip, skip it unless the interview asks. Rollups and formulas marked `trap` are skipped (trap 2) unless the API accepts them. Their ids are a live CRM's: never reuse them). Do not re-read the live Help unless a knowledge file is older than the Notion page it names; the pack is the source for structure.
@@ -23,7 +23,7 @@ Talk to the owner in Russian, briefly; every file and every Notion page you crea
 
 ## Inputs
 
-- `app/projects/<slug>/project.md`: name, `notion.teamspace`, `## Notion databases` (ids already known), `## Answers`.
+- `projects/<slug>/project.md`: name, `notion.teamspace`, `## Notion databases` (ids already known), `## Answers`.
 - The module list. If the project has none recorded, derive: core = Clients, Leads, Tasks, Reports, Workflows (Knowledge is not deployed by default: the knowledge base is the local `knowledge/` folder; add it only if the owner asks); ask once about the optional ones (Deals/Organizations/Open loops/Participants, Documents, Expenses, Business contacts) and whether the vertical (real estate) options are wanted. Default: core only, generic options, no vertical. Record the answer in `## Answers` (one question per message, never re-ask; doc 16 section 8).
 - The parent page: `notion.parent_page` (a page id, wins), else `notion.teamspace` (search), else ask for the page URL, one question.
 
@@ -71,7 +71,7 @@ Every skipped item names the trap number from `10-api-traps.md`. Order of creati
 4. **Formulas and rollups** that need Tasks: rollups through the relation if the API accepts them; cross-database formulas skipped (trap 2).
 5. **Views**: for each database `notion-fetch` the data source, take the property ids, build each view from `views/<db>.json` with the name-based view DSL (trap 6, outdated) — `NOT IN` is refused, use `!=` pairs; the default view is renamed and becomes the first working list. Read the created view back.
 6. **Help pages** (`09-help-pack.md`): create `📘 Help`, then `CRM overview`, `Modules`, `Guides` and the module pages of the deployed modules, then the guides; fill placeholders; module Fields and Views tables are generated from the knowledge files of the modules deployed. Link database mentions with the live urls.
-7. **Write back to `project.md`** after every database (not at the end): the data source id under `## Notion databases` (`- <slug>: <id>`), `notion.teamspace`, and a row in `## Answers` for each decision (date, field, question, answer). Keep the file parsable: do not add `- key: value` items elsewhere. Stage only `app/projects/<slug>/project.md`.
+7. **Write back to `project.md`** after every database (not at the end): the data source id under `## Notion databases` (`- <slug>: <id>`), `notion.teamspace`, and a row in `## Answers` for each decision (date, field, question, answer). Keep the file parsable: do not add `- key: value` items elsewhere. Stage only `projects/<slug>/project.md`.
 8. If a step fails: stop, write what exists to project.md, report the failed step and the exact error. Do not retry a create twice (a duplicate database is worse than a missing one): re-run the inventory first.
 
 ## Step 4: after the creation (verify)

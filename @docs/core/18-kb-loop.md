@@ -6,7 +6,7 @@ report), `kb-review` (merge and propose), `knowledge-import` (index; one-time mi
 
 ## 1. The loop
 
-The knowledge base is the folder `app/projects/<slug>/knowledge/files/`: Markdown entries edited by hand, indexed locally and searched with
+The knowledge base is the folder `projects/<slug>/knowledge/files/`: Markdown entries edited by hand, indexed locally and searched with
 `knowledge_search`. The agent answers only from it. It never reads Notion or any other source for a fact.
 
 ```
@@ -66,7 +66,7 @@ Triage prints a block "KB: что улучшить" (1 to 5 top gaps, the file p
 Owner decision (2026-11-14): agent reports are kept on the local disk only. One home per project, git-ignored:
 
 ```
-app/projects/<slug>/reports/
+projects/<slug>/reports/
   kb/        KB-gap reports of a run (YYYY-MM-DD-<run>.md, <run> = triage, bulk; -2 for a second run)
              and kb-review summaries (review-YYYY-MM-DD.md)
   problems/  problem reports (the same YYYY-MM-DD-<kind>.md naming)
@@ -79,7 +79,7 @@ session ("выгрузи в Notion"), the agent makes one page by hand (table an
 
 ## 6. Privacy
 
-- Gap reports are derived from client mail. The folder `app/projects/*/reports/` is git-ignored; reports are never committed and never copied to another project.
+- Gap reports are derived from client mail. The folder `projects/*/reports/` is git-ignored; reports are never committed and never copied to another project.
 - A report holds no client address, name, phone, deal amount or quote of mail text. `seen` uses the run's row number (`c3`), a thread date and a count. A topic is
   rewritten in neutral words ("minimum investment for the programme"), not copied.
 - A client who is in two projects appears in two separate reports; a gap of one project is never visible to a session bound to another.

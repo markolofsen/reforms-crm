@@ -245,8 +245,8 @@ describe("registry and questions", () => {
   });
 
   it("list() still reports projects that only exist in old rows", async () => {
-    await repos.clients.create({ project: "legacy", email: "x@y.z", name: "X" });
-    expect(await repos.projects.list()).toEqual(["a", "b", "legacy"]);
+    await repos.clients.create({ project: "old", email: "x@y.z", name: "X" });
+    expect(await repos.projects.list()).toEqual(["a", "b", "old"]);
   });
 });
 

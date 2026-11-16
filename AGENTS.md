@@ -1,13 +1,13 @@
 # Hub Workflow (core)
 
 Manual-first: the owner starts a session and hands it ONE instruction. Nothing runs in the background. This is the
-**core** layer (any owner, any project); one owner's facts live in `app/projects/<slug>/` (`@docs/LAYERS.md`).
+**core** layer (any owner, any project); one owner's facts live in `projects/<slug>/` (`@docs/LAYERS.md`).
 
 ## Binding (before any tool call)
 - One session, one project. Slug from the phrase ("... проекта X") or `$HUB_PROJECT` (`hub agent <slug>`). Neither: ask which.
-- (The projects folder is `app/projects`, or `projects/` under `HUB_HOME` in an instance; `hub agent` tells you which.)
-- Read `app/projects/<slug>/project.md`. No `## Settings`: say "проект не настроен, скажи: настрой проект <slug>" and stop.
-- Use only that project's Mail accounts, Notion databases and knowledge. Never read `app/projects/` beyond `app/projects/<slug>/`.
+- (The projects folder is `projects/` under `HUB_HOME`, the instance root; `hub agent` runs you there.)
+- Read `projects/<slug>/project.md`. No `## Settings`: say "проект не настроен, скажи: настрой проект <slug>" and stop.
+- Use only that project's Mail accounts, Notion databases and knowledge. Never read `projects/` beyond `projects/<slug>/`.
   A second project: refuse, say to start `hub agent <other>`.
 
 ## Draft-only

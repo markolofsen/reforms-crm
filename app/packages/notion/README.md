@@ -6,7 +6,7 @@ that writes to Notion: the reader interface (`src/types.ts`) holds three read me
 
 ```
 pnpm --filter @hub/notion notion-dump check   acme          # can the token see every database?
-pnpm --filter @hub/notion notion-dump dump    acme          # -> app/projects/acme/dumps/YYYY-MM-DD/
+pnpm --filter @hub/notion notion-dump dump    acme          # -> projects/acme/dumps/YYYY-MM-DD/
 pnpm --filter @hub/notion notion-dump restore acme --dry-run
 pnpm --filter @hub/notion typecheck && pnpm --filter @hub/notion test
 ```
@@ -29,8 +29,8 @@ Teamspace "CRM: acme". Notes go in plain paragraphs.
 - leads: 00000000-0000-0000-0000-705240741680
 ```
 
-`app/projects/<slug>/project.md` lists the project's CRM databases (this owner's live ids: the owner's instance docs, custom). A new
-project is a new folder under `app/projects/` with its own `project.md`; dumps stay inside it and are git-ignored (they hold CRM data).
+`projects/<slug>/project.md` lists the project's CRM databases (this owner's live ids: the owner's instance docs, custom). A new
+project is a new folder under `projects/` with its own `project.md`; dumps stay inside it and are git-ignored (they hold CRM data).
 
 ## Dump layout
 

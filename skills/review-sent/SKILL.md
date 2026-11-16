@@ -6,7 +6,7 @@ allowed-tools: Read Bash mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messa
 
 # Review sent (draft versus sent, read only)
 
-> Layer: **core** (universal). Names in this file are examples; one owner's facts live in `app/projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
+> Layer: **core** (universal). Names in this file are examples; one owner's facts live in `projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
 
 Rules: `skills/README.md` ("Rules"). Talk to the owner in Russian, briefly. Sent text is private: it stays in this chat, goes to no file and no Notion, and is never quoted beyond a short phrase of the owner's own wording.
 

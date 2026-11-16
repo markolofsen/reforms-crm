@@ -29,7 +29,7 @@ unsure where a file goes, this page decides.
 | `@docs/00-README.md`, `@docs/LAYERS.md` | core | Index and this rule |
 | `app/@rules/` | core | Rules for changing the local apps |
 | `config/mcp.json`, `install.sh`, `hub.sh` | core | Shared defaults and the bootstrap. `config/mcp.json` is a byte copy of `app/apps/installer/templates/mcp.json` (the installer's source); edit both together. The repo-root `.mcp.json` is a third, git-ignored copy written by setup |
-| `projects/<slug>/` under `HUB_HOME` (or `app/projects/<slug>/`, git-ignored here) | **instance** | `project.md`, `mail-filters.md`, `knowledge/`, `reports/`, generated XML |
+| `projects/<slug>/` under `HUB_HOME` | **instance** | `project.md`, `mail-filters.md`, `knowledge/`, `reports/`, generated XML |
 | `@docs/custom/`, `@dev/`, `@refs/` of an instance | **instance** | The owner's history, decisions, plans and reference material |
 | `config/config.json`, `state/` (secrets in `state/secrets/`), `.mcp.json`, `.claude/` | **instance**, git-ignored | Local settings, runtime state and every secret |
 
@@ -41,7 +41,7 @@ unsure where a file goes, this page decides.
 4. Say `настрой проект <slug>`: the `project-setup` skill interviews you and writes `projects/<slug>/project.md`.
 5. Keep your own decisions and plans in the instance's `@dev/` and `@docs/custom/`; leave core files alone, or change them with a reason that applies to every owner.
 
-Single-repo use also works: clone this repository, run `./install.sh`, and projects go to the git-ignored `app/projects/`.
+The instance pins the core in `core.version` (a tag, or a commit for a test instance that follows `main`) and moves it with `hub core update`. It runs with `<instance>/run.sh`; `HUB_HOME` is required for every command that touches data.
 
 ## The guard
 

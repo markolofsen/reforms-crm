@@ -7,7 +7,7 @@ Knowledge page, never approves an entry, never writes into `knowledge/`.
 
 ## 1. Order of sources for a fact (a price, date, term, policy, procedure)
 
-1. **`knowledge_search`** (local index of `app/projects/<slug>/knowledge/`), `project` = the slug, one to three short queries in the
+1. **`knowledge_search`** (local index of `projects/<slug>/knowledge/`), `project` = the slug, one to three short queries in the
    client's own words. A result is usable only when `use: STATE`, `approved: true`, `expired: false`. `MARKER` is background, never
    quoted. A hit that looks stale (its `valid_until` is near or passed, its `last_confirmed` is old, or the mail or the client's
    profile contradicts it) is judged from the local entry alone: record a `stale` gap, and state the fact only if it is still usable.
@@ -49,9 +49,9 @@ small talk. Not every `[Owner: ...]` needs a KB entry: say so in the proposal ("
 
 ## 4. The report file (always, when there is at least one gap)
 
-Path: `app/projects/<slug>/reports/kb/YYYY-MM-DD-<run>.md`, `<run>` = `triage` (one client or many) or `bulk`; a second run of the same
+Path: `projects/<slug>/reports/kb/YYYY-MM-DD-<run>.md`, `<run>` = `triage` (one client or many) or `bulk`; a second run of the same
 kind on the same day takes `-2`. Create the folder when missing. `reports/` is the one local home of agent reports (`kb/`, `problems/`, `runs/`) and is git-ignored (it is derived from client mail).
-Write only inside `app/projects/<slug>/reports/`. No gaps: write no file, say "KB: пробелов нет" in the report.
+Write only inside `projects/<slug>/reports/`. No gaps: write no file, say "KB: пробелов нет" in the report.
 
 ```markdown
 ---

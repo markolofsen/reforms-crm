@@ -8,4 +8,4 @@ The TypeScript monorepo (`apps/`, `packages/`, the `hub` CLI).
 - A rule that no longer matches reality: change the page in the same change, with the reason. Never route around a rule silently.
 - Layers: core never names a custom project, person or address (`@docs/LAYERS.md`).
 - Builds and full test runs only at the end of the work, one at a time.
-- Paths: every location comes from `@hub/config/paths` (`hubPaths`); `HUB_HOME` is the instance root, unset = this repo. Gate: `apps/installer/test/home-seams.test.ts`; rules README 8.
+- Paths: every location comes from `@hub/config/paths` (`hubPaths`); `HUB_HOME` is the instance root and is required (core code and `app/projects/_template` are the only things this repo holds). Gate: `apps/installer/test/home-seams.test.ts`; rules README 8.

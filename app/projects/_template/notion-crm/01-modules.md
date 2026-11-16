@@ -10,13 +10,13 @@ Source: Help / CRM overview and Modules, Help / Modules pages, the owner's live 
 | Leads (under Sales) | Leads | yes | Hub: website form and unknown email senders | Leads |
 | Tasks | Tasks | yes | Notion (client work is synced to the CRM) | Tasks |
 | Reports | Reports | yes (conversation log) | Notion | Reports |
-| Knowledge | Knowledge | **no (not deployed by default; legacy)** | Notion, synced to the CRM | Knowledge |
+| Knowledge | Knowledge | **no (not deployed by default)** | Notion, synced to the CRM | Knowledge |
 | Workflows (under Sales) | Workflows | yes | Notion; a Notion skills database | Workflows |
 | Documents | Documents | optional | Notion or an external file | Documents |
 | Expenses | Expenses, Payments | optional | Notion (bank integration planned) | Expenses |
 | Business contacts | Business contacts | optional, standalone address book of contractors, lawyers, banks, vendors; never clients | Notion | Business contacts |
 
-A project is a chosen list of modules. The five databases in `app/projects/<slug>/project.md` (`clients, leads, workflows, reports`; `knowledge` is legacy, the knowledge base is the local `knowledge/` folder, owner decision 2026-11-15) are the minimum the workflow agent needs; `tasks`, `deals`, `organizations`, `open-loops`, `participants` are optional slugs.
+A project is a chosen list of modules. The five databases in `projects/<slug>/project.md` (`clients, leads, workflows, reports`; `knowledge` is not deployed, the knowledge base is the local `knowledge/` folder, owner decision 2026-11-15) are the minimum the workflow agent needs; `tasks`, `deals`, `organizations`, `open-loops`, `participants` are optional slugs.
 
 ## Dependencies (a relation target must exist first)
 

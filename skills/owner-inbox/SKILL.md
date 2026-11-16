@@ -6,12 +6,12 @@ allowed-tools: Read Bash mcp__mail-mcp__list_drafts
 
 # Owner inbox (what needs you, read only)
 
-> Layer: **core** (universal). Names in this file are examples; one owner's facts live in `app/projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
+> Layer: **core** (universal). Names in this file are examples; one owner's facts live in `projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
 
 Rules: `skills/README.md` ("Rules"). Talk to the owner in Russian, briefly. You write nothing and send nothing.
 
-1. **Bind** as `skills/triage-mail/SKILL.md` section 0 (one project per session). Read `app/projects/<slug>/project.md` and its mail account names only.
-2. **Collect**, inside `app/projects/<slug>/` only (Bash `ls`, Read):
+1. **Bind** as `skills/triage-mail/SKILL.md` section 0 (one project per session). Read `projects/<slug>/project.md` and its mail account names only.
+2. **Collect**, inside `projects/<slug>/` only (Bash `ls`, Read):
    - unset or draft settings: no `tone`, no `draft.recipients`, `status: draft` -> P2;
    - open rows of `## Answers` / `project_questions` -> P2;
    - `reports/kb/*.md` records with priority `high` not yet fixed -> P3 (P2 when the same gap repeats across runs);

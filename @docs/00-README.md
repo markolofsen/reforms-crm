@@ -13,11 +13,9 @@ Start here: [../README.md](../README.md), then [core/client-setup.md](core/clien
 
 | Doc | What it answers |
 |---|---|
-| [02-connectors-and-scheduling.md](core/02-connectors-and-scheduling.md) | The agent stack: mail-mcp, Notion MCP, scheduling (design only), skill layout, idempotence, safety, the folder-only test plan |
-| [05-local-mcp-design.md](core/05-local-mcp-design.md) | Design of the local mail-history layers (profile, latest mail, compact history) and the first MCP spike |
+| [02-connectors.md](core/02-connectors.md) | The connectors a session uses: mail-mcp, the Notion MCP, what each can and cannot do |
 | [06-local-admin-app.md](core/06-local-admin-app.md) | The local admin app (clients, marks, bulk actions, action log) |
 | [08-local-app-stack.md](core/08-local-app-stack.md) | The TypeScript stack of the app (Next.js, React, coss, Hono, SQLite) and where files live (`HUB_HOME`) |
-| [10-agent-log-sound-installer.md](core/10-agent-log-sound-installer.md) | Action log with reasoning, sound notifications, installer (the automation parts are optional, off) |
 | [13-messengers-local.md](core/13-messengers-local.md) | Messengers in the local CRM (optional Telegram bot) |
 | [14-bulk-send-interface.md](core/14-bulk-send-interface.md) | The bulk-send interface and the `bulk-drafts` skill |
 | [15-notion-project-deploy-skill.md](core/15-notion-project-deploy-skill.md) | The skill and pack that deploy a project's CRM into Notion through the MCP |

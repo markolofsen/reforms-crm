@@ -25,8 +25,8 @@ export const DENIED_TOOLS: readonly string[] = [
   ...["send_message", "forward", "reply", "trash_message", "trash_thread", "delete_draft"].map((t) => `mcp__claude_ai_Gmail__${t}`),
 ];
 
-/** Bash patterns of the hub's sender: spelled as `hub send`, `pnpm hub send`, `hub.mjs send`, or the CLI source. */
-export const HUB_SEND_COMMANDS: readonly string[] = ["Bash(*hub send*)", "Bash(*hub.mjs send*)", "Bash(*hub.mjs\" send*)", "Bash(*installer/src/cli.ts send*)"];
+/** Bash patterns of the hub's sender: spelled as `hub send`, `./run.sh send`, `hub.sh send`, `hub.mjs send`, or the CLI source. */
+export const HUB_SEND_COMMANDS: readonly string[] = ["Bash(*hub send*)", "Bash(*run.sh send*)", "Bash(*hub.sh send*)", "Bash(*hub.mjs send*)", "Bash(*hub.mjs\" send*)", "Bash(*installer/src/cli.ts send*)"];
 
 /**
  * The admin server's Send is a loopback HTTP route (P23 S3). The route cannot tell a person's click from an agent's

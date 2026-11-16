@@ -40,8 +40,8 @@ describe("the agent has no send path", () => {
   });
 
   it("`hub send` is denied in every spelling, and the guard flags it", () => {
-    for (const r of ["Bash(*hub send*)", "Bash(*hub.mjs send*)", "Bash(*installer/src/cli.ts send*)"]) expect(rules).toContain(r);
-    for (const command of ["hub send 12 --apply", "pnpm hub send 12", "node app/apps/installer/bin/hub.mjs send 3 --apply", "hub --root /x send --due --apply", "tsx app/apps/installer/src/cli.ts send --due"]) {
+    for (const r of ["Bash(*hub send*)", "Bash(*run.sh send*)", "Bash(*hub.sh send*)", "Bash(*hub.mjs send*)", "Bash(*installer/src/cli.ts send*)"]) expect(rules).toContain(r);
+    for (const command of ["hub send 12 --apply", "./run.sh send 12 --apply", "core/hub.sh send --due", "pnpm hub send 12", "node app/apps/installer/bin/hub.mjs send 3 --apply", "hub --root /x send --due --apply", "tsx app/apps/installer/src/cli.ts send --due"]) {
       const g = guardDecision({ tool_name: "Bash", tool_input: { command } }, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT });
       expect(g.block, command).toBe(true);
       expect(g.violations.join(), command).toMatch(/hub send/);

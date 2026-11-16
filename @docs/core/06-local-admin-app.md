@@ -42,7 +42,7 @@ holds only what exists nowhere else.
 | Client profile, leads, tasks, reports | Notion (the agent writes it through the connector) | only the key: a `clients` row (project, email, name, replies owed, last contact, `updated_at`), made when the agent records a draft for that client. Nothing is copied in bulk; there is no sync |
 | Draft text | Mail (an unsent draft the person edits and sends) | no copy: `drafts.body` is empty for a recorded draft (an optional 240-character preview at most); `mail_ref` points at the message |
 | Draft review state (Checked, Done, hold, skipped), marks, bulk batches, agent log | admin database only | yes |
-| Project facts, filters, knowledge | files under `<projects folder>/<slug>/` (`app/projects` by default, `<HUB_HOME>/projects` in an instance; see `08-local-app-stack.md`) | an index rebuilt from them |
+| Project facts, filters, knowledge | files under `<projects folder>/<slug>/` (`<HUB_HOME>/projects`; see `08-local-app-stack.md`) | an index rebuilt from them |
 
 A session reports each unsent draft it leaves with `hub record-draft --project <slug>` (JSON on stdin; one JSON line out, exit
 0 only when it says `"ok":true`). The command writes straight to the database (no server needed), makes the client row if

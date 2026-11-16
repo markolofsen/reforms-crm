@@ -12,10 +12,10 @@ agent code). Universal: the model and the code know no project; each project has
 
 | Piece | Where |
 |---|---|
-| Rules file | `app/projects/<slug>/mail-filters.md` (committed, source of truth) |
-| Gmail import file | `app/projects/<slug>/.generated/mail-filters.xml` (generated) |
-| Optional API request list | `app/projects/<slug>/.generated/mail-filters.api.json` (generated, never sent by code) |
-| CLI (from `app/`) | `pnpm hub mail-filters <slug> propose\|check\|colors\|export-xml\|export-api` |
+| Rules file | `projects/<slug>/mail-filters.md` (committed, source of truth) |
+| Gmail import file | `projects/<slug>/.generated/mail-filters.xml` (generated) |
+| Optional API request list | `projects/<slug>/.generated/mail-filters.api.json` (generated, never sent by code) |
+| CLI (from the instance) | `./run.sh mail-filters <slug> propose\|check\|colors\|export-xml\|export-api` |
 
 `project.md` schema v1 has no field for the file: it is found by convention (same folder). Nothing in any `project.md` changed.
 
@@ -153,6 +153,6 @@ its `mail-filters.md`; the writer keeps it, the parser rejects an unknown class 
 | partner | Dark blue |
 ```
 
-`pnpm hub mail-filters <slug> colors` prints "label -> color" (name, background, text, default or project) and the apply
+`./run.sh mail-filters <slug> colors` prints "label -> color" (name, background, text, default or project) and the apply
 checklist. Scope: only `hub/*` labels. Other labels in the account (Superhuman/AI, Marketing, Pitch and the like) are not
 ours and are never colored.

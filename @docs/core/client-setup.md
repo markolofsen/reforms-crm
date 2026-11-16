@@ -4,9 +4,9 @@
 
 Manual-first (owner decision 2026-11-14, a decision or plan record kept in the owner's instance): you start a Claude Code session with `hub agent` (or Claude Desktop) and hand it ONE instruction, for example "разбери почту проекта X". Nothing runs in the background. The phrases are in `skills/README.md`.
 
-Quickstart: clone, `./install.sh`, `hub agent`, say the phrase. `./install.sh` ends with `ready: run hub agent`.
+Quickstart: make an instance (`@docs/LAYERS.md`), then from it `./run.sh setup`, `./run.sh agent <project>`, say the phrase. Setup ends with `ready: run hub agent`.
 
-Commands: `hub <command>` once `./install.sh` has put `hub` on your PATH (before that, `./hub.sh <command>` from the repository root). Developers can also run `pnpm hub <command>` in `app/`.
+Commands: `./run.sh <command>` from the instance folder (it sets `HUB_HOME` and runs the pinned core in `core/`). `hub <command>` works the same when `HUB_HOME` is exported and `hub` is on your PATH. Developers can also run `pnpm hub <command>` in the core's `app/` with `HUB_HOME` set.
 
 - `hub setup` is minimal and tokenless: tools, folders, config, skills, project registry, then the doctor table. Rerun any time; existing config is never overwritten.
 - `hub doctor` runs only the checks a manual session needs and prints a pass/fail table (nothing is changed). The optional steps below never fail it.

@@ -56,7 +56,7 @@ export function runsMailProgram(command: string, depth = 0): boolean {
   return false;
 }
 // `hub send ...` (the hub's sender, decision 0011) and a write of the owner's send settings: neither belongs to an agent session.
-const HUB_SEND = /\bhub(?:\.mjs)?["']?\s+(?:\S+\s+){0,3}?send(?:\s|$)|installer\/src\/cli\.ts["']?\s+send(?:\s|$)/;
+const HUB_SEND = /(?:\bhub(?:\.mjs|\.sh)?|\brun\.sh)["']?\s+(?:\S+\s+){0,3}?send(?:\s|$)|installer\/src\/cli\.ts["']?\s+send(?:\s|$)/;
 const SEND_SETTINGS = /\bsend\.(?:mode|classes|daily_cap|delay_minutes)\b/;
 const PATH_KEYS = ["file_path", "path", "pattern", "command", "notebook_path"];
 

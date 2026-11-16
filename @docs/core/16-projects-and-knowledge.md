@@ -9,7 +9,7 @@ The agents are the users of this CRM; the admin app only shows state.
 
 | # | Decision | Why |
 |---|---|---|
-| 1 | A project is a folder `app/projects/<slug>/`; the files are the source of truth, SQLite is an index rebuilt from them | One source of truth; an agent edits a file, a human reads a diff; no settings screen |
+| 1 | A project is a folder `projects/<slug>/`; the files are the source of truth, SQLite is an index rebuilt from them | One source of truth; an agent edits a file, a human reads a diff; no settings screen |
 | 2 | `project.md` schema v1 is one `## Settings` table plus the existing `## Notion databases` list | The Notion parser already reads that list (`@hub/notion` `project.ts`); a table is ignored by it |
 | 3 | Knowledge is markdown files, searched with SQLite FTS5 in `@hub/db`; no embeddings until measured need (section 5) | Small corpus, local, deterministic, zero model, zero network |
 | 4 | A run belongs to exactly one project, resolved from the mailbox and recipient before the agent starts (section 7) | Isolation by construction, not by the agent's care |
@@ -19,13 +19,12 @@ The agents are the users of this CRM; the admin app only shows state.
 ## 2. Project folder
 
 ```
-app/projects/<slug>/
+projects/<slug>/
   project.md            schema v1 (section 3); the only required file
   mail-filters.md       hand-written classification rules (skill `mail-filters`), committed
   knowledge/
     files/              the knowledge base: Markdown entries, edited by hand (committed)
     taxonomy.md         optional: the words entries may use (section 5, "Taxonomy"); `audiences` enforced
-    notion/             legacy: output of a one-time migration from an old Notion Knowledge database (git-ignored); move it into files/ and stop using it
   .generated/           everything generated from the files above, git-ignored by ONE rule: mail-filters.xml, mail-filters.api.json, knowledge-import.json (last import: source, date, counts, per-file sha256)
   dumps/                notion-dump output (git-ignored)
   reports/              agent reports on local disk, git-ignored: kb/ (KB gaps), problems/, runs/ (doc 18)
@@ -81,7 +80,7 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 | `calendar.name` | text | no | none | `calendar` skill | name of the calendar that holds are written to; absent: the skill reports `no-calendar`, never guesses |
 | `calendar.id` | text | no | none | `calendar` skill | calendar id when two calendars share a name |
 | `calendar.timezone` | IANA tz | no | `timezone` | `calendar` skill | zone of the owner's working hours |
-| `notion.databases` | section | yes | none | notion, skills | the `## Notion databases` list; `clients` and `reports` required, a `knowledge` entry is legacy and never required |
+| `notion.databases` | section | yes | none | notion, skills | the `## Notion databases` list; `clients` and `reports` required, any other entry (an old `knowledge` one) is ignored |
 | `knowledge.source` | `files` | no | `files` | `knowledge-import`, index | the local folder `knowledge/` is the base; the only value is `files` |
 | `run.quiet_hours` | `HH:MM-HH:MM` or `off` | no | global config | gate | no run in this window |
 | `run.max_messages` | int | no | global (5) | gate | messages per run |
@@ -161,7 +160,7 @@ Which Mailer the server uses is decided once at start by `HUB_MAILER`. Unset: Ma
 
 ## 4. Registry in SQLite (index, rebuilt from the files)
 
-`pnpm hub project sync` (K2; also run by every `hub agent` and `hub up`, so the index cannot drift) reads every `app/projects/*/project.md`, validates it, and replaces these rows in one transaction. Nothing writes them by hand.
+`./run.sh project sync` (K2; also run by every `hub agent` and `hub up`, so the index cannot drift) reads every `projects/*/project.md`, validates it, and replaces these rows in one transaction. Nothing writes them by hand.
 
 | Table | Columns | Notes |
 |---|---|---|
@@ -230,7 +229,7 @@ Rules for the agent, stated in the skills that call it: state a fact in a draft 
 
 ## 6. Isolation between projects
 
-1. **Files**: a run reads only its own `app/projects/<slug>/`. The runner passes the path; skills never list `app/projects/`.
+1. **Files**: a run reads only its own `projects/<slug>/`. The runner passes the path; skills never list `projects/`.
 2. **SQLite**: every table has `project`; every repository function takes `project` as a required argument and has no "all" default. The only cross-project reads are the admin app's project switcher and `doctor`.
 3. **Knowledge**: `knowledge_search` and `knowledge_get` require `project`, are bound to `HUB_PROJECT`, and filter in SQL (`knowledge_docs.project = ?` joined to the FTS match). An entry is never shared: a fact two projects need is copied into each (explicit duplication beats a shared leak).
 4. **Mail**: a run uses only `mail.accounts` of its project; `mail_history` takes `project` and rejects an account outside it. The third-party `mail-mcp` is not project-aware, so the skill rule "use only the accounts in project.md" is enforced by the tool allow-list in `mcp.json` per run, and checked by `doctor`. A client who writes to two projects is two client rows (`clients` is unique on `project, email`).
@@ -259,7 +258,7 @@ Goal: configuration happens through conversation, costs the owner few answers, a
 2. **One question at a time**, closed form: the field, why it is needed (one clause), a proposed default, at most three options. In the owner's language (Russian today); files stay English.
 3. **Ask only what the agent cannot find out.** Accounts from `list_accounts`, databases from Notion search, sender from the addresses: derive, then confirm in one question ("Is hello@acme.example the sender for Acme Travel?"). A new project needs at most six answers: name, accounts/addresses, Notion databases, knowledge source, tone, test mode.
 4. **Where.** Interactive: in the chat. Unattended run that finds a missing or contradicted required field: insert one `project_questions` row (`status=open`, unique per project), write a `needs_human` event (sound), and stop that project's run; other projects continue. The owner answers in any Claude session in this folder; `project-setup` in resume mode lists open questions and asks the oldest. The admin app only shows the count (read-only).
-5. **Record at once.** Write the Settings row (value, today's date, `By=owner`), append the Answers row, mark the question `answered`, then run `pnpm hub doctor --project <slug>`.
+5. **Record at once.** Write the Settings row (value, today's date, `By=owner`), append the Answers row, mark the question `answered`, then run `./run.sh doctor --project <slug>`.
 6. **Never re-ask.** The only reasons to ask a decided field again: (a) `doctor` proves the value false (the account is not in Mail): ask as a correction, quoting the old answer and what was found; (b) the owner says to change it. The new answer replaces the Settings row; the Answers log keeps the history.
 7. **Silence is not consent for risk.** `draft.recipients: any` and `status: active` are set only after an explicit owner answer or a passing `doctor` plus the owner's yes. Everything else may take its default.
 

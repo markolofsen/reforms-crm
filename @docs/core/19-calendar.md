@@ -19,7 +19,7 @@ which only warns about unknown fields at most; verify before relying on it).
 
 ### Which calendar belongs to which project
 
-A custom fact: `calendar.name` in `app/projects/<slug>/project.md` (section 3). This owner's survey of his calendars and the open choices: the owner's instance docs.
+A custom fact: `calendar.name` in `projects/<slug>/project.md` (section 3). This owner's survey of his calendars and the open choices: the owner's instance docs.
 
 Why Apple Calendar: no token, no OAuth, the owner's signed-in accounts already sync into it (Google accounts propagate to the web), AppleScript
 creates an event with no attendees, which by construction sends nothing. Its limits: macOS Automation consent, slow scripting, and a calendar of an
@@ -58,7 +58,7 @@ conflicts and back-to-back detection; recurring holds with an end date; link to 
 
 ## 5. One problem-report mechanism (shared with the KB loop, local disk only)
 Owner decision 2026-11-14: problem reports live on the LOCAL disk, not in Notion (the Notion Reports database is for meetings only). The single local
-folder, agreed with the KB agent (`@docs/core/18-kb-loop.md`): `app/projects/<slug>/reports/` (git-ignored: `app/projects/*/reports/`) with subfolders
+folder, agreed with the KB agent (`@docs/core/18-kb-loop.md`): `projects/<slug>/reports/` (git-ignored: `projects/*/reports/`) with subfolders
 `kb/` (KB-gap reports, kb-review summaries), `problems/` (problem reports), `runs/` (run reports); file name `YYYY-MM-DD-<kind>.md`.
 **Calendar problems go to `reports/problems/YYYY-MM-DD-calendar.md`**, in the common record format (`id`, `type`, what was asked, `seen`, `tried`, what is needed, `priority`).
 There is no dependency on `notion.write_reports`: the calendar skill never writes to Notion reports; a Notion copy only on the owner's direct request.

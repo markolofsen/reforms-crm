@@ -6,7 +6,7 @@ allowed-tools: Read Write Bash mcp__knowledge-mcp__knowledge_search mcp__knowled
 
 # KB review (manual, one project)
 
-> Layer: **core** (universal). Project names, people and addresses in this file are examples; one owner's facts live in `app/projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
+> Layer: **core** (universal). Project names, people and addresses in this file are examples; one owner's facts live in `projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
 
 The owner asks what to improve in a project's knowledge base. You read the gap reports that triage and
 bulk-drafts left behind, merge them, rank them and hand over concrete edits. You write nothing into the knowledge base. Talk to the owner in Russian, briefly; drafts of KB text are English (the KB's language).
@@ -15,7 +15,7 @@ Rules every entry skill follows: `skills/README.md` ("Rules"). Format and types:
 ## Steps
 1. **Bind** the project as `skills/triage-mail/SKILL.md` section 0.
 2. **Period**: what the owner said ("за неделю", "за месяц"), default the last 14 days. Say it.
-3. **Read** every `app/projects/<slug>/reports/kb/*.md` whose `date` is inside the period (`ls` via Bash, Read). None: say so, and that
+3. **Read** every `projects/<slug>/reports/kb/*.md` whose `date` is inside the period (`ls` via Bash, Read). None: say so, and that
    gap reports appear after triage or bulk runs; stop.
    Read only `reports/kb/`. Open calendar problems (`reports/problems/`, `@docs/core/19-calendar.md` section 5) are not KB gaps: if any are open, list them in a separate block at the end, one line each, and do not merge them into the ranking.
 4. **Merge.** Group gaps by topic (same fact asked in other words is one group; check with `knowledge_search` when unsure).
@@ -34,7 +34,7 @@ Rules every entry skill follows: `skills/README.md` ("Rules"). Format and types:
    `[Owner: ...]` and the item is marked "ждёт ответа владельца". Never invent a figure, date or term to make the draft look complete.
    For `stale` / `conflict`: name the page, show the old text and the proposed replacement. For `repeated-question` with an
    existing answer: propose the extra phrasings and a clearer title, not a new entry.
-8. **Write the summary** to `app/projects/<slug>/reports/kb/review-YYYY-MM-DD.md` (Write, inside `reports/` only; git-ignored): the period, the
+8. **Write the summary** to `projects/<slug>/reports/kb/review-YYYY-MM-DD.md` (Write, inside `reports/` only; git-ignored): the period, the
    ranked table, the drafts. Reports whose date is inside the period stay as they are.
 9. **Notion: nothing.** The summary lives on the local disk only. A Knowledge entry is never created, edited or approved by this
    skill: the owner adds or edits the entries as Markdown files in `knowledge/` (approval is his), then `knowledge index <slug>` refreshes the index.
