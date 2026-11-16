@@ -13,3 +13,4 @@ export * from "./generated.js";
 export * from "./similarity.js";
 export * from "./context.js";
 export * from "./ledger.js";
+export * from "./addresses.js";

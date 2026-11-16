@@ -14,6 +14,7 @@ import { listProjects, runAgent } from "./agent.ts";
 import { installLink, pathHint, planLink, removeLink } from "./link.ts";
 import { coreUpdate } from "./core-update.ts";
 import { initInstance, InitError } from "./init.ts";
+import { findInstances, instanceStatus, statusTable } from "./status.ts";
 import { execa } from "execa";
 import { runMenu } from "./menu.ts";
 import { runTests, runUp } from "./serve.ts";
@@ -175,6 +176,17 @@ program.command("init").description("Create a new instance in an empty folder: g
       if (e instanceof InitError) throw new UsageError(e.message);
       throw e;
     }
+  });
+
+program.command("status").description("One table over the instances next to this core (or the folders given with --root): core version and pin, projects, drafts waiting, admin port. Read only; needs no HUB_HOME.")
+  .option("--root <dir...>", "folders that are an instance or hold instances (default: the folder next to the core in use)")
+  .option("--json", "machine-readable output")
+  .action(async (o: { root?: string[]; json?: boolean }) => {
+    const homes = findInstances(o.root ?? []);
+    const rows = await Promise.all(homes.map((h) => instanceStatus(h)));
+    if (o.json) return console.log(JSON.stringify(rows, null, 2));
+    if (!rows.length) return console.log(c.yellow("no instances found next to this core: pass --root <dir>, or make one with `hub init <dir>`"));
+    console.log(statusTable(rows));
   });
 
 program.command("core").description("Move an instance to another core version. `hub core update` lists the tags; `hub core update <tag> --apply` checks it out, rewrites core.version and runs the instance check; a failed move is put back.")

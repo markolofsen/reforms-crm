@@ -2,7 +2,7 @@
 // `registerProjectCommands(program, ...)`; nothing here depends on the installer. Wiring left to its owner:
 //   1. `registerProjectCommands(program, { mailAccounts, notionCheck, mcpMailAccounts })` once, next to the other commands;
 //   2. `hub doctor --project <slug>` calls `runProjectDoctor(slug, sameOptions)` and sets its exit code.
-import { readdirSync, statSync } from "node:fs";
+import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { createRepos, defaultDbPath, openDb } from "@hub/db";
@@ -14,6 +14,7 @@ import { projectJson, writeProjectJson } from "./generated.js";
 import { renameProject } from "./rename.js";
 import { ProjectError } from "./parse.js";
 import { writeSetting } from "./write.js";
+import { proposeAddresses, type RoutingSnapshot } from "./addresses.js";
 import { defaultProjectsRoot, loadProject, loadProjects, syncProjects, type LoadedProject } from "./registry.js";
 
 export interface ProjectCommandOptions {
@@ -198,6 +199,34 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
   return after.parsed.issues.some((i) => i.severity === "error") ? 1 : 0;
 }
 
+/**
+ * `project addresses <slug> --routes <file>`: which addresses reach the project through forwarding rules (an exported routing snapshot), compared with
+ * the addresses it lists. Read-only unless `--apply`, which appends the missing ones to `mail.aliases` as the owner's answer. Never calls an API.
+ */
+export function runAddresses(slug: string, routesFile: string, apply: boolean, o: ProjectCommandOptions = {}): number {
+  const out = o.out ?? console.log;
+  const root = o.projectsRoot ?? defaultProjectsRoot();
+  const loaded = loadProject(root, slug);
+  const m = loaded.parsed.config.mail;
+  let snapshot: RoutingSnapshot;
+  try {
+    snapshot = JSON.parse(readFileSync(routesFile === "-" ? 0 : routesFile, "utf8")) as RoutingSnapshot;
+    if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) throw new Error("expected an object of zone -> { rules }");
+  } catch (e) {
+    out(`error cannot read the routing snapshot ${routesFile}: ${(e as Error).message}`);
+    return 1;
+  }
+  const r = proposeAddresses(snapshot, { accounts: m.accounts, addresses: m.addresses, aliases: m.aliases });
+  out(`${slug}: ${r.known.length} routed address(es) already listed, ${r.add.length} missing`);
+  for (const a of r.add) out(`  + ${a}`);
+  for (const z of r.catchAll) out(`  catch-all at ${z} forwards here: every address arrives (mail routes by account; nothing to list)`);
+  if (!r.add.length) return 0;
+  if (!apply) { out("dry run: add --apply to append them to mail.aliases"); return 0; }
+  writeSetting(loaded.folder, "mail.aliases", [...m.aliases, ...r.add].join(", "), "owner");
+  out(`mail.aliases now has ${m.aliases.length + r.add.length} address(es); run \`hub project sync\``);
+  return 0;
+}
+
 /** Adds `project sync`, `project show <slug>`, `project kinds`, `project rename` and `project doctor <slug>` to a commander program. */
 export function registerProjectCommands(program: Command, o: ProjectCommandOptions = {}): Command {
   const project = program.command("project").description("Projects: the registry built from <instance>/projects/*/project.md.");
@@ -251,6 +280,15 @@ export function registerProjectCommands(program: Command, o: ProjectCommandOptio
       } finally {
         rl?.close();
       }
+    });
+  project
+    .command("addresses")
+    .description("Compare the addresses a project lists with the forwarding rules of an exported routing snapshot (JSON: zone -> { rules }; `-` reads stdin). Dry run unless --apply, which appends the missing ones to mail.aliases.")
+    .argument("<slug>")
+    .requiredOption("--routes <file>", "routing snapshot file")
+    .option("--apply", "write the missing addresses (default: show them)")
+    .action((slug: string, opts: { routes: string; apply?: boolean }) => {
+      process.exitCode = runAddresses(slug, opts.routes, !!opts.apply, o);
     });
   project
     .command("doctor")
