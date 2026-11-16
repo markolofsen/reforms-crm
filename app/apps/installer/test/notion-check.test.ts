@@ -85,6 +85,18 @@ describe("notionCheck (doctor --project)", () => {
     expect(r.detail).not.toContain(TOKEN);
   });
 
+  it("when every database is a 404 it says once that the teamspace is not shared, and where to click", async () => {
+    const f = fake();
+    put(f.ctx.configDir, "notion-token", TOKEN);
+    const proj = { slug: "acme", parsed: { config: { notion: { tokenFile: "notion-token", teamspace: "CRM: SaaS", databases: [{ slug: "a", dataSourceId: "id-a" }, { slug: "b", dataSourceId: "id-b" }] } } } };
+    withFetch(f, () => 404);
+    const r = await notionCheck(f.ctx, proj);
+    expect(r.ok).toBe(false);
+    expect(r.detail).toContain('0/2 readable; the integration sees none of teamspace "CRM: SaaS"');
+    expect(r.detail).toContain("Connections > add the integration");
+    expect(r.detail).not.toContain("a: not shared");
+  });
+
   it("stops at the first 401: the token itself is wrong", async () => {
     const f = fake();
     put(f.ctx.configDir, "notion-token", TOKEN);

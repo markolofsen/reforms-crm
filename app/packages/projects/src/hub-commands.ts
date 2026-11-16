@@ -12,6 +12,8 @@ import { formatIssue } from "./parse.js";
 import { KINDS } from "./kinds.js";
 import { projectJson, writeProjectJson } from "./generated.js";
 import { renameProject } from "./rename.js";
+import { ProjectError } from "./parse.js";
+import { writeSetting } from "./write.js";
 import { defaultProjectsRoot, loadProject, loadProjects, syncProjects, type LoadedProject } from "./registry.js";
 
 export interface ProjectCommandOptions {
@@ -153,6 +155,49 @@ export async function runProjectDoctor(slug: string, o: ProjectCommandOptions = 
   }
 }
 
+export interface SetupFlags { tone?: string; signoff?: string; languages?: string }
+export type Ask = (question: string, suggestion?: string) => Promise<string>;
+
+/**
+ * `project setup <slug>`: answer the open questions of a project (tone, signoff, languages) in one pass. A value from a flag is written as is;
+ * a field that still has no value is asked (when `ask` is given: a terminal), with the kind's hint as the suggestion; Enter skips it. Rows are
+ * written as the owner's answer (By = owner) through the same validator as every other write. `status` is never changed here: the project
+ * leaves `draft` only when the owner edits it (project.md).
+ */
+export async function runProjectSetup(slug: string, flags: SetupFlags, o: ProjectCommandOptions = {}, ask?: Ask): Promise<number> {
+  const out = o.out ?? console.log;
+  const root = o.projectsRoot ?? defaultProjectsRoot();
+  const before = loadProject(root, slug);
+  const c = before.parsed.config;
+  const kind = KINDS[c.kind];
+  const plan = [
+    { field: "tone", flag: flags.tone, current: c.tone, question: "How should replies sound (one line)?", suggestion: kind?.defaults.toneHint },
+    { field: "signoff", flag: flags.signoff, current: c.signoff, question: "Sign-off line of drafts (for example: Best, <name>)?", suggestion: undefined },
+    { field: "languages", flag: flags.languages, current: "set", question: "", suggestion: undefined }, // languages has a default: only a flag changes it
+  ];
+  let wrote = 0;
+  for (const item of plan) {
+    let value = item.flag;
+    if (value === undefined) {
+      if (item.current || !ask) continue;
+      value = (await ask(item.question, item.suggestion)).trim();
+      if (!value) { out(`skipped ${item.field}`); continue; }
+    }
+    try {
+      writeSetting(before.folder, item.field, value, "owner");
+      out(`${item.field} = ${value}`);
+      wrote++;
+    } catch (e) {
+      if (e instanceof ProjectError) { out(`error ${item.field}: ${e.message}`); return 1; }
+      throw e;
+    }
+  }
+  const after = loadProject(root, slug);
+  for (const i of after.parsed.issues) out(formatIssue(i));
+  out(wrote ? `wrote ${wrote} setting(s) to ${slug}/project.md; run \`hub project sync\` to refresh the registry` : "nothing to change");
+  return after.parsed.issues.some((i) => i.severity === "error") ? 1 : 0;
+}
+
 /** Adds `project sync`, `project show <slug>`, `project kinds`, `project rename` and `project doctor <slug>` to a commander program. */
 export function registerProjectCommands(program: Command, o: ProjectCommandOptions = {}): Command {
   const project = program.command("project").description("Projects: the registry built from <instance>/projects/*/project.md.");
@@ -185,6 +230,27 @@ export function registerProjectCommands(program: Command, o: ProjectCommandOptio
     .option("--apply", "do it (default: show what would change)")
     .action(async (from: string, to: string, opts: { apply?: boolean }) => {
       process.exitCode = await runRename(from, to, !!opts.apply, o);
+    });
+  project
+    .command("setup")
+    .description("Answer the open questions of a project: tone, signoff, languages. Flags write directly; without flags a terminal asks for what is still empty (Enter skips).")
+    .argument("<slug>")
+    .option("--tone <text>", "how replies sound, one line")
+    .option("--signoff <text>", "sign-off line of drafts")
+    .option("--languages <tags>", "BCP-47 tags, comma separated")
+    .action(async (slug: string, opts: SetupFlags) => {
+      let rl: import("node:readline/promises").Interface | undefined;
+      let ask: Ask | undefined;
+      if (process.stdin.isTTY && process.stdout.isTTY) {
+        const { createInterface } = await import("node:readline/promises");
+        rl = createInterface({ input: process.stdin, output: process.stdout });
+        ask = (q, hint) => rl!.question(hint ? `${q} [${hint}] ` : `${q} `).then((a) => (a.trim() === "" && hint ? "" : a));
+      }
+      try {
+        process.exitCode = await runProjectSetup(slug, opts, o, ask);
+      } finally {
+        rl?.close();
+      }
     });
   project
     .command("doctor")

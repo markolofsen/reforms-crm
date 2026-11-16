@@ -5,7 +5,7 @@ import type { Ctx } from "./context.ts";
 /** The part of a loaded project this check reads. */
 export interface NotionProject {
   slug: string;
-  parsed: { config: { notion: { tokenFile: string; databases: { slug: string; dataSourceId: string }[] } } };
+  parsed: { config: { notion: { tokenFile: string; teamspace?: string | null; databases: { slug: string; dataSourceId: string }[] } } };
 }
 
 const SAFE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -45,7 +45,12 @@ export async function notionCheck(ctx: Ctx, p: NotionProject): Promise<{ ok: boo
     }
   }
   if (bad.length) {
-    return { ok: false, detail: `${databases.length - bad.length}/${databases.length} readable; ${bad.join("; ")}. Share the teamspace root page under Connections.` };
+    const { teamspace } = p.parsed.config.notion;
+    const notShared = bad.filter((b) => b.includes("(404)")).length;
+    // Every database 404: the integration sees none of the teamspace, so say that once instead of listing seven lines.
+    const what = notShared === databases.length ? `the integration sees none of ${teamspace ? `teamspace "${teamspace}"` : "this project's databases"}` : bad.join("; ");
+    const fix = notShared ? ` Fix (you, in Notion): open ${teamspace ? `teamspace "${teamspace}"` : "the teamspace root page"} > ... > Connections > add the integration; or run sessions through the Notion connector, which needs no token.` : "";
+    return { ok: false, detail: `${databases.length - bad.length}/${databases.length} readable; ${what}.${fix}` };
   }
   return { ok: true, detail: `${databases.length}/${databases.length} readable: ${databases.map((d) => d.slug).join(", ")}` };
 }
