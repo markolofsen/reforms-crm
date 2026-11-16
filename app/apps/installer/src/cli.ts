@@ -168,7 +168,7 @@ program.command("init").description("Create a new instance in an empty folder: g
       const r = await initInstance({ dir, ...(o.coreUrl ? { coreUrl: o.coreUrl } : {}), ...(o.pin ? { pin: o.pin } : {}), ...(o.name ? { name: o.name } : {}), ...(o.dryRun ? { dryRun: true } : {}) }, { run, log: (m) => console.log(m) });
       if (!o.dryRun) {
         console.log(c.green(`created ${r.dir} (core ${r.follows ? "follows main" : r.pin})`));
-        console.log(`next: cd ${r.dir} && ./run.sh doctor; then ./run.sh agent <project> and say «настрой проект <project>». Install the core's dependencies once: (cd core/app && pnpm install --frozen-lockfile)`);
+        console.log(`next: cd ${r.dir} && ./run.sh doctor; then ./run.sh agent <project> and say «настрой проект <project>». Make the repository private before you push it.`);
       }
       done(0);
     } catch (e) {
