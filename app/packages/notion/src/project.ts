@@ -7,8 +7,7 @@ export { normalizeId };
 
 /**
  * project.md: the `# name` heading and the list `- <slug>: <data source id>` under `## Notion databases`. The parser
- * is the shared one of @hub/projects, so the Settings table and every other section are invisible here. A file with
- * no `## ` heading at all (the legacy layout) keeps its list anywhere. A list item with a slug but no valid id is an
+ * is the shared one of @hub/projects, so the Settings table and every other section are invisible here. A list item with a slug but no valid id is an
  * error: a silently skipped database would be a silently missing backup.
  */
 export function parseProject(text: string, folder: string): Project {

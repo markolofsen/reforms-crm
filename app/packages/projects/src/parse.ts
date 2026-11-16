@@ -15,6 +15,7 @@ export type { KnowledgeSource } from "./schema.js";
 export type IssueCode =
   | "bad_slug"
   | "unknown_schema"
+  | "schema_required"
   | "missing_required"
   | "bad_date"
   | "bad_value"
@@ -53,8 +54,6 @@ export interface AnswerRow {
 
 export interface ParsedProject {
   slug: string;
-  /** `v1`: has `## Settings`. `adopt`: only the databases list (the layout that predates schema v1). */
-  mode: "v1" | "adopt";
   name: string;
   summary: string;
   settings: Record<string, SettingRow>;
@@ -171,14 +170,12 @@ const same = (a: string[] | null, want: string[]) =>
   a !== null && a.length === want.length && a.every((c, i) => c.toLowerCase() === want[i]);
 
 /**
- * The `## Notion databases` list and the display name. Legacy layout: a file with no `## ` heading at all keeps its
- * list items anywhere (that is how the pre-v1 project files are written); as soon as the file has sections, only
- * the items under `## Notion databases` are databases and any other `- key: value` item is an error.
+ * The `## Notion databases` list and the display name. Only the items under `## Notion databases` are databases;
+ * any other `- key: value` item is an error.
  */
-export function extractDatabases(text: string): { name: string | null; databases: ProjectDatabase[]; issues: Issue[]; legacy: boolean } {
+export function extractDatabases(text: string): { name: string | null; databases: ProjectDatabase[]; issues: Issue[] } {
   const lines = splitLines(text);
   const sc = scan(lines);
-  const legacy = sc.sections.length === 0;
   const dbSection = sc.sections.find((s) => s.name === "notion databases");
   const issues: Issue[] = [];
   const databases: ProjectDatabase[] = [];
@@ -189,7 +186,7 @@ export function extractDatabases(text: string): { name: string | null; databases
     const item = ITEM.exec(line);
     if (!item) return;
     const [, slug, rawId] = item as unknown as [string, string, string];
-    const inDb = legacy || (dbSection !== undefined && i > dbSection.start && i < dbSection.end);
+    const inDb = (dbSection !== undefined && i > dbSection.start && i < dbSection.end);
     if (!inDb) {
       issues.push({
         severity: "error",
@@ -210,7 +207,7 @@ export function extractDatabases(text: string): { name: string | null; databases
     seen.add(slug);
     databases.push({ slug, dataSourceId: normalizeId(rawId) });
   });
-  return { name: sc.title, databases, issues, legacy };
+  return { name: sc.title, databases, issues };
 }
 
 /**
@@ -239,7 +236,7 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
   const firstSection = sc.sections[0]?.start ?? lines.length;
   const summary = lines
     .slice(sc.titleLine + 1, firstSection)
-    .filter((l) => l.trim() !== "" && !(dbs.legacy && ITEM.test(l)))
+    .filter((l) => l.trim() !== "")
     .join(" ")
     .trim();
 
@@ -303,11 +300,14 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
     }
   }
 
-  const mode: ParsedProject["mode"] = settingsSection ? "v1" : "adopt";
+  // Schema 1 is the only format: a project.md without `## Settings` is not a project the hub can read.
+  if (!settingsSection) {
+    issues.push({ severity: "error", code: "schema_required", line: null, field: "schema", message: "schema 1 required: this project.md has no ## Settings table; run the project-setup skill" });
+  }
   const get = (f: string): string | undefined => settings[f]?.value;
 
   // schema version: an unknown one stops further interpretation (the other rules may have changed)
-  if (mode === "v1") {
+  if (settingsSection) {
     const sv = get("schema");
     if (sv !== undefined && /^\d+$/.test(sv) && Number(sv) !== SCHEMA_VERSION) {
       const row = settings.schema as SettingRow;
@@ -344,9 +344,9 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
   });
   const status = config.status;
 
-  // required fields (v1 only; adopt mode is asked for them by project-setup). `schema` is structural; the rest is the kind's list.
+  // required fields (only for a file with Settings). `schema` is structural; the rest is the kind's list.
   let incomplete = false;
-  if (mode === "v1" && !issues.some((i) => i.code === "unknown_schema")) {
+  if (settingsSection && !issues.some((i) => i.code === "unknown_schema")) {
     const sev: Issue["severity"] = status === "draft" ? "warning" : "error";
     const missing = (field: string, message: string) => {
       incomplete = true;
@@ -372,7 +372,7 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
     }
   }
 
-  return { slug, mode, name: config.name, summary, settings, databases: dbs.databases, answers, issues, incomplete, config };
+  return { slug, name: config.name, summary, settings, databases: dbs.databases, answers, issues, incomplete, config };
 }
 
 /** parseProjectMd, throwing a ProjectError when there is an error-level issue. */

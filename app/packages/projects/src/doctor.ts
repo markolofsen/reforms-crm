@@ -44,7 +44,7 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
   checks.push({
     name: "project.md parses",
     outcome: hasErrors(p.issues) ? "fail" : "pass",
-    detail: errors.length ? errors.map(formatIssue).join("; ") : p.mode === "adopt" ? "adopt mode: no ## Settings yet" : "schema 1",
+    detail: errors.length ? errors.map(formatIssue).join("; ") : "schema 1",
   });
 
   checks.push(

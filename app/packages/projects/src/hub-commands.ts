@@ -72,7 +72,7 @@ export function runShow(slug: string, o: ProjectCommandOptions = {}, json = fals
     return loaded.parsed.issues.some((i) => i.severity === "error") ? 1 : 0;
   }
   const p = loaded.parsed;
-  out(JSON.stringify({ slug, mode: p.mode, summary: p.summary, config: p.config, answers: p.answers.length }, null, 2));
+  out(JSON.stringify({ slug, summary: p.summary, config: p.config, answers: p.answers.length }, null, 2));
   for (const i of p.issues) out(formatIssue(i));
   return p.issues.some((i) => i.severity === "error") ? 1 : 0;
 }

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { appendAnswer, applyAnswer, applySetting, ensureDatabasesHeading, hasErrors, parseProjectMd, ProjectError, writeSetting } from "../src/index.js";
+import { appendAnswer, applyAnswer, applySetting, hasErrors, parseProjectMd, ProjectError, writeSetting } from "../src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const acme = readFileSync(join(here, "fixtures", "projects", "acme-travel", "project.md"), "utf8");
@@ -70,28 +70,11 @@ describe("applySetting", () => {
     expect(() => applySetting(acme, "tone", "x", "owner", "20-11-2026")).toThrow(/ISO date/);
   });
 
-  it("adopts a legacy file: heading above the untouched list, then a Settings section", () => {
-    const legacy = `# acme\n\nTeamspace "CRM: acme".\n\n- clients: ${ID}\n- reports: ${ID.replace(/1$/, "2")}\n`;
-    const out = applySetting(legacy, "schema", "1", "agent", "2026-11-20");
-    expect(out).toContain(`## Settings\n\n| Field | Value | Answered | By |\n|---|---|---|---|\n| schema | 1 | 2026-11-20 | agent |\n\n## Notion databases\n\n- clients: ${ID}\n- reports:`);
-    const p = parseProjectMd(out, "acme");
-    expect(p.mode).toBe("v1");
-    expect(hasErrors(p.issues)).toBe(false);
-    expect(p.databases).toHaveLength(2);
-    // the list lines are byte-identical
-    expect(out).toContain(`- clients: ${ID}\n- reports: ${ID.replace(/1$/, "2")}\n`);
-    expect(out.startsWith('# acme\n\nTeamspace "CRM: acme".\n\n')).toBe(true);
-  });
-
   it("creates Settings at the end of a file that has sections but no Settings", () => {
     const text = `# x\n\n## Notes\n\nhello\n`;
     const out = applySetting(text, "schema", "1", "agent", "2026-11-20");
     expect(out.indexOf("## Settings")).toBeLessThan(out.indexOf("## Notes"));
     expect(out.endsWith("hello\n")).toBe(true);
-  });
-
-  it("ensureDatabasesHeading leaves a sectioned file alone", () => {
-    expect(ensureDatabasesHeading(acme)).toBe(acme);
   });
 });
 

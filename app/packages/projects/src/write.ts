@@ -15,23 +15,6 @@ export const escapeCell = (v: string): string => v.replace(/\r?\n/g, " ").replac
 
 export const localDate = (d: Date = new Date()): string => d.toLocaleDateString("en-CA");
 
-/**
- * A file with no `## ` heading keeps its databases list loose under the title (the legacy layout that predates schema v1). Adopting it inserts one `## Notion databases` heading above the first list item; the list itself is
- * not touched. Any file that already has sections is returned as is.
- */
-export function ensureDatabasesHeading(text: string): string {
-  const raws = rawLines(text);
-  const lines = raws.map(bare);
-  const sc = scan(lines);
-  if (sc.sections.length > 0) return text;
-  const first = lines.findIndex((l, i) => !sc.fenced[i] && /^\s*[-*]\s+[a-z0-9][a-z0-9_-]*\s*:\s*\S/.test(l));
-  if (first < 0) return text;
-  const eol = eolOf(raws[first], "\n");
-  const before = first > 0 && (lines[first - 1] ?? "").trim() === "" ? [] : [eol];
-  raws.splice(first, 0, ...before, `## Notion databases${eol}`, eol);
-  return raws.join("");
-}
-
 function insertAt(raws: string[], idx: number, add: string[]): string {
   const out = [...raws];
   // The line before an insertion point may lack a terminator (end of file): give it one.
@@ -60,8 +43,7 @@ export function applySetting(text: string, field: string, value: string, by: By,
   if (!(BYS as readonly string[]).includes(by)) bad.push({ severity: "error", code: "bad_by", line: null, field, message: `By "${by}" must be one of ${BYS.join(", ")}` });
   if (bad.length) throw new ProjectError(bad);
 
-  const prepared = ensureDatabasesHeading(text);
-  const raws = rawLines(prepared);
+  const raws = rawLines(text);
   const lines = raws.map(bare);
   const sc = scan(lines);
   const settings = sc.sections.find((s) => s.name === "settings");
@@ -91,8 +73,7 @@ export function applySetting(text: string, field: string, value: string, by: By,
 /** Appends one row to `## Answers` (the log is append-only), creating the section before `## Notes` or at the end. */
 export function applyAnswer(text: string, a: { date: string; field: string; question: string; answer: string }): string {
   if (!isIsoDate(a.date)) throw new ProjectError([{ severity: "error", code: "bad_date", line: null, message: `"${a.date}" is not an ISO date` }]);
-  const prepared = ensureDatabasesHeading(text);
-  const raws = rawLines(prepared);
+  const raws = rawLines(text);
   const lines = raws.map(bare);
   const sc = scan(lines);
   const eol = eolOf(raws.find((r) => r.endsWith("\n")), "\n");

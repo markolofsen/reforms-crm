@@ -190,9 +190,9 @@ describe("doctorProject", () => {
     expect(names(cs)).toMatchObject({ "sender is one of the addresses": "fail", "no address claimed twice": "fail", "mail accounts exist": "skipped" });
   });
 
-  it("an adopt-mode project parses but has no mail", async () => {
+  it("a project.md without Settings fails the doctor with the schema 1 message", async () => {
     const p = parseProjectMd(`# x\n\n- clients: 00000000-0000-4000-8000-000000000001\n`, "x");
     const cs = await doctorProject({ project: { slug: "x", folder: "/x", file: "/x/project.md", hash: "", parsed: p }, all: [] });
-    expect(names(cs)).toMatchObject({ "project.md parses": "pass", "mail accounts exist": "fail" });
+    expect(cs.find((c) => c.name === "project.md parses")).toMatchObject({ outcome: "fail", detail: expect.stringContaining("schema 1 required") });
   });
 });

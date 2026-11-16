@@ -8,7 +8,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 describe("parseProject", () => {
   it("reads the name and one database per list item", () => {
     const p = parseProject(
-      "# acme\n\nSome prose.\n\n- clients: aaaa1111-0000-4000-8000-000000000001\n- leads: AAAA2222000040008000000000000002 note\n",
+      "# acme\n\nSome prose.\n\n## Notion databases\n\n- clients: aaaa1111-0000-4000-8000-000000000001\n- leads: AAAA2222000040008000000000000002 note\n",
       "/x/acme",
     );
     expect(p.name).toBe("acme");
@@ -19,22 +19,23 @@ describe("parseProject", () => {
   });
 
   it("falls back to the folder name", () => {
-    expect(parseProject("- a: 11111111-1111-1111-1111-111111111111", "/x/folder").name).toBe("folder");
+    expect(parseProject("## Notion databases\n\n- a: 11111111-1111-1111-1111-111111111111", "/x/folder").name).toBe("folder");
   });
 
   it("ignores fenced code and prose lines", () => {
-    const p = parseProject("```\n- skipped: nope\n```\n- kept: 11111111-1111-1111-1111-111111111111\n", "/x");
+    const p = parseProject("## Notion databases\n\n```\n- skipped: nope\n```\n- kept: 11111111-1111-1111-1111-111111111111\n", "/x");
     expect(p.databases.map((d) => d.slug)).toEqual(["kept"]);
   });
 
   it("refuses a database without a valid id instead of skipping it", () => {
-    expect(() => parseProject("- clients: not-an-id", "/x")).toThrow(/clients/);
+    expect(() => parseProject("## Notion databases\n\n- clients: not-an-id", "/x")).toThrow(/clients/);
   });
 
   it("refuses duplicate slugs and empty lists", () => {
     const id = "11111111-1111-1111-1111-111111111111";
-    expect(() => parseProject(`- a: ${id}\n- a: ${id}`, "/x")).toThrow(/duplicate/);
+    expect(() => parseProject(`## Notion databases\n\n- a: ${id}\n- a: ${id}`, "/x")).toThrow(/duplicate/);
     expect(() => parseProject("# nothing", "/x")).toThrow(/no databases/);
+    expect(() => parseProject(`# loose\n\n- a: ${id}`, "/x"), "a list outside the databases section is not read").toThrow();
   });
 
   it("normalizes ids", () => {

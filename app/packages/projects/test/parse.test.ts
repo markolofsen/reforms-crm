@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { checkValue, extractDatabases, hasErrors, normalizeAddress, parseProjectMd, readProject, ProjectError } from "../src/index.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
-const adoptFixture = (name: string) => readFileSync(join(here, "fixtures", "adopt", name, "project.md"), "utf8");
+const schemaV1Fixture = (name: string) => readFileSync(join(here, "fixtures", name, "project.md"), "utf8");
 const fixture = (name: string) => readFileSync(join(here, "fixtures", "projects", name, "project.md"), "utf8");
 
 const ID = "00000000-0000-4000-8000-000000000001";
@@ -37,7 +37,6 @@ describe("the example of doc 16", () => {
   const p = parseProjectMd(fixture("acme-travel"), "acme-travel");
   it("has no issue", () => expect(p.issues).toEqual([]));
   it("reads every field with its type", () => {
-    expect(p.mode).toBe("v1");
     expect(p.config).toMatchObject({
       schema: 1,
       name: "Acme Travel",
@@ -89,15 +88,18 @@ describe("the example of doc 16", () => {
   });
 });
 
-describe("adopt mode and v1 fixtures", () => {
-  it.each(["acme-legacy", "demo"])("%s parses with its five databases and no error", (name) => {
-    const p = parseProjectMd(adoptFixture(name), name);
+describe("schema 1 is the only format", () => {
+  it("the demo fixture parses with its five databases and no error", () => {
+    const p = parseProjectMd(schemaV1Fixture("schema-v1-demo"), "demo");
     expect(hasErrors(p.issues)).toBe(false);
     expect(p.databases.map((d) => d.slug)).toEqual(["clients", "leads", "workflows", "knowledge", "reports"]);
-    if (p.mode === "adopt") {
-      expect(p.settings).toEqual({});
-      expect(p.config.status).toBe("draft");
-    }
+  });
+  it("a file with no ## Settings is an error that names the fix, not a half-read project", () => {
+    const p = parseProjectMd(`# x\n\nTeamspace "CRM: x".\n\n- clients: 00000000-0000-4000-8000-000000000001\n`, "x");
+    expect(p.issues.find((i) => i.code === "schema_required")).toMatchObject({ severity: "error", message: expect.stringContaining("schema 1 required: this project.md has no ## Settings table; run the project-setup skill") });
+    // the loose list is not read as databases
+    expect(p.databases).toEqual([]);
+    expect(p.issues.some((i) => i.code === "stray_list_item")).toBe(true);
   });
 });
 
@@ -124,7 +126,7 @@ describe("precise errors", () => {
     expect(p.issues.some((i) => i.code === "missing_required" && i.severity === "warning")).toBe(true);
   });
 
-  it("requires the clients and reports databases, ; a legacy notion source does not require a knowledge database", () => {
+  it("requires the clients and reports databases, ; a notion knowledge source does not require a knowledge database", () => {
     const noReports = base().replace(/- reports: .*\n/, "");
     expect(parseProjectMd(noReports, "t").issues.find((i) => i.code === "missing_required")?.message).toMatch(/"reports"/);
     const notionSource = base(["| knowledge.source | notion | 2026-11-14 | owner |"]);
@@ -210,9 +212,9 @@ describe("the notion view of the file", () => {
     expect(r.databases).toHaveLength(2);
     expect(r.name).toBe("Acme Travel");
   });
-  it("legacy files (no sections) keep their loose list", () => {
+  it("a loose list with no `## Notion databases` heading is not read as databases", () => {
     const r = extractDatabases(`# acme\n\nprose\n\n- clients: ${ID}\n`);
-    expect(r.legacy).toBe(true);
-    expect(r.databases).toHaveLength(1);
+    expect(r.databases).toEqual([]);
   });
 });
+
