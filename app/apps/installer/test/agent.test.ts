@@ -66,7 +66,7 @@ describe("bindingPrompt", () => {
   it("pins one project and points to `hub agent`", () => {
     const t = bindingPrompt("acme");
     expect(t).toContain("ONE project: acme (HUB_PROJECT)");
-    expect(t).toContain("app/projects/acme/");
+    expect(t).toContain("projects/acme/");
     expect(t).toContain("project=acme");
     expect(t).toContain("hub agent <other>");
     expect(t).not.toContain("agent.sh");

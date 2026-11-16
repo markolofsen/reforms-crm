@@ -15,16 +15,15 @@ const KNOWLEDGE = "mcp__knowledge-mcp__";
 // calendar cancel, and every outgoing-message writer of mail-mcp. `delete_draft` falls under delete.
 const SEND_CAPABLE = /(^|[_-])(send|forward|reply[_-]?all|(create|replace|delete)[_-]outgoing|replace[_-]reply|trash|delete|cancel)([_-]|$)|^reply$/i;
 /**
- * Where the guarded folders sit, as path prefixes without a trailing slash: relative to the session's folder (`app/projects`, or `projects`
- * in an instance) and/or absolute. A bare one-segment prefix (`projects`) only counts at the start of a path word, so `@projects/x` or
- * `/work/projects/x` of some other tree is not mistaken for it. Default: the single-repo layout.
+ * Where the guarded folders sit, as path prefixes without a trailing slash: relative to the session's folder (`projects` in an instance)
+ * and/or absolute. A bare one-segment prefix (`projects`) only counts at the start of a path word, so `@projects/x` or
+ * `/work/projects/x` of some other tree is not mistaken for it. The instance layout is the only one; the caller derives it from `hubPaths()`.
  */
 export interface AuditLayout {
   projects: readonly string[];
   /** The live database file(s). */
   db: readonly string[];
 }
-export const LEGACY_LAYOUT: AuditLayout = { projects: ["app/projects"], db: ["app/data/app.db"] };
 const reEsc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const prefixSource = (p: string) => (p.includes("/") ? (p.startsWith("/") ? "" : "\\b") : "(?<![A-Za-z0-9@._/~-])") + reEsc(p);
 const alt = (ps: readonly string[]) => ps.map(prefixSource).join("|");
@@ -36,7 +35,7 @@ function matchers(layout: AuditLayout) {
     // a projects folder listed or globbed rather than one named folder: `ls app/projects`, `app/projects/*`, `cd app/projects`
     listing: new RegExp(`(?:${projects})(\\/\\*|\\/?(?=[\\s"';|&)]|$))`),
     path: new RegExp(`(?:${projects})\\/([A-Za-z0-9][A-Za-z0-9._-]*)`, "g"),
-    shown: layout.projects[0] ?? "app/projects",
+    shown: layout.projects[0] ?? "projects",
   };
 }
 const MAIL_PROGRAMS = new Set(["osascript", "sendmail", "mail", "mailx", "swaks"]);
@@ -102,7 +101,7 @@ export function toolCallsFromLog(text: string): ToolCall[] {
  * a knowledge call naming another `project`, a send-capable tool, or a file access in another project's folder.
  * Folders starting with `_` (`_template`, `_archive`) are shared reference and allowed.
  */
-export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, accounts: readonly string[], skills?: SkillScope, layout: AuditLayout = LEGACY_LAYOUT): string[] {
+export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, accounts: readonly string[], skills: SkillScope | undefined, layout: AuditLayout): string[] {
   const m = matchers(layout);
   const ok = new Set(accounts.map((a) => a.trim().toLowerCase()));
   const out: string[] = [];

@@ -79,11 +79,11 @@ Step id: `files.config`
 
 Step id: `files.mcp-json`
 
-**Why.** Your Claude Code in this folder sees the servers of `config/mcp.json` (mail, Notion).
+**Why.** Your Claude Code in this folder sees the servers of `config/mcp.json` (mail, Notion, knowledge). Claude starts in the instance folder, so a server program of the core must be named by an absolute path: a relative `app/...` path does not exist there and the server never starts.
 
-**The installer does.** Merges the servers of `config/mcp.json` into `.mcp.json`, keeps your other servers, saves a one-time `.mcp.json.bak`.
+**The installer does.** Merges the servers of `config/mcp.json` into `.mcp.json` with stdio paths made absolute under the core, keeps your other servers, saves a one-time `.mcp.json.bak`.
 
-**Verified by.** `.mcp.json` contains every server of `config/mcp.json` unchanged.
+**Verified by.** `.mcp.json` contains every server of `config/mcp.json` (stdio programs as absolute paths under the core), and every stdio server command in it exists.
 
 ### App database
 
@@ -93,7 +93,7 @@ Step id: `files.app-db`
 
 **The installer does.** Runs the app's `db:migrate` script (`pnpm --dir app run db:migrate`).
 
-**Verified by.** The database file exists (`app/data/app.db`, or `data/app.db` of an instance).
+**Verified by.** The database file exists (`data/app.db` of the instance).
 
 ## Skills
 
@@ -113,11 +113,11 @@ Step id: `skills.runtime`
 
 Step id: `projects.registry`
 
-**Why.** One workflow serves several projects. A project is just a folder `<projects>/<slug>/` (`app/projects/` in the single-repo layout) with `project.md` and a `knowledge/` folder; no settings screen.
+**Why.** One workflow serves several projects. A project is just a folder `<projects>/<slug>/` with `project.md` and a `knowledge/` folder; no settings screen.
 
 **The installer does.** Creates the missing `knowledge/` folders. `project.md` is written by the project-setup skill, never by the installer.
 
-**Verified by.** Every `<projects>/<slug>/` has a non-empty `project.md` and a `knowledge/` folder. With no projects folder the workflow runs as a single project.
+**Verified by.** Every `<projects>/<slug>/` has a non-empty `project.md` and a `knowledge/` folder. With no project yet there is nothing to check.
 
 ## Instance
 
@@ -127,7 +127,7 @@ Step id: `instance.core`
 
 **Why.** An owner's instance (`HUB_HOME`) and the core code are separate repositories. The instance states the core version it runs on in ONE file; neither side may hold the other's files.
 
-**Verified by.** With `HUB_HOME` set: `core.version` exists and names the core in use (core clean at that commit), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills. With `HUB_HOME` unset: nothing to check.
+**Verified by.** `core.version` exists and names the core in use (core clean at that commit), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills.
 
 ## Admin
 

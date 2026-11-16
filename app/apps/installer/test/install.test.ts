@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { doctor, exitCode, install } from "../src/runner.ts";
 import { fileSteps } from "../src/steps/files.ts";
 import { projectSteps } from "../src/steps/projects.ts";
-import { skillSteps } from "../src/steps/skills.ts";
+import { runtimeSkills, skillSteps } from "../src/steps/skills.ts";
 import { uninstall } from "../src/uninstall.ts";
 import { fake } from "./helpers.ts";
 
@@ -19,18 +19,17 @@ const snapshot = (dir: string): string[] => {
 describe("install is idempotent and never overwrites", () => {
   it("first run changes, second run is all ok, config edits survive", async () => {
     const f = fake();
-    // a project and a run-time skill
-    mkdirSync(path.join(f.root, "app", "projects", "alpha"), { recursive: true });
-    writeFileSync(path.join(f.root, "app", "projects", "alpha", "project.md"), "# Alpha\n");
-    mkdirSync(path.join(f.root, "skills", "mail-triage"), { recursive: true });
-    writeFileSync(path.join(f.root, "skills", "mail-triage", "SKILL.md"), "x");
+    // a project; the run-time skills are the core's own
+    mkdirSync(path.join(f.root, "projects", "alpha"), { recursive: true });
+    writeFileSync(path.join(f.root, "projects", "alpha", "project.md"), "# Alpha\n");
+    const skill = runtimeSkills(f.ctx)[0]!;
 
     const r1 = await install(f.ctx, steps);
     expect(r1.filter((r) => r.outcome === "failed"), JSON.stringify(r1.filter((r) => r.outcome === "failed").map((r) => [r.step.id, r.detail]))).toEqual([]);
     expect(r1.find((r) => r.step.id === "files.config")!.outcome).toBe("changed");
     expect(statSync(f.ctx.configDir).mode & 0o777).toBe(0o700);
-    expect(lstatSync(path.join(f.home, ".claude", "skills", "mail-triage")).isSymbolicLink()).toBe(true);
-    expect(existsSync(path.join(f.root, "app", "projects", "alpha", "knowledge"))).toBe(true);
+    expect(lstatSync(path.join(f.home, ".claude", "skills", skill)).isSymbolicLink()).toBe(true);
+    expect(existsSync(path.join(f.root, "projects", "alpha", "knowledge"))).toBe(true);
     expect(JSON.parse(readFileSync(path.join(f.root, ".mcp.json"), "utf8")).mcpServers["mail-mcp"].url).toBe("http://localhost:8787");
 
     // owner edits config; a second install must not touch it
@@ -55,7 +54,7 @@ describe("install is idempotent and never overwrites", () => {
 
   it("a project without project.md fails with a clear line", async () => {
     const f = fake();
-    mkdirSync(path.join(f.root, "app", "projects", "beta"), { recursive: true });
+    mkdirSync(path.join(f.root, "projects", "beta"), { recursive: true });
     const d = await doctor(f.ctx, projectSteps);
     expect(d[0]!.outcome).toBe("failed");
     expect(d[0]!.detail).toContain("beta: project.md");
@@ -63,14 +62,13 @@ describe("install is idempotent and never overwrites", () => {
 
   it("uninstall removes own skill links, keeps config", async () => {
     const f = fake();
-    mkdirSync(path.join(f.root, "skills", "s1"), { recursive: true });
-    writeFileSync(path.join(f.root, "skills", "s1", "SKILL.md"), "x");
+    const s1 = runtimeSkills(f.ctx)[0]!;
     await install(f.ctx, steps);
     const dry = await uninstall({ ...f.ctx, dryRun: true });
-    expect(dry.some((l) => l.startsWith("would unlink skill s1"))).toBe(true);
-    expect(existsSync(path.join(f.home, ".claude", "skills", "s1"))).toBe(true);
+    expect(dry.some((l) => l.startsWith(`would unlink skill ${s1}`))).toBe(true);
+    expect(existsSync(path.join(f.home, ".claude", "skills", s1))).toBe(true);
     await uninstall(f.ctx);
-    expect(existsSync(path.join(f.home, ".claude", "skills", "s1"))).toBe(false);
+    expect(existsSync(path.join(f.home, ".claude", "skills", s1))).toBe(false);
     expect(existsSync(path.join(f.root, "config", "config.json"))).toBe(true);
   });
 

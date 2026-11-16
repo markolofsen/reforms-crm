@@ -1,6 +1,5 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
 import path from "node:path";
-import { hubPaths } from "@hub/config/paths";
 import type { Ctx } from "../context.ts";
 import { coreSkills } from "../instance-skills.ts";
 import type { CheckResult, Step } from "../types.ts";
@@ -11,8 +10,9 @@ export const CORE_VERSION_FILE = "core.version";
 
 /** Paths that belong to the core: an instance must not carry them. `core/` (the pinned submodule) is the only core inside an instance. */
 const CORE_ONLY = ["app/apps", "app/packages", "app/@rules", "@docs/core", "skills", "install.sh", "hub.sh", "projects/_template"];
-/** Paths that belong to an owner: the core must not track them once the split is done. `app/projects/_template` is core. */
+/** Paths that belong to an owner: the core must not track them. The core keeps one data-shaped folder, the template: `app/projects/_template`. */
 const INSTANCE_ONLY = ["@docs/custom", "@dev", "@refs"];
+const CORE_PROJECTS = "app/projects";
 
 const real = (p: string): string => { try { return realpathSync(p); } catch { return path.resolve(p); } };
 const linkOf = (p: string): string | undefined => { try { return lstatSync(p).isSymbolicLink() ? readlinkSync(p) : undefined; } catch { return undefined; } };
@@ -30,7 +30,7 @@ const git = async (ctx: Ctx, cwd: string, args: string[]) => ctx.run("git", ["-C
 /** Instance files inside the core: tracked paths when the core is a git checkout, else what exists. Only the first few are named. */
 async function instanceFilesInCore(ctx: Ctx): Promise<string[]> {
   const core = ctx.paths.core;
-  const specs = ["app/projects", ...INSTANCE_ONLY];
+  const specs = [CORE_PROJECTS, ...INSTANCE_ONLY];
   const tracked = await git(ctx, core, ["ls-files", "--", ...specs]);
   if (tracked.code === 0) {
     const names = new Set<string>();
@@ -43,7 +43,7 @@ async function instanceFilesInCore(ctx: Ctx): Promise<string[]> {
     return [...names].sort();
   }
   const found: string[] = [];
-  const projects = hubPaths({ core, home: core, env: {} }).projects; // the core's own legacy projects folder
+  const projects = path.join(core, CORE_PROJECTS);
   if (existsSync(projects)) for (const e of readdirSync(projects, { withFileTypes: true })) if (e.isDirectory() && !e.name.startsWith("_") && !e.name.startsWith(".")) found.push(`app/projects/${e.name}`);
   for (const s of INSTANCE_ONLY) if (existsSync(path.join(core, s))) found.push(s);
   return found.sort();
@@ -53,7 +53,6 @@ const brief = (xs: string[]): string => (xs.length > 4 ? `${xs.slice(0, 4).join(
 
 export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
   const { paths } = ctx;
-  if (!paths.instance) return pass("single-repo layout (HUB_HOME unset): no instance to check");
   const problems: string[] = [];
   const notes: string[] = [];
 
@@ -66,7 +65,7 @@ export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
     const want = await git(ctx, paths.core, ["rev-parse", "--verify", "--quiet", `${ver}^{commit}`]);
     if (top.code !== 0) notes.push(`core is not a git checkout: pin ${ver} cannot be verified`);
     else if (want.code !== 0) problems.push(`pin ${ver} is not a commit of the core in use`);
-    else if (!ownRepo) notes.push(`core is a folder inside another repository (single-repo era): pin ${ver} exists in its history, but "core at the pin" needs the core as its own repository`);
+    else if (!ownRepo) problems.push(`core is a folder inside another repository: "core at the pin" needs the core as its own repository (the instance's core/ submodule)`);
     else {
       const head = (await git(ctx, paths.core, ["rev-parse", "HEAD"])).stdout.trim();
       if (head !== want.stdout.trim()) problems.push(`core is at ${head.slice(0, 9)} but ${CORE_VERSION_FILE} pins ${ver}: check out the pin, or move the pin and commit it alone`);
@@ -104,7 +103,7 @@ export const instanceSteps: Step[] = [
   {
     id: "instance.core", group: "Instance", title: "Instance matches the core",
     why: "An owner's instance (`HUB_HOME`) and the core code are separate repositories. The instance states the core version it runs on in ONE file; neither side may hold the other's files.",
-    verifies: "With `HUB_HOME` set: `core.version` exists and names the core in use (core clean at that commit), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills. With `HUB_HOME` unset: nothing to check.",
+    verifies: "`core.version` exists and names the core in use (core clean at that commit), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills.",
     check: checkInstance,
   },
 ];

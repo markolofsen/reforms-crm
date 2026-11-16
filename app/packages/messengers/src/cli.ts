@@ -23,7 +23,7 @@ function person(): HumanActor {
 
 const program = new Command("messengers").description("Messengers in the local CRM (Telegram bot, long polling)");
 program.requiredOption("-p, --project <slug>", "project slug (a registered project)");
-program.option("--db <path>", "database file (default: HUB_DB or app/data/app.db)");
+program.option("--db <path>", "database file (default: HUB_DB or <HUB_HOME>/data/app.db)");
 
 const withRepos = async <T>(fn: (repos: ReturnType<typeof createRepos>, project: string) => Promise<T>): Promise<T> => {
   const o = program.opts<{ project: string; db?: string }>();

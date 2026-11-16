@@ -4,7 +4,9 @@ import { registerMailFiltersCommands } from "@hub/mail-filters/hub-commands";
 import { registerProjectCommands, runProjectDoctor, runSync } from "@hub/projects/hub-commands";
 import { Command } from "commander";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import path from "node:path";
+import { CORE_ROOT, HubHomeMissingError } from "@hub/config/paths";
 import { makeCtx, readJson, type Ctx } from "./context.ts";
 import { auditRun, evidenceTable } from "./audit-run.ts";
 import { batchCheck, batchLines } from "./batch-check.ts";
@@ -50,18 +52,15 @@ ${c.bold("Examples")}
   hub                         menu
   hub agent <project>         fresh Claude Code session bound to one project
   hub agent                   continue the last session here
-  hub up                      the admin: review the drafts the agent made, opens the browser
+  hub up                      the admin: review the drafts the agent made, opens the browser (hub up --demo: invented data)
   hub doctor [project]        read-only health check (of one project when given)
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
 audit-run, batch-check, send, uninstall. Each has its own \`hub <name> --help\`.`);
-program.option("--root <dir>", "one folder that is both the core and the instance (default: the checkout this file is in; HUB_HOME names a separate instance)");
-
-const ctxOf = (extra: Partial<Ctx> = {}): Ctx => {
-  const root = program.opts().root as string | undefined;
-  return makeCtx({ ...(root ? { root: path.resolve(root) } : {}), ...extra });
-};
+// Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
+// Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
+const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
 
 const pick = (ids?: string[], automation = false): Step[] => {
   if (!ids?.length) return selectSteps(automation);
@@ -83,11 +82,10 @@ async function mailAccounts(ctx: Ctx): Promise<string[]> {
     return acc && r.text.includes(acc) ? [acc] : [];
   }
 }
-// Projects folder: the package default (app/projects, or HUB_PROJECTS). The context is built lazily so --root is parsed first.
+// Projects folder: `<HUB_HOME>/projects` (or HUB_PROJECTS). The context is built lazily, when a command runs.
 // Manual-first: without a Notion token file (the optional automation token) the Notion read is skipped, not failed;
 // the session reads Notion through its own connector. A project with its own `notion.token_file` is still checked.
 const projectOptions = () => ({
-  stateRoot: ctxOf().paths.state,
   mailAccounts: () => mailAccounts(ctxOf()),
   notionCheck: async (p: Parameters<typeof notionCheck>[1]) => {
     const ctx = ctxOf();
@@ -108,6 +106,7 @@ const done = (code: number) => { process.exitCode = code; };
 program.hook("preAction", async (_cmd, action) => {
   const name = action.name();
   if (name !== "agent" && !(name === "up" && !action.opts<{ demo?: boolean }>().demo)) return;
+  ctxOf(); // no HUB_HOME: stop here with the one-line error, not a "sync skipped" warning
   try {
     await runSync({ projectsRoot: projectsDir(), out: (l) => { if (!/^synced /.test(l)) console.error(c.yellow(`project sync: ${l}`)); } });
   } catch (e) {
@@ -134,13 +133,14 @@ Claude runs with --dangerously-skip-permissions --chrome, plus per-project deny 
 
 program.command("up").description("Local admin (production build) + API on the LIVE database, 127.0.0.1 only; opens the browser. --demo: invented data on a separate demo database.")
   .option("--no-open", "do not open the browser")
-  .option("--demo", "demo mode: separate database app/data/demo.db seeded with invented clients, the live data is not touched")
+  .option("--demo", "demo mode: a throw-away instance folder in the OS temp dir, seeded with invented clients (needs no HUB_HOME); the live data is not touched")
   .action(async (o: { open: boolean; demo?: boolean }) => {
-    done(await runUp(ctxOf().paths.core, { open: o.open, demo: o.demo }));
+    if (!o.demo) ctxOf(); // the live admin needs an instance
+    done(await runUp(CORE_ROOT, { open: o.open, demo: o.demo }));
   });
 
 program.command("test").description("Typecheck, then tests, for the whole monorepo.")
-  .action(async () => done(await runTests(ctxOf().paths.core)));
+  .action(async () => done(await runTests(CORE_ROOT)));
 
 program.command("projects").description("List the projects a session can be bound to (the instance's projects folder; folders starting with _ are templates).")
   .option("--json", "machine-readable output")
@@ -162,8 +162,7 @@ program.command("core").description("Move an instance to another core version. `
 program.command("link").description("Put `hub` on PATH: a symlink ~/.local/bin/hub, so it works from any folder.")
   .option("--remove", "remove the link")
   .action((o: { remove?: boolean }) => {
-    const ctx = ctxOf();
-    const plan = planLink(ctx.paths.core, ctx.home, ctx.pathEnv);
+    const plan = planLink(CORE_ROOT, homedir(), process.env.PATH ?? "/usr/bin:/bin");
     if (o.remove) return console.log(removeLink(plan));
     console.log(c.green(installLink(plan).message));
     if (!plan.onPath) console.log(c.yellow(pathHint(plan)));
@@ -314,7 +313,7 @@ program.command("guide").description("Print the numbered manual steps (those a m
 program.command("docs").description("Generate @docs/core/client-setup.md from the step list.")
   .option("--check", "exit 1 if the file is out of date")
   .action((o: { check?: boolean }) => {
-    const f = path.join(ctxOf().paths.core, "@docs", "core", "client-setup.md");
+    const f = path.join(CORE_ROOT, "@docs", "core", "client-setup.md");
     const text = renderClientSetup(STEPS);
     if (o.check) {
       let cur = ""; try { cur = readFileSync(f, "utf8"); } catch { /* missing */ }
@@ -353,8 +352,9 @@ async function main(): Promise<void> {
 }
 
 main().catch((e) => {
-  const ctx = ctxOf();
-  const msg = redact(ctx, e instanceof Error ? e.message : String(e));
+  const missing = e instanceof HubHomeMissingError;
+  let msg = e instanceof Error ? e.message : String(e);
+  if (!missing) { try { msg = redact(ctxOf(), msg); } catch { /* no instance to read secrets from: nothing to redact */ } }
   console.error(`${c.red("error:")} ${msg}`);
-  process.exit(e instanceof UsageError ? 2 : 1);
+  process.exit(missing || e instanceof UsageError ? 2 : 1);
 });

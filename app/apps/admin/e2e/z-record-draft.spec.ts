@@ -16,7 +16,7 @@ const pm = join(projects, "demo-shop", "project.md");
 writeFileSync(pm, readFileSync(pm, "utf8").replace("| draft.recipients | test |", "| draft.recipients | any |"));
 const record = (project: string, payload: object) =>
   JSON.parse(
-    execFileSync("node", [hub, "record-draft", "--project", project], { input: JSON.stringify(payload), env: { ...process.env, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" }),
+    execFileSync("node", [hub, "record-draft", "--project", project], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" }),
   ) as { ok: boolean; action: string; draftId: number };
 
 test("a draft recorded by the CLI shows on the Drafts screen, once, with an Open in Mail link", async ({ page }) => {

@@ -9,7 +9,7 @@ import { indexProject } from "./indexer.js";
 import { knowledgeSearch, ToolError } from "./search.js";
 
 const program = new Command("knowledge").description("Per-project knowledge: import, index, search, check.");
-program.option("--root <dir>", "projects folder (default: app/projects, or HUB_PROJECTS)").option("--db <file>", "database (default: HUB_DB or app/data/app.db)");
+program.option("--root <dir>", "projects folder (default: <HUB_HOME>/projects, or HUB_PROJECTS)").option("--db <file>", "database (default: HUB_DB or <HUB_HOME>/data/app.db)");
 
 const root = (): string => (program.opts().root as string | undefined) ?? defaultProjectsRoot();
 const withRepos = async <T>(fn: (r: ReturnType<typeof createRepos>) => Promise<T>): Promise<T> => {

@@ -7,12 +7,12 @@ import { fail, pass } from "./helpers.ts";
 export const projectSteps: Step[] = [
   {
     id: "projects.registry", group: "Projects", title: "Projects (one folder each)",
-    why: "One workflow serves several projects. A project is just a folder `<projects>/<slug>/` (`app/projects/` in the single-repo layout) with `project.md` and a `knowledge/` folder; no settings screen.",
-    verifies: "Every `<projects>/<slug>/` has a non-empty `project.md` and a `knowledge/` folder. With no projects folder the workflow runs as a single project.",
+    why: "One workflow serves several projects. A project is just a folder `<projects>/<slug>/` with `project.md` and a `knowledge/` folder; no settings screen.",
+    verifies: "Every `<projects>/<slug>/` has a non-empty `project.md` and a `knowledge/` folder. With no project yet there is nothing to check.",
     does: "Creates the missing `knowledge/` folders. `project.md` is written by the project-setup skill, never by the installer.",
     async check(ctx) {
       const slugs = listProjects(ctx);
-      if (!slugs.length) return pass("single-project mode (no projects folder)");
+      if (!slugs.length) return pass("no projects yet");
       const bad: string[] = [];
       for (const s of slugs) {
         const md = path.join(ctx.paths.projects, s, "project.md");

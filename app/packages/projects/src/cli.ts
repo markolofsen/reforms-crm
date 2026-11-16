@@ -5,7 +5,7 @@ import { Command } from "commander";
 import { registerProjectCommands } from "./hub-commands.js";
 
 const program = new Command("hub").description("Hub Workflow projects");
-program.option("--root <dir>", "projects folder (default: app/projects)");
+program.option("--root <dir>", "projects folder (default: <HUB_HOME>/projects)");
 registerProjectCommands(program, {});
 program.hook("preAction", () => {
   const root = program.opts().root as string | undefined;

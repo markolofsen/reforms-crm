@@ -41,7 +41,7 @@ afterAll(() => {
 describe("an instance folder outside the checkout", () => {
   it("is what the context, the registry and the database resolve to", () => {
     const paths = hubPaths();
-    expect(paths.instance).toBe(true);
+    expect(paths.home).toBe(home);
     expect(makeCtx().paths.home).toBe(home);
     expect(listProjects(makeCtx())).toEqual(["acme-travel", "nordhaus"]);
     expect(defaultProjectsRoot()).toBe(path.join(home, "projects"));
@@ -104,7 +104,6 @@ describe("what an agent started in an instance gets", () => {
   });
   it("the audit sees a read of another project in the instance layout, and not a look-alike path elsewhere", () => {
     const layout = auditLayout(paths());
-    expect(layout).toBeDefined();
     const run = (file_path: string) => guardDecision({ tool_name: "Read", tool_input: { file_path } }, { slug: "acme-travel", accounts: [], mode: "block", layout }).violations;
     expect(run("projects/nordhaus/project.md")).toHaveLength(1);
     expect(run(path.join(home, "projects", "nordhaus", "project.md"))).toHaveLength(1);
@@ -127,9 +126,17 @@ describe("what an agent started in an instance gets", () => {
     expect(existsSync(path.join(p.claudeSkills, "retired-skill"))).toBe(false);
     writeFileSync(path.join(home, ".claude", "keep"), "x");
   });
-  it("in the single-repo layout nothing is generated and the audit uses its default layout", () => {
-    const single = hubPaths({ env: {} });
-    expect(syncInstanceSkills(single)).toEqual([]);
-    expect(auditLayout(single)).toBeUndefined();
+  it("without HUB_HOME an instance command exits 2 with one line, and commands that need none still work", async () => {
+    const env: Record<string, string | undefined> = { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" };
+    delete env.HUB_HOME;
+    const run = (...args: string[]) => execa("node", [BIN, ...args], { reject: false, env, extendEnv: false, timeout: 60000 });
+    for (const cmd of [["doctor"], ["agent", "x"], ["projects"], ["setup", "--dry-run"], ["core", "update"], ["audit-run", "x.jsonl", "--project", "p"]]) {
+      const r = await run(...cmd);
+      expect(r.exitCode, cmd.join(" ")).toBe(2);
+      expect(r.stderr.trim().split("\n")).toEqual(["error: HUB_HOME is not set: run ./run.sh from an instance folder, or export HUB_HOME"]);
+    }
+    expect((await run("--help")).exitCode).toBe(0);
+    expect((await run("guide")).exitCode).toBe(0);
+    expect((await run("docs", "--check")).exitCode, "docs --check").toBe(0);
   });
 });

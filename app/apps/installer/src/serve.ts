@@ -1,7 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { ADMIN_PORT } from "@hub/config";
-import { hubPaths } from "@hub/config/paths";
 import { c, UsageError } from "./term.ts";
 
 const pnpm = (args: string[], cwd: string): ChildProcess => spawn("pnpm", args, { cwd, stdio: "inherit" });
@@ -28,24 +29,38 @@ async function holdSignals<T>(work: () => Promise<T>): Promise<T> {
   try { return await work(); } finally { process.off("SIGINT", ignore); process.off("SIGTERM", ignore); }
 }
 
+/** A throw-away instance folder under the OS temp dir for `hub up --demo`: the layout of any instance, never inside the core. */
+export function makeDemoHome(): string {
+  const home = mkdtempSync(path.join(tmpdir(), "hub-demo-"));
+  for (const d of ["projects", "data", "state", "config"]) mkdirSync(path.join(home, d));
+  return home;
+}
+
 /**
  * Admin + API from a production build of the admin (`next build` is replayed from the turbo cache when no source changed,
- * then `next start`), 127.0.0.1 only, opens the browser. The hot-reload loop is `pnpm live`, not this. Two databases, never mixed:
- * live = the instance database (`app/data/app.db` in the single-repo layout), demo = `demo.db` beside it (invented clients, seeded here before start).
+ * then `next start`), 127.0.0.1 only, opens the browser. The hot-reload loop is `pnpm live`, not this. Two instances, never mixed:
+ * live = the instance named by `HUB_HOME`, demo = a throw-away instance folder in the OS temp dir (invented clients, seeded there, removed on exit).
  */
-export async function runUp(root: string, opts: { open?: boolean; demo?: boolean } = {}): Promise<number> {
-  const app = path.join(root, "app");
+export async function runUp(core: string, opts: { open?: boolean; demo?: boolean } = {}): Promise<number> {
+  const app = path.join(core, "app");
   const url = adminUrl();
-  // The demo database sits beside the live one (same data folder), never inside it; HUB_DB is deliberately ignored for its location.
-  const env = opts.demo ? { ...process.env, HUB_DB: path.join(path.dirname(hubPaths({ core: root, env: { ...process.env, HUB_DB: "" } }).db), "demo.db") } : process.env;
-  if (opts.demo) {
-    const seeded = await exited(spawn("pnpm", ["db:seed"], { cwd: app, stdio: "inherit", env }));
-    if (seeded !== 0) { console.error(c.red(`seeding the demo database failed (exit ${seeded})`)); return seeded; }
+  const demoHome = opts.demo ? makeDemoHome() : undefined;
+  // The demo instance is its own HUB_HOME: HUB_PROJECTS, HUB_DB and friends are cleared so nothing reaches the live instance.
+  const env = demoHome
+    ? { ...process.env, HUB_HOME: demoHome, HUB_PROJECTS: "", HUB_DB: "", HUB_CONFIG_DIR: "", HUB_CONFIG_FILE: "" }
+    : process.env;
+  try {
+    if (demoHome) {
+      const seeded = await exited(spawn("pnpm", ["db:seed"], { cwd: app, stdio: "inherit", env }));
+      if (seeded !== 0) { console.error(c.red(`seeding the demo database failed (exit ${seeded})`)); return seeded; }
+    }
+    console.log(c.dim("The admin is built first when its code changed since the last start (about a minute); an unchanged one starts in seconds."));
+    console.log(`${demoHome ? c.yellow("Admin + API (DEMO data, invented clients)") : c.green("Admin + API (live data)")} ${c.dim("→")} ${c.cyan(url)} ${c.dim("(Ctrl-C stops)")}`);
+    if (opts.open ?? true) void openWhenUp(url);
+    return await holdSignals(() => exited(spawn("pnpm", ["start"], { cwd: app, stdio: "inherit", env })));
+  } finally {
+    if (demoHome) rmSync(demoHome, { recursive: true, force: true });
   }
-  console.log(c.dim("The admin is built first when its code changed since the last start (about a minute); an unchanged one starts in seconds."));
-  console.log(`${opts.demo ? c.yellow("Admin + API (DEMO data, invented clients)") : c.green("Admin + API (live data)")} ${c.dim("→")} ${c.cyan(url)} ${c.dim("(Ctrl-C stops)")}`);
-  if (opts.open ?? true) void openWhenUp(url);
-  return holdSignals(() => exited(spawn("pnpm", ["start"], { cwd: app, stdio: "inherit", env })));
 }
 
 /** typecheck, then tests, for the whole monorepo. */

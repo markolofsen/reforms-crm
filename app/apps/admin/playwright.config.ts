@@ -3,12 +3,15 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-// The flows run against their own Hono API on a throwaway database (never `app/data/app.db`) and a PRODUCTION build of the
+// The flows run against their own Hono API on a throwaway instance (`HUB_HOME`) and database (never a real instance) and a PRODUCTION build of the
 // admin served by `next start` from its own `distDir`, so a running `next dev` is never disturbed (decision 0015, P32 N6).
 const API_PORT = 4499;
 const UI_PORT = 5199;
 // The config is loaded again inside every worker (another pid), so the main process names the files once and workers inherit them.
 const DB = (process.env.HUB_E2E_DB ??= join(tmpdir(), `hub-e2e-${process.pid}.db`));
+// The throw-away instance every `hub` command of the stack needs (`HUB_HOME`); projects and the database are redirected below.
+const HOME = (process.env.HUB_E2E_HOME ??= join(tmpdir(), `hub-e2e-home-${process.pid}`));
+mkdirSync(HOME, { recursive: true });
 // The server's project folders (project.md): Send reads the project's accounts and sender from here. Seeded projects only.
 const PROJECTS = (process.env.HUB_E2E_PROJECTS ??= join(tmpdir(), `hub-e2e-projects-${process.pid}`));
 for (const slug of ["lisbon-realty", "demo-shop"]) {
@@ -56,7 +59,7 @@ export default defineConfig({
       command: `rm -f ${DB} ${DB}-wal ${DB}-shm && pnpm --filter @hub/db seed && pnpm hub project sync && pnpm --filter @hub/server start`,
       cwd: "../..",
       // HUB_MAILER=fake is the only way the e2e run sends: the fake Mailer never leaves the process (the server refuses it without HUB_DB).
-      env: { HUB_DB: DB, HUB_PORT: String(API_PORT), HUB_MAILER: "fake", HUB_PROJECTS: PROJECTS, HUB_FAKE_THREADS: THREADS },
+      env: { HUB_HOME: HOME, HUB_DB: DB, HUB_PORT: String(API_PORT), HUB_MAILER: "fake", HUB_PROJECTS: PROJECTS, HUB_FAKE_THREADS: THREADS },
       url: `http://127.0.0.1:${API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,

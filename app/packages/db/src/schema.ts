@@ -208,7 +208,7 @@ export const agentEvents = sqliteTable(
   (t) => [uniqueIndex("agent_events_run_seq").on(t.runId, t.seq), index("agent_events_project").on(t.project)],
 );
 
-// ---- Projects and knowledge (P7, doc 16). The files under app/projects/<slug>/ are the source of truth; these
+// ---- Projects and knowledge (P7, doc 16). The files under <instance>/projects/<slug>/ are the source of truth; these
 // tables are an index rebuilt from them (`pnpm hub project sync`, `knowledge index`). Nothing edits them by hand.
 
 export const projects = sqliteTable("projects", {

@@ -1,6 +1,7 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { readJson, type Ctx } from "../context.ts";
+import { brokenStdioCommands, instanceServer } from "../mcp-servers.ts";
 import type { Step } from "../types.ts";
 import { fail, pass, warn } from "./helpers.ts";
 
@@ -19,6 +20,10 @@ function copyDefaults(ctx: Ctx, files: string[]): string {
   }
   return made.length ? `wrote defaults: ${made.join(", ")}` : "nothing to write (existing files kept)";
 }
+
+/** The servers as `.mcp.json` of the instance must hold them. */
+const wanted = (ctx: Ctx, cfg: Record<string, Record<string, unknown>>): Record<string, Record<string, unknown>> =>
+  Object.fromEntries(Object.entries(cfg).map(([k, v]) => [k, instanceServer(v, ctx.paths)]));
 
 export const fileSteps: Step[] = [
   {
@@ -71,18 +76,21 @@ export const fileSteps: Step[] = [
   },
   {
     id: "files.mcp-json", group: "Files", title: "Project .mcp.json",
-    why: "Your Claude Code in this folder sees the servers of `config/mcp.json` (mail, Notion).",
-    verifies: "`.mcp.json` contains every server of `config/mcp.json` unchanged.",
-    does: "Merges the servers of `config/mcp.json` into `.mcp.json`, keeps your other servers, saves a one-time `.mcp.json.bak`.",
+    why: "Your Claude Code in this folder sees the servers of `config/mcp.json` (mail, Notion, knowledge). Claude starts in the instance folder, so a server program of the core must be named by an absolute path: a relative `app/...` path does not exist there and the server never starts.",
+    verifies: "`.mcp.json` contains every server of `config/mcp.json` (stdio programs as absolute paths under the core), and every stdio server command in it exists.",
+    does: "Merges the servers of `config/mcp.json` into `.mcp.json` with stdio paths made absolute under the core, keeps your other servers, saves a one-time `.mcp.json.bak`.",
     async check(ctx) {
-      const want = readJson(path.join(ctx.paths.configDir, "mcp.json"))?.mcpServers;
-      if (!want) return fail("config/mcp.json has no mcpServers");
+      const cfg = readJson(path.join(ctx.paths.configDir, "mcp.json"))?.mcpServers;
+      if (!cfg) return fail("config/mcp.json has no mcpServers");
+      const want = wanted(ctx, cfg);
       const have = readJson(ctx.paths.mcpFile)?.mcpServers ?? {};
+      const broken = brokenStdioCommands(have, ctx);
+      if (broken.length) return fail(`.mcp.json cannot start: ${broken.join("; ")}. Fix: \`hub install --only files.mcp-json\` rewrites them absolute under the core`);
       const off = Object.keys(want).filter((k) => JSON.stringify(have[k]) !== JSON.stringify(want[k]));
       return off.length ? fail(`out of date: ${off.join(", ")}`) : pass(`${Object.keys(want).length} servers`);
     },
     async apply(ctx) {
-      const want = readJson(path.join(ctx.paths.configDir, "mcp.json"))!.mcpServers;
+      const want = wanted(ctx, readJson(path.join(ctx.paths.configDir, "mcp.json"))!.mcpServers);
       const f = ctx.paths.mcpFile;
       const cur = readJson(f) ?? {};
       if (existsSync(f) && !existsSync(`${f}.bak`)) copyFileSync(f, `${f}.bak`);
@@ -96,7 +104,7 @@ export const fileSteps: Step[] = [
   {
     id: "files.app-db", group: "Files", title: "App database",
     why: "The local app keeps working state (marks, queue, run log) in one SQLite file.",
-    verifies: "The database file exists (`app/data/app.db`, or `data/app.db` of an instance).",
+    verifies: "The database file exists (`data/app.db` of the instance).",
     does: "Runs the app's `db:migrate` script (`pnpm --dir app run db:migrate`).",
     async check(ctx) {
       if (existsSync(ctx.paths.db)) return pass(path.relative(ctx.paths.home, ctx.paths.db) || ctx.paths.db);
@@ -105,7 +113,7 @@ export const fileSteps: Step[] = [
       return fail(`${path.relative(ctx.paths.home, ctx.paths.db) || ctx.paths.db} missing`);
     },
     async apply(ctx) {
-      const r = await ctx.run("pnpm", ["--dir", path.join(ctx.paths.core, "app"), "run", "db:migrate"], { timeoutMs: 120000, env: { HUB_DB: ctx.paths.db } });
+      const r = await ctx.run("pnpm", ["--dir", path.join(ctx.paths.core, "app"), "run", "db:migrate"], { timeoutMs: 120000, env: { HUB_HOME: ctx.paths.home, HUB_DB: ctx.paths.db } });
       if (r.code !== 0) throw new Error(`db:migrate failed: ${r.stderr.trim().slice(0, 200)}`);
       return "migrations applied";
     },

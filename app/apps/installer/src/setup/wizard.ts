@@ -226,7 +226,7 @@ export async function runSetup(ctx: Ctx, d: SetupDeps, o: SetupOptions): Promise
     const projects = listProjects(ctx);
     const proj = projects.length
       ? `Projects: ${projects.join(", ")}.`
-      : "No project yet. Run `hub agent new` and say \"настрой проект <имя>\": the `project-setup` skill asks the questions and writes app/projects/<slug>/project.md.";
+      : "No project yet. Run `hub agent new` and say \"настрой проект <имя>\": the `project-setup` skill asks the questions and writes <instance>/projects/<slug>/project.md.";
     ui.info(proj);
     stages.push({ id: "projects", title: "Project", required: false, status: projects.length ? "ok" : "skipped", detail: proj });
 

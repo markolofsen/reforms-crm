@@ -76,10 +76,10 @@ describe("hub record-draft", () => {
     cpSync(path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures", "projects", "acme-travel"), path.join(projects, "acme"), { recursive: true });
     const pm = path.join(projects, "acme", "project.md");
     writeFileSync(pm, readFileSync(pm, "utf8").replace("| draft.recipients | test |", "| draft.recipients | any |"));
-    const r = await execa("node", [bin, "record-draft", "--project", "acme"], { input: payload(), reject: false, env: { ...process.env, HUB_DB: db, HUB_PROJECTS: projects, HUB_LEDGER_ROOT: mkdtempSync(path.join(tmpdir(), "hub-led-")), NO_COLOR: "1" }, timeout: 60_000 });
+    const r = await execa("node", [bin, "record-draft", "--project", "acme"], { input: payload(), reject: false, env: { ...process.env, HUB_HOME: mkdtempSync(path.join(tmpdir(), "hub-rec-home-")), HUB_DB: db, HUB_PROJECTS: projects, HUB_LEDGER_ROOT: mkdtempSync(path.join(tmpdir(), "hub-led-")), NO_COLOR: "1" }, timeout: 60_000 });
     expect(r.exitCode, r.stderr).toBe(0);
     expect(JSON.parse(r.stdout)).toMatchObject({ ok: true });
-    const bad = await execa("node", [bin, "record-draft", "--project", "acme"], { input: "{}", reject: false, env: { ...process.env, HUB_DB: db, HUB_PROJECTS: projects, HUB_LEDGER_ROOT: mkdtempSync(path.join(tmpdir(), "hub-led-")) }, timeout: 60_000 });
+    const bad = await execa("node", [bin, "record-draft", "--project", "acme"], { input: "{}", reject: false, env: { ...process.env, HUB_HOME: mkdtempSync(path.join(tmpdir(), "hub-rec-home-")), HUB_DB: db, HUB_PROJECTS: projects, HUB_LEDGER_ROOT: mkdtempSync(path.join(tmpdir(), "hub-led-")) }, timeout: 60_000 });
     expect(bad.exitCode).toBe(2);
   });
 });

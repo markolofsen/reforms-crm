@@ -8,7 +8,7 @@ export interface RunResult { code: number; stdout: string; stderr: string }
 export type Runner = (cmd: string, args: string[], opts?: { env?: Record<string, string>; timeoutMs?: number; input?: string }) => Promise<RunResult>;
 
 export interface Ctx {
-  /** The instance root: where state, config, secrets and projects live. The core checkout while `HUB_HOME` is unset. */
+  /** The instance root (`HUB_HOME`): where state, config, secrets and projects live. */
   root: string;
   /** Every path the installer uses, resolved once by `@hub/config/paths`. Code and skills come from `paths.core`. */
   paths: HubPaths;
@@ -26,7 +26,7 @@ export interface Ctx {
   fetch: typeof fetch;
 }
 
-/** The core checkout this code runs from (not the instance: see `hubPaths().home`). */
+/** The core checkout this code runs from (never the instance: see `hubPaths().home`). */
 export const defaultRoot = (): string => CORE_ROOT;
 
 export const defaultRunner = (pathEnv: string): Runner => async (cmd, args, opts = {}) => {
@@ -43,8 +43,8 @@ export const defaultRunner = (pathEnv: string): Runner => async (cmd, args, opts
 export function makeCtx(over: Partial<Ctx> = {}): Ctx {
   const home = over.home ?? process.env.HOME ?? homedir();
   const pathEnv = over.pathEnv ?? process.env.PATH ?? "/usr/bin:/bin";
-  // An explicit `root` (tests) is its own core and its own home: the single-folder layout, whatever HUB_HOME says.
-  const paths = over.paths ?? (over.root ? hubPaths({ core: over.root, home: over.root }) : hubPaths());
+  // An explicit `root` (tests) is an instance folder; the core is always this checkout. Neither: HUB_HOME, or a HubHomeMissingError.
+  const paths = over.paths ?? hubPaths(over.root ? { home: over.root } : {});
   return {
     root: over.root ?? paths.home,
     paths,
@@ -73,7 +73,7 @@ export function which(ctx: Ctx, bin: string): string | undefined {
   return undefined;
 }
 
-/** app/projects/<slug>/project.md folders; empty when none (single-project mode). */
+/** `<projects>/<slug>/` folders of the instance; empty when none. */
 export function listProjects(ctx: Ctx): string[] {
   const dir = ctx.paths.projects;
   if (!existsSync(dir)) return [];

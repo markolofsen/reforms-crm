@@ -76,7 +76,7 @@ export interface RecordOptions {
   project: string;
   /** The JSON payload (stdin). */
   payload: string;
-  /** Default: the live database (`HUB_DB` or app/data/app.db). */
+  /** Default: the live database (`HUB_DB` or `<HUB_HOME>/data/app.db`). */
   dbPath?: string;
   /** Attempts on a busy database; each one already waits the 5 s busy timeout. Default 3. */
   attempts?: number;

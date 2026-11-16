@@ -52,7 +52,7 @@ export function parseAgentArgs(args: string[], projects: string[]): AgentPlan {
 }
 
 /** The system prompt that pins a session to one project (isolation: one session = one project). */
-export function bindingPrompt(project: string, projectsRel = "app/projects"): string {
+export function bindingPrompt(project: string, projectsRel = "projects"): string {
   return `This session is bound to ONE project: ${project} (HUB_PROJECT). Work for ${project} only: read ${projectsRel}/${project}/ and no other project's folder, name only that project's Mail accounts, pass project=${project} to every knowledge call. If asked for another project, refuse and tell the owner to run \`hub agent <other>\`. Drafts only: never send.`;
 }
 
@@ -108,7 +108,7 @@ const spawnClaude = (args: string[], cwd: string, env: NodeJS.ProcessEnv): Promi
 /** `root` is the instance root (where claude starts); `home` is the user's home folder; `paths` is what `hubPaths()` resolved. */
 export interface AgentEnv { root: string; home: string; projectsDir: string; paths?: HubPaths }
 
-/** Start Claude Code in the instance root (the repo root while HUB_HOME is unset). The cwd of the caller does not matter. */
+/** Start Claude Code in the instance root. The cwd of the caller does not matter. */
 export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   const parsed = parseAgentArgs(argv, listProjects(env.projectsDir));
   let bound: { project?: string; sticky: boolean };
@@ -124,7 +124,7 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   const projectsRel = path.relative(env.root, env.projectsDir).split(path.sep).join("/");
   const relOk = projectsRel && !projectsRel.startsWith("..") ? projectsRel : env.projectsDir;
   const args = buildClaudeArgs(plan, dirs, files, relOk);
-  const childEnv = { ...process.env, ...(plan.project ? { HUB_PROJECT: plan.project } : {}), ...(paths.instance ? { HUB_HOME: paths.home } : {}) };
+  const childEnv = { ...process.env, ...(plan.project ? { HUB_PROJECT: plan.project } : {}), HUB_HOME: paths.home };
 
   printPhrases();
   if (linked.length) console.log(c.dim(`Core skills linked into ${paths.claudeSkills}: ${linked.join(", ")}`));

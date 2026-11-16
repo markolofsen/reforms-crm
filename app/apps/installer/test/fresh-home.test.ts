@@ -18,7 +18,7 @@ describe("fresh home, no token", () => {
       },
     });
     f.ctx.fetch = (async () => new Response("{}", { status: 200 })) as typeof fetch; // mail-mcp answers
-    const steps = selectSteps(false);
+    const steps = selectSteps(false).filter((s) => s.id !== "instance.core"); // the pin and the core clean-check have their own tests (instance-doctor)
     expect(steps.map((s) => s.id)).not.toContain("notion.token");
 
     const done = await install(f.ctx, steps);

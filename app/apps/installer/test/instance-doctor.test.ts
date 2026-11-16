@@ -38,11 +38,6 @@ describe("hub doctor: instance against core", () => {
     expect(STEPS.find((s) => s.id === "instance.core")).toBeTruthy();
     expect(STEPS.find((s) => s.id === "instance.core")?.optional).toBeUndefined();
   });
-  it("has nothing to check in the single-repo layout", async () => {
-    const r = rig();
-    const c = makeCtx({ paths: hubPaths({ core: r.core, home: r.core, env: {} }), log: () => {} });
-    expect(await checkInstance(c)).toMatchObject({ level: "pass" });
-  });
   it("passes: pin equals the core's HEAD, clean core, no leaks, skills linked", async () => {
     const r = linked(rig());
     const out = await checkInstance(ctxOf(r));
@@ -105,7 +100,7 @@ describe("hub doctor: instance against core", () => {
     const r = rig();
     expect(await checkInstance(ctxOf(r))).toMatchObject({ level: "warn", detail: expect.stringContaining("not linked") });
   });
-  it("warns when the core is a folder inside another repository (single-repo era)", async () => {
+  it("fails when the core is a folder inside another repository", async () => {
     const r = rig();
     const outer = path.join(r.base, "outer");
     put(path.join(outer, "hub", "skills", "triage", "SKILL.md"), "s\n");
@@ -116,7 +111,7 @@ describe("hub doctor: instance against core", () => {
     const p = hubPaths({ core: path.join(outer, "hub"), home: r.home, env: {} });
     syncInstanceSkills(p);
     const out = await checkInstance(makeCtx({ paths: p, log: () => {} }));
-    expect(out.level, out.detail).toBe("warn");
+    expect(out.level, out.detail).toBe("fail");
     expect(out.detail).toContain("inside another repository");
   });
   it("warns when the core is not a git checkout at all", async () => {

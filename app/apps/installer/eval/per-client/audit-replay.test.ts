@@ -2,13 +2,15 @@ import { cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execa } from "execa";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { auditRun, evidenceTable } from "../../src/audit-run.ts";
 import { defaultRoot } from "../../src/context.ts";
 import { FIXTURE_PROJECT } from "./fixture.ts";
 
 // Tier 2 (research 15 section 5): five fixed transcripts through `audit-run`; expected rows and exit codes. Offline.
 const PROJECTS = path.join(import.meta.dirname, "fixture", "projects");
+const HOME = mkdtempSync(path.join(tmpdir(), "pc-home-"));
+beforeAll(() => { process.env.HUB_HOME = HOME; });
 const T = path.join(import.meta.dirname, "fixtures", "transcripts");
 const rows = (name: string) => auditRun(path.join(T, name), FIXTURE_PROJECT, PROJECTS).evidence;
 const folder = () => {
@@ -57,7 +59,7 @@ describe("audit-run evidence replay (B4, E2)", () => {
   });
   it("`hub audit-run` exits 1 on a red row and 0 on a green one", async () => {
     const bin = path.join(defaultRoot(), "app", "apps", "installer", "bin", "hub.mjs");
-    const env = { ...process.env, HUB_PROJECTS: PROJECTS, NO_COLOR: "1" };
+    const env = { ...process.env, HUB_HOME: HOME, HUB_PROJECTS: PROJECTS, NO_COLOR: "1" };
     const bad = await execa("node", [bin, "audit-run", path.join(T, "bad-no-reads.jsonl"), "--project", FIXTURE_PROJECT], { reject: false, env, timeout: 60_000 });
     expect(bad.exitCode, bad.stderr).toBe(1);
     expect(bad.stdout).toContain("RED");

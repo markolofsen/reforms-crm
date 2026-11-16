@@ -88,7 +88,7 @@ test("Stop all refuses a send with its reason, and Resume lifts it", async ({ pa
 
 test("a draft recorded as injection_suspected shows the flag and a class, and offers no Send", async ({ page }) => {
   const payload = { email: "mallory@example.com", name: "Mallory Suspect", subject: "Re: invoice", mailRef: "<inj-1@example.com>", reason: "Asked about an invoice.", mailClass: "client", injectionSuspected: true, repliesOwed: true, skill: "triage-mail" };
-  execFileSync("node", [hub, "record-draft", "--project", "demo-shop"], { input: JSON.stringify(payload), env: { ...process.env, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: process.env.HUB_E2E_PROJECTS, NO_COLOR: "1" }, encoding: "utf8" });
+  execFileSync("node", [hub, "record-draft", "--project", "demo-shop"], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: process.env.HUB_E2E_PROJECTS, NO_COLOR: "1" }, encoding: "utf8" });
   await remember(page, "demo-shop");
   await page.goto("/drafts?project=demo-shop&filter=all");
   const row = cards(page).filter({ hasText: "Mallory Suspect" });

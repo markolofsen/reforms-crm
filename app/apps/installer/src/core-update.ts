@@ -32,7 +32,6 @@ export function followMark(text: string, branch?: string): string {
 export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boolean, branch?: string): Promise<CoreUpdate> {
   const { paths } = ctx;
   const out: string[] = [];
-  if (!paths.instance) return { ok: false, lines: ["not an instance: set HUB_HOME to the instance folder (the pin lives there)"] };
   const pin = readCoreVersion(paths.home);
   const top = await git(ctx, ["rev-parse", "--show-toplevel"]);
   if (top.code !== 0) return { ok: false, lines: [`${paths.core} is not a git checkout: nothing to update`] };

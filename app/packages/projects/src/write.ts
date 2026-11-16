@@ -119,7 +119,7 @@ function rewrite(file: string, edit: (text: string) => string): void {
   renameSync(tmp, file);
 }
 
-/** `folder` is app/projects/<slug>. */
+/** `folder` is <projects>/<slug>. */
 export function writeSetting(folder: string, field: string, value: string, by: By, date: string = localDate()): void {
   rewrite(join(folder, "project.md"), (t) => applySetting(t, field, value, by, date));
 }

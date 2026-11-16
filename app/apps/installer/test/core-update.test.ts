@@ -83,11 +83,6 @@ describe("hub core update", () => {
     expect(git(r.core, "rev-parse", "HEAD")).toBe(r.v1);
     expect(pinOf(r.home)).toContain(r.v1);
   });
-  it("needs an instance", async () => {
-    const r = rig();
-    const c = makeCtx({ paths: hubPaths({ core: r.core, home: r.core, env: {} }), log: () => {} });
-    expect((await coreUpdate(c, undefined, false)).ok).toBe(false);
-  });
 });
 
 describe("hub core update --branch", () => {

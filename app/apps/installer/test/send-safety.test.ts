@@ -3,12 +3,15 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context.ts";
-import { DENIED_TOOLS, denyRules, HUB_API_COMMANDS, enforcementArgs, guardDecision, HUB_MCP_SERVERS, writeSessionFiles } from "../src/safety.ts";
+import { makeInstance } from "./instance-fixture.ts";
+import { auditLayout, DENIED_TOOLS, denyRules, HUB_API_COMMANDS, enforcementArgs, guardDecision, HUB_MCP_SERVERS, writeSessionFiles } from "../src/safety.ts";
 
 // Decision 0011: the agent gets NO send tool, in any mode. Sending is a hub command. If a rule below is removed or a
 // send path is added to an agent session, one of these fails.
 
 const ROOT = defaultRoot();
+const INSTANCE = makeInstance();
+const LAYOUT = auditLayout(INSTANCE.paths);
 const PROJECTS = path.join(ROOT, "app", "packages", "projects", "test", "fixtures", "projects");
 
 /** Every tool that sends, forwards or replies for real, in the connectors a session could see. */
@@ -23,12 +26,12 @@ const SEND_TOOLS = [
 ];
 
 describe("the agent has no send path", () => {
-  const rules = denyRules(PROJECTS, ROOT, "acme-travel");
+  const rules = denyRules(PROJECTS, INSTANCE.home, "acme-travel");
 
   it.each(SEND_TOOLS)("%s stays denied (deny rule, --disallowedTools, guard)", (tool) => {
     expect(rules, "deny rule").toContain(tool);
     expect(DENIED_TOOLS, "disallowed list").toContain(tool);
-    const g = guardDecision({ tool_name: tool, tool_input: {} }, { slug: "acme-travel", accounts: [], mode: "block" });
+    const g = guardDecision({ tool_name: tool, tool_input: {} }, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT });
     expect(g.block, "guard blocks").toBe(true);
   });
 
@@ -39,13 +42,13 @@ describe("the agent has no send path", () => {
   it("`hub send` is denied in every spelling, and the guard flags it", () => {
     for (const r of ["Bash(*hub send*)", "Bash(*hub.mjs send*)", "Bash(*installer/src/cli.ts send*)"]) expect(rules).toContain(r);
     for (const command of ["hub send 12 --apply", "pnpm hub send 12", "node app/apps/installer/bin/hub.mjs send 3 --apply", "hub --root /x send --due --apply", "tsx app/apps/installer/src/cli.ts send --due"]) {
-      const g = guardDecision({ tool_name: "Bash", tool_input: { command } }, { slug: "acme-travel", accounts: [], mode: "block" });
+      const g = guardDecision({ tool_name: "Bash", tool_input: { command } }, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT });
       expect(g.block, command).toBe(true);
       expect(g.violations.join(), command).toMatch(/hub send/);
     }
     // ordinary hub commands are not flagged
     for (const command of ["hub record-draft --project acme-travel", "hub project show acme-travel", "hub doctor"]) {
-      expect(guardDecision({ tool_name: "Bash", tool_input: { command } }, { slug: "acme-travel", accounts: [], mode: "block" }).violations, command).toEqual([]);
+      expect(guardDecision({ tool_name: "Bash", tool_input: { command } }, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT }).violations, command).toEqual([]);
     }
   });
 
@@ -57,14 +60,14 @@ describe("the agent has no send path", () => {
 
   it("switching sending on is not an agent step: a write of a send.* setting is flagged", () => {
     for (const input of [{ command: "hub project set acme send.mode auto" }, { new_string: "| send.mode | auto | 2026-11-20 | agent |" }, { content: "| send.classes | client |" }, { edits: [{ new_string: "send.daily_cap | 50" }] }]) {
-      const g = guardDecision({ tool_name: "Edit", tool_input: input }, { slug: "acme-travel", accounts: [], mode: "block" });
+      const g = guardDecision({ tool_name: "Edit", tool_input: input }, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT });
       expect(g.violations.join(), JSON.stringify(input)).toMatch(/send\.\* setting/);
     }
-    expect(guardDecision({ tool_name: "Edit", tool_input: { new_string: "| tone | warm |" } }, { slug: "acme-travel", accounts: [], mode: "block" }).violations).toEqual([]);
+    expect(guardDecision({ tool_name: "Edit", tool_input: { new_string: "| tone | warm |" } }, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT }).violations).toEqual([]);
   });
 
   it("the generated session files carry the deny rules and the hub's MCP servers have no send tool", () => {
-    const root = mkdtempSync(path.join(tmpdir(), "hub-sendsafe-"));
+    const root = makeInstance().home;
     const f = writeSessionFiles(root, PROJECTS, "acme-travel");
     const settings = JSON.parse(readFileSync(f.settings, "utf8")) as { permissions: { deny: string[]; allow?: string[] } };
     for (const t of SEND_TOOLS) expect(settings.permissions.deny).toContain(t);

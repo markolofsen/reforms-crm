@@ -13,7 +13,7 @@ export type DbHandle = { db: Db; close: () => void };
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = resolve(here, "../drizzle");
 
-/** Default file: HUB_DB, else the instance database (`<home>/app/data/app.db`, git-ignored). The rule lives in `@hub/config/paths`. */
+/** Default file: HUB_DB, else the instance database (`<home>/data/app.db`). The rule lives in `@hub/config/paths`. */
 export function defaultDbPath(): string {
   return hubPaths().db;
 }

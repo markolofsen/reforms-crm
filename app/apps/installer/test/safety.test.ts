@@ -7,9 +7,12 @@ import { defaultRoot } from "../src/context.ts";
 import { recordDraft } from "../src/record-draft.ts";
 import { DENIED_TOOLS, enforcementArgs, guardDecision, readBinding, resolveBinding, runGuard, skillScope, writeBinding, writeSessionFiles } from "../src/safety.ts";
 import { buildClaudeArgs } from "../src/agent.ts";
+import { auditLayout } from "../src/safety.ts";
+import { makeInstance } from "./instance-fixture.ts";
 
 const PROJECTS = path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures", "projects");
-const tmp = () => mkdtempSync(path.join(tmpdir(), "hub-safety-"));
+const tmp = () => makeInstance().home;
+const LAYOUT = auditLayout(makeInstance().paths);
 const call = (tool_name: string, tool_input: unknown = {}) => ({ tool_name, tool_input });
 const guard = (c: ReturnType<typeof call>, env: Record<string, string> = { HUB_PROJECT: "acme-travel" }, root = tmp()) =>
   runGuard(JSON.stringify(c), { root, projectsDir: PROJECTS, env });
@@ -17,7 +20,7 @@ const guard = (c: ReturnType<typeof call>, env: Record<string, string> = { HUB_P
 describe("hub guard", () => {
   it("allows a call inside the project", () => {
     expect(guard(call("mcp__mail-mcp__find_messages", { account: "owner@acme.example" })).code).toBe(0);
-    expect(guard(call("Read", { file_path: "/x/app/projects/acme-travel/project.md" })).stderr).toBe("");
+    expect(guard(call("Read", { file_path: "projects/acme-travel/project.md" })).stderr).toBe("");
     expect(guard(call("mcp__mail-mcp__create_reply", {})).stderr).toBe("");
   });
   it("warn mode logs and allows; block mode refuses with exit 2", () => {
@@ -37,21 +40,21 @@ describe("hub guard", () => {
     ["Gmail reply", call("mcp__x__reply", {})],
     ["trash", call("mcp__x__trash_thread", {})],
     ["notion delete", call("mcp__notion__notion-delete-pages", {})],
-    ["other project folder", call("Read", { file_path: "/r/app/projects/nordhaus/project.md" })],
-    ["glob of all projects", call("Glob", { pattern: "app/projects/*/project.md" })],
-    ["listing of all projects", call("Bash", { command: "ls app/projects" })],
+    ["other project folder", call("Read", { file_path: "projects/nordhaus/project.md" })],
+    ["glob of all projects", call("Glob", { pattern: "projects/*/project.md" })],
+    ["listing of all projects", call("Bash", { command: "ls projects" })],
     ["secrets read", call("Read", { file_path: "/r/state/secrets/notion-token" })],
     ["osascript", call("Bash", { command: "osascript -e 'tell app \"Mail\" to send m'" })],
   ])("blocks in block mode: %s", (_n, c) => {
     expect(guard(c, { HUB_PROJECT: "acme-travel", HUB_GUARD: "block" }).code).toBe(2);
   });
   it("shared _template stays readable; create_reply is not a send", () => {
-    expect(guardDecision(call("Read", { file_path: "app/projects/_template/x.md" }), { slug: "acme-travel", accounts: [], mode: "block" }).violations).toEqual([]);
-    expect(guardDecision(call("mcp__mail-mcp__create_reply"), { slug: "acme-travel", accounts: [], mode: "block" }).violations).toEqual([]);
+    expect(guardDecision(call("Read", { file_path: "projects/_template/x.md" }), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT }).violations).toEqual([]);
+    expect(guardDecision(call("mcp__mail-mcp__create_reply"), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT }).violations).toEqual([]);
   });
   it("an unbound session still blocks sends and secrets, not project reads", () => {
     const env = { HUB_GUARD: "block" };
-    expect(guard(call("Read", { file_path: "app/projects/acme-travel/project.md" }), env).code).toBe(0);
+    expect(guard(call("Read", { file_path: "projects/acme-travel/project.md" }), env).code).toBe(0);
     expect(guard(call("mcp__x__forward"), env).code).toBe(2);
     expect(guard(call("Read", { file_path: "state/secrets/mail.json" }), env).code).toBe(2);
   });
@@ -138,8 +141,8 @@ describe("record-draft enforces draft.recipients", () => {
 });
 
 describe("hub guard: skills of the kind", () => {
-  const scope = skillScope("software-support", defaultRoot());
-  const d = (skill: string) => guardDecision(call("Skill", { skill }), { slug: "acme-travel", accounts: [], mode: "block", skills: scope });
+  const scope = skillScope("software-support", path.join(defaultRoot(), "skills"));
+  const d = (skill: string) => guardDecision(call("Skill", { skill }), { slug: "acme-travel", accounts: [], mode: "block", skills: scope, layout: LAYOUT });
   it("flags a hub skill the kind does not allow, and only that", () => {
     expect(scope?.hub).toContain("calendar");
     expect(d("calendar").violations).toEqual(["skill calendar is not in the skill list of project acme-travel's kind"]);
@@ -148,7 +151,7 @@ describe("hub guard: skills of the kind", () => {
     expect(d("simplify").violations).toEqual([]); // not a hub skill: not judged
   });
   it("judges nothing for an unknown kind or an unbound session", () => {
-    expect(skillScope("no-such-kind", defaultRoot())).toBeUndefined();
-    expect(guardDecision(call("Skill", { skill: "calendar" }), { accounts: [], mode: "block" }).violations).toEqual([]);
+    expect(skillScope("no-such-kind", path.join(defaultRoot(), "skills"))).toBeUndefined();
+    expect(guardDecision(call("Skill", { skill: "calendar" }), { accounts: [], mode: "block", layout: LAYOUT }).violations).toEqual([]);
   });
 });

@@ -155,7 +155,7 @@ export async function runProjectDoctor(slug: string, o: ProjectCommandOptions = 
 
 /** Adds `project sync`, `project show <slug>`, `project kinds`, `project rename` and `project doctor <slug>` to a commander program. */
 export function registerProjectCommands(program: Command, o: ProjectCommandOptions = {}): Command {
-  const project = program.command("project").description("Projects: the registry built from app/projects/*/project.md.");
+  const project = program.command("project").description("Projects: the registry built from <instance>/projects/*/project.md.");
   project
     .command("sync")
     .description("Validate every project.md and rebuild the registry (projects, addresses). All or nothing.")

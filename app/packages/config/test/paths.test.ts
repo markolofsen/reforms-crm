@@ -1,28 +1,19 @@
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CORE_ROOT, hubPaths, pathsAt, projectFolder } from "../src/paths.js";
+import { CORE_ROOT, HubHomeMissingError, hubPaths, pathsAt, projectFolder } from "../src/paths.js";
 
 const empty = {} as NodeJS.ProcessEnv;
 const instanceDir = () => mkdtempSync(join(tmpdir(), "hub-home-"));
 
-describe("hubPaths with HUB_HOME unset", () => {
-  const p = hubPaths({ env: empty });
-  it("is the single-repo layout: home is the core checkout", () => {
-    expect(p.home).toBe(CORE_ROOT);
-    expect(p.core).toBe(CORE_ROOT);
-    expect(p.instance).toBe(false);
+describe("hubPaths without an instance", () => {
+  it("is a HubHomeMissingError with the one-line fix: there is no layout without HUB_HOME", () => {
+    expect(() => hubPaths({ env: empty })).toThrow(HubHomeMissingError);
+    expect(() => hubPaths({ env: { HUB_HOME: "  " } })).toThrow("HUB_HOME is not set: run ./run.sh from an instance folder, or export HUB_HOME");
   });
-  it("puts every file where the code always looked", () => {
-    expect(p.projects).toBe(join(CORE_ROOT, "app", "projects"));
-    expect(p.db).toBe(join(CORE_ROOT, "app", "data", "app.db"));
-    expect(p.state).toBe(join(CORE_ROOT, "state"));
-    expect(p.secrets).toBe(join(CORE_ROOT, "state", "secrets"));
-    expect(p.configFile).toBe(join(CORE_ROOT, "config", "config.json"));
-    expect(p.mcpFile).toBe(join(CORE_ROOT, ".mcp.json"));
-    expect(p.skills).toBe(join(CORE_ROOT, "skills"));
-    expect(p.hubBin).toBe(join(CORE_ROOT, "app", "apps", "installer", "bin", "hub.mjs"));
+  it("the core is this checkout, never the instance", () => {
+    expect(hubPaths({ env: { HUB_HOME: instanceDir() } }).core).toBe(CORE_ROOT);
   });
 });
 
@@ -30,7 +21,6 @@ describe("hubPaths with HUB_HOME", () => {
   it("moves projects, data, state, secrets and config to the instance; code and skills stay in the core", () => {
     const home = instanceDir();
     const p = hubPaths({ env: { HUB_HOME: home } });
-    expect(p.instance).toBe(true);
     expect(p.projects).toBe(join(home, "projects"));
     expect(p.db).toBe(join(home, "data", "app.db"));
     expect(p.state).toBe(join(home, "state"));
@@ -41,8 +31,8 @@ describe("hubPaths with HUB_HOME", () => {
     expect(p.skills).toBe(join(CORE_ROOT, "skills"));
     expect(p.mcpDefaults).toBe(join(CORE_ROOT, "config", "mcp.json"));
   });
-  it("treats HUB_HOME equal to the core as the single-repo layout", () => {
-    expect(hubPaths({ env: { HUB_HOME: CORE_ROOT } }).instance).toBe(false);
+  it("refuses the core itself as HUB_HOME: the core holds no data", () => {
+    expect(() => hubPaths({ env: { HUB_HOME: CORE_ROOT } })).toThrow(/core checkout itself/);
   });
   it("refuses a HUB_HOME that is not a folder: a typo must not start a second instance", () => {
     expect(() => hubPaths({ env: { HUB_HOME: join(tmpdir(), "hub-home-does-not-exist-xyz") } })).toThrow(/HUB_HOME is not a folder/);
@@ -66,13 +56,11 @@ describe("hubPaths with HUB_HOME", () => {
 });
 
 describe("pathsAt and projectFolder", () => {
-  it("pathsAt is the single-folder layout of any folder, even with HUB_HOME set", () => {
+  it("pathsAt is the instance layout of the folder it is given, even with another HUB_HOME set", () => {
     const root = instanceDir();
-    mkdirSync(join(root, "app"), { recursive: true });
     const p = pathsAt(root, { HUB_HOME: instanceDir() });
     expect(p.home).toBe(root);
-    expect(p.instance).toBe(false);
-    expect(p.projects).toBe(join(root, "app", "projects"));
+    expect(p.projects).toBe(join(root, "projects"));
     expect(p.guardLog).toBe(join(root, "state", "guard.log"));
   });
   it("projectFolder joins the slug onto the projects folder", () => {

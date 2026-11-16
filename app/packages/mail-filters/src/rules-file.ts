@@ -1,4 +1,4 @@
-// `app/projects/<slug>/mail-filters.md`: the rules file. Parser and writer. Pure: text in, structure and issues out.
+// `<instance>/projects/<slug>/mail-filters.md`: the rules file. Parser and writer. Pure: text in, structure and issues out.
 import { findColor, GMAIL_PALETTE } from "./colors.js";
 import { checkMatchValue, parseMatch } from "./match.js";
 import {

@@ -29,7 +29,7 @@ export function auditRun(logFile: string, slug: string, projectsRoot?: string): 
   return {
     project: slug,
     calls: calls.length,
-    violations: auditToolCalls(calls, slug, p.parsed.config.mail.accounts, skillScope(p.parsed.config.kind, hubPaths().core), auditLayout(hubPaths())),
+    violations: auditToolCalls(calls, slug, p.parsed.config.mail.accounts, skillScope(p.parsed.config.kind, hubPaths().skills), auditLayout(hubPaths())),
     evidence: auditEvidence(entries, claims),
   };
 }

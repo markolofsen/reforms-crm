@@ -14,10 +14,9 @@ export const coreSkills = (paths: HubPaths): string[] =>
  * Skill discovery for an agent started in an instance (decision 0016): `<home>/.claude/skills/<name>` is a symlink to `<core>/skills/<name>`,
  * generated here, git-ignored, never hand-edited. Idempotent. A real folder of the same name is the instance's own skill and is left alone;
  * a link into the core for a skill the core no longer ships is removed; a link pointing anywhere else is not ours and stays.
- * Returns the names linked in this call. A no-op in the single-repo layout (core and home are one folder, `skills/` is already there).
+ * Returns the names linked in this call.
  */
 export function syncInstanceSkills(paths: HubPaths): string[] {
-  if (!paths.instance) return [];
   const want = coreSkills(paths);
   mkdirSync(paths.claudeSkills, { recursive: true });
   for (const e of readdirSync(paths.claudeSkills)) {

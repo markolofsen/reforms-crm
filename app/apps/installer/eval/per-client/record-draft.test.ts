@@ -1,4 +1,4 @@
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -13,6 +13,7 @@ import { DRAFTED, FIXTURE_PROJECT } from "./fixture.ts";
 const PROJECTS = path.join(import.meta.dirname, "fixture", "projects");
 const setup = () => {
   const d = mkdtempSync(path.join(tmpdir(), "pc-rec-"));
+  mkdirSync(path.join(d, "root"));
   return { root: path.join(d, "root"), db: path.join(d, "app.db") };
 };
 const feed = (root: string, steps: ReturnType<typeof carefulSteps>) => {

@@ -1,5 +1,6 @@
 import { hubPaths, pathsAt, type HubPaths } from "@hub/config/paths";
 import { auditToolCalls, defaultProjectsRoot, type AuditLayout, kindOf, loadProject, preDraftCheck, type SkillScope, type ToolCall } from "@hub/projects";
+import { instanceServer } from "./mcp-servers.ts";
 import { readSession, recordPost, type PostPayload } from "./evidence-store.ts";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -84,14 +85,7 @@ export function writeSessionFiles(root: string, projectsDir: string, slug: strin
   const servers: Record<string, Record<string, unknown>> = {};
   for (const name of HUB_MCP_SERVERS) {
     if (!all[name]) continue;
-    const s = structuredClone(all[name]);
-    // An instance starts claude in its own folder, so the stdio servers of the core are named by absolute path and told where the instance is.
-    if (paths.instance && s.type === "stdio") {
-      const abs = (v: unknown) => (typeof v === "string" && v.startsWith("app/") ? path.join(paths.core, v) : v);
-      s.command = abs(s.command);
-      if (Array.isArray(s.args)) s.args = s.args.map(abs);
-      s.env = { ...(s.env as object), HUB_HOME: paths.home };
-    }
+    const s = instanceServer(all[name], paths);
     if (name === "knowledge-mcp" && slug) s.env = { ...(s.env as object), HUB_PROJECT: slug };
     servers[name] = s;
   }
@@ -133,9 +127,8 @@ export function resolveBinding(o: { mode: "continue" | "new" | "pick"; requested
 }
 
 // ---- the PreToolUse guard (S3) ----
-/** The guarded folders as the audit must recognise them: only an instance differs from the audit's default (single-repo) layout. */
-export function auditLayout(paths: HubPaths): AuditLayout | undefined {
-  if (!paths.instance) return undefined;
+/** The guarded folders as the audit must recognise them: the instance's projects folder and database, relative to the instance and absolute. */
+export function auditLayout(paths: HubPaths): AuditLayout {
   const rel = (p: string) => path.relative(paths.home, p).split(path.sep).join("/");
   const both = (p: string) => [...(rel(p).startsWith("..") ? [] : [rel(p)]), p];
   return { projects: both(paths.projects), db: both(paths.db) };
@@ -144,23 +137,22 @@ export function auditLayout(paths: HubPaths): AuditLayout | undefined {
 export interface GuardInput { tool_name?: unknown; tool_input?: unknown; session_id?: unknown; agent_id?: unknown }
 export interface GuardResult { violations: string[]; block: boolean }
 
-/** The hub's own skills (folders of `<root>/skills` with a SKILL.md) and the ones the project's kind allows; none for an unknown kind. */
-export function skillScope(kindId: string, root: string): SkillScope | undefined {
+/** The hub's own skills (folders of the core's `skills/` with a SKILL.md) and the ones the project's kind allows; none for an unknown kind. */
+export function skillScope(kindId: string, dir: string): SkillScope | undefined {
   const kind = kindOf(kindId);
   if (!kind) return undefined;
-  const dir = pathsAt(root).skills; // `root` here is the CORE checkout: skills ship with it
   const hub = existsSync(dir) ? readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory() && existsSync(path.join(dir, e.name, "SKILL.md"))).map((e) => e.name) : [];
   return { allowed: kind.skills, hub };
 }
 
-export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout?: AuditLayout | undefined }): GuardResult {
+export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout: AuditLayout }): GuardResult {
   const call: ToolCall = { name: String(payload.tool_name ?? ""), input: payload.tool_input };
   // Unbound session (project-setup, `hub agent new`): no project to compare with, but sends and secrets still count.
   const violations = auditToolCalls([call], o.slug ?? "(unbound)", o.accounts, o.skills, o.layout).filter((v) => o.slug || !/outside project|in a \(unbound\)|touched \S+\/\S+ in a/.test(v));
   return { violations, block: violations.length > 0 && o.mode === "block" };
 }
 
-/** `root` is the instance root (state, ledger, log); `paths.core` (default `root`) is where the skills ship. */
+/** `root` is the instance root (state, ledger, log); `paths` (default: the instance at `root`) say where the skills ship. */
 export interface GuardEnv { root: string; projectsDir?: string; env?: NodeJS.ProcessEnv; paths?: HubPaths }
 
 /** `hub guard`: tool call JSON on stdin; exit 0 (allow) or 2 (block, reason on stderr). Warn mode logs to state/guard.log and allows. Never throws. */
@@ -170,24 +162,25 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   let payload: GuardInput;
   try { payload = JSON.parse(stdin) as GuardInput; } catch { return { code: 0, stderr: "" }; }
   const slug = env.HUB_PROJECT?.trim() || undefined;
+  const paths = g.paths ?? pathsAt(g.root, env);
   let accounts: string[] = [];
   let skills: SkillScope | undefined;
   if (slug) {
     try {
       const cfg = loadProject(g.projectsDir ?? defaultProjectsRoot(), slug).parsed.config;
       accounts = [...cfg.mail.accounts];
-      skills = skillScope(cfg.kind, g.paths?.core ?? g.root);
+      skills = skillScope(cfg.kind, paths.skills);
     }
     catch { return mode === "block" ? { code: 2, stderr: `hub guard: project "${slug}" cannot be loaded; blocked` } : { code: 0, stderr: "" }; }
   }
-  const r = guardDecision(payload, { slug, accounts, mode, skills, layout: g.paths ? auditLayout(g.paths) : undefined });
+  const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths) });
   // P28 B3: before a reply is drafted, this session must have read the client's thread and profile, and the reply must not copy an earlier one.
   if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug));
   r.block = r.violations.length > 0 && mode === "block";
   if (!r.violations.length) return { code: 0, stderr: "" };
   const text = `hub guard (${mode}): ${r.violations.join("; ")}`;
   try {
-    const logFile = (g.paths ?? pathsAt(g.root)).guardLog;
+    const logFile = paths.guardLog;
     mkdirSync(path.dirname(logFile), { recursive: true });
     appendFileSync(logFile, `${new Date().toISOString()} ${mode} ${slug ?? "-"} ${text}\n`);
   } catch { /* a log that cannot be written must not stop the session */ }
