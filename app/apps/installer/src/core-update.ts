@@ -19,7 +19,17 @@ export function rewritePin(text: string, value: string): string {
   return lines.join("\n").replace(/\n*$/, "\n");
 }
 
-export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boolean): Promise<CoreUpdate> {
+/** `branch` (a stand/test instance): follow the tip of `origin/<branch>` instead of a tag. The pin stays a commit; a comment line records that the instance follows the branch. */
+/** Keep exactly one `# follows: <branch>` comment (none for a tag pin), right above the pin line. */
+export function followMark(text: string, branch?: string): string {
+  const lines = text.split("\n").filter((l) => !l.startsWith("# follows:"));
+  if (!branch) return lines.join("\n");
+  const i = lines.findIndex((l) => l.trim() && !l.trim().startsWith("#"));
+  lines.splice(i < 0 ? lines.length : i, 0, `# follows: ${branch}`);
+  return lines.join("\n");
+}
+
+export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boolean, branch?: string): Promise<CoreUpdate> {
   const { paths } = ctx;
   const out: string[] = [];
   if (!paths.instance) return { ok: false, lines: ["not an instance: set HUB_HOME to the instance folder (the pin lives there)"] };
@@ -35,23 +45,26 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
   const head = (await git(ctx, ["rev-parse", "HEAD"])).stdout.trim();
   const here = (await git(ctx, ["describe", "--tags", "--exact-match", "HEAD"])).stdout.trim() || head.slice(0, 9);
   out.push(`core in use: ${here}; pin: ${pin ?? "(none)"}`);
-  if (!tags.length) return { ok: false, lines: [...out, "the core has no vX.Y.Z tags to move to"] };
-  if (!tag) {
+  if (!branch && !tags.length) return { ok: false, lines: [...out, "the core has no vX.Y.Z tags to move to"] };
+  if (!tag && !branch) {
     out.push(`available: ${tags.join(", ")}`, `latest: ${tags.at(-1)}`, "move with: hub core update <tag> --apply");
     return { ok: true, lines: out };
   }
-  if (!tags.includes(tag)) return { ok: false, lines: [...out, `${tag} is not a tag of the core (available: ${tags.join(", ")})`] };
-  const target = (await git(ctx, ["rev-parse", `${tag}^{commit}`])).stdout.trim();
-  if (target === head && pin && (await git(ctx, ["rev-parse", `${pin}^{commit}`])).stdout.trim() === target) return { ok: true, lines: [...out, `already on ${tag}: nothing to do`] };
-  const older = tags.indexOf(tag) < tags.indexOf(here);
-  out.push(`${apply ? "moving" : "would move"} to ${tag} (${target.slice(0, 9)})${older ? "; this is a ROLLBACK to an older core" : ""}`);
+  const ref = branch ? `origin/${branch}` : tag!;
+  const label = branch ? `${branch} (tip)` : tag!;
+  if (!branch && !tags.includes(tag!)) return { ok: false, lines: [...out, `${tag} is not a tag of the core (available: ${tags.join(", ")})`] };
+  const target = (await git(ctx, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`])).stdout.trim();
+  if (!target) return { ok: false, lines: [...out, `${ref} does not exist in the core's origin`] };
+  if (target === head && pin && (await git(ctx, ["rev-parse", `${pin}^{commit}`])).stdout.trim() === target) return { ok: true, lines: [...out, `already on ${label}: nothing to do`] };
+  const older = !branch && tags.indexOf(tag!) < tags.indexOf(here);
+  out.push(`${apply ? "moving" : "would move"} to ${label} (${target.slice(0, 9)})${older ? "; this is a ROLLBACK to an older core" : ""}`);
   if (!apply) return { ok: true, lines: [...out, "dry run: nothing changed. Add --apply."] };
 
-  const co = await git(ctx, ["checkout", "--quiet", tag]);
+  const co = await git(ctx, ["checkout", "--quiet", "--detach", target]);
   if (co.code !== 0) return { ok: false, lines: [...out, `checkout failed: ${co.stderr.trim().split("\n")[0] ?? "no detail"}`] };
   const file = path.join(paths.home, CORE_VERSION_FILE);
   const before = existsSync(file) ? readFileSync(file, "utf8") : "";
-  writeFileSync(file, rewritePin(before, target));
+  writeFileSync(file, followMark(rewritePin(before, target), branch));
   const check = await checkInstance(ctx);
   if (check.level === "fail") {
     // Put it back: a failed update leaves the instance exactly as it was.
@@ -59,7 +72,7 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
     writeFileSync(file, before);
     return { ok: false, lines: [...out, `instance.core failed after the move, put back: ${check.detail}`] };
   }
-  out.push(`${CORE_VERSION_FILE} now pins ${target.slice(0, 9)} (${tag}); instance.core: ${check.level}`);
+  out.push(`${CORE_VERSION_FILE} now pins ${target.slice(0, 9)} (${label}); instance.core: ${check.level}`);
   out.push("next: run `hub doctor` and the project checks, then commit core/ and core.version together, in one commit.");
   return { ok: true, lines: out };
 }

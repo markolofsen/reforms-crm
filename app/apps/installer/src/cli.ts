@@ -152,9 +152,9 @@ program.command("projects").description("List the projects a session can be boun
   });
 
 program.command("core").description("Move an instance to another core version. `hub core update` lists the tags; `hub core update <tag> --apply` checks it out, rewrites core.version and runs the instance check; a failed move is put back.")
-  .command("update").argument("[tag]", "a vX.Y.Z tag of the core").option("--apply", "do it (default: show the plan)")
-  .action(async (tag: string | undefined, o: { apply?: boolean }) => {
-    const r = await coreUpdate(ctxOf(), tag, !!o.apply);
+  .command("update").argument("[tag]", "a vX.Y.Z tag of the core").option("--apply", "do it (default: show the plan)").option("--branch <name>", "follow the tip of origin/<name> instead of a tag (a test instance; the pin stays a commit)")
+  .action(async (tag: string | undefined, o: { apply?: boolean; branch?: string }) => {
+    const r = await coreUpdate(ctxOf(), tag, !!o.apply, o.branch);
     for (const l of r.lines) console.log(l);
     done(r.ok ? 0 : 1);
   });

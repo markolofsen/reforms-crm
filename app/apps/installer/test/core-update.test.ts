@@ -89,3 +89,22 @@ describe("hub core update", () => {
     expect((await coreUpdate(c, undefined, false)).ok).toBe(false);
   });
 });
+
+describe("hub core update --branch", () => {
+  it("follows the tip of origin/main and records it, then a tag pin removes the mark", async () => {
+    const r = rig();
+    const o = await coreUpdate(r.ctx, undefined, true, "main");
+    expect(o.ok, o.lines.join("\n")).toBe(true);
+    expect(git(r.core, "rev-parse", "HEAD")).toBe(r.v2);
+    expect(pinOf(r.home)).toContain("# follows: main");
+    expect(pinOf(r.home)).toContain(r.v2);
+    expect((await coreUpdate(r.ctx, undefined, true, "main")).lines.join("\n")).toContain("nothing to do");
+    const back = await coreUpdate(r.ctx, "v0.1.0", true);
+    expect(back.ok, back.lines.join("\n")).toBe(true);
+    expect(pinOf(r.home)).not.toContain("follows:");
+  });
+  it("refuses a branch that origin does not have", async () => {
+    const r = rig();
+    expect((await coreUpdate(r.ctx, undefined, true, "nope")).ok).toBe(false);
+  });
+});
