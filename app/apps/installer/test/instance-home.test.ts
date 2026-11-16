@@ -133,7 +133,7 @@ describe("what an agent started in an instance gets", () => {
     for (const cmd of [["doctor"], ["agent", "x"], ["projects"], ["setup", "--dry-run"], ["core", "update"], ["audit-run", "x.jsonl", "--project", "p"]]) {
       const r = await run(...cmd);
       expect(r.exitCode, cmd.join(" ")).toBe(2);
-      expect(r.stderr.trim().split("\n")).toEqual(["error: HUB_HOME is not set: run ./run.sh from an instance folder, or export HUB_HOME"]);
+      expect(r.stderr.trim().split("\n")).toEqual(["error: no instance: run hub inside an instance folder (one with core.version), or export HUB_HOME"]);
     }
     expect((await run("--help")).exitCode).toBe(0);
     expect((await run("guide")).exitCode).toBe(0);

@@ -1,4 +1,5 @@
 import { ADMIN_PORT } from "@hub/config";
+import { instancePorts } from "@hub/config/paths";
 import type { Ctx } from "../context.ts";
 import type { CheckResult, Step } from "../types.ts";
 import { fail, pass } from "./helpers.ts";
@@ -27,8 +28,8 @@ export const adminSteps: Step[] = [
   {
     id: "admin.loopback", group: "Admin", title: "The admin listens on this machine only",
     why: "The admin can send mail; it must never be reachable from the network.",
-    verifies: `If the admin is running, port ${ADMIN_PORT} (or HUB_ADMIN_PORT) answers on 127.0.0.1 and no listener is bound to every interface. Not running is fine.`,
-    check: (ctx) => adminLoopbackCheck(ctx, Number(process.env.HUB_ADMIN_PORT) || ADMIN_PORT),
+    verifies: `If the admin is running, the instance admin port (admin_port in config/config.json, or HUB_ADMIN_PORT; default ${ADMIN_PORT}) answers on 127.0.0.1 and no listener is bound to every interface. Not running is fine.`,
+    check: (ctx) => adminLoopbackCheck(ctx, instancePorts(ctx.paths).admin),
     manual: { steps: ["Stop whatever listens on the admin port, then start the admin with `hub up`; it always binds 127.0.0.1."] },
   },
 ];

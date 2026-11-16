@@ -141,7 +141,7 @@ Step id: `admin.loopback`
 
 1. Stop whatever listens on the admin port, then start the admin with `hub up`; it always binds 127.0.0.1.
 
-**Verified by.** If the admin is running, port 5173 (or HUB_ADMIN_PORT) answers on 127.0.0.1 and no listener is bound to every interface. Not running is fine.
+**Verified by.** If the admin is running, the instance admin port (admin_port in config/config.json, or HUB_ADMIN_PORT; default 5173) answers on 127.0.0.1 and no listener is bound to every interface. Not running is fine.
 
 ## Mail
 

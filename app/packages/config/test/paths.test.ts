@@ -10,7 +10,7 @@ const instanceDir = () => mkdtempSync(join(tmpdir(), "hub-home-"));
 describe("hubPaths without an instance", () => {
   it("is a HubHomeMissingError with the one-line fix: there is no layout without HUB_HOME", () => {
     expect(() => hubPaths({ env: empty })).toThrow(HubHomeMissingError);
-    expect(() => hubPaths({ env: { HUB_HOME: "  " } })).toThrow("HUB_HOME is not set: run ./run.sh from an instance folder, or export HUB_HOME");
+    expect(() => hubPaths({ env: { HUB_HOME: "  " } })).toThrow("no instance: run hub inside an instance folder (one with core.version), or export HUB_HOME");
   });
   it("the core is this checkout, never the instance", () => {
     expect(hubPaths({ env: { HUB_HOME: instanceDir() } }).core).toBe(CORE_ROOT);

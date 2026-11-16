@@ -1,9 +1,10 @@
 // The ONE place that knows where the hub's files live (decision 0016). One layout: the core is code, the instance (`HUB_HOME`) is data. Node-only: import it as
 // `@hub/config/paths`, never from the browser entry. Every other file asks `hubPaths()`; a gate test
 // (`apps/installer/test/home-seams.test.ts`) fails when a file outside this one joins a path to the repo root itself.
-import { existsSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ADMIN_PORT, SERVER_PORT } from "./index";
 
 /** The checkout this code runs from: where `skills/`, `app/` and `config/mcp.json` ship. Four levels above `app/packages/config/src`. */
 export const CORE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
@@ -42,12 +43,31 @@ export interface HubPathsOptions {
   core?: string;
   /** Override `HUB_HOME`. */
   home?: string;
+  /** Where to look for an instance when `HUB_HOME` is unset (default: the current folder). */
+  cwd?: string;
 }
+
+/** The file that marks an instance root: the core pin. */
+export const INSTANCE_MARKER = "core.version";
+
+/** The nearest folder at or above `start` that holds `core.version`: the instance a command was started inside. `undefined` when there is none. */
+export function findInstanceHome(start: string): string | undefined {
+  let dir = resolve(start);
+  for (;;) {
+    if (existsSync(join(dir, INSTANCE_MARKER))) return dir;
+    const up = dirname(dir);
+    if (up === dir) return undefined;
+    dir = up;
+  }
+}
+
+/** True when `HUB_HOME` is set (an explicit instance, never overridden by the current folder). */
+export const hasExplicitHome = (env: NodeJS.ProcessEnv = process.env): boolean => !!fromEnv(env, "HUB_HOME");
 
 /** `HUB_HOME` is unset: an instance command has no instance to work on. The CLI prints this one line and exits 2. */
 export class HubHomeMissingError extends Error {
   constructor() {
-    super("HUB_HOME is not set: run ./run.sh from an instance folder, or export HUB_HOME");
+    super("no instance: run hub inside an instance folder (one with core.version), or export HUB_HOME");
     this.name = "HubHomeMissingError";
   }
 }
@@ -61,14 +81,14 @@ const fromEnv = (env: NodeJS.ProcessEnv, name: string): string | undefined => en
  * - `db`: `HUB_DB`, else `<home>/data/app.db`.
  * - `secrets`: `HUB_CONFIG_DIR`, else `<home>/state/secrets`.
  * - `configFile`: `HUB_CONFIG_FILE`, else `<home>/config/config.json`.
- * - `home`: the `home` option, else `HUB_HOME`; neither is a {@link HubHomeMissingError}.
+ * - `home`: the `home` option, else `HUB_HOME`, else the instance the current folder is inside ({@link findInstanceHome}); none is a {@link HubHomeMissingError}.
  * Everything else is derived from `home` (state, evidence, mcp file, claude skills) or `core` (skills, templates, mcp defaults).
  * A `HUB_HOME` that is not an existing folder, or is the core itself, throws: a typo must not create a second instance silently and the core holds no data.
  */
 export function hubPaths(o: HubPathsOptions = {}): HubPaths {
   const env = o.env ?? process.env;
   const core = o.core ? resolve(o.core) : CORE_ROOT;
-  const rawHome = o.home ?? fromEnv(env, "HUB_HOME");
+  const rawHome = o.home ?? fromEnv(env, "HUB_HOME") ?? findInstanceHome(o.cwd ?? process.cwd());
   if (!rawHome) throw new HubHomeMissingError();
   const home = isAbsolute(rawHome) ? resolve(rawHome) : expand(rawHome, env);
   if (!(existsSync(home) && statSync(home).isDirectory())) throw new Error(`HUB_HOME is not a folder: ${home}`);
@@ -106,3 +126,28 @@ export const pathsAt = (home: string, env: NodeJS.ProcessEnv = process.env): Hub
 
 /** The user-global skills folder `~/.claude/skills`, where `hub setup` links the core skills for every folder (`userHome` is the person's HOME, not the hub's). */
 export const userClaudeSkills = (userHome: string): string => join(userHome, ".claude", "skills");
+
+export interface HubPorts { admin: number; api: number }
+
+const portOf = (v: unknown, what: string): number | undefined => {
+  if (v === undefined || v === null || v === "") return undefined;
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 1024 || n > 65535) throw new Error(`${what} must be a port between 1024 and 65535, got ${String(v)}`);
+  return n;
+};
+
+/**
+ * The two loopback ports of one instance, so two instances can run side by side. Highest first:
+ * `HUB_ADMIN_PORT` / `HUB_PORT`, then `admin_port` / `api_port` in the instance's `config/config.json`, then the defaults (5173, 4317).
+ * A malformed value is an error, never a silent fallback; an admin and an API on the same port is an error too.
+ */
+export function instancePorts(paths: Pick<HubPaths, "configFile">, env: NodeJS.ProcessEnv = process.env): HubPorts {
+  let cfg: Record<string, unknown> = {};
+  if (existsSync(paths.configFile)) {
+    try { cfg = JSON.parse(readFileSync(paths.configFile, "utf8")) as Record<string, unknown>; } catch { cfg = {}; }
+  }
+  const admin = portOf(env.HUB_ADMIN_PORT?.trim(), "HUB_ADMIN_PORT") ?? portOf(cfg.admin_port, "config admin_port") ?? ADMIN_PORT;
+  const api = portOf(env.HUB_PORT?.trim(), "HUB_PORT") ?? portOf(cfg.api_port, "config api_port") ?? SERVER_PORT;
+  if (admin === api) throw new Error(`the admin and the API both use port ${admin}: set different admin_port and api_port in ${paths.configFile}`);
+  return { admin, api };
+}
