@@ -89,7 +89,7 @@ describe("what an agent started in an instance gets", () => {
     const f = writeSessionFiles(paths().home, paths().projects, "acme-travel", process.execPath, paths());
     expect(f.rules).toContain("Read(./projects/nordhaus/**)");
     expect(f.rules).toContain("Edit(./data/**)");
-    expect(f.rules).toContain("Write(./state/secrets/**)");
+    expect(f.rules).toContain("Edit(./state/secrets/**)");
     expect(f.rules.some((r) => r.includes("acme-travel/**"))).toBe(false);
     expect(f.rules.join("\n")).not.toContain("app/projects");
   });

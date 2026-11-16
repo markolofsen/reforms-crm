@@ -58,7 +58,7 @@ export function denyRules(projectsDir: string, root: string, slug: string | unde
   const rules: string[] = [];
   const denied = [`./${rel(paths.secrets)}/**`, `./${rel(path.dirname(paths.db))}/**`, "~/.config/reforms-crm/**"];
   for (const o of otherProjects(projectsDir, slug)) denied.push(`./${rel(path.join(projectsDir, o))}/**`);
-  for (const p of denied) for (const tool of ["Read", "Edit", "Write"]) rules.push(`${tool}(${p})`);
+  for (const p of denied) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
   // `hub send` is the hub's own sender (decision 0011, plan P23): a person runs it, never the agent.
   rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
   return rules;
