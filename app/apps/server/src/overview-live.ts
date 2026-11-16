@@ -83,7 +83,7 @@ function notionFailure(e: unknown, project: string, tokenFile: string): Failure 
   if (e instanceof Timeout) return { code: "timeout", message: "Notion did not answer in time.", fix: RETRY };
   switch (classifyNotionError(e)) {
     case "token-rejected":
-      return { code: "token-rejected", message: "Notion rejected the token.", fix: `Replace the token in state/secrets/${tokenFile} with a working integration token, then run \`hub doctor ${project}\`.` };
+      return { code: "token-rejected", message: "Notion rejected the token.", fix: `Replace the token in state/secrets/${tokenFile} with a working integration token, then run \`hub doctor ${project}\`. Manual sessions work without it, through the Notion connector.` };
     case "not-shared":
       return { code: "not-shared", message: "The Notion integration cannot see this data source.", fix: "Share the project's Notion teamspace page with the integration (Notion: ... > Connections), then Refresh." };
     case "unreachable":
@@ -96,7 +96,7 @@ function notionFailure(e: unknown, project: string, tokenFile: string): Failure 
 export const tokenMissing = (project: string, tokenFile: string): Failure => ({
   code: "token-missing",
   message: "The Notion token is missing.",
-  fix: `Put the token alone in state/secrets/${tokenFile} (chmod 600), then run \`hub doctor ${project}\`.`,
+  fix: `Put the token alone in state/secrets/${tokenFile} (chmod 600), then run \`hub doctor ${project}\`. Manual sessions work without it, through the Notion connector.`,
 });
 
 const SAFE_FILE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;

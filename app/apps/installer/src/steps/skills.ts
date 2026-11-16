@@ -38,7 +38,7 @@ export const skillSteps: Step[] = [
     async check(ctx) {
       const names = runtimeSkills(ctx);
       const off = names.filter((n) => linkTarget(path.join(skillsHome(ctx), n)) !== path.join(ctx.paths.skills, n));
-      return off.length ? fail(`not linked: ${off.join(", ")}`) : pass(names.length ? names.join(", ") : "no run-time skills yet");
+      return off.length ? fail(`not linked: ${off.join(", ")}. These are user-global links in ~/.claude/skills, shared by every instance: linking points them at THIS core. Say yes and run: ./run.sh install --only skills.runtime`) : pass(names.length ? names.join(", ") : "no run-time skills yet");
     },
     async apply(ctx) {
       mkdirSync(skillsHome(ctx), { recursive: true });

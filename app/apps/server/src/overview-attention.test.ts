@@ -46,7 +46,7 @@ describe("attentionOf", () => {
             { account: "A", shared: false, newSinceTriage: { state: "off", message: "No login for this account." } },
             { account: "B", shared: false, newSinceTriage: { state: "error", code: "timeout", message: "x", fix: "y" } },
           ],
-          notion: { clients: { dataSourceId: "d", count: { state: "error", code: "token-missing", message: "The Notion token is missing.", fix: "Put the token in state/secrets." } }, leads: null },
+          notion: { clients: { dataSourceId: "d", count: { state: "error", code: "token-rejected", message: "The Notion token was rejected.", fix: "Put the token in state/secrets." } }, leads: null },
           sends: { today: 0, since: "s", failed24h: 0, stuck: 0, stopped: true, auto: { mode: "draft", cap: 5, used24h: 0 } },
         }),
       ],
@@ -60,7 +60,7 @@ describe("attentionOf", () => {
 
   it("a missing Notion token is an error item with its fix line, never a quiet state", () => {
     const [i] = run([card("alpha", { notion: { clients: { dataSourceId: "d", count: { state: "error", code: "token-missing", message: "The Notion token is missing.", fix: "Put the token alone in state/secrets/notion-token." } }, leads: null } })], { alpha: extra() });
-    expect(i).toMatchObject({ kind: "notion-token", severity: "blocker", project: "alpha", focus: "project" });
+    expect(i).toMatchObject({ kind: "notion-token", severity: "needs-owner", project: "alpha", focus: "project" });
     expect(i?.sentence).toContain("state/secrets/notion-token");
   });
 

@@ -95,3 +95,11 @@ describe("audit evidence (B4)", () => {
     expect(a.fp).toEqual(b.fp);
   });
 });
+
+
+describe("read summary from a JSON reply", () => {
+  it("takes the sender from the message, not from a DKIM h= list in the raw headers", () => {
+    const result = JSON.stringify({ message: { id: 1, sender: "Ann <ann@x.com>", dateReceived: "2026-11-16", allHeaders: "dkim-signature: h=to:from:subject; from: header.i=@evil.com" } });
+    expect(summarizeCall({ name: "mcp__mail-mcp__get_message_content", input: { message_id: 1 }, result })).toMatchObject({ from: "ann@x.com", date: "2026-11-16" });
+  });
+});

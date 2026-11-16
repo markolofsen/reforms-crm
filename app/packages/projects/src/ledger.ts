@@ -85,6 +85,13 @@ function findIds(text: string): number[] | null {
 
 /** The sender address in the text of one message, and its date, when the result says them. */
 function fromOf(text: string): { from?: string; date?: string } {
+  try { // a JSON reply names the fields; the regex below would also hit "from:" inside the raw headers' DKIM h= list
+    const j = JSON.parse(text) as Record<string, unknown>;
+    const m = (j.message && typeof j.message === "object" ? j.message : j) as Record<string, unknown>;
+    const addr = String(m.sender ?? m.from ?? "").match(ADDRESS)?.[0];
+    const d = m.dateReceived ?? m.date_received ?? m.date;
+    if (addr || typeof d === "string") return { ...(addr ? { from: lower(addr) } : {}), ...(typeof d === "string" ? { date: d } : {}) };
+  } catch { /* plain text: fall through */ }
   const head = text.slice(0, 4000);
   const f = head.match(/"?(?:from|sender)"?\s*[:=]\s*"?([^\n]*)/i)?.[1];
   const addr = f?.match(ADDRESS)?.[0];

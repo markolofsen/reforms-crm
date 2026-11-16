@@ -327,7 +327,7 @@ program.command("batch-check").description("One batch of drafts as a set: eviden
 program.command("guard").description("PreToolUse hook of `hub agent`: reads one tool call as JSON on stdin; exit 0 allows, exit 2 blocks. Default warn mode (logs to state/guard.log); HUB_GUARD=block refuses a call that leaves the project.")
   .option("--post", "PostToolUse hook: append the call to the evidence ledger (state/evidence/<slug>/<session>.jsonl); never blocks")
   .action((o: { post?: boolean }) => {
-    if (o.post) { runGuardPost(readFileSync(0, "utf8"), { root: ledgerRoot() }); return; }
+    if (o.post) { const r = runGuardPost(readFileSync(0, "utf8"), { root: ledgerRoot() }); if (r.stdout) process.stdout.write(r.stdout + "\n"); return; }
     const r = runGuard(readFileSync(0, "utf8"), { root: ctxOf().paths.home, projectsDir: projectsDir(), paths: ctxOf().paths });
     if (r.stderr) console.error(r.stderr);
     done(r.code);

@@ -59,7 +59,7 @@ export function attentionOf(input: AttentionInput): AttentionItem[] {
 
     const sources = [c.notion.clients, c.notion.leads].flatMap((s) => (s ? [s.count] : []));
     const tokenErr = sources.find((b) => b.state === "error" && (b.code === "token-missing" || b.code === "token-rejected"));
-    if (tokenErr?.state === "error") item({ kind: "notion-token", severity: "blocker", sentence: `${p}: ${tokenErr.message} ${tokenErr.fix}`, focus: "project" });
+    if (tokenErr?.state === "error") item({ kind: "notion-token", severity: tokenErr.code === "token-missing" ? "needs-owner" : "blocker", sentence: `${p}: ${tokenErr.message} ${tokenErr.fix}`, focus: "project" });
     if (c.sends.stopped) item({ kind: "send-stopped", severity: "blocker", sentence: `${p}: sending is stopped (Stop all). Resume it in Project when you are ready.`, focus: "project" });
     if (x.doctorFailed.length > 0) {
       const names = x.doctorFailed.slice(0, 2).join(", ");

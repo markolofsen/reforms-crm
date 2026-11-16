@@ -1,3 +1,4 @@
+import { slimMessageContent } from "./slim-headers.ts";
 import { hubPaths, pathsAt, type HubPaths } from "@hub/config/paths";
 import { auditToolCalls, defaultProjectsRoot, type AuditLayout, kindOf, loadProject, preDraftCheck, type SkillScope, type ToolCall } from "@hub/projects";
 import { instanceServer } from "./mcp-servers.ts";
@@ -198,11 +199,17 @@ export function preDraftViolations(payload: GuardInput, root: string, slug: stri
   } catch { return []; }
 }
 
-/** `hub guard --post`: the PostToolUse hook. Appends the call's thin summary to the session's ledger; always exit 0, no output. */
-export function runGuardPost(stdin: string, g: GuardEnv): { code: 0; stderr: string } {
+/** `hub guard --post`: the PostToolUse hook. Appends the call's thin summary to the session's ledger (from the ORIGINAL reply), then for `get_message_content` prints a replacement reply with slim headers. Always exit 0. */
+export function runGuardPost(stdin: string, g: GuardEnv): { code: 0; stderr: string; stdout?: string } {
+  let stdout: string | undefined;
   try {
+    const payload = JSON.parse(stdin) as PostPayload;
     const slug = (g.env ?? process.env).HUB_PROJECT?.trim();
-    if (slug) recordPost(g.root, slug, JSON.parse(stdin) as PostPayload);
+    if (slug) recordPost(g.root, slug, payload);
+    if (String(payload.tool_name ?? "").endsWith("__get_message_content")) {
+      const slim = slimMessageContent(payload.tool_response);
+      if (slim != null) stdout = JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", updatedMCPToolOutput: slim } });
+    }
   } catch { /* the ledger must never stop a session */ }
-  return { code: 0, stderr: "" };
+  return { code: 0, stderr: "", ...(stdout ? { stdout } : {}) };
 }
