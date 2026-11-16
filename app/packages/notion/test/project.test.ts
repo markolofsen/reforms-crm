@@ -78,6 +78,6 @@ describe("schema v1 project.md", () => {
 describe("project fixture", () => {
   it("acme lists the five CRM databases", async () => {
     const p = await loadProject(join(here, "fixtures", "acme"));
-    expect(p.databases.map((d) => d.slug)).toEqual(["clients", "leads", "workflows", "knowledge", "reports"]);
+    expect(p.databases.map((d) => d.slug)).toEqual(["clients", "leads", "knowledge", "reports"]);
   });
 });

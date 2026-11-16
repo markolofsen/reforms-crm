@@ -63,7 +63,7 @@ How to adapt a project (from Help):
 2. Option lists are data: Pipeline, Stage, Type, Lead source, Role. Start with the generic lists in these files and add the company's own, additively.
 3. Hub reads Notion columns through a per-project mapping; some names are fixed in code. Do not rename a column without the developer.
 4. A new field names its writer in its description.
-5. Write the company's own Knowledge and Workflows. Never reuse another company's answers.
+5. Write the company's own Knowledge (and its workflows, which are files in the project folder, not a Notion database). Never reuse another company's answers.
 
 ## Rules agents follow on the CRM
 

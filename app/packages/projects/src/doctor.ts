@@ -4,6 +4,7 @@
 import { formatIssue, hasErrors } from "./parse.js";
 import { kindOf } from "./kinds.js";
 import type { ProjectConfig } from "./schema.js";
+import { loadWorkflows, workflowErrors } from "./workflows.js";
 import { duplicateClaims, type LoadedProject } from "./registry.js";
 
 export type CheckOutcome = "pass" | "fail" | "skipped";
@@ -115,6 +116,15 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
         : input.knowledgeDocs > 0
           ? { name: "knowledge index not empty", outcome: "pass", detail: `${input.knowledgeDocs} indexed of ${input.knowledgeFiles} files` }
           : { name: "knowledge index not empty", outcome: "fail", detail: `${input.knowledgeFiles} files but nothing is indexed (run knowledge index ${p.slug})` },
+  );
+
+  const wf = loadWorkflows(project.folder);
+  checks.push(
+    wf.length === 0
+      ? skip("workflows parse", "no workflows/ folder or no files in it")
+      : workflowErrors(wf) > 0
+        ? { name: "workflows parse", outcome: "fail", detail: `${workflowErrors(wf)} error(s) in ${wf.length} workflow(s); run \`hub workflows check ${p.slug}\`` }
+        : { name: "workflows parse", outcome: "pass", detail: `${wf.length} workflow(s), ${wf.filter((w) => w.usage === "agent").length} the agent may pick` },
   );
 
   if (input.mcpMailAccounts === undefined) checks.push(skip("mail MCP limited to the project's accounts", "per-run MCP config was not read"));

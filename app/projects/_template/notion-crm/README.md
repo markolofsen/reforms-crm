@@ -19,13 +19,13 @@ A distilled, local description of the CRM in Notion: what each module is for, it
 | `03-leads.md` | Leads |
 | `04-tasks.md` | Tasks |
 | `05-reports-documents-business-contacts.md` | Reports, Documents, Business contacts |
-| `06-knowledge-workflows.md` | Knowledge, Workflows |
+| `06-knowledge.md` | Knowledge |
 | `07-expenses.md` | Expenses, Payments |
 | `08-views.md` | how a view is written, the views per database |
 | `09-help-pack.md` | the Help page tree to recreate, with placeholders |
 | `10-api-traps.md` | what the Notion API and MCP refuse or do silently |
-| `schema/<db>.json` | machine-readable properties, types, options, relation targets and reverse names, writer, vertical/ads/sync/migration flags, for all 14 databases: clients, leads, deals, organizations, open-loops, participants, tasks, reports, knowledge, workflows, documents, contacts, expenses, payments (read live 2026-11-14). The JSON wins over the tables in `02` to `07`; the tables carry the meaning and rules |
-| `views/<db>.json` | the live views as JSON for the same 14 databases (filters, sorts, groups; Tasks, Clients and the Sales databases have `displayProperties` cut to acting columns, the rest list the live columns). `dataSourceUrl` is a placeholder |
+| `schema/<db>.json` | machine-readable properties, types, options, relation targets and reverse names, writer, vertical/ads/sync/migration flags, for all 13 databases: clients, leads, deals, organizations, open-loops, participants, tasks, reports, knowledge, documents, contacts, expenses, payments (read live 2026-11-14). The JSON wins over the tables in `02` to `07`; the tables carry the meaning and rules |
+| `views/<db>.json` | the live views as JSON for the same 13 databases (filters, sorts, groups; Tasks, Clients and the Sales databases have `displayProperties` cut to acting columns, the rest list the live columns). `dataSourceUrl` is a placeholder |
 
 ## Decision (owner, 2026-11-14)
 

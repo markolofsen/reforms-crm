@@ -20,7 +20,7 @@ The pack is a snapshot of one live CRM (`📘 Help`), distilled and made generic
 3. **Build the databases.** `./run.sh project setup <slug>` interviews you once; when the project's Notion has no databases it hands over to the `notion-project-deploy` skill. That skill makes a dry-run plan (CREATE / ADD / SKIP / exists), creates nothing until you say go, never deletes and never touches rows, and writes each data source id back into `project.md` under `## Notion databases`.
 4. **Check.** `./run.sh doctor <slug>` reads every database through the integration (`notion databases readable  N/N`). All 404 means the integration sees none of the teamspace: step 2, `Connections`.
 
-Core modules: Clients, Leads, Tasks, Reports, Workflows. Optional: Deals, Organizations, Open loops, Participants, Documents, Expenses and Payments, Business contacts, Knowledge. A property flagged `vertical` (real estate) or `ads` is built only if the interview asks for it.
+Core modules: Clients, Leads, Tasks, Reports. Workflows are not a Notion module: they are files in the project folder (`projects/<slug>/workflows/`, `hub workflows list <slug>`). Optional: Deals, Organizations, Open loops, Participants, Documents, Expenses and Payments, Business contacts, Knowledge. A property flagged `vertical` (real estate) or `ads` is built only if the interview asks for it.
 
 ## Rules that matter
 

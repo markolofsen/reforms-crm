@@ -15,6 +15,7 @@ import { renameProject } from "./rename.js";
 import { ProjectError } from "./parse.js";
 import { writeSetting } from "./write.js";
 import { proposeAddresses, type RoutingSnapshot } from "./addresses.js";
+import { agentIndex, loadWorkflows, workflowErrors } from "./workflows.js";
 import { defaultProjectsRoot, loadProject, loadProjects, syncProjects, type LoadedProject } from "./registry.js";
 
 export interface ProjectCommandOptions {
@@ -227,6 +228,41 @@ export function runAddresses(slug: string, routesFile: string, apply: boolean, o
   return 0;
 }
 
+
+/** `workflows list <slug>`: the project's workflows with how an agent may use each; `--json` is the index an agent reads (only what it may pick). */
+export function runWorkflowsList(slug: string, json: boolean, o: ProjectCommandOptions = {}): number {
+  const out = o.out ?? console.log;
+  const loaded = loadProject(o.projectsRoot ?? defaultProjectsRoot(), slug);
+  const all = loadWorkflows(loaded.folder);
+  if (json) {
+    out(JSON.stringify({ project: slug, workflows: agentIndex(all) }, null, 2));
+    return 0;
+  }
+  if (!all.length) {
+    out(`${slug}: no workflows (put one file per workflow in ${slug}/workflows/; the starter pack is app/projects/_template/workflows/)`);
+    return 0;
+  }
+  const w = (k: "name") => Math.max(...all.map((x) => x[k].length));
+  for (const x of all) {
+    const bad = x.issues.filter((i) => i.severity === "error").length;
+    out(`${x.usage.padEnd(7)} ${(x.status ?? "?").padEnd(7)} ${(x.runMode ?? "?").padEnd(14)} ${x.name.padEnd(w("name"))}${bad ? `  (${bad} error(s): run \`hub workflows check ${slug}\`)` : ""}`);
+  }
+  const n = (u: string) => all.filter((x) => x.usage === u).length;
+  out(`${all.length} workflow(s): ${n("agent")} the agent may pick, ${n("request")} only on the owner's request, ${n("never")} retired`);
+  return 0;
+}
+
+/** `workflows check <slug>`: every file parses; exit 1 on an error, warnings do not fail. */
+export function runWorkflowsCheck(slug: string, o: ProjectCommandOptions = {}): number {
+  const out = o.out ?? console.log;
+  const loaded = loadProject(o.projectsRoot ?? defaultProjectsRoot(), slug);
+  const all = loadWorkflows(loaded.folder);
+  for (const x of all) for (const i of x.issues) out(`${i.severity} workflows/${x.file}: ${i.message}`);
+  const errors = workflowErrors(all);
+  out(errors ? `${slug}: ${errors} error(s) in ${all.length} workflow(s)` : `${slug}: ${all.length} workflow(s) ok`);
+  return errors ? 1 : 0;
+}
+
 /** Adds `project sync`, `project show <slug>`, `project kinds`, `project rename` and `project doctor <slug>` to a commander program. */
 export function registerProjectCommands(program: Command, o: ProjectCommandOptions = {}): Command {
   const project = program.command("project").description("Projects: the registry built from <instance>/projects/*/project.md.");
@@ -296,6 +332,22 @@ export function registerProjectCommands(program: Command, o: ProjectCommandOptio
     .argument("<slug>")
     .action(async (slug: string) => {
       process.exitCode = await runProjectDoctor(slug, o);
+    });
+  const workflows = program.command("workflows").description("Workflows: the playbooks in <project>/workflows/*.md. An agent picks only Active ones whose run mode allows it.");
+  workflows
+    .command("list")
+    .description("List a project's workflows and how an agent may use each. --json prints the index an agent reads (name, description, file; only the ones it may pick).")
+    .argument("<slug>")
+    .option("--json", "the agent index as JSON")
+    .action((slug: string, opts: { json?: boolean }) => {
+      process.exitCode = runWorkflowsList(slug, !!opts.json, o);
+    });
+  workflows
+    .command("check")
+    .description("Check every workflow file of a project: front matter, status, run mode, required sections. Exit 1 on an error.")
+    .argument("<slug>")
+    .action((slug: string) => {
+      process.exitCode = runWorkflowsCheck(slug, o);
     });
   return project;
 }

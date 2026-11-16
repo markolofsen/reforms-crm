@@ -46,7 +46,7 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 
 1. `# <name>`: one heading; the notion parser takes it as the display name. A short paragraph under it: what the project is.
 2. `## Settings`: the table below, columns `Field | Value | Answered | By`. `Answered` is an ISO date. `By` is `owner` (answered by the owner), `default` (the agent applied the default, owner did not object), or `agent` (derived from a system, e.g. `list_accounts`). A row exists only once the field is decided; a missing optional row means "default applies, never asked". Lists are comma-separated. Empty value is written as an empty cell.
-3. `## Notion databases`: list items `- <slug>: <data source id>` (existing format, read by `@hub/notion`). Slugs: `clients`, `leads`, `workflows`, `knowledge`, `reports` core; others (`deals`, `organizations`, `open-loops`, `participants`, `tasks`) optional.
+3. `## Notion databases`: list items `- <slug>: <data source id>` (existing format, read by `@hub/notion`). Slugs: `clients`, `leads`, `knowledge`, `reports` core; others (`deals`, `organizations`, `open-loops`, `participants`, `tasks`) optional.
 4. `## Answers`: append-only log, columns `Date | Field | Question | Answer`.
 5. `## Notes`: free prose.
 

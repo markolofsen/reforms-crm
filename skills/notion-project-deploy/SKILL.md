@@ -24,7 +24,7 @@ Talk to the owner in Russian, briefly; every file and every Notion page you crea
 ## Inputs
 
 - `projects/<slug>/project.md`: name, `notion.teamspace`, `## Notion databases` (ids already known), `## Answers`.
-- The module list. If the project has none recorded, derive: core = Clients, Leads, Tasks, Reports, Workflows (Knowledge is not deployed by default: the knowledge base is the local `knowledge/` folder; add it only if the owner asks); ask once about the optional ones (Deals/Organizations/Open loops/Participants, Documents, Expenses, Business contacts) and whether the vertical (real estate) options are wanted. Default: core only, generic options, no vertical. Record the answer in `## Answers` (one question per message, never re-ask; doc 16 section 8).
+- The module list. If the project has none recorded, derive: core = Clients, Leads, Tasks, Reports (workflows are not a Notion module: they are files, `hub workflows`) (Knowledge is not deployed by default: the knowledge base is the local `knowledge/` folder; add it only if the owner asks); ask once about the optional ones (Deals/Organizations/Open loops/Participants, Documents, Expenses, Business contacts) and whether the vertical (real estate) options are wanted. Default: core only, generic options, no vertical. Record the answer in `## Answers` (one question per message, never re-ask; doc 16 section 8).
 - The parent page: `notion.parent_page` (a page id, wins), else `notion.teamspace` (search), else ask for the page URL, one question.
 
 ## Step 0: access and preflight (checklist, in order; stop at the first failure)
@@ -57,7 +57,7 @@ Modules: <list>        Vertical: no        Language: en
 3. SKIP (API cannot): Clients."No task" formula needs Tasks; Status is a real status property (trap 1)
 4. CREATE Help pages: 4 (Help, CRM overview, Modules, Guides) + 6 module pages
 5. WRITE BACK: project.md -> clients, tasks, ...
-Exists unchanged: Reports, Workflows
+Exists unchanged: Reports
 Differs, will not change: Leads.Status is type "status" (stays)
 ```
 

@@ -44,7 +44,7 @@ Verified live JSON exists in `views/<db>.json` for all 14 databases (read 2026-1
 
 **Open loops** (live, 3): Owner owes (Who owes = owner, Done unchecked; Due asc), Waiting on others (Who owes Client or Other, Done unchecked), Overdue (formula). The earlier "Open promises" name does not exist live.
 
-**Organizations**: All. **Participants**: Default view (table, no filter). **Workflows** (live, 3): Active (Status = Active), Drafts (Status = Draft), All.
+**Organizations**: All. **Participants**: Default view (table, no filter).
 
 **Tasks** (live, 12): Board (open, grouped by Status, Due asc), Today (open, Due today or earlier), Week (open, Due within the next week), Waiting (Status = Waiting; group Waiting on), Inbox (Status = Inbox; Created desc), Done (Done or Cancelled; Last edited desc), All, By client (open; group Client), My tasks (Assignee = me, open), By area (open; group Area), Needs area (Area empty, open), By project (open; group Project; only with Projects). "Open" = Status not Done and not Cancelled. Live first view is Board; the pack's earlier default "My tasks" is a choice, not the live order.
 
@@ -60,4 +60,4 @@ Operators seen in the live JSON, beyond those above: `enum_is_not`, `checkbox_is
 
 ## Page templates (recreate by hand, the API creates database pages from a template only on request)
 
-Tasks: none required (the live nine are migration artefacts). Reports: `Conversation report`. Workflows: `New workflow` (Goal, Input, Steps, Do not, Done when, Report back). Others: none.
+Tasks: none required (the live nine are migration artefacts). Reports: `Conversation report`. Others: none.

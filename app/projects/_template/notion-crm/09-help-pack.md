@@ -15,7 +15,6 @@ Source: Help and its children, read 2026-11-14 via the Notion MCP. There is a se
     📋 Reports
     📄 Documents
     🎲 Knowledge
-    🧪 Workflows
     💳 Expenses
     📇 Business contacts
   🛠️ Guides

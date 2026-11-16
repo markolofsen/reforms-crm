@@ -92,7 +92,7 @@ describe("schema 1 is the only format", () => {
   it("the demo fixture parses with its five databases and no error", () => {
     const p = parseProjectMd(schemaV1Fixture("schema-v1-demo"), "demo");
     expect(hasErrors(p.issues)).toBe(false);
-    expect(p.databases.map((d) => d.slug)).toEqual(["clients", "leads", "workflows", "knowledge", "reports"]);
+    expect(p.databases.map((d) => d.slug)).toEqual(["clients", "leads", "knowledge", "reports"]);
   });
   it("a file with no ## Settings is an error that names the fix, not a half-read project", () => {
     const p = parseProjectMd(`# x\n\nTeamspace "CRM: x".\n\n- clients: 00000000-0000-4000-8000-000000000001\n`, "x");

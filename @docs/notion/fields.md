@@ -21,7 +21,6 @@ Every property of every database the Notion CRM deploys, with its type, who writ
 - [Payments](#payments) (`payments`, 15 fields)
 - [Reports](#reports) (`reports`, 12 fields)
 - [Tasks](#tasks) (`tasks`, 42 fields)
-- [Workflows](#workflows) (`workflows`, 9 fields)
 
 ## Business contacts
 
@@ -384,19 +383,3 @@ Pack file: `schema/tasks.json`.
 | Is open | formula |  | Formula: Status not Done and not Cancelled; feeds Open tasks rollups. |
 | Open due | formula |  | Formula: Due while open; feeds Task due rollups. |
 | Overdue | formula |  | Formula: Due passed and not closed. |
-
-## Workflows
-
-Pack file: `schema/workflows.json`.
-
-| Field | Type | Writer | Options and notes |
-|---|---|---|---|
-| Workflow | title | people |  |
-| Description | text | people |  |
-| Status | select | people | Options: Draft, Active, Retired. |
-| Run mode | select | people | Options: Manual, Agent may pick, Automatic. |
-| Applies to | multi_select | people | Options: Lead, Client, Deal, Partner, Task. |
-| Owner | person | people |  |
-| Last reviewed | date | people |  |
-| Files | file | people |  |
-| Created by | created_by | system |  |

@@ -153,6 +153,7 @@ describe("doctorProject", () => {
       "active project has an address": "pass",
       "notion databases readable": "pass",
       "knowledge index not empty": "pass",
+      "workflows parse": "skipped",
       "mail MCP limited to the project's accounts": "pass",
     });
   });
