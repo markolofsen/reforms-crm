@@ -1,0 +1,591 @@
+{
+ "database": "deals",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones. View JSON as returned by notion-fetch; displayProperties kept to the columns a person acts on (live views list every column). dataSourceUrl is a placeholder: set it to the new data source.",
+ "views": [
+  {
+   "name": "Buyers",
+   "type": "board",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Pipeline",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": [
+       {
+        "type": "exact",
+        "value": "Buyers"
+       }
+      ]
+     },
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": [
+       {
+        "type": "exact",
+        "value": "Closed"
+       },
+       {
+        "type": "exact",
+        "value": "Lost"
+       },
+       {
+        "type": "exact",
+        "value": "Not qualified"
+       },
+       {
+        "type": "exact",
+        "value": "Withdrawn"
+       },
+       {
+        "type": "exact",
+        "value": "Expired"
+       },
+       {
+        "type": "exact",
+        "value": "Inactive"
+       }
+      ]
+     }
+    ]
+   },
+   "groupBy": {
+    "property": "Stage",
+    "propertyType": "select",
+    "hideEmptyGroups": true,
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Task due"
+   ]
+  },
+  {
+   "name": "Sellers",
+   "type": "board",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Pipeline",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": [
+       {
+        "type": "exact",
+        "value": "Sellers"
+       }
+      ]
+     },
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": [
+       {
+        "type": "exact",
+        "value": "Closed"
+       },
+       {
+        "type": "exact",
+        "value": "Lost"
+       },
+       {
+        "type": "exact",
+        "value": "Not qualified"
+       },
+       {
+        "type": "exact",
+        "value": "Withdrawn"
+       },
+       {
+        "type": "exact",
+        "value": "Expired"
+       },
+       {
+        "type": "exact",
+        "value": "Inactive"
+       }
+      ]
+     }
+    ]
+   },
+   "groupBy": {
+    "property": "Stage",
+    "propertyType": "select",
+    "hideEmptyGroups": true,
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Task due"
+   ]
+  },
+  {
+   "name": "Partners",
+   "type": "board",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Pipeline",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": [
+       {
+        "type": "exact",
+        "value": "Developers"
+       },
+       {
+        "type": "exact",
+        "value": "Referral partners"
+       }
+      ]
+     },
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": [
+       {
+        "type": "exact",
+        "value": "Closed"
+       },
+       {
+        "type": "exact",
+        "value": "Lost"
+       },
+       {
+        "type": "exact",
+        "value": "Not qualified"
+       },
+       {
+        "type": "exact",
+        "value": "Withdrawn"
+       },
+       {
+        "type": "exact",
+        "value": "Expired"
+       },
+       {
+        "type": "exact",
+        "value": "Inactive"
+       }
+      ]
+     }
+    ]
+   },
+   "groupBy": {
+    "property": "Stage",
+    "propertyType": "select",
+    "hideEmptyGroups": true,
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Task due"
+   ]
+  },
+  {
+   "name": "Closing",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": [
+       {
+        "type": "exact",
+        "value": "Contract"
+       },
+       {
+        "type": "exact",
+        "value": "Firm / Pending"
+       }
+      ]
+     }
+    ]
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Stage",
+    "Days in stage",
+    "Next step",
+    "Open tasks",
+    "Task due",
+    "At risk"
+   ]
+  },
+  {
+   "name": "At risk",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "or",
+    "filters": [
+     {
+      "type": "property",
+      "property": "At risk",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     },
+     {
+      "type": "property",
+      "property": "Stuck",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     }
+    ]
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Stage",
+    "Days in stage",
+    "At risk",
+    "Stuck",
+    "Next step",
+    "Task due"
+   ]
+  },
+  {
+   "name": "Hot",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": [
+       {
+        "type": "exact",
+        "value": "Warm"
+       },
+       {
+        "type": "exact",
+        "value": "Hot"
+       },
+       {
+        "type": "exact",
+        "value": "Offer"
+       }
+      ]
+     }
+    ]
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Stage",
+    "Budget band",
+    "Next touch",
+    "Next step",
+    "Open tasks",
+    "Task due"
+   ]
+  },
+  {
+   "name": "Closed",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": {
+       "type": "exact",
+       "value": "Closed"
+      }
+     }
+    ]
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Island",
+    "Development",
+    "Unit",
+    "Stage since"
+   ]
+  },
+  {
+   "name": "Needs review",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Needs review",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     }
+    ]
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Pipeline",
+    "Stage",
+    "Synced at"
+   ]
+  },
+  {
+   "name": "All",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Pipeline",
+    "Stage",
+    "Days in stage",
+    "Next step",
+    "Open tasks",
+    "Task due",
+    "No task"
+   ]
+  },
+  {
+   "name": "No task",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "No task",
+      "propertyType": "formula",
+      "operator": "every",
+      "resultFilter": {
+       "type": "property",
+       "property": "No task",
+       "propertyType": "checkbox",
+       "operator": "checkbox_is",
+       "value": {
+        "type": "exact",
+        "value": true
+       }
+      }
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Priority",
+     "direction": "descending"
+    }
+   ],
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Pipeline",
+    "Stage",
+    "Days in stage",
+    "Last touch",
+    "Next step"
+   ]
+  },
+  {
+   "name": "By pipeline",
+   "type": "board",
+   "dataSourceUrl": "collection://<data source id>",
+   "groupBy": {
+    "property": "Pipeline",
+    "propertyType": "select",
+    "hideEmptyGroups": false,
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Stage",
+    "Next step"
+   ]
+  },
+  {
+   "name": "Stuck",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Stage since",
+      "propertyType": "date",
+      "operator": "date_is_before",
+      "value": {
+       "type": "relative",
+       "value": "one_month_ago"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": {
+       "type": "exact",
+       "value": "Closed"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": {
+       "type": "exact",
+       "value": "Lost"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": {
+       "type": "exact",
+       "value": "Not qualified"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": {
+       "type": "exact",
+       "value": "Withdrawn"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": {
+       "type": "exact",
+       "value": "Expired"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": {
+       "type": "exact",
+       "value": "Inactive"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Stage",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": {
+       "type": "exact",
+       "value": "On hold"
+      }
+     }
+    ]
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Pipeline",
+    "Stage",
+    "Stage since",
+    "Days in stage",
+    "Next step"
+   ]
+  },
+  {
+   "name": "No contact",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Client",
+      "propertyType": "relation",
+      "operator": "is_empty"
+     }
+    ]
+   },
+   "displayProperties": [
+    "Title",
+    "Client",
+    "Pipeline",
+    "Stage",
+    "Next step"
+   ]
+  }
+ ]
+}

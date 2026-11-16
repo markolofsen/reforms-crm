@@ -1,0 +1,35 @@
+{
+  "name": "@hub/knowledge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Per-project knowledge: markdown entries, Notion dump import, SQLite FTS5 index, knowledge_search / knowledge_get MCP tools",
+  "type": "module",
+  "bin": {
+    "knowledge-mcp": "./src/mcp-bin.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "knowledge": "tsx src/cli.ts",
+    "mcp": "tsx src/mcp-bin.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*",
+    "@hub/db": "workspace:*",
+    "@hub/projects": "workspace:*",
+    "@modelcontextprotocol/server": "2.4.0",
+    "commander": "15.1.0",
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "2.4.0",
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
+  }
+}

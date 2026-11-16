@@ -1,0 +1,29 @@
+{
+  "name": "@hub/projects",
+  "version": "0.1.0",
+  "private": true,
+  "description": "project.md schema v1: parser, validator, in-place writer, registry sync and mail routing for reforms-crm",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./parse": "./src/parse.ts",
+    "./hub-commands": "./src/hub-commands.ts"
+  },
+  "scripts": {
+    "project": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*",
+    "@hub/db": "workspace:*",
+    "commander": "15.1.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
+  }
+}

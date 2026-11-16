@@ -1,0 +1,147 @@
+{
+ "database": "expenses",
+ "title": "Expenses",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+ "properties": {
+  "Expense": {
+   "type": "title",
+   "writer": "people / integration"
+  },
+  "Vendor": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "Hetzner",
+    "Anthropic",
+    "Google",
+    "Cloudflare",
+    "Notion",
+    "OpenRouter",
+    "Netlify",
+    "Topview.ai",
+    "Eugeniy",
+    "Creators Studio Bali"
+   ],
+   "note": "live options are the owner's vendors; fresh project starts empty"
+  },
+  "Category": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "Infrastructure",
+    "AI & LLM",
+    "SaaS",
+    "Team",
+    "Hardware",
+    "Video production",
+    "Legal & fees",
+    "Marketing",
+    "Travel",
+    "Other"
+   ]
+  },
+  "Status": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "Active",
+    "Trial",
+    "Paused",
+    "Cancelled",
+    "Done",
+    "Needs review"
+   ]
+  },
+  "Billing": {
+   "type": "select",
+   "writer": "people / integration",
+   "options": [
+    "Monthly",
+    "Quarterly",
+    "Yearly",
+    "Usage-based",
+    "One-time"
+   ]
+  },
+  "Amount": {
+   "type": "number",
+   "writer": "people / integration"
+  },
+  "Currency": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "USD",
+    "EUR",
+    "CAD",
+    "IDR"
+   ],
+   "note": "live set; options per project"
+  },
+  "Next payment": {
+   "type": "date",
+   "writer": "people / agents / integration"
+  },
+  "Paid by": {
+   "type": "person",
+   "writer": "people"
+  },
+  "Owner": {
+   "type": "person",
+   "writer": "people"
+  },
+  "Auto-renews": {
+   "type": "checkbox",
+   "writer": "people"
+  },
+  "Billing page": {
+   "type": "url",
+   "writer": "people"
+  },
+  "Started": {
+   "type": "date",
+   "writer": "people"
+  },
+  "Notes": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Payments": {
+   "type": "relation",
+   "target": "payments",
+   "reverse": "Expense",
+   "note": "reverse of Payments.Expense; set from the payment side"
+  },
+  "Tasks": {
+   "type": "relation",
+   "target": "tasks",
+   "reverse": "Expense",
+   "note": "reverse of Tasks.Expense; set from the task side"
+  },
+  "Monthly cost": {
+   "type": "formula",
+   "writer": "formula",
+   "scope": "same-database",
+   "note": "Active only: Yearly / 12, Quarterly / 3, Usage-based = Amount; empty for One-time, Trial, Paused, Cancelled"
+  },
+  "Paid total": {
+   "type": "rollup",
+   "writer": "formula",
+   "via": "Payments",
+   "target": "Paid amount",
+   "aggregation": "sum",
+   "trap": 2,
+   "note": "cross-database: skipped or built as a rollup after Payments exists"
+  },
+  "Last paid": {
+   "type": "rollup",
+   "writer": "formula",
+   "via": "Payments",
+   "target": "Paid on",
+   "aggregation": "latest_date",
+   "trap": 2,
+   "note": "cross-database"
+  }
+ },
+ "noteVsPack": "The pack's checkboxes Done and Needs review do not exist live (they are Status options). Paid total and Last paid are rollups of the Payments helper formulas, not formulas. Vendor and Category are select, not free text."
+}

@@ -1,0 +1,10 @@
+node_modules
+.turbo
+dist
+data/
+*.db
+*.db-wal
+*.db-shm
+projects/*/dumps/
+projects/*/knowledge/notion/
+projects/*/.generated/

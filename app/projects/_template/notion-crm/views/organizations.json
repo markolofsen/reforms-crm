@@ -1,0 +1,19 @@
+{
+ "database": "organizations",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones. View JSON as returned by notion-fetch; displayProperties kept to the columns a person acts on (live views list every column). dataSourceUrl is a placeholder: set it to the new data source.",
+ "views": [
+  {
+   "name": "All",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "displayProperties": [
+    "Name",
+    "CRM id",
+    "Domain",
+    "Kind",
+    "Clients",
+    "Synced at"
+   ]
+  }
+ ]
+}

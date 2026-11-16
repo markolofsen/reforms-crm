@@ -1,0 +1,248 @@
+{
+ "database": "leads",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable. View JSON as returned by notion-fetch; this database's displayProperties are the full live column lists. dataSourceUrl is a placeholder: set it to the new data source.",
+ "views": [
+  {
+   "name": "Inbox",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "or",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": {
+       "type": "exact",
+       "value": "New"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "select",
+      "operator": "is_empty"
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Received at",
+     "direction": "descending"
+    }
+   ],
+   "displayProperties": [
+    "Name",
+    "Received at",
+    "Source",
+    "Form",
+    "Email",
+    "Phone",
+    "Message",
+    "Owner",
+    "Client"
+   ]
+  },
+  {
+   "name": "Needs reply",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "group",
+      "operator": "or",
+      "filters": [
+       {
+        "type": "property",
+        "property": "Status",
+        "propertyType": "select",
+        "operator": "enum_is",
+        "value": {
+         "type": "exact",
+         "value": "New"
+        }
+       },
+       {
+        "type": "property",
+        "property": "Status",
+        "propertyType": "select",
+        "operator": "is_empty"
+       }
+      ]
+     },
+     {
+      "type": "property",
+      "property": "Received at",
+      "propertyType": "date",
+      "operator": "date_is_on_or_before",
+      "value": {
+       "type": "relative",
+       "value": "yesterday"
+      }
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Received at",
+     "direction": "ascending"
+    }
+   ],
+   "displayProperties": [
+    "Name",
+    "Received at",
+    "Source",
+    "Email",
+    "Phone",
+    "Message",
+    "Owner",
+    "Client"
+   ]
+  },
+  {
+   "name": "In progress",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": {
+       "type": "exact",
+       "value": "In progress"
+      }
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Next step",
+     "direction": "ascending"
+    }
+   ],
+   "groupBy": {
+    "property": "Owner",
+    "propertyType": "person",
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Name",
+    "Next step",
+    "Email",
+    "Phone",
+    "Notes",
+    "Received at",
+    "Source",
+    "Client"
+   ]
+  },
+  {
+   "name": "Board",
+   "type": "board",
+   "dataSourceUrl": "collection://<data source id>",
+   "sorts": [
+    {
+     "property": "Received at",
+     "direction": "descending"
+    }
+   ],
+   "groupBy": {
+    "property": "Status",
+    "propertyType": "select",
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Name",
+    "Received at",
+    "Owner",
+    "Next step",
+    "Client"
+   ],
+   "cardLayoutMode": "default"
+  },
+  {
+   "name": "All",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "sorts": [
+    {
+     "property": "Received at",
+     "direction": "descending"
+    }
+   ],
+   "displayProperties": [
+    "Name",
+    "Status",
+    "Received at",
+    "Source",
+    "Form",
+    "Page URL",
+    "Email",
+    "Phone",
+    "Message",
+    "Owner",
+    "Next step",
+    "Notes",
+    "Hub run id",
+    "Client"
+   ]
+  },
+  {
+   "name": "Won, no client",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": {
+       "type": "exact",
+       "value": "Won"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Client",
+      "propertyType": "relation",
+      "operator": "is_empty"
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Received at",
+     "direction": "ascending"
+    }
+   ],
+   "displayProperties": [
+    "Name",
+    "Client",
+    "Email",
+    "Phone",
+    "Owner",
+    "Received at",
+    "Notes"
+   ]
+  }
+ ]
+}

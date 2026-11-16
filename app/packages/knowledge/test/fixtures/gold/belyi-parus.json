@@ -1,0 +1,130 @@
+[
+  {
+    "q": "Можно ли взять яхту без капитана?",
+    "expect": "knowledge/files/charter/captain.md"
+  },
+  {
+    "q": "Нужен ли шкипер для аренды?",
+    "expect": "knowledge/files/charter/captain.md"
+  },
+  {
+    "q": "Сколько стоит аренда яхты на неделю в августе?",
+    "expect": "knowledge/files/charter/price.md"
+  },
+  {
+    "q": "Какие у вас цены на аренду?",
+    "expect": "knowledge/files/charter/price.md"
+  },
+  {
+    "q": "Какой нужен залог за яхту?",
+    "expect": "knowledge/files/charter/deposit.md"
+  },
+  {
+    "q": "Когда вернут депозит после аренды?",
+    "expect": "knowledge/files/charter/deposit.md"
+  },
+  {
+    "q": "Нужны ли права, чтобы управлять яхтой?",
+    "expect": "knowledge/files/charter/licence.md"
+  },
+  {
+    "q": "Подойдёт ли ICC лицензия?",
+    "expect": "knowledge/files/charter/licence.md"
+  },
+  {
+    "q": "Куда можно сплавать из Афин?",
+    "expect": "knowledge/files/routes/routes.md"
+  },
+  {
+    "q": "Какие маршруты вы советуете по Греции?",
+    "expect": "knowledge/files/routes/routes.md"
+  },
+  {
+    "q": "В какие месяцы лучше всего ехать?",
+    "expect": "knowledge/files/routes/season.md"
+  },
+  {
+    "q": "Какая погода будет в сентябре?",
+    "expect": "knowledge/files/routes/season.md"
+  },
+  {
+    "q": "Сколько человек помещается на яхте?",
+    "expect": "knowledge/files/charter/guests.md"
+  },
+  {
+    "q": "У нас компания из десяти человек, подойдёт ли катамаран?",
+    "expect": "knowledge/files/charter/guests.md"
+  },
+  {
+    "q": "Кормят ли на борту?",
+    "expect": "knowledge/files/services/food.md"
+  },
+  {
+    "q": "Можно ли заказать повара?",
+    "expect": "knowledge/files/services/food.md"
+  },
+  {
+    "q": "Можно ли ехать с маленькими детьми?",
+    "expect": "knowledge/files/services/kids.md"
+  },
+  {
+    "q": "Есть ли детские спасательные жилеты?",
+    "expect": "knowledge/files/services/kids.md"
+  },
+  {
+    "q": "Верните ли вы деньги, если мы отменим бронь?",
+    "expect": "knowledge/files/terms/cancel.md"
+  },
+  {
+    "q": "Можно ли перенести дату аренды?",
+    "expect": "knowledge/files/terms/cancel.md"
+  },
+  {
+    "q": "Топливо входит в стоимость?",
+    "expect": "knowledge/files/charter/fuel.md"
+  },
+  {
+    "q": "Сколько дизеля тратит яхта за час?",
+    "expect": "knowledge/files/charter/fuel.md"
+  },
+  {
+    "q": "Что будет, если мы разобьём яхту, есть страховка?",
+    "expect": "knowledge/files/terms/insurance.md"
+  },
+  {
+    "q": "Что покрывает страховка?",
+    "expect": "knowledge/files/terms/insurance.md"
+  },
+  {
+    "q": "Сколько стоит стоянка в марине?",
+    "expect": "knowledge/files/routes/ports.md"
+  },
+  {
+    "q": "Где можно бросить якорь бесплатно?",
+    "expect": "knowledge/files/routes/ports.md"
+  },
+  {
+    "q": "Вы встретите нас в аэропорту?",
+    "expect": "knowledge/files/services/transfer.md"
+  },
+  {
+    "q": "Как добраться из аэропорта до марины?",
+    "expect": "knowledge/files/services/transfer.md"
+  },
+  {
+    "q": "Сколько стоит такси до порта?",
+    "expect": "knowledge/files/services/transfer.md"
+  },
+  {
+    "q": "Какой размер залога и на какой срок он блокируется?",
+    "expect": "knowledge/files/charter/deposit.md"
+  },
+  {
+    "q": "Какой штраф при отмене за месяц до начала?",
+    "expect": "knowledge/files/terms/cancel.md"
+  },
+  {
+    "q": "Нужен ли капитан, если у меня нет опыта?",
+    "expect": "knowledge/files/charter/captain.md"
+  }
+]

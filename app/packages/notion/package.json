@@ -1,0 +1,29 @@
+{
+  "name": "@hub/notion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Read-only Notion dump and restore dry-run for reforms-crm",
+  "type": "module",
+  "bin": {
+    "notion-dump": "./src/cli.ts"
+  },
+  "scripts": {
+    "notion-dump": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*",
+    "@hub/projects": "workspace:*",
+    "@notionhq/client": "5.31.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
+  },
+  "exports": {
+    ".": "./src/read.ts"
+  }
+}

@@ -1,0 +1,246 @@
+{
+ "database": "clients",
+ "title": "Clients",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+ "properties": {
+  "Name": {
+   "type": "title",
+   "writer": "CRM"
+  },
+  "Email": {
+   "type": "email",
+   "writer": "CRM"
+  },
+  "Other emails": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Phone": {
+   "type": "phone_number",
+   "writer": "CRM"
+  },
+  "Gmail": {
+   "type": "url",
+   "writer": "CRM"
+  },
+  "Drive folder": {
+   "type": "url",
+   "writer": "people"
+  },
+  "Relationship": {
+   "type": "select",
+   "options": [
+    "Lead",
+    "Prospect",
+    "Client",
+    "Partner",
+    "Other"
+   ],
+   "writer": "CRM"
+  },
+  "Activity": {
+   "type": "select",
+   "options": [
+    "Active",
+    "Quiet",
+    "Dormant",
+    "Lapsed"
+   ],
+   "writer": "CRM"
+  },
+  "Grade": {
+   "type": "select",
+   "options": [
+    "Priority",
+    "Standard",
+    "Low"
+   ],
+   "writer": "human"
+  },
+  "Type": {
+   "type": "select",
+   "options": [
+    "Agent/Broker",
+    "CBI agent",
+    "Lawyer",
+    "Banker/Lender",
+    "Accountant/Tax",
+    "Developer",
+    "Service provider",
+    "Media",
+    "Colleague",
+    "Other"
+   ],
+   "writer": "CRM",
+   "note": "generic: drop Agent/Broker, CBI agent"
+  },
+  "Lead source": {
+   "type": "select",
+   "options": [
+    "Partner brokerage",
+    "Resort partner",
+    "Portal",
+    "Own website",
+    "Referral",
+    "CBI partner",
+    "Past client",
+    "Event",
+    "Outbound",
+    "Other"
+   ],
+   "writer": "CRM",
+   "note": "generic: Referral, Past client, Event, Outbound, Other"
+  },
+  "Islands": {
+   "type": "multi_select",
+   "options": [
+    "Region A",
+    "Region B",
+    "Region C",
+    "Other"
+   ],
+   "vertical": true
+  },
+  "Waiting band": {
+   "type": "select",
+   "options": [
+    "Today",
+    "1-3 days",
+    "Up to 2 weeks",
+    "Up to a month",
+    "Over a month"
+   ],
+   "writer": "CRM"
+  },
+  "Waiting since": {
+   "type": "date",
+   "writer": "CRM"
+  },
+  "Follow-up on": {
+   "type": "date",
+   "writer": "CRM"
+  },
+  "Last inbound": {
+   "type": "date",
+   "writer": "CRM"
+  },
+  "Last outbound": {
+   "type": "date",
+   "writer": "CRM"
+  },
+  "Last two-way contact": {
+   "type": "date",
+   "writer": "CRM"
+  },
+  "Synced at": {
+   "type": "date",
+   "writer": "CRM"
+  },
+  "Created": {
+   "type": "created_time",
+   "writer": "CRM"
+  },
+  "CRM id": {
+   "type": "text",
+   "writer": "CRM"
+  },
+  "Needs review": {
+   "type": "checkbox",
+   "writer": "CRM"
+  },
+  "Do not contact": {
+   "type": "checkbox",
+   "writer": "CRM"
+  },
+  "Do not follow up": {
+   "type": "checkbox",
+   "writer": "people"
+  },
+  "Do not follow up reason": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Next step": {
+   "type": "text",
+   "writer": "read back"
+  },
+  "Conversation summary": {
+   "type": "text",
+   "writer": "Hub"
+  },
+  "Synthetic": {
+   "type": "checkbox",
+   "writer": "people"
+  },
+  "Owner note": {
+   "type": "text",
+   "writer": "read back",
+   "vertical": true
+  },
+  "Organization": {
+   "type": "relation",
+   "target": "organizations",
+   "writer": "CRM",
+   "reverse": "Clients"
+  },
+  "Deals": {
+   "type": "relation",
+   "target": "deals",
+   "writer": "CRM",
+   "reverse": "Client"
+  },
+  "Open loop items": {
+   "type": "relation",
+   "target": "open-loops",
+   "writer": "CRM",
+   "reverse": "Person"
+  },
+  "Leads": {
+   "type": "relation",
+   "target": "leads",
+   "writer": "people",
+   "reverse": "Client"
+  },
+  "Tasks": {
+   "type": "relation",
+   "target": "tasks",
+   "writer": "people",
+   "reverse": "Client"
+  },
+  "Participations": {
+   "type": "relation",
+   "target": "participants",
+   "writer": "people",
+   "reverse": "Person"
+  },
+  "Open loops": {
+   "type": "rollup",
+   "via": "Open loop items",
+   "target": "Done",
+   "aggregation": "unchecked"
+  },
+  "Open tasks": {
+   "type": "rollup",
+   "via": "Tasks",
+   "target": "Is open",
+   "aggregation": "checked"
+  },
+  "Overdue tasks": {
+   "type": "rollup",
+   "via": "Tasks",
+   "target": "Overdue",
+   "aggregation": "checked"
+  },
+  "Task due": {
+   "type": "rollup",
+   "via": "Tasks",
+   "target": "Open due",
+   "aggregation": "earliest_date"
+  },
+  "No task": {
+   "type": "formula",
+   "formula": "contact allowed, Relationship Lead/Prospect/Client, Activity Active/Quiet, no open task",
+   "skip": "trap 2"
+  }
+ }
+}

@@ -1,0 +1,25 @@
+From: Anna Fake <anna@example.com>
+To: Alex Demo <alex@example.org>
+Subject: Shortlist
+Date: Tue, 10 Nov 2026 09:14:00 +0000
+Message-ID: <02_html_table@example.com>
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><head><style>.x{color:red} p{margin:0}</style></head><body>
+<div style=3D"display:none;max-height:0">Preheader text nobody should read</d=
+iv>
+<p>Hello Alex,</p>
+<p>Here are the <b>three</b> candidates I shortlisted:</p>
+<table><tr><th>Address</th><th>Price</th><th>Size</th></tr>
+<tr><td>Rua A 12, Lisbon</td><td>EUR 420,000</td><td>78 m2</td></tr>
+<tr><td>Av. B 90, Porto</td><td>EUR 310,000</td><td>64 m2</td></tr>
+<tr><td>Rua C 5, Faro</td><td>EUR 250,000</td><td>71 m2</td></tr></table>
+<p>Details: <a href=3D"https://example.com/listing/12">listing 12</a>, and
+<a href=3D"https://track.example.net/c?u=3DaHR0cHM6Ly9leGFtcGxlLmNvbS9saXN0aW=
+5nLzkw&amp;sig=3D0123456789abcdef0123456789abcdef0123456789abcdef0123456789ab=
+cdef0123456789abcdef0123456789abcdef">listing 90</a>.</p>
+<p>Which one should we see first?</p>
+<img src=3D"https://track.example.net/open.gif" width=3D"1" height=3D"1">
+</body></html>

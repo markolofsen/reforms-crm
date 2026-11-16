@@ -1,0 +1,44 @@
+{
+ "database": "organizations",
+ "title": "Organizations",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+ "properties": {
+  "Name": {
+   "type": "title",
+   "writer": "CRM"
+  },
+  "Kind": {
+   "type": "select",
+   "options": [
+    "Brokerage",
+    "Developer",
+    "Law firm",
+    "Bank",
+    "CBI agency",
+    "Resort",
+    "Media",
+    "Other"
+   ],
+   "writer": "CRM",
+   "note": "generic start: Developer, Law firm, Bank, Media, Other; Brokerage/CBI agency/Resort vertical"
+  },
+  "Domain": {
+   "type": "text",
+   "writer": "CRM"
+  },
+  "Clients": {
+   "type": "relation",
+   "target": "clients",
+   "writer": "CRM",
+   "reverse": "Organization"
+  },
+  "CRM id": {
+   "type": "text",
+   "writer": "CRM"
+  },
+  "Synced at": {
+   "type": "date",
+   "writer": "CRM"
+  }
+ }
+}

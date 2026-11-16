@@ -1,0 +1,24 @@
+# Notion API and MCP traps
+
+Source: owner and agent notes from earlier work (memory entries `notion-api-creates-neither-status-nor-cross-database-formulas`, `a-moved-notion-database-loses-its-connection-grant`), the owner's live schema notes (custom layer) "Facts for the dump and the restore" (2026-11-14), Help / Guides / Integrations (2026-11-10). Read 2026-11-14. Each trap has the check that avoids it.
+
+| # | Trap | What to do |
+|---|---|---|
+| 1 | ~~The API creates no `status`-type property~~ **Outdated (hosted MCP, W5 2026-11-14): `notion-create-database` DDL accepts `STATUS` with groups** | Create a real `status` property (To-do / In progress / Complete groups per the schema JSON). Fall back to `select` only if the DDL refuses, and say so in the report |
+| 2 | A **formula that reads another database's property** (Clients `No task`, Payments `Vendor`) is not expressible. Same-database formulas (`Is open`, `Overdue`) and **rollups over a relation** (`Open tasks`, `Task due`) were accepted in W5 | Skip the cross-database formula, list it in the report as `skipped: needs the UI`, one general rule, no per-formula patch. Same-database formulas may be created |
+| 3 | A **moved or re-created database loses its connection grant** | After creating databases, the human re-shares the whole teamspace with the integration once (Connections). Verify by reading one row of each database. After any move, repeat |
+| 4 | A **parent page in the trash** makes every child unreachable (404, `object_not_found`) | First step of every run: fetch the parent and check `in_trash` is false (and the page is not archived). Stop, never create under a trashed parent |
+| 5 | **multi_select / select options** appear only when a page uses them or when the data source is updated with them | Pass the full option list when creating the property, then read the data source back and compare; a missing option is added with `notion-update-data-source`, never by writing a throwaway row |
+| 6 | ~~View filters need property ids~~ **Outdated (hosted MCP, W5): `notion-create-view` takes a name-based DSL** (`FILTER "Status" = "New" OR "Status" IS EMPTY; SORT BY "Due" ASC; GROUP BY "Area"; SHOW "A", "B"`) | Use the DSL with property names. Dates: `<= "today"`, `>= "one_month_ago"`, `<= "one_week_from_now"`. Empty: `IS EMPTY` / `IS NOT EMPTY` (not `NULL`). **`NOT IN` is refused: write `!= "A" AND != "B"`**. Person: `CONTAINS "me"`. A new database has a `Default view`: rename it with `notion-update-view` (it becomes the first working view) instead of leaving an extra one |
+| 7 | A relation needs the **target data source id** and the target must be shared with the integration | Create targets first; two-way relations create the reverse property; for a cross-database relation check the target is reachable before creating |
+| 8 | **Selects have no default** | The creator of a row sets the starting value |
+| 9 | **Formula, rollup, created/edited time, created/edited by** cannot be written | A restore or a deploy skips them |
+| 10 | Rate limits | One database at a time, retry 429 with backoff; never parallel creates in one parent |
+| 11 | `notion-create-database` returns a database with its data source; the **data source id** is what `project.md` lists (`collection://<id>`), not the database id | Write the data source id into `## Notion databases` |
+| 12 | Creating a page under a `Hub`/teamspace root the integration cannot see | Check the parent through `notion-fetch` before; a 404 on a known id means a grant problem (3) or a trashed parent (4) |
+| 13 | The hosted Notion MCP token's permissions and plan limits are unverified (a decision or plan record kept in the owner's instance) | The dry run starts with one harmless read; the first write is the scratch page, never a database |
+| 14 | **Self-relation with DUAL on both sides** (`Parent task` + `Sub-tasks`) creates four properties (`Parent task 1`, `Sub-tasks 1`) | Add ONE side only with `DUAL 'Reverse' 'id'`; the reverse appears by itself. If both were added, `DROP COLUMN` the extras you created |
+| 15 | **Not expressible in the DDL**: relation `limit 1`, option descriptions, page templates, `CREATED_BY`, board groupBy hideEmpty setting (views come back with `hideEmptyGroups: true` for groups) | Record as `differs: cannot be set through the MCP`; do not retry |
+| 16 | A **wrong link typo is silent**: a mistyped database id in Help text is stored as a plain link | After creating Help, fetch it and check each database link became a `mention` |
+| 17 | Views created in parallel worked (one parent, different databases), but the skill says sequential | Keep sequential unless the run is long; no failure seen in W5 |
+| 18 | `notion-dump` needs an integration token; the MCP session has none | Read back through `notion-fetch` of each data source and compare names and types with `schema/<db>.json`; record `notion-dump: blocked, no token` |

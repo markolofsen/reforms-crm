@@ -1,0 +1,366 @@
+{
+ "database": "clients",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones. View JSON as returned by notion-fetch; displayProperties kept to the columns a person acts on (live views list every column). dataSourceUrl is a placeholder: set it to the new data source.",
+ "views": [
+  {
+   "name": "Today",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Do not contact",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is_not",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     },
+     {
+      "type": "group",
+      "operator": "or",
+      "filters": [
+       {
+        "type": "property",
+        "property": "Follow-up on",
+        "propertyType": "date",
+        "operator": "date_is_on_or_before",
+        "value": {
+         "type": "relative",
+         "value": "today"
+        }
+       },
+       {
+        "type": "property",
+        "property": "Waiting since",
+        "propertyType": "date",
+        "operator": "is_not_empty"
+       }
+      ]
+     },
+     {
+      "type": "property",
+      "property": "Synthetic",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is_not",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Waiting since",
+     "direction": "ascending"
+    }
+   ],
+   "displayProperties": [
+    "Name",
+    "Relationship",
+    "Activity",
+    "Next step",
+    "Follow-up on",
+    "Waiting since",
+    "Open tasks",
+    "Task due",
+    "Last two-way contact"
+   ]
+  },
+  {
+   "name": "Waiting",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Waiting since",
+      "propertyType": "date",
+      "operator": "is_not_empty"
+     },
+     {
+      "type": "property",
+      "property": "Synthetic",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is_not",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     }
+    ]
+   },
+   "groupBy": {
+    "property": "Waiting band",
+    "propertyType": "select",
+    "hideEmptyGroups": false,
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Name",
+    "Waiting since",
+    "Last outbound",
+    "Relationship",
+    "Next step",
+    "Open tasks",
+    "Task due"
+   ]
+  },
+  {
+   "name": "New leads",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Relationship",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": {
+       "type": "exact",
+       "value": "Lead"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Created",
+      "propertyType": "created_time",
+      "operator": "date_is_within",
+      "value": {
+       "type": "relative",
+       "value": "custom",
+       "count": 30,
+       "direction": "past",
+       "unit": "day"
+      }
+     }
+    ]
+   },
+   "displayProperties": [
+    "Name",
+    "Lead source",
+    "Created",
+    "Islands",
+    "Activity",
+    "Next step",
+    "Open tasks",
+    "Task due"
+   ]
+  },
+  {
+   "name": "By island",
+   "type": "board",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Synthetic",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is_not",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     }
+    ]
+   },
+   "groupBy": {
+    "property": "Islands",
+    "propertyType": "multi_select",
+    "hideEmptyGroups": false,
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Name"
+   ],
+   "vertical": true
+  },
+  {
+   "name": "Partners",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Type",
+      "propertyType": "select",
+      "operator": "is_not_empty"
+     },
+     {
+      "type": "property",
+      "property": "Synthetic",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is_not",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     }
+    ]
+   },
+   "displayProperties": [
+    "Name",
+    "Type",
+    "Organization",
+    "Email",
+    "Phone",
+    "Islands",
+    "Last two-way contact",
+    "Activity"
+   ]
+  },
+  {
+   "name": "Do not contact",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Do not contact",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     }
+    ]
+   },
+   "displayProperties": [
+    "Name",
+    "Relationship",
+    "Activity"
+   ]
+  },
+  {
+   "name": "Needs review",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Needs review",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     },
+     {
+      "type": "property",
+      "property": "Synthetic",
+      "propertyType": "checkbox",
+      "operator": "checkbox_is_not",
+      "value": {
+       "type": "exact",
+       "value": true
+      }
+     }
+    ]
+   },
+   "displayProperties": [
+    "Name",
+    "Relationship",
+    "Activity",
+    "Email",
+    "Phone",
+    "Synced at"
+   ]
+  },
+  {
+   "name": "All",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "sorts": [
+    {
+     "property": "Last two-way contact",
+     "direction": "descending"
+    }
+   ],
+   "displayProperties": [
+    "Name",
+    "Relationship",
+    "Activity",
+    "Next step",
+    "Open tasks",
+    "Overdue tasks",
+    "Task due",
+    "No task",
+    "Follow-up on",
+    "Waiting since",
+    "Waiting band",
+    "Last two-way contact"
+   ]
+  },
+  {
+   "name": "No task",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "No task",
+      "propertyType": "formula",
+      "operator": "every",
+      "resultFilter": {
+       "type": "property",
+       "property": "No task",
+       "propertyType": "checkbox",
+       "operator": "checkbox_is",
+       "value": {
+        "type": "exact",
+        "value": true
+       }
+      }
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Last two-way contact",
+     "direction": "descending"
+    }
+   ],
+   "displayProperties": [
+    "Name",
+    "Relationship",
+    "Activity",
+    "Deals",
+    "Last two-way contact",
+    "Waiting since",
+    "Next step"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,104 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1794642570517,
+      "tag": "0000_whole_carnage",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1794643321992,
+      "tag": "0001_projects_knowledge",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794643322491,
+      "tag": "0002_knowledge_fts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794644204686,
+      "tag": "0003_messengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1794644486667,
+      "tag": "0004_bulk_send",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1794646155155,
+      "tag": "0005_draft_sent",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1794649755155,
+      "tag": "0006_record_draft",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1794713793723,
+      "tag": "0007_project_kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1794713807934,
+      "tag": "0008_skip_reason",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1794716638192,
+      "tag": "0009_send_pipeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1794755544567,
+      "tag": "0010_inbox_rows_notion_kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1794756346535,
+      "tag": "0011_draft_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1794757017963,
+      "tag": "0012_draft_checked_hash",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1794758431940,
+      "tag": "0013_drop_batch_template_mode",
+      "breakpoints": true
+    }
+  ]
+}

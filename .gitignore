@@ -1,0 +1,33 @@
+# Local state and every secret (state/secrets/: mail logins, optional tokens) stay out of git
+state/*
+!state/sample/
+!state/.gitkeep
+state/secrets/
+
+# One owner's local settings and tool config (templates live in app/apps/installer/templates/)
+config/config.json
+.mcp.json
+.mcp.json.bak
+
+# Reference material an owner keeps beside the core
+@refs/
+.DS_Store
+
+# Working data and every project of an owner (the core ships only the template)
+app/data/
+*.db
+*.db-shm
+*.db-wal
+app/projects/*
+!app/projects/_template/
+
+# Private list of names the core must never contain (see @docs/LAYERS.md); an owner writes his own
+config/custom-names.txt
+
+# Dependencies and build output
+node_modules/
+dist/
+.next/
+.turbo/
+test-results/
+*.tsbuildinfo

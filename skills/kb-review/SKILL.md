@@ -1,0 +1,48 @@
+---
+name: kb-review
+description: Use when the owner wants to know what the knowledge base of one project is missing, judged from the gaps that past runs saved. Produces a ranked list of concrete fixes with draft text and a local summary. Never reads Notion and never approves or edits a knowledge entry itself. Unlike knowledge-import, which loads files into the base, this only recommends what to write.
+allowed-tools: Read Write Bash mcp__knowledge-mcp__knowledge_search mcp__knowledge-mcp__knowledge_get
+---
+
+# KB review (manual, one project)
+
+> Layer: **core** (universal). Project names, people and addresses in this file are examples; one owner's facts live in `app/projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
+
+The owner asks what to improve in a project's knowledge base. You read the gap reports that triage and
+bulk-drafts left behind, merge them, rank them and hand over concrete edits. You write nothing into the knowledge base. Talk to the owner in Russian, briefly; drafts of KB text are English (the KB's language).
+Rules every entry skill follows: `skills/README.md` ("Rules"). Format and types: `skills/triage-mail/references/kb-gaps.md`.
+
+## Steps
+1. **Bind** the project as `skills/triage-mail/SKILL.md` section 0.
+2. **Period**: what the owner said ("за неделю", "за месяц"), default the last 14 days. Say it.
+3. **Read** every `app/projects/<slug>/reports/kb/*.md` whose `date` is inside the period (`ls` via Bash, Read). None: say so, and that
+   gap reports appear after triage or bulk runs; stop.
+   Read only `reports/kb/`. Open calendar problems (`reports/problems/`, `@docs/core/19-calendar.md` section 5) are not KB gaps: if any are open, list them in a separate block at the end, one line each, and do not merge them into the ranking.
+4. **Merge.** Group gaps by topic (same fact asked in other words is one group; check with `knowledge_search` when unsure).
+   Per group: types seen, number of runs, number of distinct clients (sum of `seen` counts, never more than the report says),
+   newest date, the highest priority seen. Do not carry anything personal: reports contain none, and you add none.
+5. **Rank**: priority first (`high` > `medium` > `low`), then clients affected, then runs, then recency. A topic in three or
+   more runs or from three or more clients rises one level. `conflict` and `stale` on a price, date, term or policy come before
+   `missing` background. Top 10 at most; the rest as a count.
+6. **Check against the KB now** (read-only): for each ranked item run `knowledge_search` (and, for `stale`, `conflict` or an
+   item that may have been fixed since, `knowledge_get` / read the entry file under `knowledge/`; no Notion).
+   Drop an item the KB now answers (say "уже исправлено"). Never read a database that is not listed in `project.md`.
+7. **Propose**, one block per kept item, in the form of a Knowledge page, so the owner can paste it:
+   `Question` (title), `Audiences`, `Category`, `Kind`, `Use` (`STATE` only for a confirmed fact, else `MARKER`), `Phrasings`
+   (clients' wording, from the topics), `Valid until` if it ages, and a body draft. **The body draft states only what is already in
+   a source you read** (the KB, `project.md`, the owner's words in this session). A fact nobody supplied is written as
+   `[Owner: ...]` and the item is marked "ждёт ответа владельца". Never invent a figure, date or term to make the draft look complete.
+   For `stale` / `conflict`: name the page, show the old text and the proposed replacement. For `repeated-question` with an
+   existing answer: propose the extra phrasings and a clearer title, not a new entry.
+8. **Write the summary** to `app/projects/<slug>/reports/kb/review-YYYY-MM-DD.md` (Write, inside `reports/` only; git-ignored): the period, the
+   ranked table, the drafts. Reports whose date is inside the period stay as they are.
+9. **Notion: nothing.** The summary lives on the local disk only. A Knowledge entry is never created, edited or approved by this
+   skill: the owner adds or edits the entries as Markdown files in `knowledge/` (approval is his), then `knowledge index <slug>` refreshes the index.
+10. **Report** in Russian: period, runs read, groups, the top items (3 to 5 lines: type, priority, topic, one clause of proposal),
+    path of the summary file, "в базе знаний ничего не изменено", and the next step: "добавь/поправь файлы в knowledge/,
+    потом: переиндексируй знания проекта X".
+
+## Checks
+- No client address, name or quote anywhere in the summary.
+- Every proposed fact has a source or is a `[Owner: ...]`.
+- Nothing was written outside `reports/kb/`.

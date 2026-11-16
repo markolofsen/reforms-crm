@@ -1,0 +1,130 @@
+[
+  {
+    "q": "Do I need a visa to visit Paris as a US citizen?",
+    "expect": "knowledge/files/entry/visa.md"
+  },
+  {
+    "q": "What are the entry requirements for Schengen countries?",
+    "expect": "knowledge/files/entry/visa.md"
+  },
+  {
+    "q": "What happens if I have to cancel two weeks before departure?",
+    "expect": "knowledge/files/terms/cancel.md"
+  },
+  {
+    "q": "Will I get my money back if I cancel the booking?",
+    "expect": "knowledge/files/terms/cancel.md"
+  },
+  {
+    "q": "Is there a cancellation fee?",
+    "expect": "knowledge/files/terms/cancel.md"
+  },
+  {
+    "q": "Can I pay by credit card or only bank transfer?",
+    "expect": "knowledge/files/terms/payment.md"
+  },
+  {
+    "q": "Which payment methods do you accept?",
+    "expect": "knowledge/files/terms/payment.md"
+  },
+  {
+    "q": "Can I settle the balance with a card?",
+    "expect": "knowledge/files/terms/payment.md"
+  },
+  {
+    "q": "How much do I have to put down to reserve a trip?",
+    "expect": "knowledge/files/terms/deposit.md"
+  },
+  {
+    "q": "Is a deposit required at booking?",
+    "expect": "knowledge/files/terms/deposit.md"
+  },
+  {
+    "q": "Is travel insurance included in the price?",
+    "expect": "knowledge/files/terms/insurance.md"
+  },
+  {
+    "q": "Do you cover medical expenses abroad?",
+    "expect": "knowledge/files/terms/insurance.md"
+  },
+  {
+    "q": "Do I need insurance for a trip to Iceland?",
+    "expect": "knowledge/files/terms/insurance.md"
+  },
+  {
+    "q": "How heavy can my suitcase be?",
+    "expect": "knowledge/files/flights/baggage.md"
+  },
+  {
+    "q": "What is the baggage allowance on the flights?",
+    "expect": "knowledge/files/flights/baggage.md"
+  },
+  {
+    "q": "We are a group of twelve friends, is there a discount?",
+    "expect": "knowledge/files/prices/groups.md"
+  },
+  {
+    "q": "Do you give special prices for large groups?",
+    "expect": "knowledge/files/prices/groups.md"
+  },
+  {
+    "q": "Do kids under two pay anything?",
+    "expect": "knowledge/files/prices/children.md"
+  },
+  {
+    "q": "Are children's fares cheaper?",
+    "expect": "knowledge/files/prices/children.md"
+  },
+  {
+    "q": "My passport expires in four months, is that a problem?",
+    "expect": "knowledge/files/entry/passport.md"
+  },
+  {
+    "q": "How long does my passport need to be valid?",
+    "expect": "knowledge/files/entry/passport.md"
+  },
+  {
+    "q": "When is the best time to see the northern lights in Iceland?",
+    "expect": "knowledge/files/destinations/iceland.md"
+  },
+  {
+    "q": "Which month should we visit Iceland?",
+    "expect": "knowledge/files/destinations/iceland.md"
+  },
+  {
+    "q": "Can we hire a private English speaking guide?",
+    "expect": "knowledge/files/services/guide.md"
+  },
+  {
+    "q": "Is it possible to book a personal tour guide for the day?",
+    "expect": "knowledge/files/services/guide.md"
+  },
+  {
+    "q": "I need to move my departure to a later date, is that possible?",
+    "expect": "knowledge/files/terms/dates.md"
+  },
+  {
+    "q": "Can I reschedule the trip?",
+    "expect": "knowledge/files/terms/dates.md"
+  },
+  {
+    "q": "Can I pick a window seat on the plane?",
+    "expect": "knowledge/files/flights/seats.md"
+  },
+  {
+    "q": "How do I choose seats for the flight?",
+    "expect": "knowledge/files/flights/seats.md"
+  },
+  {
+    "q": "What time can we check in at the hotel?",
+    "expect": "knowledge/files/hotels/checkin.md"
+  },
+  {
+    "q": "We land early in the morning, can we leave our bags at the hotel?",
+    "expect": "knowledge/files/hotels/checkin.md"
+  },
+  {
+    "q": "Early check-in possible?",
+    "expect": "knowledge/files/hotels/checkin.md"
+  }
+]

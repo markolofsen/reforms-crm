@@ -1,0 +1,7 @@
+.next/
+.next-e2e/
+next-env.d.ts
+*.tsbuildinfo
+test-results/
+playwright-report/
+.next-build-check/

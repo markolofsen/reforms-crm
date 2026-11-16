@@ -1,0 +1,244 @@
+{
+ "database": "expenses",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable. View JSON as returned by notion-fetch; this database's displayProperties are the full live column lists. dataSourceUrl is a placeholder: set it to the new data source.",
+ "views": [
+  {
+   "name": "Active",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "or",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": {
+       "type": "exact",
+       "value": "Active"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": {
+       "type": "exact",
+       "value": "Trial"
+      }
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Next payment",
+     "direction": "ascending"
+    }
+   ],
+   "displayProperties": [
+    "Expense",
+    "Vendor",
+    "Amount",
+    "Currency",
+    "Billing",
+    "Status",
+    "Monthly cost",
+    "Next payment",
+    "Auto-renews",
+    "Billing page",
+    "Category",
+    "Last paid",
+    "Notes",
+    "Owner",
+    "Paid by",
+    "Paid total",
+    "Payments",
+    "Started",
+    "Tasks"
+   ]
+  },
+  {
+   "name": "Due in 30 days",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": {
+       "type": "exact",
+       "value": "Cancelled"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Next payment",
+      "propertyType": "date",
+      "operator": "date_is_within",
+      "value": {
+       "type": "relative",
+       "value": "the_next_month"
+      }
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Next payment",
+     "direction": "ascending"
+    }
+   ],
+   "displayProperties": [
+    "Expense",
+    "Vendor",
+    "Amount",
+    "Currency",
+    "Billing",
+    "Status",
+    "Monthly cost",
+    "Next payment",
+    "Auto-renews",
+    "Billing page",
+    "Category",
+    "Last paid",
+    "Notes",
+    "Owner",
+    "Paid by",
+    "Paid total",
+    "Payments",
+    "Started",
+    "Tasks"
+   ],
+   "note": "relative 'the_next_month', not an exact 30 days"
+  },
+  {
+   "name": "By category",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": {
+       "type": "exact",
+       "value": "Cancelled"
+      }
+     }
+    ]
+   },
+   "groupBy": {
+    "property": "Category",
+    "propertyType": "select",
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Expense",
+    "Vendor",
+    "Amount",
+    "Currency",
+    "Billing",
+    "Status",
+    "Monthly cost",
+    "Next payment",
+    "Auto-renews",
+    "Billing page",
+    "Category",
+    "Last paid",
+    "Notes",
+    "Owner",
+    "Paid by",
+    "Paid total",
+    "Payments",
+    "Started",
+    "Tasks"
+   ]
+  },
+  {
+   "name": "No next date",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "select",
+      "operator": "enum_is",
+      "value": {
+       "type": "exact",
+       "value": "Active"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Billing",
+      "propertyType": "select",
+      "operator": "enum_is_not",
+      "value": {
+       "type": "exact",
+       "value": "One-time"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Next payment",
+      "propertyType": "date",
+      "operator": "is_empty"
+     }
+    ]
+   },
+   "displayProperties": [
+    "Expense",
+    "Vendor",
+    "Billing",
+    "Owner",
+    "Amount",
+    "Currency",
+    "Last paid"
+   ]
+  },
+  {
+   "name": "All",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "displayProperties": [
+    "Expense",
+    "Vendor",
+    "Amount",
+    "Currency",
+    "Billing",
+    "Status",
+    "Monthly cost",
+    "Next payment",
+    "Auto-renews",
+    "Billing page",
+    "Category",
+    "Last paid",
+    "Notes",
+    "Owner",
+    "Paid by",
+    "Paid total",
+    "Payments",
+    "Started",
+    "Tasks"
+   ]
+  }
+ ]
+}

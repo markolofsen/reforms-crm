@@ -1,0 +1,72 @@
+{
+ "database": "business-contacts",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable. View JSON as returned by notion-fetch; this database's displayProperties are the full live column lists. dataSourceUrl is a placeholder: set it to the new data source.",
+ "views": [
+  {
+   "name": "All business contacts",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "sorts": [
+    {
+     "property": "Name",
+     "direction": "ascending"
+    }
+   ],
+   "displayProperties": [
+    "Name",
+    "Record type",
+    "Category",
+    "Company",
+    "Role",
+    "Email",
+    "Phone",
+    "Telegram",
+    "WhatsApp",
+    "Website",
+    "LinkedIn",
+    "Location",
+    "Context",
+    "Email 2",
+    "Other socials",
+    "Tasks"
+   ]
+  },
+  {
+   "name": "By category",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "sorts": [
+    {
+     "property": "Name",
+     "direction": "ascending"
+    }
+   ],
+   "groupBy": {
+    "property": "Category",
+    "propertyType": "multi_select",
+    "hideEmptyGroups": true,
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Name",
+    "Record type",
+    "Category",
+    "Company",
+    "Role",
+    "Email",
+    "Phone",
+    "Telegram",
+    "WhatsApp",
+    "Website",
+    "LinkedIn",
+    "Location",
+    "Context",
+    "Email 2",
+    "Other socials",
+    "Tasks"
+   ]
+  }
+ ]
+}

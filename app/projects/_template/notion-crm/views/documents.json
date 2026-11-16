@@ -1,0 +1,89 @@
+{
+ "database": "documents",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable. View JSON as returned by notion-fetch; this database's displayProperties are the full live column lists. dataSourceUrl is a placeholder: set it to the new data source.",
+ "views": [
+  {
+   "name": "All documents",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "sorts": [
+    {
+     "property": "Last edited",
+     "direction": "descending"
+    }
+   ],
+   "displayProperties": [
+    "Document",
+    "Status",
+    "Type",
+    "Owner",
+    "Document link",
+    "Files",
+    "Clients",
+    "Deal",
+    "Summary",
+    "Last edited",
+    "Tasks"
+   ]
+  },
+  {
+   "name": "Current",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is",
+      "value": {
+       "type": "is_option",
+       "value": "Current"
+      }
+     }
+    ]
+   },
+   "displayProperties": [
+    "Document",
+    "Status",
+    "Type",
+    "Owner",
+    "Document link",
+    "Files",
+    "Clients",
+    "Deal",
+    "Summary",
+    "Last edited",
+    "Tasks"
+   ]
+  },
+  {
+   "name": "By type",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "groupBy": {
+    "property": "Type",
+    "propertyType": "select",
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Document",
+    "Status",
+    "Type",
+    "Owner",
+    "Document link",
+    "Files",
+    "Clients",
+    "Deal",
+    "Summary",
+    "Last edited",
+    "Tasks"
+   ]
+  }
+ ]
+}

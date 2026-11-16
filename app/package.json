@@ -1,0 +1,25 @@
+{
+  "name": "reforms-crm-app",
+  "private": true,
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "start": "turbo run start",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @hub/db generate",
+    "db:seed": "pnpm --filter @hub/db seed",
+    "db:migrate": "pnpm --filter @hub/db migrate",
+    "hub": "pnpm --filter @hub/installer hub",
+    "e2e": "pnpm --filter @hub/admin e2e",
+    "live": "bash scripts/live.sh"
+  },
+  "devDependencies": {
+    "turbo": "2.11.11",
+    "typescript": "5.9.3"
+  }
+}

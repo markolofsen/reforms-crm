@@ -1,0 +1,66 @@
+import { BATCH_FILTERS, RUN_STATUSES, type BatchFilter, type RunStatus } from "@hub/config";
+
+// Every URL parameter name and its allowed values, in one place. No React, no URL library: plain functions, so the
+// address of every screen is testable without a DOM. The enums are the ones the API validates (`@hub/config`, re-used
+// by `@hub/contract`), so the address and the request share one source. A value outside its enum resets to the default.
+
+export const RUN_FILTERS = ["all", ...RUN_STATUSES] as const;
+export type RunFilter = "all" | RunStatus;
+export type { BatchFilter };
+
+/**
+ * The four views of the Drafts list (research 16 section 6.3): To review (`ready`), Hold, Finished (done, sent and skipped
+ * together) and All. The server filters by one status, so `finished` is narrowed in the page. The default is To review
+ * (owner decision Q5, P29): a bare `/drafts` shows what needs the owner, so `ready` drops its key and `all` keeps it.
+ */
+export const DRAFT_VIEWS = ["ready", "hold", "evidence", "finished", "all"] as const;
+export type DraftView = (typeof DRAFT_VIEWS)[number];
+export const DEFAULT_DRAFT_VIEW: DraftView = "ready";
+
+export type Raw = Readonly<Record<string, string>>;
+
+/** `a=1&b=2` into a flat record. The last value of a repeated name wins. */
+export function parseQuery(query: string): Raw {
+  const out: Record<string, string> = {};
+  for (const [k, v] of new URLSearchParams(query)) out[k] = v;
+  return out;
+}
+
+/** The query string (with its `?`, or empty). Empty, false and absent values are left out; a default is dropped by the caller (`unlessDefault`). */
+export function formatQuery(entries: Readonly<Record<string, string | number | boolean | null | undefined>>): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(entries)) {
+    if (v === undefined || v === null || v === "" || v === false) continue;
+    q.set(k, v === true ? "1" : String(v));
+  }
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
+/** `v` when it is one of `all`, else the fallback. Narrows a string to a union without a cast. */
+export function oneOf<T extends string>(all: readonly T[], v: string | undefined, fallback: T): T {
+  return all.find((x) => x === v) ?? fallback;
+}
+
+/** `undefined` when the value is the screen's default, so its key leaves the address. */
+export const unlessDefault = <T extends string>(v: T | undefined, fallback: T): T | undefined => (v === fallback ? undefined : v);
+
+/** A positive integer from the address, or null. `abc`, `0`, `-1`, `1.5` and `007` are not ids. */
+export function positiveInt(v: string | undefined): number | null {
+  return v !== undefined && /^[1-9]\d*$/.test(v) ? Number(v) : null;
+}
+
+export type DraftsSearch = { filter: DraftView; q: string };
+export type BulkListSearch = { new: boolean };
+export type BulkItemSearch = { filter: BatchFilter };
+export type LogSearch = { filter: RunFilter; run: number | null };
+/** `focus`: the project card to scroll to and mark. Whether the slug is registered is the page's to check (it knows the list). */
+export type OverviewSearch = { focus: string | null };
+export type NoSearch = Record<string, never>;
+
+export const draftsSearch = (raw: Raw): DraftsSearch => ({ filter: oneOf(DRAFT_VIEWS, raw.filter, DEFAULT_DRAFT_VIEW), q: raw.q ?? "" });
+export const bulkListSearch = (raw: Raw): BulkListSearch => ({ new: raw.new === "1" });
+export const bulkItemSearch = (raw: Raw): BulkItemSearch => ({ filter: oneOf(BATCH_FILTERS, raw.filter, "all") });
+export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(RUN_FILTERS, raw.filter, "all"), run: positiveInt(raw.run) });
+export const overviewSearch = (raw: Raw): OverviewSearch => ({ focus: raw.focus ? raw.focus : null });
+export const noSearch = (): NoSearch => ({});

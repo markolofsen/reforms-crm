@@ -1,0 +1,27 @@
+{
+  "name": "@hub/mail",
+  "version": "0.1.0",
+  "description": "Read-only IMAP reader behind the MailHistory contract (headers, raw source, Sent detection) with an in-memory fake for tests.",
+  "private": true,
+  "type": "module",
+  "license": "UNLICENSED",
+  "exports": {
+    ".": "./src/index.ts",
+    "./imap": "./src/imap/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*",
+    "imapflow": "2.11.0",
+    "postal-mime": "4.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
+  }
+}

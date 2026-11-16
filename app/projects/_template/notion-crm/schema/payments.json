@@ -1,0 +1,103 @@
+{
+ "database": "payments",
+ "title": "Payments",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+ "properties": {
+  "Payment": {
+   "type": "title",
+   "writer": "people / integration",
+   "note": "Expense and period, e.g. 'Hetzner server - Nov 2026'"
+  },
+  "Expense": {
+   "type": "relation",
+   "target": "expenses",
+   "limit": 1,
+   "reverse": "Payments",
+   "note": "Required in practice; empty = needs review"
+  },
+  "Date": {
+   "type": "date",
+   "writer": "people / integration"
+  },
+  "Amount": {
+   "type": "number",
+   "writer": "people / integration",
+   "note": "positive; a refund is a positive Amount with Status Refunded"
+  },
+  "Currency": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "USD",
+    "EUR",
+    "CAD",
+    "IDR"
+   ]
+  },
+  "Status": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "Planned",
+    "Paid",
+    "Refunded",
+    "Cancelled"
+   ]
+  },
+  "Paid by": {
+   "type": "person",
+   "writer": "people / integration"
+  },
+  "Invoice": {
+   "type": "file",
+   "writer": "people / integration"
+  },
+  "Notes": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Source": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "Manual",
+    "Agent",
+    "Integration"
+   ]
+  },
+  "External id": {
+   "type": "text",
+   "writer": "integration",
+   "note": "idempotency key, never edit"
+  },
+  "Paid amount": {
+   "type": "formula",
+   "writer": "formula",
+   "scope": "same-database",
+   "note": "helper for Expenses.Paid total: Paid +Amount, Refunded -Amount, else 0"
+  },
+  "Paid on": {
+   "type": "formula",
+   "writer": "formula",
+   "scope": "same-database",
+   "note": "helper for Expenses.Last paid: Date when Status is Paid"
+  },
+  "Vendor": {
+   "type": "rollup",
+   "writer": "formula",
+   "via": "Expense",
+   "target": "Vendor",
+   "trap": 2,
+   "note": "copied from the expense"
+  },
+  "Category": {
+   "type": "rollup",
+   "writer": "formula",
+   "via": "Expense",
+   "target": "Category",
+   "trap": 2,
+   "note": "copied from the expense"
+  }
+ },
+ "noteVsPack": "Vendor and Category are rollups through Expense, not formulas. Paid on and Paid amount helpers were not in the pack. Formula source text is not exposed by the MCP (codeUrl only): the formulas above are described from their Notion descriptions, not read."
+}

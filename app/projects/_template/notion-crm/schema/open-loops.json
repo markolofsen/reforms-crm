@@ -1,0 +1,49 @@
+{
+ "database": "open-loops",
+ "title": "Open loops",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+ "properties": {
+  "Promise": {
+   "type": "title",
+   "writer": "CRM"
+  },
+  "Who owes": {
+   "type": "select",
+   "options": [
+    "{{owner}}",
+    "Client",
+    "Other"
+   ],
+   "writer": "CRM",
+   "note": "first option is the owner's name; use the project's owner"
+  },
+  "Due": {
+   "type": "date",
+   "writer": "CRM"
+  },
+  "Done": {
+   "type": "checkbox",
+   "writer": "people (read back)"
+  },
+  "Person": {
+   "type": "relation",
+   "target": "clients",
+   "writer": "CRM",
+   "reverse": "Open loop items"
+  },
+  "Deal": {
+   "type": "relation",
+   "target": "deals",
+   "writer": "CRM"
+  },
+  "CRM id": {
+   "type": "text",
+   "writer": "CRM"
+  },
+  "Overdue": {
+   "type": "formula",
+   "formula": "Due passed and Done unchecked; same database",
+   "writer": "CRM"
+  }
+ }
+}

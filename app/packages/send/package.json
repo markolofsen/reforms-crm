@@ -1,0 +1,24 @@
+{
+  "name": "@hub/send",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The one door out of the hub (decision 0011): the Mailer, the send checks, the manual and due sends. Imported by `hub send` and by the server's confirmed Send.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*",
+    "@hub/db": "workspace:*",
+    "@hub/projects": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
+  }
+}

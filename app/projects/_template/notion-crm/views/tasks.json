@@ -1,0 +1,553 @@
+{
+ "database": "tasks",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones. View JSON as returned by notion-fetch; displayProperties kept to the columns a person acts on (live views list every column). dataSourceUrl is a placeholder: set it to the new data source.",
+ "views": [
+  {
+   "name": "My tasks",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Assignee",
+      "propertyType": "person",
+      "operator": "person_contains",
+      "value": {
+       "type": "relative",
+       "value": "me"
+      }
+     },
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is_not",
+      "value": [
+       {
+        "type": "is_option",
+        "value": "Done"
+       },
+       {
+        "type": "is_option",
+        "value": "Cancelled"
+       }
+      ]
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Due",
+     "direction": "ascending"
+    }
+   ],
+   "displayProperties": [
+    "Task",
+    "Status",
+    "Due",
+    "Priority",
+    "Assignee",
+    "Client",
+    "Deal",
+    "Area"
+   ]
+  },
+  {
+   "name": "Today",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is_not",
+      "value": [
+       {
+        "type": "is_option",
+        "value": "Done"
+       },
+       {
+        "type": "is_option",
+        "value": "Cancelled"
+       }
+      ]
+     },
+     {
+      "type": "property",
+      "property": "Due",
+      "propertyType": "date",
+      "operator": "date_is_on_or_before",
+      "value": {
+       "type": "relative",
+       "value": "today"
+      }
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Due",
+     "direction": "ascending"
+    }
+   ],
+   "displayProperties": [
+    "Task",
+    "Status",
+    "Due",
+    "Priority",
+    "Assignee",
+    "Client",
+    "Deal",
+    "Type",
+    "Stage"
+   ]
+  },
+  {
+   "name": "Week",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is_not",
+      "value": [
+       {
+        "type": "is_option",
+        "value": "Done"
+       },
+       {
+        "type": "is_option",
+        "value": "Cancelled"
+       }
+      ]
+     },
+     {
+      "type": "property",
+      "property": "Due",
+      "propertyType": "date",
+      "operator": "date_is_within",
+      "value": {
+       "type": "relative",
+       "value": "the_next_week"
+      }
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Due",
+     "direction": "ascending"
+    }
+   ],
+   "displayProperties": [
+    "Task",
+    "Status",
+    "Due",
+    "Priority",
+    "Assignee",
+    "Client",
+    "Deal",
+    "Type",
+    "Stage"
+   ]
+  },
+  {
+   "name": "Waiting",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is",
+      "value": {
+       "type": "is_option",
+       "value": "Waiting"
+      }
+     }
+    ]
+   },
+   "groupBy": {
+    "property": "Waiting on",
+    "propertyType": "select",
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Task",
+    "Waiting on",
+    "Due",
+    "Assignee",
+    "Client",
+    "Deal",
+    "Overdue"
+   ]
+  },
+  {
+   "name": "Inbox",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is",
+      "value": {
+       "type": "is_option",
+       "value": "Inbox"
+      }
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Created",
+     "direction": "descending"
+    }
+   ],
+   "displayProperties": [
+    "Task",
+    "Source",
+    "Type",
+    "Due",
+    "Created",
+    "Client",
+    "Deal"
+   ]
+  },
+  {
+   "name": "Board",
+   "type": "board",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is_not",
+      "value": [
+       {
+        "type": "is_option",
+        "value": "Done"
+       },
+       {
+        "type": "is_option",
+        "value": "Cancelled"
+       }
+      ]
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Due",
+     "direction": "ascending"
+    }
+   ],
+   "groupBy": {
+    "groupBy": "option",
+    "property": "Status",
+    "propertyType": "status",
+    "sort": {
+     "type": "ascending"
+    }
+   },
+   "displayProperties": [
+    "Task",
+    "Due",
+    "Priority",
+    "Assignee",
+    "Client",
+    "Deal"
+   ]
+  },
+  {
+   "name": "By client",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is_not",
+      "value": [
+       {
+        "type": "is_option",
+        "value": "Done"
+       },
+       {
+        "type": "is_option",
+        "value": "Cancelled"
+       }
+      ]
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Due",
+     "direction": "ascending"
+    }
+   ],
+   "groupBy": {
+    "property": "Client",
+    "propertyType": "relation",
+    "hideEmptyGroups": true,
+    "sort": {
+     "type": "ascending"
+    }
+   },
+   "displayProperties": [
+    "Task",
+    "Status",
+    "Due",
+    "Priority",
+    "Assignee",
+    "Client",
+    "Deal"
+   ]
+  },
+  {
+   "name": "By area",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is_not",
+      "value": [
+       {
+        "type": "is_option",
+        "value": "Done"
+       },
+       {
+        "type": "is_option",
+        "value": "Cancelled"
+       }
+      ]
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Due",
+     "direction": "ascending"
+    }
+   ],
+   "groupBy": {
+    "property": "Area",
+    "propertyType": "select",
+    "hideEmptyGroups": false,
+    "sort": {
+     "type": "manual"
+    }
+   },
+   "displayProperties": [
+    "Task",
+    "Status",
+    "Due",
+    "Priority",
+    "Assignee",
+    "Client",
+    "Deal",
+    "Type"
+   ]
+  },
+  {
+   "name": "By project",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is_not",
+      "value": [
+       {
+        "type": "is_option",
+        "value": "Done"
+       },
+       {
+        "type": "is_option",
+        "value": "Cancelled"
+       }
+      ]
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Due",
+     "direction": "ascending"
+    }
+   ],
+   "groupBy": {
+    "property": "Project",
+    "propertyType": "relation",
+    "hideEmptyGroups": true,
+    "sort": {
+     "type": "ascending"
+    }
+   },
+   "displayProperties": [
+    "Task",
+    "Status",
+    "Due",
+    "Priority",
+    "Assignee",
+    "Client",
+    "Deal",
+    "Project"
+   ],
+   "only": "projects module"
+  },
+  {
+   "name": "Needs area",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Area",
+      "propertyType": "select",
+      "operator": "is_empty"
+     },
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is_not",
+      "value": [
+       {
+        "type": "is_option",
+        "value": "Done"
+       },
+       {
+        "type": "is_option",
+        "value": "Cancelled"
+       }
+      ]
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Due",
+     "direction": "ascending"
+    }
+   ],
+   "displayProperties": [
+    "Task",
+    "Status",
+    "Due",
+    "Priority",
+    "Assignee",
+    "Client",
+    "Deal",
+    "Work type",
+    "Area"
+   ]
+  },
+  {
+   "name": "Done",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "advancedFilter": {
+    "type": "group",
+    "operator": "and",
+    "filters": [
+     {
+      "type": "property",
+      "property": "Status",
+      "propertyType": "status",
+      "operator": "status_is",
+      "value": [
+       {
+        "type": "is_option",
+        "value": "Done"
+       },
+       {
+        "type": "is_option",
+        "value": "Cancelled"
+       }
+      ]
+     }
+    ]
+   },
+   "sorts": [
+    {
+     "property": "Last edited",
+     "direction": "descending"
+    }
+   ],
+   "displayProperties": [
+    "Task",
+    "Status",
+    "Done date",
+    "Assignee",
+    "Type",
+    "Client",
+    "Deal"
+   ]
+  },
+  {
+   "name": "All",
+   "type": "table",
+   "dataSourceUrl": "collection://<data source id>",
+   "displayProperties": [
+    "Task",
+    "Client",
+    "Deal",
+    "Organization",
+    "Status",
+    "Due",
+    "Priority",
+    "Type",
+    "Assignee",
+    "Waiting on",
+    "Overdue",
+    "Done date"
+   ]
+  }
+ ]
+}

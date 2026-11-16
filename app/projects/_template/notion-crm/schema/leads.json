@@ -1,0 +1,154 @@
+{
+ "database": "leads",
+ "title": "Leads",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+ "properties": {
+  "Name": {
+   "type": "title",
+   "writer": "Hub"
+  },
+  "Status": {
+   "type": "select",
+   "writer": "Hub sets New on create, then people",
+   "options": [
+    "New",
+    "In progress",
+    "Won",
+    "Lost",
+    "Spam"
+   ]
+  },
+  "Source": {
+   "type": "select",
+   "writer": "Hub",
+   "options": [
+    "Website",
+    "Telegram",
+    "Referral",
+    "Other",
+    "Email"
+   ],
+   "note": "option Email carries the description 'The first message arrived by email, not through the website form.'; a missing Email option stops Hub writing"
+  },
+  "Received at": {
+   "type": "date",
+   "writer": "Hub"
+  },
+  "Email": {
+   "type": "email",
+   "writer": "Hub"
+  },
+  "Phone": {
+   "type": "phone_number",
+   "writer": "Hub"
+  },
+  "Company": {
+   "type": "text",
+   "writer": "Hub"
+  },
+  "Message": {
+   "type": "text",
+   "writer": "Hub"
+  },
+  "Details": {
+   "type": "text",
+   "writer": "Hub"
+  },
+  "Form": {
+   "type": "text",
+   "writer": "Hub"
+  },
+  "Source page": {
+   "type": "text",
+   "writer": "Hub"
+  },
+  "Page URL": {
+   "type": "url",
+   "writer": "Hub"
+  },
+  "Locale": {
+   "type": "text",
+   "writer": "Hub"
+  },
+  "Mailbox": {
+   "type": "text",
+   "writer": "Hub",
+   "note": "a missing Mailbox is tolerated"
+  },
+  "Client": {
+   "type": "relation",
+   "target": "clients",
+   "limit": 1,
+   "reverse": "Leads",
+   "writer": "Hub"
+  },
+  "Owner": {
+   "type": "person",
+   "writer": "people"
+  },
+  "Next step": {
+   "type": "date",
+   "writer": "people"
+  },
+  "Notes": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Conversation summary": {
+   "type": "text",
+   "writer": "email assistant / people",
+   "note": "not used on Leads by the pack; kept for the email-assistant contract"
+  },
+  "Hub run id": {
+   "type": "text",
+   "writer": "Hub",
+   "note": "idempotency key, never edit"
+  },
+  "Ad click": {
+   "type": "text",
+   "writer": "Hub",
+   "flag": "ads"
+  },
+  "GCLID": {
+   "type": "text",
+   "writer": "Hub",
+   "flag": "ads"
+  },
+  "MSCLKID": {
+   "type": "text",
+   "writer": "Hub",
+   "flag": "ads"
+  },
+  "LinkedIn click ID": {
+   "type": "text",
+   "writer": "Hub",
+   "flag": "ads"
+  },
+  "UTM source": {
+   "type": "text",
+   "writer": "Hub",
+   "flag": "ads"
+  },
+  "UTM medium": {
+   "type": "text",
+   "writer": "Hub",
+   "flag": "ads"
+  },
+  "UTM campaign": {
+   "type": "text",
+   "writer": "Hub",
+   "flag": "ads"
+  },
+  "Ad click time": {
+   "type": "date",
+   "writer": "Hub",
+   "flag": "ads"
+  },
+  "Ad consent": {
+   "type": "checkbox",
+   "writer": "Hub",
+   "flag": "ads"
+  }
+ },
+ "noteVsPack": "The live Leads has no Brand property (the pack listed one, vertical; dropped). Source and Status are type select (not status). Ad-tracking columns (flag ads) are written by Hub once mapped; deploy them only when the project runs ads."
+}

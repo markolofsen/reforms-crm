@@ -1,0 +1,24 @@
+{
+  "name": "@hub/contract",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./errors": "./src/errors.ts",
+    "./requests": "./src/requests.ts",
+    "./responses": "./src/responses.ts",
+    "./health": "./src/health.ts",
+    "./overview": "./src/overview.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
+  }
+}

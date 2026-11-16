@@ -1,0 +1,42 @@
+# Local admin app rules
+
+Index. Read the page that owns your question before you edit `app/apps/admin`, the local admin: Next.js 16 (App Router), React 19, coss, a Hono API behind `/api` (decision a decision or plan record kept in the owner's instance). Each rule page has MUST / SHOULD rules and an Enforcement section naming the tool or test; `pnpm --filter @hub/admin check` runs the gates. Pages are adapted copies of the shared frontend rules: provenance in `SOURCE.md`.
+
+
+| Task | Page |
+|---|---|
+| Layers, alias, tsconfig, `next.config.ts`, `proxy.ts`, ports, dependencies, server and client components | `architecture-and-ownership.md` |
+| Queries, mutations, loading/empty/error states, storage, the cookie, stable first render (hydration) | `state-and-data.md` |
+| `any`, casts, `!`, unions, `import type` | `typing.md` |
+| Screens, real paths, `paths.*` and `AppLink`, filters and keys, the project guard, titles, Not found | `routes-and-url-state.md` (read before touching navigation) |
+| Scenarios, determinism, viewport and keyboard contracts | `ui-specifications.md` |
+| coss, tokens, colors, light and dark | `design-system-and-tokens.md` |
+| Names, focus, keyboard, contrast, live regions | `accessibility.md` |
+| Class strings, `index.css`, `cn` | `stylesheets-and-class-lists.md` |
+| What "done" means, `pnpm check`, how e2e runs (`next start`, own `distDir`), the build with no API | `verification.md` |
+| Rules for agents, commits, ratchets | `agent-guardrails.md` |
+| Folders, `src/app` files, file names, 300-line cap | `structure-and-naming.md` |
+| Per-edit commits on `app-live`, Next dev in the worktree | `live-edit.md` |
+| Dev-time skills (coss) | `skills.md` |
+| Where each page came from | `SOURCE.md` |
+
+## Standing rules
+
+1. Read `@docs/core/06-local-admin-app.md` and `@docs/core/08-local-app-stack.md` first; the owner's reference material for the look the colleague's helper set.
+2. Components: coss primitives and particles first (skills `coss`, `coss-particles`); do not invent coss APIs, check the docs. No dialogs for primary work: inline disclosure; Drawer only if an edge panel is unavoidable (Sheet is gone in coss).
+3. The agent never sends and has no path to a send (decision 0011). The app sends only one draft at a time, after a person has seen the exact mail and confirmed it: the one route `POST /api/projects/:slug/drafts/:id/send` (`apps/server/src/routes/sends.ts`, checks in `@hub/send`). Nothing sends in bulk, on a timer from the admin, or without "I read the checks" switched on. Tests and e2e use the fake Mailer only (`HUB_MAILER=fake`, refused without `HUB_DB`); never put a real send in a test.
+4. Every agent edit to the admin app is one git commit on branch `app-live`, made by a hook, so a bad edit reverts alone: `app/@rules/live-edit.md` (`pnpm live`). Never edit `apps/admin` in the main checkout while a live session runs.
+5. Data: SQLite is working state only; mail is read live, Notion is the CRM. Schema changes go through a migration, never an ad-hoc ALTER.
+6. UI language: English. Tables are stock coss `Table`; widths in percent; every list shows counts in its filters.
+7. Bind to 127.0.0.1: `next dev` and `next start` always with `-H 127.0.0.1`, and `src/proxy.ts` refuses a foreign Host or Origin (`architecture-and-ownership.md` rules 11-12). No secrets in a tracked file, no `NEXT_PUBLIC_*` variable: logins and tokens live only in the git-ignored `state/secrets/` (override `HUB_CONFIG_DIR`).
+8. MUST: locations come only from `@hub/config/paths` (`hubPaths`). No `join(root, "projects"|"state"|"config"|...)`, no `app/projects` string, no direct read of `HUB_HOME`, `HUB_PROJECTS`, `HUB_DB`, `HUB_CONFIG_DIR`, `HUB_CONFIG_FILE` outside `packages/config`; `apps/installer/test/home-seams.test.ts` enforces it. Precedence and layouts: `@docs/core/08-local-app-stack.md` (decision 0016).
+8. One screen per job: Overview (route `/overview`, built; the entry when there are two or more projects or anything needs attention), Drafts (routes `/drafts`, `/drafts/42`), Bulk (`/bulk`, `/bulk/3`), Activity (route `/log`), Project (route `/project`, built; Project also holds the health checks, the send history and the one Stop sending); Client, Reports (planned). Adding a sixth needs a reason written here. Reason for the fifth, Overview: Drafts, Bulk, Activity and Project are each scoped to one project, and the owner's first question (what is the situation across everything) belongs to none of them; inside Project it would sit behind a project choice. It is the only cross-project route (`routes-and-url-state.md` rule 10) and reads, never writes.
+9. Verification: a screen is done when the agent has opened it in the browser at 360, 768 and 1280 px (no sideways page scroll, touch targets 44px high below 1024px, filters one scrolling row of chips with counts) and the owner's main path works with the keyboard. `pnpm e2e` (Playwright, installed Chrome, throwaway DB, a production build served by `next start`; `verification.md` rule 6) runs the flows in `apps/admin/e2e`; add a flow when a screen is added. Flows that create data are named `z-*.spec.ts` so they run after the smoke flows (one worker, one seeded database).
+10. Skills: dev-time (coss) are referenced in `skills.md`, not copied; run-time skills stay in `reforms-crm/skills/`.
+11. Layout (decision a decision or plan record kept in the owner's instance): `app/` is the one Turborepo + pnpm monorepo: `apps/server`, `apps/admin`, `apps/installer` (`@hub/installer`, bin `hub`: agent, up, doctor, setup, plus hidden install, uninstall, guide; root script `pnpm hub`; the launchd/notify/gate code is archived in the archived installer-automation material (not part of this repo)); `packages/db` (`@hub/db`), `packages/config`, `packages/mail` (`@hub/mail`, the read-only IMAP reader), `packages/notion` (`@hub/notion`, CLI `notion-dump`); `packages/send` (`@hub/send`: the Mailer and the send checks, shared by `hub send` and the server, since packages never import apps); `app/projects/<name>/project.md` lists a project's Notion databases. Every package is a workspace member: no own lockfile, no own `pnpm-workspace.yaml` (the esbuild build policy lives once in `app/pnpm-workspace.yaml`); tsconfig extends `@hub/config/tsconfig.base.json`. `pnpm dev` runs everything; root script `db:migrate`; the schema lives in `packages/db/src/schema.ts` and every table has a `project` column: filter by it in every query.
+12. coss components are copied into `apps/admin/src/components/ui` from `https://coss.com/ui/r/<name>.json` (rewrite `@/registry/default/{ui,lib}` to `@/components/ui`, `@/lib`); do not hand-edit them.
+13. TanStack Table is v9: `useTable({ features, columns, data })` with `features` and `columns` at module scope, `flexRender`, `row.getAllCells()`. Never write v8 `useReactTable`.
+14. The API: the admin reads a reply only through `read(schema, call)` in `lib/api/client.ts`, parsed with a `@hub/contract` schema; `@hub/server` is imported as `import type` only, and the admin imports no `@hub/db`, `@hub/mail` or Server Action (`architecture-and-ownership.md` rule 3). Repositories are async; a sync driver stays behind them.
+15. Drizzle: in a correlated sub-select write literal table names; drizzle drops qualifiers in a single-table select and `id` becomes ambiguous.
+16. The admin database is not a client directory (decision a decision or plan record kept in the owner's instance). A `clients` row exists only because the agent recorded a draft for that client (`hub record-draft`, repo method `drafts.record`); never bulk-copy clients from Notion, never add a column for a Notion fact (company, deal value), never delete a client row (marks and the log cascade). The Drafts screen lists only clients that have a draft; `clients.listAll` (every row) is for the bulk audience only.
+17. Messengers (`@hub/messengers`): the agent imports only `@hub/messengers`; `@hub/messengers/human` (link, approve, send) is for entry points that know a person is present and mint a `humanActor`. Never import it from an agent tool. Chats are linked to clients by the owner only; ingest stores allow-listed chats only. The bot token is a NEW bot's, in `state/secrets/telegram-bot-token`, never a webhook bot's.

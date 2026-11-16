@@ -1,0 +1,75 @@
+# notion-dump
+
+A read-only Notion backup for reforms-crm (package `@hub/notion`, `app/packages/notion`) (track P2, the owner's instance docs). A deterministic job:
+no model, no Hub, no OAuth session. It uses `@notionhq/client` with an internal integration token and has no code path
+that writes to Notion: the reader interface (`src/types.ts`) holds three read methods and nothing else.
+
+```
+pnpm --filter @hub/notion notion-dump check   acme          # can the token see every database?
+pnpm --filter @hub/notion notion-dump dump    acme          # -> app/projects/acme/dumps/YYYY-MM-DD/
+pnpm --filter @hub/notion notion-dump restore acme --dry-run
+pnpm --filter @hub/notion typecheck && pnpm --filter @hub/notion test
+```
+
+Flags: `--out DIR` (dump root, default `<project>/dumps`), `--date`, `--only clients,leads`, `--rps 3`, `--no-reuse`,
+`--from DATE|PATH` and `--json` (restore). Exit codes: 0 ok, 1 error, 2 a database failed, 3 no token, 64 usage.
+
+## project.md
+
+One file per project, in the project folder. A heading names the project; each database is one list item
+`- <slug>: <data source id>`. Everything else is prose. Ids are the `collection://` ids of the Notion MCP (data
+source ids), dashes optional. A list item with a bad id is an error, never skipped.
+
+```markdown
+# acme
+
+Teamspace "CRM: acme". Notes go in plain paragraphs.
+
+- clients: 00000000-0000-0000-0000-955284342101
+- leads: 00000000-0000-0000-0000-705240741680
+```
+
+`app/projects/<slug>/project.md` lists the project's CRM databases (this owner's live ids: the owner's instance docs, custom). A new
+project is a new folder under `app/projects/` with its own `project.md`; dumps stay inside it and are git-ignored (they hold CRM data).
+
+## Dump layout
+
+```
+dumps/2026-11-14/
+  manifest.json            counts, per-database and total sha256, errors; written last
+  clients/schema.json      properties and select options as Notion returned them
+  clients/index.md         title, page id, last edited
+  clients/pages/<id>.json  the page object (properties, ids, timestamps, parent)
+  clients/pages/<id>.md    the body from pages.retrieveMarkdown
+```
+
+- Idempotent: same Notion state, same bytes, same hash. Keys are sorted, pages are sorted by id, and the expiring
+  signature of hosted-file URLs is removed. The manifest has no timestamp; the folder name is the date.
+- Incremental: a page whose `last_edited_time` is unchanged since the previous complete dump keeps its markdown, so a
+  daily run costs one list call per 100 rows plus one call per edited page. `--no-reuse` refetches everything.
+- A folder without `manifest.json` is an unfinished dump: nothing reads it. One failing database is recorded in the
+  manifest (`error`) and the others are still dumped.
+- A body the API cut short ends with `<!-- notion-dump: truncated ... -->` and is counted in the manifest.
+- Rate limit: at most 3 requests per second (`--rps`), and the SDK retries 429 and 529 with `Retry-After`.
+
+## restore --dry-run
+
+Compares the newest complete dump (or `--from`) with the live databases and prints what a restore would do: pages gone
+from Notion (would be recreated, with the properties the API cannot write and the relations that need an old-id to
+new-id map), pages that differ (left alone, listed by property), pages only in Notion, and schema drift (missing
+property, changed type, missing select options). Matching is by page id. It reads schemas and page lists only.
+Applying a restore is not implemented; without `--dry-run` the command refuses.
+
+## Token
+
+The token is read from `NOTION_TOKEN`, else from `state/secrets/notion-token` (git-ignored; `HUB_CONFIG_DIR` overrides; the token alone, `chmod 600`).
+It is never printed or written to a dump. To create one (the owner, once):
+
+1. notion.so/profile/integrations (Notion "Internal integrations"), New integration, type Internal, in the workspace
+   that holds the CRM teamspaces. Read access is enough for this tool: tick "Read content" only.
+2. Copy the secret (`ntn_...`) into the file above.
+3. Share each project's CRM root page with the integration: page menu, Connections, add the integration. Children
+   follow; cross-database relations also need the target database shared. Then run `pnpm notion-dump check`.
+
+Creating an integration needs a workspace owner or admin; it is available on every Notion plan. A Business or
+Enterprise workspace can additionally mint an MCP token for the hosted MCP, which this tool does not use.

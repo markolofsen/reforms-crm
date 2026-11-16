@@ -1,0 +1,86 @@
+{
+ "database": "reports",
+ "title": "Reports",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+ "properties": {
+  "Report": {
+   "type": "title",
+   "writer": "people"
+  },
+  "Date": {
+   "type": "date",
+   "writer": "people"
+  },
+  "Format": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "Phone call",
+    "Video call",
+    "In person",
+    "Other"
+   ]
+  },
+  "Status": {
+   "type": "status",
+   "createAs": "select",
+   "groups": {
+    "to_do": [
+     "Awaiting files"
+    ],
+    "in_progress": [
+     "In progress",
+     "Ready for review"
+    ],
+    "complete": [
+     "Final"
+    ]
+   },
+   "trap": 1,
+   "writer": "people"
+  },
+  "Summary": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Clients": {
+   "type": "relation",
+   "target": "clients",
+   "note": "one-way, no reverse on Clients; not synced"
+  },
+  "Other participants": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Team participants": {
+   "type": "person",
+   "writer": "people"
+  },
+  "Deal": {
+   "type": "relation",
+   "target": "deals",
+   "limit": 1,
+   "note": "one-way, no reverse on Deals; not synced"
+  },
+  "Tasks": {
+   "type": "relation",
+   "target": "tasks",
+   "reverse": "Conversation report",
+   "note": "two-way; reverse is Tasks.Conversation report (live Tasks also has Source report, limit 1, one-way)"
+  },
+  "Original participants": {
+   "type": "text",
+   "writer": "migration",
+   "flag": "migration"
+  },
+  "Original report": {
+   "type": "url",
+   "writer": "migration",
+   "flag": "migration"
+  }
+ },
+ "pageTemplates": [
+  "Conversation report (default)"
+ ],
+ "noteVsPack": "Live Status is type status (trap 1). Migration-only properties (flag migration) are skipped in a fresh deploy."
+}

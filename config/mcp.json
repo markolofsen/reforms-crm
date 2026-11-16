@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "mail-mcp": {
+      "type": "http",
+      "url": "http://localhost:8787"
+    },
+    "notion": {
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp"
+    },
+    "knowledge-mcp": {
+      "type": "stdio",
+      "command": "app/packages/knowledge/node_modules/.bin/tsx",
+      "args": [
+        "app/packages/knowledge/src/mcp-bin.ts"
+      ],
+      "env": {
+        "HUB_PROJECT": "${HUB_PROJECT:-}"
+      }
+    }
+  }
+}

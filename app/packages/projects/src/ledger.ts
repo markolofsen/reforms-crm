@@ -1,0 +1,293 @@
+import { fingerprint, judgeSimilarity, sim, type Verdict } from "./similarity.js";
+
+// The observed witness of P28 (research 15 section 3.2). A ledger line is a thin summary of one tool call: which
+// message was opened, who wrote it, which search ran, whether a Notion page was read, the sketch of a reply. No mail
+// body, no Notion text. The same functions serve three callers, so one rule means one thing:
+//   - the PreToolUse/PostToolUse hooks (`hub guard`, `hub guard --post`) that append and check live,
+//   - `hub record-draft`, which cross-checks what the agent claims against the ledger,
+//   - `hub audit-run`, which rebuilds the ledger from a finished transcript.
+// mail-mcp ids are INTEGERS per mailbox (find_messages / get_message_content / create_reply), not Message-ID headers.
+// The shape of the tool RESULTS is not verified against the real mail-mcp (S1 used a stub): parsing is tolerant and an
+// unreadable result is "unknown", never a guess that favours the agent.
+
+export interface LedgerEntry {
+  ts?: string;
+  sid?: string;
+  /** Subagent id; absent for the main session. */
+  aid?: string;
+  /** Short tool name, e.g. `find_messages`. */
+  tool: string;
+  kind: "find" | "read" | "draft" | "notion" | "knowledge";
+  account?: string;
+  // find
+  sender?: string;
+  mailbox?: string;
+  /** Ids the search returned; `null`: the result could not be read (unknown), `[]`: it said "nothing". */
+  ids?: number[] | null;
+  // read
+  id?: number;
+  from?: string;
+  date?: string;
+  bytes?: number;
+  // draft (create_reply)
+  replyTo?: number;
+  fp?: number[];
+  hash?: string;
+  words?: number;
+  /** The body has a money or date pattern, and whether it carries an `[Owner: ...]` placeholder. */
+  figure?: boolean;
+  placeholder?: boolean;
+  // notion
+  op?: "fetch" | "query" | "search" | "update";
+  emails?: string[];
+  editedAt?: string;
+  // knowledge
+  query?: string;
+}
+
+export interface CallRecord { name: string; input: unknown; result?: unknown }
+
+const ADDRESS = /[^\s,;<>"'()\[\]]+@[^\s,;<>"'()\[\]]+/g;
+const shortName = (n: string) => n.split("__").pop() ?? n;
+const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" ? (v as Record<string, unknown>) : {});
+const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v.trim() : undefined);
+const lower = (s: string) => s.trim().toLowerCase();
+
+/** The text of a tool result: a string, an MCP content array, or a `tool_result` block's content. */
+export function resultText(r: unknown): string {
+  if (r == null) return "";
+  if (typeof r === "string") return r;
+  if (Array.isArray(r)) return r.map((b) => (typeof b === "string" ? b : typeof obj(b).text === "string" ? (obj(b).text as string) : JSON.stringify(b))).join("\n");
+  const o = obj(r);
+  if (Array.isArray(o.content)) return resultText(o.content);
+  if (typeof o.text === "string") return o.text;
+  return JSON.stringify(r);
+}
+
+const ID_KEYS = /"?(?:message_id|messageId|id)"?\s*[:=]\s*"?(\d+)/gi;
+
+/** Ids in a find result; `null` when nothing in the text can be read as a list, `[]` when it clearly lists nothing. */
+function findIds(text: string): number[] | null {
+  const t = text.trim();
+  if (!t) return null;
+  try {
+    const j: unknown = JSON.parse(t);
+    const list = Array.isArray(j) ? j : Array.isArray(obj(j).messages) ? (obj(j).messages as unknown[]) : Array.isArray(obj(j).results) ? (obj(j).results as unknown[]) : null;
+    if (list) {
+      const ids = list.map((m) => Number(obj(m).id ?? obj(m).message_id ?? obj(m).messageId)).filter((n) => Number.isInteger(n));
+      return list.length === 0 ? [] : ids.length ? [...new Set(ids)] : null;
+    }
+  } catch { /* plain text: fall through */ }
+  const ids = [...t.matchAll(ID_KEYS)].map((m) => Number(m[1]));
+  if (ids.length) return [...new Set(ids)];
+  return /\b(no|0|zero) (messages?|results?|matches)\b|^\[\s*\]$/i.test(t) ? [] : null;
+}
+
+/** The sender address in the text of one message, and its date, when the result says them. */
+function fromOf(text: string): { from?: string; date?: string } {
+  const head = text.slice(0, 4000);
+  const f = head.match(/"?(?:from|sender)"?\s*[:=]\s*"?([^\n]*)/i)?.[1];
+  const addr = f?.match(ADDRESS)?.[0];
+  const date = head.match(/"?(?:date|dateReceived|date_received)"?\s*[:=]\s*"?([^\n",]+)/i)?.[1]?.trim();
+  return { ...(addr ? { from: lower(addr) } : {}), ...(date ? { date } : {}) };
+}
+
+const FIGURE = /(?:[$€£¥]\s?\d|\d\s?(?:usd|eur|gbp|rub|rs|aed|%)\b|\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}\b|\b\d{1,2} (?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b)/i;
+
+export interface SummarizeOptions { names?: readonly string[]; signoff?: string }
+
+/** One tool call as a ledger line, or null when the call is not part of the evidence. */
+export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEntry | null {
+  const tool = shortName(c.name);
+  const i = obj(c.input);
+  const account = str(i.account);
+  if (c.name.startsWith("mcp__mail-mcp__")) {
+    if (tool === "find_messages") {
+      const mb = Array.isArray(i.mailboxPath) ? (i.mailboxPath as unknown[]).join("/") : undefined;
+      return { tool, kind: "find", ...(account ? { account } : {}), ...(str(i.sender) ? { sender: lower(str(i.sender)!) } : {}), ...(mb ? { mailbox: mb } : {}), ...(c.result !== undefined ? { ids: findIds(resultText(c.result)) } : {}) };
+    }
+    if (tool === "get_message_content") {
+      const text = resultText(c.result);
+      const id = Number(i.message_id);
+      return { tool, kind: "read", ...(account ? { account } : {}), ...(Number.isInteger(id) ? { id } : {}), ...fromOf(text), bytes: text.length };
+    }
+    if (tool === "create_reply") {
+      const content = typeof i.content === "string" ? i.content : "";
+      const id = Number(i.message_id);
+      const fp = fingerprint(content, o);
+      const words = content.split(/\s+/).filter(Boolean).length;
+      return { tool, kind: "draft", ...(account ? { account } : {}), ...(Number.isInteger(id) ? { replyTo: id } : {}), fp, hash: hashHex(content), words, figure: FIGURE.test(content), placeholder: /\[Owner:/i.test(content) };
+    }
+    return null;
+  }
+  if (c.name.startsWith("mcp__notion__")) {
+    const op = ({ "notion-fetch": "fetch", "notion-query-data-sources": "query", "notion-search": "search", "notion-update-page": "update" } as const)[tool as "notion-fetch"];
+    if (!op) return null;
+    const emails = [...new Set((JSON.stringify(c.input ?? {}).match(ADDRESS) ?? []).map(lower))];
+    const edited = resultText(c.result).match(/"?(?:last_edited_time|lastEditedTime|last_edited)"?\s*[:=]\s*"?(\d{4}-\d{2}-\d{2})/i)?.[1];
+    return { tool, kind: "notion", op, ...(emails.length ? { emails } : {}), ...(edited ? { editedAt: edited } : {}) };
+  }
+  if (c.name.startsWith("mcp__knowledge-mcp__") && (tool === "knowledge_search" || tool === "knowledge_get")) {
+    return { tool, kind: "knowledge", ...(str(i.query) ? { query: str(i.query)!.slice(0, 200) } : {}) };
+  }
+  return null;
+}
+
+function hashHex(s: string): string {
+  let h = 0x811c9dc5;
+  for (let k = 0; k < s.length; k++) { h ^= s.charCodeAt(k); h = Math.imul(h, 0x01000193); }
+  return (h >>> 0).toString(16).padStart(8, "0");
+}
+
+export interface Observation {
+  /** Address of the client the reply goes to, when the read of the answered message said it. */
+  client?: string;
+  targetRead: boolean;
+  historyFind: boolean;
+  /** Messages the history search returned; null: unknown. */
+  found: number | null;
+  /** Distinct messages of this client opened. */
+  read: number;
+  readIds: number[];
+  required: number;
+  profile: boolean;
+  facts: number;
+  maxSim: number;
+  similarTo: number | null;
+  /** Index (in the entries) of the draft judged. */
+  index: number;
+  verdict: Verdict;
+  /** Plain-language list of what is missing, in the order a-d of research 15. */
+  missing: string[];
+}
+
+const same = (a: LedgerEntry, b: LedgerEntry) => (a.aid ?? "") === (b.aid ?? "");
+
+/** What the session observed before the draft at `index` (an entry of kind `draft`). */
+export function observeDraft(entries: readonly LedgerEntry[], index: number): Observation {
+  const d = entries[index]!;
+  const prev = (() => { for (let k = index - 1; k >= 0; k--) if (entries[k]!.kind === "draft" && same(entries[k]!, d)) return k; return -1; })();
+  const mine = entries.slice(0, index).map((e, k) => ({ e, k })).filter(({ e }) => same(e, d));
+  const target = mine.filter(({ e }) => e.kind === "read" && e.id === d.replyTo).pop()?.e;
+  const client = target?.from;
+  const inWindow = (k: number) => k > prev;
+
+  const reads = mine.filter(({ e, k }) => e.kind === "read" && (e.id === d.replyTo || (e.from ? (client ? e.from === client : inWindow(k)) : inWindow(k))));
+  const readIds = [...new Set(reads.map(({ e }) => e.id).filter((n): n is number => n !== undefined))];
+  const finds = mine.filter(({ e, k }) => {
+    if (e.kind !== "find" || !e.sender) return false;
+    return client ? e.sender.includes(client) || client.includes(e.sender) : inWindow(k);
+  });
+  const known = finds.map(({ e }) => e.ids).filter((x): x is number[] => Array.isArray(x));
+  const found = known.length ? Math.max(...known.map((x) => x.length)) : null;
+  const required = Math.max(1, Math.min(found ?? 3, 3));
+  const profile = mine.some(({ e, k }) => e.kind === "notion" && e.op !== "update" && (e.emails?.length ? !!client && e.emails.includes(client) : inWindow(k)));
+  const facts = mine.filter(({ e, k }) => e.kind === "knowledge" && inWindow(k)).length;
+
+  let maxSim = 0;
+  let similarTo: number | null = null;
+  for (let k = 0; k < index; k++) {
+    const e = entries[k]!;
+    if (e.kind !== "draft" || !e.fp || !d.fp) continue;
+    const s = sim(d.fp, e.fp);
+    if (s > maxSim) { maxSim = s; similarTo = k; }
+  }
+  const missing: string[] = [];
+  if (!target) missing.push("(a) get_message_content of the message being answered");
+  if (!finds.length) missing.push("(b) find_messages with this client's address as sender (the history lookup)");
+  if (readIds.length < required) missing.push(`(c) ${required} message(s) of this client opened (${readIds.length} so far)`);
+  if (!profile) missing.push("(d) the client's Notion record (query by Email, or notion-fetch)");
+  return { ...(client ? { client } : {}), targetRead: !!target, historyFind: finds.length > 0, found, read: readIds.length, readIds, required, profile, facts, maxSim, similarTo, index, verdict: judgeSimilarity({ maxSim }), missing };
+}
+
+/**
+ * The ledger line of a call. A reply's sketch is taken with the client's own name and address removed, so a body that
+ * differs from another only by the swapped name still matches it; the client comes from the read of the answered message.
+ */
+export function entryFor(entries: readonly LedgerEntry[], call: CallRecord, o: SummarizeOptions & { aid?: string } = {}): LedgerEntry | null {
+  const first = summarizeCall(call, o);
+  if (!first) return null;
+  const entry: LedgerEntry = { ...first, ...(o.aid ? { aid: o.aid } : {}) };
+  if (entry.kind !== "draft") return entry;
+  const client = observeDraft([...entries, entry], entries.length).client;
+  if (!client) return entry;
+  return { ...summarizeCall(call, { ...o, names: [...(o.names ?? []), client] })!, ...(o.aid ? { aid: o.aid } : {}) };
+}
+
+/** The guard's decision for a `create_reply` about to run: the reply as a pending entry, observed against the session so far. */
+export function preDraftCheck(entries: readonly LedgerEntry[], call: CallRecord, o: SummarizeOptions & { aid?: string } = {}): { observation: Observation | null; violations: string[] } {
+  const entry = entryFor(entries, call, o);
+  if (!entry || entry.kind !== "draft") return { observation: null, violations: [] };
+  const all = [...entries, entry];
+  const ob = observeDraft(all, all.length - 1);
+  const violations: string[] = [];
+  if (ob.missing.length) violations.push(`read this client's thread and profile first: missing ${ob.missing.join("; ")}`);
+  if (ob.verdict.level === "red") violations.push(`this reply is a near-copy of an earlier one in this session (${ob.verdict.reasons.join("; ")}): write it from this client's own thread`);
+  return { observation: ob, violations };
+}
+
+export interface ClaimedRecord { email?: string; mailRef?: string; context?: unknown }
+
+/** `hub record-draft` calls inside a Bash command: the JSON the agent piped in. Best effort (an `echo '...' | ... record-draft` form). */
+export function claimsFromBash(command: string): ClaimedRecord[] {
+  if (!/record-draft/.test(command)) return [];
+  const out: ClaimedRecord[] = [];
+  for (const m of command.matchAll(/echo\s+'([\s\S]*?)'\s*\|/g)) {
+    try {
+      const j = obj(JSON.parse(m[1]!));
+      out.push({ ...(typeof j.email === "string" ? { email: lower(j.email) } : {}), ...(typeof j.mailRef === "string" ? { mailRef: j.mailRef } : {}), ...(j.context !== undefined ? { context: j.context } : {}) });
+    } catch { /* not JSON */ }
+  }
+  return out;
+}
+
+export interface EvidenceRow {
+  client: string;
+  read: string;
+  profile: string;
+  facts: number;
+  anchors: string;
+  maxSim: number;
+  verdict: "ok" | "amber" | "red";
+  notes: string[];
+}
+
+/** Rows of the audit table, one per `create_reply`, from the entries of one session (main plus subagents, in order) and the claims made after each draft. */
+export function auditEvidence(entries: readonly LedgerEntry[], claims: ReadonlyArray<{ after: number; claim: ClaimedRecord }> = []): EvidenceRow[] {
+  const rows: EvidenceRow[] = [];
+  entries.forEach((e, idx) => {
+    if (e.kind !== "draft") return;
+    const o = observeDraft(entries, idx);
+    const claim = claims.filter((c) => c.after >= idx).sort((a, b) => a.after - b.after).find((c) => !c.claim.email || !o.client || c.claim.email === o.client);
+    const ctx = obj(claim?.claim.context);
+    const claimedRead = Number(obj(ctx.thread).read);
+    const anchors = Array.isArray(ctx.anchors) ? ctx.anchors.length : null;
+    const notes: string[] = [];
+    let verdict: EvidenceRow["verdict"] = "ok";
+    const raise = (l: "amber" | "red", why: string) => { notes.push(why); if (l === "red" || verdict === "ok") verdict = l; };
+    if (!o.targetRead) raise("red", "message answered was never opened");
+    if (!o.historyFind) raise("red", "no history search");
+    if (o.read < o.required) raise("red", `opened ${o.read} of ${o.required} required`);
+    if (!o.profile) raise("red", "profile not read");
+    if (o.facts < 1) raise("amber", "no knowledge search");
+    if (o.verdict.level !== "ok") raise(o.verdict.level, o.verdict.reasons.join("; "));
+    if (Number.isFinite(claimedRead) && claimedRead > o.read) raise("red", `claims ${claimedRead} read, observed ${o.read}`);
+    if (!claim) raise("amber", "draft was never recorded with context");
+    else if (anchors === null) raise("amber", "recorded without anchors");
+    const label = o.client ?? (claim?.claim.email ?? `reply to message ${e.replyTo ?? "?"}`);
+    rows.push({ client: label, read: `${o.read}/${o.required}`, profile: o.profile ? "read" : "no", facts: o.facts, anchors: anchors === null ? "-" : String(anchors), maxSim: Math.round(o.maxSim * 100) / 100, verdict, notes });
+  });
+  return rows;
+}
+
+/**
+ * Rebuilds ledger entries from a finished transcript (the offline twin of the hooks). Appends to `entries` and `claims`
+ * in place so the main session and its subagents can be replayed one after another into one session.
+ */
+export function replayCalls(calls: readonly CallRecord[], entries: LedgerEntry[], claims: Array<{ after: number; claim: ClaimedRecord }>, aid?: string): void {
+  for (const c of calls) {
+    const e = entryFor(entries, c, aid ? { aid } : {});
+    if (e) entries.push(e);
+    if (c.name === "Bash") for (const claim of claimsFromBash(String(obj(c.input).command ?? ""))) claims.push({ after: entries.length, claim });
+  }
+}

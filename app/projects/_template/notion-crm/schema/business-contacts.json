@@ -1,0 +1,94 @@
+{
+ "database": "business-contacts",
+ "title": "Business contacts",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+ "properties": {
+  "Name": {
+   "type": "title",
+   "writer": "people"
+  },
+  "Record type": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "Person",
+    "Company"
+   ]
+  },
+  "Category": {
+   "type": "multi_select",
+   "writer": "people",
+   "options": [
+    "Partner",
+    "Supplier",
+    "Service provider",
+    "Contractor",
+    "Lawyer",
+    "Bank",
+    "Other"
+   ]
+  },
+  "Company": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Role": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Email": {
+   "type": "email",
+   "writer": "people"
+  },
+  "Email 2": {
+   "type": "email",
+   "writer": "people"
+  },
+  "Phone": {
+   "type": "phone_number",
+   "writer": "people"
+  },
+  "Telegram": {
+   "type": "text",
+   "writer": "people"
+  },
+  "WhatsApp": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Website": {
+   "type": "url",
+   "writer": "people"
+  },
+  "LinkedIn": {
+   "type": "url",
+   "writer": "people"
+  },
+  "Other socials": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Location": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Context": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Tasks": {
+   "type": "relation",
+   "target": "tasks",
+   "reverse": "Business contacts",
+   "note": "two-way; reverse Tasks.Business contacts"
+  },
+  "Related clients": {
+   "type": "relation",
+   "target": "clients",
+   "optional": true,
+   "writer": "people",
+   "note": "optional, one-way, no reverse on Clients; a business contact is never a client"
+  }
+ },
+ "noteVsPack": "Other socials is text live (the pack said url). Category options changed by owner decision 2026-11-14: Client dropped (a business contact is never a client), Lawyer and Bank added; older CRMs may still list Client until the owner approves a rename. Owner decision 2026-11-14: Business contacts is standalone and kept separate from Clients; the live data source description 'To be merged into People' is superseded. Optional module."
+}

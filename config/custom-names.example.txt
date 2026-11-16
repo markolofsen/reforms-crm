@@ -1,0 +1,5 @@
+# Copy to config/custom-names.txt (git-ignored) and list, one regex per line, the names that must never appear
+# in the core: your domains, mail addresses, project slugs, colleagues. layers.test.ts reads it and fails on a hit.
+# Examples (replace with your own):
+# your-company\.example
+# \bproject-slug-one\b

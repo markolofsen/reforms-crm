@@ -1,0 +1,188 @@
+{
+ "database": "knowledge",
+ "title": "Knowledge",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+ "properties": {
+  "Question": {
+   "type": "title",
+   "writer": "people"
+  },
+  "Approved": {
+   "type": "checkbox",
+   "writer": "people"
+  },
+  "Use": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "STATE",
+    "MARKER"
+   ]
+  },
+  "Audiences": {
+   "type": "multi_select",
+   "writer": "people",
+   "options": [
+    "CLIENT",
+    "LEAD",
+    "MIGRATION_ADVISOR",
+    "REFERRAL_PARTNER",
+    "LAWYER",
+    "DEVELOPER",
+    "SELLER",
+    "BANK",
+    "REALTOR",
+    "PEER_BROKER",
+    "VENDOR",
+    "GOVERNMENT",
+    "ANY"
+   ]
+  },
+  "Category": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "PROGRAMMES",
+    "APPLICATION",
+    "BUYING",
+    "SELLING",
+    "FINANCING",
+    "OWNING",
+    "DEVELOPMENTS",
+    "ISLANDS",
+    "TRAVEL",
+    "TAX",
+    "OUTLOOK",
+    "ABOUT_OWNER",
+    "PLAYBOOK"
+   ],
+   "flag": "vertical",
+   "genericOptions": [
+    "PLAYBOOK",
+    "TERMS",
+    "SUPPORT",
+    "SOURCES",
+    "PRODUCT",
+    "PRICING",
+    "DATA",
+    "BILLING",
+    "API",
+    "ABOUT"
+   ],
+   "note": "live options are the owner's real-estate set; a fresh project uses genericOptions (from Help, not read live)"
+  },
+  "Kind": {
+   "type": "select",
+   "writer": "people",
+   "options": [
+    "RULE",
+    "FIGURE",
+    "PROCESS",
+    "PRACTICE",
+    "POSITION",
+    "PRODUCT",
+    "PLACE",
+    "BIO",
+    "PLAYBOOK"
+   ]
+  },
+  "Stages": {
+   "type": "multi_select",
+   "writer": "people",
+   "options": [
+    "ENQUIRY",
+    "DISCOVERY",
+    "CHOOSING",
+    "RESERVING",
+    "CONDITIONAL",
+    "APPLICATION",
+    "BUILDING",
+    "CLOSING",
+    "OWNING",
+    "SELLING"
+   ]
+  },
+  "Programmes": {
+   "type": "multi_select",
+   "writer": "people",
+   "options": [
+    "PROGRAMME_A",
+    "PROGRAMME_B"
+   ],
+   "flag": "vertical",
+   "note": "no options in a generic project"
+  },
+  "Islands": {
+   "type": "multi_select",
+   "writer": "people",
+   "options": [
+    "REGION_A",
+    "REGION_B",
+    "OTHER"
+   ],
+   "flag": "vertical",
+   "note": "no options in a generic project"
+  },
+  "Folder": {
+   "type": "select",
+   "writer": "people",
+   "options": [],
+   "note": "topic/subtopic, Notion only; the live 34 options are the owner's folders, options per project. Not listed here."
+  },
+  "Phrasings": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Source": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Supersedes": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Valid from": {
+   "type": "date",
+   "writer": "people"
+  },
+  "Valid until": {
+   "type": "date",
+   "writer": "people"
+  },
+  "Last confirmed": {
+   "type": "date",
+   "writer": "people"
+  },
+  "Sync state": {
+   "type": "select",
+   "writer": "CRM sync",
+   "options": [
+    "clean",
+    "conflict",
+    "rejected"
+   ],
+   "flag": "sync"
+  },
+  "Sync hash": {
+   "type": "text",
+   "writer": "CRM sync",
+   "flag": "sync"
+  },
+  "Sync note": {
+   "type": "text",
+   "writer": "CRM sync",
+   "flag": "sync"
+  },
+  "CRM id": {
+   "type": "text",
+   "writer": "CRM sync",
+   "flag": "sync"
+  },
+  "CRM updated at": {
+   "type": "text",
+   "writer": "CRM sync",
+   "flag": "sync"
+  }
+ },
+ "noteVsPack": "Live matches the pack except: Category, Programmes, Islands, Folder options are the owner's vertical set. No relations; no template."
+}

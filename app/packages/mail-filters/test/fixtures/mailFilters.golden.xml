@@ -1,0 +1,114 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<feed xmlns='http://www.w3.org/2005/Atom' xmlns:apps='http://schemas.google.com/apps/2006'>
+	<title>Mail Filters</title>
+	<id>tag:mail.google.com,2008:filters:hub-acme-travel</id>
+	<updated>2026-11-14T00:00:00.000Z</updated>
+	<author><name>Hub Workflow</name></author>
+	<entry>
+		<category term='filter'></category>
+		<title>Mail Filter</title>
+		<id>tag:mail.google.com,2008:filter:hub-1</id>
+		<updated>2026-11-14T00:00:00.000Z</updated>
+		<content></content>
+		<apps:property name='from' value='@bigclient.example OR jane@clientco.example'/>
+		<apps:property name='label' value='hub/client'/>
+		<apps:property name='shouldNeverSpam' value='true'/>
+		<apps:property name='sizeOperator' value='s_sl'/>
+		<apps:property name='sizeUnit' value='s_smb'/>
+	</entry>
+	<entry>
+		<category term='filter'></category>
+		<title>Mail Filter</title>
+		<id>tag:mail.google.com,2008:filter:hub-2</id>
+		<updated>2026-11-14T00:00:00.000Z</updated>
+		<content></content>
+		<apps:property name='from' value='@partner.example.com'/>
+		<apps:property name='label' value='hub/partner'/>
+		<apps:property name='shouldNeverSpam' value='true'/>
+		<apps:property name='sizeOperator' value='s_sl'/>
+		<apps:property name='sizeUnit' value='s_smb'/>
+	</entry>
+	<entry>
+		<category term='filter'></category>
+		<title>Mail Filter</title>
+		<id>tag:mail.google.com,2008:filter:hub-3</id>
+		<updated>2026-11-14T00:00:00.000Z</updated>
+		<content></content>
+		<apps:property name='from' value='@bank.example.com'/>
+		<apps:property name='label' value='hub/security'/>
+		<apps:property name='shouldNeverSpam' value='true'/>
+		<apps:property name='sizeOperator' value='s_sl'/>
+		<apps:property name='sizeUnit' value='s_smb'/>
+	</entry>
+	<entry>
+		<category term='filter'></category>
+		<title>Mail Filter</title>
+		<id>tag:mail.google.com,2008:filter:hub-4</id>
+		<updated>2026-11-14T00:00:00.000Z</updated>
+		<content></content>
+		<apps:property name='subject' value='&quot;verification code&quot;'/>
+		<apps:property name='label' value='hub/security'/>
+		<apps:property name='shouldNeverSpam' value='true'/>
+		<apps:property name='sizeOperator' value='s_sl'/>
+		<apps:property name='sizeUnit' value='s_smb'/>
+	</entry>
+	<entry>
+		<category term='filter'></category>
+		<title>Mail Filter</title>
+		<id>tag:mail.google.com,2008:filter:hub-5</id>
+		<updated>2026-11-14T00:00:00.000Z</updated>
+		<content></content>
+		<apps:property name='from' value='@calendly.com'/>
+		<apps:property name='label' value='hub/calendar'/>
+		<apps:property name='sizeOperator' value='s_sl'/>
+		<apps:property name='sizeUnit' value='s_smb'/>
+	</entry>
+	<entry>
+		<category term='filter'></category>
+		<title>Mail Filter</title>
+		<id>tag:mail.google.com,2008:filter:hub-6</id>
+		<updated>2026-11-14T00:00:00.000Z</updated>
+		<content></content>
+		<apps:property name='hasTheWord' value='list:updates.example.dev'/>
+		<apps:property name='label' value='hub/service'/>
+		<apps:property name='sizeOperator' value='s_sl'/>
+		<apps:property name='sizeUnit' value='s_smb'/>
+	</entry>
+	<entry>
+		<category term='filter'></category>
+		<title>Mail Filter</title>
+		<id>tag:mail.google.com,2008:filter:hub-7</id>
+		<updated>2026-11-14T00:00:00.000Z</updated>
+		<content></content>
+		<apps:property name='from' value='noreply@ci.example.dev'/>
+		<apps:property name='label' value='hub/service'/>
+		<apps:property name='shouldArchive' value='true'/>
+		<apps:property name='shouldMarkAsRead' value='true'/>
+		<apps:property name='sizeOperator' value='s_sl'/>
+		<apps:property name='sizeUnit' value='s_smb'/>
+	</entry>
+	<entry>
+		<category term='filter'></category>
+		<title>Mail Filter</title>
+		<id>tag:mail.google.com,2008:filter:hub-8</id>
+		<updated>2026-11-14T00:00:00.000Z</updated>
+		<content></content>
+		<apps:property name='from' value='@deals.example.net OR @news.example.org'/>
+		<apps:property name='label' value='hub/marketing'/>
+		<apps:property name='shouldArchive' value='true'/>
+		<apps:property name='shouldMarkAsRead' value='true'/>
+		<apps:property name='sizeOperator' value='s_sl'/>
+		<apps:property name='sizeUnit' value='s_smb'/>
+	</entry>
+	<entry>
+		<category term='filter'></category>
+		<title>Mail Filter</title>
+		<id>tag:mail.google.com,2008:filter:hub-9</id>
+		<updated>2026-11-14T00:00:00.000Z</updated>
+		<content></content>
+		<apps:property name='from' value='pitch@growth.example.biz'/>
+		<apps:property name='label' value='hub/cold-outreach'/>
+		<apps:property name='sizeOperator' value='s_sl'/>
+		<apps:property name='sizeUnit' value='s_smb'/>
+	</entry>
+</feed>

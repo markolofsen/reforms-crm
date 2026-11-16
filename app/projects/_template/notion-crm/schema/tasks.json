@@ -1,0 +1,256 @@
+{
+ "database": "tasks",
+ "title": "Tasks",
+ "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+ "properties": {
+  "Task": {
+   "type": "title",
+   "writer": "people"
+  },
+  "Status": {
+   "type": "status",
+   "createAs": "select",
+   "groups": {
+    "to_do": [
+     "Inbox",
+     "Not started"
+    ],
+    "in_progress": [
+     "In progress",
+     "Waiting",
+     "In review"
+    ],
+    "complete": [
+     "Done",
+     "Cancelled"
+    ]
+   },
+   "trap": 1
+  },
+  "Due": {
+   "type": "date",
+   "writer": "people/backend"
+  },
+  "Priority": {
+   "type": "select",
+   "options": [
+    "Urgent",
+    "High",
+    "Normal",
+    "Low"
+   ]
+  },
+  "Assignee": {
+   "type": "person",
+   "writer": "people"
+  },
+  "Area": {
+   "type": "select",
+   "options": [
+    "Clients",
+    "Finance",
+    "Team",
+    "Admin",
+    "Tech",
+    "Marketing"
+   ]
+  },
+  "Type": {
+   "type": "select",
+   "options": [
+    "Call",
+    "Message",
+    "Meeting",
+    "Viewing",
+    "Documents",
+    "Offer & contract",
+    "Payment",
+    "Follow-up",
+    "Other"
+   ]
+  },
+  "Work type": {
+   "type": "select",
+   "options": [
+    "Compliance",
+    "Banking",
+    "Legal",
+    "Tax",
+    "Admin",
+    "Web",
+    "SEO",
+    "Sales support",
+    "Hiring"
+   ]
+  },
+  "Waiting on": {
+   "type": "select",
+   "options": [
+    "Client",
+    "Lawyer",
+    "Bank",
+    "Developer",
+    "Government",
+    "{{owner}}",
+    "Mark",
+    "Vendor",
+    "Other"
+   ]
+  },
+  "Source": {
+   "type": "select",
+   "options": [
+    "Manual",
+    "CRM",
+    "Agent"
+   ]
+  },
+  "Delegate to": {
+   "type": "select",
+   "options": [
+    "Administrator",
+    "AI agent"
+   ]
+  },
+  "Focus": {
+   "type": "select",
+   "options": [
+    "Frog",
+    "Q1 today"
+   ]
+  },
+  "Client": {
+   "type": "relation",
+   "target": "clients",
+   "reverse": "Tasks"
+  },
+  "Deal": {
+   "type": "relation",
+   "target": "deals",
+   "limit": 1,
+   "reverse": "Tasks"
+  },
+  "Organization": {
+   "type": "relation",
+   "target": "organizations"
+  },
+  "Parent task": {
+   "type": "relation",
+   "target": "tasks"
+  },
+  "Sub-tasks": {
+   "type": "relation",
+   "target": "tasks"
+  },
+  "Blocked by": {
+   "type": "relation",
+   "target": "tasks"
+  },
+  "Blocking": {
+   "type": "relation",
+   "target": "tasks"
+  },
+  "Source report": {
+   "type": "relation",
+   "target": "reports",
+   "limit": 1
+  },
+  "Conversation report": {
+   "type": "relation",
+   "target": "reports"
+  },
+  "Expense": {
+   "type": "relation",
+   "target": "expenses",
+   "limit": 1,
+   "optional": true
+  },
+  "Project": {
+   "type": "relation",
+   "target": "projects",
+   "optional": true
+  },
+  "Business contacts": {
+   "type": "relation",
+   "target": "business-contacts",
+   "optional": true
+  },
+  "Documents": {
+   "type": "relation",
+   "target": "documents",
+   "optional": true
+  },
+  "Meeting": {
+   "type": "relation",
+   "target": "meetings",
+   "optional": true
+  },
+  "First step": {
+   "type": "text",
+   "writer": "people"
+  },
+  "Doc link": {
+   "type": "url",
+   "writer": "people"
+  },
+  "Times deferred": {
+   "type": "number",
+   "writer": "people"
+  },
+  "Done date": {
+   "type": "date",
+   "writer": "backend"
+  },
+  "CRM id": {
+   "type": "text",
+   "writer": "CRM"
+  },
+  "Synced at": {
+   "type": "date",
+   "writer": "CRM"
+  },
+  "Created": {
+   "type": "created_time",
+   "writer": "system"
+  },
+  "Last edited": {
+   "type": "last_edited_time",
+   "writer": "system"
+  },
+  "Original created": {
+   "type": "date",
+   "writer": "migration only"
+  },
+  "Original last edited": {
+   "type": "date",
+   "writer": "migration only"
+  },
+  "Original task": {
+   "type": "url",
+   "writer": "migration only"
+  },
+  "Stage": {
+   "type": "rollup",
+   "via": "Deal",
+   "target": "Stage"
+  },
+  "Is done": {
+   "type": "formula",
+   "formula": "Status is Done"
+  },
+  "Is open": {
+   "type": "formula",
+   "formula": "Status not Done and not Cancelled; feeds Open tasks rollups"
+  },
+  "Open due": {
+   "type": "formula",
+   "formula": "Due while open; feeds Task due rollups"
+  },
+  "Overdue": {
+   "type": "formula",
+   "formula": "Due passed and not closed"
+  }
+ },
+ "pageTemplates": "nine live ones are migration artefacts; none required",
+ "noteVsPack": "Migration-only properties (Original *) and the optional relations (Expense, Project, Business contacts, Documents, Meeting) belong to the owner's workspace; a fresh project omits them."
+}

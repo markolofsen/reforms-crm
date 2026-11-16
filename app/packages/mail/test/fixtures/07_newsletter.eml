@@ -1,0 +1,22 @@
+From: Fake News <news@example.com>
+To: Alex Demo <alex@example.org>
+Subject: Market update: November
+Date: Tue, 10 Nov 2026 09:14:00 +0000
+Message-ID: <07_newsletter@example.com>
+Content-Type: text/html; charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+MIME-Version: 1.0
+
+<html><body><p style=3D"display:none">preheader</p>
+<p><a href=3D"https://example.com/web">View this email in your browser</a></p>
+<h1>Market update: November</h1>
+<p>Prices in the Lisbon area rose <b>2.1%</b> month over month. Inventory is =
+down 6%.</p>
+<ul><li>Mortgage rates: 3.4%</li><li>Average days on market: 41</li></ul>
+<p>Read the <a href=3D"https://example.com/report">full report</a>.</p>
+<hr>
+<p>You are receiving this email because you subscribed at example.com.</p>
+<p><a href=3D"https://example.com/unsub?id=3D1">Unsubscribe</a> | <a href=3D"=
+https://example.com/prefs?id=3D1">Manage preferences</a></p>
+<p>Fake Holdings Ltd, 1 Example Street, 00000 Nowhere. All rights reserved.</=
+p></body></html>

@@ -1,0 +1,46 @@
+import type { Db } from "../client";
+import { batchesRepo } from "./batches";
+import { clientsRepo } from "./clients";
+import { draftsRepo } from "./drafts";
+import { inboxRepo } from "./inbox";
+import { knowledgeRepo } from "./knowledge";
+import { messengersRepo } from "./messengers";
+import { projectsRepo } from "./projects";
+import { runsRepo } from "./runs";
+import { safetyRulesRepo } from "./safety-rules";
+import { sendsRepo } from "./sends";
+
+export function createRepos(db: Db) {
+  return {
+    clients: clientsRepo(db),
+    drafts: draftsRepo(db),
+    runs: runsRepo(db),
+    projects: projectsRepo(db),
+    knowledge: knowledgeRepo(db),
+    messengers: messengersRepo(db),
+    batches: batchesRepo(db),
+    safetyRules: safetyRulesRepo(db),
+    sends: sendsRepo(db),
+    inbox: inboxRepo(db),
+  };
+}
+export type Repos = ReturnType<typeof createRepos>;
+export type { ClientRow, DraftRow, NewClient } from "./clients";
+export type { NewDraft, RecordDraftInput, RecordDraftResult } from "./drafts";
+export type { EventRow, NewEvent, NewRun, RunRow } from "./runs";
+export type { AddressRow, NewProjectRow, NewQuestion, ProjectRow, QuestionRow } from "./projects";
+export type { KnowledgeDocRow, NewKnowledgeDoc, SearchHit, SearchOptions } from "./knowledge";
+export { buildMatchQuery, isExpired } from "./knowledge";
+export type {
+  ChatRef,
+  ClientIdentifierRow,
+  MessengerAccountRow,
+  MessengerDraftRow,
+  MessengerMessageRow,
+  NewMessengerDraft,
+  NewMessengerMessage,
+} from "./messengers";
+export type { AgentDraft, AudienceClient, BatchRow, BatchSummary, NewBatch, QueuedBatch } from "./batches";
+export type { BasedOn, ReviewDraft } from "./review";
+export type { NewSend, SendRow } from "./sends";
+export type { InboxInput, InboxItem, InboxResult, InboxRow } from "./inbox";

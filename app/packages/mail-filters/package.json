@@ -1,0 +1,25 @@
+{
+  "name": "@hub/mail-filters",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gmail filter rules per project: rules file, safety checks, mailFilters.xml and API request exporters, sender analyzer",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./hub-commands": "./src/hub-commands.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*",
+    "@hub/projects": "workspace:*",
+    "commander": "15.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3",
+    "vitest": "5.1.0"
+  }
+}
