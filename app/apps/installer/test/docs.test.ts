@@ -5,7 +5,7 @@ import { defaultRoot } from "../src/context.ts";
 import { renderClientSetup } from "../src/docs.ts";
 import { selectSteps, STEPS } from "../src/steps/index.ts";
 
-const CHECK_ONLY = ["messengers.poller"];
+const CHECK_ONLY = ["messengers.poller", "instance.core"];
 
 describe("step list", () => {
   it("ids are unique and every step explains itself", () => {

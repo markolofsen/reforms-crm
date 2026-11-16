@@ -1,6 +1,7 @@
 import type { Step } from "../types.ts";
 import { adminSteps } from "./admin.ts";
 import { fileSteps } from "./files.ts";
+import { instanceSteps } from "./instance.ts";
 import { mailSteps } from "./mail.ts";
 import { messengerSteps } from "./messengers.ts";
 import { notionSteps } from "./notion.ts";
@@ -22,6 +23,7 @@ export const STEPS: Step[] = [
   ...tag(fileSteps, "automation", ["files.settings"]),
   ...tag(skillSteps, "dev", ["skills.dev"]),
   ...projectSteps,
+  ...instanceSteps,
   ...adminSteps,
   ...tag(mailSteps, "automation", ["mail.account"]),
   ...tag(messengerSteps, "automation"),

@@ -119,6 +119,16 @@ Step id: `projects.registry`
 
 **Verified by.** Every `<projects>/<slug>/` has a non-empty `project.md` and a `knowledge/` folder. With no projects folder the workflow runs as a single project.
 
+## Instance
+
+### Instance matches the core
+
+Step id: `instance.core`
+
+**Why.** An owner's instance (`HUB_HOME`) and the core code are separate repositories. The instance states the core version it runs on in ONE file; neither side may hold the other's files.
+
+**Verified by.** With `HUB_HOME` set: `core.version` exists and names the core in use (core clean at that commit), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills. With `HUB_HOME` unset: nothing to check.
+
 ## Admin
 
 ### The admin listens on this machine only
