@@ -15,7 +15,7 @@ the agent never sends. A local admin app lets a person review each draft and sen
 Needed once: Mail.app with the account, `mail-mcp` running, the Notion connector signed in (`/mcp` in Claude Code). `hub doctor` shows what is missing, each row with its fix.
 
 ## Creating an instance
-Your data does not belong in this repository. Make a private repository, add this one as a submodule `core/` and pin a tag in `core.version`.
+Your data does not belong in this repository. Create an instance with one command: `./hub.sh init ~/crm/my-instance` (git, this repository as the `core/` submodule at the newest tag, the instance files, skill links, config defaults, `doctor`, one commit; `--pin main` follows the tip, `--dry-run` lists the files; it never pushes). Make the repository private before you push it.
 The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` live there, and its `run.sh` sets `HUB_HOME` and runs the pinned core. Move to a newer core with `hub core update` (a test instance may follow `main` with `--branch`). Details:
 [`@docs/LAYERS.md`](@docs/LAYERS.md) and [`@docs/core/08-local-app-stack.md`](@docs/core/08-local-app-stack.md).
 

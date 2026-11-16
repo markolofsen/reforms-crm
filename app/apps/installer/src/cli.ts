@@ -13,6 +13,8 @@ import { batchCheck, batchLines } from "./batch-check.ts";
 import { listProjects, runAgent } from "./agent.ts";
 import { installLink, pathHint, planLink, removeLink } from "./link.ts";
 import { coreUpdate } from "./core-update.ts";
+import { initInstance, InitError } from "./init.ts";
+import { execa } from "execa";
 import { runMenu } from "./menu.ts";
 import { runTests, runUp } from "./serve.ts";
 import { projectRows, projectTable } from "./project-table.ts";
@@ -149,6 +151,30 @@ program.command("projects").description("List the projects a session can be boun
     if (o.json) return console.log(JSON.stringify(list));
     if (!list.length) return console.log(c.yellow("no projects yet: `hub agent new`, then say \"настрой проект <имя>\""));
     for (const s of list) console.log(`${c.green("●")} ${c.bold(s)}  ${c.dim(`hub agent ${s}`)}`);
+  });
+
+program.command("init").description("Create a new instance in an empty folder: git, the core as a submodule at a pin, the instance files, skill links, config defaults, doctor, one commit. Needs no HUB_HOME; never pushes.")
+  .argument("<dir>", "the new instance folder (must not exist or be empty)")
+  .option("--core-url <url>", "the core repository to add as core/ (default: the origin of the core in use)")
+  .option("--pin <tag|main>", "a vX.Y.Z tag, or main to follow the tip (default: the newest tag, else main)")
+  .option("--name <name>", "instance name for the README (default: the folder name)")
+  .option("--dry-run", "list what would be created, write nothing")
+  .action(async (dir: string, o: { coreUrl?: string; pin?: string; name?: string; dryRun?: boolean }) => {
+    const run = async (cmd: string, args: string[], opts: { cwd?: string; env?: Record<string, string> } = {}) => {
+      const r = await execa(cmd, args, { reject: false, cwd: opts.cwd, env: { ...process.env, ...(opts.env ?? {}) }, timeout: 600_000 });
+      return { code: r.exitCode ?? 1, stdout: String(r.stdout ?? ""), stderr: String(r.stderr ?? "") };
+    };
+    try {
+      const r = await initInstance({ dir, ...(o.coreUrl ? { coreUrl: o.coreUrl } : {}), ...(o.pin ? { pin: o.pin } : {}), ...(o.name ? { name: o.name } : {}), ...(o.dryRun ? { dryRun: true } : {}) }, { run, log: (m) => console.log(m) });
+      if (!o.dryRun) {
+        console.log(c.green(`created ${r.dir} (core ${r.follows ? "follows main" : r.pin})`));
+        console.log(`next: cd ${r.dir} && ./run.sh doctor; then ./run.sh agent <project> and say «настрой проект <project>». Install the core's dependencies once: (cd core/app && pnpm install --frozen-lockfile)`);
+      }
+      done(0);
+    } catch (e) {
+      if (e instanceof InitError) throw new UsageError(e.message);
+      throw e;
+    }
   });
 
 program.command("core").description("Move an instance to another core version. `hub core update` lists the tags; `hub core update <tag> --apply` checks it out, rewrites core.version and runs the instance check; a failed move is put back.")
