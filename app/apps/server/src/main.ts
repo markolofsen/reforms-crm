@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { HOST, SERVER_PORT } from "@hub/config";
+import { HubHomeMissingError, hubPaths } from "@hub/config/paths";
 import { createRepos, dataVersion, openDb } from "@hub/db";
 import { createApp } from "./app";
 import { createMailService } from "./mail";
@@ -7,6 +8,15 @@ import { projectsRoot } from "./project-overview";
 import { allowListOf, configFile, createServerMailer } from "./send/mailer";
 import { startMessengers } from "./messengers";
 import { startSentReconciler } from "./sent";
+
+// The server is started by `hub up` (which sets HUB_HOME). Started by hand without it: one line and exit 2, not a stack.
+try {
+  hubPaths();
+} catch (e) {
+  if (!(e instanceof HubHomeMissingError)) throw e;
+  console.error(`error: ${e.message}`);
+  process.exit(2);
+}
 
 const { db, close } = openDb();
 const repos = createRepos(db);

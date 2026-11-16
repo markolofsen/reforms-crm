@@ -66,7 +66,7 @@ const app = (over: { notion?: number; minIntervalMs?: number; connect?: FakeImap
   return createApp(repos, {
     now: () => now,
     mail,
-    overview: { projectsDir: root, timeZone: "UTC", env: { HUB_CONFIG_DIR: dir }, notionReader: { fetch: notionFetch(over.notion ?? 250), sleep: async () => {} }, ...(over.minIntervalMs !== undefined ? { minIntervalMs: over.minIntervalMs } : {}), ...(over.mailTimeoutMs ? { mailTimeoutMs: over.mailTimeoutMs } : {}) },
+    overview: { projectsDir: root, timeZone: "UTC", env: { HUB_HOME: process.env.HUB_HOME, HUB_CONFIG_DIR: dir }, notionReader: { fetch: notionFetch(over.notion ?? 250), sleep: async () => {} }, ...(over.minIntervalMs !== undefined ? { minIntervalMs: over.minIntervalMs } : {}), ...(over.mailTimeoutMs ? { mailTimeoutMs: over.mailTimeoutMs } : {}) },
   });
 };
 type App = ReturnType<typeof app>;
@@ -252,7 +252,7 @@ describe("POST /api/overview/refresh", () => {
     writeFileSync(join(dir, "notion-token"), NOTION_SECRET);
     const calls: string[] = [];
     const rejecting = (async (input: unknown) => (calls.push(String(input)), new Response(JSON.stringify({ object: "error", status: 401, code: "unauthorized", message: `bad ${NOTION_SECRET}` }), { status: 401, headers: { "content-type": "application/json" } }))) as unknown as typeof fetch;
-    const a = createApp(repos, { now: () => now, mail: createMailService({ repos, env: {}, configDir: dir, connect: imap.connect }), overview: { projectsDir: root, timeZone: "UTC", env: { HUB_CONFIG_DIR: dir }, notionReader: { fetch: rejecting, sleep: async () => {} } } });
+    const a = createApp(repos, { now: () => now, mail: createMailService({ repos, env: {}, configDir: dir, connect: imap.connect }), overview: { projectsDir: root, timeZone: "UTC", env: { HUB_HOME: process.env.HUB_HOME, HUB_CONFIG_DIR: dir }, notionReader: { fetch: rejecting, sleep: async () => {} } } });
     const r = await refresh(a, "alpha", ["notion"]);
     expect(calls.length).toBe(1);
     for (const s of ["clients", "leads"]) expect(r.body.project.notion[s].count).toMatchObject({ state: "error", code: "token-rejected" });
