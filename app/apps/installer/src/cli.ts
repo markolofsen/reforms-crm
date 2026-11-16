@@ -10,6 +10,7 @@ import { auditRun, evidenceTable } from "./audit-run.ts";
 import { batchCheck, batchLines } from "./batch-check.ts";
 import { listProjects, runAgent } from "./agent.ts";
 import { installLink, pathHint, planLink, removeLink } from "./link.ts";
+import { coreUpdate } from "./core-update.ts";
 import { runMenu } from "./menu.ts";
 import { runTests, runUp } from "./serve.ts";
 import { projectRows, projectTable } from "./project-table.ts";
@@ -148,6 +149,14 @@ program.command("projects").description("List the projects a session can be boun
     if (o.json) return console.log(JSON.stringify(list));
     if (!list.length) return console.log(c.yellow("no projects yet: `hub agent new`, then say \"настрой проект <имя>\""));
     for (const s of list) console.log(`${c.green("●")} ${c.bold(s)}  ${c.dim(`hub agent ${s}`)}`);
+  });
+
+program.command("core").description("Move an instance to another core version. `hub core update` lists the tags; `hub core update <tag> --apply` checks it out, rewrites core.version and runs the instance check; a failed move is put back.")
+  .command("update").argument("[tag]", "a vX.Y.Z tag of the core").option("--apply", "do it (default: show the plan)")
+  .action(async (tag: string | undefined, o: { apply?: boolean }) => {
+    const r = await coreUpdate(ctxOf(), tag, !!o.apply);
+    for (const l of r.lines) console.log(l);
+    done(r.ok ? 0 : 1);
   });
 
 program.command("link").description("Put `hub` on PATH: a symlink ~/.local/bin/hub, so it works from any folder.")
