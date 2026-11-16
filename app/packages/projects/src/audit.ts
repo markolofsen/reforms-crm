@@ -39,7 +39,23 @@ function matchers(layout: AuditLayout) {
     shown: layout.projects[0] ?? "app/projects",
   };
 }
-const BASH_ESCAPE = /\b(osascript|sendmail|mailx?|swaks)\b/;
+const MAIL_PROGRAMS = new Set(["osascript", "sendmail", "mail", "mailx", "swaks"]);
+const SHELLS = new Set(["bash", "sh", "zsh"]);
+/** True when a shell command RUNS a mail-sending program: the program name in command position, not a word inside a quoted payload (`echo '{"to":"robot@mail.x"}'`).
+ *  `bash -c "<inner>"` is judged on the inner text. */
+export function runsMailProgram(command: string, depth = 0): boolean {
+  const inner: string[] = [];
+  const bare = command.replace(/(['"])((?:\\.|(?!\1)[^\\])*)\1/g, (_m, _q, body: string) => { inner.push(body); return " "; });
+  for (const seg of bare.split(/;|&&|\|\||\||\n|`|\$\(|\(|\)/)) {
+    const words = seg.trim().split(/\s+/).filter(Boolean);
+    let i = 0;
+    while (i < words.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i]!) || ["sudo", "env", "command", "exec", "time", "nohup"].includes(words[i]!))) i++;
+    const prog = (words[i] ?? "").replace(/^.*\//, "");
+    if (MAIL_PROGRAMS.has(prog)) return true;
+    if (SHELLS.has(prog) && depth < 2 && words.slice(i + 1).includes("-c") && inner.some((b) => runsMailProgram(b, depth + 1))) return true;
+  }
+  return false;
+}
 // `hub send ...` (the hub's sender, decision 0011) and a write of the owner's send settings: neither belongs to an agent session.
 const HUB_SEND = /\bhub(?:\.mjs)?["']?\s+(?:\S+\s+){0,3}?send(?:\s|$)|installer\/src\/cli\.ts["']?\s+send(?:\s|$)/;
 const SEND_SETTINGS = /\bsend\.(?:mode|classes|daily_cap|delay_minutes)\b/;
@@ -112,7 +128,7 @@ export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, acc
       if (typeof v !== "string") continue;
       if (m.secrets.test(v)) out.push(`${short} touched secrets or the live database (${k}: ${v.slice(0, 80)})`);
       if (m.listing.test(v)) out.push(`${short} listed or globbed ${m.shown} instead of naming ${slug} (${k}: ${v.slice(0, 80)})`);
-      if (k === "command" && BASH_ESCAPE.test(v)) out.push(`${short} runs a mail-sending program (drafts only)`);
+      if (k === "command" && runsMailProgram(v)) out.push(`${short} runs a mail-sending program (drafts only)`);
       for (const hit of v.matchAll(m.path)) {
         const other = hit[1]!;
         if (other !== slug && !other.startsWith("_")) out.push(`${short} touched ${m.shown}/${other} in a ${slug} run`);

@@ -5,4 +5,4 @@ Table: `# | клиент | класс | действие | черновик | з
 # Log line
 Appended to the client page under `## Log` (one per inbound message; `msg` makes a rerun idempotent):
 `- YYYY-MM-DD | msg=<thread-id> | <n> msgs | class: <class> | action: <action> | profile: <field old->new or none>`
-Client schema: Name (title), Email, Last mail (date), Stage (lead|active|do not contact), Summary (text).
+Client schema: read it from the project's `clients` source at the start of step 6 (`notion-fetch`); the names differ between CRM templates (`Conversation summary` or `Summary`, `Relationship` or `Stage`). Fields described "Filled by CRM" are never written by the assistant.
