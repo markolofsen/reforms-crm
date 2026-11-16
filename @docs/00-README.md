@@ -19,6 +19,7 @@ Start here: [../README.md](../README.md), then [core/client-setup.md](core/clien
 | [13-messengers-local.md](core/13-messengers-local.md) | Messengers in the local CRM (optional Telegram bot) |
 | [14-bulk-send-interface.md](core/14-bulk-send-interface.md) | The bulk-send interface and the `bulk-drafts` skill |
 | [15-notion-project-deploy-skill.md](core/15-notion-project-deploy-skill.md) | The skill and pack that deploy a project's CRM into Notion through the MCP |
+| [notion/README.md](notion/README.md) | Notion setup: the CRM databases, every field (generated `fields.md`), connecting and building it |
 | [16-projects-and-knowledge.md](core/16-projects-and-knowledge.md) | Many projects in one workflow: `project.md` schema v1, knowledge, routing, setup interview |
 | [17-mail-filters.md](core/17-mail-filters.md) | Gmail filters that classify all incoming mail per project (rules file, safety rules, XML and API exporters, analyzer, Spam handling) |
 | [18-kb-loop.md](core/18-kb-loop.md) | The knowledge loop: fact sources, KB-gap reports, privacy, `kb-review` |

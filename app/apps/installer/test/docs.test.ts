@@ -1,3 +1,4 @@
+import { renderNotionFields } from "../src/notion-docs.ts";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -27,6 +28,10 @@ describe("step list", () => {
     for (const id of ["tools.node", "tools.pnpm", "tools.claude", "files.mcp-json", "files.app-db", "skills.runtime", "projects.registry", "mail.daemon", "notion.connector"]) expect(ids).toContain(id);
     expect(selectSteps(true).map((s) => s.id)).toEqual(expect.arrayContaining(["notion.token", "mail.account", "messengers.poller", "files.settings"]));
     expect(STEPS.map((s) => s.id).filter((i) => /^(claude|gate|launchd|sounds|prefs|power)[.]/.test(i)), "archived steps (P25)").toEqual([]);
+  });
+  it("@docs/notion/fields.md equals the text generated from the pack's schema files (run `pnpm hub docs`)", () => {
+    const f = path.join(defaultRoot(), "@docs", "notion", "fields.md");
+    expect(readFileSync(f, "utf8")).toBe(renderNotionFields(defaultRoot()));
   });
   it("@docs/core/client-setup.md equals the generated text (run `pnpm hub docs` after changing a step)", () => {
     const f = path.join(defaultRoot(), "@docs", "core", "client-setup.md");

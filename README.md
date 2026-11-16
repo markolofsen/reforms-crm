@@ -30,7 +30,7 @@ The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` li
 `hub` alone opens a menu of the same four things; `./hub.sh` does the same without an install. Other commands (`hub projects`, `hub filters`, `hub test`, ...) are hidden from `--help`; each has `hub <name> --help`.
 
 ## Where things are
-- Skills and the phrases that start them: [`skills/README.md`](skills/README.md). Design and install: [`@docs/00-README.md`](@docs/00-README.md); generated install guide: [`@docs/core/client-setup.md`](@docs/core/client-setup.md).
+- Skills and the phrases that start them: [`skills/README.md`](skills/README.md). Design and install: [`@docs/00-README.md`](@docs/00-README.md); generated install guide: [`@docs/core/client-setup.md`](@docs/core/client-setup.md). Notion (what the CRM databases are, every field, how to set it up): [`@docs/notion/README.md`](@docs/notion/README.md).
 - Secrets (mail logins, optional tokens) live only in the git-ignored `state/secrets/` (override: `HUB_CONFIG_DIR`). Local settings `config/config.json`, `.mcp.json` and `state/` are git-ignored too.
 - `hub agent` runs Claude with `--dangerously-skip-permissions --chrome`; isolation rests on the skill rules plus `hub audit-run <transcript.jsonl> --project <slug>` after the fact. Extra readable folders: `HUB_EXTRA_DIRS`.
 - Rules for changing the code: [`app/@rules/README.md`](app/@rules/README.md).

@@ -3,9 +3,10 @@ import * as p from "@clack/prompts";
 import { registerMailFiltersCommands } from "@hub/mail-filters/hub-commands";
 import { registerProjectCommands, runProjectDoctor, runSync } from "@hub/projects/hub-commands";
 import { Command } from "commander";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { renderNotionFields } from "./notion-docs.ts";
 import { CORE_ROOT, HubHomeMissingError } from "@hub/config/paths";
 import { makeCtx, readJson, type Ctx } from "./context.ts";
 import { auditRun, evidenceTable } from "./audit-run.ts";
@@ -348,18 +349,19 @@ program.command("guide").description("Print the numbered manual steps (those a m
     steps.forEach((s, i) => console.log(`${i ? "\n" : ""}[${s.id}] ${guideText(s)}`));
   });
 
-program.command("docs").description("Generate @docs/core/client-setup.md from the step list.")
-  .option("--check", "exit 1 if the file is out of date")
+program.command("docs").description("Generate @docs/core/client-setup.md and @docs/notion/fields.md from their sources.")
+  .option("--check", "exit 1 if a file is out of date")
   .action((o: { check?: boolean }) => {
-    const f = path.join(CORE_ROOT, "@docs", "core", "client-setup.md");
-    const text = renderClientSetup(STEPS);
-    if (o.check) {
-      let cur = ""; try { cur = readFileSync(f, "utf8"); } catch { /* missing */ }
-      if (cur !== text) { console.error("@docs/core/client-setup.md is out of date: run `pnpm hub docs`"); process.exitCode = 1; } else console.log("client-setup.md is current");
-      return;
+    const targets = [
+      { f: path.join(CORE_ROOT, "@docs", "core", "client-setup.md"), text: renderClientSetup(STEPS), rel: "@docs/core/client-setup.md" },
+      { f: path.join(CORE_ROOT, "@docs", "notion", "fields.md"), text: renderNotionFields(CORE_ROOT), rel: "@docs/notion/fields.md" },
+    ];
+    for (const t of targets) {
+      if (o.check) {
+        let cur = ""; try { cur = readFileSync(t.f, "utf8"); } catch { /* missing */ }
+        if (cur !== t.text) { console.error(`${t.rel} is out of date: run \`pnpm hub docs\``); process.exitCode = 1; } else console.log(`${t.rel} is current`);
+      } else { mkdirSync(path.dirname(t.f), { recursive: true }); writeFileSync(t.f, t.text); console.log(`wrote ${t.f}`); }
     }
-    writeFileSync(f, text);
-    console.log(`wrote ${f}`);
   });
 
 program.command("token").description("Optional: store the Notion integration token in state/secrets/ (git-ignored, mode 600). Value comes from a hidden prompt or stdin.")
