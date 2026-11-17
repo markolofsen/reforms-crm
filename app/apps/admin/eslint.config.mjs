@@ -2,14 +2,13 @@
 import nextVitals from "eslint-config-next/core-web-vitals";
 import globals from "globals";
 import tseslint from "typescript-eslint";
-import { FILE_LINE_CAP, FUNCTION_LINE_CAP, LINE_COUNT } from "./lint-limits.mjs";
+import { FILE_LINE_CAP, FUNCTION_LINE_CAP, LINE_COUNT } from "@hub/config/lint-limits";
 
 const error = (rules) => Object.fromEntries(Object.entries(rules).map(([k, v]) => [k, Array.isArray(v) ? ["error", ...v] : ["error", v]]));
-const UI = "src/components/ui/**";
 
 // Markup bans (rules: design-system-and-tokens) and URL bans (rules: routes-and-url-state 14).
 const MARKUP = [
-  { selector: "JSXOpeningElement[name.name='button']", message: "Use ActionButton (components/action-button.tsx) (rules: design-system-and-tokens 3)." },
+  { selector: "JSXOpeningElement[name.name='button']", message: "Use ActionButton from @hub/ui/product/action-button (rules: design-system-and-tokens 3)." },
   { selector: "JSXOpeningElement[name.name='a']", message: "Use AppLink for an internal link (rules: routes-and-url-state 2)." },
   { selector: "JSXOpeningElement[name.name=/^(input|select|textarea)$/]", message: "Use the coss field primitives (rules: design-system-and-tokens 3)." },
 ];
@@ -31,17 +30,17 @@ const BASE_GROUP = ["@radix-ui/*", "@headlessui/*"];
 const SERVER_PACKAGES = ["db", "mail", "notion", "send", "messengers", "projects", "server"];
 const SERVER_MESSAGE = "The admin talks to the server over /api only; @hub/server is imported as `import type` (decision 0015 section 4).";
 const BASE_IMPORTS = {
-  paths: ["clsx", "tailwind-merge"].map((name) => ({ name, message: "Use `cn` from @/lib/utils." })),
+  paths: ["clsx", "tailwind-merge"].map((name) => ({ name, message: "Use `cn` from @hub/ui/cn." })),
   patterns: [{ group: BASE_GROUP, message: "Use the coss primitives (rules: design-system-and-tokens 1)." }],
 };
-const BUTTON = { name: "@/components/ui/button", message: "Use ActionButton (components/action-button.tsx): three sizes, four variants (rules: design-system-and-tokens 3)." };
+const BUTTON = { name: "@hub/ui/button", message: "Use ActionButton (@hub/ui/product/action-button): three sizes, four variants (rules: design-system-and-tokens 3)." };
 // Next's navigation is used only where an address is read or moved: the link, the hooks, and the route files themselves.
 const NEXT_NAV = ["next/link", "next/navigation", "next/router"].map((name) => ({ name, message: "Use AppLink and the hooks in src/hooks (use-go, use-search-state); next/* navigation is imported only in src/app, src/hooks and src/components/app-link.tsx." }));
 // The Hono server owns the database and the mail (decision 0015 section 4): the admin imports only types of the contract.
 const SERVER_SIDE = SERVER_PACKAGES.map((p) => ({ name: `@hub/${p}`, message: SERVER_MESSAGE }));
 const SERVER_SUBPATHS = { group: SERVER_PACKAGES.map((p) => `@hub/${p}/*`), message: SERVER_MESSAGE };
 
-// "use server" is banned everywhere in src, the coss copies included.
+// "use server" is banned everywhere in src (the package holds the same ban in packages/ui/eslint.config.mjs).
 const USE_SERVER = { selector: "Literal[value='use server']", message: "No Server Actions (decision 0015): every write goes through the Hono API." };
 
 export default tseslint.config(
@@ -79,20 +78,6 @@ export default tseslint.config(
       }),
     },
   },
-  // coss files are copied from the registry and not hand-edited: only the typing bans apply.
-  {
-    files: [UI, "src/hooks/use-media-query.ts"],
-    linterOptions: { reportUnusedDisableDirectives: "off" },
-    rules: Object.fromEntries(
-      ["react-hooks/purity", "@typescript-eslint/no-floating-promises", "@typescript-eslint/no-misused-promises", "max-lines", "max-lines-per-function", "no-restricted-syntax", "no-restricted-imports", "no-restricted-properties", "@typescript-eslint/consistent-type-assertions", "@typescript-eslint/no-non-null-assertion", "jsx-a11y/no-autofocus"].map((r) => [r, "off"]),
-    ),
-  },
-  // ...but the coss copies still never reach the server side: no Server Action, no @hub/* server package.
-  { files: [UI], rules: { "no-restricted-syntax": ["error", USE_SERVER], "no-restricted-imports": ["error", { paths: SERVER_SIDE, patterns: [SERVER_SUBPATHS] }] } },
-  // ActionButton is the one wrapper of the coss Button.
-  { files: ["src/components/action-button.tsx"], rules: { "no-restricted-imports": ["error", { paths: [...BASE_IMPORTS.paths, ...NEXT_NAV, ...SERVER_SIDE], patterns: [...BASE_IMPORTS.patterns, SERVER_SUBPATHS] }] } },
-  // `cn` is the one place allowed to import clsx and tailwind-merge.
-  { files: ["src/lib/utils.ts"], rules: { "no-restricted-imports": "off" } },
   // The modules that may use next/link, next/navigation and next/router: the route files, the hooks and AppLink.
   {
     files: ["src/app/**", "src/hooks/**", "src/components/app-link.tsx"],

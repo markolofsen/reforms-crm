@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { FILE_LINE_CAP, FUNCTION_LINE_CAP } from "../lint-limits.mjs";
+import { FILE_LINE_CAP, FUNCTION_LINE_CAP } from "@hub/config/lint-limits";
 
 // A rule is cited by page and number (`routes-and-url-state.md` rule 10, or `(rules: state-and-data 7)` in an eslint message).
 // Rule pages are renumbered and renamed; a citation that points at nothing sends an agent to the wrong rule (process audit 2026-11-17, 3.2 and 3.5).
@@ -26,7 +26,7 @@ function* walk(dir: string): Generator<string> {
     else yield p;
   }
 }
-const SKIP = /[\\/]components[\\/]ui[\\/]|[\\/]\.live[\\/]|rule-citations\.test\.ts$/;
+const SKIP = /packages[\\/]ui[\\/]src[\\/]ui[\\/]|[\\/]\.live[\\/]|rule-citations\.test\.ts$/;
 const sourceFiles = [
   ...[...walk(path.join(app, "apps")), ...walk(path.join(app, "packages"))].filter((p) => /\.(tsx?|mjs|css)$/.test(p) && !/\.d\.mts$/.test(p)),
   ...readdirSync(rulesDir).filter((f) => f.endsWith(".md")).map((f) => path.join(rulesDir, f)),
@@ -80,10 +80,10 @@ describe("rule citations resolve (rules: agent-guardrails 1)", () => {
     }
     expect(dup).toEqual([]);
   });
-  it("structure-and-naming.md states the caps that eslint enforces (one definition: lint-limits.mjs)", () => {
+  it("structure-and-naming.md states the caps that eslint enforces (one definition: @hub/config/lint-limits)", () => {
     const page = readFileSync(path.join(rulesDir, "structure-and-naming.md"), "utf8");
     expect(page).toContain(`at most ${FILE_LINE_CAP} lines`);
     expect(page).toContain(`at most ${FUNCTION_LINE_CAP} lines`);
-    expect(existsSync(path.join(admin, "lint-limits.mjs"))).toBe(true);
+    expect(existsSync(path.join(app, "packages/config/src/lint-limits.mjs"))).toBe(true);
   });
 });

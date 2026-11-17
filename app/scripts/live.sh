@@ -42,10 +42,13 @@ if [ ! -d "$wt" ]; then
   else
     git -C "$top" worktree add --no-checkout -b app-live "$wt" HEAD
   fi
-  # Only what the loop needs: a repo of 18k files is not checked out for one app.
-  git -C "$wt" sparse-checkout set --cone "$app_rel/apps/admin" "$app_rel/scripts" "$app_rel/.claude"
+  # Only what the loop needs: a repo of 18k files is not checked out for one app. `packages/ui` is here so Tailwind finds the
+  # tokens and class strings the admin's stylesheet imports (read-only: the hook refuses edits outside apps/admin).
+  git -C "$wt" sparse-checkout set --cone "$app_rel/apps/admin" "$app_rel/packages/ui" "$app_rel/scripts" "$app_rel/.claude"
   git -C "$wt" checkout -q app-live
 else
+  # A worktree made before `packages/ui` existed lacks it: set is idempotent.
+  git -C "$wt" sparse-checkout set --cone "$app_rel/apps/admin" "$app_rel/packages/ui" "$app_rel/scripts" "$app_rel/.claude"
   # No live commits yet: follow main. Live commits present: keep them (merge or drop them first).
   if [ -z "$(git -C "$top" log --oneline HEAD..app-live)" ] && [ -z "$(git -C "$wt" status --porcelain)" ]; then
     git -C "$wt" merge -q --ff-only "$(git -C "$top" rev-parse HEAD)" 2>/dev/null || true

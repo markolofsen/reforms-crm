@@ -20,9 +20,7 @@ function* walk(dir: string): Generator<string> {
 }
 const rel = (p: string) => path.relative(src, p).split(path.sep).join("/");
 const sourceFiles = [...walk(src)].filter((p) => /\.tsx?$/.test(p));
-// Copied from the coss registry and not hand-edited (`components/ui/*` and the hook the sidebar needs).
-const COSS_COPIES = new Set(["hooks/use-media-query.ts"]);
-const appFiles = sourceFiles.filter((p) => !rel(p).startsWith("components/ui/") && !COSS_COPIES.has(rel(p)) && !/\.test\.tsx?$/.test(p));
+const appFiles = sourceFiles.filter((p) => !/\.test\.tsx?$/.test(p));
 const read = (p: string) => readFileSync(p, "utf8");
 // Comments are not code: a rule's own name may appear in one.
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/[^\n]*/g, "$1");
@@ -124,7 +122,7 @@ describe("the Next shell of the app", () => {
     const turbo = JSON.parse(read(path.resolve(admin, "..", "..", "turbo.json"))) as { globalPassThroughEnv: string[]; tasks: Record<string, { dependsOn?: string[]; env?: string[]; inputs?: string[]; persistent?: boolean; cache?: boolean }> };
     expect(turbo.tasks.start).toMatchObject({ dependsOn: ["build"], persistent: true, cache: false });
     expect(turbo.tasks.build?.env).toEqual(expect.arrayContaining(["HUB_PORT", "HUB_NEXT_DIST", "HUB_NEXT_ROOT"]));
-    expect(turbo.tasks.build?.inputs).toEqual(expect.arrayContaining(["$TURBO_ROOT$/packages/contract/**", "$TURBO_ROOT$/packages/config/**"]));
+    expect(turbo.tasks.build?.inputs).toEqual(expect.arrayContaining(["$TURBO_ROOT$/packages/contract/**", "$TURBO_ROOT$/packages/config/**", "$TURBO_ROOT$/packages/ui/**"]));
     expect(turbo.globalPassThroughEnv).toContain("HUB_ADMIN_PORT");
   });
   it("every dependency is an exact pin", () => {
@@ -139,13 +137,13 @@ describe("stable first render", () => {
   it("no useState initializer reads the window, the document, storage, the media query or the clock", () => {
     expect(offenders(appFiles, /useState(<[^>]*>)?\(\s*(\(\)\s*=>\s*)?[^)]*\b(window|document|localStorage|sessionStorage|matchMedia|Date\.now|new Date|performance\.now)\b/)).toEqual([]);
   });
-  it("matchMedia is called only by use-media-query (a coss copy) and by the theme script of the root layout", () => {
+  it("matchMedia is called only by `@hub/ui/use-media-query` (never in admin src) and by the theme script of the root layout", () => {
     expect(offenders(appFiles.filter((p) => rel(p) !== "app/layout.tsx"), /\bmatchMedia\(/)).toEqual([]);
   });
 });
 
 describe("directory size", () => {
-  it(`no directory outside components/ui and src/app holds more than ${DIR_FILE_CAP} source files`, () => {
+  it(`no directory outside src/app holds more than ${DIR_FILE_CAP} source files`, () => {
     const byDir = new Map<string, number>();
     for (const p of appFiles) {
       if (rel(p).startsWith("app/")) continue; // file names there are the framework's (page, layout, error, not-found)
@@ -196,12 +194,8 @@ describe("app/@rules pages", () => {
   });
 });
 
-// Sizes and variants (rules: design-system-and-tokens 11): one button, three heights, four looks.
+// Sizes (rules: design-system-and-tokens 11): one button, three heights, four looks.
 describe("buttons and control sizes", () => {
-  it("the three heights are tokens, and below 1024px a target is 44px", () => {
-    const css = read(path.join(src, "index.css"));
-    for (const t of ["--control-s: 2rem", "--control-m: 2.5rem", "--control-l: 3rem", "--control-s: 2.75rem", "--control-m: 2.75rem"]) expect(css, t).toContain(t);
-  });
   it("no per-component touch hack is left", () => {
     expect(offenders(appFiles, /max-lg:(min-)?[hw]-11|TOUCH_INPUT/)).toEqual([]);
   });
@@ -222,10 +216,4 @@ describe("product copy", () => {
   });
 });
 
-// design-system-and-tokens 13: the JS breakpoint and the CSS one are one number, or the sidebar and the tab bar disagree.
-describe("one md breakpoint", () => {
-  it("index.css and use-media-query.ts both say 640px", () => {
-    expect(read(path.join(src, "index.css"))).toContain("--breakpoint-md: 40rem");
-    expect(read(path.join(src, "hooks/use-media-query.ts"))).toMatch(/md:\s*640\b/);
-  });
-});
+// The three control heights and the one md breakpoint are tokens of `@hub/ui`; its own test (packages/ui/test/ui.test.ts) holds them.
