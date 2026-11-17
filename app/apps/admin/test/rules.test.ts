@@ -126,8 +126,14 @@ describe("the Next shell of the app", () => {
     expect(turbo.globalPassThroughEnv).toContain("HUB_ADMIN_PORT");
   });
   it("every dependency is an exact pin", () => {
-    const loose = Object.entries({ ...pkg.dependencies, ...pkg.devDependencies }).filter(([, v]) => !v.startsWith("workspace:") && !/^\d+\.\d+\.\d+$/.test(v));
+    // `catalog:` names the shared version in pnpm-workspace.yaml: that version must itself be an exact pin.
+    const loose = Object.entries({ ...pkg.dependencies, ...pkg.devDependencies }).filter(([, v]) => !v.startsWith("workspace:") && v !== "catalog:" && !/^\d+\.\d+\.\d+$/.test(v));
     expect(loose).toEqual([]);
+    const yaml = readFileSync(path.join(repo, "app/pnpm-workspace.yaml"), "utf8");
+    const catalog = yaml.split(/^catalog:\s*$/m)[1]?.split(/^\S/m)[0] ?? "";
+    const versions = [...catalog.matchAll(/^\s+\S+:\s*(\S+)\s*$/gm)].map((m) => m[1]!);
+    expect(versions.length).toBeGreaterThan(0);
+    expect(versions.filter((v) => !/^\d+\.\d+\.\d+$/.test(v))).toEqual([]);
   });
 });
 
