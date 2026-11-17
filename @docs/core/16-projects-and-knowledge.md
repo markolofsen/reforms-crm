@@ -30,7 +30,7 @@ projects/<slug>/
   reports/              agent reports on local disk, git-ignored: kb/ (KB gaps), problems/, runs/ (doc 18)
 ```
 
-Hand-written: `project.md`, `mail-filters.md`, `knowledge/files/`, `knowledge/taxonomy.md`. Generated or produced by agents: `.generated/`, `reports/`, `dumps/`, `knowledge/notion/`. The Notion CRM pack is core reference, not project data: it lives in `app/projects/_template/notion-crm/`.
+Hand-written: `project.md`, `mail-filters.md`, `knowledge/files/`, `knowledge/taxonomy.md`, `@dev/` (the project's development kanban, `hub dev init <slug> --apply`; table by `hub dev index <slug>`; doctor step `dev.kanban`). Generated or produced by agents: `.generated/`, `reports/`, `dumps/`, `knowledge/notion/`. The Notion CRM pack is core reference, not project data: it lives in `app/projects/_template/notion-crm/`.
 
 - `<slug>`: `[a-z0-9-]+`, equals the folder name and is the `project` column everywhere. It is renamed only with `hub project rename <old> <new>` (below), never by moving the folder by hand.
 - The knowledge base is the folder `knowledge/files/` and nothing else: to change an entry, edit its file and reindex. Notion is not a knowledge source and is not re-read; an old Notion Knowledge database is migrated once (`knowledge-import`), then ignored.

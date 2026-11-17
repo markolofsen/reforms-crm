@@ -20,7 +20,7 @@ osascript) send it. The agent cannot reach that door.
 | Admin (`app/apps/admin`) | Next.js on 127.0.0.1, port 5173 | The screens: Overview, Drafts, Bulk, Activity, Project, Connections. It holds no database handle and talks only to the server |
 
 **Where facts live.** Client records: Notion. Draft text: Mail. Draft review state (Checked, Done, marks), bulk batches and the agent log: SQLite. Project facts,
-filters and knowledge: plain files in `projects/<slug>/`. Secrets: `state/secrets/`, mode 600, never in git. Table and rules: [core/06-local-admin-app.md](core/06-local-admin-app.md).
+filters, knowledge and development plans (`@dev/`): plain files in `projects/<slug>/`. Secrets: `state/secrets/`, mode 600, never in git. Table and rules: [core/06-local-admin-app.md](core/06-local-admin-app.md).
 
 **How mail, Notion and Telegram connect.** Each has a path that needs no secret and an optional one that adds numbers to the admin:
 - Mail: Apple Mail through `mail-mcp` is how the agent reads and drafts, and how a confirmed draft is sent. A read-only IMAP login (`state/secrets/mail-<account>.json`) is optional; it adds the Overview's new-mail counts and Sent detection.

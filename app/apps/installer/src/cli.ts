@@ -1,7 +1,7 @@
 #!/usr/bin/env tsx
 import * as p from "@clack/prompts";
 import { registerMailFiltersCommands } from "@hub/mail-filters/hub-commands";
-import { registerProjectCommands, runProjectDoctor, runSync } from "@hub/projects/hub-commands";
+import { registerDevCommands, registerProjectCommands, runProjectDoctor, runSync } from "@hub/projects/hub-commands";
 import { Command } from "commander";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -275,6 +275,7 @@ program.command("send").argument("[draftId]", "the draft to send").description("
   });
 
 registerProjectCommands(program, projectOptions());
+registerDevCommands(program, projectOptions());
 registerMailFiltersCommands(program).alias("filters");
 
 program.command("install").description("Run the steps a manual session needs: check, apply only when it fails, print what is left. --automation adds the optional background automation.")

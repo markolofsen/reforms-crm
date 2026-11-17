@@ -316,3 +316,22 @@ describe("backup.secrets", () => {
     expect(missing.detail).toContain("acme-notion-token");
   });
 });
+
+describe("dev.kanban", () => {
+  it("PASS with no projects, WARN until a project has @dev, PASS after hub dev init, FAIL on a stale table", async () => {
+    const { initDev } = await import("@hub/projects/dev");
+    const f = fake();
+    expect((await step("dev.kanban").check(f.ctx)).level).toBe("pass");
+    const dir = addProject(f);
+    const warn = await step("dev.kanban").check(f.ctx);
+    expect(warn.level).toBe("warn");
+    expect(warn.detail).toContain("hub dev init acme --apply");
+    expect(initDev("acme", dir, true).ok).toBe(true);
+    expect((await step("dev.kanban").check(f.ctx)).level).toBe("pass");
+    mkdirSync(path.join(dir, "@dev", "active", "p1-x"), { recursive: true });
+    writeFileSync(path.join(dir, "@dev", "active", "p1-x", "PLAN.md"), "# X\n\nStatus: ACTIVE\nOwner: agent\nNext action: go\n");
+    const bad = await step("dev.kanban").check(f.ctx);
+    expect(bad.level).toBe("fail");
+    expect(bad.detail).toContain("hub dev index acme");
+  });
+});

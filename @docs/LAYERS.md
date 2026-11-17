@@ -24,7 +24,7 @@ unsure where a file goes, this page decides.
 |---|---|---|
 | `skills/` | core | The instructions agents follow. Examples use placeholders |
 | `app/packages/`, `app/apps/` | core | The TypeScript monorepo and the `hub` CLI |
-| `app/projects/_template/` | core | Template of a project folder and the Notion CRM pack |
+| `app/projects/_template/` | core | Template of a project folder: starter workflows, the `@dev/` kanban skeleton and the Notion CRM pack |
 | `@docs/core/` | core | Design and how each subsystem works, one document each |
 | `@docs/setup/` | core | `access.md` (which credential goes to what) and the generated `checklist.md` |
 | `@docs/notion/` | core | The Notion CRM: setup and the generated `fields.md` |
@@ -32,7 +32,8 @@ unsure where a file goes, this page decides.
 | `app/@rules/` | core | Rules for changing the local apps |
 | `config/mcp.json`, `install.sh`, `hub.sh` | core | Shared defaults and the bootstrap. `config/mcp.json` is a byte copy of `app/apps/installer/templates/mcp.json` (the installer's source); edit both together. The repo-root `.mcp.json` is a third, git-ignored copy written by setup |
 | `projects/<slug>/` under `HUB_HOME` | **instance** | `project.md`, `mail-filters.md`, `knowledge/`, `reports/`, generated XML |
-| `@docs/custom/`, `@dev/`, `@refs/` of an instance | **instance** | The owner's history, decisions, plans and reference material |
+| `projects/<slug>/@dev/` under `HUB_HOME` | **instance** | The project's own development plans, a kanban (`hub dev init <slug> --apply` copies the skeleton from `app/projects/_template/@dev/`; `hub dev index` generates its table; doctor step `dev.kanban`). Tracked in the instance repository |
+| `@docs/custom/`, `@dev/`, `@refs/` of an instance | **instance** | The owner's history, decisions, plans and reference material; the instance-wide kanban. Work on one project goes in that project's `@dev/` |
 | `config/config.json`, `state/` (secrets in `state/secrets/`), `.mcp.json`, `.claude/` | **instance**, git-ignored | Local settings, runtime state and every secret (the Connections page and `hub token` write only here) |
 
 ## Create an instance
@@ -40,8 +41,8 @@ unsure where a file goes, this page decides.
 1. Make a private repository for the owner (one per business owner, not per project: one client's mail must not share a repo with another party's).
 2. Add this repository as a submodule named `core/` and pin it to a release commit. That commit is the only statement of the core version.
 3. In the instance root run with `HUB_HOME` set to it (or use `hub agent` from the instance): `projects/`, `data/`, `state/`, `config/` are created there.
-4. Say `настрой проект <slug>`: the `project-setup` skill interviews you and writes `projects/<slug>/project.md`.
-5. Keep your own decisions and plans in the instance's `@dev/` and `@docs/custom/`; leave core files alone, or change them with a reason that applies to every owner.
+4. Say `настрой проект <slug>`: the `project-setup` skill interviews you and writes `projects/<slug>/project.md`, then `hub dev init <slug> --apply` gives the project its own `@dev/`.
+5. Keep your own decisions and plans in the instance's `@dev/` and `@docs/custom/` (a project's development plans in `projects/<slug>/@dev/`); leave core files alone, or change them with a reason that applies to every owner.
 
 The instance pins the core in `core.version` (a tag, or a commit for a test instance that follows `main`) and moves it with `hub core update`. It runs with `<instance>/run.sh`; `HUB_HOME` is required for every command that touches data.
 

@@ -2,7 +2,7 @@
 // `registerProjectCommands(program, ...)`; nothing here depends on the installer. Wiring left to its owner:
 //   1. `registerProjectCommands(program, { mailAccounts, notionCheck, mcpMailAccounts })` once, next to the other commands;
 //   2. `hub doctor --project <slug>` calls `runProjectDoctor(slug, sameOptions)` and sets its exit code.
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { createRepos, defaultDbPath, openDb } from "@hub/db";
@@ -16,6 +16,7 @@ import { ProjectError } from "./parse.js";
 import { writeSetting } from "./write.js";
 import { proposeAddresses, type RoutingSnapshot } from "./addresses.js";
 import { agentIndex, loadWorkflows, workflowErrors } from "./workflows.js";
+import { devFolder, indexDev, initDev } from "./dev.js";
 import { defaultProjectsRoot, loadProject, loadProjects, syncProjects, type LoadedProject } from "./registry.js";
 
 export interface ProjectCommandOptions {
@@ -262,6 +263,60 @@ export function runWorkflowsCheck(slug: string, o: ProjectCommandOptions = {}): 
   const errors = workflowErrors(all);
   out(errors ? `${slug}: ${errors} error(s) in ${all.length} workflow(s)` : `${slug}: ${all.length} workflow(s) ok`);
   return errors ? 1 : 0;
+}
+
+/** `dev index [<slug>] [--path <@dev folder>] [--check]`: regenerate (or check) the track table of a project's `@dev`. No argument: every project that has one. */
+export function runDevIndex(slug: string | undefined, path: string | undefined, check: boolean, o: ProjectCommandOptions = {}): number {
+  const out = o.out ?? console.log;
+  if (slug && path) { out("error: give a project or --path, not both"); return 2; }
+  if (path) {
+    const r = indexDev(path, check, `hub dev index --path ${path}`);
+    for (const l of r.lines) out(l);
+    return r.ok ? 0 : 1;
+  }
+  const root = o.projectsRoot ?? defaultProjectsRoot();
+  const slugs = slug ? [slug] : loadProjects(root).map((p) => p.slug).filter((s) => existsSync(devFolder(join(root, s))));
+  if (!slugs.length) { out("no project has an @dev folder: hub dev init <project> --apply"); return 0; }
+  let code = 0;
+  for (const s of slugs) {
+    const dev = devFolder(join(root, s));
+    if (!existsSync(dev)) { out(`${s}: no @dev folder: hub dev init ${s} --apply`); code = 1; continue; }
+    const r = indexDev(dev, check, `hub dev index ${s}`);
+    for (const l of r.lines) out(slugs.length > 1 ? `${s}: ${l}` : l);
+    if (!r.ok) code = 1;
+  }
+  return code;
+}
+
+/** `dev init <slug>`: the project's `@dev` skeleton from the core template. Dry run unless `apply`; never overwrites. */
+export function runDevInit(slug: string, apply: boolean, o: ProjectCommandOptions = {}): number {
+  const out = o.out ?? console.log;
+  const r = initDev(slug, join(o.projectsRoot ?? defaultProjectsRoot(), slug), apply);
+  for (const l of r.lines) out(l);
+  return r.ok ? 0 : 1;
+}
+
+/** Adds `dev index` and `dev init`: the development kanban of each project (`projects/<slug>/@dev/`) and of the Hub (`--path`). */
+export function registerDevCommands(program: Command, o: ProjectCommandOptions = {}): Command {
+  const dev = program.command("dev").description("Development kanban: projects/<slug>/@dev/ (a project's own plans; the Hub's own @dev uses `index --path`).");
+  dev
+    .command("index")
+    .description("Regenerate the track table in a project's @dev/README.md from its directories and plans (no argument: every project that has one). --check writes nothing and exits 1 on drift: a stale table, a plan without PLAN.md, a plan Status that contradicts its directory.")
+    .argument("[project]")
+    .option("--path <dir>", "a @dev folder anywhere (the Hub's own kanban); needs no instance")
+    .option("--check", "check only")
+    .action((slug: string | undefined, opts: { path?: string; check?: boolean }) => {
+      process.exitCode = runDevIndex(slug, opts.path, !!opts.check, o);
+    });
+  dev
+    .command("init")
+    .description("Create projects/<slug>/@dev/ (active, planned, blocked, completed, decisions, research, _archive, CLAUDE.md, README.md) from the core template. Dry run unless --apply; never overwrites a file.")
+    .argument("<project>")
+    .option("--apply", "write the files (default: show them)")
+    .action((slug: string, opts: { apply?: boolean }) => {
+      process.exitCode = runDevInit(slug, !!opts.apply, o);
+    });
+  return dev;
 }
 
 /** Adds `project sync`, `project show <slug>`, `project kinds`, `project rename` and `project doctor <slug>` to a commander program. */

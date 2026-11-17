@@ -7,8 +7,8 @@ Keep this repository private: it holds client facts. Secrets live only in `state
 
 | Path | What |
 |---|---|
-| `projects/<slug>/` | one folder per project: `project.md`, `knowledge/` |
-| `@dev/` | this owner's kanban (`active/`, `blocked/`, `planned/`, `completed/`, `decisions/`, `_archive/`) |
+| `projects/<slug>/` | one folder per project: `project.md`, `knowledge/`, `@dev/` (the project's own development kanban: `./run.sh dev init <slug> --apply`) |
+| `@dev/` | this owner's own kanban (`active/`, `blocked/`, `planned/`, `completed/`, `decisions/`, `_archive/`) |
 | `@docs/custom/` | this owner's own notes and live facts |
 | `@refs/` | reference material of this owner |
 | `core.version` | the core version this instance runs on (the only place it is stated) |
