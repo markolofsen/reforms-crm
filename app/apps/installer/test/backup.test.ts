@@ -1,0 +1,247 @@
+// `hub backup` (decision 0023): plan, apply, verify, retention, refusals, secrets never read, and the doctor step. No network: the Notion dump is a fake process.
+import { execFileSync } from "node:child_process";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { openDb } from "@hub/db";
+import { describe, expect, it } from "vitest";
+import { INSTANCE_TEMPLATE } from "../src/init.ts";
+import { CORE_ROOT } from "@hub/config/paths";
+import { backup, KEEP, listSnapshots, readManifest, resolveTarget, verify } from "../src/backup.ts";
+import { STEPS } from "../src/steps/index.ts";
+import { fake, type Call } from "./helpers.ts";
+
+const SECRET = "ntn_SENTINEL_never_copied_0123456789";
+const ID = "00000000-0000-4000-8000-000000000001";
+const row = (k: string, v: string) => `| ${k} | ${v} | 2026-11-15 | owner |`;
+const snapshotStep = STEPS.find((s) => s.id === "backup.snapshot")!;
+
+/** An instance with a database, a config, one project with a Notion database; the fake dump writes two files where the CLI would. */
+function setup(over: { token?: boolean; config?: Record<string, unknown> } = {}) {
+  const dumps: Call[] = [];
+  const f = fake({
+    run: (c) => {
+      if (!c.cmd.endsWith("/tsx")) return undefined;
+      dumps.push(c);
+      const out = c.args[c.args.indexOf("--out") + 1]!;
+      const day = path.join(out, c.args[c.args.indexOf("--date") + 1]!);
+      mkdirSync(path.join(day, "acme"), { recursive: true });
+      writeFileSync(path.join(day, "manifest.json"), "{}");
+      writeFileSync(path.join(day, "acme", "index.md"), "# clients\n");
+      return { code: 0, stdout: "dump acme 2026-11-17: 1 databases, 3 pages, 0 truncated, 0 errors, sha256 abc\n/x", stderr: "" };
+    },
+  });
+  const { ctx } = f;
+  mkdirSync(path.dirname(ctx.paths.db), { recursive: true });
+  openDb(ctx.paths.db).close();
+  writeFileSync(ctx.paths.configFile, JSON.stringify({ account: "a@example.com", ...(over.config ?? {}) }));
+  const dir = path.join(ctx.paths.projects, "acme");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(path.join(dir, "project.md"), ["# acme", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", row("schema", "1"), row("status", "active"), row("mail.accounts", "a@example.com"), row("notion.teamspace", "Acme"), "", "## Notion databases", "", `- clients: ${ID}`, ""].join("\n"));
+  mkdirSync(ctx.configDir, { recursive: true, mode: 0o700 });
+  if (over.token !== false) { writeFileSync(path.join(ctx.configDir, "notion-token"), SECRET, { mode: 0o000 }); chmodSync(path.join(ctx.configDir, "notion-token"), 0o000); }
+  return { f, ctx, dumps, root: path.join(ctx.paths.home, "backups") };
+}
+const git = (cwd: string, ...a: string[]) => execFileSync("git", ["-C", cwd, ...a], { encoding: "utf8" });
+const allFiles = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? allFiles(path.join(d, e.name)) : [path.join(d, e.name)]));
+const at = (s: string) => new Date(s);
+
+describe("hub backup: plan", () => {
+  it("defaults to <instance>/backups, writes nothing and says what it would do", async () => {
+    const { ctx, root } = setup();
+    expect(resolveTarget(ctx).root).toBe(root);
+    const r = await backup(ctx, { apply: false, now: at("2026-11-17T10:00:00") });
+    expect(r.ok).toBe(true);
+    const text = r.lines.join("\n");
+    expect(text).toContain("dry run");
+    expect(text).toContain(path.join(root, "20261117-100000"));
+    expect(text).toContain("notion acme: fresh dump");
+    expect(text).toContain("notion-token");
+    expect(existsSync(root)).toBe(false);
+  });
+  it("says when a project has no token and would skip its dump", async () => {
+    const { ctx } = setup({ token: false });
+    expect((await backup(ctx, { apply: false })).lines.join("\n")).toContain("skipped, no notion-token");
+  });
+});
+
+describe("hub backup --apply", () => {
+  it("writes the database copy, config, dump under projects/<slug> and a manifest; secrets are neither read nor copied", async () => {
+    const { ctx, dumps, root } = setup();
+    const r = await backup(ctx, { apply: true, now: at("2026-11-17T10:00:00") });
+    expect(r.ok, r.lines.join("\n")).toBe(true);
+    const dir = path.join(root, "20261117-100000");
+    expect(r.dir).toBe(dir);
+    expect(existsSync(path.join(dir, "data", "app.db"))).toBe(true);
+    expect(existsSync(path.join(dir, "config", "config.json"))).toBe(true);
+    expect(existsSync(path.join(dir, "projects", "acme", "2026-11-17", "acme", "index.md"))).toBe(true);
+    expect(existsSync(`${dir}.partial`)).toBe(false);
+    const m = readManifest(dir)!;
+    expect(m.instance).toBe(path.basename(ctx.paths.home));
+    expect(m.secrets_expected).toEqual(["notion-token"]);
+    expect(m.files.map((x) => x.path)).toEqual(expect.arrayContaining(["data/app.db", "config/config.json", "projects/acme/2026-11-17/acme/index.md"]));
+    expect(m.files.every((x) => /^[0-9a-f]{64}$/.test(x.sha256))).toBe(true);
+    // The secret file is mode 000: any read would have thrown. Its value is nowhere, and the child never got it.
+    for (const file of allFiles(dir)) expect(readFileSync(file).includes(SECRET), file).toBe(false);
+    expect(allFiles(dir).some((x) => x.includes("secrets") || x.includes("/state/"))).toBe(false);
+    expect(JSON.stringify(dumps)).not.toContain(SECRET);
+    expect(dumps[0]!.args).toContain("--token-file");
+    expect(Object.keys(dumps[0]!.env ?? {}).sort()).toEqual(["HOME", "HUB_CONFIG_DIR", "HUB_HOME"]);
+  });
+  it("skips the dump with a note when there is no token", async () => {
+    const { ctx, dumps, root } = setup({ token: false });
+    const r = await backup(ctx, { apply: true, now: at("2026-11-17T10:00:00") });
+    expect(r.ok).toBe(true);
+    expect(dumps).toHaveLength(0);
+    expect(r.lines.join("\n")).toContain("skipped, no notion-token");
+    expect(readManifest(path.join(root, "20261117-100000"))!.notion[0]!.status).toBe("skipped");
+  });
+  it("never overwrites an existing snapshot", async () => {
+    const { ctx } = setup();
+    const now = at("2026-11-17T10:00:00");
+    expect((await backup(ctx, { apply: true, now })).ok).toBe(true);
+    const again = await backup(ctx, { apply: true, now });
+    expect(again.ok).toBe(false);
+    expect(again.lines.join("\n")).toContain("never overwritten");
+  });
+  it("makes the second copy with rsync when backup_copy_to is set", async () => {
+    const base = setup();
+    const copyTo = path.join(path.dirname(base.ctx.paths.home), "second");
+    writeFileSync(base.ctx.paths.configFile, JSON.stringify({ backup_copy_to: copyTo }));
+    const r = await backup(base.ctx, { apply: true, now: at("2026-11-17T10:00:00") });
+    expect(r.ok, r.lines.join("\n")).toBe(true);
+    expect(existsSync(path.join(copyTo, "20261117-100000", "manifest.json"))).toBe(true);
+  });
+});
+
+describe("hub backup --verify", () => {
+  it("passes on a fresh snapshot and names the problem when a file or the database is damaged; the live database is not opened", async () => {
+    const { ctx, root } = setup();
+    await backup(ctx, { apply: true, now: at("2026-11-17T10:00:00") });
+    const ok = verify(ctx);
+    expect(ok.ok, ok.lines.join("\n")).toBe(true);
+    expect(ok.lines.join("\n")).toContain("integrity_check ok");
+    writeFileSync(path.join(root, "20261117-100000", "config", "config.json"), "{}");
+    const bad = verify(ctx, "20261117-100000");
+    expect(bad.ok).toBe(false);
+    expect(bad.lines.join("\n")).toContain("config/config.json");
+    const none = verify(setup().ctx);
+    expect(none.ok).toBe(false);
+  });
+});
+
+describe("retention", () => {
+  const seed = (root: string, name: string, valid = true) => {
+    const d = path.join(root, name);
+    mkdirSync(d, { recursive: true });
+    if (valid) writeFileSync(path.join(d, "manifest.json"), JSON.stringify({ format: 1, created: "2026-01-01T00:00:00Z", instance: "x", core_version: null, files: [], secrets_expected: [], notion: [] }));
+  };
+  it(`keeps the newest ${KEEP}, deletes older ones only under --apply and only folders with a valid manifest`, async () => {
+    const { ctx, root } = setup();
+    for (let i = 1; i <= 16; i++) seed(root, `202601${String(i).padStart(2, "0")}-000000`);
+    seed(root, "20250101-000000", false); // old but no manifest: not ours to delete
+    seed(root, "notes", false);
+    const dry = await backup(ctx, { apply: false, now: at("2026-11-17T10:00:00") });
+    expect(dry.lines.join("\n")).toContain("would delete 20260103-000000, 20260102-000000, 20260101-000000");
+    expect(listSnapshots(root)).toHaveLength(16);
+    const r = await backup(ctx, { apply: true, now: at("2026-11-17T10:00:00") });
+    expect(r.ok).toBe(true);
+    const left = listSnapshots(root).map((s) => s.name);
+    expect(left).toHaveLength(KEEP);
+    expect(left[0]).toBe("20261117-100000");
+    expect(left).not.toContain("20260101-000000");
+    expect(existsSync(path.join(root, "20250101-000000"))).toBe(true);
+    expect(existsSync(path.join(root, "notes"))).toBe(true);
+  });
+});
+
+describe("paths in config", () => {
+  it("a relative path is resolved from the instance folder, an absolute one is kept, and there is no ~", () => {
+    const { ctx } = setup();
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: "../shared-backups", backup_copy_to: "mirror" }));
+    expect(resolveTarget(ctx)).toMatchObject({ root: path.resolve(ctx.paths.home, "..", "shared-backups"), copyTo: path.join(ctx.paths.home, "mirror") });
+    const abs = path.join(path.dirname(ctx.paths.home), "elsewhere");
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: abs, backup_copy_to: "host:/srv/b" }));
+    expect(resolveTarget(ctx)).toMatchObject({ root: abs, copyTo: "host:/srv/b" });
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: "~/x" }));
+    expect(resolveTarget(ctx).root).toBe(path.join(ctx.paths.home, "~", "x")); // a literal folder named ~, never the user's home
+  });
+});
+
+describe("refusals", () => {
+  it("refuses a backup folder inside state/ or the core", () => {
+    const { ctx } = setup();
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: path.join(ctx.paths.state, "snap") }));
+    expect(() => resolveTarget(ctx)).toThrow(/inside state\//);
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: path.join(ctx.paths.core, "x") }));
+    expect(() => resolveTarget(ctx)).toThrow(/core checkout/);
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: "state/inner" }));
+    expect(() => resolveTarget(ctx)).toThrow(/inside state\//);
+  });
+  it("refuses to run while backups/ is not ignored or is tracked by git, and runs once it is ignored", async () => {
+    const { ctx, root } = setup();
+    git(ctx.paths.home, "init", "-q");
+    const open = await backup(ctx, { apply: true });
+    expect(open.ok).toBe(false);
+    expect(open.lines.join("\n")).toContain("not ignored");
+    expect(existsSync(root)).toBe(false);
+    writeFileSync(path.join(ctx.paths.home, ".gitignore"), "backups/\n");
+    expect((await backup(ctx, { apply: true, now: at("2026-11-17T10:00:00") })).ok).toBe(true);
+    // a file tracked under backups/ (forced in) stops the next run
+    git(ctx.paths.home, "add", "-f", "backups/20261117-100000/manifest.json");
+    const tracked = await backup(ctx, { apply: true, now: at("2026-11-17T10:00:05") });
+    expect(tracked.ok).toBe(false);
+    expect(tracked.lines.join("\n")).toContain("tracked by git");
+  });
+  it("the instance template ignores backups/, so `hub init` makes it", () => {
+    expect(readFileSync(path.join(CORE_ROOT, INSTANCE_TEMPLATE, ".gitignore"), "utf8").split("\n")).toContain("backups/");
+  });
+});
+
+describe("doctor step backup.snapshot", () => {
+  it("is doctor-only and explains itself", () => {
+    expect(snapshotStep.audit).toBe(true);
+    expect(snapshotStep.manual?.steps.length).toBeGreaterThan(0);
+  });
+  it("WARN on a fresh instance with no snapshot, FAIL on one with data", async () => {
+    const fresh = fake();
+    expect((await snapshotStep.check(fresh.ctx)).level).toBe("warn");
+    const { ctx } = setup();
+    const r = await snapshotStep.check(ctx);
+    expect(r.level).toBe("fail");
+    expect(r.detail).toContain("hub backup --apply");
+  });
+  it("WARN for the same volume (naming backup_copy_to), WARN when older than 7 days, FAIL when a hash no longer matches", async () => {
+    const { ctx, root } = setup();
+    await backup(ctx, { apply: true, now: new Date() });
+    const same = await snapshotStep.check(ctx);
+    expect(same.level, same.detail).toBe("warn");
+    expect(same.detail).toContain("same volume");
+    expect(same.detail).toContain("backup_copy_to");
+    expect(same.detail).toContain("manifest hashes valid");
+    const old = setup();
+    await backup(old.ctx, { apply: true, now: new Date(Date.now() - 10 * 864e5) });
+    const aged = await snapshotStep.check(old.ctx);
+    expect(aged.level).toBe("warn");
+    expect(aged.detail).toContain("10 days old");
+    const name = readdirSync(root).find((n) => /^\d{8}-\d{6}$/.test(n))!;
+    writeFileSync(path.join(root, name, "config", "config.json"), "{}");
+    const bad = await snapshotStep.check(ctx);
+    expect(bad.level).toBe("fail");
+    expect(bad.detail).toContain("does not match its manifest");
+  });
+  it("WARN when backup_copy_to is set and not there; FAIL when a file under backups/ is tracked by git", async () => {
+    const { ctx } = setup();
+    await backup(ctx, { apply: true, now: new Date() });
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_copy_to: path.join(path.dirname(ctx.paths.home), "nodrive") }));
+    const missing = await snapshotStep.check(ctx);
+    expect(missing.level).toBe("warn");
+    expect(missing.detail).toContain("does not exist");
+    git(ctx.paths.home, "init", "-q");
+    writeFileSync(path.join(ctx.paths.home, ".gitignore"), "backups/\n");
+    const name = readdirSync(path.join(ctx.paths.home, "backups"))[0]!;
+    git(ctx.paths.home, "add", "-f", `backups/${name}/manifest.json`);
+    const tracked = await snapshotStep.check(ctx);
+    expect(tracked.level).toBe("fail");
+    expect(tracked.detail).toContain("tracked by git");
+  });
+});

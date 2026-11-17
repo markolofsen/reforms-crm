@@ -32,7 +32,7 @@ const ok = { code: 0, stdout: "", stderr: "" };
 
 describe("the new steps are in the list and explain themselves", () => {
   it("every id exists exactly once, with a fix guide", () => {
-    for (const id of ["notion.access", "telegram.getme", "server.health", "mcp.knowledge", "backup.git", "backup.db", "backup.notion", "backup.secrets"]) {
+    for (const id of ["notion.access", "telegram.getme", "server.health", "mcp.knowledge", "backup.git", "backup.db", "backup.snapshot", "backup.notion", "backup.secrets"]) {
       expect(STEPS.filter((s) => s.id === id), id).toHaveLength(1);
       expect(step(id).manual?.steps.length, id).toBeGreaterThan(0);
     }

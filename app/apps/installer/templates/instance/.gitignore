@@ -27,3 +27,6 @@ projects/*/reports/
 
 # The pinned core, once added as a submodule, is tracked as a gitlink only
 config/mcp.json
+
+# Snapshots of `hub backup` hold client data: never in git
+backups/

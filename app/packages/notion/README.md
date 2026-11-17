@@ -12,7 +12,7 @@ pnpm --filter @hub/notion typecheck && pnpm --filter @hub/notion test
 ```
 
 Flags: `--out DIR` (dump root, default `<project>/dumps`), `--date`, `--only clients,leads`, `--rps 3`, `--no-reuse`,
-`--from DATE|PATH` and `--json` (restore). Exit codes: 0 ok, 1 error, 2 a database failed, 3 no token, 64 usage.
+`--token-file NAME` (a token file other than `notion-token` in the secrets folder; the tool reads it, the caller never does), `--from DATE|PATH` and `--json` (restore). `hub backup --apply` runs this dump for every project into a snapshot (decision 0023). Exit codes: 0 ok, 1 error, 2 a database failed, 3 no token, 64 usage.
 
 ## project.md
 

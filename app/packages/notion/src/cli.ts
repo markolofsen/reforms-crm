@@ -9,21 +9,21 @@ import { parseLeadPage, renderLeadSummary, summarizeLeads, type Lead } from "./l
 import { createNotionReader } from "./notion.js";
 import { loadProject } from "./project.js";
 import { planRestore, renderPlan, resolveDumpDir } from "./restore.js";
-import { loadToken, NoTokenError } from "./token.js";
+import { loadToken, NoTokenError, secretsDir } from "./token.js";
 
 /** The instance's projects folder: a bare project name (`acme`) resolves here. */
 const projectArg = (arg: string): string => (/[\\/]|\.md$/.test(arg) ? arg : join(hubPaths().projects, arg));
 
 const HELP = `notion-dump: read-only Notion backup.
 
-  notion-dump dump <project> [--out DIR] [--date YYYY-MM-DD] [--only a,b] [--rps N] [--no-reuse]
+  notion-dump dump <project> [--out DIR] [--date YYYY-MM-DD] [--only a,b] [--rps N] [--no-reuse] [--token-file NAME]
   notion-dump restore <project> --dry-run [--from DATE|PATH] [--out DIR] [--only a,b] [--json]
   notion-dump check <project>
   notion-dump diff <db|schema.json> --live <file|->   pack schema vs a live data source (the connector's fetch output, a file or stdin); exit 2 when they differ
   notion-dump leads <project> [--json]     what waits in the project's leads database: needs reply, overdue, won without a client
 
 <project> is a name under the instance's projects folder, or a folder with project.md (or the path of project.md). The token comes from NOTION_TOKEN or
-state/secrets/notion-token (or HUB_CONFIG_DIR) and is never printed. Nothing here writes to Notion.
+state/secrets/notion-token (or HUB_CONFIG_DIR; --token-file names another file in that folder) and is never printed. Nothing here writes to Notion.
 Exit codes: 0 ok, 1 error, 2 some database failed, 3 no token, 64 usage.
 `;
 
@@ -43,6 +43,7 @@ async function main(argv: string[]): Promise<number> {
       from: { type: "string" },
       only: { type: "string" },
       rps: { type: "string" },
+      "token-file": { type: "string" },
       "dry-run": { type: "boolean", default: false },
       "no-reuse": { type: "boolean", default: false },
       json: { type: "boolean", default: false },
@@ -85,7 +86,12 @@ async function main(argv: string[]): Promise<number> {
     process.stderr.write("--rps must be a positive number\n");
     return 64;
   }
-  const reader = createNotionReader(await loadToken(), { rps });
+  const tokenName = values["token-file"];
+  if (tokenName !== undefined && !/^[A-Za-z0-9._-]+$/.test(tokenName)) {
+    process.stderr.write("--token-file takes a file name in the secrets folder (no path)\n");
+    return 64;
+  }
+  const reader = createNotionReader(await loadToken(process.env, tokenName ? join(secretsDir(), tokenName) : undefined), { rps });
   const log = (line: string) => process.stderr.write(`${line}\n`);
 
   if (command === "leads") {

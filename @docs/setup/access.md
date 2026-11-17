@@ -14,6 +14,7 @@ No secret is ever stored in git, a log or a page. Secrets live only in the git-i
 | Mail account | Mail.app, through `mail-mcp` on `localhost:8787` | Mail.app; the name in `config/config.json` | Reading mail, creating unsent drafts | `mail.daemon`, `mail.account` |
 | Mail IMAP login (optional) | One account, read only | `state/secrets/mail-<name>.json` | Overview new-mail counts, Sent detection | `backup.secrets` (file mode only) |
 | Telegram bot token (optional) | A bot made with @BotFather | `state/secrets/telegram-bot-token` | The receive-only poller | `messengers.token`, `telegram.getme`, `messengers.poller` |
+| Backup snapshot (`hub backup`) | Nothing external: a folder (default `<instance>/backups/`, git-ignored), optionally an rsync destination | `backups/` or `backup_dir` / `backup_copy_to` in `config/config.json` | A copy of the database, the Notion dump and the config that git does not hold | `backup.snapshot` |
 | Claude Code sign-in | The `claude` CLI on this machine | Claude's own store | `hub agent` | `tools.claude` |
 
 The hub expects no Claude API token and no Cloudflare credential. Mail routing at Cloudflare and any DNS are outside this code; they are not checked here.
@@ -61,6 +62,15 @@ Create a bot with @BotFather and store the token in `state/secrets/telegram-bot-
 ## Backups need access too
 
 `backup.git` needs a remote on which the instance, the core and any path in `backup_repos` (`config/config.json`) are pushed; `backup.notion` needs the hub integration above; `backup.secrets` checks only the names and modes of the files in `state/secrets/`. An off-machine copy of that folder is the owner's job and no step can see it.
+
+### Snapshots (`hub backup`)
+
+`hub backup` is run by the owner (nothing schedules it; decision 0023). It needs no credential of its own and never reads or copies a secret: the Notion dump is a child process that loads the hub integration token itself, and the manifest lists only the NAMES of the secret files.
+
+- **Where:** `<instance>/backups/<YYYYMMDD-HHMMSS>/`, git-ignored (`backups/` is in the instance `.gitignore` and in the template `hub init` uses). `backup_dir` in `config/config.json` moves it (a path relative to the instance folder, such as `../shared-backups`, or an absolute path, for example iCloud Drive; no `~`); a folder inside `state/` or the core is refused. The command refuses to run, and `backup.snapshot` fails, when a folder inside the instance is tracked by git or not ignored.
+- **A copy off the disk:** `backup_copy_to` (an rsync destination: a relative or absolute path, or `host:path`) receives each new snapshot. `backup.snapshot` warns while the snapshots and `data/` share a volume and no reachable copy lies elsewhere: set `backup_copy_to`.
+- **What a snapshot holds:** `data/app.db` (`VACUUM INTO` copy, `integrity_check` passed), `config/config.json`, `projects/<slug>/` with a fresh Notion dump per project (skipped with a note when there is no token), and `manifest.json` (time, core version, instance, sha256 and size of every file).
+- **Use:** `hub backup` (dry run), `hub backup --apply`, `hub backup --verify [snapshot]`. The newest 14 are kept; `--apply` deletes older ones, only folders with a valid manifest. A restore is never run by the tool: copy files back by hand.
 
 ## Verify
 

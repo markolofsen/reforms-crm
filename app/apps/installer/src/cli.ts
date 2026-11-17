@@ -13,6 +13,7 @@ import { auditRun, evidenceTable } from "./audit-run.ts";
 import { batchCheck, batchLines } from "./batch-check.ts";
 import { listProjects, runAgent } from "./agent.ts";
 import { installLink, pathHint, planLink, removeLink } from "./link.ts";
+import { backup, verify } from "./backup.ts";
 import { coreUpdate } from "./core-update.ts";
 import { coreDev, coreInstall } from "./core-link.ts";
 import { workspaceCheck, workspaceInit } from "./workspace.ts";
@@ -64,7 +65,7 @@ ${c.bold("Examples")}
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, send, connections, uninstall. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, send, connections, backup, uninstall. Each has its own \`hub <name> --help\`.`);
 // Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
@@ -395,6 +396,17 @@ program.command("docs").description("Generate @docs/setup/checklist.md and @docs
         if (cur !== t.text) { console.error(`${t.rel} is out of date: run \`pnpm hub docs\``); process.exitCode = 1; } else console.log(`${t.rel} is current`);
       } else { mkdirSync(path.dirname(t.f), { recursive: true }); writeFileSync(t.f, t.text); console.log(`wrote ${t.f}`); }
     }
+  });
+
+program.command("backup").description("A dated snapshot outside the instance: a verified copy of data/app.db, a fresh Notion dump per project, config/config.json and a manifest with sha256 per file. Secrets are never read or copied. Dry run unless --apply; --verify [snapshot] re-checks one (default: the newest). Keeps the newest 14.")
+  .option("--apply", "write the snapshot (default: show what would happen)")
+  .option("--verify [snapshot]", "re-check a snapshot (a folder name or path; default the newest): hashes and integrity_check of the copied database; nothing is restored")
+  .action(async (o: { apply?: boolean; verify?: string | boolean }) => {
+    const ctx = ctxOf();
+    if (o.verify !== undefined && o.apply) throw new UsageError("--verify and --apply are separate runs");
+    const r = o.verify !== undefined ? verify(ctx, typeof o.verify === "string" ? o.verify : undefined) : await backup(ctx, { apply: !!o.apply });
+    for (const l of r.lines) console.log(l);
+    done(r.ok ? 0 : 1);
   });
 
 program.command("token").description("Optional: store the Notion integration token or the Telegram bot token in state/secrets/ (git-ignored, mode 600). Value comes from a hidden prompt or stdin.")

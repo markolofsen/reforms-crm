@@ -13,11 +13,11 @@ export interface CopyCheck {
 /**
  * The doctor's backup proof for the app database: open the live file READ-ONLY, `VACUUM INTO` a copy inside `tmpDir`,
  * open the copy read-only, run the integrity check and count its rows. The live file is never written (no migration, no
- * WAL checkpoint by us); the caller owns `tmpDir` and removes it. Throws when the file is missing or cannot be copied.
+ * WAL checkpoint by us); the caller owns `tmpDir` and removes it (`fileName` names the copy; `hub backup` keeps it as `app.db`). Throws when the file is missing or cannot be copied.
  */
-export function copyAndVerify(source: string, tmpDir: string): CopyCheck {
+export function copyAndVerify(source: string, tmpDir: string, fileName = "app-copy.db"): CopyCheck {
   if (!existsSync(source)) throw new Error(`${source} does not exist`);
-  const copy = join(tmpDir, "app-copy.db");
+  const copy = join(tmpDir, fileName);
   const live = new Database(source, { readonly: true, fileMustExist: true });
   try {
     live.pragma("busy_timeout = 5000");
@@ -25,6 +25,11 @@ export function copyAndVerify(source: string, tmpDir: string): CopyCheck {
   } finally {
     live.close();
   }
+  return inspectCopy(copy);
+}
+
+/** Open a copy READ-ONLY, run `PRAGMA integrity_check`, count tables and rows. Used on a fresh copy and on a snapshot's `data/app.db` (`hub backup --verify`). */
+export function inspectCopy(copy: string): CopyCheck {
   const db = new Database(copy, { readonly: true, fileMustExist: true });
   try {
     const integrity = String(db.pragma("integrity_check", { simple: true }));
