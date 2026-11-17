@@ -3,7 +3,7 @@
  "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable. View JSON as returned by notion-fetch; this database's displayProperties are the full live column lists. dataSourceUrl is a placeholder: set it to the new data source.",
  "views": [
   {
-   "name": "All business contacts",
+   "name": "All contacts",
    "type": "table",
    "dataSourceUrl": "collection://<data source id>",
    "sorts": [

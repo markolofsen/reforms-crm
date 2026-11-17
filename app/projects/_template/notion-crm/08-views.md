@@ -52,7 +52,7 @@ Verified live JSON exists in `views/<db>.json` for all 14 databases (read 2026-1
 
 **Knowledge**: All (group by Category), Needs approval (Approved unticked), `<owner> to confirm` (Use = MARKER or Valid until passed), Sync problems (Sync state conflict or rejected), Playbooks (group by Audiences).
 
-**Documents**: All documents (Last edited desc), Current (Status = Current), By type. **Business contacts**: All business contacts (Name), By category. **Expenses**: Active, Due in 30 days, By category, No next date, All. **Payments**: Last 30 days, Planned, Paid, All. (JSON in `views/`)
+**Documents**: All documents (Last edited desc), Current (Status = Current), By type. **Business contacts**: All contacts (Name), By category. **Expenses**: Active, Due in 30 days, By category, No next date, All. **Payments**: Last 30 days, Planned, Paid, All. (JSON in `views/`)
 
 **Sales page `Today` block** (linked views of the above, not copies): To do (Tasks: Area = Clients or Client or Deal set; Today, Week, Waiting), Follow-ups (Clients: Today, Waiting, No task), Pipeline (Deals: No task, Hot, At risk), owner-owes (Open loops: Owner owes).
 

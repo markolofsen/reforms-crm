@@ -63,4 +63,4 @@ Purpose: a standalone address book of general business contacts: contractors, la
 | Related clients | relation to Clients, optional and one-way (no reverse on Clients); link only when a contact is tied to specific clients, for example their lawyer |
 | Related organizations | not in the pack; the link to Organizations is optional too, add it only on request |
 
-Views: All business contacts (by name), By category (a contact may appear in several groups).
+Views: All contacts (by name), By category (a contact may appear in several groups).
