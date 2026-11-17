@@ -30,7 +30,7 @@ const forbidden = (error: string) => NextResponse.json({ error, code: "forbidden
 
 /**
  * A bare project-scoped address (`/drafts`, `/bulk/3`) gets the remembered project before the page renders: the address
- * always names the project (`routes-and-url-state` rule 8). Overview and `/` carry none. A cookie that names a project that
+ * always names the project (`routes-and-url-state.md` rule 10). Overview and `/` carry none. A cookie that names a project that
  * no longer exists costs one more rewrite: the shell frame checks it against the registry (the page has no server fetch).
  */
 function withProject(request: NextRequest): NextResponse | null {

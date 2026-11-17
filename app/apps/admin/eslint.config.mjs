@@ -2,17 +2,18 @@
 import nextVitals from "eslint-config-next/core-web-vitals";
 import globals from "globals";
 import tseslint from "typescript-eslint";
+import { FILE_LINE_CAP, FUNCTION_LINE_CAP, LINE_COUNT } from "./lint-limits.mjs";
 
 const error = (rules) => Object.fromEntries(Object.entries(rules).map(([k, v]) => [k, Array.isArray(v) ? ["error", ...v] : ["error", v]]));
 const UI = "src/components/ui/**";
 
-// Markup bans (rules: design-system-and-tokens) and URL bans (rules: routes-and-url-state).
+// Markup bans (rules: design-system-and-tokens) and URL bans (rules: routes-and-url-state 14).
 const MARKUP = [
-  { selector: "JSXOpeningElement[name.name='button']", message: "Use the coss Button (rules: components-and-reuse)." },
-  { selector: "JSXOpeningElement[name.name='a']", message: "Use a shared link component (rules: components-and-reuse)." },
-  { selector: "JSXOpeningElement[name.name=/^(input|select|textarea)$/]", message: "Use the coss field primitives (rules: components-and-reuse)." },
+  { selector: "JSXOpeningElement[name.name='button']", message: "Use ActionButton (components/action-button.tsx) (rules: design-system-and-tokens 3)." },
+  { selector: "JSXOpeningElement[name.name='a']", message: "Use AppLink for an internal link (rules: routes-and-url-state 2)." },
+  { selector: "JSXOpeningElement[name.name=/^(input|select|textarea)$/]", message: "Use the coss field primitives (rules: design-system-and-tokens 3)." },
 ];
-const URL_WORDS = "Destinations come from `paths.*` in src/routes/paths.ts and render with AppLink or move with useGo (rules: routes-and-url-state).";
+const URL_WORDS = "Destinations come from `paths.*` in src/routes/paths.ts and render with AppLink or move with useGo (rules: routes-and-url-state 1-2).";
 const URLS = [
   { selector: "JSXAttribute[name.name=/^(href|to)$/] > Literal[value=/^\\//]", message: `No string href/to. ${URL_WORDS}` },
   { selector: "JSXAttribute[name.name=/^(href|to)$/] > JSXExpressionContainer > Literal[value=/^\\//]", message: `No string href/to. ${URL_WORDS}` },
@@ -23,11 +24,11 @@ const URLS = [
   { selector: "AssignmentExpression[left.object.name='document'][left.property.name='title']", message: "The title is Next metadata (`metadata`/`generateMetadata`), never `document.title =`." },
 ];
 const STORAGE_GLOBALS = [
-  { name: "localStorage", message: "Storage goes through one module (rules: data-and-state)." },
-  { name: "sessionStorage", message: "Storage goes through one module (rules: data-and-state)." },
+  { name: "localStorage", message: "Storage goes through one module (rules: state-and-data 7)." },
+  { name: "sessionStorage", message: "Storage goes through one module (rules: state-and-data 7)." },
 ];
 const BASE_IMPORTS = { paths: ["clsx", "tailwind-merge"].map((name) => ({ name, message: "Use `cn` from @/lib/utils." })), patterns: ["@radix-ui/*", "@headlessui/*"] };
-const BUTTON = { name: "@/components/ui/button", message: "Use ActionButton (components/action-button.tsx): three sizes, four variants (rules: design-system-and-tokens)." };
+const BUTTON = { name: "@/components/ui/button", message: "Use ActionButton (components/action-button.tsx): three sizes, four variants (rules: design-system-and-tokens 3)." };
 // Next's navigation is used only where an address is read or moved: the link, the hooks, and the route files themselves.
 const NEXT_NAV = ["next/link", "next/navigation", "next/router"].map((name) => ({ name, message: "Use AppLink and the hooks in src/hooks (use-go, use-search-state); next/* navigation is imported only in src/app, src/hooks and src/components/app-link.tsx." }));
 // The Hono server owns the database and the mail (decision 0015 section 4): the admin imports only types of the contract.
@@ -52,16 +53,16 @@ export default tseslint.config(
         "@typescript-eslint/consistent-type-imports": [{ fixStyle: "inline-type-imports" }],
         "@typescript-eslint/no-floating-promises": [],
         "@typescript-eslint/no-misused-promises": [],
-        "max-lines": [{ max: 300, skipBlankLines: true, skipComments: true }],
-        "max-lines-per-function": [{ max: 150, skipBlankLines: true, skipComments: true }],
+        "max-lines": [{ max: FILE_LINE_CAP, ...LINE_COUNT }],
+        "max-lines-per-function": [{ max: FUNCTION_LINE_CAP, ...LINE_COUNT }],
         "no-restricted-globals": [
           ...STORAGE_GLOBALS,
           { name: "location", message: "The address bar is touched only in src/hooks/use-search-state.ts and src/lib/external.ts." },
           { name: "history", message: "The address bar is touched only in src/hooks/use-search-state.ts and src/lib/external.ts." },
         ],
         "no-restricted-properties": [
-          { object: "Date", property: "now", message: "Inject a clock; render stays deterministic (rules: ui-specifications)." },
-          { object: "Math", property: "random", message: "No randomness in render (rules: ui-specifications)." },
+          { object: "Date", property: "now", message: "Inject a clock; render stays deterministic (rules: ui-specifications 2)." },
+          { object: "Math", property: "random", message: "No randomness in render (rules: ui-specifications 2)." },
         ],
         "no-restricted-syntax": [...MARKUP, ...URLS, { selector: "Literal[value='use server']", message: "No Server Actions (decision 0015): every write goes through the Hono API." }],
         "no-restricted-imports": [{ paths: [...BASE_IMPORTS.paths, ...NEXT_NAV, ...SERVER_SIDE, BUTTON], patterns: [...BASE_IMPORTS.patterns] }],
@@ -100,7 +101,7 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
-          paths: [...BASE_IMPORTS.paths, ...["react", "react-dom", "next/link", "next/navigation", "next/router"].map((name) => ({ name, message: "src/routes is pure data and types (rules: routes-and-url-state)." }))],
+          paths: [...BASE_IMPORTS.paths, ...["react", "react-dom", "next/link", "next/navigation", "next/router"].map((name) => ({ name, message: "src/routes is pure data and types (rules: routes-and-url-state 14)." }))],
           patterns: [{ group: [...BASE_IMPORTS.patterns, "@/components/*", "@/features/*", "@/hooks/*", "react/*"], message: "src/routes imports no React, component, feature or hook." }],
         },
       ],

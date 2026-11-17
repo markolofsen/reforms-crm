@@ -50,7 +50,7 @@
   --control-s: 2rem;
   --control-m: 2.5rem;
   --control-l: 3rem;
-  /* Shell geometry (rules: ui-specifications 4a). */
+  /* Shell geometry (rules: ui-specifications 4). */
   --list-width: 22.5rem;
   --tab-bar: 3.5rem;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -114,7 +114,7 @@
 }
 
 /* The coss `md` is where the sidebar becomes a phone's tab bar; the product puts it at 640px so a tablet keeps the rail
-   (the same number as `md` in `hooks/use-media-query.ts`; design-system rule 13). */
+   (the same number as `md` in `hooks/use-media-query.ts`; `design-system-and-tokens.md` rule 13). */
 @theme {
   --breakpoint-md: 40rem;
 }

@@ -3,13 +3,13 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import ts from "typescript";
 import { ADMIN_PORT } from "@hub/config";
+import { FILE_LINE_CAP, LINE_COUNT } from "../lint-limits.mjs";
 
 // Executable half of `app/@rules` (see its Enforcement sections). Hard gates: every count is zero, nothing is ratcheted.
 const admin = path.resolve(import.meta.dirname, "..");
 const repo = path.resolve(admin, "../../..");
 const src = path.join(admin, "src");
 
-const FILE_LINE_CAP = 300;
 const DIR_FILE_CAP = 8;
 const PAGE_LINE_CAP = 40;
 
@@ -53,8 +53,10 @@ function count(file: string) {
 }
 
 describe("file size cap", () => {
-  it(`no source file over ${FILE_LINE_CAP} lines`, () => {
-    expect(appFiles.filter((p) => read(p).split("\n").length > FILE_LINE_CAP).map(rel)).toEqual([]);
+  // The cap and the way lines are counted are `lint-limits.mjs`, the same numbers eslint `max-lines` uses.
+  it(`no source file over ${FILE_LINE_CAP} lines (blank and comment-only lines are not counted: ${JSON.stringify(LINE_COUNT)})`, () => {
+    const counted = (p: string) => code(p).split("\n").filter((l) => !LINE_COUNT.skipBlankLines || l.trim() !== "").length;
+    expect(appFiles.filter((p) => counted(p) > FILE_LINE_CAP).map(rel)).toEqual([]);
   });
   it(`a page.tsx is thin: at most ${PAGE_LINE_CAP} lines (await the params, parse the search, render a feature)`, () => {
     const pages = appFiles.filter((p) => rel(p).startsWith("app/") && /\/page\.tsx$/.test(p));

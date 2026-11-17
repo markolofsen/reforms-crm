@@ -23,7 +23,7 @@ export const audienceQuery = z.object({
   silentDays: z.coerce.number().int().min(1).max(3650).default(DEFAULT_SILENT_DAYS),
 });
 
-// Draft and client mutations carry `project`: a draft or client of another project is "not found" (rule 11).
+// Draft and client mutations carry `project`: a draft or client of another project is "not found" (`@rules/README.md` rule 11).
 export const marksBody = z.object({ project, marks: z.array(z.enum(MARKS)).max(MARKS.length) });
 /** `hash` is the hash of the Mail draft the person read (P27 M2.4); the server refuses it when Mail has changed since. */
 export const checkedBody = z.object({ project, checked: z.boolean(), hash: z.string().min(1).optional() });

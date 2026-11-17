@@ -8,7 +8,7 @@ const BREAKPOINTS = {
   "4xl": 2000,
   lg: 1024,
   // Product edit of the coss copy: `md` is where the sidebar stops being a rail and becomes a phone's tab bar. Phones are
-  // below 640px; a tablet (640-1023) keeps the rail and shows the list and the detail as separate screens (design-system rule 13).
+  // below 640px; a tablet (640-1023) keeps the rail and shows the list and the detail as separate screens (`design-system-and-tokens.md` rule 13).
   md: 640,
   sm: 640,
   xl: 1280,

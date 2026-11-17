@@ -6,7 +6,7 @@ export type ActionSize = "s" | "m" | "l";
 /** The four looks of a button. `primary` is the one next step: a card or a bar never shows two. */
 export type ActionVariant = "primary" | "secondary" | "quiet" | "danger";
 
-// Full static strings (rules: stylesheets-and-class-lists 1). `sm:` repeats the height so it replaces the coss `sm:h-*`.
+// Full static strings (`stylesheets-and-class-lists.md` rule 1). `sm:` repeats the height so it replaces the coss `sm:h-*`.
 export const SIZE_CLASS: Record<ActionSize, string> = {
   s: "h-(--control-s) sm:h-(--control-s) px-3 text-sm",
   m: "h-(--control-m) sm:h-(--control-m) px-4 text-sm",
@@ -29,7 +29,7 @@ export type ActionButtonProps = Omit<ButtonProps, "size" | "variant"> & {
 };
 
 /**
- * The one button of the product: three sizes, four variants (design-system rule 11). It carries `data-variant`, so a test
+ * The one button of the product: three sizes, four variants (`design-system-and-tokens.md` rule 11). It carries `data-variant`, so a test
  * counts the primaries on screen. coss `Button` is wrapped, not edited.
  */
 export function ActionButton({ size = "m", variant = "secondary", icon = false, className, ...props }: ActionButtonProps) {

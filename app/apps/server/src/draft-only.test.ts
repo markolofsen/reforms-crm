@@ -6,7 +6,7 @@ import { openDb, createRepos, type DbHandle, type Repos } from "@hub/db";
 import { API_VERSION } from "@hub/contract/health";
 import { createApp } from "./app";
 
-// The draft-only invariant (rule 3 of app/@rules, amended by decision 0011): the agent makes drafts and has no send
+// The draft-only invariant (`@rules/README.md` rule 3, amended by decision 0011): the agent makes drafts and has no send
 // tool; a person sends, from the admin's confirmed Send. This file is the test that the one send route is the only
 // one, no status says sent, and nothing in the API can set one.
 

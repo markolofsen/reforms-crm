@@ -10,7 +10,7 @@ export type ClientRow = typeof clients.$inferSelect & { marks: Mark[]; draft: Dr
 export type NewClient = Omit<typeof clients.$inferInsert, "id" | "createdAt" | "updatedAt">;
 
 // A client may have several drafts over time (finished ones stay as history); the lists show the newest.
-// Literal table names in the sub-select: drizzle drops qualifiers in a single-table select (rule 15).
+// Literal table names in the sub-select: drizzle drops qualifiers in a single-table select (`@rules/README.md` rule 15).
 const latestDraft = sql`${drafts.id} = (select max(d2.id) from drafts d2 where d2.client_id = clients.id)`;
 
 // One definition per filter, used by both the list and the counts so they cannot drift. The Drafts list inner-joins

@@ -55,7 +55,7 @@ export function sectionList(id: SectionId): Dest {
   }
 }
 
-/** The routes about the whole instance: their address names no project (`routes-and-url-state.md` rule 8, the two exemptions). */
+/** The routes about the whole instance: their address names no project (`routes-and-url-state.md` rule 10, the two exemptions). */
 export const PROJECTLESS: ReadonlySet<RouteId> = new Set<RouteId>(["overview.page", "connections.page"]);
 
 /** The address text of a destination, `/drafts/42?project=lisbon&filter=ready`. The project is first, as in a bookmark. */

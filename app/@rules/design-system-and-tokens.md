@@ -26,5 +26,5 @@ Scope: components and the look. Adapted from the shared "design system" and "tok
 | 3 | eslint `no-restricted-syntax` on raw JSX elements and a restricted import of `@/components/ui/button` outside `action-button.tsx`; `test/rules.test.ts` counts raw elements (0) |
 | 10 | `test/rules.test.ts` "the root layout is force-dynamic and owns the one theme script"; light and dark pass in the browser |
 | 11-13 | `test/rules.test.ts` (tokens exist, no `max-lg:h-11`, one md breakpoint), `test/card-state.test.ts` (one primary per state), `e2e/a-layout.spec.ts` (44px targets, no sideways scroll) |
-| 4-6 | planned grep gates in the rules test (hex, `text-white`, `z-[`, `style={{`), P21; review until then |
+| 4-6 | review (no gate exists; none is planned: the code has no hex, `text-white` or `z-[` outside the coss copies today) |
 | 7-9 | review; light and dark pass in the browser |

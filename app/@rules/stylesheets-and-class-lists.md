@@ -18,5 +18,5 @@ Scope: where styling lives, in Tailwind v4 with one stylesheet (`src/index.css`)
 |---|---|
 | 1-2 | review; clean today |
 | 3-4, 6 | review |
-| 5 | eslint `no-restricted-imports` on `clsx` and `tailwind-merge` outside `lib/utils.ts` (warn) |
+| 5 | eslint `no-restricted-imports` on `clsx` and `tailwind-merge` outside `lib/utils.ts` (error) |
 | 7 | production `next build` at the end of the work (the e2e run builds it) |
