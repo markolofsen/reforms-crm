@@ -129,3 +129,13 @@ describe("hub core install", () => {
     expect(existsSync(path.join(r.home, "core", "hub.sh"))).toBe(true);
   });
 });
+
+describe("hub core update from another core", () => {
+  it("refuses: only the instance's own core/ is moved", async () => {
+    const r = rig();
+    const other = makeCtx({ paths: hubPaths({ core: r.dev, home: r.home, env: {} }), log: () => {}, run });
+    const o = await coreUpdate(other, undefined, true);
+    expect(o.ok).toBe(false);
+    expect(o.lines.join("")).toContain("./run.sh core update");
+  });
+});
