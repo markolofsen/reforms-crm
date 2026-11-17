@@ -1,3 +1,5 @@
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { address, mailError, mailFresh, mailOff, mailStale, notionFresh, notionToken, overviewIs, remember, withLive, type OverviewJson } from "./support";
 
@@ -81,10 +83,19 @@ test("overview: the whole request failing shows a sentence and Retry loads it", 
   await expect(page.getByRole("region", { name: "Verdict" })).toBeVisible();
 });
 
+// "Not read yet" is a token that is present and never used. The throwaway home has no token (HUB_CONFIG_DIR is pinned inside it
+// since P37), so the test puts one there for its own length and removes it, or the card would say the token is missing.
 test("overview: no live number has been read yet", async ({ page }) => {
-  await page.goto("/overview");
-  await expect(page.getByText("No live number has been read yet")).toBeVisible();
-  await expect(cardOf(page, "demo-shop").getByText("Not read yet").first()).toBeVisible();
+  const secrets = join(process.env.HUB_E2E_HOME ?? "", "secrets");
+  mkdirSync(secrets, { recursive: true });
+  writeFileSync(join(secrets, "notion-token"), "ntn_e2e_never_used\n", { mode: 0o600 });
+  try {
+    await page.goto("/overview");
+    await expect(page.getByText("No live number has been read yet")).toBeVisible();
+    await expect(cardOf(page, "demo-shop").getByText("Not read yet").first()).toBeVisible();
+  } finally {
+    rmSync(join(secrets, "notion-token"), { force: true });
+  }
 });
 
 test("overview: fresh, stale, error and off read as words, and an error keeps the last count and its fix", async ({ page }) => {

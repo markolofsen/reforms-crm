@@ -35,12 +35,18 @@ test("keyboard only: reach the list, move, read the checks, finish, undo", async
   const current = page.locator('ul[aria-label="Drafts"] > li[data-open="true"]');
   // The list opens its first draft on its own (an address, so it lands after mount): wait for it before moving.
   await expect(current).toHaveCount(1);
-  await page.keyboard.press("j");
-  // A draft on hold offers Resume, not Done: move on until the open one is a draft to finish.
-  for (let i = 0; i < 10 && (await page.getByRole("button", { name: "Resume", exact: true }).count()) > 0; i++) {
+  // The pane follows the cursor a moment after the row moves, and a key pressed before it settles is dropped. So each step waits until
+  // the open row has changed and the pane shows that draft, before it asks whether that draft is on hold.
+  const whoIsOpen = async () => ((await current.getByRole("checkbox").getAttribute("aria-label")) ?? "").replace(/^Select /, "");
+  const next = async () => {
+    const before = await whoIsOpen();
     await page.keyboard.press("j");
-    await page.waitForTimeout(150);
-  }
+    await expect(current.getByRole("checkbox")).not.toHaveAttribute("aria-label", `Select ${before}`);
+    await expect(page.getByRole("article", { name: `Draft for ${await whoIsOpen()}` })).toBeVisible();
+  };
+  await next();
+  // A draft on hold offers Resume, not Done: move on until the open one is a draft to finish.
+  for (let i = 0; i < 10 && (await page.getByRole("button", { name: "Resume", exact: true }).count()) > 0; i++) await next();
   await expect(page.getByRole("button", { name: "Resume", exact: true })).toHaveCount(0);
   const id = await current.getAttribute("id");
   expect(id).toBeTruthy();
