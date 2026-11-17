@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { diffSchema, isClean, liveSchemaOf, type PackSchema } from "../src/schema-diff.js";
+import { diffSchema, isClean, liveSchemaOf, type PackSchema } from "../src/schema-diff";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const leadsPack = JSON.parse(readFileSync(path.join(here, "..", "..", "..", "projects", "_template", "notion-crm", "schema", "leads.json"), "utf8")) as PackSchema;

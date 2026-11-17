@@ -6,9 +6,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
-import type { Ctx } from "../src/context.ts";
-import { STEPS } from "../src/steps/index.ts";
-import { fake, type Call } from "./helpers.ts";
+import type { Ctx } from "../src/context";
+import { STEPS } from "../src/steps/index";
+import { fake, type Call } from "./helpers";
 
 const step = (id: string) => STEPS.find((s) => s.id === id)!;
 const ID = "00000000-0000-4000-8000-000000000001";
@@ -28,7 +28,6 @@ const put = (dir: string, name: string, body: string, mode = 0o600) => {
   chmodSync(path.join(dir, name), mode);
 };
 const respond = (status: number, body: unknown = {}) => (async () => new Response(JSON.stringify(body), { status })) as unknown as typeof fetch;
-const ok = { code: 0, stdout: "", stderr: "" };
 
 describe("the new steps are in the list and explain themselves", () => {
   it("every id exists exactly once, with a fix guide", () => {

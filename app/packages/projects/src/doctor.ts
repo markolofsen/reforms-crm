@@ -1,11 +1,11 @@
 // `doctor --project <slug>`: the checks of K5 that need no installer code. Everything that touches the outside world
 // (Mail.app, Notion, the MCP config, the knowledge index) is injected, so the installer wires the real thing and tests
 // pass fakes.
-import { formatIssue, hasErrors } from "./parse.js";
-import { kindOf } from "./kinds.js";
-import type { ProjectConfig } from "./schema.js";
-import { loadWorkflows, workflowErrors } from "./workflows.js";
-import { duplicateClaims, type LoadedProject } from "./registry.js";
+import { formatIssue, hasErrors } from "./parse";
+import { kindOf } from "./kinds";
+import type { ProjectConfig } from "./schema";
+import { loadWorkflows, workflowErrors } from "./workflows";
+import { duplicateClaims, type LoadedProject } from "./registry";
 
 export type CheckOutcome = "pass" | "fail" | "skipped";
 export interface Check {

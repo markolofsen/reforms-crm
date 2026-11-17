@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkValue, doctorProject, FIELDS, KINDS, loadProject, parseProjectMd, projectJson } from "../src/index.js";
+import { checkValue, doctorProject, FIELDS, KINDS, loadProject, parseProjectMd, projectJson } from "../src/index";
 import path from "node:path";
 
 const ID = "00000000-0000-4000-8000-000000000001";

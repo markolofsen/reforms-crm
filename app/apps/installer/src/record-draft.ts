@@ -1,7 +1,7 @@
 import { MARKS, NOTION_KINDS } from "@hub/config";
 import { createRepos, defaultDbPath, openDb, RepoError, type RecordDraftInput } from "@hub/db";
 import { checkContext, contextMode, contextSchema, judgeSimilarity, measureAgainstSet, observeDraft, SIM_AMBER, type Context, type ContextMode, type Evidence, type LedgerEntry, type PriorRecord, type Violation, checkDraftRecipients, kindOf, loadProject } from "@hub/projects";
-import { appendLine, latestSession, readLines, recordsFile } from "./evidence-store.ts";
+import { appendLine, latestSession, readLines, recordsFile } from "./evidence-store";
 import { readFileSync } from "node:fs";
 import { z } from "zod";
 

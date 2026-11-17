@@ -1,9 +1,9 @@
 import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { checkDev } from "@hub/projects/dev";
-import { listProjects } from "../context.ts";
-import type { Step } from "../types.ts";
-import { fail, pass } from "./helpers.ts";
+import { listProjects } from "../context";
+import type { Step } from "../types";
+import { fail, pass } from "./helpers";
 
 export const projectSteps: Step[] = [
   {

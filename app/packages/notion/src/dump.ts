@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { normalizePage, sha256, stableStringify } from "./stable.js";
-import type { DataSourceInfo, Manifest, ManifestDatabase, NotionReader, PageObject, Project } from "./types.js";
+import { normalizePage, sha256, stableStringify } from "./stable";
+import type { DataSourceInfo, Manifest, ManifestDatabase, NotionReader, PageObject, Project } from "./types";
 
 const DATE_DIR = /^\d{4}-\d{2}-\d{2}$/;
 const TRUNCATED_MARK = "<!-- notion-dump: truncated";

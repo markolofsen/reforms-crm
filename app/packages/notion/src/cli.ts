@@ -2,14 +2,14 @@
 import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { parseArgs } from "node:util";
-import { runDump } from "./dump.js";
+import { runDump } from "./dump";
 import { readFileSync } from "node:fs";
-import { diffSchema, isClean, liveSchemaOf, renderDiff, type PackSchema } from "./schema-diff.js";
-import { parseLeadPage, renderLeadSummary, summarizeLeads, type Lead } from "./leads.js";
-import { createNotionReader } from "./notion.js";
-import { loadProject } from "./project.js";
-import { planRestore, renderPlan, resolveDumpDir } from "./restore.js";
-import { loadToken, NoTokenError, secretsDir } from "./token.js";
+import { diffSchema, isClean, liveSchemaOf, renderDiff, type PackSchema } from "./schema-diff";
+import { parseLeadPage, renderLeadSummary, summarizeLeads, type Lead } from "./leads";
+import { createNotionReader } from "./notion";
+import { loadProject } from "./project";
+import { planRestore, renderPlan, resolveDumpDir } from "./restore";
+import { loadToken, NoTokenError, secretsDir } from "./token";
 
 /** The instance's projects folder: a bare project name (`acme`) resolves here. */
 const projectArg = (arg: string): string => (/[\\/]|\.md$/.test(arg) ? arg : join(hubPaths().projects, arg));

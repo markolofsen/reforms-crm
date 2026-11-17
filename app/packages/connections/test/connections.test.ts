@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   fileState, inspect, isTelegramToken, mailFileOf, parseConnectionId, probeImap, probeNotion, probeTelegram, readValue, redact, removeSecret,
   slug, storeMailLogin, storeToken, testConnection, type ConnectionRow, type ProbeDeps,
-} from "../src/index.js";
+} from "../src/index";
 
 // Fake secrets only. Every test uses its own throwaway folder; nothing here opens a real instance.
 const NOTION = "ntn_FAKENOTIONSECRET1234567890";

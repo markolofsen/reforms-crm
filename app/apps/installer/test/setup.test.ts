@@ -3,11 +3,11 @@ import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from "no
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Verdict } from "@hub/connections";
-import { makeValidators, type Validators } from "../src/setup/clients.ts";
-import type { Ui } from "../src/setup/ui.ts";
-import { runSetup, type SetupDeps } from "../src/setup/wizard.ts";
-import type { Step } from "../src/types.ts";
-import { fake } from "./helpers.ts";
+import { makeValidators, type Validators } from "../src/setup/clients";
+import type { Ui } from "../src/setup/ui";
+import { runSetup, type SetupDeps } from "../src/setup/wizard";
+import type { Step } from "../src/types";
+import { fake } from "./helpers";
 
 const NOTION = "ntn\u005fTESTNOTIONSECRET1234567890";
 const TG = "123456789:AAFakeTelegramTokenValue_1234567890";

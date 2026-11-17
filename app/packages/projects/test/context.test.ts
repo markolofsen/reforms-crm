@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkContext, contextMode, contextSchema, type Context } from "../src/index.js";
+import { checkContext, contextMode, contextSchema, type Context } from "../src/index";
 
 const good = (over: Partial<Context> = {}): Context =>
   contextSchema.parse({

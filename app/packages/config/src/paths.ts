@@ -74,7 +74,9 @@ export class HubHomeMissingError extends Error {
   }
 }
 
-const expand = (p: string, env: NodeJS.ProcessEnv): string => resolve(p.replace(/^~(?=$|\/)/, env.HOME ?? "~"));
+/** A leading `~` in a path the OWNER typed (an env var or a config value) means their home. The one place this is spelled; no default of the hub contains a `~`. */
+export const expandTilde = (p: string, env: NodeJS.ProcessEnv = process.env): string => p.replace(/^~(?=$|\/)/, env.HOME ?? "~");
+const expand = (p: string, env: NodeJS.ProcessEnv): string => resolve(expandTilde(p, env));
 const fromEnv = (env: NodeJS.ProcessEnv, name: string): string | undefined => env[name]?.trim() || undefined;
 
 /**

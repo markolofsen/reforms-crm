@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CORE_ROOT } from "@hub/config/paths";
 import { defaultDbPath } from "@hub/db";
-import { runRename, runSync } from "../src/hub-commands.js";
-import { defaultProjectsRoot, loadProjects } from "../src/registry.js";
+import { runRename, runSync } from "../src/hub-commands";
+import { defaultProjectsRoot, loadProjects } from "../src/registry";
 
 // Decision 0016, S1: with HUB_HOME naming a folder outside the checkout, the registry reads and writes there and nowhere else.
 const home = mkdtempSync(join(tmpdir(), "hub-projects-instance-"));

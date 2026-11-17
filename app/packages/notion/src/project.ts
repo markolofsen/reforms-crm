@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
-import type { Project } from "./types.js";
+import type { Project } from "./types";
 import { extractDatabases, normalizeId } from "@hub/projects/parse";
 
 export { normalizeId };

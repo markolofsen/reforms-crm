@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
-import { findInstances, instanceStatus, statusTable } from "../src/status.ts";
+import { findInstances, instanceStatus, statusTable } from "../src/status";
 
 // P36 U6: one table over the instances.
 const put = (f: string, body: string) => { mkdirSync(path.dirname(f), { recursive: true }); writeFileSync(f, body); };

@@ -1,16 +1,16 @@
 // project.md schema v1 (doc 16 section 3). Pure: text in, structure and issues out. No file or database access, so
 // @hub/notion can import this file alone.
 
-import { checkValue, FIELDS, readField, setPath } from "./fields.js";
-import { DEFAULT_KIND, hasValue, kindOf } from "./kinds.js";
-import { BYS, ProjectBase, STATUSES, type By, type ProjectConfig, type ProjectDatabase, type ProjectStatus } from "./schema.js";
-import { EMAIL, isIsoDate, normalizeAddress, normalizeId, SLUG, splitList, UUID } from "./values.js";
+import { checkValue, FIELDS, readField, setPath } from "./fields";
+import { DEFAULT_KIND, hasValue, kindOf } from "./kinds";
+import { BYS, ProjectBase, STATUSES, type By, type ProjectConfig, type ProjectDatabase, type ProjectStatus } from "./schema";
+import { EMAIL, isIsoDate, normalizeAddress, normalizeId, SLUG, UUID } from "./values";
 
 export const SCHEMA_VERSION = 1;
 
 export { BYS, STATUSES, checkValue, FIELDS, isIsoDate, normalizeAddress, normalizeId };
 export type { By, ProjectConfig, ProjectDatabase, ProjectStatus };
-export type { KnowledgeSource } from "./schema.js";
+export type { KnowledgeSource } from "./schema";
 
 export type IssueCode =
   | "bad_slug"

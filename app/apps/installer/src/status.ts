@@ -4,8 +4,8 @@ import path from "node:path";
 import { draftCountsReadOnly } from "@hub/db";
 import { CORE_ROOT, findInstanceHome, hubPaths, INSTANCE_MARKER, instancePorts } from "@hub/config/paths";
 import { loadProjects } from "@hub/projects";
-import { portBusy } from "./serve.ts";
-import { readCoreVersion } from "./steps/instance.ts";
+import { portBusy } from "./serve";
+import { readCoreVersion } from "./steps/instance";
 
 export interface InstanceStatus {
   name: string;

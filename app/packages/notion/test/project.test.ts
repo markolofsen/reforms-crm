@@ -1,7 +1,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { loadProject, normalizeId, parseProject } from "../src/project.js";
+import { loadProject, normalizeId, parseProject } from "../src/project";
 
 const here = dirname(fileURLToPath(import.meta.url));
 

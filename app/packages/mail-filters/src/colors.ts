@@ -1,6 +1,6 @@
 // Label colors: the universal palette per class, the Gmail palette, and the apply table. Pure: no file or network access.
 // Gmail filters (XML or API) cannot set a label color; the color is set in the Gmail UI (or labels API, not used by default).
-import { classesOf, DEFAULT_CLASSES, defaultLabel, LABEL_PREFIX, type Category, type RulesFile } from "./model.js";
+import { classesOf, DEFAULT_CLASSES, defaultLabel, LABEL_PREFIX, type Category, type RulesFile } from "./model";
 
 export interface PaletteColor {
   /** Our name for the swatch (Gmail's menu shows swatches; the hex pair is the identity). */

@@ -1,9 +1,9 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { readJson, type Ctx } from "../context.ts";
-import { brokenStdioCommands, instanceServer } from "../mcp-servers.ts";
-import type { Step } from "../types.ts";
-import { fail, pass, warn } from "./helpers.ts";
+import { readJson, type Ctx } from "../context";
+import { brokenStdioCommands, instanceServer } from "../mcp-servers";
+import type { Step } from "../types";
+import { fail, pass, warn } from "./helpers";
 
 const stateDirs = (c: Ctx) => ["runs", "clients", "history"].map((d) => path.join(c.paths.state, d));
 const allDirs = (c: Ctx) => [...stateDirs(c), c.configDir];

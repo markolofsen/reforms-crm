@@ -1,10 +1,10 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
 import path from "node:path";
-import type { Ctx } from "../context.ts";
-import { coreSkills, linksIntoCore } from "../instance-skills.ts";
-import { VERSION_TAG } from "../core-update.ts";
-import type { CheckResult, Step } from "../types.ts";
-import { fail, pass, warn } from "./helpers.ts";
+import type { Ctx } from "../context";
+import { coreSkills, linksIntoCore } from "../instance-skills";
+import { VERSION_TAG } from "../core-update";
+import type { CheckResult, Step } from "../types";
+import { fail, pass, warn } from "./helpers";
 
 /** The one place an instance states which core it runs on (decision 0016): `<home>/core.version`. */
 export const CORE_VERSION_FILE = "core.version";

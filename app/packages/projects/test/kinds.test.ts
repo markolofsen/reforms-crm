@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_KIND, FIELDS, hasValue, hasErrors, Kind, KINDS, KIND_IDS, MODULES, parseProjectMd, ProjectBase, checkValue, type ProjectConfig } from "../src/index.js";
+import { DEFAULT_KIND, FIELDS, hasValue, hasErrors, Kind, KINDS, KIND_IDS, MODULES, parseProjectMd, ProjectBase, checkValue, type ProjectConfig } from "../src/index";
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const ID2 = ID.replace(/1$/, "2");
@@ -40,7 +40,7 @@ describe("the kind registry is data", () => {
         if (path.startsWith("notion.")) expect(k.modules, `${k.id} requires ${path} without the notion module`).toContain("notion");
         if (path.startsWith("mail.")) expect(k.modules).toContain("mail");
       }
-      for (const s of k.notionModules) expect(k.modules, k.id).toContain("notion");
+      if (k.notionModules.length) expect(k.modules, k.id).toContain("notion");
       if (!k.modules.includes("notion")) expect(k.notionModules, k.id).toEqual([]);
     }
   });

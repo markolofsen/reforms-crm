@@ -1,9 +1,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { fileSteps } from "../src/steps/files.ts";
-import { instanceServer } from "../src/mcp-servers.ts";
-import { fake } from "./helpers.ts";
+import { fileSteps } from "../src/steps/files";
+import { instanceServer } from "../src/mcp-servers";
+import { fake } from "./helpers";
 
 // S5 trap: an instance root `.mcp.json` that names the core's stdio program by a relative `app/...` path. Claude starts in the instance
 // folder, where that path does not exist, so the knowledge server silently never starts. `files.mcp-json` must catch it and write it absolute.

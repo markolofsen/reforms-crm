@@ -1,5 +1,5 @@
 import { imapflowConnect, redactSecrets, type ImapAccount, type ImapConnect } from "@hub/mail/imap";
-import { isTelegramToken } from "./kinds.js";
+import { isTelegramToken } from "./kinds";
 
 /** valid: the service accepted it. invalid: it refused it. unverified: could not be asked (offline). `identity` is the provider's public name for the key. */
 export interface Verdict { state: "valid" | "invalid" | "unverified"; detail: string; identity?: string }

@@ -1,9 +1,9 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { doctor, exitCode, install } from "../src/runner.ts";
-import { selectSteps } from "../src/steps/index.ts";
-import { fake } from "./helpers.ts";
+import { doctor, exitCode, install } from "../src/runner";
+import { selectSteps } from "../src/steps/index";
+import { fake } from "./helpers";
 
 // Regression test for research 08, finding 1: on a clean machine the default doctor failed on the Notion token.
 // Decision 0009: the token is optional. Empty HOME, empty secrets folder: setup steps and doctor are green.

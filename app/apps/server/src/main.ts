@@ -3,6 +3,7 @@ import { HOST, SERVER_PORT } from "@hub/config";
 import { HubHomeMissingError, hubPaths } from "@hub/config/paths";
 import { createRepos, dataVersion, openDb } from "@hub/db";
 import { createApp } from "./app";
+import { listenErrorLine, onShutdown } from "./lifecycle";
 import { chooseProbeKind, fakeProbeDeps } from "./connections";
 import { createMailService } from "./mail";
 import { projectsRoot } from "./project-overview";
@@ -43,14 +44,21 @@ const app = createApp(repos, { connections: probe === "fake" ? { deps: fakeProbe
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);
 });
+// A taken port is one line and exit 2 (the same shape as a missing HUB_HOME above), not a stack.
+server.on("error", (err) => {
+  const line = listenErrorLine(err, HOST, port);
+  if (!line) throw err;
+  console.error(line);
+  process.exit(2);
+});
 
-for (const sig of ["SIGINT", "SIGTERM"] as const) {
-  process.on(sig, () => {
+// A stuck poller must not make SIGTERM hang: 5 s, then the process exits anyway.
+onShutdown({
+  deadlineMs: 5000,
+  log: (l) => console.error(l),
+  exit: (code) => process.exit(code),
+  stop: async () => {
     sent.stop();
-    void messengers.stop().finally(() => {
-      server.close();
-      close();
-      process.exit(0);
-    });
-  });
-}
+    try { await messengers.stop(); } finally { server.close(); close(); }
+  },
+});

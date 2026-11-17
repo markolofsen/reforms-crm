@@ -1,9 +1,8 @@
-import { readJson } from "../context.ts";
-import path from "node:path";
-import type { Step } from "../types.ts";
-import { isLoaded } from "../launchctl.ts";
-import { mcpCall, mcpReachable } from "../mcp-probe.ts";
-import { fail, pass } from "./helpers.ts";
+import { readJson } from "../context";
+import type { Step } from "../types";
+import { isLoaded } from "../launchctl";
+import { mcpCall, mcpReachable } from "../mcp-probe";
+import { fail, pass } from "./helpers";
 
 export const mailSteps: Step[] = [
   {

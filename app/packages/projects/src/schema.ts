@@ -2,7 +2,7 @@
 // `ProjectBase` is the resolved shape every consumer reads (parser, doctor, router, registry, installer, skills);
 // `Kind` is the data a kind of project declares. A `Kind` is validated here, its instances live in kinds.ts.
 import { z } from "zod";
-import { BCP47, isIsoDate, isTimezone, SLUG } from "./values.js";
+import { BCP47, isIsoDate, isTimezone, SLUG } from "./values";
 
 export const STATUSES = ["draft", "active", "paused", "archived"] as const;
 /** `archived` behaves as `paused` for routing (nothing runs); the folder stays where it is. */

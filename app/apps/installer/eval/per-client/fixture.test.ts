@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { fingerprint, judgeSimilarity, measureAgainstSet } from "@hub/projects";
-import { CLIENTS, DRAFTED, NEEDLES_JSON, replyBody } from "./fixture.ts";
-import { transcriptFiles } from "./scenario.ts";
+import { CLIENTS, DRAFTED, NEEDLES_JSON, replyBody } from "./fixture";
+import { transcriptFiles } from "./scenario";
 
 describe("per-client fixture (E1)", () => {
   it("has 20 clients, each with two distinct needles shared with nobody", () => {

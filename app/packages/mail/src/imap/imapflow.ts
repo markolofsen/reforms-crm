@@ -1,7 +1,7 @@
 import { ImapFlow } from "imapflow";
 import type { FetchMessageObject, MessageStructureObject, SearchObject } from "imapflow";
-import type { ImapAccount, ImapConnect, ImapQuery, ImapSession, MailboxInfo, RawHeader } from "./session.js";
-import { normAddr } from "./util.js";
+import type { ImapAccount, ImapConnect, ImapQuery, ImapSession, MailboxInfo, RawHeader } from "./session";
+import { normAddr } from "./util";
 
 /**
  * The only file that imports imapflow. Every mailbox is opened with `readOnly: true` (EXAMINE) and only SEARCH, FETCH

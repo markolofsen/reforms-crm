@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { markerLeft, unresolvedMarkers } from "@hub/config";
 import { RepoError, type DraftRow, type Repos, type SendRow } from "@hub/db";
 import { checkDraftRecipients, loadProject, loadProjects, normalizeAddress, type ProjectConfig } from "@hub/projects";
-import { bareId, type MailDraft, type Mailer } from "./mailer.js";
+import { bareId, type MailDraft, type Mailer } from "./mailer";
 
 // `hub send` (decision 0011, plan P23). The only code that sends mail. Every send, manual or automatic, goes through
 // `assess` first: the same refusals for both, strictest for autosend. Nothing here is reachable from an agent session.

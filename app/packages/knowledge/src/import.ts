@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
-import { EntryError, normalizeFront, parseEntry, renderEntry, sha256, type FrontMatter } from "./entry.js";
-import { walkMarkdown } from "./indexer.js";
+import { EntryError, normalizeFront, parseEntry, renderEntry, sha256, type FrontMatter } from "./entry";
+import { walkMarkdown } from "./indexer";
 
 export class ImportError extends Error {
   constructor(message: string) {

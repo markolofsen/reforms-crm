@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { isTelegramToken, probeTelegram, TELEGRAM_FILE } from "@hub/connections";
 import path from "node:path";
-import type { Step } from "../types.ts";
-import { fail, pass, warn } from "./helpers.ts";
+import type { Step } from "../types";
+import { fail, pass, warn } from "./helpers";
 
 const TOKEN = (configDir: string) => path.join(configDir, TELEGRAM_FILE);
 const HEALTH = `http://127.0.0.1:${process.env.HUB_PORT ?? "4317"}/api/health`;

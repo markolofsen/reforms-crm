@@ -1,8 +1,8 @@
 import { INBOX_ACTIONS } from "@hub/config";
 import { createRepos, defaultDbPath, openDb, RepoError, type InboxInput } from "@hub/db";
 import { z } from "zod";
-import { notionRef } from "./record-draft.ts";
-import type { RecordOutcome } from "./record-draft.ts";
+import { notionRef } from "./record-draft";
+import type { RecordOutcome } from "./record-draft";
 
 // `hub record-client --project <slug>`: the triage session reports a client it handled WITHOUT leaving a draft
 // (skipped, escalated, suspected injection), so the admin's inbox shows who was seen and why (P26, decision 0009).

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultRoot } from "../src/context.ts";
+import { defaultRoot } from "../src/context";
 
 // Decision a decision or plan record kept in the owner's instance: a description states situation, result and boundary, not trigger phrases.
 const root = defaultRoot();

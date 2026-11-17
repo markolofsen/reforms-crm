@@ -7,8 +7,8 @@ import { createHash } from "node:crypto";
 import { closeSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { readJson, type Ctx } from "./context.ts";
-import { readCoreVersion } from "./steps/instance.ts";
+import { readJson, type Ctx } from "./context";
+import { readCoreVersion } from "./steps/instance";
 
 /** Snapshots kept; older ones are deleted by --apply (only folders with a valid manifest). */
 export const KEEP = 14;

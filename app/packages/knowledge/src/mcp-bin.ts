@@ -3,7 +3,7 @@
 // Nothing may be written to stdout except the protocol.
 import { createRepos, openDb } from "@hub/db";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { createKnowledgeServer } from "./mcp.js";
+import { createKnowledgeServer } from "./mcp";
 
 const handle = openDb();
 const server = createKnowledgeServer(createRepos(handle.db), { hubProject: process.env.HUB_PROJECT });

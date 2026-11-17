@@ -2,9 +2,9 @@
 // config and the zod schema that reads its text. The parser, the in-place writer (`checkValue`), the doc table and
 // project-setup all read this; adding a field is adding one entry here and one key to `ProjectBase`.
 import { z } from "zod";
-import { KIND_IDS } from "./kinds.js";
-import { SEND_MODES, STATUSES } from "./schema.js";
-import { BCP47, EMAIL, isIsoDate, isTimezone, normalizeAddress, normalizeId, splitList, UUID } from "./values.js";
+import { KIND_IDS } from "./kinds";
+import { SEND_MODES, STATUSES } from "./schema";
+import { BCP47, EMAIL, isIsoDate, isTimezone, normalizeAddress, normalizeId, splitList, UUID } from "./values";
 
 export interface FieldDef {
   /** Dotted path in `ProjectConfig` the parsed value lands on. */

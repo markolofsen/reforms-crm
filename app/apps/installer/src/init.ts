@@ -1,9 +1,9 @@
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { CORE_ROOT, hubPaths } from "@hub/config/paths";
-import type { RunResult } from "./context.ts";
-import { pinMark, VERSION_TAG } from "./core-update.ts";
-import { syncInstanceSkills } from "./instance-skills.ts";
+import type { RunResult } from "./context";
+import { pinMark, VERSION_TAG } from "./core-update";
+import { syncInstanceSkills } from "./instance-skills";
 
 /** Where the files of a new instance live: plain files in the core, copied with `{{NAME}}` filled in. */
 export const INSTANCE_TEMPLATE = path.join("app", "apps", "installer", "templates", "instance");

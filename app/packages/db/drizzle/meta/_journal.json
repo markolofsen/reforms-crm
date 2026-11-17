@@ -99,6 +99,13 @@
       "when": 1794758431940,
       "tag": "0013_drop_batch_template_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1794939889644,
+      "tag": "0014_drop_redundant_indexes",
+      "breakpoints": true
     }
   ]
 }

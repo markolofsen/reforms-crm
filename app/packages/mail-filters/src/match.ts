@@ -1,4 +1,4 @@
-import type { Match, MatchKind } from "./model.js";
+import type { Match, MatchKind } from "./model";
 
 // Gmail filter criteria limits. Gmail documents no exact number for a criteria field; these are deliberately
 // conservative so an import never gets refused: one value, and one merged query per filter.

@@ -80,7 +80,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .onError((err, c) => {
       if (err instanceof RepoError) return c.json({ error: err.message, code: err.code === "not_found" ? ("not_found" as const) : ("wrong_state" as const) }, err.code === "not_found" ? 404 : 409);
       if (isBusy(err)) return c.json({ error: "The database is busy with another write. Try again in a moment.", code: "busy" as const }, 503);
-      console.error(err);
+      console.error(`500 ${c.req.method} ${c.req.path}`, err);
       return c.json({ error: "server error", code: "server" as const }, 500);
     })
     .use("*", async (c, next) => {

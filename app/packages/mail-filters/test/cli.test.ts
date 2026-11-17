@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { runCheck, runColors, runExportApi, runExportXml, runPropose } from "../src/hub-commands.js";
+import { runCheck, runColors, runExportApi, runExportXml, runPropose } from "../src/hub-commands";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const projectMd = `# Acme Travel
@@ -72,7 +72,7 @@ describe("hub mail-filters", () => {
 
 describe("hub mail-filters colors", () => {
   it("prints the universal palette, applies project overrides, and rejects unknown class or color", async () => {
-    const { parseRulesFile, writeRulesFile, DEFAULT_COLORS, GMAIL_PALETTE } = await import("../src/index.js");
+    const { parseRulesFile, writeRulesFile, DEFAULT_COLORS, GMAIL_PALETTE } = await import("../src/index");
     const t = setup();
     expect(runColors("acme-travel", t.o)).toBe(0);
     const text = t.lines.join("\n");

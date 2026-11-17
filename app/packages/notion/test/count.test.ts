@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { classifyNotionError, COUNT_PAGE_CAP, COUNT_ROW_CAP, countPages } from "../src/count.js";
-import { createNotionReader } from "../src/notion.js";
-import { DS_CLIENTS, FakeReader, makePage, sampleDbs } from "./helpers.js";
+import { classifyNotionError, COUNT_PAGE_CAP, COUNT_ROW_CAP, countPages } from "../src/count";
+import { createNotionReader } from "../src/notion";
+import { DS_CLIENTS, FakeReader, makePage, sampleDbs } from "./helpers";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 

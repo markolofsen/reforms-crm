@@ -1,10 +1,9 @@
-import { mkdtempSync, readFileSync, readdirSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultRoot } from "../src/context.ts";
-import { makeInstance } from "./instance-fixture.ts";
-import { auditLayout, DENIED_TOOLS, denyRules, HUB_API_COMMANDS, enforcementArgs, guardDecision, HUB_MCP_SERVERS, writeSessionFiles } from "../src/safety.ts";
+import { defaultRoot } from "../src/context";
+import { makeInstance } from "./instance-fixture";
+import { auditLayout, DENIED_TOOLS, denyRules, HUB_API_COMMANDS, enforcementArgs, guardDecision, HUB_MCP_SERVERS, writeSessionFiles } from "../src/safety";
 
 // Decision 0011: the agent gets NO send tool, in any mode. Sending is a hub command. If a rule below is removed or a
 // send path is added to an agent session, one of these fails.

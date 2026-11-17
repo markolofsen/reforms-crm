@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { hubPaths } from "@hub/config/paths";
-import { makeCtx } from "../src/context.ts";
-import { workspaceCheck, workspaceInit } from "../src/workspace.ts";
+import { makeCtx } from "../src/context";
+import { workspaceCheck, workspaceInit } from "../src/workspace";
 
 function rig() {
   const home = mkdtempSync(path.join(tmpdir(), "hub-ws-"));

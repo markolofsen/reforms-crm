@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildEml } from "../../src/imap/fake.js";
-import { findSentMailbox, matchSent, normSubject, readSent, type DraftToMatch, type SentMessage } from "../../src/imap/sent.js";
-import { account, ANNA, ME, server } from "./helpers.js";
+import { buildEml } from "../../src/imap/fake";
+import { findSentMailbox, matchSent, normSubject, readSent, type DraftToMatch, type SentMessage } from "../../src/imap/sent";
+import { account, ANNA, ME, server } from "./helpers";
 
 const sent = (o: Partial<SentMessage> & { messageId: string; date: string }): SentMessage => ({
   inReplyTo: null, references: [], to: [ANNA], cc: [], subject: "Offer", account: "Google", mailbox: "Sent", ...o,

@@ -1,8 +1,8 @@
 // Exporters. (a) Gmail `mailFilters.xml` import file (Atom, apps:property entries): the main path, no OAuth.
 // (b) A Gmail API request list (labels.create, filters.create) as JSON: generated only, never sent by this code.
-import { buildFilters, type FilterSpec } from "./filters.js";
-import { checkRules } from "./safety.js";
-import { hasErrors, formatIssue, type RulesFile } from "./model.js";
+import { buildFilters, type FilterSpec } from "./filters";
+import { checkRules } from "./safety";
+import { hasErrors, formatIssue, type RulesFile } from "./model";
 
 export class UnsafeRulesError extends Error {
   constructor(message: string) {

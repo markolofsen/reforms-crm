@@ -3,11 +3,10 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { appendAnswer, applyAnswer, applySetting, hasErrors, parseProjectMd, ProjectError, writeSetting } from "../src/index.js";
+import { appendAnswer, applyAnswer, applySetting, hasErrors, parseProjectMd, ProjectError, writeSetting } from "../src/index";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const acme = readFileSync(join(here, "fixtures", "projects", "acme-travel", "project.md"), "utf8");
-const ID = "00000000-0000-4000-8000-000000000001";
 
 /** Lines that differ between two texts (as a multiset), to prove everything else is untouched. */
 const changed = (a: string, b: string) => {

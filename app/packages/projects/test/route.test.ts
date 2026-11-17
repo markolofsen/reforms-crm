@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseProjectMd, registryEntry, resolveProject, type RegistryProject } from "../src/index.js";
+import { parseProjectMd, registryEntry, resolveProject, type RegistryProject } from "../src/index";
 
 const reg: RegistryProject[] = [
   { slug: "acme", status: "active", accounts: ["owner@acme.example"], addresses: ["owner@acme.example", "hello@acme.example"] },

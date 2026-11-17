@@ -6,10 +6,10 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import { defaultProjectsRoot, loadProjects } from "@hub/projects";
 import { defaultDbPath, openDb } from "@hub/db";
-import { listProjects, makeCtx } from "../src/context.ts";
-import { evidenceDir } from "../src/evidence-store.ts";
-import { auditLayout, guardDecision, runGuard, writeSessionFiles } from "../src/safety.ts";
-import { syncInstanceSkills } from "../src/instance-skills.ts";
+import { listProjects, makeCtx } from "../src/context";
+import { evidenceDir } from "../src/evidence-store";
+import { auditLayout, guardDecision, runGuard, writeSessionFiles } from "../src/safety";
+import { syncInstanceSkills } from "../src/instance-skills";
 
 // Decision 0016, phase S1: with HUB_HOME naming a folder OUTSIDE this checkout (a sibling instance holding one fixture project),
 // every reader and writer of projects, state, secrets, data and generated session files lands in that folder, and nothing

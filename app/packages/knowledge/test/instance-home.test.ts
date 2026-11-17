@@ -6,10 +6,10 @@ import { CORE_ROOT } from "@hub/config/paths";
 import { createRepos, openDb } from "@hub/db";
 import { defaultProjectsRoot } from "@hub/projects";
 import { runSync as syncCommand } from "@hub/projects/hub-commands";
-import { checkProject } from "../src/check.js";
-import { indexProject } from "../src/indexer.js";
-import { knowledgeSearch } from "../src/search.js";
-import { fixtureRoot } from "./helpers.js";
+import { checkProject } from "../src/check";
+import { indexProject } from "../src/indexer";
+import { knowledgeSearch } from "../src/search";
+import { fixtureRoot } from "./helpers";
 
 // Decision 0016, S1: indexing, checking and searching a project's knowledge uses the instance's folder and database under HUB_HOME.
 const home = mkdtempSync(join(tmpdir(), "hub-knowledge-instance-"));

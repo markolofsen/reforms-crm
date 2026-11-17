@@ -4,11 +4,11 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, st
 import path from "node:path";
 import { openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
-import { INSTANCE_TEMPLATE } from "../src/init.ts";
+import { INSTANCE_TEMPLATE } from "../src/init";
 import { CORE_ROOT } from "@hub/config/paths";
-import { backup, checkManifest, KEEP, listSnapshots, MANIFEST, readManifest, resolveTarget, sha256File, staleDriveMount, verify } from "../src/backup.ts";
-import { STEPS } from "../src/steps/index.ts";
-import { fake, type Call } from "./helpers.ts";
+import { backup, checkManifest, KEEP, listSnapshots, MANIFEST, readManifest, resolveTarget, sha256File, staleDriveMount, verify } from "../src/backup";
+import { STEPS } from "../src/steps/index";
+import { fake, type Call } from "./helpers";
 
 const SECRET = "ntn_SENTINEL_never_copied_0123456789";
 const ID = "00000000-0000-4000-8000-000000000001";

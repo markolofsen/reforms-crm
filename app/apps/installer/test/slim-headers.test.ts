@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { slimHeaders, slimMessageContent } from "../src/slim-headers.ts";
+import { slimHeaders, slimMessageContent } from "../src/slim-headers";
 
 const RAW = ["Received: from a", "Received: from b", "DKIM-Signature: v=1; " + "x".repeat(900), "Delivered-To: hello@reforms.ai", "Reply-To: c@d.com",
   "Authentication-Results: mx; spf=pass", "Authentication-Results: mx2; dkim=pass", "Subject: hi", "X-Mailer: foo", "List-Unsubscribe: <mailto:u@x>"].join("\r\n");
@@ -37,8 +37,8 @@ describe("slimMessageContent", () => {
 import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { runGuardPost } from "../src/safety.ts";
-import { sessionFile } from "../src/evidence-store.ts";
+import { runGuardPost } from "../src/safety";
+import { sessionFile } from "../src/evidence-store";
 
 describe("hub guard --post on get_message_content", () => {
   it("prints a slim reply and still records the ledger from the original", () => {

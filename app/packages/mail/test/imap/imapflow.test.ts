@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sessionOver, type ImapFlowLike } from "../../src/imap/imapflow.js";
+import { sessionOver, type ImapFlowLike } from "../../src/imap/imapflow";
 
 /** A stand-in for ImapFlow that records every call. Anything outside the read set would be missing, so it would throw. */
 function fakeClient() {

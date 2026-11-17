@@ -4,7 +4,7 @@
 // No file, no validation: a project without one starts as before. The file is data, parsed here and nowhere else.
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { FrontMatter } from "./entry.js";
+import type { FrontMatter } from "./entry";
 
 export const TAXONOMY_FILE = "knowledge/taxonomy.md";
 export const AXES = ["audiences", "category", "stages", "kind"] as const;

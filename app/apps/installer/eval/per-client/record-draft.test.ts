@@ -3,11 +3,11 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { replayCalls, type LedgerEntry } from "@hub/projects";
-import { batchCheck } from "../../src/batch-check.ts";
-import { appendLine, sessionFile } from "../../src/evidence-store.ts";
-import { recordDraft } from "../../src/record-draft.ts";
-import { carefulSteps, contextFor, recordFor, replyFor, templateLoopSteps } from "./scenario.ts";
-import { DRAFTED, FIXTURE_PROJECT } from "./fixture.ts";
+import { batchCheck } from "../../src/batch-check";
+import { appendLine, sessionFile } from "../../src/evidence-store";
+import { recordDraft } from "../../src/record-draft";
+import { carefulSteps, contextFor, recordFor, replyFor, templateLoopSteps } from "./scenario";
+import { DRAFTED, FIXTURE_PROJECT } from "./fixture";
 
 // Tier 1 on the whole fixture: 17 careful drafts through record-draft with a replayed ledger, then batch-check.
 const PROJECTS = path.join(import.meta.dirname, "fixture", "projects");

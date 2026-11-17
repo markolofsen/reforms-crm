@@ -1,7 +1,7 @@
 import * as p from "@clack/prompts";
-import type { Ctx } from "./context.ts";
+import type { Ctx } from "./context";
 import { redact } from "@hub/connections";
-import type { Outcome, Step, StepReport } from "./types.ts";
+import type { Outcome, Step, StepReport } from "./types";
 
 const safe = (ctx: Ctx, s: string) => redact(ctx.configDir, s).replace(/\s+/g, " ").trim();
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));

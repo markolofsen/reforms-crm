@@ -1,5 +1,5 @@
 // How a message picks its project (doc 16 section 7). Pure: the gate passes what it read from the message.
-import { normalizeAddress, type ProjectConfig, type ProjectStatus } from "./parse.js";
+import { normalizeAddress, type ProjectConfig, type ProjectStatus } from "./parse";
 
 export interface RegistryProject {
   slug: string;

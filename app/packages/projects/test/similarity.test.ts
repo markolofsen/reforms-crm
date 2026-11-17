@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fingerprint, judgeSimilarity, measureAgainstSet, normalizeBody, residue, sim, SKETCH_SIZE, templateEcho } from "../src/index.js";
+import { fingerprint, judgeSimilarity, measureAgainstSet, normalizeBody, residue, sim, SKETCH_SIZE, templateEcho } from "../src/index";
 
 const TEMPLATE = (name: string) => `[hub-draft thread=abc@x.example]
 Hi ${name},

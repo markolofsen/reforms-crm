@@ -22,7 +22,6 @@ let imap: FakeImapServer;
 let dir: string;
 let root: string;
 let fetched: string[];
-let rows: number;
 const BASE = "http://127.0.0.1:4317";
 const advance = (ms: number) => (now = new Date(now.getTime() + ms));
 

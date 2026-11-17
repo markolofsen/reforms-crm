@@ -6,10 +6,10 @@ import { loadProjects, type LoadedProject } from "@hub/projects";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { ageDays, checkManifest, isInside, listSnapshots, gitGuard, realish, restoreSnapshotDb, MAX_AGE_DAYS as SNAPSHOT_MAX_AGE_DAYS, resolveTarget, BackupError } from "../backup.ts";
-import { readJson, type Ctx } from "../context.ts";
-import type { CheckResult, Step } from "../types.ts";
-import { fail, pass, warn } from "./helpers.ts";
+import { ageDays, checkManifest, isInside, listSnapshots, gitGuard, realish, restoreSnapshotDb, MAX_AGE_DAYS as SNAPSHOT_MAX_AGE_DAYS, resolveTarget, BackupError } from "../backup";
+import { readJson, type Ctx } from "../context";
+import type { CheckResult, Step } from "../types";
+import { fail, pass, warn } from "./helpers";
 
 /** A dump older than this is not a backup the owner can lean on. */
 export const MAX_DUMP_AGE_DAYS = 7;

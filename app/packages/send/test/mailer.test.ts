@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { bareId, FakeMailer, FIND_SCRIPT, mailAppMailer, parseFindOutput, SEND_SCRIPT } from "../src/mailer.js";
+import { bareId, FakeMailer, FIND_SCRIPT, mailAppMailer, parseFindOutput, SEND_SCRIPT } from "../src/mailer";
 
 // osascript is injected: nothing here starts Mail.
 

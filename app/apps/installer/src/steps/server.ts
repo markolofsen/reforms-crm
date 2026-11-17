@@ -1,7 +1,7 @@
 import { instancePorts } from "@hub/config/paths";
-import { listenersOf } from "./admin.ts";
-import type { Step } from "../types.ts";
-import { fail, pass, warn } from "./helpers.ts";
+import { listenersOf } from "./admin";
+import type { Step } from "../types";
+import { fail, pass, warn } from "./helpers";
 
 export const serverSteps: Step[] = [
   {

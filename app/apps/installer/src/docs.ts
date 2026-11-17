@@ -1,4 +1,4 @@
-import type { Step } from "./types.ts";
+import type { Step } from "./types";
 
 /** The line every page that lists checks ends with (the architecture-change rule, CLAUDE.md). */
 export const UPDATE_LINE = "Update this page when the architecture changes.";

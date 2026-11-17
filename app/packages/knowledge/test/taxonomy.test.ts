@@ -1,8 +1,8 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkAgainstTaxonomy, checkProject, indexProject, parseTaxonomy, TaxonomyError, type FrontMatter } from "../src/index.js";
-import { cleanup, copyRoot, openRegistered } from "./helpers.js";
+import { checkAgainstTaxonomy, checkProject, indexProject, parseTaxonomy, TaxonomyError, type FrontMatter } from "../src/index";
+import { cleanup, copyRoot, openRegistered } from "./helpers";
 
 afterEach(cleanup);
 

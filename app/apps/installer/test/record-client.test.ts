@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb } from "@hub/db";
-import { recordClient } from "../src/record-client.ts";
-import { recordDraft } from "../src/record-draft.ts";
+import { recordClient } from "../src/record-client";
+import { recordDraft } from "../src/record-draft";
 
 let dir: string;
 let dbPath: string;

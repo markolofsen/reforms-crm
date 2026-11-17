@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createNotionReader } from "../src/notion.js";
+import { createNotionReader } from "../src/notion";
 
 interface Seen {
   method: string;

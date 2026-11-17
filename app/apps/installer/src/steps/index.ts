@@ -1,16 +1,16 @@
-import type { Step } from "../types.ts";
-import { adminSteps } from "./admin.ts";
-import { backupSteps } from "./backup.ts";
-import { fileSteps } from "./files.ts";
-import { instanceSteps } from "./instance.ts";
-import { mailSteps } from "./mail.ts";
-import { mcpSteps } from "./mcp.ts";
-import { messengerSteps } from "./messengers.ts";
-import { notionSteps } from "./notion.ts";
-import { projectSteps } from "./projects.ts";
-import { serverSteps } from "./server.ts";
-import { skillSteps } from "./skills.ts";
-import { toolSteps } from "./tools.ts";
+import type { Step } from "../types";
+import { adminSteps } from "./admin";
+import { backupSteps } from "./backup";
+import { fileSteps } from "./files";
+import { instanceSteps } from "./instance";
+import { mailSteps } from "./mail";
+import { mcpSteps } from "./mcp";
+import { messengerSteps } from "./messengers";
+import { notionSteps } from "./notion";
+import { projectSteps } from "./projects";
+import { serverSteps } from "./server";
+import { skillSteps } from "./skills";
+import { toolSteps } from "./tools";
 
 const tag = (steps: Step[], optional: NonNullable<Step["optional"]>, ids?: string[]): Step[] =>
   steps.map((s) => (!ids || ids.includes(s.id) ? { ...s, optional } : s));

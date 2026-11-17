@@ -1,6 +1,5 @@
-import { which } from "../context.ts";
-import type { Step } from "../types.ts";
-import { fail, pass } from "./helpers.ts";
+import type { Step } from "../types";
+import { fail, pass } from "./helpers";
 
 const semverGte = (v: string, min: [number, number]) => {
   const [a = 0, b = 0] = v.replace(/^v/, "").split(".").map(Number);

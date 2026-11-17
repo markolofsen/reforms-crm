@@ -1,9 +1,9 @@
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { readJson } from "../context.ts";
-import type { Step } from "../types.ts";
-import { fail, pass } from "./helpers.ts";
+import { readJson } from "../context";
+import type { Step } from "../types";
+import { fail, pass } from "./helpers";
 
 const INIT = JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "hub-doctor", version: "0" } } });
 

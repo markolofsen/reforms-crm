@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { auditEvidence, auditToolCalls, defaultProjectsRoot, loadProject, replayCalls, toolCallsFromLog, type ClaimedRecord, type EvidenceRow, type LedgerEntry, type ToolCall } from "@hub/projects";
 import { hubPaths } from "@hub/config/paths";
-import { auditLayout, skillScope } from "./safety.ts";
+import { auditLayout, skillScope } from "./safety";
 
 export interface AuditResult { project: string; calls: number; violations: string[]; evidence: EvidenceRow[] }
 

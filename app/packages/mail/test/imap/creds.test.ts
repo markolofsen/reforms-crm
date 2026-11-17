@@ -2,7 +2,7 @@ import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { loadAccounts, parseAccount, redactSecrets } from "../../src/imap/creds.js";
+import { loadAccounts, parseAccount, redactSecrets } from "../../src/imap/creds";
 
 const dir = () => mkdtempSync(path.join(tmpdir(), "hubmail-"));
 const put = (d: string, name: string, body: unknown, mode = 0o600) => {

@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { checkDev, devTemplateFiles, indexDev, initDev, readKanban } from "../src/dev.js";
-import { runDevIndex, runDevInit } from "../src/hub-commands.js";
+import { checkDev, devTemplateFiles, indexDev, initDev, readKanban } from "../src/dev";
+import { runDevIndex, runDevInit } from "../src/hub-commands";
 
 // P41: a project's own @dev kanban. The generator is the one the Hub's own @dev uses (`hub dev index --path`).
 const here = dirname(fileURLToPath(import.meta.url));

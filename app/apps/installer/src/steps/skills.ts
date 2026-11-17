@@ -1,9 +1,9 @@
 import { existsSync, readlinkSync } from "node:fs";
 import path from "node:path";
-import type { Ctx } from "../context.ts";
-import type { Step } from "../types.ts";
-import { coreSkills, legacyRemoveCommand, legacyUserLinks, syncInstanceSkills } from "../instance-skills.ts";
-import { fail, pass, warn } from "./helpers.ts";
+import type { Ctx } from "../context";
+import type { Step } from "../types";
+import { coreSkills, legacyRemoveCommand, legacyUserLinks, syncInstanceSkills } from "../instance-skills";
+import { fail, pass, warn } from "./helpers";
 
 const readlinkOf = (p: string): string | undefined => { try { return readlinkSync(p); } catch { return undefined; } };
 /** Run-time skills the core ships in `<core>/skills/<name>/SKILL.md`. */

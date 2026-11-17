@@ -2,10 +2,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { storeToken } from "@hub/connections";
-import { projectRows, projectTable } from "../src/project-table.ts";
-import { verifyProjectDatabases } from "../src/notion-check.ts";
+import { projectRows, projectTable } from "../src/project-table";
+import { verifyProjectDatabases } from "../src/notion-check";
 import { loadProjects } from "@hub/projects";
-import { fake } from "./helpers.ts";
+import { fake } from "./helpers";
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const row = (k: string, v: string) => `| ${k} | ${v} | 2026-11-15 | owner |`;

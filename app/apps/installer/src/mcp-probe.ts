@@ -1,4 +1,4 @@
-import type { Ctx } from "./context.ts";
+import type { Ctx } from "./context";
 
 const H = { "content-type": "application/json", accept: "application/json, text/event-stream" };
 

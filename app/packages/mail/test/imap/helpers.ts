@@ -1,5 +1,5 @@
-import type { ImapAccount } from "../../src/imap/session.js";
-import { buildEml, FakeImapServer } from "../../src/imap/fake.js";
+import type { ImapAccount } from "../../src/imap/session";
+import { buildEml, FakeImapServer } from "../../src/imap/fake";
 
 export const ME = "me@example.test";
 export const ANNA = "anna@example.test";

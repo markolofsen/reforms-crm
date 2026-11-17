@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { normalizePage, sha256, stableStringify } from "../src/stable.js";
-import { createThrottle } from "../src/throttle.js";
+import { normalizePage, sha256, stableStringify } from "../src/stable";
+import { createThrottle } from "../src/throttle";
 
 describe("stableStringify", () => {
   it("is independent of key order", () => {

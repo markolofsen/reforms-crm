@@ -1,3 +1,3 @@
-export * from "./mailer.js";
-export * from "./send.js";
-export * from "./select.js";
+export * from "./mailer";
+export * from "./send";
+export * from "./select";

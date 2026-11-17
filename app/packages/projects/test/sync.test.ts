@@ -15,7 +15,7 @@ import {
   registryFromLoaded,
   resolveProject,
   syncProjects,
-} from "../src/index.js";
+} from "../src/index";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureRoot = join(here, "fixtures", "projects");

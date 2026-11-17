@@ -1,4 +1,4 @@
-import type { Ctx } from "./context.ts";
+import type { Ctx } from "./context";
 
 export type Level = "pass" | "warn" | "fail";
 export interface CheckResult { level: Level; detail: string }

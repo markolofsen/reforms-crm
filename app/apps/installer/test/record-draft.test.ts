@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createRepos, openDb } from "@hub/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import { defaultRoot } from "../src/context.ts";
-import { recordDraft } from "../src/record-draft.ts";
+import { defaultRoot } from "../src/context";
+import { recordDraft } from "../src/record-draft";
 
 let db: string;
 beforeEach(() => {

@@ -4,9 +4,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { hubPaths } from "@hub/config/paths";
-import { defaultRunner, makeCtx, type Runner } from "../src/context.ts";
-import { coreUpdate, pinMark, rewritePin } from "../src/core-update.ts";
-import { CORE_VERSION_FILE } from "../src/steps/instance.ts";
+import { defaultRunner, makeCtx, type Runner } from "../src/context";
+import { coreUpdate, pinMark, rewritePin } from "../src/core-update";
+import { CORE_VERSION_FILE } from "../src/steps/instance";
 
 // `hub core update` (decision 0016): fixtures only: a throw-away bare origin with tags v0.1.0 and v0.2.0, a clone as core, an acme instance.
 const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };

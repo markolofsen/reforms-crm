@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import type { HubPaths } from "@hub/config/paths";
-import { which, type Ctx } from "./context.ts";
+import { which, type Ctx } from "./context";
 
 type Server = Record<string, unknown>;
 

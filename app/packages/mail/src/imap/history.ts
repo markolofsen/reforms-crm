@@ -1,6 +1,6 @@
-import type { HistoryEntry, HistoryPage, HistoryQuery, MailHistory } from "../history.js";
-import type { ImapAccount, ImapConnect, ImapSession, RawHeader } from "./session.js";
-import { ADDRESS, chunk, defaultMailboxes, historyError, isMessageId, isSynthetic, normAddr, syntheticId } from "./util.js";
+import type { HistoryEntry, HistoryPage, HistoryQuery, MailHistory } from "../history";
+import type { ImapAccount, ImapConnect, ImapSession, RawHeader } from "./session";
+import { ADDRESS, chunk, defaultMailboxes, historyError, isMessageId, isSynthetic, normAddr, syntheticId } from "./util";
 
 export interface ImapHistoryOptions {
   /** Read on every call, so a refreshed token file is picked up. */

@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
-import type { ImapAccount } from "./session.js";
-import { ADDRESS, normAddr } from "./util.js";
+import type { ImapAccount } from "./session";
+import { ADDRESS, normAddr } from "./util";
 
 /**
  * The one folder for every secret of the hub (mail logins, optional tokens): `<home>/state/secrets/`, mode 700, files 600.

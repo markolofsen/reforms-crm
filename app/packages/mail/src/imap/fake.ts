@@ -1,6 +1,6 @@
 import PostalMime from "postal-mime";
-import type { ImapAccount, ImapConnect, ImapQuery, ImapSession, MailboxInfo, RawHeader } from "./session.js";
-import { historyError, normAddr } from "./util.js";
+import type { ImapAccount, ImapConnect, ImapQuery, ImapSession, MailboxInfo, RawHeader } from "./session";
+import { historyError, normAddr } from "./util";
 
 /** Builds one RFC 822 message for tests. Plain text body, CRLF line ends. */
 export function buildEml(o: {

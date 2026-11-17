@@ -1,4 +1,3 @@
-import type { Mailer } from "./mailer.js";
 
 /**
  * Which Mailer a long-running process (the server) uses, decided once at start from the environment.

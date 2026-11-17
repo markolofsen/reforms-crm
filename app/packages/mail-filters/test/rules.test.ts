@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { buildFilters, checkRules, exportApi, exportXml, hasErrors, normalizeRules, parseRulesFile, UnsafeRulesError, writeRulesFile, type Rule, type RulesFile } from "../src/index.js";
+import { buildFilters, checkRules, exportApi, exportXml, hasErrors, normalizeRules, parseRulesFile, UnsafeRulesError, writeRulesFile, type Rule, type RulesFile } from "../src/index";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const text = readFileSync(join(here, "fixtures", "rules.md"), "utf8");
@@ -152,7 +152,7 @@ describe("mail classes come from the kind", () => {
 
   it("takes skippable, never-spam and color from the class data", async () => {
     const { KINDS } = await import("@hub/projects");
-    const { colorTable } = await import("../src/index.js");
+    const { colorTable } = await import("../src/index");
     const saas = KINDS["software-support"]!.mailClasses;
     const f = parseRulesFile(row("billing", "label+skip+read"), saas).file;
     expect(checkRules(f).map((i) => i.code)).toContain("skip_not_allowed");

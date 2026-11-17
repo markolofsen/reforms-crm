@@ -1,6 +1,6 @@
 import { probeImap, probeNotion, probeTelegram, type Verdict } from "@hub/connections";
 import { imapflowConnect, type ImapAccount, type ImapConnect } from "@hub/mail/imap";
-import type { Ctx } from "../context.ts";
+import type { Ctx } from "../context";
 
 /** Every outside call of the wizard. Tests inject fakes; none of them ever prints or returns a secret. The probes themselves live in `@hub/connections`. */
 export interface Validators {

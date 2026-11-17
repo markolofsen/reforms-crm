@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createServer } from "node:net";
 import { hubPaths, instancePorts } from "@hub/config/paths";
-import { c, UsageError } from "./term.ts";
+import { c, UsageError } from "./term";
 
 const pnpm = (args: string[], cwd: string): ChildProcess => spawn("pnpm", args, { cwd, stdio: "inherit" });
 const exited = (p: ChildProcess): Promise<number> =>

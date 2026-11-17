@@ -7,17 +7,17 @@ import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { createRepos, defaultDbPath, openDb } from "@hub/db";
 import type { Command } from "commander";
-import { doctorFailed, doctorProject, formatChecks } from "./doctor.js";
-import { formatIssue } from "./parse.js";
-import { KINDS } from "./kinds.js";
-import { projectJson, writeProjectJson } from "./generated.js";
-import { renameProject } from "./rename.js";
-import { ProjectError } from "./parse.js";
-import { writeSetting } from "./write.js";
-import { proposeAddresses, type RoutingSnapshot } from "./addresses.js";
-import { agentIndex, loadWorkflows, workflowErrors } from "./workflows.js";
-import { devFolder, indexDev, initDev } from "./dev.js";
-import { defaultProjectsRoot, loadProject, loadProjects, syncProjects, type LoadedProject } from "./registry.js";
+import { doctorFailed, doctorProject, formatChecks } from "./doctor";
+import { formatIssue } from "./parse";
+import { KINDS } from "./kinds";
+import { projectJson, writeProjectJson } from "./generated";
+import { renameProject } from "./rename";
+import { ProjectError } from "./parse";
+import { writeSetting } from "./write";
+import { proposeAddresses, type RoutingSnapshot } from "./addresses";
+import { agentIndex, loadWorkflows, workflowErrors } from "./workflows";
+import { devFolder, indexDev, initDev } from "./dev";
+import { defaultProjectsRoot, loadProject, loadProjects, syncProjects, type LoadedProject } from "./registry";
 
 export interface ProjectCommandOptions {
   /** Default: `<app>/projects` (or HUB_PROJECTS). */

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultRoot } from "../src/context.ts";
+import { defaultRoot } from "../src/context";
 
 const root = defaultRoot();
 const read = (rel: string) => readFileSync(path.join(root, rel), "utf8");

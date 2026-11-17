@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import type { Ctx } from "./context.ts";
+import type { Ctx } from "./context";
 
 /** The part of a loaded project this check reads. */
 export interface NotionProject {

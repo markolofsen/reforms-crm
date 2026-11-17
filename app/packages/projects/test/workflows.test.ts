@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { agentIndex, loadWorkflows, parseWorkflow, usage, workflowErrors } from "../src/workflows.js";
+import { agentIndex, loadWorkflows, parseWorkflow, usage, workflowErrors } from "../src/workflows";
 
 const BODY = "\n# T\n\n### Goal\n\nx\n\n### Steps\n\n1. y\n\n### Do not\n\n- send\n\n### Done when\n\nz\n";
 const doc = (fm: Record<string, string>, body = BODY) =>

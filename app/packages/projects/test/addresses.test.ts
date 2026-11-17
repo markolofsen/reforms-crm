@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { runAddresses } from "../src/hub-commands.js";
-import { proposeAddresses, type RoutingSnapshot } from "../src/addresses.js";
+import { runAddresses } from "../src/hub-commands";
+import { proposeAddresses, type RoutingSnapshot } from "../src/addresses";
 
 // P36 U5: which addresses reach a project through forwarding rules.
 const rule = (to: string | null, dest: string, enabled = true) => ({ enabled, matchers: [to ? { type: "literal", field: "to", value: to } : { type: "all" }], actions: [{ type: "forward", value: [dest] }] });

@@ -1,7 +1,7 @@
 // Leads, the one place core understands them: a lead is a row of the project's `leads` database (Notion pack module "Leads"), written by the
 // owner's own backend (e.g. django_notion), the website form or the mail agent, and handled by people. This file only reads. The contract with the
 // writers is @docs/core/21-leads.md; the field list is `app/projects/_template/notion-crm/schema/leads.json`.
-import type { PageObject, PropertyValue } from "./types.js";
+import type { PageObject, PropertyValue } from "./types";
 
 export const LEAD_STATUSES = ["New", "In progress", "Won", "Lost", "Spam"] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];

@@ -1,11 +1,11 @@
-import { cpSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { execa } from "execa";
 import { beforeAll, describe, expect, it } from "vitest";
-import { auditRun, evidenceTable } from "../../src/audit-run.ts";
-import { defaultRoot } from "../../src/context.ts";
-import { FIXTURE_PROJECT } from "./fixture.ts";
+import { auditRun, evidenceTable } from "../../src/audit-run";
+import { defaultRoot } from "../../src/context";
+import { FIXTURE_PROJECT } from "./fixture";
 
 // Tier 2 (research 15 section 5): five fixed transcripts through `audit-run`; expected rows and exit codes. Offline.
 const PROJECTS = path.join(import.meta.dirname, "fixture", "projects");

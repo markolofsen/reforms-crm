@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { buildEml, FakeImapServer } from "../../src/imap/fake.js";
-import { countNewSince, NEW_WINDOW_DAYS, windowStart } from "../../src/imap/count-new.js";
-import { account, ANNA, ME } from "./helpers.js";
+import { buildEml, FakeImapServer } from "../../src/imap/fake";
+import { countNewSince, NEW_WINDOW_DAYS, windowStart } from "../../src/imap/count-new";
+import { account, ANNA, ME } from "./helpers";
 
 const BOB = "bob@example.test";
 const NEWS = "news@example.test";

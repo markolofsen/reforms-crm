@@ -1,1 +1,1 @@
-export type * from "./history.js";
+export type * from "./history";

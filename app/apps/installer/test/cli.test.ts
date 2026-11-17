@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultRoot } from "../src/context.ts";
+import { defaultRoot } from "../src/context";
 
 // The real CLI in a child process: only `--help` and a failing parse, so nothing is changed on disk.
 const bin = path.join(defaultRoot(), "app", "apps", "installer", "bin", "hub.mjs");

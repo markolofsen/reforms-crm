@@ -4,7 +4,7 @@ import path from "node:path";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { assess, FakeMailer, runDue, sendDraft, type MailDraft, type SendDeps } from "@hub/send";
-import { runSendCommand } from "../src/send/command.ts";
+import { runSendCommand } from "../src/send/command";
 
 // Every test here uses FakeMailer: nothing reaches Mail and nothing is ever sent.
 

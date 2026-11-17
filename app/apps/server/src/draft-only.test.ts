@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openDb, createRepos, type DbHandle, type Repos } from "@hub/db";
 import { API_VERSION } from "@hub/contract/health";
 import { createApp } from "./app";
@@ -230,7 +230,10 @@ describe("the contract at the edge", () => {
     const busy = await boom(Object.assign(new Error("database is locked"), { code: "SQLITE_BUSY" }));
     expect(busy.status).toBe(503);
     expect(await busy.json()).toMatchObject({ code: "busy" });
-    const generic = await boom(new Error("nope"));
+    const logged: unknown[][] = [];
+    const spy = vi.spyOn(console, "error").mockImplementation((...a: unknown[]) => { logged.push(a); });
+    const generic = await Promise.resolve(boom(new Error("nope"))).finally(() => spy.mockRestore());
+    expect(logged[0]![0]).toBe("500 GET /api/projects"); // the log line names the request, not just the error
     expect(generic.status).toBe(500);
     expect(await generic.json()).toEqual({ error: "server error", code: "server" });
   });

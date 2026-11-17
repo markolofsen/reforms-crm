@@ -1,4 +1,4 @@
-import type { DataSourceInfo, NotionReader, PageMarkdown, PageObject } from "../src/types.js";
+import type { DataSourceInfo, NotionReader, PageMarkdown, PageObject } from "../src/types";
 
 export interface FakeDb {
   info: DataSourceInfo;

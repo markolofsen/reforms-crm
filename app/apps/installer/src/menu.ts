@@ -1,6 +1,6 @@
 import * as p from "@clack/prompts";
-import { PHRASES } from "./agent.ts";
-import { c } from "./term.ts";
+import { PHRASES } from "./agent";
+import { c } from "./term";
 
 type Action = "agent" | "up" | "doctor" | "filters";
 

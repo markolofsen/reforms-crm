@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { defaultRunner, makeCtx, type Ctx, type RunResult, type Runner } from "../src/context.ts";
+import { defaultRunner, makeCtx, type Ctx, type RunResult, type Runner } from "../src/context";
 
 export interface Call { cmd: string; args: string[]; env?: Record<string, string> }
 export interface Fake { ctx: Ctx; calls: Call[]; loaded: Set<string>; home: string; root: string }

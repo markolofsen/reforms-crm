@@ -1,12 +1,12 @@
 import { FakeImapServer } from "@hub/mail/imap";
 import { inspect } from "@hub/connections";
 import { execa } from "execa";
-import { defaultRoot } from "../src/context.ts";
+import { defaultRoot } from "../src/context";
 import { chmodSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { connectionsReport, connectionsTable, projectUses, storeNamedToken } from "../src/connections-command.ts";
-import { fake } from "./helpers.ts";
+import { connectionsReport, connectionsTable, projectUses, storeNamedToken } from "../src/connections-command";
+import { fake } from "./helpers";
 
 // Fake secrets in a throwaway instance. The probes get fake fetch and a fake IMAP server: nothing leaves the process.
 const NOTION = "ntn_FAKENOTIONSECRET1234567890";

@@ -1,8 +1,8 @@
 import { readdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
-import { pageTitle } from "./dump.js";
-import { sortKeys, stripSignedFileUrls } from "./stable.js";
-import type { DataSourceInfo, Manifest, NotionReader, PageObject, PropertyConfig, PropertyValue } from "./types.js";
+import { pageTitle } from "./dump";
+import { sortKeys, stripSignedFileUrls } from "./stable";
+import type { DataSourceInfo, Manifest, NotionReader, PageObject, PropertyConfig, PropertyValue } from "./types";
 
 /** Property types the API cannot write: a restore skips them and lists them. */
 export const READ_ONLY_TYPES = new Set([

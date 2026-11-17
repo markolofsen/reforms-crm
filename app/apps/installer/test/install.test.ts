@@ -1,12 +1,12 @@
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { doctor, exitCode, install, slowest, table } from "../src/runner.ts";
-import { fileSteps } from "../src/steps/files.ts";
-import { projectSteps } from "../src/steps/projects.ts";
-import { runtimeSkills, skillSteps } from "../src/steps/skills.ts";
-import { uninstall } from "../src/uninstall.ts";
-import { fake } from "./helpers.ts";
+import { doctor, exitCode, install, slowest, table } from "../src/runner";
+import { fileSteps } from "../src/steps/files";
+import { projectSteps } from "../src/steps/projects";
+import { runtimeSkills, skillSteps } from "../src/steps/skills";
+import { uninstall } from "../src/uninstall";
+import { fake } from "./helpers";
 
 const steps = [...fileSteps, ...skillSteps.filter((s) => s.id === "skills.runtime"), ...projectSteps];
 const snapshot = (dir: string): string[] => {

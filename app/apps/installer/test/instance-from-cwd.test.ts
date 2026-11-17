@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { findInstanceHome, hubPaths, HubHomeMissingError, instancePorts } from "@hub/config/paths";
-import { handOver } from "../src/reexec.ts";
+import { handOver } from "../src/reexec";
 
 // P36 U1/U2: the instance is found from the current folder; each instance has its own ports.
 function instance(extra: Record<string, unknown> = {}) {

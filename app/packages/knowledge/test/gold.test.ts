@@ -5,8 +5,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { DbHandle, Repos } from "@hub/db";
-import { indexProject, knowledgeSearch } from "../src/index.js";
-import { cleanup, copyRoot, goldDir, openRegistered } from "./helpers.js";
+import { indexProject, knowledgeSearch } from "../src/index";
+import { cleanup, copyRoot, goldDir, openRegistered } from "./helpers";
 
 let handle: DbHandle;
 let repos: Repos;

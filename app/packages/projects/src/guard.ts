@@ -1,4 +1,4 @@
-import { normalizeAddress, type ProjectConfig } from "./parse.js";
+import { normalizeAddress, type ProjectConfig } from "./parse";
 
 export type GuardResult = { ok: true } | { ok: false; blocked: string[] };
 

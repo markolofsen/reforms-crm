@@ -1,10 +1,10 @@
 import { loadProjects } from "@hub/projects";
-import { readJson } from "../context.ts";
-import { verifyProjectDatabases } from "../notion-check.ts";
+import { readJson } from "../context";
+import { verifyProjectDatabases } from "../notion-check";
 import path from "node:path";
-import type { Step } from "../types.ts";
+import type { Step } from "../types";
 import { fileState, NOTION_FILE, probeNotion, readValue } from "@hub/connections";
-import { fail, pass, warn } from "./helpers.ts";
+import { fail, pass, warn } from "./helpers";
 
 export const notionSteps: Step[] = [
   {

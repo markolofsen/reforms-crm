@@ -1,9 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isExpired, type Repos } from "@hub/db";
-import { EntryError, parseEntry } from "./entry.js";
-import { walkMarkdown } from "./indexer.js";
-import { checkAgainstTaxonomy, loadTaxonomy, TAXONOMY_FILE, TaxonomyError, type Taxonomy } from "./taxonomy.js";
+import { EntryError, parseEntry } from "./entry";
+import { walkMarkdown } from "./indexer";
+import { checkAgainstTaxonomy, loadTaxonomy, TAXONOMY_FILE, TaxonomyError, type Taxonomy } from "./taxonomy";
 
 export interface CheckReport {
   project: string;

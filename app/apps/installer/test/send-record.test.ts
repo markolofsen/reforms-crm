@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createRepos, openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
-import { defaultRoot } from "../src/context.ts";
-import { recordDraft } from "../src/record-draft.ts";
+import { defaultRoot } from "../src/context";
+import { recordDraft } from "../src/record-draft";
 
 // `hub record-draft` carries the two facts `hub send` needs and the agent alone knows: the mail class and the injection hint.
 const tmp = () => mkdtempSync(path.join(tmpdir(), "hub-sendrec-"));

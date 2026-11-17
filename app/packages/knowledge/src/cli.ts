@@ -3,10 +3,10 @@
 import { createRepos, openDb, RepoError } from "@hub/db";
 import { defaultProjectsRoot } from "@hub/projects";
 import { Command } from "commander";
-import { checkProject, formatReport } from "./check.js";
-import { importFromDump, importFromFiles, ImportError } from "./import.js";
-import { indexProject } from "./indexer.js";
-import { knowledgeSearch, ToolError } from "./search.js";
+import { checkProject, formatReport } from "./check";
+import { importFromDump, importFromFiles, ImportError } from "./import";
+import { indexProject } from "./indexer";
+import { knowledgeSearch, ToolError } from "./search";
 
 const program = new Command("knowledge").description("Per-project knowledge: import, index, search, check.");
 program.option("--root <dir>", "projects folder (default: <HUB_HOME>/projects, or HUB_PROJECTS)").option("--db <file>", "database (default: HUB_DB or <HUB_HOME>/data/app.db)");

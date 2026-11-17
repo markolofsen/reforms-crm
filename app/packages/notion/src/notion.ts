@@ -1,7 +1,7 @@
 // The package is CommonJS: Node ESM cannot see its named exports, so take them from the default (module.exports).
 import notionhq from "@notionhq/client";
-import { createThrottle, type Sleep } from "./throttle.js";
-import type { DataSourceInfo, NotionReader, PageMarkdown, PageObject, PropertyConfig } from "./types.js";
+import { createThrottle, type Sleep } from "./throttle";
+import type { DataSourceInfo, NotionReader, PageMarkdown, PageObject, PropertyConfig } from "./types";
 
 export interface ReaderOptions {
   /** Requests per second. Notion's limit is about 3 per connection. */

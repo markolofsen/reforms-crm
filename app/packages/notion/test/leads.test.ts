@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseLeadPage, renderLeadSummary, summarizeLeads } from "../src/leads.js";
-import type { PageObject } from "../src/types.js";
+import { parseLeadPage, renderLeadSummary, summarizeLeads } from "../src/leads";
+import type { PageObject } from "../src/types";
 
 const t = (s: string) => [{ plain_text: s }];
 function page(o: { name?: string; status?: string | null; source?: string; brands?: string[]; received?: string; next?: string; client?: boolean; email?: string }): PageObject {

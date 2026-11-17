@@ -1,4 +1,4 @@
-import { normalizeAddress } from "./values.js";
+import { normalizeAddress } from "./values";
 
 /** One Email Routing rule, in the shape the Cloudflare API returns (only what is read). */
 export interface RoutingRule {

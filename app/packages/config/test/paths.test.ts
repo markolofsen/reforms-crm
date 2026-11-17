@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CORE_ROOT, HubHomeMissingError, hubPaths, pathsAt, projectFolder } from "../src/paths.js";
+import { CORE_ROOT, HubHomeMissingError, hubPaths, pathsAt, projectFolder } from "../src/paths";
 
 const empty = {} as NodeJS.ProcessEnv;
 const instanceDir = () => mkdtempSync(join(tmpdir(), "hub-home-"));

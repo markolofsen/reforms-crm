@@ -1,7 +1,7 @@
 // In-place edits of project.md: table rows only, every other byte stays. Pure text functions plus thin file wrappers.
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { BYS, checkValue, FIELDS, isIsoDate, ProjectError, scan, tableOf, type By, type Issue } from "./parse.js";
+import { BYS, checkValue, FIELDS, isIsoDate, ProjectError, scan, tableOf, type By, type Issue } from "./parse";
 
 const SETTINGS_HEADER = "| Field | Value | Answered | By |";
 const ANSWERS_HEADER = "| Date | Field | Question | Answer |";

@@ -1,7 +1,7 @@
 import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { Ctx } from "./context.ts";
-import { checkInstance, CORE_VERSION_FILE, readCoreVersion } from "./steps/instance.ts";
+import type { Ctx } from "./context";
+import { checkInstance, CORE_VERSION_FILE, readCoreVersion } from "./steps/instance";
 
 /** Decision 0016: an instance moves to a newer core by moving its pin. `hub core update [tag]`: list the tags, or plan, or (with apply) do it. */
 export interface CoreUpdate { ok: boolean; lines: string[] }

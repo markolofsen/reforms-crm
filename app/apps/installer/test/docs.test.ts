@@ -1,13 +1,13 @@
-import { renderNotionFields } from "../src/notion-docs.ts";
+import { renderNotionFields } from "../src/notion-docs";
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultRoot } from "../src/context.ts";
-import { renderChecklist, UPDATE_LINE } from "../src/docs.ts";
-import { INSTANCE_TEMPLATE } from "../src/init.ts";
-import { selectSteps, STEPS } from "../src/steps/index.ts";
+import { defaultRoot } from "../src/context";
+import { renderChecklist, UPDATE_LINE } from "../src/docs";
+import { INSTANCE_TEMPLATE } from "../src/init";
+import { selectSteps, STEPS } from "../src/steps/index";
 
-const CHECK_ONLY = ["messengers.poller", "instance.core", "skills.legacy", "dev.kanban"];
+const CHECK_ONLY = ["messengers.poller", "instance.core", "skills.legacy", "dev.kanban", "files.config-keys"];
 
 describe("step list", () => {
   it("ids are unique and every step explains itself", () => {

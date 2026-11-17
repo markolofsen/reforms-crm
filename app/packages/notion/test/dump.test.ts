@@ -2,9 +2,9 @@ import { mkdtemp, readdir, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { runDump } from "../src/dump.js";
-import type { Project } from "../src/types.js";
-import { DS_CLIENTS, DS_LEADS, FakeReader, makePage, sampleDbs } from "./helpers.js";
+import { runDump } from "../src/dump";
+import type { Project } from "../src/types";
+import { DS_CLIENTS, DS_LEADS, FakeReader, makePage, sampleDbs } from "./helpers";
 
 const project: Project = {
   name: "demo",

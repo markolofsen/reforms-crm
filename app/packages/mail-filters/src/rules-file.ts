@@ -1,6 +1,6 @@
 // `<instance>/projects/<slug>/mail-filters.md`: the rules file. Parser and writer. Pure: text in, structure and issues out.
-import { findColor, GMAIL_PALETTE } from "./colors.js";
-import { checkMatchValue, parseMatch } from "./match.js";
+import { findColor, GMAIL_PALETTE } from "./colors";
+import { checkMatchValue, parseMatch } from "./match";
 import {
   ACTIONS,
   classesOf,
@@ -16,7 +16,7 @@ import {
   type Rule,
   type RulesFile,
   type WhitelistEntry,
-} from "./model.js";
+} from "./model";
 
 const FORBIDDEN_ACTIONS = new Set(["delete", "trash", "forward", "spam", "mark-spam", "archive", "never-spam-off"]);
 const ISO = /^\d{4}-\d{2}-\d{2}$/;

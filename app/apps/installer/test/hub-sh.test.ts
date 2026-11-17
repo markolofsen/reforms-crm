@@ -3,7 +3,7 @@ import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, writeFil
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultRoot } from "../src/context.ts";
+import { defaultRoot } from "../src/context";
 
 const script = path.join(defaultRoot(), "hub.sh");
 

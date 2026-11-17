@@ -1,4 +1,4 @@
-import { SAFE_FILE, TELEGRAM_FILE, slug } from "./kinds.js";
+import { SAFE_FILE, TELEGRAM_FILE, slug } from "./kinds";
 
 /** What a connection id names. The id is the only thing a client sends to pick a connection; it never carries a value. */
 export type ConnectionRef =

@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { hubPaths } from "@hub/config/paths";
-import { makeCtx, type Runner } from "../src/context.ts";
-import { coreDev, coreInstall } from "../src/core-link.ts";
-import { coreUpdate } from "../src/core-update.ts";
-import { CORE_VERSION_FILE, checkInstance } from "../src/steps/instance.ts";
+import { makeCtx, type Runner } from "../src/context";
+import { coreDev, coreInstall } from "../src/core-link";
+import { coreUpdate } from "../src/core-update";
+import { CORE_VERSION_FILE, checkInstance } from "../src/steps/instance";
 
 // `hub core install` and `hub core dev <path>`: throw-away git repos only. The instance records core/ as a submodule; a second repo is the developer's core checkout.
 const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };

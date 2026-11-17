@@ -2,10 +2,10 @@ import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
-import { runDump } from "../src/dump.js";
-import { diffSchema, planRestore, renderPlan, resolveDumpDir } from "../src/restore.js";
-import type { Project } from "../src/types.js";
-import { DS_CLIENTS, DS_LEADS, FakeReader, makePage, sampleDbs, select } from "./helpers.js";
+import { runDump } from "../src/dump";
+import { diffSchema, planRestore, renderPlan, resolveDumpDir } from "../src/restore";
+import type { Project } from "../src/types";
+import { DS_CLIENTS, DS_LEADS, FakeReader, makePage, sampleDbs, select } from "./helpers";
 
 const project: Project = {
   name: "demo",

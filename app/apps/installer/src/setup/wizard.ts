@@ -2,11 +2,11 @@ import { fileState, mailFileOf, notionShapeProblem, NOTION_FILE, readValue, reda
 import { loadAccounts, parseAccount } from "@hub/mail/imap";
 import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { listProjects, type Ctx } from "../context.ts";
-import { doctor, install, table } from "../runner.ts";
-import type { Step, StepReport } from "../types.ts";
-import type { Validators } from "./clients.ts";
-import type { Ui } from "./ui.ts";
+import { listProjects, type Ctx } from "../context";
+import { doctor, install, table } from "../runner";
+import type { Step, StepReport } from "../types";
+import type { Validators } from "./clients";
+import type { Ui } from "./ui";
 
 export type StageStatus = "ok" | "stored" | "unverified" | "skipped" | "missing" | "invalid";
 export interface StageResult { id: string; title: string; required: boolean; status: StageStatus; detail: string }

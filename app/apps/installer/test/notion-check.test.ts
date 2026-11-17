@@ -1,8 +1,8 @@
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { notionCheck, type NotionProject } from "../src/notion-check.ts";
-import { fake } from "./helpers.ts";
+import { notionCheck, type NotionProject } from "../src/notion-check";
+import { fake } from "./helpers";
 
 const TOKEN = "ntn\u005fprojecttoken0123456789";
 const project = (tokenFile = "notion-token", dbs = [{ slug: "clients", dataSourceId: "aaaa" }, { slug: "deals", dataSourceId: "bbbb" }]): NotionProject => ({

@@ -1,8 +1,8 @@
 import { existsSync, lstatSync, mkdirSync, readlinkSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import path from "node:path";
-import type { Ctx } from "./context.ts";
+import type { Ctx } from "./context";
 import { hubPaths } from "@hub/config/paths";
-import { checkInstance } from "./steps/instance.ts";
+import { checkInstance } from "./steps/instance";
 
 /**
  * `hub core install` and `hub core dev <path>` (decision 0016, "no legacy").

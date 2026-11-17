@@ -21,7 +21,7 @@ export const clients = sqliteTable(
     // The migration gives existing rows a constant default; every insert fills it in code.
     updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
-  (t) => [uniqueIndex("clients_project_email").on(t.project, t.email), index("clients_project").on(t.project)],
+  (t) => [uniqueIndex("clients_project_email").on(t.project, t.email)],
 );
 
 export const marks = sqliteTable(
@@ -236,7 +236,6 @@ export const projectAddresses = sqliteTable(
   (t) => [
     uniqueIndex("project_addresses_address").on(t.address).where(sql`${t.kind} = 'address'`),
     uniqueIndex("project_addresses_claim").on(t.project, t.address, t.kind),
-    index("project_addresses_project").on(t.project),
   ],
 );
 

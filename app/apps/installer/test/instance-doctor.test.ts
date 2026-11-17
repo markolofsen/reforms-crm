@@ -4,10 +4,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { hubPaths } from "@hub/config/paths";
-import { makeCtx } from "../src/context.ts";
-import { syncInstanceSkills } from "../src/instance-skills.ts";
-import { checkInstance, CORE_VERSION_FILE } from "../src/steps/instance.ts";
-import { STEPS } from "../src/steps/index.ts";
+import { makeCtx } from "../src/context";
+import { syncInstanceSkills } from "../src/instance-skills";
+import { checkInstance, CORE_VERSION_FILE } from "../src/steps/instance";
+import { STEPS } from "../src/steps/index";
 
 // Decision 0016, phase S4: `hub doctor` compares the instance with the core. Fixtures: throw-away folders, a throw-away git
 // core, names like acme. Nothing here reads the real checkout or any real instance.

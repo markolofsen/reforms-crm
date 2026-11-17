@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { Ctx } from "./context.ts";
+import type { Ctx } from "./context";
 
 /**
  * `hub workspace init|check` (decision 0018). An instance may carry its own apps and packages (`apps/*`, `packages/*`); they join the core's

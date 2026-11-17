@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { defaultRoot } from "../src/context.ts";
+import { defaultRoot } from "../src/context";
 
 // Core files must not carry one owner's names (`@docs/LAYERS.md`). The names are the owner's own private list,
 // `config/custom-names.txt` (one regex per line, git-ignored). Without the file (a fork) the guard has nothing to check.

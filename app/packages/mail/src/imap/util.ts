@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { HistoryErrorCode, HistoryError } from "../history.js";
+import type { HistoryErrorCode, HistoryError } from "../history";
 
 export function historyError(code: HistoryErrorCode, message: string): HistoryError {
   return Object.assign(new Error(`${code}: ${message}`), { code }) as HistoryError;

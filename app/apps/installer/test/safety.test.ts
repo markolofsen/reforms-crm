@@ -1,14 +1,13 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createRepos, openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
-import { defaultRoot } from "../src/context.ts";
-import { recordDraft } from "../src/record-draft.ts";
-import { DENIED_TOOLS, enforcementArgs, guardDecision, readBinding, resolveBinding, runGuard, skillScope, writeBinding, writeSessionFiles } from "../src/safety.ts";
-import { buildClaudeArgs } from "../src/agent.ts";
-import { auditLayout } from "../src/safety.ts";
-import { makeInstance } from "./instance-fixture.ts";
+import { defaultRoot } from "../src/context";
+import { recordDraft } from "../src/record-draft";
+import { DENIED_TOOLS, enforcementArgs, guardDecision, readBinding, resolveBinding, runGuard, skillScope, writeBinding, writeSessionFiles } from "../src/safety";
+import { buildClaudeArgs } from "../src/agent";
+import { auditLayout } from "../src/safety";
+import { makeInstance } from "./instance-fixture";
 
 const PROJECTS = path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures", "projects");
 const tmp = () => makeInstance().home;

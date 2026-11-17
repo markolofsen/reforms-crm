@@ -1,6 +1,6 @@
-import type { ImapAccount, ImapSession } from "./session.js";
-import { findSentMailbox, normSubject } from "./sent.js";
-import { chunk, defaultMailboxes, normAddr, syntheticId } from "./util.js";
+import type { ImapAccount, ImapSession } from "./session";
+import { findSentMailbox, normSubject } from "./sent";
+import { chunk, defaultMailboxes, normAddr, syntheticId } from "./util";
 
 /** The longest look-back of the overview count: a first read of a mailbox with years of mail cannot scan all of it. */
 export const NEW_WINDOW_DAYS = 14;

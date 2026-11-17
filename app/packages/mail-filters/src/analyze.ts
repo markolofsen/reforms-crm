@@ -1,8 +1,8 @@
 // Analyzer: sender samples in (headers only, fed from mail-mcp read results, injected), proposed rules out.
 // Never proposes client, partner or spam: those come from the owner. Uncertain groups stay unclassified.
-import { checkMatchValue, coversAddress, normalizeFrom } from "./match.js";
-import { normalizeRules } from "./rules-file.js";
-import { classesOf, defaultLabel, skippableIds, type MailClass, type Action, type Category, type Rule, type RulesFile } from "./model.js";
+import { checkMatchValue, coversAddress, normalizeFrom } from "./match";
+import { normalizeRules } from "./rules-file";
+import { classesOf, defaultLabel, skippableIds, type MailClass, type Action, type Category, type Rule, type RulesFile } from "./model";
 
 export interface SenderSample {
   /** `Name <a@b>` or `a@b`. */

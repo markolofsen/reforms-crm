@@ -4,13 +4,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { defaultProjectsRoot, kindOf, loadProject } from "@hub/projects";
 import type { Command } from "commander";
-import { colorTable } from "./colors.js";
-import { propose, type SenderSample } from "./analyze.js";
-import { exportApi, exportXml, UnsafeRulesError } from "./export.js";
-import { buildFilters } from "./filters.js";
-import { classesOf, DEFAULT_CLASSES, emptyRulesFile, formatIssue, hasErrors, matchText, type Issue, type RulesFile } from "./model.js";
-import { normalizeRules, parseRulesFile, writeRulesFile } from "./rules-file.js";
-import { checkRules } from "./safety.js";
+import { colorTable } from "./colors";
+import { propose, type SenderSample } from "./analyze";
+import { exportApi, exportXml, UnsafeRulesError } from "./export";
+import { buildFilters } from "./filters";
+import { classesOf, DEFAULT_CLASSES, emptyRulesFile, formatIssue, hasErrors, matchText, type Issue, type RulesFile } from "./model";
+import { normalizeRules, parseRulesFile, writeRulesFile } from "./rules-file";
+import { checkRules } from "./safety";
 
 export interface MailFiltersOptions {
   projectsRoot?: string;

@@ -1,4 +1,4 @@
-import type { NotionReader } from "./types.js";
+import type { NotionReader } from "./types";
 
 /** Pages of 100 rows read at most per data source (20 requests, about 7 s at 3 per second). */
 export const COUNT_PAGE_CAP = 20;

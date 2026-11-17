@@ -1,8 +1,8 @@
-import { slimMessageContent } from "./slim-headers.ts";
-import { hubPaths, pathsAt, type HubPaths } from "@hub/config/paths";
+import { slimMessageContent } from "./slim-headers";
+import { pathsAt, type HubPaths } from "@hub/config/paths";
 import { auditToolCalls, defaultProjectsRoot, type AuditLayout, kindOf, loadProject, preDraftCheck, type SkillScope, type ToolCall } from "@hub/projects";
-import { instanceServer } from "./mcp-servers.ts";
-import { readSession, recordPost, type PostPayload } from "./evidence-store.ts";
+import { instanceServer } from "./mcp-servers";
+import { readSession, recordPost, type PostPayload } from "./evidence-store";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 

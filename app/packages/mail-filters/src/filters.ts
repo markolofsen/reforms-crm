@@ -1,8 +1,8 @@
 // Turns a rules file into Gmail filter specs: whitelist first, then categories in priority order, from/domain/list-id
 // matches of one category and action merged into `OR` queries (chunked under MAX_QUERY_LEN), subject rules one each.
-import { MAX_QUERY_LEN } from "./match.js";
-import { normalizeRules } from "./rules-file.js";
-import { classesOf, classIds, defaultLabel, type Action, type Category, type RulesFile } from "./model.js";
+import { MAX_QUERY_LEN } from "./match";
+import { normalizeRules } from "./rules-file";
+import { classesOf, classIds, defaultLabel, type Action, type Category, type RulesFile } from "./model";
 
 export interface FilterSpec {
   criteria: { from?: string; subject?: string; hasTheWord?: string };

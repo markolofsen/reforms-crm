@@ -1,8 +1,8 @@
 import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkProject, formatReport, importFromDump, importFromFiles, indexProject, ImportError, mapPage, parseEntry, walkMarkdown } from "../src/index.js";
-import { cleanup, copyRoot, openRegistered, PAGES, tmp, writeDump } from "./helpers.js";
+import { checkProject, formatReport, importFromDump, importFromFiles, indexProject, ImportError, mapPage, parseEntry, walkMarkdown } from "../src/index";
+import { cleanup, copyRoot, openRegistered, PAGES, tmp, writeDump } from "./helpers";
 
 afterEach(cleanup);
 

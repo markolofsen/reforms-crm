@@ -2,9 +2,9 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { baseClaudeArgs, bindingPrompt, buildClaudeArgs, extraDirs, listProjects, parseAgentArgs } from "../src/agent.ts";
-import { installLink, linkState, planLink, removeLink } from "../src/link.ts";
-import { UsageError } from "../src/term.ts";
+import { baseClaudeArgs, bindingPrompt, buildClaudeArgs, extraDirs, listProjects, parseAgentArgs } from "../src/agent";
+import { installLink, linkState, planLink, removeLink } from "../src/link";
+import { UsageError } from "../src/term";
 
 const MAP = "/h/shared/notes";
 

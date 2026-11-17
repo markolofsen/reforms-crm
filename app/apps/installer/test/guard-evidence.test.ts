@@ -2,10 +2,10 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { runGuard, runGuardPost, writeSessionFiles } from "../src/safety.ts";
-import { sessionFile } from "../src/evidence-store.ts";
-import { CLIENTS } from "../eval/per-client/fixture.ts";
-import { carefulSteps, lazySteps, replyFor } from "../eval/per-client/scenario.ts";
+import { runGuard, runGuardPost, writeSessionFiles } from "../src/safety";
+import { sessionFile } from "../src/evidence-store";
+import { CLIENTS } from "../eval/per-client/fixture";
+import { carefulSteps, lazySteps, replyFor } from "../eval/per-client/scenario";
 
 // B3: the evidence ledger by hook, and the pre-draft rule of `hub guard`, driven by scripted call lists (what the hooks
 // receive: tool_name, tool_input, tool_response, session_id, agent_id). No Claude session, no mail.

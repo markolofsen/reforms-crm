@@ -1,7 +1,7 @@
 import { existsSync, lstatSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
-import type { Ctx } from "./context.ts";
-import { legacyRemoveCommand, legacyUserLinks, linksIntoCore } from "./instance-skills.ts";
+import type { Ctx } from "./context";
+import { legacyRemoveCommand, legacyUserLinks, linksIntoCore } from "./instance-skills";
 
 /**
  * Removes only what this instance created: the skill links in `<instance>/.claude/skills` that point into the core. Config, state and secrets stay.

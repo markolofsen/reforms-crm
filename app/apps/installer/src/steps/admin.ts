@@ -1,8 +1,8 @@
 import { ADMIN_PORT } from "@hub/config";
 import { instancePorts } from "@hub/config/paths";
-import type { Ctx } from "../context.ts";
-import type { CheckResult, Step } from "../types.ts";
-import { fail, pass } from "./helpers.ts";
+import type { Ctx } from "../context";
+import type { CheckResult, Step } from "../types";
+import { fail, pass } from "./helpers";
 
 const LSOF = "/usr/sbin/lsof";
 

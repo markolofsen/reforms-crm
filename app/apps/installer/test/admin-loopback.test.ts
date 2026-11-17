@@ -1,8 +1,8 @@
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { adminLoopbackCheck } from "../src/steps/admin.ts";
-import { fake } from "./helpers.ts";
+import { adminLoopbackCheck } from "../src/steps/admin";
+import { fake } from "./helpers";
 
 const open: Server[] = [];
 const listen = (host: string) => new Promise<number>((resolve) => {

@@ -2,9 +2,9 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { makeInstance } from "./instance-fixture.ts";
-import { auditRun } from "../src/audit-run.ts";
-import { defaultRoot } from "../src/context.ts";
+import { makeInstance } from "./instance-fixture";
+import { auditRun } from "../src/audit-run";
+import { defaultRoot } from "../src/context";
 
 const PROJECTS = path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures", "projects");
 const line = (name: string, input: unknown) => JSON.stringify({ type: "assistant", message: { content: [{ type: "tool_use", id: "t", name, input }] } });

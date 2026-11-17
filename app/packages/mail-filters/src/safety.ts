@@ -1,7 +1,7 @@
 // Hard safety rules, enforced in code. `export-*` refuse a file with any error here.
-import { MAX_FILTERS, checkMatchValue, overlaps } from "./match.js";
-import { buildFilters } from "./filters.js";
-import { LABEL_PREFIX, classIds, classesOf, matchText, skippableIds, type Issue, type IssueCode, type RulesFile } from "./model.js";
+import { MAX_FILTERS, checkMatchValue, overlaps } from "./match";
+import { buildFilters } from "./filters";
+import { LABEL_PREFIX, classIds, classesOf, matchText, skippableIds, type Issue, type IssueCode, type RulesFile } from "./model";
 
 export function checkRules(file: RulesFile): Issue[] {
   const issues: Issue[] = [];

@@ -1,8 +1,8 @@
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DbHandle, Repos } from "@hub/db";
-import { createKnowledgeServer, indexProject } from "../src/index.js";
-import { cleanup, copyRoot, openRegistered } from "./helpers.js";
+import { createKnowledgeServer, indexProject } from "../src/index";
+import { cleanup, copyRoot, openRegistered } from "./helpers";
 
 let handle: DbHandle;
 let repos: Repos;

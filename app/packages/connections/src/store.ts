@@ -1,7 +1,7 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CREDS_FILE, parseAccount } from "@hub/mail/imap";
-import { SAFE_FILE, TELEGRAM_IN_TEXT, slug } from "./kinds.js";
+import { SAFE_FILE, TELEGRAM_IN_TEXT, slug } from "./kinds";
 
 /** What is on disk for one secret file. Never the value. */
 export type FileState =

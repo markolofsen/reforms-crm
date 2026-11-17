@@ -1,10 +1,10 @@
 import { parseAccount } from "@hub/mail/imap";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { parseConnectionId } from "./ids.js";
-import { NOTION_FILE } from "./kinds.js";
-import { probeImap, probeNotion, probeTelegram, type ProbeDeps, type Verdict } from "./probe.js";
-import { fileState, readValue } from "./store.js";
+import { parseConnectionId } from "./ids";
+import { NOTION_FILE } from "./kinds";
+import { probeImap, probeNotion, probeTelegram, type ProbeDeps, type Verdict } from "./probe";
+import { fileState, readValue } from "./store";
 
 const invalid = (detail: string): Verdict => ({ state: "invalid", detail });
 

@@ -3,7 +3,7 @@
 import type { Repos } from "@hub/db";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { knowledgeGet, knowledgeSearch, QUERY_MAX, ToolError, type ToolEnv } from "./search.js";
+import { knowledgeGet, knowledgeSearch, QUERY_MAX, ToolError, type ToolEnv } from "./search";
 
 const audience = z.string().regex(/^[A-Z][A-Z0-9_]*$/, "an audience such as CLIENT, LEAD or ANY");
 

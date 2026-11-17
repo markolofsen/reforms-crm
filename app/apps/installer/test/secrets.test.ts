@@ -1,11 +1,11 @@
 import { statSync, writeFileSync, chmodSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { mailSteps } from "../src/steps/mail.ts";
-import { notionSteps } from "../src/steps/notion.ts";
+import { mailSteps } from "../src/steps/mail";
+import { notionSteps } from "../src/steps/notion";
 import path from "node:path";
 import { fileState, redact, storeToken } from "@hub/connections";
-import { parseRpc } from "../src/mcp-probe.ts";
-import { fake } from "./helpers.ts";
+import { parseRpc } from "../src/mcp-probe";
+import { fake } from "./helpers";
 
 const TOKEN = "ntn\u005fTESTTOKENVALUE1234567890";
 

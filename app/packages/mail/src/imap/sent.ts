@@ -1,5 +1,5 @@
-import type { ImapAccount, ImapSession } from "./session.js";
-import { ADDRESS, historyError, normAddr } from "./util.js";
+import type { ImapAccount, ImapSession } from "./session";
+import { ADDRESS, historyError, normAddr } from "./util";
 
 /** One message found in a Sent folder. */
 export interface SentMessage {

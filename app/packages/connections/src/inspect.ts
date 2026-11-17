@@ -1,9 +1,9 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CREDS_FILE, parseAccount, type ImapAccount } from "@hub/mail/imap";
-import { mailId, notionId, TELEGRAM_ID, WHATSAPP_ID } from "./ids.js";
-import { KIND_LABEL, NOTION_FILE, SAFE_FILE, TELEGRAM_FILE, isTelegramToken, notionShapeProblem, slug, type ConnectionKind } from "./kinds.js";
-import { fileState, readValue } from "./store.js";
+import { mailId, notionId, TELEGRAM_ID, WHATSAPP_ID } from "./ids";
+import { KIND_LABEL, NOTION_FILE, SAFE_FILE, TELEGRAM_FILE, isTelegramToken, notionShapeProblem, slug, type ConnectionKind } from "./kinds";
+import { fileState, readValue } from "./store";
 
 export type SecretState = "stored" | "missing" | "unsafe-mode" | "malformed" | "from-env" | "not-applicable";
 export type ConnectionAction = "test" | "set" | "remove";

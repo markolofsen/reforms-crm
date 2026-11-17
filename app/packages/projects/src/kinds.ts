@@ -2,7 +2,7 @@
 // it is no longer a draft, its mail classes, Notion modules, allowed skills and a starting knowledge taxonomy.
 // Kinds are neutral by rule (`@docs/LAYERS.md`): no owner, product or region names. Add a kind only when a second
 // project needs it. Everything is validated against the `Kind` schema when this module loads.
-import { Kind, type ProjectConfig } from "./schema.js";
+import { Kind, type ProjectConfig } from "./schema";
 
 const MAIL_CLASSES = [
   { id: "client", color: "Green", neverSpam: true },

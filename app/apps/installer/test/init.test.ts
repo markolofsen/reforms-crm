@@ -3,8 +3,8 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSyn
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { initInstance, INSTANCE_TEMPLATE, InitError, pinFile, renderTemplate, templateFiles } from "../src/init.ts";
-import { readCoreVersion } from "../src/steps/instance.ts";
+import { initInstance, INSTANCE_TEMPLATE, InitError, pinFile, renderTemplate, templateFiles } from "../src/init";
+import { readCoreVersion } from "../src/steps/instance";
 import { CORE_ROOT } from "@hub/config/paths";
 
 // P35: `hub init` against a throw-away core (bare origin with tags v0.1.0, v0.2.0) and the REAL instance template of this checkout.

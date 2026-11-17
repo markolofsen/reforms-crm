@@ -1,8 +1,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { Repos } from "@hub/db";
-import { EntryError, parseEntry, sha256 } from "./entry.js";
-import { checkAgainstTaxonomy, loadTaxonomy, TAXONOMY_FILE, TaxonomyError, type Taxonomy } from "./taxonomy.js";
+import { EntryError, parseEntry, sha256 } from "./entry";
+import { checkAgainstTaxonomy, loadTaxonomy, TAXONOMY_FILE, TaxonomyError, type Taxonomy } from "./taxonomy";
 
 export interface IndexResult {
   /** Entry files found under knowledge/. */

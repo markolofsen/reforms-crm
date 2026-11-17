@@ -1,10 +1,10 @@
 import { spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { pathsAt, type HubPaths } from "@hub/config/paths";
-import { syncInstanceSkills } from "./instance-skills.ts";
-import { enforcementArgs, readBinding, resolveBinding, writeBinding, writeSessionFiles, type SessionFiles } from "./safety.ts";
-import { c, UsageError } from "./term.ts";
+import { expandTilde, pathsAt, type HubPaths } from "@hub/config/paths";
+import { syncInstanceSkills } from "./instance-skills";
+import { enforcementArgs, readBinding, resolveBinding, writeBinding, writeSessionFiles, type SessionFiles } from "./safety";
+import { c, UsageError } from "./term";
 
 export type AgentMode = "continue" | "new" | "pick";
 export interface AgentPlan { mode: AgentMode; project?: string; extra: string[] }
@@ -72,7 +72,7 @@ export function extraDirs(root: string, env: NodeJS.ProcessEnv = process.env): s
     const j = JSON.parse(readFileSync(pathsAt(root).configFile, "utf8")) as { extra_dirs?: unknown };
     if (Array.isArray(j.extra_dirs)) fromFile = j.extra_dirs.filter((d): d is string => typeof d === "string" && d.trim() !== "");
   } catch { /* no config file: no extra folders */ }
-  return [...new Set([...fromEnv, ...fromFile].map((d) => path.resolve(root, d.replace(/^~(?=$|\/)/, process.env.HOME ?? "~"))))].filter((d) => existsSync(d));
+  return [...new Set([...fromEnv, ...fromFile].map((d) => path.resolve(root, expandTilde(d, env))))].filter((d) => existsSync(d));
 }
 
 export function buildClaudeArgs(plan: AgentPlan, dirs: string[] = [], files?: SessionFiles, projectsRel?: string): string[] {

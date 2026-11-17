@@ -3,9 +3,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import type { AddressRow, Repos } from "@hub/db";
-import { formatIssue, normalizeAddress, parseProjectMd, type ParsedProject } from "./parse.js";
-import { ProjectBase } from "./schema.js";
-import { registryEntry, type RegistryProject } from "./route.js";
+import { formatIssue, normalizeAddress, parseProjectMd, type ParsedProject } from "./parse";
+import { ProjectBase } from "./schema";
+import { registryEntry, type RegistryProject } from "./route";
 
 /** Where the project folders live: HUB_PROJECTS, else the instance's projects folder (`@hub/config/paths`). */
 export function defaultProjectsRoot(): string {

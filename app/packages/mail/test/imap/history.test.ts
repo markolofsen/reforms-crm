@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createImapHistory } from "../../src/imap/history.js";
-import { buildEml } from "../../src/imap/fake.js";
-import { account, ANNA, ME, server } from "./helpers.js";
+import { createImapHistory } from "../../src/imap/history";
+import { buildEml } from "../../src/imap/fake";
+import { account, ANNA, ME, server } from "./helpers";
 
 const make = (s = server(), over: Partial<Parameters<typeof createImapHistory>[0]> = {}) =>
   createImapHistory({ accounts: () => [account()], connect: s.connect, ...over });
