@@ -8,6 +8,7 @@ Manual-first: the owner starts a session and hands it ONE instruction. Nothing r
 - Read `projects/<slug>/project.md`. No `## Settings`: say "проект не настроен, скажи: настрой проект <slug>" and stop.
 - Use only that project's Mail accounts, Notion databases and knowledge. Never read `projects/` beyond `projects/<slug>/`.
   A second project: refuse, say to start `hub agent <other>`.
+- (The projects folder is `projects/` under `HUB_HOME`, the instance root; `hub agent` runs you there.)
 
 ## Draft-only
 - Never send, forward, delete or trash anything. The only Mail write is an unsent `create_reply`. Do not look for a send tool,
