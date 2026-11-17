@@ -29,7 +29,7 @@ import { runGuard, runGuardPost } from "./safety.ts";
 import { c, UsageError } from "./term.ts";
 import { mcpCall } from "./mcp-probe.ts";
 import { notionCheck } from "./notion-check.ts";
-import { renderClientSetup } from "./docs.ts";
+import { renderChecklist, renderClientSetup } from "./docs.ts";
 import { doctor, exitCode, guideText, install, printGuides, summary, table } from "./runner.ts";
 import { redact } from "@hub/connections";
 import { connectionsReport, connectionsTable, storeNamedToken, TOKEN_NAMES } from "./connections-command.ts";
@@ -77,9 +77,10 @@ const pick = (ids?: string[], automation = false): Step[] => {
 };
 
 // P7: `hub project sync|show|doctor`; account names come from the mail-mcp daemon (read-only).
-async function mailAccounts(ctx: Ctx): Promise<string[]> {
+// `undefined`: Mail could not be asked (Mail.app closed, mail-mcp down): the check is skipped. An empty list means Mail answered and has none.
+async function mailAccounts(ctx: Ctx): Promise<string[] | undefined> {
   const r = await mcpCall(ctx, ctx.mailUrl, "list_accounts", { enabled: true });
-  if (!r.ok) return [];
+  if (!r.ok) return undefined;
   try {
     const j = JSON.parse(r.text);
     const list: unknown[] = Array.isArray(j) ? j : Array.isArray(j?.accounts) ? j.accounts : [];
@@ -98,7 +99,7 @@ const projectOptions = () => ({
     const ctx = ctxOf();
     const { tokenFile } = p.parsed.config.notion;
     if (tokenFile === "notion-token" && !existsSync(path.join(ctx.configDir, tokenFile))) {
-      return { ok: true, detail: "skipped: no Notion token file (manual sessions use the Notion connector; `hub setup --automation` adds one)" };
+      return { ok: true, skipped: true, detail: "no Notion token file: not read (manual sessions use the Notion connector; `hub setup --automation` adds one)" };
     }
     return notionCheck(ctx, p);
   },
@@ -298,7 +299,7 @@ program.command("doctor").description("Run only the checks a manual session need
     const ctx = ctxOf();
     const project = projectArg ?? o.project;
     if (project) { process.exitCode = await runProjectDoctor(project, projectOptions()); return; }
-    const reports = await doctor(ctx, selectSteps(!!o.automation));
+    const reports = await doctor(ctx, selectSteps(!!o.automation, true));
     if (o.json) console.log(JSON.stringify(reports.map((r) => ({ id: r.step.id, outcome: r.outcome, detail: r.detail })), null, 2));
     else {
       console.log(table(reports)); console.log(`\n${summary(reports)}`);
@@ -386,6 +387,7 @@ program.command("docs").description("Generate @docs/core/client-setup.md and @do
   .action((o: { check?: boolean }) => {
     const targets = [
       { f: path.join(CORE_ROOT, "@docs", "core", "client-setup.md"), text: renderClientSetup(STEPS), rel: "@docs/core/client-setup.md" },
+      { f: path.join(CORE_ROOT, "@docs", "setup", "checklist.md"), text: renderChecklist(STEPS), rel: "@docs/setup/checklist.md" },
       { f: path.join(CORE_ROOT, "@docs", "notion", "fields.md"), text: renderNotionFields(CORE_ROOT), rel: "@docs/notion/fields.md" },
     ];
     for (const t of targets) {

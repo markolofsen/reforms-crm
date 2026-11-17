@@ -106,4 +106,54 @@ describe("notionCheck (doctor --project)", () => {
     expect(r.detail).toMatch(/rejected the token \(401\)/);
     expect(calls).toHaveLength(1);
   });
+
+  const bodies = (f: ReturnType<typeof fake>, by: Record<string, { status?: number; body?: unknown }>) => {
+    f.ctx.fetch = (async (url: string) => {
+      const hit = by[url.split("/").pop()!] ?? { status: 404 };
+      return new Response(JSON.stringify(hit.body ?? {}), { status: hit.status ?? 200 });
+    }) as typeof fetch;
+  };
+
+  it("an archived or trashed database answers 200 but fails, with the database named and the fix", async () => {
+    const f = fake();
+    put(f.ctx.configDir, "notion-token", TOKEN);
+    bodies(f, { aaaa: { body: { archived: true } }, bbbb: { body: { in_trash: false } } });
+    const r = await notionCheck(f.ctx, project());
+    expect(r.ok).toBe(false);
+    expect(r.detail).toContain("clients: archived in Notion");
+    expect(r.detail).not.toContain("deals:");
+    bodies(f, { aaaa: { body: { in_trash: true } }, bbbb: {} });
+    expect((await notionCheck(f.ctx, project())).detail).toContain("clients: archived in Notion");
+  });
+
+  it("403 means the integration cannot read it: one line naming the database and where to share it", async () => {
+    const f = fake();
+    put(f.ctx.configDir, "notion-token", TOKEN);
+    bodies(f, { aaaa: {}, bbbb: { status: 403 } });
+    const r = await notionCheck(f.ctx, project());
+    expect(r.ok).toBe(false);
+    expect(r.detail).toContain("deals: the integration cannot read it (403): share it with the integration under Connections");
+  });
+
+  it("a relation target that project.md does not list (Leads) must be reachable and live too; each is read once", async () => {
+    const f = fake();
+    put(f.ctx.configDir, "notion-token", TOKEN);
+    const rel = (id: string) => ({ type: "relation", relation: { data_source_id: id } });
+    const seen: string[] = [];
+    const answers: Record<string, { status?: number; body?: unknown }> = {
+      aaaa: { body: { properties: { Name: { type: "title" }, Leads: rel("LEAD-0000-0000-0000-0000"), Deals: rel("bbbb") } } },
+      bbbb: { body: { properties: { Lead: rel("lead0000000000000000") } } },
+      "LEAD-0000-0000-0000-0000": { status: 404 },
+    };
+    f.ctx.fetch = (async (url: string) => { seen.push(url.split("/").pop()!); const a = answers[url.split("/").pop()!] ?? { status: 404 }; return new Response(JSON.stringify(a.body ?? {}), { status: a.status ?? 200 }); }) as typeof fetch;
+    const r = await notionCheck(f.ctx, project());
+    expect(r.ok).toBe(false);
+    expect(r.detail).toContain("relation target clients.Leads -> lead0000: not shared with the integration (404): share that database with the integration under Connections");
+    expect(seen.filter((x) => x.toLowerCase().startsWith("lead"))).toHaveLength(1);
+    answers["LEAD-0000-0000-0000-0000"] = { body: { archived: true } };
+    expect((await notionCheck(f.ctx, project())).detail).toContain("relation target clients.Leads -> lead0000: archived in Notion");
+    answers["LEAD-0000-0000-0000-0000"] = {};
+    const ok = await notionCheck(f.ctx, project());
+    expect(ok).toEqual({ ok: true, detail: "2/2 readable: clients, deals; 1 relation target(s) reachable" });
+  });
 });

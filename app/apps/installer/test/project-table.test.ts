@@ -37,4 +37,26 @@ describe("notion databases and project table", () => {
     expect(text).toMatch(/gamma\s+generic\s+paused/);
     expect(text).not.toContain("_template");
   });
+  it("the table shows the mail failure the project doctor shows: an empty Mail account list is an answer, not an absent one", async () => {
+    const f = fake();
+    const dir = projectsDir(f, [["acme", "active"]]);
+    const base = (await projectRows(dir))[0]!;
+    const rows = await projectRows(dir, { mailAccounts: async () => [] });
+    expect(rows[0]!.failed).toBe(base.failed + 1);
+    const same = await projectRows(dir, { mailAccounts: async () => ["owner@example.com"] });
+    expect(same[0]!.failed).toBe(base.failed);
+    const unread = await projectRows(dir, { mailAccounts: async () => { throw new Error("down"); } });
+    expect(unread[0]!.failed).toBe(base.failed); // Mail could not be asked: skipped, not guessed
+  });
+  it("a Notion read that was skipped (no token) is a skipped row, never a pass", async () => {
+    const f = fake();
+    const dir = projectsDir(f, [["acme", "active"]]);
+    const base = (await projectRows(dir))[0]!;
+    const skipped = (await projectRows(dir, { notionCheck: async () => ({ ok: true, skipped: true, detail: "no Notion token file" }) }))[0]!;
+    const passed = (await projectRows(dir, { notionCheck: async () => ({ ok: true, detail: "1/1 readable" }) }))[0]!;
+    expect(skipped.passed).toBe(base.passed);
+    expect(passed.passed).toBe(base.passed + 1);
+    const failed = (await projectRows(dir, { notionCheck: async () => ({ ok: false, detail: "clients: archived" }) }))[0]!;
+    expect(failed.failed).toBe(base.failed + 1);
+  });
 });

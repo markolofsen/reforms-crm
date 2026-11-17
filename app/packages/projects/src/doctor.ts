@@ -21,7 +21,7 @@ export interface DoctorInput {
   /** Account names Mail.app returns from `list_accounts`; undefined when Mail was not asked. */
   mailAccounts?: string[];
   /** Reads every listed database with the project's token (`notion-dump check`); undefined when Notion was not asked. */
-  notionCheck?: () => Promise<{ ok: boolean; detail: string }>;
+  notionCheck?: () => Promise<{ ok: boolean; detail: string; skipped?: boolean }>;
   /** Entry files under knowledge/ and rows in `knowledge_docs` for the project. */
   knowledgeFiles?: number;
   knowledgeDocs?: number;
@@ -66,7 +66,7 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
               const have = new Set(input.mailAccounts.map((a) => a.trim().toLowerCase()));
               const missing = c.mail.accounts.filter((a) => !have.has(a.trim().toLowerCase()));
               return missing.length
-                ? { name: "mail accounts exist", outcome: "fail" as const, detail: `not in Mail: ${missing.join(", ")}; Mail has: ${input.mailAccounts.join(", ") || "nothing"}` }
+                ? { name: "mail accounts exist", outcome: "fail" as const, detail: `not in Mail: ${missing.join(", ")}; Mail has: ${input.mailAccounts.join(", ") || "nothing (is Mail.app open and mail-mcp running? see step mail.daemon)"}` }
                 : { name: "mail accounts exist", outcome: "pass" as const, detail: c.mail.accounts.join(", ") };
             })(),
     );
@@ -102,8 +102,8 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
   else if (input.notionCheck === undefined) checks.push(skip("notion databases readable", "Notion was not asked"));
   else if (c.notion.databases.length === 0) checks.push({ name: "notion databases readable", outcome: "fail", detail: "no ## Notion databases" });
   else {
-    const r = await input.notionCheck().catch((e: unknown) => ({ ok: false, detail: e instanceof Error ? e.message : String(e) }));
-    checks.push({ name: "notion databases readable", outcome: r.ok ? "pass" : "fail", detail: r.detail });
+    const r = await input.notionCheck().catch((e: unknown) => ({ ok: false, skipped: false, detail: e instanceof Error ? e.message : String(e) }));
+    checks.push({ name: "notion databases readable", outcome: r.skipped ? "skipped" : r.ok ? "pass" : "fail", detail: r.detail });
   }
 
   checks.push(

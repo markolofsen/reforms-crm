@@ -3,8 +3,8 @@ import { doctorProject, loadProjects, type Check, type LoadedProject } from "@hu
 export interface ProjectRow { slug: string; kind: string; status: string; failed: number; passed: number; skipped: number; firstFailure: string }
 
 export interface ProjectTableOptions {
-  mailAccounts?: () => Promise<string[]>;
-  notionCheck?: (p: LoadedProject) => Promise<{ ok: boolean; detail: string }>;
+  mailAccounts?: () => Promise<string[] | undefined>;
+  notionCheck?: (p: LoadedProject) => Promise<{ ok: boolean; detail: string; skipped?: boolean }>;
 }
 
 /**
@@ -13,13 +13,15 @@ export interface ProjectTableOptions {
  */
 export async function projectRows(projectsDir: string, o: ProjectTableOptions = {}): Promise<ProjectRow[]> {
   const all = loadProjects(projectsDir);
-  const mail = o.mailAccounts ? await o.mailAccounts().catch(() => []) : [];
+  // Same input as `hub doctor <project>`: an EMPTY list is an answer ("Mail has nothing"), so a project that names accounts fails
+  // here too. Only a failed read leaves it undefined (skipped); dropping an empty list turned the same failure into a pass.
+  const mail = o.mailAccounts ? await o.mailAccounts().catch(() => undefined) : undefined;
   const rows: ProjectRow[] = [];
   for (const project of all) {
     const checks: Check[] = await doctorProject({
       project,
       all,
-      ...(mail.length ? { mailAccounts: mail } : {}),
+      ...(mail ? { mailAccounts: mail } : {}),
       ...(o.notionCheck ? { notionCheck: () => o.notionCheck!(project) } : {}),
     });
     const first = checks.find((c) => c.outcome === "fail");

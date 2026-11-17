@@ -27,9 +27,10 @@ export interface ProjectCommandOptions {
   stateRoot?: string;
   out?: (line: string) => void;
   /** Account names from Mail.app (`list_accounts`). */
-  mailAccounts?: () => Promise<string[]>;
+  /** `undefined`: Mail could not be asked (Mail.app closed, mail-mcp down); the check is then skipped, not failed. `[]` is an answer. */
+  mailAccounts?: () => Promise<string[] | undefined>;
   /** Reads every listed database of the project (`notion-dump check`). */
-  notionCheck?: (p: LoadedProject) => Promise<{ ok: boolean; detail: string }>;
+  notionCheck?: (p: LoadedProject) => Promise<{ ok: boolean; detail: string; skipped?: boolean }>;
   /** Mail accounts the per-run MCP allow-list admits for the project. */
   mcpMailAccounts?: (slug: string) => string[] | undefined;
 }
@@ -144,7 +145,7 @@ export async function runProjectDoctor(slug: string, o: ProjectCommandOptions = 
     const checks = await doctorProject({
       project,
       all,
-      ...(o.mailAccounts ? { mailAccounts: await o.mailAccounts() } : {}),
+      ...(o.mailAccounts ? await o.mailAccounts().then((m) => (m ? { mailAccounts: m } : {})) : {}),
       ...(o.notionCheck ? { notionCheck: () => (o.notionCheck as NonNullable<typeof o.notionCheck>)(project) } : {}),
       ...(registered ? { knowledgeDocs: await repos.knowledge.count(slug) } : {}),
       knowledgeFiles: countMarkdown(join(project.folder, "knowledge")),
