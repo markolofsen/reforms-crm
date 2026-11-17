@@ -2,6 +2,9 @@
 
 Status: owner ask 2026-11-14; template path built 2026-11-14 (see a decision or plan record kept in the owner's instance); agent path built 2026-11-14 (skill `bulk-drafts`, gate stage, tested with a fake runner, not live); Sent detection built 2026-11-14 and, since P14, covering drafts a session recorded with `hub record-draft` as well as bulk ones (`drafts.awaitingSent` no longer requires a batch; the match is by message-id, thread, or subject plus recipient) (read-only IMAP reader, `drafts.markSent` the only writer of `sent`, a reconciler in the server; fakes only, no real mailbox read); IMAP draft append and the Sent log screen not built. Built details: safety results are computed at read time (rules are data: defaults in `@hub/config`, per-project overrides in `safety_rules`; only acknowledgements are stored); changing a draft's tone clears Checked; `skipped` is a settable status; migration 0004 adds `batches`, `safety_rules` and the batch columns on `drafts`; one open draft per client (partial unique index); no route or status can send. Refs: the colleague's helper files in the owner's reference material (custom layer), the owner's reference material.
 
+## One queue (P27, 2026-11-18)
+Drafts is the only place a draft is reviewed. A batch is a filter on it (`/drafts?batch=3`), the builder opens as a pane (`/drafts?new=1`), and the `/bulk` route, its nav entry and the `g b` chord are gone. The list searches on the server (name, address, subject; the counts beside the views never narrow by the search), shows "7 of 40 · 3 done, 1 sent, 14 to go", and below 640 px keeps one sticky line (view menu, search, Select). Clients the agent did not answer by email (a call to make, no reply needed, crossed off, unknown sender) are recorded with `kind` and an optional free-text `phone` (migration 0015) and listed read-only under "Not by email (N)"; they never enter the reply queue, and nothing in that path sends. `hub dev` seed: `seed-cli --many 120` adds a long list for manual viewing.
+
 ## Per-client rule (P28, owner 2026-11-15)
 Even in a batch every reply is individual. The Bulk template mode (one text rendered for N clients, `renderTemplate`) is replaced by a **brief** mode: the owner's text is the purpose and tone for the agent, never a body, and the hub renders no body from it (tone versions change tone, not content). The agent first reads each client's thread and profile: `skills/triage-mail/references/per-client.md`; design a decision or plan record kept in the owner's instance, plan a decision or plan record kept in the owner's instance (code change C5 landed 2026-11-16: no `mode`, no template columns, migration 0013; a batch is created queued with its brief and the agent writes the drafts through the gate).
 
@@ -46,3 +49,5 @@ Keyboard map copied from the helper; a `?` overlay.
 8. Walk-through with the owner on real data; squeeze: remove any control not used in a week.
 Acceptance: 20 drafts created, reviewed by keyboard only, 0 sent by the agent, sent state matches the Sent folder.
 Depends on: P3 (skeleton and DB), P1 (real skill run), the IMAP choice in `0002`.
+
+Update this page when the architecture changes.
