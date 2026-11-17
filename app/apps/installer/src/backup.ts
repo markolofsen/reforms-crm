@@ -15,6 +15,8 @@ export const KEEP = 14;
 export const MAX_AGE_DAYS = 7;
 export const STAMP = /^\d{8}-\d{6}$/;
 export const MANIFEST = "manifest.json";
+/** A first dump reads every page at about 3 requests a second: a CRM of a few thousand pages needs well over 15 minutes. */
+const DUMP_TIMEOUT_MS = 2 * 60 * 60_000;
 const DAY = 864e5;
 /** Where the instance config sits inside a snapshot. */
 const CONFIG_IN_SNAPSHOT = "config/config.json";
@@ -237,11 +239,16 @@ export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResul
     for (const p of projects) {
       const tokenFile = p.parsed.config.notion.tokenFile;
       if (!tokenPresent(ctx, tokenFile)) { notion.push({ project: p.slug, status: "skipped", detail: `no ${tokenFile} in state/secrets` }); lines.push(`notion ${p.slug}: skipped, no ${tokenFile} in state/secrets (store it with \`hub token notion\`)`); continue; }
-      const r = await ctx.run(tsx, [cli, "dump", p.folder, "--out", path.join(stage, "projects", p.slug), "--date", dateOf(now), "--token-file", tokenFile], { env: { HOME: ctx.home, HUB_HOME: ctx.paths.home, HUB_CONFIG_DIR: ctx.configDir }, timeoutMs: 900_000 });
+      const r = await ctx.run(tsx, [cli, "dump", p.folder, "--out", path.join(stage, "projects", p.slug), "--date", dateOf(now), "--token-file", tokenFile], { env: { HOME: ctx.home, HUB_HOME: ctx.paths.home, HUB_CONFIG_DIR: ctx.configDir }, timeoutMs: DUMP_TIMEOUT_MS });
       const last = r.stderr.trim().split("\n").at(-1)?.slice(0, 160) ?? "";
       if (r.code === 0) { notion.push({ project: p.slug, status: "dumped", detail: r.stdout.split("\n")[0] ?? "" }); lines.push(`notion ${p.slug}: ${r.stdout.split("\n")[0]}`); }
       else if (r.code === 2) { ok = false; notion.push({ project: p.slug, status: "dumped-with-errors", detail: last }); lines.push(`notion ${p.slug}: dumped with database errors (see notion.access): ${last}`); }
-      else { ok = false; notion.push({ project: p.slug, status: "failed", detail: `exit ${r.code}: ${last}` }); lines.push(`notion ${p.slug}: dump failed (exit ${r.code}): ${last}`); }
+      else {
+        const cut = r.code === 124 || r.code === 143; // the runner's timeout kills the dump with SIGTERM
+        ok = false;
+        notion.push({ project: p.slug, status: "failed", detail: cut ? `cut off after ${DUMP_TIMEOUT_MS / 60_000} minutes` : `exit ${r.code}: ${last}` });
+        lines.push(cut ? `notion ${p.slug}: dump cut off after ${DUMP_TIMEOUT_MS / 60_000} minutes (the files written are partial)` : `notion ${p.slug}: dump failed (exit ${r.code}): ${last}`);
+      }
     }
 
     const files: ManifestFile[] = walk(stage).map((f) => ({ path: f, sha256: sha256File(path.join(stage, f)), size: statSync(path.join(stage, f)).size }));
