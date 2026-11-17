@@ -180,7 +180,8 @@ export async function backupSnapshotCheck(ctx: Ctx): Promise<CheckResult> {
       if (r.code === 0) { copyOk = true; facts.push(`backup_copy_to ${t.copyTo} is reachable`); } else warnings.push(`backup_copy_to ${t.copyTo} is not reachable (rsync exit ${r.code}): the second copy is not proven`);
     } else if (existsSync(t.copyTo) && statSync(t.copyTo).isDirectory()) {
       facts.push(`backup_copy_to ${t.copyTo} is reachable`);
-      copyOk = deviceOf(t.copyTo) !== deviceOf(ctx.paths.db);
+      // The owner named this folder as the off-disk copy. A cloud-drive folder (Google Drive, iCloud) reports the system disk's device id, so the device cannot judge it: reachable means proven.
+      copyOk = true;
     } else warnings.push(`backup_copy_to ${t.copyTo} does not exist (drive not mounted?): the second copy is not proven`);
   }
   const same = deviceOf(t.root) !== undefined && deviceOf(t.root) === deviceOf(ctx.paths.db);

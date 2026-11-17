@@ -252,6 +252,17 @@ describe("doctor step backup.snapshot", () => {
     expect(bad.level).toBe("fail");
     expect(bad.detail).toContain("does not match its manifest");
   });
+  it("a reachable backup_copy_to counts as the off-disk copy even when its device id is the data's (cloud-drive folders)", async () => {
+    const { ctx } = setup();
+    await backup(ctx, { apply: true, now: new Date() });
+    const mirror = path.join(path.dirname(ctx.paths.home), "cloud-drive");
+    mkdirSync(mirror);
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_copy_to: mirror }));
+    const r = await snapshotStep.check(ctx);
+    expect(r.level, r.detail).toBe("pass");
+    expect(r.detail).toContain("is reachable");
+    expect(r.detail).not.toContain("same volume");
+  });
   it("WARN when backup_copy_to is set and not there; FAIL when a file under backups/ is tracked by git", async () => {
     const { ctx } = setup();
     await backup(ctx, { apply: true, now: new Date() });
