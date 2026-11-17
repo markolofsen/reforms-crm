@@ -30,7 +30,7 @@ const predicates: Record<ClientFilter, SQL | undefined> = {
 
 /** Which drafts a list covers: the newest of each client, or (a batch) exactly the drafts the batch wrote. */
 export type DraftScope = { batch?: number | null };
-const scopeOf = (s: DraftScope): SQL => (s.batch ? eq(drafts.batchId, s.batch) : latestDraft);
+const scopeOf = (s: DraftScope): SQL => (s.batch ? and(eq(drafts.clientId, clients.id), eq(drafts.batchId, s.batch))! : latestDraft);
 
 /** A substring match over the client's name and address and the draft's subject. `%`, `_` and `\` in the text match themselves. */
 function searchSql(text: string | undefined): SQL | undefined {

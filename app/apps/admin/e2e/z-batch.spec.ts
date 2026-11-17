@@ -18,7 +18,7 @@ async function createBatch(page: Page, who?: string) {
   await expect(page.getByRole("heading", { name: "New batch" })).toBeVisible();
   // Keep it small: one client with no open draft (an earlier batch gives its clients an open draft).
   await page.getByRole("button", { name: "None", exact: true }).click();
-  const box = who ? page.getByRole("checkbox", { name: `Include ${who}` }) : page.locator('[data-slot="checkbox"]:not([data-disabled])').first();
+  const box = who ? page.getByRole("checkbox", { name: `Include ${who}` }) : page.getByRole("region", { name: "1. Who" }).locator('[data-slot="checkbox"]:not([data-disabled])').first();
   await box.click();
   await expect(page.getByText(/^1 of \d+ selected$/)).toBeVisible();
   await expect(page.getByRole("button", { name: "Create batch" })).toBeDisabled(); // no brief yet

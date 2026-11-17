@@ -8,7 +8,7 @@ import type { InboxRowDto } from "@hub/contract/responses";
 import { Badge } from "@hub/ui/badge";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { notByEmailApi } from "@/lib/api/not-by-email";
+import { inboxApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
 
 function Row({ r }: { r: InboxRowDto }) {
@@ -33,7 +33,7 @@ function Row({ r }: { r: InboxRowDto }) {
  */
 export function NotByEmail({ project }: { project: string }) {
   const [kind, setKind] = useState<InboxKind | null>(null);
-  const q = useQuery({ queryKey: ["not-by-email", project, kind], queryFn: () => notByEmailApi.list(project, kind), placeholderData: keepPreviousData });
+  const q = useQuery({ queryKey: ["not-by-email", project, kind], queryFn: () => inboxApi.notByEmail(project, kind), placeholderData: keepPreviousData });
   if (!q.data) return q.isError ? <p className="mx-3 my-3 text-muted-foreground text-sm" role="status">Could not load the clients who are not answered by email.</p> : null;
   const { counts, rows } = q.data;
   const all = INBOX_KINDS.reduce((n, k) => n + counts[k], 0);

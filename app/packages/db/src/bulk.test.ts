@@ -373,3 +373,18 @@ describe("markSent (the Sent reader's write)", () => {
     expect(await repos.drafts.awaitingSent("other", "2000-01-01T00:00:00.000Z")).toEqual([]);
   });
 });
+
+describe("a batch as a scope of the Drafts list (P27)", () => {
+  it("lists exactly the drafts the batch wrote, and counts them, not every client's latest draft", async () => {
+    const a = await client("p", "a@x.example", { name: "Ann", silent: 30 });
+    await client("p", "b@x.example", { name: "Bo", silent: 20, draft: "ready" });
+    await client("p", "c@x.example", { name: "Cy", silent: 25 });
+    const { batchId } = await newBatch({ clientIds: [a] });
+    const rows = await repos.clients.review("p", "all", { batch: batchId });
+    expect(rows.map((d) => d.client.name)).toEqual(["Ann"]);
+    expect(await repos.clients.reviewTotal("p", "all", { batch: batchId })).toBe(1);
+    expect((await repos.clients.counts("p", { batch: batchId })).all).toBe(1);
+    expect((await repos.clients.counts("p")).all).toBe(2); // the project list: Ann's batch draft and Bo's open one
+    expect(await repos.clients.review("p", "all", { batch: batchId, search: "bo" })).toEqual([]);
+  });
+});

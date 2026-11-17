@@ -24,7 +24,8 @@ function ViewMenu({ views, view, onView }: Pick<Header, "views" | "view" | "onVi
   const now = views.find((v) => v.value === view);
   return (
     <Menu>
-      <MenuTrigger render={<ActionButton aria-label={`Show drafts: ${now?.label ?? view}`} size="m" variant="secondary" />}>
+      <MenuTrigger render={<ActionButton size="m" variant="secondary" />}>
+        <span className="sr-only">Show: </span>
         <span className="truncate">{now?.label ?? view}</span>
         <span className="font-normal tabular-nums">{now?.count ?? "-"}</span>
         <ChevronDownIcon aria-hidden="true" />

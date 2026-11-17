@@ -219,7 +219,7 @@ for (const scheme of ["light", "dark"] as const) {
 
       // Nothing is cut off: the Drafts filter strip shows every chip without scrolling, and every tab of the phone bar shows its whole label.
       // (The Bulk audience and intent strips hold more chips than a phone fits and scroll inside their own strip by design.)
-      const strips = screen.name.startsWith("drafts") ? ".scroll-strip, " : "";
+      const strips = screen.name.startsWith("drafts") && !screen.name.includes("new batch") ? ".scroll-strip, " : "";
       expect(
         await page.evaluate((sel) => [...document.querySelectorAll<HTMLElement>(`${sel}nav[aria-label="Sections"] a`)].filter((e) => e.offsetParent !== null).filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => `${e.className.split(" ")[0]} "${(e.textContent ?? "").trim().slice(0, 30)}" is ${e.scrollWidth}px wide in ${e.clientWidth}px`), strips),
         "clipped chips or labels",
