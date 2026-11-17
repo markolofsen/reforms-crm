@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CHORD_WINDOW_MS, createDispatcher, type KeyEventLike, type Timers } from "../src/hooks/use-hotkeys";
+import { CHORD_WINDOW_MS, createDispatcher, isTypingTarget, TYPING, type KeyEventLike, type Timers } from "../src/hooks/use-hotkeys";
 import { SECTIONS } from "../src/routes/sections";
 import { crumbsOf, pageTitle, titleOf } from "../src/routes/meta";
 import { resolveRoute } from "../src/routes/resolve";
@@ -118,5 +118,29 @@ describe("the Overview chord", () => {
     expect(SECTIONS.find((s) => s.id === "overview")?.chord).toEqual(["g", "o"]);
     expect(SECTIONS.find((s) => s.id === "connections")?.chord).toEqual(["g", "c"]);
     expect(titleOf(resolveRoute("/connections", ""), "lisbon")).toBe("Connections · Hub Workflow");
+  });
+});
+
+describe("typing guard", () => {
+  // No DOM here: a fake Element whose `closest` answers for the roles and tags it carries, up its own chain.
+  class FakeElement {
+    constructor(private readonly tag: string, private readonly role: string | null = null, private readonly parent: FakeElement | null = null) {}
+    closest(selector: string): FakeElement | null {
+      const wants = selector.split(",");
+      const mine = wants.includes(this.tag) || (this.role !== null && wants.includes(`[role=${this.role}]`));
+      return mine ? this : (this.parent?.closest(selector) ?? null);
+    }
+  }
+  afterEach(() => vi.unstubAllGlobals());
+  it("covers fields and every open menu, list or dialog, so first-letter typeahead never fires a page key", () => {
+    vi.stubGlobal("Element", FakeElement);
+    const menu = new FakeElement("div", "menu");
+    expect(isTypingTarget(new FakeElement("div", "menuitem", menu))).toBe(true);
+    expect(isTypingTarget(new FakeElement("button", null, menu))).toBe(true);
+    expect(isTypingTarget(new FakeElement("button", null, new FakeElement("div", "dialog")))).toBe(true);
+    expect(isTypingTarget(new FakeElement("input"))).toBe(true);
+    expect(isTypingTarget(new FakeElement("button"))).toBe(false);
+    expect(isTypingTarget(null)).toBe(false);
+    expect(TYPING.split(",")).toEqual(expect.arrayContaining(["[role=menu]", "[role=menuitem]", "[role=dialog]", "[role=listbox]"]));
   });
 });

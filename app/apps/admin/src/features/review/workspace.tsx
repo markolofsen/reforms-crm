@@ -47,7 +47,7 @@ function Notices({ gone, notice }: { gone: number | null; notice: Notice | null 
         </p>
       )}
       {notice && (
-        <p aria-live="polite" className={notice.kind === "error" ? "px-4 pt-3 text-destructive-foreground text-sm" : "px-4 pt-3 text-sm text-warning-foreground"} role="status">
+        <p className={notice.kind === "error" ? "px-4 pt-3 text-destructive-foreground text-sm" : "px-4 pt-3 text-sm text-warning-foreground"} role={notice.kind === "error" ? "alert" : "status"}>
           {notice.text}
         </p>
       )}
@@ -141,7 +141,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
 
   const bulk = (status: "skipped" | "hold", title: string) => {
     const targets = sel.picked.filter((d) => !isClosed(d));
-    for (const d of targets) actions.setStatus(d, status);
+    for (const d of targets) actions.setStatus(d, status, { quiet: true });
     toastManager.add({ title: `${title} ${targets.length}`, type: "success" });
     sel.clear();
   };

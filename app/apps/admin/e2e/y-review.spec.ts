@@ -61,3 +61,12 @@ test("the Project screen shows the safety rules", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Project", exact: true })).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("switch").first()).toBeVisible();
 });
+
+test("a refused action is announced as an alert, not politely", async ({ page }) => {
+  await page.route(/\/api\/drafts\/\d+\/status/, (route) => route.fulfill({ status: 409, json: { error: "This draft changed in the meantime.", code: "wrong_state" } }));
+  await page.goto("/drafts?filter=ready");
+  await expect(cards(page).first()).toBeVisible();
+  await page.locator("#main").focus();
+  await page.keyboard.press("h");
+  await expect(page.getByRole("alert").filter({ hasText: "This draft changed in the meantime." })).toBeVisible();
+});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ATTENTION_FOCUS, FRESHNESS as FRESHNESS_STATES, SEVERITIES, VERDICT_LEVELS, type AttentionItem } from "@hub/contract/overview";
-import { ago, attentionTarget, countText, FRESHNESS, SEVERITY, VERDICT } from "../src/features/overview/labels";
+import { attentionTarget, countText, FRESHNESS, SEVERITY, VERDICT } from "../src/features/overview/labels";
 import { formatDest } from "../src/routes/paths";
 
 const item = (focus: AttentionItem["focus"], over: Partial<AttentionItem> = {}): AttentionItem => ({ kind: "drafts-ready", severity: "needs-owner", project: "alpha", sentence: "alpha: 2 drafts are ready.", focus, ...over });
@@ -27,9 +27,7 @@ describe("overview labels", () => {
     // A system-wide item has no project: its link keeps the open one.
     expect(attentionTarget(item("project", { project: null })).project).toBeNull();
   });
-  it("time and counts are words, and a capped count never looks exact", () => {
-    const now = new Date("2026-11-15T12:00:00Z").getTime();
-    expect([ago("2026-11-15T11:59:40Z", now), ago("2026-11-15T11:48:00Z", now), ago("2026-11-15T09:00:00Z", now), ago("2026-11-12T12:00:00Z", now)]).toEqual(["just now", "12 min ago", "3 h ago", "3 d ago"]);
+  it("a capped count never looks exact", () => {
     expect([countText(212, false), countText(2000, true)]).toEqual(["212", "2,000+"]);
   });
 });

@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useClock } from "@/lib/clock";
 import { sendApi } from "@/lib/api/send";
-import { ago } from "@/features/overview/labels";
+import { ago } from "@/lib/format";
 
 const RECIPIENTS = {
   test: { label: "test addresses only", why: "A draft can only go to the test allow-list. The owner sets draft.recipients in project.md when real clients are meant to receive mail." },

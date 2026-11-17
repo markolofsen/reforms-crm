@@ -8,10 +8,9 @@ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/colla
 import { Skeleton } from "@hub/ui/skeleton";
 import { statusRows } from "@/features/shell/status-footer";
 import { useClock } from "@/lib/clock";
-import { plural } from "@/lib/format";
+import { ago, hhmm, plural } from "@/lib/format";
 import { paths } from "@/routes/paths";
 import { AttentionList } from "./attention-list";
-import { ago, hhmm } from "./labels";
 import { ProjectCard } from "./project-card";
 import { useOverview, useRefresh } from "./use-overview";
 import { Verdict } from "./verdict";

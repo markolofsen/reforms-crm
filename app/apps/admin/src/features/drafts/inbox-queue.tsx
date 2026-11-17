@@ -11,7 +11,8 @@ import { HealthStrip } from "./health-strip";
 import { Badge } from "@hub/ui/badge";
 import { Link } from "@hub/ui/link";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
-import { sentence } from "@/lib/api/client";
+import { Skeleton } from "@hub/ui/skeleton";
+import { LoadFailed } from "@/components/state-views";
 import { inboxApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
 import { notionOf } from "@/lib/notion";
@@ -51,9 +52,23 @@ function Row({ r }: { r: InboxRowDto }) {
  */
 export function InboxQueue({ project }: { project: string }) {
   const [filter, setFilter] = useState<InboxFilter>("owed");
-  const q = useQuery({ queryKey: ["inbox", project, filter], queryFn: () => inboxApi.list(project, filter), placeholderData: keepPreviousData, refetchInterval: 15_000 });
-  if (q.isPending) return null;
-  if (!q.data) return <p className="px-3 pt-3 text-destructive-foreground text-sm" role="alert">Could not load the inbox: {sentence(q.error)}</p>;
+  const q = useQuery({ queryKey: ["inbox", project, filter], queryFn: () => inboxApi.list(project, filter), placeholderData: keepPreviousData });
+  // Freshness is the pulse's: it reads every list again when the database changes, so there is no timer of its own.
+  if (q.isPending) {
+    return (
+      <div className="mx-3 mt-3">
+        <Skeleton className="h-(--control-m) w-full rounded-lg" />
+        <p className="sr-only" role="status">Loading the inbox...</p>
+      </div>
+    );
+  }
+  if (!q.data) {
+    return (
+      <div className="mx-3 mt-3">
+        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the inbox" />
+      </div>
+    );
+  }
   const { counts, lastTriageAt, rows } = q.data;
   if (lastTriageAt === null) {
     return (

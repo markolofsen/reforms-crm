@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SendPreviewDto } from "@hub/contract/responses";
 import { ApiFailure, refreshData, sentence } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";
@@ -33,12 +33,42 @@ export function useSendFlow(project: string, draftId: number) {
     onMutate: (mail) => setFlow({ step: "sending", mail }),
     onSuccess: () => {
       setFlow({ step: "sent" });
-      void refreshData(qc);
+      void refreshData(qc, { mail: true });
     },
     onError: (e) => {
       setFlow(refusal(e));
-      void refreshData(qc);
+      void refreshData(qc, { mail: true });
     },
   });
   return { flow, read: () => preview.mutate(), send: (mail: SendPreviewDto) => send.mutate(mail), close: () => setFlow({ step: "idle" }) };
+}
+
+/** Answers true once per send: the first time it sees `sent`, never again until `sent` has been false. */
+export function sendLatch(): (sent: boolean) => boolean {
+  let fired = false;
+  return (sent) => {
+    if (!sent) {
+      fired = false;
+      return false;
+    }
+    if (fired) return false;
+    fired = true;
+    return true;
+  };
+}
+
+/**
+ * Runs `announce` once per send, when the flow first reads `sent`. `announce` is read through a ref: the card passes a
+ * new function every render, and a re-render after the refetch must not toast and advance a second time (the second
+ * advance would find the sent draft gone from the list and jump to the top of it).
+ */
+export function useOnSent(sent: boolean, announce: () => void): void {
+  const latest = useRef(announce);
+  const latch = useRef(sendLatch());
+  useEffect(() => {
+    latest.current = announce;
+  });
+  useEffect(() => {
+    if (latch.current(sent)) latest.current();
+  }, [sent]);
 }

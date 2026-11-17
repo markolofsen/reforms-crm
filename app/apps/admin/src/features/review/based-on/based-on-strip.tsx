@@ -19,7 +19,7 @@ function List({ title, items }: { title: string; items: string[] | undefined }) 
 /**
  * "Based on": what the agent read before it wrote this draft (the evidence block `hub record-draft` stored): the messages,
  * the Notion profile, the facts, the anchors only this client has. Whether the counts were seen by the hook ledger or only
- * claimed is stated. Nothing here is the reply text. The thread table sits beside it (`mail/thread-table.tsx`): read from Mail, with the stored excerpts as the fallback.
+ * claimed is stated. Nothing here is the reply text.
  */
 export function BasedOnStrip({ d }: { d: ReviewDraft }) {
   const b = d.basedOn;

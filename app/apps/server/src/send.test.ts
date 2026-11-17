@@ -204,21 +204,6 @@ describe("the mail read on demand and Send joining draft state (P27)", () => {
     expect((await post(checkedUrl(id), { project: "acme", checked: false })).status).toBe(200);
   });
 
-  it("the thread is read from Mail on demand: five newest first, the newest marked, nothing stored; a Mail failure is a reason, not a 500", async () => {
-    const id = await draft({ checked: false });
-    const threadUrl = `/api/projects/acme/drafts/${id}/thread`;
-    mailer.messages = Array.from({ length: 7 }, (_, i) => ({ address: "client@example.com", at: `2026-11-0${i + 1}T09:00:00`, who: i % 2 ? "Acme <owner@acme.example>" : "Cli <client@example.com>", direction: i % 2 ? ("out" as const) : ("in" as const), subject: i === 0 ? "hello" : "Re: hello", excerpt: `message ${i + 1}` }));
-    mailer.messages.push({ address: "other@example.com", at: "2026-11-09T09:00:00", who: "Other", direction: "in", subject: "Re: hello", excerpt: "not this client" });
-    const body = (await (await call("GET", threadUrl)).json()) as { configured: boolean; read: boolean; messages: { excerpt: string; last: boolean }[] };
-    expect(body).toMatchObject({ configured: true, read: true });
-    expect(body.messages.map((m) => m.excerpt)).toEqual(["message 7", "message 6", "message 5", "message 4", "message 3"]);
-    expect(body.messages.map((m) => m.last)).toEqual([true, false, false, false, false]);
-    mailer.failThread = "Mail is not running";
-    expect(await (await call("GET", threadUrl)).json()).toMatchObject({ read: false, reason: expect.stringMatching(/Mail is not running/), messages: [] });
-    expect((await call("GET", threadUrl.replace("acme", "other"))).status).toBe(404);
-    expect(await repos.sends.forDraft(id)).toEqual([]);
-  });
-
   it("a hub send closes the draft as sent, by the hub", async () => {
     const id = await draft();
     expect((await post(sendUrl(id), { apply: true, confirm })).status).toBe(200);

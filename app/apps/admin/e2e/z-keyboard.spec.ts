@@ -85,3 +85,10 @@ test("keyboard only: reach the list, move, read the checks, finish, undo", async
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/log/);
 });
+
+test("the selection checkboxes are not Tab stops until a selection is under way", async ({ page }) => {
+  await page.goto("/drafts?filter=all");
+  const boxes = page.locator('ul[aria-label="Drafts"] [role="checkbox"]');
+  await expect(boxes.first()).toBeVisible();
+  for (const box of await boxes.all()) await expect(box).toHaveAttribute("tabindex", "-1");
+});

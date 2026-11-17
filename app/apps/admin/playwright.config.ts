@@ -21,17 +21,6 @@ for (const slug of ["lisbon-realty", "demo-shop"]) {
     ["# E2E project", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", `| mail.accounts | ${slug}@example.test | 2026-11-14 | agent |`, `| mail.addresses | ${slug}@example.test | 2026-11-14 | owner |`, `| mail.sender | ${slug}@example.test | 2026-11-14 | owner |`, "| draft.recipients | any | 2026-11-14 | owner |", "| tone | brief | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", "- reports: 00000000-0000-4000-8000-000000000002", ""].join("\n"),
   );
 }
-// The conversations the FAKE Mail holds (`HUB_FAKE_THREADS`, read only by the e2e fake mailer): the last messages Mail shows for Marta Ficticia.
-const THREADS = (process.env.HUB_E2E_THREADS ??= join(tmpdir(), `hub-e2e-threads-${process.pid}.json`));
-const marta = { address: "marta@example.net", subject: "Terms for the Alfama building" };
-writeFileSync(
-  THREADS,
-  JSON.stringify([
-    { ...marta, at: "2026-11-01T09:00:00", who: "Marta Ficticia <marta@example.net>", direction: "in", subject: marta.subject, excerpt: "First message: what are your terms for the Alfama building?" },
-    { ...marta, at: "2026-11-02T10:30:00", who: "Lisbon Realty <lisbon-realty@example.test>", direction: "out", subject: `Re: ${marta.subject}`, excerpt: "Our terms are in the attached sheet." },
-    { ...marta, at: "2026-11-09T08:15:00", who: "Marta Ficticia <marta@example.net>", direction: "in", subject: `Re: ${marta.subject}`, excerpt: "LIVE-ONLY: can we meet on Thursday to sign?" },
-  ]),
-);
 // the specs read the ports from here (the loopback test, the Host and Origin test)
 process.env.HUB_E2E_UI_PORT = String(UI_PORT);
 process.env.HUB_E2E_API_PORT = String(API_PORT);
@@ -60,7 +49,7 @@ export default defineConfig({
       cwd: "../..",
       // HUB_CONFIG_DIR pins the secrets folder inside the throwaway home, so a Connections flow can never write a real instance's keys; HUB_CONNECTIONS_PROBE=fake
       // makes every Test a stub that never leaves the process. HUB_MAILER=fake is the only way the e2e run sends: the fake Mailer never leaves the process (the server refuses it without HUB_DB).
-      env: { HUB_HOME: HOME, HUB_CONFIG_DIR: join(HOME, "secrets"), HUB_CONNECTIONS_PROBE: "fake", HUB_DB: DB, HUB_PORT: String(API_PORT), HUB_MAILER: "fake", HUB_PROJECTS: PROJECTS, HUB_FAKE_THREADS: THREADS },
+      env: { HUB_HOME: HOME, HUB_CONFIG_DIR: join(HOME, "secrets"), HUB_CONNECTIONS_PROBE: "fake", HUB_DB: DB, HUB_PORT: String(API_PORT), HUB_MAILER: "fake", HUB_PROJECTS: PROJECTS },
       url: `http://127.0.0.1:${API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,

@@ -1,6 +1,6 @@
 import { AlertTriangleIcon, CheckCircle2Icon, CircleDashedIcon, ClockIcon, MinusCircleIcon, OctagonAlertIcon, RefreshCwIcon, XCircleIcon, type LucideIcon } from "lucide-react";
 import type { ATTENTION_FOCUS, AttentionItem, Freshness, Severity, VerdictDto } from "@hub/contract/overview";
-import { plural } from "@/lib/format";
+import { ago, hhmm, plural } from "@/lib/format";
 import { paths, type Dest } from "@/routes/paths";
 
 type Look = { word: string; Icon: LucideIcon; tone: string };
@@ -30,17 +30,6 @@ export const VERDICT: Record<VerdictDto["level"], Look> = {
 
 /** A live number as the page reads it: the contract's union flattened, so one component renders every block. */
 export type Live<T> = { state: Freshness; asOf?: string | undefined; value?: T | undefined; message?: string | undefined; fix?: string | undefined };
-
-export const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-
-/** "just now", "12 min ago", "3 h ago", "2 d ago". `now` comes from the clock, never from `Date.now()`. */
-export function ago(iso: string, now: number): string {
-  const min = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
-  if (min < 1) return "just now";
-  if (min < 60) return `${min} min ago`;
-  if (min < 48 * 60) return `${Math.floor(min / 60)} h ago`;
-  return `${Math.floor(min / 1440)} d ago`;
-}
 
 /** "as of 14:02 (12 min ago)" */
 export const asOfText = (iso: string, now: number) => `as of ${hhmm(iso)} (${ago(iso, now)})`;

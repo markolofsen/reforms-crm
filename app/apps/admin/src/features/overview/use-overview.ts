@@ -4,8 +4,7 @@ import type { OverviewDto, ProjectCardDto, RefreshResponse } from "@hub/contract
 import { sentence } from "@/lib/api/client";
 import { overviewApi } from "@/lib/api/overview";
 import { useClock } from "@/lib/clock";
-import { plural } from "@/lib/format";
-import { hhmm } from "./labels";
+import { hhmm, plural } from "@/lib/format";
 
 export const OVERVIEW_KEY = ["overview"] as const;
 

@@ -4,9 +4,9 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { AppLink } from "@/components/app-link";
 import { Progress } from "@hub/ui/product/field";
 import { Badge } from "@hub/ui/badge";
-import { plural } from "@/lib/format";
+import { ago, hhmm, plural } from "@/lib/format";
 import { paths } from "@/routes/paths";
-import { ago, countText, hhmm, type Live } from "./labels";
+import { countText, type Live } from "./labels";
 import { FreshnessNote, MailboxRow, ReadFailure } from "./mailbox-row";
 import { sourcesOf } from "./use-overview";
 

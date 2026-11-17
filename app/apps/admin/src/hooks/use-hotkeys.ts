@@ -3,7 +3,11 @@
 import { useEffect, useRef } from "react";
 import { load, save, useStored } from "@/lib/storage";
 
-const TYPING = "input,textarea,select,[contenteditable],[role=combobox],[role=listbox]";
+/** Where a key belongs to the control, not to the page: fields, and the open menu, list or dialog (menus jump by first letter). The one guard of every page shortcut, Shift+Enter included. */
+export const TYPING = "input,textarea,select,[contenteditable],[role=combobox],[role=listbox],[role=menu],[role=menuitem],[role=dialog]";
+
+/** Whether a key event from `target` is the control's own. */
+export const isTypingTarget = (target: EventTarget | null): boolean => target instanceof Element && target.closest(TYPING) !== null;
 export const CHORD_WINDOW_MS = 800;
 
 /** Lower-case key to handler. A chord is two keys with a space: `"g d"`. Handlers see the latest render, the listener stays one. */
@@ -88,7 +92,7 @@ export function useHotkeys(keys: KeyMap, enabled: boolean | (() => boolean), hel
       if (!capture && e.defaultPrevented) return;
       dispatch({
         key: e.key,
-        typing: e.target instanceof Element && e.target.closest(TYPING) !== null,
+        typing: isTypingTarget(e.target),
         modifier: e.metaKey || e.ctrlKey || e.altKey,
         preventDefault: () => e.preventDefault(),
       });

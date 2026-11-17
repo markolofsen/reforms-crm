@@ -60,11 +60,28 @@ test("Enter on the focused Send button opens the confirmation and sends nothing;
   const confirm = card.getByRole("button", { name: "Send to Sofia" });
   await expect(confirm).toBeVisible();
   expect(calls).toEqual([{ apply: false }]);
+  await page.waitForTimeout(500); // past the dwell (CONFIRM_DWELL_MS), so the key is a real confirmation
   await page.keyboard.press("Shift+Enter");
   await expect.poll(() => calls.length).toBe(2);
   expect(calls[1]).toEqual({ apply: true });
   // The aborted send leaves the draft unsent, so the card is back to a retry and the tick can be lifted.
   await expect(card.getByRole("img", { name: "Sent" })).toHaveCount(0);
+  await untick(page);
+});
+
+test("a second Shift+Enter right after the preview does not send; one after the dwell does", async ({ page }) => {
+  const calls = watchSends(page);
+  const card = await readyCard(page);
+  await page.locator("#main").focus();
+  await page.keyboard.press("Shift+Enter");
+  await expect(card.getByRole("button", { name: "Send to Sofia" })).toBeVisible();
+  await page.keyboard.press("Shift+Enter");
+  await page.waitForTimeout(100);
+  expect(calls).toEqual([{ apply: false }]);
+  await page.waitForTimeout(500);
+  await page.keyboard.press("Shift+Enter");
+  await expect.poll(() => calls.length).toBe(2);
+  expect(calls[1]).toEqual({ apply: true });
   await untick(page);
 });
 

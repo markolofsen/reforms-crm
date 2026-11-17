@@ -12,14 +12,16 @@ export const mailReadable = (mail: MailRead | undefined): boolean => !(mail?.con
  * Why "I read the checks" cannot be switched ON for this draft right now, in words, or null when it can (P27 M3, decision
  * 0013: fail closed). The switch, the `C` key and the server all hold the same line: a Mail draft is Checked only against a
  * text that was read and hashed. Switching OFF is always allowed. A batch draft (written into the hub, no Mail draft of its own) has to read, so
- * it is the one draft that is checked without a hash.
+ * it is the one draft that is checked without a hash. `readError` is the sentence of a failed read of Mail (the request
+ * itself failed, not "Mail has no such draft"): it is named, so the card never says "being read" forever.
  */
-export function tickBlock(d: ReviewDraft, mail: MailRead | undefined, step: FlowStep = "idle"): string | null {
+export function tickBlock(d: ReviewDraft, mail: MailRead | undefined, step: FlowStep = "idle", readError: string | null = null): string | null {
   if (d.checked) return null;
   const state = stateOf(d, step, mailReadable(mail));
   if (state === "unreadable") return `Mail could not be read${mail?.reason ? `: ${mail.reason}` : ""}. Open it in Mail; this draft cannot be checked here.`;
   if (!hasSwitch(state)) return "This draft has nothing to check or send from here.";
   if (d.batchId !== null) return null;
+  if (!mail && readError !== null) return `The text could not be read from Mail: ${readError} Use Retry above, then turn this on.`;
   if (!mail) return "Mail is being read. Checked turns on once the text has been read.";
   if (!mail.configured) return "This server cannot read Mail, so the text has no hash and cannot be checked here.";
   if (!mail.found || !mail.hash) return "The text of this draft has no hash, so it cannot be checked.";

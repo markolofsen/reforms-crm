@@ -8,7 +8,7 @@ The one shared UI package of the monorepo: the coss copies, the product primitiv
 
 | Path | What | Lint |
 |---|---|---|
-| `src/ui/*.tsx` | 28 coss copies, not hand-edited (`https://coss.com/ui/r/<name>.json`, `@/registry/default/{ui,lib}` rewritten to `./x` and `../cn`) | typing bans off; direction and `use server` bans on |
+| `src/ui/*.tsx` | 26 coss copies, not hand-edited (`https://coss.com/ui/r/<name>.json`, `@/registry/default/{ui,lib}` rewritten to `./x` and `../cn`) | typing bans off; direction and `use server` bans on |
 | `src/product/*.tsx` | `action-button` (three sizes, four variants), `field` (`Field`, `Progress`), `filter-chips` | every rule |
 | `src/cn.ts` | `cn`, the one user of `clsx` and `tailwind-merge` | direction |
 | `src/use-media-query.ts` | coss copy with one product edit (`md: 640`) | caps off |

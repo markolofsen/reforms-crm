@@ -1,4 +1,4 @@
-import { composeHref, openExternal } from "./external";
+import { composeHref, copyText, openExternal } from "./external";
 
 /**
  * Reply all + copy: the text goes to the clipboard and a compose window opens, addressed and titled. Nothing is
@@ -6,13 +6,7 @@ import { composeHref, openExternal } from "./external";
  * Returns whether the clipboard took the text.
  */
 export async function openReplyAll(d: { toAddr: string; ccAddr: string | null; subject: string; body: string }): Promise<boolean> {
-  let copied = false;
-  try {
-    await navigator.clipboard.writeText(d.body);
-    copied = true;
-  } catch {
-    /* clipboard blocked: the compose window still opens */
-  }
+  const copied = await copyText(d.body); // blocked: the compose window still opens
   openExternal(composeHref(d));
   return copied;
 }

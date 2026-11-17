@@ -35,3 +35,13 @@ test("the Check evidence chip is a view of its own, kept in the address", async 
   await expect.poll(() => address(page)).toContain("filter=evidence");
   await expect(cards(page).or(page.getByText(/No draft with weak evidence/)).first()).toBeVisible();
 });
+
+test("the Inbox says when it could not load and offers Retry", async ({ page }) => {
+  let fail = true;
+  await page.route(/\/api\/inbox\?/, (route) => (fail ? route.fulfill({ status: 500, json: { error: "The inbox is unavailable.", code: "server" } }) : route.fallback()));
+  await page.goto("/drafts");
+  await expect(page.getByText("Could not load the inbox")).toBeVisible();
+  fail = false;
+  await page.getByRole("button", { name: "Retry" }).first().click();
+  await expect(page.getByTestId("inbox")).toBeVisible();
+});

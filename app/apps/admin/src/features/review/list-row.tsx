@@ -49,6 +49,8 @@ export function ListRow({ d, now, open, selecting, selected, onOpen, onToggle }:
         <Checkbox
           aria-label={`Select ${d.client.name}`}
           checked={selected}
+          // Not a Tab stop until a selection is under way: `x` selects, `j`/`k` move, and 120 invisible stops stand between Tab and the card.
+          tabIndex={selecting ? 0 : -1}
           className={cn("absolute inset-0 m-auto after:absolute after:-inset-3.5 after:content-['']", !selecting && "opacity-0 focus-visible:opacity-100 group-hover/row:opacity-100")}
           onCheckedChange={onToggle}
         />

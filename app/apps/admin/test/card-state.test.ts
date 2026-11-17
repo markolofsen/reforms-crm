@@ -76,6 +76,12 @@ describe("Checked fails closed (decision 0013): the switch and the C key hold on
     expect(tickBlock(base, read({ configured: false, found: false, hash: null }))).toMatch(/cannot read Mail/);
   });
 
+  it("a failed read of Mail is named with its cause, never \"being read\" forever", () => {
+    const text = tickBlock(base, undefined, "idle", "Cannot reach the local server.");
+    expect(text).toMatch(/could not be read from Mail: Cannot reach the local server\./);
+    expect(text).not.toMatch(/being read/);
+  });
+
   it("switching OFF is always allowed, even when Mail can no longer be read", () => {
     expect(tickBlock({ ...base, checked: true }, read({ found: false, hash: null }))).toBeNull();
   });

@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, type ReactNode } from "react";
+import { AppLink } from "@/components/app-link";
 import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
 import { useGo } from "@/hooks/use-go";
 import { ProjectScopeContext, useEnsureProject, useEntry, type ProjectScope } from "@/hooks/use-project";
@@ -9,7 +10,7 @@ import { useRoute } from "@/hooks/use-route";
 import { useSectionNav } from "@/hooks/use-section-nav";
 import { metaApi } from "@/lib/api/meta";
 import { usePulse } from "@/lib/pulse";
-import { sectionList } from "@/routes/paths";
+import { paths, sectionList } from "@/routes/paths";
 import { sectionTitle } from "@/routes/sections";
 import { AppShell } from "./shell";
 import { PaneScroll } from "./split-view";
@@ -51,7 +52,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
         </PaneScroll>
       ) : !scope ? (
         <PaneScroll>
-          <EmptyState title="No projects yet">Run `hub project sync` after setting one up (skill project-setup).</EmptyState>
+          <EmptyState action={<AppLink to={paths.connections.page()}>Open Connections</AppLink>} title="No projects yet">Link your mail and Notion in Connections first, then ask the agent to set up your project.</EmptyState>
         </PaneScroll>
       ) : (
         <ProjectScopeContext value={scope}>{children}</ProjectScopeContext>

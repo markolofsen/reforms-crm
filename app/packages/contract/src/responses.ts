@@ -317,19 +317,6 @@ export const draftMailDto = z.object({
   readAt: z.string(),
 });
 export type DraftMailDto = z.infer<typeof draftMailDto>;
-/**
- * The last messages of the conversation of a draft, read from Mail on demand and never stored (decision 0013, `Mailer.thread`).
- * `read` is false when Mail could not be read or the server has no Mailer; the card then falls back to the stored excerpts
- * and says so. `at` is Mail's local time. At most five, newest first; `last` marks the newest.
- */
-export const draftThreadDto = z.object({
-  configured: z.boolean(),
-  read: z.boolean(),
-  reason: z.string().nullable(),
-  messages: z.array(z.object({ at: z.string(), who: z.string(), direction: z.enum(["in", "out"]), subject: z.string(), excerpt: z.string(), last: z.boolean() })).max(5),
-  readAt: z.string(),
-});
-export type DraftThreadDto = z.infer<typeof draftThreadDto>;
 export const sentDto = z.object({ ok: z.literal(true), sendId: z.number() });
 export const sendCancelledDto = z.object({ ok: z.literal(true), sendId: z.number() });
 export const stopDto = z.object({ ok: z.literal(true), cancelled: z.number(), stopped: z.array(z.string()) });

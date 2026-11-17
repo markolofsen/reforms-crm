@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Repos } from "@hub/db";
 import { assess, findMail, mailHash, sendDraft, type Mailer } from "@hub/send";
 import { idParam, projectQuery, sendBody, sendParam, slugParam } from "@hub/contract/requests";
-import { draftMailDto, draftThreadDto, sendCancelledDto, sendPreviewDto, sendsDto, sentDto, stopDto } from "@hub/contract/responses";
+import { draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sentDto, stopDto } from "@hub/contract/responses";
 import { notFound, v } from "../http";
 
 /** What the send routes need from the process: the Mailer, where project.md lives, and `allow_list` for `draft.recipients: test`. */
@@ -59,21 +59,6 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions) {
       const m = f.mail;
       const safetyResults = await repos.sends.safetyOf(id, { subject: m.subject, toAddr: m.to.join(","), ccAddr: m.cc.join(",") || null, body: m.body }, sender?.now?.());
       return c.json(draftMailDto.parse({ configured: true, found: true, reason: null, from: m.sender, to: m.to, cc: m.cc, subject: m.subject, body: m.body, hash: mailHash(m), safetyResults, readAt }));
-    })
-    // The last five messages of the conversation, read from Mail on demand (`Mailer.thread`). Read-only, nothing stored.
-    .get("/api/projects/:slug/drafts/:id/thread", v("param", sendParam), async (c) => {
-      const { slug, id } = c.req.valid("param");
-      const draft = await repos.drafts.get(id);
-      if (!draft || draft.project !== slug) return notFound(c, "draft");
-      const readAt = (sender?.now?.() ?? new Date()).toISOString();
-      if (!deps) return c.json(draftThreadDto.parse({ configured: false, read: false, reason: "Reading Mail is not set up on this server.", messages: [], readAt }));
-      const address = draft.toAddr.match(/[^\s,;<>"']+@[^\s,;<>"']+/)?.[0] ?? "";
-      try {
-        const rows = address === "" ? [] : await deps.mailer.thread({ mailRef: draft.mailRef, subject: draft.subject, address }, 5);
-        return c.json(draftThreadDto.parse({ configured: true, read: true, reason: null, messages: rows.map((m, i) => ({ ...m, last: i === 0 })), readAt }));
-      } catch (e) {
-        return c.json(draftThreadDto.parse({ configured: true, read: false, reason: `Mail could not be read: ${e instanceof Error ? e.message : "unknown error"}`, messages: [], readAt }));
-      }
     })
     .get("/api/projects/:slug/sends", v("param", slugParam), async (c) =>
       c.json(sendsDto.parse({ sends: await repos.sends.list(c.req.valid("param").slug), stopped: await repos.sends.stoppedScopes() })),

@@ -62,7 +62,7 @@ function DraftsSection({ project, projects, onProject, filter, q, selectedId, mo
   );
   return (
     <ReviewWorkspace
-      empty={(filtered) => (filtered ? `${EMPTY[filter]} in this project.` : `Ask the agent: разбери почту ${project}. Drafts it leaves unsent in Mail appear here.`)}
+      empty={(filtered) => (filtered ? `${EMPTY[filter]} in this project.` : `Say to the agent: "разбери почту ${project}". Drafts it leaves unsent in Mail appear here.`)}
       listTop={
         <>
           {phone && <div className="px-3 pt-3"><ProjectSwitcher onChange={onProject} projects={projects} value={project} /></div>}

@@ -71,5 +71,13 @@ export async function read<T>(schema: Parser<T>, call: Call): Promise<T> {
 /** The sentence for any thrown value. */
 export const sentence = (e: unknown): string => (e instanceof Error ? e.message : "Something went wrong.");
 
-/** After a write (or a changed database file) every list but the pulse is read again. */
-export const refreshData = (qc: QueryClient) => qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "pulse" });
+/** Reads of Mail (an `osascript` call each): the draft as Mail holds it, and a client's thread. */
+const MAIL_KEYS: readonly unknown[] = ["draft-mail", "thread"];
+
+/**
+ * After a write (or a changed database file) every list but the pulse is read again. Mail is read again only when the
+ * draft's status changed, a check was understood (the checks come with the Mail read) or it was sent (`mail: true`): a tone, a switch or a mark does not change what Mail holds, and
+ * the server compares the text's hash again at send, so a cached read can never send other text than the person saw.
+ */
+export const refreshData = (qc: QueryClient, { mail = false }: { mail?: boolean } = {}) =>
+  qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "pulse" && (mail || !MAIL_KEYS.includes(q.queryKey[0])) });

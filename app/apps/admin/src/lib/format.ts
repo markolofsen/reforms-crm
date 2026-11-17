@@ -34,3 +34,14 @@ export function wrote(iso: string | null, now: number): string | null {
 
 /** "1 event", "3 events": the noun agrees with the count. */
 export const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+
+export const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+/** "just now", "12 min ago", "3 h ago", "2 d ago". `now` comes from the clock, never from `Date.now()`. */
+export function ago(iso: string, now: number): string {
+  const min = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 60_000));
+  if (min < 1) return "just now";
+  if (min < 60) return `${min} min ago`;
+  if (min < 48 * 60) return `${Math.floor(min / 60)} h ago`;
+  return `${Math.floor(min / 1440)} d ago`;
+}
