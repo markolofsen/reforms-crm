@@ -43,6 +43,8 @@ unsure where a file goes, this page decides.
 
 The instance pins the core in `core.version` (a tag, or a commit for a test instance that follows `main`) and moves it with `hub core update`. It runs with `<instance>/run.sh`; `HUB_HOME` is required for every command that touches data.
 
+Where `core/` comes from: `hub core install` makes it the git submodule at the pinned commit (the default; the only state a commit or deploy may be in). `hub core dev <path> [--apply]` removes that checkout and links `core/` to a core checkout you edit (git is told to ignore `core/`, so instance commits never take the link); `hub core install` undoes it. `hub core update` refuses while linked, and `instance.core` warns that the pin is not verified.
+
 ## The guard
 
 `app/apps/installer/test/layers.test.ts` fails when a core file (skills, `@docs/core`, `app/@rules`, `app/projects/_template`,

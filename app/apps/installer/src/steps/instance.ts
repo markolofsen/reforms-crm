@@ -58,7 +58,9 @@ export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
 
   // 1. The pin: present, and the core in use is that version.
   const ver = readCoreVersion(paths.home);
+  const dev = linkOf(path.join(paths.home, "core"));
   if (!ver) problems.push(`${CORE_VERSION_FILE} missing or empty in ${paths.home}: write the core commit or tag it runs on, once`);
+  else if (dev !== undefined) notes.push(`core/ is a link to ${path.resolve(paths.home, dev)} (local development, \`hub core dev\`): pin ${ver} is not verified and this instance must not be deployed; \`hub core install\` restores the pinned core`);
   else {
     const top = await git(ctx, paths.core, ["rev-parse", "--show-toplevel"]);
     const ownRepo = top.code === 0 && real(top.stdout.trim()) === real(paths.core);

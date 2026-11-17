@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Ctx } from "./context.ts";
 import { checkInstance, CORE_VERSION_FILE, readCoreVersion } from "./steps/instance.ts";
@@ -33,6 +33,7 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
   const { paths } = ctx;
   const out: string[] = [];
   const pin = readCoreVersion(paths.home);
+  if (lstatSync(path.join(paths.home, "core"), { throwIfNoEntry: false })?.isSymbolicLink()) return { ok: false, lines: ["core/ is a link to a local checkout (hub core dev): run `hub core install` first, then update"] };
   const top = await git(ctx, ["rev-parse", "--show-toplevel"]);
   if (top.code !== 0) return { ok: false, lines: [`${paths.core} is not a git checkout: nothing to update`] };
   const dirty = await git(ctx, ["status", "--porcelain", "--untracked-files=no"]);

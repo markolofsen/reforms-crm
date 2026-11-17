@@ -14,6 +14,7 @@ import { batchCheck, batchLines } from "./batch-check.ts";
 import { listProjects, runAgent } from "./agent.ts";
 import { installLink, pathHint, planLink, removeLink } from "./link.ts";
 import { coreUpdate } from "./core-update.ts";
+import { coreDev, coreInstall } from "./core-link.ts";
 import { initInstance, InitError } from "./init.ts";
 import { findInstances, instanceStatus, statusTable } from "./status.ts";
 import { execa } from "execa";
@@ -190,7 +191,21 @@ program.command("status").description("One table over the instances next to this
     console.log(statusTable(rows));
   });
 
-program.command("core").description("Move an instance to another core version. `hub core update` lists the tags; `hub core update <tag> --apply` checks it out, rewrites core.version and runs the instance check; a failed move is put back.")
+const coreCmd = program.command("core").description("The core of an instance. `hub core update` lists the tags; `hub core update <tag> --apply` moves the pin; `hub core install` makes core/ the pinned submodule (the default); `hub core dev <path>` replaces it with a link to a local core checkout.");
+coreCmd.command("install").description("core/ as the git submodule at the recorded commit (the default state). Removes a dev link made by `hub core dev` and checks the instance.")
+  .action(async () => {
+    const r = await coreInstall(ctxOf());
+    for (const l of r.lines) console.log(l);
+    done(r.ok ? 0 : 1);
+  });
+coreCmd.command("dev").description("Local core development: remove the core/ submodule checkout and link core/ to <path>, a core checkout you edit. git ignores core/ meanwhile. Dry run unless --apply; undo with `hub core install`.")
+  .argument("<path>", "the core checkout to develop in").option("--apply", "do it (default: show the plan)")
+  .action(async (p: string, o: { apply?: boolean }) => {
+    const r = await coreDev(ctxOf(), p, !!o.apply);
+    for (const l of r.lines) console.log(l);
+    done(r.ok ? 0 : 1);
+  });
+coreCmd
   .command("update").argument("[tag]", "a vX.Y.Z tag of the core").option("--apply", "do it (default: show the plan)").option("--branch <name>", "follow the tip of origin/<name> instead of a tag (a test instance; the pin stays a commit)")
   .action(async (tag: string | undefined, o: { apply?: boolean; branch?: string }) => {
     const r = await coreUpdate(ctxOf(), tag, !!o.apply, o.branch);
