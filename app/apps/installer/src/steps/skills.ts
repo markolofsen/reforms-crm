@@ -37,8 +37,12 @@ export const skillSteps: Step[] = [
     does: "`ln -sfn` per skill; a real folder of the same name is never replaced.",
     async check(ctx) {
       const names = runtimeSkills(ctx);
-      const off = names.filter((n) => linkTarget(path.join(skillsHome(ctx), n)) !== path.join(ctx.paths.skills, n));
-      return off.length ? fail(`not linked: ${off.join(", ")}. These are user-global links in ~/.claude/skills, shared by every instance: linking points them at THIS core. Say yes and run: ./run.sh install --only skills.runtime`) : pass(names.length ? names.join(", ") : "no run-time skills yet");
+      // The links are user-global and shared by every instance, so a link to another instance's core is fine as long as it resolves to a skill.
+      const dead = (n: string) => { const t = linkTarget(path.join(skillsHome(ctx), n)); return t === undefined || !existsSync(path.join(t, "SKILL.md")); };
+      const off = names.filter(dead);
+      const elsewhere = names.filter((n) => !dead(n) && linkTarget(path.join(skillsHome(ctx), n)) !== path.join(ctx.paths.skills, n));
+      if (off.length) return fail(`not linked (or dangling): ${off.join(", ")}. These are user-global links in ~/.claude/skills, shared by every instance. Run: ./run.sh install --only skills.runtime`);
+      return pass(names.length ? `${names.join(", ")}${elsewhere.length ? ` (${elsewhere.length} link to another instance's core: shared, fine)` : ""}` : "no run-time skills yet");
     },
     async apply(ctx) {
       mkdirSync(skillsHome(ctx), { recursive: true });
