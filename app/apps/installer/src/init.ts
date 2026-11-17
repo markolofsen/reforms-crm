@@ -2,6 +2,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, 
 import path from "node:path";
 import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import type { RunResult } from "./context.ts";
+import { pinMark, VERSION_TAG } from "./core-update.ts";
 import { syncInstanceSkills } from "./instance-skills.ts";
 
 /** Where the files of a new instance live: plain files in the core, copied with `{{NAME}}` filled in. */
@@ -46,14 +47,14 @@ export const templateFiles = (coreRoot: string = CORE_ROOT): string[] => [...new
 
 export const renderTemplate = (text: string, vars: Record<string, string>): string => text.replace(/\{\{(\w+)\}\}/g, (m, k: string) => vars[k] ?? m);
 
-export function pinFile(pin: string, follows: boolean): string {
-  return [
+/** The text of a new `core.version`: header, the one managed mark (`# follows: main` or `# tag: vX.Y.Z`), then the commit. */
+export function pinFile(sha: string, mark: { branch?: string; tag?: string }): string {
+  return pinMark([
     "# The ONE statement of the core version this instance runs on (decision 0016). Prose elsewhere never restates it.",
     "# First non-comment line: a core commit or tag. `hub doctor` checks the core in use against it.",
-    ...(follows ? ["# follows: main"] : []),
-    pin,
+    sha,
     "",
-  ].join("\n");
+  ].join("\n"), mark);
 }
 
 /**
@@ -73,9 +74,11 @@ export async function initInstance(o: InitOptions, d: InitDeps): Promise<{ dir: 
   let pin = o.pin;
   if (!pin) {
     const tags = await d.run("git", ["ls-remote", "--tags", "--refs", "--sort=-v:refname", url]);
-    const first = tags.stdout.split("\n").map((l) => l.split("refs/tags/")[1]).find(Boolean);
+    // Only a vX.Y.Z tag is a version: a tag such as `backup-2026` is never pinned.
+    const first = tags.stdout.split("\n").map((l) => l.split("refs/tags/")[1]).find((n): n is string => !!n && VERSION_TAG.test(n));
     pin = first ?? "main";
   }
+  if (pin !== "main" && !VERSION_TAG.test(pin)) throw new InitError(`--pin must be a vX.Y.Z tag or main, not ${pin}`);
   const follows = pin === "main";
   const files = templateFiles(coreRoot);
   if (o.dryRun) {
@@ -106,7 +109,7 @@ export async function initInstance(o: InitOptions, d: InitDeps): Promise<{ dir: 
     writeFileSync(dst, renderTemplate(text, vars));
     chmodSync(dst, statSync(path.join(src, f)).mode & 0o777);
   }
-  writeFileSync(path.join(dir, "core.version"), pinFile(sha, follows));
+  writeFileSync(path.join(dir, "core.version"), pinFile(sha, follows ? { branch: "main" } : { tag: pin }));
 
   // From here the instance's own pinned core does the work: working folders, config defaults, skill links, then the checks.
   const paths = hubPaths({ core: path.join(dir, "core"), home: dir, env: {} });
@@ -129,7 +132,9 @@ export async function initInstance(o: InitOptions, d: InitDeps): Promise<{ dir: 
     }
   }
   await git("add", "-A");
-  await d.run("git", ["-C", dir, "commit", "-q", "-m", `instance: created by hub init, core pinned at ${sha.slice(0, 9)}${follows ? " (follows main)" : ` (${pin})`}`]);
+  // A failed commit (no user.name, a hook) is an error, not a success with nothing committed.
+  const commit = await d.run("git", ["-C", dir, "commit", "-q", "-m", `instance: created by hub init, core pinned at ${sha.slice(0, 9)}${follows ? " (follows main)" : ` (${pin})`}`]);
+  if (commit.code !== 0) throw new InitError(`the instance was created in ${dir} but git commit failed: ${(commit.stderr || commit.stdout).trim().split("\n")[0] || "no detail"}. Set git user.name and user.email, then run \`git -C ${dir} add -A && git -C ${dir} commit\``);
   return { dir, pin, follows, files };
 }
 

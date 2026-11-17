@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { hubPaths } from "@hub/config/paths";
-import { makeCtx } from "../src/context.ts";
-import { coreUpdate, rewritePin } from "../src/core-update.ts";
+import { defaultRunner, makeCtx, type Runner } from "../src/context.ts";
+import { coreUpdate, pinMark, rewritePin } from "../src/core-update.ts";
 import { CORE_VERSION_FILE } from "../src/steps/instance.ts";
 
 // `hub core update` (decision 0016): fixtures only: a throw-away bare origin with tags v0.1.0 and v0.2.0, a clone as core, an acme instance.
@@ -25,8 +25,13 @@ function rig() {
   const v1 = git(core, "rev-parse", "HEAD");
   put(path.join(home, CORE_VERSION_FILE), `# the core\n${v1}\n`);
   mkdirSync(path.join(home, "projects", "acme"), { recursive: true });
-  const ctx = makeCtx({ paths: hubPaths({ core, home, env: {} }), log: () => {} });
-  return { core, home, ctx, v1, v2: git(work, "rev-parse", "v0.2.0") };
+  // git is real; pnpm is a recorder (never installs for real). `pnpmCode` makes it fail.
+  const pnpm: { args: string[] }[] = [];
+  const state = { pnpmCode: 0 };
+  const real = defaultRunner(process.env.PATH ?? "/usr/bin:/bin");
+  const run: Runner = async (cmd, args, opts) => cmd === "pnpm" ? (pnpm.push({ args }), { code: state.pnpmCode, stdout: "", stderr: state.pnpmCode ? "ERR_PNPM_FAKE no network" : "" }) : real(cmd, args, opts);
+  const ctx = makeCtx({ paths: hubPaths({ core, home, env: {} }), log: () => {}, run });
+  return { core, home, ctx, v1, v2: git(work, "rev-parse", "v0.2.0"), work, pnpm, state };
 }
 const pinOf = (home: string) => readFileSync(path.join(home, CORE_VERSION_FILE), "utf8");
 
@@ -34,6 +39,14 @@ describe("hub core update", () => {
   it("rewrites only the first non-comment line", () => {
     expect(rewritePin("# a\n\nabc\n# b\n", "def")).toBe("# a\n\ndef\n# b\n");
     expect(rewritePin("# only\n", "def")).toBe("# only\ndef\n");
+  });
+  it("writes one managed `# tag:` line and drops a hand-written version claim", () => {
+    const stale = "# header\n# The core is checked out at the tag v0.1.0; this file states it once.\nabc\n# tag: v0.1.0\n";
+    const out = pinMark(stale, { tag: "v0.6.12" });
+    expect(out).toBe("# header\n# tag: v0.6.12\nabc\n");
+    expect(out).not.toContain("v0.1.0");
+    expect(pinMark(out, { branch: "main" })).toBe("# header\n# follows: main\nabc\n");
+    expect(pinMark("# a\nabc\n", {})).toBe("# a\nabc\n");
   });
   it("lists the tags and changes nothing", async () => {
     const r = rig();
@@ -56,6 +69,32 @@ describe("hub core update", () => {
     expect(git(r.core, "rev-parse", "HEAD")).toBe(r.v2);
     expect(pinOf(r.home)).toContain(r.v2);
     expect(pinOf(r.home)).toContain("# the core");
+    expect(pinOf(r.home)).toContain("# tag: v0.2.0");
+  });
+  it("installs the dependencies when the lockfile changed, and only then", async () => {
+    const r = rig();
+    // v0.1.0 -> v0.2.0 changed no lockfile, and the fixture core has no node_modules: the install still runs because they are missing
+    const o = await coreUpdate(r.ctx, "v0.2.0", true);
+    expect(o.lines.join("\n")).toContain("core/app has no node_modules");
+    expect(r.pnpm).toHaveLength(1);
+    expect(r.pnpm[0]!.args).toEqual(["--dir", path.join(r.core, "app"), "install", "--frozen-lockfile", "--prefer-offline"]);
+    // with node_modules present and no lockfile change: nothing runs
+    mkdirSync(path.join(r.core, "app", "node_modules"), { recursive: true });
+    await coreUpdate(r.ctx, "v0.1.0", true);
+    expect(r.pnpm).toHaveLength(1);
+    // a lockfile change between the two commits runs it
+    put(path.join(r.work, "app", "pnpm-lock.yaml"), "lock: 1\n"); git(r.work, "add", "-A"); git(r.work, "commit", "-qm", "lock"); git(r.work, "tag", "v0.3.0");
+    git(r.work, "push", "-q", git(r.core, "remote", "get-url", "origin"), "HEAD:refs/heads/main", "--tags");
+    const o3 = await coreUpdate(r.ctx, "v0.3.0", true);
+    expect(o3.lines.join("\n")).toContain("the lockfile changed");
+    expect(r.pnpm).toHaveLength(2);
+  });
+  it("names the exact command when the install fails", async () => {
+    const r = rig();
+    r.state.pnpmCode = 1;
+    const o = await coreUpdate(r.ctx, "v0.2.0", true);
+    expect(o.ok).toBe(false);
+    expect(o.lines.join("\n")).toContain(`Run: \`pnpm --dir ${path.join(r.core, "app")} install --frozen-lockfile --prefer-offline\``);
   });
   it("says it is a rollback when going back, and is a no-op when already there", async () => {
     const r = rig();

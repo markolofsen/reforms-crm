@@ -2,6 +2,7 @@ import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpat
 import path from "node:path";
 import type { Ctx } from "../context.ts";
 import { coreSkills, linksIntoCore } from "../instance-skills.ts";
+import { VERSION_TAG } from "../core-update.ts";
 import type { CheckResult, Step } from "../types.ts";
 import { fail, pass, warn } from "./helpers.ts";
 
@@ -49,6 +50,14 @@ async function instanceFilesInCore(ctx: Ctx): Promise<string[]> {
   return found.sort();
 }
 
+/** Version tags of the core checkout that are newer than the pin: they contain the pinned commit and do not point at it. Local tags only (no fetch), newest last. */
+async function newerTags(ctx: Ctx, pinCommit: string): Promise<string[]> {
+  const list = async (flag: string) => new Set((await git(ctx, ctx.paths.core, ["tag", "--list", flag, pinCommit])).stdout.split("\n").map((l) => l.trim()).filter((l) => VERSION_TAG.test(l)));
+  const at = await list("--points-at");
+  const parts = (v: string) => v.slice(1).split(".").map(Number);
+  return [...await list("--contains")].filter((v) => !at.has(v)).sort((a, b) => { const x = parts(a), y = parts(b); return (x[0]! - y[0]!) || (x[1]! - y[1]!) || (x[2]! - y[2]!); });
+}
+
 const brief = (xs: string[]): string => (xs.length > 4 ? `${xs.slice(0, 4).join(", ")} and ${xs.length - 4} more` : xs.join(", "));
 
 export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
@@ -73,6 +82,8 @@ export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
       if (head !== want.stdout.trim()) problems.push(`core is at ${head.slice(0, 9)} but ${CORE_VERSION_FILE} pins ${ver}: check out the pin, or move the pin and commit it alone`);
       const dirty = await git(ctx, paths.core, ["status", "--porcelain", "--untracked-files=no"]);
       if (dirty.code === 0 && dirty.stdout.trim()) problems.push("core has uncommitted changes: an instance never edits core");
+      const newer = await newerTags(ctx, want.stdout.trim());
+      if (newer.length) notes.push(`core is behind: ${newer.length} newer tag(s) (latest ${newer.at(-1)}, from the tags this core checkout already has): \`hub core update\` fetches and lists them, \`hub core update ${newer.at(-1)} --apply\` moves the pin`);
     }
   }
 
@@ -104,7 +115,7 @@ export const instanceSteps: Step[] = [
   {
     id: "instance.core", group: "Instance", title: "Instance matches the core",
     why: "An owner's instance (`HUB_HOME`) and the core code are separate repositories. The instance states the core version it runs on in ONE file; neither side may hold the other's files.",
-    verifies: "`core.version` exists and names the core in use (core clean at that commit), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills.",
+    verifies: "`core.version` exists and names the core in use (core clean at that commit; WARN when the core checkout has newer `vX.Y.Z` tags than the pin, counted from local tags with no fetch), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills.",
     check: checkInstance,
   },
 ];

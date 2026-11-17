@@ -66,6 +66,22 @@ describe("hub doctor: instance against core", () => {
     put(path.join(r.home, CORE_VERSION_FILE), "v1\n");
     expect((await checkInstance(ctxOf(r))).level).toBe("pass");
   });
+  it("warns how many newer version tags the core has, and not for a pin at the newest tag", async () => {
+    const r = linked(rig());
+    git(r.core, "tag", "v0.1.0");
+    put(path.join(r.home, CORE_VERSION_FILE), "# the core\nv0.1.0\n");
+    expect((await checkInstance(ctxOf(r))).level).toBe("pass");
+    for (const v of ["v0.2.0", "v0.10.0"]) { put(path.join(r.core, "skills", "triage", "SKILL.md"), `---\nname: triage\n---\n${v}\n`); git(r.core, "commit", "-qam", v); git(r.core, "tag", v); }
+    git(r.core, "tag", "backup-2026"); // not a version: never counted
+    git(r.core, "checkout", "-q", "--detach", "v0.1.0");
+    const out = await checkInstance(ctxOf(r));
+    expect(out.level).toBe("warn");
+    expect(out.detail).toContain("2 newer tag(s)");
+    expect(out.detail).toContain("latest v0.10.0");
+    git(r.core, "checkout", "-q", "--detach", "v0.10.0");
+    put(path.join(r.home, CORE_VERSION_FILE), "v0.10.0\n");
+    expect((await checkInstance(ctxOf(r))).level).toBe("pass");
+  });
   it("fails on a dirty core (tracked file edited)", async () => {
     const r = linked(rig());
     put(path.join(r.core, "skills", "triage", "SKILL.md"), "edited\n");

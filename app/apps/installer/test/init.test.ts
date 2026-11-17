@@ -75,6 +75,24 @@ describe("hub init", () => {
     await expect(initInstance({ dir: path.join(r.base, "b"), coreUrl: r.origin, pin: "v9.9.9" }, r.deps)).rejects.toThrow(/no tag v9\.9\.9/);
   });
 
+  it("never pins a tag that is not a version, by discovery or by --pin", async () => {
+    const r = rig();
+    git(r.work, "tag", "zz-backup-2026"); // sorts before every vX.Y.Z in `ls-remote --sort=-v:refname`
+    git(r.work, "push", "-q", r.origin, "--tags");
+    const dir = path.join(r.base, "acme");
+    const out = await initInstance({ dir, coreUrl: r.origin }, r.deps);
+    expect(out.pin).toBe("v0.2.0");
+    expect(readFileSync(path.join(dir, "core.version"), "utf8")).toContain("# tag: v0.2.0");
+    await expect(initInstance({ dir: path.join(r.base, "b"), coreUrl: r.origin, pin: "zz-backup-2026" }, r.deps)).rejects.toThrow(/vX\.Y\.Z tag or main/);
+  });
+
+  it("a failed commit is an error that says how to finish, not a success", async () => {
+    const r = rig();
+    const deps = { ...r.deps, run: async (cmd: string, args: string[], o?: { cwd?: string; env?: Record<string, string> }) => cmd === "git" && args.includes("commit") ? { code: 128, stdout: "", stderr: "fatal: unable to auto-detect email address" } : r.deps.run(cmd, args, o) };
+    const dir = path.join(r.base, "nocommit");
+    await expect(initInstance({ dir, coreUrl: r.origin }, deps)).rejects.toThrow(/git commit failed: fatal: unable to auto-detect email/);
+  });
+
   it("refuses a folder that is not empty and writes nothing there", async () => {
     const r = rig();
     const dir = path.join(r.base, "full");
@@ -114,7 +132,8 @@ describe("the instance template of this core", () => {
   });
   it("fills {{NAME}} and leaves unknown tokens alone; the pin file states follows only for main", () => {
     expect(renderTemplate("# {{NAME}} {{OTHER}}", { NAME: "x" })).toBe("# x {{OTHER}}");
-    expect(pinFile("abc", true)).toContain("# follows: main");
-    expect(pinFile("abc", false)).not.toContain("follows");
+    expect(pinFile("abc", { branch: "main" })).toContain("# follows: main");
+    expect(pinFile("abc", { tag: "v1.2.3" })).toContain("# tag: v1.2.3");
+    expect(pinFile("abc", { tag: "v1.2.3" })).not.toContain("follows");
   });
 });

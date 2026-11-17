@@ -7,7 +7,8 @@ import { checkInstance, CORE_VERSION_FILE, readCoreVersion } from "./steps/insta
 export interface CoreUpdate { ok: boolean; lines: string[] }
 
 const git = (ctx: Ctx, args: string[]) => ctx.run("git", ["-C", ctx.paths.core, ...args], { timeoutMs: 120000 });
-const TAG = /^v\d+\.\d+\.\d+$/;
+/** A version tag: the only kind of tag an instance is ever moved to or pinned at. */
+export const VERSION_TAG = /^v\d+\.\d+\.\d+$/;
 const semver = (t: string): number[] => t.slice(1).split(".").map(Number);
 const newer = (a: string, b: string): number => { const x = semver(a), y = semver(b); return (x[0]! - y[0]!) || (x[1]! - y[1]!) || (x[2]! - y[2]!); };
 
@@ -19,15 +20,19 @@ export function rewritePin(text: string, value: string): string {
   return lines.join("\n").replace(/\n*$/, "\n");
 }
 
-/** `branch` (a stand/test instance): follow the tip of `origin/<branch>` instead of a tag. The pin stays a commit; a comment line records that the instance follows the branch. */
-/** Keep exactly one `# follows: <branch>` comment (none for a tag pin), right above the pin line. */
-export function followMark(text: string, branch?: string): string {
-  const lines = text.split("\n").filter((l) => !l.startsWith("# follows:"));
-  if (!branch) return lines.join("\n");
-  const i = lines.findIndex((l) => l.trim() && !l.trim().startsWith("#"));
-  lines.splice(i < 0 ? lines.length : i, 0, `# follows: ${branch}`);
+/**
+ * The managed comment above the pin line: `# follows: <branch>` for an instance that follows a branch, `# tag: vX.Y.Z` for a tag pin, nothing for a bare commit.
+ * Every other comment that names a version (a hand-written "checked out at the tag v0.1.0") is dropped: the pin file states the version once, here, so it cannot go stale.
+ */
+export function pinMark(text: string, mark: { branch?: string; tag?: string }): string {
+  const lines = text.split("\n").filter((l) => !(l.trim().startsWith("#") && (l.startsWith("# follows:") || /\bv\d+\.\d+\.\d+\b/.test(l))));
+  const stamp = mark.branch ? `# follows: ${mark.branch}` : mark.tag ? `# tag: ${mark.tag}` : undefined;
+  if (stamp) lines.splice((() => { const i = lines.findIndex((l) => l.trim() && !l.trim().startsWith("#")); return i < 0 ? lines.length : i; })(), 0, stamp);
   return lines.join("\n");
 }
+
+/** `pnpm install` in core/app, with the lockfile the target commit carries (never rewrites it). */
+const INSTALL = ["install", "--frozen-lockfile", "--prefer-offline"];
 
 export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boolean, branch?: string): Promise<CoreUpdate> {
   const { paths } = ctx;
@@ -44,7 +49,7 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
 
   const fetched = await git(ctx, ["fetch", "--tags", "--force", "origin"]);
   if (fetched.code !== 0) return { ok: false, lines: [`git fetch failed: ${fetched.stderr.trim().split("\n")[0] ?? "no detail"}`] };
-  const tags = (await git(ctx, ["tag", "--list"])).stdout.split("\n").map((t) => t.trim()).filter((t) => TAG.test(t)).sort(newer);
+  const tags = (await git(ctx, ["tag", "--list"])).stdout.split("\n").map((t) => t.trim()).filter((t) => VERSION_TAG.test(t)).sort(newer);
   const head = (await git(ctx, ["rev-parse", "HEAD"])).stdout.trim();
   const here = (await git(ctx, ["describe", "--tags", "--exact-match", "HEAD"])).stdout.trim() || head.slice(0, 9);
   out.push(`core in use: ${here}; pin: ${pin ?? "(none)"}`);
@@ -67,7 +72,7 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
   if (co.code !== 0) return { ok: false, lines: [...out, `checkout failed: ${co.stderr.trim().split("\n")[0] ?? "no detail"}`] };
   const file = path.join(paths.home, CORE_VERSION_FILE);
   const before = existsSync(file) ? readFileSync(file, "utf8") : "";
-  writeFileSync(file, followMark(rewritePin(before, target), branch));
+  writeFileSync(file, pinMark(rewritePin(before, target), branch ? { branch } : { tag: tag! }));
   const check = await checkInstance(ctx);
   if (check.level === "fail") {
     // Put it back: a failed update leaves the instance exactly as it was.
@@ -76,6 +81,20 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
     return { ok: false, lines: [...out, `instance.core failed after the move, put back: ${check.detail}`] };
   }
   out.push(`${CORE_VERSION_FILE} now pins ${target.slice(0, 9)} (${label}); instance.core: ${check.level}`);
+  // The new core may need other dependencies than the old one: install when the lockfile differs between the two commits.
+  const appDir = path.join(paths.core, "app");
+  const lock = await git(ctx, ["diff", "--quiet", head, target, "--", "app/pnpm-lock.yaml"]);
+  const missing = !existsSync(path.join(appDir, "node_modules"));
+  if (lock.code === 0 && !missing) out.push("dependencies: the lockfile did not change, nothing to install");
+  else {
+    const why = missing ? "core/app has no node_modules" : "the lockfile changed";
+    const r = await ctx.run("pnpm", ["--dir", appDir, ...INSTALL], { timeoutMs: 600_000 });
+    if (r.code === 0) out.push(`dependencies: ${why}; ran \`pnpm install ${INSTALL.slice(1).join(" ")}\` in ${appDir}`);
+    else {
+      out.push(`dependencies: ${why} but pnpm install failed (${(r.stderr || r.stdout).trim().split("\n").at(-1)?.slice(0, 160) ?? "no output"}). Run: \`pnpm --dir ${appDir} ${INSTALL.join(" ")}\``);
+      return { ok: false, lines: out };
+    }
+  }
   out.push("next: run `hub doctor` and the project checks, then commit core/ and core.version together, in one commit.");
   return { ok: true, lines: out };
 }
