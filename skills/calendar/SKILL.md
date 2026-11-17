@@ -92,7 +92,7 @@ Any difficulty is a **calendar-problem**, written in the common problem format (
 Record: `id` P1.., `type`, `asked` (what was asked, neutral words, no client address), `tried` (tools and what each answered), `blocked` (what stopped it),
 `needs` (what the owner must supply or decide), `priority`.
 Write the file `projects/<slug>/reports/problems/YYYY-MM-DD-calendar.md` (Write, that folder only; create it when missing; a second one the same day `-2`;
-the folder is git-ignored). Format: `@docs/core/19-calendar.md` section 5. **Nothing goes to Notion**: reports live on the local disk; the Notion Reports database holds meetings only.
+the folder is git-ignored). Format: `@docs/core/19-calendar.md` section 5. **Nothing goes to Notion**: reports live on the local disk; Notion Documents of Type Report hold meetings only.
 A Notion copy only when the owner asks for it directly in this session. Never put a client address or a quote of mail into the file.
 Then in the session report one line per problem: `P1 type: что нужно от владельца` and "Отчёт: <path>".
 

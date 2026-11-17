@@ -77,6 +77,6 @@ gaps: 3
 
 ## 5. Notion: not used
 
-Agent reports live on the local disk only (owner decision). The Notion `reports` database stays for meeting reports; no
+Agent reports live on the local disk only (owner decision). Notion Documents of Type `Report` stay for meeting reports; no
 skill writes an agent report there and there is no setting for it. An export to Notion happens only when the owner asks for it
 in the session, by hand, as one page with the table and details and no client data.

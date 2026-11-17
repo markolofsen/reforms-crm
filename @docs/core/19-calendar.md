@@ -57,7 +57,7 @@ both-zone proposals with IANA names (Lisbon `Europe/Lisbon`, Toronto `America/To
 conflicts and back-to-back detection; recurring holds with an end date; link to the client (Notion `clients` page line, `tasks` row only when asked); times from mail resolved and offered, never confirmed; follow-up hold offered, not created.
 
 ## 5. One problem-report mechanism (shared with the KB loop, local disk only)
-Owner decision 2026-11-14: problem reports live on the LOCAL disk, not in Notion (the Notion Reports database is for meetings only). The single local
+Owner decision 2026-11-14: problem reports live on the LOCAL disk, not in Notion (Notion documents of Type Report are for meetings only; decision 0022). The single local
 folder, agreed with the KB agent (`@docs/core/18-kb-loop.md`): `projects/<slug>/reports/` (git-ignored: `projects/*/reports/`) with subfolders
 `kb/` (KB-gap reports, kb-review summaries), `problems/` (problem reports), `runs/` (run reports); file name `YYYY-MM-DD-<kind>.md`.
 **Calendar problems go to `reports/problems/YYYY-MM-DD-calendar.md`**, in the common record format (`id`, `type`, what was asked, `seen`, `tried`, what is needed, `priority`).

@@ -73,7 +73,7 @@ projects/<slug>/reports/
   runs/      run reports
 ```
 This document defines `kb/`; `problems/` and `runs/` are reserved under the same root so that every agent report has one place.
-Files are created on demand, only when there is something to report. Notion is not used for them: its `reports` database stays
+Files are created on demand, only when there is something to report. Notion is not used for them: its Documents of Type `Report` stay
 for meeting reports, no skill writes an agent report there, and there is no project setting for it. If the owner asks in a
 session ("выгрузи в Notion"), the agent makes one page by hand (table and details, no client data); nothing else.
 
