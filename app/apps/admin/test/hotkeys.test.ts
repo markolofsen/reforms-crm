@@ -116,5 +116,7 @@ describe("a capital letter", () => {
 describe("the Overview chord", () => {
   it("g o is declared by the section list", () => {
     expect(SECTIONS.find((s) => s.id === "overview")?.chord).toEqual(["g", "o"]);
+    expect(SECTIONS.find((s) => s.id === "connections")?.chord).toEqual(["g", "c"]);
+    expect(titleOf(resolveRoute("/connections", ""), "lisbon")).toBe("Connections · Hub Workflow");
   });
 });

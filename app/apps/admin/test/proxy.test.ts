@@ -46,6 +46,7 @@ describe("proxy (Host and Origin guard)", () => {
     const go = (path: string, cookie: string | undefined) => call("127.0.0.1:5173", { path, cookie });
     expect(passes(go("/drafts?project=other", "hub_project=lisbon"))).toBe(true);
     expect(passes(go("/overview", "hub_project=lisbon"))).toBe(true);
+    expect(passes(go("/connections", "hub_project=lisbon"))).toBe(true);
     expect(passes(go("/", "hub_project=lisbon"))).toBe(true);
     expect(passes(go("/api/drafts", "hub_project=lisbon"))).toBe(true);
     expect(passes(go("/drafts", undefined))).toBe(true);

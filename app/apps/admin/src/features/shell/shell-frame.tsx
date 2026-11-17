@@ -31,8 +31,8 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   const heading = route.section ? sectionTitle(route.section) : "Not found";
   const onProject = useMemo(() => (p: string) => route.section && go(sectionList(route.section), { project: p, replace: true }), [route.section, go]);
   const scope = useMemo<ProjectScope | null>(() => (project ? { project, projects: list, onProject: (p) => void onProject(p) } : null), [project, list, onProject]);
-  // Overview is about every project: the switcher belongs to the single-project sections.
-  const scoped = route.section === "overview" ? null : project;
+  // Overview and Connections are about the whole instance: the switcher belongs to the single-project sections.
+  const scoped = route.section === "overview" || route.section === "connections" ? null : project;
 
   return (
     <AppShell items={items} onProject={(p) => void onProject(p)} project={scoped} projects={list} route={route} status={pulse}>

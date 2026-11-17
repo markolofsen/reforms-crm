@@ -21,11 +21,11 @@ function pages(dir: string, prefix = ""): string[] {
 }
 
 const tree = pages(APP);
-const ours = ["/overview", "/drafts", "/drafts/[id]", "/bulk", "/bulk/[id]", "/log", "/project"];
+const ours = ["/overview", "/connections", "/drafts", "/drafts/[id]", "/bulk", "/bulk/[id]", "/log", "/project"];
 
 describe("the file tree and the typed layer", () => {
   it("every route id of the layer has a page file, and every page file but `/`, `/health` and the API is a route id", () => {
-    const routes = [paths.overview(), paths.drafts.list(), paths.drafts.item(1), paths.bulk.list(), paths.bulk.item(1), paths.log.list(), paths.project.page()];
+    const routes = [paths.overview(), paths.connections.page(), paths.drafts.list(), paths.drafts.item(1), paths.bulk.list(), paths.bulk.item(1), paths.log.list(), paths.project.page()];
     expect(routes.map((d) => d.route).sort()).toEqual(Object.keys(ROUTE_META).sort());
     for (const p of ours) expect(tree, p).toContain(p);
     expect(tree.filter((p) => !ours.includes(p))).toEqual(["/", "/health"]);
@@ -36,9 +36,9 @@ describe("the file tree and the typed layer", () => {
   });
 
   it("the run-time door accepts the pages and the guard pattern agrees with it", () => {
-    for (const ok of ["/", "/overview", "/overview?focus=a", "/drafts", "/drafts?project=x", "/drafts/42?project=x&filter=hold", "/bulk/3", "/log?run=2", "/project?project=x"]) expect(routeOf(ok), ok).toBe(ok);
+    for (const ok of ["/", "/overview", "/overview?focus=a", "/connections", "/drafts", "/drafts?project=x", "/drafts/42?project=x&filter=hold", "/bulk/3", "/log?run=2", "/project?project=x"]) expect(routeOf(ok), ok).toBe(ok);
     for (const bad of ["/nope", "/drafts/abc", "/drafts/0", "/drafts/1/2", "//evil.test", "/api/pulse", "https://evil.test/drafts"]) expect(routeOf(bad), bad).toBeNull();
     expect(["/drafts", "/drafts/9", "/bulk", "/bulk/9", "/log", "/project"].every((p) => PROJECT_SCOPED.test(p))).toBe(true);
-    expect(["/", "/overview", "/health", "/drafts/x"].some((p) => PROJECT_SCOPED.test(p))).toBe(false);
+    expect(["/", "/overview", "/connections", "/health", "/drafts/x"].some((p) => PROJECT_SCOPED.test(p))).toBe(false);
   });
 });

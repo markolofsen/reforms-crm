@@ -1,4 +1,4 @@
-import type { RouteId } from "./paths";
+import { PROJECTLESS, type RouteId } from "./paths";
 import type { Resolved } from "./resolve";
 import { sectionTitle } from "./sections";
 
@@ -7,6 +7,7 @@ const APP = "Hub Workflow";
 /** Title and breadcrumb per route: the one declaration the document title and the detail header read. */
 export const ROUTE_META: Record<RouteId, { title: string; crumb: string | null }> = {
   "overview.page": { title: "Overview", crumb: null },
+  "connections.page": { title: "Connections", crumb: null },
   "drafts.list": { title: "Drafts", crumb: null },
   "drafts.item": { title: "Drafts", crumb: "Draft" },
   "bulk.list": { title: "Bulk", crumb: null },
@@ -24,18 +25,18 @@ export function crumbsOf(r: Resolved): string[] {
   return crumbs;
 }
 
-/** `Draft 42 · Drafts · lisbon · Hub Workflow`. Overview is about every project, so its title names none. */
+/** `Draft 42 · Drafts · lisbon · Hub Workflow`. Overview and Connections are about the instance, so their titles name no project. */
 export function titleOf(r: Resolved, project: string | null): string {
   if (r.section === null) return `Not found · ${APP}`;
   const [section = "", item] = crumbsOf(r);
-  return [item, section, r.section === "overview" ? null : project, APP].filter(Boolean).join(" · ");
+  return [item, section, r.section === "overview" || r.section === "connections" ? null : project, APP].filter(Boolean).join(" · ");
 }
 
 /** The title a page file gives its metadata: `routeId` and the id and project of its own address (a page knows both). */
 export function pageTitle(id: RouteId, project: string | null | undefined, item?: number): string {
   const { title, crumb } = ROUTE_META[id];
   const sub = crumb && item !== undefined ? `${crumb} ${item}` : null;
-  return [sub, title, id === "overview.page" ? null : project, APP].filter(Boolean).join(" · ");
+  return [sub, title, PROJECTLESS.has(id) ? null : project, APP].filter(Boolean).join(" · ");
 }
 
 export const NOT_FOUND_TITLE = `Not found · ${APP}`;

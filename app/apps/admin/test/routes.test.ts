@@ -122,6 +122,13 @@ describe("guards", () => {
     // Every other section still names its project, so the exemption is one route and not a hole.
     expect(formatDest(paths.drafts.list(), "lisbon")).toBe("/drafts?project=lisbon");
   });
+  it("Connections is the second projectless address: no project in it, none added, a stray one stripped", () => {
+    expect(resolveRoute("/connections", "")).toMatchObject({ route: "connections.page", section: "connections" });
+    expect(resolveRoute("/connections/x", "")).toMatchObject({ route: "notFound" });
+    expect(formatDest(paths.connections.page(), "lisbon")).toBe("/connections");
+    expect(canonicalAddress(resolveRoute("/connections", ""), "lisbon", "/connections")).toBeNull();
+    expect(canonicalAddress(resolveRoute("/connections", "project=lisbon"), "lisbon", "/connections?project=lisbon")).toBe("/connections");
+  });
   it("a rewritten address is stable (no redirect loop)", () => {
     const first = canonicalAddress(resolveRoute("/bulk/3", "filter=ready&project=x"), "x", "/bulk/3?filter=ready&project=x");
     expect(first).toBe("/bulk/3?project=x");

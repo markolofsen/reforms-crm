@@ -12,7 +12,7 @@ export function route<T extends string>(path: Route<T>): Route<T> {
 // The pages of the file tree as one pattern, for addresses that exist only at run time (`/drafts/42?project=x`): the
 // router's typed routes refuse a bare `string`, so the address is checked here and only then is it a `Route`.
 // `test/route-files.test.ts` fails when this pattern and `src/app` disagree.
-const PAGE = /^\/((overview|((drafts|bulk)(\/[1-9]\d*)?)|log|project))?(\?[^#]*)?$/;
+const PAGE = /^\/((overview|connections|((drafts|bulk)(\/[1-9]\d*)?)|log|project))?(\?[^#]*)?$/;
 
 function isRoute(address: string): address is Route {
   return PAGE.test(address);

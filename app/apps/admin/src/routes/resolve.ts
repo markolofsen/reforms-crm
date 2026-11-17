@@ -6,6 +6,7 @@ type Base = { project: string | null };
 /** The address as a value. `notFound` is a real state: an unknown path or a non-numeric id never shows another screen. */
 export type Resolved =
   | (Base & { route: "overview.page"; section: "overview"; params: NoSearch; search: OverviewSearch })
+  | (Base & { route: "connections.page"; section: "connections"; params: NoSearch; search: NoSearch })
   | (Base & { route: "drafts.list"; section: "drafts"; params: NoSearch; search: DraftsSearch })
   | (Base & { route: "drafts.item"; section: "drafts"; params: { id: number }; search: DraftsSearch })
   | (Base & { route: "bulk.list"; section: "bulk"; params: NoSearch; search: BulkListSearch })
@@ -30,6 +31,8 @@ export function resolveRoute(path: string, searchString: string): Resolved {
   switch (head) {
     case "overview":
       return segs.length === 1 ? { route: "overview.page", section: "overview", project, params: {}, search: overviewSearch(raw) } : notFound;
+    case "connections":
+      return segs.length === 1 ? { route: "connections.page", section: "connections", project, params: {}, search: noSearch() } : notFound;
     case undefined: // the empty address is the entry: Drafts
     case "drafts":
       if (segs.length <= 1) return { route: "drafts.list", section: "drafts", project, params: {}, search: draftsSearch(raw) };
@@ -51,6 +54,8 @@ export function destOf(r: Resolved): Dest | null {
   switch (r.route) {
     case "overview.page":
       return paths.overview({ focus: r.search.focus ?? undefined });
+    case "connections.page":
+      return paths.connections.page();
     case "drafts.list":
       return paths.drafts.list(r.search);
     case "drafts.item":

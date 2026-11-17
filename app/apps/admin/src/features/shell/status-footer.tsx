@@ -1,21 +1,25 @@
 import type { HealthDto } from "@hub/contract/health";
 import { ActionButton } from "@/components/action-button";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AppLink } from "@/components/app-link";
 import { plural } from "@/lib/format";
+import { paths, type Dest } from "@/routes/paths";
 import { cn } from "@/lib/utils";
 
 type Tone = "ok" | "warn" | "bad" | "off";
-type Row = { text: string; tone: Tone };
+/** `to`: where the thing the row names is set up (a link, never the only way to know). */
+type Row = { text: string; tone: Tone; to?: Dest };
 export type StatusInput = { health: HealthDto | null; stale: boolean; serverOlder: boolean; serverNewer: boolean };
 
 const DOT: Record<Tone, string> = { ok: "bg-success", warn: "bg-warning", bad: "bg-destructive", off: "bg-muted-foreground/40" };
 const WORST: Tone[] = ["bad", "warn", "ok", "off"];
 
-function live(label: string, state: HealthDto["sent"]["state"]): Row {
-  if (state === "running") return { text: `${label} on`, tone: "ok" };
-  if (state === "error") return { text: `${label} failing`, tone: "bad" };
-  if (state === "starting") return { text: `${label} starting`, tone: "warn" };
-  return { text: `${label} off`, tone: "off" };
+function live(label: string, state: HealthDto["sent"]["state"], to?: Dest): Row {
+  const at = to ? { to } : {};
+  if (state === "running") return { text: `${label} on`, tone: "ok", ...at };
+  if (state === "error") return { text: `${label} failing`, tone: "bad", ...at };
+  if (state === "starting") return { text: `${label} starting`, tone: "warn", ...at };
+  return { text: `${label} off`, tone: "off", ...at };
 }
 
 /**
@@ -30,8 +34,8 @@ export function statusRows({ health, stale, serverOlder, serverNewer }: StatusIn
   if (serverNewer) rows.push({ text: "Server newer than this page: reload", tone: "warn" });
   if (health) {
     const m = health.mail;
-    rows.push(m.state === "off" ? { text: "Mail not set up", tone: "off" } : m.problems.length > 0 ? { text: `Mail: ${plural(m.problems.length, "problem")}`, tone: "warn" } : { text: `Mail ready (${m.accounts})`, tone: "ok" });
-    rows.push(live("Sent detection", health.sent.state), live("Messengers", health.messengers.state));
+    rows.push(m.state === "off" ? { text: "Mail not set up", tone: "off", to: paths.connections.page() } : m.problems.length > 0 ? { text: `Mail: ${plural(m.problems.length, "problem")}`, tone: "warn" } : { text: `Mail ready (${m.accounts})`, tone: "ok" });
+    rows.push(live("Sent detection", health.sent.state), live("Messengers", health.messengers.state, paths.connections.page()));
   }
   return rows;
 }
@@ -87,7 +91,13 @@ function Item({ row }: { row: Row }) {
   return (
     <li className="flex items-start gap-2">
       <span aria-hidden="true" className={cn("mt-1 size-2 shrink-0 rounded-full", DOT[row.tone])} />
-      <span className="min-w-0 break-words">{row.text}</span>
+      {row.to ? (
+        <AppLink className="min-w-0 break-words" to={row.to}>
+          {row.text}
+        </AppLink>
+      ) : (
+        <span className="min-w-0 break-words">{row.text}</span>
+      )}
     </li>
   );
 }
