@@ -1,19 +1,33 @@
 import { expect, test } from "@playwright/test";
 import { address, cards, remember } from "./support";
 
-// The queue above the drafts: the health strip (last triage, accounts, who a draft may go to), the Inbox of what the agent
+// The queue above the drafts: the health strip (only when the setup limits what a draft can do), the Inbox of what the agent
 // touched in its triage (seeded: two clients left to the owner, one skipped), and the Evidence chip. Reads only.
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-test("the health strip says when the agent last triaged, which accounts are read and who a draft may go to", async ({ page }) => {
+test("the health strip is absent for a healthy project and speaks only when the setup limits what a draft can do", async ({ page }) => {
+  const doctor = page.waitForResponse(/\/api\/project\/doctor/);
+  await page.goto("/drafts");
+  await doctor;
+  await expect(page.getByTestId("inbox")).toBeVisible();
+  await expect(page.getByTestId("health-strip")).toHaveCount(0);
+  // The last triage moved into the Inbox: one step away.
+  await page.getByTestId("inbox").getByRole("button", { name: /^Inbox/ }).click();
+  await expect(page.getByTestId("health-triage")).toContainText(/Last triage .*ago|Last triage just now/);
+});
+
+test("a project whose sends are limited to a list says so above the queue", async ({ page }) => {
+  await page.route(/\/api\/project\/doctor/, async (route) => {
+    const res = await route.fetch();
+    const json = (await res.json()) as { facts: Record<string, unknown> };
+    await route.fulfill({ response: res, json: { ...json, facts: { ...json.facts, recipients: "test", accounts: [] } } });
+  });
   await page.goto("/drafts");
   const strip = page.getByTestId("health-strip");
-  await expect(strip).toBeVisible();
-  await expect(strip.getByTestId("health-triage")).toContainText(/Last triage: .*ago|Last triage: just now/);
-  await expect(strip.getByTestId("health-accounts")).toContainText("Mail accounts:");
-  await expect(strip.getByTestId("health-recipients")).toContainText(/Sends to: (test addresses only|a fixed list|anyone)/);
+  await expect(strip.getByTestId("health-recipients")).toContainText("Sends to test addresses only");
+  await expect(strip.getByTestId("health-accounts")).toContainText("No Mail account");
 });
 
 test("the Inbox lists the clients left to the owner and the skipped one, with a filter", async ({ page }) => {

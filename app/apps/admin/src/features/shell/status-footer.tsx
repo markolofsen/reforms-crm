@@ -98,7 +98,7 @@ export function StatusFooter(props: FooterInput) {
         </div>
       )}
       <Collapsible>
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span aria-hidden="true" className={cn("hidden size-2.5 shrink-0 rounded-full group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:block", DOT[worst])} />
           <p className="min-w-0 font-medium text-xs group-data-[collapsible=icon]:sr-only" role="status">
             <AppLink inProject={null} to={paths.overview()}>

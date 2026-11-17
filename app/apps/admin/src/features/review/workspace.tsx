@@ -61,19 +61,17 @@ function Notices({ gone, notice }: { gone: number | null; notice: Notice | null 
   );
 }
 
+/** Only when there is more to fetch: "6 of 6 loaded" says nothing the list does not (rubric 2). */
 function LoadedFooter({ loaded, total, more, fetching, onMore }: { loaded: number; total: number; more: boolean; fetching: boolean; onMore: () => void }) {
+  if (!more) return null;
   return (
-    <div className="flex flex-col gap-2 border-t p-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <p className="text-muted-foreground text-xs tabular-nums">
-          {loaded} of {total} loaded
-        </p>
-        {more && (
-          <ActionButton disabled={fetching} onClick={onMore} size="s" variant="secondary">
-            {fetching ? "Loading" : "Load more"}
-          </ActionButton>
-        )}
-      </div>
+    <div className="flex flex-wrap items-center gap-3 border-t p-3">
+      <p className="text-muted-foreground text-xs tabular-nums">
+        {loaded} of {total} loaded
+      </p>
+      <ActionButton disabled={fetching} onClick={onMore} size="s" variant="secondary">
+        {fetching ? "Loading" : "Load more"}
+      </ActionButton>
     </div>
   );
 }

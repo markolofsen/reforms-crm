@@ -14,7 +14,8 @@ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/colla
 import { Skeleton } from "@hub/ui/skeleton";
 import { LoadFailed } from "@/components/state-views";
 import { inboxApi } from "@/lib/api/inbox";
-import { formatTime } from "@/lib/format";
+import { useClock } from "@/lib/clock";
+import { ago, formatTime } from "@/lib/format";
 import { notionOf } from "@/lib/notion";
 import { paths } from "@/routes/paths";
 
@@ -51,6 +52,7 @@ function Row({ r }: { r: InboxRowDto }) {
  * last triage, and the plain statement that nothing was ever recorded, which is what an empty Drafts screen means on a new project.
  */
 export function InboxQueue({ project }: { project: string }) {
+  const now = useClock()();
   const [filter, setFilter] = useState<InboxFilter>("owed");
   const q = useQuery({ queryKey: ["inbox", project, filter], queryFn: () => inboxApi.list(project, filter), placeholderData: keepPreviousData });
   // Freshness is the pulse's: it reads every list again when the database changes, so there is no timer of its own.
@@ -73,7 +75,7 @@ export function InboxQueue({ project }: { project: string }) {
   if (lastTriageAt === null) {
     return (
       <>
-        <HealthStrip lastTriageAt={null} project={project} />
+        <HealthStrip project={project} />
         <p className="mx-3 mt-3 rounded-lg border p-3 text-muted-foreground text-sm" data-testid="inbox-never" role="note">
           No triage has been recorded for this project yet. Drafts and the clients the agent skipped appear here after it processes the mail.
         </p>
@@ -82,7 +84,7 @@ export function InboxQueue({ project }: { project: string }) {
   }
   return (
     <>
-    <HealthStrip lastTriageAt={lastTriageAt} project={project} />
+    <HealthStrip project={project} />
     <Collapsible className="mx-3 mt-3 rounded-lg border" data-testid="inbox">
       <CollapsibleTrigger className="flex min-h-(--control-m) w-full items-center gap-2 px-3 py-2 text-start text-sm">
         <span className="min-w-0 flex-1">
@@ -92,6 +94,7 @@ export function InboxQueue({ project }: { project: string }) {
         <ChevronDownIcon aria-hidden="true" className="size-4" />
       </CollapsibleTrigger>
       <CollapsiblePanel>
+        <p className="px-3 pb-2 text-muted-foreground text-xs" data-testid="health-triage">Last triage {ago(lastTriageAt, now)}.</p>
         <div className="flex gap-1 px-3 pb-2" role="group" aria-label="Inbox view">
           {INBOX_FILTERS.map((f) => (
             <ActionButton aria-pressed={filter === f} key={f} onClick={() => setFilter(f)} size="s" variant={filter === f ? "secondary" : "quiet"}>

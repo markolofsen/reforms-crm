@@ -24,6 +24,24 @@ const SEND_ROWS = [
   { id: 2, draftId: 8, mode: "manual", status: "sent", actor: "admin", createdAt: "2026-11-14T09:00:00.000Z", dueAt: null, doneAt: "2026-11-14T09:00:02.000Z", toAddr: "bo@example.com", ccAddr: "mark@example.org", subject: "Re: Refund question", body: "Hello Bo", error: null },
   { id: 1, draftId: 7, mode: "manual", status: "failed", actor: "admin", createdAt: "2026-11-13T09:00:00.000Z", dueAt: null, doneAt: "2026-11-13T09:00:01.000Z", toAddr: "cy@example.com", ccAddr: null, subject: "Re: Keys", body: "Hello Cy", error: "Mail is not running" },
 ];
+// P44 rubric 2 (show less), mechanical part: how many things a person can Tab to in the first viewport, and how far down the first draft sits on a phone.
+// Measured 2026-11-18 on the shipped screens: at most 30 tab stops (Drafts with a card open at 1280), 22 on the Overview. The cap leaves room for a state
+// that adds a notice; a screen that goes past it needs something folded away, not a higher number. Selecting drafts makes every row's checkbox a Tab stop on
+// purpose (39 at 1280), so that one state has its own cap. Not gated: colours and type sizes (no stable count), copy.
+const CONTROL_CAP = 36;
+const SELECTING_CAP = 44;
+const FIRST_ROW_MAX_PHONE = 300;
+const tabStopsInView = (page: Page) =>
+  page.evaluate(
+    () =>
+      [...document.querySelectorAll<HTMLElement>('button,a[href],input,select,textarea,[role=switch],[role=checkbox],[role=menuitem],[role=combobox]')].filter((e) => {
+        const r = e.getBoundingClientRect();
+        const s = getComputedStyle(e);
+        return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth && e.tabIndex >= 0 && !(e as HTMLButtonElement).disabled && e.getAttribute("aria-hidden") !== "true";
+      }).length,
+  );
+const firstRowTop = (page: Page) => page.evaluate(() => document.querySelector('ul[aria-label="Drafts"] > li')?.getBoundingClientRect().top ?? null);
+
 const SCREENS: Screen[] = [
   { name: "drafts", path: "/drafts", ready: async (p) => void (await p.locator('ul[aria-label="Drafts"] > li').first().waitFor()) },
   {
@@ -86,7 +104,7 @@ const SCREENS: Screen[] = [
     path: "/project",
     mock: async (p) => void (await p.route(/\/api\/projects\/[^/]+\/sends$/, (route) => route.fulfill({ json: { sends: [], stopped: [] } }))),
     ready: async (p) => {
-      await p.getByRole("list", { name: "Health checks" }).waitFor();
+      await p.getByRole("status").filter({ hasText: /\d+ pass, \d+ fail, \d+ skipped/ }).waitFor();
       await p.getByText("Nothing sent yet").waitFor();
     },
   },
@@ -226,6 +244,10 @@ for (const scheme of ["light", "dark"] as const) {
       ).toEqual([]);
 
       if ((page.viewportSize()?.width ?? 0) < 1024) expect(await undersized(page)).toEqual([]);
+
+      const cap = screen.name.includes("selected") ? SELECTING_CAP : CONTROL_CAP;
+      expect(await tabStopsInView(page), `tab stops in the first viewport (cap ${cap})`).toBeLessThanOrEqual(cap);
+      if (screen.name === "drafts" && (page.viewportSize()?.width ?? 0) < 640) expect(await firstRowTop(page), "the first draft sits this far down on a phone").toBeLessThanOrEqual(FIRST_ROW_MAX_PHONE);
 
       // HUB_E2E_SHOTS names a folder to keep the screenshots in (evidence for a track); otherwise they stay in the run's own output.
       const file = `${screen.name.replace(/\W+/g, "-")}-${scheme}.png`;

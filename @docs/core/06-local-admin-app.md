@@ -80,6 +80,10 @@ The attention list is a pure function of these facts, so the page and any status
 
 What the Overview never carries: a client's name, address, subject or body, a deal value, a Notion property or a Notion page id of a record. The schemas have no field for them and refuse a stray one.
 
+## What a screen shows by default (quality sweep)
+
+Each screen opens on what the next decision needs and keeps the rest one step away. On Drafts the project's setup strip is absent for a healthy project and appears only when the project is still a draft, has no Mail account, or limits sends to a list; "Last triage" sits inside the Inbox line. The list footer "N of N loaded" shows only when there is more to load. On the Overview the verdict says how many things need the owner and the list under it names them (it is not said twice). On Project the health list shows the failed checks and folds the passing and skipped ones. A mechanical cap holds the first viewport to 36 tab stops and the first draft on a phone to 300 px down (`ui-specifications.md` rule 4a).
+
 ## Rules
 - The agent only creates drafts. The app sends only when a person confirms one draft (decision 0011, `16` section 3B): Send on a ready draft whose checks the person read ("I read the checks", bound to the Mail text they saw), with the exact mail shown first. Bulk = many drafts, never sent in bulk.
 - Bind to 127.0.0.1 (`next dev -H 127.0.0.1`: without the flag Next listens on every address); no remote access in the first version. Next has no DNS-rebinding guard of its own, so `src/proxy.ts` refuses any Host that is not a loopback name and any write whose Origin is not; the API repeats the check.

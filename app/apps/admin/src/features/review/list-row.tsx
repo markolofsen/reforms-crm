@@ -18,16 +18,16 @@ export function statusOf(d: ReviewDraft): Status {
   return { Icon: CircleIcon, label: "To review", tone: "text-muted-foreground" };
 }
 
-type Chip = { text: string; variant: "error" | "warning" | "info"; label?: string };
+type Chip = { id: "dnc" | "injection" | "checks" | "owes"; text: string; variant: "error" | "warning" | "info"; label?: string };
 
 /** At most two chips, in the priority of research 16 section 6.3: do not contact, suspicious mail, checks, owes a reply. */
 export function chipsOf(d: ReviewDraft): Chip[] {
   const out: Chip[] = [];
-  if (d.client.marks.includes("do_not_contact")) out.push({ text: "Do not contact", variant: "error" });
-  if (d.injectionSuspected && !isClosed(d)) out.push({ text: "Suspicious mail", variant: "error" });
+  if (d.client.marks.includes("do_not_contact")) out.push({ id: "dnc", text: "Do not contact", variant: "error" });
+  if (d.injectionSuspected && !isClosed(d)) out.push({ id: "injection", text: "Suspicious mail", variant: "error" });
   const pending = openResults(d);
-  if (!isClosed(d) && pending.length > 0) out.push({ text: `${pending.length} check${pending.length === 1 ? "" : "s"}`, variant: pending.some((r) => r.level === "red") ? "error" : "warning" });
-  if (d.client.repliesOwed && !isClosed(d)) out.push({ text: "Owes reply", variant: "info" });
+  if (!isClosed(d) && pending.length > 0) out.push({ id: "checks", text: `${pending.length} check${pending.length === 1 ? "" : "s"}`, variant: pending.some((r) => r.level === "red") ? "error" : "warning" });
+  if (d.client.repliesOwed && !isClosed(d)) out.push({ id: "owes", text: "Owes reply", variant: "info" });
   return out.slice(0, 2);
 }
 

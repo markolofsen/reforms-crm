@@ -1,5 +1,5 @@
 import { ChevronDownIcon, ListChecksIcon } from "lucide-react";
-import type { Ref } from "react";
+import { useEffect, useState, type RefObject } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { FilterChips } from "@hub/ui/product/filter-chips";
 import { Input } from "@hub/ui/input";
@@ -14,7 +14,7 @@ type Header = {
   onView: (v: string) => void;
   search: string;
   onSearch: (v: string) => void;
-  searchRef: Ref<HTMLInputElement>;
+  searchRef: RefObject<HTMLInputElement | null>;
   selecting: boolean;
   onSelecting: (on: boolean) => void;
 };
@@ -44,6 +44,19 @@ function ViewMenu({ views, view, onView }: Pick<Header, "views" | "view" | "onVi
 }
 
 /**
+ * The search box. The address is the state (a search is a link), but it follows `replaceState` a moment late: a box bound only to it
+ * dropped letters typed faster than the page caught up (P44 S1 measured "Marta Fic" arriving as "Mata Fic" at 30 ms a key). The box
+ * keeps what the person typed; the address is adopted only while the box is not the one being typed in (Back, a link, Clear).
+ */
+function SearchBox({ search, onSearch, searchRef }: Pick<Header, "search" | "onSearch" | "searchRef">) {
+  const [text, setText] = useState(search);
+  useEffect(() => {
+    if (searchRef.current !== document.activeElement) setText(search);
+  }, [search, searchRef]);
+  return <Input aria-label="Search drafts" className="control-m" onChange={(e) => { setText(e.target.value); onSearch(e.target.value); }} placeholder="Search name, email or subject" ref={searchRef} type="search" value={text} />;
+}
+
+/**
  * The line that stays on top of the list as it scrolls. From 640px: the views as chips with their counts, then the search and
  * Select. Under 640px (a phone): one line, the view as a menu beside the search, so the rows keep the screen.
  */
@@ -58,7 +71,7 @@ export function ListHeader({ views, view, onView, search, onSearch, searchRef, s
           <ViewMenu onView={onView} view={view} views={views} />
         </div>
         <div className="min-w-0 flex-1">
-          <Input aria-label="Search drafts" className="control-m" onChange={(e) => onSearch(e.target.value)} placeholder="Search name, email or subject" ref={searchRef} type="search" value={search} />
+          <SearchBox onSearch={onSearch} search={search} searchRef={searchRef} />
         </div>
         <ActionButton aria-label="Select drafts" aria-pressed={selecting} icon onClick={() => onSelecting(!selecting)} size="m" variant="secondary">
           <ListChecksIcon aria-hidden="true" />
@@ -70,17 +83,16 @@ export function ListHeader({ views, view, onView, search, onSearch, searchRef, s
 
 /**
  * Where the pass stands: the open draft's place in the view, then what is done, sent and still to go. Zeros are left out
- * (except what is to go). The order is the server's, said once so nobody has to guess why a card is first.
+ * (except what is to go). The order is the server's (replies owed first, then the longest silence); it is a tooltip, not a permanent line.
  */
 export function QueueLine({ position, total, done, sent, left }: { position: number | null; total: number; done: number; sent: number; left: number }) {
   const parts = [done > 0 ? `${done} done` : null, sent > 0 ? `${sent} sent` : null, `${left} to go`].filter(Boolean).join(", ");
   return (
     <div className="px-3 pt-2 text-muted-foreground text-xs" data-testid="queue-line">
-      <p className="tabular-nums">
+      <p className="tabular-nums" title="Replies owed first, then the longest silence.">
         {position !== null && total > 0 ? `${position} of ${total} · ` : total > 0 ? `${plural(total, "draft")} · ` : ""}
         {parts}
       </p>
-      <p className="max-md:hidden">Replies owed first, then the longest silence.</p>
     </div>
   );
 }

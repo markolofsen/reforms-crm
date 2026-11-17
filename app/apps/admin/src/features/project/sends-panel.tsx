@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import type { SendRowDto } from "@hub/contract/responses";
-import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
+import { LoadFailed, Loading } from "@/components/state-views";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { refreshData, sentence } from "@/lib/api/client";
@@ -67,7 +67,7 @@ export function SendsPanel({ project }: { project: string }) {
         </p>
       )}
       {sends.length === 0 ? (
-        <EmptyState title="Nothing sent yet">A draft you have read the checks for has a Send button on the Drafts screen.</EmptyState>
+        <p className="text-muted-foreground text-sm"><span className="font-medium text-foreground">Nothing sent yet.</span> A draft you have read the checks for has a Send button on the Drafts screen.</p>
       ) : (
         <ul aria-label="Sends" className="divide-y">
           {sends.map((r) => (

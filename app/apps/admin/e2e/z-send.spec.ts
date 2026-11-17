@@ -102,7 +102,11 @@ test("a draft recorded as injection_suspected shows the flag and a class, and of
 
 test("the Project screen shows the health checks of the project", async ({ page }) => {
   await page.goto("/project");
-  const list = page.getByRole("list", { name: "Health checks" });
+  // What is wrong is on screen; the checks that pass are one step away (P44 S1, rubric 2).
+  await expect(page.getByRole("list", { name: "Failed checks" }).getByText("notion databases readable")).toBeVisible();
+  await expect(page.getByText("project.md parses")).toHaveCount(0);
+  await page.getByRole("button", { name: /^Show the other/ }).click();
+  const list = page.getByRole("list", { name: "Other checks" });
   await expect(list.getByText("project.md parses")).toBeVisible();
   await expect(list.getByText("send settings")).toBeVisible();
   await expect(page.getByRole("status").filter({ hasText: /\d+ pass, \d+ fail, \d+ skipped/ })).toBeVisible();

@@ -13,10 +13,7 @@ export function AttentionList({ items }: { items: readonly AttentionItem[] }) {
   if (items.length === 0) return null;
   const shown = all ? items : items.slice(0, SHOWN);
   return (
-    <section aria-labelledby="needs-you" className="flex flex-col gap-2">
-      <h3 className="font-heading font-medium text-sm" id="needs-you">
-        Needs you
-      </h3>
+    <section className="flex flex-col gap-2">
       <ul aria-label="Needs you" className="divide-y rounded-xl border bg-card">
         {shown.map((item) => {
           const { word, Icon, tone } = SEVERITY[item.severity];

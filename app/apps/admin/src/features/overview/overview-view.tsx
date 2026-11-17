@@ -103,7 +103,7 @@ export function OverviewView({ focus }: { focus: string | null }) {
       {notice}
       {q.isError && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
       {data.system.mailer === "fake" && <p className="text-muted-foreground text-sm">Test mode: sends stay inside this app.</p>}
-      <Verdict verdict={data.verdict} />
+      <Verdict need={data.attention.filter((i) => i.severity !== "watch").length} verdict={data.verdict} />
       <AttentionList items={data.attention} />
       <div className="grid grid-cols-1 gap-4 min-[960px]:grid-cols-2">{active.map(card)}</div>
       {archived.length > 0 && (

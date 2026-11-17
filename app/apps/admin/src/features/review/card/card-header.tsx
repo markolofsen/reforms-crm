@@ -15,6 +15,8 @@ export function CardHeader({ d, actions, now, ready }: Props) {
   const age = wrote(d.client.lastContactAt, now);
   const old = d.status === "ready" && isOld(d.updatedAt, now);
   const notion = notionOf(d);
+  // The checks are listed whole right under the header ("1 check before sending"): a second "1 check" chip would say it twice (rubric 3).
+  const chips = chipsOf(d).filter((c) => c.id !== "checks");
   const flags = d.client.marks.filter((m) => m !== "do_not_contact");
   return (
     <header className="flex min-w-0 flex-col gap-2">
@@ -25,9 +27,9 @@ export function CardHeader({ d, actions, now, ready }: Props) {
         </div>
         <ClientMenu actions={actions} d={d} />
       </div>
-      {(chipsOf(d).length > 0 || ready || flags.length > 0 || notion.kind !== null) && (
+      {(chips.length > 0 || ready || flags.length > 0 || notion.kind !== null) && (
         <p className="flex flex-wrap items-center gap-1.5">
-          {chipsOf(d).map((c) => (
+          {chips.map((c) => (
             <Badge key={c.text} variant={c.variant}>
               {c.text}
             </Badge>
