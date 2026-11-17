@@ -91,7 +91,7 @@ describe("PUT /api/connections/:id/secret", () => {
     expect((await putSecret(a, "mail:ghost", { value: NEW })).status).toBe(404);
     expect((await putSecret(a, "notion:..%2Fx", { value: NEW })).status).toBe(404);
     const w = await putSecret(a, "whatsapp", { value: NEW });
-    expect(w.status).toBe(409);
+    expect(w.status).toBe(404);
     expect(w.text).not.toContain(NEW);
     put("mail-tok.json", JSON.stringify({ account: "Tok", host: "imap.example.test", user: "t@example.test", accessToken: "tok-FAKE-1234567" }));
     expect((await putSecret(a, "mail:tok", { account: "Tok", host: "imap.example.test", port: 993, user: "t@example.test", password: PASS })).status).toBe(409);
@@ -136,13 +136,12 @@ describe("POST /api/connections/:id/remove", () => {
     expect(readdirSync(dir)).toEqual([]);
   });
 
-  it("refuses a key set by the environment, a row with no file, WhatsApp; 404 for an unknown id", async () => {
+  it("refuses a key set by the environment, a row with no file; 404 for an unknown id", async () => {
     const a = app({ NOTION_TOKEN: NEW });
     const env = await send(a, "POST", "/api/connections/notion:notion-token/remove");
     expect(env.status).toBe(409);
     expect(readdirSync(dir)).toContain("notion-token");
     expect((await send(a, "POST", "/api/connections/mail:apple-only/remove")).status).toBe(409);
-    expect((await send(a, "POST", "/api/connections/whatsapp/remove")).status).toBe(409);
     expect((await send(a, "POST", "/api/connections/mail:ghost/remove")).status).toBe(404);
   });
 });

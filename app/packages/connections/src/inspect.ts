@@ -1,11 +1,11 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { CREDS_FILE, parseAccount, type ImapAccount } from "@hub/mail/imap";
-import { mailId, notionId, TELEGRAM_ID, WHATSAPP_ID } from "./ids";
+import { mailId, notionId, TELEGRAM_ID } from "./ids";
 import { KIND_LABEL, NOTION_FILE, SAFE_FILE, TELEGRAM_FILE, isTelegramToken, notionShapeProblem, slug, type ConnectionKind } from "./kinds";
 import { fileState, readValue } from "./store";
 
-export type SecretState = "stored" | "missing" | "unsafe-mode" | "malformed" | "from-env" | "not-applicable";
+export type SecretState = "stored" | "missing" | "unsafe-mode" | "malformed" | "from-env";
 export type ConnectionAction = "test" | "set" | "remove";
 
 /** One connection, derived from the secrets folder and the projects' settings. There is no value field, so none can leak. */
@@ -35,7 +35,6 @@ export interface InspectInput {
 }
 
 const NOTION_NOTE = "Needed for Overview counts and the database check. Agent sessions do not need it: they use the Notion connector signed in inside Claude.";
-const WHATSAPP_NOTE = "Not connected, and nothing is built: the official API needs a public webhook and a dedicated business number, and the unofficial route can get the number banned.";
 
 const byLabel = (a: ConnectionRow, b: ConnectionRow): number => a.label.localeCompare(b.label);
 
@@ -50,7 +49,7 @@ function tokenState(dir: string, file: string, shapeOk: (v: string) => boolean):
 }
 
 const actions = (s: SecretState): ConnectionAction[] =>
-  s === "stored" ? ["test", "set", "remove"] : s === "from-env" ? ["test"] : s === "missing" ? ["set"] : s === "not-applicable" ? [] : ["set", "remove"];
+  s === "stored" ? ["test", "set", "remove"] : s === "from-env" ? ["test"] : s === "missing" ? ["set"] : ["set", "remove"];
 
 const problemNote = (s: SecretState): string | undefined =>
   s === "unsafe-mode" ? "The file is readable by others. Replace it, or run chmod 600 on it."
@@ -125,9 +124,7 @@ function telegramRow(i: InspectInput): ConnectionRow {
   return { id: TELEGRAM_ID, kind: "telegram", label: KIND_LABEL.telegram, secret, identity: null, usedBy: t?.project ? [t.project] : [], can: actions(secret.state), note };
 }
 
-const whatsappRow = (): ConnectionRow => ({ id: WHATSAPP_ID, kind: "whatsapp", label: KIND_LABEL.whatsapp, secret: { state: "not-applicable" }, identity: null, usedBy: [], can: [], note: WHATSAPP_NOTE });
-
-/** Every connection of this instance, in the order the panel lists them: Notion, mail, Telegram, WhatsApp. Reads files only; no network. */
+/** Every connection of this instance, in the order the panel lists them: Notion, mail, Telegram. Reads files only; no network. */
 export function inspect(i: InspectInput): ConnectionRow[] {
-  return [...notionRows(i), ...mailRows(i), telegramRow(i), whatsappRow()];
+  return [...notionRows(i), ...mailRows(i), telegramRow(i)];
 }

@@ -25,7 +25,7 @@ const predicates: Record<ClientFilter, SQL | undefined> = {
   sent: eq(drafts.status, "sent"),
   skipped: eq(drafts.status, "skipped"),
   // An open draft whose own evidence block is weak or missing: look at it before the rest.
-  evidence: and(open, or(eq(drafts.evidence, "weak"), eq(drafts.evidence, "missing"))),
+  thin_basis: and(open, or(eq(drafts.evidence, "weak"), eq(drafts.evidence, "missing"))),
 };
 
 /** Which drafts a list covers: the newest of each client, or (a batch) exactly the drafts the batch wrote. */
@@ -154,12 +154,12 @@ export function clientsRepo(db: Db) {
     async counts(project: string, scope: DraftScope = {}): Promise<ClientCounts> {
       const count = (f: ClientFilter) => (predicates[f] ? sql<number>`count(*) filter (where ${predicates[f]})` : sql<number>`count(*)`);
       const row = db
-        .select({ all: count("all"), ready: count("ready"), hold: count("hold"), owed: count("owed"), done: count("done"), sent: count("sent"), skipped: count("skipped"), evidence: count("evidence") })
+        .select({ all: count("all"), ready: count("ready"), hold: count("hold"), owed: count("owed"), done: count("done"), sent: count("sent"), skipped: count("skipped"), thin_basis: count("thin_basis") })
         .from(clients)
         .innerJoin(drafts, scopeOf(scope))
         .where(eq(clients.project, project))
         .get();
-      return row ?? { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, evidence: 0 };
+      return row ?? { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, thin_basis: 0 };
     },
 
     /** Replaces the marks of a client. Returns false when the client does not exist. */

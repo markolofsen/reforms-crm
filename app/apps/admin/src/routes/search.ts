@@ -12,7 +12,7 @@ export type RunFilter = "all" | RunStatus;
  * together) and All. The server filters by one status, so `finished` is narrowed in the page. The default is To review
  * (owner decision Q5, P29): a bare `/drafts` shows what needs the owner, so `ready` drops its key and `all` keeps it.
  */
-export const DRAFT_VIEWS = ["ready", "hold", "evidence", "finished", "all"] as const;
+export const DRAFT_VIEWS = ["ready", "hold", "thin_basis", "finished", "all"] as const;
 export type DraftView = (typeof DRAFT_VIEWS)[number];
 export const DEFAULT_DRAFT_VIEW: DraftView = "ready";
 
@@ -59,9 +59,15 @@ export type LogSearch = { filter: RunFilter; run: number | null };
 export type OverviewSearch = { focus: string | null };
 export type NoSearch = Record<string, never>;
 
+/**
+ * Saved links: the view now called `thin_basis` was `?filter=evidence` until 2026-11-18 (renamed to plain words). The old value is read
+ * as the new one here, and only here; no other address is aliased. Delete this line when no saved link can still hold it.
+ */
+const renamedView = (v: string | undefined): string | undefined => (v === "evidence" ? "thin_basis" : v);
+
 export const draftsSearch = (raw: Raw): DraftsSearch => {
   const batch = positiveInt(raw.batch);
-  return { filter: oneOf(DRAFT_VIEWS, raw.filter, DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch, new: batch === null && raw.new === "1" };
+  return { filter: oneOf(DRAFT_VIEWS, renamedView(raw.filter), DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch, new: batch === null && raw.new === "1" };
 };
 export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(RUN_FILTERS, raw.filter, "all"), run: positiveInt(raw.run) });
 export const overviewSearch = (raw: Raw): OverviewSearch => ({ focus: raw.focus ? raw.focus : null });

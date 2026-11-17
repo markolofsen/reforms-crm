@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { address, cards, remember } from "./support";
 
 // The queue above the drafts: the health strip (only when the setup limits what a draft can do), the Inbox of what the agent
-// touched in its triage (seeded: two clients left to the owner, one skipped), and the Evidence chip. Reads only.
+// touched in its triage (seeded: two clients left to the owner, one skipped), and the Thin basis chip. Reads only.
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
@@ -43,11 +43,11 @@ test("the Inbox lists the clients left to the owner and the skipped one, with a 
   await expect(inbox.getByRole("button", { name: /^All/ })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("the Evidence chip is a view of its own, kept in the address", async ({ page }) => {
+test("the Thin basis chip is a view of its own, kept in the address", async ({ page }) => {
   await page.goto("/drafts");
-  await page.getByRole("radio", { name: /^Evidence/ }).click();
-  await expect.poll(() => address(page)).toContain("filter=evidence");
-  await expect(cards(page).or(page.getByText(/No draft with weak evidence/)).first()).toBeVisible();
+  await page.getByRole("radio", { name: /^Thin basis/ }).click();
+  await expect.poll(() => address(page)).toContain("filter=thin_basis");
+  await expect(cards(page).or(page.getByText(/No draft with a thin basis/)).first()).toBeVisible();
 });
 
 test("the Inbox says when it could not load and offers Retry", async ({ page }) => {

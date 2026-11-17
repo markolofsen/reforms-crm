@@ -26,7 +26,6 @@ filters, knowledge and development plans (`@dev/`): plain files in `projects/<sl
 - Mail: Apple Mail through `mail-mcp` is how the agent reads and drafts, and how a confirmed draft is sent. A read-only IMAP login (`state/secrets/mail-<account>.json`) is optional; it adds the Overview's new-mail counts and Sent detection.
 - Notion: the agent writes through the session's connector (no token); an optional integration token is what the Overview counts, `notion-dump` and the database check read with.
 - Telegram: an optional bot token (`state/secrets/telegram-bot-token`). With it the server polls for messages and stores them; it never sends. A new token applies on the next server start ([packages/messengers/README.md](../app/packages/messengers/README.md)).
-- WhatsApp is not connected.
 
 **The Connections page** (`/connections`, key `g c`; the same list in the terminal with `hub connections [--test]`) shows each of these, whether its key is stored, who uses it
 and the result of the last Test. You can set, replace and remove a key there. A key goes from the form to the server and is never shown, returned or kept in the browser

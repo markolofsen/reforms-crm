@@ -36,6 +36,9 @@ describe("resolveRoute", () => {
   it("a filter outside its enum resets to the default instead of breaking the view", () => {
     expect(resolveRoute("/drafts", "filter=zzz")).toMatchObject({ search: { filter: "ready" } });
     expect(resolveRoute("/drafts", "filter=all")).toMatchObject({ search: { filter: "all" } }); // All is a choice, so it keeps its key
+    // Saved links (renamed 2026-11-18): the old `evidence` view value opens the Thin basis view; the new one is the only spelling written back.
+    expect(resolveRoute("/drafts", "filter=evidence")).toMatchObject({ search: { filter: "thin_basis" } });
+    expect(resolveRoute("/drafts", "filter=thin_basis")).toMatchObject({ search: { filter: "thin_basis" } });
     // A batch must be a positive number; a builder never carries one.
     expect(resolveRoute("/drafts", "batch=abc")).toMatchObject({ search: { batch: null } });
     expect(resolveRoute("/drafts", "batch=0")).toMatchObject({ search: { batch: null } });

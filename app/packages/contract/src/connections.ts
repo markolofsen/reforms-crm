@@ -8,9 +8,9 @@ import { liveBlock } from "./overview";
  */
 
 /** Closed lists; `@hub/connections` holds the same words for the server and CLI (the admin may not import it). A mismatch fails the server's type check. */
-export const CONNECTION_KINDS = ["notion", "mail", "telegram", "whatsapp"] as const;
+export const CONNECTION_KINDS = ["notion", "mail", "telegram"] as const;
 export type ConnectionKind = (typeof CONNECTION_KINDS)[number];
-export const SECRET_STATES = ["stored", "missing", "unsafe-mode", "malformed", "from-env", "not-applicable"] as const;
+export const SECRET_STATES = ["stored", "missing", "unsafe-mode", "malformed", "from-env"] as const;
 export type SecretState = (typeof SECRET_STATES)[number];
 export const CONNECTION_ACTIONS = ["test", "set", "remove"] as const;
 export type ConnectionAction = (typeof CONNECTION_ACTIONS)[number];
@@ -23,7 +23,7 @@ export const checkValueDto = z.strictObject({ detail: z.string(), identity: z.st
 export type CheckValueDto = z.infer<typeof checkValueDto>;
 
 export const connectionDto = z.strictObject({
-  /** `notion:<file>`, `mail:<slug>`, `telegram:bot`, `whatsapp`: the only thing a client sends back to pick a connection. */
+  /** `notion:<file>`, `mail:<slug>`, `telegram:bot`: the only thing a client sends back to pick a connection. */
   id: z.string(),
   kind: z.enum(CONNECTION_KINDS),
   label: z.string(),

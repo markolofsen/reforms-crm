@@ -27,7 +27,7 @@ test("Open in Mail links to the message by its Message-ID", async ({ page }) => 
 
 test("A project with no drafts says what to ask the agent", async ({ page }) => {
   await page.route(/\/api\/drafts\?/, (route) =>
-    route.fulfill({ json: { drafts: [], counts: { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, evidence: 0 }, total: 0, nextOffset: null } }),
+    route.fulfill({ json: { drafts: [], counts: { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, thin_basis: 0 }, total: 0, nextOffset: null } }),
   );
   await page.goto("/drafts?filter=all");
   await expect(page.getByText('Say to the agent: "разбери почту lisbon-realty"')).toBeVisible();

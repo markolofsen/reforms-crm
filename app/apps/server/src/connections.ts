@@ -90,7 +90,6 @@ const FIX: Record<ConnectionRow["kind"], string> = {
   notion: "Replace the token in this row with a working integration token.",
   mail: "Replace the app password in this row.",
   telegram: "Replace the bot token in this row with the token of a bot made in BotFather.",
-  whatsapp: "",
 };
 
 function errorCode(kind: ConnectionRow["kind"], v: Verdict): ReadErrorCode {
@@ -166,7 +165,6 @@ export function createConnections(o: ConnectionsOptions): ConnectionsService {
       const row = (await rows()).find((r) => r.id === id);
       const ref = parseConnectionId(id);
       if (!row || !ref) return undefined;
-      if (ref.kind === "whatsapp") throw new Refusal(`${row.label} has no key to remove.`, 409);
       if (row.secret.state === "from-env") throw new Refusal("This key is set by the NOTION_TOKEN environment variable. Unset it where the server is started; the hub cannot remove it.", 409);
       if (!row.can.includes("remove")) throw new Refusal(`${row.label} has no key file to remove.`, 409);
       removeSecret(dir(), ref.file);

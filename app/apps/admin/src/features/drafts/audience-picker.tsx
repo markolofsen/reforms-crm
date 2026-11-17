@@ -34,7 +34,10 @@ type Props = {
   now: number;
 };
 
-/** Step 1, who: the audience chips with counts, the people in it, and a tick for each one that is eligible. */
+/**
+ * Step 1, who: the audience chips with counts, the people in it, and a tick for each one that is eligible. Why a client is left out
+ * is said once, in the "Left out" line; a left-out row is muted with its tick disabled, and keeps the reason as text for a screen reader.
+ */
 export function AudiencePicker(p: Props) {
   const chips = AUDIENCES.map((a) => ({ value: a, label: a === "silent" ? `${AUDIENCE_LABELS[a]} ${p.days}+ days` : AUDIENCE_LABELS[a], count: p.data?.counts[a] }));
   const left = EXCLUSION_REASONS.flatMap((r) => {
@@ -88,7 +91,7 @@ export function AudiencePicker(p: Props) {
               </TableHeader>
               <TableBody>
                 {p.clients.slice(0, SHOWN).map((c) => (
-                  <TableRow key={c.id}>
+                  <TableRow className={c.reason ? "text-muted-foreground" : undefined} key={c.id}>
                     <TableCell className="max-sm:px-1.5">
                       <label className="-m-2.5 flex size-11 cursor-pointer items-center justify-center lg:m-0 lg:size-6" htmlFor={`include-${c.id}`}>
                         <Checkbox id={`include-${c.id}`} aria-label={`Include ${c.name}`} checked={c.reason === null && !p.unticked.has(c.id)} disabled={c.reason !== null} onCheckedChange={(v) => p.onToggle(c.id, v === true)} />
@@ -103,7 +106,7 @@ export function AudiencePicker(p: Props) {
                     <TableCell className="max-sm:hidden">
                       <div className="text-end tabular-nums">{silence(c.lastContactAt, p.now)}</div>
                     </TableCell>
-                    <TableCell className="max-sm:px-1.5">{c.reason ? <Badge variant="outline">{EXCLUSION_LABELS[c.reason]}</Badge> : c.repliesOwed ? <Badge variant="error">Owes reply</Badge> : null}</TableCell>
+                    <TableCell className="max-sm:px-1.5">{c.reason ? <span className="sr-only">{EXCLUSION_LABELS[c.reason]}</span> : c.repliesOwed ? <Badge variant="error">Owes reply</Badge> : null}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

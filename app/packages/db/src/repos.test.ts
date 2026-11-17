@@ -63,7 +63,7 @@ describe("clients list and counts", () => {
     await addClient("other", "z@x.example", { owed: true, status: "ready" });
 
     const counts = await repos.clients.counts("p");
-    expect(counts).toEqual({ all: 4, ready: 1, hold: 1, owed: 2, done: 1, sent: 1, skipped: 0, evidence: 0 });
+    expect(counts).toEqual({ all: 4, ready: 1, hold: 1, owed: 2, done: 1, sent: 1, skipped: 0, thin_basis: 0 });
     for (const [filter, n] of Object.entries(counts)) {
       expect(await repos.clients.list("p", filter as keyof typeof counts)).toHaveLength(n);
     }
@@ -328,11 +328,11 @@ describe("recorded evidence (P28 C1-C3)", () => {
     expect((await repos.drafts.setChecked(r.draftId, true))?.checked).toBe(true);
   });
 
-  it("the evidence filter lists open drafts whose evidence is weak or missing, and counts them", async () => {
+  it("the thin-basis filter lists open drafts whose evidence is weak or missing, and counts them", async () => {
     await repos.drafts.record({ ...base, evidence: weak });
     await repos.drafts.record({ ...base, email: "ok@x.example", mailRef: "<ok@x>", evidence: { level: "ok", source: "observed", findings: [] } });
-    expect((await repos.clients.review("p", "evidence")).map((x) => x.client.email)).toEqual(["ev@x.example"]);
-    expect((await repos.clients.counts("p")).evidence).toBe(1);
+    expect((await repos.clients.review("p", "thin_basis")).map((x) => x.client.email)).toEqual(["ev@x.example"]);
+    expect((await repos.clients.counts("p")).thin_basis).toBe(1);
   });
 
   it("marker_left is a red typed check when the text still carries the hub marker", async () => {

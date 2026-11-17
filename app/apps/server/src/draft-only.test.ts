@@ -96,19 +96,19 @@ describe("a draft recorded by a session", () => {
     expect((await post(`/api/drafts/${r.draftId}/status`, { project: "p", status: "sent" })).status).toBe(400);
     const list = (await (await get("/api/drafts?project=p")).json()) as { drafts: { client: { name: string }; subject: string }[]; counts: Record<string, number>; total: number; nextOffset: number | null };
     expect(list.drafts.map((d) => [d.client.name, d.subject])).toEqual([["Cy Roe", "Re: terms"]]);
-    expect(list.counts).toEqual({ all: 1, ready: 1, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, evidence: 0 });
+    expect(list.counts).toEqual({ all: 1, ready: 1, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, thin_basis: 0 });
     expect(list).toMatchObject({ total: 1, nextOffset: null });
   });
 
-  it("the evidence filter and basedOn reach the API; the sketch and the raw context columns do not", async () => {
+  it("the thin-basis filter and basedOn reach the API; the sketch and the raw context columns do not", async () => {
     await repos.drafts.record({ project: "p", email: "w@x.example", name: "Wo", subject: "Re", mailRef: "<w@x>", evidence: { level: "missing", source: "claimed", findings: [{ code: "no-thread-read", text: "no message was opened", amber: false }], context: { thread: { found: 2, read: 0 } }, fingerprint: [4, 5], batchKey: "k" } });
     await repos.drafts.record({ project: "p", email: "g@x.example", name: "Gi", subject: "Re", mailRef: "<g@x>" });
-    const list = (await (await get("/api/drafts?project=p&filter=evidence")).json()) as { drafts: Array<Record<string, unknown>>; counts: Record<string, number> };
+    const list = (await (await get("/api/drafts?project=p&filter=thin_basis")).json()) as { drafts: Array<Record<string, unknown>>; counts: Record<string, number> };
     expect(list.drafts).toHaveLength(1);
     expect(list.drafts[0]).toMatchObject({ basedOn: { level: "missing", source: "claimed", findings: [{ code: "no-thread-read" }] }, blocked: true });
     expect(Object.keys(list.drafts[0] ?? {})).not.toEqual(expect.arrayContaining(["fingerprint"]));
     expect(list.drafts[0]).not.toHaveProperty("context");
-    expect(list.counts.evidence).toBe(1);
+    expect(list.counts.thin_basis).toBe(1);
   });
 
   it("the Drafts list hides a client who has no draft", async () => {

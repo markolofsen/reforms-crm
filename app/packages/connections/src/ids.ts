@@ -4,17 +4,14 @@ import { SAFE_FILE, TELEGRAM_FILE, slug } from "./kinds";
 export type ConnectionRef =
   | { kind: "notion"; file: string }
   | { kind: "mail"; slug: string; file: string }
-  | { kind: "telegram"; file: string }
-  | { kind: "whatsapp" };
+  | { kind: "telegram"; file: string };
 
 export const notionId = (file: string): string => `notion:${file}`;
 export const mailId = (s: string): string => `mail:${s}`;
 export const TELEGRAM_ID = "telegram:bot";
-export const WHATSAPP_ID = "whatsapp";
 
 /** `undefined` for anything that is not an id of this instance's own kinds; a file name that could leave the folder never parses. */
 export function parseConnectionId(id: string): ConnectionRef | undefined {
-  if (id === WHATSAPP_ID) return { kind: "whatsapp" };
   if (id === TELEGRAM_ID) return { kind: "telegram", file: TELEGRAM_FILE };
   const [kind, rest = "", ...more] = id.split(":");
   if (more.length || !rest) return undefined;

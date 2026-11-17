@@ -27,12 +27,12 @@ import type { DraftView } from "@/routes/search";
 const VIEWS: { value: DraftView; label: string }[] = [
   { value: "ready", label: "To review" },
   { value: "hold", label: "Hold" },
-  { value: "evidence", label: "Evidence" },
+  { value: "thin_basis", label: "Thin basis" },
   { value: "finished", label: "Finished" },
   { value: "all", label: "All" },
 ];
 const FINISHED: readonly ClientFilter[] = ["done", "sent", "skipped"];
-const EMPTY: Record<DraftView, string> = { ready: "Nothing to review", hold: "Nothing on hold", evidence: "No draft with weak evidence", finished: "Nothing finished yet", all: "No drafts" };
+const EMPTY: Record<DraftView, string> = { ready: "Nothing to review", hold: "Nothing on hold", thin_basis: "No draft with a thin basis", finished: "Nothing finished yet", all: "No drafts" };
 const SEARCH_PAUSE_MS = 250;
 
 type Scope = { search: string; batch: number | null };

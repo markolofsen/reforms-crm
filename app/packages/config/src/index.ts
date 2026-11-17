@@ -20,7 +20,7 @@ export const SETTABLE_STATUSES = ["ready", "hold", "done", "skipped"] as const;
 export type SettableStatus = (typeof SETTABLE_STATUSES)[number];
 
 /** Filters of the Drafts list: each shows a count. */
-export const CLIENT_FILTERS = ["all", "ready", "hold", "owed", "done", "sent", "skipped", "evidence"] as const;
+export const CLIENT_FILTERS = ["all", "ready", "hold", "owed", "done", "sent", "skipped", "thin_basis"] as const;
 export type ClientFilter = (typeof CLIENT_FILTERS)[number];
 export type ClientCounts = Record<ClientFilter, number>;
 
@@ -32,7 +32,7 @@ export const FILTER_LABELS: Record<ClientFilter, string> = {
   done: "Done",
   sent: "Sent",
   skipped: "Skipped",
-  evidence: "Evidence problems",
+  thin_basis: "Thin basis",
 };
 
 export const MARKS = ["follow_up", "do_not_contact", "vip"] as const;

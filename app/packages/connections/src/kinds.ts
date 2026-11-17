@@ -1,11 +1,10 @@
 /** The closed list of connection kinds, each with a label (a total map: adding a kind fails the build until it has one). */
-export const CONNECTION_KINDS = ["notion", "mail", "telegram", "whatsapp"] as const;
+export const CONNECTION_KINDS = ["notion", "mail", "telegram"] as const;
 export type ConnectionKind = (typeof CONNECTION_KINDS)[number];
 export const KIND_LABEL: Record<ConnectionKind, string> = {
   notion: "Notion integration",
   mail: "Mail login (IMAP, read only)",
   telegram: "Telegram bot",
-  whatsapp: "WhatsApp",
 };
 
 /** The two token files. Mail logins are `mail-<name>.json` (see `@hub/mail/imap` CREDS_FILE). */

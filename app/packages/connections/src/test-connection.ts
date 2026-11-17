@@ -12,7 +12,6 @@ const invalid = (detail: string): Verdict => ({ state: "invalid", detail });
 export async function testConnection(dir: string, env: NodeJS.ProcessEnv, deps: ProbeDeps, id: string): Promise<Verdict> {
   const ref = parseConnectionId(id);
   if (!ref) return invalid("unknown connection");
-  if (ref.kind === "whatsapp") return invalid("nothing to test: WhatsApp is not connected");
   const fromEnv = ref.kind === "notion" && ref.file === NOTION_FILE ? env.NOTION_TOKEN?.trim() : undefined;
   if (fromEnv) return probeNotion(deps, fromEnv);
   const f = fileState(dir, ref.file);

@@ -56,7 +56,7 @@ describe("GET /api/connections", () => {
     await register({ slug: "alpha", settingsJson: settings({ mail: { accounts: ["Work", "Apple Only"], addresses: [] } }) }, { slug: "beta", settingsJson: settings({ notion: { tokenFile: "beta-token", databases: [] } }) });
     const { status, body } = await list(app());
     expect(status).toBe(200);
-    expect(body.connections.map((c) => c.id)).toEqual(["notion:beta-token", "notion:notion-token", "mail:apple-only", "mail:work", "telegram:bot", "whatsapp"]);
+    expect(body.connections.map((c) => c.id)).toEqual(["notion:beta-token", "notion:notion-token", "mail:apple-only", "mail:work", "telegram:bot"]);
     expect(row(body.connections, "mail:work")).toMatchObject({ usedBy: ["alpha", "beta"], secret: { state: "stored" }, check: { state: "never" }, identity: "me@example.test at imap.example.test" });
     expect(row(body.connections, "mail:apple-only")).toMatchObject({ secret: { state: "missing" }, can: ["set"] });
     expect(row(body.connections, "notion:beta-token")).toMatchObject({ usedBy: ["beta"], secret: { state: "missing" } });
@@ -141,11 +141,11 @@ describe("POST /api/connections/:id/test", () => {
     expect(row((await list(a)).body.connections, "notion:notion-token").check.state).toBe("never");
   });
 
-  it("refuses what has nothing to test (409), an unknown id (404), WhatsApp (409)", async () => {
+  it("refuses what has nothing to test (409), an unknown id (404)", async () => {
     const a = app();
     expect((await test(a, "telegram:bot")).status).toBe(409);
     expect((await test(a, "mail:ghost")).status).toBe(404);
-    expect((await test(a, "whatsapp")).status).toBe(409);
+    expect((await test(a, "whatsapp")).status).toBe(404);
     expect((await test(a, "notion:..%2Fx")).status).toBe(404);
     expect(calls).toEqual([]);
   });

@@ -30,12 +30,11 @@ const row = (rows: ConnectionRow[], id: string): ConnectionRow => {
 const base = { env: {} as NodeJS.ProcessEnv, projects: [] };
 
 describe("inspect", () => {
-  it("an empty instance lists the two missing tokens and the static WhatsApp row", () => {
+  it("an empty instance lists the two missing tokens", () => {
     const rows = inspect({ dir: dirOf(), ...base });
     expect(rows.map((r) => [r.id, r.secret.state, r.can])).toEqual([
       ["notion:notion-token", "missing", ["set"]],
       ["telegram:bot", "missing", ["set"]],
-      ["whatsapp", "not-applicable", []],
     ]);
   });
 
@@ -228,7 +227,7 @@ describe("testConnection by id", () => {
     expect(out.map((v) => v.state)).toEqual(["valid", "valid", "valid"]);
     expect(leaks(out)).toEqual([]);
   });
-  it("missing, loose, unknown, WhatsApp and env cases are verdicts, not throws", async () => {
+  it("missing, loose, unknown and env cases are verdicts, not throws", async () => {
     const dir = dirOf();
     const deps = respond(200);
     expect((await testConnection(dir, {}, deps, "notion:notion-token")).detail).toBe("no secret is stored");
@@ -236,7 +235,7 @@ describe("testConnection by id", () => {
     expect((await testConnection(dir, {}, deps, "telegram:bot")).detail).toContain("mode 644");
     expect((await testConnection(dir, {}, deps, "mail:ghost")).state).toBe("invalid");
     expect((await testConnection(dir, {}, deps, "zzz")).detail).toBe("unknown connection");
-    expect((await testConnection(dir, {}, deps, "whatsapp")).state).toBe("invalid");
+    expect((await testConnection(dir, {}, deps, "whatsapp")).detail).toBe("unknown connection");
     expect((await testConnection(dir, { NOTION_TOKEN: NOTION }, deps, "notion:notion-token")).state).toBe("valid");
   });
 });
