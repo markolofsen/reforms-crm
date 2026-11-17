@@ -34,9 +34,9 @@ describe("the file tree and the route table", () => {
   });
 
   it("the patterns derived from the table accept the pages and nothing else", () => {
-    for (const ok of ["/", "/overview", "/overview?focus=a", "/connections", "/drafts", "/drafts?project=x", "/drafts/42?project=x&filter=hold", "/bulk/3", "/log?run=2", "/project?project=x"]) expect(routeOf(ok), ok).toBe(ok);
-    for (const bad of ["/nope", "/drafts/abc", "/drafts/0", "/drafts/1/2", "//evil.test", "/api/pulse", "https://evil.test/drafts"]) expect(routeOf(bad), bad).toBeNull();
-    expect(["/drafts", "/drafts/9", "/bulk", "/bulk/9", "/log", "/project"].every((p) => PROJECT_SCOPED.test(p))).toBe(true);
+    for (const ok of ["/", "/overview", "/overview?focus=a", "/connections", "/drafts", "/drafts?project=x", "/drafts/42?project=x&filter=hold&batch=3", "/log?run=2", "/project?project=x"]) expect(routeOf(ok), ok).toBe(ok);
+    for (const bad of ["/bulk", "/bulk/3", "/nope", "/drafts/abc", "/drafts/0", "/drafts/1/2", "//evil.test", "/api/pulse", "https://evil.test/drafts"]) expect(routeOf(bad), bad).toBeNull();
+    expect(["/drafts", "/drafts/9", "/log", "/project"].every((p) => PROJECT_SCOPED.test(p))).toBe(true);
     expect(["/", "/overview", "/connections", "/health", "/drafts/x"].some((p) => PROJECT_SCOPED.test(p))).toBe(false);
     expect([...PROJECTLESS].sort()).toEqual(["connections.page", "overview.page"]);
   });

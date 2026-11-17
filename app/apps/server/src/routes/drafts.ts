@@ -22,10 +22,10 @@ export function draftRoutes(repos: Repos, mail?: Pick<MailService, "historyFor">
 
   return new Hono()
     .get("/api/drafts", v("query", draftsQuery), async (c) => {
-      const { project, filter, limit, offset } = c.req.valid("query");
+      const { project, filter, search, batch, limit, offset } = c.req.valid("query");
       // Only clients that have a draft: the admin is a review queue, not a client directory (decision 0009).
-      const [rows, counts] = await Promise.all([repos.clients.review(project, filter, { limit, offset }), repos.clients.counts(project)]);
-      const total = counts[filter];
+      const scope = { batch: batch ?? null, search };
+      const [rows, counts, total] = await Promise.all([repos.clients.review(project, filter, { ...scope, limit, offset }), repos.clients.counts(project, scope), repos.clients.reviewTotal(project, filter, scope)]);
       return c.json(draftsDto.parse({ drafts: await Promise.all(rows.map(async (d) => toDraft(d, await repos.sends.forDraft(d.id)))), counts, total, nextOffset: offset + rows.length < total ? offset + rows.length : null }));
     })
     .post("/api/drafts/:id/checked", v("param", idParam), v("json", checkedBody), async (c) => {

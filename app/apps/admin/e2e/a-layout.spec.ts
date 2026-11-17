@@ -79,8 +79,7 @@ const SCREENS: Screen[] = [
       await p.getByText("Three new inbound messages since the last run").waitFor();
     },
   },
-  { name: "bulk", path: "/bulk", ready: async (p) => void (await p.getByRole("link", { name: /new batch/i }).first().waitFor()) },
-  { name: "bulk: new batch", path: "/bulk?new=1", ready: async (p) => void (await p.getByRole("heading", { name: "New batch" }).waitFor()) },
+  { name: "drafts: new batch", path: "/drafts?new=1", ready: async (p) => void (await p.getByRole("heading", { name: "New batch" }).waitFor()) },
   { name: "project", path: "/project", ready: async (p) => void (await p.getByRole("switch").first().waitFor()) },
   {
     name: "project: health and an empty send history",

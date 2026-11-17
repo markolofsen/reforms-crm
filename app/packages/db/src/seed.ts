@@ -167,3 +167,16 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
   await seen("noreply@example.com", "Newsletter", "skipped", "A mailing list, no reply needed.", { kind: "none" }, 30, "Weekly digest");
   return true;
 }
+
+/**
+ * Adds `count` invented clients, each with one ready draft, to a project: enough to page through the Drafts list and to prove a
+ * search finds a client that is not on the first page. Not part of `seed` (the shared e2e counts would change); run it by hand
+ * with `seed-cli --many 120`. Names are "Client 001 Sample" ... so a search for one is unambiguous.
+ */
+export async function seedMany(repos: Repos, opts: { project: string; count: number; now?: Date }): Promise<void> {
+  const now = opts.now ?? new Date();
+  for (let i = 1; i <= opts.count; i++) {
+    const n = String(i).padStart(3, "0");
+    await repos.drafts.record({ project: opts.project, email: `client${n}@example.net`, name: `Client ${n} Sample`, subject: `Re: Question ${n}`, mailRef: `<many-${n}@example.com>`, repliesOwed: i % 3 === 0, lastContactAt: daysAgo(now, i % 40) });
+  }
+}

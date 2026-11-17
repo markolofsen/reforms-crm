@@ -6,7 +6,6 @@ import { FilterChips } from "@hub/ui/product/filter-chips";
 import { Alert, AlertDescription } from "@hub/ui/alert";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Input } from "@hub/ui/input";
-import { AppLink } from "@/components/app-link";
 import { Textarea } from "@hub/ui/textarea";
 import { bulkApi } from "@/lib/api/bulk";
 import { refreshData, sentence } from "@/lib/api/client";
@@ -19,7 +18,7 @@ import { AudiencePicker } from "./audience-picker";
 const INTENT_CHIPS = BATCH_INTENTS.map((i) => ({ value: i, label: INTENT_LABELS[i], count: null }));
 
 /**
- * Step 1 who, step 2 what. Nothing is created until "Create batch", and nothing is ever sent: a batch is a brief (the
+ * The pane of Drafts when the address says `?new=1`. Step 1 who, step 2 what. Nothing is created until "Create batch", and nothing is ever sent: a batch is a brief (the
  * purpose and the tone) and a list of clients. The agent reads each client's thread and profile and writes that client's
  * own draft; one text is never copied to everyone (P28 C5). You review the drafts one by one.
  */
@@ -57,7 +56,7 @@ export function NewBatch({ project }: { project: string }) {
       }),
     onSuccess: async ({ batchId }) => {
       await refreshData(qc);
-      go(paths.bulk.item(batchId), { replace: true });
+      go(paths.drafts.list({ batch: batchId, filter: "all" }), { replace: true });
     },
   });
 
@@ -71,10 +70,7 @@ export function NewBatch({ project }: { project: string }) {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
-        <AppLink to={paths.bulk.list()}>All batches</AppLink>
-        <h3 className="font-heading font-semibold text-base">New batch</h3>
-      </div>
+      <h3 className="font-heading font-semibold text-base">New batch</h3>
 
       <AudiencePicker
         audience={audience}

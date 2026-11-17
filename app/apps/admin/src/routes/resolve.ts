@@ -1,5 +1,5 @@
 import { paths, type Dest } from "./paths";
-import { bulkItemSearch, bulkListSearch, draftsSearch, logSearch, noSearch, overviewSearch, parseQuery, positiveInt, type BulkItemSearch, type BulkListSearch, type DraftsSearch, type LogSearch, type NoSearch, type OverviewSearch } from "./search";
+import { draftsSearch, logSearch, noSearch, overviewSearch, parseQuery, positiveInt, type DraftsSearch, type LogSearch, type NoSearch, type OverviewSearch } from "./search";
 import type { SectionId } from "./sections";
 
 type Base = { project: string | null };
@@ -9,8 +9,6 @@ export type Resolved =
   | (Base & { route: "connections.page"; section: "connections"; params: NoSearch; search: NoSearch })
   | (Base & { route: "drafts.list"; section: "drafts"; params: NoSearch; search: DraftsSearch })
   | (Base & { route: "drafts.item"; section: "drafts"; params: { id: number }; search: DraftsSearch })
-  | (Base & { route: "bulk.list"; section: "bulk"; params: NoSearch; search: BulkListSearch })
-  | (Base & { route: "bulk.item"; section: "bulk"; params: { id: number }; search: BulkItemSearch })
   | (Base & { route: "log.list"; section: "log"; params: NoSearch; search: LogSearch })
   | (Base & { route: "project.page"; section: "project"; params: NoSearch; search: NoSearch })
   | (Base & { route: "notFound"; section: null; path: string });
@@ -37,9 +35,6 @@ export function resolveRoute(path: string, searchString: string): Resolved {
     case "drafts":
       if (segs.length <= 1) return { route: "drafts.list", section: "drafts", project, params: {}, search: draftsSearch(raw) };
       return id === null ? notFound : { route: "drafts.item", section: "drafts", project, params: { id }, search: draftsSearch(raw) };
-    case "bulk":
-      if (segs.length === 1) return { route: "bulk.list", section: "bulk", project, params: {}, search: bulkListSearch(raw) };
-      return id === null ? notFound : { route: "bulk.item", section: "bulk", project, params: { id }, search: bulkItemSearch(raw) };
     case "log":
       return segs.length === 1 ? { route: "log.list", section: "log", project, params: {}, search: logSearch(raw) } : notFound;
     case "project":
@@ -57,13 +52,9 @@ export function destOf(r: Resolved): Dest | null {
     case "connections.page":
       return paths.connections.page();
     case "drafts.list":
-      return paths.drafts.list(r.search);
+      return r.search.new ? paths.drafts.newBatch() : paths.drafts.list(r.search);
     case "drafts.item":
       return paths.drafts.item(r.params.id, r.search);
-    case "bulk.list":
-      return r.search.new ? paths.bulk.new() : paths.bulk.list();
-    case "bulk.item":
-      return paths.bulk.item(r.params.id, r.search);
     case "log.list":
       return paths.log.list(r.search);
     case "project.page":

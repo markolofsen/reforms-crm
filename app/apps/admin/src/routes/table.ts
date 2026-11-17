@@ -20,8 +20,6 @@ export const ROUTE_TABLE = {
   "connections.page": row("/connections", "connections", false),
   "drafts.list": row("/drafts", "drafts", true),
   "drafts.item": row("/drafts/[id]", "drafts", true),
-  "bulk.list": row("/bulk", "bulk", true),
-  "bulk.item": row("/bulk/[id]", "bulk", true),
   "log.list": row("/log", "log", true),
   "project.page": row("/project", "project", true),
 } as const;

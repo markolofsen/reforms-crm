@@ -74,8 +74,8 @@ describe("hotkeys dispatcher", () => {
   it("keys are case-insensitive", () => {
     const { calls, dispatch } = setup();
     dispatch(key("G"));
-    dispatch(key("B"));
-    expect(calls).toEqual(["bulk"]);
+    dispatch(key("P"));
+    expect(calls).toEqual(["project"]);
   });
 });
 
@@ -83,7 +83,6 @@ describe("document title", () => {
   it("names the item, the section, the project and the app; Not found names no section", () => {
     expect(titleOf(resolveRoute("/drafts", ""), "lisbon")).toBe("Drafts · lisbon · Hub Workflow");
     expect(titleOf(resolveRoute("/drafts/42", ""), "lisbon")).toBe("Draft 42 · Drafts · lisbon · Hub Workflow");
-    expect(titleOf(resolveRoute("/bulk/3", ""), null)).toBe("Batch 3 · Bulk · Hub Workflow");
     expect(titleOf(resolveRoute("/log", ""), "x")).toBe("Activity · x · Hub Workflow");
     expect(titleOf(resolveRoute("/clients", ""), "x")).toBe("Not found · Hub Workflow");
     expect(crumbsOf(resolveRoute("/drafts/42", ""))).toEqual(["Drafts", "Draft 42"]);
@@ -91,7 +90,6 @@ describe("document title", () => {
   it("a page file gives the same title as the address it serves (generateMetadata reads pageTitle)", () => {
     expect(pageTitle("drafts.list", "lisbon")).toBe(titleOf(resolveRoute("/drafts", ""), "lisbon"));
     expect(pageTitle("drafts.item", "lisbon", 42)).toBe(titleOf(resolveRoute("/drafts/42", ""), "lisbon"));
-    expect(pageTitle("bulk.item", null, 3)).toBe(titleOf(resolveRoute("/bulk/3", ""), null));
     expect(pageTitle("overview.page", "lisbon")).toBe("Overview · Hub Workflow");
     expect(titleOf(resolveRoute("/overview", ""), "lisbon")).toBe("Overview · Hub Workflow");
   });

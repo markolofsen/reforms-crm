@@ -6,10 +6,10 @@ import { route } from "../src/routes/typed";
 
 // @ts-expect-error a draft id is a number, not a string
 paths.drafts.item("abc");
-// @ts-expect-error the Bulk list takes no search
-paths.bulk.list({ filter: "hold" });
-// @ts-expect-error a client filter is not a batch filter
-paths.bulk.item(3, { filter: "ready" });
+// @ts-expect-error a batch is a number, not its name
+paths.drafts.list({ batch: "June" });
+// @ts-expect-error there is no Bulk screen: a batch is a filter of Drafts
+paths.bulk.list();
 // @ts-expect-error not a route of the tree
 paths.drafz.list();
 // @ts-expect-error a filter outside its enum

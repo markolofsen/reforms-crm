@@ -4,7 +4,6 @@ import { useCallback } from "react";
 import { DEFAULT_DRAFT_VIEW, DRAFT_VIEWS, oneOf, RUN_FILTERS } from "@/routes/search";
 import { formatDest, paths, type Dest } from "@/routes/paths";
 import type { Resolved } from "@/routes/resolve";
-import { BATCH_FILTERS } from "@hub/config";
 import { useRoute } from "./use-route";
 
 export type SearchKey = "filter" | "run" | "q";
@@ -19,7 +18,6 @@ export function searchValue(r: Resolved, key: SearchKey): string | number | null
   switch (r.route) {
     case "drafts.list":
     case "drafts.item":
-    case "bulk.item":
     case "log.list":
       return r.search.filter;
     default:
@@ -35,16 +33,14 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
   if (key === "run") return r.route === "log.list" && typeof value !== "string" ? paths.log.list({ filter: r.search.filter, run: value }) : null;
   const v = String(value);
   if (key === "q") {
-    if (r.route === "drafts.list") return paths.drafts.list({ filter: r.search.filter, q: v });
-    return r.route === "drafts.item" ? paths.drafts.item(r.params.id, { filter: r.search.filter, q: v }) : null;
+    if (r.route === "drafts.list") return paths.drafts.list({ filter: r.search.filter, q: v, batch: r.search.batch });
+    return r.route === "drafts.item" ? paths.drafts.item(r.params.id, { filter: r.search.filter, q: v, batch: r.search.batch }) : null;
   }
   switch (r.route) {
     case "drafts.list":
-      return paths.drafts.list({ filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q });
+      return paths.drafts.list({ filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
     case "drafts.item":
-      return paths.drafts.item(r.params.id, { filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q });
-    case "bulk.item":
-      return paths.bulk.item(r.params.id, { filter: oneOf(BATCH_FILTERS, v, "all") });
+      return paths.drafts.item(r.params.id, { filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
     case "log.list":
       return paths.log.list({ filter: oneOf(RUN_FILTERS, v, "all"), run: r.search.run });
     default:

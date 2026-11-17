@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { markerLeft, unresolvedMarkers } from "@hub/config";
 import { openDb, type DbHandle } from "./client";
 import { createRepos, type Repos } from "./repos";
+import { seedMany } from "./seed";
 
 let handle: DbHandle;
 let repos: Repos;
@@ -74,5 +75,26 @@ describe("marker line (P27 M1.3)", () => {
     expect(markerLeft("Hi Anna, a normal reply with [a note] and a hub-draft mention")).toBeNull();
     expect(markerLeft("[Owner: price]")).toBeNull();
     expect(unresolvedMarkers("[hub-draft thread=1]")).toEqual([]);
+  });
+});
+
+describe("search and batch scope (P27)", () => {
+  it("finds a client that is on the third page of 120 by name, email or subject, and totals the match", async () => {
+    await seedMany(repos, { project: "p", count: 120 });
+    const page3 = await repos.clients.review("p", "all", { limit: 50, offset: 100 });
+    expect(page3).toHaveLength(20);
+    const target = page3[0]!.client;
+    const hit = await repos.clients.review("p", "all", { limit: 50, offset: 0, search: target.name.toUpperCase() });
+    expect(hit.map((d) => d.client.id)).toEqual([target.id]);
+    expect(await repos.clients.reviewTotal("p", "all", { search: target.email })).toBe(1);
+    expect(await repos.clients.reviewTotal("p", "all", { search: "question 11" })).toBe(10); // Question 110 to 119
+    expect(await repos.clients.reviewTotal("p", "all", { search: "100%" })).toBe(0); // a wildcard is a character
+    expect((await repos.clients.counts("p")).all).toBe(120); // the counts never narrow by search
+  });
+
+  it("a batch id that holds no draft lists nothing (the batch with drafts is covered by e2e/z-batch.spec.ts)", async () => {
+    await seedMany(repos, { project: "p", count: 3 });
+    expect(await repos.clients.reviewTotal("p", "all", { batch: 9999 })).toBe(0);
+    expect(await repos.clients.review("p", "all", { batch: 9999 })).toEqual([]);
   });
 });

@@ -40,7 +40,7 @@ describe("proxy (Host and Origin guard)", () => {
     expect(to(go("/drafts", "hub_project=lisbon"))).toBe("/drafts?project=lisbon");
     expect(go("/drafts", "hub_project=lisbon").status).toBe(307);
     expect(to(go("/drafts/42?filter=hold", "hub_project=demo%20shop"))).toBe("/drafts/42?project=demo+shop&filter=hold");
-    expect(to(go("/bulk", "hub_project=lisbon"))).toBe("/bulk?project=lisbon");
+    expect(to(go("/log", "hub_project=lisbon"))).toBe("/log?project=lisbon");
   });
   it("leaves an addressed project, Overview, the entry, the API and a missing cookie alone", () => {
     const go = (path: string, cookie: string | undefined) => call("127.0.0.1:5173", { path, cookie });

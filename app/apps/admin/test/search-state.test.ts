@@ -16,8 +16,9 @@ describe("search state", () => {
   });
 
   it("withSearch keeps the subject and the other key, drops an invalid value to the default, and has no key on other routes", () => {
-    const item = resolveRoute("/bulk/3", "filter=hold");
-    expect(withSearch(item, "filter", "zzz")).toEqual(paths.bulk.item(3));
+    const item = resolveRoute("/drafts/3", "filter=hold&batch=2");
+    expect(withSearch(item, "filter", "zzz")).toEqual(paths.drafts.item(3, { batch: 2 }));
+    expect(withSearch(item, "q", "ana")).toEqual(paths.drafts.item(3, { filter: "hold", batch: 2, q: "ana" }));
     const log = resolveRoute("/log", "filter=failed&run=4");
     expect(withSearch(log, "run", null)).toEqual(paths.log.list({ filter: "failed" }));
     expect(withSearch(log, "filter", "ok")).toEqual(paths.log.list({ filter: "ok", run: 4 }));

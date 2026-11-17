@@ -28,6 +28,18 @@ const predicates: Record<ClientFilter, SQL | undefined> = {
   evidence: and(open, or(eq(drafts.evidence, "weak"), eq(drafts.evidence, "missing"))),
 };
 
+/** Which drafts a list covers: the newest of each client, or (a batch) exactly the drafts the batch wrote. */
+export type DraftScope = { batch?: number | null };
+const scopeOf = (s: DraftScope): SQL => (s.batch ? eq(drafts.batchId, s.batch) : latestDraft);
+
+/** A substring match over the client's name and address and the draft's subject. `%`, `_` and `\` in the text match themselves. */
+function searchSql(text: string | undefined): SQL | undefined {
+  const needle = text?.trim().toLowerCase();
+  if (!needle) return undefined;
+  const pattern = `%${needle.replace(/[\\%_]/g, "\\$&")}%`;
+  return sql`(lower(${clients.name}) like ${pattern} escape '\\' or lower(${clients.email}) like ${pattern} escape '\\' or lower(${drafts.subject}) like ${pattern} escape '\\')`;
+}
+
 /** What `touch` may set. Only these columns; a client row is never deleted (marks, identifiers and the log hang on it). */
 export type ClientTouch = { project: string; email: string; name: string; lastContactAt?: string | null; repliesOwed?: boolean };
 
@@ -102,12 +114,12 @@ export function clientsRepo(db: Db) {
      * The Drafts screen: the newest draft of each client that has one, in the shape the review screen shares with a
      * bulk batch (typed safety results, tone bodies, the Checked gate). Same order as `list`; `limit` and `offset` page it.
      */
-    async review(project: string, filter: ClientFilter = "all", opts: { limit?: number; offset?: number; now?: Date } = {}): Promise<ReviewDraft[]> {
+    async review(project: string, filter: ClientFilter = "all", opts: DraftScope & { limit?: number; offset?: number; now?: Date; search?: string } = {}): Promise<ReviewDraft[]> {
       const rows = db
         .select({ d: drafts, c: clients })
         .from(clients)
-        .innerJoin(drafts, latestDraft)
-        .where(and(eq(clients.project, project), predicates[filter]))
+        .innerJoin(drafts, scopeOf(opts))
+        .where(and(eq(clients.project, project), predicates[filter], searchSql(opts.search)))
         .orderBy(sql`case when ${drafts.status} in ('done','sent','skipped') then 1 else 0 end`, desc(clients.repliesOwed), sql`case when ${clients.lastContactAt} is null then 1 else 0 end`, asc(clients.lastContactAt), asc(drafts.id))
         .limit(opts.limit ?? -1)
         .offset(opts.offset ?? 0)
@@ -127,12 +139,24 @@ export function clientsRepo(db: Db) {
       return withMarks(rows);
     },
 
-    async counts(project: string): Promise<ClientCounts> {
+    /** How many rows `review` returns for the same arguments before paging: the filter's count narrowed by the search. */
+    async reviewTotal(project: string, filter: ClientFilter, opts: DraftScope & { search?: string } = {}): Promise<number> {
+      const row = db
+        .select({ n: sql<number>`count(*)` })
+        .from(clients)
+        .innerJoin(drafts, scopeOf(opts))
+        .where(and(eq(clients.project, project), predicates[filter], searchSql(opts.search)))
+        .get();
+      return row?.n ?? 0;
+    },
+
+    /** The numbers beside the views. Never narrowed by a search; a batch narrows them to its own drafts. */
+    async counts(project: string, scope: DraftScope = {}): Promise<ClientCounts> {
       const count = (f: ClientFilter) => (predicates[f] ? sql<number>`count(*) filter (where ${predicates[f]})` : sql<number>`count(*)`);
       const row = db
         .select({ all: count("all"), ready: count("ready"), hold: count("hold"), owed: count("owed"), done: count("done"), sent: count("sent"), skipped: count("skipped"), evidence: count("evidence") })
         .from(clients)
-        .innerJoin(drafts, latestDraft)
+        .innerJoin(drafts, scopeOf(scope))
         .where(eq(clients.project, project))
         .get();
       return row ?? { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, evidence: 0 };

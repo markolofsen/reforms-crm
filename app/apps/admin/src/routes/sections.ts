@@ -1,4 +1,3 @@
-import { BATCH_FILTERS } from "@hub/config";
 import { DRAFT_VIEWS, RUN_FILTERS } from "./search";
 
 /** One top-level screen, as data. The nav, the key chords, the titles and the shell derive from this list. */
@@ -18,7 +17,6 @@ export const SECTIONS = [
   // Cross-project: with Connections, a section whose address carries no `?project=` (`routes-and-url-state.md` rule 10, exemptions).
   { id: "overview", title: "Overview", nav: true, icon: "overview", chord: ["g", "o"], filters: [] },
   { id: "drafts", title: "Drafts", nav: true, icon: "inbox", chord: ["g", "d"], filters: DRAFT_VIEWS },
-  { id: "bulk", title: "Bulk", nav: true, icon: "send", chord: ["g", "b"], filters: BATCH_FILTERS },
   { id: "log", title: "Activity", nav: true, icon: "activity", chord: ["g", "a"], filters: RUN_FILTERS },
   { id: "project", title: "Project", nav: true, icon: "settings", chord: ["g", "p"], filters: [] },
   // The second cross-project section: the instance's logins and tokens, not one project's (`routes-and-url-state.md` rule 10, second exemption).

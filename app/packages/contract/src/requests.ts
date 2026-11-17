@@ -13,7 +13,14 @@ const text = (max: number) => z.string().trim().min(1).max(max);
 export const PAGE_SIZE = 100;
 const page = { limit: z.coerce.number().int().min(1).max(500).default(PAGE_SIZE), offset: z.coerce.number().int().min(0).default(0) };
 
-export const draftsQuery = z.object({ project, filter: z.enum(CLIENT_FILTERS).default("all"), ...page });
+/** `search` narrows the rows (name, address or subject), never the counts beside the views; `batch` limits the list to the drafts one batch wrote. */
+export const draftsQuery = z.object({
+  project,
+  filter: z.enum(CLIENT_FILTERS).default("all"),
+  search: z.string().trim().max(200).default(""),
+  batch: z.coerce.number().int().positive().optional(),
+  ...page,
+});
 export const inboxQuery = z.object({ project, filter: z.enum(INBOX_FILTERS).default("owed"), ...page });
 export const batchQuery = z.object({ project, filter: z.enum(BATCH_FILTERS).default("all"), ...page });
 export const historyQuery = z.object({ project, limit: z.coerce.number().int().min(1).max(200).optional(), cursor: z.string().min(1).max(2000).optional() });

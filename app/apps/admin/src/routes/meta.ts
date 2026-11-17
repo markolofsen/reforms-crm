@@ -10,8 +10,6 @@ export const ROUTE_META: Record<RouteId, { title: string; crumb: string | null }
   "connections.page": { title: "Connections", crumb: null },
   "drafts.list": { title: "Drafts", crumb: null },
   "drafts.item": { title: "Drafts", crumb: "Draft" },
-  "bulk.list": { title: "Bulk", crumb: null },
-  "bulk.item": { title: "Bulk", crumb: "Batch" },
   "log.list": { title: "Activity", crumb: null },
   "project.page": { title: "Project", crumb: null },
 };

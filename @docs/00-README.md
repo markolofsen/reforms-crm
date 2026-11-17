@@ -17,7 +17,7 @@ osascript) send it. The agent cannot reach that door.
 | Skills (`skills/`) | Instructions, not code | Tell an agent session what to do for a phrase such as "triage the project's mail" ([skills/README.md](../skills/README.md)) |
 | `hub` CLI (`app/apps/installer`) | Command line | Starts the agent (`hub agent`) and the admin (`hub up`), checks health (`hub doctor`), records drafts, lists connections (`hub connections`) |
 | Server (`app/apps/server`) | Hono API on 127.0.0.1, port 4317 | Reads and writes the SQLite file `data/app.db`, builds the Overview, runs the confirmed Send, the Sent detection loop and the optional Telegram poller |
-| Admin (`app/apps/admin`) | Next.js on 127.0.0.1, port 5173 | The screens: Overview, Drafts, Bulk, Activity, Project, Connections. It holds no database handle and talks only to the server |
+| Admin (`app/apps/admin`) | Next.js on 127.0.0.1, port 5173 | The screens: Overview, Drafts (a batch is a filter on it), Activity, Project, Connections. It holds no database handle and talks only to the server |
 
 **Where facts live.** Client records: Notion. Draft text: Mail. Draft review state (Checked, Done, marks), bulk batches and the agent log: SQLite. Project facts,
 filters, knowledge and development plans (`@dev/`): plain files in `projects/<slug>/`. Secrets: `state/secrets/`, mode 600, never in git. Table and rules: [core/06-local-admin-app.md](core/06-local-admin-app.md).

@@ -81,7 +81,7 @@ test("the Project screen survives a reload", async ({ page }) => {
   await expect(page).toHaveTitle("Project · lisbon-realty · Hub Workflow");
 });
 
-for (const bad of ["/clients", "/nope?project=lisbon-realty", "/drafts/abc?project=lisbon-realty", "/bulk/x", "/drafts/1/2"]) {
+for (const bad of ["/clients", "/nope?project=lisbon-realty", "/drafts/abc?project=lisbon-realty", "/drafts/1/2"]) {
   test(`${bad} is Not found, with a way back, never Drafts`, async ({ page }) => {
     await page.goto(bad);
     await expect(page.getByText("Page not found")).toBeVisible();
@@ -99,12 +99,9 @@ test("a draft id that is not in the list says so and keeps the list", async ({ p
   await expect(cards(page).first()).toBeVisible();
 });
 
-test("g then b / d / a / p move between screens; typing in a field is left alone", async ({ page }) => {
+test("g then d / a / p move between screens; typing in a field is left alone", async ({ page }) => {
   await page.goto("/drafts?project=lisbon-realty");
   await expect(cards(page).first()).toBeVisible();
-  await page.keyboard.press("g");
-  await page.keyboard.press("b");
-  await expect.poll(() => address(page)).toBe("/bulk?project=lisbon-realty");
   await page.keyboard.press("g");
   await page.keyboard.press("a");
   await expect.poll(() => address(page)).toBe("/log?project=lisbon-realty");
@@ -116,7 +113,7 @@ test("g then b / d / a / p move between screens; typing in a field is left alone
   await expect.poll(() => address(page)).toBe("/drafts?project=lisbon-realty");
   // The chord's second key never reaches the list's own `d` (done): nothing changed state.
   await expect(page.getByRole("radio", { name: /^All\s*11$/ })).toBeVisible();
-  await page.getByRole("searchbox", { name: "Search the loaded drafts" }).fill("g");
+  await page.getByRole("searchbox", { name: "Search drafts" }).fill("g");
   await page.keyboard.type("b");
   // The letters went into the field (the search is in the address as `q`); no chord moved the screen.
   await expect.poll(() => address(page)).toBe("/drafts?project=lisbon-realty&q=gb");
@@ -135,7 +132,7 @@ test("the skip link moves focus and leaves the address alone", async ({ page }) 
 test("the nav links are real anchors with the project in their href", async ({ page }) => {
   await page.goto("/drafts?project=lisbon-realty");
   const nav = page.getByRole("navigation", { name: "Sections" });
-  await expect(nav.getByRole("link", { name: "Bulk" })).toHaveAttribute("href", "/bulk?project=lisbon-realty");
+  await expect(nav.getByRole("link", { name: "Bulk" })).toHaveCount(0);
   await expect(nav.getByRole("link", { name: "Drafts" })).toHaveAttribute("aria-current", "page");
 });
 

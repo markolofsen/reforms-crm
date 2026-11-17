@@ -1,4 +1,4 @@
-import { DEFAULT_DRAFT_VIEW, formatQuery, unlessDefault, type BatchFilter, type DraftView, type RunFilter } from "./search";
+import { DEFAULT_DRAFT_VIEW, formatQuery, unlessDefault, type DraftView, type RunFilter } from "./search";
 import type { SectionId } from "./sections";
 import { listRouteOf, PROJECTLESS, ROUTE_TABLE, type RouteId } from "./table";
 import { route } from "./typed";
@@ -15,6 +15,8 @@ function dest(route: RouteId, path: string, query: Readonly<Record<string, strin
   return { route, path, search };
 }
 
+type DraftsArgs = { filter?: DraftView; q?: string; batch?: number | null };
+
 /**
  * The ONLY producers of a destination. A component never writes a path; a wrong name or value fails `tsc`. The path half
  * goes through `route()`, so `typedRoutes` checks it against the file tree: a page that does not exist fails the build.
@@ -23,13 +25,10 @@ export const paths = {
   overview: (s: { focus?: string } = {}) => dest("overview.page", route("/overview"), { focus: s.focus }),
   connections: { page: () => dest("connections.page", route("/connections")) },
   drafts: {
-    list: (s: { filter?: DraftView; q?: string } = {}) => dest("drafts.list", route("/drafts"), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q }),
-    item: (id: number, s: { filter?: DraftView; q?: string } = {}) => dest("drafts.item", route(`/drafts/${id}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q }),
-  },
-  bulk: {
-    list: () => dest("bulk.list", route("/bulk")),
-    new: () => dest("bulk.list", route("/bulk"), { new: true }),
-    item: (id: number, s: { filter?: BatchFilter } = {}) => dest("bulk.item", route(`/bulk/${id}`), { filter: unlessDefault(s.filter, "all") }),
+    list: (s: DraftsArgs = {}) => dest("drafts.list", route("/drafts"), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
+    item: (id: number, s: DraftsArgs = {}) => dest("drafts.item", route(`/drafts/${id}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
+    /** The batch builder: the pane of Drafts shows it instead of a card. */
+    newBatch: () => dest("drafts.list", route("/drafts"), { new: true }),
   },
   log: {
     list: (s: { filter?: RunFilter; run?: number | null } = {}) => dest("log.list", route("/log"), { filter: unlessDefault(s.filter, "all"), run: s.run }),

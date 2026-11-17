@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-const ROUTES = ["/overview", "/drafts", "/drafts?filter=all", "/bulk", "/bulk?new=1", "/log", "/log?run=1", "/project", "/nope", "/drafts/abc"];
+const ROUTES = ["/overview", "/drafts", "/drafts?filter=all", "/drafts?new=1", "/log", "/log?run=1", "/project", "/nope", "/drafts/abc"];
 
 for (const route of ROUTES) {
   test(`${route} loads cold with a clean console and no hydration message`, async ({ page }) => {

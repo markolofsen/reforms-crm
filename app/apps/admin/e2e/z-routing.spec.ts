@@ -1,24 +1,20 @@
 import { expect, test } from "@playwright/test";
 import { remember } from "./support";
 
-// Subject-as-path for Bulk: needs a batch, so it runs after z-bulk.spec.ts created one (one worker, one database).
+// A batch is a filter on Drafts: needs a batch, so it runs after z-batch.spec.ts created one (one worker, one database).
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-test("a batch deep link (/bulk/<id>) survives a reload, and Back returns to the batch list", async ({ page }) => {
-  await page.goto("/bulk?project=lisbon-realty");
-  const first = page.getByRole("list", { name: "Batches" }).getByRole("link").first();
-  await expect(first).toBeVisible();
-  await first.click();
-  await expect(page).toHaveURL(/\/bulk\/\d+\?project=lisbon-realty$/);
+test("a batch address (/drafts?batch=<id>) survives a reload, and a missing batch says so", async ({ page }) => {
+  await page.goto("/drafts?project=lisbon-realty");
+  await page.getByRole("button", { name: /All drafts/ }).first().click();
+  await page.getByRole("menuitemradio").nth(1).click();
+  await expect(page).toHaveURL(/\/drafts\?project=lisbon-realty&batch=\d+/);
   const address = page.url();
   await page.reload();
   expect(page.url()).toBe(address);
-  await expect(page.getByRole("link", { name: "All batches" })).toBeVisible();
-  await expect(page).toHaveTitle(/^Batch \d+ · Bulk · lisbon-realty · Hub Workflow$/);
-  await page.goBack();
-  await expect(page).toHaveURL(/\/bulk\?project=lisbon-realty$/);
-  await page.goto("/bulk/99999?project=lisbon-realty");
-  await expect(page.getByText("Could not load this batch")).toBeVisible();
+  await expect(page.getByTestId("batch-head")).toBeVisible();
+  await page.goto("/drafts?project=lisbon-realty&batch=99999");
+  await expect(page.getByTestId("batch-gone")).toBeVisible();
 });

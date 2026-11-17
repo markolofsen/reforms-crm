@@ -13,10 +13,10 @@ function roundTrip(d: Dest, project: string | null): Resolved {
 
 describe("resolveRoute", () => {
   it("reads the route, params, project and search from the address", () => {
-    expect(resolveRoute("/drafts", "project=lisbon&filter=ready")).toEqual({ route: "drafts.list", section: "drafts", project: "lisbon", params: {}, search: { filter: "ready", q: "" } });
+    expect(resolveRoute("/drafts", "project=lisbon&filter=ready")).toEqual({ route: "drafts.list", section: "drafts", project: "lisbon", params: {}, search: { filter: "ready", q: "", batch: null, new: false } });
     expect(resolveRoute("/drafts/42", "project=lisbon")).toMatchObject({ route: "drafts.item", params: { id: 42 }, search: { filter: "ready", q: "" } });
-    expect(resolveRoute("/bulk/3", "project=lisbon&filter=hold")).toMatchObject({ route: "bulk.item", params: { id: 3 }, search: { filter: "hold" } });
-    expect(resolveRoute("/bulk", "new=1")).toMatchObject({ route: "bulk.list", search: { new: true } });
+    expect(resolveRoute("/drafts", "project=lisbon&batch=3&filter=hold")).toMatchObject({ route: "drafts.list", search: { batch: 3, filter: "hold", new: false } });
+    expect(resolveRoute("/drafts", "new=1")).toMatchObject({ route: "drafts.list", search: { new: true, batch: null } });
     expect(resolveRoute("/log", "filter=failed&run=7")).toMatchObject({ route: "log.list", search: { filter: "failed", run: 7 } });
     expect(resolveRoute("/project", "")).toMatchObject({ route: "project.page", project: null });
   });
@@ -27,7 +27,7 @@ describe("resolveRoute", () => {
   });
 
   it("an unknown path, the old /clients, a bad id or an extra segment is Not found, never Drafts", () => {
-    for (const p of ["/clients", "/nope", "/drafts/abc", "/drafts/0", "/drafts/-1", "/drafts/1.5", "/bulk/x", "/drafts/1/2", "/log/3", "/project/x", "/main"]) {
+    for (const p of ["/clients", "/nope", "/drafts/abc", "/drafts/0", "/drafts/-1", "/drafts/1.5", "/bulk", "/bulk/3", "/drafts/1/2", "/log/3", "/project/x", "/main"]) {
       expect(resolveRoute(p, "project=lisbon").route, p).toBe("notFound");
     }
     expect(REDIRECTS).toEqual([]);
@@ -36,7 +36,10 @@ describe("resolveRoute", () => {
   it("a filter outside its enum resets to the default instead of breaking the view", () => {
     expect(resolveRoute("/drafts", "filter=zzz")).toMatchObject({ search: { filter: "ready" } });
     expect(resolveRoute("/drafts", "filter=all")).toMatchObject({ search: { filter: "all" } }); // All is a choice, so it keeps its key
-    expect(resolveRoute("/bulk/3", "filter=ready")).toMatchObject({ search: { filter: "all" } }); // a client filter is not a batch filter
+    // A batch must be a positive number; a builder never carries one.
+    expect(resolveRoute("/drafts", "batch=abc")).toMatchObject({ search: { batch: null } });
+    expect(resolveRoute("/drafts", "batch=0")).toMatchObject({ search: { batch: null } });
+    expect(resolveRoute("/drafts", "batch=3&new=1")).toMatchObject({ search: { batch: 3, new: false } });
     expect(resolveRoute("/log", "filter=nope&run=abc")).toMatchObject({ search: { filter: "all", run: null } });
   });
 
@@ -51,9 +54,10 @@ describe("paths", () => {
     ["drafts hold", paths.drafts.list({ filter: "hold" }), "/drafts?project=lisbon&filter=hold"],
     ["drafts all", paths.drafts.list({ filter: "all" }), "/drafts?project=lisbon&filter=all"],
     ["drafts item", paths.drafts.item(42, { filter: "hold" }), "/drafts/42?project=lisbon&filter=hold"],
-    ["bulk list", paths.bulk.list(), "/bulk?project=lisbon"],
-    ["bulk new", paths.bulk.new(), "/bulk?project=lisbon&new=1"],
-    ["bulk item", paths.bulk.item(3, { filter: "hold" }), "/bulk/3?project=lisbon&filter=hold"],
+    ["drafts of a batch", paths.drafts.list({ batch: 3, filter: "all" }), "/drafts?project=lisbon&filter=all&batch=3"],
+    ["a draft of a batch", paths.drafts.item(42, { batch: 3 }), "/drafts/42?project=lisbon&batch=3"],
+    ["drafts search", paths.drafts.list({ q: "ana" }), "/drafts?project=lisbon&q=ana"],
+    ["the batch builder", paths.drafts.newBatch(), "/drafts?project=lisbon&new=1"],
     ["log run", paths.log.list({ filter: "failed", run: 5 }), "/log?project=lisbon&filter=failed&run=5"],
     ["project", paths.project.page(), "/project?project=lisbon"],
   ];
@@ -130,8 +134,8 @@ describe("guards", () => {
     expect(canonicalAddress(resolveRoute("/connections", "project=lisbon"), "lisbon", "/connections?project=lisbon")).toBe("/connections");
   });
   it("a rewritten address is stable (no redirect loop)", () => {
-    const first = canonicalAddress(resolveRoute("/bulk/3", "filter=ready&project=x"), "x", "/bulk/3?filter=ready&project=x");
-    expect(first).toBe("/bulk/3?project=x");
+    const first = canonicalAddress(resolveRoute("/drafts/3", "filter=ready&project=x"), "x", "/drafts/3?filter=ready&project=x");
+    expect(first).toBe("/drafts/3?project=x");
     const [path = "", search = ""] = (first ?? "").split("?");
     expect(canonicalAddress(resolveRoute(path, search), "x", `${path}?${search}`)).toBeNull();
   });

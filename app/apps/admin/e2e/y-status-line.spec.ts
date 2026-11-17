@@ -62,7 +62,7 @@ test("status line: when the server stops answering the line keeps the last answe
 // Motion: coss animates the skeleton shimmer, the spinner and the collapsible panel; one global rule in `styles.css` zeroes
 // every duration under `prefers-reduced-motion`. The test reads the live animations, so a new animated element cannot slip by.
 const running = (page: Page) =>
-  page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running" && Number(a.effect?.getComputedTiming().duration ?? 0) > 0).map((a) => `${a.constructor.name} ${a.effect?.target instanceof Element ? a.effect.target.tagName.toLowerCase() : ""}`));
+  page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running" && Number(a.effect?.getComputedTiming().duration ?? 0) > 0).map((a) => `${a.constructor.name} ${a.effect instanceof KeyframeEffect && a.effect.target instanceof Element ? a.effect.target.tagName.toLowerCase() : ""}`));
 
 async function slowOverview(page: Page) {
   await page.route(/\/api\/overview$/, async (route) => {

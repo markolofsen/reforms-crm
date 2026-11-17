@@ -1,4 +1,4 @@
-import { BATCH_FILTERS, RUN_STATUSES, type BatchFilter, type RunStatus } from "@hub/config";
+import { RUN_STATUSES, type RunStatus } from "@hub/config";
 
 // Every URL parameter name and its allowed values, in one place. No React, no URL library: plain functions, so the
 // address of every screen is testable without a DOM. The enums are the ones the API validates (`@hub/config`, re-used
@@ -6,7 +6,6 @@ import { BATCH_FILTERS, RUN_STATUSES, type BatchFilter, type RunStatus } from "@
 
 export const RUN_FILTERS = ["all", ...RUN_STATUSES] as const;
 export type RunFilter = "all" | RunStatus;
-export type { BatchFilter };
 
 /**
  * The four views of the Drafts list (research 16 section 6.3): To review (`ready`), Hold, Finished (done, sent and skipped
@@ -50,17 +49,20 @@ export function positiveInt(v: string | undefined): number | null {
   return v !== undefined && /^[1-9]\d*$/.test(v) ? Number(v) : null;
 }
 
-export type DraftsSearch = { filter: DraftView; q: string };
-export type BulkListSearch = { new: boolean };
-export type BulkItemSearch = { filter: BatchFilter };
+/**
+ * `batch` limits the list to the drafts one batch wrote (one queue: a batch is a filter, not a second place); `new` shows the
+ * batch builder in the pane instead of a draft. A builder never carries a batch: `new` is dropped when `batch` is present.
+ */
+export type DraftsSearch = { filter: DraftView; q: string; batch: number | null; new: boolean };
 export type LogSearch = { filter: RunFilter; run: number | null };
 /** `focus`: the project card to scroll to and mark. Whether the slug is registered is the page's to check (it knows the list). */
 export type OverviewSearch = { focus: string | null };
 export type NoSearch = Record<string, never>;
 
-export const draftsSearch = (raw: Raw): DraftsSearch => ({ filter: oneOf(DRAFT_VIEWS, raw.filter, DEFAULT_DRAFT_VIEW), q: raw.q ?? "" });
-export const bulkListSearch = (raw: Raw): BulkListSearch => ({ new: raw.new === "1" });
-export const bulkItemSearch = (raw: Raw): BulkItemSearch => ({ filter: oneOf(BATCH_FILTERS, raw.filter, "all") });
+export const draftsSearch = (raw: Raw): DraftsSearch => {
+  const batch = positiveInt(raw.batch);
+  return { filter: oneOf(DRAFT_VIEWS, raw.filter, DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch, new: batch === null && raw.new === "1" };
+};
 export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(RUN_FILTERS, raw.filter, "all"), run: positiveInt(raw.run) });
 export const overviewSearch = (raw: Raw): OverviewSearch => ({ focus: raw.focus ? raw.focus : null });
 export const noSearch = (): NoSearch => ({});
