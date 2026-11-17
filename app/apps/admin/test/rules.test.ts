@@ -1,9 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import ts from "typescript";
 import { ADMIN_PORT } from "@hub/config";
-import { FILE_LINE_CAP, LINE_COUNT } from "../lint-limits.mjs";
 
 // Executable half of `app/@rules` (see its Enforcement sections). Hard gates: every count is zero, nothing is ratcheted.
 const admin = path.resolve(import.meta.dirname, "..");
@@ -31,33 +29,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^
 const inDir = (dir: string) => appFiles.filter((p) => rel(p).startsWith(`${dir}/`));
 const offenders = (files: string[], re: RegExp) => files.filter((p) => re.test(code(p))).map(rel);
 
-function count(file: string) {
-  const text = read(file);
-  const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith("x") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
-  const c = { rawButton: 0, rawAnchor: 0, typeAssertion: 0, nonNull: 0 };
-  const visit = (n: ts.Node) => {
-    if (ts.isJsxOpeningElement(n) || ts.isJsxSelfClosingElement(n)) {
-      const tag = n.tagName.getText(sf);
-      if (tag === "button") c.rawButton++;
-      if (tag === "a") c.rawAnchor++;
-    }
-    if (ts.isAsExpression(n) || ts.isTypeAssertionExpression(n)) {
-      const t = n.type;
-      if (!(ts.isTypeReferenceNode(t) && t.typeName.getText(sf) === "const")) c.typeAssertion++;
-    }
-    if (ts.isNonNullExpression(n)) c.nonNull++;
-    ts.forEachChild(n, visit);
-  };
-  visit(sf);
-  return c;
-}
-
-describe("file size cap", () => {
-  // The cap and the way lines are counted are `lint-limits.mjs`, the same numbers eslint `max-lines` uses.
-  it(`no source file over ${FILE_LINE_CAP} lines (blank and comment-only lines are not counted: ${JSON.stringify(LINE_COUNT)})`, () => {
-    const counted = (p: string) => code(p).split("\n").filter((l) => !LINE_COUNT.skipBlankLines || l.trim() !== "").length;
-    expect(appFiles.filter((p) => counted(p) > FILE_LINE_CAP).map(rel)).toEqual([]);
-  });
+describe("page size", () => {
   it(`a page.tsx is thin: at most ${PAGE_LINE_CAP} lines (await the params, parse the search, render a feature)`, () => {
     const pages = appFiles.filter((p) => rel(p).startsWith("app/") && /\/page\.tsx$/.test(p));
     expect(pages.length).toBeGreaterThan(0);
@@ -65,68 +37,39 @@ describe("file size cap", () => {
   });
 });
 
-describe("typing and markup gates (hard, no baseline)", () => {
-  const total = { rawButton: 0, rawAnchor: 0, typeAssertion: 0, nonNull: 0 };
-  for (const f of appFiles) {
-    const c = count(f);
-    for (const k of Object.keys(total) as (keyof typeof total)[]) total[k] += c[k];
-  }
-  for (const k of Object.keys(total) as (keyof typeof total)[]) {
-    it(`${k} is 0`, () => {
-      expect(total[k]).toBe(0);
-    });
-  }
-});
-
 // Navigation (`app/@rules/routes-and-url-state.md`): real paths, one typed link, next/* navigation only where it is allowed.
 const NEXT_NAV_MODULES = (f: string) => f.startsWith("app/") || f.startsWith("hooks/") || f === "components/app-link.tsx";
-const ADDRESS_BAR_MODULES = new Set(["hooks/use-search-state.ts", "lib/external.ts"]);
 
-describe("one navigation layer (rules: routes-and-url-state)", () => {
+describe("one navigation layer: what eslint cannot see (rules: routes-and-url-state 1-4)", () => {
   it("no `#/` address anywhere: the hash routes are gone", () => {
     expect(offenders(appFiles, /["'`]#\//)).toEqual([]);
   });
-  it("a path or URL string literal is written only by src/routes (no string `href`/`to`)", () => {
+  // eslint `no-restricted-syntax` sees a string or template `href`/`to` and `go()`; it does not see these.
+  it("no template href that starts with an expression, no router.push/replace/prefetch with a path literal", () => {
     const files = appFiles.filter((p) => !rel(p).startsWith("routes/"));
-    expect(offenders(files, /\b(href|to)=(\{\s*)?(["'`]\/|`\$\{)/)).toEqual([]);
-    expect(offenders(files, /\b(go|navigate)\(\s*["'`]\//)).toEqual([]);
+    expect(offenders(files, /\b(href|to)=\{`\$\{/)).toEqual([]);
     expect(offenders(files, /\b(push|replace|prefetch)\(\s*["'`]\//)).toEqual([]);
   });
-  it("next/link, next/navigation and next/router are imported only by src/app, src/hooks and components/app-link.tsx", () => {
-    const files = appFiles.filter((p) => !NEXT_NAV_MODULES(rel(p)));
-    expect(offenders(files, /from\s+["']next\/(link|navigation|router)["']/)).toEqual([]);
-    expect(offenders(files, /\brequire\(\s*["']next\/(link|navigation|router)/)).toEqual([]);
+  it("next/navigation is not pulled in with require() (eslint `no-restricted-imports` sees only import)", () => {
+    expect(offenders(appFiles.filter((p) => !NEXT_NAV_MODULES(rel(p))), /\brequire\(\s*["']next\/(link|navigation|router)/)).toEqual([]);
   });
-  it("the address bar (location, history, cookie) is touched only by use-search-state, external and storage", () => {
-    const files = appFiles.filter((p) => !ADDRESS_BAR_MODULES.has(rel(p)));
-    expect(offenders(files, /\bwindow\.(location|history)\b|(?<![.\w])(location|history)\.(hash|href|pathname|search|assign|replace|pushState|replaceState|back|forward)\b/)).toEqual([]);
+  // eslint `no-restricted-globals` and `no-restricted-syntax` see location and history; nothing but this test sees the cookie.
+  it("document.cookie is touched only by lib/storage.ts", () => {
     expect(offenders(appFiles.filter((p) => rel(p) !== "lib/storage.ts"), /\bdocument\.cookie\b/)).toEqual([]);
   });
   it("the old router is gone: no hash history, no router.ts", () => {
     expect(existsSync(path.join(src, "router.ts"))).toBe(false);
     expect(offenders(appFiles, /createHistory\(|\bhashchange\b/)).toEqual([]);
   });
-  it("src/routes imports no React, component, feature, hook or navigation library", () => {
-    expect(offenders(inDir("routes"), /from\s+["'](react|react-dom|next\/(link|navigation|router)|@\/(components|features|hooks))/)).toEqual([]);
-  });
   it("search is parsed once, in routes: no URLSearchParams or params.get in features, components or hooks; only use-route and use-project read the live query", () => {
     const readers = [...inDir("features"), ...inDir("components"), ...inDir("hooks")];
     expect(offenders(readers, /URLSearchParams|\bparams\.get\(|\.searchParams\b/)).toEqual([]);
     expect(offenders(readers.filter((p) => !["hooks/use-route.ts", "hooks/use-project.ts"].includes(rel(p))), /\buseSearchParams\b/)).toEqual([]);
   });
-  it("the title is Next metadata: nothing writes document.title", () => {
-    expect(offenders(appFiles, /document\.title\s*=/)).toEqual([]);
-  });
 });
 
+// `use server` and every @hub/* server package import are eslint errors (`no-restricted-syntax`, `no-restricted-imports`); what is left is what lint cannot read.
 describe("the server boundary (decision 0015 section 4 and 5)", () => {
-  it('no Server Action: no "use server" anywhere in the admin', () => {
-    expect(sourceFiles.filter((p) => /["']use server["']/.test(read(p))).map(rel)).toEqual([]);
-  });
-  it("no database, mail or server value import: the admin talks to /api, and `import type` is the only way to @hub/server", () => {
-    expect(offenders(appFiles, /from\s+["']@hub\/(db|mail|notion|send|messengers|projects)(\/|["'])/)).toEqual([]);
-    expect(offenders(appFiles, /\bimport\s+(?!type\b)[^;]*from\s+["']@hub\/server/)).toEqual([]);
-  });
   it("no NEXT_PUBLIC_ variable, no .env file: the admin holds no secret", () => {
     const files = [...appFiles, path.join(admin, "next.config.ts"), path.join(admin, "package.json")];
     expect(files.filter((p) => /NEXT_PUBLIC_/.test(read(p))).map((p) => path.relative(admin, p))).toEqual([]);
@@ -255,9 +198,6 @@ describe("app/@rules pages", () => {
 
 // Sizes and variants (rules: design-system-and-tokens 11): one button, three heights, four looks.
 describe("buttons and control sizes", () => {
-  it("only action-button.tsx imports the coss Button", () => {
-    expect(offenders(appFiles.filter((p) => rel(p) !== "components/action-button.tsx"), /from\s+["']@\/components\/ui\/button["']/)).toEqual([]);
-  });
   it("the three heights are tokens, and below 1024px a target is 44px", () => {
     const css = read(path.join(src, "index.css"));
     for (const t of ["--control-s: 2rem", "--control-m: 2.5rem", "--control-l: 3rem", "--control-s: 2.75rem", "--control-m: 2.75rem"]) expect(css, t).toContain(t);

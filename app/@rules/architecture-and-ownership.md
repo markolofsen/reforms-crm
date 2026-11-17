@@ -25,7 +25,7 @@ Scope: how `app/apps/admin` (Next.js 16 App Router on Turbopack, React 19, coss 
 | Rule | Tool |
 |---|---|
 | 1-2, 4 | review; eslint `no-restricted-imports` for `src/routes/**` and for `next/*` navigation outside its modules; `test/route-files.test.ts` |
-| 3 | eslint `no-restricted-imports` (`@hub/db`, `@hub/mail`, `@hub/server` values) and `no-restricted-syntax` (`"use server"`); `test/send-boundary.test.ts`; rules test "the server boundary" (database, mail and server value imports; no Server Action) |
+| 3 | eslint `no-restricted-imports` (`@hub/db`, `@hub/mail`, `@hub/notion`, `@hub/send`, `@hub/messengers`, `@hub/projects`, `@hub/server`, and their subpaths, in every folder of `src` including `components/ui`) and `no-restricted-syntax` (`"use server"`, also in `components/ui`); `test/send-boundary.test.ts` (who may call the send client) |
 | 5 | `test/rules.test.ts` "one alias source" |
 | 6-7 | `pnpm typecheck` (`next typegen`, two `tsc -p` runs); `consistent-type-imports` lint |
 | 8, 12 | rules test "next.config: typed routes on…" and "dev and start bind to 127.0.0.1"; `e2e/d-guards.spec.ts` (the port is refused on every non-loopback address of the machine) |

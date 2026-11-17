@@ -17,9 +17,9 @@ Scope: folders, file names and size caps in `app/apps/admin`. Adapted from the s
 
 | Rule | Tool |
 |---|---|
-| 2 | `test/rules.test.ts` "file size cap"; eslint `max-lines` 300 (error) |
+| 2 | eslint `max-lines` (error); the number and the way lines are counted live once in `lint-limits.mjs`, and `test/rule-citations.test.ts` checks this page states them |
 | 2a | `test/rules.test.ts` "a page.tsx is thin"; `test/route-files.test.ts` (the tree and the typed layer agree); rules test "proxy.ts lives in src/" |
-| 3 | eslint `max-lines-per-function` 150 (error) |
+| 3 | eslint `max-lines-per-function` (error; `lint-limits.mjs`) |
 | 4 | `test/rules.test.ts` "directory size" (8) and "hooks/ holds at most 8 files" |
 | 6 | `test/rules.test.ts` "no dead barrel" |
 | 1, 5, 7 | review |

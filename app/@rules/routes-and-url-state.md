@@ -27,15 +27,15 @@ The layer, in one picture: `src/app/` holds only the files Next names (`page.tsx
 
 | Rule | Tool |
 |---|---|
-| 1 | eslint `no-restricted-syntax` (string or template `href`/`to`, `go("…")`); `test/rules.test.ts` "no `#/` address anywhere" and "a path or URL string literal is written only by src/routes"; `test/paths.types.tsx` (`@ts-expect-error` lines: `pnpm typecheck` fails if one stops failing); `typedRoutes` through `next typegen` |
-| 2-3 | eslint `no-restricted-imports` (`next/link`, `next/navigation`, `next/router` outside the allowed modules); rules test "next/link, next/navigation and next/router are imported only by…"; `test/route-files.test.ts` (`routeOf` accepts the pages and nothing else); rules test "no Server Action" |
-| 4 | eslint `no-restricted-globals` (`location`, `history`) and `no-restricted-syntax` (`window.location`); rules test "the address bar … is touched only by use-search-state, external and storage"; `test/search-state.test.ts` |
+| 1 | eslint `no-restricted-syntax` (string or template `href`/`to`, `go("…")`); `test/rules.test.ts` "no `#/` address anywhere" and "no template href that starts with an expression, no router.push/replace/prefetch with a path literal" (what eslint cannot see); `test/paths.types.tsx` (`@ts-expect-error` lines: `pnpm typecheck` fails if one stops failing); `typedRoutes` through `next typegen` |
+| 2-3 | eslint `no-restricted-imports` (`next/link`, `next/navigation`, `next/router` outside the allowed modules); rules test "next/navigation is not pulled in with require()"; `test/route-files.test.ts` (`routeOf` accepts the pages and nothing else); rules test "no Server Action" |
+| 4 | eslint `no-restricted-globals` (`location`, `history`) and `no-restricted-syntax` (`window.location`); rules test "document.cookie is touched only by lib/storage.ts"; `test/search-state.test.ts` |
 | 5, 7, 9, 10 | `e2e/b-routing.spec.ts` and `z-routing.spec.ts` (deep link and reload per screen, Back lands on the list, filter replaces, subject pushes, project always in the address); `test/routes.test.ts` (Overview and Connections carry none, the guard strips one, every other section still names it); `test/proxy.test.ts` (the cookie is put into a bare scoped address; Overview, the entry and the API are left alone); `e2e/y-overview.spec.ts` (focus kept on reload) |
 | 6 | `test/routes.test.ts` (unknown path, `/clients`, bad id, extra segment); `e2e/b-routing.spec.ts` ("status policy": real 404 for `/nope`, 200 with the Not found body for a streamed bad id) |
 | 8 | `test/routes.test.ts` (bad filter resets); rules test "search is parsed once" |
-| 11 | `test/hotkeys.test.ts` ("document title": a page file gives the title of its address); eslint `no-restricted-syntax` on `document.title =`; rules test; e2e titles |
+| 11 | `test/hotkeys.test.ts` ("document title": a page file gives the title of its address); eslint `no-restricted-syntax` on `document.title =`; e2e titles |
 | 12 | `test/hotkeys.test.ts` (chords from `SECTIONS`, typing guard, off switch, window); e2e `g b` |
 | 13 | `e2e/b-routing.spec.ts` "the skip link moves focus and leaves the address alone"; `e2e/z-keyboard.spec.ts` |
-| 14 | eslint `no-restricted-imports` (`src/routes/**`); rules test "src/routes imports no React…" |
+| 14 | eslint `no-restricted-imports` (`src/routes/**`: React, components, features, hooks, navigation libraries) |
 | 15 | `test/route-files.test.ts`; rules test "a page.tsx is thin" |
 | 16 | review |

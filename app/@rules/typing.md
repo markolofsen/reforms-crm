@@ -18,6 +18,6 @@ Scope: the type system is the one gate that reads types across the whole fronten
 | Rule | Tool |
 |---|---|
 | 1 | eslint `no-explicit-any`, `ban-ts-comment` at error |
-| 2 | eslint `consistent-type-assertions` (never) and `no-non-null-assertion` at error; `test/rules.test.ts` `typeAssertion` and `nonNull` (AST count, hard zero) |
+| 2 | eslint `consistent-type-assertions` (never) and `no-non-null-assertion` at error |
 | 3 | eslint `consistent-type-imports`; `verbatimModuleSyntax` in tsc |
 | 4-7 | `tsc` (strict, `noUncheckedIndexedAccess`); `test/paths.types.tsx` (`@ts-expect-error` lines for the builders and the typed-route door); review |

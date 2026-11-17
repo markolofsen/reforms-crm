@@ -24,7 +24,7 @@ Scope: where each kind of state lives in the admin. Adapted from the shared "sta
 | 1-3 | review |
 | 4 | eslint `consistent-type-assertions` (never, error) and the `@hub/contract` parser in `read()`; `test/api-client.test.ts` |
 | 5-6 | e2e scenarios named by state (see `ui-specifications.md`) |
-| 7 | eslint `no-restricted-globals` on `localStorage`/`sessionStorage` (error); rules test "the address bar (location, history, cookie)…" (`document.cookie` only in `lib/storage.ts`) |
+| 7 | eslint `no-restricted-globals` on `localStorage`/`sessionStorage` (error); rules test "document.cookie is touched only by lib/storage.ts" |
 | 8-10 | review |
 | 11 | rules test "stable first render" (no `useState` initializer reads the window, document, storage, media query or clock; `matchMedia` only in `use-media-query`); eslint `no-restricted-properties` (`Date.now`, `Math.random`); `e2e/c-console.spec.ts` (every route loads cold with no console error or hydration message at three widths; the server HTML is the loading state, never data or a viewport branch) |
 | 12 | `e2e/d-build.spec.ts` (every route is dynamic, the build needs no API); review for the live mail body |
