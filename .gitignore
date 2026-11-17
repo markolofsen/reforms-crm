@@ -11,6 +11,8 @@ config/config.json
 
 # Reference material an owner keeps beside the core
 @refs/
+# ...but the instance template ships its own @refs/README.md (a fresh clone lacked it; found by the P38 C1 worktree trial)
+!/app/apps/installer/templates/instance/@refs/
 .DS_Store
 
 # Working data and every project of an owner (the core ships only the template)
