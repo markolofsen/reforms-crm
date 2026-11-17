@@ -3,7 +3,7 @@ import { DEFAULT_KIND, FIELDS, hasValue, hasErrors, Kind, KINDS, KIND_IDS, MODUL
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const ID2 = ID.replace(/1$/, "2");
-const doc = (rows: string[], dbs = ["clients", "reports"]) =>
+const doc = (rows: string[], dbs = ["clients", "documents"]) =>
   [
     "# T",
     "",
@@ -45,7 +45,7 @@ describe("the kind registry is data", () => {
     }
   });
   it("generic reproduces the required set that was hard-coded before kinds existed", () => {
-    expect([...(KINDS.generic?.required ?? [])].sort()).toEqual(["mail.accounts", "mail.sender", "notion.databases.clients", "notion.databases.reports", "tone"]);
+    expect([...(KINDS.generic?.required ?? [])].sort()).toEqual(["mail.accounts", "mail.sender", "notion.databases.clients", "tone"]);
   });
   it("mail classes: unique ids; the generic set is the eight classes every rule file uses", () => {
     for (const k of Object.values(KINDS)) expect(new Set(k.mailClasses.map((c) => c.id)).size, k.id).toBe(k.mailClasses.length);
@@ -82,9 +82,9 @@ describe("kind row in project.md", () => {
     expect(realty).toHaveLength(1);
     expect(realty[0]).toMatchObject({ code: "missing_required", field: "notion.databases" });
     expect(realty[0]?.message).toContain('"leads"');
-    expect(errors(doc([...MAIL, row("kind", "sales-pipeline")], ["clients", "leads", "reports"]))).toEqual([]);
+    expect(errors(doc([...MAIL, row("kind", "sales-pipeline")], ["clients", "leads", "documents"]))).toEqual([]);
     expect(errors(doc([...MAIL, row("kind", "shop")], []))).toEqual([]);
-    expect(errors(doc(MAIL, []))).toHaveLength(2); // generic: clients and reports
+    expect(errors(doc(MAIL, []))).toHaveLength(1); // generic: clients (reports are documents, decision 0022; documents are optional)
   });
   it("a missing required field is a warning while the project is a draft", () => {
     const p = parseProjectMd(doc([row("kind", "sales-pipeline"), row("status", "draft")]).replace("| status | active | 2026-11-14 | agent |\n", ""), "t");

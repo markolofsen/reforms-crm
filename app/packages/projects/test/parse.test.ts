@@ -27,7 +27,7 @@ const base = (rows: string[] = []) =>
     "## Notion databases",
     "",
     `- clients: ${ID}`,
-    `- reports: ${ID.replace(/1$/, "2")}`,
+    `- documents: ${ID.replace(/1$/, "2")}`,
     "",
   ].join("\n");
 
@@ -50,7 +50,7 @@ describe("the example of doc 16", () => {
       knowledge: { source: "files" },
       setup: { completed: null, doctor: "2026-11-15 pass" },
     });
-    expect(p.config.notion.databases.map((d) => d.slug)).toEqual(["clients", "reports"]);
+    expect(p.config.notion.databases.map((d) => d.slug)).toEqual(["clients", "documents"]);
     expect(p.summary).toContain("Boutique travel agency");
     expect(p.answers).toHaveLength(1);
     expect(p.settings["status"]).toMatchObject({ value: "active", answered: "2026-11-15", by: "agent" });
@@ -126,9 +126,10 @@ describe("precise errors", () => {
     expect(p.issues.some((i) => i.code === "missing_required" && i.severity === "warning")).toBe(true);
   });
 
-  it("requires the clients and reports databases, ; a notion knowledge source does not require a knowledge database", () => {
-    const noReports = base().replace(/- reports: .*\n/, "");
-    expect(parseProjectMd(noReports, "t").issues.find((i) => i.code === "missing_required")?.message).toMatch(/"reports"/);
+  it("requires the clients database (reports are documents, decision 0022: no separate reports database is required); a notion knowledge source does not require a knowledge database", () => {
+    const noClients = base().replace(/- clients: .*\n/, "");
+    expect(parseProjectMd(noClients, "t").issues.find((i) => i.code === "missing_required")?.message).toMatch(/"clients"/);
+    expect(parseProjectMd(base().replace(/- documents: .*\n/, ""), "t").issues.find((i) => i.code === "missing_required")).toBeUndefined();
     const notionSource = base(["| knowledge.source | notion | 2026-11-14 | owner |"]);
     expect(parseProjectMd(notionSource, "t").issues.find((i) => i.code === "missing_required")).toBeUndefined();
   });
@@ -178,7 +179,7 @@ describe("precise errors", () => {
 
   it("databases need a valid, unique id", () => {
     expect(codes(base().replace(`- clients: ${ID}`, "- clients: not-an-id"))).toContain("bad_database_id");
-    expect(codes(`${base()}- reports: ${ID}\n`)).toContain("duplicate_database");
+    expect(codes(`${base()}- documents: ${ID}\n`)).toContain("duplicate_database");
   });
 
   it("the folder name must be a slug", () => {

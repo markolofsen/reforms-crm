@@ -152,13 +152,15 @@
     },
     "Source report": {
       "type": "relation",
-      "target": "reports",
-      "limit": 1,
-      "optional": true
+      "optional": true,
+      "flag": "retired",
+      "note": "retired by decision 0022: the Reports database is gone, a conversation report is a Documents row (Type = Report) linked through Tasks.Documents. Not created in a fresh deploy; older CRMs may still carry it pointing at the archived Reports"
     },
     "Conversation report": {
       "type": "relation",
-      "target": "reports"
+      "optional": true,
+      "flag": "retired",
+      "note": "retired by decision 0022: the Reports database is gone, a conversation report is a Documents row (Type = Report) linked through Tasks.Documents. Not created in a fresh deploy; older CRMs may still carry it pointing at the archived Reports"
     },
     "Expense": {
       "type": "relation",

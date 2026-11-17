@@ -22,7 +22,6 @@ Purpose: the one task database of the company: client work, finance, team, admin
 | Business contacts | relation to Business contacts, two-way | reverse Business contacts.Tasks | |
 | Expense | relation to Expenses | reverse Expenses.Tasks | |
 | Documents | relation to Documents, two-way | reverse Documents.Tasks | |
-| Conversation report | relation to Reports, two-way | reverse Reports.Tasks | not synced |
 | Parent task, Sub-tasks | relation to Tasks (self), paired | | not synced |
 | Blocked by, Blocking | relation to Tasks (self), paired | | not synced |
 | Work type | select | Compliance, Banking, Legal, Tax, Admin, Web, SEO, Sales support, Hiring | not synced; differs from Type |
@@ -39,7 +38,7 @@ Purpose: the one task database of the company: client work, finance, team, admin
 | Is open, Open due | formula | helpers for rollups on Clients and Deals | cannot be created cross-database (see traps) |
 | Overdue, Is done | formula | past due and not closed; true for Done | |
 
-Live extras not needed in a fresh project (migration, skip): Source report, Meeting, Original task, Original created, Original last edited, the Project relation and `CRM tasks` on Projects.
+Live extras not needed in a fresh project (migration, skip): Source report and Conversation report (the Reports database is retired, decision 0022: link a report through Documents), Meeting, Original task, Original created, Original last edited, the Project relation and `CRM tasks` on Projects.
 
 ## Views
 
@@ -49,7 +48,7 @@ My tasks, Today, Week, Waiting (grouped by Waiting on), Inbox, Board (by Status)
 
 - One task is one action. Set Area on every new task; client work also needs a Client or Deal when known.
 - For Waiting, fill Waiting on. Close with Done or Cancelled; never delete history.
-- Reports and Documents do not create tasks; the relation only links.
+- Documents (reports included) do not create tasks; the relation only links.
 - Leads use `Leads.Next step` until linked to a person.
 - CRM sync scope: Area = Clients, or Client or Deal set. Other tasks stay in Notion.
 - Open tasks (for counts): not Done and not Cancelled. Overdue excludes Done, Cancelled and tasks due today.

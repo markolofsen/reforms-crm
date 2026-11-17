@@ -11,7 +11,7 @@ Every property of every database the Notion CRM deploys, with its type, who writ
 - [Business contacts](#business-contacts) (`business-contacts`, 18 fields)
 - [Clients](#clients) (`clients`, 40 fields)
 - [Deals](#deals) (`deals`, 45 fields)
-- [Documents](#documents) (`documents`, 11 fields)
+- [Documents](#documents) (`documents`, 18 fields)
 - [Expenses](#expenses) (`expenses`, 19 fields)
 - [Knowledge](#knowledge) (`knowledge`, 21 fields)
 - [Leads](#leads) (`leads`, 30 fields)
@@ -19,7 +19,6 @@ Every property of every database the Notion CRM deploys, with its type, who writ
 - [Organizations](#organizations) (`organizations`, 6 fields)
 - [Participants](#participants) (`participants`, 7 fields)
 - [Payments](#payments) (`payments`, 15 fields)
-- [Reports](#reports) (`reports`, 12 fields)
 - [Tasks](#tasks) (`tasks`, 42 fields)
 
 ## Business contacts
@@ -153,14 +152,21 @@ Pack file: `schema/documents.json`.
 | Field | Type | Writer | Options and notes |
 |---|---|---|---|
 | Document | title | people |  |
-| Type | select | people | Options: Reference, Spec, Procedure, Brief, Contract / legal, SEO, Other. |
-| Status | status (created as select) | people | Flags: skipped (trap 1). |
+| Date | date | people | date of the document or of the conversation (report) |
+| Type | select | people | Options: Reference, Spec, Procedure, Brief, Contract / legal, SEO, Other, Report. Report marks a conversation report; the Reports view filters on it |
+| Status | status (created as select) | people | document lifecycle. Live saas is select, live realty is status (trap 1): both match this entry Flags: skipped (trap 1). |
+| Report status | select | people | Options: Awaiting files, In progress, Ready for review, Final. report preparation, only for Type = Report; a separate property, not Status |
+| Format | select | people | Options: Phone call, Video call, In person, Other. conversation format, reports only |
 | Summary | text | people |  |
 | Owner | person | people |  |
+| Team participants | person | people | reports only; notifications none (live) |
+| Other participants | text | people | reports only: outside people not in Clients; never create a CRM contact for a report |
 | Document link | url | people |  |
 | Files | file | people |  |
 | Last edited | last_edited_time | system |  |
-| Clients | relation to clients |  | optional, one-way; the live CRMs still call this relation People (the People to Clients rename was not applied live) |
+| Original participants | text | migration | migrated reports only; skipped in a fresh deploy Flags: migration. |
+| Original report | url | migration | migrated reports only; skipped in a fresh deploy Flags: migration. |
+| Clients | relation to clients |  | optional, one-way; named People in the live saas CRM, Clients in realty: the alias lets one pack match both, no per-instance fork |
 | Deal | relation to deals |  | optional, one-way, not limited to one on this database |
 | Tasks | relation to tasks, reverse "Documents" |  | two-way; reverse Tasks.Documents (changes the Tasks schema) |
 
@@ -319,25 +325,6 @@ Pack file: `schema/payments.json`.
 | Vendor | rollup via Expense | formula | copied from the expense Flags: skipped (trap 2). |
 | Category | rollup via Expense | formula | copied from the expense Flags: skipped (trap 2). |
 
-## Reports
-
-Pack file: `schema/reports.json`.
-
-| Field | Type | Writer | Options and notes |
-|---|---|---|---|
-| Report | title | people |  |
-| Date | date | people |  |
-| Format | select | people | Options: Phone call, Video call, In person, Other. |
-| Status | status (created as select) | people | Flags: skipped (trap 1). |
-| Summary | text | people |  |
-| Clients | relation to clients |  | one-way, no reverse on Clients; not synced; the live CRMs still call this relation People (the People to Clients rename was not applied live) |
-| Other participants | text | people |  |
-| Team participants | person | people |  |
-| Deal | relation to deals (one) |  | one-way, no reverse on Deals; not synced |
-| Tasks | relation to tasks, reverse "Conversation report" |  | two-way; reverse is Tasks.Conversation report (live Tasks also has Source report, limit 1, one-way) |
-| Original participants | text | migration | Flags: migration. |
-| Original report | url | migration | Flags: migration. |
-
 ## Tasks
 
 Pack file: `schema/tasks.json`.
@@ -363,8 +350,8 @@ Pack file: `schema/tasks.json`.
 | Sub-tasks | relation to tasks |  |  |
 | Blocked by | relation to tasks |  |  |
 | Blocking | relation to tasks |  |  |
-| Source report | relation to reports (one) |  | Flags: optional. |
-| Conversation report | relation to reports |  |  |
+| Source report | relation |  | retired by decision 0022: the Reports database is gone, a conversation report is a Documents row (Type = Report) linked through Tasks.Documents. Not created in a fresh deploy; older CRMs may still carry it pointing at the archived Reports Flags: optional, retired. |
+| Conversation report | relation |  | retired by decision 0022: the Reports database is gone, a conversation report is a Documents row (Type = Report) linked through Tasks.Documents. Not created in a fresh deploy; older CRMs may still carry it pointing at the archived Reports Flags: optional, retired. |
 | Expense | relation to expenses (one) |  | Flags: optional. |
 | Project | relation to projects |  | Flags: optional. |
 | Business contacts | relation to business-contacts |  | named Contacts in the live CRMs since 2026-11 Flags: optional. |

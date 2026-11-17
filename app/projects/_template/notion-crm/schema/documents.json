@@ -1,11 +1,16 @@
 {
   "database": "documents",
   "title": "Documents",
-  "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+  "source": "Read-only via Notion MCP notion-fetch on 2026-11-17 from the live saas and realty CRMs (both carry the merged Documents database; the separate Reports database is retired, decision 0022). Data source ids are not carried and are NOT portable: a deploy creates new ones.",
   "properties": {
     "Document": {
       "type": "title",
       "writer": "people"
+    },
+    "Date": {
+      "type": "date",
+      "writer": "people",
+      "note": "date of the document or of the conversation (report)"
     },
     "Type": {
       "type": "select",
@@ -17,8 +22,10 @@
         "Brief",
         "Contract / legal",
         "SEO",
-        "Other"
-      ]
+        "Other",
+        "Report"
+      ],
+      "note": "Report marks a conversation report; the Reports view filters on it"
     },
     "Status": {
       "type": "status",
@@ -36,7 +43,30 @@
         ]
       },
       "trap": 1,
-      "writer": "people"
+      "writer": "people",
+      "note": "document lifecycle. Live saas is select, live realty is status (trap 1): both match this entry"
+    },
+    "Report status": {
+      "type": "select",
+      "writer": "people",
+      "options": [
+        "Awaiting files",
+        "In progress",
+        "Ready for review",
+        "Final"
+      ],
+      "note": "report preparation, only for Type = Report; a separate property, not Status"
+    },
+    "Format": {
+      "type": "select",
+      "writer": "people",
+      "options": [
+        "Phone call",
+        "Video call",
+        "In person",
+        "Other"
+      ],
+      "note": "conversation format, reports only"
     },
     "Summary": {
       "type": "text",
@@ -45,6 +75,17 @@
     "Owner": {
       "type": "person",
       "writer": "people"
+    },
+    "Team participants": {
+      "type": "person",
+      "writer": "people",
+      "notifications": "none",
+      "note": "reports only; notifications none (live)"
+    },
+    "Other participants": {
+      "type": "text",
+      "writer": "people",
+      "note": "reports only: outside people not in Clients; never create a CRM contact for a report"
     },
     "Document link": {
       "type": "url",
@@ -58,10 +99,22 @@
       "type": "last_edited_time",
       "writer": "system"
     },
+    "Original participants": {
+      "type": "text",
+      "writer": "migration",
+      "flag": "migration",
+      "note": "migrated reports only; skipped in a fresh deploy"
+    },
+    "Original report": {
+      "type": "url",
+      "writer": "migration",
+      "flag": "migration",
+      "note": "migrated reports only; skipped in a fresh deploy"
+    },
     "Clients": {
       "type": "relation",
       "target": "clients",
-      "note": "optional, one-way; the live CRMs still call this relation People (the People to Clients rename was not applied live)",
+      "note": "optional, one-way; named People in the live saas CRM, Clients in realty: the alias lets one pack match both, no per-instance fork",
       "aliases": [
         "People"
       ]
@@ -78,5 +131,8 @@
       "note": "two-way; reverse Tasks.Documents (changes the Tasks schema)"
     }
   },
-  "noteVsPack": "Live Status is type status (trap 1). Type options SEO is the owner's."
+  "noteVsPack": "Status is type status in realty and select in saas (trap 1; the pack creates select). Relation People (saas) vs Clients (realty): alias. Owner has notifications none in realty only. Type options SEO is the owner's.",
+  "pageTemplates": [
+    "Conversation report"
+  ]
 }

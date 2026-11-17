@@ -24,7 +24,7 @@ function flags(p: Prop): string {
 }
 
 function typeOf(p: Prop): string {
-  if (p.type === "relation") return `relation to ${p.target ?? "?"}${p.limit === 1 ? " (one)" : ""}${p.reverse ? `, reverse "${p.reverse}"` : ""}`;
+  if (p.type === "relation") return `relation${p.target ? ` to ${p.target}` : ""}${p.limit === 1 ? " (one)" : ""}${p.reverse ? `, reverse "${p.reverse}"` : ""}`;
   if (p.type === "rollup" || p.type === "formula") return p.type + (p.via ? ` via ${p.via}` : "");
   return p.type + (p.createAs ? ` (created as ${p.createAs})` : "");
 }

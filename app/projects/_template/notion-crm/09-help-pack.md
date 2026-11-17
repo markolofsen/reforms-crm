@@ -12,8 +12,7 @@ Source: Help and its children, read 2026-11-14 via the Notion MCP. There is a se
     🤝 Participants
     📥 Leads
     ☑️ Tasks
-    📋 Reports
-    📄 Documents
+    📄 Documents          documents and conversation reports (Type = Report)
     🎲 Knowledge
     💳 Expenses
     📇 Business contacts

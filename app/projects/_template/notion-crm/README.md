@@ -18,18 +18,18 @@ A distilled, local description of the CRM in Notion: what each module is for, it
 | `02-sales.md` | Clients, Deals, Organizations, Open loops, Participants |
 | `03-leads.md` | Leads |
 | `04-tasks.md` | Tasks |
-| `05-reports-documents-business-contacts.md` | Reports, Documents, Business contacts |
+| `05-documents-business-contacts.md` | Documents (conversation reports included), Business contacts |
 | `06-knowledge.md` | Knowledge |
 | `07-expenses.md` | Expenses, Payments |
 | `08-views.md` | how a view is written, the views per database |
 | `09-help-pack.md` | the Help page tree to recreate, with placeholders |
 | `10-api-traps.md` | what the Notion API and MCP refuse or do silently |
-| `schema/<db>.json` | machine-readable properties, types, options, relation targets and reverse names, writer, vertical/ads/sync/migration flags, for all 13 databases: clients, leads, deals, organizations, open-loops, participants, tasks, reports, knowledge, documents, contacts, expenses, payments (read live 2026-11-14). The JSON wins over the tables in `02` to `07`; the tables carry the meaning and rules |
-| `views/<db>.json` | the live views as JSON for the same 13 databases (filters, sorts, groups; Tasks, Clients and the Sales databases have `displayProperties` cut to acting columns, the rest list the live columns). `dataSourceUrl` is a placeholder |
+| `schema/<db>.json` | machine-readable properties, types, options, relation targets and reverse names, writer, vertical/ads/sync/migration flags, for all 12 databases: clients, leads, deals, organizations, open-loops, participants, tasks, knowledge, documents, business-contacts, expenses, payments (read live 2026-11-14; `documents` 2026-11-17, with the retired Reports merged in, decision 0022). The JSON wins over the tables in `02` to `07`; the tables carry the meaning and rules |
+| `views/<db>.json` | the live views as JSON for the same 12 databases (filters, sorts, groups; Tasks, Clients and the Sales databases have `displayProperties` cut to acting columns, the rest list the live columns). `dataSourceUrl` is a placeholder |
 
 ## Decision (owner, 2026-11-14)
 
-Contacts stays separate from Clients. Clients = the people we sell to (formerly People). The Contacts database is renamed **Business contacts**: a standalone address book of contractors, lawyers, banks, vendors and partners, never a client, no merge into Clients. A link to Clients (`Related clients`) or Organizations is optional. The leftover relation properties named `People` (Reports, Documents, Organizations; reverse on Clients.Organization) are named `Clients` in this pack. Older CRMs may still use the old names.
+Contacts stays separate from Clients. Clients = the people we sell to (formerly People). The Contacts database is renamed **Business contacts**: a standalone address book of contractors, lawyers, banks, vendors and partners, never a client, no merge into Clients. A link to Clients (`Related clients`) or Organizations is optional. The leftover relation properties named `People` (Documents, Organizations; reverse on Clients.Organization) are named `Clients` in this pack. Older CRMs may still use the old names.
 
 ## Rules for using it
 

@@ -46,7 +46,7 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 
 1. `# <name>`: one heading; the notion parser takes it as the display name. A short paragraph under it: what the project is.
 2. `## Settings`: the table below, columns `Field | Value | Answered | By`. `Answered` is an ISO date. `By` is `owner` (answered by the owner), `default` (the agent applied the default, owner did not object), or `agent` (derived from a system, e.g. `list_accounts`). A row exists only once the field is decided; a missing optional row means "default applies, never asked". Lists are comma-separated. Empty value is written as an empty cell.
-3. `## Notion databases`: list items `- <slug>: <data source id>` (existing format, read by `@hub/notion`). Slugs: `clients`, `leads`, `knowledge`, `reports` core; others (`deals`, `organizations`, `open-loops`, `participants`, `tasks`) optional.
+3. `## Notion databases`: list items `- <slug>: <data source id>` (existing format, read by `@hub/notion`). Slugs: `clients`, `leads`, `documents` core (conversation reports are `documents` of Type Report; there is no `reports` database since decision 0022); others (`deals`, `organizations`, `open-loops`, `participants`, `tasks`, `business-contacts`) optional. An old `reports` or `knowledge` entry is read and ignored.
 4. `## Answers`: append-only log, columns `Date | Field | Question | Answer`.
 5. `## Notes`: free prose.
 
@@ -82,7 +82,7 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 | `calendar.name` | text | no | none | `calendar` skill | name of the calendar that holds are written to; absent: the skill reports `no-calendar`, never guesses |
 | `calendar.id` | text | no | none | `calendar` skill | calendar id when two calendars share a name |
 | `calendar.timezone` | IANA tz | no | `timezone` | `calendar` skill | zone of the owner's working hours |
-| `notion.databases` | section | yes | none | notion, skills | the `## Notion databases` list; `clients` and `reports` required, any other entry (an old `knowledge` one) is ignored |
+| `notion.databases` | section | yes | none | notion, skills | the `## Notion databases` list; `clients` required (and `leads` for `sales-pipeline`); any other entry (an old `knowledge` or `reports` one) is ignored |
 | `knowledge.source` | `files` | no | `files` | `knowledge-import`, index | the local folder `knowledge/` is the base; the only value is `files` |
 | `run.quiet_hours` | `HH:MM-HH:MM` or `off` | no | global config | gate | no run in this window |
 | `run.max_messages` | int | no | global (5) | gate | messages per run |
@@ -116,7 +116,7 @@ Boutique travel agency; leads arrive from the site form at hello@acme.example.
 ## Notion databases
 
 - clients: 00000000-0000-4000-8000-000000000001
-- reports: 00000000-0000-4000-8000-000000000002
+- documents: 00000000-0000-4000-8000-000000000002
 
 ## Answers
 
@@ -139,9 +139,9 @@ A kind is data owned by core (`app/packages/projects/src/kinds.ts`, validated by
 
 | Kind | For | Required beyond mail accounts, sender and tone |
 |---|---|---|
-| `generic` | the default; the set every project had before kinds | Notion databases `clients`, `reports` |
-| `sales-pipeline` | a sales pipeline with viewings | `clients`, `leads`, `reports` |
-| `software-support` | software support, no calendar | `clients`, `reports` |
+| `generic` | the default; the set every project had before kinds | Notion database `clients` |
+| `sales-pipeline` | a sales pipeline with viewings | `clients`, `leads` |
+| `software-support` | software support, no calendar | `clients` |
 | `shop` | orders and returns by mail, no Notion CRM | nothing |
 
 A missing required field is a warning in a `draft` project and an error otherwise. An unknown `kind` is an error. Add a kind only when a second project needs it. `doctor` reads the kind: checks of a module the kind does not use are skipped, and `hub projects` shows the kind. `project-setup` writes the `kind` row first and copies the kind's `taxonomy` to `knowledge/taxonomy.md`; after that the project owns the file.

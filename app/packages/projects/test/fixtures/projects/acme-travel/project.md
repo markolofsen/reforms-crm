@@ -21,7 +21,7 @@ Boutique travel agency; leads arrive from the site form at hello@acme.example.
 ## Notion databases
 
 - clients: 00000000-0000-4000-8000-000000000001
-- reports: 00000000-0000-4000-8000-000000000002
+- documents: 00000000-0000-4000-8000-000000000002
 
 ## Answers
 

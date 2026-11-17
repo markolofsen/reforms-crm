@@ -1,6 +1,6 @@
 # Views
 
-Source: the six live Leads views fetched as JSON on 2026-11-14 via the Notion MCP (`notion-fetch`); the view lists in Help / Modules pages (Sales and Clients, Leads, Tasks, Reports, Knowledge, Documents, Expenses, Business contacts), read the same day. Every database has JSON in `views/`.
+Source: the six live Leads views fetched as JSON on 2026-11-14 via the Notion MCP (`notion-fetch`); the view lists in Help / Modules pages (Sales and Clients, Leads, Tasks, Knowledge, Documents (reports included), Expenses, Business contacts), read the same day. Every database has JSON in `views/`.
 
 ## How a view is written
 
@@ -34,7 +34,7 @@ The Notion MCP shows a view as JSON; `notion-create-view` and `notion-update-vie
 
 ## Views per database (name: filter / sort / grouping)
 
-Verified live JSON exists in `views/<db>.json` for all 14 databases (read 2026-11-14 through `notion-fetch` of each database). `displayProperties` are cut to acting columns for Deals, Organizations, Open loops, Participants, Workflows, Tasks and Clients, and are the full live column lists for Leads, Reports, Knowledge, Documents, Business contacts, Expenses and Payments. The JSON wins over the words below; the words stay as a reading aid.
+Verified live JSON exists in `views/<db>.json` for all 13 databases (read 2026-11-14 through `notion-fetch` of each database). `displayProperties` are cut to acting columns for Deals, Organizations, Open loops, Participants, Workflows, Tasks and Clients, and are the full live column lists for Leads, Knowledge, Documents, Business contacts, Expenses and Payments. The JSON wins over the words below; the words stay as a reading aid.
 
 **Leads** (JSON in `views/leads.json`): Inbox (Status = New or empty; Received at desc; default), Needs reply (as above), In progress (Status = In progress; group by Owner; sort Next step asc), Board (board, group by Status; Received at desc), All (no filter; Received at desc), Won no client (Status = Won and Client empty; Received at asc).
 
@@ -48,11 +48,9 @@ Verified live JSON exists in `views/<db>.json` for all 14 databases (read 2026-1
 
 **Tasks** (live, 12): Board (open, grouped by Status, Due asc), Today (open, Due today or earlier), Week (open, Due within the next week), Waiting (Status = Waiting; group Waiting on), Inbox (Status = Inbox; Created desc), Done (Done or Cancelled; Last edited desc), All, By client (open; group Client), My tasks (Assignee = me, open), By area (open; group Area), Needs area (Area empty, open), By project (open; group Project; only with Projects). "Open" = Status not Done and not Cancelled. Live first view is Board; the pack's earlier default "My tasks" is a choice, not the live order.
 
-**Reports**: All reports (Date desc), By person (group by Clients), By team participant.
-
 **Knowledge**: All (group by Category), Needs approval (Approved unticked), `<owner> to confirm` (Use = MARKER or Valid until passed), Sync problems (Sync state conflict or rejected), Playbooks (group by Audiences).
 
-**Documents**: All documents (Last edited desc), Current (Status = Current), By type. **Business contacts**: All contacts (Name), By category. **Expenses**: Active, Due in 30 days, By category, No next date, All. **Payments**: Last 30 days, Planned, Paid, All. (JSON in `views/`)
+**Documents** (reports included; read live in saas and realty 2026-11-17): All documents (Last edited desc, default), Current (Status = Current; operator `enum_is` on a select Status, `status_is` where Status is a status property), By type (group Type), Reports (Type = Report; Date desc). The old Reports views (All reports, By person, By team participant) are gone. **Business contacts**: All contacts (Name), By category. **Expenses**: Active, Due in 30 days, By category, No next date, All. **Payments**: Last 30 days, Planned, Paid, All. (JSON in `views/`)
 
 **Sales page `Today` block** (linked views of the above, not copies): To do (Tasks: Area = Clients or Client or Deal set; Today, Week, Waiting), Follow-ups (Clients: Today, Waiting, No task), Pipeline (Deals: No task, Hot, At risk), owner-owes (Open loops: Owner owes).
 
@@ -60,4 +58,4 @@ Operators seen in the live JSON, beyond those above: `enum_is_not`, `checkbox_is
 
 ## Page templates (recreate by hand, the API creates database pages from a template only on request)
 
-Tasks: none required (the live nine are migration artefacts). Reports: `Conversation report`. Others: none.
+Tasks: none required (the live nine are migration artefacts). Documents: `Conversation report` (Type = Report). Others: none.
