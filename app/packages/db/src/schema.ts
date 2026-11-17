@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import type { BatchStatus, DraftStatus, EventKind, EvidenceLevel, EvidenceSource, InboxAction, Mark, NotionKind, RunStatus, SafetyKind, SafetyLevel } from "@hub/config";
+import type { BatchStatus, DraftStatus, EventKind, EvidenceLevel, EvidenceSource, InboxAction, InboxKind, Mark, NotionKind, RunStatus, SafetyKind, SafetyLevel } from "@hub/config";
 
 // Every table carries `project`: one database serves several projects (owner decision).
 // Timestamps are ISO-8601 UTC text.
@@ -136,6 +136,8 @@ export const inboxRows = sqliteTable(
     mailClass: text("mail_class"),
     action: text("action").$type<InboxAction>().notNull(),
     reason: text("reason"),
+    kind: text("kind").$type<InboxKind>(), // null = an ordinary triage row; set = "Not by email"
+    phone: text("phone"), // free text the agent copied from the mail, only ever shown
     repliesOwed: integer("replies_owed", { mode: "boolean" }).notNull().default(false),
     notionKind: text("notion_kind").$type<NotionKind>(),
     notionPageId: text("notion_page_id"),

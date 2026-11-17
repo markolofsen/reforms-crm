@@ -74,4 +74,14 @@ describe("record-draft stores what the draft was based on", () => {
       expect(by["cy@x.example"]?.body).toBe("");
     } finally { h.close(); }
   });
+
+  it("records a call with a free-text phone, and refuses an unknown kind and a body", async () => {
+    const r = await send({ email: "d@x.example", name: "Di", action: "escalated", kind: "call", phone: "ask at the front desk", repliesOwed: false, notion: { kind: "none" } });
+    expect(r.code).toBe(0);
+    const h = openDb(dbPath);
+    try { expect(await createRepos(h.db).inbox.notByEmail("acme", "call")).toMatchObject([{ email: "d@x.example", kind: "call", phone: "ask at the front desk" }]); } finally { h.close(); }
+    expect((await send({ email: "e@x.example", action: "skipped", kind: "send_it", notion: { kind: "none" } })).code).toBe(2);
+    expect((await send({ email: "e@x.example", action: "skipped", kind: "call", body: "hi", notion: { kind: "none" } })).code).toBe(2);
+    expect(await rows("owed")).toEqual([]);
+  });
 });

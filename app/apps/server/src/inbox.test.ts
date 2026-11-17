@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { inboxDto } from "@hub/contract/responses";
+import { inboxDto, notByEmailDto } from "@hub/contract/responses";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { createApp } from "./app";
 
@@ -35,5 +35,22 @@ describe("GET /api/inbox", () => {
     await repos.inbox.record({ project: "p", email: "a@x.example", name: "Ann", action: "escalated" });
     expect(inboxDto.parse(await (await get("project=other")).json()).rows).toEqual([]);
     expect((await get("project=p&filter=x")).status).toBe(400);
+  });
+});
+
+describe("GET /api/inbox/not-by-email", () => {
+  const nbe = async (q: string) => createApp(repos).request(`http://127.0.0.1:4317/api/inbox/not-by-email?${q}`);
+  it("lists the clients with a kind, by group, keeps them out of the reply queue and shows a phone as plain text", async () => {
+    await repos.inbox.record({ project: "p", email: "a@x.example", name: "Ann", action: "escalated", kind: "call", phone: "+351 912 000 111 (after 5)", repliesOwed: false });
+    await repos.inbox.record({ project: "p", email: "b@x.example", name: "Bo", action: "skipped", kind: "crossed_off" });
+    await repos.inbox.record({ project: "p", email: "c@x.example", name: "Cy", action: "escalated" });
+    const all = notByEmailDto.parse(await (await nbe("project=p")).json());
+    expect(all.counts).toEqual({ call: 1, no_action: 0, crossed_off: 1, unknown_sender: 0 });
+    expect(all.total).toBe(2);
+    const calls = notByEmailDto.parse(await (await nbe("project=p&kind=call")).json());
+    expect(calls.rows).toMatchObject([{ email: "a@x.example", kind: "call", phone: "+351 912 000 111 (after 5)", owed: false }]);
+    // The reply queue holds only the ordinary row.
+    expect(inboxDto.parse(await (await get("project=p&filter=all")).json()).rows.map((r) => r.email)).toEqual(["c@x.example"]);
+    expect((await nbe("project=p&kind=nope")).status).toBe(400);
   });
 });

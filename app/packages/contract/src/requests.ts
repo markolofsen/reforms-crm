@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { AUDIENCES, BATCH_FILTERS, BATCH_INTENTS, CLIENT_FILTERS, DEFAULT_SILENT_DAYS, INBOX_FILTERS, MARKS, SAFETY_KINDS, SETTABLE_STATUSES, TONES } from "@hub/config";
+import { AUDIENCES, BATCH_FILTERS, BATCH_INTENTS, CLIENT_FILTERS, DEFAULT_SILENT_DAYS, INBOX_FILTERS, INBOX_KINDS, MARKS, SAFETY_KINDS, SETTABLE_STATUSES, TONES } from "@hub/config";
 
 // Every request the API accepts, once. The server validates with these; the admin imports the types of the bodies it
 // builds. `SETTABLE_STATUSES` has no `sent`: the draft-only invariant is part of the contract.
@@ -22,6 +22,7 @@ export const draftsQuery = z.object({
   ...page,
 });
 export const inboxQuery = z.object({ project, filter: z.enum(INBOX_FILTERS).default("owed"), ...page });
+export const notByEmailQuery = z.object({ project, kind: z.enum(INBOX_KINDS).optional(), ...page });
 export const batchQuery = z.object({ project, filter: z.enum(BATCH_FILTERS).default("all"), ...page });
 export const historyQuery = z.object({ project, limit: z.coerce.number().int().min(1).max(200).optional(), cursor: z.string().min(1).max(2000).optional() });
 export const audienceQuery = z.object({

@@ -12,6 +12,7 @@ import {
   EXCLUSION_REASONS,
   INBOX_ACTIONS,
   INBOX_FILTERS,
+  INBOX_KINDS,
   MARKS,
   NOTION_KINDS,
   RUN_STATUSES,
@@ -125,6 +126,8 @@ export const inboxRowDto = z.object({
   mailClass: z.string().nullable(),
   action: z.enum(INBOX_ACTIONS),
   reason: z.string().nullable(),
+  kind: z.enum(INBOX_KINDS).nullable(),
+  phone: z.string().nullable(),
   /** The reply is still owed: the agent left it to the owner and no open draft exists. */
   owed: z.boolean(),
   openDraftId: z.number().nullable(),
@@ -144,6 +147,9 @@ export const inboxDto = z.object({
   total: z.number(),
 });
 export type InboxDto = z.infer<typeof inboxDto>;
+/** The clients not answered by email (P27 M6): read-only, grouped by why. */
+export const notByEmailDto = z.object({ rows: z.array(inboxRowDto), counts: z.object({ call: z.number(), no_action: z.number(), crossed_off: z.number(), unknown_sender: z.number() }), total: z.number() });
+export type NotByEmailDto = z.infer<typeof notByEmailDto>;
 
 const pageOf = { total: z.number(), nextOffset: z.number().nullable() };
 

@@ -1,5 +1,5 @@
 import { and, asc, desc, eq, gte, sql, type SQL } from "drizzle-orm";
-import { INBOX_ACTIONS, TRIAGE_GAP_MINUTES, type InboxAction, type InboxCounts, type InboxFilter, type NotionRef } from "@hub/config";
+import { INBOX_ACTIONS, INBOX_KINDS, TRIAGE_GAP_MINUTES, type InboxAction, type InboxCounts, type InboxKind, type InboxKindCounts, type InboxFilter, type NotionRef } from "@hub/config";
 import type { Db } from "../client";
 import { write } from "../tx";
 import { RepoError } from "../errors";
@@ -22,6 +22,9 @@ export type InboxInput = {
   lastInboundAt?: string | null;
   mailClass?: string | null;
   reason?: string | null;
+  /** Set when the client is not answered by email (a call, no reply needed, crossed off, unknown sender); `phone` is free text, shown only. */
+  kind?: InboxKind | null;
+  phone?: string | null;
   /** Defaults to false for `skipped`, true for the others: a client the agent left to the owner is owed an answer. */
   repliesOwed?: boolean;
   notion?: NotionRef | null;
@@ -30,7 +33,8 @@ export type InboxInput = {
 };
 export type InboxResult = { inboxId: number; runId: number; created: boolean };
 
-const SQL_OWED = sql`${inboxRows.repliesOwed} = 1 and ${inboxRows.action} <> 'drafted' and not exists (select 1 from drafts d join clients c on c.id = d.client_id where c.project = inbox_rows.project and c.email = inbox_rows.email and d.status in ('ready','hold'))`;
+const SQL_ORDINARY = sql`${inboxRows.kind} is null`;
+const SQL_OWED = sql`${inboxRows.kind} is null and ${inboxRows.repliesOwed} = 1 and ${inboxRows.action} <> 'drafted' and not exists (select 1 from drafts d join clients c on c.id = d.client_id where c.project = inbox_rows.project and c.email = inbox_rows.email and d.status in ('ready','hold'))`;
 const SQL_OPEN_DRAFT = sql<number | null>`(select max(d.id) from drafts d join clients c on c.id = d.client_id where c.project = inbox_rows.project and c.email = inbox_rows.email and d.status in ('ready','hold'))`;
 
 /** Sync core: insert the client's row or update it. `firstSeenAt` is kept; everything the agent states again is replaced. Runs inside the caller's transaction. */
@@ -45,6 +49,8 @@ export function upsertInbox(tx: Tx, input: InboxInput, at: string): { id: number
     mailClass: input.mailClass ?? null,
     action: input.action,
     reason: input.reason ?? null,
+    kind: input.kind ?? null,
+    phone: input.phone ?? null,
     repliesOwed: owed,
     notionKind: input.notion?.kind ?? null,
     notionPageId: input.notion?.pageId ?? null,
@@ -61,9 +67,9 @@ export function upsertInbox(tx: Tx, input: InboxInput, at: string): { id: number
 }
 
 const predicates: Record<InboxFilter, (since: string | null) => SQL | undefined> = {
-  all: () => undefined,
+  all: () => SQL_ORDINARY,
   owed: () => SQL_OWED,
-  new: (since) => (since ? gte(inboxRows.firstSeenAt, since) : sql`0`),
+  new: (since) => (since ? and(SQL_ORDINARY, gte(inboxRows.firstSeenAt, since)) : sql`0`),
 };
 
 /**
@@ -88,6 +94,7 @@ export function inboxRepo(db: Db) {
     /** Writes the row, and one line in the Agent log (a run is started unless `runId` names one of this project). */
     async record(input: InboxInput, now: Date = new Date()): Promise<InboxResult> {
       if (!(INBOX_ACTIONS as readonly string[]).includes(input.action)) throw new RepoError("wrong_state", `Unknown action "${input.action}"`);
+      if (input.kind != null && !(INBOX_KINDS as readonly string[]).includes(input.kind)) throw new RepoError("wrong_state", `Unknown kind "${input.kind}"`);
       return write(db, (tx) => {
         const at = now.toISOString();
         let runId = input.runId ?? null;
@@ -96,7 +103,7 @@ export function inboxRepo(db: Db) {
         }
         if (runId == null) runId = tx.insert(agentRuns).values({ project: input.project, startedAt: at, finishedAt: at, trigger: "owner", skill: input.skill ?? null, status: "ok" }).returning({ id: agentRuns.id }).get().id;
         const r = upsertInbox(tx, input, at);
-        insertEvent(tx, { project: input.project, runId, at, kind: "decision", summary: `${input.name || input.email}: ${input.action}`, detail: JSON.stringify({ inboxId: r.id, action: input.action, reason: input.reason ?? null }), clientId: null, tool: null });
+        insertEvent(tx, { project: input.project, runId, at, kind: "decision", summary: `${input.name || input.email}: ${input.action}`, detail: JSON.stringify({ inboxId: r.id, action: input.action, kind: input.kind ?? null, reason: input.reason ?? null }), clientId: null, tool: null });
         return { inboxId: r.id, runId, created: r.created };
       });
     },
@@ -112,6 +119,25 @@ export function inboxRepo(db: Db) {
         .offset(opts.offset ?? 0)
         .all();
       return rows.map((r) => ({ ...r.row, openDraftId: r.openDraftId, owed: r.owed === 1 }));
+    },
+
+    /** The clients the agent did not answer by email, newest first; `kind` narrows to one group. Read-only. */
+    async notByEmail(project: string, kind: InboxKind | null = null, opts: { limit?: number; offset?: number } = {}): Promise<InboxRow[]> {
+      return db
+        .select()
+        .from(inboxRows)
+        .where(and(eq(inboxRows.project, project), kind ? eq(inboxRows.kind, kind) : sql`${inboxRows.kind} is not null`))
+        .orderBy(desc(inboxRows.recordedAt), desc(inboxRows.id))
+        .limit(opts.limit ?? -1)
+        .offset(opts.offset ?? 0)
+        .all();
+    },
+
+    async kindCounts(project: string): Promise<InboxKindCounts> {
+      const rows = db.select({ kind: inboxRows.kind, n: sql<number>`count(*)` }).from(inboxRows).where(and(eq(inboxRows.project, project), sql`${inboxRows.kind} is not null`)).groupBy(inboxRows.kind).all();
+      const out: InboxKindCounts = { call: 0, no_action: 0, crossed_off: 0, unknown_sender: 0 };
+      for (const r of rows) if (r.kind) out[r.kind] = r.n;
+      return out;
     },
 
     async counts(project: string): Promise<InboxCounts> {

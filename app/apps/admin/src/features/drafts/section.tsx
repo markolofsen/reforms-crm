@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { ClientFilter } from "@hub/config";
 import { InboxQueue } from "./inbox-queue";
+import { NotByEmail } from "./not-by-email";
 import { BatchBar } from "./batch-bar";
 import { BatchGone, BatchHead, BatchWaiting, BATCH_POLL_MS, useBatchHead } from "./batch-head";
 import { NewBatch } from "./new-batch";
@@ -106,6 +107,7 @@ function DraftsSection({ project, projects, onProject, filter, q, batch, buildin
           {batch === null ? <InboxQueue project={project} /> : summary ? <BatchHead batch={summary} /> : head.isError ? <BatchGone /> : null}
         </>
       }
+      listBottom={batch === null ? <NotByEmail project={project} /> : undefined}
       mobile={mobile}
       noun={{ list: "Drafts", back: "Drafts" }}
       onView={setView}

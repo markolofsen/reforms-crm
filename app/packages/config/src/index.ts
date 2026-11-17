@@ -76,6 +76,23 @@ export type InboxFilter = (typeof INBOX_FILTERS)[number];
 export type InboxCounts = Record<InboxFilter, number>;
 export const INBOX_FILTER_LABELS: Record<InboxFilter, string> = { owed: "Owed a reply", new: "New in the last triage", all: "All" };
 
+/**
+ * A client who is not answered by email, and why (P27 M6): the agent recorded a phone call to make, a mail that needs nothing,
+ * a client the owner crossed off, or a sender it could not place. A row with a kind is shown in "Not by email", never in the
+ * reply queue, and nothing here sends.
+ */
+export const INBOX_KINDS = ["call", "no_action", "crossed_off", "unknown_sender"] as const;
+export type InboxKind = (typeof INBOX_KINDS)[number];
+export const INBOX_KIND_LABELS: Record<InboxKind, string> = { call: "Call", no_action: "No reply needed", crossed_off: "Crossed off", unknown_sender: "Unknown sender" };
+/** The words that put a client in each group, shown when it is empty so the owner knows what fills it. */
+export const INBOX_KIND_HINTS: Record<InboxKind, string> = {
+  call: "Say \"call him\" or \"he wants a call\" to the agent and the client is listed here with a phone number if there is one.",
+  no_action: "A mail that needs no answer, such as a receipt or a thank-you, is listed here.",
+  crossed_off: "A client you tell the agent to leave alone is listed here.",
+  unknown_sender: "A sender the agent could not match to a client or a lead is listed here.",
+};
+export type InboxKindCounts = Record<InboxKind, number>;
+
 /** Triage runs closer together than this belong to one triage (one `hub agent` session records many clients). */
 export const TRIAGE_GAP_MINUTES = 30;
 

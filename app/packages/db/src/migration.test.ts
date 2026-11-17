@@ -94,6 +94,20 @@ describe("migration 0014 (redundant indexes)", () => {
   });
 });
 
+describe("migration 0015 (not by email)", () => {
+  it("adds kind and phone to inbox_rows and keeps every existing row, as an ordinary one", () => {
+    const sqlite = new Database(":memory:");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(15) }); // 0000 .. 0014
+    sqlite.prepare("insert into inbox_rows (project, email, name, action, replies_owed, first_seen_at, recorded_at) values ('p','a@x.example','A','escalated',1,'2026-11-01T00:00:00.000Z','2026-11-01T00:00:00.000Z')").run();
+    migrate(db, { migrationsFolder: source });
+    const cols = (sqlite.prepare("pragma table_info(inbox_rows)").all() as { name: string }[]).map((c) => c.name);
+    expect(cols).toEqual(expect.arrayContaining(["kind", "phone"]));
+    expect(sqlite.prepare("select email, action, replies_owed, kind, phone from inbox_rows").get()).toEqual({ email: "a@x.example", action: "escalated", replies_owed: 1, kind: null, phone: null });
+    sqlite.close();
+  });
+});
+
 describe("restoreCheck", () => {
   it("opens a snapshot made by an OLDER core, applies the newer migrations and loses no row", () => {
     const tmp = mkdtempSync(join(tmpdir(), "hub-restore-"));

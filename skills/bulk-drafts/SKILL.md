@@ -28,4 +28,4 @@ The owner started the session and said who and why ("follow-up всем лида
 7. End with the batch check: for more than 3 clients run `hub audit-run` as `skills/triage-mail/SKILL.md` section 5 says, and always `./run.sh batch-check --project <slug> --batch <batchKey>` (exit 1 on a red row; also for 3 clients or fewer); a red row goes to "Нужно от тебя" as P1.
 Rules 1 to 5 of `skills/README.md` hold. The only Mail write is `create_reply`, never send.
 
-Bulk drafts never propose times. A client whose message asks for a call or a meeting is routed to `skills/calendar/references/from-mail.md` and reported as `skipped: scheduling, see calendar`.
+A client whose answer is a phone call, not a mail, is recorded with `hub record-client` and `"kind":"call"` (and `phone` when the mail states one; see `skills/triage-mail/SKILL.md` section 2 step 5), not drafted. Bulk drafts never propose times. A client whose message asks for a call or a meeting is routed to `skills/calendar/references/from-mail.md` and reported as `skipped: scheduling, see calendar`.

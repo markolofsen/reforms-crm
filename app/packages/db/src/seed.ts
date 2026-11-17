@@ -165,6 +165,13 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
   await seen("marta@example.org", "Marta Gomes", "escalated", "Asks about a discount the owner has not approved.", { kind: "client", pageId: "11111111111111111111111111111111" }, 5, "Discount on the second unit");
   await seen("joao@example.org", "Joao Pires", "escalated", "First contact, wants a viewing; no profile yet.", { kind: "lead", pageId: "22222222222222222222222222222222" }, 9, "Viewing next week?");
   await seen("noreply@example.com", "Newsletter", "skipped", "A mailing list, no reply needed.", { kind: "none" }, 30, "Weekly digest");
+  // Not answered by email (P27 M6): three of the four groups are filled; "unknown sender" stays empty so its empty state is seeded too.
+  const aside = (email: string, name: string, kind: "call" | "no_action" | "crossed_off", reason: string, phone: string | null, hours: number) =>
+    repos.inbox.record({ project: "lisbon-realty", email, name, action: kind === "call" ? "escalated" : "skipped", kind, phone, reason, repliesOwed: false, notion: { kind: "none" }, lastInboundAt: daysAgo(now, hours / 24), skill: "triage-mail", runId: run1 }, new Date(daysAgo(now, 0.08)));
+  await aside("duarte@example.org", "Duarte Exemplo", "call", "Asked to be called about the closing date.", "+351 912 000 000 (after 17:00)", 7);
+  await aside("helena@example.net", "Helena Prova", "call", "The owner said to call her.", null, 20);
+  await aside("receipts@example.com", "Payment receipts", "no_action", "A receipt, nothing to answer.", null, 40);
+  await aside("vasco@example.org", "Vasco Ensaio", "crossed_off", "The owner asked the agent to leave him alone.", null, 90);
   return true;
 }
 

@@ -1,4 +1,4 @@
-import { INBOX_ACTIONS } from "@hub/config";
+import { INBOX_ACTIONS, INBOX_KINDS } from "@hub/config";
 import { createRepos, defaultDbPath, openDb, RepoError, type InboxInput } from "@hub/db";
 import { z } from "zod";
 import { notionRef } from "./record-draft";
@@ -22,6 +22,10 @@ export const clientInput = z
     name: text(200).optional(),
     action: z.enum(INBOX_ACTIONS),
     reason: text(500).nullish(),
+    /** Not answered by email: a call to make, no reply needed, crossed off, an unknown sender. The agent still only drafts. */
+    kind: z.enum(INBOX_KINDS).nullish(),
+    /** Free text copied from the mail when there is one; shown, never dialled or checked. */
+    phone: text(60).nullish(),
     subject: text(300).nullish(),
     mailRef: text(500).nullish(),
     lastInboundAt: when.nullish(),
@@ -63,6 +67,8 @@ export async function recordClient(o: RecordClientOptions): Promise<RecordOutcom
     name: v.name ?? v.email,
     action: v.action,
     reason: v.reason ?? null,
+    kind: v.kind ?? null,
+    phone: v.phone ?? null,
     subject: v.subject ?? null,
     mailRef: v.mailRef ?? null,
     lastInboundAt: v.lastInboundAt ?? null,
