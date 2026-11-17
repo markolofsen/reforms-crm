@@ -1,336 +1,343 @@
 {
- "database": "deals",
- "title": "Deals",
- "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
- "properties": {
-  "Title": {
-   "type": "title",
-   "writer": "CRM"
+  "database": "deals",
+  "title": "Deals",
+  "source": "Read-only via Notion MCP notion-fetch on 2026-11-14; from a live CRM. Data source ids are not carried and are NOT portable: a deploy creates new ones.",
+  "properties": {
+    "Title": {
+      "type": "title",
+      "writer": "CRM"
+    },
+    "Client": {
+      "type": "relation",
+      "target": "clients",
+      "limit": 1,
+      "writer": "CRM"
+    },
+    "Others": {
+      "type": "relation",
+      "target": "clients",
+      "writer": "CRM",
+      "note": "do not use, use Participants"
+    },
+    "Pipeline": {
+      "type": "select",
+      "options": [
+        "Buyers",
+        "Sellers",
+        "Developers",
+        "Referral partners"
+      ],
+      "writer": "CRM"
+    },
+    "Stage": {
+      "type": "select",
+      "options": [
+        "New lead",
+        "Seller lead",
+        "Prospecting",
+        "Qualified",
+        "Warm",
+        "Hot",
+        "Offer",
+        "Off-market",
+        "Exclusive",
+        "Contract",
+        "Firm / Pending",
+        "Closed",
+        "On hold",
+        "Lost",
+        "Not qualified",
+        "Withdrawn",
+        "Expired",
+        "Potential",
+        "In discussion",
+        "Information received",
+        "Agreement signed",
+        "Data room live",
+        "Active inventory",
+        "Active",
+        "Inactive"
+      ],
+      "writer": "CRM",
+      "vertical": true,
+      "note": "25 options, one list for all pipelines"
+    },
+    "Furthest stage": {
+      "type": "select",
+      "options": [
+        "New lead",
+        "Seller lead",
+        "Prospecting",
+        "Qualified",
+        "Warm",
+        "Hot",
+        "Offer",
+        "Off-market",
+        "Exclusive",
+        "Contract",
+        "Firm / Pending",
+        "Closed",
+        "On hold",
+        "Lost",
+        "Not qualified",
+        "Withdrawn",
+        "Expired",
+        "Potential",
+        "In discussion",
+        "Information received",
+        "Agreement signed",
+        "Data room live",
+        "Active inventory",
+        "Active",
+        "Inactive"
+      ],
+      "writer": "CRM"
+    },
+    "Stage since": {
+      "type": "date",
+      "writer": "CRM"
+    },
+    "Days in stage": {
+      "type": "number",
+      "writer": "CRM"
+    },
+    "Stuck": {
+      "type": "checkbox",
+      "writer": "CRM"
+    },
+    "At risk": {
+      "type": "checkbox",
+      "writer": "CRM"
+    },
+    "Priority": {
+      "type": "number",
+      "writer": "CRM"
+    },
+    "Outcome reason": {
+      "type": "select",
+      "options": [
+        "No budget",
+        "No response",
+        "Chose competitor",
+        "Not a fit",
+        "Other"
+      ],
+      "writer": "CRM"
+    },
+    "Last touch": {
+      "type": "date",
+      "writer": "CRM"
+    },
+    "Next touch": {
+      "type": "date",
+      "writer": "CRM"
+    },
+    "Needs review": {
+      "type": "checkbox",
+      "writer": "CRM"
+    },
+    "CRM id": {
+      "type": "text",
+      "writer": "CRM"
+    },
+    "Synced at": {
+      "type": "date",
+      "writer": "CRM"
+    },
+    "Closed at": {
+      "type": "date",
+      "writer": "CRM"
+    },
+    "Referral": {
+      "type": "select",
+      "options": [
+        "None",
+        "Referred in",
+        "Referred out"
+      ],
+      "writer": "CRM"
+    },
+    "Referral status": {
+      "type": "select",
+      "options": [
+        "Introduced",
+        "Registered",
+        "Fee due",
+        "Fee received",
+        "Lost"
+      ],
+      "writer": "CRM"
+    },
+    "Lead quality": {
+      "type": "select",
+      "options": [
+        "Unqualified",
+        "Qualified",
+        "Hot"
+      ],
+      "writer": "CRM",
+      "ads": true
+    },
+    "Ad click time": {
+      "type": "date",
+      "writer": "CRM",
+      "ads": true
+    },
+    "Qualified at": {
+      "type": "date",
+      "writer": "CRM",
+      "ads": true
+    },
+    "GCLID": {
+      "type": "text",
+      "writer": "CRM",
+      "ads": true
+    },
+    "MSCLKID": {
+      "type": "text",
+      "writer": "CRM",
+      "ads": true
+    },
+    "UTM campaign": {
+      "type": "text",
+      "writer": "CRM",
+      "ads": true
+    },
+    "Purpose": {
+      "type": "multi_select",
+      "options": [
+        "Lifestyle",
+        "Investment",
+        "Citizenship",
+        "Relocation"
+      ],
+      "vertical": true
+    },
+    "Product": {
+      "type": "multi_select",
+      "options": [
+        "Whole",
+        "Fractional",
+        "Land",
+        "Development",
+        "Rental"
+      ],
+      "vertical": true
+    },
+    "Island": {
+      "type": "select",
+      "options": [
+        "Region A",
+        "Region B",
+        "Region C",
+        "Other"
+      ],
+      "vertical": true
+    },
+    "CBI": {
+      "type": "select",
+      "options": [
+        "No",
+        "Programme A",
+        "Programme B"
+      ],
+      "vertical": true
+    },
+    "Budget band": {
+      "type": "select",
+      "options": [
+        "Under 400k",
+        "400k-1M",
+        "1M-3M",
+        "3M-10M",
+        "Over 10M",
+        "Unknown"
+      ],
+      "vertical": true
+    },
+    "Timeline": {
+      "type": "select",
+      "options": [
+        "0-90",
+        "91-183",
+        "184-365",
+        "365+",
+        "Unknown"
+      ],
+      "vertical": true
+    },
+    "Financing": {
+      "type": "select",
+      "options": [
+        "Cash",
+        "Mortgage",
+        "Unknown"
+      ],
+      "vertical": true
+    },
+    "Unit": {
+      "type": "text",
+      "writer": "CRM",
+      "vertical": true
+    },
+    "Development": {
+      "type": "text",
+      "writer": "CRM",
+      "vertical": true
+    },
+    "Data room": {
+      "type": "url",
+      "writer": "CRM",
+      "note": "do not use, use Drive folder"
+    },
+    "Next step": {
+      "type": "text",
+      "writer": "people (read back)"
+    },
+    "Drive folder": {
+      "type": "url",
+      "writer": "people"
+    },
+    "Hub id": {
+      "type": "text",
+      "writer": "integration (writer not verified)"
+    },
+    "Participants": {
+      "type": "relation",
+      "target": "participants",
+      "writer": "people",
+      "reverse": "Opportunity"
+    },
+    "Tasks": {
+      "type": "relation",
+      "target": "tasks",
+      "writer": "people",
+      "reverse": "Deal"
+    },
+    "No task": {
+      "type": "formula",
+      "formula": "open deal with no open task (needs Tasks Is open); cross-database",
+      "skip": "trap 2"
+    },
+    "Open tasks": {
+      "type": "rollup",
+      "via": "Tasks",
+      "target": "Is open",
+      "aggregation": "checked"
+    },
+    "Task due": {
+      "type": "rollup",
+      "via": "Tasks",
+      "target": "Open due",
+      "aggregation": "earliest_date"
+    },
+    "Brand": {
+      "type": "multi_select",
+      "optional": true,
+      "options": [],
+      "writer": "people",
+      "note": "which site or product the deal belongs to; options are the project's own (live SaaS CRM, 2026-11-17)"
+    }
   },
-  "Client": {
-   "type": "relation",
-   "target": "clients",
-   "limit": 1,
-   "writer": "CRM"
-  },
-  "Others": {
-   "type": "relation",
-   "target": "clients",
-   "writer": "CRM",
-   "note": "do not use, use Participants"
-  },
-  "Pipeline": {
-   "type": "select",
-   "options": [
-    "Buyers",
-    "Sellers",
-    "Developers",
-    "Referral partners"
-   ],
-   "writer": "CRM"
-  },
-  "Stage": {
-   "type": "select",
-   "options": [
-    "New lead",
-    "Seller lead",
-    "Prospecting",
-    "Qualified",
-    "Warm",
-    "Hot",
-    "Offer",
-    "Off-market",
-    "Exclusive",
-    "Contract",
-    "Firm / Pending",
-    "Closed",
-    "On hold",
-    "Lost",
-    "Not qualified",
-    "Withdrawn",
-    "Expired",
-    "Potential",
-    "In discussion",
-    "Information received",
-    "Agreement signed",
-    "Data room live",
-    "Active inventory",
-    "Active",
-    "Inactive"
-   ],
-   "writer": "CRM",
-   "vertical": true,
-   "note": "25 options, one list for all pipelines"
-  },
-  "Furthest stage": {
-   "type": "select",
-   "options": [
-    "New lead",
-    "Seller lead",
-    "Prospecting",
-    "Qualified",
-    "Warm",
-    "Hot",
-    "Offer",
-    "Off-market",
-    "Exclusive",
-    "Contract",
-    "Firm / Pending",
-    "Closed",
-    "On hold",
-    "Lost",
-    "Not qualified",
-    "Withdrawn",
-    "Expired",
-    "Potential",
-    "In discussion",
-    "Information received",
-    "Agreement signed",
-    "Data room live",
-    "Active inventory",
-    "Active",
-    "Inactive"
-   ],
-   "writer": "CRM"
-  },
-  "Stage since": {
-   "type": "date",
-   "writer": "CRM"
-  },
-  "Days in stage": {
-   "type": "number",
-   "writer": "CRM"
-  },
-  "Stuck": {
-   "type": "checkbox",
-   "writer": "CRM"
-  },
-  "At risk": {
-   "type": "checkbox",
-   "writer": "CRM"
-  },
-  "Priority": {
-   "type": "number",
-   "writer": "CRM"
-  },
-  "Outcome reason": {
-   "type": "select",
-   "options": [
-    "No budget",
-    "No response",
-    "Chose competitor",
-    "Not a fit",
-    "Other"
-   ],
-   "writer": "CRM"
-  },
-  "Last touch": {
-   "type": "date",
-   "writer": "CRM"
-  },
-  "Next touch": {
-   "type": "date",
-   "writer": "CRM"
-  },
-  "Needs review": {
-   "type": "checkbox",
-   "writer": "CRM"
-  },
-  "CRM id": {
-   "type": "text",
-   "writer": "CRM"
-  },
-  "Synced at": {
-   "type": "date",
-   "writer": "CRM"
-  },
-  "Closed at": {
-   "type": "date",
-   "writer": "CRM"
-  },
-  "Referral": {
-   "type": "select",
-   "options": [
-    "None",
-    "Referred in",
-    "Referred out"
-   ],
-   "writer": "CRM"
-  },
-  "Referral status": {
-   "type": "select",
-   "options": [
-    "Introduced",
-    "Registered",
-    "Fee due",
-    "Fee received",
-    "Lost"
-   ],
-   "writer": "CRM"
-  },
-  "Lead quality": {
-   "type": "select",
-   "options": [
-    "Unqualified",
-    "Qualified",
-    "Hot"
-   ],
-   "writer": "CRM",
-   "ads": true
-  },
-  "Ad click time": {
-   "type": "date",
-   "writer": "CRM",
-   "ads": true
-  },
-  "Qualified at": {
-   "type": "date",
-   "writer": "CRM",
-   "ads": true
-  },
-  "GCLID": {
-   "type": "text",
-   "writer": "CRM",
-   "ads": true
-  },
-  "MSCLKID": {
-   "type": "text",
-   "writer": "CRM",
-   "ads": true
-  },
-  "UTM campaign": {
-   "type": "text",
-   "writer": "CRM",
-   "ads": true
-  },
-  "Purpose": {
-   "type": "multi_select",
-   "options": [
-    "Lifestyle",
-    "Investment",
-    "Citizenship",
-    "Relocation"
-   ],
-   "vertical": true
-  },
-  "Product": {
-   "type": "multi_select",
-   "options": [
-    "Whole",
-    "Fractional",
-    "Land",
-    "Development",
-    "Rental"
-   ],
-   "vertical": true
-  },
-  "Island": {
-   "type": "select",
-   "options": [
-    "Region A",
-    "Region B",
-    "Region C",
-    "Other"
-   ],
-   "vertical": true
-  },
-  "CBI": {
-   "type": "select",
-   "options": [
-    "No",
-    "Programme A",
-    "Programme B"
-   ],
-   "vertical": true
-  },
-  "Budget band": {
-   "type": "select",
-   "options": [
-    "Under 400k",
-    "400k-1M",
-    "1M-3M",
-    "3M-10M",
-    "Over 10M",
-    "Unknown"
-   ],
-   "vertical": true
-  },
-  "Timeline": {
-   "type": "select",
-   "options": [
-    "0-90",
-    "91-183",
-    "184-365",
-    "365+",
-    "Unknown"
-   ],
-   "vertical": true
-  },
-  "Financing": {
-   "type": "select",
-   "options": [
-    "Cash",
-    "Mortgage",
-    "Unknown"
-   ],
-   "vertical": true
-  },
-  "Unit": {
-   "type": "text",
-   "writer": "CRM",
-   "vertical": true
-  },
-  "Development": {
-   "type": "text",
-   "writer": "CRM",
-   "vertical": true
-  },
-  "Data room": {
-   "type": "url",
-   "writer": "CRM",
-   "note": "do not use, use Drive folder"
-  },
-  "Next step": {
-   "type": "text",
-   "writer": "people (read back)"
-  },
-  "Drive folder": {
-   "type": "url",
-   "writer": "people"
-  },
-  "Hub id": {
-   "type": "text",
-   "writer": "integration (writer not verified)"
-  },
-  "Participants": {
-   "type": "relation",
-   "target": "participants",
-   "writer": "people",
-   "reverse": "Opportunity"
-  },
-  "Tasks": {
-   "type": "relation",
-   "target": "tasks",
-   "writer": "people",
-   "reverse": "Deal"
-  },
-  "No task": {
-   "type": "formula",
-   "formula": "open deal with no open task (needs Tasks Is open); cross-database",
-   "skip": "trap 2"
-  },
-  "Open tasks": {
-   "type": "rollup",
-   "via": "Tasks",
-   "target": "Is open",
-   "aggregation": "checked"
-  },
-  "Task due": {
-   "type": "rollup",
-   "via": "Tasks",
-   "target": "Open due",
-   "aggregation": "earliest_date"
-  }
- },
- "noteVsPack": "Ad-tracking columns (Lead quality, Ad click time, Qualified at, Closed at, GCLID, MSCLKID, UTM campaign) exist live and were missing from 02-sales.md; flagged ads:true = website-to-ads integration, skip unless the project runs ads."
+  "noteVsPack": "Ad-tracking columns (Lead quality, Ad click time, Qualified at, Closed at, GCLID, MSCLKID, UTM campaign) exist live and were missing from 02-sales.md; flagged ads:true = website-to-ads integration, skip unless the project runs ads."
 }

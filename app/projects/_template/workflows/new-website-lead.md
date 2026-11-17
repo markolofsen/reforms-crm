@@ -14,7 +14,7 @@ Every new request is sorted the same day: real or spam, known client or new pers
 
 ## Input
 
-One row in Leads, usually from the Inbox view. If the user gives a name, email or phone instead, find the lead by it. If several leads match, ask which one.
+One row in Leads, usually from the Inbox view. To see the whole queue (needs reply, overdue, won without a client) run `notion-dump leads`; the field contract is `@docs/core/21-leads.md`. If the user gives a name, email or phone instead, find the lead by it. If several leads match, ask which one.
 
 ## Steps
 
@@ -31,7 +31,7 @@ One row in Leads, usually from the Inbox view. If the user gives a name, email o
 ## Do not
 
 - Send emails or messages. Draft only.
-- Change intake fields: Email, Phone, Message, Form, Page URL, Received at, Source, Hub run id.
+- Change intake fields: Email, Phone, Message, Form, Page URL, Received at, Source, Hub run id, Brand, Mailbox.
 - Create rows in Clients. Clients comes from the CRM.
 - Overwrite a Client someone already set.
 
