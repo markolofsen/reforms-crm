@@ -1,9 +1,9 @@
 import { CheckCircle2Icon, CircleDotIcon, CircleIcon, ClockIcon, MinusCircleIcon, PauseCircleIcon, type LucideIcon } from "lucide-react";
-import { ActionButton } from "@/components/action-button";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Badge } from "@hub/ui/badge";
+import { Checkbox } from "@hub/ui/checkbox";
 import { isOld, silence } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { cn } from "@hub/ui/cn";
 import { isClosed, openResults, type ReviewDraft } from "./source";
 
 type Status = { Icon: LucideIcon; label: string; tone: string };

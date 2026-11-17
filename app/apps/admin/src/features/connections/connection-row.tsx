@@ -2,7 +2,7 @@ import { KeyRoundIcon, PlayIcon, Trash2Icon } from "lucide-react";
 import { useRef, useState } from "react";
 import type { ConnectionDto } from "@hub/contract/connections";
 import type { SetSecretBody } from "@hub/contract/requests";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { ago, asOfText } from "@/features/overview/labels";
 import { CHECK_ICON, CHECK_WORD, SECRET } from "./labels";
 import { MailLoginForm } from "./mail-login-form";

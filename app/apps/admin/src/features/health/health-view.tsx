@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@hub/ui/alert";
 
 export type HealthFacts = { apiVersion: number; dataVersion: number; serverTime: string; mailer: string };
 

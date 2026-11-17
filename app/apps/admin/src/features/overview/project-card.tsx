@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import type { ProjectCardDto } from "@hub/contract/overview";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { AppLink } from "@/components/app-link";
-import { Progress } from "@/components/field";
-import { Badge } from "@/components/ui/badge";
+import { Progress } from "@hub/ui/product/field";
+import { Badge } from "@hub/ui/badge";
 import { plural } from "@/lib/format";
 import { paths } from "@/routes/paths";
 import { ago, countText, hhmm, type Live } from "./labels";

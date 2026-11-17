@@ -2,7 +2,7 @@
 
 import { PaneScroll } from "@/features/shell/split-view";
 import { PhoneProjectSwitcher } from "@/features/shell/project-switcher";
-import { useMediaQuery } from "@/hooks/use-media-query";
+import { useMediaQuery } from "@hub/ui/use-media-query";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { BatchList } from "./batch-list";

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type React from "react";
-import { Link } from "@/components/ui/link";
+import { Link } from "@hub/ui/link";
 import { useProject } from "@/hooks/use-route";
 import { formatDest, type Dest } from "@/routes/paths";
 import { routeOf } from "@/routes/typed";

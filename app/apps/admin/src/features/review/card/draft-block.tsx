@@ -1,9 +1,9 @@
 import { ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { TONES, type Tone } from "@hub/config";
-import { ActionButton } from "@/components/action-button";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
+import { ToggleGroup, ToggleGroupItem } from "@hub/ui/toggle-group";
 import { ThreadPanel } from "@/features/thread/thread-panel";
 import { isClosed, type ReviewDraft } from "../source";
 import type { DraftMailDto } from "@hub/contract/responses";

@@ -1,8 +1,8 @@
 import { KeyboardIcon } from "lucide-react";
-import { ActionButton } from "@/components/action-button";
-import { Kbd } from "@/components/ui/kbd";
-import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
-import { Switch } from "@/components/ui/switch";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Kbd } from "@hub/ui/kbd";
+import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@hub/ui/popover";
+import { Switch } from "@hub/ui/switch";
 import { liveKeys } from "@/hooks/use-hotkeys";
 
 /**

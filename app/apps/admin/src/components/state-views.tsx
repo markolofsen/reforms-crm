@@ -1,10 +1,10 @@
 import { RefreshCwIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ActionButton } from "@/components/action-button";
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "@hub/ui/alert";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@hub/ui/empty";
+import { Skeleton } from "@hub/ui/skeleton";
+import { Spinner } from "@hub/ui/spinner";
 import { sentence } from "@/lib/api/client";
 
 // The four states every list and mutation has (rules: ui-specifications): loading, empty, error with Retry, stale.

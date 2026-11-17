@@ -1,6 +1,6 @@
 import { ChevronDownIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@hub/ui/badge";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { plural } from "@/lib/format";
 import type { ReviewDraft } from "../source";
 

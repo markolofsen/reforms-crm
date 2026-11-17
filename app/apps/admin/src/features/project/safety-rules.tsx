@@ -3,9 +3,9 @@ import { useState } from "react";
 import { SAFETY_LABELS } from "@hub/config";
 import type { SafetyRuleDto } from "@hub/contract/responses";
 import { LoadFailed, Loading } from "@/components/state-views";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
+import { Badge } from "@hub/ui/badge";
+import { Input } from "@hub/ui/input";
+import { Switch } from "@hub/ui/switch";
 import { refreshData, sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
 

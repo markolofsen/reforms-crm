@@ -1,8 +1,8 @@
 import { ListChecksIcon } from "lucide-react";
 import type { Ref } from "react";
-import { ActionButton } from "@/components/action-button";
-import { FilterChips } from "@/components/filter-chips";
-import { Input } from "@/components/ui/input";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { FilterChips } from "@hub/ui/product/filter-chips";
+import { Input } from "@hub/ui/input";
 
 export type View = { value: string; label: string; count: number | undefined };
 

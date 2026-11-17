@@ -1,11 +1,11 @@
 import { useEffect } from "react";
 import { RefreshCwIcon } from "lucide-react";
 import type { OverviewDto } from "@hub/contract/overview";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, LoadFailed, StaleNote } from "@/components/state-views";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
+import { Skeleton } from "@hub/ui/skeleton";
 import { statusRows } from "@/features/shell/status-footer";
 import { useClock } from "@/lib/clock";
 import { plural } from "@/lib/format";

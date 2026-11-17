@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronRightIcon } from "lucide-react";
 import type { AttentionItem } from "@hub/contract/overview";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { AppLink } from "@/components/app-link";
 import { attentionTarget, SEVERITY } from "./labels";
 

@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { toastManager } from "@/components/ui/toast";
+import { toastManager } from "@hub/ui/toast";
 import { useGo } from "@/hooks/use-go";
 import { refreshData, sentence } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";

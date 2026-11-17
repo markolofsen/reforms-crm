@@ -1,6 +1,6 @@
 import { AppLink } from "@/components/app-link";
 import type { NavItem } from "@/hooks/use-section-nav";
-import { cn } from "@/lib/utils";
+import { cn } from "@hub/ui/cn";
 import { NavIcon } from "./nav-icon";
 
 /** Phones (hidden from 640px by CSS): the sections as a bottom tab bar, 56px high with the safe area added. */

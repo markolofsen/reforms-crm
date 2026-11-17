@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { INTENT_LABELS } from "@hub/config";
 import type { BatchSummaryDto } from "@hub/contract/responses";
-import { Progress } from "@/components/field";
+import { Progress } from "@hub/ui/product/field";
 import { EmptyState, ListSkeleton, LoadFailed } from "@/components/state-views";
-import { Badge } from "@/components/ui/badge";
-import { ActionButton } from "@/components/action-button";
+import { Badge } from "@hub/ui/badge";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { AppLink } from "@/components/app-link";
 import { bulkApi } from "@/lib/api/bulk";
 import { formatTime, tokens, usd } from "@/lib/format";

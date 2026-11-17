@@ -1,10 +1,10 @@
 import type { HealthDto } from "@hub/contract/health";
-import { ActionButton } from "@/components/action-button";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { AppLink } from "@/components/app-link";
 import { plural } from "@/lib/format";
 import { paths, type Dest } from "@/routes/paths";
-import { cn } from "@/lib/utils";
+import { cn } from "@hub/ui/cn";
 
 type Tone = "ok" | "warn" | "bad" | "off";
 /** `to`: where the thing the row names is set up (a link, never the only way to know). */

@@ -1,13 +1,13 @@
 import { AUDIENCE_LABELS, AUDIENCES, EXCLUSION_LABELS, EXCLUSION_REASONS, type Audience } from "@hub/config";
 import type { AudienceDto } from "@hub/contract/responses";
-import { Field } from "@/components/field";
-import { FilterChips } from "@/components/filter-chips";
+import { Field } from "@hub/ui/product/field";
+import { FilterChips } from "@hub/ui/product/filter-chips";
 import { LoadFailed, Loading } from "@/components/state-views";
-import { Badge } from "@/components/ui/badge";
-import { ActionButton } from "@/components/action-button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@hub/ui/badge";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Checkbox } from "@hub/ui/checkbox";
+import { Input } from "@hub/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/table";
 import { silence } from "@/lib/format";
 
 const SHOWN = 500;

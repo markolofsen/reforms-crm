@@ -14,18 +14,15 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@base-ui/react": "1.9.0",
     "@hub/config": "workspace:*",
     "@hub/contract": "workspace:*",
+    "@hub/ui": "workspace:*",
     "@tanstack/react-query": "5.107.1",
     "@tanstack/react-table": "9.3.1",
-    "class-variance-authority": "0.7.1",
-    "clsx": "2.1.1",
     "lucide-react": "1.73.0",
     "next": "16.4.6",
     "react": "19.3.1",
-    "react-dom": "19.3.1",
-    "tailwind-merge": "3.7.0"
+    "react-dom": "19.3.1"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

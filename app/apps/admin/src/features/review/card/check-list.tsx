@@ -1,7 +1,7 @@
 import { SAFETY_LABELS } from "@hub/config";
 import { AlertTriangleIcon, CheckIcon, ShieldAlertIcon } from "lucide-react";
-import { ActionButton } from "@/components/action-button";
-import { cn } from "@/lib/utils";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { cn } from "@hub/ui/cn";
 import { isClosed, type ReviewDraft } from "../source";
 import type { SafetyResultDto } from "@hub/contract/responses";
 import type { ReviewActions } from "../use-review-actions";

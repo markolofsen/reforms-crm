@@ -13,7 +13,8 @@ const config: NextConfig = {
   // Next writes an AGENTS.md into the app on every start; the repo's rules live in app/@rules.
   agentRules: false,
   poweredByHeader: false,
-  transpilePackages: ["@hub/contract", "@hub/config"],
+  // Packages that ship TypeScript source (no build step); @hub/ui also needs its CSS `@source` (packages/ui/src/styles.css).
+  transpilePackages: ["@hub/contract", "@hub/config", "@hub/ui"],
   // Dev resources answer loopback names only.
   allowedDevOrigins: [HOST, "localhost"],
   // The e2e run builds into its own directory so it never collides with a running dev server.

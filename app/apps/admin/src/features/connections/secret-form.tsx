@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ActionButton } from "@/components/action-button";
-import { Field } from "@/components/field";
-import { Input } from "@/components/ui/input";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Field } from "@hub/ui/product/field";
+import { Input } from "@hub/ui/input";
 
 /**
  * Write-only: the field never shows what is stored, and a stored key is replaced, not edited. The value lives in this component's state

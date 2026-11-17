@@ -1,8 +1,8 @@
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
-import { ActionButton } from "@/components/action-button";
-import { useSidebar } from "@/components/ui/sidebar";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { useSidebar } from "@hub/ui/sidebar";
 import { useProjectScope } from "@/hooks/use-project";
-import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@/components/ui/menu";
+import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 
 /**
  * The project, one menu. In the sidebar it is the first thing (an initial only in the rail); on a phone it sits at

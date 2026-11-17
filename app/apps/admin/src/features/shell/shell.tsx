@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { Link } from "@/components/ui/link";
-import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
+import { Link } from "@hub/ui/link";
+import { SidebarInset, SidebarProvider, useSidebar } from "@hub/ui/sidebar";
 import { shortcutsOn, useHotkeys, useShortcutsSwitch, type KeyMap } from "@/hooks/use-hotkeys";
-import { useMediaQuery } from "@/hooks/use-media-query";
+import { useMediaQuery } from "@hub/ui/use-media-query";
 import type { NavItem } from "@/hooks/use-section-nav";
 import { save, useStored } from "@/lib/storage";
 import type { Resolved } from "@/routes/resolve";
-import { cn } from "@/lib/utils";
+import { cn } from "@hub/ui/cn";
 import { AppSidebar } from "./app-sidebar";
 import type { StatusInput } from "./status-footer";
 import { TabBar } from "./tab-bar";

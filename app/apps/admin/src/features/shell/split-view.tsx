@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@hub/ui/cn";
 
 /**
  * The list column and the detail pane. From 800px up both are on screen (list 360px, 340px below 1280, then the pane);

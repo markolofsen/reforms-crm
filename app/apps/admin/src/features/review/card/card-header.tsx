@@ -1,8 +1,8 @@
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@hub/ui/badge";
 import { MARK_LABELS } from "@hub/config";
 import { isOld, wrote } from "@/lib/format";
 import { notionOf } from "@/lib/notion";
-import { cn } from "@/lib/utils";
+import { cn } from "@hub/ui/cn";
 import { chipsOf } from "../list-row";
 import type { ReviewDraft } from "../source";
 import type { ReviewActions } from "../use-review-actions";

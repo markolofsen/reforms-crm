@@ -2,8 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { type EventKind } from "@hub/config";
 import type { EventDto } from "@hub/contract/responses";
 import { LoadFailed, Loading } from "@/components/state-views";
-import { Badge } from "@/components/ui/badge";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@hub/ui/badge";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { metaApi } from "@/lib/api/meta";
 import { formatClock } from "@/lib/format";
 

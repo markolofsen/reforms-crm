@@ -1,10 +1,10 @@
 import { ChevronDownIcon, ExternalLinkIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { MARK_LABELS, type Mark } from "@hub/config";
-import { ActionButton } from "@/components/action-button";
-import { Menu, MenuCheckboxItem, MenuGroup, MenuGroupLabel, MenuItem, MenuLinkItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
-import { Popover, PopoverClose, PopoverDescription, PopoverPopup, PopoverTitle } from "@/components/ui/popover";
-import { toastManager } from "@/components/ui/toast";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Menu, MenuCheckboxItem, MenuGroup, MenuGroupLabel, MenuItem, MenuLinkItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
+import { Popover, PopoverClose, PopoverDescription, PopoverPopup, PopoverTitle } from "@hub/ui/popover";
+import { toastManager } from "@hub/ui/toast";
 import { notionOf } from "@/lib/notion";
 import type { ReviewActions } from "../use-review-actions";
 import type { ReviewDraft } from "../source";

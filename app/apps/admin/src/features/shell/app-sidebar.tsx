@@ -1,9 +1,9 @@
 "use client";
 
 import { PanelLeftIcon } from "lucide-react";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { AppLink } from "@/components/app-link";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@hub/ui/sidebar";
 import type { NavItem } from "@/hooks/use-section-nav";
 import { NavIcon } from "./nav-icon";
 import { ProjectSwitcher } from "./project-switcher";

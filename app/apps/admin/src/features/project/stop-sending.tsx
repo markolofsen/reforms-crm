@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ActionButton } from "@/components/action-button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Radio, RadioGroup } from "@/components/ui/radio-group";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Alert, AlertDescription } from "@hub/ui/alert";
+import { Radio, RadioGroup } from "@hub/ui/radio-group";
 
 type Props = { project: string; stopped: readonly string[]; busy: boolean; onStop: (scope: string) => void; onResume: (scope: string) => void };
 

@@ -1,7 +1,7 @@
 import { RefreshCwIcon } from "lucide-react";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { EmptyState, LoadFailed, StaleNote } from "@/components/state-views";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@hub/ui/skeleton";
 import { useClock } from "@/lib/clock";
 import { ConnectionRow } from "./connection-row";
 import { groupByKind, KIND_TITLE } from "./labels";

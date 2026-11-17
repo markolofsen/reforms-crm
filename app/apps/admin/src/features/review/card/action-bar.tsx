@@ -1,10 +1,10 @@
 import { EllipsisIcon, SendIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { ActionButton } from "@/components/action-button";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Link } from "@/components/ui/link";
-import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
-import { Switch } from "@/components/ui/switch";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Alert, AlertDescription, AlertTitle } from "@hub/ui/alert";
+import { Link } from "@hub/ui/link";
+import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
+import { Switch } from "@hub/ui/switch";
 import { useHotkeys } from "@/hooks/use-hotkeys";
 import { formatTime } from "@/lib/format";
 import { mailLink } from "@/lib/mail";

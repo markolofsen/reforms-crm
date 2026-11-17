@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { LoadFailed, Loading } from "@/components/state-views";
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@hub/ui/badge";
 import { sendApi } from "@/lib/api/send";
 
 const OUTCOME = { pass: { label: "Pass", variant: "success" }, fail: { label: "Fail", variant: "error" }, skipped: { label: "Skipped", variant: "secondary" } } as const;

@@ -1,9 +1,9 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { ActionButton } from "@/components/action-button";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
-import { toastManager } from "@/components/ui/toast";
+import { toastManager } from "@hub/ui/toast";
 import { SplitView } from "@/features/shell/split-view";
 import { shortcutsOn } from "@/hooks/use-hotkeys";
 import { refreshData, sentence } from "@/lib/api/client";

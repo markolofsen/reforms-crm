@@ -5,7 +5,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./tsconfig.base.json": "./tsconfig.base.json",
-    "./paths": "./src/paths.ts"
+    "./paths": "./src/paths.ts",
+    "./lint-limits": "./src/lint-limits.mjs"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

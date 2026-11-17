@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { MailLoginBody } from "@hub/contract/requests";
-import { ActionButton } from "@/components/action-button";
-import { Field } from "@/components/field";
-import { Input } from "@/components/ui/input";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Field } from "@hub/ui/product/field";
+import { Input } from "@hub/ui/input";
 
 /** The public half of a stored login ("me@example.test at imap.example.test"), so a replace starts from what is already known. */
 function known(identity: string | null): { user: string; host: string } {
