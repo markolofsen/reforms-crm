@@ -25,6 +25,7 @@ export const SECTIONS = [
   { id: "connections", title: "Connections", nav: true, icon: "connections", chord: ["g", "c"], filters: [] },
 ] as const satisfies readonly SectionMeta[];
 
+export type IconKey = (typeof SECTIONS)[number]["icon"];
 export type SectionId = (typeof SECTIONS)[number]["id"];
 
 export const sectionById = (id: SectionId) => SECTIONS.find((s) => s.id === id) ?? SECTIONS[0];

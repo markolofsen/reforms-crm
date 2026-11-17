@@ -4,9 +4,6 @@ import { destOf, type Resolved } from "./resolve";
 /** The cookie that remembers the project (`hub_project`): written by `lib/storage.ts`, read by `proxy.ts` and the guard. */
 export const PROJECT_COOKIE = "hub_project";
 
-/** The sections whose address must name a project; `proxy.ts` and the tests read the same list. */
-export const PROJECT_SCOPED = /^\/(drafts|bulk|log|project)(\/[1-9]\d*)?$/;
-
 /**
  * Old addresses that still lead somewhere, each with a reason and a removal condition, or it does not exist.
  * Empty: `/clients` was a local alias nobody was handed (decision 0013); an unknown path is Not found.

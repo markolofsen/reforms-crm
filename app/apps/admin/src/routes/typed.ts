@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import { PAGE } from "./table";
 
 /**
  * The one door from a string to a Next `href`. The generic keeps the template literal's shape, so
@@ -9,11 +10,8 @@ export function route<T extends string>(path: Route<T>): Route<T> {
   return path;
 }
 
-// The pages of the file tree as one pattern, for addresses that exist only at run time (`/drafts/42?project=x`): the
-// router's typed routes refuse a bare `string`, so the address is checked here and only then is it a `Route`.
-// `test/route-files.test.ts` fails when this pattern and `src/app` disagree.
-const PAGE = /^\/((overview|connections|((drafts|bulk)(\/[1-9]\d*)?)|log|project))?(\?[^#]*)?$/;
-
+// The pages of the file tree as one pattern (derived from `ROUTE_TABLE`), for addresses that exist only at run time
+// (`/drafts/42?project=x`): the router's typed routes refuse a bare `string`, so the address is checked here and only then is it a `Route`.
 function isRoute(address: string): address is Route {
   return PAGE.test(address);
 }

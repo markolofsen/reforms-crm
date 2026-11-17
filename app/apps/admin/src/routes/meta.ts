@@ -1,4 +1,4 @@
-import { PROJECTLESS, type RouteId } from "./paths";
+import { PROJECTLESS, type RouteId } from "./table";
 import type { Resolved } from "./resolve";
 import { sectionTitle } from "./sections";
 

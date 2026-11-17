@@ -1,8 +1,10 @@
 import { DEFAULT_DRAFT_VIEW, formatQuery, unlessDefault, type BatchFilter, type DraftView, type RunFilter } from "./search";
 import type { SectionId } from "./sections";
+import { listRouteOf, PROJECTLESS, ROUTE_TABLE, type RouteId } from "./table";
 import { route } from "./typed";
 
-export type RouteId = "overview.page" | "connections.page" | "drafts.list" | "drafts.item" | "bulk.list" | "bulk.item" | "log.list" | "project.page";
+export type { RouteId };
+
 
 /** A destination: which route, its path, and the search it carries (project excluded: the link adds the current one). */
 export type Dest = { readonly route: RouteId; readonly path: string; readonly search: Readonly<Record<string, string>> };
@@ -37,26 +39,11 @@ export const paths = {
   },
 };
 
-/** The list destination of a section (the nav item, the chord, the project switch). */
+/** The list destination of a section (the nav item, the chord, the project switch): its first row in `ROUTE_TABLE`. */
 export function sectionList(id: SectionId): Dest {
-  switch (id) {
-    case "overview":
-      return paths.overview();
-    case "connections":
-      return paths.connections.page();
-    case "drafts":
-      return paths.drafts.list();
-    case "bulk":
-      return paths.bulk.list();
-    case "log":
-      return paths.log.list();
-    case "project":
-      return paths.project.page();
-  }
+  const r = listRouteOf(id);
+  return dest(r, ROUTE_TABLE[r].path);
 }
-
-/** The routes about the whole instance: their address names no project (`routes-and-url-state.md` rule 10, the two exemptions). */
-export const PROJECTLESS: ReadonlySet<RouteId> = new Set<RouteId>(["overview.page", "connections.page"]);
 
 /** The address text of a destination, `/drafts/42?project=lisbon&filter=ready`. The project is first, as in a bookmark. */
 export function formatDest(d: Dest, project: string | null): string {

@@ -2,12 +2,12 @@
 
 import { useMemo } from "react";
 import { sectionList, type Dest } from "@/routes/paths";
-import { SECTIONS, type SectionId } from "@/routes/sections";
+import { SECTIONS, type IconKey, type SectionId } from "@/routes/sections";
 import { shortcutsOn, useHotkeys, type KeyMap } from "./use-hotkeys";
 import { useGo } from "./use-go";
 import { useRoute } from "./use-route";
 
-export type NavItem = { id: SectionId; title: string; icon: string; to: Dest; active: boolean };
+export type NavItem = { id: SectionId; title: string; icon: IconKey; to: Dest; active: boolean };
 
 const HELP = SECTIONS.map((s) => [`${s.chord[0]} ${s.chord[1]}`.toUpperCase(), `go to ${s.title}`] as const);
 

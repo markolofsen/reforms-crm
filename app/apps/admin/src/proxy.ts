@@ -1,6 +1,7 @@
 import { ALLOWED_HOSTNAMES } from "@hub/config";
 import { NextResponse, type NextRequest } from "next/server";
-import { PROJECT_COOKIE, PROJECT_SCOPED } from "./routes/guards";
+import { PROJECT_COOKIE } from "./routes/guards";
+import { PROJECT_SCOPED } from "./routes/table";
 
 // The Host and Origin guard of apps/server/src/app.ts, again, in front of the pages AND the `/api` rewrite. Next sets the
 // upstream Host to the destination, so Hono alone never sees a foreign Host once the rewrite is in between (P32 N0).
