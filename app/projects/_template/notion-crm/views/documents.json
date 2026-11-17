@@ -37,10 +37,10 @@
      {
       "type": "property",
       "property": "Status",
-      "propertyType": "status",
-      "operator": "status_is",
+      "propertyType": "select",
+      "operator": "enum_is",
       "value": {
-       "type": "is_option",
+       "type": "exact",
        "value": "Current"
       }
      }

@@ -133,19 +133,6 @@
        "type": "exact",
        "value": "Lead"
       }
-     },
-     {
-      "type": "property",
-      "property": "Created",
-      "propertyType": "created_time",
-      "operator": "date_is_within",
-      "value": {
-       "type": "relative",
-       "value": "custom",
-       "count": 30,
-       "direction": "past",
-       "unit": "day"
-      }
      }
     ]
    },
