@@ -77,13 +77,13 @@ export function ConnectionRow({ row, now, busy, locked, actions }: { row: Connec
             </ActionButton>
           )}
           {row.can.includes("set") && (
-            <ActionButton aria-expanded={panel === "set"} aria-label={`${stored ? "Replace" : "Set"} the key of ${row.label}`} disabled={locked} onClick={() => setPanel(panel === "set" ? null : "set")} ref={setButton} size="s" variant="secondary">
+            <ActionButton aria-expanded={panel === "set"} aria-label={`${stored ? "Replace key" : "Set key"} for ${row.label}`} disabled={locked} onClick={() => setPanel(panel === "set" ? null : "set")} ref={setButton} size="s" variant="secondary">
               <KeyRoundIcon aria-hidden="true" />
               {stored ? "Replace key" : "Set key"}
             </ActionButton>
           )}
           {row.can.includes("remove") && (
-            <ActionButton aria-expanded={panel === "remove"} aria-label={`Remove the key of ${row.label}`} disabled={locked} onClick={() => setPanel(panel === "remove" ? null : "remove")} size="s" variant="quiet">
+            <ActionButton aria-expanded={panel === "remove"} aria-label={`Remove key for ${row.label}`} disabled={locked} onClick={() => setPanel(panel === "remove" ? null : "remove")} size="s" variant="quiet">
               <Trash2Icon aria-hidden="true" />
               Remove
             </ActionButton>

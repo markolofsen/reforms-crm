@@ -111,6 +111,19 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    name: "connections: the list",
+    path: "/connections",
+    ready: async (p) => void (await p.getByRole("heading", { name: "Mail", exact: true }).waitFor()),
+  },
+  {
+    name: "connections: a key form and a remove question open",
+    path: "/connections",
+    ready: async (p) => {
+      await p.getByRole("button", { name: /^(Set|Replace) key for Notion integration$/ }).click();
+      await p.getByLabel("Integration token").waitFor();
+    },
+  },
+  {
     name: "drafts: Send confirm open",
     path: "/drafts",
     mock: async (p) => {
