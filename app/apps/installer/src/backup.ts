@@ -1,10 +1,11 @@
 // `hub backup` (decision 0023): a manual, dated snapshot of what the instance cannot get back from git.
 // Dry run unless --apply. Never reads or copies a secret: only the NAMES in state/secrets/ go into the manifest (a directory listing),
 // and the Notion dump is a child process that loads its own token. Restore is never run here; a snapshot is verified, not applied.
-import { copyAndVerify, inspectCopy } from "@hub/db";
+import { copyAndVerify, restoreCheck } from "@hub/db";
 import { loadProjects } from "@hub/projects";
 import { createHash } from "node:crypto";
-import { closeSync, copyFileSync, cpSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { readJson, type Ctx } from "./context.ts";
 import { readCoreVersion } from "./steps/instance.ts";
@@ -30,6 +31,8 @@ export interface Manifest {
   files: ManifestFile[];
   /** File NAMES the instance expects under state/secrets/. Contents are never read or copied. */
   secrets_expected: string[];
+  /** Table and row counts of the copied `data/app.db` when the snapshot was made; the restore check compares the restored file with them. Absent in snapshots made before v0.6.13. */
+  db?: { tables: number; rows: number };
   notion: { project: string; status: "copied" | "dumped" | "dumped-with-errors" | "skipped" | "failed"; detail: string }[];
 }
 
@@ -51,6 +54,13 @@ export function realish(p: string): string {
   }
 }
 export const isInside = (child: string, parent: string): boolean => { const r = path.relative(parent, child); return r === "" || (!r.startsWith("..") && !path.isAbsolute(r)); };
+/**
+ * After a restart, Google Drive for desktop can expose the old mount beside the live one, named `GoogleDrive-<account> (dd.mm.yyyy hh:mm)`.
+ * A snapshot written there is not in the live Drive. Returns the offending path component, or undefined. Judged on the name only: no owner path is known here.
+ */
+export const STALE_DRIVE_MOUNT = /^GoogleDrive-.* \(\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}\)$/;
+export function staleDriveMount(p: string): string | undefined { return path.resolve(p).split(path.sep).find((part) => STALE_DRIVE_MOUNT.test(part)); }
+
 export interface Target { root: string; instance: string }
 
 /** The one snapshot folder (default `<instance>/backups/`, git-ignored), from config/config.json. Throws BackupError for a folder inside state/ (the secrets) or the core checkout. */
@@ -65,6 +75,8 @@ export function resolveTarget(ctx: Ctx): Target {
     root = path.resolve(ctx.paths.home, cfg.backup_dir.trim());
   }
   root = path.resolve(root);
+  const stale = staleDriveMount(root) ?? staleDriveMount(realish(root));
+  if (stale) throw new BackupError(`the backup folder ${root} lies under "${stale}", a stale Google Drive mount (its dated name appears after a restart): a snapshot made there is NOT in your live Drive. Set backup_dir in config/config.json to the same folder under the live mount, the GoogleDrive-<account> folder without the date`);
   for (const [label, area] of [["state/", ctx.paths.state], ["the core checkout", ctx.paths.core]] as const) {
     if (isInside(realish(root), realish(area))) throw new BackupError(`the backup folder ${root} is inside ${label} (${area}): secrets live there and the core is another repository. Use the default backups/ or another folder outside state/ and the core`);
   }
@@ -231,11 +243,13 @@ export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResul
   mkdirSync(t.root, { recursive: true, mode: 0o700 });
   mkdirSync(stage, { mode: 0o700 });
   let ok = true;
+  let dbCounts: { tables: number; rows: number } | undefined;
   try {
     if (existsSync(ctx.paths.db)) {
       mkdirSync(path.join(stage, "data"));
       const c = copyAndVerify(ctx.paths.db, path.join(stage, "data"), "app.db");
       if (c.integrity !== "ok") throw new BackupError(`the copy of data/app.db fails its integrity check (${c.integrity.slice(0, 120)}): no snapshot made; keep data/app.db and its -wal file as they are`);
+      dbCounts = { tables: c.tables, rows: c.rows };
       lines.push(`data/app.db: copied (${kb(c.bytes)}), integrity_check ok, ${c.tables} tables, ${c.rows} rows`);
     } else lines.push("data/app.db: does not exist yet, skipped");
     if (existsSync(ctx.paths.configFile)) {
@@ -270,7 +284,7 @@ export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResul
     }
 
     const files: ManifestFile[] = walk(stage).map((f) => ({ path: f, sha256: sha256File(path.join(stage, f)), size: statSync(path.join(stage, f)).size }));
-    const manifest: Manifest = { format: 1, created: now.toISOString(), instance: t.instance, core_version: readCoreVersion(ctx.paths.home) ?? null, files, secrets_expected: secretNames(ctx), notion };
+    const manifest: Manifest = { format: 1, created: now.toISOString(), instance: t.instance, core_version: readCoreVersion(ctx.paths.home) ?? null, files, secrets_expected: secretNames(ctx), ...(dbCounts ? { db: dbCounts } : {}), notion };
     writeFileSync(path.join(stage, MANIFEST), JSON.stringify(manifest, null, 2) + "\n", { mode: 0o600 });
     renameSync(stage, final);
   } catch (e) {
@@ -286,7 +300,28 @@ export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResul
 
 // ---- verify -----------------------------------------------------------------------------------------------------------------------
 
-/** Re-check a snapshot (default: the newest): manifest, every hash and size, integrity_check of the COPIED database. Never opens the live database; never restores. */
+/**
+ * Restore the snapshot's `data/app.db` into a temporary folder (copy, open with the current migrations, integrity_check, counts) and compare with the manifest.
+ * `problems` is empty when the database restores: the same tables and rows as recorded, nothing lost by the migrations. Only the temporary folder is written, and it is removed.
+ */
+export function restoreSnapshotDb(dir: string, manifest: Manifest): { problems: string[]; lines: string[] } {
+  const tmp = mkdtempSync(path.join(tmpdir(), "hub-restore-"));
+  try {
+    const r = restoreCheck(path.join(dir, "data", "app.db"), tmp);
+    if (r.before.integrity !== "ok") return { problems: [`data/app.db: integrity_check says ${r.before.integrity.slice(0, 120)}`], lines: [] };
+    const problems: string[] = [];
+    const rec = manifest.db;
+    if (rec && (rec.tables !== r.before.tables || rec.rows !== r.before.rows)) problems.push(`data/app.db: restored copy has ${r.before.tables} tables and ${r.before.rows} rows, the manifest recorded ${rec.tables} and ${rec.rows}`);
+    if (r.after.integrity !== "ok") problems.push(`data/app.db: integrity_check says ${r.after.integrity.slice(0, 120)} after the migrations`);
+    if (r.after.dataRows !== r.before.dataRows) problems.push(`data/app.db: the migrations changed the row count from ${r.before.dataRows} to ${r.after.dataRows}`);
+    const counts = rec ? `matches the manifest (${rec.tables} tables, ${rec.rows} rows)` : `${r.before.tables} tables, ${r.before.rows} rows (this snapshot recorded no counts: nothing to compare with)`;
+    return { problems, lines: [`data/app.db: restores into a temporary file, integrity_check ok, ${counts}; ${r.migrationsApplied} migration(s) applied on top, rows unchanged`] };
+  } catch (e) {
+    return { problems: [`data/app.db: cannot be restored: ${(e as Error).message.slice(0, 160)}`], lines: [] };
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+}
+
+/** Re-check a snapshot (default: the newest): manifest, every hash and size, then a real restore of the COPIED database into a temporary folder. Never opens the live database. */
 export function verify(ctx: Ctx, which?: string): BackupResult {
   let t: Target;
   try { t = resolveTarget(ctx); } catch (e) { if (e instanceof BackupError) return { ok: false, lines: [e.message] }; throw e; }
@@ -302,15 +337,13 @@ export function verify(ctx: Ctx, which?: string): BackupResult {
   if (manifest) {
     lines.push(`created ${manifest.created}, core ${manifest.core_version ?? "unknown"}, ${manifest.files.length} file(s) hashed`);
     if (manifest.files.some((f) => f.path === "data/app.db") && !problems.some((x) => x.startsWith("data/app.db"))) {
-      try {
-        const c = inspectCopy(path.join(dir, "data", "app.db"));
-        if (c.integrity === "ok") lines.push(`data/app.db: integrity_check ok, ${c.tables} tables, ${c.rows} rows`);
-        else problems.push(`data/app.db: integrity_check says ${c.integrity.slice(0, 120)}`);
-      } catch (e) { problems.push(`data/app.db: cannot be opened: ${(e as Error).message.slice(0, 120)}`); }
+      const r = restoreSnapshotDb(dir, manifest);
+      lines.push(...r.lines);
+      problems.push(...r.problems);
     }
   }
   if (problems.length) { lines.push(...problems.map((p) => `PROBLEM ${p}`)); return { ok: false, lines, dir }; }
-  lines.push("all hashes match; nothing was restored and the live data was not opened");
+  lines.push("all hashes match; the database was restored only into a temporary folder, which is removed; the live data was not opened");
   return { ok: true, lines, dir };
 }
 

@@ -1,12 +1,12 @@
 // `hub backup` (decision 0023): plan, apply, verify, retention, refusals, secrets never read, and the doctor step. No network: the Notion dump is a fake process.
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
 import { INSTANCE_TEMPLATE } from "../src/init.ts";
 import { CORE_ROOT } from "@hub/config/paths";
-import { backup, KEEP, listSnapshots, readManifest, resolveTarget, verify } from "../src/backup.ts";
+import { backup, checkManifest, KEEP, listSnapshots, MANIFEST, readManifest, resolveTarget, sha256File, staleDriveMount, verify } from "../src/backup.ts";
 import { STEPS } from "../src/steps/index.ts";
 import { fake, type Call } from "./helpers.ts";
 
@@ -144,6 +144,62 @@ describe("hub backup --verify", () => {
   });
 });
 
+describe("hub backup --verify restores the database", () => {
+  /** Overwrite the snapshot's database and make the manifest agree, so only a real restore can tell. */
+  const replaceDb = (dir: string, body: Buffer | string) => {
+    const f = path.join(dir, "data", "app.db");
+    writeFileSync(f, body);
+    const m = readManifest(dir)!;
+    const e = m.files.find((x) => x.path === "data/app.db")!;
+    e.sha256 = sha256File(f); e.size = statSync(f).size;
+    writeFileSync(path.join(dir, MANIFEST), JSON.stringify(m));
+  };
+  it("records table and row counts in the manifest and compares the restored file with them", async () => {
+    const { ctx, root } = setup();
+    await backup(ctx, { apply: true, now: at("2026-11-17T10:00:00") });
+    const m = readManifest(path.join(root, "20261117-100000"))!;
+    expect(m.db?.tables).toBeGreaterThan(5);
+    expect(m.db?.rows).toBeGreaterThan(0);
+    const r = verify(ctx);
+    expect(r.ok, r.lines.join("\n")).toBe(true);
+    expect(r.lines.join("\n")).toContain(`restores into a temporary file, integrity_check ok, matches the manifest (${m.db!.tables} tables, ${m.db!.rows} rows)`);
+    expect(r.lines.join("\n")).toContain("0 migration(s) applied");
+    // nothing is left behind and the snapshot itself is unchanged
+    expect(readdirSync(path.join(root, "20261117-100000", "data"))).toEqual(["app.db"]);
+  });
+  it("accepts a snapshot made before counts were recorded, and says there was nothing to compare with", async () => {
+    const { ctx, root } = setup();
+    await backup(ctx, { apply: true, now: at("2026-11-17T10:00:00") });
+    const dir = path.join(root, "20261117-100000");
+    const m = readManifest(dir)!; delete m.db; writeFileSync(path.join(dir, MANIFEST), JSON.stringify(m));
+    const r = verify(ctx);
+    expect(r.ok, r.lines.join("\n")).toBe(true);
+    expect(r.lines.join("\n")).toContain("recorded no counts");
+  });
+  it("fails when the counts differ from the manifest", async () => {
+    const { ctx, root } = setup();
+    await backup(ctx, { apply: true, now: at("2026-11-17T10:00:00") });
+    const dir = path.join(root, "20261117-100000");
+    const m = readManifest(dir)!; m.db!.rows += 7; writeFileSync(path.join(dir, MANIFEST), JSON.stringify(m));
+    const r = verify(ctx);
+    expect(r.ok).toBe(false);
+    expect(r.lines.join("\n")).toMatch(/manifest recorded \d+ and \d+/);
+  });
+  it("fails a snapshot whose database hashes right but is not a database, in verify and in the doctor step", async () => {
+    const { ctx, root } = setup();
+    await backup(ctx, { apply: true, now: new Date() });
+    const dir = path.join(root, readdirSync(root).find((n) => /^\d{8}-\d{6}$/.test(n))!);
+    replaceDb(dir, "this is not a sqlite file, but its hash is in the manifest");
+    expect(checkManifest(dir).problems).toEqual([]); // the hashes are fine: only a restore can tell
+    const r = verify(ctx);
+    expect(r.ok).toBe(false);
+    expect(r.lines.join("\n")).toContain("cannot be restored");
+    const d = await snapshotStep.check(ctx);
+    expect(d.level).toBe("fail");
+    expect(d.detail).toContain("cannot be restored");
+  });
+});
+
 describe("retention", () => {
   const seed = (root: string, name: string, valid = true) => {
     const d = path.join(root, name);
@@ -179,6 +235,32 @@ describe("paths in config", () => {
     expect(resolveTarget(ctx).root).toBe(abs);
     writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: "~/x" }));
     expect(resolveTarget(ctx).root).toBe(path.join(ctx.paths.home, "~", "x")); // a literal folder named ~, never the user's home
+  });
+});
+
+describe("a stale Google Drive mount", () => {
+  const live = "GoogleDrive-owner@example.com";
+  it("is recognised by its dated name and nothing else", () => {
+    expect(staleDriveMount(`/x/CloudStorage/${live} (18.11.2026 02:12)/My Drive/hub-backups`)).toBe(`${live} (18.11.2026 02:12)`);
+    expect(staleDriveMount(`/x/CloudStorage/${live}/My Drive/hub-backups`)).toBeUndefined();
+    expect(staleDriveMount("/x/Other (18.11.2026 02:12)/y")).toBeUndefined();
+    expect(staleDriveMount(`/x/${live} (backup copy)/y`)).toBeUndefined();
+  });
+  it("is refused by backup and verify and FAILs the doctor step, naming the cure; the live mount is fine", async () => {
+    const { ctx } = setup();
+    const base = path.join(path.dirname(ctx.paths.home), "CloudStorage");
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: path.join(base, `${live} (18.11.2026 02:12)`, "My Drive", "hub-backups") }));
+    expect(() => resolveTarget(ctx)).toThrow(/stale Google Drive mount/);
+    const b = await backup(ctx, { apply: true });
+    expect(b.ok).toBe(false);
+    expect(existsSync(path.join(base, `${live} (18.11.2026 02:12)`))).toBe(false); // nothing was written there
+    expect(verify(ctx).ok).toBe(false);
+    const d = await snapshotStep.check(ctx);
+    expect(d.level).toBe("fail");
+    expect(d.detail).toContain("NOT in your live Drive");
+    expect(d.detail).toContain("without the date");
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: path.join(base, live, "My Drive", "hub-backups") }));
+    expect(resolveTarget(ctx).root).toContain(live);
   });
 });
 

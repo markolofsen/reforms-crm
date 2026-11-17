@@ -10,6 +10,12 @@ const allDirs = (c: Ctx) => [...stateDirs(c), c.configDir];
 const CONFIGS = ["mcp.json"];
 const SETTINGS = ["config.json"];
 const REQUIRED_CONFIG_KEYS = ["account", "mailboxes", "allow_list"];
+/**
+ * Every key of `config/config.json` the hub reads or its template carries: the whole schema. Add a key here in the same change that starts reading it.
+ * Readers: account, mailboxes (mail.account), allow_list (send guard), extra_dirs (hub agent), admin_port and api_port (`@hub/config/paths`), backup_dir (hub backup), backup_repos (backup.git).
+ * `sent_mailbox` is carried by the template only. The keys of the archived daemon (quiet_hours, model, timeouts, budgets, lock and breaker settings) are gone; run limits live per project in `project.md`.
+ */
+export const CONFIG_KEYS = ["account", "mailboxes", "sent_mailbox", "allow_list", "extra_dirs", "admin_port", "api_port", "backup_dir", "backup_repos"];
 
 function copyDefaults(ctx: Ctx, files: string[]): string {
   const made: string[] = [];
@@ -72,6 +78,17 @@ export const fileSteps: Step[] = [
     },
     async apply(ctx) {
       return copyDefaults(ctx, SETTINGS);
+    },
+  },
+  {
+    id: "files.config-keys", group: "Files", title: "Settings file holds no key nothing reads",
+    why: "`config/config.json` kept keys of the archived background daemon after it was removed: they look like settings and change nothing, so someone edits them and expects an effect.",
+    verifies: `Every top-level key of \`config/config.json\` is one the hub reads (${CONFIG_KEYS.map((k) => `\`${k}\``).join(", ")}). An unknown key is a WARN naming it, never a FAIL: nothing is changed or deleted.`,
+    async check(ctx) {
+      const cfg = readJson(ctx.paths.configFile);
+      if (!cfg || typeof cfg !== "object" || Array.isArray(cfg)) return pass("no readable config.json: files.settings reports that");
+      const unknown = Object.keys(cfg).filter((k) => !CONFIG_KEYS.includes(k));
+      return unknown.length ? warn(`config.json has key(s) nothing reads: ${unknown.join(", ")}. Delete them; the keys the hub reads are listed in this step's page`) : pass(`${Object.keys(cfg).length} key(s), all read by the hub`);
     },
   },
   {

@@ -1,7 +1,7 @@
 import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { doctor, exitCode, install } from "../src/runner.ts";
+import { doctor, exitCode, install, slowest, table } from "../src/runner.ts";
 import { fileSteps } from "../src/steps/files.ts";
 import { projectSteps } from "../src/steps/projects.ts";
 import { runtimeSkills, skillSteps } from "../src/steps/skills.ts";
@@ -89,5 +89,32 @@ describe("install is idempotent and never overwrites", () => {
   it("exit code is non-zero while manual steps remain", () => {
     expect(exitCode([{ step: steps[0]!, outcome: "manual", detail: "" }])).toBe(1);
     expect(exitCode([{ step: steps[0]!, outcome: "warn", detail: "" }])).toBe(0);
+  });
+});
+
+describe("doctor reports as it goes", () => {
+  it("hands each report to the caller the moment its step ends, in order, with its time", async () => {
+    const f = fake();
+    const seen: string[] = [];
+    const slow = { id: "t.slow", group: "T", title: "slow", why: "", verifies: "", check: async () => { await new Promise((r) => setTimeout(r, 1100)); return { level: "pass" as const, detail: "late" }; } };
+    const quick = { id: "t.quick", group: "T", title: "quick", why: "", verifies: "", check: async () => ({ level: "warn" as const, detail: "now" }) };
+    const out = await doctor(f.ctx, [slow, quick], (r) => seen.push(`${r.step.id}:${r.outcome}:${r.ms! >= 1000}`));
+    expect(seen).toEqual(["t.slow:ok:true", "t.quick:warn:false"]);
+    expect(out.map((r) => r.ms !== undefined)).toEqual([true, true]);
+    expect(table(out)).toMatch(/PASS\s+t\.slow\s+1\.\ds\s+late/);
+    expect(slowest(out)).toMatch(/^slowest: t\.slow 1\.\ds; total /);
+    expect(slowest([out[1]!])).toBe("");
+  });
+  it("a config key nothing reads is a WARN naming it; the keys the hub reads pass", async () => {
+    const f = fake();
+    const step = fileSteps.find((s) => s.id === "files.config-keys")!;
+    writeFileSync(f.ctx.paths.configFile, JSON.stringify({ account: "a", mailboxes: [], allow_list: [], backup_dir: "x", admin_port: 1, api_port: 2, backup_repos: [], extra_dirs: [], sent_mailbox: "S" }));
+    expect((await step.check(f.ctx)).level).toBe("pass");
+    writeFileSync(f.ctx.paths.configFile, JSON.stringify({ account: "a", quiet_hours: {}, model: "sonnet", timeout_seconds: 600 }));
+    const r = await step.check(f.ctx);
+    expect(r.level).toBe("warn");
+    expect(r.detail).toContain("quiet_hours, model, timeout_seconds");
+    rmSync(f.ctx.paths.configFile);
+    expect((await step.check(f.ctx)).level).toBe("pass");
   });
 });

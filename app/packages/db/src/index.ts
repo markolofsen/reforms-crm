@@ -1,6 +1,6 @@
 // The only public entry of @hub/db: the async repository layer and the database opener.
 export { draftCountsReadOnly } from "./status";
-export { copyAndVerify, inspectCopy, type CopyCheck } from "./backup-check";
+export { copyAndVerify, inspectCopy, restoreCheck, type CopyCheck, type RestoreCheck } from "./backup-check";
 export { defaultDbPath, openDb, type Db, type DbHandle } from "./client";
 export { renameProjectInDb, type DbRenameResult, type RenameTable } from "./rename";
 export { dataVersion, isBusy } from "./tx";

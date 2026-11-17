@@ -32,4 +32,4 @@ export interface Step {
 }
 
 export type Outcome = "ok" | "changed" | "manual" | "skipped" | "failed" | "warn";
-export interface StepReport { step: Step; outcome: Outcome; detail: string }
+export interface StepReport { step: Step; outcome: Outcome; detail: string; /** Wall time of the step, in milliseconds. */ ms?: number }

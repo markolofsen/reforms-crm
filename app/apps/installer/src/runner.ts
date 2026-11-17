@@ -10,11 +10,15 @@ async function check(ctx: Ctx, s: Step) {
   try { return await s.check(ctx); } catch (e) { return { level: "fail" as const, detail: `check crashed: ${safe(ctx, errText(e))}` }; }
 }
 
-export async function doctor(ctx: Ctx, steps: Step[]): Promise<StepReport[]> {
+/** Runs the checks in order. `onStep` is called with each report the moment its step finishes, so a slow doctor is never silent. Each report carries its wall time. */
+export async function doctor(ctx: Ctx, steps: Step[], onStep?: (r: StepReport) => void): Promise<StepReport[]> {
   const out: StepReport[] = [];
   for (const step of steps) {
+    const t0 = Date.now();
     const r = await check(ctx, step);
-    out.push({ step, outcome: r.level === "pass" ? "ok" : r.level === "warn" ? "warn" : "failed", detail: safe(ctx, r.detail) });
+    const report: StepReport = { step, outcome: r.level === "pass" ? "ok" : r.level === "warn" ? "warn" : "failed", detail: safe(ctx, r.detail), ms: Date.now() - t0 };
+    out.push(report);
+    onStep?.(report);
   }
   return out;
 }
@@ -43,10 +47,24 @@ export async function install(ctx: Ctx, steps: Step[]): Promise<StepReport[]> {
 
 const MARK: Record<Outcome, string> = { ok: "PASS", changed: "DONE", manual: "TODO", skipped: "PLAN", failed: "FAIL", warn: "WARN" };
 
+const secs = (ms: number | undefined): string => (ms === undefined ? "" : `${(ms / 1000).toFixed(1)}s`);
+
+/** The id column is as wide as the longest step id, so rows printed one by one line up with a header printed first. */
+export const idWidth = (steps: Step[]): number => Math.max(...steps.map((s) => s.id.length), 4);
+/** `timed`: a time column (the doctor's; `install` rows carry no time). */
+export const tableHeader = (w: number, timed = false): string => `${"".padEnd(5)} ${"step".padEnd(w)}  ${timed ? `${"time".padStart(6)}  ` : ""}detail`;
+export const tableRow = (r: StepReport, w: number, timed = false): string => `${MARK[r.outcome].padEnd(5)} ${r.step.id.padEnd(w)}  ${timed ? `${secs(r.ms).padStart(6)}  ` : ""}${r.detail}`;
+
 export function table(reports: StepReport[]): string {
-  const w = Math.max(...reports.map((r) => r.step.id.length), 4);
-  const rows = reports.map((r) => `${MARK[r.outcome].padEnd(5)} ${r.step.id.padEnd(w)}  ${r.detail}`);
-  return [`${"".padEnd(5)} ${"step".padEnd(w)}  detail`, ...rows].join("\n");
+  const w = idWidth(reports.map((r) => r.step));
+  const timed = reports.length > 0 && reports.every((r) => r.ms !== undefined);
+  return [tableHeader(w, timed), ...reports.map((r) => tableRow(r, w, timed))].join("\n");
+}
+
+/** The slowest steps (over a second), for the line under the summary. Empty when none is. */
+export function slowest(reports: StepReport[], n = 3): string {
+  const slow = reports.filter((r) => (r.ms ?? 0) >= 1000).sort((a, b) => b.ms! - a.ms!).slice(0, n);
+  return slow.length ? `slowest: ${slow.map((r) => `${r.step.id} ${secs(r.ms)}`).join(", ")}; total ${secs(reports.reduce((s, r) => s + (r.ms ?? 0), 0))}` : "";
 }
 
 export function summary(reports: StepReport[]): string {

@@ -1,4 +1,6 @@
 import { execa } from "execa";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context.ts";
@@ -24,6 +26,18 @@ describe("hub command set", () => {
   });
   it("the archived `notify` command is gone (P25)", async () => {
     expect((await hub("notify", "tick")).exitCode).not.toBe(0);
+  });
+  it("doctor --only runs just the named step and prints its row with a time; an unknown id fails; --only with --fast is refused", async () => {
+    const home = mkdtempSync(path.join(tmpdir(), "hub-doctor-only-"));
+    mkdirSync(path.join(home, "config"), { recursive: true });
+    writeFileSync(path.join(home, "config", "config.json"), JSON.stringify({ account: "a", model: "sonnet" }));
+    const run = (...a: string[]) => execa("node", [bin, ...a], { reject: false, env: { ...process.env, HUB_HOME: home, NO_COLOR: "1", FORCE_COLOR: "0" }, timeout: 60000 });
+    const ok = await run("doctor", "--only", "files.config-keys");
+    expect(ok.exitCode, ok.stderr).toBe(0);
+    expect(ok.stdout).toMatch(/WARN\s+files\.config-keys\s+\d+\.\ds\s+config\.json has key\(s\) nothing reads: model/);
+    expect(ok.stdout).not.toContain("backup.");
+    expect((await run("doctor", "--only", "no.such.step")).exitCode).not.toBe(0);
+    expect((await run("doctor", "--only", "files.config-keys", "--fast")).exitCode).not.toBe(0);
   });
   it("hidden commands still parse and have their own help", async () => {
     for (const name of ["link", "install", "projects", "guide", "docs", "token", "test", "uninstall", "audit-run"]) {

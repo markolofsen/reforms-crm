@@ -31,7 +31,7 @@ import { c, UsageError } from "./term.ts";
 import { mcpCall } from "./mcp-probe.ts";
 import { notionCheck } from "./notion-check.ts";
 import { renderChecklist } from "./docs.ts";
-import { doctor, exitCode, guideText, install, printGuides, summary, table } from "./runner.ts";
+import { doctor, exitCode, guideText, idWidth, install, printGuides, slowest, summary, table, tableHeader, tableRow } from "./runner.ts";
 import { redact } from "@hub/connections";
 import { connectionsReport, connectionsTable, storeNamedToken, TOKEN_NAMES } from "./connections-command.ts";
 import { makeValidators } from "./setup/clients.ts";
@@ -70,8 +70,8 @@ audit-run, batch-check, send, connections, backup, uninstall. Each has its own \
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
 
-const pick = (ids?: string[], automation = false): Step[] => {
-  if (!ids?.length) return selectSteps(automation);
+const pick = (ids?: string[], automation = false, audit = false): Step[] => {
+  if (!ids?.length) return selectSteps(automation, audit);
   const unknown = ids.filter((i) => !STEPS.some((s) => s.id === i || s.group.toLowerCase() === i.toLowerCase()));
   if (unknown.length) throw new Error(`unknown step or group: ${unknown.join(", ")}`);
   return STEPS.filter((s) => ids.includes(s.id) || ids.some((i) => i.toLowerCase() === s.group.toLowerCase()));
@@ -292,21 +292,34 @@ program.command("install").description("Run the steps a manual session needs: ch
     process.exitCode = exitCode(reports);
   });
 
-program.command("doctor").description("Run only the checks a manual session needs; print a pass/fail table. Changes nothing. Automation steps are skipped unless --automation.")
+program.command("doctor").description("Run the checks a manual session needs plus the audit checks (backups); each row prints as its step finishes, with its time. Changes nothing. --only runs named steps or groups; --fast leaves the audit checks out. Automation steps are skipped unless --automation.")
   .argument("[project]", "run the project checks for one project instead")
-  .option("--json", "machine-readable output")
+  .option("--json", "machine-readable output (printed at the end, with each step's milliseconds)")
   .option("--automation", "also check the optional extras: Notion token, mail login, Telegram poller (off by default)")
+  .option("--only <id...>", "step ids or group names (any step, optional and audit ones included), for example `--only backup.snapshot` or `--only Backup`")
+  .option("--fast", "leave out the audit steps (the backup.* checks: they reach the network and open the database)")
   .option("--project <slug>", "same as the [project] argument")
-  .action(async (projectArg: string | undefined, o: { json?: boolean; project?: string; automation?: boolean }) => {
+  .action(async (projectArg: string | undefined, o: { json?: boolean; project?: string; automation?: boolean; only?: string[]; fast?: boolean }) => {
     const ctx = ctxOf();
     const project = projectArg ?? o.project;
     if (project) { process.exitCode = await runProjectDoctor(project, projectOptions()); return; }
-    const reports = await doctor(ctx, selectSteps(!!o.automation, true));
-    if (o.json) console.log(JSON.stringify(reports.map((r) => ({ id: r.step.id, outcome: r.outcome, detail: r.detail })), null, 2));
+    if (o.only?.length && o.fast) throw new UsageError("--only and --fast are separate: --only already names the steps");
+    const steps = pick(o.only, !!o.automation, !o.fast);
+    let reports;
+    if (o.json) reports = await doctor(ctx, steps);
     else {
-      console.log(table(reports)); console.log(`\n${summary(reports)}`);
-      const rows = await projectRows(projectsDir(), projectOptions());
-      console.log(`\n${c.bold("Projects")} ${c.dim("(read only; a project's status is changed in its project.md)")}\n${projectTable(rows)}`);
+      const w = idWidth(steps);
+      console.log(tableHeader(w, true));
+      reports = await doctor(ctx, steps, (r) => console.log(tableRow(r, w, true)));
+    }
+    if (o.json) console.log(JSON.stringify(reports.map((r) => ({ id: r.step.id, outcome: r.outcome, ms: r.ms, detail: r.detail })), null, 2));
+    else {
+      console.log(`\n${summary(reports)}`);
+      const slow = slowest(reports); if (slow) console.log(slow);
+      if (!o.only?.length) {
+        const rows = await projectRows(projectsDir(), projectOptions());
+        console.log(`\n${c.bold("Projects")} ${c.dim("(read only; a project's status is changed in its project.md)")}\n${projectTable(rows)}`);
+      }
     }
     process.exitCode = reports.some((r) => r.outcome === "failed") ? 1 : 0;
   });

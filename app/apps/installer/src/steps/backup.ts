@@ -6,7 +6,7 @@ import { loadProjects, type LoadedProject } from "@hub/projects";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { ageDays, checkManifest, isInside, listSnapshots, gitGuard, realish, MAX_AGE_DAYS as SNAPSHOT_MAX_AGE_DAYS, resolveTarget, BackupError } from "../backup.ts";
+import { ageDays, checkManifest, isInside, listSnapshots, gitGuard, realish, restoreSnapshotDb, MAX_AGE_DAYS as SNAPSHOT_MAX_AGE_DAYS, resolveTarget, BackupError } from "../backup.ts";
 import { readJson, type Ctx } from "../context.ts";
 import type { CheckResult, Step } from "../types.ts";
 import { fail, pass, warn } from "./helpers.ts";
@@ -163,7 +163,15 @@ export async function backupSnapshotCheck(ctx: Ctx): Promise<CheckResult> {
     if (age > SNAPSHOT_MAX_AGE_DAYS) warnings.push(`newest snapshot ${newest.name} is ${age} days old (limit ${SNAPSHOT_MAX_AGE_DAYS}): \`hub backup --apply\``);
     const bad = checkManifest(newest.dir).problems;
     if (bad.length) problems.push(`snapshot ${newest.name} does not match its manifest: ${bad.slice(0, 3).join("; ")}${bad.length > 3 ? `; and ${bad.length - 3} more` : ""}`);
-    else facts.push(`newest snapshot ${newest.name} (${age} day(s) old), manifest hashes valid`);
+    else {
+      facts.push(`newest snapshot ${newest.name} (${age} day(s) old), manifest hashes valid`);
+      // A snapshot that hashes right can still be one the app cannot open: restore its database into a temporary folder, with the current migrations.
+      if (newest.manifest.files.some((f) => f.path === "data/app.db")) {
+        const r = restoreSnapshotDb(newest.dir, newest.manifest);
+        if (r.problems.length) problems.push(`snapshot ${newest.name} cannot be restored: ${r.problems.join("; ")}`);
+        else facts.push(...r.lines);
+      }
+    }
   }
   // The device id cannot judge a cloud-drive folder (it reports the system disk's), so the rule is about where the folder is: inside the instance means next to the data.
   if (isInside(realish(t.root), realish(ctx.paths.home))) warnings.push(`the backups sit next to the data they protect: a dead disk takes both. Set backup_dir in config/config.json to a folder outside this computer's disk, e.g. a Google Drive folder.`);
@@ -200,7 +208,7 @@ export const backupSteps: Step[] = [
   {
     id: "backup.snapshot", group: "Backup", title: "A recent, intact `hub backup` snapshot exists off the repo",
     why: "`hub backup --apply` writes a dated snapshot (database copy, Notion dump, config, manifest) into the git-ignored `backups/` folder. Git covers the code; this covers what git cannot, and nothing runs it for you.",
-    verifies: `The newest snapshot under the backup folder (\`backup_dir\` in \`config/config.json\`, default \`<instance>/backups/\`) is at most ${SNAPSHOT_MAX_AGE_DAYS} days old (WARN), its \`manifest.json\` hashes and sizes match every file (FAIL), the backup folder is on a different volume than \`data/\` not inside the instance folder (WARN: the backups would sit next to the data they protect; \`backup_dir\` should point outside this computer's disk, e.g. a Google Drive folder). No snapshot at all is a FAIL, a WARN on an instance with no database yet. FAIL when the folder is inside the instance and git tracks a file under it or does not ignore it, or when it is inside \`state/\` or the core. Read only: nothing is written, restored or sent.`,
+    verifies: `The newest snapshot under the backup folder (\`backup_dir\` in \`config/config.json\`, default \`<instance>/backups/\`) is at most ${SNAPSHOT_MAX_AGE_DAYS} days old (WARN), its \`manifest.json\` hashes and sizes match every file (FAIL), its \`data/app.db\` RESTORES (FAIL when it does not: the file is copied into a temporary folder, opened with the current migrations, integrity-checked and its table and row counts compared with the manifest; the temporary folder is removed), the backup folder is not inside the instance folder (WARN: the backups would sit next to the data they protect; \`backup_dir\` should point outside this computer's disk, e.g. a Google Drive folder). No snapshot at all is a FAIL, a WARN on an instance with no database yet. FAIL when the folder is inside the instance and git tracks a file under it or does not ignore it, or when it is inside \`state/\` or the core. FAIL too when the backup folder lies under a stale Google Drive mount (\`GoogleDrive-<account> (dd.mm.yyyy hh:mm)\`, which Drive can expose after a restart): a snapshot made there is not in the live Drive. Nothing in the instance or the snapshot is written or sent.`,
     manual: { steps: ["Make one: `hub backup` (dry run), then `hub backup --apply`; check it with `hub backup --verify`.", "Inside the instance: set `backup_dir` in `config/config.json` to an absolute path outside this computer's disk, e.g. a Google Drive for desktop folder (no `~`).", "Secrets are never in a snapshot: keep your own off-machine copy of `state/secrets/` (see `backup.secrets`)."] },
     check: backupSnapshotCheck,
   },
