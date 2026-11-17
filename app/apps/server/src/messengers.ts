@@ -1,4 +1,5 @@
 import { access, readFile } from "node:fs/promises";
+import { isTelegramToken } from "@hub/connections";
 import { botTokenFile, redact, runPoller, telegramPollAdapter, type MessengerAdapter, type PollEvent } from "@hub/messengers";
 import type { Repos } from "@hub/db";
 
@@ -37,8 +38,6 @@ export interface StartMessengers {
   now?: () => Date;
 }
 
-const SHAPE = /^\d{5,}:[A-Za-z0-9_-]{20,}$/;
-
 const off = (reason: string, project?: string): MessengersHandle => ({
   status: () => ({ state: "off", reason, ...(project ? { project } : {}), failures: 0, stored: 0 }),
   stop: async () => {},
@@ -60,7 +59,7 @@ export async function startMessengers(o: StartMessengers): Promise<MessengersHan
   } catch {
     return off("bot token file is not readable");
   }
-  if (!SHAPE.test(token)) return off("bot token file is not a Telegram token");
+  if (!isTelegramToken(token)) return off("bot token file is not a Telegram token");
 
   const slugs = (await o.repos.projects.registry()).projects.map((p) => p.slug);
   const project = env.HUB_MESSENGERS_PROJECT ?? (slugs.length === 1 ? slugs[0] : undefined);

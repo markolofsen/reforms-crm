@@ -1,3 +1,4 @@
+import { TELEGRAM_IN_TEXT } from "@hub/connections";
 import type { Repos } from "@hub/db";
 import { AdapterError, type MessengerAdapter } from "./adapter";
 import { ingest, type IngestResult } from "./ingest";
@@ -18,7 +19,7 @@ export interface PollResult extends IngestResult {
 }
 
 /** Redact anything shaped like a bot token before it can reach the database or a log line. */
-export const redact = (s: string): string => s.replace(/\d{5,}:[A-Za-z0-9_-]{20,}/g, "[token]");
+export const redact = (s: string): string => s.replace(TELEGRAM_IN_TEXT, "[token]");
 
 /**
  * One poll: read the position, fetch, store, then move the position. The position moves only after the batch is

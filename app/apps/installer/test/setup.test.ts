@@ -2,10 +2,10 @@ import { FakeImapServer } from "@hub/mail/imap";
 import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { makeValidators, type Validators, type Verdict } from "../src/setup/clients.ts";
+import type { Verdict } from "@hub/connections";
+import { makeValidators, type Validators } from "../src/setup/clients.ts";
 import type { Ui } from "../src/setup/ui.ts";
 import { runSetup, type SetupDeps } from "../src/setup/wizard.ts";
-import { secretPath } from "../src/secrets.ts";
 import type { Step } from "../src/types.ts";
 import { fake } from "./helpers.ts";
 
@@ -48,7 +48,7 @@ describe("hub setup, default (manual-first)", () => {
     expect(out.stages.map((s) => s.id)).toEqual(["projects"]); // no token stage in the default run (decision 0009)
     expect(ran).toBe(true);
     expect(ui.asked).toEqual([]);
-    expect(existsSync(secretPath(f.ctx, "notion-token"))).toBe(false);
+    expect(existsSync(path.join(f.ctx.configDir, "notion-token"))).toBe(false);
     expect(statSync(f.ctx.configDir).mode & 0o777).toBe(0o700);
   });
   it("an interactive default run asks zero questions and ends with `ready: run hub agent`", async () => {
@@ -69,9 +69,9 @@ describe("hub setup, interactive", () => {
     expect(ui.asked.filter((m) => /Paste/.test(m)).map((m) => m.split(" ")[2])).toEqual(["Notion", "bot"]);
     expect(statSync(f.ctx.configDir).mode & 0o777).toBe(0o700);
     for (const n of ["notion-token", "telegram-bot-token"] as const) {
-      expect(statSync(secretPath(f.ctx, n)).mode & 0o777).toBe(0o600);
+      expect(statSync(path.join(f.ctx.configDir, n)).mode & 0o777).toBe(0o600);
     }
-    expect(readFileSync(secretPath(f.ctx, "notion-token"), "utf8").trim()).toBe(NOTION);
+    expect(readFileSync(path.join(f.ctx.configDir, "notion-token"), "utf8").trim()).toBe(NOTION);
     const mailFile = path.join(f.ctx.configDir, "mail-work.json");
     expect(statSync(mailFile).mode & 0o777).toBe(0o600);
     expect(JSON.parse(readFileSync(mailFile, "utf8")).user).toBe("me@example.test");
@@ -94,12 +94,12 @@ describe("hub setup, interactive", () => {
     const f = fake();
     const first = scripted([NOTION, "no", "no"]);
     await runSetup(f.ctx, deps(first, verdicts()), { nonInteractive: false, automation: true });
-    const before = ["notion-token"].map((n) => statSync(secretPath(f.ctx, n as never)).mtimeMs);
+    const before = ["notion-token"].map((n) => statSync(path.join(f.ctx.configDir, n)).mtimeMs);
     const second = scripted(["no", "no"]); // optional Telegram, mail: skip again
     const out = await runSetup(f.ctx, deps(second, verdicts()), { nonInteractive: false, automation: true });
     expect(second.asked.some((m) => /Paste/.test(m))).toBe(false);
     expect(out.stages.slice(0, 1).map((s) => s.status)).toEqual(["ok"]);
-    expect(["notion-token"].map((n) => statSync(secretPath(f.ctx, n as never)).mtimeMs)).toEqual(before);
+    expect(["notion-token"].map((n) => statSync(path.join(f.ctx.configDir, n)).mtimeMs)).toEqual(before);
   });
 
   it("resumes after a cancel: the stored token survives, the rest is asked again", async () => {
@@ -107,7 +107,7 @@ describe("hub setup, interactive", () => {
     const ui = scripted([NOTION, undefined]); // cancel at the optional Telegram question
     const out = await runSetup(f.ctx, deps(ui, verdicts()), { nonInteractive: false, automation: true });
     expect(out.exitCode).toBe(1);
-    expect(existsSync(secretPath(f.ctx, "notion-token"))).toBe(true);
+    expect(existsSync(path.join(f.ctx.configDir, "notion-token"))).toBe(true);
     const again = scripted(["no", "no"]);
     const out2 = await runSetup(f.ctx, deps(again, verdicts()), { nonInteractive: false, automation: true });
     expect(out2.stages[0]!.status).toBe("ok");
@@ -118,7 +118,7 @@ describe("hub setup, interactive", () => {
     const f = fake();
     const ui = scripted(["bad-token-value-long-enough", "", "no", "no"]);
     const out = await runSetup(f.ctx, deps(ui, verdicts({ notion: { state: "invalid", detail: "auth problem" } })), { nonInteractive: false, automation: true });
-    expect(existsSync(secretPath(f.ctx, "notion-token"))).toBe(false);
+    expect(existsSync(path.join(f.ctx.configDir, "notion-token"))).toBe(false);
     expect(out.stages[0]!.status).toBe("missing");
     expect(out.exitCode).toBe(1);
   });
@@ -128,15 +128,15 @@ describe("hub setup, interactive", () => {
     const ui = scripted([NOTION, true, "no", "no"]);
     const out = await runSetup(f.ctx, deps(ui, verdicts({ notion: { state: "unverified", detail: "offline" } })), { nonInteractive: false, automation: true });
     expect(out.stages.slice(0, 1).map((s) => s.status)).toEqual(["unverified"]);
-    expect(existsSync(secretPath(f.ctx, "notion-token"))).toBe(true);
+    expect(existsSync(path.join(f.ctx.configDir, "notion-token"))).toBe(true);
   });
 
   it("tightens a loose mode on a stored token", async () => {
     const f = fake();
     await runSetup(f.ctx, deps(scripted([NOTION, "no", "no"]), verdicts()), { nonInteractive: false, automation: true });
-    chmodSync(secretPath(f.ctx, "notion-token"), 0o644);
+    chmodSync(path.join(f.ctx.configDir, "notion-token"), 0o644);
     await runSetup(f.ctx, deps(scripted(["no", "no"]), verdicts()), { nonInteractive: false, automation: true });
-    expect(statSync(secretPath(f.ctx, "notion-token")).mode & 0o777).toBe(0o600);
+    expect(statSync(path.join(f.ctx.configDir, "notion-token")).mode & 0o777).toBe(0o600);
   });
 
   it("dry run writes nothing", async () => {
@@ -155,7 +155,7 @@ describe("hub setup --non-interactive", () => {
     const out = await runSetup(f.ctx, deps(scripted([]), verdicts(), { HUB_NOTION_TOKEN_FILE: file }), { nonInteractive: true, automation: true });
     expect(out.stages.map((s) => s.status)).toEqual(["stored", "skipped", "skipped", "skipped"]);
     expect(out.exitCode).toBe(0);
-    expect(readFileSync(secretPath(f.ctx, "notion-token"), "utf8").trim()).toBe(NOTION);
+    expect(readFileSync(path.join(f.ctx.configDir, "notion-token"), "utf8").trim()).toBe(NOTION);
   });
 
   it("fails with a clear list when required tokens are missing, and installs nothing", async () => {
@@ -175,7 +175,7 @@ describe("hub setup --non-interactive", () => {
     const f = fake();
     const out = await runSetup(f.ctx, deps(scripted([]), verdicts({ notion: { state: "invalid", detail: "rejected (401)" } }), { HUB_NOTION_TOKEN: NOTION }), { nonInteractive: true, automation: true });
     expect(out.exitCode).toBe(1);
-    expect(existsSync(secretPath(f.ctx, "notion-token"))).toBe(false);
+    expect(existsSync(path.join(f.ctx.configDir, "notion-token"))).toBe(false);
   });
 
   it("creates a mail login from env and refuses to overwrite an existing one", async () => {

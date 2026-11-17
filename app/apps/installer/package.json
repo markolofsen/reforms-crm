@@ -15,6 +15,7 @@
   "dependencies": {
     "@clack/prompts": "1.9.0",
     "@hub/config": "workspace:*",
+    "@hub/connections": "workspace:*",
     "@hub/db": "workspace:*",
     "@hub/mail": "workspace:*",
     "@hub/mail-filters": "workspace:*",

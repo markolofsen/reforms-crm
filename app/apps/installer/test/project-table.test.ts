@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { storeSecret } from "../src/secrets.ts";
+import { storeToken } from "@hub/connections";
 import { projectRows, projectTable } from "../src/project-table.ts";
 import { verifyProjectDatabases } from "../src/notion-check.ts";
 import { loadProjects } from "@hub/projects";
@@ -23,7 +23,7 @@ function projectsDir(f: ReturnType<typeof fake>, list: [string, string][]): stri
 describe("notion databases and project table", () => {
   it("names the teamspace page to share when a database is unreachable", async () => {
     const f = fake();
-    storeSecret(f.ctx, "notion-token", "ntn\u005fTESTTOKENVALUE123456");
+    storeToken(f.ctx.configDir, "notion-token", "ntn\u005fTESTTOKENVALUE123456");
     f.ctx.fetch = (async () => new Response("{}", { status: 404 })) as any;
     const v = await verifyProjectDatabases(f.ctx, loadProjects(projectsDir(f, [["acme", "active"]])));
     expect(v.ok).toBe(false);

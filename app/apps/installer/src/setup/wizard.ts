@@ -1,11 +1,11 @@
+import { fileState, mailFileOf, notionShapeProblem, NOTION_FILE, readValue, redact, storeMailLogin, storeToken, TELEGRAM_FILE, type Verdict } from "@hub/connections";
 import { loadAccounts, parseAccount } from "@hub/mail/imap";
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { listProjects, type Ctx } from "../context.ts";
 import { doctor, install, table } from "../runner.ts";
-import { readSecret, redact, storeSecret, type SecretName } from "../secrets.ts";
 import type { Step, StepReport } from "../types.ts";
-import type { Validators, Verdict } from "./clients.ts";
+import type { Validators } from "./clients.ts";
 import type { Ui } from "./ui.ts";
 
 export type StageStatus = "ok" | "stored" | "unverified" | "skipped" | "missing" | "invalid";
@@ -29,7 +29,7 @@ class Cancelled extends Error {}
 const ask = <T>(v: T | undefined): T => { if (v === undefined) throw new Cancelled(); return v; };
 
 interface TokenSpec {
-  id: string; title: string; required: boolean; name: SecretName;
+  id: string; title: string; required: boolean; name: string;
   /** Env vars read in both modes: the value itself, or `<KEY>_FILE` naming a file that holds it. */
   envKey: string;
   explain: string;
@@ -37,8 +37,6 @@ interface TokenSpec {
   shape?(v: string): string | undefined;
   validate(v: string): Promise<Verdict>;
 }
-
-const plain = (v: string) => (/\s/.test(v) || v.length < 16 ? "that does not look like a token (no spaces, at least 16 characters)" : undefined);
 
 /** A value from env or from the file the env names. Never logged. */
 function fromEnv(d: SetupDeps, key: string): string | undefined {
@@ -49,10 +47,10 @@ function fromEnv(d: SetupDeps, key: string): string | undefined {
   try { return readFileSync(file, "utf8").trim() || undefined; } catch { throw new Error(`${key}_FILE: cannot read ${file}`); }
 }
 
-function save(ctx: Ctx, name: SecretName, value: string): void {
+function save(ctx: Ctx, name: string, value: string): void {
   if (ctx.dryRun) return;
-  if (readSecret(ctx, name) === value.trim()) return; // idempotent: same value, nothing to write
-  storeSecret(ctx, name, value);
+  if (readValue(ctx.configDir, name) === value.trim()) return; // idempotent: same value, nothing to write
+  storeToken(ctx.configDir, name, value);
 }
 
 const scrubbed = (v: Verdict, secret: string): Verdict => ({ ...v, detail: v.detail.split(secret).join("***") });
@@ -75,9 +73,10 @@ async function tokenStage(ctx: Ctx, d: SetupDeps, o: SetupOptions, s: TokenSpec)
 
   // 2. Already stored: tighten the mode, re-check, keep.
   const file = path.join(ctx.configDir, s.name);
-  if (readSecret(ctx, s.name)) {
-    if (!ctx.dryRun && (statSync(file).mode & 0o077)) chmodSync(file, 0o600);
-    const v = await s.validate(readSecret(ctx, s.name)!);
+  if (fileState(ctx.configDir, s.name).state === "unsafe-mode" && !ctx.dryRun) chmodSync(file, 0o600); // tighten the mode, then read it
+  const stored = readValue(ctx.configDir, s.name);
+  if (stored) {
+    const v = await s.validate(stored);
     if (v.state !== "invalid") return v.state === "valid" ? res("ok", `already stored; ${v.detail}`) : res("unverified", `already stored; ${v.detail}`);
     if (o.nonInteractive) return res("invalid", `stored value rejected: ${v.detail}`);
     d.ui.warn(`${s.title}: the stored value is rejected (${v.detail}).`);
@@ -104,8 +103,6 @@ async function tokenStage(ctx: Ctx, d: SetupDeps, o: SetupOptions, s: TokenSpec)
   }
   return res("invalid", "three attempts rejected; nothing stored");
 }
-
-const slug = (n: string) => n.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
 
 async function mailStage(ctx: Ctx, d: SetupDeps, o: SetupOptions): Promise<StageResult> {
   const base = { id: "mail.login", title: "Mail login (IMAP, read-only; optional)", required: false };
@@ -151,19 +148,15 @@ async function mailStage(ctx: Ctx, d: SetupDeps, o: SetupOptions): Promise<Stage
     try {
       const acc = parseAccount(JSON.stringify({ ...fields, port: Number(fields.port) }));
       const v = await d.validators.imap(acc);
-      const target = path.join(ctx.configDir, `mail-${slug(fields.account) || "account"}.json`);
+      const target = path.join(ctx.configDir, mailFileOf(fields.account));
       if (v.state === "invalid") note("invalid", `${fields.account}: ${v.detail}; nothing stored`);
       else if (existsSync(target)) note("invalid", `${path.basename(target)} already exists; setup never overwrites a login (remove or edit it yourself)`);
       else {
-        if (!ctx.dryRun) {
-          mkdirSync(ctx.configDir, { recursive: true, mode: 0o700 });
-          writeFileSync(target, JSON.stringify({ account: fields.account, host: fields.host, port: Number(fields.port), user: fields.user, pass: fields.pass }, null, 2) + "\n", { mode: 0o600 });
-          chmodSync(target, 0o600);
-        }
+        if (!ctx.dryRun) storeMailLogin(ctx.configDir, { account: fields.account, host: fields.host, port: Number(fields.port), user: fields.user, password: fields.pass }, { replace: false });
         note(v.state === "valid" ? "stored" : "unverified", `${fields.account}: ${v.detail}${v.state === "valid" ? "" : " (stored, not verified)"}; ${path.basename(target)}`);
       }
     } catch (e) {
-      note("invalid", `mail login: ${redact(ctx, e instanceof Error ? e.message : String(e))}`);
+      note("invalid", `mail login: ${redact(ctx.configDir, e instanceof Error ? e.message : String(e))}`);
     }
   }
   if (!lines.length) return res("skipped", "optional, skipped");
@@ -174,12 +167,12 @@ function specs(d: SetupDeps): TokenSpec[] {
   const v = d.validators;
   return [
     {
-      id: "notion.token", title: "Notion integration token", required: true, name: "notion-token", envKey: "HUB_NOTION_TOKEN",
+      id: "notion.token", title: "Notion integration token", required: true, name: NOTION_FILE, envKey: "HUB_NOTION_TOKEN",
       explain: "1. Open https://www.notion.so/profile/integrations and create an internal integration (read content).\n2. Copy its secret (ntn_...) and paste it here; it is checked with GET /users/me.\n3. Afterwards, on each CRM root page: Connections > add the integration (Notion has no API for this step).",
-      prompt: "Paste the Notion token", shape: plain, validate: (t) => v.notion(t),
+      prompt: "Paste the Notion token", shape: notionShapeProblem, validate: (t) => v.notion(t),
     },
     {
-      id: "messengers.token", title: "Telegram bot token (optional)", required: false, name: "telegram-bot-token", envKey: "HUB_TELEGRAM_TOKEN",
+      id: "messengers.token", title: "Telegram bot token (optional)", required: false, name: TELEGRAM_FILE, envKey: "HUB_TELEGRAM_TOKEN",
       explain: "Make a NEW bot just for this app: open @BotFather, send /newbot, copy the token. Never reuse a bot that has a webhook: a webhook and polling exclude each other.\nChecked with getMe; stored in state/secrets/telegram-bot-token (mode 600).",
       prompt: "Paste the bot token", validate: (t) => v.telegram(t),
     },
@@ -215,11 +208,11 @@ export async function runSetup(ctx: Ctx, d: SetupDeps, o: SetupOptions): Promise
       for (const s of specs(d)) {
         const r = await tokenStage(ctx, d, o, s);
         stages.push(r);
-        ui.info(`${s.title}: ${r.status}. ${redact(ctx, r.detail)}`);
+        ui.info(`${s.title}: ${r.status}. ${redact(ctx.configDir, r.detail)}`);
       }
       const mail = await mailStage(ctx, d, o);
       stages.push(mail);
-      ui.info(`${mail.title}: ${mail.status}. ${redact(ctx, mail.detail)}`);
+      ui.info(`${mail.title}: ${mail.status}. ${redact(ctx.configDir, mail.detail)}`);
     }
 
     // 5. Projects: the interview belongs to a skill.

@@ -2,7 +2,8 @@ import { statSync, writeFileSync, chmodSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { mailSteps } from "../src/steps/mail.ts";
 import { notionSteps } from "../src/steps/notion.ts";
-import { redact, secretPath, secretState, storeSecret } from "../src/secrets.ts";
+import path from "node:path";
+import { fileState, redact, storeToken } from "@hub/connections";
 import { parseRpc } from "../src/mcp-probe.ts";
 import { fake } from "./helpers.ts";
 
@@ -11,14 +12,16 @@ const TOKEN = "ntn\u005fTESTTOKENVALUE1234567890";
 describe("secrets", () => {
   it("stored with mode 600, a loose mode is reported, values are redacted", () => {
     const f = fake();
-    expect(secretState(f.ctx, "notion-token").ok).toBe(false);
-    storeSecret(f.ctx, "notion-token", TOKEN);
-    expect(statSync(secretPath(f.ctx, "notion-token")).mode & 0o777).toBe(0o600);
-    expect(secretState(f.ctx, "notion-token").ok).toBe(true);
-    expect(secretState(f.ctx, "notion-token").detail).not.toContain(TOKEN);
-    expect(redact(f.ctx, `failed with ${TOKEN} here`)).toBe("failed with *** here");
-    chmodSync(secretPath(f.ctx, "notion-token"), 0o644);
-    expect(secretState(f.ctx, "notion-token").detail).toContain("must be 600");
+    const dir = f.ctx.configDir;
+    const file = path.join(dir, "notion-token");
+    expect(fileState(dir, "notion-token").state).toBe("missing");
+    storeToken(dir, "notion-token", TOKEN);
+    expect(statSync(file).mode & 0o777).toBe(0o600);
+    expect(fileState(dir, "notion-token").state).toBe("stored");
+    expect(JSON.stringify(fileState(dir, "notion-token"))).not.toContain(TOKEN);
+    expect(redact(dir, `failed with ${TOKEN} here`)).toBe("failed with *** here");
+    chmodSync(file, 0o644);
+    expect(fileState(dir, "notion-token")).toMatchObject({ state: "unsafe-mode", mode: "644" });
   });
 });
 
@@ -27,7 +30,7 @@ describe("notion and mail checks", () => {
     const f = fake();
     const s = notionSteps[0]!;
     expect((await s.check(f.ctx)).level).toBe("fail");
-    storeSecret(f.ctx, "notion-token", "ntn\u005fTESTTOKENVALUE123456");
+    storeToken(f.ctx.configDir, "notion-token", "ntn\u005fTESTTOKENVALUE123456");
     for (const [status, level] of [[500, "fail"], [200, "pass"], [401, "fail"]] as const) {
       f.ctx.fetch = (async (url: string, init: any) => {
         expect(String(url)).toContain("/v1/users/me");

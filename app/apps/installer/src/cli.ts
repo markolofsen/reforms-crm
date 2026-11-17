@@ -31,7 +31,7 @@ import { mcpCall } from "./mcp-probe.ts";
 import { notionCheck } from "./notion-check.ts";
 import { renderClientSetup } from "./docs.ts";
 import { doctor, exitCode, guideText, install, printGuides, summary, table } from "./runner.ts";
-import { redact, storeSecret, type SecretName } from "./secrets.ts";
+import { NOTION_FILE, redact, storeToken } from "@hub/connections";
 import { makeValidators } from "./setup/clients.ts";
 import { runSetup } from "./setup/wizard.ts";
 import { clackUi, quietUi } from "./setup/ui.ts";
@@ -400,7 +400,7 @@ program.command("token").description("Optional: store the Notion integration tok
   .action(async (name: string) => {
     if (name !== "notion") throw new Error("name must be notion");
     const ctx = ctxOf();
-    const key: SecretName = `${name}-token`;
+    const key = NOTION_FILE;
     let value: string;
     if (process.stdin.isTTY) {
       const v = await p.password({ message: `Paste the ${name} token (hidden)` });
@@ -408,7 +408,7 @@ program.command("token").description("Optional: store the Notion integration tok
       value = v;
     } else value = readFileSync(0, "utf8");
     if (!value.trim()) throw new Error("empty token, nothing stored");
-    console.log(`stored ${storeSecret(ctx, key, value)} (mode 600)`);
+    console.log(`stored ${storeToken(ctx.configDir, key, value)} (mode 600)`);
   });
 
 async function main(): Promise<void> {
@@ -425,7 +425,7 @@ async function main(): Promise<void> {
 main().catch((e) => {
   const missing = e instanceof HubHomeMissingError;
   let msg = e instanceof Error ? e.message : String(e);
-  if (!missing) { try { msg = redact(ctxOf(), msg); } catch { /* no instance to read secrets from: nothing to redact */ } }
+  if (!missing) { try { msg = redact(ctxOf().configDir, msg); } catch { /* no instance to read secrets from: nothing to redact */ } }
   console.error(`${c.red("error:")} ${msg}`);
   process.exit(missing || e instanceof UsageError ? 2 : 1);
 });

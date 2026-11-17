@@ -3,7 +3,7 @@ import { readJson } from "../context.ts";
 import { verifyProjectDatabases } from "../notion-check.ts";
 import path from "node:path";
 import type { Step } from "../types.ts";
-import { readSecret, secretState } from "../secrets.ts";
+import { fileState, NOTION_FILE, probeNotion, readValue } from "@hub/connections";
 import { fail, pass, warn } from "./helpers.ts";
 
 export const notionSteps: Step[] = [
@@ -21,16 +21,12 @@ export const notionSteps: Step[] = [
       ],
     },
     async check(ctx) {
-      const s = secretState(ctx, "notion-token");
-      if (!s.ok) return fail(`${s.detail}: run \`hub setup\` (hidden prompt) or \`hub token notion\``);
-      const token = readSecret(ctx, "notion-token")!;
-      try {
-        const r = await ctx.fetch("https://api.notion.com/v1/users/me", { headers: { authorization: `Bearer ${token}`, "notion-version": "2025-09-03" }, signal: AbortSignal.timeout(15000) });
-        if (r.status === 401) return fail("Notion rejected the token (401)");
-        if (!r.ok) return fail(`Notion answered ${r.status}`);
-      } catch (e) {
-        return fail(`cannot reach Notion: ${(e as Error).message}`);
-      }
+      const f = fileState(ctx.configDir, NOTION_FILE);
+      const file = path.join(ctx.configDir, NOTION_FILE);
+      const why = f.state === "missing" ? `${file} is missing` : f.state === "empty" ? `${file} is empty` : f.state === "unsafe-mode" ? `${file} is mode ${f.mode}, must be 600` : undefined;
+      if (why) return fail(`${why}: run \`hub setup\` (hidden prompt) or \`hub token notion\``);
+      const probe = await probeNotion({ fetch: ctx.fetch }, readValue(ctx.configDir, NOTION_FILE) ?? "");
+      if (probe.state !== "valid") return fail(probe.detail);
       const v = await verifyProjectDatabases(ctx, loadProjects(ctx.paths.projects));
       return v.ok ? pass(`token valid; ${v.detail}`) : fail(v.detail);
     },

@@ -1,9 +1,9 @@
 import * as p from "@clack/prompts";
 import type { Ctx } from "./context.ts";
-import { redact } from "./secrets.ts";
+import { redact } from "@hub/connections";
 import type { Outcome, Step, StepReport } from "./types.ts";
 
-const safe = (ctx: Ctx, s: string) => redact(ctx, s).replace(/\s+/g, " ").trim();
+const safe = (ctx: Ctx, s: string) => redact(ctx.configDir, s).replace(/\s+/g, " ").trim();
 const errText = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 async function check(ctx: Ctx, s: Step) {

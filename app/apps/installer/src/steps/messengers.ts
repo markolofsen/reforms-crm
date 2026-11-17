@@ -1,10 +1,10 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
+import { isTelegramToken, TELEGRAM_FILE } from "@hub/connections";
 import path from "node:path";
 import type { Step } from "../types.ts";
 import { fail, pass, warn } from "./helpers.ts";
 
-const TOKEN = (configDir: string) => path.join(configDir, "telegram-bot-token");
-const SHAPE = /^\d{5,}:[A-Za-z0-9_-]{20,}$/;
+const TOKEN = (configDir: string) => path.join(configDir, TELEGRAM_FILE);
 const HEALTH = `http://127.0.0.1:${process.env.HUB_PORT ?? "4317"}/api/health`;
 const STALE_MS = 5 * 60_000;
 
@@ -24,7 +24,7 @@ export const messengerSteps: Step[] = [
       const f = TOKEN(ctx.configDir);
       if (!existsSync(f)) return warn("no bot token file: messengers stay off (optional)");
       if ((statSync(f).mode & 0o077) !== 0) return fail(`${f} is readable by others: chmod 600`);
-      return SHAPE.test(readFileSync(f, "utf8").trim()) ? pass("token file present, mode 600, shape ok") : fail(`${f} does not hold a Telegram bot token (expected <digits>:<secret>)`);
+      return isTelegramToken(readFileSync(f, "utf8").trim()) ? pass("token file present, mode 600, shape ok") : fail(`${f} does not hold a Telegram bot token (expected <digits>:<secret>)`);
     },
   },
   {
