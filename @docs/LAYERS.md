@@ -43,7 +43,9 @@ unsure where a file goes, this page decides.
 
 The instance pins the core in `core.version` (a tag, or a commit for a test instance that follows `main`) and moves it with `hub core update`. It runs with `<instance>/run.sh`; `HUB_HOME` is required for every command that touches data.
 
-Where `core/` comes from: `hub core install` makes it the git submodule at the pinned commit (the default; the only state a commit or deploy may be in). `hub core dev <path> [--apply]` removes that checkout and links `core/` to a core checkout you edit (git is told to ignore `core/`, so instance commits never take the link); `hub core install` undoes it. `hub core update` refuses while linked, and `instance.core` warns that the pin is not verified.
+Where `core/` comes from: `hub core install` makes it the git submodule at the pinned commit (the default; the only state a commit or deploy may be in). `hub core dev <path> [--apply]` removes that checkout and links `core/` to a core checkout you edit (git is told to ignore `core/`, so instance commits never take the link); `hub core install` undoes it.
+
+Custom code of an instance (its own apps and packages) lives only in `apps/` and `packages/` at the instance root and joins the core's packages in one pnpm/turbo workspace rooted at the instance (decision 0018). `hub workspace init --apply` generates the root `package.json`, `pnpm-workspace.yaml` and `turbo.json` from `core/app`; `hub workspace check` fails when they drift from the core in use (run it after `hub core update`). A core package never imports an instance package. `hub core update` refuses while linked, and `instance.core` warns that the pin is not verified.
 
 ## The guard
 

@@ -15,6 +15,7 @@ import { listProjects, runAgent } from "./agent.ts";
 import { installLink, pathHint, planLink, removeLink } from "./link.ts";
 import { coreUpdate } from "./core-update.ts";
 import { coreDev, coreInstall } from "./core-link.ts";
+import { workspaceCheck, workspaceInit } from "./workspace.ts";
 import { initInstance, InitError } from "./init.ts";
 import { findInstances, instanceStatus, statusTable } from "./status.ts";
 import { execa } from "execa";
@@ -209,6 +210,21 @@ coreCmd
   .command("update").argument("[tag]", "a vX.Y.Z tag of the core").option("--apply", "do it (default: show the plan)").option("--branch <name>", "follow the tip of origin/<name> instead of a tag (a test instance; the pin stays a commit)")
   .action(async (tag: string | undefined, o: { apply?: boolean; branch?: string }) => {
     const r = await coreUpdate(ctxOf(), tag, !!o.apply, o.branch);
+    for (const l of r.lines) console.log(l);
+    done(r.ok ? 0 : 1);
+  });
+
+const wsCmd = program.command("workspace").description("An instance with its own apps/ and packages/ shares ONE pnpm/turbo workspace with the core (decision 0018). The root files are generated.");
+wsCmd.command("init").description("Generate package.json, pnpm-workspace.yaml and turbo.json at the instance root from core/app. Dry run unless --apply.")
+  .option("--apply", "write the files (default: show the plan)")
+  .action((o: { apply?: boolean }) => {
+    const r = workspaceInit(ctxOf(), !!o.apply);
+    for (const l of r.lines) console.log(l);
+    done(r.ok ? 0 : 1);
+  });
+wsCmd.command("check").description("The generated root files match the core in use (run after `hub core update`).")
+  .action(() => {
+    const r = workspaceCheck(ctxOf());
     for (const l of r.lines) console.log(l);
     done(r.ok ? 0 : 1);
   });
