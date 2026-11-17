@@ -11,7 +11,7 @@ Scope: the type system is the one gate that reads types across the whole fronten
 5. MUST: closed vocabularies (intents, statuses, tones) are unions with a total label map (`Record<Union, string>`), so adding a member fails the build.
 6. MUST: `noUncheckedIndexedAccess` stays on; handle the `undefined`.
 7. SHOULD: derive types from the source of truth (the `@hub/contract` schemas and `@hub/config` enums, `typeof` of a const list) instead of restating them. A route is typed by the framework (`typedRoutes`) for its path and by `paths.ts` for its search; both fail `tsc`, not a test run.
-8. coss files in `components/ui` are copied, not hand-edited; they are exempt from 2 but not from 1.
+8. coss files in `packages/ui/src/ui` are copied, not hand-edited; they are exempt from 2 but not from 1.
 
 ## Enforcement
 

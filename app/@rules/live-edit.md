@@ -7,10 +7,10 @@ P32 N0 spike (symlinked `node_modules`, HMR in 0.9 s without a full reload) and 
 ## How it is wired
 
 - `pnpm live` (from `app/`, main checkout) runs `scripts/live.sh`. It cuts branch `app-live` from main's HEAD into a
-  separate worktree (default `~/.reforms-crm/app-live`, sparse: only `apps/admin`, `scripts`, `.claude`), links main's
+  separate worktree (default `~/.reforms-crm/app-live`, sparse: only `apps/admin`, `packages/ui`, `scripts`, `.claude`), links main's
   `node_modules` into it, starts the API if it is not running, and serves **the worktree's** admin app with
   `next dev -H 127.0.0.1 -p 5273` on http://127.0.0.1:5273 (`hub up` keeps 5173). `packages/*` and
-  the API stay main's: the loop only changes the UI.
+  the API stay main's: the loop only changes the UI. `packages/ui` is in the worktree only so Tailwind finds the stylesheet the admin imports.
 - The Next specifics, all in `next.config.ts` and the script's environment: `HUB_NEXT_ROOT` is set to a directory that
   contains both the worktree and the main checkout (the real layout: `$HOME`), because Turbopack follows the symlinked
   `node_modules` only when its root is a common ancestor (otherwise: "Could not find the Next.js package"); the
@@ -51,6 +51,7 @@ After the merge, `pnpm live` follows main again. To throw everything away:
 
 ## Limits
 
+- The loop edits screens, not primitives or tokens: `@hub/ui` resolves to main's copy through the symlinked `node_modules`, and the hook refuses a path outside `apps/admin`. Change `packages/ui` in the main checkout, with no live session running.
 - Edits to a file the hook did not see (a shell `sed`, a rename) are not committed; commit them by hand in the worktree.
 - A multi-file change is several commits; revert them together with `git revert <old>..<new>`.
 - The hook never runs tests or `tsc` (builds happen once, at the end of a piece of work). A half-done edit can break

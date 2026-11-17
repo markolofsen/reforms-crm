@@ -22,6 +22,7 @@ particle catalogue of ready patterns. Skills `coss` and `coss-particles` are ins
 - use existing primitives and particles first; do not invent APIs, check the docs;
 - Drawer replaces Sheet; Hub's own rule is stricter: no dialogs or sheets for primary work, use inline disclosure;
 - Tailwind v4 and `@base-ui/react` required.
+- The copies and the product primitives live in the package `app/packages/ui` (`@hub/ui`), imported by subpath (`@hub/ui/button`, `@hub/ui/product/action-button`, `@hub/ui/cn`) with the tokens in `@hub/ui/styles.css`; the admin keeps only what knows its routes, hooks and API. Rules: `app/@rules/architecture-and-ownership.md` rule 15.
 
 ## Shape
 - `reforms-crm/app/`: Next.js (App Router) + React + coss; real paths with the project in the query (`/drafts/42?project=...`), declared in `src/routes` and typed by the framework's typed routes. The pages are a client of a thin local

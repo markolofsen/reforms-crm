@@ -52,6 +52,7 @@ const PAGES_WITH_UPDATE_LINE = [
   "@docs/setup/access.md",
   "@docs/setup/checklist.md",
   "@docs/notion/README.md",
+  "@docs/core/08-local-app-stack.md",
   "@docs/core/21-leads.md",
 ];
 
