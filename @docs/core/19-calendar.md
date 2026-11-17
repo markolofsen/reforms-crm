@@ -110,3 +110,5 @@ All eight items below are applied: triage-mail section 2 and report, triage-mail
 ## 7. Open owner items
 
 Per owner, in his the owner's open-items list: choose or connect a calendar for each project; optionally connect Notion Calendar or Google Calendar; confirm Automation consent for the terminal; say where the client's time zone is stored (Notion field name).
+
+Update this page when the architecture changes.

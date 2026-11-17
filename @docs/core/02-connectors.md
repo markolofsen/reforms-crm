@@ -54,3 +54,5 @@ threads but can send: `--read-only` only, never both.
 - https://github.com/GongRzhe/Gmail-MCP-Server
 - https://developers.notion.com/guides/mcp/rate-limits
 - https://developers.notion.com/reference/request-limits
+
+Update this page when the architecture changes.

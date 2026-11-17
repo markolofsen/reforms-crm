@@ -89,3 +89,5 @@ The spike, the local server (Hono, decision 0001) and the live edit are done. Le
 ## Open questions for the owner
 - Mobile access to the app (phone on the same network) needed, or desktop only?
 - Which first bulk action: follow-up to silent clients, or a notice to a segment?
+
+Update this page when the architecture changes.

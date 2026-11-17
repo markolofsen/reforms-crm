@@ -22,7 +22,7 @@ Manual-first: the owner starts a session and hands it ONE instruction. Nothing r
 - Draft order: draft first, then the Notion profile; the marker `[hub-draft thread=<thread-id>]` makes a rerun skip the client.
 
 ## Keeping the docs true
-- When the architecture changes (a node, port, secret file, Notion database, connector, backup path), update the owning page and its `hub doctor` step in the same change. A page that lists checks, accesses or the architecture ends with the line "Update this page when the architecture changes." `hub docs` regenerates `@docs/setup/checklist.md` and `@docs/notion/fields.md`; the docs tests (staleness and the closing line) must pass.
+- When the architecture changes (a node, port, secret file, Notion database, connector, backup path), update the owning page and its `hub doctor` step in the same change. Every page of `@docs`, the root `README.md` and the instance template README ends with the line "Update this page when the architecture changes." except the short exempt list in `app/apps/installer/test/docs.test.ts` (a reason each; a stale entry fails the test). `hub docs` regenerates `@docs/setup/checklist.md` and `@docs/notion/fields.md`; the docs tests (staleness and the closing line) must pass.
 - Which credential goes to what: only in `@docs/setup/access.md`. Link to it; never restate it.
 
 ## Report (Russian, this order)

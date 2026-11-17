@@ -272,3 +272,5 @@ Goal: configuration happens through conversation, costs the owner few answers, a
 - Interview mode of `skills/notion-project-deploy` (doc `15`) is this same interview: `project-setup` calls the deploy skill when the project's Notion has no databases yet.
 
 Work packages for builders: a decision or plan record kept in the owner's instance.
+
+Update this page when the architecture changes.

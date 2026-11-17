@@ -15,7 +15,7 @@ the agent never sends. A local admin app lets a person review each draft and sen
 Needed once: Mail.app with the account, `mail-mcp` running, the Notion connector signed in (`/mcp` in Claude Code). `hub doctor` shows what is missing, each row with its fix; the full list is the generated [`@docs/setup/checklist.md`](@docs/setup/checklist.md).
 
 ## Creating an instance
-Your data does not belong in this repository. Create an instance with one command: `./hub.sh init ~/crm/my-instance` (git, this repository as the `core/` submodule at the newest tag, the instance files, skill links, config defaults, `doctor`, one commit; `--pin main` follows the tip, `--dry-run` lists the files; it never pushes). Make the repository private before you push it.
+Your data does not belong in this repository. Create an instance with one command: `./hub.sh init <folder>` (git, this repository as the `core/` submodule at the newest tag, the instance files, skill links, config defaults, `doctor`, one commit; `--pin main` follows the tip, `--dry-run` lists the files; it never pushes). Make the repository private before you push it.
 The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` live there, and its `run.sh` sets `HUB_HOME` and runs the pinned core. Move to a newer core with `hub core update` (a test instance may follow `main` with `--branch`). Details:
 [`@docs/LAYERS.md`](@docs/LAYERS.md) and [`@docs/core/08-local-app-stack.md`](@docs/core/08-local-app-stack.md).
 
@@ -24,7 +24,7 @@ The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` li
 |---|---|
 | `hub agent [project]` | The product: a Claude Code session. `<project>` binds a fresh session to one project; no argument continues the last one |
 | `hub up [--demo]` | The local admin: review the drafts the agent made. `--demo` uses invented data on a separate database |
-| `hub doctor [project]` | Read-only health table; never fails on optional things |
+| `hub doctor [project]` | Read-only health table, each row printed as its step ends, with its time; `--only <step or group>` runs just those, `--fast` leaves the audit (backup) checks out; never fails on optional things |
 | `hub setup` | Idempotent install of folders, config, skills and the project registry (`./install.sh` runs it) |
 
 `hub` alone opens a menu of the same four things; `./hub.sh` does the same without an install. Other commands (`hub projects`, `hub filters`, `hub test`, ...) are hidden from `--help`; each has `hub <name> --help`.

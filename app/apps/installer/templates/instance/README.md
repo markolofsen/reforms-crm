@@ -26,3 +26,5 @@ Run everything from this folder (the command finds the instance, and runs the pi
 ```
 
 After a fresh clone: `git clone --recurse-submodules <this repo>`, then `(cd core/app && pnpm install --frozen-lockfile)`.
+
+Update this page when the architecture changes.
