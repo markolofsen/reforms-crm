@@ -126,14 +126,6 @@ describe("hub backup --apply", () => {
     expect(again.ok).toBe(false);
     expect(again.lines.join("\n")).toContain("never overwritten");
   });
-  it("makes the second copy with rsync when backup_copy_to is set", async () => {
-    const base = setup();
-    const copyTo = path.join(path.dirname(base.ctx.paths.home), "second");
-    writeFileSync(base.ctx.paths.configFile, JSON.stringify({ backup_copy_to: copyTo }));
-    const r = await backup(base.ctx, { apply: true, now: at("2026-11-17T10:00:00") });
-    expect(r.ok, r.lines.join("\n")).toBe(true);
-    expect(existsSync(path.join(copyTo, "20261117-100000", "manifest.json"))).toBe(true);
-  });
 });
 
 describe("hub backup --verify", () => {
@@ -180,11 +172,11 @@ describe("retention", () => {
 describe("paths in config", () => {
   it("a relative path is resolved from the instance folder, an absolute one is kept, and there is no ~", () => {
     const { ctx } = setup();
-    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: "../shared-backups", backup_copy_to: "mirror" }));
-    expect(resolveTarget(ctx)).toMatchObject({ root: path.resolve(ctx.paths.home, "..", "shared-backups"), copyTo: path.join(ctx.paths.home, "mirror") });
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: "../shared-backups" }));
+    expect(resolveTarget(ctx)).toEqual({ root: path.resolve(ctx.paths.home, "..", "shared-backups"), instance: path.basename(ctx.paths.home) });
     const abs = path.join(path.dirname(ctx.paths.home), "elsewhere");
-    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: abs, backup_copy_to: "host:/srv/b" }));
-    expect(resolveTarget(ctx)).toMatchObject({ root: abs, copyTo: "host:/srv/b" });
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: abs }));
+    expect(resolveTarget(ctx).root).toBe(abs);
     writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: "~/x" }));
     expect(resolveTarget(ctx).root).toBe(path.join(ctx.paths.home, "~", "x")); // a literal folder named ~, never the user's home
   });
@@ -233,13 +225,12 @@ describe("doctor step backup.snapshot", () => {
     expect(r.level).toBe("fail");
     expect(r.detail).toContain("hub backup --apply");
   });
-  it("WARN for the same volume (naming backup_copy_to), WARN when older than 7 days, FAIL when a hash no longer matches", async () => {
+  it("WARN for a folder inside the instance, WARN when older than 7 days, FAIL when a hash no longer matches", async () => {
     const { ctx, root } = setup();
     await backup(ctx, { apply: true, now: new Date() });
     const same = await snapshotStep.check(ctx);
     expect(same.level, same.detail).toBe("warn");
-    expect(same.detail).toContain("same volume");
-    expect(same.detail).toContain("backup_copy_to");
+    expect(same.detail).toContain("the backups sit next to the data they protect: a dead disk takes both. Set backup_dir in config/config.json to a folder outside this computer's disk, e.g. a Google Drive folder.");
     expect(same.detail).toContain("manifest hashes valid");
     const old = setup();
     await backup(old.ctx, { apply: true, now: new Date(Date.now() - 10 * 864e5) });
@@ -252,24 +243,19 @@ describe("doctor step backup.snapshot", () => {
     expect(bad.level).toBe("fail");
     expect(bad.detail).toContain("does not match its manifest");
   });
-  it("a reachable backup_copy_to counts as the off-disk copy even when its device id is the data's (cloud-drive folders)", async () => {
+  it("PASS when backup_dir points outside the instance, whatever the device id says (cloud-drive folders)", async () => {
     const { ctx } = setup();
+    const outside = path.join(path.dirname(ctx.paths.home), "cloud-drive", "saas");
+    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_dir: outside }));
     await backup(ctx, { apply: true, now: new Date() });
-    const mirror = path.join(path.dirname(ctx.paths.home), "cloud-drive");
-    mkdirSync(mirror);
-    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_copy_to: mirror }));
     const r = await snapshotStep.check(ctx);
     expect(r.level, r.detail).toBe("pass");
-    expect(r.detail).toContain("is reachable");
-    expect(r.detail).not.toContain("same volume");
+    expect(r.detail).toContain("is outside the instance");
+    expect(r.detail).not.toContain("next to the data");
   });
-  it("WARN when backup_copy_to is set and not there; FAIL when a file under backups/ is tracked by git", async () => {
+  it("FAIL when a file under backups/ is tracked by git", async () => {
     const { ctx } = setup();
     await backup(ctx, { apply: true, now: new Date() });
-    writeFileSync(ctx.paths.configFile, JSON.stringify({ backup_copy_to: path.join(path.dirname(ctx.paths.home), "nodrive") }));
-    const missing = await snapshotStep.check(ctx);
-    expect(missing.level).toBe("warn");
-    expect(missing.detail).toContain("does not exist");
     git(ctx.paths.home, "init", "-q");
     writeFileSync(path.join(ctx.paths.home, ".gitignore"), "backups/\n");
     const name = readdirSync(path.join(ctx.paths.home, "backups"))[0]!;

@@ -6,7 +6,7 @@ import { loadProjects, type LoadedProject } from "@hub/projects";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { ageDays, checkManifest, isRemote, listSnapshots, gitGuard, MAX_AGE_DAYS as SNAPSHOT_MAX_AGE_DAYS, resolveTarget, BackupError } from "../backup.ts";
+import { ageDays, checkManifest, isInside, listSnapshots, gitGuard, realish, MAX_AGE_DAYS as SNAPSHOT_MAX_AGE_DAYS, resolveTarget, BackupError } from "../backup.ts";
 import { readJson, type Ctx } from "../context.ts";
 import type { CheckResult, Step } from "../types.ts";
 import { fail, pass, warn } from "./helpers.ts";
@@ -144,13 +144,6 @@ export async function backupSecretsCheck(ctx: Ctx): Promise<CheckResult> {
 
 // ---- backup.snapshot --------------------------------------------------------------------------------------------------------------
 
-/** Device id of the nearest existing folder at or above `p`. */
-const deviceOf = (p: string): number | undefined => {
-  for (let cur = path.resolve(p); ; cur = path.dirname(cur)) {
-    try { return statSync(cur).dev; } catch { if (path.dirname(cur) === cur) return undefined; }
-  }
-};
-
 export async function backupSnapshotCheck(ctx: Ctx): Promise<CheckResult> {
   let t: ReturnType<typeof resolveTarget>;
   try { t = resolveTarget(ctx); } catch (e) { if (e instanceof BackupError) return fail(e.message); throw e; }
@@ -172,21 +165,9 @@ export async function backupSnapshotCheck(ctx: Ctx): Promise<CheckResult> {
     if (bad.length) problems.push(`snapshot ${newest.name} does not match its manifest: ${bad.slice(0, 3).join("; ")}${bad.length > 3 ? `; and ${bad.length - 3} more` : ""}`);
     else facts.push(`newest snapshot ${newest.name} (${age} day(s) old), manifest hashes valid`);
   }
-  // A copy on the same volume as the data does not survive that volume. A reachable second copy on another volume (or a remote one) makes up for it.
-  let copyOk = false;
-  if (t.copyTo) {
-    if (isRemote(t.copyTo)) {
-      const r = await ctx.run("rsync", ["--list-only", `${t.copyTo.replace(/\/+$/, "")}/`], { env: { HOME: ctx.home, ...(process.env.SSH_AUTH_SOCK ? { SSH_AUTH_SOCK: process.env.SSH_AUTH_SOCK } : {}) }, timeoutMs: 30_000 });
-      if (r.code === 0) { copyOk = true; facts.push(`backup_copy_to ${t.copyTo} is reachable`); } else warnings.push(`backup_copy_to ${t.copyTo} is not reachable (rsync exit ${r.code}): the second copy is not proven`);
-    } else if (existsSync(t.copyTo) && statSync(t.copyTo).isDirectory()) {
-      facts.push(`backup_copy_to ${t.copyTo} is reachable`);
-      // The owner named this folder as the off-disk copy. A cloud-drive folder (Google Drive, iCloud) reports the system disk's device id, so the device cannot judge it: reachable means proven.
-      copyOk = true;
-    } else warnings.push(`backup_copy_to ${t.copyTo} does not exist (drive not mounted?): the second copy is not proven`);
-  }
-  const same = deviceOf(t.root) !== undefined && deviceOf(t.root) === deviceOf(ctx.paths.db);
-  if (same && !copyOk) warnings.push(`the backup folder ${t.root} is on the same volume as the data: a dead disk takes both. Set backup_copy_to in config/config.json for an off-disk copy (or backup_dir on an external drive or in iCloud Drive)`);
-  else if (!same) facts.push("backup folder is on another volume than the data");
+  // The device id cannot judge a cloud-drive folder (it reports the system disk's), so the rule is about where the folder is: inside the instance means next to the data.
+  if (isInside(realish(t.root), realish(ctx.paths.home))) warnings.push(`the backups sit next to the data they protect: a dead disk takes both. Set backup_dir in config/config.json to a folder outside this computer's disk, e.g. a Google Drive folder.`);
+  else facts.push(`backup folder ${t.root} is outside the instance`);
   if (problems.length) return fail([...problems, ...warnings].join("; "));
   if (warnings.length) return warn([...warnings, ...facts].join("; "));
   return pass(facts.join("; "));
@@ -219,8 +200,8 @@ export const backupSteps: Step[] = [
   {
     id: "backup.snapshot", group: "Backup", title: "A recent, intact `hub backup` snapshot exists off the repo",
     why: "`hub backup --apply` writes a dated snapshot (database copy, Notion dump, config, manifest) into the git-ignored `backups/` folder. Git covers the code; this covers what git cannot, and nothing runs it for you.",
-    verifies: `The newest snapshot under the backup folder (\`backup_dir\` in \`config/config.json\`, default \`<instance>/backups/\`) is at most ${SNAPSHOT_MAX_AGE_DAYS} days old (WARN), its \`manifest.json\` hashes and sizes match every file (FAIL), the backup folder is on a different volume than \`data/\` by device id (WARN when the same, unless a reachable \`backup_copy_to\` is elsewhere), and \`backup_copy_to\` is reachable when set (WARN). No snapshot at all is a FAIL, a WARN on an instance with no database yet. FAIL when the folder is inside the instance and git tracks a file under it or does not ignore it, or when it is inside \`state/\` or the core. Read only: nothing is written, restored or sent.`,
-    manual: { steps: ["Make one: `hub backup` (dry run), then `hub backup --apply`; check it with `hub backup --verify`.", "Same volume: set `backup_copy_to` in `config/config.json` to an rsync destination (an off-disk copy), and/or `backup_dir` to a folder on an external drive or in iCloud Drive.", "Secrets are never in a snapshot: keep your own off-machine copy of `state/secrets/` (see `backup.secrets`)."] },
+    verifies: `The newest snapshot under the backup folder (\`backup_dir\` in \`config/config.json\`, default \`<instance>/backups/\`) is at most ${SNAPSHOT_MAX_AGE_DAYS} days old (WARN), its \`manifest.json\` hashes and sizes match every file (FAIL), the backup folder is on a different volume than \`data/\` not inside the instance folder (WARN: the backups would sit next to the data they protect; \`backup_dir\` should point outside this computer's disk, e.g. a Google Drive folder). No snapshot at all is a FAIL, a WARN on an instance with no database yet. FAIL when the folder is inside the instance and git tracks a file under it or does not ignore it, or when it is inside \`state/\` or the core. Read only: nothing is written, restored or sent.`,
+    manual: { steps: ["Make one: `hub backup` (dry run), then `hub backup --apply`; check it with `hub backup --verify`.", "Inside the instance: set `backup_dir` in `config/config.json` to an absolute path outside this computer's disk, e.g. a Google Drive for desktop folder (no `~`).", "Secrets are never in a snapshot: keep your own off-machine copy of `state/secrets/` (see `backup.secrets`)."] },
     check: backupSnapshotCheck,
   },
   {

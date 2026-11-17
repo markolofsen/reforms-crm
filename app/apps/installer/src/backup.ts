@@ -50,15 +50,12 @@ export function realish(p: string): string {
     cur = up;
   }
 }
-const isInside = (child: string, parent: string): boolean => { const r = path.relative(parent, child); return r === "" || (!r.startsWith("..") && !path.isAbsolute(r)); };
-/** `host:path` (an ssh destination), as opposed to a local path. */
-export const isRemote = (dest: string): boolean => /^[^/:]+:/.test(dest);
+export const isInside = (child: string, parent: string): boolean => { const r = path.relative(parent, child); return r === "" || (!r.startsWith("..") && !path.isAbsolute(r)); };
+export interface Target { root: string; instance: string }
 
-export interface Target { root: string; instance: string; copyTo?: string }
-
-/** The snapshot folder (default `<instance>/backups/`, git-ignored) and the optional second copy, from config/config.json. Throws BackupError for a folder inside state/ (the secrets) or the core checkout. */
+/** The one snapshot folder (default `<instance>/backups/`, git-ignored), from config/config.json. Throws BackupError for a folder inside state/ (the secrets) or the core checkout. */
 export function resolveTarget(ctx: Ctx): Target {
-  const cfg = readJson<{ backup_dir?: unknown; backup_copy_to?: unknown }>(ctx.paths.configFile) ?? {};
+  const cfg = readJson<{ backup_dir?: unknown }>(ctx.paths.configFile) ?? {};
   const instance = path.basename(ctx.paths.home);
   let root: string;
   if (cfg.backup_dir === undefined || cfg.backup_dir === null || cfg.backup_dir === "") root = path.join(ctx.paths.home, "backups");
@@ -68,22 +65,10 @@ export function resolveTarget(ctx: Ctx): Target {
     root = path.resolve(ctx.paths.home, cfg.backup_dir.trim());
   }
   root = path.resolve(root);
-  const inside = (dir: string, what: string) => {
-    for (const [label, area] of [["state/", ctx.paths.state], ["the core checkout", ctx.paths.core]] as const) {
-      if (isInside(realish(dir), realish(area))) throw new BackupError(`${what} ${dir} is inside ${label} (${area}): secrets live there and the core is another repository. Use the default backups/ or another folder outside state/ and the core`);
-    }
-  };
-  inside(root, "the backup folder");
-  let copyTo: string | undefined;
-  if (cfg.backup_copy_to !== undefined && cfg.backup_copy_to !== null && cfg.backup_copy_to !== "") {
-    if (typeof cfg.backup_copy_to !== "string") throw new BackupError("backup_copy_to in config/config.json must be a path (a string)");
-    copyTo = cfg.backup_copy_to.trim();
-    if (!isRemote(copyTo)) {
-      copyTo = path.resolve(ctx.paths.home, copyTo); // relative to the instance folder, or absolute; host:path is left alone
-      inside(copyTo, "backup_copy_to");
-    }
+  for (const [label, area] of [["state/", ctx.paths.state], ["the core checkout", ctx.paths.core]] as const) {
+    if (isInside(realish(root), realish(area))) throw new BackupError(`the backup folder ${root} is inside ${label} (${area}): secrets live there and the core is another repository. Use the default backups/ or another folder outside state/ and the core`);
   }
-  return { root, instance, ...(copyTo ? { copyTo } : {}) };
+  return { root, instance };
 }
 
 /**
@@ -182,8 +167,6 @@ export function secretNames(ctx: Ctx): string[] {
 }
 
 const tokenPresent = (ctx: Ctx, file: string): boolean => existsSync(path.join(ctx.configDir, file));
-const rsyncEnv = (ctx: Ctx): Record<string, string> => ({ HOME: ctx.home, ...(process.env.SSH_AUTH_SOCK ? { SSH_AUTH_SOCK: process.env.SSH_AUTH_SOCK } : {}) });
-const destFor = (copyTo: string, stamp: string): string => `${copyTo.replace(/\/+$/, "")}/${stamp}/`;
 
 export interface BackupOptions {
   apply: boolean;
@@ -241,7 +224,6 @@ export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResul
     }
     const names = secretNames(ctx);
     lines.push(`- manifest.json: timestamp, core ${readCoreVersion(ctx.paths.home) ?? "unknown"}, instance ${t.instance}, sha256 and size of every file; secret file NAMES only (${names.length ? names.join(", ") : "none"}); no secret is read or copied`);
-    if (t.copyTo) lines.push(`- second copy: rsync -a to ${destFor(t.copyTo, stamp)}`);
     lines.push(doomed.length ? `- retention: keep the newest ${KEEP}; would delete ${doomed.map((s) => s.name).join(", ")}` : `- retention: keep the newest ${KEEP}; ${existing.length} snapshot(s) exist, nothing to delete`);
     return { ok: true, lines, dir: final };
   }
@@ -297,13 +279,6 @@ export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResul
   }
   const total = walk(final).reduce((n, f) => n + statSync(path.join(final, f)).size, 0);
   lines.push(`snapshot ${final} (${kb(total)})`);
-
-  if (t.copyTo) {
-    if (!isRemote(t.copyTo)) mkdirSync(path.join(t.copyTo, stamp), { recursive: true });
-    const r = await ctx.run("rsync", ["-a", `${final}/`, destFor(t.copyTo, stamp)], { env: rsyncEnv(ctx), timeoutMs: 600_000 });
-    if (r.code === 0) lines.push(`second copy: ${destFor(t.copyTo, stamp)}`);
-    else { ok = false; lines.push(`second copy FAILED (rsync exit ${r.code}): ${r.stderr.trim().split("\n").at(-1)?.slice(0, 160) ?? ""}. The snapshot itself is kept`); }
-  }
 
   for (const s of doomed) { rmSync(s.dir, { recursive: true, force: true }); lines.push(`retention: deleted ${s.name}`); }
   return { ok, lines, dir: final, bytes: total };
