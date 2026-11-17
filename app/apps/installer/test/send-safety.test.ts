@@ -28,6 +28,11 @@ const SEND_TOOLS = [
 describe("the agent has no send path", () => {
   const rules = denyRules(PROJECTS, INSTANCE.home, "acme-travel");
 
+  it("denies the instance's secrets and data, and no longer the legacy ~/.config/reforms-crm (secrets live in state/secrets)", () => {
+    expect(rules.some((r) => r.includes("state/secrets"))).toBe(true);
+    expect(rules.some((r) => r.includes(".config/reforms-crm"))).toBe(false);
+  });
+
   it.each(SEND_TOOLS)("%s stays denied (deny rule, --disallowedTools, guard)", (tool) => {
     expect(rules, "deny rule").toContain(tool);
     expect(DENIED_TOOLS, "disallowed list").toContain(tool);
