@@ -27,6 +27,12 @@ async function createBatch(page: Page, who?: string) {
   await page.getByRole("button", { name: "Create batch" }).click();
   await expect(page).toHaveURL(/\/bulk\/\d+/);
   await expect(page.getByText(/Waiting for the agent/).first()).toBeVisible();
+  // State 16: with no draft yet, the pane (beside the list from 1024 px) says where the batch stands and offers no button.
+  if ((page.viewportSize()?.width ?? 0) >= 1024) {
+    const pane = page.getByTestId("batch-waiting");
+    await expect(pane).toBeVisible();
+    await expect(pane.getByRole("button")).toHaveCount(0);
+  }
   const id = Number(new URL(page.url()).pathname.split("/").pop());
 
   const project = "lisbon-realty";

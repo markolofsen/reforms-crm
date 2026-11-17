@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { address, cards, remember } from "./support";
 
 // The queue above the drafts: the health strip (last triage, accounts, who a draft may go to), the Inbox of what the agent
-// touched in its triage (seeded: two clients left to the owner, one skipped), and the Check evidence chip. Reads only.
+// touched in its triage (seeded: two clients left to the owner, one skipped), and the Evidence chip. Reads only.
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
@@ -29,9 +29,9 @@ test("the Inbox lists the clients left to the owner and the skipped one, with a 
   await expect(inbox.getByRole("button", { name: /^All/ })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("the Check evidence chip is a view of its own, kept in the address", async ({ page }) => {
+test("the Evidence chip is a view of its own, kept in the address", async ({ page }) => {
   await page.goto("/drafts");
-  await page.getByRole("radio", { name: /Check evidence/ }).click();
+  await page.getByRole("radio", { name: /^Evidence/ }).click();
   await expect.poll(() => address(page)).toContain("filter=evidence");
   await expect(cards(page).or(page.getByText(/No draft with weak evidence/)).first()).toBeVisible();
 });

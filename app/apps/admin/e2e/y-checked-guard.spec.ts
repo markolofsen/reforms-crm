@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { openRow, remember } from "./support";
+import { mailIs, openRow, remember } from "./support";
 
 // Checked fails closed (decision 0013): the switch and the C key refuse a draft Mail cannot show and a draft whose text
 // has no hash. The Mail read is patched per test (the rest of the answer is the fake mailer's own); nothing is written.
@@ -7,13 +7,6 @@ test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-type Patch = (mail: Record<string, unknown>) => Record<string, unknown>;
-async function mailIs(page: Page, patch: Patch) {
-  await page.route(/\/api\/projects\/[^/]+\/drafts\/\d+\/mail/, async (route) => {
-    const res = await route.fetch();
-    await route.fulfill({ response: res, json: patch((await res.json()) as Record<string, unknown>) });
-  });
-}
 const checkedPosts = (page: Page) => {
   const seen: string[] = [];
   page.on("request", (r) => {
@@ -25,9 +18,15 @@ const checkedPosts = (page: Page) => {
 test("an unreadable draft has no Checked switch, and the C key says why and sends nothing", async ({ page }) => {
   await mailIs(page, (m) => ({ ...m, found: false, hash: null, body: "", reason: "no draft in Mail with that subject", safetyResults: [] }));
   const posts = checkedPosts(page);
+  const reads: string[] = [];
+  page.on("request", (r) => /\/drafts\/\d+\/mail/.test(r.url()) && reads.push(r.url()));
   await page.goto("/drafts?filter=all");
   const card = await openRow(page, "Marta Ficticia");
   await expect(card.getByText(/Mail could not be read: no draft in Mail/).first()).toBeVisible();
+  // State 12 has one quiet way on besides Open in Mail: read again (a second read of the same draft, no write).
+  const before = reads.length;
+  await card.getByRole("button", { name: "Read again" }).click();
+  await expect.poll(() => reads.length).toBeGreaterThan(before);
   await expect(page.getByRole("switch", { name: "I read the checks" })).toHaveCount(0);
   await page.locator("#main").focus();
   await page.keyboard.press("c");

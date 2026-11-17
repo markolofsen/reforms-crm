@@ -43,7 +43,10 @@ export function useReviewActions(project: string) {
     undo.mutate(d.id);
   };
 
-  const pending = [checked, status, tone, ack, undo, marks].some((m) => m.isPending);
+  // A bulk move says one thing for all of them, so its Undo is one write per draft and one re-read at the end.
+  const undoMany = useMutation({ mutationFn: (ids: number[]) => Promise.all(ids.map((id) => reviewApi.undo(project, id))), ...settle(true) });
+
+  const pending = [undoMany, checked, status, tone, ack, undo, marks].some((m) => m.isPending);
   return {
     notice,
     setNotice,
@@ -64,6 +67,12 @@ export function useReviewActions(project: string) {
     setTone: (d: ReviewDraft, t: Tone) => tone.mutate({ id: d.id, tone: t }),
     acknowledge: (d: ReviewDraft, kind: SafetyKind, on: boolean) => ack.mutate({ id: d.id, kind, acked: on }),
     undo: undoNow,
+    /** The Undo of the bulk toast: every draft of the selection goes back where it was. */
+    undoMany: (ds: ReviewDraft[]) => {
+      setNotice(null);
+      last.current = null;
+      undoMany.mutate(ds.map((d) => d.id));
+    },
     /** Key `U`: the draft last changed, else the open one (`undoTarget`). */
     undoKey: (open: ReviewDraft | null) => {
       const target = undoTarget(last.current, open, clock());

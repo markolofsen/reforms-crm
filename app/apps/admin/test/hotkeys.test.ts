@@ -131,15 +131,16 @@ describe("typing guard", () => {
       return mine ? this : (this.parent?.closest(selector) ?? null);
     }
   }
+  const as = (e: FakeElement) => e as unknown as EventTarget;
   afterEach(() => vi.unstubAllGlobals());
   it("covers fields and every open menu, list or dialog, so first-letter typeahead never fires a page key", () => {
     vi.stubGlobal("Element", FakeElement);
     const menu = new FakeElement("div", "menu");
-    expect(isTypingTarget(new FakeElement("div", "menuitem", menu))).toBe(true);
-    expect(isTypingTarget(new FakeElement("button", null, menu))).toBe(true);
-    expect(isTypingTarget(new FakeElement("button", null, new FakeElement("div", "dialog")))).toBe(true);
-    expect(isTypingTarget(new FakeElement("input"))).toBe(true);
-    expect(isTypingTarget(new FakeElement("button"))).toBe(false);
+    expect(isTypingTarget(as(new FakeElement("div", "menuitem", menu)))).toBe(true);
+    expect(isTypingTarget(as(new FakeElement("button", null, menu)))).toBe(true);
+    expect(isTypingTarget(as(new FakeElement("button", null, new FakeElement("div", "dialog"))))).toBe(true);
+    expect(isTypingTarget(as(new FakeElement("input")))).toBe(true);
+    expect(isTypingTarget(as(new FakeElement("button")))).toBe(false);
     expect(isTypingTarget(null)).toBe(false);
     expect(TYPING.split(",")).toEqual(expect.arrayContaining(["[role=menu]", "[role=menuitem]", "[role=dialog]", "[role=listbox]"]));
   });

@@ -27,7 +27,7 @@ export type FlowStep = "idle" | "reading" | "confirm" | "sending" | "refused" | 
 /**
  * Which of the 16 states a draft is in. `readable` is false only when this server reads Mail and Mail has no such draft
  * (P27 M3.1): the text cannot be judged, so Checked and Send are off and the way on is Mail. `batch_waiting` (a queued
- * batch, which has no draft yet) is not reachable from a draft; the table still carries it.
+ * batch, which has no draft yet) is not a state of a draft: `paneStateOf` names it for the pane of a batch.
  */
 export function stateOf(d: ReviewDraft, step: FlowStep, readable = true): CardState {
   if (d.sendState?.status === "queued") return "queued";
@@ -45,6 +45,9 @@ export function stateOf(d: ReviewDraft, step: FlowStep, readable = true): CardSt
   if (d.checked) return "acknowledged";
   return openResults(d).length > 0 ? "checks_open" : "unread";
 }
+
+/** The pane of a batch that no draft of has arrived in yet is state 16 (waiting for the agent); once one has, the card shows that draft. */
+export const paneStateOf = (batch: { status: string; written: number }): CardState | null => (batch.status === "queued" && batch.written === 0 ? "batch_waiting" : null);
 
 export type PrimaryAction = "send" | "confirm" | "resume" | "open_mail" | "reply_mail";
 export type Primary = {

@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { mailError, mailFresh, mailOff, mailStale, notionFresh, notionToken, overviewIs, remember, withLive } from "./support";
+import { firstDraftIs, mailError, mailIs, mailFresh, mailOff, mailStale, notionFresh, notionToken, overviewIs, remember, withLive } from "./support";
 
 // Executable form of `app/@rules` ui-specifications 4 and accessibility 4, 6, 9: every screen, in both themes, at
 // 360, 768 and 1280 px (the Playwright projects), has no axe violation, no sideways scroll, and 44px touch targets
@@ -12,15 +12,6 @@ test.beforeEach(async ({ page }) => {
 
 type Screen = { name: string; path: string; ready: (page: Page) => Promise<void>; mock?: (page: Page) => Promise<void> };
 
-/** The first draft of the real list, patched: ready, Checked, no send yet. The rest of the answer is the server's own. */
-async function firstDraftIs(page: Page, patch: Record<string, unknown>) {
-  await page.route(/\/api\/drafts\?/, async (route) => {
-    const res = await route.fetch();
-    const json = (await res.json()) as { drafts: Array<Record<string, unknown>> };
-    const [first, ...rest] = json.drafts;
-    await route.fulfill({ response: res, json: { ...json, drafts: [{ ...first, status: "ready", checked: true, batchId: null, sendState: null, injectionSuspected: false, ...patch }, ...rest] } });
-  });
-}
 /** Opens the first row (a phone shows nothing until one is chosen; desktop already has it open) and waits for its card. */
 const openFirst = async (p: Page) => {
   await p.locator('ul[aria-label="Drafts"] > li').first().getByRole("button").first().click();
@@ -158,6 +149,29 @@ const SCREENS: Screen[] = [
       await p.getByText("Suspicious mail", { exact: false }).first().waitFor();
     },
   },
+  {
+    name: "drafts: Mail unreadable",
+    path: "/drafts",
+    mock: async (p) => {
+      await firstDraftIs(p, {});
+      await mailIs(p, (m) => ({ ...m, found: false, hash: null, body: "", reason: "no draft in Mail with that subject", safetyResults: [] }));
+    },
+    ready: async (p) => {
+      await openFirst(p);
+      await p.getByRole("button", { name: "Read again" }).waitFor();
+    },
+  },
+  {
+    name: "drafts: two selected",
+    path: "/drafts",
+    ready: async (p) => {
+      await p.getByRole("button", { name: "Select drafts" }).click();
+      const boxes = p.locator('ul[aria-label="Drafts"] [role="checkbox"]');
+      await boxes.nth(0).click();
+      await boxes.nth(1).click();
+      await p.getByRole("toolbar", { name: "Selected drafts" }).waitFor();
+    },
+  },
 ];
 
 const INTERACTIVE = 'button, a[href], input:not([type="hidden"]), select, textarea, summary, [role="button"], [role="checkbox"], [role="radio"], [role="switch"], [role="tab"], [role="combobox"], [role="menuitem"]';
@@ -191,20 +205,32 @@ for (const scheme of ["light", "dark"] as const) {
       const errors: string[] = [];
       page.on("console", (m) => m.type() === "error" && !(screen.name.includes("refused") && m.text().includes("409")) && !(screen.name.endsWith(": error") && m.text().includes("500")) && errors.push(m.text()));
       await page.emulateMedia({ colorScheme: scheme });
+      // Named steps: a timeout says which phase stalled (the page, the data, the network, axe), not just "30 s". Measured cold at
+      // 360 px (2026-11-18): first row 0.25 s, idle 0.7 s, axe 0.4 s; with the CPU throttled 8x the whole screen takes 5 s.
       await screen.mock?.(page);
-      await page.goto(screen.path);
-      await screen.ready(page);
-      await page.waitForLoadState("networkidle");
+      await test.step("load the page", () => page.goto(screen.path));
+      await test.step("the screen is ready", () => screen.ready(page));
+      await test.step("the network is idle", () => page.waitForLoadState("networkidle"));
 
-      const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+      const axe = await test.step("axe", () => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze());
       expect(axe.violations.map((v) => `${v.id}: ${v.nodes.map((n) => `${n.target.join(" ")} (${n.any[0]?.message ?? n.failureSummary})`).join(" | ")}`)).toEqual([]);
 
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow, "sideways page scroll").toBeLessThanOrEqual(0);
 
+      // Nothing is cut off: the Drafts filter strip shows every chip without scrolling, and every tab of the phone bar shows its whole label.
+      // (The Bulk audience and intent strips hold more chips than a phone fits and scroll inside their own strip by design.)
+      const strips = screen.name.startsWith("drafts") ? ".scroll-strip, " : "";
+      expect(
+        await page.evaluate((sel) => [...document.querySelectorAll<HTMLElement>(`${sel}nav[aria-label="Sections"] a`)].filter((e) => e.offsetParent !== null).filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => `${e.className.split(" ")[0]} "${(e.textContent ?? "").trim().slice(0, 30)}" is ${e.scrollWidth}px wide in ${e.clientWidth}px`), strips),
+        "clipped chips or labels",
+      ).toEqual([]);
+
       if ((page.viewportSize()?.width ?? 0) < 1024) expect(await undersized(page)).toEqual([]);
 
-      await page.screenshot({ path: info.outputPath(`${screen.name.replace(/\W+/g, "-")}-${scheme}.png`), fullPage: true });
+      // HUB_E2E_SHOTS names a folder to keep the screenshots in (evidence for a track); otherwise they stay in the run's own output.
+      const file = `${screen.name.replace(/\W+/g, "-")}-${scheme}.png`;
+      await page.screenshot({ path: process.env.HUB_E2E_SHOTS ? `${process.env.HUB_E2E_SHOTS}/w${page.viewportSize()?.width}-${file}` : info.outputPath(file), fullPage: true });
       expect(errors).toEqual([]);
     });
   }

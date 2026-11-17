@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CARD_STATES, hasSwitch, primaryFor, secondaryFor, stateOf, type Context } from "../src/features/review/card/card-state";
+import { CARD_STATES, hasSwitch, paneStateOf, primaryFor, secondaryFor, stateOf, type Context } from "../src/features/review/card/card-state";
 
 import type { ReviewDraft } from "../src/features/review/source";
 import { tickBlock, type MailRead } from "../src/features/review/mail/tick-guard";
@@ -55,6 +55,16 @@ describe("a draft Mail cannot show (P27 M3.1)", () => {
 
   it("a mail the server was never asked to read (Mail-only mode) is not unreadable", () => {
     expect(stateOf({ ...draft, checked: false }, "idle")).toBe("unread");
+  });
+});
+
+describe("state 16, a batch waiting for the agent", () => {
+  it("is the pane of a queued batch until its first draft arrives, and has no button", () => {
+    expect(paneStateOf({ status: "queued", written: 0 })).toBe("batch_waiting");
+    expect(paneStateOf({ status: "queued", written: 1 })).toBeNull();
+    expect(paneStateOf({ status: "ready", written: 0 })).toBeNull();
+    expect(primaryFor("batch_waiting", ctx)).toBeNull();
+    expect(secondaryFor("batch_waiting")).toEqual([]);
   });
 });
 

@@ -27,9 +27,11 @@ particle catalogue of ready patterns. Skills `coss` and `coss-particles` are ins
 ## Shape
 - `reforms-crm/app/`: Next.js (App Router) + React + coss; real paths with the project in the query (`/drafts/42?project=...`), declared in `src/routes` and typed by the framework's typed routes. The pages are a client of a thin local
   server (Hono, on 127.0.0.1 only): the browser calls `/api/...` on its own origin and Next forwards it. The app holds no database handle, no secret (the Connections page may send a key to the server for storage and never receives or keeps one: decision 0020) and no Server Action; a `proxy.ts` refuses a foreign Host or Origin.
-- Screens: Overview (one picture of every project), Drafts (the main screen: the drafts the agent left unsent in Mail, one row per client that has one, with
-  Checked, Done, marks and an Open in Mail link), Activity (the agent's log), Bulk (pick clients, agent drafts, owner reviews, drafts land in Mail,
-  nothing is sent), Project (health, safety rules, send history, Stop sending), Connections (the instance's mail logins, Notion token and Telegram bot: where each key stands, Test, and write-only set, replace and remove; address `/connections`, no project in it). Planned: Client (profile + correspondence chain, `mail_history`), Reports.
+- Screens: Overview (one picture of every project), Drafts (the main screen: the drafts the agent left unsent in Mail, one row per client that has one), Activity (what the agent did, one plain sentence per run), Bulk (pick clients, agent drafts, owner reviews, drafts land in Mail,
+  nothing is sent), Project (health, safety rules, send history, the one Stop sending), Connections (the instance's mail logins, Notion token and Telegram bot: where each key stands, Test, and write-only set, replace and remove; address `/connections`, no project in it). Planned: Client (profile + correspondence chain, `mail_history`), Reports.
+- One shell for all of them (P29): a sidebar with the project switcher on top, the sections, and the status area and the `?` shortcuts at the foot (224 px from 1280 px, a 56 px icon rail from 640 px, a bottom tab bar on a phone). A section is a list column (360 px) and a detail pane side by side from 1024 px, and two screens with a Back control below it. There is no top bar and no per-screen header. Every address is a real path with the project in the query; the open draft is the path (`/drafts/42`), the filter and the search are the query, so Back, reload and a shared link restore the screen.
+- The review card (Drafts and a Bulk batch share it) has one shape: who and why, what the draft was based on, the checks (only when there are some), the draft, then one action bar. The bar shows ONE primary button for the state the draft is in (Send, Send to Marta, Resume, Open in Mail, Reply in Mail) or none (queued, sent, done, skipped); at most two secondaries; the rest is in the More menu; the "I read the checks" switch gates Send. Flags (Follow up, VIP, Do not contact) are in the Client menu in the header, never near Send, and Do not contact asks first. The 16 states and their buttons are the table in `app/apps/admin/src/features/review/card/card-state.ts` (research 16 section 7), held by a unit test and by `e2e/y-card-states.spec.ts`.
+- Every reversible move says so: Done, Skip and Hold (one draft, or a selection) raise a toast with Undo, and `U` undoes the last one. The keys (`J K Enter Esc C X Shift+A R D S H U 1 2 3 T /`, `g` plus a letter between screens) are listed by the `?` popover; a typing field, a menu or a dialog switches them off.
 - Marks (tags such as "follow up", "do not contact") live in the client profile file and sync to Notion.
 - Live editing: the agent changes files under `app/`; the owner sees the result without a rebuild (Next dev, Turbopack).
   Guard: the app runs from a git branch; every agent edit is a commit, so a bad one is one revert (`app/@rules/live-edit.md`).
@@ -42,7 +44,7 @@ holds only what exists nowhere else.
 |---|---|---|
 | Client profile, leads, tasks, reports | Notion (the agent writes it through the connector) | only the key: a `clients` row (project, email, name, replies owed, last contact, `updated_at`), made when the agent records a draft for that client. Nothing is copied in bulk; there is no sync |
 | Draft text | Mail (an unsent draft the person edits and sends) | no copy: `drafts.body` is empty for a recorded draft (an optional 240-character preview at most); `mail_ref` points at the message |
-| Draft review state (Checked, Done, hold, skipped), marks, bulk batches, agent log | admin database only | yes |
+| Draft review state ("I read the checks", done, hold, skipped), marks, bulk batches, the agent's run log | admin database only | yes |
 | Project facts, filters, knowledge | files under `<projects folder>/<slug>/` (`<HUB_HOME>/projects`; see `08-local-app-stack.md`) | an index rebuilt from them |
 
 A session reports each unsent draft it leaves with `hub record-draft --project <slug>` (JSON on stdin; one JSON line out, exit
@@ -79,7 +81,7 @@ The attention list is a pure function of these facts, so the page and any status
 What the Overview never carries: a client's name, address, subject or body, a deal value, a Notion property or a Notion page id of a record. The schemas have no field for them and refuse a stray one.
 
 ## Rules
-- The agent only creates drafts. The app sends only when a person confirms one draft (decision 0011, `16` section 3B): Send on a ready, Checked draft, with the exact mail shown first. Bulk = many drafts, never sent in bulk.
+- The agent only creates drafts. The app sends only when a person confirms one draft (decision 0011, `16` section 3B): Send on a ready draft whose checks the person read ("I read the checks", bound to the Mail text they saw), with the exact mail shown first. Bulk = many drafts, never sent in bulk.
 - Bind to 127.0.0.1 (`next dev -H 127.0.0.1`: without the flag Next listens on every address); no remote access in the first version. Next has no DNS-rebinding guard of its own, so `src/proxy.ts` refuses any Host that is not a loopback name and any write whose Origin is not; the API repeats the check.
 - English only, per the owner.
 

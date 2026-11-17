@@ -17,10 +17,10 @@ function addressing(d: ReviewDraft): string {
   return `To ${who}${cc > 0 ? `, Cc ${cc}` : ""}, ${d.subject}`;
 }
 
-type Props = { d: ReviewDraft; project: string; actions: ReviewActions; thread: boolean; onThread: () => void; /** What Mail holds, shown while the send is confirmed. */ confirmed: string | null; /** The text as Mail holds it now (read on demand), when it could be read. */ live?: DraftMailDto };
+type Props = { d: ReviewDraft; project: string; actions: ReviewActions; thread: boolean; onThread: () => void; /** What Mail holds, shown while the send is confirmed. */ confirmed: string | null; /** The text as Mail holds it now (read on demand), when it could be read. */ live?: DraftMailDto; /** Read Mail again: the quiet way out of state 12. */ onRead?: () => void; reading?: boolean };
 
 /** The draft as a document: one addressing line that opens, the versions, the paper surface, the thread under it. */
-export function DraftBlock({ d, project, actions, thread, onThread, confirmed, live }: Props) {
+export function DraftBlock({ d, project, actions, thread, onThread, confirmed, live, onRead, reading }: Props) {
   const [open, setOpen] = useState(false);
   const closed = isClosed(d);
   const tones = TONES.filter((t) => d.toneBodies[t] !== undefined);
@@ -60,7 +60,16 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
           </ToggleGroup>
         )}
       </div>
-      {unreadable && <p className="text-sm text-warning-foreground" data-testid="mail-unreadable">Mail could not be read{live?.reason ? `: ${live.reason}` : ""}. Open it in Mail.</p>}
+      {unreadable && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <p className="text-sm text-warning-foreground" data-testid="mail-unreadable">Mail could not be read{live?.reason ? `: ${live.reason}` : ""}. Open it in Mail.</p>
+          {onRead && (
+            <ActionButton disabled={reading} onClick={onRead} size="s" variant="quiet">
+              {reading ? "Reading" : "Read again"}
+            </ActionButton>
+          )}
+        </div>
+      )}
       {body === "" ? (
         !unreadable && <p className="text-muted-foreground text-sm">The text of this mail is not stored here. Open it in Mail.</p>
       ) : (

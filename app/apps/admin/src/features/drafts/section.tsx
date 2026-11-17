@@ -20,7 +20,7 @@ import type { DraftView } from "@/routes/search";
 const VIEWS: { value: DraftView; label: string }[] = [
   { value: "ready", label: "To review" },
   { value: "hold", label: "Hold" },
-  { value: "evidence", label: "Check evidence" },
+  { value: "evidence", label: "Evidence" },
   { value: "finished", label: "Finished" },
   { value: "all", label: "All" },
 ];

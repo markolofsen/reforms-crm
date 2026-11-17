@@ -31,6 +31,8 @@ type Props = {
   selection: { id: number | null; onChange: (id: number | null) => void };
   /** Shown when the list is empty (the host knows its own words). */
   empty: (filtered: boolean) => ReactNode;
+  /** The pane when no draft is open and the host has something better than "Pick a draft" (a batch waiting for the agent, state 16). */
+  idle?: ReactNode;
   /** Above the views: a batch's progress, a phone's project switcher. */
   listTop?: ReactNode;
   mobile: boolean;
@@ -59,7 +61,7 @@ function Notices({ gone, notice }: { gone: number | null; notice: Notice | null 
  * Drafts and a batch share this: the list column (views, search, rows, Select) and the pane with the open card.
  * It never sends mail by itself: Send is the card's, and a batch draft opens a compose window you send from.
  */
-export function ReviewWorkspace({ source, views, onView, search, selection, empty, listTop, mobile, noun }: Props) {
+export function ReviewWorkspace({ source, views, onView, search, selection, empty, idle, listTop, mobile, noun }: Props) {
   const qc = useQueryClient();
   const now = useClock()();
   const actions = useReviewActions(source.project);
@@ -141,8 +143,9 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
 
   const bulk = (status: "skipped" | "hold", title: string) => {
     const targets = sel.picked.filter((d) => !isClosed(d));
+    if (targets.length === 0) return sel.clear();
     for (const d of targets) actions.setStatus(d, status, { quiet: true });
-    toastManager.add({ title: `${title} ${targets.length}`, type: "success" });
+    toastManager.add({ title: `${title} ${targets.length}`, type: "success", actionProps: { children: "Undo", onClick: () => actions.undoMany(targets) } });
     sel.clear();
   };
 
@@ -206,7 +209,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
       <Notices gone={selection.id !== null && !present && !query.isFetching && !query.hasNextPage ? selection.id : null} notice={actions.notice} />
       {current ? (
         <DraftCard actions={actions} advance={() => advance(current)} d={current} key={current.id} now={now} onReplyAll={(x) => void replyAll(x)} onThread={() => setThread((t) => !t)} project={source.project} say={say} thread={thread} />
-      ) : (
+      ) : idle ?? (
         <EmptyState title="Nothing to open">{query.isPending ? "Loading." : "Pick a draft from the list."}</EmptyState>
       )}
     </div>

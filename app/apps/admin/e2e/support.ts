@@ -33,6 +33,28 @@ export async function readTheChecks(page: Page) {
 /** The one primary button of an open card that is not sending: named plain "Send". */
 export const sendButton = (card: Locator) => card.getByRole("button", { name: "Send", exact: true });
 
+/**
+ * The first draft of the real list, patched: ready, Checked, no send yet, unless the patch says otherwise. The rest of the
+ * answer is the server's own. A function patch gets the draft and returns the fields to change (for a nested field such as the client).
+ */
+export async function firstDraftIs(page: Page, patch: Record<string, unknown> | ((d: Record<string, unknown>) => Record<string, unknown>)) {
+  await page.route(/\/api\/drafts\?/, async (route) => {
+    const res = await route.fetch();
+    const json = (await res.json()) as { drafts: Array<Record<string, unknown>> };
+    const [first, ...rest] = json.drafts;
+    const base = { ...first, status: "ready", checked: true, batchId: null, sendState: null, injectionSuspected: false };
+    await route.fulfill({ response: res, json: { ...json, drafts: [{ ...base, ...(typeof patch === "function" ? patch(base) : patch) }, ...rest] } });
+  });
+}
+
+/** Patches the Mail read of every open draft (the rest of the answer is the fake Mailer's own). */
+export async function mailIs(page: Page, patch: (mail: Record<string, unknown>) => Record<string, unknown>) {
+  await page.route(/\/api\/projects\/[^/]+\/drafts\/\d+\/mail/, async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: patch((await res.json()) as Record<string, unknown>) });
+  });
+}
+
 // ---- Overview fixtures: the server's own answer, patched, so every state of the page can be shown without a network read.
 
 type Block = Record<string, unknown>;

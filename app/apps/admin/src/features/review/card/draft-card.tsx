@@ -108,7 +108,7 @@ export function DraftCard({ d, project, actions, now, thread, onThread, onReplyA
         <BasedOnStrip d={d} />
         {mailError !== null && <LoadFailed error={mailRead.error} onRetry={() => void mailRead.refetch()} retrying={mailRead.isFetching} what="the draft from Mail" />}
         <CheckList actions={actions} d={d} {...(mail?.found ? { results: mail.safetyResults } : {})} />
-        <DraftBlock actions={actions} confirmed={confirmed} d={d} {...(mail ? { live: mail } : {})} onThread={onThread} project={project} thread={thread} />
+        <DraftBlock actions={actions} confirmed={confirmed} d={d} {...(mail ? { live: mail } : {})} onRead={() => void mailRead.refetch()} onThread={onThread} project={project} reading={mailRead.isFetching} thread={thread} />
         <SendNotices flow={flow} onClose={close} />
       </div>
       <ActionBar actions={actions} context={{ name: first, hasMailLink: mailLink(d.mailRef) !== null, acknowledged: d.checked }} d={d} flow={flow} mailHash={mail?.hash ?? null} on={on} tickBlock={tickBlock(d, mail, flow.step, mailError)} state={state} />

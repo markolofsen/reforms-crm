@@ -5,6 +5,7 @@ import { AppLink } from "@/components/app-link";
 import { Progress } from "@hub/ui/product/field";
 import { LoadFailed, Loading } from "@/components/state-views";
 import { Alert, AlertDescription } from "@hub/ui/alert";
+import { paneStateOf } from "@/features/review/card/card-state";
 import { ReviewWorkspace } from "@/features/review/workspace";
 import type { ReviewSource } from "@/features/review/source";
 import { PaneScroll } from "@/features/shell/split-view";
@@ -15,6 +16,17 @@ import { paths } from "@/routes/paths";
 
 const VIEWS = BATCH_FILTERS.map((f) => ({ value: f, label: BATCH_FILTER_LABELS[f] }));
 const POLL_MS = 4_000;
+
+/** State 16 in the pane: no button, because there is nothing to do but wait. */
+function BatchWaiting({ written, total }: { written: number; total: number }) {
+  return (
+    <section aria-label="Waiting for the agent" className="flex flex-col gap-3 p-6" data-testid="batch-waiting">
+      <h3 className="font-heading font-semibold text-base">Waiting for the agent</h3>
+      <Progress label={`${written} of ${total} drafts written`} max={total} value={written} />
+      <p className="text-muted-foreground text-sm">The first draft opens here when it arrives. You can leave this page: the drafts will be in the list.</p>
+    </section>
+  );
+}
 
 /** One batch: its progress above the list, then the same review list and card as Drafts. A queued batch fills in by itself. */
 export function BatchSection({ project, batchId, filter, mobile }: { project: string; batchId: number; filter: BatchFilter; mobile: boolean }) {
@@ -88,9 +100,12 @@ export function BatchSection({ project, batchId, filter, mobile }: { project: st
       )}
     </div>
   );
+  // State 16: nothing has arrived yet, so the pane tells where the batch stands; the list fills by itself.
+  const waiting = paneStateOf({ status: batch.status, written: batch.counts.all }) === "batch_waiting";
   return (
     <ReviewWorkspace
       empty={() => (queued ? "No draft has arrived yet." : `No draft is ${BATCH_FILTER_LABELS[filter].toLowerCase()} in this batch.`)}
+      idle={waiting ? <BatchWaiting total={batch.total} written={batch.counts.all} /> : undefined}
       listTop={top}
       mobile={mobile}
       noun={{ list: "Batch drafts", back: "Batch" }}
