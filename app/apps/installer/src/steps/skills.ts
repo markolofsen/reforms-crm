@@ -1,10 +1,11 @@
-import { existsSync } from "node:fs";
+import { existsSync, readlinkSync } from "node:fs";
 import path from "node:path";
 import type { Ctx } from "../context.ts";
 import type { Step } from "../types.ts";
 import { coreSkills, legacyRemoveCommand, legacyUserLinks, syncInstanceSkills } from "../instance-skills.ts";
 import { fail, pass, warn } from "./helpers.ts";
 
+const readlinkOf = (p: string): string | undefined => { try { return readlinkSync(p); } catch { return undefined; } };
 /** Run-time skills the core ships in `<core>/skills/<name>/SKILL.md`. */
 export const runtimeSkills = (c: Ctx): string[] => coreSkills(c.paths);
 
@@ -18,6 +19,8 @@ export const skillSteps: Step[] = [
       const names = runtimeSkills(ctx);
       const dir = ctx.paths.claudeSkills;
       const off = names.filter((n) => !existsSync(path.join(dir, n, "SKILL.md")));
+      const absolute = names.filter((n) => !off.includes(n) && path.isAbsolute(readlinkOf(path.join(dir, n)) ?? "x")); // an older core wrote absolute links: they break when the instance moves
+      if (!off.length && absolute.length) return fail(`absolute links (they do not survive moving the instance): ${absolute.join(", ")}. Run: ./run.sh install --only skills.runtime`);
       if (off.length) return fail(`not linked (or dangling) in ${path.relative(ctx.paths.home, dir) || dir}: ${off.join(", ")}. Run: ./run.sh install --only skills.runtime`);
       return pass(names.length ? names.join(", ") : "no run-time skills yet");
     },

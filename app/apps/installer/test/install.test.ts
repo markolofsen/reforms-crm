@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { doctor, exitCode, install } from "../src/runner.ts";
@@ -68,6 +68,11 @@ describe("install is idempotent and never overwrites", () => {
     const old = path.join(f.home, ".claude", "skills", s1); // what an older `hub setup` left in the user's home
     mkdirSync(path.dirname(old), { recursive: true });
     symlinkSync(path.join(f.ctx.paths.skills, s1), old);
+    const abs = path.join(f.root, ".claude", "skills", s1); // an absolute link from an older core fails the check and install rewrites it
+    rmSync(abs); symlinkSync(path.join(f.ctx.paths.skills, s1), abs);
+    expect((await doctor(f.ctx, steps.filter((s) => s.id === "skills.runtime")))[0]!.outcome).toBe("failed");
+    await install(f.ctx, steps.filter((s) => s.id === "skills.runtime"));
+    expect(path.isAbsolute(readlinkSync(abs))).toBe(false);
     const legacy = await doctor(f.ctx, skillSteps.filter((s) => s.id === "skills.legacy"));
     expect(legacy[0]!.outcome).toBe("warn");
     expect(legacy[0]!.detail).toContain(`rm '${old}'`);
