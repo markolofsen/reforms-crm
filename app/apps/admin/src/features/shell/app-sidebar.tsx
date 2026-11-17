@@ -8,10 +8,10 @@ import type { NavItem } from "@/hooks/use-section-nav";
 import { NavIcon } from "./nav-icon";
 import { ProjectSwitcher } from "./project-switcher";
 import { KeyHelp } from "@/components/key-help";
-import { StatusFooter, type StatusInput } from "./status-footer";
+import { StatusFooter, type FooterInput } from "./status-footer";
 
 type Keys = { open: boolean; onOpenChange: (open: boolean) => void; enabled: boolean; onEnabled: (on: boolean) => void };
-type Props = { items: NavItem[]; projects: string[]; project: string | null; onProject: (p: string) => void; status: StatusInput; keys: Keys };
+type Props = { items: NavItem[]; projects: string[]; project: string | null; onProject: (p: string) => void; status: FooterInput; keys: Keys };
 
 /**
  * The left column: project switcher on top, the sections, the status area in the footer. Wide screens show it open;

@@ -8,7 +8,8 @@ import { hhmm, plural } from "@/lib/format";
 
 export const OVERVIEW_KEY = ["overview"] as const;
 
-export const useOverview = () => useQuery({ queryKey: OVERVIEW_KEY, queryFn: overviewApi.get });
+/** Local facts only (no network, tens of ms); read again every minute so the shell line ages honestly (a live number goes stale with no write). */
+export const useOverview = () => useQuery({ queryKey: OVERVIEW_KEY, queryFn: overviewApi.get, refetchInterval: 60_000 });
 
 /** The live sources a card has something to read from: mail when it lists a mailbox, Notion when `project.md` names a data source. */
 export function sourcesOf(p: ProjectCardDto) {

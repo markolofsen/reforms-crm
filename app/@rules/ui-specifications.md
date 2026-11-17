@@ -23,6 +23,7 @@ Scope: how UI behaviour is written down so a test can hold it. Adapted from the 
 |---|---|
 | 1, 4-6, 5a, 5c, 5d | Playwright (`pnpm e2e`, `apps/admin/e2e`; how it runs: `verification.md` rule 6); viewport projects `w360`/`w768`/`w1280` (`a-layout.spec.ts` and `c-console.spec.ts` run at all three; flows that write run at 1280) |
 | 5, 5b, 5d | `e2e/y-review-keys.spec.ts` (Enter, Esc, Shift+A, `?`), `e2e/z-keyboard.spec.ts` (the whole loop without a mouse), `e2e/y-card-states.spec.ts` (the primary count of 15 states and the 24 px gap; 16 in `e2e/z-bulk.spec.ts`), `e2e/z-selection.spec.ts` (the bulk Undo), `e2e/z-client-menu.spec.ts` (the Do not contact confirm), `e2e/y-checked-guard.spec.ts` (state 12) |
+| 1 | `e2e/y-status-line.spec.ts` (the shell status line: all clear, needs you, blocked, checking, unknown, server not answering; `test/status-line.test.ts` for its words) |
 | 2 | eslint `no-restricted-properties` on `Date.now` / `Math.random` (error) |
 | 3 | `pnpm test` (Vitest): paths, search, guards, proxy, hotkeys, title, card states |
 | 7 | review |

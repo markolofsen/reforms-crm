@@ -10,13 +10,13 @@ import { save, useStored } from "@/lib/storage";
 import type { Resolved } from "@/routes/resolve";
 import { cn } from "@hub/ui/cn";
 import { AppSidebar } from "./app-sidebar";
-import type { StatusInput } from "./status-footer";
+import type { FooterInput } from "./status-footer";
 import { TabBar } from "./tab-bar";
 
 // The coss provider sets 16rem and 3rem inline; the product's own widths replace them (`--sidebar-width*`, 224px and 56px).
 const WIDTHS: CSSProperties & Record<`--${string}`, string> = { "--sidebar-width": "14rem", "--sidebar-width-icon": "3.5rem" };
 
-type Props = { items: NavItem[]; projects: string[]; project: string | null; onProject: (p: string) => void; status: StatusInput; route: Resolved; children: ReactNode };
+type Props = { items: NavItem[]; projects: string[]; project: string | null; onProject: (p: string) => void; status: FooterInput; route: Resolved; children: ReactNode };
 
 const FRAME_HELP = [["[", "collapse or expand the sidebar"], ["?", "this list"]] as const;
 

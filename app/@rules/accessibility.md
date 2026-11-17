@@ -21,4 +21,5 @@ Scope: the baseline every screen meets. Adapted from the shared "accessibility, 
 | 1-3 | `eslint-plugin-jsx-a11y` strict preset (error in `pnpm lint`) |
 | 3-5, 8 | e2e keyboard and state scenarios (`e2e/z-keyboard.spec.ts`, `e2e/b-routing.spec.ts` skip link) |
 | 9 | `@axe-core/playwright` 4.14.0 (`e2e/a-layout.spec.ts`: every screen, light and dark, three widths, `next start` build) |
-| 4, 6, 7 | browser pass at 360 / 768 / 1280 (see `verification.md`) |
+| 7 | `e2e/y-status-line.spec.ts` (with `prefers-reduced-motion` no animation runs on the Overview or in the status area; the same check with motion allowed proves it can see one) |
+| 4, 6 | browser pass at 360 / 768 / 1280 (see `verification.md`) |
