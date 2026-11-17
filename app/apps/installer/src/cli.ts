@@ -31,7 +31,8 @@ import { mcpCall } from "./mcp-probe.ts";
 import { notionCheck } from "./notion-check.ts";
 import { renderClientSetup } from "./docs.ts";
 import { doctor, exitCode, guideText, install, printGuides, summary, table } from "./runner.ts";
-import { NOTION_FILE, redact, storeToken } from "@hub/connections";
+import { redact } from "@hub/connections";
+import { connectionsReport, connectionsTable, storeNamedToken, TOKEN_NAMES } from "./connections-command.ts";
 import { makeValidators } from "./setup/clients.ts";
 import { runSetup } from "./setup/wizard.ts";
 import { clackUi, quietUi } from "./setup/ui.ts";
@@ -63,7 +64,7 @@ ${c.bold("Examples")}
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, send, uninstall. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, send, connections, uninstall. Each has its own \`hub <name> --help\`.`);
 // Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
@@ -395,20 +396,29 @@ program.command("docs").description("Generate @docs/core/client-setup.md and @do
     }
   });
 
-program.command("token").description("Optional: store the Notion integration token in state/secrets/ (git-ignored, mode 600). Value comes from a hidden prompt or stdin.")
-  .argument("<name>", "notion")
+program.command("token").description("Optional: store the Notion integration token or the Telegram bot token in state/secrets/ (git-ignored, mode 600). Value comes from a hidden prompt or stdin.")
+  .argument("<name>", TOKEN_NAMES.join(" or "))
   .action(async (name: string) => {
-    if (name !== "notion") throw new Error("name must be notion");
+    const known = TOKEN_NAMES.find((n) => n === name);
+    if (!known) throw new UsageError(`name must be ${TOKEN_NAMES.join(" or ")}`);
     const ctx = ctxOf();
-    const key = NOTION_FILE;
     let value: string;
     if (process.stdin.isTTY) {
-      const v = await p.password({ message: `Paste the ${name} token (hidden)` });
+      const v = await p.password({ message: `Paste the ${known} token (hidden)` });
       if (p.isCancel(v)) return;
       value = v;
     } else value = readFileSync(0, "utf8");
-    if (!value.trim()) throw new Error("empty token, nothing stored");
-    console.log(`stored ${storeToken(ctx.configDir, key, value)} (mode 600)`);
+    console.log(`stored ${storeNamedToken(ctx, known, value)} (mode 600)`);
+    if (known === "telegram") console.log("a new bot token applies on the next server start");
+  });
+
+program.command("connections").description("List the instance's connections (mail logins, Notion token, Telegram bot) as the admin's Connections page shows them. Reads files only; prints no secret.")
+  .option("--test", "also test each stored login with the provider (network; read-only)")
+  .action(async (o: { test?: boolean }) => {
+    const ctx = ctxOf();
+    const rep = await connectionsReport(ctx, { test: !!o.test, deps: { fetch: ctx.fetch } });
+    console.log(connectionsTable(rep));
+    done(rep.exitCode);
   });
 
 async function main(): Promise<void> {
