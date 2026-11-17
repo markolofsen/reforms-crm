@@ -1,6 +1,7 @@
 import { existsSync, lstatSync, mkdirSync, readlinkSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import path from "node:path";
 import type { Ctx } from "./context.ts";
+import { hubPaths } from "@hub/config/paths";
 import { checkInstance } from "./steps/instance.ts";
 
 /**
@@ -29,6 +30,8 @@ function modeOf(dir: string): Mode {
     return { kind: "missing" };
   }
 }
+/** The hub that runs this command may itself live elsewhere (a dev checkout): the instance's check must look at the instance's own core/. */
+const ownCore = (ctx: Ctx): Ctx => ({ ...ctx, paths: hubPaths({ core: coreDirOf(ctx), home: ctx.paths.home, env: {} }) });
 const real = (p: string): string => { try { return realpathSync(p); } catch { return path.resolve(p); } };
 
 /** A core checkout: its own git repository with the hub's entry point and the installer. */
@@ -78,7 +81,7 @@ export async function coreDev(ctx: Ctx, target: string, apply: boolean): Promise
   mkdirSync(path.dirname(dir), { recursive: true });
   symlinkSync(to, dir);
 
-  const check = await checkInstance(ctx);
+  const check = await checkInstance(ownCore(ctx));
   out.push(`instance.core: ${check.level}${check.detail ? `: ${check.detail}` : ""}`);
   out.push("git ignores core/ in this instance (skip-worktree): nothing you edit there is committed from here. Edit the core in its own repository.");
   out.push("back to the pinned core: `hub core install` (run it from a hub that does not live in core/, or from this one: it only needs git).");
@@ -106,7 +109,7 @@ export async function coreInstall(ctx: Ctx): Promise<CoreLinkResult> {
   }
   const sha = (await ctx.run("git", ["-C", dir, "rev-parse", "HEAD"])).stdout.trim();
   out.push(`core/ is the submodule at ${sha.slice(0, 9)}`);
-  const check = await checkInstance(ctx);
+  const check = await checkInstance(ownCore(ctx));
   out.push(`instance.core: ${check.level}${check.detail ? `: ${check.detail}` : ""}`);
   return { ok: check.level !== "fail", lines: out };
 }
