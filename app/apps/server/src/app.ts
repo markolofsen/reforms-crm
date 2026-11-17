@@ -4,11 +4,13 @@ import { API_VERSION, healthDto, pulseDto } from "@hub/contract/health";
 import { projectsDto } from "@hub/contract/responses";
 import { isBusy, RepoError, type Repos } from "@hub/db";
 import { bulkRoutes } from "./routes/bulk";
+import { connectionRoutes } from "./routes/connections";
 import { draftRoutes } from "./routes/drafts";
 import { inboxRoutes } from "./routes/inbox";
 import { overviewRoutes } from "./routes/overview";
 import { runRoutes } from "./routes/runs";
 import { sendRoutes, type SenderOptions } from "./routes/sends";
+import { createConnections, type ConnectionsOptions } from "./connections";
 import { MAIL_OFF, type MailService } from "./mail";
 import { OFF, type MessengersStatus } from "./messengers";
 import { SENT_OFF, type SentStatus } from "./sent";
@@ -22,6 +24,8 @@ export type AppOptions = {
   mail?: Pick<MailService, "status" | "historyFor"> & Partial<Pick<MailService, "accountsFor" | "connect">>;
   /** Tests: the Overview with its own clock, readers and project folder. */
   overview?: Partial<Pick<LiveOptions, "notionReader" | "mailTimeoutMs" | "notionTimeoutMs" | "minIntervalMs" | "env">> & { projectsDir?: string; service?: OverviewService; timeZone?: string };
+  /** Tests and e2e: the Connections service with its own folder, fake probes and clock. */
+  connections?: Partial<Omit<ConnectionsOptions, "repos">> & { service?: ReturnType<typeof createConnections> };
   /** The Mailer behind the Send button. Without it the send routes answer "not set up" and nothing can send. */
   sender?: SenderOptions & { kind: "mail-app" | "fake" };
   /** SQLite `data_version` of the server's connection; changes when another process commits (see `dataVersion`). */
@@ -69,6 +73,9 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
       now,
       ...(ov?.timeZone ? { timeZone: ov.timeZone } : {}),
     });
+  const connections =
+    opts.connections?.service ??
+    createConnections({ messengers: opts.messengers ?? (() => OFF), now, ...opts.connections, repos });
   return new Hono()
     .onError((err, c) => {
       if (err instanceof RepoError) return c.json({ error: err.message, code: err.code === "not_found" ? ("not_found" as const) : ("wrong_state" as const) }, err.code === "not_found" ? 404 : 409);
@@ -98,7 +105,8 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", runRoutes(repos, opts.sender?.projectsDir))
     .route("/", inboxRoutes(repos))
     .route("/", bulkRoutes(repos))
-    .route("/", overviewRoutes(overview));
+    .route("/", overviewRoutes(overview))
+    .route("/", connectionRoutes(connections));
 }
 
 export type AppType = ReturnType<typeof createApp>;

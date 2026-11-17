@@ -3,6 +3,7 @@ import { HOST, SERVER_PORT } from "@hub/config";
 import { HubHomeMissingError, hubPaths } from "@hub/config/paths";
 import { createRepos, dataVersion, openDb } from "@hub/db";
 import { createApp } from "./app";
+import { chooseProbeKind, fakeProbeDeps } from "./connections";
 import { createMailService } from "./mail";
 import { projectsRoot } from "./project-overview";
 import { allowListOf, configFile, createServerMailer } from "./send/mailer";
@@ -34,7 +35,10 @@ console.log(`mail: ${mail.status().state}${mail.status().reason ? ` (${mail.stat
 const projectsDir = projectsRoot();
 const { kind, mailer } = createServerMailer(repos, projectsDir);
 console.log(kind === "fake" ? "SEND IS FAKE (HUB_MAILER=fake): nothing leaves this process" : "send: Mail.app (a person confirms every send in the admin)");
-const app = createApp(repos, { messengers: messengers.status, sent: sent.status, mail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, allowList: allowListOf(configFile()) } });
+// Connections: the real probes, or stubs with HUB_CONNECTIONS_PROBE=fake (refused without HUB_DB). A bad value stops the server here.
+const probe = chooseProbeKind(process.env);
+if (probe === "fake") console.log("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PROBE=fake): nothing is sent to Notion, Telegram or a mail host");
+const app = createApp(repos, { connections: probe === "fake" ? { deps: fakeProbeDeps() } : {}, messengers: messengers.status, sent: sent.status, mail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, allowList: allowListOf(configFile()) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);

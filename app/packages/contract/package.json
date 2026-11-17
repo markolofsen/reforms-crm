@@ -7,6 +7,7 @@
     "./requests": "./src/requests.ts",
     "./responses": "./src/responses.ts",
     "./health": "./src/health.ts",
+    "./connections": "./src/connections.ts",
     "./overview": "./src/overview.ts"
   },
   "scripts": {
