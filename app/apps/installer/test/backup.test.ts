@@ -1,6 +1,6 @@
 // `hub backup` (decision 0023): plan, apply, verify, retention, refusals, secrets never read, and the doctor step. No network: the Notion dump is a fake process.
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
@@ -37,9 +37,13 @@ function setup(over: { token?: boolean; config?: Record<string, unknown> } = {})
   const dir = path.join(ctx.paths.projects, "acme");
   mkdirSync(dir, { recursive: true });
   writeFileSync(path.join(dir, "project.md"), ["# acme", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", row("schema", "1"), row("status", "active"), row("mail.accounts", "a@example.com"), row("notion.teamspace", "Acme"), "", "## Notion databases", "", `- clients: ${ID}`, ""].join("\n"));
+  const day = "2026-11-15";
+  mkdirSync(path.join(dir, "dumps", day, "clients"), { recursive: true });
+  writeFileSync(path.join(dir, "dumps", day, "manifest.json"), JSON.stringify({ date: day, totals: { errors: 0 } }));
+  writeFileSync(path.join(dir, "dumps", day, "clients", "index.md"), "# clients\n");
   mkdirSync(ctx.configDir, { recursive: true, mode: 0o700 });
   if (over.token !== false) { writeFileSync(path.join(ctx.configDir, "notion-token"), SECRET, { mode: 0o000 }); chmodSync(path.join(ctx.configDir, "notion-token"), 0o000); }
-  return { f, ctx, dumps, root: path.join(ctx.paths.home, "backups") };
+  return { f, ctx, dumps, day, root: path.join(ctx.paths.home, "backups") };
 }
 const git = (cwd: string, ...a: string[]) => execFileSync("git", ["-C", cwd, ...a], { encoding: "utf8" });
 const allFiles = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? allFiles(path.join(d, e.name)) : [path.join(d, e.name)]));
@@ -54,46 +58,65 @@ describe("hub backup: plan", () => {
     const text = r.lines.join("\n");
     expect(text).toContain("dry run");
     expect(text).toContain(path.join(root, "20261117-100000"));
-    expect(text).toContain("notion acme: fresh dump");
+    expect(text).toContain("notion acme: copy the newest dump 2026-11-15 (2 day(s) old)");
     expect(text).toContain("notion-token");
     expect(existsSync(root)).toBe(false);
   });
-  it("says when a project has no token and would skip its dump", async () => {
-    const { ctx } = setup({ token: false });
-    expect((await backup(ctx, { apply: false })).lines.join("\n")).toContain("skipped, no notion-token");
+  it("says a live dump only happens with --notion-dump", async () => {
+    const { ctx } = setup();
+    expect((await backup(ctx, { apply: false, notionDump: true })).lines.join("\n")).toContain("LIVE dump");
   });
 });
 
 describe("hub backup --apply", () => {
   it("writes the database copy, config, dump under projects/<slug> and a manifest; secrets are neither read nor copied", async () => {
-    const { ctx, dumps, root } = setup();
+    const { ctx, dumps, root, day } = setup();
     const r = await backup(ctx, { apply: true, now: at("2026-11-17T10:00:00") });
     expect(r.ok, r.lines.join("\n")).toBe(true);
     const dir = path.join(root, "20261117-100000");
     expect(r.dir).toBe(dir);
     expect(existsSync(path.join(dir, "data", "app.db"))).toBe(true);
     expect(existsSync(path.join(dir, "config", "config.json"))).toBe(true);
-    expect(existsSync(path.join(dir, "projects", "acme", "2026-11-17", "acme", "index.md"))).toBe(true);
+    expect(existsSync(path.join(dir, "projects", "acme", "dumps", "2026-11-15", "clients", "index.md"))).toBe(true);
     expect(existsSync(`${dir}.partial`)).toBe(false);
     const m = readManifest(dir)!;
     expect(m.instance).toBe(path.basename(ctx.paths.home));
     expect(m.secrets_expected).toEqual(["notion-token"]);
-    expect(m.files.map((x) => x.path)).toEqual(expect.arrayContaining(["data/app.db", "config/config.json", "projects/acme/2026-11-17/acme/index.md"]));
+    expect(m.files.map((x) => x.path)).toEqual(expect.arrayContaining(["data/app.db", "config/config.json", "projects/acme/dumps/2026-11-15/manifest.json", "projects/acme/dumps/2026-11-15/clients/index.md"]));
     expect(m.files.every((x) => /^[0-9a-f]{64}$/.test(x.sha256))).toBe(true);
     // The secret file is mode 000: any read would have thrown. Its value is nowhere, and the child never got it.
     for (const file of allFiles(dir)) expect(readFileSync(file).includes(SECRET), file).toBe(false);
     expect(allFiles(dir).some((x) => x.includes("secrets") || x.includes("/state/"))).toBe(false);
     expect(JSON.stringify(dumps)).not.toContain(SECRET);
+    expect(dumps, "no live dump by default").toHaveLength(0);
+    expect(m.notion[0]).toMatchObject({ project: "acme", status: "copied" });
+    expect(r.lines.join("\n")).toContain("copied dump 2026-11-15 (2 day(s) old)");
+    expect(day).toBe("2026-11-15");
+  });
+  it("--notion-dump runs the live dump first into the snapshot; the child gets no secret in its environment", async () => {
+    const { ctx, dumps, root } = setup();
+    const r = await backup(ctx, { apply: true, notionDump: true, now: at("2026-11-17T10:00:00") });
+    expect(r.ok, r.lines.join("\n")).toBe(true);
+    expect(dumps).toHaveLength(1);
     expect(dumps[0]!.args).toContain("--token-file");
     expect(Object.keys(dumps[0]!.env ?? {}).sort()).toEqual(["HOME", "HUB_CONFIG_DIR", "HUB_HOME"]);
+    expect(JSON.stringify(dumps)).not.toContain(SECRET);
+    expect(readManifest(path.join(root, "20261117-100000"))!.notion[0]!.status).toBe("dumped");
   });
-  it("skips the dump with a note when there is no token", async () => {
-    const { ctx, dumps, root } = setup({ token: false });
-    const r = await backup(ctx, { apply: true, now: at("2026-11-17T10:00:00") });
+  it("without a token --notion-dump says so and copies the existing dump; a dump older than 7 days warns with the fix line; no dump at all warns", async () => {
+    const { ctx, dumps } = setup({ token: false });
+    const r = await backup(ctx, { apply: true, notionDump: true, now: at("2026-11-17T10:00:00") });
     expect(r.ok).toBe(true);
     expect(dumps).toHaveLength(0);
-    expect(r.lines.join("\n")).toContain("skipped, no notion-token");
-    expect(readManifest(path.join(root, "20261117-100000"))!.notion[0]!.status).toBe("skipped");
+    expect(r.lines.join("\n")).toContain("--notion-dump skipped, no notion-token");
+    const old = await backup(ctx, { apply: true, now: at("2026-12-01T10:00:00") });
+    expect(old.ok).toBe(true);
+    expect(old.lines.join("\n")).toMatch(/WARN: older than 7 days; fix: `pnpm --filter @hub\/notion notion-dump dump .*acme`/);
+    const bare = setup();
+    rmSync(path.join(bare.ctx.paths.projects, "acme", "dumps"), { recursive: true });
+    const none = await backup(bare.ctx, { apply: true, now: at("2026-11-17T10:00:00") });
+    expect(none.ok).toBe(true);
+    expect(none.lines.join("\n")).toContain("WARN no dump exists yet");
   });
   it("never overwrites an existing snapshot", async () => {
     const { ctx } = setup();

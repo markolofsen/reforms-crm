@@ -398,13 +398,14 @@ program.command("docs").description("Generate @docs/setup/checklist.md and @docs
     }
   });
 
-program.command("backup").description("A dated snapshot outside the instance: a verified copy of data/app.db, a fresh Notion dump per project, config/config.json and a manifest with sha256 per file. Secrets are never read or copied. Dry run unless --apply; --verify [snapshot] re-checks one (default: the newest). Keeps the newest 14.")
+program.command("backup").description("A dated snapshot outside the instance: a verified copy of data/app.db, a copy of the newest existing Notion dump per project (--notion-dump runs a live one first), config/config.json and a manifest with sha256 per file. Secrets are never read or copied. Dry run unless --apply; --verify [snapshot] re-checks one (default: the newest). Keeps the newest 14.")
   .option("--apply", "write the snapshot (default: show what would happen)")
+  .option("--notion-dump", "run a live notion-dump of each project into the snapshot first (minutes to hours; default: copy the newest dump that exists)")
   .option("--verify [snapshot]", "re-check a snapshot (a folder name or path; default the newest): hashes and integrity_check of the copied database; nothing is restored")
-  .action(async (o: { apply?: boolean; verify?: string | boolean }) => {
+  .action(async (o: { apply?: boolean; notionDump?: boolean; verify?: string | boolean }) => {
     const ctx = ctxOf();
     if (o.verify !== undefined && o.apply) throw new UsageError("--verify and --apply are separate runs");
-    const r = o.verify !== undefined ? verify(ctx, typeof o.verify === "string" ? o.verify : undefined) : await backup(ctx, { apply: !!o.apply });
+    const r = o.verify !== undefined ? verify(ctx, typeof o.verify === "string" ? o.verify : undefined) : await backup(ctx, { apply: !!o.apply, notionDump: !!o.notionDump });
     for (const l of r.lines) console.log(l);
     done(r.ok ? 0 : 1);
   });

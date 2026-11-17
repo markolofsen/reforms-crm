@@ -4,7 +4,7 @@
 import { copyAndVerify, inspectCopy } from "@hub/db";
 import { loadProjects } from "@hub/projects";
 import { createHash } from "node:crypto";
-import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { closeSync, copyFileSync, cpSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { readJson, type Ctx } from "./context.ts";
 import { readCoreVersion } from "./steps/instance.ts";
@@ -16,7 +16,7 @@ export const MAX_AGE_DAYS = 7;
 export const STAMP = /^\d{8}-\d{6}$/;
 export const MANIFEST = "manifest.json";
 /** A first dump reads every page at about 3 requests a second: a CRM of a few thousand pages needs well over 15 minutes. */
-const DUMP_TIMEOUT_MS = 2 * 60 * 60_000;
+const DUMP_TIMEOUT_MS = 2 * 60 * 60_000; // only `--notion-dump` waits on one
 const DAY = 864e5;
 /** Where the instance config sits inside a snapshot. */
 const CONFIG_IN_SNAPSHOT = "config/config.json";
@@ -30,7 +30,7 @@ export interface Manifest {
   files: ManifestFile[];
   /** File NAMES the instance expects under state/secrets/. Contents are never read or copied. */
   secrets_expected: string[];
-  notion: { project: string; status: "dumped" | "dumped-with-errors" | "skipped" | "failed"; detail: string }[];
+  notion: { project: string; status: "copied" | "dumped" | "dumped-with-errors" | "skipped" | "failed"; detail: string }[];
 }
 
 export class BackupError extends Error {}
@@ -185,7 +185,29 @@ const tokenPresent = (ctx: Ctx, file: string): boolean => existsSync(path.join(c
 const rsyncEnv = (ctx: Ctx): Record<string, string> => ({ HOME: ctx.home, ...(process.env.SSH_AUTH_SOCK ? { SSH_AUTH_SOCK: process.env.SSH_AUTH_SOCK } : {}) });
 const destFor = (copyTo: string, stamp: string): string => `${copyTo.replace(/\/+$/, "")}/${stamp}/`;
 
-export interface BackupOptions { apply: boolean; now?: Date }
+export interface BackupOptions {
+  apply: boolean;
+  now?: Date;
+  /** Run a live `notion-dump` into the snapshot first (minutes to hours for a big CRM). Default: copy the newest dump that already exists. */
+  notionDump?: boolean;
+}
+
+export interface DumpFound { date: string; dir: string; ageDays: number; errors: number }
+const DATED = /^\d{4}-\d{2}-\d{2}$/;
+/** The newest complete dump (a dated folder with a readable manifest.json) under `<project>/dumps/`. */
+export function newestDump(projectFolder: string, now = Date.now()): DumpFound | undefined {
+  const root = path.join(projectFolder, "dumps");
+  if (!existsSync(root)) return undefined;
+  for (const name of readdirSync(root).filter((n) => DATED.test(n)).sort().reverse()) {
+    try {
+      const m = JSON.parse(readFileSync(path.join(root, name, MANIFEST), "utf8")) as { date?: string; totals?: { errors?: number } };
+      const date = DATED.test(m.date ?? "") ? m.date! : name;
+      return { date, dir: path.join(root, name), ageDays: Math.floor((now - Date.parse(`${date}T00:00:00Z`)) / DAY), errors: m.totals?.errors ?? 0 };
+    } catch { /* no readable manifest: an unfinished dump, skip it */ }
+  }
+  return undefined;
+}
+const fixLine = (p: { slug: string; folder: string }) => `fix: \`pnpm --filter @hub/notion notion-dump dump ${p.folder}\`, or \`hub backup --apply --notion-dump\``;
 
 export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResult> {
   let t: Target;
@@ -209,8 +231,14 @@ export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResul
     lines.push(`dry run: nothing is written (add --apply)`, `snapshot folder: ${final}`);
     lines.push(existsSync(ctx.paths.db) ? `- data/app.db: VACUUM INTO copy, then integrity_check (${kb(statSync(ctx.paths.db).size)} live)` : "- data/app.db: does not exist yet, skipped");
     lines.push(existsSync(ctx.paths.configFile) ? "- config/config.json: copied" : "- config/config.json: does not exist, skipped");
-    if (!projects.length) lines.push("- notion: no project lists databases, nothing to dump");
-    for (const p of projects) lines.push(tokenPresent(ctx, p.parsed.config.notion.tokenFile) ? `- notion ${p.slug}: fresh dump of ${p.parsed.config.notion.databases.length} database(s) (read only)` : `- notion ${p.slug}: skipped, no ${p.parsed.config.notion.tokenFile} in state/secrets (the dump needs the integration token)`);
+    if (!projects.length) lines.push("- notion: no project lists databases, nothing to copy");
+    for (const p of projects) {
+      const d = newestDump(p.folder, now.getTime());
+      const live = opts.notionDump && tokenPresent(ctx, p.parsed.config.notion.tokenFile);
+      if (live) lines.push(`- notion ${p.slug}: LIVE dump of ${p.parsed.config.notion.databases.length} database(s) first (read only; minutes to hours)`);
+      else if (d) lines.push(`- notion ${p.slug}: copy the newest dump ${d.date} (${d.ageDays} day(s) old${d.ageDays > MAX_AGE_DAYS ? `, WARN: over ${MAX_AGE_DAYS} days; ${fixLine(p)}` : ""})`);
+      else lines.push(`- notion ${p.slug}: no dump exists yet, nothing to copy; ${fixLine(p)}`);
+    }
     const names = secretNames(ctx);
     lines.push(`- manifest.json: timestamp, core ${readCoreVersion(ctx.paths.home) ?? "unknown"}, instance ${t.instance}, sha256 and size of every file; secret file NAMES only (${names.length ? names.join(", ") : "none"}); no secret is read or copied`);
     if (t.copyTo) lines.push(`- second copy: rsync -a to ${destFor(t.copyTo, stamp)}`);
@@ -238,17 +266,25 @@ export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResul
     const notion: Manifest["notion"] = [];
     for (const p of projects) {
       const tokenFile = p.parsed.config.notion.tokenFile;
-      if (!tokenPresent(ctx, tokenFile)) { notion.push({ project: p.slug, status: "skipped", detail: `no ${tokenFile} in state/secrets` }); lines.push(`notion ${p.slug}: skipped, no ${tokenFile} in state/secrets (store it with \`hub token notion\`)`); continue; }
-      const r = await ctx.run(tsx, [cli, "dump", p.folder, "--out", path.join(stage, "projects", p.slug), "--date", dateOf(now), "--token-file", tokenFile], { env: { HOME: ctx.home, HUB_HOME: ctx.paths.home, HUB_CONFIG_DIR: ctx.configDir }, timeoutMs: DUMP_TIMEOUT_MS });
-      const last = r.stderr.trim().split("\n").at(-1)?.slice(0, 160) ?? "";
-      if (r.code === 0) { notion.push({ project: p.slug, status: "dumped", detail: r.stdout.split("\n")[0] ?? "" }); lines.push(`notion ${p.slug}: ${r.stdout.split("\n")[0]}`); }
-      else if (r.code === 2) { ok = false; notion.push({ project: p.slug, status: "dumped-with-errors", detail: last }); lines.push(`notion ${p.slug}: dumped with database errors (see notion.access): ${last}`); }
-      else {
-        const cut = r.code === 124 || r.code === 143; // the runner's timeout kills the dump with SIGTERM
-        ok = false;
-        notion.push({ project: p.slug, status: "failed", detail: cut ? `cut off after ${DUMP_TIMEOUT_MS / 60_000} minutes` : `exit ${r.code}: ${last}` });
-        lines.push(cut ? `notion ${p.slug}: dump cut off after ${DUMP_TIMEOUT_MS / 60_000} minutes (the files written are partial)` : `notion ${p.slug}: dump failed (exit ${r.code}): ${last}`);
+      if (opts.notionDump && !tokenPresent(ctx, tokenFile)) lines.push(`notion ${p.slug}: --notion-dump skipped, no ${tokenFile} in state/secrets (store it with \`hub token notion\`); copying the newest existing dump instead`);
+      else if (opts.notionDump) {
+        const r = await ctx.run(tsx, [cli, "dump", p.folder, "--out", path.join(stage, "projects", p.slug, "dumps"), "--date", dateOf(now), "--token-file", tokenFile], { env: { HOME: ctx.home, HUB_HOME: ctx.paths.home, HUB_CONFIG_DIR: ctx.configDir }, timeoutMs: DUMP_TIMEOUT_MS });
+        const last = r.stderr.trim().split("\n").at(-1)?.slice(0, 160) ?? "";
+        if (r.code === 0) { notion.push({ project: p.slug, status: "dumped", detail: r.stdout.split("\n")[0] ?? "" }); lines.push(`notion ${p.slug}: ${r.stdout.split("\n")[0]}`); }
+        else if (r.code === 2) { ok = false; notion.push({ project: p.slug, status: "dumped-with-errors", detail: last }); lines.push(`notion ${p.slug}: dumped with database errors (see notion.access): ${last}`); }
+        else {
+          const cut = r.code === 124 || r.code === 143; // the runner's timeout kills the dump with SIGTERM
+          ok = false;
+          notion.push({ project: p.slug, status: "failed", detail: cut ? `cut off after ${DUMP_TIMEOUT_MS / 60_000} minutes` : `exit ${r.code}: ${last}` });
+          lines.push(cut ? `notion ${p.slug}: dump cut off after ${DUMP_TIMEOUT_MS / 60_000} minutes (the files written are partial)` : `notion ${p.slug}: dump failed (exit ${r.code}): ${last}`);
+        }
+        continue;
       }
+      const d = newestDump(p.folder, now.getTime());
+      if (!d) { notion.push({ project: p.slug, status: "skipped", detail: "no dump exists yet" }); lines.push(`notion ${p.slug}: WARN no dump exists yet, nothing copied; ${fixLine(p)}`); continue; }
+      cpSync(d.dir, path.join(stage, "projects", p.slug, "dumps", path.basename(d.dir)), { recursive: true });
+      notion.push({ project: p.slug, status: "copied", detail: `dump ${d.date}, ${d.ageDays} day(s) old${d.errors ? `, ${d.errors} database error(s)` : ""}` });
+      lines.push(`notion ${p.slug}: copied dump ${d.date} (${d.ageDays} day(s) old${d.errors ? `, with ${d.errors} database error(s)` : ""})${d.ageDays > MAX_AGE_DAYS ? ` WARN: older than ${MAX_AGE_DAYS} days; ${fixLine(p)}` : ""}`);
     }
 
     const files: ManifestFile[] = walk(stage).map((f) => ({ path: f, sha256: sha256File(path.join(stage, f)), size: statSync(path.join(stage, f)).size }));

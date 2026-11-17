@@ -65,12 +65,12 @@ Create a bot with @BotFather and store the token in `state/secrets/telegram-bot-
 
 ### Snapshots (`hub backup`)
 
-`hub backup` is run by the owner (nothing schedules it; decision 0023). It needs no credential of its own and never reads or copies a secret: the Notion dump is a child process that loads the hub integration token itself, and the manifest lists only the NAMES of the secret files.
+`hub backup` is run by the owner (nothing schedules it; decision 0023). It needs no credential of its own and never reads or copies a secret: with `--notion-dump` the dump is a child process that loads the hub integration token itself, and the manifest lists only the NAMES of the secret files.
 
 - **Where:** `<instance>/backups/<YYYYMMDD-HHMMSS>/`, git-ignored (`backups/` is in the instance `.gitignore` and in the template `hub init` uses). `backup_dir` in `config/config.json` moves it (a path relative to the instance folder, such as `../shared-backups`, or an absolute path, for example iCloud Drive; no `~`); a folder inside `state/` or the core is refused. The command refuses to run, and `backup.snapshot` fails, when a folder inside the instance is tracked by git or not ignored.
 - **A copy off the disk:** `backup_copy_to` (an rsync destination: a relative or absolute path, or `host:path`) receives each new snapshot. `backup.snapshot` warns while the snapshots and `data/` share a volume and no reachable copy lies elsewhere: set `backup_copy_to`.
-- **What a snapshot holds:** `data/app.db` (`VACUUM INTO` copy, `integrity_check` passed), `config/config.json`, `projects/<slug>/` with a fresh Notion dump per project (skipped with a note when there is no token), and `manifest.json` (time, core version, instance, sha256 and size of every file).
-- **Use:** `hub backup` (dry run), `hub backup --apply`, `hub backup --verify [snapshot]`. The newest 14 are kept; `--apply` deletes older ones, only folders with a valid manifest. A restore is never run by the tool: copy files back by hand.
+- **What a snapshot holds:** `data/app.db` (`VACUUM INTO` copy, `integrity_check` passed), `config/config.json`, `projects/<slug>/dumps/<date>/` (a COPY of each project's newest existing Notion dump, its age reported, WARN over 7 days with the fix line; `--notion-dump` runs a live dump first, which needs the token and takes minutes to hours), and `manifest.json` (time, core version, instance, sha256 and size of every file).
+- **Use:** `hub backup` (dry run), `hub backup --apply`, `hub backup --apply --notion-dump`, `hub backup --verify [snapshot]`. The newest 14 are kept; `--apply` deletes older ones, only folders with a valid manifest. A restore is never run by the tool: copy files back by hand.
 
 ## Verify
 
