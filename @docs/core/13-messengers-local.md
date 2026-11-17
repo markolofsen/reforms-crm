@@ -12,4 +12,4 @@ Track: a decision or plan record kept in the owner's instance.
 
 Research done (a decision or plan record kept in the owner's instance, decision a decision or plan record kept in the owner's instance): grammY long-polling bot first; user accounts and WhatsApp later, read-only; one history with mail via `client_identifiers`.
 
-Built 2026-11-14 (P8): `app/packages/messengers` (`@hub/messengers`), migration 0003, CLI `messengers`; see a decision or plan record kept in the owner's instance. Server wiring, admin screens and the owner's bot token remain.
+Built 2026-11-14 (P8): `app/packages/messengers` (`@hub/messengers`), migration 0003, CLI `messengers`; see a decision or plan record kept in the owner's instance. Server wiring done: the server starts a receive-only poller when a bot token file is stored (`apps/server/src/messengers.ts`; `HUB_MESSENGERS=off` disables it) and reports its state in `/api/health`. The token is set on the Connections page or with `hub token telegram`; a new token applies on the next server start. There is no messenger inbox screen yet, and the owner's bot token is still to come.

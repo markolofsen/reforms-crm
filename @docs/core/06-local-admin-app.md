@@ -1,6 +1,6 @@
 # 06. Local admin app (the agent's own interface)
 
-Status: built (`app/apps/admin` and `app/apps/server`; screens Overview, Drafts, Bulk, Activity, Project; Client and Reports still planned). Rebuilt on Next.js in 2026-11 (decision a decision or plan record kept in the owner's instance, cutover 2026-11-15). Originally an idea from the owner, 2026-11-14. English UI only.
+Status: built (`app/apps/admin` and `app/apps/server`; screens Overview, Drafts, Bulk, Activity, Project, Connections; Client and Reports still planned). Rebuilt on Next.js in 2026-11 (decision a decision or plan record kept in the owner's instance, cutover 2026-11-15). Originally an idea from the owner, 2026-11-14. English UI only.
 
 ## What
 A small local web app (Next.js + React) that the workflow agent starts on the always-on Mac. The owner
@@ -25,10 +25,10 @@ particle catalogue of ready patterns. Skills `coss` and `coss-particles` are ins
 
 ## Shape
 - `reforms-crm/app/`: Next.js (App Router) + React + coss; real paths with the project in the query (`/drafts/42?project=...`), declared in `src/routes` and typed by the framework's typed routes. The pages are a client of a thin local
-  server (the `05` MCP tools exposed over HTTP on 127.0.0.1 only): the browser calls `/api/...` on its own origin and Next forwards it. The app holds no database handle, no secret (the Connections page may send a key to the server for storage and never receives or keeps one: decision 0020) and no Server Action; a `proxy.ts` refuses a foreign Host or Origin.
+  server (Hono, on 127.0.0.1 only): the browser calls `/api/...` on its own origin and Next forwards it. The app holds no database handle, no secret (the Connections page may send a key to the server for storage and never receives or keeps one: decision 0020) and no Server Action; a `proxy.ts` refuses a foreign Host or Origin.
 - Screens: Overview (one picture of every project), Drafts (the main screen: the drafts the agent left unsent in Mail, one row per client that has one, with
   Checked, Done, marks and an Open in Mail link), Activity (the agent's log), Bulk (pick clients, agent drafts, owner reviews, drafts land in Mail,
-  nothing is sent), Project (health, safety rules, send history, Stop sending). Planned: Client (profile + correspondence chain, `mail_history`), Reports.
+  nothing is sent), Project (health, safety rules, send history, Stop sending), Connections (the instance's mail logins, Notion token and Telegram bot: where each key stands, Test, and write-only set, replace and remove; address `/connections`, no project in it). Planned: Client (profile + correspondence chain, `mail_history`), Reports.
 - Marks (tags such as "follow up", "do not contact") live in the client profile file and sync to Notion.
 - Live editing: the agent changes files under `app/`; the owner sees the result without a rebuild (Next dev, Turbopack).
   Guard: the app runs from a git branch; every agent edit is a commit, so a bad one is one revert (`app/@rules/live-edit.md`).

@@ -10,7 +10,7 @@ Every property of every database the Notion CRM deploys, with its type, who writ
 
 - [Business contacts](#business-contacts) (`business-contacts`, 18 fields)
 - [Clients](#clients) (`clients`, 40 fields)
-- [Deals](#deals) (`deals`, 44 fields)
+- [Deals](#deals) (`deals`, 45 fields)
 - [Documents](#documents) (`documents`, 11 fields)
 - [Expenses](#expenses) (`expenses`, 19 fields)
 - [Knowledge](#knowledge) (`knowledge`, 21 fields)
@@ -144,6 +144,7 @@ Pack file: `schema/deals.json`.
 | No task | formula |  | Formula: open deal with no open task (needs Tasks Is open); cross-database. Flags: skip: trap 2. |
 | Open tasks | rollup via Tasks |  |  |
 | Task due | rollup via Tasks |  |  |
+| Brand | multi_select | people | which site or product the deal belongs to; options are the project's own (live SaaS CRM, 2026-11-17) Flags: optional. |
 
 ## Documents
 

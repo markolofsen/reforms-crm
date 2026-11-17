@@ -31,7 +31,7 @@ unsure where a file goes, this page decides.
 | `config/mcp.json`, `install.sh`, `hub.sh` | core | Shared defaults and the bootstrap. `config/mcp.json` is a byte copy of `app/apps/installer/templates/mcp.json` (the installer's source); edit both together. The repo-root `.mcp.json` is a third, git-ignored copy written by setup |
 | `projects/<slug>/` under `HUB_HOME` | **instance** | `project.md`, `mail-filters.md`, `knowledge/`, `reports/`, generated XML |
 | `@docs/custom/`, `@dev/`, `@refs/` of an instance | **instance** | The owner's history, decisions, plans and reference material |
-| `config/config.json`, `state/` (secrets in `state/secrets/`), `.mcp.json`, `.claude/` | **instance**, git-ignored | Local settings, runtime state and every secret |
+| `config/config.json`, `state/` (secrets in `state/secrets/`), `.mcp.json`, `.claude/` | **instance**, git-ignored | Local settings, runtime state and every secret (the Connections page and `hub token` write only here) |
 
 ## Create an instance
 
