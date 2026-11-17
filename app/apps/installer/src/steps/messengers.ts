@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
-import { isTelegramToken, TELEGRAM_FILE } from "@hub/connections";
+import { isTelegramToken, probeTelegram, TELEGRAM_FILE } from "@hub/connections";
 import path from "node:path";
 import type { Step } from "../types.ts";
 import { fail, pass, warn } from "./helpers.ts";
@@ -25,6 +25,21 @@ export const messengerSteps: Step[] = [
       if (!existsSync(f)) return warn("no bot token file: messengers stay off (optional)");
       if ((statSync(f).mode & 0o077) !== 0) return fail(`${f} is readable by others: chmod 600`);
       return isTelegramToken(readFileSync(f, "utf8").trim()) ? pass("token file present, mode 600, shape ok") : fail(`${f} does not hold a Telegram bot token (expected <digits>:<secret>)`);
+    },
+  },
+  {
+    id: "telegram.getme", group: "Messengers", title: "Telegram accepts the bot token",
+    why: "A token that has the right shape can still be revoked, mistyped or belong to a bot that was deleted. Only Telegram can say.",
+    verifies: "Telegram's `getMe` answers for the token in `state/secrets/telegram-bot-token` (one read-only call; the bot's @name is shown, the token never). WARN when there is no token file (the feature is off) or Telegram cannot be reached; FAIL when Telegram refuses the token or the shape is wrong.",
+    manual: { steps: ["If Telegram refuses the token: in @BotFather send /token (or /revoke) for the bot, then store the new one with `pnpm hub token telegram`."] },
+    async check(ctx) {
+      const f = TOKEN(ctx.configDir);
+      if (!existsSync(f)) return warn("no bot token file: messengers stay off (optional)");
+      const token = readFileSync(f, "utf8").trim();
+      if (!isTelegramToken(token)) return fail(`${f} does not hold a Telegram bot token (expected <digits>:<secret>)`);
+      const v = await probeTelegram({ fetch: ctx.fetch }, token);
+      if (v.state === "valid") return pass(v.detail);
+      return v.state === "invalid" ? fail(`${v.detail}: replace the token (BotFather /token), then \`pnpm hub token telegram\``) : warn(`not verified: ${v.detail}`);
     },
   },
   {

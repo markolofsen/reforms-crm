@@ -1,11 +1,14 @@
 import type { Step } from "../types.ts";
 import { adminSteps } from "./admin.ts";
+import { backupSteps } from "./backup.ts";
 import { fileSteps } from "./files.ts";
 import { instanceSteps } from "./instance.ts";
 import { mailSteps } from "./mail.ts";
+import { mcpSteps } from "./mcp.ts";
 import { messengerSteps } from "./messengers.ts";
 import { notionSteps } from "./notion.ts";
 import { projectSteps } from "./projects.ts";
+import { serverSteps } from "./server.ts";
 import { skillSteps } from "./skills.ts";
 import { toolSteps } from "./tools.ts";
 
@@ -25,10 +28,13 @@ export const STEPS: Step[] = [
   ...projectSteps,
   ...instanceSteps,
   ...adminSteps,
+  ...serverSteps,
+  ...mcpSteps,
   ...tag(mailSteps, "automation", ["mail.account"]),
   ...tag(messengerSteps, "automation"),
-  ...tag(notionSteps, "automation", ["notion.token"]),
+  ...tag(notionSteps, "automation", ["notion.token", "notion.access"]),
+  ...backupSteps.map((s): Step => ({ ...s, audit: true })),
 ];
 
-/** What a manual session needs. `--automation` adds the optional extras; dev steps run only by `--only`. */
-export const selectSteps = (automation: boolean): Step[] => STEPS.filter((s) => !s.optional || (automation && s.optional === "automation"));
+/** What a manual session needs. `--automation` adds the optional extras; dev steps run only by `--only`; `audit` (doctor only) adds the backup checks. */
+export const selectSteps = (automation: boolean, audit = false): Step[] => STEPS.filter((s) => (audit || !s.audit) && (!s.optional || (automation && s.optional === "automation")));

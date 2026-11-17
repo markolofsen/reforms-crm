@@ -6,13 +6,18 @@ import { fail, pass } from "./helpers.ts";
 
 const LSOF = "/usr/sbin/lsof";
 
+/** Addresses (`host:port`) listening on a TCP port, from lsof; empty when nothing does. */
+export async function listenersOf(ctx: Ctx, port: number): Promise<string[]> {
+  const r = await ctx.run(LSOF, ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-Fn"]);
+  return r.stdout.split("\n").filter((l) => l.startsWith("n")).map((l) => l.slice(1));
+}
+
 /**
  * The admin must answer on loopback and nowhere else (`app/@rules/architecture-and-ownership.md` 12). Not running is a pass:
  * `hub up` starts it. Running on the wildcard address is the failure: `next start` without `-H 127.0.0.1` listens on every interface.
  */
 export async function adminLoopbackCheck(ctx: Ctx, port: number): Promise<CheckResult> {
-  const r = await ctx.run(LSOF, ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-Fn"]);
-  const listeners = r.stdout.split("\n").filter((l) => l.startsWith("n")).map((l) => l.slice(1));
+  const listeners = await listenersOf(ctx, port);
   if (!listeners.length) return pass(`not running (hub up starts it on 127.0.0.1:${port})`);
   const open = listeners.filter((l) => /^(\*|0\.0\.0\.0|\[::\]):/.test(l));
   if (open.length) return fail(`port ${port} listens on ${open.join(", ")}, not on 127.0.0.1 only: stop it and start the admin with hub up`);

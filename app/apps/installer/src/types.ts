@@ -22,6 +22,11 @@ export interface Step {
    * `hub setup`, `install` and `doctor` skip it unless `--automation`. `dev`: only whoever changes the app's UI needs it.
    */
   optional?: "automation" | "dev";
+  /**
+   * A health check the doctor judges, not something setup or install can bring about (the backup steps: a fresh instance has none yet).
+   * `setup`, `install` and `guide` skip it unless named with `--only`; `doctor` runs it.
+   */
+  audit?: true;
   /** Numbered guide for what the installer cannot do. Printed by the guide command, then verified by check. */
   manual?: { steps: string[] };
 }
