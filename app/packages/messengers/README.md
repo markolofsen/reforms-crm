@@ -1,6 +1,8 @@
 # @hub/messengers
 
-Messengers in the local CRM (track P8, doc 13, decision 0003). v1 is one channel: a **Telegram bot on grammY 1.46.0, long polling**. No webhook, no tunnel.
+Messengers in the local CRM (track P8, decision 0003). v1 is one channel: a **Telegram bot on grammY 1.46.0, long polling**. No webhook, no tunnel (polling needs no public address).
+
+**Status.** Optional and receive-only in use. The server starts the poller when `state/secrets/telegram-bot-token` exists (`apps/server/src/messengers.ts`; `HUB_MESSENGERS=off` disables it) and reports its state in `/api/health`. The token is set on the Connections page or with `hub token telegram` (access: `@docs/setup/access.md`); a new token applies on the next server start. There is no messenger inbox screen yet. Linking to the one client history with mail goes through `client_identifiers`.
 
 ## Two entries, on purpose
 

@@ -62,14 +62,4 @@ Applying a restore is not implemented; without `--dry-run` the command refuses.
 
 ## Token
 
-The token is read from `NOTION_TOKEN`, else from `state/secrets/notion-token` (git-ignored; `HUB_CONFIG_DIR` overrides; the token alone, `chmod 600`).
-It is never printed or written to a dump. To create one (the owner, once):
-
-1. notion.so/profile/integrations (Notion "Internal integrations"), New integration, type Internal, in the workspace
-   that holds the CRM teamspaces. Read access is enough for this tool: tick "Read content" only.
-2. Copy the secret (`ntn_...`) into the file above.
-3. Share each project's CRM root page with the integration: page menu, Connections, add the integration. Children
-   follow; cross-database relations also need the target database shared. Then run `pnpm notion-dump check`.
-
-Creating an integration needs a workspace owner or admin; it is available on every Notion plan. A Business or
-Enterprise workspace can additionally mint an MCP token for the hosted MCP, which this tool does not use.
+The token is read from `NOTION_TOKEN`, else from `state/secrets/notion-token` (git-ignored; `HUB_CONFIG_DIR` overrides; the token alone, `chmod 600`). It is never printed or written to a dump. This tool needs the **Read content** capability only. How to create the integration, what to share with it and how to verify it: [`@docs/setup/access.md`](../../../@docs/setup/access.md). Then run `pnpm notion-dump check`.

@@ -28,4 +28,6 @@ The core never creates a client from a lead and never changes a lead's Status.
 
 ## Access
 
-The integration needs access to Leads and Clients. Leads is a top-level database of the teamspace, so share the whole teamspace (Connections), not a page. A `404 not shared` in `hub doctor` on `leads` is exactly this.
+Which integration needs access to Leads and Clients (the backend that writes, the hub that reads) and how to share it: [`../setup/access.md`](../setup/access.md). `hub doctor` fails `notion.access` on `leads` when the hub's integration cannot see it.
+
+Update this page when the architecture changes.

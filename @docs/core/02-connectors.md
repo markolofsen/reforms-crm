@@ -10,7 +10,7 @@ drafts replies, reports into Notion. No Hub Django or frontend. (local) = read o
 | Layer | Choice | Why |
 |---|---|---|
 | Mail | `mail-mcp` (dastrobu) 0.5.0, installed, HTTP daemon :8787 | No send tool: draft-only by construction |
-| Notion | Official hosted Notion MCP (`mcp.notion.com/mcp`), already connected | Maintained by Notion |
+| Notion | Official hosted Notion MCP (`mcp.notion.com/mcp`); sign in once with `/mcp` (access: `@docs/setup/access.md`) | Maintained by Notion |
 
 ## 1. Mail connectors
 | Server | Maintainer, activity | Install | Permissions | Threads | Send |

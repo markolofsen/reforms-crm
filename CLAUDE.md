@@ -17,9 +17,13 @@ Manual-first: the owner starts a session and hands it ONE instruction. Nothing r
 - Never invent a price, date, term or policy: use the project's knowledge, else a `[Owner: ...]` placeholder.
 
 ## Where things are
-- Phrases and skills: `skills/README.md` (the table of what to say). Full Rules, Report format and Errors: the same file.
-- Editing `app/apps/admin`: read the page that owns your question in `app/@rules/README.md` (index of the frontend rules and their gates; `pnpm --filter @hub/admin check`).
+- The one index of docs and skills: `README.md` ("Where things are"). Phrases that start a skill, Rules, Report format and Errors: `skills/README.md`.
+- Editing `app/apps/admin`: read the page that owns your question in `app/@rules/README.md` (`pnpm --filter @hub/admin check`).
 - Draft order: draft first, then the Notion profile; the marker `[hub-draft thread=<thread-id>]` makes a rerun skip the client.
+
+## Keeping the docs true
+- When the architecture changes (a node, port, secret file, Notion database, connector, backup path), update the owning page and its `hub doctor` step in the same change. A page that lists checks, accesses or the architecture ends with the line "Update this page when the architecture changes." `hub docs` regenerates `@docs/setup/checklist.md` and `@docs/notion/fields.md`; the docs tests (staleness and the closing line) must pass.
+- Which credential goes to what: only in `@docs/setup/access.md`. Link to it; never restate it.
 
 ## Report (Russian, this order)
 Table `# | клиент | класс | действие | черновик | запись`; then "Нужно от тебя" (ranked P1 to P3, each with the sentence to say next);

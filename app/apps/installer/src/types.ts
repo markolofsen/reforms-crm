@@ -8,9 +8,9 @@ export interface Step {
   id: string;
   group: string;
   title: string;
-  /** Why the step exists, in the client's words. Goes into client-setup.md. */
+  /** Why the step exists, in the client's words. Goes into @docs/setup/checklist.md. */
   why: string;
-  /** What the check proves, in words. Goes into client-setup.md so guide and check cannot drift. */
+  /** What the check proves, in words. Goes into @docs/setup/checklist.md so guide and check cannot drift. */
   verifies: string;
   check(ctx: Ctx): Promise<CheckResult>;
   /** Automatic fix; returns a one-line "what I did". Absent for manual steps. */

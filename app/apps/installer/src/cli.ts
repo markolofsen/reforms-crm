@@ -29,7 +29,7 @@ import { runGuard, runGuardPost } from "./safety.ts";
 import { c, UsageError } from "./term.ts";
 import { mcpCall } from "./mcp-probe.ts";
 import { notionCheck } from "./notion-check.ts";
-import { renderChecklist, renderClientSetup } from "./docs.ts";
+import { renderChecklist } from "./docs.ts";
 import { doctor, exitCode, guideText, install, printGuides, summary, table } from "./runner.ts";
 import { redact } from "@hub/connections";
 import { connectionsReport, connectionsTable, storeNamedToken, TOKEN_NAMES } from "./connections-command.ts";
@@ -382,11 +382,10 @@ program.command("guide").description("Print the numbered manual steps (those a m
     steps.forEach((s, i) => console.log(`${i ? "\n" : ""}[${s.id}] ${guideText(s)}`));
   });
 
-program.command("docs").description("Generate @docs/core/client-setup.md and @docs/notion/fields.md from their sources.")
+program.command("docs").description("Generate @docs/setup/checklist.md and @docs/notion/fields.md from their sources.")
   .option("--check", "exit 1 if a file is out of date")
   .action((o: { check?: boolean }) => {
     const targets = [
-      { f: path.join(CORE_ROOT, "@docs", "core", "client-setup.md"), text: renderClientSetup(STEPS), rel: "@docs/core/client-setup.md" },
       { f: path.join(CORE_ROOT, "@docs", "setup", "checklist.md"), text: renderChecklist(STEPS), rel: "@docs/setup/checklist.md" },
       { f: path.join(CORE_ROOT, "@docs", "notion", "fields.md"), text: renderNotionFields(CORE_ROOT), rel: "@docs/notion/fields.md" },
     ];

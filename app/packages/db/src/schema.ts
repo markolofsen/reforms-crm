@@ -285,7 +285,7 @@ export const knowledgeDocs = sqliteTable(
   (t) => [uniqueIndex("knowledge_docs_project_path").on(t.project, t.path)],
 );
 
-// ---- Messengers (P8, doc 13). Messages are stored locally because the Bot API has no history call. Text is kept
+// ---- Messengers (P8). Messages are stored locally because the Bot API has no history call. Text is kept
 // in full (the owner's own machine) and every row carries `retain_until` (90 days); a purge job deletes past it.
 
 export type MessengerChannel = "telegram_bot" | "telegram_user" | "whatsapp";

@@ -9,7 +9,7 @@ import { fail, pass, warn } from "./helpers.ts";
 export const notionSteps: Step[] = [
   {
     id: "notion.token", group: "Notion", title: "Notion integration token",
-    why: "Optional. Only the Notion backup (`notion-dump`) and unattended runs read Notion through your own integration; a manual session uses the connector and needs none.",
+    why: "The hub's own read integration: the admin Overview counts, the database check, `notion-dump` and the Notion backup use it. A manual session writes through the connector and needs no token. Access in full: `@docs/setup/access.md`.",
     verifies: "The token file is stored with mode 600 and Notion accepts it (`GET /users/me`). Which databases it reaches is the next step, `notion.access`.",
     manual: {
       steps: [
