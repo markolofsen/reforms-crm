@@ -45,6 +45,8 @@ For each module database in scope, find out whether it exists, in this order:
 For each existing database fetch the data source and compare with the knowledge file: missing properties, missing select options, wrong types (report only), missing relations, missing views, missing marker. Also list which Help pages exist (title match under the project's `📘 Help`).
 Result: a table, per database: `exists` / `missing` / `differs (what)`.
 
+**Drift check (every inventory, existing databases):** save the fetched data-source JSON of each database to a file and run `notion-dump diff <slug> --live <file>` (decision 0019: live Notion wins over the pack). A property the live CRM has and the pack lacks, or a type the live one changed, is fixed in `schema/<db>.json` (add `aliases` for a renamed property, `optional` for one a project may omit), or recorded as the owner's choice. Never change the live database to fit the pack. Live naming: teamspace pages are Customers (Clients, Organizations, Deals, Participants), Contacts, Archive; Leads, Tasks, Documents, Reports sit at the top level of the teamspace.
+
 ## Step 2: the plan (dry run; show it, change nothing)
 
 Print one plan, in this order, and wait for go:

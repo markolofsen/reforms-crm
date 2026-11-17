@@ -47,6 +47,7 @@ Where the Sales module has no CRM sync, Clients, Deals, Organizations and Open l
 
 ## Where things live (page layout)
 
-- A teamspace page per project (`Sales`, called `Sales Pipeline` in the live CRM) holding the Sales databases and a four-list `Today` block (linked views: To do, Follow-ups, Pipeline, owner owes).
-- Leads is a database at the top level of the teamspace (moved there on 2026-11-10; the module Help page stays under Modules); Tasks, Reports, Documents, Knowledge, Expenses, Payments, Business contacts at the top level too.
+- A teamspace page per project for the Sales databases (`Sales` in the pack; **`Customers`** in the live CRMs since 2026-11: Clients, Organizations, Deals, Participants) and a four-list `Today` block (linked views: To do, Follow-ups, Pipeline, owner owes).
+- Leads is a database at the top level of the teamspace (moved there on 2026-11-10); Tasks, Reports, Documents, Expenses, Business contacts (**`Contacts`** in the live CRMs) at the top level too. Knowledge stays at the top level only where the owner wants it; in the live SaaS CRM it sits in `Archive` (the knowledge base is the local `knowledge/` folder).
+- An `Archive` page at the root of the teamspace holds what is retired: the Help pages, old Workflows (decision 0017), Knowledge. Nothing is deleted.
 - A `📘 Help` page: `CRM overview`, `Modules`, `Guides`, `Changes` list (see `09-help-pack.md`).

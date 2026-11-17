@@ -50,3 +50,7 @@ A local skill plus a local knowledge pack from which a workflow agent, using onl
 Depends on: p2 (the dump and the owner's instance docs, done), the owner's scratch page (W4), P0 for a token only if run through `claude -p`.
 
 W5/W6 (2026-11-14): the six core modules were deployed to the scratch page through the MCP; the project reads its parent from `notion.parent_page`. Outdated traps 1 and 6 are corrected in `10-api-traps.md`. `notion-dump` needs a token (blocked).
+
+## Drift check (2026-11-17)
+
+The pack follows the live CRM (decision 0019). Each inventory run saves the live data-source schema and runs `notion-dump diff <slug> --live <file>`; differences are fixed in `schema/*.json` (`aliases`, `optional`, `contract`), never in the live Notion. The leads contract is `21-leads.md`.

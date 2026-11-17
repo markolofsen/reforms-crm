@@ -8,13 +8,13 @@ Every property of every database the Notion CRM deploys, with its type, who writ
 
 ## Databases
 
-- [Business contacts](#business-contacts) (`business-contacts`, 17 fields)
+- [Business contacts](#business-contacts) (`business-contacts`, 18 fields)
 - [Clients](#clients) (`clients`, 40 fields)
 - [Deals](#deals) (`deals`, 44 fields)
 - [Documents](#documents) (`documents`, 11 fields)
 - [Expenses](#expenses) (`expenses`, 19 fields)
 - [Knowledge](#knowledge) (`knowledge`, 21 fields)
-- [Leads](#leads) (`leads`, 29 fields)
+- [Leads](#leads) (`leads`, 30 fields)
 - [Open loops](#open-loops) (`open-loops`, 8 fields)
 - [Organizations](#organizations) (`organizations`, 6 fields)
 - [Participants](#participants) (`participants`, 7 fields)
@@ -45,6 +45,7 @@ Pack file: `schema/business-contacts.json`.
 | Context | text | people |  |
 | Tasks | relation to tasks, reverse "Business contacts" |  | two-way; reverse Tasks.Business contacts |
 | Related clients | relation to clients | people | optional, one-way, no reverse on Clients; a business contact is never a client Flags: optional. |
+| Brand | multi_select | people | which site or product a contact belongs to; options are the project's own (live SaaS CRM, 2026-11-17) Flags: optional. |
 
 ## Clients
 
@@ -158,7 +159,7 @@ Pack file: `schema/documents.json`.
 | Document link | url | people |  |
 | Files | file | people |  |
 | Last edited | last_edited_time | system |  |
-| Clients | relation to clients |  | optional, one-way |
+| Clients | relation to clients |  | optional, one-way; the live CRMs still call this relation People (the People to Clients rename was not applied live) |
 | Deal | relation to deals |  | optional, one-way, not limited to one on this database |
 | Tasks | relation to tasks, reverse "Documents" |  | two-way; reverse Tasks.Documents (changes the Tasks schema) |
 
@@ -251,6 +252,7 @@ Pack file: `schema/leads.json`.
 | UTM campaign | text | Hub | Flags: ads. |
 | Ad click time | date | Hub | Flags: ads. |
 | Ad consent | checkbox | Hub | Flags: ads. |
+| Brand | multi_select | integration (the owner's backend, e.g. django_notion) | Which site or product the lead came from. The options are the project's own sites and products (the live SaaS CRM: carapis, Caribbean MLS, Dan Merriam, Reforms, Other): the deploy creates the property with the options the owner names in the interview, and the writer must use exactly those names. Filter on it; one lead can carry several brands. |
 
 ## Open loops
 
@@ -327,7 +329,7 @@ Pack file: `schema/reports.json`.
 | Format | select | people | Options: Phone call, Video call, In person, Other. |
 | Status | status (created as select) | people | Flags: skipped (trap 1). |
 | Summary | text | people |  |
-| Clients | relation to clients |  | one-way, no reverse on Clients; not synced |
+| Clients | relation to clients |  | one-way, no reverse on Clients; not synced; the live CRMs still call this relation People (the People to Clients rename was not applied live) |
 | Other participants | text | people |  |
 | Team participants | person | people |  |
 | Deal | relation to deals (one) |  | one-way, no reverse on Deals; not synced |
@@ -360,11 +362,11 @@ Pack file: `schema/tasks.json`.
 | Sub-tasks | relation to tasks |  |  |
 | Blocked by | relation to tasks |  |  |
 | Blocking | relation to tasks |  |  |
-| Source report | relation to reports (one) |  |  |
+| Source report | relation to reports (one) |  | Flags: optional. |
 | Conversation report | relation to reports |  |  |
 | Expense | relation to expenses (one) |  | Flags: optional. |
 | Project | relation to projects |  | Flags: optional. |
-| Business contacts | relation to business-contacts |  | Flags: optional. |
+| Business contacts | relation to business-contacts |  | named Contacts in the live CRMs since 2026-11 Flags: optional. |
 | Documents | relation to documents |  | Flags: optional. |
 | Meeting | relation to meetings |  | Flags: optional. |
 | First step | text | people |  |
@@ -375,9 +377,9 @@ Pack file: `schema/tasks.json`.
 | Synced at | date | CRM |  |
 | Created | created_time | system |  |
 | Last edited | last_edited_time | system |  |
-| Original created | date | migration only |  |
-| Original last edited | date | migration only |  |
-| Original task | url | migration only |  |
+| Original created | date | migration only | Flags: optional. |
+| Original last edited | date | migration only | Flags: optional. |
+| Original task | url | migration only | Flags: optional. |
 | Stage | rollup via Deal |  |  |
 | Is done | formula |  | Formula: Status is Done. |
 | Is open | formula |  | Formula: Status not Done and not Cancelled; feeds Open tasks rollups. |

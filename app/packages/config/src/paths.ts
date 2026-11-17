@@ -16,6 +16,8 @@ export interface HubPaths {
   home: string;
   skills: string;
   templates: string;
+  /** The Notion pack the deploy skill builds from: `schema/*.json`, `views/*.json` and the module pages. */
+  notionPack: string;
   /** The `hub` CLI entry of the core checkout. */
   hubBin: string;
   /** The shipped MCP defaults, `<core>/config/mcp.json`. */
@@ -99,6 +101,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     core, home,
     skills: join(core, "skills"),
     templates: join(core, "app", "apps", "installer", "templates"),
+    notionPack: join(core, "app", "projects", "_template", "notion-crm"),
     hubBin: join(core, "app", "apps", "installer", "bin", "hub.mjs"),
     mcpDefaults: join(core, "config", "mcp.json"),
     mcpFile: join(home, ".mcp.json"),

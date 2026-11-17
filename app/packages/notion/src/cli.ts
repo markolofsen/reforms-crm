@@ -3,6 +3,9 @@ import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { parseArgs } from "node:util";
 import { runDump } from "./dump.js";
+import { readFileSync } from "node:fs";
+import { diffSchema, isClean, liveSchemaOf, renderDiff, type PackSchema } from "./schema-diff.js";
+import { parseLeadPage, renderLeadSummary, summarizeLeads, type Lead } from "./leads.js";
 import { createNotionReader } from "./notion.js";
 import { loadProject } from "./project.js";
 import { planRestore, renderPlan, resolveDumpDir } from "./restore.js";
@@ -16,6 +19,8 @@ const HELP = `notion-dump: read-only Notion backup.
   notion-dump dump <project> [--out DIR] [--date YYYY-MM-DD] [--only a,b] [--rps N] [--no-reuse]
   notion-dump restore <project> --dry-run [--from DATE|PATH] [--out DIR] [--only a,b] [--json]
   notion-dump check <project>
+  notion-dump diff <db|schema.json> --live <file|->   pack schema vs a live data source (the connector's fetch output, a file or stdin); exit 2 when they differ
+  notion-dump leads <project> [--json]     what waits in the project's leads database: needs reply, overdue, won without a client
 
 <project> is a name under the instance's projects folder, or a folder with project.md (or the path of project.md). The token comes from NOTION_TOKEN or
 state/secrets/notion-token (or HUB_CONFIG_DIR) and is never printed. Nothing here writes to Notion.
@@ -41,15 +46,29 @@ async function main(argv: string[]): Promise<number> {
       "dry-run": { type: "boolean", default: false },
       "no-reuse": { type: "boolean", default: false },
       json: { type: "boolean", default: false },
+      live: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
     },
   });
+  if (positionals[0] === "diff") {
+    const arg = positionals[1];
+    if (!arg || !values.live) {
+      process.stderr.write(HELP);
+      return 64;
+    }
+    const file = /[\\/]|\.json$/.test(arg) ? arg : join(hubPaths().notionPack, "schema", `${arg}.json`);
+    const pack = JSON.parse(readFileSync(file, "utf8")) as PackSchema;
+    const live = liveSchemaOf(readFileSync(values.live === "-" ? 0 : values.live, "utf8"));
+    const d = diffSchema(pack, live);
+    process.stdout.write(values.json ? `${JSON.stringify(d, null, 2)}\n` : renderDiff(arg, d));
+    return isClean(d) ? 0 : 2;
+  }
   const [command, projectPath] = positionals;
   if (values.help || !command) {
     process.stdout.write(HELP);
     return values.help ? 0 : 64;
   }
-  if (!["dump", "restore", "check"].includes(command) || !projectPath) {
+  if (!["dump", "restore", "check", "leads"].includes(command) || !projectPath) {
     process.stderr.write(HELP);
     return 64;
   }
@@ -68,6 +87,19 @@ async function main(argv: string[]): Promise<number> {
   }
   const reader = createNotionReader(await loadToken(), { rps });
   const log = (line: string) => process.stderr.write(`${line}\n`);
+
+  if (command === "leads") {
+    const db = project.databases.find((d) => d.slug === "leads");
+    if (!db) {
+      process.stderr.write("project.md lists no `leads` database.\n");
+      return 1;
+    }
+    const leads: Lead[] = [];
+    for await (const page of reader.listPages(db.dataSourceId)) leads.push(parseLeadPage(page));
+    const summary = summarizeLeads(leads, today());
+    process.stdout.write(values.json ? `${JSON.stringify(summary, null, 2)}\n` : renderLeadSummary(summary));
+    return 0;
+  }
 
   if (command === "check") {
     let bad = 0;

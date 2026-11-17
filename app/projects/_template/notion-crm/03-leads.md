@@ -1,6 +1,6 @@
 # Leads
 
-Source: Help / Modules / Leads and the live Leads database(properties and six views fetched 2026-11-14 via the Notion MCP).
+Source: Help / Modules / Leads and the live Leads database (properties and six views fetched 2026-11-14, re-read 2026-11-17 via the Notion MCP). The contract with whatever writes leads is `@docs/core/21-leads.md`.
 
 Purpose: intake of website requests and, under the mailbox policy (`Save to Notion` on), enquiries from unknown email senders. Written by Hub. Not a client: when a lead is won the CRM creates the person, the sync brings it into Clients and `Client` is linked.
 
@@ -32,7 +32,7 @@ Purpose: intake of website requests and, under the mailbox policy (`Save to Noti
 | GCLID, MSCLKID, LinkedIn click ID, UTM source, UTM medium, UTM campaign | text | parsed from Ad click; mapping by Hub pending |
 | Ad click time | date | first visit from the ad |
 | Ad consent | checkbox | advertising cookies allowed |
-| Brand | multi_select, no options | vertical (to be renamed Site), skip by default. Not present in the reference Leads, so it is not in `schema/leads.json` |
+| Brand | multi_select, options = the project's sites/products | which site or product the lead came from; written by the backend, filtered on by people. Present in the live SaaS CRM since 2026-11-17 |
 
 Hub looks Leads up by name: Name, Form, Email, Phone, Message, Page URL, Source, Status, Received at, Mailbox, Hub run id. Do not rename them.
 
