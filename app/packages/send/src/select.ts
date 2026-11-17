@@ -12,10 +12,13 @@ import type { Mailer } from "./mailer.js";
  */
 export type MailerKind = "mail-app" | "fake";
 
+/** True when `HUB_DB` names a database file, so a stub that must never touch live data may run (the default path is the live one). The one place that reads it for this. */
+export const throwawayDbNamed = (env: { HUB_DB?: string | undefined }): boolean => !!env.HUB_DB && env.HUB_DB !== ":memory:";
+
 export function chooseMailerKind(env: { HUB_MAILER?: string | undefined; HUB_DB?: string | undefined }): MailerKind {
   const v = env.HUB_MAILER;
   if (v === undefined || v === "") return "mail-app";
   if (v !== "fake") throw new Error(`HUB_MAILER must be unset or exactly "fake", got "${v}"`);
-  if (!env.HUB_DB || env.HUB_DB === ":memory:") throw new Error('HUB_MAILER=fake needs HUB_DB set to a throwaway database file: the default database is the live one');
+  if (!throwawayDbNamed(env)) throw new Error('HUB_MAILER=fake needs HUB_DB set to a throwaway database file: the default database is the live one');
   return "fake";
 }

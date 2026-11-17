@@ -58,8 +58,9 @@ export default defineConfig({
       // Fresh seeded database, `hub project sync` so the registry lists the seeded projects, then the API.
       command: `rm -f ${DB} ${DB}-wal ${DB}-shm && pnpm --filter @hub/db seed && pnpm hub project sync && pnpm --filter @hub/server start`,
       cwd: "../..",
-      // HUB_MAILER=fake is the only way the e2e run sends: the fake Mailer never leaves the process (the server refuses it without HUB_DB).
-      env: { HUB_HOME: HOME, HUB_DB: DB, HUB_PORT: String(API_PORT), HUB_MAILER: "fake", HUB_PROJECTS: PROJECTS, HUB_FAKE_THREADS: THREADS },
+      // HUB_CONFIG_DIR pins the secrets folder inside the throwaway home, so a Connections flow can never write a real instance's keys; HUB_CONNECTIONS_PROBE=fake
+      // makes every Test a stub that never leaves the process. HUB_MAILER=fake is the only way the e2e run sends: the fake Mailer never leaves the process (the server refuses it without HUB_DB).
+      env: { HUB_HOME: HOME, HUB_CONFIG_DIR: join(HOME, "secrets"), HUB_CONNECTIONS_PROBE: "fake", HUB_DB: DB, HUB_PORT: String(API_PORT), HUB_MAILER: "fake", HUB_PROJECTS: PROJECTS, HUB_FAKE_THREADS: THREADS },
       url: `http://127.0.0.1:${API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,

@@ -82,3 +82,21 @@ export const sendBody = z.discriminatedUnion("apply", [
   z.object({ apply: z.literal(true), confirm: z.object({ to: z.array(text(320)).min(1).max(50), subject: text(300) }) }),
 ]);
 export type SendBody = z.infer<typeof sendBody>;
+
+// Connections (P37, decision 0020). A secret travels in one direction only: from the form to `PUT /api/connections/:id/secret`. No response,
+// log line, error or read carries it back. `strictObject`: a stray field is refused, never stored.
+export const connectionIdParam = z.object({ id: z.string().min(1).max(200) });
+/** A Notion or Telegram token. The server checks its shape for that kind; the provider decides whether it works (that is Test). */
+export const tokenSecretBody = z.strictObject({ value: z.string().trim().min(1).max(512) });
+/** An IMAP app-password login. `account` must be the account the row is for (the id carries its slug). */
+export const mailLoginBody = z.strictObject({
+  account: z.string().trim().min(1).max(100),
+  host: z.string().trim().min(1).max(253),
+  port: z.number().int().min(1).max(65535),
+  user: z.string().trim().min(1).max(320),
+  password: z.string().min(1).max(512),
+});
+export const setSecretBody = z.union([tokenSecretBody, mailLoginBody]);
+export type TokenSecretBody = z.infer<typeof tokenSecretBody>;
+export type MailLoginBody = z.infer<typeof mailLoginBody>;
+export type SetSecretBody = z.infer<typeof setSecretBody>;

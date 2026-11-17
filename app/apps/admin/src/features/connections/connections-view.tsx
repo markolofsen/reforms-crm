@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useClock } from "@/lib/clock";
 import { ConnectionRow } from "./connection-row";
 import { groupByKind, KIND_TITLE } from "./labels";
-import { useConnections, useTest } from "./use-connections";
+import { useConnectionActions, useConnections } from "./use-connections";
 
 function ConnectionsSkeleton() {
   return (
@@ -23,7 +23,7 @@ function ConnectionsSkeleton() {
 export function ConnectionsView() {
   const now = useClock()();
   const q = useConnections();
-  const { status, busy, test } = useTest();
+  const { status, busy, test, save, remove } = useConnectionActions();
   const data = q.data;
 
   const header = (
@@ -56,12 +56,12 @@ export function ConnectionsView() {
           </h4>
           <ul className="flex flex-col divide-y">
             {g.rows.map((r) => (
-              <ConnectionRow busy={busy === r.id} key={r.id} locked={busy !== null} now={now} onTest={() => void test(r.id, r.label)} row={r} />
+              <ConnectionRow actions={{ test: () => void test(r), save: (b) => save(r, b), remove: () => remove(r) }} busy={busy === r.id} key={r.id} locked={busy !== null} now={now} row={r} />
             ))}
           </ul>
         </section>
       ))}
-      <p className="text-muted-foreground text-xs">Keys are never shown here. A test reads from the service and changes nothing.</p>
+      <p className="text-muted-foreground text-xs">A key is written here and never shown again. A test reads from the service and changes nothing there.</p>
     </>
   );
 }
