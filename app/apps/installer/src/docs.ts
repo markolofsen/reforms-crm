@@ -3,7 +3,7 @@ import type { Step } from "./types.ts";
 /** The line every page that lists checks ends with (the architecture-change rule, CLAUDE.md). */
 export const UPDATE_LINE = "Update this page when the architecture changes.";
 
-const FLAG: Record<NonNullable<Step["optional"]>, string> = { automation: "optional extra, `--automation`", dev: "UI development only" };
+const FLAG: Record<NonNullable<Step["optional"]>, string> = { automation: "optional extra, `--automation`" };
 
 /**
  * @docs/setup/checklist.md: the working-order checklist of every node (tools, files, mail, Notion, server, backups), generated from

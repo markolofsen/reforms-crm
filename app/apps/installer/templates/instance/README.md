@@ -1,7 +1,7 @@
 # {{NAME}}
 
 An **instance** of the reforms-crm core: the data of one business owner's projects, with no code. The core is the `core/` submodule, pinned in `core.version`.
-Keep this repository private: it holds client facts. Secrets live only in `state/secrets/` (git-ignored).
+Keep this repository private: it holds client facts. Secrets live only in `state/secrets/` (git-ignored). The instance owns its data, config, secrets, backups and skills (linked into its own `.claude/skills/`); nothing lives in your home folder except the optional `hub` shortcut (`hub link`).
 
 ## What is here
 

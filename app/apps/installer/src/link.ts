@@ -3,7 +3,7 @@ import path from "node:path";
 
 export interface LinkPlan { dir: string; linkPath: string; target: string; onPath: boolean }
 
-/** Where `hub` goes: ~/.local/bin/hub, a symlink to app/apps/installer/bin/hub.mjs. */
+/** Where the optional `hub` shortcut goes: ~/.local/bin/hub, a symlink to app/apps/installer/bin/hub.mjs. Written only by `hub link`. */
 export function planLink(root: string, home: string, pathEnv: string): LinkPlan {
   const dir = path.join(home, ".local", "bin");
   return {

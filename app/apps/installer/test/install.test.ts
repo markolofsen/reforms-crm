@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { doctor, exitCode, install } from "../src/runner.ts";
@@ -28,7 +28,8 @@ describe("install is idempotent and never overwrites", () => {
     expect(r1.filter((r) => r.outcome === "failed"), JSON.stringify(r1.filter((r) => r.outcome === "failed").map((r) => [r.step.id, r.detail]))).toEqual([]);
     expect(r1.find((r) => r.step.id === "files.config")!.outcome).toBe("changed");
     expect(statSync(f.ctx.configDir).mode & 0o777).toBe(0o700);
-    expect(lstatSync(path.join(f.home, ".claude", "skills", skill)).isSymbolicLink()).toBe(true);
+    expect(lstatSync(path.join(f.root, ".claude", "skills", skill)).isSymbolicLink()).toBe(true);
+    expect(existsSync(path.join(f.home, ".claude"))).toBe(false); // nothing is written in the user's home
     expect(existsSync(path.join(f.root, "projects", "alpha", "knowledge"))).toBe(true);
     expect(JSON.parse(readFileSync(path.join(f.root, ".mcp.json"), "utf8")).mcpServers["mail-mcp"].url).toBe("http://localhost:8787");
 
@@ -60,15 +61,23 @@ describe("install is idempotent and never overwrites", () => {
     expect(d[0]!.detail).toContain("beta: project.md");
   });
 
-  it("uninstall removes own skill links, keeps config", async () => {
+  it("uninstall removes the instance's own skill links, keeps config, and only reports old user-global links", async () => {
     const f = fake();
     const s1 = runtimeSkills(f.ctx)[0]!;
     await install(f.ctx, steps);
+    const old = path.join(f.home, ".claude", "skills", s1); // what an older `hub setup` left in the user's home
+    mkdirSync(path.dirname(old), { recursive: true });
+    symlinkSync(path.join(f.ctx.paths.skills, s1), old);
+    const legacy = await doctor(f.ctx, skillSteps.filter((s) => s.id === "skills.legacy"));
+    expect(legacy[0]!.outcome).toBe("warn");
+    expect(legacy[0]!.detail).toContain(`rm '${old}'`);
     const dry = await uninstall({ ...f.ctx, dryRun: true });
     expect(dry.some((l) => l.startsWith(`would unlink skill ${s1}`))).toBe(true);
-    expect(existsSync(path.join(f.home, ".claude", "skills", s1))).toBe(true);
-    await uninstall(f.ctx);
-    expect(existsSync(path.join(f.home, ".claude", "skills", s1))).toBe(false);
+    expect(existsSync(path.join(f.root, ".claude", "skills", s1))).toBe(true);
+    const out = await uninstall(f.ctx);
+    expect(existsSync(path.join(f.root, ".claude", "skills", s1))).toBe(false);
+    expect(lstatSync(old).isSymbolicLink()).toBe(true); // outside the instance: reported, never deleted
+    expect(out.join("\n")).toContain(`rm '${old}'`);
     expect(existsSync(path.join(f.root, "config", "config.json"))).toBe(true);
   });
 

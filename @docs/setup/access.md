@@ -72,6 +72,10 @@ Create a bot with @BotFather and store the token in `state/secrets/telegram-bot-
 - **What a snapshot holds:** `data/app.db` (`VACUUM INTO` copy, `integrity_check` passed), `config/config.json`, `projects/<slug>/dumps/<date>/` (a COPY of each project's newest existing Notion dump, its age reported, WARN over 7 days with the fix line; `--notion-dump` runs a live dump first, which needs the token and takes minutes to hours), and `manifest.json` (time, core version, instance, sha256 and size of every file).
 - **Use:** `hub backup` (dry run), `hub backup --apply`, `hub backup --apply --notion-dump`, `hub backup --verify [snapshot]`. The newest 14 are kept; `--apply` deletes older ones, only folders with a valid manifest. A restore is never run by the tool: copy files back by hand.
 
+## Nothing in the user's home
+
+An instance owns its data, config, secrets, backups and skills. The skills are linked into `<instance>/.claude/skills/` (generated, git-ignored), so a Claude session started in the instance finds them and two instances never share a skill folder. The only thing this tool can write outside the instance is the optional `hub` shortcut, `~/.local/bin/hub`, made by `hub link` only; run the instance with `./run.sh` and you never need it. An older `hub setup` linked the skills into `~/.claude/skills`: `hub doctor` (step `skills.legacy`) lists those links with the one `rm` command that removes them; the hub never deletes them itself.
+
 ## Verify
 
 - `hub doctor` runs every step; `hub doctor <project>` adds the project table (accounts, databases, knowledge).

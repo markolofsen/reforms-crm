@@ -1,62 +1,38 @@
-import { existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmSync, symlinkSync } from "node:fs";
+import { existsSync } from "node:fs";
 import path from "node:path";
-import { userClaudeSkills } from "@hub/config/paths";
 import type { Ctx } from "../context.ts";
 import type { Step } from "../types.ts";
-import { fail, pass } from "./helpers.ts";
+import { coreSkills, legacyRemoveCommand, legacyUserLinks, syncInstanceSkills } from "../instance-skills.ts";
+import { fail, pass, warn } from "./helpers.ts";
 
-const skillsHome = (c: Ctx) => userClaudeSkills(c.home);
-/** Run-time skills shipped in reforms-crm/skills/<name>/SKILL.md. */
-export const runtimeSkills = (c: Ctx): string[] => {
-  const d = c.paths.skills;
-  if (!existsSync(d)) return [];
-  return readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory() && existsSync(path.join(d, e.name, "SKILL.md"))).map((e) => e.name);
-};
-const linkTarget = (p: string) => { try { return lstatSync(p).isSymbolicLink() ? readlinkSync(p) : undefined; } catch { return undefined; } };
+/** Run-time skills the core ships in `<core>/skills/<name>/SKILL.md`. */
+export const runtimeSkills = (c: Ctx): string[] => coreSkills(c.paths);
 
 export const skillSteps: Step[] = [
   {
-    id: "skills.dev", group: "Skills", title: "UI skills for development (coss, coss-particles)",
-    why: "Whoever changes the local app's screens needs the UI component skills.",
-    verifies: "`~/.claude/skills/coss` and `coss-particles` exist.",
-    does: "`npx skills add https://github.com/cosscom/ui.git --skill coss --skill coss-particles -a claude-code -g -y`.",
+    id: "skills.runtime", group: "Skills", title: "Agent skills linked into the instance",
+    why: "The skills in the core's `skills/` (the agent's playbooks) must be visible to a Claude session started in this instance. Claude Code loads project skills from `.claude/skills/` of the folder it starts in, so the instance carries its own links and nothing is written to the user's home.",
+    verifies: "Every core skill is a symlink in `<instance>/.claude/skills/` that resolves to the core's skill (a real folder of the same name is the instance's own and passes).",
+    does: "Relative symlink per skill into `<instance>/.claude/skills/` (git-ignored, regenerated; `hub agent` does the same on every start). A real folder of the same name is never replaced.",
     async check(ctx) {
-      const miss = ["coss", "coss-particles"].filter((s) => !existsSync(path.join(skillsHome(ctx), s)));
-      return miss.length ? fail(`missing: ${miss.join(", ")}`) : pass("coss, coss-particles");
+      const names = runtimeSkills(ctx);
+      const dir = ctx.paths.claudeSkills;
+      const off = names.filter((n) => !existsSync(path.join(dir, n, "SKILL.md")));
+      if (off.length) return fail(`not linked (or dangling) in ${path.relative(ctx.paths.home, dir) || dir}: ${off.join(", ")}. Run: ./run.sh install --only skills.runtime`);
+      return pass(names.length ? names.join(", ") : "no run-time skills yet");
     },
     async apply(ctx) {
-      const r = await ctx.run("npx", ["-y", "skills", "add", "https://github.com/cosscom/ui.git", "--skill", "coss", "--skill", "coss-particles", "-a", "claude-code", "-g", "-y"], { timeoutMs: 240000 });
-      if (r.code !== 0) throw new Error(`skills add failed: ${r.stderr.trim().slice(0, 200)}`);
-      return "installed coss, coss-particles";
+      const done = syncInstanceSkills(ctx.paths);
+      return done.length ? `linked ${done.join(", ")}` : "already linked";
     },
   },
   {
-    id: "skills.runtime", group: "Skills", title: "Agent skills linked into Claude",
-    why: "The skills in `skills/` (the agent's playbooks) must be visible to `claude -p`.",
-    verifies: "Every `skills/<name>/` is a symlink in `~/.claude/skills/` pointing at this folder.",
-    does: "`ln -sfn` per skill; a real folder of the same name is never replaced.",
+    id: "skills.legacy", group: "Skills", title: "No hub skill links left in the user's home",
+    why: "An older `hub setup` linked the core skills into `~/.claude/skills`, shared by every instance. An instance now carries its own, so those links only make one instance's skills show up in another.",
+    verifies: "`~/.claude/skills` holds no symlink into a hub core. Read only: the hub never deletes outside the instance; the warning prints the one command to run.",
     async check(ctx) {
-      const names = runtimeSkills(ctx);
-      // The links are user-global and shared by every instance, so a link to another instance's core is fine as long as it resolves to a skill.
-      const dead = (n: string) => { const t = linkTarget(path.join(skillsHome(ctx), n)); return t === undefined || !existsSync(path.join(t, "SKILL.md")); };
-      const off = names.filter(dead);
-      const elsewhere = names.filter((n) => !dead(n) && linkTarget(path.join(skillsHome(ctx), n)) !== path.join(ctx.paths.skills, n));
-      if (off.length) return fail(`not linked (or dangling): ${off.join(", ")}. These are user-global links in ~/.claude/skills, shared by every instance. Run: ./run.sh install --only skills.runtime`);
-      return pass(names.length ? `${names.join(", ")}${elsewhere.length ? ` (${elsewhere.length} link to another instance's core: shared, fine)` : ""}` : "no run-time skills yet");
-    },
-    async apply(ctx) {
-      mkdirSync(skillsHome(ctx), { recursive: true });
-      const done: string[] = [];
-      for (const n of runtimeSkills(ctx)) {
-        const dst = path.join(skillsHome(ctx), n);
-        const cur = linkTarget(dst);
-        if (cur === path.join(ctx.paths.skills, n)) continue;
-        if (existsSync(dst) && cur === undefined) throw new Error(`${dst} is a real folder; move it away first`);
-        if (cur !== undefined) rmSync(dst);
-        symlinkSync(path.join(ctx.paths.skills, n), dst);
-        done.push(n);
-      }
-      return `linked ${done.join(", ")}`;
+      const old = legacyUserLinks(ctx.home, ctx.paths);
+      return old.length ? warn(`${old.length} old link(s) in the user-global skills folder point into a hub core (${old.join(", ")}). Remove them once with: ${legacyRemoveCommand(ctx.home, old)}`) : pass("none");
     },
   },
 ];

@@ -18,13 +18,13 @@ const tag = (steps: Step[], optional: NonNullable<Step["optional"]>, ids?: strin
 /**
  * The single step list. install, doctor, guide and @docs/setup/checklist.md all read this. Order = install order.
  * Manual-first (decision 0006): a step with `optional` set belongs to the OFF-by-default extras (a Notion token, a mail login,
- * the Telegram poller) or to UI development and never fails a default `setup`, `install` or `doctor`.
+ * the Telegram poller) and never fails a default `setup`, `install` or `doctor`.
  * The launchd, Claude-token, gate, sound and power steps were archived by P25 (the archived installer-automation material (not part of this repo)).
  */
 export const STEPS: Step[] = [
   ...toolSteps,
   ...tag(fileSteps, "automation", ["files.settings"]),
-  ...tag(skillSteps, "dev", ["skills.dev"]),
+  ...skillSteps,
   ...projectSteps,
   ...instanceSteps,
   ...adminSteps,

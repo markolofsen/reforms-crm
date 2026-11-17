@@ -127,7 +127,7 @@ export const projectFolder = (slug: string, o: HubPathsOptions = {}): string => 
  */
 export const pathsAt = (home: string, env: NodeJS.ProcessEnv = process.env): HubPaths => hubPaths({ env, home });
 
-/** The user-global skills folder `~/.claude/skills`, where `hub setup` links the core skills for every folder (`userHome` is the person's HOME, not the hub's). */
+/** The user-global skills folder `~/.claude/skills`. The hub only READS it, to report old links an earlier `hub setup` made there (`userHome` is the person's HOME, not the hub's). */
 export const userClaudeSkills = (userHome: string): string => join(userHome, ".claude", "skills");
 
 export interface HubPorts { admin: number; api: number }

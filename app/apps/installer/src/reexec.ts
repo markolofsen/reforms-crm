@@ -5,7 +5,7 @@ import { CORE_ROOT, findInstanceHome, hasExplicitHome } from "@hub/config/paths"
 const HUB_BIN = join("app", "apps", "installer", "bin", "hub.mjs");
 
 /**
- * `hub` is one global command (`~/.local/bin/hub`), but every instance pins its own core. Started inside an instance (no `HUB_HOME`),
+ * `hub` may be one shortcut on PATH (`hub link`, optional), but every instance pins its own core. Started inside an instance (no `HUB_HOME`),
  * the command must run THAT instance's `core/`, not the checkout the symlink points at. Returns the `{ home, bin }` to hand over to,
  * or `undefined` when there is nothing to do: `HUB_HOME` is set (explicit wins), no instance around, no `core/` inside it, or it already is this core.
  */

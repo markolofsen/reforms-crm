@@ -232,7 +232,7 @@ wsCmd.command("check").description("The generated root files match the core in u
     done(r.ok ? 0 : 1);
   });
 
-program.command("link").description("Put `hub` on PATH: a symlink ~/.local/bin/hub, so it works from any folder.")
+program.command("link").description("Optional shortcut: put `hub` on PATH (a symlink ~/.local/bin/hub), the one thing this tool ever writes in your home. An instance runs fine without it: use ./run.sh.")
   .option("--remove", "remove the link")
   .action((o: { remove?: boolean }) => {
     const plan = planLink(CORE_ROOT, homedir(), process.env.PATH ?? "/usr/bin:/bin");
@@ -321,13 +321,8 @@ program.command("setup").description("Minimal, tokenless setup for manual sessio
     const ctx = ctxOf({ dryRun: !!o.dryRun });
     const out = await runSetup(ctx, { ui: nonInteractive ? quietUi : clackUi, validators: makeValidators(ctx), env: process.env, steps: selectSteps(automation) }, { nonInteractive, automation });
     process.exitCode = out.exitCode;
-    // `hub` on PATH from any folder (skipped in a dry run)
-    const plan = planLink(ctx.paths.core, ctx.home, ctx.pathEnv);
-    if (ctx.dryRun) console.log(c.dim(`would link ${plan.linkPath} -> ${plan.target}`));
-    else {
-      try { console.log(c.green(installLink(plan).message)); if (!plan.onPath) console.log(c.yellow(pathHint(plan))); }
-      catch (e) { console.error(c.yellow(`could not put hub on PATH: ${(e as Error).message}`)); }
-    }
+    // Nothing is written outside the instance. The `hub` shortcut on PATH is the owner's choice: `hub link`.
+    console.log(c.dim("Run the instance with ./run.sh. Optional: `hub link` puts a `hub` shortcut at ~/.local/bin/hub (the only thing this tool writes in your home)."));
   });
 
 program.command("audit-run").description("Audit of one finished session: did any tool call leave the project (foreign mail account, foreign knowledge project, another project's folder, a send-capable tool)? And a table of the evidence behind every reply (messages read, profile, facts, anchors, similarity); exit 1 on a breach or a red row. Read only.")
@@ -368,7 +363,7 @@ program.command("guard").description("PreToolUse hook of `hub agent`: reads one 
     done(r.code);
   });
 
-program.command("uninstall").description("Remove the skill links `hub setup` made in ~/.claude/skills. Keeps config, state and secrets.")
+program.command("uninstall").description("Remove this instance's skill links (<instance>/.claude/skills) and report old links in ~/.claude/skills with the command that removes them. Keeps config, state and secrets.")
   .option("--dry-run")
   .action(async (o: { dryRun?: boolean }) => {
     for (const l of await uninstall(ctxOf({ dryRun: !!o.dryRun }))) console.log(l);

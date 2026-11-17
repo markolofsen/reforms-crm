@@ -25,7 +25,7 @@ usage: ./install.sh [--dry-run] [--automation [--non-interactive]]
   3. pnpm install --frozen-lockfile in app/ (never edits pnpm-lock.yaml)
   4. with HUB_HOME set, runs `pnpm hub setup` for that instance (without it: stops after step 3 and says how to set up an instance): minimal and tokenless (folders, config, skills, project registry, doctor table);
      no Claude token, no Notion token, no launchd. `--automation` adds the OPTIONAL Notion token, mail login, Telegram token
-  5. `hub setup` also puts `hub` on PATH (~/.local/bin/hub); it ends with `ready: run hub agent`, then you hand the session one instruction (skills/README.md)
+  5. `hub setup` writes nothing outside the instance (`hub link` is the optional `hub` shortcut at ~/.local/bin/hub); it ends with `ready: run hub agent`, then you hand the session one instruction (skills/README.md)
 
 This is the only shell script: everything else is the `hub` command (`hub --help`).
 

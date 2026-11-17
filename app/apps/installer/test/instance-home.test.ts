@@ -1,5 +1,5 @@
 import { execa } from "execa";
-import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, readlinkSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -118,8 +118,14 @@ describe("what an agent started in an instance gets", () => {
     const first = syncInstanceSkills(p);
     expect(first.length).toBeGreaterThan(5);
     const one = first[0]!;
-    expect(readlinkSync(path.join(p.claudeSkills, one))).toBe(path.join(CORE_ROOT, "skills", one));
+    const rel = readlinkSync(path.join(p.claudeSkills, one));
+    expect(path.isAbsolute(rel)).toBe(false); // relative: the link survives moving the instance
+    expect(realpathSync(path.join(p.claudeSkills, one))).toBe(realpathSync(path.join(CORE_ROOT, "skills", one)));
     expect(syncInstanceSkills(p)).toEqual([]);
+    rmSync(path.join(p.claudeSkills, one)); // an absolute link from an older core is replaced by the relative one
+    symlinkSync(path.join(CORE_ROOT, "skills", one), path.join(p.claudeSkills, one));
+    expect(syncInstanceSkills(p)).toEqual([one]);
+    expect(path.isAbsolute(readlinkSync(path.join(p.claudeSkills, one)))).toBe(false);
     expect(lstatSync(path.join(p.claudeSkills, "my-own")).isSymbolicLink()).toBe(false);
     symlinkSync(path.join(CORE_ROOT, "skills", "retired-skill"), path.join(p.claudeSkills, "retired-skill"));
     syncInstanceSkills(p);

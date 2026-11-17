@@ -34,12 +34,11 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
   - `hub install` fixes it: Runs the app's `db:migrate` script (`pnpm --dir app run db:migrate`).
 ## Skills
 
-- [ ] **UI skills for development (coss, coss-particles)** (`skills.dev`; UI development only)
-  - Proves: `~/.claude/skills/coss` and `coss-particles` exist.
-  - `hub install` fixes it: `npx skills add https://github.com/cosscom/ui.git --skill coss --skill coss-particles -a claude-code -g -y`.
-- [ ] **Agent skills linked into Claude** (`skills.runtime`)
-  - Proves: Every `skills/<name>/` is a symlink in `~/.claude/skills/` pointing at this folder.
-  - `hub install` fixes it: `ln -sfn` per skill; a real folder of the same name is never replaced.
+- [ ] **Agent skills linked into the instance** (`skills.runtime`)
+  - Proves: Every core skill is a symlink in `<instance>/.claude/skills/` that resolves to the core's skill (a real folder of the same name is the instance's own and passes).
+  - `hub install` fixes it: Relative symlink per skill into `<instance>/.claude/skills/` (git-ignored, regenerated; `hub agent` does the same on every start). A real folder of the same name is never replaced.
+- [ ] **No hub skill links left in the user's home** (`skills.legacy`)
+  - Proves: `~/.claude/skills` holds no symlink into a hub core. Read only: the hub never deletes outside the instance; the warning prints the one command to run.
 ## Projects
 
 - [ ] **Projects (one folder each)** (`projects.registry`)

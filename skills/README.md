@@ -9,7 +9,7 @@ Project binding (slug, `project.md`, one project per session) is spelled out onc
 
 Start bound to a project: `hub agent <slug>` (a fresh session with `HUB_PROJECT=<slug>`). Without a slug the instruction names the project.
 
-**Layers (core and instance).** Skills are the **core** layer: universal, for any owner and project. Everything that belongs to one owner (projects, mailboxes, rules, history) lives in that owner's instance: `projects/<slug>/` under `HUB_HOME`. A skill reads an instance only through the slug and `project.md`, never by naming a client. Rule and instance steps: `@docs/LAYERS.md`.
+**Layers (core and instance).** Skills are the **core** layer: universal, for any owner and project. Everything that belongs to one owner (projects, mailboxes, rules, history) lives in that owner's instance: `projects/<slug>/` under `HUB_HOME`. A skill reads an instance only through the slug and `project.md`, never by naming a client. Rule and instance steps: `@docs/LAYERS.md`. An instance carries its own skills: `hub agent` and `./run.sh install --only skills.runtime` link every core skill into `<instance>/.claude/skills/`, and nothing goes to `~/.claude/skills`.
 
 **No skill ever sends mail.** Sending is the hub's `hub send` and the admin button, never a skill (decision a decision or plan record kept in the owner's instance).
 

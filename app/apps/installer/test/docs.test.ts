@@ -6,7 +6,7 @@ import { defaultRoot } from "../src/context.ts";
 import { renderChecklist, UPDATE_LINE } from "../src/docs.ts";
 import { selectSteps, STEPS } from "../src/steps/index.ts";
 
-const CHECK_ONLY = ["messengers.poller", "instance.core"];
+const CHECK_ONLY = ["messengers.poller", "instance.core", "skills.legacy"];
 
 describe("step list", () => {
   it("ids are unique and every step explains itself", () => {
@@ -23,9 +23,9 @@ describe("step list", () => {
   });
   it("the default selection holds no automation step, so doctor cannot fail on its absence", () => {
     const ids = selectSteps(false).map((s) => s.id);
-    for (const id of ["messengers.poller", "mail.account", "notion.token", "files.settings", "skills.dev"]) expect(ids).not.toContain(id);
+    for (const id of ["messengers.poller", "mail.account", "notion.token", "files.settings"]) expect(ids).not.toContain(id);
     for (const gone of ["claude.", "gate.", "launchd.", "sounds.", "prefs.", "power.", "tools.macos", "projects.active"]) expect(ids.some((i) => i.startsWith(gone)), gone).toBe(false);
-    for (const id of ["tools.node", "tools.pnpm", "tools.claude", "files.mcp-json", "files.app-db", "skills.runtime", "projects.registry", "mail.daemon", "notion.connector"]) expect(ids).toContain(id);
+    for (const id of ["tools.node", "tools.pnpm", "tools.claude", "files.mcp-json", "files.app-db", "skills.runtime", "skills.legacy", "projects.registry", "mail.daemon", "notion.connector"]) expect(ids).toContain(id);
     expect(selectSteps(true).map((s) => s.id)).toEqual(expect.arrayContaining(["notion.token", "mail.account", "messengers.poller", "files.settings"]));
     expect(ids.some((i) => i.startsWith("backup."))).toBe(false); // a fresh instance has no backup yet: setup and install must not go red for it
     expect(selectSteps(false, true).map((s) => s.id)).toEqual(expect.arrayContaining(["backup.git", "backup.db", "backup.snapshot", "backup.notion", "backup.secrets", "server.health", "mcp.knowledge"]));

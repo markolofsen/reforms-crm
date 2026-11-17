@@ -19,9 +19,9 @@ export interface Step {
   does?: string;
   /**
    * Off by default. `automation`: only the optional extras (Notion token, mail login, Telegram poller) need it;
-   * `hub setup`, `install` and `doctor` skip it unless `--automation`. `dev`: only whoever changes the app's UI needs it.
+   * `hub setup`, `install` and `doctor` skip it unless `--automation`.
    */
-  optional?: "automation" | "dev";
+  optional?: "automation";
   /**
    * A health check the doctor judges, not something setup or install can bring about (the backup steps: a fresh instance has none yet).
    * `setup`, `install` and `guide` skip it unless named with `--only`; `doctor` runs it.

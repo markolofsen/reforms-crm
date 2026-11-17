@@ -1,7 +1,7 @@
 import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
 import path from "node:path";
 import type { Ctx } from "../context.ts";
-import { coreSkills } from "../instance-skills.ts";
+import { coreSkills, linksIntoCore } from "../instance-skills.ts";
 import type { CheckResult, Step } from "../types.ts";
 import { fail, pass, warn } from "./helpers.ts";
 
@@ -88,8 +88,7 @@ export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
   const dangling: string[] = [];
   if (existsSync(paths.claudeSkills)) {
     for (const e of readdirSync(paths.claudeSkills)) {
-      const to = linkOf(path.join(paths.claudeSkills, e));
-      if (to !== undefined && path.resolve(paths.claudeSkills, to).startsWith(paths.skills + path.sep) && !existsSync(path.resolve(paths.claudeSkills, to))) dangling.push(e);
+      if (linksIntoCore(paths, e) && !existsSync(path.join(paths.claudeSkills, e))) dangling.push(e);
     }
   }
   if (dangling.length) problems.push(`skill links into core are dangling: ${brief(dangling)} (run \`hub agent\` to regenerate)`);
