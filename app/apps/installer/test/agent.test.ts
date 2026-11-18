@@ -148,3 +148,44 @@ describe("link", () => {
     expect(() => installLink(plan)).toThrow(/not a symlink/);
   });
 });
+
+describe("hub on the session's PATH (P52)", () => {
+  it("writes <state>/bin/hub that runs this core on this Node with this HUB_HOME", async () => {
+    const { mkdtempSync, writeFileSync: wf, statSync } = await import("node:fs");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const { execFileSync } = await import("node:child_process");
+    const { pathsAt } = await import("@hub/config/paths");
+    const { hubShimDir } = await import("../src/agent");
+    const home = mkdtempSync(join(tmpdir(), "hub-shim-"));
+    const bin = join(home, "fake hub's.mjs");
+    wf(bin, "console.log(JSON.stringify({ home: process.env.HUB_HOME, args: process.argv.slice(2) }));\n");
+    const dir = hubShimDir(pathsAt(home), process.execPath, bin);
+    expect(statSync(join(dir, "hub")).mode & 0o111).toBeTruthy();
+    const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${dir}:/usr/bin:/bin` };
+    delete env.HUB_HOME;
+    const out = JSON.parse(execFileSync("hub", ["record-draft", "--project", "acme"], { env, encoding: "utf8" }));
+    expect(out).toEqual({ home, args: ["record-draft", "--project", "acme"] });
+  });
+});
+
+describe("the bound project's identity in the session rules (P52)", () => {
+  it("names its accounts, addresses, aliases and domains, and says they are its own mail", async () => {
+    const { projectIdentity } = await import("@hub/agent/session-rules");
+    const id = projectIdentity("saas-support", { accounts: ["hello@reforms.ai"], addresses: ["hello@reforms.ai"], aliases: ["info@gptkino.com"], domains: ["reforms.ai", "carapis.com", "cmdop.com", "mlsbali.com", "toponimo.com"] });
+    for (const x of ["hello@reforms.ai", "info@gptkino.com", "carapis.com", "cmdop.com", "mlsbali.com", "toponimo.com"]) expect(id).toContain(x);
+    expect(id).toMatch(/never refuse it as another project's/);
+    const prompt = bindingPrompt("saas-support", "projects", id);
+    expect(prompt.endsWith(id)).toBe(true);
+    expect(prompt).toContain(sessionRules("saas-support"));
+    const a = buildClaudeArgs({ mode: "new", project: "saas-support", extra: [], identity: id }, [MAP]);
+    expect(a[a.indexOf("--append-system-prompt") + 1]).toContain("carapis.com");
+  });
+
+  it("mail.domains is a project.md field: parsed lowercase, a non-domain refused", async () => {
+    const { readProject } = await import("@hub/projects");
+    const md = (v: string) => ["# x", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| mail.accounts | a@x.example | 2026-11-14 | agent |", "| mail.addresses | a@x.example | 2026-11-14 | owner |", `| mail.domains | ${v} | 2026-11-18 | owner |`, ""].join("\n");
+    expect(readProject(md("Carapis.com, cmdop.ai"), "x").config.mail.domains).toEqual(["carapis.com", "cmdop.ai"]);
+    expect(() => readProject(md("not a domain"), "x")).toThrow(/is not a domain/);
+  });
+});

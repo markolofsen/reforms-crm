@@ -91,7 +91,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "draft_show",
     {
       title: "One draft of this project",
-      description: `Status, recipients, the Mail key (mailRef), the short excerpt, reason, marks, evidence, the recorded context, the Notion link, the follow-up step and the draft's Activity. Not the body: it lives in Mail (read it with mail-mcp list_drafts / get_message_content). To revise it: \`draft_write\` on the same message, then \`./run.sh record-draft --project <slug>\` with the SAME mailRef (the draft is updated in place). Never send. ${DATA}`,
+      description: `Status, recipients, the Mail key (mailRef), the short excerpt, reason, marks, evidence, the recorded context, the Notion link, the follow-up step and the draft's Activity. Not the body: it lives in Mail (read it with mail-mcp list_drafts / get_message_content). To revise it: \`draft_write\` on the same message, then \`hub record-draft --project <slug>\` with the SAME mailRef (the draft is updated in place). Never send. ${DATA}`,
       inputSchema: z.object({ id: z.number().int().positive().describe("The draft id, as the focus or the admin shows it.") }),
       annotations: READ_ONLY,
     },
@@ -167,7 +167,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "draft_write",
     {
       title: "Write or revise an unsent reply draft in Mail",
-      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. The first line [hub-draft thread=<Message-ID>] is added for you; give the body only, plain text. A revision is the same call again on the same message: the new draft is saved first, then the older draft of this thread that carries the same marker is removed, so one version stays. Then record it: \`./run.sh record-draft --project <slug>\` (Bash) with mailRef = the returned thread. Only this project's Mail accounts. Never sends. ${DATA}`,
+      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. The first line [hub-draft thread=<Message-ID>] is added for you; give the body only, plain text. A revision is the same call again on the same message: the new draft is saved first, then the older draft of this thread that carries the same marker is removed, so one version stays. Then record it: \`hub record-draft --project <slug>\` with mailRef = the returned thread. Only this project's Mail accounts. Never sends. ${DATA}`,
       inputSchema: z.object({
         account: z.string().min(1).max(320).describe("Mail account of the message answered, as mail-mcp names it."),
         mailbox_path: z.array(z.string().min(1).max(200)).min(1).max(8).describe('Mailbox path of that message, e.g. ["INBOX"].'),
@@ -186,7 +186,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         try {
           const r = await env.drafts.writeReply({ account: own, mailboxPath: mailbox_path, messageId: message_id, body: content, sender: mail.sender });
           const left = r.left.length ? ` Older hub draft(s) ${r.left.join(", ")} are still in Drafts: tell the owner to delete them before Send.` : "";
-          return { ...r, project: slug, sent: false, next: `Record it: Bash \`./run.sh record-draft --project ${slug}\` (skill triage-mail step 5) with "mailRef":"${r.thread}". Nothing was sent.${left}` };
+          return { ...r, project: slug, sent: false, next: `Record it: \`hub record-draft --project ${slug}\` (skill triage-mail step 5) with "mailRef":"${r.thread}"; a revision keeps the draft's context block and client name. Nothing was sent.${left}` };
         } catch (e) {
           if (e instanceof DraftWriteError) throw new ToolError(e.code, e.message);
           throw e;

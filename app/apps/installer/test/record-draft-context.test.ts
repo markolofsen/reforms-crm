@@ -145,3 +145,47 @@ describe("record-draft cross-check and batch-check (B5)", () => {
     expect(batchCheck(root, "acme", "nope").rows).toEqual([]);
   });
 });
+
+describe("a revision keeps what it does not restate (P52)", () => {
+  const card = async (email: string) => {
+    const h = openDb(db);
+    try {
+      const r = createRepos(h.db);
+      const id = (await r.clients.idByEmail("acme", email))!;
+      const d = (await r.drafts.ofClient("acme", id))[0]!;
+      return { name: (await r.clients.get("acme", id))!.name, context: d.context, evidence: d.evidence, findings: JSON.parse(d.evidenceFindings ?? "[]") as Array<{ code: string; amber: boolean }>, checked: d.checked, id: d.id };
+    } finally {
+      h.close();
+    }
+  };
+
+  it("the name, the context block and the Notion link carry over; no red check; Checked off", async () => {
+    const email = "fiona@x.example";
+    const first = await run(JSON.stringify({ email, name: "Fiona Park", subject: "Re: Lot 14", mailRef: "<m-fiona@x>", context: ctx(), notion: { kind: "none" } }), { ledger: false });
+    expect(JSON.parse(first.line)).toMatchObject({ ok: true, action: "created" });
+    const before = await card(email);
+    // the dock's revision: a bare payload, the client's address as the name, no context
+    const rev = await run(JSON.stringify({ email, name: email, subject: "Re: Lot 14", mailRef: "m-fiona@x", excerpt: "Shorter now." }), { ledger: false });
+    expect(JSON.parse(rev.line)).toMatchObject({ ok: true, action: "updated", draftId: before.id });
+    const after = await card(email);
+    expect(after.name).toBe("Fiona Park");
+    expect(after.context).toBe(before.context);
+    expect(after.findings.filter((f) => !f.amber)).toEqual([]);
+    expect(after.findings.map((f) => f.code)).not.toContain("context-missing");
+    expect(after.evidence).not.toBe("missing");
+    expect(after.checked).toBe(false);
+  });
+
+  it("a thin earlier revision is healed from the ledger line that had the context", async () => {
+    const email = "gil@x.example";
+    await run(JSON.stringify({ email, name: "Gil", subject: "Re: Pump", mailRef: "<m-gil@x>", context: ctx({ batchKey: "b-gil" }) }));
+    // a thin record overwrote the context (what v0.12.0 allowed)
+    const h = openDb(db);
+    try { h.db.$client.prepare("update drafts set context = null").run(); } finally { h.close(); }
+    await run(JSON.stringify({ email, subject: "Re: Pump", mailRef: "<m-gil@x>" }));
+    const after = await card(email);
+    expect(after.name).toBe("Gil");
+    expect(after.context).toContain("certificate of title");
+    expect(after.findings.map((f) => f.code)).not.toContain("context-missing");
+  });
+});

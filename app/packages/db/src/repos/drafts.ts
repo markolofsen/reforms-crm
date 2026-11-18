@@ -232,7 +232,9 @@ export function draftsRepo(db: Db) {
         const flagged = input.injectionSuspected === true;
         const existing = tx.select().from(drafts).where(eq(drafts.clientId, client.id)).all();
         // A follow-up step answers our own earlier message, so its mailRef can equal a finished draft's: a rerun of a step is the same step.
-        const sameRef = mailRef == null ? undefined : existing.find((d) => d.mailRef === mailRef && (!seq || (d.enrollmentId === seq.enrollmentId && d.sequenceStep === seq.step)));
+        // The same Message-ID with or without angle brackets (draft_write returns it bare, P52) is the same message.
+        const bareRef = (x: string | null) => (x ?? "").trim().replace(/^<|>$/g, "").toLowerCase();
+        const sameRef = mailRef == null ? undefined : existing.find((d) => bareRef(d.mailRef) === bareRef(mailRef) && (!seq || (d.enrollmentId === seq.enrollmentId && d.sequenceStep === seq.step)));
         const open = existing.find((d) => d.status === "ready" || d.status === "hold");
 
         if (sameRef && sameRef !== open) {

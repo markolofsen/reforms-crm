@@ -43,6 +43,7 @@ export const FIELDS: Record<string, FieldDef> = {
   "mail.accounts": { path: "mail.accounts", schema: list, doc: "Mail.app account names the project reads, comma separated." },
   "mail.addresses": { path: "mail.addresses", schema: addresses, doc: "Addresses routed to the project." },
   "mail.aliases": { path: "mail.aliases", schema: addresses, doc: "More addresses routed to the project (aliases of an account)." },
+  "mail.domains": { path: "mail.domains", schema: check((v) => splitList(v).every((d) => /^(?=.{1,253}$)([a-z0-9-]+\.)+[a-z]{2,}$/i.test(d)), (v) => `"${splitList(v).find((d) => !/^(?=.{1,253}$)([a-z0-9-]+\.)+[a-z]{2,}$/i.test(d))}" is not a domain`).transform((v) => splitList(v).map((d) => d.toLowerCase())), doc: "Domains whose mail reaches the project through forwarding or a catch-all (its brands); the agent treats mail to them as this project's." },
   "mail.mailboxes": { path: "mail.mailboxes", schema: list, doc: "Mailboxes read; default INBOX." },
   "mail.sent_mailbox": { path: "mail.sentMailbox", schema: oneLine, doc: "Sent mailbox; default Sent Mail." },
   "mail.sender": { path: "mail.sender", schema: check((v) => EMAIL.test(v), (v) => `"${v}" is not an email address`).transform(normalizeAddress), doc: "From address of drafts; default the first address." },

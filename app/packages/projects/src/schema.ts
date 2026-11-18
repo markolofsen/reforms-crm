@@ -44,11 +44,13 @@ export const ProjectBase = z.object({
       accounts: z.array(z.string()).default([]),
       addresses: z.array(z.string()).default([]),
       aliases: z.array(z.string()).default([]),
+      /** Domains whose mail reaches this project through forwarding or a catch-all (P52): its own brands, told to the agent. */
+      domains: z.array(z.string()).default([]),
       mailboxes: z.array(z.string()).default(["INBOX"]),
       sentMailbox: z.string().default("Sent Mail"),
       sender: z.string().nullable().default(null),
     })
-    .default({ accounts: [], addresses: [], aliases: [], mailboxes: ["INBOX"], sentMailbox: "Sent Mail", sender: null }),
+    .default({ accounts: [], addresses: [], aliases: [], domains: [], mailboxes: ["INBOX"], sentMailbox: "Sent Mail", sender: null }),
   /** `test`: the global allow_list; `any`: anyone; a list: exactly these. */
   draft: z.object({ recipients: z.union([z.literal("test"), z.literal("any"), z.array(z.string()).min(1)]).default("test") }).default({ recipients: "test" }),
   tone: z.string().nullable().default(null),

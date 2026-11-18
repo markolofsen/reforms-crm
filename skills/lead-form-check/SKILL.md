@@ -11,8 +11,8 @@ allowed-tools: Read Bash
 Rules: `skills/README.md` ("Rules"). Talk to the owner in Russian, briefly. This skill reads no project's mail or Notion, so it needs no project binding; it works on the whole instance.
 
 1. **Run once, from the instance root.**
-   - After a change to a public site, a form, Turnstile, a CSP or security header, a proxy or CDN rule, an API route under a form's endpoint, or a DNS or Cloudflare record (`app/@rules/agent-guardrails.md` rule 9): `./run.sh doctor --only Leads --canary`.
-   - Otherwise (the owner asks "do the forms work"): `./run.sh doctor --only Leads`. It sends GET requests only.
+   - After a change to a public site, a form, Turnstile, a CSP or security header, a proxy or CDN rule, an API route under a form's endpoint, or a DNS or Cloudflare record (`app/@rules/agent-guardrails.md` rule 9): `hub doctor --only Leads --canary`.
+   - Otherwise (the owner asks "do the forms work"): `hub doctor --only Leads`. It sends GET requests only.
    - One run. Do not loop it, and never run two at once.
 2. **Never submit a lead yourself.** No `curl -X POST`, no browser submit, no form fill, not even with a test address: an unaware handler stores it as a real lead and mails the desk or the client. The only POST is the doctor's signed canary, and the doctor sends it only to a handler that answers `X-Canary-Accept: v1`.
 3. **Explain each row that is not PASS** in a table `форма | что сломано | где чинить | кто`:

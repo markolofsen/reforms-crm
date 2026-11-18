@@ -143,6 +143,50 @@ function allowList(file: string | undefined): string[] {
   } catch { return []; }
 }
 
+interface PreviousRevision {
+  name: string | null;
+  context: Context | null;
+  notion: { kind: (typeof NOTION_KINDS)[number]; pageId?: string; url?: string } | null;
+  to: string | null;
+  cc: string | null;
+  reason: string | null;
+  mailClass: string | null;
+}
+
+/** The client's open draft (ready or hold) with this mailRef, read before the write; null when there is none or the database cannot be read. */
+async function previousRevision(dbPath: string, project: string, email: string, mailRef: string, ledger: RecordLine[] = []): Promise<PreviousRevision | null> {
+  const bare = (x: string | null | undefined) => (x ?? "").trim().replace(/^<|>$/g, "").toLowerCase();
+  let handle: ReturnType<typeof openDb> | undefined;
+  try {
+    handle = openDb(dbPath);
+    const repos = createRepos(handle.db);
+    const clientId = await repos.clients.idByEmail(project, email.trim());
+    if (clientId === undefined) return null;
+    const client = await repos.clients.get(project, clientId);
+    const hit = (await repos.drafts.ofClient(project, clientId)).find((d) => (d.status === "ready" || d.status === "hold") && bare(d.mailRef) === bare(mailRef));
+    if (!hit) return null;
+    const ctx = hit.context ? contextSchema.safeParse(JSON.parse(hit.context)) : null;
+    const kind = NOTION_KINDS.find((k) => k === hit.notionKind);
+    const real = (n: string | null | undefined) => (n && n.trim().toLowerCase() !== email.trim().toLowerCase() ? n : null);
+    // A revision recorded thin (before P52) left no context or a bare email as the name: the newest ledger line of this draft that had them.
+    const lines = ledger.filter((l) => l.draftId === hit.id && l.email === email.trim().toLowerCase()).reverse();
+    const fromLedger = lines.find((l) => l.context)?.context;
+    return {
+      name: real(client?.name) ?? real(lines.find((l) => real(l.name))?.name),
+      context: ctx?.success ? ctx.data : (fromLedger ?? null),
+      notion: kind ? { kind, ...(hit.notionPageId ? { pageId: hit.notionPageId } : {}), ...(hit.notionUrl ? { url: hit.notionUrl } : {}) } : null,
+      to: hit.toAddr ?? null,
+      cc: hit.ccAddr ?? null,
+      reason: hit.reason ?? null,
+      mailClass: hit.mailClass ?? null,
+    };
+  } catch {
+    return null;
+  } finally {
+    handle?.close();
+  }
+}
+
 /**
  * Validates, writes, and returns ONE JSON line. Exit code 0 only when the line says `"ok":true`; 2 for a bad project
  * or payload (nothing written); 1 for a failure while writing. The skill must report a non-ok line, never retry in a loop.
@@ -162,7 +206,23 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
   if (!parsed.success) {
     return fail(2, parsed.error.issues.map((i) => `${i.path.join(".") || "payload"}: ${i.message}`).join("; "));
   }
-  const v = parsed.data;
+  const given = parsed.data;
+  // P52: a revision of the client's open draft (same mailRef) keeps what the agent did not restate: the client's name,
+  // the context block of the draft it revises (what was read before it), the Notion link, recipients, reason and class.
+  // The session that revises need not rebuild the evidence; an inherited block is not compared with this session's reads.
+  const prev = await previousRevision(o.dbPath ?? defaultDbPath(), project.data, given.email, given.mailRef, o.ledgerRoot ? readLines<RecordLine>(recordsFile(o.ledgerRoot, project.data)) : []);
+  const nameGiven = given.name && given.name.trim().toLowerCase() !== given.email.trim().toLowerCase() ? given.name : undefined;
+  const inherited = !given.context && prev?.context ? prev.context : undefined;
+  const v = {
+    ...given,
+    ...(nameGiven ? { name: nameGiven } : prev?.name ? { name: prev.name } : {}),
+    ...(inherited ? { context: inherited } : {}),
+    ...(!given.notion && prev?.notion ? { notion: prev.notion } : {}),
+    ...(!given.to && prev?.to ? { to: prev.to } : {}),
+    ...(!given.cc && prev?.cc ? { cc: prev.cc } : {}),
+    ...(!given.reason && prev?.reason ? { reason: prev.reason } : {}),
+    ...(!given.mailClass && prev?.mailClass ? { mailClass: prev.mailClass } : {}),
+  };
   if (v.sequence && v.skill !== SEQUENCE_SKILL) return fail(2, `a follow-up step (the sequence block) is recorded with "skill":"${SEQUENCE_SKILL}"`);
   const input: RecordDraftInput = {
     project: project.data,
@@ -215,7 +275,7 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
   let draftHash: string | undefined;
   if (o.ledgerRoot) {
     const claimedHashes = new Set(earlier.map((r) => r.draftHash ?? ""));
-    const x = crossCheck(o.ledgerRoot, project.data, emailKey, v.context, claimedHashes);
+    const x = crossCheck(o.ledgerRoot, project.data, emailKey, inherited ? undefined : v.context, claimedHashes);
     if (x.entry) {
       source = "observed";
       observed = x.observed;

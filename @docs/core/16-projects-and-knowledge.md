@@ -68,6 +68,7 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 | `mail.accounts` | list | yes | none | routing, `hub guard`, Connections ("Found in Apple Mail") | Mail.app account names, exactly as `list_accounts` returns them |
 | `mail.addresses` | list | no | the accounts' own addresses | routing | every address this project receives at: aliases, the form-lead address |
 | `mail.aliases` | list | no | none | routing | addresses that route to the project but are not a Mail account or the sender: aliases, a planned address. Merged into `config.mail.addresses`, so routing, the duplicate-claim check and `doctor` treat them as addresses (for example a planned address before a mailbox switch) |
+| `mail.domains` | list | no | none | agent | domains whose mail reaches the project through forwarding or a catch-all (its brands, P52). Not used for routing; `hub agent` puts them, with the accounts, addresses and aliases, into the session rules (`projectIdentity`), so the agent never refuses its own project's mail as another project's |
 | `mail.mailboxes` | list | no | `INBOX` | parsed, read by no command | mailboxes to read for new mail |
 | `mail.sent_mailbox` | text | no | `Sent Mail` | Sent detection (`osascript`, decision 0026) | the Apple Mail mailbox a waiting draft is looked for in once sent |
 | `mail.sender` | address | yes | first of `mail.addresses` | `mail_draft` | the From of every draft |

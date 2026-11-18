@@ -90,7 +90,7 @@ describe("draft_write (hub mcp)", () => {
     const second = await call(args("Hi Ann, revised."));
     expect(second.json.replaced).toEqual([first.json.draftId]);
     expect(mail.drafts.map((d) => d.text)).toEqual(["[hub-draft thread=m42@example.com]\nHi Ann, revised."]);
-    expect(second.json.next).toMatch(/run\.sh record-draft --project acme` \(skill triage-mail step 5\) with "mailRef":"m42@example.com"/);
+    expect(second.json.next).toMatch(/`hub record-draft --project acme` \(skill triage-mail step 5\) with "mailRef":"m42@example.com"/);
   });
 
   it("refuses an account outside the project, and refuses without a writer", async () => {
