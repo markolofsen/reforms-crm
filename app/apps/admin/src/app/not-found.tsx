@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: { absolute: NOT_FOUND_TITLE } };
 // so this renders outside the shell, centred, with the one link that leads back.
 export default function RootNotFound() {
   return (
-    <main className="mx-auto flex min-h-svh max-w-md items-center justify-center p-6">
+    <main className="mx-auto flex min-h-svh measure items-center justify-center p-6">
       <NotFound />
     </main>
   );

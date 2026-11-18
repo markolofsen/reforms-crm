@@ -18,7 +18,7 @@ export interface Step {
   /** What apply does, for dry-run and the docs. */
   does?: string;
   /**
-   * Off by default. `automation`: only the optional extras (Notion token, mail login, Telegram poller) need it;
+   * Off by default. `automation`: only the optional extras (Notion token, Telegram poller) need it;
    * `hub setup`, `install` and `doctor` skip it unless `--automation`.
    */
   optional?: "automation";

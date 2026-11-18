@@ -117,13 +117,34 @@ describe("enrol, due, and a reply (W1 acceptance)", () => {
     expect(plain.followUps).toBeUndefined();
   });
 
-  it("stop and judge reduce mail for anyone; enrol, pause and resume refuse an agent session", async () => {
+  it("enrol in a session (D1): only on the owner's --phrase, recorded as the agent's; --not-now stays the owner's", async () => {
+    const agent = { CLAUDECODE: "1" };
+    // without a phrase: one refusing line, nothing written
+    expect(await runSequencesEnrol("alpha", { client: "quiet@example.com" }, deps(agent))).toBe(2);
+    expect(lines).toHaveLength(1);
+    expect(String(last().error)).toMatch(/needs --phrase/);
+    expect(await runSequencesEnrol("alpha", { client: "quiet@example.com", phrase: "   " }, deps({ HUB_PROJECT: "alpha" }))).toBe(2);
+    // --not-now in a session is refused even with a phrase
+    expect(await runSequencesEnrol("alpha", { client: "quiet@example.com", phrase: "ok", notNow: true }, deps(agent))).toBe(2);
+    expect(String(last().error)).toMatch(/owner's step/);
+    await repos(async (r) => expect(await r.enrollments.openFor("alpha", "quiet@example.com")).toBeNull());
+    // with the owner's words: enrolled by the agent, the phrase stored
+    expect(await runSequencesEnrol("alpha", { client: "quiet@example.com", phrase: " yes, follow up with Quinn " }, deps(agent))).toBe(0);
+    const id = Number(last().enrollmentId);
+    await repos(async (r) => expect(await r.enrollments.get("alpha", id)).toMatchObject({ enrolledBy: "agent", enrolledPhrase: "yes, follow up with Quinn" }));
+  });
+
+  it("enrol in the owner's terminal: --phrase optional, recorded as the owner's", async () => {
+    expect(await runSequencesEnrol("alpha", { client: "quiet@example.com" }, deps())).toBe(0);
+    const id = Number(last().enrollmentId);
+    await repos(async (r) => expect(await r.enrollments.get("alpha", id)).toMatchObject({ enrolledBy: "owner", enrolledPhrase: null }));
+  });
+
+  it("stop and judge reduce mail for anyone; pause and resume refuse an agent session", async () => {
     const agent = { CLAUDECODE: "1" };
     expect(inAgentSession(agent)).toBe(true);
     expect(inAgentSession({ HUB_PROJECT: "alpha" })).toBe(true);
     expect(inAgentSession({})).toBe(false);
-    expect(await runSequencesEnrol("alpha", { client: "quiet@example.com" }, deps(agent))).toBe(2);
-    expect(String(last().error)).toMatch(/owner's step/);
     expect(await runSequencesEnrol("alpha", { client: "quiet@example.com" }, deps())).toBe(0);
     expect(await runSequencesPauseResume("alpha", { client: "quiet@example.com" }, "pause", deps(agent))).toBe(2);
     expect(await runSequencesPauseResume("alpha", { client: "quiet@example.com" }, "pause", deps())).toBe(0);

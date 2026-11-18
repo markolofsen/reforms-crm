@@ -22,8 +22,9 @@ test("Shift+A selects every open draft, the bar says how many, and Esc clears it
   await page.keyboard.press("Shift+A");
   const bar = page.getByRole("toolbar", { name: "Selected drafts" });
   await expect(bar).toBeVisible();
-  await expect(bar.getByRole("status")).toHaveText(/^\d+ selected$/);
-  expect(Number((await bar.getByRole("status").innerText()).split(" ")[0])).toBeGreaterThan(1);
+  const said = page.getByTestId("list-header").getByRole("status"); // the live region, said once (P48 W4)
+  await expect(said).toHaveText(/^\d+ selected$/);
+  expect(Number((await said.innerText()).split(" ")[0])).toBeGreaterThan(1);
   await page.keyboard.press("Escape");
   await expect(bar).toHaveCount(0);
 });

@@ -29,7 +29,8 @@ export function createRepos(db: Db) {
 export type Repos = ReturnType<typeof createRepos>;
 export type { ClientRow, DraftRow, NewClient } from "./clients";
 export type { NewDraft, RecordDraftInput, RecordDraftResult } from "./drafts";
-export type { EventRow, NewEvent, NewRun, RunRow } from "./runs";
+export type { EventRow, NewEvent, NewRun } from "./runs";
+export type { Activity, ActivityFilter, ActivityOutcome, ActivityRow, ActivitySession } from "./activity";
 export type { AddressRow, NewProjectRow, NewQuestion, ProjectRow, QuestionRow } from "./projects";
 export type { KnowledgeDocRow, NewKnowledgeDoc, SearchHit, SearchOptions } from "./knowledge";
 export { buildMatchQuery, isExpired } from "./knowledge";
@@ -42,7 +43,7 @@ export type {
   NewMessengerDraft,
   NewMessengerMessage,
 } from "./messengers";
-export type { AgentDraft, AudienceClient, BatchRow, BatchSummary, NewBatch, QueuedBatch } from "./batches";
+export type { BatchRow, BatchSummary } from "./batches";
 export type { BasedOn, ReviewDraft } from "./review";
 export type { NewSend, SendRow } from "./sends";
 export type { InboxInput, InboxItem, InboxResult, InboxRow } from "./inbox";

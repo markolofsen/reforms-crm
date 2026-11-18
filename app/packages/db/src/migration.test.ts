@@ -119,7 +119,7 @@ describe("migration 0016 (enrollments)", () => {
     migrate(db, { migrationsFolder: source });
     const cols = (t: string) => (sqlite.prepare(`pragma table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
     expect(cols("drafts")).toEqual(expect.arrayContaining(["enrollment_id", "sequence_step"]));
-    expect(cols("enrollments")).toEqual(["id", "project", "client_id", "sequence", "sequence_hash", "schedule", "step", "state", "next_due_at", "anchor_at", "enrolled_at", "enrolled_by", "finished_at", "finish_reason", "updated_at"]);
+    expect(cols("enrollments")).toEqual(["id", "project", "client_id", "sequence", "sequence_hash", "schedule", "step", "state", "next_due_at", "anchor_at", "enrolled_at", "enrolled_by", "finished_at", "finish_reason", "updated_at", "enrolled_phrase"]);
     expect(sqlite.prepare("select status, enrollment_id, sequence_step from drafts").get()).toEqual({ status: "sent", enrollment_id: null, sequence_step: null });
     const add = (state: string) => sqlite.prepare("insert into enrollments (project, client_id, sequence, sequence_hash, schedule, state, anchor_at, enrolled_at, enrolled_by, updated_at) values ('p',1,'s','h','{}',?, 'x','x','owner','x')").run(state);
     add("finished");
@@ -127,6 +127,23 @@ describe("migration 0016 (enrollments)", () => {
     expect(() => add("paused")).toThrow(/UNIQUE/);
     add("finished");
     expect(sqlite.pragma("foreign_key_check")).toEqual([]);
+    sqlite.close();
+  });
+});
+
+describe("migrations 0017 and 0018 (enrolled phrase, a run's batch key)", () => {
+  it("adds the two nullable columns and keeps every row", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(17) }); // 0000 .. 0016
+    sqlite.prepare("insert into clients (project, email, name, replies_owed, created_at) values ('p','a@x.example','A',0,'2026-11-01T00:00:00.000Z')").run();
+    sqlite.prepare("insert into enrollments (project, client_id, sequence, sequence_hash, schedule, state, anchor_at, enrolled_at, enrolled_by, updated_at) values ('p',1,'s','h','{}','active','x','x','owner','x')").run();
+    sqlite.prepare("insert into agent_runs (project, started_at, trigger) values ('p','x','owner')").run();
+    migrate(db, { migrationsFolder: source });
+    expect(sqlite.prepare("select enrolled_by, enrolled_phrase from enrollments").get()).toEqual({ enrolled_by: "owner", enrolled_phrase: null });
+    expect(sqlite.prepare("select trigger, batch_key from agent_runs").get()).toEqual({ trigger: "owner", batch_key: null });
+    expect((sqlite.prepare("pragma index_list(agent_runs)").all() as { name: string }[]).map((i) => i.name)).toContain("agent_runs_project_batch_key");
     sqlite.close();
   });
 });

@@ -4,7 +4,6 @@ import { firstDraftIs, mailIs, remember } from "./support";
 // Acceptance 1 and 4 of P29, in a browser: every state of the review card (research 16 section 7) shows the number of
 // `primary` buttons its row of the table says (`primaryFor`), never two, and the permanent controls stay away from Send.
 // The first draft of the real list is patched per case and nothing is written (the send answers from routes).
-// State 16 (a batch waiting for the agent) has no draft: `z-batch.spec.ts` checks its pane.
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });

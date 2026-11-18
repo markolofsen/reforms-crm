@@ -2,10 +2,9 @@ import { Hono } from "hono";
 import { clientHistory } from "@hub/messengers";
 import { type Repos } from "@hub/db";
 import { ackBody, checkedBody, draftsQuery, historyQuery, idParam, marksBody, projectQuery, statusBody, toneBody } from "@hub/contract/requests";
-import { draftChangedDto, draftsDto, timelineDto } from "@hub/contract/responses";
+import { draftChangedDto, draftsDto, historyDto, timelineDto } from "@hub/contract/responses";
 import { toDraft } from "../dto";
 import { notFound, v } from "../http";
-import type { MailService } from "../mail";
 import type { SenderOptions } from "./sends";
 import { findMail, mailHash } from "@hub/send";
 
@@ -13,7 +12,7 @@ import { findMail, mailHash } from "@hub/send";
  * Drafts to review, and what a person does to one. Nothing here sends: the only statuses a request can write are
  * `SETTABLE_STATUSES`, and every mutation names its project, so a draft of another project is "not found".
  */
-export function draftRoutes(repos: Repos, mail?: Pick<MailService, "historyFor">, sender?: SenderOptions) {
+export function draftRoutes(repos: Repos, sender?: SenderOptions) {
   const ownDraft = async (project: string, id: number) => {
     const d = await repos.drafts.get(id);
     return d && d.project === project ? d : null;
@@ -81,28 +80,21 @@ export function draftRoutes(repos: Repos, mail?: Pick<MailService, "historyFor">
       if (!(await repos.clients.get(project, id))) return notFound(c, "client");
       return (await repos.clients.setMarks(id, marks)) ? c.json({ ok: true as const }) : notFound(c, "client");
     })
-    // What the agent and the owner did for one client: needs no mail login.
+    // What the agent and the owner did for one client.
     .get("/api/clients/:id/timeline", v("param", idParam), v("query", projectQuery), async (c) => {
       const { project } = c.req.valid("query");
       const id = c.req.valid("param").id;
       if (!(await repos.clients.get(project, id))) return notFound(c, "client");
       return c.json(timelineDto.parse({ events: await repos.runs.eventsForClient(project, id) }));
     })
-    // One time-ordered history of a client: mail read live (read-only IMAP) merged with stored messenger rows.
-    // Without a mail login the result is messenger rows only; `mailUnavailable` names the addresses that failed.
+    // The client's stored messenger rows, newest first. Mail is not read here (decision 0026): the panel opens Mail for the thread.
     .get("/api/clients/:id/history", v("param", idParam), v("query", historyQuery), async (c) => {
       const q = c.req.valid("query");
       const clientId = c.req.valid("param").id;
-      const client = await repos.clients.get(q.project, clientId);
-      if (!client) return notFound(c, "client");
-      const reader = await mail?.historyFor(q.project);
+      if (!(await repos.clients.get(q.project, clientId))) return notFound(c, "client");
       try {
-        const h = await clientHistory({ repos, ...(reader ? { mail: reader } : {}) }, q.project, clientId, {
-          ...(q.limit ? { limit: q.limit } : {}),
-          ...(q.cursor ? { cursor: q.cursor } : {}),
-          emails: [client.email],
-        });
-        return c.json(h);
+        const h = await clientHistory({ repos }, q.project, clientId, { ...(q.limit ? { limit: q.limit } : {}), ...(q.cursor ? { cursor: q.cursor } : {}) });
+        return c.json(historyDto.parse(h));
       } catch (e) {
         if (e instanceof Error && e.message.startsWith("bad_cursor")) return c.json({ error: "bad cursor", code: "invalid" as const }, 400);
         throw e;

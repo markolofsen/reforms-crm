@@ -1,101 +1,63 @@
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
-import type { RunStatus } from "@hub/config";
-import type { RunDto } from "@hub/contract/responses";
-import { AlertTriangleIcon, CheckCircle2Icon, ChevronDownIcon, XCircleIcon, type LucideIcon } from "lucide-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { AppLink } from "@/components/app-link";
-import { FilterChips } from "@hub/ui/product/filter-chips";
-import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
-import { metaApi } from "@/lib/api/meta";
-import { formatTime, usd } from "@/lib/format";
+import { ListDetail } from "@hub/ui/product/list-detail";
+import { Page } from "@hub/ui/product/page";
+import { EmptyState, ListSkeleton, LoadFailed, Loading, StaleNote } from "@/components/state-views";
 import { useSearchState } from "@/hooks/use-search-state";
-import { paths } from "@/routes/paths";
+import { metaApi } from "@/lib/api/meta";
 import type { RunFilter } from "@/routes/search";
-import { RunEvents } from "./run-events";
-import { runMeta, runSentence } from "./run-summary";
+import { FilterMenu } from "./filter-menu";
+import { SessionDetail, SessionHint, SessionMissing } from "./session-detail";
+import { SessionRows, SessionTable } from "./session-list";
 
-/** Status is an icon and a word, never a colour alone. */
-const RUN_STATUS: Record<RunStatus, { word: string; Icon: LucideIcon; tone: string }> = {
-  ok: { word: "Done", Icon: CheckCircle2Icon, tone: "text-success-foreground" },
-  needs_human: { word: "Needs you", Icon: AlertTriangleIcon, tone: "text-warning-foreground" },
-  failed: { word: "Failed", Icon: XCircleIcon, tone: "text-destructive-foreground" },
-};
-const RUN_FILTER_LABELS: Record<RunFilter, string> = { all: "All", needs_human: "Needs you", failed: "Failed", ok: "Done" };
-const RUN_FILTER_ORDER: readonly RunFilter[] = ["all", "needs_human", "failed", "ok"];
-const RUN_FILTERS = RUN_FILTER_ORDER.map((value) => ({ value, label: RUN_FILTER_LABELS[value] }));
+export const activityKey = (project: string, filter: RunFilter) => ["activity", project, filter] as const;
 
-function RunItem({ r, open, project, onToggle }: { r: RunDto; open: boolean; project: string; onToggle: (open: boolean) => void }) {
-  const { word, Icon, tone } = RUN_STATUS[r.status];
+type Props = { project: string; filter: RunFilter; run: number | null };
+
+/** The table side: the View menu in the header line, then the sessions, in each of the four states of a list. */
+function Sessions({ project, filter, run }: Props) {
+  const setFilter = useSearchState("filter")[1];
+  const q = useQuery({ queryKey: activityKey(project, filter), queryFn: () => metaApi.activity(project, filter), refetchInterval: 10_000, placeholderData: keepPreviousData });
+  const data = q.data;
+  const body = q.isPending ? (
+    <ListSkeleton label="Loading the activity" />
+  ) : !data ? (
+    <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the activity" />
+  ) : data.sessions.length === 0 ? (
+    filter === "all" ? (
+      <EmptyState title="Nothing yet">It fills in when the agent works in a session: each session and what it did for every client appears here.</EmptyState>
+    ) : (
+      <EmptyState action={<ActionButton onClick={() => setFilter("all")} size="s" variant="secondary">Show all</ActionButton>} title="No session in this view" />
+    )
+  ) : (
+    <>
+      <SessionTable filter={filter} open={run} sessions={data.sessions} />
+      <SessionRows filter={filter} open={run} sessions={data.sessions} />
+    </>
+  );
   return (
-    <li className="min-w-0 py-3" data-run={r.id} id={`run-${r.id}`}>
-      <Collapsible onOpenChange={onToggle} open={open}>
-        <div className="flex min-w-0 items-start gap-3">
-          <Icon aria-hidden className={`mt-0.5 size-4 shrink-0 ${tone}`} />
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <p className="text-sm">
-              <span className="sr-only">{word}. </span>
-              {runSentence(r)}
-            </p>
-            <p className="text-muted-foreground text-xs tabular-nums">{runMeta(r, formatTime(r.startedAt))}</p>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <CollapsibleTrigger
-                render={
-                  <ActionButton size="s" variant="quiet">
-                    Details
-                    <ChevronDownIcon aria-hidden className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} />
-                  </ActionButton>
-                }
-              />
-              {r.status === "needs_human" && (
-                <AppLink to={paths.drafts.list()}>
-                  See what needs you
-                </AppLink>
-              )}
-            </div>
-          </div>
-        </div>
-        <CollapsiblePanel>
-          <div className="flex flex-col gap-2 ps-7 pt-2">
-            <p className="text-muted-foreground text-xs tabular-nums">
-              {r.model ?? "Model unknown"} · {r.trigger} · {r.tokensIn.toLocaleString("en-GB")} in, {r.tokensOut.toLocaleString("en-GB")} out · {usd(r.costUsd)}
-            </p>
-            {open && <RunEvents project={project} runId={r.id} />}
-          </div>
-        </CollapsiblePanel>
-      </Collapsible>
-    </li>
+    <Page actions={<FilterMenu counts={data?.counts} onChange={setFilter} value={filter} />}>
+      {body}
+      {q.isError && data && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
+    </Page>
   );
 }
 
-/** What the agent did in one project, newest first. The filter and the opened run live in the address (`?filter=failed&run=3`). */
-export function ActivityPage({ project, filter, openId }: { project: string; filter: RunFilter; openId: number | null }) {
-  const setFilter = useSearchState("filter")[1];
-  const setRun = useSearchState("run")[1];
-  const runs = useQuery({ queryKey: ["runs", project], queryFn: () => metaApi.runs(project), refetchInterval: 10_000 });
-  const all = runs.data?.runs;
-  const shown = useMemo(() => (all ?? []).filter((r) => filter === "all" || r.status === filter), [all, filter]);
+/** The opened session, read from the same query as the table (one key, `state-and-data.md` rule 2). */
+function Detail({ project, filter, run }: Props) {
+  const q = useQuery({ queryKey: activityKey(project, filter), queryFn: () => metaApi.activity(project, filter), placeholderData: keepPreviousData });
+  if (run === null) return <SessionHint />;
+  const session = q.data?.sessions.find((s) => s.runId === run);
+  if (session) return <SessionDetail filter={filter} session={session} />;
+  if (q.data) return <SessionMissing filter={filter} />;
+  return <Page>{q.isError ? <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the session" /> : <Loading what="the session" />}</Page>;
+}
 
-  if (runs.isPending) return <ListSkeleton label="Loading the activity" />;
-  if (!all) return <LoadFailed error={runs.error} onRetry={() => void runs.refetch()} retrying={runs.isFetching} what="the activity" />;
-  if (all.length === 0) return <EmptyState title="Nothing yet">It fills in after you ask the agent to process mail: each time it works, one line appears here.</EmptyState>;
-  const chips = RUN_FILTERS.map((f) => ({ ...f, count: f.value === "all" ? all.length : all.filter((r) => r.status === f.value).length }));
-  return (
-    <>
-      {runs.isError && <StaleNote error={runs.error} onRetry={() => void runs.refetch()} retrying={runs.isFetching} />}
-      <FilterChips chips={chips} label="Filter activity" onChange={setFilter} value={filter} />
-      {shown.length === 0 ? (
-        <EmptyState action={<ActionButton onClick={() => setFilter("all")} size="s" variant="secondary">Show all</ActionButton>} title="Nothing here">
-          Nothing matches this filter.
-        </EmptyState>
-      ) : (
-        <ul aria-label="Activity" className="divide-y">
-          {shown.map((r) => (
-            <RunItem key={r.id} onToggle={(o) => setRun(o ? r.id : null)} open={openId === r.id} project={project} r={r} />
-          ))}
-        </ul>
-      )}
-    </>
-  );
+/**
+ * What the agent did in one project: the sessions as a table (newest first) and, from 1024px, the opened one beside it as
+ * sentences. Below 1024px the session is its own screen. The view and the opened session live in the address (`?filter=`, `?run=`).
+ */
+export function ActivityPage(props: Props) {
+  // The table is the subject here and the detail the aside, so the list takes two thirds (`wide`).
+  return <ListDetail detail={<Detail {...props} />} detailLabel="Session" list={<Sessions {...props} />} listLabel="Sessions" showDetail={props.run !== null} wide />;
 }

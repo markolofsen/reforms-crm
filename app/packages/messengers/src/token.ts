@@ -1,11 +1,11 @@
 import { readFile } from "node:fs/promises";
 import { isTelegramToken } from "@hub/connections";
-import { secretsDir } from "@hub/mail/imap";
+import { hubPaths } from "@hub/config/paths";
 import { join } from "node:path";
 import { MessengersError } from "./errors";
 
 /** `<home>/state/secrets/telegram-bot-token` (git-ignored; `HUB_CONFIG_DIR` overrides). */
-export const botTokenFile = (env: NodeJS.ProcessEnv = process.env): string => join(secretsDir(env), "telegram-bot-token");
+export const botTokenFile = (env: NodeJS.ProcessEnv = process.env): string => join(hubPaths({ env }).secrets, "telegram-bot-token");
 
 /**
  * The messengers bot token: a NEW bot made for this app in BotFather. It must never be the token of a bot that already has a webhook:

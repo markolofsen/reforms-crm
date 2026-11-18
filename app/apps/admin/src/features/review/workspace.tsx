@@ -4,14 +4,14 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import { ActionButton } from "@hub/ui/product/action-button";
 import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
 import { toastManager } from "@hub/ui/toast";
-import { SplitView } from "@/features/shell/split-view";
+import { ListDetail } from "@hub/ui/product/list-detail";
 import { shortcutsOn } from "@/hooks/use-hotkeys";
 import { refreshData, sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
 import { openReplyAll } from "@/lib/mail";
 import { DraftCard } from "./card/draft-card";
 import { useToggleChecked } from "./mail/use-toggle-checked";
-import { ListHeader, QueueLine, SelectionBar } from "./list-controls";
+import { ListHeader, type View } from "./list-controls";
 import { ListRow } from "./list-row";
 import { focusRow, useReviewKeys } from "./review-keys";
 import { isClosed, openResults, type ReviewDraft, type ReviewSource } from "./source";
@@ -23,22 +23,20 @@ const NOTICE_MS = 8000;
 
 type Props = {
   source: ReviewSource;
-  /** `whenAny`: the view is offered only while it holds something, or is the one open (Follow-ups, P47). */
-  views: { value: string; label: string; whenAny?: boolean }[];
+  /** The View menu: every view with its count (the host knows the counts the list does not), then the batches. */
+  views: (counts: Partial<Record<string, number>>) => View[];
   onView: (value: string) => void;
   /** The search text and its setter: in the address. The host sends it to the server through its source. */
   search: [string, (value: string) => void];
   /** The open draft: in the address (`/drafts/42`). */
   selection: { id: number | null; onChange: (id: number | null) => void };
-  /** Something other than a draft in the pane (the batch builder): it takes the pane, and Back closes it. */
-  pane?: { node: ReactNode; onClose: () => void };
   /** Shown when the list is empty (the host knows its own words). */
   empty: (filtered: boolean) => ReactNode;
-  /** The pane when no draft is open and the host has something better than "Pick a draft" (a batch waiting for the agent, state 16). */
-  idle?: ReactNode;
-  /** Above the views, scrolling with the list: a phone's project switcher, the batch menu and its progress, the inbox. */
-  listTop?: ReactNode;
-  /** Under the rows, before the paging line: the clients who are not answered by email. */
+  /** Under the header line, scrolling with the list: the project's one status line (P48 W3). */
+  status?: ReactNode;
+  /** A view whose rows are not drafts (Not by email): shown instead of the draft rows. */
+  body?: ReactNode;
+  /** Under the rows: the enrolments of the Follow-ups view. */
   listBottom?: ReactNode;
   mobile: boolean;
   /** The label of the Back control on a phone, and the names of the two panes. */
@@ -81,7 +79,7 @@ function LoadedFooter({ loaded, total, more, fetching, onMore }: { loaded: numbe
  * Drafts and a batch share this: the list column (views, search, rows, Select) and the pane with the open card.
  * It never sends mail by itself: Send is the card's, and a batch draft opens a compose window you send from.
  */
-export function ReviewWorkspace({ source, views, onView, search, selection, pane, empty, idle, listTop, listBottom, mobile, noun }: Props) {
+export function ReviewWorkspace({ source, views, onView, search, selection, empty, status, body, listBottom, mobile, noun }: Props) {
   const qc = useQueryClient();
   const now = useClock()();
   const actions = useReviewActions(source.project);
@@ -93,7 +91,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, pane
 
   // Desktop opens the first draft by default (focus follows); a phone opens nothing until a row is chosen.
   const present = selection.id !== null && rows.some((r) => r.id === selection.id);
-  const current = pane ? null : (rows.find((r) => r.id === selection.id) ?? (mobile ? null : (rows[0] ?? null)));
+  const current = body ? null : (rows.find((r) => r.id === selection.id) ?? (mobile ? null : (rows[0] ?? null)));
 
   const { setNotice } = actions;
   const say = useCallback((text: string) => setNotice({ text, kind: "info" }), [setNotice]);
@@ -156,7 +154,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, pane
     selectAll: sel.all,
     selected: sel.picked.length,
     clearSelection: sel.clear,
-    back: mobile && pane ? pane.onClose : mobile && present ? () => onSelect(null) : null,
+    back: mobile && present ? () => onSelect(null) : null,
     focusSearch: () => searchRef.current?.focus(),
     say,
   });
@@ -170,39 +168,37 @@ export function ReviewWorkspace({ source, views, onView, search, selection, pane
   };
 
   const filtered = source.filter !== "all";
-  const position = current ? rows.findIndex((r) => r.id === current.id) + 1 : 0;
-  const count = (view: string) => source.countOf(counts, view) ?? 0;
-  const list = (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-pane="list">
-      {listTop}
-      <ListHeader onSearch={setQ} onSelecting={sel.setMode} onView={onView} search={q} searchRef={searchRef} selecting={sel.selecting} view={source.filter} views={views.flatMap(({ whenAny, ...v }) => { const count = source.countOf(counts, v.value); return !whenAny || v.value === source.filter || (count ?? 0) > 0 ? [{ ...v, count }] : []; })} />
-      <QueueLine done={count("done")} left={count("ready")} position={position > 0 ? position : null} sent={count("sent")} total={total} />
-      {sel.picked.length > 0 && <SelectionBar busy={actions.pending} count={sel.picked.length} onClear={sel.clear} onHold={() => bulk("hold", "Held")} onSkip={() => bulk("skipped", "Skipped")} />}
-      {query.isPending ? (
-        <ListSkeleton label="Loading drafts" />
-      ) : query.isError && rows.length === 0 ? (
+  const header = { count: sel.picked.length, busy: actions.pending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped") };
+  const rowsView = query.isPending ? (
+    <ListSkeleton label="Loading drafts" />
+  ) : query.isError && rows.length === 0 ? (
+    <div className="p-3">
+      <LoadFailed error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} what="drafts" />
+    </div>
+  ) : (
+    <>
+      {query.isError && (
         <div className="p-3">
-          <LoadFailed error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} what="drafts" />
+          <StaleNote error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
         </div>
+      )}
+      {rows.length === 0 ? (
+        <EmptyState action={filtered && !q ? <ActionButton onClick={() => onView("all")} size="s" variant="secondary">Show all</ActionButton> : undefined} title={q ? "Nothing matches" : filtered ? "Nothing here" : "Nothing to review"}>{q ? "No draft in this view matches the search." : empty(filtered)}</EmptyState>
       ) : (
-        <>
-          {query.isError && (
-            <div className="p-3">
-              <StaleNote error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
-            </div>
-          )}
-          {rows.length === 0 ? (
-            <EmptyState action={filtered && !q ? <ActionButton onClick={() => onView("all")} size="s" variant="secondary">Show all</ActionButton> : undefined} title={q ? "Nothing matches" : filtered ? "Nothing here" : "Nothing to review"}>{q ? "No draft in this view matches the search." : empty(filtered)}</EmptyState>
-          ) : (
-            <ul aria-label={noun.list} className="flex flex-col">
-              {rows.map((d) => (
-                <ListRow d={d} key={d.id} now={now} onOpen={() => go(d.id)} onToggle={() => sel.toggle(d.id)} open={d.id === current?.id} selected={sel.has(d.id)} selecting={sel.selecting} />
-              ))}
-            </ul>
-          )}
-        </>
+        <ul aria-label={noun.list} className="flex flex-col">
+          {rows.map((d) => (
+            <ListRow d={d} key={d.id} now={now} onOpen={() => go(d.id)} onToggle={() => sel.toggle(d.id)} open={d.id === current?.id} selected={sel.has(d.id)} selecting={sel.selecting} />
+          ))}
+        </ul>
       )}
       <LoadedFooter fetching={query.isFetchingNextPage} loaded={rows.length} more={query.hasNextPage} onMore={() => void query.fetchNextPage()} total={total} />
+    </>
+  );
+  const list = (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-pane="list">
+      <ListHeader onSearch={setQ} onSelecting={sel.setMode} onView={onView} search={q} searchRef={searchRef} selecting={sel.selecting} selection={header} view={source.filter} views={views(counts)} />
+      {status}
+      {body ?? rowsView}
       {listBottom}
     </div>
   );
@@ -211,21 +207,19 @@ export function ReviewWorkspace({ source, views, onView, search, selection, pane
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-pane="detail">
       {mobile && (
         <div className="border-b p-2">
-          <ActionButton onClick={() => (pane ? pane.onClose() : selection.onChange(null))} size="m" variant="quiet">
+          <ActionButton onClick={() => selection.onChange(null)} size="m" variant="quiet">
             <ArrowLeftIcon aria-hidden="true" />
             {noun.back}
           </ActionButton>
         </div>
       )}
-      <Notices gone={!pane && selection.id !== null && !present && !query.isFetching && !query.hasNextPage ? selection.id : null} notice={actions.notice} />
-      {pane ? (
-        pane.node
-      ) : current ? (
+      <Notices gone={!body && selection.id !== null && !present && !query.isFetching && !query.hasNextPage ? selection.id : null} notice={actions.notice} />
+      {current ? (
         <DraftCard actions={actions} advance={() => advance(current)} d={current} key={current.id} now={now} onReplyAll={(x) => void replyAll(x)} onThread={() => setThread((t) => !t)} project={source.project} say={say} thread={thread} />
-      ) : idle ?? (
-        <EmptyState title="Nothing to open">{query.isPending ? "Loading." : "Pick a draft from the list."}</EmptyState>
+      ) : (
+        <EmptyState title="Nothing to open">{body ? "This view lists clients, not drafts." : query.isPending ? "Loading." : "Pick a draft from the list."}</EmptyState>
       )}
     </div>
   );
-  return <SplitView detail={detail} detailLabel="Draft" list={list} listLabel={noun.list} mobile={mobile} showDetail={present || pane !== undefined} />;
+  return <ListDetail detail={detail} detailLabel="Draft" list={list} listLabel={noun.list} showDetail={present} />;
 }

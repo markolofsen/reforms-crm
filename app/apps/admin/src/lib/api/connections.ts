@@ -2,7 +2,10 @@ import { connectionDto, connectionsDto } from "@hub/contract/connections";
 import type { SetSecretBody } from "@hub/contract/requests";
 import { read } from "./client";
 
-/** The Connections panel: one GET of files, settings and cached test results (no network), and one read-only test per connection, a write-only key and a remove (decision 0020). */
+/**
+ * The Connections page: one GET of files, settings, cached test results and Apple Mail's account list (no network), and for
+ * the Notion token and the Telegram bot one read-only test, a write-only key and a remove (decisions 0020, 0026: mail has no key).
+ */
 export const connectionsApi = {
   list: () => read(connectionsDto, { method: "GET", path: "/api/connections" }),
   test: (id: string) => read(connectionDto, { method: "POST", path: `/api/connections/${encodeURIComponent(id)}/test` }),

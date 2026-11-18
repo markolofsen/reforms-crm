@@ -1,8 +1,8 @@
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CORE_ROOT, HubHomeMissingError, hubPaths, pathsAt, projectFolder } from "../src/paths";
+import { CORE_ROOT, DEFAULT_BRAND_NAME, HubHomeMissingError, hubPaths, instanceBrand, pathsAt, projectFolder } from "../src/paths";
 
 const empty = {} as NodeJS.ProcessEnv;
 const instanceDir = () => mkdtempSync(join(tmpdir(), "hub-home-"));
@@ -66,5 +66,23 @@ describe("pathsAt and projectFolder", () => {
   it("projectFolder joins the slug onto the projects folder", () => {
     const home = instanceDir();
     expect(projectFolder("acme", { env: { HUB_HOME: home } })).toBe(join(home, "projects", "acme"));
+  });
+});
+
+describe("instanceBrand (P48 W0)", () => {
+  const withConfig = (cfg: unknown) => {
+    const home = instanceDir();
+    mkdirSync(join(home, "config"), { recursive: true });
+    if (cfg !== undefined) writeFileSync(join(home, "config", "config.json"), typeof cfg === "string" ? cfg : JSON.stringify(cfg));
+    return pathsAt(home, empty);
+  };
+  it("no name is \"Hub\" and no logo: a missing file, a broken file, an empty or a non-string name", () => {
+    for (const cfg of [undefined, "{not json", {}, { name: "  " }, { name: 7 }]) expect(instanceBrand(withConfig(cfg))).toEqual({ name: DEFAULT_BRAND_NAME, logo: null, logoFound: false });
+  });
+  it("reads the name, and a relative logo from the config folder; a logo that is not there is said, not fatal", () => {
+    const p = withConfig({ name: " Reforms SaaS ", logo: "logo.svg" });
+    expect(instanceBrand(p)).toEqual({ name: "Reforms SaaS", logo: join(p.configDir, "logo.svg"), logoFound: false });
+    writeFileSync(join(p.configDir, "logo.svg"), "<svg/>");
+    expect(instanceBrand(p).logoFound).toBe(true);
   });
 });

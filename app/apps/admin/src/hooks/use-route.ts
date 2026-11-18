@@ -13,6 +13,3 @@ export function useRoute(): Resolved {
   const search = useSearchParams().toString();
   return useMemo(() => resolveRoute(path, search), [path, search]);
 }
-
-/** The project the address names (null until the guard has written it). */
-export const useProject = (): string | null => useRoute().project;

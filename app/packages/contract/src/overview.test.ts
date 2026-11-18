@@ -1,99 +1,68 @@
 import { describe, expect, it } from "vitest";
-import { API_VERSION } from "./health";
-import { ATTENTION_KINDS, attentionItem, FRESHNESS, liveBlock, mailboxDto, notionCount, notionDto, overviewDto, projectCardDto, readBlock, refreshRequest, refreshResponse, SEVERITIES } from "./overview";
-import { z } from "zod";
+import { activityDto, activityRowDto, activitySessionDto } from "./activity";
+import { connectionsDto, mailAccountDto } from "./connections";
+import { API_VERSION, healthDto } from "./health";
+import { instanceDto } from "./instance";
+import { overviewDto, projectRowDto, STATUS_KINDS, STATUS_LEVELS, statusDto } from "./overview";
 
-const n = z.number().int();
 const asOf = "2026-11-15T10:00:00.000Z";
+const health = { ok: true, apiVersion: API_VERSION, messengers: { state: "off", failures: 0, stored: 0 }, sent: { state: "off", projects: [], failures: 0, marked: 0 }, mailer: "fake" };
+const status = { level: "attention", kind: "project-draft", sentence: "Test mode: sends go to the test list only", next: "project", numbers: { owed: 1, lastTriageAt: asOf } };
+const row = { slug: "alpha", name: "Alpha", projectStatus: "draft", archived: false, toReview: 1, sentToday: 0, status };
 
-describe("freshness blocks", () => {
-  it("accept one fixture of every state", () => {
-    const b = readBlock(n);
-    for (const x of [
-      { state: "fresh", asOf, value: 3 },
-      { state: "stale", asOf, value: 3 },
-      { state: "never" },
-      { state: "refreshing" },
-      { state: "refreshing", asOf, value: 3 },
-      { state: "error", code: "login-refused", message: "Mail read failed", fix: "Check the login file", asOf, value: 3 },
-      { state: "error", code: "timeout", message: "No answer in 10 s", fix: "Retry" },
-      { state: "off", message: "Not recorded yet" },
-    ])
-      expect(b.safeParse(x).success, JSON.stringify(x)).toBe(true);
-    expect(FRESHNESS).toEqual(["fresh", "stale", "never", "refreshing", "error", "off"]);
+describe("overview v5 (P48)", () => {
+  it("accepts a whole overview, and a stray field anywhere is refused", () => {
+    const o = { serverTime: asOf, timeZone: "UTC", dataVersion: 1, sentence: "1 project needs you", projects: [row], system: health };
+    expect(overviewDto.safeParse(o).success).toBe(true);
+    expect(overviewDto.safeParse({ ...o, verdict: { level: "clear" } }).success).toBe(false);
+    expect(projectRowDto.safeParse({ ...row, clientNames: ["Ana"] }).success).toBe(false);
+    expect(statusDto.safeParse({ ...status, numbers: { ...status.numbers, toReview: 1 } }).success).toBe(false);
   });
 
-  it("a number without its stamp is refused, and `never` carries no number", () => {
-    const b = readBlock(n);
-    expect(b.safeParse({ state: "fresh", value: 3 }).success).toBe(false);
-    expect(b.safeParse({ state: "stale", value: 3 }).success).toBe(false);
-    expect(b.safeParse({ state: "never", value: 0 }).success).toBe(false);
-    expect(b.safeParse({ state: "error", code: "failed", message: "x", asOf, value: 3 }).success).toBe(false); // no fix line
-    expect(b.safeParse({ state: "fresh", asOf, value: 3, name: "Ana" }).success).toBe(false);
+  it("the key lists hold counts, states, stamps and our own names only", () => {
+    expect(Object.keys(overviewDto.shape).sort()).toEqual(["dataVersion", "projects", "sentence", "serverTime", "system", "timeZone"]);
+    expect(Object.keys(projectRowDto.shape).sort()).toEqual(["archived", "name", "projectStatus", "sentToday", "slug", "status", "toReview"]);
+    expect(Object.keys(statusDto.shape).sort()).toEqual(["kind", "level", "next", "numbers", "sentence"]);
   });
 
-  it("Notion has no `off` state: a missing token is an error with a fix line", () => {
-    const b = liveBlock(notionCount);
-    expect(b.safeParse({ state: "off", message: "Not connected" }).success).toBe(false);
-    expect(b.safeParse({ state: "error", code: "token-missing", message: "The Notion token is missing", fix: "Put the token in state/secrets/notion-token (chmod 600), then run the doctor" }).success).toBe(true);
-    expect(b.safeParse({ state: "error", code: "mystery", message: "x", fix: "y" }).success).toBe(false);
+  it("the status vocabulary is closed and has no mail-login kind", () => {
+    expect(STATUS_LEVELS).toEqual(["clear", "attention", "blocked"]);
+    expect(new Set(STATUS_KINDS).size).toBe(STATUS_KINDS.length);
+    for (const gone of ["mail-off", "mail-error", "stale-read", "notion-token", "notion-error"]) expect(STATUS_KINDS).not.toContain(gone);
+    expect(statusDto.safeParse({ ...status, kind: "mail-off" }).success).toBe(false);
+    expect(statusDto.safeParse({ ...status, next: "drafts" }).success).toBe(false);
+    expect(statusDto.safeParse({ ...status, kind: "clear", level: "clear", next: null }).success).toBe(true);
+  });
+
+  it("health has no mail login block", () => {
+    expect(healthDto.safeParse(health).success).toBe(true);
+    expect(Object.keys(healthDto.shape)).not.toContain("mail");
   });
 });
 
-const card = {
-  slug: "alpha",
-  name: "Alpha",
-  status: "active",
-  kind: "generic",
-  archived: false,
-  lastTriageAt: null,
-  owe: { state: "off", message: "Not recorded yet" },
-  drafts: { ready: 1, hold: 0, done: 0, skipped: 0, sent: 0 },
-  injectionHeld: 0,
-  sends: { today: 0, since: asOf, failed24h: 0, stuck: 0, stopped: false, auto: { mode: "draft", cap: 5, used24h: 0 } },
-  recipients: "test",
-  mailboxes: [{ account: "mail-a", shared: false, newSinceTriage: { state: "never" } }],
-  notion: { clients: { dataSourceId: "ds1", count: { state: "fresh", asOf, value: { count: 12, capped: false } } }, leads: null },
-  setupQuestion: false,
-};
-
-describe("overview DTOs", () => {
-  it("accepts a whole overview", () => {
-    const health = { ok: true, apiVersion: API_VERSION, messengers: { state: "off", failures: 0, stored: 0 }, mail: { state: "off", accounts: 0, problems: [] }, sent: { state: "off", projects: [], failures: 0, marked: 0 }, mailer: "fake" };
-    const o = { serverTime: asOf, timeZone: "UTC", dataVersion: 1, oldestAsOf: asOf, verdict: { level: "clear", headline: "All clear" }, attention: [], projects: [card], system: health };
-    expect(overviewDto.safeParse(o).success).toBe(true);
-    expect(overviewDto.safeParse({ ...o, extra: 1 }).success).toBe(false);
+describe("activity (P48 W5)", () => {
+  const r = { id: 1, runId: 2, at: asOf, client: { id: 3, name: "Mark Effect" }, who: "Mark Effect", outcome: "skipped", why: "already drafted", draftId: null };
+  it("one row per decision, with the outcome and the reason in the row", () => {
+    expect(activityRowDto.safeParse(r).success).toBe(true);
+    expect(activityRowDto.safeParse({ ...r, outcome: "maybe" }).success).toBe(false);
+    expect(activityRowDto.safeParse({ ...r, body: "Hi" }).success).toBe(false);
   });
-
-  it("has no field that can carry client text: a stray key anywhere is refused", () => {
-    expect(projectCardDto.safeParse(card).success).toBe(true);
-    expect(projectCardDto.safeParse({ ...card, clientNames: ["Ana"] }).success).toBe(false);
-    expect(projectCardDto.safeParse({ ...card, mailboxes: [{ ...card.mailboxes[0], subject: "Hi" }] }).success).toBe(false);
-    expect(mailboxDto.safeParse({ ...card.mailboxes[0], from: "client@example.com" }).success).toBe(false);
-    expect(notionDto.safeParse({ clients: null, leads: null, deals: 4 }).success).toBe(false);
-    expect(projectCardDto.safeParse({ ...card, notion: { clients: { dataSourceId: "ds1", count: { state: "fresh", asOf, value: { count: 1, capped: false, title: "Ana" } } }, leads: null } }).success).toBe(false);
+  it("unknown run numbers are null, never 0", () => {
+    const s = { runId: 2, startedAt: asOf, finishedAt: null, skill: "triage-mail", trigger: "owner", status: "ok", model: null, tokens: null, costUsd: null, durationS: null, rows: [r] };
+    expect(activitySessionDto.safeParse(s).success).toBe(true);
+    expect(activityDto.safeParse({ sessions: [s], counts: { all: 1, ok: 1, needs_human: 0, failed: 0 } }).success).toBe(true);
   });
+});
 
-  it("the key lists of the schemas hold only counts, states, stamps and names of ours", () => {
-    expect(Object.keys(projectCardDto.shape).sort()).toEqual(["archived", "drafts", "injectionHeld", "kind", "lastTriageAt", "mailboxes", "name", "notion", "owe", "recipients", "sends", "setupQuestion", "slug", "status"]);
-    expect(Object.keys(mailboxDto.shape).sort()).toEqual(["account", "newSinceTriage", "shared"]);
-    expect(Object.keys(attentionItem.shape).sort()).toEqual(["count", "filter", "focus", "kind", "project", "sentence", "severity"]);
-    expect(Object.keys(overviewDto.shape).sort()).toEqual(["attention", "dataVersion", "oldestAsOf", "projects", "serverTime", "system", "timeZone", "verdict"]);
+describe("connections and instance (P48 W0)", () => {
+  it("a mail account is read-only: account, found in Mail (or unknown), used by", () => {
+    expect(mailAccountDto.safeParse({ account: "hello@reforms.ai", foundInMail: null, usedBy: ["saas-support"] }).success).toBe(true);
+    expect(mailAccountDto.safeParse({ account: "a", foundInMail: true, usedBy: [], password: "x" }).success).toBe(false);
+    expect(connectionsDto.safeParse({ instance: "saas", connections: [{ id: "mail:a", kind: "mail", label: "x", secret: { state: "stored" }, identity: null, usedBy: [], can: [], check: { state: "never" } }], mail: [] }).success).toBe(false);
   });
-
-  it("the attention vocabulary is closed", () => {
-    expect(attentionItem.safeParse({ kind: "owe-reply", severity: "needs-owner", project: "alpha", count: 2, sentence: "alpha: 2 clients wait for a reply", focus: "drafts" }).success).toBe(true);
-    expect(attentionItem.safeParse({ kind: "made-up", severity: "watch", project: null, sentence: "x", focus: "project" }).success).toBe(false);
-    expect(attentionItem.safeParse({ kind: "owe-reply", severity: "urgent", project: null, sentence: "x", focus: "project" }).success).toBe(false);
-    expect(new Set(ATTENTION_KINDS).size).toBe(ATTENTION_KINDS.length);
-    expect(SEVERITIES).toEqual(["blocker", "needs-owner", "watch"]);
-  });
-
-  it("a refresh names a project and at least one known source", () => {
-    expect(refreshRequest.safeParse({ project: "alpha", sources: ["mail", "notion"] }).success).toBe(true);
-    expect(refreshRequest.safeParse({ project: "alpha", sources: [] }).success).toBe(false);
-    expect(refreshRequest.safeParse({ project: "alpha", sources: ["sms"] }).success).toBe(false);
-    expect(refreshRequest.safeParse({ project: "alpha", sources: ["mail"], force: true }).success).toBe(false);
-    expect(refreshResponse.safeParse({ outcomes: { mail: "read" }, project: card, attention: [], verdict: { level: "clear", headline: "All clear" }, oldestAsOf: null }).success).toBe(true);
+  it("the brand has a name, and says only whether a logo exists", () => {
+    expect(instanceDto.safeParse({ name: "Reforms SaaS", hasLogo: false }).success).toBe(true);
+    expect(instanceDto.safeParse({ name: "", hasLogo: false }).success).toBe(false);
+    expect(instanceDto.safeParse({ name: "x", hasLogo: true, logo: "/Users/x/logo.png" }).success).toBe(false);
   });
 });

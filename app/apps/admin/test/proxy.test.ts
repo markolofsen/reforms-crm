@@ -34,23 +34,8 @@ describe("proxy (Host and Origin guard)", () => {
     expect(passes(call("127.0.0.1:5173", { method: "GET", origin: "http://evil.test" }))).toBe(true);
   });
 
-  it("puts the remembered project into a bare project-scoped address, first, and keeps the rest", () => {
+  it("adds nothing to an address (P48: the project is in the path; the shell frame writes the canonical address)", () => {
     const go = (path: string, cookie: string | undefined) => call("127.0.0.1:5173", { path, cookie });
-    const to = (res: Response) => new URL(res.headers.get("location") ?? "http://none").pathname + new URL(res.headers.get("location") ?? "http://none").search;
-    expect(to(go("/drafts", "hub_project=lisbon"))).toBe("/drafts?project=lisbon");
-    expect(go("/drafts", "hub_project=lisbon").status).toBe(307);
-    expect(to(go("/drafts/42?filter=hold", "hub_project=demo%20shop"))).toBe("/drafts/42?project=demo+shop&filter=hold");
-    expect(to(go("/log", "hub_project=lisbon"))).toBe("/log?project=lisbon");
-  });
-  it("leaves an addressed project, Overview, the entry, the API and a missing cookie alone", () => {
-    const go = (path: string, cookie: string | undefined) => call("127.0.0.1:5173", { path, cookie });
-    expect(passes(go("/drafts?project=other", "hub_project=lisbon"))).toBe(true);
-    expect(passes(go("/overview", "hub_project=lisbon"))).toBe(true);
-    expect(passes(go("/connections", "hub_project=lisbon"))).toBe(true);
-    expect(passes(go("/", "hub_project=lisbon"))).toBe(true);
-    expect(passes(go("/api/drafts", "hub_project=lisbon"))).toBe(true);
-    expect(passes(go("/drafts", undefined))).toBe(true);
-    expect(passes(go("/drafts", "hub_project="))).toBe(true);
-    expect(passes(call("127.0.0.1:5173", { path: "/drafts", cookie: "hub_project=lisbon", method: "POST" }))).toBe(true);
+    for (const path of ["/drafts", "/drafts/42?filter=hold", "/lisbon/drafts", "/drafts?project=lisbon", "/overview", "/"]) expect(passes(go(path, "hub_project=lisbon")), path).toBe(true);
   });
 });

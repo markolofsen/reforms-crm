@@ -19,12 +19,6 @@ async function openRead(page: Page, name: string) {
   return card;
 }
 
-test("the sidebar says the mailer is a test mailer", async ({ page }) => {
-  await page.goto("/drafts?filter=all");
-  await expect(page.getByRole("note").getByText("Test mode")).toBeVisible();
-  await expect(page.getByText("Nothing is really sent.")).toBeVisible();
-});
-
 test("Send needs the checks read, shows the exact mail to confirm, can be cancelled, then sends once", async ({ page }) => {
   await page.goto("/drafts?filter=all");
   const card = await openRow(page, "Sofia Teste");
@@ -49,7 +43,8 @@ test("Send needs the checks read, shows the exact mail to confirm, can be cancel
   await card.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(confirm).toHaveCount(0);
   await page.goto("/project");
-  await expect(page.getByText("Nothing sent yet")).toBeVisible();
+  await expect(page.getByTestId("project-status")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Sends" })).toHaveCount(0); // no send, no Sends table
 
   // now really (to the fake) send
   const again = await openRead(page, "Sofia Teste");
@@ -59,18 +54,19 @@ test("Send needs the checks read, shows the exact mail to confirm, can be cancel
 
   // the history shows the row with its full text
   await page.goto("/project");
-  const row = page.locator('ul[aria-label="Sends"] > li').first();
-  await expect(row.getByText("sent", { exact: true })).toBeVisible();
-  await expect(row.getByText("Re: Any news on the offer?")).toBeVisible();
-  await row.getByRole("button", { name: /Show text, send/ }).click();
-  await expect(row.locator("pre")).toContainText("Thank you for your message");
+  const row = page.getByRole("table", { name: "Sends" }).locator("tr[data-send]").first();
+  await expect(row).toContainText("By hand");
+  await expect(row).toContainText("sofia@example.com");
+  // The full text lives in the draft's card: the subject links there.
+  await expect(row.getByRole("link", { name: "Re: Any news on the offer?" })).toBeVisible();
 });
 
 test("Stop all refuses a send with its reason, and Resume lifts it", async ({ page }) => {
   await page.goto("/project");
   await page.getByRole("button", { name: "Stop sending" }).click();
   await page.getByRole("group", { name: "Stop sending" }).getByRole("button", { name: "Stop sending" }).click();
-  await expect(page.getByText("Sending is stopped for lisbon-realty")).toBeVisible();
+  await expect(page.getByTestId("project-status")).toHaveText("Sending is stopped");
+  await expect(page.getByRole("button", { name: "Resume lisbon-realty" })).toBeVisible();
 
   const card = await openRead(page, "Marta Ficticia");
   await sendButton(card).click();
@@ -93,21 +89,18 @@ test("a draft recorded as injection_suspected shows the flag and a class, and of
   await page.goto("/drafts?project=demo-shop&filter=all");
   const row = cards(page).filter({ hasText: "Mallory Suspect" });
   await expect(row.getByText("Suspicious mail")).toBeVisible();
-  await expect(row.getByText(/^client ·/)).toBeVisible();
+  await expect(row.getByText("client", { exact: true })).toBeVisible();
   await row.getByRole("button").first().click();
   const card = cardOf(page, "Mallory Suspect");
   await expect(card.getByText(/Suspicious mail\./)).toBeVisible();
   await expect(sendButton(card)).toHaveCount(0);
 });
 
-test("the Project screen shows the health checks of the project", async ({ page }) => {
+test("the Project screen shows the health checks of the project in one line, open on demand", async ({ page }) => {
   await page.goto("/project");
-  // What is wrong is on screen; the checks that pass are one step away (P44 S1, rubric 2).
-  await expect(page.getByRole("list", { name: "Failed checks" }).getByText("notion databases readable")).toBeVisible();
-  await expect(page.getByText("project.md parses")).toHaveCount(0);
-  await page.getByRole("button", { name: /^Show the other/ }).click();
-  const list = page.getByRole("list", { name: "Other checks" });
+  const health = page.getByRole("button", { name: /^Health/ });
+  await expect(health).toContainText(/\d+ of \d+ checks pass/);
+  const list = page.getByRole("list", { name: "Health checks" });
+  if (!(await list.isVisible())) await health.click();
   await expect(list.getByText("project.md parses")).toBeVisible();
-  await expect(list.getByText("send settings")).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: /\d+ pass, \d+ fail, \d+ skipped/ })).toBeVisible();
 });

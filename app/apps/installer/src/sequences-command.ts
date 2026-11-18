@@ -7,8 +7,9 @@ import { readFileSync } from "node:fs";
 import { z } from "zod";
 
 // `hub sequences ...` (P47, `@docs/core/23-sequences.md`). Reads and the moves that REDUCE mail (stop, delay, judge) are for
-// anyone, the agent included. The moves that start or restart follow-ups (enrol, pause, resume) are the owner's: the P17
-// deny rules and the guard refuse them in an agent session, and they refuse themselves when they see one (third layer).
+// anyone, the agent included. `enrol` in a session is the agent acting on the owner's phrase (D1, P48): it needs
+// `--phrase "<his words>"`, which is stored with the enrolment. `--not-now`, `pause` and `resume` stay the owner's: the
+// P17 deny rules and the guard refuse them in a session, and they refuse themselves when they see one (third layer).
 
 export interface SequencesDeps {
   projectsDir: string;
@@ -19,7 +20,8 @@ export interface SequencesDeps {
 }
 type Target = { id?: string; client?: string };
 
-const OWNER_ONLY = "is the owner's step: run it in your own terminal, or use Enrol and the Follow-ups block in the admin's Drafts";
+const OWNER_ONLY = "is the owner's step: run it in his own terminal";
+const NEEDS_PHRASE = `hub sequences enrol in a session needs --phrase "<the owner's words that asked for it>": enrol only when he said so`;
 /** An agent session: Claude Code marks its shells `CLAUDECODE=1`; `hub agent` binds them with `HUB_PROJECT`. */
 export const inAgentSession = (env: NodeJS.ProcessEnv): boolean => env.CLAUDECODE === "1" || Boolean(env.HUB_PROJECT?.trim());
 
@@ -153,10 +155,18 @@ const refuseAgent = (d: SequencesDeps, what: string): number | null => {
   return 2;
 };
 
-/** The owner enrols one client (`--not-now`: decline this silence). Owner only. */
-export async function runSequencesEnrol(slug: string, o: { client: string; sequence?: string; notNow?: boolean }, d: SequencesDeps): Promise<number> {
-  const refused = refuseAgent(d, "enrol");
-  if (refused !== null) return refused;
+/**
+ * Enrols one client. In a session (D1): only with `--phrase`, the owner's words, recorded with `by: agent`; `--not-now` is
+ * refused there. In the owner's terminal `--phrase` is optional and `by` is `owner` (`--not-now`: decline this silence).
+ */
+export async function runSequencesEnrol(slug: string, o: { client: string; sequence?: string; notNow?: boolean; phrase?: string }, d: SequencesDeps): Promise<number> {
+  const session = inAgentSession(d.env ?? process.env);
+  const phrase = o.phrase?.trim() || null;
+  if (session && o.notNow) return refuseAgent(d, "enrol --not-now") ?? 2;
+  if (session && !phrase) {
+    (d.out ?? console.log)(json({ ok: false, error: NEEDS_PHRASE }));
+    return 2;
+  }
   const all = loadSequences(folderOf(d, slug));
   return move(d, async (r) => {
     const c = await r.clients.idByEmail(slug, o.client.trim().toLowerCase());
@@ -165,7 +175,7 @@ export async function runSequencesEnrol(slug: string, o: { client: string; seque
     const def = o.sequence ? findSequence(all, o.sequence) : pickSequence(all, { mailClass: last?.mailClass ?? null, notionKind: last?.notionKind ?? null });
     if (!def) throw new RepoError("not_found", o.sequence ? `no sequence "${o.sequence}" in ${slug}/sequences/` : "no usable sequence fits this client: name one with --sequence");
     if (!isUsable(def)) throw new RepoError("wrong_state", `sequence ${def.id} is not usable: run hub sequences check ${slug}`);
-    const input = { project: slug, clientId: c, sequence: def.id, sequenceHash: def.hash, schedule: scheduleOf(def), by: "owner", ...(d.now ? { now: d.now() } : {}) };
+    const input = { project: slug, clientId: c, sequence: def.id, sequenceHash: def.hash, schedule: scheduleOf(def), by: session ? "agent" : "owner", phrase, ...(d.now ? { now: d.now() } : {}) };
     return brief(o.notNow ? await r.enrollments.notNow(input) : await r.enrollments.enrol(input));
   });
 }
@@ -226,7 +236,7 @@ export async function runSequencesJudge(slug: string, t: Target, stdin: string, 
 
 /** Adds `hub sequences list|check|due|candidates|enrol|stop|delay|pause|resume|judge`. */
 export function registerSequencesCommands(program: Command, deps: () => SequencesDeps): Command {
-  const seq = program.command("sequences").description("Follow-ups (P47): the project's sequence files and its enrollments. enrol, pause and resume are the owner's; stop, delay and judge only ever reduce mail. Nothing here sends.");
+  const seq = program.command("sequences").description("Follow-ups (P47): the project's sequence files and its enrollments. enrol in a session needs the owner's --phrase; --not-now, pause and resume are the owner's; stop, delay and judge only ever reduce mail. Nothing here sends.");
   const done = (code: number) => { process.exitCode = code; };
   const t = (o: { id?: string; client?: string }): Target => ({ ...(o.id !== undefined ? { id: o.id } : {}), ...(o.client !== undefined ? { client: o.client } : {}) });
   seq.command("list").description("The project's sequences, with their status and step count. --json for a session.").argument("<slug>").option("--json", "as JSON")
@@ -237,8 +247,8 @@ export function registerSequencesCommands(program: Command, deps: () => Sequence
     .action(async (slug: string, o: { json?: boolean }) => done(await runSequencesDue(slug, !!o.json, deps())));
   seq.command("candidates").description("Clients the owner might enrol: we wrote last, long enough ago, nothing open. Read only.").argument("<slug>").option("--json", "as JSON")
     .action(async (slug: string, o: { json?: boolean }) => done(await runSequencesCandidates(slug, !!o.json, deps())));
-  seq.command("enrol").alias("enroll").description("OWNER ONLY: enrol one client (--not-now declines this silence). Refused in an agent session.").argument("<slug>").requiredOption("--client <email>", "the client").option("--sequence <id>", "the sequence file id (default: the one that fits)").option("--not-now", "decline: do not offer this client again until we write again")
-    .action(async (slug: string, o: { client: string; sequence?: string; notNow?: boolean }) => done(await runSequencesEnrol(slug, o, deps())));
+  seq.command("enrol").alias("enroll").description("Enrol one client. In an agent session only with --phrase, the owner's words that asked for it (stored with the enrolment); --not-now (decline this silence) is the owner's terminal only.").argument("<slug>").requiredOption("--client <email>", "the client").option("--sequence <id>", "the sequence file id (default: the one that fits)").option("--phrase <words>", "the owner's words that asked for this enrolment (required in a session)").option("--not-now", "OWNER ONLY: decline, do not offer this client again until we write again")
+    .action(async (slug: string, o: { client: string; sequence?: string; notNow?: boolean; phrase?: string }) => done(await runSequencesEnrol(slug, o, deps())));
   seq.command("stop").description("Finish one enrollment (and skip its open step draft). --reason replied|bounced|opted_out|closed|excluded|stopped.").argument("<slug>").option("--id <n>", "the enrollment").option("--client <email>", "or the client").option("--reason <reason>", "why", "stopped")
     .action(async (slug: string, o: { id?: string; client?: string; reason?: string }) => done(await runSequencesStop(slug, { ...t(o), ...(o.reason ? { reason: o.reason } : {}) }, deps())));
   seq.command("delay").description("An out-of-office: the next step waits until the business day after --until. The enrollment stays active.").argument("<slug>").option("--id <n>", "the enrollment").option("--client <email>", "or the client").requiredOption("--until <date>", "the return date")

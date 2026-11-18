@@ -16,7 +16,6 @@ import {
   INBOX_KINDS,
   MARKS,
   NOTION_KINDS,
-  RUN_STATUSES,
   SAFETY_KINDS,
   TONES,
 } from "@hub/config";
@@ -184,13 +183,6 @@ export const batchesDto = z.object({ batches: z.array(batchSummaryDto) });
 export const batchDto = z.object({ batch: batchSummaryDto, drafts: z.array(reviewDraftDto), ...pageOf });
 export type BatchDto = z.infer<typeof batchDto>;
 
-export const audienceDto = z.object({
-  counts: filterCounts(AUDIENCES),
-  eligible: z.number(),
-  clients: z.array(clientDto.extend({ reason: z.enum(EXCLUSION_REASONS).nullable() })),
-});
-export type AudienceDto = z.infer<typeof audienceDto>;
-
 export const safetyRuleDto = z.object({
   kind: z.enum(SAFETY_KINDS),
   enabled: z.boolean(),
@@ -201,22 +193,6 @@ export type SafetyRuleDto = z.infer<typeof safetyRuleDto>;
 export const safetyRulesDto = z.object({ rules: z.array(safetyRuleDto) });
 export const safetyRuleSavedDto = z.object({ rule: safetyRuleDto });
 export type SafetyRulesDto = z.infer<typeof safetyRulesDto>;
-
-export const runDto = z.object({
-  id: z.number(),
-  startedAt: iso,
-  finishedAt: nullableIso,
-  trigger: z.string(),
-  skill: z.string().nullable(),
-  model: z.string().nullable(),
-  status: z.enum(RUN_STATUSES),
-  tokensIn: z.number(),
-  tokensOut: z.number(),
-  costUsd: z.number(),
-  eventCount: z.number(),
-});
-export type RunDto = z.infer<typeof runDto>;
-export const runsDto = z.object({ runs: z.array(runDto) });
 
 export const eventDto = z.object({
   id: z.number(),
@@ -231,34 +207,23 @@ export const eventDto = z.object({
   clientName: z.string().nullable(),
 });
 export type EventDto = z.infer<typeof eventDto>;
-export const eventsDto = z.object({ events: z.array(eventDto) });
 
 /** What the agent and the owner did for one client: a timeline that needs no mail login. */
 export const timelineDto = z.object({ events: z.array(eventDto) });
 
-/** A client's thread: mail read live (header level) merged with stored messenger rows, newest first. */
+/**
+ * A client's messages the hub holds: stored messenger rows (Telegram when P8 is live), newest first. Mail is not read by
+ * the hub (decision 0026): the thread panel offers "Open in Mail" for the full mail thread, and the agent's recorded
+ * decisions are the timeline beside it.
+ */
 const direction = z.enum(["in", "out"]);
-const mailItem = z.object({
-  source: z.literal("mail"),
-  key: z.string(),
-  at: iso,
-  direction,
-  entry: z.object({ id: z.string(), date: iso, direction, from: z.string(), to: z.array(z.string()), cc: z.array(z.string()), subject: z.string(), attachmentCount: z.number() }),
-});
-const messengerItem = z.object({ source: z.literal("messenger"), key: z.string(), at: iso, direction, channel: z.string(), chatId: z.string(), kind: z.string(), text: z.string() });
-export const historyItemDto = z.discriminatedUnion("source", [mailItem, messengerItem]);
+export const historyItemDto = z.object({ source: z.literal("messenger"), key: z.string(), at: iso, direction, channel: z.string(), chatId: z.string(), kind: z.string(), text: z.string() });
 export type HistoryItemDto = z.infer<typeof historyItemDto>;
-export const historyDto = z.object({
-  items: z.array(historyItemDto),
-  nextCursor: z.string().optional(),
-  /** Addresses whose mail could not be read; the rest of the thread is still returned. */
-  mailUnavailable: z.array(z.object({ address: z.string(), code: z.string() })),
-});
+export const historyDto = z.object({ items: z.array(historyItemDto), nextCursor: z.string().optional() });
 export type HistoryDto = z.infer<typeof historyDto>;
 
 export const okDto = z.object({ ok: z.literal(true) });
 export const draftChangedDto = z.object({ ok: z.literal(true), draftId: z.number() });
-export const batchCreatedDto = z.object({ batchId: z.number(), excluded: z.partialRecord(z.enum(EXCLUSION_REASONS), z.number()) });
 
 // The Project screen: what the files of one project folder say, in numbers. Each section is read on its own, so one
 // broken file shows as that section's error and never blanks the screen.

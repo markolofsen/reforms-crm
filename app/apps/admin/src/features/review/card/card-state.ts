@@ -1,6 +1,6 @@
 import { openResults, type ReviewDraft } from "../source";
 
-/** The 17 states of a review card (research 16 section 7, plus `follow_up` from P47). The action bar is a pure function of one of these. */
+/** The 16 states of a review card (research 16 section 7 without `batch_waiting`, whose batch builder P48 deleted, plus `follow_up` from P47). The action bar is a pure function of one of these. */
 export const CARD_STATES = [
   "checks_open",
   "unread",
@@ -17,7 +17,6 @@ export const CARD_STATES = [
   "batch",
   "no_contact",
   "failed",
-  "batch_waiting",
   "follow_up",
 ] as const;
 export type CardState = (typeof CARD_STATES)[number];
@@ -26,10 +25,9 @@ export type CardState = (typeof CARD_STATES)[number];
 export type FlowStep = "idle" | "reading" | "confirm" | "sending" | "refused" | "failed" | "sent";
 
 /**
- * Which of the 17 states a draft is in. `follow_up` (P47) is an open step of a follow-up sequence: the hub refuses to send
+ * Which of the 16 states a draft is in. `follow_up` (P47) is an open step of a follow-up sequence: the hub refuses to send
  * it in every mode, so the way on is Mail, and the card's header carries Stop follow-ups. `readable` is false only when this server reads Mail and Mail has no such draft
- * (P27 M3.1): the text cannot be judged, so Checked and Send are off and the way on is Mail. `batch_waiting` (a queued
- * batch, which has no draft yet) is not a state of a draft: `paneStateOf` names it for the pane of a batch.
+ * (P27 M3.1): the text cannot be judged, so Checked and Send are off and the way on is Mail.
  */
 export function stateOf(d: ReviewDraft, step: FlowStep, readable = true): CardState {
   if (d.sendState?.status === "queued") return "queued";
@@ -48,9 +46,6 @@ export function stateOf(d: ReviewDraft, step: FlowStep, readable = true): CardSt
   if (d.checked) return "acknowledged";
   return openResults(d).length > 0 ? "checks_open" : "unread";
 }
-
-/** The pane of a batch that no draft of has arrived in yet is state 16 (waiting for the agent); once one has, the card shows that draft. */
-export const paneStateOf = (batch: { status: string; written: number }): CardState | null => (batch.status === "queued" && batch.written === 0 ? "batch_waiting" : null);
 
 export type PrimaryAction = "send" | "confirm" | "resume" | "open_mail" | "reply_mail";
 export type Primary = {
@@ -95,7 +90,6 @@ export function primaryFor(state: CardState, c: Context): Primary | null {
     case "sent":
     case "done":
     case "skipped":
-    case "batch_waiting":
       return null;
   }
 }
@@ -125,7 +119,6 @@ export function secondaryFor(state: CardState): Secondary[] {
     case "follow_up":
       return ["skip"];
     case "sending":
-    case "batch_waiting":
       return [];
   }
 }

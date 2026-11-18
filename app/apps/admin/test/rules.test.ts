@@ -87,11 +87,14 @@ describe("the server boundary (decision 0015 section 4 and 5)", () => {
 describe("the Next shell of the app", () => {
   const config = read(path.join(admin, "next.config.ts"));
   const pkg = JSON.parse(read(path.join(admin, "package.json"))) as { scripts: Record<string, string>; dependencies: Record<string, string>; devDependencies: Record<string, string> };
-  it("the root layout is force-dynamic and owns the one theme script", () => {
+  it("the root layout is force-dynamic and mounts the ThemeProvider", () => {
     const layout = read(path.join(src, "app/layout.tsx"));
     expect(layout).toMatch(/export const dynamic = "force-dynamic"/);
     expect(layout).toContain("suppressHydrationWarning");
-    expect(offenders(appFiles.filter((p) => rel(p) !== "app/layout.tsx"), /classList\.toggle\(\s*["']dark["']/)).toEqual([]);
+    expect(layout).not.toContain("dangerouslySetInnerHTML");
+    expect(read(path.join(src, "app/providers.tsx"))).toMatch(/<ThemeProvider>/);
+    // The theme is `@hub/ui/product/theme`'s alone: nothing else toggles the class or imports next-themes.
+    expect(offenders(appFiles, /classList\.(toggle|add|remove)\(\s*["']dark["']|from ["']next-themes["']/)).toEqual([]);
   });
   it("proxy.ts lives in src/ (at the app root Next ignores it) and guards Host and Origin", () => {
     expect(existsSync(path.join(admin, "proxy.ts"))).toBe(false);
@@ -148,8 +151,8 @@ describe("stable first render", () => {
   it("no useState initializer reads the window, the document, storage, the media query or the clock", () => {
     expect(offenders(appFiles, /useState(<[^>]*>)?\(\s*(\(\)\s*=>\s*)?[^)]*\b(window|document|localStorage|sessionStorage|matchMedia|Date\.now|new Date|performance\.now)\b/)).toEqual([]);
   });
-  it("matchMedia is called only by `@hub/ui/use-media-query` (never in admin src) and by the theme script of the root layout", () => {
-    expect(offenders(appFiles.filter((p) => rel(p) !== "app/layout.tsx"), /\bmatchMedia\(/)).toEqual([]);
+  it("matchMedia is called only by `@hub/ui/use-media-query` (never in admin src)", () => {
+    expect(offenders(appFiles, /\bmatchMedia\(/)).toEqual([]);
   });
 });
 
@@ -190,8 +193,8 @@ describe("app/@rules pages", () => {
   });
   it("the Next pages state the Next facts, and no page still describes the hash router", () => {
     const text = (f: string) => read(path.join(dir, f));
-    expect(text("routes-and-url-state.md")).toMatch(/`\/drafts\/42\?project=/);
-    expect(text("routes-and-url-state.md")).toContain("proxy.ts");
+    expect(text("routes-and-url-state.md")).toContain("`/lisbon/drafts/42`");
+    expect(text("routes-and-url-state.md")).toContain("defineRoute");
     expect(text("architecture-and-ownership.md")).toContain("turbopack.root");
     expect(text("verification.md")).toContain("force-dynamic");
     for (const p of pages) expect(text(p), `${p} still describes the hash router`).not.toMatch(/#\/drafts|hash history|hash-routed/);
@@ -202,6 +205,16 @@ describe("app/@rules pages", () => {
       for (const m of read(path.join(dir, p)).matchAll(/`((?:test|e2e|src)\/[\w./\[\]()-]+\.(?:ts|tsx))`/g)) if (!existsSync(path.join(admin, m[1]!))) missing.push(`${p}: ${m[1]}`);
     }
     expect(missing).toEqual([]);
+  });
+});
+
+// Layout (P48, `admin-principles.md`): lists, tables and panes go full width; running prose takes the `measure` utility.
+describe("layout", () => {
+  it("no max-w- on a page or pane container", () => {
+    // A named width (`max-w-4xl`, `max-w-screen-lg`, `max-w-prose`) is a page container; a percent on a control is not.
+    const ui = path.resolve(admin, "../../packages/ui/src/product");
+    const files = [...appFiles, ...readdirSync(ui).map((f) => path.join(ui, f))];
+    expect(files.filter((p) => /\bmax-w-(\d?xl|xs|sm|md|lg|screen|prose|\d)/.test(code(p))).map((p) => path.relative(admin, p))).toEqual([]);
   });
 });
 

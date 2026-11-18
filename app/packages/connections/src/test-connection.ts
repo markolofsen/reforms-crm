@@ -1,9 +1,6 @@
-import { parseAccount } from "@hub/mail/imap";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { parseConnectionId } from "./ids";
 import { NOTION_FILE } from "./kinds";
-import { probeImap, probeNotion, probeTelegram, type ProbeDeps, type Verdict } from "./probe";
+import { probeNotion, probeTelegram, type ProbeDeps, type Verdict } from "./probe";
 import { fileState, readValue } from "./store";
 
 const invalid = (detail: string): Verdict => ({ state: "invalid", detail });
@@ -18,13 +15,6 @@ export async function testConnection(dir: string, env: NodeJS.ProcessEnv, deps: 
   if (f.state === "missing") return invalid("no secret is stored");
   if (f.state === "unsafe-mode") return invalid(`the file is readable by others (mode ${f.mode}): run chmod 600`);
   if (f.state === "empty") return invalid("the file is empty");
-  if (ref.kind === "mail") {
-    try {
-      return await probeImap(deps, parseAccount(readFileSync(join(dir, ref.file), "utf8")));
-    } catch (e) {
-      return invalid(`the login file is unusable: ${e instanceof Error ? e.message : "unreadable"}`);
-    }
-  }
   const value = readValue(dir, ref.file);
   if (value === undefined) return invalid("the file is unusable");
   return ref.kind === "notion" ? probeNotion(deps, value) : probeTelegram(deps, value);

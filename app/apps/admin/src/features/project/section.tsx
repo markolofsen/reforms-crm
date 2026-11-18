@@ -1,17 +1,15 @@
 "use client";
 
-import { PaneScroll } from "@/features/shell/split-view";
-import { PhoneProjectSwitcher } from "@/features/shell/project-switcher";
+import { Page } from "@hub/ui/product/page";
 import { useProjectScope } from "@/hooks/use-project";
 import { ProjectPage } from "./project-page";
 
-/** The Project screen: one project at a glance, one scrolling page (no sub-pages yet). */
+/** The Project screen: one project on one full-width page, its first line the status and Stop sending. */
 export function ProjectScreen() {
   const { project } = useProjectScope();
   return (
-    <PaneScroll>
-      <PhoneProjectSwitcher />
+    <Page>
       <ProjectPage project={project} />
-    </PaneScroll>
+    </Page>
   );
 }

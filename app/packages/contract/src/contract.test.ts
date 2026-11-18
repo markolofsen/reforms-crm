@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { apiError, parseApiError } from "./errors";
 import { sendBody, statusBody } from "./requests";
 import { reviewDraftDto } from "./responses";
-import { enrolBody, enrollmentsQuery, stopBody } from "./sequences";
+import { enrollmentDto, enrollmentsQuery, stopBody } from "./sequences";
 
 describe("contract", () => {
   it("never accepts `sent` as a status", () => {
@@ -24,10 +24,10 @@ describe("contract", () => {
   it("keeps the list of reasons in a refusal", () => {
     expect(parseApiError({ error: "Not sent", code: "wrong_state", refused: ["a", "b"] }, 409)).toEqual({ error: "Not sent", code: "wrong_state", refused: ["a", "b"] });
   });
-  it("follow-ups (P47): enrol takes a client and a sequence and nothing else; stop never takes the engine's own `completed`", () => {
-    expect(enrolBody.safeParse({ clientId: 3, sequence: "answered-enquiry-no-reply" }).success).toBe(true);
-    expect(enrolBody.safeParse({ clientId: 3, sequence: "s", notNow: true }).success).toBe(true);
-    expect(enrolBody.safeParse({ clientId: 3, sequence: "s", by: "agent" }).success).toBe(false);
+  it("follow-ups (P47, D1 of P48): an enrolment carries the owner's phrase (or null); stop never takes the engine's own `completed`", () => {
+    expect(enrollmentDto.shape.enrolledPhrase.safeParse(null).success).toBe(true);
+    expect(enrollmentDto.shape.enrolledPhrase.safeParse("подготовь follow-up молчащим").success).toBe(true);
+    expect(enrollmentDto.shape.enrolledPhrase.safeParse(undefined).success).toBe(false);
     expect(stopBody.parse({})).toEqual({ reason: "stopped" });
     expect(stopBody.safeParse({ reason: "completed" }).success).toBe(false);
     expect(enrollmentsQuery.parse({})).toEqual({ view: "due" });

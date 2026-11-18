@@ -1,26 +1,24 @@
 import { describe, expect, it } from "vitest";
-import type { OverviewDto } from "@hub/contract/overview";
-import { standingOf, standingText } from "../src/features/shell/status-footer";
+import type { StatusDto } from "@hub/contract/overview";
+import { lineOf } from "../src/features/drafts/status-line";
 
-const item = (severity: "blocker" | "needs-owner" | "watch") => ({ kind: "drafts-ready", severity, project: "alpha", sentence: "alpha: 2 drafts are ready.", focus: "drafts" });
-// @ts-expect-error a partial overview is enough for the line (it reads the verdict, the attention list and the server time)
-const dto = (level: string, items: ReturnType<typeof item>[]): OverviewDto => ({ serverTime: "2026-11-18T14:02:00.000Z", verdict: { level, headline: "x" }, attention: items });
+const NOW = Date.parse("2026-11-18T14:00:00.000Z");
+const ok = { stale: false, serverOlder: false, serverNewer: false };
+const status = (o: Partial<StatusDto> = {}): StatusDto => ({ level: "clear", kind: "clear", sentence: "All clear", next: null, numbers: { owed: 0, lastTriageAt: "2026-11-16T12:00:00.000Z" }, ...o });
 
-describe("the shell status line (P31 O5)", () => {
-  it("says it is checking before the first answer and unknown after a failed one, never all clear", () => {
-    expect(standingText(standingOf(undefined, false, false))).toBe("Checking status");
-    expect(standingText(standingOf(undefined, true, false))).toBe("Status unknown");
+describe("the Drafts status line (P48 W3)", () => {
+  it("says the worst fact once, then the triage age and the replies owed; never the to-review count", () => {
+    expect(lineOf(status(), NOW, ok)).toMatchObject({ level: "clear", sentence: "All clear", numbers: ["triage 2 d ago"], to: null });
+    const l = lineOf(status({ level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "project", numbers: { owed: 1, lastTriageAt: null } }), NOW, ok);
+    expect(l.numbers).toEqual(["never triaged", "1 reply owed"]);
+    expect(l.to?.route).toBe("project.page");
   });
-  it("all clear, with what is only to watch", () => {
-    expect(standingText(standingOf(dto("clear", []), false, false))).toBe("All clear");
-    expect(standingText(standingOf(dto("clear", [item("watch"), item("watch")]), false, false))).toBe("All clear, 2 to watch");
+  it("leads to Connections when that is where the fact is fixed", () => {
+    expect(lineOf(status({ level: "attention", next: "connections" }), NOW, ok).to?.route).toBe("connections.page");
   });
-  it("counts only what needs the owner, and says blocked", () => {
-    expect(standingText(standingOf(dto("attention", [item("needs-owner"), item("watch")]), false, false))).toBe("1 thing needs you");
-    expect(standingText(standingOf(dto("blocked", [item("blocker"), item("needs-owner")]), false, false))).toBe("Blocked: 2 things need you");
-  });
-  it("states when the answer was true if the server is not answering or the last read failed", () => {
-    expect(standingText(standingOf(dto("clear", []), false, true))).toMatch(/^All clear, as of \d\d:\d\d$/);
-    expect(standingText(standingOf(dto("attention", [item("needs-owner")]), true, false))).toMatch(/^1 thing needs you, as of \d\d:\d\d$/);
+  it("what only the page knows outranks the server's sentence: not answering, or a version mismatch", () => {
+    expect(lineOf(status(), NOW, { ...ok, stale: true })).toMatchObject({ level: "blocked", sentence: "Server not answering: data may be old" });
+    expect(lineOf(status(), NOW, { ...ok, serverOlder: true }).sentence).toMatch(/restart it with hub up/);
+    expect(lineOf(status(), NOW, { ...ok, serverNewer: true }).sentence).toMatch(/reload/);
   });
 });

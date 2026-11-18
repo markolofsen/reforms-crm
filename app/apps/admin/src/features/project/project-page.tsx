@@ -1,120 +1,69 @@
 import { useQuery } from "@tanstack/react-query";
-import type { ReactNode } from "react";
-import type { ProjectOverviewDto } from "@hub/contract/responses";
-import { LoadFailed, Loading } from "@/components/state-views";
-import { Alert, AlertDescription, AlertTitle } from "@hub/ui/alert";
-import { Badge } from "@hub/ui/badge";
+import { Skeleton } from "@hub/ui/skeleton";
+import { LoadFailed } from "@/components/state-views";
+import { sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
-import { formatTime, plural } from "@/lib/format";
-import { DoctorPanel } from "./doctor-panel";
+import { useProjectRow } from "@/lib/status";
+import { HealthLine, SetupLine } from "./doctor-panel";
+import { FiltersLine, KnowledgeLine, QuestionLine } from "./facts";
 import { SafetyRules } from "./safety-rules";
-import { SendsPanel } from "./sends-panel";
+import { SendsTable, useSends } from "./sends-panel";
+import { StopSending } from "./stop-sending";
 
-function Section({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+/** The first line: the project's standing in one sentence (the Overview's status, said once) and the one control, Stop sending or Resume. */
+function StatusLine({ project, sends }: { project: string; sends: ReturnType<typeof useSends> }) {
+  const { row, isError } = useProjectRow(project);
+  const { q, stop, resume, busy, failed } = sends;
   return (
-    <section aria-label={title} className="flex flex-col gap-2 rounded-xl border bg-card p-3 sm:p-4">
-      <div className="flex flex-wrap items-baseline gap-x-3">
-        <h3 className="font-heading font-medium text-sm">{title}</h3>
-        {hint && <span className="text-muted-foreground text-xs">{hint}</span>}
+    <div className="flex flex-col gap-2">
+      <div className="flex min-h-(--control-m) flex-wrap items-center gap-3">
+        <div className="me-auto font-medium text-base" data-testid="project-status" role="status">
+          {row ? row.status.sentence : isError ? "The status of this project could not be read." : <Skeleton className="h-4 w-64" />}
+        </div>
+        <StopSending busy={busy || !q.data} onResume={(scope) => resume.mutate(scope)} onStop={(scope) => stop.mutate(scope)} project={project} stopped={q.data?.stopped ?? []} />
       </div>
-      {children}
-    </section>
-  );
-}
-
-function Absent({ what, how }: { what: string; how: string }) {
-  return (
-    <p className="text-muted-foreground text-sm">
-      No {what} yet. {how}
-    </p>
-  );
-}
-
-function Failed({ message }: { message: string }) {
-  return (
-    <Alert variant="error">
-      <AlertDescription>{message}</AlertDescription>
-    </Alert>
-  );
-}
-
-function Knowledge({ k }: { k: ProjectOverviewDto["knowledge"] }) {
-  if (k.state === "absent") return <Absent how="Ask the agent: загрузи знания проекта (skill knowledge-import)." what="knowledge folder" />;
-  if (k.state === "error") return <Failed message={k.message} />;
-  return (
-    <div className="flex flex-col gap-2 text-sm">
-      <p className="tabular-nums">
-        {k.indexed} indexed, {k.approved} approved, {k.unapproved} not approved, {k.expired} expired.
+      <p className="text-destructive-foreground text-sm" role="alert">
+        {failed ? sentence(failed) : ""}
       </p>
-      <p className="text-muted-foreground tabular-nums">
-        {k.noAudiences} without audiences, {k.noPhrasings} without phrasings.
-      </p>
-      {!k.consistent && <Badge variant="warning">{plural(k.problems, "file problem")}: re-run `hub knowledge index`</Badge>}
-      {k.examples.length > 0 && <ul className="list-disc ps-5 text-muted-foreground text-xs">{k.examples.map((e) => <li key={e}>{e}</li>)}</ul>}
     </div>
   );
 }
 
-function Filters({ f }: { f: ProjectOverviewDto["filters"] }) {
-  if (f.state === "absent") return <Absent how="Ask the agent: настрой фильтры почты проекта (skill mail-filters)." what="mail filters" />;
-  if (f.state === "error") return <Failed message={f.message} />;
-  return (
-    <div className="flex flex-col gap-2 text-sm">
-      <p className="tabular-nums">
-        {plural(f.rules, "rule")}, {f.whitelist} on the whitelist.
-      </p>
-      {f.issues.length > 0 && (
-        <Alert variant="warning">
-          <AlertTitle>The rules file has problems</AlertTitle>
-          <AlertDescription>
-            <ul className="list-disc ps-5">{f.issues.map((i) => <li key={i}>{i}</li>)}</ul>
-          </AlertDescription>
-        </Alert>
-      )}
-    </div>
-  );
-}
-
-/** One project at a glance: its profile, knowledge, mail filters and safety rules. Read-only except the rules. */
+/**
+ * One project, by frequency (`admin-principles.md` rule 9): the status and Stop sending; the sends, only when one exists;
+ * then one line each for the facts (closed unless one is a problem); last Advanced, the safety rules. Read-only except
+ * Stop, Cancel and the rules: what lives in project.md is changed by a phrase to the agent.
+ */
 export function ProjectPage({ project }: { project: string }) {
-  const q = useQuery({ queryKey: ["overview", project], queryFn: () => metaApi.overview(project) });
-  if (q.isPending) return <Loading what="the project" />;
-  if (q.isError) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the project" />;
-  const { project: p, question, knowledge, filters } = q.data;
+  const sends = useSends(project);
+  const facts = useQuery({ queryKey: ["project", project], queryFn: () => metaApi.overview(project) });
+  const list = sends.q.data?.sends ?? [];
   return (
-    <div className="flex flex-col gap-3">
-      <Section hint={p ? `Synced ${formatTime(p.syncedAt)}` : undefined} title="Profile">
-        {p ? (
-          <p className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-medium">{p.name}</span>
-            <Badge variant={p.status === "active" ? "success" : "secondary"}>{p.status}</Badge>
-            <Badge variant="outline">{p.kind}</Badge>
-          </p>
-        ) : (
-          <Absent how="Run `hub project sync` after project-setup." what="registry entry" />
-        )}
-        {question && (
-          <Alert variant="info">
-            <AlertTitle>Open question</AlertTitle>
-            <AlertDescription>{question.question}</AlertDescription>
-          </Alert>
-        )}
-      </Section>
-      <Section hint="project.md, the kind, send settings, the index" title="Health">
-        <DoctorPanel project={project} />
-      </Section>
-      <Section hint="every send is logged with its full text" title="Sends">
-        <SendsPanel project={project} />
-      </Section>
-      <Section hint="from knowledge/" title="Knowledge">
-        <Knowledge k={knowledge} />
-      </Section>
-      <Section hint="from mail-filters.md" title="Mail filters">
-        <Filters f={filters} />
-      </Section>
-      <Section hint="A rule that fires must be understood before a draft can be sent" title="Safety rules">
-        <SafetyRules project={project} />
-      </Section>
-    </div>
+    <>
+      <StatusLine project={project} sends={sends} />
+      {sends.q.isError && <LoadFailed error={sends.q.error} onRetry={() => void sends.q.refetch()} retrying={sends.q.isFetching} what="the sends" />}
+      {list.length > 0 && (
+        <section aria-labelledby="project-sends" className="flex flex-col gap-1">
+          <h3 className="font-heading font-medium text-sm" id="project-sends">
+            Sends
+          </h3>
+          <SendsTable busy={sends.busy} onCancel={(id) => sends.cancel.mutate(id)} sends={list} />
+        </section>
+      )}
+      <section aria-labelledby="project-facts">
+        <h3 className="sr-only" id="project-facts">
+          About this project
+        </h3>
+        {facts.isError && <LoadFailed error={facts.error} onRetry={() => void facts.refetch()} retrying={facts.isFetching} what="the project files" />}
+        <ul className="flex flex-col divide-y border-y">
+          {facts.data && <QuestionLine q={facts.data.question} />}
+          {facts.data && <KnowledgeLine k={facts.data.knowledge} />}
+          {facts.data && <FiltersLine f={facts.data.filters} />}
+          <HealthLine project={project} />
+          <SetupLine project={project} />
+          <SafetyRules project={project} />
+        </ul>
+      </section>
+    </>
   );
 }

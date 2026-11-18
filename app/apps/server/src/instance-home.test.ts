@@ -2,9 +2,8 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { CORE_ROOT } from "@hub/config/paths";
+import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import { createRepos, openDb } from "@hub/db";
-import { secretsDir } from "@hub/mail/imap";
 import { loadProjects, syncProjects } from "@hub/projects";
 import { allowListOf, configFile } from "./send/mailer";
 import { projectOverview, projectsRoot } from "./project-overview";
@@ -31,7 +30,7 @@ describe("the server under HUB_HOME", () => {
     expect(projectsRoot()).toBe(join(home, "projects"));
     expect(configFile()).toBe(join(home, "config", "config.json"));
     expect(allowListOf(configFile())).toEqual(["client@example.com"]);
-    expect(secretsDir()).toBe(join(home, "state", "secrets"));
+    expect(hubPaths().secrets).toBe(join(home, "state", "secrets"));
   });
   it("answers a project overview from the instance's folder, and knows nothing of the checkout's projects", async () => {
     const handle = openDb(":memory:");

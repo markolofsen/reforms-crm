@@ -1,11 +1,10 @@
-import { imapflowConnect, redactSecrets, type ImapAccount, type ImapConnect } from "@hub/mail/imap";
 import { isTelegramToken } from "./kinds";
 
 /** valid: the service accepted it. invalid: it refused it. unverified: could not be asked (offline). `identity` is the provider's public name for the key. */
 export interface Verdict { state: "valid" | "invalid" | "unverified"; detail: string; identity?: string }
 
 /** The only outside calls. Tests inject fakes; no probe returns, throws or logs a secret (only `error.name` ever leaves a failed call). */
-export interface ProbeDeps { fetch: typeof fetch; imapConnect?: ImapConnect }
+export interface ProbeDeps { fetch: typeof fetch }
 
 const TIMEOUT_MS = 15_000;
 
@@ -36,20 +35,5 @@ export async function probeTelegram(deps: ProbeDeps, token: string): Promise<Ver
     return u ? { state: "valid", detail: `bot @${u}`, identity: `@${u}` } : { state: "valid", detail: "getMe answered" };
   } catch (e) {
     return { state: "unverified", detail: `cannot reach Telegram (${e instanceof Error ? e.name : "error"})` };
-  }
-}
-
-export async function probeImap(deps: ProbeDeps, account: ImapAccount): Promise<Verdict> {
-  const connect = deps.imapConnect ?? imapflowConnect;
-  try {
-    const s = await connect(account);
-    try { await s.list(); } finally { await s.close().catch(() => {}); }
-    return { state: "valid", detail: `logged in to ${account.host} and listed mailboxes (read-only)`, identity: account.user };
-  } catch (e) {
-    const msg = redactSecrets(e instanceof Error ? e.message : String(e), [account]);
-    const refused = (e as { authenticationFailed?: boolean })?.authenticationFailed === true || /auth|login|credential|password/i.test(msg);
-    return refused
-      ? { state: "invalid", detail: `${account.host} refused the login` }
-      : { state: "unverified", detail: `cannot reach ${account.host}:${account.port}` };
   }
 }

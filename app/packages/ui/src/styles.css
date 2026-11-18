@@ -111,6 +111,14 @@
    (the same number as `md` in `hooks/use-media-query.ts`; `design-system-and-tokens.md` rule 13). */
 @theme {
   --breakpoint-md: 40rem;
+  /* The shimmer coss's Skeleton names (`animate-skeleton`) and does not ship: without it the class was a no-op (found by
+     the motion control in e2e/y-status-line.spec.ts, P48). Zeroed under reduced motion like every other animation. */
+  --animate-skeleton: skeleton 2s -1s infinite linear;
+  @keyframes skeleton {
+    to {
+      background-position: -200% 0;
+    }
+  }
 }
 
 @theme inline {
@@ -211,6 +219,21 @@
   & [data-slot="input"] {
     height: var(--control-l);
     line-height: var(--control-l);
+  }
+}
+
+/* The reading measure of running prose (the draft body, help text, an empty state), never of a page or a pane (P48). */
+@utility measure {
+  max-inline-size: 70ch;
+}
+
+/* The list column of a list and its detail (`product/list-detail`): 360px, 400px from 1440px. */
+:root {
+  --list-width: 22.5rem;
+}
+@media (min-width: 90rem) {
+  :root {
+    --list-width: 25rem;
   }
 }
 

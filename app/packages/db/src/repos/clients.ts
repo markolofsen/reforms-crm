@@ -130,18 +130,6 @@ export function clientsRepo(db: Db) {
       return toReviewDrafts(db, project, rows, opts.now);
     },
 
-    /** Every client row of a project, with the newest draft if any: the audience of a bulk batch. Same order as `list`. */
-    async listAll(project: string): Promise<ClientRow[]> {
-      const rows = db
-        .select({ client: clients, draft: drafts })
-        .from(clients)
-        .leftJoin(drafts, latestDraft)
-        .where(eq(clients.project, project))
-        .orderBy(sql`case when ${drafts.status} in ('done','sent','skipped') then 1 else 0 end`, desc(clients.repliesOwed), sql`case when ${clients.lastContactAt} is null then 1 else 0 end`, asc(clients.lastContactAt))
-        .all();
-      return withMarks(rows);
-    },
-
     /** How many rows `review` returns for the same arguments before paging: the filter's count narrowed by the search. */
     async reviewTotal(project: string, filter: ClientFilter, opts: DraftScope & { search?: string } = {}): Promise<number> {
       const row = db

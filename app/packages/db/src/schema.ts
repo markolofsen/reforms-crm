@@ -52,8 +52,10 @@ export const agentRuns = sqliteTable(
     tokensIn: integer("tokens_in").notNull().default(0),
     tokensOut: integer("tokens_out").notNull().default(0),
     costUsd: real("cost_usd").notNull().default(0),
+    // The session's `batchKey` (P48 W5): every `hub record-draft` / `record-client` of one session joins this run.
+    batchKey: text("batch_key"),
   },
-  (t) => [index("agent_runs_project_started").on(t.project, t.startedAt)],
+  (t) => [index("agent_runs_project_started").on(t.project, t.startedAt), index("agent_runs_project_batch_key").on(t.project, t.batchKey)],
 );
 
 // Drafts. A client has at most one *open* draft (ready or hold); finished ones (done, skipped, sent) stay as history,
@@ -143,7 +145,8 @@ export const enrollments = sqliteTable(
     nextDueAt: text("next_due_at"),
     anchorAt: text("anchor_at").notNull(), // our last outbound message: what the next wait counts from
     enrolledAt: text("enrolled_at").notNull(),
-    enrolledBy: text("enrolled_by").notNull(), // "owner" (admin or CLI); the agent never enrols
+    enrolledBy: text("enrolled_by").notNull(), // "owner" (his terminal) or "agent" (a session, on the owner's phrase: D1, P48)
+    enrolledPhrase: text("enrolled_phrase"), // the owner's words that asked for it in a session; null when he enrolled it himself
     finishedAt: text("finished_at"),
     finishReason: text("finish_reason").$type<FinishReason>(),
     updatedAt: text("updated_at").notNull(),

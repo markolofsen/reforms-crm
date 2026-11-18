@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Bumped when a response changes shape: the admin shows "restart the server" when its own number is higher. */
-export const API_VERSION = 6;
+export const API_VERSION = 7;
 
 const messengersStatus = z.object({
   state: z.enum(["off", "starting", "running", "error", "stopped"]),
@@ -12,12 +12,10 @@ const messengersStatus = z.object({
   failures: z.number(),
   stored: z.number(),
 });
-const mailStatus = z.object({
-  state: z.enum(["off", "ready"]),
-  reason: z.string().optional(),
-  accounts: z.number(),
-  problems: z.array(z.string()),
-});
+/**
+ * Sent detection (P48 W2): an `osascript` read of each active project's Sent mailbox in Apple Mail, only while a draft waits.
+ * `off` with a reason when nothing waits, or Mail is not running (it is never launched for this).
+ */
 const sentStatus = z.object({
   state: z.enum(["off", "starting", "running", "error", "stopped"]),
   reason: z.string().optional(),
@@ -32,7 +30,6 @@ export const healthDto = z.object({
   ok: z.literal(true),
   apiVersion: z.number(),
   messengers: messengersStatus,
-  mail: mailStatus,
   sent: sentStatus,
   /** Which Mailer the server sends with: `fake` (HUB_MAILER=fake, e2e and demos) never leaves the process. */
   mailer: z.enum(["mail-app", "fake"]),

@@ -4,9 +4,8 @@ import { NOT_FOUND_TITLE, pageTitle } from "@/routes/meta";
 import { positiveInt } from "@/routes/search";
 
 export async function generateMetadata(props: PageProps<"/drafts/[id]">): Promise<Metadata> {
-  const [{ id }, { project }] = await Promise.all([props.params, props.searchParams]);
-  if (positiveInt(id) === null) return { title: { absolute: NOT_FOUND_TITLE } };
-  return { title: { absolute: pageTitle("drafts.item", typeof project === "string" ? project : null, positiveInt(id) ?? undefined) } };
+  const id = positiveInt((await props.params).id);
+  return { title: { absolute: id === null ? NOT_FOUND_TITLE : pageTitle("drafts.item", null, id) } };
 }
 
 export default async function DraftPage(props: PageProps<"/drafts/[id]">) {

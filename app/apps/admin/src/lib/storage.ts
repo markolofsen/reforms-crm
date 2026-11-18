@@ -41,7 +41,7 @@ export function useStored(key: Key): string | null {
   return useSyncExternalStore(subscribe, () => load(key), () => null);
 }
 
-// The project is a cookie, not localStorage, so `proxy.ts` can put it in a bare address before the page renders. It is
+// The remembered project of a multi-project instance (for a bare `/drafts`). A cookie, not localStorage, as before P48; it is
 // not a secret and the server is loopback only.
 function readProject(): string | null {
   try {

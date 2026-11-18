@@ -3,13 +3,13 @@ import { type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type Fin
 import type { Db } from "../client";
 import { write, type WriteTx } from "../tx";
 import { RepoError } from "../errors";
-import { agentRuns, drafts, enrollments, marks } from "../schema";
+import { drafts, enrollments, marks } from "../schema";
 import { blocksChecked, isSafetyKind } from "../safety";
 import { loadSafety, logDraftEvent, nowIso, parseJson, type DraftRow } from "./bulk-shared";
 import { touchClient } from "./clients";
 import { onClientWrote, onStepFinished, onStepReopened } from "./enrollments";
 import { upsertInbox } from "./inbox";
-import { insertEvent } from "./runs";
+import { insertEvent, sessionRun } from "./runs";
 
 export type NewDraft = Omit<typeof drafts.$inferInsert, "id" | "createdAt" | "updatedAt">;
 
@@ -45,7 +45,7 @@ export type RecordDraftInput = {
    * `fingerprint` is the sketch of the reply (ints, never text). Left out, the draft has no evidence and no evidence rule fires.
    */
   evidence?: { level: EvidenceLevel; source: EvidenceSource; findings: EvidenceFinding[]; context?: unknown; similarTo?: string | null; fingerprint?: number[] | null; batchKey?: string | null } | null;
-  /** Put the log line in this run (of the same project) instead of starting one. */
+  /** Put the log line in this run (of the same project). Without it the session's run (`evidence.batchKey`) is joined, else one is started. */
   runId?: number | null;
   /** The draft is step `step` of this enrollment (P47, skill `sequence-drafts`): only the open step of an active enrollment is accepted. */
   sequence?: { enrollmentId: number; step: number } | null;
@@ -180,19 +180,9 @@ export function draftsRepo(db: Db) {
         for (const mark of new Set(input.marks ?? [])) {
           tx.insert(marks).values({ project: input.project, clientId: client.id, mark }).onConflictDoNothing().run();
         }
-        let runId = input.runId ?? null;
-        if (runId != null && !tx.select({ id: agentRuns.id }).from(agentRuns).where(and(eq(agentRuns.id, runId), eq(agentRuns.project, input.project))).get()) {
-          throw new RepoError("not_found", "No such run in this project");
-        }
-        if (runId == null) {
-          runId = tx
-            .insert(agentRuns)
-            .values({ project: input.project, startedAt: at, finishedAt: at, trigger: "owner", skill: input.skill ?? null, status: "ok" })
-            .returning({ id: agentRuns.id })
-            .get().id;
-        }
+        const runId = sessionRun(tx, { project: input.project, runId: input.runId, batchKey: input.evidence?.batchKey, skill: input.skill, at });
         const log = (kind: "draft_created" | "decision", summary: string, detail: Record<string, unknown>) =>
-          insertEvent(tx, { project: input.project, runId: runId as number, at, kind, summary: `${summary}: ${input.name || input.email}`, detail: JSON.stringify(detail), clientId: client.id, tool: null });
+          insertEvent(tx, { project: input.project, runId, at, kind, summary: `${summary}: ${input.name || input.email}`, detail: JSON.stringify(detail), clientId: client.id, tool: null });
 
         // P47. A step draft must be the open step of an active enrollment of this client. Any other record (but the sequence
         // skill's own) is the client writing back: their follow-ups finish here, in this transaction, and the open step draft is skipped.
@@ -242,12 +232,12 @@ export function draftsRepo(db: Db) {
 
         if (sameRef && sameRef !== open) {
           // Finished (done, sent or skipped) and the same message: a re-run must not bring it back.
-          return { clientId: client.id, draftId: sameRef.id, runId: runId as number, action: "unchanged" as const, ...stopped };
+          return { clientId: client.id, draftId: sameRef.id, runId, action: "unchanged" as const, ...stopped };
         }
         if (open && sameRef === open) {
           tx.update(drafts).set({ ...fields, ...(flagged ? { injectionSuspected: true } : {}), updatedAt: now }).where(eq(drafts.id, open.id)).run();
           log("draft_created", "Draft updated", { draftId: open.id, action: "update", skill: input.skill ?? null, mailRef });
-          return { clientId: client.id, draftId: open.id, runId: runId as number, action: "updated" as const, ...stopped };
+          return { clientId: client.id, draftId: open.id, runId, action: "updated" as const, ...stopped };
         }
         if (open && seq) throw new RepoError("wrong_state", "This client has an open draft: a follow-up step is not recorded over it");
         if (open) {
@@ -260,7 +250,7 @@ export function draftsRepo(db: Db) {
           .returning({ id: drafts.id })
           .get();
         log("draft_created", "Draft recorded", { draftId: d.id, action: "create", skill: input.skill ?? null, mailRef });
-        return { clientId: client.id, draftId: d.id, runId: runId as number, action: open ? ("replaced" as const) : ("created" as const), ...stopped };
+        return { clientId: client.id, draftId: d.id, runId, action: open ? ("replaced" as const) : ("created" as const), ...stopped };
       });
     },
 

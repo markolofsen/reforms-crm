@@ -1,4 +1,4 @@
-# Local state and every secret (state/secrets/: mail logins, optional tokens) stay out of git
+# Local state and every secret (state/secrets/: the optional Notion and Telegram tokens) stay out of git
 state/*
 !state/sample/
 !state/.gitkeep

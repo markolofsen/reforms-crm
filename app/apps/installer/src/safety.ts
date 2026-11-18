@@ -30,10 +30,11 @@ export const DENIED_TOOLS: readonly string[] = [
 export const HUB_SEND_COMMANDS: readonly string[] = ["Bash(*hub send*)", "Bash(*run.sh send*)", "Bash(*hub.sh send*)", "Bash(*hub.mjs send*)", "Bash(*hub.mjs\" send*)", "Bash(*installer/src/cli.ts send*)"];
 
 /**
- * Follow-ups (P47): starting or restarting them is the owner's step, so `hub sequences enrol|enroll|pause|resume` is denied in every spelling
+ * Follow-ups (P47, D1 of P48): a session may `hub sequences enrol --phrase "<the owner's words>"` (the CLI refuses it without, and the
+ * guard flags it); declining a silence (`enrol --not-now`) and restarting (`pause`, `resume`) stay the owner's, denied in every spelling
  * (the `*` before the subcommand covers `hub`, `run.sh`, `hub.sh`, `hub.mjs` and the CLI source). Stop, delay and judge only reduce mail.
  */
-export const HUB_SEQUENCE_OWNER_COMMANDS: readonly string[] = ["Bash(*sequences enrol*)", "Bash(*sequences pause*)", "Bash(*sequences resume*)"];
+export const HUB_SEQUENCE_OWNER_COMMANDS: readonly string[] = ["Bash(*sequences enrol*--not-now*)", "Bash(*sequences pause*)", "Bash(*sequences resume*)"];
 
 /**
  * The admin server's Send is a loopback HTTP route (P23 S3). The route cannot tell a person's click from an agent's

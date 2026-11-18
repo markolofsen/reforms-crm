@@ -10,11 +10,12 @@ import { parseJson, type DraftRow, type Tx } from "./bulk-shared";
 // Follow-up sequences (P47). Every change of an enrollment goes through `transition()` of `@hub/sequences` inside a
 // transaction; nothing here writes a state by hand. The hooks (`onClientWrote`, `onStepFinished`, `onStepReopened`) run
 // inside the drafts, inbox and clients repositories' own transactions, so a reply finishes the follow-ups in the same
-// write that records it. Nothing here sends, schedules or writes Notion; the agent never enrols (the routes and the CLI
-// that call `enrol`, `pause` and `resume` are the owner's).
+// write that records it. Nothing here sends, schedules or writes Notion. Enrolling is `hub sequences enrol`: the owner in his
+// terminal, or a session on his phrase, which is stored (D1, P48); `pause` and `resume` are the owner's terminal only.
 
 export type EnrollmentRow = typeof enrollments.$inferSelect;
-export type NewEnrollment = { project: string; clientId: number; sequence: string; sequenceHash: string; schedule: Schedule; by: string; now?: Date };
+/** `by`: `owner` or `agent`; `phrase`: the owner's words a session enrolled on (required of the agent by the CLI), else null. */
+export type NewEnrollment = { project: string; clientId: number; sequence: string; sequenceHash: string; schedule: Schedule; by: string; phrase?: string | null; now?: Date };
 
 /** Our newest message to the client: a draft of theirs that was sent (Sent folder) or that the owner marked done. */
 export type Outbound = { draftId: number; at: string; subject: string; mailRef: string | null; sentMessageId: string | null; mailClass: string | null; notionKind: NotionKind | null };
@@ -151,7 +152,7 @@ export function enrollmentsRepo(db: Db) {
     try {
       return tx
         .insert(enrollments)
-        .values({ project: o.project, clientId: o.clientId, sequence: o.sequence, sequenceHash: o.sequenceHash, schedule: JSON.stringify(o.schedule), step: snap.step, state: snap.state, nextDueAt: snap.nextDueAt, anchorAt: snap.anchorAt, enrolledAt: at, enrolledBy: o.by, finishedAt: snap.finishedAt, finishReason: snap.finishReason, updatedAt: at })
+        .values({ project: o.project, clientId: o.clientId, sequence: o.sequence, sequenceHash: o.sequenceHash, schedule: JSON.stringify(o.schedule), step: snap.step, state: snap.state, nextDueAt: snap.nextDueAt, anchorAt: snap.anchorAt, enrolledAt: at, enrolledBy: o.by, enrolledPhrase: o.phrase?.trim() || null, finishedAt: snap.finishedAt, finishReason: snap.finishReason, updatedAt: at })
         .returning()
         .get();
     } catch (e) {
@@ -174,7 +175,7 @@ export function enrollmentsRepo(db: Db) {
   };
 
   return {
-    /** The owner enrols one client: step 1, due after the first wait, counted from our newest sent message. */
+    /** One client enrolled (by the owner, or a session on his phrase): step 1, due after the first wait, counted from our newest sent message. */
     async enrol(o: NewEnrollment): Promise<EnrollmentRow> {
       return write(db, (tx) => insert(tx, o, enrolSnapshot(o.schedule, admit(tx, o.project, o.clientId).at)));
     },

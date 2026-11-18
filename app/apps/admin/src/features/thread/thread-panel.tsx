@@ -7,14 +7,13 @@ import { formatTime } from "@/lib/format";
 
 function Item({ item }: { item: HistoryItemDto }) {
   const Icon = item.direction === "in" ? ArrowDownLeftIcon : ArrowUpRightIcon;
-  const line = item.source === "mail" ? item.entry.subject || "(no subject)" : item.text;
   return (
     <li className="flex min-w-0 gap-2 text-sm">
       <Icon aria-label={item.direction === "in" ? "From them" : "From us"} className="mt-0.5 size-4 shrink-0 text-muted-foreground" role="img" />
       <span className="min-w-0 flex-1 break-words">
-        <span className="line-clamp-2">{line}</span>
+        <span className="line-clamp-2">{item.text}</span>
         <span className="text-muted-foreground text-xs">
-          {item.source === "mail" ? "Mail" : item.channel} · {formatTime(item.at)}
+          {item.channel} · {formatTime(item.at)}
         </span>
       </span>
     </li>
@@ -22,8 +21,8 @@ function Item({ item }: { item: HistoryItemDto }) {
 }
 
 /**
- * One client's thread: mail read live and stored messenger rows, newest first, then what the agent and the owner did.
- * It is fetched only when opened. Without a mail login the messages are messenger rows only, and it says so.
+ * One client's thread: the stored messenger rows, newest first, then what the agent and the owner did. It is fetched only
+ * when opened. The mail itself is read in Mail (the card's Open in Mail): the Hub keeps no mail login since P48 (decision 0026).
  */
 export function ThreadPanel({ project, clientId }: { project: string; clientId: number }) {
   const history = useQuery({ queryKey: ["thread", project, clientId], queryFn: () => reviewApi.history(project, clientId) });
@@ -38,10 +37,7 @@ export function ThreadPanel({ project, clientId }: { project: string; clientId: 
           <LoadFailed error={history.error} onRetry={() => void history.refetch()} retrying={history.isFetching} what="the thread" />
         ) : (
           <>
-            {history.data.mailUnavailable.length > 0 && (
-              <p className="text-warning-foreground text-xs">Mail could not be read for {history.data.mailUnavailable.map((m) => m.address).join(", ")}. Messenger messages are still shown.</p>
-            )}
-            {history.data.items.length === 0 ? <p className="text-muted-foreground text-sm">No messages yet.</p> : <ul className="flex flex-col gap-2">{history.data.items.slice(0, 20).map((i) => <Item item={i} key={i.key} />)}</ul>}
+            {history.data.items.length === 0 ? <p className="text-muted-foreground text-sm">No messenger messages. The mail is in Mail.</p> : <ul className="flex flex-col gap-2">{history.data.items.slice(0, 20).map((i) => <Item item={i} key={i.key} />)}</ul>}
           </>
         )}
       </section>

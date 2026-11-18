@@ -5,7 +5,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConnectionDto, ConnectionsDto } from "@hub/contract/connections";
 import { ConnectionRow } from "../src/features/connections/connection-row";
-import { MailLoginForm } from "../src/features/connections/mail-login-form";
 import { SecretForm } from "../src/features/connections/secret-form";
 import { CONNECTIONS_KEY } from "../src/features/connections/use-connections";
 import { ApiFailure } from "../src/lib/api/client";
@@ -23,7 +22,7 @@ describe("a key in the browser", () => {
     const fetchMock = reply(row());
     vi.stubGlobal("fetch", fetchMock);
     const qc = new QueryClient();
-    const list: ConnectionsDto = { instance: "hub", connections: [row({ secret: { state: "missing" }, can: ["set"] })] };
+    const list: ConnectionsDto = { instance: "hub", connections: [row({ secret: { state: "missing" }, can: ["set"] })], mail: [] };
     qc.setQueryData(CONNECTIONS_KEY, list);
     const saved = await connectionsApi.setSecret("notion:notion-token", { value: SECRET });
     qc.setQueryData<ConnectionsDto>(CONNECTIONS_KEY, (old) => old && { ...old, connections: old.connections.map((c) => (c.id === saved.id ? saved : c)) });
@@ -47,15 +46,11 @@ describe("a key in the browser", () => {
     expect(e instanceof ApiFailure && e.message).toBe("Not stored: that does not look like a token.");
   });
 
-  it("the forms are write-only: password fields the browser does not remember, no value in the markup", () => {
+  it("the form is write-only: a password field the browser does not remember, no value in the markup", () => {
     const tok = renderToStaticMarkup(<SecretForm busy={false} id="notion:notion-token" onClose={() => {}} onSave={async () => true} what="Integration token" />);
     expect(tok).toContain('type="password"');
     expect(tok).toContain('autoComplete="new-password"');
     expect(tok).not.toMatch(/value="[^"]/);
-    const mail = renderToStaticMarkup(<MailLoginForm account="Work" busy={false} id="mail:work" identity="me@example.test at imap.example.test" onClose={() => {}} onSave={async () => true} />);
-    expect(mail).toContain('autoComplete="new-password"');
-    expect(mail).toContain("imap.example.test");
-    expect(mail.match(/type="password"/g)).toHaveLength(1);
   });
 
   it("a stored row offers Replace and Remove, a missing one only Set, an environment one no Remove; the forms start closed", () => {

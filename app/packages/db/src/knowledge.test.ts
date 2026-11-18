@@ -285,7 +285,7 @@ describe("migrations", () => {
 
     const upgraded = openDb(file);
     const r = createRepos(upgraded.db);
-    expect(await r.clients.listAll("acme")).toHaveLength(1);
+    expect(await r.clients.get("acme", 1)).toMatchObject({ email: "old@x.example" });
     await r.projects.replaceRegistry({ projects: [reg("acme")], addresses: [] });
     await r.knowledge.upsert("acme", doc({ path: "x.md", title: "Hello world" }));
     expect((await r.knowledge.search("acme", "hello")).total).toBe(1);

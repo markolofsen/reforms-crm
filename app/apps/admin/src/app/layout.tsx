@@ -8,16 +8,11 @@ import "../index.css";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: { default: "Hub Workflow", template: "%s | Hub" } };
 
-// Follow the system colour scheme (coss tokens switch on the .dark class). Runs before paint; `suppressHydrationWarning`
-// on <html> because the class it sets is not in the server markup.
-const THEME = `(function(){var mq=matchMedia("(prefers-color-scheme: dark)");var a=function(){document.documentElement.classList.toggle("dark",mq.matches)};a();mq.addEventListener("change",a)})()`;
-
+// The theme is the ThemeProvider's (in `Providers`, `@hub/ui/product/theme`): its blocking script sets the `.dark` class before
+// paint, so `<html>` carries `suppressHydrationWarning` (the class is not in the server markup).
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME }} />
-      </head>
       <body>
         <div className="isolate">
           <Providers>{children}</Providers>

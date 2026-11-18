@@ -27,6 +27,8 @@ Run everything from this folder (the command finds the instance, and runs the pi
 ./run.sh core update               # list core versions; --apply <tag> moves the pin, --branch main follows main
 ```
 
+The admin's header shows `name` from `config/config.json` ("Hub" when empty) and, when `logo` names an image file (svg, png, jpg or webp; a relative path is read from `config/`), that logo; otherwise a monogram. `./run.sh doctor` warns when the logo file is missing.
+
 After a fresh clone: `git clone --recurse-submodules <this repo>`, then `(cd core/app && pnpm install --frozen-lockfile)`.
 
 Update this page when the architecture changes.

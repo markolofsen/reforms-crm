@@ -1,0 +1,1 @@
+ALTER TABLE `enrollments` ADD `enrolled_phrase` text;

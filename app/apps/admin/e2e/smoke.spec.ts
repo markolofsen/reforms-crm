@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { cards, readTheChecks, remember } from "./support";
+import { at, cards, readTheChecks, remember, viewMenu } from "./support";
 
 // The seeded project `lisbon-realty` is invented data (packages/db/src/seed.ts): 13 clients, 11 of them with a draft.
 // The Drafts screen lists only those 11; a client without a draft (Rita Falsa, the newsletter sender) never appears.
@@ -10,13 +10,13 @@ test.beforeEach(async ({ page }) => {
 test("Drafts list loads with counts and only clients that have a draft", async ({ page }) => {
   await page.goto("/drafts?filter=all");
   await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Drafts", exact: true })).toBeVisible();
-  await expect(page.getByRole("radio", { name: /^All\s*11$/ })).toBeVisible();
-  await expect(page.getByRole("radio", { name: /^To review\s*6$/ })).toBeVisible();
-  await expect(page.getByRole("radio", { name: /^Replies owed/ })).toHaveCount(0);
   await expect(cards(page)).toHaveCount(11);
   await expect(cards(page).filter({ hasText: "Rita Falsa" })).toHaveCount(0);
-  // The high-value filter is gone.
-  await expect(page.getByRole("radio", { name: /High value/ })).toHaveCount(0);
+  // The counts live in the one View menu (P48 W4); Replies owed and High value are not views.
+  await viewMenu(page).click();
+  await expect(page.getByRole("menuitemradio", { name: /^All\s*11$/ })).toBeVisible();
+  await expect(page.getByRole("menuitemradio", { name: /^To review\s*6$/ })).toBeVisible();
+  await expect(page.getByRole("menuitemradio", { name: /^Replies owed|High value/ })).toHaveCount(0);
 });
 
 test("Open in Mail links to the message by its Message-ID", async ({ page }) => {
@@ -51,13 +51,8 @@ test("I read the checks, then Done moves the card to the bottom", async ({ page 
   await expect.poll(async () => (await cards(page).count()) - (await index())).toBeLessThanOrEqual(3);
 });
 
-test("Activity row opens inline", async ({ page }) => {
-  await page.goto("/log");
-  const run = page.locator("#run-1").getByRole("button", { name: "Details" });
-  await expect(run).toHaveAttribute("aria-expanded", "false");
-  await run.click();
-  await expect(run).toHaveAttribute("aria-expanded", "true");
-  await expect(page.getByText("Three new inbound messages since the last run")).toBeVisible();
-  // Inline: still the same page, no dialog.
+test("Activity opens a session beside the table, in the same page", async ({ page }) => {
+  await page.goto(at("lisbon-realty", "/log?run=1"));
+  await expect(page.getByRole("region", { name: "Session", exact: true })).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });

@@ -3,9 +3,9 @@ import { type FinishReason, INBOX_ACTIONS, INBOX_KINDS, SEQUENCE_SKILL, TRIAGE_G
 import type { Db } from "../client";
 import { write } from "../tx";
 import { RepoError } from "../errors";
-import { agentRuns, clients, inboxRows } from "../schema";
+import { clients, inboxRows } from "../schema";
 import { onClientWrote } from "./enrollments";
-import { insertEvent } from "./runs";
+import { insertEvent, sessionRun } from "./runs";
 
 export type InboxRow = typeof inboxRows.$inferSelect;
 /** A row as the queue shows it: whether a draft of this client is open, and whether the reply is still owed. */
@@ -31,6 +31,8 @@ export type InboxInput = {
   notion?: NotionRef | null;
   skill?: string | null;
   runId?: number | null;
+  /** The session's key: every record of one session joins one run. */
+  batchKey?: string | null;
 };
 export type InboxResult = { inboxId: number; runId: number; created: boolean; /** Set when this record finished the client's follow-ups (P47). */ followUps?: FinishReason };
 
@@ -92,17 +94,13 @@ export function inboxRepo(db: Db) {
   };
 
   return {
-    /** Writes the row, and one line in the Agent log (a run is started unless `runId` names one of this project). */
+    /** Writes the row, and one line in the Agent log (in the run `runId` names, else the session's run by `batchKey`, else a new one). */
     async record(input: InboxInput, now: Date = new Date()): Promise<InboxResult> {
       if (!(INBOX_ACTIONS as readonly string[]).includes(input.action)) throw new RepoError("wrong_state", `Unknown action "${input.action}"`);
       if (input.kind != null && !(INBOX_KINDS as readonly string[]).includes(input.kind)) throw new RepoError("wrong_state", `Unknown kind "${input.kind}"`);
       return write(db, (tx) => {
         const at = now.toISOString();
-        let runId = input.runId ?? null;
-        if (runId != null && !tx.select({ id: agentRuns.id }).from(agentRuns).where(and(eq(agentRuns.id, runId), eq(agentRuns.project, input.project))).get()) {
-          throw new RepoError("not_found", "No such run in this project");
-        }
-        if (runId == null) runId = tx.insert(agentRuns).values({ project: input.project, startedAt: at, finishedAt: at, trigger: "owner", skill: input.skill ?? null, status: "ok" }).returning({ id: agentRuns.id }).get().id;
+        const runId = sessionRun(tx, { project: input.project, runId: input.runId, batchKey: input.batchKey, skill: input.skill, at });
         const r = upsertInbox(tx, input, at);
         insertEvent(tx, { project: input.project, runId, at, kind: "decision", summary: `${input.name || input.email}: ${input.action}`, detail: JSON.stringify({ inboxId: r.id, action: input.action, kind: input.kind ?? null, reason: input.reason ?? null }), clientId: null, tool: null });
         // P47: a client the agent recorded wrote to us, so their follow-ups finish (crossed off by the owner: excluded) in this transaction.

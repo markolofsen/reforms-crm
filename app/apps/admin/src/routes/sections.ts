@@ -1,30 +1,22 @@
-import { DRAFT_VIEWS, RUN_FILTERS } from "./search";
+import { ROUTE_IDS, ROUTE_TABLE, type NavMeta } from "./table";
 
-/** One top-level screen, as data. The nav, the key chords, the titles and the shell derive from this list. */
-export type SectionMeta = {
-  readonly id: string;
-  readonly title: string;
-  /** False keeps a section reachable by address but out of the nav. */
-  readonly nav: boolean;
-  /** Icon key (resolved to an icon by the shell, never imported here). */
-  readonly icon: string;
-  /** Two-key chord: `g` then the second key. */
-  readonly chord: readonly [string, string];
-  readonly filters: readonly string[];
-};
+type WithNav = Extract<(typeof ROUTE_TABLE)[keyof typeof ROUTE_TABLE], { nav: NavMeta }>;
+export type SectionId = WithNav["section"];
+export type IconKey = WithNav["nav"]["icon"];
 
-export const SECTIONS = [
-  // Cross-project: with Connections, a section whose address carries no `?project=` (`routes-and-url-state.md` rule 10, exemptions).
-  { id: "overview", title: "Overview", nav: true, icon: "overview", chord: ["g", "o"], filters: [] },
-  { id: "drafts", title: "Drafts", nav: true, icon: "inbox", chord: ["g", "d"], filters: DRAFT_VIEWS },
-  { id: "log", title: "Activity", nav: true, icon: "activity", chord: ["g", "a"], filters: RUN_FILTERS },
-  { id: "project", title: "Project", nav: true, icon: "settings", chord: ["g", "p"], filters: [] },
-  // The second cross-project section: the instance's logins and tokens, not one project's (`routes-and-url-state.md` rule 10, second exemption).
-  { id: "connections", title: "Connections", nav: true, icon: "connections", chord: ["g", "c"], filters: [] },
-] as const satisfies readonly SectionMeta[];
+/** One top-level screen as the shell reads it: derived from the `nav` metadata of the route table, never declared twice. */
+export type Section = { readonly id: SectionId; readonly title: string; readonly icon: IconKey; readonly order: number; readonly when: NavMeta["when"]; readonly chord: readonly ["g", string] };
 
-export type IconKey = (typeof SECTIONS)[number]["icon"];
-export type SectionId = (typeof SECTIONS)[number]["id"];
+const hasNav = (r: (typeof ROUTE_TABLE)[keyof typeof ROUTE_TABLE]): r is WithNav => "nav" in r;
 
-export const sectionById = (id: SectionId) => SECTIONS.find((s) => s.id === id) ?? SECTIONS[0];
-export const sectionTitle = (id: SectionId): string => sectionById(id).title;
+/** The sections in nav order. The chords are `g` + the row's key (`g d`, `g a`, ...). */
+export const SECTIONS: readonly Section[] = ROUTE_IDS.map((id) => ROUTE_TABLE[id])
+  .filter(hasNav)
+  .map((r) => ({ id: r.section, title: r.nav.label, icon: r.nav.icon, order: r.nav.order, when: r.nav.when, chord: ["g", r.nav.chord] as const }))
+  .sort((a, b) => a.order - b.order);
+
+/** The sections the nav shows: Overview only when the instance has two or more projects (P48). */
+export const navSections = (multi: boolean): readonly Section[] => SECTIONS.filter((s) => s.when === "always" || multi);
+
+export const sectionById = (id: SectionId): Section | undefined => SECTIONS.find((s) => s.id === id);
+export const sectionTitle = (id: SectionId): string => sectionById(id)?.title ?? id;

@@ -283,7 +283,7 @@ registerMailFiltersCommands(program).alias("filters");
 program.command("install").description("Run the steps a manual session needs: check, apply only when it fails, print what is left. --automation adds the optional background automation.")
   .option("--dry-run", "show what would change, change nothing")
   .option("--only <id...>", "step ids or group names (any step, optional ones included)")
-  .option("--automation", "also the optional extras: Notion token, mail login, Telegram poller (off by default)")
+  .option("--automation", "also the optional extras: Notion token, Telegram poller (off by default)")
   .action(async (o: { dryRun?: boolean; only?: string[]; automation?: boolean }) => {
     const ctx = ctxOf({ dryRun: !!o.dryRun });
     p.intro(`Hub Workflow install${ctx.dryRun ? " (dry run)" : ""}`);
@@ -297,7 +297,7 @@ program.command("install").description("Run the steps a manual session needs: ch
 program.command("doctor").description("Run the checks a manual session needs plus the audit checks (backups); each row prints as its step finishes, with its time. Changes nothing. --only runs named steps or groups; --fast leaves the audit checks out. Automation steps are skipped unless --automation.")
   .argument("[project]", "run the project checks for one project instead")
   .option("--json", "machine-readable output (printed at the end, with each step's milliseconds)")
-  .option("--automation", "also check the optional extras: Notion token, mail login, Telegram poller (off by default)")
+  .option("--automation", "also check the optional extras: Notion token, Telegram poller (off by default)")
   .option("--only <id...>", "step ids or group names (any step, optional and audit ones included), for example `--only backup.snapshot` or `--only Backup`")
   .option("--fast", "leave out the audit steps (the backup.* checks: they reach the network and open the database)")
   .option("--canary", "the Leads rows also send each form's signed canary (stored as a test row, nothing outbound); only to a handler that advertises it")
@@ -327,9 +327,9 @@ program.command("doctor").description("Run the checks a manual session needs plu
     process.exitCode = reports.some((r) => r.outcome === "failed") ? 1 : 0;
   });
 
-program.command("setup").description("Minimal, tokenless setup for manual sessions (tools, folders, config, skills, project registry, doctor). Safe to rerun. --automation adds the optional Notion token, mail login and Telegram token.")
-  .option("--automation", "OFF by default: Notion/Telegram tokens, read-only mail login")
-  .option("--non-interactive", "with --automation: no prompts: read HUB_NOTION_TOKEN, HUB_TELEGRAM_TOKEN (each also as <NAME>_FILE) and HUB_MAIL_{ACCOUNT,HOST,USER,PASS[,PORT]}; fail with a list")
+program.command("setup").description("Minimal, tokenless setup for manual sessions (tools, folders, config, skills, project registry, doctor). Safe to rerun. --automation adds the optional Notion and Telegram tokens.")
+  .option("--automation", "OFF by default: Notion/Telegram tokens")
+  .option("--non-interactive", "with --automation: no prompts: read HUB_NOTION_TOKEN, HUB_TELEGRAM_TOKEN (each also as <NAME>_FILE); fail with a list")
   .option("--dry-run", "validate and show what would change, write nothing")
   .action(async (o: { automation?: boolean; nonInteractive?: boolean; dryRun?: boolean }) => {
     const automation = !!o.automation;
@@ -438,8 +438,8 @@ program.command("token").description("Optional: store the Notion integration tok
     if (known === "telegram") console.log("a new bot token applies on the next server start");
   });
 
-program.command("connections").description("List the instance's connections (mail logins, Notion token, Telegram bot) as the admin's Connections page shows them. Reads files only; prints no secret.")
-  .option("--test", "also test each stored login with the provider (network; read-only)")
+program.command("connections").description("List the instance's connections (Notion token, Telegram bot) as the admin's Connections page shows them. Reads files only; prints no secret.")
+  .option("--test", "also test each stored token with the provider (network; read-only)")
   .action(async (o: { test?: boolean }) => {
     const ctx = ctxOf();
     const rep = await connectionsReport(ctx, { test: !!o.test, deps: { fetch: ctx.fetch } });

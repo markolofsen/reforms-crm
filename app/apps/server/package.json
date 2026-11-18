@@ -19,7 +19,6 @@
     "@hub/contract": "workspace:*",
     "@hub/db": "workspace:*",
     "@hub/knowledge": "workspace:*",
-    "@hub/mail": "workspace:*",
     "@hub/mail-filters": "workspace:*",
     "@hub/messengers": "workspace:*",
     "@hub/notion": "workspace:*",

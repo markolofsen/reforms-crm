@@ -9,16 +9,15 @@ No secret is ever stored in git, a log or a page. Secrets live only in the git-i
 | Access | Goes to | Stored in | Needed for | Verified by |
 |---|---|---|---|---|
 | Notion connector (OAuth, signed in with `/mcp`) | The Notion workspace the agent reads and writes in a session | The Claude session; no file | Every manual session | `notion.connector` (hint only) |
-| Notion hub integration (read) | Every database of each project, whole teamspace | `state/secrets/notion-token` | Overview counts, `notion-dump`, the database check | `notion.token`, `notion.access` |
+| Notion hub integration (read) | Every database of each project, whole teamspace | `state/secrets/notion-token` | `notion-dump`, backups, the project doctor's database check | `notion.token`, `notion.access` |
 | Notion backend integration (django_notion) | Leads and Clients (write) | The backend's environment; never in the hub | A site's form handler writing leads | Owner only (see below) |
-| Mail account | Mail.app, through `mail-mcp` on `localhost:8787` | Mail.app; the name in `config/config.json` | Reading mail, creating unsent drafts | `mail.daemon`, `mail.account` |
-| Mail IMAP login (optional) | One account, read only | `state/secrets/mail-<name>.json` | Overview new-mail counts, Sent detection | `backup.secrets` (file mode only) |
+| Mail account | Mail.app, through `mail-mcp` on `localhost:8787` (the agent) and `osascript` (the hub) | Mail.app; the name in `config/config.json`; no file in the hub | Reading mail, creating unsent drafts, the confirmed send, Sent detection | `mail.daemon`, `mail.account` |
 | Telegram bot token (optional) | A bot made with @BotFather | `state/secrets/telegram-bot-token` | The receive-only poller | `messengers.token`, `telegram.getme`, `messengers.poller` |
 | Backup snapshot (`hub backup`) | Nothing external: a folder (default `<instance>/backups/`, git-ignored) | `backups/` or `backup_dir` in `config/config.json` | A copy of the database, the Notion dump and the config that git does not hold | `backup.snapshot` |
 | Lead-form canary secret (optional) | One site's form handler: an HMAC key it shares with the hub, one per handler | `state/secrets/<secretRef>` (named in `config/lead-forms.json`); the same value in the site's environment | `hub doctor --only Leads --canary` ([`../core/22-lead-forms.md`](../core/22-lead-forms.md)) | the `leads.<form>` rows (WARN "canary not run" when missing) |
 | Claude Code sign-in | The `claude` CLI on this machine | Claude's own store | `hub agent` | `tools.claude` |
 
-The hub expects no Claude API token and no Cloudflare credential. Mail routing at Cloudflare and any DNS are outside this code; they are not checked here.
+The hub expects no Claude API token, no Cloudflare credential and no mail login. Mail routing at Cloudflare and any DNS are outside this code; they are not checked here.
 
 ## Notion
 
@@ -53,7 +52,7 @@ The owner's own backend writes leads (and clients) into the CRM from a site's fo
 
 - **Mail.app** holds the account (System Settings > Internet Accounts). Keep Mail.app running. The account's exact name goes into `config/config.json` (`account`), with the allowed sender addresses in `allow_list`.
 - **mail-mcp** (`brew install dastrobu/tap/mail-mcp`, `brew services start mail-mcp`) is the one process that controls Mail.app. It can create drafts and has no send tool. macOS must allow it under Privacy & Security: Automation and Accessibility.
-- **IMAP login** (optional): a read-only login per account in `state/secrets/mail-<name>.json`. It only adds counts and Sent detection to the admin; the agent does not use it.
+- **The hub** talks to Mail.app through `osascript` for the confirmed send and for Sent detection (it reads the project's `mail.sent_mailbox` while drafts wait and never launches Mail). macOS asks once to allow the hub to control Mail (Automation). There is no mail login and no mail key in `state/secrets/` (decision 0026).
 - A project names its accounts in `project.md` (`mail.accounts`). `hub doctor <project>` fails when an account is not in Mail.
 
 ## Telegram (optional)

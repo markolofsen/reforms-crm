@@ -1,29 +1,18 @@
 import type { ChatRef, MessengerChannel, Repos } from "@hub/db";
-import type { HistoryDirection, HistoryEntry, MailHistory } from "@hub/mail";
 import { channelsOf } from "./types";
 
-/** The mail side is injected: production passes the Mail.app reader, tests pass a fake. Read-only by construction. */
-export type MailPages = Pick<MailHistory, "page">;
-
-export type HistoryItem =
-  | { source: "mail"; key: string; at: string; direction: HistoryDirection; entry: HistoryEntry }
-  | { source: "messenger"; key: string; at: string; direction: HistoryDirection; channel: MessengerChannel; chatId: string; kind: string; text: string };
+/** One stored messenger message of a client. Mail is not here: the hub reads no mail (decision 0026), Mail.app has the thread. */
+export interface HistoryItem { source: "messenger"; key: string; at: string; direction: "in" | "out"; channel: MessengerChannel; chatId: string; kind: string; text: string }
 
 export interface ClientHistory {
   /** Newest first. */
   items: HistoryItem[];
   nextCursor?: string;
-  /** Addresses whose mail could not be read (allow-list refusal, reader down). The rest of the history is still returned. */
-  mailUnavailable: { address: string; code: string }[];
 }
 
 export interface ClientHistoryDeps {
   repos: Repos;
-  /** Omit when mail is not connected: the result is messenger rows only. */
-  mail?: MailPages;
 }
-
-const MAX_MAIL_PAGES = 100;
 
 // Total order: newest first, ties broken by key so the order (and a cursor into it) is stable.
 const before = (a: { at: string; key: string }, b: { at: string; key: string }) => (a.at === b.at ? a.key > b.key : a.at > b.at);
@@ -43,15 +32,14 @@ function decode(cursor: string): { t: string; k: string } {
 }
 
 /**
- * One time-ordered history of a client: mail (read live through `deps.mail`) merged with stored messenger rows,
- * found through the owner's `client_identifiers`. The cursor is a position in the merged order (time and key of the
- * last item), so it is valid however many sources there are; paging deep into old mail re-reads its newer pages.
+ * One time-ordered history of a client: the stored messenger rows of the chats the owner linked (`client_identifiers`).
+ * The cursor is a position in that order (time and key of the last item), so ties never repeat or drop a row.
  */
 export async function clientHistory(
   deps: ClientHistoryDeps,
   project: string,
   clientId: number,
-  opts: { limit?: number; cursor?: string; /** Addresses to read besides the linked ones, e.g. the client row's own e-mail. */ emails?: string[] } = {},
+  opts: { limit?: number; cursor?: string } = {},
 ): Promise<ClientHistory> {
   const limit = Math.min(200, Math.max(1, Math.trunc(opts.limit ?? 20)));
   const cur = opts.cursor ? decode(opts.cursor) : null;
@@ -75,37 +63,9 @@ export async function clientHistory(
   const olderCount = rows.filter((r) => !cur || iso(r.sentAt) !== cur.t).length;
   if (olderCount > limit) more = true;
 
-  // mail
-  const mailUnavailable: ClientHistory["mailUnavailable"] = [];
-  const seen = new Set<string>();
-  if (deps.mail) {
-    const addresses = [...new Set([...ids.filter((i) => i.kind === "email").map((i) => i.value), ...(opts.emails ?? []).map((e) => e.trim().toLowerCase()).filter(Boolean)])];
-    for (const address of addresses) {
-      try {
-        let cursor: string | undefined;
-        let got = 0;
-        for (let p = 0; p < MAX_MAIL_PAGES; p++) {
-          const page = await deps.mail.page({ address, limit: Math.min(200, limit + 1), ...(cursor ? { cursor } : {}) });
-          for (const e of page.entries) {
-            const it: HistoryItem = { source: "mail", key: `e:${e.id}`, at: iso(e.date), direction: e.direction, entry: e };
-            if (!keep(it) || seen.has(it.key)) continue;
-            seen.add(it.key);
-            items.push(it);
-            got++;
-          }
-          cursor = page.nextCursor;
-          if (!cursor || got > limit) break;
-        }
-        if (cursor) more = true;
-      } catch (err) {
-        mailUnavailable.push({ address, code: (err as { code?: string }).code ?? "unavailable" });
-      }
-    }
-  }
-
   items.sort((a, b) => (before(a, b) ? -1 : 1));
   if (items.length > limit) more = true;
   const page = items.slice(0, limit);
   const last = page[page.length - 1];
-  return { items: page, ...(more && last ? { nextCursor: encode(last) } : {}), mailUnavailable };
+  return { items: page, ...(more && last ? { nextCursor: encode(last) } : {}) };
 }

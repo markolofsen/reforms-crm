@@ -1,8 +1,5 @@
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { CREDS_FILE, parseAccount, type ImapAccount } from "@hub/mail/imap";
-import { mailId, notionId, TELEGRAM_ID } from "./ids";
-import { KIND_LABEL, NOTION_FILE, SAFE_FILE, TELEGRAM_FILE, isTelegramToken, notionShapeProblem, slug, type ConnectionKind } from "./kinds";
+import { notionId, TELEGRAM_ID } from "./ids";
+import { KIND_LABEL, NOTION_FILE, SAFE_FILE, TELEGRAM_FILE, isTelegramToken, notionShapeProblem, type ConnectionKind } from "./kinds";
 import { fileState, readValue } from "./store";
 
 export type SecretState = "stored" | "missing" | "unsafe-mode" | "malformed" | "from-env";
@@ -14,7 +11,7 @@ export interface ConnectionRow {
   kind: ConnectionKind;
   label: string;
   secret: { state: SecretState; changedAt?: string };
-  /** A public fact about the key (the IMAP user and host, ...). Never a secret. */
+  /** A public fact about the key (the bot name, ...). Never a secret. */
   identity: string | null;
   usedBy: string[];
   can: ConnectionAction[];
@@ -22,7 +19,7 @@ export interface ConnectionRow {
 }
 
 /** What a project says about connections; the caller maps its own project type onto this. */
-export interface ProjectUse { slug: string; mailAccounts: string[]; notionTokenFile: string }
+export interface ProjectUse { slug: string; notionTokenFile: string }
 
 export interface InspectInput {
   /** `hubPaths().secrets` */
@@ -34,9 +31,7 @@ export interface InspectInput {
   telegram?: { state: string; project?: string; reason?: string };
 }
 
-const NOTION_NOTE = "Needed for Overview counts and the database check. Agent sessions do not need it: they use the Notion connector signed in inside Claude.";
-
-const byLabel = (a: ConnectionRow, b: ConnectionRow): number => a.label.localeCompare(b.label);
+const NOTION_NOTE = "Used by the project doctor's database check and the Notion backups. Agent sessions do not need it: they use the Notion connector signed in inside Claude.";
 
 /** The state of a stored token file, with its shape check. */
 function tokenState(dir: string, file: string, shapeOk: (v: string) => boolean): ConnectionRow["secret"] {
@@ -68,54 +63,6 @@ function notionRows(i: InspectInput): ConnectionRow[] {
   });
 }
 
-interface MailFile { slug: string; account?: ImapAccount; problem?: string; secret: ConnectionRow["secret"] }
-
-function mailFiles(dir: string): MailFile[] {
-  let names: string[];
-  try { names = readdirSync(dir).filter((n) => CREDS_FILE.test(n)).sort(); } catch { return []; }
-  return names.map((n): MailFile => {
-    const s = n.slice("mail-".length, -".json".length);
-    const f = fileState(dir, n);
-    if (f.state === "unsafe-mode") return { slug: s, secret: { state: "unsafe-mode", changedAt: f.changedAt } };
-    if (f.state === "missing") return { slug: s, secret: { state: "malformed" }, problem: "the file vanished" };
-    if (f.state === "empty") return { slug: s, secret: { state: "malformed", changedAt: f.changedAt }, problem: "the file is empty" };
-    try {
-      return { slug: s, account: parseAccount(readFileSync(join(dir, n), "utf8")), secret: { state: "stored", changedAt: f.changedAt } };
-    } catch (e) {
-      // parseAccount's reasons name a field, never a value.
-      return { slug: s, secret: { state: "malformed", changedAt: f.changedAt }, problem: e instanceof Error ? e.message : "unreadable" };
-    }
-  });
-}
-
-function mailRows(i: InspectInput): ConnectionRow[] {
-  const files = mailFiles(i.dir);
-  const wants = (p: ProjectUse, f: MailFile): boolean => p.mailAccounts.some((a) => (f.account ? a.toLowerCase() === f.account.name.toLowerCase() : false) || slug(a) === f.slug);
-  const rows: ConnectionRow[] = files.map((f) => {
-    const usedBy = i.projects.filter((p) => wants(p, f)).map((p) => p.slug);
-    const token = f.account !== undefined && "accessToken" in f.account.auth;
-    const note = token ? "Token login, refreshed outside the hub: shown, not editable here." : f.problem ? `The file is unusable: ${f.problem}.` : problemNote(f.secret.state);
-    return {
-      id: mailId(f.slug), kind: "mail", label: f.account?.name ?? f.slug, secret: f.secret,
-      identity: f.account ? `${f.account.user} at ${f.account.host}` : null, usedBy,
-      can: token ? ["test"] : actions(f.secret.state), ...(note ? { note } : {}),
-    };
-  });
-  // An account name a project lists that has no file. Apple Mail is the real send and read path, so this is not an error.
-  const have = new Set(files.flatMap((f) => [f.slug, f.account?.name.toLowerCase() ?? ""]));
-  const wanted = new Map<string, { name: string; usedBy: string[] }>();
-  for (const p of i.projects) for (const a of p.mailAccounts) {
-    if (have.has(slug(a)) || have.has(a.toLowerCase())) continue;
-    const e = wanted.get(slug(a)) ?? { name: a, usedBy: [] };
-    e.usedBy.push(p.slug);
-    wanted.set(slug(a), e);
-  }
-  for (const [s, e] of wanted) {
-    rows.push({ id: mailId(s), kind: "mail", label: e.name, secret: { state: "missing" }, identity: null, usedBy: e.usedBy, can: ["set"], note: "IMAP read login: not set (optional). It adds counts and Sent detection; Apple Mail stays the way mail is read and sent." });
-  }
-  return rows.sort(byLabel);
-}
-
 function telegramRow(i: InspectInput): ConnectionRow {
   const secret = tokenState(i.dir, TELEGRAM_FILE, isTelegramToken);
   const t = i.telegram;
@@ -124,7 +71,7 @@ function telegramRow(i: InspectInput): ConnectionRow {
   return { id: TELEGRAM_ID, kind: "telegram", label: KIND_LABEL.telegram, secret, identity: null, usedBy: t?.project ? [t.project] : [], can: actions(secret.state), note };
 }
 
-/** Every connection of this instance, in the order the panel lists them: Notion, mail, Telegram. Reads files only; no network. */
+/** Every connection of this instance, in the order the panel lists them: Notion, then Telegram. Reads files only; no network. */
 export function inspect(i: InspectInput): ConnectionRow[] {
-  return [...notionRows(i), ...mailRows(i), telegramRow(i)];
+  return [...notionRows(i), telegramRow(i)];
 }

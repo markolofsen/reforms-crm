@@ -12,12 +12,13 @@ test("X selects, Esc clears, Shift+A selects every open draft", async ({ page })
   const first = page.getByRole("button", { name: /Marta|Pedro|Sofia/ }).first();
   await first.focus();
   await page.keyboard.press("x");
-  await expect(page.getByText(/^1 selected$/)).toBeVisible();
+  const said = page.getByTestId("list-header").getByRole("status");
+  await expect(said).toHaveText("1 selected");
   await page.keyboard.press("Escape");
-  await expect(page.getByText(/selected$/)).toHaveCount(0);
+  await expect(page.getByRole("toolbar", { name: "Selected drafts" })).toHaveCount(0);
   await first.focus();
   await page.keyboard.press("Shift+A");
-  await expect(page.getByText(/^[2-9]\d* selected$/)).toBeVisible();
+  await expect(said).toHaveText(/^[2-9]\d* selected$/);
   await page.keyboard.press("Escape");
-  await expect(page.getByText(/selected$/)).toHaveCount(0);
+  await expect(page.getByRole("toolbar", { name: "Selected drafts" })).toHaveCount(0);
 });

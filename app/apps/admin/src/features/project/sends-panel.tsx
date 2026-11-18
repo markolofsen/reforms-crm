@@ -1,80 +1,103 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import type { SendRowDto } from "@hub/contract/responses";
-import { LoadFailed, Loading } from "@/components/state-views";
-import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { refreshData, sentence } from "@/lib/api/client";
+import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
+import { AppLink } from "@/components/app-link";
+import { refreshData } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";
 import { formatTime } from "@/lib/format";
-import { StopSending } from "./stop-sending";
-
-const STATUS_VARIANT = { sent: "success", queued: "info", sending: "warning", failed: "error", cancelled: "secondary" } as const;
-
-function SendRow({ row, onCancel, busy }: { row: SendRowDto; onCancel: (id: number) => void; busy: boolean }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <li className="flex min-w-0 flex-col gap-1.5 py-2">
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5">
-        <Badge variant={STATUS_VARIANT[row.status]}>{row.status}</Badge>
-        <span className="min-w-0 max-w-full truncate font-medium text-sm">{row.subject}</span>
-        <span className="text-muted-foreground text-xs tabular-nums">{formatTime(row.status === "queued" && row.dueAt ? row.dueAt : (row.doneAt ?? row.createdAt))}</span>
-      </div>
-      <p className="break-all text-muted-foreground text-xs">
-        To {row.toAddr}
-        {row.ccAddr ? `, Cc ${row.ccAddr}` : ""} ({row.mode === "auto" ? "autosend" : "by hand"}, {row.actor})
-        {row.status === "queued" && row.dueAt ? `, goes out ${formatTime(row.dueAt)}` : ""}
-      </p>
-      {row.error && <p className="break-words text-xs text-warning-foreground">{row.error}</p>}
-      <div className="flex flex-wrap items-center gap-2">
-        <ActionButton aria-expanded={open} aria-label={`${open ? "Hide" : "Show"} text, send ${row.id}`} onClick={() => setOpen(!open)} size="s" variant="quiet">
-          {open ? "Hide text" : "Show text"}
-        </ActionButton>
-        {row.status === "queued" && (
-          <ActionButton aria-label={`Cancel send ${row.id}: ${row.subject}`} disabled={busy} onClick={() => onCancel(row.id)} size="s" variant="danger">
-            Cancel send
-          </ActionButton>
-        )}
-      </div>
-      {open && <pre className="whitespace-pre-wrap break-words rounded-lg bg-muted p-3 font-sans text-sm">{row.body}</pre>}
-    </li>
-  );
-}
+import { paths } from "@/routes/paths";
 
 /**
- * The send history of a project and the switch that stops it: every send the hub made or queued (full text kept), Cancel
- * for a queued one inside its window, and one Stop sending / Resume for this project or for every project. A sent mail cannot
- * be recalled, so Cancel exists only while a send is queued.
+ * The send history and the switch that stops it: every send the hub made or queued, Cancel for a queued one inside its
+ * window, and Stop sending / Resume for this project or every project. A sent mail cannot be recalled, so Cancel exists
+ * only while a send is queued. One hook, so the status line's Stop and the table share one query.
  */
-export function SendsPanel({ project }: { project: string }) {
+export function useSends(project: string) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["sends", project], queryFn: () => sendApi.list(project) });
   const settle = { onSuccess: () => refreshData(qc) };
   const cancel = useMutation({ mutationFn: (id: number) => sendApi.cancel(project, id), ...settle });
   const stop = useMutation({ mutationFn: (scope: string) => sendApi.stop(scope), ...settle });
   const resume = useMutation({ mutationFn: (scope: string) => sendApi.resume(scope), ...settle });
-  if (q.isPending) return <Loading what="the sends" />;
-  if (q.isError) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the sends" />;
-  const { sends, stopped } = q.data;
-  const busy = cancel.isPending || stop.isPending || resume.isPending;
-  const failed = [cancel, stop, resume].find((m) => m.isError);
+  const failed = [cancel, stop, resume].find((m) => m.isError)?.error ?? null;
+  return { q, cancel, stop, resume, busy: cancel.isPending || stop.isPending || resume.isPending, failed };
+}
+
+const VIA = { manual: "By hand", auto: "Autosend" } as const;
+const STATE: Record<SendRowDto["status"], string | null> = { sent: null, queued: "queued", sending: "sending", failed: "failed", cancelled: "cancelled" };
+
+/** "By hand", "Autosend · queued, goes out 15 Nov, 10:10". */
+const via = (r: SendRowDto): string => [VIA[r.mode], STATE[r.status] && `${STATE[r.status]}${r.status === "queued" && r.dueAt ? `, goes out ${formatTime(r.dueAt)}` : ""}`].filter(Boolean).join(" · ");
+const when = (r: SendRowDto): string => formatTime(r.doneAt ?? r.createdAt);
+
+/** The subject, linking to the draft it came from (the full text lives in that card). */
+function Subject({ r }: { r: SendRowDto }) {
   return (
-    <div className="flex flex-col gap-3">
-      <StopSending busy={busy} onResume={(scope) => resume.mutate(scope)} onStop={(scope) => stop.mutate(scope)} project={project} stopped={stopped} />
-      {failed?.isError && (
-        <p className="text-destructive-foreground text-sm" role="alert">
-          {sentence(failed.error)}
-        </p>
-      )}
-      {sends.length === 0 ? (
-        <p className="text-muted-foreground text-sm"><span className="font-medium text-foreground">Nothing sent yet.</span> A draft you have read the checks for has a Send button on the Drafts screen.</p>
-      ) : (
-        <ul aria-label="Sends" className="divide-y">
+    <span className="flex min-w-0 flex-col gap-0.5">
+      {r.draftId === null ? r.subject : <AppLink className="text-foreground text-sm" to={paths.drafts.item(r.draftId)}>{r.subject}</AppLink>}
+      {r.error && <span className="text-warning-foreground text-xs">{r.error}</span>}
+    </span>
+  );
+}
+
+function Cancel({ r, busy, onCancel }: { r: SendRowDto; busy: boolean; onCancel: (id: number) => void }) {
+  if (r.status !== "queued") return null;
+  return (
+    <ActionButton aria-label={`Cancel send ${r.id}: ${r.subject}`} disabled={busy} onClick={() => onCancel(r.id)} size="s" variant="danger">
+      Cancel send
+    </ActionButton>
+  );
+}
+
+type Props = { sends: readonly SendRowDto[]; busy: boolean; onCancel: (id: number) => void };
+
+/** From 640px a table (when, to, subject, via); below it each send is two lines. */
+export function SendsTable({ sends, busy, onCancel }: Props) {
+  return (
+    <>
+      <DataTable aria-label="Sends" className="max-md:hidden">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-3/20">When</TableHead>
+            <TableHead className="w-1/4">To</TableHead>
+            <TableHead>Subject</TableHead>
+            <TableHead className="w-1/4">Via</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {sends.map((r) => (
-            <SendRow busy={busy} key={r.id} onCancel={(id) => cancel.mutate(id)} row={r} />
+            <TableRow data-send={r.id} key={r.id}>
+              <TableCell className="text-muted-foreground tabular-nums">{when(r)}</TableCell>
+              <TableCell className="break-all">{r.ccAddr ? `${r.toAddr}, Cc ${r.ccAddr}` : r.toAddr}</TableCell>
+              <TableCell>
+                <Subject r={r} />
+              </TableCell>
+              <TableCell>
+                <span className="flex flex-wrap items-center gap-2">
+                  {via(r)}
+                  <Cancel busy={busy} onCancel={onCancel} r={r} />
+                </span>
+              </TableCell>
+            </TableRow>
           ))}
-        </ul>
-      )}
-    </div>
+        </TableBody>
+      </DataTable>
+      <ul aria-label="Sends" className="flex flex-col divide-y md:hidden">
+        {sends.map((r) => (
+          <li className="flex min-w-0 flex-col gap-1 py-2 text-sm" key={r.id}>
+            <Subject r={r} />
+            <p className="break-all text-muted-foreground text-xs">
+              <span className="tabular-nums">{when(r)}</span> · {r.toAddr} · {via(r)}
+            </p>
+            {r.status === "queued" && (
+              <div>
+                <Cancel busy={busy} onCancel={onCancel} r={r} />
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

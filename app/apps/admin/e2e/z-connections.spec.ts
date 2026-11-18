@@ -1,17 +1,15 @@
 import { expect, test, type Page } from "@playwright/test";
-import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { address } from "./support";
 
-// The Connections page (P37). The server runs with HUB_CONNECTIONS_PROBE=fake (every Test is a stub, nothing leaves the process) and HUB_CONFIG_DIR inside
-// the throwaway home, so a key written here can only land in a folder this run made. The keys are fakes; the one named REJECT is refused by the stub.
+// The Connections page (P37, P48). The server runs with HUB_CONNECTIONS_PROBE=fake (every Test is a stub, nothing leaves the process; Mail "has" every
+// account a project lists) and HUB_CONFIG_DIR inside the throwaway home, so a key written here can only land in a folder this run made. The keys are
+// fakes; the one named REJECT is refused by the stub. Mail has no key (decision 0026): its rows are read-only.
 const SECRETS = join(process.env.HUB_E2E_HOME ?? "", "secrets");
 const GOOD = "ntn_E2EFAKEGOODVALUE1234567890";
 const BAD = "ntn_E2EFAKEREJECTVALUE1234567890";
-const PASS = "e2e-fake-app-password-9876";
-const ALL = [GOOD, BAD, PASS];
-const MAIL = "lisbon-realty@example.test";
-const MAIL_ROW = "#connection-mail-lisbon-realty-example-test";
+const ALL = [GOOD, BAD];
 const notion = (page: Page) => page.locator("#connection-notion-notion-token");
 
 test.describe.configure({ mode: "serial" });
@@ -28,7 +26,34 @@ test("connections: the address names no project, g c opens it, the title and the
   await page.goto("/connections?project=lisbon-realty");
   await expect.poll(() => address(page)).toBe("/connections");
   await expect(page.locator("#connection-whatsapp")).toHaveCount(0);
-  await expect(page.locator(MAIL_ROW)).toContainText("IMAP read login: not set (optional)");
+});
+
+test("connections: Mail is read-only, one row per account a project lists, with whether Apple Mail has it and who uses it", async ({ page }) => {
+  await page.goto("/connections");
+  const mail = page.getByRole("table", { name: "Mail accounts" });
+  for (const slug of ["lisbon-realty", "demo-shop"]) {
+    const row = mail.locator(`tr[data-account="${slug}@example.test"]`);
+    await expect(row).toContainText("Found in Apple Mail");
+    await expect(row).toContainText(slug);
+  }
+  await expect(mail.getByRole("button")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Mail", exact: true })).toBeVisible();
+  await expect(page.getByText(/IMAP|App password/)).toHaveCount(0);
+  // Notion and Telegram keep their key controls.
+  await expect(notion(page).getByRole("button", { name: "Set key for Notion" })).toBeVisible();
+  await expect(page.locator("#connection-telegram-bot").getByRole("button", { name: /^Set key for / })).toBeVisible();
+});
+
+test("connections: Mail not running says so, never found or not found", async ({ page }) => {
+  await page.route(/\/api\/connections$/, async (route) => {
+    const res = await route.fetch();
+    const dto = (await res.json()) as { mail: { foundInMail: boolean | null }[] };
+    await route.fulfill({ response: res, json: { ...dto, mail: dto.mail.map((m) => ({ ...m, foundInMail: null })) } });
+  });
+  await page.goto("/connections");
+  const mail = page.getByRole("table", { name: "Mail accounts" });
+  await expect(mail.getByText("Mail is not running").first()).toBeVisible();
+  await expect(mail.getByText(/Found in Apple Mail|Not found in Apple Mail/)).toHaveCount(0);
 });
 
 test("connections: a key is written, tested, refused when invalid, replaced, and removed; it is never shown, stored in the browser or answered", async ({ page }) => {
@@ -92,27 +117,6 @@ test("connections: a key is written, tested, refused when invalid, replaced, and
   await expect(page.getByRole("status").filter({ hasText: "key removed" })).toBeVisible();
   await expect(n).toContainText("Not set");
   expect(existsSync(join(SECRETS, "notion-token"))).toBe(false);
-});
-
-test("connections: a mail login for an account a project lists is stored as a file, replaced, tested and removed", async ({ page }) => {
-  await page.goto("/connections");
-  const r = page.locator(MAIL_ROW);
-  await r.getByRole("button", { name: `Set key for ${MAIL}` }).click();
-  await page.getByLabel("IMAP server").fill("imap.example.test");
-  await page.getByLabel("Login").fill(MAIL);
-  await page.getByLabel("App password").fill(PASS);
-  await page.getByRole("button", { name: "Save login" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "key saved" })).toBeVisible();
-  await expect(r).toContainText("Key stored");
-  expect(readdirSync(SECRETS).filter((f) => f.startsWith("mail-"))).toHaveLength(1);
-  await expect(page.getByLabel("App password")).toHaveCount(0);
-  expect(await page.content()).not.toContain(PASS);
-  await r.getByRole("button", { name: `Test ${MAIL}` }).click();
-  await expect(r).toContainText("Tested");
-  await r.getByRole("button", { name: `Remove key for ${MAIL}` }).click();
-  await page.getByRole("button", { name: "Remove key", exact: true }).click();
-  await expect(r).toContainText("Not set");
-  expect(readdirSync(SECRETS).filter((f) => f.startsWith("mail-"))).toEqual([]);
 });
 
 test("connections: Retry shows when the list cannot load, and the page recovers", async ({ page }) => {

@@ -21,8 +21,7 @@ A **lead** is a request that is not yet a client: a website form, a message from
 ## What the core does with leads
 
 1. **Reads them** (read only): `notion-dump leads <project>` (token) prints the counts by Status, Brand and Source and three lists that mirror the live views: *needs reply* (New or no status, received before today), *overdue* (In progress, Next step before today), *won without a client*. A session without a token reads the same rows through the Notion connector and applies the same three rules.
-2. **Drafts for them**: `triage-mail` step 3b picks the workflow `new-website-lead` (project's own `workflows/`) for a lead that waits. Draft only, never a send.
-3. **Counts them** on the admin overview (`clients` and `leads` sources).
+2. **Drafts for them**: `triage-mail` step 3b picks the workflow `new-website-lead` (project's own `workflows/`) for a lead that waits. Draft only, never a send. The admin shows no Notion count: the agent reads Notion through its connector, and the drafts it leaves show in Drafts.
 
 The core never creates a client from a lead and never changes a lead's Status.
 

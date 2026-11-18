@@ -1,18 +1,16 @@
-import { FakeImapServer } from "@hub/mail/imap";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
-  fileState, inspect, isTelegramToken, mailFileOf, parseConnectionId, probeImap, probeNotion, probeTelegram, readValue, redact, removeSecret,
-  slug, storeMailLogin, storeToken, testConnection, type ConnectionRow, type ProbeDeps,
+  fileState, inspect, isTelegramToken, parseConnectionId, probeNotion, probeTelegram, readValue, redact, removeSecret,
+  storeToken, testConnection, type ConnectionRow, type ProbeDeps,
 } from "../src/index";
 
 // Fake secrets only. Every test uses its own throwaway folder; nothing here opens a real instance.
 const NOTION = "ntn_FAKENOTIONSECRET1234567890";
 const TG = "123456789:AAFakeTelegramTokenValue_1234567890";
-const PASS = "fake-app-pass-4321";
-const ALL = [NOTION, TG, PASS];
+const ALL = [NOTION, TG];
 
 const dirOf = (): string => path.join(mkdtempSync(path.join(tmpdir(), "hub-conn-")), "secrets");
 const put = (dir: string, name: string, text: string, mode = 0o600): void => {
@@ -20,7 +18,6 @@ const put = (dir: string, name: string, text: string, mode = 0o600): void => {
   writeFileSync(path.join(dir, name), text, { mode });
   chmodSync(path.join(dir, name), mode);
 };
-const login = (account: string, extra: object = {}): string => JSON.stringify({ account, host: "imap.example.test", port: 993, user: "me@example.test", pass: PASS, ...extra }, null, 2);
 const leaks = (v: unknown): string[] => ALL.filter((s) => JSON.stringify(v).includes(s));
 const row = (rows: ConnectionRow[], id: string): ConnectionRow => {
   const r = rows.find((x) => x.id === id);
@@ -69,31 +66,17 @@ describe("inspect", () => {
   it("one Notion row per token file a project names, with who uses it", () => {
     const dir = dirOf();
     const rows = inspect({ dir, env: {}, projects: [
-      { slug: "alpha", mailAccounts: [], notionTokenFile: "notion-token" },
-      { slug: "beta", mailAccounts: [], notionTokenFile: "beta-token" },
-      { slug: "evil", mailAccounts: [], notionTokenFile: "../escape" },
+      { slug: "alpha", notionTokenFile: "notion-token" },
+      { slug: "beta", notionTokenFile: "beta-token" },
+      { slug: "evil", notionTokenFile: "../escape" },
     ] });
     expect(rows.filter((r) => r.kind === "notion").map((r) => [r.id, r.usedBy])).toEqual([["notion:beta-token", ["beta"]], ["notion:notion-token", ["alpha"]]]);
   });
 
-  it("mail: a login file, a token login, a loose file, a broken file, and a name a project lists with no file", () => {
+  it("has no mail row: an old mail login file is not a connection (decision 0026)", () => {
     const dir = dirOf();
-    put(dir, "mail-work.json", login("Work"));
-    put(dir, "mail-oauth.json", JSON.stringify({ account: "OAuth", host: "imap.example.test", user: "o@example.test", accessToken: "tok-fake-ACCESS-123456" }));
-    put(dir, "mail-loose.json", login("Loose"), 0o644);
-    put(dir, "mail-broken.json", "{ nope");
-    const rows = inspect({ dir, env: {}, projects: [{ slug: "alpha", mailAccounts: ["work", "Apple Only"], notionTokenFile: "notion-token" }] });
-    const mail = rows.filter((r) => r.kind === "mail");
-    expect(mail.map((r) => r.id).sort()).toEqual(["mail:apple-only", "mail:broken", "mail:loose", "mail:oauth", "mail:work"]);
-    expect(row(rows, "mail:work")).toMatchObject({ label: "Work", identity: "me@example.test at imap.example.test", usedBy: ["alpha"], secret: { state: "stored" }, can: ["test", "set", "remove"] });
-    expect(row(rows, "mail:oauth")).toMatchObject({ can: ["test"] });
-    expect(row(rows, "mail:oauth").note).toContain("refreshed outside");
-    expect(row(rows, "mail:loose").secret.state).toBe("unsafe-mode");
-    expect(row(rows, "mail:broken")).toMatchObject({ secret: { state: "malformed" } });
-    expect(row(rows, "mail:apple-only")).toMatchObject({ secret: { state: "missing" }, usedBy: ["alpha"], can: ["set"] });
-    expect(row(rows, "mail:apple-only").note).toContain("optional");
-    expect(leaks(rows)).toEqual([]);
-    expect(JSON.stringify(rows)).not.toContain("tok-fake-ACCESS");
+    put(dir, "mail-work.json", JSON.stringify({ account: "Work", host: "imap.example.test", user: "me@example.test", pass: "fake-app-pass-4321" }));
+    expect(inspect({ dir, ...base }).map((r) => r.kind)).toEqual(["notion", "telegram"]);
   });
 
   it("telegram carries the poller state and the bound project", () => {
@@ -107,9 +90,9 @@ describe("inspect", () => {
 
   it("two instances give two lists", () => {
     const a = dirOf(), b = dirOf();
-    put(a, "mail-one.json", login("One"));
-    expect(inspect({ dir: a, ...base }).some((r) => r.id === "mail:one")).toBe(true);
-    expect(inspect({ dir: b, ...base }).some((r) => r.id === "mail:one")).toBe(false);
+    put(a, "notion-token", NOTION);
+    expect(row(inspect({ dir: a, ...base }), "notion:notion-token").secret.state).toBe("stored");
+    expect(row(inspect({ dir: b, ...base }), "notion:notion-token").secret.state).toBe("missing");
   });
 });
 
@@ -130,22 +113,9 @@ describe("store and remove", () => {
     expect(() => storeToken(dir, "../x", "v")).toThrow("plain secret file name");
     expect(() => removeSecret(dir, "a/b")).toThrow();
     expect(parseConnectionId("notion:../x")).toBeUndefined();
-    expect(parseConnectionId("mail:Not A Slug")).toBeUndefined();
     expect(parseConnectionId("nope")).toBeUndefined();
-    expect(parseConnectionId("mail:work")).toEqual({ kind: "mail", slug: "work", file: "mail-work.json" });
-  });
-
-  it("a mail login is checked by the reader's own parser, never overwritten unless asked", () => {
-    const dir = dirOf();
-    const f = { account: "Work Gmail", host: "imap.example.test", port: 993, user: "me@example.test", password: PASS };
-    expect(storeMailLogin(dir, f, { replace: false }).file).toBe("mail-work-gmail.json");
-    expect(statSync(path.join(dir, "mail-work-gmail.json")).mode & 0o777).toBe(0o600);
-    expect(() => storeMailLogin(dir, f, { replace: false })).toThrow("already exists");
-    expect(() => storeMailLogin(dir, { ...f, password: "x".repeat(8) }, { replace: true })).not.toThrow();
-    expect(() => storeMailLogin(dir, { ...f, host: "not a host" }, { replace: true })).toThrow();
-    try { storeMailLogin(dir, { ...f, host: "bad host" }, { replace: true }); } catch (e) { expect(String(e)).not.toContain(PASS); }
-    expect(mailFileOf("Work Gmail")).toBe("mail-work-gmail.json");
-    expect(readdirSync(dir)).toEqual(["mail-work-gmail.json"]);
+    expect(parseConnectionId("mail:work")).toBeUndefined();
+    expect(parseConnectionId("notion:notion-token")).toEqual({ kind: "notion", file: "notion-token" });
   });
 
   it("remove deletes the file and says whether there was one", () => {
@@ -162,17 +132,14 @@ describe("redact and shapes", () => {
   it("removes every stored value and anything shaped like a token", () => {
     const dir = dirOf();
     put(dir, "notion-token", NOTION);
-    put(dir, "mail-work.json", login("Work"));
-    const text = `a ${NOTION} b ${PASS} c ${TG} d ntn_OTHERUNSEENTOKEN123 e`;
+    const text = `a ${NOTION} c ${TG} d ntn_OTHERUNSEENTOKEN123 e`;
     const out = redact(dir, text);
     expect(leaks(out)).toEqual([]);
     expect(out).not.toContain("OTHERUNSEEN");
   });
-  it("one Telegram shape, one slug rule", () => {
+  it("one Telegram shape", () => {
     expect(isTelegramToken(TG)).toBe(true);
     expect(isTelegramToken("12:abc")).toBe(false);
-    expect(slug("Work Gmail!")).toBe("work-gmail");
-    expect(slug("!!!")).toBe("account");
   });
 });
 
@@ -201,18 +168,6 @@ describe("probes", () => {
     expect((await probeTelegram(respond(404), TG)).state).toBe("invalid");
     expect(leaks(await probeTelegram(respond("throw"), TG))).toEqual([]);
   });
-  it("imap: valid, refused (text with the password is not echoed), unreachable", async () => {
-    const acc = { name: "Work", host: "imap.example.test", port: 993, secure: true, user: "me@example.test", auth: { pass: PASS }, addresses: ["me@example.test"] };
-    const server = new FakeImapServer({ Work: { INBOX: { messages: [] } } });
-    expect((await probeImap({ fetch, imapConnect: server.connect }, acc)).state).toBe("valid");
-    server.refuse.set("Work", `AUTHENTICATIONFAILED for ${PASS}`);
-    const refused = await probeImap({ fetch, imapConnect: server.connect }, acc);
-    expect(refused.state).toBe("invalid");
-    expect(leaks(refused)).toEqual([]);
-    const off = await probeImap({ fetch, imapConnect: async () => { throw new Error(`ECONNREFUSED with ${PASS}`); } }, acc);
-    expect(off.state).toBe("unverified");
-    expect(leaks(off)).toEqual([]);
-  });
 });
 
 describe("testConnection by id", () => {
@@ -220,11 +175,9 @@ describe("testConnection by id", () => {
     const dir = dirOf();
     put(dir, "notion-token", NOTION);
     put(dir, "telegram-bot-token", TG);
-    put(dir, "mail-work.json", login("Work"));
-    const server = new FakeImapServer({ Work: { INBOX: { messages: [] } } });
-    const deps: ProbeDeps = { fetch: respond(200, { result: { username: "b" }, name: "n" }).fetch, imapConnect: server.connect };
-    const out = await Promise.all(["notion:notion-token", "telegram:bot", "mail:work"].map((id) => testConnection(dir, {}, deps, id)));
-    expect(out.map((v) => v.state)).toEqual(["valid", "valid", "valid"]);
+    const deps: ProbeDeps = { fetch: respond(200, { result: { username: "b" }, name: "n" }).fetch };
+    const out = await Promise.all(["notion:notion-token", "telegram:bot"].map((id) => testConnection(dir, {}, deps, id)));
+    expect(out.map((v) => v.state)).toEqual(["valid", "valid"]);
     expect(leaks(out)).toEqual([]);
   });
   it("missing, loose, unknown and env cases are verdicts, not throws", async () => {
@@ -233,7 +186,7 @@ describe("testConnection by id", () => {
     expect((await testConnection(dir, {}, deps, "notion:notion-token")).detail).toBe("no secret is stored");
     put(dir, "telegram-bot-token", TG, 0o644);
     expect((await testConnection(dir, {}, deps, "telegram:bot")).detail).toContain("mode 644");
-    expect((await testConnection(dir, {}, deps, "mail:ghost")).state).toBe("invalid");
+    expect((await testConnection(dir, {}, deps, "mail:ghost")).detail).toBe("unknown connection");
     expect((await testConnection(dir, {}, deps, "zzz")).detail).toBe("unknown connection");
     expect((await testConnection(dir, {}, deps, "whatsapp")).detail).toBe("unknown connection");
     expect((await testConnection(dir, { NOTION_TOKEN: NOTION }, deps, "notion:notion-token")).state).toBe("valid");

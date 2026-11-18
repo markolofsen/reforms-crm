@@ -1,8 +1,8 @@
-import { CONNECTION_KINDS, SECRET_STATES } from "@hub/contract/connections";
+import { CONNECTION_KINDS, SECRET_STATES, type ConnectionDto } from "@hub/contract/connections";
 import { describe, expect, it } from "vitest";
-import { groupByKind, KIND_ORDER, KIND_TITLE, SECRET } from "../src/features/connections/labels";
-import { statusRows } from "../src/features/shell/status-footer";
-import { formatDest } from "../src/routes/paths";
+import { foundLook, groupByKind, KIND_ORDER, KIND_TITLE, SECRET } from "../src/features/connections/labels";
+
+const row = (kind: ConnectionDto["kind"], id: string): ConnectionDto => ({ id, kind, label: kind, secret: { state: "missing" }, identity: null, usedBy: [], can: ["set"], check: { state: "never" } });
 
 describe("connections labels", () => {
   it("name every secret state and every kind the contract has, each state with a word", () => {
@@ -11,14 +11,13 @@ describe("connections labels", () => {
     expect([...KIND_ORDER].sort()).toEqual([...CONNECTION_KINDS].sort());
     for (const s of SECRET_STATES) expect(SECRET[s].word.length).toBeGreaterThan(0);
   });
+
   it("groups rows by kind in the page order and drops an empty kind", () => {
     expect(groupByKind([])).toEqual([]);
+    expect(groupByKind([row("telegram", "telegram:bot"), row("notion", "notion:notion-token")]).map((g) => g.kind)).toEqual(["notion", "telegram"]);
   });
-  it("the two footer rows that point at setup lead to Connections, with no project in the address", () => {
-    const health = { mail: { state: "off", accounts: 0, problems: [] }, sent: { state: "off" }, messengers: { state: "off" } };
-    // @ts-expect-error a partial health is enough for the rows under test
-    const rows = statusRows({ health, stale: false, serverOlder: false, serverNewer: false });
-    const to = rows.filter((r) => r.to).map((r) => (r.to ? formatDest(r.to, "lisbon") : ""));
-    expect(to).toEqual(["/connections", "/connections"]);
+
+  it("a mail account is found, not found, or unknown because Mail is not running: never a guess", () => {
+    expect([true, false, null].map((f) => foundLook(f).word)).toEqual(["Found in Apple Mail", "Not found in Apple Mail", "Mail is not running"]);
   });
 });

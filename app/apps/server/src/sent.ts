@@ -1,17 +1,18 @@
-import { matchSent, readSent, type SentMessage } from "@hub/mail/imap";
-import type { Repos } from "@hub/db";
-import type { MailService } from "./mail";
+import type { DraftRow, Repos } from "@hub/db";
+import { bareId, defaultOsa, type OsaRun } from "@hub/send";
+import { mailRunning, readSent, type SentMessage } from "./apple-mail";
+import { configOf } from "./overview-facts";
 
 /**
- * Sent detection (doc 14 step 6). A draft (bulk or recorded by a session) becomes `sent` only when its message shows up in the Sent folder of one
- * of the project's mail accounts: the app never sends and never treats a keypress as proof. This loop only reads
- * (SEARCH and FETCH on a read-only mailbox). It is off while no project has a matching login file, and it touches the
- * network only while some draft is still waiting.
+ * Sent detection (decision 0026). A draft becomes `sent` only when its message shows up in the Sent mailbox of one of
+ * the project's Apple Mail accounts: the hub never treats a keypress as proof. Each pass reads only while a draft waits,
+ * and only since the oldest waiting draft (minus a day); it never launches Mail. A follow-up step found here advances its
+ * enrollment through `drafts.markSent`, the one writer of `sent`.
  */
 export interface SentStatus {
   state: "off" | "starting" | "running" | "error" | "stopped";
   reason?: string;
-  /** Projects checked on the last pass. */
+  /** Projects read on the last pass. */
   projects: string[];
   lastRunAt?: string;
   lastError?: string;
@@ -31,9 +32,12 @@ export interface SentHandle {
 
 export interface SentOptions {
   repos: Repos;
-  mail: MailService;
+  /** Default: the real `osascript`. Tests pass a fake; nothing in a test reaches Mail. */
+  osa?: OsaRun;
   env?: NodeJS.ProcessEnv;
   now?: () => Date;
+  /** Set when the loop must not read Mail at all (the fake Mailer): the reason health shows. */
+  offReason?: string;
   /** Between passes. Default 5 minutes (HUB_SENT_INTERVAL_MS). Doubles after each failed pass, up to one hour. */
   intervalMs?: number;
   /** How far back a draft can still be matched. Default 30 days. */
@@ -44,85 +48,135 @@ export interface SentOptions {
 
 const DAY = 86_400_000;
 
-export interface ReconcileResult {
-  checked: number;
-  marked: number;
-  /** One line per account that could not be read, already redacted. */
-  errors: string[];
+export type SentVia = "message-id" | "marker" | "thread" | "subject-recipient";
+export interface SentMatch { draftId: number; via: SentVia; sent: SentMessage }
+type Waiting = Pick<DraftRow, "id" | "subject" | "toAddr" | "mailRef" | "createdAt">;
+
+/** `Re: [x] Aw: Topic` becomes `topic`. */
+export function normSubject(s: string): string {
+  let t = s.normalize("NFC").trim();
+  for (let prev = ""; prev !== t; ) {
+    prev = t;
+    t = t.replace(/^\s*(re|fwd?|aw|wg|sv|vs|odp|ответ|отв|пересл)\s*(\[\d+\])?\s*:\s*/i, "");
+  }
+  return t.replace(/\s+/g, " ").toLowerCase();
 }
 
-/** One project, one pass: read each of its Sent folders since the oldest waiting draft, match, mark. */
-export async function reconcileProject(o: { repos: Repos; mail: MailService; project: string; now: Date; lookbackDays: number }): Promise<ReconcileResult> {
-  const result: ReconcileResult = { checked: 0, marked: 0, errors: [] };
-  const since = new Date(o.now.getTime() - o.lookbackDays * DAY).toISOString();
-  const waiting = await o.repos.drafts.awaitingSent(o.project, since);
-  result.checked = waiting.length;
-  if (waiting.length === 0) return result;
-  const accounts = await o.mail.accountsFor(o.project);
-  if (accounts.length === 0) return result;
+const firstTo = (to: string): string | null => {
+  for (const part of to.split(",")) {
+    const a = (/<([^>]+)>/.exec(part)?.[1] ?? part).trim().toLowerCase();
+    if (/^[^\s@]+@[^\s@]+$/.test(a)) return a;
+  }
+  return null;
+};
 
-  // Read from a day before the oldest waiting draft: IMAP SINCE is day-granular and clocks differ.
-  const oldest = waiting.reduce((m, d) => (d.createdAt < m ? d.createdAt : m), waiting[0]!.createdAt);
+/**
+ * Which Sent messages are which drafts, by the strongest evidence first:
+ *   1. `message-id`: the sent message has the draft's `mailRef` as its own Message-ID (Mail keeps it when a draft is sent);
+ *   2. `marker`: its text still carries the draft's `[hub-draft thread=<mailRef>]` line;
+ *   3. `thread`: it answers the thread `mailRef` names (In-Reply-To);
+ *   4. `subject-recipient`: same subject (Re:/Fwd: ignored).
+ * 2 to 4 also need the draft's first recipient in To or Cc and a send after the draft was made. A sent message satisfies
+ * one draft only (the oldest first), so two drafts to one client are never marked by one send. Doubt leaves a draft unmarked.
+ */
+export function matchSent(drafts: Waiting[], sent: SentMessage[]): SentMatch[] {
+  const pool = [...sent].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.messageId < b.messageId ? -1 : 1));
+  const queue = [...drafts].sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id - b.id));
+  const used = new Set<string>();
+  const done = new Set<number>();
+  const out: SentMatch[] = [];
+  const take = (d: Waiting, via: SentVia, ok: (m: SentMessage) => boolean) => {
+    if (done.has(d.id)) return;
+    const hit = pool.find((m) => !used.has(m.messageId) && ok(m));
+    if (!hit) return;
+    used.add(hit.messageId);
+    done.add(d.id);
+    out.push({ draftId: d.id, via, sent: hit });
+  };
+  const fits = (d: Waiting, m: SentMessage) => {
+    const r = firstTo(d.toAddr);
+    return Date.parse(m.date) >= Date.parse(d.createdAt) && r !== null && [...m.to, ...m.cc].includes(r);
+  };
+
+  for (const d of queue) if (bareId(d.mailRef)) take(d, "message-id", (m) => m.messageId === bareId(d.mailRef));
+  for (const d of queue) if (bareId(d.mailRef)) take(d, "marker", (m) => fits(d, m) && m.marker === bareId(d.mailRef));
+  for (const d of queue) if (bareId(d.mailRef)) take(d, "thread", (m) => fits(d, m) && m.inReplyTo === bareId(d.mailRef));
+  for (const d of queue) {
+    const s = normSubject(d.subject);
+    if (s) take(d, "subject-recipient", (m) => fits(d, m) && normSubject(m.subject) === s);
+  }
+  return out;
+}
+
+export interface ProjectPlan { slug: string; accounts: string[]; mailbox: string; waiting: DraftRow[] }
+
+/** One project: read each account's Sent since the oldest waiting draft minus a day, match, mark. Errors are per account. */
+export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan): Promise<{ marked: number; errors: string[] }> {
+  const oldest = p.waiting.reduce((m, d) => (d.createdAt < m ? d.createdAt : m), p.waiting[0]!.createdAt);
   const from = new Date(Date.parse(oldest) - DAY);
   const sent: SentMessage[] = [];
-  for (const a of accounts) {
-    let session: Awaited<ReturnType<MailService["connect"]>> | undefined;
+  const errors: string[] = [];
+  for (const account of p.accounts) {
     try {
-      session = await o.mail.connect(a);
-      sent.push(...(await readSent(a, session, from)));
+      sent.push(...(await readSent(osa, account, p.mailbox, from)));
     } catch (e) {
-      result.errors.push(`${a.name}: ${o.mail.redact(e instanceof Error ? e.message : String(e))}`);
-    } finally {
-      await session?.close().catch(() => {});
+      errors.push(`${p.slug} / ${account}: ${(e instanceof Error ? e.message : String(e)).slice(0, 200)}`);
     }
   }
-
-  const matches = matchSent(
-    waiting.map((d) => ({ id: d.id, subject: d.subject, to: d.toAddr, mailRef: d.mailRef, createdAt: d.createdAt })),
-    sent,
-  );
-  for (const m of matches) {
-    const d = await o.repos.drafts.markSent(m.draftId, { at: m.sent.date, via: m.via, messageId: m.sent.messageId });
-    if (d && d.status === "sent") result.marked++;
+  let marked = 0;
+  for (const m of matchSent(p.waiting, sent)) {
+    const d = await repos.drafts.markSent(m.draftId, { at: m.sent.date, via: m.via, messageId: m.sent.messageId });
+    if (d?.status === "sent") marked++;
   }
-  return result;
+  return { marked, errors };
+}
+
+/** Active projects that list a Mail account and have drafts waiting. Reads SQLite only. */
+async function plans(repos: Repos, since: string): Promise<ProjectPlan[]> {
+  const out: ProjectPlan[] = [];
+  for (const row of (await repos.projects.registry()).projects) {
+    if (row.status !== "active" || row.archived) continue;
+    const c = configOf(row);
+    if (c.mail.accounts.length === 0) continue;
+    const waiting = await repos.drafts.awaitingSent(row.slug, since);
+    if (waiting.length) out.push({ slug: row.slug, accounts: c.mail.accounts, mailbox: c.mail.sentMailbox, waiting });
+  }
+  return out;
 }
 
 export function startSentReconciler(o: SentOptions): SentHandle {
   const env = o.env ?? process.env;
+  const osa = o.osa ?? defaultOsa;
   const now = o.now ?? (() => new Date());
+  const disabled = o.offReason ?? (env.HUB_SENT === "off" ? "HUB_SENT=off" : undefined);
   const base = o.intervalMs ?? (Number(env.HUB_SENT_INTERVAL_MS) || 5 * 60_000);
-  const st: SentStatus = { state: env.HUB_SENT === "off" ? "off" : "starting", ...(env.HUB_SENT === "off" ? { reason: "HUB_SENT=off" } : {}), projects: [], failures: 0, marked: 0 };
+  const st: SentStatus = { state: disabled ? "off" : "starting", ...(disabled ? { reason: disabled } : {}), projects: [], failures: 0, marked: 0 };
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
   let running: Promise<void> | undefined;
 
+  const off = (reason: string) => {
+    st.state = "off";
+    st.reason = reason;
+    st.projects = [];
+    st.failures = 0;
+    delete st.lastError;
+  };
+
   async function pass(): Promise<void> {
-    if (env.HUB_SENT === "off") return;
-    const { projects } = await o.repos.projects.registry();
-    const active = projects.filter((p) => p.status === "active");
-    const checked: string[] = [];
+    if (disabled) return;
+    const todo = await plans(o.repos, new Date(now().getTime() - (o.lookbackDays ?? 30) * DAY).toISOString());
+    // No draft waits: Mail is not asked anything.
+    if (todo.length === 0) return off("no draft waits to be seen in Sent");
+    if (!(await mailRunning(osa).catch(() => false))) return off("Mail is not running");
     const errors: string[] = [];
-    for (const p of active) {
-      try {
-        if ((await o.mail.accountsFor(p.slug)).length === 0) continue;
-        const r = await reconcileProject({ repos: o.repos, mail: o.mail, project: p.slug, now: now(), lookbackDays: o.lookbackDays ?? 30 });
-        checked.push(p.slug);
-        st.marked += r.marked;
-        errors.push(...r.errors);
-      } catch (e) {
-        errors.push(`${p.slug}: ${o.mail.redact(e instanceof Error ? e.message : String(e))}`);
-      }
-    }
-    st.projects = checked;
-    if (checked.length === 0 && errors.length === 0) {
-      st.state = "off";
-      st.reason = "no active project has a mail login file for its mail.accounts";
-      st.failures = 0;
-      delete st.lastError;
-      return;
+    for (const p of todo) {
+      const r = await reconcileProject(osa, o.repos, p);
+      st.marked += r.marked;
+      errors.push(...r.errors);
     }
     delete st.reason;
+    st.projects = todo.map((p) => p.slug);
     st.lastRunAt = now().toISOString();
     if (errors.length) {
       st.state = "error";
@@ -137,11 +191,11 @@ export function startSentReconciler(o: SentOptions): SentHandle {
 
   const tick = () => (running ??= pass().finally(() => (running = undefined)));
   const schedule = () => {
-    if (stopped || o.timer === false || env.HUB_SENT === "off") return;
+    if (stopped || o.timer === false || disabled) return;
     timer = setTimeout(() => void tick().finally(schedule), Math.min(base * 2 ** Math.min(st.failures, 6), 3_600_000));
     timer.unref?.();
   };
-  if (env.HUB_SENT !== "off" && o.timer !== false) void tick().finally(schedule);
+  if (!disabled && o.timer !== false) void tick().finally(schedule);
 
   return {
     status: () => ({ ...st, projects: [...st.projects] }),

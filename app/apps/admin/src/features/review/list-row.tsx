@@ -34,8 +34,9 @@ export function chipsOf(d: ReviewDraft): Chip[] {
 type Props = { d: ReviewDraft; now: number; open: boolean; selecting: boolean; selected: boolean; onOpen: () => void; onToggle: () => void };
 
 /**
- * One draft in the list. Three states that never share a look: focus (inset ring on the button), open (fill and a
- * bar at the start edge: its card is in the pane) and selected (the leading slot is a checkbox, a blue tint).
+ * One draft in the list, three lines (P48 W4): the name and the silence; the subject, full width; the class and at most two
+ * chips. Three states that never share a look: focus (a ring inset on the button, so it never covers a neighbour), open (fill
+ * and a bar at the start edge: its card is in the pane) and selected (the leading slot is a checkbox, a blue tint).
  */
 export function ListRow({ d, now, open, selecting, selected, onOpen, onToggle }: Props) {
   const { Icon, label, tone } = statusOf(d);
@@ -44,7 +45,7 @@ export function ListRow({ d, now, open, selecting, selected, onOpen, onToggle }:
   return (
     <li className={cn("group/row relative flex min-w-0 items-stretch border-b", open ? "bg-accent" : selected && "bg-info/8")} data-open={open} data-selected={selected} id={`draft-${d.id}`}>
       {open && <span aria-hidden="true" className="absolute inset-y-0 start-0 w-[3px] bg-primary" />}
-      <span className="relative grid h-(--control-m) w-(--control-m) shrink-0 place-items-center self-start ms-1 mt-1" data-hit="">
+      <span className="relative grid h-(--control-m) w-(--control-m) shrink-0 place-items-center self-start ms-1 mt-1.5" data-hit="">
         <Icon aria-label={label} className={cn("size-5", tone, selecting ? "opacity-0" : "group-hover/row:opacity-0")} role="img" />
         <Checkbox
           aria-label={`Select ${d.client.name}`}
@@ -57,7 +58,8 @@ export function ListRow({ d, now, open, selecting, selected, onOpen, onToggle }:
       </span>
       <ActionButton
         aria-current={open ? "true" : undefined}
-        className="h-auto min-h-(--control-m) min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-none py-2 ps-1 pe-3 text-start font-normal hover:bg-transparent focus-visible:ring-inset"
+        className="h-auto min-h-16 min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-none py-2 ps-1 pe-3 text-start font-normal outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        data-testid="draft-row"
         onClick={onOpen}
         size="m"
         variant="quiet"
@@ -66,14 +68,19 @@ export function ListRow({ d, now, open, selecting, selected, onOpen, onToggle }:
           <span className="min-w-0 flex-1 truncate font-medium">{d.client.name}</span>
           <span className={cn("shrink-0 text-xs tabular-nums", old ? "text-warning-foreground" : "text-muted-foreground")}>{silence(d.client.lastContactAt, now)}</span>
         </span>
-        <span className="flex w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
-          <span className="min-w-0 flex-1 truncate">{[d.mailClass, d.reason ?? d.subject].filter(Boolean).join(" · ")}</span>
-          {chips.map((c) => (
-            <Badge key={c.text} variant={c.variant}>
-              {c.text}
-            </Badge>
-          ))}
+        <span className="w-full min-w-0 truncate text-sm" data-testid="draft-subject">
+          {d.subject || "(no subject)"}
         </span>
+        {(d.mailClass || chips.length > 0) && (
+          <span className="flex w-full min-w-0 flex-wrap items-center gap-1.5 text-muted-foreground text-xs">
+            {d.mailClass && <span className="min-w-0 truncate">{d.mailClass}</span>}
+            {chips.map((c) => (
+              <Badge key={c.text} variant={c.variant}>
+                {c.text}
+              </Badge>
+            ))}
+          </span>
+        )}
       </ActionButton>
     </li>
   );

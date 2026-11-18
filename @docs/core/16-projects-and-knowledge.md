@@ -65,11 +65,11 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 | `status` | `draft` `active` `paused` `archived` | yes | `draft` | `hub send`, doctor, registry | only an `active` project sends; setup sets `active` after `doctor` passes; `archived` is retired and routes like `paused` |
 | `languages` | list of BCP-47 | no | `en` | reply, triage skills | first is the default; drafts answer in the client's language when it is listed |
 | `timezone` | IANA | no | host timezone | reports, `calendar.timezone` default | quiet hours and report dates |
-| `mail.accounts` | list | yes | none | `@hub/mail`, routing, `hub guard` | Mail.app account names, exactly as `list_accounts` returns them |
+| `mail.accounts` | list | yes | none | routing, `hub guard`, Connections ("Found in Apple Mail") | Mail.app account names, exactly as `list_accounts` returns them |
 | `mail.addresses` | list | no | the accounts' own addresses | routing | every address this project receives at: aliases, the form-lead address |
 | `mail.aliases` | list | no | none | routing | addresses that route to the project but are not a Mail account or the sender: aliases, a planned address. Merged into `config.mail.addresses`, so routing, the duplicate-claim check and `doctor` treat them as addresses (for example a planned address before a mailbox switch) |
 | `mail.mailboxes` | list | no | `INBOX` | parsed, read by no command | mailboxes to read for new mail |
-| `mail.sent_mailbox` | text | no | `Sent Mail` | `mail_history` | where outgoing mail is read from |
+| `mail.sent_mailbox` | text | no | `Sent Mail` | Sent detection (`osascript`, decision 0026) | the Apple Mail mailbox a waiting draft is looked for in once sent |
 | `mail.sender` | address | yes | first of `mail.addresses` | `mail_draft` | the From of every draft |
 | `draft.recipients` | `test` `any` or list | no | `test` | `mail_draft` guard | who a draft may go to; `test` = the global `allow_list` of `config/config.json`; the owner flips it to `any` once |
 | `send.mode` | `draft` `auto` | no | `draft` | `hub send`, doctor | `draft`: only a person sends, with `hub send` or the admin's Send; `auto`: `hub send --due` sends drafts of `send.classes` after the cancel window (section 3B) |
@@ -151,7 +151,7 @@ A missing required field is a warning in a `draft` project and an error otherwis
 
 ## 3B. Sending (decision 0011, plan P23)
 
-The agent has no send tool in any mode: the deny rules of `hub agent` (`DENIED_TOOLS`, `Bash(osascript *)`, `sendmail`, `mail`) and the PreToolUse guard stay, and `app/apps/installer/test/send-safety.test.ts` fails if a send tool stops being denied. The same deny rules and guard refuse `hub sequences enrol`, `pause` and `resume` (P47): starting follow-ups is the owner's. Sending is a hub command, run by a person or, once the owner switches it on for one project and one class, by `hub send --due`.
+The agent has no send tool in any mode: the deny rules of `hub agent` (`DENIED_TOOLS`, `Bash(osascript *)`, `sendmail`, `mail`) and the PreToolUse guard stay, and `app/apps/installer/test/send-safety.test.ts` fails if a send tool stops being denied. The same deny rules and guard refuse `hub sequences pause` and `resume`, and `hub sequences enrol` without `--phrase` is refused by the CLI and flagged by the guard: a session enrols a client only on the owner's words in that session, recorded with the enrolment ([23-sequences.md](23-sequences.md)). Sending is a hub command, run by a person or, once the owner switches it on for one project and one class, by `hub send --due`.
 
 `mail-mcp` has no send tool, and a draft saved in Mail's Drafts mailbox is a `message`, not an `outgoing message`, so Mail's `send` command cannot send it. The hub therefore reads the draft from Mail (subject, recipients, plain text, attachment count), re-checks it, and sends a new outgoing message with exactly that text through `osascript` run by the hub process (the P17 `osascript` deny rule binds the agent's shell, not the hub). It then moves the original draft to the Trash. Limits: plain text only, no attachments (a draft with attachments is refused), and the new message does not carry `In-Reply-To` headers. All of it sits behind the `Mailer` interface in the shared package `@hub/send` (`app/packages/send`, imported by `hub send` and by the admin's server; packages never import apps); tests use `FakeMailer` and never reach Mail.
 

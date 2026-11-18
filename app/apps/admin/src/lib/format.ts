@@ -13,14 +13,6 @@ export const isOld = (updatedAt: string, now: number) => now - new Date(updatedA
 
 export const formatTime = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
-export const formatClock = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
-export function duration(start: string, end: string | null): string {
-  if (!end) return "running";
-  const s = Math.round((new Date(end).getTime() - new Date(start).getTime()) / 1000);
-  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
-}
-
 export const usd = (n: number) => (n > 0 ? `$${n.toFixed(2)}` : "-");
 export const tokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 
@@ -33,7 +25,7 @@ export function wrote(iso: string | null, now: number): string | null {
 }
 
 /** "1 event", "3 events": the noun agrees with the count. */
-export const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
+export const plural = (n: number, noun: string, many = `${noun}s`) => `${n} ${n === 1 ? noun : many}`;
 
 export const hhmm = (iso: string) => new Date(iso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 

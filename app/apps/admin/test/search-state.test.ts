@@ -7,10 +7,12 @@ import { resolveRoute } from "../src/routes/resolve";
 // framework's history now; those rules are asserted in a real browser (`e2e/b-routing.spec.ts`, N6). The pure half stays here.
 describe("search state", () => {
   it("a filter is a destination on the same route: it keeps the subject and the other key, and the default drops its key", () => {
-    const filter = withSearch(resolveRoute("/drafts", "project=x"), "filter", "hold");
-    expect(filter && formatDest(filter, "x")).toBe("/drafts?project=x&filter=hold");
-    const back = withSearch(resolveRoute("/drafts", "project=x&filter=hold"), "filter", "ready");
-    expect(back && formatDest(back, "x")).toBe("/drafts?project=x");
+    const multi = { project: "x", multi: true };
+    const filter = withSearch(resolveRoute("/x/drafts", ""), "filter", "hold");
+    expect(filter && formatDest(filter, multi)).toBe("/x/drafts?filter=hold");
+    const back = withSearch(resolveRoute("/x/drafts", "filter=hold"), "filter", "ready");
+    expect(back && formatDest(back, multi)).toBe("/x/drafts");
+    expect(back && formatDest(back, { project: "x", multi: false })).toBe("/drafts");
     expect(searchValue(resolveRoute("/drafts/42", "filter=hold"), "filter")).toBe("hold");
     expect(paths.drafts.item(42, { filter: "hold" }).search).toEqual({ filter: "hold" });
   });

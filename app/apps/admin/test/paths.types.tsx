@@ -10,6 +10,8 @@ paths.drafts.item("abc");
 paths.drafts.list({ batch: "June" });
 // @ts-expect-error there is no Bulk screen: a batch is a filter of Drafts
 paths.bulk.list();
+// @ts-expect-error the batch builder is gone (P48): a batch is prepared by a phrase in a session
+paths.drafts.newBatch();
 // @ts-expect-error not a route of the tree
 paths.drafz.list();
 // @ts-expect-error a filter outside its enum

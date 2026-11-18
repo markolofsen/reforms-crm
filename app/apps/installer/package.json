@@ -17,7 +17,6 @@
     "@hub/config": "workspace:*",
     "@hub/connections": "workspace:*",
     "@hub/db": "workspace:*",
-    "@hub/mail": "workspace:*",
     "@hub/mail-filters": "workspace:*",
     "@hub/projects": "workspace:*",
     "@hub/sequences": "workspace:*",

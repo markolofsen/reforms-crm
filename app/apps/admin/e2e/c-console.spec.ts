@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { remember } from "./support";
+import { at, remember } from "./support";
 
 // Hydration is the new bug class of the Next port (P32 risk R1): the server renders without a viewport, storage or clock,
 // and a client that reads them in its first render shows a mismatch as a console error ("Hydration failed", React #418,
@@ -9,7 +9,8 @@ test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-const ROUTES = ["/overview", "/drafts", "/drafts?filter=all", "/drafts?new=1", "/log", "/log?run=1", "/project", "/nope", "/drafts/abc"];
+const P = "lisbon-realty";
+const ROUTES = ["/overview", "/connections", at(P, "/drafts"), at(P, "/drafts?filter=all"), at(P, "/drafts?filter=sequences"), at(P, "/log"), at(P, "/log?run=1"), at(P, "/project"), "/nope", at(P, "/drafts/abc")];
 
 for (const route of ROUTES) {
   test(`${route} loads cold with a clean console and no hydration message`, async ({ page }) => {
@@ -28,7 +29,38 @@ for (const route of ROUTES) {
 test("the server HTML is the loading state, never data, a viewport branch or a stored value", async ({ page }) => {
   // What the server cannot know (the width, the pinned rail, the clock, the projects) is read after mount, so the first render
   // is the same on both sides. Data arrives only through the client's own fetches.
-  const html = (await (await page.request.get("/drafts?project=lisbon-realty")).text()).replaceAll("<!-- -->", "");
+  const html = (await (await page.request.get(at(P, "/drafts"))).text()).replaceAll("<!-- -->", "");
   expect(html).toContain("Loading projects");
   expect(html).not.toContain("Sofia Teste");
+});
+
+// The theme (P48 W1): next-themes sets the class before the first paint, so a saved choice never flashes the other theme, it
+// survives a reload, and System follows the device.
+const isDark = (page: import("@playwright/test").Page) => page.evaluate(() => document.documentElement.classList.contains("dark"));
+
+for (const [saved, scheme, dark] of [["light", "dark", false], ["dark", "light", true], ["system", "dark", true], ["system", "light", false]] as const) {
+  test(`theme: saved ${saved} on a ${scheme} device paints ${dark ? "dark" : "light"} from the first frame`, async ({ page }) => {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.addInitScript((v) => window.localStorage.setItem("hub-theme", v), saved);
+    // Read the class as the document is parsed, before any React code runs: what the first paint shows.
+    await page.addInitScript(() => {
+      document.addEventListener("DOMContentLoaded", () => ((window as unknown as { firstDark: boolean }).firstDark = document.documentElement.classList.contains("dark")), { once: true });
+    });
+    await page.goto(at(P, "/drafts"));
+    expect(await page.evaluate(() => (window as unknown as { firstDark: boolean }).firstDark)).toBe(dark);
+    await page.waitForLoadState("networkidle");
+    expect(await isDark(page)).toBe(dark);
+  });
+}
+
+test("theme: a choice made in the sidebar survives a reload", async ({ page }) => {
+  test.skip((page.viewportSize()?.width ?? 0) < 1024, "the open sidebar, with its Theme control, is a desktop surface");
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.goto(at(P, "/drafts"));
+  await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" }).click();
+  await expect.poll(() => isDark(page)).toBe(true);
+  await page.reload();
+  await page.waitForLoadState("networkidle");
+  expect(await isDark(page)).toBe(true);
+  await expect(page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
 });

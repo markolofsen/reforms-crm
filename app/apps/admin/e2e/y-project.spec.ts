@@ -1,14 +1,19 @@
 import { expect, test, type Page } from "@playwright/test";
 import { remember } from "./support";
 
-// The Project screen's send history and the one Stop sending, driven in a real browser (the previous phases did not).
-// The server's answers are held in this file: a queued send exists only with autosend, which the e2e server does not run,
-// and Stop all is exercised for real in `z-send.spec.ts`. Here the page is the subject: what it asks, what it shows after.
+// The Project screen by frequency (P48 W6, `admin-principles.md` rule 9): the status sentence and Stop sending first, the
+// sends when any exist, one line per fact, the safety rules under Advanced. The sends are held in this file (a queued
+// send exists only with autosend, which the e2e server does not run; Stop all is exercised for real in `z-send.spec.ts`).
+// The e2e instance has two projects, so the address names the project first.
+const PROJECT = "lisbon-realty";
+const AT = `/${PROJECT}/project`;
+const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
+
 test.beforeEach(async ({ page }) => {
-  await remember(page, "lisbon-realty");
+  await remember(page, PROJECT);
 });
 
-type Row = { id: number; draftId: number; mode: "auto" | "manual"; status: "queued" | "sent" | "failed" | "cancelled" | "sending"; actor: string; createdAt: string; dueAt: string | null; doneAt: string | null; toAddr: string; ccAddr: string | null; subject: string; body: string; error: string | null };
+type Row = { id: number; draftId: number | null; mode: "auto" | "manual"; status: "queued" | "sent" | "failed" | "cancelled" | "sending"; actor: string; createdAt: string; dueAt: string | null; doneAt: string | null; toAddr: string; ccAddr: string | null; subject: string; body: string; error: string | null };
 const queued: Row = { id: 3, draftId: 9, mode: "auto", status: "queued", actor: "auto", createdAt: "2026-11-15T10:00:00.000Z", dueAt: "2026-11-15T10:10:00.000Z", doneAt: null, toAddr: "ana@example.com", ccAddr: null, subject: "Re: Order status", body: "Hello Ana", error: null };
 const sent: Row = { id: 2, draftId: 8, mode: "manual", status: "sent", actor: "admin", createdAt: "2026-11-14T09:00:00.000Z", dueAt: null, doneAt: "2026-11-14T09:00:02.000Z", toAddr: "bo@example.com", ccAddr: "mark@example.org", subject: "Re: Refund question", body: "Hello Bo", error: null };
 
@@ -33,40 +38,83 @@ async function sendsServer(page: Page, start: { sends: Row[]; stopped: string[] 
   return writes;
 }
 
-test("send history: Cancel exists only on a queued send, asks nothing twice, and the row reads cancelled after", async ({ page }) => {
+const advanced = (page: Page) => page.getByRole("button", { name: /^Advanced/ });
+/** A rule set through the API, as the agent or another tab would; the test puts it back after. */
+const setRule = (page: Page, kind: string, enabled: boolean) => page.request.put(`${API()}/api/safety-rules/${kind}`, { data: { project: PROJECT, enabled } });
+
+test("project: the first viewport at 1280 shows the status, Stop sending and the sends; Advanced is closed", async ({ page }) => {
+  await sendsServer(page, { sends: [sent], stopped: [] });
+  await page.goto(AT);
+  const status = page.getByTestId("project-status");
+  await expect(status).toHaveText(/\S/);
+  const stop = page.getByRole("button", { name: "Stop sending" });
+  const sends = page.getByRole("table", { name: "Sends" });
+  await expect(sends.getByRole("row").filter({ hasText: "Re: Refund question" })).toBeVisible();
+  for (const l of [status, stop, sends]) {
+    await expect(l).toBeInViewport();
+    expect((await l.boundingBox())?.y ?? 9999).toBeLessThan(800);
+  }
+  await expect(advanced(page)).toHaveAttribute("aria-expanded", "false");
+  await expect(advanced(page)).toContainText("Safety rules: all");
+  await expect(page.getByRole("switch")).toHaveCount(0); // the 18 switches are not in view
+});
+
+test("project: with no send there is no Sends table", async ({ page }) => {
+  await sendsServer(page, { sends: [], stopped: [] });
+  await page.goto(AT);
+  await expect(page.getByRole("button", { name: "Stop sending" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Sends" })).toHaveCount(0);
+});
+
+test("project: a rule that is off opens Advanced by itself and the summary names it", async ({ page }) => {
+  expect((await setRule(page, "risky_word", false)).ok()).toBe(true);
+  try {
+    await page.goto(AT);
+    await expect(advanced(page)).toHaveAttribute("aria-expanded", "true");
+    await expect(advanced(page)).toContainText("Risky words is off");
+    await expect(page.getByRole("switch", { name: "Risky words" })).toHaveAttribute("aria-checked", "false");
+  } finally {
+    expect((await setRule(page, "risky_word", true)).ok()).toBe(true);
+  }
+  await page.reload();
+  await expect(advanced(page)).toHaveAttribute("aria-expanded", "false");
+});
+
+test("project: a rule switch writes once and reports a refusal inline, in an alert", async ({ page }) => {
+  let asked = 0;
+  await page.route(/\/api\/safety-rules\//, (route) => {
+    if (route.request().method() !== "PUT") return route.fallback();
+    asked += 1;
+    return route.fulfill({ status: 409, json: { error: "Rules are locked in this test.", code: "wrong_state" } });
+  });
+  await page.goto(AT);
+  await advanced(page).click();
+  const first = page.getByRole("switch").first();
+  const before = await first.getAttribute("aria-checked");
+  await first.click();
+  await expect(page.getByRole("alert").filter({ hasText: "Rules are locked in this test." })).toBeVisible();
+  expect(asked).toBe(1);
+  await expect(first).toHaveAttribute("aria-checked", before ?? "true");
+});
+
+test("project: Cancel exists only on a queued send, and the row reads cancelled after", async ({ page }) => {
   const writes = await sendsServer(page, { sends: [queued, sent], stopped: [] });
-  await page.goto("/project");
-  const list = page.getByRole("list", { name: "Sends" });
-  await expect(list.getByRole("listitem")).toHaveCount(2);
-  await expect(page.getByRole("button", { name: /^Cancel send/ })).toHaveCount(1); // the sent row has none: a sent mail cannot be recalled
-  await expect(list.getByText("goes out", { exact: false })).toBeVisible();
-  const cancel = page.getByRole("button", { name: "Cancel send 3: Re: Order status" });
-  await cancel.focus();
-  await page.keyboard.press("Enter");
-  await expect(list.getByText("cancelled", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Cancel send/ })).toHaveCount(0);
+  await page.goto(AT);
+  const table = page.getByRole("table", { name: "Sends" });
+  await expect(table.locator("tr[data-send]")).toHaveCount(2);
+  await expect(table.getByRole("button", { name: /^Cancel send/ })).toHaveCount(1); // a sent mail cannot be recalled
+  await expect(table.locator('tr[data-send="3"]')).toContainText("goes out");
+  await table.getByRole("button", { name: "Cancel send 3: Re: Order status" }).click();
+  await expect(table.locator('tr[data-send="3"]')).toContainText("cancelled");
+  await expect(table.getByRole("button", { name: /^Cancel send/ })).toHaveCount(0);
   expect(writes).toEqual(["cancel 3"]);
-  // the text of a row opens inline and closes again
-  const show = page.getByRole("button", { name: /Show text, send 2/ });
-  await show.click();
-  await expect(page.getByText("Hello Bo")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Hide text, send 2/ })).toHaveAttribute("aria-expanded", "true");
-  await page.getByRole("button", { name: /Hide text, send 2/ }).click();
-  await expect(page.getByText("Hello Bo")).toHaveCount(0);
+  // The subject leads to the draft the send came from.
+  await expect(table.getByRole("link", { name: "Re: Refund question" })).toHaveAttribute("href", `/${PROJECT}/drafts/8`);
 });
 
-test("send history: a refused cancel is shown as the server's sentence, in an alert, and the row stays queued", async ({ page }) => {
-  await sendsServer(page, { sends: [queued], stopped: [] });
-  await page.route(/\/api\/sends\/3\/cancel/, (route) => route.fulfill({ status: 409, json: { error: "That send already left.", code: "wrong_state" } }));
-  await page.goto("/project");
-  await page.getByRole("button", { name: /^Cancel send 3/ }).click();
-  await expect(page.getByRole("alert").filter({ hasText: "That send already left." })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^Cancel send 3/ })).toBeVisible();
-});
-
-test("Stop sending asks inline for the scope, Keep sending backs out, Stop all halts every project and Resume lifts it", async ({ page }) => {
+test("project: Stop sending asks inline for the scope, Keep sending backs out, Stop all halts every project and Resume lifts it", async ({ page }) => {
   const writes = await sendsServer(page, { sends: [queued], stopped: [] });
-  await page.goto("/project");
+  await page.goto(AT);
   const stop = page.getByRole("button", { name: "Stop sending" });
   await stop.click();
   const ask = page.getByRole("group", { name: "Stop sending" });
@@ -79,39 +127,20 @@ test("Stop sending asks inline for the scope, Keep sending backs out, Stop all h
   await stop.click();
   await page.getByRole("radio", { name: "Every project" }).click();
   await ask.getByRole("button", { name: "Stop sending" }).click();
-  await expect(page.getByText("Sending is stopped for every project")).toBeVisible();
-  expect(writes).toEqual(["stop *"]);
-
   const resume = page.getByRole("button", { name: "Resume every project" });
+  await expect(resume).toBeVisible();
+  expect(writes).toEqual(["stop *"]);
   await resume.click();
   await expect(page.getByRole("button", { name: "Stop sending" })).toBeVisible();
-  await expect(page.getByText(/Sending is stopped/)).toHaveCount(0);
   expect(writes).toEqual(["stop *", "resume *"]);
 });
 
-test("Stop sending for one project, then Resume that project", async ({ page }) => {
+test("project: Stop sending for one project, then Resume that project", async ({ page }) => {
   const writes = await sendsServer(page, { sends: [], stopped: [] });
-  await page.goto("/project");
+  await page.goto(AT);
   await page.getByRole("button", { name: "Stop sending" }).click();
   await page.getByRole("group", { name: "Stop sending" }).getByRole("button", { name: "Stop sending" }).click();
-  await expect(page.getByText("Sending is stopped for lisbon-realty")).toBeVisible();
-  await page.getByRole("button", { name: "Resume lisbon-realty" }).click();
+  await page.getByRole("button", { name: `Resume ${PROJECT}` }).click();
   await expect(page.getByRole("button", { name: "Stop sending" })).toBeVisible();
-  expect(writes).toEqual(["stop lisbon-realty", "resume lisbon-realty"]);
-});
-
-test("the safety rules are Switches: toggling one writes once and reports a failure inline", async ({ page }) => {
-  let asked = 0;
-  await page.route(/\/api\/safety-rules\//, (route) => {
-    if (route.request().method() !== "PUT") return route.fallback();
-    asked += 1;
-    return route.fulfill({ status: 409, json: { error: "Rules are locked in this test.", code: "wrong_state" } });
-  });
-  await page.goto("/project");
-  const first = page.getByRole("switch").first();
-  const before = await first.getAttribute("aria-checked");
-  await first.click();
-  await expect(page.getByRole("alert").filter({ hasText: "Rules are locked in this test." })).toBeVisible();
-  expect(asked).toBeGreaterThanOrEqual(1);
-  await expect(first).toHaveAttribute("aria-checked", before ?? "true");
+  expect(writes).toEqual([`stop ${PROJECT}`, `resume ${PROJECT}`]);
 });

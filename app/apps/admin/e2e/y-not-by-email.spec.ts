@@ -1,18 +1,18 @@
 import { expect, test } from "@playwright/test";
-import { remember } from "./support";
+import { address, at, remember } from "./support";
 
-// "Not by email" (P27 M6): the clients the agent did not answer by email, read-only, below the Drafts list. Seeded for lisbon-realty:
+// "Not by email" (P27 M6, a View of Drafts since P48): the clients the agent did not answer by email, read-only. Seeded for lisbon-realty:
 // two calls (one with a phone), one no-reply, one crossed off, and no unknown sender (so the empty state is real).
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-test("lists the groups collapsed, shows a phone as plain text and the phrase that fills an empty group", async ({ page }) => {
-  await page.goto("/drafts");
+test("Not by email is a View of Drafts: its count in the menu, a phone as plain text, the phrase that fills an empty group", async ({ page }) => {
+  await page.goto(at("lisbon-realty", "/drafts"));
+  await page.getByRole("button", { name: /^View:/ }).click();
+  await page.getByRole("menuitemradio", { name: /^Not by email\s*4$/ }).click();
+  await expect.poll(() => address(page)).toBe(at("lisbon-realty", "/drafts?filter=not_by_email"));
   const block = page.getByTestId("not-by-email");
-  await expect(block.getByText("Not by email (4)")).toBeVisible();
-  await expect(page.getByTestId("not-by-email-row")).toHaveCount(0); // collapsed
-  await block.getByText("Not by email (4)").click();
   await block.getByRole("button", { name: "Call 2", exact: true }).click();
   const rows = page.getByTestId("not-by-email-row");
   await expect(rows).toHaveCount(2);
@@ -23,7 +23,7 @@ test("lists the groups collapsed, shows a phone as plain text and the phrase tha
   await expect(block.getByRole("button", { name: /^(send|dial|call now)/i })).toHaveCount(0);
 });
 
-test("the reply queue never lists them", async ({ page }) => {
-  await page.goto("/drafts");
-  await expect(page.getByTestId("inbox")).not.toContainText("Duarte Exemplo");
+test("the draft list never lists them", async ({ page }) => {
+  await page.goto(at("lisbon-realty", "/drafts?filter=all"));
+  await expect(page.locator('ul[aria-label="Drafts"]')).not.toContainText("Duarte Exemplo");
 });

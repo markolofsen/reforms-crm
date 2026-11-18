@@ -1,12 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { doctorProject, loadProjects, ProjectBase, type ProjectConfig } from "@hub/projects";
-import { classifyMessage, parseRulesFile } from "@hub/mail-filters";
 import type { ProjectRow, Repos } from "@hub/db";
-import type { ProjectCardDto } from "@hub/contract/overview";
 import { countMarkdown } from "./project-doctor";
-import type { ProjectExtra } from "./overview-attention";
-import type { RefreshPlan } from "./overview-live";
 
 /** The Overview's local facts: SQLite and the project folders only, read inside the request, no network. */
 
@@ -53,27 +48,30 @@ export function configOf(row: ProjectRow): ProjectConfig {
   }
 }
 
+/** What one project's status is judged from: SQLite and its folder, read inside the request. Counts only, never a client fact. */
 export interface ProjectFacts {
-  /** The card without its live blocks. */
-  card: Omit<ProjectCardDto, "mailboxes" | "notion">;
-  extra: ProjectExtra;
-  plan: Omit<RefreshPlan, "sources">;
-  accounts: string[];
-  notionIds: { clients: string | null; leads: string | null };
+  slug: string;
+  name: string;
+  /** The project's own status word (`draft`, `active`, `paused`, `archived`). */
+  status: string;
+  archived: boolean;
+  toReview: number;
+  sentToday: number;
+  owed: number;
+  lastTriageAt: string | null;
+  setupQuestion: boolean;
+  injectionHeld: number;
+  failed24h: number;
+  stuck: number;
+  stopped: boolean;
+  auto: { mode: string; cap: number; used24h: number };
+  recipients: "test" | "listed" | "any";
+  /** Names of the failing setup checks (names only, never a detail that could hold a value). */
+  doctorFailed: string[];
+  knowledgeExpired: number;
+  /** `context.required` of the project; null: the default (warn until CONTEXT_BLOCK_FROM). */
+  contextRequired: "warn" | "block" | null;
 }
-
-const excludedOf = (file: string): RefreshPlan["excluded"] => {
-  if (!existsSync(file)) return undefined;
-  try {
-    const rules = parseRulesFile(readFileSync(file, "utf8")).file;
-    return (m) => {
-      const c = classifyMessage(rules, m);
-      return c !== null && c.category !== "client";
-    };
-  } catch {
-    return undefined;
-  }
-};
 
 export interface FactsInput {
   repos: Repos;
@@ -91,11 +89,9 @@ export async function gatherFacts(i: FactsInput): Promise<ProjectFacts[]> {
     if (row.slug.startsWith("_")) continue;
     const c = configOf(row);
     const tz = c.timezone ?? i.hostZone;
-    const today = startOfLocalDay(i.now, tz);
     const day = new Date(i.now.getTime() - 24 * HOUR);
     const stuckBefore = new Date(i.now.getTime() - STUCK_MINUTES * 60_000);
-    const s = await i.repos.sends.summarySince(row.slug, { today: today.toISOString(), day: day.toISOString(), stuckBefore: stuckBefore.toISOString() });
-    const open = await i.repos.projects.questions(row.slug, "open");
+    const s = await i.repos.sends.summarySince(row.slug, { today: startOfLocalDay(i.now, tz).toISOString(), day: day.toISOString(), stuckBefore: stuckBefore.toISOString() });
     const loaded = folders.find((f) => f.slug === row.slug);
     let doctorFailed: string[] = [];
     if (loaded) {
@@ -106,43 +102,25 @@ export async function gatherFacts(i: FactsInput): Promise<ProjectFacts[]> {
         doctorFailed = ["project doctor"];
       }
     }
-    const db = (name: string) => c.notion.databases.find((d) => d.slug === name)?.dataSourceId ?? null;
-    const ids = { clients: db("clients"), leads: db("leads") };
-    const triageAt = await i.repos.runs.lastStart(row.slug, ["triage-mail"]);
-    const excluded = excludedOf(join(i.root, row.slug, "mail-filters.md"));
     out.push({
-      card: {
-        slug: row.slug,
-        name: row.name,
-        status: row.status,
-        kind: row.kind,
-        archived: row.archived,
-        lastTriageAt: triageAt,
-        owe: { state: "off", message: "Not recorded yet." },
-        drafts: await i.repos.drafts.countsByStatus(row.slug),
-        injectionHeld: await i.repos.drafts.injectionHeld(row.slug),
-        sends: {
-          today: s.sentToday,
-          since: today.toISOString(),
-          failed24h: s.failed,
-          stuck: s.stuck,
-          stopped: await i.repos.sends.isStopped(row.slug),
-          auto: { mode: c.send.mode, cap: c.send.dailyCap, used24h: await i.repos.sends.autoCountSince(row.slug, day.toISOString()) },
-        },
-        recipients: c.draft.recipients === "test" ? "test" : c.draft.recipients === "any" ? "any" : "listed",
-        setupQuestion: open.length > 0,
-      },
-      extra: { doctorFailed, knowledgeExpired: await i.repos.knowledge.expiredCount(row.slug, localDate(i.now, tz)), contextRequired: c.context.required },
-      plan: {
-        project: row.slug,
-        accounts: c.mail.accounts,
-        addresses: [...c.mail.addresses, ...c.mail.aliases],
-        ...(excluded ? { excluded } : {}),
-        triageAt: triageAt ? new Date(triageAt) : null,
-        notion: { tokenFile: c.notion.tokenFile, sources: (["clients", "leads"] as const).flatMap((name) => (ids[name] ? [{ name, id: ids[name] }] : [])) },
-      },
-      accounts: c.mail.accounts,
-      notionIds: ids,
+      slug: row.slug,
+      name: row.name,
+      status: row.status,
+      archived: row.archived,
+      toReview: (await i.repos.drafts.countsByStatus(row.slug)).ready,
+      sentToday: s.sentToday,
+      owed: (await i.repos.inbox.counts(row.slug)).owed,
+      lastTriageAt: await i.repos.inbox.lastTriageAt(row.slug),
+      setupQuestion: (await i.repos.projects.questions(row.slug, "open")).length > 0,
+      injectionHeld: await i.repos.drafts.injectionHeld(row.slug),
+      failed24h: s.failed,
+      stuck: s.stuck,
+      stopped: await i.repos.sends.isStopped(row.slug),
+      auto: { mode: c.send.mode, cap: c.send.dailyCap, used24h: await i.repos.sends.autoCountSince(row.slug, day.toISOString()) },
+      recipients: c.draft.recipients === "test" ? "test" : c.draft.recipients === "any" ? "any" : "listed",
+      doctorFailed,
+      knowledgeExpired: await i.repos.knowledge.expiredCount(row.slug, localDate(i.now, tz)),
+      contextRequired: c.context.required,
     });
   }
   return out;

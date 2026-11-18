@@ -4,6 +4,7 @@ import { openDb, type DbHandle } from "./client";
 import { RepoError } from "./errors";
 import { createRepos, type Repos } from "./repos";
 import { evaluateSafety } from "./safety";
+import { batches } from "./schema";
 
 let handle: DbHandle;
 let repos: Repos;
@@ -30,85 +31,38 @@ async function client(project: string, email: string, o: { name?: string; owed?:
 }
 
 const BRIEF = "Check in with silent clients: short and warm, one question about where they are.";
-const createBatch = (over: Partial<Parameters<Repos["batches"]["create"]>[0]> & { clientIds: number[] }) =>
-  repos.batches.create({ project: "p", name: "Follow-up", intent: "follow_up", audience: "silent", silentDays: 14, brief: BRIEF, ...over }, { now: NOW });
 /**
- * What the agent does with a queued batch (P28 C5): one draft per client, each written for that client, then it closes the
- * batch. The hub itself never fills a body from one text. `newBatch` is a batch the agent has already finished.
+ * A finished batch as an older core left it (P48: no route creates one any more, decision 0025): its run, its row, and one
+ * ready draft per client, each written for that client. The batch screens still read such rows.
  */
-async function agentFinishes(batchId: number, project = "p"): Promise<number> {
-  const queued = (await repos.batches.queuedAgent([project])).find((b) => b.id === batchId)!;
-  for (const c of queued.clients) {
+async function newBatch(o: { clientIds: number[]; project?: string; body?: (first: string) => string; subject?: string }) {
+  const project = o.project ?? "p";
+  const at = NOW.toISOString();
+  const runId = await repos.runs.start({ project, startedAt: at, finishedAt: at, trigger: "owner", skill: "bulk-agent-drafts", status: "ok" });
+  const batchId = handle.db.insert(batches).values({ project, name: "Follow-up", intent: "follow_up", status: "ready", audience: "silent", silentDays: 14, clientIds: JSON.stringify(o.clientIds), total: o.clientIds.length, excluded: "{}", brief: BRIEF, runId, createdAt: at, closedAt: at }).returning({ id: batches.id }).get().id;
+  for (const id of o.clientIds) {
+    const c = (await repos.clients.get(project, id))!;
     const first = c.name.split(" ")[0]!;
-    await repos.batches.addAgentDraft(project, batchId, { clientId: c.id, subject: `Checking in, ${first}`, body: `Hi ${first},\n\nIt has been a while. Anything I can help with?`, reason: `Silent for a while; ${first} asked about the commission last time.` });
+    const body = o.body?.(first) ?? `Hi ${first},\n\nIt has been a while. Anything I can help with?`;
+    await repos.drafts.create({ project, clientId: c.id, runId, batchId, subject: o.subject ?? `Checking in, ${first}`, toAddr: c.email, body, tone: "standard", tones: JSON.stringify({ standard: body }), reason: `Silent for a while; ${first} asked about the commission last time.`, status: "ready" });
   }
-  await repos.batches.close(project, batchId, { status: "ready" });
-  return queued.clients.length;
+  return { batchId, runId, created: o.clientIds.length };
 }
-const newBatch = async (over: Partial<Parameters<Repos["batches"]["create"]>[0]> & { clientIds: number[] }) => {
-  const r = await createBatch(over);
-  return { ...r, created: await agentFinishes(r.batchId, over.project ?? "p") };
-};
 
-describe("audience", () => {
-  it("counts every chip and marks who cannot be written to", async () => {
-    await client("p", "a@x.example", { silent: 30, owed: true });
-    await client("p", "b@x.example", { silent: 20, marks: ["vip"] });
-    await client("p", "c@x.example", { silent: 2, marks: ["follow_up"] });
-    await client("p", "d@x.example", { silent: 40, marks: ["do_not_contact"] });
-    await client("p", "e@x.example", { silent: 25, draft: "ready" });
-    await client("other", "z@x.example", { silent: 99 });
-
-    const a = await repos.batches.audience("p", { audience: "silent", silentDays: 14, now: NOW });
-    expect(a.counts).toEqual({ all: 5, owed: 1, silent: 4, follow_up: 1, vip: 1 });
-    expect(a.clients.map((c) => [c.email, c.reason])).toEqual([
-      ["a@x.example", null],
-      ["d@x.example", "do_not_contact"],
-      ["e@x.example", "open_draft"],
-      ["b@x.example", null],
-    ]);
-    expect(a.eligible).toBe(2);
-  });
-});
-
-describe("batch", () => {
-  it("queues with the owner's brief and no draft: the hub writes no body, the agent does, and the run logs it", async () => {
+describe("batch (read-only)", () => {
+  it("lists and reads a batch with its counts and drafts, owed first", async () => {
     const a = await client("p", "a@x.example", { name: "Ana Silva", silent: 30, owed: true });
     const b = await client("p", "b@x.example", { name: "Bo Li", silent: 20 });
-    const dnc = await client("p", "d@x.example", { silent: 40, marks: ["do_not_contact"] });
-    const open = await client("p", "e@x.example", { silent: 25, draft: "hold" });
-    const r = await createBatch({ clientIds: [a, b, dnc, open, 9999] });
-    expect(r).toEqual({ batchId: expect.any(Number), excluded: { do_not_contact: 1, open_draft: 1, not_in_project: 1 } });
-
+    const r = await newBatch({ clientIds: [b, a] });
     const batch = (await repos.batches.get("p", r.batchId))!;
-    expect(batch).toMatchObject({ status: "queued", brief: BRIEF, total: 2, excluded: { do_not_contact: 1, open_draft: 1, not_in_project: 1 } });
-    expect(batch.counts).toEqual({ all: 0, review: 0, checked: 0, hold: 0, done: 0, skipped: 0 });
-    expect(await repos.batches.drafts("p", r.batchId)).toEqual([]);
-
-    expect(await agentFinishes(r.batchId)).toBe(2);
+    expect(batch).toMatchObject({ status: "ready", brief: BRIEF, total: 2, excluded: {}, run: { status: "ok" } });
+    expect(batch.counts).toEqual({ all: 2, review: 2, checked: 0, hold: 0, done: 0, skipped: 0 });
     const drafts = await repos.batches.drafts("p", r.batchId);
-    expect(drafts.map((d) => d.client.name)).toEqual(["Ana Silva", "Bo Li"]); // owed first
-    expect(drafts.every((d) => d.status === "ready" && !d.checked && d.batchId === r.batchId)).toBe(true);
-    expect(drafts[0]).toMatchObject({ subject: "Checking in, Ana", toAddr: "a@x.example", tone: "standard" });
+    expect(drafts.map((d) => d.client.name)).toEqual(["Ana Silva", "Bo Li"]);
     expect(drafts[0]!.body).toContain("Hi Ana,");
-    expect(drafts[1]!.body).toContain("Hi Bo,");
-
-    const events = await repos.runs.events("p", batch.runId!);
-    expect(events.map((e) => e.kind)).toEqual(["decision", "draft_created", "draft_created", "decision"]);
-    expect(events[0]!.summary).toMatch(/2 clients selected, 3 left out\. Waiting for the agent/);
-  });
-
-  it("refuses an empty selection and a batch with no brief", async () => {
-    const dnc = await client("p", "d@x.example", { marks: ["do_not_contact"] });
-    await expect(createBatch({ clientIds: [dnc] })).rejects.toBeInstanceOf(RepoError);
-    const ok = await client("p", "a@x.example");
-    await expect(createBatch({ clientIds: [ok], brief: " " })).rejects.toThrow(/needs a brief/);
-  });
-
-  it("scopes a batch to its project", async () => {
-    const other = await client("other", "z@x.example");
-    await expect(newBatch({ clientIds: [other] })).rejects.toThrow(/No eligible/);
+    expect((await repos.batches.list("p")).map((x) => x.id)).toEqual([r.batchId]);
     expect(await repos.batches.list("other")).toEqual([]);
+    expect(await repos.batches.get("other", r.batchId)).toBeNull();
   });
 
   it("a finished batch draft does not stop the next batch; the Clients list shows the newest draft", async () => {
@@ -117,7 +71,6 @@ describe("batch", () => {
     const [d1] = await repos.batches.drafts("p", first.batchId);
     await repos.drafts.setStatus(d1!.id, "done");
     const second = await newBatch({ clientIds: [a] });
-    expect(second.created).toBe(1);
     const list = await repos.clients.list("p");
     expect(list).toHaveLength(1);
     expect(list[0]!.draft?.batchId).toBe(second.batchId);
@@ -154,7 +107,7 @@ describe("review actions", () => {
     await expect(repos.drafts.undo(d.id)).rejects.toThrow(/Nothing to undo/);
 
     const run = (await repos.batches.get("p", r.batchId))!.runId!;
-    const summaries = (await repos.runs.events("p", run)).slice(3).map((e) => e.summary);
+    const summaries = (await repos.runs.events("p", run)).map((e) => e.summary);
     expect(summaries).toEqual([
       "Checked: Ana",
       "Marked done: Ana",
@@ -169,8 +122,7 @@ describe("review actions", () => {
   it("Checked is refused until every safety result that fired is acknowledged", async () => {
     // a draft with a Cc and a risky word fires two amber results
     const id = await client("p", "b@x.example", { name: "Bo", silent: 30 });
-    const r = await createBatch({ name: "Risky", intent: "notice", audience: "all", clientIds: [id] });
-    await repos.batches.addAgentDraft("p", r.batchId, { clientId: id, subject: "Commission", body: "Hi Bo, about the commission.", reason: "Asked about it." });
+    const r = await newBatch({ clientIds: [id], subject: "Commission", body: () => "Hi Bo, about the commission." });
     const [risky] = await repos.batches.drafts("p", r.batchId);
     expect(risky!.safetyResults.map((s) => [s.kind, s.level, s.acked])).toEqual([["risky_word", "amber", false]]);
     await expect(repos.drafts.setChecked(risky!.id, true)).rejects.toMatchObject({ code: "wrong_state" });
@@ -203,64 +155,6 @@ describe("review actions", () => {
   });
 });
 
-describe("agent batch (the agent adds drafts)", () => {
-  it("queues, takes drafts only for selected clients, then closes with the run's cost", async () => {
-    const a = await client("p", "a@x.example", { name: "Ana", silent: 30 });
-    const b = await client("p", "b@x.example", { name: "Bo", silent: 20 });
-    const stranger = await client("p", "s@x.example", { silent: 5 });
-    const r = await createBatch({ name: "Agent", intent: "notice", clientIds: [a, b], brief: "Tell them about the new office." });
-    let batch = (await repos.batches.get("p", r.batchId))!;
-    expect(batch).toMatchObject({ status: "queued", total: 2, brief: "Tell them about the new office." });
-    expect(batch.run?.finishedAt).toBeNull();
-
-    const draft = { subject: "News", body: "Hi Ana, we moved.", reason: "Silent 30 days; the office news is relevant.", tones: { short: "We moved.", warm: "Hi Ana, we moved, and I would love to show you." } };
-    const id = await repos.batches.addAgentDraft("p", r.batchId, { clientId: a, ...draft });
-    expect((await repos.drafts.get(id))).toMatchObject({ status: "ready", checked: false, tone: "standard", batchId: r.batchId });
-    expect((await repos.batches.drafts("p", r.batchId))[0]!.toneBodies).toEqual({ short: "We moved.", warm: draft.tones.warm, standard: draft.body });
-    await expect(repos.batches.addAgentDraft("p", r.batchId, { clientId: a, ...draft })).rejects.toThrow(/already has a draft/);
-    await expect(repos.batches.addAgentDraft("p", r.batchId, { clientId: stranger, ...draft })).rejects.toThrow(/not in this batch/);
-    await expect(repos.batches.addAgentDraft("p", 999, { clientId: a, ...draft })).rejects.toMatchObject({ code: "not_found" });
-
-    // tones the agent wrote can be shown; showing one clears Checked
-    await repos.drafts.setChecked(id, true);
-    expect((await repos.drafts.setTone(id, "short"))).toMatchObject({ body: "We moved.", tone: "short", checked: false });
-
-    await repos.batches.close("p", r.batchId, { status: "ready", tokensIn: 1200, tokensOut: 300, costUsd: 0.04, model: "sonnet" });
-    batch = (await repos.batches.get("p", r.batchId))!;
-    expect(batch.status).toBe("ready");
-    expect(batch.run).toMatchObject({ status: "ok", costUsd: 0.04, tokensIn: 1200 });
-    expect(batch.counts.all).toBe(1);
-    await expect(repos.batches.addAgentDraft("p", r.batchId, { clientId: b, ...draft })).rejects.toThrow(/not waiting/);
-    await expect(repos.batches.close("p", r.batchId, { status: "ready" })).rejects.toThrow(/already closed/);
-  });
-});
-
-describe("queued agent batches (what the gate hands to a run)", () => {
-  it("lists queued agent batches with the clients still without a draft, never do-not-contact, scoped by project", async () => {
-    const a = await client("p", "a@x.example", { silent: 30 });
-    const b = await client("p", "b@x.example", { silent: 20 });
-    const z = await client("q", "z@x.example", { silent: 20 });
-    const mk = (project: string, ids: number[]) => repos.batches.create({ project, name: `B-${project}`, intent: "notice", audience: "all", clientIds: ids, brief: "Say hello." }, { now: NOW });
-    const rp = await mk("p", [a, b]);
-    await mk("q", [z]);
-
-    let all = await repos.batches.queuedAgent();
-    expect(all.map((x) => [x.project, x.name])).toEqual([["p", "B-p"], ["q", "B-q"]]);
-    expect((await repos.batches.queuedAgent(["q"])).map((x) => x.project)).toEqual(["q"]);
-    expect(await repos.batches.queuedAgent([])).toEqual([]);
-    expect(all[0]).toMatchObject({ id: rp.batchId, brief: "Say hello.", total: 2 });
-    expect(all[0]!.clients.map((c) => c.email).sort()).toEqual(["a@x.example", "b@x.example"]);
-
-    await repos.batches.addAgentDraft("p", rp.batchId, { clientId: a, subject: "s", body: "b", reason: "r" });
-    await repos.clients.setMarks(b, ["do_not_contact"]);
-    all = await repos.batches.queuedAgent(["p"]);
-    expect(all[0]!.clients).toEqual([]);
-
-    await repos.batches.close("p", rp.batchId, { status: "ready" });
-    expect(await repos.batches.queuedAgent(["p"])).toEqual([]);
-  });
-});
-
 describe("agent_events retention", () => {
   it("clears detail older than 90 days, keeps summaries and rows, and is idempotent", async () => {
     const run = await repos.runs.start({ project: "p", startedAt: daysAgo(200), trigger: "schedule", skill: "x", status: "ok" });
@@ -287,11 +181,6 @@ describe("draft-only invariant (repository)", () => {
     expect(id).toBeGreaterThan(0);
   });
 
-  it("no batch path writes sent: agent drafts are always ready", async () => {
-    const a = await client("p", "a@x.example", { silent: 30 });
-    const t = await newBatch({ clientIds: [a] });
-    expect((await repos.batches.drafts("p", t.batchId)).map((d) => d.status)).toEqual(["ready"]);
-  });
 });
 
 describe("safety rules (data)", () => {

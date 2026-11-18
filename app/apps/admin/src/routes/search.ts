@@ -12,8 +12,9 @@ export type RunFilter = "all" | RunStatus;
  * together) and All. The server filters by one status, so `finished` is narrowed in the page. The default is To review
  * (owner decision Q5, P29): a bare `/drafts` shows what needs the owner, so `ready` drops its key and `all` keeps it.
  */
-// `sequences` (P47, label Follow-ups): the open steps of follow-up sequences, before All.
-export const DRAFT_VIEWS = ["ready", "hold", "thin_basis", "finished", "sequences", "all"] as const;
+// `sequences` (P47, label Follow-ups): the open steps of follow-up sequences and the enrolments, read-only. `not_by_email` (P48):
+// the clients the agent did not answer by email (calls, no reply needed), read-only rows instead of drafts.
+export const DRAFT_VIEWS = ["ready", "hold", "thin_basis", "finished", "sequences", "not_by_email", "all"] as const;
 export type DraftView = (typeof DRAFT_VIEWS)[number];
 export const DEFAULT_DRAFT_VIEW: DraftView = "ready";
 
@@ -50,14 +51,9 @@ export function positiveInt(v: string | undefined): number | null {
   return v !== undefined && /^[1-9]\d*$/.test(v) ? Number(v) : null;
 }
 
-/**
- * `batch` limits the list to the drafts one batch wrote (one queue: a batch is a filter, not a second place); `new` shows the
- * batch builder in the pane instead of a draft. A builder never carries a batch: `new` is dropped when `batch` is present.
- */
-export type DraftsSearch = { filter: DraftView; q: string; batch: number | null; new: boolean };
+/** `batch` limits the list to the drafts one batch wrote (one queue: a batch is a read-only view, not a second place). */
+export type DraftsSearch = { filter: DraftView; q: string; batch: number | null };
 export type LogSearch = { filter: RunFilter; run: number | null };
-/** `focus`: the project card to scroll to and mark. Whether the slug is registered is the page's to check (it knows the list). */
-export type OverviewSearch = { focus: string | null };
 export type NoSearch = Record<string, never>;
 
 /**
@@ -67,9 +63,8 @@ export type NoSearch = Record<string, never>;
 const renamedView = (v: string | undefined): string | undefined => (v === "evidence" ? "thin_basis" : v);
 
 export const draftsSearch = (raw: Raw): DraftsSearch => {
-  const batch = positiveInt(raw.batch);
-  return { filter: oneOf(DRAFT_VIEWS, renamedView(raw.filter), DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch, new: batch === null && raw.new === "1" };
+  // `?new=1` (the batch builder, deleted 2026-11-18, P48) is not read: the guard writes the address back without it.
+  return { filter: oneOf(DRAFT_VIEWS, renamedView(raw.filter), DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch: positiveInt(raw.batch) };
 };
 export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(RUN_FILTERS, raw.filter, "all"), run: positiveInt(raw.run) });
-export const overviewSearch = (raw: Raw): OverviewSearch => ({ focus: raw.focus ? raw.focus : null });
 export const noSearch = (): NoSearch => ({});

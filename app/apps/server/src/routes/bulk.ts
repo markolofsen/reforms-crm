@@ -1,22 +1,17 @@
 import { Hono } from "hono";
 import type { Repos } from "@hub/db";
-import { agentDraftBody, audienceQuery, batchCreateBody, batchQuery, closeBody, idParam, projectQuery, safetyKindParam, safetyRuleBody } from "@hub/contract/requests";
-import { audienceDto, batchCreatedDto, batchDto, batchesDto, okDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
+import { batchQuery, idParam, projectQuery, safetyKindParam, safetyRuleBody } from "@hub/contract/requests";
+import { batchDto, batchesDto, okDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
 import { toDraft } from "../dto";
 import { notFound, v } from "../http";
 
 /**
- * Bulk send (P9). Every route here makes, reviews or logs drafts. None sends: the person presses Send in Mail, and
- * `drafts.status` has no `sent` in anything the API accepts (see `SETTABLE_STATUSES`).
+ * Batches (P9), read-only since P48 (decision 0025): the agent prepares drafts from the owner's phrase in a session, so no
+ * route creates a batch or adds to one. A batch is a view of the drafts it wrote, with one Undo. The safety rules live here
+ * too. None sends: `drafts.status` has no `sent` in anything the API accepts (see `SETTABLE_STATUSES`).
  */
 export function bulkRoutes(repos: Repos) {
   return new Hono()
-    // Who could this batch go to: a count for every audience chip, and the clients of the chosen one.
-    .get("/api/bulk/audience", v("query", audienceQuery), async (c) => {
-      const q = c.req.valid("query");
-      return c.json(audienceDto.parse(await repos.batches.audience(q.project, { audience: q.audience, silentDays: q.silentDays })));
-    })
-    .post("/api/batches", v("json", batchCreateBody), async (c) => c.json(batchCreatedDto.parse(await repos.batches.create(c.req.valid("json")))))
     .get("/api/batches", v("query", projectQuery), async (c) => c.json(batchesDto.parse({ batches: await repos.batches.list(c.req.valid("query").project) })))
     .get("/api/batches/:id", v("param", idParam), v("query", batchQuery), async (c) => {
       const { project, filter, limit, offset } = c.req.valid("query");
@@ -31,16 +26,6 @@ export function bulkRoutes(repos: Repos) {
     .post("/api/batches/:id/undo", v("param", idParam), v("query", projectQuery), async (c) => {
       const draft = await repos.batches.undoLast(c.req.valid("query").project, c.req.valid("param").id);
       return draft ? c.json(okDto.parse({ ok: true })) : c.json({ error: "Nothing to undo in this batch", code: "not_found" as const }, 404);
-    })
-    // The agent's way in: it adds a draft to a batch that is waiting for drafts, then closes the batch.
-    .post("/api/batches/:id/drafts", v("param", idParam), v("json", agentDraftBody), async (c) => {
-      const { project, ...draft } = c.req.valid("json");
-      return c.json({ draftId: await repos.batches.addAgentDraft(project, c.req.valid("param").id, draft) });
-    })
-    .post("/api/batches/:id/close", v("param", idParam), v("json", closeBody), async (c) => {
-      const { project, ...rest } = c.req.valid("json");
-      await repos.batches.close(project, c.req.valid("param").id, rest);
-      return c.json(okDto.parse({ ok: true }));
     })
     .get("/api/safety-rules", v("query", projectQuery), async (c) => c.json(safetyRulesDto.parse({ rules: await repos.safetyRules.list(c.req.valid("query").project) })))
     .put("/api/safety-rules/:kind", v("param", safetyKindParam), v("json", safetyRuleBody), async (c) => {

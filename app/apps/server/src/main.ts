@@ -4,8 +4,8 @@ import { HubHomeMissingError, hubPaths } from "@hub/config/paths";
 import { createRepos, dataVersion, openDb } from "@hub/db";
 import { createApp } from "./app";
 import { listenErrorLine, onShutdown } from "./lifecycle";
-import { chooseProbeKind, fakeProbeDeps } from "./connections";
-import { createMailService } from "./mail";
+import { appleMailAccounts, chooseProbeKind, fakeMailAccounts, fakeProbeDeps } from "./connections";
+import { configOf } from "./overview-facts";
 import { projectsRoot } from "./project-overview";
 import { allowListOf, configFile, createServerMailer } from "./send/mailer";
 import { startMessengers } from "./messengers";
@@ -28,18 +28,21 @@ const port = Number(process.env.HUB_PORT ?? SERVER_PORT);
 const messengers = await startMessengers({ repos });
 console.log(`messengers: ${messengers.status().state}${messengers.status().reason ? ` (${messengers.status().reason})` : ""}`);
 
-// Mail is read only: the history reader and the Sent reconciler share one set of login files and are off without them.
-const mail = createMailService({ repos });
-const sent = startSentReconciler({ repos, mail });
-console.log(`mail: ${mail.status().state}${mail.status().reason ? ` (${mail.status().reason})` : ""}`);
 // The Mailer behind Send: Mail.app, or the fake when HUB_MAILER=fake (refused without HUB_DB). A bad value stops the server here.
 const projectsDir = projectsRoot();
 const { kind, mailer } = createServerMailer(repos, projectsDir);
 console.log(kind === "fake" ? "SEND IS FAKE (HUB_MAILER=fake): nothing leaves this process" : "send: Mail.app (a person confirms every send in the admin)");
-// Connections: the real probes, or stubs with HUB_CONNECTIONS_PROBE=fake (refused without HUB_DB). A bad value stops the server here.
+// Sent detection reads Apple Mail's Sent mailbox while a draft waits (decision 0026); with the fake Mailer it never asks Mail.
+const sent = startSentReconciler({ repos, ...(kind === "fake" ? { offReason: "HUB_MAILER=fake: Mail is not read" } : {}) });
+console.log(`sent: ${sent.status().state}${sent.status().reason ? ` (${sent.status().reason})` : ""}`);
+// Connections: the real probes and Apple Mail's account list, or stubs with HUB_CONNECTIONS_PROBE=fake (refused without HUB_DB).
 const probe = chooseProbeKind(process.env);
-if (probe === "fake") console.log("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PROBE=fake): nothing is sent to Notion, Telegram or a mail host");
-const app = createApp(repos, { connections: probe === "fake" ? { deps: fakeProbeDeps() } : {}, messengers: messengers.status, sent: sent.status, mail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, allowList: allowListOf(configFile()) } });
+if (probe === "fake") console.log("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PROBE=fake): nothing is sent to Notion or Telegram, Mail is not asked");
+// Either fake (a demo or e2e run) keeps the server from asking the owner's Mail which accounts it has.
+const listed = async () => (await repos.projects.registry()).projects.flatMap((p) => configOf(p).mail.accounts);
+const mailAccounts = probe === "fake" || kind === "fake" ? fakeMailAccounts(listed) : appleMailAccounts();
+const connections = probe === "fake" ? { deps: fakeProbeDeps(), mailAccounts } : { mailAccounts };
+const app = createApp(repos, { connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, allowList: allowListOf(configFile()) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);

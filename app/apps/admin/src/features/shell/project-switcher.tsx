@@ -1,12 +1,10 @@
 import { CheckIcon, ChevronsUpDownIcon } from "lucide-react";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { useSidebar } from "@hub/ui/sidebar";
-import { useProjectScope } from "@/hooks/use-project";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 
 /**
- * The project, one menu. In the sidebar it is the first thing (an initial only in the rail); on a phone it sits at
- * the top of the Project screen. Choosing one replaces the address (a project is a place, not a step).
+ * The project, one menu, shown only with two or more projects: under the brand in the sidebar (an initial only in the rail),
+ * in the phone's top line. Choosing one replaces the address (a project is a place, not a step).
  */
 export function ProjectSwitcher({ projects, value, onChange }: { projects: string[]; value: string; onChange: (project: string) => void }) {
   return (
@@ -34,11 +32,4 @@ export function ProjectSwitcher({ projects, value, onChange }: { projects: strin
       </MenuPopup>
     </Menu>
   );
-}
-
-/** On a phone the sidebar's switcher is not there: it heads each single-column screen instead. Null everywhere else. */
-export function PhoneProjectSwitcher() {
-  const { isMobile } = useSidebar();
-  const { project, projects, onProject } = useProjectScope();
-  return isMobile ? <div><ProjectSwitcher onChange={onProject} projects={projects} value={project} /></div> : null;
 }

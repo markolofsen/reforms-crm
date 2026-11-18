@@ -1,13 +1,12 @@
 /** The closed list of connection kinds, each with a label (a total map: adding a kind fails the build until it has one). */
-export const CONNECTION_KINDS = ["notion", "mail", "telegram"] as const;
+export const CONNECTION_KINDS = ["notion", "telegram"] as const;
 export type ConnectionKind = (typeof CONNECTION_KINDS)[number];
 export const KIND_LABEL: Record<ConnectionKind, string> = {
   notion: "Notion integration",
-  mail: "Mail login (IMAP, read only)",
   telegram: "Telegram bot",
 };
 
-/** The two token files. Mail logins are `mail-<name>.json` (see `@hub/mail/imap` CREDS_FILE). */
+/** The two token files, the only keys the hub holds (mail has none: decision 0026). */
 export const NOTION_FILE = "notion-token";
 export const TELEGRAM_FILE = "telegram-bot-token";
 
@@ -23,6 +22,3 @@ export const isTelegramToken = (v: string): boolean => TELEGRAM_SHAPE.test(v);
 /** Why a Notion token cannot be one, or undefined. A shape check only: Notion decides whether it works. */
 export const notionShapeProblem = (v: string): string | undefined =>
   /\s/.test(v) || v.length < 16 ? "that does not look like a token (no spaces, at least 16 characters)" : undefined;
-
-/** `Work Gmail` becomes `work-gmail`: the part of `mail-<slug>.json` and of the connection id. Never empty. */
-export const slug = (name: string): string => name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^[-._]+|-+$/g, "") || "account";

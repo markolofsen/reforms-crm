@@ -1,197 +1,158 @@
-import { chmodSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { buildEml, FakeImapServer } from "@hub/mail/imap";
+import type { OsaRun } from "@hub/send";
 import { createApp } from "./app";
-import { createMailService } from "./mail";
-import { reconcileProject, startSentReconciler } from "./sent";
+import { parseSent, RUNNING_SCRIPT, SENT_SCRIPT } from "./apple-mail";
+import { matchSent, startSentReconciler } from "./sent";
 
-const ME = "me@example.test";
+// Sent detection reads Apple Mail through a fake `OsaRun`: no test reaches Mail.
 const ANNA = "anna@example.test";
-const SECRET = "hunter2-secret-pass";
 let handle: DbHandle;
 let repos: Repos;
-let dir: string;
-let imap: FakeImapServer;
-const NOW = new Date("2026-11-14T12:00:00Z");
+const FS = "\x1f";
+const RS = "\x1e";
+const LS = "\x1d";
 
-const login = (name = "Google") => {
-  const f = join(dir, `mail-${name}.json`);
-  writeFileSync(f, JSON.stringify({ account: name, host: "imap.example.test", user: ME, pass: SECRET }));
-  chmodSync(f, 0o600);
-};
-const register = (over: { accounts?: string[]; status?: string; slug?: string } = {}) =>
-  repos.projects.replaceRegistry({
-    projects: [{ slug: over.slug ?? "p", name: "P", status: (over.status ?? "active") as "active", settingsJson: JSON.stringify({ mail: { accounts: over.accounts ?? ["Google"], addresses: [ME] } }), hash: "h" }],
-    addresses: [],
-  });
-const mail = () => createMailService({ repos, env: {}, configDir: dir, connect: imap.connect });
-
-/** A client with one open bulk-batch draft to them, subject "Bulk hello". */
-async function bulkDraft(email = ANNA, subject = "Bulk hello") {
-  const c = await repos.clients.create({ project: "p", email, name: email.split("@")[0]!, lastContactAt: "2026-09-01T00:00:00.000Z" });
-  const b = await repos.batches.create({ project: "p", name: "B", intent: "follow_up", audience: "silent", silentDays: 14, brief: "Say hello.", clientIds: [c] }, { now: NOW });
-  await repos.batches.addAgentDraft("p", b.batchId, { clientId: c, subject, body: "Hi there", reason: "Silent for a while." });
-  const [d] = await repos.batches.drafts("p", b.batchId);
-  return d!;
+/** A fake Mail: `running`, and the Sent messages per account. Records every script it was asked to run. */
+function fakeMail(o: { running?: boolean; sent?: Record<string, string[]>; fail?: string } = {}) {
+  const calls: { script: "running" | "sent" | "other"; args: string[] }[] = [];
+  const osa: OsaRun = async (script, args) => {
+    const kind = script === RUNNING_SCRIPT ? "running" : script === SENT_SCRIPT ? "sent" : "other";
+    calls.push({ script: kind, args });
+    if (kind === "running") return o.running === false ? "false\n" : "true\n";
+    if (o.fail) throw new Error(o.fail);
+    return (o.sent?.[args[0] ?? ""] ?? []).join("");
+  };
+  return { osa, calls };
 }
+
+/** One Sent record as the script prints it. `at` is read as this machine's local time, as Mail reports it. */
+function sentRecord(m: { id: string; to?: string; subject?: string; irt?: string; head?: string; at?: Date }) {
+  const at = m.at ?? new Date(Date.now() + 60_000);
+  const stamp = `${at.getFullYear()},${at.getMonth() + 1},${at.getDate()},${at.getHours() * 3600 + at.getMinutes() * 60 + at.getSeconds()}`;
+  return [m.id, m.irt ?? "", stamp, `${m.to ?? ANNA}${LS}`, "", m.subject ?? "Re: Hello", m.head ?? "Hi Anna"].join(FS) + RS;
+}
+
+const settings = (accounts = ["Google"]) => JSON.stringify({ schema: 1, slug: "p", kind: "x", name: "P", mail: { accounts, addresses: ["me@example.test"], sentMailbox: "Sent Mail" } });
+const register = (o: { accounts?: string[]; status?: string } = {}) =>
+  repos.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: (o.status ?? "active") as "active", settingsJson: settings(o.accounts), hash: "h" }], addresses: [] });
+const record = (subject = "Re: Hello", mailRef = "<thread1@x>") => repos.drafts.record({ project: "p", email: ANNA, name: "Anna", subject, mailRef });
+const statusOf = async (id: number) => (await repos.drafts.get(id))!;
+const reconciler = (osa: OsaRun) => startSentReconciler({ repos, osa, env: {}, timer: false });
 
 beforeEach(() => {
   handle = openDb(":memory:");
   repos = createRepos(handle.db);
-  dir = mkdtempSync(join(tmpdir(), "hub-sent-"));
-  imap = new FakeImapServer({ Google: { INBOX: { messages: [] }, Sent: { specialUse: "\\Sent", messages: [] } } });
 });
 afterEach(() => handle.close());
 
-const sentAt = (subject: string, to: string, date: string, id: string) => imap.add("Google", "Sent", buildEml({ from: ME, to, subject, messageId: id, date }));
-const statusOf = async (id: number) => (await repos.drafts.get(id))!;
-
-describe("reconcileProject", () => {
-  it("also marks a draft a session recorded (no batch)", async () => {
-    login();
+describe("Sent detection through Apple Mail", () => {
+  it("marks a draft whose sent message still carries its [hub-draft] marker", async () => {
     await register();
-    const r = await repos.drafts.record({ project: "p", email: ANNA, name: "Anna", subject: "Recorded hello", mailRef: "<rec1@x>" });
-    expect((await repos.drafts.get(r.draftId))!.batchId).toBeNull();
-    sentAt("Recorded hello", ANNA, new Date(Date.now() + 60_000).toISOString(), "<sent-rec@x>");
-    const out = await reconcileProject({ repos, mail: mail(), project: "p", now: new Date(), lookbackDays: 30 });
-    expect(out).toMatchObject({ checked: 1, marked: 1 });
-    expect(await statusOf(r.draftId)).toMatchObject({ status: "sent", sentMessageId: "<sent-rec@x>" });
-  });
-
-  it("marks a draft sent only after its message appears in the Sent folder", async () => {
-    login();
-    await register();
-    const d = await bulkDraft();
-    const m = mail();
-    expect((await reconcileProject({ repos, mail: m, project: "p", now: new Date(), lookbackDays: 30 })).marked).toBe(0);
-    expect((await statusOf(d.id)).status).toBe("ready");
-
-    sentAt("Bulk hello", ANNA, new Date(Date.now() + 60_000).toISOString(), "<sent1@x>");
-    const r = await reconcileProject({ repos, mail: m, project: "p", now: new Date(), lookbackDays: 30 });
-    expect(r).toMatchObject({ checked: 1, marked: 1, errors: [] });
-    expect(await statusOf(d.id)).toMatchObject({ status: "sent", sentVia: "subject-recipient", sentMessageId: "<sent1@x>" });
-
-    // a second pass has nothing waiting and opens no connection
-    const before = imap.connects.length;
-    expect((await reconcileProject({ repos, mail: m, project: "p", now: new Date(), lookbackDays: 30 })).checked).toBe(0);
-    expect(imap.connects.length).toBe(before);
-  });
-
-  it("does not mark on someone else's mail, another subject, or a send from before the draft; all reads, no writes", async () => {
-    login();
-    await register();
-    const d = await bulkDraft();
-    const future = new Date(Date.now() + 60_000).toISOString();
-    sentAt("Another subject", ANNA, future, "<o1@x>");
-    sentAt("Bulk hello", "someone.else@example.test", future, "<o2@x>");
-    sentAt("Bulk hello", ANNA, "2020-01-01T00:00:00Z", "<o3@x>");
-    const r = await reconcileProject({ repos, mail: mail(), project: "p", now: new Date(), lookbackDays: 30 });
-    expect(r.marked).toBe(0);
-    expect((await statusOf(d.id)).status).toBe("ready");
-    expect(imap.ops.every((o) => /:(list|search|headers|close):/.test(o) || o.endsWith(":close:"))).toBe(true);
-  });
-
-  it("marks a draft the person already pressed Done on, but never a skipped one", async () => {
-    login();
-    await register();
-    const done = await bulkDraft(ANNA, "One");
-    const skipped = await bulkDraft("bob@example.test", "Two");
-    await repos.drafts.setStatus(done.id, "done");
-    await repos.drafts.setStatus(skipped.id, "skipped");
-    const future = new Date(Date.now() + 60_000).toISOString();
-    sentAt("One", ANNA, future, "<d1@x>");
-    sentAt("Two", "bob@example.test", future, "<d2@x>");
-    await reconcileProject({ repos, mail: mail(), project: "p", now: new Date(), lookbackDays: 30 });
-    expect((await statusOf(done.id)).status).toBe("sent");
-    expect((await statusOf(skipped.id)).status).toBe("skipped");
-  });
-
-  it("reports an unreadable account without echoing the login, and marks nothing", async () => {
-    login();
-    await register();
-    const d = await bulkDraft();
-    imap.refuse.set("Google", `AUTH failed ${SECRET}`);
-    const r = await reconcileProject({ repos, mail: mail(), project: "p", now: new Date(), lookbackDays: 30 });
-    expect(r.marked).toBe(0);
-    expect(r.errors).toHaveLength(1);
-    expect(r.errors[0]).not.toContain(SECRET);
-    expect((await statusOf(d.id)).status).toBe("ready");
-  });
-});
-
-describe("startSentReconciler and /api/health", () => {
-  it("is off without a login file, makes no connection, and health says why", async () => {
-    await register();
-    await bulkDraft();
-    const m = mail();
-    const h = startSentReconciler({ repos, mail: m, env: {}, timer: false });
+    const r = await record();
+    const mail = fakeMail({ sent: { Google: [sentRecord({ id: "<sent1@x>", subject: "Another subject", head: "[hub-draft thread=thread1@x]\nHi Anna" })] } });
+    const h = reconciler(mail.osa);
     await h.tick();
-    expect(h.status()).toMatchObject({ state: "off", marked: 0 });
-    expect(h.status().reason).toMatch(/no active project has a mail login/);
-    expect(imap.connects).toEqual([]);
-    const body = (await (await createApp(repos, { sent: h.status, mail: m }).request("http://127.0.0.1:4317/api/health")).json()) as { sent: { state: string }; mail: { state: string; reason: string } };
-    expect(body.sent.state).toBe("off");
-    expect(body.mail).toMatchObject({ state: "off", reason: "no mail login file" });
+    expect(await statusOf(r.draftId)).toMatchObject({ status: "sent", sentVia: "marker", sentMessageId: "sent1@x" });
+    expect(h.status()).toMatchObject({ state: "running", projects: ["p"], marked: 1 });
+    // The read names the account, the project's Sent mailbox, and a start a day before the draft.
+    const read = mail.calls.find((c) => c.script === "sent")!;
+    expect(read.args.slice(0, 2)).toEqual(["Google", "Sent Mail"]);
   });
 
-  it("only reads a project's own accounts: a login nobody lists is never opened", async () => {
-    login("Other");
-    await register({ accounts: ["Google"] });
-    await bulkDraft();
-    const h = startSentReconciler({ repos, mail: mail(), env: {}, timer: false });
-    await h.tick();
-    expect(h.status().state).toBe("off");
-    expect(imap.connects).toEqual([]);
-  });
-
-  it("is off for HUB_SENT=off, and skips a project that is not active", async () => {
-    login();
+  it("marks a draft by its Message-ID, and also by the thread it answers", async () => {
     await register();
-    await bulkDraft();
-    const off = startSentReconciler({ repos, mail: mail(), env: { HUB_SENT: "off" }, timer: false });
+    const byId = await record("Re: One", "<draft-own@x>");
+    const byThread = await repos.drafts.record({ project: "p", email: "bob@example.test", name: "Bob", subject: "Re: Two", mailRef: "<bob-thread@x>" });
+    const mail = fakeMail({ sent: { Google: [sentRecord({ id: "<draft-own@x>", subject: "Changed" }), sentRecord({ id: "<s2@x>", to: "bob@example.test", subject: "Changed too", irt: "<bob-thread@x>" })] } });
+    await reconciler(mail.osa).tick();
+    expect(await statusOf(byId.draftId)).toMatchObject({ status: "sent", sentVia: "message-id" });
+    expect(await statusOf(byThread.draftId)).toMatchObject({ status: "sent", sentVia: "thread" });
+  });
+
+  it("never marks someone else's mail, another subject, or a send from before the draft", async () => {
+    await register();
+    const r = await record("Re: Hello", "<t@x>");
+    const old = new Date(Date.now() - 3 * 86_400_000);
+    const mail = fakeMail({ sent: { Google: [sentRecord({ id: "<o1@x>", subject: "Other" }), sentRecord({ id: "<o2@x>", to: "else@example.test" }), sentRecord({ id: "<o3@x>", at: old })] } });
+    await reconciler(mail.osa).tick();
+    expect((await statusOf(r.draftId)).status).toBe("ready");
+  });
+
+  it("Mail closed: it is not launched, nothing is read, and health says why", async () => {
+    await register();
+    const r = await record();
+    const mail = fakeMail({ running: false, sent: { Google: [sentRecord({ id: "<thread1@x>" })] } });
+    const h = reconciler(mail.osa);
+    await h.tick();
+    expect(mail.calls.map((c) => c.script)).toEqual(["running"]);
+    expect(h.status()).toMatchObject({ state: "off", reason: "Mail is not running" });
+    expect((await statusOf(r.draftId)).status).toBe("ready");
+    const body = (await (await createApp(repos, { sent: h.status }).request("http://127.0.0.1:4317/api/health")).json()) as Record<string, unknown>;
+    expect(body.sent).toMatchObject({ state: "off", reason: "Mail is not running" });
+    expect(body).not.toHaveProperty("mail");
+  });
+
+  it("nothing waiting: no osascript call at all", async () => {
+    await register();
+    const r = await record();
+    await repos.drafts.setStatus(r.draftId, "skipped");
+    const mail = fakeMail();
+    const h = reconciler(mail.osa);
+    await h.tick();
+    expect(mail.calls).toEqual([]);
+    expect(h.status()).toMatchObject({ state: "off", reason: "no draft waits to be seen in Sent" });
+  });
+
+  it("skips a project that is not active or lists no account, and is off for HUB_SENT=off or the fake Mailer", async () => {
+    await register({ status: "paused" });
+    await record();
+    const mail = fakeMail();
+    await reconciler(mail.osa).tick();
+    await register({ accounts: [] });
+    await reconciler(mail.osa).tick();
+    expect(mail.calls).toEqual([]);
+    const off = startSentReconciler({ repos, osa: mail.osa, env: { HUB_SENT: "off" }, timer: false });
     await off.tick();
     expect(off.status()).toMatchObject({ state: "off", reason: "HUB_SENT=off" });
-    await register({ status: "paused" });
-    const paused = startSentReconciler({ repos, mail: mail(), env: {}, timer: false });
-    await paused.tick();
-    expect(paused.status().state).toBe("off");
-    expect(imap.connects).toEqual([]);
+    const demo = startSentReconciler({ repos, osa: mail.osa, env: {}, offReason: "demo mode", timer: false });
+    await demo.tick();
+    expect(demo.status()).toMatchObject({ state: "off", reason: "demo mode" });
+    expect(mail.calls).toEqual([]);
   });
 
-  it("runs, marks, and reports running with the count; then reports an error and recovers", async () => {
-    login();
+  it("a failing read is an error with a count, then recovers", async () => {
     await register();
-    const d = await bulkDraft();
-    sentAt("Bulk hello", ANNA, new Date(Date.now() + 60_000).toISOString(), "<s@x>");
-    const m = mail();
-    const h = startSentReconciler({ repos, mail: m, env: {}, timer: false, now: () => new Date() });
-    await h.tick();
-    expect(h.status()).toMatchObject({ state: "running", projects: ["p"], marked: 1, failures: 0 });
-    expect(h.status().lastRunAt).toBeTruthy();
-    expect((await statusOf(d.id)).status).toBe("sent");
-
-    await bulkDraft("bob@example.test", "Later");
-    imap.refuse.set("Google", `down ${SECRET}`);
+    await record();
+    const bad = fakeMail({ fail: "Mail got an error: Can't get mailbox" });
+    const h = startSentReconciler({ repos, osa: bad.osa, env: {}, timer: false });
     await h.tick();
     expect(h.status()).toMatchObject({ state: "error", failures: 1 });
-    expect(JSON.stringify(h.status())).not.toContain(SECRET);
-    imap.refuse.delete("Google");
-    await h.tick();
-    expect(h.status()).toMatchObject({ state: "running", failures: 0 });
+    expect(h.status().lastError).toContain("p / Google");
     h.stop();
     expect(h.status().state).toBe("stopped");
   });
 
-  it("a login file other users can read is refused and shown as a problem in health", async () => {
-    const f = join(dir, "mail-open.json");
-    writeFileSync(f, JSON.stringify({ account: "Google", host: "h.test", user: ME, pass: SECRET }));
-    chmodSync(f, 0o644);
-    const s = mail().status();
-    expect(s).toMatchObject({ state: "off", reason: "no usable mail login file" });
-    expect(s.problems[0]).toMatch(/mode 644/);
-    expect(JSON.stringify(s)).not.toContain(SECRET);
+  it("a follow-up step found in Sent advances its enrollment (P47)", async () => {
+    await register();
+    const clientId = await repos.clients.create({ project: "p", email: ANNA, name: "Anna", repliesOwed: false, lastContactAt: new Date(Date.now() - 12 * 86_400_000).toISOString() });
+    await repos.drafts.create({ project: "p", clientId, subject: "Re: x", toAddr: ANNA, body: "b", status: "sent", sentAt: new Date(Date.now() - 10 * 86_400_000).toISOString(), mailClass: "client" });
+    const e = await repos.enrollments.enrol({ project: "p", clientId, sequence: "s", sequenceHash: "h", schedule: { delays: [2, 3], businessDays: false }, by: "owner", now: new Date(Date.now() - 5 * 86_400_000) });
+    const step = await repos.drafts.record({ project: "p", email: ANNA, name: "Anna", subject: "Following up", mailRef: "<our-last@x>", skill: "sequence-drafts", sequence: { enrollmentId: e.id, step: 1 } });
+    await reconciler(fakeMail({ sent: { Google: [sentRecord({ id: "<fu1@x>", subject: "Following up", irt: "<our-last@x>" })] } }).osa).tick();
+    expect((await statusOf(step.draftId)).status).toBe("sent");
+    expect(await repos.enrollments.get("p", e.id, new Date())).toMatchObject({ step: 2, state: "active" });
+  });
+});
+
+describe("matchSent and the script's output", () => {
+  it("one sent message satisfies one draft, the oldest first", () => {
+    const sent = parseSent(sentRecord({ id: "<one@x>", subject: "Re: Same" }), "Google");
+    const d = (id: number, createdAt: string) => ({ id, subject: "Same", toAddr: ANNA, mailRef: null, createdAt });
+    expect(matchSent([d(2, "2026-01-02T00:00:00Z"), d(1, "2026-01-01T00:00:00Z")], sent).map((m) => m.draftId)).toEqual([1]);
+  });
+  it("parses ids bare and skips a record with no id", () => {
+    const out = sentRecord({ id: "<A@X>", irt: "<B@X>" }) + ["", "", "2026,1,1,0", "", "", "s", ""].join(FS) + RS;
+    expect(parseSent(out, "G")).toEqual([expect.objectContaining({ messageId: "a@x", inReplyTo: "b@x", marker: null, account: "G" })]);
   });
 });

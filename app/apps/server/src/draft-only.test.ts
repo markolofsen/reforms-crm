@@ -32,6 +32,19 @@ async function seedClients() {
   return { ana, bo };
 }
 
+/** A batch as a session leaves it (the HTTP builder is gone, P48): a run, the batch row and one ready draft per client. */
+async function seedBatch(clientIds: number[]) {
+  const at = new Date(NOW).toISOString();
+  const runId = await repos.runs.start({ project: "p", startedAt: at, finishedAt: at, trigger: "owner", skill: "bulk-agent-drafts", status: "ok" });
+  const batchId = Number(handle.db.$client.prepare("insert into batches (project, name, intent, status, audience, silent_days, client_ids, total, brief, run_id, created_at, closed_at) values ('p', 'Nov follow-up', 'follow_up', 'ready', 'silent', 14, ?, ?, 'Check in about the commission.', ?, ?, ?)").run(JSON.stringify(clientIds), clientIds.length, runId, at, at).lastInsertRowid);
+  for (const id of clientIds) {
+    const c = (await repos.clients.get("p", id))!;
+    const first = c.name.split(" ")[0]!;
+    await repos.drafts.create({ project: "p", clientId: id, runId, batchId, subject: "Checking in", toAddr: c.email, body: `Hi ${first}, about the commission.`, reason: "Silent.", status: "ready" });
+  }
+  return batchId;
+}
+
 describe("no route sends", () => {
   it("has exactly one route that sends, and it is a POST that names its project and draft", () => {
     const paths = [...new Set(app.routes.map((r) => `${r.method} ${r.path}`))];
@@ -69,23 +82,12 @@ describe("no status says sent", () => {
     expect((await post(`/api/drafts/${id}/status`, { project: "p", status: "done" })).status).toBe(200);
   });
 
-  it("a batch only ever yields ready drafts, whatever the body says", async () => {
-    const { bo } = await seedClients();
-    const agent = await post("/api/batches", { project: "p", name: "A", intent: "notice", audience: "all", clientIds: [bo], brief: "Say hello.", status: "sent" });
-    const { batchId } = (await agent.json()) as { batchId: number };
-    const add = await post(`/api/batches/${batchId}/drafts`, { project: "p", clientId: bo, subject: "Hello", body: "Hi Bo.", reason: "Silent.", status: "sent", checked: true });
-    expect(add.status).toBe(200);
-    const { drafts } = (await (await get(`/api/batches/${batchId}?project=p`)).json()) as { drafts: { status: string; checked: boolean }[] };
-    expect(drafts.map((d) => [d.status, d.checked])).toEqual([["ready", false]]);
-  });
-
-  it("a batch needs a brief: the old template fields are not part of the API", async () => {
+  it("the batch builder routes are gone: no route makes a batch or adds a draft to one", async () => {
     const { ana } = await seedClients();
-    expect((await post("/api/batches", { project: "p", name: "T", intent: "follow_up", audience: "silent", silentDays: 14, clientIds: [ana] })).status).toBe(400);
-    const made = await post("/api/batches", { project: "p", name: "T", intent: "follow_up", mode: "template", audience: "silent", silentDays: 14, clientIds: [ana], subjectTemplate: "Hi {first_name}", bodyTemplate: "Hi {first_name}, checking in.", brief: "Check in." });
-    expect(made.status).toBe(200);
-    // the one text was never rendered into a body: the batch waits for the agent
-    expect(await (await get("/api/batches/1?project=p")).json()).toMatchObject({ batch: { status: "queued", brief: "Check in." }, drafts: [] });
+    expect((await post("/api/batches", { project: "p", name: "A", intent: "notice", audience: "all", clientIds: [ana], brief: "b", status: "sent" })).status).toBe(404);
+    expect((await post("/api/batches/1/drafts", { project: "p", clientId: ana, subject: "s", body: "b", status: "sent" })).status).toBe(404);
+    expect((await post("/api/batches/1/close", { project: "p", status: "ready" })).status).toBe(404);
+    expect((await get("/api/bulk/audience?project=p&audience=all")).status).toBe(404);
   });
 });
 
@@ -120,19 +122,10 @@ describe("a draft recorded by a session", () => {
 });
 
 describe("the bulk flow over HTTP", () => {
-  it("audience, brief batch, agent drafts, review, acknowledge, check, done, undo, log", async () => {
+  it("a session's batch: review, acknowledge, check, done, undo, log", async () => {
     const { ana, bo } = await seedClients();
-    const aud = (await (await get("/api/bulk/audience?project=p&audience=silent&silentDays=14")).json()) as { counts: Record<string, number>; eligible: number };
-    expect(aud.counts).toEqual({ all: 2, owed: 1, silent: 2, follow_up: 0, vip: 0 });
-
-    const made = await post("/api/batches", { project: "p", name: "Nov follow-up", intent: "follow_up", audience: "silent", silentDays: 14, clientIds: [ana, bo], brief: "Check in about the commission." });
-    expect(await made.json()).toMatchObject({ batchId: 1 });
-    // the agent writes one draft per client (each its own text) and closes the batch
-    for (const [id, first] of [[ana, "Ana"], [bo, "Bo"]] as const) {
-      expect((await post("/api/batches/1/drafts", { project: "p", clientId: id, subject: "Checking in", body: `Hi ${first}, about the commission.`, reason: "Silent." })).status).toBe(200);
-    }
-    expect((await post("/api/batches/1/close", { project: "p", status: "ready" })).status).toBe(200);
-    expect((await post("/api/batches", { project: "p", name: "x", intent: "notice", audience: "all", clientIds: [ana, bo], brief: "b" })).status).toBe(409); // both have open drafts now
+    const batchId = await seedBatch([ana, bo]);
+    expect(batchId).toBe(1);
 
     const list = (await (await get("/api/batches?project=p")).json()) as { batches: { id: number; counts: Record<string, number> }[] };
     expect(list.batches).toHaveLength(1);
@@ -162,9 +155,10 @@ describe("the bulk flow over HTTP", () => {
 
   it("scopes by project and validates input", async () => {
     const { ana } = await seedClients();
-    expect((await post("/api/batches", { project: "other", name: "x", intent: "notice", audience: "all", clientIds: [ana], brief: "b" })).status).toBe(409);
-    expect((await post("/api/batches", { project: "p", name: "x", intent: "bogus", audience: "all", clientIds: [ana], brief: "b" })).status).toBe(400);
+    await seedBatch([ana]);
     expect(await (await get("/api/batches?project=other")).json()).toEqual({ batches: [] });
+    expect((await get("/api/batches/1?project=other")).status).toBe(404);
+    expect((await get("/api/batches/x?project=p")).status).toBe(400);
   });
 
   it("keeps the loopback guard on the bulk routes", async () => {

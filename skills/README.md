@@ -15,13 +15,13 @@ Start bound to a project: `hub agent <slug>` (a fresh session with `HUB_PROJECT=
 
 ## The skills
 
-The agent picks a skill by what you want, not by a phrase (decision 0012). The "Example" column is one way to say it, not a trigger. If your intent fits two skills, the agent asks you one question. For simple use the admin (buttons) is the interface, not phrases.
+The agent picks a skill by what you want, not by a phrase (decision 0012). The "Example" column is one way to say it, not a trigger. If your intent fits two skills, the agent asks you one question. Preparing is always a phrase: the agent chooses the clients, writes the drafts and enrols follow-ups when you say so. The admin (`hub up`) shows the result, Drafts and its View menu (To review, Follow-ups, Not by email, Thin basis) and Activity (what the agent did with each client, one group per session), and holds only your decisions: Send after "I read the checks", Skip, Hold, Done, Stop sending.
 
 | Example | Skill | What happens | Touches |
 |---|---|---|---|
 | `разбери почту проекта X` / `triage mail for X` | `triage-mail` | Reads X's new client mail (default last 3 days; say "за неделю" to change), leaves one unsent draft per client who is waiting, then updates the Notion profile, prints the report | Mail read + drafts, Notion X, knowledge X |
 | `обработай письмо от <адрес> в проекте X` | `triage-mail` (section 2, one client) | One client: whole history, one draft, profile | same, one client |
-| `сделай follow-up для клиентов X: <кому и зачем>` | `bulk-drafts` | One reviewable draft per chosen client (only addresses `draft.recipients` admits), a table | Mail read + drafts, Notion X read |
+| `сделай follow-up для клиентов X: <кому и зачем>` | `bulk-drafts` | The agent picks the clients from your words, leaves one reviewable draft per client (only addresses `draft.recipients` admits) and a table; the drafts show in Drafts, the run in Activity | Mail read + drafts, Notion X read |
 | `настрой проект X` / `продолжи настройку X` | `project-setup` | A short interview, one question at a time; writes `projects/X/project.md`, runs `./run.sh doctor --project X` | files of X, Notion/Mail read |
 | `загрузи знания проекта X` | `knowledge-import` | Fills `projects/X/knowledge/` from files and indexes it, smoke-tests search. One-time migration of an old Notion Knowledge database only if one exists | files of X (Notion read only for that migration) |
 | `что улучшить в базе знаний X` / `kb review X` | `kb-review` | Merges the project's saved KB-gap reports for a period (default 14 days), ranks them, drafts concrete Knowledge entries and fixes; writes a local summary, nothing to Notion | files of X (`reports/kb/`), knowledge X |
@@ -32,7 +32,7 @@ The agent picks a skill by what you want, not by a phrase (decision 0012). The "
 | `проверь формы заявок` / `do the lead forms still work` | `lead-form-check` | Runs `./run.sh doctor --only Leads` (with `--canary` after a site change), explains each red row and who fixes it. Instance-wide, no project binding. Never submits a lead | `config/lead-forms.json`, the public sites (GET; the signed canary only to a handler that advertises it) |
 | `что от меня нужно по проекту X` / `с чего начать в X` | `owner-inbox` | One ranked list of what waits for you: open questions, KB gaps, calendar problems, placeholders in drafts, run reports; each with the sentence to say next | files of X, Mail drafts read |
 | `посмотри что я отправил по проекту X` | `review-sent` | Compares recorded drafts with the sent mail (read only), summarises your edits, proposes tone and KB changes; writes nothing | admin database read, Mail Sent read, files of X |
-| `подготовь follow-up проекта X` | `sequence-drafts` | Reads the follow-ups due now (the owner enrolled them in the admin), re-checks each client for a reply, bounce, opt-out or out-of-office (`hub sequences judge`), then leaves one unsent draft per step that may still go. Never enrols, pauses or sends; the owner sends each step from Mail | admin database (`hub sequences`), Mail read + drafts, Notion X read, knowledge X |
+| `подготовь follow-up проекта X` / `подготовь follow-up молчащим клиентам проекта X` | `sequence-drafts` | When your words name clients or a segment, enrols exactly those with your words recorded (`hub sequences enrol --phrase`); then reads the follow-ups due now, re-checks each client for a reply, bounce, opt-out or out-of-office (`hub sequences judge`), and leaves one unsent draft per step that may still go (Drafts, View "Follow-ups"). Never enrols on its own initiative, never pauses, resumes or sends; you send each step from Mail | admin database (`hub sequences`), Mail read + drafts, Notion X read, knowledge X |
 
 Replies come in Russian, briefly; files and Notion pages are English.
 
@@ -73,4 +73,4 @@ send-capable tool. The transcript is the session's `.jsonl` under `~/.claude/pro
 ## Automation (optional, OFF)
 
 Nothing runs unattended (decision 0006): no scheduler, no skill "gate mode". `./run.sh setup --automation` adds only the optional
-Notion token, a read-only mail login and the Telegram token. The connector notes are in `@docs/core/02`.
+Notion token and the Telegram token; mail has no key (Apple Mail only). The connector notes are in `@docs/core/02`.

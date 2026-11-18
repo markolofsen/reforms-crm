@@ -6,13 +6,13 @@ import { inspect } from "@hub/connections";
 import { connectionDto, connectionsDto, type ConnectionDto } from "@hub/contract/connections";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { createApp } from "./app";
-import { chooseProbeKind, fakeProbeDeps } from "./connections";
+import { appleMailAccounts, chooseProbeKind, fakeProbeDeps } from "./connections";
+import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT } from "./apple-mail";
 
 // Fake secrets in a throwaway folder; the probes are stubs. Nothing here touches a real instance or the network.
 const NOTION = "ntn_FAKENOTIONSECRET1234567890";
 const TG = "123456789:AAFakeTelegramTokenValue_1234567890";
-const PASS = "fake-app-pass-4321";
-const ALL = [NOTION, TG, PASS];
+const ALL = [NOTION, TG];
 const T0 = new Date("2026-11-17T12:00:00Z");
 const BASE = "http://127.0.0.1:4317";
 
@@ -30,10 +30,9 @@ const put = (name: string, text: string, mode = 0o600) => { writeFileSync(join(d
 
 const stub = (status = 200) => ({
   fetch: (async (url: string) => { calls.push(String(url)); return new Response(JSON.stringify({ name: "Hub bot", result: { username: "hubbot" } }), { status }); }) as unknown as typeof fetch,
-  imapConnect: fakeProbeDeps().imapConnect!,
 });
-const app = (o: { status?: number; env?: NodeJS.ProcessEnv; minIntervalMs?: number } = {}) =>
-  createApp(repos, { now: () => now, messengers: () => ({ state: "off", reason: "no bot token file", failures: 0, stored: 0 }), connections: { dir: () => dir, env: o.env ?? {}, deps: stub(o.status), ...(o.minIntervalMs !== undefined ? { minIntervalMs: o.minIntervalMs } : {}) } });
+const app = (o: { status?: number; env?: NodeJS.ProcessEnv; minIntervalMs?: number; mail?: () => Promise<string[] | null> } = {}) =>
+  createApp(repos, { now: () => now, messengers: () => ({ state: "off", reason: "no bot token file", failures: 0, stored: 0 }), connections: { dir: () => dir, env: o.env ?? {}, deps: stub(o.status), ...(o.mail ? { mailAccounts: o.mail } : {}), ...(o.minIntervalMs !== undefined ? { minIntervalMs: o.minIntervalMs } : {}) } });
 type App = ReturnType<typeof app>;
 const list = async (a: App) => { const r = await a.request(`${BASE}/api/connections`); return { status: r.status, text: await r.clone().text(), body: connectionsDto.parse(await r.json()) }; };
 const test = async (a: App, id: string) => { const r = await a.request(`${BASE}/api/connections/${id}/test`, { method: "POST" }); return { status: r.status, text: await r.clone().text(), json: await r.json() as unknown }; };
@@ -47,28 +46,57 @@ beforeEach(() => {
   dir = join(mkdtempSync(join(tmpdir(), "hub-conn-srv-")), "secrets");
   mkdirSync(dir, { recursive: true });
   put("notion-token", NOTION);
-  put("mail-work.json", JSON.stringify({ account: "Work", host: "imap.example.test", port: 993, user: "me@example.test", pass: PASS }));
 });
 afterEach(() => handle.close());
 
 describe("GET /api/connections", () => {
-  it("lists the rows of two projects with who uses them, from files only", async () => {
+  it("lists the token rows of two projects with who uses them, and their mail accounts read-only", async () => {
     await register({ slug: "alpha", settingsJson: settings({ mail: { accounts: ["Work", "Apple Only"], addresses: [] } }) }, { slug: "beta", settingsJson: settings({ notion: { tokenFile: "beta-token", databases: [] } }) });
-    const { status, body } = await list(app());
+    const { status, body } = await list(app({ mail: async () => ["work", "me@example.test"] }));
     expect(status).toBe(200);
-    expect(body.connections.map((c) => c.id)).toEqual(["notion:beta-token", "notion:notion-token", "mail:apple-only", "mail:work", "telegram:bot"]);
-    expect(row(body.connections, "mail:work")).toMatchObject({ usedBy: ["alpha", "beta"], secret: { state: "stored" }, check: { state: "never" }, identity: "me@example.test at imap.example.test" });
-    expect(row(body.connections, "mail:apple-only")).toMatchObject({ secret: { state: "missing" }, can: ["set"] });
+    expect(body.connections.map((c) => c.id)).toEqual(["notion:beta-token", "notion:notion-token", "telegram:bot"]);
+    expect(body.mail).toEqual([
+      { account: "Apple Only", foundInMail: false, usedBy: ["alpha"] },
+      { account: "Work", foundInMail: true, usedBy: ["alpha", "beta"] },
+    ]);
     expect(row(body.connections, "notion:beta-token")).toMatchObject({ usedBy: ["beta"], secret: { state: "missing" } });
     expect(row(body.connections, "telegram:bot").note).toContain("Poller off");
     expect(body.instance).not.toContain("/");
     expect(calls).toEqual([]);
   });
 
+  it("mail accounts are unknown (null), never a guess, while Mail cannot be asked; an old login file is no row", async () => {
+    put("mail-work.json", JSON.stringify({ account: "Work", host: "imap.example.test", user: "me@example.test", pass: "fake-app-pass-4321" }));
+    await register({ slug: "alpha" });
+    const { body, text } = await list(app());
+    expect(body.mail).toEqual([{ account: "Work", foundInMail: null, usedBy: ["alpha"] }]);
+    expect(body.connections.some((c) => c.id.startsWith("mail"))).toBe(false);
+    expect(text).not.toContain("fake-app-pass");
+  });
+
+  it("asks Apple Mail once per minute, and never when Mail is not running", async () => {
+    const seen: string[] = [];
+    let running = true;
+    const osa = async (script: string) => {
+      seen.push(script === RUNNING_SCRIPT ? "running" : script === ACCOUNTS_SCRIPT ? "accounts" : "other");
+      if (script === RUNNING_SCRIPT) return String(running);
+      return `Work\x1fme@example.test\x1d\x1e`;
+    };
+    let t = T0;
+    const read = appleMailAccounts({ osa, now: () => t });
+    expect(await read()).toEqual(["work", "me@example.test"]);
+    expect(await read()).toEqual(["work", "me@example.test"]);
+    expect(seen).toEqual(["running", "accounts"]);
+    running = false;
+    t = new Date(T0.getTime() + 61_000);
+    expect(await read()).toBeNull();
+    expect(seen).toEqual(["running", "accounts", "running"]);
+  });
+
   it("is the same data as inspect() for the same folder", async () => {
     await register({ slug: "alpha" });
     const { body } = await list(app());
-    const rows = inspect({ dir, env: {}, projects: [{ slug: "alpha", mailAccounts: ["Work"], notionTokenFile: "notion-token" }], telegram: { state: "off", reason: "no bot token file" } });
+    const rows = inspect({ dir, env: {}, projects: [{ slug: "alpha", notionTokenFile: "notion-token" }], telegram: { state: "off", reason: "no bot token file" } });
     expect(body.connections.map(({ check: _c, ...r }) => r)).toEqual(rows.map((r) => ({ ...r })));
   });
 
@@ -93,11 +121,9 @@ describe("POST /api/connections/:id/test", () => {
     const r = await test(a, "notion:notion-token");
     expect(r.status).toBe(200);
     expect(connectionDto.parse(r.json)).toMatchObject({ identity: "Hub bot", check: { state: "fresh", asOf: T0.toISOString(), value: { identity: "Hub bot" } } });
-    const m = await test(a, "mail:work");
-    expect(connectionDto.parse(m.json).check.state).toBe("fresh");
     const after = await list(a);
     expect(row(after.body.connections, "notion:notion-token").check.state).toBe("fresh");
-    for (const t of [r.text, m.text, after.text]) for (const s of ALL) expect(t).not.toContain(s);
+    for (const t of [r.text, after.text]) for (const s of ALL) expect(t).not.toContain(s);
   });
 
   it("a rejected probe gives an error with a fix line and none of the provider's text", async () => {
@@ -141,9 +167,11 @@ describe("POST /api/connections/:id/test", () => {
     expect(row((await list(a)).body.connections, "notion:notion-token").check.state).toBe("never");
   });
 
-  it("refuses what has nothing to test (409), an unknown id (404)", async () => {
+  it("refuses what has nothing to test (409), an unknown id or a mail account (404)", async () => {
+    await register({ slug: "alpha" });
     const a = app();
     expect((await test(a, "telegram:bot")).status).toBe(409);
+    expect((await test(a, "mail:work")).status).toBe(404);
     expect((await test(a, "mail:ghost")).status).toBe(404);
     expect((await test(a, "whatsapp")).status).toBe(404);
     expect((await test(a, "notion:..%2Fx")).status).toBe(404);
@@ -154,7 +182,7 @@ describe("POST /api/connections/:id/test", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const a = app({ status: 401 });
-    await list(a); await test(a, "notion:notion-token"); await test(a, "mail:work");
+    await list(a); await test(a, "notion:notion-token");
     const out = JSON.stringify([...spy.mock.calls, ...log.mock.calls]);
     for (const s of ALL) expect(out).not.toContain(s);
     spy.mockRestore(); log.mockRestore();
@@ -178,7 +206,6 @@ describe("HUB_CONNECTIONS_PROBE=fake", () => {
   it("the stubs accept a key, and refuse one that contains REJECT, through the real probe code", async () => {
     const a = createApp(repos, { now: () => now, connections: { dir: () => dir, env: {}, deps: fakeProbeDeps() } });
     expect(connectionDto.parse((await test(a, "notion:notion-token")).json).check.state).toBe("fresh");
-    expect(connectionDto.parse((await test(a, "mail:work")).json).check.state).toBe("fresh");
     put("notion-token", "ntn_REJECTEDFAKEVALUE1234567");
     const future = new Date(Date.now() + 5000);
     (await import("node:fs")).utimesSync(join(dir, "notion-token"), future, future);

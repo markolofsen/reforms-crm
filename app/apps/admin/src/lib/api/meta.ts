@@ -1,16 +1,18 @@
-import type { SafetyKind } from "@hub/config";
-import type { SafetyRuleBody } from "@hub/contract/requests";
+import type { RunStatus, SafetyKind } from "@hub/config";
+import { activityDto } from "@hub/contract/activity";
 import { pulseDto } from "@hub/contract/health";
-import { eventsDto, projectOverviewDto, projectsDto, runsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
+import { instanceDto } from "@hub/contract/instance";
+import type { SafetyRuleBody } from "@hub/contract/requests";
+import { projectOverviewDto, projectsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
 import { read } from "./client";
 
-/** Projects, the agent log, the safety rules and the pulse the admin polls. */
+/** The instance's brand, the projects, the pulse, the agent's activity and the safety rules. */
 export const metaApi = {
+  instance: () => read(instanceDto, { method: "GET", path: "/api/instance" }),
   projects: () => read(projectsDto, { method: "GET", path: "/api/projects" }),
   overview: (project: string) => read(projectOverviewDto, { method: "GET", path: "/api/project", query: { project } }),
   pulse: () => read(pulseDto, { method: "GET", path: "/api/pulse" }),
-  runs: (project: string) => read(runsDto, { method: "GET", path: "/api/runs", query: { project } }),
-  events: (project: string, runId: number) => read(eventsDto, { method: "GET", path: `/api/runs/${runId}/events`, query: { project } }),
+  activity: (project: string, filter: "all" | RunStatus) => read(activityDto, { method: "GET", path: "/api/activity", query: { project, filter } }),
   rules: (project: string) => read(safetyRulesDto, { method: "GET", path: "/api/safety-rules", query: { project } }),
   setRule: (project: string, kind: SafetyKind, patch: Omit<SafetyRuleBody, "project">) => read(safetyRuleSavedDto, { method: "PUT", path: `/api/safety-rules/${kind}`, body: { project, ...patch } }),
 };

@@ -45,4 +45,4 @@ A workflow narrows the work and never widens it: no sending, no recipient outsid
 
 `app/projects/_template/workflows/` holds ten generic playbooks, all Draft, naming no real client or person. `project setup` copies the folder into the new project (`cp -R`); the copy is the project's own, not inherited, so a core update never changes it. To switch one on: read it, edit it, set `status: Active`.
 
-A timed series of follow-ups for a quiet client is not a workflow: it is a sequence, with its own state and owner-only enrolment ([23-sequences.md](23-sequences.md)).
+A timed series of follow-ups for a quiet client is not a workflow: it is a sequence, with its own state, enrolled only on the owner's words ([23-sequences.md](23-sequences.md)).

@@ -41,7 +41,7 @@ test("Client menu: Do not contact asks first in a popover, Cancel changes nothin
   await menu().click();
   await flag.click();
   await page.getByRole("button", { name: "Mark do not contact", exact: true }).click();
-  await expect(page.getByText("Marked Do not contact")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Marked Do not contact" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Send", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Undo", exact: true }).click();
   await menu().click();

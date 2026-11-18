@@ -1,5 +1,6 @@
-import { chmodSync, copyFileSync, existsSync, mkdirSync, renameSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { instanceBrand } from "@hub/config/paths";
 import { readJson, type Ctx } from "../context";
 import { brokenStdioCommands, instanceServer } from "../mcp-servers";
 import type { Step } from "../types";
@@ -12,10 +13,13 @@ const SETTINGS = ["config.json"];
 const REQUIRED_CONFIG_KEYS = ["account", "mailboxes", "allow_list"];
 /**
  * Every key of `config/config.json` the hub reads or its template carries: the whole schema. Add a key here in the same change that starts reading it.
- * Readers: account, mailboxes (mail.account), allow_list (send guard), extra_dirs (hub agent), admin_port and api_port (`@hub/config/paths`), backup_dir (hub backup), backup_repos (backup.git).
+ * Readers: account, mailboxes (mail.account), allow_list (send guard), extra_dirs (hub agent), admin_port and api_port (`@hub/config/paths`), backup_dir (hub backup), backup_repos (backup.git), name and logo (the admin's brand header, `instanceBrand`).
  * `sent_mailbox` is carried by the template only. The keys of the archived daemon (quiet_hours, model, timeouts, budgets, lock and breaker settings) are gone; run limits live per project in `project.md`.
  */
-export const CONFIG_KEYS = ["account", "mailboxes", "sent_mailbox", "allow_list", "extra_dirs", "admin_port", "api_port", "backup_dir", "backup_repos"];
+export const CONFIG_KEYS = ["name", "logo", "account", "mailboxes", "sent_mailbox", "allow_list", "extra_dirs", "admin_port", "api_port", "backup_dir", "backup_repos"];
+
+/** Mail login files of the removed IMAP reader (decision 0026): nothing reads them; the owner deletes them. */
+const OLD_MAIL_LOGIN = /^mail-[A-Za-z0-9][A-Za-z0-9._-]*\.json$/;
 
 function copyDefaults(ctx: Ctx, files: string[]): string {
   const made: string[] = [];
@@ -89,6 +93,28 @@ export const fileSteps: Step[] = [
       if (!cfg || typeof cfg !== "object" || Array.isArray(cfg)) return pass("no readable config.json: files.settings reports that");
       const unknown = Object.keys(cfg).filter((k) => !CONFIG_KEYS.includes(k));
       return unknown.length ? warn(`config.json has key(s) nothing reads: ${unknown.join(", ")}. Delete them; the keys the hub reads are listed in this step's page`) : pass(`${Object.keys(cfg).length} key(s), all read by the hub`);
+    },
+  },
+  {
+    id: "files.brand", group: "Files", title: "Instance brand (name and logo)",
+    why: "The admin's header shows the instance's `name` and `logo` from `config/config.json`, both optional. A logo path that names no file shows a monogram instead, which looks like the logo was never set.",
+    verifies: "When `logo` is set, the file exists (a relative path is read from the `config/` folder). No logo, or no name, is a PASS: the admin says \"Hub\" and draws a monogram. A missing file is a WARN.",
+    manual: { steps: ["Put the logo file (svg, png, jpg or webp) where `logo` in `config/config.json` points, or remove `logo`."] },
+    async check(ctx) {
+      const b = instanceBrand(ctx.paths);
+      if (b.logo === null) return pass(`name "${b.name}", no logo (a monogram is shown)`);
+      return b.logoFound ? pass(`name "${b.name}", logo ${path.relative(ctx.paths.home, b.logo) || b.logo}`) : warn(`logo ${b.logo} does not exist: fix \`logo\` in config/config.json or remove it (a monogram is shown meanwhile)`);
+    },
+  },
+  {
+    id: "files.mail-logins", group: "Files", title: "No mail login files left",
+    why: "Mail is read and sent only through Apple Mail (decision 0026): the hub holds no mail key. Old IMAP login files (`state/secrets/mail-*.json`) are no longer read, and a password nobody uses is still a password on disk.",
+    verifies: "`state/secrets/` holds no `mail-*.json`. One is a WARN naming the files; nothing is deleted.",
+    manual: { steps: ["Delete the `mail-*.json` files the row names from `state/secrets/`."] },
+    async check(ctx) {
+      let names: string[] = [];
+      try { names = readdirSync(ctx.configDir).filter((n) => OLD_MAIL_LOGIN.test(n)); } catch { /* no secrets folder: nothing left */ }
+      return names.length ? warn(`${names.join(", ")} in ${ctx.configDir}: no longer read (mail goes through Apple Mail only). Delete ${names.length === 1 ? "it" : "them"}`) : pass("none");
     },
   },
   {

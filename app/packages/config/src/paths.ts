@@ -159,3 +159,35 @@ export function instancePorts(paths: Pick<HubPaths, "configFile">, env: NodeJS.P
   if (admin === api) throw new Error(`the admin and the API both use port ${admin}: set different admin_port and api_port in ${paths.configFile}`);
   return { admin, api };
 }
+
+export interface InstanceBrand {
+  /** `name` of `config/config.json`, trimmed; "Hub" when absent or empty. */
+  name: string;
+  /** The logo file as an absolute path (a relative `logo` is read from the config folder), or null when none is configured. */
+  logo: string | null;
+  /** True when a logo is configured and the file exists: the doctor warns otherwise, the admin draws a monogram. */
+  logoFound: boolean;
+}
+
+/** The fallback the admin shows when the instance names no brand. Kept equal to `DEFAULT_INSTANCE_NAME` of `@hub/contract/instance`. */
+export const DEFAULT_BRAND_NAME = "Hub";
+
+/**
+ * The instance's brand (P48 W0): optional `name` and `logo` in `config/config.json`. A missing or unreadable file, or a
+ * value that is not a non-empty string, falls back (name "Hub", no logo): a brand is never a reason not to start.
+ */
+export function instanceBrand(paths: Pick<HubPaths, "configFile" | "configDir">): InstanceBrand {
+  let cfg: Record<string, unknown> = {};
+  if (existsSync(paths.configFile)) {
+    try { cfg = JSON.parse(readFileSync(paths.configFile, "utf8")) as Record<string, unknown>; } catch { cfg = {}; }
+  }
+  const text = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
+  const name = text(cfg.name) ?? DEFAULT_BRAND_NAME;
+  const raw = text(cfg.logo);
+  const logo = raw === null ? null : isAbsolute(raw) ? raw : resolve(paths.configDir, raw);
+  let logoFound = false;
+  if (logo) {
+    try { logoFound = statSync(logo).isFile(); } catch { logoFound = false; }
+  }
+  return { name, logo, logoFound };
+}

@@ -11,7 +11,6 @@ import { fakeProbeDeps } from "./connections";
 const OLD = "ntn_OLDFAKENOTIONSECRET123456";
 const NEW = "ntn_NEWFAKENOTIONSECRET123456";
 const TG = "123456789:AAFakeTelegramTokenValue_1234567890";
-const PASS = "fake-app-pass-NEW-4321";
 const OLDPASS = "fake-app-pass-old-1111";
 const BASE = "http://127.0.0.1:4317";
 
@@ -52,31 +51,30 @@ describe("PUT /api/connections/:id/secret", () => {
     expect(readdirSync(dir).filter((n) => n.endsWith(".tmp"))).toEqual([]);
   });
 
-  it("stores a Telegram token and a mail login (replace), and a new key drops the old test result", async () => {
+  it("stores a Telegram token, and a new key drops the old test result", async () => {
     const a = app();
-    await send(a, "POST", "/api/connections/mail:work/test");
-    expect(connectionDto.parse(JSON.parse((await send(a, "POST", "/api/connections/mail:work/test")).text)).check.state).toBe("fresh");
-    const m = await putSecret(a, "mail:work", { account: "Work", host: "imap.example.test", port: 993, user: "me@example.test", password: PASS });
-    expect(m.status).toBe(200);
-    expect(m.text).not.toContain(PASS);
-    expect(connectionDto.parse(JSON.parse(m.text)).check.state).toBe("never");
-    expect(JSON.parse(readFileSync(join(dir, "mail-work.json"), "utf8")).pass).toBe(PASS);
+    expect(connectionDto.parse(JSON.parse((await send(a, "POST", "/api/connections/notion:notion-token/test")).text)).check.state).toBe("fresh");
+    const n = await putSecret(a, "notion:notion-token", { value: NEW });
+    expect(connectionDto.parse(JSON.parse(n.text)).check.state).toBe("never");
     expect((await putSecret(a, "telegram:bot", { value: TG })).status).toBe(200);
     expect(statSync(join(dir, "telegram-bot-token")).mode & 0o777).toBe(0o600);
   });
 
-  it("can set a login for an account a project lists that has no file yet", async () => {
-    const r = await putSecret(app(), "mail:apple-only", { account: "Apple Only", host: "imap.example.test", port: 993, user: "a@example.test", password: PASS });
-    expect(r.status).toBe(200);
-    expect(readdirSync(dir)).toContain("mail-apple-only.json");
-    expect(connectionDto.parse(JSON.parse(r.text)).secret.state).toBe("stored");
+  it("a mail account takes no key: the old login body is refused and nothing is written (decision 0026)", async () => {
+    const before = everything();
+    const a = app();
+    const login = { account: "Work", host: "imap.example.test", port: 993, user: "me@example.test", password: "fake-app-pass-NEW-4321" };
+    expect((await putSecret(a, "mail:work", login)).status).toBe(400);
+    expect((await putSecret(a, "mail:work", { value: NEW })).status).toBe(404);
+    expect((await putSecret(a, "mail:apple-only", { value: NEW })).status).toBe(404);
+    expect(everything()).toBe(before);
   });
 
   it("an invalid key stores nothing and the sentence holds no value", async () => {
     const before = everything();
     const a = app();
     const bad = "has spaces and is not a token";
-    for (const [id, body] of [["notion:notion-token", { value: bad }], ["telegram:bot", { value: bad }], ["mail:work", { account: "Other", host: "imap.example.test", port: 993, user: "u@example.test", password: bad }], ["mail:work", { account: "Work", host: "not a host!", port: 993, user: "u@example.test", password: bad }], ["notion:notion-token", { value: NEW, extra: bad }], ["telegram:bot", { password: bad }]] as const) {
+    for (const [id, body] of [["notion:notion-token", { value: bad }], ["telegram:bot", { value: bad }], ["notion:notion-token", { value: NEW, extra: bad }], ["telegram:bot", { password: bad }]] as const) {
       const r = await putSecret(a, id, body);
       expect(r.status, `${id} ${JSON.stringify(Object.keys(body))}`).toBe(400);
       expect(r.text).not.toContain(bad);
@@ -93,8 +91,7 @@ describe("PUT /api/connections/:id/secret", () => {
     const w = await putSecret(a, "whatsapp", { value: NEW });
     expect(w.status).toBe(404);
     expect(w.text).not.toContain(NEW);
-    put("mail-tok.json", JSON.stringify({ account: "Tok", host: "imap.example.test", user: "t@example.test", accessToken: "tok-FAKE-1234567" }));
-    expect((await putSecret(a, "mail:tok", { account: "Tok", host: "imap.example.test", port: 993, user: "t@example.test", password: PASS })).status).toBe(409);
+    expect((await putSecret(createApp(repos, { connections: { dir: () => dir, env: { NOTION_TOKEN: NEW }, deps: fakeProbeDeps() } }), "notion:notion-token", { value: NEW })).status).toBe(409);
   });
 
   it("no value reaches a log line, even when a write fails", async () => {
@@ -103,7 +100,6 @@ describe("PUT /api/connections/:id/secret", () => {
     const a = app();
     await putSecret(a, "notion:notion-token", { value: NEW });
     await putSecret(a, "notion:notion-token", { value: "short" });
-    await putSecret(a, "mail:work", { account: "Work", host: "imap.example.test", port: 993, user: "u@example.test", password: PASS });
     // a folder where the file belongs: the rename fails, which is the write failing after the value was already in memory
     mkdirSync(join(dir, "telegram-bot-token"));
     writeFileSync(join(dir, "telegram-bot-token", "x"), "x");
@@ -111,29 +107,27 @@ describe("PUT /api/connections/:id/secret", () => {
     expect(failed.status).not.toBe(200);
     expect(failed.text).not.toContain(TG);
     const out = JSON.stringify([...spy.mock.calls, ...log.mock.calls]);
-    for (const s of [NEW, TG, PASS, OLD, OLDPASS]) expect(out).not.toContain(s);
+    for (const s of [NEW, TG, OLD, OLDPASS]) expect(out).not.toContain(s);
     spy.mockRestore(); log.mockRestore();
   });
 
   it("a read after a write never returns a value: the list and a test carry none", async () => {
     const a = app();
     await putSecret(a, "notion:notion-token", { value: NEW });
-    await putSecret(a, "mail:work", { account: "Work", host: "imap.example.test", port: 993, user: "me@example.test", password: PASS });
     const list = (await send(a, "GET", "/api/connections")).text;
     const t = (await send(a, "POST", "/api/connections/notion:notion-token/test")).text;
-    for (const s of [NEW, PASS, OLD, OLDPASS]) { expect(list).not.toContain(s); expect(t).not.toContain(s); }
+    for (const s of [NEW, OLD, OLDPASS]) { expect(list).not.toContain(s); expect(t).not.toContain(s); }
   });
 });
 
 describe("POST /api/connections/:id/remove", () => {
-  it("deletes the key file and says the row is not set; a project-listed mail account stays as a row", async () => {
+  it("deletes the key file and says the row is not set; an old mail login file is not touched", async () => {
     const a = app();
     const n = await send(a, "POST", "/api/connections/notion:notion-token/remove");
     expect(n.status).toBe(200);
     expect(connectionDto.parse(JSON.parse(n.text)).secret.state).toBe("missing");
-    const m = await send(a, "POST", "/api/connections/mail:work/remove");
-    expect(connectionDto.parse(JSON.parse(m.text))).toMatchObject({ secret: { state: "missing" }, can: ["set"] });
-    expect(readdirSync(dir)).toEqual([]);
+    expect((await send(a, "POST", "/api/connections/mail:work/remove")).status).toBe(404);
+    expect(readdirSync(dir)).toEqual(["mail-work.json"]);
   });
 
   it("refuses a key set by the environment, a row with no file; 404 for an unknown id", async () => {
@@ -141,7 +135,7 @@ describe("POST /api/connections/:id/remove", () => {
     const env = await send(a, "POST", "/api/connections/notion:notion-token/remove");
     expect(env.status).toBe(409);
     expect(readdirSync(dir)).toContain("notion-token");
-    expect((await send(a, "POST", "/api/connections/mail:apple-only/remove")).status).toBe(409);
+    expect((await send(a, "POST", "/api/connections/telegram:bot/remove")).status).toBe(409);
     expect((await send(a, "POST", "/api/connections/mail:ghost/remove")).status).toBe(404);
   });
 });

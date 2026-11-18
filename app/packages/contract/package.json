@@ -9,7 +9,9 @@
     "./health": "./src/health.ts",
     "./connections": "./src/connections.ts",
     "./overview": "./src/overview.ts",
-    "./sequences": "./src/sequences.ts"
+    "./sequences": "./src/sequences.ts",
+    "./activity": "./src/activity.ts",
+    "./instance": "./src/instance.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

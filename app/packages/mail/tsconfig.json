@@ -1,5 +1,0 @@
-{
-  "extends": "@hub/config/tsconfig.base.json",
-  "compilerOptions": { "lib": ["ES2023", "DOM"], "types": ["node"], "noImplicitOverride": true },
-  "include": ["src", "test", "vitest.config.ts"]
-}

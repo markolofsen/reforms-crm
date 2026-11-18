@@ -1,100 +1,75 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { ChevronDownIcon } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { SEQUENCE_DISPLAY_LABELS } from "@hub/config";
 import type { EnrollmentDto } from "@hub/contract/sequences";
 import { Badge } from "@hub/ui/badge";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
-import { Skeleton } from "@hub/ui/skeleton";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { AppLink } from "@/components/app-link";
-import { LoadFailed } from "@/components/state-views";
+import { ListSkeleton, LoadFailed } from "@/components/state-views";
+import { refreshData, sentence } from "@/lib/api/client";
 import { sequencesApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
 import { paths } from "@/routes/paths";
-import { Candidates } from "./candidates";
 
-function DueRow({ e }: { e: EnrollmentDto }) {
+/** Stop follow-ups for one client: it only reduces mail, but the admin cannot restart it (resume is the owner's, in his terminal), so it asks in place. */
+function StopControl({ project, e }: { project: string; e: EnrollmentDto }) {
+  const qc = useQueryClient();
+  const [asking, setAsking] = useState(false);
+  const stop = useMutation({ mutationFn: () => sequencesApi.stop(project, e.id), onSuccess: () => void refreshData(qc) });
+  if (stop.isError) return <p className="text-destructive-foreground text-xs" role="alert">{sentence(stop.error)}</p>;
+  if (!asking) return <ActionButton onClick={() => setAsking(true)} size="s" variant="quiet">Stop</ActionButton>;
   return (
-    <li className="flex min-w-0 flex-col gap-0.5 border-t px-3 py-2 text-sm" data-testid="follow-up-due">
+    <span className="flex items-center gap-1">
+      <ActionButton disabled={stop.isPending} onClick={() => stop.mutate()} size="s" variant="danger">
+        {stop.isPending ? "Stopping" : "Stop follow-ups"}
+      </ActionButton>
+      <ActionButton onClick={() => setAsking(false)} size="s" variant="quiet">Keep</ActionButton>
+    </span>
+  );
+}
+
+function Row({ project, e }: { project: string; e: EnrollmentDto }) {
+  return (
+    <li className="flex min-w-0 flex-col gap-0.5 border-t px-3 py-2 text-sm" data-testid="follow-up">
       <div className="flex min-w-0 items-center gap-2">
         <span className="min-w-0 flex-1 truncate font-medium">{e.client.name}</span>
-        <Badge variant={e.display === "draft_ready" ? "info" : "warning"}>
-          {e.display === "draft_ready" ? "Draft ready" : "Due"} · step {e.step} of {e.steps}
+        <Badge variant={e.display === "due" || e.display === "draft_ready" ? "info" : "outline"}>
+          {SEQUENCE_DISPLAY_LABELS[e.display]} · step {e.step} of {e.steps}
         </Badge>
       </div>
       <p className="truncate text-muted-foreground">{e.sequenceName}</p>
-      <p className="flex flex-wrap items-center gap-x-3 text-muted-foreground text-xs">
+      {e.enrolledPhrase && <p className="measure text-muted-foreground text-xs">Enrolled on your words: “{e.enrolledPhrase}”</p>}
+      <div className="flex flex-wrap items-center gap-x-3 text-muted-foreground text-xs">
         {e.nextDueAt && <span>Due {formatTime(e.nextDueAt)}</span>}
-        {e.last && <span>Our last message {formatTime(e.last.at)}</span>}
-        {e.openDraftId !== null && (
-          <AppLink className="text-xs" to={paths.drafts.item(e.openDraftId)}>
-            Open the step draft
-          </AppLink>
-        )}
-      </p>
+        {e.openDraftId !== null && <AppLink to={paths.drafts.item(e.openDraftId, { filter: "sequences" })}>Open the step draft</AppLink>}
+        {e.state !== "finished" && <span className="ms-auto"><StopControl e={e} project={project} /></span>}
+      </div>
     </li>
   );
 }
 
 /**
- * Follow-ups (P47) under the draft list: the steps due now and the quiet clients the owner might enrol. Collapsed, and
- * absent when both are empty. Nothing here drafts or sends: the agent drafts the due steps when told to, the owner sends
- * each from Mail, and only the owner enrols (the agent's shell has no Enrol).
+ * Follow-ups (P47) in the Follow-ups view, under the open step drafts: every running enrolment, read-only but for Stop. The
+ * agent enrols a client only on the owner's phrase in a session (D1 of P48), shown with the enrolment; the agent drafts each
+ * due step into Mail, and the owner sends it from Mail. Nothing here enrols, drafts or sends.
  */
 export function FollowUps({ project }: { project: string }) {
-  const due = useQuery({ queryKey: ["enrollments", project, "due"], queryFn: () => sequencesApi.enrollments(project, "due") });
-  const offered = useQuery({ queryKey: ["enrollment-candidates", project], queryFn: () => sequencesApi.candidates(project) });
-  if (due.isPending || offered.isPending) {
-    return (
-      <div className="mx-3 mt-3">
-        <Skeleton className="h-(--control-m) w-full rounded-lg" />
-        <p className="sr-only" role="status">Loading the follow-ups...</p>
-      </div>
-    );
-  }
-  if (!due.data || !offered.data) {
-    const failed = due.isError ? due : offered;
-    return (
-      <div className="mx-3 mt-3" data-testid="follow-ups-failed">
-        <LoadFailed
-          error={failed.error}
-          onRetry={() => {
-            void due.refetch();
-            void offered.refetch();
-          }}
-          retrying={due.isFetching || offered.isFetching}
-          what="the follow-ups"
-        />
-      </div>
-    );
-  }
-  const rows = due.data.enrollments;
-  const candidates = offered.data.candidates;
-  if (rows.length === 0 && candidates.length === 0) return null;
+  const q = useQuery({ queryKey: ["enrollments", project, "active"], queryFn: () => sequencesApi.enrollments(project, "active") });
+  if (q.isPending) return <ListSkeleton label="Loading the follow-ups" rows={2} />;
+  if (!q.data) return <div className="p-3" data-testid="follow-ups-failed"><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the follow-ups" /></div>;
+  const rows = q.data.enrollments;
   return (
-    <Collapsible className="mx-3 mt-3 rounded-lg border" data-testid="follow-ups">
-      <CollapsibleTrigger className="flex min-h-(--control-m) w-full items-center gap-2 px-3 py-2 text-start text-sm">
-        <span className="min-w-0 flex-1">
-          <span className="font-medium">Follow-ups</span> <span className="text-muted-foreground">{rows.length} due, {candidates.length} suggested</span>
-        </span>
-        <ChevronDownIcon aria-hidden="true" className="size-4" />
-      </CollapsibleTrigger>
-      <CollapsiblePanel>
-        <section aria-label="Follow-ups due">
-          <h4 className="px-3 pb-1 font-medium text-sm">Due</h4>
-          {rows.length === 0 ? (
-            <p className="border-t px-3 py-2 text-muted-foreground text-sm">Nothing is due.</p>
-          ) : (
-            <>
-              <p className="px-3 pb-2 text-muted-foreground text-xs">
-                Say to the agent: <code>подготовь follow-up проекта {project}</code>. It drafts each due step into Mail; you send it from Mail.
-              </p>
-              <ul aria-label="Due follow-ups">{rows.map((e) => <DueRow e={e} key={e.id} />)}</ul>
-            </>
-          )}
-        </section>
-        <Candidates candidates={candidates} project={project} />
-      </CollapsiblePanel>
-    </Collapsible>
+    <section aria-label="Follow-ups" className="mt-2 flex flex-col" data-testid="follow-ups">
+      <h3 className="px-3 pt-2 pb-1 font-medium text-sm">In follow-up ({rows.length})</h3>
+      {rows.length === 0 ? (
+        <p className="measure px-3 pb-3 text-muted-foreground text-sm">
+          Nobody is in a follow-up. Say to the agent: <code>подготовь follow-up молчащим клиентам проекта {project}</code>.
+        </p>
+      ) : (
+        <ul aria-label="Clients in follow-up">{rows.map((e) => <Row e={e} key={e.id} project={project} />)}</ul>
+      )}
+    </section>
   );
 }

@@ -4,7 +4,7 @@ import type { Ctx } from "./context";
 
 /** What each project says about connections, read from the instance's project.md files. */
 export const projectUses = (ctx: Ctx): ProjectUse[] =>
-  loadProjects(ctx.paths.projects).map((p) => ({ slug: p.slug, mailAccounts: p.parsed.config.mail.accounts ?? [], notionTokenFile: p.parsed.config.notion.tokenFile }));
+  loadProjects(ctx.paths.projects).map((p) => ({ slug: p.slug, notionTokenFile: p.parsed.config.notion.tokenFile }));
 
 export interface ConnectionsReport { rows: ConnectionRow[]; verdicts: Map<string, Verdict>; exitCode: number }
 

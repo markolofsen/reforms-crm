@@ -1,93 +1,90 @@
 import { describe, expect, it } from "vitest";
 import { canonicalAddress, pickProject, REDIRECTS } from "../src/routes/guards";
-import { formatDest, paths, sectionList, type Dest } from "../src/routes/paths";
+import { formatDest, paths, sectionList, type Dest, type Place } from "../src/routes/paths";
 import { formatQuery, parseQuery, positiveInt } from "../src/routes/search";
-import { SECTIONS } from "../src/routes/sections";
+import { navSections, SECTIONS } from "../src/routes/sections";
 import { destOf, resolveRoute, type Resolved } from "../src/routes/resolve";
 
+const ONE: Place = { project: "lisbon", multi: false };
+const MANY: Place = { project: "lisbon", multi: true };
+
 /** The address text of a destination, read back through the same path the browser takes. */
-function roundTrip(d: Dest, project: string | null): Resolved {
-  const [path = "", search = ""] = formatDest(d, project).split("?");
+function roundTrip(d: Dest, place: Place): Resolved {
+  const [path = "", search = ""] = formatDest(d, place).split("?");
   return resolveRoute(path, search);
 }
+const at = (address: string): Resolved => {
+  const [path = "", search = ""] = address.split("?");
+  return resolveRoute(path, search);
+};
 
 describe("resolveRoute", () => {
-  it("reads the route, params, project and search from the address", () => {
-    expect(resolveRoute("/drafts", "project=lisbon&filter=ready")).toEqual({ route: "drafts.list", section: "drafts", project: "lisbon", params: {}, search: { filter: "ready", q: "", batch: null, new: false } });
-    expect(resolveRoute("/drafts/42", "project=lisbon")).toMatchObject({ route: "drafts.item", params: { id: 42 }, search: { filter: "ready", q: "" } });
-    expect(resolveRoute("/drafts", "project=lisbon&batch=3&filter=hold")).toMatchObject({ route: "drafts.list", search: { batch: 3, filter: "hold", new: false } });
-    expect(resolveRoute("/drafts", "new=1")).toMatchObject({ route: "drafts.list", search: { new: true, batch: null } });
-    expect(resolveRoute("/log", "filter=failed&run=7")).toMatchObject({ route: "log.list", search: { filter: "failed", run: 7 } });
-    expect(resolveRoute("/project", "")).toMatchObject({ route: "project.page", project: null });
+  it("reads the route, params, search and the project from the first path segment", () => {
+    expect(at("/drafts?filter=hold")).toEqual({ route: "drafts.list", section: "drafts", project: null, inPath: false, entry: false, params: {}, search: { filter: "hold", q: "", batch: null } });
+    expect(at("/lisbon/drafts/42")).toMatchObject({ route: "drafts.item", project: "lisbon", inPath: true, params: { id: 42 }, search: { filter: "ready", q: "" } });
+    expect(at("/lisbon/drafts?batch=3&filter=hold")).toMatchObject({ route: "drafts.list", search: { batch: 3, filter: "hold" } });
+    expect(at("/lisbon/log?filter=failed&run=7")).toMatchObject({ route: "log.list", project: "lisbon", search: { filter: "failed", run: 7 } });
+    expect(at("/project")).toMatchObject({ route: "project.page", project: null, inPath: false });
+    expect(at("/demo%20shop/project")).toMatchObject({ route: "project.page", project: "demo shop" });
   });
 
-  it("knows the five sections and the empty address is Drafts", () => {
-    for (const s of SECTIONS) expect(resolveRoute(`/${s.id}`, "").section).toBe(s.id);
-    expect(resolveRoute("/", "").route).toBe("drafts.list");
+  it("knows the sections, and the empty address is the entry", () => {
+    for (const s of SECTIONS) expect(at(`/${s.id === "log" ? "log" : s.id}`).section).toBe(s.id);
+    expect(at("/")).toMatchObject({ route: "drafts.list", entry: true });
   });
 
-  it("an unknown path, the old /clients, a bad id or an extra segment is Not found, never Drafts", () => {
-    for (const p of ["/clients", "/nope", "/drafts/abc", "/drafts/0", "/drafts/-1", "/drafts/1.5", "/bulk", "/bulk/3", "/drafts/1/2", "/log/3", "/project/x", "/main"]) {
-      expect(resolveRoute(p, "project=lisbon").route, p).toBe("notFound");
+  it("an unknown path, the old /clients, a bad id, an extra segment or a project before a projectless section is Not found", () => {
+    for (const p of ["/clients", "/nope", "/drafts/abc", "/drafts/0", "/drafts/-1", "/drafts/1.5", "/bulk", "/bulk/3", "/drafts/1/2", "/log/3", "/project/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/connections", "/lisbon/drafts/1/2", "/%E0%A4%A/drafts"]) {
+      expect(at(p).route, p).toBe("notFound");
     }
     expect(REDIRECTS).toEqual([]);
   });
 
   it("a filter outside its enum resets to the default instead of breaking the view", () => {
-    expect(resolveRoute("/drafts", "filter=zzz")).toMatchObject({ search: { filter: "ready" } });
-    expect(resolveRoute("/drafts", "filter=all")).toMatchObject({ search: { filter: "all" } }); // All is a choice, so it keeps its key
-    // Saved links (renamed 2026-11-18): the old `evidence` view value opens the Thin basis view; the new one is the only spelling written back.
-    expect(resolveRoute("/drafts", "filter=evidence")).toMatchObject({ search: { filter: "thin_basis" } });
-    expect(resolveRoute("/drafts", "filter=thin_basis")).toMatchObject({ search: { filter: "thin_basis" } });
-    // P47: the Follow-ups view is an address like the others; a misspelling resets to To review.
-    expect(resolveRoute("/drafts", "filter=sequences")).toMatchObject({ search: { filter: "sequences" } });
-    expect(resolveRoute("/drafts", "filter=sequence")).toMatchObject({ search: { filter: "ready" } });
-    // A batch must be a positive number; a builder never carries one.
-    expect(resolveRoute("/drafts", "batch=abc")).toMatchObject({ search: { batch: null } });
-    expect(resolveRoute("/drafts", "batch=0")).toMatchObject({ search: { batch: null } });
-    expect(resolveRoute("/drafts", "batch=3&new=1")).toMatchObject({ search: { batch: 3, new: false } });
-    expect(resolveRoute("/log", "filter=nope&run=abc")).toMatchObject({ search: { filter: "all", run: null } });
-  });
-
-  it("an empty project is no project", () => {
-    expect(resolveRoute("/drafts", "project=").project).toBeNull();
+    expect(at("/drafts?filter=zzz")).toMatchObject({ search: { filter: "ready" } });
+    expect(at("/drafts?filter=all")).toMatchObject({ search: { filter: "all" } }); // All is a choice, so it keeps its key
+    // Saved links (renamed 2026-11-18): the old `evidence` view value opens the Thin basis view.
+    expect(at("/drafts?filter=evidence")).toMatchObject({ search: { filter: "thin_basis" } });
+    expect(at("/drafts?filter=sequences")).toMatchObject({ search: { filter: "sequences" } });
+    expect(at("/drafts?filter=not_by_email")).toMatchObject({ search: { filter: "not_by_email" } });
+    expect(at("/drafts?filter=sequence")).toMatchObject({ search: { filter: "ready" } });
+    expect(at("/drafts?batch=abc")).toMatchObject({ search: { batch: null } });
+    expect(at("/drafts?batch=0")).toMatchObject({ search: { batch: null } });
+    expect(at("/log?filter=nope&run=abc")).toMatchObject({ search: { filter: "all", run: null } });
   });
 });
 
-describe("paths", () => {
-  const cases: [string, Dest, string][] = [
-    ["drafts list", paths.drafts.list(), "/drafts?project=lisbon"],
-    ["drafts hold", paths.drafts.list({ filter: "hold" }), "/drafts?project=lisbon&filter=hold"],
-    ["drafts all", paths.drafts.list({ filter: "all" }), "/drafts?project=lisbon&filter=all"],
-    ["drafts item", paths.drafts.item(42, { filter: "hold" }), "/drafts/42?project=lisbon&filter=hold"],
-    ["drafts of a batch", paths.drafts.list({ batch: 3, filter: "all" }), "/drafts?project=lisbon&filter=all&batch=3"],
-    ["a draft of a batch", paths.drafts.item(42, { batch: 3 }), "/drafts/42?project=lisbon&batch=3"],
-    ["drafts search", paths.drafts.list({ q: "ana" }), "/drafts?project=lisbon&q=ana"],
-    ["the batch builder", paths.drafts.newBatch(), "/drafts?project=lisbon&new=1"],
-    ["log run", paths.log.list({ filter: "failed", run: 5 }), "/log?project=lisbon&filter=failed&run=5"],
-    ["project", paths.project.page(), "/project?project=lisbon"],
+describe("paths and places", () => {
+  const cases: [string, Dest, string, string][] = [
+    ["drafts list", paths.drafts.list(), "/drafts", "/lisbon/drafts"],
+    ["drafts hold", paths.drafts.list({ filter: "hold" }), "/drafts?filter=hold", "/lisbon/drafts?filter=hold"],
+    ["drafts item", paths.drafts.item(42, { filter: "hold" }), "/drafts/42?filter=hold", "/lisbon/drafts/42?filter=hold"],
+    ["a draft of a batch", paths.drafts.item(42, { batch: 3 }), "/drafts/42?batch=3", "/lisbon/drafts/42?batch=3"],
+    ["drafts search", paths.drafts.list({ q: "ana" }), "/drafts?q=ana", "/lisbon/drafts?q=ana"],
+    ["log run", paths.log.list({ filter: "failed", run: 5 }), "/log?filter=failed&run=5", "/lisbon/log?filter=failed&run=5"],
+    ["project", paths.project.page(), "/project", "/lisbon/project"],
+    ["overview", paths.overview(), "/overview", "/overview"],
+    ["connections", paths.connections.page(), "/connections", "/connections"],
   ];
-  for (const [name, d, href] of cases) {
-    it(`${name}: builds ${href} and re-parses to the same destination`, () => {
-      expect(formatDest(d, "lisbon")).toBe(href);
-      const r = roundTrip(d, "lisbon");
-      expect(r.project).toBe("lisbon");
-      expect(destOf(r)).toEqual(d);
+  for (const [name, d, one, many] of cases) {
+    it(`${name}: ${one} with one project, ${many} with several, and both re-parse to the same destination`, () => {
+      expect(formatDest(d, ONE)).toBe(one);
+      expect(formatDest(d, MANY)).toBe(many);
+      expect(destOf(roundTrip(d, ONE))).toEqual(d);
+      expect(destOf(roundTrip(d, MANY))).toEqual(d);
+      if (many !== one) expect(roundTrip(d, MANY).project).toBe("lisbon");
     });
   }
 
-  it("the default value drops its key, and no project leaves none", () => {
-    expect(formatDest(paths.drafts.list({ filter: "ready" }), null)).toBe("/drafts"); // To review is the default
-    expect(formatDest(paths.log.list({ filter: "all" }), null)).toBe("/log");
-    expect(formatDest(paths.log.list({ run: null }), null)).toBe("/log");
+  it("no address ever carries `?project=`, and a project with a space survives", () => {
+    for (const [, d] of cases) for (const place of [ONE, MANY]) expect(formatDest(d, place)).not.toContain("project=");
+    expect(roundTrip(paths.drafts.list(), { project: "demo shop", multi: true }).project).toBe("demo shop");
   });
 
-  it("a project name with a space survives the round trip", () => {
-    expect(roundTrip(paths.drafts.list(), "demo shop").project).toBe("demo shop");
-  });
-
-  it("every section has a list destination that resolves to that section", () => {
-    for (const s of SECTIONS) expect(roundTrip(sectionList(s.id), "p").section).toBe(s.id);
+  it("every section has a list destination that resolves to that section; Overview is in the nav only with several projects", () => {
+    for (const s of SECTIONS) expect(roundTrip(sectionList(s.id), MANY).section).toBe(s.id);
+    expect(navSections(false).map((s) => s.id)).toEqual(["drafts", "log", "project", "connections"]);
+    expect(navSections(true).map((s) => s.id)).toEqual(["overview", "drafts", "log", "project", "connections"]);
   });
 });
 
@@ -104,7 +101,8 @@ describe("search helpers", () => {
   });
 });
 
-describe("guards", () => {
+describe("the guard (canonicalAddress, the one normaliser)", () => {
+  const canon = (address: string, place: Place) => canonicalAddress(at(address), place, address);
   it("picks the addressed project, else the remembered one, else the first, and only one that exists", () => {
     const list = ["a", "b", "c"];
     expect(pickProject("b", "c", list)).toBe("b");
@@ -112,37 +110,34 @@ describe("guards", () => {
     expect(pickProject(null, "zzz", list)).toBe("a");
     expect(pickProject(null, null, [])).toBeNull();
   });
-  it("rewrites an address that lacks its project or carries a dead filter; leaves a canonical one and Not found alone", () => {
-    const at = (path: string, search: string) => resolveRoute(path, search);
-    expect(canonicalAddress(at("/drafts", ""), "lisbon", "/drafts")).toBe("/drafts?project=lisbon");
-    expect(canonicalAddress(at("/drafts", "project=lisbon&filter=zzz"), "lisbon", "/drafts?project=lisbon&filter=zzz")).toBe("/drafts?project=lisbon");
-    expect(canonicalAddress(at("/", ""), "lisbon", "/")).toBe("/drafts?project=lisbon");
-    expect(canonicalAddress(at("/drafts/42", "project=lisbon&filter=hold"), "lisbon", "/drafts/42?project=lisbon&filter=hold")).toBeNull();
-    expect(canonicalAddress(at("/nope", ""), "lisbon", "/nope")).toBeNull();
-    expect(canonicalAddress(at("/drafts", ""), null, "/drafts")).toBeNull();
+  it("the entry opens Drafts with one project and Overview with several; Overview with one project is Drafts", () => {
+    expect(canon("/", ONE)).toBe("/drafts");
+    expect(canon("/", MANY)).toBe("/overview");
+    expect(canon("/overview", ONE)).toBe("/drafts");
+    expect(canon("/overview", MANY)).toBeNull();
   });
-  it("Overview is the one cross-project address: it carries no project, and the guard strips one it is given", () => {
-    expect(resolveRoute("/overview", "focus=alpha")).toMatchObject({ route: "overview.page", section: "overview", search: { focus: "alpha" } });
-    expect(resolveRoute("/overview", "")).toMatchObject({ search: { focus: null } });
-    expect(resolveRoute("/overview/x", "")).toMatchObject({ route: "notFound" });
-    expect(formatDest(paths.overview({ focus: "alpha" }), "lisbon")).toBe("/overview?focus=alpha");
-    expect(formatDest(paths.overview(), "lisbon")).toBe("/overview");
-    expect(canonicalAddress(resolveRoute("/overview", ""), "lisbon", "/overview")).toBeNull();
-    expect(canonicalAddress(resolveRoute("/overview", "project=lisbon&focus=a"), "lisbon", "/overview?project=lisbon&focus=a")).toBe("/overview?focus=a");
-    // Every other section still names its project, so the exemption is one route and not a hole.
-    expect(formatDest(paths.drafts.list(), "lisbon")).toBe("/drafts?project=lisbon");
+  it("one project: no project in the address; several: the project in the path", () => {
+    expect(canon("/drafts", ONE)).toBeNull();
+    expect(canon("/lisbon/drafts/42", ONE)).toBe("/drafts/42");
+    expect(canon("/drafts/42?filter=hold", MANY)).toBe("/lisbon/drafts/42?filter=hold");
+    expect(canon("/lisbon/drafts/42?filter=hold", MANY)).toBeNull();
+    expect(canon("/connections", MANY)).toBeNull();
   });
-  it("Connections is the second projectless address: no project in it, none added, a stray one stripped", () => {
-    expect(resolveRoute("/connections", "")).toMatchObject({ route: "connections.page", section: "connections" });
-    expect(resolveRoute("/connections/x", "")).toMatchObject({ route: "notFound" });
-    expect(formatDest(paths.connections.page(), "lisbon")).toBe("/connections");
-    expect(canonicalAddress(resolveRoute("/connections", ""), "lisbon", "/connections")).toBeNull();
-    expect(canonicalAddress(resolveRoute("/connections", "project=lisbon"), "lisbon", "/connections?project=lisbon")).toBe("/connections");
+  it("saved links of the query era (until 2026-11-18): `?project=` is read once and written back in the path form", () => {
+    expect(canon("/drafts/1?project=lisbon", MANY)).toBe("/lisbon/drafts/1");
+    expect(canonicalAddress(at("/drafts/1?project=lisbon"), { project: "lisbon", multi: false }, "/drafts/1?project=lisbon")).toBe("/drafts/1");
+    expect(at("/drafts/1?project=lisbon").project).toBe("lisbon");
+    expect(canon("/connections?project=lisbon", MANY)).toBe("/connections");
+  });
+  it("a dead filter and the deleted batch builder's `?new=1` (2026-11-18) are dropped; Not found and no project are left alone", () => {
+    expect(canon("/drafts?filter=zzz", ONE)).toBe("/drafts");
+    expect(canon("/drafts?new=1", ONE)).toBe("/drafts");
+    expect(canon("/nope", ONE)).toBeNull();
+    expect(canonicalAddress(at("/drafts"), { project: null, multi: false }, "/drafts")).toBeNull();
   });
   it("a rewritten address is stable (no redirect loop)", () => {
-    const first = canonicalAddress(resolveRoute("/drafts/3", "filter=ready&project=x"), "x", "/drafts/3?filter=ready&project=x");
-    expect(first).toBe("/drafts/3?project=x");
-    const [path = "", search = ""] = (first ?? "").split("?");
-    expect(canonicalAddress(resolveRoute(path, search), "x", `${path}?${search}`)).toBeNull();
+    const first = canon("/drafts/3?filter=ready&project=x", { project: "x", multi: true });
+    expect(first).toBe("/x/drafts/3");
+    expect(canon(first ?? "", { project: "x", multi: true })).toBeNull();
   });
 });

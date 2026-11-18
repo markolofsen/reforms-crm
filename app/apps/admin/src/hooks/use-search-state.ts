@@ -63,7 +63,7 @@ export function useSearchState(key: SearchKey): [string | number | null, (value:
       const d = key === "run" ? (typeof value === "string" ? null : withSearch(route, "run", value)) : key === "q" ? withSearch(route, "q", String(value)) : withSearch(route, "filter", String(value));
       // In place and shallow (no server round trip, P32 N0): Next's router follows `replaceState`, so the address and
       // `useSearchParams` change together and no history entry is added.
-      if (d) window.history.replaceState(null, "", formatDest(d, route.project));
+      if (d) window.history.replaceState(null, "", formatDest(d, { project: route.project, multi: route.inPath }));
     },
     [route, key],
   );

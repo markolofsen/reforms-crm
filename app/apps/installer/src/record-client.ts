@@ -35,6 +35,8 @@ export const clientInput = z
     notion: notionRef,
     skill: text(60).nullish(),
     runId: z.number().int().positive().nullish(),
+    /** The session's key (as record-draft's `evidence.batchKey`): every record of one session joins one run in Activity. */
+    batchKey: text(200).nullish(),
   })
   .strict();
 
@@ -77,6 +79,7 @@ export async function recordClient(o: RecordClientOptions): Promise<RecordOutcom
     notion: v.notion,
     skill: v.skill ?? null,
     runId: v.runId ?? null,
+    batchKey: v.batchKey ?? null,
   };
   let handle: ReturnType<typeof openDb> | undefined;
   try {

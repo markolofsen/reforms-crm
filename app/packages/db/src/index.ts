@@ -8,9 +8,12 @@ export { RepoError, type RepoErrorCode } from "./errors";
 export { buildMatchQuery, createRepos, isExpired, type Repos } from "./repos";
 export { EVENT_DETAIL_DAYS } from "./repos/runs";
 export type {
+  Activity,
+  ActivityFilter,
+  ActivityOutcome,
+  ActivityRow,
+  ActivitySession,
   AddressRow,
-  AgentDraft,
-  AudienceClient,
   Candidate,
   EnrollmentItem,
   EnrollmentRow,
@@ -18,8 +21,6 @@ export type {
   Outbound,
   BatchRow,
   BatchSummary,
-  NewBatch,
-  QueuedBatch,
   ReviewDraft,
   ChatRef,
   ClientIdentifierRow,
@@ -49,7 +50,6 @@ export type {
   RecordDraftInput,
   RecordDraftResult,
   QuestionRow,
-  RunRow,
   SearchHit,
   SearchOptions,
 } from "./repos";

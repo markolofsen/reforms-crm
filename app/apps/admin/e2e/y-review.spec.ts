@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { remember } from "./support";
+import { address, at, remember, viewMenu } from "./support";
 
 // Named y-* so it runs after smoke.spec.ts and before the z-* flows that change the data. Nothing here writes:
 // keys only move, and the failures are mocked.
@@ -10,12 +10,12 @@ test.beforeEach(async ({ page }) => {
 const cards = (page: import("@playwright/test").Page) => page.locator('ul[aria-label="Drafts"] > li');
 
 test("the project and the filter live in the address", async ({ page }) => {
-  await page.goto("/drafts?project=lisbon-realty&filter=ready");
-  await expect(page.getByRole("radio", { name: /^To review/ })).toBeChecked();
+  await page.goto(at("lisbon-realty", "/drafts?filter=ready"));
+  await expect(viewMenu(page)).toContainText("To review");
   await expect(cards(page)).toHaveCount(5);
-  await page.getByRole("radio", { name: /^Hold/ }).click();
-  await expect(page).toHaveURL(/filter=hold/);
-  await expect(page).toHaveURL(/project=lisbon-realty/);
+  await viewMenu(page).click();
+  await page.getByRole("menuitemradio", { name: /^Hold/ }).click();
+  await expect.poll(() => address(page)).toBe(at("lisbon-realty", "/drafts?filter=hold"));
 });
 
 test("J and K move the cursor, ? shows the keys, and the switch turns them off", async ({ page }) => {
@@ -59,6 +59,8 @@ test("a refusal from the server is shown as its sentence", async ({ page }) => {
 test("the Project screen shows the safety rules", async ({ page }) => {
   await page.goto("/project");
   await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Project", exact: true })).toHaveAttribute("aria-current", "page");
+  // The rules sit under Advanced, one summary line (P48 W6); opening it shows the switches.
+  await page.getByRole("button", { name: /^Advanced/ }).click();
   await expect(page.getByRole("switch").first()).toBeVisible();
 });
 

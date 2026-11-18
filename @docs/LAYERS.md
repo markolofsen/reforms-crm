@@ -17,6 +17,7 @@ unsure where a file goes, this page decides.
   `knowledge/`), never as `if slug == ...` in code or skills. A project that needs something the schema cannot say gets a new
   schema field (a core change), not a private branch.
 - An instance never edits core to suit itself. A need that two owners would share becomes a core change; otherwise it stays in the instance.
+- Core runs the same in every instance: agents reach Mail and Notion through their own connectors (`mail-mcp`, the session's Notion connector), the core's local tools (`hub record-draft`, `hub record-client`, `hub sequences`, the knowledge MCP, the guard) write the instance's database, and the admin shows that state. An instance differs only by data: its projects, and its brand (`name` and `logo` in `config/config.json`, which the admin's brand header reads), never by UI code.
 
 ## Where everything lives
 

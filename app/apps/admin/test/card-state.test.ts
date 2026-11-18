@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CARD_STATES, hasSwitch, paneStateOf, primaryFor, secondaryFor, stateOf, type Context } from "../src/features/review/card/card-state";
+import { CARD_STATES, hasSwitch, primaryFor, secondaryFor, stateOf, type Context } from "../src/features/review/card/card-state";
 
 import type { ReviewDraft } from "../src/features/review/source";
 import { tickBlock, type MailRead } from "../src/features/review/mail/tick-guard";
@@ -8,8 +8,8 @@ const ctx: Context = { name: "Marta", hasMailLink: true, acknowledged: true };
 
 describe("the review card state table", () => {
   it("covers the 16 states of research 16 section 7, plus follow_up (P47)", () => {
-    expect(CARD_STATES).toHaveLength(17);
-    expect(new Set(CARD_STATES).size).toBe(17);
+    expect(CARD_STATES).toHaveLength(16);
+    expect(new Set(CARD_STATES).size).toBe(16);
   });
 
   it.each(CARD_STATES)("%s has at most one primary and at most two visible secondaries", (state) => {
@@ -74,13 +74,9 @@ describe("a follow-up step (P47) is sent from Mail, never by the hub", () => {
   });
 });
 
-describe("state 16, a batch waiting for the agent", () => {
-  it("is the pane of a queued batch until its first draft arrives, and has no button", () => {
-    expect(paneStateOf({ status: "queued", written: 0 })).toBe("batch_waiting");
-    expect(paneStateOf({ status: "queued", written: 1 })).toBeNull();
-    expect(paneStateOf({ status: "ready", written: 0 })).toBeNull();
-    expect(primaryFor("batch_waiting", ctx)).toBeNull();
-    expect(secondaryFor("batch_waiting")).toEqual([]);
+describe("no batch_waiting state (P48: the batch builder is gone, nothing queues a batch)", () => {
+  it("is not a card state", () => {
+    expect(CARD_STATES).not.toContain("batch_waiting");
   });
 });
 

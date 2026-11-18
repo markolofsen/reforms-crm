@@ -4,11 +4,11 @@ import { fileURLToPath } from "node:url";
 import type { DraftStatus, Mark, NotionRef } from "@hub/config";
 import type { Repos } from "./repos";
 
-// Invented data only. Senders, subjects and dates come from `app/packages/mail/test/fixtures/*.eml`
+// Invented data only. Senders, subjects and dates come from `app/packages/db/fixtures/*.eml` (moved from the deleted mail package, P48)
 // (invented mail); everything else here is made up. No real client is read.
 
 const here = dirname(fileURLToPath(import.meta.url));
-export const defaultFixturesDir = resolve(here, "../../mail/test/fixtures");
+export const defaultFixturesDir = resolve(here, "../fixtures");
 
 export type FixtureMail = { name: string; email: string; subject: string; date: string };
 

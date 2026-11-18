@@ -1,7 +1,6 @@
 import { chmodSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { CREDS_FILE, parseAccount } from "@hub/mail/imap";
-import { SAFE_FILE, TELEGRAM_IN_TEXT, slug } from "./kinds";
+import { SAFE_FILE, TELEGRAM_IN_TEXT } from "./kinds";
 
 /** What is on disk for one secret file. Never the value. */
 export type FileState =
@@ -62,24 +61,7 @@ export function removeSecret(dir: string, file: string): boolean {
   return true;
 }
 
-export interface MailLoginFields { account: string; host: string; port: number; user: string; password: string }
-
-/** The file name of an account's login. */
-export const mailFileOf = (account: string): string => `mail-${slug(account)}.json`;
-
-/**
- * Stores an IMAP app-password login as `mail-<slug>.json`. The fields go through the same parser the reader uses, so a file that would be
- * refused later is refused now. `replace: false` never overwrites an existing login (the wizard's rule); the panel passes `true` for Replace.
- */
-export function storeMailLogin(dir: string, f: MailLoginFields, o: { replace: boolean }): { file: string } {
-  parseAccount(JSON.stringify({ account: f.account, host: f.host, port: f.port, user: f.user, pass: f.password }));
-  const file = mailFileOf(f.account);
-  if (!o.replace && existsSync(fileOf(dir, file))) throw new Error(`${file} already exists; a login is only replaced on purpose`);
-  writeAtomic(dir, file, JSON.stringify({ account: f.account, host: f.host, port: f.port, user: f.user, pass: f.password }, null, 2) + "\n");
-  return { file };
-}
-
-/** Every secret value on disk, for redaction: token files as a whole, mail logins by their pass or token. */
+/** Every secret value on disk, for redaction: each token file as a whole. */
 function knownValues(dir: string): string[] {
   let names: string[];
   try { names = readdirSync(dir); } catch { return []; }
@@ -88,12 +70,8 @@ function knownValues(dir: string): string[] {
     if (!SAFE_FILE.test(n)) continue;
     try {
       const text = readFileSync(join(dir, n), "utf8");
-      if (CREDS_FILE.test(n)) {
-        const a = parseAccount(text);
-        const v = "pass" in a.auth ? a.auth.pass : a.auth.accessToken;
-        if (v.length >= 4) out.push(v);
-      } else if (text.length < 4096 && text.trim().length >= 8) out.push(text.trim());
-    } catch { /* unreadable or malformed: nothing to learn */ }
+      if (text.length < 4096 && text.trim().length >= 8) out.push(text.trim());
+    } catch { /* unreadable: nothing to learn */ }
   }
   return out;
 }

@@ -7,7 +7,7 @@ You prepare ONE unsent reply draft for ONE client. You do not send, delete or ed
 
 Project: `<slug>`. Fields from its `project.md`: accounts `<accounts>`, Sent mailbox `<sent_mailbox>`, tone `<tone>`, signoff `<signoff>`, languages `<languages>`, `clients` source `<clients source id>`. `draft.recipients` verdict for this client: `<admitted | not-allowed>` (not admitted: return `skipped:not-allowed-recipient` and do nothing else).
 Client: `<address>` (name `<name>`). Window: `<window>`. Row number: `<n>`.
-Batch key: `<batchKey>` (pass it as `context.batchKey` to `hub record-draft`).
+Batch key: `<batchKey>` (pass it as `context.batchKey` to `hub record-draft` and as `batchKey` to `hub record-client`: the whole run is one session in Activity).
 Purpose and tone (bulk only; this is a brief, NOT a body, never paste or lightly edit it): `<purpose and tone line, or "none: answer what the client wrote">`.
 
 Follow this procedure for this client in full, whatever the batch size:

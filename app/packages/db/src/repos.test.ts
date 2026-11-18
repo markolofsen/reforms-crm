@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDb, type DbHandle } from "./client";
 import { createRepos, type Repos } from "./repos";
+import { eq } from "drizzle-orm";
 import { readFixtures, seed } from "./seed";
+import { clients } from "./schema";
 
 let handle: DbHandle;
 let repos: Repos;
@@ -40,8 +42,6 @@ describe("clients list and counts", () => {
     await addClient("p", "no-draft@x.example", { owed: true });
     const order = (await repos.clients.list("p")).map((c) => c.email);
     expect(order).toEqual(["owed@x.example", "quiet@x.example", "recent@x.example", "done@x.example"]);
-    // the audience view still has every row
-    expect((await repos.clients.listAll("p")).map((c) => c.email)).toContain("no-draft@x.example");
   });
 
   it("an unknown last contact sorts after a known one, owed still first (P27 M1.2)", async () => {
@@ -51,7 +51,6 @@ describe("clients list and counts", () => {
     const expected = ["owed-unknown@x.example", "old@x.example", "unknown@x.example"];
     expect((await repos.clients.list("p")).map((c) => c.email)).toEqual(expected);
     expect((await repos.clients.review("p")).map((d) => d.client.email)).toEqual(expected);
-    expect((await repos.clients.listAll("p")).map((c) => c.email)).toEqual(expected);
   });
 
   it("filters and counts agree, and are scoped to the project", async () => {
@@ -116,10 +115,11 @@ describe("agent log", () => {
     const events = await repos.runs.events("p", run);
     expect(events.map((e) => [e.seq, e.summary])).toEqual([[1, "one"], [2, "two"]]);
     expect(await repos.runs.events("elsewhere", run)).toEqual([]);
-    const runs = await repos.runs.list("p");
-    expect(runs.map((r) => r.id)).toEqual([run, other]);
-    expect(runs[0]).toMatchObject({ status: "needs_human", costUsd: 0.2, eventCount: 2 });
-    expect(await repos.runs.list("elsewhere")).toEqual([]);
+    const { sessions } = await repos.runs.activity("p");
+    expect(sessions.map((r) => r.runId)).toEqual([run, other]);
+    expect(sessions[0]).toMatchObject({ status: "needs_human", costUsd: 0.2 });
+    expect(sessions[0]?.rows).toHaveLength(2);
+    expect((await repos.runs.activity("elsewhere")).sessions).toEqual([]);
   });
 });
 
@@ -137,7 +137,7 @@ describe("seed", () => {
     expect(await repos.projects.list()).toEqual(["demo-shop", "lisbon-realty"]);
     const counts = await repos.clients.counts("lisbon-realty");
     expect(counts.all).toBeGreaterThan(5);
-    expect((await repos.runs.list("lisbon-realty")).length).toBe(3);
+    expect((await repos.runs.activity("lisbon-realty")).counts.all).toBe(3);
     // the same address lives in both projects without clashing
     expect((await repos.clients.list("demo-shop")).some((c) => c.email === "anna@example.com")).toBe(true);
     expect((await repos.clients.list("lisbon-realty")).some((c) => c.email === "anna@example.com")).toBe(true);
@@ -152,7 +152,7 @@ describe("clients.upsert", () => {
     const first = await repos.clients.upsert(base);
     const second = await repos.clients.upsert({ ...base, name: "A Renamed", repliesOwed: true });
     expect(second.id).toBe(first.id);
-    const rows = await repos.clients.listAll("acme");
+    const rows = handle.db.select().from(clients).where(eq(clients.project, "acme")).all();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ name: "A Renamed", repliesOwed: true });
     handle.close();
@@ -167,11 +167,11 @@ describe("clients.touch", () => {
     const draftId = await repos.drafts.create({ project: "p", clientId: id, subject: "s", toAddr: "ann@x.example", body: "" });
     const again = await repos.clients.touch({ project: "p", email: "ann@x.example", name: "Ann Lee" });
     expect(again).toEqual({ id, created: false });
-    const [row] = await repos.clients.listAll("p");
+    const [row] = await repos.clients.list("p");
     expect(row).toMatchObject({ name: "Ann Lee", repliesOwed: true, lastContactAt: "2026-11-01T00:00:00.000Z", marks: ["vip"] });
     expect(row?.draft?.id).toBe(draftId);
     await repos.clients.touch({ project: "p", email: "ann@x.example", name: "Ann Lee", repliesOwed: false });
-    expect((await repos.clients.listAll("p"))[0]?.repliesOwed).toBe(false);
+    expect((await repos.clients.list("p"))[0]?.repliesOwed).toBe(false);
   });
 });
 
@@ -187,7 +187,7 @@ describe("drafts.record", () => {
     expect(c).toMatchObject({ email: "cy@x.example", name: "Cy Roe", repliesOwed: true, marks: ["follow_up"] });
     const events = await repos.runs.events("p", r.runId);
     expect(events.map((e) => [e.kind, e.summary])).toEqual([["draft_created", "Draft recorded: Cy Roe"]]);
-    expect((await repos.runs.list("p"))[0]).toMatchObject({ skill: "triage-mail", trigger: "owner", status: "ok" });
+    expect((await repos.runs.activity("p")).sessions[0]).toMatchObject({ skill: "triage-mail", trigger: "owner", status: "ok" });
   });
 
   it("the same mailRef again updates in place: one row", async () => {
@@ -244,20 +244,6 @@ describe("drafts.record", () => {
     const sent = await repos.drafts.markSent(a.draftId, { at: "2026-11-15T10:00:00.000Z", via: "message-id", messageId: "<s@x>" });
     expect(sent).toMatchObject({ status: "sent", sentMessageId: "<s@x>" });
     expect(await repos.drafts.awaitingSent("p", "2000-01-01T00:00:00.000Z")).toEqual([]);
-  });
-});
-
-describe("runs.lastStart", () => {
-  it("is the newest ok or needs_human run of one of the skills, in the project, else null", async () => {
-    expect(await repos.runs.lastStart("p", ["triage-mail"])).toBeNull();
-    await repos.runs.start({ project: "p", startedAt: "2026-11-10T10:00:00.000Z", trigger: "owner", skill: "triage-mail" });
-    const failed = await repos.runs.start({ project: "p", startedAt: "2026-11-14T10:00:00.000Z", trigger: "owner", skill: "triage-mail" });
-    await repos.runs.finish(failed, { status: "failed" });
-    await repos.runs.start({ project: "p", startedAt: "2026-11-13T10:00:00.000Z", trigger: "owner", skill: "bulk-drafts" });
-    await repos.runs.start({ project: "q", startedAt: "2026-11-15T10:00:00.000Z", trigger: "owner", skill: "triage-mail" });
-    expect(await repos.runs.lastStart("p", ["triage-mail"])).toBe("2026-11-10T10:00:00.000Z");
-    expect(await repos.runs.lastStart("p", ["triage-mail", "bulk-drafts"])).toBe("2026-11-13T10:00:00.000Z");
-    expect(await repos.runs.lastStart("p", [])).toBeNull();
   });
 });
 

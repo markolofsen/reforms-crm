@@ -1,6 +1,5 @@
-import { fileState, mailFileOf, notionShapeProblem, NOTION_FILE, readValue, redact, storeMailLogin, storeToken, TELEGRAM_FILE, type Verdict } from "@hub/connections";
-import { loadAccounts, parseAccount } from "@hub/mail/imap";
-import { chmodSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { fileState, notionShapeProblem, NOTION_FILE, readValue, redact, storeToken, TELEGRAM_FILE, type Verdict } from "@hub/connections";
+import { chmodSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { listProjects, type Ctx } from "../context";
 import { doctor, install, table } from "../runner";
@@ -20,7 +19,7 @@ export interface SetupDeps {
 }
 export interface SetupOptions {
   nonInteractive: boolean;
-  /** Off by default (manual-first, decision 0006): tokens, mail login. The caller passes the matching `deps.steps`. */
+  /** Off by default (manual-first, decision 0006): the Notion and Telegram tokens. Mail has no key (decision 0026). The caller passes the matching `deps.steps`. */
   automation?: boolean;
 }
 export interface SetupOutcome { stages: StageResult[]; reports: StepReport[]; ownerOnly: string[]; exitCode: number }
@@ -104,65 +103,6 @@ async function tokenStage(ctx: Ctx, d: SetupDeps, o: SetupOptions, s: TokenSpec)
   return res("invalid", "three attempts rejected; nothing stored");
 }
 
-async function mailStage(ctx: Ctx, d: SetupDeps, o: SetupOptions): Promise<StageResult> {
-  const base = { id: "mail.login", title: "Mail login (IMAP, read-only; optional)", required: false };
-  const res = (status: StageStatus, detail: string): StageResult => ({ ...base, status, detail });
-  const lines: string[] = [];
-  let worst: StageStatus = "ok";
-  const rank: StageStatus[] = ["ok", "stored", "unverified", "skipped", "invalid"];
-  const note = (status: StageStatus, line: string) => { lines.push(line); if (rank.indexOf(status) > rank.indexOf(worst)) worst = status; };
-
-  const { accounts, problems } = loadAccounts(ctx.configDir);
-  for (const pr of problems) note("invalid", pr);
-  for (const a of accounts) {
-    const v = await d.validators.imap(a);
-    note(v.state === "valid" ? "ok" : v.state === "invalid" ? "invalid" : "unverified", `${a.name}: ${v.detail}`);
-  }
-
-  // A new login: from env (both modes) or from the prompts.
-  let fields: { account: string; host: string; port: string; user: string; pass: string } | undefined;
-  const env = (k: string) => d.env[`HUB_MAIL_${k}`]?.trim();
-  if (env("HOST") || env("USER") || env("ACCOUNT")) {
-    const pass = fromEnv(d, "HUB_MAIL_PASS");
-    const missing = ["ACCOUNT", "HOST", "USER"].filter((k) => !env(k)).map((k) => `HUB_MAIL_${k}`);
-    if (!pass) missing.push("HUB_MAIL_PASS (or _FILE)");
-    if (missing.length) return res("invalid", `incomplete mail login in the environment, missing: ${missing.join(", ")}`);
-    fields = { account: env("ACCOUNT")!, host: env("HOST")!, port: env("PORT") ?? "993", user: env("USER")!, pass: pass! };
-  } else if (!o.nonInteractive) {
-    const more = accounts.length
-      ? ask(await d.ui.confirm(`Mail logins found: ${accounts.map((a) => a.name).join(", ")}. Add another?`, false))
-      : ask(await d.ui.choose("Mail login: set it up now?", [{ value: "yes", label: "Yes (read-only IMAP, app password)" }, { value: "no", label: "Skip (optional, run setup again any time)" }])) === "yes";
-    if (more) {
-      d.ui.note("The agent reads history over IMAP, read only: it can list and fetch, never send, flag or delete.\nUse an app password (Gmail: Google Account > Security > App passwords), not your normal password.\nIt is stored in state/secrets/mail-<name>.json, mode 600.", "Mail login");
-      const account = ask(await d.ui.text("Account name (the name a project lists under mail.accounts)", { initial: "Mail" })).trim();
-      const host = ask(await d.ui.text("IMAP host", { initial: "imap.gmail.com" })).trim();
-      const port = ask(await d.ui.text("IMAP port", { initial: "993" })).trim();
-      const user = ask(await d.ui.text("Login (e-mail address)")).trim();
-      const pass = ask(await d.ui.password("App password (hidden; empty = later)")).trim();
-      if (account && host && user && pass) fields = { account, host, port, user, pass };
-      else note("skipped", "left for later");
-    } else if (!accounts.length) return res("skipped", "optional, skipped");
-  }
-
-  if (fields) {
-    try {
-      const acc = parseAccount(JSON.stringify({ ...fields, port: Number(fields.port) }));
-      const v = await d.validators.imap(acc);
-      const target = path.join(ctx.configDir, mailFileOf(fields.account));
-      if (v.state === "invalid") note("invalid", `${fields.account}: ${v.detail}; nothing stored`);
-      else if (existsSync(target)) note("invalid", `${path.basename(target)} already exists; setup never overwrites a login (remove or edit it yourself)`);
-      else {
-        if (!ctx.dryRun) storeMailLogin(ctx.configDir, { account: fields.account, host: fields.host, port: Number(fields.port), user: fields.user, password: fields.pass }, { replace: false });
-        note(v.state === "valid" ? "stored" : "unverified", `${fields.account}: ${v.detail}${v.state === "valid" ? "" : " (stored, not verified)"}; ${path.basename(target)}`);
-      }
-    } catch (e) {
-      note("invalid", `mail login: ${redact(ctx.configDir, e instanceof Error ? e.message : String(e))}`);
-    }
-  }
-  if (!lines.length) return res("skipped", "optional, skipped");
-  return res(worst, lines.join("; "));
-}
-
 function specs(d: SetupDeps): TokenSpec[] {
   const v = d.validators;
   return [
@@ -203,16 +143,13 @@ export async function runSetup(ctx: Ctx, d: SetupDeps, o: SetupOptions): Promise
     }
     ui.info(`${ctx.dryRun ? "would use" : "using"} ${ctx.configDir} (mode 700)`);
 
-    // 2-4. Automation only: tokens in the order the owner asked: Notion, Telegram; then mail.
+    // 2-3. Automation only: tokens in the order the owner asked: Notion, Telegram. Mail needs none: Apple Mail is the path.
     if (o.automation) {
       for (const s of specs(d)) {
         const r = await tokenStage(ctx, d, o, s);
         stages.push(r);
         ui.info(`${s.title}: ${r.status}. ${redact(ctx.configDir, r.detail)}`);
       }
-      const mail = await mailStage(ctx, d, o);
-      stages.push(mail);
-      ui.info(`${mail.title}: ${mail.status}. ${redact(ctx.configDir, mail.detail)}`);
     }
 
     // 5. Projects: the interview belongs to a skill.

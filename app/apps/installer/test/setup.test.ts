@@ -1,5 +1,4 @@
-import { FakeImapServer } from "@hub/mail/imap";
-import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Verdict } from "@hub/connections";
@@ -30,7 +29,7 @@ const verdicts = (over: Partial<Record<keyof Validators, Verdict>> = {}): Valida
   return {
     seen,
     notion: async (t) => { seen.push(t); return v("notion"); },
-    telegram: async (t) => { seen.push(t); return v("telegram"); }, imap: async (a) => { seen.push("auth" in a ? "imap" : ""); return v("imap"); },
+    telegram: async (t) => { seen.push(t); return v("telegram"); },
   };
 };
 
@@ -62,9 +61,9 @@ describe("hub setup, default (manual-first)", () => {
 });
 
 describe("hub setup, interactive", () => {
-  it("asks in order Notion, Telegram, mail; stores each at mode 600 in a 700 folder", async () => {
+  it("asks in order Notion, Telegram and nothing about mail; stores each at mode 600 in a 700 folder", async () => {
     const f = fake();
-    const ui = scripted([NOTION, "yes", TG, "yes", "Work", "imap.example.test", "993", "me@example.test", MAILPASS]);
+    const ui = scripted([NOTION, "yes", TG]);
     const out = await runSetup(f.ctx, deps(ui, verdicts()), { nonInteractive: false, automation: true });
     expect(ui.asked.filter((m) => /Paste/.test(m)).map((m) => m.split(" ")[2])).toEqual(["Notion", "bot"]);
     expect(statSync(f.ctx.configDir).mode & 0o777).toBe(0o700);
@@ -72,10 +71,9 @@ describe("hub setup, interactive", () => {
       expect(statSync(path.join(f.ctx.configDir, n)).mode & 0o777).toBe(0o600);
     }
     expect(readFileSync(path.join(f.ctx.configDir, "notion-token"), "utf8").trim()).toBe(NOTION);
-    const mailFile = path.join(f.ctx.configDir, "mail-work.json");
-    expect(statSync(mailFile).mode & 0o777).toBe(0o600);
-    expect(JSON.parse(readFileSync(mailFile, "utf8")).user).toBe("me@example.test");
-    expect(out.stages.map((s) => s.status)).toEqual(["stored", "stored", "stored", "skipped"]);
+    expect(ui.asked.some((m) => /mail|IMAP/i.test(m))).toBe(false);
+    expect(readdirSync(f.ctx.configDir).sort()).toEqual(["notion-token", "telegram-bot-token"]);
+    expect(out.stages.map((s) => s.status)).toEqual(["stored", "stored", "skipped"]);
     expect(out.exitCode).toBe(0);
     expect(out.ownerOnly.join("\n")).toContain("Connections");
   });
@@ -84,18 +82,18 @@ describe("hub setup, interactive", () => {
     const f = fake();
     const logs: string[] = [];
     f.ctx.log = (m) => logs.push(m);
-    const ui = scripted([NOTION, "no", "yes", "Work", "h.example.test", "993", "u@example.test", MAILPASS]);
+    const ui = scripted([NOTION, "", "no"]);
     await runSetup(f.ctx, deps(ui, verdicts({ notion: { state: "invalid", detail: `rejected ${NOTION}` } })), { nonInteractive: false, automation: true }).catch(() => {});
     const all = [...ui.shown, ...logs].join("\n");
-    for (const s of [NOTION, TG, MAILPASS]) expect(all).not.toContain(s);
+    for (const s of [NOTION, TG]) expect(all).not.toContain(s);
   });
 
   it("is resumable and idempotent: a second run asks nothing about stored tokens and changes no file", async () => {
     const f = fake();
-    const first = scripted([NOTION, "no", "no"]);
+    const first = scripted([NOTION, "no"]);
     await runSetup(f.ctx, deps(first, verdicts()), { nonInteractive: false, automation: true });
     const before = ["notion-token"].map((n) => statSync(path.join(f.ctx.configDir, n)).mtimeMs);
-    const second = scripted(["no", "no"]); // optional Telegram, mail: skip again
+    const second = scripted(["no"]); // optional Telegram: skip again
     const out = await runSetup(f.ctx, deps(second, verdicts()), { nonInteractive: false, automation: true });
     expect(second.asked.some((m) => /Paste/.test(m))).toBe(false);
     expect(out.stages.slice(0, 1).map((s) => s.status)).toEqual(["ok"]);
@@ -108,7 +106,7 @@ describe("hub setup, interactive", () => {
     const out = await runSetup(f.ctx, deps(ui, verdicts()), { nonInteractive: false, automation: true });
     expect(out.exitCode).toBe(1);
     expect(existsSync(path.join(f.ctx.configDir, "notion-token"))).toBe(true);
-    const again = scripted(["no", "no"]);
+    const again = scripted(["no"]);
     const out2 = await runSetup(f.ctx, deps(again, verdicts()), { nonInteractive: false, automation: true });
     expect(out2.stages[0]!.status).toBe("ok");
     expect(out2.exitCode).toBe(0);
@@ -116,7 +114,7 @@ describe("hub setup, interactive", () => {
 
   it("a rejected token is not stored; empty input leaves the stage for later", async () => {
     const f = fake();
-    const ui = scripted(["bad-token-value-long-enough", "", "no", "no"]);
+    const ui = scripted(["bad-token-value-long-enough", "", "no"]);
     const out = await runSetup(f.ctx, deps(ui, verdicts({ notion: { state: "invalid", detail: "auth problem" } })), { nonInteractive: false, automation: true });
     expect(existsSync(path.join(f.ctx.configDir, "notion-token"))).toBe(false);
     expect(out.stages[0]!.status).toBe("missing");
@@ -125,7 +123,7 @@ describe("hub setup, interactive", () => {
 
   it("an unreachable service asks before storing unverified", async () => {
     const f = fake();
-    const ui = scripted([NOTION, true, "no", "no"]);
+    const ui = scripted([NOTION, true, "no"]);
     const out = await runSetup(f.ctx, deps(ui, verdicts({ notion: { state: "unverified", detail: "offline" } })), { nonInteractive: false, automation: true });
     expect(out.stages.slice(0, 1).map((s) => s.status)).toEqual(["unverified"]);
     expect(existsSync(path.join(f.ctx.configDir, "notion-token"))).toBe(true);
@@ -133,15 +131,15 @@ describe("hub setup, interactive", () => {
 
   it("tightens a loose mode on a stored token", async () => {
     const f = fake();
-    await runSetup(f.ctx, deps(scripted([NOTION, "no", "no"]), verdicts()), { nonInteractive: false, automation: true });
+    await runSetup(f.ctx, deps(scripted([NOTION, "no"]), verdicts()), { nonInteractive: false, automation: true });
     chmodSync(path.join(f.ctx.configDir, "notion-token"), 0o644);
-    await runSetup(f.ctx, deps(scripted(["no", "no"]), verdicts()), { nonInteractive: false, automation: true });
+    await runSetup(f.ctx, deps(scripted(["no"]), verdicts()), { nonInteractive: false, automation: true });
     expect(statSync(path.join(f.ctx.configDir, "notion-token")).mode & 0o777).toBe(0o600);
   });
 
   it("dry run writes nothing", async () => {
     const f = fake({ dryRun: true });
-    const ui = scripted([NOTION, "no", "no"]);
+    const ui = scripted([NOTION, "no"]);
     await runSetup(f.ctx, deps(ui, verdicts()), { nonInteractive: false, automation: true });
     expect(existsSync(f.ctx.configDir)).toBe(false);
   });
@@ -153,7 +151,7 @@ describe("hub setup --non-interactive", () => {
     const file = path.join(f.home, "n.txt");
     writeFileSync(file, NOTION + "\n");
     const out = await runSetup(f.ctx, deps(scripted([]), verdicts(), { HUB_NOTION_TOKEN_FILE: file }), { nonInteractive: true, automation: true });
-    expect(out.stages.map((s) => s.status)).toEqual(["stored", "skipped", "skipped", "skipped"]);
+    expect(out.stages.map((s) => s.status)).toEqual(["stored", "skipped", "skipped"]);
     expect(out.exitCode).toBe(0);
     expect(readFileSync(path.join(f.ctx.configDir, "notion-token"), "utf8").trim()).toBe(NOTION);
   });
@@ -178,14 +176,13 @@ describe("hub setup --non-interactive", () => {
     expect(existsSync(path.join(f.ctx.configDir, "notion-token"))).toBe(false);
   });
 
-  it("creates a mail login from env and refuses to overwrite an existing one", async () => {
+  it("has no mail stage: a mail login in the environment is not read and nothing is stored (decision 0026)", async () => {
     const f = fake();
     const env = { HUB_NOTION_TOKEN: NOTION, HUB_MAIL_ACCOUNT: "Work", HUB_MAIL_HOST: "imap.example.test", HUB_MAIL_USER: "me@example.test", HUB_MAIL_PASS: MAILPASS };
     const out = await runSetup(f.ctx, deps(scripted([]), verdicts(), env), { nonInteractive: true, automation: true });
-    expect(out.stages.find((s) => s.id === "mail.login")!.status).toBe("stored");
-    const again = await runSetup(f.ctx, deps(scripted([]), verdicts(), env), { nonInteractive: true, automation: true });
-    expect(again.stages.find((s) => s.id === "mail.login")!.detail).toContain("never overwrites");
-    expect(JSON.stringify(again)).not.toContain(MAILPASS);
+    expect(out.stages.map((s) => s.id)).toEqual(["notion.token", "messengers.token", "projects"]);
+    expect(readdirSync(f.ctx.configDir)).toEqual(["notion-token"]);
+    expect(JSON.stringify(out)).not.toContain(MAILPASS);
   });
 });
 
@@ -213,20 +210,5 @@ describe("validators go through injected clients", () => {
     expect(await v.telegram("nope")).toMatchObject({ state: "invalid" });
     expect(calls).toBe(0);
     expect(await v.telegram(TG)).toMatchObject({ state: "valid", detail: "bot @hubbot" });
-  });
-
-  it("imap: a login through the fake server is read-only (list, close) and a refusal never echoes the server's text", async () => {
-    const f = fake();
-    const server = new FakeImapServer({ Work: { INBOX: { messages: [] } }, Bad: {} });
-    server.refuse.set("Bad", `authentication failed for ${MAILPASS}`);
-    const v = makeValidators(f.ctx, server.connect);
-    const acct = (name: string) => ({ name, host: "imap.example.test", port: 993, secure: true, user: "me@example.test", auth: { pass: MAILPASS }, addresses: ["me@example.test"] });
-    expect((await v.imap(acct("Work"))).state).toBe("valid");
-    expect(server.ops).toEqual(["Work:list:", "Work:close:"]);
-    const bad = await v.imap(acct("Bad"));
-    expect(bad.state).toBe("invalid");
-    expect(bad.detail).not.toContain(MAILPASS);
-    server.refuse.set("Bad", "getaddrinfo ENOTFOUND");
-    expect((await v.imap(acct("Bad"))).state).toBe("unverified");
   });
 });

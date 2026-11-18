@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, inArray, isNotNull, lt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, lt, sql } from "drizzle-orm";
 import type { Db } from "../client";
+import { RepoError } from "../errors";
 import { write } from "../tx";
 import { agentEvents, agentRuns, clients } from "../schema";
+import { activityOf, type Activity, type ActivityFilter } from "./activity";
 
-export type RunRow = typeof agentRuns.$inferSelect & { eventCount: number };
 export type EventRow = typeof agentEvents.$inferSelect & { clientName: string | null };
 export type NewRun = Omit<typeof agentRuns.$inferInsert, "id">;
 export type NewEvent = Omit<typeof agentEvents.$inferInsert, "id" | "seq">;
@@ -23,6 +24,24 @@ export function insertEvent(tx: Tx, input: NewEvent): number {
   const seq = (last?.m ?? 0) + 1;
   tx.insert(agentEvents).values({ ...input, seq }).run();
   return seq;
+}
+
+/**
+ * The run a `hub record-draft` / `record-client` call writes into: the one it names (of this project), else the run of its
+ * session (same project and `batchKey`; its end moves to now), else a new one. So one session is one run.
+ */
+export function sessionRun(tx: Pick<Db, "select" | "insert" | "update">, o: { project: string; runId?: number | null; batchKey?: string | null; skill?: string | null; at: string }): number {
+  if (o.runId != null) {
+    if (!tx.select({ id: agentRuns.id }).from(agentRuns).where(and(eq(agentRuns.id, o.runId), eq(agentRuns.project, o.project))).get()) throw new RepoError("not_found", "No such run in this project");
+    return o.runId;
+  }
+  const key = o.batchKey?.trim() || null;
+  const same = key ? tx.select({ id: agentRuns.id }).from(agentRuns).where(and(eq(agentRuns.project, o.project), eq(agentRuns.batchKey, key))).orderBy(desc(agentRuns.id)).limit(1).get() : undefined;
+  if (same) {
+    tx.update(agentRuns).set({ finishedAt: o.at }).where(eq(agentRuns.id, same.id)).run();
+    return same.id;
+  }
+  return tx.insert(agentRuns).values({ project: o.project, startedAt: o.at, finishedAt: o.at, trigger: "owner", skill: o.skill ?? null, status: "ok", batchKey: key }).returning({ id: agentRuns.id }).get().id;
 }
 
 export function runsRepo(db: Db) {
@@ -49,41 +68,9 @@ export function runsRepo(db: Db) {
       return db.update(agentEvents).set({ detail: null }).where(and(isNotNull(agentEvents.detail), lt(agentEvents.at, cutoff))).run().changes;
     },
 
-    async list(project: string, limit = 50): Promise<RunRow[]> {
-      return db
-        .select({
-          id: agentRuns.id,
-          project: agentRuns.project,
-          startedAt: agentRuns.startedAt,
-          finishedAt: agentRuns.finishedAt,
-          trigger: agentRuns.trigger,
-          skill: agentRuns.skill,
-          model: agentRuns.model,
-          status: agentRuns.status,
-          tokensIn: agentRuns.tokensIn,
-          tokensOut: agentRuns.tokensOut,
-          costUsd: agentRuns.costUsd,
-          // literal names: drizzle drops table qualifiers in a single-table select, which would make `id` ambiguous
-          eventCount: sql<number>`(select count(*) from agent_events e where e.run_id = agent_runs.id)`,
-        })
-        .from(agentRuns)
-        .where(eq(agentRuns.project, project))
-        .orderBy(desc(agentRuns.startedAt))
-        .limit(limit)
-        .all();
-    },
-
-    /** Start time of the newest finished-or-running run of one of `skills` for the project, or null: what the Overview calls the last triage. */
-    async lastStart(project: string, skills: string[]): Promise<string | null> {
-      if (skills.length === 0) return null;
-      const r = db
-        .select({ at: agentRuns.startedAt })
-        .from(agentRuns)
-        .where(and(eq(agentRuns.project, project), inArray(agentRuns.skill, skills), inArray(agentRuns.status, ["ok", "needs_human"])))
-        .orderBy(desc(agentRuns.startedAt))
-        .limit(1)
-        .get();
-      return r?.at ?? null;
+    /** Activity: sessions newest first, one row per client event (`filter` is the run status, or `all`). */
+    async activity(project: string, filter: ActivityFilter = "all", limit = 50): Promise<Activity> {
+      return activityOf(db, project, filter, limit);
     },
 
     /** What the agent and the owner did for one client, newest first: the timeline that needs no mail login. */

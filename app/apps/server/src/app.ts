@@ -7,24 +7,24 @@ import { bulkRoutes } from "./routes/bulk";
 import { connectionRoutes } from "./routes/connections";
 import { draftRoutes } from "./routes/drafts";
 import { inboxRoutes } from "./routes/inbox";
+import { instanceRoutes } from "./routes/instance";
 import { overviewRoutes } from "./routes/overview";
-import { runRoutes } from "./routes/runs";
+import { projectRoutes } from "./routes/project";
 import { sendRoutes, type SenderOptions } from "./routes/sends";
 import { sequenceRoutes } from "./routes/sequences";
 import { createConnections, type ConnectionsOptions } from "./connections";
-import { MAIL_OFF, type MailService } from "./mail";
 import { OFF, type MessengersStatus } from "./messengers";
 import { SENT_OFF, type SentStatus } from "./sent";
 import { createOverview, type OverviewService } from "./overview";
-import { createLiveReads, type LiveOptions } from "./overview-live";
 import { projectsRoot } from "./project-overview";
 
 export type AppOptions = {
   messengers?: () => MessengersStatus;
   sent?: () => SentStatus;
-  mail?: Pick<MailService, "status" | "historyFor"> & Partial<Pick<MailService, "accountsFor" | "connect">>;
-  /** Tests: the Overview with its own clock, readers and project folder. */
-  overview?: Partial<Pick<LiveOptions, "notionReader" | "mailTimeoutMs" | "notionTimeoutMs" | "minIntervalMs" | "env">> & { projectsDir?: string; service?: OverviewService; timeZone?: string };
+  /** Tests: the Overview with its own project folder and zone. */
+  overview?: { projectsDir?: string; service?: OverviewService; timeZone?: string };
+  /** Tests: the instance's config folder (brand); default `hubPaths()`. */
+  instance?: { configFile: string; configDir: string };
   /** Tests and e2e: the Connections service with its own folder, fake probes and clock. */
   connections?: Partial<Omit<ConnectionsOptions, "repos">> & { service?: ReturnType<typeof createConnections> };
   /** The Mailer behind the Send button. Without it the send routes answer "not set up" and nothing can send. */
@@ -48,27 +48,17 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
       ok: true,
       apiVersion: API_VERSION,
       messengers: (opts.messengers ?? (() => OFF))(),
-      mail: opts.mail?.status() ?? MAIL_OFF,
       sent: (opts.sent ?? (() => SENT_OFF))(),
       mailer: opts.sender?.kind ?? "mail-app",
     });
   const now = opts.now ?? (() => new Date());
   const ov = opts.overview;
+  const projectsDir = ov?.projectsDir ?? opts.sender?.projectsDir ?? projectsRoot();
   const overview =
     ov?.service ??
     createOverview({
       repos,
-      projectsDir: ov?.projectsDir ?? opts.sender?.projectsDir ?? projectsRoot(),
-      live: createLiveReads({
-        now,
-        ...(opts.mail?.accountsFor ? { accountsFor: opts.mail.accountsFor } : {}),
-        ...(opts.mail?.connect ? { connect: opts.mail.connect } : {}),
-        ...(ov?.env ? { env: ov.env } : {}),
-        ...(ov?.notionReader ? { notionReader: ov.notionReader } : {}),
-        ...(ov?.mailTimeoutMs ? { mailTimeoutMs: ov.mailTimeoutMs } : {}),
-        ...(ov?.notionTimeoutMs ? { notionTimeoutMs: ov.notionTimeoutMs } : {}),
-        ...(ov?.minIntervalMs !== undefined ? { minIntervalMs: ov.minIntervalMs } : {}),
-      }),
+      projectsDir,
       health,
       dataVersion: () => opts.dataVersion?.() ?? 0,
       now,
@@ -101,11 +91,12 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .get("/api/health", (c) => c.json(health()))
     .get("/api/pulse", (c) => c.json(pulseDto.parse({ dataVersion: opts.dataVersion?.() ?? 0, serverTime: (opts.now?.() ?? new Date()).toISOString(), health: health() })))
     .get("/api/projects", async (c) => c.json(projectsDto.parse({ projects: await repos.projects.list() })))
-    .route("/", draftRoutes(repos, opts.mail, opts.sender))
+    .route("/", instanceRoutes(opts.instance))
+    .route("/", draftRoutes(repos, opts.sender))
     .route("/", sendRoutes(repos, opts.sender))
-    .route("/", runRoutes(repos, opts.sender?.projectsDir))
+    .route("/", projectRoutes(repos, projectsDir))
     .route("/", inboxRoutes(repos))
-    .route("/", sequenceRoutes(repos, ov?.projectsDir ?? opts.sender?.projectsDir ?? projectsRoot(), now))
+    .route("/", sequenceRoutes(repos, projectsDir, now))
     .route("/", bulkRoutes(repos))
     .route("/", overviewRoutes(overview))
     .route("/", connectionRoutes(connections));

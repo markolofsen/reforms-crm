@@ -3,10 +3,8 @@ import { useRef, useState } from "react";
 import type { ConnectionDto } from "@hub/contract/connections";
 import type { SetSecretBody } from "@hub/contract/requests";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { asOfText } from "@/features/overview/labels";
 import { ago } from "@/lib/format";
-import { CHECK_ICON, CHECK_WORD, SECRET } from "./labels";
-import { MailLoginForm } from "./mail-login-form";
+import { asOfText, CHECK_ICON, CHECK_WORD, SECRET } from "./labels";
 import { SecretForm } from "./secret-form";
 
 /** The test result as one line: the state, when, and what it learned or why it failed (the server's sentence, never the provider's). */
@@ -46,7 +44,7 @@ function RemoveAsk({ row, busy, onRemove, onClose }: { row: ConnectionDto; busy:
   );
 }
 
-const TOKEN_WHAT = { notion: "Integration token", telegram: "Bot token" } as const;
+const TOKEN_WHAT: Record<ConnectionDto["kind"], string> = { notion: "Integration token", telegram: "Bot token" };
 
 /** One connection: what it is, where the key stands, who uses it, the last test, and the actions the server offers for it. */
 export function ConnectionRow({ row, now, busy, locked, actions }: { row: ConnectionDto; now: number; busy: boolean; locked: boolean; actions: RowActions }) {
@@ -94,8 +92,7 @@ export function ConnectionRow({ row, now, busy, locked, actions }: { row: Connec
       {row.usedBy.length > 0 && <p className="text-muted-foreground text-xs">Used by {row.usedBy.join(", ")}</p>}
       {row.note && <p className="text-muted-foreground text-xs">{row.note}</p>}
       {row.can.includes("test") && <Check c={row.check} now={now} />}
-      {panel === "set" && row.kind === "mail" && <MailLoginForm account={row.label} busy={busy} id={row.id} identity={row.identity} onClose={close} onSave={(b) => actions.save(b)} />}
-      {panel === "set" && (row.kind === "notion" || row.kind === "telegram") && <SecretForm busy={busy} id={row.id} onClose={close} onSave={(value) => actions.save({ value })} what={TOKEN_WHAT[row.kind]} />}
+      {panel === "set" && <SecretForm busy={busy} id={row.id} onClose={close} onSave={(value) => actions.save({ value })} what={TOKEN_WHAT[row.kind]} />}
       {panel === "remove" && <RemoveAsk busy={busy} onClose={close} onRemove={actions.remove} row={row} />}
     </li>
   );

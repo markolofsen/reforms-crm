@@ -1,33 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { ATTENTION_FOCUS, FRESHNESS as FRESHNESS_STATES, SEVERITIES, VERDICT_LEVELS, type AttentionItem } from "@hub/contract/overview";
-import { attentionTarget, countText, FRESHNESS, SEVERITY, VERDICT } from "../src/features/overview/labels";
-import { formatDest } from "../src/routes/paths";
+import { STATUS_LEVELS, type ProjectRowDto, type StatusDto } from "@hub/contract/overview";
+import { LEVEL, needsYou, nextDest, ordered, statusWord, triageText } from "../src/features/overview/labels";
+import { formatDest, paths } from "../src/routes/paths";
 
-const item = (focus: AttentionItem["focus"], over: Partial<AttentionItem> = {}): AttentionItem => ({ kind: "drafts-ready", severity: "needs-owner", project: "alpha", sentence: "alpha: 2 drafts are ready.", focus, ...over });
+const status = (over: Partial<StatusDto> = {}): StatusDto => ({ level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "project", numbers: { owed: 1, lastTriageAt: null }, ...over });
+const row = (slug: string, over: Partial<ProjectRowDto> = {}): ProjectRowDto => ({ slug, name: slug, projectStatus: "active", archived: false, toReview: 0, sentToday: 0, status: status(), ...over });
+const NOW = new Date("2026-11-18T12:00:00Z").getTime();
+const multi = { project: "alpha", multi: true };
 
 describe("overview labels", () => {
-  it("every severity, freshness state and verdict level has a word and an icon (the maps are total)", () => {
-    expect(Object.keys(SEVERITY).sort()).toEqual([...SEVERITIES].sort());
-    expect(Object.keys(FRESHNESS).sort()).toEqual([...FRESHNESS_STATES].sort());
-    expect(Object.keys(VERDICT).sort()).toEqual([...VERDICT_LEVELS].sort());
+  it("every status level has a word and an icon (the map is total)", () => {
+    expect(Object.keys(LEVEL).sort()).toEqual([...STATUS_LEVELS].sort());
   });
-  it("off reads as not set up, never as a number", () => {
-    expect(FRESHNESS.off.word).toBe("Not set up");
+
+  it("Needs you is the worst fact, or a dash when the project is clear", () => {
+    expect(needsYou(status())).toBe("Test mode: sends go to the test list only");
+    expect(needsYou(status({ level: "clear", kind: "clear", sentence: "All clear", next: null }))).toBe("-");
   });
-  it("an item leads where the server's focus says, with the item's own project, and the server never wrote a URL", () => {
-    expect(ATTENTION_FOCUS).toEqual(["drafts", "project", "overview"]);
-    const drafts = attentionTarget(item("drafts", { filter: "hold" }));
-    expect(formatDest(drafts.to, drafts.project)).toBe("/drafts?project=alpha&filter=hold");
-    const ready = attentionTarget(item("drafts", { filter: "ready" }));
-    expect(formatDest(ready.to, ready.project)).toBe("/drafts?project=alpha");
-    const project = attentionTarget(item("project"));
-    expect(formatDest(project.to, project.project)).toBe("/project?project=alpha");
-    const here = attentionTarget(item("overview"));
-    expect(formatDest(here.to, here.project)).toBe("/overview?focus=alpha");
-    // A system-wide item has no project: its link keeps the open one.
-    expect(attentionTarget(item("project", { project: null })).project).toBeNull();
+
+  it("a row leads into its own project: Drafts by its name, the fix by Needs you; Connections names no project", () => {
+    expect(formatDest(paths.drafts.list(), multi)).toBe("/alpha/drafts");
+    const project = nextDest(status());
+    expect(project && formatDest(project, multi)).toBe("/alpha/project");
+    const connections = nextDest(status({ next: "connections" }));
+    expect(connections && formatDest(connections, multi)).toBe("/connections");
+    expect(nextDest(status({ next: null }))).toBeNull();
+    expect(nextDest(status({ level: "clear", next: "project" }))).toBeNull();
   });
-  it("a capped count never looks exact", () => {
-    expect([countText(212, false), countText(2000, true)]).toEqual(["212", "2,000+"]);
+
+  it("last triage is an age, or Never", () => {
+    expect(triageText(null, NOW)).toBe("Never");
+    expect(triageText("2026-11-18T10:00:00Z", NOW)).toBe("2 h ago");
+  });
+
+  it("archived projects go last and say so", () => {
+    const rows = [row("a", { archived: true, projectStatus: "active" }), row("b"), row("c")];
+    expect(ordered(rows).map((p) => p.slug)).toEqual(["b", "c", "a"]);
+    expect(statusWord(row("a", { archived: true }))).toBe("archived");
+    expect(statusWord(row("b", { projectStatus: "draft" }))).toBe("draft");
   });
 });

@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { firstDraftIs, mailError, mailIs, mailFresh, mailOff, mailStale, notionFresh, notionToken, overviewIs, remember, withLive } from "./support";
+import { at, firstDraftIs, mailIs, remember } from "./support";
 
 // Executable form of `app/@rules` ui-specifications 4 and accessibility 4, 6, 9: every screen, in both themes, at
 // 360, 768 and 1280 px (the Playwright projects), has no axe violation, no sideways scroll, and 44px touch targets
@@ -27,10 +27,12 @@ const SEND_ROWS = [
 // P44 rubric 2 (show less), mechanical part: how many things a person can Tab to in the first viewport, and how far down the first draft sits on a phone.
 // Measured 2026-11-18 on the shipped screens: at most 30 tab stops (Drafts with a card open at 1280), 22 on the Overview. The cap leaves room for a state
 // that adds a notice; a screen that goes past it needs something folded away, not a higher number. Selecting drafts makes every row's checkbox a Tab stop on
-// purpose (39 at 1280), so that one state has its own cap. Not gated: colours and type sizes (no stable count), copy.
+// purpose (39 at 1280), so that one state has its own cap. The first draft on a phone: 381px on real data before P48 (a paragraph and an accordion above
+// the list), 200 since (one header line and one status line). Not gated: colours and type sizes (no stable count), copy.
 const CONTROL_CAP = 36;
 const SELECTING_CAP = 44;
-const FIRST_ROW_MAX_PHONE = 300;
+const FIRST_ROW_MAX_PHONE = 200;
+const P = "lisbon-realty";
 const tabStopsInView = (page: Page) =>
   page.evaluate(
     () =>
@@ -43,88 +45,53 @@ const tabStopsInView = (page: Page) =>
 const firstRowTop = (page: Page) => page.evaluate(() => document.querySelector('ul[aria-label="Drafts"] > li')?.getBoundingClientRect().top ?? null);
 
 const SCREENS: Screen[] = [
-  { name: "drafts", path: "/drafts", ready: async (p) => void (await p.locator('ul[aria-label="Drafts"] > li').first().waitFor()) },
+  { name: "drafts", path: at(P, "/drafts"), ready: async (p) => void (await p.locator('ul[aria-label="Drafts"] > li').first().waitFor()) },
   {
     name: "drafts: one draft open",
-    path: "/drafts",
+    path: at(P, "/drafts"),
     ready: async (p) => {
       await openFirst(p);
       await p.getByRole("group", { name: "Actions" }).waitFor();
     },
   },
-  { name: "overview", path: "/overview", ready: async (p) => void (await p.getByRole("region", { name: "Verdict" }).waitFor()) },
-  {
-    name: "overview: fresh and capped",
-    path: "/overview",
-    mock: (p) => overviewIs(p, withLive(mailFresh(3), notionFresh(2000, true))),
-    ready: async (p) => void (await p.getByText("3 new since triage").first().waitFor()),
-  },
-  {
-    name: "overview: stale",
-    path: "/overview",
-    mock: (p) => overviewIs(p, withLive(mailStale(4), notionFresh(212))),
-    ready: async (p) => void (await p.getByText("Stale").first().waitFor()),
-  },
-  {
-    name: "overview: mail error and notion token",
-    path: "/overview",
-    mock: (p) => overviewIs(p, withLive(mailError, notionToken)),
-    ready: async (p) => void (await p.getByText(/The Notion token is missing\./).first().waitFor()),
-  },
-  {
-    name: "overview: mail off",
-    path: "/overview",
-    mock: (p) => overviewIs(p, withLive(mailOff, notionFresh(1))),
-    ready: async (p) => void (await p.getByText("No login for this account").first().waitFor()),
-  },
+  { name: "drafts: follow-ups", path: at(P, "/drafts?filter=sequences"), ready: async (p) => void (await p.getByTestId("follow-ups").waitFor()) },
+  { name: "drafts: not by email", path: at(P, "/drafts?filter=not_by_email"), ready: async (p) => void (await p.getByTestId("not-by-email").waitFor()) },
+  { name: "overview", path: "/overview", ready: async (p) => void (await p.getByRole("table", { name: "Projects" }).or(p.getByRole("list", { name: "Projects" })).first().waitFor()) },
   {
     name: "overview: error",
     path: "/overview",
     mock: async (p) => void (await p.route(/\/api\/overview$/, (route) => route.fulfill({ status: 500, json: { error: "The server could not read the projects.", code: "server" } }))),
     ready: async (p) => void (await p.getByText("Could not load the overview").waitFor()),
   },
+  { name: "activity", path: at(P, "/log"), ready: async (p) => await expect(p.getByRole("list", { name: "Loading the activity" })).toHaveCount(0) },
   {
-    name: "overview: focus",
-    path: "/overview?focus=demo-shop",
-    ready: async (p) => void (await p.locator('#project-demo-shop[data-focused="true"]').waitFor()),
-  },
-  { name: "activity", path: "/log", ready: async (p) => void (await p.locator("#run-1").getByRole("button", { name: "Details" }).waitFor()) },
-  {
-    name: "activity: run open",
-    path: "/log",
+    name: "activity: session open",
+    path: at(P, "/log?run=1"),
     ready: async (p) => {
-      await p.locator("#run-1").getByRole("button", { name: "Details" }).click();
-      await p.getByText("Three new inbound messages since the last run").waitFor();
+      await p.getByRole("region", { name: "Session", exact: true }).waitFor();
+      await expect(p.getByText("Loading the session")).toHaveCount(0);
     },
   },
-  { name: "drafts: new batch", path: "/drafts?new=1", ready: async (p) => void (await p.getByRole("heading", { name: "New batch" }).waitFor()) },
-  { name: "project", path: "/project", ready: async (p) => void (await p.getByRole("switch").first().waitFor()) },
+  { name: "project", path: at(P, "/project"), ready: async (p) => void (await p.getByTestId("project-status").waitFor()) },
   {
-    name: "project: health and an empty send history",
-    path: "/project",
+    name: "project: an empty send history",
+    path: at(P, "/project"),
     mock: async (p) => void (await p.route(/\/api\/projects\/[^/]+\/sends$/, (route) => route.fulfill({ json: { sends: [], stopped: [] } }))),
-    ready: async (p) => {
-      await p.getByRole("status").filter({ hasText: /\d+ pass, \d+ fail, \d+ skipped/ }).waitFor();
-      await p.getByText("Nothing sent yet").waitFor();
-    },
+    ready: async (p) => void (await p.getByTestId("project-status").waitFor()),
   },
   {
     name: "project: send history, a queued send, Stop all on",
-    path: "/project",
+    path: at(P, "/project"),
     mock: async (p) => void (await p.route(/\/api\/projects\/[^/]+\/sends$/, (route) => route.fulfill({ json: { sends: SEND_ROWS, stopped: ["lisbon-realty"] } }))),
-    ready: async (p) => {
-      await p.getByRole("list", { name: "Sends" }).waitFor();
-      await p.getByRole("button", { name: /Show text, send 3/ }).click();
-      await p.getByText("Hello Ana").waitFor();
-    },
+    ready: async (p) => void (await p.getByRole(p.viewportSize()!.width < 768 ? "list" : "table", { name: "Sends" }).getByText("Re: Order status").waitFor()),
   },
   {
     name: "connections: the list",
     path: "/connections",
-    ready: async (p) => void (await p.getByRole("heading", { name: "Mail", exact: true }).waitFor()),
+    ready: async (p) => void (await p.getByRole("table", { name: "Mail accounts" }).or(p.getByText("Mail accounts")).first().waitFor()),
   },
   {
-    name: "connections: a key form and a remove question open",
+    name: "connections: a key form open",
     path: "/connections",
     ready: async (p) => {
       await p.getByRole("button", { name: /^(Set|Replace) key for Notion integration$/ }).click();
@@ -133,7 +100,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: "drafts: Send confirm open",
-    path: "/drafts",
+    path: at(P, "/drafts"),
     mock: async (p) => {
       await firstDraftIs(p, {});
       await p.route(/\/drafts\/\d+\/send$/, (route) => route.fulfill({ json: PREVIEW }));
@@ -146,7 +113,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: "drafts: Send refused with reasons",
-    path: "/drafts",
+    path: at(P, "/drafts"),
     mock: async (p) => {
       await firstDraftIs(p, {});
       await p.route(/\/drafts\/\d+\/send$/, (route) => route.fulfill({ status: 409, json: { error: "Not sent: 2 reasons", code: "wrong_state", refused: ["Stop all is on", "a placeholder is left in the text: [Owner: price]"] } }));
@@ -159,16 +126,16 @@ const SCREENS: Screen[] = [
   },
   {
     name: "drafts: injection suspected and a class",
-    path: "/drafts",
+    path: at(P, "/drafts"),
     mock: async (p) => void (await firstDraftIs(p, { injectionSuspected: true, mailClass: "client" })),
     ready: async (p) => {
       await openFirst(p);
-      await p.getByText("Suspicious mail", { exact: false }).first().waitFor();
+      await p.getByRole("article").getByText("Suspicious mail", { exact: false }).first().waitFor();
     },
   },
   {
     name: "drafts: Mail unreadable",
-    path: "/drafts",
+    path: at(P, "/drafts"),
     mock: async (p) => {
       await firstDraftIs(p, {});
       await mailIs(p, (m) => ({ ...m, found: false, hash: null, body: "", reason: "no draft in Mail with that subject", safetyResults: [] }));
@@ -180,7 +147,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: "drafts: two selected",
-    path: "/drafts",
+    path: at(P, "/drafts"),
     ready: async (p) => {
       await p.getByRole("button", { name: "Select drafts" }).click();
       const boxes = p.locator('ul[aria-label="Drafts"] [role="checkbox"]');
@@ -235,11 +202,9 @@ for (const scheme of ["light", "dark"] as const) {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       expect(overflow, "sideways page scroll").toBeLessThanOrEqual(0);
 
-      // Nothing is cut off: the Drafts filter strip shows every chip without scrolling, and every tab of the phone bar shows its whole label.
-      // (The Bulk audience and intent strips hold more chips than a phone fits and scroll inside their own strip by design.)
-      const strips = screen.name.startsWith("drafts") && !screen.name.includes("new batch") ? ".scroll-strip, " : "";
+      // Nothing is cut off: every tab of the phone bar shows its whole label. (The Not by email groups scroll inside their own strip by design.)
       expect(
-        await page.evaluate((sel) => [...document.querySelectorAll<HTMLElement>(`${sel}nav[aria-label="Sections"] a`)].filter((e) => e.offsetParent !== null).filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => `${e.className.split(" ")[0]} "${(e.textContent ?? "").trim().slice(0, 30)}" is ${e.scrollWidth}px wide in ${e.clientWidth}px`), strips),
+        await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('nav[aria-label="Sections"] a')].filter((e) => e.offsetParent !== null).filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => `${e.className.split(" ")[0]} "${(e.textContent ?? "").trim().slice(0, 30)}" is ${e.scrollWidth}px wide in ${e.clientWidth}px`)),
         "clipped chips or labels",
       ).toEqual([]);
 
@@ -256,3 +221,29 @@ for (const scheme of ["light", "dark"] as const) {
     });
   }
 }
+
+// P48 W4: selecting never moves the list, and a row shows its subject. Light only: the geometry is the same in dark.
+test("drafts: the first row does not move when a row is selected, and the subject is not cut below 40 characters at 1280", async ({ page }) => {
+  await page.goto(at(P, "/drafts?filter=all"));
+  const first = page.locator('ul[aria-label="Drafts"] > li').first();
+  await first.waitFor();
+  const before = await first.evaluate((e) => e.getBoundingClientRect().top);
+  await page.getByRole("button", { name: "Select drafts" }).click();
+  await page.locator('ul[aria-label="Drafts"] [role="checkbox"]').first().click();
+  await page.getByRole("toolbar", { name: "Selected drafts" }).waitFor();
+  expect(await first.evaluate((e) => e.getBoundingClientRect().top)).toBe(before);
+  await expect(page.getByRole("status").filter({ hasText: "1 selected" })).toBeAttached();
+  if ((page.viewportSize()?.width ?? 0) >= 1280) {
+    const shown = await page.locator('[data-testid="draft-subject"]').evaluateAll((els) =>
+      els.map((e) => {
+        const text = e.textContent ?? "";
+        // How many characters fit: the share of the text's own width the box shows.
+        const share = e.scrollWidth > e.clientWidth ? e.clientWidth / e.scrollWidth : 1;
+        return Math.min(40, text.length) - Math.min(text.length, Math.floor(text.length * share)); // characters short of the 40 owed
+      }),
+    );
+    expect(shown.length).toBeGreaterThan(0);
+    // Every subject shows at least 40 characters, or the whole of a shorter one.
+    expect(shown.filter((n) => n > 0), "subjects cut below 40 characters (characters short)").toEqual([]);
+  }
+});

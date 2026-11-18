@@ -1,4 +1,3 @@
-import { FakeImapServer } from "@hub/mail/imap";
 import { inspect } from "@hub/connections";
 import { execa } from "execa";
 import { defaultRoot } from "../src/context";
@@ -8,10 +7,10 @@ import { describe, expect, it } from "vitest";
 import { connectionsReport, connectionsTable, projectUses, storeNamedToken } from "../src/connections-command";
 import { fake } from "./helpers";
 
-// Fake secrets in a throwaway instance. The probes get fake fetch and a fake IMAP server: nothing leaves the process.
+// Fake secrets in a throwaway instance. The probes get a fake fetch: nothing leaves the process.
 const NOTION = "ntn_FAKENOTIONSECRET1234567890";
 const TG = "123456789:AAFakeTelegramTokenValue_1234567890";
-const PASS = "fake-app-pass-4321";
+const PASS = "fake-app-pass-4321"; // an old IMAP login file: no longer a connection (decision 0026)
 const ID = "00000000-0000-4000-8000-000000000001";
 const row = (k: string, v: string) => `| ${k} | ${v} | 2026-11-15 | owner |`;
 const md = (slug: string, accounts: string) =>
@@ -31,7 +30,6 @@ function instance() {
 }
 const deps = () => ({
   fetch: (async () => new Response(JSON.stringify({ name: "Hub bot", result: { username: "hubbot" } }), { status: 200 })) as unknown as typeof fetch,
-  imapConnect: new FakeImapServer({ Work: { INBOX: { messages: [] } } }).connect,
 });
 
 describe("hub connections", () => {
@@ -41,8 +39,8 @@ describe("hub connections", () => {
     expect(rep.rows).toEqual(inspect({ dir: f.ctx.configDir, env: process.env, projects: projectUses(f.ctx) }));
     const text = connectionsTable(rep);
     for (const r of rep.rows) expect(text).toContain(r.id);
-    expect(text).toMatch(/mail:work\s+stored\s+me@example.test at imap.example.test\s+alpha/);
-    expect(text).toMatch(/mail:apple-only\s+missing/);
+    expect(rep.rows.map((r) => r.id)).toEqual(["notion:notion-token", "telegram:bot"]);
+    expect(text).not.toContain("mail:");
     for (const s of [NOTION, TG, PASS]) expect(text).not.toContain(s);
     expect(rep.exitCode).toBe(0);
   });
@@ -50,7 +48,7 @@ describe("hub connections", () => {
   it("--test runs the probes with the fakes and prints the verdicts, still no secret", async () => {
     const { f } = instance();
     const rep = await connectionsReport(f.ctx, { test: true, deps: deps() });
-    expect([...rep.verdicts.keys()].sort()).toEqual(["mail:work", "notion:notion-token", "telegram:bot"]);
+    expect([...rep.verdicts.keys()].sort()).toEqual(["notion:notion-token", "telegram:bot"]);
     const text = connectionsTable(rep);
     expect(text).toContain("valid: bot @hubbot");
     for (const s of [NOTION, TG, PASS]) expect(text).not.toContain(s);

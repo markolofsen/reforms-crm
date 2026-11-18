@@ -1,10 +1,10 @@
-import { RefreshCwIcon } from "lucide-react";
-import { ActionButton } from "@hub/ui/product/action-button";
 import { EmptyState, LoadFailed, StaleNote } from "@/components/state-views";
 import { Skeleton } from "@hub/ui/skeleton";
 import { useClock } from "@/lib/clock";
 import { ConnectionRow } from "./connection-row";
+import { ConnectionGroup } from "./group";
 import { groupByKind, KIND_TITLE } from "./labels";
+import { MailAccounts } from "./mail-accounts";
 import { useConnectionActions, useConnections } from "./use-connections";
 
 function ConnectionsSkeleton() {
@@ -17,8 +17,9 @@ function ConnectionsSkeleton() {
 }
 
 /**
- * Every account of the instance in one place: mail logins, the Notion token, the Telegram bot. It reads `GET /api/connections` (files and
- * settings, no network) and tests one connection on request. A key is never shown: a row says where it stands, not what it is.
+ * Every account of the instance in one place, one group per kind: the projects' mail accounts (read-only, as Apple Mail
+ * knows them), the Notion token and the Telegram bot. It reads `GET /api/connections` (files and settings, one read of
+ * Mail's account list) and tests a key on request. A key is never shown: a row says where it stands, not what it is.
  */
 export function ConnectionsView() {
   const now = useClock()();
@@ -26,22 +27,24 @@ export function ConnectionsView() {
   const { status, busy, test, save, remove } = useConnectionActions();
   const data = q.data;
 
-  const header = (
-    <div className="sticky top-0 z-10 -mx-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-b bg-background px-4 py-2 sm:-mx-6 sm:px-6">
-      <h3 className="font-heading font-medium text-lg">Connections</h3>
-      <p className="me-auto text-muted-foreground text-xs">{data ? `Instance ${data.instance}` : ""}</p>
-      <ActionButton aria-busy={q.isFetching} disabled={q.isFetching} onClick={() => void q.refetch()} size="m" variant="secondary">
-        <RefreshCwIcon aria-hidden="true" />
-        Reload
-      </ActionButton>
-    </div>
-  );
-  if (q.isPending) return <>{header}<ConnectionsSkeleton /></>;
-  if (!data) return <>{header}<LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the connections" /></>;
-  if (data.connections.length === 0) return <>{header}<EmptyState title="No connections yet">Run `hub connections` for the same list in the terminal.</EmptyState></>;
+  if (q.isPending) return <ConnectionsSkeleton />;
+  if (!data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the connections" />;
+  if (data.connections.length === 0 && data.mail.length === 0) return <EmptyState title="No connections yet">They appear here once a project is set up: say “настрой проект” in a session.</EmptyState>;
   return (
     <>
-      {header}
+      <ConnectionGroup id="mail" title="Mail">
+        <MailAccounts mail={data.mail} />
+      </ConnectionGroup>
+      {groupByKind(data.connections).map((g) => (
+        <ConnectionGroup id={g.kind} key={g.kind} title={KIND_TITLE[g.kind]}>
+          <ul className="flex flex-col divide-y">
+            {g.rows.map((r) => (
+              <ConnectionRow actions={{ test: () => void test(r), save: (b) => save(r, b), remove: () => remove(r) }} busy={busy === r.id} key={r.id} locked={busy !== null} now={now} row={r} />
+            ))}
+          </ul>
+        </ConnectionGroup>
+      ))}
+      {/* One live region for every Test, save and remove: a result is a status, a failure an alert. */}
       <div className="min-h-5 text-sm">
         <p role="status">{status?.kind === "status" ? status.text : ""}</p>
         <p className="text-destructive-foreground" role="alert">
@@ -49,19 +52,6 @@ export function ConnectionsView() {
         </p>
       </div>
       {q.isError && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
-      {groupByKind(data.connections).map((g) => (
-        <section aria-labelledby={`kind-${g.kind}`} key={g.kind}>
-          <h4 className="font-medium text-muted-foreground text-xs uppercase tracking-wide" id={`kind-${g.kind}`}>
-            {KIND_TITLE[g.kind]}
-          </h4>
-          <ul className="flex flex-col divide-y">
-            {g.rows.map((r) => (
-              <ConnectionRow actions={{ test: () => void test(r), save: (b) => save(r, b), remove: () => remove(r) }} busy={busy === r.id} key={r.id} locked={busy !== null} now={now} row={r} />
-            ))}
-          </ul>
-        </section>
-      ))}
-      <p className="text-muted-foreground text-xs">A key is written here and never shown again. A test reads from the service and changes nothing there.</p>
     </>
   );
 }

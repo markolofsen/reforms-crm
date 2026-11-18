@@ -1,5 +1,6 @@
-import { CheckCircle2Icon, CircleDashedIcon, ClockIcon, OctagonAlertIcon, XCircleIcon, type LucideIcon } from "lucide-react";
-import type { ConnectionDto, ConnectionKind, SecretState } from "@hub/contract/connections";
+import { CheckCircle2Icon, CircleDashedIcon, CircleHelpIcon, ClockIcon, OctagonAlertIcon, XCircleIcon, type LucideIcon } from "lucide-react";
+import type { ConnectionDto, ConnectionKind, MailAccountDto, SecretState } from "@hub/contract/connections";
+import { ago, hhmm } from "@/lib/format";
 
 type Look = { word: string; Icon: LucideIcon; tone: string };
 
@@ -16,10 +17,19 @@ export const SECRET: Record<SecretState, Look> = {
 export const CHECK_WORD = { fresh: "Tested", stale: "Tested earlier", never: "Not tested yet", refreshing: "Testing", error: "Test failed" } as const satisfies Record<ConnectionDto["check"]["state"], string>;
 export const CHECK_ICON: Record<ConnectionDto["check"]["state"], LucideIcon> = { fresh: CheckCircle2Icon, stale: ClockIcon, never: CircleDashedIcon, refreshing: ClockIcon, error: XCircleIcon };
 
-export const KIND_TITLE: Record<ConnectionKind, string> = { mail: "Mail", notion: "Notion", telegram: "Telegram" };
-/** The order on the page. */
-export const KIND_ORDER: readonly ConnectionKind[] = ["mail", "notion", "telegram"];
+/** Whether Apple Mail has the account. `null`: Mail is not running, so it could not be asked; never a guess. */
+export function foundLook(found: MailAccountDto["foundInMail"]): Look {
+  if (found === null) return { word: "Mail is not running", Icon: CircleHelpIcon, tone: "text-muted-foreground" };
+  return found ? { word: "Found in Apple Mail", Icon: CheckCircle2Icon, tone: "text-success-foreground" } : { word: "Not found in Apple Mail", Icon: XCircleIcon, tone: "text-warning-foreground" };
+}
+
+export const KIND_TITLE: Record<ConnectionKind, string> = { notion: "Notion", telegram: "Telegram" };
+/** The order on the page, after the read-only Mail section. */
+export const KIND_ORDER: readonly ConnectionKind[] = ["notion", "telegram"];
 
 export function groupByKind(rows: readonly ConnectionDto[]): { kind: ConnectionKind; rows: ConnectionDto[] }[] {
   return KIND_ORDER.map((kind) => ({ kind, rows: rows.filter((r) => r.kind === kind) })).filter((g) => g.rows.length > 0);
 }
+
+/** "as of 14:02 (12 min ago)" */
+export const asOfText = (iso: string, now: number) => `as of ${hhmm(iso)} (${ago(iso, now)})`;
