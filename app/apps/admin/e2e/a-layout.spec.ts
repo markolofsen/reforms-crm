@@ -243,6 +243,11 @@ test("drafts: the first row does not move when a row is selected, and the subjec
       }),
     );
     expect(shown.length).toBeGreaterThan(0);
+    // And it sits inside its row: a fixed button height once hid the line under the chips at 640px and up (found on real data, P48 W8).
+    const outside = await page.locator('[data-testid="draft-subject"]').evaluateAll((els) =>
+      els.filter((e) => { const r = e.getBoundingClientRect(); const row = e.closest("button")!.getBoundingClientRect(); return r.height === 0 || r.bottom > row.bottom + 0.5; }).map((e) => e.textContent),
+    );
+    expect(outside, "subjects drawn outside their row").toEqual([]);
     // Every subject shows at least 40 characters, or the whole of a shorter one.
     expect(shown.filter((n) => n > 0), "subjects cut below 40 characters (characters short)").toEqual([]);
   }

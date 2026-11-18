@@ -37,11 +37,11 @@ export function SessionTable({ sessions, filter, open }: Props) {
     <DataTable aria-label="Activity" className="max-lg:hidden">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-1/10">When</TableHead>
-          <TableHead className="w-1/5">Client</TableHead>
-          <TableHead className="w-1/8">What happened</TableHead>
+          <TableHead className="w-1/12">When</TableHead>
+          <TableHead className="w-1/6">Client</TableHead>
+          <TableHead className="w-1/6">What happened</TableHead>
           <TableHead>Why</TableHead>
-          <TableHead className="w-3/20">Skill</TableHead>
+          <TableHead className="w-1/8">Skill</TableHead>
         </TableRow>
       </TableHeader>
       {sessions.map((s) => (

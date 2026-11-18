@@ -58,7 +58,7 @@ export function ListRow({ d, now, open, selecting, selected, onOpen, onToggle }:
       </span>
       <ActionButton
         aria-current={open ? "true" : undefined}
-        className="h-auto min-h-16 min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-none py-2 ps-1 pe-3 text-start font-normal outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="h-auto min-h-16 min-w-0 sm:h-auto flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-none py-2 ps-1 pe-3 text-start font-normal outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         data-testid="draft-row"
         onClick={onOpen}
         size="m"
