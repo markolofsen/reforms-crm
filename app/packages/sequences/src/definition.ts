@@ -2,8 +2,8 @@
 // This module is pure: it parses a text and reports every problem it finds; `load.ts` is the one place that reads files.
 //
 // Front matter: name, description ("Use when ..."), status (Draft, Active, Retired), applies_to (["Lead", "Client"]),
-// mail_classes, languages, business_days (default true), enrol_after_days (default 2), stop_on (the core minimum always
-// applies: a file may add a reason, never remove one).
+// mail_classes, languages, business_days (default true), enrol_after_days (default 2), max_words (default 90), stop_on (the core
+// minimum always applies: a file may add a reason, never remove one).
 // Body: Goal; Steps (a table `# | after (days) | purpose | adds | knowledge topics`); Last step; Do not; Opt-out line.
 // `after` counts days after OUR previous message (the anchor moves with every sent step), not after the first one.
 
@@ -23,6 +23,11 @@ export const REQUIRED_SECTIONS = ["Goal", "Steps"] as const;
 export const RECOMMENDED_SECTIONS = ["Last step", "Do not"] as const;
 /** The longest wait one step may ask for, in days: a longer gap is nurture, which this track leaves out. */
 export const MAX_DELAY_DAYS = 60;
+/** How long a step draft may be when the file says nothing (`max_words`). A project sets its own, e.g. a longer personal note. */
+export const DEFAULT_MAX_WORDS = 90;
+/** The range `max_words` accepts: below it a step cannot carry its fact and the opt-out line, above it it is a newsletter. */
+export const MIN_MAX_WORDS = 30;
+export const MAX_MAX_WORDS = 400;
 
 export interface SequenceIssue {
   severity: "error" | "warning";
@@ -52,6 +57,8 @@ export interface SequenceDefinition {
   languages: string[];
   businessDays: boolean;
   enrolAfterDays: number;
+  /** The most words a step draft may have (`max_words`, default 90): the `sequence-drafts` skill keeps every step under it. */
+  maxWords: number;
   stopOn: StopOn[];
   steps: SequenceStep[];
   goal: string;
@@ -161,7 +168,7 @@ export function parseSequence(text: string, file: string): SequenceDefinition {
   const issues: SequenceIssue[] = [];
   const err = (message: string) => issues.push({ severity: "error", message });
   const warn = (message: string) => issues.push({ severity: "warning", message });
-  const empty: SequenceDefinition = { id, file, name: id, description: "", status: null, appliesTo: [], mailClasses: [], languages: [], businessDays: true, enrolAfterDays: 2, stopOn: [...CORE_STOP_ON], steps: [], goal: "", lastStep: "", doNot: "", optOut: "", issues };
+  const empty: SequenceDefinition = { id, file, name: id, description: "", status: null, appliesTo: [], mailClasses: [], languages: [], businessDays: true, enrolAfterDays: 2, maxWords: DEFAULT_MAX_WORDS, stopOn: [...CORE_STOP_ON], steps: [], goal: "", lastStep: "", doNot: "", optOut: "", issues };
   const fm = frontMatter(text);
   if (!fm) {
     err("no front matter (a block between two `---` lines at the top)");
@@ -194,6 +201,11 @@ export function parseSequence(text: string, file: string): SequenceDefinition {
   const enrolAfterDays = /^\d+$/.test(afterRaw) && Number(afterRaw) <= MAX_DELAY_DAYS ? Number(afterRaw) : 2;
   if (!/^\d+$/.test(afterRaw) || Number(afterRaw) > MAX_DELAY_DAYS) err(`enrol_after_days "${afterRaw}" is not a whole number of days from 0 to ${MAX_DELAY_DAYS}`);
 
+  const wordsRaw = unquote(f.get("max_words") ?? String(DEFAULT_MAX_WORDS));
+  const wordsOk = /^\d+$/.test(wordsRaw) && Number(wordsRaw) >= MIN_MAX_WORDS && Number(wordsRaw) <= MAX_MAX_WORDS;
+  if (!wordsOk) err(`max_words "${wordsRaw}" is not a whole number of words from ${MIN_MAX_WORDS} to ${MAX_MAX_WORDS}`);
+  const maxWords = wordsOk ? Number(wordsRaw) : DEFAULT_MAX_WORDS;
+
   const stopRaw = f.has("stop_on") ? listOf(f.get("stop_on")) : [...CORE_STOP_ON];
   if (stopRaw === null) err('stop_on must be a JSON list such as ["replied", "bounced"]');
   for (const s of stopRaw ?? []) if (!ALL_STOP_ON.includes(s)) err(`stop_on "${s}" is not a stop reason (${ALL_STOP_ON.join(", ")})`);
@@ -219,6 +231,7 @@ export function parseSequence(text: string, file: string): SequenceDefinition {
     languages: languages ?? [],
     businessDays: bdRaw !== "false",
     enrolAfterDays,
+    maxWords,
     stopOn,
     steps,
     goal: sec("Goal") ?? "",

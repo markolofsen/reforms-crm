@@ -20,6 +20,7 @@ A sequence is a short, written plan of follow-ups for one kind of silence: "we a
 | `languages` | JSON list, for the opt-out line |
 | `business_days` | `true` (default): waits skip Saturday and Sunday |
 | `enrol_after_days` | how long our message must be unanswered before the client is offered (default 2) |
+| `max_words` | the most words a step draft may have, 30 to 400 (default 90); `sequence-drafts` keeps every step under it |
 | `stop_on` | optional extra stop reasons (`out_of_office`). The core's five always apply; a file can add one, never remove one |
 
 Sections: `Goal`, `Steps` (a table: `#`, `after (days)`, `purpose`, `adds`, `knowledge topics`), `Last step`, `Do not`, `Opt-out line`. `after (days)` counts from **our previous message**, so a timeline of +2, +5 and +9 days is written 2, 3, 4. A wait is a whole number from 1 to 60. `hub sequences check <slug>` (and the doctor row "sequences parse") names every fault by row.

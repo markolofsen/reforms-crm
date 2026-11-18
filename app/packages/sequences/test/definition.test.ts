@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CORE_STOP_ON, findSequence, isUsable, loadSequences, parseSequence, pickSequence, scheduleOf, sequenceErrors, type SequenceDefinition } from "../src";
+import { CORE_STOP_ON, DEFAULT_MAX_WORDS, findSequence, isUsable, loadSequences, parseSequence, pickSequence, scheduleOf, sequenceErrors, type SequenceDefinition } from "../src";
 
 const fixture = (name: string) => parseSequence(readFileSync(join(import.meta.dirname, "fixtures", name), "utf8"), name);
 const errors = (d: SequenceDefinition) => d.issues.filter((i) => i.severity === "error").map((i) => i.message);
@@ -36,6 +36,20 @@ describe("golden definition files", () => {
     expect(errors(fixture("stop-removed.md"))).toEqual(['stop_on leaves out "replied": a file may add a stop reason, never remove one of the core\'s']);
     // the core minimum still applies to what is stored
     expect(fixture("stop-removed.md").stopOn).toContain("replied");
+  });
+  it("max_words defaults to 90, a file sets its own, and a value out of range is an error", () => {
+    const text = readFileSync(join(import.meta.dirname, "fixtures", "valid.md"), "utf8");
+    expect(fixture("valid.md").maxWords).toBe(DEFAULT_MAX_WORDS);
+    expect(DEFAULT_MAX_WORDS).toBe(90);
+    const own = parseSequence(text.replace("enrol_after_days: 2", "enrol_after_days: 2\nmax_words: 250"), "own.md");
+    expect(own.issues).toEqual([]);
+    expect(own.maxWords).toBe(250);
+    for (const bad of ["many", "10", "1000"]) {
+      const d = parseSequence(text.replace("enrol_after_days: 2", `enrol_after_days: 2\nmax_words: ${bad}`), "bad.md");
+      expect(errors(d)).toEqual([`max_words "${bad}" is not a whole number of words from 30 to 400`]);
+      expect(d.maxWords).toBe(DEFAULT_MAX_WORDS);
+      expect(isUsable(d)).toBe(false);
+    }
   });
   it("a file without stop_on gets the core minimum, and with no front matter is one error", () => {
     const d = parseSequence(readFileSync(join(import.meta.dirname, "fixtures", "valid.md"), "utf8").replace(/^stop_on:.*\n/m, ""), "x.md");

@@ -15,6 +15,7 @@ A client is enrolled when the owner says so in a session (`подготовь fo
 | `languages` | JSON list of the languages the steps may be written in |
 | `business_days` | `true` (default): waits count Monday to Friday |
 | `enrol_after_days` | how long after our message a silent client is offered for enrolment (default 2) |
+| `max_words` | optional; the most words a step draft may have, 30 to 400 (default 90) |
 | `stop_on` | optional; the core stops (replied, bounced, opted_out, closed, excluded) always apply, a file may add `out_of_office` |
 
 Body: `Goal`; `Steps`, a table `# | after (days) | purpose | adds | knowledge topics`; `Last step`; `Do not`; `Opt-out line` (one plain sentence, carried by step 2 and later).
