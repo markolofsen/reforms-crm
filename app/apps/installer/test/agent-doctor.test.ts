@@ -2,6 +2,7 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { agentSteps, summarise } from "../src/steps/agent";
+import { CONFIG_KEYS } from "../src/steps/files";
 import { STEPS } from "../src/steps/index";
 import { fake } from "./helpers";
 
@@ -17,6 +18,9 @@ describe("the Agent doctor group", () => {
   it("the tools row is an audit (doctor --fast leaves it out); the terminal row is not", () => {
     expect(STEPS.find((s) => s.id === "agent.tools")?.audit).toBe(true);
     expect(STEPS.find((s) => s.id === "agent.terminal")?.audit).toBeUndefined();
+  });
+  it("the instance switches are keys the settings check knows (no 'nothing reads' warning for them)", () => {
+    expect(CONFIG_KEYS).toEqual(expect.arrayContaining(["terminal", "agent"]));
   });
   it("the terminal row passes when it is off, the default", async () => {
     const f = fake();

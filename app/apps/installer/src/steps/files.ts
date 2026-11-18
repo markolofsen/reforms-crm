@@ -16,7 +16,7 @@ const REQUIRED_CONFIG_KEYS = ["account", "mailboxes", "allow_list"];
  * Readers: account, mailboxes (mail.account), allow_list (send guard), extra_dirs (hub agent), admin_port and api_port (`@hub/config/paths`), backup_dir (hub backup), backup_repos (backup.git), name and logo (the admin's brand header, `instanceBrand`).
  * `sent_mailbox` is carried by the template only. The keys of the archived daemon (quiet_hours, model, timeouts, budgets, lock and breaker settings) are gone; run limits live per project in `project.md`.
  */
-export const CONFIG_KEYS = ["name", "logo", "account", "mailboxes", "sent_mailbox", "allow_list", "extra_dirs", "admin_port", "api_port", "backup_dir", "backup_repos"];
+export const CONFIG_KEYS = ["name", "logo", "account", "mailboxes", "sent_mailbox", "allow_list", "extra_dirs", "admin_port", "api_port", "backup_dir", "backup_repos", "terminal", "agent"];
 
 /** Mail login files of the removed IMAP reader (decision 0026): nothing reads them; the owner deletes them. */
 const OLD_MAIL_LOGIN = /^mail-[A-Za-z0-9][A-Za-z0-9._-]*\.json$/;
