@@ -9,7 +9,7 @@ Shared by `triage-mail` and `bulk-drafts`. Owner rule: every reply is written fo
 | P3 Facts | `knowledge_search` with this client's own words (1 to 3 queries), for this client. Facts only from usable entries; everything else is `[Owner: ...]` (`kb-gaps.md`). | `knowledge_search`, `knowledge_get` |
 | P4 Write | Purpose and tone are the brief. The body states at least one anchor, a concrete item that exists only in this client's thread or profile, and answers what the client asked or fits where the thread stands. | none |
 | P5 Draft | One unsent `draft_write` (hub) on the client's newest message; it adds the marker line (`triage-mail` section 2 step 5). | `draft_write` |
-| P6 Record | `hub record-draft` with honest counts (what you opened, not what you meant to). Say "recorded" only on `"ok":true`. | Bash |
+| P6 Record | `./run.sh record-draft` with honest counts (what you opened, not what you meant to). Say "recorded" only on `"ok":true`. | Bash |
 | P7 Profile and log | Notion profile and the one log line (`triage-mail` section 2 step 7). Last, append-only. | `notion-update-page` |
 
 The evidence you must be able to state for every draft: messages found and opened (ids), first contact yes or no, profile state, facts used and missing, the anchors, and which opened messages the body relies on.

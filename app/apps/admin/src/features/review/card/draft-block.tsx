@@ -8,6 +8,7 @@ import { ThreadPanel } from "@/features/thread/thread-panel";
 import { isClosed, type ReviewDraft } from "../source";
 import type { DraftMailDto } from "@hub/contract/responses";
 import type { ReviewActions } from "../use-review-actions";
+import { mailProblem } from "../mail/tick-guard";
 
 const TONE_LABEL: Record<Tone, string> = { short: "Short", standard: "Standard", warm: "Warm" };
 
@@ -62,7 +63,7 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
       </div>
       {unreadable && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <p className="text-sm text-warning-foreground" data-testid="mail-unreadable">Mail could not be read{live?.reason ? `: ${live.reason}` : ""}. Open it in Mail.</p>
+          <p className="text-sm text-warning-foreground" data-testid="mail-unreadable">{mailProblem(live?.reason)}. Open it in Mail.</p>
           {onRead && (
             <ActionButton disabled={reading} onClick={onRead} size="s" variant="quiet">
               {reading ? "Reading" : "Read again"}

@@ -90,6 +90,7 @@ describe("Checked fails closed (decision 0013): the switch and the C key hold on
 
   it("refuses an unreadable draft, with Mail's reason", () => {
     expect(tickBlock(base, read({ found: false, hash: null, reason: "Mail has no such draft" }))).toMatch(/Mail could not be read: Mail has no such draft/);
+    expect(tickBlock(base, read({ found: false, hash: null, reason: '2 drafts in Mail match subject "Re: Hi" for a@b.c: keep the newest' }))).toMatch(/^Mail holds more than one version of this draft: 2 drafts in Mail match/);
   });
 
   it("refuses a draft with no text hash: found without a hash, not read yet, or a server with no Mailer", () => {

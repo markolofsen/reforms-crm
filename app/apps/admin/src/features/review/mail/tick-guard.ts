@@ -15,10 +15,19 @@ export const mailReadable = (mail: MailRead | undefined): boolean => !(mail?.con
  * it is the one draft that is checked without a hash. `readError` is the sentence of a failed read of Mail (the request
  * itself failed, not "Mail has no such draft"): it is named, so the card never says "being read" forever.
  */
+/**
+ * The card's sentence for a Mail read that found no single draft. Two or more matching drafts is not a failed read (P52):
+ * Mail holds more than one version, usually an older one still being removed after a revision, so it says that plainly.
+ */
+export function mailProblem(reason: string | null | undefined): string {
+  if (reason && /drafts in Mail match/.test(reason)) return `Mail holds more than one version of this draft: ${reason}`;
+  return `Mail could not be read${reason ? `: ${reason}` : ""}`;
+}
+
 export function tickBlock(d: ReviewDraft, mail: MailRead | undefined, step: FlowStep = "idle", readError: string | null = null): string | null {
   if (d.checked) return null;
   const state = stateOf(d, step, mailReadable(mail));
-  if (state === "unreadable") return `Mail could not be read${mail?.reason ? `: ${mail.reason}` : ""}. Open it in Mail; this draft cannot be checked here.`;
+  if (state === "unreadable") return `${mailProblem(mail?.reason)}. Open it in Mail; this draft cannot be checked here.`;
   if (!hasSwitch(state)) return "This draft has nothing to check or send from here.";
   if (d.batchId !== null) return null;
   if (!mail && readError !== null) return `The text could not be read from Mail: ${readError} Use Retry above, then turn this on.`;
