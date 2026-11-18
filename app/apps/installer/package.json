@@ -17,6 +17,7 @@
     "@hub/agent": "workspace:*",
     "@hub/config": "workspace:*",
     "@hub/connections": "workspace:*",
+    "@hub/contract": "workspace:*",
     "@hub/db": "workspace:*",
     "@hub/mail-filters": "workspace:*",
     "@hub/projects": "workspace:*",

@@ -85,8 +85,10 @@ describe("generated session files", () => {
     writeFileSync(path.join(root, "config", "mcp.json"), JSON.stringify({ mcpServers: { "mail-mcp": { type: "http" }, gmail: { type: "http" }, "knowledge-mcp": { type: "stdio", env: { HUB_PROJECT: "${HUB_PROJECT:-}" } } } }));
     const f = writeSessionFiles(root, PROJECTS, "acme-travel");
     const m = JSON.parse(readFileSync(f.mcp, "utf8")).mcpServers;
-    expect(Object.keys(m).sort()).toEqual(["knowledge-mcp", "mail-mcp"]);
+    // `hub` (P51) is the core's own server: there even when the instance's file predates it.
+    expect(Object.keys(m).sort()).toEqual(["hub", "knowledge-mcp", "mail-mcp"]);
     expect(m["knowledge-mcp"].env.HUB_PROJECT).toBe("acme-travel");
+    expect(m.hub.env.HUB_PROJECT).toBe("acme-travel");
   });
   it("claude gets the enforcement flags in = form, and send tools are denied", () => {
     const a = buildClaudeArgs({ mode: "new", project: "acme-travel", extra: [] }, [], files);
@@ -120,6 +122,10 @@ describe("the Codex home (P49 S10)", () => {
   writeFileSync(path.join(root, "config", "mcp.json"), JSON.stringify({ mcpServers: { "mail-mcp": { type: "http", url: "http://localhost:8787" }, slack: { type: "http", url: "https://x" } } }));
   const home = writeCodexHome({ paths: pathsAt(root), projectsDir: PROJECTS, slug: "acme-travel", unattended: true, instructions: "bound", env: { HOME: "/nowhere", CODEX_HOME: owner } });
   const toml = readFileSync(path.join(home, "config.toml"), "utf8");
+  it("P51: the hub MCP server and the focus hook on every prompt", () => {
+    expect(toml).toContain('[mcp_servers."hub"]');
+    expect(toml).toMatch(/\[\[hooks\.UserPromptSubmit\]\]\n\[\[hooks\.UserPromptSubmit\.hooks\]\]\ntype = "command"\ncommand = ".*hub\.mjs\\" focus --hook"\ntimeout = 5/);
+  });
   it("holds the hub's servers only, with the send tools off, and none of the owner's", () => {
     expect(toml).toContain('[mcp_servers."mail-mcp"]');
     expect(toml).toMatch(/disabled_tools = \[.*"create_outgoing_message".*\]/);

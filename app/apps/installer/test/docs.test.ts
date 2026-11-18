@@ -1,3 +1,4 @@
+import { SESSION_RULES_HEADING, sessionRules } from "@hub/agent/session-rules";
 import { renderNotionFields } from "../src/notion-docs";
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import path from "node:path";
@@ -86,5 +87,18 @@ describe("the architecture-change rule", () => {
     expect(readFileSync(path.join(root, "CLAUDE.md"), "utf8")).toContain(`"${UPDATE_LINE}"`);
     expect(lstatSync(path.join(root, "AGENTS.md")).isSymbolicLink()).toBe(true);
     expect(readlinkSync(path.join(root, "AGENTS.md"))).toBe("CLAUDE.md");
+  });
+});
+
+describe("session rules (P51)", () => {
+  it("the core AGENTS.md section equals sessionRules(): the generated system prompt and the page cannot drift", () => {
+    const page = readFileSync(path.join(defaultRoot(), "AGENTS.md"), "utf8");
+    const at = page.indexOf(`${SESSION_RULES_HEADING}\n`);
+    expect(at).toBeGreaterThan(-1);
+    const body = page.slice(at + SESSION_RULES_HEADING.length + 1).split("\n## ")[0]?.trim();
+    expect(body).toBe(sessionRules("<slug>"));
+  });
+  it("the instance template says the session's start knowledge is the core's system prompt", () => {
+    expect(readFileSync(path.join(defaultRoot(), INSTANCE_TEMPLATE, "CLAUDE.md"), "utf8")).toContain("What the session knows at start is the core's system prompt (`hub agent`), not this file");
   });
 });

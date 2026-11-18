@@ -1,6 +1,7 @@
 import path from "node:path";
 import { codexSessionPaths, type HubPaths } from "@hub/config/paths";
 import { CODEX_FORBIDDEN_PREFIXES, deniedToolsOf, HUB_MCP_SERVERS, otherProjects } from "./deny";
+import { focusHookCommand } from "./claude";
 import { CODEX_BYPASS, codexModeArgs, protectedPaths } from "./session";
 
 // A Codex session of `hub agent --cli codex` (P49 S9, S10), built without writing. Codex has no strict-MCP flag and its
@@ -29,6 +30,8 @@ export interface CodexSessionInput {
   instructions: string;
   /** `model` and `model_reasoning_effort` carried over from the owner's own config, when set there. */
   carry?: Record<string, string>;
+  /** The Node that runs the hub (the focus hook calls `hub focus --hook` with it). */
+  nodeBin?: string;
 }
 
 /**
@@ -47,6 +50,9 @@ export function codexConfigToml(i: CodexSessionInput): string {
   for (const [p, a] of access) out.push(`${str(p)} = ${str(a)}`);
   out.push("", `[permissions.${CODEX_PROFILE}.network]`, "enabled = false", "");
   out.push(`[projects.${str(i.paths.home)}]`, `trust_level = "trusted"`, "");
+  // P51: the focus line per prompt (Codex 0.146 `UserPromptSubmit`, measured in F0). Codex runs only trusted hooks; this one is
+  // the hub's own, in a home only the hub writes, so the launcher passes `--dangerously-bypass-hook-trust` (see `codexArgs`).
+  out.push("[[hooks.UserPromptSubmit]]", "[[hooks.UserPromptSubmit.hooks]]", `type = "command"`, `command = ${str(focusHookCommand(i.nodeBin ?? process.execPath, i.paths))}`, "timeout = 5", "");
   for (const name of HUB_MCP_SERVERS) {
     const s = i.servers[name];
     if (!s) continue;
@@ -72,9 +78,16 @@ export function codexRules(): string {
   ].join("\n");
 }
 
-/** The Codex flags: the instance root as the workspace, the mode's approval. Never the bypass flag. */
+/**
+ * Codex runs a hook only after the person trusted it; the hub's focus hook is generated into a home only the hub writes (a
+ * protected path of the sandbox, like `<home>/.codex`), so the launcher vouches for it. This flag skips hook trust only; the
+ * sandbox and approvals are untouched (not {@link CODEX_BYPASS}).
+ */
+export const CODEX_HOOK_TRUST = "--dangerously-bypass-hook-trust";
+
+/** The Codex flags: the instance root as the workspace, the mode's approval, the hub's own hook trusted. Never the sandbox bypass flag. */
 export function codexArgs(i: { paths: HubPaths; unattended: boolean; extra?: string[] }): string[] {
-  const args = ["-C", i.paths.home, ...codexModeArgs(i.unattended), ...(i.extra ?? [])];
+  const args = ["-C", i.paths.home, ...codexModeArgs(i.unattended), CODEX_HOOK_TRUST, ...(i.extra ?? [])];
   if (args.includes(CODEX_BYPASS) || args.includes("--yolo")) throw new Error(`hub agent never runs Codex with ${CODEX_BYPASS}: it turns the sandbox off`);
   return args;
 }

@@ -46,10 +46,15 @@ export function claudeSettings(i: ClaudeSessionInput): Record<string, unknown> {
       PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: hub, timeout: 20 }] }],
       // P28 B3: the evidence ledger (what was read before each reply). Fires inside subagents too (S1), keyed by session_id and agent_id.
       PostToolUse: [{ matcher: "*", hooks: [{ type: "command", command: `${hub} --post`, timeout: 20 }] }],
+      // P51: one `[Hub focus, data]` line per prompt while the admin's focus is fresh; nothing otherwise, never a block.
+      UserPromptSubmit: [{ hooks: [{ type: "command", command: focusHookCommand(i.nodeBin, i.paths), timeout: 5 }] }],
     },
     ...(i.unattended ? { sandbox: claudeSandbox(i.paths) } : {}),
   };
 }
+
+/** The prompt hook of both CLIs (P51): `hub focus --hook`, with the hub's own Node. */
+export const focusHookCommand = (nodeBin: string, paths: HubPaths): string => `${JSON.stringify(nodeBin)} ${JSON.stringify(paths.hubBin)} focus --hook`;
 
 export interface ClaudeFiles { settings: string; mcp: string; disallowed: string[] }
 

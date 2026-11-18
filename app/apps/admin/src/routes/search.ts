@@ -1,4 +1,4 @@
-import { RUN_STATUSES, type RunStatus } from "@hub/config";
+import { DRAFT_VIEWS, RUN_STATUSES, type DraftView, type RunStatus } from "@hub/config";
 
 // Every URL parameter name and its allowed values, in one place. No React, no URL library: plain functions, so the
 // address of every screen is testable without a DOM. The enums are the ones the API validates (`@hub/config`, re-used
@@ -14,8 +14,8 @@ export type RunFilter = "all" | RunStatus;
  */
 // `sequences` (P47, label Follow-ups): the open steps of follow-up sequences and the enrolments, read-only. `not_by_email` (P48):
 // the clients the agent did not answer by email (calls, no reply needed), read-only rows instead of drafts.
-export const DRAFT_VIEWS = ["ready", "hold", "thin_basis", "finished", "sequences", "not_by_email", "all"] as const;
-export type DraftView = (typeof DRAFT_VIEWS)[number];
+// The list itself lives in `@hub/config` (the shared focus names a view too, P51).
+export { DRAFT_VIEWS, type DraftView };
 export const DEFAULT_DRAFT_VIEW: DraftView = "ready";
 
 export type Raw = Readonly<Record<string, string>>;

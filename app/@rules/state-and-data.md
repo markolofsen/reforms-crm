@@ -19,12 +19,15 @@ Scope: where each kind of state lives in the admin. Adapted from the shared "sta
 
 13. MUST: live updates invalidate, they never push data (P50). One stream per browser: the tab holding the Web Lock `hub-live` opens the one EventSource on `/api/live` and passes its frames to the other tabs over the `BroadcastChannel` `hub-live`; both live only in `lib/cache/live.ts`. A frame is parsed with `parseLiveEvent` of `@hub/contract/live`; a `change` invalidates the keys `TOPIC_KEYS` names for its topics and projects (a `Record<LiveTopic, ...>`, so a new topic fails `tsc`), a `reset` or a frame the page does not know refreshes everything (`refreshData`). A hidden tab passes `refetchType: "none"` and catches up on focus. No topic names a Mail key (rule 12). No screen adds its own `refetchInterval`: the pulse polls every 10 s only while the stream is down, and an open input is never overwritten by a refetch (a changed open draft says so, with Reload).
 
+14. MUST: the shared focus (P51) is published, not URL state. The shell frame's publisher derives it from the address, the card on screen and the selection (`features/focus/derive.ts`, pure) and posts it from `lib/api/terminal.ts` only; the selection and the open card are shared in memory through `lib/focus.ts` (written by the review workspace, read by the publisher and the dock header), never stored and never in the address. The server stamps the time; the browser's clock is never sent.
+
 ## Enforcement
 
 | Rule | Tool |
 |---|---|
 | 1, 3 | review |
 | 2, 13 | `test/rules.test.ts` "one key factory, one live stream" (no `queryKey: [` outside `lib/cache/keys.ts`; no `new EventSource` or `new BroadcastChannel` outside `lib/cache/live.ts`); `test/live.test.ts` (every topic has keys, none is a Mail key, a change invalidates only its prefixes, a hidden tab only marks, a reset refreshes all); `e2e/zz-live.spec.ts` |
+| 14 | rules test "the shared focus (P51) is posted only from lib/api/terminal.ts"; `test/focus.test.ts` (every derived focus is a post the server accepts); `e2e/z-focus.spec.ts` |
 | 4 | eslint `consistent-type-assertions` (never, error) and the `@hub/contract` parser in `read()`; `test/api-client.test.ts` |
 | 5-6 | e2e scenarios named by state (see `ui-specifications.md`) |
 | 7 | eslint `no-restricted-globals` on `localStorage`/`sessionStorage` (error); rules test "document.cookie is touched only by lib/storage.ts" |

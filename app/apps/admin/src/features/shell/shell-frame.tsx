@@ -6,6 +6,7 @@ import { DEFAULT_INSTANCE_NAME } from "@hub/contract/instance";
 import { Page } from "@hub/ui/product/page";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
+import { useFocusPublisher } from "@/features/focus/use-focus-publisher";
 import { TerminalDock, TerminalProvider } from "@/features/terminal/terminal";
 import { useGo } from "@/hooks/use-go";
 import { PlaceContext, ProjectScopeContext, useEnsureAddress, type ProjectScope } from "@/hooks/use-project";
@@ -44,6 +45,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   const list = useMemo(() => projects.data?.projects ?? [], [projects.data]);
   const { place, pending } = useEnsureAddress(route, list);
   const project = place?.project ?? null;
+  useFocusPublisher(project);
   const multi = place?.multi ?? false;
   const heading = route.section ? sectionTitle(route.section) : "Not found";
   const onProject = useMemo(() => (p: string) => route.section && go(sectionList(route.section), { project: p, replace: true }), [route.section, go]);

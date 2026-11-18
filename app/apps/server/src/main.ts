@@ -13,6 +13,7 @@ import { startSentReconciler } from "./sent";
 import { chooseShell, createTerminal } from "./terminal";
 import { chooseAgentTools, createAgentTools } from "./agent-tools";
 import { createLive, folderSignature } from "./live";
+import { createFocusStore } from "./focus";
 
 // The server is started by `hub up` (which sets HUB_HOME). Started by hand without it: one line and exit 2, not a stack.
 try {
@@ -56,7 +57,9 @@ const agentTools = createAgentTools({ paths, repos, fake: chooseAgentTools(proce
 // since they are not rows (a timestamp of the last poll is left out: it moves on every poll and means nothing to a panel).
 const pollers = () => [messengers.status(), sent.status()].map((s) => `${s.state}|${s.reason ?? ""}|${s.lastError ?? ""}`).join("\n");
 const live = createLive({ db, watch: [{ topic: "health", signature: pollers, everyMs: 1000 }, { topic: "connections", signature: () => folderSignature(paths.secrets), everyMs: 1000 }] });
-const app = createApp(repos, { live, terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin } });
+// The shared focus (P51): the admin tab says what it shows; the agent reads it from state/focus.json.
+const focus = createFocusStore({ file: paths.focus });
+const app = createApp(repos, { live, focus, terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);

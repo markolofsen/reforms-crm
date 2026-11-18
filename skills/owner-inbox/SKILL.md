@@ -1,7 +1,7 @@
 ---
 name: owner-inbox
 description: Use when the owner asks what waits for him in one project or where to start. Gathers open questions, knowledge gaps, calendar problems, run reports and unfilled placeholders in unsent drafts into ONE ranked list, each item with the sentence to say next. Read only. Unlike status, which checks that the setup works, this lists decisions and tasks for the owner.
-allowed-tools: Read Bash mcp__mail-mcp__list_drafts
+allowed-tools: Read Bash mcp__mail-mcp__list_drafts mcp__hub__focus mcp__hub__drafts_list
 ---
 
 # Owner inbox (what needs you, read only)
@@ -9,6 +9,8 @@ allowed-tools: Read Bash mcp__mail-mcp__list_drafts
 > Layer: **core** (universal). Names in this file are examples; one owner's facts live in `projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
 
 Rules: `skills/README.md` ("Rules"). Talk to the owner in Russian, briefly. You write nothing and send nothing.
+
+"Что тут нужно?" asked while the admin is open (P51): call `focus` first (the `hub` MCP server; README rule 13) and start the list with what the focused draft or the selected drafts need; then the rest of the project.
 
 1. **Bind** as `skills/triage-mail/SKILL.md` section 0 (one project per session). Read `projects/<slug>/project.md` and its mail account names only.
 2. **Collect**, inside `projects/<slug>/` only (Bash `ls`, Read):

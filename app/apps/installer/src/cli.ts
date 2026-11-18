@@ -42,6 +42,8 @@ import { clackUi, quietUi } from "./setup/ui";
 import { selectSteps, STEPS } from "./steps/index";
 import type { Step } from "./types";
 import { uninstall } from "./uninstall";
+import { focusLine } from "@hub/agent/focus";
+import { currentFocus, hookOutput } from "./focus-command";
 
 const SHOWN = new Set(["agent", "up", "doctor", "setup"]);
 
@@ -391,6 +393,18 @@ program.command("guard").description("PreToolUse hook of `hub agent`: reads one 
     if (r.stderr) console.error(r.stderr);
     done(r.code);
   });
+
+program.command("focus").description("What the admin shows (P51 shared focus), as the session bound to HUB_PROJECT sees it: the open draft, its client, the selection. --hook is the prompt hook of `hub agent` (one line while fresh, else nothing; never blocks). Read only.")
+  .option("--json", "print the focus as JSON")
+  .option("--hook", "UserPromptSubmit hook output (started by bin/hub.mjs without the CLI)")
+  .action(async (o: { json?: boolean; hook?: boolean }) => {
+    const f = await currentFocus();
+    if (o.hook) { const out = hookOutput(f); if (out) console.log(out); return; }
+    console.log(o.json ? JSON.stringify(f) : (focusLine(f) ?? `focus: ${f.state}${f.project ? ` (${f.project})` : " (no HUB_PROJECT)"}`));
+  });
+
+program.command("mcp").description("The hub's read-only MCP server on stdio (P51): focus, draft_show, client_show, drafts_list for HUB_PROJECT. Registered by `hub agent` for Claude Code and Codex; started by bin/hub.mjs without the CLI.")
+  .action(async () => { await (await import("@hub/agent/mcp-stdio")).serveHubMcp(); });
 
 program.command("uninstall").description("Remove this instance's skill links (<instance>/.claude/skills) and report old links in ~/.claude/skills with the command that removes them. Keeps config, state and secrets.")
   .option("--dry-run")

@@ -29,6 +29,8 @@ export function protectedPaths(paths: HubPaths): string[] {
     path.join(home, "core"),
     path.join(home, "run.sh"),
     path.join(home, ".claude"),
+    // Codex reads project hooks from here; `hub agent` runs Codex with hook trust bypassed for its own generated hook (P51).
+    path.join(home, ".codex"),
     paths.mcpFile,
     path.join(home, ".git"),
     path.join(home, "CLAUDE.md"),

@@ -48,8 +48,11 @@ export const HUB_SEQUENCE_OWNER_COMMANDS: readonly string[] = ["Bash(*sequences 
  */
 export const HUB_API_COMMANDS: readonly string[] = ["Bash(*127.0.0.1*)", "Bash(*localhost*)", "Bash(*[::1]*)", "Bash(*0.0.0.0*)", "WebFetch(domain:localhost)", "WebFetch(domain:127.0.0.1)", "WebFetch(domain:[::1])"];
 
-/** The hub's own MCP servers: everything else is dropped (Claude `--strict-mcp-config`, Codex its own `CODEX_HOME`). */
-export const HUB_MCP_SERVERS = ["mail-mcp", "notion", "knowledge-mcp"] as const;
+/**
+ * The hub's own MCP servers: everything else is dropped (Claude `--strict-mcp-config`, Codex its own `CODEX_HOME`). `hub` is
+ * the core's read-only server (`hub mcp`, P51: the admin's focus and read-only views), always registered.
+ */
+export const HUB_MCP_SERVERS = ["mail-mcp", "notion", "knowledge-mcp", "hub"] as const;
 
 /**
  * Command prefixes Codex refuses without asking (`prefix_rule(..., decision="forbidden")`): the same doors as the

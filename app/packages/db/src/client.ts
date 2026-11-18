@@ -34,3 +34,14 @@ export function openDb(path: string = defaultDbPath()): DbHandle {
   migrate(db, { migrationsFolder });
   return { db, close: () => sqlite.close() };
 }
+
+/**
+ * The database for a reader that must never write (P51: `hub focus` and `hub mcp`): opened read-only, no migration, so a
+ * write through the handle throws (SQLITE_READONLY) instead of being merely absent. The file must exist.
+ */
+export function openDbReadOnly(path: string = defaultDbPath()): DbHandle {
+  const sqlite = new Database(path, { readonly: true, fileMustExist: true });
+  sqlite.pragma("busy_timeout = 2000");
+  const db = drizzle(sqlite, { schema });
+  return { db, close: () => sqlite.close() };
+}

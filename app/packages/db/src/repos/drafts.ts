@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type FinishReason, MARKS, SEQUENCE_SKILL, SETTABLE_STATUSES, TONES, type NotionRef, type DraftStatus, type Mark, type SafetyKind, type SettableStatus, type Tone, type ToneBodies } from "@hub/config";
 import type { Db } from "../client";
 import { write, type WriteTx } from "../tx";
@@ -82,6 +82,11 @@ export function draftsRepo(db: Db) {
 
     async get(id: number) {
       return row(id);
+    },
+
+    /** Every draft of one client of a project, newest first (P51: `hub mcp` `client_show`). Read only. */
+    async ofClient(project: string, clientId: number): Promise<DraftRow[]> {
+      return db.select().from(drafts).where(and(eq(drafts.project, project), eq(drafts.clientId, clientId))).orderBy(desc(drafts.id)).all();
     },
 
     /**
@@ -235,7 +240,8 @@ export function draftsRepo(db: Db) {
           return { clientId: client.id, draftId: sameRef.id, runId, action: "unchanged" as const, ...stopped };
         }
         if (open && sameRef === open) {
-          tx.update(drafts).set({ ...fields, ...(flagged ? { injectionSuspected: true } : {}), updatedAt: now }).where(eq(drafts.id, open.id)).run();
+          // A revision of the same draft (P51): new text, so "I read the checks" no longer holds (decision 0013).
+          tx.update(drafts).set({ ...fields, ...(flagged ? { injectionSuspected: true } : {}), checked: false, checkedHash: null, updatedAt: now }).where(eq(drafts.id, open.id)).run();
           log("draft_created", "Draft updated", { draftId: open.id, action: "update", skill: input.skill ?? null, mailRef });
           return { clientId: client.id, draftId: open.id, runId, action: "updated" as const, ...stopped };
         }

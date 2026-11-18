@@ -32,6 +32,9 @@ describe("one key factory, one live stream", () => {
   it("no query key is a literal outside lib/cache/keys.ts", () => {
     expect(offenders(appFiles.filter((p) => rel(p) !== "lib/cache/keys.ts"), /queryKey:\s*\[/)).toEqual([]);
   });
+  it("the shared focus (P51) is posted only from lib/api/terminal.ts", () => {
+    expect(offenders(appFiles.filter((p) => rel(p) !== "lib/api/terminal.ts"), /["'`]\/api\/focus/)).toEqual([]);
+  });
   it("new EventSource and BroadcastChannel only in lib/cache/live.ts", () => {
     expect(offenders(appFiles.filter((p) => rel(p) !== "lib/cache/live.ts"), /new (EventSource|BroadcastChannel)\b/)).toEqual([]);
   });

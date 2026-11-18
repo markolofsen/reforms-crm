@@ -5,6 +5,7 @@ import { AGENT_CLIS, expandTilde, instanceFeatures, pathsAt, type AgentCli, type
 import { claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
 import { codexArgs } from "@hub/agent/codex";
 import { CLI_LABELS, modeLine } from "@hub/agent/session";
+import { sessionRules } from "@hub/agent/session-rules";
 import { syncInstanceSkills } from "./instance-skills";
 import { readBinding, resolveBinding, writeBinding, writeCodexHome, writeSessionFiles, type SessionFiles } from "./safety";
 import { c, UsageError } from "./term";
@@ -75,9 +76,12 @@ export function parseAgentArgs(args: string[], projects: string[]): AgentPlan {
   return { mode, ...(project ? { project } : {}), extra, ...(cli ? { cli } : {}), ...(prepare ? { prepare } : {}) };
 }
 
-/** The system prompt that pins a session to one project (isolation: one session = one project). */
+/**
+ * The system prompt that pins a session to one project (isolation: one session = one project), then the core's session rules
+ * (P51: what "this client" means, the focus, revise never send). The same text goes to Claude and to Codex.
+ */
 export function bindingPrompt(project: string, projectsRel = "projects"): string {
-  return `This session is bound to ONE project: ${project} (HUB_PROJECT). Work for ${project} only: read ${projectsRel}/${project}/ and no other project's folder, name only that project's Mail accounts, pass project=${project} to every knowledge call. If asked for another project, refuse and tell the owner to run \`hub agent <other>\`. Drafts only: never send.`;
+  return `This session is bound to ONE project: ${project} (HUB_PROJECT). Work for ${project} only: read ${projectsRel}/${project}/ and no other project's folder, name only that project's Mail accounts, pass project=${project} to every knowledge call. If asked for another project, refuse and tell the owner to run \`hub agent <other>\`. Drafts only: never send.\n\n${sessionRules(project)}`;
 }
 
 export function buildClaudeArgs(plan: AgentPlan, dirs: string[] = [], files?: SessionFiles, projectsRel?: string, unattended = false): string[] {
@@ -173,7 +177,7 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   const files = writeSessionFiles(env.root, env.projectsDir, plan.project, process.execPath, paths, unattended);
   let codexHomeDir: string | undefined;
   if (cli === "codex") {
-    codexHomeDir = writeCodexHome({ paths, projectsDir: env.projectsDir, slug: plan.project, unattended, instructions: plan.project ? bindingPrompt(plan.project, relOk) : "This hub session is not bound to a project: ask which project, then tell the owner to run `hub agent <project>`. Drafts only: never send." });
+    codexHomeDir = writeCodexHome({ paths, projectsDir: env.projectsDir, slug: plan.project, unattended, nodeBin: process.execPath, instructions: plan.project ? bindingPrompt(plan.project, relOk) : "This hub session is not bound to a project: ask which project, then tell the owner to run `hub agent <project>`. Drafts only: never send." });
     childEnv.CODEX_HOME = codexHomeDir;
   }
   if (plan.prepare) {

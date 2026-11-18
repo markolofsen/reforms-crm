@@ -19,15 +19,24 @@ export const slugDir = (root: string, slug: string | undefined) => path.join(sta
 
 export type SessionFiles = ClaudeFiles & { rules: string[] };
 
-/** The instance's MCP servers, made absolute for it: `.mcp.json`, else `config/mcp.json`, else the core's defaults. */
-export function instanceMcpServers(paths: HubPaths, slug: string | undefined): Record<string, Record<string, unknown>> {
+type McpFile = { mcpServers?: Record<string, Record<string, unknown>> };
+const readMcp = (f: string): Record<string, Record<string, unknown>> => (existsSync(f) ? ((JSON.parse(readFileSync(f, "utf8")) as McpFile).mcpServers ?? {}) : {});
+
+/**
+ * The instance's MCP servers, made absolute for it: `.mcp.json`, else `config/mcp.json`, else the core's defaults. `hub` (P51) is the
+ * core's own server: taken from the core's defaults when the instance file predates it, and started with the hub's own Node.
+ */
+export function instanceMcpServers(paths: HubPaths, slug: string | undefined, nodeBin: string = process.execPath): Record<string, Record<string, unknown>> {
   const src = [paths.mcpFile, path.join(paths.configDir, "mcp.json"), paths.mcpDefaults].find((f) => existsSync(f));
-  const all = src ? ((JSON.parse(readFileSync(src, "utf8")) as { mcpServers?: Record<string, Record<string, unknown>> }).mcpServers ?? {}) : {};
+  const all = src ? readMcp(src) : {};
+  const core = readMcp(paths.mcpDefaults);
   const servers: Record<string, Record<string, unknown>> = {};
   for (const name of HUB_MCP_SERVERS) {
-    if (!all[name]) continue;
-    const s = instanceServer(all[name], paths);
-    if (name === "knowledge-mcp" && slug) s.env = { ...(s.env as object), HUB_PROJECT: slug };
+    const spec = all[name] ?? (name === "hub" ? core[name] : undefined);
+    if (!spec) continue;
+    const s = instanceServer(spec, paths);
+    if ((name === "knowledge-mcp" || name === "hub") && slug) s.env = { ...(s.env as object), HUB_PROJECT: slug };
+    if (name === "hub" && s.type === "stdio" && s.command === "node") s.command = nodeBin;
     servers[name] = s;
   }
   return servers;
@@ -41,7 +50,7 @@ export function writeSessionFiles(root: string, projectsDir: string, slug: strin
   const settingsFile = path.join(dir, "settings.json");
   writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + "\n");
   const mcpFile = path.join(dir, "mcp.json");
-  writeFileSync(mcpFile, JSON.stringify({ mcpServers: instanceMcpServers(paths, slug) }, null, 2) + "\n");
+  writeFileSync(mcpFile, JSON.stringify({ mcpServers: instanceMcpServers(paths, slug, nodeBin) }, null, 2) + "\n");
   return { settings: settingsFile, mcp: mcpFile, disallowed: claudeDisallowed(), rules: (settings.permissions as { deny: string[] }).deny };
 }
 
@@ -64,12 +73,12 @@ function carriedCodexKeys(file: string): Record<string, string> {
  * Writes the session's CODEX_HOME (P49 S10): config.toml, rules/hub.rules, skills/ (links to the core skills) and auth.json (a link to the
  * owner's, never a copy). Returns the folder.
  */
-export function writeCodexHome(o: { paths: HubPaths; projectsDir: string; slug: string | undefined; unattended: boolean; instructions: string; env?: NodeJS.ProcessEnv }): string {
+export function writeCodexHome(o: { paths: HubPaths; projectsDir: string; slug: string | undefined; unattended: boolean; instructions: string; env?: NodeJS.ProcessEnv; nodeBin?: string }): string {
   const env = o.env ?? process.env;
   const home = codexHome(o.paths, o.slug);
   mkdirSync(path.join(home, "rules"), { recursive: true });
   const owner = ownerCodexHome(env);
-  const toml = codexConfigToml({ paths: o.paths, projectsDir: o.projectsDir, slug: o.slug, unattended: o.unattended, servers: instanceMcpServers(o.paths, o.slug), instructions: o.instructions, carry: carriedCodexKeys(path.join(owner, "config.toml")) });
+  const toml = codexConfigToml({ paths: o.paths, projectsDir: o.projectsDir, slug: o.slug, unattended: o.unattended, servers: instanceMcpServers(o.paths, o.slug, o.nodeBin), instructions: o.instructions, nodeBin: o.nodeBin ?? process.execPath, carry: carriedCodexKeys(path.join(owner, "config.toml")) });
   writeFileSync(path.join(home, "config.toml"), toml);
   writeFileSync(path.join(home, "rules", "hub.rules"), codexRules());
   const auth = path.join(home, "auth.json");

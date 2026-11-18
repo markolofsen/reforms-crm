@@ -17,6 +17,17 @@
       "env": {
         "HUB_PROJECT": "${HUB_PROJECT:-}"
       }
+    },
+    "hub": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "app/apps/installer/bin/hub.mjs",
+        "mcp"
+      ],
+      "env": {
+        "HUB_PROJECT": "${HUB_PROJECT:-}"
+      }
     }
   }
 }

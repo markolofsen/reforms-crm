@@ -17,7 +17,7 @@ import { focusRow, useReviewKeys } from "./review-keys";
 import { isClosed, openResults, type ReviewDraft, type ReviewSource } from "./source";
 import { useReviewActions, type Notice } from "./use-review-actions";
 import { useReviewRows } from "./use-review-rows";
-import { useSelection } from "./use-selection";
+import { useSelection, useShareReview } from "./use-selection";
 
 const NOTICE_MS = 8000;
 
@@ -92,6 +92,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
   // Desktop opens the first draft by default (focus follows); a phone opens nothing until a row is chosen.
   const present = selection.id !== null && rows.some((r) => r.id === selection.id);
   const current = body ? null : (rows.find((r) => r.id === selection.id) ?? (mobile ? null : (rows[0] ?? null)));
+  useShareReview(current?.id ?? null, sel.picked);
 
   const { setNotice } = actions;
   const say = useCallback((text: string) => setNotice({ text, kind: "info" }), [setNotice]);

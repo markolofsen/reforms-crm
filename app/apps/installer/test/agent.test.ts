@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { sessionRules } from "@hub/agent/session-rules";
 import { bindingPrompt, buildClaudeArgs, buildCodexArgs, extraDirs, listProjects, parseAgentArgs } from "../src/agent";
 import { claudeBaseArgs } from "@hub/agent/claude";
 import { pathsAt } from "@hub/config/paths";
@@ -61,11 +62,11 @@ describe("buildClaudeArgs", () => {
 describe("buildCodexArgs", () => {
   const home = mkdtempSync(path.join(tmpdir(), "hub-codex-"));
   const paths = pathsAt(home);
-  it("never carries the bypass flag; unattended means approvals never, normal on-request", () => {
+  it("never carries the sandbox bypass flag; unattended means approvals never, normal on-request; the hub's own hook is trusted (P51)", () => {
     for (const unattended of [true, false]) {
       const a = buildCodexArgs({ mode: "new", extra: [] }, paths, unattended);
-      expect(a.join(" ")).not.toMatch(/dangerously|yolo/);
-      expect(a).toEqual(["-C", home, "-a", unattended ? "never" : "on-request"]);
+      expect(a.join(" ")).not.toMatch(/bypass-approvals|yolo|danger-full-access/);
+      expect(a).toEqual(["-C", home, "-a", unattended ? "never" : "on-request", "--dangerously-bypass-hook-trust"]);
     }
     expect(buildCodexArgs({ mode: "continue", extra: [] }, paths, true).slice(0, 2)).toEqual(["resume", "--last"]);
   });
@@ -96,6 +97,12 @@ describe("bindingPrompt", () => {
     expect(t).toContain("project=acme");
     expect(t).toContain("hub agent <other>");
     expect(t).not.toContain("agent.sh");
+  });
+  it("carries the core's session rules (P51): the focus, revise the open draft, never send", () => {
+    const t = bindingPrompt("acme");
+    expect(t).toContain(sessionRules("acme"));
+    expect(t).toMatch(/Never ask what is on his screen/);
+    expect(t).toMatch(/this session is bound to acme/);
   });
 });
 

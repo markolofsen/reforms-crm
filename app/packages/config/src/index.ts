@@ -24,6 +24,13 @@ export const CLIENT_FILTERS = ["all", "ready", "hold", "owed", "done", "sent", "
 export type ClientFilter = (typeof CLIENT_FILTERS)[number];
 export type ClientCounts = Record<ClientFilter, number>;
 
+/**
+ * The views of the admin's Drafts list (P48; research 16 section 6.3), in their menu order. One source for the address
+ * (`apps/admin/src/routes/search.ts`) and the shared focus (`@hub/contract/focus`, P51).
+ */
+export const DRAFT_VIEWS = ["ready", "hold", "thin_basis", "finished", "sequences", "not_by_email", "all"] as const;
+export type DraftView = (typeof DRAFT_VIEWS)[number];
+
 export const FILTER_LABELS: Record<ClientFilter, string> = {
   all: "All",
   ready: "Ready",

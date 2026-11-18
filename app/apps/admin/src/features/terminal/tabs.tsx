@@ -6,6 +6,8 @@ import { PRESET_LABELS, type TerminalSessionDto } from "@hub/contract/terminal";
 import { cn } from "@hub/ui/cn";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
+import { useSharedFocus } from "@/lib/focus";
+import { agentSeesLine } from "./agent-sees";
 import { panelId, tabId } from "./session";
 import { useTerminal } from "./use-terminal";
 
@@ -37,6 +39,16 @@ function NewMenu() {
         ))}
       </MenuPopup>
     </Menu>
+  );
+}
+
+/** One quiet line (P51): what "this draft" means to the agent right now, from the focus this tab published. Showing, not a control. */
+function AgentSees() {
+  const { published } = useSharedFocus();
+  return (
+    <p className="truncate px-3 pb-1.5 text-muted-foreground text-xs" data-testid="agent-sees">
+      {agentSeesLine(published)}
+    </p>
   );
 }
 
@@ -85,6 +97,7 @@ export function TerminalHeader({ layer }: { layer: boolean }) {
           {layer ? "Hide" : <PanelRightCloseIcon aria-hidden="true" />}
         </ActionButton>
       </div>
+      {current && current.preset !== "shell" && <AgentSees />}
       {t.notice && (
         <p className="px-3 pb-2 text-destructive-foreground text-sm" role="alert">
           {t.notice}

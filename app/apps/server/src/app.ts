@@ -14,6 +14,8 @@ import { sendRoutes, type SenderOptions } from "./routes/sends";
 import { sequenceRoutes } from "./routes/sequences";
 import { terminalRoutes } from "./routes/terminal";
 import { liveRoutes } from "./routes/live";
+import { focusRoutes } from "./routes/focus";
+import type { FocusStore } from "./focus";
 import type { LiveService } from "./live";
 import type { TerminalService } from "./terminal";
 import { agentToolRoutes, type AgentToolsService } from "./agent-tools";
@@ -44,6 +46,8 @@ export type AppOptions = {
   agentTools?: AgentToolsService;
   /** Live panels (P50): the stream behind `GET /api/live`; without it the route is 404 and the admin keeps polling the pulse. */
   live?: LiveService;
+  /** The shared focus (P51): `POST /api/focus` keeps the admin's last focus for `hub focus` and `hub mcp`; without it the route is 404. */
+  focus?: FocusStore;
   now?: () => Date;
 };
 
@@ -116,7 +120,8 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", overviewRoutes(overview))
     .route("/", connectionRoutes(connections))
     .route("/", agentToolRoutes(repos, opts.agentTools))
-    .route("/", terminalRoutes(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
+    .route("/", terminalRoutes(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
+    .route("/", focusRoutes(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
 }
 
 export type AppType = ReturnType<typeof createApp>;

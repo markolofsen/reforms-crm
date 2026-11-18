@@ -36,6 +36,8 @@ export interface HubPaths {
   /** Per-project Codex homes (`CODEX_HOME`) of hub sessions: `<state>/codex` (P49 S10; git-ignored, generated). */
   codexHomes: string;
   guardLog: string;
+  /** The admin's shared focus (P51): `<state>/focus.json`, ids only, written by the server, read by `hub focus` and `hub mcp`. */
+  focus: string;
   secrets: string;
   configDir: string;
   configFile: string;
@@ -119,6 +121,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     evidence: join(state, "evidence"),
     codexHomes: join(state, "codex"),
     guardLog: join(state, "guard.log"),
+    focus: join(state, "focus.json"),
     secrets: fromEnv(env, "HUB_CONFIG_DIR") ?? join(state, "secrets"),
     configDir,
     configFile: fromEnv(env, "HUB_CONFIG_FILE") ?? join(configDir, "config.json"),

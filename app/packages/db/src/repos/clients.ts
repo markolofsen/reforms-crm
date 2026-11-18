@@ -187,6 +187,14 @@ export function clientsRepo(db: Db) {
       );
     },
 
+    /** One client of a project with its marks and reply state, or null (P51: `hub mcp` `client_show`). Read only. */
+    async card(project: string, id: number): Promise<{ id: number; name: string; email: string; repliesOwed: boolean; lastContactAt: string | null; marks: Mark[] } | null> {
+      const c = db.select().from(clients).where(and(eq(clients.project, project), eq(clients.id, id))).get();
+      if (!c) return null;
+      const m = db.select({ mark: marks.mark }).from(marks).where(eq(marks.clientId, id)).all().map((r) => r.mark);
+      return { id: c.id, name: c.name, email: c.email, repliesOwed: c.repliesOwed, lastContactAt: c.lastContactAt, marks: m };
+    },
+
     async isEmpty(): Promise<boolean> {
       return db.select({ id: clients.id }).from(clients).limit(1).get() === undefined;
     },

@@ -1,7 +1,7 @@
 ---
 name: bulk-drafts
 description: Use when the owner wants the same kind of message (a follow-up, a notice) prepared for a chosen group of clients of one project. Produces one reviewable unsent draft per client plus a table, only for recipients the project admits. Never sends and never invents facts. Unlike triage-mail, which answers whatever clients wrote, this starts from the owner's own purpose.
-allowed-tools: Read Write Bash mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content mcp__mail-mcp__list_drafts mcp__mail-mcp__create_reply mcp__knowledge-mcp__knowledge_search mcp__knowledge-mcp__knowledge_get
+allowed-tools: Read Write Bash mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content mcp__mail-mcp__list_drafts mcp__mail-mcp__create_reply mcp__knowledge-mcp__knowledge_search mcp__knowledge-mcp__knowledge_get mcp__hub__focus mcp__hub__drafts_list mcp__hub__client_show
 ---
 
 # Bulk drafts (draft-only, one batch, one project)
@@ -14,7 +14,7 @@ The owner started the session and said who and why ("follow-up всем лида
 the clients (decision 0009), so never send the owner to the admin to pick or prepare. The result shows in the admin by itself: every
 draft in Drafts (View "To review"), and the run as one session in Activity (one row per client: drafted or skipped, and why).
 1. Bind the project as `skills/triage-mail/SKILL.md` section 0 does (one project per session, read its `project.md`).
-2. Build the client list from the phrase: the project's Notion `clients` data source (session connector), filtered as the owner
+2. "выбранные / the selected ones" (P51) means the drafts selected in the admin: the `focus` tool of the `hub` MCP server lists them (up to 50, and how many more); work on exactly those clients, nobody else, and say so in the report. `none` or `stale`: ask in one line. Otherwise build the client list from the phrase: the project's Notion `clients` data source (session connector), filtered as the owner
    said. Keep only addresses admitted by `draft.recipients` (`skills/README.md` Rule 6); report the rest as
    skipped, and say how to open it (`skills/triage-mail/SKILL.md` section 1). Cap 30 unless the owner gave a number; say what was left.
 3. The owner's phrase gives a **brief**: purpose and tone (for example "a follow-up after two weeks of silence, warm"). It is never a body: do not paste it, fill it in or edit it per client. Generate one `batchKey` for the run (`bulk-<date>-<time>-<3 random chars>`) and pass it to every record, `record-draft` and `record-client` alike: the hub joins them into one session in Activity. Every client then goes through `skills/triage-mail/references/per-client.md` P1 to P7 in full, whatever the batch size, with the brief as the purpose: profile read, history (newest 3 both directions plus the message answered), facts in the order of `skills/triage-mail/references/kb-gaps.md` section 1 (`knowledge_search` in that client's words, then a placeholder), a body with an anchor only that client has. No body is written before P1 to P3 are done for that client. A client whose profile is empty or absent is still drafted from the thread, and listed as P3 in the report ("заполни профиль <client> в Notion") and as a `profile-empty` gap.

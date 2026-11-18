@@ -107,7 +107,21 @@ describe("the agent has no send path", () => {
     const args = enforcementArgs(f).join(" ");
     for (const t of SEND_TOOLS) expect(args).toContain(t);
     expect(args).toContain("--strict-mcp-config");
-    expect(HUB_MCP_SERVERS).toEqual(["mail-mcp", "notion", "knowledge-mcp"]);
+    expect(HUB_MCP_SERVERS).toEqual(["mail-mcp", "notion", "knowledge-mcp", "hub"]);
+  });
+
+  it("P51: the session gets the read-only hub MCP server bound to its project, and the focus hook on every prompt", () => {
+    const root = makeInstance().home;
+    const f = writeSessionFiles(root, PROJECTS, "acme-travel", "/n22/bin/node");
+    const mcp = JSON.parse(readFileSync(f.mcp, "utf8")) as { mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }> };
+    const hub = mcp.mcpServers.hub;
+    expect(hub?.command).toBe("/n22/bin/node");
+    expect(hub?.args).toEqual([path.join(ROOT, "app", "apps", "installer", "bin", "hub.mjs"), "mcp"]);
+    expect(hub?.env).toMatchObject({ HUB_PROJECT: "acme-travel", HUB_HOME: root });
+    const settings = JSON.parse(readFileSync(f.settings, "utf8")) as { hooks: Record<string, Array<{ hooks: Array<{ command: string; timeout: number }> }>> };
+    const hook = settings.hooks.UserPromptSubmit?.[0]?.hooks[0];
+    expect(hook?.command).toMatch(/hub\.mjs" focus --hook$/);
+    expect(hook?.timeout).toBe(5);
   });
 
   it("no agent module imports the sender", () => {

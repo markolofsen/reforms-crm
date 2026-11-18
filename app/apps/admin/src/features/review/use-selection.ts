@@ -1,4 +1,5 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { shareReview } from "@/lib/focus";
 import { isClosed, type ReviewDraft } from "./source";
 
 /**
@@ -17,4 +18,14 @@ export function useSelection(rows: ReviewDraft[]) {
   }, []);
   const all = useCallback(() => setIds(new Set(rows.filter((r) => !isClosed(r)).map((r) => r.id))), [rows]);
   return { all, picked, has: (id: number) => ids.has(id), toggle, clear, selecting: mode || picked.length > 0, setMode };
+}
+
+/**
+ * P51: the card on screen and the picked rows, shared with the focus publisher, because the address says neither (the desktop
+ * opens the first row of a bare `/drafts`; selection is not URL state). Cleared when the list leaves the screen.
+ */
+export function useShareReview(shownId: number | null, picked: readonly ReviewDraft[]): void {
+  const ids = picked.map((r) => r.id).join(",");
+  useEffect(() => shareReview(shownId, ids ? ids.split(",").map(Number) : []), [shownId, ids]);
+  useEffect(() => () => shareReview(null, []), []);
 }
