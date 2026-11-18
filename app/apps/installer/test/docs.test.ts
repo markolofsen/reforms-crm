@@ -51,7 +51,7 @@ describe("step list", () => {
  * An entry that no longer exists, or that ends with the line anyway, fails the second test: the list cannot rot.
  */
 const EXEMPT: Record<string, string> = {
-  "@docs/core/15-notion-project-deploy-skill.md": "the design and work packages of one skill; the checks and accesses it needs are in setup/checklist.md and setup/access.md",
+  "@docs/core/15-notion-project-deploy-skill.md": "the design and traps of one skill; the checks and accesses it needs are in setup/checklist.md and setup/access.md",
   "@docs/core/17-mail-filters.md": "the specification of the @hub/mail-filters package (rules, analyzer, exporters); the package README owns its layout",
   "@docs/core/18-kb-loop.md": "the knowledge loop as the agent follows it (sources, gap types, report format); no check, access or component list",
   "@docs/core/20-workflows.md": "the playbook file format and commands; its one doctor mention points to the step page",

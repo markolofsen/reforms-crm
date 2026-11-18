@@ -2,8 +2,8 @@
  * The human path. Everything that links a chat to a client, lists a chat, approves a reply or sends one lives here
  * and needs a `HumanActor`. This module is a separate package entry (`@hub/messengers/human`): the agent-facing
  * entry (`@hub/messengers`) does not export it. A `HumanActor` is minted only by `humanActor()`, which an entry
- * point calls once it knows a person is present (the CLI checks for a terminal; the server's session route checks
- * the signed-in owner). Do not import this file from anything an agent can call.
+ * point calls once it knows a person is present (the CLI checks for a terminal; the server mints none: the admin
+ * has no sign-in). Do not import this file from anything an agent can call.
  */
 import type { IdentifierKind, MessengerChannel, Repos } from "@hub/db";
 import { isSending, type MessengerAdapter, type SentReceipt } from "./adapter";

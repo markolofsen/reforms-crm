@@ -1,9 +1,8 @@
 # 19. Calendar: the agent keeps the owner's calendar, smartly and safely
 
-Status: design (2026-11-14). Skill: `skills/calendar/SKILL.md`. Owner ask: the pipeline agent should also manage the calendar (create entries and
-so on), smartly, and always write problems into reports. Fields `calendar.*` in `project.md` are **planned**: the parser (`@hub/projects`) does not
-know them yet and is not changed here; until it does, the skill reads them from the `## Settings` table as free rows (they are ignored by the parser,
-which only warns about unknown fields at most; verify before relying on it).
+Status: skill built (`skills/calendar/SKILL.md`): the agent keeps the owner's calendar (creates holds, finds slots) and writes
+every problem into a report. The fields `calendar.name`, `calendar.id` and `calendar.timezone` of `project.md` are parsed fields
+(`app/packages/projects/src/fields.ts`, listed in `16` section 3).
 
 ## 1. What is available (survey 2026-11-14, read only, nothing created or changed)
 

@@ -40,8 +40,11 @@ export function wanted(ctx: Ctx): { files: Record<FileName, string>; error?: str
     if (/^\s+- (apps|packages)\/\*\s*$/.test(l) && all.slice(0, i).some((x) => /^packages:/.test(x))) return false;
     return true;
   }).join("\n").replace(/^\n+/, "");
+  // The catalog (`catalog:` versions, P45 C5) is part of the policy: without it every core package's `"catalog:"` fails `pnpm install` at the instance root.
+  if (/^catalog:/m.test(read(wsFile)) && !/^catalog:/m.test(policy)) return { files: empty, error: `${wsFile}: the catalog block could not be copied` };
   const yaml = `# ${MARK}\npackages:\n  - core/app/apps/*\n  - core/app/packages/*\n  - apps/*\n  - packages/*\n${policy.endsWith("\n") ? policy : `${policy}\n`}`;
-  const turbo = `${JSON.stringify({ "//": MARK, ...(JSON.parse(read(turboFile)) as object) }, null, 2)}\n`;
+  // `$TURBO_ROOT$` is the instance root here: a core input path (`$TURBO_ROOT$/packages/ui/**`) lives under core/app.
+  const turbo = `${JSON.stringify({ "//": MARK, ...(JSON.parse(read(turboFile).replaceAll("$TURBO_ROOT$/", "$TURBO_ROOT$/core/app/")) as object) }, null, 2)}\n`;
   return { files: { "package.json": `${JSON.stringify(pkg, null, 2)}\n`, "pnpm-workspace.yaml": yaml, "turbo.json": turbo } };
 }
 

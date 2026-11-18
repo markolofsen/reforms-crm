@@ -1,8 +1,8 @@
 # 16. Projects and knowledge: one workflow, many projects
 
-Status: design, final for builders (2026-11-14); in manual-first operation (decision a decision or plan record kept in the owner's instance) the session binds ONE project itself (`skills/README.md`, Rules, item 2) and section 7 describes the optional gate path. Track: a decision or plan record kept in the owner's instance. Owner ask: the owner's instance docs
-(2026-11-14 later): one local workflow serves several projects (other sites, other mailboxes), each may have its own knowledge
-base, configuring a project has **no UI**: skills and workflow, agents do it, the owner answers questions from time to time.
+Status: built. The session binds ONE project itself (decision 0006; `skills/README.md`, Rules, item 2). One local workflow
+serves several projects (other sites, other mailboxes), each with its own knowledge base. Configuring a project has **no UI**:
+skills and agents do it, the owner answers questions from time to time.
 The agents are the users of this CRM; the admin app only shows state.
 
 ## 1. Decisions
@@ -12,9 +12,9 @@ The agents are the users of this CRM; the admin app only shows state.
 | 1 | A project is a folder `projects/<slug>/`; the files are the source of truth, SQLite is an index rebuilt from them | One source of truth; an agent edits a file, a human reads a diff; no settings screen |
 | 2 | `project.md` schema v1 is one `## Settings` table plus the existing `## Notion databases` list | The Notion parser already reads that list (`@hub/notion` `project.ts`); a table is ignored by it |
 | 3 | Knowledge is markdown files, searched with SQLite FTS5 in `@hub/db`; no embeddings until measured need (section 5) | Small corpus, local, deterministic, zero model, zero network |
-| 4 | A run belongs to exactly one project, resolved from the mailbox and recipient before the agent starts (section 7) | Isolation by construction, not by the agent's care |
+| 4 | A session belongs to exactly one project: the phrase or `$HUB_PROJECT` (`hub agent <slug>`) binds it; the mail routing rules are one pure function (section 7) | Isolation by construction, not by the agent's care |
 | 5 | The agent asks one question at a time and records the answer with its date; it never re-asks (section 8) | Owner's attention is the scarce resource |
-| 6 | Two new packages: `@hub/projects` (registry) and `@hub/knowledge` (index, search, MCP tool) | Registry is needed by gate, notion, mail, db; knowledge depends on it, not the reverse |
+| 6 | Two new packages: `@hub/projects` (registry) and `@hub/knowledge` (index, search, MCP tool) | Registry is needed by the installer, notion, mail, db; knowledge depends on it, not the reverse |
 
 ## 2. Project folder
 
@@ -25,16 +25,19 @@ projects/<slug>/
   knowledge/
     files/              the knowledge base: Markdown entries, edited by hand (committed)
     taxonomy.md         optional: the words entries may use (section 5, "Taxonomy"); `audiences` enforced
+  sequences/            follow-up sequences, one file each (doc 23); copied from `app/projects/_template/sequences/`
+  workflows/            playbook files (doc 20)
+  @dev/                 the project's development kanban (`hub dev`)
   .generated/           everything generated from the files above, git-ignored by ONE rule: mail-filters.xml, mail-filters.api.json, knowledge-import.json (last import: source, date, counts, per-file sha256)
   dumps/                notion-dump output (git-ignored)
   reports/              agent reports on local disk, git-ignored: kb/ (KB gaps), problems/, runs/ (doc 18)
 ```
 
-Hand-written: `project.md`, `mail-filters.md`, `knowledge/files/`, `knowledge/taxonomy.md`, `@dev/` (the project's development kanban, `hub dev init <slug> --apply`; table by `hub dev index <slug>`; doctor step `dev.kanban`). Generated or produced by agents: `.generated/`, `reports/`, `dumps/`, `knowledge/notion/`. The Notion CRM pack is core reference, not project data: it lives in `app/projects/_template/notion-crm/`.
+Hand-written: `project.md`, `mail-filters.md`, `knowledge/files/`, `knowledge/taxonomy.md`, `sequences/`, `workflows/`, `@dev/` (the project's development kanban, `hub dev init <slug> --apply`; table by `hub dev index <slug>`; doctor step `dev.kanban`). Generated or produced by agents: `.generated/`, `reports/`, `dumps/`, `knowledge/notion/`. The Notion CRM pack is core reference, not project data: it lives in `app/projects/_template/notion-crm/`.
 
 - `<slug>`: `[a-z0-9-]+`, equals the folder name and is the `project` column everywhere. It is renamed only with `hub project rename <old> <new>` (below), never by moving the folder by hand.
 - The knowledge base is the folder `knowledge/files/` and nothing else: to change an entry, edit its file and reindex. Notion is not a knowledge source and is not re-read; an old Notion Knowledge database is migrated once (`knowledge-import`), then ignored.
-- Per-project skill overrides (`<slug>/skills/<name>/SKILL.md`) do not exist and are not planned (decision a decision or plan record kept in the owner's instance): a difference between projects is a Settings row or a kind (section 3A), not a copy of a skill. The skills a session of a project may use are the kind's `skills`, listed in `.generated/PROJECT.json` and checked by the guard hook (section 6).
+- Per-project skill overrides (`<slug>/skills/<name>/SKILL.md`) do not exist and are not planned (decision 0010): a difference between projects is a Settings row or a kind (section 3A), not a copy of a skill. The skills a session of a project may use are the kind's `skills`, listed in `.generated/PROJECT.json` and checked by the guard hook (section 6).
 - `hub project setup <slug> [--tone <text>] [--signoff <text>] [--languages <tags>]`: answers the open questions in one pass. A flag writes that row (By = owner, through the same validator as every write); in a terminal, `tone` and `signoff` that are still empty are asked, with the kind's tone hint as the suggestion, and Enter skips. Without a terminal and without flags it changes nothing. `status` is never changed here: the project leaves `draft` when the owner edits `project.md`.
 - `hub project addresses <slug> --routes <file> [--apply]`: compares the addresses a project lists with the forwarding rules of an exported routing snapshot (JSON `{ "<zone>": { "rules": [...] } }`, the Cloudflare Email Routing shape; `-` reads stdin). A literal `to` rule that is enabled and forwards into one of the project's accounts or addresses is an address that reaches the project; catch-all rules are reported by zone. Dry run by default; `--apply` appends the missing ones to `mail.aliases` as the owner's answer. It never calls an API: exporting the snapshot needs the owner's own token and is done outside the core. Mail is routed by account first-class, so an unlisted forwarded address still reaches the project; the list matters for telling products apart and for dropping our own outbound mail.
 - `hub project rename <old> <new>` (dry run; `--apply` does it): renames the folder, the slug in the `# <slug>` heading and `name` row of `project.md`, the `project` column of every table and the registry row in ONE immediate transaction (the database file is copied next to itself first, `app.db.before-rename-<old>-<stamp>`), the generated session files under `state/projects/`, slug references in `.generated/` and the sticky agent binding. It refuses a taken target and undoes the file changes if the database refuses. Prose that names the old slug (docs, notes) is not rewritten: sweep it by hand.
@@ -46,11 +49,11 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 
 1. `# <name>`: one heading; the notion parser takes it as the display name. A short paragraph under it: what the project is.
 2. `## Settings`: the table below, columns `Field | Value | Answered | By`. `Answered` is an ISO date. `By` is `owner` (answered by the owner), `default` (the agent applied the default, owner did not object), or `agent` (derived from a system, e.g. `list_accounts`). A row exists only once the field is decided; a missing optional row means "default applies, never asked". Lists are comma-separated. Empty value is written as an empty cell.
-3. `## Notion databases`: list items `- <slug>: <data source id>` (existing format, read by `@hub/notion`). Slugs: `clients`, `leads`, `documents` core (conversation reports are `documents` of Type Report; there is no `reports` database since decision 0022); others (`deals`, `organizations`, `open-loops`, `participants`, `tasks`, `business-contacts`) optional. An old `reports` or `knowledge` entry is read and ignored.
+3. `## Notion databases`: list items `- <slug>: <data source id>` (existing format, read by `@hub/notion`). Slugs: `clients`, `leads`, `tasks`, `documents` are the core databases of the Notion pack (conversation reports are `documents` of Type Report; there is no `reports` database, decision 0022); `deals`, `organizations`, `open-loops`, `participants`, `business-contacts`, `expenses`, `payments` are optional. Which ones a project deploys is its kind's `notionModules`, and which ones it must list is the kind's `required` (section 3A: `clients`, plus `leads` for `sales-pipeline`). An old `reports` or `knowledge` entry is read and ignored.
 4. `## Answers`: append-only log, columns `Date | Field | Question | Answer`.
 5. `## Notes`: free prose.
 
-**Trap:** the notion parser treats any list item of the form `- word: value` as a database and fails on a non-UUID. Outside `## Notion databases` use tables or sentences, never `- key: value` items. (Work package K2 scopes the parser to its heading; until then the rule holds.)
+**Trap:** a list item of the form `- word: value` outside `## Notion databases` is an error (`stray_list_item`, `packages/projects/src/parse.ts`). Outside that heading use tables or sentences, never `- key: value` items.
 
 ### Fields (every field of v1)
 
@@ -59,13 +62,13 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 | `schema` | int | yes | `1` | `@hub/projects` | schema version; a parser refuses an unknown one |
 | `kind` | key of the kind registry (section 3A) | no | `generic` | `@hub/projects`, doctor, installer, `project-setup` | what kind of project this is: it decides modules and which fields below are required |
 | `name` | text | yes | folder slug | admin app, reports | display name (also the `#` heading) |
-| `status` | `draft` `active` `paused` `archived` | yes | `draft` | gate, runner | only `active` projects get runs; setup sets `active` after `doctor` passes; `archived` is retired and routes like `paused` |
+| `status` | `draft` `active` `paused` `archived` | yes | `draft` | `hub send`, doctor, registry | only an `active` project sends; setup sets `active` after `doctor` passes; `archived` is retired and routes like `paused` |
 | `languages` | list of BCP-47 | no | `en` | reply, triage skills | first is the default; drafts answer in the client's language when it is listed |
-| `timezone` | IANA | no | host timezone | gate, reports | quiet hours and report dates |
-| `mail.accounts` | list | yes | none | gate, `@hub/mail`, routing | Mail.app account names, exactly as `list_accounts` returns them |
+| `timezone` | IANA | no | host timezone | reports, `calendar.timezone` default | quiet hours and report dates |
+| `mail.accounts` | list | yes | none | `@hub/mail`, routing, `hub guard` | Mail.app account names, exactly as `list_accounts` returns them |
 | `mail.addresses` | list | no | the accounts' own addresses | routing | every address this project receives at: aliases, the form-lead address |
 | `mail.aliases` | list | no | none | routing | addresses that route to the project but are not a Mail account or the sender: aliases, a planned address. Merged into `config.mail.addresses`, so routing, the duplicate-claim check and `doctor` treat them as addresses (for example a planned address before a mailbox switch) |
-| `mail.mailboxes` | list | no | `INBOX` | gate | mailboxes polled for new mail |
+| `mail.mailboxes` | list | no | `INBOX` | parsed, read by no command | mailboxes to read for new mail |
 | `mail.sent_mailbox` | text | no | `Sent Mail` | `mail_history` | where outgoing mail is read from |
 | `mail.sender` | address | yes | first of `mail.addresses` | `mail_draft` | the From of every draft |
 | `draft.recipients` | `test` `any` or list | no | `test` | `mail_draft` guard | who a draft may go to; `test` = the global `allow_list` of `config/config.json`; the owner flips it to `any` once |
@@ -84,9 +87,9 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 | `calendar.timezone` | IANA tz | no | `timezone` | `calendar` skill | zone of the owner's working hours |
 | `notion.databases` | section | yes | none | notion, skills | the `## Notion databases` list; `clients` required (and `leads` for `sales-pipeline`); any other entry (an old `knowledge` or `reports` one) is ignored |
 | `knowledge.source` | `files` | no | `files` | `knowledge-import`, index | the local folder `knowledge/` is the base; the only value is `files` |
-| `run.quiet_hours` | `HH:MM-HH:MM` or `off` | no | global config | gate | no run in this window |
-| `run.max_messages` | int | no | global (5) | gate | messages per run |
-| `run.max_budget_usd` | number | no | global | runner | cost cap per run |
+| `run.quiet_hours` | `HH:MM-HH:MM` or `off` | no | global config | parsed, read by no command (manual-first) | no run in this window |
+| `run.max_messages` | int | no | global (5) | parsed, read by no command | messages per run |
+| `run.max_budget_usd` | number | no | global | parsed, read by no command | cost cap per run |
 | `setup.completed` | date | no | none | `project-setup` | set when setup ends |
 | `setup.doctor` | `<date> pass` or `<date> fail: <check>` | no | none | `project-setup` | last `doctor --project` result |
 
@@ -135,7 +138,7 @@ A project folder that holds only the databases list (the layout that predates sc
 
 ## 3A. Kinds
 
-A kind is data owned by core (`app/packages/projects/src/kinds.ts`, validated by the `Kind` schema at load): `modules` (mail, calendar, knowledge, filters, notion, bulk), `required` (dotted paths of the resolved config that must have a value once the project is not a draft, for example `tone` or `notion.databases.clients`), `notionModules` (which part of the Notion CRM pack it deploys), `mailClasses` (the classification set; `generic` is the eight classes every rule file uses), `skills` (allowed for a bound session), `defaults` and a starting `taxonomy`. Each mail class carries `skippable`, `neverSpam`, `triage` and a label `color`; `@hub/mail-filters` reads the project's classes from its kind (the rules file stays the same table). `hub project sync` writes `.generated/PROJECT.json` (kind, modules, skills, mail classes, resolved settings, `missing` required fields) and `hub project show <slug> --json` prints it: skills read that instead of the prose. Kinds are neutral (no owner or product names) and carry no code.
+A kind is data owned by core (`app/packages/projects/src/kinds.ts`, validated by the `Kind` schema at load): `modules` (mail, calendar, knowledge, filters, notion, bulk, sequences), `required` (dotted paths of the resolved config that must have a value once the project is not a draft, for example `tone` or `notion.databases.clients`), `notionModules` (which part of the Notion CRM pack it deploys), `mailClasses` (the classification set; `generic` is the eight classes every rule file uses), `skills` (allowed for a bound session), `defaults` and a starting `taxonomy`. Each mail class carries `skippable`, `neverSpam`, `triage` and a label `color`; `@hub/mail-filters` reads the project's classes from its kind (the rules file stays the same table). `hub project sync` writes `.generated/PROJECT.json` (kind, modules, skills, mail classes, resolved settings, `missing` required fields) and `hub project show <slug> --json` prints it: skills read that instead of the prose. Kinds are neutral (no owner or product names) and carry no code.
 
 | Kind | For | Required beyond mail accounts, sender and tone |
 |---|---|---|
@@ -154,7 +157,7 @@ The agent has no send tool in any mode: the deny rules of `hub agent` (`DENIED_T
 
 `hub send <draftId> [--apply]` (dry run by default) refuses, with exit code 2 and one JSON line, when any of these holds: the draft is not `ready` and `checked`; the project is not `active`; the `draft.recipients` rule does not admit every To, Cc and Bcc of the real Mail draft; a placeholder (`[Owner: ...]`, `{{x}}`) is left in subject or text; the draft has `injection_suspected` (recorded by `hub record-draft`); a red safety result (for example `do_not_contact`) is unacknowledged; the draft has attachments; the draft's sender or account is not the project's; Stop all is on; the draft was already sent or is being sent; Mail holds no draft, or more than one, that matches the recorded `mailRef`, subject and recipient. A follow-up step (a draft with `enrollment_id`, P47) is refused in every send mode: the owner sends it from Mail ([23-sequences.md](23-sequences.md)). Every apply writes a `send_log` row first (status `sending`, full text) and ends it `sent` or `failed`. Exit codes: 0 ok (a clean dry run too), 1 a failure while sending or writing, 2 refused or bad input.
 
-`hub send --due [--project <slug>] [--apply]` is the autosend runner, off unless a project says `send.mode: auto`. It queues eligible drafts (class listed in `send.classes`, same checks as above, plus the daily cap) as `queued` rows due after `send.delay_minutes`, and sends the rows that are due after re-reading the Mail draft: the text must equal the queued snapshot, the draft must still be `ready`, the project still `auto` and the class still listed. A queued row is cancelled by `hub send --cancel <logId>`, by holding or skipping the draft, or by Stop all (`hub send --stop [--project <slug>]`, lifted with `--resume`). Nothing runs it on a schedule yet.
+`hub send --due [--project <slug>] [--apply]` is the autosend runner, off unless a project says `send.mode: auto`. It queues eligible drafts (class listed in `send.classes`, same checks as above, plus the daily cap) as `queued` rows due after `send.delay_minutes`, and sends the rows that are due after re-reading the Mail draft: the text must equal the queued snapshot, the draft must still be `ready`, the project still `auto` and the class still listed. A queued row is cancelled by `hub send --cancel <logId>`, by holding or skipping the draft, or by Stop all (`hub send --stop [--project <slug>]`, lifted with `--resume`). Nothing runs it on a schedule.
 
 The admin sends too (plan S3), through one confirmed route on the loopback server, `POST /api/projects/:slug/drafts/:id/send`. Its first call (`apply: false`) is the dry run: it reads Mail and returns the exact mail (from, to, cc, subject, text) or a 409 with the whole list of reasons. Its second call (`apply: true`) carries the recipients and subject the person saw and sends only if Mail's draft still matches them; it runs the same `assess` and writes the same `send_log` row as `hub send` (actor `admin`). The Drafts screen shows the button on a recorded draft that is `ready` and Checked, the exact mail inline for confirmation (no dialog, `app/@rules` rule 2), `Injection suspected` and the mail class on the row. The Project screen has the health checks (`hub project doctor` without Mail and Notion), the send history with the full text, Cancel for a queued row, and Stop all / Resume for one project or every project. A sent mail cannot be recalled, so only a `queued` row can be cancelled. The agent's session cannot reach this route: its deny rules refuse any Bash command naming a loopback host and WebFetch to loopback (`HUB_API_COMMANDS`).
 
@@ -200,7 +203,7 @@ Body = the page body (Notion `.md`), the answer in plain markdown. Path: `knowle
 
 Table `knowledge_docs` in `@hub/db`: `id`, `project`, `path` (relative to the project folder, unique with `project`), `title`, `use`, `approved`, `audiences` (JSON), `category`, `kind`, `valid_until`, `body`, `phrasings`, `content_hash`, `updated_at`. Virtual table `knowledge_fts` (FTS5, external content `knowledge_docs`, columns `title`, `phrasings`, `body`), `tokenize='unicode61 remove_diacritics 2'`, `prefix='2 3'`, kept in sync by triggers. Drizzle cannot model virtual tables: the FTS5 DDL and triggers go in a hand-written migration (`drizzle-kit generate --custom`).
 
-Reindex is incremental by `content_hash`: `knowledge index <project>` walks `knowledge/`, upserts changed files, deletes rows whose file is gone. Run after every edit and by the run gate when a file's mtime is newer than the last index.
+Reindex is incremental by `content_hash`: `knowledge index <project>` walks `knowledge/`, upserts changed files, deletes rows whose file is gone. Run it after every edit (`knowledge-import` and `kb-review` do).
 
 ### Retrieval choice: markdown + FTS5, embeddings only on measured need
 
@@ -212,7 +215,7 @@ Reindex is incremental by `content_hash`: `knowledge index <project>` walks `kno
 
 ### Tool contract: `knowledge_search`
 
-Registered by the local MCP (`@hub/knowledge`, stdio; the runner starts it per run with `HUB_PROJECT=<slug>`).
+Registered by the local MCP (`@hub/knowledge`, stdio). `hub agent <slug>` writes the session's `mcp.json` under `state/projects/<slug>/` with `HUB_PROJECT=<slug>` for it (`apps/installer/src/safety.ts`).
 
 ```
 knowledge_search({ project, query, audience?, limit?, include? })
@@ -231,24 +234,24 @@ Rules for the agent, stated in the skills that call it: state a fact in a draft 
 
 ## 6. Isolation between projects
 
-1. **Files**: a run reads only its own `projects/<slug>/`. The runner passes the path; skills never list `projects/`.
+1. **Files**: a session reads only its own `projects/<slug>/`; skills never list `projects/`, and `hub guard` flags a path in another project's folder (item 8).
 2. **SQLite**: every table has `project`; every repository function takes `project` as a required argument and has no "all" default. The only cross-project reads are the admin app's project switcher and `doctor`.
 3. **Knowledge**: `knowledge_search` and `knowledge_get` require `project`, are bound to `HUB_PROJECT`, and filter in SQL (`knowledge_docs.project = ?` joined to the FTS match). An entry is never shared: a fact two projects need is copied into each (explicit duplication beats a shared leak).
-4. **Mail**: a run uses only `mail.accounts` of its project; `mail_history` takes `project` and rejects an account outside it. The third-party `mail-mcp` is not project-aware, so the skill rule "use only the accounts in project.md" is enforced by the tool allow-list in `mcp.json` per run, and checked by `doctor`. A client who writes to two projects is two client rows (`clients` is unique on `project, email`).
+4. **Mail**: a run uses only `mail.accounts` of its project; `mail_history` takes `project` and rejects an account outside it. The third-party `mail-mcp` is not project-aware, so the skill rule "use only the accounts in project.md" is enforced by `hub guard` (item 8), which flags a mail call naming another account. A client who writes to two projects is two client rows (`clients` is unique on `project, email`).
 5. **Notion**: only databases listed in the project's `project.md`; token from `notion.token_file`. A skill refuses a page or data source id that is not in the list.
 6. **Drafts**: From is `mail.sender`; recipients are checked against `draft.recipients`. A new project starts in `test`.
 7. **Outputs**: reports, log events, drafts and dumps carry or live under the project; client data never appears in another project's reply or report.
 8. **Tool calls** (`hub agent <project>`): the PreToolUse hook `hub guard` runs `auditToolCalls` live: a mail call naming an account outside the project, a knowledge call naming another project, a path in another project's folder, a send-capable tool, and a hub skill that the project's kind does not allow. Warn by default, `HUB_GUARD=block` refuses. Claude Desktop sessions have prompt-level isolation only; use `hub agent <slug>` for anything touching more than one mailbox.
 
-## 7. How a run picks its project
+## 7. Which project a message belongs to
 
-Resolved in the gate, before any agent is started, from the message's account and recipients (`To`, `Cc`, `Delivered-To`, `X-Original-To`). Addresses are lower-cased; a `+tag` is stripped for comparison.
+The session binds its project itself (decision 0006); no command routes mail before a session starts. The rules a message belongs to a project by are one pure function, `resolveProject` (`app/packages/projects/src/route.ts`), over the message's account and recipients (`To`, `Cc`, `Delivered-To`, `X-Original-To`). Addresses are lower-cased; a `+tag` is stripped for comparison.
 
 1. Candidates: `active` projects where a recipient equals one of `mail.addresses`, or the message's account is in `mail.accounts`.
 2. A recipient match wins over an account match (one Mail account can hold mail for several projects through aliases).
-3. Exactly one candidate: the run is `project=<slug>`, one run per project per tick.
-4. Zero candidates (`unrouted`) or more than one (`ambiguous`): no run; the gate counts it, writes one `needs_human` event per new address, and opens a question (section 8). Never a default project.
-5. Form leads: the system mail from the site form is addressed to the project's lead address (`mail.addresses`), so it routes like any mail. Owner-triggered runs pass `--project <slug>` and skip routing.
+3. Exactly one candidate: the message is that project's.
+4. Zero candidates (`unrouted`) or more than one (`ambiguous`): no project, never a default one. A match only on a project that is not `active` is `inactive`.
+5. Form leads: the system mail from the site form is addressed to the project's lead address (`mail.addresses`), so it maps like any mail.
 6. Outgoing mail (history): attributed to the project of its recipient's client row, never routed on its own.
 7. `doctor` fails when an address or account is claimed by two projects (pk on `project_addresses`) or when an `active` project has none.
 
@@ -259,7 +262,7 @@ Goal: configuration happens through conversation, costs the owner few answers, a
 1. **Read first.** Before asking, read `## Settings` and `## Answers` of the project and `project_questions`. A field with a row is decided; never ask it. Optional fields get their default silently (`By=default`) and are shown once in the closing summary.
 2. **One question at a time**, closed form: the field, why it is needed (one clause), a proposed default, at most three options. In the owner's language (Russian today); files stay English.
 3. **Ask only what the agent cannot find out.** Accounts from `list_accounts`, databases from Notion search, sender from the addresses: derive, then confirm in one question ("Is hello@acme.example the sender for Acme Travel?"). A new project needs at most six answers: name, accounts/addresses, Notion databases, knowledge source, tone, test mode.
-4. **Where.** Interactive: in the chat. Unattended run that finds a missing or contradicted required field: insert one `project_questions` row (`status=open`, unique per project), write a `needs_human` event (sound), and stop that project's run; other projects continue. The owner answers in any Claude session in this folder; `project-setup` in resume mode lists open questions and asks the oldest. The admin app only shows the count (read-only).
+4. **Where.** In the chat of the session the owner started. A question that has to wait is one `project_questions` row (`status=open`, unique per project); `project-setup` in resume mode lists open questions and asks the oldest.
 5. **Record at once.** Write the Settings row (value, today's date, `By=owner`), append the Answers row, mark the question `answered`, then run `./run.sh doctor --project <slug>`.
 6. **Never re-ask.** The only reasons to ask a decided field again: (a) `doctor` proves the value false (the account is not in Mail): ask as a correction, quoting the old answer and what was found; (b) the owner says to change it. The new answer replaces the Settings row; the Answers log keeps the history.
 7. **Silence is not consent for risk.** `draft.recipients: any` and `status: active` are set only after an explicit owner answer or a passing `doctor` plus the owner's yes. Everything else may take its default.
@@ -271,6 +274,5 @@ Goal: configuration happens through conversation, costs the owner few answers, a
 - `skills/knowledge-import/SKILL.md`: fills `knowledge/` from the Notion dump or from files, then indexes and checks.
 - Interview mode of `skills/notion-project-deploy` (doc `15`) is this same interview: `project-setup` calls the deploy skill when the project's Notion has no databases yet.
 
-Work packages for builders: a decision or plan record kept in the owner's instance.
 
 Update this page when the architecture changes.

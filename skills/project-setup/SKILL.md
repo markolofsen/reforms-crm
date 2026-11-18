@@ -43,4 +43,4 @@ Talk to the owner in Russian, briefly; every file is English. Never send mail. N
 - Every field the project's kind requires has a Settings row or a section entry (`./run.sh project show <slug>` prints the kind and any `missing_required`); no row duplicates; dates are ISO.
 - No address or account is also claimed by another project (sync reports it).
 - `git status` shows only `projects/<slug>/` changes from you; stage explicit paths, never `git add -A`.
-- You asked each field at most once, and no question remained open without a `project_questions` row when run unattended.
+- You asked each field at most once, and a question you could not ask now is one open `project_questions` row.

@@ -14,7 +14,7 @@ section 8 here and `@docs/core/19-calendar.md` section 5 (one local mechanism sh
 
 ## 0. Bind the session to one project
 1. Bind as `skills/triage-mail/SKILL.md` section 0 (slug, `project.md`, one project per session, a second project refused).
-2. From `project.md` take the `calendar.*` rows (planned fields, all optional):
+2. From `project.md` take the `calendar.*` rows (parsed fields, all optional; `hub project show <slug> --json` prints them resolved):
    `calendar.name` (Apple Calendar name, exactly), `calendar.id` (optional), `calendar.timezone` (IANA, default: the owner's `timezone`
    row, else host), `calendar.work_hours` (`HH:MM-HH:MM`, default `09:00-17:00`, in `calendar.timezone`), `calendar.work_days`
    (default `Mon-Fri`), `calendar.default_duration` (minutes, default 30), `calendar.buffer` (minutes before and after, default 10),

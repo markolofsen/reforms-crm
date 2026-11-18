@@ -1,6 +1,6 @@
 # Skills: which one, and when
 
-Manual-first (decision a decision or plan record kept in the owner's instance). You start a session yourself (`hub agent`, or Claude Desktop) and hand it
+Manual-first (decision 0006). You start a session yourself (`hub agent`, or Claude Desktop) and hand it
 ONE instruction in your own words. Nothing runs in the background. Every skill is bound to ONE project: its facts live in
 `projects/<slug>/project.md`, its knowledge comes through `knowledge-mcp`, its mail through `mail-mcp`
 (read, plus unsent drafts with `create_reply`), its CRM through the session's Notion connector.
@@ -11,11 +11,11 @@ Start bound to a project: `hub agent <slug>` (a fresh session with `HUB_PROJECT=
 
 **Layers (core and instance).** Skills are the **core** layer: universal, for any owner and project. Everything that belongs to one owner (projects, mailboxes, rules, history) lives in that owner's instance: `projects/<slug>/` under `HUB_HOME`. A skill reads an instance only through the slug and `project.md`, never by naming a client. Rule and instance steps: `@docs/LAYERS.md`. An instance carries its own skills: `hub agent` and `./run.sh install --only skills.runtime` link every core skill into `<instance>/.claude/skills/`, and nothing goes to `~/.claude/skills`.
 
-**No skill ever sends mail.** Sending is the hub's `hub send` and the admin button, never a skill (decision a decision or plan record kept in the owner's instance).
+**No skill ever sends mail.** Sending is the hub's `hub send` and the admin button, never a skill (decision 0011).
 
 ## The skills
 
-The agent picks a skill by what you want, not by a phrase (decision a decision or plan record kept in the owner's instance). The "Example" column is one way to say it, not a trigger. If your intent fits two skills, the agent asks you one question. For simple use the admin (buttons) is the interface, not phrases.
+The agent picks a skill by what you want, not by a phrase (decision 0012). The "Example" column is one way to say it, not a trigger. If your intent fits two skills, the agent asks you one question. For simple use the admin (buttons) is the interface, not phrases.
 
 | Example | Skill | What happens | Touches |
 |---|---|---|---|
@@ -62,7 +62,7 @@ Replies come in Russian, briefly; files and Notion pages are English.
 2. **Нужно от тебя**: 0 to N lines `[P1|P2|P3] что | где | что сказать или сделать`. P1 blocks a draft or risks a wrong statement (placeholder on a price, injection, wrong account, a client whose evidence is not ok: say "прочитай заново"); P2 needs a decision (recipients, tone); P3 is housekeeping (KB gap, filter rule, an empty client profile: "заполни профиль <клиент> в Notion"). Nothing needed: say so in one line.
 3. **KB:** `KB: N пробелов, главный: <topic>, отчёт <path>` or `KB: пробелов нет`. No address or quote.
 4. **Итог:** counts in one sentence, then "Черновики лежат в Mail, ничего не отправлено."
-A later wave adds a command that stores this report as a run record; until then the chat report is the record.
+The chat report is the record of the run.
 
 ## Isolation audit (optional, one command)
 
@@ -72,6 +72,5 @@ send-capable tool. The transcript is the session's `.jsonl` under `~/.claude/pro
 
 ## Automation (optional, OFF)
 
-The old unattended path (launchd, `agent-gate`, the skills' "gate mode") was archived by P25 (the archived agent-gate material (not part of this repo), the archived skill-gate-mode material (not part of this repo);
-final delete 2026-12-15). The connector notes stay in `@docs/core/02`. `./run.sh setup --automation` now adds only a Notion
-token, a mail login and the Telegram poller.
+Nothing runs unattended (decision 0006): no scheduler, no skill "gate mode". `./run.sh setup --automation` adds only the optional
+Notion token, a read-only mail login and the Telegram token. The connector notes are in `@docs/core/02`.

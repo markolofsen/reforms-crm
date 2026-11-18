@@ -2,7 +2,10 @@
 // `hub` entry point. Runs the TypeScript CLI through tsx, resolved from THIS package, so it works from any
 // folder and through a symlink (the real path of this file is what Node resolves against).
 // Started inside an instance without HUB_HOME, it first hands over to that instance's pinned core (src/reexec.ts).
+// Before the CLI is loaded, core/app's dependencies are checked (src/deps.ts): a checkout that moved ahead of its
+// node_modules (a pin bump, a new workspace package) installs first instead of crashing on an import.
 import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { register } from "tsx/esm/api";
 
 register();
@@ -14,5 +17,17 @@ if (next) {
     env: { ...process.env, HUB_HOME: next.home, HUB_REEXEC: "1" },
   });
   process.exit(r.status ?? (r.signal ? 130 : 1));
+}
+const { INSTALL, installHint, staleDeps } = await import("../src/deps.ts");
+const appDir = fileURLToPath(new URL("../../..", import.meta.url)).replace(/\/$/, "");
+const stale = staleDeps(appDir);
+if (stale.length) {
+  // stderr only: stdout stays the command's own (some print JSON).
+  process.stderr.write(`hub: core/app dependencies are behind the checkout (${stale[0]}${stale.length > 1 ? `, +${stale.length - 1} more` : ""}); installing\n`);
+  const r = spawnSync("pnpm", ["--dir", appDir, ...INSTALL], { stdio: ["ignore", process.stderr, process.stderr] });
+  if (r.status !== 0) {
+    process.stderr.write(`hub: the install failed. Run: \`${installHint(appDir)}\`\n`);
+    process.exit(1);
+  }
 }
 await import("../src/cli.ts");

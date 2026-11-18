@@ -15,7 +15,7 @@ Draft-only is enforced by types and by what can be imported, not by a prompt:
 
 - An agent can only `createDraft` (status `draft`, chat must be allow-listed).
 - `adapter.send` takes a `ConfirmedDraft`, a branded type minted by `confirmDraft` in `human.ts`. A hand-built or cast object is refused at run time (WeakSet check), and the package `exports` map blocks a deep import of the minter.
-- A `HumanActor` is minted only by `humanActor()`. The CLI mints one only when stdin is a TTY; the server's session route mints one for the signed-in owner.
+- A `HumanActor` is minted only by `humanActor()`. Only the messengers CLI mints one, and only when stdin is a TTY; the server mints none (the admin has no sign-in).
 - Channels `telegram_user` and `whatsapp` have no `send` at all: `copyDraft` returns the text and a link to open the chat.
 
 ## Data (migration 0003 in `@hub/db`)

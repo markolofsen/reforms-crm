@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -49,6 +49,8 @@ describe("hub init", () => {
     expect(readCoreVersion(dir)).toBe(git(r.work, "rev-parse", "v0.2.0"));
     expect(readFileSync(path.join(dir, "core.version"), "utf8")).not.toContain("follows");
     expect(readFileSync(path.join(dir, "README.md"), "utf8")).toContain("# acme");
+    expect(lstatSync(path.join(dir, "AGENTS.md")).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(path.join(dir, "AGENTS.md"))).toBe("CLAUDE.md");
     expect(statSync(path.join(dir, "run.sh")).mode & 0o111).not.toBe(0);
     expect(lstatSync(path.join(dir, ".claude", "skills", "triage")).isSymbolicLink()).toBe(true);
     expect(readFileSync(path.join(dir, ".gitmodules"), "utf8")).toContain("core");

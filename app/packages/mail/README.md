@@ -1,7 +1,7 @@
 # @hub/mail
 
 The read-only IMAP reader behind the `MailHistory` contract. The one-mail-to-Markdown converter and its CLI that used
-to live here were archived by P25 (the archived mail-to-markdown material (not part of this repo); nothing imported them).
+to live here were archived by P25 (outside this repo; nothing imported them).
 
 - `src/history.ts`: the `MailHistory` contract (all mail with a client address, paged, newest first).
 - `src/imap/` (import `@hub/mail/imap`): the reader behind it, read-only. See below.
@@ -19,6 +19,6 @@ message. Any unreadable account fails the call with `unavailable` (no silent hol
   `{ "account": "Google", "host": "imap.gmail.com", "port": 993, "user": "me@example.org", "pass": "<app password>" }` or `"accessToken": "<OAuth2>"`
   instead of `pass`; optional `addresses` (own addresses, so `direction` is right), `mailboxes`, `sentMailbox`. `account` is the name a project lists
   under `mail.accounts`. Default mailboxes: all except Drafts, Trash and Junk; Gmail: All Mail only.
-- **Sent detection:** `readSent(account, session, since)` and `matchSent(drafts, sent)` (pure; rules and limits in a decision or plan record kept in the owner's instance).
+- **Sent detection:** `readSent(account, session, since)` and `matchSent(drafts, sent)` (pure; the match rules: `@docs/core/14-bulk-send-interface.md`).
 - **Tests** use `FakeImapServer` and `buildEml` (in memory, no network, records every call so a test can assert only reads happened) and a fake imapflow client for the adapter.
   Never run against a real mailbox. Unverified: Google Workspace may refuse app passwords or basic IMAP (then an OAuth access token is needed).

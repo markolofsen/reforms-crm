@@ -16,7 +16,7 @@ Source: owner and agent notes from earlier work (memory entries `notion-api-crea
 | 10 | Rate limits | One database at a time, retry 429 with backoff; never parallel creates in one parent |
 | 11 | `notion-create-database` returns a database with its data source; the **data source id** is what `project.md` lists (`collection://<id>`), not the database id | Write the data source id into `## Notion databases` |
 | 12 | Creating a page under a `Hub`/teamspace root the integration cannot see | Check the parent through `notion-fetch` before; a 404 on a known id means a grant problem (3) or a trashed parent (4) |
-| 13 | The hosted Notion MCP token's permissions and plan limits are unverified (a decision or plan record kept in the owner's instance) | The dry run starts with one harmless read; the first write is the scratch page, never a database |
+| 13 | The hosted Notion MCP token's permissions and plan limits are unverified | The dry run starts with one harmless read; the first write is the scratch page, never a database |
 | 14 | **Self-relation with DUAL on both sides** (`Parent task` + `Sub-tasks`) creates four properties (`Parent task 1`, `Sub-tasks 1`) | Add ONE side only with `DUAL 'Reverse' 'id'`; the reverse appears by itself. If both were added, `DROP COLUMN` the extras you created |
 | 15 | **Not expressible in the DDL**: relation `limit 1`, option descriptions, page templates, `CREATED_BY`, board groupBy hideEmpty setting (views come back with `hideEmptyGroups: true` for groups) | Record as `differs: cannot be set through the MCP`; do not retry |
 | 16 | A **wrong link typo is silent**: a mistyped database id in Help text is stored as a plain link | After creating Help, fetch it and check each database link became a `mention` |

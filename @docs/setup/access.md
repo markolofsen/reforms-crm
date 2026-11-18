@@ -76,7 +76,7 @@ Create a bot with @BotFather and store the token in `state/secrets/telegram-bot-
 
 ## Nothing in the user's home
 
-An instance owns its data, config, secrets, backups and skills. The skills are linked into `<instance>/.claude/skills/` (generated, git-ignored), so a Claude session started in the instance finds them and two instances never share a skill folder. The only thing this tool can write outside the instance is the optional `hub` shortcut, `~/.local/bin/hub`, made by `hub link` only; run the instance with `./run.sh` and you never need it. An older `hub setup` linked the skills into `~/.claude/skills`: `hub doctor` (step `skills.legacy`) lists those links with the one `rm` command that removes them; the hub never deletes them itself.
+No credential and no skill is written to the user's home; the one exception (the optional `hub` shortcut) and the old `~/.claude/skills` links (`skills.legacy`) are in [`../core/08-local-app-stack.md`](../core/08-local-app-stack.md), "Where files live".
 
 ## Verify
 

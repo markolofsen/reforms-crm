@@ -2,7 +2,7 @@
 
 Layer: **core** (the engine). The sequences themselves are a project's own files (custom). Rule: `@docs/LAYERS.md`.
 
-A sequence is a short, written plan of follow-ups for one kind of silence: "we answered an enquiry and they did not write back", "we sent a proposal and heard nothing". The owner enrols a quiet client by hand; on the day a step falls due, a session drafts that step into Mail when the owner asks; the owner sends it from Mail. A reply, a bounce, an opt-out, a closed lead or a do-not-contact mark ends it. Track P47; the owner's decisions of 2026-11-18 are in its plan.
+A sequence is a short, written plan of follow-ups for one kind of silence: "we answered an enquiry and they did not write back", "we sent a proposal and heard nothing". The owner enrols a quiet client by hand; on the day a step falls due, a session drafts that step into Mail when the owner asks; the owner sends it from Mail. A reply, a bounce, an opt-out, a closed lead or a do-not-contact mark ends it.
 
 **Manual-first.** Nothing runs on a timer. There is no scheduler and no automatic send: the hub only says what is due. Only the owner enrols, pauses or resumes. The agent can only reduce mail: stop, delay, judge.
 

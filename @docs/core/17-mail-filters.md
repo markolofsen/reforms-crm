@@ -1,6 +1,6 @@
 # 17. Mail filters: classify all incoming mail by where it comes from
 
-Status: built and tested (2026-11-14); first live run with the owner pending. Track: a decision or plan record kept in the owner's instance.
+Status: built and tested (2026-11-14); first live run with the owner pending.
 Owner ask: the owner's instance docs (2026-11-14, mail filters). Package: `app/packages/mail-filters` (`@hub/mail-filters`).
 Skill: `skills/mail-filters/SKILL.md`. Triage reads the result: `skills/triage-mail/SKILL.md`.
 

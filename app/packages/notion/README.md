@@ -1,6 +1,6 @@
 # notion-dump
 
-A read-only Notion backup for reforms-crm (package `@hub/notion`, `app/packages/notion`) (track P2, the owner's instance docs). A deterministic job:
+A read-only Notion backup for reforms-crm (package `@hub/notion`, `app/packages/notion`). A deterministic job:
 no model, no Hub, no OAuth session. It uses `@notionhq/client` with an internal integration token and has no code path
 that writes to Notion: the reader interface (`src/types.ts`) holds three read methods and nothing else.
 
@@ -8,16 +8,18 @@ that writes to Notion: the reader interface (`src/types.ts`) holds three read me
 pnpm --filter @hub/notion notion-dump check   acme          # can the token see every database?
 pnpm --filter @hub/notion notion-dump dump    acme          # -> projects/acme/dumps/YYYY-MM-DD/
 pnpm --filter @hub/notion notion-dump restore acme --dry-run
+pnpm --filter @hub/notion notion-dump leads   acme          # what waits in Leads: needs reply, overdue, won without a client
+pnpm --filter @hub/notion notion-dump diff    leads --live live.json   # the pack's schema vs a live data source; exit 2 on a difference
 pnpm --filter @hub/notion typecheck && pnpm --filter @hub/notion test
 ```
 
 Flags: `--out DIR` (dump root, default `<project>/dumps`), `--date`, `--only clients,leads`, `--rps 3`, `--no-reuse`,
-`--token-file NAME` (a token file other than `notion-token` in the secrets folder; the tool reads it, the caller never does), `--from DATE|PATH` and `--json` (restore). `hub backup --apply` runs this dump for every project into a snapshot (decision 0023). Exit codes: 0 ok, 1 error, 2 a database failed, 3 no token, 64 usage.
+`--token-file NAME` (a token file other than `notion-token` in the secrets folder; the tool reads it, the caller never does), `--from DATE|PATH` and `--json` (restore). `hub backup --apply` copies each project's newest existing dump into a snapshot; only `hub backup --apply --notion-dump` runs a live dump first (decision 0023, `@docs/setup/access.md`). Exit codes: 0 ok, 1 error, 2 a database failed, 3 no token, 64 usage.
 
 ## project.md
 
 One file per project, in the project folder. A heading names the project; each database is one list item
-`- <slug>: <data source id>`. Everything else is prose. Ids are the `collection://` ids of the Notion MCP (data
+`- <slug>: <data source id>` under `## Notion databases`. Everything else is prose or tables; a `- word: value` item elsewhere is an error. Ids are the `collection://` ids of the Notion MCP (data
 source ids), dashes optional. A list item with a bad id is an error, never skipped.
 
 ```markdown
@@ -25,11 +27,13 @@ source ids), dashes optional. A list item with a bad id is an error, never skipp
 
 Teamspace "CRM: acme". Notes go in plain paragraphs.
 
+## Notion databases
+
 - clients: 00000000-0000-0000-0000-955284342101
 - leads: 00000000-0000-0000-0000-705240741680
 ```
 
-`projects/<slug>/project.md` lists the project's CRM databases (this owner's live ids: the owner's instance docs, custom). A new
+`projects/<slug>/project.md` lists the project's CRM databases. A new
 project is a new folder under `projects/` with its own `project.md`; dumps stay inside it and are git-ignored (they hold CRM data).
 
 ## Dump layout

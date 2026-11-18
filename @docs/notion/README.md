@@ -23,7 +23,7 @@ Core modules: Clients, Leads, Tasks, Documents (conversation reports are Documen
 ## Rules that matter
 
 - **Names are the interface.** Hub and the CRM sync find fields by their exact name and select options by label. Never rename a property or an option.
-- **One writer per field** (the Writer column in `fields.md`). Hub writes Leads and the client history; people write notes and owners; agents draft and propose, and write only after an OK.
+- **One writer per field** (the Writer column in `fields.md`). The owner's backend (a form handler) writes a lead; the Hub writes only `Client` on it ([`../core/21-leads.md`](../core/21-leads.md)); a session writes the client history through the connector; people write notes and owners; agents draft and propose, and write only after an OK.
 - **The API refuses some things silently:** no `status` property (use select), no cross-database formulas (skipped and named in the report), a missing select option stops Hub writing (the option is added, then read back). The full list is `10-api-traps.md` in the pack.
 - **Keep Help true.** A new database, field or workflow is not finished until its Help page and the pack's schema file say so; then run `pnpm hub docs` to refresh `fields.md`.
 

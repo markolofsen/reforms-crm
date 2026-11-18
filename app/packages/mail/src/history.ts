@@ -5,7 +5,7 @@
  * the address in From, To or Cc, in and out, deduplicated by Message-Id. The implementation is read-only by
  * construction: nothing here can send, and nothing takes a path or a query language.
  *
- * The reader returns raw RFC 822 bytes; a caller decodes them (the Mail-to-Markdown converter is archived: the archived mail-to-markdown material (not part of this repo)). Pages walk from the newest
+ * The reader returns raw RFC 822 bytes; a caller decodes them (the Mail-to-Markdown converter is archived, outside this repo). Pages walk from the newest
  * message to older ones, so a caller that wants "the last 20" reads one page and stops.
  */
 

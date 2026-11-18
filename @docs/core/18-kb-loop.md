@@ -30,7 +30,7 @@ The loop closes with the owner, not with the agent: the agent never edits or app
 1. `knowledge_search`, `project` = the slug. Usable only with `use: STATE`, `approved: true`, `expired: false`.
    Freshness is judged from the local entry: a `valid_until` that is near or passed, an old `last_confirmed`, or a contradiction by the mail
    or the client's profile makes the hit `stale` (a gap is recorded; the fact is stated only while it is still usable).
-2. Nothing usable: a `[Owner: ...]` placeholder (`[Check: ...]` in the gate batch). The agent never invents, never answers from memory, never
+2. Nothing usable: a `[Owner: ...]` placeholder. The agent never invents, never answers from memory, never
    promotes a figure from a client's mail to a fact.
 
 Notion is not a source. An old Notion Knowledge database is migrated into files once (`knowledge-import`) and then ignored; the
@@ -90,4 +90,4 @@ session ("выгрузи в Notion"), the agent makes one page by hand (table an
 ## 7. Open owner decisions
 
 - The `problems/` and `runs/` formats (agreed with the calendar track, which uses the same `reports/` root).
-- Whether the owner wants a weekly rhythm ("раз в неделю: что улучшить в базе знаний acme"); nothing runs by itself (decision a decision or plan record kept in the owner's instance).
+- Whether the owner wants a weekly rhythm ("раз в неделю: что улучшить в базе знаний acme"); nothing runs by itself (decision 0006).

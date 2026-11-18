@@ -89,6 +89,40 @@ describe("hub core update", () => {
     expect(o3.lines.join("\n")).toContain("the lockfile changed");
     expect(r.pnpm).toHaveLength(2);
   });
+  it("installs when already on the tag but node_modules is behind the checkout (a pin moved by a pull)", async () => {
+    const r = rig();
+    await coreUpdate(r.ctx, "v0.2.0", true);
+    const before = r.pnpm.length;
+    // the checkout names a workspace package that node_modules does not have: the start-up crash of v0.7.0
+    put(path.join(r.core, "app", "apps", "installer", "package.json"), JSON.stringify({ dependencies: { "@hub/sequences": "workspace:*" } }));
+    const dry = await coreUpdate(r.ctx, "v0.2.0", false);
+    expect(dry.lines.join("\n")).toContain("add --apply to install them");
+    expect(r.pnpm).toHaveLength(before);
+    const o = await coreUpdate(r.ctx, "v0.2.0", true);
+    expect(o.ok, o.lines.join("\n")).toBe(true);
+    expect(o.lines.join("\n")).toContain("apps/installer: @hub/sequences is not installed");
+    expect(r.pnpm).toHaveLength(before + 1);
+  });
+  it("regenerates the instance workspace files from the new core", async () => {
+    const base = rig();
+    // the workspace files are generated from <home>/core/app: here the core is the instance's own core/, as in a real instance
+    const core = path.join(base.home, "core");
+    execFileSync("git", ["clone", "-q", git(base.core, "remote", "get-url", "origin"), core], { env: ENV });
+    git(core, "checkout", "-q", "v0.1.0");
+    const r = { ...base, core, ctx: makeCtx({ paths: hubPaths({ core, home: base.home, env: {} }), log: () => {}, run: base.ctx.run }) };
+    put(path.join(r.work, "app", "package.json"), JSON.stringify({ packageManager: "pnpm@12.18.0", devDependencies: { turbo: "2.11.11" } }));
+    put(path.join(r.work, "app", "pnpm-workspace.yaml"), "packages:\n  - apps/*\ncatalog:\n  tsx: 4.23.15\n");
+    put(path.join(r.work, "app", "turbo.json"), "{}");
+    git(r.work, "add", "-A"); git(r.work, "commit", "-qm", "ws"); git(r.work, "tag", "v0.3.0");
+    git(r.work, "push", "-q", git(r.core, "remote", "get-url", "origin"), "HEAD:refs/heads/main", "--tags");
+    put(path.join(r.home, "pnpm-workspace.yaml"), "# hub-generated: old\npackages:\n  - core/app/apps/*\n");
+    put(path.join(r.home, "package.json"), '{"//":"hub-generated: old"}');
+    put(path.join(r.home, "turbo.json"), '{"//":"hub-generated: old"}');
+    const o = await coreUpdate(r.ctx, "v0.3.0", true);
+    expect(o.ok, o.lines.join("\n")).toBe(true);
+    expect(o.lines.join("\n")).toContain("workspace: wrote package.json");
+    expect(readFileSync(path.join(r.home, "pnpm-workspace.yaml"), "utf8")).toContain("catalog:\n  tsx: 4.23.15");
+  });
   it("names the exact command when the install fails", async () => {
     const r = rig();
     r.state.pnpmCode = 1;

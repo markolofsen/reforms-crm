@@ -8,7 +8,7 @@ allowed-tools: Read Write Edit Bash mcp__notion__notion-search mcp__notion__noti
 
 > Layer: **core** (universal). Project names, people and addresses in this file are examples; one owner's facts live in `projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
 
-Design: `@docs/core/15-notion-project-deploy-skill.md`. Plan and acceptance: a decision or plan record kept in the owner's instance.
+Design: `@docs/core/15-notion-project-deploy-skill.md`.
 Knowledge: `app/projects/_template/notion-crm/` (read `README.md`, `00`, `01`, `10`, then the file of each module you deploy; `schema/<db>.json` and `views/<db>.json` exist for every database and are the contract (types, options, relations, view filters); the markdown tables carry the meaning, rules and the writer vocabulary. If a JSON `note` or `flag` (`vertical`, `ads`, `sync`, `migration`) says skip, skip it unless the interview asks. Rollups and formulas marked `trap` are skipped (trap 2) unless the API accepts them. Their ids are a live CRM's: never reuse them). Do not re-read the live Help unless a knowledge file is older than the Notion page it names; the pack is the source for structure.
 Talk to the owner in Russian, briefly; every file and every Notion page you create is English. Notion MCP only: no Hub, no token in a file, never print a secret.
 

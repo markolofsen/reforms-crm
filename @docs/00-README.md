@@ -41,6 +41,8 @@ The index of every document is [../README.md](../README.md#where-things-are); wh
 
 **Follow-ups.** A quiet client can be enrolled by the owner in one of the project's follow-up sequences; a session drafts each due step when asked, the owner sends it from Mail, and a reply ends it. Nothing is scheduled and the hub never sends a step: [core/23-sequences.md](core/23-sequences.md).
 
+**Lead forms.** The instance lists its public lead forms in `config/lead-forms.json`; `hub doctor --only Leads` checks that each one still takes a lead, and `--canary` sends a signed test lead only to a handler that answers the `OPTIONS` probe (`X-Canary-Probe: 1`) with `X-Canary-Accept: v1`. An agent that changes a site, a form, a CSP, a proxy or a DNS record runs it before it reports done (`app/@rules/agent-guardrails.md` rule 9): [core/22-lead-forms.md](core/22-lead-forms.md).
+
 Frontend rules for the local admin app (typing, routes, state, tokens, accessibility, structure; each with its enforcing gate): [../app/@rules/README.md](../app/@rules/README.md).
 
 Update this page when the architecture changes.

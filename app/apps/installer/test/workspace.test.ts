@@ -11,8 +11,8 @@ function rig() {
   const app = path.join(home, "core", "app");
   mkdirSync(app, { recursive: true });
   writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "x", packageManager: "pnpm@12.18.0", engines: { node: ">=22" }, devDependencies: { turbo: "2.11.11", typescript: "5.9.3", other: "1" } }));
-  writeFileSync(path.join(app, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n  - packages/*\nallowBuilds:\n  esbuild: true\n");
-  writeFileSync(path.join(app, "turbo.json"), JSON.stringify({ tasks: { test: { outputs: [] } } }));
+  writeFileSync(path.join(app, "pnpm-workspace.yaml"), "packages:\n  - apps/*\n  - packages/*\ncatalog:\n  typescript: 5.9.3\n  '@types/node': 22.20.5\nallowBuilds:\n  esbuild: true\n");
+  writeFileSync(path.join(app, "turbo.json"), JSON.stringify({ tasks: { test: { outputs: [] }, build: { inputs: ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/ui/**"] } } }));
   return { home, ctx: makeCtx({ paths: hubPaths({ core: path.join(home, "core"), home, env: {} }), log: () => {} }) };
 }
 
@@ -28,6 +28,11 @@ describe("hub workspace", () => {
     expect(yaml).toContain("  - apps/*");
     expect(yaml).toContain("allowBuilds:");
     expect(yaml.match(/- apps\/\*/g)).toHaveLength(1);
+    // the core's catalog travels with the policy: `pnpm install` at the instance root resolves every `"catalog:"` (P45 C5)
+    expect(yaml).toContain("catalog:\n  typescript: 5.9.3\n  '@types/node': 22.20.5\n");
+    const turbo = readFileSync(path.join(r.home, "turbo.json"), "utf8");
+    expect(turbo).toContain("$TURBO_ROOT$/core/app/packages/ui/**");
+    expect(turbo).not.toContain('"$TURBO_ROOT$/packages/');
     const pkg = JSON.parse(readFileSync(path.join(r.home, "package.json"), "utf8")) as { devDependencies: Record<string, string> };
     expect(pkg.devDependencies).toEqual({ turbo: "2.11.11", typescript: "5.9.3" });
     expect(workspaceCheck(r.ctx).ok).toBe(true);

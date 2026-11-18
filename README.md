@@ -8,7 +8,7 @@ project's CRM in Notion through the session's own connector, and leaves UNSENT r
 the agent never sends. A local admin app lets a person review each draft and send it one at a time.
 
 ## Quickstart
-1. Make an instance (below). From it, `./run.sh setup` checks the folders, config, skills and project registry, and ends with `ready: run hub agent`. (`./install.sh` in the core installs Node, pnpm and the dependencies once; it runs `hub setup` only when `HUB_HOME` is set.) It asks for nothing: no Claude token, no Notion token, and it writes nothing outside the instance. Run the instance with `./run.sh`; the `hub` shortcut on PATH (`hub link`) is optional. Which access goes to what: [`@docs/setup/access.md`](@docs/setup/access.md).
+1. Node 22.20 or newer and pnpm (`./install.sh` in the core installs both). Make an instance (below). From it, `./run.sh setup` checks the folders, config, skills and project registry, and ends with `ready: run hub agent`. (`./install.sh` also installs the dependencies once; it runs `hub setup` only when `HUB_HOME` is set.) It asks for nothing: no Claude token, no Notion token, and it writes nothing outside the instance. Run the instance with `./run.sh`; the `hub` shortcut on PATH (`hub link`) is optional. Which access goes to what: [`@docs/setup/access.md`](@docs/setup/access.md).
 2. `./run.sh agent new`, then say `настрой проект <name>` (set up project): the `project-setup` skill interviews you and writes `projects/<slug>/project.md`. The trigger phrases of every skill are in [`skills/README.md`](skills/README.md).
 3. `./run.sh agent <slug>`, then say `разбери почту проекта <name>` (triage the project's mail). Drafts land unsent in Mail.
 
@@ -45,7 +45,7 @@ The one index. Every page below owns its facts; others link to it.
 | The local admin app: screens, API, where each fact lives | [`@docs/core/06-local-admin-app.md`](@docs/core/06-local-admin-app.md) |
 | The stack and where files live (`HUB_HOME`) | [`@docs/core/08-local-app-stack.md`](@docs/core/08-local-app-stack.md) |
 | Messengers (optional Telegram, receive only) | [`app/packages/messengers/README.md`](app/packages/messengers/README.md) |
-| Bulk send and the `bulk-drafts` skill | [`@docs/core/14-bulk-send-interface.md`](@docs/core/14-bulk-send-interface.md) |
+| Bulk drafts, the review queue and Sent detection | [`@docs/core/14-bulk-send-interface.md`](@docs/core/14-bulk-send-interface.md) |
 | The skill and pack that deploy a CRM into Notion | [`@docs/core/15-notion-project-deploy-skill.md`](@docs/core/15-notion-project-deploy-skill.md) |
 | `project.md` schema v1, knowledge, routing, setup interview | [`@docs/core/16-projects-and-knowledge.md`](@docs/core/16-projects-and-knowledge.md) |
 | Mail filters | [`@docs/core/17-mail-filters.md`](@docs/core/17-mail-filters.md) |
@@ -61,7 +61,7 @@ A new document takes the next free number in `@docs/core/` and a row here. Secre
 
 ## Architecture
 
-An instance owns its data, config, secrets, backups, skills and each project's development plans (`projects/<slug>/@dev/`, a kanban made by `hub dev init`); nothing lives in the user's home except the optional `hub` shortcut (`hub link`, a symlink at `~/.local/bin/hub`; an instance runs without it, with `./run.sh`). Skills (`skills/` in the core, instructions) tell a Claude session what to do; each instance links them into its own `.claude/skills/` (relative symlinks, generated, git-ignored), which Claude Code loads when it starts in the instance, so twenty instances share nothing. The `hub` CLI (`app/apps/installer`) starts the agent, the admin and the doctor. The server (`app/apps/server`, 127.0.0.1:4317) owns `data/app.db`, the confirmed Send and the optional Telegram poller. The admin (`app/apps/admin`, 127.0.0.1:5173) only talks to the server. Mail goes through `mail-mcp` (:8787, no send tool); client records live in Notion; project facts, knowledge and development plans are files in `projects/<slug>/`. Details: [`@docs/00-README.md`](@docs/00-README.md).
+An instance owns its data, config, secrets, backups, skills and each project's development plans (`projects/<slug>/@dev/`, a kanban made by `hub dev init`); what may sit in the user's home (only the optional `hub` shortcut): [`08`](@docs/core/08-local-app-stack.md). Skills (`skills/` in the core, instructions) tell a Claude session what to do; each instance links them into its own `.claude/skills/` (relative symlinks, generated, git-ignored), which Claude Code loads when it starts in the instance, so twenty instances share nothing. The `hub` CLI (`app/apps/installer`) starts the agent, the admin and the doctor. The server (`app/apps/server`, 127.0.0.1:4317) owns `data/app.db`, the confirmed Send and the optional Telegram poller. The admin (`app/apps/admin`, 127.0.0.1:5173) only talks to the server. Mail goes through `mail-mcp` (:8787, no send tool); client records live in Notion; project facts, knowledge and development plans are files in `projects/<slug>/`. Details: [`@docs/00-README.md`](@docs/00-README.md).
 
 ## License
 Not chosen yet: see `LICENSE.todo`.

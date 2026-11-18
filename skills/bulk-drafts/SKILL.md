@@ -1,6 +1,6 @@
 ---
 name: bulk-drafts
-description: Use when the owner wants the same kind of message (a follow-up, a notice) prepared for a chosen group of clients of one project. Produces one reviewable unsent draft per client plus a table, only for recipients the project admits. Never sends and never invents facts. Unlike triage-mail, which answers whatever clients wrote, this starts from the owner's own purpose; it is also the engine of the optional gate batch.
+description: Use when the owner wants the same kind of message (a follow-up, a notice) prepared for a chosen group of clients of one project. Produces one reviewable unsent draft per client plus a table, only for recipients the project admits. Never sends and never invents facts. Unlike triage-mail, which answers whatever clients wrote, this starts from the owner's own purpose.
 allowed-tools: Read Write Bash mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content mcp__mail-mcp__list_drafts mcp__mail-mcp__create_reply mcp__knowledge-mcp__knowledge_search mcp__knowledge-mcp__knowledge_get
 ---
 

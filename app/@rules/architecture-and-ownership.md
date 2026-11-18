@@ -1,6 +1,6 @@
 # Architecture and ownership
 
-Scope: how `app/apps/admin` (Next.js 16 App Router on Turbopack, React 19, coss on Base UI, a Hono API over `/api` (types from `@hub/contract`), TanStack Query, English only) is cut into layers, and the config that holds the cut in place. Adapted from the shared "architecture and ownership" page; decision a decision or plan record kept in the owner's instance is the reason for the shape (it replaced the Vite app of 0014).
+Scope: how `app/apps/admin` (Next.js 16 App Router on Turbopack, React 19, coss on Base UI, a Hono API over `/api` (types from `@hub/contract`), TanStack Query, English only) is cut into layers, and the config that holds the cut in place. Adapted from the shared "architecture and ownership" page; decision 0015 is the reason for the shape (it replaced the Vite app of 0014).
 
 ## Rules
 

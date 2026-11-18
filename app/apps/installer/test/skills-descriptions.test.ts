@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context";
 
-// Decision a decision or plan record kept in the owner's instance: a description states situation, result and boundary, not trigger phrases.
+// Decision 0012: a description states situation, result and boundary, not trigger phrases.
 const root = defaultRoot();
 const skillsDir = path.join(root, "skills");
 const names = readdirSync(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name);

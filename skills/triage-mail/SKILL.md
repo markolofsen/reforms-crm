@@ -95,7 +95,7 @@ it is generated from `references/subagent-brief.md`, which holds the slug and `p
 address, the window, the purpose (labelled "not a body"), a `batchKey` generated once per run, the text of `references/per-client.md` P1 to P7 and its forbidden list verbatim (not
 "see section 2"), and Rules 1 to 6 of `skills/README.md` verbatim. It returns ONE JSON line and nothing else:
 `{"n":3,"action":"drafted|skipped:<code>|injection_suspected|noted|error:<tool>","draftMarker":"thread=<thread-id>","recorded":true,"evidence":"ok|weak|missing","read":3,"profile":"filled|empty|absent","facts":2,"anchors":2,"gaps":[],"needs":[]}`.
-The main session does not trust the line: after the loop it checks the batch as a set (section 5) and turns the lines into the report, with the evidence column. Hooks do fire inside subagents (spike S1, a decision or plan record kept in the owner's instance), so a guard ledger can observe them.
+The main session does not trust the line: after the loop it checks the batch as a set (section 5) and turns the lines into the report, with the evidence column. Hooks do fire inside subagents (spike S1), so a guard ledger can observe them.
 
 ## 5. Audit (one line)
 After a batch of more than 3 clients, run it yourself (read only; the owner decided this): `./run.sh audit-run <session transcript> --project <slug>`, and put any breach or red row in "Нужно от тебя". For 3 clients or fewer, offer it. Also run `./run.sh batch-check --project <slug> --batch <batchKey>` (evidence per client, the closest pairs, exit 1 on a red row) and put its result in the report.

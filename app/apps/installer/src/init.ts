@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import type { RunResult } from "./context";
@@ -105,6 +105,8 @@ export async function initInstance(o: InitOptions, d: InitDeps): Promise<{ dir: 
   for (const f of filesUnder(src)) {
     const dst = path.join(dir, f);
     mkdirSync(path.dirname(dst), { recursive: true });
+    // A link stays a link (AGENTS.md -> CLAUDE.md): two copies of one page drift apart.
+    if (lstatSync(path.join(src, f)).isSymbolicLink()) { symlinkSync(readlinkSync(path.join(src, f)), dst); continue; }
     const text = readFileSync(path.join(src, f), "utf8");
     writeFileSync(dst, renderTemplate(text, vars));
     chmodSync(dst, statSync(path.join(src, f)).mode & 0o777);

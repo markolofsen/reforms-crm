@@ -1,7 +1,9 @@
 import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Ctx } from "./context";
+import { INSTALL, staleDeps } from "./deps";
 import { checkInstance, CORE_VERSION_FILE, readCoreVersion } from "./steps/instance";
+import { workspaceInit } from "./workspace";
 
 /** Decision 0016: an instance moves to a newer core by moving its pin. `hub core update [tag]`: list the tags, or plan, or (with apply) do it. */
 export interface CoreUpdate { ok: boolean; lines: string[] }
@@ -31,8 +33,13 @@ export function pinMark(text: string, mark: { branch?: string; tag?: string }): 
   return lines.join("\n");
 }
 
-/** `pnpm install` in core/app, with the lockfile the target commit carries (never rewrites it). */
-const INSTALL = ["install", "--frozen-lockfile", "--prefer-offline"];
+/** `pnpm install` in core/app (`deps.ts` INSTALL). True = installed; false = failed, with the fix line pushed to `out`. */
+async function install(ctx: Ctx, appDir: string, why: string, out: string[]): Promise<boolean> {
+  const r = await ctx.run("pnpm", ["--dir", appDir, ...INSTALL], { timeoutMs: 600_000 });
+  if (r.code === 0) { out.push(`dependencies: ${why}; ran \`pnpm install ${INSTALL.slice(1).join(" ")}\` in ${appDir}`); return true; }
+  out.push(`dependencies: ${why} but pnpm install failed (${(r.stderr || r.stdout).trim().split("\n").at(-1)?.slice(0, 160) ?? "no output"}). Run: \`pnpm --dir ${appDir} ${INSTALL.join(" ")}\``);
+  return false;
+}
 
 export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boolean, branch?: string): Promise<CoreUpdate> {
   const { paths } = ctx;
@@ -63,7 +70,15 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
   if (!branch && !tags.includes(tag!)) return { ok: false, lines: [...out, `${tag} is not a tag of the core (available: ${tags.join(", ")})`] };
   const target = (await git(ctx, ["rev-parse", "--verify", "--quiet", `${ref}^{commit}`])).stdout.trim();
   if (!target) return { ok: false, lines: [...out, `${ref} does not exist in the core's origin`] };
-  if (target === head && pin && (await git(ctx, ["rev-parse", `${pin}^{commit}`])).stdout.trim() === target) return { ok: true, lines: [...out, `already on ${label}: nothing to do`] };
+  const appDir = path.join(paths.core, "app");
+  if (target === head && pin && (await git(ctx, ["rev-parse", `${pin}^{commit}`])).stdout.trim() === target) {
+    // The pin may have moved without this command (a pull of the instance): the checkout is right, its node_modules may not be.
+    const stale = staleDeps(appDir);
+    if (!stale.length) return { ok: true, lines: [...out, `already on ${label}: nothing to do`] };
+    out.push(`already on ${label}`);
+    if (!apply) return { ok: true, lines: [...out, `dependencies are behind the checkout (${stale[0]}): add --apply to install them`] };
+    return { ok: await install(ctx, appDir, `behind the checkout (${stale[0]})`, out), lines: out };
+  }
   const older = !branch && tags.indexOf(tag!) < tags.indexOf(here);
   out.push(`${apply ? "moving" : "would move"} to ${label} (${target.slice(0, 9)})${older ? "; this is a ROLLBACK to an older core" : ""}`);
   if (!apply) return { ok: true, lines: [...out, "dry run: nothing changed. Add --apply."] };
@@ -82,19 +97,20 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
   }
   out.push(`${CORE_VERSION_FILE} now pins ${target.slice(0, 9)} (${label}); instance.core: ${check.level}`);
   // The new core may need other dependencies than the old one: install when the lockfile differs between the two commits.
-  const appDir = path.join(paths.core, "app");
   const lock = await git(ctx, ["diff", "--quiet", head, target, "--", "app/pnpm-lock.yaml"]);
   const missing = !existsSync(path.join(appDir, "node_modules"));
-  if (lock.code === 0 && !missing) out.push("dependencies: the lockfile did not change, nothing to install");
+  const stale = missing ? [] : staleDeps(appDir);
+  if (lock.code === 0 && !missing && !stale.length) out.push("dependencies: the lockfile did not change, nothing to install");
   else {
-    const why = missing ? "core/app has no node_modules" : "the lockfile changed";
-    const r = await ctx.run("pnpm", ["--dir", appDir, ...INSTALL], { timeoutMs: 600_000 });
-    if (r.code === 0) out.push(`dependencies: ${why}; ran \`pnpm install ${INSTALL.slice(1).join(" ")}\` in ${appDir}`);
-    else {
-      out.push(`dependencies: ${why} but pnpm install failed (${(r.stderr || r.stdout).trim().split("\n").at(-1)?.slice(0, 160) ?? "no output"}). Run: \`pnpm --dir ${appDir} ${INSTALL.join(" ")}\``);
-      return { ok: false, lines: out };
-    }
+    const why = missing ? "core/app has no node_modules" : lock.code !== 0 ? "the lockfile changed" : `behind the checkout (${stale[0]})`;
+    if (!(await install(ctx, appDir, why, out))) return { ok: false, lines: out };
   }
-  out.push("next: run `hub doctor` and the project checks, then commit core/ and core.version together, in one commit.");
+  // An instance with its own workspace (decision 0018): the generated root files follow the new core (versions, catalog, turbo tasks).
+  if (existsSync(path.join(paths.home, "pnpm-workspace.yaml"))) {
+    const ws = workspaceInit(ctx, true);
+    out.push(`workspace: ${ws.lines.join("; ")}`);
+    if (!ws.ok) return { ok: false, lines: out };
+  }
+  out.push("next: run `hub doctor` and the project checks, then commit core/, core.version and any regenerated workspace file together, in one commit.");
   return { ok: true, lines: out };
 }

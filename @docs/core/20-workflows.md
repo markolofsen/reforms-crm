@@ -2,7 +2,7 @@
 
 Layer: **core** (the mechanism). The workflows themselves are a project's own files (custom). Rule: `@docs/LAYERS.md`.
 
-A workflow is a written playbook an agent follows for one kind of job: "triage an incoming email", "follow up a quiet client". It lives in the project folder, `projects/<slug>/workflows/<name>.md`, one file per workflow, versioned with the instance. It is **not** a Notion database: Notion holds data (clients, leads, tasks, reports), the instructions live next to the rest of the project's files. Decision 2026-11-16 (owner).
+A workflow is a written playbook an agent follows for one kind of job: "triage an incoming email", "follow up a quiet client". It lives in the project folder, `projects/<slug>/workflows/<name>.md`, one file per workflow, versioned with the instance. It is **not** a Notion database: Notion holds data (clients, leads, tasks, reports), the instructions live next to the rest of the project's files (decision 0017).
 
 ## The file
 

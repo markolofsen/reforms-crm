@@ -14,7 +14,7 @@ Source: Help / CRM overview and Modules, Help / Modules pages, the owner's live 
 | Expenses | Expenses, Payments | optional | Notion (bank integration planned) | Expenses |
 | Business contacts | Business contacts | optional, standalone address book of contractors, lawyers, banks, vendors; never clients | Notion | Business contacts |
 
-A project is a chosen list of modules. The databases in `projects/<slug>/project.md` (`clients, leads`; `documents` for reports and documents; `knowledge` is not deployed, the knowledge base is the local `knowledge/` folder, owner decision 2026-11-15) are the minimum the workflow agent needs; `tasks`, `deals`, `organizations`, `open-loops`, `participants` are optional slugs.
+A project is a chosen list of modules. The core databases are `clients`, `leads`, `tasks`, `documents` (reports are documents); `deals`, `organizations`, `open-loops`, `participants`, `business-contacts`, `expenses`, `payments` are optional slugs; `knowledge` is not deployed (the knowledge base is the local `knowledge/` folder). Which ones a project must list in `projects/<slug>/project.md` is its kind's `required` (`@docs/core/16-projects-and-knowledge.md` section 3A).
 
 ## Dependencies (a relation target must exist first)
 
