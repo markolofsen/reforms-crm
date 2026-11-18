@@ -1,11 +1,12 @@
 import { spawn } from "node:child_process";
 import { execa } from "execa";
-import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createRepos, openDb } from "@hub/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context";
+import { anyRecipients } from "./instance-fixture";
 import { recordDraft } from "../src/record-draft";
 
 let db: string;
@@ -74,9 +75,9 @@ describe("hub record-draft", () => {
     // the CLI now loads the project (draft.recipients): a copy of the fixture with recipients = any
     const projects = mkdtempSync(path.join(tmpdir(), "hub-rec-proj-"));
     cpSync(path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures", "projects", "acme-travel"), path.join(projects, "acme"), { recursive: true });
-    const pm = path.join(projects, "acme", "project.md");
-    writeFileSync(pm, readFileSync(pm, "utf8").replace("| draft.recipients | test |", "| draft.recipients | any |"));
-    const r = await execa("node", [bin, "record-draft", "--project", "acme"], { input: payload(), reject: false, env: { ...process.env, HUB_HOME: mkdtempSync(path.join(tmpdir(), "hub-rec-home-")), HUB_DB: db, HUB_PROJECTS: projects, HUB_LEDGER_ROOT: mkdtempSync(path.join(tmpdir(), "hub-led-")), NO_COLOR: "1" }, timeout: 60_000 });
+    const hubHome = mkdtempSync(path.join(tmpdir(), "hub-rec-home-"));
+    anyRecipients(path.join(hubHome, "state", "projects"), "acme"); // the CLI reads the instance's send policy (P49 S11)
+    const r = await execa("node", [bin, "record-draft", "--project", "acme"], { input: payload(), reject: false, env: { ...process.env, HUB_HOME: hubHome, HUB_DB: db, HUB_PROJECTS: projects, HUB_LEDGER_ROOT: mkdtempSync(path.join(tmpdir(), "hub-led-")), NO_COLOR: "1" }, timeout: 60_000 });
     expect(r.exitCode, r.stderr).toBe(0);
     expect(JSON.parse(r.stdout)).toMatchObject({ ok: true });
     const bad = await execa("node", [bin, "record-draft", "--project", "acme"], { input: "{}", reject: false, env: { ...process.env, HUB_HOME: mkdtempSync(path.join(tmpdir(), "hub-rec-home-")), HUB_DB: db, HUB_PROJECTS: projects, HUB_LEDGER_ROOT: mkdtempSync(path.join(tmpdir(), "hub-led-")) }, timeout: 60_000 });

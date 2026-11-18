@@ -31,7 +31,7 @@ beforeEach(() => {
 afterEach(() => handle.close());
 
 const app = (o: { fake?: boolean } = {}) =>
-  createApp(repos, { now: () => now, overview: { projectsDir: root, timeZone: "UTC" }, ...(o.fake ? { sender: { kind: "fake", projectsDir: root, allowList: [], mailer: {} as SenderOptions["mailer"] } } : {}) });
+  createApp(repos, { now: () => now, overview: { projectsDir: root, timeZone: "UTC" }, ...(o.fake ? { sender: { kind: "fake", projectsDir: root, policyDir: join(root, ".policy"), allowList: [], adminPort: 5173, mailer: {} as SenderOptions["mailer"] } } : {}) });
 const get = async (a = app()) => {
   const r = await a.request(`${BASE}/api/overview`);
   return { status: r.status, text: await r.clone().text(), body: overviewDto.parse(await r.json()) };

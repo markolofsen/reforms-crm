@@ -85,6 +85,8 @@ export interface RecordOptions {
   retryMs?: number;
   /** When set, the project's `draft.recipients` rule is enforced on To, Cc and the client address (decision: tools, not prose). */
   projectsDir?: string;
+  /** `hubPaths().stateProjects`: the project's send policy, whose `draft.recipients` this enforces (P49 S11). Without it the safe default applies (the test list). */
+  policyDir?: string;
   /** config/config.json: its `allow_list` is what `draft.recipients: test` means. */
   configFile?: string;
   /** The reforms-crm folder whose state/evidence/ holds the ledger. Without it no ledger is read or written (the cross-check is skipped). */
@@ -186,7 +188,7 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
   let required: ContextMode | null = null;
   if (o.projectsDir) {
     let loaded;
-    try { loaded = loadProject(o.projectsDir, project.data); }
+    try { loaded = loadProject(o.projectsDir, project.data, o.policyDir ? { policyDir: o.policyDir } : {}); }
     catch (e) { return fail(2, `not allowed: ${(e as Error).message}`); }
     const kind = kindOf(loaded.parsed.config.kind);
     if (v.mailClass && kind && !kind.mailClasses.some((c) => c.id === v.mailClass)) {

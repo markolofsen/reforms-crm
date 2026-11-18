@@ -6,6 +6,7 @@ import type { AddressRow, Repos } from "@hub/db";
 import { formatIssue, normalizeAddress, parseProjectMd, type ParsedProject } from "./parse";
 import { ProjectBase } from "./schema";
 import { registryEntry, type RegistryProject } from "./route";
+import { applySendPolicy, readSendPolicy, type PolicyState } from "./send-policy";
 
 /** Where the project folders live: HUB_PROJECTS, else the instance's projects folder (`@hub/config/paths`). */
 export function defaultProjectsRoot(): string {
@@ -18,25 +19,46 @@ export interface LoadedProject {
   file: string;
   hash: string;
   parsed: ParsedProject;
+  /** Set when loaded with `policyDir`: the send policy, already applied to `parsed.config`. */
+  policy?: PolicyState;
+}
+
+export interface LoadOptions {
+  /** `hubPaths().stateProjects`: where each project's send-policy.json lives. Without it `send` and `draft` keep the safe defaults (drafts only, the test list). */
+  policyDir?: string;
 }
 
 /** Every `<root>/<slug>/project.md`. Folders starting with `_` or `.` (the archive) and folders without one are skipped. */
-export function loadProjects(root: string = defaultProjectsRoot()): LoadedProject[] {
+export function loadProjects(root: string = defaultProjectsRoot(), o: LoadOptions = {}): LoadedProject[] {
   if (!existsSync(root)) return [];
   const out: LoadedProject[] = [];
   for (const name of readdirSync(root).sort()) {
     if (name.startsWith("_") || name.startsWith(".")) continue;
-    const folder = join(root, name);
-    const file = join(folder, "project.md");
-    if (!statSync(folder).isDirectory() || !existsSync(file)) continue;
-    const text = readFileSync(file, "utf8");
-    out.push({ slug: name, folder, file, hash: createHash("sha256").update(text).digest("hex"), parsed: parseProjectMd(text, name) });
+    const p = readOne(root, name, o);
+    if (p) out.push(p);
   }
   return out;
 }
 
-export function loadProject(root: string, slug: string): LoadedProject {
-  const found = loadProjects(root).find((p) => p.slug === slug);
+/** One project folder, or null when it has no project.md. Reads nothing else: a session sandboxed to its own project can call it. */
+function readOne(root: string, name: string, o: LoadOptions): LoadedProject | null {
+  const folder = join(root, name);
+  const file = join(folder, "project.md");
+  if (!statSync(folder).isDirectory() || !existsSync(file)) return null;
+  const text = readFileSync(file, "utf8");
+  const parsed = parseProjectMd(text, name);
+  const hash = createHash("sha256").update(text).digest("hex");
+  if (!o.policyDir) return { slug: name, folder, file, hash, parsed };
+  const policy = readSendPolicy(o.policyDir, name, parsed.config.kind);
+  return { slug: name, folder, file, hash, parsed: { ...parsed, config: applySendPolicy(parsed.config, policy.policy) }, policy };
+}
+
+/**
+ * The project `slug`, read alone: never the other project folders (an agent's sandbox may not read them, and
+ * `hub record-draft` runs inside it). A slug that is a template (`_`), hidden or missing is an error.
+ */
+export function loadProject(root: string, slug: string, o: LoadOptions = {}): LoadedProject {
+  const found = /^[a-z0-9][a-z0-9._-]*$/.test(slug) && existsSync(join(root, slug)) ? readOne(root, slug, o) : null;
   if (!found) throw new Error(`no such project "${slug}" under ${root} (expected ${join(root, slug, "project.md")})`);
   return found;
 }

@@ -6,6 +6,7 @@ import { createRepos, openDb } from "@hub/db";
 import { doctorProject, loadProject, loadProjects } from "@hub/projects";
 import { FakeMailer } from "@hub/send";
 import { defaultRoot } from "../src/context";
+import { anyRecipients } from "./instance-fixture";
 import { recordClient } from "../src/record-client";
 import { recordDraft } from "../src/record-draft";
 import { inAgentSession, runSequencesCheck, runSequencesDue, runSequencesEnrol, runSequencesJudge, runSequencesPauseResume, runSequencesStop } from "../src/sequences-command";
@@ -21,6 +22,7 @@ const OWNER_ENV: NodeJS.ProcessEnv = {};
 
 let db: string;
 let projects: string;
+let policy: string;
 let lines: string[];
 const deps = (env: NodeJS.ProcessEnv = OWNER_ENV) => ({ projectsDir: projects, dbPath: db, out: (l: string) => void lines.push(l), now: () => NOW, env });
 const last = () => JSON.parse(lines.at(-1) ?? "{}") as Record<string, unknown>;
@@ -38,8 +40,7 @@ beforeEach(async () => {
   db = path.join(d, "app.db");
   projects = path.join(d, "projects");
   cpSync(path.join(ROOT, "app", "packages", "projects", "test", "fixtures", "projects", "acme-travel"), path.join(projects, "alpha"), { recursive: true });
-  const pm = path.join(projects, "alpha", "project.md");
-  writeFileSync(pm, readFileSync(pm, "utf8").replace("| draft.recipients | test |", "| draft.recipients | any |"));
+  policy = anyRecipients(path.join(d, "policy"), "alpha");
   cpSync(STARTER, path.join(projects, "alpha", "sequences"), { recursive: true });
   lines = [];
   await repos(async (r) => {
@@ -93,7 +94,7 @@ describe("enrol, due, and a reply (W1 acceptance)", () => {
     const enrollmentId = Number(due.due[0]?.enrollmentId);
 
     // the step draft, as the skill records it
-    const step = await recordDraft({ project: "alpha", payload: JSON.stringify({ email: "quiet@example.com", name: "Quinn Quiet", subject: "Re: your enquiry", mailRef: "<our-answer@example.com>", skill: "sequence-drafts", repliesOwed: false, sequence: { enrollmentId, step: 1 } }), dbPath: db, attempts: 1, projectsDir: projects });
+    const step = await recordDraft({ project: "alpha", payload: JSON.stringify({ email: "quiet@example.com", name: "Quinn Quiet", subject: "Re: your enquiry", mailRef: "<our-answer@example.com>", skill: "sequence-drafts", repliesOwed: false, sequence: { enrollmentId, step: 1 } }), dbPath: db, attempts: 1, projectsDir: projects, policyDir: policy });
     expect(JSON.parse(step.line)).toMatchObject({ ok: true, action: "created" });
     // the client writes back; triage records the client
     const reply = await recordClient({ project: "alpha", payload: JSON.stringify({ email: "quiet@example.com", action: "escalated", skill: "triage-mail", notion: { kind: "none" }, lastInboundAt: NOW.toISOString() }), dbPath: db });
@@ -108,7 +109,7 @@ describe("enrol, due, and a reply (W1 acceptance)", () => {
     await runSequencesEnrol("alpha", { client: "quiet@example.com" }, deps());
     const id = Number(last().enrollmentId);
     const base = { email: "quiet@example.com", name: "Q", subject: "Re: x", mailRef: "<m1>" };
-    const rec = (p: object) => recordDraft({ project: "alpha", payload: JSON.stringify(p), dbPath: db, attempts: 1, projectsDir: projects });
+    const rec = (p: object) => recordDraft({ project: "alpha", payload: JSON.stringify(p), dbPath: db, attempts: 1, projectsDir: projects, policyDir: policy });
     expect((await rec({ ...base, skill: "triage-mail", sequence: { enrollmentId: id, step: 1 } })).code).toBe(2);
     expect(JSON.parse((await rec({ ...base, skill: "sequence-drafts", sequence: { enrollmentId: id, step: 2 } })).line)).toMatchObject({ ok: false, code: "wrong_state" });
     expect((await rec({ ...base, skill: "sequence-drafts", sequence: { enrollmentId: id, step: 1, extra: true } })).code).toBe(2);
@@ -176,7 +177,7 @@ describe("a dry sequence-drafts session on the alpha fixture (W2 acceptance, fak
     for (const row of due) {
       // what the session does per row (P1 to P7 read, then a create_reply in Mail, then this record): no Mail call is a send
       const context = { batchKey: "seq-2026-11-30-abc", thread: { firstContact: false, found: 3, read: 3, readIds: [1, 2, 3], cited: [1], newest: "2026-11-20" }, profile: { read: true, state: "filled" }, facts: { queries: 1, used: [], missing: [] }, anchors: [`the enquiry of ${row.client.name}`], personalization: `Picks up ${row.client.name}'s own question from our last answer and adds one new detail.` };
-      const r = await recordDraft({ project: "alpha", payload: JSON.stringify({ email: row.client.email, name: row.client.name, subject: "Re: your enquiry", mailRef: row.replyTo?.sentMessageId ?? row.replyTo?.mailRef ?? "<none>", skill: "sequence-drafts", repliesOwed: false, context, sequence: { enrollmentId: row.enrollmentId, step: row.step } }), dbPath: db, attempts: 1, projectsDir: projects, now: () => NOW });
+      const r = await recordDraft({ project: "alpha", payload: JSON.stringify({ email: row.client.email, name: row.client.name, subject: "Re: your enquiry", mailRef: row.replyTo?.sentMessageId ?? row.replyTo?.mailRef ?? "<none>", skill: "sequence-drafts", repliesOwed: false, context, sequence: { enrollmentId: row.enrollmentId, step: row.step } }), dbPath: db, attempts: 1, projectsDir: projects, policyDir: policy, now: () => NOW });
       results.push(JSON.parse(r.line) as { ok: boolean; evidence: string; action: string });
     }
     expect(results.map((r) => [r.ok, r.action, r.evidence])).toEqual([[true, "created", "ok"], [true, "created", "ok"]]);

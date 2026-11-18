@@ -1,13 +1,19 @@
 import { spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { expandTilde, pathsAt, type HubPaths } from "@hub/config/paths";
+import { AGENT_CLIS, expandTilde, instanceFeatures, pathsAt, type AgentCli, type HubPaths } from "@hub/config/paths";
+import { claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
+import { codexArgs } from "@hub/agent/codex";
+import { CLI_LABELS, modeLine } from "@hub/agent/session";
 import { syncInstanceSkills } from "./instance-skills";
-import { enforcementArgs, readBinding, resolveBinding, writeBinding, writeSessionFiles, type SessionFiles } from "./safety";
+import { readBinding, resolveBinding, writeBinding, writeCodexHome, writeSessionFiles, type SessionFiles } from "./safety";
 import { c, UsageError } from "./term";
 
 export type AgentMode = "continue" | "new" | "pick";
-export interface AgentPlan { mode: AgentMode; project?: string; extra: string[] }
+/** `shell`: the owner's own shell in the instance root, bound to the project (no agent, no sandbox: as Terminal.app). */
+export type SessionCli = AgentCli | "shell";
+export const SESSION_CLIS: readonly SessionCli[] = [...AGENT_CLIS, "shell"];
+export interface AgentPlan { mode: AgentMode; project?: string; extra: string[]; cli?: SessionCli; prepare?: boolean }
 
 const MODES: readonly string[] = ["continue", "new", "pick"];
 
@@ -35,10 +41,28 @@ export function listProjects(projectsDir: string): string[] {
  * name a mode. Everything after (a leading `--` is dropped) goes to claude untouched.
  */
 export function parseAgentArgs(args: string[], projects: string[]): AgentPlan {
-  const [first, ...rest] = args;
+  // `--cli <x>` and `--prepare` are the hub's own; they may come anywhere before `--`.
+  const cut = args.indexOf("--");
+  const own = cut === -1 ? args : args.slice(0, cut);
+  const tail = cut === -1 ? [] : args.slice(cut);
+  let cli: SessionCli | undefined;
+  let prepare = false;
+  const kept: string[] = [];
+  for (let i = 0; i < own.length; i++) {
+    const a = own[i] as string;
+    const inline = a.startsWith("--cli=") ? a.slice(6) : undefined;
+    if (a === "--cli" || inline !== undefined) {
+      const v = inline ?? own[++i];
+      if (!v || !(SESSION_CLIS as readonly string[]).includes(v)) throw new UsageError(`--cli takes ${SESSION_CLIS.join(", ")}, got "${v ?? ""}"`);
+      cli = v as SessionCli;
+    } else if (a === "--prepare") prepare = true;
+    else kept.push(a);
+  }
+  const rest0 = [...kept, ...tail];
+  const [first, ...rest] = rest0;
   let mode: AgentMode = "continue";
   let project: string | undefined;
-  let extra = args;
+  let extra = rest0;
   if (first !== undefined && !first.startsWith("-")) {
     extra = rest;
     if (MODES.includes(first)) mode = first as AgentMode;
@@ -48,7 +72,7 @@ export function parseAgentArgs(args: string[], projects: string[]): AgentPlan {
     }
   }
   if (extra[0] === "--") extra = extra.slice(1);
-  return { mode, ...(project ? { project } : {}), extra };
+  return { mode, ...(project ? { project } : {}), extra, ...(cli ? { cli } : {}), ...(prepare ? { prepare } : {}) };
 }
 
 /** The system prompt that pins a session to one project (isolation: one session = one project). */
@@ -56,9 +80,18 @@ export function bindingPrompt(project: string, projectsRel = "projects"): string
   return `This session is bound to ONE project: ${project} (HUB_PROJECT). Work for ${project} only: read ${projectsRel}/${project}/ and no other project's folder, name only that project's Mail accounts, pass project=${project} to every knowledge call. If asked for another project, refuse and tell the owner to run \`hub agent <other>\`. Drafts only: never send.`;
 }
 
-/** Fixed flags: no permission prompts (the owner's standing decision for this local project), Chrome for web/Notion checks. */
-export function baseClaudeArgs(extraDirs: string[] = []): string[] {
-  return ["--dangerously-skip-permissions", "--chrome", ...extraDirs.flatMap((d) => ["--add-dir", d])];
+export function buildClaudeArgs(plan: AgentPlan, dirs: string[] = [], files?: SessionFiles, projectsRel?: string, unattended = false): string[] {
+  const base = claudeBaseArgs(unattended, dirs);
+  if (files) base.push(...claudeEnforcementArgs(files));
+  if (plan.project) base.push("--append-system-prompt", bindingPrompt(plan.project, projectsRel));
+  const lead = plan.mode === "pick" ? ["--resume"] : plan.mode === "continue" ? ["--continue"] : [];
+  return [...lead, ...base, ...plan.extra];
+}
+
+/** Codex: `resume --last` continues, `resume` picks; a fresh session starts plain. The binding is the generated `developer_instructions`. */
+export function buildCodexArgs(plan: AgentPlan, paths: HubPaths, unattended: boolean): string[] {
+  const lead = plan.mode === "pick" ? ["resume"] : plan.mode === "continue" ? ["resume", "--last"] : [];
+  return [...lead, ...codexArgs({ paths, unattended, extra: plan.extra })];
 }
 
 /**
@@ -75,14 +108,6 @@ export function extraDirs(root: string, env: NodeJS.ProcessEnv = process.env): s
   return [...new Set([...fromEnv, ...fromFile].map((d) => path.resolve(root, expandTilde(d, env))))].filter((d) => existsSync(d));
 }
 
-export function buildClaudeArgs(plan: AgentPlan, dirs: string[] = [], files?: SessionFiles, projectsRel?: string): string[] {
-  const base = baseClaudeArgs(dirs);
-  if (files) base.push(...enforcementArgs(files));
-  if (plan.project) base.push("--append-system-prompt", bindingPrompt(plan.project, projectsRel));
-  const lead = plan.mode === "pick" ? ["--resume"] : plan.mode === "continue" ? ["--continue"] : [];
-  return [...lead, ...base, ...plan.extra];
-}
-
 export function printPhrases(log: (s: string) => void = console.log): void {
   log(c.bold("Say ONE of these") + c.dim(" (full list and details: skills/README.md)"));
   const w = Math.max(...PHRASES.map(([p]) => p.length));
@@ -90,14 +115,20 @@ export function printPhrases(log: (s: string) => void = console.log): void {
   log(c.dim("Drafts only, nothing is ever sent. One session = one project: `hub agent <X>` binds it."));
 }
 
-const spawnClaude = (args: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<number> =>
+const INSTALL: Record<SessionCli, string> = {
+  claude: "`claude` is not on PATH. Install Claude Code (https://claude.com/claude-code), then rerun.",
+  codex: "`codex` is not on PATH. Install the Codex CLI (`npm i -g @openai/codex`), then rerun.",
+  shell: "the shell in $SHELL could not start.",
+};
+
+const spawnCli = (cli: SessionCli, cmd: string, args: string[], cwd: string, env: NodeJS.ProcessEnv): Promise<number> =>
   new Promise((resolve, reject) => {
-    const child = spawn("claude", args, { cwd, env, stdio: "inherit" });
-    const ignore = () => {}; // Ctrl-C belongs to claude; we wait for it to exit
+    const child = spawn(cmd, args, { cwd, env, stdio: "inherit" });
+    const ignore = () => {}; // Ctrl-C belongs to the program; we wait for it to exit
     process.on("SIGINT", ignore);
     child.on("error", (e: NodeJS.ErrnoException) => {
       process.off("SIGINT", ignore);
-      reject(e.code === "ENOENT" ? new UsageError("`claude` is not on PATH. Install Claude Code (https://claude.com/claude-code), then rerun.") : e);
+      reject(e.code === "ENOENT" ? new UsageError(INSTALL[cli]) : e);
     });
     child.on("exit", (code, signal) => {
       process.off("SIGINT", ignore);
@@ -105,40 +136,71 @@ const spawnClaude = (args: string[], cwd: string, env: NodeJS.ProcessEnv): Promi
     });
   });
 
-/** `root` is the instance root (where claude starts); `home` is the user's home folder; `paths` is what `hubPaths()` resolved. */
+/** `root` is the instance root (where the CLI starts); `home` is the user's home folder; `paths` is what `hubPaths()` resolved. */
 export interface AgentEnv { root: string; home: string; projectsDir: string; paths?: HubPaths }
 
-/** Start Claude Code in the instance root. The cwd of the caller does not matter. */
+/**
+ * `hub agent [project] [--cli claude|codex|shell] [--prepare]`. Starts the instance's default CLI (`agent.default`) in the
+ * instance root, bound to one project, in the instance's mode (`agent.unattended`: no prompts, OS sandbox on). The cwd of the
+ * caller does not matter. `--prepare` writes the session files and starts nothing (the Agent tools fix line).
+ */
 export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   const parsed = parseAgentArgs(argv, listProjects(env.projectsDir));
   let bound: { project?: string; sticky: boolean };
   try { bound = resolveBinding({ mode: parsed.mode, requested: parsed.project, stored: readBinding(env.root), envProject: process.env.HUB_PROJECT }); }
   catch (e) { throw new UsageError((e as Error).message); }
   const plan: AgentPlan = { ...parsed, ...(bound.project ? { project: bound.project } : {}) };
-  writeBinding(env.root, plan.project);
-  const dirs = extraDirs(env.root);
   const paths = env.paths ?? pathsAt(env.root);
-  // An instance keeps no copy of the core skills: claude finds them through generated links in <instance>/.claude/skills.
-  const linked = syncInstanceSkills(paths);
-  const files = writeSessionFiles(env.root, env.projectsDir, plan.project, process.execPath, paths);
+  const features = instanceFeatures(paths);
+  const cli: SessionCli = plan.cli ?? features.agent.default;
+  const unattended = features.agent.unattended;
+  const childEnv: NodeJS.ProcessEnv = { ...process.env, ...(plan.project ? { HUB_PROJECT: plan.project } : {}), HUB_HOME: paths.home };
+  // The Node this hub runs on goes first on PATH, so `./run.sh` and `node` in the session are the Node the hub needs.
+  childEnv.PATH = [path.dirname(process.execPath), childEnv.PATH ?? ""].filter(Boolean).join(path.delimiter);
+
+  if (cli === "shell") {
+    if (plan.prepare) return 0;
+    console.log(c.dim(`Shell in ${paths.home}${plan.project ? `, HUB_PROJECT=${plan.project}` : ""}. Not sandboxed: your own shell.`));
+    return spawnCli("shell", process.env.SHELL || "/bin/zsh", ["-l", "-i"], env.root, childEnv);
+  }
+
+  writeBinding(env.root, plan.project);
   const projectsRel = path.relative(env.root, env.projectsDir).split(path.sep).join("/");
   const relOk = projectsRel && !projectsRel.startsWith("..") ? projectsRel : env.projectsDir;
-  const args = buildClaudeArgs(plan, dirs, files, relOk);
-  const childEnv = { ...process.env, ...(plan.project ? { HUB_PROJECT: plan.project } : {}), HUB_HOME: paths.home };
+  // An instance keeps no copy of the core skills: the CLI finds them through generated links.
+  const linked = syncInstanceSkills(paths);
+  const files = writeSessionFiles(env.root, env.projectsDir, plan.project, process.execPath, paths, unattended);
+  let codexHomeDir: string | undefined;
+  if (cli === "codex") {
+    codexHomeDir = writeCodexHome({ paths, projectsDir: env.projectsDir, slug: plan.project, unattended, instructions: plan.project ? bindingPrompt(plan.project, relOk) : "This hub session is not bound to a project: ask which project, then tell the owner to run `hub agent <project>`. Drafts only: never send." });
+    childEnv.CODEX_HOME = codexHomeDir;
+  }
+  if (plan.prepare) {
+    console.log(`prepared ${CLI_LABELS[cli]} session files for ${plan.project ?? "an unbound session"}: ${codexHomeDir ?? files.settings}`);
+    return 0;
+  }
 
   printPhrases();
   if (linked.length) console.log(c.dim(`Core skills linked into ${paths.claudeSkills}: ${linked.join(", ")}`));
   if (plan.project) {
     console.log(`\n${c.green("Session bound to project:")} ${c.bold(plan.project)} ${c.dim(bound.sticky ? "(kept from the last session; `hub agent new` unbinds)" : "(HUB_PROJECT). A fresh session: no other project's context is carried over.")}`);
   }
-  console.log(c.dim(`Enforced: no send/forward/trash/delete tool (${files.disallowed.length} denied), only the hub's MCP servers, secrets and ${plan.project ? "other projects' folders" : "the live database"} unreadable, guard hook ${process.env.HUB_GUARD === "block" ? "BLOCKS" : "warns (HUB_GUARD=block to block)"}.`));
+  console.log(c.dim(`${CLI_LABELS[cli]}, ${modeLine(unattended)}.`));
+  console.log(c.dim(`Enforced: no send/forward/trash/delete tool (${files.disallowed.length} denied), only the hub's MCP servers, secrets and ${plan.project ? "other projects' folders" : "the live database"} unreadable${cli === "claude" ? `, guard hook ${process.env.HUB_GUARD === "block" ? "BLOCKS" : "warns (HUB_GUARD=block to block)"}` : ", forbidden command rules"}.`));
   console.log();
 
+  if (cli === "codex") {
+    const code = await spawnCli("codex", "codex", buildCodexArgs(plan, paths, unattended), env.root, childEnv);
+    if (code === 0 || plan.mode !== "continue") return code;
+    return spawnCli("codex", "codex", buildCodexArgs({ ...plan, mode: "new" }, paths, unattended), env.root, childEnv);
+  }
+  const dirs = extraDirs(env.root);
+  const args = buildClaudeArgs(plan, dirs, files, relOk, unattended);
   if (plan.mode === "continue") {
-    const code = await spawnClaude(args, env.root, childEnv);
+    const code = await spawnCli("claude", "claude", args, env.root, childEnv);
     if (code === 0) return 0;
     // nothing to continue (first run here): a fresh session
-    return spawnClaude(buildClaudeArgs({ ...plan, mode: "new" }, dirs, files, relOk), env.root, childEnv);
+    return spawnCli("claude", "claude", buildClaudeArgs({ ...plan, mode: "new" }, dirs, files, relOk, unattended), env.root, childEnv);
   }
-  return spawnClaude(args, env.root, childEnv);
+  return spawnCli("claude", "claude", args, env.root, childEnv);
 }

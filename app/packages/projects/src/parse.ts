@@ -1,7 +1,7 @@
 // project.md schema v1 (doc 16 section 3). Pure: text in, structure and issues out. No file or database access, so
 // @hub/notion can import this file alone.
 
-import { checkValue, FIELDS, readField, setPath } from "./fields";
+import { checkValue, FIELDS, isPolicyField, readField, setPath } from "./fields";
 import { DEFAULT_KIND, hasValue, kindOf } from "./kinds";
 import { BYS, ProjectBase, STATUSES, type By, type ProjectConfig, type ProjectDatabase, type ProjectStatus } from "./schema";
 import { EMAIL, isIsoDate, normalizeAddress, normalizeId, SLUG, UUID } from "./values";
@@ -25,7 +25,8 @@ export type IssueCode =
   | "duplicate_row"
   | "stray_list_item"
   | "bad_database_id"
-  | "duplicate_database";
+  | "duplicate_database"
+  | "send_policy_in_project_md";
 
 export interface Issue {
   severity: "error" | "warning";
@@ -62,8 +63,10 @@ export interface ParsedProject {
   issues: Issue[];
   /** Missing required fields were found (an error for active/paused projects, a warning for drafts). */
   incomplete: boolean;
-  /** Resolved values with defaults. Always present; meaningful when `issues` has no error. */
+  /** Resolved values with defaults. Always present; meaningful when `issues` has no error. `send` and `draft` are the safe defaults here: the send policy file supplies them (`loadProjects` with `policyDir`). */
   config: ProjectConfig;
+  /** Rows of the send-policy fields still in project.md (P49 S11): ignored, reported, moved by `hub send policy migrate`. */
+  policyRows: Record<string, SettingRow>;
 }
 
 export class ProjectError extends Error {
@@ -220,6 +223,7 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
   const sc = scan(lines);
   const issues: Issue[] = [];
   const settings: Record<string, SettingRow> = {};
+  const policyRows: Record<string, SettingRow> = {};
   const answers: AnswerRow[] = [];
 
   if (!SLUG.test(slug)) {
@@ -276,6 +280,12 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
         }
         if (!(BYS as readonly string[]).includes(by)) {
           issues.push({ severity: "error", code: "bad_by", line, field, message: `By "${by}" must be one of ${BYS.join(", ")}` });
+        }
+        // P49 S11: the send policy is server-owned; a row here is the old place (or an agent's edit) and is never applied.
+        if (isPolicyField(field)) {
+          policyRows[field] = { field, value, answered, by: by as By, line };
+          issues.push({ severity: "warning", code: "send_policy_in_project_md", line, field, message: `${field} is ignored here: the send policy lives in state/projects/${slug}/send-policy.json (a person runs \`hub send policy migrate ${slug}\`)` });
+          continue;
         }
         settings[field] = { field, value, answered, by: by as By, line };
       }
@@ -359,20 +369,12 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
       else if (path === "mail.sender") missing(path, 'required: set "mail.sender" or list "mail.addresses" (the first becomes the sender)');
       else missing(path, `required field "${path}" has no value (kind ${kind.id})`);
     }
-    const sendLine = settings["send.classes"]?.line ?? settings["send.mode"]?.line ?? null;
-    const unknownClasses = config.send.classes.filter((cl) => !kind.send.classes.includes(cl));
-    if (unknownClasses.length) {
-      issues.push({ severity: "error", code: "bad_value", line: settings["send.classes"]?.line ?? null, field: "send.classes", message: `${unknownClasses.join(", ")}: not a class a ${kind.id} project may autosend (allowed: ${kind.send.classes.join(", ")})` });
-    }
-    if (config.send.mode === "auto" && config.send.classes.length === 0) {
-      issues.push({ severity: sev, code: "bad_value", line: sendLine, field: "send.classes", message: "send.mode is auto but send.classes is empty: nothing could be sent" });
-    }
     if (status === "active" && config.setup.doctor && !/ pass$/.test(config.setup.doctor)) {
       issues.push({ severity: "warning", code: "bad_value", line: settings["setup.doctor"]?.line ?? null, field: "setup.doctor", message: "status is active but the last doctor result is not a pass" });
     }
   }
 
-  return { slug, name: config.name, summary, settings, databases: dbs.databases, answers, issues, incomplete, config };
+  return { slug, name: config.name, summary, settings, databases: dbs.databases, answers, issues, incomplete, config, policyRows };
 }
 
 /** parseProjectMd, throwing a ProjectError when there is an error-level issue. */

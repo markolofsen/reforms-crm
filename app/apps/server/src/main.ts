@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { HOST, SERVER_PORT } from "@hub/config";
-import { HubHomeMissingError, hubPaths } from "@hub/config/paths";
+import { HubHomeMissingError, hubPaths, instancePorts } from "@hub/config/paths";
 import { createRepos, dataVersion, openDb } from "@hub/db";
 import { createApp } from "./app";
 import { listenErrorLine, onShutdown } from "./lifecycle";
@@ -42,7 +42,7 @@ if (probe === "fake") console.log("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PR
 const listed = async () => (await repos.projects.registry()).projects.flatMap((p) => configOf(p).mail.accounts);
 const mailAccounts = probe === "fake" || kind === "fake" ? fakeMailAccounts(listed) : appleMailAccounts();
 const connections = probe === "fake" ? { deps: fakeProbeDeps(), mailAccounts } : { mailAccounts };
-const app = createApp(repos, { connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, allowList: allowListOf(configFile()) } });
+const app = createApp(repos, { connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: hubPaths().stateProjects, allowList: allowListOf(configFile()), adminPort: instancePorts(hubPaths()).admin } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);

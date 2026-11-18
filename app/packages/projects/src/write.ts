@@ -1,6 +1,7 @@
 // In-place edits of project.md: table rows only, every other byte stays. Pure text functions plus thin file wrappers.
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { isPolicyField } from "./fields";
 import { BYS, checkValue, FIELDS, isIsoDate, ProjectError, scan, tableOf, type By, type Issue } from "./parse";
 
 const SETTINGS_HEADER = "| Field | Value | Answered | By |";
@@ -35,6 +36,8 @@ export function applySetting(text: string, field: string, value: string, by: By,
   const bad: Issue[] = [];
   if (field === "notion.databases") bad.push({ severity: "error", code: "bad_value", line: null, field, message: "notion.databases is the ## Notion databases section, not a Settings row" });
   else if (!(field in FIELDS)) bad.push({ severity: "error", code: "unknown_field", line: null, field, message: `unknown field "${field}"` });
+  // P49 S11: the send policy is not a project.md field any more; only a person changes it, outside the agent's reach.
+  else if (isPolicyField(field)) bad.push({ severity: "error", code: "send_policy_in_project_md", line: null, field, message: `${field} is the send policy, not a project.md row: a person sets it with \`hub send policy set <slug> ${field} <value>\`` });
   else {
     const msg = checkValue(field, value);
     if (msg) bad.push({ severity: "error", code: "bad_value", line: null, field, message: msg });
@@ -70,6 +73,18 @@ export function applySetting(text: string, field: string, value: string, by: By,
   return insertAt(raws, t.lastIdx + 1, [`${row}${eol}`]);
 }
 
+/** Removes the Settings rows of `fields` (the send-policy migration); every other byte stays. */
+export function removeSettings(text: string, fields: readonly string[]): string {
+  const raws = rawLines(text);
+  const lines = raws.map(bare);
+  const sc = scan(lines);
+  const settings = sc.sections.find((s) => s.name === "settings");
+  if (!settings) return text;
+  const t = tableOf(lines, sc.fenced, settings);
+  const drop = new Set(t.rows.filter((r) => fields.includes(r.cells[0] ?? "")).map((r) => r.idx));
+  return raws.filter((_, i) => !drop.has(i)).join("");
+}
+
 /** Appends one row to `## Answers` (the log is append-only), creating the section before `## Notes` or at the end. */
 export function applyAnswer(text: string, a: { date: string; field: string; question: string; answer: string }): string {
   if (!isIsoDate(a.date)) throw new ProjectError([{ severity: "error", code: "bad_date", line: null, message: `"${a.date}" is not an ISO date` }]);
@@ -93,7 +108,7 @@ export function applyAnswer(text: string, a: { date: string; field: string; ques
   return insertAt(raws, t.lastIdx + 1, [`${row}${eol}`]);
 }
 
-function rewrite(file: string, edit: (text: string) => string): void {
+export function rewrite(file: string, edit: (text: string) => string): void {
   const next = edit(readFileSync(file, "utf8"));
   const tmp = `${file}.tmp-${process.pid}`;
   writeFileSync(tmp, next);

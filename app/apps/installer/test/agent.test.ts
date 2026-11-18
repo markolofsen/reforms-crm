@@ -2,7 +2,9 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { baseClaudeArgs, bindingPrompt, buildClaudeArgs, extraDirs, listProjects, parseAgentArgs } from "../src/agent";
+import { bindingPrompt, buildClaudeArgs, buildCodexArgs, extraDirs, listProjects, parseAgentArgs } from "../src/agent";
+import { claudeBaseArgs } from "@hub/agent/claude";
+import { pathsAt } from "@hub/config/paths";
 import { installLink, linkState, planLink, removeLink } from "../src/link";
 import { UsageError } from "../src/term";
 
@@ -25,6 +27,12 @@ describe("parseAgentArgs: mode selection", () => {
     expect(parseAgentArgs(["--model", "opus"], []).extra).toEqual(["--model", "opus"]);
     expect(parseAgentArgs(["--", "--model", "opus"], []).extra).toEqual(["--model", "opus"]);
   });
+  it("takes --cli and --prepare anywhere before --, and refuses an unknown CLI", () => {
+    expect(parseAgentArgs(["acme", "--cli", "codex"], ["acme"])).toEqual({ mode: "new", project: "acme", extra: [], cli: "codex" });
+    expect(parseAgentArgs(["--cli=shell", "acme", "--prepare"], ["acme"])).toMatchObject({ project: "acme", cli: "shell", prepare: true });
+    expect(parseAgentArgs(["acme", "--", "--cli", "x"], ["acme"]).extra).toEqual(["--cli", "x"]);
+    expect(() => parseAgentArgs(["acme", "--cli", "gemini"], ["acme"])).toThrow(/claude, codex, shell/);
+  });
   it("rejects an unknown project and lists the known ones", () => {
     expect(() => parseAgentArgs(["nope"], ["acme", "x"])).toThrow(UsageError);
     expect(() => parseAgentArgs(["nope"], ["acme", "x"])).toThrow(/acme, x/);
@@ -32,20 +40,38 @@ describe("parseAgentArgs: mode selection", () => {
 });
 
 describe("buildClaudeArgs", () => {
-  it("base flags", () => {
-    expect(baseClaudeArgs([MAP])).toEqual(["--dangerously-skip-permissions", "--chrome", "--add-dir", MAP]);
-    expect(baseClaudeArgs()).toEqual(["--dangerously-skip-permissions", "--chrome"]);
+  it("base flags: normal mode asks (no bypass), unattended skips the prompts", () => {
+    expect(claudeBaseArgs(false, [MAP])).toEqual(["--chrome", "--add-dir", MAP]);
+    expect(claudeBaseArgs(true)).toEqual(["--dangerously-skip-permissions", "--chrome"]);
   });
   it("continue and pick lead with their flag", () => {
     expect(buildClaudeArgs({ mode: "continue", extra: [] }, [MAP])[0]).toBe("--continue");
     expect(buildClaudeArgs({ mode: "pick", extra: [] }, [MAP])[0]).toBe("--resume");
-    expect(buildClaudeArgs({ mode: "new", extra: [] }, [MAP])).toEqual(baseClaudeArgs([MAP]));
+    expect(buildClaudeArgs({ mode: "new", extra: [] }, [MAP])).toEqual(claudeBaseArgs(false, [MAP]));
+    expect(buildClaudeArgs({ mode: "new", extra: [] }, [MAP], undefined, undefined, true)).toEqual(claudeBaseArgs(true, [MAP]));
   });
   it("a project adds the binding prompt, extra flags come last", () => {
     const a = buildClaudeArgs({ mode: "new", project: "acme", extra: ["--model", "opus"] }, [MAP]);
     const i = a.indexOf("--append-system-prompt");
     expect(a[i + 1]).toBe(bindingPrompt("acme"));
     expect(a.slice(-2)).toEqual(["--model", "opus"]);
+  });
+});
+
+describe("buildCodexArgs", () => {
+  const home = mkdtempSync(path.join(tmpdir(), "hub-codex-"));
+  const paths = pathsAt(home);
+  it("never carries the bypass flag; unattended means approvals never, normal on-request", () => {
+    for (const unattended of [true, false]) {
+      const a = buildCodexArgs({ mode: "new", extra: [] }, paths, unattended);
+      expect(a.join(" ")).not.toMatch(/dangerously|yolo/);
+      expect(a).toEqual(["-C", home, "-a", unattended ? "never" : "on-request"]);
+    }
+    expect(buildCodexArgs({ mode: "continue", extra: [] }, paths, true).slice(0, 2)).toEqual(["resume", "--last"]);
+  });
+  it("refuses the bypass flag even when it is passed through", () => {
+    expect(() => buildCodexArgs({ mode: "new", extra: ["--dangerously-bypass-approvals-and-sandbox"] }, paths, true)).toThrow(/sandbox off/);
+    expect(() => buildCodexArgs({ mode: "new", extra: ["--yolo"] }, paths, false)).toThrow(/sandbox off/);
   });
 });
 

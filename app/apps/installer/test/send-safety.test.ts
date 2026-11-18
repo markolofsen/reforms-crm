@@ -3,7 +3,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context";
 import { makeInstance } from "./instance-fixture";
-import { auditLayout, DENIED_TOOLS, denyRules, HUB_API_COMMANDS, enforcementArgs, guardDecision, HUB_MCP_SERVERS, writeSessionFiles } from "../src/safety";
+import { auditLayout, guardDecision, writeSessionFiles } from "../src/safety";
+import { DENIED_TOOLS, denyRules, HUB_API_COMMANDS, HUB_MCP_SERVERS } from "@hub/agent/deny";
+import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 
 // Decision 0011: the agent gets NO send tool, in any mode. Sending is a hub command. If a rule below is removed or a
 // send path is added to an agent session, one of these fails.

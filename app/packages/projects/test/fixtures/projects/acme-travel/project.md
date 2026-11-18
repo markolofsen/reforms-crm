@@ -13,7 +13,6 @@ Boutique travel agency; leads arrive from the site form at hello@acme.example.
 | mail.accounts | owner@acme.example | 2026-11-14 | agent |
 | mail.addresses | owner@acme.example, hello@acme.example | 2026-11-14 | owner |
 | mail.sender | hello@acme.example | 2026-11-14 | owner |
-| draft.recipients | test | 2026-11-14 | owner |
 | tone | warm, brief, no exclamation marks | 2026-11-14 | owner |
 | knowledge.source | files | 2026-11-14 | owner |
 | setup.doctor | 2026-11-15 pass | 2026-11-15 | agent |

@@ -292,6 +292,8 @@ export const draftMailDto = z.object({
 });
 export type DraftMailDto = z.infer<typeof draftMailDto>;
 export const sentDto = z.object({ ok: z.literal(true), sendId: z.number() });
+/** A single-use ticket for one apply (P49 S12): minted only for the admin's exact origin, valid for seconds. */
+export const sendTicketDto = z.object({ ticket: z.string(), expiresAt: z.string() });
 export const sendCancelledDto = z.object({ ok: z.literal(true), sendId: z.number() });
 export const stopDto = z.object({ ok: z.literal(true), cancelled: z.number(), stopped: z.array(z.string()) });
 

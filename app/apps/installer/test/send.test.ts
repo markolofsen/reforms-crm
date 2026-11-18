@@ -4,6 +4,7 @@ import path from "node:path";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { assess, FakeMailer, runDue, sendDraft, type MailDraft, type SendDeps } from "@hub/send";
+import { defaultPolicy, withFieldValues, writeSendPolicy, type PolicyField } from "@hub/projects";
 import { runSendCommand } from "../src/send/command";
 
 // Every test here uses FakeMailer: nothing reaches Mail and nothing is ever sent.
@@ -11,7 +12,8 @@ import { runSendCommand } from "../src/send/command";
 const T0 = new Date("2026-11-20T10:00:00.000Z");
 const minutes = (n: number) => new Date(T0.getTime() + n * 60_000);
 
-function projectMd(extra: string[] = [], recipients = "any"): string {
+/** project.md holds no send policy (P49 S11): the policy rows of a test go to send-policy.json (`writeProject`). */
+function projectMd(): string {
   return [
     "# Acme",
     "",
@@ -24,9 +26,7 @@ function projectMd(extra: string[] = [], recipients = "any"): string {
     "| mail.accounts | owner@acme.example | 2026-11-14 | agent |",
     "| mail.addresses | owner@acme.example | 2026-11-14 | owner |",
     "| mail.sender | owner@acme.example | 2026-11-14 | owner |",
-    `| draft.recipients | ${recipients} | 2026-11-14 | owner |`,
     "| tone | brief | 2026-11-14 | owner |",
-    ...extra.map((r) => `| ${r} | 2026-11-15 | owner |`),
     "",
     "## Notion databases",
     "",
@@ -43,12 +43,19 @@ let mailer: FakeMailer;
 let projects: string;
 let now: Date;
 
-const writeProject = (extra: string[] = [], recipients = "any") => writeFileSync(path.join(projects, "acme", "project.md"), projectMd(extra, recipients));
-const deps = (over: Partial<SendDeps> = {}): SendDeps => ({ repos, mailer, projectsDir: projects, allowList: [], now: () => now, ...over });
+let policyDir: string;
+/** project.md, plus the send policy: `extra` rows in the old spelling ("send.mode | auto") and draft.recipients. */
+const writeProject = (extra: string[] = [], recipients = "any") => {
+  writeFileSync(path.join(projects, "acme", "project.md"), projectMd());
+  const values = Object.fromEntries([["draft.recipients", recipients], ...extra.map((r) => r.split(" | ") as [string, string])]) as Partial<Record<PolicyField, string>>;
+  writeSendPolicy(policyDir, "acme", { ...withFieldValues(defaultPolicy("generic"), "generic", values), updatedAt: T0.toISOString(), by: "test" });
+};
+const deps = (over: Partial<SendDeps> = {}): SendDeps => ({ repos, mailer, projectsDir: projects, policyDir, allowList: [], now: () => now, ...over });
 
 beforeEach(() => {
   dir = mkdtempSync(path.join(tmpdir(), "hub-send-"));
   projects = path.join(dir, "projects");
+  policyDir = path.join(dir, "state", "projects");
   mkdirSync(path.join(projects, "acme"), { recursive: true });
   writeProject();
   handle = openDb(path.join(dir, "app.db"));
@@ -373,7 +380,7 @@ describe("hub send --due (autosend)", () => {
 });
 
 describe("the hub send command", () => {
-  const env = (out: string[]) => ({ projectsDir: projects, configFile: path.join(dir, "none.json"), dbPath: path.join(dir, "app.db"), mailer, out: (l: string) => out.push(l), now: () => now });
+  const env = (out: string[]) => ({ projectsDir: projects, policyDir, configFile: path.join(dir, "none.json"), dbPath: path.join(dir, "app.db"), mailer, out: (l: string) => out.push(l), now: () => now });
 
   it("needs exactly one mode and is a dry run by default", async () => {
     const out: string[] = [];

@@ -26,6 +26,8 @@ export interface ProjectCommandOptions {
   dbPath?: string;
   /** `<repo>/state` (generated session files, binding). Default: two folders above the projects root. */
   stateRoot?: string;
+  /** Where send-policy.json lives (`hubPaths().stateProjects`). Default: the instance's, unless `projectsRoot` is given (tests). */
+  policyDir?: string;
   out?: (line: string) => void;
   /** Account names from Mail.app (`list_accounts`). */
   /** `undefined`: Mail could not be asked (Mail.app closed, mail-mcp down); the check is then skipped, not failed. `[]` is an answer. */
@@ -132,7 +134,8 @@ export async function runRename(from: string, to: string, apply: boolean, o: Pro
 export async function runProjectDoctor(slug: string, o: ProjectCommandOptions = {}): Promise<number> {
   const out = o.out ?? console.log;
   const root = o.projectsRoot ?? defaultProjectsRoot();
-  const all = loadProjects(root);
+  const policyDir = o.policyDir ?? (o.projectsRoot ? undefined : hubPaths().stateProjects);
+  const all = loadProjects(root, policyDir ? { policyDir } : {});
   const project = all.find((p) => p.slug === slug);
   if (!project) {
     out(`FAIL    project exists  no ${join(root, slug, "project.md")}`);

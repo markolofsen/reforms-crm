@@ -1,10 +1,13 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { pathsAt } from "@hub/config/paths";
 import path from "node:path";
 import { createRepos, openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context";
 import { recordDraft } from "../src/record-draft";
-import { DENIED_TOOLS, enforcementArgs, guardDecision, readBinding, resolveBinding, runGuard, skillScope, writeBinding, writeSessionFiles } from "../src/safety";
+import { guardDecision, readBinding, resolveBinding, runGuard, skillScope, writeBinding, writeCodexHome, writeSessionFiles } from "../src/safety";
+import { DENIED_TOOLS } from "@hub/agent/deny";
+import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 import { buildClaudeArgs } from "../src/agent";
 import { auditLayout } from "../src/safety";
 import { makeInstance } from "./instance-fixture";
@@ -93,6 +96,47 @@ describe("generated session files", () => {
   });
   it("an unbound session writes to _unbound", () => {
     expect(existsSync(writeSessionFiles(root, PROJECTS, undefined).settings)).toBe(true);
+  });
+  it("normal mode has no sandbox block; unattended has the OS sandbox with no network, no Apple Events and the policy read-only (P49 S9)", () => {
+    expect(settings.sandbox).toBeUndefined();
+    const u = JSON.parse(readFileSync(writeSessionFiles(root, PROJECTS, "acme-travel", "/n/node", pathsAt(root), true).settings, "utf8"));
+    expect(u.sandbox).toMatchObject({ enabled: true, failIfUnavailable: true, autoAllowBashIfSandboxed: true, allowUnsandboxedCommands: false, network: { allowedDomains: [], allowLocalBinding: false } });
+    expect(u.sandbox.allowAppleEvents).toBeUndefined();
+    const dw: string[] = u.sandbox.filesystem.denyWrite;
+    for (const p of ["state/projects", "state/secrets", "state/codex", "config", "core", "run.sh", ".claude", ".mcp.json"]) expect(dw, p).toContain(path.join(root, p));
+    // the database stays writable for `hub record-draft`: its Read/Edit rules would become sandbox denials
+    expect(u.permissions.deny.some((r: string) => r.includes("./data/"))).toBe(false);
+    expect(u.permissions.deny).toContain("Bash(*hub send*)");
+    writeSessionFiles(root, PROJECTS, "acme-travel", "/n/node"); // back to normal for the rest of the suite
+  });
+});
+
+describe("the Codex home (P49 S10)", () => {
+  const root = tmp();
+  const owner = tmp();
+  writeFileSync(path.join(owner, "auth.json"), "{}");
+  writeFileSync(path.join(owner, "config.toml"), 'model = "gpt-test"\nsandbox_mode = "danger-full-access"\n[mcp_servers.slack]\nurl = "https://x"\n');
+  mkdirSync(path.join(root, "config"), { recursive: true });
+  writeFileSync(path.join(root, "config", "mcp.json"), JSON.stringify({ mcpServers: { "mail-mcp": { type: "http", url: "http://localhost:8787" }, slack: { type: "http", url: "https://x" } } }));
+  const home = writeCodexHome({ paths: pathsAt(root), projectsDir: PROJECTS, slug: "acme-travel", unattended: true, instructions: "bound", env: { HOME: "/nowhere", CODEX_HOME: owner } });
+  const toml = readFileSync(path.join(home, "config.toml"), "utf8");
+  it("holds the hub's servers only, with the send tools off, and none of the owner's", () => {
+    expect(toml).toContain('[mcp_servers."mail-mcp"]');
+    expect(toml).toMatch(/disabled_tools = \[.*"create_outgoing_message".*\]/);
+    expect(toml).not.toContain("slack");
+  });
+  it("is unattended without the bypass: approvals never, the profile's sandbox, network off, the policy read-only", () => {
+    expect(toml).toContain('approval_policy = "never"');
+    expect(toml).toContain('default_permissions = "hub"');
+    expect(toml).not.toMatch(/danger-full-access|dangerously/);
+    expect(toml).toContain(`${JSON.stringify(path.join(root, "state", "projects"))} = "read"`);
+    expect(toml).toMatch(/\[permissions\.hub\.network\]\nenabled = false/);
+    expect(toml).toContain('model = "gpt-test"');
+  });
+  it("links auth.json and the skills, writes the forbidden rules", () => {
+    expect(lstatSync(path.join(home, "auth.json")).isSymbolicLink()).toBe(true);
+    expect(readFileSync(path.join(home, "rules", "hub.rules"), "utf8")).toContain('prefix_rule(pattern = ["hub", "send"], decision = "forbidden"');
+    expect(existsSync(path.join(home, "skills", "triage-mail", "SKILL.md"))).toBe(true);
   });
 });
 

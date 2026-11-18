@@ -1,17 +1,27 @@
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import type { Repos } from "@hub/db";
 import { assess, findMail, mailHash, sendDraft, type Mailer } from "@hub/send";
-import { idParam, projectQuery, sendBody, sendParam, slugParam } from "@hub/contract/requests";
-import { draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sentDto, stopDto } from "@hub/contract/responses";
+import { idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
+import { draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
+import { gateRefusal, ticketStore, type TicketStore } from "../admin-gate";
 import { notFound, v } from "../http";
 
 /** What the send routes need from the process: the Mailer, where project.md lives, and `allow_list` for `draft.recipients: test`. */
 export interface SenderOptions {
   mailer: Mailer;
   projectsDir: string;
+  /** `hubPaths().stateProjects`: the send policy files (P49 S11). */
+  policyDir: string;
   allowList: string[];
+  /** The admin's port: a send ticket is minted only for its exact origin (P49 S12). */
+  adminPort: number;
+  /** Tests: the ticket store (its clock). */
+  tickets?: TicketStore;
   now?: () => Date;
 }
+
+/** A ticket lives 60 s: the person has read the mail and pressed Send; the apply follows at once. */
+const TICKET_TTL_MS = 60_000;
 
 const refusal = (refused: string[]) => ({ error: refused.length === 1 ? `Not sent: ${refused[0]}` : `Not sent: ${refused.length} reasons`, code: "wrong_state" as const, refused });
 
@@ -22,11 +32,23 @@ const refusal = (refused: string[]) => ({ error: refused.length === 1 ? `Not sen
  * and writes its audit row first. Cancel and Stop all only ever remove work: nothing here queues a send.
  */
 export function sendRoutes(repos: Repos, sender?: SenderOptions) {
-  const deps = sender && { repos, mailer: sender.mailer, projectsDir: sender.projectsDir, allowList: sender.allowList, ...(sender.now ? { now: sender.now } : {}) };
+  const deps = sender && { repos, mailer: sender.mailer, projectsDir: sender.projectsDir, policyDir: sender.policyDir, allowList: sender.allowList, ...(sender.now ? { now: sender.now } : {}) };
+  const tickets = sender?.tickets ?? ticketStore({ ttlMs: TICKET_TTL_MS });
+  const forbidden = (c: Context, why: string) => c.json({ error: `Not sent: ${why}.`, code: "forbidden" as const }, 403);
   /** `*` is every project. */
   const scope = (slug: string) => (slug === "*" ? undefined : slug);
 
   return new Hono()
+    // P49 S12: the admin page fetches one ticket per apply. Only the admin's exact origin, from a same-origin fetch, gets one.
+    .post("/api/sends/tickets", v("json", sendTicketBody), async (c) => {
+      if (!sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
+      const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host"), secFetchSite: c.req.header("sec-fetch-site") }, sender.adminPort, { sameSite: true });
+      if (why) return forbidden(c, why);
+      const { project, draftId } = c.req.valid("json");
+      const draft = await repos.drafts.get(draftId);
+      if (!draft || draft.project !== project) return notFound(c, "draft");
+      return c.json(sendTicketDto.parse(tickets.mint(`send:${draftId}`)));
+    })
     .post("/api/projects/:slug/drafts/:id/send", v("param", sendParam), v("json", sendBody), async (c) => {
       const { slug, id } = c.req.valid("param");
       const body = c.req.valid("json");
@@ -40,6 +62,8 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions) {
         const m = a.mail;
         return c.json(sendPreviewDto.parse({ ok: true, dryRun: true, from: m.sender, to: m.to, cc: m.cc, subject: m.subject, body: m.body }));
       }
+      // A send needs a person's ticket, not just the recipients and subject, which the dry run gives anyone (P49 S12).
+      if (!tickets.take(body.ticket, `send:${id}`)) return forbidden(c, "a send needs the admin's ticket; press Send in the admin");
       const r = await sendDraft(deps, { draftId: id, apply: true, actor: "admin", confirm: body.confirm });
       const out = JSON.parse(r.line) as { sendId?: number; refused?: string[]; error?: string };
       if (r.code === 0 && out.sendId !== undefined) return c.json(sentDto.parse({ ok: true, sendId: out.sendId }));

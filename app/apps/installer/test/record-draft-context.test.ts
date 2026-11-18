@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb } from "@hub/db";
 import { replayCalls, type LedgerEntry } from "@hub/projects";
 import { defaultRoot } from "../src/context";
+import { anyRecipients } from "./instance-fixture";
 import { batchCheck, batchLines } from "../src/batch-check";
 import { appendLine, readLines, recordsFile, sessionFile } from "../src/evidence-store";
 import { recordDraft, type RecordLine } from "../src/record-draft";
@@ -12,6 +13,7 @@ import { recordDraft, type RecordLine } from "../src/record-draft";
 let db: string;
 let root: string;
 let projects: string;
+let policy: string;
 beforeEach(() => {
   const d = mkdtempSync(path.join(tmpdir(), "hub-ctx-"));
   db = path.join(d, "app.db");
@@ -19,8 +21,7 @@ beforeEach(() => {
   projects = path.join(d, "projects");
   mkdirSync(root);
   cpSync(path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures", "projects", "acme-travel"), path.join(projects, "acme"), { recursive: true });
-  const pm = path.join(projects, "acme", "project.md");
-  writeFileSync(pm, readFileSync(pm, "utf8").replace("| draft.recipients | test |", "| draft.recipients | any |"));
+  policy = anyRecipients(path.join(d, "policy"), "acme");
 });
 
 const ctx = (over: Record<string, unknown> = {}) => ({
@@ -39,7 +40,7 @@ const run = (p: string, o: { required?: "warn" | "block"; now?: string; ledger?:
     const t = readFileSync(pm, "utf8");
     if (!t.includes("context.required")) writeFileSync(pm, t.replace("| tone |", `| context.required | ${o.required} | 2026-11-15 | owner |\n| tone |`));
   }
-  return recordDraft({ project: "acme", payload: p, dbPath: db, attempts: 1, projectsDir: projects, ...(o.ledger === false ? {} : { ledgerRoot: root }), now: () => new Date(o.now ?? "2026-11-16T10:00:00Z") });
+  return recordDraft({ project: "acme", payload: p, dbPath: db, attempts: 1, projectsDir: projects, policyDir: policy, ...(o.ledger === false ? {} : { ledgerRoot: root }), now: () => new Date(o.now ?? "2026-11-16T10:00:00Z") });
 };
 const count = async () => { const h = openDb(db); try { return (await createRepos(h.db).clients.list("acme")).length; } finally { h.close(); } };
 

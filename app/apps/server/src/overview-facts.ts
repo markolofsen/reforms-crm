@@ -76,6 +76,8 @@ export interface ProjectFacts {
 export interface FactsInput {
   repos: Repos;
   root: string;
+  /** Where send-policy.json lives; without it the safe defaults show (drafts only, the test list). */
+  policyDir?: string;
   now: Date;
   hostZone: string;
   rows: ProjectRow[];
@@ -83,7 +85,7 @@ export interface FactsInput {
 
 /** Facts for every registered project that is not a scratch one (`_` prefix). */
 export async function gatherFacts(i: FactsInput): Promise<ProjectFacts[]> {
-  const folders = loadProjects(i.root);
+  const folders = loadProjects(i.root, i.policyDir ? { policyDir: i.policyDir } : {});
   const out: ProjectFacts[] = [];
   for (const row of i.rows) {
     if (row.slug.startsWith("_")) continue;
@@ -93,6 +95,8 @@ export async function gatherFacts(i: FactsInput): Promise<ProjectFacts[]> {
     const stuckBefore = new Date(i.now.getTime() - STUCK_MINUTES * 60_000);
     const s = await i.repos.sends.summarySince(row.slug, { today: startOfLocalDay(i.now, tz).toISOString(), day: day.toISOString(), stuckBefore: stuckBefore.toISOString() });
     const loaded = folders.find((f) => f.slug === row.slug);
+    // send.* and draft.recipients come from the policy file (P49 S11), never from the registry's copy of project.md.
+    const policy = loaded?.policy ? loaded.parsed.config : c;
     let doctorFailed: string[] = [];
     if (loaded) {
       try {
@@ -116,8 +120,8 @@ export async function gatherFacts(i: FactsInput): Promise<ProjectFacts[]> {
       failed24h: s.failed,
       stuck: s.stuck,
       stopped: await i.repos.sends.isStopped(row.slug),
-      auto: { mode: c.send.mode, cap: c.send.dailyCap, used24h: await i.repos.sends.autoCountSince(row.slug, day.toISOString()) },
-      recipients: c.draft.recipients === "test" ? "test" : c.draft.recipients === "any" ? "any" : "listed",
+      auto: { mode: policy.send.mode, cap: policy.send.dailyCap, used24h: await i.repos.sends.autoCountSince(row.slug, day.toISOString()) },
+      recipients: policy.draft.recipients === "test" ? "test" : policy.draft.recipients === "any" ? "any" : "listed",
       doctorFailed,
       knowledgeExpired: await i.repos.knowledge.expiredCount(row.slug, localDate(i.now, tz)),
       contextRequired: c.context.required,

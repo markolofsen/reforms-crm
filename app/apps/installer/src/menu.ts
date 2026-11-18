@@ -1,4 +1,6 @@
 import * as p from "@clack/prompts";
+import type { AgentCli } from "@hub/config/paths";
+import { CLI_LABELS } from "@hub/agent/session";
 import { PHRASES } from "./agent";
 import { c } from "./term";
 
@@ -14,12 +16,12 @@ const FILTER_ACTIONS = [
 const cancelled = <T>(v: T | symbol): v is symbol => p.isCancel(v);
 
 /** The interactive menu. Returns the argv of the chosen command (parsed by the same CLI), or null when the user leaves. */
-export async function runMenu(projects: string[]): Promise<string[] | null> {
+export async function runMenu(projects: string[], defaultCli: AgentCli = "claude"): Promise<string[] | null> {
   p.intro(c.bold(c.cyan(" hub ")) + c.dim(" Hub Workflow"));
   const action = await p.select<Action>({
     message: "What do you want to do?",
     options: [
-      { value: "agent", label: "Agent session", hint: "Claude Code, bound to a project" },
+      { value: "agent", label: "Agent session", hint: "Claude Code or Codex, bound to a project" },
       { value: "up", label: "Admin", hint: "review drafts in the local admin (`hub up --demo` for invented data)" },
       { value: "doctor", label: "Check", hint: "health check of the setup or of one project" },
       { value: "filters", label: "Mail filters", hint: "Gmail filters for a project" },
@@ -43,9 +45,13 @@ export async function runMenu(projects: string[]): Promise<string[] | null> {
         { value: "new", label: "New session, no project", hint: "the phrase names the project" },
       ]);
       if (v === null) return leave();
+      // The same list as the terminal's `+`: the instance's default (`agent.default`) first.
+      const order: AgentCli[] = defaultCli === "codex" ? ["codex", "claude"] : ["claude", "codex"];
+      const cli = await p.select<AgentCli>({ message: "With", options: order.map((x, i) => ({ value: x, label: CLI_LABELS[x], ...(i === 0 ? { hint: "default" } : {}) })) });
+      if (cancelled(cli)) return leave();
       p.note(PHRASES.map(([ph]) => ph).join("\n"), "Then say one of");
-      p.outro(c.dim("starting Claude Code"));
-      return ["agent", v.startsWith("project:") ? v.slice(8) : v];
+      p.outro(c.dim(`starting ${CLI_LABELS[cli]}`));
+      return ["agent", v.startsWith("project:") ? v.slice(8) : v, "--cli", cli];
     }
     case "doctor": {
       const v = await projectChoice("Check", [{ value: "all", label: "Everything (setup)" }]);

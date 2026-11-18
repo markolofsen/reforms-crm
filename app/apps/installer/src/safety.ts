@@ -2,92 +2,25 @@ import { slimMessageContent } from "./slim-headers";
 import { pathsAt, type HubPaths } from "@hub/config/paths";
 import { auditToolCalls, defaultProjectsRoot, type AuditLayout, kindOf, loadProject, preDraftCheck, type SkillScope, type ToolCall } from "@hub/projects";
 import { instanceServer } from "./mcp-servers";
+import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
+import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
+import { HUB_MCP_SERVERS } from "@hub/agent/deny";
 import { readSession, recordPost, type PostPayload } from "./evidence-store";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-// Tool-level safety of `hub agent` (plan p17). Evidence that these hold under --dangerously-skip-permissions: the plan, S1.
-// Three layers: (1) --disallowedTools + generated deny rules (hard), (2) --strict-mcp-config with the hub's own servers
-// (no account connectors), (3) the PreToolUse guard `hub guard` (warn by default, HUB_GUARD=block to refuse).
-
-/** Tools that send, forward, delete or cancel. Denied outright: drafts only, nothing is ever sent or removed. */
-export const DENIED_TOOLS: readonly string[] = [
-  "mcp__mail-mcp__create_outgoing_message",
-  "mcp__mail-mcp__replace_outgoing_message",
-  "mcp__mail-mcp__replace_reply",
-  "mcp__mail-mcp__delete_outgoing_message",
-  "mcp__mail-mcp__delete_draft",
-  "mcp__notion__notion-delete-pages",
-  "mcp__notion__notion-delete-databases",
-  "mcp__notion__notion-delete-comment",
-  "mcp__notion__notion-move-pages",
-  "mcp__notion__notion-calendar-cancel-events",
-  // the claude.ai Gmail connector, should one ever be loaded (strict MCP config normally keeps it out)
-  ...["send_message", "forward", "reply", "trash_message", "trash_thread", "delete_draft"].map((t) => `mcp__claude_ai_Gmail__${t}`),
-];
-
-/** Bash patterns of the hub's sender: spelled as `hub send`, `./run.sh send`, `hub.sh send`, `hub.mjs send`, or the CLI source. */
-export const HUB_SEND_COMMANDS: readonly string[] = ["Bash(*hub send*)", "Bash(*run.sh send*)", "Bash(*hub.sh send*)", "Bash(*hub.mjs send*)", "Bash(*hub.mjs\" send*)", "Bash(*installer/src/cli.ts send*)"];
-
-/**
- * Follow-ups (P47, D1 of P48): a session may `hub sequences enrol --phrase "<the owner's words>"` (the CLI refuses it without, and the
- * guard flags it); declining a silence (`enrol --not-now`) and restarting (`pause`, `resume`) stay the owner's, denied in every spelling
- * (the `*` before the subcommand covers `hub`, `run.sh`, `hub.sh`, `hub.mjs` and the CLI source). Stop, delay and judge only reduce mail.
- */
-export const HUB_SEQUENCE_OWNER_COMMANDS: readonly string[] = ["Bash(*sequences enrol*--not-now*)", "Bash(*sequences pause*)", "Bash(*sequences resume*)"];
-
-/**
- * The admin server's Send is a loopback HTTP route (P23 S3). The route cannot tell a person's click from an agent's
- * `curl`, so the agent's session never reaches loopback: no Bash command that names it, no WebFetch to it.
- */
-export const HUB_API_COMMANDS: readonly string[] = ["Bash(*127.0.0.1*)", "Bash(*localhost*)", "Bash(*[::1]*)", "Bash(*0.0.0.0*)", "WebFetch(domain:localhost)", "WebFetch(domain:127.0.0.1)", "WebFetch(domain:[::1])"];
-
-/** The hub's own MCP servers: everything else is dropped by --strict-mcp-config. */
-export const HUB_MCP_SERVERS = ["mail-mcp", "notion", "knowledge-mcp"] as const;
+// Tool-level safety of `hub agent` (plans p17 and P49). What each CLI gets is built in `@hub/agent` (one source for the launcher,
+// the doctor and the server); this file writes it. Layers: (1) deny rules and disallowed tools, (2) the hub's MCP servers only
+// (Claude --strict-mcp-config, Codex its own CODEX_HOME), (3) the PreToolUse guard `hub guard` (warn by default, HUB_GUARD=block
+// to refuse), (4) in unattended mode the OS sandbox (no network, no Apple Events, the policy and config read-only).
 
 export const stateDir = (root: string) => pathsAt(root).stateProjects;
 export const slugDir = (root: string, slug: string | undefined) => path.join(stateDir(root), slug ?? "_unbound");
 
-/** Slugs of the projects a session could be bound to (folders with a project.md, no `_` prefix). */
-function otherProjects(projectsDir: string, slug: string | undefined): string[] {
-  if (!existsSync(projectsDir)) return [];
-  return readdirSync(projectsDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory() && !e.name.startsWith("_") && !e.name.startsWith(".") && e.name !== slug)
-    .map((e) => e.name)
-    .sort();
-}
+export type SessionFiles = ClaudeFiles & { rules: string[] };
 
-export interface SessionFiles { settings: string; mcp: string; disallowed: string[]; rules: string[] }
-
-/** Deny rules for settings.json: secrets, the live database, other projects' folders, mail-sending programs. */
-export function denyRules(projectsDir: string, root: string, slug: string | undefined, paths: HubPaths = pathsAt(root)): string[] {
-  const rel = (p: string) => (path.relative(root, p) || ".").split(path.sep).join("/");
-  const rules: string[] = [];
-  const denied = [`./${rel(paths.secrets)}/**`, `./${rel(path.dirname(paths.db))}/**`];
-  for (const o of otherProjects(projectsDir, slug)) denied.push(`./${rel(path.join(projectsDir, o))}/**`);
-  for (const p of denied) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
-  // `hub send` is the hub's own sender (decision 0011, plan P23): a person runs it, never the agent.
-  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
-  return rules;
-}
-
-/** Writes state/projects/<slug|_unbound>/{settings.json,mcp.json} (git-ignored: state/*) and returns what to pass to claude. */
-export function writeSessionFiles(root: string, projectsDir: string, slug: string | undefined, nodeBin = process.execPath, paths: HubPaths = pathsAt(root)): SessionFiles {
-  const dir = slugDir(root, slug);
-  mkdirSync(dir, { recursive: true });
-  const rules = denyRules(projectsDir, root, slug, paths);
-  const hub = paths.hubBin;
-  const settings = {
-    permissions: { deny: rules },
-    hooks: {
-      PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: `${JSON.stringify(nodeBin)} ${JSON.stringify(hub)} guard`, timeout: 20 }] }],
-      // P28 B3: the evidence ledger (what was read before each reply). Fires inside subagents too (S1), keyed by session_id and agent_id.
-      PostToolUse: [{ matcher: "*", hooks: [{ type: "command", command: `${JSON.stringify(nodeBin)} ${JSON.stringify(hub)} guard --post`, timeout: 20 }] }],
-    },
-  };
-  const settingsFile = path.join(dir, "settings.json");
-  writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + "\n");
-
+/** The instance's MCP servers, made absolute for it: `.mcp.json`, else `config/mcp.json`, else the core's defaults. */
+export function instanceMcpServers(paths: HubPaths, slug: string | undefined): Record<string, Record<string, unknown>> {
   const src = [paths.mcpFile, path.join(paths.configDir, "mcp.json"), paths.mcpDefaults].find((f) => existsSync(f));
   const all = src ? ((JSON.parse(readFileSync(src, "utf8")) as { mcpServers?: Record<string, Record<string, unknown>> }).mcpServers ?? {}) : {};
   const servers: Record<string, Record<string, unknown>> = {};
@@ -97,14 +30,60 @@ export function writeSessionFiles(root: string, projectsDir: string, slug: strin
     if (name === "knowledge-mcp" && slug) s.env = { ...(s.env as object), HUB_PROJECT: slug };
     servers[name] = s;
   }
-  const mcpFile = path.join(dir, "mcp.json");
-  writeFileSync(mcpFile, JSON.stringify({ mcpServers: servers }, null, 2) + "\n");
-  return { settings: settingsFile, mcp: mcpFile, disallowed: [...DENIED_TOOLS], rules };
+  return servers;
 }
 
-/** Flags that enforce the files. `=` forms: the variadic flags would otherwise swallow the next argument. */
-export function enforcementArgs(f: SessionFiles): string[] {
-  return ["--settings", f.settings, "--strict-mcp-config", `--mcp-config=${f.mcp}`, `--disallowedTools=${f.disallowed.join(",")}`];
+/** Writes state/projects/<slug|_unbound>/{settings.json,mcp.json} (git-ignored: state/*) and returns what to pass to claude. */
+export function writeSessionFiles(root: string, projectsDir: string, slug: string | undefined, nodeBin = process.execPath, paths: HubPaths = pathsAt(root), unattended = false): SessionFiles {
+  const dir = slugDir(root, slug);
+  mkdirSync(dir, { recursive: true });
+  const settings = claudeSettings({ paths, projectsDir, slug, nodeBin, unattended });
+  const settingsFile = path.join(dir, "settings.json");
+  writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + "\n");
+  const mcpFile = path.join(dir, "mcp.json");
+  writeFileSync(mcpFile, JSON.stringify({ mcpServers: instanceMcpServers(paths, slug) }, null, 2) + "\n");
+  return { settings: settingsFile, mcp: mcpFile, disallowed: claudeDisallowed(), rules: (settings.permissions as { deny: string[] }).deny };
+}
+
+/** The owner's own Codex folder: where `auth.json` lives (`CODEX_HOME` of the caller, else `~/.codex`). */
+const ownerCodexHome = (env: NodeJS.ProcessEnv): string => env.CODEX_HOME?.trim() || path.join(env.HOME ?? "", ".codex");
+
+/** `model` and `model_reasoning_effort` from the owner's own config.toml (top-level lines only), so a hub session keeps the owner's model. */
+function carriedCodexKeys(file: string): Record<string, string> {
+  if (!existsSync(file)) return {};
+  const out: Record<string, string> = {};
+  for (const line of readFileSync(file, "utf8").split(/\r?\n/)) {
+    if (line.startsWith("[")) break;
+    const m = /^(model|model_reasoning_effort)\s*=\s*"([^"\\]*)"\s*$/.exec(line);
+    if (m) out[m[1] as string] = m[2] as string;
+  }
+  return out;
+}
+
+/**
+ * Writes the session's CODEX_HOME (P49 S10): config.toml, rules/hub.rules, skills/ (links to the core skills) and auth.json (a link to the
+ * owner's, never a copy). Returns the folder.
+ */
+export function writeCodexHome(o: { paths: HubPaths; projectsDir: string; slug: string | undefined; unattended: boolean; instructions: string; env?: NodeJS.ProcessEnv }): string {
+  const env = o.env ?? process.env;
+  const home = codexHome(o.paths, o.slug);
+  mkdirSync(path.join(home, "rules"), { recursive: true });
+  const owner = ownerCodexHome(env);
+  const toml = codexConfigToml({ paths: o.paths, projectsDir: o.projectsDir, slug: o.slug, unattended: o.unattended, servers: instanceMcpServers(o.paths, o.slug), instructions: o.instructions, carry: carriedCodexKeys(path.join(owner, "config.toml")) });
+  writeFileSync(path.join(home, "config.toml"), toml);
+  writeFileSync(path.join(home, "rules", "hub.rules"), codexRules());
+  const auth = path.join(home, "auth.json");
+  rmSync(auth, { force: true });
+  if (existsSync(path.join(owner, "auth.json"))) symlinkSync(path.join(owner, "auth.json"), auth);
+  const skills = path.join(home, "skills");
+  rmSync(skills, { recursive: true, force: true });
+  mkdirSync(skills, { recursive: true });
+  if (existsSync(o.paths.skills)) {
+    for (const e of readdirSync(o.paths.skills, { withFileTypes: true })) {
+      if (e.isDirectory() && existsSync(path.join(o.paths.skills, e.name, "SKILL.md"))) symlinkSync(path.join(o.paths.skills, e.name), path.join(skills, e.name));
+    }
+  }
+  return home;
 }
 
 // ---- sticky binding (S5) ----

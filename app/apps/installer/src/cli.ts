@@ -7,7 +7,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 import { renderNotionFields } from "./notion-docs";
-import { CORE_ROOT, HubHomeMissingError } from "@hub/config/paths";
+import { CORE_ROOT, HubHomeMissingError, instanceFeatures } from "@hub/config/paths";
 import { makeCtx, readJson, type Ctx } from "./context";
 import { auditRun, evidenceTable } from "./audit-run";
 import { batchCheck, batchLines } from "./batch-check";
@@ -25,6 +25,7 @@ import { runTests, runUp } from "./serve";
 import { projectRows, projectTable } from "./project-table";
 import { recordClient } from "./record-client";
 import { recordDraft } from "./record-draft";
+import { runPolicyCommand } from "./send/policy-command";
 import { registerSequencesCommands } from "./sequences-command";
 import { runSendCommand } from "./send/command";
 import { runGuard, runGuardPost } from "./safety";
@@ -124,9 +125,9 @@ program.hook("preAction", async (_cmd, action) => {
   }
 });
 
-program.command("agent").description("Start a Claude Code session in this repo. No argument: continue the last session. <project>: a FRESH session bound to that project.")
+program.command("agent").description("Start an agent session (Claude Code or Codex) in this instance. No argument: continue the last session. <project>: a FRESH session bound to that project.")
   .argument("[target]", "a project slug, or: continue (default) | new | pick")
-  .argument("[claude-args...]", "extra flags for claude, after `--` (e.g. -- --model opus)")
+  .argument("[cli-args...]", "--cli claude|codex|shell (default: agent.default), --prepare (write the session files only); extra flags for the CLI after `--`")
   .allowUnknownOption()
   .addHelpText("after", `
 ${c.bold("Modes")}
@@ -134,8 +135,14 @@ ${c.bold("Modes")}
   hub agent <project>         fresh session, HUB_PROJECT set, prompt pins it to that project
   hub agent new               fresh session, no project (the phrase names it)
   hub agent pick              choose a session from the list
-  hub agent <x> -- --model opus   anything after -- goes to claude
-Claude runs with --dangerously-skip-permissions --chrome, plus per-project deny rules, a strict MCP config and the guard hook (state/projects/<slug>/). With no argument the last binding is kept. Extra folders it may read: HUB_EXTRA_DIRS (colon-separated) or extra_dirs in config/config.json; none by default.`)
+  hub agent <x> --cli codex   the same with Codex (default: agent.default in config/config.json, else claude)
+  hub agent <x> --cli shell   your own shell in the instance root, HUB_PROJECT set (not sandboxed)
+  hub agent <x> --prepare     write the session files, start nothing
+  hub agent <x> -- --model opus   anything after -- goes to the CLI
+Two modes (config/config.json agent.unattended): normal, the CLI asks before commands and edits; unattended (true), no prompts with the
+OS sandbox on (no network or Apple Events from commands; the send policy, config and core read-only). Always: per-project deny rules, the
+hub's MCP servers only, send tools off, the guard hook (Claude). Codex never runs with its bypass flag. Extra folders Claude may read:
+HUB_EXTRA_DIRS (colon-separated) or extra_dirs in config/config.json; none by default.`)
   .action(async (target: string | undefined, rest: string[]) => {
     const ctx = ctxOf();
     done(await runAgent({ root: ctx.paths.home, home: ctx.home, projectsDir: projectsDir(), paths: ctx.paths }, [...(target ? [target] : []), ...rest]));
@@ -245,7 +252,7 @@ program.command("link").description("Optional shortcut: put `hub` on PATH (a sym
 program.command("record-draft").description("A session reports one UNSENT draft it left in Mail, so it shows in the admin. JSON on stdin (email, subject, mailRef, ...); prints one JSON line, exit 0 only when it says ok.")
   .requiredOption("--project <slug>", "the project the session is bound to")
   .action(async (o: { project: string }) => {
-    const r = await recordDraft({ project: o.project, payload: readFileSync(0, "utf8"), projectsDir: projectsDir(), configFile: ctxOf().paths.configFile, ledgerRoot: ledgerRoot() });
+    const r = await recordDraft({ project: o.project, payload: readFileSync(0, "utf8"), projectsDir: projectsDir(), policyDir: ctxOf().paths.stateProjects, configFile: ctxOf().paths.configFile, ledgerRoot: ledgerRoot() });
     console.log(r.line);
     done(r.code);
   });
@@ -258,7 +265,8 @@ program.command("record-client").description("A session reports a client it hand
     done(r.code);
   });
 
-program.command("send").argument("[draftId]", "the draft to send").description("Send an accepted draft from Mail (dry run unless --apply); --due runs the autosend queue (off unless a project says send.mode: auto); --cancel/--stop/--resume/--status. Only a person or this command sends: the agent has no send tool.")
+program.command("send").argument("[draftId]", "the draft to send, or `policy` (see below)").argument("[policyArgs...]", "`hub send policy [<slug>] | set <slug> <field> <value> ... | migrate [<slug>]`: the send policy, written only here").description("Send an accepted draft from Mail (dry run unless --apply); --due runs the autosend queue (off unless a project's send policy says send.mode auto); --cancel/--stop/--resume/--status; `policy` shows or sets the send policy. Only a person or this command sends: the agent has no send tool.")
+  .option("--dry-run", "`policy migrate`: show what would move")
   .option("--apply", "really send (default: dry run, nothing leaves)")
   .option("--due", "autosend runner: queue eligible drafts of send.classes, send those whose cancel window is over")
   .option("--project <slug>", "limit --due, --stop, --resume, --status to one project")
@@ -266,13 +274,17 @@ program.command("send").argument("[draftId]", "the draft to send").description("
   .option("--stop", "Stop all: cancel queued sends and refuse new ones (one project with --project)")
   .option("--resume", "lift Stop all")
   .option("--status", "show Stop all and the queued sends (the last sends with --project)")
-  .action(async (draftId: string | undefined, o: { apply?: boolean; due?: boolean; project?: string; cancel?: string; stop?: boolean; resume?: boolean; status?: boolean }) => {
+  .action(async (draftId: string | undefined, policyArgs: string[], o: { apply?: boolean; due?: boolean; project?: string; cancel?: string; stop?: boolean; resume?: boolean; status?: boolean; dryRun?: boolean }) => {
+    if (draftId === "policy") return done(runPolicyCommand([...policyArgs, ...(o.dryRun ? ["--dry-run"] : [])], { projectsDir: projectsDir(), policyDir: ctxOf().paths.stateProjects }));
+    if (policyArgs.length) { console.log(JSON.stringify({ ok: false, error: `unexpected arguments: ${policyArgs.join(" ")}` })); return done(2); }
+    const { dryRun: _d, ...opts } = o;
+    o = opts;
     const num = (v: string | undefined) => (v === undefined ? undefined : /^\d+$/.test(v) ? Number(v) : NaN);
     const id = num(draftId);
     const cancel = num(o.cancel);
     if (Number.isNaN(id) || Number.isNaN(cancel)) { console.log(JSON.stringify({ ok: false, error: "draftId and --cancel take a number" })); return done(2); }
     const { cancel: _c, ...rest } = o;
-    done(await runSendCommand({ ...rest, ...(id !== undefined ? { draftId: id } : {}), ...(cancel !== undefined ? { cancel } : {}) }, { projectsDir: projectsDir(), configFile: ctxOf().paths.configFile }));
+    done(await runSendCommand({ ...rest, ...(id !== undefined ? { draftId: id } : {}), ...(cancel !== undefined ? { cancel } : {}) }, { projectsDir: projectsDir(), policyDir: ctxOf().paths.stateProjects, configFile: ctxOf().paths.configFile }));
   });
 
 registerProjectCommands(program, projectOptions());
@@ -320,7 +332,7 @@ program.command("doctor").description("Run the checks a manual session needs plu
       console.log(`\n${summary(reports)}`);
       const slow = slowest(reports); if (slow) console.log(slow);
       if (!o.only?.length) {
-        const rows = await projectRows(projectsDir(), projectOptions());
+        const rows = await projectRows(projectsDir(), { ...projectOptions(), policyDir: ctxOf().paths.stateProjects });
         console.log(`\n${c.bold("Projects")} ${c.dim("(read only; a project's status is changed in its project.md)")}\n${projectTable(rows)}`);
       }
     }
@@ -451,7 +463,7 @@ async function main(): Promise<void> {
   let argv = process.argv.slice(2);
   if (argv.length === 0) {
     if (!process.stdin.isTTY || !process.stdout.isTTY) { program.outputHelp(); return; }
-    const chosen = await runMenu(listProjects(projectsDir()));
+    const chosen = await runMenu(listProjects(projectsDir()), instanceFeatures(ctxOf().paths).agent.default);
     if (!chosen) return;
     argv = chosen;
   }

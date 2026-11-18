@@ -59,6 +59,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     createOverview({
       repos,
       projectsDir,
+      ...(opts.sender?.policyDir ? { policyDir: opts.sender.policyDir } : {}),
       health,
       dataVersion: () => opts.dataVersion?.() ?? 0,
       now,
@@ -94,7 +95,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", instanceRoutes(opts.instance))
     .route("/", draftRoutes(repos, opts.sender))
     .route("/", sendRoutes(repos, opts.sender))
-    .route("/", projectRoutes(repos, projectsDir))
+    .route("/", projectRoutes(repos, projectsDir, opts.sender?.policyDir))
     .route("/", inboxRoutes(repos))
     .route("/", sequenceRoutes(repos, projectsDir, now))
     .route("/", bulkRoutes(repos))

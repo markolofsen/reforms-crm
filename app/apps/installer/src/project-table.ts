@@ -5,6 +5,8 @@ export interface ProjectRow { slug: string; kind: string; status: string; failed
 export interface ProjectTableOptions {
   mailAccounts?: () => Promise<string[] | undefined>;
   notionCheck?: (p: LoadedProject) => Promise<{ ok: boolean; detail: string; skipped?: boolean }>;
+  /** `hubPaths().stateProjects`: the send policy of each project (P49 S11). */
+  policyDir?: string;
 }
 
 /**
@@ -12,7 +14,7 @@ export interface ProjectTableOptions {
  * Read only: it never edits project.md, so a project's `status` is changed by the owner (or the setup skill), not by a check.
  */
 export async function projectRows(projectsDir: string, o: ProjectTableOptions = {}): Promise<ProjectRow[]> {
-  const all = loadProjects(projectsDir);
+  const all = loadProjects(projectsDir, o.policyDir ? { policyDir: o.policyDir } : {});
   // Same input as `hub doctor <project>`: an EMPTY list is an answer ("Mail has nothing"), so a project that names accounts fails
   // here too. Only a failed read leaves it undefined (skipped); dropping an empty list turned the same failure into a pass.
   const mail = o.mailAccounts ? await o.mailAccounts().catch(() => undefined) : undefined;

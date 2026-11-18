@@ -15,7 +15,8 @@ Rules: `skills/README.md` ("Rules"; report format: "Report"). Replies to the own
 1. The slug comes from the phrase ("разбери почту acme" -> `acme`) or from `$HUB_PROJECT` (`Bash: echo "$HUB_PROJECT"`,
    set by `hub agent <project>`). Both present and different: ask once. Neither: list `projects/*/` (names only) and ask.
 2. Read `projects/<slug>/project.md`. Take `mail.accounts`, `mail.addresses`, `mail.mailboxes` (default `INBOX`), `mail.sender`,
-   `mail.sent_mailbox`, `draft.recipients`, `tone`, `signoff`, `languages`, and the `clients` data source from `## Notion databases`.
+   `mail.sent_mailbox`, `tone`, `signoff`, `languages`, and the `clients` data source from `## Notion databases`.
+   - `draft.recipients` is `recipients` in `state/projects/<slug>/send-policy.json` (read only; no file: `test`), README Rule 6.
    - `projects/<slug>/.generated/PROJECT.json` (written by `hub project sync`) holds the same values resolved, plus the kind's mail classes (`triage: count-only` means count, do not read) and `missing` required fields; prefer it when it exists.
    - No `## Settings` table: say "проект не настроен, скажи: настрой проект <slug>" and stop (that is `project-setup`).
    - `status: paused`: stop. `draft`: go on, and say once that setup was not finished.
@@ -29,8 +30,8 @@ Rules: `skills/README.md` ("Rules"; report format: "Report"). Replies to the own
   `hub/spam` (match `from:`, `domain:`, `list-id:`, `subject:`) is counted, not read or drafted for. A client-whitelisted sender is never skipped.
 - Inbound only; drop the project's own addresses; group by sender address. Skip a client whose newest message in the whole history is ours.
 - **Order and cap:** replies owed first, then the longest silence. 15 clients per run unless the owner gave a number; name those left.
-- Recipients: only what `draft.recipients` admits (README Rule 6). Others: `skipped:not-allowed-recipient`, with "скажи `открой рассылку на всех клиентов`
-  или поменяй `draft.recipients` в project.md".
+- Recipients: only what `draft.recipients` admits (README Rule 6). Others: `skipped:not-allowed-recipient`, with "выполни в своём терминале
+  `hub send policy set <slug> draft.recipients any`".
 - Above 5 clients use the subagent rule in section 4.
 
 ### 1a. Spam and other folders

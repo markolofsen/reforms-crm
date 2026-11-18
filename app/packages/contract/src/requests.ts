@@ -51,8 +51,11 @@ export const slugParam = z.object({ slug: project });
 export const sendParam = z.object({ slug: project, id: z.coerce.number().int().positive() });
 export const sendBody = z.discriminatedUnion("apply", [
   z.object({ apply: z.literal(false) }),
-  z.object({ apply: z.literal(true), confirm: z.object({ to: z.array(text(320)).min(1).max(50), subject: text(300) }) }),
+  // `ticket` (P49 S12): minted by POST /api/sends/tickets for this draft, single use. Optional here so a missing one is the route's 403, not a 400.
+  z.object({ apply: z.literal(true), confirm: z.object({ to: z.array(text(320)).min(1).max(50), subject: text(300) }), ticket: z.string().min(1).max(200).optional() }),
 ]);
+/** The admin page asks for a send ticket just before it applies a send (P49 S12). */
+export const sendTicketBody = z.strictObject({ project, draftId: z.number().int().positive() });
 export type SendBody = z.infer<typeof sendBody>;
 
 // Connections (P37, decision 0020 as amended by 0026). A secret travels in one direction only: from the form to `PUT /api/connections/:id/secret`. No response,

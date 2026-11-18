@@ -6,6 +6,8 @@ import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { chooseMailerKind, FakeMailer, type MailDraft } from "@hub/send";
 import { createApp } from "./app";
 import { createServerMailer } from "./send/mailer";
+import { setSendPolicy } from "@hub/projects";
+import { ticketStore } from "./admin-gate";
 
 // The admin's Send. Every test uses FakeMailer: nothing here reaches Mail and nothing is ever sent.
 
@@ -21,7 +23,6 @@ const projectMd = [
   "| mail.accounts | owner@acme.example | 2026-11-14 | agent |",
   "| mail.addresses | owner@acme.example | 2026-11-14 | owner |",
   "| mail.sender | owner@acme.example | 2026-11-14 | owner |",
-  "| draft.recipients | any | 2026-11-14 | owner |",
   "| tone | brief | 2026-11-14 | owner |",
   "",
   "## Notion databases",
@@ -35,9 +36,19 @@ let handle: DbHandle;
 let repos: Repos;
 let mailer: FakeMailer;
 let app: ReturnType<typeof createApp>;
+let policyDir: string;
 const H = { "content-type": "application/json" };
 const call = (method: string, path: string, body?: unknown) => app.request(`http://127.0.0.1:4317${path}`, { method, headers: H, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 const post = (path: string, body?: unknown) => call("POST", path, body ?? {});
+/** The admin page's own request headers (P49 S12): exact origin, same-origin fetch. */
+const ADMIN = { ...H, origin: "http://127.0.0.1:5173", "sec-fetch-site": "same-origin" };
+const ticketFor = async (a: ReturnType<typeof createApp>, draftId: number, headers: Record<string, string> = ADMIN, project = "acme") =>
+  a.request("http://127.0.0.1:4317/api/sends/tickets", { method: "POST", headers, body: JSON.stringify({ project, draftId }) });
+/** What the admin's Send does: a ticket, then the apply carrying it. */
+async function apply(id: number, body: Record<string, unknown>, a: ReturnType<typeof createApp> = app) {
+  const t = (await (await ticketFor(a, id)).json()) as { ticket: string };
+  return a.request(`http://127.0.0.1:4317${sendUrl(id)}`, { method: "POST", headers: H, body: JSON.stringify({ apply: true, ...body, ticket: t.ticket }) });
+}
 
 const mailDraft = (over: Partial<MailDraft> = {}): MailDraft => ({
   ref: "501",
@@ -69,9 +80,50 @@ beforeEach(() => {
   handle = openDb(join(dir, "app.db"));
   repos = createRepos(handle.db);
   mailer = new FakeMailer();
-  app = createApp(repos, { sender: { kind: "fake", mailer, projectsDir: join(dir, "projects"), allowList: [] } });
+  policyDir = join(dir, "state", "projects");
+  setSendPolicy(policyDir, "acme", "generic", { "draft.recipients": "any" }, "test");
+  app = createApp(repos, { sender: { kind: "fake", mailer, projectsDir: join(dir, "projects"), policyDir, allowList: [], adminPort: 5173 } });
 });
 afterEach(() => handle.close());
+
+describe("the send ticket (P49 S12)", () => {
+  it("an apply without a ticket is 403 and sends nothing, even with the right recipients and subject", async () => {
+    const id = await draft();
+    const res = await post(sendUrl(id), { apply: true, confirm });
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { code: string }).code).toBe("forbidden");
+    const forged = await post(sendUrl(id), { apply: true, confirm, ticket: "x".repeat(43) });
+    expect(forged.status).toBe(403);
+    expect(mailer.sent).toEqual([]);
+    expect(await repos.sends.forDraft(id)).toEqual([]);
+  });
+  it("only the admin's exact origin, from a same-origin fetch, gets a ticket", async () => {
+    const id = await draft();
+    for (const headers of [H, { ...ADMIN, origin: "http://127.0.0.1:3000" }, { ...ADMIN, origin: "http://localhost:5174" }, { ...ADMIN, origin: "null" }, { ...ADMIN, "sec-fetch-site": "same-site" }, { origin: ADMIN.origin, "content-type": "application/json" }]) {
+      expect((await ticketFor(app, id, headers)).status, JSON.stringify(headers)).toBe(403);
+    }
+    expect((await ticketFor(app, id, { ...ADMIN, origin: "http://localhost:5173" })).status).toBe(200);
+    expect((await ticketFor(app, 999)).status).toBe(404);
+    expect((await ticketFor(app, id, ADMIN, "other")).status).toBe(404);
+  });
+  it("a ticket is single use, bound to its draft, and expires", async () => {
+    const id = await draft();
+    const t = ((await (await ticketFor(app, id)).json()) as { ticket: string }).ticket;
+    const other = await repos.drafts.record({ project: "acme", email: "b@example.com", name: "B", subject: "Re: b", mailRef: "<b@x>" });
+    expect((await post(sendUrl(other.draftId), { apply: true, confirm, ticket: t })).status).toBe(403);
+    // the wrong use spent it
+    expect((await post(sendUrl(id), { apply: true, confirm, ticket: t })).status).toBe(403);
+    let clock = 0;
+    const store = ticketStore({ ttlMs: 60_000, now: () => clock });
+    const old = store.mint("send:1");
+    clock = 60_001;
+    expect(store.take(old.ticket, "send:1")).toBe(false);
+    const fresh = store.mint("send:1");
+    expect(store.take(fresh.ticket, "send:1")).toBe(true);
+    expect(store.take(fresh.ticket, "send:1")).toBe(false);
+    expect(mailer.sent).toEqual([]);
+  });
+});
 
 describe("Send from the admin", () => {
   it("a dry run returns the exact mail and sends and writes nothing", async () => {
@@ -85,7 +137,7 @@ describe("Send from the admin", () => {
 
   it("a confirmed send goes out once, writes the audit row by `admin`, and the list shows it", async () => {
     const id = await draft();
-    const res = await post(sendUrl(id), { apply: true, confirm });
+    const res = await apply(id, { confirm });
     expect(res.status).toBe(200);
     const { sendId } = (await res.json()) as { sendId: number };
     expect(mailer.sent).toHaveLength(1);
@@ -94,7 +146,7 @@ describe("Send from the admin", () => {
     expect(list.sends[0]).toMatchObject({ id: sendId, status: "sent", actor: "admin", body: "Hello,\n\nThe price is 100.\n\nAcme" });
     // a second send is refused: the audit row alone stops a repeat
     mailer.drafts.push(mailDraft());
-    const again = await post(sendUrl(id), { apply: true, confirm });
+    const again = await apply(id, { confirm });
     expect(again.status).toBe(409);
     expect(((await again.json()) as { refused: string[] }).refused[0]).toMatch(/already sent/);
     expect(mailer.sent).toHaveLength(1);
@@ -113,7 +165,7 @@ describe("Send from the admin", () => {
 
   it("refuses an injection-suspected draft even when Checked", async () => {
     const id = await draft({ injection: true });
-    const res = await post(sendUrl(id), { apply: true, confirm });
+    const res = await apply(id, { confirm });
     expect(res.status).toBe(409);
     expect(((await res.json()) as { refused: string[] }).refused.join()).toMatch(/injection_suspected/);
     expect(mailer.sent).toEqual([]);
@@ -121,10 +173,10 @@ describe("Send from the admin", () => {
 
   it("refuses when what the person saw is not what Mail holds (recipient or subject changed)", async () => {
     const id = await draft();
-    const wrongTo = await post(sendUrl(id), { apply: true, confirm: { ...confirm, to: ["someone.else@example.com"] } });
+    const wrongTo = await apply(id, { confirm: { ...confirm, to: ["someone.else@example.com"] } });
     expect(wrongTo.status).toBe(409);
     expect(((await wrongTo.json()) as { refused: string[] }).refused[0]).toMatch(/changed since you looked/);
-    const wrongSubject = await post(sendUrl(id), { apply: true, confirm: { ...confirm, subject: "Re: other" } });
+    const wrongSubject = await apply(id, { confirm: { ...confirm, subject: "Re: other" } });
     expect(wrongSubject.status).toBe(409);
     expect(mailer.sent).toEqual([]);
   });
@@ -145,11 +197,11 @@ describe("Send from the admin", () => {
   it("a Mail failure is a 500 with the sentence, the row is failed, and the draft can be sent again", async () => {
     const id = await draft();
     mailer.failSend = "Mail is not running";
-    const res = await post(sendUrl(id), { apply: true, confirm });
+    const res = await apply(id, { confirm });
     expect(res.status).toBe(500);
     expect(((await res.json()) as { error: string }).error).toMatch(/Mail is not running/);
     expect((await repos.sends.forDraft(id))[0]).toMatchObject({ status: "failed" });
-    expect((await post(sendUrl(id), { apply: true, confirm })).status).toBe(200);
+    expect((await apply(id, { confirm })).status).toBe(200);
   });
 
   it("without a Mailer configured nothing can send", async () => {
@@ -186,7 +238,7 @@ describe("the mail read on demand and Send joining draft state (P27)", () => {
     expect((await post(checkedUrl(id), { project: "acme", checked: true, hash })).status).toBe(200);
     expect((await repos.drafts.get(id))?.checkedHash).toBe(hash);
     mailer.drafts[0] = mailDraft({ body: "Hello,\n\nThe price is 999.\n\nAcme" });
-    const refused = await post(sendUrl(id), { apply: true, confirm });
+    const refused = await apply(id, { confirm });
     expect(refused.status).toBe(409);
     expect(((await refused.json()) as { refused: string[] }).refused.join(" ")).toMatch(/changed in Mail after it was Checked/);
     expect(mailer.sent).toEqual([]);
@@ -206,7 +258,7 @@ describe("the mail read on demand and Send joining draft state (P27)", () => {
 
   it("a hub send closes the draft as sent, by the hub", async () => {
     const id = await draft();
-    expect((await post(sendUrl(id), { apply: true, confirm })).status).toBe(200);
+    expect((await apply(id, { confirm })).status).toBe(200);
     expect(await repos.drafts.get(id)).toMatchObject({ status: "sent", sentVia: "hub" });
   });
 });
@@ -231,7 +283,7 @@ describe("history, cancel, Stop all", () => {
     const blocked = await post(sendUrl(id), { apply: false });
     expect(blocked.status).toBe(409);
     expect(((await blocked.json()) as { refused: string[] }).refused.join()).toMatch(/Stop all is on/);
-    expect((await post(sendUrl(id), { apply: true, confirm })).status).toBe(409);
+    expect((await apply(id, { confirm })).status).toBe(409);
     expect(mailer.sent).toEqual([]);
     const resumed = await post("/api/projects/acme/sends/resume");
     expect(await resumed.json()).toMatchObject({ stopped: [] });
@@ -244,7 +296,7 @@ describe("history, cancel, Stop all", () => {
     const id = await draft();
     const list = async () => ((await (await call("GET", "/api/drafts?project=acme")).json()) as { drafts: Array<{ id: number; injectionSuspected: boolean; mailClass: string | null; sendState: { status: string } | null }> }).drafts[0];
     expect(await list()).toMatchObject({ id, injectionSuspected: false, mailClass: "client", sendState: null });
-    await post(sendUrl(id), { apply: true, confirm });
+    await apply(id, { confirm });
     expect((await list())?.sendState).toMatchObject({ status: "sent" });
   });
 });
@@ -283,9 +335,10 @@ describe("which Mailer the server uses", () => {
     const r = await repos.drafts.record({ project: "acme", email: "client@example.com", name: "Cli", subject: "Re: hello", mailRef: "<d1@acme.example>", mailClass: "client" });
     await repos.drafts.setChecked(r.draftId, true);
     await handle.db.$client.prepare("update drafts set body = ? where id = ?").run("Hello", r.draftId);
-    const a = createApp(repos, { sender: { kind, mailer: fake, projectsDir: dir, allowList: [] } });
-    const url = `http://127.0.0.1:4317${sendUrl(r.draftId)}`;
-    expect((await a.request(url, { method: "POST", headers: H, body: JSON.stringify({ apply: true, confirm }) })).status).toBe(200);
+    const pol = join(dir, "..", `${join(dir).split("/").pop()}-policy`);
+    setSendPolicy(pol, "acme", "generic", { "draft.recipients": "any" }, "test");
+    const a = createApp(repos, { sender: { kind, mailer: fake, projectsDir: dir, policyDir: pol, allowList: [], adminPort: 5173 } });
+    expect((await apply(r.draftId, { confirm }, a)).status).toBe(200);
     expect((await (await a.request("http://127.0.0.1:4317/api/health")).json()) as { mailer: string }).toMatchObject({ mailer: "fake" });
     expect((await (await app.request("http://127.0.0.1:4317/api/health")).json()) as { mailer: string }).toMatchObject({ mailer: "fake" });
     expect((await (await createApp(repos).request("http://127.0.0.1:4317/api/health")).json()) as { mailer: string }).toMatchObject({ mailer: "mail-app" });

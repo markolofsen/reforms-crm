@@ -16,8 +16,8 @@ export const countMarkdown = (dir: string): number => {
  * the Notion token always exists (owner decision 2026-11-15), so a missing token file is a failure here, found without
  * any network call. A present token leaves the databases check skipped: reading them is the Overview's Refresh.
  */
-export async function projectDoctor(repos: Repos, slug: string, root: string, env: NodeJS.ProcessEnv = process.env): Promise<DoctorDto> {
-  const all = loadProjects(root);
+export async function projectDoctor(repos: Repos, slug: string, root: string, env: NodeJS.ProcessEnv = process.env, policyDir?: string): Promise<DoctorDto> {
+  const all = loadProjects(root, policyDir ? { policyDir } : {});
   const project = all.find((p) => p.slug === slug);
   if (!project) return doctorDto.parse({ state: "absent", checks: [], facts: null });
   const tokenFile = project.parsed.config.notion.tokenFile;

@@ -33,6 +33,8 @@ export interface HubPaths {
   stateProjects: string;
   /** Per-project evidence ledger root: `<state>/evidence`. */
   evidence: string;
+  /** Per-project Codex homes (`CODEX_HOME`) of hub sessions: `<state>/codex` (P49 S10; git-ignored, generated). */
+  codexHomes: string;
   guardLog: string;
   secrets: string;
   configDir: string;
@@ -115,6 +117,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     state,
     stateProjects: join(state, "projects"),
     evidence: join(state, "evidence"),
+    codexHomes: join(state, "codex"),
     guardLog: join(state, "guard.log"),
     secrets: fromEnv(env, "HUB_CONFIG_DIR") ?? join(state, "secrets"),
     configDir,
@@ -190,4 +193,34 @@ export function instanceBrand(paths: Pick<HubPaths, "configFile" | "configDir">)
     try { logoFound = statSync(logo).isFile(); } catch { logoFound = false; }
   }
   return { name, logo, logoFound };
+}
+
+/** The CLIs a hub agent session can run (P49): Claude Code and Codex. */
+export const AGENT_CLIS = ["claude", "codex"] as const;
+export type AgentCli = (typeof AGENT_CLIS)[number];
+
+export interface InstanceFeatures {
+  /** `terminal.enabled`: the admin's embedded terminal (P49 S1). Off unless it is exactly `true`. */
+  terminal: { enabled: boolean };
+  /**
+   * `agent.default`: the CLI `hub agent` and the terminal's `+` start (default claude). `agent.unattended`: no prompts,
+   * with the OS sandbox on (P49 section 5A); off unless exactly `true`.
+   */
+  agent: { default: AgentCli; unattended: boolean };
+}
+
+/**
+ * The instance's switches in `config/config.json` (P49). Anything that is not exactly the documented value falls back
+ * to the safe default (terminal off, Claude, prompts on): a typo never turns a door open.
+ */
+export function instanceFeatures(paths: Pick<HubPaths, "configFile">): InstanceFeatures {
+  let cfg: Record<string, unknown> = {};
+  if (existsSync(paths.configFile)) {
+    try { cfg = JSON.parse(readFileSync(paths.configFile, "utf8")) as Record<string, unknown>; } catch { cfg = {}; }
+  }
+  const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+  const terminal = obj(cfg.terminal);
+  const agent = obj(cfg.agent);
+  const cli = (AGENT_CLIS as readonly unknown[]).includes(agent.default) ? (agent.default as AgentCli) : "claude";
+  return { terminal: { enabled: terminal.enabled === true }, agent: { default: cli, unattended: agent.unattended === true } };
 }

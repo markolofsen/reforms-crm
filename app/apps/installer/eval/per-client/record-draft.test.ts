@@ -6,11 +6,13 @@ import { replayCalls, type LedgerEntry } from "@hub/projects";
 import { batchCheck } from "../../src/batch-check";
 import { appendLine, sessionFile } from "../../src/evidence-store";
 import { recordDraft } from "../../src/record-draft";
+import { anyRecipients } from "../../test/instance-fixture";
 import { carefulSteps, contextFor, recordFor, replyFor, templateLoopSteps } from "./scenario";
 import { DRAFTED, FIXTURE_PROJECT } from "./fixture";
 
 // Tier 1 on the whole fixture: 17 careful drafts through record-draft with a replayed ledger, then batch-check.
 const PROJECTS = path.join(import.meta.dirname, "fixture", "projects");
+const POLICY = anyRecipients(mkdtempSync(path.join(tmpdir(), "hub-eval-policy-")), FIXTURE_PROJECT);
 const setup = () => {
   const d = mkdtempSync(path.join(tmpdir(), "pc-rec-"));
   mkdirSync(path.join(d, "root"));
@@ -24,7 +26,7 @@ const feed = (root: string, steps: ReturnType<typeof carefulSteps>) => {
 const record = (s: ReturnType<typeof setup>, c: (typeof DRAFTED)[number], ctx: unknown) => {
   const step = recordFor(c, ctx);
   const json = /echo '(.*)' \|/.exec(String((step.input as { command: string }).command))![1]!;
-  return recordDraft({ project: FIXTURE_PROJECT, payload: json, dbPath: s.db, projectsDir: PROJECTS, ledgerRoot: s.root, attempts: 1, now: () => new Date("2026-11-16T09:00:00Z") });
+  return recordDraft({ project: FIXTURE_PROJECT, payload: json, dbPath: s.db, projectsDir: PROJECTS, policyDir: POLICY, ledgerRoot: s.root, attempts: 1, now: () => new Date("2026-11-16T09:00:00Z") });
 };
 
 describe("per-client record-draft on the 20-client fixture (E2)", () => {
@@ -57,7 +59,7 @@ describe("per-client record-draft on the 20-client fixture (E2)", () => {
   it("a draft with no ledger and no context is evidence missing", async () => {
     const s = setup();
     const c = DRAFTED[0]!;
-    const r = JSON.parse((await recordDraft({ project: FIXTURE_PROJECT, payload: JSON.stringify({ email: c.email, subject: "s", mailRef: "<m>" }), dbPath: s.db, projectsDir: PROJECTS, ledgerRoot: s.root, attempts: 1, now: () => new Date("2026-11-16") })).line);
+    const r = JSON.parse((await recordDraft({ project: FIXTURE_PROJECT, payload: JSON.stringify({ email: c.email, subject: "s", mailRef: "<m>" }), dbPath: s.db, projectsDir: PROJECTS, policyDir: POLICY, ledgerRoot: s.root, attempts: 1, now: () => new Date("2026-11-16") })).line);
     expect(r).toMatchObject({ evidence: "missing" });
     void replyFor;
   });

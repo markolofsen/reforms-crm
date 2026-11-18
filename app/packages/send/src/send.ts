@@ -4,13 +4,16 @@ import { RepoError, type DraftRow, type Repos, type SendRow } from "@hub/db";
 import { checkDraftRecipients, loadProject, loadProjects, normalizeAddress, type ProjectConfig } from "@hub/projects";
 import { bareId, type MailDraft, type Mailer } from "./mailer";
 
-// `hub send` (decision 0011, plan P23). The only code that sends mail. Every send, manual or automatic, goes through
+// `hub send` (decision 0011, plan P23). The only code that sends mail. What a project allows (send.*, draft.recipients) is
+// its send policy file (P49 S11), never project.md, which the agent may edit. Every send, manual or automatic, goes through
 // `assess` first: the same refusals for both, strictest for autosend. Nothing here is reachable from an agent session.
 
 export interface SendDeps {
   repos: Repos;
   mailer: Mailer;
   projectsDir: string;
+  /** `hubPaths().stateProjects`: each project's send-policy.json (P49 S11), the only source of send.* and draft.recipients. */
+  policyDir: string;
   /** `allow_list` of config/config.json: what `draft.recipients: test` means. */
   allowList: string[];
   now?: () => Date;
@@ -76,7 +79,7 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
 
   let config: ProjectConfig | undefined;
   try {
-    config = loadProject(deps.projectsDir, project).parsed.config;
+    config = loadProject(deps.projectsDir, project, { policyDir: deps.policyDir }).parsed.config;
   } catch (e) {
     reasons.push(`project ${project} cannot be loaded: ${(e as Error).message}`);
   }
@@ -258,7 +261,7 @@ export async function runDue(deps: SendDeps, o: { apply: boolean; project?: stri
   }
 
   // Phase 2: queue new ones.
-  for (const p of loadProjects(deps.projectsDir)) {
+  for (const p of loadProjects(deps.projectsDir, { policyDir: deps.policyDir })) {
     const c = p.parsed.config;
     if (o.project && p.slug !== o.project) continue;
     if (c.send.mode !== "auto" || c.status !== "active" || c.send.classes.length === 0) continue;

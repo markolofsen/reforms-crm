@@ -7,6 +7,7 @@ import type { ProjectConfig } from "./schema";
 import { loadWorkflows, workflowErrors } from "./workflows";
 import { isUsable, loadSequences, sequenceErrors } from "@hub/sequences";
 import { duplicateClaims, type LoadedProject } from "./registry";
+import { policyProblems } from "./send-policy";
 
 export type CheckOutcome = "pass" | "fail" | "skipped";
 export interface Check {
@@ -97,7 +98,7 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
     );
   }
 
-  checks.push(sendCheck(c, has("mail")));
+  checks.push(policyCheck(project), sendCheck(c, has("mail")));
 
   if (!has("notion")) checks.push(off("notion databases readable"));
   else if (input.notionCheck === undefined) checks.push(skip("notion databases readable", "Notion was not asked"));
@@ -151,6 +152,20 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
     );
   }
   return checks;
+}
+
+/** P49 S11: the send policy is a server-owned file; a row of it left in project.md is ignored and fails here until migrated. */
+function policyCheck(project: LoadedProject): Check {
+  const name = "send policy";
+  const rows = Object.keys(project.parsed.policyRows);
+  const fix = `a person runs \`hub send policy migrate ${project.slug}\``;
+  if (rows.length) return { name, outcome: "fail", detail: `${rows.join(", ")} still in project.md (ignored): ${fix}` };
+  const st = project.policy;
+  if (!st) return skip(name, "the policy folder was not given");
+  if (st.error) return { name, outcome: "fail", detail: `${st.error}; drafts only and the test list apply until it is fixed (${fix})` };
+  if (st.source === "default") return { name, outcome: "pass", detail: "no send-policy.json: drafts only, to the test list (`hub send policy set` changes it)" };
+  const problems = policyProblems(st.policy, project.parsed.config.kind);
+  return problems.length ? { name, outcome: "fail", detail: problems.join("; ") } : { name, outcome: "pass", detail: `send-policy.json, set by ${st.policy.by} at ${st.policy.updatedAt.slice(0, 10)}` };
 }
 
 /** Decision 0011: `draft` always passes; `auto` needs classes of the kind, an active project, a sender and a mail module. */

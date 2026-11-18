@@ -16,6 +16,8 @@ export interface OverviewService {
 export interface OverviewOptions {
   repos: Repos;
   projectsDir: string;
+  /** `hubPaths().stateProjects`: the send policy each project's row reports (P49 S11). */
+  policyDir?: string;
   health: () => HealthDto;
   dataVersion: () => number;
   now: () => Date;
@@ -29,7 +31,7 @@ export function createOverview(o: OverviewOptions): OverviewService {
       const now = o.now();
       const system = o.health();
       const { projects } = await o.repos.projects.registry();
-      const facts = await gatherFacts({ repos: o.repos, root: o.projectsDir, now, hostZone: zone, rows: projects });
+      const facts = await gatherFacts({ repos: o.repos, root: o.projectsDir, ...(o.policyDir ? { policyDir: o.policyDir } : {}), now, hostZone: zone, rows: projects });
       const rows = facts.map((f) => {
         const sys = { sentError: system.sent.state === "error" && system.sent.projects.includes(f.slug), fakeMailer: system.mailer === "fake" };
         return { slug: f.slug, name: f.name, projectStatus: f.status, archived: f.archived, toReview: f.toReview, sentToday: f.sentToday, status: statusOf(f, sys, now) };

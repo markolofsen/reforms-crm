@@ -72,6 +72,11 @@ export const FIELDS: Record<string, FieldDef> = {
   "setup.doctor": { path: "setup.doctor", schema: doctor, doc: "Last doctor result: <date> pass, or <date> fail: <check>." },
 };
 
+/** The fields of the send policy (P49 S11): read from `state/projects/<slug>/send-policy.json`, never from project.md. */
+export const POLICY_FIELDS = ["draft.recipients", "send.mode", "send.classes", "send.daily_cap", "send.delay_minutes"] as const;
+export type PolicyField = (typeof POLICY_FIELDS)[number];
+export const isPolicyField = (f: string): f is PolicyField => (POLICY_FIELDS as readonly string[]).includes(f);
+
 /** Returns an error message, or null when `value` is acceptable for `field`. An empty value is always acceptable here. */
 export function checkValue(field: string, value: string): string | null {
   const def = FIELDS[field];

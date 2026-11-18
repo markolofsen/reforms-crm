@@ -18,6 +18,8 @@ export interface SendCommandOptions {
 
 export interface SendCommandEnv {
   projectsDir: string;
+  /** `hubPaths().stateProjects`: the send policy files (P49 S11). */
+  policyDir: string;
   configFile: string;
   dbPath?: string;
   mailer?: Mailer;
@@ -47,7 +49,7 @@ export async function runSendCommand(o: SendCommandOptions, env: SendCommandEnv)
   const handle = openDb(env.dbPath ?? defaultDbPath());
   try {
     const repos = createRepos(handle.db);
-    const deps = { repos, mailer: env.mailer ?? mailAppMailer(), projectsDir: env.projectsDir, allowList: allowList(env.configFile), ...(env.now ? { now: env.now } : {}) };
+    const deps = { repos, mailer: env.mailer ?? mailAppMailer(), projectsDir: env.projectsDir, policyDir: env.policyDir, allowList: allowList(env.configFile), ...(env.now ? { now: env.now } : {}) };
     if (o.draftId !== undefined) {
       const r = await sendDraft(deps, { draftId: o.draftId, apply: !!o.apply, actor: "cli" });
       out(r.line);

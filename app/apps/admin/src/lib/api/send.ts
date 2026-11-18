@@ -1,4 +1,4 @@
-import { doctorDto, draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sentDto, stopDto } from "@hub/contract/responses";
+import { doctorDto, draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
 import { read } from "./client";
 
 const base = (project: string) => `/api/projects/${encodeURIComponent(project)}`;
@@ -9,7 +9,11 @@ const base = (project: string) => `/api/projects/${encodeURIComponent(project)}`
  */
 export const sendApi = {
   preview: (project: string, draftId: number) => read(sendPreviewDto, { method: "POST", path: `${base(project)}/drafts/${draftId}/send`, body: { apply: false } }),
-  send: (project: string, draftId: number, confirm: { to: string[]; subject: string }) => read(sentDto, { method: "POST", path: `${base(project)}/drafts/${draftId}/send`, body: { apply: true, confirm } }),
+  /** The apply carries a single-use ticket that only this page's own origin can mint (P49 S12), fetched just before. */
+  send: async (project: string, draftId: number, confirm: { to: string[]; subject: string }) => {
+    const { ticket } = await read(sendTicketDto, { method: "POST", path: "/api/sends/tickets", body: { project, draftId } });
+    return read(sentDto, { method: "POST", path: `${base(project)}/drafts/${draftId}/send`, body: { apply: true, confirm, ticket } });
+  },
   /** The draft as Mail holds it now; read-only, never stored. */
   mail: (project: string, draftId: number) => read(draftMailDto, { method: "GET", path: `${base(project)}/drafts/${draftId}/mail` }),
   /** The last five messages of the conversation, read from Mail on demand; read-only, never stored. */
