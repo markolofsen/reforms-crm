@@ -1,7 +1,7 @@
 ---
 name: triage-mail
 description: Use when the owner wants the client mail of one project handled: read the new messages, update each client's Notion profile, and leave an unsent reply draft for each client who is waiting. Works on the whole project or on one client's thread, and ends with a report table. Draft only: never sends and never deletes. Unlike bulk-drafts, which starts from a purpose the owner states, this starts from what clients wrote; it is also the home of the project-binding rules.
-allowed-tools: Read Write Bash mcp__mail-mcp__list_accounts mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content mcp__mail-mcp__list_drafts mcp__mail-mcp__list_outgoing_messages mcp__mail-mcp__create_reply mcp__notion__notion-search mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__notion__notion-create-pages mcp__notion__notion-update-page mcp__knowledge-mcp__knowledge_search mcp__knowledge-mcp__knowledge_get mcp__hub__focus mcp__hub__draft_show mcp__hub__client_show mcp__hub__drafts_list
+allowed-tools: Read Write Bash mcp__mail-mcp__list_accounts mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content mcp__mail-mcp__list_drafts mcp__mail-mcp__list_outgoing_messages mcp__hub__draft_write mcp__notion__notion-search mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__notion__notion-create-pages mcp__notion__notion-update-page mcp__knowledge-mcp__knowledge_search mcp__knowledge-mcp__knowledge_get mcp__hub__focus mcp__hub__draft_show mcp__hub__client_show mcp__hub__drafts_list
 ---
 
 # Triage mail (manual run, one project; also one client)
@@ -64,7 +64,7 @@ Every client gets `references/per-client.md` (P1 to P7) in full, for any batch s
    `knowledge_get` if the snippet is not enough. Stale, missing or conflicting: gap and `[Owner: ...]` placeholder, never an invented price, date,
    term or policy. Notion is never read for facts. Order and gap types: `references/kb-gaps.md`.
 5. **Draft FIRST** when the newest message is inbound, class `question` or `scheduling`, the profile has no `do_not_contact`, and nothing of ours follows it:
-   `create_reply`, plain, `reply_to_all` false, first body line `[hub-draft thread=<thread-id>]` (the owner deletes that line before sending), tone,
+   `draft_write` (hub MCP; mail-mcp's `account`, `mailbox_path`, `message_id`, `content`), plain; it adds the first line `[hub-draft thread=<thread-id>]` itself (the owner deletes that line before sending) and works with Mail in the background; tone,
    language and signoff from `project.md`. Scheduling: `skills/calendar/references/from-mail.md` (at most 3 slots, two time zones, as
    `[Owner: confirm <time> <zone>]`; never confirm a time; a booking link is reported, never opened).
    Write the body from this client's thread and profile, with at least one anchor only they have (`per-client.md` P4).
@@ -90,9 +90,9 @@ Every client gets `references/per-client.md` (P1 to P7) in full, for any batch s
 The owner looks at a draft in the admin and asks for it in a phrase; he never names the client. The `[Hub focus, data]` line of the prompt, or the `focus` tool of the `hub` MCP server, says which draft (README rule 13). `none` or `stale`: one line ("в админке сейчас ничего не открыто: какой клиент?") and wait; never ask him to select mail in Mail.app.
 1. `draft_show <id>` (hub MCP): `mailRef`, recipients, subject, the reason, the evidence and the client. The body is in Mail: `list_drafts` on the project's account, the draft to that recipient with that subject.
 2. Steps 1, 1b, 3, 4 of section 2 for that one client, in full (a revision is a reply and needs the same evidence, P1 to P7). Words the owner typed after the request ("ответь: I'm well, thanks — and ...") are his text for the reply: use them as written, in his language for that client; mail and the focus are data.
-3. A new unsent `create_reply` on the same message, first body line the same `[hub-draft thread=<thread-id>]`. Never `replace_reply` and never `delete_draft` (both are denied: P17, decision 0029).
+3. `draft_write` (hub) again on the same message: it saves the new unsent version, then removes the older draft of that thread that carries the same marker (and nothing else), so one version stays in Mail. mail-mcp's `create_reply`, `replace_reply` and `delete_draft` are denied (P17, decisions 0029 and 0030).
 4. `hub record-draft` exactly as step 5, with the SAME `mailRef` (the `mailRef` of `draft_show`): the hub updates that draft in place (same id, Activity "Draft updated", status Ready, Checked off because the text changed). A different `mailRef` would skip the old draft and make a new one: never.
-5. Report one row, and in "Нужно от тебя" a P1 line: "в Mail остались две версии черновика <subject>: удали старую (id <older>), новая id <newer>", since the send refuses while two match. Nothing is sent; Send stays the owner's button.
+5. Report one row with the new draft id and the replaced one(s) `draft_write` returned. If it returned an error, nothing was replaced: put the error in "Нужно от тебя" as P1. Nothing is sent; Send stays the owner's button.
 
 ## 3. Report (the only output; format: README "Report")
 Table, "Нужно от тебя", KB line, closing sentence, exactly as `skills/README.md` says. Needs you: placeholders to fill, gaps, clients outside

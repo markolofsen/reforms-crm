@@ -8,7 +8,7 @@ Shared by `triage-mail` and `bulk-drafts`. Owner rule: every reply is written fo
 | P2 History | `find_messages` by sender on the project's account (inbound); the project's Sent mailbox for what we wrote after their newest (outbound). Open with `get_message_content` the newest 3 messages across both directions, plus the message being answered, plus every message the body cites. Fewer than 3 exist: open all. First contact only after the search returned nothing. | `find_messages`, `get_message_content` |
 | P3 Facts | `knowledge_search` with this client's own words (1 to 3 queries), for this client. Facts only from usable entries; everything else is `[Owner: ...]` (`kb-gaps.md`). | `knowledge_search`, `knowledge_get` |
 | P4 Write | Purpose and tone are the brief. The body states at least one anchor, a concrete item that exists only in this client's thread or profile, and answers what the client asked or fits where the thread stands. | none |
-| P5 Draft | One unsent `create_reply` on the client's newest message, marker line first (`triage-mail` section 2 step 5). | `create_reply` |
+| P5 Draft | One unsent `draft_write` (hub) on the client's newest message; it adds the marker line (`triage-mail` section 2 step 5). | `draft_write` |
 | P6 Record | `hub record-draft` with honest counts (what you opened, not what you meant to). Say "recorded" only on `"ok":true`. | Bash |
 | P7 Profile and log | Notion profile and the one log line (`triage-mail` section 2 step 7). Last, append-only. | `notion-update-page` |
 

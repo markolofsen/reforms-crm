@@ -4,13 +4,21 @@ import type { Repos } from "@hub/db";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { readFocus } from "./focus";
+import { DraftWriteError, type DraftWriter } from "./mail-drafts";
 
-// `hub mcp` (P51, decision 0029): the hub's own stdio MCP server, read-only. Four tools, bound to `HUB_PROJECT`: the admin's
+// `hub mcp` (P51, decision 0029): the hub's own stdio MCP server, bound to `HUB_PROJECT`. Four read-only tools: the admin's
 // focus, one draft, one client, the Drafts list. The database is opened read-only by the caller (`openDbReadOnly`), so a
-// write is impossible, not just absent. No send, no write, no body (decision 0013: the body lives in Mail). Recording stays
-// `hub record-draft` (decision 0009). The tool names stay clear of `SEND_LIKE_TOOL`; a test pins the list.
+// database write is impossible, not just absent. One Mail write (P52, decision 0030): `draft_write` saves an unsent reply in
+// Mail's Drafts without a window or focus and replaces the older hub draft of the same thread (`mail-drafts.ts`). No send.
+// Recording stays `hub record-draft` (decision 0009). The tool names stay clear of `SEND_LIKE_TOOL`; a test pins the list.
 
-export const HUB_MCP_TOOLS = ["focus", "draft_show", "client_show", "drafts_list"] as const;
+export const HUB_MCP_TOOLS = ["focus", "draft_show", "client_show", "drafts_list", "draft_write"] as const;
+
+/** The bound project's Mail settings from `project.md` (`mail.accounts`, `mail.sender`). */
+export interface ProjectMail {
+  accounts: string[];
+  sender: string | null;
+}
 
 export interface HubMcpEnv {
   /** The bound project; every tool refuses without it. */
@@ -18,6 +26,10 @@ export interface HubMcpEnv {
   /** `state/focus.json` of the instance. */
   focusFile: string;
   now?: () => Date;
+  /** Writes the reply drafts of `draft_write`; absent, the tool refuses. */
+  drafts?: DraftWriter;
+  /** The project's Mail accounts and sender; `draft_write` writes only from these accounts. */
+  projectMail?: (slug: string) => ProjectMail;
 }
 
 class ToolError extends Error {
@@ -148,6 +160,37 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         const opts = q ? { search: q } : {};
         const [rows, total] = await Promise.all([repos.clients.review(slug, filter, { ...opts, limit: limit ?? 20 }), repos.clients.reviewTotal(slug, filter, opts)]);
         return { project: slug, view: filter, total, drafts: rows.map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), client: { id: d.client.id, name: cut(d.client.name), email: d.client.email, repliesOwed: d.client.repliesOwed }, evidence: d.evidence ?? null })) };
+      }),
+  );
+
+  server.registerTool(
+    "draft_write",
+    {
+      title: "Write or revise an unsent reply draft in Mail",
+      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. The first line [hub-draft thread=<Message-ID>] is added for you; give the body only, plain text. A revision is the same call again on the same message: the new draft is saved first, then the older draft of this thread that carries the same marker is removed, so one version stays. Then record it: \`hub record-draft\` with mailRef = the returned thread. Only this project's Mail accounts. Never sends. ${DATA}`,
+      inputSchema: z.object({
+        account: z.string().min(1).max(320).describe("Mail account of the message answered, as mail-mcp names it."),
+        mailbox_path: z.array(z.string().min(1).max(200)).min(1).max(8).describe('Mailbox path of that message, e.g. ["INBOX"].'),
+        message_id: z.number().int().positive().describe("mail-mcp's integer id of the message answered."),
+        content: z.string().min(1).max(20_000).describe("The reply body, plain text, without the [hub-draft ...] line."),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+    },
+    ({ account, mailbox_path, message_id, content }) =>
+      run(async () => {
+        const slug = project();
+        if (!env.drafts || !env.projectMail) throw new ToolError("unavailable", "This hub MCP server cannot write drafts (no Mail writer).");
+        const mail = env.projectMail(slug);
+        const own = mail.accounts.find((a) => a.trim().toLowerCase() === account.trim().toLowerCase());
+        if (!own) throw new ToolError("not_this_project", `Account "${account}" is not one of project ${slug}'s Mail accounts (${mail.accounts.join(", ") || "none listed in project.md"}).`);
+        try {
+          const r = await env.drafts.writeReply({ account: own, mailboxPath: mailbox_path, messageId: message_id, body: content, sender: mail.sender });
+          const left = r.left.length ? ` Older hub draft(s) ${r.left.join(", ")} are still in Drafts: tell the owner to delete them before Send.` : "";
+          return { ...r, project: slug, sent: false, next: `Record it: hub record-draft with "mailRef":"${r.thread}". Nothing was sent.${left}` };
+        } catch (e) {
+          if (e instanceof DraftWriteError) throw new ToolError(e.code, e.message);
+          throw e;
+        }
       }),
   );
 

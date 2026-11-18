@@ -10,6 +10,8 @@ export interface ToolCall {
 }
 
 const MAIL = "mcp__mail-mcp__";
+/** The hub MCP server's draft writer (P52): bound to the project's accounts like mail-mcp. */
+const HUB_DRAFT_WRITE = "mcp__hub__draft_write";
 const KNOWLEDGE = "mcp__knowledge-mcp__";
 // Send, forward, reply (Gmail connector: sends; mail-mcp's `create_reply` only drafts), trash/delete (Notion, Gmail, mail),
 // calendar cancel, and every outgoing-message writer of mail-mcp. `delete_draft` falls under delete.
@@ -121,7 +123,7 @@ export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, acc
   for (const c of calls) {
     const short = c.name.split("__").pop() ?? c.name;
     const input = (c.input && typeof c.input === "object" ? c.input : {}) as Record<string, unknown>;
-    if (c.name.startsWith(MAIL) && typeof input.account === "string" && !ok.has(input.account.trim().toLowerCase())) {
+    if ((c.name.startsWith(MAIL) || c.name === HUB_DRAFT_WRITE) && typeof input.account === "string" && !ok.has(input.account.trim().toLowerCase())) {
       out.push(`${short} used account "${input.account}" outside project ${slug}`);
     }
     if (skills && c.name === "Skill" && typeof input.skill === "string") {

@@ -6,8 +6,13 @@ import { pathsAt, type HubPaths } from "@hub/config/paths";
 // they are a belt, not the boundary: a decimal IP or a script defeats a text rule. In unattended mode the OS sandbox is
 // the boundary (`session.ts`); these stay on in every mode.
 
-/** Tools that send, forward, delete or cancel. Denied outright: drafts only, nothing is ever sent or removed. */
+/**
+ * Tools that send, forward, delete or cancel. Denied outright: drafts only, nothing is ever sent or removed. mail-mcp's
+ * `create_reply` too (P52, decision 0030): it pastes through a compose window that needs Mail in front and leaves an empty
+ * reply when the owner's browser is; drafts are written by the hub MCP server's `draft_write`.
+ */
 export const DENIED_TOOLS: readonly string[] = [
+  "mcp__mail-mcp__create_reply",
   "mcp__mail-mcp__create_outgoing_message",
   "mcp__mail-mcp__replace_outgoing_message",
   "mcp__mail-mcp__replace_reply",
@@ -31,7 +36,7 @@ export function deniedToolsOf(server: string): string[] {
 /** A tool name that looks like it sends, forwards or removes: the Agent tools check fails when one is not denied (P49 5B). */
 export const SEND_LIKE_TOOL = /send|forward|reply|outgoing|delete|trash|move|cancel/i;
 /** Tool names that match {@link SEND_LIKE_TOOL} but only write an unsent draft or read: never denied. */
-export const DRAFT_TOOLS: readonly string[] = ["create_reply", "list_outgoing_messages", "notion-calendar-list-events"];
+export const DRAFT_TOOLS: readonly string[] = ["list_outgoing_messages", "notion-calendar-list-events"];
 
 /** Bash patterns of the hub's sender: spelled as `hub send`, `./run.sh send`, `hub.sh send`, `hub.mjs send`, or the CLI source. */
 export const HUB_SEND_COMMANDS: readonly string[] = ["Bash(*hub send*)", "Bash(*run.sh send*)", "Bash(*hub.sh send*)", "Bash(*hub.mjs send*)", "Bash(*hub.mjs\" send*)", "Bash(*installer/src/cli.ts send*)"];

@@ -97,11 +97,11 @@ async function connect(hubProject: string | undefined) {
 }
 
 describe("hub mcp", () => {
-  it("lists exactly the four read-only tools, none send-like", async () => {
+  it("lists exactly the five tools: four read-only, draft_write the one Mail write; none send-like", async () => {
     const { client } = await connect("acme");
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([...HUB_MCP_TOOLS].sort());
-    expect(tools.every((t) => t.annotations?.readOnlyHint === true)).toBe(true);
+    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name)).toEqual(["draft_write"]);
     expect(tools.filter((t) => SEND_LIKE_TOOL.test(t.name))).toEqual([]);
   });
 

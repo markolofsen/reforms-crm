@@ -108,6 +108,8 @@ export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEn
   const tool = shortName(c.name);
   const i = obj(c.input);
   const account = str(i.account);
+  // The hub's own draft writer (P52) takes mail-mcp's `create_reply` arguments: the same draft entry, judged the same way.
+  if (c.name === HUB_DRAFT_WRITE) return draftEntry(tool, i, account, o);
   if (c.name.startsWith("mcp__mail-mcp__")) {
     if (tool === "find_messages") {
       const mb = Array.isArray(i.mailboxPath) ? (i.mailboxPath as unknown[]).join("/") : undefined;
@@ -118,13 +120,7 @@ export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEn
       const id = Number(i.message_id);
       return { tool, kind: "read", ...(account ? { account } : {}), ...(Number.isInteger(id) ? { id } : {}), ...fromOf(text), bytes: text.length };
     }
-    if (tool === "create_reply") {
-      const content = typeof i.content === "string" ? i.content : "";
-      const id = Number(i.message_id);
-      const fp = fingerprint(content, o);
-      const words = content.split(/\s+/).filter(Boolean).length;
-      return { tool, kind: "draft", ...(account ? { account } : {}), ...(Number.isInteger(id) ? { replyTo: id } : {}), fp, hash: hashHex(content), words, figure: FIGURE.test(content), placeholder: /\[Owner:/i.test(content) };
-    }
+    if (tool === "create_reply") return draftEntry(tool, i, account, o);
     return null;
   }
   if (c.name.startsWith("mcp__notion__")) {
@@ -138,6 +134,19 @@ export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEn
     return { tool, kind: "knowledge", ...(str(i.query) ? { query: str(i.query)!.slice(0, 200) } : {}) };
   }
   return null;
+}
+
+/** The hub MCP server's draft writer (P52): a draft like mail-mcp's `create_reply`. */
+export const HUB_DRAFT_WRITE = "mcp__hub__draft_write";
+/** True for a tool that writes a reply draft: mail-mcp's `create_reply` or the hub's `draft_write`. */
+export const isDraftWrite = (name: string): boolean => name === HUB_DRAFT_WRITE || name.endsWith("__create_reply");
+
+function draftEntry(tool: string, i: Record<string, unknown>, account: string | undefined, o: SummarizeOptions): LedgerEntry {
+  const content = typeof i.content === "string" ? i.content : "";
+  const id = Number(i.message_id);
+  const fp = fingerprint(content, o);
+  const words = content.split(/\s+/).filter(Boolean).length;
+  return { tool, kind: "draft", ...(account ? { account } : {}), ...(Number.isInteger(id) ? { replyTo: id } : {}), fp, hash: hashHex(content), words, figure: FIGURE.test(content), placeholder: /\[Owner:/i.test(content) };
 }
 
 function hashHex(s: string): string {
