@@ -54,8 +54,8 @@ function Detail({ project, filter, run }: Props) {
 }
 
 /**
- * What the agent did in one project: the sessions as a table (newest first) and, from 1024px, the opened one beside it as
- * sentences. Below 1024px the session is its own screen. The view and the opened session live in the address (`?filter=`, `?run=`).
+ * What the agent did in one project: the sessions as a table (newest first) and, when the pane is wide enough for the split
+ * (`ListDetail`), the opened one beside it as sentences; narrower, the session is its own screen. The view and the opened session live in the address (`?filter=`, `?run=`).
  */
 export function ActivityPage(props: Props) {
   // The table is the subject here and the detail the aside, so the list takes two thirds (`wide`).

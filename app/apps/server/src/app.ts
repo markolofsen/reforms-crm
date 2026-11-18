@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { ALLOWED_HOSTNAMES } from "@hub/config";
+import { ADMIN_PORT, ALLOWED_HOSTNAMES } from "@hub/config";
 import { API_VERSION, healthDto, pulseDto } from "@hub/contract/health";
 import { projectsDto } from "@hub/contract/responses";
 import { isBusy, RepoError, type Repos } from "@hub/db";
@@ -12,6 +12,9 @@ import { overviewRoutes } from "./routes/overview";
 import { projectRoutes } from "./routes/project";
 import { sendRoutes, type SenderOptions } from "./routes/sends";
 import { sequenceRoutes } from "./routes/sequences";
+import { terminalRoutes } from "./routes/terminal";
+import type { TerminalService } from "./terminal";
+import { agentToolRoutes, type AgentToolsService } from "./agent-tools";
 import { createConnections, type ConnectionsOptions } from "./connections";
 import { OFF, type MessengersStatus } from "./messengers";
 import { SENT_OFF, type SentStatus } from "./sent";
@@ -31,6 +34,12 @@ export type AppOptions = {
   sender?: SenderOptions & { kind: "mail-app" | "fake" };
   /** SQLite `data_version` of the server's connection; changes when another process commits (see `dataVersion`). */
   dataVersion?: () => number;
+  /** The embedded terminal (P49); without it the terminal is off (`GET /api/terminal` says so, the rest is 404). */
+  terminal?: TerminalService;
+  /** The admin's port, for the exact-origin doors (the terminal ticket). Default 5173. */
+  adminPort?: number;
+  /** Connections' Agent tools block (P49 5B); without it its routes are 404. */
+  agentTools?: AgentToolsService;
   now?: () => Date;
 };
 
@@ -100,7 +109,9 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", sequenceRoutes(repos, projectsDir, now))
     .route("/", bulkRoutes(repos))
     .route("/", overviewRoutes(overview))
-    .route("/", connectionRoutes(connections));
+    .route("/", connectionRoutes(connections))
+    .route("/", agentToolRoutes(repos, opts.agentTools))
+    .route("/", terminalRoutes(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
 }
 
 export type AppType = ReturnType<typeof createApp>;

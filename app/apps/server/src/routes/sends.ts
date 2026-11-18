@@ -42,7 +42,7 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions) {
     // P49 S12: the admin page fetches one ticket per apply. Only the admin's exact origin, from a same-origin fetch, gets one.
     .post("/api/sends/tickets", v("json", sendTicketBody), async (c) => {
       if (!sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
-      const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host"), secFetchSite: c.req.header("sec-fetch-site") }, sender.adminPort, { sameSite: true });
+      const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, sender.adminPort, { sameSite: true });
       if (why) return forbidden(c, why);
       const { project, draftId } = c.req.valid("json");
       const draft = await repos.drafts.get(draftId);

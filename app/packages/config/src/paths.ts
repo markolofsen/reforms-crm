@@ -195,6 +195,12 @@ export function instanceBrand(paths: Pick<HubPaths, "configFile" | "configDir">)
   return { name, logo, logoFound };
 }
 
+/** `<state>/codex/<slug or _unbound>`: the `CODEX_HOME` of one project's Codex sessions (P49), and its `skills/` links. */
+export function codexSessionPaths(paths: Pick<HubPaths, "codexHomes">, slug: string | undefined): { home: string; skills: string } {
+  const home = join(paths.codexHomes, slug ?? "_unbound");
+  return { home, skills: join(home, "skills") };
+}
+
 /** The CLIs a hub agent session can run (P49): Claude Code and Codex. */
 export const AGENT_CLIS = ["claude", "codex"] as const;
 export type AgentCli = (typeof AGENT_CLIS)[number];

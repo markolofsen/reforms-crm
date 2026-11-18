@@ -7,10 +7,10 @@ import { paths } from "@/routes/paths";
 import type { RunFilter } from "@/routes/search";
 import { rowSentence, sessionFacts, sessionTitle } from "./labels";
 
-/** Back to the table: a phone shows the session as its own screen (from 1024px the table stays beside it). */
+/** Back to the table: a phone shows the session as its own screen (from the list-detail's split width the table stays beside it). */
 function Back({ filter }: { filter: RunFilter }) {
   return (
-    <AppLink className="lg:hidden" to={paths.log.list({ filter })}>
+    <AppLink className="@4xl:hidden" to={paths.log.list({ filter })}>
       <ArrowLeftIcon aria-hidden="true" className="me-1 size-4" />
       Back to Activity
     </AppLink>
@@ -56,7 +56,7 @@ export function SessionMissing({ filter }: { filter: RunFilter }) {
   );
 }
 
-/** From 1024px, before a session is opened. */
+/** Beside the table (the list-detail's split), before a session is opened. */
 export function SessionHint() {
   return (
     <Page>

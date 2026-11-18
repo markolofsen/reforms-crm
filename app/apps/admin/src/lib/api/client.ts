@@ -19,7 +19,7 @@ export class ApiFailure extends Error {
 // Structural, so the admin needs no zod of its own: every contract schema has this `safeParse`.
 type Parser<T> = { safeParse(value: unknown): { success: true; data: T } | { success: false } };
 type Scalar = string | number | boolean | undefined;
-export type Call = { method: "GET" | "POST" | "PUT"; path: string; query?: Record<string, Scalar>; body?: unknown };
+export type Call = { method: "GET" | "POST" | "PUT" | "DELETE"; path: string; query?: Record<string, Scalar>; body?: unknown };
 
 export const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: true, retry: 1 } },

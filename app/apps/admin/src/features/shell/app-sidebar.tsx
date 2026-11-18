@@ -7,6 +7,7 @@ import { ThemeSegmented, ThemeToggle } from "@hub/ui/product/theme";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@hub/ui/sidebar";
 import { AppLink } from "@/components/app-link";
 import { KeyHelp } from "@/components/key-help";
+import { TerminalToggle } from "@/features/terminal/terminal";
 import { NavIcon } from "./nav-icon";
 import { ProjectSwitcher } from "./project-switcher";
 import type { ShellNavItem } from "./shell";
@@ -17,7 +18,7 @@ type Props = { items: ShellNavItem[]; projects: string[]; project: string | null
 
 /**
  * The left column: the instance's brand on top, the project switcher under it only with two or more projects, the sections
- * (a dot on the one that fixes the project's worst fact), and in the footer the theme switcher and the sidebar toggle. Wide
+ * (a dot on the one that fixes the project's worst fact), and in the footer the theme switcher, the terminal and the sidebar toggle. Wide
  * screens show it open; 640-1279 it is a 56px rail (labels as tooltips, the theme as one toggle) unless pinned open.
  */
 export function AppSidebar({ items, projects, project, onProject, brand, keys }: Props) {
@@ -35,7 +36,7 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys }:
               <SidebarMenu>
                 {items.map((i) => (
                   <SidebarMenuItem key={i.id}>
-                    <SidebarMenuButton className="relative h-(--control-m) gap-3 px-3 group-data-[collapsible=icon]:size-(--control-m)!" isActive={i.active} render={<AppLink aria-current={i.active ? "page" : undefined} bare to={i.to} />} tooltip={i.dot ? `${i.title}: needs you` : i.title}>
+                    <SidebarMenuButton className="relative h-(--control-m) gap-3 px-3 group-data-[collapsible=icon]:size-(--control-m)! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0!" isActive={i.active} render={<AppLink aria-current={i.active ? "page" : undefined} bare to={i.to} />} tooltip={i.dot ? `${i.title}: needs you` : i.title}>
                       <NavIcon name={i.icon} />
                       <span className="min-w-0 truncate">{i.title}</span>
                       {i.dot && (
@@ -56,6 +57,7 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys }:
         <ThemeSegmented className="group-data-[collapsible=icon]:hidden" />
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
           <ThemeToggle className="hidden group-data-[collapsible=icon]:inline-flex" />
+          <TerminalToggle />
           <ActionButton aria-label={state === "expanded" ? "Collapse the sidebar" : "Expand the sidebar"} icon onClick={toggleSidebar} size="s" variant="quiet">
             <PanelLeftIcon aria-hidden="true" />
           </ActionButton>

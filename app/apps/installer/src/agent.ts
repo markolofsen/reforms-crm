@@ -164,7 +164,8 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
     return spawnCli("shell", process.env.SHELL || "/bin/zsh", ["-l", "-i"], env.root, childEnv);
   }
 
-  writeBinding(env.root, plan.project);
+  // `--prepare` (the Agent tools fix line) writes the session files only: it does not move the sticky binding.
+  if (!plan.prepare) writeBinding(env.root, plan.project);
   const projectsRel = path.relative(env.root, env.projectsDir).split(path.sep).join("/");
   const relOk = projectsRel && !projectsRel.startsWith("..") ? projectsRel : env.projectsDir;
   // An instance keeps no copy of the core skills: the CLI finds them through generated links.

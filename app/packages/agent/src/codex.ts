@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { HubPaths } from "@hub/config/paths";
+import { codexSessionPaths, type HubPaths } from "@hub/config/paths";
 import { CODEX_FORBIDDEN_PREFIXES, deniedToolsOf, HUB_MCP_SERVERS, otherProjects } from "./deny";
 import { CODEX_BYPASS, codexModeArgs, protectedPaths } from "./session";
 
@@ -9,7 +9,7 @@ import { CODEX_BYPASS, codexModeArgs, protectedPaths } from "./session";
 // `rules/hub.rules` (forbidden prefixes), `skills/` (links to the core skills) and `auth.json` (a link to the owner's).
 
 /** `<state>/codex/<slug or _unbound>`: the `CODEX_HOME` of one project's sessions. */
-export const codexHome = (paths: HubPaths, slug: string | undefined): string => path.join(paths.codexHomes, slug ?? "_unbound");
+export const codexHome = (paths: HubPaths, slug: string | undefined): string => codexSessionPaths(paths, slug).home;
 
 /** The name of the generated permissions profile. */
 export const CODEX_PROFILE = "hub";

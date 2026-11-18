@@ -113,6 +113,14 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 - [ ] **Each public lead form answers (one row per form)** (`leads.forms`)
   - Proves: GET only: the page answers 200; a static form carries its listed fields; the page or its own scripts reference the endpoint; the page's CSP lets a script reach it; Turnstile, when configured, is on the page with its sitekey and allowed by the CSP; the endpoint answers a GET with no 404 or 5xx. With `--canary`: the signed canary is stored, a recipient resolves and the route is configured (`{stored, recipient_ok, route_ok}`); a handler without canary support is a WARN and gets no POST. 5 s per form, all forms at once.
   - You: Read the row: it names the first thing that failed (page, field, endpoint reference, CSP, Turnstile, endpoint route, canary). Fix it in the site that owns the form, deploy, and run `hub doctor --only Leads` again (`--canary` before you report done).
+## Agent
+
+- [ ] **Agent tools (one row per project and CLI)** (`agent.tools`; `hub doctor` only; setup and install never run it)
+  - Proves: For each project and each CLI (Claude Code, Codex): the CLI answers `--version` (another version than the measured one is a WARN), Codex is signed in, the session files exist, each hub MCP server is configured and answers `tools/list` (Notion not signed in is a WARN), no tool that sends is reachable, the skills are linked, the mode matches `agent.unattended` (no Codex sandbox bypass), the send policy file parses and Claude's guard hook is set.
+  - You: Run the fix the row names (most often `hub agent <project> --prepare`, with `--cli codex` for Codex). Run `hub doctor --only Agent` again, or Refresh in Connections, Agent tools.
+- [ ] **Embedded terminal** (`agent.terminal`)
+  - Proves: `terminal.enabled` in config/config.json; when on: node-pty's spawn-helper exists and is executable, the API port listens on 127.0.0.1 only, and a running server reports the same switch (`GET /api/terminal`).
+  - You: Set `terminal.enabled: true` in `config/config.json` (or false to turn it off), then restart with `./run.sh up`.
 ## Backup
 
 - [ ] **Code and instance are pushed off this machine** (`backup.git`; `hub doctor` only; setup and install never run it)

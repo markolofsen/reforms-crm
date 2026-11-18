@@ -1,6 +1,8 @@
 /* The tokens, theme and utilities of @hub/ui (rules: design-system-and-tokens 6). The consumer imports Tailwind first; this file
    never imports it. `@source` makes Tailwind scan the package's own class strings: without it a production build drops them
    (dev generates on demand, so it hides the loss; stylesheets-and-class-lists 7). */
+/* xterm's own stylesheet (the helper textarea, the viewport, the selection layer) for `product/terminal`, under the utilities. */
+@import "@xterm/xterm/css/xterm.css" layer(components);
 @source "./";
 
 @custom-variant dark (&:is(.dark *));
@@ -235,6 +237,54 @@
   :root {
     --list-width: 25rem;
   }
+}
+
+/* The terminal (`product/terminal`, read by `readTheme` with getComputedStyle; design-system-and-tokens 5 and 9): its ground,
+   text, cursor and selection, and the 16 ANSI colours, light and dark side by side. Hex on purpose: xterm parses the colours
+   itself (hex and rgb), while the palette of the other tokens is oklch. The grounds match `--background` of each set. */
+:root {
+  --terminal-bg: #ffffff;
+  --terminal-fg: #262626;
+  --terminal-cursor: #262626;
+  --terminal-selection: #0969da33;
+  --terminal-black: #24292f;
+  --terminal-red: #cf222e;
+  --terminal-green: #116329;
+  --terminal-yellow: #7d4e00;
+  --terminal-blue: #0969da;
+  --terminal-magenta: #8250df;
+  --terminal-cyan: #1b7c83;
+  --terminal-white: #6e7781;
+  --terminal-bright-black: #57606a;
+  --terminal-bright-red: #a40e26;
+  --terminal-bright-green: #1a7f37;
+  --terminal-bright-yellow: #633c01;
+  --terminal-bright-blue: #0550ae;
+  --terminal-bright-magenta: #6639ba;
+  --terminal-bright-cyan: #136061;
+  --terminal-bright-white: #8c959f;
+}
+.dark {
+  --terminal-bg: #161616;
+  --terminal-fg: #f5f5f5;
+  --terminal-cursor: #f5f5f5;
+  --terminal-selection: #58a6ff40;
+  --terminal-black: #484f58;
+  --terminal-red: #ff7b72;
+  --terminal-green: #3fb950;
+  --terminal-yellow: #d29922;
+  --terminal-blue: #58a6ff;
+  --terminal-magenta: #bc8cff;
+  --terminal-cyan: #39c5cf;
+  --terminal-white: #b1bac4;
+  --terminal-bright-black: #6e7681;
+  --terminal-bright-red: #ffa198;
+  --terminal-bright-green: #56d364;
+  --terminal-bright-yellow: #e3b341;
+  --terminal-bright-blue: #79c0ff;
+  --terminal-bright-magenta: #d2a8ff;
+  --terminal-bright-cyan: #56d4dd;
+  --terminal-bright-white: #ffffff;
 }
 
 /* A strip that scrolls inside itself and never makes the page scroll sideways. */

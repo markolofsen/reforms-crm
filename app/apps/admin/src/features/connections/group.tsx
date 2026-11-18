@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 /**
  * One section of the Connections page: a heading and its rows. Every kind of connection is one group (Mail, Notion,
- * Telegram), so another read-only section (Agent tools, P49) is one more group in `connections-view.tsx`, nothing else.
+ * Telegram), so another read-only section (Agent tools, P49: `agent-tools/`) is one more group in `connections-view.tsx`, nothing else.
  */
 export function ConnectionGroup({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CORE_ROOT, DEFAULT_BRAND_NAME, HubHomeMissingError, hubPaths, instanceBrand, pathsAt, projectFolder } from "../src/paths";
+import { CORE_ROOT, DEFAULT_BRAND_NAME, HubHomeMissingError, hubPaths, instanceBrand, instanceFeatures, pathsAt, projectFolder } from "../src/paths";
 
 const empty = {} as NodeJS.ProcessEnv;
 const instanceDir = () => mkdtempSync(join(tmpdir(), "hub-home-"));
@@ -84,5 +84,21 @@ describe("instanceBrand (P48 W0)", () => {
     expect(instanceBrand(p)).toEqual({ name: "Reforms SaaS", logo: join(p.configDir, "logo.svg"), logoFound: false });
     writeFileSync(join(p.configDir, "logo.svg"), "<svg/>");
     expect(instanceBrand(p).logoFound).toBe(true);
+  });
+});
+
+describe("instanceFeatures (P49): every switch is off unless it is exactly true", () => {
+  it("absent, malformed or not exactly true is the safe default", () => {
+    const home = instanceDir();
+    mkdirSync(join(home, "config"));
+    const p = pathsAt(home, empty);
+    const off = { terminal: { enabled: false }, agent: { default: "claude", unattended: false } };
+    expect(instanceFeatures(p)).toEqual(off);
+    for (const cfg of ["not json", JSON.stringify({ terminal: true, agent: "codex" }), JSON.stringify({ terminal: { enabled: "true" }, agent: { default: "gemini", unattended: 1 } })]) {
+      writeFileSync(p.configFile, cfg);
+      expect(instanceFeatures(p), cfg).toEqual(off);
+    }
+    writeFileSync(p.configFile, JSON.stringify({ terminal: { enabled: true }, agent: { default: "codex", unattended: true } }));
+    expect(instanceFeatures(p)).toEqual({ terminal: { enabled: true }, agent: { default: "codex", unattended: true } });
   });
 });

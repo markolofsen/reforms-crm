@@ -1,10 +1,12 @@
 import { expect, test } from "@playwright/test";
 import { networkInterfaces } from "node:os";
+import { request as httpRequest } from "node:http";
 import { connect } from "node:net";
 
 // Decision 0015 section 3 and the N1 proxy: the admin answers loopback names only, refuses a mutating call whose Origin is
 // foreign, and listens on 127.0.0.1 and nowhere else. Nothing here writes: every refused call is refused before it runs.
 const UI = Number(process.env.HUB_E2E_UI_PORT);
+const API = Number(process.env.HUB_E2E_API_PORT);
 
 test("a foreign Host is 403 on a page and on /api", async ({ request }) => {
   for (const path of ["/drafts", "/api/pulse"]) {
@@ -41,4 +43,33 @@ test("the admin listens on 127.0.0.1 only: its port is refused on every other ad
     socket.once("error", (e: NodeJS.ErrnoException) => resolve(e.code ?? "error"));
   });
   expect(loop).toBe("connected");
+});
+
+// P49 S4 and S5: the terminal's socket and its tickets take the exact admin Origin only, not any loopback port. A page of
+// another local server (here the admin's port + 1) is refused on the ticket and on the upgrade; nothing reaches a shell.
+test("terminal: a ticket or an upgrade from another loopback port is refused", async ({ playwright }) => {
+  const api = await playwright.request.newContext({ baseURL: `http://127.0.0.1:${API}` });
+  const ticket = (origin: string) => api.post("/api/terminal/tickets", { headers: { origin, "sec-fetch-site": "same-origin" }, data: { session: "e2e-none" } });
+  expect((await ticket(`http://127.0.0.1:${UI + 1}`)).status()).toBe(403);
+  expect((await ticket(`http://localhost:${UI + 1}`)).status()).toBe(403);
+  // The admin's own origin passes the origin check and gets as far as the session, which does not exist.
+  expect((await ticket(`http://127.0.0.1:${UI}`)).status()).toBe(404);
+  await api.dispose();
+
+  const outcome = await new Promise<string>((resolve) => {
+    const req = httpRequest({
+      host: "127.0.0.1",
+      port: API,
+      path: "/terminal",
+      headers: { connection: "Upgrade", upgrade: "websocket", "sec-websocket-version": "13", "sec-websocket-key": "ZTJlLXRlcm1pbmFsLWtleQ==", origin: `http://127.0.0.1:${UI + 1}` },
+    });
+    req.once("upgrade", (_res, socket) => (socket.destroy(), resolve("upgraded")));
+    req.once("response", (res) => (res.resume(), resolve(String(res.statusCode))));
+    req.once("error", (e: NodeJS.ErrnoException) => resolve(e.code ?? "error"));
+    req.setTimeout(3000, () => (req.destroy(), resolve("timeout")));
+    req.end();
+  });
+  expect(outcome, "the upgrade from a foreign origin").not.toBe("upgraded");
+  // A 403 before any upgrade, or the socket dropped without one: either way no shell.
+  expect(["403", "ECONNRESET"]).toContain(outcome);
 });

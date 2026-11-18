@@ -1,6 +1,6 @@
 import type { ClientFilter, Mark, SafetyKind, SettableStatus, Tone } from "@hub/config";
 import type { StatusBody } from "@hub/contract/requests";
-import { draftChangedDto, draftsDto, historyDto, okDto, timelineDto } from "@hub/contract/responses";
+import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto } from "@hub/contract/responses";
 import { read } from "./client";
 
 const draft = (id: number, action: string) => `/api/drafts/${id}/${action}`;
@@ -20,4 +20,7 @@ export const reviewApi = {
   setMarks: (project: string, clientId: number, marks: Mark[]) => read(okDto, { method: "PUT", path: `/api/clients/${clientId}/marks`, body: { project, marks } }),
   timeline: (project: string, clientId: number) => read(timelineDto, { method: "GET", path: `/api/clients/${clientId}/timeline`, query: { project } }),
   history: (project: string, clientId: number) => read(historyDto, { method: "GET", path: `/api/clients/${clientId}/history`, query: { project } }),
+  /** The batches of a project, read-only (P48: the builder is gone; a batch is a View of Drafts), and the batch's own Undo. */
+  batches: (project: string) => read(batchesDto, { method: "GET", path: "/api/batches", query: { project } }),
+  undoBatch: (project: string, id: number) => read(okDto, { method: "POST", path: `/api/batches/${id}/undo`, query: { project } }),
 };

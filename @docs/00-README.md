@@ -42,6 +42,8 @@ The index of every document is [../README.md](../README.md#where-things-are); wh
 
 **Lead forms.** The instance lists its public lead forms in `config/lead-forms.json`; `hub doctor --only Leads` checks that each one still takes a lead, and `--canary` sends a signed test lead only to a handler that answers the `OPTIONS` probe (`X-Canary-Probe: 1`) with `X-Canary-Accept: v1`. An agent that changes a site, a form, a CSP, a proxy or a DNS record runs it before it reports done (`app/@rules/agent-guardrails.md` rule 9): [core/22-lead-forms.md](core/22-lead-forms.md).
 
+**Agent sessions and the terminal.** `hub agent <project> --cli claude|codex` starts Claude Code or Codex in the instance; `agent.unattended: true` drops the prompts and turns the OS sandbox on (no network, the send policy and config read-only). The send policy is the server's (`hub send policy`), a manual Send needs the admin page's ticket, and with `terminal.enabled: true` the admin shows a terminal column running the same sessions; Connections' Agent tools says per CLI what each session has: [core/24-terminal.md](core/24-terminal.md).
+
 Frontend rules for the local admin app (typing, routes, state, tokens, accessibility, structure; each with its enforcing gate): [../app/@rules/README.md](../app/@rules/README.md).
 
 Update this page when the architecture changes.

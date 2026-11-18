@@ -1,5 +1,6 @@
 import { EmptyState, LoadFailed, StaleNote } from "@/components/state-views";
 import { Skeleton } from "@hub/ui/skeleton";
+import { AgentTools } from "./agent-tools/agent-tools";
 import { useClock } from "@/lib/clock";
 import { ConnectionRow } from "./connection-row";
 import { ConnectionGroup } from "./group";
@@ -18,7 +19,7 @@ function ConnectionsSkeleton() {
 
 /**
  * Every account of the instance in one place, one group per kind: the projects' mail accounts (read-only, as Apple Mail
- * knows them), the Notion token and the Telegram bot. It reads `GET /api/connections` (files and settings, one read of
+ * knows them), the Notion token and the Telegram bot, then each project's Agent tools (P49, read-only). It reads `GET /api/connections` (files and settings, one read of
  * Mail's account list) and tests a key on request. A key is never shown: a row says where it stands, not what it is.
  */
 export function ConnectionsView() {
@@ -44,6 +45,7 @@ export function ConnectionsView() {
           </ul>
         </ConnectionGroup>
       ))}
+      <AgentTools />
       {/* One live region for every Test, save and remove: a result is a status, a failure an alert. */}
       <div className="min-h-5 text-sm">
         <p role="status">{status?.kind === "status" ? status.text : ""}</p>

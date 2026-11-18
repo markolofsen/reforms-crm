@@ -26,6 +26,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+/** The theme drawn now (`light` or `dark`; undefined until mounted), for code that paints colours itself (the terminal). */
+export const useResolvedTheme = (): string | undefined => useTheme().resolvedTheme;
+
 const noop = () => () => {};
 /** False on the server and in the first render, true after mount: the choice is a stored value (`state-and-data.md` rule 11). */
 const useMounted = (): boolean => useSyncExternalStore(noop, () => true, () => false);

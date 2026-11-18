@@ -22,7 +22,7 @@ The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` li
 ## The commands
 | Command | What it does |
 |---|---|
-| `hub agent [project]` | The product: a Claude Code session. `<project>` binds a fresh session to one project; no argument continues the last one |
+| `hub agent [project] [--cli claude\|codex\|shell]` | The product: a Claude Code or Codex session (`agent.default`, default Claude). `<project>` binds a fresh session to one project; no argument continues the last one. `--prepare` writes the session files and starts nothing |
 | `hub up [--demo]` | The local admin: review the drafts the agent made. `--demo` uses invented data on a separate database |
 | `hub doctor [project]` | Read-only health table, each row printed as its step ends, with its time; `--only <step or group>` runs just those, `--fast` leaves the audit (backup) checks out, `--canary` adds the lead-form canaries; never fails on optional things |
 | `hub setup` | Idempotent install of folders, config, skills and the project registry (`./install.sh` runs it) |
@@ -55,9 +55,10 @@ The one index. Every page below owns its facts; others link to it.
 | Leads: the writer contract and the read-only counts | [`@docs/core/21-leads.md`](@docs/core/21-leads.md) |
 | Lead forms: the check that a lead still arrives (`hub doctor --only Leads`, the canary contract, `config/lead-forms.json`) | [`@docs/core/22-lead-forms.md`](@docs/core/22-lead-forms.md) |
 | Follow-up sequences: the files, the enrollments, who may enrol, the Follow-ups view (`hub sequences`) | [`@docs/core/23-sequences.md`](@docs/core/23-sequences.md) |
+| The embedded terminal, the agent modes (attended, unattended with the OS sandbox) and Agent tools | [`@docs/core/24-terminal.md`](@docs/core/24-terminal.md) |
 | Rules for changing the admin app | [`app/@rules/README.md`](app/@rules/README.md) |
 
-A new document takes the next free number in `@docs/core/` and a row here. Secrets live only in the git-ignored `state/secrets/`; local settings `config/config.json`, `.mcp.json` and `state/` are git-ignored too. `hub agent` runs Claude with `--dangerously-skip-permissions --chrome`; isolation rests on the skill rules plus `hub audit-run <transcript.jsonl> --project <slug>` after the fact. Extra readable folders: `HUB_EXTRA_DIRS`.
+A new document takes the next free number in `@docs/core/` and a row here. Secrets live only in the git-ignored `state/secrets/`; local settings `config/config.json`, `.mcp.json` and `state/` are git-ignored too. `hub agent` runs Claude Code or Codex in the instance's mode: attended (prompts on) by default, or `agent.unattended: true` (Claude `--dangerously-skip-permissions` inside its OS sandbox, Codex the `hub` permissions profile with `approval_policy = "never"`; never a sandbox bypass). Either way the send tools are denied, the send policy is the server's (`hub send policy`) and a manual Send needs the admin's ticket ([`@docs/core/24-terminal.md`](@docs/core/24-terminal.md)); `hub audit-run <transcript.jsonl> --project <slug>` checks a session after the fact. Extra readable folders: `HUB_EXTRA_DIRS`.
 
 ## Architecture
 

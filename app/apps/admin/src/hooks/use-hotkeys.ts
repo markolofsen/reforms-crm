@@ -10,18 +10,22 @@ export const TYPING = "input,textarea,select,[contenteditable],[role=combobox],[
 export const isTypingTarget = (target: EventTarget | null): boolean => target instanceof Element && target.closest(TYPING) !== null;
 export const CHORD_WINDOW_MS = 800;
 
-/** Lower-case key to handler. A chord is two keys with a space: `"g d"`. Handlers see the latest render, the listener stays one. */
+/**
+ * Lower-case key to handler. A chord is two keys with a space: `"g d"`. A modifier chord is `"ctrl+<key>"` (the terminal's
+ * Ctrl+`). Handlers see the latest render, the listener stays one.
+ */
 export type KeyMap = Record<string, (e: KeyEventLike) => void>;
 
-/** The part of a keyboard event the dispatcher reads, so it runs without a DOM. */
-export type KeyEventLike = { key: string; typing: boolean; modifier: boolean; preventDefault: () => void };
+/** The part of a keyboard event the dispatcher reads, so it runs without a DOM. `ctrl`: Control alone is held (no Meta, Alt or Shift). */
+export type KeyEventLike = { key: string; typing: boolean; modifier: boolean; ctrl?: boolean; preventDefault: () => void };
 
 export type Timers = { set: (fn: () => void, ms: number) => number; clear: (id: number) => void };
 const browserTimers: Timers = { set: (fn, ms) => window.setTimeout(fn, ms), clear: (id) => window.clearTimeout(id) };
 
 /**
  * Single keys and two-key chords with the guards every shortcut has: never while a person types or holds a modifier.
- * The pending first key of a chord lasts `CHORD_WINDOW_MS`, resets on any other key and fires the chord once.
+ * The pending first key of a chord lasts `CHORD_WINDOW_MS`, resets on any other key and fires the chord once. A modifier
+ * chord (`ctrl+``) is the one kind that fires while a field or the terminal has focus: nothing types with Control held.
  */
 export function createDispatcher(getMap: () => KeyMap, isEnabled: () => boolean, timers: Timers = browserTimers) {
   let pending: string | null = null;
@@ -32,11 +36,24 @@ export function createDispatcher(getMap: () => KeyMap, isEnabled: () => boolean,
     timer = null;
   };
   return (e: KeyEventLike): void => {
-    if (!isEnabled() || e.modifier || e.typing) {
+    if (!isEnabled()) {
       reset();
       return;
     }
     const map = getMap();
+    if (e.modifier) {
+      reset();
+      const chord = e.ctrl ? map[`ctrl+${e.key}`] : undefined;
+      if (chord) {
+        e.preventDefault();
+        chord(e);
+      }
+      return;
+    }
+    if (e.typing) {
+      reset();
+      return;
+    }
     const key = e.key.toLowerCase();
     // A capital letter is its own key (`A` is Shift+A); it must not fall through to the plain `a`.
     const exact = e.key !== key && e.key.length === 1 ? map[e.key] : undefined;
@@ -94,6 +111,7 @@ export function useHotkeys(keys: KeyMap, enabled: boolean | (() => boolean), hel
         key: e.key,
         typing: isTypingTarget(e.target),
         modifier: e.metaKey || e.ctrlKey || e.altKey,
+        ctrl: e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey,
         preventDefault: () => e.preventDefault(),
       });
     };

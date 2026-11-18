@@ -71,11 +71,11 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 | `mail.mailboxes` | list | no | `INBOX` | parsed, read by no command | mailboxes to read for new mail |
 | `mail.sent_mailbox` | text | no | `Sent Mail` | Sent detection (`osascript`, decision 0026) | the Apple Mail mailbox a waiting draft is looked for in once sent |
 | `mail.sender` | address | yes | first of `mail.addresses` | `mail_draft` | the From of every draft |
-| `draft.recipients` | `test` `any` or list | no | `test` | `mail_draft` guard | who a draft may go to; `test` = the global `allow_list` of `config/config.json`; the owner flips it to `any` once |
-| `send.mode` | `draft` `auto` | no | `draft` | `hub send`, doctor | `draft`: only a person sends, with `hub send` or the admin's Send; `auto`: `hub send --due` sends drafts of `send.classes` after the cancel window (section 3B) |
-| `send.classes` | list of mail classes | no | none | `hub send --due`, doctor | classes of the kind that may be autosent; only client-facing ones are allowed (`kinds.ts`, `send.classes` of the kind); empty: none |
-| `send.daily_cap` | positive int | no | kind default (5) | `hub send --due` | most autosends in a rolling 24 hours, counting queued ones |
-| `send.delay_minutes` | 1 to 1440 | no | kind default (10) | `hub send --due` | cancel window between queueing an autosend and sending it |
+| `draft.recipients` | `test` `any` or list | no | `test` | `mail_draft` guard, `hub send` | who a draft may go to; `test` = the global `allow_list` of `config/config.json`. In the server's send policy, not `project.md` (P49 S11): `state/projects/<slug>/send-policy.json`, set by a person with `hub send policy set` (section 3B); a row left in `project.md` is ignored with a warning and fails `doctor` (`send policy`) |
+| `send.mode` | `draft` `auto` | no | `draft` | `hub send`, doctor | `draft`: only a person sends; `auto`: `hub send --due` sends drafts of `send.classes` after the cancel window. In the server's send policy, not `project.md` (P49 S11): `state/projects/<slug>/send-policy.json`, set by a person with `hub send policy set` (section 3B); a row left in `project.md` is ignored with a warning and fails `doctor` (`send policy`) |
+| `send.classes` | list of mail classes | no | none | `hub send --due` | classes of the kind that may be autosent (client-facing only). In the server's send policy, not `project.md` (P49 S11): `state/projects/<slug>/send-policy.json`, set by a person with `hub send policy set` (section 3B); a row left in `project.md` is ignored with a warning and fails `doctor` (`send policy`) |
+| `send.daily_cap` | positive int | no | kind default (5) | `hub send --due` | most autosends in a rolling 24 hours. In the server's send policy, not `project.md` (P49 S11): `state/projects/<slug>/send-policy.json`, set by a person with `hub send policy set` (section 3B); a row left in `project.md` is ignored with a warning and fails `doctor` (`send policy`) |
+| `send.delay_minutes` | 1 to 1440 | no | kind default (10) | `hub send --due` | cancel window before an autosend. In the server's send policy, not `project.md` (P49 S11): `state/projects/<slug>/send-policy.json`, set by a person with `hub send policy set` (section 3B); a row left in `project.md` is ignored with a warning and fails `doctor` (`send policy`) |
 | `context.required` | warn, block | no | warn until 2026-11-22, then block | `hub record-draft` | whether a draft whose `context` block (what was read: thread, profile, facts, anchors) is missing or fails rules V1 to V5 is refused (`block`) or recorded with a warning (`warn`); P28 |
 | `tone` | text, one line | yes | none | reply skill | how replies sound; longer voice goes in `knowledge/files/voice.md` |
 | `signoff` | text | no | empty (Mail adds its signature) | reply skill | how a draft ends |
@@ -111,7 +111,6 @@ Boutique travel agency; leads arrive from the site form at hello@acme.example.
 | mail.accounts | owner@acme.example | 2026-11-14 | agent |
 | mail.addresses | owner@acme.example, hello@acme.example | 2026-11-14 | owner |
 | mail.sender | hello@acme.example | 2026-11-14 | owner |
-| draft.recipients | test | 2026-11-14 | owner |
 | tone | warm, brief, no exclamation marks | 2026-11-14 | owner |
 | knowledge.source | files | 2026-11-14 | owner |
 | setup.doctor | 2026-11-15 pass | 2026-11-15 | agent |
@@ -125,7 +124,7 @@ Boutique travel agency; leads arrive from the site form at hello@acme.example.
 
 | Date | Field | Question | Answer |
 |---|---|---|---|
-| 2026-11-14 | draft.recipients | Start in test mode (drafts only to your own addresses)? | yes |
+| 2026-11-14 | tone | How should replies sound? | warm, brief, no exclamation marks |
 
 ## Notes
 
@@ -152,6 +151,10 @@ A missing required field is a warning in a `draft` project and an error otherwis
 ## 3B. Sending (decision 0011, plan P23)
 
 The agent has no send tool in any mode: the deny rules of `hub agent` (`DENIED_TOOLS`, `Bash(osascript *)`, `sendmail`, `mail`) and the PreToolUse guard stay, and `app/apps/installer/test/send-safety.test.ts` fails if a send tool stops being denied. The same deny rules and guard refuse `hub sequences pause` and `resume`, and `hub sequences enrol` without `--phrase` is refused by the CLI and flagged by the guard: a session enrols a client only on the owner's words in that session, recorded with the enrolment ([23-sequences.md](23-sequences.md)). Sending is a hub command, run by a person or, once the owner switches it on for one project and one class, by `hub send --due`.
+
+**The send policy is the server's (P49 S11).** Who a draft may go to and whether anything is autosent live in `state/projects/<slug>/send-policy.json` (`{schema: 1, recipients: "test" | "any" | [addresses], mode: "draft" | "auto", classes, dailyCap, delayMinutes, updatedAt, by}`, strict), not in `project.md`, so a session that may edit its project folder cannot switch a project to `auto` or widen its recipients. No file means the safe default: drafts only, `recipients: test` (the global `allow_list`). A person sets it with the old field names: `hub send policy <slug>` shows it, `hub send policy set <slug> send.mode auto send.classes client draft.recipients any` writes it (`""` restores a default), and `hub send policy migrate [<slug>] [--dry-run]`, once per instance, which moves the old rows out of `project.md` keeping the owner's values (an existing policy file wins). `state/` is read-only in an unattended session's sandbox and covered by Edit deny rules in every mode ([24-terminal.md](24-terminal.md)). `@hub/send`, `hub record-draft` and the admin read the policy through `loadProject(..., { policyDir })`.
+
+**A manual send needs a person's ticket (P49 S12).** The admin's Send first asks `POST /api/sends/tickets` for a single-use ticket (60 s, bound to that draft) that is minted only for the admin's exact origin with `Sec-Fetch-Site: same-origin`; the apply without it is 403. A local script can forge headers, so the ticket raises the bar; the unattended sandbox, which has no loopback network, is the boundary.
 
 `mail-mcp` has no send tool, and a draft saved in Mail's Drafts mailbox is a `message`, not an `outgoing message`, so Mail's `send` command cannot send it. The hub therefore reads the draft from Mail (subject, recipients, plain text, attachment count), re-checks it, and sends a new outgoing message with exactly that text through `osascript` run by the hub process (the P17 `osascript` deny rule binds the agent's shell, not the hub). It then moves the original draft to the Trash. Limits: plain text only, no attachments (a draft with attachments is refused), and the new message does not carry `In-Reply-To` headers. All of it sits behind the `Mailer` interface in the shared package `@hub/send` (`app/packages/send`, imported by `hub send` and by the admin's server; packages never import apps); tests use `FakeMailer` and never reach Mail.
 
@@ -239,7 +242,7 @@ Rules for the agent, stated in the skills that call it: state a fact in a draft 
 3. **Knowledge**: `knowledge_search` and `knowledge_get` require `project`, are bound to `HUB_PROJECT`, and filter in SQL (`knowledge_docs.project = ?` joined to the FTS match). An entry is never shared: a fact two projects need is copied into each (explicit duplication beats a shared leak).
 4. **Mail**: a run uses only `mail.accounts` of its project; `mail_history` takes `project` and rejects an account outside it. The third-party `mail-mcp` is not project-aware, so the skill rule "use only the accounts in project.md" is enforced by `hub guard` (item 8), which flags a mail call naming another account. A client who writes to two projects is two client rows (`clients` is unique on `project, email`).
 5. **Notion**: only databases listed in the project's `project.md`; token from `notion.token_file`. A skill refuses a page or data source id that is not in the list.
-6. **Drafts**: From is `mail.sender`; recipients are checked against `draft.recipients`. A new project starts in `test`.
+6. **Drafts**: From is `mail.sender`; recipients are checked against the send policy's `recipients` (section 3B). A new project starts in `test`.
 7. **Outputs**: reports, log events, drafts and dumps carry or live under the project; client data never appears in another project's reply or report.
 8. **Tool calls** (`hub agent <project>`): the PreToolUse hook `hub guard` runs `auditToolCalls` live: a mail call naming an account outside the project, a knowledge call naming another project, a path in another project's folder, a send-capable tool, and a hub skill that the project's kind does not allow. Warn by default, `HUB_GUARD=block` refuses. Claude Desktop sessions have prompt-level isolation only; use `hub agent <slug>` for anything touching more than one mailbox.
 
@@ -265,7 +268,7 @@ Goal: configuration happens through conversation, costs the owner few answers, a
 4. **Where.** In the chat of the session the owner started. A question that has to wait is one `project_questions` row (`status=open`, unique per project); `project-setup` in resume mode lists open questions and asks the oldest.
 5. **Record at once.** Write the Settings row (value, today's date, `By=owner`), append the Answers row, mark the question `answered`, then run `./run.sh doctor --project <slug>`.
 6. **Never re-ask.** The only reasons to ask a decided field again: (a) `doctor` proves the value false (the account is not in Mail): ask as a correction, quoting the old answer and what was found; (b) the owner says to change it. The new answer replaces the Settings row; the Answers log keeps the history.
-7. **Silence is not consent for risk.** `draft.recipients: any` and `status: active` are set only after an explicit owner answer or a passing `doctor` plus the owner's yes. Everything else may take its default.
+7. **Silence is not consent for risk.** `draft.recipients any` (`hub send policy set`, run by the owner) and `status: active` are set only after an explicit owner answer or a passing `doctor` plus the owner's yes. Everything else may take its default.
 
 ## 9. Skills in this track
 

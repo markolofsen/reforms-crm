@@ -77,10 +77,18 @@ describe("the server boundary (decision 0015 section 4 and 5)", () => {
   it("nothing under the admin reads state/secrets", () => {
     expect(offenders(appFiles, /state\/secrets|HUB_CONFIG_DIR/)).toEqual([]);
   });
-  it("@hub/sequences (P47) is a banned import: the eslint list names it and no admin file imports it", () => {
+  // P49 S8: with the terminal, a script injected into the admin is a shell on the owner's Mac. Mail-derived text is rendered as text only.
+  it("no dangerouslySetInnerHTML in the admin or in @hub/ui (rules: architecture-and-ownership 3)", () => {
+    const ui = path.resolve(admin, "../../packages/ui/src");
+    const files = [...appFiles, ...[...walk(ui)].filter((p) => /\.tsx?$/.test(p))];
+    expect(files.filter((p) => /dangerouslySetInnerHTML/.test(code(p))).map((p) => path.relative(admin, p))).toEqual([]);
+  });
+  it("the Node-only server packages are banned imports: the eslint list names @hub/terminal and @hub/agent (P49) and @hub/sequences (P47), and no admin file imports them", () => {
     const config = read(path.join(admin, "eslint.config.mjs"));
-    expect(/const SERVER_PACKAGES = \[[^\]]*"sequences"[^\]]*\]/.test(config)).toBe(true);
-    expect(offenders(appFiles, /from ["']@hub\/sequences/)).toEqual([]);
+    for (const name of ["sequences", "terminal", "agent"]) {
+      expect(new RegExp(`const SERVER_PACKAGES = \\[[^\\]]*"${name}"[^\\]]*\\]`).test(config), name).toBe(true);
+      expect(offenders(appFiles, new RegExp(`from ["']@hub/${name}(/|["'])`)), name).toEqual([]);
+    }
   });
 });
 
@@ -213,7 +221,7 @@ describe("layout", () => {
   it("no max-w- on a page or pane container", () => {
     // A named width (`max-w-4xl`, `max-w-screen-lg`, `max-w-prose`) is a page container; a percent on a control is not.
     const ui = path.resolve(admin, "../../packages/ui/src/product");
-    const files = [...appFiles, ...readdirSync(ui).map((f) => path.join(ui, f))];
+    const files = [...appFiles, ...walk(ui)];
     expect(files.filter((p) => /\bmax-w-(\d?xl|xs|sm|md|lg|screen|prose|\d)/.test(code(p))).map((p) => path.relative(admin, p))).toEqual([]);
   });
 });

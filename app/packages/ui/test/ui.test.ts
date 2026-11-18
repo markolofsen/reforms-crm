@@ -48,6 +48,16 @@ describe("@hub/ui tokens", () => {
     expect(css).not.toMatch(/@import\s+["']tailwindcss/);
   });
 
+  it("styles.css carries every terminal token in the light set and the dark set, as complete colours (P49)", () => {
+    const css = read("styles.css");
+    const sets = [...css.matchAll(/(?:^|\n)(:root|\.dark) \{([^}]*--terminal-bg[^}]*)\}/g)];
+    expect(sets.map((m) => m[1])).toEqual([":root", ".dark"]);
+    const names = (body: string) => [...body.matchAll(/(--terminal-[a-z-]+):\s*(#[0-9a-f]{6}(?:[0-9a-f]{2})?);/g)].map((m) => m[1]);
+    const [light, dark] = sets.map((m) => names(m[2] ?? ""));
+    expect(light).toHaveLength(20);
+    expect(dark).toEqual(light);
+  });
+
   it("styles.css and use-media-query.ts both say 640px", () => {
     expect(read("styles.css")).toContain("--breakpoint-md: 40rem");
     expect(read("use-media-query.ts")).toMatch(/md:\s*640\b/);

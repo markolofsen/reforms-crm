@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Bumped when a response changes shape: the admin shows "restart the server" when its own number is higher. */
-export const API_VERSION = 7;
+export const API_VERSION = 8; // 8: P49 (send ticket, terminal, agent tools)
 
 const messengersStatus = z.object({
   state: z.enum(["off", "starting", "running", "error", "stopped"]),

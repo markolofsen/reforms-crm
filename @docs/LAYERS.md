@@ -35,7 +35,7 @@ unsure where a file goes, this page decides.
 | `projects/<slug>/` under `HUB_HOME` | **instance** | `project.md`, `mail-filters.md`, `knowledge/`, `reports/`, generated XML |
 | `projects/<slug>/@dev/` under `HUB_HOME` | **instance** | The project's own development plans, a kanban (`hub dev init <slug> --apply` copies the skeleton from `app/projects/_template/@dev/`; `hub dev index` generates its table; doctor step `dev.kanban`). Tracked in the instance repository |
 | `@docs/custom/`, `@dev/`, `@refs/` of an instance | **instance** | The owner's history, decisions, plans and reference material; the instance-wide kanban. Work on one project goes in that project's `@dev/` |
-| `config/config.json`, `state/` (secrets in `state/secrets/`), `.mcp.json`, `.claude/` | **instance**, git-ignored | Local settings, runtime state and every secret (the Connections page and `hub token` write only here) |
+| `config/config.json`, `state/` (secrets in `state/secrets/`), `.mcp.json`, `.claude/` | **instance**, git-ignored | Local settings, runtime state and every secret (the Connections page and `hub token` write only here). `state/projects/<slug>/send-policy.json` is each project's send policy, written only by `hub send policy` ([core/24-terminal.md](core/24-terminal.md)); `state/codex/<slug>/` the generated Codex homes |
 
 ## Create an instance
 

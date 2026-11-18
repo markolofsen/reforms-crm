@@ -71,6 +71,20 @@ describe("hotkeys dispatcher", () => {
     off.dispatch(key("d"));
     expect(off.calls).toEqual([]);
   });
+  it("a modifier chord (the terminal's Ctrl+`) fires while a field or the terminal has focus, and only with Control alone", () => {
+    const calls: string[] = [];
+    let prevented = 0;
+    const dispatch = createDispatcher(() => ({ "ctrl+`": () => calls.push("terminal"), "`": () => calls.push("plain") }), () => true);
+    const prevent = { preventDefault: () => void prevented++ };
+    dispatch(key("`", { modifier: true, ctrl: true, typing: true, ...prevent }));
+    dispatch(key("`", { modifier: true, ctrl: false }));
+    dispatch(key("j", { modifier: true, ctrl: true }));
+    expect(calls).toEqual(["terminal"]);
+    expect(prevented).toBe(1);
+    const off = createDispatcher(() => ({ "ctrl+`": () => calls.push("off") }), () => false);
+    off(key("`", { modifier: true, ctrl: true }));
+    expect(calls).toEqual(["terminal"]);
+  });
   it("keys are case-insensitive", () => {
     const { calls, dispatch } = setup();
     dispatch(key("G"));

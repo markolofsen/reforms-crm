@@ -3,16 +3,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { ClientFilter } from "@hub/config";
-import { useMediaQuery } from "@hub/ui/use-media-query";
 import { ReviewWorkspace } from "@/features/review/workspace";
 import type { View } from "@/features/review/list-controls";
 import type { ReviewPage, ReviewSource } from "@/features/review/source";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useGo } from "@/hooks/use-go";
+import { usePaneNarrow } from "@/hooks/use-pane";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { useSearchState } from "@/hooks/use-search-state";
-import { bulkApi } from "@/lib/api/bulk";
 import { reviewApi } from "@/lib/api/review";
 import { paths } from "@/routes/paths";
 import { DRAFT_VIEWS, type DraftView } from "@/routes/search";
@@ -53,7 +52,7 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile }: Props)
   const go = useGo();
   const setQ = useSearchState("q")[1];
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
-  const batches = useQuery({ queryKey: ["batches", project], queryFn: () => bulkApi.list(project) });
+  const batches = useQuery({ queryKey: ["batches", project], queryFn: () => reviewApi.batches(project) });
   const notByEmail = useNotByEmailTotal(project);
   const known = batch === null || (batches.data?.batches.some((b) => b.id === batch) ?? true);
   const source = useMemo<ReviewSource>(() => {
@@ -65,7 +64,7 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile }: Props)
       countOf,
       // Not by email shows its own body; the list query still runs (as All) so the View menu keeps every count.
       load: (offset) => (filter === "finished" ? finished(project, offset, scope) : reviewApi.drafts(project, filter === "not_by_email" ? "all" : filter, offset, scope)),
-      ...(batch === null ? {} : { undoLast: () => bulkApi.undoLast(project, batch) }),
+      ...(batch === null ? {} : { undoLast: () => reviewApi.undoBatch(project, batch) }),
     };
   }, [project, filter, batch, search]);
   const views = (counts: ReviewPage["counts"]): View[] => [
@@ -109,8 +108,8 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile }: Props)
 export function DraftsScreen() {
   const route = useRoute();
   const { project } = useProjectScope();
-  // Below 1024px the list and its detail are separate screens: a phone opens no card until a row is chosen.
-  const compact = useMediaQuery("max-lg");
+  // A pane too narrow for the split (a phone, or the terminal docked beside it) shows the list and the card as separate screens: no card opens until a row is chosen.
+  const compact = usePaneNarrow();
   if (route.route !== "drafts.list" && route.route !== "drafts.item") return null;
   const selectedId = route.route === "drafts.item" ? route.params.id : null;
   const { filter, q, batch } = route.search;

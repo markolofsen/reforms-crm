@@ -10,9 +10,10 @@ The one shared UI package of the monorepo: the coss copies, the product primitiv
 |---|---|---|
 | `src/ui/*.tsx` | 26 coss copies, not hand-edited (`https://coss.com/ui/r/<name>.json`, `@/registry/default/{ui,lib}` rewritten to `./x` and `../cn`) | typing bans off; direction and `use server` bans on |
 | `src/product/*.tsx` | `action-button` (three sizes, four variants), `field` (`Field`, `Progress`), `filter-chips` | every rule |
+| `src/product/terminal/`, `src/product/side-dock/` | `@hub/ui/product/terminal` (the xterm.js view: lazy import, fit, theme from the `--terminal-*` tokens, keys) and `@hub/ui/product/side-dock` (the resizable right column); a folder each, so `src/product` stays at 8 files, with their pure helpers (`keys.ts`, `theme.ts`, `size.ts`) beside them | every rule |
 | `src/cn.ts` | `cn`, the one user of `clsx` and `tailwind-merge` | direction |
 | `src/use-media-query.ts` | coss copy with one product edit (`md: 640`) | caps off |
-| `src/styles.css` | tokens (`:root`, `.dark`), `@theme`, `@layer base`, the `control-*` and `scroll-strip` utilities, `@source "./"`; no Tailwind import | n/a |
+| `src/styles.css` | tokens (`:root`, `.dark`), `@theme`, `@layer base`, the `control-*` and `scroll-strip` utilities, the terminal tokens and xterm's own stylesheet, `@source "./"`; no Tailwind import | n/a |
 
 ## Use it
 

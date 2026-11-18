@@ -29,12 +29,12 @@ function Heading({ s, filter, open }: { s: ActivitySessionDto; filter: RunFilter
 }
 
 /**
- * From 1024px: one table, newest session first, a heading row per session and one row per thing the agent did, with the
+ * From the split width of the list-detail (`@4xl`): one table, newest session first, a heading row per session and one row per thing the agent did, with the
  * outcome and the reason in the row (nothing behind a click). Each session is its own `tbody`.
  */
 export function SessionTable({ sessions, filter, open }: Props) {
   return (
-    <DataTable aria-label="Activity" className="max-lg:hidden">
+    <DataTable aria-label="Activity" className="@max-4xl:hidden">
       <TableHeader>
         <TableRow>
           <TableHead className="w-1/12">When</TableHead>
@@ -71,10 +71,10 @@ export function SessionTable({ sessions, filter, open }: Props) {
   );
 }
 
-/** Below 1024px: the same rows as two lines each (client and what happened; when and why), so no column hides behind a click. */
+/** Narrower than the split: the same rows as two lines each (client and what happened; when and why), so no column hides behind a click. */
 export function SessionRows({ sessions, filter, open }: Props) {
   return (
-    <div className="flex flex-col gap-4 lg:hidden">
+    <div className="flex flex-col gap-4 @4xl:hidden">
       {sessions.map((s) => (
         <section aria-label={sessionHeading(s)} data-run={s.runId} key={s.runId}>
           <h3 className="border-b pb-1">

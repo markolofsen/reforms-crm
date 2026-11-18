@@ -6,23 +6,25 @@ import { DEFAULT_INSTANCE_NAME } from "@hub/contract/instance";
 import { Page } from "@hub/ui/product/page";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
+import { TerminalDock, TerminalProvider } from "@/features/terminal/terminal";
 import { useGo } from "@/hooks/use-go";
 import { PlaceContext, ProjectScopeContext, useEnsureAddress, type ProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { useSectionNav } from "@/hooks/use-section-nav";
 import { metaApi } from "@/lib/api/meta";
 import { usePulse } from "@/lib/pulse";
-import { dotOf, useInstance, useProjectRow } from "@/lib/status";
+import { dotOf, useAgentToolsNeedYou, useInstance, useProjectRow } from "@/lib/status";
 import { paths, sectionList } from "@/routes/paths";
 import { sectionTitle } from "@/routes/sections";
 import { AppShell, type ShellNavItem } from "./shell";
 
-/** The nav with a dot on the section that fixes the project's worst fact (Project or Connections). */
+/** The nav with a dot on the section that fixes the project's worst fact (Project or Connections), and on Connections while an Agent tools row is red. */
 function useNavWithDots(project: string | null): ShellNavItem[] {
   const items = useSectionNav();
   const { row } = useProjectRow(project ?? "");
   const dot = dotOf(row?.status);
-  return useMemo(() => items.map((i) => ({ ...i, dot: dot !== null && i.id === dot })), [items, dot]);
+  const tools = useAgentToolsNeedYou(project);
+  return useMemo(() => items.map((i) => ({ ...i, dot: (dot !== null && i.id === dot) || (tools && i.id === "connections") })), [items, dot, tools]);
 }
 
 /**
@@ -70,7 +72,12 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   );
 }
 
-function Shell({ project, ...props }: Omit<Parameters<typeof AppShell>[0], "items"> & { project: string | null }) {
+/** The shell with its nav and the terminal (P49), which follows the project of the address (none on Overview and Connections: Shell only). */
+function Shell({ project, ...props }: Omit<Parameters<typeof AppShell>[0], "items" | "dock"> & { project: string | null }) {
   const items = useNavWithDots(project);
-  return <AppShell items={items} project={project} {...props} />;
+  return (
+    <TerminalProvider project={project}>
+      <AppShell dock={<TerminalDock />} items={items} project={project} {...props} />
+    </TerminalProvider>
+  );
 }

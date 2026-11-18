@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "@hub/ui/link";
 import { SidebarInset, SidebarProvider, useSidebar } from "@hub/ui/sidebar";
 import { useMediaQuery } from "@hub/ui/use-media-query";
 import { cn } from "@hub/ui/cn";
 import { shortcutsOn, useHotkeys, useShortcutsSwitch, type KeyMap } from "@/hooks/use-hotkeys";
+import { PaneNarrowContext, useMeasuredNarrow } from "@/hooks/use-pane";
 import type { NavItem } from "@/hooks/use-section-nav";
+import { useTerminalDocked } from "@/features/terminal/terminal";
 import { save, useStored } from "@/lib/storage";
 import type { Resolved } from "@/routes/resolve";
 import { AppSidebar, type Brand } from "./app-sidebar";
@@ -26,7 +28,7 @@ type Props = {
   onProject: (p: string) => void;
   brand: Brand;
   route: Resolved;
-  /** A right-hand column beside the screen (P49 docks the embedded terminal here). Nothing renders without it. */
+  /** The right-hand column beside the screen, outside `#main` (P49 docks the embedded terminal here; it renders nothing when off). */
   dock?: ReactNode;
   children: ReactNode;
 };
@@ -42,6 +44,8 @@ function Frame({ items, projects, project, onProject, brand, route, dock, childr
   // A phone shows the subject as a screen of its own; its action bar sticks to the bottom, so the tab bar steps aside.
   // The tab bar and the phone's top line are in the markup of every width and `md:hidden` takes them away (the server cannot know the viewport).
   const tabs = route.route !== "drafts.item";
+  const content = useRef<HTMLDivElement>(null);
+  const narrow = useMeasuredNarrow(content);
   return (
     <>
       {/* The first stop of the page, before the sidebar. Focus moves to the main region; the address does not change (a plain `#main` link would add a fragment and a history entry). */}
@@ -59,28 +63,32 @@ function Frame({ items, projects, project, onProject, brand, route, dock, childr
       <AppSidebar brand={brand} items={items} keys={{ open: helpOpen, onOpenChange: setHelpOpen, enabled: shortcuts, onEnabled: setShortcuts }} onProject={onProject} project={project} projects={projects} />
       <SidebarInset className={cn("flex h-svh min-h-0 min-w-0 flex-col overflow-hidden outline-none", tabs && "max-md:pb-(--tab-bar)")} id="main" tabIndex={-1}>
         {tabs && <PhoneBar brand={brand} onProject={onProject} project={project} projects={projects} />}
-        <div className="flex min-h-0 min-w-0 flex-1">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">{children}</div>
-          {dock && <aside aria-label="Dock" className="flex min-h-0 shrink-0 flex-col border-s max-lg:hidden" data-slot="dock">{dock}</aside>}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col" ref={content}>
+          <PaneNarrowContext value={narrow}>{children}</PaneNarrowContext>
         </div>
       </SidebarInset>
+      {dock}
       {tabs && <TabBar items={items} />}
     </>
   );
 }
 
 /**
- * The one frame of every screen: sidebar | the screen (its own list and detail) | an optional right dock. No top bar
+ * The one frame of every screen: sidebar | the screen (its own list and detail) | the terminal dock. No top bar
  * (a phone gets one line: brand, switcher, theme). The sidebar is open from 1280px and a rail below it unless the person
- * pinned it (remembered in `lib/storage`). Hydration: the width comes from `useMediaQuery` and the pin from `useStored`, both
- * external stores with a server snapshot, so the first render is the server's and the real values follow.
+ * pinned it (remembered in `lib/storage`); while the terminal is docked below 1600px it folds to the rail without touching
+ * the pin (an expand then holds for this page only). Hydration: the width comes from `useMediaQuery` and the pin from
+ * `useStored`, both external stores with a server snapshot, so the first render is the server's and the real values follow.
  */
 export function AppShell(props: Props) {
   const wide = useMediaQuery("xl");
+  const roomy = useMediaQuery("3xl");
   const pin = useStored("rail");
-  const open = pin === "open" ? true : pin === "closed" ? false : wide;
+  const folded = useTerminalDocked() && !roomy;
+  const [unfolded, setUnfolded] = useState(false);
+  const open = folded ? unfolded : pin === "open" ? true : pin === "closed" ? false : wide;
   return (
-    <SidebarProvider className="h-svh min-h-0" onOpenChange={(next) => save("rail", next ? "open" : "closed")} open={open} style={WIDTHS}>
+    <SidebarProvider className="h-svh min-h-0" onOpenChange={(next) => (folded ? setUnfolded(next) : save("rail", next ? "open" : "closed"))} open={open} style={WIDTHS}>
       <Frame {...props} />
     </SidebarProvider>
   );

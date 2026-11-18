@@ -1,5 +1,5 @@
 import { slimMessageContent } from "./slim-headers";
-import { pathsAt, type HubPaths } from "@hub/config/paths";
+import { codexSessionPaths, pathsAt, type HubPaths } from "@hub/config/paths";
 import { auditToolCalls, defaultProjectsRoot, type AuditLayout, kindOf, loadProject, preDraftCheck, type SkillScope, type ToolCall } from "@hub/projects";
 import { instanceServer } from "./mcp-servers";
 import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
@@ -75,7 +75,7 @@ export function writeCodexHome(o: { paths: HubPaths; projectsDir: string; slug: 
   const auth = path.join(home, "auth.json");
   rmSync(auth, { force: true });
   if (existsSync(path.join(owner, "auth.json"))) symlinkSync(path.join(owner, "auth.json"), auth);
-  const skills = path.join(home, "skills");
+  const skills = codexSessionPaths(o.paths, o.slug).skills;
   rmSync(skills, { recursive: true, force: true });
   mkdirSync(skills, { recursive: true });
   if (existsSync(o.paths.skills)) {

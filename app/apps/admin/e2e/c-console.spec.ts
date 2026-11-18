@@ -64,3 +64,17 @@ test("theme: a choice made in the sidebar survives a reload", async ({ page }) =
   expect(await isDark(page)).toBe(true);
   await expect(page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
 });
+
+test("the terminal saved open (P49) loads cold with a clean console: it restores from 1024px after mount, never in the server HTML", async ({ page }) => {
+  const noise: string[] = [];
+  page.on("console", (m) => (m.type() === "error" || m.type() === "warning" || /hydrat|#418|#423|#425/i.test(m.text())) && noise.push(`${m.type()}: ${m.text()}`));
+  page.on("pageerror", (e) => noise.push(`pageerror: ${e.message}`));
+  await page.addInitScript(() => window.localStorage.setItem("hub.terminal", "open"));
+  await page.goto(at(P, "/drafts"));
+  await page.waitForLoadState("networkidle");
+  const wide = (page.viewportSize()?.width ?? 0) >= 1024;
+  await expect(page.getByRole("complementary", { name: "Terminal" })).toHaveCount(wide ? 1 : 0);
+  expect(noise).toEqual([]);
+  const html = (await (await page.request.get(at(P, "/drafts"))).text()).replaceAll("<!-- -->", "");
+  expect(html).not.toContain('aria-label="Terminal"');
+});

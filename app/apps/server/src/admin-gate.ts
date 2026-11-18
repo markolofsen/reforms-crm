@@ -51,6 +51,12 @@ export function ticketStore(o: { ttlMs: number; now?: () => number; max?: number
       live.set(ticket, { subject, until });
       return { ticket, expiresAt: new Date(until).toISOString() };
     },
+    /** The subject a live ticket was minted for, once; null for an unknown or expired one. Spends it either way. */
+    redeem(ticket: string): string | null {
+      const t = live.get(ticket);
+      live.delete(ticket);
+      return t && t.until > now() ? t.subject : null;
+    },
     /** True once: the ticket exists, is not expired and names this subject. Any use, right or wrong, spends it. */
     take(ticket: string | undefined, subject: string): boolean {
       if (!ticket) return false;

@@ -1,5 +1,6 @@
 import type { Step } from "../types";
 import { adminSteps } from "./admin";
+import { agentSteps } from "./agent";
 import { backupSteps } from "./backup";
 import { fileSteps } from "./files";
 import { instanceSteps } from "./instance";
@@ -35,6 +36,8 @@ export const STEPS: Step[] = [
   ...tag(messengerSteps, "automation"),
   ...tag(notionSteps, "automation", ["notion.token", "notion.access"]),
   ...leadSteps,
+  // P49: the Agent tools rows reach every MCP server once per CLI, so they are an audit (`--fast` leaves them out); the terminal row is cheap.
+  ...agentSteps.map((s): Step => (s.id === "agent.tools" ? { ...s, audit: true } : s)),
   ...backupSteps.map((s): Step => ({ ...s, audit: true })),
 ];
 

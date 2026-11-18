@@ -1,0 +1,28 @@
+{
+  "name": "@hub/terminal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The embedded terminal's sessions (P49): the PTY behind an interface, the preset table, the env, the headless scrollback, flow control and the socket protocol. Node only; imported by apps/server alone.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*",
+    "@hub/contract": "workspace:*",
+    "@xterm/addon-serialize": "0.14.0",
+    "@xterm/headless": "6.0.0",
+    "node-pty": "1.1.0",
+    "ws": "8.22.1"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/ws": "8.18.2",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

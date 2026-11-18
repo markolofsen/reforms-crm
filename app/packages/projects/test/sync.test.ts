@@ -148,6 +148,7 @@ describe("doctorProject", () => {
       "kind is known": "pass",
       "mail accounts exist": "pass",
       "sender is one of the addresses": "pass",
+      "send policy": "skipped",
       "send settings": "pass",
       "no address claimed twice": "pass",
       "active project has an address": "pass",

@@ -10,6 +10,8 @@ import { projectsRoot } from "./project-overview";
 import { allowListOf, configFile, createServerMailer } from "./send/mailer";
 import { startMessengers } from "./messengers";
 import { startSentReconciler } from "./sent";
+import { chooseShell, createTerminal } from "./terminal";
+import { chooseAgentTools, createAgentTools } from "./agent-tools";
 
 // The server is started by `hub up` (which sets HUB_HOME). Started by hand without it: one line and exit 2, not a stack.
 try {
@@ -42,11 +44,19 @@ if (probe === "fake") console.log("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PR
 const listed = async () => (await repos.projects.registry()).projects.flatMap((p) => configOf(p).mail.accounts);
 const mailAccounts = probe === "fake" || kind === "fake" ? fakeMailAccounts(listed) : appleMailAccounts();
 const connections = probe === "fake" ? { deps: fakeProbeDeps(), mailAccounts } : { mailAccounts };
-const app = createApp(repos, { connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: hubPaths().stateProjects, allowList: allowListOf(configFile()), adminPort: instancePorts(hubPaths()).admin } });
+// The embedded terminal (P49): off unless config/config.json says terminal.enabled true; a bad HUB_TERMINAL_SHELL stops the server here.
+const paths = hubPaths();
+const ports = instancePorts(paths);
+const fakeShell = chooseShell(process.env) === "fake";
+const terminal = createTerminal({ paths, repos, adminPort: ports.admin, apiPort: port, fakeShell });
+console.log(`terminal: ${terminal.enabled() ? (fakeShell ? "on, FAKE SHELL (HUB_TERMINAL_SHELL=fake)" : "on (admin origin + ticket only)") : "off (terminal.enabled in config/config.json)"}`);
+const agentTools = createAgentTools({ paths, repos, fake: chooseAgentTools(process.env) === "fake" });
+const app = createApp(repos, { terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);
 });
+server.on("upgrade", terminal.upgrade);
 // A taken port is one line and exit 2 (the same shape as a missing HUB_HOME above), not a stack.
 server.on("error", (err) => {
   const line = listenErrorLine(err, HOST, port);
@@ -62,6 +72,7 @@ onShutdown({
   exit: (code) => process.exit(code),
   stop: async () => {
     sent.stop();
+    terminal.stop();
     try { await messengers.stop(); } finally { server.close(); close(); }
   },
 });

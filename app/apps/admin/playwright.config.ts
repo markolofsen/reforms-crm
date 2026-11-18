@@ -2,6 +2,7 @@ import { defineConfig } from "@playwright/test";
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeSendPolicy } from "./e2e/send-policy";
 
 // The flows run against their own Hono API on a throwaway instance (`HUB_HOME`) and database (never a real instance) and a PRODUCTION build of the
 // admin served by `next start` from its own `distDir`, so a running `next dev` is never disturbed (decision 0015, P32 N6).
@@ -18,9 +19,14 @@ for (const slug of ["lisbon-realty", "demo-shop"]) {
   mkdirSync(join(PROJECTS, slug), { recursive: true });
   writeFileSync(
     join(PROJECTS, slug, "project.md"),
-    ["# E2E project", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", `| mail.accounts | ${slug}@example.test | 2026-11-14 | agent |`, `| mail.addresses | ${slug}@example.test | 2026-11-14 | owner |`, `| mail.sender | ${slug}@example.test | 2026-11-14 | owner |`, "| draft.recipients | any | 2026-11-14 | owner |", "| tone | brief | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", "- reports: 00000000-0000-4000-8000-000000000002", ""].join("\n"),
+    ["# E2E project", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", `| mail.accounts | ${slug}@example.test | 2026-11-14 | agent |`, `| mail.addresses | ${slug}@example.test | 2026-11-14 | owner |`, `| mail.sender | ${slug}@example.test | 2026-11-14 | owner |`, "| tone | brief | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", "- reports: 00000000-0000-4000-8000-000000000002", ""].join("\n"),
   );
 }
+// P49 S11: the send policy is the server's file, not a row of project.md (recipients = any, drafts only, as the seeded flows expect).
+for (const slug of ["lisbon-realty", "demo-shop"]) writeSendPolicy(HOME, slug);
+// The instance config: the embedded terminal on (P49; the server runs the fake shell below), agent sessions unattended.
+mkdirSync(join(HOME, "config"), { recursive: true });
+writeFileSync(join(HOME, "config", "config.json"), JSON.stringify({ terminal: { enabled: true }, agent: { default: "claude", unattended: true } }, null, 2));
 // P47: lisbon-realty gets the core's starter sequence, so its seeded follow-ups (Tiago due, Ines a candidate) have a definition.
 mkdirSync(join(PROJECTS, "lisbon-realty", "sequences"), { recursive: true });
 copyFileSync(join(import.meta.dirname, "..", "..", "projects", "_template", "sequences", "answered-enquiry-no-reply.md"), join(PROJECTS, "lisbon-realty", "sequences", "answered-enquiry-no-reply.md"));
@@ -52,7 +58,20 @@ export default defineConfig({
       cwd: "../..",
       // HUB_CONFIG_DIR pins the secrets folder inside the throwaway home, so a Connections flow can never write a real instance's keys; HUB_CONNECTIONS_PROBE=fake
       // makes every Test a stub that never leaves the process. HUB_MAILER=fake is the only way the e2e run sends: the fake Mailer never leaves the process (the server refuses it without HUB_DB).
-      env: { HUB_HOME: HOME, HUB_CONFIG_DIR: join(HOME, "secrets"), HUB_CONNECTIONS_PROBE: "fake", HUB_DB: DB, HUB_PORT: String(API_PORT), HUB_MAILER: "fake", HUB_PROJECTS: PROJECTS },
+      // P49: HUB_ADMIN_PORT is the one Origin the terminal socket and its tickets accept; HUB_TERMINAL_SHELL=fake runs `test-support/fake-shell.mjs`
+      // instead of a login shell, and HUB_AGENT_TOOLS=fake answers the Agent tools checks with fixed rows (a red one among them), never a real CLI.
+      env: {
+        HUB_HOME: HOME,
+        HUB_CONFIG_DIR: join(HOME, "secrets"),
+        HUB_CONNECTIONS_PROBE: "fake",
+        HUB_DB: DB,
+        HUB_PORT: String(API_PORT),
+        HUB_ADMIN_PORT: String(UI_PORT),
+        HUB_MAILER: "fake",
+        HUB_PROJECTS: PROJECTS,
+        HUB_TERMINAL_SHELL: "fake",
+        HUB_AGENT_TOOLS: "fake",
+      },
       url: `http://127.0.0.1:${API_PORT}/api/health`,
       reuseExistingServer: false,
       timeout: 60_000,

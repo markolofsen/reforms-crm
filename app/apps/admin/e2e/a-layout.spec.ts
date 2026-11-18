@@ -146,6 +146,19 @@ const SCREENS: Screen[] = [
     },
   },
   {
+    // P49: the terminal open (the docked column from 1024px, the full-screen layer below), on the fake shell. The one session
+    // this leaves is ended by the next run of this screen and by `z-terminal.spec.ts` before it starts.
+    name: "drafts: terminal open",
+    path: at(P, "/drafts"),
+    ready: async (p) => {
+      for (const s of ((await (await p.request.get("/api/terminal")).json()) as { sessions: { id: string }[] }).sessions) await p.request.delete(`/api/terminal/sessions/${s.id}`);
+      // The page loaded before those were ended; a fresh load does not ask for a socket of a session that is gone (a console 404).
+      await p.reload();
+      await p.getByRole("button", { name: "Terminal", exact: true }).click();
+      await expect(p.getByRole("tabpanel").locator(".xterm-rows")).toContainText("fake$", { timeout: 15_000 });
+    },
+  },
+  {
     name: "drafts: two selected",
     path: at(P, "/drafts"),
     ready: async (p) => {
@@ -173,6 +186,8 @@ async function undersized(page: Page) {
       if (box.width === 0 || box.height === 0) continue;
       const clipped = box.width <= 1 || box.height <= 1; // the sr-only skip link
       if (clipped) continue;
+      // xterm's helper textarea takes the keys of the terminal; the target the person taps is the whole terminal screen.
+      if (el.classList.contains("xterm-helper-textarea")) continue;
       // Inline links inside running text are exempt (WCAG 2.5.8 inline exception).
       if (el.tagName === "A" && el.closest("p, li > span, td")?.textContent !== el.textContent && getComputedStyle(el).display === "inline") continue;
       checked++;

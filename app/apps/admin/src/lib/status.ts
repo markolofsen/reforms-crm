@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { ProjectRowDto, StatusDto } from "@hub/contract/overview";
+import { connectionsApi } from "./api/connections";
 import { overviewApi } from "./api/overview";
 import { metaApi } from "./api/meta";
 
@@ -21,3 +22,13 @@ export const dotOf = (s: StatusDto | undefined): StatusDto["next"] => (s && s.le
 
 /** The instance's brand (name, and whether a logo is served). Cached for the session: it changes only with the config file. */
 export const useInstance = () => useQuery({ queryKey: ["instance"], queryFn: metaApi.instance, staleTime: Infinity });
+
+/** One project's Agent tools (P49 section 5B): the last result of the server's checks. One key for the Connections block and the nav dot. */
+export const agentToolsKey = (slug: string) => ["agent-tools", slug] as const;
+export const useAgentTools = (slug: string | null) => useQuery({ queryKey: agentToolsKey(slug ?? ""), queryFn: () => connectionsApi.agentTools(slug ?? ""), enabled: slug !== null, staleTime: 60_000 });
+
+/** Whether a red Agent tools row puts a dot on Connections, like the project's other "needs you" facts. */
+export function useAgentToolsNeedYou(slug: string | null): boolean {
+  const q = useAgentTools(slug);
+  return q.data?.rows.some((r) => r.state === "fail") ?? false;
+}
