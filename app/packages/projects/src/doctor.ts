@@ -5,6 +5,7 @@ import { formatIssue, hasErrors } from "./parse";
 import { kindOf } from "./kinds";
 import type { ProjectConfig } from "./schema";
 import { loadWorkflows, workflowErrors } from "./workflows";
+import { isUsable, loadSequences, sequenceErrors } from "@hub/sequences";
 import { duplicateClaims, type LoadedProject } from "./registry";
 
 export type CheckOutcome = "pass" | "fail" | "skipped";
@@ -125,6 +126,18 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
       : workflowErrors(wf) > 0
         ? { name: "workflows parse", outcome: "fail", detail: `${workflowErrors(wf)} error(s) in ${wf.length} workflow(s); run \`hub workflows check ${p.slug}\`` }
         : { name: "workflows parse", outcome: "pass", detail: `${wf.length} workflow(s), ${wf.filter((w) => w.usage === "agent").length} the agent may pick` },
+  );
+
+  // P47: the follow-up sequence files of the project (the engine is core, the files are the project's own).
+  const seqs = has("sequences") ? loadSequences(project.folder) : [];
+  checks.push(
+    !has("sequences")
+      ? off("sequences parse")
+      : seqs.length === 0
+        ? skip("sequences parse", "no sequences/ folder or no files in it")
+        : sequenceErrors(seqs) > 0
+          ? { name: "sequences parse", outcome: "fail", detail: `${sequenceErrors(seqs)} error(s) in ${seqs.length} sequence(s); run \`hub sequences check ${p.slug}\`` }
+          : { name: "sequences parse", outcome: "pass", detail: `${seqs.length} sequence(s), ${seqs.filter((x) => isUsable(x) && x.status === "Active").length} active` },
   );
 
   if (input.mcpMailAccounts === undefined) checks.push(skip("mail MCP limited to the project's accounts", "per-run MCP config was not read"));

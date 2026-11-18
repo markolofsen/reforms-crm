@@ -77,6 +77,11 @@ describe("the server boundary (decision 0015 section 4 and 5)", () => {
   it("nothing under the admin reads state/secrets", () => {
     expect(offenders(appFiles, /state\/secrets|HUB_CONFIG_DIR/)).toEqual([]);
   });
+  it("@hub/sequences (P47) is a banned import: the eslint list names it and no admin file imports it", () => {
+    const config = read(path.join(admin, "eslint.config.mjs"));
+    expect(/const SERVER_PACKAGES = \[[^\]]*"sequences"[^\]]*\]/.test(config)).toBe(true);
+    expect(offenders(appFiles, /from ["']@hub\/sequences/)).toEqual([]);
+  });
 });
 
 describe("the Next shell of the app", () => {

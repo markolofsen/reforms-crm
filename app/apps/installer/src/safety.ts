@@ -30,6 +30,12 @@ export const DENIED_TOOLS: readonly string[] = [
 export const HUB_SEND_COMMANDS: readonly string[] = ["Bash(*hub send*)", "Bash(*run.sh send*)", "Bash(*hub.sh send*)", "Bash(*hub.mjs send*)", "Bash(*hub.mjs\" send*)", "Bash(*installer/src/cli.ts send*)"];
 
 /**
+ * Follow-ups (P47): starting or restarting them is the owner's step, so `hub sequences enrol|enroll|pause|resume` is denied in every spelling
+ * (the `*` before the subcommand covers `hub`, `run.sh`, `hub.sh`, `hub.mjs` and the CLI source). Stop, delay and judge only reduce mail.
+ */
+export const HUB_SEQUENCE_OWNER_COMMANDS: readonly string[] = ["Bash(*sequences enrol*)", "Bash(*sequences pause*)", "Bash(*sequences resume*)"];
+
+/**
  * The admin server's Send is a loopback HTTP route (P23 S3). The route cannot tell a person's click from an agent's
  * `curl`, so the agent's session never reaches loopback: no Bash command that names it, no WebFetch to it.
  */
@@ -60,7 +66,7 @@ export function denyRules(projectsDir: string, root: string, slug: string | unde
   for (const o of otherProjects(projectsDir, slug)) denied.push(`./${rel(path.join(projectsDir, o))}/**`);
   for (const p of denied) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
   // `hub send` is the hub's own sender (decision 0011, plan P23): a person runs it, never the agent.
-  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
+  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
   return rules;
 }
 

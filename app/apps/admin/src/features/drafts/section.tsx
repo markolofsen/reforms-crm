@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { ClientFilter } from "@hub/config";
 import { InboxQueue } from "./inbox-queue";
 import { NotByEmail } from "./not-by-email";
+import { FollowUps } from "./sequences/follow-ups";
 import { BatchBar } from "./batch-bar";
 import { BatchGone, BatchHead, BatchWaiting, BATCH_POLL_MS, useBatchHead } from "./batch-head";
 import { NewBatch } from "./new-batch";
@@ -24,15 +25,16 @@ import { paths } from "@/routes/paths";
 import type { DraftView } from "@/routes/search";
 
 // To review first, All last. To review is the address default (a bare `/drafts` shows what needs the owner); All keeps `?filter=all`.
-const VIEWS: { value: DraftView; label: string }[] = [
+const VIEWS: { value: DraftView; label: string; whenAny?: boolean }[] = [
   { value: "ready", label: "To review" },
   { value: "hold", label: "Hold" },
   { value: "thin_basis", label: "Thin basis" },
   { value: "finished", label: "Finished" },
+  { value: "sequences", label: "Follow-ups", whenAny: true }, // offered while a step draft is open, so the strip stays one line
   { value: "all", label: "All" },
 ];
 const FINISHED: readonly ClientFilter[] = ["done", "sent", "skipped"];
-const EMPTY: Record<DraftView, string> = { ready: "Nothing to review", hold: "Nothing on hold", thin_basis: "No draft with a thin basis", finished: "Nothing finished yet", all: "No drafts" };
+const EMPTY: Record<DraftView, string> = { ready: "Nothing to review", hold: "Nothing on hold", thin_basis: "No draft with a thin basis", finished: "Nothing finished yet", sequences: "No follow-up step to review", all: "No drafts" };
 const SEARCH_PAUSE_MS = 250;
 
 type Scope = { search: string; batch: number | null };
@@ -107,7 +109,8 @@ function DraftsSection({ project, projects, onProject, filter, q, batch, buildin
           {batch === null ? <InboxQueue project={project} /> : summary ? <BatchHead batch={summary} /> : head.isError ? <BatchGone /> : null}
         </>
       }
-      listBottom={batch === null ? <NotByEmail project={project} /> : undefined}
+      // Follow-ups (P47) sit under the list with Not by email, so the first draft keeps its place on a phone.
+      listBottom={batch === null ? <><FollowUps project={project} /><NotByEmail project={project} /></> : undefined}
       mobile={mobile}
       noun={{ list: "Drafts", back: "Drafts" }}
       onView={setView}

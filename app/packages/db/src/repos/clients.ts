@@ -1,9 +1,10 @@
-import { and, asc, desc, eq, inArray, or, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import { type ClientCounts, type ClientFilter, type Mark } from "@hub/config";
 import { toReviewDrafts, type ReviewDraft } from "./review";
 import type { Db } from "../client";
 import { write } from "../tx";
 import { clients, drafts, marks } from "../schema";
+import { onClientWrote } from "./enrollments";
 
 export type DraftRow = typeof drafts.$inferSelect;
 export type ClientRow = typeof clients.$inferSelect & { marks: Mark[]; draft: DraftRow | null };
@@ -26,6 +27,8 @@ const predicates: Record<ClientFilter, SQL | undefined> = {
   skipped: eq(drafts.status, "skipped"),
   // An open draft whose own evidence block is weak or missing: look at it before the rest.
   thin_basis: and(open, or(eq(drafts.evidence, "weak"), eq(drafts.evidence, "missing"))),
+  // An open draft that is a step of a follow-up sequence (P47).
+  sequences: and(open, isNotNull(drafts.enrollmentId)),
 };
 
 /** Which drafts a list covers: the newest of each client, or (a batch) exactly the drafts the batch wrote. */
@@ -154,12 +157,12 @@ export function clientsRepo(db: Db) {
     async counts(project: string, scope: DraftScope = {}): Promise<ClientCounts> {
       const count = (f: ClientFilter) => (predicates[f] ? sql<number>`count(*) filter (where ${predicates[f]})` : sql<number>`count(*)`);
       const row = db
-        .select({ all: count("all"), ready: count("ready"), hold: count("hold"), owed: count("owed"), done: count("done"), sent: count("sent"), skipped: count("skipped"), thin_basis: count("thin_basis") })
+        .select({ all: count("all"), ready: count("ready"), hold: count("hold"), owed: count("owed"), done: count("done"), sent: count("sent"), skipped: count("skipped"), thin_basis: count("thin_basis"), sequences: count("sequences") })
         .from(clients)
         .innerJoin(drafts, scopeOf(scope))
         .where(eq(clients.project, project))
         .get();
-      return row ?? { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, thin_basis: 0 };
+      return row ?? { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, thin_basis: 0, sequences: 0 };
     },
 
     /** Replaces the marks of a client. Returns false when the client does not exist. */
@@ -167,8 +170,11 @@ export function clientsRepo(db: Db) {
       return write(db, (tx) => {
         const c = tx.select({ project: clients.project }).from(clients).where(eq(clients.id, clientId)).get();
         if (!c) return false;
+        const had = tx.select({ mark: marks.mark }).from(marks).where(eq(marks.clientId, clientId)).all().some((m) => m.mark === "do_not_contact");
         tx.delete(marks).where(eq(marks.clientId, clientId)).run();
         for (const mark of new Set(next)) tx.insert(marks).values({ project: c.project, clientId, mark }).run();
+        // P47: Do not contact ends the client's follow-ups (opted out) and skips the open step draft, in this transaction.
+        if (!had && next.includes("do_not_contact")) onClientWrote(tx, { project: c.project, clientId, reason: "opted_out", at: new Date().toISOString() });
         return true;
       });
     },

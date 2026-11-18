@@ -63,7 +63,7 @@ describe("clients list and counts", () => {
     await addClient("other", "z@x.example", { owed: true, status: "ready" });
 
     const counts = await repos.clients.counts("p");
-    expect(counts).toEqual({ all: 4, ready: 1, hold: 1, owed: 2, done: 1, sent: 1, skipped: 0, thin_basis: 0 });
+    expect(counts).toEqual({ all: 4, ready: 1, hold: 1, owed: 2, done: 1, sent: 1, skipped: 0, thin_basis: 0, sequences: 0 });
     for (const [filter, n] of Object.entries(counts)) {
       expect(await repos.clients.list("p", filter as keyof typeof counts)).toHaveLength(n);
     }

@@ -2,6 +2,7 @@ import type { Db } from "../client";
 import { batchesRepo } from "./batches";
 import { clientsRepo } from "./clients";
 import { draftsRepo } from "./drafts";
+import { enrollmentsRepo } from "./enrollments";
 import { inboxRepo } from "./inbox";
 import { knowledgeRepo } from "./knowledge";
 import { messengersRepo } from "./messengers";
@@ -22,6 +23,7 @@ export function createRepos(db: Db) {
     safetyRules: safetyRulesRepo(db),
     sends: sendsRepo(db),
     inbox: inboxRepo(db),
+    enrollments: enrollmentsRepo(db),
   };
 }
 export type Repos = ReturnType<typeof createRepos>;
@@ -44,3 +46,4 @@ export type { AgentDraft, AudienceClient, BatchRow, BatchSummary, NewBatch, Queu
 export type { BasedOn, ReviewDraft } from "./review";
 export type { NewSend, SendRow } from "./sends";
 export type { InboxInput, InboxItem, InboxResult, InboxRow } from "./inbox";
+export type { Candidate, EnrollmentItem, EnrollmentRow, NewEnrollment, Outbound } from "./enrollments";

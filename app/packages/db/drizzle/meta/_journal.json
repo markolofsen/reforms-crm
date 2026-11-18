@@ -113,6 +113,13 @@
       "when": 1795100000000,
       "tag": "0015_inbox_not_by_email",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1795200000000,
+      "tag": "0016_enrollments",
+      "breakpoints": true
     }
   ]
 }

@@ -31,7 +31,7 @@ export type Handlers = {
 
 type Props = { d: ReviewDraft; state: CardState; flow: SendFlow; actions: ReviewActions; context: Context; on: Handlers; /** Hash of the Mail text the person has read: ticking Checked binds to it. */ mailHash?: string | null; /** Why Checked cannot be switched on now (`mail/tick-guard.ts`), or null. */ tickBlock?: string | null };
 
-const OPEN_STATES: readonly CardState[] = ["checks_open", "unread", "acknowledged", "batch", "failed", "suspicious", "no_contact", "unreadable"];
+const OPEN_STATES: readonly CardState[] = ["checks_open", "unread", "acknowledged", "batch", "failed", "suspicious", "no_contact", "unreadable", "follow_up"];
 
 /** Open in Mail when there is a `message://` link; otherwise a plain Copy, so the button is never dead. */
 function MailButton({ d, variant, onCopy }: { d: ReviewDraft; variant: "primary" | "secondary"; onCopy: () => void }) {

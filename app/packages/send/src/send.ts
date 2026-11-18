@@ -69,6 +69,8 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
   }
   if (draft.status !== "ready") reasons.push(`the draft is ${draft.status}, not ready`);
   if (!auto && !draft.checked) reasons.push("the draft is not Checked (accepted) yet");
+  // P47 decision 5: a follow-up step is never sent by the hub, in any mode (reason `sequence-step`): the owner sends it from Mail.
+  if (draft.enrollmentId != null) reasons.push("sequence-step: a follow-up step is sent by you from Mail, never by the hub");
   if (draft.injectionSuspected) reasons.push("the mail it answers was flagged injection_suspected: never sent by the hub");
   if (client.marks.includes("do_not_contact")) reasons.push("the client is marked do_not_contact");
 

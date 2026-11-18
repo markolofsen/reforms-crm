@@ -39,6 +39,9 @@ describe("resolveRoute", () => {
     // Saved links (renamed 2026-11-18): the old `evidence` view value opens the Thin basis view; the new one is the only spelling written back.
     expect(resolveRoute("/drafts", "filter=evidence")).toMatchObject({ search: { filter: "thin_basis" } });
     expect(resolveRoute("/drafts", "filter=thin_basis")).toMatchObject({ search: { filter: "thin_basis" } });
+    // P47: the Follow-ups view is an address like the others; a misspelling resets to To review.
+    expect(resolveRoute("/drafts", "filter=sequences")).toMatchObject({ search: { filter: "sequences" } });
+    expect(resolveRoute("/drafts", "filter=sequence")).toMatchObject({ search: { filter: "ready" } });
     // A batch must be a positive number; a builder never carries one.
     expect(resolveRoute("/drafts", "batch=abc")).toMatchObject({ search: { batch: null } });
     expect(resolveRoute("/drafts", "batch=0")).toMatchObject({ search: { batch: null } });

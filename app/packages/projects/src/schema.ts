@@ -15,7 +15,7 @@ export type KnowledgeSource = "files";
 export const SEND_MODES = ["draft", "auto"] as const;
 export type SendMode = (typeof SEND_MODES)[number];
 
-export const MODULES = ["mail", "calendar", "knowledge", "filters", "notion", "bulk"] as const;
+export const MODULES = ["mail", "calendar", "knowledge", "filters", "notion", "bulk", "sequences"] as const;
 export const Module = z.enum(MODULES);
 export type Module = z.infer<typeof Module>;
 

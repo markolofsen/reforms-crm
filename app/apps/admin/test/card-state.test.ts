@@ -7,9 +7,9 @@ import { tickBlock, type MailRead } from "../src/features/review/mail/tick-guard
 const ctx: Context = { name: "Marta", hasMailLink: true, acknowledged: true };
 
 describe("the review card state table", () => {
-  it("covers the 16 states of research 16 section 7", () => {
-    expect(CARD_STATES).toHaveLength(16);
-    expect(new Set(CARD_STATES).size).toBe(16);
+  it("covers the 16 states of research 16 section 7, plus follow_up (P47)", () => {
+    expect(CARD_STATES).toHaveLength(17);
+    expect(new Set(CARD_STATES).size).toBe(17);
   });
 
   it.each(CARD_STATES)("%s has at most one primary and at most two visible secondaries", (state) => {
@@ -33,7 +33,7 @@ describe("the review card state table", () => {
   });
 
   it("the primary in the states that cannot send is Open in Mail, or a plain Copy when there is no link", () => {
-    for (const state of ["suspicious", "no_contact", "unreadable"] as const) {
+    for (const state of ["suspicious", "no_contact", "unreadable", "follow_up"] as const) {
       expect(primaryFor(state, ctx)?.label).toBe("Open in Mail");
       expect(primaryFor(state, { ...ctx, hasMailLink: false })?.label).toBe("Copy subject to find in Mail");
     }
@@ -55,6 +55,22 @@ describe("a draft Mail cannot show (P27 M3.1)", () => {
 
   it("a mail the server was never asked to read (Mail-only mode) is not unreadable", () => {
     expect(stateOf({ ...draft, checked: false }, "idle")).toBe("unread");
+  });
+});
+
+describe("a follow-up step (P47) is sent from Mail, never by the hub", () => {
+  const step = { status: "ready", checked: true, batchId: null, injectionSuspected: false, sendState: null, client: { marks: [] }, safetyResults: [], sequence: { enrollmentId: 4, sequence: "s", step: 2, steps: 3, state: "active" } } as unknown as ReviewDraft;
+
+  it("is follow_up even when Checked, with Open in Mail as the one primary, Skip beside it and no switch", () => {
+    expect(stateOf(step, "idle")).toBe("follow_up");
+    expect(primaryFor("follow_up", ctx)?.action).toBe("open_mail");
+    expect(secondaryFor("follow_up")).toEqual(["skip"]);
+    expect(hasSwitch("follow_up")).toBe(false);
+  });
+
+  it("do not contact still wins over a step, and a finished step is just finished", () => {
+    expect(stateOf({ ...step, client: { marks: ["do_not_contact"] } } as unknown as ReviewDraft, "idle")).toBe("no_contact");
+    expect(stateOf({ ...step, status: "sent" } as unknown as ReviewDraft, "idle")).toBe("sent");
   });
 });
 

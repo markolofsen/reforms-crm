@@ -108,6 +108,29 @@ describe("migration 0015 (not by email)", () => {
   });
 });
 
+describe("migration 0016 (enrollments)", () => {
+  it("adds the enrollments table with one open row per client, and the two step columns of drafts, keeping every draft", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(16) }); // 0000 .. 0015
+    sqlite.prepare("insert into clients (project, email, name, replies_owed, created_at) values ('p','a@x.example','A',0,'2026-11-01T00:00:00.000Z')").run();
+    sqlite.prepare("insert into drafts (project, client_id, subject, to_addr, body, status) values ('p',1,'s','a@x.example','b','sent')").run();
+    migrate(db, { migrationsFolder: source });
+    const cols = (t: string) => (sqlite.prepare(`pragma table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
+    expect(cols("drafts")).toEqual(expect.arrayContaining(["enrollment_id", "sequence_step"]));
+    expect(cols("enrollments")).toEqual(["id", "project", "client_id", "sequence", "sequence_hash", "schedule", "step", "state", "next_due_at", "anchor_at", "enrolled_at", "enrolled_by", "finished_at", "finish_reason", "updated_at"]);
+    expect(sqlite.prepare("select status, enrollment_id, sequence_step from drafts").get()).toEqual({ status: "sent", enrollment_id: null, sequence_step: null });
+    const add = (state: string) => sqlite.prepare("insert into enrollments (project, client_id, sequence, sequence_hash, schedule, state, anchor_at, enrolled_at, enrolled_by, updated_at) values ('p',1,'s','h','{}',?, 'x','x','owner','x')").run(state);
+    add("finished");
+    add("active");
+    expect(() => add("paused")).toThrow(/UNIQUE/);
+    add("finished");
+    expect(sqlite.pragma("foreign_key_check")).toEqual([]);
+    sqlite.close();
+  });
+});
+
 describe("restoreCheck", () => {
   it("opens a snapshot made by an OLDER core, applies the newer migrations and loses no row", () => {
     const tmp = mkdtempSync(join(tmpdir(), "hub-restore-"));

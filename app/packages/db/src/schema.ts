@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { index, integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
-import type { BatchStatus, DraftStatus, EventKind, EvidenceLevel, EvidenceSource, InboxAction, InboxKind, Mark, NotionKind, RunStatus, SafetyKind, SafetyLevel } from "@hub/config";
+import { index, integer, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
+import type { BatchStatus, DraftStatus, EnrollmentState, EventKind, EvidenceLevel, EvidenceSource, FinishReason, InboxAction, InboxKind, Mark, NotionKind, RunStatus, SafetyKind, SafetyLevel } from "@hub/config";
 
 // Every table carries `project`: one database serves several projects (owner decision).
 // Timestamps are ISO-8601 UTC text.
@@ -108,6 +108,9 @@ export const drafts = sqliteTable(
     sentAt: text("sent_at"), // the sent message's own date
     sentVia: text("sent_via"), // message-id | thread | subject-recipient
     sentMessageId: text("sent_message_id"),
+    // A step of a follow-up sequence (P47): the enrollment it belongs to and which step it is. `@hub/send` never sends such a draft.
+    enrollmentId: integer("enrollment_id").references((): AnySQLiteColumn => enrollments.id, { onDelete: "set null" }),
+    sequenceStep: integer("sequence_step"),
     createdAt: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
     updatedAt: text("updated_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
   },
@@ -116,6 +119,38 @@ export const drafts = sqliteTable(
     index("drafts_client").on(t.clientId),
     index("drafts_project_status").on(t.project, t.status),
     index("drafts_batch").on(t.batchId),
+  ],
+);
+
+// Follow-up sequences (P47, `@docs/core/23-sequences.md`). One row per time the owner enrolled a client in a project's sequence.
+// `step` is the NEXT step to draft; `schedule` is the copy of the file's waits taken at enrolment (JSON {delays, businessDays}),
+// so an edited file applies to new enrolments only and `sequence_hash` says which text it was. Every change goes through
+// `transition()` of `@hub/sequences` (repos/enrollments.ts). `waiting`, `due` and `draft ready` are derived, never stored.
+// One OPEN enrollment per client per project (partial unique index); finished ones stay as history.
+export const enrollments = sqliteTable(
+  "enrollments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    project: text("project").notNull(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    sequence: text("sequence").notNull(), // the file id: projects/<slug>/sequences/<sequence>.md
+    sequenceHash: text("sequence_hash").notNull(),
+    schedule: text("schedule").notNull(),
+    step: integer("step").notNull().default(1),
+    state: text("state").$type<EnrollmentState>().notNull().default("active"),
+    nextDueAt: text("next_due_at"),
+    anchorAt: text("anchor_at").notNull(), // our last outbound message: what the next wait counts from
+    enrolledAt: text("enrolled_at").notNull(),
+    enrolledBy: text("enrolled_by").notNull(), // "owner" (admin or CLI); the agent never enrols
+    finishedAt: text("finished_at"),
+    finishReason: text("finish_reason").$type<FinishReason>(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("enrollments_client_open").on(t.project, t.clientId).where(sql`${t.state} in ('active','paused')`),
+    index("enrollments_project_state").on(t.project, t.state, t.nextDueAt),
   ],
 );
 

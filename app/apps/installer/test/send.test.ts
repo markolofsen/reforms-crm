@@ -338,6 +338,23 @@ describe("hub send --due (autosend)", () => {
     expect(mailer.sent).toEqual([]);
   });
 
+  it("a follow-up step (P47) is refused in every mode, reason sequence-step: the owner sends it from Mail", async () => {
+    writeProject(AUTO);
+    const first = await draft({ email: "s@example.com", subject: "Re: s", mailRef: "<s@x>" });
+    await repos.drafts.setStatus(first, "done");
+    const clientId = (await repos.drafts.get(first))?.clientId ?? 0;
+    const e = await repos.enrollments.enrol({ project: "acme", clientId, sequence: "s", sequenceHash: "h", schedule: { delays: [2], businessDays: true }, by: "owner", now: T0 });
+    const step = await repos.drafts.record({ project: "acme", email: "s@example.com", name: "S", subject: "Re: s2", mailRef: "<s2@x>", mailClass: "client", skill: "sequence-drafts", sequence: { enrollmentId: e.id, step: 1 } });
+    await repos.drafts.setChecked(step.draftId, true);
+    mailer.drafts.push(mailDraft({ to: ["s@example.com"], subject: "Re: s2", messageId: "s2@x" }));
+    const r = await runDue(deps(), { apply: true });
+    expect(r.report.queued).toEqual([]);
+    expect(r.report.skipped.find((x) => x.draftId === step.draftId)?.reasons).toContain("sequence-step: a follow-up step is sent by you from Mail, never by the hub");
+    expect(refused(await sendDraft(deps(), { draftId: step.draftId, apply: true, actor: "cli" }))).toContain("sequence-step: a follow-up step is sent by you from Mail, never by the hub");
+    expect((await assess(deps(), step.draftId, { mode: "manual" })).ok).toBe(false);
+    expect(mailer.sent).toEqual([]);
+  });
+
   it("autosend still honours draft.recipients", async () => {
     writeProject(AUTO, "test");
     await draft();

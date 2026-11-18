@@ -1,6 +1,6 @@
 import { openResults, type ReviewDraft } from "../source";
 
-/** The 16 states of a review card (research 16 section 7). The action bar is a pure function of one of these. */
+/** The 17 states of a review card (research 16 section 7, plus `follow_up` from P47). The action bar is a pure function of one of these. */
 export const CARD_STATES = [
   "checks_open",
   "unread",
@@ -18,6 +18,7 @@ export const CARD_STATES = [
   "no_contact",
   "failed",
   "batch_waiting",
+  "follow_up",
 ] as const;
 export type CardState = (typeof CARD_STATES)[number];
 
@@ -25,7 +26,8 @@ export type CardState = (typeof CARD_STATES)[number];
 export type FlowStep = "idle" | "reading" | "confirm" | "sending" | "refused" | "failed" | "sent";
 
 /**
- * Which of the 16 states a draft is in. `readable` is false only when this server reads Mail and Mail has no such draft
+ * Which of the 17 states a draft is in. `follow_up` (P47) is an open step of a follow-up sequence: the hub refuses to send
+ * it in every mode, so the way on is Mail, and the card's header carries Stop follow-ups. `readable` is false only when this server reads Mail and Mail has no such draft
  * (P27 M3.1): the text cannot be judged, so Checked and Send are off and the way on is Mail. `batch_waiting` (a queued
  * batch, which has no draft yet) is not a state of a draft: `paneStateOf` names it for the pane of a batch.
  */
@@ -38,6 +40,7 @@ export function stateOf(d: ReviewDraft, step: FlowStep, readable = true): CardSt
   if (d.status === "hold") return "hold";
   if (d.client.marks.includes("do_not_contact")) return "no_contact";
   if (d.injectionSuspected) return "suspicious";
+  if (d.sequence) return "follow_up";
   if (d.batchId !== null) return "batch";
   if (step === "confirm") return "confirming";
   if (step === "refused" || step === "failed") return "failed";
@@ -84,6 +87,7 @@ export function primaryFor(state: CardState, c: Context): Primary | null {
     case "suspicious":
     case "unreadable":
     case "no_contact":
+    case "follow_up":
       return { action: "open_mail", label: mailLabel(c), enabled: true, reason: null, busy: false };
     case "batch":
       return { action: "reply_mail", label: "Reply in Mail", enabled: c.acknowledged, reason: c.acknowledged ? null : "Turn on I read the checks", busy: false };
@@ -118,6 +122,7 @@ export function secondaryFor(state: CardState): Secondary[] {
     case "suspicious":
     case "unreadable":
     case "no_contact":
+    case "follow_up":
       return ["skip"];
     case "sending":
     case "batch_waiting":

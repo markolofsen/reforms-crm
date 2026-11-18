@@ -56,6 +56,22 @@ describe("the agent has no send path", () => {
     }
   });
 
+  it("`hub sequences enrol|pause|resume` (P47: starting follow-ups is the owner's) is denied in every spelling, and the guard flags it", () => {
+    for (const r of ["Bash(*sequences enrol*)", "Bash(*sequences pause*)", "Bash(*sequences resume*)"]) expect(rules).toContain(r);
+    const guard = (command: string) => guardDecision({ tool_name: "Bash", tool_input: { command } }, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT });
+    for (const verb of ["enrol", "enroll", "pause", "resume"]) {
+      for (const command of [`hub sequences ${verb} acme-travel --client a@x.example`, `./run.sh sequences ${verb} acme-travel --id 3`, `core/hub.sh sequences ${verb} acme-travel`, `pnpm hub sequences ${verb} acme-travel`, `node app/apps/installer/bin/hub.mjs sequences ${verb} acme-travel`, `hub --root /x sequences ${verb} acme-travel`, `tsx app/apps/installer/src/cli.ts sequences ${verb} acme-travel`]) {
+        const g = guard(command);
+        expect(g.block, command).toBe(true);
+        expect(g.violations.join(), command).toMatch(/hub sequences enrol, pause or resume/);
+      }
+    }
+    // the moves that only reduce mail, and the reads, stay open to the agent
+    for (const command of ["hub sequences due acme-travel --json", "./run.sh sequences stop acme-travel --id 3 --reason replied", "./run.sh sequences delay acme-travel --id 3 --until 2026-12-11", "./run.sh sequences judge acme-travel --id 3", "hub sequences candidates acme-travel"]) {
+      expect(guard(command).violations, command).toEqual([]);
+    }
+  });
+
   it("the admin server's Send route is not reachable from the agent's shell or WebFetch", () => {
     for (const r of HUB_API_COMMANDS) expect(rules).toContain(r);
     expect(rules).toContain("Bash(*127.0.0.1*)");

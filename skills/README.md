@@ -32,6 +32,7 @@ The agent picks a skill by what you want, not by a phrase (decision a decision o
 | `проверь формы заявок` / `do the lead forms still work` | `lead-form-check` | Runs `./run.sh doctor --only Leads` (with `--canary` after a site change), explains each red row and who fixes it. Instance-wide, no project binding. Never submits a lead | `config/lead-forms.json`, the public sites (GET; the signed canary only to a handler that advertises it) |
 | `что от меня нужно по проекту X` / `с чего начать в X` | `owner-inbox` | One ranked list of what waits for you: open questions, KB gaps, calendar problems, placeholders in drafts, run reports; each with the sentence to say next | files of X, Mail drafts read |
 | `посмотри что я отправил по проекту X` | `review-sent` | Compares recorded drafts with the sent mail (read only), summarises your edits, proposes tone and KB changes; writes nothing | admin database read, Mail Sent read, files of X |
+| `подготовь follow-up проекта X` | `sequence-drafts` | Reads the follow-ups due now (the owner enrolled them in the admin), re-checks each client for a reply, bounce, opt-out or out-of-office (`hub sequences judge`), then leaves one unsent draft per step that may still go. Never enrols, pauses or sends; the owner sends each step from Mail | admin database (`hub sequences`), Mail read + drafts, Notion X read, knowledge X |
 
 Replies come in Russian, briefly; files and Notion pages are English.
 

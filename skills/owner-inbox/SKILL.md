@@ -17,6 +17,7 @@ Rules: `skills/README.md` ("Rules"). Talk to the owner in Russian, briefly. You 
    - `reports/kb/*.md` records with priority `high` not yet fixed -> P3 (P2 when the same gap repeats across runs);
    - `reports/problems/*.md` open calendar problems -> P2;
    - `reports/runs/*` (when present): the "Нужно от тебя" lines of the newest runs -> keep their P level;
+   - follow-ups (P47): `./run.sh sequences due <slug>` and `./run.sh sequences candidates <slug>` (read only); any due -> P2 "подготовь follow-up проекта <slug>"; candidates -> P3 "открой Drafts, Follow-ups" (enrolling is the owner's, in the admin);
    - `list_drafts` for the project's account: drafts whose body starts `[hub-draft thread=` and still holds `[Owner:` or `[Check:` -> P1. Name the client by row number or subject, never quote the draft.
-3. **Print ONE list**, ranked P1, P2, P3, each line `[P#] что | где | что сказать`. The last column is a phrase the owner can say verbatim (`разбери почту проекта X`, `что улучшить в базе знаний X`, `настрой проект X`, `разбери календарь проекта X`).
+3. **Print ONE list**, ranked P1, P2, P3, each line `[P#] что | где | что сказать`. The last column is a phrase the owner can say verbatim (`разбери почту проекта X`, `что улучшить в базе знаний X`, `настрой проект X`, `разбери календарь проекта X`, `подготовь follow-up проекта X`).
 4. Nothing found: "по проекту <slug> от тебя ничего не нужно". More than 10 lines: show the top 10 and the count of the rest.

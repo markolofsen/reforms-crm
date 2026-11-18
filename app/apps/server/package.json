@@ -24,6 +24,7 @@
     "@hub/messengers": "workspace:*",
     "@hub/notion": "workspace:*",
     "@hub/projects": "workspace:*",
+    "@hub/sequences": "workspace:*",
     "@hub/send": "workspace:*",
     "hono": "4.13.18",
     "zod": "4.6.7"

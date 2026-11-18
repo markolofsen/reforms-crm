@@ -25,6 +25,7 @@ import { runTests, runUp } from "./serve";
 import { projectRows, projectTable } from "./project-table";
 import { recordClient } from "./record-client";
 import { recordDraft } from "./record-draft";
+import { registerSequencesCommands } from "./sequences-command";
 import { runSendCommand } from "./send/command";
 import { runGuard, runGuardPost } from "./safety";
 import { c, UsageError } from "./term";
@@ -65,7 +66,7 @@ ${c.bold("Examples")}
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, send, connections, backup, uninstall. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, send, sequences, connections, backup, uninstall. Each has its own \`hub <name> --help\`.`);
 // Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
@@ -276,6 +277,7 @@ program.command("send").argument("[draftId]", "the draft to send").description("
 
 registerProjectCommands(program, projectOptions());
 registerDevCommands(program, projectOptions());
+registerSequencesCommands(program, () => ({ projectsDir: projectsDir() }));
 registerMailFiltersCommands(program).alias("filters");
 
 program.command("install").description("Run the steps a manual session needs: check, apply only when it fails, print what is left. --automation adds the optional background automation.")

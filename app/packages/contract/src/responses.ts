@@ -6,6 +6,7 @@ import {
   BATCH_STATUSES,
   CLIENT_FILTERS,
   DRAFT_STATUSES,
+  ENROLLMENT_STATES,
   EVENT_KINDS,
   EVIDENCE_LEVELS,
   EVIDENCE_SOURCES,
@@ -112,6 +113,8 @@ export const reviewDraftDto = z.object({
   createdAt: iso,
   updatedAt: iso,
   client: clientDto,
+  /** The follow-up sequence this draft is a step of (P47): "Follow-up 2 of 4", and the Stop control. Null for every other draft. */
+  sequence: z.object({ enrollmentId: z.number(), sequence: z.string(), step: z.number(), steps: z.number(), state: z.enum(ENROLLMENT_STATES) }).nullable(),
 });
 export type ReviewDraftDto = z.infer<typeof reviewDraftDto>;
 

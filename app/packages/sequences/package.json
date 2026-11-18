@@ -1,0 +1,22 @@
+{
+  "name": "@hub/sequences",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Follow-up sequences (P47): the definition parser, the transition table, due and business-day maths, the stop-rule decision and the one loader of projects/<slug>/sequences/. Pure apart from load.ts; depends only on @hub/config. Nothing here sends or schedules.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

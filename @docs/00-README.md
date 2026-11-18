@@ -39,6 +39,8 @@ loopback and refuse a foreign Host or Origin. No page shows a key.
 
 The index of every document is [../README.md](../README.md#where-things-are); which credential goes to what is [setup/access.md](setup/access.md); the working-order checklist is [setup/checklist.md](setup/checklist.md).
 
+**Follow-ups.** A quiet client can be enrolled by the owner in one of the project's follow-up sequences; a session drafts each due step when asked, the owner sends it from Mail, and a reply ends it. Nothing is scheduled and the hub never sends a step: [core/23-sequences.md](core/23-sequences.md).
+
 Frontend rules for the local admin app (typing, routes, state, tokens, accessibility, structure; each with its enforcing gate): [../app/@rules/README.md](../app/@rules/README.md).
 
 Update this page when the architecture changes.

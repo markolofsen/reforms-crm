@@ -12,7 +12,8 @@ export type RunFilter = "all" | RunStatus;
  * together) and All. The server filters by one status, so `finished` is narrowed in the page. The default is To review
  * (owner decision Q5, P29): a bare `/drafts` shows what needs the owner, so `ready` drops its key and `all` keeps it.
  */
-export const DRAFT_VIEWS = ["ready", "hold", "thin_basis", "finished", "all"] as const;
+// `sequences` (P47, label Follow-ups): the open steps of follow-up sequences, before All.
+export const DRAFT_VIEWS = ["ready", "hold", "thin_basis", "finished", "sequences", "all"] as const;
 export type DraftView = (typeof DRAFT_VIEWS)[number];
 export const DEFAULT_DRAFT_VIEW: DraftView = "ready";
 

@@ -24,7 +24,7 @@ unsure where a file goes, this page decides.
 |---|---|---|
 | `skills/` | core | The instructions agents follow. Examples use placeholders |
 | `app/packages/`, `app/apps/` | core | The TypeScript monorepo and the `hub` CLI |
-| `app/projects/_template/` | core | Template of a project folder: starter workflows, the `@dev/` kanban skeleton and the Notion CRM pack |
+| `app/projects/_template/` | core | Template of a project folder: starter workflows, starter follow-up sequences ([core/23-sequences.md](core/23-sequences.md)), the `@dev/` kanban skeleton and the Notion CRM pack |
 | `@docs/core/` | core | Design and how each subsystem works, one document each |
 | `@docs/setup/` | core | `access.md` (which credential goes to what) and the generated `checklist.md` |
 | `@docs/notion/` | core | The Notion CRM: setup and the generated `fields.md` |

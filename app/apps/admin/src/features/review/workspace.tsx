@@ -23,7 +23,8 @@ const NOTICE_MS = 8000;
 
 type Props = {
   source: ReviewSource;
-  views: { value: string; label: string }[];
+  /** `whenAny`: the view is offered only while it holds something, or is the one open (Follow-ups, P47). */
+  views: { value: string; label: string; whenAny?: boolean }[];
   onView: (value: string) => void;
   /** The search text and its setter: in the address. The host sends it to the server through its source. */
   search: [string, (value: string) => void];
@@ -174,7 +175,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, pane
   const list = (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-pane="list">
       {listTop}
-      <ListHeader onSearch={setQ} onSelecting={sel.setMode} onView={onView} search={q} searchRef={searchRef} selecting={sel.selecting} view={source.filter} views={views.map((v) => ({ ...v, count: source.countOf(counts, v.value) }))} />
+      <ListHeader onSearch={setQ} onSelecting={sel.setMode} onView={onView} search={q} searchRef={searchRef} selecting={sel.selecting} view={source.filter} views={views.flatMap(({ whenAny, ...v }) => { const count = source.countOf(counts, v.value); return !whenAny || v.value === source.filter || (count ?? 0) > 0 ? [{ ...v, count }] : []; })} />
       <QueueLine done={count("done")} left={count("ready")} position={position > 0 ? position : null} sent={count("sent")} total={total} />
       {sel.picked.length > 0 && <SelectionBar busy={actions.pending} count={sel.picked.length} onClear={sel.clear} onHold={() => bulk("hold", "Held")} onSkip={() => bulk("skipped", "Skipped")} />}
       {query.isPending ? (

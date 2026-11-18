@@ -58,6 +58,8 @@ export function runsMailProgram(command: string, depth = 0): boolean {
 // `hub send ...` (the hub's sender, decision 0011) and a write of the owner's send settings: neither belongs to an agent session.
 const HUB_SEND = /(?:\bhub(?:\.mjs|\.sh)?|\brun\.sh)["']?\s+(?:\S+\s+){0,3}?send(?:\s|$)|installer\/src\/cli\.ts["']?\s+send(?:\s|$)/;
 const SEND_SETTINGS = /\bsend\.(?:mode|classes|daily_cap|delay_minutes)\b/;
+// `hub sequences enrol|enroll|pause|resume` (P47): starting or restarting follow-ups is the owner's step, never the agent's.
+const HUB_SEQUENCE_OWNER = /(?:\bhub(?:\.mjs|\.sh)?|\brun\.sh|installer\/src\/cli\.ts)["']?\s+(?:\S+\s+){0,3}?sequences\s+(?:enrol|enroll|pause|resume)(?:\s|$)/;
 const PATH_KEYS = ["file_path", "path", "pattern", "command", "notebook_path"];
 
 /** The hub's own skills (`hub`) and those the project's kind allows (`allowed`). A skill outside `hub` (a built-in or plugin skill) is not judged here. */
@@ -120,6 +122,7 @@ export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, acc
     }
     if (SEND_CAPABLE.test(c.name) || SEND_CAPABLE.test(short)) out.push(`${short} is a send-capable tool (drafts only, nothing may be sent)`);
     if (typeof input.command === "string" && HUB_SEND.test(input.command)) out.push(`${short} runs hub send (only a person or the hub's own runner sends; the agent never does)`);
+    if (typeof input.command === "string" && HUB_SEQUENCE_OWNER.test(input.command)) out.push(`${short} runs hub sequences enrol, pause or resume (starting follow-ups is the owner's step; the agent may only stop or delay)`);
     const written = [input.command, input.new_string, input.content, ...(Array.isArray(input.edits) ? input.edits.map((e) => (e as { new_string?: unknown })?.new_string) : [])];
     if (written.some((w) => typeof w === "string" && SEND_SETTINGS.test(w))) out.push(`${short} writes a send.* setting (switching sending on is the owner's step)`);
     for (const k of PATH_KEYS) {

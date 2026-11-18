@@ -5,6 +5,7 @@ import { toastManager } from "@hub/ui/toast";
 import { refreshData, sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
 import { reviewApi } from "@/lib/api/review";
+import { sequencesApi } from "@/lib/api/inbox";
 import { firstName, undoTarget, type ReviewDraft } from "./source";
 
 export type Notice = { text: string; kind: "info" | "error" };
@@ -36,6 +37,15 @@ export function useReviewActions(project: string) {
   const ack = useMutation({ mutationFn: (v: { id: number; kind: SafetyKind; acked: boolean }) => reviewApi.ack(project, v.id, v.kind, v.acked), ...settle(true) });
   const undo = useMutation({ mutationFn: (id: number) => reviewApi.undo(project, id), ...settle(true) });
   const marks = useMutation({ mutationFn: (v: { clientId: number; marks: Mark[] }) => reviewApi.setMarks(project, v.clientId, v.marks), ...settle(false) });
+  // P47: the owner stops a client's follow-ups from the step draft's card; the server skips the open step in the same write.
+  const stop = useMutation({
+    mutationFn: (v: { enrollmentId: number; name: string }) => sequencesApi.stop(project, v.enrollmentId),
+    onSuccess: (_r, v) => {
+      setNotice({ text: `Follow-ups stopped for ${v.name}. The open step is skipped; nothing more is drafted.`, kind: "info" });
+      void refreshData(qc, { mail: true });
+    },
+    onError: settle(true).onError,
+  });
 
   const undoNow = (d: ReviewDraft) => {
     setNotice(null);
@@ -46,7 +56,7 @@ export function useReviewActions(project: string) {
   // A bulk move says one thing for all of them, so its Undo is one write per draft and one re-read at the end.
   const undoMany = useMutation({ mutationFn: (ids: number[]) => Promise.all(ids.map((id) => reviewApi.undo(project, id))), ...settle(true) });
 
-  const pending = [undoMany, checked, status, tone, ack, undo, marks].some((m) => m.isPending);
+  const pending = [undoMany, checked, status, tone, ack, undo, marks, stop].some((m) => m.isPending);
   return {
     notice,
     setNotice,
@@ -79,6 +89,12 @@ export function useReviewActions(project: string) {
       if (target) undoNow(target);
     },
     setMarks: (clientId: number, next: Mark[]) => marks.mutate({ clientId, marks: next }),
+    /** Stop follow-ups (P47) for the client of a step draft. */
+    stopFollowUps: (d: ReviewDraft) => {
+      if (!d.sequence) return;
+      setNotice(null);
+      stop.mutate({ enrollmentId: d.sequence.enrollmentId, name: firstName(d) });
+    },
   };
 }
 

@@ -1,5 +1,5 @@
 import { defineConfig } from "@playwright/test";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -21,6 +21,9 @@ for (const slug of ["lisbon-realty", "demo-shop"]) {
     ["# E2E project", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", `| mail.accounts | ${slug}@example.test | 2026-11-14 | agent |`, `| mail.addresses | ${slug}@example.test | 2026-11-14 | owner |`, `| mail.sender | ${slug}@example.test | 2026-11-14 | owner |`, "| draft.recipients | any | 2026-11-14 | owner |", "| tone | brief | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", "- reports: 00000000-0000-4000-8000-000000000002", ""].join("\n"),
   );
 }
+// P47: lisbon-realty gets the core's starter sequence, so its seeded follow-ups (Tiago due, Ines a candidate) have a definition.
+mkdirSync(join(PROJECTS, "lisbon-realty", "sequences"), { recursive: true });
+copyFileSync(join(import.meta.dirname, "..", "..", "projects", "_template", "sequences", "answered-enquiry-no-reply.md"), join(PROJECTS, "lisbon-realty", "sequences", "answered-enquiry-no-reply.md"));
 // the specs read the ports from here (the loopback test, the Host and Origin test)
 process.env.HUB_E2E_UI_PORT = String(UI_PORT);
 process.env.HUB_E2E_API_PORT = String(API_PORT);

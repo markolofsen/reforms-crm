@@ -54,6 +54,7 @@ The one index. Every page below owns its facts; others link to it.
 | Workflows | [`@docs/core/20-workflows.md`](@docs/core/20-workflows.md) |
 | Leads: the writer contract and the read-only counts | [`@docs/core/21-leads.md`](@docs/core/21-leads.md) |
 | Lead forms: the check that a lead still arrives (`hub doctor --only Leads`, the canary contract, `config/lead-forms.json`) | [`@docs/core/22-lead-forms.md`](@docs/core/22-lead-forms.md) |
+| Follow-up sequences: the files, the enrollments, who may enrol, the Follow-ups view (`hub sequences`) | [`@docs/core/23-sequences.md`](@docs/core/23-sequences.md) |
 | Rules for changing the admin app | [`app/@rules/README.md`](app/@rules/README.md) |
 
 A new document takes the next free number in `@docs/core/` and a row here. Secrets live only in the git-ignored `state/secrets/`; local settings `config/config.json`, `.mcp.json` and `state/` are git-ignored too. `hub agent` runs Claude with `--dangerously-skip-permissions --chrome`; isolation rests on the skill rules plus `hub audit-run <transcript.jsonl> --project <slug>` after the fact. Extra readable folders: `HUB_EXTRA_DIRS`.

@@ -8,7 +8,8 @@
     "./responses": "./src/responses.ts",
     "./health": "./src/health.ts",
     "./connections": "./src/connections.ts",
-    "./overview": "./src/overview.ts"
+    "./overview": "./src/overview.ts",
+    "./sequences": "./src/sequences.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

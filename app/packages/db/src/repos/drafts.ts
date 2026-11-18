@@ -1,12 +1,13 @@
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
-import { type EvidenceFinding, type EvidenceLevel, type EvidenceSource, MARKS, SETTABLE_STATUSES, TONES, type NotionRef, type DraftStatus, type Mark, type SafetyKind, type SettableStatus, type Tone, type ToneBodies } from "@hub/config";
+import { type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type FinishReason, MARKS, SEQUENCE_SKILL, SETTABLE_STATUSES, TONES, type NotionRef, type DraftStatus, type Mark, type SafetyKind, type SettableStatus, type Tone, type ToneBodies } from "@hub/config";
 import type { Db } from "../client";
-import { write } from "../tx";
+import { write, type WriteTx } from "../tx";
 import { RepoError } from "../errors";
-import { agentRuns, drafts, marks } from "../schema";
+import { agentRuns, drafts, enrollments, marks } from "../schema";
 import { blocksChecked, isSafetyKind } from "../safety";
 import { loadSafety, logDraftEvent, nowIso, parseJson, type DraftRow } from "./bulk-shared";
 import { touchClient } from "./clients";
+import { onClientWrote, onStepFinished, onStepReopened } from "./enrollments";
 import { upsertInbox } from "./inbox";
 import { insertEvent } from "./runs";
 
@@ -46,10 +47,22 @@ export type RecordDraftInput = {
   evidence?: { level: EvidenceLevel; source: EvidenceSource; findings: EvidenceFinding[]; context?: unknown; similarTo?: string | null; fingerprint?: number[] | null; batchKey?: string | null } | null;
   /** Put the log line in this run (of the same project) instead of starting one. */
   runId?: number | null;
+  /** The draft is step `step` of this enrollment (P47, skill `sequence-drafts`): only the open step of an active enrollment is accepted. */
+  sequence?: { enrollmentId: number; step: number } | null;
 };
 
 /** created: new row; updated: same `mailRef` as the open draft; replaced: another open draft was skipped first; unchanged: this `mailRef` is already a finished draft. */
-export type RecordDraftResult = { clientId: number; draftId: number; runId: number; action: "created" | "updated" | "replaced" | "unchanged" };
+export type RecordDraftResult = { clientId: number; draftId: number; runId: number; action: "created" | "updated" | "replaced" | "unchanged"; /** Set when this record finished the client's follow-ups (a reply, an opt-out). */ followUps?: FinishReason };
+
+const isOpen = (s: DraftStatus) => s === "ready" || s === "hold";
+const isFinishedByOwner = (s: DraftStatus) => s === "done" || s === "skipped";
+
+/** P47: a step draft moved by a person (Done, Skip, Undo, Reopen) moves its enrollment in the same transaction. */
+function followStatus(tx: WriteTx, before: DraftStatus, after: DraftRow): void {
+  if (after.enrollmentId == null) return;
+  if (isOpen(before) && isFinishedByOwner(after.status)) onStepFinished(tx, after, nowIso());
+  else if (isFinishedByOwner(before) && isOpen(after.status)) onStepReopened(tx, after, nowIso());
+}
 
 const now = sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`;
 
@@ -110,6 +123,7 @@ export function draftsRepo(db: Db) {
             .returning()
             .get();
           if (next) logDraftEvent(tx, next, "decision", { done: "Marked done", skipped: "Skipped", hold: "Put on hold", ready: "Back to ready" }[status], { action: status, ...(status === "skipped" && reason?.trim() ? { reason: reason.trim() } : {}) });
+          if (next) followStatus(tx, d.status, next);
           return next ?? null;
         } catch (e) {
           if (isUnique(e)) throw new RepoError("wrong_state", "This client already has another open draft");
@@ -180,6 +194,20 @@ export function draftsRepo(db: Db) {
         const log = (kind: "draft_created" | "decision", summary: string, detail: Record<string, unknown>) =>
           insertEvent(tx, { project: input.project, runId: runId as number, at, kind, summary: `${summary}: ${input.name || input.email}`, detail: JSON.stringify(detail), clientId: client.id, tool: null });
 
+        // P47. A step draft must be the open step of an active enrollment of this client. Any other record (but the sequence
+        // skill's own) is the client writing back: their follow-ups finish here, in this transaction, and the open step draft is skipped.
+        const seq = input.sequence ?? null;
+        let followUps: FinishReason | null = null;
+        if (seq) {
+          const e = tx.select().from(enrollments).where(eq(enrollments.id, seq.enrollmentId)).get();
+          if (!e || e.project !== input.project || e.clientId !== client.id) throw new RepoError("not_found", "No such enrollment for this client in this project");
+          if (e.state !== "active") throw new RepoError("wrong_state", `The follow-ups of this client are ${e.state}${e.finishReason ? ` (${e.finishReason})` : ""}: no step is due`);
+          if (e.step !== seq.step) throw new RepoError("wrong_state", `Step ${seq.step} is not the open step (${e.step})`);
+        } else if (input.skill !== SEQUENCE_SKILL) {
+          followUps = onClientWrote(tx, { project: input.project, clientId: client.id, reason: (input.marks ?? []).includes("do_not_contact") ? "opted_out" : "replied", lastInboundAt: input.lastContactAt ?? null, at });
+        }
+        const stopped = followUps ? { followUps } : {};
+
         const mailRef = input.mailRef ?? null;
         // The triage list: a recorded draft is a client the agent handled, whatever else happens below.
         upsertInbox(tx, { project: input.project, email: input.email, name: input.name, action: input.injectionSuspected ? "injection_suspected" : "drafted", subject: input.subject, mailRef, lastInboundAt: input.lastContactAt ?? null, mailClass: input.mailClass ?? null, reason: input.reason ?? null, repliesOwed: input.repliesOwed ?? true, notion: input.notion ?? null, skill: input.skill ?? null }, at);
@@ -208,29 +236,31 @@ export function draftsRepo(db: Db) {
         };
         const flagged = input.injectionSuspected === true;
         const existing = tx.select().from(drafts).where(eq(drafts.clientId, client.id)).all();
-        const sameRef = mailRef == null ? undefined : existing.find((d) => d.mailRef === mailRef);
+        // A follow-up step answers our own earlier message, so its mailRef can equal a finished draft's: a rerun of a step is the same step.
+        const sameRef = mailRef == null ? undefined : existing.find((d) => d.mailRef === mailRef && (!seq || (d.enrollmentId === seq.enrollmentId && d.sequenceStep === seq.step)));
         const open = existing.find((d) => d.status === "ready" || d.status === "hold");
 
         if (sameRef && sameRef !== open) {
           // Finished (done, sent or skipped) and the same message: a re-run must not bring it back.
-          return { clientId: client.id, draftId: sameRef.id, runId: runId as number, action: "unchanged" as const };
+          return { clientId: client.id, draftId: sameRef.id, runId: runId as number, action: "unchanged" as const, ...stopped };
         }
         if (open && sameRef === open) {
           tx.update(drafts).set({ ...fields, ...(flagged ? { injectionSuspected: true } : {}), updatedAt: now }).where(eq(drafts.id, open.id)).run();
           log("draft_created", "Draft updated", { draftId: open.id, action: "update", skill: input.skill ?? null, mailRef });
-          return { clientId: client.id, draftId: open.id, runId: runId as number, action: "updated" as const };
+          return { clientId: client.id, draftId: open.id, runId: runId as number, action: "updated" as const, ...stopped };
         }
+        if (open && seq) throw new RepoError("wrong_state", "This client has an open draft: a follow-up step is not recorded over it");
         if (open) {
           tx.update(drafts).set({ status: "skipped", skipReason: "Replaced by a newer draft", prevStatus: open.status, prevChecked: open.checked, actedAt: at, updatedAt: now }).where(eq(drafts.id, open.id)).run();
           log("decision", "Replaced by a newer draft", { draftId: open.id, action: "replaced" });
         }
         const d = tx
           .insert(drafts)
-          .values({ project: input.project, clientId: client.id, runId, batchId: null, ...fields, injectionSuspected: flagged, status: "ready" })
+          .values({ project: input.project, clientId: client.id, runId, batchId: null, ...fields, injectionSuspected: flagged, status: "ready", ...(seq ? { enrollmentId: seq.enrollmentId, sequenceStep: seq.step } : {}) })
           .returning({ id: drafts.id })
           .get();
         log("draft_created", "Draft recorded", { draftId: d.id, action: "create", skill: input.skill ?? null, mailRef });
-        return { clientId: client.id, draftId: d.id, runId: runId as number, action: open ? ("replaced" as const) : ("created" as const) };
+        return { clientId: client.id, draftId: d.id, runId: runId as number, action: open ? ("replaced" as const) : ("created" as const), ...stopped };
       });
     },
 
@@ -286,6 +316,8 @@ export function draftsRepo(db: Db) {
           .returning()
           .get();
         if (next) logDraftEvent(tx, next, "decision", "Seen in the Sent folder", { action: "sent", via: seen.via, messageId: seen.messageId, at: seen.at });
+        // A step marked done earlier has already moved its enrollment; a ready or held one moves now, at the sent date.
+        if (next && isOpen(d.status)) onStepFinished(tx, next, seen.at);
         return next ?? null;
       });
     },
@@ -304,6 +336,7 @@ export function draftsRepo(db: Db) {
             .returning()
             .get();
           if (next) logDraftEvent(tx, next, "decision", "Undid the last action", { action: "undo" });
+          if (next) followStatus(tx, d.status, next);
           return next ?? null;
         } catch (e) {
           if (isUnique(e)) throw new RepoError("wrong_state", "This client already has another open draft");

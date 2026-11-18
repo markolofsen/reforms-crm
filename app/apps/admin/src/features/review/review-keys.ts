@@ -77,7 +77,9 @@ export function useReviewKeys(k: KeyDeps): void {
     else if (d.tone !== t) actions.setTone(d, t);
   };
   // Moving between the panes only starts from the list (or nowhere in particular): a button in the card keeps its own Enter.
-  const fromList = () => document.activeElement === null || document.activeElement === document.body || inside(document.activeElement, "list");
+  // A control of the list column that is not a draft row (the Inbox, Follow-ups and Not by email blocks) keeps its own Enter too.
+  const ownEnter = (el: Element) => el.closest("button, a[href], [role=button]") !== null && el.closest('[id^="draft-"]') === null;
+  const fromList = () => document.activeElement === null || document.activeElement === document.body || (inside(document.activeElement, "list") && !ownEnter(document.activeElement));
   const intoDetail = (e: { preventDefault: () => void }) => {
     if (!d || !fromList()) return;
     e.preventDefault();

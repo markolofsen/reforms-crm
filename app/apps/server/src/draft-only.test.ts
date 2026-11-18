@@ -96,7 +96,7 @@ describe("a draft recorded by a session", () => {
     expect((await post(`/api/drafts/${r.draftId}/status`, { project: "p", status: "sent" })).status).toBe(400);
     const list = (await (await get("/api/drafts?project=p")).json()) as { drafts: { client: { name: string }; subject: string }[]; counts: Record<string, number>; total: number; nextOffset: number | null };
     expect(list.drafts.map((d) => [d.client.name, d.subject])).toEqual([["Cy Roe", "Re: terms"]]);
-    expect(list.counts).toEqual({ all: 1, ready: 1, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, thin_basis: 0 });
+    expect(list.counts).toEqual({ all: 1, ready: 1, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, thin_basis: 0, sequences: 0 });
     expect(list).toMatchObject({ total: 1, nextOffset: null });
   });
 

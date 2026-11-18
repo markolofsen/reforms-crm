@@ -1,9 +1,10 @@
 import { and, asc, desc, eq, gte, sql, type SQL } from "drizzle-orm";
-import { INBOX_ACTIONS, INBOX_KINDS, TRIAGE_GAP_MINUTES, type InboxAction, type InboxCounts, type InboxKind, type InboxKindCounts, type InboxFilter, type NotionRef } from "@hub/config";
+import { type FinishReason, INBOX_ACTIONS, INBOX_KINDS, SEQUENCE_SKILL, TRIAGE_GAP_MINUTES, type InboxAction, type InboxCounts, type InboxKind, type InboxKindCounts, type InboxFilter, type NotionRef } from "@hub/config";
 import type { Db } from "../client";
 import { write } from "../tx";
 import { RepoError } from "../errors";
-import { agentRuns, inboxRows } from "../schema";
+import { agentRuns, clients, inboxRows } from "../schema";
+import { onClientWrote } from "./enrollments";
 import { insertEvent } from "./runs";
 
 export type InboxRow = typeof inboxRows.$inferSelect;
@@ -31,7 +32,7 @@ export type InboxInput = {
   skill?: string | null;
   runId?: number | null;
 };
-export type InboxResult = { inboxId: number; runId: number; created: boolean };
+export type InboxResult = { inboxId: number; runId: number; created: boolean; /** Set when this record finished the client's follow-ups (P47). */ followUps?: FinishReason };
 
 const SQL_ORDINARY = sql`${inboxRows.kind} is null`;
 const SQL_OWED = sql`${inboxRows.kind} is null and ${inboxRows.repliesOwed} = 1 and ${inboxRows.action} <> 'drafted' and not exists (select 1 from drafts d join clients c on c.id = d.client_id where c.project = inbox_rows.project and c.email = inbox_rows.email and d.status in ('ready','hold'))`;
@@ -104,7 +105,11 @@ export function inboxRepo(db: Db) {
         if (runId == null) runId = tx.insert(agentRuns).values({ project: input.project, startedAt: at, finishedAt: at, trigger: "owner", skill: input.skill ?? null, status: "ok" }).returning({ id: agentRuns.id }).get().id;
         const r = upsertInbox(tx, input, at);
         insertEvent(tx, { project: input.project, runId, at, kind: "decision", summary: `${input.name || input.email}: ${input.action}`, detail: JSON.stringify({ inboxId: r.id, action: input.action, kind: input.kind ?? null, reason: input.reason ?? null }), clientId: null, tool: null });
-        return { inboxId: r.id, runId, created: r.created };
+        // P47: a client the agent recorded wrote to us, so their follow-ups finish (crossed off by the owner: excluded) in this transaction.
+        let followUps: FinishReason | null = null;
+        const known = input.skill === SEQUENCE_SKILL ? undefined : tx.select({ id: clients.id }).from(clients).where(and(eq(clients.project, input.project), eq(clients.email, input.email.trim().toLowerCase()))).get();
+        if (known) followUps = onClientWrote(tx, { project: input.project, clientId: known.id, reason: input.kind === "crossed_off" ? "excluded" : "replied", lastInboundAt: input.lastInboundAt ?? null, at });
+        return { inboxId: r.id, runId, created: r.created, ...(followUps ? { followUps } : {}) };
       });
     },
 

@@ -1,4 +1,4 @@
-import { MARKS, NOTION_KINDS } from "@hub/config";
+import { MARKS, NOTION_KINDS, SEQUENCE_SKILL } from "@hub/config";
 import { createRepos, defaultDbPath, openDb, RepoError, type RecordDraftInput } from "@hub/db";
 import { checkContext, contextMode, contextSchema, judgeSimilarity, measureAgainstSet, observeDraft, SIM_AMBER, type Context, type ContextMode, type Evidence, type LedgerEntry, type PriorRecord, type Violation, checkDraftRecipients, kindOf, loadProject } from "@hub/projects";
 import { appendLine, latestSession, readLines, recordsFile } from "./evidence-store";
@@ -59,6 +59,8 @@ export const recordInput = z
     runId: z.number().int().positive().nullish(),
     /** What was read before the draft (P28, research 15 section 3.1). Rules V1 to V5 judge it; `context.required` decides whether a failure refuses. */
     context: contextSchema.optional(),
+    /** P47: this draft is step `step` of enrollment `enrollmentId` (from `hub sequences due --json`). Only skill `sequence-drafts` sends it. */
+    sequence: z.object({ enrollmentId: z.number().int().positive(), step: z.number().int().positive() }).strict().optional(),
   })
   .strict();
 
@@ -159,6 +161,7 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
     return fail(2, parsed.error.issues.map((i) => `${i.path.join(".") || "payload"}: ${i.message}`).join("; "));
   }
   const v = parsed.data;
+  if (v.sequence && v.skill !== SEQUENCE_SKILL) return fail(2, `a follow-up step (the sequence block) is recorded with "skill":"${SEQUENCE_SKILL}"`);
   const input: RecordDraftInput = {
     project: project.data,
     email: v.email,
@@ -177,6 +180,7 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
     ...(v.injectionSuspected !== undefined ? { injectionSuspected: v.injectionSuspected } : {}),
     mailClass: v.mailClass ?? null,
     runId: v.runId ?? null,
+    ...(v.sequence ? { sequence: v.sequence } : {}),
   };
 
   let required: ContextMode | null = null;

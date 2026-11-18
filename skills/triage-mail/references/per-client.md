@@ -22,5 +22,6 @@ Forbidden shortcuts, each a defect even if the draft looks fine:
 - treating a tone, a greeting or the signoff as the personal part;
 - a first-contact claim without the empty search;
 - skipping the profile read because it was empty last time.
+- a follow-up that only says "just checking in" or "following up on my last email" (P47: every follow-up step brings something new from the thread or the knowledge).
 
 Counts honesty: the hub compares your counts with what the session observed; a count above what you opened is reported to the owner as a mismatch.

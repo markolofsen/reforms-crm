@@ -19,8 +19,8 @@ export type DraftStatus = (typeof DRAFT_STATUSES)[number];
 export const SETTABLE_STATUSES = ["ready", "hold", "done", "skipped"] as const;
 export type SettableStatus = (typeof SETTABLE_STATUSES)[number];
 
-/** Filters of the Drafts list: each shows a count. */
-export const CLIENT_FILTERS = ["all", "ready", "hold", "owed", "done", "sent", "skipped", "thin_basis"] as const;
+/** Filters of the Drafts list: each shows a count. `sequences`: the open drafts that are a step of a follow-up sequence (P47). */
+export const CLIENT_FILTERS = ["all", "ready", "hold", "owed", "done", "sent", "skipped", "thin_basis", "sequences"] as const;
 export type ClientFilter = (typeof CLIENT_FILTERS)[number];
 export type ClientCounts = Record<ClientFilter, number>;
 
@@ -33,7 +33,44 @@ export const FILTER_LABELS: Record<ClientFilter, string> = {
   sent: "Sent",
   skipped: "Skipped",
   thin_basis: "Thin basis",
+  sequences: "Follow-ups",
 };
+
+// ---- Follow-up sequences (P47, `@docs/core/23-sequences.md`). The owner enrols; the agent drafts each due step; nothing here sends.
+// The code name is `sequence`; the admin says "Follow-ups". The rules over these words live in `@hub/sequences`.
+
+/** Stored states of an enrollment. `waiting`, `due` and `draft ready` are derived, never stored (`displayStateOf` in `@hub/sequences`). */
+export const ENROLLMENT_STATES = ["active", "paused", "finished"] as const;
+export type EnrollmentState = (typeof ENROLLMENT_STATES)[number];
+export const ENROLLMENT_STATE_LABELS: Record<EnrollmentState, string> = { active: "Active", paused: "Paused", finished: "Finished" };
+
+/** Why an enrollment finished. `completed`: every step was sent or skipped; `stopped`: the owner (or the agent) stopped it. */
+export const FINISH_REASONS = ["replied", "bounced", "opted_out", "closed", "excluded", "completed", "stopped"] as const;
+export type FinishReason = (typeof FINISH_REASONS)[number];
+export const FINISH_REASON_LABELS: Record<FinishReason, string> = {
+  replied: "Replied",
+  bounced: "Bounced",
+  opted_out: "Opted out",
+  closed: "Lead closed",
+  excluded: "Excluded",
+  completed: "All steps done",
+  stopped: "Stopped",
+};
+/** The reasons a person or a session may give to `stop` (a finish that is not the engine's own `completed`). */
+export const STOP_REASONS = ["replied", "bounced", "opted_out", "closed", "excluded", "stopped"] as const;
+export type StopReason = (typeof STOP_REASONS)[number];
+
+/** What a follow-up row shows, derived: waiting for its date, due (no draft yet), a step draft is in the queue, paused, finished. */
+export const SEQUENCE_DISPLAY_STATES = ["waiting", "due", "draft_ready", "paused", "finished"] as const;
+export type SequenceDisplayState = (typeof SEQUENCE_DISPLAY_STATES)[number];
+export const SEQUENCE_DISPLAY_LABELS: Record<SequenceDisplayState, string> = { waiting: "Waiting", due: "Due", draft_ready: "Draft ready", paused: "Paused", finished: "Finished" };
+
+/** The lists the API serves: due now, every open one (active or paused), the finished ones. */
+export const ENROLLMENT_VIEWS = ["due", "active", "finished"] as const;
+export type EnrollmentView = (typeof ENROLLMENT_VIEWS)[number];
+
+/** The skill that drafts the due steps. A record by any OTHER skill for an enrolled client is a reply (P47 design). */
+export const SEQUENCE_SKILL = "sequence-drafts";
 
 export const MARKS = ["follow_up", "do_not_contact", "vip"] as const;
 export type Mark = (typeof MARKS)[number];

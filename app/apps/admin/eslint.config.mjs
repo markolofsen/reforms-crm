@@ -27,7 +27,8 @@ const STORAGE_GLOBALS = [
   { name: "sessionStorage", message: "Storage goes through one module (rules: state-and-data 7)." },
 ];
 const BASE_GROUP = ["@radix-ui/*", "@headlessui/*"];
-const SERVER_PACKAGES = ["db", "mail", "notion", "send", "messengers", "projects", "server"];
+// `sequences` (P47): the follow-up rules are the server's; the admin reads them through /api.
+const SERVER_PACKAGES = ["db", "mail", "notion", "send", "messengers", "projects", "sequences", "server"];
 const SERVER_MESSAGE = "The admin talks to the server over /api only; @hub/server is imported as `import type` (decision 0015 section 4).";
 const BASE_IMPORTS = {
   paths: ["clsx", "tailwind-merge"].map((name) => ({ name, message: "Use `cn` from @hub/ui/cn." })),

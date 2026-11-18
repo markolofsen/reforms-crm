@@ -14,7 +14,7 @@ const MAIL_CLASSES = [
   { id: "cold-outreach", color: "Light gray", triage: "count-only" },
   { id: "spam", color: "Dark gray", triage: "count-only" },
 ];
-const SKILLS = ["triage-mail", "bulk-drafts", "calendar", "knowledge-import", "kb-review", "mail-filters", "notion-project-deploy", "project-setup", "status", "owner-inbox", "review-sent"];
+const SKILLS = ["triage-mail", "bulk-drafts", "calendar", "knowledge-import", "kb-review", "mail-filters", "notion-project-deploy", "project-setup", "status", "owner-inbox", "review-sent", "sequence-drafts"];
 // Client-facing classes only: a reply to security, calendar, marketing, spam or cold outreach is never autosent.
 const SEND = (...extra: string[]) => ({ classes: ["client", "partner", ...extra], dailyCap: 5, delayMinutes: 10 });
 const REQUIRED = ["mail.accounts", "mail.sender", "tone"];
@@ -24,7 +24,7 @@ const RAW = [
     id: "generic",
     title: "Generic project",
     description: "Mail, a Notion CRM with clients and documents (reports are documents of type Report), and a knowledge base. The set every project had before kinds existed.",
-    modules: ["mail", "calendar", "knowledge", "filters", "notion", "bulk"],
+    modules: ["mail", "calendar", "knowledge", "filters", "notion", "bulk", "sequences"],
     required: [...REQUIRED, "notion.databases.clients"],
     notionModules: ["sales", "documents"],
     mailClasses: MAIL_CLASSES,
@@ -37,7 +37,7 @@ const RAW = [
     id: "sales-pipeline",
     title: "Real-estate CRM",
     description: "A sales pipeline: clients, leads and documents in Notion, calendar holds for viewings, bulk follow-ups.",
-    modules: ["mail", "calendar", "knowledge", "filters", "notion", "bulk"],
+    modules: ["mail", "calendar", "knowledge", "filters", "notion", "bulk", "sequences"],
     required: [...REQUIRED, "notion.databases.clients", "notion.databases.leads"],
     notionModules: ["sales", "leads", "tasks", "documents"],
     mailClasses: MAIL_CLASSES,
@@ -54,7 +54,7 @@ const RAW = [
     id: "software-support",
     title: "SaaS support",
     description: "Customer support for a software product: clients and documents in Notion, billing and bug mail, no calendar.",
-    modules: ["mail", "knowledge", "filters", "notion"],
+    modules: ["mail", "knowledge", "filters", "notion", "sequences"],
     required: [...REQUIRED, "notion.databases.clients"],
     notionModules: ["sales", "leads", "documents", "business-contacts", "tasks"],
     mailClasses: [...MAIL_CLASSES, { id: "customer-bug", color: "Orange", neverSpam: true }, { id: "billing", color: "Light green", neverSpam: true }],
@@ -76,7 +76,7 @@ const RAW = [
     notionModules: [],
     mailClasses: [...MAIL_CLASSES, { id: "order", color: "Light green", neverSpam: true }, { id: "shipping", color: "Light blue", neverSpam: true }, { id: "return", color: "Orange", neverSpam: true }],
     send: SEND("order", "shipping", "return"),
-    skills: SKILLS.filter((s) => s !== "bulk-drafts" && s !== "calendar" && s !== "notion-project-deploy"),
+    skills: SKILLS.filter((s) => s !== "bulk-drafts" && s !== "calendar" && s !== "notion-project-deploy" && s !== "sequence-drafts"),
     defaults: { languages: ["en"], toneHint: "short, friendly" },
     taxonomy: { audiences: ["CLIENT", "ANY"], category: [], stages: [] },
   },

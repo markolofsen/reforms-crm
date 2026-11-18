@@ -290,6 +290,9 @@ importers:
       '@hub/send':
         specifier: workspace:*
         version: link:../../packages/send
+      '@hub/sequences':
+        specifier: workspace:*
+        version: link:../../packages/sequences
       commander:
         specifier: 15.1.0
         version: 15.1.0
@@ -354,6 +357,9 @@ importers:
       '@hub/send':
         specifier: workspace:*
         version: link:../../packages/send
+      '@hub/sequences':
+        specifier: workspace:*
+        version: link:../../packages/sequences
       hono:
         specifier: 4.13.18
         version: 4.13.18
@@ -429,6 +435,9 @@ importers:
       '@hub/config':
         specifier: workspace:*
         version: link:../config
+      '@hub/sequences':
+        specifier: workspace:*
+        version: link:../sequences
       better-sqlite3:
         specifier: 13.1.1
         version: 13.1.1
@@ -609,6 +618,9 @@ importers:
       '@hub/db':
         specifier: workspace:*
         version: link:../db
+      '@hub/sequences':
+        specifier: workspace:*
+        version: link:../sequences
       commander:
         specifier: 15.1.0
         version: 15.1.0
@@ -640,6 +652,22 @@ importers:
       '@hub/projects':
         specifier: workspace:*
         version: link:../projects
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.5
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@22.20.5)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/sequences:
+    dependencies:
+      '@hub/config':
+        specifier: workspace:*
+        version: link:../config
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

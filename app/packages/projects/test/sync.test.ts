@@ -154,6 +154,7 @@ describe("doctorProject", () => {
       "notion databases readable": "pass",
       "knowledge index not empty": "pass",
       "workflows parse": "skipped",
+      "sequences parse": "skipped",
       "mail MCP limited to the project's accounts": "pass",
     });
   });

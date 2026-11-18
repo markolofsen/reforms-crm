@@ -17,6 +17,7 @@ Two kinds, kept apart on purpose:
 ## Run-time skills
 Stay in `skills/`, next to `config/` and `app/`: they are the workflow, and they change with it. Each skill file names the tools it calls (`05`) and the state it writes. Do not move them into `@rules/`: rules constrain how code changes, skills are what the agent does.
 - `lead-form-check`: runs the Leads group, explains a red row, never submits a real lead (`agent-guardrails.md` rule 9).
+- `sequence-drafts`: drafts the follow-up steps the owner enrolled and that are due; writes drafts and `hub record-draft` rows with the `sequence` block, and may stop or delay an enrollment; never enrols, pauses, resumes, sends or writes Notion (`@docs/core/23-sequences.md`).
 
 ## If a dev-time skill must be pinned
 Only then vendor a snapshot into `app/@rules/vendor/<name>/` with the upstream commit in a `SOURCE` file and a re-sync date; otherwise leave it global.

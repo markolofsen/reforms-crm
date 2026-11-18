@@ -10,6 +10,7 @@ import { inboxRoutes } from "./routes/inbox";
 import { overviewRoutes } from "./routes/overview";
 import { runRoutes } from "./routes/runs";
 import { sendRoutes, type SenderOptions } from "./routes/sends";
+import { sequenceRoutes } from "./routes/sequences";
 import { createConnections, type ConnectionsOptions } from "./connections";
 import { MAIL_OFF, type MailService } from "./mail";
 import { OFF, type MessengersStatus } from "./messengers";
@@ -104,6 +105,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", sendRoutes(repos, opts.sender))
     .route("/", runRoutes(repos, opts.sender?.projectsDir))
     .route("/", inboxRoutes(repos))
+    .route("/", sequenceRoutes(repos, ov?.projectsDir ?? opts.sender?.projectsDir ?? projectsRoot(), now))
     .route("/", bulkRoutes(repos))
     .route("/", overviewRoutes(overview))
     .route("/", connectionRoutes(connections));

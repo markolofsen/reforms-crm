@@ -48,6 +48,8 @@ type Spec = {
   checked?: boolean;
   marks?: Mark[];
   safety?: string;
+  /** For a done or sent draft: how many days ago our message went out (actedAt or sentAt), so follow-ups have an anchor (P47). */
+  outDaysAgo?: number;
 };
 
 const EXTRA_LISBON: Spec[] = [
@@ -55,8 +57,8 @@ const EXTRA_LISBON: Spec[] = [
   { name: "Pedro Exemplo", email: "pedro@example.org", owed: true, daysSilent: 3, subject: "Second viewing", status: "ready" },
   { name: "Sofia Teste", email: "sofia@example.com", owed: false, daysSilent: 19, subject: "Any news on the offer?", status: "ready", marks: ["follow_up"] },
   { name: "Luis Prova", email: "luis@example.net", owed: true, daysSilent: 2, subject: "Parking and storage", status: "hold", safety: "Price of the storage room is not in the file; confirm with the owner first." },
-  { name: "Ines Modelo", email: "ines@example.org", owed: false, daysSilent: 11, subject: "Keys handover", status: "done", checked: true },
-  { name: "Tiago Amostra", email: "tiago@example.com", owed: false, daysSilent: 30, subject: "Thanks for the call", status: "sent", checked: true },
+  { name: "Ines Modelo", email: "ines@example.org", owed: false, daysSilent: 11, subject: "Keys handover", status: "done", checked: true, outDaysAgo: 9 },
+  { name: "Tiago Amostra", email: "tiago@example.com", owed: false, daysSilent: 30, subject: "Thanks for the call", status: "sent", checked: true, outDaysAgo: 25 },
   { name: "Rita Falsa", email: "rita@example.net", owed: false, daysSilent: 8, subject: "Notary dates" },
   { name: "Nuno Ensaio", email: "nuno@example.org", owed: true, daysSilent: 1, subject: "Floor plan", status: "ready", marks: ["do_not_contact"], safety: "Marked do not contact: do not send before the owner lifts the mark." },
 ];
@@ -117,6 +119,8 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
           safety: s.safety ?? null,
           status: s.status,
           checked: s.checked ?? false,
+          // A follow-up candidate's message is client mail, so the starter sequence (mail_classes: client) fits it.
+          ...(s.outDaysAgo === undefined ? {} : { mailClass: "client", ...(s.status === "sent" ? { sentAt: daysAgo(now, s.outDaysAgo), sentVia: "message-id" } : { actedAt: daysAgo(now, s.outDaysAgo) }) }),
         });
       }
     }
@@ -172,6 +176,10 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
   await aside("helena@example.net", "Helena Prova", "call", "The owner said to call her.", null, 20);
   await aside("receipts@example.com", "Payment receipts", "no_action", "A receipt, nothing to answer.", null, 40);
   await aside("vasco@example.org", "Vasco Ensaio", "crossed_off", "The owner asked the agent to leave him alone.", null, 90);
+  // Follow-ups (P47): one client enrolled and due now (we wrote 25 days ago), and one candidate (Ines: our message 9 days ago, hers 11).
+  // The sequence id is the core starter's; the e2e run writes that file into its project folder.
+  const tiago = lisbon.get("tiago@example.com");
+  if (tiago) await repos.enrollments.enrol({ project: "lisbon-realty", clientId: tiago, sequence: "answered-enquiry-no-reply", sequenceHash: "seed", schedule: { delays: [2, 3, 5], businessDays: true }, by: "owner", now });
   return true;
 }
 

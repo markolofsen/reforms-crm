@@ -1,4 +1,5 @@
 import { Badge } from "@hub/ui/badge";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { MARK_LABELS } from "@hub/config";
 import { isOld, wrote } from "@/lib/format";
 import { notionOf } from "@/lib/notion";
@@ -45,6 +46,21 @@ export function CardHeader({ d, actions, now, ready }: Props) {
         </p>
       )}
       {age && <p className={cn("text-sm", old ? "text-warning-foreground" : "text-muted-foreground")}>{age}</p>}
+      {d.sequence && (
+        // P47: a follow-up step. The owner sends it from Mail (the hub refuses it); Stop ends the client's follow-ups and skips this step.
+        <p className="flex flex-wrap items-center gap-2 text-sm" data-testid="follow-up-step">
+          <Badge variant="info">
+            Follow-up {d.sequence.step} of {d.sequence.steps}
+          </Badge>
+          {d.sequence.state === "finished" ? (
+            <span className="text-muted-foreground">Follow-ups have ended for this client.</span>
+          ) : (
+            <ActionButton disabled={actions.pending} onClick={() => actions.stopFollowUps(d)} size="s" variant="quiet">
+              Stop follow-ups
+            </ActionButton>
+          )}
+        </p>
+      )}
       {d.client.marks.includes("do_not_contact") && (
         <p className="rounded-lg border border-destructive/32 bg-destructive/8 p-3 text-sm" role="note">
           Do not contact. Send is removed for this client; turn the flag off in the Client menu.
