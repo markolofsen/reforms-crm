@@ -18,7 +18,8 @@ export const terminalApi = {
     }
   },
   /** A preset and the project of the admin URL (none: only `shell`); 409 at the cap of eight. */
-  create: (body: CreateSessionBody) => read(terminalSessionDto, { method: "POST", path: "/api/terminal/sessions", body }),
+  // The resolved theme is the `.dark` class next-themes keeps on <html>: the new tab's CLI learns it through COLORFGBG.
+  create: (body: CreateSessionBody) => read(terminalSessionDto, { method: "POST", path: "/api/terminal/sessions", body: { ...body, theme: document.documentElement.classList.contains("dark") ? "dark" : "light" } }),
   /** Ends the session (its process group is killed). */
   close: (id: string) => read(okDto, { method: "DELETE", path: `/api/terminal/sessions/${encodeURIComponent(id)}` }),
   /** A single-use ticket for one connect of the session's socket, and the socket's address (the API port, straight). */

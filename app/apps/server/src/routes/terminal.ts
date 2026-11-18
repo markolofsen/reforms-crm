@@ -15,9 +15,9 @@ export function terminalRoutes(t: TerminalService | undefined, adminPort: number
     .get("/api/terminal", (c) => c.json(terminalStateDto.parse(t?.enabled() ? t.state() : { enabled: false })))
     .post("/api/terminal/sessions", v("json", createSessionBody), async (c) => {
       if (!t?.enabled()) return off(c);
-      const { preset, project } = c.req.valid("json");
+      const { preset, project, theme } = c.req.valid("json");
       try {
-        return c.json(terminalSessionDto.parse(await t.create(preset, project)), 201);
+        return c.json(terminalSessionDto.parse(await t.create(preset, project, theme)), 201);
       } catch (e) {
         if (!(e instanceof TerminalRefusal)) throw e;
         const code = e.status === 404 ? ("not_found" as const) : e.status === 409 ? ("wrong_state" as const) : ("invalid" as const);

@@ -27,8 +27,6 @@ export interface SpawnSpec {
   args: string[];
   cwd: string;
   env: NodeJS.ProcessEnv;
-  /** Typed into the shell after its first output, then Enter (VS Code's `sendText`): the owner lands back in the shell when it exits. */
-  command: string | null;
 }
 
 export interface ManagerOptions {
@@ -93,10 +91,8 @@ export function sessionManager(o: ManagerOptions) {
     const serializer = new SerializeAddon();
     term.loadAddon(serializer);
     const s: Session = { id: randomBytes(9).toString("base64url"), spec, pty, term, serializer, viewer: null, pending: "", timer: null, paused: false, exitCode: null, exited: false, createdAt: (o.now?.() ?? new Date()).toISOString(), cols, rows };
-    let typed = spec.command === null;
     pty.onData((d) => {
       term.write(d);
-      if (!typed) { typed = true; pty.write(`${spec.command}\r`); }
       if (!s.viewer) return;
       s.pending += d;
       if (!s.timer) s.timer = setTimeout(() => flush(s), batchMs);

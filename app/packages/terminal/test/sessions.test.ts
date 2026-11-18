@@ -1,7 +1,10 @@
 import { execFileSync } from "node:child_process";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { ServerFrame } from "@hub/contract/terminal";
-import { nodePty, presetCommand, presetOrder, sessionManager, terminalEnv, type PtyProcess, type PtySpawn, type SpawnSpec, type Viewer } from "../src/index";
+import { nodePty, presetArgv, presetOrder, sessionManager, spawnLine, terminalEnv, type PtyProcess, type PtySpawn, type SpawnSpec, type Viewer } from "../src/index";
 
 /** A PTY that records what it is told and lets the test speak for the program. */
 function fakePty() {
@@ -34,15 +37,18 @@ function viewer(buffered = () => 0) {
   return { v, text, bin, closed };
 }
 
-const spec = (over: Partial<SpawnSpec> = {}): SpawnSpec => ({ preset: "claude", project: "acme", title: "acme · Claude Code", file: "/bin/zsh", args: ["-l", "-i"], cwd: "/inst", env: {}, command: "hub agent acme --cli claude", ...over });
+const spec = (over: Partial<SpawnSpec> = {}): SpawnSpec => ({ preset: "claude", project: "acme", title: "acme · Claude Code", file: "/bin/zsh", args: ["-l", "-i"], cwd: "/inst", env: {}, ...over });
 const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms));
 
 describe("presets and env (S7)", () => {
-  it("claude and codex type the core launcher with the slug; shell types nothing; no project means only shell", () => {
-    expect(presetCommand("claude", "acme", { nodeBin: "/n/node", hubBin: "/c/hub.mjs" })).toBe("'/n/node' '/c/hub.mjs' agent acme --cli claude");
-    expect(presetCommand("codex", "acme", { nodeBin: "/n/node", hubBin: "/c/hub.mjs" })).toMatch(/agent acme --cli codex$/);
-    expect(presetCommand("shell", null, { nodeBin: "/n", hubBin: "/h" })).toBeNull();
-    expect(() => presetCommand("claude", null, { nodeBin: "/n", hubBin: "/h" })).toThrow(/needs a project/);
+  it("claude and codex run the core launcher as argv, exec'd by the login shell; shell is the login shell; no project means only shell", () => {
+    const argv = presetArgv("claude", "acme", { nodeBin: "/n/node", hubBin: "/c/hub.mjs" });
+    expect(argv).toEqual(["/n/node", "/c/hub.mjs", "agent", "acme", "--cli", "claude"]);
+    expect(presetArgv("codex", "acme", { nodeBin: "/n/node", hubBin: "/c/hub.mjs" })?.slice(-2)).toEqual(["--cli", "codex"]);
+    expect(spawnLine("/bin/zsh", argv)).toEqual({ file: "/bin/zsh", args: ["-l", "-i", "-c", 'exec "$0" "$@"', "/n/node", "/c/hub.mjs", "agent", "acme", "--cli", "claude"] });
+    expect(spawnLine("/bin/zsh", null)).toEqual({ file: "/bin/zsh", args: ["-l", "-i"] });
+    expect(presetArgv("shell", null, { nodeBin: "/n", hubBin: "/h" })).toBeNull();
+    expect(() => presetArgv("claude", null, { nodeBin: "/n", hubBin: "/h" })).toThrow(/needs a project/);
     expect(presetOrder("claude", true)).toEqual(["claude", "codex", "shell"]);
     expect(presetOrder("codex", true)).toEqual(["codex", "claude", "shell"]);
     expect(presetOrder("codex", false)).toEqual(["shell"]);
@@ -52,23 +58,28 @@ describe("presets and env (S7)", () => {
     expect(e).toMatchObject({ HUB_HOME: "/inst", HUB_PROJECT: "acme", TERM: "xterm-256color", COLORTERM: "truecolor", TERM_PROGRAM: "hub", LANG: "en_US.UTF-8", PATH: "/n22/bin:/usr/bin" });
     for (const k of ["HUB_MAILER", "HUB_DB", "HUB_PORT", "NODE_OPTIONS"]) expect(e[k], k).toBeUndefined();
     expect(terminalEnv({ base: { HUB_PROJECT: "old" }, home: "/i", project: null, nodeBin: "/n/node" }).HUB_PROJECT).toBeUndefined();
+    // The theme reaches a CLI that reads COLORFGBG (Claude Code, Codex pick their palette); none given, none inherited.
+    expect(terminalEnv({ base: {}, home: "/i", project: null, nodeBin: "/n/node", theme: "dark" }).COLORFGBG).toBe("15;0");
+    expect(terminalEnv({ base: {}, home: "/i", project: null, nodeBin: "/n/node", theme: "light" }).COLORFGBG).toBe("0;15");
+    expect(terminalEnv({ base: { COLORFGBG: "15;0" }, home: "/i", project: null, nodeBin: "/n/node" }).COLORFGBG).toBeUndefined();
   });
 });
 
 describe("sessions", () => {
-  it("types the preset after the shell's first output, once", () => {
+  it("writes nothing into the PTY of its own: keys typed before the program's first output reach it as typed, and the argv is the spawn's", () => {
     const f = fakePty();
     const m = sessionManager({ spawn: f.spawn });
-    m.create(spec());
-    expect(f.made[0]!.written).toEqual([]);
+    const s = m.create(spec({ args: ["-l", "-i", "-c", 'exec "$0" "$@"', "/n/node", "/c/hub.mjs", "agent", "acme", "--cli", "claude"] }));
+    m.input(s.id, "д");
     f.made[0]!.data("% ");
     f.made[0]!.data("more");
-    expect(f.made[0]!.written).toEqual(["hub agent acme --cli claude\r"]);
+    expect(f.made[0]!.written).toEqual(["д"]);
+    expect(f.made[0]!.args.slice(-6)).toEqual(["/n/node", "/c/hub.mjs", "agent", "acme", "--cli", "claude"]);
   });
   it("attach sends ready, then a snapshot of the screen so far, then the live stream; input and resize reach the PTY, clamped", async () => {
     const f = fakePty();
     const m = sessionManager({ spawn: f.spawn, batchMs: 5 });
-    const s = m.create(spec({ command: null }), { cols: 9999, rows: 1 });
+    const s = m.create(spec(), { cols: 9999, rows: 1 });
     expect([f.made[0]!.cols, f.made[0]!.rows]).toEqual([500, 2]);
     f.made[0]!.data("earlier output\r\n");
     const w = viewer();
@@ -100,7 +111,7 @@ describe("sessions", () => {
     const f = fakePty();
     let queued = 2_000_000;
     const m = sessionManager({ spawn: f.spawn, batchMs: 2 });
-    const s = m.create(spec({ command: null }));
+    const s = m.create(spec());
     await m.attach(s.id, viewer(() => queued).v);
     f.made[0]!.data("x".repeat(10));
     await tick(10);
@@ -129,9 +140,21 @@ describe("sessions", () => {
 });
 
 describe("the real PTY", () => {
+  it("an agent's argv reaches the program untouched by the shell, even with input already waiting", async () => {
+    const home = mkdtempSync(path.join(tmpdir(), "hub-term-argv-"));
+    let out = "";
+    const m = sessionManager({ spawn: nodePty(), batchMs: 5 });
+    const line = spawnLine("/bin/zsh", ["/bin/echo", "a  b", "$HOME;x", "'q'"]);
+    const s = m.create(spec({ ...line, cwd: home, env: { PATH: "/usr/bin:/bin", HOME: home, ZDOTDIR: home, TERM: "xterm-256color" } }));
+    m.input(s.id, "д");
+    await m.attach(s.id, { sendText: () => {}, sendBinary: (d) => (out += d.toString("utf8")), bufferedAmount: () => 0, close: () => {} });
+    await tick(1500);
+    expect(out).toContain("a  b $HOME;x 'q'");
+    m.killAll();
+  });
   it("closing a tab kills the process group: the shell's child is gone", async () => {
     const m = sessionManager({ spawn: nodePty(), killGraceMs: 500 });
-    const s = m.create(spec({ file: "/bin/sh", args: ["-c", "sleep 4242 & wait"], cwd: process.cwd(), env: { PATH: "/usr/bin:/bin" }, command: null }));
+    const s = m.create(spec({ file: "/bin/sh", args: ["-c", "sleep 4242 & wait"], cwd: process.cwd(), env: { PATH: "/usr/bin:/bin" } }));
     await tick(500);
     const running = () => { try { return execFileSync("pgrep", ["-f", "sleep 4242"]).toString().trim() !== ""; } catch { return false; } };
     expect(running()).toBe(true);

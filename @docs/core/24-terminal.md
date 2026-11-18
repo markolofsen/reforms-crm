@@ -6,7 +6,7 @@ A right-hand column in the admin where Claude Code, Codex or a plain shell run i
 
 | Key | Default | What it does |
 |---|---|---|
-| `terminal.enabled` | `false` | The terminal routes and the socket exist. Off, every `/api/terminal/*` route but the state and the upgrade answer 404, and the admin draws no toggle. Only an exact `true` turns it on |
+| `terminal.enabled` | `false` | The terminal routes and the socket exist. Off, every `/api/terminal/*` route but the state and the upgrade answer 404, and the admin draws no strip and no button. Only an exact `true` turns it on |
 | `agent.default` | `claude` | The CLI `hub agent`, the `hub` menu and the terminal's `+` start first (`claude` or `codex`) |
 | `agent.unattended` | `false` | No prompts, the OS sandbox on (the table below). Only an exact `true` |
 
@@ -14,7 +14,7 @@ A server restart (`./run.sh up`) applies a change; `hub doctor` row `agent.termi
 
 ## The two modes of a hub agent session
 
-`hub agent <slug> [--cli claude|codex|shell] [--prepare]` starts the session in the instance root, bound to one project, with the server's Node first on `PATH`. The terminal's presets type exactly this command, so a session is the same from Terminal.app and from the admin.
+`hub agent <slug> [--cli claude|codex|shell] [--prepare]` starts the session in the instance root, bound to one project, with the server's Node first on `PATH`. The terminal's presets run exactly this command, so a session is the same from Terminal.app and from the admin.
 
 | | Attended (default) | Unattended (`agent.unattended: true`) |
 |---|---|---|
@@ -51,7 +51,7 @@ Wire shapes: `@hub/contract/terminal`. Server: `@hub/terminal` (sessions, PTY, p
 
 Socket: the first frame is `{op: "auth", ticket}` within 2 s, else close 4401 (4404 when the session is gone); then `ready`, a snapshot of the screen (`@xterm/headless` 5 000 lines, serialised), then the live stream. Bytes are binary frames both ways; control is JSON (`resize` clamped 2 to 500, `ping`/`pong`; `exit`, `taken`). One viewer per session: a second attach takes it and the first closes 4409. Output is batched at 16 ms; the PTY pauses above 1 MB queued in the socket and resumes under 256 KB.
 
-Presets, a fixed server table: `claude` and `codex` type `'<server node>' '<hubBin>' agent <slug> --cli <x>` into the shell after its first output, so the owner lands back in the shell when the CLI exits; `shell` types nothing and is the owner's own shell (not sandboxed, as in Terminal.app). Without a project in the admin URL only Shell is offered. The shell is `$SHELL -l -i` in the instance root; env: the server's minus `HUB_MAILER`, `HUB_DB`, `HUB_PORT`, `HUB_CONNECTIONS_PROBE`, `HUB_TERMINAL_SHELL`, `HUB_AGENT_TOOLS`, `NODE_OPTIONS`, plus `HUB_HOME`, `HUB_PROJECT`, `TERM=xterm-256color`, `COLORTERM=truecolor`, UTF-8 `LANG`, `TERM_PROGRAM=hub`. Sessions end with the server; closing the column or the page only detaches.
+Presets, a fixed server table: `claude` and `codex` spawn the argv `<server node> <hubBin> agent <slug> --cli <x>` through the owner's login shell for its environment (`$SHELL -l -i -c 'exec "$0" "$@"' <argv>`): nothing is typed into a prompt and no string is parsed, so a key pressed while the shell starts cannot corrupt the command (v0.9.1 typed it and a first key leaked in: `zsh: no such file or directory: д/Users/...`); the tab ends when the CLI exits. `shell` is the owner's own login shell (not sandboxed, as in Terminal.app). Without a project in the admin URL only Shell is offered. The shell is `$SHELL -l -i` in the instance root; env: the server's minus `HUB_MAILER`, `HUB_DB`, `HUB_PORT`, `HUB_CONNECTIONS_PROBE`, `HUB_TERMINAL_SHELL`, `HUB_AGENT_TOOLS`, `NODE_OPTIONS`, plus `HUB_HOME`, `HUB_PROJECT`, `TERM=xterm-256color`, `COLORTERM=truecolor`, UTF-8 `LANG`, `TERM_PROGRAM=hub`, and `COLORFGBG` for the admin's resolved theme when the tab starts (`0;15` light, `15;0` dark). The screen's colours are the `--terminal-*` tokens of the current theme, re-read live, and xterm answers a program's OSC 10/11 colour queries with them, so Claude Code and Codex can match their palette; the owner's own CLI settings (Claude's `/theme`) are never changed. Sessions end with the server; closing the column or the page only detaches.
 
 `node-pty` 1.1.0 (the one native dependency) ships `prebuilds/darwin-*/spawn-helper` without the execute bit under pnpm; the server sets it before the first spawn (`ensureSpawnHelper`), and doctor row `agent.terminal` checks it. Tests: `HUB_TERMINAL_SHELL=fake` runs `app/test-support/fake-shell.mjs` and is refused without `HUB_DB`.
 

@@ -34,7 +34,10 @@ const noop = () => () => {};
 const useMounted = (): boolean => useSyncExternalStore(noop, () => true, () => false);
 const choiceOf = (v: string | undefined): ThemeChoice => THEMES.find((t) => t === v) ?? "system";
 
-/** Light / Dark / System as one segmented control (the open sidebar's footer). Renders an empty box of the same size until mounted. */
+/**
+ * Light / Dark / System as one segmented control of three icons (the open sidebar's footer): sun, moon, monitor, each named
+ * for a screen reader and in a tooltip. 44px targets below 1024px. Renders an empty box of the same size until mounted.
+ */
 export function ThemeSegmented({ className }: { className?: string }) {
   const { theme, setTheme } = useTheme();
   const mounted = useMounted();
@@ -45,9 +48,8 @@ export function ThemeSegmented({ className }: { className?: string }) {
         const Icon = ICON[t];
         const on = mounted && value === t;
         return (
-          <SegmentedControlItem aria-checked={on} className="flex-1 text-muted-foreground" data-checked={on ? "" : undefined} disabled={!mounted} key={t} onClick={() => setTheme(t)} role="radio">
+          <SegmentedControlItem aria-checked={on} aria-label={LABEL[t]} className="flex-1 text-muted-foreground max-lg:min-h-11 max-lg:min-w-11" data-checked={on ? "" : undefined} disabled={!mounted} key={t} onClick={() => setTheme(t)} role="radio" title={LABEL[t]}>
             <Icon aria-hidden="true" />
-            {LABEL[t]}
           </SegmentedControlItem>
         );
       })}

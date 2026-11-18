@@ -18,7 +18,7 @@ function fake() {
   return { spawn, written, sizes, emit: (d: string) => emit(d) };
 }
 
-const spec: SpawnSpec = { preset: "shell", project: null, title: "Shell", file: "/bin/sh", args: [], cwd: "/", env: {}, command: null };
+const spec: SpawnSpec = { preset: "shell", project: null, title: "Shell", file: "/bin/sh", args: [], cwd: "/", env: {} };
 let server: Server | null = null;
 
 async function serve(redeem: (t: string) => string | null, manager: ReturnType<typeof sessionManager>, authMs = 2000) {

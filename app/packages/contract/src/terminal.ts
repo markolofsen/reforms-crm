@@ -42,7 +42,8 @@ export type TerminalStateDto = z.infer<typeof terminalOnDto>;
 export const terminalStateDto = z.union([z.strictObject({ enabled: z.literal(false) }), terminalOnDto]);
 
 /** `POST /api/terminal/sessions`: a preset and the project of the admin URL (none: only `shell`). */
-export const createSessionBody = z.strictObject({ preset: z.enum(TERMINAL_PRESETS), project: slug.optional() });
+/** `theme`: the admin's resolved theme when the tab starts, for `COLORFGBG` (a CLI that cannot query the terminal picks its palette from it). */
+export const createSessionBody = z.strictObject({ preset: z.enum(TERMINAL_PRESETS), project: slug.optional(), theme: z.enum(["light", "dark"]).optional() });
 export type CreateSessionBody = z.infer<typeof createSessionBody>;
 
 /** `POST /api/terminal/tickets`: a single-use ticket for one session's socket, and where the socket is (the API port, straight). */

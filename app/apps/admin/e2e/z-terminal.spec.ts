@@ -3,12 +3,13 @@ import { basename } from "node:path";
 import { at, remember } from "./support";
 
 // The embedded terminal (P49 T3) on the fake shell (`HUB_TERMINAL_SHELL=fake`, `test-support/fake-shell.mjs`): it prints the
-// prompt `fake$ `, echoes each line as `> <line>`, answers `size` with `<cols> <rows>`, `pwd` with its folder, and `[esc]` for
+// line `exec [argv]` when it stands in for an agent preset (`--exec`), then the prompt `fake$ `, echoes each line as `> <line>`, answers `size` with `<cols> <rows>`, `pwd` with its folder, and `[esc]` for
 // a lone Escape. Named z-* because it starts sessions on the server; every test ends them again (the cap is eight).
 test.describe.configure({ mode: "serial" });
 
 const P = "lisbon-realty";
-const toggle = (page: Page) => page.getByRole("button", { name: "Terminal", exact: true });
+/** The strip ("Terminal", or "Terminal, <the open tab's program>") or the phone's button. */
+const toggle = (page: Page) => page.getByRole("button", { name: /^Terminal(, [A-Za-z ]+)?$/ });
 const dock = (page: Page) => page.getByRole("complementary", { name: "Terminal" });
 const separator = (page: Page) => page.getByRole("separator", { name: "Resize Terminal" });
 const input = (page: Page) => page.getByRole("textbox", { name: "Terminal input" });
@@ -31,7 +32,6 @@ async function endAll(page: Page) {
 /** Opens the column with the toggle and waits for the fake shell's prompt. */
 async function openTerminal(page: Page) {
   await toggle(page).click();
-  await expect(toggle(page)).toHaveAttribute("aria-pressed", "true");
   await expect.poll(() => screenText(page), { timeout: 15_000 }).toContain("fake$");
 }
 
@@ -67,8 +67,9 @@ test("terminal: the toggle and Ctrl+` show and hide it; focus goes in, and back 
   await expect(input(page)).toBeFocused();
   await page.keyboard.press("Control+Backquote");
   await expect(dock(page)).toHaveCount(0);
+  // Collapsed, the dock is the strip again and focus is on it.
   await expect(toggle(page)).toBeFocused();
-  await expect(toggle(page)).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator('[data-slot="terminal-strip"]')).toBeVisible();
   await page.keyboard.press("Control+Backquote");
   await expect(dock(page)).toBeVisible();
   await expect(input(page)).toBeFocused();
@@ -102,11 +103,19 @@ test("terminal: a wider column is a wider grid (the size the program sees follow
   await expect.poll(async () => (await sizeReply(page)).cols).toBeGreaterThan(before.cols);
 });
 
-test("terminal: on a project's screen the presets are Claude Code, Codex, Shell; each agent preset types its line and starts in the instance root", async ({ page }) => {
+/** The argv the server spawned for an agent preset, as the fake shell printed it (joined: a long line wraps). */
+const execOf = async (page: Page, cli: string) => {
+  const flat = (await rows(page)).join("");
+  return flat.includes(`"agent","${P}","--cli","${cli}"]`);
+};
+
+test("terminal: on a project's screen the presets are Claude Code, Codex, Shell; each agent preset is spawned as argv (nothing typed) and starts in the instance root", async ({ page }) => {
   await page.goto(at(P, "/drafts"));
   // Opening an empty column starts the default (`agent.default`: Claude Code).
   await openTerminal(page);
-  await expect.poll(() => screenText(page)).toContain(`agent ${P} --cli claude`);
+  await expect.poll(() => execOf(page, "claude")).toBe(true);
+  // Nothing was typed into the shell: no `> ` echo of a launch line.
+  expect(await screenText(page)).not.toContain("> ");
   await typeLine(page, "pwd");
   // A long path wraps at the column's width, so the rows are joined without breaks for this one.
   await expect.poll(async () => (await rows(page)).join("")).toContain(basename(process.env.HUB_E2E_HOME ?? "hub-e2e-home"));
@@ -114,7 +123,7 @@ test("terminal: on a project's screen the presets are Claude Code, Codex, Shell;
   // The server's order, the default first (marked "default").
   await expect(page.getByRole("menuitem")).toHaveText([/^Claude Code\s*default$/, "Codex", "Shell"]);
   await page.getByRole("menuitem", { name: "Codex" }).click();
-  await expect.poll(() => screenText(page), { timeout: 15_000 }).toContain(`agent ${P} --cli codex`);
+  await expect.poll(() => execOf(page, "codex"), { timeout: 15_000 }).toBe(true);
   const list = await sessions(page);
   expect(list.map((s) => [s.preset, s.project])).toEqual([["claude", P], ["codex", P]]);
   await expect(page.getByRole("tab")).toHaveCount(2);
@@ -164,4 +173,71 @@ test("terminal: at 360px it is a full-screen layer with no sideways scroll, and 
   await layer.getByRole("button", { name: "Hide the terminal" }).click();
   await expect(layer).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Sections" }).last()).toBeVisible();
+});
+
+test("terminal: keys pressed while a Claude Code session starts cannot corrupt its argv (v0.9.1: \"д/Users/...\")", async ({ page }) => {
+  await page.goto(at(P, "/drafts"));
+  await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
+  await toggle(page).click();
+  // At once, before the session is ready: a Russian-layout key and a few more.
+  await page.keyboard.type("дl l");
+  await expect.poll(() => execOf(page, "claude"), { timeout: 15_000 }).toBe(true);
+  const flat = (await rows(page)).join("");
+  const exec = flat.slice(flat.indexOf("exec ["), flat.indexOf("]", flat.indexOf("exec [")) + 1);
+  expect(JSON.parse(exec.slice(5)) as string[]).toEqual([expect.stringMatching(/node$/), expect.stringMatching(/hub\.mjs$/), "agent", P, "--cli", "claude"]);
+});
+
+test("terminal: collapsed it is a full-height strip on the right edge (no button in the sidebar); Enter expands it, Hide collapses it back, the session keeps running", async ({ page }) => {
+  await page.goto(at(P, "/drafts"));
+  await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
+  const strip = page.locator('[data-slot="terminal-strip"]');
+  await expect(strip).toBeVisible();
+  const box = await strip.boundingBox();
+  const vw = page.viewportSize()!;
+  expect(Math.round((box?.x ?? 0) + (box?.width ?? 0))).toBe(vw.width);
+  expect(Math.round(box?.height ?? 0)).toBe(vw.height);
+  expect(box?.width).toBeLessThanOrEqual(48);
+  await expect(page.locator('[data-sidebar="sidebar"], [data-slot="sidebar"]').first().getByRole("button", { name: "Terminal", exact: true })).toHaveCount(0);
+  await expect(strip).toContainText("Terminal");
+  // Keyboard: focus the strip, Enter.
+  await toggle(page).focus();
+  await page.keyboard.press("Enter");
+  await expect(dock(page)).toBeVisible();
+  await expect(strip).toHaveCount(0);
+  await expect.poll(() => screenText(page), { timeout: 15_000 }).toContain("fake$");
+  await page.getByRole("button", { name: "Hide the terminal" }).click();
+  await expect(strip).toBeVisible();
+  await expect(strip).toContainText("Claude Code");
+  await expect(page.getByTestId("terminal-strip-dot")).toBeVisible();
+  await expect(toggle(page)).toBeFocused();
+  expect(await sessions(page)).toHaveLength(1);
+});
+
+/** The xterm screen's background (xterm 6 paints it on its scrollable element) and the `--terminal-bg` token, both as computed colours. */
+async function terminalColours(page: Page) {
+  return page.evaluate(() => {
+    const view = document.querySelector<HTMLElement>('[role="tabpanel"] .xterm-scrollable-element');
+    const probe = document.createElement("div");
+    probe.style.background = "var(--terminal-bg)";
+    document.querySelector('[data-slot="terminal"]')?.appendChild(probe);
+    const token = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return { screen: view ? getComputedStyle(view).backgroundColor : "", token };
+  });
+}
+
+test("terminal: its background follows the theme, light and dark, live when the owner switches", async ({ page }) => {
+  await page.goto(at(P, "/drafts"));
+  await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
+  const theme = page.getByRole("radiogroup", { name: "Theme" });
+  await theme.getByRole("radio", { name: "Light" }).click();
+  await openTerminal(page);
+  const light = await terminalColours(page);
+  expect(light.screen).toBe(light.token);
+  // The column folds the sidebar to its rail, whose one theme button steps Light, Dark, System.
+  await page.getByRole("button", { name: /^Theme: Light\. Switch to Dark/ }).first().click();
+  await expect.poll(async () => (await terminalColours(page)).screen).not.toBe(light.screen);
+  const dark = await terminalColours(page);
+  expect(dark.screen).toBe(dark.token);
+  expect(dark.screen).not.toBe(light.screen);
 });

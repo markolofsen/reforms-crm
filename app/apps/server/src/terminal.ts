@@ -4,7 +4,7 @@ import path from "node:path";
 import { instanceFeatures, type HubPaths } from "@hub/config/paths";
 import type { TerminalPreset } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
-import { nodePty, presetCommand, SessionLimitError, presetOrder, sessionManager, sessionTitle, terminalEnv, terminalSocketServer, type PtySpawn, type SessionManager } from "@hub/terminal";
+import { nodePty, presetArgv, presetOrder, SessionLimitError, sessionManager, sessionTitle, spawnLine, terminalEnv, terminalSocketServer, type PtySpawn, type SessionManager } from "@hub/terminal";
 import { throwawayDbNamed } from "@hub/send";
 import { gateRefusal, ticketStore, type TicketStore } from "./admin-gate";
 
@@ -52,13 +52,15 @@ export function createTerminal(o: TerminalOptions) {
   const features = () => instanceFeatures(o.paths);
   const fake = o.fakeShell ?? chooseShell(env) === "fake";
 
-  async function create(preset: TerminalPreset, project: string | undefined) {
+  async function create(preset: TerminalPreset, project: string | undefined, theme?: "light" | "dark") {
     const slug = project ?? null;
     if (slug && (await o.repos.projects.get(slug)) === null) throw new TerminalRefusal(404, `no project "${slug}"`);
     if (!presetOrder(features().agent.default, !!slug).includes(preset)) throw new TerminalRefusal(400, `${preset} needs a project in the address`);
+    const argv = presetArgv(preset, slug, { nodeBin, hubBin: o.paths.hubBin });
+    // The fake shell gets the agent's argv after `--exec` and prints it, so tests see exactly what would run.
     const shell = fake
-      ? { file: nodeBin, args: [path.join(o.paths.core, "app", "test-support", "fake-shell.mjs")] }
-      : { file: env.SHELL?.trim() || "/bin/zsh", args: ["-l", "-i"] };
+      ? { file: nodeBin, args: [path.join(o.paths.core, "app", "test-support", "fake-shell.mjs"), ...(argv ? ["--exec", ...argv] : [])] }
+      : spawnLine(env.SHELL?.trim() || "/bin/zsh", argv);
     try {
       return sessions().create({
         preset,
@@ -66,8 +68,7 @@ export function createTerminal(o: TerminalOptions) {
         title: sessionTitle(preset, slug),
         ...shell,
         cwd: o.paths.home,
-        env: terminalEnv({ base: env, home: o.paths.home, project: slug, nodeBin }),
-        command: presetCommand(preset, slug, { nodeBin, hubBin: o.paths.hubBin }),
+        env: terminalEnv({ base: env, home: o.paths.home, project: slug, nodeBin, theme }),
       });
     } catch (e) {
       if (e instanceof SessionLimitError) throw new TerminalRefusal(409, e.message);

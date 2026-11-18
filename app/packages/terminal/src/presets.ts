@@ -16,12 +16,18 @@ export interface EnvInput {
   project: string | null;
   /** The Node the server runs on: first on PATH (the owner's default `node` may be an old one). */
   nodeBin: string;
+  /** The admin's resolved theme when the tab started: `COLORFGBG` says it to a CLI that reads it (the screen also answers OSC 10/11 queries). */
+  theme?: "light" | "dark" | undefined;
 }
+
+/** rxvt's `COLORFGBG` (`fg;bg` as ANSI indexes): dark text on light, or light on dark. */
+const COLORFGBG = { light: "0;15", dark: "15;0" } as const;
 
 export function terminalEnv(i: EnvInput): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...i.base };
   for (const k of SERVER_ONLY_ENV) delete env[k];
   delete env.HUB_PROJECT;
+  delete env.COLORFGBG;
   const lang = env.LANG && /utf-?8/i.test(env.LANG) ? env.LANG : "en_US.UTF-8";
   return {
     ...env,
@@ -31,6 +37,7 @@ export function terminalEnv(i: EnvInput): NodeJS.ProcessEnv {
     COLORTERM: "truecolor",
     LANG: lang,
     TERM_PROGRAM: "hub",
+    ...(i.theme ? { COLORFGBG: COLORFGBG[i.theme] } : {}),
     PATH: [path.dirname(i.nodeBin), env.PATH ?? ""].filter(Boolean).join(path.delimiter),
   };
 }
@@ -41,13 +48,25 @@ export function presetOrder(defaultCli: AgentCli, hasProject: boolean): Terminal
   return defaultCli === "codex" ? ["codex", "claude", "shell"] : ["claude", "codex", "shell"];
 }
 
-const quote = (s: string): string => `'${s.replace(/'/g, `'\\''`)}'`;
-
-/** The line typed into the shell after its first prompt; null for `shell`. The slug is checked against the registry by the caller. */
-export function presetCommand(preset: TerminalPreset, project: string | null, o: { nodeBin: string; hubBin: string }): string | null {
+/**
+ * The agent's argv for `claude` and `codex` (the core launcher, `hub agent <slug> --cli <x>`); null for `shell`. Never a
+ * string a shell parses: v0.9.1 typed the command into an interactive zsh after its first output, and a keystroke or a
+ * line-editor redraw that arrived first corrupted it ("zsh: no such file or directory: д/Users/..."). The slug is checked
+ * against the registry by the caller.
+ */
+export function presetArgv(preset: TerminalPreset, project: string | null, o: { nodeBin: string; hubBin: string }): string[] | null {
   if (preset === "shell") return null;
   if (!project) throw new Error(`${PRESET_LABELS[preset]} needs a project`);
-  return `${quote(o.nodeBin)} ${quote(o.hubBin)} agent ${project} --cli ${preset}`;
+  return [o.nodeBin, o.hubBin, "agent", project, "--cli", preset];
+}
+
+/**
+ * What the PTY runs. Shell: the owner's login shell (`-l -i`). An agent: the same login shell for its environment (PATH,
+ * nvm, the CLIs), which at once `exec`s the argv given as positional parameters (`-c 'exec "$0" "$@"'`): no prompt, no
+ * typing, no parsing of the argv; the session ends when the agent exits.
+ */
+export function spawnLine(shell: string, argv: string[] | null): { file: string; args: string[] } {
+  return argv ? { file: shell, args: ["-l", "-i", "-c", 'exec "$0" "$@"', ...argv] } : { file: shell, args: ["-l", "-i"] };
 }
 
 export const sessionTitle = (preset: TerminalPreset, project: string | null): string => (project ? `${project} · ${PRESET_LABELS[preset]}` : PRESET_LABELS[preset]);

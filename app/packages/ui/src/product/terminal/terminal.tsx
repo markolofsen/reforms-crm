@@ -61,7 +61,20 @@ export function TerminalView({ resolvedTheme, inputLabel = "Terminal input", cla
     let disposed = false;
     let frame = 0;
     let observer: ResizeObserver | null = null;
+    let themeWatch: MutationObserver | null = null;
     let made: Terminal | null = null;
+    // The colours come from tokens on the element, so they can only be read while it is in the document: the host node is
+    // created detached and moved between slots, and next-themes sets the class on <html> after the children's effects ran.
+    // So: re-read on every attach or resize, and whenever <html>'s class or style changes (Light, Dark, System, an OS switch).
+    let lastTheme = "";
+    const applyTheme = () => {
+      if (!made || !el.isConnected) return;
+      const theme = readTheme(el);
+      const key = JSON.stringify(theme);
+      if (key === lastTheme || !theme.background) return;
+      lastTheme = key;
+      made.options.theme = theme;
+    };
     void (async () => {
       const x = await load();
       await document.fonts.ready;
@@ -113,9 +126,13 @@ export function TerminalView({ resolvedTheme, inputLabel = "Terminal input", cla
         cb.current.onSize({ cols: t.cols, rows: t.rows });
       };
       observer = new ResizeObserver(() => {
+        applyTheme();
         if (!frame) frame = requestAnimationFrame(() => measure(FIT_TRIES));
       });
       observer.observe(el);
+      themeWatch = new MutationObserver(() => requestAnimationFrame(applyTheme));
+      themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style", "data-theme"] });
+      applyTheme();
       measure(FIT_TRIES);
       cb.current.onReady({ write: (b) => t.write(b), reset: () => t.reset(), focus: () => t.focus() });
     })();
@@ -123,16 +140,23 @@ export function TerminalView({ resolvedTheme, inputLabel = "Terminal input", cla
       disposed = true;
       if (frame) cancelAnimationFrame(frame);
       observer?.disconnect();
+      themeWatch?.disconnect();
       made?.dispose();
       term.current = null;
     };
   }, []);
 
-  // The tokens change with the theme class; read them again (no cache) when the resolved theme does.
+  // A resolved-theme change also re-reads the tokens, one frame later (after next-themes has set the class).
   useEffect(() => {
-    const t = term.current;
-    const el = host.current;
-    if (t && el) t.options.theme = readTheme(el);
+    const id = requestAnimationFrame(() => {
+      const t = term.current;
+      const el = host.current;
+      if (t && el?.isConnected) {
+        const theme = readTheme(el);
+        if (theme.background) t.options.theme = theme;
+      }
+    });
+    return () => cancelAnimationFrame(id);
   }, [resolvedTheme]);
 
   return <div className={cn("min-h-0 min-w-0 flex-1 bg-(--terminal-bg) ps-2 pt-1", className)} data-slot="terminal" ref={host} />;

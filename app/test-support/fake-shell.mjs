@@ -7,6 +7,9 @@ const out = (s) => process.stdout.write(s);
 const prompt = () => out("fake$ ");
 if (process.stdin.isTTY) process.stdin.setRawMode(true);
 let line = "";
+// `--exec <argv...>`: what an agent preset would exec, one JSON line, so a test sees the argv exactly (never typed, never parsed).
+const at = process.argv.indexOf("--exec");
+if (at >= 0) out(`exec ${JSON.stringify(process.argv.slice(at + 1))}\r\n`);
 out("fake shell ready\r\n");
 prompt();
 process.stdin.on("data", (buf) => {

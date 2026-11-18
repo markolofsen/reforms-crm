@@ -91,16 +91,18 @@ describe("terminal on", () => {
   });
   it("a preset runs hub agent in the instance, with the server's Node first and none of the server's switches", async () => {
     const { call } = setup();
-    const r = await call("POST", "/api/terminal/sessions", { preset: "claude", project: "acme" });
+    const r = await call("POST", "/api/terminal/sessions", { preset: "claude", project: "acme", theme: "dark" });
     expect(r.status).toBe(201);
     expect(await r.json()).toMatchObject({ title: "acme · Claude Code", preset: "claude", project: "acme", state: "running" });
     const p = spawned[0]!;
-    expect([p.file, p.args, p.cwd]).toEqual(["/bin/zsh", ["-l", "-i"], home]);
+    // The agent is the spawn's argv, exec'd by the login shell: nothing is typed into a prompt (v0.9.1's corrupted first key).
+    expect([p.file, p.args, p.cwd]).toEqual(["/bin/zsh", ["-l", "-i", "-c", 'exec "$0" "$@"', "/n22/bin/node", paths.hubBin, "agent", "acme", "--cli", "claude"], home]);
     expect(p.env).toMatchObject({ HUB_HOME: home, HUB_PROJECT: "acme", PATH: "/n22/bin:/usr/bin", TERM: "xterm-256color" });
     expect(p.env.HUB_MAILER).toBeUndefined();
+    expect(p.env.COLORFGBG).toBe("15;0");
     expect(p.env.HUB_DB).toBeUndefined();
     p.emit("% ");
-    expect(p.written).toEqual([`'/n22/bin/node' '${paths.hubBin}' agent acme --cli claude\r`]);
+    expect(p.written).toEqual([]);
   });
   it("refuses an unknown preset or a command field (400), an unknown project (404), a CLI without a project (400)", async () => {
     const { call } = setup();

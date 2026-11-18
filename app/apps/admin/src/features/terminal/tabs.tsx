@@ -1,9 +1,8 @@
 "use client";
 
-import { PanelRightCloseIcon, PlusIcon, ShieldCheckIcon, XIcon } from "lucide-react";
+import { PanelRightCloseIcon, PlusIcon, XIcon } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { PRESET_LABELS, type TerminalSessionDto } from "@hub/contract/terminal";
-import { Badge } from "@hub/ui/badge";
 import { cn } from "@hub/ui/cn";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
@@ -54,15 +53,14 @@ function onTabKeys(e: KeyboardEvent<HTMLDivElement>, ids: string[], active: stri
 }
 
 /**
- * The column's header: the tabs (one tab stop; Left and Right move), Close for the open tab (it ends the session), the mode
- * badge for an agent tab of an unattended instance, the `+` menu, and Hide (the sessions keep running). In the narrow layer
- * it is titled "Terminal".
+ * The column's header: the tabs (one tab stop; Left and Right move), Close for the open tab (it ends the session), the `+`
+ * menu, and Hide (the sessions keep running). In the narrow layer it is titled "Terminal". The agent mode is not shown here:
+ * it is set in the config and shown in Connections, Agent tools.
  */
 export function TerminalHeader({ layer }: { layer: boolean }) {
   const t = useTerminal();
   const sessions = t.state?.sessions ?? [];
   const current = sessions.find((s) => s.id === t.active);
-  const sandboxed = t.state?.unattended === true && current !== undefined && current.preset !== "shell";
   return (
     <div className="flex shrink-0 flex-col border-b">
       <div className="flex min-h-11 items-center gap-1 ps-2 pe-1">
@@ -81,13 +79,6 @@ export function TerminalHeader({ layer }: { layer: boolean }) {
           <ActionButton aria-label={`Close ${tabTitle(current)}`} disabled={t.closing === current.id} icon onClick={() => t.close(current.id)} size="s" variant="quiet">
             <XIcon aria-hidden="true" />
           </ActionButton>
-        )}
-        {sandboxed && (
-          <Badge className="shrink-0" variant="info">
-            <ShieldCheckIcon aria-hidden="true" />
-            {/* The narrow layer keeps Hide on screen: the words stay for a screen reader, the shield for the eye. */}
-            <span className={layer ? "sr-only" : undefined}>unattended, sandboxed</span>
-          </Badge>
         )}
         <NewMenu />
         <ActionButton aria-label="Hide the terminal" icon={!layer} onClick={() => t.setOpen(false)} size="s" variant="quiet">
