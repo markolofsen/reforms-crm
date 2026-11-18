@@ -47,7 +47,7 @@ Project facts, filters, knowledge, follow-up sequences and development plans (`@
 **Who reaches what.** Agents reach services through their own connectors (over MCP); the hub gives them local tools (Apple Mail through
 `mail-mcp`, the database through `hub record-draft` and `hub record-client`, follow-ups through `hub sequences`, the knowledge MCP, the `hub` MCP,
 the guard). Details: [core/02-connectors.md](core/02-connectors.md).
-- Mail: Apple Mail only (decision 0026). The agent reads and drafts through `mail-mcp`; the hub sends a confirmed draft and detects a sent one through `osascript`. There is no mail login and no mail key in the hub.
+- Mail: Apple Mail only (decision 0026). The agent reads through `mail-mcp` and drafts through the `hub` MCP's `draft_write` (Mail stays in the background); the hub sends a confirmed draft and detects a sent one through `osascript`. There is no mail login and no mail key in the hub.
 - Notion: the agent writes through the session's connector (no token); an optional integration token is what `notion-dump`, backups and the project doctor's database check read with.
 - Telegram: an optional bot token (`state/secrets/telegram-bot-token`). With it the server polls for messages and stores them; it never sends ([packages/messengers/README.md](../app/packages/messengers/README.md)).
 

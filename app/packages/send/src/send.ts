@@ -158,11 +158,12 @@ export async function findMail(deps: Pick<SendDeps, "mailer">, draft: Pick<Draft
   const toAddr = addresses(draft.toAddr);
   const pool = byId.length ? byId : candidates.filter((c) => toAddr.every((a) => norm(c.to).includes(a)));
   if (pool.length === 0) return { reason: `no draft in Mail with subject "${draft.subject}" for ${draft.toAddr}` };
-  // Never a guess: a revision (P51) leaves the old version in Mail too, since the agent can neither replace nor delete a draft.
-  // The newest Mail id is the latest version; the person deletes the others in Mail, then reads it again.
+  // Never a guess. A revision by the hub's `draft_write` (P52) removes the older version itself, and `findDrafts` skips a draft
+  // Mail flags as deleted; an older version can still show for a moment while Mail syncs, or stay when it came from elsewhere.
+  // The newest Mail id is the latest version; the person waits and reads again, or deletes the others in Mail.
   if (pool.length > 1) {
     const newest = [...pool].sort((a, b) => (Number(b.ref) || 0) - (Number(a.ref) || 0))[0] as MailDraft;
-    return { reason: `${pool.length} drafts in Mail match subject "${draft.subject}" for ${draft.toAddr}: keep the newest (Mail id ${newest.ref}, the latest version) and delete the older ${pool.length === 2 ? "one" : "ones"} in Mail` };
+    return { reason: `${pool.length} drafts in Mail match subject "${draft.subject}" for ${draft.toAddr}: keep the newest (Mail id ${newest.ref}, the latest version) and delete the older ${pool.length === 2 ? "one" : "ones"} in Mail. If the agent revised this draft a moment ago, Mail may still be removing the older version: wait a few seconds and read it again` };
   }
   return { mail: pool[0] as MailDraft };
 }

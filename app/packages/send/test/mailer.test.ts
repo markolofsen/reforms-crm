@@ -19,6 +19,7 @@ describe("Mail.app mailer", () => {
     await m.findDrafts({ mailRef: null, subject: 'He said "hi"\\ & more' });
     expect(calls).toEqual([{ script: FIND_SCRIPT, args: ['He said "hi"\\ & more'] }]);
     expect(FIND_SCRIPT).not.toMatch(/\bsend\b/); // reading is read-only
+    expect(FIND_SCRIPT).toMatch(/\(deleted status of m\) is false/); // a revision's older version on its way out is not a draft (P52)
   });
 
   it("send hands the draft's exact fields to one script; a non-ok answer throws", async () => {

@@ -63,6 +63,8 @@ export const FIND_SCRIPT = `on run argv
   tell application "Mail"
     set ms to (messages of drafts mailbox whose subject is subj)
     repeat with m in ms
+      -- a draft Mail flags as deleted is on its way out (a revision's older version, P52): not a draft
+      if (deleted status of m) is false then
       set acc to ""
       try
         set acc to name of account of mailbox of m
@@ -86,6 +88,7 @@ export const FIND_SCRIPT = `on run argv
         set n to count of mail attachments of m
       end try
       set out to out & (id of m) & FS & (message id of m) & FS & acc & FS & (sender of m) & FS & tos & FS & ccs & FS & bccs & FS & (subject of m) & FS & (content of m) & FS & n & RS
+      end if
     end repeat
   end tell
   return out

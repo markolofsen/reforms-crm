@@ -64,7 +64,7 @@ Drafts has a **Follow-ups** view in its View menu (`?filter=sequences`: the open
 
 ## In a session
 
-`skills/sequence-drafts/SKILL.md`: when the owner's words name clients or a segment, enrol exactly those with `--phrase`; then read the due rows, re-check each client (reply, bounce, opt-out, out-of-office, profile marks) through `judge`, then one unsent `create_reply` per step that may still go, recorded with the `sequence` block. No Notion write. `triage-mail` reports "follow-ups stopped: replied" when its record ended one.
+`skills/sequence-drafts/SKILL.md`: when the owner's words name clients or a segment, enrol exactly those with `--phrase`; then read the due rows, re-check each client (reply, bounce, opt-out, out-of-office, profile marks) through `judge`, then one unsent `draft_write` (hub MCP) per step that may still go, recorded with the `sequence` block. No Notion write. `triage-mail` reports "follow-ups stopped: replied" when its record ended one.
 
 ## Starter pack
 

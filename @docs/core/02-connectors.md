@@ -7,14 +7,14 @@ drafts replies, reports into Notion. No Hub Django or frontend. (local) = read o
 (est.) = my estimate, not measured.
 
 ## Who reaches what
-- **Agents reach services through their own connectors.** A session (Claude Code, Codex, Claude Desktop) reads and drafts mail through `mail-mcp` (Apple Mail) and writes the CRM through its Notion connector (MCP). The hub never proxies these and holds no login for them.
+- **Agents reach services through their own connectors.** A session (Claude Code, Codex, Claude Desktop) reads mail through `mail-mcp` (Apple Mail), writes unsent reply drafts through the hub MCP server's `draft_write` (P52, decision 0030 of the plan repo) and writes the CRM through its Notion connector (MCP). The hub never proxies these and holds no login for them.
 - **The hub gives agents local tools:** `hub record-draft` and `hub record-client` (what the session did, into the database), `hub sequences` (follow-ups), the knowledge MCP over the project's files, and the guard (deny rules and the PreToolUse hook that keep a session draft-only and inside its project).
 - **The admin shows the state** those tools leave, and holds the owner's decisions; its one door out is the confirmed send through Apple Mail (`osascript`). Mail has no other path: no IMAP, no mail key in the hub (decision 0026).
 
 ## Recommended stack
 | Layer | Choice | Why |
 |---|---|---|
-| Mail | `mail-mcp` (dastrobu) 0.5.0, installed, HTTP daemon :8787 | No send tool: draft-only by construction |
+| Mail | `mail-mcp` (dastrobu) 0.5.0, installed, HTTP daemon :8787, read only for the agent; drafts: `hub mcp` `draft_write` | No send tool: draft-only by construction |
 | Notion | Official hosted Notion MCP (`mcp.notion.com/mcp`); sign in once with `/mcp` (access: `@docs/setup/access.md`) | Maintained by Notion |
 
 ## 1. Mail connectors
@@ -36,8 +36,14 @@ Installed mail-mcp, from its local schemas and README:
 - No threads: rebuild by normalised subject + sender over Inbox and Sent. Whether headers carry
   Message-ID / In-Reply-To is unverified.
 - Read flag: filterable, not settable. Our state file is the queue, not "unread".
-- `create_reply` opens a compose window and pastes text; needs a logged-in GUI session and Accessibility;
-  Mail may autosave a draft. A locked or logged-out session can break it. Mail.app must be running.
+- `create_reply` (and every mail-mcp write) opens a compose window, activates Mail and pastes with a global Cmd+V
+  through Accessibility. With another app in front macOS keeps Mail in the background: the paste never lands and an
+  empty reply is left (P51 live check, 2026-11-18). No release or flag changes it (0.5.0 is the latest). So the agent's
+  mail-mcp is read only: `create_reply`, `replace_reply`, the outgoing-message tools and `delete_draft` are denied.
+- Drafts are written by `hub mcp` `draft_write` (`@hub/agent/mail-drafts`): Mail's own `reply ... opening window false`,
+  `content`, `save`, from the hub's process (outside the agent's sandbox), Mail in the background, the thread headers
+  kept, plain text with the `[hub-draft thread=...]` line added. A revision deletes only the older drafts of the same
+  account, subject and marker, after the new one is found. Mail.app must be running; nothing is sent.
 
 Verdict: draft-only is structural; costs are no threads, no read-marking, GUI dependency. patrickfreyer has
 threads but can send: `--read-only` only, never both.
