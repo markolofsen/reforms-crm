@@ -1,17 +1,17 @@
 # Skills: which one, and when
 
-Manual-first (decision 0006). You start a session yourself (`hub agent`, or Claude Desktop) and hand it
-ONE instruction in your own words. Nothing runs in the background. Every skill is bound to ONE project: its facts live in
+Agent-first, started by you (decision 0006). You start a session yourself (`hub agent <slug>`, a tab of the admin's terminal dock, or Claude Desktop)
+and hand it ONE instruction in your own words. Nothing is scheduled. Every skill is bound to ONE project: its facts live in
 `projects/<slug>/project.md`, its knowledge comes through `knowledge-mcp`, its mail through `mail-mcp`
 (read, plus unsent drafts with `create_reply`), its CRM through the session's Notion connector.
 
 Project binding (slug, `project.md`, one project per session) is spelled out once, in `skills/triage-mail/SKILL.md` section 0; other skills point there. The root `CLAUDE.md` / `AGENTS.md` is the short version an agent reads first.
 
-Start bound to a project: `hub agent <slug>` (a fresh session with `HUB_PROJECT=<slug>`). Without a slug the instruction names the project.
+Start bound to a project: `hub agent <slug>` (a fresh Claude Code session with `HUB_PROJECT=<slug>`; `--cli codex` for Codex). Without a slug the instruction names the project. The same skills load in both CLIs.
 
-**Layers (core and instance).** Skills are the **core** layer: universal, for any owner and project. Everything that belongs to one owner (projects, mailboxes, rules, history) lives in that owner's instance: `projects/<slug>/` under `HUB_HOME`. A skill reads an instance only through the slug and `project.md`, never by naming a client. Rule and instance steps: `@docs/LAYERS.md`. An instance carries its own skills: `hub agent` and `./run.sh install --only skills.runtime` link every core skill into `<instance>/.claude/skills/`, and nothing goes to `~/.claude/skills`.
+**Layers (core and instance).** Skills are the **core** layer: universal, for any owner and project. Everything that belongs to one owner (projects, mailboxes, rules, history) lives in that owner's instance: `projects/<slug>/` under `HUB_HOME`. A skill reads an instance only through the slug and `project.md`, never by naming a client. Rule and instance steps: `@docs/LAYERS.md`. An instance carries its own skills: `hub agent` and `./run.sh install --only skills.runtime` link every core skill into `<instance>/.claude/skills/` (and into each project's Codex home), and nothing goes to `~/.claude/skills`.
 
-**No skill ever sends mail.** Sending is the hub's `hub send` and the admin button, never a skill (decision 0011).
+**No skill ever sends mail.** Sending is the admin's Send button (or the owner's own `hub send`), never a skill (decision 0011); to whom is the project's send policy (rule 6).
 
 ## The skills
 
@@ -44,7 +44,7 @@ Replies come in Russian, briefly; files and Notion pages are English.
 4. **Never delete** mail, drafts or Notion pages; append only.
    Calendar holds never carry attendees: nothing leaves the owner's own calendar unless `project.md` allows it and the owner says so for that event (`skills/calendar/SKILL.md`).
 5. **Never invent a fact.** A price, date, term or policy comes only from an approved, unexpired knowledge entry; otherwise a `[Owner: ...]` placeholder.
-6. **Recipients:** only what the project's `draft.recipients` admits (`test` = the `allow_list` of `config/config.json`, a list = exactly those, `any` = every client). It lives in the project's send policy, `state/projects/<slug>/send-policy.json` (field `recipients`; no file means `test`), which you may read and can never write: the owner changes it in his own shell with `hub send policy set <slug> draft.recipients any` (P49 S11). A `draft.recipients` row in `project.md` is ignored. This is the one place that explains it; other skills point here.
+6. **Recipients:** only what the project's `draft.recipients` admits (`test` = the `allow_list` of `config/config.json`, a list = exactly those, `any` = every client). It lives in the project's send policy, `state/projects/<slug>/send-policy.json` (field `recipients`; no file means `test`), which you may read and can never write: the owner changes it in his own shell with `hub send policy set <slug> draft.recipients any`. A `draft.recipients` row in `project.md` is ignored. This is the one place that explains it; other skills point here.
 7. **Facts come from the project's knowledge, in this order:** `knowledge_search` (local index of `knowledge/`; use STATE, approved,
    not expired; staleness is judged from the entry's `valid_until` / `last_confirmed`), then a `[Owner: ...]` placeholder. Notion is never read for facts. Every gap found on the way (missing, stale, conflict, repeated question,
    placeholder) is saved in `projects/<slug>/reports/kb/YYYY-MM-DD-<run>.md` (local disk, git-ignored, no personal data) and the
@@ -55,7 +55,7 @@ Replies come in Russian, briefly; files and Notion pages are English.
 11. **Ambiguous intent.** If the owner's request fits two skills, ask ONE question to choose; do not guess.
 
 12. **Per client, always.** Every reply is written from that client's own history and profile, in a batch of 1 or 300, in the main session or a subagent: `skills/triage-mail/references/per-client.md` (P1 to P7). A shared text from the owner is a brief (purpose and tone), never a body; a reply with no read of the client's thread and profile is not a draft. An empty profile is reported, not ignored.
-13. **Focus (P51).** "этот клиент", "этот черновик", "ответь клиенту", "выбранные" mean what the owner's admin shows: the `[Hub focus, data]` line the hub adds to a prompt, or the `focus` tool of the `hub` MCP server (`draft_show`, `client_show`, `drafts_list` read the rest; all read-only). Never ask what is on his screen. `none` or `stale`: ask which client in one line; `elsewhere`: say the admin shows another project. A reply request on the focused draft revises it (`skills/triage-mail/SKILL.md` section 2r); "выбранные" in a bulk phrase are exactly the focus's selected drafts. The rules every session gets at start are the core's `sessionRules()` (`hub agent`).
+13. **Focus.** "этот клиент", "этот черновик", "ответь клиенту", "выбранные" mean what the owner's admin shows: the `[Hub focus, data]` line the hub adds to a prompt, or the `focus` tool of the `hub` MCP server (`draft_show`, `client_show`, `drafts_list` read the rest; all read-only). Never ask what is on his screen. `none` or `stale`: ask which client in one line; `elsewhere`: say the admin shows another project. A reply request on the focused draft revises it (`skills/triage-mail/SKILL.md` section 2r); "выбранные" in a bulk phrase are exactly the focus's selected drafts. The rules every session gets at start are the core's `sessionRules()` (`hub agent`).
 
 ## Report (every run skill, this order, Russian)
 1. **Table**, one row per client: `# | клиент | класс | действие | черновик | запись | основа`. `основа` = what the draft rests on ("6 пис., профиль, 2 факта"; "нет данных" when nothing was read). Действие is one of `drafted`, `skipped:<code>`, `injection_suspected`, `noted`, `escalated`.
@@ -71,7 +71,6 @@ After a session: `./run.sh audit-run <transcript.jsonl> --project X`. It reads t
 mail call naming an account outside X, a knowledge call naming another project, a read of another project's folder, or a
 send-capable tool. The transcript is the session's `.jsonl` under `~/.claude/projects/`. It also prints an evidence table per `create_reply` (client / read / profile / facts / anchors / max sim / verdict) and takes a session folder with `subagents/*.jsonl`. Exit 1 on a breach or a red row. Read only. After a batch of more than 3 clients the skill runs it itself, and runs `hub batch-check --project X --batch K` (table, top pairs, exit 1 on red) as the acceptance of the batch.
 
-## Automation (optional, OFF)
+## Attended and unattended sessions
 
-Nothing runs unattended (decision 0006): no scheduler, no skill "gate mode". `./run.sh setup --automation` adds only the optional
-Notion token and the Telegram token; mail has no key (Apple Mail only). The connector notes are in `@docs/core/02`.
+Nothing is scheduled (decision 0006): no timer starts a session or a skill. A session you start runs attended (the CLI asks before commands and edits) unless the instance sets `agent.unattended: true`: then no prompts, with the OS sandbox on (no network from commands, the send policy and config read-only). The skills and their rules are the same in both modes (`@docs/core/24-terminal.md`). `./run.sh setup --automation` adds only the optional Notion token and the Telegram token; mail has no key (Apple Mail only). The connector notes are in `@docs/core/02-connectors.md`.

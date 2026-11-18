@@ -1,9 +1,9 @@
 # @hub/sequences
 
-Follow-up sequences (P47): the rules of a client who does not answer. The design and the commands are the core page
+Follow-up sequences: the rules of a client who does not answer. The design and the commands are the core page
 `@docs/core/23-sequences.md`; this package is the one place the rules live, so the database, the CLI and the server use one rule.
 
-- `src/definition.ts`: `parseSequence(text, file)` over the text of `projects/<slug>/sequences/<id>.md` (front matter, the
+- `src/definition.ts`: `parseSequence(text, file)` over the text of `projects/<slug>/sequences/<id>.md` (front matter, `max_words` among it: 30 to 400, default 90; the
   Steps table, the stop list; every problem is an issue, never a throw), `isUsable`, `pickSequence`, `scheduleOf`.
 - `src/transitions.ts`: `enrolSnapshot` and `transition(snapshot, event)`, the one owner of an enrollment's moves. The
   repository (`@hub/db` `repos/enrollments.ts`) calls it inside its transaction and never writes a state by hand.

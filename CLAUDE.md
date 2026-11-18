@@ -1,7 +1,8 @@
 # Hub Workflow (core)
 
-Manual-first: the owner starts a session and hands it ONE instruction. Nothing runs in the background. This is the
-**core** layer (any owner, any project); one owner's facts live in `projects/<slug>/` (`@docs/LAYERS.md`).
+Agent-first, started by the owner: he starts a session (`hub agent <slug>`, or a tab of the admin's terminal dock) and hands it ONE
+instruction; you do the work, the admin shows it live, he decides and sends. Nothing is scheduled. This is the **core** layer (any owner,
+any project); one owner's facts live in `projects/<slug>/` (`@docs/LAYERS.md`).
 
 ## Binding (before any tool call)
 - One session, one project. Slug from the phrase ("... проекта X") or `$HUB_PROJECT` (`hub agent <slug>`). Neither: ask which.

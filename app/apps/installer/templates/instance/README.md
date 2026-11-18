@@ -21,11 +21,15 @@ Keep this repository private: it holds client facts. Secrets live only in `state
 Run everything from this folder (the command finds the instance, and runs the pinned `core/`):
 
 ```sh
+./run.sh                           # the menu: agent session, admin, check, mail filters
 ./run.sh doctor                    # setup checks, instance-vs-core check, project table
-./run.sh agent <project>           # a Claude Code session bound to one project; then say «настрой проект <project>» the first time
-./run.sh up                        # the admin: review the drafts (ports: admin_port / api_port in config/config.json)
+./run.sh up                        # the admin: what the agent did, live; you send (ports: admin_port / api_port in config/config.json)
+./run.sh agent <project>           # a Claude Code session bound to one project (--cli codex for Codex); say «настрой проект <project>» the first time
+./run.sh send policy <project>     # the project's send policy; only you change it (set <project> <field> <value>)
 ./run.sh core update               # list core versions; --apply <tag> moves the pin, --branch main follows main
 ```
+
+Switches in `config/config.json`: `terminal.enabled: true` puts the agent in the admin (a terminal dock on the right edge, Ctrl+`); `agent.default` picks Claude or Codex; `agent.unattended: true` drops the prompts and turns the OS sandbox on (`core/@docs/core/24-terminal.md`).
 
 The admin's header shows `name` from `config/config.json` ("Hub" when empty) and, when `logo` names an image file (svg, png, jpg or webp; a relative path is read from `config/`), that logo; otherwise a monogram. `./run.sh doctor` warns when the logo file is missing.
 

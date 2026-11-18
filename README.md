@@ -1,17 +1,23 @@
-# reforms-crm: a local, manual-first mail and CRM workflow
+# reforms-crm: an agent-first mail and CRM workflow
 
 > This repository is the **core**: universal code, skills and docs, free of any owner's data. One owner's projects live in an
 > **instance** outside it. Rule and steps: [`@docs/LAYERS.md`](@docs/LAYERS.md).
 
-You start a Claude Code session (or Claude Desktop) and hand it ONE instruction. The agent reads a project's mail, updates the
-project's CRM in Notion through the session's own connector, and leaves UNSENT reply drafts. Nothing runs in the background and
-the agent never sends. A local admin app lets a person review each draft and send it one at a time.
+**The agent does the work, the admin shows it, the owner decides.** You start an agent session (Claude Code or Codex, `hub agent <project>`) and hand it one
+instruction in your own words. The agent reads the project's mail in Apple Mail, updates the project's CRM in Notion through the session's own connector,
+and leaves UNSENT reply drafts. The local admin (`hub up`) shows what it did, live: the drafts land in Drafts within a second, each with its reason and
+checks, and Activity lists every client it handled. You read a draft and press Send, one at a time. The agent has no send tool; to whom a project's
+drafts may go, and whether anything may go without a click, is that project's send policy, which only you set (`hub send policy`). Nothing is scheduled.
+
+With `terminal.enabled: true` the admin carries the agent itself: a terminal dock on the right edge (Ctrl+`) runs Claude Code, Codex or a shell beside
+the drafts. The admin tells the agent what it shows (the shared focus), so "answer this client" means the draft on your screen.
 
 ## Quickstart
-1. Node 22.20 or newer and pnpm (`./install.sh` in the core installs both). Make an instance (below). From it, `./run.sh setup` checks the folders, config, skills and project registry, and ends with `ready: run hub agent`. (`./install.sh` also installs the dependencies once; it runs `hub setup` only when `HUB_HOME` is set.) It asks for nothing: no Claude token, no Notion token, and it writes nothing outside the instance. Run the instance with `./run.sh`; the `hub` shortcut on PATH (`hub link`) is optional. Which access goes to what: [`@docs/setup/access.md`](@docs/setup/access.md).
-2. `./run.sh agent new`, then say `настрой проект <name>` (set up project): the `project-setup` skill interviews you and writes `projects/<slug>/project.md`. The trigger phrases of every skill are in [`skills/README.md`](skills/README.md).
-3. `./run.sh agent <slug>`, then say `разбери почту проекта <name>` (triage the project's mail). Drafts land unsent in Mail.
+1. Node 22.20 or newer and pnpm (`./install.sh` in the core installs both and the dependencies). Make an instance (below). From it, `./run.sh setup` checks the folders, config, skills and project registry and ends with `ready: run hub agent`. It asks for no Claude or Notion token and writes nothing outside the instance. Which access goes to what: [`@docs/setup/access.md`](@docs/setup/access.md).
+2. `./run.sh agent new`, then say `настрой проект <name>` (set up project): the `project-setup` skill interviews you and writes `projects/<slug>/project.md`. What to say for each skill: [`skills/README.md`](skills/README.md).
+3. `./run.sh up` opens the admin. `./run.sh agent <slug>` (or the dock), then say `разбери почту проекта <name>` (triage the project's mail): the drafts appear in Drafts and wait unsent in Mail.
 
+`./run.sh` alone opens a menu (agent session, admin, check, mail filters). The `hub` shortcut on PATH (`hub link`) is optional; `hub <command>` and `./run.sh <command>` are the same thing.
 Needed once: Mail.app with the account, `mail-mcp` running, the Notion connector signed in (`/mcp` in Claude Code). `hub doctor` shows what is missing, each row with its fix; the full list is the generated [`@docs/setup/checklist.md`](@docs/setup/checklist.md).
 
 ## Creating an instance
@@ -22,12 +28,12 @@ The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` li
 ## The commands
 | Command | What it does |
 |---|---|
-| `hub agent [project] [--cli claude\|codex\|shell]` | The product: a Claude Code or Codex session (`agent.default`, default Claude). `<project>` binds a fresh session to one project; no argument continues the last one. `--prepare` writes the session files and starts nothing |
-| `hub up [--demo]` | The local admin: review the drafts the agent made. `--demo` uses invented data on a separate database |
-| `hub doctor [project]` | Read-only health table, each row printed as its step ends, with its time; `--only <step or group>` runs just those, `--fast` leaves the audit (backup) checks out, `--canary` adds the lead-form canaries; never fails on optional things |
+| `hub agent [project] [--cli claude\|codex\|shell]` | The product: a Claude Code or Codex session in the instance (`agent.default`, default Claude). `<project>` binds a fresh session to one project; no argument continues the last one. `--prepare` writes the session files and starts nothing. The dock's tabs run exactly this command |
+| `hub up [--demo]` | The local admin and its API on 127.0.0.1, opened in the browser: what the agent did, and your decisions. `--demo` uses invented data on a separate database |
+| `hub doctor [project]` | Read-only health table, each row printed as its step ends, with its time; `--only <step or group>` runs just those, `--fast` leaves the audit (backup, Agent) checks out, `--canary` adds the lead-form canaries; never fails on optional things |
 | `hub setup` | Idempotent install of folders, config, skills and the project registry (`./install.sh` runs it) |
 
-`hub` alone opens a menu of the same four things; `./hub.sh` does the same without an install. Other commands (`hub projects`, `hub filters`, `hub test`, ...) are hidden from `--help`; each has `hub <name> --help`.
+`hub` alone opens a menu of the same things; `./hub.sh` does the same from a core checkout without an install. Other commands are hidden from `--help` and each has `hub <name> --help`: among them `hub send policy` (the send policy, the one writer), `hub sequences` (follow-ups), `hub connections`, `hub token`, `hub backup`, `hub core update`, and the ones a session calls (`hub record-draft`, `hub record-client`, `hub mcp`, `hub focus`).
 
 ## Where things are
 
@@ -43,6 +49,7 @@ The one index. Every page below owns its facts; others link to it.
 | The Notion CRM: databases, every field, setup | [`@docs/notion/README.md`](@docs/notion/README.md) |
 | Connectors (mail-mcp, Notion MCP) | [`@docs/core/02-connectors.md`](@docs/core/02-connectors.md) |
 | The local admin app: screens, API, where each fact lives | [`@docs/core/06-local-admin-app.md`](@docs/core/06-local-admin-app.md) |
+| Live panels: how the admin updates by itself within a second while an agent writes (`GET /api/live`, the database triggers) | [`@docs/core/06-local-admin-app.md`, Live updates](@docs/core/06-local-admin-app.md#live-updates-p50-decision-0028-in-the-owners-plan-repo) |
 | The stack and where files live (`HUB_HOME`) | [`@docs/core/08-local-app-stack.md`](@docs/core/08-local-app-stack.md) |
 | Messengers (optional Telegram, receive only) | [`app/packages/messengers/README.md`](app/packages/messengers/README.md) |
 | Bulk drafts, the review queue and Sent detection | [`@docs/core/14-bulk-send-interface.md`](@docs/core/14-bulk-send-interface.md) |
@@ -55,14 +62,23 @@ The one index. Every page below owns its facts; others link to it.
 | Leads: the writer contract and the read-only counts | [`@docs/core/21-leads.md`](@docs/core/21-leads.md) |
 | Lead forms: the check that a lead still arrives (`hub doctor --only Leads`, the canary contract, `config/lead-forms.json`) | [`@docs/core/22-lead-forms.md`](@docs/core/22-lead-forms.md) |
 | Follow-up sequences: the files, the enrollments, who may enrol, the Follow-ups view (`hub sequences`) | [`@docs/core/23-sequences.md`](@docs/core/23-sequences.md) |
-| The embedded terminal, the agent modes (attended, unattended with the OS sandbox) and Agent tools | [`@docs/core/24-terminal.md`](@docs/core/24-terminal.md) |
+| The terminal dock, the agent modes (attended, unattended with the OS sandbox), the send policy and send ticket, and Agent tools | [`@docs/core/24-terminal.md`](@docs/core/24-terminal.md) |
+| Shared focus: what the agent knows of your screen (`hub mcp`, `hub focus`, the session rules, the prompt hook) | [`@docs/core/24-terminal.md`, Shared focus](@docs/core/24-terminal.md#shared-focus-the-agent-sees-what-the-owner-sees-p51-decision-0029) |
+| A package's own layout: `@hub/agent` (sessions, `hub mcp`, focus), `@hub/terminal`, `@hub/contract` (the API schemas), `@hub/sequences`, `@hub/ui`, `@hub/knowledge`, `@hub/notion` | `app/packages/<name>/README.md` |
 | Rules for changing the admin app | [`app/@rules/README.md`](app/@rules/README.md) |
 
-A new document takes the next free number in `@docs/core/` and a row here. Secrets live only in the git-ignored `state/secrets/`; local settings `config/config.json`, `.mcp.json` and `state/` are git-ignored too. `hub agent` runs Claude Code or Codex in the instance's mode: attended (prompts on) by default, or `agent.unattended: true` (Claude `--dangerously-skip-permissions` inside its OS sandbox, Codex the `hub` permissions profile with `approval_policy = "never"`; never a sandbox bypass). Either way the send tools are denied, the send policy is the server's (`hub send policy`) and a manual Send needs the admin's ticket ([`@docs/core/24-terminal.md`](@docs/core/24-terminal.md)); `hub audit-run <transcript.jsonl> --project <slug>` checks a session after the fact. Extra readable folders: `HUB_EXTRA_DIRS`.
+A new document takes the next free number in `@docs/core/` and a row here. Secrets live only in the git-ignored `state/secrets/`; local settings `config/config.json`, `.mcp.json` and `state/` are git-ignored too.
 
 ## Architecture
 
-An instance owns its data, config, secrets, backups, skills and each project's development plans (`projects/<slug>/@dev/`, a kanban made by `hub dev init`); what may sit in the user's home (only the optional `hub` shortcut): [`08`](@docs/core/08-local-app-stack.md). Skills (`skills/` in the core, instructions) tell a Claude session what to do; each instance links them into its own `.claude/skills/` (relative symlinks, generated, git-ignored), which Claude Code loads when it starts in the instance, so twenty instances share nothing. The `hub` CLI (`app/apps/installer`) starts the agent, the admin and the doctor. The server (`app/apps/server`, 127.0.0.1:4317) owns `data/app.db`, the confirmed Send and the optional Telegram poller. The admin (`app/apps/admin`, 127.0.0.1:5173) only talks to the server. Mail goes through `mail-mcp` (:8787, no send tool); client records live in Notion; project facts, knowledge and development plans are files in `projects/<slug>/`. Details: [`@docs/00-README.md`](@docs/00-README.md).
+| Part | Where | Does |
+|---|---|---|
+| Skills | `skills/` (instructions, not code) | Tell an agent session what to do for what you ask; each instance links them into its own `.claude/skills/` (and the Codex home), generated and git-ignored |
+| `hub` CLI | `app/apps/installer` | Starts the agent (`hub agent`) and the admin (`hub up`), checks health (`hub doctor`), records what a session did (`hub record-draft`, `hub record-client`), serves the read-only `hub` MCP server (`hub mcp`) |
+| Server | `app/apps/server`, 127.0.0.1:4317 | Owns `data/app.db`, the live stream, the confirmed Send (send policy and single-use ticket), Sent detection, the terminal's sessions, the shared focus, the optional Telegram poller |
+| Admin | `app/apps/admin`, 127.0.0.1:5173 | Drafts (the home), Activity, Project, Connections, Overview with two or more projects, and the terminal dock; talks only to the server |
+
+Agent sessions: attended (the CLI asks) by default, or `agent.unattended: true` (no prompts, the OS sandbox on, never a sandbox bypass). In both, the send tools are denied, the session cannot write the send policy, and `hub audit-run <transcript.jsonl> --project <slug>` checks a session after the fact ([`24`](@docs/core/24-terminal.md)). Mail goes through Apple Mail only (`mail-mcp` on :8787 for the agent, no send tool; `osascript` for the hub's send and Sent detection); client records live in Notion; project facts, knowledge, follow-up sequences and development plans are files in `projects/<slug>/`. An instance owns its data, config, secrets, backups and skills; the user's home holds at most the optional `hub` shortcut ([`08`](@docs/core/08-local-app-stack.md)). Details: [`@docs/00-README.md`](@docs/00-README.md).
 
 ## License
 Not chosen yet: see `LICENSE.todo`.

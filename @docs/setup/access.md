@@ -8,16 +8,17 @@ No secret is ever stored in git, a log or a page. Secrets live only in the git-i
 
 | Access | Goes to | Stored in | Needed for | Verified by |
 |---|---|---|---|---|
-| Notion connector (OAuth, signed in with `/mcp`) | The Notion workspace the agent reads and writes in a session | The Claude session; no file | Every manual session | `notion.connector` (hint only) |
+| Notion connector (OAuth) | The Notion workspace the agent reads and writes in a session | The CLI's own store: Claude Code after `/mcp`; Codex per project home after `codex mcp login notion`; no file of the hub | Every agent session | `notion.connector` (hint only), Agent tools `mcp.answers.notion` |
 | Notion hub integration (read) | Every database of each project, whole teamspace | `state/secrets/notion-token` | `notion-dump`, backups, the project doctor's database check | `notion.token`, `notion.access` |
 | Notion backend integration (django_notion) | Leads and Clients (write) | The backend's environment; never in the hub | A site's form handler writing leads | Owner only (see below) |
 | Mail account | Mail.app, through `mail-mcp` on `localhost:8787` (the agent) and `osascript` (the hub) | Mail.app; the name in `config/config.json`; no file in the hub | Reading mail, creating unsent drafts, the confirmed send, Sent detection | `mail.daemon`, `mail.account` |
 | Telegram bot token (optional) | A bot made with @BotFather | `state/secrets/telegram-bot-token` | The receive-only poller | `messengers.token`, `telegram.getme`, `messengers.poller` |
 | Backup snapshot (`hub backup`) | Nothing external: a folder (default `<instance>/backups/`, git-ignored) | `backups/` or `backup_dir` in `config/config.json` | A copy of the database, the Notion dump and the config that git does not hold | `backup.snapshot` |
 | Lead-form canary secret (optional) | One site's form handler: an HMAC key it shares with the hub, one per handler | `state/secrets/<secretRef>` (named in `config/lead-forms.json`); the same value in the site's environment | `hub doctor --only Leads --canary` ([`../core/22-lead-forms.md`](../core/22-lead-forms.md)) | the `leads.<form>` rows (WARN "canary not run" when missing) |
-| Claude Code sign-in | The `claude` CLI on this machine | Claude's own store | `hub agent` | `tools.claude` |
+| Claude Code sign-in | The `claude` CLI on this machine | Claude's own store | `hub agent` (the default CLI) | `tools.claude`, Agent tools |
+| Codex sign-in (optional) | The `codex` CLI on this machine | Codex's `auth.json`; each project's Codex home (`state/codex/<slug>/`) links to it, never a copy | `hub agent --cli codex` | Agent tools `cli.signed-in` |
 
-The hub expects no Claude API token, no Cloudflare credential and no mail login. Mail routing at Cloudflare and any DNS are outside this code; they are not checked here.
+The hub holds no API key for Claude or Codex (each CLI signs in itself), no Cloudflare credential and no mail login. The send policy (`state/projects/<slug>/send-policy.json`) and the admin's send ticket are permissions, not credentials: [`../core/24-terminal.md`](../core/24-terminal.md). Mail routing at Cloudflare and any DNS are outside this code; they are not checked here.
 
 ## Notion
 
@@ -37,7 +38,7 @@ An internal integration the owner creates once, in the workspace that holds the 
 
 ### The Notion connector (session)
 
-The Claude Notion connector is what an agent session writes CRM pages with. It needs no token and sees what its user sees. Sign in once with `/mcp` in Claude Code. The doctor can only check that `.mcp.json` lists the server; whether you are signed in is visible inside a session.
+The Notion connector is what an agent session writes CRM pages with. It needs no token and sees what its user sees. Sign in once with `/mcp` in Claude Code; for Codex once per project home (`CODEX_HOME=state/codex/<slug> codex mcp login notion`, the fix line the Agent tools row prints). `notion.connector` only checks that `.mcp.json` lists the server; Agent tools (`hub doctor --only Agent`, or Connections) shows per CLI whether it answers.
 
 ### The backend integration (django_notion)
 

@@ -17,7 +17,7 @@ unsure where a file goes, this page decides.
   `knowledge/`), never as `if slug == ...` in code or skills. A project that needs something the schema cannot say gets a new
   schema field (a core change), not a private branch.
 - An instance never edits core to suit itself. A need that two owners would share becomes a core change; otherwise it stays in the instance.
-- Core runs the same in every instance: agents reach Mail and Notion through their own connectors (`mail-mcp`, the session's Notion connector), the core's local tools (`hub record-draft`, `hub record-client`, `hub sequences`, the knowledge MCP, the guard) write the instance's database, and the admin shows that state. An instance differs only by data: its projects, and its brand (`name` and `logo` in `config/config.json`, which the admin's brand header reads), never by UI code.
+- Core runs the same in every instance: agents reach Mail and Notion through their own connectors (`mail-mcp`, the session's Notion connector), the core's local tools (`hub record-draft`, `hub record-client`, `hub sequences`, the knowledge MCP, the read-only `hub` MCP, the guard) write or read the instance's database, and the admin shows that state live. What a session is told at start (the binding, the shared-focus rules) is the core's system prompt (`hub agent`); an instance copies no rule text. An instance differs only by data: its projects, its switches (`terminal.enabled`, `agent.default`, `agent.unattended`), its send policies, and its brand (`name` and `logo` in `config/config.json`, which the admin's brand header reads), never by UI code.
 
 ## Where everything lives
 
@@ -35,13 +35,13 @@ unsure where a file goes, this page decides.
 | `projects/<slug>/` under `HUB_HOME` | **instance** | `project.md`, `mail-filters.md`, `knowledge/`, `reports/`, generated XML |
 | `projects/<slug>/@dev/` under `HUB_HOME` | **instance** | The project's own development plans, a kanban (`hub dev init <slug> --apply` copies the skeleton from `app/projects/_template/@dev/`; `hub dev index` generates its table; doctor step `dev.kanban`). Tracked in the instance repository |
 | `@docs/custom/`, `@dev/`, `@refs/` of an instance | **instance** | The owner's history, decisions, plans and reference material; the instance-wide kanban. Work on one project goes in that project's `@dev/` |
-| `config/config.json`, `state/` (secrets in `state/secrets/`), `.mcp.json`, `.claude/` | **instance**, git-ignored | Local settings, runtime state and every secret (the Connections page and `hub token` write only here). `state/projects/<slug>/send-policy.json` is each project's send policy, written only by `hub send policy` ([core/24-terminal.md](core/24-terminal.md)); `state/codex/<slug>/` the generated Codex homes; `state/focus.json` the admin's shared focus (P51, ids only) |
+| `config/config.json`, `state/` (secrets in `state/secrets/`), `.mcp.json`, `.claude/` | **instance**, git-ignored | Local settings, runtime state and every secret (the Connections page and `hub token` write only here). `state/projects/<slug>/send-policy.json` is each project's send policy, written only by `hub send policy` ([core/24-terminal.md](core/24-terminal.md)); `state/codex/<slug>/` the generated Codex homes; `state/focus.json` the admin's shared focus (ids only) |
 
 ## Create an instance
 
 1. Make a private repository for the owner (one per business owner, not per project: one client's mail must not share a repo with another party's).
 2. Add this repository as a submodule named `core/` and pin it to a release commit. That commit is the only statement of the core version.
-3. In the instance root run with `HUB_HOME` set to it (or use `hub agent` from the instance): `projects/`, `data/`, `state/`, `config/` are created there.
+3. In the instance root run `hub setup` with `HUB_HOME` set to it: `projects/`, `data/`, `state/`, `config/` are created there. `hub init <folder>` does steps 2 and 3 in one command and adds `run.sh`, which sets `HUB_HOME` for every later command (`./run.sh setup`, `./run.sh up`); it makes a local git repository, never a remote.
 4. Say `настрой проект <slug>`: the `project-setup` skill interviews you and writes `projects/<slug>/project.md`, then `hub dev init <slug> --apply` gives the project its own `@dev/`.
 5. Keep your own decisions and plans in the instance's `@dev/` and `@docs/custom/` (a project's development plans in `projects/<slug>/@dev/`); leave core files alone, or change them with a reason that applies to every owner.
 
