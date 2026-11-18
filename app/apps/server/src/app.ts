@@ -13,6 +13,8 @@ import { projectRoutes } from "./routes/project";
 import { sendRoutes, type SenderOptions } from "./routes/sends";
 import { sequenceRoutes } from "./routes/sequences";
 import { terminalRoutes } from "./routes/terminal";
+import { liveRoutes } from "./routes/live";
+import type { LiveService } from "./live";
 import type { TerminalService } from "./terminal";
 import { agentToolRoutes, type AgentToolsService } from "./agent-tools";
 import { createConnections, type ConnectionsOptions } from "./connections";
@@ -40,6 +42,8 @@ export type AppOptions = {
   adminPort?: number;
   /** Connections' Agent tools block (P49 5B); without it its routes are 404. */
   agentTools?: AgentToolsService;
+  /** Live panels (P50): the stream behind `GET /api/live`; without it the route is 404 and the admin keeps polling the pulse. */
+  live?: LiveService;
   now?: () => Date;
 };
 
@@ -99,6 +103,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
       await next();
     })
     .get("/api/health", (c) => c.json(health()))
+    .route("/", liveRoutes(opts.live))
     .get("/api/pulse", (c) => c.json(pulseDto.parse({ dataVersion: opts.dataVersion?.() ?? 0, serverTime: (opts.now?.() ?? new Date()).toISOString(), health: health() })))
     .get("/api/projects", async (c) => c.json(projectsDto.parse({ projects: await repos.projects.list() })))
     .route("/", instanceRoutes(opts.instance))

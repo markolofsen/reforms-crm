@@ -9,6 +9,7 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { ListSkeleton, LoadFailed } from "@/components/state-views";
 import { inboxApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
+import { keys } from "@/lib/cache/keys";
 
 function Row({ r }: { r: InboxRowDto }) {
   return (
@@ -33,7 +34,7 @@ function Row({ r }: { r: InboxRowDto }) {
  */
 export function NotByEmail({ project }: { project: string }) {
   const [kind, setKind] = useState<InboxKind | null>(null);
-  const q = useQuery({ queryKey: ["not-by-email", project, kind], queryFn: () => inboxApi.notByEmail(project, kind), placeholderData: keepPreviousData });
+  const q = useQuery({ queryKey: keys.notByEmail(project, kind), queryFn: () => inboxApi.notByEmail(project, kind), placeholderData: keepPreviousData });
   if (q.isPending) return <ListSkeleton label="Loading the clients not answered by email" />;
   if (!q.data) return <div className="p-3"><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the clients not answered by email" /></div>;
   const { counts, rows } = q.data;
@@ -63,6 +64,6 @@ export function NotByEmail({ project }: { project: string }) {
 
 /** The number beside "Not by email" in the View menu. */
 export function useNotByEmailTotal(project: string): number | undefined {
-  const q = useQuery({ queryKey: ["not-by-email", project, null], queryFn: () => inboxApi.notByEmail(project, null) });
+  const q = useQuery({ queryKey: keys.notByEmail(project, null), queryFn: () => inboxApi.notByEmail(project, null) });
   return q.data ? INBOX_KINDS.reduce((n, k) => n + q.data.counts[k], 0) : undefined;
 }

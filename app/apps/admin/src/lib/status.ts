@@ -5,11 +5,10 @@ import type { ProjectRowDto, StatusDto } from "@hub/contract/overview";
 import { connectionsApi } from "./api/connections";
 import { overviewApi } from "./api/overview";
 import { metaApi } from "./api/meta";
+import { keys } from "./cache/keys";
 
-export const OVERVIEW_KEY = ["overview"] as const;
-
-/** The Overview (local facts only, tens of ms), read again every minute so a status line ages honestly. One query for the shell, the status line and the Overview table. */
-export const useOverview = () => useQuery({ queryKey: OVERVIEW_KEY, queryFn: overviewApi.get, refetchInterval: 60_000 });
+/** The Overview (local facts only, tens of ms): one query for the shell, the status line and the Overview table. Live events refetch it (P50); its ages are drawn with the page clock. */
+export const useOverview = () => useQuery({ queryKey: keys.overview(), queryFn: overviewApi.get });
 
 /** One project's row of the Overview (its status, to-review and sent-today numbers), or undefined while loading. */
 export function useProjectRow(project: string): { row: ProjectRowDto | undefined; isError: boolean; refetch: () => void } {
@@ -21,11 +20,10 @@ export function useProjectRow(project: string): { row: ProjectRowDto | undefined
 export const dotOf = (s: StatusDto | undefined): StatusDto["next"] => (s && s.level !== "clear" ? s.next : null);
 
 /** The instance's brand (name, and whether a logo is served). Cached for the session: it changes only with the config file. */
-export const useInstance = () => useQuery({ queryKey: ["instance"], queryFn: metaApi.instance, staleTime: Infinity });
+export const useInstance = () => useQuery({ queryKey: keys.instance(), queryFn: metaApi.instance, staleTime: Infinity });
 
 /** One project's Agent tools (P49 section 5B): the last result of the server's checks. One key for the Connections block and the nav dot. */
-export const agentToolsKey = (slug: string) => ["agent-tools", slug] as const;
-export const useAgentTools = (slug: string | null) => useQuery({ queryKey: agentToolsKey(slug ?? ""), queryFn: () => connectionsApi.agentTools(slug ?? ""), enabled: slug !== null, staleTime: 60_000 });
+export const useAgentTools = (slug: string | null) => useQuery({ queryKey: keys.agentTools(slug ?? ""), queryFn: () => connectionsApi.agentTools(slug ?? ""), enabled: slug !== null, staleTime: 60_000 });
 
 /** Whether a red Agent tools row puts a dot on Connections, like the project's other "needs you" facts. */
 export function useAgentToolsNeedYou(slug: string | null): boolean {

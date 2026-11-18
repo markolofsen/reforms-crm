@@ -9,6 +9,7 @@ import { FiltersLine, KnowledgeLine, QuestionLine } from "./facts";
 import { SafetyRules } from "./safety-rules";
 import { SendsTable, useSends } from "./sends-panel";
 import { StopSending } from "./stop-sending";
+import { keys } from "@/lib/cache/keys";
 
 /** The first line: the project's standing in one sentence (the Overview's status, said once) and the one control, Stop sending or Resume. */
 function StatusLine({ project, sends }: { project: string; sends: ReturnType<typeof useSends> }) {
@@ -36,7 +37,7 @@ function StatusLine({ project, sends }: { project: string; sends: ReturnType<typ
  */
 export function ProjectPage({ project }: { project: string }) {
   const sends = useSends(project);
-  const facts = useQuery({ queryKey: ["project", project], queryFn: () => metaApi.overview(project) });
+  const facts = useQuery({ queryKey: keys.project(project), queryFn: () => metaApi.overview(project) });
   const list = sends.q.data?.sends ?? [];
   return (
     <>

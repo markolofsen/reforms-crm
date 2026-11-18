@@ -4,12 +4,13 @@ import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { sendApi } from "@/lib/api/send";
 import { FactLine } from "./fact-line";
+import { keys } from "@/lib/cache/keys";
 
 const OUTCOME = { pass: { label: "Pass", variant: "success" }, fail: { label: "Fail", variant: "error" }, skipped: { label: "Skipped", variant: "secondary" } } as const;
 const RECIPIENTS: Record<NonNullable<DoctorDto["facts"]>["recipients"], string> = { test: "drafts go to the test list only", any: "drafts may go to any address", list: "drafts go to the listed addresses only" };
 
 /** The project doctor (`hub project doctor`), read once for the Health and Setup lines (one key, `state-and-data.md` rule 2). */
-const useDoctor = (project: string) => useQuery({ queryKey: ["doctor", project], queryFn: () => sendApi.doctor(project) });
+const useDoctor = (project: string) => useQuery({ queryKey: keys.doctor(project), queryFn: () => sendApi.doctor(project) });
 
 /** While the doctor is read or failed, a line still stands in its place and says so. */
 function Pending({ title, q }: { title: string; q: ReturnType<typeof useDoctor> }) {

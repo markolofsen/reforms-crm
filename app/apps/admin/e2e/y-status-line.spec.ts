@@ -46,6 +46,8 @@ test("status line: when the overview cannot be read it says so, never all clear,
 });
 
 test("status line: when the server stops answering the line says the data may be old", async ({ page }) => {
+  // With the live stream up the pulse is not polled (P50); the stream refused, the page falls back to the 10 s pulse.
+  await page.route(/\/api\/live/, (route) => route.fulfill({ status: 503, json: { error: "busy", code: "busy" } }));
   await page.goto(at(P, "/drafts?filter=all"));
   await expect(line(page)).toBeVisible();
   await page.route(/\/api\/pulse$/, (route) => route.fulfill({ status: 500, json: { error: "server error", code: "server" } }));

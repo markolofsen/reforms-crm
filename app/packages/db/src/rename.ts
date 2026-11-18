@@ -27,7 +27,7 @@ const q = (id: string) => `"${id.replace(/"/g, '""')}"`;
 function slugColumns(sqlite: Database.Database): Array<{ table: string; column: string }> {
   const out: Array<{ table: string; column: string }> = [];
   const tables = sqlite
-    .prepare("select name from sqlite_master where type = 'table' and sql not like 'CREATE VIRTUAL%' and name not like 'sqlite_%' and name not like '__drizzle%' order by name")
+    .prepare("select name from sqlite_master where type = 'table' and sql not like 'CREATE VIRTUAL%' and name not like 'sqlite_%' and name not like '__drizzle%' and name not like 'live_%' order by name")
     .all() as Array<{ name: string }>;
   for (const { name } of tables) {
     if (!IDENT.test(name)) continue;

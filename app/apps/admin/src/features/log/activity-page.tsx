@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ListDetail } from "@hub/ui/product/list-detail";
 import { Page } from "@hub/ui/product/page";
@@ -9,16 +10,18 @@ import type { RunFilter } from "@/routes/search";
 import { FilterMenu } from "./filter-menu";
 import { SessionDetail, SessionHint, SessionMissing } from "./session-detail";
 import { SessionRows, SessionTable } from "./session-list";
-
-export const activityKey = (project: string, filter: RunFilter) => ["activity", project, filter] as const;
+import { useNewRows } from "./use-new-rows";
+import { keys } from "@/lib/cache/keys";
 
 type Props = { project: string; filter: RunFilter; run: number | null };
 
 /** The table side: the View menu in the header line, then the sessions, in each of the four states of a list. */
 function Sessions({ project, filter, run }: Props) {
   const setFilter = useSearchState("filter")[1];
-  const q = useQuery({ queryKey: activityKey(project, filter), queryFn: () => metaApi.activity(project, filter), refetchInterval: 10_000, placeholderData: keepPreviousData });
+  const q = useQuery({ queryKey: keys.activity(project, filter), queryFn: () => metaApi.activity(project, filter), placeholderData: keepPreviousData });
   const data = q.data;
+  const ids = useMemo(() => (q.isPlaceholderData ? undefined : data?.sessions.map((s) => s.runId)), [data, q.isPlaceholderData]);
+  const fresh = useNewRows(`${project}/${filter}`, ids);
   const body = q.isPending ? (
     <ListSkeleton label="Loading the activity" />
   ) : !data ? (
@@ -37,6 +40,9 @@ function Sessions({ project, filter, run }: Props) {
   );
   return (
     <Page actions={<FilterMenu counts={data?.counts} onChange={setFilter} value={filter} />}>
+      <p className="sr-only" data-testid="activity-new" role="status">
+        {fresh}
+      </p>
       {body}
       {q.isError && data && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
     </Page>
@@ -45,7 +51,7 @@ function Sessions({ project, filter, run }: Props) {
 
 /** The opened session, read from the same query as the table (one key, `state-and-data.md` rule 2). */
 function Detail({ project, filter, run }: Props) {
-  const q = useQuery({ queryKey: activityKey(project, filter), queryFn: () => metaApi.activity(project, filter), placeholderData: keepPreviousData });
+  const q = useQuery({ queryKey: keys.activity(project, filter), queryFn: () => metaApi.activity(project, filter), placeholderData: keepPreviousData });
   if (run === null) return <SessionHint />;
   const session = q.data?.sessions.find((s) => s.runId === run);
   if (session) return <SessionDetail filter={filter} session={session} />;

@@ -42,9 +42,11 @@ export default defineConfig({
   // Every screen is looked at at three widths (rules: ui-specifications 4). The flows that change data run once, at 1280;
   // the layout and console specs run at all three.
   projects: [
-    { name: "w1280", use: { viewport: { width: 1280, height: 800 } } },
+    { name: "w1280", use: { viewport: { width: 1280, height: 800 } }, testIgnore: /zz-live/ },
     { name: "w768", use: { viewport: { width: 768, height: 1024 } }, testMatch: /(a-layout|c-console)/ },
     { name: "w360", use: { viewport: { width: 360, height: 740 }, hasTouch: true }, testMatch: /(a-layout|c-console)/ },
+    // P50: the live flow stops and restarts the API, so it is the last project (one worker runs the projects in this order).
+    { name: "live", use: { viewport: { width: 1280, height: 800 } }, testMatch: /zz-live/ },
   ],
   use: {
     baseURL: `http://127.0.0.1:${UI_PORT}`,

@@ -12,11 +12,13 @@ import { PlaceContext, ProjectScopeContext, useEnsureAddress, type ProjectScope 
 import { useRoute } from "@/hooks/use-route";
 import { useSectionNav } from "@/hooks/use-section-nav";
 import { metaApi } from "@/lib/api/meta";
-import { usePulse } from "@/lib/pulse";
+import { useLive } from "@/lib/cache/live";
+import { usePulse } from "@/lib/cache/pulse";
 import { dotOf, useAgentToolsNeedYou, useInstance, useProjectRow } from "@/lib/status";
 import { paths, sectionList } from "@/routes/paths";
 import { sectionTitle } from "@/routes/sections";
 import { AppShell, type ShellNavItem } from "./shell";
+import { keys } from "@/lib/cache/keys";
 
 /** The nav with a dot on the section that fixes the project's worst fact (Project or Connections), and on Connections while an Agent tools row is red. */
 function useNavWithDots(project: string | null): ShellNavItem[] {
@@ -29,15 +31,16 @@ function useNavWithDots(project: string | null): ShellNavItem[] {
 
 /**
  * The frame every screen sits in. It is the seam between the route files (server, thin) and the screens (client): it
- * reads the projects, the brand and the pulse, makes the address canonical (`useEnsureAddress`), and renders the page it
+ * opens the live stream (P50), reads the projects, the brand and the pulse, makes the address canonical (`useEnsureAddress`), and renders the page it
  * was given only when there is a project. The screens read their project from the scope, never from the address.
  */
 export function ShellFrame({ children }: { children: ReactNode }) {
   const route = useRoute();
   const go = useGo();
+  useLive();
   usePulse();
   const instance = useInstance();
-  const projects = useQuery({ queryKey: ["projects"], queryFn: metaApi.projects });
+  const projects = useQuery({ queryKey: keys.projects(), queryFn: metaApi.projects });
   const list = useMemo(() => projects.data?.projects ?? [], [projects.data]);
   const { place, pending } = useEnsureAddress(route, list);
   const project = place?.project ?? null;

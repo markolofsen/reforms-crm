@@ -19,6 +19,8 @@ import { mailReadable, tickBlock } from "../mail/tick-guard";
 import { CheckList } from "./check-list";
 import { DraftBlock } from "./draft-block";
 import { useDraftMail } from "../mail/use-draft-mail";
+import { useChangedUnder } from "../mail/use-changed-under";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { dwellPassed, useSendKey } from "../mail/use-send-key";
 import { useOnSent, useSendFlow } from "./use-send-flow";
 
@@ -48,6 +50,7 @@ export function DraftCard({ d, project, actions, now, thread, onThread, onReplyA
   const mailError = mailRead.isError && !mail ? sentence(mailRead.error) : null;
   const state = stateOf(d, flow.step, mailReadable(mail));
   const first = firstName(d);
+  const under = useChangedUnder(d);
   const cancel = useMutation({
     mutationFn: () => (d.sendState ? sendApi.cancel(project, d.sendState.id) : Promise.reject(new Error("Nothing is queued."))),
     onSuccess: () => {
@@ -106,6 +109,20 @@ export function DraftCard({ d, project, actions, now, thread, onThread, onReplyA
         )}
         {d.skipReason && <p className="text-sm">Skipped: {d.skipReason}</p>}
         <BasedOnStrip d={d} />
+        {under.changed && (
+          <div className="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm lg:min-h-0" role="status">
+            <span className="min-w-0 flex-1">Changed by the agent since you opened it.</span>
+            <ActionButton
+              onClick={() => {
+                under.seen();
+                void mailRead.refetch();
+              }}
+              size="s"
+            >
+              Reload
+            </ActionButton>
+          </div>
+        )}
         {mailError !== null && <LoadFailed error={mailRead.error} onRetry={() => void mailRead.refetch()} retrying={mailRead.isFetching} what="the draft from Mail" />}
         <CheckList actions={actions} d={d} {...(mail?.found ? { results: mail.safetyResults } : {})} />
         <DraftBlock actions={actions} confirmed={confirmed} d={d} {...(mail ? { live: mail } : {})} onRead={() => void mailRead.refetch()} onThread={onThread} project={project} reading={mailRead.isFetching} thread={thread} />

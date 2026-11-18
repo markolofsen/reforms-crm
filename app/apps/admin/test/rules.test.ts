@@ -27,6 +27,16 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^
 const inDir = (dir: string) => appFiles.filter((p) => rel(p).startsWith(`${dir}/`));
 const offenders = (files: string[], re: RegExp) => files.filter((p) => re.test(code(p))).map(rel);
 
+// Live panels (P50, `state-and-data.md` rules 2 and 13): one key factory, one stream.
+describe("one key factory, one live stream", () => {
+  it("no query key is a literal outside lib/cache/keys.ts", () => {
+    expect(offenders(appFiles.filter((p) => rel(p) !== "lib/cache/keys.ts"), /queryKey:\s*\[/)).toEqual([]);
+  });
+  it("new EventSource and BroadcastChannel only in lib/cache/live.ts", () => {
+    expect(offenders(appFiles.filter((p) => rel(p) !== "lib/cache/live.ts"), /new (EventSource|BroadcastChannel)\b/)).toEqual([]);
+  });
+});
+
 describe("page size", () => {
   it(`a page.tsx is thin: at most ${PAGE_LINE_CAP} lines (await the params, parse the search, render a feature)`, () => {
     const pages = appFiles.filter((p) => rel(p).startsWith("app/") && /\/page\.tsx$/.test(p));

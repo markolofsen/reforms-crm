@@ -8,9 +8,12 @@ import { cn } from "@hub/ui/cn";
 import { AppLink } from "@/components/app-link";
 import { useClock } from "@/lib/clock";
 import { ago, plural } from "@/lib/format";
-import { usePulse } from "@/lib/pulse";
+import { useLiveState, type LiveState } from "@/lib/cache/live";
+import { usePulse } from "@/lib/cache/pulse";
 import { useProjectRow } from "@/lib/status";
 import { paths, type Dest } from "@/routes/paths";
+
+const LIVE_WORD: Record<Exclude<LiveState, "connecting">, string> = { live: "Live", reconnecting: "Reconnecting, data may be old" };
 
 type Line = { level: StatusLevel; sentence: string; numbers: string[]; to: Dest | null; kind: string };
 
@@ -38,6 +41,7 @@ export function lineOf(s: StatusDto, now: number, shell: { stale: boolean; serve
 export function StatusLine({ project }: { project: string }) {
   const { row, isError, refetch } = useProjectRow(project);
   const pulse = usePulse();
+  const live = useLiveState();
   const now = useClock()();
   if (!row) {
     return isError ? (
@@ -62,6 +66,11 @@ export function StatusLine({ project }: { project: string }) {
         <span className={cn(l.level === "clear" ? "text-muted-foreground" : "font-medium")}>{l.sentence}</span>
         {l.numbers.length > 0 && <span className="text-muted-foreground"> · {l.numbers.join(" · ")}</span>}
       </span>
+      {live !== "connecting" && (
+        <span className="shrink-0 text-xs text-muted-foreground" data-state={live} data-testid="live-state" title={live === "live" ? "Updates arrive as the agent writes" : "Live updates stopped; the page checks the server every 10 s"}>
+          {LIVE_WORD[live]}
+        </span>
+      )}
     </>
   );
   return (

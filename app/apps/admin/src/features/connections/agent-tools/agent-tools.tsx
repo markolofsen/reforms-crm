@@ -12,10 +12,11 @@ import { sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
 import { copyText } from "@/lib/external";
 import { ago } from "@/lib/format";
-import { agentToolsKey, useAgentTools } from "@/lib/status";
+import { useAgentTools } from "@/lib/status";
 import { ConnectionGroup } from "../group";
 import { CLI_TITLE, columns, toolsSentence } from "./labels";
 import { ToolTable } from "./tool-table";
+import { keys } from "@/lib/cache/keys";
 
 type Say = { text: string; kind: "status" | "alert" } | null;
 
@@ -33,7 +34,7 @@ function ProjectTools({ slug, multi }: { slug: string; multi: boolean }) {
     mutationFn: () => connectionsApi.refreshAgentTools(slug),
     onMutate: () => setSay({ text: "Checking the agent tools...", kind: "status" }),
     onSuccess: (d) => {
-      qc.setQueryData(agentToolsKey(slug), d);
+      qc.setQueryData(keys.agentTools(slug), d);
       setSay({ text: "Checked again.", kind: "status" });
     },
     onError: (e) => setSay({ text: `Could not check again: ${sentence(e)}`, kind: "alert" }),

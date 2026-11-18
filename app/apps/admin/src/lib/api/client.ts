@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { parseApiError, type ApiErrorCode } from "@hub/contract/errors";
+import { MAIL_KEYS } from "../cache/keys";
 
 /** A refusal or a failure, with the sentence to show and the code to decide on. */
 export class ApiFailure extends Error {
@@ -71,8 +72,6 @@ export async function read<T>(schema: Parser<T>, call: Call): Promise<T> {
 /** The sentence for any thrown value. */
 export const sentence = (e: unknown): string => (e instanceof Error ? e.message : "Something went wrong.");
 
-/** Reads of Mail (an `osascript` call each): the draft as Mail holds it, and a client's thread. */
-const MAIL_KEYS: readonly unknown[] = ["draft-mail", "thread"];
 
 /**
  * After a write (or a changed database file) every list but the pulse is read again. Mail is read again only when the
@@ -80,4 +79,7 @@ const MAIL_KEYS: readonly unknown[] = ["draft-mail", "thread"];
  * the server compares the text's hash again at send, so a cached read can never send other text than the person saw.
  */
 export const refreshData = (qc: QueryClient, { mail = false }: { mail?: boolean } = {}) =>
-  qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== "pulse" && (mail || !MAIL_KEYS.includes(q.queryKey[0])) });
+  qc.invalidateQueries({ predicate: (q) => isRefreshed(q.queryKey[0], mail) });
+
+/** Whether `refreshData` reads a key again: never the pulse; Mail only when asked. */
+export const isRefreshed = (head: unknown, mail: boolean): boolean => head !== "pulse" && (mail || typeof head !== "string" || !MAIL_KEYS.includes(head));

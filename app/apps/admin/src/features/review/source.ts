@@ -16,8 +16,6 @@ export type ReviewSource = {
   load: (offset: number) => Promise<ReviewPage>;
   /** A batch can step back its own last action (key U); recorded drafts undo the open draft only. */
   undoLast?: () => Promise<unknown>;
-  /** Fast polling while a batch waits for the agent. */
-  refetchMs?: number | false;
 };
 
 export const isClosed = (d: ReviewDraft) => d.status === "done" || d.status === "sent" || d.status === "skipped";

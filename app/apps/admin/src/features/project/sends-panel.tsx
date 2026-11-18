@@ -7,6 +7,7 @@ import { refreshData } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";
 import { formatTime } from "@/lib/format";
 import { paths } from "@/routes/paths";
+import { keys } from "@/lib/cache/keys";
 
 /**
  * The send history and the switch that stops it: every send the hub made or queued, Cancel for a queued one inside its
@@ -15,7 +16,7 @@ import { paths } from "@/routes/paths";
  */
 export function useSends(project: string) {
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["sends", project], queryFn: () => sendApi.list(project) });
+  const q = useQuery({ queryKey: keys.sends(project), queryFn: () => sendApi.list(project) });
   const settle = { onSuccess: () => refreshData(qc) };
   const cancel = useMutation({ mutationFn: (id: number) => sendApi.cancel(project, id), ...settle });
   const stop = useMutation({ mutationFn: (scope: string) => sendApi.stop(scope), ...settle });

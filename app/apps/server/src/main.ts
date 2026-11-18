@@ -12,6 +12,7 @@ import { startMessengers } from "./messengers";
 import { startSentReconciler } from "./sent";
 import { chooseShell, createTerminal } from "./terminal";
 import { chooseAgentTools, createAgentTools } from "./agent-tools";
+import { createLive, folderSignature } from "./live";
 
 // The server is started by `hub up` (which sets HUB_HOME). Started by hand without it: one line and exit 2, not a stack.
 try {
@@ -51,7 +52,11 @@ const fakeShell = chooseShell(process.env) === "fake";
 const terminal = createTerminal({ paths, repos, adminPort: ports.admin, apiPort: port, fakeShell });
 console.log(`terminal: ${terminal.enabled() ? (fakeShell ? "on, FAKE SHELL (HUB_TERMINAL_SHELL=fake)" : "on (admin origin + ticket only)") : "off (terminal.enabled in config/config.json)"}`);
 const agentTools = createAgentTools({ paths, repos, fake: chooseAgentTools(process.env) === "fake" });
-const app = createApp(repos, { terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin } });
+// Live panels (P50): the trigger counter tailed every 200 ms; the pollers' state and the Connections files are watched,
+// since they are not rows (a timestamp of the last poll is left out: it moves on every poll and means nothing to a panel).
+const pollers = () => [messengers.status(), sent.status()].map((s) => `${s.state}|${s.reason ?? ""}|${s.lastError ?? ""}`).join("\n");
+const live = createLive({ db, watch: [{ topic: "health", signature: pollers, everyMs: 1000 }, { topic: "connections", signature: () => folderSignature(paths.secrets), everyMs: 1000 }] });
+const app = createApp(repos, { live, terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);
@@ -71,6 +76,7 @@ onShutdown({
   log: (l) => console.error(l),
   exit: (code) => process.exit(code),
   stop: async () => {
+    live.stop();
     sent.stop();
     terminal.stop();
     try { await messengers.stop(); } finally { server.close(); close(); }

@@ -9,6 +9,7 @@ import { Switch } from "@hub/ui/switch";
 import { refreshData, sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
 import { FactLine } from "./fact-line";
+import { keys } from "@/lib/cache/keys";
 
 type Patch = { enabled?: boolean; params?: { words?: string[]; days?: number } };
 
@@ -75,7 +76,7 @@ export function rulesSummary(list: readonly SafetyRuleDto[]): string {
  * line is closed with a summary and opens by itself when a rule is off (`admin-principles.md` rule 9).
  */
 export function SafetyRules({ project }: { project: string }) {
-  const q = useQuery({ queryKey: ["rules", project], queryFn: () => metaApi.rules(project) });
+  const q = useQuery({ queryKey: keys.rules(project), queryFn: () => metaApi.rules(project) });
   if (!q.data) return <FactLine summary={q.isError ? `Could not be read: ${sentence(q.error)}` : "Reading..."} title="Advanced" tone={q.isError ? "problem" : "plain"} />;
   const { rules } = q.data;
   const anyOff = rules.some((r) => !r.enabled);

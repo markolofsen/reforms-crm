@@ -18,6 +18,7 @@ import { DRAFT_VIEWS, type DraftView } from "@/routes/search";
 import { NotByEmail, useNotByEmailTotal } from "./not-by-email";
 import { FollowUps } from "./sequences/follow-ups";
 import { StatusLine } from "./status-line";
+import { keys } from "@/lib/cache/keys";
 
 // To review first, All last. To review is the address default (a bare `/drafts` shows what needs the owner); All keeps `?filter=all`.
 const LABEL: Record<DraftView, string> = { ready: "To review", hold: "Hold", thin_basis: "Thin basis", finished: "Finished", sequences: "Follow-ups", not_by_email: "Not by email", all: "All" };
@@ -52,13 +53,13 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile }: Props)
   const go = useGo();
   const setQ = useSearchState("q")[1];
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
-  const batches = useQuery({ queryKey: ["batches", project], queryFn: () => reviewApi.batches(project) });
+  const batches = useQuery({ queryKey: keys.batches(project), queryFn: () => reviewApi.batches(project) });
   const notByEmail = useNotByEmailTotal(project);
   const known = batch === null || (batches.data?.batches.some((b) => b.id === batch) ?? true);
   const source = useMemo<ReviewSource>(() => {
     const scope = { search, batch };
     return {
-      queryKey: ["drafts", project, filter, batch, search],
+      queryKey: keys.drafts(project, filter, batch, search),
       project,
       filter,
       countOf,

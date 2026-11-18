@@ -4,6 +4,7 @@ import type { HistoryItemDto } from "@hub/contract/responses";
 import { LoadFailed, Loading } from "@/components/state-views";
 import { reviewApi } from "@/lib/api/review";
 import { formatTime } from "@/lib/format";
+import { keys } from "@/lib/cache/keys";
 
 function Item({ item }: { item: HistoryItemDto }) {
   const Icon = item.direction === "in" ? ArrowDownLeftIcon : ArrowUpRightIcon;
@@ -25,8 +26,8 @@ function Item({ item }: { item: HistoryItemDto }) {
  * when opened. The mail itself is read in Mail (the card's Open in Mail): the Hub keeps no mail login since P48 (decision 0026).
  */
 export function ThreadPanel({ project, clientId }: { project: string; clientId: number }) {
-  const history = useQuery({ queryKey: ["thread", project, clientId], queryFn: () => reviewApi.history(project, clientId) });
-  const timeline = useQuery({ queryKey: ["timeline", project, clientId], queryFn: () => reviewApi.timeline(project, clientId) });
+  const history = useQuery({ queryKey: keys.thread(project, clientId), queryFn: () => reviewApi.history(project, clientId) });
+  const timeline = useQuery({ queryKey: keys.timeline(project, clientId), queryFn: () => reviewApi.timeline(project, clientId) });
   return (
     <div className="flex min-w-0 flex-col gap-3 rounded-lg border bg-muted/40 p-3">
       <section aria-label="Messages" className="flex flex-col gap-2">

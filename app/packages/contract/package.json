@@ -13,7 +13,8 @@
     "./activity": "./src/activity.ts",
     "./instance": "./src/instance.ts",
     "./terminal": "./src/terminal.ts",
-    "./agent-tools": "./src/agent-tools.ts"
+    "./agent-tools": "./src/agent-tools.ts",
+    "./live": "./src/live.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

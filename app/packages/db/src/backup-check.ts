@@ -44,7 +44,7 @@ export function inspectCopy(copy: string): CopyCheck {
     for (const n of names) {
       const c = (db.prepare(`select count(*) as n from "${n.replace(/"/g, '""')}"`).get() as { n: number }).n;
       rows += c;
-      if (n !== LEDGER) dataRows += c;
+      if (n !== LEDGER && !n.startsWith("live_")) dataRows += c; // the live counter's one row is not data (P50)
     }
     return { integrity, tables: names.length, rows, dataRows, bytes: statSync(copy).size };
   } finally {

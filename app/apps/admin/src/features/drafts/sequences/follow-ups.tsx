@@ -12,6 +12,7 @@ import { refreshData, sentence } from "@/lib/api/client";
 import { sequencesApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
 import { paths } from "@/routes/paths";
+import { keys } from "@/lib/cache/keys";
 
 /** Stop follow-ups for one client: it only reduces mail, but the admin cannot restart it (resume is the owner's, in his terminal), so it asks in place. */
 function StopControl({ project, e }: { project: string; e: EnrollmentDto }) {
@@ -56,7 +57,7 @@ function Row({ project, e }: { project: string; e: EnrollmentDto }) {
  * due step into Mail, and the owner sends it from Mail. Nothing here enrols, drafts or sends.
  */
 export function FollowUps({ project }: { project: string }) {
-  const q = useQuery({ queryKey: ["enrollments", project, "active"], queryFn: () => sequencesApi.enrollments(project, "active") });
+  const q = useQuery({ queryKey: keys.enrollments(project, "active"), queryFn: () => sequencesApi.enrollments(project, "active") });
   if (q.isPending) return <ListSkeleton label="Loading the follow-ups" rows={2} />;
   if (!q.data) return <div className="p-3" data-testid="follow-ups-failed"><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the follow-ups" /></div>;
   const rows = q.data.enrollments;

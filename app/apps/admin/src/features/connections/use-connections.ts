@@ -4,8 +4,9 @@ import type { ConnectionDto, ConnectionsDto } from "@hub/contract/connections";
 import type { SetSecretBody } from "@hub/contract/requests";
 import { connectionsApi } from "@/lib/api/connections";
 import { sentence } from "@/lib/api/client";
+import { keys } from "@/lib/cache/keys";
 
-export const CONNECTIONS_KEY = ["connections"] as const;
+export const CONNECTIONS_KEY = keys.connections();
 
 export const useConnections = () => useQuery({ queryKey: CONNECTIONS_KEY, queryFn: connectionsApi.list });
 
