@@ -9,7 +9,7 @@ import { createHmac, randomUUID } from "node:crypto";
 import { fileState, readValue } from "@hub/connections";
 import type { CheckResult } from "../types";
 import type { LeadForm, LeadForms } from "./config";
-import { errText } from "./probe";
+import { errText, request, type Answer } from "./net";
 
 export const ACCEPT_HEADER = "x-canary-accept";
 export const sign = (secret: string, ts: number): string => `${ts}.${createHmac("sha256", secret).update(String(ts)).digest("hex")}`;
@@ -27,7 +27,12 @@ export function canaryBody(form: LeadForm, email: string, ts: number): Record<st
 
 export interface CanaryOut { level: CheckResult["level"]; detail: string }
 
-export async function sendCanary(fetchFn: typeof fetch, cfg: LeadForms, form: LeadForm, secretsDir: string, signal: AbortSignal, now = Date.now()): Promise<CanaryOut> {
+/**
+ * Each request has its own timeout and one retry on a network failure (`net.ts`). The POST is retried with the SAME Idempotency-Key and
+ * signature, so a handler that stored the first attempt answers the second from its idempotency record; at worst a second test row, which
+ * the site's purge removes like the first.
+ */
+export async function sendCanary(fetchFn: typeof fetch, cfg: LeadForms, form: LeadForm, secretsDir: string, deadline: AbortSignal, now = Date.now()): Promise<CanaryOut> {
   if (form.canary.mode === "none") return { level: "warn", detail: `canary: none for this form${form.notes ? ` (${form.notes})` : ""}` };
   const ref = form.canary.secretRef!;
   const st = fileState(secretsDir, ref);
@@ -35,22 +40,21 @@ export async function sendCanary(fetchFn: typeof fetch, cfg: LeadForms, form: Le
   if (!cfg.canaryEmail) return { level: "warn", detail: "canary not run: canaryEmail is not set in config/lead-forms.json" };
   const secret = readValue(secretsDir, ref) ?? "";
 
-  let probe: Response;
-  try { probe = await fetchFn(form.endpoint, { method: "OPTIONS", headers: { "x-canary-probe": "1" }, signal, redirect: "manual" }); } catch (e) { return { level: "fail", detail: `canary probe failed: ${errText(e)}` }; }
-  void probe.body?.cancel();
+  let probe: Answer;
+  try { probe = await request(fetchFn, form.endpoint, { method: "OPTIONS", headers: { "x-canary-probe": "1" }, redirect: "manual" }, deadline, { body: false }); } catch (e) { return { level: "fail", detail: `canary probe failed: ${errText(e)}` }; }
   if (!(probe.headers.get(ACCEPT_HEADER) ?? "").split(/[\s,]+/).includes("v1")) return { level: "warn", detail: "canary not supported by endpoint (no X-Canary-Accept: v1 on OPTIONS; nothing was posted)" };
 
   const ts = Math.floor(now / 1000);
   const email = cfg.canaryEmail.replace("{id}", form.id);
-  let r: Response;
+  let r: Answer;
   try {
-    r = await fetchFn(form.endpoint, {
-      method: "POST", signal, redirect: "manual",
+    r = await request(fetchFn, form.endpoint, {
+      method: "POST", redirect: "manual",
       headers: { "content-type": "application/json", "x-canary": sign(secret, ts), "idempotency-key": randomUUID() },
       body: JSON.stringify(canaryBody(form, email, ts)),
-    });
+    }, deadline);
   } catch (e) { return { level: "fail", detail: `canary POST failed: ${errText(e)}` }; }
-  const text = await r.text();
+  const text = r.text;
   if (r.status < 200 || r.status >= 300) return { level: "fail", detail: `canary POST ${r.status}: ${text.slice(0, 160).replace(/\s+/g, " ")}` };
   let j: Record<string, unknown>;
   try { j = JSON.parse(text) as Record<string, unknown>; } catch { return { level: "fail", detail: `canary POST ${r.status} but the answer is not JSON` }; }

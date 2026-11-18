@@ -29,7 +29,7 @@ export async function doctor(ctx: Ctx, steps: Step[], onStep?: (r: StepReport) =
   for (const step of await expandSteps(ctx, steps)) {
     const t0 = Date.now();
     const r = await check(ctx, step);
-    const report: StepReport = { step, outcome: r.level === "pass" ? "ok" : r.level === "warn" ? "warn" : "failed", detail: safe(ctx, r.detail), ms: Date.now() - t0 };
+    const report: StepReport = { step, outcome: r.level === "pass" ? "ok" : r.level === "warn" ? "warn" : "failed", detail: safe(ctx, r.detail), ms: r.ms ?? Date.now() - t0 };
     out.push(report);
     onStep?.(report);
   }
@@ -74,10 +74,13 @@ export function table(reports: StepReport[]): string {
   return [tableHeader(w, timed), ...reports.map((r) => tableRow(r, w, timed))].join("\n");
 }
 
-/** The slowest steps (over a second), for the line under the summary. Empty when none is. */
-export function slowest(reports: StepReport[], n = 3): string {
+/**
+ * The slowest steps (over a second), for the line under the summary. Empty when none is. `wallMs`: the run's own time; without it the total
+ * is the sum of the rows, which overstates a run whose rows ran together (the `Leads` forms).
+ */
+export function slowest(reports: StepReport[], n = 3, wallMs?: number): string {
   const slow = reports.filter((r) => (r.ms ?? 0) >= 1000).sort((a, b) => b.ms! - a.ms!).slice(0, n);
-  return slow.length ? `slowest: ${slow.map((r) => `${r.step.id} ${secs(r.ms)}`).join(", ")}; total ${secs(reports.reduce((s, r) => s + (r.ms ?? 0), 0))}` : "";
+  return slow.length ? `slowest: ${slow.map((r) => `${r.step.id} ${secs(r.ms)}`).join(", ")}; total ${secs(wallMs ?? reports.reduce((s, r) => s + (r.ms ?? 0), 0))}` : "";
 }
 
 export function summary(reports: StepReport[]): string {

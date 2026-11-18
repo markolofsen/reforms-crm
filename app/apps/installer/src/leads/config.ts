@@ -9,6 +9,38 @@ const DOMAIN = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 const RESERVED = ["config", "registry", "forms"];
 const httpUrl = z.string().url().refine((u) => /^https?:\/\//.test(u), "must be an http(s) URL");
 
+/** Days without a lead before the silence row warns; null: measured from the source's last 90 days, max(14, 3 x the median gap). */
+const days = z.number().int().positive().nullable().default(null);
+/**
+ * The receiving-side silence check (L3): where a lead that arrived is recorded, read only. WARN, never FAIL: a quiet week is normal on a
+ * small site. `none`: only the canary guards the form; say why in `reason`.
+ */
+const SilenceSchema = z.discriminatedUnion("source", [
+  z.object({ source: z.literal("none"), days: z.null().default(null), reason: z.string().min(3).optional() }).strict(),
+  z.object({
+    source: z.literal("notion-leads"),
+    /** The project whose `## Notion databases` lists `leads`; its `notion.token_file` is the token. */
+    project: z.string().regex(ID),
+    /** A `Brand` option of the Leads database (multi-select, case as in Notion). */
+    brand: z.string().min(1),
+    /** Optional: the `Form` text the mirror writes for this form, when two forms share a brand. */
+    form: z.string().min(1).optional(),
+    days,
+  }).strict(),
+  z.object({
+    source: z.literal("mailbox"),
+    /** The Mail account (its name in Mail.app, as `config/config.json` `account` is). Default: that `account`. */
+    account: z.string().min(1).optional(),
+    /** Mailbox path; `["All Mail"]` on a Google account keeps an archived notification in view. */
+    mailbox: z.array(z.string().min(1)).min(1).default(["INBOX"]),
+    /** The notification's sender address (substring) and subject (substring); at least one. */
+    sender: z.string().min(1).optional(),
+    subject: z.string().min(1).optional(),
+    days,
+  }).strict().refine((m) => !!(m.sender || m.subject), "a mailbox source needs sender or subject"),
+]);
+export type Silence = z.infer<typeof SilenceSchema>;
+
 const FormSchema = z.object({
   /** Stable id, also the doctor row (`leads.<id>`) and the canary address (`canary+<id>@...`). */
   id: z.string().regex(ID, "lowercase letters, digits and dashes").refine((id) => !RESERVED.includes(id), "config, registry and forms name the group's own rows"),
@@ -36,8 +68,8 @@ const FormSchema = z.object({
   }).refine((c) => c.mode === "none" || !!c.secretRef, "a signed canary needs secretRef"),
   /** Where a submission lands, in words (`django:inquiries`, `notion:leads`, `mail:<setting>`, `telegram`). Documentation for the reader. */
   lands: z.array(z.string().min(1)).default([]),
-  /** The receiving-side silence check (L3). `none`: only the canary guards the form. */
-  silence: z.object({ source: z.enum(["none", "notion-leads", "mailbox"]), days: z.number().int().positive().nullable() }).default({ source: "none", days: null }),
+  /** The receiving-side silence check (L3), see {@link SilenceSchema}. */
+  silence: SilenceSchema.default({ source: "none", days: null }),
   notes: z.string().optional(),
 }).strict();
 

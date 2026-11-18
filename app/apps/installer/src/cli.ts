@@ -323,6 +323,7 @@ program.command("doctor").description("Run the checks a manual session needs plu
     if (o.only?.length && o.fast) throw new UsageError("--only and --fast are separate: --only already names the steps");
     const steps = await expandSteps(ctx, pick(o.only, !!o.automation, !o.fast));
     let reports;
+    const t0 = Date.now();
     if (o.json) reports = await doctor(ctx, steps);
     else {
       const w = idWidth(steps);
@@ -332,7 +333,7 @@ program.command("doctor").description("Run the checks a manual session needs plu
     if (o.json) console.log(JSON.stringify(reports.map((r) => ({ id: r.step.id, outcome: r.outcome, ms: r.ms, detail: r.detail })), null, 2));
     else {
       console.log(`\n${summary(reports)}`);
-      const slow = slowest(reports); if (slow) console.log(slow);
+      const slow = slowest(reports, 3, Date.now() - t0); if (slow) console.log(slow);
       if (!o.only?.length) {
         const rows = await projectRows(projectsDir(), { ...projectOptions(), policyDir: ctxOf().paths.stateProjects });
         console.log(`\n${c.bold("Projects")} ${c.dim("(read only; a project's status is changed in its project.md)")}\n${projectTable(rows)}`);

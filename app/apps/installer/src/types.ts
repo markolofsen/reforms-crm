@@ -1,7 +1,8 @@
 import type { Ctx } from "./context";
 
 export type Level = "pass" | "warn" | "fail";
-export interface CheckResult { level: Level; detail: string }
+/** `ms`: the check's own wall time, when the runner's clock would mislead (rows started together, as the `Leads` forms are). */
+export interface CheckResult { level: Level; detail: string; ms?: number }
 
 /** One installer step. install = check, then apply only when the check fails; doctor = check only. */
 export interface Step {

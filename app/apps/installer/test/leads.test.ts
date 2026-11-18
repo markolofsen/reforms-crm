@@ -5,9 +5,11 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { loadLeadForms } from "../src/leads/config";
 import { cspRefuses } from "../src/leads/csp";
+import { limits } from "../src/leads/net";
+import { measuredDays, NOTION_API } from "../src/leads/silence";
 import { registryDomains } from "../src/leads/registry";
 import { doctor } from "../src/runner";
 import { STEPS } from "../src/steps/index";
@@ -215,5 +217,159 @@ describe("CSP matching", () => {
     ["script-src 'self'", "https://api.site.example/x", undefined],
   ])("%s for %s", (csp, target, want) => {
     expect(cspRefuses(csp, "connect-src", new URL(target), self)).toBe(want);
+  });
+});
+
+describe("network failures (the flaky FAIL of 2026-11-18)", () => {
+  const saved = { ...limits };
+  beforeEach(() => { limits.requestMs = 300; limits.formMs = 5000; });
+  afterEach(() => { Object.assign(limits, saved); });
+  const page = (a: string) => `<html><form><input name="name"><input name="email"><input name="message"></form><script src="/app.js"></script></html>`.replace("</html>", `<!-- ${a} --></html>`);
+
+  it("a slow page and slow scripts do not spend the endpoint's budget: each request has its own", async () => {
+    // Before 0.12.3: one 300 ms budget for page (200 ms) + script (200 ms) + endpoint, so the endpoint GET started on an aborted signal.
+    const a = await api({ posts: [] });
+    const s = await serve((req, res) => setTimeout(() => res.end(req.url === "/app.js" ? `"${a}/inquiries/submit/"` : '<input name="name"><input name="email"><input name="message"><script src="/app.js"></script>'), 200));
+    const r = row(await run(instance([form(s, a)])), "leads.contact");
+    expect(r.outcome, r.detail).toBe("ok");
+    expect(r.detail).toContain("endpoint GET 405");
+  });
+
+  it("an endpoint that times out once is retried and passes, and says so", async () => {
+    let gets = 0;
+    const a = await serve((req, res) => { if (req.method === "GET" && ++gets === 1) return; res.statusCode = 405; res.end(); });
+    const s = await site({ script: a });
+    const r = row(await run(instance([form(s, a)])), "leads.contact");
+    expect(r.outcome, r.detail).toBe("ok");
+    expect(r.detail).toContain("endpoint GET 405 (on the retry)");
+    expect(gets).toBe(2);
+  });
+
+  it("a connection reset once is retried", async () => {
+    let gets = 0;
+    const a = await serve((req, res) => { if (req.method === "GET" && ++gets === 1) { req.socket.destroy(); return; } res.statusCode = 405; res.end(); });
+    const s = await site({ script: a });
+    const r = row(await run(instance([form(s, a)])), "leads.contact");
+    expect(r.outcome, r.detail).toBe("ok");
+    expect(gets).toBe(2);
+  });
+
+  it("an endpoint that never answers fails after two attempts, with the real error and the real time", async () => {
+    const a = await serve(() => {});
+    const s = await site({ script: a });
+    const r = row(await run(instance([form(s, a)])), "leads.contact");
+    expect(r.outcome).toBe("failed");
+    expect(r.detail).toMatch(/endpoint .* unreachable: no answer within 0\.3 s, twice \(2 attempts, 0\.[6-9] s\)/);
+    expect(r.ms).toBeGreaterThanOrEqual(600);
+  });
+
+  it("each row reports its own form's time, not the time left after the first row", async () => {
+    const a = await api({ posts: [] });
+    const s = await serve((req, res) => setTimeout(() => res.end(page(a)), 250));
+    const reports = await run(instance(["x", "y"].map((id) => form(s, a, { id }))));
+    for (const id of ["leads.x", "leads.y"]) expect(row(reports, id).ms, id).toBeGreaterThanOrEqual(250);
+  });
+
+  it("a script that cannot be read is named, not taken for a page without the endpoint", async () => {
+    const a = await api({ posts: [] });
+    const s = await serve((req, res) => { if (req.url === "/app.js") return; res.end(page("nothing")); });
+    const r = row(await run(instance([form(s, a)])), "leads.contact");
+    expect(r.outcome).toBe("failed");
+    expect(r.detail).toMatch(/1 of its scripts could not be read: \/app\.js: no answer within 0\.3 s, twice/);
+  });
+});
+
+describe("silence (L3)", () => {
+  const D = 864e5;
+  const now = Date.now();
+  async function working() {
+    const a = await api({ posts: [] });
+    const s = await site({ script: a });
+    return { a, s };
+  }
+
+  it("the measured threshold is max(14, 3 x the median gap), none below 3 leads", () => {
+    expect(measuredDays([now, now - D])).toBeUndefined();
+    expect(measuredDays([0, 1, 2, 3].map((i) => now - i * D))).toBe(14);
+    expect(measuredDays([0, 10, 20, 30].map((i) => now - i * D))).toBe(30);
+  });
+
+  function notionInstance(forms: object[], dates: string[], log: { bodies: unknown[] }) {
+    const f = instance(forms);
+    const dir = path.join(f.ctx.paths.projects, "desk");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, "project.md"), "# Desk\n\n## Settings\n\n| Field | Value | Answered | By |\n|---|---|---|---|\n| schema | 1 | 2026-11-14 | agent |\n| name | Desk | 2026-11-14 | owner |\n\n## Notion databases\n\n- leads: 00000000-0000-4000-8000-0000000000aa\n");
+    const tok = path.join(f.ctx.configDir, "notion-token");
+    writeFileSync(tok, "secret_notion_token");
+    chmodSync(tok, 0o600);
+    return serve((req, res, body) => {
+      log.bodies.push({ url: req.url, auth: req.headers.authorization, body: JSON.parse(body) });
+      res.setHeader("content-type", "application/json");
+      res.end(JSON.stringify({ results: dates.map((d) => ({ properties: { "Received at": { date: { start: d } } } })), has_more: false }));
+    }).then((base) => { const real = f.ctx.fetch; f.ctx.fetch = ((u: string | URL, i?: RequestInit) => real(String(u).replace(NOTION_API, base), i)) as typeof fetch; return f; });
+  }
+
+  it("notion-leads: a recent lead by Brand passes; it reads only, with the project's token and the brand filter", async () => {
+    const { a, s } = await working();
+    const log = { bodies: [] as unknown[] };
+    const f = await notionInstance([form(s, a, { silence: { source: "notion-leads", project: "desk", brand: "Acme", form: "lead", days: 14 } })], [new Date(now - 2 * D).toISOString()], log);
+    const r = row(await run(f), "leads.contact");
+    expect(r.outcome, r.detail).toBe("ok");
+    expect(r.detail).toMatch(/silence ok: newest lead 2\.0 d ago, 1 in 90 d, warns after 14 d/);
+    expect(log.bodies).toHaveLength(1);
+    expect(JSON.stringify(log.bodies[0])).toContain('"contains":"Acme"');
+    expect(JSON.stringify(log.bodies[0])).toContain('"equals":"lead"');
+    expect(JSON.stringify(log.bodies[0])).toContain("/data_sources/00000000-0000-4000-8000-0000000000aa/query");
+    expect(r.detail).not.toContain("secret_notion_token");
+  });
+
+  it("notion-leads: a lead older than the threshold is a WARN, never a FAIL", async () => {
+    const { a, s } = await working();
+    const f = await notionInstance([form(s, a, { silence: { source: "notion-leads", project: "desk", brand: "Acme", days: 14 } })], [new Date(now - 20 * D).toISOString()], { bodies: [] });
+    const r = row(await run(f), "leads.contact");
+    expect(r.outcome).toBe("warn");
+    expect(r.detail).toMatch(/silence: no lead for 20 d \(newest \d{4}-\d\d-\d\d\).*warns after 14 d/);
+  });
+
+  it("notion-leads: an unknown project is a WARN that names it", async () => {
+    const { a, s } = await working();
+    const r = row(await run(instance([form(s, a, { silence: { source: "notion-leads", project: "nobody", brand: "Acme", days: 14 } })])), "leads.contact");
+    expect(r.outcome).toBe("warn");
+    expect(r.detail).toMatch(/silence not checked .*no such project "nobody"/);
+  });
+
+  /** A mail-mcp stand-in: initialize, notification, then one find_messages answered with `dates`. */
+  const mailMcp = (dates: string[], calls: unknown[]) => serve((_req, res, body) => {
+    const m = JSON.parse(body) as { id?: number; method: string; params?: { name?: string; arguments?: unknown } };
+    res.setHeader("content-type", "application/json");
+    if (m.method === "tools/call") calls.push(m.params);
+    const result = m.method === "tools/call" ? { content: [{ type: "text", text: JSON.stringify({ messages: dates.map((d) => ({ date_received: d, subject: "x" })) }) }] } : {};
+    res.end(JSON.stringify({ jsonrpc: "2.0", id: m.id ?? null, result }));
+  });
+
+  it("mailbox: measures the threshold from 90 days of notifications and passes a recent one", async () => {
+    const { a, s } = await working();
+    const calls: unknown[] = [];
+    const f = instance([form(s, a, { silence: { source: "mailbox", account: "desk@example.com", mailbox: ["All Mail"], sender: "robot@example.com", subject: "new enquiry" } })]);
+    f.ctx.mailUrl = await mailMcp([1, 3, 5, 7].map((i) => new Date(now - i * D).toISOString()), calls);
+    const r = row(await run(f), "leads.contact");
+    expect(r.outcome, r.detail).toBe("ok");
+    expect(r.detail).toMatch(/silence ok: newest lead 1\.0 d ago, 4 in 90 d, warns after 14 d \(measured/);
+    expect(calls).toEqual([{ name: "find_messages", arguments: expect.objectContaining({ account: "desk@example.com", mailboxPath: ["All Mail"], sender: "robot@example.com", subject: "new enquiry", limit: 1000 }) }]);
+  });
+
+  it("mailbox: too few notifications to measure is a WARN that says what to set", async () => {
+    const { a, s } = await working();
+    const f = instance([form(s, a, { silence: { source: "mailbox", account: "desk@example.com", subject: "new enquiry" } })]);
+    f.ctx.mailUrl = await mailMcp([new Date(now - D).toISOString()], []);
+    const r = row(await run(f), "leads.contact");
+    expect(r.outcome).toBe("warn");
+    expect(r.detail).toMatch(/1 lead\(s\) in 90 d .* under one a month/);
+  });
+
+  it("a mailbox source without sender or subject does not parse", () => {
+    const f = instance([{ id: "a", domain: "example.com", page: "https://example.com/", endpoint: "https://example.com/x", canary: { mode: "none" }, silence: { source: "mailbox", days: 14 } }]);
+    const l = loadLeadForms(f.ctx.paths.leadForms);
+    expect(l.state === "invalid" && l.error).toMatch(/sender or subject/);
   });
 });

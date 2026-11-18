@@ -3,7 +3,9 @@
 import { sendCanary } from "../leads/canary";
 import { loadLeadForms, type LeadForm, type LeadForms } from "../leads/config";
 import { checkRegistry } from "../leads/registry";
-import { errText, FORM_TIMEOUT_MS, probeForm } from "../leads/probe";
+import { errText, limits } from "../leads/net";
+import { probeForm } from "../leads/probe";
+import { checkSilence } from "../leads/silence";
 import type { Ctx } from "../context";
 import type { CheckResult, Level, Step } from "../types";
 import { fail, pass, warn } from "./helpers";
@@ -12,24 +14,35 @@ const RANK: Record<Level, number> = { pass: 0, warn: 1, fail: 2 };
 const worst = (a: Level, b: Level): Level => (RANK[a] >= RANK[b] ? a : b);
 const FILE = "config/lead-forms.json";
 
-/** One form: the GET half, then (with `--canary`) the canary. Each half has its own 5 s budget; nothing here throws. */
+/**
+ * One form: the GET half and the silence check at the same time, then (with `--canary`) the canary. Every request has its own timeout and one
+ * retry (`leads/net.ts`); the form as a whole stops at `limits.formMs`. The result carries the form's own wall time: the rows of a group are
+ * started together, so the runner's clock would show 0.0 s for every row after the first. Nothing here throws.
+ */
 export async function checkForm(ctx: Ctx, cfg: LeadForms, form: LeadForm): Promise<CheckResult> {
+  const t0 = Date.now();
+  const deadline = AbortSignal.timeout(limits.formMs);
+  const silence = checkSilence(ctx, form.silence).catch((e) => ({ level: "warn" as const, detail: `silence not checked: ${errText(e)}` }));
   let level: Level;
   let detail: string;
   try {
-    const p = await probeForm(ctx.fetch, form, AbortSignal.timeout(FORM_TIMEOUT_MS));
+    const p = await probeForm(ctx.fetch, form, deadline);
     level = p.ok ? "pass" : p.level ?? "fail";
     detail = p.ok ? p.notes.join(", ") : `${p.problem}${p.notes.length ? ` (so far: ${p.notes.join(", ")})` : ""}`;
   } catch (e) { level = "fail"; detail = `check failed: ${errText(e)}`; }
-  if (!ctx.canary) return { level, detail };
-  try {
-    const c = await sendCanary(ctx.fetch, cfg, form, ctx.configDir, AbortSignal.timeout(FORM_TIMEOUT_MS));
-    return { level: worst(level, c.level), detail: `${detail}; ${c.detail}` };
-  } catch (e) { return { level: "fail", detail: `${detail}; canary failed: ${errText(e)}` }; }
+  if (ctx.canary) {
+    try {
+      const c = await sendCanary(ctx.fetch, cfg, form, ctx.configDir, deadline);
+      level = worst(level, c.level); detail = `${detail}; ${c.detail}`;
+    } catch (e) { level = "fail"; detail = `${detail}; canary failed: ${errText(e)}`; }
+  }
+  const s = await silence;
+  if (s) { level = worst(level, s.level); detail = `${detail}; ${s.detail}`; }
+  return { level, detail, ms: Date.now() - t0 };
 }
 
 const formWhy = "A public form whose page, script, CSP, proxy or endpoint broke takes no lead and tells nobody; the in-process tests of the site cannot see DNS, CSP, a proxy or Cloudflare.";
-const formVerifies = "GET only: the page answers 200; a static form carries its listed fields; the page or its own scripts reference the endpoint; the page's CSP lets a script reach it; Turnstile, when configured, is on the page with its sitekey and allowed by the CSP; the endpoint answers a GET with no 404 or 5xx. With `--canary`: the signed canary is stored, a recipient resolves and the route is configured (`{stored, recipient_ok, route_ok}`); a handler without canary support is a WARN and gets no POST. 5 s per form, all forms at once.";
+const formVerifies = "GET only: the page answers 200; a static form carries its listed fields; the page or its own scripts reference the endpoint; the page's CSP lets a script reach it; Turnstile, when configured, is on the page with its sitekey and allowed by the CSP; the endpoint answers a GET with no 404 or 5xx. Silence (`silence.source` `notion-leads` or `mailbox`, read only): a lead arrived within `silence.days` (or max(14, 3 x the median gap of the last 90 days)), else a WARN, never a FAIL. With `--canary`: the signed canary is stored, a recipient resolves and the route is configured (`{stored, recipient_ok, route_ok}`); a handler without canary support is a WARN and gets no POST. Each request 5 s with one retry on a network failure, a form at most 25 s, all forms at once; the row shows the form's own time.";
 
 /** One row for every form, for `install` and a doctor run that does not expand: the worst level, the rows that are not PASS. */
 async function summary(ctx: Ctx): Promise<CheckResult> {

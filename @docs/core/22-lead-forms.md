@@ -12,7 +12,9 @@ A site's tests run in process. They cannot see a DNS record, a CSP header, a pro
 | `hub doctor --only Leads --canary` | Also sends each form's signed canary (below). The check an agent runs before it reports a site change done (`app/@rules/agent-guardrails.md` rule 9) |
 | `hub doctor --only Leads --json` | The same rows as JSON, for a scheduled report |
 
-Rows: `leads.config` (the file parses), `leads.registry` (every registry domain has a form or an explicit `none`), then one row per form, `leads.<id>`. All forms are checked at the same time, 5 s each; a row names the first thing that failed. The skill that runs it and explains a red row is `skills/lead-form-check`.
+Rows: `leads.config` (the file parses), `leads.registry` (every registry domain has a form or an explicit `none`), then one row per form, `leads.<id>`. All forms are checked at the same time; a row names the first thing that failed. The skill that runs it and explains a red row is `skills/lead-form-check`.
+
+**Time and network failures.** Every request (page, each script, endpoint, canary probe and POST) has its own 5 s; a request that throws (a timeout, a reset, a DNS failure) is retried once, an HTTP status is an answer and is not retried. A form stops at 25 s in all. The row's time is that form's own wall time (all forms run together, so the doctor's clock would show 0.0 s after the first row). A failure names both attempts and their time, for example `endpoint ... unreachable: no answer within 5 s, twice (2 attempts, 10.0 s)`; `(on the retry)` after a status means the first attempt failed. Before core 0.12.3 one 5 s budget covered the whole form, so a page of 2 s with 35 script chunks left the endpoint GET an expired signal: "no answer within 5 s" after 0.0 s while the endpoint answered in 1.5 s.
 
 ## What a row proves
 
@@ -29,6 +31,12 @@ Canary half (`--canary`), per form whose entry has `canary.mode: "signed"`. Cont
 2. **The canary.** `POST <endpoint>`, JSON, header `X-Canary: <unix seconds>.<hex HMAC-SHA256(secret, "<unix seconds>")>` and a fresh `Idempotency-Key`. The secret is the file `state/secrets/<secretRef>` (mode 600), the same value as in the site's environment. Body: the listed fields filled with plain test values, the address `canaryEmail` with `{id}` replaced by the form id (our own domain, never a client's), the honeypot empty, plus the entry's fixed `canary.body`.
 3. **The handler** accepts a signature within 5 minutes, skips Turnstile siteverify and nothing else of validation, stores the row marked `metadata.test` and sends nothing outbound (no email, messenger, autoresponse, CRM or Notion write). It resolves the delivery in dry mode and answers 2xx JSON `{ "stored": bool, "recipient_ok": bool, "route_ok": bool, "id": "..." }`. Test rows are left out of analytics and queues and purged after 24 h by the site.
 4. **The row:** PASS when all three are true; FAIL naming the false one (`recipient_ok=false`: a real lead would reach nobody). A missing secret file or `canaryEmail` is a WARN "canary not run". An unrun canary is not a pass: rule 9 says so.
+
+Silence half (every run, read only), per form whose `silence.source` is not `none`: when did a lead last arrive where the form lands?
+- `notion-leads`: the newest `Received at` in the Leads database of `silence.project` (its `## Notion databases` line `leads`, its `notion.token_file`), filtered by the `Brand` option `silence.brand` and, when two forms share a brand, the `Form` text `silence.form`.
+- `mailbox`: the newest notification mail in `silence.account` (default `config/config.json` `account`), `silence.mailbox` (default `["INBOX"]`; `["All Mail"]` on a Google account keeps archived mail in view), matching `sender` and/or `subject`, through mail-mcp (the Apple Mail read path; no IMAP).
+- Threshold: `silence.days`, or when null max(14, 3 x the median gap of the last 90 days); fewer than 3 leads in 90 days cannot be measured and is a WARN saying to set `days` or `none`. Mail.app may hold less than 90 days, so a measured threshold from a mailbox is set by hand into `days`.
+- A lead older than the threshold is a WARN (`silence: no lead for N d (newest <date>)`), never a FAIL: a quiet week is normal on a small site. An unreadable source is a WARN `silence not checked`. Only dates are read and printed, never a name, an address or a message.
 
 ## `config/lead-forms.json`
 
@@ -58,20 +66,20 @@ One entry per page; adding a form is one entry. Tracked in the instance reposito
 | `forms[].turnstile` | `false`, `true`, or `{ "sitekey": "..." }` |
 | `forms[].canary` | `mode: "signed"` with `secretRef`, or `mode: "none"` with the reason in `notes` (a signed-in form, say) |
 | `forms[].lands` | Where a submission lands, in words. For the reader; not checked |
-| `forms[].silence` | The receiving-side check (`notion-leads`, `mailbox`, or `none`). Only `none` is acted on today: the readers are not built |
+| `forms[].silence` | The receiving-side check: `{ "source": "notion-leads", "project", "brand", "form"?, "days" }`, `{ "source": "mailbox", "account"?, "mailbox"?, "sender"?, "subject"?, "days" }` (sender or subject required), or `{ "source": "none", "reason" }` for a form with under one lead a month or no readable landing |
 | `none[]` | A registry domain that deliberately has no form here, with the reason (no form, or another instance checks it) |
 
 The doctor row `leads.config` fails on a file that does not parse and names the key.
 
 ## A scheduled report (optional, the owner's)
 
-The core runs nothing in the background (manual-first). An owner who wants to hear about a broken form between sessions schedules this one command himself, with whatever scheduler he already uses, and reads its output; it only reports and never posts to a client:
+The core runs nothing in the background (manual-first) and has no installer for a scheduled job: its one launchd service (mail-mcp) is a Homebrew service the owner starts. An owner who wants to hear about a broken form between sessions (owner decision 4 of P46: a run that only reports, never sends to a client) schedules this one command himself, with whatever scheduler he already uses, and reads its output:
 
 ```
-cd <instance> && ./run.sh doctor --only Leads --json
+cd <instance> && ./run.sh doctor --only Leads --canary --json > state/leads-report.json
 ```
 
-Add `--canary` once every form's handler implements the contract above. Exit code 1 means a FAIL row.
+It writes nothing but that file: the GET half reads, the silence half reads, and the canary is a test row the site marks, sends nowhere and purges after 24 h. Every handler listed in both instances implements the canary (P46 L2), so `--canary` belongs in it; drop it to stay GET only. Exit code 1 means a FAIL row; a WARN (a quiet form, an unrun canary) exits 0, so read the rows. Do not run it more often than hourly: a canary has its own ceiling of 30 an hour per site.
 
 ## Related
 
