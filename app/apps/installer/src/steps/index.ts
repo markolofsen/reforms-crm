@@ -3,6 +3,7 @@ import { adminSteps } from "./admin";
 import { backupSteps } from "./backup";
 import { fileSteps } from "./files";
 import { instanceSteps } from "./instance";
+import { leadSteps } from "./leads";
 import { mailSteps } from "./mail";
 import { mcpSteps } from "./mcp";
 import { messengerSteps } from "./messengers";
@@ -33,6 +34,7 @@ export const STEPS: Step[] = [
   ...tag(mailSteps, "automation", ["mail.account"]),
   ...tag(messengerSteps, "automation"),
   ...tag(notionSteps, "automation", ["notion.token", "notion.access"]),
+  ...leadSteps,
   ...backupSteps.map((s): Step => ({ ...s, audit: true })),
 ];
 

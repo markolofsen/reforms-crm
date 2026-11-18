@@ -96,6 +96,17 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 - [ ] **Notion connector in the session** (`notion.connector`)
   - Proves: `.mcp.json` lists the `notion` server (hint only: whether you have signed in to it is seen inside a session, with `/mcp`).
   - You: In Claude Code run `/mcp` once and sign in to `notion`; in Claude Desktop enable the Notion connector in Settings > Connectors.
+## Leads
+
+- [ ] **Lead form list parses** (`leads.config`)
+  - Proves: `config/lead-forms.json` is valid when present (each form has an id, domain, page and endpoint; a signed canary names its secret file by `secretRef`, never the secret). No file: PASS, the instance lists no forms.
+  - You: Fix the error the row names in `config/lead-forms.json` (shape: `@docs/core/22-lead-forms.md`).
+- [ ] **Every registry domain has a form entry or an explicit none** (`leads.registry`)
+  - Proves: Every host in the first column of the registry named by `registry` in `config/lead-forms.json` is a form's `domain` or is listed under `none` with a reason. WARN, never FAIL, naming each uncovered host.
+  - You: For each host the row names: add its form to `config/lead-forms.json`, or add it under `none` with the reason (no form, or another instance checks it).
+- [ ] **Each public lead form answers (one row per form)** (`leads.forms`)
+  - Proves: GET only: the page answers 200; a static form carries its listed fields; the page or its own scripts reference the endpoint; the page's CSP lets a script reach it; Turnstile, when configured, is on the page with its sitekey and allowed by the CSP; the endpoint answers a GET with no 404 or 5xx. With `--canary`: the signed canary is stored, a recipient resolves and the route is configured (`{stored, recipient_ok, route_ok}`); a handler without canary support is a WARN and gets no POST. 5 s per form, all forms at once.
+  - You: Read the row: it names the first thing that failed (page, field, endpoint reference, CSP, Turnstile, endpoint route, canary). Fix it in the site that owns the form, deploy, and run `hub doctor --only Leads` again (`--canary` before you report done).
 ## Backup
 
 - [ ] **Code and instance are pushed off this machine** (`backup.git`; `hub doctor` only; setup and install never run it)

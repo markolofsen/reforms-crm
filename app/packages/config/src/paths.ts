@@ -37,6 +37,8 @@ export interface HubPaths {
   secrets: string;
   configDir: string;
   configFile: string;
+  /** The instance's list of public lead forms the `Leads` doctor group checks: `<configDir>/lead-forms.json` (tracked, no secrets). */
+  leadForms: string;
 }
 
 export interface HubPathsOptions {
@@ -117,6 +119,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     secrets: fromEnv(env, "HUB_CONFIG_DIR") ?? join(state, "secrets"),
     configDir,
     configFile: fromEnv(env, "HUB_CONFIG_FILE") ?? join(configDir, "config.json"),
+    leadForms: join(configDir, "lead-forms.json"),
   };
 }
 

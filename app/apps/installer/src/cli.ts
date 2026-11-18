@@ -31,7 +31,7 @@ import { c, UsageError } from "./term";
 import { mcpCall } from "./mcp-probe";
 import { notionCheck } from "./notion-check";
 import { renderChecklist } from "./docs";
-import { doctor, exitCode, guideText, idWidth, install, printGuides, slowest, summary, table, tableHeader, tableRow } from "./runner";
+import { doctor, exitCode, expandSteps, guideText, idWidth, install, printGuides, slowest, summary, table, tableHeader, tableRow } from "./runner";
 import { redact } from "@hub/connections";
 import { connectionsReport, connectionsTable, storeNamedToken, TOKEN_NAMES } from "./connections-command";
 import { makeValidators } from "./setup/clients";
@@ -298,13 +298,14 @@ program.command("doctor").description("Run the checks a manual session needs plu
   .option("--automation", "also check the optional extras: Notion token, mail login, Telegram poller (off by default)")
   .option("--only <id...>", "step ids or group names (any step, optional and audit ones included), for example `--only backup.snapshot` or `--only Backup`")
   .option("--fast", "leave out the audit steps (the backup.* checks: they reach the network and open the database)")
+  .option("--canary", "the Leads rows also send each form's signed canary (stored as a test row, nothing outbound); only to a handler that advertises it")
   .option("--project <slug>", "same as the [project] argument")
-  .action(async (projectArg: string | undefined, o: { json?: boolean; project?: string; automation?: boolean; only?: string[]; fast?: boolean }) => {
-    const ctx = ctxOf();
+  .action(async (projectArg: string | undefined, o: { json?: boolean; project?: string; automation?: boolean; only?: string[]; fast?: boolean; canary?: boolean }) => {
+    const ctx = ctxOf({ canary: !!o.canary });
     const project = projectArg ?? o.project;
     if (project) { process.exitCode = await runProjectDoctor(project, projectOptions()); return; }
     if (o.only?.length && o.fast) throw new UsageError("--only and --fast are separate: --only already names the steps");
-    const steps = pick(o.only, !!o.automation, !o.fast);
+    const steps = await expandSteps(ctx, pick(o.only, !!o.automation, !o.fast));
     let reports;
     if (o.json) reports = await doctor(ctx, steps);
     else {

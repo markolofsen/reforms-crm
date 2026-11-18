@@ -24,7 +24,7 @@ The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` li
 |---|---|
 | `hub agent [project]` | The product: a Claude Code session. `<project>` binds a fresh session to one project; no argument continues the last one |
 | `hub up [--demo]` | The local admin: review the drafts the agent made. `--demo` uses invented data on a separate database |
-| `hub doctor [project]` | Read-only health table, each row printed as its step ends, with its time; `--only <step or group>` runs just those, `--fast` leaves the audit (backup) checks out; never fails on optional things |
+| `hub doctor [project]` | Read-only health table, each row printed as its step ends, with its time; `--only <step or group>` runs just those, `--fast` leaves the audit (backup) checks out, `--canary` adds the lead-form canaries; never fails on optional things |
 | `hub setup` | Idempotent install of folders, config, skills and the project registry (`./install.sh` runs it) |
 
 `hub` alone opens a menu of the same four things; `./hub.sh` does the same without an install. Other commands (`hub projects`, `hub filters`, `hub test`, ...) are hidden from `--help`; each has `hub <name> --help`.
@@ -53,6 +53,7 @@ The one index. Every page below owns its facts; others link to it.
 | Calendar | [`@docs/core/19-calendar.md`](@docs/core/19-calendar.md) |
 | Workflows | [`@docs/core/20-workflows.md`](@docs/core/20-workflows.md) |
 | Leads: the writer contract and the read-only counts | [`@docs/core/21-leads.md`](@docs/core/21-leads.md) |
+| Lead forms: the check that a lead still arrives (`hub doctor --only Leads`, the canary contract, `config/lead-forms.json`) | [`@docs/core/22-lead-forms.md`](@docs/core/22-lead-forms.md) |
 | Rules for changing the admin app | [`app/@rules/README.md`](app/@rules/README.md) |
 
 A new document takes the next free number in `@docs/core/` and a row here. Secrets live only in the git-ignored `state/secrets/`; local settings `config/config.json`, `.mcp.json` and `state/` are git-ignored too. `hub agent` runs Claude with `--dangerously-skip-permissions --chrome`; isolation rests on the skill rules plus `hub audit-run <transcript.jsonl> --project <slug>` after the fact. Extra readable folders: `HUB_EXTRA_DIRS`.

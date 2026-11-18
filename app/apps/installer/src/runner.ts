@@ -10,10 +10,23 @@ async function check(ctx: Ctx, s: Step) {
   try { return await s.check(ctx); } catch (e) { return { level: "fail" as const, detail: `check crashed: ${safe(ctx, errText(e))}` }; }
 }
 
-/** Runs the checks in order. `onStep` is called with each report the moment its step finishes, so a slow doctor is never silent. Each report carries its wall time. */
+/** Replaces each step that expands (one row per configured item) by its rows. A step whose expansion throws stays, as a failing row. */
+export async function expandSteps(ctx: Ctx, steps: Step[]): Promise<Step[]> {
+  const out: Step[] = [];
+  for (const s of steps) {
+    if (!s.expand) { out.push(s); continue; }
+    try { out.push(...(await s.expand(ctx))); } catch (e) {
+      const detail = `could not list its rows: ${safe(ctx, errText(e))}`;
+      out.push({ ...s, expand: undefined, check: async () => ({ level: "fail", detail }) });
+    }
+  }
+  return out;
+}
+
+/** Runs the checks in order (after {@link expandSteps}). `onStep` is called with each report the moment its step finishes, so a slow doctor is never silent. Each report carries its wall time. */
 export async function doctor(ctx: Ctx, steps: Step[], onStep?: (r: StepReport) => void): Promise<StepReport[]> {
   const out: StepReport[] = [];
-  for (const step of steps) {
+  for (const step of await expandSteps(ctx, steps)) {
     const t0 = Date.now();
     const r = await check(ctx, step);
     const report: StepReport = { step, outcome: r.level === "pass" ? "ok" : r.level === "warn" ? "warn" : "failed", detail: safe(ctx, r.detail), ms: Date.now() - t0 };

@@ -10,7 +10,7 @@ import { CORE_ROOT } from "@hub/config/paths";
 // Entry files that are plain JavaScript (`*.mjs`) are not TypeScript and keep the extension Node needs: this test reads `.ts`, `.tsx` and `.mts` only.
 const ROOTS = ["apps", "packages"].map((d) => path.join(CORE_ROOT, "app", d));
 const THIS = fileURLToPath(import.meta.url);
-const SKIP = new Set(["node_modules", ".next", ".turbo", "dist", "coverage", "playwright-report"]);
+const SKIP = new Set(["node_modules", ".next", ".next-e2e", ".next-build-check", ".turbo", "dist", "coverage", "playwright-report"]);
 const RELATIVE_WITH_EXTENSION = /(\bfrom\s*|\bimport\s*\(\s*|\bimport\s+|\bmock\(\s*|\bimportActual\(\s*|\bimportOriginal\(\s*)(["'])(\.{1,2}\/[^"']*?\.(?:ts|tsx|js))\2/g;
 
 function* sources(dir: string): Generator<string> {

@@ -15,6 +15,7 @@ No secret is ever stored in git, a log or a page. Secrets live only in the git-i
 | Mail IMAP login (optional) | One account, read only | `state/secrets/mail-<name>.json` | Overview new-mail counts, Sent detection | `backup.secrets` (file mode only) |
 | Telegram bot token (optional) | A bot made with @BotFather | `state/secrets/telegram-bot-token` | The receive-only poller | `messengers.token`, `telegram.getme`, `messengers.poller` |
 | Backup snapshot (`hub backup`) | Nothing external: a folder (default `<instance>/backups/`, git-ignored) | `backups/` or `backup_dir` in `config/config.json` | A copy of the database, the Notion dump and the config that git does not hold | `backup.snapshot` |
+| Lead-form canary secret (optional) | One site's form handler: an HMAC key it shares with the hub, one per handler | `state/secrets/<secretRef>` (named in `config/lead-forms.json`); the same value in the site's environment | `hub doctor --only Leads --canary` ([`../core/22-lead-forms.md`](../core/22-lead-forms.md)) | the `leads.<form>` rows (WARN "canary not run" when missing) |
 | Claude Code sign-in | The `claude` CLI on this machine | Claude's own store | `hub agent` | `tools.claude` |
 
 The hub expects no Claude API token and no Cloudflare credential. Mail routing at Cloudflare and any DNS are outside this code; they are not checked here.

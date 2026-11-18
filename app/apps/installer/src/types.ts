@@ -27,6 +27,11 @@ export interface Step {
    * `setup`, `install` and `guide` skip it unless named with `--only`; `doctor` runs it.
    */
   audit?: true;
+  /**
+   * The doctor replaces this step by the steps it returns, one row each, before it runs (the `Leads` group: one row per form listed in the
+   * instance's config). `check` stays the one-row summary that `install` and the docs use.
+   */
+  expand?(ctx: Ctx): Promise<Step[]>;
   /** Numbered guide for what the installer cannot do. Printed by the guide command, then verified by check. */
   manual?: { steps: string[] };
 }

@@ -26,6 +26,8 @@ A **lead** is a request that is not yet a client: a website form, a message from
 
 The core never creates a client from a lead and never changes a lead's Status.
 
+Whether a form still delivers a lead at all (page, CSP, endpoint, the signed canary) is a separate check: [22-lead-forms.md](22-lead-forms.md).
+
 ## Access
 
 Which integration needs access to Leads and Clients (the backend that writes, the hub that reads) and how to share it: [`../setup/access.md`](../setup/access.md). `hub doctor` fails `notion.access` on `leads` when the hub's integration cannot see it.

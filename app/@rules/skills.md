@@ -16,6 +16,7 @@ Two kinds, kept apart on purpose:
 
 ## Run-time skills
 Stay in `skills/`, next to `config/` and `app/`: they are the workflow, and they change with it. Each skill file names the tools it calls (`05`) and the state it writes. Do not move them into `@rules/`: rules constrain how code changes, skills are what the agent does.
+- `lead-form-check`: runs the Leads group, explains a red row, never submits a real lead (`agent-guardrails.md` rule 9).
 
 ## If a dev-time skill must be pinned
 Only then vendor a snapshot into `app/@rules/vendor/<name>/` with the upstream commit in a `SOURCE` file and a re-sync date; otherwise leave it global.

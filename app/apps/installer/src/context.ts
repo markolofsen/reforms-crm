@@ -24,6 +24,8 @@ export interface Ctx {
   /** Overridable endpoints so tests never touch the network. */
   mailUrl: string;
   fetch: typeof fetch;
+  /** `hub doctor --canary`: the `Leads` rows also send the signed canary (P46). Off by default: the doctor is GET only. */
+  canary?: boolean;
 }
 
 /** The core checkout this code runs from (never the instance: see `hubPaths().home`). */
@@ -57,6 +59,7 @@ export function makeCtx(over: Partial<Ctx> = {}): Ctx {
     log: over.log ?? ((m) => console.log(m)),
     mailUrl: over.mailUrl ?? "http://localhost:8787",
     fetch: over.fetch ?? globalThis.fetch,
+    canary: over.canary ?? false,
   };
 }
 
