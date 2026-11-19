@@ -10,6 +10,8 @@ import type { PtyProcess, PtySpawn } from "@hub/terminal";
 import { cliDetector, type CliFact } from "@hub/agent/detect";
 import { ticketStore } from "./admin-gate";
 import { createApp } from "./app";
+import { appendEvents, logStoreOf } from "@hub/log/store";
+import { sessionInstructions } from "@hub/agent/session-rules";
 import { chooseShell, createTerminal, TERMINAL_PATH } from "./terminal";
 
 // The terminal's doors (P49 S1 to S7), on a fake PTY: nothing here starts a shell.
@@ -35,10 +37,10 @@ const spawn: PtySpawn = (file, args, o) => {
 const config = (cfg: Record<string, unknown>) => writeFileSync(paths.configFile, JSON.stringify(cfg));
 const fact = (cli: "claude" | "codex", state: CliFact["state"]): CliFact => ({ cli, state, path: `/u/bin/${cli}`, version: state === "missing" ? null : "1.0.0", detail: `${cli} ${state}`, fix: state === "ready" ? null : `fix ${cli}` });
 let detects = 0;
-function setup(o: { now?: () => number; facts?: CliFact[]; detectMs?: number } = {}) {
+function setup(o: { now?: () => number; facts?: CliFact[]; detectMs?: number; clock?: () => Date } = {}) {
   // Never the real login shell here: the detector answers the facts given (both ready by default) and counts its runs.
   const detector = cliDetector({ detect: async () => { detects++; if (o.detectMs) await new Promise((r) => setTimeout(r, o.detectMs)); return o.facts ?? [fact("claude", "ready"), fact("codex", "ready")]; } });
-  const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { PATH: "/usr/bin", SHELL: "/bin/zsh", HUB_MAILER: "fake", HUB_DB: "/x.db", LANG: "C" }, nodeBin: "/n22/bin/node", tickets: ticketStore({ ttlMs: 30_000, ...(o.now ? { now: o.now } : {}) }), detector });
+  const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { PATH: "/usr/bin", SHELL: "/bin/zsh", HUB_MAILER: "fake", HUB_DB: "/x.db", LANG: "C" }, nodeBin: "/n22/bin/node", tickets: ticketStore({ ttlMs: 30_000, ...(o.now ? { now: o.now } : {}) }), detector, ...(o.clock ? { now: o.clock } : {}) });
   const app = createApp(repos, { terminal, adminPort: ADMIN_PORT });
   const call = (method: string, p: string, body?: unknown, headers: Record<string, string> = ADMIN) => app.request(`${API}${p}`, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   return { terminal, app, call };
@@ -245,5 +247,69 @@ describe("HUB_TERMINAL_SHELL", () => {
     expect(chooseShell({ HUB_TERMINAL_SHELL: "fake", HUB_DB: "/tmp/x.db" })).toBe("fake");
     expect(() => chooseShell({ HUB_TERMINAL_SHELL: "fake" })).toThrow(/needs HUB_DB/);
     expect(() => chooseShell({ HUB_TERMINAL_SHELL: "/bin/bash" })).toThrow(/unset or "fake"/);
+  });
+});
+
+describe("P64: ensure resumes the project's last session; + always starts fresh", () => {
+  const ID = "8d31964d-2edc-490c-91a8-dfb10ffb47de";
+  const at = new Date("2026-11-19T06:03:02.000Z");
+  const logSession = (o: { project?: string; cli?: "claude" | "codex"; transcript?: string } = {}) => {
+    mkdirSync(paths.secrets, { recursive: true });
+    const transcript = o.transcript ?? join(home, "claude-projects", `${ID}.jsonl`);
+    mkdirSync(join(transcript, ".."), { recursive: true });
+    writeFileSync(transcript, "{}\n");
+    const env = { project: o.project ?? "acme", session: ID, cli: o.cli ?? ("claude" as const) };
+    appendEvents(logStoreOf(paths), [
+      { ...env, ts: "2026-11-19T06:02:48.000Z", kind: "session", data: { phase: "start", transcript } },
+      { ...env, ts: at.toISOString(), kind: "prompt", data: { text: "о чем мы?" } },
+    ], at);
+  };
+  const soon = () => new Date(at.getTime() + 3_600_000);
+  beforeEach(() => config({ terminal: { enabled: true } }));
+
+  it("after a restart the column resumes the logged Claude Code session: --resume <id> in the argv, 'resumed' in the title, the line says when", async () => {
+    logSession();
+    const { call } = setup({ clock: soon });
+    const r = (await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json()) as { session: { title: string }; why: string };
+    expect(spawned[0]?.args.slice(-8)).toEqual(["/n22/bin/node", paths.hubBin, "agent", "acme", "--cli", "claude", "--resume", ID]);
+    expect(r.session.title).toBe("acme · Claude Code · resumed");
+    expect(r.why).toMatch(/^Resumed the Claude Code session of \d\d:\d\d \(8d31964d\)\. \+ starts a new one\.$/);
+  });
+  it("the + menu (POST /sessions) never resumes", async () => {
+    logSession();
+    const { call } = setup({ clock: soon });
+    const r = (await (await call("POST", "/api/terminal/sessions", { preset: "claude", project: "acme" })).json()) as { title: string };
+    expect(spawned[0]?.args).not.toContain("--resume");
+    expect(r.title).toBe("acme · Claude Code");
+  });
+  it("older than 24 h, another project's session, or a transcript that is gone: a fresh start", async () => {
+    logSession();
+    const late = setup({ clock: () => new Date(at.getTime() + 25 * 3_600_000) });
+    await late.call("POST", "/api/terminal/ensure", { project: "acme" });
+    expect(spawned[0]?.args).not.toContain("--resume");
+  });
+  it("isolation: a session logged for another project is not resumed here", async () => {
+    logSession({ project: "beta" });
+    const { call } = setup({ clock: soon });
+    await call("POST", "/api/terminal/ensure", { project: "acme" });
+    expect(spawned[0]?.args).not.toContain("--resume");
+  });
+  it("Codex: a rollout written under other rules is not resumed (Codex keeps the instructions it started with)", async () => {
+    const rollout = join(paths.codexHomes, "acme", "sessions", `rollout-${ID}.jsonl`);
+    logSession({ cli: "codex", transcript: rollout });
+    writeFileSync(rollout, JSON.stringify({ type: "response_item", payload: { type: "message", role: "developer", content: [{ type: "input_text", text: "OLD RULES" }] } }) + "\n");
+    const { call } = setup({ clock: soon, facts: [fact("claude", "missing"), fact("codex", "ready")] });
+    const r = (await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json()) as { session: { preset: string; title: string } };
+    expect(r.session.preset).toBe("codex");
+    expect(spawned[0]?.args).not.toContain("--resume");
+  });
+  it("Codex: a rollout with today's rules is resumed", async () => {
+    const rollout = join(paths.codexHomes, "acme", "sessions", `rollout-${ID}.jsonl`);
+    logSession({ cli: "codex", transcript: rollout });
+    writeFileSync(rollout, JSON.stringify({ type: "response_item", payload: { type: "message", role: "developer", content: [{ type: "input_text", text: sessionInstructions(paths.home, paths.projects, "acme") }] } }) + "\n");
+    const { call } = setup({ clock: soon, facts: [fact("claude", "missing"), fact("codex", "ready")] });
+    const r = (await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json()) as { session: { title: string } };
+    expect(spawned[0]?.args.slice(-2)).toEqual(["--resume", ID]);
+    expect(r.session.title).toBe("acme · Codex · resumed");
   });
 });

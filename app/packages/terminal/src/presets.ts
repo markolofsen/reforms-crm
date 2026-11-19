@@ -54,11 +54,16 @@ export function presetOrder(defaultCli: AgentCli, hasProject: boolean): Terminal
  * line-editor redraw that arrived first corrupted it ("zsh: no such file or directory: д/Users/..."). The slug is checked
  * against the registry by the caller.
  */
-export function presetArgv(preset: TerminalPreset, project: string | null, o: { nodeBin: string; hubBin: string }): string[] | null {
+export function presetArgv(preset: TerminalPreset, project: string | null, o: { nodeBin: string; hubBin: string; resume?: string | undefined }): string[] | null {
   if (preset === "shell") return null;
   if (!project) throw new Error(`${PRESET_LABELS[preset]} needs a project`);
-  return [o.nodeBin, o.hubBin, "agent", project, "--cli", preset];
+  // P64: the id comes from the session log, never from the browser; still checked here, so the argv stays a fixed shape.
+  if (o.resume !== undefined && !RESUME_ID.test(o.resume)) throw new Error("resume takes a session id (a UUID)");
+  return [o.nodeBin, o.hubBin, "agent", project, "--cli", preset, ...(o.resume ? ["--resume", o.resume] : [])];
 }
+
+/** A session id of Claude Code or Codex (the shape `hub agent --resume` accepts). */
+const RESUME_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 /**
  * What the PTY runs. Shell: the owner's login shell (`-l -i`). An agent: the same login shell for its environment (PATH,
@@ -69,4 +74,5 @@ export function spawnLine(shell: string, argv: string[] | null): { file: string;
   return argv ? { file: shell, args: ["-l", "-i", "-c", 'exec "$0" "$@"', ...argv] } : { file: shell, args: ["-l", "-i"] };
 }
 
-export const sessionTitle = (preset: TerminalPreset, project: string | null): string => (project ? `${project} · ${PRESET_LABELS[preset]}` : PRESET_LABELS[preset]);
+export const sessionTitle = (preset: TerminalPreset, project: string | null, resumed = false): string =>
+  `${project ? `${project} · ${PRESET_LABELS[preset]}` : PRESET_LABELS[preset]}${resumed ? " · resumed" : ""}`;

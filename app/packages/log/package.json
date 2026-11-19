@@ -12,7 +12,8 @@
     "./codex-rollout": "./src/codex-rollout.ts",
     "./summary": "./src/summary.ts",
     "./claude-transcript": "./src/claude-transcript.ts",
-    "./feed": "./src/feed.ts"
+    "./feed": "./src/feed.ts",
+    "./resume": "./src/resume.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

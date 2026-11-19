@@ -4,20 +4,22 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { AGENT_CLIS, expandTilde, instanceFeatures, pathsAt, type AgentCli, type HubPaths } from "@hub/config/paths";
 import { claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
-import { codexArgs } from "@hub/agent/codex";
+import { codexArgs, codexHome } from "@hub/agent/codex";
 import { INSTALL_LINE } from "@hub/agent/detect";
 import { CLI_LABELS, modeLine } from "@hub/agent/session";
-import { projectIdentity, sessionRules } from "@hub/agent/session-rules";
-import { loadProject } from "@hub/projects";
+import { bindingPrompt, identityOf, projectsRelOf, UNBOUND_INSTRUCTIONS } from "@hub/agent/session-rules";
+import { logStoreOf } from "@hub/log/store";
+import { chooseResume, SESSION_ID } from "@hub/log/resume";
 import { syncInstanceSkills } from "./instance-skills";
 import { readBinding, resolveBinding, writeBinding, writeCodexHome, writeSessionFiles, type SessionFiles } from "./safety";
 import { c, UsageError } from "./term";
 
-export type AgentMode = "continue" | "new" | "pick";
+/** `resume`: one session by id (`--resume <id>`, P64); `continue` resolves the bound project's last logged session into it. */
+export type AgentMode = "continue" | "new" | "pick" | "resume";
 /** `shell`: the owner's own shell in the instance root, bound to the project (no agent, no sandbox: as Terminal.app). */
 export type SessionCli = AgentCli | "shell";
 export const SESSION_CLIS: readonly SessionCli[] = [...AGENT_CLIS, "shell"];
-export interface AgentPlan { mode: AgentMode; project?: string; extra: string[]; cli?: SessionCli; prepare?: boolean; /** The bound project's Mail identity paragraph (`projectIdentity`), from its project.md. */ identity?: string }
+export interface AgentPlan { mode: AgentMode; project?: string; extra: string[]; cli?: SessionCli; prepare?: boolean; /** The session id of mode `resume`. */ resume?: string; /** The bound project's Mail identity paragraph (`projectIdentity`), from its project.md. */ identity?: string }
 
 const MODES: readonly string[] = ["continue", "new", "pick"];
 
@@ -41,16 +43,17 @@ export function listProjects(projectsDir: string): string[] {
 }
 
 /**
- * Mode selection. `hub agent` = continue the last session; `<project>` = a FRESH session bound to it; `new` / `pick` / `continue`
+ * Mode selection. `hub agent` = continue the bound project's last logged session (P64); `<project>` = a FRESH session bound to it; `new` / `pick` / `continue`
  * name a mode. Everything after (a leading `--` is dropped) goes to claude untouched.
  */
 export function parseAgentArgs(args: string[], projects: string[]): AgentPlan {
-  // `--cli <x>` and `--prepare` are the hub's own; they may come anywhere before `--`.
+  // `--cli <x>`, `--prepare` and `--resume <id>` are the hub's own; they may come anywhere before `--`.
   const cut = args.indexOf("--");
   const own = cut === -1 ? args : args.slice(0, cut);
   const tail = cut === -1 ? [] : args.slice(cut);
   let cli: SessionCli | undefined;
   let prepare = false;
+  let resume: string | undefined;
   const kept: string[] = [];
   for (let i = 0; i < own.length; i++) {
     const a = own[i] as string;
@@ -59,6 +62,10 @@ export function parseAgentArgs(args: string[], projects: string[]): AgentPlan {
       const v = inline ?? own[++i];
       if (!v || !(SESSION_CLIS as readonly string[]).includes(v)) throw new UsageError(`--cli takes ${SESSION_CLIS.join(", ")}, got "${v ?? ""}"`);
       cli = v as SessionCli;
+    } else if (a === "--resume" || a.startsWith("--resume=")) {
+      const v = a.startsWith("--resume=") ? a.slice(9) : own[++i];
+      if (!v || !SESSION_ID.test(v)) throw new UsageError(`--resume takes a session id (a UUID), got "${v ?? ""}"`);
+      resume = v;
     } else if (a === "--prepare") prepare = true;
     else kept.push(a);
   }
@@ -76,28 +83,25 @@ export function parseAgentArgs(args: string[], projects: string[]): AgentPlan {
     }
   }
   if (extra[0] === "--") extra = extra.slice(1);
-  return { mode, ...(project ? { project } : {}), extra, ...(cli ? { cli } : {}), ...(prepare ? { prepare } : {}) };
-}
-
-/**
- * The system prompt that pins a session to one project (isolation: one session = one project), then the core's session rules
- * (P51: what "this client" means, the focus, revise never send). The same text goes to Claude and to Codex.
- */
-export function bindingPrompt(project: string, projectsRel = "projects", identity?: string): string {
-  return `This session is bound to ONE project: ${project} (HUB_PROJECT). Work for ${project} only: read ${projectsRel}/${project}/ and no other project's folder, name only that project's Mail accounts, pass project=${project} to every knowledge call. If asked for another project, refuse and tell the owner to run \`hub agent <other>\`. Drafts only: never send.\n\n${sessionRules(project)}${identity ? `\n\n${identity}` : ""}`;
+  if (resume) {
+    if (!project) throw new UsageError("--resume needs the project: `hub agent <project> --cli <x> --resume <id>`");
+    mode = "resume";
+  }
+  return { mode, ...(project ? { project } : {}), extra, ...(cli ? { cli } : {}), ...(prepare ? { prepare } : {}), ...(resume ? { resume } : {}) };
 }
 
 export function buildClaudeArgs(plan: AgentPlan, dirs: string[] = [], files?: SessionFiles, projectsRel?: string, unattended = false): string[] {
   const base = claudeBaseArgs(unattended, dirs);
   if (files) base.push(...claudeEnforcementArgs(files));
   if (plan.project) base.push("--append-system-prompt", bindingPrompt(plan.project, projectsRel, plan.identity));
-  const lead = plan.mode === "pick" ? ["--resume"] : plan.mode === "continue" ? ["--continue"] : [];
+  // P64: never `--continue` (it takes the newest conversation of the instance root, any project's); `continue` is resolved to an id first.
+  const lead = plan.mode === "pick" ? ["--resume"] : plan.mode === "resume" && plan.resume ? ["--resume", plan.resume] : [];
   return [...lead, ...base, ...plan.extra];
 }
 
-/** Codex: `resume --last` continues, `resume` picks; a fresh session starts plain. The binding is the generated `developer_instructions`. */
+/** Codex: `resume <id>` resumes one session, `resume` picks; a fresh session starts plain. The binding is the generated `developer_instructions`. */
 export function buildCodexArgs(plan: AgentPlan, paths: HubPaths, unattended: boolean): string[] {
-  const lead = plan.mode === "pick" ? ["resume"] : plan.mode === "continue" ? ["resume", "--last"] : [];
+  const lead = plan.mode === "pick" ? ["resume"] : plan.mode === "resume" && plan.resume ? ["resume", plan.resume] : [];
   return [...lead, ...codexArgs({ paths, unattended, extra: plan.extra })];
 }
 
@@ -174,10 +178,8 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   catch (e) { throw new UsageError((e as Error).message); }
   const plan: AgentPlan = { ...parsed, ...(bound.project ? { project: bound.project } : {}) };
   if (plan.project) {
-    try {
-      const c = loadProject(env.projectsDir, plan.project).parsed.config;
-      plan.identity = projectIdentity(plan.project, { ...c.mail, brands: c.brands.map((b) => b.name) });
-    } catch { /* an unreadable project.md: the session says so itself when it reads it */ }
+    const identity = identityOf(env.projectsDir, plan.project); // unreadable project.md: none; the session says so itself
+    if (identity) plan.identity = identity;
   }
   const paths = env.paths ?? pathsAt(env.root);
   const features = instanceFeatures(paths);
@@ -196,14 +198,14 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
 
   // `--prepare` (the Agent tools fix line) writes the session files only: it does not move the sticky binding.
   if (!plan.prepare) writeBinding(env.root, plan.project);
-  const projectsRel = path.relative(env.root, env.projectsDir).split(path.sep).join("/");
-  const relOk = projectsRel && !projectsRel.startsWith("..") ? projectsRel : env.projectsDir;
+  const relOk = projectsRelOf(env.root, env.projectsDir);
+  const instructions = plan.project ? bindingPrompt(plan.project, relOk, plan.identity) : UNBOUND_INSTRUCTIONS;
   // An instance keeps no copy of the core skills: the CLI finds them through generated links.
   const linked = syncInstanceSkills(paths);
   const files = writeSessionFiles(env.root, env.projectsDir, plan.project, process.execPath, paths, unattended);
   let codexHomeDir: string | undefined;
   if (cli === "codex") {
-    codexHomeDir = writeCodexHome({ paths, projectsDir: env.projectsDir, slug: plan.project, unattended, nodeBin: process.execPath, instructions: plan.project ? bindingPrompt(plan.project, relOk, plan.identity) : "This hub session is not bound to a project: ask which project, then tell the owner to run `hub agent <project>`. Drafts only: never send." });
+    codexHomeDir = writeCodexHome({ paths, projectsDir: env.projectsDir, slug: plan.project, unattended, nodeBin: process.execPath, instructions });
     childEnv.CODEX_HOME = codexHomeDir;
   }
   if (plan.prepare) {
@@ -211,27 +213,63 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
     return 0;
   }
 
+  const resumed = resolveResume(plan, cli, { paths, instructions });
+  const run = resumed.plan;
+
   printPhrases();
   if (linked.length) console.log(c.dim(`Core skills linked into ${paths.claudeSkills}: ${linked.join(", ")}`));
   if (plan.project) {
-    console.log(`\n${c.green("Session bound to project:")} ${c.bold(plan.project)} ${c.dim(bound.sticky ? "(kept from the last session; `hub agent new` unbinds)" : "(HUB_PROJECT). A fresh session: no other project's context is carried over.")}`);
+    console.log(`\n${c.green("Session bound to project:")} ${c.bold(plan.project)} ${c.dim(bound.sticky ? "(kept from the last session; `hub agent new` unbinds)" : run.mode === "resume" ? "(HUB_PROJECT). Resumed: this project's own session, with today's rules." : "(HUB_PROJECT). A fresh session: no other project's context is carried over.")}`);
   }
+  if (resumed.line) console.log(c.yellow(resumed.line));
   console.log(c.dim(`${CLI_LABELS[cli]}, ${modeLine(unattended)}.`));
   console.log(c.dim(`Enforced: no send/forward/trash/delete tool (${files.disallowed.length} denied), only the hub's MCP servers, secrets and ${plan.project ? "other projects' folders" : "the live database"} unreadable${cli === "claude" ? `, guard hook ${process.env.HUB_GUARD === "block" ? "BLOCKS" : "warns (HUB_GUARD=block to block)"}` : ", forbidden command rules"}.`));
   console.log();
 
-  if (cli === "codex") {
-    const code = await spawnCli("codex", "codex", buildCodexArgs(plan, paths, unattended), env.root, childEnv);
-    if (code === 0 || plan.mode !== "continue") return code;
-    return spawnCli("codex", "codex", buildCodexArgs({ ...plan, mode: "new" }, paths, unattended), env.root, childEnv);
-  }
   const dirs = extraDirs(env.root);
-  const args = buildClaudeArgs(plan, dirs, files, relOk, unattended);
-  if (plan.mode === "continue") {
-    const code = await spawnCli("claude", "claude", args, env.root, childEnv);
-    if (code === 0) return 0;
-    // nothing to continue (first run here): a fresh session
-    return spawnCli("claude", "claude", buildClaudeArgs({ ...plan, mode: "new" }, dirs, files, relOk, unattended), env.root, childEnv);
-  }
-  return spawnCli("claude", "claude", args, env.root, childEnv);
+  const start = (p: AgentPlan): Promise<number> =>
+    cli === "codex"
+      ? spawnCli("codex", "codex", buildCodexArgs(p, paths, unattended), env.root, childEnv)
+      : spawnCli("claude", "claude", buildClaudeArgs(p, dirs, files, relOk, unattended), env.root, childEnv);
+  return startWithFallback(run, start, { say: (l) => console.log(c.yellow(l)) });
+}
+
+/**
+ * P64: which session `hub agent` starts. `resume <id>`: that session when the log has it for this project and CLI and it can
+ * still be resumed (Codex: with the same rules); `continue`: the project's last logged session, no cut-off. Never the CLI's
+ * own `--continue` / `--last` (the instance root is every project's cwd). Anything else, or a refusal: a fresh session.
+ */
+export function resolveResume(plan: AgentPlan, cli: AgentCli, o: { paths: HubPaths; instructions: string; now?: Date }): { plan: AgentPlan; line: string | null } {
+  if (plan.mode !== "resume" && plan.mode !== "continue") return { plan, line: null };
+  const fresh = (line: string | null) => ({ plan: freshPlan(plan), line });
+  const project = plan.project ?? null;
+  const choice = chooseResume(logStoreOf(o.paths), {
+    project,
+    cli,
+    maxAgeMs: Infinity, // `continue` is his own explicit ask; the dock's 24 h cut-off is the server's (it passes an id)
+    ...(plan.mode === "resume" && plan.resume ? { id: plan.resume } : {}),
+    ...(cli === "codex" ? { within: codexHome(o.paths, plan.project), instructions: o.instructions } : {}),
+    ...(o.now ? { now: o.now } : {}),
+  });
+  if (!choice.session) return fresh(choice.why ? `Not resumed: ${choice.why}. A fresh session.` : plan.mode === "continue" ? "No earlier session of this project to continue: a fresh session." : null);
+  return { plan: { ...plan, mode: "resume", resume: choice.session.session }, line: null };
+}
+
+/** The same plan as a fresh session. */
+const freshPlan = ({ resume: _, ...rest }: AgentPlan): AgentPlan => ({ ...rest, mode: "new" });
+
+/** A resume that the CLI refuses fails at once (Claude "No conversation found", exit 1 in about 4 s; Codex "no rollout found", 1.7 s). */
+export const RESUME_FAIL_MS = 15_000;
+
+/**
+ * Starts the plan; a resume whose CLI exits non-zero within {@link RESUME_FAIL_MS} gets ONE fresh start, said in one line. A
+ * resumed session that ran longer is never restarted.
+ */
+export async function startWithFallback(plan: AgentPlan, start: (p: AgentPlan) => Promise<number>, o: { say: (line: string) => void; now?: () => number; failMs?: number }): Promise<number> {
+  const now = o.now ?? Date.now;
+  const t0 = now();
+  const code = await start(plan);
+  if (plan.mode !== "resume" || code === 0 || now() - t0 > (o.failMs ?? RESUME_FAIL_MS)) return code;
+  o.say(`Could not resume session ${(plan.resume ?? "").slice(0, 8)} (exit ${code}): a fresh session.`);
+  return start(freshPlan(plan));
 }

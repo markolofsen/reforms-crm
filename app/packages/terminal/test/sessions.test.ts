@@ -49,6 +49,10 @@ describe("presets and env (S7)", () => {
     expect(spawnLine("/bin/zsh", null)).toEqual({ file: "/bin/zsh", args: ["-l", "-i"] });
     expect(presetArgv("shell", null, { nodeBin: "/n", hubBin: "/h" })).toBeNull();
     expect(() => presetArgv("claude", null, { nodeBin: "/n", hubBin: "/h" })).toThrow(/needs a project/);
+    // P64: a resume adds `--resume <uuid>` and nothing else; anything but a UUID is refused before a spawn.
+    const id = "8d31964d-2edc-490c-91a8-dfb10ffb47de";
+    expect(presetArgv("claude", "acme", { nodeBin: "/n", hubBin: "/h", resume: id })).toEqual(["/n", "/h", "agent", "acme", "--cli", "claude", "--resume", id]);
+    expect(() => presetArgv("claude", "acme", { nodeBin: "/n", hubBin: "/h", resume: "x; rm -rf ~" })).toThrow(/UUID/);
     expect(presetOrder("claude", true)).toEqual(["claude", "codex", "shell"]);
     expect(presetOrder("codex", true)).toEqual(["codex", "claude", "shell"]);
     expect(presetOrder("codex", false)).toEqual(["shell"]);

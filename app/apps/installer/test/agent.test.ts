@@ -2,14 +2,16 @@ import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { sessionRules } from "@hub/agent/session-rules";
-import { bindingPrompt, buildClaudeArgs, buildCodexArgs, extraDirs, listProjects, parseAgentArgs } from "../src/agent";
-import { claudeBaseArgs } from "@hub/agent/claude";
+import { bindingPrompt, sessionRules } from "@hub/agent/session-rules";
+import { buildClaudeArgs, buildCodexArgs, extraDirs, listProjects, parseAgentArgs, resolveResume, startWithFallback, type AgentPlan } from "../src/agent";
+import { claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
+import { appendEvents, logStoreOf } from "@hub/log/store";
 import { pathsAt } from "@hub/config/paths";
 import { installLink, linkState, planLink, removeLink } from "../src/link";
 import { UsageError } from "../src/term";
 
 const MAP = "/h/shared/notes";
+const ID = "8d31964d-2edc-490c-91a8-dfb10ffb47de";
 
 describe("parseAgentArgs: mode selection", () => {
   it("defaults to continue", () => {
@@ -45,8 +47,8 @@ describe("buildClaudeArgs", () => {
     expect(claudeBaseArgs(false, [MAP])).toEqual(["--chrome", "--add-dir", MAP]);
     expect(claudeBaseArgs(true)).toEqual(["--dangerously-skip-permissions", "--chrome"]);
   });
-  it("continue and pick lead with their flag", () => {
-    expect(buildClaudeArgs({ mode: "continue", extra: [] }, [MAP])[0]).toBe("--continue");
+  it("pick leads with --resume; never --continue (P64: it would take any project's newest conversation in the instance root)", () => {
+    expect(buildClaudeArgs({ mode: "continue", extra: [] }, [MAP])).not.toContain("--continue");
     expect(buildClaudeArgs({ mode: "pick", extra: [] }, [MAP])[0]).toBe("--resume");
     expect(buildClaudeArgs({ mode: "new", extra: [] }, [MAP])).toEqual(claudeBaseArgs(false, [MAP]));
     expect(buildClaudeArgs({ mode: "new", extra: [] }, [MAP], undefined, undefined, true)).toEqual(claudeBaseArgs(true, [MAP]));
@@ -68,7 +70,8 @@ describe("buildCodexArgs", () => {
       expect(a.join(" ")).not.toMatch(/bypass-approvals|yolo|danger-full-access/);
       expect(a).toEqual(["-C", home, "-a", unattended ? "never" : "on-request", "--dangerously-bypass-hook-trust"]);
     }
-    expect(buildCodexArgs({ mode: "continue", extra: [] }, paths, true).slice(0, 2)).toEqual(["resume", "--last"]);
+    expect(buildCodexArgs({ mode: "continue", extra: [] }, paths, true)).not.toContain("--last");
+    expect(buildCodexArgs({ mode: "resume", resume: ID, extra: [] }, paths, true)).toEqual(["resume", ID, ...buildCodexArgs({ mode: "new", extra: [] }, paths, true)]);
   });
   it("refuses the bypass flag even when it is passed through", () => {
     expect(() => buildCodexArgs({ mode: "new", extra: ["--dangerously-bypass-approvals-and-sandbox"] }, paths, true)).toThrow(/sandbox off/);
@@ -187,5 +190,85 @@ describe("the bound project's identity in the session rules (P52)", () => {
     const md = (v: string) => ["# x", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| mail.accounts | a@x.example | 2026-11-14 | agent |", "| mail.addresses | a@x.example | 2026-11-14 | owner |", `| mail.domains | ${v} | 2026-11-18 | owner |`, ""].join("\n");
     expect(readProject(md("Carapis.com, cmdop.ai"), "x").config.mail.domains).toEqual(["carapis.com", "cmdop.ai"]);
     expect(() => readProject(md("not a domain"), "x")).toThrow(/is not a domain/);
+  });
+});
+
+describe("P64: --resume <id> resumes one session, with the CURRENT flags", () => {
+  it("parses --resume as a hub flag that needs a project and a UUID", () => {
+    expect(parseAgentArgs(["acme", "--cli", "claude", "--resume", ID], ["acme"])).toEqual({ mode: "resume", project: "acme", extra: [], cli: "claude", resume: ID });
+    expect(parseAgentArgs(["acme", `--resume=${ID}`], ["acme"]).resume).toBe(ID);
+    expect(() => parseAgentArgs(["acme", "--resume", "../../etc"], ["acme"])).toThrow(/UUID/);
+    expect(() => parseAgentArgs(["--resume", ID], ["acme"])).toThrow(/needs the project/);
+    expect(parseAgentArgs(["acme", "--", "--resume", ID], ["acme"])).toMatchObject({ mode: "new", extra: ["--resume", ID] });
+  });
+  it("Claude: the resume argv is the fresh argv (settings, strict MCP, denied tools, binding prompt) with --resume <id> in front", () => {
+    const files = { settings: "/s/settings.json", mcp: "/s/mcp.json", disallowed: ["mcp__mail__send"], rules: [] };
+    const plan: AgentPlan = { mode: "new", project: "acme", extra: [] };
+    const fresh = buildClaudeArgs(plan, [MAP], files, "projects", true);
+    const resumed = buildClaudeArgs({ ...plan, mode: "resume", resume: ID }, [MAP], files, "projects", true);
+    expect(resumed).toEqual(["--resume", ID, ...fresh]);
+    for (const f of [...claudeEnforcementArgs(files), "--append-system-prompt", bindingPrompt("acme", "projects"), "--dangerously-skip-permissions"]) expect(resumed).toContain(f);
+  });
+});
+
+describe("P64: resolveResume reads the session log; a refusal starts fresh and says why", () => {
+  const setup = () => {
+    const home = mkdtempSync(path.join(tmpdir(), "hub-resume-"));
+    const paths = pathsAt(home);
+    mkdirSync(paths.secrets, { recursive: true });
+    const transcript = path.join(home, "t", `${ID}.jsonl`);
+    mkdirSync(path.dirname(transcript), { recursive: true });
+    writeFileSync(transcript, "{}\n");
+    const store = logStoreOf(paths);
+    const at = new Date("2026-11-19T06:02:48.000Z");
+    appendEvents(store, [
+      { ts: at.toISOString(), project: "acme", session: ID, cli: "claude", kind: "session", data: { phase: "start", transcript } },
+      { ts: "2026-11-19T06:03:02.000Z", project: "acme", session: ID, cli: "claude", kind: "prompt", data: { text: "о чем мы?" } },
+    ], at);
+    return { paths };
+  };
+  it("an id the log has for this project and CLI is resumed; another project's or CLI's is refused", () => {
+    const { paths } = setup();
+    const o = { paths, instructions: "x" };
+    expect(resolveResume({ mode: "resume", project: "acme", resume: ID, extra: [] }, "claude", o)).toEqual({ plan: { mode: "resume", project: "acme", resume: ID, extra: [] }, line: null });
+    const other = resolveResume({ mode: "resume", project: "beta", resume: ID, extra: [] }, "claude", o);
+    expect(other.plan).toEqual({ mode: "new", project: "beta", extra: [] });
+    expect(other.line).toMatch(/^Not resumed: the log has no claude session 8d31964d of beta\. A fresh session\.$/);
+    expect(resolveResume({ mode: "resume", project: "acme", resume: ID, extra: [] }, "codex", o).plan.mode).toBe("new");
+  });
+  it("continue resolves the bound project's last session (no cut-off), else a fresh one with a line", () => {
+    const { paths } = setup();
+    expect(resolveResume({ mode: "continue", project: "acme", extra: [] }, "claude", { paths, instructions: "x", now: new Date("2027-01-01T00:00:00Z") }).plan).toMatchObject({ mode: "resume", resume: ID });
+    expect(resolveResume({ mode: "continue", project: "beta", extra: [] }, "claude", { paths, instructions: "x" })).toEqual({ plan: { mode: "new", project: "beta", extra: [] }, line: "No earlier session of this project to continue: a fresh session." });
+  });
+  it("a fresh start is left alone", () => {
+    const { paths } = setup();
+    const plan: AgentPlan = { mode: "new", project: "acme", extra: [] };
+    expect(resolveResume(plan, "claude", { paths, instructions: "x" })).toEqual({ plan, line: null });
+  });
+});
+
+describe("P64: startWithFallback", () => {
+  const plan: AgentPlan = { mode: "resume", project: "acme", resume: ID, extra: [] };
+  it("a resume the CLI refuses at once gets ONE fresh start, said in one line", async () => {
+    const runs: AgentPlan[] = [];
+    const said: string[] = [];
+    const code = await startWithFallback(plan, async (p) => { runs.push(p); return runs.length === 1 ? 1 : 0; }, { say: (l) => said.push(l), now: () => 0 });
+    expect(code).toBe(0);
+    expect(runs.map((r) => r.mode)).toEqual(["resume", "new"]);
+    expect(runs[1]).not.toHaveProperty("resume");
+    expect(said).toEqual(["Could not resume session 8d31964d (exit 1): a fresh session."]);
+  });
+  it("a fresh start that fails is not retried, and neither is a resumed session that ran longer than 15 s", async () => {
+    let n = 0;
+    expect(await startWithFallback({ ...plan, mode: "new" }, async () => { n++; return 1; }, { say: () => {}, now: () => 0 })).toBe(1);
+    let t = 0;
+    expect(await startWithFallback(plan, async () => { n++; t = 20_000; return 2; }, { say: () => {}, now: () => t })).toBe(2);
+    expect(n).toBe(2);
+  });
+  it("a resume that fails fresh as well stops after the one retry", async () => {
+    let n = 0;
+    expect(await startWithFallback(plan, async () => { n++; return 1; }, { say: () => {}, now: () => 0 })).toBe(1);
+    expect(n).toBe(2);
   });
 });

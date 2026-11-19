@@ -134,17 +134,18 @@ program.hook("preAction", async (_cmd, action) => {
 
 program.command("agent").description("Start an agent session (Claude Code or Codex) in this instance. No argument: continue the last session. <project>: a FRESH session bound to that project.")
   .argument("[target]", "a project slug, or: continue (default) | new | pick")
-  .argument("[cli-args...]", "--cli claude|codex|shell (default: agent.default), --prepare (write the session files only); extra flags for the CLI after `--`")
+  .argument("[cli-args...]", "--cli claude|codex|shell (default: agent.default), --prepare (write the session files only), --resume <id> (one logged session of that project); extra flags for the CLI after `--`")
   .allowUnknownOption()
   .addHelpText("after", `
 ${c.bold("Modes")}
-  hub agent                   continue the last session (a fresh one if none exists)
+  hub agent                   continue the bound project's last logged session (a fresh one if none exists)
   hub agent <project>         fresh session, HUB_PROJECT set, prompt pins it to that project
   hub agent new               fresh session, no project (the phrase names it)
   hub agent pick              choose a session from the list
   hub agent <x> --cli codex   the same with Codex (default: agent.default in config/config.json, else claude)
   hub agent <x> --cli shell   your own shell in the instance root, HUB_PROJECT set (not sandboxed)
   hub agent <x> --prepare     write the session files, start nothing
+  hub agent <x> --resume <id> resume that session of <x> (a full session id), with today's settings; fresh if it cannot
   hub agent <x> -- --model opus   anything after -- goes to the CLI
 Two modes (config/config.json agent.unattended): normal, the CLI asks before commands and edits; unattended (true), no prompts with the
 OS sandbox on (no network or Apple Events from commands; the send policy, config and core read-only). Always: per-project deny rules, the

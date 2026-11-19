@@ -3,7 +3,11 @@ import type { Duplex } from "node:stream";
 import path from "node:path";
 import { instanceFeatures, type HubPaths } from "@hub/config/paths";
 import { cliDetector, detectClis, fakeFacts, pickPreset, type CliDetector } from "@hub/agent/detect";
+import { codexHome } from "@hub/agent/codex";
 import { MEASURED_VERSIONS } from "@hub/agent/session";
+import { sessionInstructions } from "@hub/agent/session-rules";
+import { logStoreOf } from "@hub/log/store";
+import { chooseResume, type LoggedSession } from "@hub/log/resume";
 import type { CliFactDto, TerminalPreset, TerminalSessionDto } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
 import { nodePty, presetArgv, presetOrder, SessionLimitError, sessionManager, sessionTitle, spawnLine, terminalEnv, terminalSocketServer, type PtySpawn, type SessionManager } from "@hub/terminal";
@@ -32,6 +36,15 @@ export interface TerminalOptions {
   tickets?: TicketStore;
   /** Which CLIs this Mac can start (P57); shared with Agent tools. Default: the login-shell detector (the fake one with the fake shell). */
   detector?: CliDetector;
+  /** Tests: the clock the resume cut-off reads (P64). */
+  now?: () => Date;
+}
+
+/** The quiet line under the tabs when the automatic start resumed (P64): which session, from when; `+` starts a new one. */
+export function resumedLine(s: LoggedSession, cli: "claude" | "codex"): string {
+  const t = new Date(s.lastAt);
+  const hhmm = Number.isNaN(t.getTime()) ? s.lastAt : `${String(t.getHours()).padStart(2, "0")}:${String(t.getMinutes()).padStart(2, "0")}`;
+  return `Resumed the ${cli === "claude" ? "Claude Code" : "Codex"} session of ${hhmm} (${s.session.slice(0, 8)}). + starts a new one.`;
 }
 
 /** The detector the server shares between the terminal and Agent tools: fixed ready facts with a fake shell or fake Agent tools. */
@@ -66,11 +79,12 @@ export function createTerminal(o: TerminalOptions) {
   // A session that ends may have been his `claude auth login`, `codex login` or an install: the next pick reads fresh facts.
   const sessions = (): SessionManager => (manager ??= sessionManager({ spawn: o.spawn ?? nodePty(), onExit: () => void detector.refresh() }));
 
-  async function create(preset: TerminalPreset, project: string | undefined, theme?: "light" | "dark") {
+  /** `resume`: a session id from the log (P64, `ensure` only); the `+` menu never passes one, so it always starts fresh. */
+  async function create(preset: TerminalPreset, project: string | undefined, theme?: "light" | "dark", resume?: string) {
     const slug = project ?? null;
     if (slug && (await o.repos.projects.get(slug)) === null) throw new TerminalRefusal(404, `no project "${slug}"`);
     if (!presetOrder(features().agent.default, !!slug).includes(preset)) throw new TerminalRefusal(400, `${preset} needs a project in the address`);
-    const argv = presetArgv(preset, slug, { nodeBin, hubBin: o.paths.hubBin });
+    const argv = presetArgv(preset, slug, { nodeBin, hubBin: o.paths.hubBin, resume });
     // The fake shell gets the agent's argv after `--exec` and prints it, so tests see exactly what would run.
     const shell = fake
       ? { file: nodeBin, args: [path.join(o.paths.core, "app", "test-support", "fake-shell.mjs"), ...(argv ? ["--exec", ...argv] : [])] }
@@ -79,7 +93,7 @@ export function createTerminal(o: TerminalOptions) {
       return sessions().create({
         preset,
         project: slug,
-        title: sessionTitle(preset, slug),
+        title: sessionTitle(preset, slug, !!resume),
         ...shell,
         cwd: o.paths.home,
         env: terminalEnv({ base: env, home: o.paths.home, project: slug, nodeBin, theme }),
@@ -87,6 +101,24 @@ export function createTerminal(o: TerminalOptions) {
     } catch (e) {
       if (e instanceof SessionLimitError) throw new TerminalRefusal(409, e.message);
       throw e;
+    }
+  }
+
+  /**
+   * P64: the project's last session of this CLI the dock may resume (24 h, at least one prompt, transcript present; Codex only
+   * with today's rules), from the session log. The launcher checks the id again before it resumes and falls back to fresh.
+   */
+  function lastSession(slug: string, cli: "claude" | "codex"): LoggedSession | null {
+    try {
+      const choice = chooseResume(logStoreOf(o.paths), {
+        project: slug,
+        cli,
+        now: o.now?.() ?? new Date(),
+        ...(cli === "codex" ? { within: codexHome(o.paths, slug), instructions: sessionInstructions(o.paths.home, o.paths.projects, slug) } : {}),
+      });
+      return choice.session;
+    } catch {
+      return null; // an unreadable log: start fresh, as before P64
     }
   }
 
@@ -103,7 +135,8 @@ export function createTerminal(o: TerminalOptions) {
       if (running) return { session: running, created: false, why: null };
       const { facts } = await detector.get();
       const pick = pickPreset(facts, features().agent.default, !!slug);
-      return { session: await create(pick.preset, project, theme), created: true, why: pick.why };
+      const resume = pick.preset !== "shell" && slug ? lastSession(slug, pick.preset) : null;
+      return { session: await create(pick.preset, project, theme, resume?.session), created: true, why: pick.why ?? (resume ? resumedLine(resume, pick.preset as "claude" | "codex") : null) };
     })().finally(() => ensuring.delete(key));
     ensuring.set(key, p);
     return p;

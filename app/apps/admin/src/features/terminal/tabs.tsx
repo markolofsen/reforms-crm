@@ -41,6 +41,12 @@ function NewMenu() {
             <MenuGroupLabel className="w-64 whitespace-normal">{t.full ? "Eight terminals are running. Close one to start another." : "Claude Code and Codex start from a project's screen."}</MenuGroupLabel>
           </MenuGroup>
         )}
+        {/* P64: the automatic start resumes the project's last session; every item here starts a NEW one. */}
+        {!t.full && t.project && (
+          <MenuGroup>
+            <MenuGroupLabel>New session</MenuGroupLabel>
+          </MenuGroup>
+        )}
         {t.offered.map((p, i) => {
           const f = factOf(t.clis, p);
           const note = [f ? STATE_NOTE[f.state] : null, i === 0 && t.offered.length > 1 ? "default" : null].filter(Boolean).join(", ");

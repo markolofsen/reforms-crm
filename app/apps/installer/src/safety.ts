@@ -114,7 +114,7 @@ export function writeBinding(root: string, project: string | undefined): void {
 }
 
 /** What a session may be bound to. `continue`/`pick` keep the stored binding; an env binding is never changed to another project. */
-export function resolveBinding(o: { mode: "continue" | "new" | "pick"; requested?: string; stored?: string; envProject?: string }): { project?: string; sticky: boolean } {
+export function resolveBinding(o: { mode: "continue" | "new" | "pick" | "resume"; requested?: string; stored?: string; envProject?: string }): { project?: string; sticky: boolean } {
   const env = o.envProject?.trim() || undefined;
   if (env && o.requested && env !== o.requested) {
     throw new Error(`this shell already belongs to project "${env}" (HUB_PROJECT); refusing "${o.requested}". Open a new terminal and run \`hub agent ${o.requested}\`.`);
