@@ -292,16 +292,18 @@ const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const hasToken = (line: string, token: string): boolean => new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRe(token)}($|[^\\p{L}\\p{N}])`, "iu").test(line);
 
 /**
- * A line that signs a name: at most five words, no sentence or address punctuation (`. / @ : ? ! ;`), not a list item,
+ * A line that signs a name: at most five words (eight with a brand name or team word), no sentence or address punctuation (`. / @ : ? ! ;`), not a list item,
  * and a brand or signing name of the project in it, a team word ("Carapis team", "Команда Carapis"), or (`loose`) at
  * most three words that all start upper case ("Mark", "Anna Petrova").
  */
 function nameLine(line: string, names: readonly string[], loose: boolean): boolean {
   const t = line.trim();
   const w = words(t);
-  if (w.length === 0 || w.length > 5 || /[./@:?!;]/.test(t) || /^[-*•\d]/.test(t)) return false;
+  if (w.length === 0 || w.length > 8 || /[./@:?!;]/.test(t) || /^[-*•\d]/.test(t)) return false;
+  // A brand or team line may be longer ("The Caribbean Real Estate MLS team"); a bare name is short.
   if (names.some((n) => hasToken(t, n))) return true;
   if (w.some((x) => TEAM_WORDS.has(x.toLowerCase()))) return true;
+  if (w.length > 5) return false;
   return loose && w.length <= 3 && w.every((x) => /^\p{Lu}/u.test(x));
 }
 

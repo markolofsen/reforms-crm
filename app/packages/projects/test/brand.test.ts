@@ -192,7 +192,7 @@ describe("the reply's language and the agent's own closing (P65 S2)", () => {
 
   // P65 live send check: send_log 1 ended "С теплом и дружеским поклоном,\nКоманда Carapis" above the writer's signature.
   describe("ownSignoff in any language, by structure (P65 live send check)", () => {
-    const names = ["Carapis", "GPT-Kino", "MLS Bali", "Dan Merriam", "Carapis team"];
+    const names = ["Carapis", "GPT-Kino", "MLS Bali", "Dan Merriam", "Carapis team", "Caribbean MLS", "Caribbean Real Estate MLS team"];
     const own = ["Best regards,", "Carapis team", "carapis.com"];
     const refused: Array<[string, string]> = [
       ["Здравствуйте, Марк!\n\nВот стихотворение.\n\nС теплом и дружеским поклоном,\nКоманда Carapis", "С теплом и дружеским поклоном,"],
@@ -210,6 +210,8 @@ describe("the reply's language and the agent's own closing (P65 S2)", () => {
       ["Добрий день,\n\nВідповідь.\n\nЗ повагою,\nКоманда Carapis", "З повагою,"],
       ["Hi,\n\nAnswer.\n\nWarm wishes from all of us,\nMLS Bali", "Warm wishes from all of us,"],
       ["Hi,\n\nAnswer.\n\nCarapis team\ncarapis.com", "Carapis team"],
+      ["Hi,\n\nAnswer.\n\nWarm wishes,\nThe Caribbean Real Estate MLS team", "Warm wishes,"],
+      ["Hi,\n\nAnswer.\n\nThe Caribbean Real Estate MLS team", "The Caribbean Real Estate MLS team"],
     ];
     for (const [body, line] of refused) it(`refuses ${JSON.stringify(body.split("\n").slice(-2).join(" / "))}`, () => expect(ownSignoff(body, own, names)).toBe(line));
 
@@ -225,6 +227,7 @@ describe("the reply's language and the agent's own closing (P65 S2)", () => {
       "Hallo,\n\nVielen Dank für Ihre Geduld, wir antworten morgen.",
       "Hi,\n\nAnswer.\n\n> Best regards,\n> Carapis team",
       "Hi Anna,\nYes",
+      "Hi,\n\nThe team will review your account and come back to you this week",
     ];
     for (const body of kept) it(`keeps ${JSON.stringify(body.split("\n").slice(-2).join(" / "))}`, () => expect(ownSignoff(body, own, names)).toBeNull());
 
