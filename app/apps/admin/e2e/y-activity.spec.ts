@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { ActivityDto } from "@hub/contract/activity";
+import { groupRows, reasonParts } from "../src/features/log/labels";
 import { address, remember } from "./support";
 
 // Activity (P48 W5), read flows only. The e2e instance has two projects, so a scoped address names its project first
@@ -36,12 +37,14 @@ test("activity: one session is one group, with one row per decision and its reas
   const group = table.locator(`tbody[data-run="${s.runId}"]`);
   await expect(group.locator("tr[data-session-head]")).toHaveCount(1);
   await expect(group.locator("tr[data-session-head]")).toContainText(`${decisions.length} decisions`);
-  await expect(group.locator("tr[data-row]")).toHaveCount(s.rows.length);
+  // The same client with the same outcome in a row is one line ("Drafted ×6", UX pass 2026-11-20).
+  await expect(group.locator("tr[data-row]")).toHaveCount(groupRows(s.rows).length);
   // T6: who and what is in the row the moment the screen opens; nothing hides behind a Details click.
   for (const d of decisions) {
     const r = group.locator("tr[data-row]").filter({ hasText: d.client?.name ?? d.who });
     await expect(r.first()).toBeVisible();
-    if (d.why) await expect(r.first()).toContainText(d.why);
+    const { why } = reasonParts(d);
+    if (why) await expect(r.first()).toContainText(why);
   }
   await expect(page.getByRole("button", { name: /Details/ })).toHaveCount(0);
   // Each session appears once in the table: one heading row per session.

@@ -29,10 +29,16 @@ describe("activity labels", () => {
   });
 
   it("a decision names the client and gives the reason; a note is the agent's own words", () => {
-    expect(rowCells(row({ client: { id: 4, name: "Mark E." } }))).toEqual({ who: "Mark E.", what: "Skipped", why: "already drafted" });
+    expect(rowCells(row({ client: { id: 4, name: "Mark E." } }))).toEqual({ who: "Mark E.", what: "Skipped", why: "already drafted", detail: null });
     expect(rowSentence(row())).toBe("Mark Effect: skipped. Already drafted.");
     expect(rowSentence(row({ why: null, outcome: "escalated" }))).toBe("Mark Effect: escalated.");
-    expect(rowCells(row({ outcome: "other", who: "Updated 3 client profiles in Notion", why: null }))).toEqual({ who: "", what: "Note", why: "Updated 3 client profiles in Notion" });
+    expect(rowCells(row({ outcome: "other", who: "Updated 3 client profiles in Notion", why: null }))).toEqual({ who: "", what: "Note", why: "Updated 3 client profiles in Notion", detail: null });
+  });
+
+  it("a coded reason reads as its phrase, the agent's words kept apart as the detail", () => {
+    const why = "already-drafted: unmarked draft 138996 in Drafts replies to the same newest inbound (In-Reply-To matches)";
+    expect(rowCells(row({ why }))).toEqual({ who: "Mark Effect", what: "Skipped", why: "Already has a draft", detail: "unmarked draft 138996 in Drafts replies to the same newest inbound (In-Reply-To matches)" });
+    expect(rowSentence(row({ why }))).toBe("Mark Effect: skipped. Already has a draft.");
   });
 
   it("an unknown or zero number is left out, never 0s or $0.00", () => {

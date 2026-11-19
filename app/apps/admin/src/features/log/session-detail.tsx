@@ -5,7 +5,7 @@ import { AppLink } from "@/components/app-link";
 import { EmptyState } from "@/components/state-views";
 import { paths } from "@/routes/paths";
 import type { RunFilter } from "@/routes/search";
-import { rowSentence, sessionFacts, sessionTitle } from "./labels";
+import { entryTime, rowCells, rowSentence, sessionFacts, sessionTitle } from "./labels";
 
 /** Back to the table: a phone shows the session as its own screen (from the list-detail's split width the table stays beside it). */
 function Back({ filter }: { filter: RunFilter }) {
@@ -19,7 +19,8 @@ function Back({ filter }: { filter: RunFilter }) {
 
 /**
  * One session read as sentences: when, which skill, what happened to each client and why, with a link into a draft the
- * session made. The model, tokens, cost and duration show only when the hub measured them.
+ * session made. Every entry is listed here (the table folds repeats); under each, its time (dated when it is another day
+ * than the heading's) and the agent's own words after a reason code. The model, tokens, cost and duration show only when the hub measured them.
  */
 export function SessionDetail({ session: s, filter }: { session: ActivitySessionDto; filter: RunFilter }) {
   const facts = sessionFacts(s);
@@ -34,12 +35,19 @@ export function SessionDetail({ session: s, filter }: { session: ActivitySession
         <p className="measure text-muted-foreground text-sm">The agent recorded nothing about a client in this session.</p>
       ) : (
         <ul aria-label="What happened" className="measure flex flex-col gap-2 text-sm">
-          {s.rows.map((r) => (
-            <li className="flex flex-col gap-0.5" key={r.id}>
-              <p className="break-words">{rowSentence(r)}</p>
-              {r.draftId !== null && <AppLink to={paths.drafts.item(r.draftId)}>{`Open the draft${r.client ? ` for ${r.client.name}` : ""}`}</AppLink>}
-            </li>
-          ))}
+          {s.rows.map((r) => {
+            const { detail } = rowCells(r);
+            return (
+              <li className="flex flex-col gap-0.5" key={r.id}>
+                <p className="break-words">{rowSentence(r)}</p>
+                <p className="break-words text-muted-foreground text-xs">
+                  <span className="tabular-nums">{entryTime(r.at, s.startedAt)}</span>
+                  {detail && ` · ${detail}`}
+                </p>
+                {r.draftId !== null && <AppLink to={paths.drafts.item(r.draftId)}>{`Open the draft${r.client ? ` for ${r.client.name}` : ""}`}</AppLink>}
+              </li>
+            );
+          })}
         </ul>
       )}
     </Page>
