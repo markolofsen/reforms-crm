@@ -83,23 +83,38 @@ export async function runDraftsUnmark(o: { project?: string; apply?: boolean }, 
     }
     const repos = createRepos(handle.db);
     const writer = env.writer ?? mailAppDraftWriter();
-    const done: Array<{ draftId: number; from: string; to: number }> = [];
+    const done: Array<{ draftId: number; from: string; to: number; trashed: boolean }> = [];
     const failed: Array<{ draftId: number; ref: string; error: string }> = [];
     for (const r of rows) {
       const p = projects.find((x) => x.slug === r.project);
       const accounts = p?.parsed.config.mail.accounts ?? [];
       try {
-        const adopted = await repos.mailVersions.add({ project: r.project, mailRef: r.mailRef, draftId: r.draftId, account: r.account, mailId: Number(r.mail.ref) || 0, messageId: r.mail.messageId ?? "", hash: versionHash(r.mail.body), source: "migration" });
+        // A run that failed after the adoption (2026-11-19, v0.12.12: the writer's script did not compile) left the row:
+        // reuse it, so a rerun records the marked version once.
+        const mid = bareId(r.mail.messageId);
+        const known = (await repos.mailVersions.ofDraft(r.draftId)).find((v) => v.trashedAt === null && v.account === r.account && bareId(v.messageId) === mid);
+        const adopted = known?.id ?? (await repos.mailVersions.add({ project: r.project, mailRef: r.mailRef, draftId: r.draftId, account: r.account, mailId: Number(r.mail.ref) || 0, messageId: r.mail.messageId ?? "", hash: versionHash(r.mail.body), source: "migration" }));
         const w = await reviseDraft(writer, { accounts, sender: p?.parsed.config.mail.sender ?? null, mailRef: r.mailRef, body: withoutMarker(r.mail.body), quote: "keep", versions: [{ account: r.account, messageId: r.mail.messageId ?? "" }] });
         await repos.mailVersions.add({ project: r.project, mailRef: r.mailRef, draftId: r.draftId, account: w.account, mailId: w.draftId, messageId: w.messageId, hash: versionHash(w.text), source: "migration" });
-        if (w.replaced.some((x) => bareId(x) === bareId(r.mail.messageId))) await repos.mailVersions.markTrashed([adopted]);
+        const trashed = w.replaced.some((x) => bareId(x) === mid);
+        if (trashed) await repos.mailVersions.markTrashed([adopted]);
         await repos.drafts.setChecked(r.draftId, false, null);
-        done.push({ draftId: r.draftId, from: r.mail.ref, to: w.draftId });
+        done.push({ draftId: r.draftId, from: r.mail.ref, to: w.draftId, trashed });
       } catch (e) {
         failed.push({ draftId: r.draftId, ref: r.mail.ref, error: (e as Error).message.slice(0, 200) });
       }
     }
-    out(JSON.stringify({ ok: failed.length === 0, dryRun: false, listed: rows.length, rewritten: done, failed, note: "the marked versions are in each account's Trash, recoverable; nothing was sent" }));
+    // The writer moves the marked version to Trash only after the new one is saved and found, so a failed row's marked
+    // draft is still in Drafts, unchanged. The note says only what happened.
+    const inTrash = done.filter((d) => d.trashed).length;
+    const kept = done.length - inTrash;
+    const notes = [
+      ...(inTrash ? [`${inTrash === 1 ? "the marked version is" : `${inTrash} marked versions are`} in the account's Trash, recoverable`] : []),
+      ...(kept ? [`${kept === 1 ? "1 marked version" : `${kept} marked versions`} Mail would not delete ${kept === 1 ? "is" : "are"} still in Drafts beside the rewrite: \`hub drafts sweep\` lists ${kept === 1 ? "it" : "them"}`] : []),
+      ...(failed.length ? [`${failed.length === 1 ? "the failed draft is" : `the ${failed.length} failed drafts are`} still in Drafts, untouched`] : []),
+      "nothing was sent",
+    ];
+    out(JSON.stringify({ ok: failed.length === 0, dryRun: false, listed: rows.length, rewritten: done, failed, note: notes.join("; ") }));
     return failed.length ? 1 : 0;
   } catch (e) {
     out(JSON.stringify({ ok: false, error: `Mail could not be read: ${(e as Error).message}` }));

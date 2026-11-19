@@ -1,10 +1,24 @@
 import { describe, expect, it } from "vitest";
 import { bareId, FakeMailer, FIND_SCRIPT, LIST_DRAFTS_SCRIPT, mailAppMailer, parseDraftHeads, parseFindOutput, parseTrashOutput, SEND_SCRIPT, TRASH_SCRIPT } from "../src/mailer";
+import { appleScriptCompileError, canCompileAppleScript } from "../../../test-support/osacompile";
 
 // osascript is injected: nothing here starts Mail.
 
 const FS = "\x1f", RS = "\x1e", LS = "\x1d";
 const rec = (f: string[]) => f.join(FS) + RS;
+
+describe("the Mail scripts compile (osacompile, no Mail call)", () => {
+  // A keyword as a variable name (`before`, `since`) fails every call with -2741 before Mail is reached; string-match
+  // tests do not see it. Values (subject, ids, text) are argv items, never in the source.
+  it.skipIf(!canCompileAppleScript).each([
+    ["FIND_SCRIPT", FIND_SCRIPT],
+    ["LIST_DRAFTS_SCRIPT", LIST_DRAFTS_SCRIPT],
+    ["TRASH_SCRIPT", TRASH_SCRIPT],
+    ["SEND_SCRIPT", SEND_SCRIPT],
+  ])("%s", (_name, script) => {
+    expect(appleScriptCompileError(script)).toBeNull();
+  });
+});
 
 describe("Mail.app mailer", () => {
   it("parses the draft list: ids without brackets (case kept for Mail), In-Reply-To bare, address lists, attachment count", () => {

@@ -156,7 +156,7 @@ export const WRITE_REPLY_SCRIPT = `on run argv
         set sender of r to fullName & " <" & (item 1 of accAddrs) & ">"
       end if
     end if
-    set before to my threadDrafts(subj, accName, thread, {})
+    set priorIds to my threadDrafts(subj, accName, thread, {})
     set content of r to (theBody & tail)
     delay 0.3
     if ((content of r) as text) does not contain probe then
@@ -169,7 +169,7 @@ export const WRITE_REPLY_SCRIPT = `on run argv
     delete r
     set fresh to {}
     repeat 40 times
-      set fresh to my threadDrafts(subj, accName, thread, before)
+      set fresh to my threadDrafts(subj, accName, thread, priorIds)
       if (count of fresh) > 0 then exit repeat
       delay 0.25
     end repeat

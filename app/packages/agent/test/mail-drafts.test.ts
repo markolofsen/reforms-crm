@@ -6,13 +6,39 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { parseProjectMd } from "@hub/projects";
 import { DENIED_TOOLS } from "../src/deny";
-import { FakeDraftWriter, FIND_INBOUND_SCRIPT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, parseInboundOutput, parseWriteOutput, probeOf, reviseDraft, stripMarker, versionHash, WRITE_REPLY_SCRIPT, type OsaRun } from "../src/mail-drafts";
+import { FakeDraftWriter, FIND_INBOUND_SCRIPT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, parseInboundOutput, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, stripMarker, versionHash, WRITE_REPLY_SCRIPT, type OsaRun } from "../src/mail-drafts";
+import { appleScriptCompileError, canCompileAppleScript } from "../../../test-support/osacompile";
 import { createHubMcpServer, type HubMcpEnv } from "../src/mcp";
 
 // The hub's draft writer (P52): the script's contract, its parser and the `draft_write` tool, on a fake Mail. No test touches Mail.
 
 const FS = "\x1f";
 const LS = "\x1d";
+
+describe("the Mail scripts compile (osacompile, no Mail call)", () => {
+  // v0.12.12 shipped `set before to …` (`before` is an AppleScript keyword): every draft_write, Save, Restore and
+  // `hub drafts unmark --apply` failed with -2741 before reaching Mail, and the string-match tests below passed.
+  it.skipIf(!canCompileAppleScript).each([
+    ["WRITE_REPLY_SCRIPT", WRITE_REPLY_SCRIPT],
+    ["FIND_INBOUND_SCRIPT", FIND_INBOUND_SCRIPT],
+    ["MESSAGE_ID_SCRIPT", MESSAGE_ID_SCRIPT],
+    ["READ_HEADERS_SCRIPT", READ_HEADERS_SCRIPT],
+  ])("%s", (_name, script) => {
+    expect(appleScriptCompileError(script)).toBeNull();
+  });
+
+  it("passes the reply's text to the compiled script as argv items, verbatim: apostrophes, quotes, lines, non-ASCII", async () => {
+    const body = "Hi Dan,\n\nIt's \"Punta Cana\" — the owner's note: 50 % off.\nС уважением,\nÉquipe Carapis 🚗";
+    const seen: Array<{ script: string; args: string[] }> = [];
+    const osa: OsaRun = async (script, args) => (seen.push({ script, args }), ["ok", "5", "Re: Dentons' Caribbean follow up", "a@b", "d@x", "", "", "n5@x", body].join(FS));
+    const r = await mailAppDraftWriter(osa).writeReply({ account: "dan@danmerriam.com", mailboxPath: ["INBOX"], messageId: 7, body, sender: "Dan O'Brien <dan@danmerriam.com>", quote: "keep", replace: ["AB3127DC@danmerriam.com"] });
+    expect(seen[0]!.script).toBe(WRITE_REPLY_SCRIPT);
+    expect(seen[0]!.args).toEqual(["dan@danmerriam.com", "INBOX", "7", body, "Dan O'Brien <dan@danmerriam.com>", "keep", probeOf(body), "AB3127DC@danmerriam.com"]);
+    expect(r).toMatchObject({ subject: "Re: Dentons' Caribbean follow up", text: body });
+    // No value is ever spliced into the source, so no input can make it fail to compile.
+    expect(WRITE_REPLY_SCRIPT).not.toContain("${");
+  });
+});
 
 describe("the Mail script", () => {
   it("never sends, opens no window, activates nothing, pastes nothing, and writes no hub line (decision 0031)", () => {
@@ -24,7 +50,7 @@ describe("the Mail script", () => {
   });
 
   it("finds its draft as the one new draft of the account whose In-Reply-To is the thread; two new: nothing replaced", () => {
-    expect(WRITE_REPLY_SCRIPT).toMatch(/set before to my threadDrafts\(subj, accName, thread, \{\}\)/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/set priorIds to my threadDrafts\(subj, accName, thread, \{\}\)/);
     expect(WRITE_REPLY_SCRIPT).toMatch(/first header of m whose name is "In-Reply-To"/);
     expect(WRITE_REPLY_SCRIPT).toMatch(/if acc is accName and irt contains thread then/);
     expect(WRITE_REPLY_SCRIPT).toMatch(/if \(count of fresh\) > 1 then return "error" & FS & "ambiguous"/);

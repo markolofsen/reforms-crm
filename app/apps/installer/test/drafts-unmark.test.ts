@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { FakeDraftWriter } from "@hub/agent/mail-drafts";
+import { DraftWriteError, FakeDraftWriter, type DraftWriter } from "@hub/agent/mail-drafts";
 import { createRepos, openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
 import { FakeMailer, type MailDraft } from "@hub/send";
@@ -64,5 +64,25 @@ describe("hub drafts unmark", () => {
     const versions = await createRepos(h.db).mailVersions.ofDraft(s.draftId);
     h.close();
     expect(versions.map((v) => [v.source, v.messageId, v.trashedAt !== null])).toEqual([["migration", s.writer.drafts[0]?.messageId, false], ["migration", "D139333@acme.example", true]]);
+    expect(JSON.parse(s.lines.at(-1) ?? "{}").note).toBe("the marked version is in the account's Trash, recoverable; nothing was sent");
+  });
+
+  it("a writer failure leaves the marked draft in Drafts, says so (not Trash), and a rerun adopts it once (2026-11-19)", async () => {
+    const s = await setup();
+    // v0.12.12's writer: the script fails to compile, so osascript errors before Mail is reached.
+    const broken = { findInbound: s.writer.findInbound.bind(s.writer), writeReply: async () => Promise.reject(new DraftWriteError("mail_error", '2023:2025: syntax error: Expected expression but found "to". (-2741)')) };
+    expect(await runDraftsUnmark({ apply: true }, { ...s.env, writer: broken as unknown as DraftWriter })).toBe(1);
+    const res = JSON.parse(s.lines.at(-1) ?? "{}");
+    expect(res).toMatchObject({ ok: false, rewritten: [], failed: [{ draftId: s.draftId, ref: "139333" }] });
+    expect(res.note).toBe("the failed draft is still in Drafts, untouched; nothing was sent");
+    expect(res.note).not.toMatch(/Trash/);
+    expect(s.writer.drafts.map((d) => [d.id, d.text])).toEqual([[139333, "marked"]]);
+    // The rerun with a working writer: one adoption row, not two.
+    expect(await runDraftsUnmark({ apply: true }, s.env)).toBe(0);
+    const h = openDb(s.dbPath);
+    const versions = await createRepos(h.db).mailVersions.ofDraft(s.draftId);
+    h.close();
+    expect(versions.filter((v) => v.messageId === "D139333@acme.example").map((v) => v.trashedAt !== null)).toEqual([true]);
+    expect(versions).toHaveLength(2);
   });
 });
