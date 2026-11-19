@@ -221,8 +221,6 @@ export const AGENT_CLIS = ["claude", "codex"] as const;
 export type AgentCli = (typeof AGENT_CLIS)[number];
 
 export interface InstanceFeatures {
-  /** `terminal.enabled`: the admin's embedded terminal (P49 S1). Off unless it is exactly `true`. */
-  terminal: { enabled: boolean };
   /**
    * `agent.default`: the CLI `hub agent` and the terminal's `+` start (default claude). `agent.unattended`: no prompts,
    * with the OS sandbox on (P49 section 5A); off unless exactly `true`.
@@ -232,7 +230,8 @@ export interface InstanceFeatures {
 
 /**
  * The instance's switches in `config/config.json` (P49). Anything that is not exactly the documented value falls back
- * to the safe default (terminal off, Claude, prompts on): a typo never turns a door open.
+ * to the safe default (Claude, prompts on): a typo never turns a door open. The embedded terminal has no switch: it is
+ * always on (decision 0032); any other key here is ignored (`files.config-keys` names it).
  */
 export function instanceFeatures(paths: Pick<HubPaths, "configFile">): InstanceFeatures {
   let cfg: Record<string, unknown> = {};
@@ -240,8 +239,7 @@ export function instanceFeatures(paths: Pick<HubPaths, "configFile">): InstanceF
     try { cfg = JSON.parse(readFileSync(paths.configFile, "utf8")) as Record<string, unknown>; } catch { cfg = {}; }
   }
   const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
-  const terminal = obj(cfg.terminal);
   const agent = obj(cfg.agent);
   const cli = (AGENT_CLIS as readonly unknown[]).includes(agent.default) ? (agent.default as AgentCli) : "claude";
-  return { terminal: { enabled: terminal.enabled === true }, agent: { default: cli, unattended: agent.unattended === true } };
+  return { agent: { default: cli, unattended: agent.unattended === true } };
 }

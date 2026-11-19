@@ -92,13 +92,23 @@ describe("instanceFeatures (P49): every switch is off unless it is exactly true"
     const home = instanceDir();
     mkdirSync(join(home, "config"));
     const p = pathsAt(home, empty);
-    const off = { terminal: { enabled: false }, agent: { default: "claude", unattended: false } };
+    const off = { agent: { default: "claude", unattended: false } };
     expect(instanceFeatures(p)).toEqual(off);
-    for (const cfg of ["not json", JSON.stringify({ terminal: true, agent: "codex" }), JSON.stringify({ terminal: { enabled: "true" }, agent: { default: "gemini", unattended: 1 } })]) {
+    for (const cfg of ["not json", JSON.stringify({ agent: "codex" }), JSON.stringify({ agent: { default: "gemini", unattended: 1 } })]) {
       writeFileSync(p.configFile, cfg);
       expect(instanceFeatures(p), cfg).toEqual(off);
     }
-    writeFileSync(p.configFile, JSON.stringify({ terminal: { enabled: true }, agent: { default: "codex", unattended: true } }));
-    expect(instanceFeatures(p)).toEqual({ terminal: { enabled: true }, agent: { default: "codex", unattended: true } });
+    writeFileSync(p.configFile, JSON.stringify({ agent: { default: "codex", unattended: true } }));
+    expect(instanceFeatures(p)).toEqual({ agent: { default: "codex", unattended: true } });
+  });
+
+  it("the terminal has no switch (decision 0032): a terminal key changes nothing", () => {
+    const home = instanceDir();
+    mkdirSync(join(home, "config"));
+    const p = pathsAt(home, empty);
+    for (const enabled of [false, true]) {
+      writeFileSync(p.configFile, JSON.stringify({ terminal: { enabled }, agent: { default: "codex" } }));
+      expect(instanceFeatures(p)).toEqual({ agent: { default: "codex", unattended: false } });
+    }
   });
 });
