@@ -7,7 +7,7 @@ import { codexHome } from "@hub/agent/codex";
 import { MEASURED_VERSIONS } from "@hub/agent/session";
 import { sessionInstructions } from "@hub/agent/session-rules";
 import { logStoreOf } from "@hub/log/store";
-import { chooseResume, type LoggedSession } from "@hub/log/resume";
+import { chooseResume, type LoggedSession, type ResumeChoice } from "@hub/log/resume";
 import type { CliFactDto, TerminalPreset, TerminalSessionDto } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
 import { nodePty, presetArgv, presetOrder, SessionLimitError, sessionManager, sessionTitle, spawnLine, terminalEnv, terminalSocketServer, type PtySpawn, type SessionManager } from "@hub/terminal";
@@ -108,17 +108,16 @@ export function createTerminal(o: TerminalOptions) {
    * P64: the project's last session of this CLI the dock may resume (24 h, at least one prompt, transcript present; Codex only
    * with today's rules), from the session log. The launcher checks the id again before it resumes and falls back to fresh.
    */
-  function lastSession(slug: string, cli: "claude" | "codex"): LoggedSession | null {
+  function lastSession(slug: string, cli: "claude" | "codex"): ResumeChoice {
     try {
-      const choice = chooseResume(logStoreOf(o.paths), {
+      return chooseResume(logStoreOf(o.paths), {
         project: slug,
         cli,
         now: o.now?.() ?? new Date(),
         ...(cli === "codex" ? { within: codexHome(o.paths, slug), instructions: sessionInstructions(o.paths.home, o.paths.projects, slug) } : {}),
       });
-      return choice.session;
     } catch {
-      return null; // an unreadable log: start fresh, as before P64
+      return { session: null, why: null }; // an unreadable log: start fresh, as before P64
     }
   }
 
@@ -135,8 +134,9 @@ export function createTerminal(o: TerminalOptions) {
       if (running) return { session: running, created: false, why: null };
       const { facts } = await detector.get();
       const pick = pickPreset(facts, features().agent.default, !!slug);
-      const resume = pick.preset !== "shell" && slug ? lastSession(slug, pick.preset) : null;
-      return { session: await create(pick.preset, project, theme, resume?.session), created: true, why: pick.why ?? (resume ? resumedLine(resume, pick.preset as "claude" | "codex") : null) };
+      const choice: ResumeChoice = pick.preset !== "shell" && slug ? lastSession(slug, pick.preset) : { session: null, why: null };
+      const said = choice.session ? resumedLine(choice.session, pick.preset as "claude" | "codex") : choice.why ? `Not resumed: ${choice.why}. A fresh session.` : null;
+      return { session: await create(pick.preset, project, theme, choice.session?.session), created: true, why: pick.why ?? said };
     })().finally(() => ensuring.delete(key));
     ensuring.set(key, p);
     return p;

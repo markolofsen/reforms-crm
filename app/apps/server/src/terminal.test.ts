@@ -11,6 +11,7 @@ import { cliDetector, type CliFact } from "@hub/agent/detect";
 import { ticketStore } from "./admin-gate";
 import { createApp } from "./app";
 import { appendEvents, logStoreOf } from "@hub/log/store";
+import { CODEX_RULES_CHANGED } from "@hub/log/resume";
 import { sessionInstructions } from "@hub/agent/session-rules";
 import { chooseShell, createTerminal, TERMINAL_PATH } from "./terminal";
 
@@ -299,9 +300,11 @@ describe("P64: ensure resumes the project's last session; + always starts fresh"
     logSession({ cli: "codex", transcript: rollout });
     writeFileSync(rollout, JSON.stringify({ type: "response_item", payload: { type: "message", role: "developer", content: [{ type: "input_text", text: "OLD RULES" }] } }) + "\n");
     const { call } = setup({ clock: soon, facts: [fact("claude", "missing"), fact("codex", "ready")] });
-    const r = (await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json()) as { session: { preset: string; title: string } };
+    const r = (await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json()) as { session: { preset: string; title: string }; why: string };
     expect(r.session.preset).toBe("codex");
     expect(spawned[0]?.args).not.toContain("--resume");
+    expect(r.session.title).toBe("acme · Codex");
+    expect(r.why).toBe(`Not resumed: ${CODEX_RULES_CHANGED}. A fresh session.`);
   });
   it("Codex: a rollout with today's rules is resumed", async () => {
     const rollout = join(paths.codexHomes, "acme", "sessions", `rollout-${ID}.jsonl`);
