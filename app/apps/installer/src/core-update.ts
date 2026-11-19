@@ -3,17 +3,15 @@ import path from "node:path";
 import type { Ctx } from "./context";
 import { ensureSpawnHelper, nodePtyRoot } from "@hub/terminal/readiness";
 import { INSTALL, staleDeps } from "./deps";
-import { checkInstance, CORE_VERSION_FILE, readCoreVersion } from "./steps/instance";
+import { compareVersions, readCoreVersion, VERSION_TAG } from "@hub/config/core-version";
+import { INSTANCE_MARKER } from "@hub/config/paths";
+import { checkInstance } from "./steps/instance";
 import { workspaceInit } from "./workspace";
 
 /** Decision 0016: an instance moves to a newer core by moving its pin. `hub core update [tag]`: list the tags, or plan, or (with apply) do it. */
 export interface CoreUpdate { ok: boolean; lines: string[] }
 
 const git = (ctx: Ctx, args: string[]) => ctx.run("git", ["-C", ctx.paths.core, ...args], { timeoutMs: 120000 });
-/** A version tag: the only kind of tag an instance is ever moved to or pinned at. */
-export const VERSION_TAG = /^v\d+\.\d+\.\d+$/;
-const semver = (t: string): number[] => t.slice(1).split(".").map(Number);
-const newer = (a: string, b: string): number => { const x = semver(a), y = semver(b); return (x[0]! - y[0]!) || (x[1]! - y[1]!) || (x[2]! - y[2]!); };
 
 /** Replace the first non-comment line of core.version with `value` (comments and blanks stay). */
 export function rewritePin(text: string, value: string): string {
@@ -64,7 +62,7 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
 
   const fetched = await git(ctx, ["fetch", "--tags", "--force", "origin"]);
   if (fetched.code !== 0) return { ok: false, lines: [`git fetch failed: ${fetched.stderr.trim().split("\n")[0] ?? "no detail"}`] };
-  const tags = (await git(ctx, ["tag", "--list"])).stdout.split("\n").map((t) => t.trim()).filter((t) => VERSION_TAG.test(t)).sort(newer);
+  const tags = (await git(ctx, ["tag", "--list"])).stdout.split("\n").map((t) => t.trim()).filter((t) => VERSION_TAG.test(t)).sort(compareVersions);
   const head = (await git(ctx, ["rev-parse", "HEAD"])).stdout.trim();
   const here = (await git(ctx, ["describe", "--tags", "--exact-match", "HEAD"])).stdout.trim() || head.slice(0, 9);
   out.push(`core in use: ${here}; pin: ${pin ?? "(none)"}`);
@@ -93,7 +91,7 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
 
   const co = await git(ctx, ["checkout", "--quiet", "--detach", target]);
   if (co.code !== 0) return { ok: false, lines: [...out, `checkout failed: ${co.stderr.trim().split("\n")[0] ?? "no detail"}`] };
-  const file = path.join(paths.home, CORE_VERSION_FILE);
+  const file = path.join(paths.home, INSTANCE_MARKER);
   const before = existsSync(file) ? readFileSync(file, "utf8") : "";
   writeFileSync(file, pinMark(rewritePin(before, target), branch ? { branch } : { tag: tag! }));
   const check = await checkInstance(ctx);
@@ -103,7 +101,7 @@ export async function coreUpdate(ctx: Ctx, tag: string | undefined, apply: boole
     writeFileSync(file, before);
     return { ok: false, lines: [...out, `instance.core failed after the move, put back: ${check.detail}`] };
   }
-  out.push(`${CORE_VERSION_FILE} now pins ${target.slice(0, 9)} (${label}); instance.core: ${check.level}`);
+  out.push(`${INSTANCE_MARKER} now pins ${target.slice(0, 9)} (${label}); instance.core: ${check.level}`);
   // The new core may need other dependencies than the old one: install when the lockfile differs between the two commits.
   const lock = await git(ctx, ["diff", "--quiet", head, target, "--", "app/pnpm-lock.yaml"]);
   const missing = !existsSync(path.join(appDir, "node_modules"));

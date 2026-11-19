@@ -1,11 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { draftCountsReadOnly } from "@hub/db";
 import { CORE_ROOT, findInstanceHome, hubPaths, INSTANCE_MARKER, instancePorts } from "@hub/config/paths";
 import { loadProjects } from "@hub/projects";
 import { portBusy } from "./net";
-import { readCoreVersion } from "./steps/instance";
+import { readPinFile } from "@hub/config/core-version";
 
 export interface InstanceStatus {
   name: string;
@@ -50,8 +50,9 @@ export function findInstances(roots: string[], cwd: string = process.cwd(), core
 export async function instanceStatus(home: string, deps: Partial<StatusDeps> = {}): Promise<InstanceStatus> {
   const git = deps.git ?? realGit;
   const busy = deps.busy ?? portBusy;
-  const pin = readCoreVersion(home) ?? "none";
-  const follows = /^#\s*follows:\s*main\b/m.test(readFileSync(path.join(home, INSTANCE_MARKER), "utf8"));
+  const file = readPinFile(home);
+  const pin = file?.pin ?? "none";
+  const follows = file?.follows === "main";
   const coreDir = path.join(home, "core");
   let core = "missing", drift = false;
   if (existsSync(path.join(coreDir, ".git")) || existsSync(path.join(coreDir, "hub.sh"))) {

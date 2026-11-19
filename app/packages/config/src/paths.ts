@@ -41,6 +41,8 @@ export interface HubPaths {
   focus: string;
   /** P67: the LaunchAgent's own files: `<state>/autostart/` (`launchd.log`, `starts.jsonl`, the `off` file). */
   autostart: string;
+  /** P68: the last answer of the core update check (`<state>/core-update.json`), written by the server, read by the admin and `instance.core`. */
+  coreUpdate: string;
   secrets: string;
   configDir: string;
   configFile: string;
@@ -126,6 +128,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     log: join(state, "log"),
     focus: join(state, "focus.json"),
     autostart: join(state, "autostart"),
+    coreUpdate: join(state, "core-update.json"),
     secrets: fromEnv(env, "HUB_CONFIG_DIR") ?? join(state, "secrets"),
     configDir,
     configFile: fromEnv(env, "HUB_CONFIG_FILE") ?? join(configDir, "config.json"),

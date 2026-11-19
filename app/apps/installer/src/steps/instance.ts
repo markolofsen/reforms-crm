@@ -1,14 +1,12 @@
-import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync, realpathSync } from "node:fs";
+import { existsSync, lstatSync, readdirSync, readlinkSync, realpathSync } from "node:fs";
 import path from "node:path";
 import type { Ctx } from "../context";
 import { coreSkills, linksIntoCore } from "../instance-skills";
-import { VERSION_TAG } from "../core-update";
+import { readCoreVersion, sortVersions } from "@hub/config/core-version";
+import { INSTANCE_MARKER } from "@hub/config/paths";
 import type { CheckResult, Step } from "../types";
 import { fail, pass, warn } from "./helpers";
 import { localOpenAvailable } from "@hub/projects/local-open";
-
-/** The one place an instance states which core it runs on (decision 0016): `<home>/core.version`. */
-export const CORE_VERSION_FILE = "core.version";
 
 /** Paths that belong to the core: an instance must not carry them. `core/` (the pinned submodule) is the only core inside an instance. */
 const CORE_ONLY = ["app/apps", "app/packages", "app/@rules", "@docs/core", "skills", "install.sh", "hub.sh", "projects/_template"];
@@ -18,14 +16,6 @@ const CORE_PROJECTS = "app/projects";
 
 const real = (p: string): string => { try { return realpathSync(p); } catch { return path.resolve(p); } };
 const linkOf = (p: string): string | undefined => { try { return lstatSync(p).isSymbolicLink() ? readlinkSync(p) : undefined; } catch { return undefined; } };
-
-/** The pinned version: the first line of `core.version` that is not blank and not a `#` comment. */
-export function readCoreVersion(home: string): string | undefined {
-  const f = path.join(home, CORE_VERSION_FILE);
-  if (!existsSync(f)) return undefined;
-  const line = readFileSync(f, "utf8").split("\n").map((l) => l.trim()).find((l) => l && !l.startsWith("#"));
-  return line || undefined;
-}
 
 const git = async (ctx: Ctx, cwd: string, args: string[]) => ctx.run("git", ["-C", cwd, ...args]);
 
@@ -53,10 +43,9 @@ async function instanceFilesInCore(ctx: Ctx): Promise<string[]> {
 
 /** Version tags of the core checkout that are newer than the pin: they contain the pinned commit and do not point at it. Local tags only (no fetch), newest last. */
 async function newerTags(ctx: Ctx, pinCommit: string): Promise<string[]> {
-  const list = async (flag: string) => new Set((await git(ctx, ctx.paths.core, ["tag", "--list", flag, pinCommit])).stdout.split("\n").map((l) => l.trim()).filter((l) => VERSION_TAG.test(l)));
-  const at = await list("--points-at");
-  const parts = (v: string) => v.slice(1).split(".").map(Number);
-  return [...await list("--contains")].filter((v) => !at.has(v)).sort((a, b) => { const x = parts(a), y = parts(b); return (x[0]! - y[0]!) || (x[1]! - y[1]!) || (x[2]! - y[2]!); });
+  const list = async (flag: string) => sortVersions((await git(ctx, ctx.paths.core, ["tag", "--list", flag, pinCommit])).stdout.split("\n").map((l) => l.trim()));
+  const at = new Set(await list("--points-at"));
+  return (await list("--contains")).filter((v) => !at.has(v));
 }
 
 const brief = (xs: string[]): string => (xs.length > 4 ? `${xs.slice(0, 4).join(", ")} and ${xs.length - 4} more` : xs.join(", "));
@@ -69,7 +58,7 @@ export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
   // 1. The pin: present, and the core in use is that version.
   const ver = readCoreVersion(paths.home);
   const dev = linkOf(path.join(paths.home, "core"));
-  if (!ver) problems.push(`${CORE_VERSION_FILE} missing or empty in ${paths.home}: write the core commit or tag it runs on, once`);
+  if (!ver) problems.push(`${INSTANCE_MARKER} missing or empty in ${paths.home}: write the core commit or tag it runs on, once`);
   else if (dev !== undefined) notes.push(`core/ is a link to ${path.resolve(paths.home, dev)} (local development, \`hub core dev\`): pin ${ver} is not verified and this instance must not be deployed; \`hub core install\` restores the pinned core`);
   else {
     const top = await git(ctx, paths.core, ["rev-parse", "--show-toplevel"]);
@@ -80,7 +69,7 @@ export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
     else if (!ownRepo) problems.push(`core is a folder inside another repository: "core at the pin" needs the core as its own repository (the instance's core/ submodule)`);
     else {
       const head = (await git(ctx, paths.core, ["rev-parse", "HEAD"])).stdout.trim();
-      if (head !== want.stdout.trim()) problems.push(`core is at ${head.slice(0, 9)} but ${CORE_VERSION_FILE} pins ${ver}: check out the pin, or move the pin and commit it alone`);
+      if (head !== want.stdout.trim()) problems.push(`core is at ${head.slice(0, 9)} but ${INSTANCE_MARKER} pins ${ver}: check out the pin, or move the pin and commit it alone`);
       const dirty = await git(ctx, paths.core, ["status", "--porcelain", "--untracked-files=no"]);
       if (dirty.code === 0 && dirty.stdout.trim()) problems.push("core has uncommitted changes: an instance never edits core");
       const newer = await newerTags(ctx, want.stdout.trim());

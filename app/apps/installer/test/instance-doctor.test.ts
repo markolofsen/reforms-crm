@@ -6,7 +6,8 @@ import { describe, expect, it } from "vitest";
 import { hubPaths } from "@hub/config/paths";
 import { makeCtx } from "../src/context";
 import { syncInstanceSkills } from "../src/instance-skills";
-import { checkInstance, CORE_VERSION_FILE } from "../src/steps/instance";
+import { INSTANCE_MARKER } from "@hub/config/paths";
+import { checkInstance } from "../src/steps/instance";
 import { STEPS } from "../src/steps/index";
 
 // Decision 0016, phase S4: `hub doctor` compares the instance with the core. Fixtures: throw-away folders, a throw-away git
@@ -27,7 +28,7 @@ function rig(): Rig {
   git(core, "init", "-q"); git(core, "add", "-A"); git(core, "commit", "-qm", "core");
   mkdirSync(path.join(home, "projects", "acme"), { recursive: true });
   const pin = git(core, "rev-parse", "HEAD");
-  put(path.join(home, CORE_VERSION_FILE), `# the core this instance runs on\n${pin}\n`);
+  put(path.join(home, INSTANCE_MARKER), `# the core this instance runs on\n${pin}\n`);
   return { base, core, home, pin };
 }
 const ctxOf = (r: Rig) => makeCtx({ paths: hubPaths({ core: r.core, home: r.home, env: {} }), log: () => {} });
@@ -46,16 +47,16 @@ describe("hub doctor: instance against core", () => {
   });
   it("fails when core.version is missing, and when it is only comments", async () => {
     const r = linked(rig());
-    rmSync(path.join(r.home, CORE_VERSION_FILE));
+    rmSync(path.join(r.home, INSTANCE_MARKER));
     expect(await checkInstance(ctxOf(r))).toMatchObject({ level: "fail", detail: expect.stringContaining("core.version missing") });
-    put(path.join(r.home, CORE_VERSION_FILE), "# nothing\n\n");
+    put(path.join(r.home, INSTANCE_MARKER), "# nothing\n\n");
     expect((await checkInstance(ctxOf(r))).level).toBe("fail");
   });
   it("fails when the pin is not a commit of the core, or the core moved off the pin", async () => {
     const r = linked(rig());
-    put(path.join(r.home, CORE_VERSION_FILE), "deadbeefdeadbeef\n");
+    put(path.join(r.home, INSTANCE_MARKER), "deadbeefdeadbeef\n");
     expect(await checkInstance(ctxOf(r))).toMatchObject({ level: "fail", detail: expect.stringContaining("not a commit") });
-    put(path.join(r.home, CORE_VERSION_FILE), r.pin + "\n");
+    put(path.join(r.home, INSTANCE_MARKER), r.pin + "\n");
     put(path.join(r.core, "skills", "triage", "SKILL.md"), "---\nname: triage\n---\nmore\n");
     git(r.core, "commit", "-qam", "move");
     expect(await checkInstance(ctxOf(r))).toMatchObject({ level: "fail", detail: expect.stringContaining("pins") });
@@ -63,13 +64,13 @@ describe("hub doctor: instance against core", () => {
   it("accepts a tag as the pin", async () => {
     const r = linked(rig());
     git(r.core, "tag", "v1");
-    put(path.join(r.home, CORE_VERSION_FILE), "v1\n");
+    put(path.join(r.home, INSTANCE_MARKER), "v1\n");
     expect((await checkInstance(ctxOf(r))).level).toBe("pass");
   });
   it("warns how many newer version tags the core has, and not for a pin at the newest tag", async () => {
     const r = linked(rig());
     git(r.core, "tag", "v0.1.0");
-    put(path.join(r.home, CORE_VERSION_FILE), "# the core\nv0.1.0\n");
+    put(path.join(r.home, INSTANCE_MARKER), "# the core\nv0.1.0\n");
     expect((await checkInstance(ctxOf(r))).level).toBe("pass");
     for (const v of ["v0.2.0", "v0.10.0"]) { put(path.join(r.core, "skills", "triage", "SKILL.md"), `---\nname: triage\n---\n${v}\n`); git(r.core, "commit", "-qam", v); git(r.core, "tag", v); }
     git(r.core, "tag", "backup-2026"); // not a version: never counted
@@ -79,7 +80,7 @@ describe("hub doctor: instance against core", () => {
     expect(out.detail).toContain("2 newer tag(s)");
     expect(out.detail).toContain("latest v0.10.0");
     git(r.core, "checkout", "-q", "--detach", "v0.10.0");
-    put(path.join(r.home, CORE_VERSION_FILE), "v0.10.0\n");
+    put(path.join(r.home, INSTANCE_MARKER), "v0.10.0\n");
     expect((await checkInstance(ctxOf(r))).level).toBe("pass");
   });
   it("fails on a dirty core (tracked file edited)", async () => {
@@ -102,7 +103,7 @@ describe("hub doctor: instance against core", () => {
     put(path.join(r.core, "app", "projects", "acme", "project.md"));
     put(path.join(r.core, "@dev", "OWNER-TODO.md"));
     git(r.core, "add", "-A"); git(r.core, "commit", "-qm", "leak");
-    put(path.join(r.home, CORE_VERSION_FILE), git(r.core, "rev-parse", "HEAD") + "\n");
+    put(path.join(r.home, INSTANCE_MARKER), git(r.core, "rev-parse", "HEAD") + "\n");
     const out = await checkInstance(ctxOf(r));
     expect(out.level).toBe("fail");
     expect(out.detail).toMatch(/instance files inside the core: .*@dev.*app\/projects\/acme/);
@@ -123,7 +124,7 @@ describe("hub doctor: instance against core", () => {
     put(path.join(outer, "hub", "app", "projects", "_template", "README.md"));
     git(outer, "init", "-q"); git(outer, "add", "-A"); git(outer, "commit", "-qm", "outer");
     const pin = git(outer, "rev-parse", "HEAD");
-    put(path.join(r.home, CORE_VERSION_FILE), pin + "\n");
+    put(path.join(r.home, INSTANCE_MARKER), pin + "\n");
     const p = hubPaths({ core: path.join(outer, "hub"), home: r.home, env: {} });
     syncInstanceSkills(p);
     const out = await checkInstance(makeCtx({ paths: p, log: () => {} }));

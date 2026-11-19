@@ -7,6 +7,7 @@
     "./tsconfig.base.json": "./tsconfig.base.json",
     "./paths": "./src/paths.ts",
     "./autostart": "./src/autostart.ts",
+    "./core-version": "./src/core-version.ts",
     "./lint-limits": "./src/lint-limits.mjs"
   },
   "scripts": {

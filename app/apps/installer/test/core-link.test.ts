@@ -7,7 +7,8 @@ import { hubPaths } from "@hub/config/paths";
 import { makeCtx, type Runner } from "../src/context";
 import { coreDev, coreInstall } from "../src/core-link";
 import { coreUpdate } from "../src/core-update";
-import { CORE_VERSION_FILE, checkInstance } from "../src/steps/instance";
+import { INSTANCE_MARKER } from "@hub/config/paths";
+import { checkInstance } from "../src/steps/instance";
 
 // `hub core install` and `hub core dev <path>`: throw-away git repos only. The instance records core/ as a submodule; a second repo is the developer's core checkout.
 const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };
@@ -33,7 +34,7 @@ function rig() {
   git(base, "init", "-q", home);
   git(home, "submodule", "add", "-q", origin, "core");
   const sha = git(path.join(home, "core"), "rev-parse", "HEAD");
-  put(path.join(home, CORE_VERSION_FILE), `${sha}\n`);
+  put(path.join(home, INSTANCE_MARKER), `${sha}\n`);
   put(path.join(home, "projects", "acme", "project.md"), "# acme\n");
   git(home, "add", "-A"); git(home, "commit", "-qm", "instance");
   const ctx = makeCtx({ paths: hubPaths({ core: path.join(home, "core"), home, env: {} }), log: () => {}, run });
@@ -60,7 +61,7 @@ describe("hub core dev", () => {
     git(r.home, "add", "-A"); git(r.home, "commit", "-qm", "note");
     expect(git(r.home, "show", "--name-only", "--format=", "HEAD")).toBe("projects/acme/note.md");
     expect(git(r.home, "ls-files", "--stage", "core")).toMatch(/^160000 /);
-    expect(readFileSync(path.join(r.home, CORE_VERSION_FILE), "utf8")).toContain(r.sha);
+    expect(readFileSync(path.join(r.home, INSTANCE_MARKER), "utf8")).toContain(r.sha);
   });
   it("the instance check warns (dev link), not fails, and says what it means", async () => {
     const r = rig();

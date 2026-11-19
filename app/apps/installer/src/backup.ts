@@ -8,7 +8,7 @@ import { closeSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, op
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { readJson, type Ctx } from "./context";
-import { readCoreVersion } from "./steps/instance";
+import { readCoreVersion } from "@hub/config/core-version";
 
 /** Snapshots kept; older ones are deleted by --apply (only folders with a valid manifest). */
 export const KEEP = 14;

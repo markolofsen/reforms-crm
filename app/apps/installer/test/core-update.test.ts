@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { hubPaths } from "@hub/config/paths";
 import { defaultRunner, makeCtx, type Runner } from "../src/context";
 import { coreUpdate, pinMark, rewritePin } from "../src/core-update";
-import { CORE_VERSION_FILE } from "../src/steps/instance";
+import { INSTANCE_MARKER } from "@hub/config/paths";
 
 // `hub core update` (decision 0016): fixtures only: a throw-away bare origin with tags v0.1.0 and v0.2.0, a clone as core, an acme instance.
 const ENV = { ...process.env, GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com" };
@@ -23,7 +23,7 @@ function rig() {
   git(work, "push", "-q", origin, "HEAD:refs/heads/main", "--tags");
   git(base, "clone", "-q", origin, core); git(core, "checkout", "-q", "v0.1.0");
   const v1 = git(core, "rev-parse", "HEAD");
-  put(path.join(home, CORE_VERSION_FILE), `# the core\n${v1}\n`);
+  put(path.join(home, INSTANCE_MARKER), `# the core\n${v1}\n`);
   mkdirSync(path.join(home, "projects", "acme"), { recursive: true });
   // git is real; pnpm is a recorder (never installs for real). `pnpmCode` makes it fail.
   const pnpm: { args: string[] }[] = [];
@@ -33,7 +33,7 @@ function rig() {
   const ctx = makeCtx({ paths: hubPaths({ core, home, env: {} }), log: () => {}, run });
   return { core, home, ctx, v1, v2: git(work, "rev-parse", "v0.2.0"), work, pnpm, state };
 }
-const pinOf = (home: string) => readFileSync(path.join(home, CORE_VERSION_FILE), "utf8");
+const pinOf = (home: string) => readFileSync(path.join(home, INSTANCE_MARKER), "utf8");
 
 describe("hub core update", () => {
   it("rewrites only the first non-comment line", () => {

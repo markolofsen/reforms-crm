@@ -2,7 +2,8 @@ import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync,
 import path from "node:path";
 import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import type { RunResult } from "./context";
-import { pinMark, VERSION_TAG } from "./core-update";
+import { VERSION_TAG } from "@hub/config/core-version";
+import { pinMark } from "./core-update";
 import { syncInstanceSkills } from "./instance-skills";
 
 /** Where the files of a new instance live: plain files in the core, copied with `{{NAME}}` filled in. */
