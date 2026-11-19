@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -122,6 +122,21 @@ describe("hub core update", () => {
     expect(o.ok, o.lines.join("\n")).toBe(true);
     expect(o.lines.join("\n")).toContain("workspace: wrote package.json");
     expect(readFileSync(path.join(r.home, "pnpm-workspace.yaml"), "utf8")).toContain("catalog:\n  tsx: 4.23.15");
+  });
+  it("sets the execute bit on node-pty's spawn-helper after its install (P66: a reinstall unpacks it without the bit)", async () => {
+    const r = rig();
+    // An untracked node-pty in the core's app/ (what pnpm unpacks), its helper 644; the install runs since app/ has no node_modules.
+    const term = path.join(r.core, "app", "packages", "terminal");
+    put(path.join(term, "package.json"), "{}");
+    const helper = path.join(term, "node_modules", "node-pty", "prebuilds", `${process.platform}-${process.arch}`, "spawn-helper");
+    put(path.join(term, "node_modules", "node-pty", "package.json"), JSON.stringify({ name: "node-pty" }));
+    put(helper, "#!/bin/sh\n");
+    chmodSync(helper, 0o644);
+    const o = await coreUpdate(r.ctx, "v0.2.0", true);
+    expect(o.ok).toBe(true);
+    expect(r.pnpm).toHaveLength(1);
+    expect(statSync(helper).mode & 0o777).toBe(0o755);
+    expect(o.lines).toContain(`terminal: node-pty's spawn-helper is executable (${realpathSync(helper)})`);
   });
   it("names the exact command when the install fails", async () => {
     const r = rig();

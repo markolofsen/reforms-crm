@@ -9,7 +9,7 @@ and leaves UNSENT reply drafts. The local admin (`hub up`) shows what it did, li
 checks, and Activity lists every client it handled. You read a draft and press Send, one at a time. The agent has no send tool; to whom a project's
 drafts may go, and whether anything may go without a click, is that project's send policy, which only you set (`hub send policy`). Nothing is scheduled.
 
-With `terminal.enabled: true` the admin carries the agent itself: a terminal dock on the right edge (Ctrl+`) runs Claude Code, Codex or a shell beside
+The admin carries the agent itself (always on, decision 0032): a terminal dock on the right edge (Ctrl+`) runs Claude Code, Codex or a shell beside
 the drafts. The admin tells the agent what it shows (the shared focus), so "answer this client" means the draft on your screen.
 
 ## Quickstart

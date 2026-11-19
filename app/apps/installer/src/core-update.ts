@@ -1,6 +1,7 @@
 import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Ctx } from "./context";
+import { ensureSpawnHelper, nodePtyRoot } from "@hub/terminal/readiness";
 import { INSTALL, staleDeps } from "./deps";
 import { checkInstance, CORE_VERSION_FILE, readCoreVersion } from "./steps/instance";
 import { workspaceInit } from "./workspace";
@@ -36,7 +37,14 @@ export function pinMark(text: string, mark: { branch?: string; tag?: string }): 
 /** `pnpm install` in core/app (`deps.ts` INSTALL). True = installed; false = failed, with the fix line pushed to `out`. */
 async function install(ctx: Ctx, appDir: string, why: string, out: string[]): Promise<boolean> {
   const r = await ctx.run("pnpm", ["--dir", appDir, ...INSTALL], { timeoutMs: 600_000 });
-  if (r.code === 0) { out.push(`dependencies: ${why}; ran \`pnpm install ${INSTALL.slice(1).join(" ")}\` in ${appDir}`); return true; }
+  if (r.code === 0) {
+    out.push(`dependencies: ${why}; ran \`pnpm install ${INSTALL.slice(1).join(" ")}\` in ${appDir}`);
+    // P66: a reinstall unpacks node-pty's spawn-helper without its execute bit again; the terminal needs it.
+    const root = nodePtyRoot(appDir);
+    const helper = root ? ensureSpawnHelper(root) : null;
+    if (helper) out.push(`terminal: node-pty's spawn-helper is executable (${helper})`);
+    return true;
+  }
   out.push(`dependencies: ${why} but pnpm install failed (${(r.stderr || r.stdout).trim().split("\n").at(-1)?.slice(0, 160) ?? "no output"}). Run: \`pnpm --dir ${appDir} ${INSTALL.join(" ")}\``);
   return false;
 }
