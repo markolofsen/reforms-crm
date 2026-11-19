@@ -1,7 +1,7 @@
 "use client";
 
 import { SquareTerminalIcon } from "lucide-react";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { cn } from "@hub/ui/cn";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { SideDock } from "@hub/ui/product/side-dock";
@@ -14,8 +14,14 @@ import { TerminalContext, useTerminal, useTerminalModel } from "./use-terminal";
 // The embedded terminal (P49): the shell frame mounts `TerminalProvider` around the shell and `TerminalDock` in its dock slot; the
 // phone's top line carries `TerminalToggle`. Collapsed, the dock is a thin strip on the right edge from 640px (`md`; always there, full
 // height); below 640px the strip would take a column from a 360px screen, so the phone's top line holds the one button instead.
-// Always on (decision 0032): the strip, the column and the chord are always there. When no tab can start (P66, the state's
-// `problem`), the column says why and the one line that fixes it; nothing hides.
+// Always on (decision 0032): the strip, the column and the chord are always there in the browser, including while the first
+// state read loads. When no tab can start (P66, the state's `problem`), the column says why and the one line that fixes it;
+// nothing hides. None of it is in the server HTML (P49, `state-and-data.md` rule 11): the strip and the phone's button draw an
+// empty box of their size until mounted, so nothing jumps, and a terminal saved open is restored after mount.
+
+const noop = () => () => {};
+/** False on the server and in the first render, true after mount (the theme switcher's pattern in `@hub/ui/product/theme`). */
+const useMounted = (): boolean => useSyncExternalStore(noop, () => true, () => false);
 
 /** `project` is `undefined` while the shell does not know it yet (the automatic start waits). */
 export function TerminalProvider({ project, children }: { project: string | null | undefined; children: ReactNode }) {
@@ -37,6 +43,9 @@ const NEEDS_YOU = "Terminal, the agent needs you";
  */
 export function TerminalToggle({ className, attention = false }: { className?: string; attention?: boolean }) {
   const t = useTerminal();
+  const mounted = useMounted();
+  // Before mount, a box of the button's size (control-s, 44px below 1024px) and no name: never in the server HTML.
+  if (!mounted) return <span aria-hidden="true" className={cn("inline-block size-(--control-s) shrink-0", className)} />;
   return (
     <ActionButton aria-keyshortcuts="Control+`" aria-label={attention ? NEEDS_YOU : "Terminal"} aria-pressed={t.open} className={cn("relative", className)} data-terminal-toggle="" icon onClick={() => t.setOpen(!t.open)} size="s" variant="quiet">
       <SquareTerminalIcon aria-hidden="true" />
@@ -56,12 +65,15 @@ const STRIP_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Cod
  */
 function TerminalStrip({ attention }: { attention: boolean }) {
   const t = useTerminal();
+  const mounted = useMounted();
   const sessions = t.state?.sessions ?? [];
   const current = sessions.find((s) => s.id === t.active);
   const running = sessions.some((s) => s.state === "running");
   const label = current ? (STRIP_LABEL[current.preset] ?? "Terminal") : "Terminal";
   const base = label === "Terminal" ? "Terminal" : `Terminal, ${label}`;
   const name = attention ? `${base}, the agent needs you` : base;
+  // Before mount, the same 44px column, empty: the screen beside it keeps its width and the server HTML names no terminal.
+  if (!mounted) return <div aria-hidden="true" className="h-svh w-11 shrink-0 border-s bg-sidebar max-md:hidden" data-slot="terminal-strip" />;
   return (
     <div className="flex h-svh w-11 shrink-0 flex-col border-s bg-sidebar max-md:hidden" data-slot="terminal-strip">
       <ActionButton

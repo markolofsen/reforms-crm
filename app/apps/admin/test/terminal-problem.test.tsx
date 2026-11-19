@@ -21,10 +21,18 @@ function model(over: Partial<TerminalModel>): TerminalModel {
 const render = (m: TerminalModel, node: ReactNode) => renderToStaticMarkup(<TerminalContext value={m}>{node}</TerminalContext>);
 
 describe("the terminal dock (P66)", () => {
-  it("collapsed: the strip and the phone button are drawn with a problem, and while the state is still loading", () => {
+  // The server render is the first render (no DOM here): the strip's 44px box is drawn with a problem and while the state is
+  // still loading, but nothing names the terminal until mount (P49: never in the server HTML). The mounted strip and button
+  // are held by `e2e/z-terminal.spec.ts` and `e2e/c-console.spec.ts`.
+  it("collapsed, before mount: the strip's box is drawn with a problem and while loading; no terminal name in the server HTML", () => {
     for (const m of [model({ state: state(problem), problem }), model({ state: null })]) {
-      expect(render(m, <TerminalDock />)).toContain('data-slot="terminal-strip"');
-      expect(render(m, <TerminalToggle />)).toContain("data-terminal-toggle");
+      const strip = render(m, <TerminalDock />);
+      expect(strip).toContain('data-slot="terminal-strip"');
+      expect(strip).not.toContain("aria-label");
+      const toggle = render(m, <TerminalToggle />);
+      expect(toggle).toContain('aria-hidden="true"');
+      expect(toggle).not.toContain("aria-label");
+      expect(toggle).not.toContain("data-terminal-toggle");
     }
   });
   it("open with a problem: the column says the reason and the fix line with its copy button; no start text", () => {
