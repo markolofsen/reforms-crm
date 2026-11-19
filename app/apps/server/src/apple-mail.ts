@@ -22,12 +22,12 @@ export const SENT_SCRIPT = `on run argv
   set FS to (ASCII character 31)
   set RS to (ASCII character 30)
   set LS to (ASCII character 29)
-  set since to current date
-  set day of since to 1
-  set year of since to (item 3 of argv) as integer
-  set month of since to (item 4 of argv) as integer
-  set day of since to (item 5 of argv) as integer
-  set time of since to (item 6 of argv) as integer
+  set fromDate to current date
+  set day of fromDate to 1
+  set year of fromDate to (item 3 of argv) as integer
+  set month of fromDate to (item 4 of argv) as integer
+  set day of fromDate to (item 5 of argv) as integer
+  set time of fromDate to (item 6 of argv) as integer
   set out to ""
   tell application "Mail"
     set acc to account (item 1 of argv)
@@ -37,7 +37,7 @@ export const SENT_SCRIPT = `on run argv
     on error
       set box to mailbox ("[Gmail]/" & (item 2 of argv)) of acc
     end try
-    set ms to (messages of box whose date sent is greater than or equal to since)
+    set ms to (messages of box whose date sent is greater than or equal to fromDate)
     repeat with m in ms
       set irt to ""
       try

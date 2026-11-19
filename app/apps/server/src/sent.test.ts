@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import type { OsaRun } from "@hub/send";
 import { createApp } from "./app";
-import { parseSent, RUNNING_SCRIPT, SENT_SCRIPT } from "./apple-mail";
+import { ACCOUNTS_SCRIPT, parseSent, RUNNING_SCRIPT, SENT_SCRIPT } from "./apple-mail";
+import { appleScriptCompileError, canCompileAppleScript } from "../../../test-support/osacompile";
 import { matchSent, startSentReconciler } from "./sent";
 
 // Sent detection reads Apple Mail through a fake `OsaRun`: no test reaches Mail.
@@ -45,6 +46,18 @@ beforeEach(() => {
   repos = createRepos(handle.db);
 });
 afterEach(() => handle.close());
+
+describe("the server's Mail scripts compile (osacompile, no Mail call)", () => {
+  // SENT_SCRIPT named a variable `since` (an AppleScript keyword) from v0.8.0 to v0.12.13: every Sent read failed with
+  // -2741 before Mail was reached, and only the per-account error said so.
+  it.skipIf(!canCompileAppleScript).each([
+    ["RUNNING_SCRIPT", RUNNING_SCRIPT],
+    ["SENT_SCRIPT", SENT_SCRIPT],
+    ["ACCOUNTS_SCRIPT", ACCOUNTS_SCRIPT],
+  ])("%s", (_name, script) => {
+    expect(appleScriptCompileError(script)).toBeNull();
+  });
+});
 
 describe("Sent detection through Apple Mail", () => {
   it("marks a draft whose sent message has the Message-ID of a Mail version the Hub recorded for it (P65), never by its text", async () => {
