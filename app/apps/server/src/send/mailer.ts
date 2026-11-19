@@ -48,6 +48,7 @@ export function databaseBackedFake(repos: Repos, projectsDir: string): Mailer & 
             ref: `fake-${d.id}`,
             messageId: bareId(d.mailRef) || null,
             account: config.mail.accounts[0] ?? null,
+            inReplyTo: null,
             sender: config.mail.sender ?? null,
             to: addressesOf(d.toAddr),
             cc: addressesOf(d.ccAddr),
@@ -60,10 +61,10 @@ export function databaseBackedFake(repos: Repos, projectsDir: string): Mailer & 
       }
       return found.filter((m) => !inner.sent.some((s) => s.ref === m.ref));
     },
-    // Its drafts are the database's rows, so it has no Trash and no hub marker: nothing is ever moved (P56).
+    // Its drafts are the database's rows, so it has no Trash and no recorded versions: nothing is ever moved (P56, P65).
     findInTrash: async () => [],
-    listHubDrafts: async () => [],
-    trashDrafts: async (items) => ({ moved: [], refused: items.map((i) => i.ref) }),
+    listDrafts: async () => [],
+    trashDrafts: async (items) => ({ moved: [], refused: items.map((i) => i.messageId) }),
     send: (d, replyTo) => inner.send(d, replyTo),
   };
 }

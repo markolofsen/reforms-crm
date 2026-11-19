@@ -1,9 +1,8 @@
 import { Hono, type Context } from "hono";
-import { DraftWriteError, reviseDraft } from "@hub/agent/mail-drafts";
-import { stripHubMarker } from "@hub/config";
-import type { DraftRow, Repos } from "@hub/db";
+import { DraftWriteError, reviseDraft, versionHash } from "@hub/agent/mail-drafts";
+import type { DraftRow, MailVersionRow, Repos } from "@hub/db";
 import { loadProject } from "@hub/projects";
-import { bareId, findMail, isThreadDraft, mailHash, type MailDraft } from "@hub/send";
+import { bareId, findMail, mailHash, type MailDraft } from "@hub/send";
 import { draftEditBody, sendParam } from "@hub/contract/requests";
 import { draftChangedDto, draftMailDto } from "@hub/contract/responses";
 import { gateRefusal } from "../admin-gate";
@@ -14,7 +13,8 @@ import type { SenderOptions } from "./sends";
  * The open draft's Mail text (decision 0013: read live, never stored) and the two writes a person makes to it (P56):
  * Restore (the hub's own copy from Trash, written again) and Save (the person's edited text). Both go through the agent's
  * one writer (`reviseDraft`), carry the send ticket's door (exact admin Origin, same-origin fetch: a forged write from
- * another loopback page would rewrite a client's mail), turn Checked off and bump the live topic `mail`. Nothing here sends.
+ * another loopback page would rewrite a client's mail), turn Checked off and bump the live topic `mail`. Each records the
+ * Mail version it saved (`mail_versions`, P65), and the replace moves only the versions the Hub recorded. Nothing here sends.
  */
 export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
   const mailer = sender?.mailer;
@@ -31,23 +31,35 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
     const d = await repos.drafts.get(id);
     return d && d.project === slug ? d : null;
   };
+  /** The thread rule's scope (P65): the project's accounts and the versions the Hub recorded for this draft. */
+  const scopeOf = async (d: DraftRow) => ({ accounts: projectMail(d.project)?.accounts ?? null, versions: await repos.mailVersions.ofDraft(d.id) });
   const refuse = (c: Context, error: string) => c.json({ error, code: "wrong_state" as const }, 409);
   const door = (c: Context) => (sender ? gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, sender.adminPort, { sameSite: true }) : "Mail is not set up on this server");
-  /** The newest copy the hub wrote for this thread that sits in Mail's Trash, in the project's accounts. */
+  /**
+   * Restore (P65 verdict 3b): the newest version the Hub recorded for this draft whose Message-ID is in its account's
+   * Trash (Mail's id changes on the move, its Message-ID does not). Never a copy the Hub did not record.
+   */
   const inTrash = async (d: DraftRow, accounts: readonly string[]): Promise<MailDraft | null> => {
-    const ref = bareId(d.mailRef);
-    if (!mailer || !ref) return null;
+    if (!mailer || !bareId(d.mailRef)) return null;
     const ownAcc = new Set(accounts.map((a) => a.trim().toLowerCase()));
-    const list = (await mailer.findInTrash({ mailRef: d.mailRef, subject: d.subject }).catch(() => [])).filter((m) => isThreadDraft(m.body, ref) && ownAcc.has((m.account ?? "").trim().toLowerCase()));
-    return [...list].sort((a, b) => (Number(b.ref) || 0) - (Number(a.ref) || 0))[0] ?? null;
+    const trash = (await mailer.findInTrash({ mailRef: d.mailRef, subject: d.subject }).catch(() => [])).filter((m) => ownAcc.has((m.account ?? "").trim().toLowerCase()));
+    for (const v of await repos.mailVersions.ofDraft(d.id)) {
+      const hit = trash.find((m) => bareId(m.messageId) === bareId(v.messageId) && (m.account ?? "").trim().toLowerCase() === v.account.trim().toLowerCase());
+      if (hit) return hit;
+    }
+    return null;
   };
-  /** One write through the writer, then Checked off and the live bump; a refusal of Mail is a 409 with its sentence. */
-  const write = async (c: Context, d: DraftRow, body: string) => {
+  /** One write through the writer, then the version recorded, Checked off and the live bump; a refusal of Mail is a 409 with its sentence. */
+  const write = async (c: Context, d: DraftRow, body: string, source: "save" | "restore") => {
     const pm = projectMail(d.project);
     if (!sender?.writer || !pm) return refuse(c, "Writing Mail drafts is not set up on this server.");
     if (!d.mailRef) return refuse(c, "This draft answers no Mail message, so it cannot be written here.");
+    const live: MailVersionRow[] = (await repos.mailVersions.ofDraft(d.id)).filter((v) => !v.trashedAt);
     try {
-      await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, mailRef: d.mailRef, body, quote: "keep" });
+      const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, mailRef: d.mailRef, body, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })) });
+      await repos.mailVersions.add({ project: d.project, mailRef: d.mailRef, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHash(r.text), source });
+      const moved = new Set(r.replaced.map(bareId));
+      await repos.mailVersions.markTrashed(live.filter((v) => moved.has(bareId(v.messageId))).map((v) => v.id));
     } catch (e) {
       if (e instanceof DraftWriteError) return refuse(c, `Mail did not take the draft: ${e.message}`);
       throw e;
@@ -71,7 +83,7 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
       const empty = { from: null, to: [], cc: [], subject: "", body: "", hash: null, safetyResults: [], readAt };
       if (!mailer) return c.json(draftMailDto.parse({ configured: false, found: false, reason: "Reading Mail is not set up on this server.", note: null, ...empty }));
       // The card's read shows one version even when Mail holds several (P53); such a text has no hash, so it is never Checked.
-      const f = await findMail({ mailer }, draft, "show");
+      const f = await findMail({ mailer }, draft, "show", await scopeOf(draft));
       if (!f.mail) {
         const trash = f.gone ? await inTrash(draft, projectMail(slug)?.accounts ?? []) : null;
         return c.json(draftMailDto.parse({ configured: true, found: false, reason: f.reason, note: null, gone: f.gone ? { trashRef: trash?.ref ?? null } : null, ...empty }));
@@ -92,11 +104,11 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
       const draft = await own(slug, id);
       if (!draft) return notFound(c, "draft");
       if (!mailer) return refuse(c, "Reading Mail is not set up on this server.");
-      const now = await findMail({ mailer }, draft, "show");
+      const now = await findMail({ mailer }, draft, "show", await scopeOf(draft));
       if (now.mail) return refuse(c, "Mail already holds a draft for this: read it again.");
       const copy = await inTrash(draft, projectMail(slug)?.accounts ?? []);
-      if (!copy) return refuse(c, "No copy the Hub wrote for this draft is in Mail's Trash.");
-      return write(c, draft, stripHubMarker(copy.body));
+      if (!copy) return refuse(c, "No version the Hub recorded for this draft is in Mail's Trash.");
+      return write(c, draft, copy.body, "restore");
     })
     // Save (P56 S1): the person's text, written only over the very read it was edited from.
     .put("/api/projects/:slug/drafts/:id/mail", v("param", sendParam), v("json", draftEditBody), async (c) => {
@@ -107,10 +119,10 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
       const draft = await own(slug, id);
       if (!draft) return notFound(c, "draft");
       if (!mailer) return refuse(c, "Reading Mail is not set up on this server.");
-      const f = await findMail({ mailer }, draft, "strict");
+      const f = await findMail({ mailer }, draft, "strict", await scopeOf(draft));
       if (!f.mail) return refuse(c, `Not saved: ${f.reason}.`);
       if (mailHash(f.mail) !== hash) return refuse(c, "Not saved: the draft changed in Mail since you started editing. Copy your text, read it again, then edit.");
       if (!text.trim()) return refuse(c, "Not saved: the text is empty.");
-      return write(c, draft, text.replace(/\s+$/, ""));
+      return write(c, draft, text.replace(/\s+$/, ""), "save");
     });
 }

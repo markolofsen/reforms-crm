@@ -1,15 +1,16 @@
-import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
 import { type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type FinishReason, MARKS, SEQUENCE_SKILL, SETTABLE_STATUSES, TONES, type NotionRef, type DraftStatus, type Mark, type SafetyKind, type SettableStatus, type Tone, type ToneBodies } from "@hub/config";
 import type { Db } from "../client";
 import { write, type WriteTx } from "../tx";
 import { RepoError } from "../errors";
-import { clients, drafts, enrollments, marks } from "../schema";
+import { clients, drafts, enrollments, mailVersions, marks } from "../schema";
 import { blocksChecked, isSafetyKind } from "../safety";
 import { loadSafety, logDraftEvent, nowIso, parseJson, type DraftRow } from "./bulk-shared";
 import { touchClient } from "./clients";
 import { onClientWrote, onStepFinished, onStepReopened } from "./enrollments";
 import { upsertInbox } from "./inbox";
 import { insertEvent, sessionRun } from "./runs";
+import { bareRef } from "./mail-versions";
 
 export type NewDraft = Omit<typeof drafts.$inferInsert, "id" | "createdAt" | "updatedAt">;
 
@@ -85,6 +86,16 @@ export function draftsRepo(db: Db) {
 
     async get(id: number) {
       return row(id);
+    },
+
+    /**
+     * The drafts of a project that answer this message (P65 verdict 4: `draft_write` refuses a new reply to a message
+     * the project already has a draft for), newest first. The Message-ID is compared bare and lowercased. Read only.
+     */
+    async byMailRef(project: string, mailRef: string): Promise<DraftRow[]> {
+      const ref = bareRef(mailRef);
+      if (!ref) return [];
+      return db.select().from(drafts).where(and(eq(drafts.project, project), sql`lower(trim(trim(${drafts.mailRef}), '<>')) = ${ref}`)).orderBy(desc(drafts.id)).all();
     },
 
     /** Every draft of one client of a project, newest first (P51: `hub mcp` `client_show`). Read only. */
@@ -238,10 +249,13 @@ export function draftsRepo(db: Db) {
         const existing = tx.select().from(drafts).where(eq(drafts.clientId, client.id)).all();
         // A follow-up step answers our own earlier message, so its mailRef can equal a finished draft's: a rerun of a step is the same step.
         // The same Message-ID with or without angle brackets (draft_write returns it bare, P52) is the same message.
-        const bareRef = (x: string | null) => (x ?? "").trim().replace(/^<|>$/g, "").toLowerCase();
         const sameRef = mailRef == null ? undefined : existing.find((d) => bareRef(d.mailRef) === bareRef(mailRef) && (!seq || (d.enrollmentId === seq.enrollmentId && d.sequenceStep === seq.step)));
         const open = existing.find((d) => d.status === "ready" || d.status === "hold");
 
+        // P65: the Mail versions `draft_write` saved for this thread before this record become this draft's.
+        const linkVersions = (draftId: number) => {
+          if (mailRef) tx.update(mailVersions).set({ draftId }).where(and(eq(mailVersions.project, input.project), eq(mailVersions.mailRef, bareRef(mailRef)), isNull(mailVersions.draftId))).run();
+        };
         if (sameRef && sameRef !== open) {
           // Finished (done, sent or skipped) and the same message: a re-run must not bring it back.
           return { clientId: client.id, draftId: sameRef.id, runId, action: "unchanged" as const, ...stopped };
@@ -250,6 +264,7 @@ export function draftsRepo(db: Db) {
           // A revision of the same draft (P51): new text, so "I read the checks" no longer holds (decision 0013).
           tx.update(drafts).set({ ...fields, ...(flagged ? { injectionSuspected: true } : {}), checked: false, checkedHash: null, updatedAt: now }).where(eq(drafts.id, open.id)).run();
           log("draft_created", "Draft updated", { draftId: open.id, action: "update", skill: input.skill ?? null, mailRef });
+          linkVersions(open.id);
           return { clientId: client.id, draftId: open.id, runId, action: "updated" as const, ...stopped };
         }
         if (open && seq) throw new RepoError("wrong_state", "This client has an open draft: a follow-up step is not recorded over it");
@@ -263,6 +278,7 @@ export function draftsRepo(db: Db) {
           .returning({ id: drafts.id })
           .get();
         log("draft_created", "Draft recorded", { draftId: d.id, action: "create", skill: input.skill ?? null, mailRef });
+        linkVersions(d.id);
         return { clientId: client.id, draftId: d.id, runId, action: open ? ("replaced" as const) : ("created" as const), ...stopped };
       });
     },

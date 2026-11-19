@@ -13,6 +13,8 @@ export interface MailDraft {
   messageId: string | null;
   /** Mail account name the draft sits in. */
   account: string | null;
+  /** The bare Message-ID its In-Reply-To names (P65: how the Hub finds a thread's draft), or null. */
+  inReplyTo: string | null;
   /** From, as Mail shows it (`Name <addr>` or `addr`). */
   sender: string | null;
   to: string[];
@@ -29,11 +31,22 @@ export interface DraftQuery {
   subject: string;
 }
 
-/** One Mail draft the hub may move to Trash, and the line its text must still start with when it is moved (P56). */
+/**
+ * One Mail draft the hub may move to Trash (P65, decision 0031): a version the Hub recorded, named by its account and
+ * its own Message-ID as Mail returned it. The script moves a draft only when both still match, read just before the delete.
+ */
 export interface TrashItem {
+  account: string;
+  messageId: string;
+}
+
+/** A draft's headers without its text: what the sweep and the migration list (P65; the text is never read for this). */
+export interface DraftHead {
   ref: string;
-  /** The first non-empty line, exactly as `hubAuthorship` found it: the script refuses the draft when the text no longer starts with it. */
-  line: string;
+  messageId: string | null;
+  account: string | null;
+  subject: string;
+  inReplyTo: string | null;
 }
 
 export interface Mailer {
@@ -41,9 +54,9 @@ export interface Mailer {
   findDrafts(q: DraftQuery): Promise<MailDraft[]>;
   /** Messages in Mail's Trash with this subject: where a deleted draft is found again (P56, `mail_gone`). Read only. */
   findInTrash(q: DraftQuery): Promise<MailDraft[]>;
-  /** Every draft whose text holds a hub marker or the legacy run line, in every account: what `hub drafts sweep` judges. Read only. */
-  listHubDrafts(): Promise<MailDraft[]>;
-  /** Moves these drafts to Trash (recoverable), each only if its text still starts with its line. Never anything else. */
+  /** The headers of every draft in every account (id, Message-ID, account, subject, In-Reply-To): what `hub drafts sweep` joins to the Hub's record. Read only. */
+  listDrafts(): Promise<DraftHead[]>;
+  /** Moves these drafts to Trash (recoverable), each only if its account and Message-ID still match. Never anything else. Returns the Message-IDs. */
   trashDrafts(items: TrashItem[]): Promise<{ moved: string[]; refused: string[] }>;
   /**
    * Sends exactly this draft's text to exactly its recipients. `replyTo` (the bare Message-ID of the message answered,
@@ -97,7 +110,11 @@ const RECORDS = `
       try
         set n to count of mail attachments of m
       end try
-      set out to out & (id of m) & FS & (message id of m) & FS & acc & FS & (sender of m) & FS & tos & FS & ccs & FS & bccs & FS & (subject of m) & FS & (content of m) & FS & n & RS
+      set irt to ""
+      try
+        set irt to content of (first header of m whose name is "In-Reply-To")
+      end try
+      set out to out & (id of m) & FS & (message id of m) & FS & acc & FS & (sender of m) & FS & tos & FS & ccs & FS & bccs & FS & (subject of m) & FS & (content of m) & FS & n & FS & irt & RS
     end if
   end repeat`;
 
@@ -121,16 +138,31 @@ export const FIND_SCRIPT = `on run argv${SEPARATORS}
   return out
 end run`;
 
-// No argv. The drafts of every account whose text holds a hub line; the caller judges each by `hubAuthorship`.
-export const LIST_HUB_SCRIPT = `on run argv${SEPARATORS}
+// No argv. The headers of every draft of every account, never its text (P65: 0.3 s to 1.5 s for 63 drafts, against
+// 1 min 29 s for a `whose content contains` read). One record per draft: id FS message id FS account FS subject FS In-Reply-To.
+export const LIST_DRAFTS_SCRIPT = `on run argv${SEPARATORS}
+  set out to ""
   tell application "Mail"
-    set ms to (messages of drafts mailbox whose content contains "[hub-draft thread=" or content contains "[Reforms draft, run ")${RECORDS}
+    repeat with m in (messages of drafts mailbox)
+      if (deleted status of m) is false then
+        set acc to ""
+        try
+          set acc to name of account of mailbox of m
+        end try
+        set irt to ""
+        try
+          set irt to content of (first header of m whose name is "In-Reply-To")
+        end try
+        set out to out & (id of m) & FS & (message id of m) & FS & acc & FS & (subject of m) & FS & irt & RS
+      end if
+    end repeat
   end tell
   return out
 end run`;
 
-// argv: pairs of (draft id, line). A draft is moved to Trash (Mail's delete: recoverable) only when its first non-empty
-// paragraph still starts with that line, read again here, just before the delete. Output: moved (LS-joined) FS refused.
+// argv: pairs of (account, Message-ID). A draft is moved to Trash (Mail's delete: recoverable) only when a draft of that
+// account still has exactly that Message-ID, read again here, just before the delete (P65, decision 0031). Output:
+// moved (LS-joined Message-IDs) FS refused.
 export const TRASH_SCRIPT = `on run argv
   set FS to (ASCII character 31)
   set LS to (ASCII character 29)
@@ -138,27 +170,21 @@ export const TRASH_SCRIPT = `on run argv
   set refused to ""
   tell application "Mail"
     repeat with i from 1 to (count of argv) by 2
-      set did to item i of argv
-      set wanted to item (i + 1) of argv
+      set accName to item i of argv
+      set mid to item (i + 1) of argv
       set ok to false
       try
-        set m to (first message of drafts mailbox whose id is (did as integer))
-        set firstLine to ""
-        repeat with p in paragraphs of ((content of m) as text)
-          if (contents of p) is not "" then
-            set firstLine to (contents of p)
-            exit repeat
+        repeat with m in (messages of drafts mailbox whose message id is mid)
+          if (deleted status of m) is false and (name of account of mailbox of m) is accName and (message id of m) is mid then
+            delete m
+            set ok to true
           end if
         end repeat
-        if firstLine starts with wanted then
-          delete m
-          set ok to true
-        end if
       end try
       if ok then
-        set moved to moved & did & LS
+        set moved to moved & mid & LS
       else
-        set refused to refused & did & LS
+        set refused to refused & mid & LS
       end if
     end repeat
   end tell
@@ -177,10 +203,24 @@ export function parseFindOutput(out: string): MailDraft[] {
   for (const rec of out.split(RS)) {
     const p = rec.replace(/^[\r\n]+/, "").split(FS);
     if (p.length < 10) continue;
-    const [ref, messageId, account, sender, to, cc, bcc, subject, body, n] = p as [string, string, string, string, string, string, string, string, string, string];
-    drafts.push({ ref, messageId: bareId(messageId) || null, account: account || null, sender: sender || null, to: list(to), cc: list(cc), bcc: list(bcc), subject, body, attachments: Number(n) || 0 });
+    const [ref, messageId, account, sender, to, cc, bcc, subject, body, n, irt = ""] = p as [string, string, string, string, string, string, string, string, string, string, string?];
+    drafts.push({ ref, messageId: rawId(messageId) || null, account: account || null, inReplyTo: bareId(irt) || null, sender: sender || null, to: list(to), cc: list(cc), bcc: list(bcc), subject, body, attachments: Number(n) || 0 });
   }
   return drafts;
+}
+
+/** A Message-ID as Mail gives it back to a script: angle brackets and spaces removed, case kept (TS compares with `bareId`). */
+export const rawId = (id: string | null | undefined): string => (id ?? "").trim().replace(/^<|>$/g, "");
+
+export function parseDraftHeads(out: string): DraftHead[] {
+  const heads: DraftHead[] = [];
+  for (const rec of out.split(RS)) {
+    const p = rec.replace(/^[\r\n]+/, "").split(FS);
+    if (p.length < 5) continue;
+    const [ref, messageId, account, subject, irt] = p as [string, string, string, string, string];
+    heads.push({ ref: ref.trim(), messageId: rawId(messageId) || null, account: account || null, subject, inReplyTo: bareId(irt) || null });
+  }
+  return heads;
 }
 
 // argv: 1 sender, 2 subject, 3 body, 4 to (LS-separated), 5 cc, 6 bcc, 7 draft id, 8 Message-ID of the message answered
@@ -275,12 +315,12 @@ export function mailAppMailer(osa: OsaRun = defaultOsa): Mailer {
     async findInTrash(q) {
       return parseFindOutput(await osa(FIND_SCRIPT, [q.subject, "trash"]));
     },
-    async listHubDrafts() {
-      return parseFindOutput(await osa(LIST_HUB_SCRIPT, []));
+    async listDrafts() {
+      return parseDraftHeads(await osa(LIST_DRAFTS_SCRIPT, []));
     },
     async trashDrafts(items) {
       if (items.length === 0) return { moved: [], refused: [] };
-      return parseTrashOutput(await osa(TRASH_SCRIPT, items.flatMap((i) => [i.ref, i.line])));
+      return parseTrashOutput(await osa(TRASH_SCRIPT, items.flatMap((i) => [i.account, rawId(i.messageId)])));
     },
     async send(d, replyTo) {
       const out = await osa(SEND_SCRIPT, [d.sender ?? "", d.subject, d.body, d.to.join(LS), d.cc.join(LS), d.bcc.join(LS), d.ref, bareId(replyTo), d.account ?? ""]);
@@ -290,12 +330,12 @@ export function mailAppMailer(osa: OsaRun = defaultOsa): Mailer {
   };
 }
 
-/** What `hub drafts sweep` needs of Mail (P56): list the hub's drafts and move them to Trash. No send: the sweep holds no send door. */
-export type DraftsCleaner = Pick<Mailer, "listHubDrafts" | "trashDrafts">;
+/** What `hub drafts sweep` and `hub drafts unmark` need of Mail (P56, P65): list drafts, read candidates, move recorded versions to Trash. No send: neither holds a send door. */
+export type DraftsCleaner = Pick<Mailer, "listDrafts" | "findDrafts" | "trashDrafts">;
 
 export function mailAppDraftsCleaner(osa: OsaRun = defaultOsa): DraftsCleaner {
   const m = mailAppMailer(osa);
-  return { listHubDrafts: () => m.listHubDrafts(), trashDrafts: (items) => m.trashDrafts(items) };
+  return { listDrafts: () => m.listDrafts(), findDrafts: (q) => m.findDrafts(q), trashDrafts: (items) => m.trashDrafts(items) };
 }
 
 /** Records what it was asked and never leaves the process. `failSend` makes `send` throw once. */
@@ -319,21 +359,20 @@ export class FakeMailer implements Mailer {
   async findInTrash(q: DraftQuery): Promise<MailDraft[]> {
     return this.trash.filter((d) => d.subject === q.subject);
   }
-  async listHubDrafts(): Promise<MailDraft[]> {
-    return this.drafts.filter((d) => /\[hub-draft thread=|\[Reforms draft, run /i.test(d.body));
+  async listDrafts(): Promise<DraftHead[]> {
+    return this.drafts.map((d) => ({ ref: d.ref, messageId: d.messageId, account: d.account, subject: d.subject, inReplyTo: d.inReplyTo }));
   }
   async trashDrafts(items: TrashItem[]): Promise<{ moved: string[]; refused: string[] }> {
     if (this.failTrash) throw new Error(this.failTrash);
     const moved: string[] = [];
     const refused: string[] = [];
     for (const i of items) {
-      const d = this.drafts.find((x) => x.ref === i.ref);
-      const first = d?.body.split(/\r?\n/).find((l) => l.trim() !== "") ?? "";
-      if (d && first.toLowerCase().startsWith(i.line.toLowerCase())) {
+      const d = this.drafts.find((x) => bareId(x.messageId) === bareId(i.messageId) && x.account === i.account);
+      if (d) {
         this.drafts = this.drafts.filter((x) => x !== d);
         this.trash.push(d);
-        moved.push(i.ref);
-      } else refused.push(i.ref);
+        moved.push(i.messageId);
+      } else refused.push(i.messageId);
     }
     return { moved, refused };
   }

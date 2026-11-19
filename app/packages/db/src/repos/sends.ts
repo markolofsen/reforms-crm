@@ -1,9 +1,9 @@
-import { and, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, or, sql } from "drizzle-orm";
 import { MARKS, type Mark, type SafetyResult } from "@hub/config";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { evaluateSafety } from "../safety";
-import { clients, drafts, marks, sendControl, sendLog, type SendStatus } from "../schema";
+import { clients, drafts, mailVersions, marks, sendControl, sendLog, type SendStatus } from "../schema";
 import { loadRules, nowIso, parseJson } from "./bulk-shared";
 import { write } from "../tx";
 
@@ -221,8 +221,10 @@ export function sendsRepo(db: Db) {
         .from(drafts)
         .where(and(eq(drafts.clientId, client.id), or(eq(drafts.status, "done"), eq(drafts.status, "sent")), sql`${drafts.id} <> ${draftId}`))
         .get();
+      // P65 S2: the newest Mail version the Hub wrote says whether it had to sign in English.
+      const newest = db.select({ fallback: mailVersions.signatureFallback }).from(mailVersions).where(eq(mailVersions.draftId, draftId)).orderBy(desc(mailVersions.id)).limit(1).get();
       return evaluateSafety(
-        { draft: { ...actual, mailRef: draft.mailRef }, client, lastClosedAt: closed?.at ?? null, now },
+        { draft: { ...actual, mailRef: draft.mailRef }, client, lastClosedAt: closed?.at ?? null, now, signatureFallback: newest?.fallback ?? null },
         loadRules(db, draft.project),
         parseJson<string[]>(draft.acked, []),
       );

@@ -4,7 +4,6 @@ import { assess, sendDraft, type Mailer } from "@hub/send";
 import { idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
 import { sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
 import type { DraftWriter } from "@hub/agent/mail-drafts";
-import { stripHubMarker } from "@hub/config";
 import { gateRefusal, ticketStore, type TicketStore } from "../admin-gate";
 import { notFound, v } from "../http";
 
@@ -66,8 +65,8 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions) {
         const a = await assess(deps, id, { mode: "manual" });
         if (!a.ok || !a.mail) return c.json(refusal(a.reasons), 409);
         const m = a.mail;
-        // What would go out: the Mail text without its first-line hub marker, which the send removes (P56 S2).
-        return c.json(sendPreviewDto.parse({ ok: true, dryRun: true, from: m.sender, to: m.to, cc: m.cc, subject: m.subject, body: stripHubMarker(m.body) }));
+        // What would go out: exactly the Mail text (decision 0031: nothing of the Hub's is in it).
+        return c.json(sendPreviewDto.parse({ ok: true, dryRun: true, from: m.sender, to: m.to, cc: m.cc, subject: m.subject, body: m.body }));
       }
       // A send needs a person's ticket, not just the recipients and subject, which the dry run gives anyone (P49 S12).
       if (!tickets.take(body.ticket, `send:${id}`)) return forbidden(c, "a send needs the admin's ticket; press Send in the admin");

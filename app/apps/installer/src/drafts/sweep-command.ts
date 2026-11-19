@@ -1,11 +1,10 @@
 import { createRepos, defaultDbPath, openDb } from "@hub/db";
 import { loadProjects } from "@hub/projects";
-import { closedThreads, mailAppDraftsCleaner, planSweep, type DraftsCleaner, type SweepRow } from "@hub/send";
+import { bareId, closedDrafts, mailAppDraftsCleaner, planSweep, type DraftsCleaner, type SweepRow } from "@hub/send";
 
-// `hub drafts sweep` (P56 S0): the hub's own leftovers in Mail's Drafts go to Trash, recoverable; the owner's drafts are
-// never listed (authorship by text only, `hubAuthorship`). Dry run unless `--apply`. One run per project of the instance
-// (or the one `--project`); the legacy class (the run line) is judged in every account, so a draft found by two projects
-// is listed once and moved once.
+// `hub drafts sweep` (P56 S0, P65 verdict 10): the Hub's own leftovers in Mail's Drafts go to Trash, recoverable; a draft
+// the Hub did not record (`mail_versions`, decision 0031) is the owner's and is never listed. Mail is read by headers
+// only. Dry run unless `--apply`. One run per project of the instance (or the one `--project`).
 
 export interface SweepCommandEnv {
   projectsDir: string;
@@ -31,23 +30,26 @@ export async function runDraftsSweep(o: { project?: string; apply?: boolean }, e
     const mailer = env.mailer ?? mailAppDraftsCleaner();
     const seen = new Set<string>();
     const rows: SweepRow[] = [];
-    // One read of Mail (it takes minutes over every account), judged per project.
-    const drafts = await mailer.listHubDrafts();
+    // One header read of Mail, judged per project against its record.
+    const drafts = await mailer.listDrafts();
     for (const p of projects) {
-      for (const x of planSweep(drafts, { accounts: p.parsed.config.mail.accounts, closed: await closedThreads(repos, p.slug) })) {
+      const plan = planSweep(drafts, { accounts: p.parsed.config.mail.accounts, versions: await repos.mailVersions.ofProject(p.slug), closed: await closedDrafts(repos, p.slug) });
+      for (const x of plan) {
         if (seen.has(x.ref)) continue;
         seen.add(x.ref);
         rows.push(x);
       }
     }
-    out(`${o.apply ? "Moving to Trash" : "Dry run, nothing moved"}: ${rows.length} draft${rows.length === 1 ? "" : "s"} the Hub wrote (drafts without a hub line are never listed).`);
+    out(`${o.apply ? "Moving to Trash" : "Dry run, nothing moved"}: ${rows.length} draft${rows.length === 1 ? "" : "s"} the Hub recorded (a draft the Hub did not record is never listed).`);
     for (const r of rows) out(row(r));
     if (!o.apply || rows.length === 0) {
       out(JSON.stringify({ ok: true, dryRun: !o.apply, listed: rows.length }));
       return 0;
     }
-    const done = await mailer.trashDrafts(rows.map((r) => ({ ref: r.ref, line: r.line })));
-    out(JSON.stringify({ ok: done.refused.length === 0, dryRun: false, listed: rows.length, moved: done.moved, refused: done.refused, note: done.refused.length ? "refused: the text no longer starts with its hub line, or the draft is gone; nothing else was touched" : "moved to each account's Trash: recoverable there" }));
+    const done = await mailer.trashDrafts(rows.map((r) => ({ account: r.account, messageId: r.messageId })));
+    const moved = new Set(done.moved.map(bareId));
+    await repos.mailVersions.markTrashed(rows.filter((r) => moved.has(bareId(r.messageId))).map((r) => r.versionId));
+    out(JSON.stringify({ ok: done.refused.length === 0, dryRun: false, listed: rows.length, moved: done.moved, refused: done.refused, note: done.refused.length ? "refused: no draft of that account has that Message-ID any more; nothing else was touched" : "moved to each account's Trash: recoverable there" }));
     return done.refused.length ? 1 : 0;
   } catch (e) {
     out(JSON.stringify({ ok: false, error: `Mail could not be read: ${(e as Error).message}` }));

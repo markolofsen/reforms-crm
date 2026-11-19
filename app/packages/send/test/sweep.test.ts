@@ -1,43 +1,48 @@
 import { describe, expect, it } from "vitest";
-import type { MailDraft } from "../src/mailer";
+import type { MailVersionRow } from "@hub/db";
+import type { DraftHead } from "../src/mailer";
 import { planSweep } from "../src/sweep";
 
-// P56 S0: the sweep lists only drafts the hub's own text proves it wrote. The shape is the census of 2026-11-19: hub
-// drafts beside the owner's own drafts with the same subjects and recipients.
-const d = (ref: string, account: string, subject: string, body: string): MailDraft => ({ ref, messageId: null, account, sender: account, to: ["c@x.example"], cc: [], bcc: [], subject, body, attachments: 0 });
-const T = "t1@mail.gmail.com";
+// P65 verdict 10: the sweep lists only drafts the Hub's record (`mail_versions`) says it wrote, by account and
+// Message-ID, from Mail's headers alone. The shape follows the census of 2026-11-19: hub drafts beside the owner's own
+// drafts with the same subjects and recipients, and a text that still quotes a hub line.
+const h = (ref: string, account: string, messageId: string | null, subject = "Re: Hello"): DraftHead => ({ ref, messageId, account, subject, inReplyTo: "t1@mail.gmail.com" });
+let id = 0;
+const v = (draftId: number | null, account: string, messageId: string): MailVersionRow => ({ id: ++id, project: "saas", mailRef: "t1@mail.gmail.com", draftId, account, mailId: 0, messageId, hash: "h", source: "agent", signatureFallback: null, writtenAt: "2026-11-19T00:00:00.000Z", trashedAt: null });
 
-const drafts: MailDraft[] = [
-  d("100", "hello@reforms.ai", "Re: Hello", `[hub-draft thread=${T}]\nv1`),
-  d("105", "hello@reforms.ai", "Re: Hello", `\n[hub-draft thread=${T}]\nv2`),
-  d("106", "hello@reforms.ai", "Re: Hello", "Hi, my own reply with the same subject"),
-  d("107", "hello@reforms.ai", "Re: Hello", `Hi,\n[hub-draft thread=${T}]\nquoted in the middle`),
-  d("110", "hello@reforms.ai", "Re: Closed", "[hub-draft thread=closed@x]\nskipped one"),
-  d("120", "dan@realty.example", "Re: Punta Cana", "[hub-draft thread=r1@x]\nrealty's own"),
-  d("121", "dan@realty.example", "Re: Punta Cana", "[hub-draft thread=r1@x]\nrealty's newer"),
-  d("138902", "markolofsen@gmail.com", "Re: lead", "[Reforms draft, run 07a63131a4d4. Sources: none. Delete this line before sending.]\nHi"),
-  d("138903", "markolofsen@gmail.com", "Re: lead", "Hi,\n[Reforms draft, run 07a63131a4d4.] mentioned in the middle"),
+const versions: MailVersionRow[] = [
+  v(1, "hello@reforms.ai", "V1@reforms.ai"),
+  v(1, "hello@reforms.ai", "V2@reforms.ai"),
+  v(2, "hello@reforms.ai", "C1@reforms.ai"),
+  v(null, "hello@reforms.ai", "U1@reforms.ai"),
+  v(3, "dan@realty.example", "R1@realty.example"),
+];
+const drafts: DraftHead[] = [
+  h("100", "hello@reforms.ai", "v1@reforms.ai"),
+  h("105", "hello@reforms.ai", "V2@reforms.ai"),
+  h("106", "hello@reforms.ai", "OWN@reforms.ai"),
+  h("107", "hello@reforms.ai", null),
+  h("110", "hello@reforms.ai", "C1@reforms.ai", "Re: Closed"),
+  h("111", "hello@reforms.ai", "U1@reforms.ai"),
+  h("120", "dan@realty.example", "R1@realty.example", "Re: Punta Cana"),
+  h("130", "other@reforms.ai", "V1@reforms.ai"),
 ];
 
-describe("planSweep", () => {
-  const rows = planSweep(drafts, { accounts: ["hello@reforms.ai"], closed: new Set(["closed@x"]) });
+describe("planSweep (P65)", () => {
+  const rows = planSweep(drafts, { accounts: ["hello@reforms.ai"], versions, closed: new Set([2]) });
   const by = Object.fromEntries(rows.map((r) => [r.ref, r.kind]));
 
-  it("lists an older version, a closed thread and a pre-marker draft, and keeps the newest version", () => {
-    expect(by).toEqual({ "100": "superseded", "110": "closed", "138902": "legacy" });
+  it("lists an older recorded version and the versions of a closed draft, and keeps the newest version", () => {
+    expect(by).toEqual({ "100": "superseded", "110": "closed" });
   });
 
-  it("never lists a draft without a hub first line, whatever its subject or recipient", () => {
-    for (const ref of ["106", "107", "138903"]) expect(by[ref]).toBeUndefined();
+  it("never lists a draft the Hub did not record, a version not yet linked to a draft, or the same Message-ID in another account", () => {
+    for (const ref of ["105", "106", "107", "111", "130"]) expect(by[ref]).toBeUndefined();
   });
 
-  it("judges marked drafts only in the project's accounts; the legacy line in every account", () => {
+  it("judges only the project's accounts; each row carries the Message-ID the move re-checks and the version it matched", () => {
     expect(by["120"]).toBeUndefined();
-    expect(planSweep(drafts, { accounts: ["dan@realty.example"], closed: new Set() }).map((r) => r.ref).sort()).toEqual(["120", "138902"]);
-  });
-
-  it("each row carries the first line the move re-checks", () => {
-    expect(rows.find((r) => r.ref === "100")?.line).toBe(`[hub-draft thread=${T}]`);
-    expect(rows.find((r) => r.ref === "138902")?.line).toMatch(/^\[Reforms draft, run 07a63131a4d4\./);
+    expect(planSweep(drafts, { accounts: ["dan@realty.example"], versions, closed: new Set([3]) }).map((r) => r.ref)).toEqual(["120"]);
+    expect(rows.find((r) => r.ref === "100")).toMatchObject({ messageId: "v1@reforms.ai", versionId: versions[0]?.id });
   });
 });

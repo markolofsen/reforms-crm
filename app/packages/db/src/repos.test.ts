@@ -321,15 +321,34 @@ describe("recorded evidence (P28 C1-C3)", () => {
     expect((await repos.clients.counts("p")).thin_basis).toBe(1);
   });
 
-  it("marker_left: the first-line marker is the send's to remove (P56 S2); a hub line elsewhere and the legacy run line stay red", async () => {
+  it("marker_left: a hub line anywhere is red, the first line too (P65: nothing strips it, the migration rewrites it)", async () => {
     const mk = async (email: string, body: string) => repos.drafts.create({ project: "p", clientId: await repos.clients.create({ project: "p", email, name: "M" }), subject: "Re", toAddr: email, body, status: "ready" });
     await mk("a@x.example", "\n[hub-draft thread=<t@x>]\nHello");
     await mk("b@x.example", "Hello\n[hub-draft thread=<t@x>]\nbye");
-    await mk("c@x.example", "[Reforms draft, run 07a63131a4d4. Sources: none. Delete this line before sending.]\nHello");
+    await mk("c@x.example", "Hello, a plain reply");
     const rows = await repos.clients.review("p", "all");
     const red = (email: string) => rows.find((r) => r.client.email === email)?.safetyResults.find((x) => x.kind === "marker_left")?.level ?? null;
-    expect(red("a@x.example")).toBeNull();
+    expect(red("a@x.example")).toBe("red");
     expect(red("b@x.example")).toBe("red");
-    expect(red("c@x.example")).toBe("red");
+    expect(red("c@x.example")).toBeNull();
+  });
+
+  it("mail_versions (P65): a version written before record-draft is linked to the draft it records; byMailRef finds the draft in any form", async () => {
+    const v = await repos.mailVersions.add({ project: "p", mailRef: "<T1@X>", account: "desk", mailId: 5, messageId: "<New@x>", hash: "h", source: "agent" });
+    expect((await repos.mailVersions.ofThread("p", "t1@x"))[0]).toMatchObject({ id: v, draftId: null, mailRef: "t1@x", messageId: "New@x" });
+    const r = await repos.drafts.record({ project: "p", email: "v@x.example", name: "V", subject: "Re", mailRef: "t1@x" });
+    expect((await repos.mailVersions.ofDraft(r.draftId)).map((x) => x.id)).toEqual([v]);
+    expect((await repos.drafts.byMailRef("p", "<T1@x>")).map((d) => d.id)).toEqual([r.draftId]);
+    expect(await repos.drafts.byMailRef("other", "t1@x")).toEqual([]);
+    await repos.mailVersions.markTrashed([v]);
+    expect((await repos.mailVersions.ofDraft(r.draftId))[0]?.trashedAt).not.toBeNull();
+  });
+
+  it("signature_language (P65 S2): amber when the newest version the Hub wrote was signed in English for another language", async () => {
+    const r = await repos.drafts.record({ project: "p", email: "s@x.example", name: "S", subject: "Re", mailRef: "s1@x" });
+    const of = async () => (await repos.sends.safetyOf(r.draftId, { subject: "Re", toAddr: "s@x.example", ccAddr: null, body: "Здравствуйте" })).find((x) => x.kind === "signature_language");
+    expect(await of()).toBeUndefined();
+    await repos.mailVersions.add({ project: "p", mailRef: "s1@x", draftId: r.draftId, account: "desk", mailId: 1, messageId: "a@x", hash: "h", source: "agent", signatureFallback: "ru" });
+    expect(await of()).toMatchObject({ level: "amber" });
   });
 });

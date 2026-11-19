@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { hubAuthorship, markerLeft, stripHubMarker, unresolvedMarkers } from "@hub/config";
-import { RepoError, type DraftRow, type Repos, type SendRow } from "@hub/db";
+import { markerLeft, unresolvedMarkers } from "@hub/config";
+import { RepoError, type DraftRow, type MailVersionRow, type Repos, type SendRow } from "@hub/db";
 import { checkDraftRecipients, loadProject, loadProjects, normalizeAddress, type ProjectConfig } from "@hub/projects";
 import { bareId, type MailDraft, type Mailer, type TrashItem } from "./mailer";
 
@@ -99,7 +99,7 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
   }
 
   // The draft as Mail holds it: that is the text and the recipients that would really go out.
-  const found = await findMail(deps, draft);
+  const found = await findMail(deps, draft, "strict", { accounts: config?.mail.accounts ?? null, versions: await deps.repos.mailVersions.ofDraft(draft.id) });
   if (!found.mail) {
     reasons.push(found.reason);
     return out({ project, ...(config ? { config } : {}) });
@@ -118,13 +118,14 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
   }
   if (mail.to.length === 0) reasons.push("the draft has no To recipient");
   if (mail.attachments > 0) reasons.push(`the draft has ${mail.attachments} attachment(s): the hub sends plain text only`);
-  // What goes out is the Mail text without its first-line hub marker (P56 S2): the send removes it, the person does not.
-  const outgoing = stripHubMarker(mail.body);
-  if (!outgoing.trim()) reasons.push("the draft text is empty");
-  const left = unresolvedMarkers(`${mail.subject}\n${outgoing}`);
+  // What goes out is exactly the Mail text: nothing of the Hub's is in it (decision 0031), so nothing is removed.
+  if (!mail.body.trim()) reasons.push("the draft text is empty");
+  const left = unresolvedMarkers(`${mail.subject}\n${mail.body}`);
   if (left.length) reasons.push(`a placeholder is left in the text: ${left[0]}`);
-  const hubLine = markerLeft(`${mail.subject}\n${outgoing}`);
-  if (hubLine) reasons.push(`a hub line is still in the text: ${hubLine.slice(0, 80)}: delete it`);
+  // The migration window (P65 verdict 6): a draft written before decision 0031 still carries its hub line until
+  // `hub drafts unmark` rewrites it. It is refused, never stripped. P65 S4 deletes this check.
+  const hubLine = markerLeft(`${mail.subject}\n${mail.body}`);
+  if (hubLine) reasons.push(`a hub line is in the text (${hubLine.slice(0, 80)}): the migration has not rewritten this draft; run hub drafts unmark`);
 
   const safety = await deps.repos.sends.safetyOf(draftId, { subject: mail.subject, toAddr: mail.to.join(","), ccAddr: mail.cc.join(",") || null, body: mail.body }, now);
   // A person sending sees the amber results in the admin and gates only on red; autosend has nobody to judge, so any unacknowledged one stops it.
@@ -147,82 +148,94 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
 }
 
 /**
- * `mail`: the one draft. `aside`: other drafts with this subject and recipient that the hub did not write for this
- * thread (left alone, named only). `note`: Mail holds several versions and none can be told apart; such a read has no
- * hash. `gone` (P56): Mail answered and holds no draft for it at all, so the card looks in Trash.
+ * `mail`: the one draft. `aside`: other drafts with this subject and recipient that are not this thread's (left alone,
+ * named only). `note`: Mail holds several drafts of this thread; such a read has no hash. `gone` (P56): Mail answered
+ * and holds no draft for it at all, so the card looks in Trash.
  */
 export type MailFound = { mail: MailDraft; reason?: undefined; note?: string; aside?: string; gone?: undefined } | { mail?: undefined; reason: string; note?: undefined; aside?: undefined; gone?: boolean };
 
 /**
  * `strict` (Send, the dry run, Checked): one draft or a refusal, never a guess. `show` (the card's read, P53): with
- * several unmarked candidates it still shows the newest, with a `note`; the caller gives that text no hash.
+ * several drafts of the thread it still shows one, with a `note`; the caller gives that text no hash.
  */
 export type FindMode = "strict" | "show";
 
-/** Is this Mail text the hub's draft of this thread (its first non-empty line is `[hub-draft thread=<mailRef>]`)? */
-export const isThreadDraft = (body: string, thread: string): boolean => {
-  const a = hubAuthorship(body);
-  return thread !== "" && a?.kind === "marked" && a.thread === thread;
-};
+/** What narrows the search (P65): the project's Mail accounts (null: any) and the versions the Hub recorded for this draft. */
+export interface FindScope {
+  accounts?: readonly string[] | null;
+  versions?: readonly Pick<MailVersionRow, "account" | "messageId" | "trashedAt">[];
+}
 
 const newestFirst = (list: MailDraft[]) => [...list].sort((a, b) => (Number(b.ref) || 0) - (Number(a.ref) || 0));
 const ids = (list: MailDraft[]) => list.map((c) => c.ref).join(", ");
 
+/** Is this Mail draft one of the versions the Hub recorded (its account and its own Message-ID)? The one test of authorship (decision 0031). */
+export const isRecorded = (d: Pick<MailDraft, "account" | "messageId">, versions: FindScope["versions"]): boolean =>
+  (versions ?? []).some((v) => bareId(v.messageId) === bareId(d.messageId) && (v.account ?? "").trim().toLowerCase() === (d.account ?? "").trim().toLowerCase());
+
 /**
- * The one Mail draft a hub draft stands for. P56: the marker decides. Exactly one draft carrying this thread's marker is
- * the draft, whatever else Mail holds with the same subject (named in `aside`, never touched). Two marked: Mail is still
- * removing the older version, so strict refuses and show shows the newest. None marked: the old rule, by Message-ID, then
- * by recipient and subject, one candidate or a refusal. Read-only.
+ * The one Mail draft a hub draft stands for (P65 verdict 2, decision 0031). The thread decides: a draft in one of the
+ * project's accounts whose In-Reply-To is the draft's `mailRef` and whose To holds the client is the thread's draft,
+ * whoever last edited it. Exactly one: it is the draft. Two or more: strict refuses and names every Mail id, saying which
+ * ones the Hub wrote (its `mail_versions`); show shows the Hub's newest with a note. None by thread: the old rule for a
+ * draft without In-Reply-To (by Message-ID, then one draft by subject and recipient). Read-only.
  */
-export async function findMail(deps: Pick<SendDeps, "mailer">, draft: Pick<DraftRow, "mailRef" | "subject" | "toAddr">, mode: FindMode = "strict"): Promise<MailFound> {
-  let candidates: MailDraft[] = [];
+export async function findMail(deps: Pick<SendDeps, "mailer">, draft: Pick<DraftRow, "mailRef" | "subject" | "toAddr">, mode: FindMode = "strict", scope: FindScope = {}): Promise<MailFound> {
+  let all: MailDraft[] = [];
   try {
-    candidates = await deps.mailer.findDrafts({ mailRef: draft.mailRef, subject: draft.subject });
+    all = await deps.mailer.findDrafts({ mailRef: draft.mailRef, subject: draft.subject });
   } catch (e) {
     return { reason: `Mail could not be read: ${(e as Error).message}` };
   }
+  const own = scope.accounts ? new Set(scope.accounts.map((a) => a.trim().toLowerCase())) : null;
+  const candidates = own ? all.filter((c) => own.has((c.account ?? "").trim().toLowerCase())) : all;
   const ref = bareId(draft.mailRef);
   const toAddr = addresses(draft.toAddr);
-  const byId = ref ? candidates.filter((c) => c.messageId === ref) : [];
-  const pool = byId.length ? byId : candidates.filter((c) => toAddr.every((a) => norm(c.to).includes(a)));
-  const marked = newestFirst(candidates.filter((c) => isThreadDraft(c.body, ref)));
-  if (marked.length === 1) {
-    const mail = marked[0] as MailDraft;
-    const others = pool.filter((c) => c !== mail);
+  const forClient = (c: MailDraft) => toAddr.every((a) => norm(c.to).includes(a));
+  const thread = ref ? newestFirst(candidates.filter((c) => c.inReplyTo === ref && forClient(c))) : [];
+  const hub = (c: MailDraft) => isRecorded(c, scope.versions);
+  if (thread.length === 1) {
+    const mail = thread[0] as MailDraft;
+    const others = all.filter((c) => c !== mail && forClient(c) && c.inReplyTo !== ref);
     if (others.length === 0) return { mail };
-    return { mail, aside: `Mail also holds ${others.length} other draft${others.length === 1 ? "" : "s"} with this subject that the Hub did not write for this thread (Mail id ${ids(others)}): left alone, never sent from here.` };
+    return { mail, aside: `Mail also holds ${others.length} other draft${others.length === 1 ? "" : "s"} with this subject for this address that do not answer this message (Mail id ${ids(others)}): left alone, never sent from here.` };
   }
-  if (marked.length > 1) {
-    const newest = marked[0] as MailDraft;
-    const wait = `Mail holds ${marked.length} versions the Hub wrote for this thread and is still removing the older one: wait a few seconds and read it again (newest: Mail id ${newest.ref})`;
-    return mode === "show" ? { mail: newest, note: `${wait}. Until then it cannot be Checked or sent.` } : { reason: wait };
+  if (thread.length > 1) {
+    const mine = thread.filter(hub);
+    const who = thread.map((c) => `Mail id ${c.ref} ${hub(c) ? "is the Hub's version" : "is not the Hub's"}`).join("; ");
+    const wait = `Mail holds ${thread.length} drafts that answer this message (${who}): keep one in Mail`;
+    const shown = (mine[0] ?? thread[0]) as MailDraft;
+    return mode === "show" ? { mail: shown, note: `${wait}. Shown: Mail id ${shown.ref}. Until one is left it cannot be Checked or sent.` } : { reason: wait };
   }
+  // A draft without In-Reply-To (written by hand, or by an older writer): the old rule over every account, so a draft in
+  // another account is still found, and refused by `assess` with its account named.
+  const byId = ref ? all.filter((c) => bareId(c.messageId) === ref) : [];
+  const pool = byId.length ? byId : all.filter((c) => !c.inReplyTo && forClient(c));
   if (pool.length === 0) return { reason: `no draft in Mail with subject "${draft.subject}" for ${draft.toAddr}`, gone: true };
   if (pool.length > 1) {
     const newest = newestFirst(pool)[0] as MailDraft;
     const others = pool.filter((c) => c !== newest);
-    if (mode === "show") return { mail: newest, note: `Mail holds ${pool.length} drafts with this subject for this address and none was written by the Hub for this thread. Shown: the newest, Mail id ${newest.ref}. Keep one (delete Mail id ${ids(others)}); until then it cannot be Checked or sent.` };
-    return { reason: `${pool.length} drafts in Mail match subject "${draft.subject}" for ${draft.toAddr} and none carries the Hub's marker for this thread: keep the newest (Mail id ${newest.ref}) and delete the other${others.length === 1 ? "" : "s"} in Mail` };
+    if (mode === "show") return { mail: newest, note: `Mail holds ${pool.length} drafts with this subject for this address and none answers this message by its headers. Shown: the newest, Mail id ${newest.ref}. Keep one (delete Mail id ${ids(others)}); until then it cannot be Checked or sent.` };
+    return { reason: `${pool.length} drafts in Mail match subject "${draft.subject}" for ${draft.toAddr} and none answers this message by its headers: keep the newest (Mail id ${newest.ref}) and delete the other${others.length === 1 ? "" : "s"} in Mail` };
   }
   return { mail: pool[0] as MailDraft };
 }
 
 /**
- * Moves the hub's own drafts of this thread to Trash (P56): every draft in the project's accounts whose first non-empty
- * line is this thread's marker, except `keep`. Never a draft without the marker, never by subject alone. Used after Send
- * (the siblings), Skip and Done. Throws only when Mail cannot be read; the caller decides whether that matters.
+ * Moves the Hub's own versions of this draft to Trash (P65 verdict 3): every version recorded in `mail_versions` and not
+ * yet trashed, except `keep` (a Message-ID), each re-checked by account and Message-ID in the script just before the
+ * delete. A draft the owner wrote in the same thread is never in that record, so never in this list. Used after Send
+ * (the siblings), Skip and Done. Marks what Mail moved. Throws only when Mail cannot be reached.
  */
-export async function trashThread(deps: Pick<SendDeps, "mailer">, draft: Pick<DraftRow, "mailRef" | "subject">, accounts: readonly string[], keep: string | null = null): Promise<{ moved: string[]; refused: string[] }> {
-  const ref = bareId(draft.mailRef);
-  if (!ref) return { moved: [], refused: [] };
-  const own = new Set(accounts.map((a) => a.trim().toLowerCase()));
-  const items: TrashItem[] = [];
-  for (const c of await deps.mailer.findDrafts({ mailRef: draft.mailRef, subject: draft.subject })) {
-    const a = hubAuthorship(c.body);
-    if (c.ref === keep || a?.kind !== "marked" || a.thread !== ref || !own.has((c.account ?? "").trim().toLowerCase())) continue;
-    items.push({ ref: c.ref, line: a.line });
-  }
-  return items.length ? deps.mailer.trashDrafts(items) : { moved: [], refused: [] };
+export async function trashThread(deps: Pick<SendDeps, "mailer" | "repos">, draftId: number, keep: string | null = null): Promise<{ moved: string[]; refused: string[] }> {
+  const live = (await deps.repos.mailVersions.ofDraft(draftId)).filter((v) => !v.trashedAt);
+  const kept = bareId(keep);
+  const items: TrashItem[] = live.filter((v) => !kept || bareId(v.messageId) !== kept).map((v) => ({ account: v.account, messageId: v.messageId }));
+  if (items.length === 0) return { moved: [], refused: [] };
+  const r = await deps.mailer.trashDrafts(items);
+  const moved = new Set(r.moved.map(bareId));
+  await deps.repos.mailVersions.markTrashed(live.filter((v) => moved.has(bareId(v.messageId))).map((v) => v.id));
+  return r;
 }
 
 /** Fingerprint of what would go out: subject, recipients, text. What Checked is bound to; the text itself is never kept. */
@@ -248,14 +261,14 @@ export async function sendDraft(deps: SendDeps, o: { draftId: number; apply: boo
   if (o.confirm && (o.confirm.subject !== m.subject || !same(norm(o.confirm.to.flatMap(addresses)), norm(m.to)))) {
     return refuse(o.draftId, ["the draft in Mail changed since you looked at it (recipient or subject): read it again before sending"]);
   }
-  if (!o.apply) return { code: 0, line: line({ ok: true, dryRun: true, draftId: o.draftId, project: a.project, ...fields(m), body: stripHubMarker(m.body), note: "nothing sent; add --apply to send" }) };
+  if (!o.apply) return { code: 0, line: line({ ok: true, dryRun: true, draftId: o.draftId, project: a.project, ...fields(m), body: m.body, note: "nothing sent; add --apply to send" }) };
   const draft = await deps.repos.drafts.get(o.draftId);
-  return deliver(deps, { draftId: o.draftId, project: a.project, mode: "manual", actor: o.actor, mail: m, mailRef: draft?.mailRef ?? null, accounts: a.config?.mail.accounts ?? [] });
+  return deliver(deps, { draftId: o.draftId, project: a.project, mode: "manual", actor: o.actor, mail: m, mailRef: draft?.mailRef ?? null });
 }
 
-async function deliver(deps: SendDeps, o: { draftId: number; project: string; mode: SendMode; actor: string; mail: MailDraft; queued?: SendRow; mailRef?: string | null; accounts?: readonly string[] }): Promise<SendOutcome> {
-  // The hub marker is the hub's own line (P56 S2): it never goes out, and the audit row holds what went out.
-  const m = { ...o.mail, body: stripHubMarker(o.mail.body) };
+async function deliver(deps: SendDeps, o: { draftId: number; project: string; mode: SendMode; actor: string; mail: MailDraft; queued?: SendRow; mailRef?: string | null }): Promise<SendOutcome> {
+  // Exactly the Mail text goes out, and the audit row holds it (decision 0031: nothing of the Hub's is in it).
+  const m = o.mail;
   let row: SendRow;
   try {
     row = o.queued ?? (await deps.repos.sends.begin({ project: o.project, draftId: o.draftId, mode: o.mode, status: "sending", actor: o.actor, at: (deps.now?.() ?? new Date()).toISOString(), sender: m.sender, to: m.to.join(", "), cc: m.cc.join(", ") || null, bcc: m.bcc.join(", ") || null, subject: m.subject, body: m.body, mailRef: m.messageId }));
@@ -275,9 +288,13 @@ async function deliver(deps: SendDeps, o: { draftId: number; project: string; mo
   } catch (e) {
     return { code: 1, line: line({ ok: false, draftId: o.draftId, sendId: row.id, error: `the mail WAS sent but its log row could not be finished (${(e as Error).message}); send ${row.id} stays "sending"` }) };
   }
-  // The send moved the sent draft to Trash; any other version the hub wrote for this thread follows it (P56). Best effort:
-  // the mail is out, and `hub drafts sweep` finds what is left.
-  if (o.mailRef && o.accounts?.length) await trashThread(deps, { mailRef: o.mailRef, subject: o.mail.subject }, o.accounts, o.mail.ref).catch(() => undefined);
+  // The send moved the sent draft to Trash; any other version the Hub recorded for this draft follows it (P56, P65). Best
+  // effort: the mail is out, and `hub drafts sweep` finds what is left. The sent one is marked trashed too.
+  await (async () => {
+    const versions = await deps.repos.mailVersions.ofDraft(o.draftId);
+    await deps.repos.mailVersions.markTrashed(versions.filter((v) => !v.trashedAt && bareId(v.messageId) === bareId(m.messageId)).map((v) => v.id));
+    await trashThread(deps, o.draftId, m.messageId);
+  })().catch(() => undefined);
   return { code: 0, line: line({ ok: true, sent: true, draftId: o.draftId, sendId: row.id, ...fields(m) }) };
 }
 
@@ -321,7 +338,7 @@ export async function runDue(deps: SendDeps, o: { apply: boolean; project?: stri
     const claimed = await deps.repos.sends.claim(row.id);
     if (!claimed) continue; // cancelled meanwhile, or another runner has it
     const d = await deps.repos.drafts.get(row.draftId as number);
-    const r = await deliver(deps, { draftId: row.draftId as number, project: row.project, mode: "auto", actor, mail: a.mail, queued: claimed, mailRef: d?.mailRef ?? null, accounts: a.config?.mail.accounts ?? [] });
+    const r = await deliver(deps, { draftId: row.draftId as number, project: row.project, mode: "auto", actor, mail: a.mail, queued: claimed, mailRef: d?.mailRef ?? null });
     if (r.code === 0) report.sent.push({ sendId: row.id, draftId: row.draftId as number });
     else {
       code = 1;

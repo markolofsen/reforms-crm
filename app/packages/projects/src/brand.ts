@@ -159,22 +159,72 @@ export interface SignatureBlock {
   lines: string[];
   /** True when the block is the `[Owner: signature for ...]` placeholder (`hub send` refuses it). */
   placeholder: boolean;
+  /** P65 S2: the reply's language had no line of its own, so the English lines were used (the amber check `signature_language`). */
+  fallback?: string;
+}
+
+/** The languages a sign-off or signature line may be tagged with (`ru: С уважением,`). Untagged lines are for every language. */
+export type ReplyLanguage = "en" | "ru";
+
+/**
+ * The reply's language, from its script (P65 S2, P60 finding 2): more than half of its letters Cyrillic is `ru`, else
+ * `en`. Quoted lines (`> `) are not the reply and are not counted.
+ */
+export function replyLanguage(body: string): ReplyLanguage {
+  const own = body.split("\n").filter((l) => !/^\s*>/.test(l)).join("\n");
+  const letters = own.match(/\p{L}/gu) ?? [];
+  if (letters.length === 0) return "en";
+  const cyr = letters.filter((c) => /\p{Script=Cyrillic}/u.test(c)).length;
+  return cyr / letters.length > 0.5 ? "ru" : "en";
+}
+
+const TAG = /^([a-z]{2}):\s*(.*)$/;
+
+/** One configured line as its language variants: `en: Best regards, | ru: С уважением,` is two; an untagged part is for any language (`*`). */
+export function lineVariants(line: string): Array<{ lang: string; text: string }> {
+  return line
+    .split("|")
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => {
+      const m = TAG.exec(p);
+      return m ? { lang: m[1] as string, text: (m[2] as string).trim() } : { lang: "*", text: p };
+    })
+    .filter((v) => v.text !== "");
+}
+
+/** The lines of a configured block for one language: untagged lines always, tagged ones of that language; none of it in that language: English, and `fallback` says so. */
+function pick(lines: readonly string[], lang: ReplyLanguage): { lines: string[]; fallback: boolean } {
+  const parts = lines.map(lineVariants);
+  const tagged = parts.some((vs) => vs.some((v) => v.lang !== "*"));
+  const has = (l: string) => parts.some((vs) => vs.some((v) => v.lang === l));
+  const want = !tagged || has(lang) ? lang : "en";
+  const out: string[] = [];
+  for (const vs of parts) {
+    const mine = vs.find((v) => v.lang === want) ?? vs.find((v) => v.lang === "*") ?? (want !== "en" ? undefined : vs.find((v) => v.lang === "en"));
+    if (mine) out.push(mine.text);
+  }
+  return { lines: out, fallback: tagged && want !== lang };
 }
 
 /**
  * How a draft of this project ends (P60 verdict 2c). No `## Brands` table: `signoff` alone (nothing when it is empty).
  * A table: `signoff` plus the resolved brand's `Signature`; brand unresolved or its signature unanswered: the placeholder
- * `[Owner: signature for <wroteTo or "unknown brand">]`, never another brand's lines.
+ * `[Owner: signature for <wroteTo or "unknown brand">]`, never another brand's lines. P65 S2: lines may be tagged per
+ * language (`en: Best regards, | ru: С уважением,`); the block is picked for `lang`, the reply's language, and falls
+ * back to English (with `fallback`) when the project has no line for it.
  */
-export function signatureFor(c: { signoff: string; brands: readonly Brand[] }, r: Pick<BrandResolution, "brand" | "wroteTo"> | null): SignatureBlock {
-  const signoff = c.signoff.trim();
-  if (c.brands.length === 0) return { lines: signoff ? [signoff] : [], placeholder: false };
+export function signatureFor(c: { signoff: string; brands: readonly Brand[] }, r: Pick<BrandResolution, "brand" | "wroteTo"> | null, lang: ReplyLanguage = "en"): SignatureBlock {
+  const so = pick(c.signoff.trim() ? [c.signoff.trim()] : [], lang);
+  const withFallback = (b: SignatureBlock, fell: boolean): SignatureBlock => (fell ? { ...b, fallback: lang } : b);
+  if (c.brands.length === 0) return withFallback({ lines: so.lines, placeholder: false }, so.fallback);
   const row = r?.brand ? c.brands.find((b) => b.name === r.brand) : undefined;
   if (!row || row.signature.length === 0) {
     const who = row ? row.name : (r?.wroteTo ?? "unknown brand");
-    return { lines: [...(signoff ? [signoff] : []), `[Owner: signature for ${who}]`], placeholder: true };
+    return withFallback({ lines: [...so.lines, `[Owner: signature for ${who}]`], placeholder: true }, so.fallback);
   }
-  return { lines: [...(signoff ? [signoff] : []), ...row.signature], placeholder: false };
+  const sig = pick(row.signature, lang);
+  return withFallback({ lines: [...so.lines, ...sig.lines], placeholder: false }, so.fallback || sig.fallback);
 }
 
 const norm = (l: string) => l.replace(/\s+/g, " ").trim().toLowerCase();
@@ -193,8 +243,38 @@ export function signBody(body: string, block: SignatureBlock, known: readonly st
   return block.lines.length ? `${text}\n\n${block.lines.join("\n")}` : text;
 }
 
-/** Every line any brand of the project signs with (and the sign-off): stripped before signing again and before comparing drafts. */
-export const signatureLines = (c: { signoff: string; brands: readonly Brand[] }): string[] => [...new Set([c.signoff, ...c.brands.flatMap((b) => b.signature)].map((l) => l.trim()).filter(Boolean))];
+/** Every line any brand of the project signs with (and the sign-off), every language variant: stripped before signing again and before comparing drafts. */
+export const signatureLines = (c: { signoff: string; brands: readonly Brand[] }): string[] => [...new Set([c.signoff, ...c.brands.flatMap((b) => b.signature)].flatMap((l) => lineVariants(l).map((v) => v.text)).map((l) => l.trim()).filter(Boolean))];
+
+/** Closing phrases a reply must not end with when the writer signs (P65 S2, P60 finding 1), per language, lower case, no trailing punctuation. */
+export const SIGNOFF_PHRASES: readonly string[] = [
+  "best regards", "kind regards", "warm regards", "warmest regards", "regards", "best wishes", "best", "all the best", "cheers", "sincerely", "yours sincerely", "yours faithfully", "yours truly", "thanks", "many thanks", "thank you", "with thanks", "respectfully",
+  "с уважением", "с наилучшими пожеланиями", "с теплом", "всего доброго", "всего наилучшего", "спасибо", "с благодарностью", "искренне ваш", "искренне ваша",
+];
+
+const THANKS = new Set(["thanks", "many thanks", "thank you", "with thanks", "спасибо", "с благодарностью"]);
+
+const bare = (l: string) => norm(l).replace(/[\s.,;:!—–-]+$/u, "");
+
+/**
+ * A closing the agent typed itself (P65 S2): among the last four non-empty lines of its text, the first line that is a
+ * sign-off phrase (alone, or followed by a comma and a short name: "Best regards, Mark"), or one of the project's own
+ * sign-off or signature lines (any language). Null when the text ends without one. Pure; the text is never edited.
+ */
+export function ownSignoff(body: string, own: readonly string[] = []): string | null {
+  const tail = body.split("\n").filter((l) => l.trim() !== "" && !/^\s*>/.test(l)).slice(-4);
+  const mine = new Set(own.map(bare).filter(Boolean));
+  for (const l of tail) {
+    const b = bare(l);
+    if (mine.has(b)) return l.trim();
+    for (const p of SIGNOFF_PHRASES) {
+      if (b === p) return l.trim();
+      // "Best regards, Mark": a closing and a name. Not for a thanks, which starts many a sentence ("Thanks, we will answer tomorrow").
+      if (!THANKS.has(p) && b.startsWith(`${p},`) && b.slice(p.length + 1).trim().split(/\s+/).length <= 3) return l.trim();
+    }
+  }
+  return null;
+}
 
 // ---- the knowledge axis (B3) ---------------------------------------------------------------------------------------
 

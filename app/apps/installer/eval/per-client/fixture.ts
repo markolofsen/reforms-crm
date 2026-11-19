@@ -113,5 +113,5 @@ const FRAMES: Array<(c: FixtureClient) => string> = [
 export function replyBody(c: FixtureClient): string {
   const frame = FRAMES[(c.n - 1) % FRAMES.length]!;
   const second = c.n <= 10 ? `Until then I have noted "${c.needles[1]}" in your file so a colleague can pick it up.` : `For the record, ${c.needles[0]} was the part you stressed, and ${c.needles[1]} the part you were unsure about.`;
-  return `[hub-draft thread=m${c.ids[0]}@clients.example]\nHi ${c.name.split(" ")[0]},\n\n${frame(c)} ${second}\n\nKind regards, the desk`;
+  return `Hi ${c.name.split(" ")[0]},\n\n${frame(c)} ${second}\n\nKind regards, the desk`;
 }

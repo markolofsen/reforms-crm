@@ -42,20 +42,29 @@ Installed mail-mcp, from its local schemas and README:
   mail-mcp is read only: `create_reply`, `replace_reply`, the outgoing-message tools and `delete_draft` are denied.
 - Drafts are written by `hub mcp` `draft_write` (`@hub/agent/mail-drafts`): Mail's own `reply ... opening window false`,
   `content`, `save`, from the hub's process (outside the agent's sandbox), Mail in the background, the thread headers
-  kept, plain text with the `[hub-draft thread=...]` line added. A revision deletes only the older drafts of the same
-  account, subject and marker, after the new one is found. A revision names only the hub draft (`draft`); the hub finds
-  the answered message by its Message-ID (the draft's `mailRef`) and bumps the live topic `mail`, so the open admin card
-  reads the new text (P53). Mail.app must be running; nothing is sent.
-- The hub cleans up after itself (P56): who wrote a Mail draft is judged by its text only (`hubAuthorship` in
-  `@hub/config`: the first non-empty line is this thread's `[hub-draft thread=...]` marker, or the pre-marker
-  `[Reforms draft, run <hex> ...]` line). Every removal re-checks that line in the script just before Mail's `delete`,
-  which moves the draft to the account's Trash (recoverable); subject, recipient and account never qualify a draft.
-  Send, Skip and Done move the thread's marked drafts to Trash; a revision replaces its older version; `hub drafts
-  sweep` (dry run unless `--apply`, the owner's: denied to the agent) lists older versions, closed threads and the
-  pre-marker drafts. With exactly one marked draft the marker decides which draft the card, Checked and Send use;
-  other drafts of the same subject are named and left alone. A person's Save and Restore in the admin write through the
-  same writer (`reviseDraft`, verbatim). The send removes the first-line marker from what goes out, and sends Mail's
-  own `reply` to the answered message, so the client's thread keeps `In-Reply-To` and `References`.
+  kept, plain text: the reply and the signature, nothing of the hub's (decision 0031: Mail's scripting has no HTML
+  channel and no header element, and a line in the body reaches the client the moment anyone presses Mail.app's Send).
+  The writer finds its draft as the one new draft of the account whose In-Reply-To is the answered message, and the
+  Hub records it (`mail_versions`: account, Mail id, Message-ID, the hash of the text Mail returned; never the text).
+  A revision names only the hub draft (`draft`); the hub finds the answered message by its Message-ID (the draft's
+  `mailRef`), moves the older recorded version to Trash and bumps the live topic `mail`, so the open admin card reads
+  the new text (P53). A new reply to a message the project already has a draft for is refused (`already_drafted`, the
+  skip of a rerun), and a text that ends with the agent's own closing is refused (`own_signoff`): the writer signs, in
+  the reply's language (P65 S2). Mail.app must be running; nothing is sent.
+- The hub cleans up after itself (P56, P65): who wrote a Mail draft is the hub's record, never its text. A draft is
+  moved to Trash (Mail's `delete`: the account's Trash, recoverable) only when its account and Message-ID match a
+  recorded version, re-checked in the script just before the delete; subject, recipient and In-Reply-To narrow the
+  search and never qualify a draft. Send, Skip and Done move the draft's recorded versions to Trash; a revision
+  replaces its older version; `hub drafts sweep` (dry run unless `--apply`, the owner's: denied to the agent) reads
+  Mail's headers only and lists recorded versions that are older than the draft's newest or belong to a closed draft.
+  The thread decides which draft the card, Checked and Send use: exactly one draft of the project's accounts that
+  answers the `mailRef` and is addressed to the client, whoever last edited it; two or more refuse Send and name each,
+  saying which one the hub wrote. A draft the owner writes in the same thread counts there but is in no record, so it
+  is never removed. A person's Save and Restore (the newest recorded version found in Trash by its Message-ID) write
+  through the same writer (`reviseDraft`, verbatim). Exactly the Mail text goes out, as Mail's own `reply` to the
+  answered message, so the client's thread keeps `In-Reply-To` and `References`. Until `hub drafts unmark` (P65 S3,
+  dry run unless `--apply`, the owner's) has rewritten the drafts written before 0031 in every instance, the send
+  refuses a text that still holds a `[hub-draft ...]` line; it never strips it.
 
 Verdict: draft-only is structural; costs are no threads, no read-marking, GUI dependency. patrickfreyer has
 threads but can send: `--read-only` only, never both.

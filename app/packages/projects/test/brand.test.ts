@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyBrandRow, brandChecks, headersFromText, parseProjectMd, resolveBrand, signatureFor, signatureLines, signBody, type LoadedProject } from "../src/index";
+import { applyBrandRow, brandChecks, headersFromText, lineVariants, ownSignoff, parseProjectMd, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, type LoadedProject } from "../src/index";
 
 // P60 B1/B2: the `## Brands` table, the resolver and the signature, on fixtures shaped like the two live instances.
 // The names live in test/fixtures/brands (core test code names no owner, `@docs/LAYERS.md`).
@@ -148,5 +148,40 @@ describe("doctor rows", () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+// P65 S2 (P60 findings 1 and 2): the agent's own closing is found, never edited; the signature follows the reply's language.
+describe("the reply's language and the agent's own closing (P65 S2)", () => {
+  it("a reply is Russian when more than half its letters are Cyrillic; the quote does not count", () => {
+    expect(replyLanguage("Здравствуйте, Марк! API отдаёт цены.")).toBe("ru");
+    expect(replyLanguage("Hello Mark, the API is fine.\n\n> Здравствуйте, длинная цитата на русском языке")).toBe("en");
+    expect(replyLanguage("")).toBe("en");
+  });
+
+  it("a configured line splits into language variants; untagged parts are for every language", () => {
+    expect(lineVariants("en: Best regards, | ru: С уважением,")).toEqual([{ lang: "en", text: "Best regards," }, { lang: "ru", text: "С уважением," }]);
+    expect(lineVariants("Carapis team")).toEqual([{ lang: "*", text: "Carapis team" }]);
+  });
+
+  it("signatureFor picks the reply's language, keeps untagged lines, and falls back to English with `fallback`", () => {
+    const brands = [{ name: "B", receivesAt: ["b.example"], signature: ["en: B team | ru: Команда B", "b.example"], answered: "2026-11-19", by: "owner" as const }];
+    const r = { brand: "B", wroteTo: "info@b.example" };
+    expect(signatureFor({ signoff: "en: Best regards, | ru: С уважением,", brands }, r, "ru")).toEqual({ lines: ["С уважением,", "Команда B", "b.example"], placeholder: false });
+    expect(signatureFor({ signoff: "en: Best regards, | ru: С уважением,", brands }, r, "en")).toEqual({ lines: ["Best regards,", "B team", "b.example"], placeholder: false });
+    expect(signatureFor({ signoff: "en: Best regards,", brands: [] }, null, "ru")).toEqual({ lines: ["Best regards,"], placeholder: false, fallback: "ru" });
+    // An untagged project behaves as before P65, in every language, with no check.
+    expect(signatureFor({ signoff: "Warm regards,", brands: [] }, null, "ru")).toEqual({ lines: ["Warm regards,"], placeholder: false });
+    expect(signatureLines({ signoff: "en: Best regards, | ru: С уважением,", brands })).toEqual(["Best regards,", "С уважением,", "B team", "Команда B", "b.example"]);
+  });
+
+  it("ownSignoff finds a closing in the last four lines (a phrase alone or with a short name, or the project's own lines), and nothing else", () => {
+    expect(ownSignoff("Здравствуйте!\n\nОтвет.\n\nС теплом,\nкоманда Carapis")).toBe("С теплом,");
+    expect(ownSignoff("Hi,\n\nAnswer.\n\nBest regards, Mark")).toBe("Best regards, Mark");
+    expect(ownSignoff("Hi,\n\nAnswer.\n\nCarapis team", ["en: Carapis team | ru: Команда Carapis"].flatMap((l) => lineVariants(l).map((v) => v.text)))).toBe("Carapis team");
+    expect(ownSignoff("Hi,\n\nThank you for your patience, we will answer tomorrow.")).toBeNull();
+    expect(ownSignoff("Hi,\n\nThanks, we will answer tomorrow.")).toBeNull();
+    expect(ownSignoff("Best regards,\nline 2\nline 3\nline 4\nline 5\nline 6")).toBeNull();
+    expect(ownSignoff("Hi,\n\nAnswer.\n\n> Best regards,\n> Client")).toBeNull();
   });
 });

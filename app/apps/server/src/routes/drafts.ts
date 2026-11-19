@@ -36,7 +36,14 @@ export function draftRoutes(repos: Repos, sender?: SenderOptions) {
       if (checked && sender) {
         // Checked is bound to the text that was read (decision 0013): a tick carrying the hash of a stale read is refused.
         const own = await repos.drafts.get(id);
-        const f = own ? await findMail(sender, own) : null;
+        const accounts = own ? (() => {
+          try {
+            return loadProject(sender.projectsDir, own.project, { policyDir: sender.policyDir }).parsed.config.mail.accounts;
+          } catch {
+            return null;
+          }
+        })() : null;
+        const f = own ? await findMail(sender, own, "strict", { accounts, versions: await repos.mailVersions.ofDraft(own.id) }) : null;
         if (f?.mail) {
           hash = mailHash(f.mail);
           if (supplied && supplied !== hash) return c.json({ error: "The draft changed in Mail since you read it: read it again.", code: "wrong_state" as const }, 409);
@@ -53,14 +60,12 @@ export function draftRoutes(repos: Repos, sender?: SenderOptions) {
       const id = c.req.valid("param").id;
       if (!(await ownDraft(project, id))) return notFound(c, "draft");
       const draft = await repos.drafts.setStatus(id, status, reason);
-      // Skip and Done close the draft: the hub's own Mail drafts of this thread go to Trash (P56), so the owner never cleans
-      // up after the hub. In the background and best effort: the status is the owner's decision and never waits on Mail;
-      // Undo finds the copy in Trash (Restore), and `hub drafts sweep` finds whatever is left.
-      if (draft && sender && draft.mailRef && (status === "skipped" || status === "done")) {
-        void (async () => {
-          const accounts = loadProject(sender.projectsDir, draft.project, { policyDir: sender.policyDir }).parsed.config.mail.accounts;
-          await trashThread(sender, draft, accounts);
-        })().catch((e: unknown) => console.error(`draft ${id}: its Mail drafts were not moved to Trash: ${(e as Error).message}`));
+      // Skip and Done close the draft: the Mail versions the Hub recorded for it go to Trash (P56, P65), so the owner never
+      // cleans up after the Hub; a draft he wrote in Mail himself is never in that record. In the background and best
+      // effort: the status is the owner's decision and never waits on Mail; Undo finds the copy in Trash (Restore), and
+      // `hub drafts sweep` finds whatever is left.
+      if (draft && sender && (status === "skipped" || status === "done")) {
+        void trashThread({ mailer: sender.mailer, repos }, draft.id).catch((e: unknown) => console.error(`draft ${id}: its Mail drafts were not moved to Trash: ${(e as Error).message}`));
       }
       return draft ? c.json(changed(id)) : notFound(c, "draft");
     })

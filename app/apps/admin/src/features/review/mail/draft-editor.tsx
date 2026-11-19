@@ -7,7 +7,7 @@ import { useMailWrite } from "./use-mail-write";
 type Props = {
   project: string;
   draftId: number;
-  /** The text as the read showed it, without the hub marker line (the writer adds it back). */
+  /** The text exactly as the read showed it (decision 0031: the Hub adds nothing to it). */
   text: string;
   /** The hash of that read: the Save is refused when Mail no longer holds exactly it. */
   hash: string;

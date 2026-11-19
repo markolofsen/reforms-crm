@@ -1,85 +1,85 @@
-import { hubAuthorship } from "@hub/config";
-import type { Repos } from "@hub/db";
-import { bareId, type DraftsCleaner, type MailDraft, type TrashItem } from "./mailer";
+import type { MailVersionRow, Repos } from "@hub/db";
+import { bareId, type DraftHead, type DraftsCleaner, type TrashItem } from "./mailer";
 
-// `hub drafts sweep` (P56 S0): the hub's own leftovers in Mail's Drafts, moved to Trash (recoverable), and nothing else.
-// Who wrote a draft is judged by its text only (`hubAuthorship`): its first non-empty line is a hub marker or the legacy
-// run line. A draft without one is the owner's and is never listed. Dry run by default; `--apply` moves what it listed.
+// `hub drafts sweep` (P56 S0, P65 verdict 10): the Hub's own leftovers in Mail's Drafts, moved to Trash (recoverable),
+// and nothing else. Who wrote a draft is the Hub's record (`mail_versions`, decision 0031), never its text: a draft is
+// listed only when its account and its own Message-ID match a recorded version. A draft the Hub did not record is the
+// owner's and is never listed. Mail is read by headers only (under 2 s). Dry run by default; `--apply` moves what it listed.
 
-export type SweepKind = "superseded" | "closed" | "legacy";
+export type SweepKind = "superseded" | "closed";
 
 export interface SweepRow {
   ref: string;
   account: string;
   subject: string;
+  /** The draft's own Message-ID, as Mail gave it: what the move re-checks just before it. */
+  messageId: string;
   kind: SweepKind;
   why: string;
-  /** The first line the move re-checks just before it (`TrashItem.line`). */
-  line: string;
+  /** The `mail_versions` row it matched. */
+  versionId: number;
 }
 
 export interface SweepScope {
-  /** The project's `mail.accounts`: marked drafts are judged only there (another instance's drafts are its own to judge). */
+  /** The project's `mail.accounts`: recorded versions are judged only there. */
   accounts: readonly string[];
-  /** Threads (bare, lowercased Message-IDs) whose hub draft in this project is done, sent or skipped, and none is open. */
-  closed: ReadonlySet<string>;
+  /** The project's recorded versions (`mail_versions`), any draft, trashed or not. */
+  versions: readonly MailVersionRow[];
+  /** Draft ids of this project that are done, sent or skipped. */
+  closed: ReadonlySet<number>;
 }
 
 const lower = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 
 /**
- * Pure: which drafts go to Trash, and why. `superseded`: a marked draft with a newer marked draft of the same thread in
- * the same account (the writer keeps one; this is what an older run left). `closed`: every marked draft of a thread the
- * owner already closed. `legacy`: the run line of the hub's drafts before the marker (14 Nov 2026), in any account,
- * because the line itself proves the hub wrote it.
+ * Pure: which drafts go to Trash, and why. `closed`: every recorded version still in Drafts of a draft the owner closed
+ * (done, sent or skipped). `superseded`: a recorded version of an open draft older than the newest recorded version of
+ * that draft still in Drafts (the writer keeps one; this is what a failed replace left).
  */
-export function planSweep(drafts: readonly MailDraft[], scope: SweepScope): SweepRow[] {
+export function planSweep(drafts: readonly DraftHead[], scope: SweepScope): SweepRow[] {
   const own = new Set(scope.accounts.map(lower));
-  const rows: SweepRow[] = [];
-  const marked = new Map<string, Array<{ d: MailDraft; line: string; thread: string }>>();
+  const byKey = new Map<string, MailVersionRow>();
+  for (const v of scope.versions) byKey.set(`${lower(v.account)}\u0000${bareId(v.messageId)}`, v);
+  const groups = new Map<number, Array<{ d: DraftHead; v: MailVersionRow }>>();
   for (const d of drafts) {
-    const a = hubAuthorship(d.body);
-    if (!a) continue;
-    const base = { ref: d.ref, account: d.account ?? "", subject: d.subject, line: a.line };
-    if (a.kind === "legacy") {
-      rows.push({ ...base, kind: "legacy", why: "written by the hub before the marker existed (the run line)" });
-      continue;
-    }
-    if (!own.has(lower(d.account))) continue;
-    const key = `${lower(d.account)}\u0000${a.thread}`;
-    marked.set(key, [...(marked.get(key) ?? []), { d, line: a.line, thread: a.thread }]);
+    if (!d.messageId || !own.has(lower(d.account))) continue;
+    const v = byKey.get(`${lower(d.account)}\u0000${bareId(d.messageId)}`);
+    if (!v || v.draftId === null) continue;
+    groups.set(v.draftId, [...(groups.get(v.draftId) ?? []), { d, v }]);
   }
-  for (const group of marked.values()) {
-    const byAge = [...group].sort((x, y) => (Number(y.d.ref) || 0) - (Number(x.d.ref) || 0));
-    for (const [i, g] of byAge.entries()) {
-      const base = { ref: g.d.ref, account: g.d.account ?? "", subject: g.d.subject, line: g.line };
-      if (scope.closed.has(g.thread)) rows.push({ ...base, kind: "closed", why: "its hub draft is done, sent or skipped" });
-      else if (i > 0) rows.push({ ...base, kind: "superseded", why: `an older version: Mail id ${byAge[0]?.d.ref} is the newest of this thread` });
+  const rows: SweepRow[] = [];
+  for (const [draftId, group] of groups) {
+    const newestFirst = [...group].sort((x, y) => y.v.id - x.v.id);
+    for (const [i, g] of newestFirst.entries()) {
+      const base = { ref: g.d.ref, account: g.d.account ?? "", subject: g.d.subject, messageId: g.d.messageId ?? "", versionId: g.v.id };
+      if (scope.closed.has(draftId)) rows.push({ ...base, kind: "closed", why: `hub draft ${draftId} is done, sent or skipped` });
+      else if (i > 0) rows.push({ ...base, kind: "superseded", why: `an older version of hub draft ${draftId}: Mail id ${newestFirst[0]?.d.ref} is its newest` });
     }
   }
   return rows;
 }
 
-/** The threads of this project whose hub draft is closed and none open, from the database (read-only). */
-export async function closedThreads(repos: Repos, project: string): Promise<Set<string>> {
+/** The draft ids of this project that are closed (done, sent or skipped), from the database (read-only). */
+export async function closedDrafts(repos: Repos, project: string): Promise<Set<number>> {
   const page = { limit: 5000, offset: 0 };
-  const closed = new Set<string>();
-  for (const f of ["done", "sent", "skipped"] as const) for (const d of await repos.clients.review(project, f, page)) if (d.mailRef) closed.add(bareId(d.mailRef));
-  for (const d of await repos.clients.review(project, "all", page)) if (d.mailRef && (d.status === "ready" || d.status === "hold")) closed.delete(bareId(d.mailRef));
+  const closed = new Set<number>();
+  for (const f of ["done", "sent", "skipped"] as const) for (const d of await repos.clients.review(project, f, page)) closed.add(d.id);
   return closed;
 }
 
 export interface SweepResult {
   rows: SweepRow[];
-  /** Only with apply: what Mail moved, and what it refused because the text changed since the read. */
+  /** Only with apply: what Mail moved, and what it refused because the draft changed or is gone since the read (Message-IDs). */
   moved: string[];
   refused: string[];
 }
 
 export async function runSweep(deps: { mailer: DraftsCleaner; repos: Repos }, o: { project: string; accounts: readonly string[]; apply: boolean }): Promise<SweepResult> {
-  const rows = planSweep(await deps.mailer.listHubDrafts(), { accounts: o.accounts, closed: await closedThreads(deps.repos, o.project) });
+  const rows = planSweep(await deps.mailer.listDrafts(), { accounts: o.accounts, versions: await deps.repos.mailVersions.ofProject(o.project), closed: await closedDrafts(deps.repos, o.project) });
   if (!o.apply || rows.length === 0) return { rows, moved: [], refused: [] };
-  const items: TrashItem[] = rows.map((r) => ({ ref: r.ref, line: r.line }));
+  const items: TrashItem[] = rows.map((r) => ({ account: r.account, messageId: r.messageId }));
   const r = await deps.mailer.trashDrafts(items);
+  const moved = new Set(r.moved.map(bareId));
+  await deps.repos.mailVersions.markTrashed(rows.filter((x) => moved.has(bareId(x.messageId))).map((x) => x.versionId));
   return { rows, ...r };
 }

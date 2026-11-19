@@ -231,6 +231,8 @@ export const SAFETY_KINDS = [
   // P60: a knowledge entry the draft used belongs to another brand of the project (knowledge.scope by-brand).
   "fact_other_brand",
   "evidence_weak",
+  // P65 S2 (P60 finding 2): the project has no sign-off or signature line in the reply's language; the writer signed in English.
+  "signature_language",
 ] as const;
 export type SafetyKind = (typeof SAFETY_KINDS)[number];
 export type SafetyLevel = "amber" | "red";
@@ -258,6 +260,7 @@ export const SAFETY_LABELS: Record<SafetyKind, string> = {
   fact_without_source: "Figure without a knowledge entry",
   fact_other_brand: "Fact of another brand",
   evidence_weak: "Thin evidence",
+  signature_language: "Signature not in the reply's language",
 };
 
 /** How well a recorded draft's own evidence block holds up (`hub record-draft`, rules V1 to V5). Null on a draft with no block (older rows, batch drafts). */
@@ -306,6 +309,7 @@ export const DEFAULT_SAFETY_RULES: readonly SafetyRule[] = [
   { kind: "fact_without_source", enabled: true, level: "amber", params: {} },
   { kind: "fact_other_brand", enabled: true, level: "red", params: {} },
   { kind: "evidence_weak", enabled: true, level: "amber", params: {} },
+  { kind: "signature_language", enabled: true, level: "amber", params: {} },
 ];
 
 // ---- Placeholders: no batch renders one text for many clients (P28 C5); the agent writes each draft from the owner's brief.
@@ -315,33 +319,27 @@ export function unresolvedMarkers(text: string): string[] {
   return text.match(/\{\{[^}]*\}\}|\{[a-z][a-z0-9_]*\}|\[[A-Z][\w ]*:[^\]]*\]/g) ?? [];
 }
 
-/** The first line of every agent draft: `[hub-draft thread=<Message-ID>]`. It makes a rerun skip the client; the hub's send removes it (P56 S2). */
+/**
+ * The hub line drafts carried before decision 0031 (P65): `[hub-draft thread=<Message-ID>]`. Nothing writes it any more;
+ * it is known only so the send door refuses a text that still holds one (until `hub drafts unmark` reads 0 in every
+ * instance) and so that one-time migration can find the drafts to rewrite. P65 S4 deletes all of this.
+ */
 export const HUB_DRAFT_MARKER = /\[hub-draft\b[^\]\n]*\]/i;
 
-/** The first line of a hub draft written before the marker existed (14 Nov 2026): `[Reforms draft, run <hex>. ... Delete this line before sending.]`. */
-export const LEGACY_RUN_LINE = /\[Reforms draft, run [0-9a-f]{6,}\b[^\]\n]*\]/i;
-
-/** A hub line still in the text (P27 M1.3; the legacy run line since P56): a draft that carries one must not be sent. Pure; null when there is none. */
+/** A hub line anywhere in the text (P27 M1.3): a draft that carries one must not be sent. Pure; null when there is none. */
 export function markerLeft(text: string): string | null {
-  return text.match(HUB_DRAFT_MARKER)?.[0] ?? text.match(LEGACY_RUN_LINE)?.[0] ?? null;
+  return text.match(HUB_DRAFT_MARKER)?.[0] ?? null;
 }
 
 /**
- * Who wrote a Mail draft, judged by its text only (P56): the first non-empty line is this thread's marker (`marked`, the
- * thread bare and lowercased like `mailRef`), or the legacy run line (`legacy`); anything else is the owner's (null).
- * Every removal of a Mail draft by the hub asks this first: subject, recipient and account never qualify a draft.
+ * The marker line of a draft written before decision 0031, when its first non-empty line is one: the thread bare and
+ * lowercased like `mailRef`. Used only by `hub drafts unmark` (P65 S3) to adopt today's marked drafts; never to decide a
+ * removal (the Hub's `mail_versions` record does that).
  */
-export type HubAuthorship = { kind: "marked"; thread: string; line: string } | { kind: "legacy"; line: string } | null;
+export type MarkedDraft = { thread: string; line: string } | null;
 
-export function hubAuthorship(text: string): HubAuthorship {
+export function markedDraft(text: string): MarkedDraft {
   const first = text.split(/\r?\n/).find((l) => l.trim() !== "")?.trim() ?? "";
   const m = /^\[hub-draft thread=([^\]\s]+)\]/i.exec(first);
-  if (m?.[1]) return { kind: "marked", thread: m[1].replace(/^<|>$/g, "").toLowerCase(), line: m[0] };
-  const l = LEGACY_RUN_LINE.exec(first);
-  return l && l.index === 0 ? { kind: "legacy", line: l[0] } : null;
-}
-
-/** The text without its leading blank lines and the hub marker line, when the first non-empty line is one (P56 S2); else unchanged. */
-export function stripHubMarker(text: string): string {
-  return hubAuthorship(text)?.kind === "marked" ? text.replace(/^(?:[ \t]*\r?\n)*[ \t]*\[hub-draft thread=[^\]\n]*\][ \t]*(?:\r?\n)?/i, "") : text;
+  return m?.[1] ? { thread: m[1].replace(/^<|>$/g, "").toLowerCase(), line: m[0] } : null;
 }

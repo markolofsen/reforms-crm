@@ -69,7 +69,7 @@ export function lazySteps(cs: readonly FixtureClient[]): Step[] {
 /** One template with the name swapped, with every read present: the body, not the reads, is the defect (F3/F6). */
 export function templateLoopSteps(cs: readonly FixtureClient[]): Step[] {
   return cs.flatMap((c) => {
-    const body = `[hub-draft thread=m${c.ids[0]}@clients.example]\nHi ${c.name.split(" ")[0]},\n\nThank you for your message and for your patience. We have received your question and our team is reviewing the details of your property. We will come back to you in the next few days with the information you need. In the meantime, please do not hesitate to contact us if anything changes or if you have further questions about the process.\n\nKind regards, the desk`;
+    const body = `Hi ${c.name.split(" ")[0]},\n\nThank you for your message and for your patience. We have received your question and our team is reviewing the details of your property. We will come back to you in the next few days with the information you need. In the meantime, please do not hesitate to contact us if anything changes or if you have further questions about the process.\n\nKind regards, the desk`;
     return [profileFor(c), findFor(c), ...readsFor(c, Math.min(Math.max(c.found, 1), 3)), factsFor(c), replyFor(c, body), recordFor(c)];
   });
 }

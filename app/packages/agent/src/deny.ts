@@ -47,8 +47,11 @@ export const HUB_SEND_COMMANDS: readonly string[] = ["Bash(*hub send*)", "Bash(*
  */
 export const HUB_SEQUENCE_OWNER_COMMANDS: readonly string[] = ["Bash(*sequences enrol*--not-now*)", "Bash(*sequences pause*)", "Bash(*sequences resume*)"];
 
-/** Moving Mail drafts to Trash (`hub drafts sweep --apply`, P56) is the owner's: a session may list them (the dry run), never move them. */
-export const HUB_MAIL_OWNER_COMMANDS: readonly string[] = ["Bash(*drafts sweep*--apply*)"];
+/**
+ * Moving Mail drafts to Trash (`hub drafts sweep --apply`, P56) and rewriting the marked ones (`hub drafts unmark
+ * --apply`, P65 S3) are the owner's: a session may list them (the dry runs), never move or rewrite them.
+ */
+export const HUB_MAIL_OWNER_COMMANDS: readonly string[] = ["Bash(*drafts sweep*--apply*)", "Bash(*drafts unmark*--apply*)"];
 
 /**
  * The admin server's Send is a loopback HTTP route (P23 S3). Text rules on loopback names: a second belt only, since

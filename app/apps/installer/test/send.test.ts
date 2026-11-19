@@ -70,6 +70,7 @@ const mailDraft = (over: Partial<MailDraft> = {}): MailDraft => ({
   ref: String(++refs),
   messageId: "d1@acme.example",
   account: "owner@acme.example",
+  inReplyTo: null,
   sender: "Acme <owner@acme.example>",
   to: ["client@example.com"],
   cc: [],

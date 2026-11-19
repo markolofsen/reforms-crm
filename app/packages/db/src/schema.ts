@@ -128,6 +128,31 @@ export const drafts = sqliteTable(
   ],
 );
 
+// The Mail versions the Hub wrote (P65, decision 0031): one row per draft the writer saved in Mail (the agent's
+// `draft_write`, a person's Save, a Restore, the `hub drafts unmark` migration). Mail's text is never kept (decision
+// 0013): `hash` is the sha256 of the text Mail returned after the save. A Mail draft is the Hub's to move to Trash only
+// when its account and `message id` match a row here. `draftId` is null between `draft_write` of a new reply and its
+// `hub record-draft`, which links the rows of its `mailRef` (bare, lowercased). `signatureFallback`: the language the
+// project had no sign-off or signature line for, so the writer signed in English (P65 S2, the amber check).
+export const mailVersions = sqliteTable(
+  "mail_versions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    project: text("project").notNull(),
+    mailRef: text("mail_ref").notNull(),
+    draftId: integer("draft_id").references((): AnySQLiteColumn => drafts.id, { onDelete: "set null" }),
+    account: text("account").notNull(),
+    mailId: integer("mail_id").notNull(),
+    messageId: text("message_id").notNull(),
+    hash: text("hash").notNull(),
+    source: text("source").$type<"agent" | "save" | "restore" | "migration">().notNull(),
+    signatureFallback: text("signature_fallback"),
+    writtenAt: text("written_at").notNull(),
+    trashedAt: text("trashed_at"),
+  },
+  (t) => [index("mail_versions_project_ref").on(t.project, t.mailRef), index("mail_versions_draft").on(t.draftId)],
+);
+
 // Follow-up sequences (P47, `@docs/core/23-sequences.md`). One row per time the owner enrolled a client in a project's sequence.
 // `step` is the NEXT step to draft; `schedule` is the copy of the file's waits taken at enrolment (JSON {delays, businessDays}),
 // so an edited file applies to new enrolments only and `sequence_hash` says which text it was. Every change goes through

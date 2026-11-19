@@ -5,6 +5,7 @@ import { draftsRepo } from "./drafts";
 import { enrollmentsRepo } from "./enrollments";
 import { inboxRepo } from "./inbox";
 import { knowledgeRepo } from "./knowledge";
+import { mailVersionsRepo } from "./mail-versions";
 import { messengersRepo } from "./messengers";
 import { projectsRepo } from "./projects";
 import { runsRepo } from "./runs";
@@ -24,6 +25,7 @@ export function createRepos(db: Db) {
     sends: sendsRepo(db),
     inbox: inboxRepo(db),
     enrollments: enrollmentsRepo(db),
+    mailVersions: mailVersionsRepo(db),
   };
 }
 export type Repos = ReturnType<typeof createRepos>;
@@ -46,5 +48,7 @@ export type {
 export type { BatchRow, BatchSummary } from "./batches";
 export type { BasedOn, ReviewDraft } from "./review";
 export type { NewSend, SendRow } from "./sends";
+export type { MailVersionRow, MailVersionSource, NewMailVersion } from "./mail-versions";
+export { bareRef } from "./mail-versions";
 export type { InboxInput, InboxItem, InboxResult, InboxRow } from "./inbox";
 export type { Candidate, EnrollmentItem, EnrollmentRow, NewEnrollment, Outbound } from "./enrollments";

@@ -14,7 +14,7 @@ Even in a batch every reply is individual. The owner's phrase gives a **brief**:
 - Send is gated by "I read the checks"; the card, its states and keys are in `06`.
 
 ## Sent detection
-A recorded draft (bulk or not, `hub record-draft`) that the person sends from Mail is found in the project's Sent mailbox (`mail.sent_mailbox`) through `osascript`, matched by its marker or Message-ID; the server reads only while drafts wait, only since the oldest waiting one, and never launches Mail: when Mail is not running the loop is off and says so (decision 0026). `drafts.markSent` is the only writer of `sent`. Not built: a per-batch sent log screen (the Project screen shows the send history).
+A recorded draft (bulk or not, `hub record-draft`) that the person sends from Mail is found in the project's Sent mailbox (`mail.sent_mailbox`) through `osascript`, matched by its Message-ID (the `mailRef`, or a Mail version the Hub recorded for it), by the thread it answers, or by subject and recipient (never by its text, P65); the server reads only while drafts wait, only since the oldest waiting one, and never launches Mail: when Mail is not running the loop is off and says so (decision 0026). `drafts.markSent` is the only writer of `sent`. Not built: a per-batch sent log screen (the Project screen shows the send history).
 
 ## Data (SQLite, `packages/db`)
 `batches` (audience, intent, brief, the picked and the excluded clients; read by the batch view), `drafts` (status `ready hold done sent skipped`, the `checked` flag, `tones`, `reason`, `safety` and `acked`, `mail_ref`, `batch_id`; one open draft per client, a partial unique index), `safety_rules`, `send_log`. Marks are the client marks of `06`.

@@ -27,10 +27,10 @@ function fakeMail(o: { running?: boolean; sent?: Record<string, string[]>; fail?
 }
 
 /** One Sent record as the script prints it. `at` is read as this machine's local time, as Mail reports it. */
-function sentRecord(m: { id: string; to?: string; subject?: string; irt?: string; head?: string; at?: Date }) {
+function sentRecord(m: { id: string; to?: string; subject?: string; irt?: string; at?: Date }) {
   const at = m.at ?? new Date(Date.now() + 60_000);
   const stamp = `${at.getFullYear()},${at.getMonth() + 1},${at.getDate()},${at.getHours() * 3600 + at.getMinutes() * 60 + at.getSeconds()}`;
-  return [m.id, m.irt ?? "", stamp, `${m.to ?? ANNA}${LS}`, "", m.subject ?? "Re: Hello", m.head ?? "Hi Anna"].join(FS) + RS;
+  return [m.id, m.irt ?? "", stamp, `${m.to ?? ANNA}${LS}`, "", m.subject ?? "Re: Hello"].join(FS) + RS;
 }
 
 const settings = (accounts = ["Google"]) => JSON.stringify({ schema: 1, slug: "p", kind: "x", name: "P", mail: { accounts, addresses: ["me@example.test"], sentMailbox: "Sent Mail" } });
@@ -47,17 +47,19 @@ beforeEach(() => {
 afterEach(() => handle.close());
 
 describe("Sent detection through Apple Mail", () => {
-  it("marks a draft whose sent message still carries its [hub-draft] marker", async () => {
+  it("marks a draft whose sent message has the Message-ID of a Mail version the Hub recorded for it (P65), never by its text", async () => {
     await register();
     const r = await record();
-    const mail = fakeMail({ sent: { Google: [sentRecord({ id: "<sent1@x>", subject: "Another subject", head: "[hub-draft thread=thread1@x]\nHi Anna" })] } });
+    await repos.mailVersions.add({ project: "p", mailRef: "<thread1@x>", draftId: r.draftId, account: "Google", mailId: 9, messageId: "Version1@x", hash: "h", source: "agent" });
+    const mail = fakeMail({ sent: { Google: [sentRecord({ id: "<version1@x>", subject: "Another subject" })] } });
     const h = reconciler(mail.osa);
     await h.tick();
-    expect(await statusOf(r.draftId)).toMatchObject({ status: "sent", sentVia: "marker", sentMessageId: "sent1@x" });
+    expect(await statusOf(r.draftId)).toMatchObject({ status: "sent", sentVia: "message-id", sentMessageId: "version1@x" });
     expect(h.status()).toMatchObject({ state: "running", projects: ["p"], marked: 1 });
     // The read names the account, the project's Sent mailbox, and a start a day before the draft.
     const read = mail.calls.find((c) => c.script === "sent")!;
     expect(read.args.slice(0, 2)).toEqual(["Google", "Sent Mail"]);
+    expect(SENT_SCRIPT).not.toMatch(/content of m\b/);
   });
 
   it("marks a draft by its Message-ID, and also by the thread it answers", async () => {
@@ -152,7 +154,7 @@ describe("matchSent and the script's output", () => {
     expect(matchSent([d(2, "2026-01-02T00:00:00Z"), d(1, "2026-01-01T00:00:00Z")], sent).map((m) => m.draftId)).toEqual([1]);
   });
   it("parses ids bare and skips a record with no id", () => {
-    const out = sentRecord({ id: "<A@X>", irt: "<B@X>" }) + ["", "", "2026,1,1,0", "", "", "s", ""].join(FS) + RS;
-    expect(parseSent(out, "G")).toEqual([expect.objectContaining({ messageId: "a@x", inReplyTo: "b@x", marker: null, account: "G" })]);
+    const out = sentRecord({ id: "<A@X>", irt: "<B@X>" }) + ["", "", "2026,1,1,0", "", "", "s"].join(FS) + RS;
+    expect(parseSent(out, "G")).toEqual([expect.objectContaining({ messageId: "a@x", inReplyTo: "b@x", account: "G" })]);
   });
 });

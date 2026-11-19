@@ -1,6 +1,6 @@
 import { ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
-import { stripHubMarker, TONES, type Tone } from "@hub/config";
+import { TONES, type Tone } from "@hub/config";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ToggleGroup, ToggleGroupItem } from "@hub/ui/toggle-group";
@@ -32,8 +32,9 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
   const readable = live?.found ? live : null;
   const unreadable = live?.configured === true && !live.found;
   const gone = unreadable ? (live.gone ?? null) : null;
-  // The first-line hub marker is the Hub's own and the send removes it (P56 S2): the card never shows it.
-  const body = stripHubMarker(confirmed ?? readable?.body ?? d.body);
+  // Exactly the Mail text (decision 0031): nothing of the Hub's is in it, so nothing is hidden. A draft written before it
+  // shows its old hub line until `hub drafts unmark` rewrites it, and Send refuses it meanwhile.
+  const body = confirmed ?? readable?.body ?? d.body;
   // The owner edits only a text Mail holds exactly once (a hash), on an open draft written to Mail (P56 S1).
   const editable = readable?.hash ? { hash: readable.hash } : null;
   const canEdit = editable !== null && !closed && d.status === "ready" && d.batchId === null && confirmed === null;

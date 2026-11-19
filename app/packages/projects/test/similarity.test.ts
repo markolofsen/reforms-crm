@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fingerprint, judgeSimilarity, measureAgainstSet, normalizeBody, residue, sim, SKETCH_SIZE, templateEcho } from "../src/index";
 
-const TEMPLATE = (name: string) => `[hub-draft thread=abc@x.example]
-Hi ${name},
+const TEMPLATE = (name: string) => `Hi ${name},
 
 Thank you for getting in touch with us about your enquiry and for the time you took to explain it. We have looked at the details you sent and our team is now reviewing every point before we answer in full. You can expect a first proposal within the next few working days, together with the options we think fit best and the costs for each of them. Please keep your phone close, because we may call to clarify a few small things. If anything changes on your side in the meantime, just reply to this message and we will update the proposal straight away.
 
@@ -11,8 +10,8 @@ const SIGNOFF = "Kind regards, the desk";
 const o = (name: string) => ({ names: [name, `${name.toLowerCase()}@clients.example`], signoff: SIGNOFF });
 
 describe("similarity (B2)", () => {
-  it("normalizes: no marker, greeting, sign-off, quoted history, urls, addresses or names", () => {
-    const w = normalizeBody("[hub-draft thread=1]\nHi Anna,\n\nSee https://x.example/a and mail anna@clients.example about Anna's lot 14.\n\n> quoted\nKind regards, the desk", o("Anna"));
+  it("normalizes: no greeting, sign-off, quoted history, urls, addresses or names", () => {
+    const w = normalizeBody("Hi Anna,\n\nSee https://x.example/a and mail anna@clients.example about Anna's lot 14.\n\n> quoted\nKind regards, the desk", o("Anna"));
     expect(w.join(" ")).toBe("see urltoken and mail addrtoken about s lot 14");
   });
 

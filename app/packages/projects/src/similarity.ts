@@ -23,21 +23,20 @@ export interface NormalizeOptions {
   signature?: readonly string[];
 }
 
-const MARKER_LINE = /^\s*\[hub-draft[^\]]*\]\s*$/i;
 const URL_RE = /\bhttps?:\/\/[^\s<>"')]+|\bwww\.[^\s<>"')]+/gi;
 const ADDRESS_RE = /[^\s,;<>"'()]+@[^\s,;<>"'()]+/g;
 
-/** The words of a body as they are compared: lower-case, no marker, greeting, sign-off, quoted history, URLs, addresses or client names. */
+/** The words of a body as they are compared: lower-case, no greeting, sign-off, quoted history, URLs, addresses or client names. */
 export function normalizeBody(body: string, o: NormalizeOptions = {}): string[] {
   let lines = body.normalize("NFKC").replace(/\r\n?/g, "\n").split("\n");
   // quoted history: "> ..." lines, and everything after an "On ... wrote:" line
   const cut = lines.findIndex((l) => /^\s*(on|am|le|el)\b.{5,200}\b(wrote|schrieb|a écrit|escribió):\s*$/i.test(l));
   if (cut >= 0) lines = lines.slice(0, cut);
-  lines = lines.filter((l) => !MARKER_LINE.test(l) && !/^\s*>/.test(l));
+  lines = lines.filter((l) => !/^\s*>/.test(l));
   // greeting: the first non-empty line, short, ending in a comma ("Hi Anna,")
   const first = lines.findIndex((l) => l.trim() !== "");
   if (first >= 0 && /,\s*$/.test(lines[first]!) && lines[first]!.trim().split(/\s+/).length <= 8) lines.splice(first, 1);
-  const sign = new Set([...(o.signoff ?? "").normalize("NFKC").split(/\n|\\n/), ...(o.signature ?? []).map((l) => l.normalize("NFKC"))].map((l) => l.trim().toLowerCase()).filter(Boolean));
+  const sign = new Set([...(o.signoff ?? "").normalize("NFKC").split(/\n|\\n/).flatMap((l) => l.split("|").map((v) => v.trim().replace(/^[a-z]{2}:\s*/, ""))), ...(o.signature ?? []).map((l) => l.normalize("NFKC"))].map((l) => l.trim().toLowerCase()).filter(Boolean));
   lines = lines.filter((l) => !sign.has(l.trim().toLowerCase()) && !/^\s*\[Owner: signature for [^\]]*\]\s*$/i.test(l));
 
   const drop = new Set<string>();

@@ -16,7 +16,7 @@ export const sendApi = {
   },
   /** The draft as Mail holds it now; read-only, never stored. */
   mail: (project: string, draftId: number) => read(draftMailDto, { method: "GET", path: `${base(project)}/drafts/${draftId}/mail` }),
-  /** A person's Save (P56 S1): the text after the hub marker, written over the read whose hash it carries; Checked turns off. */
+  /** A person's Save (P56 S1): the whole text, written over the read whose hash it carries; Checked turns off. */
   save: (project: string, draftId: number, text: string, hash: string) => read(draftChangedDto, { method: "PUT", path: `${base(project)}/drafts/${draftId}/mail`, body: { text, hash } }),
   /** Restore (P56 S0): Mail holds no draft for it; the Hub's last copy in Trash is written again. */
   restore: (project: string, draftId: number) => read(draftChangedDto, { method: "POST", path: `${base(project)}/drafts/${draftId}/mail/restore` }),
