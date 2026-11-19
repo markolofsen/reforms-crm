@@ -288,6 +288,18 @@ describe("ensure (P57): the column starts the best ready CLI itself, at most one
     await detector.get();
     expect(terminal.state().clis.map((c) => c.state)).toEqual(["ready", "ready"]);
   });
+  it("a stale answer with a CLI missing is not re-detected by GET (the login shell would run every minute)", async () => {
+    let t = 0;
+    let runs = 0;
+    const detector = cliDetector({ detect: async () => { runs++; return [fact("claude", "ready"), fact("codex", "missing")]; }, now: () => t });
+    const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { SHELL: "/bin/zsh" }, readiness: () => null, detector });
+    await detector.get();
+    t = 61_000;
+    terminal.state();
+    terminal.state();
+    await new Promise((r) => setTimeout(r, 10));
+    expect(runs).toBe(1);
+  });
 });
 
 describe("HUB_TERMINAL_SHELL", () => {
