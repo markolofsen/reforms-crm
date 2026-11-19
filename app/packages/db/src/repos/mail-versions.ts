@@ -55,6 +55,21 @@ export const startsWithWrite = (text: string, w: Pick<MailWriteRow, "textHash" |
   return c.length >= w.textLen && sha(c.slice(0, w.textLen)) === w.textHash && (c.length === w.textLen || c[w.textLen] === " ");
 };
 
+/**
+ * Mail's own empty reply (P65 S5, saas 139835): one attribution line ending in ":" ("On 14 Nov 2026, at 14:26, Mark
+ * Effect <…> wrote:"), then the answered message and nothing else (a `> ` quote prefix allowed). It holds nothing anyone
+ * typed, so it is Mail's artifact of a reply, never the owner's text. Needs the answered message's text to be sure.
+ */
+export const isReplyShell = (body: string, original: string | null | undefined): boolean => {
+  const o = collapse(original ?? "");
+  if (!o) return false;
+  const lines = body.replace(/\r\n?/g, "\n").split("\n");
+  const i = lines.findIndex((l) => l.trim() !== "");
+  const head = (lines[i] ?? "").trim();
+  if (i < 0 || head.length > 300 || !/:$/.test(head)) return false;
+  return collapse(lines.slice(i + 1).map((l) => l.replace(/^>\s?/, "")).join("\n")) === o;
+};
+
 /** A thread draft as the matcher needs it: where it sits, its own Message-ID, its Mail id and its text. */
 export interface ThreadDraft {
   ref: string;
@@ -67,7 +82,7 @@ export interface Adoption<D extends ThreadDraft = ThreadDraft> {
   draft: D;
   /** The open write it is the late save or the shell of; null when it matched a recorded version's text. */
   writeId: number | null;
-  why: "late_save" | "same_text" | "shell";
+  why: "late_save" | "same_text" | "shell" | "mail_shell";
 }
 
 const accountKey = (a: string | null | undefined) => (a ?? "").trim().toLowerCase();
@@ -75,9 +90,10 @@ const accountKey = (a: string | null | undefined) => (a ?? "").trim().toLowerCas
 /**
  * Pure (decision 0031 addendum point 2): which unrecorded drafts of a thread are the Hub's own. A draft already recorded
  * (account and Message-ID) is skipped; one whose collapsed text (a) begins with an open write's text, (b) equals a
- * recorded version's text, or (c) equals an open write's reply shell is adopted. Anything else stays the owner's.
+ * recorded version's text, (c) equals an open write's reply shell, or (d) is Mail's empty reply to the answered message
+ * (`isReplyShell`, when `original` is given) is adopted. Anything else stays the owner's.
  */
-export function adoptable<D extends ThreadDraft>(drafts: readonly D[], versions: readonly Pick<MailVersionRow, "account" | "messageId" | "hash">[], writes: readonly Pick<MailWriteRow, "id" | "textHash" | "textLen" | "shellHash" | "settledAt">[]): Adoption<D>[] {
+export function adoptable<D extends ThreadDraft>(drafts: readonly D[], versions: readonly Pick<MailVersionRow, "account" | "messageId" | "hash">[], writes: readonly Pick<MailWriteRow, "id" | "textHash" | "textLen" | "shellHash" | "settledAt">[], original: string | null = null): Adoption<D>[] {
   const recorded = new Set(versions.map((v) => `${accountKey(v.account)}\u0000${bareRef(v.messageId)}`));
   const hashes = new Set(versions.map((v) => v.hash));
   const open = writes.filter((w) => !w.settledAt);
@@ -96,6 +112,7 @@ export function adoptable<D extends ThreadDraft>(drafts: readonly D[], versions:
     }
     const shell = open.find((w) => w.shellHash && w.shellHash === shellHashOf(d.body));
     if (shell) out.push({ draft: d, writeId: shell.id, why: "shell" });
+    else if (isReplyShell(d.body, original)) out.push({ draft: d, writeId: null, why: "mail_shell" });
   }
   return out;
 }

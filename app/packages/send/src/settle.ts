@@ -1,4 +1,4 @@
-import { adoptable, shellHashOf, versionHashOf, type DraftRow, type Repos } from "@hub/db";
+import { adoptable, isReplyShell, shellHashOf, versionHashOf, type DraftRow, type Repos } from "@hub/db";
 import { normalizeAddress } from "@hub/projects";
 import { bareId, type MailDraft, type Mailer } from "./mailer";
 
@@ -30,13 +30,17 @@ export function threadOf(all: readonly MailDraft[], draft: Pick<DraftRow, "mailR
 }
 
 /** Adopts the Hub's late saves in this thread and moves the Hub's superseded versions to Trash. Throws only when Mail cannot be read. */
-export async function settleThread(deps: { mailer: Pick<Mailer, "findDrafts" | "trashDrafts">; repos: Repos }, draft: Pick<DraftRow, "id" | "project" | "mailRef" | "subject" | "toAddr">, accounts: readonly string[]): Promise<SettleResult> {
+export async function settleThread(deps: { mailer: Pick<Mailer, "findDrafts" | "trashDrafts">; repos: Repos; /** The answered message's text (Mail's empty reply is recognised against it); absent or null: not recognised. */ original?: () => Promise<string | null> }, draft: Pick<DraftRow, "id" | "project" | "mailRef" | "subject" | "toAddr">, accounts: readonly string[]): Promise<SettleResult> {
   const none: SettleResult = { adopted: [], moved: [], refused: [] };
   if (!draft.mailRef) return none;
   const thread = threadOf(await deps.mailer.findDrafts({ mailRef: draft.mailRef, subject: draft.subject }), draft, accounts);
   if (thread.length < 2) return none;
   const writes = await deps.repos.mailWrites.ofThread(draft.project, draft.mailRef, draft.id);
-  const found = adoptable(thread, await deps.repos.mailVersions.ofDraft(draft.id), writes);
+  const recorded = await deps.repos.mailVersions.ofDraft(draft.id);
+  const known = (d: MailDraft) => recorded.some((v) => !v.trashedAt && lower(v.account) === lower(d.account) && bareId(v.messageId) === bareId(d.messageId));
+  // The answered message is read only when an unrecorded draft is left to judge (one more Mail read, rare).
+  const original = thread.some((d) => !known(d)) && deps.original ? await deps.original().catch(() => null) : null;
+  const found = adoptable(thread, recorded, writes, original);
   const adopted: string[] = [];
   for (const a of found) {
     if (!a.draft.messageId || !a.draft.account) continue;
@@ -49,7 +53,8 @@ export async function settleThread(deps: { mailer: Pick<Mailer, "findDrafts" | "
   const rowOf = (d: MailDraft) => versions.find((v) => lower(v.account) === lower(d.account) && bareId(v.messageId) === bareId(d.messageId));
   const shells = new Set(writes.flatMap((w) => (w.shellHash ? [w.shellHash] : [])));
   const hubs = thread.filter((d) => rowOf(d) !== undefined).sort((a, b) => (Number(b.ref) || 0) - (Number(a.ref) || 0));
-  const keep = hubs.find((d) => !shells.has(shellHashOf(d.body)));
+  // A reply shell (this write's, or Mail's empty reply) is never the draft that stays.
+  const keep = hubs.find((d) => !shells.has(shellHashOf(d.body)) && !isReplyShell(d.body, original));
   const out = hubs.filter((d) => d !== keep && keep !== undefined);
   if (out.length === 0) return { ...none, adopted };
   const r = await deps.mailer.trashDrafts(out.map((d) => ({ account: d.account ?? "", messageId: d.messageId ?? "" })));

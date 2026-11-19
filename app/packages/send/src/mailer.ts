@@ -57,7 +57,7 @@ export interface Mailer {
   /** The headers of every draft in every account (id, Message-ID, account, subject, In-Reply-To): what `hub drafts sweep` joins to the Hub's record. Read only. */
   listDrafts(): Promise<DraftHead[]>;
   /** Moves these drafts to Trash (recoverable), each only if its account and Message-ID still match. Never anything else. Returns the Message-IDs. */
-  trashDrafts(items: TrashItem[]): Promise<{ moved: string[]; refused: string[] }>;
+  trashDrafts(items: TrashItem[]): Promise<{ moved: string[]; refused: string[]; why?: string[] }>;
   /**
    * Sends exactly this draft's text to exactly its recipients. `replyTo` (the bare Message-ID of the message answered,
    * P56) makes the outgoing mail a reply to it, so it keeps `In-Reply-To` and `References`. Throws when Mail refuses.
@@ -186,39 +186,54 @@ end run`;
 
 // argv: pairs of (account, Message-ID). A draft is moved to Trash (Mail's delete: recoverable) only when a draft of that
 // account still has exactly that Message-ID, read again here, just before the delete (P65, decision 0031). Output:
-// moved (LS-joined Message-IDs) FS refused.
+// moved (LS-joined Message-IDs) FS refused FS why (LS-joined "Message-ID: Mail's error", for a refusal Mail explained).
+// v0.12.15 (2026-11-19): `repeat with m in (messages … whose message id is mid)` found every draft but `delete m` failed
+// on each (a loop item is a reference into the list, not Mail's message), and the `try` hid it: every move was "refused".
+// The draft is now resolved to Mail's own reference by its id (the form P56's trash used), and Mail's error is returned.
 export const TRASH_SCRIPT = `on run argv
   set FS to (ASCII character 31)
   set LS to (ASCII character 29)
   set moved to ""
   set refused to ""
+  set why to ""
   tell application "Mail"
     repeat with i from 1 to (count of argv) by 2
       set accName to item i of argv
       set mid to item (i + 1) of argv
       set ok to false
+      set err to ""
       try
-        repeat with m in (messages of drafts mailbox whose message id is mid)
+        set found to id of (messages of drafts mailbox whose message id is mid)
+      on error e
+        set found to {}
+        set err to e
+      end try
+      repeat with fid in found
+        try
+          set m to (first message of drafts mailbox whose id is (contents of fid))
           if (deleted status of m) is false and (name of account of mailbox of m) is accName and (message id of m) is mid then
             delete m
             set ok to true
           end if
-        end repeat
-      end try
+        on error e
+          set err to e
+        end try
+      end repeat
       if ok then
         set moved to moved & mid & LS
       else
         set refused to refused & mid & LS
+        if err is not "" then set why to why & mid & ": " & err & LS
       end if
     end repeat
   end tell
-  return moved & FS & refused
+  return moved & FS & refused & FS & why
 end run`;
 
-export function parseTrashOutput(out: string): { moved: string[]; refused: string[] } {
-  const [moved = "", refused = ""] = out.replace(/[\r\n]+$/, "").split(FS);
+export function parseTrashOutput(out: string): { moved: string[]; refused: string[]; why: string[] } {
+  const [moved = "", refused = "", why = ""] = out.replace(/[\r\n]+$/, "").split(FS);
   const ids = (v: string) => v.split(LS).map((x) => x.trim()).filter(Boolean);
-  return { moved: ids(moved), refused: ids(refused) };
+  return { moved: ids(moved), refused: ids(refused), why: ids(why) };
 }
 
 export function parseFindOutput(out: string): MailDraft[] {

@@ -86,11 +86,13 @@ export function rewriteOf(r: UnmarkRow, versions: readonly Pick<MailVersionRow, 
 const line = (r: UnmarkRow, plan: string) => `${r.project.padEnd(10)} draft ${String(r.draftId).padStart(4)}  ${r.account.padEnd(34)} Mail id ${r.mail.ref.padStart(7)}  ${r.mail.messageId ?? "?"}  "${r.mail.subject}"  ${plan}`;
 
 /** Moves one recorded draft to Trash, trying again when Mail refuses (a slow Mail drops a delete now and then: 139333, 2026-11-19). */
-async function trashRetrying(mailer: Pick<DraftsCleaner, "trashDrafts">, item: { account: string; messageId: string }, pauseMs: number, tries = 3): Promise<boolean> {
+async function trashRetrying(mailer: Pick<DraftsCleaner, "trashDrafts">, item: { account: string; messageId: string }, pauseMs: number, why: string[], tries = 3): Promise<boolean> {
   for (let i = 0; i < tries; i++) {
     if (i > 0 && pauseMs > 0) await new Promise((r) => setTimeout(r, pauseMs));
-    const r = await mailer.trashDrafts([item]).catch(() => ({ moved: [] as string[], refused: [item.messageId] }));
+    const r = await mailer.trashDrafts([item]).catch((e: Error) => ({ moved: [] as string[], refused: [item.messageId], why: [`${item.messageId}: ${e.message}`] }));
     if (r.moved.some((x) => bareId(x) === bareId(item.messageId))) return true;
+    // Mail's own words for the last refusal, so a failing delete is never silent again (v0.12.15).
+    if (i === tries - 1) why.push(...(r.why ?? []));
   }
   return false;
 }
@@ -134,6 +136,7 @@ export async function runDraftsUnmark(o: { project?: string; apply?: boolean }, 
     const writer = env.writer ?? mailAppDraftWriter();
     const done: Array<{ draftId: number; from: string; to: number; trashed: boolean; rewritten: boolean }> = [];
     const pause = env.retryMs ?? 2000;
+    const why: string[] = [];
     const failed: Array<{ draftId: number; ref: string; error: string }> = [];
     for (const r of rows) {
       const p = projects.find((x) => x.slug === r.project);
@@ -148,7 +151,7 @@ export async function runDraftsUnmark(o: { project?: string; apply?: boolean }, 
         if (earlier) {
           // P65 S5: the rewrite is already in the thread (a run whose writer looked in the wrong account, or a late save).
           await adopt(repos, r, earlier.mail);
-          const trashed = await trashRetrying(mailer, item, pause);
+          const trashed = await trashRetrying(mailer, item, pause, why);
           if (trashed) await repos.mailVersions.markTrashed([adopted]);
           await repos.drafts.setChecked(r.draftId, false, null);
           done.push({ draftId: r.draftId, from: r.mail.ref, to: Number(earlier.mail.ref) || 0, trashed, rewritten: false });
@@ -157,7 +160,7 @@ export async function runDraftsUnmark(o: { project?: string; apply?: boolean }, 
         const w = await reviseDraft(writer, { accounts, sender: p?.parsed.config.mail.sender ?? null, mailRef: r.mailRef, body: withoutMarker(r.mail.body), quote: "keep", versions: [item], log: writeLogOf((fn) => fn(repos), r.project, r.draftId, r.mailRef) });
         await repos.mailVersions.add({ project: r.project, mailRef: r.mailRef, draftId: r.draftId, account: w.account, mailId: w.draftId, messageId: w.messageId, hash: versionHash(w.text), source: "migration" });
         // Mail refused the replace's delete: try the marked one again on its own.
-        const trashed = w.replaced.some((x) => bareId(x) === mid) || (await trashRetrying(mailer, item, pause));
+        const trashed = w.replaced.some((x) => bareId(x) === mid) || (await trashRetrying(mailer, item, pause, why));
         if (trashed) await repos.mailVersions.markTrashed([adopted]);
         await repos.drafts.setChecked(r.draftId, false, null);
         done.push({ draftId: r.draftId, from: r.mail.ref, to: w.draftId, trashed, rewritten: true });
@@ -175,7 +178,7 @@ export async function runDraftsUnmark(o: { project?: string; apply?: boolean }, 
       ...(failed.length ? [`${failed.length === 1 ? "the failed draft is" : `the ${failed.length} failed drafts are`} still in Drafts, untouched`] : []),
       "nothing was sent",
     ];
-    out(JSON.stringify({ ok: failed.length === 0 && kept === 0, dryRun: false, listed: rows.length, rewritten: done, failed, note: notes.join("; ") }));
+    out(JSON.stringify({ ok: failed.length === 0 && kept === 0, dryRun: false, listed: rows.length, rewritten: done, failed, ...(why.length ? { why } : {}), note: notes.join("; ") }));
     return failed.length || kept ? 1 : 0;
   } catch (e) {
     out(JSON.stringify({ ok: false, error: `Mail could not be read: ${(e as Error).message}` }));

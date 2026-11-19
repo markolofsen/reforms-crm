@@ -49,7 +49,7 @@ export async function runDraftsSweep(o: { project?: string; apply?: boolean }, e
     const done = await mailer.trashDrafts(rows.map((r) => ({ account: r.account, messageId: r.messageId })));
     const moved = new Set(done.moved.map(bareId));
     await repos.mailVersions.markTrashed(rows.filter((r) => moved.has(bareId(r.messageId))).map((r) => r.versionId));
-    out(JSON.stringify({ ok: done.refused.length === 0, dryRun: false, listed: rows.length, moved: done.moved, refused: done.refused, note: done.refused.length ? "refused: no draft of that account has that Message-ID any more; nothing else was touched" : "moved to each account's Trash: recoverable there" }));
+    out(JSON.stringify({ ok: done.refused.length === 0, dryRun: false, listed: rows.length, moved: done.moved, refused: done.refused, ...(done.why?.length ? { why: done.why } : {}), note: done.refused.length ? "refused: no draft of that account has that Message-ID any more; nothing else was touched" : "moved to each account's Trash: recoverable there" }));
     return done.refused.length ? 1 : 0;
   } catch (e) {
     out(JSON.stringify({ ok: false, error: `Mail could not be read: ${(e as Error).message}` }));

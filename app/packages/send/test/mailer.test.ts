@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bareId, FakeMailer, FIND_SCRIPT, LIST_DRAFTS_SCRIPT, mailAppMailer, parseDraftHeads, parseFindOutput, parseTrashOutput, SEND_SCRIPT, TRASH_SCRIPT } from "../src/mailer";
-import { appleScriptCompileError, canCompileAppleScript } from "../../../test-support/osacompile";
+import { appleScriptCompileError, canCompileAppleScript, deleteOfLoopItem } from "../../../test-support/osacompile";
 
 // osascript is injected: nothing here starts Mail.
 
@@ -17,6 +17,12 @@ describe("the Mail scripts compile (osacompile, no Mail call)", () => {
     ["SEND_SCRIPT", SEND_SCRIPT],
   ])("%s", (_name, script) => {
     expect(appleScriptCompileError(script)).toBeNull();
+    expect(deleteOfLoopItem(script)).toBeNull();
+  });
+
+  it("the loop-item check catches v0.12.15's trash loop and passes a delete of Mail's own reference", () => {
+    expect(deleteOfLoopItem("repeat with m in (messages of drafts mailbox whose message id is mid)\n  if x then\n    delete m\n  end if\nend repeat")).toMatch(/repeat with m in/);
+    expect(deleteOfLoopItem("repeat with fid in ids\n  set m to (first message of drafts mailbox whose id is (contents of fid))\n  delete m\nend repeat")).toBeNull();
   });
 });
 
@@ -63,12 +69,15 @@ describe("Mail.app mailer", () => {
 
   it("the trash script deletes only a draft of that account with that Message-ID, re-read just before the delete (P65)", async () => {
     expect(TRASH_SCRIPT).toMatch(/\(name of account of mailbox of m\) is accName and \(message id of m\) is mid then\s+delete m/);
+    // v0.12.15: the draft is Mail's own reference (by id) when it is deleted, never a `repeat with m in (…)` item.
+    expect(TRASH_SCRIPT).toMatch(/set m to \(first message of drafts mailbox whose id is \(contents of fid\)\)/);
+    expect(parseTrashOutput(["", "A@x\u001d", "A@x: Mail got an error\u001d"].join("\u001f"))).toEqual({ moved: [], refused: ["A@x"], why: ["A@x: Mail got an error"] });
     expect(TRASH_SCRIPT).not.toMatch(/\bsend\b|expunge|empty trash|whose subject|content of m/i);
     const calls: Array<{ script: string; args: string[] }> = [];
     const r = await mailAppMailer(async (script, args) => (calls.push({ script, args }), `A@x${LS}B@x${LS}\x1fC@x${LS}\n`)).trashDrafts([{ account: "desk", messageId: "<A@x>" }, { account: "desk", messageId: "B@x" }, { account: "other", messageId: "C@x" }]);
     expect(calls[0]?.args).toEqual(["desk", "A@x", "desk", "B@x", "other", "C@x"]);
-    expect(r).toEqual({ moved: ["A@x", "B@x"], refused: ["C@x"] });
-    expect(parseTrashOutput("\x1f")).toEqual({ moved: [], refused: [] });
+    expect(r).toEqual({ moved: ["A@x", "B@x"], refused: ["C@x"], why: [] });
+    expect(parseTrashOutput("\x1f")).toEqual({ moved: [], refused: [], why: [] });
     expect(await mailAppMailer(async () => { throw new Error("never called"); }).trashDrafts([])).toEqual({ moved: [], refused: [] });
   });
 

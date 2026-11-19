@@ -92,7 +92,11 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
       // P65 S5: several drafts in the thread may all be the Hub's (a late save, a second save): adopt them and keep the
       // newest, then read again. A draft the Hub did not write stays and keeps the note.
       if (f.note && sender) {
-        const healed = await settleThread({ mailer, repos }, draft, projectMail(slug)?.accounts ?? []).catch(() => null);
+        const accounts = projectMail(slug)?.accounts ?? [];
+        const writer = sender.writer;
+        // Mail's empty reply in the thread (no text of anyone's) is recognised against the answered message (P65 S5).
+        const original = writer && draft.mailRef ? async () => { const m = await writer.findInbound(accounts, draft.mailRef ?? ""); return m ? writer.readContent(m) : null; } : undefined;
+        const healed = await settleThread({ mailer, repos, ...(original ? { original } : {}) }, draft, accounts).catch(() => null);
         // The version rows it wrote bump the live topic `mail` themselves (their triggers), so other tabs read again.
         if (healed && (healed.adopted.length || healed.moved.length)) f = await findMail({ mailer }, draft, "show", await scopeOf(draft));
       }

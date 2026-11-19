@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDb, type DbHandle } from "./client";
-import { adoptable, createRepos, shellHashOf, startsWithWrite, textKey, versionHashOf, type Repos } from "./repos";
+import { adoptable, createRepos, isReplyShell, shellHashOf, startsWithWrite, textKey, versionHashOf, type Repos } from "./repos";
 import { eq } from "drizzle-orm";
 import { readFixtures, seed } from "./seed";
 import { clients } from "./schema";
@@ -380,6 +380,14 @@ describe("recorded evidence (P28 C1-C3)", () => {
     const writes = [{ id: 3, textHash: k.hash, textLen: k.len, shellHash: shellHashOf("On 14 Nov, Mark wrote: q"), settledAt: null }];
     const got = adoptable([late, dup, shell, owner, recorded], versions, writes).map((a) => [a.draft.ref, a.why, a.writeId]);
     expect(got).toEqual([["139858", "late_save", 3], ["139859", "same_text", null], ["139835", "shell", 3]]);
+    // Mail's empty reply, known from the answered message's text (live 139835 against 138994), with no write row at all.
+    const original = "How are you? Its new request\n\n-- \nRegards!\n\n\n";
+    const mailShell = { ref: "139835", account: "hello@x", messageId: "SH2@x", body: "\n\nOn 14 Nov 2026, at 14:26, Mark Effect <markolofsen@gmail.com> wrote:\nHow are you? Its new request\n\n-- \nRegards!\n\n\n\n" };
+    expect(isReplyShell(mailShell.body, original)).toBe(true);
+    expect(isReplyShell(`Thanks, I will call.\n${mailShell.body}`, original)).toBe(false);
+    expect(isReplyShell(`${mailShell.body}\nPS mine`, original)).toBe(false);
+    expect(isReplyShell(mailShell.body, null)).toBe(false);
+    expect(adoptable([mailShell, owner], [], [], original).map((a) => [a.draft.ref, a.why])).toEqual([["139835", "mail_shell"]]);
     // A settled write no longer adopts anything by its text or its shell.
     expect(adoptable([late, shell], [], [{ ...writes[0]!, settledAt: "2026-11-19T12:50:40Z" }])).toEqual([]);
   });

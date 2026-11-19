@@ -124,6 +124,8 @@ export interface DraftWriter {
    * A direct lookup by Mail's id in a known mailbox, not a search. Read-only.
    */
   readHeaders(m: InboundMessage): Promise<string>;
+  /** The text of one known message (P65 S5: Mail's empty reply to it is recognised as Mail's, not the owner's). Read-only. */
+  readContent(m: InboundMessage): Promise<string>;
   /** The Message-ID of one known message, bare (P65: a new reply is refused before it is written when the project already answers it). Read-only. */
   messageIdOf(m: InboundMessage): Promise<string>;
   /** The drafts of these accounts whose In-Reply-To names the thread (P65 S5), with their text. Read-only. */
@@ -274,8 +276,12 @@ export const WRITE_REPLY_SCRIPT = `on run argv
       set pair to my parts(contents of t, PS)
       set tAcc to item 1 of pair
       set tid to item 2 of pair
+      -- Resolved to Mail's own reference by id before the delete: a \`repeat with m in (messages …)\` item is not one (v0.12.15).
       try
-        repeat with m in (messages of drafts mailbox whose message id is tid)
+        -- Bound to a list first: looping straight over the ids expression gives a specifier Mail cannot iterate (read-only check, 2026-11-19).
+        set found to id of (messages of drafts mailbox whose message id is tid)
+        repeat with fid in found
+          set m to (first message of drafts mailbox whose id is (contents of fid))
           if (id of m) is not newId and (deleted status of m) is false and (name of account of mailbox of m) is tAcc and (message id of m) is tid then
             delete m
             set replaced to replaced & tid & LS
@@ -458,6 +464,9 @@ on parts(s, d)
   return r
 end parts`;
 
+// argv: 1 account, 2 mailbox path (LS-joined), 3 Mail's message id. Output: ok FS <content>, or error FS code FS message. Read-only.
+export const READ_CONTENT_SCRIPT = READ_HEADERS_SCRIPT.replace("((all headers of m) as text)", "((content of m) as text)");
+
 export function parseInboundOutput(out: string): InboundMessage | null {
   const p = out.replace(/[\r\n]+$/, "").split(FS);
   if (p[0] === "error") throw new DraftWriteError(p[1] || "mail_error", p[2] || "Mail refused the lookup.");
@@ -501,6 +510,17 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
   const fail = (e: Error) => {
     throw new DraftWriteError("mail_error", e.message);
   };
+  const readBlock = async (script: string, m: InboundMessage): Promise<string> => {
+      const out = await osa(script, [m.account, m.mailboxPath.join(LS), String(m.messageId)]).catch(fail);
+      const i = out.indexOf(FS);
+      const head = i < 0 ? out.trim() : out.slice(0, i);
+      if (head === "error") {
+        const [, code = "mail_error", message = "Mail refused the header read."] = out.replace(/[\r\n]+$/, "").split(FS);
+        throw new DraftWriteError(code, message);
+      }
+      if (head !== "ok") throw new DraftWriteError("mail_error", `Mail answered "${out.trim().slice(0, 100)}"`);
+      return out.slice(i + 1);
+    };
   return {
     async writeReply(i) {
       const body = stripMarker(i.body);
@@ -524,17 +544,8 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
       if (!id || accounts.length === 0) return null;
       return parseInboundOutput(await osa(FIND_INBOUND_SCRIPT, [id, ...accounts]).catch(fail));
     },
-    async readHeaders(m) {
-      const out = await osa(READ_HEADERS_SCRIPT, [m.account, m.mailboxPath.join(LS), String(m.messageId)]).catch(fail);
-      const i = out.indexOf(FS);
-      const head = i < 0 ? out.trim() : out.slice(0, i);
-      if (head === "error") {
-        const [, code = "mail_error", message = "Mail refused the header read."] = out.replace(/[\r\n]+$/, "").split(FS);
-        throw new DraftWriteError(code, message);
-      }
-      if (head !== "ok") throw new DraftWriteError("mail_error", `Mail answered "${out.trim().slice(0, 100)}"`);
-      return out.slice(i + 1);
-    },
+    readContent: (m) => readBlock(READ_CONTENT_SCRIPT, m),
+    readHeaders: (m) => readBlock(READ_HEADERS_SCRIPT, m),
     async messageIdOf(m) {
       const p = (await osa(MESSAGE_ID_SCRIPT, [m.account, m.mailboxPath.join(LS), String(m.messageId)]).catch(fail)).replace(/[\r\n]+$/, "").split(FS);
       if (p[0] === "error") throw new DraftWriteError(p[1] || "mail_error", p[2] || "Mail refused the lookup.");
@@ -560,6 +571,13 @@ export class FakeDraftWriter implements DraftWriter {
   async findInbound(accounts: readonly string[], messageId: string): Promise<InboundMessage | null> {
     const m = this.inbound.get(messageId.trim().replace(/^<|>$/g, ""));
     return m && accounts.includes(m.account) ? m : null;
+  }
+  /** Texts of the fake Mail's messages, by Mail's id. */
+  contents = new Map<number, string>();
+  async readContent(m: InboundMessage): Promise<string> {
+    const c = this.contents.get(m.messageId);
+    if (c === undefined) throw new DraftWriteError("no_message", `No message ${m.messageId}.`);
+    return c;
   }
   async readHeaders(m: InboundMessage): Promise<string> {
     const h = this.headers.get(m.messageId);
@@ -651,7 +669,14 @@ export async function writeRecorded(writer: DraftWriter, input: ReplyDraftInput,
  */
 export async function lateSaves(writer: DraftWriter, q: { accounts: readonly string[]; mailRef: string; subject: string | null; versions: readonly Pick<MailVersionRow, "account" | "messageId" | "hash">[]; writes: readonly MailWriteRow[] }): Promise<Adoption<ThreadMailDraft>[]> {
   if (q.writes.length === 0 && q.versions.length === 0) return [];
-  return adoptable(await writer.threadDrafts(q.accounts, q.mailRef, q.subject), q.versions, q.writes);
+  const drafts = await writer.threadDrafts(q.accounts, q.mailRef, q.subject);
+  const found = adoptable(drafts, q.versions, q.writes);
+  // Left unmatched: one more read, of the answered message, so Mail's empty reply in the thread is recognised (P65 S5).
+  const left = drafts.filter((d) => !found.some((a) => a.draft === d) && !q.versions.some((v) => v.account.trim().toLowerCase() === (d.account ?? "").trim().toLowerCase() && v.messageId.trim().replace(/^<|>$/g, "").toLowerCase() === (d.messageId ?? "").toLowerCase()));
+  if (left.length === 0) return found;
+  const m = await writer.findInbound(q.accounts, q.mailRef).catch(() => null);
+  const original = m ? await writer.readContent(m).catch(() => null) : null;
+  return original ? adoptable(drafts, q.versions, q.writes, original) : found;
 }
 
 /** What the writer adds when it signs (P60): the signed body and how the brand was found. */

@@ -50,7 +50,7 @@ Installed mail-mcp, from its local schemas and README:
   (P65 S5, decision 0031 addendum): every write is recorded before Mail is asked (`mail_writes`: the hash and length of
   the written text, never the text); the writer waits up to 45 s, and a draft not seen by then is `mail_slow`, not a
   failure: nothing is replaced and the agent is told not to write again. A late save, a second save of a recorded text
-  or Mail's empty reply shell is recognised by its hash and adopted as the Hub's version at the next write, at the
+  or Mail's empty reply shell (by the write's recorded hash, or, without one, as one attribution line over the answered message and nothing else) is recognised and adopted as the Hub's version at the next write, at the
   card's next read (which then keeps Mail's newest version and moves the Hub's older ones to Trash) or by `hub drafts
   unmark`; a draft whose text matches nothing the Hub wrote stays the owner's.
   A revision names only the hub draft (`draft`); the hub finds the answered message by its Message-ID (the draft's

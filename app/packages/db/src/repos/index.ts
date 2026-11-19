@@ -50,6 +50,6 @@ export type { BatchRow, BatchSummary } from "./batches";
 export type { BasedOn, ReviewDraft } from "./review";
 export type { NewSend, SendRow } from "./sends";
 export type { Adoption, MailVersionRow, MailVersionSource, MailWriteRow, NewMailVersion, NewMailWrite, ThreadDraft } from "./mail-versions";
-export { adoptable, bareRef, shellHashOf, startsWithWrite, textKey, versionHashOf } from "./mail-versions";
+export { adoptable, bareRef, isReplyShell, shellHashOf, startsWithWrite, textKey, versionHashOf } from "./mail-versions";
 export type { InboxInput, InboxItem, InboxResult, InboxRow } from "./inbox";
 export type { Candidate, EnrollmentItem, EnrollmentRow, NewEnrollment, Outbound } from "./enrollments";

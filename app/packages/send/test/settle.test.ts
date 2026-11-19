@@ -49,6 +49,16 @@ describe("settleThread (P65 S5)", () => {
     expect(await settleThread({ mailer, repos }, rec_(rec.draftId), ["hello@reforms.ai"])).toEqual({ adopted: [], moved: [], refused: [] });
   });
 
+  it("Mail's empty reply with no write row (saas 139835) goes to Trash with the Hub's older versions, known from the answered message", async () => {
+    const repos = createRepos(h.db);
+    const rec = await repos.drafts.record({ project: "saas", email: "mark@x.example", name: "Mark", subject: "Re: Hello", mailRef: "<t1@mail.gmail.com>", reason: "asked", skill: "triage-mail" });
+    await repos.mailVersions.add({ project: "saas", mailRef: "t1@mail.gmail.com", draftId: rec.draftId, account: "hello@reforms.ai", mailId: 139868, messageId: "M139868@reforms.ai", hash: versionHashOf("Hi"), source: "agent" });
+    const mailer = new FakeMailer([d("139868", "Hi"), d("139835", "\n\nOn 14 Nov 2026, Mark wrote:\nHow are you?\n\n"), d("139900", "My own reply.")]);
+    const r = await settleThread({ mailer, repos, original: async () => "How are you?\n" }, rec_(rec.draftId), ["hello@reforms.ai"]);
+    expect(r).toMatchObject({ adopted: ["139835"], moved: ["M139835@reforms.ai"] });
+    expect(mailer.drafts.map((x) => x.ref).sort()).toEqual(["139868", "139900"]);
+  });
+
   it("never moves anything when the Hub has no second version in the thread", async () => {
     const repos = createRepos(h.db);
     const rec = await repos.drafts.record({ project: "saas", email: "mark@x.example", name: "Mark", subject: "Re: Hello", mailRef: "<t1@mail.gmail.com>", reason: "asked", skill: "triage-mail" });

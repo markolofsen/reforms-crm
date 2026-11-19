@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { parseProjectMd } from "@hub/projects";
 import { DENIED_TOOLS } from "../src/deny";
-import { DraftWriteError, FakeDraftWriter, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, stripMarker, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
-import { appleScriptCompileError, canCompileAppleScript } from "../../../test-support/osacompile";
+import { DraftWriteError, FakeDraftWriter, READ_CONTENT_SCRIPT, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, stripMarker, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
+import { appleScriptCompileError, canCompileAppleScript, deleteOfLoopItem } from "../../../test-support/osacompile";
 import { createHubMcpServer, excerptOf, type HubMcpEnv } from "../src/mcp";
 
 // The hub's draft writer (P52): the script's contract, its parser and the `draft_write` tool, on a fake Mail. No test touches Mail.
@@ -29,8 +29,11 @@ describe("the Mail scripts compile (osacompile, no Mail call)", () => {
     ["MESSAGE_ID_SCRIPT", MESSAGE_ID_SCRIPT],
     ["READ_HEADERS_SCRIPT", READ_HEADERS_SCRIPT],
     ["THREAD_DRAFTS_SCRIPT", THREAD_DRAFTS_SCRIPT],
+    ["READ_CONTENT_SCRIPT", READ_CONTENT_SCRIPT],
   ])("%s", (_name, script) => {
     expect(appleScriptCompileError(script)).toBeNull();
+    expect(deleteOfLoopItem(script)).toBeNull();
+    expect(script).not.toMatch(/repeat with \w+ in \(id of /);
   });
 
   it("passes the reply's text to the compiled script as argv items, verbatim: apostrophes, quotes, lines, non-ASCII", async () => {
@@ -371,6 +374,21 @@ describe("draft_write (hub mcp)", () => {
     expect(again).toMatchObject({ isError: true, json: { error: "already_drafted" } });
     expect(again.json.message).toMatch(/record it with hub record-draft/);
     expect(mail.drafts.filter((d) => d.text === "Hi Bob.")).toHaveLength(1);
+  });
+
+  it("Mail's empty reply in the thread (saas 139835: the original under one attribution line) is adopted and replaced; read-only otherwise", async () => {
+    const repos = createRepos(db.db);
+    const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Hello", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail" });
+    const mail = new FakeDraftWriter();
+    mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
+    mail.contents.set(42, "How are you? Its new request\n\n-- \nRegards!\n\n\n");
+    const call = await connect(mail, undefined, { withRepos: (fn) => fn(repos) });
+    await call({ draft: rec.draftId, content: "Hi Ann." });
+    mail.drafts.push({ id: 3, messageId: "shell@x", account: "desk@acme.example", thread: "m42@example.com", subject: "Re: message 42", text: "\n\nOn 14 Nov 2026, at 14:26, Ann <ann@x.example> wrote:\nHow are you? Its new request\n\n-- \nRegards!\n\n\n\n", quote: "add" });
+    mail.drafts.push({ id: 4, messageId: "own@x", account: "desk@acme.example", thread: "m42@example.com", subject: "Re: message 42", text: "On Monday I will call.\nHow are you? Its new request", quote: "add" });
+    const r = await call({ draft: rec.draftId, content: "Hi Ann, again." });
+    expect(r.json.replaced).toContain("shell@x");
+    expect(mail.drafts.map((d) => d.messageId).sort()).toEqual(["own@x", r.json.messageId].sort());
   });
 
   it("mail-mcp's create_reply is denied: the hub writes every draft", () => {
