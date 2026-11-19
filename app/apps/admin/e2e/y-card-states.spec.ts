@@ -67,8 +67,14 @@ for (const c of CASES) {
 test("no permanent control sits within 24 px of Send: the Client menu is across the card, Cancel send is not shown with Send", async ({ page }) => {
   await firstDraftIs(page, { safetyResults: [] });
   await page.goto("/drafts?filter=all");
-  const send = await page.getByRole("button", { name: "Send", exact: true }).boundingBox();
-  const client = await page.getByRole("button", { name: "Client", exact: true }).boundingBox();
+  // The address settles on the project's draft (/drafts is another route tree, so the card mounts again there): measure that card.
+  await expect(page).toHaveURL(/\/lisbon-realty\/drafts\/\d+/);
+  const sendButton = page.getByRole("button", { name: "Send", exact: true });
+  const clientButton = page.getByRole("button", { name: "Client", exact: true });
+  await expect(sendButton).toBeVisible();
+  await expect(clientButton).toBeVisible();
+  const send = await sendButton.boundingBox();
+  const client = await clientButton.boundingBox();
   if (!send || !client) throw new Error("Send or Client is not on screen");
   const gap = Math.max(client.x - (send.x + send.width), send.x - (client.x + client.width), client.y - (send.y + send.height), send.y - (client.y + client.height));
   expect(gap).toBeGreaterThan(24);
