@@ -1,4 +1,4 @@
-import { DEFAULT_SAFETY_RULES, FINDING_KIND, markerLeft, SAFETY_KINDS, unresolvedMarkers, type EvidenceFinding, type EvidenceSource, type Mark, type SafetyKind, type SafetyResult, type SafetyRule } from "@hub/config";
+import { DEFAULT_SAFETY_RULES, FINDING_KIND, markerLeft, SAFETY_KINDS, stripHubMarker, unresolvedMarkers, type EvidenceFinding, type EvidenceSource, type Mark, type SafetyKind, type SafetyResult, type SafetyRule } from "@hub/config";
 
 // The safety rules engine (doc 14). Pure: a draft, its client and the rules in, the results out. The rules are data
 // (`DEFAULT_SAFETY_RULES`, overridden per project in the `safety_rules` table), so the owner edits them without code.
@@ -67,8 +67,9 @@ export function evaluateSafety(input: SafetyInput, rules: SafetyRule[], acked: r
         if (client.repliesOwed && !draft.mailRef) fire(rule.kind, "They wrote last, but this draft is not tied to their thread. Reply in the thread, or send it as a new email on purpose.");
         break;
       case "marker_left": {
-        const m = markerLeft(text);
-        if (m) fire(rule.kind, `The text still has the hub marker ${m}. Delete that line before sending.`);
+        // The first-line marker is the hub's own and the send removes it (P56 S2); a hub line anywhere else, or the legacy run line, stays red.
+        const m = markerLeft(`${draft.subject}\n${stripHubMarker(draft.body)}`);
+        if (m) fire(rule.kind, `The text still has a hub line ${m.slice(0, 80)}. Delete that line before sending.`);
         break;
       }
       case "profile_empty":

@@ -152,6 +152,28 @@ describe("Send from the admin", () => {
     expect(mailer.sent).toHaveLength(1);
   });
 
+  it("P56: what goes out has no hub marker, it answers the message the draft replies to, and the hub's other version goes to Trash", async () => {
+    const r = await repos.drafts.record({ project: "acme", email: "client@example.com", name: "Cli", subject: "Re: hello", mailRef: "<In1@Client.example>", mailClass: "client" });
+    await repos.drafts.setChecked(r.draftId, true);
+    mailer.drafts.push(mailDraft({ ref: "601", body: "\n[hub-draft thread=In1@Client.example]\nHello,\n\n> their question" }));
+    const preview = (await (await post(sendUrl(r.draftId), { apply: false })).json()) as { body: string };
+    expect(preview.body).toBe("Hello,\n\n> their question");
+    expect((await apply(r.draftId, { confirm })).status).toBe(200);
+    expect(mailer.sent[0]?.body).toBe("Hello,\n\n> their question");
+    expect(mailer.replies).toEqual(["<In1@Client.example>"]);
+    expect(mailer.sent[0]?.body).not.toMatch(/hub-draft/);
+  });
+
+  it("P56: a legacy run line still refuses the send", async () => {
+    const r = await repos.drafts.record({ project: "acme", email: "client@example.com", name: "Cli", subject: "Re: hello", mailRef: "<d1@acme.example>", mailClass: "client" });
+    await repos.drafts.setChecked(r.draftId, true);
+    mailer.drafts.push(mailDraft({ body: "[Reforms draft, run 07a63131a4d4. Sources: none. Delete this line before sending.]\nHello" }));
+    const res = await apply(r.draftId, { confirm });
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { refused: string[] }).refused.join(" ")).toMatch(/hub line is still in the text: \[Reforms draft, run/);
+    expect(mailer.sent).toEqual([]);
+  });
+
   it("refuses with every reason: not Checked, and a placeholder left", async () => {
     const id = await draft({ checked: false });
     mailer.drafts[0] = mailDraft({ body: "Hello [Owner: add the price]" });

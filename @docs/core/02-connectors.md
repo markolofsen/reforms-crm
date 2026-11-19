@@ -46,6 +46,16 @@ Installed mail-mcp, from its local schemas and README:
   account, subject and marker, after the new one is found. A revision names only the hub draft (`draft`); the hub finds
   the answered message by its Message-ID (the draft's `mailRef`) and bumps the live topic `mail`, so the open admin card
   reads the new text (P53). Mail.app must be running; nothing is sent.
+- The hub cleans up after itself (P56): who wrote a Mail draft is judged by its text only (`hubAuthorship` in
+  `@hub/config`: the first non-empty line is this thread's `[hub-draft thread=...]` marker, or the pre-marker
+  `[Reforms draft, run <hex> ...]` line). Every removal re-checks that line in the script just before Mail's `delete`,
+  which moves the draft to the account's Trash (recoverable); subject, recipient and account never qualify a draft.
+  Send, Skip and Done move the thread's marked drafts to Trash; a revision replaces its older version; `hub drafts
+  sweep` (dry run unless `--apply`, the owner's: denied to the agent) lists older versions, closed threads and the
+  pre-marker drafts. With exactly one marked draft the marker decides which draft the card, Checked and Send use;
+  other drafts of the same subject are named and left alone. A person's Save and Restore in the admin write through the
+  same writer (`reviseDraft`, verbatim). The send removes the first-line marker from what goes out, and sends Mail's
+  own `reply` to the answered message, so the client's thread keeps `In-Reply-To` and `References`.
 
 Verdict: draft-only is structural; costs are no threads, no read-marking, GUI dependency. patrickfreyer has
 threads but can send: `--read-only` only, never both.

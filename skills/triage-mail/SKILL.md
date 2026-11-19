@@ -64,7 +64,7 @@ Every client gets `references/per-client.md` (P1 to P7) in full, for any batch s
    `knowledge_get` if the snippet is not enough. Stale, missing or conflicting: gap and `[Owner: ...]` placeholder, never an invented price, date,
    term or policy. Notion is never read for facts. Order and gap types: `references/kb-gaps.md`.
 5. **Draft FIRST** when the newest message is inbound, class `question` or `scheduling`, the profile has no `do_not_contact`, and nothing of ours follows it:
-   `draft_write` (hub MCP; mail-mcp's `account`, `mailbox_path`, `message_id`, `content`), plain; it adds the first line `[hub-draft thread=<thread-id>]` itself (the owner deletes that line before sending) and works with Mail in the background; tone,
+   `draft_write` (hub MCP; mail-mcp's `account`, `mailbox_path`, `message_id`, `content`), plain; it adds the first line `[hub-draft thread=<thread-id>]` itself (the Hub's send removes it; never tell the owner to delete it, and never tell him to delete a Mail draft: the Hub moves its own old versions to Trash) and works with Mail in the background; tone,
    language and signoff from `project.md`. Scheduling: `skills/calendar/references/from-mail.md` (at most 3 slots, two time zones, as
    `[Owner: confirm <time> <zone>]`; never confirm a time; a booking link is reported, never opened).
    Write the body from this client's thread and profile, with at least one anchor only they have (`per-client.md` P4).

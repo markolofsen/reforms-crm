@@ -60,7 +60,11 @@ export function databaseBackedFake(repos: Repos, projectsDir: string): Mailer & 
       }
       return found.filter((m) => !inner.sent.some((s) => s.ref === m.ref));
     },
-    send: (d) => inner.send(d),
+    // Its drafts are the database's rows, so it has no Trash and no hub marker: nothing is ever moved (P56).
+    findInTrash: async () => [],
+    listHubDrafts: async () => [],
+    trashDrafts: async (items) => ({ moved: [], refused: items.map((i) => i.ref) }),
+    send: (d, replyTo) => inner.send(d, replyTo),
   };
 }
 

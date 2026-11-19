@@ -286,6 +286,15 @@ export const draftMailDto = z.object({
    * so it cannot be Checked and the send refuses it. Optional for a server older than API 10.
    */
   note: z.string().nullable().optional(),
+  /** Found, and other drafts with this subject exist that the hub did not write for this thread (P56): named, never touched, never sent. Optional before API 11. */
+  aside: z.string().nullable().optional(),
+  /**
+   * Not found, and Mail answered: no draft for it at all (P56). `trashRef` is the newest copy the hub wrote for this
+   * thread that is in Mail's Trash (what Restore writes again), else null. Optional before API 11.
+   */
+  gone: z.object({ trashRef: z.string().nullable() }).nullable().optional(),
+  /** Whether Checked is bound to this very text (the row's hash equals this read's); false after any revision. Optional before API 11. */
+  checkedCurrent: z.boolean().optional(),
   from: z.string().nullable(),
   to: z.array(z.string()),
   cc: z.array(z.string()),

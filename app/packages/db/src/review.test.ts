@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { markerLeft, unresolvedMarkers } from "@hub/config";
+import { hubAuthorship, markerLeft, stripHubMarker, unresolvedMarkers } from "@hub/config";
 import { openDb, type DbHandle } from "./client";
 import { createRepos, type Repos } from "./repos";
 import { seedMany } from "./seed";
@@ -74,6 +74,13 @@ describe("marker line (P27 M1.3)", () => {
     expect(markerLeft("Hi Anna,\n\n[Hub-Draft thread=1]\nbye")).toBe("[Hub-Draft thread=1]");
     expect(markerLeft("Hi Anna, a normal reply with [a note] and a hub-draft mention")).toBeNull();
     expect(markerLeft("[Owner: price]")).toBeNull();
+    expect(markerLeft("[Reforms draft, run 07a63131a4d4. Sources: no knowledge entry cited. Delete this line before sending.]\nHi Mark,")).toMatch(/^\[Reforms draft, run/);
+    expect(hubAuthorship("\n[hub-draft thread=CALat=2Q@mail.gmail.com]\nHi Mark,")).toEqual({ kind: "marked", thread: "calat=2q@mail.gmail.com", line: "[hub-draft thread=CALat=2Q@mail.gmail.com]" });
+    expect(hubAuthorship("[Reforms draft, run 07a63131a4d4. Delete this line before sending.]\nHi")).toMatchObject({ kind: "legacy" });
+    expect(hubAuthorship("Hi Anna,\n[hub-draft thread=x@y]\nquoted")).toBeNull();
+    expect(hubAuthorship("Re: [Reforms draft, run 07a63131a4d4]")).toBeNull();
+    expect(stripHubMarker("\n[hub-draft thread=x@y]\nHi Anna,\n\n> q")).toBe("Hi Anna,\n\n> q");
+    expect(stripHubMarker("Hi Anna,\n[hub-draft thread=x@y]")).toBe("Hi Anna,\n[hub-draft thread=x@y]");
     expect(unresolvedMarkers("[hub-draft thread=1]")).toEqual([]);
   });
 });

@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { DENIED_TOOLS } from "../src/deny";
-import { FakeDraftWriter, FIND_INBOUND_SCRIPT, mailAppDraftWriter, parseInboundOutput, parseWriteOutput, stripMarker, WRITE_REPLY_SCRIPT, type OsaRun } from "../src/mail-drafts";
+import { FakeDraftWriter, FIND_INBOUND_SCRIPT, mailAppDraftWriter, parseInboundOutput, parseWriteOutput, reviseDraft, stripMarker, WRITE_REPLY_SCRIPT, type OsaRun } from "../src/mail-drafts";
 import { createHubMcpServer } from "../src/mcp";
 
 // The hub's draft writer (P52): the script's contract, its parser and the `draft_write` tool, on a fake Mail. No test touches Mail.
@@ -60,8 +60,28 @@ describe("the Mail script", () => {
       return ["ok", "5", "Re: X", "a@b", "d@x", ""].join(FS);
     };
     await mailAppDraftWriter(osa).writeReply({ account: "desk", mailboxPath: ["INBOX", "Clients"], messageId: 7, body: "[hub-draft thread=a@b]\nHi", sender: null });
-    expect(seen[0]).toEqual(["desk", `INBOX${LS}Clients`, "7", "Hi", ""]);
+    expect(seen[0]).toEqual(["desk", `INBOX${LS}Clients`, "7", "Hi", "", "add"]);
     await expect(mailAppDraftWriter(osa).writeReply({ account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: "[hub-draft thread=a@b]\n  ", sender: null })).rejects.toThrow(/no text/);
+  });
+});
+
+describe("a person's text, verbatim (P56)", () => {
+  it("keep writes the marker and the text only; add appends the quote of the original", () => {
+    expect(WRITE_REPLY_SCRIPT).toMatch(/if \(count of argv\) > 5 then set addQuote to \(item 6 of argv\) is not "keep"/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/set wanted to marker & linefeed & theBody & tail/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/if addQuote then set tail to/);
+  });
+
+  it("reviseDraft finds the answered message in the project's accounts and writes through the one writer", async () => {
+    const w = new FakeDraftWriter(() => "in@x");
+    w.inbound.set("in@x", { account: "desk", mailboxPath: ["INBOX"], messageId: 7 });
+    const r = await reviseDraft(w, { accounts: ["desk"], sender: null, mailRef: "<IN@x>".toLowerCase(), body: "Hi Ann,\n\n> kept quote", quote: "keep" });
+    expect(r).toMatchObject({ replyTo: 7, thread: "in@x" });
+    expect(w.drafts[0]).toMatchObject({ text: "[hub-draft thread=in@x]\nHi Ann,\n\n> kept quote", quote: "keep" });
+    await reviseDraft(w, { accounts: ["desk"], sender: null, mailRef: "in@x", body: "v2", quote: "add" });
+    expect(w.drafts).toHaveLength(1);
+    expect(w.drafts[0]).toMatchObject({ text: "[hub-draft thread=in@x]\nv2", quote: "add" });
+    await expect(reviseDraft(w, { accounts: ["other"], sender: null, mailRef: "in@x", body: "x", quote: "keep" })).rejects.toMatchObject({ code: "no_message" });
   });
 });
 

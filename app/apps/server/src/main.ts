@@ -1,7 +1,8 @@
 import { serve } from "@hono/node-server";
 import { HOST, SERVER_PORT } from "@hub/config";
 import { HubHomeMissingError, hubPaths, instancePorts } from "@hub/config/paths";
-import { createRepos, dataVersion, openDb } from "@hub/db";
+import { bumpTopic, createRepos, dataVersion, openDb } from "@hub/db";
+import { FakeDraftWriter, mailAppDraftWriter } from "@hub/agent/mail-drafts";
 import { createApp } from "./app";
 import { listenErrorLine, onShutdown } from "./lifecycle";
 import { appleMailAccounts, chooseProbeKind, fakeMailAccounts, fakeProbeDeps } from "./connections";
@@ -59,7 +60,7 @@ const pollers = () => [messengers.status(), sent.status()].map((s) => `${s.state
 const live = createLive({ db, watch: [{ topic: "health", signature: pollers, everyMs: 1000 }, { topic: "connections", signature: () => folderSignature(paths.secrets), everyMs: 1000 }] });
 // The shared focus (P51): the admin tab says what it shows; the agent reads it from state/focus.json.
 const focus = createFocusStore({ file: paths.focus });
-const app = createApp(repos, { live, focus, terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin } });
+const app = createApp(repos, { live, focus, terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);

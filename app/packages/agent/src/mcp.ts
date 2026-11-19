@@ -4,7 +4,7 @@ import type { Repos } from "@hub/db";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { readFocus } from "./focus";
-import { DraftWriteError, type DraftWriter } from "./mail-drafts";
+import { DraftWriteError, reviseDraft, type DraftWriter } from "./mail-drafts";
 
 // `hub mcp` (P51, decision 0029): the hub's own stdio MCP server, bound to `HUB_PROJECT`. Four read-only tools: the admin's
 // focus, one draft, one client, the Drafts list. The database is opened read-only by the caller (`openDbReadOnly`), so a
@@ -197,29 +197,27 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         const writer = env.drafts;
         const mail = env.projectMail(slug);
         try {
-          let target: { account: string; mailboxPath: string[]; messageId: number };
+          let r: Awaited<ReturnType<DraftWriter["writeReply"]>> & { replyTo: number };
           if (draft !== undefined) {
             if (account !== undefined || mailbox_path !== undefined || message_id !== undefined) throw new ToolError("invalid", "Give either draft (a revision) or account, mailbox_path and message_id (a new reply), not both.");
             const { d } = await ownDraft(draft);
             if (!d.mailRef) throw new ToolError("no_thread", `Draft ${draft} has no mailRef: it answers no Mail message, so it cannot be revised here.`);
-            const found = await writer.findInbound(mail.accounts, d.mailRef);
-            if (!found) throw new ToolError("no_message", `The message draft ${draft} answers (Message-ID ${d.mailRef}) is not in ${mail.accounts.join(", ") || "this project's accounts"}: it may have been deleted. Nothing was written.`);
-            target = found;
+            // The one revision path, shared with the admin's Save and Restore (P56).
+            r = await reviseDraft(writer, { accounts: mail.accounts, sender: mail.sender, mailRef: d.mailRef, body: content, quote: "add" });
           } else {
             if (account === undefined || mailbox_path === undefined || message_id === undefined) throw new ToolError("invalid", "Give draft (a revision of a hub draft) or all of account, mailbox_path and message_id (a new reply).");
             const own = mail.accounts.find((a) => a.trim().toLowerCase() === account.trim().toLowerCase());
             if (!own) throw new ToolError("not_this_project", `Account "${account}" is not one of project ${slug}'s Mail accounts (${mail.accounts.join(", ") || "none listed in project.md"}).`);
-            target = { account: own, mailboxPath: mailbox_path, messageId: message_id };
+            r = { ...(await writer.writeReply({ account: own, mailboxPath: mailbox_path, messageId: message_id, body: content, sender: mail.sender })), replyTo: message_id };
           }
-          const r = await writer.writeReply({ ...target, body: content, sender: mail.sender });
           let live = true;
           try {
             env.mailWritten?.(slug);
           } catch {
             live = false; // the draft is saved; only the open card's refresh is lost (it reads Mail again on focus)
           }
-          const left = r.left.length ? ` Older hub draft(s) ${r.left.join(", ")} are still in Drafts: tell the owner to delete them before Send.` : "";
-          return { ...r, project: slug, sent: false, ...(draft !== undefined ? { draft } : {}), replyTo: target.messageId, live, next: `Record it: \`hub record-draft --project ${slug}\` (skill triage-mail step 5) with "mailRef":"${r.thread}"; a revision keeps the draft's context block and client name. Then tell the owner in one line what you changed. Nothing was sent.${left}` };
+          const left = r.left.length ? ` Older hub draft(s) ${r.left.join(", ")} are still in Drafts: the card still shows the newest; hub drafts sweep (dry run) lists them for the owner. Never ask the owner to delete a Mail draft.` : "";
+          return { ...r, project: slug, sent: false, ...(draft !== undefined ? { draft } : {}), live, next: `Record it: \`hub record-draft --project ${slug}\` (skill triage-mail step 5) with "mailRef":"${r.thread}"; a revision keeps the draft's context block and client name. Then tell the owner in one line what you changed. Nothing was sent.${left}` };
         } catch (e) {
           if (e instanceof DraftWriteError) throw new ToolError(e.code, e.message);
           throw e;

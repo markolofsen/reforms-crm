@@ -30,6 +30,12 @@ export interface ReplyDraftInput {
   body: string;
   /** The From to use when Mail would pick an address outside this account; null: the account's first address. */
   sender: string | null;
+  /**
+   * `add` (default, the agent's reply): the writer appends "On <date>, <sender> wrote:" and a `> ` quote of the original.
+   * `keep` (P56, a person's Save or a Restore): `body` is the whole text after the marker, quote included as the person
+   * left it, written verbatim.
+   */
+  quote?: "add" | "keep";
 }
 
 export interface ReplyDraftResult {
@@ -41,7 +47,7 @@ export interface ReplyDraftResult {
   from: string;
   /** Ids of the older drafts of this thread that were replaced (deleted; Mail may list them as deleted until it expunges). */
   replaced: number[];
-  /** Older hub drafts of this thread still there after the replace: the owner deletes them (none expected). */
+  /** Older hub drafts of this thread still there after the replace (none expected): `hub drafts sweep` moves them to Trash. */
   left: number[];
 }
 
@@ -70,7 +76,8 @@ const LS = "\x1d";
 /** The marker line an agent may have put first itself: dropped, the writer adds the one true line. */
 export const stripMarker = (body: string): string => body.replace(/^\s*\[hub-draft\b[^\]\n]*\]\s*\n?/i, "").replace(/\s+$/, "");
 
-// argv: 1 account, 2 mailbox path (LS-joined), 3 message id, 4 body, 5 sender or "". Output: ok FS draftId FS subject FS
+// argv: 1 account, 2 mailbox path (LS-joined), 3 message id, 4 body, 5 sender or "", 6 "keep" to write the body verbatim
+// (no quote added; P56). Output: ok FS draftId FS subject FS
 // thread FS from FS replaced (LS-joined) FS left (LS-joined), or error FS code FS message. A message Mail flags as deleted
 // (pending expunge) is not a draft.
 export const WRITE_REPLY_SCRIPT = `on run argv
@@ -82,6 +89,8 @@ export const WRITE_REPLY_SCRIPT = `on run argv
   set srcId to (item 3 of argv) as integer
   set theBody to item 4 of argv
   set wantSender to item 5 of argv
+  set addQuote to true
+  if (count of argv) > 5 then set addQuote to (item 6 of argv) is not "keep"
   tell application "Mail"
     try
       set acc to account accName
@@ -100,8 +109,8 @@ export const WRITE_REPLY_SCRIPT = `on run argv
     end try
     set thread to message id of src
     set marker to "[hub-draft thread=" & thread & "]"
-    set quoteHead to "On " & ((date sent of src) as string) & ", " & (sender of src) & " wrote:"
-    set quoted to my quoteOf((content of src) as text)
+    set tail to ""
+    if addQuote then set tail to linefeed & linefeed & "On " & ((date sent of src) as string) & ", " & (sender of src) & " wrote:" & linefeed & my quoteOf((content of src) as text)
     set r to reply src opening window false
     set subj to subject of r
     set fromNow to sender of r
@@ -123,7 +132,7 @@ export const WRITE_REPLY_SCRIPT = `on run argv
       end if
     end if
     set olderIds to my hubDrafts(subj, marker, accName, {})
-    set wanted to marker & linefeed & theBody & linefeed & linefeed & quoteHead & linefeed & quoted
+    set wanted to marker & linefeed & theBody & tail
     set content of r to wanted
     delay 0.3
     if ((content of r) as text) does not contain marker then
@@ -256,7 +265,7 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
     async writeReply(i) {
       const body = stripMarker(i.body);
       if (!body.trim()) throw new DraftWriteError("empty", "The reply has no text.");
-      const out = await osa(WRITE_REPLY_SCRIPT, [i.account, i.mailboxPath.join(LS), String(i.messageId), body, i.sender ?? ""]).catch((e: Error) => {
+      const out = await osa(WRITE_REPLY_SCRIPT, [i.account, i.mailboxPath.join(LS), String(i.messageId), body, i.sender ?? "", i.quote ?? "add"]).catch((e: Error) => {
         throw new DraftWriteError("mail_error", e.message);
       });
       return parseWriteOutput(out);
@@ -274,7 +283,8 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
 
 /** In memory: what tests use. A second write on the same thread replaces the first, as Mail does. */
 export class FakeDraftWriter implements DraftWriter {
-  drafts: Array<{ id: number; account: string; thread: string; subject: string; text: string }> = [];
+  /** `quote`: whether the real writer would have appended the quote of the original (`add`) or written the text verbatim (`keep`). */
+  drafts: Array<{ id: number; account: string; thread: string; subject: string; text: string; quote: "add" | "keep" }> = [];
   private next = 1000;
   /** Inbound messages the fake Mail holds, by Message-ID. */
   inbound = new Map<string, InboundMessage>();
@@ -290,8 +300,30 @@ export class FakeDraftWriter implements DraftWriter {
     const subject = `Re: message ${i.messageId}`;
     const older = this.drafts.filter((d) => d.account === i.account && d.thread === thread && d.subject === subject);
     const id = this.next++;
-    this.drafts.push({ id, account: i.account, thread, subject, text: `[hub-draft thread=${thread}]\n${body}` });
+    this.drafts.push({ id, account: i.account, thread, subject, text: `[hub-draft thread=${thread}]\n${body}`, quote: i.quote ?? "add" });
     this.drafts = this.drafts.filter((d) => !older.includes(d));
     return { draftId: id, subject, thread, from: i.sender ?? i.account, replaced: older.map((d) => d.id), left: [] };
   }
+}
+
+export interface ReviseInput {
+  /** The project's Mail accounts (`mail.accounts`): the message answered is looked up only there. */
+  accounts: readonly string[];
+  sender: string | null;
+  /** The hub draft's `mailRef`: the Message-ID of the message it answers. */
+  mailRef: string;
+  body: string;
+  quote: "add" | "keep";
+}
+
+/**
+ * The one revision of a hub draft (P56): find the message it answers by its Message-ID in the project's accounts, then
+ * write the reply through the writer, which replaces the older marked version. Shared by `hub mcp`'s `draft_write
+ * {draft}` (the agent, `quote: "add"`) and the server (a person's Save or Restore, `quote: "keep"`), so there is one path.
+ */
+export async function reviseDraft(writer: DraftWriter, i: ReviseInput): Promise<ReplyDraftResult & { replyTo: number }> {
+  const found = await writer.findInbound(i.accounts, i.mailRef);
+  if (!found) throw new DraftWriteError("no_message", `The message this draft answers (Message-ID ${i.mailRef}) is not in ${i.accounts.join(", ") || "this project's accounts"}: it may have been deleted. Nothing was written.`);
+  const r = await writer.writeReply({ ...found, body: i.body, sender: i.sender, quote: i.quote });
+  return { ...r, replyTo: found.messageId };
 }

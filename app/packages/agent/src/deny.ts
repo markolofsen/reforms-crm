@@ -47,6 +47,9 @@ export const HUB_SEND_COMMANDS: readonly string[] = ["Bash(*hub send*)", "Bash(*
  */
 export const HUB_SEQUENCE_OWNER_COMMANDS: readonly string[] = ["Bash(*sequences enrol*--not-now*)", "Bash(*sequences pause*)", "Bash(*sequences resume*)"];
 
+/** Moving Mail drafts to Trash (`hub drafts sweep --apply`, P56) is the owner's: a session may list them (the dry run), never move them. */
+export const HUB_MAIL_OWNER_COMMANDS: readonly string[] = ["Bash(*drafts sweep*--apply*)"];
+
 /**
  * The admin server's Send is a loopback HTTP route (P23 S3). Text rules on loopback names: a second belt only, since
  * `curl http://2130706433:<port>` is the same address (research 21 section 5, test 4). The sandbox blocks it.
@@ -66,6 +69,7 @@ export const HUB_MCP_SERVERS = ["mail-mcp", "notion", "knowledge-mcp", "hub"] as
 export const CODEX_FORBIDDEN_PREFIXES: ReadonlyArray<readonly string[]> = [
   ["hub", "send"], ["./run.sh", "send"], ["run.sh", "send"], ["./hub.sh", "send"], ["hub.sh", "send"],
   ["hub", "sequences", "pause"], ["hub", "sequences", "resume"], ["./run.sh", "sequences", "pause"], ["./run.sh", "sequences", "resume"],
+  ["hub", "drafts", "sweep", "--apply"], ["./run.sh", "drafts", "sweep", "--apply"],
   ["osascript"], ["sendmail"], ["mail"],
 ];
 
@@ -86,6 +90,6 @@ export function denyRules(projectsDir: string, root: string, slug: string | unde
   for (const o of otherProjects(projectsDir, slug)) denied.push(`./${rel(path.join(projectsDir, o))}/**`);
   for (const p of denied) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
   // `hub send` is the hub's own sender (decision 0011, plan P23): a person runs it, never the agent.
-  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
+  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
   return rules;
 }

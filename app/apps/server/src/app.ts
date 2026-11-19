@@ -6,6 +6,7 @@ import { isBusy, RepoError, type Repos } from "@hub/db";
 import { bulkRoutes } from "./routes/bulk";
 import { connectionRoutes } from "./routes/connections";
 import { draftRoutes } from "./routes/drafts";
+import { draftMailRoutes } from "./routes/draft-mail";
 import { inboxRoutes } from "./routes/inbox";
 import { instanceRoutes } from "./routes/instance";
 import { overviewRoutes } from "./routes/overview";
@@ -113,6 +114,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", instanceRoutes(opts.instance))
     .route("/", draftRoutes(repos, opts.sender))
     .route("/", sendRoutes(repos, opts.sender))
+    .route("/", draftMailRoutes(repos, opts.sender))
     .route("/", projectRoutes(repos, projectsDir, opts.sender?.policyDir))
     .route("/", inboxRoutes(repos))
     .route("/", sequenceRoutes(repos, projectsDir, now))

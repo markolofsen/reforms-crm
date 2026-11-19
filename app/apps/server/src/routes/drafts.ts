@@ -6,7 +6,8 @@ import { draftChangedDto, draftsDto, historyDto, timelineDto } from "@hub/contra
 import { toDraft } from "../dto";
 import { notFound, v } from "../http";
 import type { SenderOptions } from "./sends";
-import { findMail, mailHash } from "@hub/send";
+import { findMail, mailHash, trashThread } from "@hub/send";
+import { loadProject } from "@hub/projects";
 
 /**
  * Drafts to review, and what a person does to one. Nothing here sends: the only statuses a request can write are
@@ -52,6 +53,15 @@ export function draftRoutes(repos: Repos, sender?: SenderOptions) {
       const id = c.req.valid("param").id;
       if (!(await ownDraft(project, id))) return notFound(c, "draft");
       const draft = await repos.drafts.setStatus(id, status, reason);
+      // Skip and Done close the draft: the hub's own Mail drafts of this thread go to Trash (P56), so the owner never cleans
+      // up after the hub. In the background and best effort: the status is the owner's decision and never waits on Mail;
+      // Undo finds the copy in Trash (Restore), and `hub drafts sweep` finds whatever is left.
+      if (draft && sender && draft.mailRef && (status === "skipped" || status === "done")) {
+        void (async () => {
+          const accounts = loadProject(sender.projectsDir, draft.project, { policyDir: sender.policyDir }).parsed.config.mail.accounts;
+          await trashThread(sender, draft, accounts);
+        })().catch((e: unknown) => console.error(`draft ${id}: its Mail drafts were not moved to Trash: ${(e as Error).message}`));
+      }
       return draft ? c.json(changed(id)) : notFound(c, "draft");
     })
     .post("/api/drafts/:id/tone", v("param", idParam), v("json", toneBody), async (c) => {

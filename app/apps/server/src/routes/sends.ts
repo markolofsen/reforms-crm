@@ -1,8 +1,10 @@
 import { Hono, type Context } from "hono";
 import type { Repos } from "@hub/db";
-import { assess, findMail, mailHash, sendDraft, type Mailer } from "@hub/send";
+import { assess, sendDraft, type Mailer } from "@hub/send";
 import { idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
-import { draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
+import { sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
+import type { DraftWriter } from "@hub/agent/mail-drafts";
+import { stripHubMarker } from "@hub/config";
 import { gateRefusal, ticketStore, type TicketStore } from "../admin-gate";
 import { notFound, v } from "../http";
 
@@ -18,6 +20,10 @@ export interface SenderOptions {
   /** Tests: the ticket store (its clock). */
   tickets?: TicketStore;
   now?: () => Date;
+  /** The hub's Mail draft writer (P56: a person's Save and Restore go through the agent's one writer); absent, both refuse. */
+  writer?: DraftWriter;
+  /** Bumps the live topic `mail` of a project after the server wrote one of its Mail drafts, so every open tab reads it again. */
+  mailWritten?: (project: string) => void;
 }
 
 /** A ticket lives 60 s: the person has read the mail and pressed Send; the apply follows at once. */
@@ -60,7 +66,8 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions) {
         const a = await assess(deps, id, { mode: "manual" });
         if (!a.ok || !a.mail) return c.json(refusal(a.reasons), 409);
         const m = a.mail;
-        return c.json(sendPreviewDto.parse({ ok: true, dryRun: true, from: m.sender, to: m.to, cc: m.cc, subject: m.subject, body: m.body }));
+        // What would go out: the Mail text without its first-line hub marker, which the send removes (P56 S2).
+        return c.json(sendPreviewDto.parse({ ok: true, dryRun: true, from: m.sender, to: m.to, cc: m.cc, subject: m.subject, body: stripHubMarker(m.body) }));
       }
       // A send needs a person's ticket, not just the recipients and subject, which the dry run gives anyone (P49 S12).
       if (!tickets.take(body.ticket, `send:${id}`)) return forbidden(c, "a send needs the admin's ticket; press Send in the admin");
@@ -69,21 +76,6 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions) {
       if (r.code === 0 && out.sendId !== undefined) return c.json(sentDto.parse({ ok: true, sendId: out.sendId }));
       if (r.code === 2) return c.json(refusal(out.refused ?? [out.error ?? "refused"]), 409);
       return c.json({ error: out.error ?? "The send failed.", code: "server" as const }, 500);
-    })
-    // The draft as Mail holds it now. Read-only: no audit row, nothing stored. The safety checks run on this live text.
-    .get("/api/projects/:slug/drafts/:id/mail", v("param", sendParam), async (c) => {
-      const { slug, id } = c.req.valid("param");
-      const draft = await repos.drafts.get(id);
-      if (!draft || draft.project !== slug) return notFound(c, "draft");
-      const readAt = (sender?.now?.() ?? new Date()).toISOString();
-      const empty = { from: null, to: [], cc: [], subject: "", body: "", hash: null, safetyResults: [], readAt };
-      if (!deps) return c.json(draftMailDto.parse({ configured: false, found: false, reason: "Reading Mail is not set up on this server.", note: null, ...empty }));
-      // The card's read shows one version even when Mail holds several (P53); such a text has no hash, so it is never Checked.
-      const f = await findMail(deps, draft, "show");
-      if (!f.mail) return c.json(draftMailDto.parse({ configured: true, found: false, reason: f.reason, note: null, ...empty }));
-      const m = f.mail;
-      const safetyResults = await repos.sends.safetyOf(id, { subject: m.subject, toAddr: m.to.join(","), ccAddr: m.cc.join(",") || null, body: m.body }, sender?.now?.());
-      return c.json(draftMailDto.parse({ configured: true, found: true, reason: null, note: f.note ?? null, from: m.sender, to: m.to, cc: m.cc, subject: m.subject, body: m.body, hash: f.note ? null : mailHash(m), safetyResults, readAt }));
     })
     .get("/api/projects/:slug/sends", v("param", slugParam), async (c) =>
       c.json(sendsDto.parse({ sends: await repos.sends.list(c.req.valid("param").slug), stopped: await repos.sends.stoppedScopes() })),

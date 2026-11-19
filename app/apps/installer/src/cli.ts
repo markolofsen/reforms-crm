@@ -28,6 +28,7 @@ import { recordDraft } from "./record-draft";
 import { runPolicyCommand } from "./send/policy-command";
 import { registerSequencesCommands } from "./sequences-command";
 import { runSendCommand } from "./send/command";
+import { runDraftsSweep } from "./drafts/sweep-command";
 import { runGuard, runGuardPost } from "./safety";
 import { c, UsageError } from "./term";
 import { mcpCall } from "./mcp-probe";
@@ -72,7 +73,7 @@ ${c.bold("Examples")}
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, log, send, sequences, connections, backup, uninstall. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, log, send, drafts, sequences, connections, backup, uninstall. Each has its own \`hub <name> --help\`.`);
 // Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
@@ -290,6 +291,14 @@ program.command("send").argument("[draftId]", "the draft to send, or `policy` (s
     if (Number.isNaN(id) || Number.isNaN(cancel)) { console.log(JSON.stringify({ ok: false, error: "draftId and --cancel take a number" })); return done(2); }
     const { cancel: _c, ...rest } = o;
     done(await runSendCommand({ ...rest, ...(id !== undefined ? { draftId: id } : {}), ...(cancel !== undefined ? { cancel } : {}) }, { projectsDir: projectsDir(), policyDir: ctxOf().paths.stateProjects, configFile: ctxOf().paths.configFile }));
+  });
+
+program.command("drafts").argument("<action>", "`sweep`: the Hub's own leftover drafts in Mail (older versions, closed threads, the pre-marker run line) to Trash").description("Mail drafts the Hub wrote (P56). `hub drafts sweep` lists them (dry run); --apply moves them to each account's Trash, recoverable. A draft without a hub line is the owner's and is never listed.")
+  .option("--project <slug>", "one project (default: every project of the instance)")
+  .option("--apply", "move the listed drafts to Trash (default: dry run, nothing moves)")
+  .action(async (action: string, o: { project?: string; apply?: boolean }) => {
+    if (action !== "sweep") { console.log(JSON.stringify({ ok: false, error: `unknown action ${action}: the one action is sweep` })); return done(2); }
+    done(await runDraftsSweep(o, { projectsDir: projectsDir(), policyDir: ctxOf().paths.stateProjects }));
   });
 
 registerProjectCommands(program, projectOptions());

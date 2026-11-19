@@ -18,6 +18,11 @@ describe("send boundary", () => {
     expect(users).toEqual(["features/review/card/use-send-flow.ts"]);
   });
 
+  it("writes a draft's Mail text (Save, Restore: P56) only from the card's one write hook", () => {
+    const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(save|restore)\b/.test(f.text)).map((f) => f.path).sort();
+    expect(users).toEqual(["features/review/mail/use-mail-write.ts"]);
+  });
+
   it("reaches the history, Stop all, Resume and the doctor from the Project screen, and Cancel also from the card", () => {
     const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(list|cancel|stop|resume|doctor)\b/.test(f.text)).map((f) => f.path).sort();
     expect(users).toEqual(["features/project/doctor-panel.tsx", "features/project/sends-panel.tsx", "features/review/card/draft-card.tsx"]);

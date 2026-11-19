@@ -1,4 +1,4 @@
-import { doctorDto, draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
+import { doctorDto, draftChangedDto, draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
 import { read } from "./client";
 
 const base = (project: string) => `/api/projects/${encodeURIComponent(project)}`;
@@ -16,6 +16,10 @@ export const sendApi = {
   },
   /** The draft as Mail holds it now; read-only, never stored. */
   mail: (project: string, draftId: number) => read(draftMailDto, { method: "GET", path: `${base(project)}/drafts/${draftId}/mail` }),
+  /** A person's Save (P56 S1): the text after the hub marker, written over the read whose hash it carries; Checked turns off. */
+  save: (project: string, draftId: number, text: string, hash: string) => read(draftChangedDto, { method: "PUT", path: `${base(project)}/drafts/${draftId}/mail`, body: { text, hash } }),
+  /** Restore (P56 S0): Mail holds no draft for it; the Hub's last copy in Trash is written again. */
+  restore: (project: string, draftId: number) => read(draftChangedDto, { method: "POST", path: `${base(project)}/drafts/${draftId}/mail/restore` }),
   /** The last five messages of the conversation, read from Mail on demand; read-only, never stored. */
   list: (project: string) => read(sendsDto, { method: "GET", path: `${base(project)}/sends` }),
   cancel: (project: string, sendId: number) => read(sendCancelledDto, { method: "POST", path: `/api/sends/${sendId}/cancel`, query: { project } }),

@@ -1,6 +1,6 @@
 import { ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
-import { TONES, type Tone } from "@hub/config";
+import { stripHubMarker, TONES, type Tone } from "@hub/config";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ToggleGroup, ToggleGroupItem } from "@hub/ui/toggle-group";
@@ -9,6 +9,8 @@ import { isClosed, type ReviewDraft } from "../source";
 import type { DraftMailDto } from "@hub/contract/responses";
 import type { ReviewActions } from "../use-review-actions";
 import { mailProblem } from "../mail/tick-guard";
+import { DraftEditor } from "../mail/draft-editor";
+import { MailGone } from "../mail/mail-gone";
 
 const TONE_LABEL: Record<Tone, string> = { short: "Short", standard: "Standard", warm: "Warm" };
 
@@ -23,11 +25,18 @@ type Props = { d: ReviewDraft; project: string; actions: ReviewActions; thread: 
 /** The draft as a document: one addressing line that opens, the versions, the paper surface, the thread under it. */
 export function DraftBlock({ d, project, actions, thread, onThread, confirmed, live, onRead, reading }: Props) {
   const [open, setOpen] = useState(false);
+  // What the editor opened from: the text and its hash, kept while live reads come and go (P56 S1).
+  const [editing, setEditing] = useState<{ text: string; hash: string } | null>(null);
   const closed = isClosed(d);
   const tones = TONES.filter((t) => d.toneBodies[t] !== undefined);
   const readable = live?.found ? live : null;
   const unreadable = live?.configured === true && !live.found;
-  const body = confirmed ?? readable?.body ?? d.body;
+  const gone = unreadable ? (live.gone ?? null) : null;
+  // The first-line hub marker is the Hub's own and the send removes it (P56 S2): the card never shows it.
+  const body = stripHubMarker(confirmed ?? readable?.body ?? d.body);
+  // The owner edits only a text Mail holds exactly once (a hash), on an open draft written to Mail (P56 S1).
+  const editable = readable?.hash ? { hash: readable.hash } : null;
+  const canEdit = editable !== null && !closed && d.status === "ready" && d.batchId === null && confirmed === null;
   return (
     <section aria-label="Draft" className="flex min-w-0 flex-col gap-2">
       <div className="flex min-w-0 items-center gap-2">
@@ -61,7 +70,8 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
           </ToggleGroup>
         )}
       </div>
-      {unreadable && (
+      {gone && <MailGone draftId={d.id} project={project} trashRef={gone.trashRef} />}
+      {unreadable && !gone && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <p className="text-sm text-warning-foreground" data-testid="mail-unreadable">{mailProblem(live?.reason)}. Open it in Mail.</p>
           {onRead && (
@@ -76,7 +86,10 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
           {live.note}
         </p>
       )}
-      {body === "" ? (
+      {live?.found && live.aside && <p className="text-muted-foreground text-sm">{live.aside}</p>}
+      {editing !== null ? (
+        <DraftEditor draftId={d.id} hash={editing.hash} liveHash={readable?.hash ?? null} onClose={() => setEditing(null)} project={project} text={editing.text} />
+      ) : body === "" ? (
         !unreadable && <p className="text-muted-foreground text-sm">The text of this mail is not stored here. Open it in Mail.</p>
       ) : (
         <div className="rounded-lg border bg-card p-4">
@@ -85,9 +98,16 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
           <pre className="whitespace-pre-wrap break-words font-sans text-base sm:text-sm">{body}</pre>
         </div>
       )}
-      <ActionButton aria-expanded={thread} className="self-start" onClick={onThread} size="s" variant="quiet">
-        {thread ? "Hide thread" : "Thread"}
-      </ActionButton>
+      <div className="flex flex-wrap items-center gap-2">
+        {editable && canEdit && editing === null && (
+          <ActionButton onClick={() => setEditing({ text: body, hash: editable.hash })} size="s" variant="quiet">
+            Edit
+          </ActionButton>
+        )}
+        <ActionButton aria-expanded={thread} onClick={onThread} size="s" variant="quiet">
+          {thread ? "Hide thread" : "Thread"}
+        </ActionButton>
+      </div>
       {thread && <ThreadPanel clientId={d.clientId} project={project} />}
     </section>
   );

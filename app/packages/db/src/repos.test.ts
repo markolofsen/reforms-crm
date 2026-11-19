@@ -321,10 +321,15 @@ describe("recorded evidence (P28 C1-C3)", () => {
     expect((await repos.clients.counts("p")).thin_basis).toBe(1);
   });
 
-  it("marker_left is a red typed check when the text still carries the hub marker", async () => {
-    const id = await repos.drafts.create({ project: "p", clientId: await repos.clients.create({ project: "p", email: "m@x.example", name: "M" }), subject: "Re", toAddr: "m@x.example", body: "[hub-draft thread=<t@x>]\nHello", status: "ready" });
-    const [row] = (await repos.clients.review("p", "all"));
-    expect(row?.safetyResults.find((x) => x.kind === "marker_left")).toMatchObject({ level: "red" });
-    expect(id).toBeGreaterThan(0);
+  it("marker_left: the first-line marker is the send's to remove (P56 S2); a hub line elsewhere and the legacy run line stay red", async () => {
+    const mk = async (email: string, body: string) => repos.drafts.create({ project: "p", clientId: await repos.clients.create({ project: "p", email, name: "M" }), subject: "Re", toAddr: email, body, status: "ready" });
+    await mk("a@x.example", "\n[hub-draft thread=<t@x>]\nHello");
+    await mk("b@x.example", "Hello\n[hub-draft thread=<t@x>]\nbye");
+    await mk("c@x.example", "[Reforms draft, run 07a63131a4d4. Sources: none. Delete this line before sending.]\nHello");
+    const rows = await repos.clients.review("p", "all");
+    const red = (email: string) => rows.find((r) => r.client.email === email)?.safetyResults.find((x) => x.kind === "marker_left")?.level ?? null;
+    expect(red("a@x.example")).toBeNull();
+    expect(red("b@x.example")).toBe("red");
+    expect(red("c@x.example")).toBe("red");
   });
 });

@@ -49,6 +49,8 @@ export type SafetyRuleBody = z.infer<typeof safetyRuleBody>;
 // the server refuses it when Mail's draft no longer matches. The route is the only place the admin can send from.
 export const slugParam = z.object({ slug: project });
 export const sendParam = z.object({ slug: project, id: z.coerce.number().int().positive() });
+/** A person's Save of the draft's text (P56 S1): the whole text after the hub marker, and the hash of the read it was edited from. */
+export const draftEditBody = z.strictObject({ text: z.string().min(1).max(20_000), hash: z.string().min(1).max(128) });
 export const sendBody = z.discriminatedUnion("apply", [
   z.object({ apply: z.literal(false) }),
   // `ticket` (P49 S12): minted by POST /api/sends/tickets for this draft, single use. Optional here so a missing one is the route's 403, not a 400.

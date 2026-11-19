@@ -310,10 +310,33 @@ export function unresolvedMarkers(text: string): string[] {
   return text.match(/\{\{[^}]*\}\}|\{[a-z][a-z0-9_]*\}|\[[A-Z][\w ]*:[^\]]*\]/g) ?? [];
 }
 
-/** The first line of every agent draft: `[hub-draft thread=<Message-ID>]`. It makes a rerun skip the client; the owner deletes it before sending. */
+/** The first line of every agent draft: `[hub-draft thread=<Message-ID>]`. It makes a rerun skip the client; the hub's send removes it (P56 S2). */
 export const HUB_DRAFT_MARKER = /\[hub-draft\b[^\]\n]*\]/i;
 
-/** The marker line still in the text (P27 M1.3): a draft that carries it must not be sent. Pure; null when there is none. */
+/** The first line of a hub draft written before the marker existed (14 Nov 2026): `[Reforms draft, run <hex>. ... Delete this line before sending.]`. */
+export const LEGACY_RUN_LINE = /\[Reforms draft, run [0-9a-f]{6,}\b[^\]\n]*\]/i;
+
+/** A hub line still in the text (P27 M1.3; the legacy run line since P56): a draft that carries one must not be sent. Pure; null when there is none. */
 export function markerLeft(text: string): string | null {
-  return text.match(HUB_DRAFT_MARKER)?.[0] ?? null;
+  return text.match(HUB_DRAFT_MARKER)?.[0] ?? text.match(LEGACY_RUN_LINE)?.[0] ?? null;
+}
+
+/**
+ * Who wrote a Mail draft, judged by its text only (P56): the first non-empty line is this thread's marker (`marked`, the
+ * thread bare and lowercased like `mailRef`), or the legacy run line (`legacy`); anything else is the owner's (null).
+ * Every removal of a Mail draft by the hub asks this first: subject, recipient and account never qualify a draft.
+ */
+export type HubAuthorship = { kind: "marked"; thread: string; line: string } | { kind: "legacy"; line: string } | null;
+
+export function hubAuthorship(text: string): HubAuthorship {
+  const first = text.split(/\r?\n/).find((l) => l.trim() !== "")?.trim() ?? "";
+  const m = /^\[hub-draft thread=([^\]\s]+)\]/i.exec(first);
+  if (m?.[1]) return { kind: "marked", thread: m[1].replace(/^<|>$/g, "").toLowerCase(), line: m[0] };
+  const l = LEGACY_RUN_LINE.exec(first);
+  return l && l.index === 0 ? { kind: "legacy", line: l[0] } : null;
+}
+
+/** The text without its leading blank lines and the hub marker line, when the first non-empty line is one (P56 S2); else unchanged. */
+export function stripHubMarker(text: string): string {
+  return hubAuthorship(text)?.kind === "marked" ? text.replace(/^(?:[ \t]*\r?\n)*[ \t]*\[hub-draft thread=[^\]\n]*\][ \t]*(?:\r?\n)?/i, "") : text;
 }
