@@ -91,7 +91,10 @@ function useFocus() {
  * (open, width, active tab; read after mount, so the first render is closed). A saved "open" is restored only from 1024px;
  * below that the person opens it. Ctrl+` toggles it from anywhere, the terminal included.
  */
-export function useTerminalModel(project: string | null): TerminalModel {
+export function useTerminalModel(place: string | null | undefined): TerminalModel {
+  // `undefined`: the shell does not know the project yet; nothing starts by itself until it does.
+  const known = place !== undefined;
+  const project = place ?? null;
   const qc = useQueryClient();
   const q = useQuery({ queryKey: TERMINAL_KEY, queryFn: terminalApi.state });
   const state = q.data ?? null;
@@ -162,7 +165,7 @@ export function useTerminalModel(project: string | null): TerminalModel {
   // leave an empty column): this project's session gets the focus, else the server starts its pick, once per page load.
   useAutoStart({
     open,
-    ready: state !== null,
+    ready: state !== null && known,
     project,
     fresh: () => qc.fetchQuery({ queryKey: TERMINAL_KEY, queryFn: terminalApi.state, staleTime: 0 }).then((s) => s?.sessions ?? [], () => sessions),
     ensure: () => ensuring.mutate(),

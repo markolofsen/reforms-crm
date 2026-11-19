@@ -16,7 +16,8 @@ import { TerminalContext, useTerminal, useTerminalModel } from "./use-terminal";
 // height); below 640px the strip would take a column from a 360px screen, so the phone's top line holds the one button instead.
 // With `terminal.enabled` off (the state says `enabled: false`) none of them renders anything and the chord is not registered.
 
-export function TerminalProvider({ project, children }: { project: string | null; children: ReactNode }) {
+/** `project` is `undefined` while the shell does not know it yet (the automatic start waits). */
+export function TerminalProvider({ project, children }: { project: string | null | undefined; children: ReactNode }) {
   return <TerminalContext value={useTerminalModel(project)}>{children}</TerminalContext>;
 }
 

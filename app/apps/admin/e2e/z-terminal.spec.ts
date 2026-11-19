@@ -257,12 +257,14 @@ test("terminal: a restored open column whose sessions were closed starts one by 
 });
 
 test("terminal: two admin pages opening the column at once get one session (P57 2d)", async ({ page, context }) => {
-  await page.goto(at(P, "/drafts"));
+  // Both pages load with the column remembered open, so both call `ensure` as they come up. (Clicking both strips does not
+  // work: the pages share localStorage, so the first click opens the other page's column too and its strip is gone.)
+  await context.addInitScript(() => window.localStorage.setItem("hub.terminal", "open"));
   const other = await context.newPage();
-  await other.goto(at(P, "/drafts"));
-  await Promise.all([page.locator('ul[aria-label="Drafts"] > li').first().waitFor(), other.locator('ul[aria-label="Drafts"] > li').first().waitFor()]);
-  await Promise.all([toggle(page).click(), toggle(other).click()]);
+  await Promise.all([page.goto(at(P, "/drafts")), other.goto(at(P, "/drafts"))]);
+  await Promise.all([expect(dock(page)).toBeVisible(), expect(dock(other)).toBeVisible()]);
   await expect.poll(async () => (await sessions(page)).length, { timeout: 15_000 }).toBe(1);
+  expect((await sessions(page)).map((s) => [s.preset, s.project])).toEqual([["claude", P]]);
   await other.close();
   expect(await sessions(page)).toHaveLength(1);
 });

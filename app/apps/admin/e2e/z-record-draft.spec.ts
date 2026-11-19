@@ -33,8 +33,9 @@ test("a draft recorded by the CLI shows on the Drafts screen, once, with an Open
   await row.getByRole("button").first().click();
   const card = cardOf(page, "Nora Newcomer");
   await expect(card.getByRole("link", { name: /Open in Mail/ })).toHaveAttribute("href", "message://%3Cquote-1%40example.com%3E");
-  // The text of the mail is not stored, so there is nothing to copy.
-  await expect(card.getByText(/The text of this mail is not stored here|Mail could not be read/)).toBeVisible();
+  // The text of the mail is not stored, so there is nothing to copy. The fake Mailer holds no draft for this client, which since
+  // P56 S0 (v0.12.7) is the gone line (`mail/mail-gone.tsx`), not "not stored here": the Mail draft is missing and Trash has no Hub copy.
+  await expect(card.getByText(/The Mail draft was deleted|The text of this mail is not stored here|Mail could not be read/)).toBeVisible();
   await expect(card.getByRole("button", { name: /Reply in Mail/ })).toHaveCount(0);
 
   // Mail holds no draft for it, so the text cannot be judged: there is no Checked switch (P27 M3.1), but Done (handled in Mail) works.

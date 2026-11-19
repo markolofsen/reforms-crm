@@ -10,6 +10,7 @@ import { AgentFeedContext, useAgentFeed } from "@/features/agent-feed/use-agent-
 import { useTurnSound } from "@/features/agent-feed/use-turn-sound";
 import { useFocusPublisher } from "@/features/focus/use-focus-publisher";
 import { TerminalDock, TerminalProvider } from "@/features/terminal/terminal";
+import { terminalProjectOf } from "@/features/terminal/use-auto-start";
 import { useGo } from "@/hooks/use-go";
 import { PlaceContext, ProjectScopeContext, useEnsureAddress, type ProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
@@ -57,7 +58,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   const scoped = route.section === "overview" || route.section === "connections" ? null : project;
   return (
     <PlaceContext value={place}>
-      <Shell brand={brand} onProject={(p) => void onProject(p)} project={scoped} projects={list} route={route} terminalProject={multi ? scoped : project}>
+      <Shell brand={brand} onProject={(p) => void onProject(p)} project={scoped} projects={list} route={route} terminalProject={terminalProjectOf({ loaded: projects.isSuccess, pending, project, multi, scoped })}>
         <h2 className="sr-only">{heading}</h2>
         {projects.isPending || pending ? (
           <Page>
@@ -84,9 +85,9 @@ export function ShellFrame({ children }: { children: ReactNode }) {
  * and Connections have none (Shell only); with one, the whole admin is that project, so the terminal has it there too (P57 2l).
  * The agent feed (P59) follows the terminal's project: its rows in the sidebar's footer, its wait on the strip's dot, its tones.
  */
-function Shell({ project, terminalProject, ...props }: Omit<Parameters<typeof AppShell>[0], "items" | "dock"> & { project: string | null; terminalProject: string | null }) {
+function Shell({ project, terminalProject, ...props }: Omit<Parameters<typeof AppShell>[0], "items" | "dock"> & { project: string | null; terminalProject: string | null | undefined }) {
   const items = useNavWithDots(project);
-  const feed = useAgentFeed(terminalProject);
+  const feed = useAgentFeed(terminalProject ?? null);
   useTurnSound(feed);
   return (
     <TerminalProvider project={terminalProject}>

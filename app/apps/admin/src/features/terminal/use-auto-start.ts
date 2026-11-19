@@ -10,6 +10,17 @@ export function sessionFor(list: readonly TerminalSessionDto[], project: string 
 }
 
 /**
+ * The project the terminal follows, or `undefined` while the shell does not know it yet (the projects list is loading, or the
+ * address is on its way to its canonical form). v0.12.9 live bug: a column restored open after a restart read the terminal
+ * state before the projects, so the automatic start ran with no project and the server rightly picked Shell; now it waits.
+ * With two or more projects, Overview and Connections have none (`scoped` is null there): Shell is right.
+ */
+export function terminalProjectOf(o: { loaded: boolean; pending: boolean; project: string | null; multi: boolean; scoped: string | null }): string | null | undefined {
+  if (!o.loaded || o.pending) return undefined;
+  return o.multi ? o.scoped : o.project;
+}
+
+/**
  * The column starts its session by itself (P57 2a, 2e, 2g, 2h): each time it becomes visible (the strip, Ctrl+`, the phone's
  * button, or a column restored open from storage) the list is read fresh; a session of the address's project gets the focus,
  * else the server's pick starts (`ensure`), at most once per project per page load. A hidden page waits until it is shown, so a
@@ -17,7 +28,7 @@ export function sessionFor(list: readonly TerminalSessionDto[], project: string 
  */
 export function useAutoStart(o: {
   open: boolean;
-  /** The terminal is on and its state was read. */
+  /** The terminal is on, its state was read and the address's project is known (`terminalProjectOf`). */
   ready: boolean;
   project: string | null;
   /** The list, read fresh (`staleTime: 0`); the cached one when the read fails. */

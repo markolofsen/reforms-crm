@@ -35,9 +35,9 @@ const spawn: PtySpawn = (file, args, o) => {
 const config = (cfg: Record<string, unknown>) => writeFileSync(paths.configFile, JSON.stringify(cfg));
 const fact = (cli: "claude" | "codex", state: CliFact["state"]): CliFact => ({ cli, state, path: `/u/bin/${cli}`, version: state === "missing" ? null : "1.0.0", detail: `${cli} ${state}`, fix: state === "ready" ? null : `fix ${cli}` });
 let detects = 0;
-function setup(o: { now?: () => number; facts?: CliFact[] } = {}) {
+function setup(o: { now?: () => number; facts?: CliFact[]; detectMs?: number } = {}) {
   // Never the real login shell here: the detector answers the facts given (both ready by default) and counts its runs.
-  const detector = cliDetector({ detect: async () => { detects++; return o.facts ?? [fact("claude", "ready"), fact("codex", "ready")]; } });
+  const detector = cliDetector({ detect: async () => { detects++; if (o.detectMs) await new Promise((r) => setTimeout(r, o.detectMs)); return o.facts ?? [fact("claude", "ready"), fact("codex", "ready")]; } });
   const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { PATH: "/usr/bin", SHELL: "/bin/zsh", HUB_MAILER: "fake", HUB_DB: "/x.db", LANG: "C" }, nodeBin: "/n22/bin/node", tickets: ticketStore({ ttlMs: 30_000, ...(o.now ? { now: o.now } : {}) }), detector });
   const app = createApp(repos, { terminal, adminPort: ADMIN_PORT });
   const call = (method: string, p: string, body?: unknown, headers: Record<string, string> = ADMIN) => app.request(`${API}${p}`, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -186,6 +186,16 @@ describe("ensure (P57): the column starts the best ready CLI itself, at most one
     expect(await b.json()).toMatchObject({ created: false, session: { preset: "claude" } });
     expect(spawned).toHaveLength(1);
     expect(argvCli(0)).toBe("claude");
+  });
+  it("on a cold detector (server just started, detection still running) ensure waits for it and starts Claude Code, not Shell", async () => {
+    const { call, terminal } = setup({ detectMs: 300 });
+    const before = detects;
+    terminal.warm(); // the start-up detection, still running when the first ensure arrives
+    expect(terminal.detector.peek()).toBeNull();
+    const r = await call("POST", "/api/terminal/ensure", { project: "acme" });
+    expect(await r.json()).toMatchObject({ created: true, why: null, session: { preset: "claude", project: "acme" } });
+    expect(detects - before).toBe(1); // joined the running detection, not a second one
+    expect(argvCli(spawned.length - 1)).toBe("claude");
   });
   it("two ensures at once spawn once (single flight per project)", async () => {
     const { call } = setup();
