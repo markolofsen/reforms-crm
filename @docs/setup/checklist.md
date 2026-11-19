@@ -57,7 +57,7 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 ## Instance
 
 - [ ] **Instance matches the core** (`instance.core`)
-  - Proves: `core.version` exists and names the core in use (core clean at that commit; WARN when the core checkout has newer `vX.Y.Z` tags than the pin, counted from local tags with no fetch), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills.
+  - Proves: `core.version` exists and names the core in use (core clean at that commit), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills. Newer cores: the server's last update check (`state/core-update.json`, P68) when it is about this pin: WARN for an update recommended or required, PASS with a note for a patch (update available) or a followed branch, never FAIL for an origin that did not answer; with no such answer, WARN when the core checkout has newer `vX.Y.Z` tags than the pin (local tags, no fetch). The doctor itself reads no network.
 - [ ] **Open buttons reach Finder** (`local.open`)
   - Proves: This is macOS and `/usr/bin/open` exists: PASS. Otherwise WARN (the Open buttons are hidden and `hub open` exits 2); never a failure, since nothing else depends on it.
 ## Admin

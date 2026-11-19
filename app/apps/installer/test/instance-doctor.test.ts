@@ -7,7 +7,8 @@ import { hubPaths } from "@hub/config/paths";
 import { makeCtx } from "../src/context";
 import { syncInstanceSkills } from "../src/instance-skills";
 import { INSTANCE_MARKER } from "@hub/config/paths";
-import { checkInstance } from "../src/steps/instance";
+import { writeCoreUpdateCache, type CoreUpdate } from "@hub/config/core-version";
+import { checkInstance, coreUpdateNote } from "../src/steps/instance";
 import { STEPS } from "../src/steps/index";
 
 // Decision 0016, phase S4: `hub doctor` compares the instance with the core. Fixtures: throw-away folders, a throw-away git
@@ -137,5 +138,43 @@ describe("hub doctor: instance against core", () => {
     const out = await checkInstance(ctxOf(linked(r)));
     expect(out.level).toBe("warn");
     expect(out.detail).toContain("not a git checkout");
+  });
+});
+
+describe("instance.core reads the server's core update check (P68 verdict 8)", () => {
+  const answer = (r: Rig, over: Partial<CoreUpdate>): CoreUpdate => ({ pin: r.pin.slice(0, 9), inUse: r.pin.slice(0, 9), newest: "v0.12.12", level: "available", reason: "1 newer release (patch)", tags: [], facts: { dependencies: false, migrations: false, rollback: false }, command: [], checkedAt: new Date(Date.now() - 2 * 3600_000).toISOString(), ...over });
+  const cache = (r: Rig, over: Partial<CoreUpdate>) => writeCoreUpdateCache(hubPaths({ core: r.core, home: r.home, env: {} }).coreUpdate, answer(r, over));
+  it("recommended and required: WARN with the origin's tag, the reason and when it was checked", async () => {
+    for (const level of ["recommended", "required"] as const) {
+      const r = linked(rig());
+      cache(r, { level, reason: "v0.13.0 is a new minor version (1 newer release); database migrates", newest: "v0.13.0" });
+      const out = await checkInstance(ctxOf(r));
+      expect(out.level).toBe("warn");
+      expect(out.detail).toContain(`origin has v0.13.0, update ${level}: v0.13.0 is a new minor version (1 newer release); database migrates (checked 2 h ago)`);
+      expect(out.detail).toContain("`hub core update v0.13.0 --apply`");
+    }
+  });
+  it("available (a patch) and follows: PASS with a note, so setup reports no open item", async () => {
+    const r = linked(rig());
+    cache(r, {});
+    const out = await checkInstance(ctxOf(r));
+    expect(out.level, out.detail).toBe("pass");
+    expect(out.detail).toContain("origin has v0.12.12, update available: 1 newer release (patch) (checked 2 h ago)");
+    cache(r, { level: "follows", reason: "follows main: 3 commit(s) behind origin/main" });
+    expect(await checkInstance(ctxOf(r))).toMatchObject({ level: "pass", detail: expect.stringContaining("follows main: 3 commit(s) behind") });
+  });
+  it("an origin that did not answer is a note on a PASS, never a failure", async () => {
+    const r = linked(rig());
+    cache(r, { level: "current", reason: "x is the newest release", error: { at: new Date().toISOString(), message: "origin unreachable: Could not resolve host" } });
+    const out = await checkInstance(ctxOf(r));
+    expect(out.level).toBe("pass");
+    expect(out.detail).toContain("the last check failed: origin unreachable: Could not resolve host");
+  });
+  it("an answer about another pin is ignored: the local tags speak", async () => {
+    const r = linked(rig());
+    cache(r, { pin: "v0.0.1", level: "required" });
+    expect((await checkInstance(ctxOf(r))).level).toBe("pass");
+    expect(coreUpdateNote(answer(r, { level: "unknown" }), Date.now())).toBeUndefined();
+    expect(coreUpdateNote(answer(r, { level: "current" }), Date.now())).toBeUndefined();
   });
 });

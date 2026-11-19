@@ -2,7 +2,7 @@ import { existsSync, lstatSync, readdirSync, readlinkSync, realpathSync } from "
 import path from "node:path";
 import type { Ctx } from "../context";
 import { coreSkills, linksIntoCore } from "../instance-skills";
-import { readCoreVersion, sortVersions } from "@hub/config/core-version";
+import { currentCoreUpdate, readCoreVersion, sortVersions, type CoreUpdate } from "@hub/config/core-version";
 import { INSTANCE_MARKER } from "@hub/config/paths";
 import type { CheckResult, Step } from "../types";
 import { fail, pass, warn } from "./helpers";
@@ -48,12 +48,35 @@ async function newerTags(ctx: Ctx, pinCommit: string): Promise<string[]> {
   return (await list("--contains")).filter((v) => !at.has(v));
 }
 
+/** "3 h ago" for the doctor's line (no clock injected: the doctor reads the wall clock like its own timings). */
+const agoText = (iso: string, nowMs: number): string => {
+  const min = Math.max(0, Math.floor((nowMs - Date.parse(iso)) / 60_000));
+  return min < 1 ? "just now" : min < 120 ? `${min} min ago` : min < 48 * 60 ? `${Math.floor(min / 60)} h ago` : `${Math.floor(min / 1440)} d ago`;
+};
+
+/**
+ * P68 verdict 8: what the server's last core update check said, as the doctor's words. `warn` for recommended and required, a
+ * note on a PASS for a patch or a branch, nothing for current; a failed check is a note, never a failure. Undefined: no answer for
+ * this pin yet (the local tags speak instead). No network: the server checks, `hub core update` fetches.
+ */
+export function coreUpdateNote(u: CoreUpdate, nowMs: number): { level: "warn" | "note"; text: string } | undefined {
+  if (u.level === "unknown") return undefined;
+  const when = u.checkedAt ? `checked ${agoText(u.checkedAt, nowMs)}` : "not checked";
+  const failed = u.error ? `; the last check failed: ${u.error.message}` : "";
+  if (u.level === "recommended" || u.level === "required") return { level: "warn", text: `origin has ${u.newest}, update ${u.level}: ${u.reason} (${when}${failed}): \`hub core update ${u.newest} --apply\` moves the pin` };
+  if (u.level === "available") return { level: "note", text: `origin has ${u.newest}, update available: ${u.reason} (${when}${failed})` };
+  if (u.level === "follows") return { level: "note", text: `${u.reason} (${when}${failed})` };
+  return u.error ? { level: "note", text: `up to date as of the last good check (${when}${failed})` } : undefined;
+}
+
 const brief = (xs: string[]): string => (xs.length > 4 ? `${xs.slice(0, 4).join(", ")} and ${xs.length - 4} more` : xs.join(", "));
 
 export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
   const { paths } = ctx;
   const problems: string[] = [];
   const notes: string[] = [];
+  /** Said on a PASS too (P68: a patch on origin must not make `setup` report an open item). */
+  const infos: string[] = [];
 
   // 1. The pin: present, and the core in use is that version.
   const ver = readCoreVersion(paths.home);
@@ -72,7 +95,9 @@ export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
       if (head !== want.stdout.trim()) problems.push(`core is at ${head.slice(0, 9)} but ${INSTANCE_MARKER} pins ${ver}: check out the pin, or move the pin and commit it alone`);
       const dirty = await git(ctx, paths.core, ["status", "--porcelain", "--untracked-files=no"]);
       if (dirty.code === 0 && dirty.stdout.trim()) problems.push("core has uncommitted changes: an instance never edits core");
-      const newer = await newerTags(ctx, want.stdout.trim());
+      const remote = coreUpdateNote(currentCoreUpdate(paths), Date.now());
+      const newer = remote ? [] : await newerTags(ctx, want.stdout.trim());
+      if (remote) (remote.level === "warn" ? notes : infos).push(remote.text);
       if (newer.length) notes.push(`core is behind: ${newer.length} newer tag(s) (latest ${newer.at(-1)}, from the tags this core checkout already has): \`hub core update\` fetches and lists them, \`hub core update ${newer.at(-1)} --apply\` moves the pin`);
     }
   }
@@ -96,16 +121,16 @@ export async function checkInstance(ctx: Ctx): Promise<CheckResult> {
   const unlinked = coreSkills(paths).filter((n) => !existsSync(path.join(paths.claudeSkills, n)));
   if (unlinked.length && !dangling.length) notes.push(`${unlinked.length} core skill(s) not linked yet in .claude/skills: \`hub agent\` links them`);
 
-  if (problems.length) return fail([...problems, ...notes].join("; "));
-  if (notes.length) return warn(notes.join("; "));
-  return pass(`core ${ver} in use; no core file in the instance, no instance file in the core`);
+  if (problems.length) return fail([...problems, ...notes, ...infos].join("; "));
+  if (notes.length) return warn([...notes, ...infos].join("; "));
+  return pass([`core ${ver} in use; no core file in the instance, no instance file in the core`, ...infos].join("; "));
 }
 
 export const instanceSteps: Step[] = [
   {
     id: "instance.core", group: "Instance", title: "Instance matches the core",
     why: "An owner's instance (`HUB_HOME`) and the core code are separate repositories. The instance states the core version it runs on in ONE file; neither side may hold the other's files.",
-    verifies: "`core.version` exists and names the core in use (core clean at that commit; WARN when the core checkout has newer `vX.Y.Z` tags than the pin, counted from local tags with no fetch), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills.",
+    verifies: "`core.version` exists and names the core in use (core clean at that commit), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills. Newer cores: the server's last update check (`state/core-update.json`, P68) when it is about this pin: WARN for an update recommended or required, PASS with a note for a patch (update available) or a followed branch, never FAIL for an origin that did not answer; with no such answer, WARN when the core checkout has newer `vX.Y.Z` tags than the pin (local tags, no fetch). The doctor itself reads no network.",
     check: checkInstance,
   },
   {
