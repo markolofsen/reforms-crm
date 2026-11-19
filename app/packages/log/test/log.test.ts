@@ -108,6 +108,17 @@ describe("the Codex rollout import", () => {
     const ev = rolloutEvents(lines.join("\n"), { project: "a", session: "s" });
     expect(ev.map((e) => [e.kind, e.corr, e.turn, e.data.tool])).toEqual([["tool_call", "c1", "t1", "mcp__mail-mcp__find_messages"], ["tool_result", "c1", "t1", "mcp__mail-mcp__find_messages"], ["tool_call", "c2", "t1", "exec"]]);
   });
+  it("code mode: a script that calls a mail tool keeps its code and output as hashes; the tools it names are kept", () => {
+    const code = 'const r = await tools.mcp__mail_mcp_placeholder({}); await tools.mcp__mail-mcp__get_message_content({id: 1});';
+    const ev = rolloutEvents([
+      JSON.stringify({ type: "response_item", payload: { type: "custom_tool_call", name: "exec", input: code, call_id: "x1" } }),
+      JSON.stringify({ type: "response_item", payload: { type: "custom_tool_call_output", call_id: "x1", output: "Dear Mark, the price is 100 EUR" } }),
+      JSON.stringify({ type: "response_item", payload: { type: "custom_tool_call", name: "exec", input: "await tools.mcp__hub__focus({})", call_id: "x2" } }),
+    ].join("\n"), { project: "a", session: "s" });
+    expect(ev[0]?.data).toMatchObject({ tool: "exec", input: { code: hashed(code) }, via: expect.arrayContaining(["mcp__mail-mcp__get_message_content"]) });
+    expect(JSON.stringify(ev[1]?.data)).not.toContain("price");
+    expect(ev[2]?.data).toMatchObject({ input: "await tools.mcp__hub__focus({})", via: ["mcp__hub__focus"] });
+  });
   it("imports each line once, from a cursor; the output of an earlier call keeps its tool name", () => {
     const s = storeOf();
     const file = path.join(s.secrets, "..", "rollout.jsonl");
