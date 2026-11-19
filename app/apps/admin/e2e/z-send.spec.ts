@@ -42,9 +42,9 @@ test("Send needs the checks read, shows the exact mail to confirm, can be cancel
   // Cancel: nothing happened
   await card.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(confirm).toHaveCount(0);
-  await page.goto("/settings");
-  await expect(page.getByTestId("sending-status")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Sends" })).toHaveCount(0); // no send, no Sends table
+  // The send history is Activity ▸ Sends (UX pass 2026-11-20): no send yet, so it says so.
+  await page.goto("/log?filter=sends");
+  await expect(page.getByText("No sends yet")).toBeVisible();
 
   // now really (to the fake) send
   const again = await openRead(page, "Sofia Teste");
@@ -52,8 +52,8 @@ test("Send needs the checks read, shows the exact mail to confirm, can be cancel
   await again.getByRole("button", { name: "Send to Sofia" }).click();
   await expect(cards(page).filter({ hasText: "Sofia Teste" }).getByRole("img", { name: "Sent" })).toBeVisible();
 
-  // the history shows the row with its full text
-  await page.goto("/settings");
+  // the history (Activity ▸ Sends) shows the row
+  await page.goto("/log?filter=sends");
   const row = page.getByRole("table", { name: "Sends" }).locator("tr[data-send]").first();
   await expect(row).toContainText("By hand");
   await expect(row).toContainText("sofia@example.com");

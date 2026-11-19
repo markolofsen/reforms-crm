@@ -31,7 +31,8 @@ export interface InspectInput {
   telegram?: { state: string; project?: string; reason?: string };
 }
 
-const NOTION_NOTE = "Used by the project doctor's database check and the Notion backups. Agent sessions do not need it: they use the Notion connector signed in inside Claude.";
+/** One line of purpose (UX pass 2026-11-20): what the key is for, and that the agent's own Notion sign-in is another thing. */
+const NOTION_NOTE = "For the setup check of the Notion databases and the backups; agent sessions sign in to Notion on their own.";
 
 /** The state of a stored token file, with its shape check. */
 function tokenState(dir: string, file: string, shapeOk: (v: string) => boolean): ConnectionRow["secret"] {
@@ -67,7 +68,8 @@ function telegramRow(i: InspectInput): ConnectionRow {
   const secret = tokenState(i.dir, TELEGRAM_FILE, isTelegramToken);
   const t = i.telegram;
   const poller = t ? (t.state === "running" ? `Poller running${t.project ? ` for ${t.project}` : ""}.` : `Poller ${t.state}${t.reason ? `: ${t.reason}` : ""}.`) : undefined;
-  const note = [problemNote(secret.state), secret.state === "stored" ? "A new token applies on the next server start." : undefined, poller, "Use a new bot made in BotFather, never a bot that has a webhook."].filter(Boolean).join(" ");
+  // Without a token the poller is off by definition: the row says "Not set", so only the one rule for a new key is said (UX pass).
+  const note = secret.state === "missing" ? "Use a new bot made in BotFather, never one that has a webhook." : [problemNote(secret.state), secret.state === "stored" ? "A new token applies on the next server start." : undefined, poller].filter(Boolean).join(" ");
   return { id: TELEGRAM_ID, kind: "telegram", label: KIND_LABEL.telegram, secret, identity: null, usedBy: t?.project ? [t.project] : [], can: actions(secret.state), note };
 }
 

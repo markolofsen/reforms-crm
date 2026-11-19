@@ -6,17 +6,20 @@ import { Page } from "@hub/ui/product/page";
 import { EmptyState, ListSkeleton, LoadFailed, Loading, StaleNote } from "@/components/state-views";
 import { useSearchState } from "@/hooks/use-search-state";
 import { metaApi } from "@/lib/api/meta";
-import type { RunFilter } from "@/routes/search";
+import { useSends } from "@/lib/status";
+import type { ActivityView, RunFilter } from "@/routes/search";
 import { FilterMenu } from "./filter-menu";
+import { SendsView } from "./sends-table";
 import { SessionDetail, SessionHint, SessionMissing } from "./session-detail";
 import { SessionRows, SessionTable } from "./session-list";
 import { useNewRows } from "./use-new-rows";
 import { keys } from "@/lib/cache/keys";
 
-type Props = { project: string; filter: RunFilter; run: number | null };
+type Props = { project: string; filter: ActivityView; run: number | null };
+type SessionProps = { project: string; filter: RunFilter; run: number | null };
 
-/** The table side: the View menu in the header line, then the sessions, in each of the four states of a list. */
-function Sessions({ project, filter, run }: Props) {
+/** The sessions of a view, in each of the four states of a list. */
+function Sessions({ project, filter, run }: SessionProps) {
   const setFilter = useSearchState("filter")[1];
   const q = useQuery({ queryKey: keys.activity(project, filter), queryFn: () => metaApi.activity(project, filter), placeholderData: keepPreviousData });
   const data = q.data;
@@ -39,18 +42,31 @@ function Sessions({ project, filter, run }: Props) {
     </>
   );
   return (
-    <Page actions={<FilterMenu counts={data?.counts} onChange={setFilter} value={filter} />}>
+    <>
       <p className="sr-only" data-testid="activity-new" role="status">
         {fresh}
       </p>
       {body}
       {q.isError && data && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
+    </>
+  );
+}
+
+/** The list side: the View menu in the header line (the session views' counts are the server's; Sends counts the sends), then the view. */
+function List({ project, filter, run }: Props) {
+  const setFilter = useSearchState("filter")[1];
+  // The counts of the session views come with any view's reply; on Sends the All reply carries them (one key, cached).
+  const runs = useQuery({ queryKey: keys.activity(project, filter === "sends" ? "all" : filter), queryFn: () => metaApi.activity(project, filter === "sends" ? "all" : filter), placeholderData: keepPreviousData });
+  const sends = useSends(project);
+  return (
+    <Page actions={<FilterMenu counts={runs.data?.counts} onChange={setFilter} sends={sends.data?.sends.length} value={filter} />}>
+      {filter === "sends" ? <SendsView project={project} /> : <Sessions filter={filter} project={project} run={run} />}
     </Page>
   );
 }
 
 /** The opened session, read from the same query as the table (one key, `state-and-data.md` rule 2). */
-function Detail({ project, filter, run }: Props) {
+function Detail({ project, filter, run }: SessionProps) {
   const q = useQuery({ queryKey: keys.activity(project, filter), queryFn: () => metaApi.activity(project, filter), placeholderData: keepPreviousData });
   if (run === null) return <SessionHint />;
   const session = q.data?.sessions.find((s) => s.runId === run);
@@ -60,10 +76,13 @@ function Detail({ project, filter, run }: Props) {
 }
 
 /**
- * What the agent did in one project: the sessions as a table (newest first) and, when the pane is wide enough for the split
- * (`ListDetail`), the opened one beside it as sentences; narrower, the session is its own screen. The view and the opened session live in the address (`?filter=`, `?run=`).
+ * What happened in one project: what the agent did, the sessions as a table (newest first) and, when the pane is wide enough for the split
+ * (`ListDetail`), the opened one beside it as sentences; narrower, the session is its own screen. The view Sends (UX pass) is the send history, one page with no detail. The view and the opened session live in the address (`?filter=`, `?run=`).
  */
 export function ActivityPage(props: Props) {
+  const { filter } = props;
+  // Sends has no subject to open: one page, no split (`admin-principles.md` rule 6).
+  if (filter === "sends") return <List {...props} />;
   // The table is the subject here and the detail the aside, so the list takes two thirds (`wide`).
-  return <ListDetail detail={<Detail {...props} />} detailLabel="Session" list={<Sessions {...props} />} listLabel="Sessions" showDetail={props.run !== null} wide />;
+  return <ListDetail detail={<Detail {...props} filter={filter} />} detailLabel="Session" list={<List {...props} />} listLabel="Sessions" showDetail={props.run !== null} wide />;
 }

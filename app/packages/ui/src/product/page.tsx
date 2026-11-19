@@ -22,3 +22,16 @@ export function Page({ title, nav, actions, children, className }: { title?: Rea
     </div>
   );
 }
+
+/**
+ * The heading of a group inside a page (UX pass 2026-11-20, the admin's `design-system-and-tokens.md` rule 14): sentence case,
+ * `font-heading`, medium, small, in the foreground colour. One look for every group, never an eyebrow in capitals beside a
+ * sentence-case one. The page's own title is the shell's (or `Page`'s `title`).
+ */
+export function SectionTitle({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <h3 className="font-heading font-medium text-sm" id={id}>
+      {children}
+    </h3>
+  );
+}

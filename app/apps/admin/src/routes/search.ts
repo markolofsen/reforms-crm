@@ -7,6 +7,12 @@ import { KNOWLEDGE_VIEWS, type KnowledgeView } from "@hub/contract/knowledge";
 
 export const RUN_FILTERS = ["all", ...RUN_STATUSES] as const;
 export type RunFilter = "all" | RunStatus;
+/**
+ * Activity's View menu (UX pass 2026-11-20): the session views the API filters by, plus Sends, the send history, which is
+ * activity and not a setting (it left Settings ▸ Sending). `sends` is the admin's own view: it never reaches the activity API.
+ */
+export const ACTIVITY_VIEWS = [...RUN_FILTERS, "sends"] as const;
+export type ActivityView = RunFilter | "sends";
 
 /**
  * The four views of the Drafts list (research 16 section 6.3): To review (`ready`), Hold, Finished (done, sent and skipped
@@ -54,7 +60,7 @@ export function positiveInt(v: string | undefined): number | null {
 
 /** `batch` limits the list to the drafts one batch wrote (one queue: a batch is a read-only view, not a second place). */
 export type DraftsSearch = { filter: DraftView; q: string; batch: number | null };
-export type LogSearch = { filter: RunFilter; run: number | null };
+export type LogSearch = { filter: ActivityView; run: number | null };
 /** P70: the Knowledge table's view (the same enum the API validates) and its title search. */
 export type KnowledgeSearch = { filter: KnowledgeView; q: string };
 export { KNOWLEDGE_VIEWS, type KnowledgeView };
@@ -70,6 +76,6 @@ export const draftsSearch = (raw: Raw): DraftsSearch => {
   // `?new=1` (the batch builder, deleted 2026-11-18, P48) is not read: the guard writes the address back without it.
   return { filter: oneOf(DRAFT_VIEWS, renamedView(raw.filter), DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch: positiveInt(raw.batch) };
 };
-export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(RUN_FILTERS, raw.filter, "all"), run: positiveInt(raw.run) });
+export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(ACTIVITY_VIEWS, raw.filter, "all"), run: positiveInt(raw.run) });
 export const knowledgeSearch = (raw: Raw): KnowledgeSearch => ({ filter: oneOf(KNOWLEDGE_VIEWS, raw.filter, "all"), q: raw.q ?? "" });
 export const noSearch = (): NoSearch => ({});

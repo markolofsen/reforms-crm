@@ -76,7 +76,7 @@ test("activity: a session heading opens the session beside the table as sentence
 test("activity: the View menu counts sessions per status and narrows the table; the filter replaces the entry", async ({ page }) => {
   const { counts } = await activity(page);
   await page.goto(LOG);
-  const menu = page.getByRole("button", { name: /^Show: All/ });
+  const menu = page.getByRole("button", { name: /^View: All/ });
   await expect(menu).toContainText(String(counts.all));
   await menu.click();
   await page.getByRole("menuitemradio", { name: /Failed/ }).click();

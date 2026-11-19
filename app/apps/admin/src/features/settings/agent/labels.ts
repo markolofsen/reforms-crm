@@ -18,11 +18,16 @@ export const CLI_TITLE: Record<(typeof AGENT_TOOL_CLIS)[number], string> = { cla
 /** The rows of one CLI, in the server's order. */
 export const columns = (rows: readonly AgentToolRow[]) => AGENT_TOOL_CLIS.map((cli) => ({ cli, rows: rows.filter((r) => r.cli === cli) }));
 
-/** The block's one status line: the worst fact in plain words, then the mode. Never a number the rows already show twice. */
+/** A row that needs the owner: a fix (red) or a look (amber). Both carry their fix line and are Overview items (UX pass). */
+export const needsAttention = (r: AgentToolRow): boolean => r.state === "fail" || r.state === "warn";
+
+/**
+ * The pane's one status line: where the checks stand, in words, never a number the rows show twice. The mode and the default
+ * CLI are facts of the rows (Mode) and of the dock's `+` menu, not standing, so they are not repeated here (UX pass 2026-11-20).
+ */
 export function toolsSentence(d: AgentToolsDto): string {
   const fails = d.rows.filter((r) => r.state === "fail").length;
   const warns = d.rows.filter((r) => r.state === "warn").length;
-  const standing = fails > 0 ? `${plural(fails, "check")} to fix` : warns > 0 ? `Ready, ${plural(warns, "check")} to look at` : "Ready";
-  const mode = d.unattended ? "unattended (no prompts, sandboxed)" : "asks before it acts";
-  return `${standing} · ${mode} · default ${CLI_TITLE[d.defaultCli]}`;
+  if (fails > 0) return `${plural(fails, "check")} to fix${warns > 0 ? `, ${warns} to look at` : ""}`;
+  return warns > 0 ? `Ready, ${plural(warns, "check")} to look at` : "Ready";
 }

@@ -117,6 +117,22 @@ describe("composeScheme", () => {
     expect(byId(test, "alpha:setup")).toMatchObject({ state: "ok" });
   });
 
+  it("UX pass: every row no other part covers is Agent sessions (the Notion connector's sign-in among them), with its fix", async () => {
+    expect(byId(await composeScheme(sources()), "alpha:session")).toMatchObject({ state: "unknown", place: "agent" });
+    const notion = (cli: "claude" | "codex") => ({ id: "mcp.answers.notion", cli, title: "notion answers", state: "warn" as const, detail: "Not signed in to Notion (HTTP 401).", fix: cli === "codex" ? "codex mcp login notion" : "/mcp" });
+    const rows = [...TOOLS.rows, { id: "skills.linked", cli: "claude" as const, title: "Skills linked", state: "pass" as const, detail: "13", fix: null }, notion("claude"), notion("codex")];
+    const d = await composeScheme(sources({ agentTools: () => ({ ...TOOLS, rows }) }));
+    expect(byId(d, "alpha:session")).toMatchObject({ state: "warn", label: "Agent sessions", detail: "Claude Code: Not signed in to Notion (HTTP 401). Codex too.", fix: "/mcp", place: "agent" });
+    expect(d.edges).toContainEqual({ from: "cli:claude", to: "alpha:session", kind: "flow" });
+  });
+
+  it("UX pass: a key that passed over an hour ago still works; failed and stuck sends are a look at the send door", async () => {
+    const stale = { ...CONN, connections: CONN.connections.map((c) => (c.kind === "notion" ? { ...c, check: { state: "stale" as const, asOf: "2026-11-19T08:00:00Z", value: { detail: "ok", identity: "Hub bot" } } } : c)) };
+    expect(byId(await composeScheme(sources({ connections: async () => stale })), "notion:notion:notion-token")).toMatchObject({ state: "ok", detail: "Passed its last test over an hour ago." });
+    expect(byId(await composeScheme(sources({ sendTrouble: async () => ({ failed: 2, stuck: 0 }) })), "alpha:send-door")).toMatchObject({ state: "warn", detail: expect.stringContaining("2 sends failed") });
+    expect(byId(await composeScheme(sources({ sendTrouble: async () => ({ failed: 0, stuck: 1 }) })), "alpha:send-door")).toMatchObject({ state: "warn", detail: expect.stringContaining("1 send is stuck") });
+  });
+
   it("the core (P68): a required update is broken with the command as its fix; current is ok", async () => {
     const core = { pin: "v0.12.16", inUse: "v0.12.16", level: "required" as const, reason: "a security fix", tags: [], facts: { dependencies: false, migrations: false, rollback: false }, command: ["hub core update"] };
     expect(byId(await composeScheme(sources({ core: () => core })), "core")).toMatchObject({ state: "fail", label: "Core v0.12.16", fix: "hub core update", place: "mac" });

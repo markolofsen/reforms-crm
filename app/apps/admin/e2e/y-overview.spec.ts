@@ -15,7 +15,8 @@ test("overview: the empty address is the Overview with two projects, and it name
   await page.goto("/");
   await expect.poll(() => address(page)).toBe("/overview");
   await expect(page.getByRole("table", { name: "Projects" })).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Overview", exact: true })).toHaveAttribute("aria-current", "page");
+  // Overview may carry its dot (a "Needs you" item lights it, UX pass), whose words join the link's name.
+  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: /^Overview( needs you)?$/ })).toHaveAttribute("aria-current", "page");
   await page.goto("/overview?project=lisbon-realty&focus=demo-shop");
   await expect.poll(() => address(page)).toBe("/overview");
 });

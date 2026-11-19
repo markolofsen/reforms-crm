@@ -1,28 +1,19 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { SendRowDto } from "@hub/contract/responses";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { AppLink } from "@/components/app-link";
-import { refreshData } from "@/lib/api/client";
+import { refreshData, sentence } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";
 import { formatTime } from "@/lib/format";
 import { paths } from "@/routes/paths";
-import { keys } from "@/lib/cache/keys";
+import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
+import { useSends } from "@/lib/status";
 
-/**
- * The send history and the switch that stops it: every send the hub made or queued, Cancel for a queued one inside its
- * window, and Stop sending / Resume for this project or every project. A sent mail cannot be recalled, so Cancel exists
- * only while a send is queued. One hook, so the status line's Stop and the table share one query.
- */
-export function useSends(project: string) {
+/** Cancel for a queued send inside its window (a sent mail cannot be recalled, so Cancel exists only while a send is queued). */
+function useCancel(project: string) {
   const qc = useQueryClient();
-  const q = useQuery({ queryKey: keys.sends(project), queryFn: () => sendApi.list(project) });
-  const settle = { onSuccess: () => refreshData(qc) };
-  const cancel = useMutation({ mutationFn: (id: number) => sendApi.cancel(project, id), ...settle });
-  const stop = useMutation({ mutationFn: (scope: string) => sendApi.stop(scope), ...settle });
-  const resume = useMutation({ mutationFn: (scope: string) => sendApi.resume(scope), ...settle });
-  const failed = [cancel, stop, resume].find((m) => m.isError)?.error ?? null;
-  return { q, cancel, stop, resume, busy: cancel.isPending || stop.isPending || resume.isPending, failed };
+  return useMutation({ mutationFn: (id: number) => sendApi.cancel(project, id), onSuccess: () => refreshData(qc) });
 }
 
 const VIA = { manual: "By hand", auto: "Autosend" } as const;
@@ -54,7 +45,7 @@ function Cancel({ r, busy, onCancel }: { r: SendRowDto; busy: boolean; onCancel:
 type Props = { sends: readonly SendRowDto[]; busy: boolean; onCancel: (id: number) => void };
 
 /** From 640px a table (when, to, subject, via); below it each send is two lines. */
-export function SendsTable({ sends, busy, onCancel }: Props) {
+function SendsTable({ sends, busy, onCancel }: Props) {
   return (
     <>
       <DataTable aria-label="Sends" className="max-md:hidden">
@@ -99,6 +90,26 @@ export function SendsTable({ sends, busy, onCancel }: Props) {
           </li>
         ))}
       </ul>
+    </>
+  );
+}
+
+/**
+ * Activity ▸ Sends (UX pass 2026-11-20; on Settings ▸ Sending until then): every send the hub made or queued, newest first, Cancel
+ * on a queued one. It is what happened, not a setting, so it sits with what the agent did; Stop sending stays on Sending.
+ */
+export function SendsView({ project }: { project: string }) {
+  const q = useSends(project);
+  const cancel = useCancel(project);
+  if (q.isPending) return <ListSkeleton label="Loading the sends" />;
+  if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the sends" />;
+  return (
+    <>
+      {q.data.sends.length === 0 ? <EmptyState title="No sends yet">A mail you send from a draft appears here.</EmptyState> : <SendsTable busy={cancel.isPending} onCancel={(id) => cancel.mutate(id)} sends={q.data.sends} />}
+      <p className="text-destructive-foreground text-sm" role="alert">
+        {cancel.isError ? sentence(cancel.error) : ""}
+      </p>
+      {q.isError && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
     </>
   );
 }

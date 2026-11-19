@@ -14,7 +14,7 @@ import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
 import { plural } from "@/lib/format";
 import { EntryTable } from "./entry-table";
-import { VIEW_LABEL, VIEW_ORDER } from "./labels";
+import { facetsOf, sharedLine, VIEW_LABEL, VIEW_ORDER } from "./labels";
 
 const SEARCH_PAUSE_MS = 250;
 
@@ -24,7 +24,7 @@ function ViewMenu({ value, counts, onChange }: { value: View; counts: KnowledgeL
   return (
     <Menu>
       <MenuTrigger render={<ActionButton size="m" variant="secondary" />}>
-        <span className="sr-only">Show: </span>
+        <span className="sr-only">View: </span>
         {VIEW_LABEL[value]}
         <span className="font-normal tabular-nums">{count(value)}</span>
         <ChevronDownIcon aria-hidden="true" />
@@ -56,13 +56,19 @@ function SearchBox({ q, onSearch }: { q: string; onSearch: (v: string) => void }
  * Knowledge (P70, `/knowledge`): the facts the agent cites in the owner's name, every entry with its title. The header line: the
  * View menu with counts, the title search and Open folder (the folder whose files are listed below, `admin-principles.md`
  * rule 12). The body: the index's file problems when it does not match the files (from the project overview, with the phrase),
- * then the table. No status sentence: its numbers are the View menu's counts and the Status column's words, said once (rule 10). Read from the index only; a change is a phrase to the agent.
+ * then one line for what every entry shares (its column left out), then the table. No status sentence: its numbers are the View
+ * menu's counts, said once (rule 10). Read from the index only; a change is a phrase to the agent.
  */
 export function KnowledgeView({ project, filter, q }: { project: string; filter: View; q: string }) {
   const setFilter = useSearchState("filter")[1];
   const setQ = useSearchState("q")[1];
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
   const list = useQuery({ queryKey: keys.knowledge(project, filter, search), queryFn: () => metaApi.knowledge(project, filter, search), placeholderData: keepPreviousData });
+  // What every entry shares is read over the whole base (the All view, unsearched: the same key as the default view), so a
+  // column does not come and go with the view or the search (UX pass 2026-11-20).
+  const base = useQuery({ queryKey: keys.knowledge(project, "all", ""), queryFn: () => metaApi.knowledge(project, "all", "") });
+  const facets = facetsOf(base.data?.entries ?? []);
+  const shared = base.data && base.data.entries.length > 0 ? sharedLine(facets) : null;
   const files = useQuery({ queryKey: keys.project(project), queryFn: () => metaApi.overview(project) });
   const k = files.data?.knowledge;
   const d = list.data;
@@ -84,10 +90,15 @@ export function KnowledgeView({ project, filter, q }: { project: string; filter:
       <>
         {k?.state === "error" && <p className="text-warning-foreground text-sm">{k.message}</p>}
         {k?.state === "ok" && !k.consistent && <p className="text-warning-foreground text-sm">The index is out of date ({plural(k.problems, "file problem")}): ask the agent to re-run `hub knowledge index`.</p>}
+        {shared && (
+          <p className="text-muted-foreground text-sm" data-testid="knowledge-shared">
+            {shared}
+          </p>
+        )}
         {d.entries.length === 0 ? (
           <EmptyState action={<ActionButton onClick={() => { setFilter("all"); setQ(""); }} size="s" variant="secondary">Show all</ActionButton>} title="No entry in this view" />
         ) : (
-          <EntryTable byBrand={d.scope === "by-brand"} entries={d.entries} project={project} />
+          <EntryTable entries={d.entries} facets={facets} project={project} />
         )}
         {d.truncated && <p className="text-muted-foreground text-sm">The first {d.entries.length} are shown: search a title to find the rest.</p>}
         {list.isError && <StaleNote error={list.error} onRetry={() => void list.refetch()} retrying={list.isFetching} />}

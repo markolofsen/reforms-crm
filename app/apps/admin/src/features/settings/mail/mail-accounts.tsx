@@ -15,7 +15,7 @@ export function MailAccounts({ mail, read }: { mail: readonly MailAccountDto[]; 
         <TableHeader>
           <TableRow>
             <TableHead className="w-1/2">Account</TableHead>
-            <TableHead>In Apple Mail</TableHead>
+            <TableHead>Apple Mail</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>

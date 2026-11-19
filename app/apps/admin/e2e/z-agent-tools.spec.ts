@@ -13,19 +13,26 @@ test.beforeEach(async ({ page }) => {
   await remember(page, P);
 });
 
-test("agent tools: the address's project's rows render as two tables, the state in words, a red row with its fix line and a copy button", async ({ page, context }) => {
+test("agent tools: the sentence, then only the rows that need a fix or a look (each with its fix line and Copy); every check folded under All checks", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto(at(P, "/settings/agent"));
   await expect(page).toHaveTitle(`Agent · ${P} · Hub Workflow`);
-  await expect(page.getByRole("heading", { name: "Agent tools" })).toBeVisible();
-  await expect(block(page).getByRole("table", { name: "Claude Code" })).toBeVisible();
+  // UX pass 2026-11-20: no eyebrow repeating the pane's name, and the green rows are folded.
+  await expect(page.getByRole("heading", { name: "Agent tools" })).toHaveCount(0);
   await expect(block(page).getByTestId("agent-tools-status")).toContainText(/to fix/);
-  const red = block(page).locator('tr[data-state="fail"]').first();
+  const attention = block(page).getByRole("table", { name: "Needs a fix or a look" });
+  await expect(attention.locator('tr[data-state="pass"]')).toHaveCount(0);
+  await expect(block(page).getByRole("table", { name: "Claude Code" })).toHaveCount(0);
+  const red = attention.locator('tr[data-state="fail"]').first();
   await expect(red).toContainText("Needs a fix");
   await expect(red.getByTestId("agent-tool-fix")).toContainText(`hub agent ${P} --prepare`);
-  await expect(block(page).locator('tr[data-state="warn"]').first()).toContainText("Check");
-  // Only a red row carries a fix line.
-  await expect(block(page).locator('tr:not([data-state="fail"])').getByTestId("agent-tool-fix")).toHaveCount(0);
+  const look = attention.locator('tr[data-state="warn"]').first();
+  await expect(look).toContainText("Check");
+  await expect(look.getByTestId("agent-tool-fix")).toBeVisible();
+  await block(page).getByRole("button", { name: /^All checks/ }).click();
+  await expect(block(page).getByRole("table", { name: "Claude Code" })).toBeVisible();
+  // Only a row that needs a fix or a look carries a fix line.
+  await expect(block(page).locator('tr[data-state="pass"], tr[data-state="skip"]').getByTestId("agent-tool-fix")).toHaveCount(0);
   await red.getByRole("button", { name: /^Copy the fix for / }).click();
   await expect(page.getByRole("status").filter({ hasText: `Copied: hub agent ${P} --prepare` })).toBeVisible();
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(`hub agent ${P} --prepare`);

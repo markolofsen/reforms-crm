@@ -22,7 +22,7 @@ test.afterAll(() => {
 test("autostart: not set up shows the installer's line with Copy, and the switch is disabled", async ({ page }) => {
   rmSync(PLIST, { force: true });
   await page.goto("/settings/mac");
-  await expect(page.getByRole("heading", { name: "Startup" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Start after a restart" })).toBeVisible();
   await expect(page.getByTestId("autostart-status")).toContainText("Not set up:");
   await expect(page.getByTestId("autostart-status")).toContainText("./run.sh setup --only autostart.agent");
   await expect(page.getByRole("button", { name: "Copy ./run.sh setup --only autostart.agent" })).toBeVisible();

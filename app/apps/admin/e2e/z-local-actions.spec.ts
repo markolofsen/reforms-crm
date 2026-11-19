@@ -56,7 +56,7 @@ test("Knowledge opens its folder and an expired entry; Help's Where things live 
   const where = page.getByRole("region", { name: /^Where things live/ });
   await where.getByRole("button", { name: "Open project.md" }).click();
   await expect.poll(() => opened().at(-1)).toEqual(["/usr/bin/open", join(folder, "project.md")]);
-  await where.getByRole("button", { name: "Open the project folder" }).click();
+  await where.getByRole("button", { name: "Open Project folder" }).click();
   await expect.poll(() => opened().at(-1)).toEqual(["/usr/bin/open", folder]);
   await where.getByRole("button", { name: "Open Workflows" }).press("Enter");
   await expect.poll(() => opened().at(-1)).toEqual(["/usr/bin/open", join(folder, "workflows")]);

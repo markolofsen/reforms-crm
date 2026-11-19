@@ -37,7 +37,7 @@ test("connections: Settings ▸ Mail is read-only, one row per account this proj
     await remember(page, slug);
     await page.goto(at(slug, "/settings/mail"));
     const mail = page.getByRole("table", { name: "Mail accounts" });
-    await expect(mail.locator(`tr[data-account="${slug}@example.test"]`)).toContainText("Found in Apple Mail");
+    await expect(mail.locator(`tr[data-account="${slug}@example.test"]`).getByText("Found", { exact: true })).toBeVisible();
     await expect(mail.locator(`tr[data-account="${slug === "demo-shop" ? "lisbon-realty" : "demo-shop"}@example.test"]`)).toHaveCount(0);
     await expect(mail.getByRole("button")).toHaveCount(0);
   }
@@ -56,8 +56,8 @@ test("connections: Mail not running says so, never found or not found", async ({
   });
   await page.goto(at("lisbon-realty", "/settings/mail"));
   const mail = page.getByRole("table", { name: "Mail accounts" });
-  await expect(mail.getByText("Mail is not running").first()).toBeVisible();
-  await expect(mail.getByText(/Found in Apple Mail|Not found in Apple Mail/)).toHaveCount(0);
+  await expect(mail.getByText("Not running").first()).toBeVisible();
+  await expect(mail.getByText(/^(Found|Not found)$/)).toHaveCount(0);
   await expect(page.locator("[data-mail-read]")).toHaveCount(0);
 });
 
@@ -70,7 +70,7 @@ test("connections: a Mail that does not answer says so with its fix line, and th
   });
   await page.goto(at("lisbon-realty", "/settings/mail"));
   const mail = page.getByRole("table", { name: "Mail accounts" });
-  await expect(mail.getByText("Mail is not answering").first()).toBeVisible();
+  await expect(mail.getByText("Not answering").first()).toBeVisible();
   await expect(page.locator('[data-mail-read="not-answering"]')).toContainText("Quit Mail");
   await expect(page.getByRole("list", { name: "Mail filters" })).toBeVisible();
 });
@@ -83,7 +83,6 @@ test("connections: This Mac (the autostart switch) does not wait for the connect
     await route.continue().catch(() => {});
   });
   await page.goto("/settings/mac");
-  await expect(page.getByRole("heading", { name: "Startup" })).toBeVisible();
   await expect(page.getByRole("switch", { name: "Start the Hub after a restart" })).toBeVisible();
   release();
 });
@@ -127,7 +126,8 @@ test("connections: a key is written, tested, refused when invalid, replaced, and
   await n.getByRole("button", { name: "Replace key for Notion" }).click();
   await page.getByLabel("Integration token").fill(BAD);
   await page.getByRole("button", { name: "Save key" }).click();
-  await expect(n).toContainText("Not tested yet");
+  // A new key drops the last test: the row says nothing about a test until one runs (UX pass: no "Not tested yet").
+  await expect(n.getByText("Fake Notion bot")).toHaveCount(0);
   await n.getByRole("button", { name: "Test Notion" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "test failed" })).toBeVisible();
   await expect(n).toContainText("Test failed");

@@ -41,6 +41,8 @@ export const coreUpdateDto = z.strictObject({
   checkedAt: z.string().optional(),
   /** The last check that did not (the rest is the last good answer). */
   error: z.strictObject({ at: z.string(), message: z.string() }).optional(),
+  /** `core/` is a link to a local checkout (`hub core dev`): no check is made and none is offered (UX pass 2026-11-20). */
+  local: z.literal(true).optional(),
 });
 export type CoreUpdateDto = z.infer<typeof coreUpdateDto>;
 

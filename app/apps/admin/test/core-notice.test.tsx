@@ -72,6 +72,13 @@ describe("the block on Settings ▸ This Mac", () => {
     expect(checkedLine(d, NOW)).toContain("; the check 1 h ago failed: origin unreachable: Could not resolve host");
     expect(view(d)).toContain("core: v0.12.12 (P64 resume)");
   });
+  it("UX pass: a local checkout (hub core dev) is one quiet line, with no Check now and no facts", () => {
+    const html = view(at("unknown", { local: true, reason: "core/ is a link to a local checkout (hub core dev): no update check" }));
+    expect(html).toContain("Running a local checkout (development): no update check.");
+    expect(html).not.toContain("Check now");
+    expect(html).not.toContain("Newest tag");
+  });
+
   it("required, follows and rollback each say so", () => {
     expect(view(at("required", { reason: "v0.12.12 is marked [update: required]" }))).toContain("update required: v0.12.12 is marked [update: required]");
     expect(view(at("follows", { follows: { branch: "main", behind: 3 }, reason: "follows main: 3 commit(s) behind origin/main" }))).toContain("follows main");

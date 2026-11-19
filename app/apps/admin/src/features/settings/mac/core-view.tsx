@@ -2,6 +2,7 @@ import { RefreshCwIcon } from "lucide-react";
 import type { CoreUpdateDto } from "@hub/contract/instance";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { CopyFix } from "@/components/copy-fix";
+import { SectionTitle } from "@hub/ui/product/page";
 import { formatTime } from "@/lib/format";
 import { checkedLine, commandText, CORE_LEVEL_WORDS, factsLine } from "./core-labels";
 
@@ -13,10 +14,21 @@ type Props = { d: CoreUpdateDto; now: number; checking: boolean; onCheck: () => 
  */
 export function CoreView({ d, now, checking, onCheck, said }: Props) {
   const facts = factsLine(d);
+  // A local checkout (`hub core dev`) has no tag to move to and nothing to check: one quiet line, no button (UX pass 2026-11-20).
+  if (d.local) {
+    return (
+      <section aria-labelledby="core-title" className="grid gap-1" data-testid="core-block">
+        <SectionTitle id="core-title">Core version</SectionTitle>
+        <p className="text-muted-foreground text-sm" data-testid="core-level">
+          Running a local checkout (development): no update check.
+        </p>
+      </section>
+    );
+  }
   return (
     <section aria-labelledby="core-title" className="grid gap-3" data-testid="core-block">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide" id="core-title">Core version</h3>
+        <SectionTitle id="core-title">Core version</SectionTitle>
         <ActionButton aria-busy={checking} disabled={checking} onClick={onCheck} size="s" variant="secondary">
           <RefreshCwIcon aria-hidden="true" />
           {checking ? "Checking..." : "Check now"}

@@ -11,6 +11,17 @@ import { CLI_LABELS, MEASURED_VERSIONS } from "./session";
 // correct. One source for `hub doctor --only Agent` and the Connections block: the server and the doctor call this.
 // Every row that is not a pass names one command line that fixes it. Read only: nothing here writes or sends.
 
+/**
+ * The Notion connector's row when it does not answer: what is wrong and what to do, in his words (UX pass 2026-11-20). It is a
+ * remote server that each session home signs in to once; Claude Code does it with /mcp inside a session of this project, Codex
+ * with the command on the row.
+ */
+export const notionSignIn = (detail: string, cli: AgentCli): string =>
+  `Not signed in to Notion (${detail}). ${cli === "codex" ? "Run the line below once." : "Type the line below in this project's Claude Code session and sign in."}`;
+
+/** The fix of that row: what to type in the session (Claude Code), or the one command (Codex). */
+export const notionFix = (cli: AgentCli, codexHome?: string): string => (cli === "codex" ? `${codexHome ? `CODEX_HOME=${codexHome} ` : ""}codex mcp login notion` : "/mcp");
+
 export type AgentCheckState = "pass" | "warn" | "fail" | "skip";
 export interface AgentCheckRow { id: string; cli: AgentCli; title: string; state: AgentCheckState; detail: string; fix: string | null }
 
@@ -93,7 +104,7 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
     row(`mcp.present.${name}`, `${name} configured`, inCodex ? "pass" : "fail", inCodex ? String(spec.type ?? "stdio") : "missing from the Codex config", prepare);
     const a = await probe.mcp(name, spec).catch((e: Error) => ({ ok: false, tools: [], detail: e.message }));
     if (a.ok) { listed.push({ name, tools: a.tools }); row(`mcp.answers.${name}`, `${name} answers`, "pass", `${a.tools.length} tools`); }
-    else if (name === "notion") row(`mcp.answers.${name}`, `${name} answers`, "warn", `${a.detail} (a remote server: sign in once per session home)`, cli === "codex" ? `CODEX_HOME=${cHome} codex mcp login notion` : "claude /mcp");
+    else if (name === "notion") row(`mcp.answers.${name}`, `${name} answers`, "warn", notionSignIn(a.detail, cli), notionFix(cli, cHome));
     else row(`mcp.answers.${name}`, `${name} answers`, "fail", a.detail, "hub doctor --only MCP");
   }
 
@@ -211,7 +222,7 @@ export function fakeAgentRows(slug: string, cli: AgentCli): AgentCheckRow[] {
     r("cli.version", `${CLI_LABELS[cli]} installed`, "pass", MEASURED_VERSIONS[cli]),
     r("cli.signed-in", "Signed in", "pass", "signed in (fake)"),
     r("session.files", "Session files written", "fail", "no session files for this project yet", prepareLine(slug, cli)),
-    r("mcp.answers.notion", "notion answers", "warn", "HTTP 401 (a remote server: sign in once per session home)", cli === "codex" ? "codex mcp login notion" : "claude /mcp"),
+    r("mcp.answers.notion", "notion answers", "warn", notionSignIn("HTTP 401", cli), notionFix(cli)),
     r("send-tools.off", "Send tools off", "pass", `${DENIED_TOOLS.length} denied`),
   ];
 }

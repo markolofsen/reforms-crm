@@ -23,6 +23,8 @@ export interface SchemeSources {
   connections: () => Promise<ConnectionsDto>;
   health: () => HealthDto;
   stopped: (slug: string) => Promise<boolean>;
+  /** Sends that failed in the last 24 hours and sends stuck in "sending" (the Overview's own counts); absent: none. */
+  sendTrouble?: (slug: string) => Promise<{ failed: number; stuck: number }>;
   /** The CLI detector's last answer (P57), null before the first one. */
   clis: () => readonly CliFactDto[] | null;
   /** The core update check's cached answer (P68), null when the server has none. */
@@ -43,6 +45,29 @@ const names = (list: readonly string[]): string => list.slice(0, 3).join(", ") +
 const ROW_STATE: Record<AgentToolRow["state"], SchemeState> = { pass: "ok", warn: "warn", fail: "fail", skip: "unknown" };
 const worse = (a: SchemeState, b: SchemeState): SchemeState => (["fail", "warn", "unknown", "ok"].find((s) => s === a || s === b) as SchemeState);
 
+/** The rows a part of its own covers (the CLIs are the detector's parts); every other row is the "Agent sessions" part. */
+const OWN_PART = (id: string): boolean => id.startsWith("cli.") || ["mcp.present.mail-mcp", "mcp.answers.mail-mcp", "mcp.present.hub", "mcp.answers.hub", "guard.hook", "send-tools.off"].includes(id);
+
+/**
+ * Agent sessions (UX pass 2026-11-20): every Agent tools row no other part covers (the Notion connector, knowledge-mcp, the
+ * session files, the skills, the mode, the send pipeline, the session log), so a row that puts a dot on Settings ▸ Agent is also a
+ * "Needs you" item on Overview. The detail names the row, and how many more there are.
+ */
+function sessionPart(tools: AgentToolsDto | null): { state: SchemeState; detail: string; fix: string | null } {
+  if (!tools) return { state: "unknown", detail: `Not checked yet. ${NOT_RUN}.`, fix: null };
+  const rows = tools.rows.filter((r) => !OWN_PART(r.id));
+  if (rows.length === 0) return { state: "unknown", detail: "No check covers it.", fix: null };
+  const state = rows.map((r) => ROW_STATE[r.state]).reduce(worse);
+  const bad = rows.filter((r) => ROW_STATE[r.state] === state);
+  const first = bad[0];
+  if (!first || state === "ok" || state === "unknown") return { state, detail: "", fix: null };
+  // The same check failing in the other CLI is said in two words; any other check is counted.
+  const also = bad.filter((r) => r.id === first.id && r.cli !== first.cli).map((r) => ` ${CLI_LABEL[r.cli]} too.`).join("");
+  const others = new Set(bad.filter((r) => r.id !== first.id).map((r) => r.id)).size;
+  const more = others > 0 ? ` And ${others} more ${others === 1 ? "check" : "checks"}.` : "";
+  return { state, detail: `${CLI_LABEL[first.cli]}: ${first.detail}${also}${more}`, fix: first.fix };
+}
+
 /** The worst of a project's Agent tools rows whose id matches, over both CLIs; nothing cached or no such row is unknown. */
 function fromRows(tools: AgentToolsDto | null, match: (id: string) => boolean): { state: SchemeState; detail: string; fix: string | null } {
   if (!tools) return { state: "unknown", detail: `Not checked yet. ${NOT_RUN}.`, fix: null };
@@ -60,7 +85,8 @@ function tokenNode(c: ConnectionDto): SchemeNode {
   if (c.secret.state === "missing") return node({ ...base, state: "fail", detail: "No key stored." });
   if (c.secret.state === "unsafe-mode" || c.secret.state === "malformed") return node({ ...base, state: "fail", detail: c.secret.state === "malformed" ? "The stored key is not a key." : "The key file is readable by others." });
   if (k.state === "fresh") return node({ ...base, state: "ok" });
-  if (k.state === "stale") return node({ ...base, state: "warn", detail: "Last tested over an hour ago: Test it on Settings ▸ Connections." });
+  // A pass over an hour old is still a pass: its age is not something the owner must act on (UX pass 2026-11-20).
+  if (k.state === "stale") return node({ ...base, state: "ok", okDetail: "Passed its last test over an hour ago." });
   if (k.state === "error") return node({ ...base, state: "fail", detail: k.message, fix: k.fix });
   return node({ ...base, state: "unknown", detail: "Not tested since the server started: Test it on Settings ▸ Connections." });
 }
@@ -82,7 +108,7 @@ function coreNode(d: CoreUpdateDto | null): SchemeNode[] {
 }
 
 async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto | null): Promise<SchemeNode[]> {
-  const [doctor, files, stopped] = await Promise.all([s.doctor(slug), s.files(slug), s.stopped(slug)]);
+  const [doctor, files, stopped, trouble] = await Promise.all([s.doctor(slug), s.files(slug), s.stopped(slug), s.sendTrouble?.(slug) ?? { failed: 0, stuck: 0 }]);
   const tools = s.agentTools(slug);
   const p = (kind: SchemeNode["kind"], key: string) => ({ id: `${slug}:${key}`, kind, project: slug });
   const out: SchemeNode[] = [];
@@ -96,6 +122,7 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
   out.push(node({ ...p("mail-mcp", "mail-mcp"), label: "mail-mcp", ...fromRows(tools, (id) => id === "mcp.present.mail-mcp" || id === "mcp.answers.mail-mcp"), place: "agent" }));
   out.push(node({ ...p("hub-tools", "hub-tools"), label: "Hub tools", ...fromRows(tools, (id) => id === "mcp.present.hub" || id === "mcp.answers.hub"), place: "agent" }));
   out.push(node({ ...p("guard", "guard"), label: "Guard", ...fromRows(tools, (id) => id === "guard.hook" || id === "send-tools.off"), place: "agent" }));
+  out.push(node({ ...p("session", "session"), label: "Agent sessions", ...sessionPart(tools), place: "agent" }));
 
   const k = files.knowledge;
   const knowledge = k.state === "absent" ? { state: "unknown" as const, detail: "No knowledge yet." } : k.state === "error" ? { state: "fail" as const, detail: k.message } : !k.consistent ? { state: "fail" as const, detail: `${k.problems} file problems.` } : k.expired > 0 ? { state: "warn" as const, detail: `${k.expired} expired.` } : { state: "ok" as const };
@@ -127,6 +154,9 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
   const door =
     stopped ? { state: "warn" as const, detail: "Sending is stopped." }
     : sent === "error" ? { state: "fail" as const, detail: h.sent.lastError ?? "Sent detection is failing." }
+    // The send-failed and sending-stuck facts put a dot on Settings ▸ Sending, so they are items here too (UX pass 2026-11-20).
+    : trouble.stuck > 0 ? { state: "warn" as const, detail: `${trouble.stuck === 1 ? "1 send is" : `${trouble.stuck} sends are`} stuck in "sending": check Mail's Sent folder.` }
+    : trouble.failed > 0 ? { state: "warn" as const, detail: `${trouble.failed === 1 ? "1 send" : `${trouble.failed} sends`} failed in the last 24 hours: see Activity ▸ Sends.` }
     : h.mailer === "fake" ? { state: "warn" as const, detail: "Sends are fake (demo mode)." }
     : { state: "ok" as const };
   out.push(node({ ...p("send-door", "send-door"), label: "Send door", ...door, place: "sending" }));
@@ -149,6 +179,7 @@ function edgesOf(nodes: readonly SchemeNode[]): SchemeEdge[] {
       add(c, of("knowledge"));
       add(c, of("notion-db"));
       add(of("guard"), c, "limits");
+      add(c, of("session"));
     }
     add(of("hub-tools"), of("send-door"));
     for (const b of boxes) add(of("send-door"), b);

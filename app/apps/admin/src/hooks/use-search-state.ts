@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { DEFAULT_DRAFT_VIEW, DRAFT_VIEWS, KNOWLEDGE_VIEWS, oneOf, RUN_FILTERS } from "@/routes/search";
+import { DEFAULT_DRAFT_VIEW, DRAFT_VIEWS, KNOWLEDGE_VIEWS, oneOf, ACTIVITY_VIEWS } from "@/routes/search";
 import { formatDest, paths, type Dest } from "@/routes/paths";
 import type { Resolved } from "@/routes/resolve";
 import { useRoute } from "./use-route";
@@ -44,7 +44,8 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
     case "drafts.item":
       return paths.drafts.item(r.params.id, { filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
     case "log.list":
-      return paths.log.list({ filter: oneOf(RUN_FILTERS, v, "all"), run: r.search.run });
+      // Sends opens no session (UX pass): switching to it leaves the opened one behind.
+      return paths.log.list({ filter: oneOf(ACTIVITY_VIEWS, v, "all"), run: v === "sends" ? null : r.search.run });
     case "knowledge.page":
       return paths.knowledge.page({ filter: oneOf(KNOWLEDGE_VIEWS, v, "all"), q: r.search.q });
     default:

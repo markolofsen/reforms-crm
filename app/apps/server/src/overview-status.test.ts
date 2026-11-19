@@ -23,10 +23,10 @@ const SCENARIOS: Record<StatusKind, { over?: Partial<ProjectFacts>; sys?: Partia
   "send-failed": { over: { failed24h: 2 }, level: "attention", sentence: "2 sends failed in the last 24 hours", next: "sending" },
   "sending-stuck": { over: { stuck: 1 }, level: "attention", sentence: "1 send is stuck in \"sending\": check Mail's Sent folder", next: "sending" },
   "project-draft": { over: { status: "draft" }, level: "attention", sentence: "The project is a draft: finish its setup", next: "overview" },
-  "recipients-test": { over: { recipients: "test" }, level: "attention", sentence: "Test mode: sends go to the test list only", next: "sending" },
+  "recipients-test": { over: { recipients: "test" }, level: "clear", sentence: "Test mode: sends go to the test list only", next: "sending" },
   "fake-mailer": { sys: { fakeMailer: true }, level: "attention", sentence: "Demo mode: nothing is really sent", next: null },
   "cap-near": { over: { auto: { mode: "auto", cap: 5, used24h: 4 } }, level: "clear", sentence: "4 of 5 automatic sends used in 24 hours", next: "sending" },
-  "knowledge-expired": { over: { knowledgeExpired: 2 }, level: "clear", sentence: "2 knowledge entries have expired", next: "knowledge" },
+  "knowledge-expired": { over: { knowledgeExpired: 2 }, level: "attention", sentence: "2 knowledge entries have expired", next: "knowledge" },
   "never-triaged": { over: { lastTriageAt: null }, level: "clear", sentence: "No triage has run yet", next: null },
   "context-block-soon": { over: { contextRequired: null }, level: "clear", sentence: "Drafts without evidence are refused from 2026-11-22", next: "overview" },
 };
@@ -41,7 +41,9 @@ describe("statusOf", () => {
 
   it("the worst fact wins: blocked over attention over a clear-level fact; ties follow the kind order", () => {
     expect(run({ recipients: "test", stopped: true, knowledgeExpired: 1 }).kind).toBe("send-stopped");
-    expect(run({ recipients: "test", knowledgeExpired: 1 }).kind).toBe("recipients-test");
+    // Test mode is a chosen setting (clear level): an expired entry, the owner's to renew, comes before it.
+    expect(run({ recipients: "test", knowledgeExpired: 1 }).kind).toBe("knowledge-expired");
+    expect(run({ recipients: "test", contextRequired: null }).kind).toBe("recipients-test");
     expect(run({ stopped: true, doctorFailed: ["x"] }, { sentError: true }).kind).toBe("send-stopped");
     expect(run({ injectionHeld: 1, failed24h: 1 }).kind).toBe("injection-flagged");
   });
@@ -64,8 +66,8 @@ describe("statusOf", () => {
 describe("overviewSentence", () => {
   it("counts projects that need the owner; clear-level facts do not count", () => {
     const s = (over: Partial<ProjectFacts>) => statusOf(quiet(over), SYS, NOW);
-    expect(overviewSentence([s({}), s({ knowledgeExpired: 3 })])).toBe("All clear");
+    expect(overviewSentence([s({}), s({ recipients: "test" })])).toBe("All clear");
     expect(overviewSentence([s({ stopped: true }), s({})])).toBe("1 project needs you");
-    expect(overviewSentence([s({ stopped: true }), s({ recipients: "test" })])).toBe("2 projects need you");
+    expect(overviewSentence([s({ stopped: true }), s({ knowledgeExpired: 3 })])).toBe("2 projects need you");
   });
 });

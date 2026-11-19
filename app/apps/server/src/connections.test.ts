@@ -62,7 +62,7 @@ describe("GET /api/connections", () => {
     ]);
     expect(body.mailRead).toEqual({ state: "answered", fix: null });
     expect(row(body.connections, "notion:beta-token")).toMatchObject({ usedBy: ["beta"], secret: { state: "missing" } });
-    expect(row(body.connections, "telegram:bot").note).toContain("Poller off");
+    expect(row(body.connections, "telegram:bot").note).toBe("Use a new bot made in BotFather, never one that has a webhook.");
     expect(body.instance).not.toContain("/");
     expect(calls).toEqual([]);
   });

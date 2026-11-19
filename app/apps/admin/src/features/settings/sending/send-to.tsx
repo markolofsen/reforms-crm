@@ -21,18 +21,26 @@ const TO: Record<Facts["recipients"], (f: Facts) => string> = {
 /** "Off", or "On for client and partner, at most 5 a day". */
 const autosendText = (a: Facts["autosend"]): string => (a.mode !== "auto" ? "Off: a person sends every mail" : `On for ${a.classes.join(", ") || "no class"}, at most ${a.dailyCap} a day`);
 
-/** One read-only line of the send policy: its name, what it is, and the owner's own command with its copy button. */
-function PolicyLine({ title, summary, command, testId }: { title: string; summary: string; command: string | null; testId: string }) {
+type Command = { lead: string; line: string };
+
+/**
+ * One read-only line of the send policy: its name and what it is; under it, when the owner can change it, what the command
+ * does and the command with its copy button (UX pass 2026-11-20: a bare command beside the value needed explaining).
+ */
+function PolicyLine({ title, summary, command, testId }: { title: string; summary: string; command: Command | null; testId: string }) {
   return (
-    <li className="flex min-h-(--control-m) min-w-0 flex-col gap-1 px-4 py-2 text-sm sm:flex-row sm:items-center sm:gap-3" data-testid={testId}>
+    <li className="flex min-h-(--control-m) min-w-0 flex-col gap-1 px-4 py-2 text-sm sm:flex-row sm:items-baseline sm:gap-3" data-testid={testId}>
       <span className="w-28 shrink-0 font-medium sm:w-36">{title}</span>
-      <span className="min-w-0 flex-1 break-words text-muted-foreground">{summary}</span>
-      {command && (
-        <span className="flex min-w-0 items-center gap-1">
-          <code className="min-w-0 break-all rounded-sm bg-muted px-1.5 py-0.5 text-xs">{command}</code>
-          <CopyFix fix={command} />
-        </span>
-      )}
+      <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="break-words text-muted-foreground">{summary}</span>
+        {command && (
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs">
+            {command.lead}
+            <code className="min-w-0 break-all rounded-sm bg-muted px-1.5 py-0.5 text-foreground">{command.line}</code>
+            <CopyFix fix={command.line} />
+          </span>
+        )}
+      </span>
     </li>
   );
 }
@@ -61,8 +69,8 @@ export function SendPolicyLines({ project }: { project: string }) {
   if (!q.data) return <Pending q={q} />;
   const f = q.data.facts;
   if (!f) return <FactLine open summary='No project.md yet. Say "настрой проект" in a session (project-setup).' title="Send to" tone="problem" />;
-  const toAll = `./run.sh send policy set ${project} draft.recipients any`;
-  const toTest = `./run.sh send policy set ${project} draft.recipients test`;
+  const toAll = { lead: "To send to anyone, run in your shell:", line: `./run.sh send policy set ${project} draft.recipients any` };
+  const toTest = { lead: "To go back to the test list, run in your shell:", line: `./run.sh send policy set ${project} draft.recipients test` };
   return (
     <>
       <PolicyLine command={f.recipients === "any" ? toTest : toAll} summary={TO[f.recipients](f)} testId="send-to" title="Send to" />

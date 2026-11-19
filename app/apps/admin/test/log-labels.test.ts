@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { RUN_STATUSES } from "@hub/config";
 import type { ActivityRowDto, ActivitySessionDto } from "@hub/contract/activity";
-import { RUN_FILTERS } from "../src/routes/search";
-import { RUN_FILTER_LABELS, RUN_FILTER_ORDER, rowCells, rowSentence, sessionFacts, sessionHeading } from "../src/features/log/labels";
+import { ACTIVITY_VIEWS, logSearch, RUN_FILTERS } from "../src/routes/search";
+import { RUN_FILTER_LABELS, RUN_FILTER_ORDER, VIEW_LABELS, VIEW_ORDER, rowCells, rowSentence, sessionFacts, sessionHeading } from "../src/features/log/labels";
 
 const row = (over: Partial<ActivityRowDto> = {}): ActivityRowDto => ({ id: 1, runId: 1, at: "2026-11-16T15:26:00.000Z", client: null, who: "Mark Effect", outcome: "skipped", why: "already drafted", draftId: null, ...over });
 const session = (over: Partial<ActivitySessionDto> = {}): ActivitySessionDto => ({ runId: 1, startedAt: "2026-11-16T15:26:00.000Z", finishedAt: null, skill: "triage-mail", trigger: "owner", status: "ok", model: null, tokens: null, costUsd: null, durationS: null, rows: [], ...over });
@@ -12,6 +12,14 @@ describe("activity labels", () => {
     expect(Object.keys(RUN_FILTER_LABELS).sort()).toEqual([...RUN_FILTERS].sort());
     expect([...RUN_FILTER_ORDER].sort()).toEqual([...RUN_FILTERS].sort());
     expect(RUN_FILTERS).toEqual(["all", ...RUN_STATUSES]);
+  });
+
+  it("UX pass: Sends is Activity's last view, read from the address, never a run filter", () => {
+    expect([...VIEW_ORDER].sort()).toEqual([...ACTIVITY_VIEWS].sort());
+    expect(VIEW_ORDER.at(-1)).toBe("sends");
+    expect(VIEW_LABELS.sends).toBe("Sends");
+    expect(logSearch({ filter: "sends" }).filter).toBe("sends");
+    expect(RUN_FILTERS).not.toContain("sends");
   });
 
   it("a heading counts the decisions, not the notes, and says a session that did not finish", () => {

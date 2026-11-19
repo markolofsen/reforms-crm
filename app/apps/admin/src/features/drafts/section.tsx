@@ -85,9 +85,10 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile, measured
           : batch !== null
             ? `${EMPTY[filter]} in this batch.`
             : filtered
-              ? `${EMPTY[filter]} in this project.`
+              ? null
               : `Say to the agent: "разбери почту ${project}". Drafts it leaves unsent in Mail appear here.`
       }
+      emptyTitle={known && batch === null ? EMPTY[filter] : undefined}
       listBottom={filter === "sequences" && batch === null ? <FollowUps project={project} /> : undefined}
       mobile={mobile}
       noun={{ list: "Drafts", back: "Drafts" }}

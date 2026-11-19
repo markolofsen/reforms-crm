@@ -18,7 +18,7 @@ import { useSectionNav } from "@/hooks/use-section-nav";
 import { metaApi } from "@/lib/api/meta";
 import { useLive } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
-import { dotOf, useAgentToolsNeedYou, useInstance, useProjectRow } from "@/lib/status";
+import { dotOf, useAgentToolsNeedYou, useInstance, useNeedsYouPlaces, useProjectRow } from "@/lib/status";
 import { paths, sectionList } from "@/routes/paths";
 import { PROJECTLESS, type RouteId } from "@/routes/table";
 import { NEXT_ROUTE, sectionTitle } from "@/routes/sections";
@@ -28,7 +28,8 @@ import { keys } from "@/lib/cache/keys";
 
 /**
  * The nav with a dot on the page that fixes the project's worst fact (`statusDto.next`: Overview, Knowledge or a Settings pane,
- * P70), and on Settings ▸ Agent while an Agent tools row is red. A child's dot also lights its parent (the rail and the phone draw
+ * P70), on Settings ▸ Agent while an Agent tools row needs a fix or a look, and on every place Overview's "Needs you" names (UX
+ * pass: one source of attention). A child's dot also lights its parent (the rail and the phone draw
  * parents only); the tab bar lights More from the parents inside it.
  */
 function useNavWithDots(project: string | null): ShellNavItem[] {
@@ -36,13 +37,14 @@ function useNavWithDots(project: string | null): ShellNavItem[] {
   const { row } = useProjectRow(project ?? "");
   const next = dotOf(row?.status);
   const tools = useAgentToolsNeedYou(project);
+  const places = useNeedsYouPlaces(project);
   return useMemo(() => {
-    const lit = new Set<RouteId>([...(next ? [NEXT_ROUTE[next]] : []), ...(tools ? (["settings.agent"] as const) : [])]);
+    const lit = new Set<RouteId>([...(next ? [NEXT_ROUTE[next]] : []), ...(tools ? (["settings.agent"] as const) : []), ...places.map((p) => NEXT_ROUTE[p])]);
     return items.map((i) => {
       const children = i.children.map((c) => ({ ...c, dot: lit.has(c.route) }));
       return { ...i, children, dot: lit.has(i.route) || children.some((c) => c.dot) };
     });
-  }, [items, next, tools]);
+  }, [items, next, tools, places]);
 }
 
 /**

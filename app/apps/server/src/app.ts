@@ -31,6 +31,7 @@ import { createConnections, type ConnectionsOptions } from "./connections";
 import { OFF, type MessengersStatus } from "./messengers";
 import { SENT_OFF, type SentStatus } from "./sent";
 import { createOverview, type OverviewService } from "./overview";
+import { STUCK_MINUTES } from "./overview-facts";
 import { projectOverview, projectsRoot } from "./project-overview";
 import { projectDoctor } from "./project-doctor";
 import { schemeRoutes } from "./routes/scheme";
@@ -116,6 +117,12 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     connections: () => connections.list({ mailWithinMs: SCHEME_MAIL_MS }),
     health,
     stopped: (slug) => repos.sends.isStopped(slug),
+    sendTrouble: async (slug) => {
+      const t = now().getTime();
+      const day = new Date(t - 24 * 3_600_000).toISOString();
+      const s = await repos.sends.summarySince(slug, { today: day, day, stuckBefore: new Date(t - STUCK_MINUTES * 60_000).toISOString() });
+      return { failed: s.failed, stuck: s.stuck };
+    },
     clis: () => opts.agentTools?.clis() ?? null,
     core: () => opts.coreUpdates?.read() ?? null,
     ...opts.scheme,

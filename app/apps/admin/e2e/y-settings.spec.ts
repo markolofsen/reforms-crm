@@ -2,11 +2,13 @@ import { expect, test, type Page } from "@playwright/test";
 import { remember } from "./support";
 
 // Settings ▸ Sending by frequency (P70, `admin-principles.md` rule 9; the Project landing and its Setup page until then): the
-// sentence and Stop sending first, then the sends when any exist, then Send to and Autosend read only with the owner's command,
-// then the checks before sending, closed with a summary even when a rule is off (the cap of rule 3). The sends are held in this file (a queued send exists only with autosend, which the e2e
-// server does not run; Stop all is exercised for real in `z-send.spec.ts`). Two projects, so the address names the project first.
+// sentence and Stop sending first, then Send to and Autosend read only with the owner's command, then the checks before sending,
+// closed with a summary even when a rule is off (the cap of rule 3). Controls only: the send history is Activity ▸ Sends (UX pass
+// 2026-11-20), tested here too. The sends are held in this file (a queued send exists only with autosend, which the e2e server
+// does not run; Stop all is exercised for real in `z-send.spec.ts`). Two projects, so the address names the project first.
 const PROJECT = "lisbon-realty";
 const AT = `/${PROJECT}/settings`;
+const SENDS = `/${PROJECT}/log?filter=sends`;
 const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
 
 test.beforeEach(async ({ page }) => {
@@ -42,15 +44,15 @@ const checks = (page: Page) => page.getByRole("button", { name: /^Checks/ });
 /** A rule set through the API, as the agent or another tab would; the test puts it back after. */
 const setRule = (page: Page, kind: string, enabled: boolean) => page.request.put(`${API()}/api/safety-rules/${kind}`, { data: { project: PROJECT, enabled } });
 
-test("sending: the first viewport at 1280 shows the sentence, Stop sending and the sends; then Send to, Autosend, Checks closed", async ({ page }) => {
+test("sending: the first viewport at 1280 shows the sentence and Stop sending; then Send to, Autosend, Checks closed; no send history", async ({ page }) => {
   await sendsServer(page, { sends: [sent], stopped: [] });
   await page.goto(AT);
   const status = page.getByTestId("sending-status");
   await expect(status).toHaveText(/\S/);
+  // Test mode is a setting: the Send to line says it, the sentence does not say it again (UX pass).
+  await expect(status).not.toContainText("Test mode");
   const stop = page.getByRole("button", { name: "Stop sending" });
-  const sends = page.getByRole("table", { name: "Sends" });
-  await expect(sends.getByRole("row").filter({ hasText: "Re: Refund question" })).toBeVisible();
-  for (const l of [status, stop, sends]) {
+  for (const l of [status, stop]) {
     await expect(l).toBeInViewport();
     expect((await l.boundingBox())?.y ?? 9999).toBeLessThan(800);
   }
@@ -61,14 +63,18 @@ test("sending: the first viewport at 1280 shows the sentence, Stop sending and t
   await expect(checks(page)).toHaveAttribute("aria-expanded", "false");
   await expect(checks(page)).toContainText(/All \d+ on/);
   await expect(page.getByRole("switch")).toHaveCount(0); // the 20 switches are not in view
-  // The setup facts are no longer here: health is Overview's, the filters are Mail's.
+  // The setup facts are no longer here: health is Overview's, the filters are Mail's; the sends are Activity's.
   await expect(page.getByRole("button", { name: /^(Health|Mail filters|Advanced)/ })).toHaveCount(0);
+  await expect(page.getByRole("table", { name: "Sends" })).toHaveCount(0);
 });
 
-test("sending: with no send there is no Sends table", async ({ page }) => {
+test("activity ▸ sends: the history is a view of Activity's View menu with its count; none yet says so", async ({ page }) => {
   await sendsServer(page, { sends: [], stopped: [] });
-  await page.goto(AT);
-  await expect(page.getByRole("button", { name: "Stop sending" })).toBeVisible();
+  await page.goto(`/${PROJECT}/log`);
+  await page.getByRole("button", { name: /^View: All/ }).click();
+  await page.getByRole("menuitemradio", { name: /^Sends/ }).click();
+  await expect.poll(() => new URL(page.url()).pathname + new URL(page.url()).search).toBe(SENDS);
+  await expect(page.getByText("No sends yet")).toBeVisible();
   await expect(page.getByRole("table", { name: "Sends" })).toHaveCount(0);
 });
 
@@ -107,9 +113,9 @@ test("sending: a rule switch writes once and reports a refusal inline, in an ale
   await expect(first).toHaveAttribute("aria-checked", before ?? "true");
 });
 
-test("sending: Cancel exists only on a queued send, and the row reads cancelled after", async ({ page }) => {
+test("activity ▸ sends: Cancel exists only on a queued send, and the row reads cancelled after", async ({ page }) => {
   const writes = await sendsServer(page, { sends: [queued, sent], stopped: [] });
-  await page.goto(AT);
+  await page.goto(SENDS);
   const table = page.getByRole("table", { name: "Sends" });
   await expect(table.locator("tr[data-send]")).toHaveCount(2);
   await expect(table.getByRole("button", { name: /^Cancel send/ })).toHaveCount(1); // a sent mail cannot be recalled

@@ -18,6 +18,7 @@ export const CORE_LEVEL_WORDS: Record<CoreLevel, string> = {
  */
 export function coreLine(d: CoreUpdateDto): { text: string; note: string | null; dot: boolean } {
   const text = `core ${d.pin ?? d.inUse ?? "unknown"}`;
+  if (d.local) return { text, note: "local checkout", dot: false };
   if (d.level === "recommended" || d.level === "required") return { text, note: CORE_LEVEL_WORDS[d.level], dot: true };
   if (d.level === "available") return { text, note: CORE_LEVEL_WORDS.available, dot: false };
   return { text, note: null, dot: false };

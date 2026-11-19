@@ -2,9 +2,9 @@ import { CopyIcon } from "lucide-react";
 import type { AgentToolRow } from "@hub/contract/agent-tools";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
-import { STATE_LOOK } from "./labels";
+import { CLI_TITLE, needsAttention, STATE_LOOK } from "./labels";
 
-/** A red row's fix: the one command line, and a button that copies it. Never a form: the hub does, the panel shows. */
+/** The fix of a row that needs a fix or a look: the one command line, and a button that copies it. Never a form: the hub does, the panel shows. */
 function FixLine({ row, onCopy }: { row: AgentToolRow; onCopy: (fix: string) => void }) {
   if (!row.fix) return null;
   const fix = row.fix;
@@ -19,37 +19,63 @@ function FixLine({ row, onCopy }: { row: AgentToolRow; onCopy: (fix: string) => 
   );
 }
 
-/** One CLI's checks as a table: what, the state (an icon and a word), and the detail; a red row adds its fix line. */
-export function ToolTable({ title, rows, onCopy }: { title: string; rows: readonly AgentToolRow[]; onCopy: (fix: string) => void }) {
+type Props = { title: string; rows: readonly AgentToolRow[]; onCopy: (fix: string) => void; /** The rows of both CLIs: each check is named with its CLI. */ mixed?: boolean };
+
+function State({ r }: { r: AgentToolRow }) {
+  const { word, Icon, tone } = STATE_LOOK[r.state];
   return (
-    <DataTable aria-label={title}>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-2/5">{title}</TableHead>
-          <TableHead className="w-1/5">State</TableHead>
-          <TableHead>Detail</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((r) => {
-          const { word, Icon, tone } = STATE_LOOK[r.state];
-          return (
-            <TableRow data-state={r.state} data-tool={r.id} key={r.id}>
-              <TableCell className="font-medium">{r.title}</TableCell>
+    <span className={`inline-flex items-center gap-1 ${tone}`}>
+      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
+      {word}
+    </span>
+  );
+}
+
+/**
+ * Checks as a table: what, the state (an icon and a word), and the detail; a row that needs a fix or a look adds its fix line.
+ * Below 640px each check is two lines (the name and the state; the detail and the fix), never three squeezed columns
+ * (`admin-principles.md` rule 5).
+ */
+export function ToolTable({ title, rows, onCopy, mixed = false }: Props) {
+  const name = (r: AgentToolRow) => (mixed ? `${CLI_TITLE[r.cli]} · ${r.title}` : r.title);
+  return (
+    <>
+      <DataTable aria-label={title} className="max-md:hidden">
+        <TableHeader>
+          <TableRow>
+            <TableHead className={mixed ? "w-1/4" : "w-2/5"}>{mixed ? "Check" : title}</TableHead>
+            <TableHead className={mixed ? "w-1/8" : "w-1/5"}>State</TableHead>
+            <TableHead>Detail</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow data-state={r.state} data-tool={r.id} key={`${r.cli}:${r.id}`}>
+              <TableCell className="font-medium">{name(r)}</TableCell>
               <TableCell>
-                <span className={`inline-flex items-center gap-1 ${tone}`}>
-                  <Icon aria-hidden="true" className="size-3.5 shrink-0" />
-                  {word}
-                </span>
+                <State r={r} />
               </TableCell>
               <TableCell className="text-muted-foreground">
                 {r.detail}
-                {r.state === "fail" && <FixLine onCopy={onCopy} row={r} />}
+                {needsAttention(r) && <FixLine onCopy={onCopy} row={r} />}
               </TableCell>
             </TableRow>
-          );
-        })}
-      </TableBody>
-    </DataTable>
+          ))}
+        </TableBody>
+      </DataTable>
+      <ul aria-label={title} className="flex flex-col divide-y md:hidden">
+        {!mixed && <li className="py-2 font-medium text-sm">{title}</li>}
+        {rows.map((r) => (
+          <li className="flex min-w-0 flex-col gap-1 py-2 text-sm" data-state={r.state} key={`${r.cli}:${r.id}`}>
+            <p className="flex min-w-0 items-baseline justify-between gap-3">
+              <span className="min-w-0 break-words font-medium">{name(r)}</span>
+              <State r={r} />
+            </p>
+            {r.detail && <p className="break-words text-muted-foreground text-xs">{r.detail}</p>}
+            {needsAttention(r) && <FixLine onCopy={onCopy} row={r} />}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }

@@ -73,6 +73,8 @@ export interface CoreUpdate {
   checkedAt?: string;
   /** The last check that did not; the rest is the last good answer. */
   error?: { at: string; message: string };
+  /** `core/` is a link to a local checkout (`hub core dev`): nothing to check, never a tag to move to (UX pass 2026-11-20). */
+  local?: true;
 }
 
 export const SHOWN_TAGS = 10;
@@ -175,6 +177,12 @@ export function parseLsRemote(out: string): { tags: Map<string, string>; heads: 
   return { tags, heads };
 }
 
+/** Whether `core/` is a link to a local checkout (`hub core dev`). */
+export const isLocalCore = (home: string): boolean => lstatSync(join(home, "core"), { throwIfNoEntry: false })?.isSymbolicLink() ?? false;
+
+/** The answer while `core/` is a local checkout: no check, no command, and `local` so the admin says it in one line. */
+export const localCoreUpdate = (home: string): CoreUpdate => ({ ...uncheckedCoreUpdate(home, "core/ is a link to a local checkout (hub core dev): no update check"), local: true });
+
 /** The "not checked" answer: the pin from the file, nothing else known. */
 export function uncheckedCoreUpdate(home: string, reason = "not checked yet"): CoreUpdate {
   return { pin: pinLabel(readPinFile(home)), inUse: null, level: "unknown", reason, tags: [], facts: NO_FACTS, command: [] };
@@ -190,7 +198,7 @@ export async function checkCoreUpdates(run: CommandRun, paths: Pick<HubPaths, "h
   const git = (args: string[], timeoutMs = 10_000, env?: Record<string, string>) => run("git", ["-C", paths.core, ...args], { timeoutMs, ...(env ? { env } : {}) });
   const file = readPinFile(paths.home);
   if (!file?.pin) return uncheckedCoreUpdate(paths.home, `${INSTANCE_MARKER} is missing or empty`);
-  if (lstatSync(join(paths.home, "core"), { throwIfNoEntry: false })?.isSymbolicLink()) return uncheckedCoreUpdate(paths.home, "core/ is a link to a local checkout (hub core dev): no update check");
+  if (isLocalCore(paths.home)) return localCoreUpdate(paths.home);
   const head = await git(["rev-parse", "HEAD"]);
   if (head.code !== 0) return uncheckedCoreUpdate(paths.home, "the core is not a git checkout: no update check");
   const inUse = (await git(["describe", "--tags", "--exact-match", "HEAD"])).stdout.trim() || head.stdout.trim().slice(0, 9);
@@ -293,6 +301,7 @@ export function writeCoreUpdateCache(file: string, value: CoreUpdate): void {
 export function currentCoreUpdate(paths: Pick<HubPaths, "home" | "coreUpdate">): CoreUpdate {
   const cached = readCoreUpdateCache(paths.coreUpdate);
   const pin = pinLabel(readPinFile(paths.home));
+  if (isLocalCore(paths.home)) return localCoreUpdate(paths.home);
   if (!cached) return uncheckedCoreUpdate(paths.home);
   if (cached.pin !== pin) return uncheckedCoreUpdate(paths.home, `the pin moved to ${pin ?? "nothing"} since the last check`);
   return cached;

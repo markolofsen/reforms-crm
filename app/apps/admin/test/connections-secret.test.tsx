@@ -54,7 +54,7 @@ describe("a key in the browser", () => {
   });
 
   it("a stored row offers Replace and Remove, a missing one only Set, an environment one no Remove; the forms start closed", () => {
-    const html = (r: ConnectionDto) => renderToStaticMarkup(<ConnectionRow actions={{ test: () => {}, save: async () => true, remove: async () => true }} busy={false} locked={false} now={0} row={r} />);
+    const html = (r: ConnectionDto) => renderToStaticMarkup(<ConnectionRow actions={{ test: () => {}, save: async () => true, remove: async () => true }} busy={false} locked={false} multi={false} now={0} row={r} />);
     const stored = html(row());
     expect(stored).toContain("Replace key");
     expect(stored).toContain("Remove");

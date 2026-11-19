@@ -81,16 +81,23 @@ const SCREENS: Screen[] = [
   },
   { name: "settings: sending", path: at(P, "/settings"), ready: async (p) => void (await p.getByTestId("sending-status").waitFor()) },
   {
-    name: "settings: sending, an empty send history",
-    path: at(P, "/settings"),
-    mock: async (p) => void (await p.route(/\/api\/projects\/[^/]+\/sends$/, (route) => route.fulfill({ json: { sends: [], stopped: [] } }))),
-    ready: async (p) => void (await p.getByTestId("sending-status").waitFor()),
-  },
-  {
-    name: "settings: sending, send history, a queued send, Stop all on",
+    name: "settings: sending, Stop all on",
     path: at(P, "/settings"),
     mock: async (p) => void (await p.route(/\/api\/projects\/[^/]+\/sends$/, (route) => route.fulfill({ json: { sends: SEND_ROWS, stopped: ["lisbon-realty"] } }))),
-    ready: async (p) => void (await p.getByRole(p.viewportSize()!.width < 768 ? "list" : "table", { name: "Sends" }).getByText("Re: Order status").waitFor()),
+    ready: async (p) => void (await p.getByRole("button", { name: "Resume lisbon-realty" }).waitFor()),
+  },
+  // UX pass 2026-11-20: the send history is Activity ▸ Sends.
+  {
+    name: "activity: sends, none yet",
+    path: at(P, "/log?filter=sends"),
+    mock: async (p) => void (await p.route(/\/api\/projects\/[^/]+\/sends$/, (route) => route.fulfill({ json: { sends: [], stopped: [] } }))),
+    ready: async (p) => void (await p.getByText("No sends yet").waitFor()),
+  },
+  {
+    name: "activity: sends, a queued one",
+    path: at(P, "/log?filter=sends"),
+    mock: async (p) => void (await p.route(/\/api\/projects\/[^/]+\/sends$/, (route) => route.fulfill({ json: { sends: SEND_ROWS, stopped: [] } }))),
+    ready: async (p) => void (await p.getByRole(p.viewportSize()!.width < 640 ? "list" : "table", { name: "Sends" }).getByText("Re: Order status").waitFor()),
   },
   // P70: Knowledge, the Settings panes, Help.
   { name: "knowledge", path: at(P, "/knowledge"), ready: async (p) => void (await p.getByRole("table", { name: "Knowledge entries" }).or(p.getByRole("list", { name: "Knowledge entries" })).or(p.getByText("No knowledge yet")).first().waitFor()) },

@@ -13,8 +13,8 @@ import { STATUS_NEXT } from "./overview";
 export const SCHEME_STATES = ["ok", "warn", "fail", "unknown"] as const;
 export type SchemeState = (typeof SCHEME_STATES)[number];
 
-/** The parts. Instance parts: `core`, `cli`, `notion`, `telegram`. The rest belong to one project. */
-export const SCHEME_KINDS = ["core", "cli", "notion", "telegram", "mailbox", "mail-mcp", "hub-tools", "notion-db", "knowledge", "mail-filters", "setup", "guard", "send-door"] as const;
+/** The parts. Instance parts: `core`, `cli`, `notion`, `telegram`. The rest belong to one project; `session` is every Agent tools row no other part covers (UX pass 2026-11-20). */
+export const SCHEME_KINDS = ["core", "cli", "notion", "telegram", "mailbox", "mail-mcp", "hub-tools", "notion-db", "knowledge", "mail-filters", "setup", "guard", "session", "send-door"] as const;
 export type SchemeKind = (typeof SCHEME_KINDS)[number];
 
 export const schemeNode = z.strictObject({

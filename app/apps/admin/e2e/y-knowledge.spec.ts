@@ -61,7 +61,7 @@ test("knowledge: every entry is a row with its title, its status in words and it
 test("knowledge: the View menu's counts are the server's, and each view lists exactly its count", async ({ page }) => {
   const d = await list(page);
   await page.goto(`/${PROJECT}/knowledge`);
-  await page.getByRole("button", { name: /^Show:/ }).click();
+  await page.getByRole("button", { name: /^View:/ }).click();
   const items = page.getByRole("menuitemradio");
   await expect(items).toHaveCount(4);
   const want = [["All", d.counts.all], ["Needs a look", d.counts.attention], ["Expired", d.counts.expired], ["Not approved", d.counts.unapproved]] as const;
@@ -88,7 +88,7 @@ test("knowledge: an entry's Open opens its file (the fake opener records the arg
   await expect.poll(opened).toEqual([["/usr/bin/open", join(folder, "knowledge", "files", "prices", "springsale.md")]]);
 });
 
-test("knowledge: at 360px each entry is two lines (title and Open, then who, status, date) and nothing scrolls sideways", async ({ page }) => {
+test("knowledge: at 360px each entry is at most two lines (title and Open, then who, status, date when it has any) and nothing scrolls sideways", async ({ page }) => {
   const d = await list(page);
   await page.setViewportSize({ width: 360, height: 800 });
   await page.goto(`/${PROJECT}/knowledge`);
@@ -96,7 +96,9 @@ test("knowledge: at 360px each entry is two lines (title and Open, then who, sta
   await expect(rows).toHaveCount(d.entries.length);
   await expect(table(page)).toHaveCount(0);
   const first = rows.first();
-  await expect(first.locator("p")).toHaveCount(2);
+  // UX pass: a row with nothing to add (no date, the shared audience, approved) is one line; an expired one says so on its second.
+  expect(await first.locator("p").count()).toBeLessThanOrEqual(2);
   await expect(first.locator("p").first().getByRole("button", { name: /^Open / })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Knowledge entries" }).locator('li[data-status="expired"] p')).toHaveCount(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });

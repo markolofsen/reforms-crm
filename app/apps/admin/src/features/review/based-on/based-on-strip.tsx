@@ -10,7 +10,7 @@ function List({ title, items }: { title: string; items: string[] | undefined }) 
   if (!items?.length) return null;
   return (
     <div>
-      <h5 className="font-medium text-xs text-muted-foreground uppercase">{title}</h5>
+      <h5 className="font-medium text-muted-foreground text-xs">{title}</h5>
       <ul className="list-disc ps-4 text-sm">{items.map((i) => <li key={i}>{i}</li>)}</ul>
     </div>
   );

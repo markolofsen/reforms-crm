@@ -20,14 +20,15 @@ test("status line: clear says so plainly, with the triage age, and links nowhere
 });
 
 test("status line: attention names the fact once, adds the replies owed, and leads to where it is fixed", async ({ page }) => {
-  await statusIs(page, P, { level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "sending", numbers: { owed: 2, lastTriageAt: null } });
+  // Test mode is a setting (level clear since the UX pass), so the attention fact here is a failed send.
+  await statusIs(page, P, { level: "attention", kind: "send-failed", sentence: "1 send failed in the last 24 hours", next: "sending", numbers: { owed: 2, lastTriageAt: null } });
   await page.goto(at(P, "/drafts?filter=all"));
   await expect(line(page)).toHaveAttribute("data-level", "attention");
-  await expect(line(page)).toHaveText(/Test mode: sends go to the test list only · never triaged · 2 replies owed/);
+  await expect(line(page)).toHaveText(/1 send failed in the last 24 hours · never triaged · 2 replies owed/);
   // No count twice: the to-review number is the View menu's, never the line's.
   await expect(line(page)).not.toContainText("to review");
   await line(page).getByRole("link").click();
-  // P70: who drafts may go to is on Settings ▸ Sending, so the line leads there; the dot is on Settings (and on Sending under it).
+  // P70: sending is fixed on Settings ▸ Sending, so the line leads there; the dot is on Settings (and on Sending under it).
   await expect.poll(() => address(page)).toBe(at(P, "/settings"));
   const nav = page.getByRole("navigation", { name: "Sections" }).first();
   await expect(nav.getByTestId("dot-settings")).toBeVisible();

@@ -36,6 +36,8 @@ type Props = {
   measured: boolean;
   /** Shown when the list is empty (the host knows its own words). */
   empty: (filtered: boolean) => ReactNode;
+  /** The empty title of a filtered view ("Nothing on hold"), so the body need not say it again (UX pass 2026-11-20). */
+  emptyTitle?: string;
   /** Under the header line, scrolling with the list: the project's one status line (P48 W3). */
   status?: ReactNode;
   /** A view whose rows are not drafts (Not by email): shown instead of the draft rows. */
@@ -83,7 +85,7 @@ function LoadedFooter({ loaded, total, more, fetching, onMore }: { loaded: numbe
  * Drafts and a batch share this: the list column (views, search, rows, Select) and the pane with the open card.
  * It never sends mail by itself: Send is the card's, and a batch draft opens a compose window you send from.
  */
-export function ReviewWorkspace({ source, views, onView, search, selection, empty, status, body, listBottom, mobile, measured, noun }: Props) {
+export function ReviewWorkspace({ source, views, onView, search, selection, empty, emptyTitle, status, body, listBottom, mobile, measured, noun }: Props) {
   const qc = useQueryClient();
   const now = useClock()();
   const actions = useReviewActions(source.project);
@@ -205,7 +207,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
         </div>
       )}
       {rows.length === 0 ? (
-        <EmptyState action={filtered && !q ? <ActionButton onClick={() => onView("all")} size="s" variant="secondary">Show all</ActionButton> : undefined} title={q ? "Nothing matches" : filtered ? "Nothing here" : "Nothing to review"}>{q ? "No draft in this view matches the search." : empty(filtered)}</EmptyState>
+        <EmptyState action={filtered && !q ? <ActionButton onClick={() => onView("all")} size="s" variant="secondary">Show all</ActionButton> : undefined} title={q ? "Nothing matches" : filtered ? (emptyTitle ?? "Nothing here") : "Nothing to review"}>{q ? "No draft in this view matches the search." : empty(filtered)}</EmptyState>
       ) : (
         <ul aria-label={noun.list} className="flex flex-col">
           {rows.map((d) => (

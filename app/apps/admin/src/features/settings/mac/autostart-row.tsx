@@ -11,7 +11,6 @@ import { connectionsApi } from "@/lib/api/connections";
 import { sentence } from "@/lib/api/client";
 import { keys } from "@/lib/cache/keys";
 import { copyText } from "@/lib/external";
-import { SettingsGroup } from "../group";
 import { autostartSaid, mailMcpSaid, type Said } from "./autostart-labels";
 
 type Say = { text: string; kind: "status" | "alert" } | null;
@@ -58,7 +57,8 @@ export function AutostartRow() {
   const mail = d ? mailMcpSaid(d) : null;
   const label = "Start the Hub after a restart";
   return (
-    <SettingsGroup id="this-mac" title="Startup">
+    // No "Startup" heading over its one row: the row's own label says it (UX pass 2026-11-20).
+    <section aria-label="Start after a restart" className="flex flex-col gap-1">
       {q.isPending ? (
         <Skeleton aria-label="Loading whether the Hub starts after a restart" className="h-12 w-full rounded-xl" role="status" />
       ) : !d ? (
@@ -80,6 +80,6 @@ export function AutostartRow() {
           {say?.kind === "alert" ? say.text : ""}
         </p>
       </div>
-    </SettingsGroup>
+    </section>
   );
 }

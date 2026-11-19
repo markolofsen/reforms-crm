@@ -23,10 +23,10 @@ describe("send boundary", () => {
     expect(users).toEqual(["features/review/mail/use-mail-write.ts"]);
   });
 
-  it("reaches the history, Stop all, Resume and the doctor from Settings ▸ Sending (P70), and Cancel also from the card", () => {
+  it("reaches Stop all, Resume and the doctor from Settings ▸ Sending (P70), the history and Cancel from Activity ▸ Sends (UX pass), and Cancel also from the card", () => {
     const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(list|cancel|stop|resume|doctor)\b/.test(f.text)).map((f) => f.path).sort();
-    expect(users).toEqual(["features/review/card/draft-card.tsx", "features/settings/sending/send-to.tsx", "features/settings/sending/sends-table.tsx"]);
+    expect(users).toEqual(["features/log/sends-table.tsx", "features/review/card/draft-card.tsx", "features/settings/sending/send-to.tsx", "features/settings/sending/sending-pane.tsx", "lib/status.ts"]);
     const stops = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(stop|resume)\b/.test(f.text)).map((f) => f.path);
-    expect(stops).toEqual(["features/settings/sending/sends-table.tsx"]);
+    expect(stops).toEqual(["features/settings/sending/sending-pane.tsx"]);
   });
 });

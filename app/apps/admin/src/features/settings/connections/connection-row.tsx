@@ -47,7 +47,7 @@ function RemoveAsk({ row, busy, onRemove, onClose }: { row: ConnectionDto; busy:
 const TOKEN_WHAT: Record<ConnectionDto["kind"], string> = { notion: "Integration token", telegram: "Bot token" };
 
 /** One connection: what it is, where the key stands, who uses it, the last test, and the actions the server offers for it. */
-export function ConnectionRow({ row, now, busy, locked, actions }: { row: ConnectionDto; now: number; busy: boolean; locked: boolean; actions: RowActions }) {
+export function ConnectionRow({ row, now, busy, locked, multi, actions }: { row: ConnectionDto; now: number; busy: boolean; locked: boolean; multi: boolean; actions: RowActions }) {
   const { word, Icon, tone } = SECRET[row.secret.state];
   const [panel, setPanel] = useState<"set" | "remove" | null>(null);
   const setButton = useRef<HTMLButtonElement>(null);
@@ -64,8 +64,10 @@ export function ConnectionRow({ row, now, busy, locked, actions }: { row: Connec
           {row.identity && <span className="min-w-0 break-all text-muted-foreground text-xs">{row.identity}</span>}
           <span className={`inline-flex flex-wrap items-center gap-x-1 text-xs ${tone}`}>
             <Icon aria-hidden="true" className="size-3.5 shrink-0" />
-            {word}
-            {row.secret.changedAt && <span className="text-muted-foreground">, changed {ago(row.secret.changedAt, now)}</span>}
+            <span>
+              {word}
+              {row.secret.changedAt && <span className="text-muted-foreground">, changed {ago(row.secret.changedAt, now)}</span>}
+            </span>
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -84,14 +86,16 @@ export function ConnectionRow({ row, now, busy, locked, actions }: { row: Connec
           {row.can.includes("remove") && (
             <ActionButton aria-expanded={panel === "remove"} aria-label={`Remove key for ${row.label}`} disabled={locked} onClick={() => setPanel(panel === "remove" ? null : "remove")} size="s" variant="quiet">
               <Trash2Icon aria-hidden="true" />
-              Remove
+              Remove key
             </ActionButton>
           )}
         </div>
       </div>
-      {row.usedBy.length > 0 && <p className="text-muted-foreground text-xs">Used by {row.usedBy.join(", ")}</p>}
-      {row.note && <p className="text-muted-foreground text-xs">{row.note}</p>}
-      {row.can.includes("test") && <Check c={row.check} now={now} />}
+      {/* With one project "Used by" names the only one there is (no project chrome, `admin-principles.md` rule 7). */}
+      {multi && row.usedBy.length > 0 && <p className="text-muted-foreground text-xs">Used by {row.usedBy.join(", ")}</p>}
+      {row.note && <p className="measure text-muted-foreground text-xs">{row.note}</p>}
+      {/* The last test's result, or nothing: "Not tested yet" says what Test already offers (UX pass 2026-11-20). */}
+      {row.can.includes("test") && row.check.state !== "never" && <Check c={row.check} now={now} />}
       {panel === "set" && <SecretForm busy={busy} id={row.id} onClose={close} onSave={(value) => actions.save({ value })} what={TOKEN_WHAT[row.kind]} />}
       {panel === "remove" && <RemoveAsk busy={busy} onClose={close} onRemove={actions.remove} row={row} />}
     </li>

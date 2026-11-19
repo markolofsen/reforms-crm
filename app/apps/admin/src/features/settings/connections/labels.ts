@@ -23,12 +23,12 @@ export const CHECK_ICON: Record<ConnectionDto["check"]["state"], LucideIcon> = {
  * but not answering: then the word is a warning, and the section shows the fix line).
  */
 export function foundLook(found: MailAccountDto["foundInMail"], read: MailReadState = "answered"): Look {
-  if (found === null && read === "not-answering") return { word: "Mail is not answering", Icon: ClockIcon, tone: "text-warning-foreground" };
-  if (found === null) return { word: "Mail is not running", Icon: CircleHelpIcon, tone: "text-muted-foreground" };
-  return found ? { word: "Found in Apple Mail", Icon: CheckCircle2Icon, tone: "text-success-foreground" } : { word: "Not found in Apple Mail", Icon: XCircleIcon, tone: "text-warning-foreground" };
+  // The column is "Apple Mail", so a cell does not say it again (UX pass 2026-11-20).
+  if (found === null && read === "not-answering") return { word: "Not answering", Icon: ClockIcon, tone: "text-warning-foreground" };
+  if (found === null) return { word: "Not running", Icon: CircleHelpIcon, tone: "text-muted-foreground" };
+  return found ? { word: "Found", Icon: CheckCircle2Icon, tone: "text-success-foreground" } : { word: "Not found", Icon: XCircleIcon, tone: "text-warning-foreground" };
 }
 
-export const KIND_TITLE: Record<ConnectionKind, string> = { notion: "Notion", telegram: "Telegram" };
 /** The order on Settings ▸ Connections. */
 export const KIND_ORDER: readonly ConnectionKind[] = ["notion", "telegram"];
 

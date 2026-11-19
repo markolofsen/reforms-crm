@@ -1,12 +1,15 @@
 import type { RunStatus } from "@hub/config";
 import { ACTIVITY_OUTCOME_LABELS, type ActivityRowDto, type ActivitySessionDto } from "@hub/contract/activity";
 import { formatTime, plural, tokens, usd } from "@/lib/format";
-import type { RunFilter } from "@/routes/search";
+import type { ActivityView, RunFilter } from "@/routes/search";
 
 // The words of the Activity screen, as pure functions of the contract (a Vitest test sits beside this file).
 
 export const RUN_FILTER_LABELS: Record<RunFilter, string> = { all: "All", needs_human: "Needs you", failed: "Failed", ok: "Done" };
 export const RUN_FILTER_ORDER: readonly RunFilter[] = ["all", "needs_human", "failed", "ok"];
+/** The View menu of Activity: the session views, then Sends (UX pass 2026-11-20), the send history. */
+export const VIEW_LABELS: Record<ActivityView, string> = { ...RUN_FILTER_LABELS, sends: "Sends" };
+export const VIEW_ORDER: readonly ActivityView[] = [...RUN_FILTER_ORDER, "sends"];
 
 /** A session's standing, said only when it is not a plain finish, so "Done" is not repeated on every heading. */
 const STATUS_NOTE: Record<RunStatus, string | null> = { ok: null, needs_human: "Needs you", failed: "Did not finish" };

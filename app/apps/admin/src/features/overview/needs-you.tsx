@@ -2,6 +2,7 @@ import { useQueries } from "@tanstack/react-query";
 import { CheckCircle2Icon, MessageCircleQuestionIcon } from "lucide-react";
 import type { SchemeNode } from "@hub/contract/scheme";
 import { AppLink } from "@/components/app-link";
+import { SectionTitle } from "@hub/ui/product/page";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
 import { placeDest, SCHEME_LOOK } from "./labels";
@@ -72,9 +73,7 @@ export function NeedsYou({ nodes, questions, multi }: { nodes: readonly SchemeNo
   }
   return (
     <section aria-labelledby="needs-you-title" className="flex flex-col gap-1">
-      <h3 className="font-heading font-medium text-sm" id="needs-you-title">
-        Needs you
-      </h3>
+      <SectionTitle id="needs-you-title">Needs you</SectionTitle>
       <ul aria-label="Needs you" className="flex flex-col divide-y border-y" data-testid="needs-you">
         {questions.map((q) => (
           <QuestionItem key={`q:${q.project}`} multi={multi} q={q} />
