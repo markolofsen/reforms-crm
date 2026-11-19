@@ -211,7 +211,6 @@ export const SAFETY_KINDS = [
   "risky_word",
   "wrong_thread",
   "already_sent_recently",
-  "marker_left",
   // What the draft was based on (P28): judged from the evidence block `hub record-draft` stored, never from the body.
   "no_thread_read",
   "no_profile_read",
@@ -242,7 +241,6 @@ export const SAFETY_LABELS: Record<SafetyKind, string> = {
   risky_word: "Risky words",
   wrong_thread: "Wrong thread",
   already_sent_recently: "Already written to recently",
-  marker_left: "Hub marker left in the text",
   no_thread_read: "Thread not read",
   no_profile_read: "Profile not read",
   near_duplicate: "Near-duplicate of another draft",
@@ -291,7 +289,6 @@ export const DEFAULT_SAFETY_RULES: readonly SafetyRule[] = [
   { kind: "risky_word", enabled: true, level: "amber", params: { words: ["commission", "discount", "guarantee", "price list", "pricing sheet", "HOA"] } },
   { kind: "wrong_thread", enabled: true, level: "amber", params: {} },
   { kind: "already_sent_recently", enabled: true, level: "amber", params: { days: 7 } },
-  { kind: "marker_left", enabled: true, level: "red", params: {} },
   { kind: "no_thread_read", enabled: true, level: "red", params: {} },
   { kind: "no_profile_read", enabled: true, level: "red", params: {} },
   { kind: "near_duplicate", enabled: true, level: "red", params: {} },
@@ -326,31 +323,6 @@ export const DEFAULT_AGENT_SETTINGS: Readonly<AgentSettings> = { model: "sonnet"
 /** The placeholders left in a text (`{first_name}`, `{{x}}`, `[Owner: price]`): what `unresolved_marker` flags. */
 export function unresolvedMarkers(text: string): string[] {
   return text.match(/\{\{[^}]*\}\}|\{[a-z][a-z0-9_]*\}|\[[A-Z][\w ]*:[^\]]*\]/g) ?? [];
-}
-
-/**
- * The hub line drafts carried before decision 0031 (P65): `[hub-draft thread=<Message-ID>]`. Nothing writes it any more;
- * it is known only so the send door refuses a text that still holds one (until `hub drafts unmark` reads 0 in every
- * instance) and so that one-time migration can find the drafts to rewrite. P65 S4 deletes all of this.
- */
-export const HUB_DRAFT_MARKER = /\[hub-draft\b[^\]\n]*\]/i;
-
-/** A hub line anywhere in the text (P27 M1.3): a draft that carries one must not be sent. Pure; null when there is none. */
-export function markerLeft(text: string): string | null {
-  return text.match(HUB_DRAFT_MARKER)?.[0] ?? null;
-}
-
-/**
- * The marker line of a draft written before decision 0031, when its first non-empty line is one: the thread bare and
- * lowercased like `mailRef`. Used only by `hub drafts unmark` (P65 S3) to adopt today's marked drafts; never to decide a
- * removal (the Hub's `mail_versions` record does that).
- */
-export type MarkedDraft = { thread: string; line: string } | null;
-
-export function markedDraft(text: string): MarkedDraft {
-  const first = text.split(/\r?\n/).find((l) => l.trim() !== "")?.trim() ?? "";
-  const m = /^\[hub-draft thread=([^\]\s]+)\]/i.exec(first);
-  return m?.[1] ? { thread: m[1].replace(/^<|>$/g, "").toLowerCase(), line: m[0] } : null;
 }
 
 /**

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { markerLeft, unresolvedMarkers } from "@hub/config";
+import { unresolvedMarkers } from "@hub/config";
 import { RepoError, type DraftRow, type MailVersionRow, type Repos, type SendRow } from "@hub/db";
 import { checkDraftRecipients, isOwnAddress, loadProject, loadProjects, normalizeAddress, type ProjectConfig } from "@hub/projects";
 import { bareId, MAIL_NOT_ANSWERING_FIX, MailNotAnswering, type MailDraft, type Mailer, type TrashItem } from "./mailer";
@@ -128,10 +128,6 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
   if (!mail.body.trim()) reasons.push("the draft text is empty");
   const left = unresolvedMarkers(`${mail.subject}\n${mail.body}`);
   if (left.length) reasons.push(`a placeholder is left in the text: ${left[0]}`);
-  // The migration window (P65 verdict 6): a draft written before decision 0031 still carries its hub line until
-  // `hub drafts unmark` rewrites it. It is refused, never stripped. P65 S4 deletes this check.
-  const hubLine = markerLeft(`${mail.subject}\n${mail.body}`);
-  if (hubLine) reasons.push(`a hub line is in the text (${hubLine.slice(0, 80)}): the migration has not rewritten this draft; run hub drafts unmark`);
 
   const safety = await deps.repos.sends.safetyOf(draftId, { subject: mail.subject, toAddr: mail.to.join(","), ccAddr: mail.cc.join(",") || null, body: mail.body }, now);
   // A person sending sees the amber results in the admin and gates only on red; autosend has nobody to judge, so any unacknowledged one stops it.

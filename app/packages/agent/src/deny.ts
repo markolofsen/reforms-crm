@@ -46,10 +46,10 @@ export const HUB_SEND_COMMANDS: readonly string[] = ["Bash(*hub send*)", "Bash(*
 export const HUB_SEQUENCE_OWNER_COMMANDS: readonly string[] = ["Bash(*sequences enrol*--not-now*)", "Bash(*sequences pause*)", "Bash(*sequences resume*)"];
 
 /**
- * Moving Mail drafts to Trash (`hub drafts sweep --apply`, P56) and rewriting the marked ones (`hub drafts unmark
- * --apply`, P65 S3) are the owner's: a session may list them (the dry runs), never move or rewrite them.
+ * Moving Mail drafts to Trash (`hub drafts sweep --apply`, P56) is the owner's: a session may list them (the dry run),
+ * never move them.
  */
-export const HUB_MAIL_OWNER_COMMANDS: readonly string[] = ["Bash(*drafts sweep*--apply*)", "Bash(*drafts unmark*--apply*)"];
+export const HUB_MAIL_OWNER_COMMANDS: readonly string[] = ["Bash(*drafts sweep*--apply*)"];
 
 /**
  * Connectors (P62): adding one and stating its account are the owner's (`hub connectors add|account`); a session may list them.

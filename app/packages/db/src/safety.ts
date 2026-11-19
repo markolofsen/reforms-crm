@@ -1,4 +1,4 @@
-import { DEFAULT_SAFETY_RULES, FINDING_KIND, markerLeft, SAFETY_KINDS, unresolvedMarkers, type EvidenceFinding, type EvidenceSource, type Mark, type SafetyKind, type SafetyResult, type SafetyRule } from "@hub/config";
+import { DEFAULT_SAFETY_RULES, FINDING_KIND, SAFETY_KINDS, unresolvedMarkers, type EvidenceFinding, type EvidenceSource, type Mark, type SafetyKind, type SafetyResult, type SafetyRule } from "@hub/config";
 
 // The safety rules engine (doc 14). Pure: a draft, its client and the rules in, the results out. The rules are data
 // (`DEFAULT_SAFETY_RULES`, overridden per project in the `safety_rules` table), so the owner edits them without code.
@@ -68,12 +68,6 @@ export function evaluateSafety(input: SafetyInput, rules: SafetyRule[], acked: r
       case "wrong_thread":
         if (client.repliesOwed && !draft.mailRef) fire(rule.kind, "They wrote last, but this draft is not tied to their thread. Reply in the thread, or send it as a new email on purpose.");
         break;
-      case "marker_left": {
-        // Nothing the Hub writes carries a hub line any more (decision 0031): one anywhere is a draft `hub drafts unmark` has not rewritten yet.
-        const m = markerLeft(text);
-        if (m) fire(rule.kind, `The text still has a hub line ${m.slice(0, 80)}: the migration (hub drafts unmark) has not rewritten this draft yet.`);
-        break;
-      }
       case "signature_language":
         if (input.signatureFallback) fire(rule.kind, `The project has no sign-off or signature line for "${input.signatureFallback}", the reply's language: the draft is signed in English. Add a ${input.signatureFallback}: line to signoff or the brand's Signature, or edit the ending.`);
         break;

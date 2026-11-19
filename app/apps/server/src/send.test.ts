@@ -167,17 +167,13 @@ describe("Send from the admin", () => {
     await vi.waitFor(async () => expect((await repos.mailVersions.ofDraft(r.draftId))[0]?.trashedAt).not.toBeNull());
   });
 
-  it("P65: two drafts of the thread refuse the send and name both; a text that still holds a hub line is refused, never stripped", async () => {
+  it("P65: two drafts of the thread refuse the send and name both", async () => {
     const r = await repos.drafts.record({ project: "acme", email: "client@example.com", name: "Cli", subject: "Re: hello", mailRef: "<In1@Client.example>", mailClass: "client" });
     await repos.drafts.setChecked(r.draftId, true);
     mailer.drafts.push(mailDraft({ ref: "601", inReplyTo: "in1@client.example" }), mailDraft({ ref: "602", messageId: "own@acme.example", inReplyTo: "in1@client.example" }));
     const two = await apply(r.draftId, { confirm });
     expect(two.status).toBe(409);
     expect(((await two.json()) as { refused: string[] }).refused.join(" ")).toMatch(/Mail holds 2 drafts that answer this message \(Mail id 602 is not the Hub's; Mail id 601 is not the Hub's\)/);
-    mailer.drafts = [mailDraft({ ref: "601", inReplyTo: "in1@client.example", body: "\n[hub-draft thread=In1@Client.example]\nHello" })];
-    const res = await apply(r.draftId, { confirm });
-    expect(res.status).toBe(409);
-    expect(((await res.json()) as { refused: string[] }).refused.join(" ")).toMatch(/hub line is in the text \(\[hub-draft thread=In1@Client\.example\]\): the migration has not rewritten this draft/);
     expect(mailer.sent).toEqual([]);
   });
 

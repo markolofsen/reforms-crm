@@ -373,7 +373,7 @@ export function mailAppMailer(osa: OsaRun = defaultOsa, read: OsaRun = osa): Mai
   };
 }
 
-/** What `hub drafts sweep` and `hub drafts unmark` need of Mail (P56, P65): list drafts, read candidates, move recorded versions to Trash. No send: neither holds a send door. */
+/** What `hub drafts sweep` needs of Mail (P56): list drafts, read candidates, move recorded versions to Trash. No send: it holds no send door. */
 export type DraftsCleaner = Pick<Mailer, "listDrafts" | "findDrafts" | "trashDrafts">;
 
 export function mailAppDraftsCleaner(osa: OsaRun = defaultOsa): DraftsCleaner {

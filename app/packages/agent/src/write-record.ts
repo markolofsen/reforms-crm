@@ -3,7 +3,7 @@ import type { ThreadMailDraft, WriteLog } from "./mail-drafts";
 
 // P65 S5 (decision 0031 addendum points 1 and 2): the Hub's record of the Mail writes it starts and of the late saves it
 // adopts, over whatever write handle the caller has: `hub mcp` opens a short write connection per call (its tools' handle
-// stays read-only), the server and `hub drafts unmark` pass their own repositories. Never the text: hashes only (0013).
+// stays read-only) and the server pass their own repositories. Never the text: hashes only (0013).
 
 /** Runs `fn` with repositories that may write. */
 export type WithRepos = <T>(fn: (repos: Repos) => Promise<T>) => Promise<T>;

@@ -49,8 +49,7 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
   const readable = live?.found ? live : null;
   const unreadable = live?.configured === true && !live.found;
   const gone = unreadable ? (live.gone ?? null) : null;
-  // Exactly the Mail text (decision 0031): nothing of the Hub's is in it, so nothing is hidden. A draft written before it
-  // shows its old hub line until `hub drafts unmark` rewrites it, and Send refuses it meanwhile.
+  // Exactly the Mail text (decision 0031): nothing of the Hub's is in it, so nothing is hidden.
   const body = confirmed ?? readable?.body ?? d.body;
   // The owner edits only a text Mail holds exactly once (a hash), on an open draft written to Mail (P56 S1).
   const editable = readable?.hash ? { hash: readable.hash } : null;

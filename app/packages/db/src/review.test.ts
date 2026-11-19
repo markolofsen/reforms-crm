@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { markedDraft, markerLeft, unresolvedMarkers } from "@hub/config";
+import { unresolvedMarkers } from "@hub/config";
 import { openDb, type DbHandle } from "./client";
 import { createRepos, type Repos } from "./repos";
 import { seedMany } from "./seed";
@@ -68,17 +68,6 @@ describe("placeholders left in a text", () => {
   });
 });
 
-describe("marker line (P27 M1.3; P65: only the migration window knows it)", () => {
-  it("finds the [hub-draft thread=...] line left anywhere in a text, and nothing else", () => {
-    expect(markerLeft("[hub-draft thread=abc@x.example]\nHi Anna,")).toBe("[hub-draft thread=abc@x.example]");
-    expect(markerLeft("Hi Anna,\n\n[Hub-Draft thread=1]\nbye")).toBe("[Hub-Draft thread=1]");
-    expect(markerLeft("Hi Anna, a normal reply with [a note] and a hub-draft mention")).toBeNull();
-    expect(markerLeft("[Owner: price]")).toBeNull();
-    expect(markedDraft("\n[hub-draft thread=CALat=2Q@mail.gmail.com]\nHi Mark,")).toEqual({ thread: "calat=2q@mail.gmail.com", line: "[hub-draft thread=CALat=2Q@mail.gmail.com]" });
-    expect(markedDraft("Hi Anna,\n[hub-draft thread=x@y]\nquoted")).toBeNull();
-    expect(unresolvedMarkers("[hub-draft thread=1]")).toEqual([]);
-  });
-});
 
 describe("search and batch scope (P27)", () => {
   it("finds a client that is on the third page of 120 by name, email or subject, and totals the match", async () => {

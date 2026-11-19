@@ -32,7 +32,6 @@ import { runPolicyCommand } from "./send/policy-command";
 import { registerSequencesCommands } from "./sequences-command";
 import { runSendCommand } from "./send/command";
 import { runDraftsSweep } from "./drafts/sweep-command";
-import { runDraftsUnmark } from "./drafts/unmark-command";
 import { runGuard, runGuardPost } from "./safety";
 import { c, UsageError } from "./term";
 import { mcpCall } from "./mcp-probe";
@@ -313,14 +312,13 @@ program.command("send").argument("[draftId]", "the draft to send, or `policy` (s
     done(await runSendCommand({ ...rest, ...(id !== undefined ? { draftId: id } : {}), ...(cancel !== undefined ? { cancel } : {}) }, { projectsDir: projectsDir(), policyDir: ctxOf().paths.stateProjects, configFile: ctxOf().paths.configFile }));
   });
 
-program.command("drafts").argument("<action>", "`sweep`: the Hub's own leftover drafts in Mail (older versions, closed drafts) to Trash; `unmark`: rewrite the drafts that still carry a [hub-draft ...] line without it (P65, one-time)").description("Mail drafts the Hub wrote (P56, P65). `hub drafts sweep` lists the versions the Hub recorded that are left over (dry run); --apply moves them to each account's Trash, recoverable. A draft the Hub did not record is the owner's and is never listed. `hub drafts unmark` lists the drafts written before decision 0031 that still carry the marker line (dry run); --apply rewrites each without it (the marked one goes to Trash). Nothing is sent.")
+program.command("drafts").argument("<action>", "`sweep`: the Hub's own leftover drafts in Mail (older versions, closed drafts) to Trash").description("Mail drafts the Hub wrote (P56, P65). `hub drafts sweep` lists the versions the Hub recorded that are left over (dry run); --apply moves them to each account's Trash, recoverable. A draft the Hub did not record is the owner's and is never listed. Nothing is sent.")
   .option("--project <slug>", "one project (default: every project of the instance)")
-  .option("--apply", "move (sweep) or rewrite (unmark) the listed drafts (default: dry run, nothing changes)")
+  .option("--apply", "move the listed drafts to Trash (default: dry run, nothing changes)")
   .action(async (action: string, o: { project?: string; apply?: boolean }) => {
     const env = { projectsDir: projectsDir(), policyDir: ctxOf().paths.stateProjects };
     if (action === "sweep") return done(await runDraftsSweep(o, env));
-    if (action === "unmark") return done(await runDraftsUnmark(o, env));
-    console.log(JSON.stringify({ ok: false, error: `unknown action ${action}: the actions are sweep and unmark` }));
+    console.log(JSON.stringify({ ok: false, error: `unknown action ${action}: the action is sweep` }));
     return done(2);
   });
 

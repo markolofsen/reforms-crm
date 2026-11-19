@@ -54,8 +54,7 @@ Installed mail-mcp, from its local schemas and README:
   the written text, never the text); the writer waits up to 45 s, and a draft not seen by then is `mail_slow`, not a
   failure: nothing is replaced and the agent is told not to write again. A late save, a second save of a recorded text
   or Mail's empty reply shell (by the write's recorded hash, or, without one, as one attribution line over the answered message and nothing else) is recognised and adopted as the Hub's version at the next write, at the
-  card's next read (which then keeps Mail's newest version and moves the Hub's older ones to Trash) or by `hub drafts
-  unmark`; a draft whose text matches nothing the Hub wrote stays the owner's.
+  card's next read (which then keeps Mail's newest version and moves the Hub's older ones to Trash); a draft whose text matches nothing the Hub wrote stays the owner's.
   A revision names only the hub draft (`draft`); the hub finds the answered message by its Message-ID (the draft's
   `mailRef`), moves the older recorded version to Trash and bumps the live topic `mail`, so the open admin card reads
   the new text (P53). A new reply to a message the project already has a draft for is refused (`already_drafted`, the
@@ -72,9 +71,7 @@ Installed mail-mcp, from its local schemas and README:
   saying which one the hub wrote. A draft the owner writes in the same thread counts there but is in no record, so it
   is never removed. A person's Save and Restore (the newest recorded version found in Trash by its Message-ID) write
   through the same writer (`reviseDraft`, verbatim). Exactly the Mail text goes out, as Mail's own `reply` to the
-  answered message, so the client's thread keeps `In-Reply-To` and `References`. Until `hub drafts unmark` (P65 S3,
-  dry run unless `--apply`, the owner's) has rewritten the drafts written before 0031 in every instance, the send
-  refuses a text that still holds a `[hub-draft ...]` line; it never strips it.
+  answered message, so the client's thread keeps `In-Reply-To` and `References`.
 
 Verdict: draft-only is structural; costs are no threads, no read-marking, GUI dependency. patrickfreyer has
 threads but can send: `--read-only` only, never both.

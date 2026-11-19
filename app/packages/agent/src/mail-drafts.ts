@@ -142,9 +142,6 @@ const LS = "\x1d";
 const RS = "\x1e";
 const PS = "\x1c";
 
-/** A marker line an agent (or an old copy) put first: dropped, nothing of the Hub's goes in the body (decision 0031). */
-export const stripMarker = (body: string): string => body.replace(/^\s*\[hub-draft\b[^\]\n]*\]\s*\n?/i, "").replace(/\s+$/, "");
-
 /** The fingerprint of a version's text as Mail returned it (decision 0013: the hash, never the text). */
 export const versionHash = (text: string): string => createHash("sha256").update(text.replace(/\s+$/, "")).digest("hex");
 
@@ -566,7 +563,7 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
     };
   return {
     async writeReply(i) {
-      const body = stripMarker(i.body);
+      const body = i.body.trimEnd();
       if (!body.trim()) throw new DraftWriteError("empty", "The reply has no text.");
       const targets = (i.replace ?? []).map((v) => `${v.account}${PS}${v.messageId.trim().replace(/^<|>$/g, "")}`).join(LS);
       const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
@@ -645,7 +642,7 @@ export class FakeDraftWriter implements DraftWriter {
     return this.drafts.filter((d) => accounts.includes(d.account) && d.thread.toLowerCase() === t).map((d) => ({ ref: String(d.id), messageId: d.messageId, account: d.account, body: d.text }));
   }
   async writeReply(i: ReplyDraftInput): Promise<ReplyDraftResult> {
-    const body = stripMarker(i.body);
+    const body = i.body.trimEnd();
     if (!body.trim()) throw new DraftWriteError("empty", "The reply has no text.");
     const thread = this.threadOf(i.messageId);
     const subject = `Re: message ${i.messageId}`;
@@ -704,7 +701,7 @@ const quietly = async <T>(p: () => Promise<T>): Promise<T | null> => {
 
 /** One write through the writer, recorded in `log` first (P65 S5): a `mail_slow` write keeps its open row, with the shell's hash. */
 export async function writeRecorded(writer: DraftWriter, input: ReplyDraftInput, log?: WriteLog): Promise<ReplyDraftResult> {
-  const id = log ? await quietly(() => log.start(stripMarker(input.body))) : null;
+  const id = log ? await quietly(() => log.start(input.body.trimEnd())) : null;
   try {
     const r = await writer.writeReply(input);
     if (log && id !== null) {
@@ -764,7 +761,7 @@ export async function fromFor(writer: DraftWriter, inbound: InboundMessage, clie
  * The one revision of a hub draft (P56): find the message it answers by its Message-ID in the project's accounts, then
  * write the reply through the writer, which moves the older recorded versions to Trash, each in its own account. Shared
  * by `hub mcp`'s `draft_write {draft}` (the agent, `quote: "add"`), the server (a person's Save or Restore, `quote:
- * "keep"`) and `hub drafts unmark`, so there is one path. The caller records the new version (`mail_versions`) in the
+ * "keep"`), so there is one path. The caller records the new version (`mail_versions`) in the
  * account Mail saved it in (`savedIn`: the From's account, P65 S5).
  */
 export async function reviseDraft(writer: DraftWriter, i: ReviseInput): Promise<Revision> {

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { parseProjectMd } from "@hub/projects";
 import { DENIED_TOOLS } from "../src/deny";
-import { ACCOUNT_ADDRESSES_SCRIPT, DraftWriteError, FakeDraftWriter, READ_CONTENT_SCRIPT, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, stripMarker, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
+import { ACCOUNT_ADDRESSES_SCRIPT, DraftWriteError, FakeDraftWriter, READ_CONTENT_SCRIPT, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
 import { appleScriptCompileError, canCompileAppleScript, deleteOfLoopItem } from "../../../test-support/osacompile";
 import { createHubMcpServer, excerptOf, type HubMcpEnv } from "../src/mcp";
 
@@ -127,16 +127,15 @@ describe("the Mail script", () => {
     expect(seen[0]).toEqual(["Abc@x", "a", "b"]);
   });
 
-  it("drops a marker line an agent wrote itself, passes the probe and the versions to replace, and refuses an empty body", async () => {
-    expect(stripMarker("[hub-draft thread=a@b]\nHi Ann,\n\nThanks.\n")).toBe("Hi Ann,\n\nThanks.");
+  it("writes the body without its trailing blank lines, passes the probe and the versions to replace, and refuses an empty body", async () => {
     const seen: string[][] = [];
     const osa: OsaRun = async (_s, args) => {
       seen.push(args);
       return okOut();
     };
-    await mailAppDraftWriter(osa).writeReply({ account: "desk", mailboxPath: ["INBOX", "Clients"], messageId: 7, body: "[hub-draft thread=a@b]\nHi", sender: null, replace: [{ account: "desk", messageId: "<Old1@x>" }, { account: "info", messageId: "old2@x" }], landIn: ["desk", "info"], waitSeconds: 60 });
+    await mailAppDraftWriter(osa).writeReply({ account: "desk", mailboxPath: ["INBOX", "Clients"], messageId: 7, body: "Hi\n\n", sender: null, replace: [{ account: "desk", messageId: "<Old1@x>" }, { account: "info", messageId: "old2@x" }], landIn: ["desk", "info"], waitSeconds: 60 });
     expect(seen[0]).toEqual(["desk", `INBOX${LS}Clients`, "7", "Hi", "", "add", "Hi", `desk${PS}Old1@x${LS}info${PS}old2@x`, `desk${LS}info`, "60"]);
-    await expect(mailAppDraftWriter(osa).writeReply({ account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: "[hub-draft thread=a@b]\n  ", sender: null })).rejects.toThrow(/no text/);
+    await expect(mailAppDraftWriter(osa).writeReply({ account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: " \n  ", sender: null })).rejects.toThrow(/no text/);
   });
 });
 
@@ -174,7 +173,7 @@ describe("a slow Mail (P65 S5)", () => {
     const calls: string[] = [];
     const log: WriteLog = { start: async (t) => (calls.push(`start ${t}`), 7), settle: async (id, s) => void calls.push(`settle ${id} ${s.messageId}`), shell: async (id, t) => void calls.push(`shell ${id} ${t}`) };
     const w = new FakeDraftWriter();
-    const r = await writeRecorded(w, { account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: "[hub-draft thread=a@b]\nHi Ann", sender: null }, log);
+    const r = await writeRecorded(w, { account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: "Hi Ann\n", sender: null }, log);
     expect(calls).toEqual(["start Hi Ann", `settle 7 ${r.messageId}`]);
     calls.length = 0;
     const slow: OsaRun = async () => ["pending", "On Mon, Ann wrote:"].join(FS);

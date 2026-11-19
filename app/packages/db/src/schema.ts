@@ -129,7 +129,8 @@ export const drafts = sqliteTable(
 );
 
 // The Mail versions the Hub wrote (P65, decision 0031): one row per draft the writer saved in Mail (the agent's
-// `draft_write`, a person's Save, a Restore, the `hub drafts unmark` migration). Mail's text is never kept (decision
+// `draft_write`, a person's Save, a Restore; `migration` rows are the one-time rewrite of the marked drafts, P65 S3,
+// whose command S4 deleted). Mail's text is never kept (decision
 // 0013): `hash` is the sha256 of the text Mail returned after the save. A Mail draft is the Hub's to move to Trash only
 // when its account and `message id` match a row here. `draftId` is null between `draft_write` of a new reply and its
 // `hub record-draft`, which links the rows of its `mailRef` (bare, lowercased). `signatureFallback`: the language the
