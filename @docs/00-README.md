@@ -43,6 +43,10 @@ are denied, and a manual Send needs a single-use ticket only the admin page can 
 the dock's header says "Agent sees: draft N". The rules every session gets at start come from the core (`sessionRules()`), not from instance files:
 [core/24-terminal.md](core/24-terminal.md), Shared focus.
 
+**Capabilities.** Each session is told in one generated line what it reaches: mail (read, unsent drafts), Notion, knowledge, and the Google
+Calendar and Drive connectors its project attaches in `project.md` (from any Google account; read, holds with no guests, links onto a client's
+profile; never an invitation, a share or a delete): [core/26-capabilities.md](core/26-capabilities.md).
+
 **Where facts live.** Client records: Notion. Draft text: Mail. Draft review state ("I read the checks", Done, marks), batches, follow-up
 enrollments and the agent log: SQLite. Each project's send policy: `state/projects/<slug>/send-policy.json`, written only by `hub send policy`.
 Project facts, filters, knowledge, follow-up sequences and development plans (`@dev/`): plain files in `projects/<slug>/`. Secrets:

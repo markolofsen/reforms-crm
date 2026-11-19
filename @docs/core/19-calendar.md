@@ -4,6 +4,16 @@ Status: skill built (`skills/calendar/SKILL.md`): the agent keeps the owner's ca
 every problem into a report. The fields `calendar.name`, `calendar.id` and `calendar.timezone` of `project.md` are parsed fields
 (`app/packages/projects/src/fields.ts`, listed in `16` section 3).
 
+## 0. Since P62 (2026-11-20): the attached Google Calendar connector first
+
+A project attaches a Google Calendar connector in `project.md` (`calendar.connector`, a `gcal-<label>` server of the instance: Google's
+`calendarmcp.googleapis.com`, any Google account); its Claude Code sessions get it, and the skill uses it first (`skills/calendar/SKILL.md`
+section 1). Inside `hub agent` Apple Calendar is not reachable (`osascript` is denied), so before P62 a bound session had no calendar path at
+all. The rules below hold unchanged, and the guard enforces rule 1 for the connector in every mode: a hold has no attendees, no Meet link and
+sends no notification; `delete_event` and `respond_to_event` are denied. With a connector `calendar.invites: send` does not apply: the owner
+invites by hand. The map of connectors, the account record and the checks: `@docs/core/26-capabilities.md`. The survey of section 1 is the
+2026-11-14 history.
+
 ## 1. What is available (survey 2026-11-14, read only, nothing created or changed)
 
 | Path | State | Verdict |
@@ -105,6 +115,8 @@ All eight items below are applied: triage-mail section 2 and report, triage-mail
 6. `@hub/projects` parser, `doctor`, `project-setup` interview: the `calendar.*` fields (section 3).
 7. `skills/README.md` rules: nothing new; add "calendar holds never carry attendees" to the Rules once the skill is used.
 8. Allow-lists of those skills: no calendar tools needed; they hand over to `calendar`.
+
+9. (P62) `triage-mail` offers a hold for a stated deadline ("by Friday") through `references/from-mail.md`; `sequence-drafts` offers one `Follow-up: <client>` hold per enrolled client on its due date; both hand over to `calendar` section 5 step 9 and never write an event themselves. A calendar event is linked to the client by `skills/triage-mail/references/link.md` (the `Next call` line).
 
 ## 7. Open owner items
 

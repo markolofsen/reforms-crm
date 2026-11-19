@@ -85,8 +85,11 @@ Layout, in this order (headings are fixed; the parser reads by heading):
 | `notion.parent_page` | Notion page id (UUID) | no | none | deploy skill | the page the deploy skill creates databases under (a scratch page or a project root page); wins over `notion.teamspace`; stored normalised |
 | `notion.token_file` | file name | no | `notion-token` | `@hub/notion`, MCP config | file under `state/secrets/` holding that workspace's token; never the value |
 | `calendar.name` | text | no | none | `calendar` skill | name of the calendar that holds are written to; absent: the skill reports `no-calendar`, never guesses |
-| `calendar.id` | text | no | none | `calendar` skill | calendar id when two calendars share a name |
+| `calendar.id` | text | no | none | `calendar` skill | calendar id when two calendars share a name; with `calendar.connector`, the Google calendar id holds go to |
 | `calendar.timezone` | IANA tz | no | `timezone` | `calendar` skill | zone of the owner's working hours |
+| `calendar.connector` | list of `gcal-<label>` | no | none | session files, guard, `calendar` skill | P62: Google Calendar connectors this project's Claude sessions may use, from any Google account; holds go to the first, into `calendar.id` (else its primary calendar). Needs a kind with the calendar module (a parse warning otherwise). `@docs/core/26-capabilities.md` |
+| `drive.connector` | list of `gdrive-<label>` | no | none | session files, guard, link operation | P62: Google Drive connectors this project's sessions may search, read and link from; never share, write or trash |
+| `drive.folder` | list of Drive folder ids | no | none | guard | P62: a Drive search must name one of these folders; empty: the connector's whole Drive |
 | `notion.databases` | section | yes | none | notion, skills | the `## Notion databases` list; `clients` required (and `leads` for `sales-pipeline`); any other entry (an old `knowledge` or `reports` one) is ignored |
 | `knowledge.source` | `files` | no | `files` | `knowledge-import`, index | the local folder `knowledge/` is the base; the only value is `files` |
 | `knowledge.scope` | `shared` `by-brand` | no | `shared` | index, `knowledge_search`, `record-draft`, doctor | `shared`: one knowledge base for every brand of the project (two brands may share one KB). `by-brand`: every entry lists its `brands` (names of `## Brands` rows, or `ANY`) and search is filtered by the thread's brand (section 5). Needs two or more brand rows (doctor) |

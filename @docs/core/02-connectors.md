@@ -11,6 +11,8 @@ drafts replies, reports into Notion. No Hub Django or frontend. (local) = read o
 - **The hub gives agents local tools:** `hub record-draft` and `hub record-client` (what the session did, into the database), `hub sequences` (follow-ups), the knowledge MCP over the project's files, and the guard (deny rules and the PreToolUse hook that keep a session draft-only and inside its project).
 - **The admin shows the state** those tools leave, and holds the owner's decisions; its one door out is the confirmed send through Apple Mail (`osascript`). Mail has no other path: no IMAP, no mail key in the hub (decision 0026).
 
+- **Calendar and Drive (P62)** are connectors a project attaches in its `project.md` (`calendar.connector`, `drive.connector`): Google-hosted MCP servers under hub names, one Google account each, from any account, signed in inside the project's Claude Code session. What each session may do with them, the guard and the link operation: `@docs/core/26-capabilities.md`. Gmail as a connector is not used: mail stays `mail-mcp` plus `draft_write`.
+
 ## Recommended stack
 | Layer | Choice | Why |
 |---|---|---|
