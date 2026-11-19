@@ -76,7 +76,7 @@ export default defineConfig({
       },
       url: `http://127.0.0.1:${API_PORT}/api/health`,
       reuseExistingServer: false,
-      timeout: 60_000,
+      timeout: 180_000, // seed + project sync + tsx start take over 60 s on a loaded machine
     },
     {
       // One production build into `.next-e2e`, then `next start` on loopback only. The `/api` rewrite target is fixed at build time.
