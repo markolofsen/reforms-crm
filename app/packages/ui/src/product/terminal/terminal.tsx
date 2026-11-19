@@ -13,8 +13,8 @@ export type TerminalHandle = { write: (bytes: Uint8Array) => void; reset: () => 
 type Callbacks = {
   /** The terminal exists and is open: from here on the caller may write into it. */
   onReady: (handle: TerminalHandle) => void;
-  /** Keystrokes, pastes and mouse reports, as bytes for the program. */
-  onInput: (bytes: Uint8Array) => void;
+  /** Keystrokes, pastes and mouse reports, as bytes for the program (on a plain `ArrayBuffer`: `WebSocket.send` takes no shared memory). */
+  onInput: (bytes: Uint8Array<ArrayBuffer>) => void;
   /** The grid changed size (reported once per distinct size). */
   onSize: (size: TerminalSize) => void;
   /** A link was activated (a plain URL or an OSC 8 hyperlink); the caller opens it, never the terminal. */

@@ -19,7 +19,8 @@ export type LinkEvents = {
 
 /** A socket as the link uses it; the browser's `WebSocket` behind {@link browserSocket}, a fake in `test/terminal-socket.test.ts`. */
 export type SocketHandlers = { open: () => void; text: (data: string) => void; bytes: (data: Uint8Array) => void; close: (code: number) => void };
-export type SocketLike = { send: (data: string | Uint8Array) => void; close: (code?: number) => void };
+/** Bytes sent are on a plain `ArrayBuffer`: the DOM's `WebSocket.send` takes no `SharedArrayBuffer` view (TypeScript 6 lib). */
+export type SocketLike = { send: (data: string | Uint8Array<ArrayBuffer>) => void; close: (code?: number) => void };
 export type Timers = { set: (fn: () => void, ms: number) => number; clear: (id: number) => void };
 export type LinkDeps = { ticket: (session: string) => Promise<TerminalTicketDto>; open: (url: string, on: SocketHandlers) => SocketLike; timers: Timers };
 
@@ -46,7 +47,7 @@ export function browserSocket(url: string, on: SocketHandlers): SocketLike {
 const browserTimers: Timers = { set: (fn, ms) => window.setTimeout(fn, ms), clear: (id) => window.clearTimeout(id) };
 const browserDeps: LinkDeps = { ticket: terminalApi.ticket, open: browserSocket, timers: browserTimers };
 
-export type Link = { input: (bytes: Uint8Array) => void; resize: (cols: number, rows: number) => void; takeBack: () => void; close: () => void };
+export type Link = { input: (bytes: Uint8Array<ArrayBuffer>) => void; resize: (cols: number, rows: number) => void; takeBack: () => void; close: () => void };
 
 /** Opens the link of one session and keeps it open until `close`. */
 export function connectTerminal(session: string, on: LinkEvents, deps: LinkDeps = browserDeps): Link {
@@ -61,7 +62,7 @@ export function connectTerminal(session: string, on: LinkEvents, deps: LinkDeps 
   let retry: number | null = null;
   let ping: number | null = null;
   let size: { cols: number; rows: number } | null = null;
-  const queue: Uint8Array[] = [];
+  const queue: Uint8Array<ArrayBuffer>[] = [];
 
   const control = (frame: ClientFrame) => live && socket?.send(JSON.stringify(frame));
   const stopTimers = () => {
