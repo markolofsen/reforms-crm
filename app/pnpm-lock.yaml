@@ -348,6 +348,9 @@ importers:
       '@hub/knowledge':
         specifier: workspace:*
         version: link:../../packages/knowledge
+      '@hub/log':
+        specifier: workspace:*
+        version: link:../../packages/log
       '@hub/mail-filters':
         specifier: workspace:*
         version: link:../../packages/mail-filters

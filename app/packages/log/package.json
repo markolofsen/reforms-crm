@@ -10,7 +10,9 @@
     "./privacy": "./src/privacy.ts",
     "./hooks": "./src/hooks.ts",
     "./codex-rollout": "./src/codex-rollout.ts",
-    "./summary": "./src/summary.ts"
+    "./summary": "./src/summary.ts",
+    "./claude-transcript": "./src/claude-transcript.ts",
+    "./feed": "./src/feed.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -6,6 +6,7 @@
     "./styles.css": "./src/styles.css",
     "./cn": "./src/cn.ts",
     "./use-media-query": "./src/use-media-query.ts",
+    "./sound": "./src/sound/use-sound.ts",
     "./product/terminal": "./src/product/terminal/terminal.tsx",
     "./product/side-dock": "./src/product/side-dock/side-dock.tsx",
     "./product/*": "./src/product/*.tsx",

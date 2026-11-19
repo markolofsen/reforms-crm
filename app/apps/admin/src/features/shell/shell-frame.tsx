@@ -6,6 +6,8 @@ import { DEFAULT_INSTANCE_NAME } from "@hub/contract/instance";
 import { Page } from "@hub/ui/product/page";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
+import { AgentFeedContext, useAgentFeed } from "@/features/agent-feed/use-agent-feed";
+import { useTurnSound } from "@/features/agent-feed/use-turn-sound";
 import { useFocusPublisher } from "@/features/focus/use-focus-publisher";
 import { TerminalDock, TerminalProvider } from "@/features/terminal/terminal";
 import { useGo } from "@/hooks/use-go";
@@ -80,12 +82,17 @@ export function ShellFrame({ children }: { children: ReactNode }) {
 /**
  * The shell with its nav and the terminal (P49), which follows the project of the address. With two or more projects Overview
  * and Connections have none (Shell only); with one, the whole admin is that project, so the terminal has it there too (P57 2l).
+ * The agent feed (P59) follows the terminal's project: its rows in the sidebar's footer, its wait on the strip's dot, its tones.
  */
 function Shell({ project, terminalProject, ...props }: Omit<Parameters<typeof AppShell>[0], "items" | "dock"> & { project: string | null; terminalProject: string | null }) {
   const items = useNavWithDots(project);
+  const feed = useAgentFeed(terminalProject);
+  useTurnSound(feed);
   return (
     <TerminalProvider project={terminalProject}>
-      <AppShell dock={<TerminalDock />} items={items} project={project} {...props} />
+      <AgentFeedContext value={feed}>
+        <AppShell dock={<TerminalDock attention={feed.attention} onSeen={feed.seen} />} items={items} project={project} {...props} />
+      </AgentFeedContext>
     </TerminalProvider>
   );
 }

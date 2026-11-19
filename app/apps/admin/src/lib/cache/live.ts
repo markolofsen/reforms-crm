@@ -36,7 +36,16 @@ const subscribe = (l: () => void) => {
 /** `connecting` until the first hello, `live` while the stream is up, `reconnecting` after 5 s without it. The server renders `connecting`. */
 export const useLiveState = (): LiveState => useSyncExternalStore(subscribe, () => state, () => "connecting");
 
-/** What one frame does to this tab's cache. A hidden tab only marks (its focus refetch catches up); Mail keys are never named. */
+/**
+ * The tab that plays the agent feed's tones (P59: it holds the Web Lock `hub-sound`, see `@hub/ui/sound`). It refetches the
+ * feed even while hidden, so a turn that needs the owner is heard with the admin in the background; every other hidden tab only marks.
+ */
+let soundHolder = false;
+export function setSoundHolder(on: boolean): void {
+  soundHolder = on;
+}
+
+/** What one frame does to this tab's cache. A hidden tab only marks (its focus refetch catches up), except the sound holder's feed; Mail keys are never named. */
 export function applyLive(qc: QueryClient, e: LiveEvent, hidden: boolean): void {
   if (e.type !== "hello") since = e.seq;
   if (e.type === "hello") return;
@@ -44,8 +53,10 @@ export function applyLive(qc: QueryClient, e: LiveEvent, hidden: boolean): void 
     void refreshData(qc);
     return;
   }
-  const refetchType = hidden ? "none" : "active";
-  for (const c of e.changes) for (const queryKey of TOPIC_KEYS[c.topic](c.project)) void qc.invalidateQueries({ queryKey, refetchType });
+  for (const c of e.changes) {
+    const refetchType = hidden && !(soundHolder && c.topic === "agent-log") ? "none" : "active";
+    for (const queryKey of TOPIC_KEYS[c.topic](c.project)) void qc.invalidateQueries({ queryKey, refetchType });
+  }
 }
 
 /** The URL of a new stream: after the last applied counter, when this page has one. */

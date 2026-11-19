@@ -1,8 +1,11 @@
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bumpTopic, createRepos, LIVE_TABLES, liveSeq, openDb, type DbHandle, type Repos } from "@hub/db";
 import { MAX_LIVE_SUBSCRIBERS, parseLiveEvent, type LiveEvent } from "@hub/contract/live";
 import { createApp } from "./app";
-import { changesOf, createLive, resumeOf, TABLE_TOPIC, type LiveService, type LiveSink } from "./live";
+import { changesOf, createLive, logSignatures, movedKeys, resumeOf, TABLE_TOPIC, type LiveService, type LiveSink } from "./live";
 
 // P50 L2: the tailer, the frames, resume and reset, backpressure, the cap, and the route's guards.
 let handle: DbHandle;
@@ -140,6 +143,34 @@ describe("live service", () => {
     state = "error";
     await vi.advanceTimersByTimeAsync(1400);
     expect(eventsOf(s.frames).at(-1)).toMatchObject({ type: "change", changes: [{ topic: "health", project: null }] });
+  });
+
+  it("the agent log watch (P59) bumps each project whose day file grew, and a .cursor write bumps nothing", async () => {
+    live.stop();
+    const dir = mkdtempSync(join(tmpdir(), "hub-live-log-"));
+    for (const p of ["alpha", "beta"]) mkdirSync(join(dir, p, ".cursor"), { recursive: true });
+    appendFileSync(join(dir, "alpha", "2026-11-19.jsonl"), "{}\n");
+    live = createLive({ db: handle.db, watch: [{ topic: "agent-log", signatures: () => logSignatures(dir), everyMs: 500 }] });
+    const s = sink();
+    live.subscribe(s, undefined);
+    await vi.advanceTimersByTimeAsync(1000);
+    writeFileSync(join(dir, "beta", ".cursor", "sess"), "120");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(eventsOf(s.frames).map((e) => e.type)).toEqual(["hello"]);
+    appendFileSync(join(dir, "beta", "2026-11-19.jsonl"), "{}\n");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(eventsOf(s.frames).at(-1)).toMatchObject({ type: "change", changes: [{ topic: "agent-log", project: "beta" }] });
+    appendFileSync(join(dir, "alpha", "2026-11-19.jsonl"), "{}\n");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(eventsOf(s.frames).at(-1)).toMatchObject({ type: "change", changes: [{ topic: "agent-log", project: "alpha" }] });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("movedKeys: a plain watch bumps the instance; a keyed one each project that moved, came or went", () => {
+    expect(movedKeys("a", "a")).toEqual([]);
+    expect(movedKeys("a", "b")).toEqual([null]);
+    expect(movedKeys({ a: "1", b: "1" }, { a: "1", b: "2", c: "1" })).toEqual(["b", "c"]);
+    expect(movedKeys({ a: "1" }, {})).toEqual(["a"]);
   });
 
   it("every table has a topic, and an unknown name is ignored", () => {

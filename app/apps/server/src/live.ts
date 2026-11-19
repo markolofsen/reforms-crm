@@ -66,12 +66,11 @@ export interface LiveSink {
   close(): void;
 }
 
-/** A source that is not a table row: its signature is compared every `everyMs`, and a change bumps its topic. */
-export interface LiveWatch {
-  topic: LiveTopic;
-  signature: () => string;
-  everyMs: number;
-}
+/**
+ * A source that is not a table row: its signature is compared every `everyMs`, and a change bumps its topic for the whole
+ * instance. The keyed form (P59) gives one signature per project slug and bumps each project whose signature moved.
+ */
+export type LiveWatch = { topic: LiveTopic; everyMs: number } & ({ signature: () => string } | { signatures: () => Record<string, string> });
 
 export interface LiveOptions {
   db: Db;
@@ -100,7 +99,7 @@ export function createLive(o: LiveOptions) {
   const retryMs = o.retryMs ?? 1000;
   const max = o.maxSubscribers ?? MAX_LIVE_SUBSCRIBERS;
   const subs = new Set<Sub>();
-  const watched = (o.watch ?? []).map((w) => ({ ...w, last: safeSignature(w), at: 0 }));
+  const watched = (o.watch ?? []).map((w) => ({ w, last: snapshot(w), at: 0 }));
   let last = liveSeq(o.db);
   let tailer: ReturnType<typeof setInterval> | undefined;
   let pinger: ReturnType<typeof setInterval> | undefined;
@@ -146,14 +145,12 @@ export function createLive(o: LiveOptions) {
 
   function tick(): void {
     elapsed += pollMs;
-    for (const w of watched) {
-      if (elapsed - w.at < w.everyMs) continue;
-      w.at = elapsed;
-      const sig = safeSignature(w);
-      if (sig !== w.last) {
-        w.last = sig;
-        bumpTopic(o.db, w.topic, null);
-      }
+    for (const x of watched) {
+      if (elapsed - x.at < x.w.everyMs) continue;
+      x.at = elapsed;
+      const sig = snapshot(x.w);
+      for (const project of movedKeys(x.last, sig)) bumpTopic(o.db, x.w.topic, project);
+      x.last = sig;
     }
     if (flushing === undefined && liveSeq(o.db) !== last) flushing = setTimeout(flush, coalesceMs);
   }
@@ -210,12 +207,39 @@ export function createLive(o: LiveOptions) {
 }
 export type LiveService = ReturnType<typeof createLive>;
 
-function safeSignature(w: Pick<LiveWatch, "signature">): string {
+/** A watch's signature now: one text, or one per project. A source that throws reads as empty (missing). */
+function snapshot(w: LiveWatch): string | Record<string, string> {
   try {
-    return w.signature();
+    return "signatures" in w ? w.signatures() : w.signature();
   } catch {
-    return "";
+    return "signatures" in w ? {} : "";
   }
+}
+
+/** What to bump between two snapshots: `null` (the instance) for a plain watch, else each project whose signature moved, came or went. */
+export function movedKeys(before: string | Record<string, string>, after: string | Record<string, string>): Array<string | null> {
+  if (typeof before === "string" || typeof after === "string") return before === after ? [] : [null];
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])].filter((k) => before[k] !== after[k]).sort();
+}
+
+/**
+ * The agent session log's signature per project (P59): the names, sizes and times of the two newest day files (`*.jsonl`)
+ * of each project folder under `state/log`. The `.cursor/` folder (it moves at every Codex Stop, before the lines) and
+ * `_unbound` are not compared. About one `stat` per file per tick (0.006 ms measured).
+ */
+export function logSignatures(dir: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  let names: string[] = [];
+  try { names = readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith(".") && !d.name.startsWith("_")).map((d) => d.name); } catch { return out; }
+  for (const p of names) {
+    try {
+      const days = readdirSync(join(dir, p)).filter((n) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(n)).sort().slice(-2);
+      out[p] = days.map((n) => { const s = statSync(join(dir, p, n)); return `${n}:${s.size}:${s.mtimeMs}`; }).join("|");
+    } catch {
+      out[p] = "missing";
+    }
+  }
+  return out;
 }
 
 /** The Connections files' signature (names, sizes, times): a `hub token` in a terminal or a hand edit moves it. */

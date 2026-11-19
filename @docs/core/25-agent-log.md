@@ -8,7 +8,7 @@ The sources are the CLIs' own hooks, never the terminal's byte stream: a session
 
 | Kind | What | Claude Code | Codex |
 |---|---|---|---|
-| `prompt` | what the owner typed | the prompt hook `hub focus --hook` (already ran for the shared focus) | the same hook |
+| `prompt` | what the owner typed | the prompt hook `hub focus --hook` (already ran for the shared focus); a message typed while a turn runs is queued and runs no prompt hook, so the `Stop` hook imports it from the transcript (`queued_command`) with `queued: true` (P59) | the same hook |
 | `focus` | the `[Hub focus, data]` line that hook added to the prompt | the same hook, same turn | the same |
 | `answer` | the agent's final message of a turn (`last_assistant_message`) | `hub log --hook` on `Stop`, in line (after the answer is shown) | `hub log --hook` on `Stop` |
 | `tool_call` | the tool and its input | `hub guard` (`PreToolUse`, already ran) | imported at `Stop` from the Codex rollout |
@@ -40,7 +40,9 @@ One JSON line per event in `state/log/<slug>/<YYYY-MM-DD>.jsonl` (UTC day; `_unb
 | `agent` | a subagent's id |
 | `data` | per kind: `text`, `line`, `tool`, `input`, `output`, `ms`, `error`, `why`, `mode`, `violations`, `phase`, `transcript` ... |
 
-Schema and writer: `@hub/log` (`app/packages/log`: `event.ts`, `store.ts`, `privacy.ts`, `hooks.ts`, `codex-rollout.ts`, `summary.ts`).
+Schema and writer: `@hub/log` (`app/packages/log`: `event.ts`, `store.ts`, `privacy.ts`, `hooks.ts`, `codex-rollout.ts`, `claude-transcript.ts`, `summary.ts`; the feed's reading: `feed.ts`, `feed-labels.ts`).
+
+A session keeps the hooks it started with: a session opened before a core update that added hooks (a dock tab left open, a Terminal.app session) writes only what its old hooks write. Measured 2026-11-19 (P57 R0): a saas session started before v0.12.6 logged its prompt (the old prompt hook runs the new code) and its tool calls (`hub guard`), but no session start, no tool error and no answer (its `stop_hook_summary` lists two hooks, neither the hub's), so `hub log summary` said "no answer". Start a new session after a core update; `hub agent` writes the session files at every start.
 
 ## Privacy
 
@@ -65,6 +67,8 @@ Rotation is by day. The first write of a day deletes that project's day files ol
 
 Filters on every view: `--project`, `--session` (a prefix), `--kind prompt,answer`, `--cli`, `--since 6h|7d|<date>`, `--until`, `--limit`, `--json`. The kinds are listed in `hub log --help`.
 
+A queued message (above) joins the turn it was typed into: `summary` shows it as `Q (queued)` under that turn's question, and it does not count as a prompt of its own.
+
 Flags of `summary` (the "where did the agent ask instead of acting" question):
 
 | Flag | When |
@@ -77,8 +81,18 @@ Flags of `summary` (the "where did the agent ask instead of acting" question):
 
 `HUB_GUARD=block` is decided from `hub log --kind guard` (a week of warn-mode violations), which replaced `state/guard.log`. Old `state/guard.log` files are left where they are and nothing reads them.
 
+## The activity feed (P59)
+
+The admin's sidebar shows the last five things the agent did in the project, and the terminal strip's dot turns to the attention colour while the agent waits on the owner. It is a read of this log's tail, not a second writer and not a log view: no history and no filter (that is `hub log`).
+
+- **Route.** `GET /api/projects/:slug/agent-feed` (`apps/server/src/routes/agent-feed.ts`, read only, the general loopback guard; shape `@hub/contract/agent-feed`, strict): `rows` (at most 5: `id` the position, `at`, `cli`, `session` (8 characters), `label`, `state` running, done, failed or refused, `draft`), `turns` (the last 10 that ended, each with one `tone`), `cursor` (the newest position read) and `waiting`. `tailEvents` (`@hub/log/feed`) reads the last 64 KB of today's day file (UTC), and of yesterday's when today's is short; a position is `<day>:<byte offset>`, because time order is not append order.
+- **Labels, on the server.** One table (`feed-labels.ts`; the plan's table 4c): a verb and at most one id ("reads draft 3", "writes a new draft", "records draft 1", "reads a message", "searches mail", "runs a command", "asks you a question", "waits for your permission", "guard warning: writes draft 1", "stopped on an error"); an unknown tool shows its name. `ToolSearch`, `mcp__hub__focus`, prompts, focus lines and session events are not shown. A call and its result are paired by `corr`. Only the label reaches the browser: never a prompt, an answer, a command, a query, an address, a subject, a path or any input or output (a test serialises a reply built from the saas shapes and looks for the address and the mailRef).
+- **Tones, one per turn.** Problem (a guard violation or an API error in the turn), then attention (the answer ends in a question; a permission prompt or request, an elicitation, `agent_needs_input`), then ready (a draft written by `draft_write`, or `hub record-draft` that said `ok`; once, even when both happened). Silent: routine calls, `idle_prompt`, a failed tool the agent recovered from, a turn that just answered. A turn's id is stable, so it sounds once; events from before the page loaded never sound. `waiting`: some session's latest event (an idle reminder or a start aside) asks for the owner, under an hour ago.
+- **Live.** The server watches `state/log` per project (each project folder's two newest `*.jsonl`: names, sizes, times; every 500 ms; `.cursor/` and `_unbound` are not compared) and bumps the topic `agent-log` for each project that moved; the admin refetches the feed. No hook changed and no hook writes SQLite.
+- **Latency, two different promises.** The transport: a line appended to the day file shows within about 0.3 to 0.9 s (watch 500 ms, tail 200 ms, coalesce 100 ms, the stream, one GET). Before that, the line has to exist. Claude Code writes each tool call and result as it happens, after the hook's own Node start (1 to 5 s per call pair measured 2026-11-19); the answer about 0.5 s after it is on screen. Codex writes the prompt and a permission request at once, but every tool call only at the turn's end (`Stop`), back-dated to the rollout's time: the feed never shows Codex mid-turn.
+
 ## Health
 
-Agent tools row `log.hooks` (Connections and `hub doctor --only Agent`): the session files carry the prompt hook with `--cli` and `hub log --hook`; a fail is fixed by `hub agent <slug> --prepare` (or the next `hub agent <slug>`). No admin screen shows the log (admin-principles rule 2: the question is the owner's analysis after the fact, not a decision).
+Agent tools row `log.hooks` (Connections and `hub doctor --only Agent`): the session files carry the prompt hook with `--cli` and `hub log --hook`; a fail is fixed by `hub agent <slug> --prepare` (or the next `hub agent <slug>`). No admin screen shows the log itself (admin-principles rule 2: the question is the owner's analysis after the fact, not a decision); the feed above shows its last five labels.
 
 Update this page when the architecture changes.

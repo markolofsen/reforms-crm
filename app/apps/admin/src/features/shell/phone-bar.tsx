@@ -1,11 +1,13 @@
 import { BrandHeader } from "@hub/ui/product/brand-header";
 import { ThemeToggle } from "@hub/ui/product/theme";
+import { useFeed } from "@/features/agent-feed/use-agent-feed";
 import { TerminalToggle } from "@/features/terminal/terminal";
 import type { Brand } from "./app-sidebar";
 import { ProjectSwitcher } from "./project-switcher";
 
-/** A phone's top line (hidden from 640px by CSS, where the sidebar carries the same): brand, the switcher with several projects, the terminal and the theme toggle. */
+/** A phone's top line (hidden from 640px by CSS, where the sidebar carries the same): brand, the switcher with several projects, the terminal (with the agent's attention dot, P59) and the theme toggle. */
 export function PhoneBar({ brand, projects, project, onProject }: { brand: Brand; projects: string[]; project: string | null; onProject: (p: string) => void }) {
+  const attention = useFeed()?.attention ?? false;
   return (
     <div className="flex h-14 shrink-0 items-center gap-1 border-b pe-2 md:hidden" data-testid="phone-bar">
       <BrandHeader className="flex-1" logoSrc={brand.logoSrc} name={brand.name} />
@@ -15,7 +17,7 @@ export function PhoneBar({ brand, projects, project, onProject }: { brand: Brand
           <ProjectSwitcher onChange={onProject} projects={projects} value={project} />
         </div>
       )}
-      <TerminalToggle />
+      <TerminalToggle attention={attention} />
       <ThemeToggle />
     </div>
   );

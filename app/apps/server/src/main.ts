@@ -13,7 +13,8 @@ import { startMessengers } from "./messengers";
 import { startSentReconciler } from "./sent";
 import { chooseShell, createTerminal, serverDetector } from "./terminal";
 import { chooseAgentTools, createAgentTools } from "./agent-tools";
-import { createLive, folderSignature } from "./live";
+import { logStoreOf } from "@hub/log/store";
+import { createLive, folderSignature, logSignatures } from "./live";
 import { createFocusStore } from "./focus";
 
 // The server is started by `hub up` (which sets HUB_HOME). Started by hand without it: one line and exit 2, not a stack.
@@ -61,10 +62,11 @@ const agentTools = createAgentTools({ paths, repos, fake: fakeTools, detector })
 // Live panels (P50): the trigger counter tailed every 200 ms; the pollers' state and the Connections files are watched,
 // since they are not rows (a timestamp of the last poll is left out: it moves on every poll and means nothing to a panel).
 const pollers = () => [messengers.status(), sent.status()].map((s) => `${s.state}|${s.reason ?? ""}|${s.lastError ?? ""}`).join("\n");
-const live = createLive({ db, watch: [{ topic: "health", signature: pollers, everyMs: 1000 }, { topic: "connections", signature: () => folderSignature(paths.secrets), everyMs: 1000 }] });
+// P59: the agent session log is watched per project (one stat per day file), so the feed follows a hook's line in under 1 s.
+const live = createLive({ db, watch: [{ topic: "health", signature: pollers, everyMs: 1000 }, { topic: "connections", signature: () => folderSignature(paths.secrets), everyMs: 1000 }, { topic: "agent-log", signatures: () => logSignatures(paths.log), everyMs: 500 }] });
 // The shared focus (P51): the admin tab says what it shows; the agent reads it from state/focus.json.
 const focus = createFocusStore({ file: paths.focus });
-const app = createApp(repos, { live, focus, terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
+const app = createApp(repos, { live, focus, agentLog: logStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);

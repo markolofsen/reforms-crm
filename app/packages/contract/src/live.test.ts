@@ -15,8 +15,8 @@ describe("live contract (P50)", () => {
     expect(parseLiveEvent(JSON.stringify({ type: "change", seq: 1, changes: [] }))).toBeNull();
     expect(parseLiveEvent("not json")).toBeNull();
   });
-  it("the topics are a closed list; mail is the hub's own Mail write (P53)", () => {
-    expect(LIVE_TOPICS).toHaveLength(14);
+  it("the topics are a closed list; mail is the hub's own Mail write (P53), agent-log the session log (P59)", () => {
+    expect(LIVE_TOPICS).toHaveLength(15);
     expect(liveTopic.safeParse("mail").success).toBe(true);
     expect(liveTopic.safeParse("mailbox").success).toBe(false);
   });

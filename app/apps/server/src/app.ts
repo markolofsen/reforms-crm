@@ -16,6 +16,8 @@ import { sequenceRoutes } from "./routes/sequences";
 import { terminalRoutes } from "./routes/terminal";
 import { liveRoutes } from "./routes/live";
 import { focusRoutes } from "./routes/focus";
+import { agentFeedRoutes } from "./routes/agent-feed";
+import type { LogStore } from "@hub/log/store";
 import type { FocusStore } from "./focus";
 import type { LiveService } from "./live";
 import type { TerminalService } from "./terminal";
@@ -49,6 +51,8 @@ export type AppOptions = {
   live?: LiveService;
   /** The shared focus (P51): `POST /api/focus` keeps the admin's last focus for `hub focus` and `hub mcp`; without it the route is 404. */
   focus?: FocusStore;
+  /** The agent session log (P54) the activity feed reads (P59); without it `GET /api/projects/:slug/agent-feed` is 404. */
+  agentLog?: LogStore;
   now?: () => Date;
 };
 
@@ -122,6 +126,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", overviewRoutes(overview))
     .route("/", connectionRoutes(connections))
     .route("/", agentToolRoutes(repos, opts.agentTools))
+    .route("/", agentFeedRoutes(repos, opts.agentLog, now))
     .route("/", terminalRoutes(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", focusRoutes(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
 }

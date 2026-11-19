@@ -15,7 +15,8 @@
     "./terminal": "./src/terminal.ts",
     "./agent-tools": "./src/agent-tools.ts",
     "./live": "./src/live.ts",
-    "./focus": "./src/focus.ts"
+    "./focus": "./src/focus.ts",
+    "./agent-feed": "./src/agent-feed.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

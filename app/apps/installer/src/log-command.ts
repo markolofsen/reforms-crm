@@ -53,7 +53,7 @@ const t = (v: unknown): string => (typeof v === "string" ? v : v === undefined |
 export function eventText(e: LogEvent): string {
   const d = e.data;
   switch (e.kind) {
-    case "prompt": return one(t(d.text), 200);
+    case "prompt": return `${d.queued === true ? "(queued) " : ""}${one(t(d.text), 200)}`;
     case "focus": return one(t(d.line), 200);
     case "answer": return one(t(d.text), 200);
     case "tool_call": return `${t(d.tool)} ${one(t(d.input), 140)}`;
@@ -92,6 +92,7 @@ export function summaryLines(s: SessionSummary): string[] {
   for (const turn of s.turns.filter((x) => x.flags.length)) {
     out.push(`  ${c.yellow(localStamp(turn.at).slice(11, 19))} ${turn.flags.map((f) => TURN_FLAG_LABELS[f]).join(", ")}${turn.tools.length ? c.dim(` (${turn.tools.length} tool calls)`) : ""}`);
     if (turn.prompt !== null) out.push(`    Q: ${one(turn.prompt, 220)}`);
+    for (const q of turn.queued) out.push(`    Q (queued): ${one(q, 220)}`);
     if (turn.answer !== null) out.push(`    A: ${one(turn.answer, 220)}`);
     for (const x of [...turn.asked, ...turn.errors]) out.push(c.dim(`    - ${one(x, 200)}`));
   }

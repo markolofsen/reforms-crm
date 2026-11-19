@@ -1,7 +1,8 @@
 "use client";
 
 import { SquareTerminalIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
+import { cn } from "@hub/ui/cn";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { SideDock } from "@hub/ui/product/side-dock";
 import { useMediaQuery } from "@hub/ui/use-media-query";
@@ -25,13 +26,20 @@ export function useTerminalDocked(): boolean {
   return useMediaQuery("lg") && open;
 }
 
-/** The phone's button (below 640px): shows or hides the terminal (Ctrl+` does the same from anywhere). Focus comes back here when the terminal hides. */
-export function TerminalToggle({ className }: { className?: string }) {
+/** The phone button's name while the agent waits on him (P59; the strip adds the same words to its own): colour is not the only carrier (`accessibility.md` rule 6). */
+const NEEDS_YOU = "Terminal, the agent needs you";
+
+/**
+ * The phone's button (below 640px): shows or hides the terminal (Ctrl+` does the same from anywhere). Focus comes back here when
+ * the terminal hides. `attention` (P59): the agent waits on him, so the button carries the attention dot.
+ */
+export function TerminalToggle({ className, attention = false }: { className?: string; attention?: boolean }) {
   const t = useTerminal();
   if (!t.state) return null;
   return (
-    <ActionButton aria-keyshortcuts="Control+`" aria-label="Terminal" aria-pressed={t.open} className={className} data-terminal-toggle="" icon onClick={() => t.setOpen(!t.open)} size="s" variant="quiet">
+    <ActionButton aria-keyshortcuts="Control+`" aria-label={attention ? NEEDS_YOU : "Terminal"} aria-pressed={t.open} className={cn("relative", className)} data-terminal-toggle="" icon onClick={() => t.setOpen(!t.open)} size="s" variant="quiet">
       <SquareTerminalIcon aria-hidden="true" />
+      {attention && <span aria-hidden="true" className="absolute end-1.5 top-1.5 size-2 rounded-full bg-warning" data-testid="terminal-toggle-dot" />}
     </ActionButton>
   );
 }
@@ -41,15 +49,18 @@ const STRIP_LABEL: Record<string, string> = { claude: "Claude Code", codex: "Cod
 
 /**
  * The collapsed dock from 640px: a 44px strip on the right edge, full height, always there while the terminal is on. One
- * button: the icon, the open tab's program written vertically, and a dot while a session runs. It opens the column (Ctrl+`
- * too); collapsing the column brings it back and focus returns to it. The sessions keep running.
+ * button: the icon, the open tab's program written vertically, and a dot while a session runs or while the agent waits on
+ * him (P59: the attention colour then, also for a session that is not in the dock). It opens the column (Ctrl+` too);
+ * collapsing the column brings it back and focus returns to it. The sessions keep running.
  */
-function TerminalStrip() {
+function TerminalStrip({ attention }: { attention: boolean }) {
   const t = useTerminal();
   const sessions = t.state?.sessions ?? [];
   const current = sessions.find((s) => s.id === t.active);
   const running = sessions.some((s) => s.state === "running");
   const label = current ? (STRIP_LABEL[current.preset] ?? "Terminal") : "Terminal";
+  const base = label === "Terminal" ? "Terminal" : `Terminal, ${label}`;
+  const name = attention ? `${base}, the agent needs you` : base;
   return (
     <div className="flex h-svh w-11 shrink-0 flex-col border-s bg-sidebar max-md:hidden" data-slot="terminal-strip">
       <ActionButton
@@ -57,7 +68,7 @@ function TerminalStrip() {
         aria-expanded={false}
         aria-keyshortcuts="Control+`"
         // The name holds the visible label (WCAG 2.5.3, label in name): "Terminal", or "Terminal, Claude Code".
-        aria-label={label === "Terminal" ? "Terminal" : `Terminal, ${label}`}
+        aria-label={name}
         className="h-auto min-h-0 w-full flex-1 flex-col justify-start gap-3 rounded-none border-0 py-3 text-muted-foreground sm:h-auto"
         data-terminal-toggle=""
         onClick={() => t.setOpen(true)}
@@ -66,9 +77,13 @@ function TerminalStrip() {
       >
         <SquareTerminalIcon aria-hidden="true" className="size-4 shrink-0" />
         <span aria-hidden="true" className="text-sm [writing-mode:vertical-rl]">{label}</span>
-        {running && <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-success" data-testid="terminal-strip-dot" />}
+        {attention ? (
+          <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-warning" data-attention="" data-testid="terminal-strip-dot" />
+        ) : (
+          running && <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-success" data-testid="terminal-strip-dot" />
+        )}
       </ActionButton>
-      <span className="sr-only" id="terminal-strip-state">{running ? `${label}, running` : "No terminal is running"}</span>
+      <span className="sr-only" id="terminal-strip-state">{attention ? "The agent waits on you" : running ? `${label}, running` : "No terminal is running"}</span>
     </div>
   );
 }
@@ -97,9 +112,13 @@ function Empty() {
  * full-screen layer over it (header "Terminal", the tabs, +, Hide). Closed, the sessions wait in a hidden holder. The
  * sessions render once into the one host node (`host.tsx`), which moves between these three places.
  */
-export function TerminalDock() {
+export function TerminalDock({ attention = false, onSeen }: { attention?: boolean; onSeen?: () => void }) {
   const t = useTerminal();
   const wide = useMediaQuery("lg");
+  // Opening the column is seeing the wait (P59): the dot goes back to the session colour until the agent waits again.
+  useEffect(() => {
+    if (t.open && attention) onSeen?.();
+  }, [t.open, attention, onSeen]);
   if (!t.state) return null;
   return (
     <>
@@ -122,7 +141,7 @@ export function TerminalDock() {
         </section>
       ) : (
         <>
-          <TerminalStrip />
+          <TerminalStrip attention={attention} />
           {t.mounted && (
             <div hidden>
               <HostSlot />

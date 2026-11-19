@@ -22,6 +22,8 @@ export const TURN_FLAG_LABELS: Record<TurnFlag, string> = {
 export interface Turn {
   at: string;
   prompt: string | null;
+  /** Messages the owner typed while the turn ran (Claude queues them mid-turn; they open no turn of their own). */
+  queued: string[];
   focus: string | null;
   answer: string | null;
   tools: string[];
@@ -75,12 +77,17 @@ export function turnsOf(events: readonly LogEvent[]): Turn[] {
   let cur: Omit<Turn, "flags"> | null = null;
   const byId = new Map<string, Omit<Turn, "flags">>();
   const open = (at: string): Omit<Turn, "flags"> => {
-    const t = { at, prompt: null, focus: null, answer: null, tools: [], errors: [], asked: [], guard: [] };
+    const t = { at, prompt: null, queued: [], focus: null, answer: null, tools: [], errors: [], asked: [], guard: [] };
     turns.push(t);
     return t;
   };
   for (const e of events) {
     if (e.kind === "session") continue;
+    if (e.kind === "prompt" && e.data.queued === true) {
+      const into: Omit<Turn, "flags"> = (e.turn ? byId.get(e.turn) : undefined) ?? cur ?? (cur = open(e.ts));
+      into.queued.push(text(e.data.text) ?? "");
+      continue;
+    }
     if (e.kind === "prompt") {
       cur = open(e.ts);
       cur.prompt = text(e.data.text) ?? "";
@@ -116,7 +123,7 @@ export function summarize(events: readonly LogEvent[]): SessionSummary[] {
     const transcript = list.map((e) => text(e.data.transcript)).find((x) => x !== null) ?? null;
     out.push({
       session, project: first.project, cli: first.cli, start: first.ts, end: last.ts, transcript,
-      prompts: list.filter((e) => e.kind === "prompt").length,
+      prompts: list.filter((e) => e.kind === "prompt" && e.data.queued !== true).length,
       answers: list.filter((e) => e.kind === "answer").length,
       toolCalls: list.filter((e) => e.kind === "tool_call").length,
       topTools: [...counts].sort((a, b) => b[1] - a[1]),

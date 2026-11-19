@@ -6,7 +6,8 @@ import { PROJECT_COOKIE } from "@/routes/guards";
 // conveniences live here. A value is read through `useStored` / `useRememberedProject`: the server snapshot is `null`, so
 // the first render is the same on the server and in the browser (hydration), and the remembered value arrives right after.
 // The terminal's three (P49) are a viewing preference, not screen state: open or closed, the column's width, the active tab.
-const KEYS = { shortcuts: "hub.shortcuts", rail: "hub.rail", terminal: "hub.terminal", "terminal-width": "hub.terminal-width", "terminal-tab": "hub.terminal-tab" } as const;
+// `sound` (P59) is the agent feed's mute switch, "off" when muted; the sound is on by default.
+const KEYS = { shortcuts: "hub.shortcuts", rail: "hub.rail", terminal: "hub.terminal", "terminal-width": "hub.terminal-width", "terminal-tab": "hub.terminal-tab", sound: "hub.sound" } as const;
 type Key = keyof typeof KEYS;
 
 const listeners = new Set<() => void>();

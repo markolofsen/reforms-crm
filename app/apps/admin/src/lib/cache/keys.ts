@@ -12,6 +12,8 @@ export const keys = {
   overview: () => ["overview"] as const,
   connections: () => ["connections"] as const,
   agentTools: (project: string) => ["agent-tools", project] as const,
+  /** The agent activity feed (P59): the last rows of the session log, read on the server. */
+  agentFeed: (project: string) => ["agent-feed", project] as const,
   drafts: (project: string, view: string, batch: number | null, search: string) => ["drafts", project, view, batch, search] as const,
   batches: (project: string) => ["batches", project] as const,
   notByEmail: (project: string, kind: string | null) => ["not-by-email", project, kind] as const,
@@ -45,6 +47,7 @@ const project = of("project");
 const rules = of("rules");
 const sends = of("sends");
 const agentTools = of("agent-tools");
+const agentFeed = of("agent-feed");
 const overview = () => keys.overview();
 const draftMail = of("draft-mail");
 const thread = of("thread");
@@ -69,4 +72,5 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   connections: () => [keys.connections(), agentTools(null), overview()],
   health: (p) => [keys.pulse(), project(p), keys.connections(), overview()],
   mail: (p) => [draftMail(p), thread(p)],
+  "agent-log": (p) => [agentFeed(p)],
 };

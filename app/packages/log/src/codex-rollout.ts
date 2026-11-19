@@ -14,15 +14,16 @@ type Obj = Record<string, unknown>;
 const obj = (v: unknown): Obj | null => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.entries(v)) : null);
 const s = (o: Obj, k: string): string | undefined => (typeof o[k] === "string" ? String(o[k]) : undefined);
 
-const cursorFile = (store: LogStore, project: string | null, session: string): string =>
+/** The byte cursor of one session's native file (shared with the Claude transcript import). */
+export const cursorFile = (store: LogStore, project: string | null, session: string): string =>
   path.join(projectDir(store, project), ".cursor", session.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120));
 
-function readCursor(file: string): number {
+export function readCursor(file: string): number {
   try { const n = Number(readFileSync(file, "utf8").trim()); return Number.isInteger(n) && n >= 0 ? n : 0; } catch { return 0; }
 }
 
 /** The bytes of `file` from `offset` up to the last complete line, and the new offset. */
-function readFrom(file: string, offset: number): { text: string; next: number } {
+export function readFrom(file: string, offset: number): { text: string; next: number } {
   const fd = openSync(file, "r");
   try {
     const size = fstatSync(fd).size;
