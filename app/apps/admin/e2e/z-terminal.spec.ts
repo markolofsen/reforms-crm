@@ -132,8 +132,8 @@ test("terminal: on a project's screen the presets are Claude Code, Codex, Shell;
   await expect(page.getByRole("tab", { selected: true })).toContainText(P);
 });
 
-test("terminal: with no project in the address (Connections) only Shell is offered", async ({ page }) => {
-  await page.goto("/connections");
+test("terminal: with no project in the address (Settings ▸ Connections) only Shell is offered", async ({ page }) => {
+  await page.goto("/settings/connections");
   await openTerminal(page);
   expect((await sessions(page)).map((s) => [s.preset, s.project])).toEqual([["shell", null]]);
   await page.getByRole("button", { name: "New terminal" }).click();

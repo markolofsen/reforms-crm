@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 import type { OverviewDto } from "@hub/contract/overview";
 import { address, remember } from "./support";
 
-// The Overview (P48 W3, P63), read flows only: the e2e instance has two projects, so Overview is the entry. One sentence, then
-// one table row per project leading into that project's Drafts, then the parts table (P63 O1). Nothing here reads Notion and
-// there is nothing to refresh. The one-project Overview (parts only, not the entry) is `b-routing.spec.ts`'s.
+// The Overview (P48 W3, P63, P70), read flows only: the e2e instance has two projects, so Overview is the entry. One sentence,
+// then one table row per project leading into that project's Drafts, then "Needs you" (or "Everything works") and every part
+// folded under All parts. Nothing here reads Notion and there is nothing to refresh. The one-project Overview is `b-routing.spec.ts`'s.
 const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
 
 test.beforeEach(async ({ page }) => {
@@ -73,22 +73,71 @@ test("overview: the request failing shows a sentence and Retry loads it", async 
   await expect(page.getByRole("table", { name: "Projects" })).toBeVisible();
 });
 
-test("overview: the parts table, worst first, under the projects; a part that is not working links to its page, a working one does not", async ({ page }) => {
-  const scheme = (await (await page.request.get(`${API()}/api/scheme`)).json()) as { nodes: { id: string; state: string; place: string | null; project: string | null }[] };
+type Node = { id: string; kind: string; project: string | null; label: string; state: string; detail: string; fix: string | null; place: string | null };
+const scheme = async (page: import("@playwright/test").Page) => (await (await page.request.get(`${API()}/api/scheme`)).json()) as { nodes: Node[]; edges: unknown[] };
+
+test("overview: Needs you holds every broken or needs-a-look part, under the projects, each with one link to where it is fixed; All parts is closed", async ({ page }) => {
+  const d = await scheme(page);
+  const bad = d.nodes.filter((n) => n.state === "fail" || n.state === "warn");
   await page.goto("/overview");
   const projects = page.getByRole("table", { name: "Projects" });
+  const needs = page.getByTestId("needs-you");
+  await expect(needs).toBeVisible();
+  expect((await projects.boundingBox())!.y).toBeLessThan((await needs.boundingBox())!.y);
+  await expect(needs.locator("li[data-part]:not([data-part=question])")).toHaveCount(bad.length);
+  for (const n of bad) await expect(needs.locator(`li[data-part="${n.id}"]`).getByRole("link"), n.id).toHaveCount(n.place !== null && n.place !== "overview" ? 1 : 0);
+  // "Not checked here" is nobody's failure: only under All parts, which is closed.
+  await expect(needs.locator('li[data-state="unknown"]')).toHaveCount(0);
+  await expect(page.getByRole("table", { name: "Parts" })).toHaveCount(0);
+  await page.getByRole("button", { name: /^All parts/ }).click();
   const parts = page.getByRole("table", { name: "Parts" });
-  await expect(parts).toBeVisible();
-  expect((await projects.boundingBox())!.y).toBeLessThan((await parts.boundingBox())!.y);
   const states = await parts.locator("tbody tr").evaluateAll((rows) => rows.map((r) => r.getAttribute("data-state")));
-  expect(states.length).toBe(scheme.nodes.length);
+  expect(states.length).toBe(d.nodes.length);
   const rank = { fail: 0, warn: 1, unknown: 2, ok: 3 } as Record<string, number>;
   expect(states.map((x) => rank[x ?? ""])).toEqual([...states.map((x) => rank[x ?? ""])].sort((a, b) => (a ?? 0) - (b ?? 0)));
-  for (const n of scheme.nodes) {
-    const links = parts.locator(`tr[data-part="${n.id}"]`).getByRole("link");
-    await expect(links, n.id).toHaveCount(n.state !== "ok" && n.place !== null ? 1 : 0);
-  }
-  // Every state is a word, and nothing unchecked says it works.
-  await expect(parts.locator('tr[data-state="unknown"]').first()).toContainText("Not checked here");
   await expect(page.getByRole("button", { name: /Refresh|Test|Copy/ })).toHaveCount(0);
+});
+
+test("overview: nothing needs you is one line, Everything works, and every part stays folded", async ({ page }) => {
+  await page.route(/\/api\/scheme$/, async (route) => {
+    const res = await route.fetch();
+    const json = (await res.json()) as { nodes: Node[]; edges: unknown[] };
+    await route.fulfill({ response: res, json: { ...json, nodes: json.nodes.map((n) => (n.state === "fail" || n.state === "warn" ? { ...n, state: "ok", detail: "", fix: null } : n)) } });
+  });
+  await page.route(/\/api\/project\?/, async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), question: null } });
+  });
+  await page.goto("/overview");
+  await expect(page.getByTestId("everything-works")).toHaveText("Everything works.");
+  await expect(page.getByTestId("needs-you")).toHaveCount(0);
+  await expect(page.getByRole("table", { name: "Parts" })).toHaveCount(0);
+});
+
+test("overview: a failing setup check names the check and the phrase (no link: it is fixed in a session); the agent's question comes first", async ({ page }) => {
+  await page.route(/\/api\/scheme$/, async (route) => {
+    const res = await route.fetch();
+    const json = (await res.json()) as { nodes: Node[]; edges: unknown[] };
+    const nodes = json.nodes.map((n) => (n.id === "lisbon-realty:setup" ? { ...n, state: "fail", detail: "Failing: workflows parse. workflows parse: 1 error", fix: "Say “настрой проект” in a session (project-setup)" } : n));
+    await route.fulfill({ response: res, json: { ...json, nodes } });
+  });
+  await page.route(/\/api\/project\?project=lisbon-realty/, async (route) => {
+    const res = await route.fetch();
+    await route.fulfill({ response: res, json: { ...(await res.json()), question: { question: "Which signature for the realty brand?", options: ["A", "B"] } } });
+  });
+  await page.goto("/overview");
+  const needs = page.getByTestId("needs-you");
+  const items = needs.locator("li[data-part]");
+  await expect(items.first()).toHaveAttribute("data-part", "question");
+  await expect(items.first()).toContainText("Which signature for the realty brand?");
+  await expect(items.first().getByRole("link")).toHaveCount(0);
+  const setup = needs.locator('li[data-part="lisbon-realty:setup"]');
+  await expect(setup).toContainText("workflows parse");
+  await expect(setup).toContainText("настрой проект");
+  await expect(setup.getByRole("link")).toHaveCount(0);
+  // The fake Mailer (the e2e server's) is a look at the send door, and its link lands on Settings ▸ Sending.
+  const door = needs.locator('li[data-part="lisbon-realty:send-door"]');
+  await expect(door).toContainText("demo mode");
+  await door.getByRole("link").click();
+  await expect.poll(() => address(page)).toBe("/lisbon-realty/settings");
 });

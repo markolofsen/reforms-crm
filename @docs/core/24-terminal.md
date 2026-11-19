@@ -99,7 +99,7 @@ Presets, a fixed server table: `claude` and `codex` spawn the argv `<server node
 
 ## Agent tools (Settings ▸ Agent, P70; the Agents page in P63, on Connections before)
 
-`@hub/agent` `agentChecks({paths, slug, cli, unattended, probe, facts})` returns rows `{id, cli, title, state: pass|warn|fail|skip, detail, fix}`; every row that is not a pass names one command line. The same rows serve `hub doctor` group `Agent` (one line per project and CLI, an audit row: `--fast` leaves it out) and `GET /api/projects/:slug/agent-tools` (the last result, computed on the first GET; `POST .../agent-tools/refresh` reruns it; the Agents page `/<project>/agents` renders them for the address's project, and Overview's parts read the cached result without running it). `HUB_AGENT_TOOLS=fake` (e2e, refused without `HUB_DB`) returns fixed rows.
+`@hub/agent` `agentChecks({paths, slug, cli, unattended, probe, facts})` returns rows `{id, cli, title, state: pass|warn|fail|skip, detail, fix}`; every row that is not a pass names one command line. The same rows serve `hub doctor` group `Agent` (one line per project and CLI, an audit row: `--fast` leaves it out) and `GET /api/projects/:slug/agent-tools` (the last result, computed on the first GET; `POST .../agent-tools/refresh` reruns it; Settings ▸ Agent `/<project>/settings/agent` renders them for the address's project, and Overview's parts read the cached result without running it). `HUB_AGENT_TOOLS=fake` (e2e, refused without `HUB_DB`) returns fixed rows.
 
 | Row | Pass when | Fix |
 |---|---|---|

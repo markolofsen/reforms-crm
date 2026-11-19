@@ -28,4 +28,4 @@ Scope: what a screen of the admin may show and ask, before any layout or compone
 | 9 | `e2e/y-settings.spec.ts` (Sending and its Checks), `e2e/b-routing.spec.ts` (the sub-nav on every Settings pane) |
 | 10 | `e2e/y-status-line.spec.ts`, `test/status-line.test.ts`; review |
 | 11 | `e2e/z-selection.spec.ts`, `e2e/a-layout.spec.ts` |
-| 12 | review; `e2e/z-local-actions.spec.ts` |
+| 12 | review; `e2e/z-local-actions.spec.ts`, `e2e/y-knowledge.spec.ts` (every entry a row with its Open, View counts the server's, two lines a row at 360px) |

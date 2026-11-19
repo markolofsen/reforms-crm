@@ -42,8 +42,8 @@ test("Send needs the checks read, shows the exact mail to confirm, can be cancel
   // Cancel: nothing happened
   await card.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(confirm).toHaveCount(0);
-  await page.goto("/project");
-  await expect(page.getByTestId("project-status")).toBeVisible();
+  await page.goto("/settings");
+  await expect(page.getByTestId("sending-status")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Sends" })).toHaveCount(0); // no send, no Sends table
 
   // now really (to the fake) send
@@ -53,7 +53,7 @@ test("Send needs the checks read, shows the exact mail to confirm, can be cancel
   await expect(cards(page).filter({ hasText: "Sofia Teste" }).getByRole("img", { name: "Sent" })).toBeVisible();
 
   // the history shows the row with its full text
-  await page.goto("/project");
+  await page.goto("/settings");
   const row = page.getByRole("table", { name: "Sends" }).locator("tr[data-send]").first();
   await expect(row).toContainText("By hand");
   await expect(row).toContainText("sofia@example.com");
@@ -62,10 +62,10 @@ test("Send needs the checks read, shows the exact mail to confirm, can be cancel
 });
 
 test("Stop all refuses a send with its reason, and Resume lifts it", async ({ page }) => {
-  await page.goto("/project");
+  await page.goto("/settings");
   await page.getByRole("button", { name: "Stop sending" }).click();
   await page.getByRole("group", { name: "Stop sending" }).getByRole("button", { name: "Stop sending" }).click();
-  await expect(page.getByTestId("project-status")).toHaveText("Sending is stopped");
+  await expect(page.getByTestId("sending-status")).toHaveText("Sending is stopped");
   await expect(page.getByRole("button", { name: "Resume lisbon-realty" })).toBeVisible();
 
   const card = await openRead(page, "Marta Ficticia");
@@ -73,7 +73,7 @@ test("Stop all refuses a send with its reason, and Resume lifts it", async ({ pa
   await expect(card.getByText("Stop all is on").first()).toBeVisible();
   await expect(card.getByRole("button", { name: "Send to Marta" })).toHaveCount(0);
 
-  await page.goto("/project");
+  await page.goto("/settings");
   await page.getByRole("button", { name: "Resume lisbon-realty" }).click();
   await expect(page.getByText(/Stop all is on/)).toHaveCount(0);
   const marta = await openRead(page, "Marta Ficticia");
@@ -96,11 +96,14 @@ test("a draft recorded as injection_suspected shows the flag and a class, and of
   await expect(sendButton(card)).toHaveCount(0);
 });
 
-test("Project · Setup shows the health checks of the project in one line, open on demand", async ({ page }) => {
-  await page.goto("/project/setup");
-  const health = page.getByRole("button", { name: /^Health/ });
-  await expect(health).toContainText(/\d+ of \d+ checks pass/);
-  const list = page.getByRole("list", { name: "Health checks" });
-  if (!(await list.isVisible())) await health.click();
-  await expect(list.getByText("project.md parses")).toBeVisible();
+test("Overview: the project's setup checks are one part, folded under All parts when they pass, a Needs you item when one fails", async ({ page }) => {
+  await page.goto("/overview");
+  await page.getByTestId("needs-you").or(page.getByTestId("everything-works")).first().waitFor();
+  const setup = page.locator('[data-part="lisbon-realty:setup"]');
+  if ((await setup.count()) === 0) {
+    await page.getByRole("button", { name: /^All parts/ }).click();
+    await expect(page.locator('[data-part="lisbon-realty:setup"]').first()).toContainText(/\d+ of \d+ checks pass/);
+  } else {
+    await expect(setup.first()).toContainText(/Failing: /);
+  }
 });

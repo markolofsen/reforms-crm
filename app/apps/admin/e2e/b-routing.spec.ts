@@ -30,15 +30,22 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
   await expect.poll(() => address(page)).toMatch(listed(P));
   await page.goto("/log");
   await expect.poll(() => address(page)).toBe(at(P, "/log"));
-  await page.goto("/connections");
-  await expect.poll(() => address(page)).toBe("/connections");
-  // P63: the new pages, each a cold load in its canonical form (Agents and the Project children are scoped, Help is not).
-  await page.goto("/agents");
-  await expect.poll(() => address(page)).toBe(at(P, "/agents"));
-  await page.goto("/project/setup");
-  await expect.poll(() => address(page)).toBe(at(P, "/project/setup"));
-  await page.goto(at(P, "/project/knowledge"));
-  await expect.poll(() => address(page)).toBe(at(P, "/project/knowledge"));
+  await page.goto("/settings/connections");
+  await expect.poll(() => address(page)).toBe("/settings/connections");
+  // P70: each page a cold load in its canonical form (Knowledge and the project's panes are scoped; Connections, This Mac and Help are not).
+  await page.goto("/settings");
+  await expect.poll(() => address(page)).toBe(at(P, "/settings"));
+  await page.goto("/settings/agent");
+  await expect.poll(() => address(page)).toBe(at(P, "/settings/agent"));
+  // An instance pane under a project's address folds to the bare form (the sub-nav followed with the project in mind).
+  await page.goto(at(P, "/settings/mac"));
+  await expect.poll(() => address(page)).toBe("/settings/mac");
+  await page.goto(at(P, "/settings/connections"));
+  await expect.poll(() => address(page)).toBe("/settings/connections");
+  await page.goto("/knowledge?filter=expired");
+  await expect.poll(() => address(page)).toBe(at(P, "/knowledge?filter=expired"));
+  await page.goto(at(P, "/knowledge"));
+  await expect.poll(() => address(page)).toBe(at(P, "/knowledge"));
   await page.reload();
   await expect(page).toHaveTitle(`Knowledge · ${P} · Hub Workflow`);
   await page.goto("/help");
@@ -100,14 +107,15 @@ test("the Activity deep link keeps its view and opened session", async ({ page }
   await expect(page).toHaveTitle(`Activity · ${P} · Hub Workflow`);
 });
 
-test("the Project screen survives a reload", async ({ page }) => {
-  await page.goto(at(P, "/project"));
+test("Settings ▸ Sending survives a reload", async ({ page }) => {
+  await page.goto(at(P, "/settings"));
   await page.reload();
-  await expect(page.getByTestId("project-status")).toBeVisible();
-  await expect(page).toHaveTitle(`Project · ${P} · Hub Workflow`);
+  await expect(page.getByTestId("sending-status")).toBeVisible();
+  await expect(page).toHaveTitle(`Sending · ${P} · Hub Workflow`);
 });
 
-for (const bad of ["/clients", "/nope", "/drafts/abc", "/drafts/1/2", `/${P}/overview`, `/${P}/help`, "/project/nope"]) {
+// P70: the addresses of the Project section, Agents and Connections are gone, with no redirect (routes rule 6).
+for (const bad of ["/clients", "/nope", "/drafts/abc", "/drafts/1/2", `/${P}/overview`, `/${P}/help`, "/settings/nope", "/project", "/project/setup", `/${P}/project/knowledge`, "/agents", `/${P}/agents`, "/connections"]) {
   test(`${bad} is Not found, with a way back, never Drafts`, async ({ page }) => {
     await page.goto(bad);
     await expect(page.getByText("Page not found")).toBeVisible();
@@ -125,10 +133,10 @@ test("a draft id that is not in the list says so and keeps the list", async ({ p
   await expect(cards(page).first()).toBeVisible();
 });
 
-test("g then d / a / p / t move between screens; typing in a field is left alone", async ({ page }) => {
+test("g then d / a / k / s move between screens; typing in a field is left alone", async ({ page }) => {
   await page.goto(at(P, "/drafts"));
   await expect(cards(page).first()).toBeVisible();
-  for (const [key, path] of [["a", "/log"], ["p", "/project"], ["t", "/agents"], ["d", "/drafts"]] as const) {
+  for (const [key, path] of [["a", "/log"], ["k", "/knowledge"], ["s", "/settings"], ["d", "/drafts"]] as const) {
     await page.keyboard.press("g");
     await page.keyboard.press(key);
     await expect.poll(() => address(page)).toMatch(path === "/drafts" ? listed(P) : new RegExp(`^${at(P, path)}$`));
@@ -156,32 +164,38 @@ test("the nav links are real anchors in the path form; two projects show the swi
   await expect(nav.getByRole("link", { name: "Drafts" })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("link", { name: "Activity" })).toHaveAttribute("href", at(P, "/log"));
   await expect(nav.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/overview");
-  await expect(nav.getByRole("link", { name: "Agents" })).toHaveAttribute("href", at(P, "/agents"));
+  await expect(nav.getByRole("link", { name: "Settings" })).toHaveAttribute("href", at(P, "/settings"));
+  await expect(nav.getByRole("link", { name: "Knowledge" })).toHaveAttribute("href", at(P, "/knowledge"));
   await expect(nav.getByRole("link", { name: "Help" })).toHaveAttribute("href", "/help");
   await expect(page.getByRole("button", { name: P }).first()).toBeVisible();
 });
 
-// P63 N1: the nested nav. Project's children show under it in the open sidebar only while Project is active (no tab stop on
-// any other screen), never on the rail; every Project page carries the sub-nav in its header line, on every width.
-test("the nested nav: Knowledge and Setup under an active Project, and the sub-nav on every Project page", async ({ page }) => {
-  const wide = (page.viewportSize()?.width ?? 0) >= 1280;
+// P70: the nested nav. Settings' panes show under it in the open sidebar only while Settings is active (no tab stop on any
+// other screen), the landing (Sending) first, never on the rail; every pane carries the sub-nav in its header line.
+test("the nested nav: the five panes under an active Settings, and the sub-nav on every pane", async ({ page }) => {
+  const width = page.viewportSize()?.width ?? 0;
   await page.goto(at(P, "/drafts"));
   await expect(cards(page).first()).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Sections" }).first();
-  await expect(nav.getByRole("link", { name: "Setup" })).toHaveCount(0);
-  for (const [name, path] of [["Project", "/project"], ["Knowledge", "/project/knowledge"], ["Setup", "/project/setup"]] as const) {
-    await page.goto(at(P, path));
-    const sub = page.getByRole("navigation", { name: "Project pages" });
+  await expect(nav.getByRole("link", { name: "Mail", exact: true })).toHaveCount(0);
+  const panes = [["Sending", at(P, "/settings")], ["Mail", at(P, "/settings/mail")], ["Agent", at(P, "/settings/agent")], ["Connections", "/settings/connections"], ["This Mac", "/settings/mac"]] as const;
+  for (const [name, path] of panes) {
+    await page.goto(path);
+    const sub = page.getByRole("navigation", { name: "Settings pages" });
+    if (width < 640) {
+      await expect(sub.getByRole("button", { name: `Settings pages: ${name}` })).toBeVisible();
+      continue;
+    }
     await expect(sub.getByRole("link", { name, exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(sub.getByRole("link")).toHaveText(["Project", "Knowledge", "Setup"]);
-    if (wide) await expect(nav.getByRole("link", { name: "Setup", exact: true })).toHaveAttribute("href", at(P, "/project/setup"));
+    await expect(sub.getByRole("link")).toHaveText(panes.map(([n]) => n));
+    if (width >= 1280) await expect(nav.getByRole("link", { name: "Mail", exact: true })).toHaveAttribute("href", at(P, "/settings/mail"));
   }
-  // Keyboard alone: from the landing's sub-nav to Knowledge.
-  await page.goto(at(P, "/project"));
-  const knowledge = page.getByRole("navigation", { name: "Project pages" }).getByRole("link", { name: "Knowledge" });
-  await knowledge.focus();
+  if (width < 640) return;
+  // Keyboard alone: from Sending's sub-nav to Mail.
+  await page.goto(at(P, "/settings"));
+  await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Mail" }).focus();
   await page.keyboard.press("Enter");
-  await expect.poll(() => address(page)).toBe(at(P, "/project/knowledge"));
+  await expect.poll(() => address(page)).toBe(at(P, "/settings/mail"));
 });
 
 // Status policy for a not-found page. A route Next does not match (/nope/x/y) answers a real 404. A route that matches but
@@ -207,11 +221,13 @@ test("one project: no project in the address, no switcher, Overview in the nav b
   await expect(page.getByRole("button", { name: P })).toHaveCount(0);
   await page.goto("/overview");
   await expect.poll(() => address(page)).toBe("/overview");
-  // With one project the page is the parts table alone: no project sentence and no project table (they would repeat Project).
-  await expect(page.getByRole("table", { name: "Parts" }).or(page.getByRole("list", { name: "Parts" })).first()).toBeVisible();
+  // With one project the page is "Needs you" alone: no project sentence and no project table (they would repeat the status line).
+  await expect(page.getByTestId("needs-you").or(page.getByTestId("everything-works")).first()).toBeVisible();
   await expect(page.getByTestId("overview-sentence")).toHaveCount(0);
-  await page.goto(at(P, "/project/setup"));
-  await expect.poll(() => address(page)).toBe("/project/setup");
+  await page.goto(at(P, "/settings/mail"));
+  await expect.poll(() => address(page)).toBe("/settings/mail");
+  await page.goto(at(P, "/settings/connections"));
+  await expect.poll(() => address(page)).toBe("/settings/connections");
   await page.goto(at(P, "/log?run=1"));
   await expect.poll(() => address(page)).toBe("/log?run=1");
 });

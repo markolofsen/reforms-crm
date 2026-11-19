@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { address } from "./support";
+import { address, at, remember } from "./support";
 
-// The Connections page (P37, P48). The server runs with HUB_CONNECTIONS_PROBE=fake (every Test is a stub, nothing leaves the process; Mail "has" every
+// Settings ▸ Connections (P37, P48, P70: `/settings/connections`; the mail accounts are on Settings ▸ Mail, how this instance starts on This Mac). The server runs with HUB_CONNECTIONS_PROBE=fake (every Test is a stub, nothing leaves the process; Mail "has" every
 // account a project lists) and HUB_CONFIG_DIR inside the throwaway home, so a key written here can only land in a folder this run made. The keys are
 // fakes; the one named REJECT is refused by the stub. Mail has no key (decision 0026): its rows are read-only.
 const SECRETS = join(process.env.HUB_E2E_HOME ?? "", "secrets");
@@ -14,32 +14,36 @@ const notion = (page: Page) => page.locator("#connection-notion-notion-token");
 
 test.describe.configure({ mode: "serial" });
 
-test("connections: the address names no project, g c opens it, the title and the nav agree, and there is no WhatsApp row", async ({ page }) => {
+test("connections: the address names no project, Settings ▸ Connections opens it, the title and the nav agree, and there is no WhatsApp row", async ({ page }) => {
   await page.goto("/drafts");
   await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
   await page.locator("body").click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("g");
-  await page.keyboard.press("c");
-  await expect.poll(() => address(page)).toBe("/connections");
+  await page.keyboard.press("s");
+  await expect.poll(() => address(page)).toMatch(/\/settings$/);
+  await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Connections", exact: true }).click();
+  await expect.poll(() => address(page)).toBe("/settings/connections");
   await expect(page).toHaveTitle("Connections · Hub Workflow");
-  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Connections", exact: true })).toHaveAttribute("aria-current", "page");
-  await page.goto("/connections?project=lisbon-realty");
-  await expect.poll(() => address(page)).toBe("/connections");
+  await expect(page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Connections", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.goto("/settings/connections?project=lisbon-realty");
+  await expect.poll(() => address(page)).toBe("/settings/connections");
   await expect(page.locator("#connection-whatsapp")).toHaveCount(0);
+  // The mail accounts are a project's and live on its Mail page; Connections holds only the two keys.
+  await expect(page.getByRole("table", { name: "Mail accounts" })).toHaveCount(0);
 });
 
-test("connections: Mail is read-only, one row per account a project lists, with whether Apple Mail has it and who uses it", async ({ page }) => {
-  await page.goto("/connections");
-  const mail = page.getByRole("table", { name: "Mail accounts" });
+test("connections: Settings ▸ Mail is read-only, one row per account this project lists, with whether Apple Mail has it", async ({ page }) => {
   for (const slug of ["lisbon-realty", "demo-shop"]) {
-    const row = mail.locator(`tr[data-account="${slug}@example.test"]`);
-    await expect(row).toContainText("Found in Apple Mail");
-    await expect(row).toContainText(slug);
+    await remember(page, slug);
+    await page.goto(at(slug, "/settings/mail"));
+    const mail = page.getByRole("table", { name: "Mail accounts" });
+    await expect(mail.locator(`tr[data-account="${slug}@example.test"]`)).toContainText("Found in Apple Mail");
+    await expect(mail.locator(`tr[data-account="${slug === "demo-shop" ? "lisbon-realty" : "demo-shop"}@example.test"]`)).toHaveCount(0);
+    await expect(mail.getByRole("button")).toHaveCount(0);
   }
-  await expect(mail.getByRole("button")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "Mail", exact: true })).toBeVisible();
   await expect(page.getByText(/IMAP|App password/)).toHaveCount(0);
-  // Notion and Telegram keep their key controls.
+  // Notion and Telegram keep their key controls, on Connections.
+  await page.goto("/settings/connections");
   await expect(notion(page).getByRole("button", { name: "Set key for Notion" })).toBeVisible();
   await expect(page.locator("#connection-telegram-bot").getByRole("button", { name: /^Set key for / })).toBeVisible();
 });
@@ -50,7 +54,7 @@ test("connections: Mail not running says so, never found or not found", async ({
     const dto = (await res.json()) as { mail: { foundInMail: boolean | null }[] };
     await route.fulfill({ response: res, json: { ...dto, mail: dto.mail.map((m) => ({ ...m, foundInMail: null })), mailRead: { state: "not-running", fix: null } } });
   });
-  await page.goto("/connections");
+  await page.goto(at("lisbon-realty", "/settings/mail"));
   const mail = page.getByRole("table", { name: "Mail accounts" });
   await expect(mail.getByText("Mail is not running").first()).toBeVisible();
   await expect(mail.getByText(/Found in Apple Mail|Not found in Apple Mail/)).toHaveCount(0);
@@ -64,26 +68,24 @@ test("connections: a Mail that does not answer says so with its fix line, and th
     const dto = (await res.json()) as { mail: { foundInMail: boolean | null }[] };
     await route.fulfill({ response: res, json: { ...dto, mail: dto.mail.map((m) => ({ ...m, foundInMail: null })), mailRead: { state: "not-answering", fix: "Quit Mail (Force Quit if it does not close), open it again, then reload this page." } } });
   });
-  await page.goto("/connections");
+  await page.goto(at("lisbon-realty", "/settings/mail"));
   const mail = page.getByRole("table", { name: "Mail accounts" });
   await expect(mail.getByText("Mail is not answering").first()).toBeVisible();
   await expect(page.locator('[data-mail-read="not-answering"]')).toContainText("Quit Mail");
-  await expect(notion(page).getByRole("button", { name: "Set key for Notion" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Mail filters" })).toBeVisible();
 });
 
-test("connections: the autostart switch does not wait for the connections list", async ({ page }) => {
+test("connections: This Mac (the autostart switch) does not wait for the connections list", async ({ page }) => {
   let release: () => void = () => {};
   const held = new Promise<void>((r) => (release = r));
   await page.route(/\/api\/connections$/, async (route) => {
     await held;
     await route.continue().catch(() => {});
   });
-  await page.goto("/connections");
-  await expect(page.getByRole("status", { name: "Loading the connections" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "This Mac" })).toBeVisible();
+  await page.goto("/settings/mac");
+  await expect(page.getByRole("heading", { name: "Startup" })).toBeVisible();
   await expect(page.getByRole("switch", { name: "Start the Hub after a restart" })).toBeVisible();
   release();
-  await expect(page.getByRole("table", { name: "Mail accounts" })).toBeVisible();
 });
 
 test("connections: a key is written, tested, refused when invalid, replaced, and removed; it is never shown, stored in the browser or answered", async ({ page }) => {
@@ -93,7 +95,7 @@ test("connections: a key is written, tested, refused when invalid, replaced, and
   });
   const requests: string[] = [];
   page.on("request", (r) => requests.push(r.url()));
-  await page.goto("/connections");
+  await page.goto("/settings/connections");
   const n = notion(page);
   await expect(n).toContainText("Not set");
 
@@ -152,9 +154,9 @@ test("connections: a key is written, tested, refused when invalid, replaced, and
 test("connections: Retry shows when the list cannot load, and the page recovers", async ({ page }) => {
   let fail = true;
   await page.route(/\/api\/connections$/, (route) => (fail ? route.fulfill({ status: 500, json: { error: "server error", code: "server" } }) : route.continue()));
-  await page.goto("/connections");
+  await page.goto("/settings/connections");
   await expect(page.getByText("Could not load the connections")).toBeVisible();
   fail = false;
   await page.getByRole("button", { name: "Retry" }).click();
-  await expect(page.getByRole("heading", { name: "Mail", exact: true })).toBeVisible();
+  await expect(notion(page).getByRole("button", { name: "Set key for Notion" })).toBeVisible();
 });

@@ -56,11 +56,11 @@ test("a refusal from the server is shown as its sentence", async ({ page }) => {
   await expect(page.getByText("That draft is already sent.")).toBeVisible();
 });
 
-test("Project · Setup shows the safety rules", async ({ page }) => {
-  await page.goto("/project/setup");
-  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Setup", exact: true })).toHaveAttribute("aria-current", "page");
-  // The rules sit under Advanced, one summary line (P48 W6), on Setup since P63; opening it shows the switches.
-  await page.getByRole("button", { name: /^Advanced/ }).click();
+test("Settings ▸ Sending shows the checks before sending", async ({ page }) => {
+  await page.goto("/settings");
+  await expect(page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Sending", exact: true }).or(page.getByRole("button", { name: "Settings pages: Sending" })).first()).toBeVisible();
+  // The rules sit under Checks, one summary line (P48 W6), on Settings ▸ Sending since P70; opening it shows the switches.
+  await page.getByRole("button", { name: /^Checks/ }).click();
   await expect(page.getByRole("switch").first()).toBeVisible();
 });
 

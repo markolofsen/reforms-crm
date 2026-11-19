@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { basename, join } from "node:path";
 import { expect, test } from "@playwright/test";
 
-// P67: Connections > This Mac, "Start the Hub after a restart", against the real API with the FAKE launchd (HUB_LAUNCHCTL=fake in
+// P67: Settings ▸ This Mac ▸ Startup (P70; Connections > This Mac until then), "Start the Hub after a restart", against the real API with the FAKE launchd (HUB_LAUNCHCTL=fake in
 // playwright.config.ts): each launchctl argv lands in <HOME>/state/autostart/launchctl.jsonl, the job reads as loaded and not running,
 // and the LaunchAgents folder is <HOME>/state/autostart/LaunchAgents. The spec writes the plist there (the installer's job) and removes it.
 
@@ -21,8 +21,8 @@ test.afterAll(() => {
 
 test("autostart: not set up shows the installer's line with Copy, and the switch is disabled", async ({ page }) => {
   rmSync(PLIST, { force: true });
-  await page.goto("/connections");
-  await expect(page.getByRole("heading", { name: "This Mac" })).toBeVisible();
+  await page.goto("/settings/mac");
+  await expect(page.getByRole("heading", { name: "Startup" })).toBeVisible();
   await expect(page.getByTestId("autostart-status")).toContainText("Not set up:");
   await expect(page.getByTestId("autostart-status")).toContainText("./run.sh setup --only autostart.agent");
   await expect(page.getByRole("button", { name: "Copy ./run.sh setup --only autostart.agent" })).toBeVisible();
@@ -32,7 +32,7 @@ test("autostart: not set up shows the installer's line with Copy, and the switch
 test("autostart: off and on from the keyboard run only disable and enable, and the line says the server keeps running", async ({ page }) => {
   mkdirSync(join(DIR, "LaunchAgents"), { recursive: true });
   writeFileSync(PLIST, "<plist/>");
-  await page.goto("/connections");
+  await page.goto("/settings/mac");
   const sw = page.getByRole("switch", { name: "Start the Hub after a restart" });
   await expect(sw).toBeChecked();
   await expect(page.getByTestId("autostart-status")).toHaveText("On: this server was started by hand; launchd takes over at the next restart.");

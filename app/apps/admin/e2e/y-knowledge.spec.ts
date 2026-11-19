@@ -1,0 +1,102 @@
+import { execFileSync } from "node:child_process";
+import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { expect, test, type Page } from "@playwright/test";
+import type { KnowledgeListDto } from "@hub/contract/knowledge";
+import { address, remember } from "./support";
+
+// Knowledge (P70, `/<project>/knowledge`) against the real API: the spec copies the knowledge package's fixture base (acme-travel,
+// 18 files, one expired; the counts come from the API) into lisbon-realty, indexes it, and removes it afterwards. Every entry is listed with its title, the
+// View menu's counts are the server's, an Open records its argv with the FAKE opener (`state/opener.jsonl`), and at 360px each
+// entry is two lines with no sideways scroll.
+
+const PROJECT = "lisbon-realty";
+const HOME = process.env.HUB_E2E_HOME ?? "";
+const PROJECTS = process.env.HUB_E2E_PROJECTS ?? "";
+const DB = process.env.HUB_E2E_DB ?? "";
+const APP = join(import.meta.dirname, "..", "..", "..");
+const FIXTURE = join(APP, "packages", "knowledge", "test", "fixtures", "projects", "acme-travel", "knowledge");
+const LOG = join(HOME, "state", "opener.jsonl");
+const folder = join(PROJECTS, PROJECT);
+const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
+
+const index = () => execFileSync("pnpm", ["--filter", "@hub/knowledge", "knowledge", "--root", PROJECTS, "--db", DB, "index", PROJECT], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: HOME } });
+const opened = (): string[][] => (existsSync(LOG) ? readFileSync(LOG, "utf8").trim().split("\n").filter(Boolean).map((l) => (JSON.parse(l) as { argv: string[] }).argv) : []);
+const list = async (page: Page, filter = "all") => (await (await page.request.get(`${API()}/api/projects/${PROJECT}/knowledge?filter=${filter}`)).json()) as KnowledgeListDto;
+const table = (page: Page) => page.getByRole("table", { name: "Knowledge entries" });
+
+test.describe.configure({ mode: "serial" });
+
+test.beforeAll(() => {
+  cpSync(FIXTURE, join(folder, "knowledge"), { recursive: true });
+  index();
+});
+test.afterAll(() => {
+  rmSync(join(folder, "knowledge"), { recursive: true, force: true });
+  index();
+});
+test.beforeEach(async ({ page }) => {
+  rmSync(LOG, { force: true });
+  await remember(page, PROJECT);
+});
+
+test("knowledge: every entry is a row with its title, its status in words and its Open; the header has the search, View and Open folder", async ({ page }) => {
+  const d = await list(page);
+  expect(d.entries.length).toBeGreaterThan(10);
+  await page.goto(`/${PROJECT}/knowledge`);
+  await expect(page).toHaveTitle(`Knowledge · ${PROJECT} · Hub Workflow`);
+  await expect(table(page).locator("tbody tr")).toHaveCount(d.entries.length);
+  for (const e of d.entries) {
+    const row = table(page).locator(`tr[data-entry="${e.key}"]`);
+    await expect(row, e.key).toContainText(e.title);
+    await expect(row).toHaveAttribute("data-status", e.status);
+  }
+  await expect(table(page).locator('tr[data-status="expired"]')).toContainText("Expired");
+  await expect(page.getByRole("searchbox", { name: "Search knowledge titles" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open folder" })).toBeVisible();
+  // No status sentence: the numbers are the View menu's (admin-principles rule 10).
+  await expect(page.getByTestId("knowledge-status")).toHaveCount(0);
+});
+
+test("knowledge: the View menu's counts are the server's, and each view lists exactly its count", async ({ page }) => {
+  const d = await list(page);
+  await page.goto(`/${PROJECT}/knowledge`);
+  await page.getByRole("button", { name: /^Show:/ }).click();
+  const items = page.getByRole("menuitemradio");
+  await expect(items).toHaveCount(4);
+  const want = [["All", d.counts.all], ["Needs a look", d.counts.attention], ["Expired", d.counts.expired], ["Not approved", d.counts.unapproved]] as const;
+  for (const [i, [label, n]] of want.entries()) await expect(items.nth(i)).toHaveText(new RegExp(`^${label}\\s*${n}$`));
+  await items.filter({ hasText: "Expired" }).click();
+  await expect.poll(() => address(page)).toBe(`/${PROJECT}/knowledge?filter=expired`);
+  await expect(table(page).locator("tbody tr")).toHaveCount(d.counts.expired);
+  for (const view of ["attention", "unapproved"] as const) {
+    expect((await list(page, view)).entries.length, view).toBe(d.counts[view]);
+  }
+});
+
+test("knowledge: the search narrows by title and the address keeps it", async ({ page }) => {
+  await page.goto(`/${PROJECT}/knowledge`);
+  await page.getByRole("searchbox", { name: "Search knowledge titles" }).fill("spring");
+  await expect.poll(() => address(page)).toBe(`/${PROJECT}/knowledge?q=spring`);
+  await expect(table(page).locator("tbody tr")).toHaveCount(1);
+  await expect(table(page)).toContainText("Spring sale 2025");
+});
+
+test("knowledge: an entry's Open opens its file (the fake opener records the argv)", async ({ page }) => {
+  await page.goto(`/${PROJECT}/knowledge`);
+  await table(page).getByRole("button", { name: "Open Spring sale 2025" }).click();
+  await expect.poll(opened).toEqual([["/usr/bin/open", join(folder, "knowledge", "files", "prices", "springsale.md")]]);
+});
+
+test("knowledge: at 360px each entry is two lines (title and Open, then who, status, date) and nothing scrolls sideways", async ({ page }) => {
+  const d = await list(page);
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto(`/${PROJECT}/knowledge`);
+  const rows = page.getByRole("list", { name: "Knowledge entries" }).locator("li[data-entry]");
+  await expect(rows).toHaveCount(d.entries.length);
+  await expect(table(page)).toHaveCount(0);
+  const first = rows.first();
+  await expect(first.locator("p")).toHaveCount(2);
+  await expect(first.locator("p").first().getByRole("button", { name: /^Open / })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { at, remember } from "./support";
 
-// Agent tools on the Agents page (P49 section 5B; on Connections until P63, now `/<project>/agents`) on the fake checks (`HUB_AGENT_TOOLS=fake`: fixed rows, a red one whose fix is
+// Agent tools on Settings ▸ Agent (P49 section 5B; on Connections until P63, the Agents page until P70, now `/<project>/settings/agent`) on the fake checks (`HUB_AGENT_TOOLS=fake`: fixed rows, a red one whose fix is
 // `hub agent <slug> --prepare` and a warn one; Refresh moves `checkedAt`). Named z-* because Refresh writes the server's last result.
 test.describe.configure({ mode: "serial" });
 
@@ -15,8 +15,8 @@ test.beforeEach(async ({ page }) => {
 
 test("agent tools: the address's project's rows render as two tables, the state in words, a red row with its fix line and a copy button", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto(at(P, "/agents"));
-  await expect(page).toHaveTitle(`Agents · ${P} · Hub Workflow`);
+  await page.goto(at(P, "/settings/agent"));
+  await expect(page).toHaveTitle(`Agent · ${P} · Hub Workflow`);
   await expect(page.getByRole("heading", { name: "Agent tools" })).toBeVisible();
   await expect(block(page).getByRole("table", { name: "Claude Code" })).toBeVisible();
   await expect(block(page).getByTestId("agent-tools-status")).toContainText(/to fix/);
@@ -32,7 +32,7 @@ test("agent tools: the address's project's rows render as two tables, the state 
 });
 
 test("agent tools: Refresh runs the checks again (disabled while they run) and the block says so", async ({ page }) => {
-  await page.goto(at(P, "/agents"));
+  await page.goto(at(P, "/settings/agent"));
   await expect(block(page)).toBeVisible();
   const before = await checkedAt(page);
   const refresh = block(page).getByRole("button", { name: "Refresh" });
@@ -42,15 +42,16 @@ test("agent tools: Refresh runs the checks again (disabled while they run) and t
   await expect.poll(() => checkedAt(page)).not.toBe(before);
 });
 
-test("agent tools: a red row puts a dot on Agents in the nav, and Connections holds no Agent tools", async ({ page }) => {
+test("agent tools: a red row puts a dot on Settings in the nav, and Connections holds no Agent tools", async ({ page }) => {
   await page.goto(at(P, "/drafts"));
-  await expect(page.getByRole("navigation", { name: "Sections" }).first().getByTestId("dot-agents")).toBeVisible();
-  await page.goto("/connections");
+  await expect(page.getByRole("navigation", { name: "Sections" }).first().getByTestId("dot-settings")).toBeVisible();
+  await page.goto("/settings/connections");
   await expect(page.getByRole("heading", { name: /^Agent tools/ })).toHaveCount(0);
 });
 
 test("agent tools: after a check the Overview's parts read the cached rows (no check of their own)", async ({ page }) => {
   await page.goto("/overview");
+  await page.getByRole("button", { name: /^All parts/ }).click();
   const parts = page.getByRole("table", { name: "Parts" });
   await expect(parts).toBeVisible();
   // The fake rows have no mail-mcp row: the part is not checked here, never shown as working.

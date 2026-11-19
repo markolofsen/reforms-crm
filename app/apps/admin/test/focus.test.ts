@@ -22,12 +22,12 @@ describe("deriveFocus", () => {
   it("an address naming a draft the list does not hold reports the card on screen (P53)", () => {
     expect(derive("/acme/drafts/99", "", { openDraftId: 7 })).toMatchObject({ screen: "draft", draftId: 7 });
   });
-  it("Activity, a run, Project; Overview and Connections name no project", () => {
+  it("Activity, a run, the project's Settings panes; Overview, Connections and This Mac name no project", () => {
     expect(derive("/acme/log").screen).toBe("activity");
     expect(derive("/acme/log", "run=4")).toMatchObject({ screen: "run", runId: 4 });
-    expect(derive("/acme/project").screen).toBe("project");
+    for (const p of ["/acme/settings", "/acme/settings/mail", "/acme/settings/agent"]) expect(derive(p).screen, p).toBe("project");
     expect(derive("/overview")).toMatchObject({ screen: "overview", project: null });
-    expect(derive("/connections")).toMatchObject({ screen: "connections", project: null });
+    for (const p of ["/settings/connections", "/settings/mac"]) expect(derive(p), p).toMatchObject({ screen: "connections", project: null });
     expect(derive("/acme/nothing-here").screen).toBe("other");
   });
   it("every derived focus is a post the server accepts, the selection capped at 200", () => {

@@ -88,8 +88,8 @@ describe("hotkeys dispatcher", () => {
   it("keys are case-insensitive", () => {
     const { calls, dispatch } = setup();
     dispatch(key("G"));
-    dispatch(key("P"));
-    expect(calls).toEqual(["project"]);
+    dispatch(key("S"));
+    expect(calls).toEqual(["settings"]);
   });
 });
 

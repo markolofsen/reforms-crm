@@ -1,13 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { coreUpdateDto, type CoreUpdateDto } from "@hub/contract/instance";
 import { checkedLine, commandText, coreLine, factsLine } from "../src/features/settings/mac/core-labels";
 import { CoreLine } from "../src/features/settings/mac/core-line";
 import { CoreView } from "../src/features/settings/mac/core-view";
 import { keys } from "../src/lib/cache/keys";
 
-// P68: the core version line in the sidebar and the block on /health, for each level, from fixtures the server could send.
+// The core line is an AppLink (P70): it reads the address and the router, which a static render has not mounted.
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }), usePathname: () => "/drafts", useSearchParams: () => new URLSearchParams() }));
+
+// P68: the core version line in the sidebar and the block on Settings ▸ This Mac (P70; /health until then), for each level, from fixtures the server could send.
 
 const NOW = Date.parse("2026-11-19T15:00:00Z");
 const COMMAND = ["cd /x/saas && ./run.sh core update v0.12.12 --apply", 'git add core core.version && git commit -m "core: v0.12.12"', "./run.sh restart"];
@@ -23,11 +26,11 @@ const line = (d: CoreUpdateDto) => {
 const view = (d: CoreUpdateDto) => renderToStaticMarkup(<CoreView checking={false} d={d} now={NOW} onCheck={() => {}} said={null} />);
 
 describe("the sidebar's core line", () => {
-  it("current and unknown: the version only, no dot, a link to /health", () => {
+  it("current and unknown: the version only, no dot, a link to Settings ▸ This Mac", () => {
     for (const d of [base, at("unknown", { reason: "not checked yet", command: [] })]) {
       const html = line(d);
       expect(html).toContain("core v0.12.11");
-      expect(html).toContain('href="/health"');
+      expect(html).toContain('href="/settings/mac"');
       expect(html).not.toContain("core-dot");
       expect(html).not.toContain("update");
     }
@@ -47,7 +50,7 @@ describe("the sidebar's core line", () => {
   });
 });
 
-describe("the block on /health", () => {
+describe("the block on Settings ▸ This Mac", () => {
   it("an update: the level with its reason, the newer tag's subject, the facts and the exact command with its copy button", () => {
     const html = view(avail);
     expect(html).toContain("update available: 1 newer release (patch); dependencies change");
