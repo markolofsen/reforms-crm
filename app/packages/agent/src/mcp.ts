@@ -142,7 +142,8 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
    */
   const adoptLate = async (slug: string, draftId: number | null, mailRef: string, subject: string | null, versions: Awaited<ReturnType<Repos["mailVersions"]["ofDraft"]>>): Promise<AdoptedVersion[]> => {
     if (!env.withRepos || !env.drafts || !env.projectMail) return [];
-    const writes = await repos.mailWrites.ofThread(slug, mailRef, draftId);
+    // A database the server has not migrated yet (no `mail_writes`) adopts nothing rather than failing the write.
+    const writes = await repos.mailWrites.ofThread(slug, mailRef, draftId).catch(() => []);
     const found = await lateSaves(env.drafts, { accounts: env.projectMail(slug).accounts, mailRef, subject, versions, writes }).catch(() => []);
     return found.length ? recordAdoptions(env.withRepos, slug, draftId, mailRef, found) : [];
   };
@@ -337,7 +338,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
             const pending = (await repos.mailVersions.ofThread(slug, mailRef)).find((v) => v.draftId === null && !v.trashedAt);
             if (pending) throw new ToolError("already_drafted", `The hub already wrote a draft for this message (Mail id ${pending.mailId}) that is not recorded yet: record it with hub record-draft (mailRef ${mailRef}), then revise it with draft=<id>. Nothing was written.`);
             // P65 S5: the Hub's last write for this message may still be landing (Mail slow): a second one would be a duplicate.
-            const landing = (await repos.mailWrites.ofThread(slug, mailRef)).find((w) => !w.settledAt && w.draftId === null && Date.parse(w.startedAt) > (env.now?.() ?? new Date()).getTime() - LANDING_MS);
+            const landing = (await repos.mailWrites.ofThread(slug, mailRef).catch(() => [])).find((w) => !w.settledAt && w.draftId === null && Date.parse(w.startedAt) > (env.now?.() ?? new Date()).getTime() - LANDING_MS);
             if (landing) throw new ToolError("mail_slow", `The hub's write for this message at ${landing.startedAt} has not shown in Mail yet (Mail is slow); it is adopted when it lands. Do not write it again now: tell the owner in one line, and record it with hub record-draft once draft_write for it reports it saved. Nothing was written.`);
             const signed = sign ? await sign(inbound, content) : null;
             const w = await writeRecorded(writer, { ...inbound, body: signed?.body ?? content, sender: mail.sender, replace: [], landIn: mail.accounts }, env.withRepos ? writeLogOf(env.withRepos, slug, null, mailRef) : undefined);

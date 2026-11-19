@@ -18,6 +18,9 @@ export const CODEX_LOG_EVENTS = ["SessionStart", "Stop", "PermissionRequest"] as
 /** The name of the generated permissions profile. */
 export const CODEX_PROFILE = "hub";
 
+/** How long Codex lets one `hub` tool call run (P65 S5): above the writer's own budgets (45 s wait, 150 s osascript cut). */
+export const HUB_TOOL_TIMEOUT_SEC = 300;
+
 const str = (v: string): string => JSON.stringify(v); // a JSON string is a valid TOML basic string
 const arr = (v: readonly string[]): string => `[${v.map(str).join(", ")}]`;
 const inline = (o: Record<string, string>): string => `{ ${Object.entries(o).map(([k, v]) => `${str(k)} = ${str(v)}`).join(", ")} }`;
@@ -71,6 +74,9 @@ export function codexConfigToml(i: CodexSessionInput): string {
     } else out.push(`url = ${str(String(s.url))}`);
     const off = deniedToolsOf(name);
     if (off.length) out.push(`disabled_tools = ${arr(off)}`);
+    // P65 S5: `draft_write` waits up to 45 s for a slow Mail, then reads and replaces (one call took 53 s on 2026-11-19).
+    // Codex cuts a tool call at 60 s by default; cut, the agent would see a generic error and write again (a second draft).
+    if (name === "hub") out.push(`tool_timeout_sec = ${HUB_TOOL_TIMEOUT_SEC}`);
     out.push("");
   }
   return out.join("\n");

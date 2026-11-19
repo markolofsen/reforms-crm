@@ -151,6 +151,8 @@ describe("the Codex home (P49 S10)", () => {
   it("holds the hub's servers only, with the send tools off, and none of the owner's", () => {
     expect(toml).toContain('[mcp_servers."mail-mcp"]');
     expect(toml).toMatch(/disabled_tools = \[.*"create_outgoing_message".*\]/);
+    // P65 S5: a slow Mail's draft_write must end in mail_slow, never in Codex's own 60 s cut.
+    expect(toml).toMatch(/\[mcp_servers\."hub"\]\n(?:(?!\[mcp_servers)[^\n]*\n)*?tool_timeout_sec = 300\n/);
     expect(toml).not.toContain("slack");
   });
   it("is unattended without the bypass: approvals never, the profile's sandbox, network off, the policy read-only", () => {
