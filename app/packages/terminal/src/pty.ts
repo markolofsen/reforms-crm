@@ -1,6 +1,6 @@
-import { accessSync, chmodSync, constants, existsSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
+import { ensureSpawnHelper, nodePtyRoot } from "./readiness";
 
 // The PTY behind an interface, so tests run on a fake (like the fake Mailer). Node has no PTY of its own and
 // `child_process` pipes break every TUI (no size, no raw mode): node-pty 1.1.0 is the one native dependency (P49).
@@ -21,25 +21,14 @@ export interface PtyProcess {
 
 export type PtySpawn = (file: string, args: string[], o: PtyOptions) => PtyProcess;
 
-const require = createRequire(import.meta.url);
-
 /**
- * node-pty 1.1.0 ships `prebuilds/darwin-*\/spawn-helper` without the execute bit when pnpm unpacks it, and every
- * spawn then fails with "posix_spawnp failed" (measured 2026-11-18). The server sets the bit once before the first spawn.
- * Returns the helper's path, or null when there is none for this platform (node-gyp built it into build/Release).
+ * The real PTY (node-pty) from the core's node-pty folder (`nodePtyRoot`). The server has already set the helper's bit at
+ * start (`ensureSpawnHelper`, P66); it is set again here so a helper that lost it since still spawns.
  */
-export function ensureSpawnHelper(): string | null {
-  const root = path.dirname(require.resolve("node-pty/package.json"));
-  const helper = path.join(root, "prebuilds", `${process.platform}-${process.arch}`, "spawn-helper");
-  if (!existsSync(helper)) return null;
-  try { accessSync(helper, constants.X_OK); } catch { chmodSync(helper, statSync(helper).mode | 0o111); }
-  return helper;
-}
-
-/** The real PTY (node-pty), loaded only when the terminal is on: an instance with it off never loads the native module. */
-export function nodePty(): PtySpawn {
-  ensureSpawnHelper();
-  const pty = require("node-pty") as typeof import("node-pty");
+export function nodePty(root: string | null = nodePtyRoot()): PtySpawn {
+  if (!root) throw new Error("node-pty is not installed in the core");
+  ensureSpawnHelper(root);
+  const pty = createRequire(path.join(root, "package.json"))(root) as typeof import("node-pty");
   return (file, args, o) => {
     const p = pty.spawn(file, args, { name: "xterm-256color", cols: o.cols, rows: o.rows, cwd: o.cwd, env: o.env as Record<string, string> });
     return {

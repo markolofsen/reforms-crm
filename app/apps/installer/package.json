@@ -24,6 +24,7 @@
     "@hub/projects": "workspace:*",
     "@hub/send": "workspace:*",
     "@hub/sequences": "workspace:*",
+    "@hub/terminal": "workspace:*",
     "commander": "15.1.0",
     "execa": "10.2.1",
     "zod": "4.6.7"

@@ -5,7 +5,8 @@
   "description": "The embedded terminal's sessions (P49): the PTY behind an interface, the preset table, the env, the headless scrollback, flow control and the socket protocol. Node only; imported by apps/server alone.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./readiness": "./src/readiness.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

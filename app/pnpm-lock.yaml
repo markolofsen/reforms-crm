@@ -299,6 +299,9 @@ importers:
       '@hub/sequences':
         specifier: workspace:*
         version: link:../../packages/sequences
+      '@hub/terminal':
+        specifier: workspace:*
+        version: link:../../packages/terminal
       commander:
         specifier: 15.1.0
         version: 15.1.0
