@@ -39,9 +39,10 @@ export function openDb(path: string = defaultDbPath()): DbHandle {
  * The database for a reader that must never write (P51: `hub focus` and `hub mcp`): opened read-only, no migration, so a
  * write through the handle throws (SQLITE_READONLY) instead of being merely absent. The file must exist.
  */
-export function openDbReadOnly(path: string = defaultDbPath()): DbHandle {
+/** `busyMs`: how long a read waits on a lock (default 2 s); the prompt hook passes a short one, it must never hold a prompt. */
+export function openDbReadOnly(path: string = defaultDbPath(), o: { busyMs?: number } = {}): DbHandle {
   const sqlite = new Database(path, { readonly: true, fileMustExist: true });
-  sqlite.pragma("busy_timeout = 2000");
+  sqlite.pragma(`busy_timeout = ${Math.max(0, Math.round(o.busyMs ?? 2000))}`);
   const db = drizzle(sqlite, { schema });
   return { db, close: () => sqlite.close() };
 }

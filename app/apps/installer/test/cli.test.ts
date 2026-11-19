@@ -9,6 +9,19 @@ import { defaultRoot } from "../src/context";
 const bin = path.join(defaultRoot(), "app", "apps", "installer", "bin", "hub.mjs");
 const hub = (...args: string[]) => execa("node", [bin, ...args], { reject: false, env: { ...process.env, NO_COLOR: "1", FORCE_COLOR: "0" }, timeout: 60000 });
 
+describe("hub focus --hook (the prompt hook)", () => {
+  it("ends itself, silent and exit 0, before the CLI's 5 s cut even while stdin is held open", async () => {
+    // Seen 2026-11-19: "UserPromptSubmit hook timed out after 5s — output discarded" (9.3 s on a stalled Mac).
+    const home = mkdtempSync(path.join(tmpdir(), "hub-focus-hook-"));
+    const started = Date.now();
+    const child = execa("node", [bin, "focus", "--hook", "--cli", "claude"], { reject: false, stdin: "pipe", env: { ...process.env, HUB_HOME: home, HUB_PROJECT: "acme" }, timeout: 20000 });
+    const r = await child; // stdin is never written or closed
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toBe("");
+    expect(Date.now() - started).toBeLessThan(5000);
+  });
+});
+
 describe("hub command set", () => {
   it("lists at most 5 commands in --help: agent, up, doctor, setup (and help)", async () => {
     const r = await hub("--help");

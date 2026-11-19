@@ -8,11 +8,16 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { register } from "tsx/esm/api";
 
-register();
 const [cmd, ...rest] = process.argv.slice(2);
-// The prompt hook (P51) starts without the CLI, the hand-over and the dependency check: it has a 200 ms budget and must
-// never block a prompt. `hub agent` sets HUB_HOME for it.
+// The prompt hook (P51) starts without the CLI, the hand-over and the dependency check, and must never block a prompt:
+// about 0.8 s warm, 1.2 s with a cold tsx cache (measured 2026-11-19). Claude cuts it at 5 s and discards its output
+// ("UserPromptSubmit hook timed out after 5s", seen 2026-11-19 at 9.3 s while Mail held AppleEvents and every hub hook ran
+// 4-5x slow), so it ends itself, silent and exit 0, at HOOK_DEADLINE_MS after the process started: a late focus line is
+// lost, the prompt never waits for the cut. `hub agent` sets HUB_HOME for it.
 // A checkout whose dependencies are behind fails this import: that is silence too, never a blocked prompt.
+const HOOK_DEADLINE_MS = 3500;
+if (cmd === "focus" && rest.includes("--hook")) setTimeout(() => process.exit(0), Math.max(0, HOOK_DEADLINE_MS - process.uptime() * 1000)).unref();
+register();
 if (cmd === "focus" && rest.includes("--hook")) {
   try {
     await (await import("../src/focus-command.ts")).runFocusHook(process.env, rest);

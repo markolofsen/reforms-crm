@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { focusLine, readFocus } from "@hub/agent/focus";
 import { hubPaths } from "@hub/config/paths";
 import { createRepos, openDbReadOnly } from "@hub/db";
@@ -8,9 +7,12 @@ import type { FocusDto } from "@hub/contract/focus";
 // both CLIs (Claude and Codex `UserPromptSubmit`): one `additionalContext` line while the focus is fresh, else nothing; any
 // error is silence and exit 0, because a hook must never block or slow a prompt. `bin/hub.mjs` starts it without the full CLI.
 
-export async function currentFocus(env: NodeJS.ProcessEnv = process.env): Promise<FocusDto> {
+/** The prompt hook's wait on a database lock: past it the hook says nothing (WAL readers normally never wait). */
+export const HOOK_BUSY_MS = 250;
+
+export async function currentFocus(env: NodeJS.ProcessEnv = process.env, o: { busyMs?: number } = {}): Promise<FocusDto> {
   const paths = hubPaths({ env });
-  const handle = openDbReadOnly(paths.db);
+  const handle = openDbReadOnly(paths.db, o.busyMs === undefined ? {} : { busyMs: o.busyMs });
   try {
     return await readFocus({ file: paths.focus, slug: env.HUB_PROJECT?.trim() || undefined, repos: createRepos(handle.db) });
   } finally {
@@ -32,8 +34,8 @@ export async function runFocusHook(env: NodeJS.ProcessEnv = process.env, argv: r
   let stdin = "";
   let line: string | null = null;
   try {
-    try { stdin = readFileSync(0, "utf8"); } catch { /* no stdin: fine */ }
-    const f = await currentFocus(env);
+    stdin = await readStdin();
+    const f = await currentFocus(env, { busyMs: HOOK_BUSY_MS });
     const out = hookOutput(f);
     if (out) { process.stdout.write(out + "\n"); line = focusLine(f); }
   } catch {
@@ -44,6 +46,21 @@ export async function runFocusHook(env: NodeJS.ProcessEnv = process.env, argv: r
   } catch {
     /* no log line: never a blocked prompt */
   }
+}
+
+/**
+ * The hook's stdin, read without blocking the event loop (a `readFileSync(0)` would keep `bin/hub.mjs`'s deadline from
+ * firing while a CLI holds stdin open). No stdin, or a terminal: "".
+ */
+export function readStdin(stream: NodeJS.ReadStream = process.stdin): Promise<string> {
+  return new Promise((resolve) => {
+    if (stream.isTTY) return resolve("");
+    let text = "";
+    stream.setEncoding("utf8");
+    stream.on("data", (d: string) => (text += d));
+    stream.on("end", () => resolve(text));
+    stream.on("error", () => resolve(text));
+  });
 }
 
 /** `--cli claude|codex` of a hook command line; Claude when absent (a session file written before P54). */
