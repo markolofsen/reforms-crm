@@ -36,7 +36,7 @@ const folderKey = z.enum(FOLDER_KEYS);
 const fileKey = z.string().refine((k) => k === "project.md" || (k.startsWith("knowledge:") && isEntryPath(k.slice("knowledge:".length))) || (k.startsWith("log:") && DAY.test(k.slice(4))), "not a file key (project.md, knowledge:<entry>, log:<YYYY-MM-DD>)");
 const anyKey = z.union([folderKey, fileKey]);
 
-/** The key of one knowledge entry, from the path the index (and the Project screen) shows. */
+/** The key of one knowledge entry, from the path the index (and the Knowledge table) shows. */
 export const entryKey = (entry: string): string => `knowledge:${entry}`;
 
 /** A dock tab id (the terminal's session id): letters, digits, `-` and `_`. */

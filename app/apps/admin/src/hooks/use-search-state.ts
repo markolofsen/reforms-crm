@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { DEFAULT_DRAFT_VIEW, DRAFT_VIEWS, oneOf, RUN_FILTERS } from "@/routes/search";
+import { DEFAULT_DRAFT_VIEW, DRAFT_VIEWS, KNOWLEDGE_VIEWS, oneOf, RUN_FILTERS } from "@/routes/search";
 import { formatDest, paths, type Dest } from "@/routes/paths";
 import type { Resolved } from "@/routes/resolve";
 import { useRoute } from "./use-route";
@@ -14,11 +14,12 @@ export function searchValue(r: Resolved, key: "run"): number | null;
 export function searchValue(r: Resolved, key: "q"): string;
 export function searchValue(r: Resolved, key: SearchKey): string | number | null {
   if (key === "run") return r.route === "log.list" ? r.search.run : null;
-  if (key === "q") return r.route === "drafts.list" || r.route === "drafts.item" ? r.search.q : "";
+  if (key === "q") return r.route === "drafts.list" || r.route === "drafts.item" || r.route === "knowledge.page" ? r.search.q : "";
   switch (r.route) {
     case "drafts.list":
     case "drafts.item":
     case "log.list":
+    case "knowledge.page":
       return r.search.filter;
     default:
       return "all";
@@ -34,6 +35,7 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
   const v = String(value);
   if (key === "q") {
     if (r.route === "drafts.list") return paths.drafts.list({ filter: r.search.filter, q: v, batch: r.search.batch });
+    if (r.route === "knowledge.page") return paths.knowledge.page({ filter: r.search.filter, q: v });
     return r.route === "drafts.item" ? paths.drafts.item(r.params.id, { filter: r.search.filter, q: v, batch: r.search.batch }) : null;
   }
   switch (r.route) {
@@ -43,6 +45,8 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
       return paths.drafts.item(r.params.id, { filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
     case "log.list":
       return paths.log.list({ filter: oneOf(RUN_FILTERS, v, "all"), run: r.search.run });
+    case "knowledge.page":
+      return paths.knowledge.page({ filter: oneOf(KNOWLEDGE_VIEWS, v, "all"), q: r.search.q });
     default:
       return null;
   }

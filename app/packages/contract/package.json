@@ -19,7 +19,8 @@
     "./agent-feed": "./src/agent-feed.ts",
     "./local": "./src/local.ts",
     "./autostart": "./src/autostart.ts",
-    "./scheme": "./src/scheme.ts"
+    "./scheme": "./src/scheme.ts",
+    "./knowledge": "./src/knowledge.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

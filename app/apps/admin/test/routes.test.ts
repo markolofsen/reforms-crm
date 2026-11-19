@@ -60,6 +60,8 @@ describe("resolveRoute", () => {
     expect(at("/drafts?batch=abc")).toMatchObject({ search: { batch: null } });
     expect(at("/drafts?batch=0")).toMatchObject({ search: { batch: null } });
     expect(at("/log?filter=nope&run=abc")).toMatchObject({ search: { filter: "all", run: null } });
+    expect(at("/knowledge?filter=nope")).toMatchObject({ search: { filter: "all", q: "" } });
+    expect(at("/knowledge?filter=attention&q=x")).toMatchObject({ search: { filter: "attention", q: "x" } });
   });
 });
 
@@ -72,6 +74,7 @@ describe("paths and places", () => {
     ["drafts search", paths.drafts.list({ q: "ana" }), "/drafts?q=ana", "/lisbon/drafts?q=ana"],
     ["log run", paths.log.list({ filter: "failed", run: 5 }), "/log?filter=failed&run=5", "/lisbon/log?filter=failed&run=5"],
     ["knowledge", paths.knowledge.page(), "/knowledge", "/lisbon/knowledge"],
+    ["knowledge: a view and a search", paths.knowledge.page({ filter: "expired", q: "price" }), "/knowledge?filter=expired&q=price", "/lisbon/knowledge?filter=expired&q=price"],
     ["settings: sending", paths.settings.sending(), "/settings", "/lisbon/settings"],
     ["settings: mail", paths.settings.mail(), "/settings/mail", "/lisbon/settings/mail"],
     ["settings: agent", paths.settings.agent(), "/settings/agent", "/lisbon/settings/agent"],

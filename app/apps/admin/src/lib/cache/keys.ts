@@ -28,6 +28,8 @@ export const keys = {
   timeline: (project: string, clientId: number) => ["timeline", project, clientId] as const,
   project: (project: string) => ["project", project] as const,
   rules: (project: string) => ["rules", project] as const,
+  /** P70: the Knowledge table, per view and title search. */
+  knowledge: (project: string, view: string, q: string) => ["knowledge", project, view, q] as const,
   sends: (project: string) => ["sends", project] as const,
   doctor: (project: string) => ["doctor", project] as const,
   /** Reads of Mail (an `osascript` call each): the draft as Mail holds it, and a client's thread. */
@@ -51,6 +53,7 @@ const activity = of("activity");
 const timeline = of("timeline");
 const project = of("project");
 const rules = of("rules");
+const knowledge = of("knowledge");
 const sends = of("sends");
 const agentTools = of("agent-tools");
 const agentFeed = of("agent-feed");
@@ -73,8 +76,8 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   "follow-ups": (p) => [enrollments(p), drafts(p)],
   batches: (p) => [batches(p), drafts(p)],
   rules: (p) => [rules(p), drafts(p), project(p)],
-  projects: (p) => [keys.projects(), project(p), agentTools(p), keys.connections(), overview(), scheme()],
-  knowledge: (p) => [project(p), scheme()],
+  projects: (p) => [keys.projects(), project(p), knowledge(p), agentTools(p), keys.connections(), overview(), scheme()],
+  knowledge: (p) => [project(p), knowledge(p), scheme()],
   messengers: (p) => [drafts(p), notByEmail(p), project(p), keys.connections()],
   connections: () => [keys.connections(), agentTools(null), overview(), scheme()],
   health: (p) => [keys.pulse(), project(p), keys.connections(), overview(), scheme()],

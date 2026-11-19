@@ -1,5 +1,5 @@
 import { paths, type Dest } from "./paths";
-import { draftsSearch, logSearch, noSearch, parseQuery, positiveInt, type DraftsSearch, type LogSearch, type NoSearch } from "./search";
+import { draftsSearch, knowledgeSearch, logSearch, noSearch, parseQuery, positiveInt, type DraftsSearch, type KnowledgeSearch, type LogSearch, type NoSearch } from "./search";
 import type { SectionId } from "./sections";
 import { PROJECTLESS, RESERVED_SEGMENTS, ROUTE_TABLE } from "./table";
 
@@ -21,7 +21,7 @@ export type Resolved =
   | (Base & { route: "drafts.list"; section: "drafts"; params: NoSearch; search: DraftsSearch })
   | (Base & { route: "drafts.item"; section: "drafts"; params: { id: number }; search: DraftsSearch })
   | (Base & { route: "log.list"; section: "log"; params: NoSearch; search: LogSearch })
-  | (Base & { route: "knowledge.page"; section: "knowledge"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "knowledge.page"; section: "knowledge"; params: NoSearch; search: KnowledgeSearch })
   | (Base & { route: "settings.page"; section: "settings"; params: NoSearch; search: NoSearch })
   | (Base & { route: "settings.mail"; section: "settings"; params: NoSearch; search: NoSearch })
   | (Base & { route: "settings.agent"; section: "settings"; params: NoSearch; search: NoSearch })
@@ -65,7 +65,7 @@ export function resolveRoute(path: string, searchString: string): Resolved {
     case "help":
       return one ? { ...base, route: "help.page", section: "help", params: {}, search: noSearch() } : notFound;
     case "knowledge":
-      return one ? { ...base, route: "knowledge.page", section: "knowledge", params: {}, search: noSearch() } : notFound;
+      return one ? { ...base, route: "knowledge.page", section: "knowledge", params: {}, search: knowledgeSearch(raw) } : notFound;
     case undefined: // the empty address is the entry
     case "drafts":
       if (segs.length <= 1) return { ...base, route: "drafts.list", section: "drafts", params: {}, search: draftsSearch(raw) };
@@ -96,7 +96,7 @@ export function destOf(r: Resolved): Dest | null {
     case "log.list":
       return paths.log.list(r.search);
     case "knowledge.page":
-      return paths.knowledge.page();
+      return paths.knowledge.page(r.search);
     case "settings.page":
       return paths.settings.sending();
     case "settings.mail":

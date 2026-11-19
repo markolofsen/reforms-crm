@@ -18,6 +18,7 @@ import { terminalRoutes } from "./routes/terminal";
 import { liveRoutes } from "./routes/live";
 import { focusRoutes } from "./routes/focus";
 import { agentFeedRoutes } from "./routes/agent-feed";
+import { knowledgeRoutes } from "./routes/knowledge";
 import { localRoutes, type LocalService } from "./routes/local";
 import { autostartRoutes } from "./routes/autostart";
 import type { AutostartService } from "./autostart";
@@ -158,6 +159,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", connectionRoutes(connections))
     .route("/", agentToolRoutes(repos, opts.agentTools))
     .route("/", agentFeedRoutes(repos, opts.agentLog, now))
+    .route("/", knowledgeRoutes(repos, now, opts.overview?.timeZone))
     .route("/", terminalRoutes(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", focusRoutes(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", localRoutes(opts.local, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))

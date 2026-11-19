@@ -1,4 +1,4 @@
-import { DEFAULT_DRAFT_VIEW, formatQuery, unlessDefault, type DraftView, type RunFilter } from "./search";
+import { DEFAULT_DRAFT_VIEW, formatQuery, unlessDefault, type DraftView, type KnowledgeView, type RunFilter } from "./search";
 import type { SectionId } from "./sections";
 import { listRouteOf, PROJECTLESS, ROUTE_TABLE, type RouteId } from "./table";
 import { route } from "./typed";
@@ -29,7 +29,7 @@ type DraftsArgs = { filter?: DraftView; q?: string; batch?: number | null };
 export const paths = {
   overview: () => dest("overview.page", route("/overview")),
   help: { page: () => dest("help.page", route("/help")) },
-  knowledge: { page: () => dest("knowledge.page", route("/knowledge")) },
+  knowledge: { page: (s: { filter?: KnowledgeView; q?: string } = {}) => dest("knowledge.page", route("/knowledge"), { filter: unlessDefault(s.filter, "all"), q: s.q }) },
   /** P70: one Settings, grouped by what each pane governs; `/settings` is Sending. Connections and This Mac name no project. */
   settings: {
     sending: () => dest("settings.page", route("/settings")),

@@ -3,6 +3,7 @@ import { activityDto } from "@hub/contract/activity";
 import { agentFeedDto } from "@hub/contract/agent-feed";
 import { pulseDto } from "@hub/contract/health";
 import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
+import { knowledgeListDto, type KnowledgeView } from "@hub/contract/knowledge";
 import { localOpenedDto, type ServerActionId } from "@hub/contract/local";
 import type { SafetyRuleBody } from "@hub/contract/requests";
 import { projectOverviewDto, projectsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
@@ -19,6 +20,8 @@ export const metaApi = {
   pulse: () => read(pulseDto, { method: "GET", path: "/api/pulse" }),
   activity: (project: string, filter: "all" | RunStatus) => read(activityDto, { method: "GET", path: "/api/activity", query: { project, filter } }),
   agentFeed: (project: string) => read(agentFeedDto, { method: "GET", path: `/api/projects/${encodeURIComponent(project)}/agent-feed` }),
+  /** P70: the Knowledge table of one project, filtered and searched on the server. */
+  knowledge: (project: string, filter: KnowledgeView, q: string) => read(knowledgeListDto, { method: "GET", path: `/api/projects/${encodeURIComponent(project)}/knowledge`, query: { filter, q } }),
   rules: (project: string) => read(safetyRulesDto, { method: "GET", path: "/api/safety-rules", query: { project } }),
   setRule: (project: string, kind: SafetyKind, patch: Omit<SafetyRuleBody, "project">) => read(safetyRuleSavedDto, { method: "PUT", path: `/api/safety-rules/${kind}`, body: { project, ...patch } }),
   /** P61: the only POST to `/api/local` (a project and a key; the server resolves the path). Called by `components/local-action.tsx`. */

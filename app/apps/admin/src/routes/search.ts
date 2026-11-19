@@ -1,4 +1,5 @@
 import { DRAFT_VIEWS, RUN_STATUSES, type DraftView, type RunStatus } from "@hub/config";
+import { KNOWLEDGE_VIEWS, type KnowledgeView } from "@hub/contract/knowledge";
 
 // Every URL parameter name and its allowed values, in one place. No React, no URL library: plain functions, so the
 // address of every screen is testable without a DOM. The enums are the ones the API validates (`@hub/config`, re-used
@@ -54,6 +55,9 @@ export function positiveInt(v: string | undefined): number | null {
 /** `batch` limits the list to the drafts one batch wrote (one queue: a batch is a read-only view, not a second place). */
 export type DraftsSearch = { filter: DraftView; q: string; batch: number | null };
 export type LogSearch = { filter: RunFilter; run: number | null };
+/** P70: the Knowledge table's view (the same enum the API validates) and its title search. */
+export type KnowledgeSearch = { filter: KnowledgeView; q: string };
+export { KNOWLEDGE_VIEWS, type KnowledgeView };
 export type NoSearch = Record<string, never>;
 
 /**
@@ -67,4 +71,5 @@ export const draftsSearch = (raw: Raw): DraftsSearch => {
   return { filter: oneOf(DRAFT_VIEWS, renamedView(raw.filter), DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch: positiveInt(raw.batch) };
 };
 export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(RUN_FILTERS, raw.filter, "all"), run: positiveInt(raw.run) });
+export const knowledgeSearch = (raw: Raw): KnowledgeSearch => ({ filter: oneOf(KNOWLEDGE_VIEWS, raw.filter, "all"), q: raw.q ?? "" });
 export const noSearch = (): NoSearch => ({});
