@@ -63,6 +63,8 @@ export default defineConfig({
       // P49: HUB_ADMIN_PORT is the one Origin the terminal socket and its tickets accept; HUB_TERMINAL_SHELL=fake runs `test-support/fake-shell.mjs`
       // instead of a login shell, and HUB_AGENT_TOOLS=fake answers the Agent tools checks with fixed rows (a red one among them), never a real CLI.
       // P61: HUB_OPENER=fake records each Open's argv in <HOME>/state/opener.jsonl and opens nothing (z-local-actions.spec.ts reads it).
+      // P67: HUB_LAUNCHCTL=fake records each launchctl argv in <HOME>/state/autostart/launchctl.jsonl, reaches no launchd, and keeps its
+      // LaunchAgents folder in <HOME>/state/autostart/LaunchAgents (z-autostart.spec.ts writes the plist there).
       env: {
         HUB_HOME: HOME,
         HUB_CONFIG_DIR: join(HOME, "secrets"),
@@ -75,6 +77,7 @@ export default defineConfig({
         HUB_TERMINAL_SHELL: "fake",
         HUB_AGENT_TOOLS: "fake",
         HUB_OPENER: "fake",
+        HUB_LAUNCHCTL: "fake",
       },
       url: `http://127.0.0.1:${API_PORT}/api/health`,
       reuseExistingServer: false,

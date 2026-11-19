@@ -1,6 +1,7 @@
 import type { Step } from "../types";
 import { adminSteps } from "./admin";
 import { agentSteps } from "./agent";
+import { autostartSteps } from "./autostart";
 import { backupSteps } from "./backup";
 import { fileSteps } from "./files";
 import { instanceSteps } from "./instance";
@@ -21,7 +22,8 @@ const tag = (steps: Step[], optional: NonNullable<Step["optional"]>, ids?: strin
  * The single step list. install, doctor, guide and @docs/setup/checklist.md all read this. Order = install order.
  * Manual-first (decision 0006): a step with `optional` set belongs to the OFF-by-default extras (a Notion token,
  * the Telegram poller) and never fails a default `setup`, `install` or `doctor`.
- * The launchd, Claude-token, gate, sound and power steps were archived by P25 (outside this repo).
+ * The launchd, Claude-token, gate, sound and power steps of the old automation were archived by P25 (outside this repo); the one launchd
+ * step now is `autostart.agent` (P67, decision 0033): it starts the server at login, never an agent session.
  */
 export const STEPS: Step[] = [
   ...toolSteps,
@@ -31,6 +33,8 @@ export const STEPS: Step[] = [
   ...instanceSteps,
   ...adminSteps,
   ...serverSteps,
+  // P67 (decision 0033): on by default, so not `optional`; macOS only (a pass elsewhere).
+  ...autostartSteps,
   ...mcpSteps,
   ...tag(mailSteps, "automation", ["mail.account"]),
   ...tag(messengerSteps, "automation"),

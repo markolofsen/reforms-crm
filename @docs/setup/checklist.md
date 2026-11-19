@@ -70,6 +70,9 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 - [ ] **The local server answers** (`server.health`)
   - Proves: If something listens on the instance API port (api_port in config/config.json, or HUB_PORT; default 4317), it listens on 127.0.0.1 only and `GET /api/health` answers 200 with `ok`. Not running is a WARN (`hub up` starts it), never a pass: this step says nothing about a server that is not there.
   - You: Start it with `hub up` (it binds 127.0.0.1). If the port is held by something else, change `api_port` in `config/config.json`.
+- [ ] **The Hub starts after a restart** (`autostart.agent`)
+  - Proves: macOS only. The instance's plist in ~/Library/LaunchAgents parses, names this instance and a node folder that still has node and pnpm, the instance is not under ~/Desktop, ~/Documents or ~/Downloads, its ports are explicit and not the default pair, no other Hub agent names it or its ports; then: switched off is a WARN; loaded in the login session; not stopped by the start guard (5 failed starts in 15 minutes); it ran since the last boot (else a WARN naming Login Items > Allow in the Background); its log is under 10 MB.
+  - `hub install` fixes it: write ~/Library/LaunchAgents/com.reforms.hub.<instance>.plist and state/autostart/, then launchctl bootstrap it (a running agent is left running). It needs admin_port and api_port set in config/config.json (not 5173/4317) first; if macOS shows "Background Items Added", leave it allowed (Login Items > Allow in the Background)
 ## MCP
 
 - [ ] **knowledge-mcp starts** (`mcp.knowledge`)

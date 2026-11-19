@@ -8,8 +8,9 @@ import { z } from "zod";
  * What can move. Each table maps to one topic on the server; `connections`, `health` and `mail` are bumped, not tables.
  * `mail` (P53): the hub wrote a Mail draft of this project (`draft_write`), so the admin reads the open draft from Mail again.
  * `agent-log` (P59): a day file of the project's agent session log grew (the server watches `state/log`), so the feed refetches.
+ * `autostart` (P67): the LaunchAgent's files moved (`state/autostart/`) or the switch was set, so the Connections row reads again.
  */
-export const LIVE_TOPICS = ["drafts", "clients", "activity", "sends", "inbox", "follow-ups", "batches", "rules", "projects", "knowledge", "messengers", "connections", "health", "mail", "agent-log"] as const;
+export const LIVE_TOPICS = ["drafts", "clients", "activity", "sends", "inbox", "follow-ups", "batches", "rules", "projects", "knowledge", "messengers", "connections", "health", "mail", "agent-log", "autostart"] as const;
 export const liveTopic = z.enum(LIVE_TOPICS);
 export type LiveTopic = (typeof LIVE_TOPICS)[number];
 

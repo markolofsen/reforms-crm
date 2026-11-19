@@ -29,6 +29,10 @@ the agent did with each client, grouped by session. Screens, routes and rules: [
 a migration). The server tails it and sends one small frame naming what changed on `GET /api/live`; the admin reads only that again. A draft the
 agent writes shows within about a second, with no reload. Without the stream it falls back to polling: [core/06](core/06-local-admin-app.md), Live updates.
 
+**After a restart of the Mac.** The admin and the API start at login (decision 0033, amending 0006's "no launchd"): one LaunchAgent per
+instance runs `./run.sh up --service`, set up by `./run.sh setup` (step `autostart.agent`), switched in Connections > This Mac. It starts the
+server only: no agent session starts until the dock is opened, and no browser opens: [core/08](core/08-local-app-stack.md).
+
 **The terminal dock.** The admin always has a right-hand column (decision 0032) (a strip on the right edge when closed, Ctrl+`) whose tabs
 run exactly `hub agent <project> --cli claude|codex`, or the owner's shell. Two session modes: attended (the CLI asks, the default) or
 `agent.unattended: true` (no prompts, the OS sandbox on: no network from commands, the send policy and config read-only). In both the send tools

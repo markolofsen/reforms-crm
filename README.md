@@ -29,7 +29,7 @@ The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` li
 | Command | What it does |
 |---|---|
 | `hub agent [project] [--cli claude\|codex\|shell]` | The product: a Claude Code or Codex session in the instance (`agent.default`, default Claude). `<project>` binds a fresh session to one project; no argument continues the last one. `--prepare` writes the session files and starts nothing. The dock's tabs run exactly this command |
-| `hub up [--demo]` | The local admin and its API on 127.0.0.1, opened in the browser: what the agent did, and your decisions. `--demo` uses invented data on a separate database |
+| `hub up [--demo]` | The local admin and its API on 127.0.0.1, opened in the browser: what the agent did, and your decisions. `--demo` uses invented data on a separate database. After a restart of the Mac the instance's LaunchAgent starts it by itself (decision 0033; `hub stop`, `hub restart`, `hub autostart on\|off`, Connections > This Mac); `hub up` then opens that server |
 | `hub doctor [project]` | Read-only health table, each row printed as its step ends, with its time; `--only <step or group>` runs just those, `--fast` leaves the audit (backup, Agent) checks out, `--canary` adds the lead-form canaries; never fails on optional things |
 | `hub setup` | Idempotent install of folders, config, skills and the project registry (`./install.sh` runs it) |
 

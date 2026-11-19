@@ -2,7 +2,6 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { createServer } from "node:net";
 import { hubPaths, instancePorts } from "@hub/config/paths";
 import { execFileOpen, localOpenAvailable, openTarget } from "@hub/projects/local-open";
 import { c, UsageError } from "./term";
@@ -14,15 +13,13 @@ const exited = (p: ChildProcess): Promise<number> =>
     p.on("exit", (code, signal) => resolve(code ?? (signal ? 130 : 1)));
   });
 
-export const adminUrl = (port: number): string => `http://127.0.0.1:${port}`;
+import { adminUrl, healthy, portBusy } from "./net";
+import { filesOf } from "./autostart";
+import { upViaLaunchd } from "./autostart-command";
+import type { Ctx } from "./context";
+import { defaultServiceDeps, runService, type ServiceDeps } from "./service";
 
-/** True when something already listens on 127.0.0.1:`port`. */
-export const portBusy = (port: number): Promise<boolean> =>
-  new Promise((resolve) => {
-    const s = createServer();
-    s.once("error", () => resolve(true));
-    s.listen(port, "127.0.0.1", () => s.close(() => resolve(false)));
-  });
+export { adminUrl, portBusy };
 
 /**
  * Open the browser once the admin answers (up to 3 minutes: a start after a code change builds first), through the one opener
@@ -56,13 +53,38 @@ export function makeDemoHome(): string {
  * then `next start`), 127.0.0.1 only, opens the browser. The hot-reload loop is `pnpm live`, not this. Two instances, never mixed:
  * live = the instance named by `HUB_HOME`, demo = a throw-away instance folder in the OS temp dir (invented clients, seeded there, removed on exit).
  */
-export async function runUp(core: string, opts: { open?: boolean; demo?: boolean } = {}): Promise<number> {
+export interface UpOptions {
+  open?: boolean;
+  demo?: boolean;
+  /** P67: what the LaunchAgent runs (`HUB_AUTOSTART=1`): never opens the browser, never loops launchd (`service.ts`). */
+  service?: boolean;
+  /** P67: the old run in this terminal whatever launchd holds (it still refuses taken ports). */
+  foreground?: boolean;
+  /** The live instance's context, for the launchd checks (absent with `--demo`). */
+  ctx?: Ctx;
+  /** Tests: the service's process seams. */
+  serviceDeps?: Partial<ServiceDeps>;
+}
+
+export async function runUp(core: string, opts: UpOptions = {}): Promise<number> {
   const app = path.join(core, "app");
+  if (opts.service) {
+    if (!opts.ctx || opts.demo) throw new UsageError("--service runs a live instance (the LaunchAgent's): not with --demo");
+    const paths = opts.ctx.paths;
+    return runService({ files: filesOf(opts.ctx), ports: instancePorts(paths), env: { ...process.env, HUB_HOME: paths.home } }, { ...defaultServiceDeps(app, portBusy), ...opts.serviceDeps });
+  }
+  if (opts.ctx && !opts.demo && !opts.foreground) {
+    const ports = instancePorts(opts.ctx.paths);
+    const viaLaunchd = await upViaLaunchd(opts.ctx, { healthy, portBusy, ...((opts.open ?? true) ? { open: (url: string) => openWhenUp(url, ports.admin) } : {}) });
+    if (viaLaunchd !== null) return viaLaunchd;
+  }
   const demoHome = opts.demo ? makeDemoHome() : undefined;
   // The demo instance is its own HUB_HOME: HUB_PROJECTS, HUB_DB and friends are cleared so nothing reaches the live instance.
+  // A hand-run is never "started by launchd": HUB_AUTOSTART is the service's alone.
+  const { HUB_AUTOSTART: _service, ...own } = process.env;
   const env = demoHome
-    ? { ...process.env, HUB_HOME: demoHome, HUB_PROJECTS: "", HUB_DB: "", HUB_CONFIG_DIR: "", HUB_CONFIG_FILE: "" }
-    : process.env;
+    ? { ...own, HUB_HOME: demoHome, HUB_PROJECTS: "", HUB_DB: "", HUB_CONFIG_DIR: "", HUB_CONFIG_FILE: "" }
+    : own;
   // Live: the ports of THIS instance (config.json admin_port/api_port), so two instances run side by side. Demo: the defaults.
   const paths = hubPaths({ env });
   const ports = instancePorts(paths, demoHome ? {} : env);

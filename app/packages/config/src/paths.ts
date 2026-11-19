@@ -39,6 +39,8 @@ export interface HubPaths {
   log: string;
   /** The admin's shared focus (P51): `<state>/focus.json`, ids only, written by the server, read by `hub focus` and `hub mcp`. */
   focus: string;
+  /** P67: the LaunchAgent's own files: `<state>/autostart/` (`launchd.log`, `starts.jsonl`, the `off` file). */
+  autostart: string;
   secrets: string;
   configDir: string;
   configFile: string;
@@ -123,6 +125,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     codexHomes: join(state, "codex"),
     log: join(state, "log"),
     focus: join(state, "focus.json"),
+    autostart: join(state, "autostart"),
     secrets: fromEnv(env, "HUB_CONFIG_DIR") ?? join(state, "secrets"),
     configDir,
     configFile: fromEnv(env, "HUB_CONFIG_FILE") ?? join(configDir, "config.json"),

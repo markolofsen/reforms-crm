@@ -4,7 +4,7 @@ import path from "node:path";
 import { draftCountsReadOnly } from "@hub/db";
 import { CORE_ROOT, findInstanceHome, hubPaths, INSTANCE_MARKER, instancePorts } from "@hub/config/paths";
 import { loadProjects } from "@hub/projects";
-import { portBusy } from "./serve";
+import { portBusy } from "./net";
 import { readCoreVersion } from "./steps/instance";
 
 export interface InstanceStatus {

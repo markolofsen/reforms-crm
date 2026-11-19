@@ -1,4 +1,5 @@
 import { agentToolsDto } from "@hub/contract/agent-tools";
+import { autostartDto } from "@hub/contract/autostart";
 import { connectionDto, connectionsDto } from "@hub/contract/connections";
 import type { SetSecretBody } from "@hub/contract/requests";
 import { read } from "./client";
@@ -15,5 +16,8 @@ export const connectionsApi = {
   setSecret: (id: string, body: SetSecretBody) => read(connectionDto, { method: "PUT", path: `/api/connections/${encodeURIComponent(id)}/secret`, body }),
   remove: (id: string) => read(connectionDto, { method: "POST", path: `/api/connections/${encodeURIComponent(id)}/remove` }),
   agentTools: (slug: string) => read(agentToolsDto, { method: "GET", path: `/api/projects/${encodeURIComponent(slug)}/agent-tools` }),
+  /** P67: whether this Mac starts the Hub at login, and the switch (the server runs only `launchctl enable|disable`). */
+  autostart: () => read(autostartDto, { method: "GET", path: "/api/instance/autostart" }),
+  setAutostart: (enabled: boolean) => read(autostartDto, { method: "POST", path: "/api/instance/autostart", body: { enabled } }),
   refreshAgentTools: (slug: string) => read(agentToolsDto, { method: "POST", path: `/api/projects/${encodeURIComponent(slug)}/agent-tools/refresh` }),
 };

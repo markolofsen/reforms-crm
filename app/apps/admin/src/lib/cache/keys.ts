@@ -11,6 +11,8 @@ export const keys = {
   projects: () => ["projects"] as const,
   overview: () => ["overview"] as const,
   connections: () => ["connections"] as const,
+  /** P67: the instance's LaunchAgent (Connections, "This Mac"). */
+  autostart: () => ["autostart"] as const,
   agentTools: (project: string) => ["agent-tools", project] as const,
   /** The agent activity feed (P59): the last rows of the session log, read on the server. */
   agentFeed: (project: string) => ["agent-feed", project] as const,
@@ -73,4 +75,5 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   health: (p) => [keys.pulse(), project(p), keys.connections(), overview()],
   mail: (p) => [draftMail(p), thread(p)],
   "agent-log": (p) => [agentFeed(p)],
+  autostart: () => [keys.autostart()],
 };

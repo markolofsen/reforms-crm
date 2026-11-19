@@ -73,7 +73,7 @@ The doctor row `leads.config` fails on a file that does not parse and names the 
 
 ## A scheduled report (optional, the owner's)
 
-The core runs nothing in the background (manual-first) and has no installer for a scheduled job: its one launchd service (mail-mcp) is a Homebrew service the owner starts. An owner who wants to hear about a broken form between sessions (owner decision 4 of P46: a run that only reports, never sends to a client) schedules this one command himself, with whatever scheduler he already uses, and reads its output:
+The core schedules no job (manual-first) and has no installer for one: its own LaunchAgent (P67, decision 0033) only starts the admin and API server at login and runs no check, and mail-mcp is a Homebrew service the owner starts. An owner who wants to hear about a broken form between sessions (owner decision 4 of P46: a run that only reports, never sends to a client) schedules this one command himself, with whatever scheduler he already uses, and reads its output:
 
 ```
 cd <instance> && ./run.sh doctor --only Leads --canary --json > state/leads-report.json

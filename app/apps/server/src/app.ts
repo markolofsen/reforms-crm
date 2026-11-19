@@ -18,6 +18,8 @@ import { liveRoutes } from "./routes/live";
 import { focusRoutes } from "./routes/focus";
 import { agentFeedRoutes } from "./routes/agent-feed";
 import { localRoutes, type LocalService } from "./routes/local";
+import { autostartRoutes } from "./routes/autostart";
+import type { AutostartService } from "./autostart";
 import type { LogStore } from "@hub/log/store";
 import type { FocusStore } from "./focus";
 import type { LiveService } from "./live";
@@ -56,6 +58,8 @@ export type AppOptions = {
   agentLog?: LogStore;
   /** The local Open actions (P61): `POST /api/local/:action` and `localOpen` on the instance; without it the route is 404 and `localOpen` false. */
   local?: LocalService;
+  /** P67: "Start the Hub after a restart" (`/api/instance/autostart`); without it both routes are 404. */
+  autostart?: AutostartService;
   now?: () => Date;
 };
 
@@ -132,7 +136,8 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", agentFeedRoutes(repos, opts.agentLog, now))
     .route("/", terminalRoutes(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", focusRoutes(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", localRoutes(opts.local, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
+    .route("/", localRoutes(opts.local, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
+    .route("/", autostartRoutes(opts.autostart, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
 }
 
 export type AppType = ReturnType<typeof createApp>;

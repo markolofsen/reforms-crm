@@ -1,0 +1,85 @@
+"use client";
+
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CopyIcon } from "lucide-react";
+import { useState } from "react";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { Skeleton } from "@hub/ui/skeleton";
+import { Switch } from "@hub/ui/switch";
+import { LoadFailed } from "@/components/state-views";
+import { connectionsApi } from "@/lib/api/connections";
+import { sentence } from "@/lib/api/client";
+import { keys } from "@/lib/cache/keys";
+import { copyText } from "@/lib/external";
+import { ConnectionGroup } from "../group";
+import { autostartSaid, mailMcpSaid, type Said } from "./labels";
+
+type Say = { text: string; kind: "status" | "alert" } | null;
+
+function Line({ said, onCopy, testId }: { said: Said; onCopy: (fix: string) => void; testId: string }) {
+  return (
+    <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm" data-testid={testId}>
+      <span className="min-w-0">{said.text}</span>
+      {said.fix && (
+        <>
+          <code className="min-w-0 break-all rounded bg-muted px-1 py-0.5 text-xs">{said.fix}</code>
+          <ActionButton aria-label={`Copy ${said.fix}`} onClick={() => onCopy(said.fix ?? "")} size="s" variant="quiet">
+            <CopyIcon aria-hidden="true" />
+            Copy
+          </ActionButton>
+        </>
+      )}
+    </p>
+  );
+}
+
+/**
+ * "This Mac": whether the Mac starts this instance's Hub at login (P67, decision 0033). The switch runs only `launchctl enable`
+ * or `disable` on the server: Off never stops the server that answers, and the line says so. Setting the agent up is the
+ * installer's (the line gives the command). Hidden off macOS.
+ */
+export function AutostartRow() {
+  const qc = useQueryClient();
+  const q = useQuery({ queryKey: keys.autostart(), queryFn: connectionsApi.autostart });
+  const [say, setSay] = useState<Say>(null);
+  const set = useMutation({
+    mutationFn: (enabled: boolean) => connectionsApi.setAutostart(enabled),
+    onMutate: (enabled) => setSay({ text: enabled ? "Switching on..." : "Switching off...", kind: "status" }),
+    onSuccess: (d) => {
+      qc.setQueryData(keys.autostart(), d);
+      setSay({ text: d.enabled ? "On: the Hub starts after every restart." : "Off: this server keeps running; it will not start after the next restart.", kind: "status" });
+    },
+    onError: (e) => setSay({ text: `Not switched: ${sentence(e)}`, kind: "alert" }),
+  });
+  const copy = (fix: string) => void copyText(fix).then((ok) => setSay(ok ? { text: `Copied: ${fix}`, kind: "status" } : { text: "The browser refused the clipboard: select the line and copy it.", kind: "alert" }));
+  const d = q.data;
+  if (d && !d.supported) return null;
+  const said = d ? autostartSaid(d) : null;
+  const mail = d ? mailMcpSaid(d) : null;
+  const label = "Start the Hub after a restart";
+  return (
+    <ConnectionGroup id="this-mac" title="This Mac">
+      {q.isPending ? (
+        <Skeleton aria-label="Loading whether the Hub starts after a restart" className="h-12 w-full rounded-xl" role="status" />
+      ) : !d ? (
+        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="whether the Hub starts after a restart" />
+      ) : (
+        <div className="flex min-w-0 flex-col gap-1 py-3" data-testid="autostart">
+          {/* The label is the touch target: 44px high below 1024px, the switch alone is smaller. */}
+          <label className="flex min-h-11 min-w-0 cursor-pointer items-center justify-between gap-4 lg:min-h-0" htmlFor="autostart-switch">
+            <span className="min-w-0 font-medium text-sm">{label}</span>
+            <Switch aria-label={label} checked={d.enabled} disabled={!d.installed || set.isPending} id="autostart-switch" onCheckedChange={(v) => set.mutate(v)} />
+          </label>
+          {said && <Line onCopy={copy} said={said} testId="autostart-status" />}
+          {mail && <Line onCopy={copy} said={mail} testId="autostart-mail" />}
+        </div>
+      )}
+      <div className="min-h-5 text-sm">
+        <p role="status">{say?.kind === "status" ? say.text : ""}</p>
+        <p className="text-destructive-foreground" role="alert">
+          {say?.kind === "alert" ? say.text : ""}
+        </p>
+      </div>
+    </ConnectionGroup>
+  );
+}

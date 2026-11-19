@@ -23,6 +23,8 @@ import { execa } from "execa";
 import { runMenu } from "./menu";
 import { detectClis } from "@hub/agent/detect";
 import { runTests, runUp } from "./serve";
+import { healthy, portBusy } from "./net";
+import { autostartCommand, restartCommand, stopCommand } from "./autostart-command";
 import { projectRows, projectTable } from "./project-table";
 import { recordClient } from "./record-client";
 import { recordDraft } from "./record-draft";
@@ -72,11 +74,12 @@ ${c.bold("Examples")}
   hub agent <project>         fresh Claude Code session bound to one project
   hub agent                   continue the last session here
   hub up                      the admin: review the drafts the agent made, opens the browser (hub up --demo: invented data)
+  hub stop | restart          the server the LaunchAgent started at login (hub autostart [status|on|off])
   hub doctor [project]        read-only health check (of one project when given)
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, log, open, send, drafts, sequences, connections, backup, uninstall. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, log, open, send, drafts, sequences, connections, backup, uninstall, stop, restart, autostart. Each has its own \`hub <name> --help\`.`);
 // Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
@@ -158,13 +161,25 @@ HUB_EXTRA_DIRS (colon-separated) or extra_dirs in config/config.json; none by de
     done(await runAgent({ root: ctx.paths.home, home: ctx.home, projectsDir: projectsDir(), paths: ctx.paths }, [...(target ? [target] : []), ...rest]));
   });
 
-program.command("up").description("Local admin (production build) + API on the LIVE database, 127.0.0.1 only; opens the browser. --demo: invented data on a separate demo database.")
+program.command("up").description("Local admin (production build) + API on the LIVE database, 127.0.0.1 only; opens the browser. --demo: invented data on a separate demo database. When the instance's LaunchAgent (P67) runs the server, it opens that one instead of starting a second.")
   .option("--no-open", "do not open the browser")
   .option("--demo", "demo mode: a throw-away instance folder in the OS temp dir, seeded with invented clients (needs no HUB_HOME); the live data is not touched")
-  .action(async (o: { open: boolean; demo?: boolean }) => {
-    if (!o.demo) ctxOf(); // the live admin needs an instance
-    done(await runUp(CORE_ROOT, { open: o.open, demo: o.demo }));
+  .option("--foreground", "run the server in this terminal (Ctrl-C stops it) whatever the LaunchAgent holds")
+  .option("--service", "what the LaunchAgent runs (HUB_AUTOSTART=1): no browser, exit 0 when switched off, when a hand-run holds the ports or after 5 failed starts in 15 minutes")
+  .action(async (o: { open: boolean; demo?: boolean; foreground?: boolean; service?: boolean }) => {
+    const service = !!o.service || process.env.HUB_AUTOSTART === "1";
+    const ctx = o.demo ? undefined : ctxOf(); // the live admin needs an instance
+    done(await runUp(CORE_ROOT, { open: o.open && !service, demo: o.demo, foreground: o.foreground, service, ...(ctx ? { ctx } : {}) }));
   });
+
+// P67 (decision 0033): the LaunchAgent that starts the server at login. macOS only.
+const commandDeps = () => ({ healthy, portBusy });
+program.command("stop").description("Stop the server the LaunchAgent started (launchctl kill SIGTERM; not respawned). A server started by hand stops with Ctrl-C in its terminal.")
+  .action(async () => done(await stopCommand(ctxOf(), commandDeps())));
+program.command("restart").description("Restart the server through its LaunchAgent (launchctl kickstart -k) and wait until it answers; also clears the start guard after a fix.")
+  .action(async () => done(await restartCommand(ctxOf(), commandDeps())));
+program.command("autostart").argument("[action]", "status (default) | on | off").description("Whether this Mac starts the Hub at login (P67). off: launchctl disable plus state/autostart/off, a running server keeps running; on: launchctl enable, and load the agent when it is not loaded. Setting it up is the installer's: ./run.sh setup --only autostart.agent.")
+  .action(async (action: string | undefined) => done(await autostartCommand(ctxOf(), action, commandDeps())));
 
 program.command("test").description("Typecheck, then tests, for the whole monorepo.")
   .action(async () => done(await runTests(CORE_ROOT)));

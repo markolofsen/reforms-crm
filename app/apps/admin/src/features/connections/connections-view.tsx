@@ -1,6 +1,7 @@
 import { EmptyState, LoadFailed, StaleNote } from "@/components/state-views";
 import { Skeleton } from "@hub/ui/skeleton";
 import { AgentTools } from "./agent-tools/agent-tools";
+import { AutostartRow } from "./autostart/autostart-row";
 import { useClock } from "@/lib/clock";
 import { ConnectionRow } from "./connection-row";
 import { ConnectionGroup } from "./group";
@@ -19,7 +20,7 @@ function ConnectionsSkeleton() {
 
 /**
  * Every account of the instance in one place, one group per kind: the projects' mail accounts (read-only, as Apple Mail
- * knows them), the Notion token and the Telegram bot, then each project's Agent tools (P49, read-only). It reads `GET /api/connections` (files and settings, one read of
+ * knows them), the Notion token and the Telegram bot, "This Mac" (P67: whether the Mac starts the Hub at login), then each project's Agent tools (P49, read-only). It reads `GET /api/connections` (files and settings, one read of
  * Mail's account list) and tests a key on request. A key is never shown: a row says where it stands, not what it is.
  */
 export function ConnectionsView() {
@@ -30,7 +31,13 @@ export function ConnectionsView() {
 
   if (q.isPending) return <ConnectionsSkeleton />;
   if (!data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the connections" />;
-  if (data.connections.length === 0 && data.mail.length === 0) return <EmptyState title="No connections yet">They appear here once a project is set up: say “настрой проект” in a session.</EmptyState>;
+  if (data.connections.length === 0 && data.mail.length === 0)
+    return (
+      <>
+        <EmptyState title="No connections yet">They appear here once a project is set up: say “настрой проект” in a session.</EmptyState>
+        <AutostartRow />
+      </>
+    );
   return (
     <>
       <ConnectionGroup id="mail" title="Mail">
@@ -45,6 +52,8 @@ export function ConnectionsView() {
           </ul>
         </ConnectionGroup>
       ))}
+      {/* P67: how this instance starts on this Mac; it is the instance's, not a project's (rules README 8a). */}
+      <AutostartRow />
       <AgentTools />
       {/* One live region for every Test, save and remove: a result is a status, a failure an alert. */}
       <div className="min-h-5 text-sm">
