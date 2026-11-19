@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FakeDraftWriter } from "@hub/agent/mail-drafts";
-import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
+import { createRepos, openDb, versionHashOf, type DbHandle, type Repos } from "@hub/db";
 import { FakeMailer, mailHash, type MailDraft } from "@hub/send";
 import { setSendPolicy } from "@hub/projects";
 import { createApp } from "./app";
@@ -64,6 +64,19 @@ describe("the Mail read (P56, P65)", () => {
     const r = await get();
     expect(r).toMatchObject({ found: true, hash: null });
     expect(String(r.note)).toMatch(/Mail id 11 is not the Hub's; Mail id 10 is the Hub's version/);
+  });
+
+  // P65 S5 (saas draft 1, 2026-11-19): two saves of the Hub's own text crowded the thread; the read heals it itself.
+  it("a second save of the Hub's recorded text is adopted and moved to Trash by the read: one draft, with a hash", async () => {
+    const text = "Hi, the sarcasm.";
+    const v = mail("20", text);
+    await repos.mailVersions.add({ project: "acme", mailRef: THREAD, draftId: id, account: "owner@acme.example", mailId: 20, messageId: v.messageId ?? "", hash: versionHashOf(text), source: "agent" });
+    mailer.drafts.push(mail("19", text), v);
+    const r = await get();
+    expect(r).toMatchObject({ found: true, note: null, body: text });
+    expect(r.hash).toBeTypeOf("string");
+    expect(mailer.drafts.map((d) => d.ref)).toEqual(["20"]);
+    expect((await repos.mailVersions.ofDraft(id)).map((x) => [x.mailId, x.source, x.trashedAt === null])).toEqual([[19, "adopted", false], [20, "agent", true]]);
   });
 
   it("a read that shows another text than the checked one turns Checked off", async () => {

@@ -22,6 +22,8 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   knowledge_docs: "knowledge",
   // P65: a version row is written exactly when the Hub wrote or moved a Mail draft, so the open card reads Mail again.
   mail_versions: "mail",
+  // P65 S5: a write the Hub started or settled. Not `mail`: a start must not make the open card read a slow Mail mid-write.
+  mail_writes: "drafts",
   marks: "clients",
   messenger_accounts: "messengers",
   messenger_chats: "messengers",

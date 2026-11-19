@@ -15,7 +15,8 @@
     "./mcp": "./src/mcp.ts",
     "./session-rules": "./src/session-rules.ts",
     "./mcp-stdio": "./src/mcp-stdio.ts",
-    "./mail-drafts": "./src/mail-drafts.ts"
+    "./mail-drafts": "./src/mail-drafts.ts",
+    "./write-record": "./src/write-record.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

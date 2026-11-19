@@ -1,24 +1,44 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
+import { adoptable, type Adoption, type MailVersionRow, type MailWriteRow } from "@hub/db";
 
 // The hub's draft writer (P52, decision 0030; decision 0031 for what it no longer writes): an unsent reply saved in
 // Mail's Drafts, written by the `hub` MCP server (outside the agent's sandbox) through Mail's own scripting, with no
 // window, no focus and no clipboard. It writes the reply text and nothing else: no marker line, no hidden text (0031).
-// It never sends: the script has no `send`. It finds the draft it saved as the one NEW draft of the account with this
-// subject whose In-Reply-To is the answered message. Its one removal is the replace step of a revision: the older
-// versions the caller names by their `message id` (the Hub's `mail_versions` record), each re-checked in the script by
-// account and `message id` just before Mail's delete (moved to the account's Trash by Mail). Nothing else is ever
-// deleted, and nothing is deleted when the new draft cannot be told apart.
+// It never sends: the script has no `send`. It finds the draft it saved as a NEW draft of this subject, in any of the
+// project's accounts (Mail saves a draft in its From's account, P65 S5), whose In-Reply-To is the answered message and
+// whose text starts with the written text. Its removals: the older versions the caller names by account and `message id`
+// (the Hub's `mail_versions` record), each re-checked in the script just before Mail's delete (moved to the account's
+// Trash by Mail), and this run's own extras (a second save of the same text, Mail's empty reply shell; decision 0031
+// addendum point 4). Nothing else is ever deleted, and nothing is deleted when the new draft is not seen. Mail slow (not
+// seen within the wait): the write is `mail_slow`, not failed; the caller's write record lets a late save be adopted.
 
 /** Runs osascript with the script and its arguments (`on run argv`). Injected so tests never reach Mail. */
 export type OsaRun = (script: string, args: string[]) => Promise<string>;
 
-export const defaultOsa: OsaRun = (script, args) =>
+/** How long the writer waits for Mail to show the draft it saved (P65 S5: Mail took 74 s once on 2026-11-19; past this the write is `mail_slow`). */
+export const WRITE_WAIT_SECONDS = 45;
+
+/** osascript was cut at its budget: Mail did not answer (the write may still land). */
+export class OsaTimeout extends Error {}
+
+/** osascript with a budget: well past the writer's own wait, so a slow Mail still ends in the script's `pending`. */
+export const osaWithin = (timeoutMs: number): OsaRun => (script, args) =>
   new Promise((resolve, reject) =>
-    execFile("osascript", ["-e", script, ...args], { timeout: 60_000, maxBuffer: 8 * 1024 * 1024 }, (err, stdout, stderr) =>
-      err ? reject(new Error(String(stderr || err.message).slice(0, 300))) : resolve(stdout),
-    ),
+    execFile("osascript", ["-e", script, ...args], { timeout: timeoutMs, killSignal: "SIGKILL", maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (!err) return resolve(stdout);
+      if ((err as { killed?: boolean }).killed) return reject(new OsaTimeout(`Mail did not answer within ${Math.round(timeoutMs / 1000)} s`));
+      reject(new Error(String(stderr || err.message).slice(0, 300)));
+    }),
   );
+
+export const defaultOsa: OsaRun = osaWithin(150_000);
+
+/**
+ * What the agent (and a person's Save) is told when Mail is slow (P65 S5). It never asks anyone to delete a draft and
+ * never says "write again": a second write while the first is still landing is what made two drafts on 2026-11-19.
+ */
+export const MAIL_SLOW_TEXT = "Mail is slow: it has not shown the saved draft yet. The write may still land in Drafts; the Hub recorded it and adopts it as this draft's version when it appears (at the next write, the card's next read, or hub drafts sweep). Nothing older was replaced. Do not call draft_write again for this draft now: tell the owner in one line that Mail is slow and the new text will show on the card when Mail saves it.";
 
 /** One Mail version the Hub wrote, as the replace step needs it: the account it sits in and its own Message-ID. */
 export interface VersionRef {
@@ -42,8 +62,12 @@ export interface ReplyDraftInput {
    * `keep` (P56, a person's Save or a Restore): `body` is the whole text, quote included as the person left it, written verbatim.
    */
   quote?: "add" | "keep";
-  /** The Message-IDs of this account's older Hub versions of the thread (from `mail_versions`): moved to Trash after the save. */
-  replace?: readonly string[];
+  /** The Hub's older versions of the thread (from `mail_versions`), each in its own account: moved to Trash after the save. */
+  replace?: readonly VersionRef[];
+  /** The accounts Mail may save the draft in (the project's `mail.accounts`); absent: only `account`. */
+  landIn?: readonly string[];
+  /** Seconds to wait for the saved draft (default `WRITE_WAIT_SECONDS`). */
+  waitSeconds?: number;
 }
 
 export interface ReplyDraftResult {
@@ -61,12 +85,27 @@ export interface ReplyDraftResult {
   replaced: string[];
   /** Message-IDs of older versions Mail refused to move (still in Drafts): `hub drafts sweep` lists them. */
   left: string[];
+  /** The account the new draft sits in (Mail saves it in its From's account). */
+  savedIn: string;
+  /** Mail's reply shell as the writer saw it before it set the text (its hash goes on the write record), or "". */
+  shell: string;
 }
 
 export class DraftWriteError extends Error {
-  constructor(readonly code: string, message: string) {
+  /** `mail_slow`: Mail's reply shell, when the writer saw it (its hash goes on the write record). */
+  shell?: string;
+  constructor(readonly code: string, message: string, shell?: string) {
     super(message);
+    if (shell !== undefined) this.shell = shell;
   }
+}
+
+/** One draft of a thread as Mail holds it (P65 S5): what a late save is matched against before a write. */
+export interface ThreadMailDraft {
+  ref: string;
+  messageId: string | null;
+  account: string | null;
+  body: string;
 }
 
 /** Where the message a draft answers sits in Mail: what `writeReply` needs, found from its Message-ID (P53). */
@@ -87,10 +126,14 @@ export interface DraftWriter {
   readHeaders(m: InboundMessage): Promise<string>;
   /** The Message-ID of one known message, bare (P65: a new reply is refused before it is written when the project already answers it). Read-only. */
   messageIdOf(m: InboundMessage): Promise<string>;
+  /** The drafts of these accounts whose In-Reply-To names the thread (P65 S5), with their text. Read-only. */
+  threadDrafts(accounts: readonly string[], thread: string, subject: string | null): Promise<ThreadMailDraft[]>;
 }
 
 const FS = "\x1f";
 const LS = "\x1d";
+const RS = "\x1e";
+const PS = "\x1c";
 
 /** A marker line an agent (or an old copy) put first: dropped, nothing of the Hub's goes in the body (decision 0031). */
 export const stripMarker = (body: string): string => body.replace(/^\s*\[hub-draft\b[^\]\n]*\]\s*\n?/i, "").replace(/\s+$/, "");
@@ -102,12 +145,16 @@ export const versionHash = (text: string): string => createHash("sha256").update
 export const probeOf = (body: string): string => body.replace(/^\s+/, "").slice(0, 40);
 
 // argv: 1 account, 2 mailbox path (LS-joined), 3 message id, 4 body, 5 sender or "", 6 "keep" to write the body verbatim
-// (no quote added; P56), 7 the probe (the body's first 40 characters), 8 the Message-IDs to replace (LS-joined). Output:
-// ok FS draftId FS subject FS thread FS from FS replaced (LS) FS left (LS) FS new message id FS the text read back, or
-// error FS code FS message. A message Mail flags as deleted (pending expunge) is not a draft.
+// (no quote added; P56), 7 the probe (the body's first 40 characters), 8 the versions to replace (LS-joined, each
+// "account PS Message-ID"), 9 the accounts Mail may save the draft in (LS-joined: the project's; Mail saves a draft in its
+// From's account, P65 S5), 10 how many seconds to wait for the saved draft. Output: ok FS draftId FS subject FS thread FS
+// from FS replaced (LS) FS left (LS) FS new message id FS its account FS cleared Mail ids (LS) FS Mail's reply shell FS
+// the text read back; or pending FS Mail's reply shell (the draft was not seen in time: it may still land); or error FS
+// code FS message. A message Mail flags as deleted (pending expunge) is not a draft.
 export const WRITE_REPLY_SCRIPT = `on run argv
   set FS to (ASCII character 31)
   set LS to (ASCII character 29)
+  set PS to (ASCII character 28)
   if application "Mail" is not running then return "error" & FS & "mail_not_running" & FS & "Mail is not running: open Mail (it may stay in the background), then write the draft again."
   set accName to item 1 of argv
   set boxPath to my parts(item 2 of argv, LS)
@@ -117,6 +164,9 @@ export const WRITE_REPLY_SCRIPT = `on run argv
   set addQuote to (item 6 of argv) is not "keep"
   set probe to item 7 of argv
   set targets to my parts(item 8 of argv, LS)
+  set landIn to my parts(item 9 of argv, LS)
+  if (count of landIn) is 0 then set landIn to {accName}
+  set waitSecs to (item 10 of argv) as integer
   tell application "Mail"
     try
       set acc to account accName
@@ -136,8 +186,14 @@ export const WRITE_REPLY_SCRIPT = `on run argv
     set thread to message id of src
     set tail to ""
     if addQuote then set tail to linefeed & linefeed & "On " & ((date sent of src) as string) & ", " & (sender of src) & " wrote:" & linefeed & my quoteOf((content of src) as text)
+    -- Every draft that exists before the reply: whatever appears after it is this write's (one bulk read).
+    set priorIds to id of every message of drafts mailbox
     set r to reply src opening window false
     set subj to subject of r
+    set shellText to ""
+    try
+      set shellText to (content of r) as text
+    end try
     set fromNow to sender of r
     set inAccount to false
     repeat with a in accAddrs
@@ -156,7 +212,6 @@ export const WRITE_REPLY_SCRIPT = `on run argv
         set sender of r to fullName & " <" & (item 1 of accAddrs) & ">"
       end if
     end if
-    set priorIds to my threadDrafts(subj, accName, thread, {})
     set content of r to (theBody & tail)
     delay 0.3
     if ((content of r) as text) does not contain probe then
@@ -167,25 +222,61 @@ export const WRITE_REPLY_SCRIPT = `on run argv
     delay 0.5
     set fromNow to sender of r
     delete r
-    set fresh to {}
-    repeat 40 times
-      set fresh to my threadDrafts(subj, accName, thread, priorIds)
-      if (count of fresh) > 0 then exit repeat
-      delay 0.25
+    -- Wait for the saved draft: a new draft of this thread, in any account Mail may have saved it in, holding the text's start.
+    set mine to {}
+    set shells to {}
+    set deadline to (current date) + waitSecs
+    repeat
+      set mine to {}
+      set shells to {}
+      repeat with fid in my threadDrafts(subj, landIn, thread, priorIds)
+        set t to ""
+        try
+          set t to (content of (first message of drafts mailbox whose id is (contents of fid))) as text
+        end try
+        considering case
+          if t contains probe then
+            set end of mine to (contents of fid)
+          else if shellText is not "" and t is shellText then
+            set end of shells to (contents of fid)
+          end if
+        end considering
+      end repeat
+      if (count of mine) > 0 or (current date) > deadline then exit repeat
+      delay 0.5
     end repeat
-    if (count of fresh) is 0 then return "error" & FS & "not_saved" & FS & "Mail did not show the new draft in Drafts within 10 s; nothing was replaced. Look in Drafts before writing again."
-    if (count of fresh) > 1 then return "error" & FS & "ambiguous" & FS & "Mail shows " & (count of fresh) & " new drafts of this thread and the Hub cannot tell which one it wrote; nothing was replaced. Keep one in Drafts, then write again."
-    set newId to item 1 of fresh
+    if (count of mine) is 0 then return "pending" & FS & shellText
+    set newId to item 1 of mine
+    repeat with x in mine
+      if (contents of x) > newId then set newId to (contents of x)
+    end repeat
     set nm to (first message of drafts mailbox whose id is newId)
     set newMid to message id of nm
+    set newAcc to name of account of mailbox of nm
     set readBack to (content of nm) as text
+    -- This run's own extras: a second save of the same text, and Mail's empty reply shell.
+    set cleared to ""
+    repeat with x in (mine & shells)
+      set xid to contents of x
+      if xid is not newId then
+        try
+          set m to (first message of drafts mailbox whose id is xid)
+          if (deleted status of m) is false then
+            delete m
+            set cleared to cleared & xid & LS
+          end if
+        end try
+      end if
+    end repeat
     set replaced to ""
     set leftIds to ""
     repeat with t in targets
-      set tid to contents of t
+      set pair to my parts(contents of t, PS)
+      set tAcc to item 1 of pair
+      set tid to item 2 of pair
       try
         repeat with m in (messages of drafts mailbox whose message id is tid)
-          if (id of m) is not newId and (deleted status of m) is false and (name of account of mailbox of m) is accName and (message id of m) is tid then
+          if (id of m) is not newId and (deleted status of m) is false and (name of account of mailbox of m) is tAcc and (message id of m) is tid then
             delete m
             set replaced to replaced & tid & LS
           end if
@@ -195,10 +286,10 @@ export const WRITE_REPLY_SCRIPT = `on run argv
       end try
     end repeat
   end tell
-  return "ok" & FS & newId & FS & subj & FS & thread & FS & fromNow & FS & replaced & FS & leftIds & FS & newMid & FS & readBack
+  return "ok" & FS & newId & FS & subj & FS & thread & FS & fromNow & FS & replaced & FS & leftIds & FS & newMid & FS & newAcc & FS & cleared & FS & shellText & FS & readBack
 end run
 
-on threadDrafts(subj, accName, thread, skipIds)
+on threadDrafts(subj, accNames, thread, skipIds)
   set out to {}
   tell application "Mail"
     repeat with m in (messages of drafts mailbox whose subject is subj)
@@ -212,7 +303,7 @@ on threadDrafts(subj, accName, thread, skipIds)
         try
           set irt to content of (first header of m whose name is "In-Reply-To")
         end try
-        if acc is accName and irt contains thread then set end of out to mid
+        if accNames contains acc and irt contains thread then set end of out to mid
       end if
     end repeat
   end tell
@@ -237,6 +328,43 @@ on parts(s, d)
   set AppleScript's text item delimiters to ""
   return r
 end parts`;
+
+// argv: 1 the thread's Message-ID (bare), 2 subject ("" for any), 3.. the accounts. Output: one record per draft of those
+// accounts whose In-Reply-To names the thread: id FS message id FS account FS text RS. Read-only (P65 S5: what a late
+// save is matched against before a write).
+export const THREAD_DRAFTS_SCRIPT = `on run argv
+  set FS to (ASCII character 31)
+  set RS to (ASCII character 30)
+  if application "Mail" is not running then return "error" & FS & "mail_not_running" & FS & "Mail is not running: open Mail (it may stay in the background), then write the draft again."
+  set thread to item 1 of argv
+  set subj to item 2 of argv
+  set accNames to {}
+  repeat with i from 3 to (count of argv)
+    set end of accNames to item i of argv
+  end repeat
+  set out to ""
+  tell application "Mail"
+    if subj is "" then
+      set ms to (messages of drafts mailbox)
+    else
+      set ms to (messages of drafts mailbox whose subject is subj)
+    end if
+    repeat with m in ms
+      if (deleted status of m) is false then
+        set acc to ""
+        try
+          set acc to name of account of mailbox of m
+        end try
+        set irt to ""
+        try
+          set irt to content of (first header of m whose name is "In-Reply-To")
+        end try
+        if accNames contains acc and irt contains thread then set out to out & (id of m) & FS & (message id of m) & FS & acc & FS & ((content of m) as text) & RS
+      end if
+    end repeat
+  end tell
+  return out
+end run`;
 
 // argv: 1 account, 2 mailbox path (LS-joined), 3 Mail's message id. Output: ok FS Message-ID, or error FS code FS message. Read-only.
 export const MESSAGE_ID_SCRIPT = `on run argv
@@ -342,13 +470,30 @@ export function parseWriteOutput(out: string): ReplyDraftResult {
   const t = out.replace(/[\r\n]+$/, "");
   const p = t.split(FS);
   if (p[0] === "error") throw new DraftWriteError(p[1] || "mail_error", p[2] || "Mail refused the draft.");
-  if (p[0] !== "ok" || p.length < 9) throw new DraftWriteError("mail_error", `Mail answered "${out.trim().slice(0, 100)}"`);
-  const [, id, subject, thread, from, replaced, left, mid] = p as [string, string, string, string, string, string, string, string];
-  const text = p.slice(8).join(FS);
+  if (p[0] === "pending") throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT, p.slice(1).join(FS));
+  if (p[0] !== "ok" || p.length < 12) throw new DraftWriteError("mail_error", `Mail answered "${out.trim().slice(0, 100)}"`);
+  const [, id, subject, thread, from, replaced, left, mid, savedIn, , shell] = p as [string, string, string, string, string, string, string, string, string, string, string];
+  const text = p.slice(11).join(FS);
   const ids = (v: string) => [...new Set(v.split(LS).map((x) => x.trim().replace(/^<|>$/g, "")).filter(Boolean))];
   const messageId = mid.trim().replace(/^<|>$/g, "");
   if (!messageId) throw new DraftWriteError("mail_error", "Mail saved the draft but gave it no Message-ID; nothing was replaced.");
-  return { draftId: Number(id), messageId, text, subject, thread: thread.trim().replace(/^<|>$/g, ""), from, replaced: ids(replaced), left: ids(left) };
+  return { draftId: Number(id), messageId, text, subject, thread: thread.trim().replace(/^<|>$/g, ""), from, replaced: ids(replaced), left: ids(left), savedIn: savedIn.trim(), shell };
+}
+
+export function parseThreadDrafts(out: string): ThreadMailDraft[] {
+  const t = out.replace(/[\r\n]+$/, "");
+  if (t.startsWith(`error${FS}`)) {
+    const [, code = "mail_error", message = "Mail refused the read."] = t.split(FS);
+    throw new DraftWriteError(code, message);
+  }
+  const list: ThreadMailDraft[] = [];
+  for (const rec of t.split(RS)) {
+    const p = rec.replace(/^[\r\n]+/, "").split(FS);
+    if (p.length < 4) continue;
+    const [ref, mid, account] = p as [string, string, string];
+    list.push({ ref: ref.trim(), messageId: mid.trim().replace(/^<|>$/g, "") || null, account: account || null, body: p.slice(3).join(FS) });
+  }
+  return list;
 }
 
 /** Mail.app through osascript, run by the hub MCP server. Plain text. */
@@ -360,8 +505,19 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
     async writeReply(i) {
       const body = stripMarker(i.body);
       if (!body.trim()) throw new DraftWriteError("empty", "The reply has no text.");
-      const out = await osa(WRITE_REPLY_SCRIPT, [i.account, i.mailboxPath.join(LS), String(i.messageId), body, i.sender ?? "", i.quote ?? "add", probeOf(body), (i.replace ?? []).join(LS)]).catch(fail);
+      const targets = (i.replace ?? []).map((v) => `${v.account}${PS}${v.messageId.trim().replace(/^<|>$/g, "")}`).join(LS);
+      const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
+      const out = await osa(WRITE_REPLY_SCRIPT, [i.account, i.mailboxPath.join(LS), String(i.messageId), body, i.sender ?? "", i.quote ?? "add", probeOf(body), targets, land, String(i.waitSeconds ?? WRITE_WAIT_SECONDS)]).catch((e: Error) => {
+        // Cut at the budget: Mail may still save it, exactly like the script's own `pending`.
+        if (e instanceof OsaTimeout) throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT);
+        return fail(e);
+      });
       return parseWriteOutput(out);
+    },
+    async threadDrafts(accounts, thread, subject) {
+      const id = thread.trim().replace(/^<|>$/g, "");
+      if (!id || accounts.length === 0) return [];
+      return parseThreadDrafts(await osa(THREAD_DRAFTS_SCRIPT, [id, subject ?? "", ...accounts]).catch(fail));
     },
     async findInbound(accounts, messageId) {
       const id = messageId.trim().replace(/^<|>$/g, "");
@@ -398,6 +554,8 @@ export class FakeDraftWriter implements DraftWriter {
   inbound = new Map<string, InboundMessage>();
   /** Raw header blocks of the fake Mail's messages, by Mail's id. */
   headers = new Map<number, string>();
+  /** Set: the next write is not seen in time (`mail_slow`); the draft is still saved, as Mail does late. */
+  slowNext = false;
   constructor(private readonly threadOf: (messageId: number) => string = (id) => `m${id}@example.com`) {}
   async findInbound(accounts: readonly string[], messageId: string): Promise<InboundMessage | null> {
     const m = this.inbound.get(messageId.trim().replace(/^<|>$/g, ""));
@@ -411,6 +569,10 @@ export class FakeDraftWriter implements DraftWriter {
   async messageIdOf(m: InboundMessage): Promise<string> {
     return this.threadOf(m.messageId);
   }
+  async threadDrafts(accounts: readonly string[], thread: string): Promise<ThreadMailDraft[]> {
+    const t = thread.trim().replace(/^<|>$/g, "").toLowerCase();
+    return this.drafts.filter((d) => accounts.includes(d.account) && d.thread.toLowerCase() === t).map((d) => ({ ref: String(d.id), messageId: d.messageId, account: d.account, body: d.text }));
+  }
   async writeReply(i: ReplyDraftInput): Promise<ReplyDraftResult> {
     const body = stripMarker(i.body);
     if (!body.trim()) throw new DraftWriteError("empty", "The reply has no text.");
@@ -418,11 +580,16 @@ export class FakeDraftWriter implements DraftWriter {
     const subject = `Re: message ${i.messageId}`;
     const id = this.next++;
     const messageId = `draft-${id}@hub.test`;
-    const wanted = new Set((i.replace ?? []).map((x) => x.toLowerCase()));
-    const older = this.drafts.filter((d) => d.account === i.account && wanted.has(d.messageId.toLowerCase()));
+    if (this.slowNext) {
+      this.slowNext = false;
+      this.drafts.push({ id, messageId, account: i.account, thread, subject, text: body, quote: i.quote ?? "add" });
+      throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT, "");
+    }
+    const wanted = new Set((i.replace ?? []).map((x) => `${x.account}\u0000${x.messageId.toLowerCase()}`));
+    const older = this.drafts.filter((d) => wanted.has(`${d.account}\u0000${d.messageId.toLowerCase()}`));
     this.drafts.push({ id, messageId, account: i.account, thread, subject, text: body, quote: i.quote ?? "add" });
     this.drafts = this.drafts.filter((d) => !older.includes(d));
-    return { draftId: id, messageId, text: body, subject, thread, from: i.sender ?? i.account, replaced: older.map((d) => d.messageId), left: [] };
+    return { draftId: id, messageId, text: body, subject, thread, from: i.sender ?? i.account, replaced: older.map((d) => d.messageId), left: [], savedIn: i.account, shell: "" };
   }
 }
 
@@ -434,10 +601,57 @@ export interface ReviseInput {
   mailRef: string;
   body: string;
   quote: "add" | "keep";
-  /** The Hub's recorded versions of this draft still in Drafts (`mail_versions`, not trashed): those of the answered message's account are replaced. */
+  /** The Hub's recorded versions of this draft still in Drafts (`mail_versions`, not trashed): each is replaced in its own account. */
   versions: readonly VersionRef[];
   /** P60: turns the body into the signed body once the answered message is known (the agent's revision); absent: written as given (a person's Save). */
   sign?: (inbound: InboundMessage, body: string) => Promise<Signed>;
+  /** P65 S5: the write is recorded before Mail is asked, so a late save is adopted. Absent: not recorded. */
+  log?: WriteLog;
+}
+
+/**
+ * The Hub's record of one write (P65 S5, `mail_writes`, decision 0031 addendum point 1): started before Mail is asked to
+ * save, settled when the saved draft is found, and given Mail's reply shell when the writer saw it. Best effort: a failed
+ * record never stops or fails the write.
+ */
+export interface WriteLog {
+  start(text: string): Promise<number>;
+  settle(id: number, saved: { mailId: number; messageId: string }): Promise<void>;
+  shell(id: number, text: string): Promise<void>;
+}
+
+const quietly = async <T>(p: () => Promise<T>): Promise<T | null> => {
+  try {
+    return await p();
+  } catch {
+    return null;
+  }
+};
+
+/** One write through the writer, recorded in `log` first (P65 S5): a `mail_slow` write keeps its open row, with the shell's hash. */
+export async function writeRecorded(writer: DraftWriter, input: ReplyDraftInput, log?: WriteLog): Promise<ReplyDraftResult> {
+  const id = log ? await quietly(() => log.start(stripMarker(input.body))) : null;
+  try {
+    const r = await writer.writeReply(input);
+    if (log && id !== null) {
+      await quietly(() => log.settle(id, { mailId: r.draftId, messageId: r.messageId }));
+      if (r.shell) await quietly(() => log.shell(id, r.shell));
+    }
+    return r;
+  } catch (e) {
+    if (log && id !== null && e instanceof DraftWriteError && e.shell) await quietly(() => log.shell(id, e.shell ?? ""));
+    throw e;
+  }
+}
+
+/**
+ * The thread's drafts that are the Hub's own late saves, not yet recorded (decision 0031 addendum point 2): read from
+ * Mail (the project's accounts, In-Reply-To = `mailRef`), matched to the recorded versions and the open writes by the
+ * hash of their text. Read-only; the caller records them (`adopted`).
+ */
+export async function lateSaves(writer: DraftWriter, q: { accounts: readonly string[]; mailRef: string; subject: string | null; versions: readonly Pick<MailVersionRow, "account" | "messageId" | "hash">[]; writes: readonly MailWriteRow[] }): Promise<Adoption<ThreadMailDraft>[]> {
+  if (q.writes.length === 0 && q.versions.length === 0) return [];
+  return adoptable(await writer.threadDrafts(q.accounts, q.mailRef, q.subject), q.versions, q.writes);
 }
 
 /** What the writer adds when it signs (P60): the signed body and how the brand was found. */
@@ -457,18 +671,18 @@ export type Revision = ReplyDraftResult & { replyTo: number; account: string } &
 
 /**
  * The one revision of a hub draft (P56): find the message it answers by its Message-ID in the project's accounts, then
- * write the reply through the writer, which moves the older recorded versions of that account to Trash. Shared by `hub
- * mcp`'s `draft_write {draft}` (the agent, `quote: "add"`), the server (a person's Save or Restore, `quote: "keep"`) and
- * `hub drafts unmark`, so there is one path. The caller records the new version (`mail_versions`).
+ * write the reply through the writer, which moves the older recorded versions to Trash, each in its own account. Shared
+ * by `hub mcp`'s `draft_write {draft}` (the agent, `quote: "add"`), the server (a person's Save or Restore, `quote:
+ * "keep"`) and `hub drafts unmark`, so there is one path. The caller records the new version (`mail_versions`) in the
+ * account Mail saved it in (`savedIn`: the From's account, P65 S5).
  */
 export async function reviseDraft(writer: DraftWriter, i: ReviseInput): Promise<Revision> {
   const found = await writer.findInbound(i.accounts, i.mailRef);
   if (!found) throw new DraftWriteError("no_message", `The message this draft answers (Message-ID ${i.mailRef}) is not in ${i.accounts.join(", ") || "this project's accounts"}: it may have been deleted. Nothing was written.`);
   const signed = i.sign ? await i.sign(found, i.body) : null;
-  const same = (a: string) => a.trim().toLowerCase() === found.account.trim().toLowerCase();
-  const replace = i.versions.filter((v) => same(v.account)).map((v) => v.messageId);
-  const r = await writer.writeReply({ ...found, body: signed?.body ?? i.body, sender: i.sender, quote: i.quote, replace });
-  if (!signed) return { ...r, replyTo: found.messageId, account: found.account };
+  const r = await writeRecorded(writer, { ...found, body: signed?.body ?? i.body, sender: i.sender, quote: i.quote, replace: i.versions, landIn: i.accounts }, i.log);
+  const account = r.savedIn || found.account;
+  if (!signed) return { ...r, replyTo: found.messageId, account };
   const { body: _body, ...how } = signed;
-  return { ...r, replyTo: found.messageId, account: found.account, ...how };
+  return { ...r, replyTo: found.messageId, account, ...how };
 }

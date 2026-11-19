@@ -33,8 +33,8 @@ const lower = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 
 /**
  * Pure: which drafts go to Trash, and why. `closed`: every recorded version still in Drafts of a draft the owner closed
- * (done, sent or skipped). `superseded`: a recorded version of an open draft older than the newest recorded version of
- * that draft still in Drafts (the writer keeps one; this is what a failed replace left).
+ * (done, sent or skipped). `superseded`: a recorded version of an open draft older (by Mail's id) than the newest recorded
+ * version of that draft still in Drafts (the writer keeps one; this is what a failed replace or a late save left).
  */
 export function planSweep(drafts: readonly DraftHead[], scope: SweepScope): SweepRow[] {
   const own = new Set(scope.accounts.map(lower));
@@ -49,7 +49,8 @@ export function planSweep(drafts: readonly DraftHead[], scope: SweepScope): Swee
   }
   const rows: SweepRow[] = [];
   for (const [draftId, group] of groups) {
-    const newestFirst = [...group].sort((x, y) => y.v.id - x.v.id);
+    // Newest by Mail's id, not by the row: an adopted late save (P65 S5) is recorded after a newer version.
+    const newestFirst = [...group].sort((x, y) => (Number(y.d.ref) || 0) - (Number(x.d.ref) || 0) || y.v.id - x.v.id);
     for (const [i, g] of newestFirst.entries()) {
       const base = { ref: g.d.ref, account: g.d.account ?? "", subject: g.d.subject, messageId: g.d.messageId ?? "", versionId: g.v.id };
       if (scope.closed.has(draftId)) rows.push({ ...base, kind: "closed", why: `hub draft ${draftId} is done, sent or skipped` });

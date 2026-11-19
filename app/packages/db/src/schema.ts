@@ -145,12 +145,35 @@ export const mailVersions = sqliteTable(
     mailId: integer("mail_id").notNull(),
     messageId: text("message_id").notNull(),
     hash: text("hash").notNull(),
-    source: text("source").$type<"agent" | "save" | "restore" | "migration">().notNull(),
+    // `adopted` (P65 S5, 0031 addendum): a late save of the Hub's own write, recognised by its text's hash and recorded after the fact.
+    source: text("source").$type<"agent" | "save" | "restore" | "migration" | "adopted">().notNull(),
     signatureFallback: text("signature_fallback"),
     writtenAt: text("written_at").notNull(),
     trashedAt: text("trashed_at"),
   },
   (t) => [index("mail_versions_project_ref").on(t.project, t.mailRef), index("mail_versions_draft").on(t.draftId)],
+);
+
+// The Mail writes the Hub started (P65 S5, decision 0031 addendum): one row before every save, so a draft Mail saves after
+// the writer stopped waiting is still known as the Hub's. Never the text (0013): the hash and length of the written text
+// with whitespace collapsed (`textKey`), and the hash of Mail's reply shell when the writer saw it. `settled_at`: the save
+// was found (or adopted later); an open row is what a late draft is matched against.
+export const mailWrites = sqliteTable(
+  "mail_writes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    project: text("project").notNull(),
+    mailRef: text("mail_ref").notNull(),
+    draftId: integer("draft_id").references((): AnySQLiteColumn => drafts.id, { onDelete: "set null" }),
+    textHash: text("text_hash").notNull(),
+    textLen: integer("text_len").notNull(),
+    shellHash: text("shell_hash"),
+    startedAt: text("started_at").notNull(),
+    settledAt: text("settled_at"),
+    mailId: integer("mail_id"),
+    messageId: text("message_id"),
+  },
+  (t) => [index("mail_writes_project_ref").on(t.project, t.mailRef)],
 );
 
 // Follow-up sequences (P47, `@docs/core/23-sequences.md`). One row per time the owner enrolled a client in a project's sequence.

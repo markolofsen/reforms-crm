@@ -101,7 +101,7 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
       ) : (
         <div className="rounded-lg border bg-card p-4">
           {(confirmed !== null || readable) && <p className="mb-2 text-muted-foreground text-xs">{confirmed !== null ? "Exactly as Mail holds it:" : "As Mail holds it now:"}</p>}
-          {unreadable && confirmed === null && <p className="mb-2 text-muted-foreground text-xs">Stored with the draft, not what Mail holds:</p>}
+          {unreadable && confirmed === null && <p className="mb-2 text-muted-foreground text-xs">A preview stored with the draft (up to 240 characters), not what Mail holds:</p>}
           <pre className="whitespace-pre-wrap break-words font-sans text-base sm:text-sm">{body}</pre>
         </div>
       )}

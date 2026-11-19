@@ -6,14 +6,19 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { parseProjectMd } from "@hub/projects";
 import { DENIED_TOOLS } from "../src/deny";
-import { FakeDraftWriter, FIND_INBOUND_SCRIPT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, parseInboundOutput, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, stripMarker, versionHash, WRITE_REPLY_SCRIPT, type OsaRun } from "../src/mail-drafts";
+import { DraftWriteError, FakeDraftWriter, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, stripMarker, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
 import { appleScriptCompileError, canCompileAppleScript } from "../../../test-support/osacompile";
-import { createHubMcpServer, type HubMcpEnv } from "../src/mcp";
+import { createHubMcpServer, excerptOf, type HubMcpEnv } from "../src/mcp";
 
 // The hub's draft writer (P52): the script's contract, its parser and the `draft_write` tool, on a fake Mail. No test touches Mail.
 
 const FS = "\x1f";
 const LS = "\x1d";
+const RS = "\x1e";
+const PS = "\x1c";
+/** An ok answer of WRITE_REPLY_SCRIPT: id, subject, thread, from, replaced, left, new Message-ID, its account, cleared, shell, text. */
+const okOut = (o: { id?: string; subject?: string; thread?: string; from?: string; replaced?: string; left?: string; mid?: string; acc?: string; cleared?: string; shell?: string; text?: string } = {}) =>
+  ["ok", o.id ?? "5", o.subject ?? "Re: X", o.thread ?? "a@b", o.from ?? "d@x", o.replaced ?? "", o.left ?? "", o.mid ?? "n5@x", o.acc ?? "desk", o.cleared ?? "", o.shell ?? "", o.text ?? "Hi"].join(FS);
 
 describe("the Mail scripts compile (osacompile, no Mail call)", () => {
   // v0.12.12 shipped `set before to …` (`before` is an AppleScript keyword): every draft_write, Save, Restore and
@@ -23,6 +28,7 @@ describe("the Mail scripts compile (osacompile, no Mail call)", () => {
     ["FIND_INBOUND_SCRIPT", FIND_INBOUND_SCRIPT],
     ["MESSAGE_ID_SCRIPT", MESSAGE_ID_SCRIPT],
     ["READ_HEADERS_SCRIPT", READ_HEADERS_SCRIPT],
+    ["THREAD_DRAFTS_SCRIPT", THREAD_DRAFTS_SCRIPT],
   ])("%s", (_name, script) => {
     expect(appleScriptCompileError(script)).toBeNull();
   });
@@ -30,10 +36,10 @@ describe("the Mail scripts compile (osacompile, no Mail call)", () => {
   it("passes the reply's text to the compiled script as argv items, verbatim: apostrophes, quotes, lines, non-ASCII", async () => {
     const body = "Hi Dan,\n\nIt's \"Punta Cana\" — the owner's note: 50 % off.\nС уважением,\nÉquipe Carapis 🚗";
     const seen: Array<{ script: string; args: string[] }> = [];
-    const osa: OsaRun = async (script, args) => (seen.push({ script, args }), ["ok", "5", "Re: Dentons' Caribbean follow up", "a@b", "d@x", "", "", "n5@x", body].join(FS));
-    const r = await mailAppDraftWriter(osa).writeReply({ account: "dan@danmerriam.com", mailboxPath: ["INBOX"], messageId: 7, body, sender: "Dan O'Brien <dan@danmerriam.com>", quote: "keep", replace: ["AB3127DC@danmerriam.com"] });
+    const osa: OsaRun = async (script, args) => (seen.push({ script, args }), okOut({ subject: "Re: Dentons' Caribbean follow up", acc: "dan@danmerriam.com", text: body }));
+    const r = await mailAppDraftWriter(osa).writeReply({ account: "dan@danmerriam.com", mailboxPath: ["INBOX"], messageId: 7, body, sender: "Dan O'Brien <dan@danmerriam.com>", quote: "keep", replace: [{ account: "dan@danmerriam.com", messageId: "AB3127DC@danmerriam.com" }] });
     expect(seen[0]!.script).toBe(WRITE_REPLY_SCRIPT);
-    expect(seen[0]!.args).toEqual(["dan@danmerriam.com", "INBOX", "7", body, "Dan O'Brien <dan@danmerriam.com>", "keep", probeOf(body), "AB3127DC@danmerriam.com"]);
+    expect(seen[0]!.args).toEqual(["dan@danmerriam.com", "INBOX", "7", body, "Dan O'Brien <dan@danmerriam.com>", "keep", probeOf(body), `dan@danmerriam.com${PS}AB3127DC@danmerriam.com`, "dan@danmerriam.com", String(WRITE_WAIT_SECONDS)]);
     expect(r).toMatchObject({ subject: "Re: Dentons' Caribbean follow up", text: body });
     // No value is ever spliced into the source, so no input can make it fail to compile.
     expect(WRITE_REPLY_SCRIPT).not.toContain("${");
@@ -49,32 +55,54 @@ describe("the Mail script", () => {
     expect(WRITE_REPLY_SCRIPT).toMatch(/set content of r to \(theBody & tail\)/);
   });
 
-  it("finds its draft as the one new draft of the account whose In-Reply-To is the thread; two new: nothing replaced", () => {
-    expect(WRITE_REPLY_SCRIPT).toMatch(/set priorIds to my threadDrafts\(subj, accName, thread, \{\}\)/);
+  it("finds its draft as a new draft of the thread in any account Mail may save it in, holding the text's start (P65 S5)", () => {
+    // Every id before the reply: a shell Mail autosaves after it is this write's, never a prior draft.
+    expect(WRITE_REPLY_SCRIPT.indexOf("set priorIds to id of every message of drafts mailbox")).toBeLessThan(WRITE_REPLY_SCRIPT.indexOf("set r to reply src opening window false"));
     expect(WRITE_REPLY_SCRIPT).toMatch(/first header of m whose name is "In-Reply-To"/);
-    expect(WRITE_REPLY_SCRIPT).toMatch(/if acc is accName and irt contains thread then/);
-    expect(WRITE_REPLY_SCRIPT).toMatch(/if \(count of fresh\) > 1 then return "error" & FS & "ambiguous"/);
+    // Mail saves a draft in its From's account (realty 2026-11-19: dan@ inbound, info@ From): every landing account counts.
+    expect(WRITE_REPLY_SCRIPT).toMatch(/if accNames contains acc and irt contains thread then/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/my threadDrafts\(subj, landIn, thread, priorIds\)/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/if t contains probe then/);
+    // No count decides any more: two saves of the same text are one write, not an "ambiguous" handed to the owner.
+    expect(WRITE_REPLY_SCRIPT).not.toMatch(/ambiguous|Keep one in Drafts|write again/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/set deadline to \(current date\) \+ waitSecs/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/if \(count of mine\) is 0 then return "pending" & FS & shellText/);
     expect(WRITE_REPLY_SCRIPT).toMatch(/does not contain probe then/);
   });
 
-  it("deletes only after the new draft is found, and only the named versions, re-checked by account and Message-ID", () => {
+  it("deletes only after the new draft is found: the named versions (re-checked by their own account and Message-ID) and this run's extras", () => {
     const save = WRITE_REPLY_SCRIPT.indexOf("save r");
-    const found = WRITE_REPLY_SCRIPT.indexOf('if (count of fresh) is 0 then return "error"');
+    const found = WRITE_REPLY_SCRIPT.indexOf('if (count of mine) is 0 then return "pending"');
     const del = WRITE_REPLY_SCRIPT.indexOf("            delete m");
     expect(save).toBeGreaterThan(0);
     expect(found).toBeGreaterThan(save);
     expect(del).toBeGreaterThan(found);
     expect(WRITE_REPLY_SCRIPT).toMatch(/messages of drafts mailbox whose message id is tid/);
-    expect(WRITE_REPLY_SCRIPT).toMatch(/\(name of account of mailbox of m\) is accName and \(message id of m\) is tid then/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/\(name of account of mailbox of m\) is tAcc and \(message id of m\) is tid then/);
+    // Extras are only drafts that appeared during this run (not in priorIds) and hold its text's start or Mail's own shell.
+    expect(WRITE_REPLY_SCRIPT).toMatch(/repeat with x in \(mine & shells\)/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/else if shellText is not "" and t is shellText then/);
     expect(WRITE_REPLY_SCRIPT).not.toMatch(/whose subject is subj\)\s*\n\s*delete/);
   });
 
   it("parses ok and error answers: the new Message-ID and the text read back; the replaced ids are unique", () => {
-    expect(parseWriteOutput(["ok", "139679", "Re: Hello", "<abc@x>", "Desk <d@x.com>", `A1@x${LS}A1@x${LS}`, "", "<NEW@x>", "Hi Ann"].join(FS) + "\n")).toEqual({ draftId: 139679, messageId: "NEW@x", text: "Hi Ann", subject: "Re: Hello", thread: "abc@x", from: "Desk <d@x.com>", replaced: ["A1@x"], left: [] });
-    expect(parseWriteOutput(["ok", "9", "Re: X", "a@b", "d", "", `B8@x${LS}`, "n@x", "t"].join(FS)).left).toEqual(["B8@x"]);
-    expect(() => parseWriteOutput(["ok", "9", "Re: X", "a@b", "d", "", "", "", "t"].join(FS))).toThrow(/no Message-ID/);
-    expect(() => parseWriteOutput(["error", "ambiguous", "nothing was replaced"].join(FS))).toThrow(/nothing was replaced/);
+    expect(parseWriteOutput(okOut({ id: "139679", subject: "Re: Hello", thread: "<abc@x>", from: "Desk <d@x.com>", replaced: `A1@x${LS}A1@x${LS}`, mid: "<NEW@x>", acc: "info@x", shell: "On Mon wrote", text: "Hi Ann" }) + "\n")).toEqual({ draftId: 139679, messageId: "NEW@x", text: "Hi Ann", subject: "Re: Hello", thread: "abc@x", from: "Desk <d@x.com>", replaced: ["A1@x"], left: [], savedIn: "info@x", shell: "On Mon wrote" });
+    expect(parseWriteOutput(okOut({ left: `B8@x${LS}` })).left).toEqual(["B8@x"]);
+    expect(() => parseWriteOutput(okOut({ mid: "" }))).toThrow(/no Message-ID/);
+    expect(() => parseWriteOutput(["error", "content_refused", "nothing was replaced"].join(FS))).toThrow(/nothing was replaced/);
     expect(() => parseWriteOutput("garbage")).toThrow(/Mail answered/);
+    // Not seen in time: `mail_slow` with Mail's shell, and a text that neither says "write again" nor asks for a deletion.
+    const slow = (() => {
+      try {
+        parseWriteOutput(["pending", "On Mon, Ann wrote:\nq"].join(FS));
+      } catch (e) {
+        return e as DraftWriteError;
+      }
+      return null;
+    })();
+    expect(slow).toMatchObject({ code: "mail_slow", shell: "On Mon, Ann wrote:\nq" });
+    expect(MAIL_SLOW_TEXT).toMatch(/Do not call draft_write again/);
+    expect(MAIL_SLOW_TEXT).not.toMatch(/delete|keep one/i);
   });
 
   it("finds the answered message by Message-ID, read-only: INBOX of each account first, never Drafts, Sent or Trash", async () => {
@@ -96,11 +124,66 @@ describe("the Mail script", () => {
     const seen: string[][] = [];
     const osa: OsaRun = async (_s, args) => {
       seen.push(args);
-      return ["ok", "5", "Re: X", "a@b", "d@x", "", "", "n5@x", "Hi"].join(FS);
+      return okOut();
     };
-    await mailAppDraftWriter(osa).writeReply({ account: "desk", mailboxPath: ["INBOX", "Clients"], messageId: 7, body: "[hub-draft thread=a@b]\nHi", sender: null, replace: ["Old1@x", "old2@x"] });
-    expect(seen[0]).toEqual(["desk", `INBOX${LS}Clients`, "7", "Hi", "", "add", "Hi", `Old1@x${LS}old2@x`]);
+    await mailAppDraftWriter(osa).writeReply({ account: "desk", mailboxPath: ["INBOX", "Clients"], messageId: 7, body: "[hub-draft thread=a@b]\nHi", sender: null, replace: [{ account: "desk", messageId: "<Old1@x>" }, { account: "info", messageId: "old2@x" }], landIn: ["desk", "info"], waitSeconds: 60 });
+    expect(seen[0]).toEqual(["desk", `INBOX${LS}Clients`, "7", "Hi", "", "add", "Hi", `desk${PS}Old1@x${LS}info${PS}old2@x`, `desk${LS}info`, "60"]);
     await expect(mailAppDraftWriter(osa).writeReply({ account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: "[hub-draft thread=a@b]\n  ", sender: null })).rejects.toThrow(/no text/);
+  });
+});
+
+describe("the stored preview of a revision (P65 S5, saas draft 1: a poem cut mid-word into one paragraph)", () => {
+  it("keeps line breaks, collapses spaces, and cuts a long text at a word with an ellipsis, never past 240", () => {
+    expect(excerptOf("Привет,  мой друг!\r\nПисьмо прочёл я,\n\n\n\nКонец.")).toBe("Привет, мой друг!\nПисьмо прочёл я,\n\nКонец.");
+    const poem = Array.from({ length: 12 }, (_, i) => `Строка номер ${i + 1}, и в ней слова`).join("\n");
+    const e = excerptOf(poem);
+    expect(e.length).toBeLessThanOrEqual(240);
+    expect(e.endsWith("…")).toBe(true);
+    expect(e).toContain("\n");
+    expect(poem.startsWith(e.slice(0, -1))).toBe(true);
+    // Cut at a word: the character after the kept text is a space or a line break, never the middle of a word.
+    expect([" ", "\n"]).toContain(poem[e.length - 1]);
+  });
+});
+
+describe("a slow Mail (P65 S5)", () => {
+  it("a cut osascript is mail_slow, not a failure; the thread read is read-only and parses id, Message-ID, account, text", async () => {
+    const cut: OsaRun = async () => {
+      throw new OsaTimeout("Mail did not answer within 150 s");
+    };
+    await expect(mailAppDraftWriter(cut).writeReply({ account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: "Hi", sender: null })).rejects.toMatchObject({ code: "mail_slow", message: MAIL_SLOW_TEXT });
+    expect(THREAD_DRAFTS_SCRIPT).not.toMatch(/\b(send|delete|save|reply|activate)\b/);
+    expect(parseThreadDrafts([["139858", "<0DD9@reforms.ai>", "hello@reforms.ai", `\nHi${FS}x`].join(FS), ["139868", "A76C@reforms.ai", "hello@reforms.ai", "Hi"].join(FS)].join(RS) + RS + "\n")).toEqual([
+      { ref: "139858", messageId: "0DD9@reforms.ai", account: "hello@reforms.ai", body: `\nHi${FS}x` },
+      { ref: "139868", messageId: "A76C@reforms.ai", account: "hello@reforms.ai", body: "Hi" },
+    ]);
+    const seen: string[][] = [];
+    await mailAppDraftWriter(async (_s, a) => (seen.push(a), "")).threadDrafts(["a", "b"], "<T@x>", "Re: Hello");
+    expect(seen[0]).toEqual(["T@x", "Re: Hello", "a", "b"]);
+  });
+
+  it("writeRecorded records the text before Mail is asked, settles a found save and keeps a slow one open with its shell", async () => {
+    const calls: string[] = [];
+    const log: WriteLog = { start: async (t) => (calls.push(`start ${t}`), 7), settle: async (id, s) => void calls.push(`settle ${id} ${s.messageId}`), shell: async (id, t) => void calls.push(`shell ${id} ${t}`) };
+    const w = new FakeDraftWriter();
+    const r = await writeRecorded(w, { account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: "[hub-draft thread=a@b]\nHi Ann", sender: null }, log);
+    expect(calls).toEqual(["start Hi Ann", `settle 7 ${r.messageId}`]);
+    calls.length = 0;
+    const slow: OsaRun = async () => ["pending", "On Mon, Ann wrote:"].join(FS);
+    await expect(writeRecorded(mailAppDraftWriter(slow), { account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: "Hi", sender: null }, log)).rejects.toMatchObject({ code: "mail_slow" });
+    expect(calls).toEqual(["start Hi", "shell 7 On Mon, Ann wrote:"]);
+    // A record that fails never stops the write.
+    const broken: WriteLog = { start: async () => Promise.reject(new Error("SQLITE_BUSY")), settle: async () => undefined, shell: async () => undefined };
+    expect((await writeRecorded(w, { account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: "Hi", sender: null }, broken)).text).toBe("Hi");
+  });
+
+  it("reviseDraft replaces each recorded version in its own account and records where Mail saved the new one", async () => {
+    const out: OsaRun = async (script, args) => (script === WRITE_REPLY_SCRIPT ? (seen.push(args), okOut({ acc: "info@x" })) : ["ok", "dan@x", "INBOX", "7"].join(FS));
+    const seen: string[][] = [];
+    const r = await reviseDraft(mailAppDraftWriter(out), { accounts: ["info@x", "dan@x"], sender: "info@x", mailRef: "in@x", body: "Hi", quote: "keep", versions: [{ account: "dan@x", messageId: "E04C@x" }] });
+    expect(seen[0]?.[7]).toBe(`dan@x${PS}E04C@x`);
+    expect(seen[0]?.[8]).toBe(`dan@x${LS}info@x`);
+    expect(r.account).toBe("info@x");
   });
 });
 
@@ -240,6 +323,54 @@ describe("draft_write (hub mcp)", () => {
     expect(r).toMatchObject({ isError: false, json: { live: false, sent: false } });
     expect(r.json.next).toMatch(/could not record this Mail version/);
     expect(mail.drafts).toHaveLength(1);
+  });
+
+  // P65 S5 (2026-11-19, saas draft 1): a write Mail saved after the writer stopped waiting, then a second write, left the
+  // thread with drafts the Hub wrote but had not recorded, and the agent asked the owner to delete them.
+  it("a write Mail saves late is adopted at the next write and replaced by it: one version stays, nothing for the owner", async () => {
+    const repos = createRepos(db.db);
+    const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Hello", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail" });
+    const mail = new FakeDraftWriter();
+    mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
+    const call = await connect(mail, undefined, { withRepos: (fn) => fn(repos) });
+    mail.slowNext = true;
+    const slow = await call({ draft: rec.draftId, content: "Hi Ann, slow." });
+    expect(slow).toMatchObject({ isError: true, json: { error: "mail_slow" } });
+    expect(slow.json.message).toMatch(/Do not call draft_write again/);
+    expect(slow.json.message).not.toMatch(/delete|keep one/i);
+    const [open] = await repos.mailWrites.ofThread("acme", "m42@example.com", rec.draftId);
+    expect(open).toMatchObject({ draftId: rec.draftId, settledAt: null });
+    // Mail saved it after all; the owner also keeps a draft of his own in the thread.
+    expect(mail.drafts.map((d) => d.text)).toEqual(["Hi Ann, slow."]);
+    mail.drafts.push({ id: 1, messageId: "owner-own@x", account: "desk@acme.example", thread: "m42@example.com", subject: "Re: message 42", text: "my own words", quote: "keep" });
+    const next = await call({ draft: rec.draftId, content: "Hi Ann, again." });
+    expect(next).toMatchObject({ isError: false });
+    expect(mail.drafts.map((d) => d.text).sort()).toEqual(["Hi Ann, again.", "my own words"]);
+    const versions = await repos.mailVersions.ofDraft(rec.draftId);
+    expect(versions.map((v) => [v.source, v.trashedAt === null])).toEqual([["agent", true], ["adopted", false]]);
+    expect((await repos.mailWrites.ofThread("acme", "m42@example.com", rec.draftId)).every((w) => w.settledAt !== null)).toBe(true);
+  });
+
+  it("a second save of a text the Hub recorded is the Hub's (139858 = 139868); a new reply waits for a write still landing", async () => {
+    const repos = createRepos(db.db);
+    const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Hello", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail" });
+    const mail = new FakeDraftWriter();
+    mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
+    mail.inbound.set("m43@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 43 });
+    const call = await connect(mail, undefined, { withRepos: (fn) => fn(repos) });
+    const first = await call({ draft: rec.draftId, content: "Hi Ann, the poem." });
+    mail.drafts.push({ id: 2, messageId: "dup@x", account: "desk@acme.example", thread: "m42@example.com", subject: "Re: message 42", text: "Hi Ann, the poem.", quote: "add" });
+    const second = await call({ draft: rec.draftId, content: "Hi Ann, sarcasm." });
+    expect(new Set(second.json.replaced)).toEqual(new Set([first.json.messageId, "dup@x"]));
+    expect(mail.drafts.map((d) => d.text)).toEqual(["Hi Ann, sarcasm."]);
+    // A new reply whose write is still landing: the late save is adopted and the agent is told to record it, not to write again.
+    mail.slowNext = true;
+    const nr = { account: "desk@acme.example", mailbox_path: ["INBOX"], message_id: 43, content: "Hi Bob." };
+    expect(await call(nr)).toMatchObject({ isError: true, json: { error: "mail_slow" } });
+    const again = await call(nr);
+    expect(again).toMatchObject({ isError: true, json: { error: "already_drafted" } });
+    expect(again.json.message).toMatch(/record it with hub record-draft/);
+    expect(mail.drafts.filter((d) => d.text === "Hi Bob.")).toHaveLength(1);
   });
 
   it("mail-mcp's create_reply is denied: the hub writes every draft", () => {

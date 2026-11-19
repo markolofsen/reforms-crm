@@ -44,8 +44,15 @@ Installed mail-mcp, from its local schemas and README:
   `content`, `save`, from the hub's process (outside the agent's sandbox), Mail in the background, the thread headers
   kept, plain text: the reply and the signature, nothing of the hub's (decision 0031: Mail's scripting has no HTML
   channel and no header element, and a line in the body reaches the client the moment anyone presses Mail.app's Send).
-  The writer finds its draft as the one new draft of the account whose In-Reply-To is the answered message, and the
-  Hub records it (`mail_versions`: account, Mail id, Message-ID, the hash of the text Mail returned; never the text).
+  The writer finds its draft as a new draft whose In-Reply-To is the answered message and whose text starts with the
+  written text, in any of the project's accounts (Mail saves a draft in its From's account), and the Hub records it
+  (`mail_versions`: account, Mail id, Message-ID, the hash of the text Mail returned; never the text). A slow Mail
+  (P65 S5, decision 0031 addendum): every write is recorded before Mail is asked (`mail_writes`: the hash and length of
+  the written text, never the text); the writer waits up to 45 s, and a draft not seen by then is `mail_slow`, not a
+  failure: nothing is replaced and the agent is told not to write again. A late save, a second save of a recorded text
+  or Mail's empty reply shell is recognised by its hash and adopted as the Hub's version at the next write, at the
+  card's next read (which then keeps Mail's newest version and moves the Hub's older ones to Trash) or by `hub drafts
+  unmark`; a draft whose text matches nothing the Hub wrote stays the owner's.
   A revision names only the hub draft (`draft`); the hub finds the answered message by its Message-ID (the draft's
   `mailRef`), moves the older recorded version to Trash and bumps the live topic `mail`, so the open admin card reads
   the new text (P53). A new reply to a message the project already has a draft for is refused (`already_drafted`, the

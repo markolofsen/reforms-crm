@@ -1,8 +1,9 @@
 import { Hono, type Context } from "hono";
 import { DraftWriteError, reviseDraft, versionHash } from "@hub/agent/mail-drafts";
+import { writeLogOf } from "@hub/agent/write-record";
 import type { DraftRow, MailVersionRow, Repos } from "@hub/db";
 import { loadProject } from "@hub/projects";
-import { bareId, findMail, mailHash, type MailDraft } from "@hub/send";
+import { bareId, findMail, mailHash, settleThread, type MailDraft } from "@hub/send";
 import { draftEditBody, sendParam } from "@hub/contract/requests";
 import { draftChangedDto, draftMailDto } from "@hub/contract/responses";
 import { gateRefusal } from "../admin-gate";
@@ -14,7 +15,9 @@ import type { SenderOptions } from "./sends";
  * Restore (the hub's own copy from Trash, written again) and Save (the person's edited text). Both go through the agent's
  * one writer (`reviseDraft`), carry the send ticket's door (exact admin Origin, same-origin fetch: a forged write from
  * another loopback page would rewrite a client's mail), turn Checked off and bump the live topic `mail`. Each records the
- * Mail version it saved (`mail_versions`, P65), and the replace moves only the versions the Hub recorded. Nothing here sends.
+ * Mail version it saved (`mail_versions`, P65), and the replace moves only the versions the Hub recorded. The read heals a
+ * thread the Hub crowded itself (P65 S5, `settleThread`): its own late saves are adopted, its older versions go to Trash.
+ * Nothing here sends.
  */
 export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
   const mailer = sender?.mailer;
@@ -56,11 +59,13 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
     if (!d.mailRef) return refuse(c, "This draft answers no Mail message, so it cannot be written here.");
     const live: MailVersionRow[] = (await repos.mailVersions.ofDraft(d.id)).filter((v) => !v.trashedAt);
     try {
-      const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, mailRef: d.mailRef, body, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })) });
+      const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, mailRef: d.mailRef, body, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), log: writeLogOf((fn) => fn(repos), d.project, d.id, d.mailRef) });
       await repos.mailVersions.add({ project: d.project, mailRef: d.mailRef, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHash(r.text), source });
       const moved = new Set(r.replaced.map(bareId));
       await repos.mailVersions.markTrashed(live.filter((v) => moved.has(bareId(v.messageId))).map((v) => v.id));
     } catch (e) {
+      // P65 S5: slow is not failed. The write is recorded; the card's next read adopts it when Mail saves it.
+      if (e instanceof DraftWriteError && e.code === "mail_slow") return refuse(c, "Mail is slow: it has not shown the saved draft yet. It may still land; the card shows the new text when Mail saves it, and the Hub then moves the older version to Trash. Do not save again now.");
       if (e instanceof DraftWriteError) return refuse(c, `Mail did not take the draft: ${e.message}`);
       throw e;
     }
@@ -83,7 +88,14 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
       const empty = { from: null, to: [], cc: [], subject: "", body: "", hash: null, safetyResults: [], readAt };
       if (!mailer) return c.json(draftMailDto.parse({ configured: false, found: false, reason: "Reading Mail is not set up on this server.", note: null, ...empty }));
       // The card's read shows one version even when Mail holds several (P53); such a text has no hash, so it is never Checked.
-      const f = await findMail({ mailer }, draft, "show", await scopeOf(draft));
+      let f = await findMail({ mailer }, draft, "show", await scopeOf(draft));
+      // P65 S5: several drafts in the thread may all be the Hub's (a late save, a second save): adopt them and keep the
+      // newest, then read again. A draft the Hub did not write stays and keeps the note.
+      if (f.note && sender) {
+        const healed = await settleThread({ mailer, repos }, draft, projectMail(slug)?.accounts ?? []).catch(() => null);
+        // The version rows it wrote bump the live topic `mail` themselves (their triggers), so other tabs read again.
+        if (healed && (healed.adopted.length || healed.moved.length)) f = await findMail({ mailer }, draft, "show", await scopeOf(draft));
+      }
       if (!f.mail) {
         const trash = f.gone ? await inTrash(draft, projectMail(slug)?.accounts ?? []) : null;
         return c.json(draftMailDto.parse({ configured: true, found: false, reason: f.reason, note: null, gone: f.gone ? { trashRef: trash?.ref ?? null } : null, ...empty }));

@@ -6,7 +6,7 @@ export { renameProjectInDb, type DbRenameResult, type RenameTable } from "./rena
 export { dataVersion, isBusy } from "./tx";
 export { bumpTopic, bumpTopicIn, liveSeq, liveSince, LIVE_TABLES, TOPIC_PREFIX, type LiveChange, type LiveTable } from "./live";
 export { RepoError, type RepoErrorCode } from "./errors";
-export { bareRef, buildMatchQuery, createRepos, isExpired, type Repos } from "./repos";
+export { adoptable, bareRef, buildMatchQuery, createRepos, isExpired, shellHashOf, startsWithWrite, textKey, versionHashOf, type Repos } from "./repos";
 export { EVENT_DETAIL_DAYS } from "./repos/runs";
 export type {
   Activity,
@@ -34,9 +34,13 @@ export type {
   DraftRow,
   EventRow,
   KnowledgeDocRow,
+  Adoption,
   MailVersionRow,
   MailVersionSource,
+  MailWriteRow,
   NewMailVersion,
+  NewMailWrite,
+  ThreadDraft,
   NewClient,
   InboxInput,
   InboxItem,

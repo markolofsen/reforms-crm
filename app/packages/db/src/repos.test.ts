@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDb, type DbHandle } from "./client";
-import { createRepos, type Repos } from "./repos";
+import { adoptable, createRepos, shellHashOf, startsWithWrite, textKey, versionHashOf, type Repos } from "./repos";
 import { eq } from "drizzle-orm";
 import { readFixtures, seed } from "./seed";
 import { clients } from "./schema";
@@ -342,6 +342,46 @@ describe("recorded evidence (P28 C1-C3)", () => {
     expect(await repos.drafts.byMailRef("other", "t1@x")).toEqual([]);
     await repos.mailVersions.markTrashed([v]);
     expect((await repos.mailVersions.ofDraft(r.draftId))[0]?.trashedAt).not.toBeNull();
+  });
+
+  it("mail_versions.add keeps one row per recorded Mail draft (P65 S5: the card may adopt a save its writer still waits for)", async () => {
+    const a = await repos.mailVersions.add({ project: "p", mailRef: "t2@x", account: "desk", mailId: 5, messageId: "<Same@x>", hash: "h", source: "adopted" });
+    expect(await repos.mailVersions.add({ project: "p", mailRef: "t2@x", account: "desk", mailId: 5, messageId: "Same@x", hash: "h", source: "agent" })).toBe(a);
+    expect(await repos.mailVersions.add({ project: "p", mailRef: "t2@x", account: "other", mailId: 6, messageId: "Same@x", hash: "h", source: "agent" })).not.toBe(a);
+  });
+
+  it("mail_writes (P65 S5): a write is recorded before the save with the hash of its text, settled once, and found by thread or draft", async () => {
+    const r = await repos.drafts.record({ project: "p", email: "w@x.example", name: "W", subject: "Re", mailRef: "w1@x" });
+    const id = await repos.mailWrites.start({ project: "p", mailRef: "<W1@x>", draftId: r.draftId, text: "Привет,\nмой друг!" });
+    await repos.mailWrites.shell(id, "On Mon, Ann wrote:\nq");
+    const [w] = await repos.mailWrites.ofThread("p", "w1@x", r.draftId);
+    expect(w).toMatchObject({ id, mailRef: "w1@x", draftId: r.draftId, settledAt: null, textLen: "Привет, мой друг!".length, shellHash: shellHashOf("On Mon, Ann wrote: q") });
+    expect(JSON.stringify(w)).not.toMatch(/Привет/);
+    await repos.mailWrites.settle(id, { mailId: 9, messageId: "<N@x>" });
+    await repos.mailWrites.settle(id, { mailId: 10, messageId: "other@x" });
+    expect((await repos.mailWrites.ofThread("p", "w1@x"))[0]).toMatchObject({ mailId: 9, messageId: "N@x" });
+    expect(await repos.mailWrites.ofThread("q", "w1@x")).toEqual([]);
+  });
+
+  it("adoptable (P65 S5, live texts of 2026-11-19): a late save, a second save of a recorded text and the write's shell are the Hub's; anything else stays the owner's", () => {
+    const written = "Привет, мой друг!\nПисьмо прочёл я,";
+    const k = textKey(written);
+    // Mail adds a leading line break, turns U+2028 into a line break, and appends the quote.
+    const late = { ref: "139858", account: "hello@x", messageId: "0DD9@x", body: "\nПривет, мой друг!\u2028Письмо прочёл я,\n\nOn 14 Nov, Mark wrote:\n> q" };
+    const dup = { ref: "139859", account: "hello@x", messageId: "DUP@x", body: "Recorded text\n" };
+    const shell = { ref: "139835", account: "hello@x", messageId: "SH@x", body: "\n\nOn 14 Nov, Mark wrote:\nq\n" };
+    const owner = { ref: "139900", account: "hello@x", messageId: "OWN@x", body: "Привет, мой друг! My own words" };
+    const recorded = { ref: "139868", account: "hello@x", messageId: "A76C@x", body: "anything" };
+    expect(startsWithWrite(late.body, { textHash: k.hash, textLen: k.len })).toBe(true);
+    // A prefix that ends mid-word is not a match.
+    const part = textKey("Привет, мой друг");
+    expect(startsWithWrite("Привет, мой другой", { textHash: part.hash, textLen: part.len })).toBe(false);
+    const versions = [{ account: "hello@x", messageId: "A76C@x", hash: versionHashOf("Recorded text") }];
+    const writes = [{ id: 3, textHash: k.hash, textLen: k.len, shellHash: shellHashOf("On 14 Nov, Mark wrote: q"), settledAt: null }];
+    const got = adoptable([late, dup, shell, owner, recorded], versions, writes).map((a) => [a.draft.ref, a.why, a.writeId]);
+    expect(got).toEqual([["139858", "late_save", 3], ["139859", "same_text", null], ["139835", "shell", 3]]);
+    // A settled write no longer adopts anything by its text or its shell.
+    expect(adoptable([late, shell], [], [{ ...writes[0]!, settledAt: "2026-11-19T12:50:40Z" }])).toEqual([]);
   });
 
   it("signature_language (P65 S2): amber when the newest version the Hub wrote was signed in English for another language", async () => {

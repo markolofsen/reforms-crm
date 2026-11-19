@@ -46,3 +46,12 @@ describe("planSweep (P65)", () => {
     expect(rows.find((r) => r.ref === "100")).toMatchObject({ messageId: "v1@reforms.ai", versionId: versions[0]?.id });
   });
 });
+
+describe("planSweep: the newest is Mail's newest (P65 S5)", () => {
+  it("an adopted late save recorded after a newer version is the older one, by Mail's id", () => {
+    const newer = v(9, "hello@reforms.ai", "A76C@reforms.ai");
+    const late = v(9, "hello@reforms.ai", "0DD9@reforms.ai");
+    const rows = planSweep([h("139868", "hello@reforms.ai", "A76C@reforms.ai"), h("139858", "hello@reforms.ai", "0DD9@reforms.ai")], { accounts: ["hello@reforms.ai"], versions: [newer, late], closed: new Set() });
+    expect(rows.map((r) => [r.ref, r.kind])).toEqual([["139858", "superseded"]]);
+  });
+});

@@ -14,11 +14,11 @@ import { runDraftsUnmark, withoutMarker } from "../src/drafts/unmark-command";
 const md = ["# Acme", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", "| mail.accounts | owner@acme.example | 2026-11-14 | agent |", "| mail.addresses | owner@acme.example | 2026-11-14 | owner |", "| mail.sender | owner@acme.example | 2026-11-14 | owner |", "| tone | brief | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", "- reports: 00000000-0000-4000-8000-000000000002", ""].join("\n");
 const draft = (ref: string, body: string, o: { account?: string; subject?: string } = {}): MailDraft => ({ ref, messageId: `D${ref}@acme.example`, account: o.account ?? "owner@acme.example", inReplyTo: "m42@example.com", sender: "owner@acme.example", to: ["ann@x.example"], cc: [], bcc: [], subject: o.subject ?? "Re: Hello", body, attachments: 0 });
 
-async function setup() {
+async function setup(o: { accounts?: string } = {}) {
   const dir = mkdtempSync(path.join(tmpdir(), "hub-unmark-"));
   const projectsDir = path.join(dir, "projects");
   mkdirSync(path.join(projectsDir, "acme"), { recursive: true });
-  writeFileSync(path.join(projectsDir, "acme", "project.md"), md);
+  writeFileSync(path.join(projectsDir, "acme", "project.md"), o.accounts ? md.replace("| mail.accounts | owner@acme.example |", `| mail.accounts | ${o.accounts} |`) : md);
   const dbPath = path.join(dir, "app.db");
   const h = openDb(dbPath);
   const repos = createRepos(h.db);
@@ -37,7 +37,7 @@ async function setup() {
   // The marked draft as the writer's fake Mail holds it, so its replace can move it.
   writer.drafts.push({ id: 139333, messageId: "D139333@acme.example", account: "owner@acme.example", thread: "m42@example.com", subject: "Re: Hello", text: "marked", quote: "keep" });
   const lines: string[] = [];
-  return { dbPath, writer, mailer, lines, draftId: open.draftId, env: { projectsDir, policyDir: path.join(dir, "state", "projects"), dbPath, mailer, writer, out: (l: string) => lines.push(l) } };
+  return { dbPath, writer, mailer, lines, draftId: open.draftId, env: { projectsDir, policyDir: path.join(dir, "state", "projects"), dbPath, mailer, writer, retryMs: 0, out: (l: string) => lines.push(l) } };
 }
 
 describe("hub drafts unmark", () => {
@@ -50,7 +50,7 @@ describe("hub drafts unmark", () => {
     const s = await setup();
     expect(await runDraftsUnmark({}, s.env)).toBe(0);
     expect(s.lines[0]).toBe("Dry run, nothing written: 1 Mail draft still carries a hub marker line.");
-    expect(s.lines[1]).toMatch(/^acme +draft +1 +owner@acme\.example +Mail id +139333 +D139333@acme\.example +"Re: Hello"$/);
+    expect(s.lines[1]).toMatch(/^acme +draft +1 +owner@acme\.example +Mail id +139333 +D139333@acme\.example +"Re: Hello" +rewrite without the line$/);
     expect(JSON.parse(s.lines[2] ?? "{}")).toEqual({ ok: true, dryRun: true, listed: 1 });
     expect(s.writer.drafts.map((d) => d.text)).toEqual(["marked"]);
   });
@@ -84,5 +84,42 @@ describe("hub drafts unmark", () => {
     h.close();
     expect(versions.filter((v) => v.messageId === "D139333@acme.example").map((v) => v.trashedAt !== null)).toEqual([true]);
     expect(versions).toHaveLength(2);
+  });
+
+  // P65 S5 (realty 2026-11-19): the first --apply rewrote drafts 1 and 2, but Mail saved the rewrites in the From's account
+  // (info@) while the writer looked in dan@ and said not_saved; draft 3's marked version would not delete once.
+  it("a rerun finds a rewrite Mail saved in another account, adopts it, and only moves the marked one to Trash", async () => {
+    const s = await setup({ accounts: "owner@acme.example, info@acme.example" });
+    const twin = { ...s.mailer.drafts[0]!, ref: "139857", messageId: "D139857@acme.example", account: "info@acme.example", body: "\nHi Ann,\u2028\nThe answer.\n\nOn Mon, Ann wrote:\n> q\n" };
+    s.mailer.drafts.push(twin);
+    expect(await runDraftsUnmark({}, s.env)).toBe(0);
+    expect(s.lines[1]).toMatch(/already rewritten as Mail id 139857 \(info@acme\.example\): only the marked one goes to Trash$/);
+    s.lines.length = 0;
+    expect(await runDraftsUnmark({ apply: true }, s.env)).toBe(0);
+    expect(s.writer.drafts.map((d) => d.text)).toEqual(["marked"]);
+    expect(s.mailer.drafts.map((d) => d.ref)).not.toContain("139333");
+    expect(JSON.parse(s.lines.at(-1) ?? "{}")).toMatchObject({ ok: true, rewritten: [{ draftId: s.draftId, from: "139333", to: 139857, trashed: true, rewritten: false }] });
+    const h = openDb(s.dbPath);
+    const versions = await createRepos(h.db).mailVersions.ofDraft(s.draftId);
+    h.close();
+    expect(versions.map((v) => [v.account, v.messageId, v.trashedAt !== null]).sort()).toEqual([["info@acme.example", "D139857@acme.example", false], ["owner@acme.example", "D139333@acme.example", true]]);
+    // A second rerun has nothing left to do.
+    s.lines.length = 0;
+    expect(await runDraftsUnmark({}, s.env)).toBe(0);
+    expect(s.lines[0]).toMatch(/: 0 Mail drafts still carry/);
+  });
+
+  it("a marked version Mail would not delete in the writer's replace is tried again; still refused: exit 1, recorded for the sweep", async () => {
+    const s = await setup();
+    s.writer.drafts = []; // the writer's replace does not reach it (Mail refused the delete)
+    expect(await runDraftsUnmark({ apply: true }, s.env)).toBe(0);
+    expect(s.mailer.drafts.map((d) => d.ref)).not.toContain("139333");
+    const t = await setup();
+    t.writer.drafts = [];
+    t.mailer.failTrash = "Mail got an error: AppleEvent timed out (-1712)";
+    expect(await runDraftsUnmark({ apply: true }, t.env)).toBe(1);
+    const res = JSON.parse(t.lines.at(-1) ?? "{}");
+    expect(res).toMatchObject({ ok: false, rewritten: [{ trashed: false, rewritten: true }] });
+    expect(res.note).toMatch(/Mail would not delete after three tries is still in Drafts beside the rewrite, recorded as the Hub's/);
   });
 });
