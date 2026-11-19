@@ -8,7 +8,8 @@ import { connectionRoutes } from "./routes/connections";
 import { draftRoutes } from "./routes/drafts";
 import { draftMailRoutes } from "./routes/draft-mail";
 import { inboxRoutes } from "./routes/inbox";
-import { instanceRoutes } from "./routes/instance";
+import { coreRoutes, instanceRoutes } from "./routes/instance";
+import type { CoreUpdatesService } from "./core-updates";
 import { overviewRoutes } from "./routes/overview";
 import { projectRoutes } from "./routes/project";
 import { sendRoutes, type SenderOptions } from "./routes/sends";
@@ -60,6 +61,8 @@ export type AppOptions = {
   local?: LocalService;
   /** P67: "Start the Hub after a restart" (`/api/instance/autostart`); without it both routes are 404. */
   autostart?: AutostartService;
+  /** P68: the core update check (`/api/instance/core`); without it both routes are 404. */
+  coreUpdates?: CoreUpdatesService;
   now?: () => Date;
 };
 
@@ -123,6 +126,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .get("/api/pulse", (c) => c.json(pulseDto.parse({ dataVersion: opts.dataVersion?.() ?? 0, serverTime: (opts.now?.() ?? new Date()).toISOString(), health: health() })))
     .get("/api/projects", async (c) => c.json(projectsDto.parse({ projects: await repos.projects.list() })))
     .route("/", instanceRoutes(opts.instance, () => opts.local?.available ?? false))
+    .route("/", coreRoutes(opts.coreUpdates))
     .route("/", draftRoutes(repos, opts.sender))
     .route("/", sendRoutes(repos, opts.sender))
     .route("/", draftMailRoutes(repos, opts.sender))
