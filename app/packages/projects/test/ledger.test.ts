@@ -74,6 +74,26 @@ describe("pre-draft check (B3)", () => {
     expect(v).not.toContain("(a)");
   });
 
+  it("P60 finding 3 (saas 2026-11-19 14:26): a revision after a read of the answered message says it was read and names only what was not", () => {
+    // The session: focus, draft_show, one get_message_content refused for its arguments (no PostToolUse, so no ledger
+    // line), the same read again, then draft_write {draft: 1}. No find_messages, no Notion read.
+    const e = build([read(138994, "markolofsen@gmail.example")]);
+    const rev: CallRecord = { name: "mcp__hub__draft_write", input: { draft: 1, content: "Короткий ответ стихами о новом запросе." } };
+    const r = preDraftCheck(e, rev, { replyFrom: "markolofsen@gmail.example" });
+    expect(r.observation).toMatchObject({ targetRead: true, targetId: 138994, read: 1, required: 3, found: null, historyFind: false, profile: false });
+    const v = r.violations.join(" ");
+    expect(v).toMatch(/^the message being answered \(138994\) was read; the rest of this client's thread and profile was not: missing \(b\)/);
+    expect(v).not.toContain("(a)");
+    expect(v).not.toContain("first");
+    expect(v).toContain("(c) 3 message(s) of this client opened (1 so far; 3 because no history search said how many there are)");
+    expect(v).toContain("(d)");
+    // A history search that finds one message makes the one read enough: only the profile is left.
+    const searched = preDraftCheck(build([find("markolofsen@gmail.example", [138994]), read(138994, "markolofsen@gmail.example")]), rev, { replyFrom: "markolofsen@gmail.example" });
+    expect(searched.violations).toEqual(["the message being answered (138994) was read; the rest of this client's thread and profile was not: missing (d) the client's Notion record (query by Email, or notion-fetch)"]);
+    // Without the read, the old instruction stands.
+    expect(preDraftCheck([], rev, { replyFrom: "markolofsen@gmail.example" }).violations[0]).toMatch(/^read this client's thread and profile first: missing \(a\)/);
+  });
+
   it("a near-copy of an earlier reply in the session is caught live, before it is created", () => {
     const body = (n: string) => `Hi ${n},\n\nThank you for your message and for your patience. We have received your question and our team is reviewing the details of your property now. We will come back to you in the next few days with the information you need, and please contact us if anything changes in the meantime.\n\nKind regards, the desk`;
     const e = build([...careful(10, "a@x.example"), reply(10, body("Anna")), ...careful(20, "b@x.example")]);

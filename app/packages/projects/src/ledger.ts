@@ -187,6 +187,8 @@ export interface Observation {
   /** Address of the client the reply goes to, when the read of the answered message said it. */
   client?: string;
   targetRead: boolean;
+  /** Mail's id of the answered message as the read of it said (a revision's draft does not carry it before its result). */
+  targetId?: number;
   historyFind: boolean;
   /** Messages the history search returned; null: unknown. */
   found: number | null;
@@ -239,9 +241,10 @@ export function observeDraft(entries: readonly LedgerEntry[], index: number): Ob
   const missing: string[] = [];
   if (!target) missing.push("(a) get_message_content of the message being answered");
   if (!finds.length) missing.push("(b) find_messages with this client's address as sender (the history lookup)");
-  if (readIds.length < required) missing.push(`(c) ${required} message(s) of this client opened (${readIds.length} so far)`);
+  // With no history search nothing says how many messages the client has: three are asked for until a search says fewer.
+  if (readIds.length < required) missing.push(`(c) ${required} message(s) of this client opened (${readIds.length} so far${found === null ? `; ${required} because no history search said how many there are` : ""})`);
   if (!profile) missing.push("(d) the client's Notion record (query by Email, or notion-fetch)");
-  return { ...(client ? { client } : {}), targetRead: !!target, historyFind: finds.length > 0, found, read: readIds.length, readIds, required, profile, facts, maxSim, similarTo, index, verdict: judgeSimilarity({ maxSim }), missing };
+  return { ...(client ? { client } : {}), targetRead: !!target, ...(target?.id !== undefined ? { targetId: target.id } : {}), historyFind: finds.length > 0, found, read: readIds.length, readIds, required, profile, facts, maxSim, similarTo, index, verdict: judgeSimilarity({ maxSim }), missing };
 }
 
 /**
@@ -265,7 +268,14 @@ export function preDraftCheck(entries: readonly LedgerEntry[], call: CallRecord,
   const all = [...entries, entry];
   const ob = observeDraft(all, all.length - 1);
   const violations: string[] = [];
-  if (ob.missing.length) violations.push(`read this client's thread and profile first: missing ${ob.missing.join("; ")}`);
+  // P60 finding 3: once the answered message was read, say so, so a warning about the rest of the chain is not read as
+  // "drafted before reading" (saas 2026-11-19 14:26: the message was read, the history search and Notion were not).
+  if (ob.missing.length) {
+    const head = ob.targetRead
+      ? `the message being answered${ob.targetId !== undefined ? ` (${ob.targetId})` : ""} was read; the rest of this client's thread and profile was not`
+      : "read this client's thread and profile first";
+    violations.push(`${head}: missing ${ob.missing.join("; ")}`);
+  }
   if (ob.verdict.level === "red") violations.push(`this reply is a near-copy of an earlier one in this session (${ob.verdict.reasons.join("; ")}): write it from this client's own thread`);
   return { observation: ob, violations };
 }

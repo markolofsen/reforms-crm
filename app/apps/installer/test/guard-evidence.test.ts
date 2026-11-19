@@ -2,6 +2,8 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { pathsAt } from "@hub/config/paths";
+import { createRepos, openDb } from "@hub/db";
 import { runGuard, runGuardPost, writeSessionFiles } from "../src/safety";
 import { sessionFile } from "../src/evidence-store";
 import { CLIENTS } from "../eval/per-client/fixture";
@@ -41,7 +43,10 @@ describe("hub guard evidence ledger and pre-draft check (B3)", () => {
     const warn = mk("warn");
     const w = replies(warn.feed(lazySteps(cs)));
     expect(w).toHaveLength(12);
-    expect(w.every((x) => x.code === 0 && x.stderr.includes("read this client's thread and profile first"))).toBe(true);
+    expect(w.every((x) => x.code === 0 && /: missing \(/.test(x.stderr))).toBe(true);
+    // The first client's message was opened: the warning says so; the others' were not: read first.
+    expect(w[0]!.stderr).toContain("was read; the rest of this client's thread and profile was not");
+    expect(w.slice(1).every((x) => x.stderr.includes("read this client's thread and profile first"))).toBe(true);
     const block = mk("block");
     const b = replies(block.feed(lazySteps(cs)));
     expect(b.every((x) => x.code === 2)).toBe(true);
@@ -77,6 +82,28 @@ describe("hub guard evidence ledger and pre-draft check (B3)", () => {
     const r = g.feed(carefulSteps(b).filter((s) => s.name !== "Bash").map((s) => (s.name.endsWith("create_reply") ? replyFor(b, body("Boris")) : s)));
     expect(replies(r)[0]!.code).toBe(2);
     expect(replies(r)[0]!.stderr).toContain("near-copy");
+  });
+
+  it("P60 finding 3: the saas 14:26 revision (a failed read, a read, draft_write {draft}) is warned for the history and profile, never for the read", async () => {
+    const g = mk("warn");
+    const client = "markolofsen@gmail.example";
+    const h = openDb(pathsAt(g.root, {}).db);
+    const { draftId } = await createRepos(h.db).drafts.record({ project: "fixture-pc", email: client, name: "Mark Effect", subject: "Re: Hello", mailRef: "<calat@mail.gmail.example>" });
+    h.close();
+    const env = { HUB_PROJECT: "fixture-pc", HUB_GUARD: "warn" } as NodeJS.ProcessEnv;
+    const base = (tool_name: string, tool_input: unknown) => ({ session_id: "S1", tool_name, tool_input });
+    // The refused call (unknown argument `mailbox_path`): PreToolUse ran, PostToolUse did not (a tool error).
+    expect(runGuard(JSON.stringify(base("mcp__mail-mcp__get_message_content", { account: "hello@reforms.example", mailbox_path: "[\"INBOX\"]", message_id: 138994 })), { root: g.root, projectsDir: PROJECTS, env }).code).toBe(0);
+    const read = base("mcp__mail-mcp__get_message_content", { account: "hello@reforms.example", mailboxPath: ["INBOX"], message_id: 138994 });
+    runGuard(JSON.stringify(read), { root: g.root, projectsDir: PROJECTS, env });
+    runGuardPost(JSON.stringify({ ...read, tool_response: [{ type: "text", text: JSON.stringify({ id: 138994, sender: `Mark Effect <${client}>`, dateReceived: "2026-11-14T06:27:03.000Z", content: "Hello, a new request" }) }] }), { root: g.root, env });
+    const w = runGuard(JSON.stringify(base("mcp__hub__draft_write", { draft: draftId, content: "Короткий ответ стихами о новом запросе." })), { root: g.root, projectsDir: PROJECTS, env });
+    expect(w.code).toBe(0);
+    expect(w.stderr).toContain("the message being answered (138994) was read");
+    expect(w.stderr).not.toContain("(a)");
+    expect(w.stderr).toContain("(b)");
+    expect(w.stderr).toContain("(c) 3 message(s) of this client opened (1 so far; 3 because no history search said how many there are)");
+    expect(w.stderr).toContain("(d)");
   });
 
   it("the ledger holds no body text", () => {
