@@ -172,6 +172,14 @@ describe("the bulk flow over HTTP", () => {
     const { rules } = (await (await get("/api/safety-rules?project=p")).json()) as { rules: { kind: string; params: { words?: string[] } }[] };
     expect(rules.find((r) => r.kind === "risky_word")!.params.words).toEqual(["moon"]);
   });
+
+  it("P55: reads and edits the agent's model and advisor, and refuses a model it does not know", async () => {
+    expect(await (await get("/api/agent-settings?project=p")).json()).toEqual({ agent: { model: "sonnet", advisor: false, advisorModel: "fable" } });
+    const put = (body: unknown) => app.request("http://127.0.0.1:4317/api/agent-settings", { method: "PUT", headers: H, body: JSON.stringify(body) });
+    expect(await (await put({ project: "p", advisor: true, advisorModel: "opus" })).json()).toEqual({ agent: { model: "sonnet", advisor: true, advisorModel: "opus" } });
+    expect((await put({ project: "p", model: "haiku" })).status).toBe(400);
+    expect(await (await get("/api/agent-settings?project=other")).json()).toEqual({ agent: { model: "sonnet", advisor: false, advisorModel: "fable" } });
+  });
 });
 
 describe("the contract at the edge", () => {

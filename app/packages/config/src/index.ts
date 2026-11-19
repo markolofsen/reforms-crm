@@ -306,6 +306,21 @@ export const DEFAULT_SAFETY_RULES: readonly SafetyRule[] = [
   { kind: "signature_language", enabled: true, level: "amber", params: {} },
 ];
 
+// ---- The agent's model and its advisor, per project (P55). Claude Code only: Codex keeps its own default and has no advisor.
+
+/** The main model of a hub Claude session: the CLI's aliases for the newest of each. */
+export const AGENT_MODELS = ["sonnet", "opus"] as const;
+export type AgentModel = (typeof AGENT_MODELS)[number];
+/** The advisor's model; it must be at least as capable as the main model (Claude Code skips it otherwise), which both are. */
+export const ADVISOR_MODELS = ["fable", "opus"] as const;
+export type AdvisorModel = (typeof ADVISOR_MODELS)[number];
+export const MODEL_LABELS: Record<AgentModel | AdvisorModel, string> = { sonnet: "Sonnet", opus: "Opus", fable: "Fable" };
+
+/** `advisorModel` is kept while the advisor is off, so switching it back on restores the last choice. */
+export type AgentSettings = { model: AgentModel; advisor: boolean; advisorModel: AdvisorModel };
+/** The owner edits these per project (the `agent_settings` table); a project with no row uses the default. */
+export const DEFAULT_AGENT_SETTINGS: Readonly<AgentSettings> = { model: "sonnet", advisor: false, advisorModel: "fable" };
+
 // ---- Placeholders: no batch renders one text for many clients (P28 C5); the agent writes each draft from the owner's brief.
 
 /** The placeholders left in a text (`{first_name}`, `{{x}}`, `[Owner: price]`): what `unresolved_marker` flags. */

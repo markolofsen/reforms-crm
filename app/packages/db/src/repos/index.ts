@@ -1,4 +1,5 @@
 import type { Db } from "../client";
+import { agentSettingsRepo } from "./agent-settings";
 import { batchesRepo } from "./batches";
 import { clientsRepo } from "./clients";
 import { draftsRepo } from "./drafts";
@@ -22,6 +23,7 @@ export function createRepos(db: Db) {
     messengers: messengersRepo(db),
     batches: batchesRepo(db),
     safetyRules: safetyRulesRepo(db),
+    agentSettings: agentSettingsRepo(db),
     sends: sendsRepo(db),
     inbox: inboxRepo(db),
     enrollments: enrollmentsRepo(db),

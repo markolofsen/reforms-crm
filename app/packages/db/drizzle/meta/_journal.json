@@ -169,6 +169,13 @@
       "when": 1795300000006,
       "tag": "0023_mail_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1795300000007,
+      "tag": "0024_agent_settings",
+      "breakpoints": true
     }
   ]
 }

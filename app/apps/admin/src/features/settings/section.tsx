@@ -4,7 +4,9 @@ import { Page } from "@hub/ui/product/page";
 import { SubNav } from "@/components/sub-nav";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
+import { AgentGroup } from "./agent/agent-group";
 import { AgentTools } from "./agent/agent-tools";
+import { SettingsGroup } from "./group";
 import { ConnectionsView } from "./connections/connections-view";
 import { AutostartRow } from "./mac/autostart-row";
 import { CoreBlock } from "./mac/core-block";
@@ -36,12 +38,18 @@ export function MailScreen() {
   );
 }
 
-/** Settings ▸ Agent (P63's Agents page): can this project's sessions work, one table per CLI; later P55's model and P62's connectors. */
+/**
+ * Settings ▸ Agent (P63's Agents page): how this project's sessions start (P55: the model and the advisor), then whether they can
+ * work (the checks of both CLIs); later P62's connectors.
+ */
 export function AgentScreen() {
   const { project } = useProjectScope();
   return (
     <Page nav={<SubNav section="settings" />}>
-      <AgentTools slug={project} />
+      <AgentGroup project={project} />
+      <SettingsGroup id="agent-checks" title="Checks">
+        <AgentTools slug={project} />
+      </SettingsGroup>
     </Page>
   );
 }

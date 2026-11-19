@@ -5,11 +5,11 @@ import { pulseDto } from "@hub/contract/health";
 import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
 import { knowledgeListDto, type KnowledgeView } from "@hub/contract/knowledge";
 import { localOpenedDto, type ServerActionId } from "@hub/contract/local";
-import type { SafetyRuleBody } from "@hub/contract/requests";
-import { projectOverviewDto, projectsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
+import type { AgentSettingsBody, SafetyRuleBody } from "@hub/contract/requests";
+import { agentSettingsDto, projectOverviewDto, projectsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
 import { read } from "./client";
 
-/** The instance's brand and its core update notice (P68), the projects, the pulse, the agent's activity (and its live feed, P59), the safety rules, and the one local Open (P61). */
+/** The instance's brand and its core update notice (P68), the projects, the pulse, the agent's activity (and its live feed, P59), the safety rules and the agent settings (P55), and the one local Open (P61). */
 export const metaApi = {
   instance: () => read(instanceDto, { method: "GET", path: "/api/instance" }),
   /** P68: the server's cached answer; `checkCore` runs one check now (429 within a minute). */
@@ -24,6 +24,9 @@ export const metaApi = {
   knowledge: (project: string, filter: KnowledgeView, q: string) => read(knowledgeListDto, { method: "GET", path: `/api/projects/${encodeURIComponent(project)}/knowledge`, query: { filter, q } }),
   rules: (project: string) => read(safetyRulesDto, { method: "GET", path: "/api/safety-rules", query: { project } }),
   setRule: (project: string, kind: SafetyKind, patch: Omit<SafetyRuleBody, "project">) => read(safetyRuleSavedDto, { method: "PUT", path: `/api/safety-rules/${kind}`, body: { project, ...patch } }),
+  /** P55: the project's agent model and advisor; a change applies at the next session start. */
+  agentSettings: (project: string) => read(agentSettingsDto, { method: "GET", path: "/api/agent-settings", query: { project } }),
+  setAgentSettings: (project: string, patch: Omit<AgentSettingsBody, "project">) => read(agentSettingsDto, { method: "PUT", path: "/api/agent-settings", body: { project, ...patch } }),
   /** P61: the only POST to `/api/local` (a project and a key; the server resolves the path). Called by `components/local-action.tsx`. */
   localOpen: (action: ServerActionId, args: unknown) => read(localOpenedDto, { method: "POST", path: `/api/local/${action}`, body: args }),
 };

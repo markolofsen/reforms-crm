@@ -1,4 +1,5 @@
 import path from "node:path";
+import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from "@hub/config";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 import { denyRules, DENIED_TOOLS } from "./deny";
 import { claudeModeArgs, claudeProtectedPaths, claudeSandbox } from "./session";
@@ -12,7 +13,29 @@ export interface ClaudeSessionInput {
   /** The Node that runs the hub (the hooks call `hub guard` with it). */
   nodeBin: string;
   unattended: boolean;
+  /** P55: the project's model and advisor (Settings ▸ Agent); the default when left out. */
+  agent?: AgentSettings;
 }
+
+/** Claude Code's own off switch for the advisor tool: an absent `advisorModel` cannot unset the owner's personal one. */
+export const ADVISOR_OFF_ENV = "CLAUDE_CODE_DISABLE_ADVISOR_TOOL";
+
+/**
+ * P55: the model keys of the session's settings.json. Pinned per project, so a hub session never inherits the owner's
+ * personal `model` or `advisorModel` from `~/.claude/settings.json` (`--settings` is a higher layer than the user's file;
+ * a key it leaves out falls through). Advisor on: `advisorModel`. Off: no `advisorModel`, and the CLI's disable variable in
+ * `env` (`hub agent` also sets it in the child's environment, the authoritative copy).
+ */
+export function claudeModelSettings(a: AgentSettings = DEFAULT_AGENT_SETTINGS): Record<string, unknown> {
+  return a.advisor ? { model: a.model, advisorModel: a.advisorModel } : { model: a.model, env: { [ADVISOR_OFF_ENV]: "1" } };
+}
+
+/**
+ * P55: the rule line of a Claude session with the advisor on (Codex has no advisor tool; off, there is nothing to consult).
+ * Appended after the binding prompt, never in `sessionRules()` (that text is shared with Codex and with `AGENTS.md`).
+ */
+export const ADVISOR_RULE =
+  "Advisor: consult the `advisor` tool before you change project instructions (project.md, a workflow, knowledge), before a draft built on thin evidence or for a hard client, and before a step that cannot be undone. Not for lookups, and not when the owner gave an explicit instruction: then act.";
 
 /**
  * Edit rules for the protected paths, in every mode: the Edit and Write tools are not sandboxed (only commands are), so the
@@ -41,6 +64,7 @@ export function claudeSettings(i: ClaudeSessionInput): Record<string, unknown> {
   const deny = [...(i.unattended ? all.filter((r) => !dbRules.has(r)) : all), ...protectedEditRules(i.paths)];
   const hub = `${JSON.stringify(i.nodeBin)} ${JSON.stringify(i.paths.hubBin)} guard`;
   return {
+    ...claudeModelSettings(i.agent),
     permissions: { deny },
     hooks: {
       PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: hub, timeout: 20 }] }],

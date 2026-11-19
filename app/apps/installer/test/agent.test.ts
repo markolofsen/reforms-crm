@@ -4,7 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { bindingPrompt, sessionRules } from "@hub/agent/session-rules";
 import { buildClaudeArgs, buildCodexArgs, extraDirs, listProjects, parseAgentArgs, resolveResume, startWithFallback, type AgentPlan } from "../src/agent";
-import { claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
+import { ADVISOR_RULE, claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
+import { DEFAULT_AGENT_SETTINGS } from "@hub/config";
 import { appendEvents, logStoreOf } from "@hub/log/store";
 import { pathsAt } from "@hub/config/paths";
 import { installLink, linkState, planLink, removeLink } from "../src/link";
@@ -202,12 +203,20 @@ describe("P64: --resume <id> resumes one session, with the CURRENT flags", () =>
     expect(parseAgentArgs(["acme", "--", "--resume", ID], ["acme"])).toMatchObject({ mode: "new", extra: ["--resume", ID] });
   });
   it("Claude: the resume argv is the fresh argv (settings, strict MCP, denied tools, binding prompt) with --resume <id> in front", () => {
-    const files = { settings: "/s/settings.json", mcp: "/s/mcp.json", disallowed: ["mcp__mail__send"], rules: [] };
+    const files = { settings: "/s/settings.json", mcp: "/s/mcp.json", disallowed: ["mcp__mail__send"], rules: [], agent: DEFAULT_AGENT_SETTINGS };
     const plan: AgentPlan = { mode: "new", project: "acme", extra: [] };
     const fresh = buildClaudeArgs(plan, [MAP], files, "projects", true);
     const resumed = buildClaudeArgs({ ...plan, mode: "resume", resume: ID }, [MAP], files, "projects", true);
     expect(resumed).toEqual(["--resume", ID, ...fresh]);
     for (const f of [...claudeEnforcementArgs(files), "--append-system-prompt", bindingPrompt("acme", "projects"), "--dangerously-skip-permissions"]) expect(resumed).toContain(f);
+  });
+  it("P55: the advisor's rule line follows the binding prompt only when the project's advisor is on", () => {
+    const files = { settings: "/s/settings.json", mcp: "/s/mcp.json", disallowed: [], rules: [], agent: DEFAULT_AGENT_SETTINGS };
+    const plan: AgentPlan = { mode: "new", project: "acme", extra: [] };
+    const prompt = (a: typeof files) => { const args = buildClaudeArgs(plan, [], a, "projects"); return args[args.indexOf("--append-system-prompt") + 1]; };
+    expect(prompt(files)).toBe(bindingPrompt("acme", "projects"));
+    expect(prompt({ ...files, agent: { ...DEFAULT_AGENT_SETTINGS, advisor: true } })).toBe(`${bindingPrompt("acme", "projects")}\n\n${ADVISOR_RULE}`);
+    expect(sessionRules("acme")).not.toContain("advisor");
   });
 });
 

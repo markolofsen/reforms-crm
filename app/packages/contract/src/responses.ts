@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  ADVISOR_MODELS,
+  AGENT_MODELS,
   AUDIENCES,
   BATCH_FILTERS,
   BATCH_INTENTS,
@@ -196,6 +198,10 @@ export type SafetyRuleDto = z.infer<typeof safetyRuleDto>;
 export const safetyRulesDto = z.object({ rules: z.array(safetyRuleDto) });
 export const safetyRuleSavedDto = z.object({ rule: safetyRuleDto });
 export type SafetyRulesDto = z.infer<typeof safetyRulesDto>;
+
+/** P55: the project's agent settings, Claude Code only (`advisorModel` is kept while the advisor is off). */
+export const agentSettingsDto = z.object({ agent: z.object({ model: z.enum(AGENT_MODELS), advisor: z.boolean(), advisorModel: z.enum(ADVISOR_MODELS) }).strict() });
+export type AgentSettingsDto = z.infer<typeof agentSettingsDto>;
 
 export const eventDto = z.object({
   id: z.number(),

@@ -11,6 +11,8 @@ import { bumpTopic, liveSeq, liveSince, TOPIC_PREFIX, type Db, type LiveChange, 
 
 /** Each table is one topic; `tsc` fails here when a table is added to `schema.ts` without one. */
 export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
+  // P55: the same store and topic as the safety rules.
+  agent_settings: "rules",
   agent_events: "activity",
   agent_runs: "activity",
   batches: "batches",

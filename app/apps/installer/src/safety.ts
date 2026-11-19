@@ -6,7 +6,8 @@ import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/c
 import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
 import { HUB_MCP_SERVERS } from "@hub/agent/deny";
 import { readSession, recordPost, type PostPayload } from "./evidence-store";
-import { openDbReadOnly } from "@hub/db";
+import { openDbReadOnly, readAgentSettings } from "@hub/db";
+import type { AgentSettings } from "@hub/config";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parsePayload, toolCallEvents, toolResultEvent } from "@hub/log/hooks";
@@ -20,7 +21,8 @@ import { appendEvents, logStoreOf } from "@hub/log/store";
 export const stateDir = (root: string) => pathsAt(root).stateProjects;
 export const slugDir = (root: string, slug: string | undefined) => path.join(stateDir(root), slug ?? "_unbound");
 
-export type SessionFiles = ClaudeFiles & { rules: string[] };
+/** `agent`: the project's model and advisor the files were written with (P55), for the launcher's env and rule line. */
+export type SessionFiles = ClaudeFiles & { rules: string[]; agent: AgentSettings };
 
 type McpFile = { mcpServers?: Record<string, Record<string, unknown>> };
 const readMcp = (f: string): Record<string, Record<string, unknown>> => (existsSync(f) ? ((JSON.parse(readFileSync(f, "utf8")) as McpFile).mcpServers ?? {}) : {});
@@ -45,16 +47,20 @@ export function instanceMcpServers(paths: HubPaths, slug: string | undefined, no
   return servers;
 }
 
-/** Writes state/projects/<slug|_unbound>/{settings.json,mcp.json} (git-ignored: state/*) and returns what to pass to claude. */
+/**
+ * Writes state/projects/<slug|_unbound>/{settings.json,mcp.json} (git-ignored: state/*) and returns what to pass to claude.
+ * The model and advisor come from the project's row in the database (P55, Settings ▸ Agent), read at every start.
+ */
 export function writeSessionFiles(root: string, projectsDir: string, slug: string | undefined, nodeBin = process.execPath, paths: HubPaths = pathsAt(root), unattended = false): SessionFiles {
   const dir = slugDir(root, slug);
   mkdirSync(dir, { recursive: true });
-  const settings = claudeSettings({ paths, projectsDir, slug, nodeBin, unattended });
+  const agent = readAgentSettings(paths.db, slug);
+  const settings = claudeSettings({ paths, projectsDir, slug, nodeBin, unattended, agent });
   const settingsFile = path.join(dir, "settings.json");
   writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + "\n");
   const mcpFile = path.join(dir, "mcp.json");
   writeFileSync(mcpFile, JSON.stringify({ mcpServers: instanceMcpServers(paths, slug, nodeBin) }, null, 2) + "\n");
-  return { settings: settingsFile, mcp: mcpFile, disallowed: claudeDisallowed(), rules: (settings.permissions as { deny: string[] }).deny };
+  return { settings: settingsFile, mcp: mcpFile, disallowed: claudeDisallowed(), rules: (settings.permissions as { deny: string[] }).deny, agent };
 }
 
 /** The owner's own Codex folder: where `auth.json` lives (`CODEX_HOME` of the caller, else `~/.codex`). */

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BATCH_FILTERS, CLIENT_FILTERS, INBOX_FILTERS, INBOX_KINDS, MARKS, RUN_STATUSES, SAFETY_KINDS, SETTABLE_STATUSES, TONES } from "@hub/config";
+import { ADVISOR_MODELS, AGENT_MODELS, BATCH_FILTERS, CLIENT_FILTERS, INBOX_FILTERS, INBOX_KINDS, MARKS, RUN_STATUSES, SAFETY_KINDS, SETTABLE_STATUSES, TONES } from "@hub/config";
 
 // Every request the API accepts, once. The server validates with these; the admin imports the types of the bodies it
 // builds. `SETTABLE_STATUSES` has no `sent`: the draft-only invariant is part of the contract.
@@ -44,6 +44,15 @@ export const safetyRuleBody = z.object({
   params: z.object({ words: z.array(text(60)).max(200).optional(), days: z.number().int().min(1).max(3650).optional() }).optional(),
 });
 export type SafetyRuleBody = z.infer<typeof safetyRuleBody>;
+
+/** P55: a change to the project's agent settings (Settings ▸ Agent); a field left out keeps its value. */
+export const agentSettingsBody = z.object({
+  project,
+  model: z.enum(AGENT_MODELS).optional(),
+  advisor: z.boolean().optional(),
+  advisorModel: z.enum(ADVISOR_MODELS).optional(),
+});
+export type AgentSettingsBody = z.infer<typeof agentSettingsBody>;
 
 // Sending (decision 0011, P23 S3). A dry run needs no confirmation; a send carries what the person saw on screen, and
 // the server refuses it when Mail's draft no longer matches. The route is the only place the admin can send from.

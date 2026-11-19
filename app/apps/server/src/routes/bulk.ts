@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import type { Repos } from "@hub/db";
-import { batchQuery, idParam, projectQuery, safetyKindParam, safetyRuleBody } from "@hub/contract/requests";
-import { batchDto, batchesDto, okDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
+import { agentSettingsBody, batchQuery, idParam, projectQuery, safetyKindParam, safetyRuleBody } from "@hub/contract/requests";
+import { agentSettingsDto, batchDto, batchesDto, okDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
 import { toDraft } from "../dto";
 import { notFound, v } from "../http";
 
 /**
  * Batches (P9), read-only since P48 (decision 0025): the agent prepares drafts from the owner's phrase in a session, so no
  * route creates a batch or adds to one. A batch is a view of the drafts it wrote, with one Undo. The safety rules live here
- * too. None sends: `drafts.status` has no `sent` in anything the API accepts (see `SETTABLE_STATUSES`).
+ * too, and the agent's model and advisor (P55: the same store; the next session start reads them). None sends: `drafts.status` has no `sent` in anything the API accepts (see `SETTABLE_STATUSES`).
  */
 export function bulkRoutes(repos: Repos) {
   return new Hono()
@@ -31,5 +31,10 @@ export function bulkRoutes(repos: Repos) {
     .put("/api/safety-rules/:kind", v("param", safetyKindParam), v("json", safetyRuleBody), async (c) => {
       const { project, ...patch } = c.req.valid("json");
       return c.json(safetyRuleSavedDto.parse({ rule: await repos.safetyRules.set(project, c.req.valid("param").kind, patch) }));
+    })
+    .get("/api/agent-settings", v("query", projectQuery), async (c) => c.json(agentSettingsDto.parse({ agent: await repos.agentSettings.get(c.req.valid("query").project) })))
+    .put("/api/agent-settings", v("json", agentSettingsBody), async (c) => {
+      const { project, ...patch } = c.req.valid("json");
+      return c.json(agentSettingsDto.parse({ agent: await repos.agentSettings.set(project, patch) }));
     });
 }

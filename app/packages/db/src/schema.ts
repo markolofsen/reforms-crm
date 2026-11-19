@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
-import type { BatchStatus, DraftStatus, EnrollmentState, EventKind, EvidenceLevel, EvidenceSource, FinishReason, InboxAction, InboxKind, Mark, NotionKind, RunStatus, SafetyKind, SafetyLevel } from "@hub/config";
+import type { AdvisorModel, AgentModel, BatchStatus, DraftStatus, EnrollmentState, EventKind, EvidenceLevel, EvidenceSource, FinishReason, InboxAction, InboxKind, Mark, NotionKind, RunStatus, SafetyKind, SafetyLevel } from "@hub/config";
 
 // Every table carries `project`: one database serves several projects (owner decision).
 // Timestamps are ISO-8601 UTC text.
@@ -519,4 +519,19 @@ export const safetyRules = sqliteTable(
     updatedAt: text("updated_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
   },
   (t) => [uniqueIndex("safety_rules_key").on(t.project, t.kind)],
+);
+
+// The agent's model and its advisor per project (P55), set in Settings ▸ Agent; read by `hub agent` when it writes the Claude
+// session's settings.json. Absent row = `DEFAULT_AGENT_SETTINGS` in @hub/config.
+export const agentSettings = sqliteTable(
+  "agent_settings",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    project: text("project").notNull(),
+    model: text("model").$type<AgentModel>().notNull(),
+    advisor: integer("advisor", { mode: "boolean" }).notNull().default(false),
+    advisorModel: text("advisor_model").$type<AdvisorModel>().notNull(),
+    updatedAt: text("updated_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  },
+  (t) => [uniqueIndex("agent_settings_project").on(t.project)],
 );

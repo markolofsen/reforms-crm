@@ -3,7 +3,7 @@ import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileS
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { AGENT_CLIS, expandTilde, instanceFeatures, pathsAt, type AgentCli, type HubPaths } from "@hub/config/paths";
-import { claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
+import { ADVISOR_OFF_ENV, ADVISOR_RULE, claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
 import { codexArgs, codexHome } from "@hub/agent/codex";
 import { INSTALL_LINE } from "@hub/agent/detect";
 import { CLI_LABELS, modeLine } from "@hub/agent/session";
@@ -93,7 +93,8 @@ export function parseAgentArgs(args: string[], projects: string[]): AgentPlan {
 export function buildClaudeArgs(plan: AgentPlan, dirs: string[] = [], files?: SessionFiles, projectsRel?: string, unattended = false): string[] {
   const base = claudeBaseArgs(unattended, dirs);
   if (files) base.push(...claudeEnforcementArgs(files));
-  if (plan.project) base.push("--append-system-prompt", bindingPrompt(plan.project, projectsRel, plan.identity));
+  // P55: the advisor's rule line only when this project's Claude session has the advisor on.
+  if (plan.project) base.push("--append-system-prompt", bindingPrompt(plan.project, projectsRel, plan.identity) + (files?.agent.advisor ? `\n\n${ADVISOR_RULE}` : ""));
   // P64: never `--continue` (it takes the newest conversation of the instance root, any project's); `continue` is resolved to an id first.
   const lead = plan.mode === "pick" ? ["--resume"] : plan.mode === "resume" && plan.resume ? ["--resume", plan.resume] : [];
   return [...lead, ...base, ...plan.extra];
@@ -203,6 +204,8 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   // An instance keeps no copy of the core skills: the CLI finds them through generated links.
   const linked = syncInstanceSkills(paths);
   const files = writeSessionFiles(env.root, env.projectsDir, plan.project, process.execPath, paths, unattended);
+  // P55: advisor off is the CLI's disable variable (an absent advisorModel would let the owner's personal one through).
+  if (cli === "claude" && !files.agent.advisor) childEnv[ADVISOR_OFF_ENV] = "1";
   let codexHomeDir: string | undefined;
   if (cli === "codex") {
     codexHomeDir = writeCodexHome({ paths, projectsDir: env.projectsDir, slug: plan.project, unattended, nodeBin: process.execPath, instructions });

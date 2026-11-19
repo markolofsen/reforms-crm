@@ -28,6 +28,8 @@ export const keys = {
   timeline: (project: string, clientId: number) => ["timeline", project, clientId] as const,
   project: (project: string) => ["project", project] as const,
   rules: (project: string) => ["rules", project] as const,
+  /** P55: the project's agent model and advisor (Settings ▸ Agent); the same live topic as the safety rules. */
+  agentSettings: (project: string) => ["agent-settings", project] as const,
   /** P70: the Knowledge table, per view and title search. */
   knowledge: (project: string, view: string, q: string) => ["knowledge", project, view, q] as const,
   sends: (project: string) => ["sends", project] as const,
@@ -53,6 +55,7 @@ const activity = of("activity");
 const timeline = of("timeline");
 const project = of("project");
 const rules = of("rules");
+const agentSettings = of("agent-settings");
 const knowledge = of("knowledge");
 const sends = of("sends");
 const agentTools = of("agent-tools");
@@ -75,7 +78,7 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   inbox: (p) => [notByEmail(p), drafts(p), overview()],
   "follow-ups": (p) => [enrollments(p), drafts(p)],
   batches: (p) => [batches(p), drafts(p)],
-  rules: (p) => [rules(p), drafts(p), project(p)],
+  rules: (p) => [rules(p), agentSettings(p), drafts(p), project(p)],
   projects: (p) => [keys.projects(), project(p), knowledge(p), agentTools(p), keys.connections(), overview(), scheme()],
   knowledge: (p) => [project(p), knowledge(p), scheme()],
   messengers: (p) => [drafts(p), notByEmail(p), project(p), keys.connections()],
