@@ -6,7 +6,8 @@ import { inspect } from "@hub/connections";
 import { connectionDto, connectionsDto, type ConnectionDto } from "@hub/contract/connections";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { createApp } from "./app";
-import { appleMailAccounts, chooseProbeKind, fakeProbeDeps } from "./connections";
+import { MailNotAnswering } from "@hub/send";
+import { appleMailAccounts, chooseProbeKind, fakeProbeDeps, type MailAccountsRead } from "./connections";
 import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT } from "./apple-mail";
 
 // Fake secrets in a throwaway folder; the probes are stubs. Nothing here touches a real instance or the network.
@@ -31,7 +32,7 @@ const put = (name: string, text: string, mode = 0o600) => { writeFileSync(join(d
 const stub = (status = 200) => ({
   fetch: (async (url: string) => { calls.push(String(url)); return new Response(JSON.stringify({ name: "Hub bot", result: { username: "hubbot" } }), { status }); }) as unknown as typeof fetch,
 });
-const app = (o: { status?: number; env?: NodeJS.ProcessEnv; minIntervalMs?: number; mail?: () => Promise<string[] | null> } = {}) =>
+const app = (o: { status?: number; env?: NodeJS.ProcessEnv; minIntervalMs?: number; mail?: () => Promise<MailAccountsRead> } = {}) =>
   createApp(repos, { now: () => now, messengers: () => ({ state: "off", reason: "no bot token file", failures: 0, stored: 0 }), connections: { dir: () => dir, env: o.env ?? {}, deps: stub(o.status), ...(o.mail ? { mailAccounts: o.mail } : {}), ...(o.minIntervalMs !== undefined ? { minIntervalMs: o.minIntervalMs } : {}) } });
 type App = ReturnType<typeof app>;
 const list = async (a: App) => { const r = await a.request(`${BASE}/api/connections`); return { status: r.status, text: await r.clone().text(), body: connectionsDto.parse(await r.json()) }; };
@@ -52,13 +53,14 @@ afterEach(() => handle.close());
 describe("GET /api/connections", () => {
   it("lists the token rows of two projects with who uses them, and their mail accounts read-only", async () => {
     await register({ slug: "alpha", settingsJson: settings({ mail: { accounts: ["Work", "Apple Only"], addresses: [] } }) }, { slug: "beta", settingsJson: settings({ notion: { tokenFile: "beta-token", databases: [] } }) });
-    const { status, body } = await list(app({ mail: async () => ["work", "me@example.test"] }));
+    const { status, body } = await list(app({ mail: async () => ({ state: "answered", accounts: ["work", "me@example.test"] }) }));
     expect(status).toBe(200);
     expect(body.connections.map((c) => c.id)).toEqual(["notion:beta-token", "notion:notion-token", "telegram:bot"]);
     expect(body.mail).toEqual([
       { account: "Apple Only", foundInMail: false, usedBy: ["alpha"] },
       { account: "Work", foundInMail: true, usedBy: ["alpha", "beta"] },
     ]);
+    expect(body.mailRead).toEqual({ state: "answered", fix: null });
     expect(row(body.connections, "notion:beta-token")).toMatchObject({ usedBy: ["beta"], secret: { state: "missing" } });
     expect(row(body.connections, "telegram:bot").note).toContain("Poller off");
     expect(body.instance).not.toContain("/");
@@ -70,6 +72,7 @@ describe("GET /api/connections", () => {
     await register({ slug: "alpha" });
     const { body, text } = await list(app());
     expect(body.mail).toEqual([{ account: "Work", foundInMail: null, usedBy: ["alpha"] }]);
+    expect(body.mailRead).toEqual({ state: "not-running", fix: null });
     expect(body.connections.some((c) => c.id.startsWith("mail"))).toBe(false);
     expect(text).not.toContain("fake-app-pass");
   });
@@ -84,13 +87,42 @@ describe("GET /api/connections", () => {
     };
     let t = T0;
     const read = appleMailAccounts({ osa, now: () => t });
-    expect(await read()).toEqual(["work", "me@example.test"]);
-    expect(await read()).toEqual(["work", "me@example.test"]);
+    expect(await read()).toEqual({ state: "answered", accounts: ["work", "me@example.test"] });
+    expect(await read()).toEqual({ state: "answered", accounts: ["work", "me@example.test"] });
     expect(seen).toEqual(["running", "accounts"]);
     running = false;
     t = new Date(T0.getTime() + 61_000);
-    expect(await read()).toBeNull();
+    expect(await read()).toEqual({ state: "not-running" });
     expect(seen).toEqual(["running", "accounts", "running"]);
+  });
+
+  it("a Mail that does not answer is its own state with a fix line, kept a minute, and the rest of the page still comes back", async () => {
+    // Measured 2026-11-19: Mail held AppleEvents (-1712 after 2 min) and GET /api/connections stayed open past 60 s.
+    let asked = 0;
+    const osa = async (script: string) => {
+      if (script === RUNNING_SCRIPT) return "true";
+      asked++;
+      throw new MailNotAnswering(5_000);
+    };
+    const read = appleMailAccounts({ osa, now: () => now });
+    await register({ slug: "alpha" });
+    const { status, body } = await list(app({ mail: read }));
+    expect(status).toBe(200);
+    expect(body.mail).toEqual([{ account: "Work", foundInMail: null, usedBy: ["alpha"] }]);
+    expect(body.mailRead.state).toBe("not-answering");
+    expect(body.mailRead.fix).toMatch(/Quit Mail/);
+    expect(body.connections.map((c) => c.id)).toContain("notion:notion-token");
+    await list(app({ mail: read }));
+    expect(asked).toBe(1);
+  });
+
+  it("the real runner cuts a read at its budget and says Mail is not answering", async () => {
+    const { osaWithin } = await import("@hub/send");
+    const started = Date.now();
+    // `delay 5` never reaches Mail: it only proves the cut. osascript runs on macOS only.
+    if (process.platform !== "darwin") return;
+    await expect(osaWithin(300)("delay 5", [])).rejects.toBeInstanceOf(MailNotAnswering);
+    expect(Date.now() - started).toBeLessThan(3_000);
   });
 
   it("is the same data as inspect() for the same folder", async () => {

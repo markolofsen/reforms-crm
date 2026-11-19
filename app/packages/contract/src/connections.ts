@@ -55,7 +55,7 @@ export type ConnectionDto = z.infer<typeof connectionDto>;
 
 /**
  * One mail account a project lists under `mail.accounts`, read-only. `foundInMail`: Apple Mail has an account with that
- * name or address (`true` / `false`), or Mail is not running, so it could not be asked (`null`, never a guess).
+ * name or address (`true` / `false`), or Mail could not be asked (`null`, never a guess; `mailRead` says why).
  */
 export const mailAccountDto = z.strictObject({
   account: z.string(),
@@ -64,10 +64,23 @@ export const mailAccountDto = z.strictObject({
 });
 export type MailAccountDto = z.infer<typeof mailAccountDto>;
 
+/**
+ * How the one read of Mail's accounts went: `answered`; `not-running` (Mail is closed and is never started for this); or
+ * `not-answering` (Mail runs but held the AppleEvent past its budget, measured 2026-11-19), with the fix line. Either way
+ * the rows say `foundInMail: null` and the rest of the page renders.
+ */
+export const MAIL_READ_STATES = ["answered", "not-running", "not-answering"] as const;
+export const mailReadDto = z.strictObject({
+  state: z.enum(MAIL_READ_STATES),
+  fix: z.string().nullable(),
+});
+export type MailReadDto = z.infer<typeof mailReadDto>;
+
 export const connectionsDto = z.strictObject({
   /** The instance folder's name (a name, not a path). */
   instance: z.string(),
   connections: z.array(connectionDto),
   mail: z.array(mailAccountDto),
+  mailRead: mailReadDto,
 });
 export type ConnectionsDto = z.infer<typeof connectionsDto>;

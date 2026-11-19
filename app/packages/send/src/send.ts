@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { markerLeft, unresolvedMarkers } from "@hub/config";
 import { RepoError, type DraftRow, type MailVersionRow, type Repos, type SendRow } from "@hub/db";
 import { checkDraftRecipients, loadProject, loadProjects, normalizeAddress, type ProjectConfig } from "@hub/projects";
-import { bareId, type MailDraft, type Mailer, type TrashItem } from "./mailer";
+import { bareId, MAIL_NOT_ANSWERING_FIX, MailNotAnswering, type MailDraft, type Mailer, type TrashItem } from "./mailer";
 
 // `hub send` (decision 0011, plan P23). The only code that sends mail. What a project allows (send.*, draft.recipients) is
 // its send policy file (P49 S11), never project.md, which the agent may edit. Every send, manual or automatic, goes through
@@ -185,6 +185,7 @@ export async function findMail(deps: Pick<SendDeps, "mailer">, draft: Pick<Draft
   try {
     all = await deps.mailer.findDrafts({ mailRef: draft.mailRef, subject: draft.subject });
   } catch (e) {
+    if (e instanceof MailNotAnswering) return { reason: `${e.message}. ${MAIL_NOT_ANSWERING_FIX}` };
     return { reason: `Mail could not be read: ${(e as Error).message}` };
   }
   const own = scope.accounts ? new Set(scope.accounts.map((a) => a.trim().toLowerCase())) : null;

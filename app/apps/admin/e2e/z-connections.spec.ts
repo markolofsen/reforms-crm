@@ -48,12 +48,42 @@ test("connections: Mail not running says so, never found or not found", async ({
   await page.route(/\/api\/connections$/, async (route) => {
     const res = await route.fetch();
     const dto = (await res.json()) as { mail: { foundInMail: boolean | null }[] };
-    await route.fulfill({ response: res, json: { ...dto, mail: dto.mail.map((m) => ({ ...m, foundInMail: null })) } });
+    await route.fulfill({ response: res, json: { ...dto, mail: dto.mail.map((m) => ({ ...m, foundInMail: null })), mailRead: { state: "not-running", fix: null } } });
   });
   await page.goto("/connections");
   const mail = page.getByRole("table", { name: "Mail accounts" });
   await expect(mail.getByText("Mail is not running").first()).toBeVisible();
   await expect(mail.getByText(/Found in Apple Mail|Not found in Apple Mail/)).toHaveCount(0);
+  await expect(page.locator("[data-mail-read]")).toHaveCount(0);
+});
+
+test("connections: a Mail that does not answer says so with its fix line, and the rest of the page renders", async ({ page }) => {
+  // Measured 2026-11-19: Mail held AppleEvents and the page stayed skeletons; now the server cuts the read and says why.
+  await page.route(/\/api\/connections$/, async (route) => {
+    const res = await route.fetch();
+    const dto = (await res.json()) as { mail: { foundInMail: boolean | null }[] };
+    await route.fulfill({ response: res, json: { ...dto, mail: dto.mail.map((m) => ({ ...m, foundInMail: null })), mailRead: { state: "not-answering", fix: "Quit Mail (Force Quit if it does not close), open it again, then reload this page." } } });
+  });
+  await page.goto("/connections");
+  const mail = page.getByRole("table", { name: "Mail accounts" });
+  await expect(mail.getByText("Mail is not answering").first()).toBeVisible();
+  await expect(page.locator('[data-mail-read="not-answering"]')).toContainText("Quit Mail");
+  await expect(notion(page).getByRole("button", { name: "Set key for Notion" })).toBeVisible();
+});
+
+test("connections: the autostart switch does not wait for the connections list", async ({ page }) => {
+  let release: () => void = () => {};
+  const held = new Promise<void>((r) => (release = r));
+  await page.route(/\/api\/connections$/, async (route) => {
+    await held;
+    await route.continue().catch(() => {});
+  });
+  await page.goto("/connections");
+  await expect(page.getByRole("status", { name: "Loading the connections" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "This Mac" })).toBeVisible();
+  await expect(page.getByRole("switch", { name: "Start the Hub after a restart" })).toBeVisible();
+  release();
+  await expect(page.getByRole("table", { name: "Mail accounts" })).toBeVisible();
 });
 
 test("connections: a key is written, tested, refused when invalid, replaced, and removed; it is never shown, stored in the browser or answered", async ({ page }) => {

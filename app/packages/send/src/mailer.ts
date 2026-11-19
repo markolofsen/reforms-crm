@@ -68,12 +68,33 @@ export interface Mailer {
 /** Runs osascript with the script and its arguments (`on run argv`). Injected so tests never reach Mail. */
 export type OsaRun = (script: string, args: string[]) => Promise<string>;
 
-export const defaultOsa: OsaRun = (script, args) =>
+/** The one line a page shows when Mail holds an AppleEvent past its budget (measured 2026-11-19: error -1712 after 2 min). */
+export const MAIL_NOT_ANSWERING_FIX = "Quit Mail (Force Quit if it does not close), open it again, then reload this page.";
+
+/** osascript was cut at its budget: Mail is running but did not answer. The message names no account or text. */
+export class MailNotAnswering extends Error {
+  readonly seconds: number;
+  constructor(ms: number) {
+    super(`Mail is not answering (no reply in ${Math.round(ms / 1000)} s)`);
+    this.name = "MailNotAnswering";
+    this.seconds = Math.round(ms / 1000);
+  }
+}
+
+/** osascript with its own budget: at `timeoutMs` the child is killed and the call rejects with `MailNotAnswering`. */
+export const osaWithin = (timeoutMs: number): OsaRun => (script, args) =>
   new Promise((resolve, reject) =>
-    execFile("osascript", ["-e", script, ...args], { timeout: 120_000, maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) =>
-      err ? reject(new Error(String(stderr || err.message).slice(0, 300))) : resolve(stdout),
-    ),
+    execFile("osascript", ["-e", script, ...args], { timeout: timeoutMs, killSignal: "SIGKILL", maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
+      if (!err) return resolve(stdout);
+      if ((err as { killed?: boolean }).killed) return reject(new MailNotAnswering(timeoutMs));
+      reject(new Error(String(stderr || err.message).slice(0, 300)));
+    }),
   );
+
+/** A send, a trash or a long read: two minutes. */
+export const defaultOsa: OsaRun = osaWithin(120_000);
+/** A read a page waits on (the Drafts card, Connections' accounts): a healthy Mail answers in seconds. */
+export const MAIL_READ_TIMEOUT_MS = 20_000;
 
 const FS = "\x1f";
 const RS = "\x1e";
@@ -306,14 +327,18 @@ on parts(s, d)
   return r
 end parts`;
 
-/** Mail.app through osascript. Plain text only; a draft with attachments is refused before it gets here. */
-export function mailAppMailer(osa: OsaRun = defaultOsa): Mailer {
+/**
+ * Mail.app through osascript. Plain text only; a draft with attachments is refused before it gets here. `read` runs the
+ * finds (a page waits on them: the server passes a short budget, so a hung Mail is a "not answering" reason, not a
+ * request open for two minutes); listing, trash and send keep `osa`.
+ */
+export function mailAppMailer(osa: OsaRun = defaultOsa, read: OsaRun = osa): Mailer {
   return {
     async findDrafts(q) {
-      return parseFindOutput(await osa(FIND_SCRIPT, [q.subject]));
+      return parseFindOutput(await read(FIND_SCRIPT, [q.subject]));
     },
     async findInTrash(q) {
-      return parseFindOutput(await osa(FIND_SCRIPT, [q.subject, "trash"]));
+      return parseFindOutput(await read(FIND_SCRIPT, [q.subject, "trash"]));
     },
     async listDrafts() {
       return parseDraftHeads(await osa(LIST_DRAFTS_SCRIPT, []));

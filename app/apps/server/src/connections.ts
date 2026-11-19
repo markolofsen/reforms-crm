@@ -1,10 +1,10 @@
 import { basename } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { inspect, isTelegramToken, notionShapeProblem, parseConnectionId, redact, removeSecret, storeToken, testConnection, type ConnectionRow, type ProbeDeps, type ProjectUse, type Verdict } from "@hub/connections";
-import { CONNECTION_FRESH_MINUTES, type CheckErrorCode, type CheckValueDto, type ConnectionDto, type ConnectionsDto, type MailAccountDto } from "@hub/contract/connections";
+import { CONNECTION_FRESH_MINUTES, type CheckErrorCode, type CheckValueDto, type ConnectionDto, type ConnectionsDto, type MailAccountDto, type MailReadDto } from "@hub/contract/connections";
 import type { SetSecretBody } from "@hub/contract/requests";
 import type { Repos } from "@hub/db";
-import { defaultOsa, throwawayDbNamed, type OsaRun } from "@hub/send";
+import { MAIL_NOT_ANSWERING_FIX, MailNotAnswering, osaWithin, throwawayDbNamed, type OsaRun } from "@hub/send";
 import { readAccounts } from "./apple-mail";
 import { configOf } from "./overview-facts";
 import type { MessengersStatus } from "./messengers";
@@ -54,25 +54,41 @@ export interface ConnectionsOptions {
   minIntervalMs?: number;
   /** Project settings, mapped to what a connection cares about. Default: the registry. */
   projects?: () => Promise<ProjectUse[]>;
-  /** The names and addresses Apple Mail has, or null when it could not be asked. Default: unknown (null), so no test reaches Mail; `main.ts` passes `appleMailAccounts()`. */
-  mailAccounts?: () => Promise<string[] | null>;
+  /** What Apple Mail answered about its accounts. Default: not running, so no test reaches Mail; `main.ts` passes `appleMailAccounts()`. */
+  mailAccounts?: () => Promise<MailAccountsRead>;
 }
 
 /** Two tests of one connection closer than this share the earlier result. Seconds. */
 export const MIN_TEST_SECONDS = 30;
-/** How long one answer of Apple Mail about its accounts is kept. */
+/** How long one answer of Apple Mail about its accounts is kept (a "not answering" too: a hung Mail costs one wait a minute). */
 export const MAIL_ACCOUNTS_TTL_MS = 60_000;
+/**
+ * The budget of one read of Mail's accounts. Measured 2026-11-19: a Mail that holds AppleEvents kept `GET /api/connections`
+ * open past 60 s (osascript's own limit was 2 min), so the whole Connections page, its autostart switch included, stayed
+ * skeletons. A healthy Mail answers in well under a second.
+ */
+export const MAIL_ACCOUNTS_TIMEOUT_MS = 5_000;
 
-/** One `osascript` read of Mail's accounts, at most once per `ttlMs`, shared while in flight; null while Mail is not running or the read fails. */
-export function appleMailAccounts(o: { osa?: OsaRun; now?: () => Date; ttlMs?: number } = {}): () => Promise<string[] | null> {
-  const osa = o.osa ?? defaultOsa;
+/** What one read of Mail's accounts found. `not-running`: Mail is closed (never started for this). */
+export type MailAccountsRead = { state: "answered"; accounts: string[] } | { state: "not-running" } | { state: "not-answering" };
+
+/** The rows' `mailRead`: the state, and the fix line when Mail runs but does not answer. */
+export const mailReadOf = (r: MailAccountsRead): MailReadDto => ({ state: r.state, fix: r.state === "not-answering" ? MAIL_NOT_ANSWERING_FIX : null });
+
+/**
+ * One `osascript` read of Mail's accounts with its own budget, at most once per `ttlMs`, shared while in flight. A cut read
+ * is `not-answering`; any other failure is `not-running` (it could not be asked), never a guess.
+ */
+export function appleMailAccounts(o: { osa?: OsaRun; now?: () => Date; ttlMs?: number; timeoutMs?: number } = {}): () => Promise<MailAccountsRead> {
+  const osa = o.osa ?? osaWithin(o.timeoutMs ?? MAIL_ACCOUNTS_TIMEOUT_MS);
   const now = o.now ?? (() => new Date());
-  let kept: { at: number; value: string[] | null } | undefined;
-  let inflight: Promise<string[] | null> | undefined;
+  let kept: { at: number; value: MailAccountsRead } | undefined;
+  let inflight: Promise<MailAccountsRead> | undefined;
   return async () => {
     if (kept && now().getTime() - kept.at < (o.ttlMs ?? MAIL_ACCOUNTS_TTL_MS)) return kept.value;
     inflight ??= readAccounts(osa)
-      .catch(() => null)
+      .then((accounts): MailAccountsRead => (accounts === null ? { state: "not-running" } : { state: "answered", accounts }))
+      .catch((e: unknown): MailAccountsRead => (e instanceof MailNotAnswering ? { state: "not-answering" } : { state: "not-running" }))
       .then((value) => ((kept = { at: now().getTime(), value }), value))
       .finally(() => (inflight = undefined));
     return inflight;
@@ -105,7 +121,7 @@ export function fakeProbeDeps(): ProbeDeps {
 }
 
 /** With HUB_CONNECTIONS_PROBE=fake: Mail "has" every account a project lists, so no e2e run asks the real Mail. */
-export const fakeMailAccounts = (accounts: () => Promise<string[]>) => async (): Promise<string[] | null> => (await accounts()).map((a) => a.toLowerCase());
+export const fakeMailAccounts = (accounts: () => Promise<string[]>) => async (): Promise<MailAccountsRead> => ({ state: "answered", accounts: (await accounts()).map((a) => a.toLowerCase()) });
 
 const FIX: Record<ConnectionRow["kind"], string> = {
   notion: "Replace the token in this row with a working integration token.",
@@ -141,10 +157,10 @@ export function createConnections(o: ConnectionsOptions): ConnectionsService {
 
   const registry = async () => (await o.repos.projects.registry()).projects.map((p) => ({ slug: p.slug, config: configOf(p) }));
   const projects = o.projects ?? (async (): Promise<ProjectUse[]> => (await registry()).map((p) => ({ slug: p.slug, notionTokenFile: p.config.notion.tokenFile })));
-  const known = o.mailAccounts ?? (async () => null);
+  const known = o.mailAccounts ?? (async (): Promise<MailAccountsRead> => ({ state: "not-running" }));
 
-  /** Every account a registered project lists, once, with the projects that list it; `foundInMail` from one read of Mail. */
-  const mailRows = async (): Promise<MailAccountDto[]> => {
+  /** Every account a registered project lists, once, with the projects that list it; `foundInMail` from one bounded read of Mail. */
+  const mailRows = async (): Promise<{ mail: MailAccountDto[]; mailRead: MailReadDto }> => {
     const by = new Map<string, MailAccountDto>();
     for (const p of await registry()) {
       for (const account of p.config.mail.accounts) {
@@ -153,9 +169,10 @@ export function createConnections(o: ConnectionsOptions): ConnectionsService {
         by.set(account.toLowerCase(), row);
       }
     }
-    if (by.size === 0) return [];
-    const mail = await known();
-    return [...by.values()].map((r) => ({ ...r, foundInMail: mail === null ? null : mail.includes(r.account.toLowerCase()) })).sort((a, b) => a.account.localeCompare(b.account));
+    if (by.size === 0) return { mail: [], mailRead: { state: "answered", fix: null } };
+    const read = await known();
+    const mail = [...by.values()].map((r) => ({ ...r, foundInMail: read.state === "answered" ? read.accounts.includes(r.account.toLowerCase()) : null })).sort((a, b) => a.account.localeCompare(b.account));
+    return { mail, mailRead: mailReadOf(read) };
   };
 
   const rows = async (): Promise<ConnectionRow[]> => {
@@ -166,7 +183,9 @@ export function createConnections(o: ConnectionsOptions): ConnectionsService {
   return {
     async list() {
       const t = now();
-      return { instance: basename(hubPaths().home), connections: (await rows()).map((r) => toDto(r, cache.get(r.id), t)), mail: await mailRows() };
+      // The token rows and Mail's answer are read side by side: a slow Mail never holds the files back past its own budget.
+      const [list, mail] = await Promise.all([rows(), mailRows()]);
+      return { instance: basename(hubPaths().home), connections: list.map((r) => toDto(r, cache.get(r.id), t)), ...mail };
     },
     async setSecret(id, body) {
       const row = (await rows()).find((r) => r.id === id);

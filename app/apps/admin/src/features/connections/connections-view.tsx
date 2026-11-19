@@ -20,8 +20,10 @@ function ConnectionsSkeleton() {
 
 /**
  * Every account of the instance in one place, one group per kind: the projects' mail accounts (read-only, as Apple Mail
- * knows them), the Notion token and the Telegram bot, "This Mac" (P67: whether the Mac starts the Hub at login), then each project's Agent tools (P49, read-only). It reads `GET /api/connections` (files and settings, one read of
+ * knows them), the Notion token and the Telegram bot, "This Mac" (P67: whether the Mac starts the Hub at login), then each project's Agent tools (P49, read-only). It reads `GET /api/connections` (files and settings, one bounded read of
  * Mail's account list) and tests a key on request. A key is never shown: a row says where it stands, not what it is.
+ * "This Mac" has its own query and renders whatever the connections query is doing: a slow Mail must never hide the
+ * autostart switch (measured 2026-11-19: skeletons only, for as long as Mail held its AppleEvents).
  */
 export function ConnectionsView() {
   const now = useClock()();
@@ -29,8 +31,20 @@ export function ConnectionsView() {
   const { status, busy, test, save, remove } = useConnectionActions();
   const data = q.data;
 
-  if (q.isPending) return <ConnectionsSkeleton />;
-  if (!data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the connections" />;
+  if (q.isPending)
+    return (
+      <>
+        <ConnectionsSkeleton />
+        <AutostartRow />
+      </>
+    );
+  if (!data)
+    return (
+      <>
+        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the connections" />
+        <AutostartRow />
+      </>
+    );
   if (data.connections.length === 0 && data.mail.length === 0)
     return (
       <>
@@ -41,7 +55,7 @@ export function ConnectionsView() {
   return (
     <>
       <ConnectionGroup id="mail" title="Mail">
-        <MailAccounts mail={data.mail} />
+        <MailAccounts mail={data.mail} read={data.mailRead} />
       </ConnectionGroup>
       {groupByKind(data.connections).map((g) => (
         <ConnectionGroup id={g.kind} key={g.kind} title={KIND_TITLE[g.kind]}>

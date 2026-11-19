@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { activityDto, activityRowDto, activitySessionDto } from "./activity";
-import { connectionsDto, mailAccountDto } from "./connections";
+import { connectionsDto, mailAccountDto, mailReadDto } from "./connections";
 import { API_VERSION, healthDto } from "./health";
 import { instanceDto } from "./instance";
 import { overviewDto, projectRowDto, STATUS_KINDS, STATUS_LEVELS, statusDto } from "./overview";
@@ -58,7 +58,9 @@ describe("connections and instance (P48 W0)", () => {
   it("a mail account is read-only: account, found in Mail (or unknown), used by", () => {
     expect(mailAccountDto.safeParse({ account: "hello@reforms.ai", foundInMail: null, usedBy: ["saas-support"] }).success).toBe(true);
     expect(mailAccountDto.safeParse({ account: "a", foundInMail: true, usedBy: [], password: "x" }).success).toBe(false);
-    expect(connectionsDto.safeParse({ instance: "saas", connections: [{ id: "mail:a", kind: "mail", label: "x", secret: { state: "stored" }, identity: null, usedBy: [], can: [], check: { state: "never" } }], mail: [] }).success).toBe(false);
+    expect(connectionsDto.safeParse({ instance: "saas", connections: [{ id: "mail:a", kind: "mail", label: "x", secret: { state: "stored" }, identity: null, usedBy: [], can: [], check: { state: "never" } }], mail: [], mailRead: { state: "answered", fix: null } }).success).toBe(false);
+    expect(mailReadDto.safeParse({ state: "not-answering", fix: "Quit Mail" }).success).toBe(true);
+    expect(mailReadDto.safeParse({ state: "hung", fix: null }).success).toBe(false);
   });
   it("the brand has a name, and says only whether a logo exists", () => {
     expect(instanceDto.safeParse({ name: "Reforms SaaS", hasLogo: false, localOpen: true }).success).toBe(true);

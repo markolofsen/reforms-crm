@@ -1,8 +1,9 @@
 import { CheckCircle2Icon, CircleDashedIcon, CircleHelpIcon, ClockIcon, OctagonAlertIcon, XCircleIcon, type LucideIcon } from "lucide-react";
-import type { ConnectionDto, ConnectionKind, MailAccountDto, SecretState } from "@hub/contract/connections";
+import type { ConnectionDto, ConnectionKind, MailAccountDto, MailReadDto, SecretState } from "@hub/contract/connections";
 import { ago, hhmm } from "@/lib/format";
 
 type Look = { word: string; Icon: LucideIcon; tone: string };
+type MailReadState = MailReadDto["state"];
 
 /** Total over the contract's union (a new state fails `tsc`). A state is an icon and a word, never a colour alone. */
 export const SECRET: Record<SecretState, Look> = {
@@ -17,8 +18,12 @@ export const SECRET: Record<SecretState, Look> = {
 export const CHECK_WORD = { fresh: "Tested", stale: "Tested earlier", never: "Not tested yet", refreshing: "Testing", error: "Test failed" } as const satisfies Record<ConnectionDto["check"]["state"], string>;
 export const CHECK_ICON: Record<ConnectionDto["check"]["state"], LucideIcon> = { fresh: CheckCircle2Icon, stale: ClockIcon, never: CircleDashedIcon, refreshing: ClockIcon, error: XCircleIcon };
 
-/** Whether Apple Mail has the account. `null`: Mail is not running, so it could not be asked; never a guess. */
-export function foundLook(found: MailAccountDto["foundInMail"]): Look {
+/**
+ * Whether Apple Mail has the account. `null`: Mail could not be asked, never a guess; `read` says why (closed, or running
+ * but not answering: then the word is a warning, and the section shows the fix line).
+ */
+export function foundLook(found: MailAccountDto["foundInMail"], read: MailReadState = "answered"): Look {
+  if (found === null && read === "not-answering") return { word: "Mail is not answering", Icon: ClockIcon, tone: "text-warning-foreground" };
   if (found === null) return { word: "Mail is not running", Icon: CircleHelpIcon, tone: "text-muted-foreground" };
   return found ? { word: "Found in Apple Mail", Icon: CheckCircle2Icon, tone: "text-success-foreground" } : { word: "Not found in Apple Mail", Icon: XCircleIcon, tone: "text-warning-foreground" };
 }

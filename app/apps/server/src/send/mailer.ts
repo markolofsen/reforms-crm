@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { hubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
 import { loadProject, normalizeAddress } from "@hub/projects";
-import { bareId, chooseMailerKind, FakeMailer, mailAppMailer, type MailDraft, type Mailer, type MailerKind, type DraftQuery } from "@hub/send";
+import { bareId, chooseMailerKind, defaultOsa, FakeMailer, MAIL_READ_TIMEOUT_MS, mailAppMailer, osaWithin, type MailDraft, type Mailer, type MailerKind, type DraftQuery } from "@hub/send";
 
 // Which Mailer the server sends with (decision 0011). `HUB_MAILER` is read here and nowhere else; the rule for its
 // values is `chooseMailerKind` in @hub/send. The fake never leaves the process: it is what the e2e run and tests use.
@@ -74,8 +74,11 @@ export interface ServerMailer {
   mailer: Mailer;
 }
 
-/** Throws on a bad `HUB_MAILER`: the server refuses to start rather than guess which Mailer was meant. */
+/**
+ * Throws on a bad `HUB_MAILER`: the server refuses to start rather than guess which Mailer was meant. The finds a page waits
+ * on (the Drafts card's read) get `MAIL_READ_TIMEOUT_MS`, so a hung Mail is the card's "not answering" line, not a 2 min wait.
+ */
 export function createServerMailer(repos: Repos, projectsDir: string, env: NodeJS.ProcessEnv = process.env): ServerMailer {
   const kind = chooseMailerKind(env);
-  return kind === "fake" ? { kind, mailer: databaseBackedFake(repos, projectsDir) } : { kind, mailer: mailAppMailer() };
+  return kind === "fake" ? { kind, mailer: databaseBackedFake(repos, projectsDir) } : { kind, mailer: mailAppMailer(defaultOsa, osaWithin(MAIL_READ_TIMEOUT_MS)) };
 }

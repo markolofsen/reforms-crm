@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
-import { FakeMailer, type MailDraft } from "../src/mailer";
+import { FakeMailer, MailNotAnswering, mailAppMailer, type MailDraft } from "../src/mailer";
 import { findMail, trashThread } from "../src/send";
 
 // P65 (decision 0031): the thread decides which Mail draft is the hub draft (In-Reply-To = mailRef, To holds the
@@ -29,6 +29,15 @@ const loose = mail("138996", "Hi Mark, an old one without headers.", { inReplyTo
 const scope = { accounts: ["hello@x"], versions: [{ account: "hello@x", messageId: hubs.messageId ?? "", trashedAt: null }] };
 
 describe("findMail: the thread decides (P65 verdict 2)", () => {
+  it("a Mail that does not answer is a reason with the fix line, from the read runner; the send runner is not used to read", async () => {
+    const used: string[] = [];
+    const slow = async () => { used.push("send"); return ""; };
+    const read = async () => { used.push("read"); throw new MailNotAnswering(20_000); };
+    const f = await findMail({ mailer: mailAppMailer(slow, read) }, draft, "show");
+    expect(f.mail).toBeUndefined();
+    expect(f.reason).toBe("Mail is not answering (no reply in 20 s). Quit Mail (Force Quit if it does not close), open it again, then reload this page.");
+    expect(used).toEqual(["read"]);
+  });
   it("one draft of the thread is the draft in both modes, whoever wrote it; other drafts of the subject are named in aside", async () => {
     for (const mode of ["strict", "show"] as const) {
       const f = await findMail({ mailer: new FakeMailer([loose, hubs]) }, draft, mode, scope);

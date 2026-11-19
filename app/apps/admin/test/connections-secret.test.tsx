@@ -22,7 +22,7 @@ describe("a key in the browser", () => {
     const fetchMock = reply(row());
     vi.stubGlobal("fetch", fetchMock);
     const qc = new QueryClient();
-    const list: ConnectionsDto = { instance: "hub", connections: [row({ secret: { state: "missing" }, can: ["set"] })], mail: [] };
+    const list: ConnectionsDto = { instance: "hub", connections: [row({ secret: { state: "missing" }, can: ["set"] })], mail: [], mailRead: { state: "answered", fix: null } };
     qc.setQueryData(CONNECTIONS_KEY, list);
     const saved = await connectionsApi.setSecret("notion:notion-token", { value: SECRET });
     qc.setQueryData<ConnectionsDto>(CONNECTIONS_KEY, (old) => old && { ...old, connections: old.connections.map((c) => (c.id === saved.id ? saved : c)) });

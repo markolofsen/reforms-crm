@@ -19,5 +19,7 @@ describe("connections labels", () => {
 
   it("a mail account is found, not found, or unknown because Mail is not running: never a guess", () => {
     expect([true, false, null].map((f) => foundLook(f).word)).toEqual(["Found in Apple Mail", "Not found in Apple Mail", "Mail is not running"]);
+    expect(foundLook(null, "not-answering").word).toBe("Mail is not answering");
+    expect(foundLook(null, "not-running").word).toBe("Mail is not running");
   });
 });
