@@ -74,29 +74,64 @@ afterEach(async () => {
   server = null;
 });
 
-describe("terminal off (the default)", () => {
-  it("says so, and every other route and the upgrade are 404", async () => {
-    config({});
-    const { call, terminal } = setup();
-    expect(await (await call("GET", "/api/terminal")).json()).toEqual({ enabled: false });
-    expect((await call("POST", "/api/terminal/sessions", { preset: "shell" })).status).toBe(404);
-    expect((await call("DELETE", "/api/terminal/sessions/x")).status).toBe(404);
-    expect((await call("POST", "/api/terminal/tickets", { session: "x" })).status).toBe(404);
-    expect(await upgrade(terminal, TERMINAL_PATH, { origin: ADMIN.origin })).toBe(404);
-    expect(spawned).toEqual([]);
+describe("always on (decision 0032): no switch", () => {
+  it("with an empty config, or a leftover terminal key, every route answers", async () => {
+    for (const cfg of [{}, { terminal: { enabled: false } }]) {
+      config(cfg);
+      spawned = [];
+      const { call } = setup();
+      const s = (await (await call("GET", "/api/terminal")).json()) as Record<string, unknown>;
+      expect(s).toMatchObject({ unattended: false, presets: ["claude", "codex", "shell"], sessions: [], problem: null });
+      expect(s).not.toHaveProperty("enabled");
+      const made = await call("POST", "/api/terminal/sessions", { preset: "shell" });
+      expect(made.status).toBe(201);
+      const { id } = (await made.json()) as { id: string };
+      expect((await call("POST", "/api/terminal/tickets", { session: id })).status).toBe(200);
+      expect((await call("DELETE", `/api/terminal/sessions/${id}`)).status).toBe(200);
+      expect(spawned).toHaveLength(1);
+    }
   });
-  it("a value that is not exactly true leaves it off", async () => {
-    config({ terminal: { enabled: "true" } });
-    expect(await (await setup().call("GET", "/api/terminal")).json()).toEqual({ enabled: false });
+  it("an unknown upgrade path is still 404", async () => {
+    config({});
+    expect(await upgrade(setup().terminal, "/elsewhere", { origin: ADMIN.origin })).toBe(404);
   });
 });
 
-describe("terminal on", () => {
-  beforeEach(() => config({ terminal: { enabled: true }, agent: { default: "codex", unattended: true } }));
+describe("P66: when no tab can start, the state says why and a start is 503 with the same fix", () => {
+  const broken = { reason: "node-pty does not load on this Node (v99): ABI mismatch", fix: "pnpm --dir /core/app install --frozen-lockfile" };
+  it("problem on the state; create and ensure refused without a spawn; the fix line is the readiness's", async () => {
+    config({});
+    let ready: typeof broken | null = broken;
+    const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { SHELL: "/bin/zsh" }, readiness: () => ready, detector: cliDetector({ detect: async () => [fact("claude", "ready")] }) });
+    const app = createApp(repos, { terminal, adminPort: ADMIN_PORT });
+    const call = (method: string, p: string, body?: unknown) => app.request(`${API}${p}`, { method, headers: ADMIN, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    expect(terminal.warm()).toEqual(broken);
+    expect(await (await call("GET", "/api/terminal")).json()).toMatchObject({ problem: broken, presets: ["claude", "codex", "shell"] });
+    for (const [p, body] of [["/api/terminal/ensure", { project: "acme" }], ["/api/terminal/sessions", { preset: "shell" }]] as const) {
+      const r = await call("POST", p, body);
+      expect(r.status).toBe(503);
+      expect(await r.json()).toEqual({ error: `The terminal cannot start: ${broken.reason}.`, code: "terminal_unavailable", fix: broken.fix });
+    }
+    expect(spawned).toEqual([]);
+    // Fixed (he ran the line): the recheck (Agent tools' Refresh) clears it and a tab starts.
+    ready = null;
+    expect(terminal.recheck()).toBeNull();
+    expect(((await (await call("GET", "/api/terminal")).json()) as { problem: unknown }).problem).toBeNull();
+    expect((await call("POST", "/api/terminal/ensure", { project: "acme" })).status).toBe(201);
+  });
+  it("a readiness that throws is a problem, never a crash", () => {
+    config({});
+    const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, readiness: () => { throw new Error("boom"); } });
+    expect(terminal.warm()).toEqual({ reason: "the terminal check failed: boom", fix: "hub doctor --only Agent" });
+  });
+});
+
+describe("the doors", () => {
+  beforeEach(() => config({ agent: { default: "codex", unattended: true } }));
 
   it("offers the presets from the server's table, default CLI first", async () => {
-    const s = (await (await setup().call("GET", "/api/terminal")).json()) as { enabled: boolean; unattended: boolean; presets: string[]; sessions: unknown[] };
-    expect(s).toMatchObject({ enabled: true, unattended: true, presets: ["codex", "claude", "shell"], sessions: [] });
+    const s = (await (await setup().call("GET", "/api/terminal")).json()) as { unattended: boolean; presets: string[]; sessions: unknown[] };
+    expect(s).toMatchObject({ unattended: true, presets: ["codex", "claude", "shell"], sessions: [], problem: null });
   });
   it("a preset runs hub agent in the instance, with the server's Node first and none of the server's switches", async () => {
     const { call } = setup();
@@ -176,7 +211,7 @@ describe("terminal on", () => {
 });
 
 describe("ensure (P57): the column starts the best ready CLI itself, at most one session per project", () => {
-  beforeEach(() => config({ terminal: { enabled: true }, agent: { default: "claude", unattended: false } }));
+  beforeEach(() => config({ agent: { default: "claude", unattended: false } }));
   const argvCli = (n: number) => spawned[n]?.args.at(-1);
 
   it("starts Claude Code when it is ready; a second ensure returns the running session and spawns nothing", async () => {
@@ -266,7 +301,7 @@ describe("P64: ensure resumes the project's last session; + always starts fresh"
     ], at);
   };
   const soon = () => new Date(at.getTime() + 3_600_000);
-  beforeEach(() => config({ terminal: { enabled: true } }));
+  beforeEach(() => config({}));
 
   it("after a restart the column resumes the logged Claude Code session: --resume <id> in the argv, 'resumed' in the title, the line says when", async () => {
     logSession();

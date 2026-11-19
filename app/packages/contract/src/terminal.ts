@@ -41,23 +41,26 @@ export const cliFactDto = z.strictObject({
 export type CliFactDto = z.infer<typeof cliFactDto>;
 
 /**
- * The terminal is on: the instance's mode for the tab badge, the presets in their order (default first), the sessions, and
- * (P57) what the detector found, with when; `clis` is empty and `checkedAt` null until the first detection has finished.
+ * Why no tab can start (P66, `terminalReadiness` in `@hub/terminal`): node-pty missing or not loading, its helper not
+ * executable, the shell missing. The column says the reason and the fix line; a missing CLI is never a problem (Shell starts).
  */
-export const terminalOnDto = z.strictObject({
-  enabled: z.literal(true),
+export const terminalProblemDto = z.strictObject({ reason: z.string(), fix: z.string() });
+export type TerminalProblemDto = z.infer<typeof terminalProblemDto>;
+
+/**
+ * `GET /api/terminal`. The terminal is always on (decision 0032): the instance's mode for the tab badge, the presets in
+ * their order (default first), the sessions, (P57) what the detector found, with when (`clis` is empty and `checkedAt`
+ * null until the first detection has finished), and (P66) `problem`, null unless no tab can start.
+ */
+export const terminalStateDto = z.strictObject({
   unattended: z.boolean(),
   presets: z.array(z.enum(TERMINAL_PRESETS)),
   sessions: z.array(terminalSessionDto),
   clis: z.array(cliFactDto),
   checkedAt: z.string().nullable(),
+  problem: terminalProblemDto.nullable(),
 });
-export type TerminalStateDto = z.infer<typeof terminalOnDto>;
-/**
- * `GET /api/terminal`. Off (`terminal.enabled` not true) says only `{enabled: false}`: every other terminal route and the
- * socket are 404, so nothing is advertised; this one answers 200 so a page of an instance without the terminal logs no error.
- */
-export const terminalStateDto = z.union([z.strictObject({ enabled: z.literal(false) }), terminalOnDto]);
+export type TerminalStateDto = z.infer<typeof terminalStateDto>;
 
 /** `POST /api/terminal/sessions`: a preset and the project of the admin URL (none: only `shell`). */
 /** `theme`: the admin's resolved theme when the tab starts, for `COLORFGBG` (a CLI that cannot query the terminal picks its palette from it). */

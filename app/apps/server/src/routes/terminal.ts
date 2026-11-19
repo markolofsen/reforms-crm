@@ -6,11 +6,11 @@ import { notFound, v } from "../http";
 import { TerminalRefusal, type TerminalService } from "../terminal";
 
 /**
- * `/api/terminal` (P49). Off: the state says `{enabled: false}` and every other route is 404, so nothing is advertised.
- * A ticket, a new session and `ensure` need the admin's exact origin and a same-origin fetch (S4, S5); no route takes a command or a path (S7).
+ * `/api/terminal` (P49; always on, decision 0032). The state carries `problem` when no tab can start (P66); a start then
+ * answers 503 `terminal_unavailable` with the same `fix`. Without the service (a test's bare app) every route is 404. A ticket, a new session and `ensure` need the admin's exact origin and a same-origin fetch (S4, S5); no route takes a command or a path (S7).
  */
 export function terminalRoutes(t: TerminalService | undefined, adminPort: number) {
-  const off = (c: Context) => c.json({ error: "terminal not found", code: "not_found" as const }, 404);
+  const missing = (c: Context) => c.json({ error: "terminal not set up", code: "not_found" as const }, 404);
   /** The exact admin Origin and a same-origin fetch: a tab starts without a click on a `+` item (P57 2f), so both start doors take it. */
   const strict = (c: Context) => {
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
@@ -18,13 +18,14 @@ export function terminalRoutes(t: TerminalService | undefined, adminPort: number
   };
   const refusal = (c: Context, e: unknown) => {
     if (!(e instanceof TerminalRefusal)) throw e;
+    if (e.status === 503) return c.json({ error: e.message, code: "terminal_unavailable" as const, fix: e.fix ?? "hub doctor --only Agent" }, 503);
     const code = e.status === 404 ? ("not_found" as const) : e.status === 409 ? ("wrong_state" as const) : ("invalid" as const);
     return c.json({ error: e.message, code }, e.status);
   };
   return new Hono()
-    .get("/api/terminal", (c) => c.json(terminalStateDto.parse(t?.enabled() ? t.state() : { enabled: false })))
+    .get("/api/terminal", (c) => (t ? c.json(terminalStateDto.parse(t.state())) : missing(c)))
     .post("/api/terminal/sessions", v("json", createSessionBody), async (c) => {
-      if (!t?.enabled()) return off(c);
+      if (!t) return missing(c);
       const no = strict(c);
       if (no) return no;
       const { preset, project, theme } = c.req.valid("json");
@@ -35,7 +36,7 @@ export function terminalRoutes(t: TerminalService | undefined, adminPort: number
       }
     })
     .post("/api/terminal/ensure", v("json", ensureSessionBody), async (c) => {
-      if (!t?.enabled()) return off(c);
+      if (!t) return missing(c);
       const no = strict(c);
       if (no) return no;
       const { project, theme } = c.req.valid("json");
@@ -47,11 +48,11 @@ export function terminalRoutes(t: TerminalService | undefined, adminPort: number
       }
     })
     .delete("/api/terminal/sessions/:id", (c) => {
-      if (!t?.enabled()) return off(c);
+      if (!t) return missing(c);
       return t.close(c.req.param("id")) ? c.json(okDto.parse({ ok: true })) : notFound(c, "terminal session");
     })
     .post("/api/terminal/tickets", v("json", terminalTicketBody), (c) => {
-      if (!t?.enabled()) return off(c);
+      if (!t) return missing(c);
       const no = strict(c);
       if (no) return no;
       const id = c.req.valid("json").session;

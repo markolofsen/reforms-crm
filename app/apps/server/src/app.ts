@@ -42,7 +42,7 @@ export type AppOptions = {
   sender?: SenderOptions & { kind: "mail-app" | "fake" };
   /** SQLite `data_version` of the server's connection; changes when another process commits (see `dataVersion`). */
   dataVersion?: () => number;
-  /** The embedded terminal (P49); without it the terminal is off (`GET /api/terminal` says so, the rest is 404). */
+  /** The embedded terminal (P49, always on: decision 0032). The server always passes it; a test without it gets 404 on its routes. */
   terminal?: TerminalService;
   /** The admin's port, for the exact-origin doors (the terminal ticket). Default 5173. */
   adminPort?: number;

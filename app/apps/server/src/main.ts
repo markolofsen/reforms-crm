@@ -50,7 +50,7 @@ if (probe === "fake") console.log("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PR
 const listed = async () => (await repos.projects.registry()).projects.flatMap((p) => configOf(p).mail.accounts);
 const mailAccounts = probe === "fake" || kind === "fake" ? fakeMailAccounts(listed) : appleMailAccounts();
 const connections = probe === "fake" ? { deps: fakeProbeDeps(), mailAccounts } : { mailAccounts };
-// The embedded terminal (P49): off unless config/config.json says terminal.enabled true; a bad HUB_TERMINAL_SHELL stops the server here.
+// The embedded terminal (P49): always on (decision 0032); a bad HUB_TERMINAL_SHELL stops the server here.
 const paths = hubPaths();
 const ports = instancePorts(paths);
 const fakeShell = chooseShell(process.env) === "fake";
@@ -58,9 +58,10 @@ const fakeTools = chooseAgentTools(process.env) === "fake";
 // P57: one detector of Claude Code and Codex (the owner's login shell), shared by the terminal's pick and Agent tools.
 const detector = serverDetector({ env: process.env, fake: fakeShell || fakeTools });
 const terminal = createTerminal({ paths, repos, adminPort: ports.admin, apiPort: port, fakeShell, detector });
-console.log(`terminal: ${terminal.enabled() ? (fakeShell ? "on, FAKE SHELL (HUB_TERMINAL_SHELL=fake)" : "on (admin origin + ticket only)") : "off (terminal.enabled in config/config.json)"}`);
-terminal.warm();
-const agentTools = createAgentTools({ paths, repos, fake: fakeTools, detector });
+// P66: the readiness check runs now (it sets node-pty's helper bit), not on the first tab.
+const terminalProblem = terminal.warm();
+console.log(`terminal: ${terminalProblem ? `cannot start: ${terminalProblem.reason} (fix: ${terminalProblem.fix})` : fakeShell ? "on, FAKE SHELL (HUB_TERMINAL_SHELL=fake)" : "on (admin origin + ticket only)"}`);
+const agentTools = createAgentTools({ paths, repos, fake: fakeTools, detector, onRefresh: () => void terminal.recheck() });
 // Live panels (P50): the trigger counter tailed every 200 ms; the pollers' state and the Connections files are watched,
 // since they are not rows (a timestamp of the last poll is left out: it moves on every poll and means nothing to a panel).
 const pollers = () => [messengers.status(), sent.status()].map((s) => `${s.state}|${s.reason ?? ""}|${s.lastError ?? ""}`).join("\n");

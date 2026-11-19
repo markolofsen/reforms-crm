@@ -4,13 +4,14 @@ import { z } from "zod";
  * Every refusal the API sends has this one shape, so the admin can show the sentence and decide on the code:
  * `invalid` a request the schema refuses (400), `not_found` (404), `wrong_state` the thing exists but the action does
  * not fit its state (409), `busy` the database is locked by another writer (503, retry once), `forbidden` a host the
- * loopback guard refuses (403), `server` anything unexpected (500).
+ * loopback guard refuses (403), `server` anything unexpected (500), `terminal_unavailable` no terminal tab can start
+ * on this Mac (503, P66: `fix` is the one line that makes it start; the terminal state's `problem` says the same).
  */
-export const API_ERROR_CODES = ["invalid", "not_found", "wrong_state", "busy", "forbidden", "server"] as const;
+export const API_ERROR_CODES = ["invalid", "not_found", "wrong_state", "busy", "forbidden", "server", "terminal_unavailable"] as const;
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];
 
-/** `refused` is the whole list of reasons when a send is refused (409): the same strings `hub send` prints. */
-export const apiError = z.object({ error: z.string(), code: z.enum(API_ERROR_CODES), refused: z.array(z.string()).optional() });
+/** `refused` is the whole list of reasons when a send is refused (409): the same strings `hub send` prints. `fix`: the line that clears a `terminal_unavailable`. */
+export const apiError = z.object({ error: z.string(), code: z.enum(API_ERROR_CODES), refused: z.array(z.string()).optional(), fix: z.string().optional() });
 export type ApiError = z.infer<typeof apiError>;
 
 const codeForStatus = (status: number): ApiErrorCode =>

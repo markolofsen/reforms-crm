@@ -10,13 +10,14 @@ import { logStoreOf } from "@hub/log/store";
 import { chooseResume, type LoggedSession, type ResumeChoice } from "@hub/log/resume";
 import type { CliFactDto, TerminalPreset, TerminalSessionDto } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
-import { nodePty, presetArgv, presetOrder, SessionLimitError, sessionManager, sessionTitle, spawnLine, terminalEnv, terminalSocketServer, type PtySpawn, type SessionManager } from "@hub/terminal";
+import { nodePty, nodePtyRoot, presetArgv, presetOrder, SessionLimitError, sessionManager, sessionTitle, spawnLine, tabShell, terminalEnv, terminalReadiness, terminalSocketServer, type PtySpawn, type SessionManager, type TerminalProblem } from "@hub/terminal";
 import { throwawayDbNamed } from "@hub/send";
 import { gateRefusal, ticketStore, type TicketStore } from "./admin-gate";
 
-// The embedded terminal's server side (P49 section 4, guards S1 to S7). Off unless `terminal.enabled` is exactly true in
-// the instance config; off, every terminal route and the upgrade are 404. The socket goes straight to this port (not
-// through Next's `/api` rewrite) and opens only for the admin's exact origin with a single-use ticket.
+// The embedded terminal's server side (P49 section 4, guards S1 to S7). Always on (decision 0032): no switch; the guards
+// make it safe, not a switch. When no tab can start (P66, `terminalReadiness`), the state carries `problem` and a start is
+// refused with 503 and the same fix line. The socket goes straight to this port (not through Next's `/api` rewrite) and
+// opens only for the admin's exact origin with a single-use ticket.
 
 export const TERMINAL_PATH = "/terminal";
 /** A socket ticket lives 30 s (the page fetches one right before it connects). */
@@ -27,8 +28,13 @@ export interface TerminalOptions {
   repos: Repos;
   adminPort: number;
   apiPort: number;
-  /** Tests: a fake PTY; default node-pty, loaded on the first session only. */
+  /** Tests: a fake PTY; default node-pty from the core, loaded on the first session only. */
   spawn?: PtySpawn;
+  /**
+   * Can a tab start (P66)? Default: `terminalReadiness` on the core with heal (it sets the helper's bit); with an injected
+   * `spawn` (tests) always ready unless the test injects its own.
+   */
+  readiness?: () => TerminalProblem | null;
   /** `HUB_TERMINAL_SHELL=fake`: the fake shell of `test-support/` (refused without `HUB_DB`, like `HUB_MAILER=fake`). */
   fakeShell?: boolean;
   env?: NodeJS.ProcessEnv;
@@ -65,8 +71,11 @@ export function chooseShell(env: NodeJS.ProcessEnv): "login" | "fake" {
 }
 
 export class TerminalRefusal extends Error {
-  constructor(readonly status: 400 | 404 | 409, message: string) { super(message); }
+  constructor(readonly status: 400 | 404 | 409 | 503, message: string, readonly fix: string | null = null) { super(message); }
 }
+
+/** A failed readiness is rechecked at most this often (a state read, a start), so a fix lands without a restart. */
+const RECHECK_MS = 5_000;
 
 export function createTerminal(o: TerminalOptions) {
   const env = o.env ?? process.env;
@@ -75,14 +84,33 @@ export function createTerminal(o: TerminalOptions) {
   const features = () => instanceFeatures(o.paths);
   const fake = o.fakeShell ?? chooseShell(env) === "fake";
   const detector = o.detector ?? serverDetector({ env, fake });
+  const app = path.join(o.paths.core, "app");
+  // The fake shell spawns node, not $SHELL: its check is node's own binary.
+  const readiness = o.readiness ?? (o.spawn ? () => null : () => terminalReadiness({ app, shell: fake ? nodeBin : tabShell(env), heal: true }));
+  let problem: TerminalProblem | null = null;
+  let checkedAt = -Infinity;
+  /** The last readiness; a problem is checked again after `RECHECK_MS` (`force`: Agent tools' Refresh, server start). */
+  const currentProblem = (force = false): TerminalProblem | null => {
+    const at = Date.now();
+    if (force || (problem !== null && at - checkedAt >= RECHECK_MS) || checkedAt === -Infinity) {
+      checkedAt = at;
+      try { problem = readiness(); } catch (e) { problem = { reason: `the terminal check failed: ${e instanceof Error ? e.message : String(e)}`, fix: "hub doctor --only Agent" }; }
+    }
+    return problem;
+  };
+  const refuseIfProblem = () => {
+    const p = currentProblem();
+    if (p) throw new TerminalRefusal(503, `The terminal cannot start: ${p.reason}.`, p.fix);
+  };
   let manager: SessionManager | null = null;
   // A session that ends may have been his `claude auth login`, `codex login` or an install: the next pick reads fresh facts.
-  const sessions = (): SessionManager => (manager ??= sessionManager({ spawn: o.spawn ?? nodePty(), onExit: () => void detector.refresh() }));
+  const sessions = (): SessionManager => (manager ??= sessionManager({ spawn: o.spawn ?? nodePty(nodePtyRoot(app)), onExit: () => void detector.refresh() }));
 
   /** `resume`: a session id from the log (P64, `ensure` only); the `+` menu never passes one, so it always starts fresh. */
   async function create(preset: TerminalPreset, project: string | undefined, theme?: "light" | "dark", resume?: string) {
     const slug = project ?? null;
     if (slug && (await o.repos.projects.get(slug)) === null) throw new TerminalRefusal(404, `no project "${slug}"`);
+    refuseIfProblem();
     if (!presetOrder(features().agent.default, !!slug).includes(preset)) throw new TerminalRefusal(400, `${preset} needs a project in the address`);
     const argv = presetArgv(preset, slug, { nodeBin, hubBin: o.paths.hubBin, resume });
     // The fake shell gets the agent's argv after `--exec` and prints it, so tests see exactly what would run.
@@ -132,6 +160,7 @@ export function createTerminal(o: TerminalOptions) {
       if (slug && (await o.repos.projects.get(slug)) === null) throw new TerminalRefusal(404, `no project "${slug}"`);
       const running = manager?.list().find((s) => s.state === "running" && s.project === slug);
       if (running) return { session: running, created: false, why: null };
+      refuseIfProblem();
       const { facts } = await detector.get();
       const pick = pickPreset(facts, features().agent.default, !!slug);
       const choice: ResumeChoice = pick.preset !== "shell" && slug ? lastSession(slug, pick.preset) : { session: null, why: null };
@@ -150,7 +179,7 @@ export function createTerminal(o: TerminalOptions) {
   /** The Node server's `upgrade` event. Every check runs before `handleUpgrade`, in plain code. */
   function upgrade(req: IncomingMessage, socket: Duplex, head: Buffer): void {
     const url = new URL(req.url ?? "/", "http://127.0.0.1");
-    if (url.pathname !== TERMINAL_PATH || !features().terminal.enabled) return refuse(socket, 404, "Not Found");
+    if (url.pathname !== TERMINAL_PATH) return refuse(socket, 404, "Not Found");
     if (url.search) return refuse(socket, 400, "Bad Request"); // the ticket is the first frame, never in the URL (it would be logged)
     const why = gateRefusal({ origin: req.headers.origin, host: req.headers.host }, o.adminPort, { sameSite: false });
     if (why) return refuse(socket, 403, "Forbidden");
@@ -158,15 +187,20 @@ export function createTerminal(o: TerminalOptions) {
   }
 
   return {
-    enabled: () => features().terminal.enabled,
     state: () => {
       const d = detector.peek();
-      return { enabled: true as const, unattended: features().agent.unattended, presets: presetOrder(features().agent.default, true), sessions: manager?.list() ?? [], clis: (d?.facts ?? []).map(wireFact), checkedAt: d?.at ?? null };
+      return { unattended: features().agent.unattended, presets: presetOrder(features().agent.default, true), sessions: manager?.list() ?? [], clis: (d?.facts ?? []).map(wireFact), checkedAt: d?.at ?? null, problem: currentProblem() };
     },
+    /** Why no tab can start, checked now (server start, Agent tools' Refresh); null when a tab can start. */
+    recheck: () => currentProblem(true),
     create,
     ensure,
-    /** Server start, with the terminal on: detect in the background so the first open does not wait (nobody waits on this). */
-    warm: () => { if (features().terminal.enabled) void detector.get(); },
+    /** Server start: check readiness (it sets the helper's bit), then detect in the background so the first open does not wait. */
+    warm: (): TerminalProblem | null => {
+      const p = currentProblem(true);
+      void detector.get();
+      return p;
+    },
     detector,
     close: (id: string) => manager?.kill(id) ?? false,
     has: (id: string) => manager?.has(id) ?? false,

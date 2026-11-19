@@ -28,6 +28,8 @@ export interface AgentToolsOptions {
   now?: () => Date;
   /** Rows 1 and 2 (P57): the server's shared detector, so they equal the terminal's pick. */
   detector?: CliDetector;
+  /** Refresh also checks again whether a terminal tab can start (P66, the terminal's `recheck`). */
+  onRefresh?: () => void;
 }
 
 export function createAgentTools(o: AgentToolsOptions) {
@@ -47,7 +49,7 @@ export function createAgentTools(o: AgentToolsOptions) {
   return {
     get: async (slug: string) => last.get(slug) ?? compute(slug),
     /** Refresh in Connections also re-detects the CLIs (P57 1e): he may have just signed in. */
-    refresh: (slug: string) => compute(slug, true),
+    refresh: (slug: string) => { o.onRefresh?.(); return compute(slug, true); },
   };
 }
 export type AgentToolsService = ReturnType<typeof createAgentTools>;
