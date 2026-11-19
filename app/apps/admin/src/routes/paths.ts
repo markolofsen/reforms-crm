@@ -39,6 +39,11 @@ export const paths = {
   project: {
     page: () => dest("project.page", route("/project")),
   },
+  /**
+   * `/health` (P68: the core version line links there). It has no row in `ROUTE_TABLE` on purpose: it sits outside the shell and
+   * names no project, so it is a plain `Route` rendered with `@hub/ui/link` (a full page load), not a `Dest` for `AppLink`.
+   */
+  health: () => route("/health"),
 };
 
 /** The list destination of a section (the nav item, the chord, the project switch). */

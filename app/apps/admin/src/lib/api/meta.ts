@@ -2,15 +2,18 @@ import type { RunStatus, SafetyKind } from "@hub/config";
 import { activityDto } from "@hub/contract/activity";
 import { agentFeedDto } from "@hub/contract/agent-feed";
 import { pulseDto } from "@hub/contract/health";
-import { instanceDto } from "@hub/contract/instance";
+import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
 import { localOpenedDto, type ServerActionId } from "@hub/contract/local";
 import type { SafetyRuleBody } from "@hub/contract/requests";
 import { projectOverviewDto, projectsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
 import { read } from "./client";
 
-/** The instance's brand, the projects, the pulse, the agent's activity (and its live feed, P59), the safety rules, and the one local Open (P61). */
+/** The instance's brand and its core update notice (P68), the projects, the pulse, the agent's activity (and its live feed, P59), the safety rules, and the one local Open (P61). */
 export const metaApi = {
   instance: () => read(instanceDto, { method: "GET", path: "/api/instance" }),
+  /** P68: the server's cached answer; `checkCore` runs one check now (429 within a minute). */
+  core: () => read(coreUpdateDto, { method: "GET", path: "/api/instance/core" }),
+  checkCore: () => read(coreUpdateDto, { method: "POST", path: "/api/instance/core/check" }),
   projects: () => read(projectsDto, { method: "GET", path: "/api/projects" }),
   overview: (project: string) => read(projectOverviewDto, { method: "GET", path: "/api/project", query: { project } }),
   pulse: () => read(pulseDto, { method: "GET", path: "/api/pulse" }),

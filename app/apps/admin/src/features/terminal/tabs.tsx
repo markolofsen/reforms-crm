@@ -1,13 +1,13 @@
 "use client";
 
-import { CopyIcon, PanelRightCloseIcon, PlusIcon, XIcon } from "lucide-react";
-import { useState, type KeyboardEvent } from "react";
+import { PanelRightCloseIcon, PlusIcon, XIcon } from "lucide-react";
+import type { KeyboardEvent } from "react";
 import { PRESET_LABELS, type CliFactDto, type CliState, type TerminalPreset, type TerminalProblemDto, type TerminalSessionDto } from "@hub/contract/terminal";
 import { cn } from "@hub/ui/cn";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DesktopHandoffButton } from "@/components/local-action";
-import { copyText } from "@/lib/external";
+import { CopyFix } from "@/components/copy-fix";
 import { useSharedFocus } from "@/lib/focus";
 import { agentSeesLine } from "./agent-sees";
 import { panelId, tabId } from "./session";
@@ -90,19 +90,6 @@ function WhyLine({ why }: { why: string }) {
       <p className="min-w-0 flex-1 truncate" title={why}>{why}</p>
       {fix && <CopyFix fix={fix} />}
     </div>
-  );
-}
-
-/** The copy button of a fix line (P57): the line goes to the clipboard, and the status says so for a screen reader. */
-function CopyFix({ fix }: { fix: string }) {
-  const [said, setSaid] = useState<string | null>(null);
-  return (
-    <>
-      <ActionButton aria-label={`Copy ${fix}`} icon onClick={() => void copyText(fix).then((ok) => setSaid(ok ? `Copied: ${fix}` : "The browser refused the clipboard: select the line and copy it."))} size="s" variant="quiet">
-        <CopyIcon aria-hidden="true" />
-      </ActionButton>
-      <span className="sr-only" role="status">{said}</span>
-    </>
   );
 }
 
