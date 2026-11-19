@@ -7,7 +7,7 @@ type Props = { nodes: readonly SchemeNode[]; multi: boolean };
 
 /** A part's name: a link to the page that fixes it only when it is not working, so a healthy Hub adds no tab stop. */
 function PartName({ n }: { n: SchemeNode }) {
-  if (n.state === "ok" || n.place === null) return <span className="font-medium">{n.label}</span>;
+  if (n.state === "ok" || n.place === null || n.place === "overview") return <span className="font-medium">{n.label}</span>;
   return (
     <AppLink className="font-medium text-foreground" inProject={n.project} to={placeDest(n.place)}>
       {n.label}
@@ -25,7 +25,7 @@ function State({ n }: { n: SchemeNode }) {
   );
 }
 
-/** The fix: the source's own command line as text (copying is Agents' and Connections' job, not Overview's). */
+/** The fix: the source's own command line as text (copying is the Settings panes' job, not Overview's). */
 function Fix({ n }: { n: SchemeNode }) {
   if (!n.fix) return null;
   return <code className="block min-w-0 whitespace-pre-wrap break-all rounded-sm bg-muted px-1.5 py-0.5 text-xs">{n.fix}</code>;

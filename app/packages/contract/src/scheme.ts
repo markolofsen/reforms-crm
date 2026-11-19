@@ -25,7 +25,7 @@ export const schemeNode = z.strictObject({
   project: z.string().nullable(),
   label: z.string().max(80),
   state: z.enum(SCHEME_STATES),
-  /** What is wrong, in plain words; "" when ok. */
+  /** What is wrong, in plain words; when ok "" or a reassurance (the project setup's "16 of 16 checks pass", P70). */
   detail: z.string(),
   /** The source's own fix line (an Agent tools row's, a Connections test's, the core update command), else null. Never invented here. */
   fix: z.string().nullable(),

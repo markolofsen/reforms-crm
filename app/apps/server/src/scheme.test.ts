@@ -75,7 +75,7 @@ describe("composeScheme", () => {
     expect(byId(d, "alpha:notion-db")).toMatchObject({ state: "unknown", place: "overview" });
     expect(byId(d, "alpha:knowledge")).toMatchObject({ state: "ok", label: "Knowledge base (12 entries)", place: "knowledge" });
     expect(byId(d, "alpha:mail-filters")).toMatchObject({ state: "ok", label: "Mail filters (3 rules)" });
-    expect(byId(d, "alpha:setup")).toMatchObject({ state: "ok" });
+    expect(byId(d, "alpha:setup")).toMatchObject({ state: "ok", detail: "1 of 1 checks pass", fix: null });
     expect(byId(d, "alpha:mailbox:hello@example.test")).toMatchObject({ state: "ok", label: "hello@example.test", place: "mail" });
     expect(byId(d, "alpha:send-door")).toMatchObject({ state: "ok", place: "sending" });
     expect(byId(d, "cli:claude")).toMatchObject({ state: "ok", label: "Claude Code 2.1.0" });
@@ -105,8 +105,16 @@ describe("composeScheme", () => {
       }),
     );
     expect(byId(d, "alpha:mailbox:hello@example.test")).toMatchObject({ state: "unknown", fix: "quit Mail" });
-    expect(byId(d, "alpha:setup")).toMatchObject({ state: "fail", detail: "Failing: workflows parse." });
+    expect(byId(d, "alpha:setup")).toMatchObject({ state: "fail", detail: "Failing: workflows parse. workflows parse: 1 error", fix: "Say “настрой проект” in a session (project-setup)", place: "overview" });
     expect(byId(d, "alpha:knowledge")).toMatchObject({ state: "warn", detail: "2 expired." });
+  });
+
+  it("P70: more than three failing checks are named three and counted; test mode is not a setup problem (Sending says it)", async () => {
+    const fails = ["a", "b", "c", "d", "e"].map((n) => ({ name: n, outcome: "fail" as const, detail: `${n} broke` }));
+    const d = await composeScheme(sources({ doctor: async () => ({ ...DOCTOR, checks: fails }) }));
+    expect(byId(d, "alpha:setup")?.detail).toBe("Failing: a, b, c and 2 more. a: a broke");
+    const test = await composeScheme(sources({ doctor: async () => ({ ...DOCTOR, facts: { ...DOCTOR.facts!, recipients: "test" } }) }));
+    expect(byId(test, "alpha:setup")).toMatchObject({ state: "ok" });
   });
 
   it("the core (P68): a required update is broken with the command as its fix; current is ok", async () => {

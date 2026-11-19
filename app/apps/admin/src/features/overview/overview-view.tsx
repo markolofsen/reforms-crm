@@ -7,10 +7,11 @@ import { ProjectList, ProjectTable } from "./project-rows";
 import { SchemeBlock } from "./scheme";
 
 /**
- * How the whole Hub stands, on every instance (P63). With two or more projects first one sentence that counts the projects
- * that need the owner and one row per project leading into its Drafts (list first); with one project neither (they would repeat
- * Project's status line). Then the parts table. Reads `GET /api/overview` and `GET /api/scheme` (local state only); nothing here
- * reads Notion or runs a check, so there is nothing to refresh by hand: Agents and Connections hold Refresh and Test.
+ * What needs you, on every instance (P63, P70). With two or more projects first one sentence that counts the projects that need
+ * the owner and one row per project leading into its Drafts (list first); with one project neither (they would repeat the Drafts
+ * status line). Then "Needs you" or "Everything works", and every part folded under "All parts". Reads `GET /api/overview`,
+ * `GET /api/scheme` and each project's files (local state only); nothing here reads Notion or runs a check, so there is nothing
+ * to refresh by hand: Settings ▸ Agent and ▸ Connections hold Refresh and Test.
  */
 export function OverviewView() {
   const now = useClock()();
@@ -33,7 +34,7 @@ export function OverviewView() {
         </>
       )}
       {q.isError && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
-      <SchemeBlock multi={multi} />
+      <SchemeBlock multi={multi} projects={rows.filter((p) => !p.archived).map((p) => p.slug)} />
     </>
   );
 }

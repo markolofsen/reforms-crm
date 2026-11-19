@@ -32,8 +32,13 @@ export interface SchemeSources {
 const CLI_LABEL = { claude: "Claude Code", codex: "Codex" } as const;
 const NOT_RUN = "Run the check on Settings ▸ Agent";
 
-type Part = Omit<SchemeNode, "detail" | "fix"> & { detail?: string; fix?: string | null };
-const node = (p: Part): SchemeNode => ({ ...p, detail: p.state === "ok" ? "" : (p.detail ?? ""), fix: p.state === "ok" ? null : (p.fix ?? null) });
+type Part = Omit<SchemeNode, "detail" | "fix"> & { detail?: string; fix?: string | null; /** What a healthy part may still say (P70: "16 of 16 checks pass"). */ okDetail?: string };
+const node = ({ okDetail, ...p }: Part): SchemeNode => ({ ...p, detail: p.state === "ok" ? (okDetail ?? "") : (p.detail ?? ""), fix: p.state === "ok" ? null : (p.fix ?? null) });
+
+/** The phrase that fixes a project's setup (P70: Overview shows a phrase as the fix of what a session fixes). */
+export const SETUP_PHRASE = "Say “настрой проект” in a session (project-setup)";
+/** "notion.access, knowledge, filters and 2 more": at most three names, then how many more. */
+const names = (list: readonly string[]): string => list.slice(0, 3).join(", ") + (list.length > 3 ? ` and ${list.length - 3} more` : "");
 
 const ROW_STATE: Record<AgentToolRow["state"], SchemeState> = { pass: "ok", warn: "warn", fail: "fail", skip: "unknown" };
 const worse = (a: SchemeState, b: SchemeState): SchemeState => (["fail", "warn", "unknown", "ok"].find((s) => s === a || s === b) as SchemeState);
@@ -104,13 +109,14 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
   const notion = checks.filter((c) => c.name.startsWith("notion"));
   const failed = checks.filter((c) => c.outcome === "fail" && !c.name.startsWith("notion"));
   const run = checks.filter((c) => c.outcome !== "skipped");
+  // P70: a failing check is named with its own detail (the first one) and the phrase that fixes it; test mode is Sending's, not setup's.
+  const first = failed[0];
   const setup =
-    doctor.state === "absent" ? { state: "fail" as const, detail: "No project.md yet." }
-    : failed.length > 0 ? { state: "fail" as const, detail: `Failing: ${failed.map((c) => c.name).join(", ")}.` }
-    : doctor.facts?.status === "draft" ? { state: "warn" as const, detail: "The project is still a draft." }
-    : doctor.facts?.recipients === "test" ? { state: "warn" as const, detail: "Drafts go to the test list only." }
+    doctor.state === "absent" ? { state: "fail" as const, detail: "No project.md yet.", fix: SETUP_PHRASE }
+    : first ? { state: "fail" as const, detail: `Failing: ${names(failed.map((c) => c.name))}. ${first.name}: ${first.detail}`, fix: SETUP_PHRASE }
+    : doctor.facts?.status === "draft" ? { state: "warn" as const, detail: "The project is still a draft.", fix: SETUP_PHRASE }
     : run.length === 0 ? { state: "unknown" as const, detail: "No check ran here." }
-    : { state: "ok" as const };
+    : { state: "ok" as const, okDetail: `${run.length - run.filter((c) => c.outcome === "warn").length} of ${run.length} checks pass` };
   out.push(node({ ...p("setup", "setup"), label: "Project setup", ...setup, place: "overview" }));
   const nState: SchemeState = notion.some((c) => c.outcome === "fail") ? "fail" : notion.some((c) => c.outcome === "warn") ? "warn" : notion.length > 0 && notion.every((c) => c.outcome === "pass") ? "ok" : "unknown";
   const nBad = notion.find((c) => c.outcome === "fail" || c.outcome === "warn");
