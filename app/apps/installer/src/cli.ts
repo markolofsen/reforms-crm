@@ -21,6 +21,7 @@ import { initInstance, InitError } from "./init";
 import { findInstances, instanceStatus, statusTable } from "./status";
 import { execa } from "execa";
 import { runMenu } from "./menu";
+import { detectClis } from "@hub/agent/detect";
 import { runTests, runUp } from "./serve";
 import { projectRows, projectTable } from "./project-table";
 import { recordClient } from "./record-client";
@@ -509,7 +510,8 @@ async function main(): Promise<void> {
   let argv = process.argv.slice(2);
   if (argv.length === 0) {
     if (!process.stdin.isTTY || !process.stdout.isTTY) { program.outputHelp(); return; }
-    const chosen = await runMenu(listProjects(projectsDir()), instanceFeatures(ctxOf().paths).agent.default);
+    // P57: the CLIs are detected in the owner's login shell while he picks the action and project.
+    const chosen = await runMenu(listProjects(projectsDir()), instanceFeatures(ctxOf().paths).agent.default, detectClis().catch(() => null));
     if (!chosen) return;
     argv = chosen;
   }

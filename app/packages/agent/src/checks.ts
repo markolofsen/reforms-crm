@@ -4,6 +4,7 @@ import path from "node:path";
 import { codexSessionPaths, type AgentCli, type HubPaths } from "@hub/config/paths";
 import { codexConfigBypasses, codexHome, CODEX_PROFILE } from "./codex";
 import { DENIED_TOOLS, DRAFT_TOOLS, HUB_MCP_SERVERS, SEND_LIKE_TOOL } from "./deny";
+import { INSTALL_LINE, LOGIN_LINE, type CliFact } from "./detect";
 import { CLI_LABELS, MEASURED_VERSIONS } from "./session";
 
 // "Agent tools" (P49 section 5B): per CLI and per project, whether a hub agent session has what it needs, loaded and
@@ -29,6 +30,8 @@ export interface AgentCheckInput {
   cli: AgentCli;
   unattended: boolean;
   probe: AgentProbe;
+  /** What the detector found on this Mac (`@hub/agent/detect`): rows 1 and 2 are read from it, never probed again here. */
+  facts: readonly CliFact[];
 }
 
 const json = (p: string): Record<string, any> | null => {
@@ -49,23 +52,21 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   const label = CLI_LABELS[cli];
   const sessionDir = path.join(paths.stateProjects, slug);
   const cHome = codexHome(paths, slug);
-  const codexEnv = { ...process.env, CODEX_HOME: cHome };
 
-  // 1. The CLI and its version (the sandbox flags were measured on one version each).
-  const v = await probe.run(cli, ["--version"]).catch(() => ({ code: 127, stdout: "", stderr: "" }));
-  const version = /(\d+\.\d+\.\d+)/.exec(v.stdout)?.[1] ?? null;
-  if (v.code !== 0 || !version) row("cli.version", `${label} installed`, "fail", `${cli} not found on PATH`, cli === "claude" ? "npm i -g @anthropic-ai/claude-code" : "npm i -g @openai/codex");
-  else if (version !== MEASURED_VERSIONS[cli]) row("cli.version", `${label} installed`, "warn", `${version}; the sandbox was measured on ${MEASURED_VERSIONS[cli]}: rerun the unattended checks of @docs/core/24-terminal.md`, `${cli} --version`);
-  else row("cli.version", `${label} installed`, "pass", version);
-  const installed = v.code === 0 && !!version;
-
-  // 2. Signed in. Claude signs in on its first start; Codex keeps auth.json, linked into the session's own home.
-  if (cli === "claude") row("cli.signed-in", "Signed in", "skip", "Claude Code asks on its first start");
-  else if (!installed) row("cli.signed-in", "Signed in", "skip", "Codex is not installed");
-  else {
-    const s = await probe.run("codex", ["login", "status"], codexEnv).catch(() => ({ code: 1, stdout: "", stderr: "" }));
-    if (s.code === 0) row("cli.signed-in", "Signed in", "pass", (s.stdout || s.stderr).trim().split("\n")[0] || "signed in");
-    else row("cli.signed-in", "Signed in", "fail", "codex login status: not signed in (the session links your auth.json)", `codex login && ${prepare}`);
+  // 1 and 2. Found, its version, signed in: from the detector (P57), the same facts the terminal picks with, so the rows and
+  // the automatic start can never disagree. The sign-in is the owner's (each project's Codex home links his auth.json).
+  const f = i.facts.find((x) => x.cli === cli);
+  if (!f || f.state === "unknown") {
+    row("cli.version", `${label} installed`, "warn", f?.detail ?? "not checked", "hub doctor --only Agent");
+    row("cli.signed-in", "Signed in", "skip", "not checked");
+  } else if (f.state === "missing" || !f.version) {
+    row("cli.version", `${label} installed`, "fail", f.detail, INSTALL_LINE[cli]);
+    row("cli.signed-in", "Signed in", "skip", `${label} is not installed`);
+  } else {
+    if (f.version !== MEASURED_VERSIONS[cli]) row("cli.version", `${label} installed`, "warn", `${f.version}; the sandbox was measured on ${MEASURED_VERSIONS[cli]}: rerun the unattended checks of @docs/core/24-terminal.md`, `${cli} --version`);
+    else row("cli.version", `${label} installed`, "pass", f.version);
+    if (f.state === "ready") row("cli.signed-in", "Signed in", "pass", f.detail.replace(/^\S+ · /, ""));
+    else row("cli.signed-in", "Signed in", "fail", `${label} is not signed in`, cli === "codex" ? `${LOGIN_LINE.codex} && ${prepare}` : LOGIN_LINE.claude);
   }
 
   // 3. The generated session files.
@@ -144,7 +145,7 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   return rows;
 }
 
-/** The real probe: CLIs on PATH, MCP over stdio (one JSON line each way) or streamable HTTP. 10 s per server. */
+/** The real probe: commands on the caller's PATH, MCP over stdio (one JSON line each way) or streamable HTTP. 10 s per server. */
 export function defaultProbe(o: { timeoutMs?: number; fetch?: typeof fetch } = {}): AgentProbe {
   const ms = o.timeoutMs ?? 10_000;
   const init = { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "hub-agent-tools", version: "0" } } };
@@ -208,7 +209,7 @@ export function fakeAgentRows(slug: string, cli: AgentCli): AgentCheckRow[] {
   const r = (id: string, title: string, state: AgentCheckState, detail: string, fix: string | null = null): AgentCheckRow => ({ id, cli, title, state, detail, fix });
   return [
     r("cli.version", `${CLI_LABELS[cli]} installed`, "pass", MEASURED_VERSIONS[cli]),
-    r("cli.signed-in", "Signed in", cli === "claude" ? "skip" : "pass", cli === "claude" ? "Claude Code asks on its first start" : "Logged in"),
+    r("cli.signed-in", "Signed in", "pass", "signed in (fake)"),
     r("session.files", "Session files written", "fail", "no session files for this project yet", prepareLine(slug, cli)),
     r("mcp.answers.notion", "notion answers", "warn", "HTTP 401 (a remote server: sign in once per session home)", cli === "codex" ? "codex mcp login notion" : "claude /mcp"),
     r("send-tools.off", "Send tools off", "pass", `${DENIED_TOOLS.length} denied`),

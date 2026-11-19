@@ -1,11 +1,12 @@
 "use client";
 
-import { PanelRightCloseIcon, PlusIcon, XIcon } from "lucide-react";
-import type { KeyboardEvent } from "react";
-import { PRESET_LABELS, type TerminalSessionDto } from "@hub/contract/terminal";
+import { CopyIcon, PanelRightCloseIcon, PlusIcon, XIcon } from "lucide-react";
+import { useState, type KeyboardEvent } from "react";
+import { PRESET_LABELS, type CliFactDto, type CliState, type TerminalPreset, type TerminalSessionDto } from "@hub/contract/terminal";
 import { cn } from "@hub/ui/cn";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
+import { copyText } from "@/lib/external";
 import { useSharedFocus } from "@/lib/focus";
 import { agentSeesLine } from "./agent-sees";
 import { panelId, tabId } from "./session";
@@ -17,7 +18,16 @@ export function tabTitle(s: TerminalSessionDto): string {
   return s.state === "exited" ? `${title} (exit ${s.exitCode ?? "?"})` : title;
 }
 
-/** The `+` menu: the presets the server offers here, in its order; the first is the default. Without a project, only Shell. */
+/** What the `+` menu says of a CLI the detector found not ready (P57 2j); a ready or unchecked one says nothing. */
+const STATE_NOTE: Record<CliState, string | null> = { ready: null, "signed-out": "not signed in", missing: "not installed", unknown: null };
+
+/** A preset's fact: Shell has none. */
+const factOf = (clis: readonly CliFactDto[], p: TerminalPreset): CliFactDto | undefined => (p === "shell" ? undefined : clis.find((c) => c.cli === p));
+
+/**
+ * The `+` menu: the presets the server offers here, in its order; the first is the default. Without a project, only Shell. A CLI
+ * that is not installed is disabled with its reason; one not signed in says so and still starts (its first screen signs in).
+ */
 function NewMenu() {
   const t = useTerminal();
   return (
@@ -31,12 +41,16 @@ function NewMenu() {
             <MenuGroupLabel className="w-64 whitespace-normal">{t.full ? "Eight terminals are running. Close one to start another." : "Claude Code and Codex start from a project's screen."}</MenuGroupLabel>
           </MenuGroup>
         )}
-        {t.offered.map((p, i) => (
-          <MenuItem disabled={t.full} key={p} onClick={() => t.create(p)}>
-            {PRESET_LABELS[p]}
-            {i === 0 && t.offered.length > 1 && <span className="ms-auto ps-4 text-muted-foreground text-xs">default</span>}
-          </MenuItem>
-        ))}
+        {t.offered.map((p, i) => {
+          const f = factOf(t.clis, p);
+          const note = [f ? STATE_NOTE[f.state] : null, i === 0 && t.offered.length > 1 ? "default" : null].filter(Boolean).join(", ");
+          return (
+            <MenuItem disabled={t.full || f?.state === "missing"} key={p} onClick={() => t.create(p)}>
+              {PRESET_LABELS[p]}
+              {note && <span className="ms-auto ps-4 text-muted-foreground text-xs">{note}</span>}
+            </MenuItem>
+          );
+        })}
       </MenuPopup>
     </Menu>
   );
@@ -49,6 +63,26 @@ function AgentSees() {
     <p className="truncate px-3 pb-1.5 text-muted-foreground text-xs" data-testid="agent-sees">
       {agentSeesLine(published)}
     </p>
+  );
+}
+
+/**
+ * The one quiet line when the automatic start was not the first choice (P57 2i, 2k): which CLI started and why, ending in the
+ * command that fixes it (" · claude auth login"), with a copy button. Never a dialog, never a toast only.
+ */
+function WhyLine({ why }: { why: string }) {
+  const fix = why.includes(" · ") ? (why.split(" · ").at(-1) ?? null) : null;
+  const [said, setSaid] = useState<string | null>(null);
+  return (
+    <div className="flex min-h-8 items-center gap-1 px-3 pb-1.5 text-muted-foreground text-xs" data-testid="terminal-why">
+      <p className="min-w-0 flex-1 truncate" title={why}>{why}</p>
+      {fix && (
+        <ActionButton aria-label={`Copy ${fix}`} icon onClick={() => void copyText(fix).then((ok) => setSaid(ok ? `Copied: ${fix}` : "The browser refused the clipboard: select the line and copy it."))} size="s" variant="quiet">
+          <CopyIcon aria-hidden="true" />
+        </ActionButton>
+      )}
+      <span className="sr-only" role="status">{said}</span>
+    </div>
   );
 }
 
@@ -97,6 +131,7 @@ export function TerminalHeader({ layer }: { layer: boolean }) {
           {layer ? "Hide" : <PanelRightCloseIcon aria-hidden="true" />}
         </ActionButton>
       </div>
+      {t.why && <WhyLine why={t.why} />}
       {current && current.preset !== "shell" && <AgentSees />}
       {t.notice && (
         <p className="px-3 pb-2 text-destructive-foreground text-sm" role="alert">

@@ -1,7 +1,10 @@
 import { okDto } from "@hub/contract/responses";
-import { terminalSessionDto, terminalStateDto, terminalTicketDto, type CreateSessionBody, type TerminalStateDto } from "@hub/contract/terminal";
+import { ensureSessionDto, terminalSessionDto, terminalStateDto, terminalTicketDto, type CreateSessionBody, type EnsureSessionBody, type TerminalStateDto } from "@hub/contract/terminal";
 import type { FocusPost } from "@hub/contract/focus";
 import { ApiFailure, read } from "./client";
+
+/** The resolved theme is the `.dark` class next-themes keeps on <html>: a new tab's CLI learns it through COLORFGBG. */
+const theme = (): "light" | "dark" => (document.documentElement.classList.contains("dark") ? "dark" : "light");
 
 /**
  * The embedded terminal's REST half (P49; the bytes go over the socket in `features/terminal/socket.ts`). The whole surface is
@@ -19,8 +22,12 @@ export const terminalApi = {
     }
   },
   /** A preset and the project of the admin URL (none: only `shell`); 409 at the cap of eight. */
-  // The resolved theme is the `.dark` class next-themes keeps on <html>: the new tab's CLI learns it through COLORFGBG.
-  create: (body: CreateSessionBody) => read(terminalSessionDto, { method: "POST", path: "/api/terminal/sessions", body: { ...body, theme: document.documentElement.classList.contains("dark") ? "dark" : "light" } }),
+  create: (body: CreateSessionBody) => read(terminalSessionDto, { method: "POST", path: "/api/terminal/sessions", body: { ...body, theme: theme() } }),
+  /**
+   * The column became visible (P57): the running session of this project, else the server starts its pick (the first ready
+   * CLI). At most one session per project, even from two tabs at once. Not `+`: that is `create`.
+   */
+  ensure: (body: EnsureSessionBody) => read(ensureSessionDto, { method: "POST", path: "/api/terminal/ensure", body: { ...body, theme: theme() } }),
   /** Ends the session (its process group is killed). */
   close: (id: string) => read(okDto, { method: "DELETE", path: `/api/terminal/sessions/${encodeURIComponent(id)}` }),
   /** A single-use ticket for one connect of the session's socket, and the socket's address (the API port, straight). */

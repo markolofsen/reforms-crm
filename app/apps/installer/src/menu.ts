@@ -1,5 +1,6 @@
 import * as p from "@clack/prompts";
 import type { AgentCli } from "@hub/config/paths";
+import { pickPreset, type CliFact } from "@hub/agent/detect";
 import { CLI_LABELS } from "@hub/agent/session";
 import { PHRASES } from "./agent";
 import { c } from "./term";
@@ -15,8 +16,14 @@ const FILTER_ACTIONS = [
 
 const cancelled = <T>(v: T | symbol): v is symbol => p.isCancel(v);
 
-/** The interactive menu. Returns the argv of the chosen command (parsed by the same CLI), or null when the user leaves. */
-export async function runMenu(projects: string[], defaultCli: AgentCli = "claude"): Promise<string[] | null> {
+/** What the `With` list says of a CLI the detector found not ready (P57); a ready one says nothing. */
+const STATE_HINT = { ready: null, "signed-out": "not signed in", missing: "not installed", unknown: null } as const;
+
+/**
+ * The interactive menu. Returns the argv of the chosen command (parsed by the same CLI), or null when the user leaves.
+ * `facts`: the detector's answer, started before the menu (it takes about 4 s in a login shell), awaited only at `With`.
+ */
+export async function runMenu(projects: string[], defaultCli: AgentCli = "claude", facts: Promise<CliFact[] | null> = Promise.resolve(null)): Promise<string[] | null> {
   p.intro(c.bold(c.cyan(" hub ")) + c.dim(" Hub Workflow"));
   const action = await p.select<Action>({
     message: "What do you want to do?",
@@ -47,7 +54,11 @@ export async function runMenu(projects: string[], defaultCli: AgentCli = "claude
       if (v === null) return leave();
       // The same list as the terminal's `+`: the instance's default (`agent.default`) first.
       const order: AgentCli[] = defaultCli === "codex" ? ["codex", "claude"] : ["claude", "codex"];
-      const cli = await p.select<AgentCli>({ message: "With", options: order.map((x, i) => ({ value: x, label: CLI_LABELS[x], ...(i === 0 ? { hint: "default" } : {}) })) });
+      // P57: the pick the terminal would start comes first selected; a CLI that is not ready says why.
+      const found = await facts.catch(() => null);
+      const pick = pickPreset(found, defaultCli, true).preset;
+      const hint = (x: AgentCli, i: number) => [i === 0 ? "default" : null, STATE_HINT[found?.find((f) => f.cli === x)?.state ?? "unknown"]].filter(Boolean).join(", ");
+      const cli = await p.select<AgentCli>({ message: "With", initialValue: pick === "shell" ? order[0] : pick, options: order.map((x, i) => ({ value: x, label: CLI_LABELS[x], ...(hint(x, i) ? { hint: hint(x, i) } : {}) })) });
       if (cancelled(cli)) return leave();
       p.note(PHRASES.map(([ph]) => ph).join("\n"), "Then say one of");
       p.outro(c.dim(`starting ${CLI_LABELS[cli]}`));

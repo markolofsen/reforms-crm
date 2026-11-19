@@ -2,6 +2,7 @@ import { accessSync, constants, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { agentChecks, defaultProbe, type AgentCheckRow } from "@hub/agent/checks";
+import { detectClis, type CliFact, type DetectRun } from "@hub/agent/detect";
 import { AGENT_CLIS, instanceFeatures, instancePorts, type AgentCli } from "@hub/config/paths";
 import { listProjects, type Ctx } from "../context";
 import type { CheckResult, Step } from "../types";
@@ -12,7 +13,7 @@ import { listenersOf } from "./admin";
 // embedded terminal's own check. `hub doctor --only Agent` prints what the Connections block shows.
 
 const why = "A hub agent session needs its CLI, its session files, the hub's MCP servers answering, the send tools off and its mode (prompts, or the OS sandbox) in place; a missing piece shows only when the owner starts the session.";
-const verifies = "For each project and each CLI (Claude Code, Codex): the CLI answers `--version` (another version than the measured one is a WARN), Codex is signed in, the session files exist, each hub MCP server is configured and answers `tools/list` (Notion not signed in is a WARN), no tool that sends is reachable, the skills are linked, the mode matches `agent.unattended` (no Codex sandbox bypass), the send policy file parses, Claude's guard hook is set and the session log hooks are in the session files (P54).";
+const verifies = "For each project and each CLI (Claude Code, Codex): the CLI is found by the owner's login shell and answers `--version` (another version than the measured one is a WARN), it is signed in (`claude auth status`, `codex login status`), the session files exist, each hub MCP server is configured and answers `tools/list` (Notion not signed in is a WARN), no tool that sends is reachable, the skills are linked, the mode matches `agent.unattended` (no Codex sandbox bypass), the send policy file parses, Claude's guard hook is set and the session log hooks are in the session files (P54).";
 
 /** Worst state of a CLI's rows: one doctor line, with the first red row's fix. */
 export function summarise(rows: AgentCheckRow[]): CheckResult {
@@ -24,10 +25,18 @@ export function summarise(rows: AgentCheckRow[]): CheckResult {
   return pass(`${rows.filter((r) => r.state === "pass").length} checks pass`);
 }
 
+/** One detection per doctor run (P57): the owner's login shell, the environment a terminal tab gets, never the doctor's own PATH. */
+const detected = new WeakMap<Ctx, Promise<CliFact[]>>();
+function factsOf(ctx: Ctx, run: DetectRun): Promise<CliFact[]> {
+  let f = detected.get(ctx);
+  if (!f) { f = detectClis({ run }); detected.set(ctx, f); }
+  return f;
+}
+
 async function checkCli(ctx: Ctx, slug: string, cli: AgentCli): Promise<CheckResult> {
-  const probe = defaultProbe();
-  const run = { ...probe, run: async (cmd: string, args: string[], env?: NodeJS.ProcessEnv) => ctx.run(cmd, args, env ? { env: Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => typeof e[1] === "string")) } : {}) };
-  return summarise(await agentChecks({ paths: ctx.paths, slug, cli, unattended: instanceFeatures(ctx.paths).agent.unattended, probe: run }));
+  const run: DetectRun = async (cmd, args, env) => ctx.run(cmd, args, env ? { env: Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => typeof e[1] === "string")) } : {});
+  const probe = { ...defaultProbe(), run };
+  return summarise(await agentChecks({ paths: ctx.paths, slug, cli, unattended: instanceFeatures(ctx.paths).agent.unattended, probe, facts: await factsOf(ctx, run) }));
 }
 
 function cliStep(id: string, title: string, check: (ctx: Ctx) => Promise<CheckResult>): Step {

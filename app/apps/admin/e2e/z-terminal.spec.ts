@@ -88,6 +88,8 @@ test("terminal: the width and the open column survive a reload, and the reload r
   await expect(dock(page)).toBeVisible();
   await expect(separator(page)).toHaveAttribute("aria-valuenow", "632");
   await expect.poll(() => screenText(page), { timeout: 15_000 }).toContain("> e2e-before-reload");
+  // P57: the restored column reattached; it started nothing new.
+  expect(await sessions(page)).toHaveLength(1);
   await separator(page).focus();
   await page.keyboard.press("Home");
   await expect(separator(page)).toHaveAttribute("aria-valuenow", "560");
@@ -199,6 +201,8 @@ test("terminal: collapsed it is a full-height strip on the right edge (no button
   expect(box?.width).toBeLessThanOrEqual(48);
   await expect(page.locator('[data-sidebar="sidebar"], [data-slot="sidebar"]').first().getByRole("button", { name: "Terminal", exact: true })).toHaveCount(0);
   await expect(strip).toContainText("Terminal");
+  // P57 2g: a page loaded with the strip collapsed starts nothing (he may only be reviewing drafts).
+  expect(await sessions(page)).toHaveLength(0);
   // Keyboard: focus the strip, Enter.
   await toggle(page).focus();
   await page.keyboard.press("Enter");
@@ -240,4 +244,25 @@ test("terminal: its background follows the theme, light and dark, live when the 
   const dark = await terminalColours(page);
   expect(dark.screen).toBe(dark.token);
   expect(dark.screen).not.toBe(light.screen);
+});
+
+test("terminal: a restored open column whose sessions were closed starts one by itself (P57 2e)", async ({ page }) => {
+  await page.goto(at(P, "/drafts"));
+  await openTerminal(page);
+  await endAll(page);
+  await page.reload();
+  await expect(dock(page)).toBeVisible();
+  await expect.poll(() => execOf(page, "claude"), { timeout: 15_000 }).toBe(true);
+  expect((await sessions(page)).map((s) => [s.preset, s.project])).toEqual([["claude", P]]);
+});
+
+test("terminal: two admin pages opening the column at once get one session (P57 2d)", async ({ page, context }) => {
+  await page.goto(at(P, "/drafts"));
+  const other = await context.newPage();
+  await other.goto(at(P, "/drafts"));
+  await Promise.all([page.locator('ul[aria-label="Drafts"] > li').first().waitFor(), other.locator('ul[aria-label="Drafts"] > li').first().waitFor()]);
+  await Promise.all([toggle(page).click(), toggle(other).click()]);
+  await expect.poll(async () => (await sessions(page)).length, { timeout: 15_000 }).toBe(1);
+  await other.close();
+  expect(await sessions(page)).toHaveLength(1);
 });

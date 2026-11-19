@@ -55,7 +55,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   const scoped = route.section === "overview" || route.section === "connections" ? null : project;
   return (
     <PlaceContext value={place}>
-      <Shell brand={brand} onProject={(p) => void onProject(p)} project={scoped} projects={list} route={route}>
+      <Shell brand={brand} onProject={(p) => void onProject(p)} project={scoped} projects={list} route={route} terminalProject={multi ? scoped : project}>
         <h2 className="sr-only">{heading}</h2>
         {projects.isPending || pending ? (
           <Page>
@@ -77,11 +77,14 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   );
 }
 
-/** The shell with its nav and the terminal (P49), which follows the project of the address (none on Overview and Connections: Shell only). */
-function Shell({ project, ...props }: Omit<Parameters<typeof AppShell>[0], "items" | "dock"> & { project: string | null }) {
+/**
+ * The shell with its nav and the terminal (P49), which follows the project of the address. With two or more projects Overview
+ * and Connections have none (Shell only); with one, the whole admin is that project, so the terminal has it there too (P57 2l).
+ */
+function Shell({ project, terminalProject, ...props }: Omit<Parameters<typeof AppShell>[0], "items" | "dock"> & { project: string | null; terminalProject: string | null }) {
   const items = useNavWithDots(project);
   return (
-    <TerminalProvider project={project}>
+    <TerminalProvider project={terminalProject}>
       <AppShell dock={<TerminalDock />} items={items} project={project} {...props} />
     </TerminalProvider>
   );

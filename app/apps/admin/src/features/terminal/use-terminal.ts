@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useRef, useState } from "react";
-import type { TerminalPreset, TerminalSessionDto, TerminalStateDto } from "@hub/contract/terminal";
+import type { CliFactDto, TerminalPreset, TerminalSessionDto, TerminalStateDto } from "@hub/contract/terminal";
 import { MAX_SESSIONS } from "@hub/contract/terminal";
 import type { TerminalHandle } from "@hub/ui/product/terminal";
 import { parseWidth } from "@hub/ui/product/side-dock";
@@ -11,6 +11,7 @@ import { useHotkeys } from "@/hooks/use-hotkeys";
 import { sentence } from "@/lib/api/client";
 import { terminalApi } from "@/lib/api/terminal";
 import { save, useStored } from "@/lib/storage";
+import { sessionFor, useAutoStart } from "./use-auto-start";
 
 export const TERMINAL_KEY = ["terminal"] as const;
 const HELP = [["Ctrl `", "show or hide the terminal"]] as const;
@@ -31,6 +32,10 @@ export type TerminalModel = {
   setActive: (id: string) => void;
   /** The presets the `+` menu offers here, the default first. */
   offered: TerminalPreset[];
+  /** What the server's detector found (P57): the `+` menu says a CLI's state; empty until the first detection finished. */
+  clis: CliFactDto[];
+  /** The one line when the automatic start was not the first choice ("Codex: Claude Code is not signed in · claude auth login"). */
+  why: string | null;
   full: boolean;
   setOpen: (open: boolean) => void;
   create: (preset: TerminalPreset) => void;
@@ -98,12 +103,13 @@ export function useTerminalModel(project: string | null): TerminalModel {
   const width = parseWidth(useStored("terminal-width"));
   const sessions = state?.sessions ?? [];
   const storedTab = useStored("terminal-tab");
-  const active = sessions.find((s) => s.id === storedTab)?.id ?? sessions[0]?.id ?? null;
+  // The stored tab, unless it belongs to another project and this one has a session (P57 2e).
+  const stored0 = sessions.find((s) => s.id === storedTab);
+  const active = (stored0 && (!project || stored0.project === project) ? stored0 : (sessionFor(sessions, project) ?? stored0 ?? sessions[0]))?.id ?? null;
   const offered = state ? (project ? state.presets : state.presets.filter((p) => p === "shell")) : [];
-  /** What plain opening starts in an empty column: the default here. */
-  const preset = offered[0] ?? null;
   const full = sessions.length >= MAX_SESSIONS;
   const [notice, setNotice] = useState<string | null>(null);
+  const [why, setWhy] = useState<string | null>(null);
   const { focus, register } = useFocus();
 
   const setList = useCallback((fn: (list: TerminalSessionDto[]) => TerminalSessionDto[]) => qc.setQueryData<TerminalStateDto | null>(TERMINAL_KEY, (old) => old && { ...old, sessions: fn(old.sessions) }), [qc]);
@@ -114,13 +120,24 @@ export function useTerminalModel(project: string | null): TerminalModel {
     if (!next) focusBack();
   }, []);
 
+  const shown = useCallback((s: TerminalSessionDto) => {
+    setList((list) => [...list.filter((x) => x.id !== s.id), s]);
+    setActive(s.id);
+    focus(s.id);
+  }, [setList, setActive, focus]);
   const creating = useMutation({
     mutationFn: (preset: TerminalPreset) => terminalApi.create(project ? { preset, project } : { preset }),
+    onMutate: () => { setNotice(null); setWhy(null); },
+    onSuccess: shown,
+    onError: (e) => setNotice(`Could not start a terminal: ${sentence(e)}`),
+  });
+  /** The automatic start (P57): the server's pick, or its running session of this project. */
+  const ensuring = useMutation({
+    mutationFn: () => terminalApi.ensure(project ? { project } : {}),
     onMutate: () => setNotice(null),
-    onSuccess: (s) => {
-      setList((list) => [...list.filter((x) => x.id !== s.id), s]);
-      setActive(s.id);
-      focus(s.id);
+    onSuccess: (r) => {
+      shown(r.session);
+      if (r.created) setWhy(r.why);
     },
     onError: (e) => setNotice(`Could not start a terminal: ${sentence(e)}`),
   });
@@ -141,26 +158,20 @@ export function useTerminalModel(project: string | null): TerminalModel {
   });
 
   const create = creating.mutate;
-  const setOpen = useCallback(
-    (next: boolean) => {
-      setOpenRaw(next);
-      if (!next) return;
-      // Opening an empty column starts the default, as a terminal panel does; otherwise focus goes into the open tab. The list is
-      // read fresh first: a session closed elsewhere (another window, the server restarted) must not leave an empty column.
-      void qc.fetchQuery({ queryKey: TERMINAL_KEY, queryFn: terminalApi.state, staleTime: 0 }).then(
-        (s) => {
-          const list = s?.sessions ?? [];
-          if (list.length === 0 && preset) create(preset);
-          else focus(list.find((x) => x.id === active)?.id ?? list[0]?.id ?? null);
-        },
-        () => {
-          if (sessions.length === 0 && preset) create(preset);
-          else focus(active);
-        },
-      );
+  // Each time the column becomes visible the list is read fresh (a session closed elsewhere, or a restarted server, must not
+  // leave an empty column): this project's session gets the focus, else the server starts its pick, once per page load.
+  useAutoStart({
+    open,
+    ready: state !== null,
+    project,
+    fresh: () => qc.fetchQuery({ queryKey: TERMINAL_KEY, queryFn: terminalApi.state, staleTime: 0 }).then((s) => s?.sessions ?? [], () => sessions),
+    ensure: () => ensuring.mutate(),
+    show: (s) => {
+      setActive(s.id);
+      focus(s.id);
     },
-    [setOpenRaw, qc, sessions.length, preset, create, focus, active],
-  );
+  });
+  const setOpen = setOpenRaw;
   useHotkeys(state ? { "ctrl+`": () => setOpen(!open) } : {}, true, state ? HELP : NO_HELP);
 
   const patch = useCallback(
@@ -181,10 +192,12 @@ export function useTerminalModel(project: string | null): TerminalModel {
     active,
     setActive,
     offered,
+    clis: state?.clis ?? [],
+    why,
     full,
     setOpen,
     create,
-    creating: creating.isPending,
+    creating: creating.isPending || ensuring.isPending,
     close: closing.mutate,
     closing: closing.isPending ? (closing.variables ?? null) : null,
     notice,

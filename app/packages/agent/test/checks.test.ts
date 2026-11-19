@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { hubPaths, type HubPaths } from "@hub/config/paths";
 import { agentChecks, fakeAgentRows, prepareLine, type AgentProbe } from "../src/checks";
 import { claudeSettings } from "../src/claude";
+import { INSTALL_LINE, LOGIN_LINE, type CliFact } from "../src/detect";
 import { codexConfigToml, codexHome } from "../src/codex";
 import { MEASURED_VERSIONS } from "../src/session";
 
@@ -42,13 +43,22 @@ const probe = (o: { version?: Record<string, string>; loggedIn?: boolean; tools?
     return t ? { ok: true, tools: t, detail: "" } : { ok: false, tools: [], detail: "HTTP 401" };
   },
 });
+
+/** The detector's facts for the same options (P57: rows 1 and 2 come from them, not from the probe). */
+const factsOf = (o: { version?: Record<string, string>; loggedIn?: boolean } = {}): CliFact[] => (["claude", "codex"] as const).map((cli) => {
+  const v = o.version?.[cli] ?? MEASURED_VERSIONS[cli];
+  if (!v) return { cli, state: "missing", path: null, version: null, detail: "not installed", fix: INSTALL_LINE[cli] };
+  if (o.loggedIn === false) return { cli, state: "signed-out", path: `/bin/${cli}`, version: v, detail: "not signed in", fix: LOGIN_LINE[cli] };
+  return { cli, state: "ready", path: `/bin/${cli}`, version: v, detail: `${v} · signed in`, fix: null };
+});
+const input = (o: Parameters<typeof probe>[0] & { loggedIn?: boolean } = {}) => ({ probe: probe(o), facts: factsOf(o) });
 const byId = (rows: Awaited<ReturnType<typeof agentChecks>>) => Object.fromEntries(rows.map((r) => [r.id, r]));
 
 describe("agentChecks", () => {
   it("a prepared unattended instance passes every row for both CLIs", async () => {
     const paths = instance({ unattended: true });
     for (const cli of ["claude", "codex"] as const) {
-      const rows = await agentChecks({ paths, slug: "acme", cli, unattended: true, probe: probe() });
+      const rows = await agentChecks({ paths, slug: "acme", cli, unattended: true, ...input() });
       const bad = rows.filter((r) => r.state === "fail" || r.state === "warn");
       expect(bad, cli).toEqual([]);
       expect(rows.every((r) => r.cli === cli && (r.state === "pass" || r.state === "skip") === (r.fix === null))).toBe(true);
@@ -56,40 +66,40 @@ describe("agentChecks", () => {
   });
   it("a missing CLI fails; another version warns; Codex not signed in fails with the login line", async () => {
     const paths = instance({ unattended: true });
-    const missing = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, probe: probe({ version: { codex: "" } }) }));
+    const missing = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input({ version: { codex: "" } }) }));
     expect(missing["cli.version"]).toMatchObject({ state: "fail", fix: "npm i -g @openai/codex" });
     expect(missing["cli.signed-in"]!.state).toBe("skip");
-    const other = byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: true, probe: probe({ version: { claude: "2.2.0" } }) }));
+    const other = byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: true, ...input({ version: { claude: "2.2.0" } }) }));
     expect(other["cli.version"]!.state).toBe("warn");
-    const out = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, probe: probe({ loggedIn: false }) }));
+    const out = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input({ loggedIn: false }) }));
     expect(out["cli.signed-in"]).toMatchObject({ state: "fail", fix: "codex login && hub agent acme --cli codex --prepare" });
   });
   it("no session files: fail with the prepare line; no skills: fail", async () => {
     const paths = instance({ unattended: true, codex: false, skills: false });
-    const r = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, probe: probe() }));
+    const r = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input() }));
     expect(r["session.files"]).toMatchObject({ state: "fail", fix: prepareLine("acme", "codex") });
     expect(r["mode"]!.state).toBe("fail");
-    const c = byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: true, probe: probe() }));
+    const c = byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: true, ...input() }));
     expect(c["skills.linked"]).toMatchObject({ state: "fail", fix: "hub agent acme --prepare" });
   });
   it("Notion not signed in is a warning; a send tool that is not denied fails", async () => {
     const paths = instance({ unattended: true });
-    const r = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, probe: probe({ tools: { notion: null, "mail-mcp": ["send_now", "create_reply"] } }) }));
+    const r = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input({ tools: { notion: null, "mail-mcp": ["send_now", "create_reply"] } }) }));
     expect(r["mcp.answers.notion"]!.state).toBe("warn");
     expect(r["mcp.answers.notion"]!.fix).toMatch(/codex mcp login notion$/);
     expect(r["send-tools.off"]).toMatchObject({ state: "fail", detail: "not denied: mail-mcp.send_now" });
   });
   it("unattended Claude without the sandbox block fails; a Codex config that bypasses the sandbox fails", async () => {
     const paths = instance({ unattended: true, claudeSandbox: false });
-    expect(byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: true, probe: probe() }))["mode"]!.state).toBe("fail");
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: true, ...input() }))["mode"]!.state).toBe("fail");
     writeFileSync(path.join(codexHome(paths, "acme"), "config.toml"), 'sandbox_mode = "danger-full-access"\n');
-    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, probe: probe() }))["mode"]).toMatchObject({ state: "fail", detail: "the Codex config bypasses the sandbox" });
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input() }))["mode"]).toMatchObject({ state: "fail", detail: "the Codex config bypasses the sandbox" });
   });
   it("a Codex config for the other mode fails; a broken policy file fails", async () => {
     const paths = instance({ unattended: false });
-    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, probe: probe() }))["mode"]!.state).toBe("fail");
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input() }))["mode"]!.state).toBe("fail");
     writeFileSync(path.join(paths.stateProjects, "acme", "send-policy.json"), "{");
-    expect(byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: false, probe: probe() }))["send.pipeline"]!.state).toBe("fail");
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "claude", unattended: false, ...input() }))["send.pipeline"]!.state).toBe("fail");
   });
   it("the fake rows hold one of each state and a fix on each red row", () => {
     const rows = fakeAgentRows("acme", "codex");

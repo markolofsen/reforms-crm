@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { hubPaths, type HubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
 import type { PtyProcess, PtySpawn } from "@hub/terminal";
+import { cliDetector, type CliFact } from "@hub/agent/detect";
 import { ticketStore } from "./admin-gate";
 import { createApp } from "./app";
 import { chooseShell, createTerminal, TERMINAL_PATH } from "./terminal";
@@ -32,8 +33,12 @@ const spawn: PtySpawn = (file, args, o) => {
 };
 
 const config = (cfg: Record<string, unknown>) => writeFileSync(paths.configFile, JSON.stringify(cfg));
-function setup(o: { now?: () => number } = {}) {
-  const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { PATH: "/usr/bin", SHELL: "/bin/zsh", HUB_MAILER: "fake", HUB_DB: "/x.db", LANG: "C" }, nodeBin: "/n22/bin/node", tickets: ticketStore({ ttlMs: 30_000, ...(o.now ? { now: o.now } : {}) }) });
+const fact = (cli: "claude" | "codex", state: CliFact["state"]): CliFact => ({ cli, state, path: `/u/bin/${cli}`, version: state === "missing" ? null : "1.0.0", detail: `${cli} ${state}`, fix: state === "ready" ? null : `fix ${cli}` });
+let detects = 0;
+function setup(o: { now?: () => number; facts?: CliFact[] } = {}) {
+  // Never the real login shell here: the detector answers the facts given (both ready by default) and counts its runs.
+  const detector = cliDetector({ detect: async () => { detects++; return o.facts ?? [fact("claude", "ready"), fact("codex", "ready")]; } });
+  const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { PATH: "/usr/bin", SHELL: "/bin/zsh", HUB_MAILER: "fake", HUB_DB: "/x.db", LANG: "C" }, nodeBin: "/n22/bin/node", tickets: ticketStore({ ttlMs: 30_000, ...(o.now ? { now: o.now } : {}) }), detector });
   const app = createApp(repos, { terminal, adminPort: ADMIN_PORT });
   const call = (method: string, p: string, body?: unknown, headers: Record<string, string> = ADMIN) => app.request(`${API}${p}`, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   return { terminal, app, call };
@@ -59,6 +64,7 @@ beforeEach(() => {
   mkdirSync(join(home, "config"), { recursive: true });
   paths = hubPaths({ home, env: {} });
   spawned = [];
+  detects = 0;
 });
 afterEach(async () => {
   await new Promise((r) => (server ? server.close(r) : r(undefined)));
@@ -163,6 +169,63 @@ describe("terminal on", () => {
     await new Promise((r) => server!.close(r));
     expect(await upgrade(terminal, TERMINAL_PATH, h)).toBe(101);
     terminal.stop();
+  });
+});
+
+describe("ensure (P57): the column starts the best ready CLI itself, at most one session per project", () => {
+  beforeEach(() => config({ terminal: { enabled: true }, agent: { default: "claude", unattended: false } }));
+  const argvCli = (n: number) => spawned[n]?.args.at(-1);
+
+  it("starts Claude Code when it is ready; a second ensure returns the running session and spawns nothing", async () => {
+    const { call } = setup();
+    const a = await call("POST", "/api/terminal/ensure", { project: "acme" });
+    expect(a.status).toBe(201);
+    expect(await a.json()).toMatchObject({ created: true, why: null, session: { preset: "claude", project: "acme", state: "running" } });
+    const b = await call("POST", "/api/terminal/ensure", { project: "acme" });
+    expect(b.status).toBe(200);
+    expect(await b.json()).toMatchObject({ created: false, session: { preset: "claude" } });
+    expect(spawned).toHaveLength(1);
+    expect(argvCli(0)).toBe("claude");
+  });
+  it("two ensures at once spawn once (single flight per project)", async () => {
+    const { call } = setup();
+    const [a, b] = await Promise.all([call("POST", "/api/terminal/ensure", { project: "acme" }), call("POST", "/api/terminal/ensure", { project: "acme" })]);
+    const ids = [((await a.json()) as { session: { id: string } }).session.id, ((await b.json()) as { session: { id: string } }).session.id];
+    expect(ids[0]).toBe(ids[1]);
+    expect(spawned).toHaveLength(1);
+  });
+  it("Claude not signed in and Codex ready: Codex, with the one line that says why", async () => {
+    const { call } = setup({ facts: [fact("claude", "signed-out"), fact("codex", "ready")] });
+    const r = (await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json()) as { session: { preset: string }; why: string };
+    expect(r.session.preset).toBe("codex");
+    expect(r.why).toBe("Codex: Claude Code is not signed in · fix claude");
+  });
+  it("neither CLI installed: a Shell and the install line; no project: a Shell, no line", async () => {
+    const { call } = setup({ facts: [fact("claude", "missing"), fact("codex", "missing")] });
+    const r = (await (await call("POST", "/api/terminal/ensure", { project: "acme" })).json()) as { session: { preset: string }; why: string };
+    expect(r).toMatchObject({ session: { preset: "shell" }, why: "Shell: Claude Code is not installed · fix claude" });
+    expect((await (await call("POST", "/api/terminal/ensure", {})).json())).toMatchObject({ created: true, why: null, session: { preset: "shell", project: null } });
+  });
+  it("an unknown project is 404; ensure and a new session need the exact admin Origin and Sec-Fetch-Site", async () => {
+    const { call } = setup();
+    expect((await call("POST", "/api/terminal/ensure", { project: "nobody" })).status).toBe(404);
+    for (const p of ["/api/terminal/ensure", "/api/terminal/sessions"]) {
+      const body = p.endsWith("ensure") ? { project: "acme" } : { preset: "shell" };
+      expect((await call("POST", p, body, { ...ADMIN, origin: "http://127.0.0.1:5999" })).status, p).toBe(403);
+      const { "sec-fetch-site": _s, ...noFetchSite } = ADMIN;
+      expect((await call("POST", p, body, noFetchSite)).status, p).toBe(403);
+    }
+    expect(spawned).toHaveLength(0);
+  });
+  it("GET /api/terminal says what the detector found, with no path", async () => {
+    const { call, terminal } = setup();
+    expect(await (await call("GET", "/api/terminal")).json()).toMatchObject({ clis: [], checkedAt: null });
+    await terminal.detector.get();
+    const s = (await (await call("GET", "/api/terminal")).json()) as { clis: Array<Record<string, unknown>>; checkedAt: string };
+    expect(s.clis.map((c) => [c.cli, c.state])).toEqual([["claude", "ready"], ["codex", "ready"]]);
+    expect(JSON.stringify(s.clis)).not.toContain("/u/bin");
+    expect(typeof s.checkedAt).toBe("string");
+    expect(detects).toBe(1);
   });
 });
 

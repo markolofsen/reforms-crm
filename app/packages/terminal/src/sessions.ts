@@ -39,6 +39,8 @@ export interface ManagerOptions {
   /** SIGHUP, then SIGKILL after this (default 3 s). */
   killGraceMs?: number;
   scrollback?: number;
+  /** A session's program ended (P57: the server re-detects the CLIs, he may have installed or signed in inside it). */
+  onExit?: (session: TerminalSessionDto) => void;
 }
 
 interface Session {
@@ -103,6 +105,7 @@ export function sessionManager(o: ManagerOptions) {
       if (s.timer) clearTimeout(s.timer);
       flush(s);
       s.viewer?.sendText({ op: "exit", code: e.exitCode });
+      o.onExit?.(dto(s));
     });
     sessions.set(s.id, s);
     return dto(s);

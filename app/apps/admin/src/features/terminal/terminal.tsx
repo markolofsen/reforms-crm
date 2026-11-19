@@ -78,11 +78,18 @@ function Sessions() {
   return (t.state?.sessions ?? []).map((s) => <SessionPane active={s.id === t.active} key={s.id} session={s} />);
 }
 
+/** What is starting, as far as the admin can tell before the server answers: the first ready CLI here, else "a terminal". */
+function startingWhat(t: { project: string | null; offered: readonly string[]; clis: readonly { cli: string; state: string }[] }): string {
+  if (!t.project) return "Shell";
+  const ready = t.offered.find((p) => t.clis.some((c) => c.cli === p && c.state === "ready"));
+  return ready ? (STRIP_LABEL[ready] ?? "a terminal") : "a terminal";
+}
+
 /** The column's body when no session runs: starting one, or how to start one. */
 function Empty() {
   const t = useTerminal();
   if ((t.state?.sessions.length ?? 0) > 0) return null;
-  return <p className="measure p-4 text-muted-foreground text-sm">{t.creating ? "Starting..." : "No terminal is running. Start one with +."}</p>;
+  return <p className="measure p-4 text-muted-foreground text-sm">{t.creating ? `Starting ${startingWhat(t)}...` : "No terminal is running. Start one with +."}</p>;
 }
 
 /**

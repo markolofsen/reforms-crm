@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Bumped when a response changes shape: the admin shows "restart the server" when its own number is higher. */
-export const API_VERSION = 11; // 9: P50 (GET /api/live); 10: P53 (live topic `mail`, `note` on a draft's Mail read); 11: P56 (`aside`, `gone`, `checkedCurrent`, Save and Restore)
+export const API_VERSION = 12; // 9: P50 (GET /api/live); 10: P53 (live topic `mail`, `note` on a draft's Mail read); 11: P56 (`aside`, `gone`, `checkedCurrent`, Save and Restore); 12: P57 (`clis`, `checkedAt`, `POST /api/terminal/ensure`)
 
 const messengersStatus = z.object({
   state: z.enum(["off", "starting", "running", "error", "stopped"]),

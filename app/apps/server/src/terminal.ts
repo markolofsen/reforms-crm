@@ -2,7 +2,9 @@ import type { IncomingMessage } from "node:http";
 import type { Duplex } from "node:stream";
 import path from "node:path";
 import { instanceFeatures, type HubPaths } from "@hub/config/paths";
-import type { TerminalPreset } from "@hub/contract/terminal";
+import { cliDetector, detectClis, fakeFacts, pickPreset, type CliDetector } from "@hub/agent/detect";
+import { MEASURED_VERSIONS } from "@hub/agent/session";
+import type { CliFactDto, TerminalPreset, TerminalSessionDto } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
 import { nodePty, presetArgv, presetOrder, SessionLimitError, sessionManager, sessionTitle, spawnLine, terminalEnv, terminalSocketServer, type PtySpawn, type SessionManager } from "@hub/terminal";
 import { throwawayDbNamed } from "@hub/send";
@@ -28,7 +30,17 @@ export interface TerminalOptions {
   env?: NodeJS.ProcessEnv;
   nodeBin?: string;
   tickets?: TicketStore;
+  /** Which CLIs this Mac can start (P57); shared with Agent tools. Default: the login-shell detector (the fake one with the fake shell). */
+  detector?: CliDetector;
 }
+
+/** The detector the server shares between the terminal and Agent tools: fixed ready facts with a fake shell or fake Agent tools. */
+export function serverDetector(o: { env: NodeJS.ProcessEnv; fake: boolean }): CliDetector {
+  return cliDetector({ detect: o.fake ? async () => fakeFacts(MEASURED_VERSIONS) : () => detectClis({ env: o.env }) });
+}
+
+/** The wire half of a fact: no path. */
+const wireFact = ({ cli, state, version, detail, fix }: CliFactDto): CliFactDto => ({ cli, state, version, detail, fix });
 
 /** `HUB_TERMINAL_SHELL`: unset (the owner's shell) or `fake`; `fake` needs `HUB_DB`, so it can never run against an instance's live data. */
 export function chooseShell(env: NodeJS.ProcessEnv): "login" | "fake" {
@@ -47,10 +59,12 @@ export function createTerminal(o: TerminalOptions) {
   const env = o.env ?? process.env;
   const nodeBin = o.nodeBin ?? process.execPath;
   const tickets = o.tickets ?? ticketStore({ ttlMs: TICKET_TTL_MS });
-  let manager: SessionManager | null = null;
-  const sessions = (): SessionManager => (manager ??= sessionManager({ spawn: o.spawn ?? nodePty() }));
   const features = () => instanceFeatures(o.paths);
   const fake = o.fakeShell ?? chooseShell(env) === "fake";
+  const detector = o.detector ?? serverDetector({ env, fake });
+  let manager: SessionManager | null = null;
+  // A session that ends may have been his `claude auth login`, `codex login` or an install: the next pick reads fresh facts.
+  const sessions = (): SessionManager => (manager ??= sessionManager({ spawn: o.spawn ?? nodePty(), onExit: () => void detector.refresh() }));
 
   async function create(preset: TerminalPreset, project: string | undefined, theme?: "light" | "dark") {
     const slug = project ?? null;
@@ -76,6 +90,25 @@ export function createTerminal(o: TerminalOptions) {
     }
   }
 
+  /** One `ensure` per project at a time: two admin tabs opening the column at once get the same session (P57 2d). */
+  const ensuring = new Map<string, Promise<{ session: TerminalSessionDto; created: boolean; why: string | null }>>();
+  function ensure(project: string | undefined, theme?: "light" | "dark") {
+    const key = project ?? "";
+    const known = ensuring.get(key);
+    if (known) return known.then((r) => ({ ...r, created: false }));
+    const p = (async () => {
+      const slug = project ?? null;
+      if (slug && (await o.repos.projects.get(slug)) === null) throw new TerminalRefusal(404, `no project "${slug}"`);
+      const running = manager?.list().find((s) => s.state === "running" && s.project === slug);
+      if (running) return { session: running, created: false, why: null };
+      const { facts } = await detector.get();
+      const pick = pickPreset(facts, features().agent.default, !!slug);
+      return { session: await create(pick.preset, project, theme), created: true, why: pick.why };
+    })().finally(() => ensuring.delete(key));
+    ensuring.set(key, p);
+    return p;
+  }
+
   const wss = terminalSocketServer();
   const refuse = (socket: Duplex, status: number, text: string) => {
     socket.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
@@ -93,8 +126,15 @@ export function createTerminal(o: TerminalOptions) {
 
   return {
     enabled: () => features().terminal.enabled,
-    state: () => ({ enabled: true as const, unattended: features().agent.unattended, presets: presetOrder(features().agent.default, true), sessions: manager?.list() ?? [] }),
+    state: () => {
+      const d = detector.peek();
+      return { enabled: true as const, unattended: features().agent.unattended, presets: presetOrder(features().agent.default, true), sessions: manager?.list() ?? [], clis: (d?.facts ?? []).map(wireFact), checkedAt: d?.at ?? null };
+    },
     create,
+    ensure,
+    /** Server start, with the terminal on: detect in the background so the first open does not wait (nobody waits on this). */
+    warm: () => { if (features().terminal.enabled) void detector.get(); },
+    detector,
     close: (id: string) => manager?.kill(id) ?? false,
     has: (id: string) => manager?.has(id) ?? false,
     ticket: (id: string) => ({ ...tickets.mint(`term:${id}`), url: `ws://127.0.0.1:${o.apiPort}${TERMINAL_PATH}` }),

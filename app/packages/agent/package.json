@@ -10,6 +10,7 @@
     "./claude": "./src/claude.ts",
     "./codex": "./src/codex.ts",
     "./checks": "./src/checks.ts",
+    "./detect": "./src/detect.ts",
     "./focus": "./src/focus.ts",
     "./mcp": "./src/mcp.ts",
     "./session-rules": "./src/session-rules.ts",

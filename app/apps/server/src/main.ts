@@ -11,7 +11,7 @@ import { projectsRoot } from "./project-overview";
 import { allowListOf, configFile, createServerMailer } from "./send/mailer";
 import { startMessengers } from "./messengers";
 import { startSentReconciler } from "./sent";
-import { chooseShell, createTerminal } from "./terminal";
+import { chooseShell, createTerminal, serverDetector } from "./terminal";
 import { chooseAgentTools, createAgentTools } from "./agent-tools";
 import { createLive, folderSignature } from "./live";
 import { createFocusStore } from "./focus";
@@ -51,9 +51,13 @@ const connections = probe === "fake" ? { deps: fakeProbeDeps(), mailAccounts } :
 const paths = hubPaths();
 const ports = instancePorts(paths);
 const fakeShell = chooseShell(process.env) === "fake";
-const terminal = createTerminal({ paths, repos, adminPort: ports.admin, apiPort: port, fakeShell });
+const fakeTools = chooseAgentTools(process.env) === "fake";
+// P57: one detector of Claude Code and Codex (the owner's login shell), shared by the terminal's pick and Agent tools.
+const detector = serverDetector({ env: process.env, fake: fakeShell || fakeTools });
+const terminal = createTerminal({ paths, repos, adminPort: ports.admin, apiPort: port, fakeShell, detector });
 console.log(`terminal: ${terminal.enabled() ? (fakeShell ? "on, FAKE SHELL (HUB_TERMINAL_SHELL=fake)" : "on (admin origin + ticket only)") : "off (terminal.enabled in config/config.json)"}`);
-const agentTools = createAgentTools({ paths, repos, fake: chooseAgentTools(process.env) === "fake" });
+terminal.warm();
+const agentTools = createAgentTools({ paths, repos, fake: fakeTools, detector });
 // Live panels (P50): the trigger counter tailed every 200 ms; the pollers' state and the Connections files are watched,
 // since they are not rows (a timestamp of the last poll is left out: it moves on every poll and means nothing to a panel).
 const pollers = () => [messengers.status(), sent.status()].map((s) => `${s.state}|${s.reason ?? ""}|${s.lastError ?? ""}`).join("\n");

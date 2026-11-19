@@ -5,6 +5,7 @@ import path from "node:path";
 import { AGENT_CLIS, expandTilde, instanceFeatures, pathsAt, type AgentCli, type HubPaths } from "@hub/config/paths";
 import { claudeBaseArgs, claudeEnforcementArgs } from "@hub/agent/claude";
 import { codexArgs } from "@hub/agent/codex";
+import { INSTALL_LINE } from "@hub/agent/detect";
 import { CLI_LABELS, modeLine } from "@hub/agent/session";
 import { projectIdentity, sessionRules } from "@hub/agent/session-rules";
 import { loadProject } from "@hub/projects";
@@ -122,8 +123,8 @@ export function printPhrases(log: (s: string) => void = console.log): void {
 }
 
 const INSTALL: Record<SessionCli, string> = {
-  claude: "`claude` is not on PATH. Install Claude Code (https://claude.com/claude-code), then rerun.",
-  codex: "`codex` is not on PATH. Install the Codex CLI (`npm i -g @openai/codex`), then rerun.",
+  claude: `\`claude\` is not on PATH. Install Claude Code (\`${INSTALL_LINE.claude}\`), then rerun.`,
+  codex: `\`codex\` is not on PATH. Install the Codex CLI (\`${INSTALL_LINE.codex}\`), then rerun.`,
   shell: "the shell in $SHELL could not start.",
 };
 

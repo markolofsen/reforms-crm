@@ -27,12 +27,30 @@ export const terminalSessionDto = z.strictObject({
 });
 export type TerminalSessionDto = z.infer<typeof terminalSessionDto>;
 
-/** The terminal is on: the instance's mode for the tab badge, the presets in their order (default first), the sessions. */
+/** What the server's detector knows of an agent CLI (P57, `@hub/agent/detect`): ready = found, `--version` answers, signed in. */
+export const CLI_STATES = ["ready", "signed-out", "missing", "unknown"] as const;
+export type CliState = (typeof CLI_STATES)[number];
+/** One CLI, as the admin sees it: no path (it stays on the server). `fix` is the one line that makes it ready. */
+export const cliFactDto = z.strictObject({
+  cli: z.enum(["claude", "codex"]),
+  state: z.enum(CLI_STATES),
+  version: z.string().nullable(),
+  detail: z.string(),
+  fix: z.string().nullable(),
+});
+export type CliFactDto = z.infer<typeof cliFactDto>;
+
+/**
+ * The terminal is on: the instance's mode for the tab badge, the presets in their order (default first), the sessions, and
+ * (P57) what the detector found, with when; `clis` is empty and `checkedAt` null until the first detection has finished.
+ */
 export const terminalOnDto = z.strictObject({
   enabled: z.literal(true),
   unattended: z.boolean(),
   presets: z.array(z.enum(TERMINAL_PRESETS)),
   sessions: z.array(terminalSessionDto),
+  clis: z.array(cliFactDto),
+  checkedAt: z.string().nullable(),
 });
 export type TerminalStateDto = z.infer<typeof terminalOnDto>;
 /**
@@ -45,6 +63,16 @@ export const terminalStateDto = z.union([z.strictObject({ enabled: z.literal(fal
 /** `theme`: the admin's resolved theme when the tab starts, for `COLORFGBG` (a CLI that cannot query the terminal picks its palette from it). */
 export const createSessionBody = z.strictObject({ preset: z.enum(TERMINAL_PRESETS), project: slug.optional(), theme: z.enum(["light", "dark"]).optional() });
 export type CreateSessionBody = z.infer<typeof createSessionBody>;
+
+/**
+ * `POST /api/terminal/ensure` (P57): the column became visible. At most one session per project: the running one of this
+ * project (`created: false`), else the server starts its pick (`created: true`; `why` says why it is not the first choice).
+ * No project: a Shell, the same way. Exact admin Origin, like the ticket.
+ */
+export const ensureSessionBody = z.strictObject({ project: slug.optional(), theme: z.enum(["light", "dark"]).optional() });
+export type EnsureSessionBody = z.infer<typeof ensureSessionBody>;
+export const ensureSessionDto = z.strictObject({ session: terminalSessionDto, created: z.boolean(), why: z.string().nullable() });
+export type EnsureSessionDto = z.infer<typeof ensureSessionDto>;
 
 /** `POST /api/terminal/tickets`: a single-use ticket for one session's socket, and where the socket is (the API port, straight). */
 export const terminalTicketBody = z.strictObject({ session: z.string().min(1).max(100) });
