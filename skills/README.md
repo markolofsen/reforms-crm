@@ -15,7 +15,7 @@ Start bound to a project: `hub agent <slug>` (a fresh Claude Code session with `
 
 ## The skills
 
-The agent picks a skill by what you want, not by a phrase (decision 0012). The "Example" column is one way to say it, not a trigger. If your intent fits two skills, the agent asks you one question. Preparing is always a phrase: the agent chooses the clients, writes the drafts and enrols follow-ups when you say so. The admin (`hub up`) shows the result, Drafts and its View menu (To review, Follow-ups, Not by email, Thin basis) and Activity (what the agent did with each client, one group per session), and holds only your decisions: Send after "I read the checks", Skip, Hold, Done, Stop sending.
+The agent picks a skill by what you want, not by a phrase (decision 0012). The "Example" column is one way to say it, not a trigger. The admin's Help lists one example per row with the project's name in place of X (`@hub/contract/help`); a docs test (`app/apps/installer/test/help-phrases.test.ts`) fails when one of those differs from this column, so change both together. If your intent fits two skills, the agent asks you one question. Preparing is always a phrase: the agent chooses the clients, writes the drafts and enrols follow-ups when you say so. The admin (`hub up`) shows the result, Drafts and its View menu (To review, Follow-ups, Not by email, Thin basis) and Activity (what the agent did with each client, one group per session), and holds only your decisions: Send after "I read the checks", Skip, Hold, Done, Stop sending.
 
 | Example | Skill | What happens | Touches |
 |---|---|---|---|

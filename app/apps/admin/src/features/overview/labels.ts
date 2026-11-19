@@ -1,6 +1,6 @@
 import { AlertTriangleIcon, CheckCircle2Icon, CircleHelpIcon, CircleXIcon, OctagonAlertIcon, type LucideIcon } from "lucide-react";
 import type { ProjectRowDto, StatusDto, StatusLevel, StatusNext } from "@hub/contract/overview";
-import type { SchemeState } from "@hub/contract/scheme";
+import { SCHEME_WORDS, type SchemeState } from "@hub/contract/scheme";
 import { ago } from "@/lib/format";
 import { routeDest, type Dest } from "@/routes/paths";
 import { NEXT_ROUTE } from "@/routes/sections";
@@ -32,12 +32,12 @@ export function nextDest(s: StatusDto): Dest | null {
   return placeDest(s.next);
 }
 
-/** A part's standing as a word and an icon (P63 plan 4c), never a colour alone. Total over the contract's states. */
+/** A part's standing as a word and an icon (P63 plan 4c), never a colour alone. Total over the contract's states; the words are the contract's (the drawing's labels say the same). */
 export const SCHEME_LOOK: Record<SchemeState, Look> = {
-  fail: { word: "Broken", Icon: CircleXIcon, tone: "text-destructive-foreground" },
-  warn: { word: "Needs a look", Icon: AlertTriangleIcon, tone: "text-warning-foreground" },
-  unknown: { word: "Not checked here", Icon: CircleHelpIcon, tone: "text-muted-foreground" },
-  ok: { word: "Works", Icon: CheckCircle2Icon, tone: "text-success-foreground" },
+  fail: { word: SCHEME_WORDS.fail, Icon: CircleXIcon, tone: "text-destructive-foreground" },
+  warn: { word: SCHEME_WORDS.warn, Icon: AlertTriangleIcon, tone: "text-warning-foreground" },
+  unknown: { word: SCHEME_WORDS.unknown, Icon: CircleHelpIcon, tone: "text-muted-foreground" },
+  ok: { word: SCHEME_WORDS.ok, Icon: CheckCircle2Icon, tone: "text-success-foreground" },
 };
 
 /** The rows in the server's order, archived projects last. */

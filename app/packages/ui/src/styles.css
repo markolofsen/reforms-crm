@@ -295,3 +295,61 @@
     display: none;
   }
 }
+
+/* The Hub's scheme on Help (P63 O2, decision 0035): Mermaid draws it, its own <style> is removed, and these rules colour it
+   with the theme's tokens, so light and dark follow the switch with no new render. Each part's state is a class on its node
+   (`ok`, `warn`, `fail`, `unknown`; `outside` for the client mail it starts from) and a word in its label, never a colour alone. */
+.scheme-graph svg {
+  max-width: none;
+  font-family: inherit;
+  overflow: visible;
+}
+.scheme-graph svg text {
+  fill: var(--foreground);
+  font-size: 13px;
+  text-anchor: middle;
+}
+.scheme-graph .node :is(rect, path, polygon, circle, ellipse):not(.label *) {
+  fill: var(--card);
+  stroke: var(--muted-foreground);
+  stroke-width: 1px;
+}
+.scheme-graph .node.ok :is(rect, path, polygon):not(.label *) {
+  fill: color-mix(in srgb, var(--success) 10%, var(--card));
+  stroke: var(--success);
+}
+.scheme-graph .node.warn :is(rect, path, polygon):not(.label *) {
+  fill: color-mix(in srgb, var(--warning) 14%, var(--card));
+  stroke: var(--warning);
+}
+.scheme-graph .node.fail :is(rect, path, polygon):not(.label *) {
+  fill: color-mix(in srgb, var(--destructive) 12%, var(--card));
+  stroke: var(--destructive);
+  stroke-width: 1.5px;
+}
+.scheme-graph .node.unknown :is(rect, path, polygon):not(.label *) {
+  fill: var(--card);
+  stroke: var(--muted-foreground);
+  stroke-dasharray: 4 3;
+}
+.scheme-graph .node.outside :is(rect, path, polygon):not(.label *) {
+  fill: var(--muted);
+  stroke: var(--border);
+}
+.scheme-graph .cluster > :is(rect, path) {
+  fill: var(--muted);
+  stroke: var(--border);
+}
+.scheme-graph .cluster text {
+  fill: var(--muted-foreground);
+  font-weight: 500;
+}
+.scheme-graph :is(.flowchart-link, .edgePath path, .edgePaths path) {
+  fill: none;
+  stroke: var(--muted-foreground);
+  stroke-width: 1px;
+}
+.scheme-graph marker :is(path, circle) {
+  fill: var(--muted-foreground);
+  stroke: none;
+}

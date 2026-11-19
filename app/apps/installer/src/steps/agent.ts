@@ -4,6 +4,7 @@ import { detectClis, pickPreset, type CliFact, type DetectRun } from "@hub/agent
 import { AGENT_CLIS, instanceFeatures, instancePorts, type AgentCli } from "@hub/config/paths";
 import { listProjects, type Ctx } from "../context";
 import type { CheckResult, Step } from "../types";
+import { tipsVerifiedOn, versionNewer } from "@hub/contract/tips";
 import { fail, pass, warn } from "./helpers";
 import { listenersOf } from "./admin";
 import { ensureSpawnHelper, nodePtyRoot, tabShell, terminalReadiness } from "@hub/terminal/readiness";
@@ -68,6 +69,20 @@ export function clisRow(facts: readonly CliFact[], defaultCli: AgentCli): CheckR
   return facts.some((f) => f.state !== "ready") ? warn(line) : pass(line);
 }
 
+/**
+ * The dock's tips (P63 O3, `@hub/contract/tips`) were checked on one version of each CLI. A newer installed CLI may have changed a
+ * key or a command, so the row warns until the tips are checked again and their `verifiedOn` moved; never a FAIL.
+ */
+export function tipsRow(facts: readonly CliFact[]): CheckResult {
+  const label = { claude: "Claude Code", codex: "Codex" } as const;
+  const newer = facts.flatMap((f) => {
+    const on = tipsVerifiedOn(f.cli);
+    return f.version && on && versionNewer(f.version, on) ? [`${label[f.cli]} ${f.version} (tips checked on ${on})`] : [];
+  });
+  if (newer.length) return warn(`newer than the dock's tips were checked on: ${newer.join(", ")}. Check the tips against its --help and docs, then move verifiedOn in @hub/contract/tips.`);
+  return pass(facts.filter((f) => f.version).map((f) => `${label[f.cli]} ${f.version}`).join(", ") || "no CLI detected");
+}
+
 export const agentSteps: Step[] = [
   {
     ...cliStep("agent.tools", "Agent tools (one row per project and CLI)", async (ctx) => {
@@ -117,6 +132,16 @@ export const agentSteps: Step[] = [
     async check(ctx) {
       const run: DetectRun = async (cmd, args, env) => ctx.run(cmd, args, env ? { env: Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => typeof e[1] === "string")) } : {});
       return clisRow(await factsOf(ctx, run), instanceFeatures(ctx.paths).agent.default);
+    },
+  },
+  {
+    id: "agent.tips", group: "Agent", title: "The dock's tips match the installed CLIs", audit: true,
+    why: "The tips popover in the terminal dock and Help (P63) name keys and commands of Claude Code and Codex (voice, /resume, /desktop, /app). They were checked against one version of each; an upgrade can change one.",
+    verifies: "Each detected CLI's version against the version its tips were checked on (`verifiedOn` in `@hub/contract/tips`). Newer is a WARN until the tips are checked again; never a FAIL.",
+    manual: { steps: ["Read the CLI's `--help` and its docs for each tip of that CLI, fix any row that changed, and set its `verifiedOn` to the installed version."] },
+    async check(ctx) {
+      const run: DetectRun = async (cmd, args, env) => ctx.run(cmd, args, env ? { env: Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => typeof e[1] === "string")) } : {});
+      return tipsRow(await factsOf(ctx, run));
     },
   },
 ];

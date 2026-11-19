@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { INSTALL_LINE, LOGIN_LINE, unknownFacts, type CliFact } from "@hub/agent/detect";
 import { install } from "../src/runner";
-import { agentSteps, clisRow, summarise } from "../src/steps/agent";
+import { agentSteps, clisRow, summarise, tipsRow } from "../src/steps/agent";
 import { CONFIG_KEYS, fileSteps } from "../src/steps/files";
 import { STEPS } from "../src/steps/index";
 import { fake } from "./helpers";
@@ -18,6 +18,14 @@ describe("the Agent doctor group", () => {
     expect(summarise([row("pass"), row("skip")]).level).toBe("pass");
     expect(summarise([row("pass"), row("warn", "codex mcp login notion")])).toEqual({ level: "warn", detail: "t-warn: d (fix: codex mcp login notion)" });
     expect(summarise([row("warn", "x"), row("fail", "hub agent acme --cli codex --prepare")]).detail).toBe("t-fail: d (fix: hub agent acme --cli codex --prepare)");
+  });
+  it("P63: the tips row warns when an installed CLI is newer than its tips were checked on, and passes otherwise (an audit row)", () => {
+    const fact = (cli: "claude" | "codex", version: string | null): CliFact => ({ cli, state: "ready", path: "/x", version, detail: "", fix: null });
+    expect(tipsRow([fact("claude", "2.1.220"), fact("codex", "0.153.0")])).toEqual({ level: "pass", detail: "Claude Code 2.1.220, Codex 0.153.0" });
+    const r = tipsRow([fact("claude", "2.1.285"), fact("codex", null)]);
+    expect(r.level).toBe("warn");
+    expect(r.detail).toContain("Claude Code 2.1.285 (tips checked on 2.1.220)");
+    expect(STEPS.find((s) => s.id === "agent.tips")?.audit).toBe(true);
   });
   it("the tools row is an audit (doctor --fast leaves it out); the terminal row is not", () => {
     expect(STEPS.find((s) => s.id === "agent.tools")?.audit).toBe(true);

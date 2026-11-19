@@ -20,7 +20,9 @@
     "./local": "./src/local.ts",
     "./autostart": "./src/autostart.ts",
     "./scheme": "./src/scheme.ts",
-    "./knowledge": "./src/knowledge.ts"
+    "./knowledge": "./src/knowledge.ts",
+    "./tips": "./src/tips.ts",
+    "./help": "./src/help.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

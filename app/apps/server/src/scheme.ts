@@ -48,6 +48,25 @@ const worse = (a: SchemeState, b: SchemeState): SchemeState => (["fail", "warn",
 /** The rows a part of its own covers (the CLIs are the detector's parts); every other row is the "Agent sessions" part. */
 const OWN_PART = (id: string): boolean => id.startsWith("cli.") || ["mcp.present.mail-mcp", "mcp.answers.mail-mcp", "mcp.present.hub", "mcp.answers.hub", "guard.hook", "send-tools.off"].includes(id);
 
+/** The connector an attached connector's own row is about (`connector.answers.gcal-hello` → `gcal-hello`), else null. */
+const connectorOf = (id: string): string | null => /^connector\.(present|answers|account|tools-off)\.(.+)$/.exec(id)?.[2] ?? null;
+
+const CONNECTOR_LABEL = { calendar: "Calendar", drive: "Drive" } as const;
+
+/**
+ * The Google connectors attached to the project (P62, P63 O5): one part each, labelled with its account (the hub name while the
+ * account is not known), its standing the worst of its own rows. A connector whose account is not known is never "Works".
+ * Nothing cached: no part (the attachment itself is only known from the Agent tools run).
+ */
+function connectorParts(slug: string, tools: AgentToolsDto | null): SchemeNode[] {
+  return (tools?.capabilities ?? []).map((c) => {
+    const r = fromRows(tools, (id) => connectorOf(id) === c.name);
+    const state: SchemeState = !c.account && r.state === "ok" ? "unknown" : r.state;
+    const detail = !c.account && r.state === "ok" ? "Its Google account is not known yet." : r.detail;
+    return node({ id: `${slug}:${c.kind}:${c.name}`, kind: c.kind, project: slug, label: `${CONNECTOR_LABEL[c.kind]} · ${c.account ?? c.name}`.slice(0, 80), state, detail, fix: r.fix, place: "agent" });
+  });
+}
+
 /**
  * Agent sessions (UX pass 2026-11-20): every Agent tools row no other part covers (the Notion connector, knowledge-mcp, the
  * session files, the skills, the mode, the send pipeline, the session log), so a row that puts a dot on Settings ▸ Agent is also a
@@ -55,7 +74,8 @@ const OWN_PART = (id: string): boolean => id.startsWith("cli.") || ["mcp.present
  */
 function sessionPart(tools: AgentToolsDto | null): { state: SchemeState; detail: string; fix: string | null } {
   if (!tools) return { state: "unknown", detail: `Not checked yet. ${NOT_RUN}.`, fix: null };
-  const rows = tools.rows.filter((r) => !OWN_PART(r.id));
+  const connectors = new Set(tools.capabilities.map((c) => c.name));
+  const rows = tools.rows.filter((r) => !OWN_PART(r.id) && !connectors.has(connectorOf(r.id) ?? ""));
   if (rows.length === 0) return { state: "unknown", detail: "No check covers it.", fix: null };
   const state = rows.map((r) => ROW_STATE[r.state]).reduce(worse);
   const bad = rows.filter((r) => ROW_STATE[r.state] === state);
@@ -123,6 +143,7 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
   out.push(node({ ...p("hub-tools", "hub-tools"), label: "Hub tools", ...fromRows(tools, (id) => id === "mcp.present.hub" || id === "mcp.answers.hub"), place: "agent" }));
   out.push(node({ ...p("guard", "guard"), label: "Guard", ...fromRows(tools, (id) => id === "guard.hook" || id === "send-tools.off"), place: "agent" }));
   out.push(node({ ...p("session", "session"), label: "Agent sessions", ...sessionPart(tools), place: "agent" }));
+  out.push(...connectorParts(slug, tools));
 
   const k = files.knowledge;
   const knowledge = k.state === "absent" ? { state: "unknown" as const, detail: "No knowledge yet." } : k.state === "error" ? { state: "fail" as const, detail: k.message } : !k.consistent ? { state: "fail" as const, detail: `${k.problems} file problems.` } : k.expired > 0 ? { state: "warn" as const, detail: `${k.expired} expired.` } : { state: "ok" as const };
@@ -163,7 +184,7 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
   return out;
 }
 
-/** The fixed wiring (plan 4a): client mail reaches the mailbox, the agent reads it through mail-mcp, writes through the Hub tools, and the send door sends. */
+/** The fixed wiring (plan 4a): client mail reaches the mailbox, the agent reads it through mail-mcp, writes through the Hub tools, and the send door sends; the mail filters limit the mailbox, the project setup binds each session. */
 function edgesOf(nodes: readonly SchemeNode[]): SchemeEdge[] {
   const ids = new Set(nodes.map((n) => n.id));
   const out: SchemeEdge[] = [];
@@ -181,8 +202,13 @@ function edgesOf(nodes: readonly SchemeNode[]): SchemeEdge[] {
       add(of("guard"), c, "limits");
       add(c, of("session"));
     }
+    // P62: only Claude Code sessions get the Google connectors (Codex has no client-id sign-in).
+    for (const n of nodes.filter((x) => x.project === slug && (x.kind === "calendar" || x.kind === "drive"))) add("cli:claude", n.id);
     add(of("hub-tools"), of("send-door"));
-    for (const b of boxes) add(of("send-door"), b);
+    // The filters decide which mail the agent reads; project.md (setup) binds every session. The reply leaves through the send
+    // door to the client (the drawing's end node), not back into the mailbox: a loop there made the layout unreadable.
+    for (const b of boxes) add(of("mail-filters"), b, "limits");
+    for (const c of clis) add(of("setup"), c);
   }
   for (const t of nodes.filter((n) => n.kind === "telegram")) for (const c of clis) add(t.id, c);
   return out;

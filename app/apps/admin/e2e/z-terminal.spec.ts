@@ -132,6 +132,21 @@ test("terminal: on a project's screen the presets are Claude Code, Codex, Shell;
   await expect(page.getByRole("tab", { selected: true })).toContainText(P);
 });
 
+test("terminal: the tab's tips (P63): its CLI's rows and the Hub's, from one list; the desktop handoff row says why it is not offered", async ({ page }) => {
+  await page.goto(at(P, "/drafts"));
+  await openTerminal(page);
+  await expect.poll(() => execOf(page, "claude")).toBe(true);
+  await page.getByRole("button", { name: "Tips for Claude Code" }).click();
+  const tips = page.getByTestId("terminal-tips");
+  await expect(tips.getByRole("heading", { name: "Tips for Claude Code" })).toBeVisible();
+  await expect(tips.locator("[data-tip]")).toHaveCount(6);
+  await expect(tips.locator('[data-tip="claude:voice"]')).toContainText("/voice");
+  await expect(tips.locator('[data-tip="claude:desktop"]')).toContainText("The Hub does not offer it");
+  await expect(tips.locator('[data-tip^="codex:"]')).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(tips).toBeHidden();
+});
+
 test("terminal: with no project in the address (Settings ▸ Connections) only Shell is offered", async ({ page }) => {
   await page.goto("/settings/connections");
   await openTerminal(page);

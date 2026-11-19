@@ -60,6 +60,8 @@ test("Knowledge opens its folder and an expired entry; Help's Where things live 
   await expect.poll(() => opened().at(-1)).toEqual(["/usr/bin/open", folder]);
   await where.getByRole("button", { name: "Open Workflows" }).press("Enter");
   await expect.poll(() => opened().at(-1)).toEqual(["/usr/bin/open", join(folder, "workflows")]);
+  // P63: today's agent log is the fourth place (the server resolves the day's file, or says why not).
+  await expect(where.getByRole("button", { name: "Open Today’s log" })).toBeVisible();
   // No Files menu anywhere since P70: its items are Help's.
   await expect(page.getByRole("button", { name: "Files", exact: true })).toHaveCount(0);
 });

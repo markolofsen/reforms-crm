@@ -7,6 +7,7 @@ drafts replies, reports into Notion. No Hub Django or frontend. (local) = read o
 (est.) = my estimate, not measured.
 
 ## Who reaches what
+- **Drawn live:** Help ▸ How it works draws this wiring from the instance's own state (mailboxes, mail-mcp, the CLIs, the Hub tools, knowledge, Notion, the Google connectors, the guard, the send door), each part with its status word; Overview lists the same parts (P63, decision 0035).
 - **Agents reach services through their own connectors.** A session (Claude Code, Codex, Claude Desktop) reads mail through `mail-mcp` (Apple Mail), writes unsent reply drafts through the hub MCP server's `draft_write` (P52, decision 0030 of the plan repo) and writes the CRM through its Notion connector (MCP). The hub never proxies these and holds no login for them.
 - **The hub gives agents local tools:** `hub record-draft` and `hub record-client` (what the session did, into the database), `hub sequences` (follow-ups), the knowledge MCP over the project's files, and the guard (deny rules and the PreToolUse hook that keep a session draft-only and inside its project).
 - **The admin shows the state** those tools leave, and holds the owner's decisions; its one door out is the confirmed send through Apple Mail (`osascript`). Mail has no other path: no IMAP, no mail key in the hub (decision 0026).

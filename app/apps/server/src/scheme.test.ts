@@ -68,6 +68,23 @@ const sources = (over: Partial<SchemeSources> = {}): SchemeSources => ({
 const byId = (d: SchemeDto, id: string) => d.nodes.find((n) => n.id === id);
 
 describe("composeScheme", () => {
+  it("P63 O5: an attached connector is a part with its account, from its own rows (out of Agent sessions); no account is never ok; only Claude Code reaches it", async () => {
+    const rows = [
+      ...TOOLS.rows,
+      { id: "connector.present.gcal-hello", cli: "claude" as const, title: "gcal-hello configured", state: "pass" as const, detail: "Calendar", fix: null },
+      { id: "connector.answers.gcal-hello", cli: "claude" as const, title: "gcal-hello answers", state: "fail" as const, detail: "HTTP 500", fix: "hub doctor --only Agent" },
+      { id: "connector.present.gdrive-hello", cli: "claude" as const, title: "gdrive-hello configured", state: "pass" as const, detail: "Drive", fix: null },
+    ];
+    const tools: AgentToolsDto = { ...TOOLS, rows, capabilities: [{ kind: "calendar", name: "gcal-hello", account: "hello@example.test" }, { kind: "drive", name: "gdrive-hello", account: null }] };
+    const d = schemeDto.parse(await composeScheme(sources({ agentTools: () => tools })));
+    expect(byId(d, "alpha:calendar:gcal-hello")).toMatchObject({ kind: "calendar", label: "Calendar · hello@example.test", state: "fail", detail: "Claude Code: HTTP 500", fix: "hub doctor --only Agent", place: "agent" });
+    expect(byId(d, "alpha:drive:gdrive-hello")).toMatchObject({ kind: "drive", label: "Drive · gdrive-hello", state: "unknown", detail: "Its Google account is not known yet." });
+    expect(byId(d, "alpha:session")?.detail ?? "").not.toContain("HTTP 500");
+    expect(d.edges).toContainEqual({ from: "cli:claude", to: "alpha:calendar:gcal-hello", kind: "flow" });
+    expect(d.edges.some((e) => e.from === "cli:codex" && e.to.includes(":calendar:"))).toBe(false);
+    expect(schemeDto.parse(await composeScheme(sources({ agentTools: () => null }))).nodes.some((n) => n.kind === "calendar")).toBe(false);
+  });
+
   it("maps each source to its part: pass ok, fail broken with the row's own fix, skipped not checked, signed out a look", async () => {
     const d = schemeDto.parse(await composeScheme(sources()));
     expect(byId(d, "alpha:mail-mcp")).toMatchObject({ state: "fail", detail: "Codex: connection refused", fix: "hub doctor --only MCP", place: "agent" });

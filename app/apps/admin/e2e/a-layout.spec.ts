@@ -104,7 +104,8 @@ const SCREENS: Screen[] = [
   { name: "settings: mail", path: at(P, "/settings/mail"), ready: async (p) => void (await p.getByRole("list", { name: "Mail filters" }).waitFor()) },
   { name: "settings: agent", path: at(P, "/settings/agent"), ready: async (p) => void (await p.getByTestId("agent-tools-status").waitFor()) },
   { name: "settings: this mac", path: "/settings/mac", ready: async (p) => void (await p.getByTestId("core-block").or(p.getByText("Could not load the core update check")).first().waitFor()) },
-  { name: "help", path: "/help", ready: async (p) => void (await p.getByTestId("help").waitFor()) },
+  // P63: wait for the drawing, so axe and the width checks see the parsed SVG and its scroll box, not the loading skeleton.
+  { name: "help", path: "/help", ready: async (p) => void (await p.getByRole("img", { name: "How it works" }).waitFor({ timeout: 15_000 })) },
   {
     name: "settings: connections",
     path: "/settings/connections",

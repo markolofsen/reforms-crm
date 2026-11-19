@@ -1,10 +1,12 @@
 "use client";
 
-import { PanelRightCloseIcon, PlusIcon, XIcon } from "lucide-react";
+import { InfoIcon, PanelRightCloseIcon, PlusIcon, XIcon } from "lucide-react";
 import type { KeyboardEvent } from "react";
+import { TIP_GROUPS, tipsFor } from "@hub/contract/tips";
 import { PRESET_LABELS, type CliFactDto, type CliState, type TerminalPreset, type TerminalProblemDto, type TerminalSessionDto } from "@hub/contract/terminal";
 import { cn } from "@hub/ui/cn";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
+import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@hub/ui/popover";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DesktopHandoffButton } from "@/components/local-action";
 import { CopyFix } from "@/components/copy-fix";
@@ -69,6 +71,40 @@ function NewMenu() {
   );
 }
 
+/**
+ * The tips of the open tab (P63 O3, the owner's request of 2026-11-19): its CLI's rows and the Hub's, from the one list
+ * `@hub/contract/tips` (Help shows them all). A popover like `?`, never a dialog for work; nothing in it types into the session.
+ * The desktop handoff row carries the dock's "Open in Claude Desktop", disabled with its reason (P61 section 9: not offered).
+ */
+function TipsButton({ preset }: { preset: string }) {
+  const tips = tipsFor(preset);
+  const name = preset === "claude" || preset === "codex" ? TIP_GROUPS[preset] : "the terminal";
+  return (
+    <Popover>
+      <PopoverTrigger render={<ActionButton aria-label={`Tips for ${name}`} icon size="s" variant="quiet" />}>
+        <InfoIcon aria-hidden="true" />
+      </PopoverTrigger>
+      <PopoverPopup align="end" className="w-96 max-w-[calc(100vw-2rem)]" side="bottom">
+        <div className="flex max-h-[70vh] min-w-0 flex-col gap-2 overflow-y-auto" data-testid="terminal-tips">
+          <PopoverTitle className="text-base">{`Tips for ${name}`}</PopoverTitle>
+          <ul className="flex flex-col divide-y text-sm">
+            {tips.map((t) => (
+              <li className="flex min-w-0 flex-col gap-0.5 py-2" data-tip={`${t.cli}:${t.id}`} key={`${t.cli}:${t.id}`}>
+                <span className="flex items-center justify-between gap-2 font-medium">
+                  {t.title}
+                  {t.handoff && <DesktopHandoffButton preset={preset} />}
+                </span>
+                <span>{t.how}</span>
+                <span className="text-muted-foreground text-xs">{t.why}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </PopoverPopup>
+    </Popover>
+  );
+}
+
 /** One quiet line (P51): what "this draft" means to the agent right now, from the focus this tab published. Showing, not a control. */
 function AgentSees() {
   const { published } = useSharedFocus();
@@ -106,7 +142,7 @@ export function ProblemLine({ problem }: { problem: TerminalProblemDto }) {
         <code className="min-w-0 flex-1 select-all break-all rounded-sm bg-muted px-1.5 py-0.5 text-xs">{problem.fix}</code>
         <CopyFix fix={problem.fix} />
       </div>
-      <p className="text-muted-foreground text-xs">Then Refresh in Connections, Agent tools, or reload this page.</p>
+      <p className="text-muted-foreground text-xs">Then Refresh on Settings ▸ Agent, or reload this page.</p>
     </div>
   );
 }
@@ -124,10 +160,10 @@ function onTabKeys(e: KeyboardEvent<HTMLDivElement>, ids: string[], active: stri
 }
 
 /**
- * The column's header: the tabs (one tab stop; Left and Right move), Open in Claude Desktop (P61 L5: disabled with its reason, not
- * offered), Close for the open tab (it ends the session), the `+`
+ * The column's header: the tabs (one tab stop; Left and Right move), the open tab's tips (P63; "Open in Claude Desktop", disabled
+ * with its reason, sits in its handoff row), Close for the open tab (it ends the session), the `+`
  * menu, and Hide (the sessions keep running). In the narrow layer it is titled "Terminal". The agent mode is not shown here:
- * it is set in the config and shown in Connections, Agent tools.
+ * it is set in the config and shown on Settings ▸ Agent.
  */
 export function TerminalHeader({ layer }: { layer: boolean }) {
   const t = useTerminal();
@@ -147,7 +183,7 @@ export function TerminalHeader({ layer }: { layer: boolean }) {
             );
           })}
         </div>
-        {current && <DesktopHandoffButton preset={current.preset} />}
+        {current && <TipsButton preset={current.preset} />}
         {current && (
           <ActionButton aria-label={`Close ${tabTitle(current)}`} disabled={t.closing === current.id} icon onClick={() => t.close(current.id)} size="s" variant="quiet">
             <XIcon aria-hidden="true" />

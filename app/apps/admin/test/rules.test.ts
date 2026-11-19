@@ -103,6 +103,16 @@ describe("the server boundary (decision 0015 section 4 and 5)", () => {
     const files = [...appFiles, ...[...walk(ui)].filter((p) => /\.tsx?$/.test(p))];
     expect(files.filter((p) => /dangerouslySetInnerHTML/.test(code(p))).map((p) => path.relative(admin, p))).toEqual([]);
   });
+  // P63 O2, decision 0035: the one exception. Mermaid's SVG is parsed and adopted in one file, loaded there by `import()` only.
+  it("mermaid is imported only by features/help/scheme-svg.tsx, only through import(), and it is the one file that inserts parsed markup", () => {
+    expect(offenders(appFiles, /from ["']mermaid["']|require\(["']mermaid["']\)/)).toEqual([]);
+    expect(offenders(appFiles, /import\(["']mermaid["']\)/)).toEqual(["features/help/scheme-svg.tsx"]);
+    expect(offenders(appFiles, /\.replaceChildren\(|DOMParser|insertAdjacentHTML|\.innerHTML\s*=|\.outerHTML\s*=/)).toEqual(["features/help/scheme-svg.tsx"]);
+    const one = code(path.join(src, "features/help/scheme-svg.tsx"));
+    expect(one).toContain('securityLevel: "strict"');
+    expect(one).toContain('"image/svg+xml"');
+    expect(one).not.toMatch(/innerHTML|insertAdjacentHTML|text\/html/);
+  });
   it("the Node-only server packages are banned imports: the eslint list names @hub/terminal and @hub/agent (P49) and @hub/sequences (P47), and no admin file imports them", () => {
     const config = read(path.join(admin, "eslint.config.mjs"));
     for (const name of ["sequences", "terminal", "agent"]) {
