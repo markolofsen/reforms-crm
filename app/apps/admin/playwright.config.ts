@@ -24,9 +24,9 @@ for (const slug of ["lisbon-realty", "demo-shop"]) {
 }
 // P49 S11: the send policy is the server's file, not a row of project.md (recipients = any, drafts only, as the seeded flows expect).
 for (const slug of ["lisbon-realty", "demo-shop"]) writeSendPolicy(HOME, slug);
-// The instance config: the embedded terminal on (P49; the server runs the fake shell below), agent sessions unattended.
+// The instance config: agent sessions unattended. The embedded terminal is always on (decision 0032; the server runs the fake shell below).
 mkdirSync(join(HOME, "config"), { recursive: true });
-writeFileSync(join(HOME, "config", "config.json"), JSON.stringify({ terminal: { enabled: true }, agent: { default: "claude", unattended: true } }, null, 2));
+writeFileSync(join(HOME, "config", "config.json"), JSON.stringify({ agent: { default: "claude", unattended: true } }, null, 2));
 // P47: lisbon-realty gets the core's starter sequence, so its seeded follow-ups (Tiago due, Ines a candidate) have a definition.
 mkdirSync(join(PROJECTS, "lisbon-realty", "sequences"), { recursive: true });
 copyFileSync(join(import.meta.dirname, "..", "..", "projects", "_template", "sequences", "answered-enquiry-no-reply.md"), join(PROJECTS, "lisbon-realty", "sequences", "answered-enquiry-no-reply.md"));

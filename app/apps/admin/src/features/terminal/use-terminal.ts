@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useRef, useState } from "react";
-import type { CliFactDto, TerminalPreset, TerminalSessionDto, TerminalStateDto } from "@hub/contract/terminal";
+import type { CliFactDto, TerminalPreset, TerminalProblemDto, TerminalSessionDto, TerminalStateDto } from "@hub/contract/terminal";
 import { MAX_SESSIONS } from "@hub/contract/terminal";
 import type { TerminalHandle } from "@hub/ui/product/terminal";
 import { parseWidth } from "@hub/ui/product/side-dock";
@@ -15,12 +15,13 @@ import { sessionFor, useAutoStart } from "./use-auto-start";
 
 export const TERMINAL_KEY = ["terminal"] as const;
 const HELP = [["Ctrl `", "show or hide the terminal"]] as const;
-const NO_HELP: readonly (readonly [string, string])[] = [];
 
 /** Everything the toggle, the dock, the tabs and the sessions read and do. One instance, made by `TerminalProvider`. */
 export type TerminalModel = {
-  /** The instance's terminal: null while loading and when `terminal.enabled` is off (then nothing renders). */
+  /** The instance's terminal (always on, decision 0032): null only while the first read is loading. */
   state: TerminalStateDto | null;
+  /** Why no tab can start on this Mac (P66), with its fix line; the column says it, nothing hides. null: a tab can start. */
+  problem: TerminalProblemDto | null;
   /** The project of the address; null on Overview and Connections (only Shell is offered there). */
   project: string | null;
   open: boolean;
@@ -87,7 +88,7 @@ function useFocus() {
 }
 
 /**
- * The terminal's state: the server's sessions (`GET /api/terminal`; `{enabled: false}` = off), and three viewing preferences in storage
+ * The terminal's state: the server's sessions and `problem` (`GET /api/terminal`), and three viewing preferences in storage
  * (open, width, active tab; read after mount, so the first render is closed). A saved "open" is restored only from 1024px;
  * below that the person opens it. Ctrl+` toggles it from anywhere, the terminal included.
  */
@@ -165,9 +166,10 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   // leave an empty column): this project's session gets the focus, else the server starts its pick, once per page load.
   useAutoStart({
     open,
-    ready: state !== null && known,
+    // P66: with a problem nothing starts by itself; the column says why instead.
+    ready: state !== null && state.problem === null && known,
     project,
-    fresh: () => qc.fetchQuery({ queryKey: TERMINAL_KEY, queryFn: terminalApi.state, staleTime: 0 }).then((s) => s?.sessions ?? [], () => sessions),
+    fresh: () => qc.fetchQuery({ queryKey: TERMINAL_KEY, queryFn: terminalApi.state, staleTime: 0 }).then((s) => s.sessions, () => sessions),
     ensure: () => ensuring.mutate(),
     show: (s) => {
       setActive(s.id);
@@ -175,7 +177,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
     },
   });
   const setOpen = setOpenRaw;
-  useHotkeys(state ? { "ctrl+`": () => setOpen(!open) } : {}, true, state ? HELP : NO_HELP);
+  useHotkeys({ "ctrl+`": () => setOpen(!open) }, true, HELP);
 
   const patch = useCallback(
     (id: string, change: Partial<TerminalSessionDto> | null) => {
@@ -187,6 +189,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
 
   return {
     state,
+    problem: state?.problem ?? null,
     project,
     open,
     mounted,

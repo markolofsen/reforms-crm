@@ -1,26 +1,18 @@
 import { okDto } from "@hub/contract/responses";
 import { ensureSessionDto, terminalSessionDto, terminalStateDto, terminalTicketDto, type CreateSessionBody, type EnsureSessionBody, type TerminalStateDto } from "@hub/contract/terminal";
 import type { FocusPost } from "@hub/contract/focus";
-import { ApiFailure, read } from "./client";
+import { read } from "./client";
 
 /** The resolved theme is the `.dark` class next-themes keeps on <html>: a new tab's CLI learns it through COLORFGBG. */
 const theme = (): "light" | "dark" => (document.documentElement.classList.contains("dark") ? "dark" : "light");
 
 /**
- * The embedded terminal's REST half (P49; the bytes go over the socket in `features/terminal/socket.ts`). The whole surface is
- * off when `terminal.enabled` is not true in the instance config: the state says `{enabled: false}` (an older server: 404) and the admin renders nothing.
+ * The embedded terminal's REST half (P49; the bytes go over the socket in `features/terminal/socket.ts`). Always on
+ * (decision 0032): the state is one object; `problem` (P66) says why no tab can start, and a start is then refused (503).
  */
 export const terminalApi = {
-  /** The switch, the mode, the presets (default first) and the sessions; null when the terminal is off for this instance. */
-  state: async (): Promise<TerminalStateDto | null> => {
-    try {
-      const s = await read(terminalStateDto, { method: "GET", path: "/api/terminal" });
-      return s.enabled ? s : null;
-    } catch (e) {
-      if (e instanceof ApiFailure && e.status === 404) return null;
-      throw e;
-    }
-  },
+  /** The mode, the presets (default first), the sessions, the CLIs the server found and `problem`. */
+  state: (): Promise<TerminalStateDto> => read(terminalStateDto, { method: "GET", path: "/api/terminal" }),
   /** A preset and the project of the admin URL (none: only `shell`); 409 at the cap of eight. */
   create: (body: CreateSessionBody) => read(terminalSessionDto, { method: "POST", path: "/api/terminal/sessions", body: { ...body, theme: theme() } }),
   /**

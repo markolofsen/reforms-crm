@@ -2,7 +2,7 @@
 
 import { CopyIcon, PanelRightCloseIcon, PlusIcon, XIcon } from "lucide-react";
 import { useState, type KeyboardEvent } from "react";
-import { PRESET_LABELS, type CliFactDto, type CliState, type TerminalPreset, type TerminalSessionDto } from "@hub/contract/terminal";
+import { PRESET_LABELS, type CliFactDto, type CliState, type TerminalPreset, type TerminalProblemDto, type TerminalSessionDto } from "@hub/contract/terminal";
 import { cn } from "@hub/ui/cn";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
@@ -28,6 +28,7 @@ const factOf = (clis: readonly CliFactDto[], p: TerminalPreset): CliFactDto | un
 /**
  * The `+` menu: the presets the server offers here, in its order; the first is the default. Without a project, only Shell. A CLI
  * that is not installed is disabled with its reason; one not signed in says so and still starts (its first screen signs in).
+ * When no tab can start (P66), every item is disabled and the menu says why.
  */
 function NewMenu() {
   const t = useTerminal();
@@ -37,7 +38,12 @@ function NewMenu() {
         <PlusIcon aria-hidden="true" />
       </MenuTrigger>
       <MenuPopup align="end">
-        {(t.full || !t.project) && (
+        {t.problem && (
+          <MenuGroup>
+            <MenuGroupLabel className="w-64 whitespace-normal" data-testid="terminal-menu-problem">{`The terminal cannot start: ${t.problem.reason}.`}</MenuGroupLabel>
+          </MenuGroup>
+        )}
+        {!t.problem && (t.full || !t.project) && (
           <MenuGroup>
             <MenuGroupLabel className="w-64 whitespace-normal">{t.full ? "Eight terminals are running. Close one to start another." : "Claude Code and Codex start from a project's screen."}</MenuGroupLabel>
           </MenuGroup>
@@ -52,7 +58,7 @@ function NewMenu() {
           const f = factOf(t.clis, p);
           const note = [f ? STATE_NOTE[f.state] : null, i === 0 && t.offered.length > 1 ? "default" : null].filter(Boolean).join(", ");
           return (
-            <MenuItem disabled={t.full || f?.state === "missing"} key={p} onClick={() => t.create(p)}>
+            <MenuItem disabled={t.problem !== null || t.full || f?.state === "missing"} key={p} onClick={() => t.create(p)}>
               {PRESET_LABELS[p]}
               {note && <span className="ms-auto ps-4 text-muted-foreground text-xs">{note}</span>}
             </MenuItem>
@@ -79,16 +85,41 @@ function AgentSees() {
  */
 function WhyLine({ why }: { why: string }) {
   const fix = why.includes(" · ") ? (why.split(" · ").at(-1) ?? null) : null;
-  const [said, setSaid] = useState<string | null>(null);
   return (
     <div className="flex min-h-8 items-center gap-1 px-3 pb-1.5 text-muted-foreground text-xs" data-testid="terminal-why">
       <p className="min-w-0 flex-1 truncate" title={why}>{why}</p>
-      {fix && (
-        <ActionButton aria-label={`Copy ${fix}`} icon onClick={() => void copyText(fix).then((ok) => setSaid(ok ? `Copied: ${fix}` : "The browser refused the clipboard: select the line and copy it."))} size="s" variant="quiet">
-          <CopyIcon aria-hidden="true" />
-        </ActionButton>
-      )}
+      {fix && <CopyFix fix={fix} />}
+    </div>
+  );
+}
+
+/** The copy button of a fix line (P57): the line goes to the clipboard, and the status says so for a screen reader. */
+function CopyFix({ fix }: { fix: string }) {
+  const [said, setSaid] = useState<string | null>(null);
+  return (
+    <>
+      <ActionButton aria-label={`Copy ${fix}`} icon onClick={() => void copyText(fix).then((ok) => setSaid(ok ? `Copied: ${fix}` : "The browser refused the clipboard: select the line and copy it."))} size="s" variant="quiet">
+        <CopyIcon aria-hidden="true" />
+      </ActionButton>
       <span className="sr-only" role="status">{said}</span>
+    </>
+  );
+}
+
+/**
+ * Why no terminal tab can start on this Mac (P66): the reason, then the one line that fixes it, with the copy button. In
+ * the column, never a dialog; the strip and the column stay drawn.
+ */
+export function ProblemLine({ problem }: { problem: TerminalProblemDto }) {
+  return (
+    <div className="measure flex flex-col gap-2 p-4 text-sm" data-testid="terminal-problem">
+      <p>{`The terminal cannot start: ${problem.reason}.`}</p>
+      <div className="flex items-center gap-1 text-muted-foreground">
+        <span className="shrink-0">Fix:</span>
+        <code className="min-w-0 flex-1 select-all break-all rounded-sm bg-muted px-1.5 py-0.5 text-xs">{problem.fix}</code>
+        <CopyFix fix={problem.fix} />
+      </div>
+      <p className="text-muted-foreground text-xs">Then Refresh in Connections, Agent tools, or reload this page.</p>
     </div>
   );
 }

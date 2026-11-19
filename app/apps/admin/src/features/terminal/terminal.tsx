@@ -8,13 +8,14 @@ import { SideDock } from "@hub/ui/product/side-dock";
 import { useMediaQuery } from "@hub/ui/use-media-query";
 import { HostPortal, HostSlot } from "./host";
 import { SessionPane } from "./session";
-import { TerminalHeader } from "./tabs";
+import { ProblemLine, TerminalHeader } from "./tabs";
 import { TerminalContext, useTerminal, useTerminalModel } from "./use-terminal";
 
 // The embedded terminal (P49): the shell frame mounts `TerminalProvider` around the shell and `TerminalDock` in its dock slot; the
 // phone's top line carries `TerminalToggle`. Collapsed, the dock is a thin strip on the right edge from 640px (`md`; always there, full
 // height); below 640px the strip would take a column from a 360px screen, so the phone's top line holds the one button instead.
-// With `terminal.enabled` off (the state says `enabled: false`) none of them renders anything and the chord is not registered.
+// Always on (decision 0032): the strip, the column and the chord are always there. When no tab can start (P66, the state's
+// `problem`), the column says why and the one line that fixes it; nothing hides.
 
 /** `project` is `undefined` while the shell does not know it yet (the automatic start waits). */
 export function TerminalProvider({ project, children }: { project: string | null | undefined; children: ReactNode }) {
@@ -36,7 +37,6 @@ const NEEDS_YOU = "Terminal, the agent needs you";
  */
 export function TerminalToggle({ className, attention = false }: { className?: string; attention?: boolean }) {
   const t = useTerminal();
-  if (!t.state) return null;
   return (
     <ActionButton aria-keyshortcuts="Control+`" aria-label={attention ? NEEDS_YOU : "Terminal"} aria-pressed={t.open} className={cn("relative", className)} data-terminal-toggle="" icon onClick={() => t.setOpen(!t.open)} size="s" variant="quiet">
       <SquareTerminalIcon aria-hidden="true" />
@@ -101,10 +101,11 @@ function startingWhat(t: { project: string | null; offered: readonly string[]; c
   return ready ? (STRIP_LABEL[ready] ?? "a terminal") : "a terminal";
 }
 
-/** The column's body when no session runs: starting one, or how to start one. */
+/** The column's body when no session runs: why none can start (P66), starting one, or how to start one. */
 function Empty() {
   const t = useTerminal();
   if ((t.state?.sessions.length ?? 0) > 0) return null;
+  if (t.problem) return <ProblemLine problem={t.problem} />;
   return <p className="measure p-4 text-muted-foreground text-sm">{t.creating ? `Starting ${startingWhat(t)}...` : "No terminal is running. Start one with +."}</p>;
 }
 
@@ -120,7 +121,6 @@ export function TerminalDock({ attention = false, onSeen }: { attention?: boolea
   useEffect(() => {
     if (t.open && attention) onSeen?.();
   }, [t.open, attention, onSeen]);
-  if (!t.state) return null;
   return (
     <>
       {t.mounted && (
