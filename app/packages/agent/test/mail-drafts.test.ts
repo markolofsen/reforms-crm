@@ -35,6 +35,8 @@ describe("the Mail scripts compile (osacompile, no Mail call)", () => {
     expect(appleScriptCompileError(script)).toBeNull();
     expect(deleteOfLoopItem(script)).toBeNull();
     expect(script).not.toMatch(/repeat with \w+ in \(id of /);
+    // P58 live check 2026-11-20: items of `email addresses of acc` looped in place cannot be made text (-1700).
+    expect(script).not.toMatch(/repeat with \w+ in \(email addresses of /);
   });
 
   it("passes the reply's text to the compiled script as argv items, verbatim: apostrophes, quotes, lines, non-ASCII", async () => {

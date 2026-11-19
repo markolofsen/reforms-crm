@@ -448,7 +448,9 @@ on addrs(acc)
   set out to ""
   tell application "Mail"
     try
-      repeat with a in (email addresses of acc)
+      -- Bound to a list first: looping straight over the property gives items Mail cannot coerce to text (read-only check, 2026-11-20).
+      set lst to email addresses of acc
+      repeat with a in lst
         set out to out & (contents of a) & LS
       end repeat
     end try
@@ -464,7 +466,8 @@ export const ACCOUNT_ADDRESSES_SCRIPT = `on run argv
   set out to ""
   tell application "Mail"
     try
-      repeat with a in (email addresses of account (item 1 of argv))
+      set lst to email addresses of account (item 1 of argv)
+      repeat with a in lst
         set out to out & (contents of a) & LS
       end repeat
     on error

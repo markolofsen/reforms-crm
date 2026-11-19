@@ -44,7 +44,7 @@ test("Shift+Enter shows the confirmation, Esc cancels it, and nothing was sent",
   const confirm = card.getByRole("button", { name: "Send to Sofia" });
   await expect(confirm).toBeVisible();
   await expect(confirm).toBeFocused();
-  await expect(card.getByText(/To sofia@example\.com/)).toBeVisible();
+  await expect(card.getByRole("status").filter({ hasText: /To sofia@example\.com/ })).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(confirm).toHaveCount(0);
   await expect(sendButton(card)).toBeVisible();
