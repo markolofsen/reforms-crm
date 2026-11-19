@@ -5,7 +5,7 @@ import { RepoError } from "../errors";
 import { agentRuns, clients, projectAddresses, projectQuestions, projects } from "../schema";
 
 export type ProjectRow = typeof projects.$inferSelect;
-export type AddressRow = { address: string; project: string; kind: "account" | "address" };
+export type AddressRow = { address: string; project: string; kind: "account" | "address" | "domain" };
 export type QuestionRow = typeof projectQuestions.$inferSelect;
 export type NewProjectRow = Omit<ProjectRow, "syncedAt" | "kind" | "archived"> & { kind?: string; archived?: boolean };
 export type NewQuestion = {

@@ -1,15 +1,19 @@
 // `doctor --project <slug>`: the checks of K5 that need no installer code. Everything that touches the outside world
 // (Mail.app, Notion, the MCP config, the knowledge index) is injected, so the installer wires the real thing and tests
 // pass fakes.
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { entryBrandProblem, frontMatterBrands } from "./brand";
 import { formatIssue, hasErrors } from "./parse";
 import { kindOf } from "./kinds";
 import type { ProjectConfig } from "./schema";
 import { loadWorkflows, workflowErrors } from "./workflows";
 import { isUsable, loadSequences, sequenceErrors } from "@hub/sequences";
-import { duplicateClaims, type LoadedProject } from "./registry";
+import { duplicateClaims, duplicateDomains, type LoadedProject } from "./registry";
 import { policyProblems } from "./send-policy";
 
-export type CheckOutcome = "pass" | "fail" | "skipped";
+/** `warn`: a gap that a `draft` project may still have (it becomes `fail` once the project is `active`). */
+export type CheckOutcome = "pass" | "warn" | "fail" | "skipped";
 export interface Check {
   name: string;
   outcome: CheckOutcome;
@@ -90,6 +94,14 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
       : { name: "no address claimed twice", outcome: "pass", detail: `${c.mail.addresses.length} address(es)` },
   );
 
+  const domainClaims = duplicateDomains(all).filter((d) => d.projects.includes(p.slug));
+  checks.push(
+    domainClaims.length
+      ? { name: "no domain claimed twice", outcome: "fail", detail: domainClaims.map((d) => `${d.address} also listed by ${d.projects.filter((s) => s !== p.slug).join(", ")}`).join("; ") }
+      : { name: "no domain claimed twice", outcome: "pass", detail: `${c.mail.domains.length} domain(s)` },
+  );
+  checks.push(...brandChecks(project), ...knowledgeBrandChecks(project));
+
   if (c.status === "active") {
     checks.push(
       c.mail.addresses.length + c.mail.accounts.length === 0
@@ -152,6 +164,68 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
     );
   }
   return checks;
+}
+
+/**
+ * P60: the `## Brands` table. A gap the owner has not answered yet (a domain in no row, a brand without a signature)
+ * warns while the project is a `draft` and fails once it is `active`; a table that does not parse always fails.
+ */
+export function brandChecks(project: LoadedProject): Check[] {
+  const p = project.parsed;
+  const c = p.config;
+  const gap: CheckOutcome = c.status === "draft" ? "warn" : "fail";
+  const errors = p.issues.filter((i) => i.field === "brands" && i.severity === "error");
+  if (errors.length) return [{ name: "brands table parses", outcome: "fail", detail: errors.map(formatIssue).join("; ") }];
+  if (c.brands.length === 0) {
+    const why = "no ## Brands table: one brand, drafts end with signoff alone";
+    return [skip("brands table parses", why), skip("every project domain has a brand", why), skip("every brand has a signature", why)];
+  }
+  const listed = new Set(c.brands.flatMap((b) => b.receivesAt));
+  const brandless = c.mail.domains.filter((d) => !listed.has(d));
+  const unsigned = c.brands.filter((b) => b.signature.length === 0).map((b) => b.name);
+  return [
+    { name: "brands table parses", outcome: "pass", detail: `${c.brands.length} brand(s): ${c.brands.map((b) => b.name).join(", ")}` },
+    brandless.length
+      ? { name: "every project domain has a brand", outcome: gap, detail: `in no ## Brands row: ${brandless.join(", ")}` }
+      : { name: "every project domain has a brand", outcome: "pass", detail: c.mail.domains.length ? `${c.mail.domains.length} domain(s), each in a row` : "no mail.domains" },
+    unsigned.length
+      ? { name: "every brand has a signature", outcome: gap, detail: `no Signature yet: ${unsigned.join(", ")} (their drafts carry [Owner: signature for ...], which hub send refuses)` }
+      : { name: "every brand has a signature", outcome: "pass", detail: c.brands.map((b) => `${b.name}: ${b.signature.join(" / ")}`).join("; ") },
+  ];
+}
+
+/** Every entry file under `<folder>/knowledge` but the taxonomy, as paths relative to the folder (the indexer's walk). */
+function entryFiles(folder: string, dir = join(folder, "knowledge"), rel = "knowledge"): string[] {
+  if (!existsSync(dir)) return [];
+  const out: string[] = [];
+  for (const name of readdirSync(dir).sort()) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) out.push(...entryFiles(folder, p, `${rel}/${name}`));
+    else if (name.endsWith(".md") && `${rel}/${name}` !== "knowledge/taxonomy.md") out.push(`${rel}/${name}`);
+  }
+  return out;
+}
+
+/** P60 B3: `knowledge.scope by-brand` needs two or more brands, and every entry must name known brands or `ANY` (`entryBrandProblem`, the indexer's own rule). */
+export function knowledgeBrandChecks(project: LoadedProject): Check[] {
+  const c = project.parsed.config;
+  if (c.knowledge.scope !== "by-brand") return [skip("knowledge scope fits brands", "knowledge.scope shared: one knowledge base for every brand")];
+  const fits: Check = c.brands.length >= 2
+    ? { name: "knowledge scope fits brands", outcome: "pass", detail: `by-brand over ${c.brands.length} brands` }
+    : { name: "knowledge scope fits brands", outcome: "fail", detail: `knowledge.scope by-brand needs two or more ## Brands rows (has ${c.brands.length})` };
+  const files = entryFiles(project.folder);
+  const bad = files.flatMap((f) => {
+    const why = entryBrandProblem(frontMatterBrands(readFileSync(join(project.folder, f), "utf8")), c);
+    return why ? [`${f}: ${why}`] : [];
+  });
+  return [
+    fits,
+    files.length === 0
+      ? skip("knowledge entries name known brands", "knowledge/ has no entries")
+      : bad.length
+        ? { name: "knowledge entries name known brands", outcome: "fail", detail: `${bad.length} of ${files.length} not indexed: ${bad.slice(0, 3).join("; ")}${bad.length > 3 ? "; ..." : ""}` }
+        : { name: "knowledge entries name known brands", outcome: "pass", detail: `${files.length} entries, each with known brands` },
+  ];
 }
 
 /** P49 S11: the send policy is a server-owned file; a row of it left in project.md is ignored and fails here until migrated. */

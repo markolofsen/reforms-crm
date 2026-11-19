@@ -191,6 +191,30 @@ async function previousRevision(dbPath: string, project: string, email: string, 
  * Validates, writes, and returns ONE JSON line. Exit code 0 only when the line says `"ok":true`; 2 for a bad project
  * or payload (nothing written); 1 for a failure while writing. The skill must report a non-ok line, never retry in a loop.
  */
+/** The used entries (by path, or a path suffix such as an id) whose `brands` list neither `brand` nor ANY. Unreadable index: nothing is claimed. */
+async function otherBrandFacts(dbPath: string, project: string, used: readonly string[], brand: string | null): Promise<Violation[]> {
+  let handle: ReturnType<typeof openDb> | undefined;
+  try {
+    handle = openDb(dbPath);
+    const rows = await createRepos(handle.db).knowledge.list(project);
+    const out: Violation[] = [];
+    for (const u of used) {
+      const id = u.trim();
+      const row = rows.find((r) => r.path === id) ?? rows.find((r) => id.length >= 6 && (r.path.endsWith(id) || r.path.endsWith(`${id}.md`) || r.path.includes(`-${id}`)));
+      if (!row) continue;
+      let brands: string[] = [];
+      try { const j: unknown = JSON.parse(row.brands); brands = Array.isArray(j) ? j.filter((x): x is string => typeof x === "string") : []; } catch { brands = []; }
+      if (brands.includes("ANY") || (brand !== null && brands.includes(brand))) continue;
+      out.push({ code: "fact-other-brand", text: `${row.path} is a fact of ${brands.join(", ") || "no brand"}, and this draft answers ${brand ?? "a mail with no brand"}`, amber: false });
+    }
+    return out;
+  } catch {
+    return [];
+  } finally {
+    handle?.close();
+  }
+}
+
 export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
   const fail = (code: 1 | 2, error: string, extra: Record<string, unknown> = {}): RecordOutcome => ({ code, line: JSON.stringify({ ok: false, error, ...extra }) });
 
@@ -246,6 +270,7 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
   };
 
   let required: ContextMode | null = null;
+  let brandScope: { names: string[] } | null = null;
   if (o.projectsDir) {
     let loaded;
     try { loaded = loadProject(o.projectsDir, project.data, o.policyDir ? { policyDir: o.policyDir } : {}); }
@@ -258,6 +283,7 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
     const g = checkDraftRecipients(loaded.parsed.config, addressesOf(v.to ?? v.email, v.cc), allowList(o.configFile));
     if (!g.ok) return fail(2, `not allowed: draft.recipients of ${project.data} does not permit ${g.blocked.join(", ")}`, { blocked: g.blocked });
     required = loaded.parsed.config.context.required;
+    if (loaded.parsed.config.knowledge.scope === "by-brand") brandScope = { names: loaded.parsed.config.brands.map((b) => b.name) };
   }
 
   // P28: the evidence block. warn records and reports; block refuses before anything is written.
@@ -278,6 +304,9 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
     const x = crossCheck(o.ledgerRoot, project.data, emailKey, inherited ? undefined : v.context, claimedHashes);
     if (x.entry) {
       source = "observed";
+      // P58/P60: the brand and the address the client wrote to come from the writer's own result, never from the payload.
+      if (x.entry.wroteTo !== undefined) input.wroteTo = x.entry.wroteTo;
+      if (x.entry.brand !== undefined) input.brand = x.entry.brand;
       observed = x.observed;
       draftHash = x.entry.hash;
       if (x.entry.fp?.length) fp = x.entry.fp;
@@ -291,6 +320,9 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
       for (const reason of j.reasons) violations.push({ code: j.level === "red" ? "near-duplicate" : "similar-to-another", text: `${reason}${m.similarTo ? `; closest: ${m.similarTo}` : ""}`, amber: j.level !== "red" });
     }
   }
+  // P60 B3: in a by-brand project every knowledge entry the draft used must list the draft's brand (from the writer's
+  // result, never the payload) or ANY. Red: a fact of another product is not stated to this client.
+  if (brandScope && v.context?.facts.used.length) violations.push(...(await otherBrandFacts(o.dbPath ?? defaultDbPath(), project.data, v.context.facts.used, input.brand ?? null)));
   const evidence: Evidence = violations.some((x) => x.missing) ? "missing" : violations.length ? "weak" : "ok";
   const warnings = violations.map((x) => `${x.code}: ${x.text}`);
   const refusals = violations.filter((x) => !x.amber);

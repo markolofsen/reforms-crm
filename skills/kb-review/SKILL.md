@@ -33,7 +33,7 @@ Rules every entry skill follows: `skills/README.md` ("Rules"). Format and types:
    a source you read** (the KB, `project.md`, the owner's words in this session). A fact nobody supplied is written as
    `[Owner: ...]` and the item is marked "ждёт ответа владельца". Never invent a figure, date or term to make the draft look complete.
    For `stale` / `conflict`: name the page, show the old text and the proposed replacement. For `repeated-question` with an
-   existing answer: propose the extra phrasings and a clearer title, not a new entry.
+   existing answer: propose the extra phrasings and a clearer title, not a new entry. In a `knowledge.scope by-brand` project a proposed entry carries `brands:` (the brand of the gaps it closes); when two brands' gaps ask the same thing and the answer is true for both, propose `brands: [ANY]` on the existing entry instead of a copy.
 8. **Write the summary** to `projects/<slug>/reports/kb/review-YYYY-MM-DD.md` (Write, inside `reports/` only; git-ignored): the period, the
    ranked table, the drafts. Reports whose date is inside the period stay as they are.
 9. **Notion: nothing.** The summary lives on the local disk only. A Knowledge entry is never created, edited or approved by this

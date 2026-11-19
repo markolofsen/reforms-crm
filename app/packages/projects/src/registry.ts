@@ -77,6 +77,13 @@ export function duplicateClaims(projects: LoadedProject[]): DuplicateClaim[] {
   return [...by.entries()].filter(([, s]) => s.length > 1).map(([address, slugs]) => ({ address, projects: slugs.sort() }));
 }
 
+/** Domains (`mail.domains`) listed by more than one project (P60): a forwarded domain belongs to one project. */
+export function duplicateDomains(projects: LoadedProject[]): DuplicateClaim[] {
+  const by = new Map<string, string[]>();
+  for (const p of projects) for (const d of new Set(p.parsed.config.mail.domains)) by.set(d, [...(by.get(d) ?? []), p.slug]);
+  return [...by.entries()].filter(([, s]) => s.length > 1).map(([address, slugs]) => ({ address, projects: slugs.sort() }));
+}
+
 export type SyncResult =
   | { ok: true; projects: number; addresses: number; warnings: string[] }
   | { ok: false; errors: string[]; warnings: string[] };
@@ -92,6 +99,7 @@ export async function syncProjects(repos: Repos, projects: LoadedProject[], at?:
     for (const i of p.parsed.issues) (i.severity === "error" ? errors : warnings).push(`${p.slug}: ${formatIssue(i)}`);
   }
   for (const d of duplicateClaims(projects)) errors.push(`duplicate_claim: address ${d.address} is claimed by ${d.projects.join(" and ")}`);
+  for (const d of duplicateDomains(projects)) errors.push(`duplicate_claim: domain ${d.address} is listed by ${d.projects.join(" and ")}`);
   if (errors.length) return { ok: false, errors, warnings };
 
   const addresses: AddressRow[] = [];
@@ -99,6 +107,7 @@ export async function syncProjects(repos: Repos, projects: LoadedProject[], at?:
     const c = p.parsed.config;
     for (const a of new Set(c.mail.accounts.map((x) => x.trim().toLowerCase()))) addresses.push({ address: a, project: p.slug, kind: "account" });
     for (const a of new Set(c.mail.addresses)) addresses.push({ address: a, project: p.slug, kind: "address" });
+    for (const d of new Set(c.mail.domains)) addresses.push({ address: d, project: p.slug, kind: "domain" });
   }
   await repos.projects.replaceRegistry({
     projects: projects.map((p) => ({ slug: p.slug, name: p.parsed.name, status: p.parsed.config.status, kind: p.parsed.config.kind, archived: p.parsed.config.status === "archived", settingsJson: JSON.stringify(p.parsed.config), hash: p.hash })),

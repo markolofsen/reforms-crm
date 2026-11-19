@@ -3,7 +3,7 @@ import { type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type Fin
 import type { Db } from "../client";
 import { write, type WriteTx } from "../tx";
 import { RepoError } from "../errors";
-import { drafts, enrollments, marks } from "../schema";
+import { clients, drafts, enrollments, marks } from "../schema";
 import { blocksChecked, isSafetyKind } from "../safety";
 import { loadSafety, logDraftEvent, nowIso, parseJson, type DraftRow } from "./bulk-shared";
 import { touchClient } from "./clients";
@@ -49,6 +49,9 @@ export type RecordDraftInput = {
   runId?: number | null;
   /** The draft is step `step` of this enrollment (P47, skill `sequence-drafts`): only the open step of an active enrollment is accepted. */
   sequence?: { enrollmentId: number; step: number } | null;
+  /** P58/P60: the address the client wrote to and its brand, as the hub's writer resolved them (never the agent's claim). Left out: kept as stored. */
+  wroteTo?: string | null;
+  brand?: string | null;
 };
 
 /** created: new row; updated: same `mailRef` as the open draft; replaced: another open draft was skipped first; unchanged: this `mailRef` is already a finished draft. */
@@ -217,6 +220,8 @@ export function draftsRepo(db: Db) {
           body: input.excerpt ?? "",
           mailRef,
           mailClass: input.mailClass ?? null,
+          ...(input.wroteTo !== undefined ? { wroteTo: input.wroteTo } : {}),
+          ...(input.brand !== undefined ? { brand: input.brand } : {}),
           ...(input.evidence
             ? {
                 evidence: input.evidence.level,
@@ -259,6 +264,26 @@ export function draftsRepo(db: Db) {
           .get();
         log("draft_created", "Draft recorded", { draftId: d.id, action: "create", skill: input.skill ?? null, mailRef });
         return { clientId: client.id, draftId: d.id, runId, action: open ? ("replaced" as const) : ("created" as const), ...stopped };
+      });
+    },
+
+    /**
+     * A revision the hub's own writer saved (`draft_write {draft}`, coordinator 2026-11-19): the open draft keeps its id,
+     * client, mailRef, recipients and context block; its preview text, the brand it answers for and the address the client
+     * wrote to are replaced, and "I read the checks" is cleared because the text changed (decision 0013). Logged as
+     * "Draft updated" like `hub record-draft`. Refuses a draft that is not open (done, sent, skipped) or of another project.
+     */
+    async revised(project: string, draftId: number, r: { excerpt: string; wroteTo: string | null; brand: string | null }): Promise<{ draftId: number; clientId: number; action: "updated" }> {
+      return write(db, (tx) => {
+        const d = tx.select().from(drafts).where(and(eq(drafts.id, draftId), eq(drafts.project, project))).get();
+        if (!d) throw new RepoError("not_found", `No draft ${draftId} in project ${project}`);
+        if (!isOpen(d.status)) throw new RepoError("wrong_state", `Draft ${draftId} is ${d.status}: only a ready or held draft is revised in place`);
+        const at = nowIso();
+        tx.update(drafts).set({ body: r.excerpt, wroteTo: r.wroteTo, brand: r.brand, checked: false, checkedHash: null, updatedAt: now }).where(eq(drafts.id, d.id)).run();
+        const c = tx.select({ name: clients.name, email: clients.email }).from(clients).where(eq(clients.id, d.clientId)).get();
+        const runId = sessionRun(tx, { project, runId: d.runId, skill: "draft_write", at });
+        insertEvent(tx, { project, runId, at, kind: "draft_created", summary: `Draft updated: ${c?.name || c?.email || d.toAddr}`, detail: JSON.stringify({ draftId: d.id, action: "update", skill: "draft_write", mailRef: d.mailRef }), clientId: d.clientId, tool: null });
+        return { draftId: d.id, clientId: d.clientId, action: "updated" as const };
       });
     },
 

@@ -47,7 +47,7 @@ describe("knowledge_search", () => {
     expect(Object.keys(r.json).sort()).toEqual(["project", "query", "results", "total", "truncated"]);
     expect(r.json.project).toBe("acme-travel");
     expect(r.json.results[0]).toMatchObject({ path: "knowledge/files/terms/cancel.md", title: "Cancellation policy", use: "STATE", approved: true, expired: false, audiences: ["ANY"], category: "TERMS", valid_until: null });
-    expect(Object.keys(r.json.results[0]).sort()).toEqual(["approved", "audiences", "category", "expired", "path", "score", "snippet", "title", "use", "valid_until"]);
+    expect(Object.keys(r.json.results[0]).sort()).toEqual(["approved", "audiences", "brands", "category", "expired", "path", "score", "snippet", "title", "use", "valid_until"]);
     expect(r.json.results[0].snippet.length).toBeLessThanOrEqual(400);
   });
 

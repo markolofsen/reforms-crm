@@ -1,12 +1,13 @@
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
+import { parseProjectMd } from "@hub/projects";
 import { DENIED_TOOLS } from "../src/deny";
 import { FakeDraftWriter, FIND_INBOUND_SCRIPT, mailAppDraftWriter, parseInboundOutput, parseWriteOutput, reviseDraft, stripMarker, WRITE_REPLY_SCRIPT, type OsaRun } from "../src/mail-drafts";
-import { createHubMcpServer } from "../src/mcp";
+import { createHubMcpServer, type HubMcpEnv } from "../src/mcp";
 
 // The hub's draft writer (P52): the script's contract, its parser and the `draft_write` tool, on a fake Mail. No test touches Mail.
 
@@ -96,12 +97,13 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-async function connect(writer: FakeDraftWriter | undefined, mailWritten?: (slug: string) => void) {
+async function connect(writer: FakeDraftWriter | undefined, mailWritten?: (slug: string) => void, extra: Partial<HubMcpEnv> = {}) {
   const server = createHubMcpServer(createRepos(db.db), {
     hubProject: "acme",
     focusFile: path.join(dir, "focus.json"),
     ...(writer ? { drafts: writer, projectMail: () => ({ accounts: ["desk@acme.example"], sender: null }) } : {}),
     ...(mailWritten ? { mailWritten } : {}),
+    ...extra,
   });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(b);
@@ -124,7 +126,8 @@ describe("draft_write (hub mcp)", () => {
     const second = await call(args("Hi Ann, revised."));
     expect(second.json.replaced).toEqual([first.json.draftId]);
     expect(mail.drafts.map((d) => d.text)).toEqual(["[hub-draft thread=m42@example.com]\nHi Ann, revised."]);
-    expect(second.json.next).toMatch(/`hub record-draft --project acme` \(skill triage-mail step 5\) with "mailRef":"m42@example.com"/);
+    expect(second.json.next).toMatch(/"mailRef":"m42@example.com".*\| \.\/run\.sh record-draft --project acme` \(JSON on stdin/);
+    expect(second.json.recorded).toBe(false);
   });
 
   it("refuses an account outside the project, and refuses without a writer", async () => {
@@ -165,5 +168,70 @@ describe("draft_write (hub mcp)", () => {
 
   it("mail-mcp's create_reply is denied: the hub writes every draft", () => {
     expect(DENIED_TOOLS).toContain("mcp__mail-mcp__create_reply");
+  });
+});
+
+// P60 B2 and the coordinator's live finding (2026-11-19, session fa1cf288): the agent wrote "Reforms.ai team" under a mail to
+// the Carapis address. The writer signs instead, from the answered message's headers, and records a revision itself.
+describe("draft_write signs per brand and records a revision (P60)", () => {
+  const fx = path.join(__dirname, "..", "..", "projects", "test", "fixtures", "brands");
+  const one = parseProjectMd(readFileSync(path.join(fx, "one-mailbox.md"), "utf8"), "one-mailbox").config;
+  const cases = JSON.parse(readFileSync(path.join(fx, "cases.json"), "utf8")) as { forwarded: { headersFile: string; brand: string; wroteTo: string; signature: string[] } };
+  const account = one.mail.accounts[0] ?? "";
+  const projectMail = () => ({ accounts: one.mail.accounts, sender: one.mail.sender, identity: { addresses: one.mail.addresses, domains: one.mail.domains, signoff: one.signoff, brands: one.brands } });
+
+  it("the forwarded mail (headers of the real one) is signed with that brand's lines, whatever the agent typed", async () => {
+    const mail = new FakeDraftWriter();
+    mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
+    const call = await connect(undefined, undefined, { drafts: mail, projectMail });
+    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: `Hello,\n\nHere is the answer.\n\n${one.signoff}` });
+    expect(r).toMatchObject({ isError: false, json: { brand: cases.forwarded.brand, wroteTo: cases.forwarded.wroteTo, signature: "signed" } });
+    expect(mail.drafts[0]?.text).toBe(`[hub-draft thread=m42@example.com]\nHello,\n\nHere is the answer.\n\n${cases.forwarded.signature.join("\n")}`);
+  });
+
+  it("headers that name no brand, or cannot be read: the placeholder, and the result says so", async () => {
+    const mail = new FakeDraftWriter();
+    mail.headers.set(42, "To: someone@example.org");
+    const call = await connect(undefined, undefined, { drafts: mail, projectMail });
+    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Answer." });
+    expect(r.json).toMatchObject({ brand: null, signature: "placeholder" });
+    expect(r.json.next).toMatch(/\[Owner: signature for/);
+    expect(mail.drafts[0]?.text.split("\n").at(-1)).toBe("[Owner: signature for unknown brand]");
+    const unread = await call({ account, mailbox_path: ["INBOX"], message_id: 7, content: "Answer." });
+    expect(unread.json).toMatchObject({ signature: "placeholder", brandReason: "the message's headers could not be read" });
+  });
+
+  it("a revision is signed once and recorded in place: same draft id, brand stored, no record-draft step", async () => {
+    const repos = createRepos(db.db);
+    const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Hello", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail", excerpt: "old" });
+    await repos.drafts.setChecked(rec.draftId, true).catch(() => undefined);
+    const mail = new FakeDraftWriter();
+    mail.inbound.set("m42@example.com", { account, mailboxPath: ["INBOX"], messageId: 42 });
+    mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
+    const recordRevision = (slug: string, id: number, r: { excerpt: string; wroteTo: string | null; brand: string | null }) => repos.drafts.revised(slug, id, r);
+    const call = await connect(undefined, undefined, { drafts: mail, projectMail, recordRevision });
+    const first = await call({ draft: rec.draftId, content: "Warmer answer." });
+    expect(first.json).toMatchObject({ recorded: true, draft: rec.draftId, brand: cases.forwarded.brand });
+    expect(first.json.next).toMatch(/Do not run record-draft/);
+    const second = await call({ draft: rec.draftId, content: `Warmer answer.\n\n${cases.forwarded.signature.join("\n")}` });
+    expect(second.json.recorded).toBe(true);
+    expect(mail.drafts).toHaveLength(1);
+    expect(mail.drafts[0]?.text.match(new RegExp(cases.forwarded.signature.at(-1)!.replace(/\./g, "\\."), "g"))).toHaveLength(1);
+    const row = await repos.drafts.get(rec.draftId);
+    expect(row).toMatchObject({ id: rec.draftId, body: "Warmer answer. " + cases.forwarded.signature.join(" "), brand: cases.forwarded.brand, wroteTo: cases.forwarded.wroteTo, checked: false, status: "ready" });
+    await repos.drafts.setStatus(rec.draftId, "done");
+    await expect(repos.drafts.revised("acme", rec.draftId, { excerpt: "x", wroteTo: null, brand: null })).rejects.toThrow(/only a ready or held draft/);
+  });
+
+  it("mail_brand resolves pasted headers without a Mail read", async () => {
+    const server = createHubMcpServer(createRepos(db.db), { hubProject: "acme", focusFile: path.join(dir, "focus.json"), projectMail });
+    const [a, b] = InMemoryTransport.createLinkedPair();
+    await server.connect(b);
+    const client = new Client({ name: "test", version: "0" });
+    await client.connect(a);
+    const res = await client.callTool({ name: "mail_brand", arguments: { headers: readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8") } });
+    expect(JSON.parse((res.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ brand: cases.forwarded.brand, wroteTo: cases.forwarded.wroteTo, signature: "signed" });
+    const viaTo = await client.callTool({ name: "mail_brand", arguments: { headers: `Delivered-To: ${account}`, to: [cases.forwarded.wroteTo] } });
+    expect(JSON.parse((viaTo.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ brand: cases.forwarded.brand });
   });
 });

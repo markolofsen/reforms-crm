@@ -141,6 +141,20 @@
       "when": 1795300000002,
       "tag": "0019_live",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1795300000003,
+      "tag": "0020_brands",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1795300000004,
+      "tag": "0021_knowledge_brands",
+      "breakpoints": true
     }
   ]
 }

@@ -97,7 +97,7 @@ async function connect(hubProject: string | undefined) {
 }
 
 describe("hub mcp", () => {
-  it("lists exactly the five tools: four read-only, draft_write the one Mail write; none send-like", async () => {
+  it("lists exactly the six tools: five read-only (mail_brand reads no Mail), draft_write the one Mail write; none send-like", async () => {
     const { client } = await connect("acme");
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([...HUB_MCP_TOOLS].sort());

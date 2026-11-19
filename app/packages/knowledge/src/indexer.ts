@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { Repos } from "@hub/db";
+import { canonicalBrands, entryBrandProblem, loadProject, type ProjectConfig } from "@hub/projects";
 import { EntryError, parseEntry, sha256 } from "./entry";
 import { checkAgainstTaxonomy, loadTaxonomy, TAXONOMY_FILE, TaxonomyError, type Taxonomy } from "./taxonomy";
 
@@ -51,6 +52,13 @@ export async function indexProject(repos: Repos, root: string, slug: string, at?
     result.invalid.push({ path: TAXONOMY_FILE, error: err.message });
   }
   const keep: string[] = [];
+  // P60: the project's brands and scope. A project.md that cannot be read leaves the scope `shared` (nothing filtered, nothing refused).
+  let config: Pick<ProjectConfig, "knowledge" | "brands"> = { knowledge: { source: "files", scope: "shared" }, brands: [] };
+  try {
+    config = loadProject(root, slug).parsed.config;
+  } catch {
+    /* no readable project.md: shared */
+  }
 
   for (const path of files) {
     const text = readFileSync(join(folder, path), "utf8");
@@ -73,6 +81,12 @@ export async function indexProject(repos: Repos, root: string, slug: string, at?
         continue;
       }
     }
+    const brandProblem = entryBrandProblem(entry.front.brands, config);
+    if (brandProblem) {
+      // like an unknown audience: an entry that would answer for the wrong product, or for none, is not indexed
+      result.invalid.push({ path, error: brandProblem });
+      continue;
+    }
     keep.push(path);
     const before = known.get(path);
     if (before === hash) {
@@ -88,6 +102,7 @@ export async function indexProject(repos: Repos, root: string, slug: string, at?
         use: f.use,
         approved: f.approved,
         audiences: f.audiences,
+        brands: canonicalBrands(f.brands ?? [], config.brands),
         category: f.category ?? null,
         kind: f.kind ?? null,
         validUntil: f.valid_until ?? null,

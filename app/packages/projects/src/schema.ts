@@ -26,6 +26,24 @@ const IsoDate = z.string().refine(isIsoDate, "not an ISO date");
 export const ProjectDatabase = z.object({ slug: z.string(), dataSourceId: z.string() });
 export type ProjectDatabase = z.infer<typeof ProjectDatabase>;
 
+/**
+ * One row of `## Brands` (P60): a product the project answers for, the addresses and domains its mail arrives at, and
+ * the lines that sign a draft for it. `name` is the exact Notion `Brand` option; `receivesAt` holds normalised
+ * addresses and lower-case domains; `signature` is empty until the owner answered it.
+ */
+export const Brand = z.object({
+  name: z.string().min(1),
+  receivesAt: z.array(z.string()).default([]),
+  signature: z.array(z.string()).default([]),
+  answered: z.string().default(""),
+  by: z.enum(BYS).default("owner"),
+});
+export type Brand = z.infer<typeof Brand>;
+
+/** `shared` (default): one knowledge base for every brand. `by-brand`: each entry names its brands, search filters by the thread's brand. */
+export const KNOWLEDGE_SCOPES = ["shared", "by-brand"] as const;
+export type KnowledgeScope = (typeof KNOWLEDGE_SCOPES)[number];
+
 export const ProjectBase = z.object({
   schema: z.literal(1),
   slug: z.string().min(1),
@@ -55,6 +73,8 @@ export const ProjectBase = z.object({
   draft: z.object({ recipients: z.union([z.literal("test"), z.literal("any"), z.array(z.string()).min(1)]).default("test") }).default({ recipients: "test" }),
   tone: z.string().nullable().default(null),
   signoff: z.string().default(""),
+  /** The `## Brands` table (P60); empty: the project has one brand and its drafts are signed with `signoff` alone. */
+  brands: z.array(Brand).default([]),
   notion: z
     .object({
       teamspace: z.string().nullable().default(null),
@@ -68,7 +88,7 @@ export const ProjectBase = z.object({
   calendar: z
     .object({ name: z.string().nullable().default(null), id: z.string().nullable().default(null), timezone: Tz.nullable().default(null) })
     .default({ name: null, id: null, timezone: null }),
-  knowledge: z.object({ source: z.literal("files").default("files") }).default({ source: "files" }),
+  knowledge: z.object({ source: z.literal("files").default("files"), scope: z.enum(KNOWLEDGE_SCOPES).default("shared") }).default({ source: "files", scope: "shared" }),
   /**
    * What the hub may send (decision 0011). The agent has no send tool in any mode; `hub send` is the only sender.
    * `draft`: nothing is sent unless a person runs `hub send` (or presses Send in the admin). `auto`: `hub send --due`

@@ -105,6 +105,9 @@ export const reviewDraftDto = z.object({
   basedOn: basedOnDto.nullable(),
   /** The mail class the agent recorded (client, partner, ...); autosend admits only listed classes. */
   mailClass: z.string().nullable(),
+  /** P58/P60: the project's address the client wrote to and its `## Brands` row, as the hub's writer resolved them; null when unknown. */
+  wroteTo: z.string().nullable().default(null),
+  brand: z.string().nullable().default(null),
   /** The draft's live send, if any: queued in a window, in progress, or sent by the hub. */
   sendState: z.object({ id: z.number(), status: z.enum(["queued", "sending", "sent"]), dueAt: nullableIso }).nullable(),
   skipReason: z.string().nullable(),
@@ -313,7 +316,7 @@ export const stopDto = z.object({ ok: z.literal(true), cancelled: z.number(), st
 
 // The project doctor (`hub project doctor`) as the Project screen's health view. Checks that need Mail or Notion are
 // not run by the server and show as skipped.
-export const doctorCheckDto = z.object({ name: z.string(), outcome: z.enum(["pass", "fail", "skipped"]), detail: z.string() });
+export const doctorCheckDto = z.object({ name: z.string(), outcome: z.enum(["pass", "warn", "fail", "skipped"]), detail: z.string() });
 /** What the Drafts health strip shows about the project: the status, the Mail accounts, and who a draft may go to (`draft.recipients`). */
 export const doctorFactsDto = z.object({ status: z.string(), accounts: z.array(z.string()), recipients: z.enum(["test", "any", "list"]) });
 export const doctorDto = z.object({ state: z.enum(["ok", "absent"]), checks: z.array(doctorCheckDto), facts: doctorFactsDto.nullable() });

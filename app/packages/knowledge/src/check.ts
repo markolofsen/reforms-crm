@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isExpired, type Repos } from "@hub/db";
+import { entryBrandProblem, loadProject, type ProjectConfig } from "@hub/projects";
 import { EntryError, parseEntry } from "./entry";
 import { walkMarkdown } from "./indexer";
 import { checkAgainstTaxonomy, loadTaxonomy, TAXONOMY_FILE, TaxonomyError, type Taxonomy } from "./taxonomy";
@@ -46,9 +47,17 @@ export async function checkProject(repos: Repos, root: string, slug: string, tod
     if (!(err instanceof TaxonomyError)) throw err;
     invalid.push({ path: TAXONOMY_FILE, error: err.message });
   }
+  let config: Pick<ProjectConfig, "knowledge" | "brands"> = { knowledge: { source: "files", scope: "shared" }, brands: [] };
+  try {
+    config = loadProject(root, slug).parsed.config;
+  } catch {
+    /* no readable project.md: shared, as the indexer */
+  }
   for (const path of onDisk) {
     try {
       const entry = parseEntry(readFileSync(join(folder, path), "utf8"));
+      const brandProblem = entryBrandProblem(entry.front.brands, config);
+      if (brandProblem) invalid.push({ path, error: brandProblem });
       for (const f of taxonomy ? checkAgainstTaxonomy(entry.front, taxonomy) : []) {
         if (f.severity === "error") invalid.push({ path, error: f.message });
         else warnings.push({ path, message: f.message });

@@ -228,6 +228,8 @@ export const SAFETY_KINDS = [
   "claim_exceeds_observation",
   "evidence_claimed",
   "fact_without_source",
+  // P60: a knowledge entry the draft used belongs to another brand of the project (knowledge.scope by-brand).
+  "fact_other_brand",
   "evidence_weak",
 ] as const;
 export type SafetyKind = (typeof SAFETY_KINDS)[number];
@@ -254,6 +256,7 @@ export const SAFETY_LABELS: Record<SafetyKind, string> = {
   claim_exceeds_observation: "Claims more than the session did",
   evidence_claimed: "Reads are the agent's own count",
   fact_without_source: "Figure without a knowledge entry",
+  fact_other_brand: "Fact of another brand",
   evidence_weak: "Thin evidence",
 };
 
@@ -279,6 +282,7 @@ export const FINDING_KIND: Record<string, SafetyKind> = {
   "profile-stale": "profile_stale",
   "claim-exceeds-observation": "claim_exceeds_observation",
   "fact-without-source": "fact_without_source",
+  "fact-other-brand": "fact_other_brand",
 };
 
 /** The owner edits these per project (the `safety_rules` table); a project with no row uses the default. */
@@ -300,6 +304,7 @@ export const DEFAULT_SAFETY_RULES: readonly SafetyRule[] = [
   { kind: "claim_exceeds_observation", enabled: true, level: "amber", params: {} },
   { kind: "evidence_claimed", enabled: true, level: "amber", params: {} },
   { kind: "fact_without_source", enabled: true, level: "amber", params: {} },
+  { kind: "fact_other_brand", enabled: true, level: "red", params: {} },
   { kind: "evidence_weak", enabled: true, level: "amber", params: {} },
 ];
 

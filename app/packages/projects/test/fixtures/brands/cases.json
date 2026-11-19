@@ -1,0 +1,13 @@
+{
+  "forwarded": { "project": "one-mailbox", "headersFile": "mail-138994-headers.txt", "wroteTo": "info@carapis.com", "brand": "Carapis", "via": "domain", "signature": ["Best regards,", "Carapis team", "carapis.com"] },
+  "cases": [
+    { "name": "mail straight to the shared mailbox is its own brand (second pass, account address)", "project": "one-mailbox", "headers": "To: hello@reforms.ai\nDelivered-To: hello@reforms.ai", "wroteTo": "hello@reforms.ai", "brand": "Reforms", "via": "address" },
+    { "name": "an alias of the account wins over the account in Delivered-To", "project": "one-mailbox", "headers": "Delivered-To: hello@reforms.ai\nTo: forms@reforms.ai", "wroteTo": "forms@reforms.ai", "brand": "Reforms", "via": "address" },
+    { "name": "an address listed exactly wins over its domain row", "project": "one-mailbox", "headers": "Delivered-To: hello@reforms.ai\nTo: Someone <info@gptkino.com>", "wroteTo": "info@gptkino.com", "brand": "GPT-Kino", "via": "address" },
+    { "name": "a +tag is stripped", "project": "one-mailbox", "headers": "Delivered-To: hello@reforms.ai\nTo: support+billing@idtypes.com", "wroteTo": "support@idtypes.com", "brand": "IdTypes", "via": "domain" },
+    { "name": "a message to nobody of the project has no brand", "project": "one-mailbox", "headers": "To: someone@example.org", "wroteTo": null, "brand": null, "via": "none" },
+    { "name": "mail to the second account is that brand's", "project": "two-accounts", "headers": "Delivered-To: dan@danmerriam.com\nTo: dan@danmerriam.com", "wroteTo": "dan@danmerriam.com", "brand": "Dan Merriam", "via": "address" },
+    { "name": "an alias of the first account is the first brand's", "project": "two-accounts", "headers": "Delivered-To: info@caribbeanrealestatemls.com\nTo: team@caribbeanrealestatemls.com", "wroteTo": "team@caribbeanrealestatemls.com", "brand": "Caribbean MLS", "via": "address" },
+    { "name": "two account addresses: header order decides (To before Cc)", "project": "two-accounts", "headers": "To: dan@danmerriam.com\nCc: info@caribbeanrealestatemls.com", "wroteTo": "dan@danmerriam.com", "brand": "Dan Merriam", "via": "address" }
+  ]
+}

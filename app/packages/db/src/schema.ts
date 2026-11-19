@@ -108,6 +108,10 @@ export const drafts = sqliteTable(
     actedAt: text("acted_at"),
     // Written only by `drafts.markSent`, i.e. by a mail reader that saw the message in the Sent folder.
     sentAt: text("sent_at"), // the sent message's own date
+    // P58/P60: the project's address the client wrote to (`resolveBrand` step 1) and its `## Brands` row, from the
+    // writer's header read at `draft_write`. Null: not resolved (no table, no header, or a draft written before 0020).
+    wroteTo: text("wrote_to"),
+    brand: text("brand"),
     sentVia: text("sent_via"), // message-id | thread | subject-recipient
     sentMessageId: text("sent_message_id"),
     // A step of a follow-up sequence (P47): the enrollment it belongs to and which step it is. `@hub/send` never sends such a draft.
@@ -271,10 +275,11 @@ export const projectAddresses = sqliteTable(
     id: integer("id").primaryKey({ autoIncrement: true }),
     address: text("address").notNull(), // lower-case, +tag stripped
     project: text("project").notNull(),
-    kind: text("kind").$type<"account" | "address">().notNull(),
+    kind: text("kind").$type<"account" | "address" | "domain">().notNull(), // domain: a `mail.domains` entry (P60), one project each
   },
   (t) => [
     uniqueIndex("project_addresses_address").on(t.address).where(sql`${t.kind} = 'address'`),
+    uniqueIndex("project_addresses_domain").on(t.address).where(sql`${t.kind} = 'domain'`),
     uniqueIndex("project_addresses_claim").on(t.project, t.address, t.kind),
   ],
 );
@@ -312,6 +317,7 @@ export const knowledgeDocs = sqliteTable(
     use: text("use").$type<"STATE" | "MARKER">().notNull().default("STATE"),
     approved: integer("approved", { mode: "boolean" }).notNull().default(true),
     audiences: text("audiences").notNull().default("[]"), // JSON array
+    brands: text("brands").notNull().default("[]"), // JSON array of `## Brands` names or ANY (P60); read only in a knowledge.scope by-brand project
     category: text("category"),
     kind: text("kind"),
     validUntil: text("valid_until"),

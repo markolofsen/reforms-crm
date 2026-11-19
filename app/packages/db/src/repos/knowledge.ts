@@ -10,6 +10,8 @@ export type NewKnowledgeDoc = {
   use: "STATE" | "MARKER";
   approved: boolean;
   audiences: string[];
+  /** P60: `## Brands` names or `ANY`; empty in a `shared` project. */
+  brands?: string[];
   category?: string | null;
   kind?: string | null;
   validUntil?: string | null;
@@ -22,6 +24,11 @@ export type NewKnowledgeDoc = {
 export type SearchOptions = {
   /** Only entries that list it or `ANY`. An entry with no audiences is visible to no audience-filtered search. */
   audience?: string;
+  /**
+   * P60, a `knowledge.scope by-brand` project only: entries listing this brand or `ANY`. `ANY` itself returns only the
+   * shared entries (an unbranded mail). Unlike `audience` an entry's `brands` is never empty in such a project.
+   */
+  brand?: string;
   /** 1..10, default 5. */
   limit?: number;
   /** `approved` (default) drops unapproved and expired entries; `all` returns them, flagged. */
@@ -38,6 +45,7 @@ export type SearchHit = {
   approved: boolean;
   expired: boolean;
   audiences: string[];
+  brands: string[];
   category: string | null;
   validUntil: string | null;
   score: number;
@@ -87,6 +95,7 @@ export function knowledgeRepo(db: Db) {
         use: doc.use,
         approved: doc.approved,
         audiences: JSON.stringify(doc.audiences),
+        brands: JSON.stringify(doc.brands ?? []),
         category: doc.category ?? null,
         kind: doc.kind ?? null,
         validUntil: doc.validUntil ?? null,
@@ -184,6 +193,9 @@ export function knowledgeRepo(db: Db) {
       if (opts.audience) {
         where.push(sql`exists (select 1 from json_each(d.audiences) where value in (${opts.audience}, 'ANY'))`);
       }
+      if (opts.brand) {
+        where.push(opts.brand === "ANY" ? sql`exists (select 1 from json_each(d.brands) where value = 'ANY')` : sql`exists (select 1 from json_each(d.brands) where value in (${opts.brand}, 'ANY'))`);
+      }
       const cond = sql.join(where, sql` and `);
 
       const total =
@@ -196,12 +208,13 @@ export function knowledgeRepo(db: Db) {
         use: "STATE" | "MARKER";
         approved: number;
         audiences: string;
+        brands: string;
         category: string | null;
         validUntil: string | null;
         snippet: string;
         score: number;
       }>(sql`
-        select d.path as path, d.title as title, d.use as use, d.approved as approved, d.audiences as audiences,
+        select d.path as path, d.title as title, d.use as use, d.approved as approved, d.audiences as audiences, d.brands as brands,
                d.category as category, d.valid_until as validUntil,
                snippet(knowledge_fts, -1, '', '', ' … ', 32) as snippet,
                -bm25(knowledge_fts, 10.0, 6.0, 1.0) as score
@@ -220,6 +233,7 @@ export function knowledgeRepo(db: Db) {
           approved: r.approved === 1,
           expired: isExpired(r.validUntil, today),
           audiences: parseAudiences(r.audiences),
+          brands: parseAudiences(r.brands),
           category: r.category,
           validUntil: r.validUntil,
           score: Math.round(r.score * 1000) / 1000,

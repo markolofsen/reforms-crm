@@ -19,6 +19,8 @@ export interface NormalizeOptions {
   names?: readonly string[];
   /** The project's sign-off text: its lines are removed. */
   signoff?: string;
+  /** Every brand's signature lines (P60 `signatureLines`): removed like the sign-off, so two drafts of one brand are not similar by their signature. */
+  signature?: readonly string[];
 }
 
 const MARKER_LINE = /^\s*\[hub-draft[^\]]*\]\s*$/i;
@@ -35,8 +37,8 @@ export function normalizeBody(body: string, o: NormalizeOptions = {}): string[] 
   // greeting: the first non-empty line, short, ending in a comma ("Hi Anna,")
   const first = lines.findIndex((l) => l.trim() !== "");
   if (first >= 0 && /,\s*$/.test(lines[first]!) && lines[first]!.trim().split(/\s+/).length <= 8) lines.splice(first, 1);
-  const sign = new Set((o.signoff ?? "").normalize("NFKC").split(/\n|\\n/).map((l) => l.trim().toLowerCase()).filter(Boolean));
-  if (sign.size) lines = lines.filter((l) => !sign.has(l.trim().toLowerCase()));
+  const sign = new Set([...(o.signoff ?? "").normalize("NFKC").split(/\n|\\n/), ...(o.signature ?? []).map((l) => l.normalize("NFKC"))].map((l) => l.trim().toLowerCase()).filter(Boolean));
+  lines = lines.filter((l) => !sign.has(l.trim().toLowerCase()) && !/^\s*\[Owner: signature for [^\]]*\]\s*$/i.test(l));
 
   const drop = new Set<string>();
   for (const n of o.names ?? []) {

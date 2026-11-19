@@ -1,8 +1,9 @@
 // In-place edits of project.md: table rows only, every other byte stays. Pure text functions plus thin file wrappers.
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { BRANDS_HEADER, joinSignature } from "./brand";
 import { isPolicyField } from "./fields";
-import { BYS, checkValue, FIELDS, isIsoDate, ProjectError, scan, tableOf, type By, type Issue } from "./parse";
+import { BYS, checkValue, FIELDS, isIsoDate, parseProjectMd, ProjectError, scan, tableOf, type By, type Issue } from "./parse";
 
 const SETTINGS_HEADER = "| Field | Value | Answered | By |";
 const ANSWERS_HEADER = "| Date | Field | Question | Answer |";
@@ -106,6 +107,64 @@ export function applyAnswer(text: string, a: { date: string; field: string; ques
     return insertAt(raws, answers.start + 1, [eol, `${ANSWERS_HEADER}${eol}`, `|---|---|---|---|${eol}`, `${row}${eol}`]);
   }
   return insertAt(raws, t.lastIdx + 1, [`${row}${eol}`]);
+}
+
+export interface BrandRowInput {
+  name: string;
+  /** Addresses and domains, as written in the Receives at cell. */
+  receivesAt: readonly string[];
+  /** Signature lines; empty: not answered yet. */
+  signature: readonly string[];
+  by: By;
+  date: string;
+}
+
+/** A Brands cell: `|` escaped, line breaks kept as `<br>` (a table cell is one line). */
+const brandCell = (v: string): string => v.replace(/\r?\n/g, "<br>").replace(/\|/g, "\\|").trim();
+
+/**
+ * Sets one `## Brands` row (P60), replacing the row of that brand (case-insensitive) or adding it after the last row;
+ * creates the section after `## Settings` when the file has none. The result is parsed again with the project's own
+ * addresses and domains, and a Brands error (an address that is not the project's, one claimed by two rows) throws
+ * ProjectError: nothing is written.
+ */
+export function applyBrandRow(text: string, slug: string, b: BrandRowInput): string {
+  const bad: Issue[] = [];
+  if (!b.name.trim()) bad.push({ severity: "error", code: "bad_value", line: null, field: "brands", message: "a brand needs a name" });
+  if (!isIsoDate(b.date)) bad.push({ severity: "error", code: "bad_date", line: null, field: "brands", message: `"${b.date}" is not an ISO date` });
+  if (!(BYS as readonly string[]).includes(b.by)) bad.push({ severity: "error", code: "bad_by", line: null, field: "brands", message: `By "${b.by}" must be one of ${BYS.join(", ")}` });
+  if (bad.length) throw new ProjectError(bad);
+
+  const raws = rawLines(text);
+  const lines = raws.map(bare);
+  const sc = scan(lines);
+  const eol = eolOf(raws.find((r) => r.endsWith("\n")), "\n");
+  const row = `| ${brandCell(b.name)} | ${brandCell(b.receivesAt.join(", "))} | ${brandCell(joinSignature(b.signature))} | ${b.date} | ${b.by} |`;
+  const section = sc.sections.find((s) => s.name === "brands");
+  let next: string;
+  if (!section) {
+    const settings = sc.sections.find((s) => s.name === "settings");
+    const after = settings ? sc.sections[sc.sections.indexOf(settings) + 1] : sc.sections.find((s) => s.name === "notion databases");
+    const at = after ? after.start : raws.length;
+    const lead = !after && raws.length && (lines[lines.length - 1] ?? "").trim() !== "" ? [eol] : [];
+    next = insertAt(raws, at, [...lead, `## Brands${eol}`, eol, `${BRANDS_HEADER}${eol}`, `|---|---|---|---|---|${eol}`, `${row}${eol}`, eol]);
+  } else {
+    const t = tableOf(lines, sc.fenced, section);
+    const existing = t.rows.find((r) => (r.cells[0] ?? "").toLowerCase() === b.name.trim().toLowerCase());
+    if (t.header === null) next = insertAt(raws, section.start + 1, [eol, `${BRANDS_HEADER}${eol}`, `|---|---|---|---|---|${eol}`, `${row}${eol}`]);
+    else if (existing) {
+      raws[existing.idx] = `${row}${eolOf(raws[existing.idx], "")}`;
+      next = raws.join("");
+    } else next = insertAt(raws, t.lastIdx + 1, [`${row}${eol}`]);
+  }
+  const brandErrors = parseProjectMd(next, slug).issues.filter((i) => i.field === "brands" && i.severity === "error");
+  if (brandErrors.length) throw new ProjectError(brandErrors);
+  return next;
+}
+
+/** `folder` is <projects>/<slug>. */
+export function writeBrandRow(folder: string, slug: string, b: Omit<BrandRowInput, "date"> & { date?: string }): void {
+  rewrite(join(folder, "project.md"), (t) => applyBrandRow(t, slug, { ...b, date: b.date ?? localDate() }));
 }
 
 export function rewrite(file: string, edit: (text: string) => string): void {

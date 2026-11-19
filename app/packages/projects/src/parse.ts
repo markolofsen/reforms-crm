@@ -1,6 +1,7 @@
 // project.md schema v1 (doc 16 section 3). Pure: text in, structure and issues out. No file or database access, so
 // @hub/notion can import this file alone.
 
+import { parseBrands } from "./brand";
 import { checkValue, FIELDS, isPolicyField, readField, setPath } from "./fields";
 import { DEFAULT_KIND, hasValue, kindOf } from "./kinds";
 import { BYS, ProjectBase, STATUSES, type By, type ProjectConfig, type ProjectDatabase, type ProjectStatus } from "./schema";
@@ -341,8 +342,18 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
   mail.addresses = [...new Set([...declared, ...aliases])];
   mail.aliases = aliases;
   mail.sender ??= declared[0];
+  // P60: `## Brands`, read against the resolved addresses, aliases and domains.
+  const brandsSection = sc.sections.find((s) => s.name === "brands");
+  let brands: ReturnType<typeof parseBrands>["brands"] = [];
+  if (brandsSection) {
+    const own = { accounts, addresses: mail.addresses, domains: (mail.domains as string[] | undefined) ?? [] };
+    const b = parseBrands(tableOf(lines, sc.fenced, brandsSection), brandsSection.start + 1, own);
+    brands = b.brands;
+    issues.push(...b.issues);
+  }
   const config = ProjectBase.parse({
     ...raw,
+    brands,
     schema: 1,
     slug,
     kind: kind.id,

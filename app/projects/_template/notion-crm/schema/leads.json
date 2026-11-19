@@ -155,7 +155,7 @@
       "type": "multi_select",
       "writer": "integration (the owner's backend, e.g. django_notion)",
       "options": [],
-      "note": "Which site or product the lead came from. The options are the project's own sites and products (the live SaaS CRM: carapis, Caribbean MLS, Dan Merriam, Reforms, Other): the deploy creates the property with the options the owner names in the interview, and the writer must use exactly those names. Filter on it; one lead can carry several brands."
+      "note": "Which site or product the lead came from. The options are the names of the project's `## Brands` rows in project.md (doc 16 section 3C), exactly; a project without that table has one option, its own name. The deploy creates the property with those names, and the writer must use exactly those names. Filter on it; one lead can carry several brands."
     }
   },
   "noteVsPack": "Read live 2026-11-17 (CRM: SaaS, Leads moved to the top level of the teamspace). Brand exists now (multi_select, project-specific options). Source and Status are type select (not status). Ad-tracking columns (flag ads) are written by the owner's backend once mapped; deploy them only when the project runs ads. The writer column says 'Hub' for what the integration writes: in the pack 'Hub' means any writer that follows @docs/core/21-leads.md."

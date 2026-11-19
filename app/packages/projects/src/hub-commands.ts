@@ -13,7 +13,8 @@ import { KINDS } from "./kinds";
 import { projectJson, writeProjectJson } from "./generated";
 import { renameProject } from "./rename";
 import { ProjectError } from "./parse";
-import { writeSetting } from "./write";
+import { writeBrandRow, writeSetting } from "./write";
+import { splitSignature } from "./brand";
 import { proposeAddresses, type RoutingSnapshot } from "./addresses";
 import { agentIndex, loadWorkflows, workflowErrors } from "./workflows";
 import { devFolder, indexDev, initDev } from "./dev";
@@ -162,7 +163,12 @@ export async function runProjectDoctor(slug: string, o: ProjectCommandOptions = 
   }
 }
 
-export interface SetupFlags { tone?: string; signoff?: string; languages?: string }
+export interface SetupFlags { tone?: string; signoff?: string; languages?: string; /** `<Brand>=<addresses and domains>` (P60): adds or updates a `## Brands` row. */ brand?: string[]; /** `<Brand>=<line><br><line>` (P60): the Signature of an existing brand row. */ brandSignature?: string[] }
+
+const pair = (v: string): [string, string] | null => {
+  const i = v.indexOf("=");
+  return i > 0 ? [v.slice(0, i).trim(), v.slice(i + 1).trim()] : null;
+};
 export type Ask = (question: string, suggestion?: string) => Promise<string>;
 
 /**
@@ -196,6 +202,34 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
       wrote++;
     } catch (e) {
       if (e instanceof ProjectError) { out(`error ${item.field}: ${e.message}`); return 1; }
+      throw e;
+    }
+  }
+  // P60: brand rows, then their signatures. One brand per flag; each write is validated against the project's own addresses and domains.
+  for (const raw of flags.brand ?? []) {
+    const p = pair(raw);
+    if (!p) { out(`error brand: expected <Brand>=<addresses and domains>, got "${raw}"`); return 1; }
+    const old = loadProject(root, slug).parsed.config.brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
+    try {
+      writeBrandRow(before.folder, slug, { name: old?.name ?? p[0], receivesAt: p[1].split(",").map((x) => x.trim()).filter(Boolean), signature: old?.signature ?? [], by: "owner" });
+      out(`brand ${p[0]} receives at ${p[1]}`);
+      wrote++;
+    } catch (e) {
+      if (e instanceof ProjectError) { out(`error brand ${p[0]}: ${e.message}`); return 1; }
+      throw e;
+    }
+  }
+  for (const raw of flags.brandSignature ?? []) {
+    const p = pair(raw);
+    if (!p) { out(`error brand-signature: expected <Brand>=<line><br><line>, got "${raw}"`); return 1; }
+    const old = loadProject(root, slug).parsed.config.brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
+    if (!old) { out(`error brand-signature: no ## Brands row named ${p[0]} (add it with --brand ${p[0]}=<addresses and domains>)`); return 1; }
+    try {
+      writeBrandRow(before.folder, slug, { name: old.name, receivesAt: old.receivesAt, signature: splitSignature(p[1].replace(/\\n/g, "<br>")), by: "owner" });
+      out(`brand ${old.name} signs with ${splitSignature(p[1].replace(/\\n/g, "<br>")).join(" / ")}`);
+      wrote++;
+    } catch (e) {
+      if (e instanceof ProjectError) { out(`error brand-signature ${p[0]}: ${e.message}`); return 1; }
       throw e;
     }
   }
@@ -360,7 +394,9 @@ export function registerProjectCommands(program: Command, o: ProjectCommandOptio
     .description("Answer the open questions of a project: tone, signoff, languages. Flags write directly; without flags a terminal asks for what is still empty (Enter skips).")
     .argument("<slug>")
     .option("--tone <text>", "how replies sound, one line")
-    .option("--signoff <text>", "sign-off line of drafts")
+    .option("--signoff <text>", "sign-off line of every draft (the same for all brands); with a ## Brands table the brand's Signature follows it")
+    .option("--brand <brand=receives>", "add or update a ## Brands row: <Brand>=<addresses and domains, comma separated>; repeatable", (v: string, a: string[] = []) => [...a, v])
+    .option("--brand-signature <brand=text>", "the Signature of a brand row, lines separated by <br>: Carapis=\"Carapis team<br>carapis.com\"; repeatable", (v: string, a: string[] = []) => [...a, v])
     .option("--languages <tags>", "BCP-47 tags, comma separated")
     .action(async (slug: string, opts: SetupFlags) => {
       let rl: import("node:readline/promises").Interface | undefined;

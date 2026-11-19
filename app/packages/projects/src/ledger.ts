@@ -39,6 +39,9 @@ export interface LedgerEntry {
   /** The body has a money or date pattern, and whether it carries an `[Owner: ...]` placeholder. */
   figure?: boolean;
   placeholder?: boolean;
+  /** `draft_write` only (P58/P60): the address the client wrote to and its brand, as the hub's writer resolved them from the inbound's headers. */
+  wroteTo?: string;
+  brand?: string;
   // notion
   op?: "fetch" | "query" | "search" | "update";
   emails?: string[];
@@ -129,7 +132,11 @@ export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEn
   const account = str(i.account);
   // The hub's own draft writer (P52) takes mail-mcp's `create_reply` arguments: the same draft entry, judged the same way.
   // A revision names only the hub draft (P53): Mail's id of the answered message comes back in the result (`replyTo`).
-  if (c.name === HUB_DRAFT_WRITE) return draftEntry(tool, i.message_id === undefined ? { ...i, message_id: obj(parsedResult(c.result)).replyTo } : i, account, o);
+  if (c.name === HUB_DRAFT_WRITE) {
+    const r = obj(parsedResult(c.result));
+    const e = draftEntry(tool, i.message_id === undefined ? { ...i, message_id: r.replyTo } : i, account, o);
+    return { ...e, ...(str(r.wroteTo) ? { wroteTo: lower(str(r.wroteTo)!) } : {}), ...(str(r.brand) ? { brand: str(r.brand)! } : {}) };
+  }
   if (c.name.startsWith("mcp__mail-mcp__")) {
     if (tool === "find_messages") {
       const mb = Array.isArray(i.mailboxPath) ? (i.mailboxPath as unknown[]).join("/") : undefined;

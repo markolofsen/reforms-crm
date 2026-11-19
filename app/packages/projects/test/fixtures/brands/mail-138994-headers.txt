@@ -1,0 +1,15 @@
+Delivered-To: hello@reforms.ai
+Received: from ba-cdf.cloudflare-email.net (ba-cdf.cloudflare-email.net. [104.30.10.235]) by mx.google.com with ESMTPS id d75a77b69052e-55ad354b291si42906811cf.232.2026.11.13.22.27.02 for <hello@reforms.ai> (version=TLS1_3 cipher=TLS_AES_128_GCM_SHA256 bits=128/128); Fri, 13 Nov 2026 22:27:03 -0800 (PST)
+Received: from mail-vs1-xe35.google.com (2607:f8b0:4864:20::e35) by cloudflare-email.net (cloudflare) id R6YtH9HdDPGY for <info@carapis.com>; Sat, 14 Nov 2026 06:27:00 +0000
+X-Forwarded-Encrypted: i=4; AL+hErHt3o9G5nspklPzJTIyzQLQSLOmCn6TrSKvepr8IGUj0jNVBnlZson4T8At38xTD5j5PsTX+g==@reforms.ai
+Return-Path: <SRS0=MemD=dj=gmail.com=markolofsen@carapis.com>
+X-Forwarded-To: hello@reforms.ai
+X-Forwarded-For: info@carapis.com hello@reforms.ai
+Feedback-Id: carapis.com:1:1:Cloudflare
+Mime-Version: 1.0
+From: Mark Effect <markolofsen@gmail.com>
+Date: 14 November 2026 at 14:26:48 GMT+8
+Message-Id: <CALatTu3bWegGq2B8Pfx9L4N6o4LWQsZ9bnscjfXxE4B-4QA=2Q@mail.gmail.com>
+Subject: Hello
+To: info@carapis.com
+Content-Type: multipart/alternative; boundary="000000000000d4a11e066036a169"

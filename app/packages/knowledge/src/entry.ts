@@ -10,6 +10,8 @@ export interface FrontMatter {
   approved: boolean;
   use: Use;
   audiences: string[];
+  /** P60: the `## Brands` names this fact is true for, or `ANY`; required in a `knowledge.scope by-brand` project. */
+  brands?: string[];
   category?: string;
   kind?: string;
   stages?: string[];
@@ -44,6 +46,7 @@ const KEY_ORDER = [
   "approved",
   "use",
   "audiences",
+  "brands",
   "category",
   "kind",
   "stages",
@@ -107,6 +110,7 @@ export function normalizeFront(data: unknown): FrontMatter {
   const set = <K extends keyof FrontMatter>(k: K, v: FrontMatter[K] | undefined) => {
     if (v !== undefined && !(Array.isArray(v) && v.length === 0)) front[k] = v;
   };
+  set("brands", strList(d.brands, "brands"));
   set("category", str(d.category, "category"));
   set("kind", str(d.kind, "kind"));
   set("stages", strList(d.stages, "stages"));

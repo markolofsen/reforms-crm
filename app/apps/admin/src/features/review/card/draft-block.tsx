@@ -57,6 +57,12 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
               )}
               <dt className="text-muted-foreground">Subject</dt>
               <dd className="break-words">{d.subject}</dd>
+              {(d.wroteTo || d.brand) && (
+                <>
+                  <dt className="text-muted-foreground">They wrote to</dt>
+                  <dd className="break-all">{d.wroteTo ? `${d.wroteTo}${d.brand ? ` (${d.brand})` : ""}` : d.brand}</dd>
+                </>
+              )}
             </dl>
           </CollapsiblePanel>
         </Collapsible>

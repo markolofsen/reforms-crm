@@ -6,7 +6,7 @@ import { sendApi } from "@/lib/api/send";
 import { FactLine } from "./fact-line";
 import { keys } from "@/lib/cache/keys";
 
-const OUTCOME = { pass: { label: "Pass", variant: "success" }, fail: { label: "Fail", variant: "error" }, skipped: { label: "Skipped", variant: "secondary" } } as const;
+const OUTCOME = { pass: { label: "Pass", variant: "success" }, warn: { label: "To answer", variant: "warning" }, fail: { label: "Fail", variant: "error" }, skipped: { label: "Skipped", variant: "secondary" } } as const;
 const RECIPIENTS: Record<NonNullable<DoctorDto["facts"]>["recipients"], string> = { test: "drafts go to the test list only", any: "drafts may go to any address", list: "drafts go to the listed addresses only" };
 
 /** The project doctor (`hub project doctor`), read once for the Health and Setup lines (one key, `state-and-data.md` rule 2). */
@@ -38,7 +38,8 @@ export function HealthLine({ project }: { project: string }) {
   const run = checks.filter((c) => c.outcome !== "skipped");
   const failed = run.filter((c) => c.outcome === "fail").length;
   const skipped = checks.length - run.length;
-  const summary = `${run.length - failed} of ${run.length} checks pass${skipped > 0 ? ` (${skipped} need the agent's session)` : ""}`;
+  const warned = run.filter((c) => c.outcome === "warn").length;
+  const summary = `${run.length - failed - warned} of ${run.length} checks pass${warned > 0 ? `, ${warned} to answer` : ""}${skipped > 0 ? ` (${skipped} need the agent's session)` : ""}`;
   const ordered = [...checks].sort((a, b) => Number(b.outcome === "fail") - Number(a.outcome === "fail"));
   return (
     <FactLine open={failed > 0} summary={summary} title="Health" tone={failed > 0 ? "problem" : "plain"}>

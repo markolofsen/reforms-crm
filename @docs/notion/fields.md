@@ -259,7 +259,7 @@ Pack file: `schema/leads.json`.
 | UTM campaign | text | Hub | Flags: ads. |
 | Ad click time | date | Hub | Flags: ads. |
 | Ad consent | checkbox | Hub | Flags: ads. |
-| Brand | multi_select | integration (the owner's backend, e.g. django_notion) | Which site or product the lead came from. The options are the project's own sites and products (the live SaaS CRM: carapis, Caribbean MLS, Dan Merriam, Reforms, Other): the deploy creates the property with the options the owner names in the interview, and the writer must use exactly those names. Filter on it; one lead can carry several brands. |
+| Brand | multi_select | integration (the owner's backend, e.g. django_notion) | Which site or product the lead came from. The options are the names of the project's `## Brands` rows in project.md (doc 16 section 3C), exactly; a project without that table has one option, its own name. The deploy creates the property with those names, and the writer must use exactly those names. Filter on it; one lead can carry several brands. |
 
 ## Open loops
 

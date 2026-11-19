@@ -14,6 +14,10 @@ describe("slimHeaders", () => {
     expect(s.match(/Authentication-Results/g)?.length).toBe(1);
     expect(s).not.toMatch(/Received|DKIM|X-Mailer|Subject/);
   });
+  it("keeps To, Cc and X-Gm-Original-To: the brand order reads them (P60 mail_brand)", () => {
+    const s = slimHeaders("X-Gm-Original-To: a@brand.example\r\nTo: b@brand.example\r\nCc: c@brand.example\r\nX-Forwarded-For: a@brand.example desk@x.example");
+    for (const h of ["X-Gm-Original-To: a@brand.example", "To: b@brand.example", "Cc: c@brand.example", "X-Forwarded-For: a@brand.example desk@x.example"]) expect(s).toContain(h);
+  });
   it("joins folded lines and caps a long one", () => {
     expect(slimHeaders("References: <a>\r\n <b>")).toBe("References: <a> <b>");
     expect(slimHeaders("Reply-To: " + "y".repeat(500)).length).toBeLessThan(320);

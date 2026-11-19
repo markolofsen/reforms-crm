@@ -17,3 +17,4 @@ export * from "./addresses";
 export * from "./workflows";
 export * from "./dev";
 export * from "./send-policy";
+export * from "./brand";

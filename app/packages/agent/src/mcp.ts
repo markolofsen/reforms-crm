@@ -3,23 +3,35 @@ import { FOCUS_TEXT_MAX } from "@hub/contract/focus";
 import type { Repos } from "@hub/db";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
+import { headersFromText, resolveBrand, signatureFor, signatureLines, signBody, type Brand, type HeaderAddresses } from "@hub/projects";
 import { readFocus } from "./focus";
-import { DraftWriteError, reviseDraft, type DraftWriter } from "./mail-drafts";
+import { DraftWriteError, reviseDraft, type DraftWriter, type InboundMessage, type Signed } from "./mail-drafts";
 
-// `hub mcp` (P51, decision 0029): the hub's own stdio MCP server, bound to `HUB_PROJECT`. Four read-only tools: the admin's
-// focus, one draft, one client, the Drafts list. The database is opened read-only by the caller (`openDbReadOnly`), so a
+// `hub mcp` (P51, decision 0029): the hub's own stdio MCP server, bound to `HUB_PROJECT`. Five read-only tools: the admin's
+// focus, one draft, one client, the Drafts list, and the brand of an inbound from its headers (P60 `mail_brand`). The database is opened read-only by the caller (`openDbReadOnly`), so a
 // write of a row is impossible, not just absent; the one exception is the live counter, bumped through `mailWritten`
 // on a separate short connection (P53), which holds no row the owner sees. One Mail write (P52, decision 0030): `draft_write` saves an unsent reply in
 // Mail's Drafts without a window or focus and replaces the older hub draft of the same thread (`mail-drafts.ts`); a revision
 // names only the hub draft (P53), and the write bumps the live topic `mail` so the open card reads Mail again. No send.
-// Recording stays `hub record-draft` (decision 0009). The tool names stay clear of `SEND_LIKE_TOOL`; a test pins the list.
+// The writer signs (P60): sign-off plus the brand's Signature, resolved from the inbound's headers. A revision of a known hub
+// draft is recorded by the hub itself (`recordRevision`, a short write connection like `mailWritten`); the first draft of a
+// thread is still recorded by `hub record-draft` (decision 0009), which alone carries the evidence block. The tool names stay clear of `SEND_LIKE_TOOL`; a test pins the list.
 
-export const HUB_MCP_TOOLS = ["focus", "draft_show", "client_show", "drafts_list", "draft_write"] as const;
+export const HUB_MCP_TOOLS = ["focus", "draft_show", "client_show", "drafts_list", "mail_brand", "draft_write"] as const;
 
-/** The bound project's Mail settings from `project.md` (`mail.accounts`, `mail.sender`). */
+/** The bound project's Mail settings from `project.md` (`mail.accounts`, `mail.sender`), and what signs its drafts (P60). */
 export interface ProjectMail {
   accounts: string[];
   sender: string | null;
+  /** Addresses (with aliases), domains, sign-off and `## Brands`. Absent: drafts are written unsigned (tests of older shape). */
+  identity?: { addresses: string[]; domains: string[]; signoff: string; brands: Brand[] };
+}
+
+/** What the hub stores when its writer revised an open hub draft (coordinator 2026-11-19: no separate record step). */
+export interface RevisionRecord {
+  excerpt: string;
+  wroteTo: string | null;
+  brand: string | null;
 }
 
 export interface HubMcpEnv {
@@ -37,7 +49,12 @@ export interface HubMcpEnv {
    * again. The database handle of the tools stays read-only; this writes only the live counter. A throw is reported, never fatal.
    */
   mailWritten?: (slug: string) => void;
+  /** Records a revision of an open hub draft in place (same id, mailRef, client, context block). Absent: the result says to run `hub record-draft`. */
+  recordRevision?: (slug: string, draftId: number, r: RevisionRecord) => Promise<{ draftId: number; action: string }>;
 }
+
+/** The excerpt `hub record-draft` keeps: the first 240 characters of the body, no marker line. */
+const excerptOf = (body: string) => body.replace(/\s+/g, " ").trim().slice(0, 240);
 
 class ToolError extends Error {
   constructor(readonly code: string, message: string) {
@@ -177,6 +194,33 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
   );
 
   server.registerTool(
+    "mail_brand",
+    {
+      title: "Which brand a client wrote to",
+      description: `The project's address the client wrote to (wroteTo) and its ## Brands row (brand), from the inbound's headers: pass \`headers\` = the allHeaders text of mail-mcp get_message_content (and its to and cc fields when it gives them separately). No Mail read. The order is fixed (X-Gm-Original-To, X-Original-To, X-Forwarded-For, X-Forwarded-To, Delivered-To, To, Cc; the project's account addresses only when nothing else matches), so never re-derive it from Delivered-To yourself. Use brand for the Notion Brand column and for knowledge_search; null brand means unbranded: say so, never guess. The draft's signature is added by draft_write, not by you. ${DATA}`,
+      inputSchema: z.object({
+        headers: z.string().max(40_000).optional().describe("The raw header block (allHeaders) of the client's message."),
+        to: z.array(z.string().max(320)).max(50).optional().describe("The message's To addresses, when given apart from the headers."),
+        cc: z.array(z.string().max(320)).max(50).optional().describe("The message's Cc addresses, when given apart from the headers."),
+      }),
+      annotations: READ_ONLY,
+    },
+    ({ headers, to, cc }) =>
+      run(async () => {
+        const slug = project();
+        const id = env.projectMail?.(slug).identity;
+        if (!env.projectMail || !id) throw new ToolError("unavailable", "This hub MCP server has no project identity to resolve a brand with.");
+        const list: HeaderAddresses[] = [...headersFromText(headers ?? "")];
+        if (to?.length && !list.some((h) => h.name === "to")) list.push({ name: "to", addresses: to });
+        if (cc?.length && !list.some((h) => h.name === "cc")) list.push({ name: "cc", addresses: cc });
+        const cfg = configOf(env.projectMail(slug));
+        const r = resolveBrand(list, cfg);
+        const sig = signatureFor(cfg, r);
+        return { project: slug, ...r, brands: cfg.brands.map((b) => b.name), signature: sig.placeholder ? "placeholder" : sig.lines.length ? "signed" : "none" };
+      }),
+  );
+
+  server.registerTool(
     "draft_write",
     {
       title: "Write or revise an unsent reply draft in Mail",
@@ -196,19 +240,36 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         if (!env.drafts || !env.projectMail) throw new ToolError("unavailable", "This hub MCP server cannot write drafts (no Mail writer).");
         const writer = env.drafts;
         const mail = env.projectMail(slug);
+        // P60: the writer signs. The brand comes from the answered message's headers; an unreadable header block in a
+        // project with brands gives the placeholder, never another brand's lines.
+        const sign = mail.identity
+          ? async (inbound: InboundMessage, body: string): Promise<Signed> => {
+              const cfg = configOf(mail);
+              const raw = await writer.readHeaders(inbound).catch(() => null);
+              const r = raw === null ? null : resolveBrand(headersFromText(raw), cfg);
+              const block = signatureFor(cfg, r);
+              return { body: signBody(body, block, signatureLines(cfg)), wroteTo: r?.wroteTo ?? null, brand: r?.brand ?? null, brandReason: r?.reason ?? "the message's headers could not be read", signature: block.placeholder ? "placeholder" : block.lines.length ? "signed" : "none" };
+            }
+          : undefined;
         try {
-          let r: Awaited<ReturnType<DraftWriter["writeReply"]>> & { replyTo: number };
+          let r: Awaited<ReturnType<DraftWriter["writeReply"]>> & { replyTo: number } & Partial<Omit<Signed, "body">>;
           if (draft !== undefined) {
             if (account !== undefined || mailbox_path !== undefined || message_id !== undefined) throw new ToolError("invalid", "Give either draft (a revision) or account, mailbox_path and message_id (a new reply), not both.");
             const { d } = await ownDraft(draft);
             if (!d.mailRef) throw new ToolError("no_thread", `Draft ${draft} has no mailRef: it answers no Mail message, so it cannot be revised here.`);
             // The one revision path, shared with the admin's Save and Restore (P56).
-            r = await reviseDraft(writer, { accounts: mail.accounts, sender: mail.sender, mailRef: d.mailRef, body: content, quote: "add" });
+            r = await reviseDraft(writer, { accounts: mail.accounts, sender: mail.sender, mailRef: d.mailRef, body: content, quote: "add", ...(sign ? { sign } : {}) });
           } else {
             if (account === undefined || mailbox_path === undefined || message_id === undefined) throw new ToolError("invalid", "Give draft (a revision of a hub draft) or all of account, mailbox_path and message_id (a new reply).");
             const own = mail.accounts.find((a) => a.trim().toLowerCase() === account.trim().toLowerCase());
             if (!own) throw new ToolError("not_this_project", `Account "${account}" is not one of project ${slug}'s Mail accounts (${mail.accounts.join(", ") || "none listed in project.md"}).`);
-            r = { ...(await writer.writeReply({ account: own, mailboxPath: mailbox_path, messageId: message_id, body: content, sender: mail.sender })), replyTo: message_id };
+            const inbound = { account: own, mailboxPath: mailbox_path, messageId: message_id };
+            const signed = sign ? await sign(inbound, content) : null;
+            const w = await writer.writeReply({ ...inbound, body: signed?.body ?? content, sender: mail.sender });
+            if (signed) {
+              const { body: _body, ...how } = signed;
+              r = { ...w, replyTo: message_id, ...how };
+            } else r = { ...w, replyTo: message_id };
           }
           let live = true;
           try {
@@ -217,7 +278,21 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
             live = false; // the draft is saved; only the open card's refresh is lost (it reads Mail again on focus)
           }
           const left = r.left.length ? ` Older hub draft(s) ${r.left.join(", ")} are still in Drafts: the card still shows the newest; hub drafts sweep (dry run) lists them for the owner. Never ask the owner to delete a Mail draft.` : "";
-          return { ...r, project: slug, sent: false, ...(draft !== undefined ? { draft } : {}), live, next: `Record it: \`hub record-draft --project ${slug}\` (skill triage-mail step 5) with "mailRef":"${r.thread}"; a revision keeps the draft's context block and client name. Then tell the owner in one line what you changed. Nothing was sent.${left}` };
+          const signNote = r.signature === "placeholder" ? ` The draft ends with [Owner: signature for ...] (${r.brandReason}): hub send refuses it until the owner fills it in; say so in your one line.` : "";
+          // A revision of a known hub draft is recorded here, in place; only a first draft of a thread needs `record-draft`.
+          let recorded: { draftId: number; action: string } | null = null;
+          let recordError: string | null = null;
+          if (draft !== undefined && env.recordRevision) {
+            try {
+              recorded = await env.recordRevision(slug, draft, { excerpt: excerptOf(content), wroteTo: r.wroteTo ?? null, brand: r.brand ?? null });
+            } catch (e) {
+              recordError = e instanceof Error ? e.message : String(e);
+            }
+          }
+          const next = recorded
+            ? `Recorded: draft ${recorded.draftId} updated in place (same id, mailRef, client and context; Checked is off because the text changed). Do not run record-draft. Tell the owner in one line what you changed. Nothing was sent.${signNote}${left}`
+            : `Record it, one Bash call from the instance folder: \`echo '{"email":"<client>","subject":"${r.subject.replace(/["'\\]/g, "")}","mailRef":"${r.thread}","skill":"triage-mail","excerpt":"<first 240 chars of your reply>","context":{...}}' | ./run.sh record-draft --project ${slug}\` (JSON on stdin; skill triage-mail step 5)${recordError ? `; recording the revision in place failed: ${recordError}` : ""}. Then tell the owner in one line what you changed. Nothing was sent.${signNote}${left}`;
+          return { ...r, project: slug, sent: false, ...(draft !== undefined ? { draft } : {}), recorded: recorded !== null, live, next };
         } catch (e) {
           if (e instanceof DraftWriteError) throw new ToolError(e.code, e.message);
           throw e;
@@ -226,4 +301,10 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
   );
 
   return server;
+}
+
+/** The slice of the project's config that `resolveBrand` and `signatureFor` read. */
+function configOf(m: ProjectMail): { mail: { accounts: string[]; addresses: string[]; domains: string[] }; signoff: string; brands: Brand[] } {
+  const id = m.identity ?? { addresses: [], domains: [], signoff: "", brands: [] };
+  return { mail: { accounts: m.accounts, addresses: id.addresses, domains: id.domains }, signoff: id.signoff, brands: id.brands };
 }

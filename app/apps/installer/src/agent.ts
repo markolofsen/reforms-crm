@@ -175,8 +175,8 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   const plan: AgentPlan = { ...parsed, ...(bound.project ? { project: bound.project } : {}) };
   if (plan.project) {
     try {
-      const m = loadProject(env.projectsDir, plan.project).parsed.config.mail;
-      plan.identity = projectIdentity(plan.project, m);
+      const c = loadProject(env.projectsDir, plan.project).parsed.config;
+      plan.identity = projectIdentity(plan.project, { ...c.mail, brands: c.brands.map((b) => b.name) });
     } catch { /* an unreadable project.md: the session says so itself when it reads it */ }
   }
   const paths = env.paths ?? pathsAt(env.root);

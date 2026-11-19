@@ -3,7 +3,7 @@
 // project-setup all read this; adding a field is adding one entry here and one key to `ProjectBase`.
 import { z } from "zod";
 import { KIND_IDS } from "./kinds";
-import { SEND_MODES, STATUSES } from "./schema";
+import { KNOWLEDGE_SCOPES, SEND_MODES, STATUSES } from "./schema";
 import { BCP47, EMAIL, isIsoDate, isTimezone, normalizeAddress, normalizeId, splitList, UUID } from "./values";
 
 export interface FieldDef {
@@ -62,6 +62,7 @@ export const FIELDS: Record<string, FieldDef> = {
   "calendar.id": { path: "calendar.id", schema: oneLine, doc: "Calendar id when the name is not enough." },
   "calendar.timezone": { path: "calendar.timezone", schema: check(isTimezone, (v) => `"${v}" is not an IANA timezone`), doc: "IANA timezone of the calendar." },
   "knowledge.source": { path: "knowledge.source", schema: check((v) => v === "files", (v) => `expected files, got "${v}"`), doc: "Always files." },
+  "knowledge.scope": { path: "knowledge.scope", schema: check((v) => (KNOWLEDGE_SCOPES as readonly string[]).includes(v), (v) => `expected shared or by-brand, got "${v}"`), doc: "shared (default): one knowledge base for every brand; by-brand: each entry lists its brands and search filters by the thread's brand (needs two or more ## Brands rows)." },
   "run.quiet_hours": {
     path: "run.quietHours",
     schema: check((v) => v === "off" || /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/.test(v), (v) => `expected HH:MM-HH:MM or off, got "${v}"`),

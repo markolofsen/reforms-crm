@@ -68,6 +68,11 @@ export interface DraftWriter {
   writeReply(input: ReplyDraftInput): Promise<ReplyDraftResult>;
   /** The message with this Message-ID in one of these accounts (INBOX first, then the other mailboxes but Drafts, Sent, Trash and Spam), or null. */
   findInbound(accounts: readonly string[], messageId: string): Promise<InboundMessage | null>;
+  /**
+   * The raw header block of one known message (P60): what `resolveBrand` reads to learn the address the client wrote to.
+   * A direct lookup by Mail's id in a known mailbox, not a search. Read-only.
+   */
+  readHeaders(m: InboundMessage): Promise<string>;
 }
 
 const FS = "\x1f";
@@ -242,6 +247,34 @@ export const FIND_INBOUND_SCRIPT = `on run argv
   return "none"
 end run`;
 
+// argv: 1 account, 2 mailbox path (LS-joined), 3 Mail's message id. Output: ok FS <all headers>, or error FS code FS message. Read-only.
+export const READ_HEADERS_SCRIPT = `on run argv
+  set FS to (ASCII character 31)
+  set LS to (ASCII character 29)
+  if application "Mail" is not running then return "error" & FS & "mail_not_running" & FS & "Mail is not running."
+  set boxPath to my parts(item 2 of argv, LS)
+  tell application "Mail"
+    try
+      set box to account (item 1 of argv)
+      repeat with p in boxPath
+        set box to mailbox (contents of p) of box
+      end repeat
+      set m to (first message of box whose id is ((item 3 of argv) as integer))
+      return "ok" & FS & ((all headers of m) as text)
+    on error
+      return "error" & FS & "no_message" & FS & "No message " & (item 3 of argv) & " in that mailbox."
+    end try
+  end tell
+end run
+
+on parts(s, d)
+  if s is "" then return {}
+  set AppleScript's text item delimiters to d
+  set r to text items of s
+  set AppleScript's text item delimiters to ""
+  return r
+end parts`;
+
 export function parseInboundOutput(out: string): InboundMessage | null {
   const p = out.replace(/[\r\n]+$/, "").split(FS);
   if (p[0] === "error") throw new DraftWriteError(p[1] || "mail_error", p[2] || "Mail refused the lookup.");
@@ -278,6 +311,19 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
       });
       return parseInboundOutput(out);
     },
+    async readHeaders(m) {
+      const out = await osa(READ_HEADERS_SCRIPT, [m.account, m.mailboxPath.join(LS), String(m.messageId)]).catch((e: Error) => {
+        throw new DraftWriteError("mail_error", e.message);
+      });
+      const i = out.indexOf(FS);
+      const head = i < 0 ? out.trim() : out.slice(0, i);
+      if (head === "error") {
+        const [, code = "mail_error", message = "Mail refused the header read."] = out.replace(/[\r\n]+$/, "").split(FS);
+        throw new DraftWriteError(code, message);
+      }
+      if (head !== "ok") throw new DraftWriteError("mail_error", `Mail answered "${out.trim().slice(0, 100)}"`);
+      return out.slice(i + 1);
+    },
   };
 }
 
@@ -288,10 +334,17 @@ export class FakeDraftWriter implements DraftWriter {
   private next = 1000;
   /** Inbound messages the fake Mail holds, by Message-ID. */
   inbound = new Map<string, InboundMessage>();
+  /** Raw header blocks of the fake Mail's messages, by Mail's id. */
+  headers = new Map<number, string>();
   constructor(private readonly threadOf: (messageId: number) => string = (id) => `m${id}@example.com`) {}
   async findInbound(accounts: readonly string[], messageId: string): Promise<InboundMessage | null> {
     const m = this.inbound.get(messageId.trim().replace(/^<|>$/g, ""));
     return m && accounts.includes(m.account) ? m : null;
+  }
+  async readHeaders(m: InboundMessage): Promise<string> {
+    const h = this.headers.get(m.messageId);
+    if (h === undefined) throw new DraftWriteError("no_message", `No message ${m.messageId}.`);
+    return h;
   }
   async writeReply(i: ReplyDraftInput): Promise<ReplyDraftResult> {
     const body = stripMarker(i.body);
@@ -314,6 +367,18 @@ export interface ReviseInput {
   mailRef: string;
   body: string;
   quote: "add" | "keep";
+  /** P60: turns the body into the signed body once the answered message is known (the agent's revision); absent: written as given (a person's Save). */
+  sign?: (inbound: InboundMessage, body: string) => Promise<Signed>;
+}
+
+/** What the writer adds when it signs (P60): the signed body and how the brand was found. */
+export interface Signed {
+  body: string;
+  wroteTo: string | null;
+  brand: string | null;
+  brandReason: string;
+  /** `signed`: sign-off and the brand's lines; `placeholder`: `[Owner: signature for ...]`; `none`: the project signs with nothing. */
+  signature: "signed" | "placeholder" | "none";
 }
 
 /**
@@ -321,9 +386,12 @@ export interface ReviseInput {
  * write the reply through the writer, which replaces the older marked version. Shared by `hub mcp`'s `draft_write
  * {draft}` (the agent, `quote: "add"`) and the server (a person's Save or Restore, `quote: "keep"`), so there is one path.
  */
-export async function reviseDraft(writer: DraftWriter, i: ReviseInput): Promise<ReplyDraftResult & { replyTo: number }> {
+export async function reviseDraft(writer: DraftWriter, i: ReviseInput): Promise<ReplyDraftResult & { replyTo: number } & Partial<Omit<Signed, "body">>> {
   const found = await writer.findInbound(i.accounts, i.mailRef);
   if (!found) throw new DraftWriteError("no_message", `The message this draft answers (Message-ID ${i.mailRef}) is not in ${i.accounts.join(", ") || "this project's accounts"}: it may have been deleted. Nothing was written.`);
-  const r = await writer.writeReply({ ...found, body: i.body, sender: i.sender, quote: i.quote });
-  return { ...r, replyTo: found.messageId };
+  const signed = i.sign ? await i.sign(found, i.body) : null;
+  const r = await writer.writeReply({ ...found, body: signed?.body ?? i.body, sender: i.sender, quote: i.quote });
+  if (!signed) return { ...r, replyTo: found.messageId };
+  const { body: _body, ...how } = signed;
+  return { ...r, replyTo: found.messageId, ...how };
 }
