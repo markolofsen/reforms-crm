@@ -304,7 +304,7 @@ describe("P64: ensure resumes the project's last session; + always starts fresh"
     expect(r.session.preset).toBe("codex");
     expect(spawned[0]?.args).not.toContain("--resume");
     expect(r.session.title).toBe("acme · Codex");
-    expect(r.why).toBe(`Not resumed: ${CODEX_RULES_CHANGED}. A fresh session.`);
+    expect(r.why).toBe(`Codex: Claude Code is not installed · fix claude · Not resumed: ${CODEX_RULES_CHANGED}. A fresh session.`);
   });
   it("Codex: a rollout with today's rules is resumed", async () => {
     const rollout = join(paths.codexHomes, "acme", "sessions", `rollout-${ID}.jsonl`);

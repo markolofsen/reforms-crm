@@ -136,7 +136,7 @@ export function createTerminal(o: TerminalOptions) {
       const pick = pickPreset(facts, features().agent.default, !!slug);
       const choice: ResumeChoice = pick.preset !== "shell" && slug ? lastSession(slug, pick.preset) : { session: null, why: null };
       const said = choice.session ? resumedLine(choice.session, pick.preset as "claude" | "codex") : choice.why ? `Not resumed: ${choice.why}. A fresh session.` : null;
-      return { session: await create(pick.preset, project, theme, choice.session?.session), created: true, why: pick.why ?? said };
+      return { session: await create(pick.preset, project, theme, choice.session?.session), created: true, why: [pick.why, said].filter(Boolean).join(" · ") || null };
     })().finally(() => ensuring.delete(key));
     ensuring.set(key, p);
     return p;
