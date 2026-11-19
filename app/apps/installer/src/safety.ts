@@ -7,8 +7,10 @@ import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
 import { HUB_MCP_SERVERS } from "@hub/agent/deny";
 import { readSession, recordPost, type PostPayload } from "./evidence-store";
 import { openDbReadOnly } from "@hub/db";
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { parsePayload, toolCallEvents, toolResultEvent } from "@hub/log/hooks";
+import { appendEvents, logStoreOf } from "@hub/log/store";
 
 // Tool-level safety of `hub agent` (plans p17 and P49). What each CLI gets is built in `@hub/agent` (one source for the launcher,
 // the doctor and the server); this file writes it. Layers: (1) deny rules and disallowed tools, (2) the hub's MCP servers only
@@ -152,7 +154,7 @@ export function guardDecision(payload: GuardInput, o: { slug?: string; accounts:
 /** `root` is the instance root (state, ledger, log); `paths` (default: the instance at `root`) say where the skills ship. */
 export interface GuardEnv { root: string; projectsDir?: string; env?: NodeJS.ProcessEnv; paths?: HubPaths }
 
-/** `hub guard`: tool call JSON on stdin; exit 0 (allow) or 2 (block, reason on stderr). Warn mode logs to state/guard.log and allows. Never throws. */
+/** `hub guard`: tool call JSON on stdin; exit 0 (allow) or 2 (block, reason on stderr). Warn mode allows. Every call, and any violation, goes to the session log (P54). Never throws. */
 export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: string } {
   const env = g.env ?? process.env;
   const mode = env.HUB_GUARD === "block" ? "block" : "warn";
@@ -174,13 +176,10 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   // P28 B3: before a reply is drafted, this session must have read the client's thread and profile, and the reply must not copy an earlier one.
   if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug, paths.db));
   r.block = r.violations.length > 0 && mode === "block";
+  // P54: the call, and what the guard saw, go to the session log (the writer never throws).
+  appendEvents(logStoreOf(paths), toolCallEvents(parsePayload(stdin) ?? {}, "claude", slug ?? null, { mode, violations: r.violations }));
   if (!r.violations.length) return { code: 0, stderr: "" };
   const text = `hub guard (${mode}): ${r.violations.join("; ")}`;
-  try {
-    const logFile = paths.guardLog;
-    mkdirSync(path.dirname(logFile), { recursive: true });
-    appendFileSync(logFile, `${new Date().toISOString()} ${mode} ${slug ?? "-"} ${text}\n`);
-  } catch { /* a log that cannot be written must not stop the session */ }
   return r.block ? { code: 2, stderr: text } : { code: 0, stderr: text };
 }
 
@@ -209,13 +208,16 @@ function revisionClient(input: unknown, slug: string, db: string | undefined): s
   }
 }
 
-/** `hub guard --post`: the PostToolUse hook. Appends the call's thin summary to the session's ledger (from the ORIGINAL reply), then for `get_message_content` prints a replacement reply with slim headers. Always exit 0. */
+/** `hub guard --post`: the PostToolUse hook. Appends the call's thin summary to the session's ledger and its result to the session log (both from the ORIGINAL reply), then for `get_message_content` prints a replacement reply with slim headers. Always exit 0. */
 export function runGuardPost(stdin: string, g: GuardEnv): { code: 0; stderr: string; stdout?: string } {
   let stdout: string | undefined;
   try {
     const payload = JSON.parse(stdin) as PostPayload;
-    const slug = (g.env ?? process.env).HUB_PROJECT?.trim();
+    const env = g.env ?? process.env;
+    const slug = env.HUB_PROJECT?.trim();
     if (slug) recordPost(g.root, slug, payload);
+    const result = toolResultEvent(parsePayload(stdin) ?? {}, "claude", slug || null);
+    if (result) appendEvents(logStoreOf(g.paths ?? pathsAt(g.root, env)), [result]);
     if (String(payload.tool_name ?? "").endsWith("__get_message_content")) {
       const slim = slimMessageContent(payload.tool_response);
       if (slim != null) stdout = JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", updatedMCPToolOutput: slim } });

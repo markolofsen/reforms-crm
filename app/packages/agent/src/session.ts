@@ -39,6 +39,13 @@ export function protectedPaths(paths: HubPaths): string[] {
 }
 
 /**
+ * Claude's protected paths: the shared list plus the agent session log (P54). Claude runs its hooks outside the sandbox (the
+ * sandbox wraps the Bash tool), so the hooks still write the log while the agent cannot. Not in the Codex profile: whether
+ * Codex runs hooks under it is unmeasured, and a read-only log there would be a silent one (P54 section 3, point 15).
+ */
+export const claudeProtectedPaths = (paths: HubPaths): string[] => [...new Set([...protectedPaths(paths), paths.log])];
+
+/**
  * Claude Code's `sandbox` block for an unattended session. `failIfUnavailable`: no sandbox, no session (never a silent
  * unsandboxed run). No network allowlist: a command reaches no host, loopback included (the send route); the MCP
  * servers are the CLI's own calls. Apple Events stay off (no `osascript` to Mail).
@@ -50,7 +57,7 @@ export function claudeSandbox(paths: HubPaths): Record<string, unknown> {
     autoAllowBashIfSandboxed: true,
     allowUnsandboxedCommands: false,
     network: { allowedDomains: [], allowLocalBinding: false },
-    filesystem: { denyWrite: protectedPaths(paths) },
+    filesystem: { denyWrite: claudeProtectedPaths(paths) },
   };
 }
 

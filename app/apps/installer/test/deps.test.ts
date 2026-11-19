@@ -57,9 +57,10 @@ describe("staleDeps", () => {
     expect(install).toBeGreaterThan(check);
     expect(cli).toBeGreaterThan(install);
     // nothing above the check may pull in a package outside node: built-ins, tsx and the reexec hand-over; and the P51 prompt
-    // hook, which skips the check on purpose (a 5 s hook must not run an install) and turns a failed import into silence
-    expect(bin.slice(0, check).match(/import\(["'][^"']+["']\)|from ["'][^"']+["']/g)).toEqual(['from "node:child_process"', 'from "node:url"', 'from "tsx/esm/api"', dyn("focus-command.ts"), dyn("reexec.ts"), dyn("deps.ts")]);
-    expect(bin).toMatch(/try \{\n    await \(await import\("\.\.\/src\/focus-command\.ts"\)\)\.runFocusHook\(\);\n  \} catch/);
+    // hook and the P54 log hook, which skip the check on purpose (a hook must not run an install) and turn a failed import into silence
+    expect(bin.slice(0, check).match(/import\(["'][^"']+["']\)|from ["'][^"']+["']/g)).toEqual(['from "node:child_process"', 'from "node:url"', 'from "tsx/esm/api"', dyn("focus-command.ts"), dyn("log-hook.ts"), dyn("reexec.ts"), dyn("deps.ts")]);
+    expect(bin).toMatch(/try \{\n    await \(await import\("\.\.\/src\/focus-command\.ts"\)\)\.runFocusHook\(process\.env, rest\);\n  \} catch/);
+    expect(bin).toMatch(/try \{\n    \(await import\("\.\.\/src\/log-hook\.ts"\)\)\.runLogHook\(rest\);\n  \} catch/);
   });
   it("deps.ts itself imports only node built-ins", () => {
     const src = readFileSync(path.join(__dirname, "..", "src", "deps.ts"), "utf8");

@@ -61,7 +61,7 @@ describe("pathsAt and projectFolder", () => {
     const p = pathsAt(root, { HUB_HOME: instanceDir() });
     expect(p.home).toBe(root);
     expect(p.projects).toBe(join(root, "projects"));
-    expect(p.guardLog).toBe(join(root, "state", "guard.log"));
+    expect(p.log).toBe(join(root, "state", "log"));
   });
   it("projectFolder joins the slug onto the projects folder", () => {
     const home = instanceDir();

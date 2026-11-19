@@ -10,6 +10,7 @@ import { DENIED_TOOLS } from "@hub/agent/deny";
 import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 import { buildClaudeArgs } from "../src/agent";
 import { auditLayout } from "../src/safety";
+import { readEvents, logStoreOf } from "@hub/log/store";
 import { makeInstance } from "./instance-fixture";
 
 const PROJECTS = path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures", "projects");
@@ -27,11 +28,16 @@ describe("hub guard", () => {
   });
   it("warn mode logs and allows; block mode refuses with exit 2", () => {
     const root = tmp();
-    const bad = call("mcp__mail-mcp__find_messages", { account: "x@else.example" });
+    const bad = { ...call("mcp__mail-mcp__find_messages", { account: "x@else.example" }), session_id: "s-guard", tool_use_id: "tu1" };
     const w = runGuard(JSON.stringify(bad), { root, projectsDir: PROJECTS, env: { HUB_PROJECT: "acme-travel" } });
     expect(w.code).toBe(0);
     expect(w.stderr).toMatch(/outside project/);
-    expect(readFileSync(path.join(root, "state", "guard.log"), "utf8")).toMatch(/warn acme-travel/);
+    // P54: the call and the violation are session log events (state/guard.log is gone).
+    const logged = readEvents(logStoreOf(pathsAt(root)), { project: "acme-travel" });
+    expect(logged.map((e) => e.kind)).toEqual(["tool_call", "guard"]);
+    expect(logged[1]?.data).toMatchObject({ mode: "warn", tool: "mcp__mail-mcp__find_messages" });
+    expect(logged[1]?.corr).toBe("tu1");
+    expect(existsSync(path.join(root, "state", "guard.log"))).toBe(false);
     const b = runGuard(JSON.stringify(bad), { root, projectsDir: PROJECTS, env: { HUB_PROJECT: "acme-travel", HUB_GUARD: "block" } });
     expect(b.code).toBe(2);
   });
@@ -80,6 +86,15 @@ describe("generated session files", () => {
   it("hook points at hub guard", () => {
     expect(settings.hooks.PreToolUse[0].hooks[0].command).toMatch(/hub\.mjs" guard$/);
   });
+  it("P54: the prompt hook names its CLI; the session log hooks, the answer in line", () => {
+    expect(settings.hooks.UserPromptSubmit[0].hooks[0].command).toMatch(/hub\.mjs" focus --hook --cli claude$/);
+    for (const e of ["SessionStart", "Stop", "StopFailure", "Notification", "PostToolUseFailure", "PermissionDenied", "SessionEnd"]) {
+      // the answer's hooks run in line (an async Stop wrote nothing in print mode, 2.1.220); the rest in the background
+      expect(settings.hooks[e][0].hooks[0].async).toBe(e === "Stop" || e === "StopFailure" ? undefined : true);
+      expect(settings.hooks[e][0].hooks[0].command).toMatch(/hub\.mjs" log --hook --cli claude$/);
+    }
+    expect(settings.permissions.deny).toContain("Edit(./state/log/**)");
+  });
   it("strict MCP: only the hub's servers, the knowledge server pinned to the slug", () => {
     mkdirSync(path.join(root, "config"), { recursive: true });
     writeFileSync(path.join(root, "config", "mcp.json"), JSON.stringify({ mcpServers: { "mail-mcp": { type: "http" }, gmail: { type: "http" }, "knowledge-mcp": { type: "stdio", env: { HUB_PROJECT: "${HUB_PROJECT:-}" } } } }));
@@ -124,7 +139,12 @@ describe("the Codex home (P49 S10)", () => {
   const toml = readFileSync(path.join(home, "config.toml"), "utf8");
   it("P51: the hub MCP server and the focus hook on every prompt", () => {
     expect(toml).toContain('[mcp_servers."hub"]');
-    expect(toml).toMatch(/\[\[hooks\.UserPromptSubmit\]\]\n\[\[hooks\.UserPromptSubmit\.hooks\]\]\ntype = "command"\ncommand = ".*hub\.mjs\\" focus --hook"\ntimeout = 5/);
+    expect(toml).toMatch(/\[\[hooks\.UserPromptSubmit\]\]\n\[\[hooks\.UserPromptSubmit\.hooks\]\]\ntype = "command"\ncommand = ".*hub\.mjs\\" focus --hook --cli codex"\ntimeout = 5/);
+  });
+  it("P54: the session log hooks, synchronous (Codex 0.146 skips async hooks), no SessionEnd", () => {
+    for (const e of ["SessionStart", "Stop", "PermissionRequest"]) expect(toml).toMatch(new RegExp(`\\[\\[hooks\\.${e}\\.hooks\\]\\]\\ntype = "command"\\ncommand = ".*hub\\.mjs\\\\" log --hook --cli codex"\\ntimeout = 10`));
+    expect(toml).not.toContain("hooks.SessionEnd");
+    expect(toml).not.toContain("async");
   });
   it("holds the hub's servers only, with the send tools off, and none of the owner's", () => {
     expect(toml).toContain('[mcp_servers."mail-mcp"]');

@@ -116,7 +116,7 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 ## Agent
 
 - [ ] **Agent tools (one row per project and CLI)** (`agent.tools`; `hub doctor` only; setup and install never run it)
-  - Proves: For each project and each CLI (Claude Code, Codex): the CLI answers `--version` (another version than the measured one is a WARN), Codex is signed in, the session files exist, each hub MCP server is configured and answers `tools/list` (Notion not signed in is a WARN), no tool that sends is reachable, the skills are linked, the mode matches `agent.unattended` (no Codex sandbox bypass), the send policy file parses and Claude's guard hook is set.
+  - Proves: For each project and each CLI (Claude Code, Codex): the CLI answers `--version` (another version than the measured one is a WARN), Codex is signed in, the session files exist, each hub MCP server is configured and answers `tools/list` (Notion not signed in is a WARN), no tool that sends is reachable, the skills are linked, the mode matches `agent.unattended` (no Codex sandbox bypass), the send policy file parses, Claude's guard hook is set and the session log hooks are in the session files (P54).
   - You: Run the fix the row names (most often `hub agent <project> --prepare`, with `--cli codex` for Codex). Run `hub doctor --only Agent` again, or Refresh in Connections, Agent tools.
 - [ ] **Embedded terminal** (`agent.terminal`)
   - Proves: `terminal.enabled` in config/config.json; when on: node-pty's spawn-helper exists and is executable, the API port listens on 127.0.0.1 only, and a running server reports the same switch (`GET /api/terminal`).

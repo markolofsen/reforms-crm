@@ -1,0 +1,29 @@
+{
+  "name": "@hub/log",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The agent session log (P54): one event model for what the owner asked, what Claude Code or Codex answered and which tools it called, written by the session hooks as redacted JSONL per project and day under state/log, read by `hub log`. Mail bodies are hashed, never kept.",
+  "type": "module",
+  "exports": {
+    "./event": "./src/event.ts",
+    "./store": "./src/store.ts",
+    "./privacy": "./src/privacy.ts",
+    "./hooks": "./src/hooks.ts",
+    "./codex-rollout": "./src/codex-rollout.ts",
+    "./summary": "./src/summary.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*",
+    "@hub/connections": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

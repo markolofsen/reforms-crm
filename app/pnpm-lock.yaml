@@ -284,6 +284,9 @@ importers:
       '@hub/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@hub/log':
+        specifier: workspace:*
+        version: link:../../packages/log
       '@hub/mail-filters':
         specifier: workspace:*
         version: link:../../packages/mail-filters
@@ -534,6 +537,28 @@ importers:
       tsx:
         specifier: 'catalog:'
         version: 4.23.15
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 5.1.0(@types/node@22.20.5)(vite@8.3.8(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/log:
+    dependencies:
+      '@hub/config':
+        specifier: workspace:*
+        version: link:../config
+      '@hub/connections':
+        specifier: workspace:*
+        version: link:../connections
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.20.5
       typescript:
         specifier: 'catalog:'
         version: 5.9.3

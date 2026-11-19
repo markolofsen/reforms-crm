@@ -43,7 +43,10 @@ import { selectSteps, STEPS } from "./steps/index";
 import type { Step } from "./types";
 import { uninstall } from "./uninstall";
 import { focusLine } from "@hub/agent/focus";
-import { currentFocus, hookOutput } from "./focus-command";
+import { currentFocus, runFocusHook } from "./focus-command";
+import { LOG_KIND_LABELS } from "@hub/log/event";
+import { LOG_VIEWS, runLogCommand } from "./log-command";
+import { runLogHook } from "./log-hook";
 
 const SHOWN = new Set(["agent", "up", "doctor", "setup"]);
 
@@ -69,7 +72,7 @@ ${c.bold("Examples")}
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, send, sequences, connections, backup, uninstall. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, log, send, sequences, connections, backup, uninstall. Each has its own \`hub <name> --help\`.`);
 // Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
@@ -397,11 +400,30 @@ program.command("guard").description("PreToolUse hook of `hub agent`: reads one 
 
 program.command("focus").description("What the admin shows (P51 shared focus), as the session bound to HUB_PROJECT sees it: the open draft, its client, the selection. --hook is the prompt hook of `hub agent` (one line while fresh, else nothing; never blocks). Read only.")
   .option("--json", "print the focus as JSON")
-  .option("--hook", "UserPromptSubmit hook output (started by bin/hub.mjs without the CLI)")
-  .action(async (o: { json?: boolean; hook?: boolean }) => {
+  .option("--hook", "UserPromptSubmit hook output (started by bin/hub.mjs without the CLI); also logs the prompt (P54)")
+  .option("--cli <cli>", "with --hook: the CLI that runs it, claude or codex (the session log names it)")
+  .action(async (o: { json?: boolean; hook?: boolean; cli?: string }) => {
+    if (o.hook) { await runFocusHook(process.env, ["--cli", o.cli ?? "claude"]); return; }
     const f = await currentFocus();
-    if (o.hook) { const out = hookOutput(f); if (out) console.log(out); return; }
     console.log(o.json ? JSON.stringify(f) : (focusLine(f) ?? `focus: ${f.state}${f.project ? ` (${f.project})` : " (no HUB_PROJECT)"}`));
+  });
+
+program.command("log").description("The agent session log (P54): what the owner asked, what Claude Code or Codex answered, which tools it called, where it asked instead of acting. Views: events (default), tail, sessions, summary. Default: HUB_PROJECT (else every project), the last 7 days. Read only.")
+  .argument("[view]", LOG_VIEWS.join(" | "), "events")
+  .option("--project <slug>", "one project (default HUB_PROJECT, else all)")
+  .option("--session <id>", "one session (a prefix is enough)")
+  .option("--kind <kinds>", "comma-separated kinds")
+  .option("--cli <cli>", "claude or codex")
+  .option("--since <when>", "30m, 6h, 7d or a date (default 7d)")
+  .option("--until <when>", "the same form")
+  .option("--limit <n>", "events: last n (200; tail 20); summary: n sessions (10)")
+  .option("--json", "one JSON object per line (summary and sessions: one array)")
+  .option("--hook", "the session hook of `hub agent` (started by bin/hub.mjs without the CLI; never blocks)")
+  .addHelpText("after", `\n${c.bold("Kinds")}\n${Object.entries(LOG_KIND_LABELS).map(([k, v]) => `  ${k.padEnd(12)}${v}`).join("\n")}\n\nFiles: state/log/<project>/<day>.jsonl (redacted; mail bodies hashed). Details: @docs/core/25-agent-log.md`)
+  .action(async (view: string, o: Parameters<typeof runLogCommand>[1] & { hook?: boolean }) => {
+    if (o.hook) { runLogHook(["--cli", o.cli ?? "claude"]); return; }
+    ctxOf();
+    done(await runLogCommand(view, o));
   });
 
 program.command("mcp").description("The hub's read-only MCP server on stdio (P51): focus, draft_show, client_show, drafts_list for HUB_PROJECT. Registered by `hub agent` for Claude Code and Codex; started by bin/hub.mjs without the CLI.")

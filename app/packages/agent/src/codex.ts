@@ -1,7 +1,7 @@
 import path from "node:path";
 import { codexSessionPaths, type HubPaths } from "@hub/config/paths";
 import { CODEX_FORBIDDEN_PREFIXES, deniedToolsOf, HUB_MCP_SERVERS, otherProjects } from "./deny";
-import { focusHookCommand } from "./claude";
+import { focusHookCommand, logHookCommand } from "./claude";
 import { CODEX_BYPASS, codexModeArgs, protectedPaths } from "./session";
 
 // A Codex session of `hub agent --cli codex` (P49 S9, S10), built without writing. Codex has no strict-MCP flag and its
@@ -11,6 +11,9 @@ import { CODEX_BYPASS, codexModeArgs, protectedPaths } from "./session";
 
 /** `<state>/codex/<slug or _unbound>`: the `CODEX_HOME` of one project's sessions. */
 export const codexHome = (paths: HubPaths, slug: string | undefined): string => codexSessionPaths(paths, slug).home;
+
+/** Codex events `hub log --hook` takes (P54). */
+export const CODEX_LOG_EVENTS = ["SessionStart", "Stop", "PermissionRequest"] as const;
 
 /** The name of the generated permissions profile. */
 export const CODEX_PROFILE = "hub";
@@ -52,7 +55,11 @@ export function codexConfigToml(i: CodexSessionInput): string {
   out.push(`[projects.${str(i.paths.home)}]`, `trust_level = "trusted"`, "");
   // P51: the focus line per prompt (Codex 0.146 `UserPromptSubmit`, measured in F0). Codex runs only trusted hooks; this one is
   // the hub's own, in a home only the hub writes, so the launcher passes `--dangerously-bypass-hook-trust` (see `codexArgs`).
-  out.push("[[hooks.UserPromptSubmit]]", "[[hooks.UserPromptSubmit.hooks]]", `type = "command"`, `command = ${str(focusHookCommand(i.nodeBin ?? process.execPath, i.paths))}`, "timeout = 5", "");
+  const node = i.nodeBin ?? process.execPath;
+  out.push("[[hooks.UserPromptSubmit]]", "[[hooks.UserPromptSubmit.hooks]]", `type = "command"`, `command = ${str(focusHookCommand(node, i.paths, "codex"))}`, "timeout = 5", "");
+  // P54: the session log. Codex 0.146 skips async hooks, so these block: Stop runs once per turn and imports that turn's
+  // tool calls from the rollout (no hook per tool call); SessionEnd is left out (its 1 s budget is below a Node start).
+  for (const e of CODEX_LOG_EVENTS) out.push(`[[hooks.${e}]]`, `[[hooks.${e}.hooks]]`, `type = "command"`, `command = ${str(logHookCommand(node, i.paths, "codex"))}`, "timeout = 10", "");
   for (const name of HUB_MCP_SERVERS) {
     const s = i.servers[name];
     if (!s) continue;

@@ -136,6 +136,11 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
     const pre = JSON.stringify(settings?.hooks?.PreToolUse ?? "");
     row("guard.hook", "Guard hook", pre.includes(" guard") ? "pass" : "fail", pre.includes(" guard") ? "PreToolUse runs hub guard" : "no guard hook in the session settings", prepare);
   }
+
+  // 10. The session log (P54): the prompt hook logs the prompt, `hub log --hook` the answer and the session.
+  const hookText = cli === "codex" ? (toml ?? "") : JSON.stringify(settings?.hooks ?? {});
+  const logged = hookText.includes(`focus --hook --cli ${cli}`) && hookText.includes(`log --hook --cli ${cli}`);
+  row("log.hooks", "Session log", logged ? "pass" : "fail", logged ? "prompts, answers and tool calls go to state/log (hub log)" : "the session files predate the session log", prepare);
   return rows;
 }
 

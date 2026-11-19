@@ -80,5 +80,14 @@ function knownValues(dir: string): string[] {
 export function redact(dir: string, text: string): string {
   let out = text;
   for (const v of knownValues(dir)) out = out.split(v).join("***");
-  return out.replace(/\b(sk-ant-[A-Za-z0-9_-]{6,}|ntn_[A-Za-z0-9]{6,}|secret_[A-Za-z0-9]{10,})\b/g, "***").replace(TELEGRAM_IN_TEXT, "***");
+  return out.replace(TOKEN_SHAPES, "***").replace(BEARER, "$1***").replace(TELEGRAM_IN_TEXT, "***");
 }
+
+/**
+ * Shapes of credentials that may pass through a text the hub keeps (P54: the agent session log): Anthropic, OpenAI and
+ * similar `sk-` keys, Notion, GitHub, Slack, AWS access key ids and JWTs. A shape, not a value: a false positive costs
+ * a word in a log, a miss costs a key.
+ */
+const TOKEN_SHAPES = /\b(sk-ant-[A-Za-z0-9_-]{6,}|sk-[A-Za-z0-9_-]{20,}|ntn_[A-Za-z0-9]{6,}|secret_[A-Za-z0-9]{10,}|gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|xox[abposr]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,})\b/g;
+/** An `Authorization: Bearer <token>` value (the scheme word is kept). */
+const BEARER = /\b(Bearer\s+)[A-Za-z0-9._~+/=-]{16,}/gi;

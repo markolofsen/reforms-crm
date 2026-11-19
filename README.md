@@ -64,6 +64,7 @@ The one index. Every page below owns its facts; others link to it.
 | Follow-up sequences: the files, the enrollments, who may enrol, the Follow-ups view (`hub sequences`) | [`@docs/core/23-sequences.md`](@docs/core/23-sequences.md) |
 | The terminal dock, the agent modes (attended, unattended with the OS sandbox), the send policy and send ticket, and Agent tools | [`@docs/core/24-terminal.md`](@docs/core/24-terminal.md) |
 | Shared focus: what the agent knows of your screen (`hub mcp`, `hub focus`, the session rules, the prompt hook) | [`@docs/core/24-terminal.md`, Shared focus](@docs/core/24-terminal.md#shared-focus-the-agent-sees-what-the-owner-sees-p51-decision-0029) |
+| The agent session log: every prompt, answer and tool call of a session, redacted, per project and day (`hub log`, `hub log summary`) | [`@docs/core/25-agent-log.md`](@docs/core/25-agent-log.md) |
 | A package's own layout: `@hub/agent` (sessions, `hub mcp`, focus), `@hub/terminal`, `@hub/contract` (the API schemas), `@hub/sequences`, `@hub/ui`, `@hub/knowledge`, `@hub/notion` | `app/packages/<name>/README.md` |
 | Rules for changing the admin app | [`app/@rules/README.md`](app/@rules/README.md) |
 

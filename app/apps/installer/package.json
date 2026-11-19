@@ -19,6 +19,7 @@
     "@hub/connections": "workspace:*",
     "@hub/contract": "workspace:*",
     "@hub/db": "workspace:*",
+    "@hub/log": "workspace:*",
     "@hub/mail-filters": "workspace:*",
     "@hub/projects": "workspace:*",
     "@hub/send": "workspace:*",

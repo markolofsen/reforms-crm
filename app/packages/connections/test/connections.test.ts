@@ -137,6 +137,14 @@ describe("redact and shapes", () => {
     expect(leaks(out)).toEqual([]);
     expect(out).not.toContain("OTHERUNSEEN");
   });
+  it("removes the key shapes a session log may carry (P54)", () => {
+    const dir = dirOf();
+    const keys = ["sk-proj-ABCDEFGHIJKLMNOPQRSTUVWX12", "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123", "xoxb-1234567890-abcdefghij", "AKIAABCDEFGHIJKLMNOP", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"];
+    const out = redact(dir, `${keys.join(" ")} Authorization: Bearer abcdefghijklmnop1234 plain words stay`);
+    for (const k of keys) expect(out).not.toContain(k);
+    expect(out).toContain("Bearer ***");
+    expect(out).toContain("plain words stay");
+  });
   it("one Telegram shape", () => {
     expect(isTelegramToken(TG)).toBe(true);
     expect(isTelegramToken("12:abc")).toBe(false);

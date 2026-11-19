@@ -15,9 +15,18 @@ const [cmd, ...rest] = process.argv.slice(2);
 // A checkout whose dependencies are behind fails this import: that is silence too, never a blocked prompt.
 if (cmd === "focus" && rest.includes("--hook")) {
   try {
-    await (await import("../src/focus-command.ts")).runFocusHook();
+    await (await import("../src/focus-command.ts")).runFocusHook(process.env, rest);
   } catch {
     /* no focus line */
+  }
+  process.exit(0);
+}
+// The session log hook (P54) starts the same way: Codex runs it synchronously, and any failure is silence.
+if (cmd === "log" && rest.includes("--hook")) {
+  try {
+    (await import("../src/log-hook.ts")).runLogHook(rest);
+  } catch {
+    /* no log line */
   }
   process.exit(0);
 }

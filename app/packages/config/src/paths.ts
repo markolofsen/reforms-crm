@@ -35,7 +35,8 @@ export interface HubPaths {
   evidence: string;
   /** Per-project Codex homes (`CODEX_HOME`) of hub sessions: `<state>/codex` (P49 S10; git-ignored, generated). */
   codexHomes: string;
-  guardLog: string;
+  /** The agent session log (P54): `<state>/log/<slug>/<YYYY-MM-DD>.jsonl`, written by the session hooks, read by `hub log`. */
+  log: string;
   /** The admin's shared focus (P51): `<state>/focus.json`, ids only, written by the server, read by `hub focus` and `hub mcp`. */
   focus: string;
   secrets: string;
@@ -120,7 +121,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     stateProjects: join(state, "projects"),
     evidence: join(state, "evidence"),
     codexHomes: join(state, "codex"),
-    guardLog: join(state, "guard.log"),
+    log: join(state, "log"),
     focus: join(state, "focus.json"),
     secrets: fromEnv(env, "HUB_CONFIG_DIR") ?? join(state, "secrets"),
     configDir,
@@ -196,6 +197,17 @@ export function instanceBrand(paths: Pick<HubPaths, "configFile" | "configDir">)
     try { logoFound = statSync(logo).isFile(); } catch { logoFound = false; }
   }
   return { name, logo, logoFound };
+}
+
+/** Days the agent session log keeps (P54): `log.retention_days` in `config/config.json`, a whole number from 1 to 3650; anything else is the default 90. */
+export function instanceLogRetention(paths: Pick<HubPaths, "configFile">): number {
+  let cfg: Record<string, unknown> = {};
+  if (existsSync(paths.configFile)) {
+    try { cfg = JSON.parse(readFileSync(paths.configFile, "utf8")) as Record<string, unknown>; } catch { cfg = {}; }
+  }
+  const log = cfg.log && typeof cfg.log === "object" && !Array.isArray(cfg.log) ? (cfg.log as Record<string, unknown>) : {};
+  const d = log.retention_days;
+  return typeof d === "number" && Number.isInteger(d) && d >= 1 && d <= 3650 ? d : 90;
 }
 
 /** `<state>/codex/<slug or _unbound>`: the `CODEX_HOME` of one project's Codex sessions (P49), and its `skills/` links. */

@@ -12,7 +12,7 @@ import { listenersOf } from "./admin";
 // embedded terminal's own check. `hub doctor --only Agent` prints what the Connections block shows.
 
 const why = "A hub agent session needs its CLI, its session files, the hub's MCP servers answering, the send tools off and its mode (prompts, or the OS sandbox) in place; a missing piece shows only when the owner starts the session.";
-const verifies = "For each project and each CLI (Claude Code, Codex): the CLI answers `--version` (another version than the measured one is a WARN), Codex is signed in, the session files exist, each hub MCP server is configured and answers `tools/list` (Notion not signed in is a WARN), no tool that sends is reachable, the skills are linked, the mode matches `agent.unattended` (no Codex sandbox bypass), the send policy file parses and Claude's guard hook is set.";
+const verifies = "For each project and each CLI (Claude Code, Codex): the CLI answers `--version` (another version than the measured one is a WARN), Codex is signed in, the session files exist, each hub MCP server is configured and answers `tools/list` (Notion not signed in is a WARN), no tool that sends is reachable, the skills are linked, the mode matches `agent.unattended` (no Codex sandbox bypass), the send policy file parses, Claude's guard hook is set and the session log hooks are in the session files (P54).";
 
 /** Worst state of a CLI's rows: one doctor line, with the first red row's fix. */
 export function summarise(rows: AgentCheckRow[]): CheckResult {

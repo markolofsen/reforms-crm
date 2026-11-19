@@ -68,15 +68,15 @@ describe("an instance folder outside the checkout", () => {
     expect(r.exitCode, r.stderr).toBe(0);
     expect(JSON.parse(r.stdout)).toEqual(["acme-travel", "nordhaus"]);
   });
-  it("evidence, the guard log and generated session files go under the instance's state", () => {
-    const core = path.join(CORE_ROOT, "state", "guard.log");
+  it("evidence, the session log and generated session files go under the instance's state", () => {
+    const core = path.join(CORE_ROOT, "state", "log");
     const before = mtime(core);
     const paths = hubPaths();
     expect(evidenceDir(paths.home, "acme-travel")).toBe(path.join(home, "state", "evidence", "acme-travel"));
     const bad = { tool_name: "Read", tool_input: { file_path: path.join(home, "projects", "nordhaus", "project.md") } };
-    const r = runGuard(JSON.stringify(bad), { root: paths.home, paths, env: { HUB_PROJECT: "acme-travel" } });
+    const r = runGuard(JSON.stringify({ ...bad, session_id: "s1" }), { root: paths.home, paths, env: { HUB_PROJECT: "acme-travel" } });
     expect(r.stderr).toMatch(/touched projects\/nordhaus/);
-    expect(readFileSync(path.join(home, "state", "guard.log"), "utf8")).toMatch(/warn acme-travel/);
+    expect(readdirSync(path.join(home, "state", "log", "acme-travel")).some((f) => f.endsWith(".jsonl"))).toBe(true);
     expect(mtime(core)).toBe(before);
     const files = writeSessionFiles(paths.home, paths.projects, "acme-travel", process.execPath, paths);
     expect(files.settings.startsWith(path.join(home, "state", "projects", "acme-travel"))).toBe(true);

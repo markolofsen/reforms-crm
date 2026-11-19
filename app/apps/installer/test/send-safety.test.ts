@@ -120,7 +120,7 @@ describe("the agent has no send path", () => {
     expect(hub?.env).toMatchObject({ HUB_PROJECT: "acme-travel", HUB_HOME: root });
     const settings = JSON.parse(readFileSync(f.settings, "utf8")) as { hooks: Record<string, Array<{ hooks: Array<{ command: string; timeout: number }> }>> };
     const hook = settings.hooks.UserPromptSubmit?.[0]?.hooks[0];
-    expect(hook?.command).toMatch(/hub\.mjs" focus --hook$/);
+    expect(hook?.command).toMatch(/hub\.mjs" focus --hook --cli claude$/);
     expect(hook?.timeout).toBe(5);
   });
 

@@ -24,12 +24,30 @@ export function hookOutput(f: FocusDto): string {
   return line ? JSON.stringify({ hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: line } }) : "";
 }
 
-export async function runFocusHook(env: NodeJS.ProcessEnv = process.env): Promise<void> {
+/**
+ * The prompt hook. It also logs the prompt and the focus line it added (P54). The logger is imported lazily in its own try:
+ * right after `hub core update`, before an install, `@hub/log` may not resolve, and that must not cost the focus line.
+ */
+export async function runFocusHook(env: NodeJS.ProcessEnv = process.env, argv: readonly string[] = process.argv): Promise<void> {
+  let stdin = "";
+  let line: string | null = null;
   try {
-    try { readFileSync(0); } catch { /* no stdin: fine */ }
-    const out = hookOutput(await currentFocus(env));
-    if (out) process.stdout.write(out + "\n");
+    try { stdin = readFileSync(0, "utf8"); } catch { /* no stdin: fine */ }
+    const f = await currentFocus(env);
+    const out = hookOutput(f);
+    if (out) { process.stdout.write(out + "\n"); line = focusLine(f); }
   } catch {
     /* silence: no focus line */
   }
+  try {
+    await (await import("./log-hook")).logPrompt(stdin, cliArg(argv), line, env);
+  } catch {
+    /* no log line: never a blocked prompt */
+  }
+}
+
+/** `--cli claude|codex` of a hook command line; Claude when absent (a session file written before P54). */
+export function cliArg(argv: readonly string[]): "claude" | "codex" {
+  const i = argv.indexOf("--cli");
+  return argv[i + 1] === "codex" ? "codex" : "claude";
 }
