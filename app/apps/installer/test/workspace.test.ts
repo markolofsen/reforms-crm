@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, renameSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -49,6 +49,16 @@ describe("hub workspace", () => {
     const o = workspaceInit(r.ctx, true);
     expect(o.ok).toBe(false);
     expect(readFileSync(path.join(r.home, "package.json"), "utf8")).toBe('{"name":"mine"}');
+  });
+  it("warns against an instance-root install while core/ is a dev link", () => {
+    const r = rig();
+    const dev = path.join(r.home, "dev-checkout");
+    renameSync(path.join(r.home, "core"), dev);
+    symlinkSync(dev, path.join(r.home, "core"));
+    const dry = workspaceInit(r.ctx, false).lines.join("\n");
+    expect(dry).toContain("do NOT run `pnpm install` at the instance root");
+    expect(dry).toContain(path.join("dev-checkout", "app"));
+    expect(workspaceInit(r.ctx, true).lines.join("\n")).toContain("do NOT run `pnpm install`");
   });
   it("says so when core/ is not checked out", () => {
     const home = mkdtempSync(path.join(tmpdir(), "hub-ws-"));

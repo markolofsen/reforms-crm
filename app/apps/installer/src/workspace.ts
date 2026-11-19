@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Ctx } from "./context";
 
@@ -50,6 +50,20 @@ export function wanted(ctx: Ctx): { files: Record<FileName, string>; error?: str
 
 const generated = (text: string): boolean => text.includes("hub-generated:");
 
+/**
+ * Where to install after the files change. While `core/` is a `hub core dev` link, the instance workspace includes the dev checkout's
+ * `app/*`, so `pnpm install` at the instance root re-links that checkout's packages into the instance's store and `next build` then
+ * hangs (2026-11-20). Install in the checkout instead; recovery is `pnpm install --force` there.
+ */
+export function linkedInstallWarning(ctx: Ctx): string | null {
+  const core = path.join(ctx.paths.home, "core");
+  let linked: string | null = null;
+  try { if (lstatSync(core).isSymbolicLink()) linked = realpathSync(core); } catch { /* core/ missing: wanted() says so */ }
+  return linked
+    ? `core/ is linked to ${linked} (\`hub core dev\`): do NOT run \`pnpm install\` at the instance root; install in ${path.join(linked, "app")} and commit these files without installing.`
+    : null;
+}
+
 /** `hub workspace init`: write the three files. Never overwrites a file that is not ours. Dry run unless apply. */
 export function workspaceInit(ctx: Ctx, apply: boolean): WorkspaceResult {
   const w = wanted(ctx);
@@ -62,7 +76,9 @@ export function workspaceInit(ctx: Ctx, apply: boolean): WorkspaceResult {
     out.push(`${same ? "unchanged" : apply ? "wrote" : "would write"} ${f}`);
     if (apply && !same) writeFileSync(file, w.files[f]);
   }
-  if (!apply) out.push("dry run: nothing changed. Add --apply, then `pnpm install` at the instance root.");
+  const linked = linkedInstallWarning(ctx);
+  if (!apply) out.push(linked ? "dry run: nothing changed. Add --apply." : "dry run: nothing changed. Add --apply, then `pnpm install` at the instance root.");
+  if (linked) out.push(linked);
   return { ok: true, lines: out };
 }
 
