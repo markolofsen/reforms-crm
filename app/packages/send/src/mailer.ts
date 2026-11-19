@@ -81,7 +81,10 @@ export class MailNotAnswering extends Error {
   }
 }
 
-/** osascript with its own budget: at `timeoutMs` the child is killed and the call rejects with `MailNotAnswering`. */
+/**
+ * osascript with its own budget: at `timeoutMs` the child is killed and the call rejects with `MailNotAnswering`. Node also
+ * sets `killed` when output passes `maxBuffer`; at 32 MB that does not happen for anything the hub reads.
+ */
 export const osaWithin = (timeoutMs: number): OsaRun => (script, args) =>
   new Promise((resolve, reject) =>
     execFile("osascript", ["-e", script, ...args], { timeout: timeoutMs, killSignal: "SIGKILL", maxBuffer: 32 * 1024 * 1024 }, (err, stdout, stderr) => {
