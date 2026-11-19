@@ -122,13 +122,13 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 
 - [ ] **Agent tools (one row per project and CLI)** (`agent.tools`; `hub doctor` only; setup and install never run it)
   - Proves: For each project and each CLI (Claude Code, Codex): the CLI is found by the owner's login shell and answers `--version` (another version than the measured one is a WARN), it is signed in (`claude auth status`, `codex login status`), the session files exist, each hub MCP server is configured and answers `tools/list` (Notion not signed in is a WARN), no tool that sends is reachable, the skills are linked, the mode matches `agent.unattended` (no Codex sandbox bypass), the send policy file parses, Claude's guard hook is set and the session log hooks are in the session files (P54).
-  - You: Run the fix the row names (most often `hub agent <project> --prepare`, with `--cli codex` for Codex). Run `hub doctor --only Agent` again, or Refresh in Connections, Agent tools.
+  - You: Run the fix the row names (most often `hub agent <project> --prepare`, with `--cli codex` for Codex). Run `hub doctor --only Agent` again, or Refresh on Agents (Agent tools).
 - [ ] **Embedded terminal** (`agent.terminal`)
   - Proves: node-pty is installed in the core and loads on this Node, its spawn-helper is executable, the shell a tab starts (`$SHELL`, else /bin/zsh) exists, the API port listens on 127.0.0.1 only, and a running server reports no problem (`GET /api/terminal`, `problem: null`). The same check the server runs at start (`terminalReadiness`), so the doctor and the column cannot disagree.
   - `hub install` fixes it: sets the execute bit on node-pty's spawn-helper in the core (adds only +x)
 - [ ] **Claude Code and Codex on the login shell** (`agent.clis`)
   - Proves: One detection (each CLI directly first, the login shell `$SHELL -l -i` only for one that is not settled, 45 s): each CLI found, answering `--version` and signed in, and what opening the column in a project starts (`agent.default`'s order). Not ready is a WARN with the install or sign-in line, never a FAIL: the terminal works with Shell alone.
-  - You: Install a missing CLI with the line the row names (`npm i -g @anthropic-ai/claude-code` or `npm i -g @openai/codex`). Sign in with `claude auth login` or `codex login` (the sign-in is yours). Run `hub doctor --only Agent` again, or Refresh in Connections, Agent tools.
+  - You: Install a missing CLI with the line the row names (`npm i -g @anthropic-ai/claude-code` or `npm i -g @openai/codex`). Sign in with `claude auth login` or `codex login` (the sign-in is yours). Run `hub doctor --only Agent` again, or Refresh on Agents (Agent tools).
 ## Backup
 
 - [ ] **Code and instance are pushed off this machine** (`backup.git`; `hub doctor` only; setup and install never run it)

@@ -25,7 +25,7 @@ describe("send boundary", () => {
 
   it("reaches the history, Stop all, Resume and the doctor from the Project screen, and Cancel also from the card", () => {
     const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(list|cancel|stop|resume|doctor)\b/.test(f.text)).map((f) => f.path).sort();
-    expect(users).toEqual(["features/project/doctor-panel.tsx", "features/project/sends-panel.tsx", "features/review/card/draft-card.tsx"]);
+    expect(users).toEqual(["features/project/sends-panel.tsx", "features/project/setup/doctor-panel.tsx", "features/review/card/draft-card.tsx"]);
     const stops = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(stop|resume)\b/.test(f.text)).map((f) => f.path);
     expect(stops).toEqual(["features/project/sends-panel.tsx"]);
   });

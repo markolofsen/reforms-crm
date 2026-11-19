@@ -1,12 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 import { remember } from "./support";
 
-// The Project screen by frequency (P48 W6, `admin-principles.md` rule 9): the status sentence and Stop sending first, the
-// sends when any exist, one line per fact, the safety rules under Advanced. The sends are held in this file (a queued
-// send exists only with autosend, which the e2e server does not run; Stop all is exercised for real in `z-send.spec.ts`).
-// The e2e instance has two projects, so the address names the project first.
+// The Project screen by frequency (P48 W6, `admin-principles.md` rule 9), over the landing and its Setup page since P63: the
+// landing holds the status sentence and Stop sending first, then the sends when any exist; Setup holds one line per fact and
+// the safety rules under Advanced. The sends are held in this file (a queued send exists only with autosend, which the e2e
+// server does not run; Stop all is exercised for real in `z-send.spec.ts`). Two projects, so the address names the project first.
 const PROJECT = "lisbon-realty";
 const AT = `/${PROJECT}/project`;
+const SETUP = `/${PROJECT}/project/setup`;
 const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
 
 test.beforeEach(async ({ page }) => {
@@ -42,7 +43,7 @@ const advanced = (page: Page) => page.getByRole("button", { name: /^Advanced/ })
 /** A rule set through the API, as the agent or another tab would; the test puts it back after. */
 const setRule = (page: Page, kind: string, enabled: boolean) => page.request.put(`${API()}/api/safety-rules/${kind}`, { data: { project: PROJECT, enabled } });
 
-test("project: the first viewport at 1280 shows the status, Stop sending and the sends; Advanced is closed", async ({ page }) => {
+test("project: the first viewport at 1280 shows the status, Stop sending and the sends; the facts are on Setup, Advanced closed", async ({ page }) => {
   await sendsServer(page, { sends: [sent], stopped: [] });
   await page.goto(AT);
   const status = page.getByTestId("project-status");
@@ -54,6 +55,11 @@ test("project: the first viewport at 1280 shows the status, Stop sending and the
     await expect(l).toBeInViewport();
     expect((await l.boundingBox())?.y ?? 9999).toBeLessThan(800);
   }
+  // P63: the landing holds no fact line; Setup holds them in rule 9's order.
+  await expect(advanced(page)).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^(Knowledge|Mail filters|Health)/ })).toHaveCount(0);
+  await page.goto(SETUP);
+  await expect(page.locator("#main li").getByText(/^(Setup|Mail filters|Health|Advanced)$/)).toHaveText(["Setup", "Mail filters", "Health", "Advanced"]);
   await expect(advanced(page)).toHaveAttribute("aria-expanded", "false");
   await expect(advanced(page)).toContainText("Safety rules: all");
   await expect(page.getByRole("switch")).toHaveCount(0); // the 18 switches are not in view
@@ -66,10 +72,10 @@ test("project: with no send there is no Sends table", async ({ page }) => {
   await expect(page.getByRole("table", { name: "Sends" })).toHaveCount(0);
 });
 
-test("project: a rule that is off opens Advanced by itself and the summary names it", async ({ page }) => {
+test("project: a rule that is off opens Advanced on Setup by itself and the summary names it", async ({ page }) => {
   expect((await setRule(page, "risky_word", false)).ok()).toBe(true);
   try {
-    await page.goto(AT);
+    await page.goto(SETUP);
     await expect(advanced(page)).toHaveAttribute("aria-expanded", "true");
     await expect(advanced(page)).toContainText("Risky words is off");
     await expect(page.getByRole("switch", { name: "Risky words" })).toHaveAttribute("aria-checked", "false");
@@ -87,7 +93,7 @@ test("project: a rule switch writes once and reports a refusal inline, in an ale
     asked += 1;
     return route.fulfill({ status: 409, json: { error: "Rules are locked in this test.", code: "wrong_state" } });
   });
-  await page.goto(AT);
+  await page.goto(SETUP);
   await advanced(page).click();
   const first = page.getByRole("switch").first();
   const before = await first.getAttribute("aria-checked");

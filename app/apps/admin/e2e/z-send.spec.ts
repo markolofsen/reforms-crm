@@ -96,8 +96,8 @@ test("a draft recorded as injection_suspected shows the flag and a class, and of
   await expect(sendButton(card)).toHaveCount(0);
 });
 
-test("the Project screen shows the health checks of the project in one line, open on demand", async ({ page }) => {
-  await page.goto("/project");
+test("Project · Setup shows the health checks of the project in one line, open on demand", async ({ page }) => {
+  await page.goto("/project/setup");
   const health = page.getByRole("button", { name: /^Health/ });
   await expect(health).toContainText(/\d+ of \d+ checks pass/);
   const list = page.getByRole("list", { name: "Health checks" });

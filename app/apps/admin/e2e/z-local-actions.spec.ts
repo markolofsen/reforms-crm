@@ -4,13 +4,14 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { remember } from "./support";
 
-// P61 L2: the Project screen's Open buttons against the real API, whose opener is the FAKE one (HUB_OPENER=fake in
+// P61 L2: the Project screens' Open buttons (the Knowledge page since P63, the Files menu on the landing) against the real API, whose opener is the FAKE one (HUB_OPENER=fake in
 // playwright.config.ts): each argv is appended to `state/opener.jsonl` of the e2e instance and nothing opens. The spec
-// gives lisbon-realty one expired knowledge entry (the knowledge package's fixture) and indexes it, so the Knowledge line
-// opens by itself; it removes both afterwards.
+// gives lisbon-realty one expired knowledge entry (the knowledge package's fixture) and indexes it, so the Knowledge page
+// says it expired; it removes both afterwards.
 
 const PROJECT = "lisbon-realty";
 const AT = `/${PROJECT}/project`;
+const KNOWLEDGE = `/${PROJECT}/project/knowledge`;
 const HOME = process.env.HUB_E2E_HOME ?? "";
 const PROJECTS = process.env.HUB_E2E_PROJECTS ?? "";
 const DB = process.env.HUB_E2E_DB ?? "";
@@ -22,7 +23,7 @@ const folder = join(PROJECTS, PROJECT);
 
 const index = () => execFileSync("pnpm", ["--filter", "@hub/knowledge", "knowledge", "--root", PROJECTS, "--db", DB, "index", PROJECT], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: HOME } });
 const opened = (): string[][] => (existsSync(LOG) ? readFileSync(LOG, "utf8").trim().split("\n").filter(Boolean).map((l) => (JSON.parse(l) as { argv: string[] }).argv) : []);
-const knowledgeLine = (page: Page) => page.getByRole("button", { name: /^Knowledge/ });
+const knowledgeStatus = (page: Page) => page.getByTestId("knowledge-status");
 
 test.describe.configure({ mode: "serial" });
 
@@ -42,14 +43,15 @@ test.beforeEach(async ({ page }) => {
   await remember(page, PROJECT);
 });
 
-test("the Knowledge line opens its folder and an expired entry; Files opens project.md", async ({ page }) => {
-  await page.goto(AT);
-  await expect(knowledgeLine(page)).toHaveAttribute("aria-expanded", "true"); // the expired entry opens the line
+test("the Knowledge page opens its folder and an expired entry; Files on the landing opens project.md", async ({ page }) => {
+  await page.goto(KNOWLEDGE);
+  await expect(knowledgeStatus(page)).toContainText("1 expired");
   await page.getByRole("button", { name: "Open folder" }).click();
   await expect.poll(opened).toEqual([["/usr/bin/open", join(folder, "knowledge")]]);
   await page.getByRole("button", { name: `Open ${ENTRY}` }).click();
   await expect.poll(() => opened().length).toBe(2);
   expect(opened()[1]).toEqual(["/usr/bin/open", join(folder, ENTRY)]);
+  await page.goto(AT);
   // exact: "Files" is also a substring of an entry's "Open knowledge/files/..." (Playwright matches a name by substring).
   await page.getByRole("button", { name: "Files", exact: true }).click();
   await page.getByRole("menuitem", { name: "project.md" }).click();
@@ -69,7 +71,7 @@ test("a refusal is said in words and opens nothing", async ({ page }) => {
     body.knowledge.examples = ["knowledge/files/not-indexed.md"];
     await route.fulfill({ json: body });
   });
-  await page.goto(AT);
+  await page.goto(KNOWLEDGE);
   await page.getByRole("button", { name: "Open knowledge/files/not-indexed.md" }).click();
   await expect(page.getByText(/not in the project's knowledge index/)).toBeVisible();
   expect(opened()).toEqual([]);
@@ -83,12 +85,14 @@ test("with localOpen false none of the three renders and nothing else moves", as
     await route.fulfill({ json: { ...((await res.json()) as object), localOpen: false } });
   });
   await page.reload();
-  await expect(knowledgeLine(page)).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByTestId("project-status")).toHaveText(/\S/);
+  await expect(page.getByRole("button", { name: "Files" })).toHaveCount(0);
+  expect((await page.getByTestId("project-status").boundingBox())?.y).toBe(status?.y);
+  await page.goto(KNOWLEDGE);
+  await expect(knowledgeStatus(page)).toContainText("1 expired");
   await expect(page.getByRole("button", { name: "Open folder" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: `Open ${ENTRY}` })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Files" })).toHaveCount(0);
   await expect(page.getByText(ENTRY)).toBeVisible(); // the path is still shown, as before P61
-  expect((await page.getByTestId("project-status").boundingBox())?.y).toBe(status?.y);
 });
 
 test("the API door: a path in the body is refused; a page on another port cannot open", async ({ request }) => {

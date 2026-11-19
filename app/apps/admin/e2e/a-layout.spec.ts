@@ -56,7 +56,14 @@ const SCREENS: Screen[] = [
   },
   { name: "drafts: follow-ups", path: at(P, "/drafts?filter=sequences"), ready: async (p) => void (await p.getByTestId("follow-ups").waitFor()) },
   { name: "drafts: not by email", path: at(P, "/drafts?filter=not_by_email"), ready: async (p) => void (await p.getByTestId("not-by-email").waitFor()) },
-  { name: "overview", path: "/overview", ready: async (p) => void (await p.getByRole("table", { name: "Projects" }).or(p.getByRole("list", { name: "Projects" })).first().waitFor()) },
+  {
+    name: "overview",
+    path: "/overview",
+    ready: async (p) => {
+      await p.getByRole("table", { name: "Projects" }).or(p.getByRole("list", { name: "Projects" })).first().waitFor();
+      await p.getByRole("table", { name: "Parts" }).or(p.getByRole("list", { name: "Parts" })).first().waitFor();
+    },
+  },
   {
     name: "overview: error",
     path: "/overview",
@@ -85,6 +92,11 @@ const SCREENS: Screen[] = [
     mock: async (p) => void (await p.route(/\/api\/projects\/[^/]+\/sends$/, (route) => route.fulfill({ json: { sends: SEND_ROWS, stopped: ["lisbon-realty"] } }))),
     ready: async (p) => void (await p.getByRole(p.viewportSize()!.width < 768 ? "list" : "table", { name: "Sends" }).getByText("Re: Order status").waitFor()),
   },
+  // P63 N2: the pages split out of Project and Connections, and Help.
+  { name: "project: knowledge", path: at(P, "/project/knowledge"), ready: async (p) => void (await p.getByTestId("knowledge-status").or(p.getByText("No knowledge yet")).first().waitFor()) },
+  { name: "project: setup", path: at(P, "/project/setup"), ready: async (p) => void (await p.getByRole("button", { name: /^Advanced/ }).waitFor()) },
+  { name: "agents", path: at(P, "/agents"), ready: async (p) => void (await p.getByTestId("agent-tools-status").waitFor()) },
+  { name: "help", path: "/help", ready: async (p) => void (await p.getByTestId("help").waitFor()) },
   {
     name: "connections: the list",
     path: "/connections",
@@ -236,6 +248,28 @@ for (const scheme of ["light", "dark"] as const) {
     });
   }
 }
+
+// P63 N1: the phone bar is five items (Overview, Drafts, Activity, Project, More); More holds Agents, Connections and Help, each
+// label whole; the rail (640-1279) draws parents only, so no child page is in the Sections nav there.
+test("phone bar and rail: parents only, the More menu whole", async ({ page }) => {
+  const width = page.viewportSize()?.width ?? 0;
+  await page.goto(at(P, "/project/setup"));
+  await page.getByRole("navigation", { name: "Project pages" }).waitFor();
+  if (width < 640) {
+    const bar = page.getByRole("navigation", { name: "Sections" }).last();
+    await expect(bar.getByRole("link")).toHaveText(["Overview", "Drafts", "Activity", "Project"]);
+    await bar.getByTestId("tab-more").click();
+    const items = page.getByRole("menuitem");
+    // A section with a dot adds ": needs you" for a screen reader (the fake Agent tools have a red row).
+    await expect(items).toHaveText([/^Agents/, /^Connections/, /^Help/]);
+    const cut = await items.evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
+    expect(cut, "cut labels in More").toEqual([]);
+    await items.filter({ hasText: "Agents" }).click();
+    await expect.poll(() => new URL(page.url()).pathname).toBe(at(P, "/agents"));
+  } else if (width < 1280) {
+    await expect(page.getByRole("navigation", { name: "Sections" }).first().getByRole("link", { name: "Setup", exact: true })).toBeHidden();
+  }
+});
 
 // P48 W4: selecting never moves the list, and a row shows its subject. Light only: the geometry is the same in dark.
 test("drafts: the first row does not move when a row is selected, and the subject is not cut below 40 characters at 1280", async ({ page }) => {

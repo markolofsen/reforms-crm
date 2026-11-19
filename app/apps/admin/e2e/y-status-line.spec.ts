@@ -20,15 +20,18 @@ test("status line: clear says so plainly, with the triage age, and links nowhere
 });
 
 test("status line: attention names the fact once, adds the replies owed, and leads to where it is fixed", async ({ page }) => {
-  await statusIs(page, P, { level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "project", numbers: { owed: 2, lastTriageAt: null } });
+  await statusIs(page, P, { level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "setup", numbers: { owed: 2, lastTriageAt: null } });
   await page.goto(at(P, "/drafts?filter=all"));
   await expect(line(page)).toHaveAttribute("data-level", "attention");
   await expect(line(page)).toHaveText(/Test mode: sends go to the test list only · never triaged · 2 replies owed/);
   // No count twice: the to-review number is the View menu's, never the line's.
   await expect(line(page)).not.toContainText("to review");
   await line(page).getByRole("link").click();
-  await expect.poll(() => address(page)).toBe(at(P, "/project"));
-  await expect(page.getByRole("navigation", { name: "Sections" }).first().getByTestId("dot-project")).toBeVisible();
+  // P63: the test list is set on Setup, so the line leads there; the dot is on Setup and on its parent Project.
+  await expect.poll(() => address(page)).toBe(at(P, "/project/setup"));
+  const nav = page.getByRole("navigation", { name: "Sections" }).first();
+  await expect(nav.getByTestId("dot-project")).toBeVisible();
+  await expect(nav.getByTestId("dot-project.setup")).toBeVisible();
 });
 
 test("status line: blocked says what stops the sending", async ({ page }) => {

@@ -93,6 +93,6 @@ The admin's sidebar shows the last five things the agent did in the project, and
 
 ## Health
 
-Agent tools row `log.hooks` (Connections and `hub doctor --only Agent`): the session files carry the prompt hook with `--cli` and `hub log --hook`; a fail is fixed by `hub agent <slug> --prepare` (or the next `hub agent <slug>`). No admin screen shows the log itself (admin-principles rule 2: the question is the owner's analysis after the fact, not a decision); the feed above shows its last five labels.
+Agent tools row `log.hooks` (Agents and `hub doctor --only Agent`): the session files carry the prompt hook with `--cli` and `hub log --hook`; a fail is fixed by `hub agent <slug> --prepare` (or the next `hub agent <slug>`). No admin screen shows the log itself (admin-principles rule 2: the question is the owner's analysis after the fact, not a decision); the feed above shows its last five labels.
 
 Update this page when the architecture changes.

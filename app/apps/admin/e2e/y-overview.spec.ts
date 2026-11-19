@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 import type { OverviewDto } from "@hub/contract/overview";
 import { address, remember } from "./support";
 
-// The Overview (P48 W3), read flows only: the e2e instance has two projects, so Overview exists and is the entry. One
-// sentence, then one table row per project leading into that project's Drafts. Nothing here reads Mail or Notion and
-// there is nothing to refresh. The one-project shell (no Overview) is `b-routing.spec.ts`'s.
+// The Overview (P48 W3, P63), read flows only: the e2e instance has two projects, so Overview is the entry. One sentence, then
+// one table row per project leading into that project's Drafts, then the parts table (P63 O1). Nothing here reads Notion and
+// there is nothing to refresh. The one-project Overview (parts only, not the entry) is `b-routing.spec.ts`'s.
 const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
 
 test.beforeEach(async ({ page }) => {
@@ -71,4 +71,24 @@ test("overview: the request failing shows a sentence and Retry loads it", async 
   fail = false;
   await page.getByRole("button", { name: "Retry" }).click();
   await expect(page.getByRole("table", { name: "Projects" })).toBeVisible();
+});
+
+test("overview: the parts table, worst first, under the projects; a part that is not working links to its page, a working one does not", async ({ page }) => {
+  const scheme = (await (await page.request.get(`${API()}/api/scheme`)).json()) as { nodes: { id: string; state: string; place: string | null; project: string | null }[] };
+  await page.goto("/overview");
+  const projects = page.getByRole("table", { name: "Projects" });
+  const parts = page.getByRole("table", { name: "Parts" });
+  await expect(parts).toBeVisible();
+  expect((await projects.boundingBox())!.y).toBeLessThan((await parts.boundingBox())!.y);
+  const states = await parts.locator("tbody tr").evaluateAll((rows) => rows.map((r) => r.getAttribute("data-state")));
+  expect(states.length).toBe(scheme.nodes.length);
+  const rank = { fail: 0, warn: 1, unknown: 2, ok: 3 } as Record<string, number>;
+  expect(states.map((x) => rank[x ?? ""])).toEqual([...states.map((x) => rank[x ?? ""])].sort((a, b) => (a ?? 0) - (b ?? 0)));
+  for (const n of scheme.nodes) {
+    const links = parts.locator(`tr[data-part="${n.id}"]`).getByRole("link");
+    await expect(links, n.id).toHaveCount(n.state !== "ok" && n.place !== null ? 1 : 0);
+  }
+  // Every state is a word, and nothing unchecked says it works.
+  await expect(parts.locator('tr[data-state="unknown"]').first()).toContainText("Not checked here");
+  await expect(page.getByRole("button", { name: /Refresh|Test|Copy/ })).toHaveCount(0);
 });

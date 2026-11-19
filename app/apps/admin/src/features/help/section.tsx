@@ -12,10 +12,8 @@ import { paths } from "@/routes/paths";
 export function HelpScreen() {
   return (
     <Page>
-      <section aria-labelledby="help-title" className="measure flex flex-col gap-3 text-sm">
-        <h3 className="font-heading font-medium text-base" id="help-title">
-          Help
-        </h3>
+      {/* The shell's heading names the screen (Help); a second one here would say it twice. */}
+      <section aria-label="Help" className="measure flex flex-col gap-3 text-sm" data-testid="help">
         <p>
           How this Hub stands, part by part, and where each part is fixed: <AppLink to={paths.overview()}>see Overview</AppLink>.
         </p>
