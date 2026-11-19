@@ -337,3 +337,10 @@ export function markedDraft(text: string): MarkedDraft {
   const m = /^\[hub-draft thread=([^\]\s]+)\]/i.exec(first);
   return m?.[1] ? { thread: m[1].replace(/^<|>$/g, "").toLowerCase(), line: m[0] } : null;
 }
+
+/**
+ * P68: how worth it a newer core is for this instance (`@hub/config/core-version` judges, `@hub/contract/instance` carries it).
+ * `unknown`: not checked, or the pin moved since; `follows`: the instance follows a branch, which has no level.
+ */
+export const CORE_LEVELS = ["unknown", "current", "available", "recommended", "required", "follows"] as const;
+export type CoreLevel = (typeof CORE_LEVELS)[number];

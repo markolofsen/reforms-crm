@@ -4,6 +4,7 @@
 // wrapper), so this package keeps no runtime dependency and the tests need no git.
 import { existsSync, lstatSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { CORE_LEVELS, type CoreLevel } from "./index";
 import { INSTANCE_MARKER, type HubPaths } from "./paths";
 
 /** A version tag: the only kind of tag an instance is ever moved to, pinned at, or told about. */
@@ -53,8 +54,6 @@ export function pinLabel(f: PinFile | undefined): string | null {
 
 // ---- the judge (pure) ----
 
-/** `unknown`: never checked, or the pin moved since; `follows`: the instance follows a branch, no level. */
-export type CoreLevel = "unknown" | "current" | "available" | "recommended" | "required" | "follows";
 export interface CoreTag { name: string; date: string | null; subject: string }
 export interface CoreFacts { dependencies: boolean; migrations: boolean; rollback: boolean }
 /** The answer the server caches in `<state>/core-update.json` and serves; `@hub/contract/instance` `coreUpdateDto` is its wire form. */
@@ -240,8 +239,7 @@ export async function checkCoreUpdates(run: CommandRun, paths: Pick<HubPaths, "h
 
 // ---- the cache ----
 
-const LEVELS: readonly CoreLevel[] = ["unknown", "current", "available", "recommended", "required", "follows"];
-const isLevel = (v: unknown): v is CoreLevel => typeof v === "string" && (LEVELS as readonly string[]).includes(v);
+const isLevel = (v: unknown): v is CoreLevel => CORE_LEVELS.some((l) => l === v);
 
 /** The cached answer, or undefined when there is none or it is not one (the server's strict parse is the full check). */
 export function readCoreUpdateCache(file: string): CoreUpdate | undefined {

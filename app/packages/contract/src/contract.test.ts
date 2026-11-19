@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
+import type { CoreUpdate } from "@hub/config/core-version";
+import { coreUpdateDto, type CoreUpdateDto } from "./instance";
 import { apiError, parseApiError } from "./errors";
 import { sendBody, statusBody } from "./requests";
 import { reviewDraftDto } from "./responses";
@@ -34,5 +36,29 @@ describe("contract", () => {
     expect(enrollmentsQuery.safeParse({ view: "everything" }).success).toBe(false);
     expect(reviewDraftDto.shape.sequence.safeParse(null).success).toBe(true);
     expect(reviewDraftDto.shape.sequence.safeParse({ enrollmentId: 1, sequence: "s", step: 2, steps: 4, state: "active" }).success).toBe(true);
+  });
+});
+
+describe("the core update notice (P68)", () => {
+  const fixture = {
+    pin: "v0.12.11",
+    inUse: "v0.12.11",
+    newest: "v0.12.12",
+    level: "available",
+    reason: "1 newer release (patch); dependencies change",
+    tags: [{ name: "v0.12.12", date: "2026-11-03T10:00:00+00:00", subject: "core: v0.12.12 (P64 resume)" }],
+    facts: { dependencies: true, migrations: false, rollback: false },
+    command: ["cd /x/saas && ./run.sh core update v0.12.12 --apply", 'git add core core.version && git commit -m "core: v0.12.12"', "./run.sh restart"],
+    checkedAt: "2026-11-19T12:00:00.000Z",
+  };
+  it("parses the answer strictly: an unknown field, a level outside the list or a stray tag name fails", () => {
+    expect(coreUpdateDto.parse(fixture)).toEqual(fixture);
+    expect(coreUpdateDto.safeParse({ ...fixture, path: "/x" }).success).toBe(false);
+    expect(coreUpdateDto.safeParse({ ...fixture, level: "urgent" }).success).toBe(false);
+    expect(coreUpdateDto.safeParse({ ...fixture, tags: [{ name: "backup-1", date: null, subject: "" }] }).success).toBe(false);
+    expect(coreUpdateDto.safeParse({ ...fixture, error: { at: "2026-11-19T15:00:00.000Z", message: "origin unreachable: offline" } }).success).toBe(true);
+  });
+  it("is the wire form of the judge's answer in @hub/config/core-version (tsc checks the two agree)", () => {
+    expectTypeOf<CoreUpdate>().toEqualTypeOf<CoreUpdateDto>();
   });
 });

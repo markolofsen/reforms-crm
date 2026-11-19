@@ -9,8 +9,9 @@ import { z } from "zod";
  * `mail` (P53): the hub wrote a Mail draft of this project (`draft_write`), so the admin reads the open draft from Mail again.
  * `agent-log` (P59): a day file of the project's agent session log grew (the server watches `state/log`), so the feed refetches.
  * `autostart` (P67): the LaunchAgent's files moved (`state/autostart/`) or the switch was set, so the Connections row reads again.
+ * `core` (P68): a core update check finished (the server's timer or "Check now"), so the version line and the block read again.
  */
-export const LIVE_TOPICS = ["drafts", "clients", "activity", "sends", "inbox", "follow-ups", "batches", "rules", "projects", "knowledge", "messengers", "connections", "health", "mail", "agent-log", "autostart"] as const;
+export const LIVE_TOPICS = ["drafts", "clients", "activity", "sends", "inbox", "follow-ups", "batches", "rules", "projects", "knowledge", "messengers", "connections", "health", "mail", "agent-log", "autostart", "core"] as const;
 export const liveTopic = z.enum(LIVE_TOPICS);
 export type LiveTopic = (typeof LIVE_TOPICS)[number];
 
