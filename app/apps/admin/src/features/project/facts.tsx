@@ -1,12 +1,17 @@
+import { entryKey } from "@hub/contract/local";
 import type { ProjectOverviewDto } from "@hub/contract/responses";
+import { LocalActionButton } from "@/components/local-action";
 import { plural } from "@/lib/format";
 import { FactLine } from "./fact-line";
 
 // What the project folder says (`GET /api/project`), one line per fact. Each section is read on its own, so one broken
 // file is that line's problem and never blanks the screen.
 
-/** The knowledge base: how many entries and whether they are approved; an expired entry or a broken file opens the line. */
-export function KnowledgeLine({ k }: { k: ProjectOverviewDto["knowledge"] }) {
+/**
+ * The knowledge base: how many entries and whether they are approved; an expired entry or a broken file opens the line.
+ * Open folder and each listed entry's Open (P61) show the files in Finder and their own app; nothing in the Hub changes.
+ */
+export function KnowledgeLine({ k, project }: { k: ProjectOverviewDto["knowledge"]; project: string }) {
   if (k.state === "absent") return <FactLine summary='None yet. Say "загрузи знания проекта" in a session (knowledge-import).' title="Knowledge" />;
   if (k.state === "error") return <FactLine open summary={k.message} title="Knowledge" tone="problem" />;
   const problem = !k.consistent || k.expired > 0;
@@ -14,14 +19,22 @@ export function KnowledgeLine({ k }: { k: ProjectOverviewDto["knowledge"] }) {
   const summary = [`${k.indexed} ${k.indexed === 1 ? "entry" : "entries"}`, approval, k.expired > 0 ? `${k.expired} expired` : null].filter(Boolean).join(", ");
   return (
     <FactLine open={problem} summary={summary} title="Knowledge" tone={problem ? "problem" : "plain"}>
+      <LocalActionButton action="finder.open" args={{ project, key: "knowledge" }} className="self-start" variant="secondary" />
       <p className="tabular-nums">
         {k.noAudiences} without audiences, {k.noPhrasings} without phrasings.
       </p>
       {!k.consistent && <p className="text-warning-foreground">{plural(k.problems, "file problem")}: ask the agent to re-run `hub knowledge index`.</p>}
       {k.examples.length > 0 && (
-        <ul className="list-disc ps-5 text-muted-foreground text-xs">
+        <ul className="flex flex-col gap-1 text-muted-foreground text-xs" data-testid="knowledge-examples">
           {k.examples.map((e) => (
-            <li key={e}>{e}</li>
+            <li className="flex min-w-0 items-center gap-2" key={e}>
+              <span className="min-w-0 flex-1 break-all">{e}</span>
+              <LocalActionButton action="file.open" args={{ project, key: entryKey(e) }}>
+                <span>
+                  Open<span className="sr-only"> {e}</span>
+                </span>
+              </LocalActionButton>
+            </li>
           ))}
         </ul>
       )}

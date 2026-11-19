@@ -35,6 +35,13 @@ describe("one key factory, one live stream", () => {
   it("the shared focus (P51) is posted only from lib/api/terminal.ts", () => {
     expect(offenders(appFiles.filter((p) => rel(p) !== "lib/api/terminal.ts"), /["'`]\/api\/focus/)).toEqual([]);
   });
+  // P61: one registry builds every OS link (`@hub/contract/local`); only the server resolves a path (`@hub/projects/local-open`).
+  it("no message:, mailto: or notion: link and no /usr/bin/open is written in the admin: the registry builds them", () => {
+    expect(offenders(appFiles, /["'`](message|mailto|notion):|\/usr\/bin\/open/)).toEqual([]);
+  });
+  it("only lib/api/meta.ts posts to /api/local (lib/api holds eight files: the one call sits with the instance's)", () => {
+    expect(offenders(appFiles.filter((p) => rel(p) !== "lib/api/meta.ts"), /["'`]\/api\/local/)).toEqual([]);
+  });
   it("new EventSource and BroadcastChannel only in lib/cache/live.ts", () => {
     expect(offenders(appFiles.filter((p) => rel(p) !== "lib/cache/live.ts"), /new (EventSource|BroadcastChannel)\b/)).toEqual([]);
   });

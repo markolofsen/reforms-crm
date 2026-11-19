@@ -58,6 +58,8 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 
 - [ ] **Instance matches the core** (`instance.core`)
   - Proves: `core.version` exists and names the core in use (core clean at that commit; WARN when the core checkout has newer `vX.Y.Z` tags than the pin, counted from local tags with no fetch), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills.
+- [ ] **Open buttons reach Finder** (`local.open`)
+  - Proves: This is macOS and `/usr/bin/open` exists: PASS. Otherwise WARN (the Open buttons are hidden and `hub open` exits 2); never a failure, since nothing else depends on it.
 ## Admin
 
 - [ ] **The admin listens on this machine only** (`admin.loopback`)

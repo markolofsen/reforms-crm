@@ -5,6 +5,7 @@ import { coreSkills, linksIntoCore } from "../instance-skills";
 import { VERSION_TAG } from "../core-update";
 import type { CheckResult, Step } from "../types";
 import { fail, pass, warn } from "./helpers";
+import { localOpenAvailable } from "@hub/projects/local-open";
 
 /** The one place an instance states which core it runs on (decision 0016): `<home>/core.version`. */
 export const CORE_VERSION_FILE = "core.version";
@@ -117,5 +118,11 @@ export const instanceSteps: Step[] = [
     why: "An owner's instance (`HUB_HOME`) and the core code are separate repositories. The instance states the core version it runs on in ONE file; neither side may hold the other's files.",
     verifies: "`core.version` exists and names the core in use (core clean at that commit; WARN when the core checkout has newer `vX.Y.Z` tags than the pin, counted from local tags with no fetch), the instance holds no core files, the core tracks no instance files, and generated skill links point at existing core skills.",
     check: checkInstance,
+  },
+  {
+    id: "local.open", group: "Instance", title: "Open buttons reach Finder",
+    why: "The admin's Open buttons (the knowledge folder, an entry, project.md) and `hub open` hand a project file or folder to macOS through `/usr/bin/open` (P61). Elsewhere they are hidden, never dead.",
+    verifies: "This is macOS and `/usr/bin/open` exists: PASS. Otherwise WARN (the Open buttons are hidden and `hub open` exits 2); never a failure, since nothing else depends on it.",
+    check: async () => (localOpenAvailable() ? pass("macOS with /usr/bin/open: the Open buttons and `hub open` work") : warn("Open buttons are hidden: not macOS (no /usr/bin/open)")),
   },
 ];

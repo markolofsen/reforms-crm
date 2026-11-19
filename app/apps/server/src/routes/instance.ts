@@ -10,14 +10,15 @@ const LOGO_TYPES: Record<string, string> = { ".svg": "image/svg+xml", ".png": "i
 
 /**
  * The instance's brand (P48 W0): `name` and whether a logo exists, then the logo itself. The config is read per request,
- * so an edit shows on reload. The browser never learns the logo's path. Read only.
+ * so an edit shows on reload. The browser never learns the logo's path. Read only. `localOpen` (P61): whether the server can run
+ * the Open actions on this machine; the admin renders no Open button when it is false.
  */
-export function instanceRoutes(paths?: Pick<HubPaths, "configFile" | "configDir">) {
+export function instanceRoutes(paths?: Pick<HubPaths, "configFile" | "configDir">, localOpen: () => boolean = () => false) {
   const brand = () => instanceBrand(paths ?? hubPaths());
   return new Hono()
     .get("/api/instance", (c) => {
       const b = brand();
-      return c.json(instanceDto.parse({ name: b.name, hasLogo: b.logoFound && extname(b.logo ?? "").toLowerCase() in LOGO_TYPES }));
+      return c.json(instanceDto.parse({ name: b.name, hasLogo: b.logoFound && extname(b.logo ?? "").toLowerCase() in LOGO_TYPES, localOpen: localOpen() }));
     })
     .get("/api/instance/logo", (c) => {
       const b = brand();

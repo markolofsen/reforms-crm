@@ -148,12 +148,6 @@ export const NOTION_KIND_LABELS: Record<NotionKind, string> = { client: "Client"
 /** What a session reports of the client's Notion page: which source it came from and where it is. `none` carries neither id nor url. */
 export type NotionRef = { kind: NotionKind; pageId?: string | null; url?: string | null };
 
-/** The web and the desktop-app address of a Notion page id (32 hex digits, dashes optional); null for anything else. */
-export function notionLinks(pageId: string | null | undefined): { web: string; app: string } | null {
-  const id = pageId?.trim().replaceAll("-", "").toLowerCase() ?? "";
-  return /^[0-9a-f]{32}$/.test(id) ? { web: `https://www.notion.so/${id}`, app: `notion://www.notion.so/${id}` } : null;
-}
-
 // ---- Bulk send (P9, doc 14). A batch is a set of drafts made from one audience and one intent. Nothing here sends.
 
 export const TONES = ["short", "standard", "warm"] as const;

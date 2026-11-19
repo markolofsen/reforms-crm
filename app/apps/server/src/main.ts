@@ -16,6 +16,8 @@ import { chooseAgentTools, createAgentTools } from "./agent-tools";
 import { logStoreOf } from "@hub/log/store";
 import { createLive, folderSignature, logSignatures } from "./live";
 import { createFocusStore } from "./focus";
+import { chooseOpener, localOpenAvailable, localOpenDeps } from "@hub/projects/local-open";
+import { throwawayDbNamed } from "@hub/send";
 
 // The server is started by `hub up` (which sets HUB_HOME). Started by hand without it: one line and exit 2, not a stack.
 try {
@@ -66,7 +68,11 @@ const pollers = () => [messengers.status(), sent.status()].map((s) => `${s.state
 const live = createLive({ db, watch: [{ topic: "health", signature: pollers, everyMs: 1000 }, { topic: "connections", signature: () => folderSignature(paths.secrets), everyMs: 1000 }, { topic: "agent-log", signatures: () => logSignatures(paths.log), everyMs: 500 }] });
 // The shared focus (P51): the admin tab says what it shows; the agent reads it from state/focus.json.
 const focus = createFocusStore({ file: paths.focus });
-const app = createApp(repos, { live, focus, agentLog: logStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
+// P61: the local Open actions (Finder, a project file). HUB_OPENER=fake records each argv in state/opener.jsonl and opens nothing (refused without HUB_DB); a bad value stops the server here.
+const opener = chooseOpener(process.env, paths, throwawayDbNamed(process.env));
+const local = { deps: localOpenDeps(repos, paths), run: opener.run, available: localOpenAvailable(opener.kind) };
+console.log(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens, each argv goes to state/opener.jsonl" : `open: ${local.available ? "on (/usr/bin/open, the admin page only)" : "off (not macOS): the Open buttons are hidden"}`);
+const app = createApp(repos, { live, focus, local, agentLog: logStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);

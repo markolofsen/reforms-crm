@@ -1,15 +1,47 @@
 import { useQuery } from "@tanstack/react-query";
+import { ChevronDownIcon } from "lucide-react";
+import { Menu, MenuPopup, MenuTrigger } from "@hub/ui/menu";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
+import { LocalActionItem } from "@/components/local-action";
 import { LoadFailed } from "@/components/state-views";
 import { sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
-import { useProjectRow } from "@/lib/status";
+import { useInstance, useProjectRow } from "@/lib/status";
 import { HealthLine, SetupLine } from "./doctor-panel";
 import { FiltersLine, KnowledgeLine, QuestionLine } from "./facts";
 import { SafetyRules } from "./safety-rules";
 import { SendsTable, useSends } from "./sends-panel";
 import { StopSending } from "./stop-sending";
 import { keys } from "@/lib/cache/keys";
+
+/**
+ * Files (P61): the project's own files in Finder or their app, one menu and one tab stop. Opening is not an edit: what lives
+ * in project.md is still changed by a phrase to the agent (`admin-principles.md` rule 9). Hidden when this machine cannot open.
+ */
+function FilesMenu({ project }: { project: string }) {
+  const instance = useInstance();
+  if (instance.data?.localOpen !== true) return null;
+  return (
+    <Menu>
+      <MenuTrigger render={<ActionButton size="m" variant="quiet" />}>
+        Files
+        <ChevronDownIcon aria-hidden="true" />
+      </MenuTrigger>
+      <MenuPopup align="end">
+        <LocalActionItem action="file.open" args={{ project, key: "project.md" }}>
+          project.md
+        </LocalActionItem>
+        <LocalActionItem action="finder.open" args={{ project, key: "project" }}>
+          Project folder
+        </LocalActionItem>
+        <LocalActionItem action="finder.open" args={{ project, key: "workflows" }}>
+          Workflows
+        </LocalActionItem>
+      </MenuPopup>
+    </Menu>
+  );
+}
 
 /** The first line: the project's standing in one sentence (the Overview's status, said once) and the one control, Stop sending or Resume. */
 function StatusLine({ project, sends }: { project: string; sends: ReturnType<typeof useSends> }) {
@@ -21,6 +53,7 @@ function StatusLine({ project, sends }: { project: string; sends: ReturnType<typ
         <div className="me-auto font-medium text-base" data-testid="project-status" role="status">
           {row ? row.status.sentence : isError ? "The status of this project could not be read." : <Skeleton className="h-4 w-64" />}
         </div>
+        <FilesMenu project={project} />
         <StopSending busy={busy || !q.data} onResume={(scope) => resume.mutate(scope)} onStop={(scope) => stop.mutate(scope)} project={project} stopped={q.data?.stopped ?? []} />
       </div>
       <p className="text-destructive-foreground text-sm" role="alert">
@@ -58,7 +91,7 @@ export function ProjectPage({ project }: { project: string }) {
         {facts.isError && <LoadFailed error={facts.error} onRetry={() => void facts.refetch()} retrying={facts.isFetching} what="the project files" />}
         <ul className="flex flex-col divide-y border-y">
           {facts.data && <QuestionLine q={facts.data.question} />}
-          {facts.data && <KnowledgeLine k={facts.data.knowledge} />}
+          {facts.data && <KnowledgeLine k={facts.data.knowledge} project={project} />}
           {facts.data && <FiltersLine f={facts.data.filters} />}
           <HealthLine project={project} />
           <SetupLine project={project} />

@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context";
 import { recordDraft } from "../src/record-draft";
 import { guardDecision, readBinding, resolveBinding, runGuard, skillScope, writeBinding, writeCodexHome, writeSessionFiles } from "../src/safety";
-import { DENIED_TOOLS } from "@hub/agent/deny";
+import { CODEX_FORBIDDEN_PREFIXES, DENIED_TOOLS } from "@hub/agent/deny";
 import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 import { buildClaudeArgs } from "../src/agent";
 import { auditLayout } from "../src/safety";
@@ -79,6 +79,8 @@ describe("generated session files", () => {
     const d: string[] = settings.permissions.deny;
     expect(d).toContain("Read(./state/secrets/**)");
     expect(d).toContain("Bash(osascript *)");
+    // P61: opening things on the owner's screen, and the desktop handoff, are his.
+    for (const r of ["Bash(open *)", "Bash(*hub open*)", "Bash(*run.sh open*)", "Bash(*claude --desktop*)", "Bash(*codex app *)"]) expect(d).toContain(r);
     expect(d.some((r) => r.startsWith("Read(./") && r.includes("nordhaus"))).toBe(true);
     expect(d.some((r) => r.includes("acme-travel"))).toBe(false);
     for (const t of ["mcp__mail-mcp__create_outgoing_message", "mcp__notion__notion-delete-pages"]) expect(d).toContain(t);
@@ -162,6 +164,9 @@ describe("the Codex home (P49 S10)", () => {
   it("links auth.json and the skills, writes the forbidden rules", () => {
     expect(lstatSync(path.join(home, "auth.json")).isSymbolicLink()).toBe(true);
     expect(readFileSync(path.join(home, "rules", "hub.rules"), "utf8")).toContain('prefix_rule(pattern = ["hub", "send"], decision = "forbidden"');
+    // P61: `hub open`, a bare `open` and the desktop handoff are refused without a prompt.
+    for (const p of [["open"], ["hub", "open"], ["claude", "--desktop"], ["codex", "app"]]) expect(CODEX_FORBIDDEN_PREFIXES).toContainEqual(p);
+    expect(readFileSync(path.join(home, "rules", "hub.rules"), "utf8")).toContain('prefix_rule(pattern = ["open"], decision = "forbidden"');
     expect(existsSync(path.join(home, "skills", "triage-mail", "SKILL.md"))).toBe(true);
   });
 });

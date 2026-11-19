@@ -50,6 +50,7 @@ import { currentFocus, runFocusHook } from "./focus-command";
 import { LOG_KIND_LABELS } from "@hub/log/event";
 import { LOG_VIEWS, runLogCommand } from "./log-command";
 import { runLogHook } from "./log-hook";
+import { runOpenCommand } from "./open-command";
 
 const SHOWN = new Set(["agent", "up", "doctor", "setup"]);
 
@@ -75,7 +76,7 @@ ${c.bold("Examples")}
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, log, send, drafts, sequences, connections, backup, uninstall. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, log, open, send, drafts, sequences, connections, backup, uninstall. Each has its own \`hub <name> --help\`.`);
 // Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
@@ -439,6 +440,29 @@ program.command("log").description("The agent session log (P54): what the owner 
     if (o.hook) { runLogHook(["--cli", o.cli ?? "claude"]); return; }
     ctxOf();
     done(await runLogCommand(view, o));
+  });
+
+program.command("open").description("Open a project's folder or file in Finder or its own app (P61), from a key the hub resolves inside the project: the same actions as the admin's Open buttons. No action: list them. The owner's command only: a session is denied it. macOS only (exit 2 elsewhere).")
+  .argument("[action]", "finder.open | finder.reveal | file.open | mail.openMessage | ... (no action lists them)")
+  .option("--project <slug>", "the project (default HUB_PROJECT)")
+  .option("--key <key>", "project | project.md | knowledge | knowledge:<entry> | workflows | log:<YYYY-MM-DD>")
+  .option("--tab <id>", "agent.openInDesktop: the dock tab (not offered)")
+  .option("--args <json>", "an href action's arguments as JSON")
+  .action(async (action: string | undefined, o: { project?: string; key?: string; tab?: string; args?: string }) => {
+    const [{ hubPaths }, { createRepos, openDbReadOnly }, lo] = await Promise.all([import("@hub/config/paths"), import("@hub/db"), import("@hub/projects/local-open")]);
+    let close = () => {};
+    const resolver = () => {
+      ctxOf();
+      const paths = hubPaths();
+      const handle = openDbReadOnly(paths.db);
+      close = () => handle.close();
+      return lo.localOpenDeps(createRepos(handle.db), paths);
+    };
+    try {
+      done(await runOpenCommand(action, { ...o, project: o.project ?? process.env.HUB_PROJECT }, { out: console.log, resolver, run: lo.execFileOpen, available: lo.localOpenAvailable() }));
+    } finally {
+      close();
+    }
   });
 
 program.command("mcp").description("The hub's read-only MCP server on stdio (P51): focus, draft_show, client_show, drafts_list for HUB_PROJECT. Registered by `hub agent` for Claude Code and Codex; started by bin/hub.mjs without the CLI.")

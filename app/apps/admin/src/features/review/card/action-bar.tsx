@@ -2,12 +2,12 @@ import { EllipsisIcon, SendIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Alert, AlertDescription, AlertTitle } from "@hub/ui/alert";
-import { Link } from "@hub/ui/link";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
 import { Switch } from "@hub/ui/switch";
 import { useHotkeys } from "@/hooks/use-hotkeys";
 import { formatTime } from "@/lib/format";
-import { mailLink } from "@/lib/mail";
+import { hrefOf } from "@hub/contract/local";
+import { LocalActionButton } from "@/components/local-action";
 import { isClosed, SKIP_REASONS, type ReviewDraft } from "../source";
 import type { ReviewActions } from "../use-review-actions";
 import { hasSwitch, primaryFor, secondaryFor, type CardState, type Context, type Secondary } from "./card-state";
@@ -31,15 +31,15 @@ export type Handlers = {
 
 type Props = { d: ReviewDraft; state: CardState; flow: SendFlow; actions: ReviewActions; context: Context; on: Handlers; /** Hash of the Mail text the person has read: ticking Checked binds to it. */ mailHash?: string | null; /** Why Checked cannot be switched on now (`mail/tick-guard.ts`), or null. */ tickBlock?: string | null };
 
+/** The client's message has a `message:` link (the registry's `mail.openMessage`): a Message-ID, not a Mail draft id. */
+export const hasMailLink = (d: Pick<ReviewDraft, "mailRef">): boolean => d.mailRef !== null && hrefOf("mail.openMessage", { messageId: d.mailRef }) !== null;
+
 const OPEN_STATES: readonly CardState[] = ["checks_open", "unread", "acknowledged", "batch", "failed", "suspicious", "no_contact", "unreadable", "follow_up"];
 
 /** Open in Mail when there is a `message://` link; otherwise a plain Copy, so the button is never dead. */
 function MailButton({ d, variant, onCopy }: { d: ReviewDraft; variant: "primary" | "secondary"; onCopy: () => void }) {
-  const link = mailLink(d.mailRef);
-  return link ? (
-    <ActionButton render={<Link bare href={link} />} size="m" variant={variant}>
-      Open in Mail
-    </ActionButton>
+  return hasMailLink(d) ? (
+    <LocalActionButton action="mail.openMessage" args={{ messageId: d.mailRef ?? "" }} size="m" variant={variant} />
   ) : (
     <ActionButton onClick={onCopy} size="m" variant={variant}>
       Copy subject to find in Mail
@@ -50,7 +50,7 @@ function MailButton({ d, variant, onCopy }: { d: ReviewDraft; variant: "primary"
 function MoreMenu({ d, state, actions, on }: { d: ReviewDraft; state: CardState; actions: ReviewActions; on: Handlers }) {
   const open = OPEN_STATES.includes(state);
   const skips = secondaryFor(state).includes("skip");
-  const hasLink = mailLink(d.mailRef) !== null;
+  const hasLink = hasMailLink(d);
   if (!open && !d.canUndo && d.runId === null && !hasLink) return null;
   return (
     <Menu>

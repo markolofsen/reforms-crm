@@ -1,4 +1,5 @@
-import { NOTION_KIND_LABELS, notionLinks, type NotionKind } from "@hub/config";
+import { NOTION_KIND_LABELS, type NotionKind } from "@hub/config";
+import { hrefOf } from "@hub/contract/local";
 
 type Stated = { notionKind: NotionKind | null; notionPageId: string | null; notionUrl: string | null };
 export type NotionView = {
@@ -15,9 +16,8 @@ export type NotionView = {
  * `kind: none` is the agent's statement that the client has no page yet; a missing kind is an older record.
  */
 export function notionOf(d: Stated): NotionView {
-  const built = d.notionPageId ? notionLinks(d.notionPageId) : null;
-  const web = d.notionUrl ?? built?.web ?? null;
-  const app = built?.app ?? null;
+  const web = d.notionUrl ?? (d.notionPageId ? hrefOf("notion.openPage", { pageId: d.notionPageId, app: false }) : null);
+  const app = d.notionPageId ? hrefOf("notion.openPage", { pageId: d.notionPageId, app: true }) : null;
   if (d.notionKind === "none" || (!web && d.notionKind !== null)) return { kind: d.notionKind, label: "No Notion page yet", web: null, app: null };
   if (!web) return { kind: null, label: "No Notion profile found", web: null, app: null };
   const kind = d.notionKind === "client" || d.notionKind === "lead" ? d.notionKind : null;

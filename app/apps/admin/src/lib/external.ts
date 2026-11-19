@@ -1,17 +1,8 @@
-// The one module that opens addresses outside the app (`mailto:`, the terminal's web links), and the other place that may touch `location`.
+// The one module that hands addresses outside the app to the browser, and the other place that may touch `location`. The
+// links themselves are built by the registry (`@hub/contract/local`, P61); `openWebLink` stays outside it on purpose: a
+// terminal prints arbitrary hosts, which a fixed table cannot list, and it opens a browser tab, not an OS program.
 
-const recipients = (list: string): string => list.split(/[,;]/).map((a) => a.trim()).filter((a) => a !== "").map(encodeURIComponent).join(",");
-
-/**
- * A compose window addressed and titled. Nothing is sent; the person presses Send in Mail. Recipients are separated by a
- * literal comma (RFC 6068), each address encoded on its own; the subject is encoded so `&`, `+` and spaces survive.
- */
-export function composeHref(d: { toAddr: string; ccAddr: string | null; subject: string }): string {
-  const cc = d.ccAddr ? recipients(d.ccAddr) : "";
-  return `mailto:${recipients(d.toAddr)}?subject=${encodeURIComponent(d.subject)}${cc ? `&cc=${cc}` : ""}`;
-}
-
-/** Hands an external address (`mailto:`) to the system. */
+/** Hands an `href` action of the registry (a `mailto:` compose window) to the system, for an open made from code rather than an anchor. */
 export function openExternal(href: string): void {
   window.location.href = href;
 }

@@ -8,7 +8,7 @@ import { renderChecklist, UPDATE_LINE } from "../src/docs";
 import { INSTANCE_TEMPLATE } from "../src/init";
 import { selectSteps, STEPS } from "../src/steps/index";
 
-const CHECK_ONLY = ["messengers.poller", "instance.core", "skills.legacy", "dev.kanban", "files.config-keys"];
+const CHECK_ONLY = ["messengers.poller", "instance.core", "local.open", "skills.legacy", "dev.kanban", "files.config-keys"];
 
 describe("step list", () => {
   it("ids are unique and every step explains itself", () => {

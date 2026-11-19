@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createServer } from "node:net";
 import { hubPaths, instancePorts } from "@hub/config/paths";
+import { execFileOpen, localOpenAvailable, openTarget } from "@hub/projects/local-open";
 import { c, UsageError } from "./term";
 
 const pnpm = (args: string[], cwd: string): ChildProcess => spawn("pnpm", args, { cwd, stdio: "inherit" });
@@ -23,12 +24,17 @@ export const portBusy = (port: number): Promise<boolean> =>
     s.listen(port, "127.0.0.1", () => s.close(() => resolve(false)));
   });
 
-/** Open the browser once the admin answers (up to 3 minutes: a start after a code change builds first). Best effort: a failure never stops the server. */
-async function openWhenUp(url: string): Promise<void> {
+/**
+ * Open the browser once the admin answers (up to 3 minutes: a start after a code change builds first), through the one opener
+ * (P61: `/usr/bin/open`, the admin's own URL on the allowlist). Off macOS the URL printed above is the way in. Best effort:
+ * a failure never stops the server.
+ */
+async function openWhenUp(url: string, adminPort: number): Promise<void> {
+  if (!localOpenAvailable()) return;
   for (let i = 0; i < 180; i++) {
     try { await fetch(url, { signal: AbortSignal.timeout(1000) }); break; } catch { await new Promise((r) => setTimeout(r, 1000)); }
   }
-  spawn(process.platform === "darwin" ? "open" : "xdg-open", [url], { stdio: "ignore" }).on("error", () => {}).unref();
+  await openTarget({ kind: "url", url, label: "the admin" }, execFileOpen, { adminPort }).catch(() => {});
 }
 
 /** Run until the user presses Ctrl-C: signals reach the children through the terminal, we only wait. */
@@ -75,7 +81,7 @@ export async function runUp(core: string, opts: { open?: boolean; demo?: boolean
     }
     console.log(c.dim("The admin is built first when its code changed since the last start (about a minute); an unchanged one starts in seconds."));
     console.log(`${demoHome ? c.yellow("Admin + API (DEMO data, invented clients)") : c.green("Admin + API (live data)")} ${c.dim("→")} ${c.cyan(url)} ${c.dim("(Ctrl-C stops)")}`);
-    if (opts.open ?? true) void openWhenUp(url);
+    if (opts.open ?? true) void openWhenUp(url, ports.admin);
     return await holdSignals(() => exited(spawn("pnpm", ["start"], { cwd: app, stdio: "inherit", env: run })));
   } finally {
     if (demoHome) rmSync(demoHome, { recursive: true, force: true });

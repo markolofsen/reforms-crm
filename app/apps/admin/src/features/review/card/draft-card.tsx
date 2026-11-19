@@ -7,12 +7,11 @@ import { refreshData, sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
 import { copyText } from "@/lib/external";
 import { sendApi } from "@/lib/api/send";
-import { mailLink } from "@/lib/mail";
 import { paths } from "@/routes/paths";
 import { firstName, type ReviewDraft } from "../source";
 import type { ReviewActions } from "../use-review-actions";
 import { BasedOnStrip } from "../based-on/based-on-strip";
-import { ActionBar, SendNotices, type Handlers } from "./action-bar";
+import { ActionBar, hasMailLink, SendNotices, type Handlers } from "./action-bar";
 import { CardHeader } from "./card-header";
 import { stateOf } from "./card-state";
 import { mailReadable, tickBlock } from "../mail/tick-guard";
@@ -128,7 +127,7 @@ export function DraftCard({ d, project, actions, now, thread, onThread, onReplyA
         <DraftBlock actions={actions} confirmed={confirmed} d={d} {...(mail ? { live: mail } : {})} onRead={() => void mailRead.refetch()} onThread={onThread} project={project} reading={mailRead.isFetching} thread={thread} />
         <SendNotices flow={flow} onClose={close} />
       </div>
-      <ActionBar actions={actions} context={{ name: first, hasMailLink: mailLink(d.mailRef) !== null, acknowledged: d.checked }} d={d} flow={flow} mailHash={mail?.hash ?? null} on={on} tickBlock={tickBlock(d, mail, flow.step, mailError)} state={state} />
+      <ActionBar actions={actions} context={{ name: first, hasMailLink: hasMailLink(d), acknowledged: d.checked }} d={d} flow={flow} mailHash={mail?.hash ?? null} on={on} tickBlock={tickBlock(d, mail, flow.step, mailError)} state={state} />
     </article>
   );
 }

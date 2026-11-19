@@ -10,5 +10,7 @@ export const DEFAULT_INSTANCE_NAME = "Hub";
 export const instanceDto = z.strictObject({
   name: z.string().min(1),
   hasLogo: z.boolean(),
+  /** P61: the server can run `server` Open actions (macOS with `/usr/bin/open`, or the fake opener). False: those buttons are not rendered. */
+  localOpen: z.boolean(),
 });
 export type InstanceDto = z.infer<typeof instanceDto>;

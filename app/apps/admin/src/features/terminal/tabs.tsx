@@ -6,6 +6,7 @@ import { PRESET_LABELS, type CliFactDto, type CliState, type TerminalPreset, typ
 import { cn } from "@hub/ui/cn";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
+import { DesktopHandoffButton } from "@/components/local-action";
 import { copyText } from "@/lib/external";
 import { useSharedFocus } from "@/lib/focus";
 import { agentSeesLine } from "./agent-sees";
@@ -105,7 +106,8 @@ function onTabKeys(e: KeyboardEvent<HTMLDivElement>, ids: string[], active: stri
 }
 
 /**
- * The column's header: the tabs (one tab stop; Left and Right move), Close for the open tab (it ends the session), the `+`
+ * The column's header: the tabs (one tab stop; Left and Right move), Open in Claude Desktop (P61 L5: disabled with its reason, not
+ * offered), Close for the open tab (it ends the session), the `+`
  * menu, and Hide (the sessions keep running). In the narrow layer it is titled "Terminal". The agent mode is not shown here:
  * it is set in the config and shown in Connections, Agent tools.
  */
@@ -127,6 +129,7 @@ export function TerminalHeader({ layer }: { layer: boolean }) {
             );
           })}
         </div>
+        {current && <DesktopHandoffButton preset={current.preset} />}
         {current && (
           <ActionButton aria-label={`Close ${tabTitle(current)}`} disabled={t.closing === current.id} icon onClick={() => t.close(current.id)} size="s" variant="quiet">
             <XIcon aria-hidden="true" />

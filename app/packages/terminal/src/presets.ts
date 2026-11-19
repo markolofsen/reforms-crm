@@ -7,7 +7,7 @@ import { PRESET_LABELS, type TerminalPreset } from "@hub/contract/terminal";
 // linked skills, the deny rules, the strict MCP config, the sandbox and the guard are always `hub agent`'s.
 
 /** Server variables a terminal never inherits: the database, the fake switches, the API port, Node flags. */
-export const SERVER_ONLY_ENV = ["HUB_MAILER", "HUB_DB", "HUB_PORT", "HUB_CONNECTIONS_PROBE", "HUB_TERMINAL_SHELL", "HUB_AGENT_TOOLS", "NODE_OPTIONS"] as const;
+export const SERVER_ONLY_ENV = ["HUB_MAILER", "HUB_DB", "HUB_PORT", "HUB_CONNECTIONS_PROBE", "HUB_TERMINAL_SHELL", "HUB_AGENT_TOOLS", "HUB_OPENER", "NODE_OPTIONS"] as const;
 
 export interface EnvInput {
   /** The server's environment. */

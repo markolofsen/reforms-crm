@@ -8,7 +8,9 @@ import { ListDetail } from "@hub/ui/product/list-detail";
 import { shortcutsOn } from "@/hooks/use-hotkeys";
 import { refreshData, sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
-import { openReplyAll } from "@/lib/mail";
+import { runLocalAction } from "@/components/local-action";
+import { metaApi } from "@/lib/api/meta";
+import { copyText, openExternal } from "@/lib/external";
 import { DraftCard } from "./card/draft-card";
 import { useToggleChecked } from "./mail/use-toggle-checked";
 import { ListHeader, type View } from "./list-controls";
@@ -142,7 +144,10 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
         say(openResults(d).length > 0 ? "Understand the checks, then turn on I read the checks (key C)." : "Turn on I read the checks first (key C).");
         return;
       }
-      if (await openReplyAll(d)) say("Copied. Paste it into the Mail window and press Send there, then mark it done.");
+      // Reply all + copy (owner 2026-11-14): the text goes to the clipboard first, then the registry's compose window opens. Nothing is sent.
+      const copied = await copyText(d.body); // blocked: the compose window still opens
+      if (!(await runLocalAction("mail.compose", { to: d.toAddr, cc: d.ccAddr, subject: d.subject }, { post: metaApi.localOpen, open: openExternal, say }))) return;
+      if (copied) say("Copied. Paste it into the Mail window and press Send there, then mark it done.");
       else say("The compose window opened; the clipboard was blocked, so copy the text from the draft.");
     },
     [say],

@@ -62,6 +62,7 @@ export default defineConfig({
       // makes every Test a stub that never leaves the process. HUB_MAILER=fake is the only way the e2e run sends: the fake Mailer never leaves the process (the server refuses it without HUB_DB).
       // P49: HUB_ADMIN_PORT is the one Origin the terminal socket and its tickets accept; HUB_TERMINAL_SHELL=fake runs `test-support/fake-shell.mjs`
       // instead of a login shell, and HUB_AGENT_TOOLS=fake answers the Agent tools checks with fixed rows (a red one among them), never a real CLI.
+      // P61: HUB_OPENER=fake records each Open's argv in <HOME>/state/opener.jsonl and opens nothing (z-local-actions.spec.ts reads it).
       env: {
         HUB_HOME: HOME,
         HUB_CONFIG_DIR: join(HOME, "secrets"),
@@ -73,6 +74,7 @@ export default defineConfig({
         HUB_PROJECTS: PROJECTS,
         HUB_TERMINAL_SHELL: "fake",
         HUB_AGENT_TOOLS: "fake",
+        HUB_OPENER: "fake",
       },
       url: `http://127.0.0.1:${API_PORT}/api/health`,
       reuseExistingServer: false,

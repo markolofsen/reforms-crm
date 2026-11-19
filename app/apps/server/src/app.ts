@@ -17,6 +17,7 @@ import { terminalRoutes } from "./routes/terminal";
 import { liveRoutes } from "./routes/live";
 import { focusRoutes } from "./routes/focus";
 import { agentFeedRoutes } from "./routes/agent-feed";
+import { localRoutes, type LocalService } from "./routes/local";
 import type { LogStore } from "@hub/log/store";
 import type { FocusStore } from "./focus";
 import type { LiveService } from "./live";
@@ -53,6 +54,8 @@ export type AppOptions = {
   focus?: FocusStore;
   /** The agent session log (P54) the activity feed reads (P59); without it `GET /api/projects/:slug/agent-feed` is 404. */
   agentLog?: LogStore;
+  /** The local Open actions (P61): `POST /api/local/:action` and `localOpen` on the instance; without it the route is 404 and `localOpen` false. */
+  local?: LocalService;
   now?: () => Date;
 };
 
@@ -115,7 +118,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", liveRoutes(opts.live))
     .get("/api/pulse", (c) => c.json(pulseDto.parse({ dataVersion: opts.dataVersion?.() ?? 0, serverTime: (opts.now?.() ?? new Date()).toISOString(), health: health() })))
     .get("/api/projects", async (c) => c.json(projectsDto.parse({ projects: await repos.projects.list() })))
-    .route("/", instanceRoutes(opts.instance))
+    .route("/", instanceRoutes(opts.instance, () => opts.local?.available ?? false))
     .route("/", draftRoutes(repos, opts.sender))
     .route("/", sendRoutes(repos, opts.sender))
     .route("/", draftMailRoutes(repos, opts.sender))
@@ -128,7 +131,8 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", agentToolRoutes(repos, opts.agentTools))
     .route("/", agentFeedRoutes(repos, opts.agentLog, now))
     .route("/", terminalRoutes(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", focusRoutes(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
+    .route("/", focusRoutes(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
+    .route("/", localRoutes(opts.local, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
 }
 
 export type AppType = ReturnType<typeof createApp>;

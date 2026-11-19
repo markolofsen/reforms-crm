@@ -47,6 +47,7 @@ function startApi(): ChildProcess {
       HUB_PROJECTS: process.env.HUB_E2E_PROJECTS,
       HUB_TERMINAL_SHELL: "fake",
       HUB_AGENT_TOOLS: "fake",
+      HUB_OPENER: "fake",
     },
   });
 }

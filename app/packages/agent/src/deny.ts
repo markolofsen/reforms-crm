@@ -54,6 +54,12 @@ export const HUB_SEQUENCE_OWNER_COMMANDS: readonly string[] = ["Bash(*sequences 
 export const HUB_MAIL_OWNER_COMMANDS: readonly string[] = ["Bash(*drafts sweep*--apply*)", "Bash(*drafts unmark*--apply*)"];
 
 /**
+ * Opening things on the owner's screen (P61) is his: `hub open` in every spelling and a bare `open` (Finder, Mail and any
+ * app would take his screen), and the desktop handoff (P61 9c H7: an agent must never move itself out of its own guards).
+ */
+export const HUB_OPEN_COMMANDS: readonly string[] = ["Bash(open *)", "Bash(/usr/bin/open *)", "Bash(*hub open*)", "Bash(*run.sh open*)", "Bash(*hub.sh open*)", "Bash(*hub.mjs open*)", "Bash(*hub.mjs\" open*)", "Bash(*installer/src/cli.ts open*)", "Bash(*claude --desktop*)", "Bash(*codex app)", "Bash(*codex app *)"];
+
+/**
  * The admin server's Send is a loopback HTTP route (P23 S3). Text rules on loopback names: a second belt only, since
  * `curl http://2130706433:<port>` is the same address (research 21 section 5, test 4). The sandbox blocks it.
  */
@@ -74,6 +80,8 @@ export const CODEX_FORBIDDEN_PREFIXES: ReadonlyArray<readonly string[]> = [
   ["hub", "sequences", "pause"], ["hub", "sequences", "resume"], ["./run.sh", "sequences", "pause"], ["./run.sh", "sequences", "resume"],
   ["hub", "drafts", "sweep", "--apply"], ["./run.sh", "drafts", "sweep", "--apply"],
   ["osascript"], ["sendmail"], ["mail"],
+  ["open"], ["/usr/bin/open"], ["hub", "open"], ["./run.sh", "open"], ["run.sh", "open"], ["./hub.sh", "open"], ["hub.sh", "open"],
+  ["claude", "--desktop"], ["codex", "app"],
 ];
 
 /** Slugs of the projects a session could be bound to (folders with no `_` or `.` prefix), other than `slug`. */
@@ -93,6 +101,6 @@ export function denyRules(projectsDir: string, root: string, slug: string | unde
   for (const o of otherProjects(projectsDir, slug)) denied.push(`./${rel(path.join(projectsDir, o))}/**`);
   for (const p of denied) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
   // `hub send` is the hub's own sender (decision 0011, plan P23): a person runs it, never the agent.
-  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
+  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_OPEN_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
   return rules;
 }

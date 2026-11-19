@@ -60,6 +60,8 @@ Presets, a fixed server table: `claude` and `codex` spawn the argv `<server node
 
 `node-pty` 1.1.0 (the one native dependency) ships `prebuilds/darwin-*/spawn-helper` without the execute bit under pnpm; the server sets it before the first spawn (`ensureSpawnHelper`), and doctor row `agent.terminal` checks it. Tests: `HUB_TERMINAL_SHELL=fake` runs `app/test-support/fake-shell.mjs` and is refused without `HUB_DB`.
 
+**Open in Claude Desktop is not offered (P61 section 9, owner item 7).** Claude Code's `/desktop` (and `claude --desktop --resume <id>`, Claude Code 2.1.285 or later) would continue a dock session in the desktop app, which starts its own process without any of the hub's rules (no deny list, no guard hook, no strict MCP set, no binding prompt; the claude.ai connectors, Gmail `send_message` among them, reach it directly): decision 0011 would not hold there. So the registry declares `agent.openInDesktop` with `offered: false`: the dock header shows the button disabled with its reason on a Claude Code tab ("Not offered: Claude Desktop would run this session without the hub's rules") and on a Codex tab (the ChatGPT app keeps its own sessions and settings), none on a Shell tab or off macOS; `POST /api/local/agent.openInDesktop` answers 501 with the same sentence and `hub open agent.openInDesktop` exits 2. Nothing runs `claude --desktop`, writes into the PTY or opens a `claude:` link; `claude --desktop`, `codex app`, `hub open` and a bare `open` are in the deny rules and Codex's forbidden prefixes. The owner may still type `/desktop` himself, knowing what it drops.
+
 ## Guards (threat: a web page in the owner's browser)
 
 | # | Guard |
@@ -71,7 +73,7 @@ Presets, a fixed server table: `claude` and `codex` spawn the argv `<server node
 | S5 | A ticket, not a cookie (cookies are not port-isolated); in memory, so a restart voids them |
 | S6 | No CORS header anywhere; no state change on GET |
 | S7 | Presets only: no route takes a command or a path; the slug is checked against the registry |
-| S8 | XSS in the admin equals a shell: no `dangerouslySetInnerHTML` in `apps/admin` or `packages/ui` (rules test); terminal links open through `lib/external.ts` with `noopener` |
+| S8 | XSS in the admin equals a shell: no `dangerouslySetInnerHTML` in `apps/admin` or `packages/ui` (rules test); terminal links open through `lib/external.ts` with `noopener`; they stay outside the Open registry (P61, `@hub/contract/local`) on purpose: a terminal prints arbitrary hosts, which a fixed table cannot list, and they open a browser tab, not an OS program |
 | S9 to S12 | The unattended sandbox, send tools off, the server-owned send policy, the send ticket (above) |
 
 ## Shared focus: the agent sees what the owner sees (P51, decision 0029)

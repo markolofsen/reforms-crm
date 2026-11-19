@@ -61,8 +61,8 @@ describe("connections and instance (P48 W0)", () => {
     expect(connectionsDto.safeParse({ instance: "saas", connections: [{ id: "mail:a", kind: "mail", label: "x", secret: { state: "stored" }, identity: null, usedBy: [], can: [], check: { state: "never" } }], mail: [] }).success).toBe(false);
   });
   it("the brand has a name, and says only whether a logo exists", () => {
-    expect(instanceDto.safeParse({ name: "Reforms SaaS", hasLogo: false }).success).toBe(true);
-    expect(instanceDto.safeParse({ name: "", hasLogo: false }).success).toBe(false);
-    expect(instanceDto.safeParse({ name: "x", hasLogo: true, logo: "/Users/x/logo.png" }).success).toBe(false);
+    expect(instanceDto.safeParse({ name: "Reforms SaaS", hasLogo: false, localOpen: true }).success).toBe(true);
+    expect(instanceDto.safeParse({ name: "", hasLogo: false, localOpen: true }).success).toBe(false);
+    expect(instanceDto.safeParse({ name: "x", hasLogo: true, localOpen: true, logo: "/Users/x/logo.png" }).success).toBe(false);
   });
 });
