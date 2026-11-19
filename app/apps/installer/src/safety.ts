@@ -5,6 +5,8 @@ import { instanceServer } from "./mcp-servers";
 import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
 import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
 import { HUB_MCP_SERVERS } from "@hub/agent/deny";
+import { resolveConnectors, type AttachedConnector } from "@hub/agent/connectors";
+import { connectorViolations, recordConnectorRead, type ConnectorScope } from "@hub/agent/connector-guard";
 import { readSession, recordPost, type PostPayload } from "./evidence-store";
 import { openDbReadOnly, readAgentSettings } from "@hub/db";
 import type { AgentSettings } from "@hub/config";
@@ -31,7 +33,7 @@ const readMcp = (f: string): Record<string, Record<string, unknown>> => (existsS
  * The instance's MCP servers, made absolute for it: `.mcp.json`, else `config/mcp.json`, else the core's defaults. `hub` (P51) is the
  * core's own server: taken from the core's defaults when the instance file predates it, and started with the hub's own Node.
  */
-export function instanceMcpServers(paths: HubPaths, slug: string | undefined, nodeBin: string = process.execPath): Record<string, Record<string, unknown>> {
+export function instanceMcpServers(paths: HubPaths, slug: string | undefined, nodeBin: string = process.execPath, connectors: readonly AttachedConnector[] = []): Record<string, Record<string, unknown>> {
   const src = [paths.mcpFile, path.join(paths.configDir, "mcp.json"), paths.mcpDefaults].find((f) => existsSync(f));
   const all = src ? readMcp(src) : {};
   const core = readMcp(paths.mcpDefaults);
@@ -44,7 +46,20 @@ export function instanceMcpServers(paths: HubPaths, slug: string | undefined, no
     if (name === "hub" && s.type === "stdio" && s.command === "node") s.command = nodeBin;
     servers[name] = s;
   }
+  // P62: the project's own attached connectors (Claude Code only; the Codex home never gets them), never another project's.
+  for (const c of connectors) servers[c.name] = structuredClone(c.spec);
   return servers;
+}
+
+/** P62: the connectors of a bound project (none for an unbound session or a project.md that does not load). */
+export function projectConnectors(paths: HubPaths, projectsDir: string, slug: string | undefined): { attached: AttachedConnector[]; scope: ConnectorScope } {
+  const none = { attached: [], scope: { attached: [], calendarId: null, driveFolders: [] } };
+  if (!slug) return none;
+  try {
+    const cfg = loadProject(projectsDir, slug).parsed.config;
+    const { attached } = resolveConnectors(paths, cfg);
+    return { attached, scope: { attached, calendarId: cfg.calendar.id, driveFolders: cfg.drive.folder } };
+  } catch { return none; }
 }
 
 /**
@@ -55,12 +70,13 @@ export function writeSessionFiles(root: string, projectsDir: string, slug: strin
   const dir = slugDir(root, slug);
   mkdirSync(dir, { recursive: true });
   const agent = readAgentSettings(paths.db, slug);
-  const settings = claudeSettings({ paths, projectsDir, slug, nodeBin, unattended, agent });
+  const { attached } = projectConnectors(paths, projectsDir, slug);
+  const settings = claudeSettings({ paths, projectsDir, slug, nodeBin, unattended, agent, connectors: attached });
   const settingsFile = path.join(dir, "settings.json");
   writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + "\n");
   const mcpFile = path.join(dir, "mcp.json");
-  writeFileSync(mcpFile, JSON.stringify({ mcpServers: instanceMcpServers(paths, slug, nodeBin) }, null, 2) + "\n");
-  return { settings: settingsFile, mcp: mcpFile, disallowed: claudeDisallowed(), rules: (settings.permissions as { deny: string[] }).deny, agent };
+  writeFileSync(mcpFile, JSON.stringify({ mcpServers: instanceMcpServers(paths, slug, nodeBin, attached) }, null, 2) + "\n");
+  return { settings: settingsFile, mcp: mcpFile, disallowed: claudeDisallowed(attached), rules: (settings.permissions as { deny: string[] }).deny, agent };
 }
 
 /** The owner's own Codex folder: where `auth.json` lives (`CODEX_HOME` of the caller, else `~/.codex`). */
@@ -140,7 +156,7 @@ export function auditLayout(paths: HubPaths): AuditLayout {
 }
 
 export interface GuardInput { tool_name?: unknown; tool_input?: unknown; session_id?: unknown; agent_id?: unknown }
-export interface GuardResult { violations: string[]; block: boolean }
+export interface GuardResult { violations: string[]; block: boolean; /** P62: a connector violation, which blocks whatever the mode. */ always?: true }
 
 /** The hub's own skills (folders of the core's `skills/` with a SKILL.md) and the ones the project's kind allows; none for an unknown kind. */
 export function skillScope(kindId: string, dir: string): SkillScope | undefined {
@@ -150,11 +166,13 @@ export function skillScope(kindId: string, dir: string): SkillScope | undefined 
   return { allowed: kind.skills, hub };
 }
 
-export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout: AuditLayout }): GuardResult {
+export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout: AuditLayout; connectors?: ConnectorScope }): GuardResult {
   const call: ToolCall = { name: String(payload.tool_name ?? ""), input: payload.tool_input };
   // Unbound session (project-setup, `hub agent new`): no project to compare with, but sends and secrets still count.
   const violations = auditToolCalls([call], o.slug ?? "(unbound)", o.accounts, o.skills, o.layout).filter((v) => o.slug || !/outside project|in a \(unbound\)|touched \S+\/\S+ in a/.test(v));
-  return { violations, block: violations.length > 0 && o.mode === "block" };
+  // P62 K3: a connector call off its allowlist, or a hold with guests, is refused in every mode (it would leave the Mac).
+  const outward = connectorViolations(call.name, call.input, o.connectors ?? { attached: [], calendarId: null, driveFolders: [] });
+  return { violations: [...violations, ...outward], block: outward.length > 0 || (violations.length > 0 && o.mode === "block"), ...(outward.length ? { always: true } : {}) };
 }
 
 /** `root` is the instance root (state, ledger, log); `paths` (default: the instance at `root`) say where the skills ship. */
@@ -170,22 +188,23 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   const paths = g.paths ?? pathsAt(g.root, env);
   let accounts: string[] = [];
   let skills: SkillScope | undefined;
+  const projectsDir = g.projectsDir ?? defaultProjectsRoot();
   if (slug) {
     try {
-      const cfg = loadProject(g.projectsDir ?? defaultProjectsRoot(), slug).parsed.config;
+      const cfg = loadProject(projectsDir, slug).parsed.config;
       accounts = [...cfg.mail.accounts];
       skills = skillScope(cfg.kind, paths.skills);
     }
     catch { return mode === "block" ? { code: 2, stderr: `hub guard: project "${slug}" cannot be loaded; blocked` } : { code: 0, stderr: "" }; }
   }
-  const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths) });
+  const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope });
   // P28 B3: before a reply is drafted, this session must have read the client's thread and profile, and the reply must not copy an earlier one.
   if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug, paths.db));
-  r.block = r.violations.length > 0 && mode === "block";
+  r.block = r.always === true || (r.violations.length > 0 && mode === "block");
   // P54: the call, and what the guard saw, go to the session log (the writer never throws).
   appendEvents(logStoreOf(paths), toolCallEvents(parsePayload(stdin) ?? {}, "claude", slug ?? null, { mode, violations: r.violations }));
   if (!r.violations.length) return { code: 0, stderr: "" };
-  const text = `hub guard (${mode}): ${r.violations.join("; ")}`;
+  const text = `hub guard (${r.always ? "block" : mode}): ${r.violations.join("; ")}`;
   return r.block ? { code: 2, stderr: text } : { code: 0, stderr: text };
 }
 
@@ -222,6 +241,11 @@ export function runGuardPost(stdin: string, g: GuardEnv): { code: 0; stderr: str
     const env = g.env ?? process.env;
     const slug = env.HUB_PROJECT?.trim();
     if (slug) recordPost(g.root, slug, payload);
+    // P62: a session's list_calendars names the account its calendar connector is signed in to.
+    if (slug && /^mcp__gcal-/.test(String(payload.tool_name ?? ""))) {
+      const paths = g.paths ?? pathsAt(g.root, env);
+      recordConnectorRead(paths, projectConnectors(paths, g.projectsDir ?? defaultProjectsRoot(), slug).attached, String(payload.tool_name), payload.tool_response);
+    }
     const result = toolResultEvent(parsePayload(stdin) ?? {}, "claude", slug || null);
     if (result) appendEvents(logStoreOf(g.paths ?? pathsAt(g.root, env)), [result]);
     if (String(payload.tool_name ?? "").endsWith("__get_message_content")) {

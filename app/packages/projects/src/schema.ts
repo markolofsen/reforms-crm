@@ -86,8 +86,10 @@ export const ProjectBase = z.object({
     .default({ teamspace: null, parentPage: null, tokenFile: "notion-token", databases: [] }),
   /** Calendar the `calendar` skill writes holds into; null fields: not set (the skill reports a calendar-problem, never guesses). */
   calendar: z
-    .object({ name: z.string().nullable().default(null), id: z.string().nullable().default(null), timezone: Tz.nullable().default(null) })
-    .default({ name: null, id: null, timezone: null }),
+    .object({ name: z.string().nullable().default(null), id: z.string().nullable().default(null), timezone: Tz.nullable().default(null), /** P62: Google Calendar connectors (`gcal-<label>`) attached to this project. */ connector: z.array(z.string()).default([]) })
+    .default({ name: null, id: null, timezone: null, connector: [] }),
+  /** P62: Google Drive connectors (`gdrive-<label>`) attached to this project, and the folders a search stays under (empty: none). */
+  drive: z.object({ connector: z.array(z.string()).default([]), folder: z.array(z.string()).default([]) }).default({ connector: [], folder: [] }),
   knowledge: z.object({ source: z.literal("files").default("files"), scope: z.enum(KNOWLEDGE_SCOPES).default("shared") }).default({ source: "files", scope: "shared" }),
   /**
    * What the hub may send (decision 0011). The agent has no send tool in any mode; `hub send` is the only sender.

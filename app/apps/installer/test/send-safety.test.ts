@@ -17,9 +17,6 @@ const PROJECTS = path.join(ROOT, "app", "packages", "projects", "test", "fixture
 
 /** Every tool that sends, forwards or replies for real, in the connectors a session could see. */
 const SEND_TOOLS = [
-  "mcp__claude_ai_Gmail__send_message",
-  "mcp__claude_ai_Gmail__forward",
-  "mcp__claude_ai_Gmail__reply",
   "mcp__mail-mcp__create_outgoing_message", // opens a compose window that Send would complete
   "mcp__mail-mcp__replace_outgoing_message",
   "mcp__mail-mcp__replace_reply",

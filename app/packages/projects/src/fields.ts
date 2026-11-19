@@ -21,6 +21,10 @@ const oneLine = check((v) => !/[\r\n]/.test(v), () => "expected one line");
 const list = z.string().transform(splitList);
 const addresses = check((v) => splitList(v).every((a) => EMAIL.test(a)), (v) => `"${splitList(v).find((a) => !EMAIL.test(a))}" is not an email address`).transform((v) => splitList(v).map(normalizeAddress));
 
+/** P62: a list of hub connector names of one kind (`gcal-<label>`, `gdrive-<label>`), as the instance's MCP config names them. */
+const connectors = (prefix: string) =>
+  check((v) => splitList(v).every((n) => new RegExp(`^${prefix}-[a-z0-9][a-z0-9-]*$`).test(n)), (v) => `"${splitList(v).find((n) => !new RegExp(`^${prefix}-[a-z0-9][a-z0-9-]*$`).test(n))}" is not a ${prefix}-<label> connector name`).transform(splitList);
+
 const posint = check((v) => /^[1-9]\d*$/.test(v), (v) => `expected a positive integer, got "${v}"`).transform(Number);
 const doctor = z.string().superRefine((v, ctx) => {
   const m = /^(\d{4}-\d{2}-\d{2}) (pass|fail: .+)$/.exec(v);
@@ -59,8 +63,11 @@ export const FIELDS: Record<string, FieldDef> = {
   "notion.parent_page": { path: "notion.parentPage", schema: check((v) => UUID.test(v), (v) => `expected a Notion page id (UUID), got "${v}"`).transform(normalizeId), doc: "Page the deploy skill creates databases under; wins over the teamspace." },
   "notion.token_file": { path: "notion.tokenFile", schema: check((v) => /^[A-Za-z0-9._-]+$/.test(v), () => "expected a file name (no path, no value of a secret)"), doc: "File name in state/secrets/ holding the Notion token." },
   "calendar.name": { path: "calendar.name", schema: oneLine, doc: "Calendar the calendar skill writes holds into." },
-  "calendar.id": { path: "calendar.id", schema: oneLine, doc: "Calendar id when the name is not enough." },
+  "calendar.id": { path: "calendar.id", schema: oneLine, doc: "Calendar id when the name is not enough; with calendar.connector, the Google calendar id holds go to (default: the connector's primary calendar)." },
   "calendar.timezone": { path: "calendar.timezone", schema: check(isTimezone, (v) => `"${v}" is not an IANA timezone`), doc: "IANA timezone of the calendar." },
+  "calendar.connector": { path: "calendar.connector", schema: connectors("gcal"), doc: "P62: Google Calendar connectors (gcal-<label>, from any Google account) this project's sessions may use; holds go to the first, into calendar.id (default: its primary calendar). Needs a kind with the calendar module." },
+  "drive.connector": { path: "drive.connector", schema: connectors("gdrive"), doc: "P62: Google Drive connectors (gdrive-<label>, from any Google account) this project's sessions may search, read and link from; never share, write or trash." },
+  "drive.folder": { path: "drive.folder", schema: check((v) => splitList(v).every((f) => /^[A-Za-z0-9_-]{10,}$/.test(f)), (v) => `"${splitList(v).find((f) => !/^[A-Za-z0-9_-]{10,}$/.test(f))}" is not a Drive folder id`).transform(splitList), doc: "P62: Drive folder ids a search must stay under (the guard checks a search's query names one); empty: the whole Drive of the connector." },
   "knowledge.source": { path: "knowledge.source", schema: check((v) => v === "files", (v) => `expected files, got "${v}"`), doc: "Always files." },
   "knowledge.scope": { path: "knowledge.scope", schema: check((v) => (KNOWLEDGE_SCOPES as readonly string[]).includes(v), (v) => `expected shared or by-brand, got "${v}"`), doc: "shared (default): one knowledge base for every brand; by-brand: each entry lists its brands and search filters by the thread's brand (needs two or more ## Brands rows)." },
   "run.quiet_hours": {

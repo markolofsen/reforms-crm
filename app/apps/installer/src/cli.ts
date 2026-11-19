@@ -41,6 +41,7 @@ import { renderChecklist } from "./docs";
 import { doctor, exitCode, expandSteps, guideText, idWidth, install, printGuides, slowest, summary, table, tableHeader, tableRow } from "./runner";
 import { redact } from "@hub/connections";
 import { connectionsReport, connectionsTable, storeNamedToken, TOKEN_NAMES } from "./connections-command";
+import { addConnector, listConnectors, stateAccount } from "./connectors-command";
 import { makeValidators } from "./setup/clients";
 import { runSetup } from "./setup/wizard";
 import { clackUi, quietUi } from "./setup/ui";
@@ -79,7 +80,7 @@ ${c.bold("Examples")}
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, log, open, send, drafts, sequences, connections, backup, uninstall, stop, restart, autostart. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, log, open, send, drafts, sequences, connections, connectors, backup, uninstall, stop, restart, autostart. Each has its own \`hub <name> --help\`.`);
 // Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
@@ -566,6 +567,27 @@ program.command("connections").description("List the instance's connections (Not
     const rep = await connectionsReport(ctx, { test: !!o.test, deps: { fetch: ctx.fetch } });
     console.log(connectionsTable(rep));
     done(rep.exitCode);
+  });
+
+const connectors = program.command("connectors").description("The instance's Google connectors (P62): Calendar and Drive servers a project attaches in its project.md. `list` reads; `add` and `account` are the owner's (a session is denied them). @docs/core/26-capabilities.md");
+connectors.command("list").description("Each connector: service, Google account (stated or read by a session), the projects that attach it.")
+  .action(() => { console.log(listConnectors(ctxOf().paths)); });
+connectors.command("add").description("Add a Google-hosted connector to config/mcp.json and .mcp.json. The OAuth client secret is never written here: Claude Code asks for it at sign-in (/mcp).")
+  .argument("<kind>", "calendar | drive")
+  .argument("<name>", "gcal-<label> | gdrive-<label>, one Google account each")
+  .requiredOption("--client-id <id>", "the OAuth client id of your Google Cloud project (…apps.googleusercontent.com)")
+  .option("--callback-port <port>", "fixed OAuth callback port, when the client's redirect URI names one")
+  .option("--account <address>", "the Google account you will sign in with (a session's read confirms it)")
+  .action((kind: string, name: string, o: { clientId: string; callbackPort?: string; account?: string }) => {
+    const port = o.callbackPort === undefined ? undefined : Number(o.callbackPort);
+    if (port !== undefined && !(Number.isInteger(port) && port > 0 && port < 65536)) throw new UsageError(`--callback-port takes a port number, got "${o.callbackPort}"`);
+    try { for (const l of addConnector(ctxOf().paths, { kind, name, clientId: o.clientId, ...(port ? { callbackPort: port } : {}), ...(o.account ? { account: o.account } : {}) })) console.log(l); }
+    catch (e) { throw new UsageError((e as Error).message); }
+  });
+connectors.command("account").description("State the Google account a connector is signed in to (shown in Settings ▸ Agent; a session's list_calendars replaces it).")
+  .argument("<name>").argument("<address>")
+  .action((name: string, address: string) => {
+    try { console.log(stateAccount(ctxOf().paths, name, address)); } catch (e) { throw new UsageError((e as Error).message); }
   });
 
 async function main(): Promise<void> {

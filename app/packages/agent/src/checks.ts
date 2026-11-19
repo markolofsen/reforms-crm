@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { codexSessionPaths, type AgentCli, type HubPaths } from "@hub/config/paths";
 import { codexConfigBypasses, codexHome, CODEX_PROFILE } from "./codex";
+import { connectorRows } from "./connector-checks";
 import { DENIED_TOOLS, DRAFT_TOOLS, HUB_MCP_SERVERS, SEND_LIKE_TOOL } from "./deny";
 import { INSTALL_LINE, LOGIN_LINE, type CliFact } from "./detect";
 import { CLI_LABELS, MEASURED_VERSIONS } from "./session";
@@ -116,6 +117,10 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   else if (open.length) row("send-tools.off", "Send tools off", "fail", `not denied: ${open.join(", ")}`, "hub core update");
   else if (!codexOff) row("send-tools.off", "Send tools off", "fail", "the Codex config does not disable the send tools", prepare);
   else row("send-tools.off", "Send tools off", "pass", `${DENIED_TOOLS.length} denied`);
+
+  // 5b. P62: the project's connectors (Calendar, Drive): attached, answering, the account, the writes off; then the info rows.
+  const deny = [...((settings?.permissions?.deny ?? []) as string[])];
+  for (const r of await connectorRows({ paths, slug, cli, mcpServers: servers, deny, answer: (n, spec) => probe.mcp(n, spec) })) row(r.id, r.title, r.state, r.detail, r.fix);
 
   // 6. Skills linked where the CLI looks.
   const skillsDir = cli === "claude" ? paths.claudeSkills : codexSessionPaths(paths, slug).skills;

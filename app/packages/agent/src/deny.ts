@@ -23,8 +23,6 @@ export const DENIED_TOOLS: readonly string[] = [
   "mcp__notion__notion-delete-comment",
   "mcp__notion__notion-move-pages",
   "mcp__notion__notion-calendar-cancel-events",
-  // the claude.ai Gmail connector, should one ever be loaded (strict MCP config normally keeps it out)
-  ...["send_message", "forward", "reply", "trash_message", "trash_thread", "delete_draft"].map((t) => `mcp__claude_ai_Gmail__${t}`),
 ];
 
 /** `mcp__<server>__<tool>` split back into the server's own tool names (Codex's `disabled_tools` takes these). */
@@ -54,6 +52,11 @@ export const HUB_SEQUENCE_OWNER_COMMANDS: readonly string[] = ["Bash(*sequences 
 export const HUB_MAIL_OWNER_COMMANDS: readonly string[] = ["Bash(*drafts sweep*--apply*)", "Bash(*drafts unmark*--apply*)"];
 
 /**
+ * Connectors (P62): adding one and stating its account are the owner's (`hub connectors add|account`); a session may list them.
+ */
+export const HUB_CONNECTOR_OWNER_COMMANDS: readonly string[] = ["Bash(*connectors add*)", "Bash(*connectors account*)"];
+
+/**
  * Opening things on the owner's screen (P61) is his: `hub open` in every spelling and a bare `open` (Finder, Mail and any
  * app would take his screen), and the desktop handoff (P61 9c H7: an agent must never move itself out of its own guards).
  */
@@ -79,6 +82,7 @@ export const CODEX_FORBIDDEN_PREFIXES: ReadonlyArray<readonly string[]> = [
   ["hub", "send"], ["./run.sh", "send"], ["run.sh", "send"], ["./hub.sh", "send"], ["hub.sh", "send"],
   ["hub", "sequences", "pause"], ["hub", "sequences", "resume"], ["./run.sh", "sequences", "pause"], ["./run.sh", "sequences", "resume"],
   ["hub", "drafts", "sweep", "--apply"], ["./run.sh", "drafts", "sweep", "--apply"],
+  ["hub", "connectors", "add"], ["./run.sh", "connectors", "add"], ["hub", "connectors", "account"], ["./run.sh", "connectors", "account"],
   ["osascript"], ["sendmail"], ["mail"],
   ["open"], ["/usr/bin/open"], ["hub", "open"], ["./run.sh", "open"], ["run.sh", "open"], ["./hub.sh", "open"], ["hub.sh", "open"],
   ["claude", "--desktop"], ["codex", "app"],
@@ -101,6 +105,6 @@ export function denyRules(projectsDir: string, root: string, slug: string | unde
   for (const o of otherProjects(projectsDir, slug)) denied.push(`./${rel(path.join(projectsDir, o))}/**`);
   for (const p of denied) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
   // `hub send` is the hub's own sender (decision 0011, plan P23): a person runs it, never the agent.
-  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_OPEN_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
+  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_CONNECTOR_OWNER_COMMANDS, ...HUB_OPEN_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
   return rules;
 }

@@ -7,7 +7,7 @@ import { ADVISOR_OFF_ENV, ADVISOR_RULE, claudeBaseArgs, claudeEnforcementArgs } 
 import { codexArgs, codexHome } from "@hub/agent/codex";
 import { INSTALL_LINE } from "@hub/agent/detect";
 import { CLI_LABELS, modeLine } from "@hub/agent/session";
-import { bindingPrompt, identityOf, projectsRelOf, UNBOUND_INSTRUCTIONS } from "@hub/agent/session-rules";
+import { bindingPrompt, capabilitiesOf, identityOf, projectsRelOf, UNBOUND_INSTRUCTIONS } from "@hub/agent/session-rules";
 import { logStoreOf } from "@hub/log/store";
 import { chooseResume, SESSION_ID } from "@hub/log/resume";
 import { syncInstanceSkills } from "./instance-skills";
@@ -19,7 +19,7 @@ export type AgentMode = "continue" | "new" | "pick" | "resume";
 /** `shell`: the owner's own shell in the instance root, bound to the project (no agent, no sandbox: as Terminal.app). */
 export type SessionCli = AgentCli | "shell";
 export const SESSION_CLIS: readonly SessionCli[] = [...AGENT_CLIS, "shell"];
-export interface AgentPlan { mode: AgentMode; project?: string; extra: string[]; cli?: SessionCli; prepare?: boolean; /** The session id of mode `resume`. */ resume?: string; /** The bound project's Mail identity paragraph (`projectIdentity`), from its project.md. */ identity?: string }
+export interface AgentPlan { mode: AgentMode; project?: string; extra: string[]; cli?: SessionCli; prepare?: boolean; /** The session id of mode `resume`. */ resume?: string; /** The bound project's Mail identity paragraph (`projectIdentity`), from its project.md. */ identity?: string; /** P62: the capabilities line of this CLI's session. */ capabilities?: string }
 
 const MODES: readonly string[] = ["continue", "new", "pick"];
 
@@ -94,7 +94,7 @@ export function buildClaudeArgs(plan: AgentPlan, dirs: string[] = [], files?: Se
   const base = claudeBaseArgs(unattended, dirs);
   if (files) base.push(...claudeEnforcementArgs(files));
   // P55: the advisor's rule line only when this project's Claude session has the advisor on.
-  if (plan.project) base.push("--append-system-prompt", bindingPrompt(plan.project, projectsRel, plan.identity) + (files?.agent.advisor ? `\n\n${ADVISOR_RULE}` : ""));
+  if (plan.project) base.push("--append-system-prompt", bindingPrompt(plan.project, projectsRel, plan.identity, plan.capabilities) + (files?.agent.advisor ? `\n\n${ADVISOR_RULE}` : ""));
   // P64: never `--continue` (it takes the newest conversation of the instance root, any project's); `continue` is resolved to an id first.
   const lead = plan.mode === "pick" ? ["--resume"] : plan.mode === "resume" && plan.resume ? ["--resume", plan.resume] : [];
   return [...lead, ...base, ...plan.extra];
@@ -186,6 +186,10 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   const features = instanceFeatures(paths);
   const cli: SessionCli = plan.cli ?? features.agent.default;
   const unattended = features.agent.unattended;
+  if (plan.project && cli !== "shell") {
+    const caps = capabilitiesOf(paths, env.projectsDir, plan.project, cli);
+    if (caps) plan.capabilities = caps;
+  }
   const childEnv: NodeJS.ProcessEnv = { ...process.env, ...(plan.project ? { HUB_PROJECT: plan.project } : {}), HUB_HOME: paths.home };
   // `hub` itself (P52: the skills and rules say `hub record-draft`), then the Node this hub runs on, go first on PATH, so
   // `hub`, `./run.sh` and `node` in the session are this instance's core on the Node the hub needs.
@@ -200,7 +204,7 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
   // `--prepare` (the Agent tools fix line) writes the session files only: it does not move the sticky binding.
   if (!plan.prepare) writeBinding(env.root, plan.project);
   const relOk = projectsRelOf(env.root, env.projectsDir);
-  const instructions = plan.project ? bindingPrompt(plan.project, relOk, plan.identity) : UNBOUND_INSTRUCTIONS;
+  const instructions = plan.project ? bindingPrompt(plan.project, relOk, plan.identity, plan.capabilities) : UNBOUND_INSTRUCTIONS;
   // An instance keeps no copy of the core skills: the CLI finds them through generated links.
   const linked = syncInstanceSkills(paths);
   const files = writeSessionFiles(env.root, env.projectsDir, plan.project, process.execPath, paths, unattended);

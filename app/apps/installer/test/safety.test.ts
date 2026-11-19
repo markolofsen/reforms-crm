@@ -44,7 +44,7 @@ describe("hub guard", () => {
   it.each([
     ["foreign mail account", call("mcp__mail-mcp__find_messages", { account: "a@b.example" })],
     ["foreign knowledge project", call("mcp__knowledge-mcp__knowledge_search", { project: "nordhaus", query: "x" })],
-    ["send tool", call("mcp__claude_ai_Gmail__send_message", {})],
+    ["send tool", call("mcp__x__send_message", {})],
     ["Gmail reply", call("mcp__x__reply", {})],
     ["trash", call("mcp__x__trash_thread", {})],
     ["notion delete", call("mcp__notion__notion-delete-pages", {})],

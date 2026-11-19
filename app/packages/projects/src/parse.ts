@@ -364,6 +364,10 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
     send: { dailyCap: kind.send.dailyCap, delayMinutes: kind.send.delayMinutes, ...(raw.send as object | undefined) },
   });
   const status = config.status;
+  // P62: a calendar connector needs the calendar module (a support kind has none): kept out of every session, said here.
+  if (config.calendar.connector.length && !config.modules.includes("calendar")) {
+    issues.push({ severity: "warning", code: "bad_value", line: settings["calendar.connector"]?.line ?? null, field: "calendar.connector", message: `calendar.connector is not used: kind ${kind.id} has no calendar module` });
+  }
 
   // required fields (only for a file with Settings). `schema` is structural; the rest is the kind's list.
   let incomplete = false;

@@ -43,6 +43,8 @@ export interface HubPaths {
   autostart: string;
   /** P68: the last answer of the core update check (`<state>/core-update.json`), written by the server, read by the admin and `instance.core`. */
   coreUpdate: string;
+  /** P62: what the hub knows of each connector's Google account (`<state>/connectors.json`: stated by the owner, confirmed by a session's read), written by `hub connectors` and the guard's post hook. */
+  connectors: string;
   secrets: string;
   configDir: string;
   configFile: string;
@@ -129,6 +131,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     focus: join(state, "focus.json"),
     autostart: join(state, "autostart"),
     coreUpdate: join(state, "core-update.json"),
+    connectors: join(state, "connectors.json"),
     secrets: fromEnv(env, "HUB_CONFIG_DIR") ?? join(state, "secrets"),
     configDir,
     configFile: fromEnv(env, "HUB_CONFIG_FILE") ?? join(configDir, "config.json"),
