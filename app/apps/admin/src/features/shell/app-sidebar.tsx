@@ -51,7 +51,7 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys }:
                   <SidebarMenuItem key={i.id}>
                     <SidebarMenuButton className="relative h-(--control-m) gap-3 px-3 group-data-[collapsible=icon]:size-(--control-m)! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0!" isActive={i.active} render={<AppLink aria-current={i.active && !i.children.some((c) => c.active) ? "page" : undefined} bare to={i.to} />} tooltip={i.dot ? `${i.title}: needs you` : i.title}>
                       <NavIcon name={i.icon} />
-                      <span className="min-w-0 truncate">{i.title}</span>
+                      <span className="min-w-0 truncate group-data-[collapsible=icon]:sr-only">{i.title}</span>
                       {i.dot && <NavDot id={i.id} rail />}
                     </SidebarMenuButton>
                     {/* P63 N1: the child pages, only under the active parent (no tab stop elsewhere) and never on the rail (the sub-menu hides itself there). */}
