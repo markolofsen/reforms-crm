@@ -244,6 +244,15 @@ const spawnedOf = async (v: { spawned: () => number }) => { while (v.spawned() =
 const events = (s: ReturnType<typeof setup>) => readStarts(s.files.starts).map((l) => l.event);
 
 describe("hub up --service", () => {
+  it("every variable it hands the server survives `turbo run start` (strict env: an unlisted one arrives unset)", () => {
+    // Measured 2026-11-19 on v0.12.12: HUB_AUTOSTART=1 was set on `pnpm start` but missing from globalPassThroughEnv, so the
+    // server under launchd answered startedBy "hand".
+    const turbo = JSON.parse(readFileSync(path.resolve(__dirname, "..", "..", "..", "turbo.json"), "utf8")) as { globalPassThroughEnv: string[] };
+    const src = readFileSync(path.resolve(__dirname, "..", "src", "service.ts"), "utf8");
+    const handed = [...(src.match(/deps\.start\(\{.*\}\);/)?.[0] ?? "").matchAll(/\b(HUB_[A-Z_]+):/g)].map((m) => m[1]);
+    expect(handed).toEqual(["HUB_AUTOSTART", "HUB_ADMIN_PORT", "HUB_PORT"]);
+    expect(turbo.globalPassThroughEnv).toEqual(expect.arrayContaining(handed));
+  });
   it("exits 0 without starting when a hand-run holds the ports", async () => {
     const s = setup();
     const v = svc(s, { busy: [4380] });
