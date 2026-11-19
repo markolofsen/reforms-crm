@@ -112,7 +112,7 @@ export const agentSteps: Step[] = [
   {
     id: "agent.clis", group: "Agent", title: "Claude Code and Codex on the login shell",
     why: "Opening the terminal column starts Claude Code or Codex by itself (P57) through the owner's login shell, so a CLI the doctor's PATH finds can still be missing there. The install workflow names each one's state and its one fix line.",
-    verifies: "One detection through the login shell (`$SHELL -l -i`, 15 s): each CLI found, answering `--version` and signed in, and what opening the column in a project starts (`agent.default`'s order). Not ready is a WARN with the install or sign-in line, never a FAIL: the terminal works with Shell alone.",
+    verifies: "One detection (each CLI directly first, the login shell `$SHELL -l -i` only for one that is not settled, 45 s): each CLI found, answering `--version` and signed in, and what opening the column in a project starts (`agent.default`'s order). Not ready is a WARN with the install or sign-in line, never a FAIL: the terminal works with Shell alone.",
     manual: { steps: ["Install a missing CLI with the line the row names (`npm i -g @anthropic-ai/claude-code` or `npm i -g @openai/codex`).", "Sign in with `claude auth login` or `codex login` (the sign-in is yours).", "Run `hub doctor --only Agent` again, or Refresh in Connections, Agent tools."] },
     async check(ctx) {
       const run: DetectRun = async (cmd, args, env) => ctx.run(cmd, args, env ? { env: Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => typeof e[1] === "string")) } : {});
