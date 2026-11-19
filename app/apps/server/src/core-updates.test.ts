@@ -1,10 +1,10 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { readCoreUpdateCache, type CommandRun } from "@hub/config/core-version";
+import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from "vitest";
+import { readCoreUpdateCache, type CommandRun, type CoreUpdate } from "@hub/config/core-version";
 import { hubPaths, type HubPaths } from "@hub/config/paths";
-import { coreUpdateDto } from "@hub/contract/instance";
+import { coreUpdateDto, type CoreUpdateDto } from "@hub/contract/instance";
 import type { Repos } from "@hub/db";
 import { createApp } from "./app";
 import { createCoreUpdates, offlineRun } from "./core-updates";
@@ -57,6 +57,12 @@ function setup(run: CommandRun, clock = { t: Date.parse("2026-11-19T12:00:00Z") 
   const post = async () => app.request(`${API}/api/instance/core/check`, { method: "POST", headers: HOST });
   return { service, get, post, lines, clock };
 }
+
+describe("the wire form", () => {
+  it("is the judge's answer of @hub/config/core-version, field for field (tsc checks it; the contract has no Node types)", () => {
+    expectTypeOf<CoreUpdate>().toEqualTypeOf<CoreUpdateDto>();
+  });
+});
 
 describe("GET /api/instance/core", () => {
   it("answers 'not checked yet' with no cache and never calls git", async () => {

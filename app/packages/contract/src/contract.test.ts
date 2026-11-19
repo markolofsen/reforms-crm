@@ -1,6 +1,5 @@
-import { describe, expect, expectTypeOf, it } from "vitest";
-import type { CoreUpdate } from "@hub/config/core-version";
-import { coreUpdateDto, type CoreUpdateDto } from "./instance";
+import { describe, expect, it } from "vitest";
+import { coreUpdateDto } from "./instance";
 import { apiError, parseApiError } from "./errors";
 import { sendBody, statusBody } from "./requests";
 import { reviewDraftDto } from "./responses";
@@ -57,8 +56,5 @@ describe("the core update notice (P68)", () => {
     expect(coreUpdateDto.safeParse({ ...fixture, level: "urgent" }).success).toBe(false);
     expect(coreUpdateDto.safeParse({ ...fixture, tags: [{ name: "backup-1", date: null, subject: "" }] }).success).toBe(false);
     expect(coreUpdateDto.safeParse({ ...fixture, error: { at: "2026-11-19T15:00:00.000Z", message: "origin unreachable: offline" } }).success).toBe(true);
-  });
-  it("is the wire form of the judge's answer in @hub/config/core-version (tsc checks the two agree)", () => {
-    expectTypeOf<CoreUpdate>().toEqualTypeOf<CoreUpdateDto>();
   });
 });
