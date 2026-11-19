@@ -3,7 +3,7 @@ name: Follow up a quiet client
 status: Draft
 run_mode: Manual
 applies_to: ["Client", "Lead"]
-description: "Use when we wrote last and the person has not answered for a while: draft a short, friendly nudge."
+description: "Use when we wrote last and the person has not answered for a while: draft a short, friendly nudge. Not for a client in a sequence (the sequence drafts its own steps)."
 ---
 
 # Follow up a quiet client
