@@ -58,7 +58,8 @@ export function primaryCalendarOf(response: unknown): string | null {
     seen.push(v);
     if (Array.isArray(v)) { for (const e of v) { const r = walk(e, depth + 1); if (r) return r; } return null; }
     const o = v as Record<string, unknown>;
-    if (o.primary === true && typeof o.id === "string" && /@/.test(o.id)) return o.id;
+    // An email shape only: the id goes into state and from there into the next session's capabilities line.
+    if (o.primary === true && typeof o.id === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(o.id) && o.id.length <= 254) return o.id;
     for (const k of Object.keys(o)) { const r = walk(o[k], depth + 1); if (r) return r; }
     return null;
   };
