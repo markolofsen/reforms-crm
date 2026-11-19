@@ -127,7 +127,7 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
   - Proves: node-pty is installed in the core and loads on this Node, its spawn-helper is executable, the shell a tab starts (`$SHELL`, else /bin/zsh) exists, the API port listens on 127.0.0.1 only, and a running server reports no problem (`GET /api/terminal`, `problem: null`). The same check the server runs at start (`terminalReadiness`), so the doctor and the column cannot disagree.
   - `hub install` fixes it: sets the execute bit on node-pty's spawn-helper in the core (adds only +x)
 - [ ] **Claude Code and Codex on the login shell** (`agent.clis`)
-  - Proves: One detection through the login shell (`$SHELL -l -i`, 15 s): each CLI found, answering `--version` and signed in, and what opening the column in a project starts (`agent.default`'s order). Not ready is a WARN with the install or sign-in line, never a FAIL: the terminal works with Shell alone.
+  - Proves: One detection (each CLI directly first, the login shell `$SHELL -l -i` only for one that is not settled, 45 s): each CLI found, answering `--version` and signed in, and what opening the column in a project starts (`agent.default`'s order). Not ready is a WARN with the install or sign-in line, never a FAIL: the terminal works with Shell alone.
   - You: Install a missing CLI with the line the row names (`npm i -g @anthropic-ai/claude-code` or `npm i -g @openai/codex`). Sign in with `claude auth login` or `codex login` (the sign-in is yours). Run `hub doctor --only Agent` again, or Refresh in Connections, Agent tools.
 ## Backup
 

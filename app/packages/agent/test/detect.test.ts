@@ -1,10 +1,10 @@
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { hubPaths } from "@hub/config/paths";
 import { agentChecks, type AgentProbe } from "../src/checks";
-import { cliDetector, DETECT_SCRIPT, detectClis, INSTALL_LINE, LOGIN_LINE, parseDetect, pickPreset, unknownFacts, type CliFact, type DetectRun } from "../src/detect";
+import { cliDetector, DETECT_SCRIPT, detectClis, INSTALL_LINE, LOGIN_LINE, parseDetect, pickPreset, searchDirs, unknownFacts, type CliFact, type DetectRun } from "../src/detect";
 
 // The detector (P57) on a fake run: no shell starts, no CLI runs.
 
@@ -44,6 +44,63 @@ describe("detectClis", () => {
     const junk = await detectClis({ shell: "/bin/zsh", env: {}, run: runOf("zsh: no job control\n__HUB_BEGIN__ claude.path\n/x") });
     expect(junk.every((f) => f.state === "unknown")).toBe(true);
   });
+});
+
+// Tier 1 (measured 2026-11-19 under launchd: the login shell did not answer in 15 s, both CLIs read unknown).
+describe("detectClis: direct first, the login shell only for what is not settled", () => {
+  const CLAUDE_JSON = JSON.stringify({ loggedIn: true, authMethod: "claude.ai" });
+  /** A direct run: answers by binary and verb; the login shell gets `login` (fenced output). */
+  const directRun = (o: { codexVersion?: { code: number; stdout: string }; login?: string; loginCode?: number } = {}) => {
+    const calls: string[] = [];
+    const r: DetectRun = async (cmd, args, env) => {
+      calls.push(`${path.basename(cmd)} ${args[0] === "-l" ? "-l" : args.join(" ")}`);
+      if (cmd === "/bin/zsh") return { code: o.loginCode ?? 0, stdout: o.login ?? "", stderr: "" };
+      expect(env?.PATH?.split(":")[0]).toBe(path.dirname(cmd));
+      if (args[0] === "--version") return cmd.endsWith("codex") ? { stderr: "", ...(o.codexVersion ?? { code: 0, stdout: "codex-cli 0.146.0\n" }) } : { code: 0, stdout: "2.1.220 (Claude Code)\n", stderr: "" };
+      if (cmd.endsWith("claude")) return { code: 0, stdout: CLAUDE_JSON, stderr: "" };
+      return { code: 0, stdout: "", stderr: "Logged in using ChatGPT\n" };
+    };
+    return Object.assign(r, { calls });
+  };
+  const locate = (cli: "claude" | "codex") => `/nvm/v22.22.0/bin/${cli}`;
+
+  it("both found and settled: no login shell at all", async () => {
+    const run = directRun();
+    const facts = await detectClis({ shell: "/bin/zsh", env: { PATH: "/usr/bin" }, run, locate });
+    expect(state(facts)).toEqual([["claude", "ready", "2.1.220"], ["codex", "ready", "0.146.0"]]);
+    expect(facts[0]).toMatchObject({ path: "/nvm/v22.22.0/bin/claude", detail: "2.1.220 · signed in (claude.ai)" });
+    expect(facts[1]!.detail).toBe("0.146.0 · Logged in using ChatGPT");
+    expect(run.calls.some((c) => c.includes("-l"))).toBe(false);
+  });
+  it("a binary that does not start falls through to the login shell, which may know a working one", async () => {
+    const run = directRun({ codexVersion: { code: 1, stdout: "Error: spawn ENOENT" }, login: READY_CODEX });
+    const facts = await detectClis({ shell: "/bin/zsh", env: {}, run, locate });
+    expect(state(facts)).toEqual([["claude", "ready", "2.1.220"], ["codex", "ready", "0.146.0"]]);
+    expect(facts[1]!.path).toBe("/u/bin/codex");
+    expect(run.calls.filter((c) => c.includes("-l"))).toHaveLength(1);
+  });
+  it("not found directly and a hung login shell: unknown with the shell's reason; a found one keeps its direct fact", async () => {
+    const run = directRun({ loginCode: 124 });
+    const facts = await detectClis({ shell: "/bin/zsh", env: {}, run, locate: (cli) => (cli === "claude" ? locate(cli) : null), timeoutMs: 45_000 });
+    expect(state(facts)).toEqual([["claude", "ready", "2.1.220"], ["codex", "unknown", null]]);
+    expect(facts[1]!.detail).toBe("the login shell did not answer in 45 s");
+  });
+  it("searches the server's node folder, then PATH, then the home folders; finds only an executable file", () => {
+    expect(searchDirs({ PATH: "/a:relative::/b:/a", HOME: "/h" }, ["/node/bin"])).toEqual(["/node/bin", "/a", "/b", "/h/.local/bin", "/h/.claude/local"]);
+  });
+  it("the default locate finds an executable on PATH and ignores a plain file", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "hub-detect-"));
+    writeFileSync(path.join(dir, "claude"), "#!/bin/sh\n");
+    chmodSync(path.join(dir, "claude"), 0o755);
+    writeFileSync(path.join(dir, "codex"), "not executable");
+    const run = directRun({ login: fence("codex.path", "") });
+    const facts = await detectClis({ shell: "/bin/zsh", env: { PATH: dir }, run });
+    expect(facts[0]).toMatchObject({ state: "ready", path: path.join(dir, "claude") });
+    expect(facts[1]).toMatchObject({ state: "missing", fix: INSTALL_LINE.codex });
+  });
+});
+
+describe("parseDetect", () => {
   it("profile output inside the stream does not break the fences", () => {
     const m = parseDetect(`banner\r\n${READY_CLAUDE}more banner`);
     expect(m.get("claude.version")).toEqual({ out: "2.1.220 (Claude Code)", code: 0 });

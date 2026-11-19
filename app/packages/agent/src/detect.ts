@@ -1,12 +1,19 @@
 import { spawn } from "node:child_process";
+import { accessSync, constants, statSync } from "node:fs";
+import path from "node:path";
 import type { AgentCli } from "@hub/config/paths";
 import type { CliFactDto, CliState, TerminalPreset } from "@hub/contract/terminal";
 import { CLI_LABELS } from "./session";
 
-// Which agent CLIs this Mac can start right now (P57): path, version and sign-in of Claude Code and Codex, read in ONE
-// spawn of the owner's login shell, the environment a terminal tab gets (`$SHELL -l -i`). The non-login PATH can name
-// another binary (measured 2026-11-19: a broken `codex` under nvm v22.11.0, a working one under v22.22.0), so the
-// detector never asks the caller's PATH. Read only: `--version`, `claude auth status`, `codex login status`.
+// Which agent CLIs this Mac can start right now (P57): path, version and sign-in of Claude Code and Codex. Two tiers:
+// 1. each CLI is resolved on known folders (the server's own node folder, then its PATH, then ~/.local/bin and
+//    ~/.claude/local) and its `--version` and sign-in are run directly, in parallel, each with its own budget;
+// 2. only a CLI that tier 1 did not settle (not found, does not start, sign-in not read) asks the owner's login shell, the
+//    environment a terminal tab gets (`$SHELL -l -i`), once, with a longer budget.
+// Why both: under launchd (P67) the login shell (conda, nvm, brew in the profile) did not answer in 15 s, measured
+// 2026-11-19, so both CLIs read `unknown`; tier 1 needs no shell. The non-login PATH can name another binary (measured
+// 2026-11-19: a broken `codex` under nvm v22.11.0, a working one under v22.22.0): a binary that does not start is never
+// the answer of tier 1, it falls through to the login shell. Read only: `--version`, `claude auth status`, `codex login status`.
 
 /** What a fact carries; the path stays on the server (the wire shape, `cliFactDto`, has none). */
 export interface CliFact extends CliFactDto { path: string | null }
@@ -109,21 +116,90 @@ export interface DetectOptions {
   /** The owner's login shell (`$SHELL`, default `/bin/zsh`): what a terminal tab spawns. */
   shell?: string;
   env?: NodeJS.ProcessEnv;
+  /** Every spawn (the direct probes and the login shell) goes through it, so a test starts nothing. */
   run?: DetectRun;
-  /** A hung login shell answers `unknown` after this (default 15 s). */
+  /** A hung login shell answers `unknown` after this (default 45 s: it runs in the background, never on a request). */
   timeoutMs?: number;
+  /** One direct probe (`--version`, the sign-in) is cut after this (default 10 s). */
+  probeMs?: number;
+  /** Folders searched before `env.PATH` (the server passes the folder of its own node, where `npm i -g` puts both CLIs). */
+  dirs?: readonly string[];
+  /** Resolves a CLI to an executable path, or null. Default: `dirs`, then `env.PATH`, then ~/.local/bin and ~/.claude/local. */
+  locate?: (cli: AgentCli) => string | null;
 }
 
-/** Claude Code and Codex, in that order: one login-shell spawn, about 5 s on the owner's Mac (nvm in `.zshrc`). */
-export async function detectClis(o: DetectOptions = {}): Promise<CliFact[]> {
-  const env = o.env ?? process.env;
+/** The default login-shell budget (P57 said 15 s; under launchd that was too short, measured 2026-11-19). */
+export const LOGIN_SHELL_MS = 45_000;
+
+const executable = (file: string): boolean => {
+  try {
+    accessSync(file, constants.X_OK);
+    return statSync(file).isFile();
+  } catch {
+    return false;
+  }
+};
+
+/** The folders tier 1 searches, in order, without repeats; relative or empty PATH entries are skipped. */
+export function searchDirs(env: NodeJS.ProcessEnv, dirs: readonly string[] = []): string[] {
+  const home = env.HOME?.trim();
+  const all = [...dirs, ...(env.PATH ?? "").split(":"), ...(home ? [path.join(home, ".local", "bin"), path.join(home, ".claude", "local")] : [])];
+  return [...new Set(all.filter((d) => d && path.isAbsolute(d)))];
+}
+
+const locateIn = (dirs: readonly string[]) => (cli: AgentCli): string | null => dirs.map((d) => path.join(d, cli)).find(executable) ?? null;
+
+const AUTH_ARGS: Record<AgentCli, string[]> = { claude: ["auth", "status", "--json"], codex: ["login", "status"] };
+
+/** Tier 1 for one CLI: the fenced map `factOf` reads, filled by direct spawns. A cut sign-in is left out (`factOf`: not read). */
+async function directProbe(cli: AgentCli, file: string, env: NodeJS.ProcessEnv, run: DetectRun): Promise<Map<string, ProbeOut>> {
+  // `#!/usr/bin/env node`: the CLI's own folder first, so its sibling node starts it.
+  const withDir = { ...env, PATH: [path.dirname(file), env.PATH ?? ""].filter(Boolean).join(":") };
+  const safe = (args: string[]) => run(file, args, withDir).catch((e: Error) => ({ code: 127, stdout: "", stderr: e.message }));
+  const [v, a] = await Promise.all([safe(["--version"]), safe(AUTH_ARGS[cli])]);
+  const found = new Map<string, ProbeOut>([[`${cli}.path`, { out: file, code: 0 }], [`${cli}.version`, { out: `${v.stdout}\n${v.stderr}`.trim(), code: v.code }]]);
+  // Claude's sign-in is JSON on stdout (a stderr line after it would break the parse); Codex says it on stderr.
+  if (a.code !== 124 && a.code !== 127) found.set(`${cli}.auth`, { out: cli === "claude" ? a.stdout.trim() || a.stderr.trim() : `${a.stdout}\n${a.stderr}`.trim(), code: a.code });
+  return found;
+}
+
+/** A fact tier 1 can stand on: the binary started and its sign-in was read. */
+const settled = (f: CliFact): boolean => f.state === "ready" || f.state === "signed-out";
+
+/** The login shell's facts (tier 2). */
+async function loginFacts(o: DetectOptions, env: NodeJS.ProcessEnv): Promise<CliFact[]> {
   const shell = o.shell ?? (env.SHELL?.trim() || "/bin/zsh");
-  const ms = o.timeoutMs ?? 15_000;
+  const ms = o.timeoutMs ?? LOGIN_SHELL_MS;
   const r = await (o.run ?? shellRun(ms))(shell, ["-l", "-i", "-c", DETECT_SCRIPT], env).catch((e: Error) => ({ code: 127, stdout: "", stderr: e.message }));
   if (r.code === 124) return unknownFacts(`the login shell did not answer in ${Math.round(ms / 1000)} s`);
   const found = parseDetect(r.stdout);
   if (!found.size) return unknownFacts(`the login shell (${shell}) printed no answer${r.stderr ? `: ${firstLine(r.stderr)}` : ""}`);
   return CLIS.map((cli) => factOf(cli, found));
+}
+
+/**
+ * Claude Code and Codex, in that order. Tier 1 (direct, about 2 s) answers when both are settled; otherwise the login shell
+ * runs once and answers for the rest. A login answer that is `unknown` never replaces a tier-1 fact that found the binary.
+ */
+export async function detectClis(o: DetectOptions = {}): Promise<CliFact[]> {
+  const env = o.env ?? process.env;
+  const locate = o.locate ?? locateIn(searchDirs(env, o.dirs));
+  const run = o.run ?? shellRun(o.probeMs ?? 10_000);
+  const direct = await Promise.all(
+    CLIS.map(async (cli): Promise<CliFact | null> => {
+      const file = locate(cli);
+      return file ? factOf(cli, await directProbe(cli, file, env, run)) : null;
+    }),
+  );
+  if (direct.every((f) => f !== null && settled(f))) return direct as CliFact[];
+  const login = await loginFacts(o, env);
+  return CLIS.map((_cli, i) => {
+    const d = direct[i] ?? null;
+    if (d && settled(d)) return d;
+    const l = login[i] as CliFact;
+    if (l.state !== "unknown") return l;
+    return d && d.path && d.version ? d : l;
+  });
 }
 
 /** `HUB_TERMINAL_SHELL=fake` / `HUB_AGENT_TOOLS=fake` (e2e, refused without HUB_DB): both CLIs ready at the measured versions. */

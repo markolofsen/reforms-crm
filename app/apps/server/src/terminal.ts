@@ -54,9 +54,14 @@ export function resumedLine(s: LoggedSession, cli: "claude" | "codex"): string {
 }
 
 /** The detector the server shares between the terminal and Agent tools: fixed ready facts with a fake shell or fake Agent tools. */
-export function serverDetector(o: { env: NodeJS.ProcessEnv; fake: boolean }): CliDetector {
-  return cliDetector({ detect: o.fake ? async () => fakeFacts(MEASURED_VERSIONS) : () => detectClis({ env: o.env }) });
+/** The folder of this server's own node is searched first: the plist pins it (P67), and `npm i -g` puts both CLIs there. */
+export function serverDetector(o: { env: NodeJS.ProcessEnv; fake: boolean; nodeBin?: string }): CliDetector {
+  const dirs = [path.dirname(o.nodeBin ?? process.execPath)];
+  return cliDetector({ detect: o.fake ? async () => fakeFacts(MEASURED_VERSIONS) : () => detectClis({ env: o.env, dirs }) });
 }
+
+/** How long `ensure` waits for a detection before it picks from the last answer (or the config order): a request never waits on a login shell. */
+export const ENSURE_DETECT_MS = 8_000;
 
 /** The wire half of a fact: no path. */
 const wireFact = ({ cli, state, version, detail, fix }: CliFactDto): CliFactDto => ({ cli, state, version, detail, fix });
@@ -149,6 +154,18 @@ export function createTerminal(o: TerminalOptions) {
     }
   }
 
+  /** The detection if it lands within `ms`, else the last answer (null before the first: `pickPreset` then keeps the config order). */
+  const factsWithin = async (ms: number) => {
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), ms); timer.unref?.(); });
+    try {
+      const d = await Promise.race([detector.get(), late]);
+      return (d ?? detector.peek())?.facts ?? null;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
   /** One `ensure` per project at a time: two admin tabs opening the column at once get the same session (P57 2d). */
   const ensuring = new Map<string, Promise<{ session: TerminalSessionDto; created: boolean; why: string | null }>>();
   function ensure(project: string | undefined, theme?: "light" | "dark") {
@@ -161,7 +178,7 @@ export function createTerminal(o: TerminalOptions) {
       const running = manager?.list().find((s) => s.state === "running" && s.project === slug);
       if (running) return { session: running, created: false, why: null };
       refuseIfProblem();
-      const { facts } = await detector.get();
+      const facts = await factsWithin(ENSURE_DETECT_MS);
       const pick = pickPreset(facts, features().agent.default, !!slug);
       const choice: ResumeChoice = pick.preset !== "shell" && slug ? lastSession(slug, pick.preset) : { session: null, why: null };
       const said = choice.session ? resumedLine(choice.session, pick.preset as "claude" | "codex") : choice.why ? `Not resumed: ${choice.why}. A fresh session.` : null;
@@ -189,6 +206,9 @@ export function createTerminal(o: TerminalOptions) {
   return {
     state: () => {
       const d = detector.peek();
+      // Never waits: a stale or missing answer starts one detection in the background (single flight), so an `unknown`
+      // from a slow start is replaced without a session having to end first.
+      void detector.get();
       return { unattended: features().agent.unattended, presets: presetOrder(features().agent.default, true), sessions: manager?.list() ?? [], clis: (d?.facts ?? []).map(wireFact), checkedAt: d?.at ?? null, problem: currentProblem() };
     },
     /** Why no tab can start, checked now (server start, Agent tools' Refresh); null when a tab can start. */

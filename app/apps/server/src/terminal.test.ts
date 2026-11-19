@@ -275,6 +275,19 @@ describe("ensure (P57): the column starts the best ready CLI itself, at most one
     expect(typeof s.checkedAt).toBe("string");
     expect(detects).toBe(1);
   });
+  it("a stale unknown is replaced by the next GET in the background, without a session ending (measured 2026-11-19 under launchd)", async () => {
+    let t = 0;
+    let answer: CliFact[] = [{ ...fact("claude", "unknown"), version: null }, { ...fact("codex", "unknown"), version: null }];
+    const detector = cliDetector({ detect: async () => answer, now: () => t });
+    const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { SHELL: "/bin/zsh" }, readiness: () => null, detector });
+    await detector.get();
+    answer = [fact("claude", "ready"), fact("codex", "ready")];
+    expect(terminal.state().clis.map((c) => c.state)).toEqual(["unknown", "unknown"]); // fresh for 60 s: no new run
+    t = 61_000;
+    expect(terminal.state().clis.map((c) => c.state)).toEqual(["unknown", "unknown"]); // never waits: the last answer now
+    await detector.get();
+    expect(terminal.state().clis.map((c) => c.state)).toEqual(["ready", "ready"]);
+  });
 });
 
 describe("HUB_TERMINAL_SHELL", () => {
