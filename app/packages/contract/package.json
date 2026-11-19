@@ -18,7 +18,8 @@
     "./focus": "./src/focus.ts",
     "./agent-feed": "./src/agent-feed.ts",
     "./local": "./src/local.ts",
-    "./autostart": "./src/autostart.ts"
+    "./autostart": "./src/autostart.ts",
+    "./scheme": "./src/scheme.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

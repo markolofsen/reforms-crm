@@ -1,22 +1,54 @@
-import { ROUTE_IDS, ROUTE_TABLE, type NavMeta } from "./table";
+import type { StatusNext } from "@hub/contract/overview";
+import { ROUTE_IDS, ROUTE_TABLE, type NavMeta, type RouteId } from "./table";
 
-type WithNav = Extract<(typeof ROUTE_TABLE)[keyof typeof ROUTE_TABLE], { nav: NavMeta }>;
-export type SectionId = WithNav["section"];
+type AnyRow = (typeof ROUTE_TABLE)[RouteId];
+type WithNav = Extract<AnyRow, { nav: NavMeta }>;
+type ParentRow = Exclude<WithNav, { nav: { parent: string } }>;
+export type SectionId = ParentRow["section"];
 export type IconKey = WithNav["nav"]["icon"];
+/** The routes drawn under a parent (P63 N1): Project's Knowledge and Setup. */
+export type ChildRouteId = { [K in RouteId]: (typeof ROUTE_TABLE)[K] extends { nav: { parent: string } } ? K : never }[RouteId];
 
 /** One top-level screen as the shell reads it: derived from the `nav` metadata of the route table, never declared twice. */
-export type Section = { readonly id: SectionId; readonly title: string; readonly icon: IconKey; readonly order: number; readonly when: NavMeta["when"]; readonly chord: readonly ["g", string] };
+export type Section = { readonly id: SectionId; readonly route: RouteId; readonly title: string; readonly icon: IconKey; readonly order: number; readonly phone: "bar" | "more"; readonly chord: readonly ["g", string] };
+/** One child page: drawn under its parent's section in the open sidebar and in the sub-nav of the parent's pages. */
+export type Child = { readonly route: ChildRouteId; readonly title: string; readonly icon: IconKey; readonly order: number };
 
-const hasNav = (r: (typeof ROUTE_TABLE)[keyof typeof ROUTE_TABLE]): r is WithNav => "nav" in r;
+const hasNav = (r: AnyRow): r is WithNav => "nav" in r;
+const isParent = (r: WithNav): r is ParentRow => !("parent" in r.nav);
+const isChild = (id: RouteId): id is ChildRouteId => {
+  const r: AnyRow = ROUTE_TABLE[id];
+  return hasNav(r) && !isParent(r);
+};
 
-/** The sections in nav order. The chords are `g` + the row's key (`g d`, `g a`, ...). */
-export const SECTIONS: readonly Section[] = ROUTE_IDS.map((id) => ROUTE_TABLE[id])
-  .filter(hasNav)
-  .map((r) => ({ id: r.section, title: r.nav.label, icon: r.nav.icon, order: r.nav.order, when: r.nav.when, chord: ["g", r.nav.chord] as const }))
-  .sort((a, b) => a.order - b.order);
+/** The sections in nav order: the parent rows. The chords are `g` + the row's key (`g d`, `g a`, ...); `NAV_SHAPE` in `table.ts` makes both present. */
+export const SECTIONS: readonly Section[] = ROUTE_IDS.flatMap((id) => {
+  const r: AnyRow = ROUTE_TABLE[id];
+  if (!hasNav(r) || !isParent(r)) return [];
+  return [{ id: r.section, route: id, title: r.nav.label, icon: r.nav.icon, order: r.nav.order, phone: r.nav.phone, chord: ["g", r.nav.chord] as const }];
+}).sort((a, b) => a.order - b.order);
 
-/** The sections the nav shows: Overview only when the instance has two or more projects (P48). */
-export const navSections = (multi: boolean): readonly Section[] => SECTIONS.filter((s) => s.when === "always" || multi);
+/** A section's child pages in order (empty for a section with none). The landing is the parent row itself, not a child. */
+export function childrenOf(id: SectionId): readonly Child[] {
+  return ROUTE_IDS.filter(isChild)
+    .flatMap((route) => {
+      const r = ROUTE_TABLE[route];
+      return r.section === id ? [{ route, title: r.nav.label, icon: r.nav.icon, order: r.nav.order }] : [];
+    })
+    .sort((a, b) => a.order - b.order);
+}
 
 export const sectionById = (id: SectionId): Section | undefined => SECTIONS.find((s) => s.id === id);
 export const sectionTitle = (id: SectionId): string => sectionById(id)?.title ?? id;
+
+/**
+ * The page each place of `statusDto.next` is fixed on (the server names a place, never a URL). Total over the contract's union,
+ * so a new place fails `tsc` here. A child's dot also lights its parent, and a parent in the phone's More lights More.
+ */
+export const NEXT_ROUTE: Readonly<Record<StatusNext, Exclude<RouteId, "drafts.item">>> = {
+  project: "project.page",
+  knowledge: "project.knowledge",
+  setup: "project.setup",
+  agents: "agents.page",
+  connections: "connections.page",
+};

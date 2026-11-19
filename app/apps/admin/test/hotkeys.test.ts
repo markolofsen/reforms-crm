@@ -130,6 +130,14 @@ describe("the Overview chord", () => {
     expect(SECTIONS.find((s) => s.id === "overview")?.chord).toEqual(["g", "o"]);
     expect(SECTIONS.find((s) => s.id === "connections")?.chord).toEqual(["g", "c"]);
     expect(titleOf(resolveRoute("/connections", ""), "lisbon")).toBe("Connections · Hub Workflow");
+    // P63: Agents (g t) is scoped, Help (g h) is the instance's; a child page is titled by itself and its crumb is under its parent.
+    expect(SECTIONS.find((s) => s.id === "agents")?.chord).toEqual(["g", "t"]);
+    expect(SECTIONS.find((s) => s.id === "help")?.chord).toEqual(["g", "h"]);
+    expect(titleOf(resolveRoute("/agents", ""), "lisbon")).toBe("Agents · lisbon · Hub Workflow");
+    expect(titleOf(resolveRoute("/help", ""), "lisbon")).toBe("Help · Hub Workflow");
+    expect(titleOf(resolveRoute("/lisbon/project/setup", ""), "lisbon")).toBe(pageTitle("project.setup", "lisbon"));
+    expect(pageTitle("project.knowledge", "lisbon")).toBe("Knowledge · lisbon · Hub Workflow");
+    expect(crumbsOf(resolveRoute("/project/setup", ""))).toEqual(["Project", "Setup"]);
   });
 });
 

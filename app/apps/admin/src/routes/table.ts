@@ -5,8 +5,22 @@ import type { Route } from "next";
 type Fill<P extends string> = P extends `${infer A}[${string}]${infer B}` ? `${A}${number}${Fill<B>}` : P;
 type Checked<P extends string> = Fill<P> extends Route<Fill<P>> ? P : never;
 
-/** What the shell reads of a section: its nav entry. `when: "multi"` shows it only with two or more projects (Overview). */
-export type NavMeta = { readonly label: string; readonly icon: string; readonly order: number; readonly chord: string; readonly when: "always" | "multi" };
+/**
+ * What the shell reads of a page in the nav (P63 N1). A parent row (no `parent`) is a section: it has its `g` chord and its place
+ * on the phone, the tab bar or the More menu. A child row names its parent's route: it is drawn under the parent in the open
+ * sidebar while the parent is active, and in the sub-nav of the parent's pages on every width; never on the rail or the phone bar.
+ * Every row is on every instance: with Overview everywhere no row is for several projects only.
+ */
+export type NavMeta = {
+  readonly label: string;
+  readonly icon: string;
+  readonly order: number;
+  /** Parents: required (the check below). Children: none in v1. */
+  readonly chord?: string;
+  readonly parent?: string;
+  /** Parents: the phone tab bar or its More menu. */
+  readonly phone?: "bar" | "more";
+};
 export type RouteMeta = {
   readonly section: string;
   /** True: the address names a project when the instance has two or more (`/<project>/drafts`), never a query. */
@@ -35,12 +49,16 @@ export function defineRoute<const P extends string, const M extends RouteMeta>(p
  * twin page under `src/app/(shell)/[project]/` (checked below and by `test/route-files.test.ts`). No imports but a type.
  */
 export const ROUTE_TABLE = {
-  "overview.page": defineRoute("/overview", { section: "overview", scoped: false, title: "Overview", nav: { label: "Overview", icon: "overview", order: 0, chord: "o", when: "multi" } }),
-  "drafts.list": defineRoute("/drafts", { section: "drafts", scoped: true, title: "Drafts", nav: { label: "Drafts", icon: "inbox", order: 1, chord: "d", when: "always" } }),
+  "overview.page": defineRoute("/overview", { section: "overview", scoped: false, title: "Overview", nav: { label: "Overview", icon: "overview", order: 0, chord: "o", phone: "bar" } }),
+  "drafts.list": defineRoute("/drafts", { section: "drafts", scoped: true, title: "Drafts", nav: { label: "Drafts", icon: "inbox", order: 1, chord: "d", phone: "bar" } }),
   "drafts.item": defineRoute("/drafts/[id]", { section: "drafts", scoped: true, title: "Drafts", crumb: "Draft" }),
-  "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", nav: { label: "Activity", icon: "activity", order: 2, chord: "a", when: "always" } }),
-  "project.page": defineRoute("/project", { section: "project", scoped: true, title: "Project", nav: { label: "Project", icon: "settings", order: 3, chord: "p", when: "always" } }),
-  "connections.page": defineRoute("/connections", { section: "connections", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 4, chord: "c", when: "always" } }),
+  "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", nav: { label: "Activity", icon: "activity", order: 2, chord: "a", phone: "bar" } }),
+  "project.page": defineRoute("/project", { section: "project", scoped: true, title: "Project", nav: { label: "Project", icon: "settings", order: 3, chord: "p", phone: "bar" } }),
+  "project.knowledge": defineRoute("/project/knowledge", { section: "project", scoped: true, title: "Knowledge", nav: { label: "Knowledge", icon: "knowledge", order: 1, parent: "project.page" } }),
+  "project.setup": defineRoute("/project/setup", { section: "project", scoped: true, title: "Setup", nav: { label: "Setup", icon: "setup", order: 2, parent: "project.page" } }),
+  "agents.page": defineRoute("/agents", { section: "agents", scoped: true, title: "Agents", nav: { label: "Agents", icon: "agents", order: 4, chord: "t", phone: "more" } }),
+  "connections.page": defineRoute("/connections", { section: "connections", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 5, chord: "c", phone: "more" } }),
+  "help.page": defineRoute("/help", { section: "help", scoped: false, title: "Help", nav: { label: "Help", icon: "help", order: 6, chord: "h", phone: "more" } }),
 } as const;
 
 export type RouteId = keyof typeof ROUTE_TABLE;
@@ -54,7 +72,40 @@ export const TWINS: { readonly [K in RouteId]: [Twin<(typeof ROUTE_TABLE)[K]>] e
   "drafts.item": true,
   "log.list": true,
   "project.page": true,
+  "project.knowledge": true,
+  "project.setup": true,
+  "agents.page": true,
   "connections.page": true,
+  "help.page": true,
+};
+
+// A nav row is a parent (a chord and a phone place, no `parent`) or a child (a `parent` that is a parent row of the same scope,
+// no chord, no phone place); anything else makes the property `never`, and `true` fails `tsc`.
+type Parent<R> = R extends { nav: { parent: string } } ? never : R extends { nav: { chord: string; phone: string } } ? R : never;
+export type NavCheck<R> = R extends { nav: infer N }
+  ? N extends { parent: infer P }
+    ? P extends RouteId
+      ? [Parent<(typeof ROUTE_TABLE)[P]>] extends [never]
+        ? never
+        : N extends { chord: string } | { phone: string }
+          ? never
+          : R extends { scoped: (typeof ROUTE_TABLE)[P]["scoped"] }
+            ? true
+            : never
+      : never
+    : [Parent<R>] extends [never] ? never : true
+  : true;
+export const NAV_SHAPE: { readonly [K in RouteId]: NavCheck<(typeof ROUTE_TABLE)[K]> } = {
+  "overview.page": true,
+  "drafts.list": true,
+  "drafts.item": true,
+  "log.list": true,
+  "project.page": true,
+  "project.knowledge": true,
+  "project.setup": true,
+  "agents.page": true,
+  "connections.page": true,
+  "help.page": true,
 };
 
 const ID = String.raw`[1-9]\d*`;
@@ -76,9 +127,12 @@ export const PROJECTLESS: ReadonlySet<RouteId> = new Set(ROUTE_IDS.filter((id) =
 /** The first path segments that are sections, not projects: a project with one of these names cannot be addressed by path. */
 export const RESERVED_SEGMENTS: ReadonlySet<string> = new Set([...rows.map((r) => r.path.split("/")[1] ?? ""), "health", "api"]);
 
-/** The list route of a section: its row with `nav`. */
+/** The list route of a section: its parent row (with `nav` and no `parent`). */
 export function listRouteOf(section: string): RouteId {
-  const id = ROUTE_IDS.find((k) => ROUTE_TABLE[k].section === section && "nav" in ROUTE_TABLE[k]);
+  const id = ROUTE_IDS.find((k) => {
+    const r: Row = ROUTE_TABLE[k];
+    return r.section === section && "nav" in r && !("parent" in r.nav);
+  });
   if (!id) throw new Error(`no route for section ${section}`);
   return id;
 }

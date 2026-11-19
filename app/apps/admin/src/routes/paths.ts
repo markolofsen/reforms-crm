@@ -29,6 +29,8 @@ type DraftsArgs = { filter?: DraftView; q?: string; batch?: number | null };
 export const paths = {
   overview: () => dest("overview.page", route("/overview")),
   connections: { page: () => dest("connections.page", route("/connections")) },
+  agents: { page: () => dest("agents.page", route("/agents")) },
+  help: { page: () => dest("help.page", route("/help")) },
   drafts: {
     list: (s: DraftsArgs = {}) => dest("drafts.list", route("/drafts"), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
     item: (id: number, s: DraftsArgs = {}) => dest("drafts.item", route(`/drafts/${id}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
@@ -38,6 +40,8 @@ export const paths = {
   },
   project: {
     page: () => dest("project.page", route("/project")),
+    knowledge: () => dest("project.knowledge", route("/project/knowledge")),
+    setup: () => dest("project.setup", route("/project/setup")),
   },
   /**
    * `/health` (P68: the core version line links there). It has no row in `ROUTE_TABLE` on purpose: it sits outside the shell and
@@ -50,6 +54,11 @@ export const paths = {
 export function sectionList(id: SectionId): Dest {
   const r = listRouteOf(id);
   return dest(r, ROUTE_TABLE[r].path);
+}
+
+/** The bare destination of a route with no parameter (a nav item, a child page of the sub-nav, the page a dot names). */
+export function routeDest(id: Exclude<RouteId, "drafts.item">): Dest {
+  return dest(id, ROUTE_TABLE[id].path);
 }
 
 /** The address text of a destination: `/drafts/42?filter=hold` with one project, `/lisbon/drafts/42?filter=hold` with several. */

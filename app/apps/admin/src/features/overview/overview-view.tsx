@@ -1,16 +1,20 @@
 import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
+import { usePlace } from "@/hooks/use-project";
 import { useClock } from "@/lib/clock";
 import { useOverview } from "@/lib/status";
 import { ordered } from "./labels";
 import { ProjectList, ProjectTable } from "./project-rows";
+import { SchemeBlock } from "./scheme";
 
 /**
- * Every project at a glance, for an instance with two or more: one sentence that counts the projects that need the owner,
- * then one row per project leading into its Drafts. Reads `GET /api/overview` (local facts only, refetched every minute);
- * nothing here reads Mail or Notion, so there is nothing to refresh by hand.
+ * How the whole Hub stands, on every instance (P63). With two or more projects first one sentence that counts the projects
+ * that need the owner and one row per project leading into its Drafts (list first); with one project neither (they would repeat
+ * Project's status line). Then the parts table. Reads `GET /api/overview` and `GET /api/scheme` (local state only); nothing here
+ * reads Notion or runs a check, so there is nothing to refresh by hand: Agents and Connections hold Refresh and Test.
  */
 export function OverviewView() {
   const now = useClock()();
+  const { multi } = usePlace();
   const q = useOverview();
   const data = q.data;
   if (q.isPending) return <ListSkeleton label="Loading the overview" rows={2} />;
@@ -19,12 +23,17 @@ export function OverviewView() {
   const rows = ordered(data.projects);
   return (
     <>
-      <p className="font-medium text-base" data-testid="overview-sentence" role="status">
-        {data.sentence}
-      </p>
-      <ProjectTable now={now} rows={rows} />
-      <ProjectList now={now} rows={rows} />
+      {multi && (
+        <>
+          <p className="font-medium text-base" data-testid="overview-sentence" role="status">
+            {data.sentence}
+          </p>
+          <ProjectTable now={now} rows={rows} />
+          <ProjectList now={now} rows={rows} />
+        </>
+      )}
       {q.isError && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
+      <SchemeBlock multi={multi} />
     </>
   );
 }

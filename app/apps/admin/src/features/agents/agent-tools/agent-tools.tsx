@@ -6,14 +6,12 @@ import { useState } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
 import { LoadFailed } from "@/components/state-views";
-import { useProjectScope } from "@/hooks/use-project";
 import { connectionsApi } from "@/lib/api/connections";
 import { sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
 import { copyText } from "@/lib/external";
 import { ago } from "@/lib/format";
 import { useAgentTools } from "@/lib/status";
-import { ConnectionGroup } from "../group";
 import { CLI_TITLE, columns, toolsSentence } from "./labels";
 import { ToolTable } from "./tool-table";
 import { keys } from "@/lib/cache/keys";
@@ -21,11 +19,12 @@ import { keys } from "@/lib/cache/keys";
 type Say = { text: string; kind: "status" | "alert" } | null;
 
 /**
- * One project's Agent tools: whether a hub session of Claude Code and of Codex has what it needs (P49 section 5B), as the
- * server last checked it, one table per CLI. Read-only but for Refresh (the checks run again, about 10 s) and the copy of a
- * red row's fix line. One status line says where it stands; one live region says what Refresh and Copy did.
+ * One project's Agent tools, the body of the Agents page (P63 N2; on Connections until then): whether a hub session of Claude
+ * Code and of Codex has what it needs (P49 section 5B: the CLIs, P57, the MCP rows, Send tools off, the skills), as the server
+ * last checked it, one table per CLI. Read-only but for Refresh (the checks run again, about 10 s) and the copy of a red row's
+ * fix line. One status line says where it stands; one live region says what Refresh and Copy did.
  */
-function ProjectTools({ slug, multi }: { slug: string; multi: boolean }) {
+export function AgentTools({ slug }: { slug: string }) {
   const qc = useQueryClient();
   const now = useClock()();
   const q = useAgentTools(slug);
@@ -35,6 +34,8 @@ function ProjectTools({ slug, multi }: { slug: string; multi: boolean }) {
     onMutate: () => setSay({ text: "Checking the agent tools...", kind: "status" }),
     onSuccess: (d) => {
       qc.setQueryData(keys.agentTools(slug), d);
+      // Overview's parts read the same cache on the server (P63 O1): the refresh bumps no live topic, so this tab reads them again.
+      void qc.invalidateQueries({ queryKey: keys.scheme() });
       setSay({ text: "Checked again.", kind: "status" });
     },
     onError: (e) => setSay({ text: `Could not check again: ${sentence(e)}`, kind: "alert" }),
@@ -43,7 +44,10 @@ function ProjectTools({ slug, multi }: { slug: string; multi: boolean }) {
   const d = q.data;
   const id = `agent-tools-${slug}`;
   return (
-    <ConnectionGroup id={id} title={multi ? `Agent tools · ${slug}` : "Agent tools"}>
+    <section aria-labelledby={`${id}-title`} className="flex flex-col gap-1">
+      <h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide" id={`${id}-title`}>
+        Agent tools
+      </h3>
       {q.isPending ? (
         <Skeleton aria-label="Loading the agent tools" className="h-24 w-full rounded-xl" role="status" />
       ) : !d ? (
@@ -73,12 +77,6 @@ function ProjectTools({ slug, multi }: { slug: string; multi: boolean }) {
           {say?.kind === "alert" ? say.text : ""}
         </p>
       </div>
-    </ConnectionGroup>
+    </section>
   );
-}
-
-/** The Agent tools block of Connections: one per project of the instance (an agent session is always bound to one). */
-export function AgentTools() {
-  const { projects } = useProjectScope();
-  return projects.map((slug) => <ProjectTools key={slug} multi={projects.length > 1} slug={slug} />);
 }

@@ -8,7 +8,7 @@ import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } fro
 import { Switch } from "@hub/ui/switch";
 import { refreshData, sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
-import { FactLine } from "./fact-line";
+import { FactLine } from "../fact-line";
 import { keys } from "@/lib/cache/keys";
 
 type Patch = { enabled?: boolean; params?: { words?: string[]; days?: number } };

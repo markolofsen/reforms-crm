@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { STATUS_LEVELS, type ProjectRowDto, type StatusDto } from "@hub/contract/overview";
-import { LEVEL, needsYou, nextDest, ordered, statusWord, triageText } from "../src/features/overview/labels";
+import { SCHEME_STATES } from "@hub/contract/scheme";
+import { LEVEL, needsYou, nextDest, ordered, SCHEME_LOOK, statusWord, triageText } from "../src/features/overview/labels";
 import { formatDest, paths } from "../src/routes/paths";
 
 const status = (over: Partial<StatusDto> = {}): StatusDto => ({ level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "project", numbers: { owed: 1, lastTriageAt: null }, ...over });
@@ -11,6 +12,11 @@ const multi = { project: "alpha", multi: true };
 describe("overview labels", () => {
   it("every status level has a word and an icon (the map is total)", () => {
     expect(Object.keys(LEVEL).sort()).toEqual([...STATUS_LEVELS].sort());
+  });
+
+  it("every part state has a word and an icon, never a colour alone (P63)", () => {
+    expect(Object.keys(SCHEME_LOOK).sort()).toEqual([...SCHEME_STATES].sort());
+    expect(SCHEME_LOOK.unknown.word).toBe("Not checked here");
   });
 
   it("Needs you is the worst fact, or a dash when the project is clear", () => {
@@ -24,6 +30,10 @@ describe("overview labels", () => {
     expect(project && formatDest(project, multi)).toBe("/alpha/project");
     const connections = nextDest(status({ next: "connections" }));
     expect(connections && formatDest(connections, multi)).toBe("/connections");
+    const setup = nextDest(status({ next: "setup" }));
+    expect(setup && formatDest(setup, multi)).toBe("/alpha/project/setup");
+    const agents = nextDest(status({ next: "agents" }));
+    expect(agents && formatDest(agents, multi)).toBe("/alpha/agents");
     expect(nextDest(status({ next: null }))).toBeNull();
     expect(nextDest(status({ level: "clear", next: "project" }))).toBeNull();
   });

@@ -3,7 +3,7 @@ import type { DoctorDto } from "@hub/contract/responses";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { sendApi } from "@/lib/api/send";
-import { FactLine } from "./fact-line";
+import { FactLine } from "../fact-line";
 import { keys } from "@/lib/cache/keys";
 
 const OUTCOME = { pass: { label: "Pass", variant: "success" }, warn: { label: "To answer", variant: "warning" }, fail: { label: "Fail", variant: "error" }, skipped: { label: "Skipped", variant: "secondary" } } as const;

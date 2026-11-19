@@ -15,6 +15,10 @@ describe("the Drafts status line (P48 W3)", () => {
   });
   it("leads to Connections when that is where the fact is fixed", () => {
     expect(lineOf(status({ level: "attention", next: "connections" }), NOW, ok).to?.route).toBe("connections.page");
+    // P63: a fact fixed on a child page links there (Setup, Knowledge), and Agent tools' place is Agents.
+    expect(lineOf(status({ level: "attention", next: "setup" }), NOW, ok).to?.route).toBe("project.setup");
+    expect(lineOf(status({ level: "attention", next: "knowledge" }), NOW, ok).to?.route).toBe("project.knowledge");
+    expect(lineOf(status({ level: "attention", next: "agents" }), NOW, ok).to?.route).toBe("agents.page");
   });
   it("what only the page knows outranks the server's sentence: not answering, or a version mismatch", () => {
     expect(lineOf(status(), NOW, { ...ok, stale: true })).toMatchObject({ level: "blocked", sentence: "Server not answering: data may be old" });

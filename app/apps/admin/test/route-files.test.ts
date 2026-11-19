@@ -35,8 +35,8 @@ describe("the file tree and the route table", () => {
   });
 
   it("the patterns derived from the table accept the pages in both shapes and nothing else", () => {
-    for (const ok of ["/", "/overview", "/connections", "/drafts", "/drafts?filter=hold", "/drafts/42?filter=hold&batch=3", "/log?run=2", "/project", "/lisbon/drafts", "/lisbon/drafts/42?filter=hold", "/demo%20shop/log", "/lisbon/project"]) expect(routeOf(ok), ok).toBe(ok);
-    for (const bad of ["/bulk", "/bulk/3", "/nope", "/drafts/abc", "/drafts/0", "/drafts/1/2", "//evil.test", "/api/pulse", "https://evil.test/drafts", "/lisbon/overview", "/lisbon", "/a/b/drafts"]) expect(routeOf(bad), bad).toBeNull();
-    expect([...PROJECTLESS].sort()).toEqual(["connections.page", "overview.page"]);
+    for (const ok of ["/", "/overview", "/connections", "/drafts", "/drafts?filter=hold", "/drafts/42?filter=hold&batch=3", "/log?run=2", "/project", "/project/knowledge", "/project/setup", "/agents", "/help", "/lisbon/drafts", "/lisbon/drafts/42?filter=hold", "/demo%20shop/log", "/lisbon/project", "/lisbon/project/setup", "/lisbon/agents"]) expect(routeOf(ok), ok).toBe(ok);
+    for (const bad of ["/bulk", "/bulk/3", "/nope", "/drafts/abc", "/drafts/0", "/drafts/1/2", "//evil.test", "/api/pulse", "https://evil.test/drafts", "/lisbon/overview", "/lisbon/help", "/lisbon", "/a/b/drafts", "/project/nope"]) expect(routeOf(bad), bad).toBeNull();
+    expect([...PROJECTLESS].sort()).toEqual(["connections.page", "help.page", "overview.page"]);
   });
 });

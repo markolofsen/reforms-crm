@@ -1,7 +1,9 @@
-import { AlertTriangleIcon, CheckCircle2Icon, OctagonAlertIcon, type LucideIcon } from "lucide-react";
-import type { ProjectRowDto, StatusDto, StatusLevel } from "@hub/contract/overview";
+import { AlertTriangleIcon, CheckCircle2Icon, CircleHelpIcon, CircleXIcon, OctagonAlertIcon, type LucideIcon } from "lucide-react";
+import type { ProjectRowDto, StatusDto, StatusLevel, StatusNext } from "@hub/contract/overview";
+import type { SchemeState } from "@hub/contract/scheme";
 import { ago } from "@/lib/format";
-import { paths, type Dest } from "@/routes/paths";
+import { routeDest, type Dest } from "@/routes/paths";
+import { NEXT_ROUTE } from "@/routes/sections";
 
 type Look = { word: string; Icon: LucideIcon; tone: string };
 
@@ -21,11 +23,22 @@ export const triageText = (iso: string | null, now: number): string => (iso ? ag
 /** The project's own status word; an archived project says so whatever its file says. */
 export const statusWord = (p: ProjectRowDto): string => (p.archived ? "archived" : p.projectStatus);
 
+/** The page a place names (`statusDto.next`, a part's `place`): total over the contract's places through `NEXT_ROUTE`. */
+export const placeDest = (place: StatusNext): Dest => routeDest(NEXT_ROUTE[place]);
+
 /** Where the worst fact is fixed (the server names the place, never a URL), or null when the project is clear or the fix is the list itself. */
 export function nextDest(s: StatusDto): Dest | null {
   if (s.level === "clear" || s.next === null) return null;
-  return s.next === "project" ? paths.project.page() : paths.connections.page();
+  return placeDest(s.next);
 }
+
+/** A part's standing as a word and an icon (P63 plan 4c), never a colour alone. Total over the contract's states. */
+export const SCHEME_LOOK: Record<SchemeState, Look> = {
+  fail: { word: "Broken", Icon: CircleXIcon, tone: "text-destructive-foreground" },
+  warn: { word: "Needs a look", Icon: AlertTriangleIcon, tone: "text-warning-foreground" },
+  unknown: { word: "Not checked here", Icon: CircleHelpIcon, tone: "text-muted-foreground" },
+  ok: { word: "Works", Icon: CheckCircle2Icon, tone: "text-success-foreground" },
+};
 
 /** The rows in the server's order, archived projects last. */
 export const ordered = (rows: readonly ProjectRowDto[]): ProjectRowDto[] => [...rows.filter((p) => !p.archived), ...rows.filter((p) => p.archived)];

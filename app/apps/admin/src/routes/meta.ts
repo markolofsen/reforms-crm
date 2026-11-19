@@ -10,20 +10,21 @@ const metaOf = (id: RouteId): { title: string; crumb: string | null } => {
   return { title: row.title, crumb: "crumb" in row ? row.crumb : null };
 };
 
-/** The breadcrumb of a route, outermost first: `["Drafts", "Draft 42"]`. Empty for Not found. */
+/** The breadcrumb of a route, outermost first: `["Drafts", "Draft 42"]`, `["Project", "Setup"]` for a child page. Empty for Not found. */
 export function crumbsOf(r: Resolved): string[] {
-  if (r.section === null) return [];
+  if (r.route === "notFound") return [];
   const crumbs = [sectionTitle(r.section)];
+  const row = ROUTE_TABLE[r.route];
+  if ("nav" in row && "parent" in row.nav) crumbs.push(row.title);
   const crumb = metaOf(r.route).crumb;
   if (crumb && "id" in r.params) crumbs.push(`${crumb} ${r.params.id}`);
   return crumbs;
 }
 
-/** `Draft 42 · Drafts · lisbon · Hub Workflow`. Overview and Connections are about the instance, so their titles name no project. */
+/** `Draft 42 · Drafts · lisbon · Hub Workflow`, `Setup · lisbon · Hub Workflow`. The projectless pages name no project. */
 export function titleOf(r: Resolved, project: string | null): string {
-  if (r.section === null) return `Not found · ${APP}`;
-  const [section = "", item] = crumbsOf(r);
-  return [item, section, r.section === "overview" || r.section === "connections" ? null : project, APP].filter(Boolean).join(" · ");
+  if (r.route === "notFound") return `Not found · ${APP}`;
+  return pageTitle(r.route, project, "id" in r.params ? r.params.id : undefined);
 }
 
 /** The title a page file gives its metadata: `routeId` and the id and project of its own address (a page knows both). */

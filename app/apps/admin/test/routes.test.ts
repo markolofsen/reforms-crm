@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { canonicalAddress, pickProject, REDIRECTS } from "../src/routes/guards";
 import { formatDest, paths, sectionList, type Dest, type Place } from "../src/routes/paths";
 import { formatQuery, parseQuery, positiveInt } from "../src/routes/search";
-import { navSections, SECTIONS } from "../src/routes/sections";
+import { childrenOf, NEXT_ROUTE, SECTIONS } from "../src/routes/sections";
+import { STATUS_NEXT } from "@hub/contract/overview";
 import { destOf, resolveRoute, type Resolved } from "../src/routes/resolve";
 
 const ONE: Place = { project: "lisbon", multi: false };
@@ -26,6 +27,10 @@ describe("resolveRoute", () => {
     expect(at("/lisbon/log?filter=failed&run=7")).toMatchObject({ route: "log.list", project: "lisbon", search: { filter: "failed", run: 7 } });
     expect(at("/project")).toMatchObject({ route: "project.page", project: null, inPath: false });
     expect(at("/demo%20shop/project")).toMatchObject({ route: "project.page", project: "demo shop" });
+    expect(at("/project/knowledge")).toMatchObject({ route: "project.knowledge", section: "project", project: null });
+    expect(at("/lisbon/project/setup")).toMatchObject({ route: "project.setup", section: "project", project: "lisbon" });
+    expect(at("/lisbon/agents")).toMatchObject({ route: "agents.page", section: "agents", project: "lisbon" });
+    expect(at("/help")).toMatchObject({ route: "help.page", section: "help", project: null });
   });
 
   it("knows the sections, and the empty address is the entry", () => {
@@ -34,7 +39,7 @@ describe("resolveRoute", () => {
   });
 
   it("an unknown path, the old /clients, a bad id, an extra segment or a project before a projectless section is Not found", () => {
-    for (const p of ["/clients", "/nope", "/drafts/abc", "/drafts/0", "/drafts/-1", "/drafts/1.5", "/bulk", "/bulk/3", "/drafts/1/2", "/log/3", "/project/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/connections", "/lisbon/drafts/1/2", "/%E0%A4%A/drafts"]) {
+    for (const p of ["/clients", "/nope", "/drafts/abc", "/drafts/0", "/drafts/-1", "/drafts/1.5", "/bulk", "/bulk/3", "/drafts/1/2", "/log/3", "/project/x", "/project/knowledge/1", "/agents/x", "/help/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/connections", "/lisbon/help", "/lisbon/drafts/1/2", "/%E0%A4%A/drafts"]) {
       expect(at(p).route, p).toBe("notFound");
     }
     expect(REDIRECTS).toEqual([]);
@@ -63,6 +68,10 @@ describe("paths and places", () => {
     ["drafts search", paths.drafts.list({ q: "ana" }), "/drafts?q=ana", "/lisbon/drafts?q=ana"],
     ["log run", paths.log.list({ filter: "failed", run: 5 }), "/log?filter=failed&run=5", "/lisbon/log?filter=failed&run=5"],
     ["project", paths.project.page(), "/project", "/lisbon/project"],
+    ["project knowledge", paths.project.knowledge(), "/project/knowledge", "/lisbon/project/knowledge"],
+    ["project setup", paths.project.setup(), "/project/setup", "/lisbon/project/setup"],
+    ["agents", paths.agents.page(), "/agents", "/lisbon/agents"],
+    ["help", paths.help.page(), "/help", "/help"],
     ["overview", paths.overview(), "/overview", "/overview"],
     ["connections", paths.connections.page(), "/connections", "/connections"],
   ];
@@ -81,10 +90,22 @@ describe("paths and places", () => {
     expect(roundTrip(paths.drafts.list(), { project: "demo shop", multi: true }).project).toBe("demo shop");
   });
 
-  it("every section has a list destination that resolves to that section; Overview is in the nav only with several projects", () => {
+  it("every section has a list destination that resolves to that section; every instance has every section (P63: Overview too)", () => {
     for (const s of SECTIONS) expect(roundTrip(sectionList(s.id), MANY).section).toBe(s.id);
-    expect(navSections(false).map((s) => s.id)).toEqual(["drafts", "log", "project", "connections"]);
-    expect(navSections(true).map((s) => s.id)).toEqual(["overview", "drafts", "log", "project", "connections"]);
+    expect(SECTIONS.map((s) => s.id)).toEqual(["overview", "drafts", "log", "project", "agents", "connections", "help"]);
+    expect(SECTIONS.map((s) => s.chord[1])).toEqual(["o", "d", "a", "p", "t", "c", "h"]);
+    expect(SECTIONS.filter((s) => s.phone === "bar").map((s) => s.id)).toEqual(["overview", "drafts", "log", "project"]);
+  });
+
+  it("child pages (P63 N1): Project's Knowledge then Setup, in order; no other section has one; `g p` lands on the landing", () => {
+    expect(childrenOf("project").map((c) => c.route)).toEqual(["project.knowledge", "project.setup"]);
+    for (const s of SECTIONS.filter((x) => x.id !== "project")) expect(childrenOf(s.id), s.id).toEqual([]);
+    expect(sectionList("project").route).toBe("project.page");
+  });
+
+  it("every place a dot can name maps to a page that resolves (the map is total over the contract)", () => {
+    expect(Object.keys(NEXT_ROUTE).sort()).toEqual([...STATUS_NEXT].sort());
+    expect(roundTrip(paths.project.setup(), ONE).route).toBe(NEXT_ROUTE.setup);
   });
 });
 
@@ -110,11 +131,14 @@ describe("the guard (canonicalAddress, the one normaliser)", () => {
     expect(pickProject(null, "zzz", list)).toBe("a");
     expect(pickProject(null, null, [])).toBeNull();
   });
-  it("the entry opens Drafts with one project and Overview with several; Overview with one project is Drafts", () => {
+  it("the entry opens Drafts with one project and Overview with several; Overview is a page on every instance (P63)", () => {
     expect(canon("/", ONE)).toBe("/drafts");
     expect(canon("/", MANY)).toBe("/overview");
-    expect(canon("/overview", ONE)).toBe("/drafts");
+    expect(canon("/overview", ONE)).toBeNull();
     expect(canon("/overview", MANY)).toBeNull();
+    expect(canon("/lisbon/project/setup", ONE)).toBe("/project/setup");
+    expect(canon("/agents", MANY)).toBe("/lisbon/agents");
+    expect(canon("/help", MANY)).toBeNull();
   });
   it("one project: no project in the address; several: the project in the path", () => {
     expect(canon("/drafts", ONE)).toBeNull();

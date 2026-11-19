@@ -11,17 +11,16 @@ import { ago, plural } from "@/lib/format";
 import { useLiveState, type LiveState } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
 import { useProjectRow } from "@/lib/status";
-import { paths, type Dest } from "@/routes/paths";
+import { routeDest, type Dest } from "@/routes/paths";
+import { NEXT_ROUTE } from "@/routes/sections";
 
 const LIVE_WORD: Record<Exclude<LiveState, "connecting">, string> = { live: "Live", reconnecting: "Reconnecting, data may be old" };
 
 type Line = { level: StatusLevel; sentence: string; numbers: string[]; to: Dest | null; kind: string };
 
 const DOT: Record<StatusLevel, string> = { clear: "bg-success", attention: "bg-warning", blocked: "bg-destructive" };
-const NEXT: Record<NonNullable<StatusDto["next"]>, { to: () => Dest; label: string }> = {
-  project: { to: () => paths.project.page(), label: "Open Project" },
-  connections: { to: () => paths.connections.page(), label: "Open Connections" },
-};
+/** The page that fixes the fact (P63: the Project landing, Knowledge, Setup, Agents or Connections). */
+const nextDest = (next: NonNullable<StatusDto["next"]>): Dest => routeDest(NEXT_ROUTE[next]);
 
 /** The words of the line: the worst fact once, then the two numbers the list does not show (the to-review count is the View menu's). */
 export function lineOf(s: StatusDto, now: number, shell: { stale: boolean; serverOlder: boolean; serverNewer: boolean }): Line {
@@ -30,7 +29,7 @@ export function lineOf(s: StatusDto, now: number, shell: { stale: boolean; serve
   if (shell.stale) return { level: "blocked", kind: "server-silent", sentence: "Server not answering: data may be old", numbers: [], to: null };
   if (shell.serverOlder) return { level: "attention", kind: "server-older", sentence: "Server older than this page: restart it with hub up", numbers: [], to: null };
   if (shell.serverNewer) return { level: "attention", kind: "server-newer", sentence: "Server newer than this page: reload it", numbers: [], to: null };
-  return { level: s.level, kind: s.kind, sentence: s.sentence, numbers, to: s.next ? NEXT[s.next].to() : null };
+  return { level: s.level, kind: s.kind, sentence: s.sentence, numbers, to: s.next ? nextDest(s.next) : null };
 }
 
 /**

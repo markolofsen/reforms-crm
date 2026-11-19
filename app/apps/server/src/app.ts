@@ -30,7 +30,10 @@ import { createConnections, type ConnectionsOptions } from "./connections";
 import { OFF, type MessengersStatus } from "./messengers";
 import { SENT_OFF, type SentStatus } from "./sent";
 import { createOverview, type OverviewService } from "./overview";
-import { projectsRoot } from "./project-overview";
+import { projectOverview, projectsRoot } from "./project-overview";
+import { projectDoctor } from "./project-doctor";
+import { schemeRoutes } from "./routes/scheme";
+import type { SchemeSources } from "./scheme";
 
 export type AppOptions = {
   messengers?: () => MessengersStatus;
@@ -63,6 +66,8 @@ export type AppOptions = {
   autostart?: AutostartService;
   /** P68: the core update check (`/api/instance/core`); without it both routes are 404. */
   coreUpdates?: CoreUpdatesService;
+  /** Tests: the readers of `GET /api/scheme` (P63); default: the server's own services, read without running a check. */
+  scheme?: Partial<SchemeSources>;
   now?: () => Date;
 };
 
@@ -100,6 +105,20 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
   const connections =
     opts.connections?.service ??
     createConnections({ messengers: opts.messengers ?? (() => OFF), now, ...opts.connections, repos });
+  /** How long the Overview's parts wait for Mail's account list before saying "not checked here" (the read goes on and fills the cache). */
+  const SCHEME_MAIL_MS = 400;
+  const scheme: SchemeSources = {
+    projects: async () => (await repos.projects.registry()).projects.filter((p) => !p.archived).map((p) => p.slug),
+    doctor: (slug) => projectDoctor(repos, slug, projectsDir, process.env, opts.sender?.policyDir),
+    files: (slug) => projectOverview(repos, slug, projectsDir),
+    agentTools: (slug) => opts.agentTools?.peek(slug) ?? null,
+    connections: () => connections.list({ mailWithinMs: SCHEME_MAIL_MS }),
+    health,
+    stopped: (slug) => repos.sends.isStopped(slug),
+    clis: () => opts.agentTools?.clis() ?? null,
+    core: () => opts.coreUpdates?.read() ?? null,
+    ...opts.scheme,
+  };
   return new Hono()
     .onError((err, c) => {
       if (err instanceof RepoError) return c.json({ error: err.message, code: err.code === "not_found" ? ("not_found" as const) : ("wrong_state" as const) }, err.code === "not_found" ? 404 : 409);
@@ -135,6 +154,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", sequenceRoutes(repos, projectsDir, now))
     .route("/", bulkRoutes(repos))
     .route("/", overviewRoutes(overview))
+    .route("/", schemeRoutes(scheme))
     .route("/", connectionRoutes(connections))
     .route("/", agentToolRoutes(repos, opts.agentTools))
     .route("/", agentFeedRoutes(repos, opts.agentLog, now))

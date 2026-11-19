@@ -3,6 +3,7 @@ import { agentChecks, defaultProbe, fakeAgentRows, type AgentProbe } from "@hub/
 import { cliDetector, detectClis, type CliDetector } from "@hub/agent/detect";
 import { AGENT_CLIS, instanceFeatures, type HubPaths } from "@hub/config/paths";
 import { agentToolsDto, type AgentToolsDto } from "@hub/contract/agent-tools";
+import type { CliFactDto } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
 import { throwawayDbNamed } from "@hub/send";
 import { notFound } from "./http";
@@ -48,6 +49,10 @@ export function createAgentTools(o: AgentToolsOptions) {
   }
   return {
     get: async (slug: string) => last.get(slug) ?? compute(slug),
+    /** The cached rows only, never a run (P63: the Overview's parts read this); null before the first GET or Refresh. */
+    peek: (slug: string): AgentToolsDto | null => last.get(slug) ?? null,
+    /** The CLI detector's last answer without its paths (P63), never a detection; null before the first one. */
+    clis: (): CliFactDto[] | null => detector.peek()?.facts.map((f) => ({ cli: f.cli, state: f.state, version: f.version, detail: f.detail, fix: f.fix })) ?? null,
     /** Refresh in Connections also re-detects the CLIs (P57 1e): he may have just signed in. */
     refresh: (slug: string) => { o.onRefresh?.(); return compute(slug, true); },
   };

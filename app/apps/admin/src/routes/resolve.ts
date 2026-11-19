@@ -1,7 +1,10 @@
 import { paths, type Dest } from "./paths";
 import { draftsSearch, logSearch, noSearch, parseQuery, positiveInt, type DraftsSearch, type LogSearch, type NoSearch } from "./search";
 import type { SectionId } from "./sections";
-import { RESERVED_SEGMENTS } from "./table";
+import { PROJECTLESS, RESERVED_SEGMENTS, ROUTE_TABLE } from "./table";
+
+/** The first segments of the projectless routes (`overview`, `connections`, `help`): a project segment before one is Not found. */
+const PROJECTLESS_HEADS: ReadonlySet<string> = new Set([...PROJECTLESS].map((id) => ROUTE_TABLE[id].path.split("/")[1] ?? ""));
 
 /**
  * `project`: the project the address names, from its first path segment (`/lisbon/drafts`). `inPath` says it came from the
@@ -16,6 +19,10 @@ export type Resolved =
   | (Base & { route: "drafts.item"; section: "drafts"; params: { id: number }; search: DraftsSearch })
   | (Base & { route: "log.list"; section: "log"; params: NoSearch; search: LogSearch })
   | (Base & { route: "project.page"; section: "project"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "project.knowledge"; section: "project"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "project.setup"; section: "project"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "agents.page"; section: "agents"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "help.page"; section: "help"; params: NoSearch; search: NoSearch })
   | (Base & { route: "notFound"; section: null; path: string });
 
 const decode = (s: string): string | null => {
@@ -46,12 +53,16 @@ export function resolveRoute(path: string, searchString: string): Resolved {
   const notFound: Resolved = { ...base, route: "notFound", section: null, path };
   const one = segs.length === 1;
   // A project segment heads a scoped section only; `/lisbon`, `/lisbon/overview` and an undecodable slug are Not found.
-  if (segs.length > 2 || (inPath && (project === null || head === "overview" || head === "connections" || head === undefined))) return notFound;
+  if (segs.length > 2 || (inPath && (project === null || head === undefined || PROJECTLESS_HEADS.has(head)))) return notFound;
   switch (head) {
     case "overview":
       return one ? { ...base, route: "overview.page", section: "overview", params: {}, search: noSearch() } : notFound;
     case "connections":
       return one ? { ...base, route: "connections.page", section: "connections", params: {}, search: noSearch() } : notFound;
+    case "help":
+      return one ? { ...base, route: "help.page", section: "help", params: {}, search: noSearch() } : notFound;
+    case "agents":
+      return one ? { ...base, route: "agents.page", section: "agents", params: {}, search: noSearch() } : notFound;
     case undefined: // the empty address is the entry
     case "drafts":
       if (segs.length <= 1) return { ...base, route: "drafts.list", section: "drafts", params: {}, search: draftsSearch(raw) };
@@ -59,7 +70,10 @@ export function resolveRoute(path: string, searchString: string): Resolved {
     case "log":
       return one ? { ...base, route: "log.list", section: "log", params: {}, search: logSearch(raw) } : notFound;
     case "project":
-      return one ? { ...base, route: "project.page", section: "project", params: {}, search: noSearch() } : notFound;
+      if (one) return { ...base, route: "project.page", section: "project", params: {}, search: noSearch() };
+      if (tail === "knowledge") return { ...base, route: "project.knowledge", section: "project", params: {}, search: noSearch() };
+      if (tail === "setup") return { ...base, route: "project.setup", section: "project", params: {}, search: noSearch() };
+      return notFound;
     default:
       return notFound;
   }
@@ -80,6 +94,14 @@ export function destOf(r: Resolved): Dest | null {
       return paths.log.list(r.search);
     case "project.page":
       return paths.project.page();
+    case "project.knowledge":
+      return paths.project.knowledge();
+    case "project.setup":
+      return paths.project.setup();
+    case "agents.page":
+      return paths.agents.page();
+    case "help.page":
+      return paths.help.page();
     case "notFound":
       return null;
   }

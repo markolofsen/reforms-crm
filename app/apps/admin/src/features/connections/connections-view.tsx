@@ -1,6 +1,5 @@
 import { EmptyState, LoadFailed, StaleNote } from "@/components/state-views";
 import { Skeleton } from "@hub/ui/skeleton";
-import { AgentTools } from "./agent-tools/agent-tools";
 import { AutostartRow } from "./autostart/autostart-row";
 import { useClock } from "@/lib/clock";
 import { ConnectionRow } from "./connection-row";
@@ -20,7 +19,8 @@ function ConnectionsSkeleton() {
 
 /**
  * Every account of the instance in one place, one group per kind: the projects' mail accounts (read-only, as Apple Mail
- * knows them), the Notion token and the Telegram bot, "This Mac" (P67: whether the Mac starts the Hub at login), then each project's Agent tools (P49, read-only). It reads `GET /api/connections` (files and settings, one bounded read of
+ * knows them), the Notion token and the Telegram bot, and "This Mac" (P67: whether the Mac starts the Hub at login); each project's
+ * Agent tools moved to Agents (P63), since they are a project's, not the instance's. It reads `GET /api/connections` (files and settings, one bounded read of
  * Mail's account list) and tests a key on request. A key is never shown: a row says where it stands, not what it is.
  * "This Mac" has its own query and renders whatever the connections query is doing: a slow Mail must never hide the
  * autostart switch (measured 2026-11-19: skeletons only, for as long as Mail held its AppleEvents).
@@ -68,7 +68,6 @@ export function ConnectionsView() {
       ))}
       {/* P67: how this instance starts on this Mac; it is the instance's, not a project's (rules README 8a). */}
       <AutostartRow />
-      <AgentTools />
       {/* One live region for every Test, save and remove: a result is a status, a failure an alert. */}
       <div className="min-h-5 text-sm">
         <p role="status">{status?.kind === "status" ? status.text : ""}</p>

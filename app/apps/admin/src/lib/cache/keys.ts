@@ -10,6 +10,8 @@ export const keys = {
   instance: () => ["instance"] as const,
   projects: () => ["projects"] as const,
   overview: () => ["overview"] as const,
+  /** P63 O1: the Hub's parts (Overview's parts table): instance-wide, read from the server's own state. */
+  scheme: () => ["scheme"] as const,
   connections: () => ["connections"] as const,
   /** P67: the instance's LaunchAgent (Connections, "This Mac"). */
   autostart: () => ["autostart"] as const,
@@ -53,6 +55,7 @@ const sends = of("sends");
 const agentTools = of("agent-tools");
 const agentFeed = of("agent-feed");
 const overview = () => keys.overview();
+const scheme = () => keys.scheme();
 const draftMail = of("draft-mail");
 const thread = of("thread");
 
@@ -65,18 +68,18 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   drafts: (p) => [drafts(p), batches(p), timeline(p), project(p), overview()],
   clients: (p) => [drafts(p), notByEmail(p), enrollments(p), timeline(p), overview()],
   activity: (p) => [activity(p), timeline(p), project(p), overview()],
-  sends: (p) => [sends(p), drafts(p), project(p), overview()],
+  sends: (p) => [sends(p), drafts(p), project(p), overview(), scheme()],
   inbox: (p) => [notByEmail(p), drafts(p), overview()],
   "follow-ups": (p) => [enrollments(p), drafts(p)],
   batches: (p) => [batches(p), drafts(p)],
   rules: (p) => [rules(p), drafts(p), project(p)],
-  projects: (p) => [keys.projects(), project(p), agentTools(p), keys.connections(), overview()],
-  knowledge: (p) => [project(p)],
+  projects: (p) => [keys.projects(), project(p), agentTools(p), keys.connections(), overview(), scheme()],
+  knowledge: (p) => [project(p), scheme()],
   messengers: (p) => [drafts(p), notByEmail(p), project(p), keys.connections()],
-  connections: () => [keys.connections(), agentTools(null), overview()],
-  health: (p) => [keys.pulse(), project(p), keys.connections(), overview()],
+  connections: () => [keys.connections(), agentTools(null), overview(), scheme()],
+  health: (p) => [keys.pulse(), project(p), keys.connections(), overview(), scheme()],
   mail: (p) => [draftMail(p), thread(p)],
   "agent-log": (p) => [agentFeed(p)],
   autostart: () => [keys.autostart()],
-  core: () => [keys.core()],
+  core: () => [keys.core(), scheme()],
 };

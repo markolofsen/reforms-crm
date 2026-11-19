@@ -8,9 +8,8 @@ import { LoadFailed } from "@/components/state-views";
 import { sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
 import { useInstance, useProjectRow } from "@/lib/status";
-import { HealthLine, SetupLine } from "./doctor-panel";
-import { FiltersLine, KnowledgeLine, QuestionLine } from "./facts";
-import { SafetyRules } from "./safety-rules";
+import type { ProjectOverviewDto } from "@hub/contract/responses";
+import { FactLine } from "./fact-line";
 import { SendsTable, useSends } from "./sends-panel";
 import { StopSending } from "./stop-sending";
 import { keys } from "@/lib/cache/keys";
@@ -43,6 +42,17 @@ function FilesMenu({ project }: { project: string }) {
   );
 }
 
+/** A question the agent left in project.md for the owner: answered in a session, shown here so it is not missed (a decision, so it stays on the landing). */
+function QuestionLine({ q }: { q: ProjectOverviewDto["question"] }) {
+  if (!q) return null;
+  return (
+    <FactLine open summary={q.question} title="Open question" tone="problem">
+      <p className="measure">{q.question}</p>
+      {q.options.length > 0 && <p className="text-muted-foreground">Answer in a session: {q.options.join(", ")}.</p>}
+    </FactLine>
+  );
+}
+
 /** The first line: the project's standing in one sentence (the Overview's status, said once) and the one control, Stop sending or Resume. */
 function StatusLine({ project, sends }: { project: string; sends: ReturnType<typeof useSends> }) {
   const { row, isError } = useProjectRow(project);
@@ -64,9 +74,9 @@ function StatusLine({ project, sends }: { project: string; sends: ReturnType<typ
 }
 
 /**
- * One project, by frequency (`admin-principles.md` rule 9): the status and Stop sending; the sends, only when one exists;
- * then one line each for the facts (closed unless one is a problem); last Advanced, the safety rules. Read-only except
- * Stop, Cancel and the rules: what lives in project.md is changed by a phrase to the agent.
+ * The Project landing (P63 N2): what is a decision or needs one. The status and Stop sending (or Resume); the sends, only when
+ * one exists; the open question the agent left, when there is one. The facts that were one line each here live on their own
+ * pages now (Knowledge; Setup: setup, mail filters, health, the safety rules), and their one word on Overview's parts table.
  */
 export function ProjectPage({ project }: { project: string }) {
   const sends = useSends(project);
@@ -84,20 +94,12 @@ export function ProjectPage({ project }: { project: string }) {
           <SendsTable busy={sends.busy} onCancel={(id) => sends.cancel.mutate(id)} sends={list} />
         </section>
       )}
-      <section aria-labelledby="project-facts">
-        <h3 className="sr-only" id="project-facts">
-          About this project
-        </h3>
-        {facts.isError && <LoadFailed error={facts.error} onRetry={() => void facts.refetch()} retrying={facts.isFetching} what="the project files" />}
-        <ul className="flex flex-col divide-y border-y">
-          {facts.data && <QuestionLine q={facts.data.question} />}
-          {facts.data && <KnowledgeLine k={facts.data.knowledge} project={project} />}
-          {facts.data && <FiltersLine f={facts.data.filters} />}
-          <HealthLine project={project} />
-          <SetupLine project={project} />
-          <SafetyRules project={project} />
+      {facts.isError && <LoadFailed error={facts.error} onRetry={() => void facts.refetch()} retrying={facts.isFetching} what="the project files" />}
+      {facts.data?.question && (
+        <ul aria-label="Open question" className="flex flex-col divide-y border-y">
+          <QuestionLine q={facts.data.question} />
         </ul>
-      </section>
+      )}
     </>
   );
 }

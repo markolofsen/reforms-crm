@@ -17,7 +17,11 @@ import type { MessengersStatus } from "./messengers";
  * the result is dropped. No value is ever returned.
  */
 export interface ConnectionsService {
-  list(): Promise<ConnectionsDto>;
+  /**
+   * `mailWithinMs` (P63, the Overview's parts): wait at most this long for Mail's answer about its accounts; past it the rows say
+   * `foundInMail: null` with `not-answering`, and the read goes on in the background to fill the cache for the next call.
+   */
+  list(o?: { mailWithinMs?: number }): Promise<ConnectionsDto>;
   /** `undefined`: no such connection. Throws `NotTestable` when the row offers no Test. */
   test(id: string): Promise<ConnectionDto | undefined>;
   /** Stores a key and returns the row as it now stands. `undefined`: no such connection. Throws `Refusal`. The value leaves this call only into the file. */
@@ -160,7 +164,7 @@ export function createConnections(o: ConnectionsOptions): ConnectionsService {
   const known = o.mailAccounts ?? (async (): Promise<MailAccountsRead> => ({ state: "not-running" }));
 
   /** Every account a registered project lists, once, with the projects that list it; `foundInMail` from one bounded read of Mail. */
-  const mailRows = async (): Promise<{ mail: MailAccountDto[]; mailRead: MailReadDto }> => {
+  const mailRows = async (withinMs?: number): Promise<{ mail: MailAccountDto[]; mailRead: MailReadDto }> => {
     const by = new Map<string, MailAccountDto>();
     for (const p of await registry()) {
       for (const account of p.config.mail.accounts) {
@@ -170,7 +174,8 @@ export function createConnections(o: ConnectionsOptions): ConnectionsService {
       }
     }
     if (by.size === 0) return { mail: [], mailRead: { state: "answered", fix: null } };
-    const read = await known();
+    const asked = known();
+    const read = withinMs === undefined ? await asked : await Promise.race([asked, new Promise<MailAccountsRead>((done) => setTimeout(() => done({ state: "not-answering" }), withinMs).unref())]);
     const mail = [...by.values()].map((r) => ({ ...r, foundInMail: read.state === "answered" ? read.accounts.includes(r.account.toLowerCase()) : null })).sort((a, b) => a.account.localeCompare(b.account));
     return { mail, mailRead: mailReadOf(read) };
   };
@@ -181,10 +186,10 @@ export function createConnections(o: ConnectionsOptions): ConnectionsService {
   };
 
   return {
-    async list() {
+    async list(lo = {}) {
       const t = now();
       // The token rows and Mail's answer are read side by side: a slow Mail never holds the files back past its own budget.
-      const [list, mail] = await Promise.all([rows(), mailRows()]);
+      const [list, mail] = await Promise.all([rows(), mailRows(lo.mailWithinMs)]);
       return { instance: basename(hubPaths().home), connections: list.map((r) => toDto(r, cache.get(r.id), t)), ...mail };
     },
     async setSecret(id, body) {
