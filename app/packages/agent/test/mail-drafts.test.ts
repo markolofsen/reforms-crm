@@ -403,7 +403,7 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
   const one = parseProjectMd(readFileSync(path.join(fx, "one-mailbox.md"), "utf8"), "one-mailbox").config;
   const cases = JSON.parse(readFileSync(path.join(fx, "cases.json"), "utf8")) as { forwarded: { headersFile: string; brand: string; wroteTo: string; signature: string[] } };
   const account = one.mail.accounts[0] ?? "";
-  const projectMail = () => ({ accounts: one.mail.accounts, sender: one.mail.sender, identity: { addresses: one.mail.addresses, domains: one.mail.domains, signoff: one.signoff, brands: one.brands } });
+  const projectMail = () => ({ accounts: one.mail.accounts, sender: one.mail.sender, identity: { addresses: one.mail.addresses, domains: one.mail.domains, signoff: one.signoff, brands: one.brands, languages: one.languages } });
 
   it("the forwarded mail (headers of the real one) is signed with that brand's lines; the agent's own closing is refused, never edited (P65 S2)", async () => {
     const mail = new FakeDraftWriter();
@@ -431,9 +431,21 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     expect((await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hi,\n\nThank you for your patience, we will answer tomorrow." })).isError).toBe(false);
   });
 
+  it("refuses the ending of the first Hub send (send_log 1): a closing no list names, over the team's name in Russian (P65 live send check)", async () => {
+    const mail = new FakeDraftWriter();
+    mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
+    const call = await connect(undefined, undefined, { drafts: mail, projectMail });
+    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Здравствуйте, Марк!\n\nВот стихотворение, как вы просили.\n\nС теплом и дружеским поклоном,\nКоманда Carapis" });
+    expect(r).toMatchObject({ isError: true, json: { error: "own_signoff" } });
+    expect(r.json.message).toMatch(/"С теплом и дружеским поклоном,"/);
+    expect((await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Здравствуйте!\n\nОтвет ниже.\n\nКоманда Carapis" })).json.error).toBe("own_signoff");
+    expect((await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hallo,\n\nDie Antwort.\n\nViele Grüße\nIhr Carapis Team" })).json.error).toBe("own_signoff");
+    expect(mail.drafts).toHaveLength(0);
+  });
+
   it("signs in the reply's language; with no line for it, in English with the signature_language check (P60 finding 2)", async () => {
     const ru = { ...one, signoff: "en: Best regards, | ru: С уважением,", brands: one.brands.map((b) => (b.name === "Carapis" ? { ...b, signature: ["en: Carapis team | ru: Команда Carapis", "carapis.com"] } : b)) };
-    const pm = (c: typeof one) => () => ({ accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands } });
+    const pm = (c: typeof one) => () => ({ accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages } });
     const repos = createRepos(db.db);
     const mail = new FakeDraftWriter();
     mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
@@ -452,6 +464,14 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     expect(plain.json.next).toMatch(/signature_language/);
     const [v] = await repos.mailVersions.ofThread("acme", "m44@example.com");
     expect(v?.signatureFallback).toBe("ru");
+    // The first Hub send's shape (P65 live send check): untagged English lines, `languages: en`, a Russian reply.
+    const saas = { ...one, signoff: "Best regards,", languages: ["en"] };
+    const untagged = await (await connect(undefined, undefined, { drafts: mail, projectMail: pm(saas) }))({ account, mailbox_path: ["INBOX"], message_id: 45, content: "Здравствуйте!\n\nОтветим завтра." });
+    expect(untagged.json).toMatchObject({ signatureFallback: "ru" });
+    expect(untagged.json.next).toMatch(/signature_language/);
+    // Russian among `languages`: the owner's untagged lines are for it, no check.
+    const both = await (await connect(undefined, undefined, { drafts: mail, projectMail: pm({ ...saas, languages: ["en", "ru"] }) }))({ account, mailbox_path: ["INBOX"], message_id: 46, content: "Здравствуйте!\n\nОтветим завтра." });
+    expect(both.json.signatureFallback).toBeUndefined();
   });
 
   it("headers that name no brand, or cannot be read: the placeholder, and the result says so", async () => {

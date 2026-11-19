@@ -3,7 +3,7 @@ import { FOCUS_TEXT_MAX } from "@hub/contract/focus";
 import type { Repos } from "@hub/db";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { headersFromText, ownSignoff, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, type Brand, type HeaderAddresses } from "@hub/projects";
+import { headersFromText, ownSignoff, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, signingNames, type Brand, type HeaderAddresses } from "@hub/projects";
 import { readFocus } from "./focus";
 import { DraftWriteError, lateSaves, reviseDraft, versionHash, writeRecorded, type DraftWriter, type InboundMessage, type Revision, type Signed } from "./mail-drafts";
 import { recordAdoptions, writeLogOf, type AdoptedVersion, type WithRepos } from "./write-record";
@@ -27,8 +27,8 @@ export const HUB_MCP_TOOLS = ["focus", "draft_show", "client_show", "drafts_list
 export interface ProjectMail {
   accounts: string[];
   sender: string | null;
-  /** Addresses (with aliases), domains, sign-off and `## Brands`. Absent: drafts are written unsigned (tests of older shape). */
-  identity?: { addresses: string[]; domains: string[]; signoff: string; brands: Brand[] };
+  /** Addresses (with aliases), domains, sign-off, `## Brands` and `languages` (a reply outside them signed in English fires `signature_language`). Absent: drafts are written unsigned (tests of older shape). */
+  identity?: { addresses: string[]; domains: string[]; signoff: string; brands: Brand[]; languages: string[] };
 }
 
 /** What the hub stores when its writer revised an open hub draft (coordinator 2026-11-19: no separate record step). */
@@ -273,7 +273,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "draft_write",
     {
       title: "Write or revise an unsent reply draft in Mail",
-      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. A revision of a hub draft: \`draft\` = its id and \`content\`, nothing else (the hub finds the message it answers from its mailRef). A new reply: \`account\`, \`mailbox_path\` and \`message_id\` of the message answered. Give the reply body only, plain text: the hub adds nothing to the text but its sign-off and the brand's signature, so never end with your own closing ("Best regards", "С уважением", the team's name): that is refused with own_signoff, rewrite without it. A new reply to a message this project already has a draft for is refused with already_drafted: that is the skip of a rerun, not an error (revise that draft with \`draft\` = its id when the owner asks). mail_slow means Mail is slow: the write may still land and the hub adopts it as the draft's version; do not call draft_write again for that draft, tell the owner in one line, and never ask him to delete a Mail draft. A revision saves the new draft first, then moves the older version the hub recorded to Trash, so one version stays; the open admin card shows the new text within seconds. A first draft of a thread: then record it with \`hub record-draft --project <slug>\` and mailRef = the returned thread; a revision records itself. Only this project's Mail accounts. Never sends. ${DATA}`,
+      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. A revision of a hub draft: \`draft\` = its id and \`content\`, nothing else (the hub finds the message it answers from its mailRef). A new reply: \`account\`, \`mailbox_path\` and \`message_id\` of the message answered. Give the reply body only, plain text: the hub adds nothing to the text but its sign-off and the brand's signature, so never end with your own closing, in any language ("Best regards", "С уважением", "С теплом и …,", "Viele Grüße"), nor a team, brand or personal name line ("Carapis team", "Команда Carapis"): that is refused with own_signoff, rewrite without it. A new reply to a message this project already has a draft for is refused with already_drafted: that is the skip of a rerun, not an error (revise that draft with \`draft\` = its id when the owner asks). mail_slow means Mail is slow: the write may still land and the hub adopts it as the draft's version; do not call draft_write again for that draft, tell the owner in one line, and never ask him to delete a Mail draft. A revision saves the new draft first, then moves the older version the hub recorded to Trash, so one version stays; the open admin card shows the new text within seconds. A first draft of a thread: then record it with \`hub record-draft --project <slug>\` and mailRef = the returned thread; a revision records itself. Only this project's Mail accounts. Never sends. ${DATA}`,
       inputSchema: z.object({
         draft: z.number().int().positive().optional().describe("Revise this hub draft (its id, as focus or draft_show gives it). Then leave account, mailbox_path and message_id out."),
         account: z.string().min(1).max(320).optional().describe("New reply: Mail account of the message answered, as mail-mcp names it."),
@@ -293,7 +293,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         // P65 S2 (P60 finding 1): the writer signs, so the agent's own closing would be a second one. Refused, never edited.
         // Only where the writer signs at all (an identity with a sign-off or a Brands table).
         if (mail.identity && (cfg.signoff.trim() || cfg.brands.length)) {
-          const own = ownSignoff(content, signatureLines(cfg));
+          const own = ownSignoff(content, signatureLines(cfg), signingNames(cfg));
           if (own) throw new ToolError("own_signoff", `Your text ends with your own closing "${cut(own, 80)}": the hub signs every draft itself (the project's sign-off and the brand's signature). Remove that line (and any team or company name under it) and call draft_write again. Nothing was written.`);
         }
         // P60: the writer signs. The brand comes from the answered message's headers; an unreadable header block in a
@@ -395,7 +395,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
 }
 
 /** The slice of the project's config that `resolveBrand` and `signatureFor` read. */
-function configOf(m: ProjectMail): { mail: { accounts: string[]; addresses: string[]; domains: string[] }; signoff: string; brands: Brand[] } {
-  const id = m.identity ?? { addresses: [], domains: [], signoff: "", brands: [] };
-  return { mail: { accounts: m.accounts, addresses: id.addresses, domains: id.domains }, signoff: id.signoff, brands: id.brands };
+function configOf(m: ProjectMail): { mail: { accounts: string[]; addresses: string[]; domains: string[] }; signoff: string; brands: Brand[]; languages: string[] } {
+  const id = m.identity ?? { addresses: [], domains: [], signoff: "", brands: [], languages: ["en"] };
+  return { mail: { accounts: m.accounts, addresses: id.addresses, domains: id.domains }, signoff: id.signoff, brands: id.brands, languages: id.languages };
 }

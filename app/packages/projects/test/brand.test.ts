@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyBrandRow, brandChecks, headersFromText, lineVariants, ownSignoff, parseProjectMd, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, type LoadedProject } from "../src/index";
+import { applyBrandRow, brandChecks, headersFromText, lineVariants, ownSignoff, parseProjectMd, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, signingNames, type LoadedProject } from "../src/index";
 
 // P60 B1/B2: the `## Brands` table, the resolver and the signature, on fixtures shaped like the two live instances.
 // The names live in test/fixtures/brands (core test code names no owner, `@docs/LAYERS.md`).
@@ -92,8 +92,8 @@ describe("the signature", () => {
   if (!unsigned || !signed) throw new Error("fixture needs a signed and an unsigned brand");
 
   it("no table: signoff alone; unresolved or unanswered: the placeholder, never another brand's lines", () => {
-    expect(signatureFor({ signoff: "Thanks,", brands: [] }, null)).toEqual({ lines: ["Thanks,"], placeholder: false });
-    expect(signatureFor({ signoff: "", brands: [] }, null)).toEqual({ lines: [], placeholder: false });
+    expect(signatureFor({ signoff: "Thanks,", brands: [], languages: ["en"] }, null)).toEqual({ lines: ["Thanks,"], placeholder: false });
+    expect(signatureFor({ signoff: "", brands: [], languages: ["en"] }, null)).toEqual({ lines: [], placeholder: false });
     expect(signatureFor(c, { brand: null, wroteTo: "x@example.org" }).lines.at(-1)).toBe("[Owner: signature for x@example.org]");
     expect(signatureFor(c, null).lines.at(-1)).toBe("[Owner: signature for unknown brand]");
     expect(signatureFor(c, { brand: unsigned.name, wroteTo: null })).toMatchObject({ placeholder: true, lines: [c.signoff, `[Owner: signature for ${unsigned.name}]`] });
@@ -167,11 +167,16 @@ describe("the reply's language and the agent's own closing (P65 S2)", () => {
   it("signatureFor picks the reply's language, keeps untagged lines, and falls back to English with `fallback`", () => {
     const brands = [{ name: "B", receivesAt: ["b.example"], signature: ["en: B team | ru: Команда B", "b.example"], answered: "2026-11-19", by: "owner" as const }];
     const r = { brand: "B", wroteTo: "info@b.example" };
-    expect(signatureFor({ signoff: "en: Best regards, | ru: С уважением,", brands }, r, "ru")).toEqual({ lines: ["С уважением,", "Команда B", "b.example"], placeholder: false });
-    expect(signatureFor({ signoff: "en: Best regards, | ru: С уважением,", brands }, r, "en")).toEqual({ lines: ["Best regards,", "B team", "b.example"], placeholder: false });
-    expect(signatureFor({ signoff: "en: Best regards,", brands: [] }, null, "ru")).toEqual({ lines: ["Best regards,"], placeholder: false, fallback: "ru" });
-    // An untagged project behaves as before P65, in every language, with no check.
-    expect(signatureFor({ signoff: "Warm regards,", brands: [] }, null, "ru")).toEqual({ lines: ["Warm regards,"], placeholder: false });
+    const languages = ["en"];
+    expect(signatureFor({ signoff: "en: Best regards, | ru: С уважением,", brands, languages }, r, "ru")).toEqual({ lines: ["С уважением,", "Команда B", "b.example"], placeholder: false });
+    expect(signatureFor({ signoff: "en: Best regards, | ru: С уважением,", brands, languages }, r, "en")).toEqual({ lines: ["Best regards,", "B team", "b.example"], placeholder: false });
+    expect(signatureFor({ signoff: "en: Best regards,", brands: [], languages: ["en", "ru"] }, null, "ru")).toEqual({ lines: ["Best regards,"], placeholder: false, fallback: "ru" });
+    // Untagged lines are written in the project's languages (P65 live send check: send_log 1 was a Russian reply signed
+    // "Best regards," under `languages: en` with no check). Outside them: the check; inside: none.
+    expect(signatureFor({ signoff: "Warm regards,", brands: [], languages }, null, "ru")).toEqual({ lines: ["Warm regards,"], placeholder: false, fallback: "ru" });
+    expect(signatureFor({ signoff: "Warm regards,", brands: [], languages: ["en", "ru-RU"] }, null, "ru")).toEqual({ lines: ["Warm regards,"], placeholder: false });
+    expect(signatureFor({ signoff: "Warm regards,", brands: [], languages }, null, "en")).toEqual({ lines: ["Warm regards,"], placeholder: false });
+    expect(signatureFor({ signoff: "", brands: [], languages }, null, "ru")).toEqual({ lines: [], placeholder: false });
     expect(signatureLines({ signoff: "en: Best regards, | ru: С уважением,", brands })).toEqual(["Best regards,", "С уважением,", "B team", "Команда B", "b.example"]);
   });
 
@@ -183,5 +188,49 @@ describe("the reply's language and the agent's own closing (P65 S2)", () => {
     expect(ownSignoff("Hi,\n\nThanks, we will answer tomorrow.")).toBeNull();
     expect(ownSignoff("Best regards,\nline 2\nline 3\nline 4\nline 5\nline 6")).toBeNull();
     expect(ownSignoff("Hi,\n\nAnswer.\n\n> Best regards,\n> Client")).toBeNull();
+  });
+
+  // P65 live send check: send_log 1 ended "С теплом и дружеским поклоном,\nКоманда Carapis" above the writer's signature.
+  describe("ownSignoff in any language, by structure (P65 live send check)", () => {
+    const names = ["Carapis", "GPT-Kino", "MLS Bali", "Dan Merriam", "Carapis team"];
+    const own = ["Best regards,", "Carapis team", "carapis.com"];
+    const refused: Array<[string, string]> = [
+      ["Здравствуйте, Марк!\n\nВот стихотворение.\n\nС теплом и дружеским поклоном,\nКоманда Carapis", "С теплом и дружеским поклоном,"],
+      ["Здравствуйте!\n\nОтвет.\n\nКоманда Carapis", "Команда Carapis"],
+      ["Hi,\n\nAnswer.\n\nCarapis team", "Carapis team"],
+      ["Hi,\n\nAnswer.\n\nThe GPT-Kino team", "The GPT-Kino team"],
+      ["Hi,\n\nAnswer.\n\nThanks,\nMark", "Thanks,"],
+      ["Hi,\n\nAnswer.\n\nWith gratitude and every good wish,\nDan Merriam", "With gratitude and every good wish,"],
+      ["Hallo,\n\nDie Antwort.\n\nMit freundlichen Grüßen\nIhr Carapis Team", "Mit freundlichen Grüßen"],
+      ["Hola,\n\nLa respuesta.\n\nUn cordial saludo,\nEl equipo de Carapis", "Un cordial saludo,"],
+      ["Bonjour,\n\nLa réponse.\n\nBien à vous,\nL'équipe Carapis", "Bien à vous,"],
+      ["Bonjour,\n\nLa réponse.\n\nCordialement", "Cordialement"],
+      ["Olá,\n\nA resposta.\n\nAtenciosamente,\nEquipa Carapis", "Atenciosamente,"],
+      ["Ciao,\n\nLa risposta.\n\nCordiali saluti,\nIl team Carapis", "Cordiali saluti,"],
+      ["Добрий день,\n\nВідповідь.\n\nЗ повагою,\nКоманда Carapis", "З повагою,"],
+      ["Hi,\n\nAnswer.\n\nWarm wishes from all of us,\nMLS Bali", "Warm wishes from all of us,"],
+      ["Hi,\n\nAnswer.\n\nCarapis team\ncarapis.com", "Carapis team"],
+    ];
+    for (const [body, line] of refused) it(`refuses ${JSON.stringify(body.split("\n").slice(-2).join(" / "))}`, () => expect(ownSignoff(body, own, names)).toBe(line));
+
+    const kept = [
+      "Hi Mark,\n\nThe API returns prices for every market. Let me know if anything is unclear.",
+      "Hi,\n\nThanks, we will answer tomorrow.",
+      "Hi,\n\nDetails: carapis.com/pricing",
+      "Hi,\n\nThe plans are:\nBasic,\nPro",
+      "Hi,\n\nHere is what changed,\n- the price field\n- the VIN field",
+      "Hi,\n\nIn the night,\nthe stars came out over the sea.",
+      "Hi,\n\nCarapis returns the price, the mileage and the VIN for every listing.",
+      "Здравствуйте!\n\nДа, API Carapis отдаёт цены по всем рынкам. Если нужно, пришлём пример запроса.",
+      "Hallo,\n\nVielen Dank für Ihre Geduld, wir antworten morgen.",
+      "Hi,\n\nAnswer.\n\n> Best regards,\n> Carapis team",
+      "Hi Anna,\nYes",
+    ];
+    for (const body of kept) it(`keeps ${JSON.stringify(body.split("\n").slice(-2).join(" / "))}`, () => expect(ownSignoff(body, own, names)).toBeNull());
+
+    it("signingNames: brand names and the non-domain signature lines, never the sign-off", () => {
+      const brands = [{ name: "Carapis", receivesAt: ["carapis.com"], signature: ["Carapis team", "carapis.com"], answered: "2026-11-19", by: "owner" as const }];
+      expect(signingNames({ signoff: "Best regards,", brands })).toEqual(["Carapis", "Carapis team"]);
+    });
   });
 });

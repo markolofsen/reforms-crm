@@ -56,7 +56,7 @@ Installed mail-mcp, from its local schemas and README:
   A revision names only the hub draft (`draft`); the hub finds the answered message by its Message-ID (the draft's
   `mailRef`), moves the older recorded version to Trash and bumps the live topic `mail`, so the open admin card reads
   the new text (P53). A new reply to a message the project already has a draft for is refused (`already_drafted`, the
-  skip of a rerun), and a text that ends with the agent's own closing is refused (`own_signoff`): the writer signs, in
+  skip of a rerun), and a text that ends with the agent's own closing, in any language, or a team or brand name line is refused (`own_signoff`): the writer signs, in
   the reply's language (P65 S2). Mail.app must be running; nothing is sent.
 - The hub cleans up after itself (P56, P65): who wrote a Mail draft is the hub's record, never its text. A draft is
   moved to Trash (Mail's `delete`: the account's Trash, recoverable) only when its account and Message-ID match a

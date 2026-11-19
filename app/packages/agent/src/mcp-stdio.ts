@@ -16,7 +16,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   const handle = openDbReadOnly(paths.db);
   const projectMail = (slug: string) => {
     const c = loadProject(paths.projects, slug).parsed.config;
-    return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands } };
+    return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages } };
   };
   // A revision the writer saved is recorded in place on a short write connection, closed at once (the tools' handle stays read-only).
   const recordRevision = async (slug: string, draftId: number, r: { excerpt: string; wroteTo: string | null; brand: string | null }) => {
