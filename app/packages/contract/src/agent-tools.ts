@@ -20,12 +20,25 @@ export const agentToolRow = z.strictObject({
 });
 export type AgentToolRow = z.infer<typeof agentToolRow>;
 
+/** P62: the Google services a project's Claude Code sessions can reach beyond mail and Notion, one connector each. */
+export const CAPABILITY_KINDS = ["calendar", "drive"] as const;
+export const agentCapability = z.strictObject({
+  kind: z.enum(CAPABILITY_KINDS),
+  /** The hub name of the connector: `gcal-<label>`, `gdrive-<label>`. */
+  name: z.string(),
+  /** The Google account it is signed in to, as stated or read by a session; null while not known. */
+  account: z.string().nullable(),
+});
+export type AgentCapability = z.infer<typeof agentCapability>;
+
 export const agentToolsDto = z.strictObject({
   project: z.string(),
   /** `agent.unattended` of the instance, and `agent.default`. */
   unattended: z.boolean(),
   defaultCli: z.enum(AGENT_TOOL_CLIS),
   rows: z.array(agentToolRow),
+  /** P62: the connectors attached to this project and working in its session files (Settings ▸ Agent, Connectors); the rows say what is wrong with the rest. */
+  capabilities: z.array(agentCapability),
   /** When the rows were computed; null when they never were (the first GET computes them). */
   checkedAt: z.string().nullable(),
 });

@@ -6,6 +6,7 @@ import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { AgentGroup } from "./agent/agent-group";
 import { AgentTools } from "./agent/agent-tools";
+import { Connectors } from "./agent/connectors";
 import { SettingsGroup } from "./group";
 import { ConnectionsView } from "./connections/connections-view";
 import { AutostartRow } from "./mac/autostart-row";
@@ -39,14 +40,15 @@ export function MailScreen() {
 }
 
 /**
- * Settings ▸ Agent (P63's Agents page): how this project's sessions start (P55: the model and the advisor), then whether they can
- * work (the checks of both CLIs); later P62's connectors.
+ * Settings ▸ Agent (P63's Agents page): how this project's sessions start (P55: the model and the advisor), what they reach beyond
+ * mail and Notion (P62: the attached connectors), then whether they can work (the checks of both CLIs).
  */
 export function AgentScreen() {
   const { project } = useProjectScope();
   return (
     <Page nav={<SubNav section="settings" />}>
       <AgentGroup project={project} />
+      <Connectors slug={project} />
       <SettingsGroup id="agent-checks" title="Checks">
         <AgentTools slug={project} />
       </SettingsGroup>

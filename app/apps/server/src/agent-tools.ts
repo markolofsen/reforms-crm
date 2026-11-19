@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { agentChecks, defaultProbe, fakeAgentRows, type AgentProbe } from "@hub/agent/checks";
+import { resolveConnectors } from "@hub/agent/connectors";
+import { loadProject } from "@hub/projects";
 import { cliDetector, detectClis, type CliDetector } from "@hub/agent/detect";
 import { AGENT_CLIS, instanceFeatures, type HubPaths } from "@hub/config/paths";
-import { agentToolsDto, type AgentToolsDto } from "@hub/contract/agent-tools";
+import { agentToolsDto, type AgentCapability, type AgentToolsDto } from "@hub/contract/agent-tools";
 import type { CliFactDto } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
 import { throwawayDbNamed } from "@hub/send";
@@ -33,6 +35,16 @@ export interface AgentToolsOptions {
   onRefresh?: () => void;
 }
 
+/** P62: the connectors attached to the project (none when its project.md does not load: the rows say why). */
+function capabilitiesOf(paths: HubPaths, slug: string): AgentCapability[] {
+  try {
+    return resolveConnectors(paths, loadProject(paths.projects, slug).parsed.config).attached.map((c) => ({ kind: c.kind, name: c.name, account: c.account?.account ?? null }));
+  } catch { return []; }
+}
+
+/** `HUB_AGENT_TOOLS=fake`: one attached calendar connector whose account is known, and no Drive. */
+const FAKE_CAPABILITIES: AgentCapability[] = [{ kind: "calendar", name: "gcal-demo", account: "owner@example.com" }];
+
 export function createAgentTools(o: AgentToolsOptions) {
   const last = new Map<string, AgentToolsDto>();
   const now = o.now ?? (() => new Date());
@@ -43,7 +55,8 @@ export function createAgentTools(o: AgentToolsOptions) {
     const facts = o.fake ? [] : (await (fresh ? detector.refresh() : detector.get())).facts;
     const rows = [];
     for (const cli of AGENT_CLIS) rows.push(...(o.fake ? fakeAgentRows(slug, cli) : await agentChecks({ paths: o.paths, slug, cli, unattended: f.agent.unattended, probe, facts })));
-    const dto = agentToolsDto.parse({ project: slug, unattended: f.agent.unattended, defaultCli: f.agent.default, rows, checkedAt: now().toISOString() });
+    const capabilities = o.fake ? FAKE_CAPABILITIES : capabilitiesOf(o.paths, slug);
+    const dto = agentToolsDto.parse({ project: slug, unattended: f.agent.unattended, defaultCli: f.agent.default, rows, capabilities, checkedAt: now().toISOString() });
     last.set(slug, dto);
     return dto;
   }

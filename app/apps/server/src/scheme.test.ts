@@ -38,6 +38,7 @@ const TOOLS: AgentToolsDto = {
   project: "alpha",
   unattended: false,
   defaultCli: "claude",
+  capabilities: [],
   checkedAt: "2026-11-19T10:00:00Z",
   rows: [
     { id: "mcp.present.mail-mcp", cli: "claude", title: "mail-mcp configured", state: "pass", detail: "stdio", fix: null },

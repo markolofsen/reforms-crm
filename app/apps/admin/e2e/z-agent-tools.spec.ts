@@ -20,6 +20,12 @@ test("agent tools: the sentence, then only the rows that need a fix or a look (e
   // UX pass 2026-11-20: no eyebrow repeating the pane's name, and the green rows are folded.
   await expect(page.getByRole("heading", { name: "Agent tools" })).toHaveCount(0);
   await expect(block(page).getByTestId("agent-tools-status")).toContainText(/to fix/);
+  // P62: the attached connectors, one line each, above Checks (the fake checks attach one calendar).
+  const connectors = page.getByRole("region", { name: "Connectors" });
+  await expect(connectors.getByTestId("agent-connectors").getByRole("listitem")).toHaveCount(1);
+  await expect(connectors.getByRole("listitem").first()).toContainText("Calendar");
+  await expect(connectors.getByRole("listitem").first()).toContainText("gcal-demo · owner@example.com · read, holds with no guests");
+  await expect(connectors.getByRole("button")).toHaveCount(0);
   const attention = block(page).getByRole("table", { name: "Needs a fix or a look" });
   await expect(attention.locator('tr[data-state="pass"]')).toHaveCount(0);
   await expect(block(page).getByRole("table", { name: "Claude Code" })).toHaveCount(0);
