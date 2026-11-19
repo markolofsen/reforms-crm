@@ -4,8 +4,11 @@ import { z } from "zod";
 // tiny invalidation events: it names what changed (a topic and a project), never the data, and the admin refetches
 // through the normal API. Every object is strict: an unknown type or field is refused, and the admin then refreshes all.
 
-/** What can move. Each table maps to one topic on the server; `connections` and `health` are bumped, not tables. */
-export const LIVE_TOPICS = ["drafts", "clients", "activity", "sends", "inbox", "follow-ups", "batches", "rules", "projects", "knowledge", "messengers", "connections", "health"] as const;
+/**
+ * What can move. Each table maps to one topic on the server; `connections`, `health` and `mail` are bumped, not tables.
+ * `mail` (P53): the hub wrote a Mail draft of this project (`draft_write`), so the admin reads the open draft from Mail again.
+ */
+export const LIVE_TOPICS = ["drafts", "clients", "activity", "sends", "inbox", "follow-ups", "batches", "rules", "projects", "knowledge", "messengers", "connections", "health", "mail"] as const;
 export const liveTopic = z.enum(LIVE_TOPICS);
 export type LiveTopic = (typeof LIVE_TOPICS)[number];
 

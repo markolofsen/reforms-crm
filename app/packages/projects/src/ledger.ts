@@ -31,6 +31,8 @@ export interface LedgerEntry {
   bytes?: number;
   // draft (create_reply)
   replyTo?: number;
+  /** A revision named by its hub draft id (P53): the client's address, so the read of their message is the target before Mail's id is known. */
+  replyFrom?: string;
   fp?: number[];
   hash?: string;
   words?: number;
@@ -52,6 +54,18 @@ const shortName = (n: string) => n.split("__").pop() ?? n;
 const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" ? (v as Record<string, unknown>) : {});
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v.trim() : undefined);
 const lower = (s: string) => s.trim().toLowerCase();
+
+/** A tool result's JSON (the hub MCP answers one JSON object as text), or null. */
+function parsedResult(r: unknown): unknown {
+  if (r == null) return null;
+  const structured = obj(r).structuredContent;
+  if (structured) return structured;
+  try {
+    return JSON.parse(resultText(r));
+  } catch {
+    return null;
+  }
+}
 
 /** The text of a tool result: a string, an MCP content array, or a `tool_result` block's content. */
 export function resultText(r: unknown): string {
@@ -101,7 +115,12 @@ function fromOf(text: string): { from?: string; date?: string } {
 
 const FIGURE = /(?:[$€£¥]\s?\d|\d\s?(?:usd|eur|gbp|rub|rs|aed|%)\b|\b\d{1,2}[./-]\d{1,2}(?:[./-]\d{2,4})?\b|\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.? \d{1,2}\b|\b\d{1,2} (?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b)/i;
 
-export interface SummarizeOptions { names?: readonly string[]; signoff?: string }
+export interface SummarizeOptions {
+  names?: readonly string[];
+  signoff?: string;
+  /** `draft_write {draft}` (P53): the address of the client that hub draft answers, looked up by the caller. */
+  replyFrom?: string;
+}
 
 /** One tool call as a ledger line, or null when the call is not part of the evidence. */
 export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEntry | null {
@@ -109,7 +128,8 @@ export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEn
   const i = obj(c.input);
   const account = str(i.account);
   // The hub's own draft writer (P52) takes mail-mcp's `create_reply` arguments: the same draft entry, judged the same way.
-  if (c.name === HUB_DRAFT_WRITE) return draftEntry(tool, i, account, o);
+  // A revision names only the hub draft (P53): Mail's id of the answered message comes back in the result (`replyTo`).
+  if (c.name === HUB_DRAFT_WRITE) return draftEntry(tool, i.message_id === undefined ? { ...i, message_id: obj(parsedResult(c.result)).replyTo } : i, account, o);
   if (c.name.startsWith("mcp__mail-mcp__")) {
     if (tool === "find_messages") {
       const mb = Array.isArray(i.mailboxPath) ? (i.mailboxPath as unknown[]).join("/") : undefined;
@@ -146,7 +166,7 @@ function draftEntry(tool: string, i: Record<string, unknown>, account: string | 
   const id = Number(i.message_id);
   const fp = fingerprint(content, o);
   const words = content.split(/\s+/).filter(Boolean).length;
-  return { tool, kind: "draft", ...(account ? { account } : {}), ...(Number.isInteger(id) ? { replyTo: id } : {}), fp, hash: hashHex(content), words, figure: FIGURE.test(content), placeholder: /\[Owner:/i.test(content) };
+  return { tool, kind: "draft", ...(account ? { account } : {}), ...(Number.isInteger(id) ? { replyTo: id } : {}), ...(o.replyFrom ? { replyFrom: lower(o.replyFrom) } : {}), fp, hash: hashHex(content), words, figure: FIGURE.test(content), placeholder: /\[Owner:/i.test(content) };
 }
 
 function hashHex(s: string): string {
@@ -184,7 +204,7 @@ export function observeDraft(entries: readonly LedgerEntry[], index: number): Ob
   const d = entries[index]!;
   const prev = (() => { for (let k = index - 1; k >= 0; k--) if (entries[k]!.kind === "draft" && same(entries[k]!, d)) return k; return -1; })();
   const mine = entries.slice(0, index).map((e, k) => ({ e, k })).filter(({ e }) => same(e, d));
-  const target = mine.filter(({ e }) => e.kind === "read" && e.id === d.replyTo).pop()?.e;
+  const target = mine.filter(({ e }) => e.kind === "read" && (d.replyTo !== undefined ? e.id === d.replyTo : !!d.replyFrom && e.from === d.replyFrom)).pop()?.e;
   const client = target?.from;
   const inWindow = (k: number) => k > prev;
 

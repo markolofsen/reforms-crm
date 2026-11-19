@@ -77,12 +77,13 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions) {
       if (!draft || draft.project !== slug) return notFound(c, "draft");
       const readAt = (sender?.now?.() ?? new Date()).toISOString();
       const empty = { from: null, to: [], cc: [], subject: "", body: "", hash: null, safetyResults: [], readAt };
-      if (!deps) return c.json(draftMailDto.parse({ configured: false, found: false, reason: "Reading Mail is not set up on this server.", ...empty }));
-      const f = await findMail(deps, draft);
-      if (!f.mail) return c.json(draftMailDto.parse({ configured: true, found: false, reason: f.reason, ...empty }));
+      if (!deps) return c.json(draftMailDto.parse({ configured: false, found: false, reason: "Reading Mail is not set up on this server.", note: null, ...empty }));
+      // The card's read shows one version even when Mail holds several (P53); such a text has no hash, so it is never Checked.
+      const f = await findMail(deps, draft, "show");
+      if (!f.mail) return c.json(draftMailDto.parse({ configured: true, found: false, reason: f.reason, note: null, ...empty }));
       const m = f.mail;
       const safetyResults = await repos.sends.safetyOf(id, { subject: m.subject, toAddr: m.to.join(","), ccAddr: m.cc.join(",") || null, body: m.body }, sender?.now?.());
-      return c.json(draftMailDto.parse({ configured: true, found: true, reason: null, from: m.sender, to: m.to, cc: m.cc, subject: m.subject, body: m.body, hash: mailHash(m), safetyResults, readAt }));
+      return c.json(draftMailDto.parse({ configured: true, found: true, reason: null, note: f.note ?? null, from: m.sender, to: m.to, cc: m.cc, subject: m.subject, body: m.body, hash: f.note ? null : mailHash(m), safetyResults, readAt }));
     })
     .get("/api/projects/:slug/sends", v("param", slugParam), async (c) =>
       c.json(sendsDto.parse({ sends: await repos.sends.list(c.req.valid("param").slug), stopped: await repos.sends.stoppedScopes() })),

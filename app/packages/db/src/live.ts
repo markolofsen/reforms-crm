@@ -1,3 +1,4 @@
+import Database from "better-sqlite3";
 import { getTableName, is } from "drizzle-orm";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { Db } from "./client";
@@ -52,4 +53,26 @@ export function bumpTopic(db: Db, topic: string, project: string | null): number
     c.prepare("INSERT INTO live_versions (tbl, project, seq) VALUES (?, ?, ?) ON CONFLICT (tbl, project) DO UPDATE SET seq = excluded.seq").run(`${TOPIC_PREFIX}${topic}`, project ?? "", n);
     return n;
   });
+}
+
+/**
+ * `bumpTopic` for a process that holds the database read-only (`hub mcp`, P53): a short connection that may write only
+ * the live counter, opened and closed for this one bump, with no migration. The file must exist.
+ */
+export function bumpTopicIn(path: string, topic: string, project: string | null): number {
+  const c = new Database(path, { fileMustExist: true });
+  try {
+    c.pragma("busy_timeout = 2000");
+    return c
+      .transaction(() => {
+        c.prepare("UPDATE live_seq SET n = n + 1 WHERE id = 1").run();
+        const row: unknown = c.prepare("SELECT n FROM live_seq WHERE id = 1").get();
+        const n = typeof row === "object" && row !== null && "n" in row && typeof row.n === "number" ? row.n : 0;
+        c.prepare("INSERT INTO live_versions (tbl, project, seq) VALUES (?, ?, ?) ON CONFLICT (tbl, project) DO UPDATE SET seq = excluded.seq").run(`${TOPIC_PREFIX}${topic}`, project ?? "", n);
+        return n;
+      })
+      .immediate();
+  } finally {
+    c.close();
+  }
 }

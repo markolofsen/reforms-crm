@@ -4,7 +4,7 @@ export { copyAndVerify, inspectCopy, restoreCheck, type CopyCheck, type RestoreC
 export { defaultDbPath, openDb, openDbReadOnly, type Db, type DbHandle } from "./client";
 export { renameProjectInDb, type DbRenameResult, type RenameTable } from "./rename";
 export { dataVersion, isBusy } from "./tx";
-export { bumpTopic, liveSeq, liveSince, LIVE_TABLES, TOPIC_PREFIX, type LiveChange, type LiveTable } from "./live";
+export { bumpTopic, bumpTopicIn, liveSeq, liveSince, LIVE_TABLES, TOPIC_PREFIX, type LiveChange, type LiveTable } from "./live";
 export { RepoError, type RepoErrorCode } from "./errors";
 export { buildMatchQuery, createRepos, isExpired, type Repos } from "./repos";
 export { EVENT_DETAIL_DAYS } from "./repos/runs";

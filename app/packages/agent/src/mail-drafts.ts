@@ -51,8 +51,17 @@ export class DraftWriteError extends Error {
   }
 }
 
+/** Where the message a draft answers sits in Mail: what `writeReply` needs, found from its Message-ID (P53). */
+export interface InboundMessage {
+  account: string;
+  mailboxPath: string[];
+  messageId: number;
+}
+
 export interface DraftWriter {
   writeReply(input: ReplyDraftInput): Promise<ReplyDraftResult>;
+  /** The message with this Message-ID in one of these accounts (INBOX first, then the other mailboxes but Drafts, Sent, Trash and Spam), or null. */
+  findInbound(accounts: readonly string[], messageId: string): Promise<InboundMessage | null>;
 }
 
 const FS = "\x1f";
@@ -187,6 +196,51 @@ on parts(s, d)
   return r
 end parts`;
 
+// argv: 1 Message-ID (bare), 2.. account names. Output: ok FS account FS mailbox name FS id, or none. Read-only. INBOX
+// first (3 s on a 43-message Gmail INBOX, measured 2026-11-19); the account's other mailboxes only when it is not there.
+export const FIND_INBOUND_SCRIPT = `on run argv
+  set FS to (ASCII character 31)
+  set mid to item 1 of argv
+  set skipNames to {"Drafts", "Sent", "Sent Mail", "Sent Messages", "Trash", "Deleted Messages", "Bin", "Spam", "Junk"}
+  if application "Mail" is not running then return "error" & FS & "mail_not_running" & FS & "Mail is not running: open Mail (it may stay in the background), then write the draft again."
+  tell application "Mail"
+    repeat with i from 2 to (count of argv)
+      set accName to item i of argv
+      try
+        set acc to account accName
+        try
+          set m to (first message of mailbox "INBOX" of acc whose message id is mid)
+          return "ok" & FS & accName & FS & "INBOX" & FS & (id of m)
+        end try
+      end try
+    end repeat
+    repeat with i from 2 to (count of argv)
+      set accName to item i of argv
+      try
+        set acc to account accName
+        repeat with b in (mailboxes of acc)
+          set bn to name of b
+          if bn is not "INBOX" and skipNames does not contain bn then
+            try
+              set m to (first message of b whose message id is mid)
+              return "ok" & FS & accName & FS & bn & FS & (id of m)
+            end try
+          end if
+        end repeat
+      end try
+    end repeat
+  end tell
+  return "none"
+end run`;
+
+export function parseInboundOutput(out: string): InboundMessage | null {
+  const p = out.replace(/[\r\n]+$/, "").split(FS);
+  if (p[0] === "error") throw new DraftWriteError(p[1] || "mail_error", p[2] || "Mail refused the lookup.");
+  if (p[0] !== "ok" || p.length < 4) return null;
+  const id = Number(p[3]);
+  return Number.isInteger(id) && id > 0 ? { account: p[1] as string, mailboxPath: [p[2] as string], messageId: id } : null;
+}
+
 export function parseWriteOutput(out: string): ReplyDraftResult {
   const p = out.replace(/[\r\n]+$/, "").split(FS);
   if (p[0] === "error") throw new DraftWriteError(p[1] || "mail_error", p[2] || "Mail refused the draft.");
@@ -207,6 +261,14 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
       });
       return parseWriteOutput(out);
     },
+    async findInbound(accounts, messageId) {
+      const id = messageId.trim().replace(/^<|>$/g, "");
+      if (!id || accounts.length === 0) return null;
+      const out = await osa(FIND_INBOUND_SCRIPT, [id, ...accounts]).catch((e: Error) => {
+        throw new DraftWriteError("mail_error", e.message);
+      });
+      return parseInboundOutput(out);
+    },
   };
 }
 
@@ -214,7 +276,13 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
 export class FakeDraftWriter implements DraftWriter {
   drafts: Array<{ id: number; account: string; thread: string; subject: string; text: string }> = [];
   private next = 1000;
+  /** Inbound messages the fake Mail holds, by Message-ID. */
+  inbound = new Map<string, InboundMessage>();
   constructor(private readonly threadOf: (messageId: number) => string = (id) => `m${id}@example.com`) {}
+  async findInbound(accounts: readonly string[], messageId: string): Promise<InboundMessage | null> {
+    const m = this.inbound.get(messageId.trim().replace(/^<|>$/g, ""));
+    return m && accounts.includes(m.account) ? m : null;
+  }
   async writeReply(i: ReplyDraftInput): Promise<ReplyDraftResult> {
     const body = stripMarker(i.body);
     if (!body.trim()) throw new DraftWriteError("empty", "The reply has no text.");

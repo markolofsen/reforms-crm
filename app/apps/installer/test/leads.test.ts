@@ -265,7 +265,7 @@ describe("network failures (the flaky FAIL of 2026-11-18)", () => {
 
   it("each row reports its own form's time, not the time left after the first row", async () => {
     const a = await api({ posts: [] });
-    const s = await serve((req, res) => setTimeout(() => res.end(page(a)), 250));
+    const s = await serve((_req, res) => setTimeout(() => res.end(page(a)), 250));
     const reports = await run(instance(["x", "y"].map((id) => form(s, a, { id }))));
     for (const id of ["leads.x", "leads.y"]) expect(row(reports, id).ms, id).toBeGreaterThanOrEqual(250);
   });

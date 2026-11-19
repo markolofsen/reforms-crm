@@ -28,8 +28,10 @@ type Props = {
   onView: (value: string) => void;
   /** The search text and its setter: in the address. The host sends it to the server through its source. */
   search: [string, (value: string) => void];
-  /** The open draft: in the address (`/drafts/42`). */
-  selection: { id: number | null; onChange: (id: number | null) => void };
+  /** The open draft: in the address (`/drafts/42`). `onAuto` names the draft the screen opened by itself, replacing the entry. */
+  selection: { id: number | null; onChange: (id: number | null) => void; onAuto: (id: number) => void };
+  /** False until the shell has measured the pane: nothing opens by itself before the width is known. */
+  measured: boolean;
   /** Shown when the list is empty (the host knows its own words). */
   empty: (filtered: boolean) => ReactNode;
   /** Under the header line, scrolling with the list: the project's one status line (P48 W3). */
@@ -79,7 +81,7 @@ function LoadedFooter({ loaded, total, more, fetching, onMore }: { loaded: numbe
  * Drafts and a batch share this: the list column (views, search, rows, Select) and the pane with the open card.
  * It never sends mail by itself: Send is the card's, and a batch draft opens a compose window you send from.
  */
-export function ReviewWorkspace({ source, views, onView, search, selection, empty, status, body, listBottom, mobile, noun }: Props) {
+export function ReviewWorkspace({ source, views, onView, search, selection, empty, status, body, listBottom, mobile, measured, noun }: Props) {
   const qc = useQueryClient();
   const now = useClock()();
   const actions = useReviewActions(source.project);
@@ -93,6 +95,19 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
   const present = selection.id !== null && rows.some((r) => r.id === selection.id);
   const current = body ? null : (rows.find((r) => r.id === selection.id) ?? (mobile ? null : (rows[0] ?? null)));
   useShareReview(current?.id ?? null, sel.picked);
+  // P53: the address names the card on screen. Once the list has settled for this view and search, a wide pane whose
+  // address names no draft, or one not in the list, replaces it with the first row (no history entry). So a draft the
+  // agent records at the top never swaps the card under the owner, and the address, the card and the focus agree.
+  const [gone, setGone] = useState<number | null>(null);
+  const settled = measured && !body && !mobile && !query.isPending && !query.isFetching && !query.hasNextPage;
+  const auto = settled && rows[0] && (selection.id === null || !present) ? rows[0].id : null;
+  // A named draft that is not in the list is said once in the pane; a bare list says nothing (state adjusted while rendering).
+  const missing = auto !== null ? selection.id : gone;
+  if (missing !== gone) setGone(missing);
+  const { onAuto } = selection;
+  useEffect(() => {
+    if (auto !== null) onAuto(auto);
+  }, [auto, onAuto]);
 
   const { setNotice } = actions;
   const say = useCallback((text: string) => setNotice({ text, kind: "info" }), [setNotice]);
@@ -106,6 +121,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
   const go = useCallback(
     (id: number | null, focus = false) => {
       if (id == null) return;
+      setGone(null);
       onSelect(id);
       document.getElementById(`draft-${id}`)?.scrollIntoView({ block: "nearest" });
       if (focus) focusRow(id);
@@ -214,7 +230,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
           </ActionButton>
         </div>
       )}
-      <Notices gone={!body && selection.id !== null && !present && !query.isFetching && !query.hasNextPage ? selection.id : null} notice={actions.notice} />
+      <Notices gone={gone ?? (!body && selection.id !== null && !present && !query.isFetching && !query.hasNextPage ? selection.id : null)} notice={actions.notice} />
       {current ? (
         <DraftCard actions={actions} advance={() => advance(current)} d={current} key={current.id} now={now} onReplyAll={(x) => void replyAll(x)} onThread={() => setThread((t) => !t)} project={source.project} say={say} thread={thread} />
       ) : (

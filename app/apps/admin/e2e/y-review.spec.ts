@@ -15,7 +15,7 @@ test("the project and the filter live in the address", async ({ page }) => {
   await expect(cards(page)).toHaveCount(5);
   await viewMenu(page).click();
   await page.getByRole("menuitemradio", { name: /^Hold/ }).click();
-  await expect.poll(() => address(page)).toBe(at("lisbon-realty", "/drafts?filter=hold"));
+  await expect.poll(() => address(page)).toMatch(/^\/lisbon-realty\/drafts(\/\d+)?\?filter=hold$/); // P53: the first held draft opens in the address
 });
 
 test("J and K move the cursor, ? shows the keys, and the switch turns them off", async ({ page }) => {

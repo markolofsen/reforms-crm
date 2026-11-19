@@ -95,6 +95,8 @@ describe("Checked fails closed (decision 0013): the switch and the C key hold on
 
   it("refuses a draft with no text hash: found without a hash, not read yet, or a server with no Mailer", () => {
     expect(tickBlock(base, read({ hash: null }))).toMatch(/no hash/);
+    // P53: Mail holds two versions; the card shows one, the tick names the note, never Checked.
+    expect(tickBlock(base, read({ hash: null, note: "Mail holds 2 versions of this draft. Shown: the newest." }))).toBe("Mail holds 2 versions of this draft. Shown: the newest.");
     expect(tickBlock(base, undefined)).toMatch(/being read/);
     expect(tickBlock(base, read({ configured: false, found: false, hash: null }))).toMatch(/cannot read Mail/);
   });

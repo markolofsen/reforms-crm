@@ -9,7 +9,8 @@ export function deriveFocus(o: { tab: string; route: Resolved; project: string |
   switch (r.route) {
     case "drafts.list":
     case "drafts.item": {
-      const draftId = r.route === "drafts.item" ? r.params.id : (o.openDraftId ?? undefined);
+      // The card on screen, not the address: a draft id the list does not hold shows the first row (P53).
+      const draftId = o.openDraftId ?? (r.route === "drafts.item" ? r.params.id : undefined);
       return {
         ...base,
         screen: r.route === "drafts.item" ? "draft" : r.search.filter === "sequences" ? "follow-ups" : "drafts",

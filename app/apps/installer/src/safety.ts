@@ -6,6 +6,7 @@ import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/c
 import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
 import { HUB_MCP_SERVERS } from "@hub/agent/deny";
 import { readSession, recordPost, type PostPayload } from "./evidence-store";
+import { openDbReadOnly } from "@hub/db";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
@@ -171,7 +172,7 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   }
   const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths) });
   // P28 B3: before a reply is drafted, this session must have read the client's thread and profile, and the reply must not copy an earlier one.
-  if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug));
+  if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug, paths.db));
   r.block = r.violations.length > 0 && mode === "block";
   if (!r.violations.length) return { code: 0, stderr: "" };
   const text = `hub guard (${mode}): ${r.violations.join("; ")}`;
@@ -184,14 +185,28 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
 }
 
 /** The pre-draft rule (research 15 section 3.2): only a draft write (`create_reply`, the hub's `draft_write`) is judged, against the ledger of this session and subagent. Never throws. */
-export function preDraftViolations(payload: GuardInput, root: string, slug: string): string[] {
+export function preDraftViolations(payload: GuardInput, root: string, slug: string, db?: string): string[] {
   try {
     if (!isDraftWrite(String(payload.tool_name ?? ""))) return [];
     const sid = typeof payload.session_id === "string" ? payload.session_id : "";
     if (!sid) return [];
     const aid = typeof payload.agent_id === "string" && payload.agent_id ? payload.agent_id : undefined;
-    return preDraftCheck(readSession(root, slug, sid), { name: String(payload.tool_name), input: payload.tool_input }, aid ? { aid } : {}).violations;
+    const replyFrom = revisionClient(payload.tool_input, slug, db);
+    return preDraftCheck(readSession(root, slug, sid), { name: String(payload.tool_name), input: payload.tool_input }, { ...(aid ? { aid } : {}), ...(replyFrom ? { replyFrom } : {}) }).violations;
   } catch { return []; }
+}
+
+/** `draft_write {draft}` (P53): the address of the client that hub draft of this project answers, so the read of their message counts as the target. */
+function revisionClient(input: unknown, slug: string, db: string | undefined): string | undefined {
+  const id = input && typeof input === "object" ? (input as { draft?: unknown }).draft : undefined;
+  if (typeof id !== "number" || !db || !existsSync(db)) return undefined;
+  const h = openDbReadOnly(db);
+  try {
+    const row = h.db.$client.prepare("SELECT to_addr AS t FROM drafts WHERE id = ? AND project = ?").get(id, slug) as { t?: unknown } | undefined;
+    return typeof row?.t === "string" ? row.t.match(/[^\s,;<>"']+@[^\s,;<>"']+/)?.[0] : undefined;
+  } finally {
+    h.close();
+  }
 }
 
 /** `hub guard --post`: the PostToolUse hook. Appends the call's thin summary to the session's ledger (from the ORIGINAL reply), then for `get_message_content` prints a replacement reply with slim headers. Always exit 0. */

@@ -3,7 +3,7 @@ import type { ReviewDraft } from "../source";
 import { hasSwitch, stateOf, type FlowStep } from "../card/card-state";
 
 /** What the guard needs of a Mail read: nothing of the text itself. */
-export type MailRead = Pick<DraftMailDto, "configured" | "found" | "hash" | "reason">;
+export type MailRead = Pick<DraftMailDto, "configured" | "found" | "hash" | "reason" | "note">;
 
 /** False only when this server reads Mail and Mail has no such draft: the one meaning of the `unreadable` state. */
 export const mailReadable = (mail: MailRead | undefined): boolean => !(mail?.configured && !mail.found);
@@ -33,6 +33,7 @@ export function tickBlock(d: ReviewDraft, mail: MailRead | undefined, step: Flow
   if (!mail && readError !== null) return `The text could not be read from Mail: ${readError} Use Retry above, then turn this on.`;
   if (!mail) return "Mail is being read. Checked turns on once the text has been read.";
   if (!mail.configured) return "This server cannot read Mail, so the text has no hash and cannot be checked here.";
+  if (mail.found && mail.note) return mail.note;
   if (!mail.found || !mail.hash) return "The text of this draft has no hash, so it cannot be checked.";
   return null;
 }

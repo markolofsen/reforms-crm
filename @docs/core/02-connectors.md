@@ -43,7 +43,9 @@ Installed mail-mcp, from its local schemas and README:
 - Drafts are written by `hub mcp` `draft_write` (`@hub/agent/mail-drafts`): Mail's own `reply ... opening window false`,
   `content`, `save`, from the hub's process (outside the agent's sandbox), Mail in the background, the thread headers
   kept, plain text with the `[hub-draft thread=...]` line added. A revision deletes only the older drafts of the same
-  account, subject and marker, after the new one is found. Mail.app must be running; nothing is sent.
+  account, subject and marker, after the new one is found. A revision names only the hub draft (`draft`); the hub finds
+  the answered message by its Message-ID (the draft's `mailRef`) and bumps the live topic `mail`, so the open admin card
+  reads the new text (P53). Mail.app must be running; nothing is sent.
 
 Verdict: draft-only is structural; costs are no threads, no read-marking, GUI dependency. patrickfreyer has
 threads but can send: `--read-only` only, never both.

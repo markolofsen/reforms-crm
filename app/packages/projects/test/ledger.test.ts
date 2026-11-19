@@ -54,6 +54,15 @@ describe("pre-draft check (B3)", () => {
     expect(preDraftCheck(e, reply(50, "Welcome. About the vineyard plot you describe: here is what we do next.")).violations).toEqual([]);
   });
 
+  it("a revision named by its hub draft id (P53): the client's read is the target before Mail's id is known, and the result gives the id", () => {
+    const e = build(careful(10, "a@x.example"));
+    const rev: CallRecord = { name: "mcp__hub__draft_write", input: { draft: 1, content: "Your lot 14 certificate arrived; the plan matches the Harbour Road survey." } };
+    expect(preDraftCheck(e, rev).violations.join()).toContain("(a)");
+    expect(preDraftCheck(e, rev, { replyFrom: "A@X.example" }).violations).toEqual([]);
+    const done = summarizeCall({ ...rev, result: t({ draftId: 7, thread: "m@x", replyTo: 10, sent: false }) });
+    expect(done).toMatchObject({ kind: "draft", replyTo: 10 });
+  });
+
   it("names exactly what is missing", () => {
     const e = build([read(10, "a@x.example")]);
     const v = preDraftCheck(e, reply(10, "Some reply here.")).violations[0]!;

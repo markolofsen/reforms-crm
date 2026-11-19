@@ -19,6 +19,9 @@ describe("deriveFocus", () => {
     expect(f).toMatchObject({ screen: "drafts", draftId: 7, selected: [7, 9], view: "ready", q: "price" });
     expect(derive("/acme/drafts", "filter=sequences").screen).toBe("follow-ups");
   });
+  it("an address naming a draft the list does not hold reports the card on screen (P53)", () => {
+    expect(derive("/acme/drafts/99", "", { openDraftId: 7 })).toMatchObject({ screen: "draft", draftId: 7 });
+  });
   it("Activity, a run, Project; Overview and Connections name no project", () => {
     expect(derive("/acme/log").screen).toBe("activity");
     expect(derive("/acme/log", "run=4")).toMatchObject({ screen: "run", runId: 4 });

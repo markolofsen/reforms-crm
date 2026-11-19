@@ -279,8 +279,13 @@ export const draftMailDto = z.object({
   /** False when this server has no Mailer (Mail-only mode): nothing can be read, and that is not a fault of the draft. */
   configured: z.boolean(),
   found: z.boolean(),
-  /** Why the text could not be read (not found, Mail closed, ambiguous). Null when found. */
+  /** Why the text could not be read (not found, Mail closed). Null when found. */
   reason: z.string().nullable(),
+  /**
+   * Found, but Mail holds more than one version (P53): which one is shown and what to delete. Such a read has no `hash`,
+   * so it cannot be Checked and the send refuses it. Optional for a server older than API 10.
+   */
+  note: z.string().nullable().optional(),
   from: z.string().nullable(),
   to: z.array(z.string()),
   cc: z.array(z.string()),

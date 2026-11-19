@@ -5,7 +5,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { DENIED_TOOLS } from "../src/deny";
-import { FakeDraftWriter, mailAppDraftWriter, parseWriteOutput, stripMarker, WRITE_REPLY_SCRIPT, type OsaRun } from "../src/mail-drafts";
+import { FakeDraftWriter, FIND_INBOUND_SCRIPT, mailAppDraftWriter, parseInboundOutput, parseWriteOutput, stripMarker, WRITE_REPLY_SCRIPT, type OsaRun } from "../src/mail-drafts";
 import { createHubMcpServer } from "../src/mcp";
 
 // The hub's draft writer (P52): the script's contract, its parser and the `draft_write` tool, on a fake Mail. No test touches Mail.
@@ -39,6 +39,19 @@ describe("the Mail script", () => {
     expect(() => parseWriteOutput("garbage")).toThrow(/Mail answered/);
   });
 
+  it("finds the answered message by Message-ID, read-only: INBOX of each account first, never Drafts, Sent or Trash", async () => {
+    expect(FIND_INBOUND_SCRIPT).not.toMatch(/\b(send|delete|save|reply|activate)\b/);
+    expect(FIND_INBOUND_SCRIPT.indexOf('mailbox "INBOX" of acc')).toBeLessThan(FIND_INBOUND_SCRIPT.indexOf("mailboxes of acc"));
+    expect(FIND_INBOUND_SCRIPT).toMatch(/"Drafts", "Sent"/);
+    expect(parseInboundOutput(["ok", "hello@x", "INBOX", "138994"].join(FS) + "\n")).toEqual({ account: "hello@x", mailboxPath: ["INBOX"], messageId: 138994 });
+    expect(parseInboundOutput("none\n")).toBeNull();
+    expect(() => parseInboundOutput(["error", "mail_not_running", "Mail is not running"].join(FS))).toThrow(/not running/);
+    const seen: string[][] = [];
+    const osa: OsaRun = async (_s, a) => (seen.push(a), "none");
+    expect(await mailAppDraftWriter(osa).findInbound(["a", "b"], "<Abc@x>")).toBeNull();
+    expect(seen[0]).toEqual(["Abc@x", "a", "b"]);
+  });
+
   it("drops a marker line the agent wrote itself and refuses an empty body", async () => {
     expect(stripMarker("[hub-draft thread=a@b]\nHi Ann,\n\nThanks.\n")).toBe("Hi Ann,\n\nThanks.");
     const seen: string[][] = [];
@@ -63,11 +76,12 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-async function connect(writer: FakeDraftWriter | undefined) {
+async function connect(writer: FakeDraftWriter | undefined, mailWritten?: (slug: string) => void) {
   const server = createHubMcpServer(createRepos(db.db), {
     hubProject: "acme",
     focusFile: path.join(dir, "focus.json"),
     ...(writer ? { drafts: writer, projectMail: () => ({ accounts: ["desk@acme.example"], sender: null }) } : {}),
+    ...(mailWritten ? { mailWritten } : {}),
   });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(b);
@@ -96,6 +110,37 @@ describe("draft_write (hub mcp)", () => {
   it("refuses an account outside the project, and refuses without a writer", async () => {
     expect(await (await connect(new FakeDraftWriter()))(args("Hi", "private@gmail.com"))).toMatchObject({ isError: true, json: { error: "not_this_project" } });
     expect(await (await connect(undefined))(args("Hi"))).toMatchObject({ isError: true, json: { error: "unavailable" } });
+  });
+
+  it("a revision names only the hub draft: the hub finds the answered message and tells the admin (P53)", async () => {
+    const repos = createRepos(db.db);
+    const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Hello", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail" });
+    const other = await repos.drafts.record({ project: "beta", email: "bob@x.example", name: "Bob", subject: "Re: Hi", mailRef: "<m43@example.com>", reason: "asked", skill: "triage-mail" });
+    const noRef = await repos.drafts.record({ project: "acme", email: "cy@x.example", name: "Cy", subject: "Hello", reason: "new", skill: "bulk-drafts" });
+    const mail = new FakeDraftWriter();
+    mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
+    const bumped: string[] = [];
+    const call = await connect(mail, (slug) => bumped.push(slug));
+    const r = await call({ draft: rec.draftId, content: "Hi Ann, warmer." });
+    expect(r).toMatchObject({ isError: false, json: { thread: "m42@example.com", draft: rec.draftId, sent: false, live: true } });
+    expect(mail.drafts.map((d) => d.text)).toEqual(["[hub-draft thread=m42@example.com]\nHi Ann, warmer."]);
+    expect(bumped).toEqual(["acme"]);
+    expect(await call({ draft: other.draftId, content: "x" })).toMatchObject({ isError: true, json: { error: "not_found" } });
+    expect(await call({ draft: noRef.draftId, content: "x" })).toMatchObject({ isError: true, json: { error: "no_thread" } });
+    expect(await call({ draft: rec.draftId, account: "desk@acme.example", content: "x" })).toMatchObject({ isError: true, json: { error: "invalid" } });
+    expect(await call({ content: "x" })).toMatchObject({ isError: true, json: { error: "invalid" } });
+    mail.inbound.clear();
+    expect(await call({ draft: rec.draftId, content: "x" })).toMatchObject({ isError: true, json: { error: "no_message" } });
+    expect(bumped).toEqual(["acme"]);
+  });
+
+  it("a failed live bump never fails the write", async () => {
+    const mail = new FakeDraftWriter();
+    const r = await (await connect(mail, () => {
+      throw new Error("SQLITE_BUSY");
+    }))(args("Hi Ann."));
+    expect(r).toMatchObject({ isError: false, json: { live: false, sent: false } });
+    expect(mail.drafts).toHaveLength(1);
   });
 
   it("mail-mcp's create_reply is denied: the hub writes every draft", () => {

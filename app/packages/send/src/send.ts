@@ -143,10 +143,21 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
   return out({ project, mail, ...(config ? { config } : {}) });
 }
 
-export type MailFound = { mail: MailDraft; reason?: undefined } | { mail?: undefined; reason: string };
+export type MailFound = { mail: MailDraft; reason?: undefined; note?: string } | { mail?: undefined; reason: string; note?: undefined };
+
+/**
+ * `strict` (Send, the dry run, Checked): exactly one candidate or a refusal, never a guess. `show` (the card's read, P53):
+ * with several candidates it still shows one, the draft that carries this thread's `[hub-draft thread=<mailRef>]` marker
+ * (`draft_write` keeps exactly one per thread), else the newest, with a `note` saying Mail holds more than one version;
+ * the caller gives that text no hash, so it can be read but never Checked or sent.
+ */
+export type FindMode = "strict" | "show";
+
+/** Does this Mail text carry the hub marker of this thread? Case-insensitive: `bareId` lowercases, Mail keeps the case. */
+const carriesMarker = (body: string, thread: string): boolean => thread !== "" && body.toLowerCase().includes(`[hub-draft thread=${thread}]`);
 
 /** The one Mail draft a hub draft stands for, found by Message-ID first and by recipient and subject after. Read-only. */
-export async function findMail(deps: Pick<SendDeps, "mailer">, draft: Pick<DraftRow, "mailRef" | "subject" | "toAddr">): Promise<MailFound> {
+export async function findMail(deps: Pick<SendDeps, "mailer">, draft: Pick<DraftRow, "mailRef" | "subject" | "toAddr">, mode: FindMode = "strict"): Promise<MailFound> {
   let candidates: MailDraft[] = [];
   try {
     candidates = await deps.mailer.findDrafts({ mailRef: draft.mailRef, subject: draft.subject });
@@ -162,7 +173,15 @@ export async function findMail(deps: Pick<SendDeps, "mailer">, draft: Pick<Draft
   // Mail flags as deleted; an older version can still show for a moment while Mail syncs, or stay when it came from elsewhere.
   // The newest Mail id is the latest version; the person waits and reads again, or deletes the others in Mail.
   if (pool.length > 1) {
-    const newest = [...pool].sort((a, b) => (Number(b.ref) || 0) - (Number(a.ref) || 0))[0] as MailDraft;
+    const byAge = [...pool].sort((a, b) => (Number(b.ref) || 0) - (Number(a.ref) || 0));
+    const newest = byAge[0] as MailDraft;
+    if (mode === "show") {
+      const marked = byAge.filter((c) => carriesMarker(c.body, ref));
+      const shown = (marked.length === 1 ? marked[0] : newest) as MailDraft;
+      const others = pool.filter((c) => c !== shown).map((c) => c.ref);
+      const which = marked.length === 1 ? "the agent's version (it carries the hub marker)" : "the newest";
+      return { mail: shown, note: `Mail holds ${pool.length} versions of this draft. Shown: ${which}, Mail id ${shown.ref}. Delete the other${others.length === 1 ? "" : "s"} in Mail (Mail id ${others.join(", ")}); until then it cannot be Checked or sent.` };
+    }
     return { reason: `${pool.length} drafts in Mail match subject "${draft.subject}" for ${draft.toAddr}: keep the newest (Mail id ${newest.ref}, the latest version) and delete the older ${pool.length === 2 ? "one" : "ones"} in Mail. If the agent revised this draft a moment ago, Mail may still be removing the older version: wait a few seconds and read it again` };
   }
   return { mail: pool[0] as MailDraft };

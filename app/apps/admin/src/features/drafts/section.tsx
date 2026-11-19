@@ -1,14 +1,14 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import type { ClientFilter } from "@hub/config";
 import { ReviewWorkspace } from "@/features/review/workspace";
 import type { View } from "@/features/review/list-controls";
 import type { ReviewPage, ReviewSource } from "@/features/review/source";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useGo } from "@/hooks/use-go";
-import { usePaneNarrow } from "@/hooks/use-pane";
+import { usePaneMeasured, usePaneNarrow } from "@/hooks/use-pane";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { useSearchState } from "@/hooks/use-search-state";
@@ -46,11 +46,12 @@ function countOf(counts: ReviewPage["counts"], view: string): number | undefined
   return view === "finished" ? FINISHED.reduce((n, f) => n + (counts[f] ?? 0), 0) : counts[view];
 }
 
-type Props = { project: string; filter: DraftView; q: string; batch: number | null; selectedId: number | null; mobile: boolean };
+type Props = { project: string; filter: DraftView; q: string; batch: number | null; selectedId: number | null; mobile: boolean; measured: boolean };
 
 /** Drafts: the list column (View menu, status line, rows) and the open card. The view, the search, the batch and the open draft live in the address. */
-function DraftsSection({ project, filter, q, batch, selectedId, mobile }: Props) {
+function DraftsSection({ project, filter, q, batch, selectedId, mobile, measured }: Props) {
   const go = useGo();
+  const onAuto = useCallback((id: number) => go(paths.drafts.item(id, { filter, q, batch }), { replace: true }), [go, filter, q, batch]);
   const setQ = useSearchState("q")[1];
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
   const batches = useQuery({ queryKey: keys.batches(project), queryFn: () => reviewApi.batches(project) });
@@ -92,8 +93,10 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile }: Props)
       noun={{ list: "Drafts", back: "Drafts" }}
       onView={onView}
       search={[q, setQ]}
-      // The first pick from the list pushes (Back returns to the list); moving between drafts replaces.
-      selection={{ id: selectedId, onChange: (id) => go(id === null ? paths.drafts.list({ filter, q, batch }) : paths.drafts.item(id, { filter, q, batch }), { replace: selectedId !== null }) }}
+      measured={measured}
+      // The first pick from the list pushes (Back returns to the list); moving between drafts replaces; the draft the screen
+      // opens by itself on a wide pane replaces too (P53), so the address always names the card on screen.
+      selection={{ id: selectedId, onChange: (id) => go(id === null ? paths.drafts.list({ filter, q, batch }) : paths.drafts.item(id, { filter, q, batch }), { replace: selectedId !== null }), onAuto }}
       source={{ ...source, filter: batch === null ? filter : `${BATCH}${batch}` }}
       status={<StatusLine project={project} />}
       views={views}
@@ -111,8 +114,9 @@ export function DraftsScreen() {
   const { project } = useProjectScope();
   // A pane too narrow for the split (a phone, or the terminal docked beside it) shows the list and the card as separate screens: no card opens until a row is chosen.
   const compact = usePaneNarrow();
+  const measured = usePaneMeasured();
   if (route.route !== "drafts.list" && route.route !== "drafts.item") return null;
   const selectedId = route.route === "drafts.item" ? route.params.id : null;
   const { filter, q, batch } = route.search;
-  return <DraftsSection batch={batch} filter={filter} mobile={compact} project={project} q={q} selectedId={selectedId} />;
+  return <DraftsSection batch={batch} filter={filter} measured={measured} mobile={compact} project={project} q={q} selectedId={selectedId} />;
 }

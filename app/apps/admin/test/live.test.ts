@@ -14,10 +14,10 @@ const seed = () => {
 const stale = (qc: QueryClient) => qc.getQueryCache().getAll().filter((q) => q.state.isInvalidated).map((q) => q.queryKey.join("/"));
 
 describe("TOPIC_KEYS", () => {
-  it("covers every topic (a type and a run-time check) and never names a Mail key", () => {
+  it("covers every topic (a type and a run-time check); only mail names a Mail key, and only Mail keys", () => {
     expectTypeOf(TOPIC_KEYS).toEqualTypeOf<Record<LiveTopic, (project: string | null) => QueryKey[]>>();
     expect(Object.keys(TOPIC_KEYS).sort()).toEqual([...LIVE_TOPICS].sort());
-    for (const t of LIVE_TOPICS) for (const p of ["p", null]) for (const k of TOPIC_KEYS[t](p)) expect(MAIL_KEYS, `${t}`).not.toContain(k[0]);
+    for (const t of LIVE_TOPICS) for (const p of ["p", null]) for (const k of TOPIC_KEYS[t](p)) expect(MAIL_KEYS.includes(String(k[0])), `${t}`).toBe(t === "mail");
   });
 });
 
@@ -26,6 +26,11 @@ describe("applyLive", () => {
     const qc = seed();
     applyLive(qc, { type: "change", seq: 1, changes: [{ topic: "drafts", project: "p" }] }, false);
     expect(stale(qc).sort()).toEqual(["drafts/p/ready//", "overview"]);
+  });
+  it("mail re-reads only that project's Mail (P53: the hub wrote a draft)", () => {
+    const qc = seed();
+    applyLive(qc, { type: "change", seq: 1, changes: [{ topic: "mail", project: "p" }] }, false);
+    expect(stale(qc).sort()).toEqual(["draft-mail/p/1", "thread/p/2"]);
   });
   it("an instance change reaches every project; Mail and the doctor stay", () => {
     const qc = seed();

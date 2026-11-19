@@ -10,13 +10,14 @@ describe("live contract (P50)", () => {
   it("an unknown type, an unknown field or an unknown topic is refused", () => {
     expect(parseLiveEvent(JSON.stringify({ type: "data", seq: 1 }))).toBeNull();
     expect(parseLiveEvent(JSON.stringify({ type: "reset", seq: 1, rows: [] }))).toBeNull();
-    expect(parseLiveEvent(JSON.stringify({ type: "change", seq: 1, changes: [{ topic: "mail", project: "a" }] }))).toBeNull();
+    expect(parseLiveEvent(JSON.stringify({ type: "change", seq: 1, changes: [{ topic: "mailbox", project: "a" }] }))).toBeNull();
     expect(parseLiveEvent(JSON.stringify({ type: "change", seq: 1, changes: [{ topic: "drafts", project: "a", body: "x" }] }))).toBeNull();
     expect(parseLiveEvent(JSON.stringify({ type: "change", seq: 1, changes: [] }))).toBeNull();
     expect(parseLiveEvent("not json")).toBeNull();
   });
-  it("the topics are a closed list with no mail topic", () => {
-    expect(LIVE_TOPICS).toHaveLength(13);
-    expect(liveTopic.safeParse("mail").success).toBe(false);
+  it("the topics are a closed list; mail is the hub's own Mail write (P53)", () => {
+    expect(LIVE_TOPICS).toHaveLength(14);
+    expect(liveTopic.safeParse("mail").success).toBe(true);
+    expect(liveTopic.safeParse("mailbox").success).toBe(false);
   });
 });

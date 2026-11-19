@@ -8,8 +8,10 @@ import { DraftWriteError, type DraftWriter } from "./mail-drafts";
 
 // `hub mcp` (P51, decision 0029): the hub's own stdio MCP server, bound to `HUB_PROJECT`. Four read-only tools: the admin's
 // focus, one draft, one client, the Drafts list. The database is opened read-only by the caller (`openDbReadOnly`), so a
-// database write is impossible, not just absent. One Mail write (P52, decision 0030): `draft_write` saves an unsent reply in
-// Mail's Drafts without a window or focus and replaces the older hub draft of the same thread (`mail-drafts.ts`). No send.
+// write of a row is impossible, not just absent; the one exception is the live counter, bumped through `mailWritten`
+// on a separate short connection (P53), which holds no row the owner sees. One Mail write (P52, decision 0030): `draft_write` saves an unsent reply in
+// Mail's Drafts without a window or focus and replaces the older hub draft of the same thread (`mail-drafts.ts`); a revision
+// names only the hub draft (P53), and the write bumps the live topic `mail` so the open card reads Mail again. No send.
 // Recording stays `hub record-draft` (decision 0009). The tool names stay clear of `SEND_LIKE_TOOL`; a test pins the list.
 
 export const HUB_MCP_TOOLS = ["focus", "draft_show", "client_show", "drafts_list", "draft_write"] as const;
@@ -30,6 +32,11 @@ export interface HubMcpEnv {
   drafts?: DraftWriter;
   /** The project's Mail accounts and sender; `draft_write` writes only from these accounts. */
   projectMail?: (slug: string) => ProjectMail;
+  /**
+   * Tells the open admin that a Mail draft of this project changed (P53: the live topic `mail`), so the card reads it
+   * again. The database handle of the tools stays read-only; this writes only the live counter. A throw is reported, never fatal.
+   */
+  mailWritten?: (slug: string) => void;
 }
 
 class ToolError extends Error {
@@ -80,7 +87,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "focus",
     {
       title: "What the owner's admin shows",
-      description: `The Hub admin's current focus for this project: the open draft and its client, the selected drafts, the Drafts view and search. "этот клиент", "this draft", "ответь клиенту", "выбранные" mean this. state: fresh (use it), stale (say the admin shows nothing current, ask), elsewhere (another project is open), none. ${DATA}`,
+      description: `What the owner sees in the Hub admin right now, for this project: the screen, the open draft and its client, the selected drafts, the Drafts view and search. "этот клиент", "this draft", "ответь клиенту", "выбранные" mean this, and "do you see my page / screen?" is answered from it ("Да: черновик 1, <client>, <subject>"), never with "I cannot see your screen" and never by offering browser automation. state: fresh (use it), stale (say the admin shows nothing current, ask), elsewhere (another project is open), none. ${DATA}`,
       inputSchema: z.object({}),
       annotations: READ_ONLY,
     },
@@ -91,7 +98,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "draft_show",
     {
       title: "One draft of this project",
-      description: `Status, recipients, the Mail key (mailRef), the short excerpt, reason, marks, evidence, the recorded context, the Notion link, the follow-up step and the draft's Activity. Not the body: it lives in Mail (read it with mail-mcp list_drafts / get_message_content). To revise it: \`draft_write\` on the same message, then \`hub record-draft --project <slug>\` with the SAME mailRef (the draft is updated in place). Never send. ${DATA}`,
+      description: `Status, recipients, the Mail key (mailRef: the Message-ID of the client's message this draft answers), the short excerpt, reason, marks, evidence, the recorded context, the Notion link, the follow-up step, the draft's Activity, and \`inbound\` (account, mailbox_path, message_id of the client's message, for mail-mcp get_message_content). Not the body: it lives in Mail (read it with mail-mcp list_drafts / get_message_content). To revise it: \`draft_write\` with \`draft\` = this id (nothing else to look up), then \`hub record-draft --project <slug>\` with the SAME mailRef (the draft is updated in place). Never send. ${DATA}`,
       inputSchema: z.object({ id: z.number().int().positive().describe("The draft id, as the focus or the admin shows it.") }),
       annotations: READ_ONLY,
     },
@@ -99,6 +106,8 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
       run(async () => {
         const { slug, d } = await ownDraft(id);
         const c = await repos.clients.card(slug, d.clientId);
+        // The message this draft answers, where mail-mcp can open it (P53): no hunting with find_messages. Null when not found.
+        const inbound = d.mailRef && env.drafts && env.projectMail ? await env.drafts.findInbound(env.projectMail(slug).accounts, d.mailRef).catch(() => null) : null;
         const events = (await repos.runs.eventsForClient(slug, d.clientId, 100)).filter((e) => json<{ draftId?: number }>(e.detail, {}).draftId === d.id).slice(0, 20);
         return {
           id: d.id,
@@ -118,6 +127,10 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
           followUp: d.enrollmentId == null ? null : { enrollmentId: d.enrollmentId, step: d.sequenceStep },
           activity: events.map((e) => ({ at: e.at, kind: e.kind, summary: cut(e.summary, 200) })),
           body: `In Mail, not here: the draft to ${d.toAddr} with subject "${cut(d.subject, 200)}"${d.mailRef ? ` (mailRef ${d.mailRef})` : ""}, first line [hub-draft thread=...].`,
+          inbound: inbound ? { account: inbound.account, mailbox_path: inbound.mailboxPath, message_id: inbound.messageId } : null,
+          revise: d.mailRef
+            ? { draft_write: { draft: d.id, content: "<the new reply>" }, then: `hub record-draft --project ${slug} with "mailRef":"${d.mailRef}"` }
+            : { note: "No mailRef: this draft answers no Mail message, so draft_write cannot revise it." },
           createdAt: d.createdAt,
           updatedAt: d.updatedAt,
         };
@@ -167,26 +180,46 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "draft_write",
     {
       title: "Write or revise an unsent reply draft in Mail",
-      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. The first line [hub-draft thread=<Message-ID>] is added for you; give the body only, plain text. A revision is the same call again on the same message: the new draft is saved first, then the older draft of this thread that carries the same marker is removed, so one version stays. Then record it: \`hub record-draft --project <slug>\` with mailRef = the returned thread. Only this project's Mail accounts. Never sends. ${DATA}`,
+      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. A revision of a hub draft: \`draft\` = its id and \`content\`, nothing else (the hub finds the message it answers from its mailRef). A new reply: \`account\`, \`mailbox_path\` and \`message_id\` of the message answered. The first line [hub-draft thread=<Message-ID>] is added for you; give the body only, plain text. A revision saves the new draft first, then removes the older draft of this thread that carries the same marker, so one version stays; the open admin card shows the new text within seconds. Then record it: \`hub record-draft --project <slug>\` with mailRef = the returned thread. Only this project's Mail accounts. Never sends. ${DATA}`,
       inputSchema: z.object({
-        account: z.string().min(1).max(320).describe("Mail account of the message answered, as mail-mcp names it."),
-        mailbox_path: z.array(z.string().min(1).max(200)).min(1).max(8).describe('Mailbox path of that message, e.g. ["INBOX"].'),
-        message_id: z.number().int().positive().describe("mail-mcp's integer id of the message answered."),
+        draft: z.number().int().positive().optional().describe("Revise this hub draft (its id, as focus or draft_show gives it). Then leave account, mailbox_path and message_id out."),
+        account: z.string().min(1).max(320).optional().describe("New reply: Mail account of the message answered, as mail-mcp names it."),
+        mailbox_path: z.array(z.string().min(1).max(200)).min(1).max(8).optional().describe('New reply: mailbox path of that message, e.g. ["INBOX"].'),
+        message_id: z.number().int().positive().optional().describe("New reply: mail-mcp's integer id of the message answered."),
         content: z.string().min(1).max(20_000).describe("The reply body, plain text, without the [hub-draft ...] line."),
       }),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
     },
-    ({ account, mailbox_path, message_id, content }) =>
+    ({ draft, account, mailbox_path, message_id, content }) =>
       run(async () => {
         const slug = project();
         if (!env.drafts || !env.projectMail) throw new ToolError("unavailable", "This hub MCP server cannot write drafts (no Mail writer).");
+        const writer = env.drafts;
         const mail = env.projectMail(slug);
-        const own = mail.accounts.find((a) => a.trim().toLowerCase() === account.trim().toLowerCase());
-        if (!own) throw new ToolError("not_this_project", `Account "${account}" is not one of project ${slug}'s Mail accounts (${mail.accounts.join(", ") || "none listed in project.md"}).`);
         try {
-          const r = await env.drafts.writeReply({ account: own, mailboxPath: mailbox_path, messageId: message_id, body: content, sender: mail.sender });
+          let target: { account: string; mailboxPath: string[]; messageId: number };
+          if (draft !== undefined) {
+            if (account !== undefined || mailbox_path !== undefined || message_id !== undefined) throw new ToolError("invalid", "Give either draft (a revision) or account, mailbox_path and message_id (a new reply), not both.");
+            const { d } = await ownDraft(draft);
+            if (!d.mailRef) throw new ToolError("no_thread", `Draft ${draft} has no mailRef: it answers no Mail message, so it cannot be revised here.`);
+            const found = await writer.findInbound(mail.accounts, d.mailRef);
+            if (!found) throw new ToolError("no_message", `The message draft ${draft} answers (Message-ID ${d.mailRef}) is not in ${mail.accounts.join(", ") || "this project's accounts"}: it may have been deleted. Nothing was written.`);
+            target = found;
+          } else {
+            if (account === undefined || mailbox_path === undefined || message_id === undefined) throw new ToolError("invalid", "Give draft (a revision of a hub draft) or all of account, mailbox_path and message_id (a new reply).");
+            const own = mail.accounts.find((a) => a.trim().toLowerCase() === account.trim().toLowerCase());
+            if (!own) throw new ToolError("not_this_project", `Account "${account}" is not one of project ${slug}'s Mail accounts (${mail.accounts.join(", ") || "none listed in project.md"}).`);
+            target = { account: own, mailboxPath: mailbox_path, messageId: message_id };
+          }
+          const r = await writer.writeReply({ ...target, body: content, sender: mail.sender });
+          let live = true;
+          try {
+            env.mailWritten?.(slug);
+          } catch {
+            live = false; // the draft is saved; only the open card's refresh is lost (it reads Mail again on focus)
+          }
           const left = r.left.length ? ` Older hub draft(s) ${r.left.join(", ")} are still in Drafts: tell the owner to delete them before Send.` : "";
-          return { ...r, project: slug, sent: false, next: `Record it: \`hub record-draft --project ${slug}\` (skill triage-mail step 5) with "mailRef":"${r.thread}"; a revision keeps the draft's context block and client name. Nothing was sent.${left}` };
+          return { ...r, project: slug, sent: false, ...(draft !== undefined ? { draft } : {}), replyTo: target.messageId, live, next: `Record it: \`hub record-draft --project ${slug}\` (skill triage-mail step 5) with "mailRef":"${r.thread}"; a revision keeps the draft's context block and client name. Then tell the owner in one line what you changed. Nothing was sent.${left}` };
         } catch (e) {
           if (e instanceof DraftWriteError) throw new ToolError(e.code, e.message);
           throw e;

@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { openDb, type DbHandle } from "./client";
-import { bumpTopic, LIVE_TABLES, liveSeq, liveSince } from "./live";
+import { openDb, openDbReadOnly, type DbHandle } from "./client";
+import { bumpTopic, bumpTopicIn, LIVE_TABLES, liveSeq, liveSince } from "./live";
 import { createRepos, type Repos } from "./repos";
 import { write } from "./tx";
 
@@ -107,6 +107,23 @@ h.close();
       expect(seen.changes.map((c) => c.tbl)).toEqual(expect.arrayContaining(["clients", "drafts", "agent_runs"]));
       expect(new Set(seen.changes.map((c) => c.project))).toEqual(new Set(["p"]));
     } finally {
+      mine.close();
+    }
+  });
+
+  it("bumpTopicIn writes only the live counter, beside a read-only handle of the same file (P53, hub mcp)", () => {
+    const file = join(dir, "m.db");
+    const mine = openDb(file);
+    const reader = openDbReadOnly(file);
+    try {
+      const s0 = liveSeq(mine.db);
+      expect(() => reader.db.$client.prepare("UPDATE live_seq SET n = n + 1").run()).toThrow(/readonly/i);
+      const n = bumpTopicIn(file, "mail", "p");
+      expect(n).toBe(s0 + 1);
+      expect(liveSince(mine.db, s0).changes).toEqual([{ tbl: "topic:mail", project: "p", seq: s0 + 1 }]);
+      expect(() => bumpTopicIn(join(dir, "missing.db"), "mail", "p")).toThrow();
+    } finally {
+      reader.close();
       mine.close();
     }
   });

@@ -71,6 +71,11 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
           )}
         </div>
       )}
+      {live?.found && live.note && (
+        <p className="text-sm text-warning-foreground" data-testid="mail-versions">
+          {live.note}
+        </p>
+      )}
       {body === "" ? (
         !unreadable && <p className="text-muted-foreground text-sm">The text of this mail is not stored here. Open it in Mail.</p>
       ) : (

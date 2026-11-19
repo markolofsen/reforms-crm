@@ -12,6 +12,8 @@ test.beforeEach(async ({ page }) => {
 const P = "lisbon-realty";
 const cards = (page: Page) => page.locator('ul[aria-label="Drafts"] > li');
 const viewMenu = (page: Page) => page.getByRole("button", { name: /^View:/ });
+/** P53: at 1280 the Drafts list opens its first row and the address names it (`/drafts/42`); a bare `/drafts` only while loading or empty. */
+const listed = (project: string | null, query = "") => new RegExp(`^${project ? `/${project}` : ""}/drafts(/\\d+)?${query.replace(/[?]/g, "\\?")}$`);
 
 async function firstDraftId(page: Page): Promise<string> {
   await page.goto(at(P, "/drafts"));
@@ -25,7 +27,7 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
   await page.goto("/");
   await expect.poll(() => address(page)).toBe("/overview");
   await page.goto("/drafts");
-  await expect.poll(() => address(page)).toBe(at(P, "/drafts"));
+  await expect.poll(() => address(page)).toMatch(listed(P));
   await page.goto("/log");
   await expect.poll(() => address(page)).toBe(at(P, "/log"));
   await page.goto("/connections");
@@ -37,9 +39,9 @@ test("saved links of the query era (until 2026-11-18) open the same view in the 
   await page.goto(`/drafts/${id}?project=${P}&filter=all`);
   await expect.poll(() => address(page)).toBe(at(P, `/drafts/${id}?filter=all`));
   await page.goto("/drafts?project=demo-shop");
-  await expect.poll(() => address(page)).toBe(at("demo-shop", "/drafts"));
+  await expect.poll(() => address(page)).toMatch(listed("demo-shop"));
   await page.goto(`/drafts?project=${P}&new=1`); // the batch builder's address: gone, the list opens
-  await expect.poll(() => address(page)).toBe(at(P, "/drafts"));
+  await expect.poll(() => address(page)).toMatch(listed(P));
 });
 
 test("a Drafts deep link with a selected draft survives a reload", async ({ page }) => {
@@ -60,21 +62,22 @@ test("a view in the address survives a reload, and a bad one resets", async ({ p
   await expect(viewMenu(page)).toContainText("Hold");
   await page.goto(at(P, "/drafts?filter=zzz"));
   await expect(viewMenu(page)).toContainText("To review");
-  await expect.poll(() => address(page)).toBe(at(P, "/drafts"));
+  await expect.poll(() => address(page)).toMatch(listed(P));
 });
 
-test("picking a draft pushes, a view replaces, and Back from the draft lands on the list", async ({ page }) => {
+test("the first draft opens in the address without a history entry; moving between drafts and views replaces (P53)", async ({ page }) => {
   await page.goto(at(P, "/drafts"));
   await expect(cards(page).first()).toBeVisible();
-  await page.keyboard.press("j"); // the first move from the list names a draft: a subject, so a new history entry
-  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/drafts/\\d+$`));
-  await page.goBack();
-  await expect.poll(() => address(page)).toBe(at(P, "/drafts"));
+  const first = (await cards(page).first().getAttribute("id"))?.replace("draft-", "");
+  await expect.poll(() => address(page)).toBe(at(P, `/drafts/${first}`)); // the card on screen is the one the address names
+  await expect(cards(page).first()).toHaveAttribute("data-open", "true");
   const entries = await page.evaluate(() => window.history.length);
+  await page.keyboard.press("j");
+  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/drafts/(?!${first}$)\\d+$`));
   await viewMenu(page).click();
   await page.getByRole("menuitemradio", { name: /^Hold/ }).click();
-  await expect.poll(() => address(page)).toBe(at(P, "/drafts?filter=hold"));
-  expect(await page.evaluate(() => window.history.length)).toBe(entries); // a view is not a page: no new entry
+  await expect.poll(() => address(page)).toMatch(listed(P, "?filter=hold"));
+  expect(await page.evaluate(() => window.history.length)).toBe(entries); // neither the auto-open, a move nor a view is a page
 });
 
 test("the Activity deep link keeps its view and opened session", async ({ page }) => {
@@ -99,7 +102,7 @@ for (const bad of ["/clients", "/nope", "/drafts/abc", "/drafts/1/2", `/${P}/ove
     await expect(page.locator('ul[aria-label="Drafts"]')).toHaveCount(0);
     await expect(page).toHaveTitle("Not found · Hub Workflow");
     await page.getByRole("link", { name: "Go to Drafts" }).click();
-    await expect.poll(() => address(page)).toBe(at(P, "/drafts"));
+    await expect.poll(() => address(page)).toMatch(listed(P));
     await expect(cards(page).first()).toBeVisible();
   });
 }
@@ -116,13 +119,13 @@ test("g then d / a / p move between screens; typing in a field is left alone", a
   for (const [key, path] of [["a", "/log"], ["p", "/project"], ["d", "/drafts"]] as const) {
     await page.keyboard.press("g");
     await page.keyboard.press(key);
-    await expect.poll(() => address(page)).toBe(at(P, path));
+    await expect.poll(() => address(page)).toMatch(path === "/drafts" ? listed(P) : new RegExp(`^${at(P, path)}$`));
   }
   await expect(cards(page).first()).toBeVisible();
   await page.getByRole("searchbox", { name: "Search drafts" }).fill("g");
   await page.keyboard.type("b");
   // The letters went into the field (the search is in the address as `q`); no chord moved the screen.
-  await expect.poll(() => address(page)).toBe(at(P, "/drafts?q=gb"));
+  await expect.poll(() => address(page)).toMatch(listed(P, "?q=gb"));
 });
 
 test("the skip link moves focus and leaves the address alone", async ({ page }) => {
@@ -132,7 +135,7 @@ test("the skip link moves focus and leaves the address alone", async ({ page }) 
   await expect(page.getByRole("link", { name: "Skip to content" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#main")).toBeFocused();
-  expect(await address(page)).toBe(at(P, "/drafts"));
+  expect(await address(page)).toMatch(listed(P));
 });
 
 test("the nav links are real anchors in the path form; two projects show the switcher and Overview", async ({ page }) => {
@@ -159,14 +162,14 @@ test("status policy: an unmatched path is a real 404; a streamed bad id is 200 w
 test("one project: no project in the address, no switcher, no Overview, and a path-form link folds back", async ({ page }) => {
   await page.route(/\/api\/projects$/, (route) => route.fulfill({ json: { projects: [P] } }));
   await page.goto("/");
-  await expect.poll(() => address(page)).toBe("/drafts");
+  await expect.poll(() => address(page)).toMatch(listed(null));
   await expect(cards(page).first()).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Sections" }).first();
   await expect(nav.getByRole("link", { name: "Activity" })).toHaveAttribute("href", "/log");
   await expect(nav.getByRole("link", { name: "Overview" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: P })).toHaveCount(0);
   await page.goto("/overview");
-  await expect.poll(() => address(page)).toBe("/drafts");
+  await expect.poll(() => address(page)).toMatch(listed(null));
   await page.goto(at(P, "/log?run=1"));
   await expect.poll(() => address(page)).toBe("/log?run=1");
 });

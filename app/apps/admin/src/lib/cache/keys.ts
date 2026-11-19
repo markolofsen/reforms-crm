@@ -27,7 +27,10 @@ export const keys = {
   thread: (project: string, clientId: number) => ["thread", project, clientId] as const,
 };
 
-/** The first part of the Mail keys: read on open and on focus (decision 0013), never because of a live event. */
+/**
+ * The first part of the Mail keys: read on open and on focus (decision 0013). The one live event that reads Mail again is
+ * `mail` (P53): the hub itself wrote a Mail draft of that project (`draft_write`), so the open card shows the new text.
+ */
 export const MAIL_KEYS: readonly string[] = ["draft-mail", "thread"];
 
 /** One project's prefix of a resource, or every project's when the change is the instance's (`null`). */
@@ -43,10 +46,13 @@ const rules = of("rules");
 const sends = of("sends");
 const agentTools = of("agent-tools");
 const overview = () => keys.overview();
+const draftMail = of("draft-mail");
+const thread = of("thread");
 
 /**
- * What each live topic invalidates (P50). `tsc` fails when a topic is added without its keys. A topic never names a Mail
- * key, and the doctor is read on open only: its checks are not cheap and not rows.
+ * What each live topic invalidates (P50). `tsc` fails when a topic is added without its keys. Only `mail` names a Mail key
+ * (each read is an osascript call, so a row change never triggers one), and the doctor is read on open only: its checks are
+ * not cheap and not rows.
  */
 export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[]> = {
   drafts: (p) => [drafts(p), batches(p), timeline(p), project(p), overview()],
@@ -62,4 +68,5 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   messengers: (p) => [drafts(p), notByEmail(p), project(p), keys.connections()],
   connections: () => [keys.connections(), agentTools(null), overview()],
   health: (p) => [keys.pulse(), project(p), keys.connections(), overview()],
+  mail: (p) => [draftMail(p), thread(p)],
 };
