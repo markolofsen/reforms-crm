@@ -26,6 +26,7 @@ function projectMd(): string {
     "| mail.accounts | owner@acme.example | 2026-11-14 | agent |",
     "| mail.addresses | owner@acme.example | 2026-11-14 | owner |",
     "| mail.sender | owner@acme.example | 2026-11-14 | owner |",
+    "| mail.domains | brand.example | 2026-11-14 | agent |",
     "| tone | brief | 2026-11-14 | owner |",
     "",
     "## Notion databases",
@@ -176,7 +177,11 @@ describe("hub send <draftId> (manual)", () => {
     });
     it("attachments", async () => expectRefused(await draft({ mail: { attachments: 1 } }), /attachment/));
     it("another sender or another account", async () => {
-      await expectRefused(await draft({ mail: { sender: "x@other.example" } }), /not mail\.sender/);
+      await expectRefused(await draft({ mail: { sender: "x@other.example" } }), /sender x@other\.example is not one of acme's addresses/);
+    });
+    it("P58: a From of the project's own is accepted (the brand address the client wrote to); a To of ours is refused", async () => {
+      expect((await sendDraft(deps(), { draftId: await draft({ mail: { sender: "Brand <info@brand.example>" } }), apply: false, actor: "cli" })).code).toBe(0);
+      await expectRefused(await draft({ email: "c@example.com", subject: "Re: c", mailRef: "<c@x>", mail: { to: ["c@example.com", "info@brand.example"] } }), /addressed to this project's own address info@brand\.example/);
     });
     it("a draft in another project's account", async () => {
       await expectRefused(await draft({ mail: { account: "someone@else.example" } }), /not one of acme's/);

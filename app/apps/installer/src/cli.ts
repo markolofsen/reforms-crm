@@ -463,7 +463,8 @@ program.command("open").description("Open a project's folder or file in Finder o
   .option("--key <key>", "project | project.md | knowledge | knowledge:<entry> | workflows | log:<YYYY-MM-DD>")
   .option("--tab <id>", "agent.openInDesktop: the dock tab (not offered)")
   .option("--args <json>", "an href action's arguments as JSON")
-  .action(async (action: string | undefined, o: { project?: string; key?: string; tab?: string; args?: string }) => {
+  .option("--draft <id>", "mail.openDraft | mail.openMessage: of this hub draft (the Mail draft itself, or the client's mail)")
+  .action(async (action: string | undefined, o: { project?: string; key?: string; tab?: string; args?: string; draft?: string }) => {
     const [{ hubPaths }, { createRepos, openDbReadOnly }, lo] = await Promise.all([import("@hub/config/paths"), import("@hub/db"), import("@hub/projects/local-open")]);
     let close = () => {};
     const resolver = () => {
@@ -474,7 +475,24 @@ program.command("open").description("Open a project's folder or file in Finder o
       return lo.localOpenDeps(createRepos(handle.db), paths);
     };
     try {
-      done(await runOpenCommand(action, { ...o, project: o.project ?? process.env.HUB_PROJECT }, { out: console.log, resolver, run: lo.execFileOpen, available: lo.localOpenAvailable() }));
+      // P58 R1: `--draft <id>`: the row (read-only) for the client's mail, one strict Mail read for the draft itself.
+      const draftIds = async (project: string | undefined, id: number) => {
+        ctxOf();
+        const paths = hubPaths();
+        const h = openDbReadOnly(paths.db);
+        try {
+          const repos = createRepos(h.db);
+          const row = await repos.drafts.get(id);
+          if (!row || (project && row.project !== project)) return { mailRef: null, draft: null, why: `no draft ${id}${project ? ` in project ${project}` : ""}` };
+          const [{ findMail, mailAppDraftsCleaner }, { loadProject }] = await Promise.all([import("@hub/send"), import("@hub/projects")]);
+          const accounts = loadProject(paths.projects, row.project).parsed.config.mail.accounts;
+          const f = await findMail({ mailer: mailAppDraftsCleaner() }, row, "strict", { accounts, versions: await repos.mailVersions.ofDraft(row.id) });
+          return { mailRef: row.mailRef, draft: f.mail?.messageId ?? null, why: f.mail ? null : (f.reason ?? null) };
+        } finally {
+          h.close();
+        }
+      };
+      done(await runOpenCommand(action, { ...o, project: o.project ?? process.env.HUB_PROJECT }, { out: console.log, resolver, run: lo.execFileOpen, available: lo.localOpenAvailable(), draftIds }));
     } finally {
       close();
     }

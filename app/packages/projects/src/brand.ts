@@ -1,6 +1,7 @@
 // Brands (P60, doc 16 sections 3 and 7): the `## Brands` table of project.md and the one resolver from an inbound's
 // headers to the brand the client wrote to. Pure: no file, Mail or database access, so parse.ts and @hub/notion can
 // import it, and the hub MCP server, the draft writer and doctor all call the same functions.
+import { fromReasonOf } from "@hub/contract/responses";
 import type { Brand, ProjectConfig } from "./schema";
 import { EMAIL, isIsoDate, normalizeAddress } from "./values";
 
@@ -150,6 +151,40 @@ export function resolveBrand(headers: readonly HeaderAddresses[], c: { mail: Own
   const byDomain = c.brands.find((b) => b.receivesAt.includes(domainOf(wroteTo)));
   if (byDomain) return { wroteTo, brand: byDomain.name, via: "domain", reason: `${wroteTo} is on ${domainOf(wroteTo)}, a domain of brand ${byDomain.name}` };
   return { wroteTo, brand: null, via: "none", reason: `${wroteTo} is in no brand row` };
+}
+
+// ---- who a reply goes from (P58) -----------------------------------------------------------------------------------
+
+export interface ReplyFrom {
+  /** The From the writer sets: what the client will see. */
+  from: string | null;
+  /** The project's address the client wrote to (`resolveBrand` step 1), or null. */
+  clientWroteTo: string | null;
+  /** Why `from` is not `clientWroteTo` (`fromReasonOf`), or why it fell back to `mail.sender`; null when they agree. */
+  fromReason: string | null;
+  /** `wrote-to`: the address they wrote to (the account can send as it); `account`: the receiving account; `sender`: `mail.sender`. */
+  via: "wrote-to" | "account" | "sender";
+}
+
+/**
+ * The From of a reply (P58, the owner's rule of 2026-11-19). A reply goes from the address the client wrote to when the
+ * Mail account that received it can send as that address (it is among the account's own addresses in Mail: `email
+ * addresses of acc`, the one truth for "can send as"); else from the receiving account itself, with the reason; and only
+ * when the receiving account is not on `mail.accounts` (or has no address), from `mail.sender`, with the reason. So saas
+ * answers mail to info@carapis.com from info@carapis.com once hello@reforms.ai can send as it, and from hello@reforms.ai
+ * until then; realty answers mail to dan@ from dan@ and mail to info@ (or its aliases) from info@. Pure.
+ */
+export function replyFrom(q: { account: string; accountAddresses: readonly string[]; clientWroteTo: string | null }, c: { mail: Pick<ProjectConfig["mail"], "accounts" | "sender"> }): ReplyFrom {
+  const wrote = q.clientWroteTo ? normalizeAddress(q.clientWroteTo) : null;
+  const acct = q.account.trim();
+  const onList = c.mail.accounts.some((a) => a.trim().toLowerCase() === acct.toLowerCase());
+  const own = [...new Set([...(EMAIL.test(acct) ? [normalizeAddress(acct)] : []), ...q.accountAddresses.map(normalizeAddress).filter((a) => EMAIL.test(a))])];
+  const sender = c.mail.sender ? normalizeAddress(c.mail.sender) : null;
+  if (onList && wrote && own.includes(wrote)) return { from: wrote, clientWroteTo: wrote, fromReason: null, via: "wrote-to" };
+  const receiving = own[0] ?? null;
+  if (onList && receiving) return { from: receiving, clientWroteTo: wrote, fromReason: fromReasonOf(wrote, receiving), via: "account" };
+  const why = onList ? `the receiving account ${acct} shows no address in Mail` : `the receiving account ${acct} is not on mail.accounts`;
+  return { from: sender, clientWroteTo: wrote, fromReason: `${why}: from mail.sender ${sender ?? "(none set)"}`, via: "sender" };
 }
 
 // ---- the signature -----------------------------------------------------------------------------------------------

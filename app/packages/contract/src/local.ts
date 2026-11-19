@@ -48,8 +48,9 @@ type Def = { transport: "href" | "server"; args: z.ZodType; label: string; /** F
 export const DESKTOP_NOT_OFFERED = "Not offered: Claude Desktop would run this session without the hub's rules";
 
 export const LOCAL_ACTIONS = {
-  "mail.openMessage": { transport: "href", args: z.strictObject({ messageId }), label: "Open in Mail" },
-  // P58 R1 owns the behaviour (the Mail draft's own Message-ID on the draft's Mail read); declared here, no caller yet.
+  // The client's message (the draft's mailRef). P58 R1: the card's Open goes to the draft itself; this is its fallback and a More item.
+  "mail.openMessage": { transport: "href", args: z.strictObject({ messageId }), label: "Open the client's mail" },
+  // P58 R1: the Mail draft's own Message-ID (`draftMailDto.messageId`, from the card's read); `hub open mail.openDraft --draft <id>`.
   "mail.openDraft": { transport: "href", args: z.strictObject({ messageId }), label: "Open draft in Mail" },
   "mail.compose": { transport: "href", args: z.strictObject({ to: z.string(), cc: z.string().nullable(), subject: z.string() }), label: "Reply in Mail" },
   "notion.openPage": { transport: "href", args: z.strictObject({ pageId, app: z.boolean() }), label: "Open in Notion" },

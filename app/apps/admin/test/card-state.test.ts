@@ -4,7 +4,7 @@ import { CARD_STATES, hasSwitch, primaryFor, secondaryFor, stateOf, type Context
 import type { ReviewDraft } from "../src/features/review/source";
 import { tickBlock, type MailRead } from "../src/features/review/mail/tick-guard";
 
-const ctx: Context = { name: "Marta", hasMailLink: true, acknowledged: true };
+const ctx: Context = { name: "Marta", hasMailLink: true, hasDraftLink: false, acknowledged: true };
 
 describe("the review card state table", () => {
   it("covers the 16 states of research 16 section 7, plus follow_up (P47)", () => {
@@ -32,9 +32,10 @@ describe("the review card state table", () => {
     }
   });
 
-  it("the primary in the states that cannot send is Open in Mail, or a plain Copy when there is no link", () => {
+  it("the primary in the states that cannot send opens the draft in Mail (P58 R1), else the client's mail, or a plain Copy when there is no link", () => {
     for (const state of ["suspicious", "no_contact", "unreadable", "follow_up"] as const) {
-      expect(primaryFor(state, ctx)?.label).toBe("Open in Mail");
+      expect(primaryFor(state, { ...ctx, hasDraftLink: true })?.label).toBe("Open draft in Mail");
+      expect(primaryFor(state, ctx)?.label).toBe("Open the client's mail");
       expect(primaryFor(state, { ...ctx, hasMailLink: false })?.label).toBe("Copy subject to find in Mail");
     }
   });
@@ -115,5 +116,17 @@ describe("Checked fails closed (decision 0013): the switch and the C key hold on
     expect(tickBlock({ ...base, batchId: 3 }, undefined)).toBeNull();
     expect(tickBlock({ ...base, status: "hold" }, read())).toMatch(/nothing to check/);
     expect(tickBlock({ ...base, injectionSuspected: true }, read())).toMatch(/nothing to check/);
+  });
+});
+
+describe("Open draft in Mail (P58 R1)", async () => {
+  const { draftLinkOf } = await import("../src/features/review/mail/tick-guard");
+  const read = { configured: true, found: true, reason: null, note: null, from: "hello@x.example", messageId: "A3F4@x.example", to: ["c@y.example"], cc: [], subject: "Re", body: "b", hash: "h", safetyResults: [], readAt: "2026-11-20T00:00:00.000Z" };
+  it("links the draft's own Message-ID when the read found the one draft, else nothing (the client's mail instead)", () => {
+    expect(draftLinkOf(read)).toBe("A3F4@x.example");
+    expect(draftLinkOf({ ...read, note: "Mail holds 2 drafts" })).toBeNull();
+    expect(draftLinkOf({ ...read, messageId: null })).toBeNull();
+    expect(draftLinkOf({ ...read, found: false })).toBeNull();
+    expect(draftLinkOf(undefined)).toBeNull();
   });
 });

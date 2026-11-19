@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyBrandRow, brandChecks, headersFromText, lineVariants, ownSignoff, parseProjectMd, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, signingNames, type LoadedProject } from "../src/index";
+import { applyBrandRow, brandChecks, headersFromText, lineVariants, ownSignoff, parseProjectMd, replyLanguage, replyFrom, resolveBrand, signatureFor, signatureLines, signBody, signingNames, type LoadedProject } from "../src/index";
 
 // P60 B1/B2: the `## Brands` table, the resolver and the signature, on fixtures shaped like the two live instances.
 // The names live in test/fixtures/brands (core test code names no owner, `@docs/LAYERS.md`).
@@ -235,5 +235,36 @@ describe("the reply's language and the agent's own closing (P65 S2)", () => {
       const brands = [{ name: "Carapis", receivesAt: ["carapis.com"], signature: ["Carapis team", "carapis.com"], answered: "2026-11-19", by: "owner" as const }];
       expect(signingNames({ signoff: "Best regards,", brands })).toEqual(["Carapis", "Carapis team"]);
     });
+  });
+});
+
+// P58: who a reply goes from. The receiving account's own addresses in Mail are what it can send as.
+describe("replyFrom (P58)", () => {
+  const wrote = (slug: "one-mailbox" | "two-accounts", headers: string) => resolveBrand(headersFromText(headers), project(slug).config).wroteTo;
+  const two = { mail: { ...project("two-accounts").config.mail, sender: "info@caribbeanrealestatemls.com" } };
+  const one = { mail: { ...project("one-mailbox").config.mail, sender: "hello@reforms.ai" } };
+
+  it("realty: mail to dan@ is answered from dan@, mail to info@ or its aliases from info@", () => {
+    const toDan = wrote("two-accounts", "Delivered-To: dan@danmerriam.com\nTo: dan@danmerriam.com");
+    expect(replyFrom({ account: "dan@danmerriam.com", accountAddresses: ["dan@danmerriam.com"], clientWroteTo: toDan }, two)).toEqual({ from: "dan@danmerriam.com", clientWroteTo: "dan@danmerriam.com", fromReason: null, via: "wrote-to" });
+    const toTeam = wrote("two-accounts", "Delivered-To: info@caribbeanrealestatemls.com\nTo: team@caribbeanrealestatemls.com");
+    const r = replyFrom({ account: "info@caribbeanrealestatemls.com", accountAddresses: ["info@caribbeanrealestatemls.com"], clientWroteTo: toTeam }, two);
+    expect(r).toMatchObject({ from: "info@caribbeanrealestatemls.com", clientWroteTo: "team@caribbeanrealestatemls.com", via: "account" });
+    expect(r.fromReason).toBe("team@caribbeanrealestatemls.com cannot send yet: from info@caribbeanrealestatemls.com");
+  });
+
+  it("saas: mail to info@carapis.com goes from hello@ with the reason until the account can send as it, then from info@carapis.com", () => {
+    const w = wrote("one-mailbox", read(cases.forwarded.headersFile));
+    expect(w).toBe("info@carapis.com");
+    expect(replyFrom({ account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai"], clientWroteTo: w }, one)).toEqual({ from: "hello@reforms.ai", clientWroteTo: "info@carapis.com", fromReason: "info@carapis.com cannot send yet: from hello@reforms.ai", via: "account" });
+    expect(replyFrom({ account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai", "Info@Carapis.com"], clientWroteTo: w }, one)).toEqual({ from: "info@carapis.com", clientWroteTo: "info@carapis.com", fromReason: null, via: "wrote-to" });
+    // Mail straight to the mailbox: nothing to explain.
+    expect(replyFrom({ account: "hello@reforms.ai", accountAddresses: [], clientWroteTo: "hello@reforms.ai" }, one)).toMatchObject({ from: "hello@reforms.ai", fromReason: null });
+  });
+
+  it("a receiving account outside mail.accounts falls back to mail.sender, with the reason; never silently", () => {
+    const r = replyFrom({ account: "someone@else.example", accountAddresses: ["someone@else.example"], clientWroteTo: "dan@danmerriam.com" }, two);
+    expect(r).toMatchObject({ from: "info@caribbeanrealestatemls.com", via: "sender" });
+    expect(r.fromReason).toMatch(/someone@else\.example is not on mail\.accounts: from mail\.sender info@caribbeanrealestatemls\.com/);
   });
 });

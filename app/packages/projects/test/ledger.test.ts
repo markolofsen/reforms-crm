@@ -61,6 +61,9 @@ describe("pre-draft check (B3)", () => {
     expect(preDraftCheck(e, rev, { replyFrom: "A@X.example" }).violations).toEqual([]);
     const done = summarizeCall({ ...rev, result: t({ draftId: 7, thread: "m@x", replyTo: 10, sent: false }) });
     expect(done).toMatchObject({ kind: "draft", replyTo: 10 });
+    // P58: the result names the address the client wrote to `clientWroteTo`; the ledger keeps it as the row's wrote_to.
+    const named = summarizeCall({ ...rev, result: t({ draftId: 7, thread: "m@x", replyTo: 10, clientWroteTo: "Info@Carapis.com", fromSeenByClient: "hello@reforms.ai", brand: "Carapis" }) });
+    expect(named).toMatchObject({ wroteTo: "info@carapis.com", brand: "Carapis" });
   });
 
   it("names exactly what is missing", () => {

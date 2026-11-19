@@ -59,7 +59,7 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
     if (!d.mailRef) return refuse(c, "This draft answers no Mail message, so it cannot be written here.");
     const live: MailVersionRow[] = (await repos.mailVersions.ofDraft(d.id)).filter((v) => !v.trashedAt);
     try {
-      const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, mailRef: d.mailRef, body, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), log: writeLogOf((fn) => fn(repos), d.project, d.id, d.mailRef) });
+      const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, clientWroteTo: d.wroteTo ?? null, mailRef: d.mailRef, body, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), log: writeLogOf((fn) => fn(repos), d.project, d.id, d.mailRef) });
       await repos.mailVersions.add({ project: d.project, mailRef: d.mailRef, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHash(r.text), source });
       const moved = new Set(r.replaced.map(bareId));
       await repos.mailVersions.markTrashed(live.filter((v) => moved.has(bareId(v.messageId))).map((v) => v.id));
@@ -110,7 +110,7 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
       // the send would, so the switch never shows on over a revision the owner has not read (P56).
       if (draft.checked && hash !== null && draft.checkedHash && draft.checkedHash !== hash) await repos.drafts.setChecked(id, false, null);
       const safetyResults = await repos.sends.safetyOf(id, { subject: m.subject, toAddr: m.to.join(","), ccAddr: m.cc.join(",") || null, body: m.body }, sender?.now?.());
-      return c.json(draftMailDto.parse({ configured: true, found: true, reason: null, note: f.note ?? null, aside: f.aside ?? null, gone: null, checkedCurrent: draft.checked && hash !== null && (draft.checkedHash === null || draft.checkedHash === hash), from: m.sender, to: m.to, cc: m.cc, subject: m.subject, body: m.body, hash, safetyResults, readAt }));
+      return c.json(draftMailDto.parse({ configured: true, found: true, reason: null, note: f.note ?? null, aside: f.aside ?? null, gone: null, checkedCurrent: draft.checked && hash !== null && (draft.checkedHash === null || draft.checkedHash === hash), from: m.sender, messageId: m.messageId, to: m.to, cc: m.cc, subject: m.subject, body: m.body, hash, safetyResults, readAt }));
     })
     // Restore (P56): Mail holds no draft for it, and the hub's own last copy is in Trash: write that text again.
     .post("/api/projects/:slug/drafts/:id/mail/restore", v("param", sendParam), async (c) => {

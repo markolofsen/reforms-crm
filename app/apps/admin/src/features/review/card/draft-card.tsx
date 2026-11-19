@@ -14,7 +14,7 @@ import { BasedOnStrip } from "../based-on/based-on-strip";
 import { ActionBar, hasMailLink, SendNotices, type Handlers } from "./action-bar";
 import { CardHeader } from "./card-header";
 import { stateOf } from "./card-state";
-import { mailReadable, tickBlock } from "../mail/tick-guard";
+import { draftLinkOf, mailReadable, tickBlock } from "../mail/tick-guard";
 import { CheckList } from "./check-list";
 import { DraftBlock } from "./draft-block";
 import { useDraftMail } from "../mail/use-draft-mail";
@@ -48,6 +48,7 @@ export function DraftCard({ d, project, actions, now, thread, onThread, onReplyA
   const mail = mailRead.data;
   const mailError = mailRead.isError && !mail ? sentence(mailRead.error) : null;
   const state = stateOf(d, flow.step, mailReadable(mail));
+  const draftLink = draftLinkOf(mail);
   const first = firstName(d);
   const under = useChangedUnder(d);
   const cancel = useMutation({
@@ -127,7 +128,7 @@ export function DraftCard({ d, project, actions, now, thread, onThread, onReplyA
         <DraftBlock actions={actions} confirmed={confirmed} d={d} {...(mail ? { live: mail } : {})} onRead={() => void mailRead.refetch()} onThread={onThread} project={project} reading={mailRead.isFetching} thread={thread} />
         <SendNotices flow={flow} onClose={close} />
       </div>
-      <ActionBar actions={actions} context={{ name: first, hasMailLink: hasMailLink(d), acknowledged: d.checked }} d={d} flow={flow} mailHash={mail?.hash ?? null} on={on} tickBlock={tickBlock(d, mail, flow.step, mailError)} state={state} />
+      <ActionBar actions={actions} context={{ name: first, hasMailLink: hasMailLink(d), hasDraftLink: draftLink !== null, acknowledged: d.checked }} d={d} draftLink={draftLink} flow={flow} mailHash={mail?.hash ?? null} on={on} tickBlock={tickBlock(d, mail, flow.step, mailError)} state={state} />
     </article>
   );
 }

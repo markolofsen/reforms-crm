@@ -19,10 +19,14 @@ test("Drafts list loads with counts and only clients that have a draft", async (
   await expect(page.getByRole("menuitemradio", { name: /^Replies owed|High value/ })).toHaveCount(0);
 });
 
-test("Open in Mail links to the message by its Message-ID", async ({ page }) => {
+test("Open draft in Mail links the Mail draft by its own Message-ID; the client's mail is in the More menu (P58 R1)", async ({ page }) => {
   await page.goto("/drafts?filter=all");
   await cards(page).filter({ hasText: "Pedro Exemplo" }).getByRole("button").first().click();
-  await expect(page.getByRole("article", { name: "Draft for Pedro Exemplo" }).getByRole("link", { name: /Open in Mail/ })).toHaveAttribute("href", "message://%3Cseed-pedro-at-example.org%40example.com%3E");
+  const card = page.getByRole("article", { name: "Draft for Pedro Exemplo" });
+  await expect(card.getByRole("link", { name: /Open draft in Mail/ })).toHaveAttribute("href", /^message:\/\/%3Cfake-\d+%40hub\.test%3E$/);
+  await expect(card.getByTestId("from-line")).toContainText(/^From .+ → To .*pedro/i);
+  await card.getByRole("button", { name: "More actions" }).click();
+  await expect(page.getByRole("menuitem", { name: "Open the client's mail" })).toHaveAttribute("href", "message://%3Cseed-pedro-at-example.org%40example.com%3E");
 });
 
 test("A project with no drafts says what to ask the agent", async ({ page }) => {

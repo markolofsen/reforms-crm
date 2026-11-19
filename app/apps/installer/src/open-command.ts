@@ -11,6 +11,12 @@ export interface OpenCommandDeps {
   resolver: () => ResolveDeps;
   run: OpenRun;
   available: boolean;
+  /**
+   * P58 R1, `--draft <id>`: the hub draft's two Message-IDs, read for this project: `mailRef` (the client's message, from the
+   * row) and `draft` (the Mail draft's own, from one strict Mail read; null with `why` when Mail does not hold exactly one).
+   * Injected, so `@hub/projects` never imports `@hub/send`. Absent: `--draft` is refused.
+   */
+  draftIds?: (project: string | undefined, draftId: number) => Promise<{ mailRef: string | null; draft: string | null; why: string | null }>;
 }
 
 export interface OpenFlags {
@@ -19,6 +25,8 @@ export interface OpenFlags {
   tab?: string;
   /** An `href` action's arguments as JSON (`--args '{"messageId":"..."}'`). */
   args?: string;
+  /** P58 R1: `mail.openDraft` / `mail.openMessage` of this hub draft (its id), instead of `--args`. */
+  draft?: string;
 }
 
 /** Exit codes: 0 opened or listed, 2 refused, unknown, or not macOS. */
@@ -30,6 +38,7 @@ export async function runOpenCommand(action: string | undefined, f: OpenFlags, d
       d.out(`${id.padEnd(w)}  ${a.transport.padEnd(6)}  ${a.label}${"offered" in a && a.offered === false ? `  (${a.refusal})` : ""}`);
     }
     d.out("server actions take --project <slug> --key <key>: project, project.md, knowledge, knowledge:<entry>, workflows, log:<YYYY-MM-DD>");
+    d.out("mail.openDraft and mail.openMessage take --draft <id> (the hub draft; --project or HUB_PROJECT): its Mail draft, or the client's mail");
     return 0;
   }
   if (!isLocalAction(action)) {
@@ -46,7 +55,27 @@ export async function runOpenCommand(action: string | undefined, f: OpenFlags, d
     return 2;
   }
   let args: unknown;
-  if (def.transport === "href") {
+  if (f.draft !== undefined && (action === "mail.openDraft" || action === "mail.openMessage")) {
+    const id = Number(f.draft);
+    if (!Number.isInteger(id) || id <= 0) {
+      d.out("refused: --draft takes a draft id");
+      return 2;
+    }
+    if (!d.draftIds) {
+      d.out("refused: --draft is not available here");
+      return 2;
+    }
+    const ids = await d.draftIds(f.project, id);
+    const messageId = action === "mail.openDraft" ? ids.draft : ids.mailRef;
+    if (!messageId) {
+      d.out(`refused: ${ids.why ?? (action === "mail.openDraft" ? "Mail holds no single draft for it" : "the draft answers no Mail message")}`);
+      return 2;
+    }
+    args = { messageId };
+  } else if (f.draft !== undefined) {
+    d.out("refused: --draft goes with mail.openDraft or mail.openMessage");
+    return 2;
+  } else if (def.transport === "href") {
     try {
       args = JSON.parse(f.args ?? "{}");
     } catch {

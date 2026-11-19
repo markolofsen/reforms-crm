@@ -135,7 +135,8 @@ export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEn
   if (c.name === HUB_DRAFT_WRITE) {
     const r = obj(parsedResult(c.result));
     const e = draftEntry(tool, i.message_id === undefined ? { ...i, message_id: r.replyTo } : i, account, o);
-    return { ...e, ...(str(r.wroteTo) ? { wroteTo: lower(str(r.wroteTo)!) } : {}), ...(str(r.brand) ? { brand: str(r.brand)! } : {}) };
+    // P58: the result names it `clientWroteTo` (the address the client wrote to; never the From of the reply).
+    return { ...e, ...(str(r.clientWroteTo) ? { wroteTo: lower(str(r.clientWroteTo)!) } : {}), ...(str(r.brand) ? { brand: str(r.brand)! } : {}) };
   }
   if (c.name.startsWith("mcp__mail-mcp__")) {
     if (tool === "find_messages") {

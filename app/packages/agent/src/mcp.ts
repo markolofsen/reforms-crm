@@ -5,7 +5,7 @@ import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { headersFromText, ownSignoff, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, signingNames, type Brand, type HeaderAddresses } from "@hub/projects";
 import { readFocus } from "./focus";
-import { DraftWriteError, lateSaves, reviseDraft, versionHash, writeRecorded, type DraftWriter, type InboundMessage, type Revision, type Signed } from "./mail-drafts";
+import { DraftWriteError, fromFor, lateSaves, reviseDraft, versionHash, writeRecorded, type DraftWriter, type InboundMessage, type Revision, type Signed } from "./mail-drafts";
 import { recordAdoptions, writeLogOf, type AdoptedVersion, type WithRepos } from "./write-record";
 
 // `hub mcp` (P51, decision 0029): the hub's own stdio MCP server, bound to `HUB_PROJECT`. Five read-only tools: the admin's
@@ -163,7 +163,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "draft_show",
     {
       title: "One draft of this project",
-      description: `Status, recipients, the Mail key (mailRef: the Message-ID of the client's message this draft answers), the short excerpt, reason, marks, evidence, the recorded context, the Notion link, the follow-up step, the draft's Activity, and \`inbound\` (account, mailbox_path, message_id of the client's message, for mail-mcp get_message_content). Not the body: it lives in Mail (\`mail\` names the Mail draft(s) the hub recorded for it: account and Message-ID; read the text with mail-mcp list_drafts / get_message_content). To revise it: \`draft_write\` with \`draft\` = this id (nothing else to look up); the revision records itself. Never send. ${DATA}`,
+      description: `Status, recipients, the Mail key (mailRef: the Message-ID of the client's message this draft answers), the short excerpt, reason, marks, evidence, the recorded context, the Notion link, the follow-up step, the draft's Activity, \`inbound\` (account, mailbox_path, message_id of the client's message, for mail-mcp get_message_content), \`clientWroteTo\` (the project's address the client wrote to), \`fromSeenByClient\` (the From the hub writes this draft with, by its rule: the client sees exactly that, there is no hidden sender; the owner may still change it in Mail, and the admin card reads Mail's own) and \`fromReason\` (why it is not clientWroteTo, else null). Not the body: it lives in Mail (\`mail\` names the Mail draft(s) the hub recorded for it: account and Message-ID; read the text with mail-mcp list_drafts / get_message_content). To revise it: \`draft_write\` with \`draft\` = this id (nothing else to look up); the revision records itself. Never send. ${DATA}`,
       inputSchema: z.object({ id: z.number().int().positive().describe("The draft id, as the focus or the admin shows it.") }),
       annotations: READ_ONLY,
     },
@@ -172,7 +172,10 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         const { slug, d } = await ownDraft(id);
         const c = await repos.clients.card(slug, d.clientId);
         // The message this draft answers, where mail-mcp can open it (P53): no hunting with find_messages. Null when not found.
-        const inbound = d.mailRef && env.drafts && env.projectMail ? await env.drafts.findInbound(env.projectMail(slug).accounts, d.mailRef).catch(() => null) : null;
+        const pm = env.projectMail?.(slug);
+        const inbound = d.mailRef && env.drafts && pm ? await env.drafts.findInbound(pm.accounts, d.mailRef).catch(() => null) : null;
+        // P58: who the client sees the reply from, by the rule the writer applies (the receiving account and what it can send as).
+        const rf = inbound && env.drafts && pm ? await fromFor(env.drafts, inbound, d.wroteTo ?? null, pm).catch(() => null) : null;
         const versions = await repos.mailVersions.ofDraft(d.id);
         const events = (await repos.runs.eventsForClient(slug, d.clientId, 100)).filter((e) => json<{ draftId?: number }>(e.detail, {}).draftId === d.id).slice(0, 20);
         return {
@@ -196,6 +199,9 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
           // The Mail versions the hub wrote for it (P65), newest first: how its text is found in Drafts without any line in it.
           mail: versions.filter((x) => !x.trashedAt).map((x) => ({ account: x.account, mail_id: x.mailId, message_id: x.messageId, written_at: x.writtenAt })),
           inbound: inbound ? { account: inbound.account, mailbox_path: inbound.mailboxPath, message_id: inbound.messageId } : null,
+          clientWroteTo: d.wroteTo ?? null,
+          fromSeenByClient: rf?.from ?? null,
+          fromReason: rf?.fromReason ?? null,
           revise: d.mailRef ? { draft_write: { draft: d.id, content: "<the new reply>" }, then: "nothing: the revision records itself" } : { note: "No mailRef: this draft answers no Mail message, so draft_write cannot revise it." },
           createdAt: d.createdAt,
           updatedAt: d.updatedAt,
@@ -246,7 +252,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "mail_brand",
     {
       title: "Which brand a client wrote to",
-      description: `The project's address the client wrote to (wroteTo) and its ## Brands row (brand), from the inbound's headers: pass \`headers\` = the allHeaders text of mail-mcp get_message_content (and its to and cc fields when it gives them separately). No Mail read. The order is fixed (X-Gm-Original-To, X-Original-To, X-Forwarded-For, X-Forwarded-To, Delivered-To, To, Cc; the project's account addresses only when nothing else matches), so never re-derive it from Delivered-To yourself. Use brand for the Notion Brand column and for knowledge_search; null brand means unbranded: say so, never guess. The draft's signature is added by draft_write, not by you. ${DATA}`,
+      description: `The project's address the client wrote to (clientWroteTo: an address of ours, never the From of the reply) and its ## Brands row (brand), from the inbound's headers: pass \`headers\` = the allHeaders text of mail-mcp get_message_content (and its to and cc fields when it gives them separately). No Mail read. The order is fixed (X-Gm-Original-To, X-Original-To, X-Forwarded-For, X-Forwarded-To, Delivered-To, To, Cc; the project's account addresses only when nothing else matches), so never re-derive it from Delivered-To yourself. Use brand for the Notion Brand column and for knowledge_search; null brand means unbranded: say so, never guess. The draft's signature is added by draft_write, not by you. ${DATA}`,
       inputSchema: z.object({
         headers: z.string().max(40_000).optional().describe("The raw header block (allHeaders) of the client's message."),
         to: z.array(z.string().max(320)).max(50).optional().describe("The message's To addresses, when given apart from the headers."),
@@ -265,7 +271,8 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         const cfg = configOf(env.projectMail(slug));
         const r = resolveBrand(list, cfg);
         const sig = signatureFor(cfg, r);
-        return { project: slug, ...r, brands: cfg.brands.map((b) => b.name), signature: sig.placeholder ? "placeholder" : sig.lines.length ? "signed" : "none" };
+        const { wroteTo, ...rest } = r;
+        return { project: slug, clientWroteTo: wroteTo, ...rest, brands: cfg.brands.map((b) => b.name), signature: sig.placeholder ? "placeholder" : sig.lines.length ? "signed" : "none" };
       }),
   );
 
@@ -273,7 +280,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "draft_write",
     {
       title: "Write or revise an unsent reply draft in Mail",
-      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. A revision of a hub draft: \`draft\` = its id and \`content\`, nothing else (the hub finds the message it answers from its mailRef). A new reply: \`account\`, \`mailbox_path\` and \`message_id\` of the message answered. Give the reply body only, plain text: the hub adds nothing to the text but its sign-off and the brand's signature, so never end with your own closing, in any language ("Best regards", "С уважением", "С теплом и …,", "Viele Grüße"), nor a team, brand or personal name line ("Carapis team", "Команда Carapis"): that is refused with own_signoff, rewrite without it. A new reply to a message this project already has a draft for is refused with already_drafted: that is the skip of a rerun, not an error (revise that draft with \`draft\` = its id when the owner asks). mail_slow means Mail is slow: the write may still land and the hub adopts it as the draft's version; do not call draft_write again for that draft, tell the owner in one line, and never ask him to delete a Mail draft. A revision saves the new draft first, then moves the older version the hub recorded to Trash, so one version stays; the open admin card shows the new text within seconds. A first draft of a thread: then record it with \`hub record-draft --project <slug>\` and mailRef = the returned thread; a revision records itself. Only this project's Mail accounts. Never sends. ${DATA}`,
+      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. A revision of a hub draft: \`draft\` = its id and \`content\`, nothing else (the hub finds the message it answers from its mailRef). A new reply: \`account\`, \`mailbox_path\` and \`message_id\` of the message answered. Give the reply body only, plain text: the hub adds nothing to the text but its sign-off and the brand's signature, so never end with your own closing, in any language ("Best regards", "С уважением", "С теплом и …,", "Viele Grüße"), nor a team, brand or personal name line ("Carapis team", "Команда Carapis"): that is refused with own_signoff, rewrite without it. A new reply to a message this project already has a draft for is refused with already_drafted: that is the skip of a rerun, not an error (revise that draft with \`draft\` = its id when the owner asks). mail_slow means Mail is slow: the write may still land and the hub adopts it as the draft's version; do not call draft_write again for that draft, tell the owner in one line, and never ask him to delete a Mail draft. A revision saves the new draft first, then moves the older version the hub recorded to Trash, so one version stays; the open admin card shows the new text within seconds. The result's fromSeenByClient is exactly the From the client sees (there is no hidden sender): the address they wrote to (clientWroteTo) when this project's Mail account can send as it, else the account that received the mail, with fromReason saying why. A first draft of a thread: then record it with \`hub record-draft --project <slug>\` and mailRef = the returned thread; a revision records itself. Only this project's Mail accounts. Never sends. ${DATA}`,
       inputSchema: z.object({
         draft: z.number().int().positive().optional().describe("Revise this hub draft (its id, as focus or draft_show gives it). Then leave account, mailbox_path and message_id out."),
         account: z.string().min(1).max(320).optional().describe("New reply: Mail account of the message answered, as mail-mcp names it."),
@@ -321,7 +328,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
             const live = [...all.filter((v) => !v.trashedAt), ...adopted];
             versionRows = live.map((v) => ({ id: v.id, messageId: v.messageId }));
             // The one revision path, shared with the admin's Save and Restore (P56).
-            r = await reviseDraft(writer, { accounts: mail.accounts, sender: mail.sender, mailRef: d.mailRef, body: content, quote: "add", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), ...(sign ? { sign } : {}), ...(env.withRepos ? { log: writeLogOf(env.withRepos, slug, d.id, d.mailRef) } : {}) });
+            r = await reviseDraft(writer, { accounts: mail.accounts, sender: mail.sender, clientWroteTo: d.wroteTo ?? null, mailRef: d.mailRef, body: content, quote: "add", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), ...(sign ? { sign } : {}), ...(env.withRepos ? { log: writeLogOf(env.withRepos, slug, d.id, d.mailRef) } : {}) });
           } else {
             if (account === undefined || mailbox_path === undefined || message_id === undefined) throw new ToolError("invalid", "Give draft (a revision of a hub draft) or all of account, mailbox_path and message_id (a new reply).");
             const own = mail.accounts.find((a) => a.trim().toLowerCase() === account.trim().toLowerCase());
@@ -341,12 +348,15 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
             const landing = (await repos.mailWrites.ofThread(slug, mailRef).catch(() => [])).find((w) => !w.settledAt && w.draftId === null && Date.parse(w.startedAt) > (env.now?.() ?? new Date()).getTime() - LANDING_MS);
             if (landing) throw new ToolError("mail_slow", `The hub's write for this message at ${landing.startedAt} has not shown in Mail yet (Mail is slow); it is adopted when it lands. Do not write it again now: tell the owner in one line, and record it with hub record-draft once draft_write for it reports it saved. Nothing was written.`);
             const signed = sign ? await sign(inbound, content) : null;
-            const w = await writeRecorded(writer, { ...inbound, body: signed?.body ?? content, sender: mail.sender, replace: [], landIn: mail.accounts }, env.withRepos ? writeLogOf(env.withRepos, slug, null, mailRef) : undefined);
+            // P58: From the address the client wrote to when the receiving account can send as it, else that account.
+            const rf = await fromFor(writer, inbound, signed?.wroteTo ?? null, mail);
+            const w = await writeRecorded(writer, { ...inbound, body: signed?.body ?? content, sender: rf.from, replace: [], landIn: mail.accounts }, env.withRepos ? writeLogOf(env.withRepos, slug, null, mailRef) : undefined);
             const savedIn = w.savedIn || own;
+            const why = { fromReason: rf.fromReason, clientWroteTo: rf.clientWroteTo };
             if (signed) {
               const { body: _body, ...how } = signed;
-              r = { ...w, replyTo: message_id, account: savedIn, ...how };
-            } else r = { ...w, replyTo: message_id, account: savedIn };
+              r = { ...w, replyTo: message_id, account: savedIn, ...how, ...why };
+            } else r = { ...w, replyTo: message_id, account: savedIn, ...why };
           }
           let live = true;
           try {
@@ -373,17 +383,20 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
           let recordError: string | null = null;
           if (draft !== undefined && env.recordRevision) {
             try {
-              recorded = await env.recordRevision(slug, draft, { excerpt: excerptOf(content), wroteTo: r.wroteTo ?? null, brand: r.brand ?? null });
+              recorded = await env.recordRevision(slug, draft, { excerpt: excerptOf(content), wroteTo: r.clientWroteTo ?? r.wroteTo ?? null, brand: r.brand ?? null });
             } catch (e) {
               recordError = e instanceof Error ? e.message : String(e);
             }
           }
-          const notes = `${signNote}${langNote}${versionNote}${left}`;
+          // P58: the From is exactly what the client sees; a From that is not the address they wrote to is said, with its reason.
+          const fromNote = r.fromReason ? ` The client sees From ${r.from}, not ${r.clientWroteTo ?? "the address they wrote to"} (${r.fromReason}); say so in your one line.` : "";
+          const notes = `${fromNote}${signNote}${langNote}${versionNote}${left}`;
           const next = recorded
             ? `Recorded: draft ${recorded.draftId} updated in place (same id, mailRef, client and context; Checked is off because the text changed). Do not run record-draft. Tell the owner in one line what you changed. Nothing was sent.${notes}`
             : `Record it, one Bash call from the instance folder: \`echo '{"email":"<client>","subject":"${r.subject.replace(/["'\\]/g, "")}","mailRef":"${r.thread}","skill":"triage-mail","excerpt":"<first 240 chars of your reply>","context":{...}}' | ./run.sh record-draft --project ${slug}\` (JSON on stdin; skill triage-mail step 5)${recordError ? `; recording the revision in place failed: ${recordError}` : ""}. Then tell the owner in one line what you changed. Nothing was sent.${notes}`;
-          const { text: _text, shell: _shell, ...shown } = r;
-          return { ...shown, project: slug, sent: false, ...(draft !== undefined ? { draft } : {}), recorded: recorded !== null, live, next };
+          // P58 live finding: unambiguous names for the agent. `fromSeenByClient` is Mail's own read of the saved draft's From.
+          const { text: _text, shell: _shell, from, wroteTo: _wroteTo, ...shown } = r;
+          return { ...shown, fromSeenByClient: from, clientWroteTo: r.clientWroteTo, fromReason: r.fromReason, project: slug, sent: false, ...(draft !== undefined ? { draft } : {}), recorded: recorded !== null, live, next };
         } catch (e) {
           if (e instanceof DraftWriteError) throw new ToolError(e.code, e.message);
           throw e;

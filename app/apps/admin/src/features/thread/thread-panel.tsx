@@ -23,7 +23,7 @@ function Item({ item }: { item: HistoryItemDto }) {
 
 /**
  * One client's thread: the stored messenger rows, newest first, then what the agent and the owner did. It is fetched only
- * when opened. The mail itself is read in Mail (the card's Open in Mail): the Hub keeps no mail login since P48 (decision 0026).
+ * when opened. The mail itself is read in Mail (the card's More menu: Open the client's mail): the Hub keeps no mail login since P48 (decision 0026).
  */
 export function ThreadPanel({ project, clientId }: { project: string; clientId: number }) {
   const history = useQuery({ queryKey: keys.thread(project, clientId), queryFn: () => reviewApi.history(project, clientId) });

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { adoptable, type Adoption, type MailVersionRow, type MailWriteRow } from "@hub/db";
+import { replyFrom, type ReplyFrom } from "@hub/projects";
 
 // The hub's draft writer (P52, decision 0030; decision 0031 for what it no longer writes): an unsent reply saved in
 // Mail's Drafts, written by the `hub` MCP server (outside the agent's sandbox) through Mail's own scripting, with no
@@ -113,6 +114,8 @@ export interface InboundMessage {
   account: string;
   mailboxPath: string[];
   messageId: number;
+  /** P58: the receiving account's own addresses in Mail (`email addresses of acc`: what it can send as). Absent: not read. */
+  accountAddresses?: string[];
 }
 
 export interface DraftWriter {
@@ -128,6 +131,8 @@ export interface DraftWriter {
   readContent(m: InboundMessage): Promise<string>;
   /** The Message-ID of one known message, bare (P65: a new reply is refused before it is written when the project already answers it). Read-only. */
   messageIdOf(m: InboundMessage): Promise<string>;
+  /** P58: one account's own addresses in Mail (`email addresses of acc`: what it can send as); [] when Mail has no such account. Read-only. */
+  addressesOf(account: string): Promise<string[]>;
   /** The drafts of these accounts whose In-Reply-To names the thread (P65 S5), with their text. Read-only. */
   threadDrafts(accounts: readonly string[], thread: string, subject: string | null): Promise<ThreadMailDraft[]>;
 }
@@ -202,7 +207,8 @@ export const WRITE_REPLY_SCRIPT = `on run argv
       if fromNow contains (contents of a) then set inAccount to true
     end repeat
     if wantSender is not "" then
-      set sender of r to wantSender
+      -- P58: the From the Hub chose (TS decides it). Mail's own pick is kept when it already is that address (its display name stays).
+      if fromNow does not contain wantSender then set sender of r to wantSender
     else if not inAccount then
       set fullName to ""
       try
@@ -399,7 +405,8 @@ on parts(s, d)
   return r
 end parts`;
 
-// argv: 1 Message-ID (bare), 2.. account names. Output: ok FS account FS mailbox name FS id, or none. Read-only. INBOX
+// argv: 1 Message-ID (bare), 2.. account names. Output: ok FS account FS mailbox name FS id FS the account's own
+// addresses (LS-joined: what it can send as, P58), or none. Read-only. INBOX
 // first (3 s on a 43-message Gmail INBOX, measured 2026-11-19); the account's other mailboxes only when it is not there.
 export const FIND_INBOUND_SCRIPT = `on run argv
   set FS to (ASCII character 31)
@@ -413,7 +420,7 @@ export const FIND_INBOUND_SCRIPT = `on run argv
         set acc to account accName
         try
           set m to (first message of mailbox "INBOX" of acc whose message id is mid)
-          return "ok" & FS & accName & FS & "INBOX" & FS & (id of m)
+          return "ok" & FS & accName & FS & "INBOX" & FS & (id of m) & FS & my addrs(acc)
         end try
       end try
     end repeat
@@ -426,7 +433,7 @@ export const FIND_INBOUND_SCRIPT = `on run argv
           if bn is not "INBOX" and skipNames does not contain bn then
             try
               set m to (first message of b whose message id is mid)
-              return "ok" & FS & accName & FS & bn & FS & (id of m)
+              return "ok" & FS & accName & FS & bn & FS & (id of m) & FS & my addrs(acc)
             end try
           end if
         end repeat
@@ -434,6 +441,37 @@ export const FIND_INBOUND_SCRIPT = `on run argv
     end repeat
   end tell
   return "none"
+end run
+
+on addrs(acc)
+  set LS to (ASCII character 29)
+  set out to ""
+  tell application "Mail"
+    try
+      repeat with a in (email addresses of acc)
+        set out to out & (contents of a) & LS
+      end repeat
+    end try
+  end tell
+  return out
+end addrs`;
+
+// argv: 1 account name. Output: ok FS its own addresses (LS-joined), or error FS code FS message. Read-only (P58).
+export const ACCOUNT_ADDRESSES_SCRIPT = `on run argv
+  set FS to (ASCII character 31)
+  set LS to (ASCII character 29)
+  if application "Mail" is not running then return "error" & FS & "mail_not_running" & FS & "Mail is not running."
+  set out to ""
+  tell application "Mail"
+    try
+      repeat with a in (email addresses of account (item 1 of argv))
+        set out to out & (contents of a) & LS
+      end repeat
+    on error
+      return "error" & FS & "no_account" & FS & "No Mail account named " & (item 1 of argv) & "."
+    end try
+  end tell
+  return "ok" & FS & out
 end run`;
 
 // argv: 1 account, 2 mailbox path (LS-joined), 3 Mail's message id. Output: ok FS <all headers>, or error FS code FS message. Read-only.
@@ -472,7 +510,9 @@ export function parseInboundOutput(out: string): InboundMessage | null {
   if (p[0] === "error") throw new DraftWriteError(p[1] || "mail_error", p[2] || "Mail refused the lookup.");
   if (p[0] !== "ok" || p.length < 4) return null;
   const id = Number(p[3]);
-  return Number.isInteger(id) && id > 0 ? { account: p[1] as string, mailboxPath: [p[2] as string], messageId: id } : null;
+  if (!Number.isInteger(id) || id <= 0) return null;
+  const addresses = (p[4] ?? "").split(LS).map((x) => x.trim()).filter(Boolean);
+  return { account: p[1] as string, mailboxPath: [p[2] as string], messageId: id, ...(p.length > 4 ? { accountAddresses: addresses } : {}) };
 }
 
 export function parseWriteOutput(out: string): ReplyDraftResult {
@@ -544,6 +584,11 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
       if (!id || accounts.length === 0) return null;
       return parseInboundOutput(await osa(FIND_INBOUND_SCRIPT, [id, ...accounts]).catch(fail));
     },
+    async addressesOf(account) {
+      const p = (await osa(ACCOUNT_ADDRESSES_SCRIPT, [account]).catch(fail)).replace(/[\r\n]+$/, "").split(FS);
+      if (p[0] !== "ok") return [];
+      return (p[1] ?? "").split(LS).map((x) => x.trim()).filter(Boolean);
+    },
     readContent: (m) => readBlock(READ_CONTENT_SCRIPT, m),
     readHeaders: (m) => readBlock(READ_HEADERS_SCRIPT, m),
     async messageIdOf(m) {
@@ -559,7 +604,7 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
 /** In memory: what tests use. A write replaces exactly the versions it is told to, in the same account, as Mail does. */
 export class FakeDraftWriter implements DraftWriter {
   /** `quote`: whether the real writer would have appended the quote of the original (`add`) or written the text verbatim (`keep`). */
-  drafts: Array<{ id: number; messageId: string; account: string; thread: string; subject: string; text: string; quote: "add" | "keep" }> = [];
+  drafts: Array<{ id: number; messageId: string; account: string; thread: string; subject: string; text: string; quote: "add" | "keep"; /** The From the writer was asked for (P58), else the account. */ from?: string }> = [];
   private next = 1000;
   /** Inbound messages the fake Mail holds, by Message-ID. */
   inbound = new Map<string, InboundMessage>();
@@ -570,7 +615,7 @@ export class FakeDraftWriter implements DraftWriter {
   constructor(private readonly threadOf: (messageId: number) => string = (id) => `m${id}@example.com`) {}
   async findInbound(accounts: readonly string[], messageId: string): Promise<InboundMessage | null> {
     const m = this.inbound.get(messageId.trim().replace(/^<|>$/g, ""));
-    return m && accounts.includes(m.account) ? m : null;
+    return m && accounts.includes(m.account) ? { ...m, accountAddresses: m.accountAddresses ?? this.addresses.get(m.account) ?? [m.account] } : null;
   }
   /** Texts of the fake Mail's messages, by Mail's id. */
   contents = new Map<number, string>();
@@ -587,6 +632,11 @@ export class FakeDraftWriter implements DraftWriter {
   async messageIdOf(m: InboundMessage): Promise<string> {
     return this.threadOf(m.messageId);
   }
+  /** Each account's own addresses (P58: what it can send as); absent: the account name alone, as Mail lists a one-address account. */
+  addresses = new Map<string, string[]>();
+  async addressesOf(account: string): Promise<string[]> {
+    return this.addresses.get(account) ?? [account];
+  }
   async threadDrafts(accounts: readonly string[], thread: string): Promise<ThreadMailDraft[]> {
     const t = thread.trim().replace(/^<|>$/g, "").toLowerCase();
     return this.drafts.filter((d) => accounts.includes(d.account) && d.thread.toLowerCase() === t).map((d) => ({ ref: String(d.id), messageId: d.messageId, account: d.account, body: d.text }));
@@ -600,12 +650,12 @@ export class FakeDraftWriter implements DraftWriter {
     const messageId = `draft-${id}@hub.test`;
     if (this.slowNext) {
       this.slowNext = false;
-      this.drafts.push({ id, messageId, account: i.account, thread, subject, text: body, quote: i.quote ?? "add" });
+      this.drafts.push({ id, messageId, account: i.account, thread, subject, text: body, quote: i.quote ?? "add", from: i.sender ?? i.account });
       throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT, "");
     }
     const wanted = new Set((i.replace ?? []).map((x) => `${x.account}\u0000${x.messageId.toLowerCase()}`));
     const older = this.drafts.filter((d) => wanted.has(`${d.account}\u0000${d.messageId.toLowerCase()}`));
-    this.drafts.push({ id, messageId, account: i.account, thread, subject, text: body, quote: i.quote ?? "add" });
+    this.drafts.push({ id, messageId, account: i.account, thread, subject, text: body, quote: i.quote ?? "add", from: i.sender ?? i.account });
     this.drafts = this.drafts.filter((d) => !older.includes(d));
     return { draftId: id, messageId, text: body, subject, thread, from: i.sender ?? i.account, replaced: older.map((d) => d.messageId), left: [], savedIn: i.account, shell: "" };
   }
@@ -614,7 +664,10 @@ export class FakeDraftWriter implements DraftWriter {
 export interface ReviseInput {
   /** The project's Mail accounts (`mail.accounts`): the message answered is looked up only there. */
   accounts: readonly string[];
+  /** `mail.sender`: the From only when the receiving account is not on `accounts` (P58 `replyFrom`). */
   sender: string | null;
+  /** The address the client wrote to when no `sign` resolves it from the headers (a person's Save: the draft row's `wrote_to`). */
+  clientWroteTo?: string | null;
   /** The hub draft's `mailRef`: the Message-ID of the message it answers. */
   mailRef: string;
   body: string;
@@ -691,8 +744,18 @@ export interface Signed {
   signatureFallback?: string;
 }
 
-/** A revision as the writer saved it, with the account it sits in (the version row's account). */
-export type Revision = ReplyDraftResult & { replyTo: number; account: string } & Partial<Omit<Signed, "body">>;
+/** A revision as the writer saved it, with the account it sits in (the version row's account) and why its From is what it is (P58). */
+export type Revision = ReplyDraftResult & { replyTo: number; account: string; fromReason: string | null; clientWroteTo: string | null } & Partial<Omit<Signed, "body">>;
+
+/**
+ * The From of a reply to `inbound` (P58 `replyFrom`): the address the client wrote to when the receiving account can send
+ * as it, else the receiving account, else `mail.sender`. The receiving account's addresses come from the lookup that found
+ * the message, else one read of the account (`addressesOf`); a failed read leaves the account name alone.
+ */
+export async function fromFor(writer: DraftWriter, inbound: InboundMessage, clientWroteTo: string | null, mail: { accounts: readonly string[]; sender: string | null }): Promise<ReplyFrom> {
+  const addresses = inbound.accountAddresses ?? (await writer.addressesOf(inbound.account).catch(() => []));
+  return replyFrom({ account: inbound.account, accountAddresses: addresses, clientWroteTo }, { mail: { accounts: [...mail.accounts], sender: mail.sender } });
+}
 
 /**
  * The one revision of a hub draft (P56): find the message it answers by its Message-ID in the project's accounts, then
@@ -705,9 +768,12 @@ export async function reviseDraft(writer: DraftWriter, i: ReviseInput): Promise<
   const found = await writer.findInbound(i.accounts, i.mailRef);
   if (!found) throw new DraftWriteError("no_message", `The message this draft answers (Message-ID ${i.mailRef}) is not in ${i.accounts.join(", ") || "this project's accounts"}: it may have been deleted. Nothing was written.`);
   const signed = i.sign ? await i.sign(found, i.body) : null;
-  const r = await writeRecorded(writer, { ...found, body: signed?.body ?? i.body, sender: i.sender, quote: i.quote, replace: i.versions, landIn: i.accounts }, i.log);
+  const rf = await fromFor(writer, found, signed ? signed.wroteTo : (i.clientWroteTo ?? null), i);
+  const { accountAddresses: _addresses, ...where } = found;
+  const r = await writeRecorded(writer, { ...where, body: signed?.body ?? i.body, sender: rf.from, quote: i.quote, replace: i.versions, landIn: i.accounts }, i.log);
   const account = r.savedIn || found.account;
-  if (!signed) return { ...r, replyTo: found.messageId, account };
+  const why = { fromReason: rf.fromReason, clientWroteTo: rf.clientWroteTo };
+  if (!signed) return { ...r, replyTo: found.messageId, account, ...why };
   const { body: _body, ...how } = signed;
-  return { ...r, replyTo: found.messageId, account, ...how };
+  return { ...r, replyTo: found.messageId, account, ...how, ...why };
 }

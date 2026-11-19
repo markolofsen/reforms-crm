@@ -58,9 +58,10 @@ export type Primary = {
 };
 export type Secondary = "skip" | "open_mail" | "cancel" | "cancel_send" | "reopen";
 
-export type Context = { name: string; hasMailLink: boolean; acknowledged: boolean };
+/** `hasDraftLink` (P58 R1): the card's Mail read found the one draft, so Open goes to the draft itself; else to the client's mail. */
+export type Context = { name: string; hasMailLink: boolean; hasDraftLink: boolean; acknowledged: boolean };
 
-const mailLabel = (c: Context) => (c.hasMailLink ? "Open in Mail" : "Copy subject to find in Mail");
+const mailLabel = (c: Context) => (c.hasDraftLink ? "Open draft in Mail" : c.hasMailLink ? "Open the client's mail" : "Copy subject to find in Mail");
 
 /** The one primary button of a state, or null when the state has none. At most one, by construction. */
 export function primaryFor(state: CardState, c: Context): Primary | null {

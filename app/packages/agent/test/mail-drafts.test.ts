@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { parseProjectMd } from "@hub/projects";
 import { DENIED_TOOLS } from "../src/deny";
-import { DraftWriteError, FakeDraftWriter, READ_CONTENT_SCRIPT, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, stripMarker, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
+import { ACCOUNT_ADDRESSES_SCRIPT, DraftWriteError, FakeDraftWriter, READ_CONTENT_SCRIPT, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, stripMarker, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
 import { appleScriptCompileError, canCompileAppleScript, deleteOfLoopItem } from "../../../test-support/osacompile";
 import { createHubMcpServer, excerptOf, type HubMcpEnv } from "../src/mcp";
 
@@ -30,6 +30,7 @@ describe("the Mail scripts compile (osacompile, no Mail call)", () => {
     ["READ_HEADERS_SCRIPT", READ_HEADERS_SCRIPT],
     ["THREAD_DRAFTS_SCRIPT", THREAD_DRAFTS_SCRIPT],
     ["READ_CONTENT_SCRIPT", READ_CONTENT_SCRIPT],
+    ["ACCOUNT_ADDRESSES_SCRIPT", ACCOUNT_ADDRESSES_SCRIPT],
   ])("%s", (_name, script) => {
     expect(appleScriptCompileError(script)).toBeNull();
     expect(deleteOfLoopItem(script)).toBeNull();
@@ -115,6 +116,8 @@ describe("the Mail script", () => {
     expect(MESSAGE_ID_SCRIPT).not.toMatch(/\b(send|delete|save|reply|activate)\b/);
     expect(parseInboundOutput(["ok", "hello@x", "INBOX", "138994"].join(FS) + "\n")).toEqual({ account: "hello@x", mailboxPath: ["INBOX"], messageId: 138994 });
     expect(parseInboundOutput("none\n")).toBeNull();
+    // P58: the receiving account's own addresses ride along (what it can send as).
+    expect(parseInboundOutput(["ok", "hello@x", "INBOX", "7", ["hello@x", "info@brand.example", ""].join(LS)].join(FS) + "\n")).toEqual({ account: "hello@x", mailboxPath: ["INBOX"], messageId: 7, accountAddresses: ["hello@x", "info@brand.example"] });
     expect(() => parseInboundOutput(["error", "mail_not_running", "Mail is not running"].join(FS))).toThrow(/not running/);
     const seen: string[][] = [];
     const osa: OsaRun = async (_s, a) => (seen.push(a), "none");
@@ -414,7 +417,7 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     expect(typed.json.message).toMatch(/"Best regards,"/);
     expect(mail.drafts).toHaveLength(0);
     const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hello,\n\nHere is the answer." });
-    expect(r).toMatchObject({ isError: false, json: { brand: cases.forwarded.brand, wroteTo: cases.forwarded.wroteTo, signature: "signed" } });
+    expect(r).toMatchObject({ isError: false, json: { brand: cases.forwarded.brand, clientWroteTo: cases.forwarded.wroteTo, signature: "signed" } });
     expect(mail.drafts[0]?.text).toBe(`Hello,\n\nHere is the answer.\n\n${cases.forwarded.signature.join("\n")}`);
   });
 
@@ -517,8 +520,44 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     const client = new Client({ name: "test", version: "0" });
     await client.connect(a);
     const res = await client.callTool({ name: "mail_brand", arguments: { headers: readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8") } });
-    expect(JSON.parse((res.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ brand: cases.forwarded.brand, wroteTo: cases.forwarded.wroteTo, signature: "signed" });
+    expect(JSON.parse((res.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ brand: cases.forwarded.brand, clientWroteTo: cases.forwarded.wroteTo, signature: "signed" });
     const viaTo = await client.callTool({ name: "mail_brand", arguments: { headers: `Delivered-To: ${account}`, to: [cases.forwarded.wroteTo] } });
     expect(JSON.parse((viaTo.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ brand: cases.forwarded.brand });
+  });
+});
+
+// P58: a reply goes from the address the client wrote to when the receiving account can send as it, else from that
+// account (never silently from mail.sender), and the agent is told who the client sees in unambiguous words.
+describe("draft_write: the From the client sees (P58)", () => {
+  const fx = path.join(__dirname, "..", "..", "projects", "test", "fixtures", "brands");
+  const one = parseProjectMd(readFileSync(path.join(fx, "one-mailbox.md"), "utf8"), "one-mailbox").config;
+  const headers = readFileSync(path.join(fx, "mail-138994-headers.txt"), "utf8");
+  const account = one.mail.accounts[0] ?? "";
+  const projectMail = () => ({ accounts: one.mail.accounts, sender: account, identity: { addresses: one.mail.addresses, domains: one.mail.domains, signoff: one.signoff, brands: one.brands, languages: one.languages } });
+
+  it("saas: from the receiving account with fromReason until it can send as the brand address, then from the brand address", async () => {
+    const mail = new FakeDraftWriter();
+    mail.headers.set(42, headers);
+    mail.headers.set(43, headers);
+    const call = await connect(undefined, undefined, { drafts: mail, projectMail });
+    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hello,\n\nHere is the answer." });
+    expect(r.isError).toBe(false);
+    expect(r.json).toMatchObject({ fromSeenByClient: account, clientWroteTo: "info@carapis.com", fromReason: `info@carapis.com cannot send yet: from ${account}` });
+    expect(r.json).not.toHaveProperty("from");
+    expect(r.json).not.toHaveProperty("wroteTo");
+    expect(r.json.next).toMatch(/The client sees From/);
+    expect(mail.drafts[0]?.from).toBe(account);
+    mail.addresses.set(account, [account, "info@carapis.com"]);
+    const s = await call({ account, mailbox_path: ["INBOX"], message_id: 43, content: "Hello,\n\nHere is the answer." });
+    expect(s.json).toMatchObject({ fromSeenByClient: "info@carapis.com", clientWroteTo: "info@carapis.com", fromReason: null });
+    expect(mail.drafts[1]?.from).toBe("info@carapis.com");
+  });
+
+  it("realty: a revision of mail received in dan@ is written from dan@ and saved there, though mail.sender is info@ (realty drafts 1 and 2)", async () => {
+    const mail = new FakeDraftWriter();
+    mail.inbound.set("ref-dan@x", { account: "dan@danmerriam.com", mailboxPath: ["INBOX"], messageId: 9 });
+    const r = await reviseDraft(mail, { accounts: ["info@caribbeanrealestatemls.com", "dan@danmerriam.com"], sender: "info@caribbeanrealestatemls.com", clientWroteTo: "dan@danmerriam.com", mailRef: "ref-dan@x", body: "Hi,\n\nYes.", quote: "keep", versions: [{ account: "info@caribbeanrealestatemls.com", messageId: "old@x" }] });
+    expect(mail.drafts[0]).toMatchObject({ from: "dan@danmerriam.com", account: "dan@danmerriam.com" });
+    expect(r).toMatchObject({ from: "dan@danmerriam.com", account: "dan@danmerriam.com", fromReason: null, clientWroteTo: "dan@danmerriam.com" });
   });
 });

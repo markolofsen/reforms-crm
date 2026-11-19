@@ -39,7 +39,7 @@ describe("LocalActionButton", () => {
   it("an href action renders an anchor with the registry's href", () => {
     const html = renderToStaticMarkup(<LocalActionButton action="mail.openMessage" args={{ messageId: "<abc@host.example>" }} />);
     expect(html).toContain('href="message://%3Cabc%40host.example%3E"');
-    expect(html).toContain("Open in Mail");
+    expect(html).toMatch(/Open the client(&#x27;|')s mail/);
     expect(renderToStaticMarkup(<LocalActionButton action="mail.openMessage" args={{ messageId: "draft-12" }} />)).toBe("");
   });
   it("a server action is a button, and nothing when this machine cannot open", () => {

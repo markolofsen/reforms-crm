@@ -6,7 +6,7 @@ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/colla
 import { ToggleGroup, ToggleGroupItem } from "@hub/ui/toggle-group";
 import { ThreadPanel } from "@/features/thread/thread-panel";
 import { isClosed, type ReviewDraft } from "../source";
-import type { DraftMailDto } from "@hub/contract/responses";
+import { fromReasonOf, type DraftMailDto } from "@hub/contract/responses";
 import type { ReviewActions } from "../use-review-actions";
 import { mailProblem } from "../mail/tick-guard";
 import { DraftEditor } from "../mail/draft-editor";
@@ -18,6 +18,23 @@ function addressing(d: ReviewDraft): string {
   const who = d.toAddr.toLowerCase() === d.client.email.toLowerCase() ? (d.client.name.split(" ")[0] ?? d.client.name) : d.toAddr;
   const cc = d.ccAddr ? d.ccAddr.split(",").filter((x) => x.trim() !== "").length : 0;
   return `To ${who}${cc > 0 ? `, Cc ${cc}` : ""}, ${d.subject}`;
+}
+
+/**
+ * P58: who the client will see the reply from and whom it goes to, from Mail's own read (true after an edit in Mail),
+ * then the address they wrote to; when the From is not that address, the reason in the warning tone, in the words the
+ * agent is given (`fromReasonOf`).
+ */
+function FromLine({ d, live }: { d: ReviewDraft; live: DraftMailDto }) {
+  const reason = fromReasonOf(d.wroteTo, live.from);
+  return (
+    <p className="break-words text-muted-foreground text-sm" data-testid="from-line">
+      From {live.from ?? "?"} → To {live.to.join(", ") || "nobody"}
+      {live.cc.length > 0 ? `, Cc ${live.cc.join(", ")}` : ""}
+      {d.wroteTo ? ` · they wrote to ${d.wroteTo}` : ""}
+      {reason && <span className="block text-warning-foreground">{reason}</span>}
+    </p>
+  );
 }
 
 type Props = { d: ReviewDraft; project: string; actions: ReviewActions; thread: boolean; onThread: () => void; /** What Mail holds, shown while the send is confirmed. */ confirmed: string | null; /** The text as Mail holds it now (read on demand), when it could be read. */ live?: DraftMailDto; /** Read Mail again: the quiet way out of state 12. */ onRead?: () => void; reading?: boolean };
@@ -77,6 +94,7 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
           </ToggleGroup>
         )}
       </div>
+      {readable && <FromLine d={d} live={readable} />}
       {gone && <MailGone draftId={d.id} project={project} trashRef={gone.trashRef} />}
       {unreadable && !gone && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

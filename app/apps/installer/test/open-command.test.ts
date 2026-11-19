@@ -53,4 +53,16 @@ describe("hub open", () => {
     expect(await runOpenCommand("mail.openMessage", { args: JSON.stringify({ messageId: "a@b.example" }) }, d)).toBe(0);
     expect(calls).toEqual([["/usr/bin/open", "message://%3Ca%40b.example%3E"]]);
   });
+  it("P58 R1: --draft opens the hub draft's own Mail draft, or the client's mail; a draft Mail does not hold once is refused", async () => {
+    const { calls, lines, d } = setup();
+    const ids = { 7: { mailRef: "client-1@x.example", draft: "A3F4@reforms.example", why: null }, 8: { mailRef: "client-2@x.example", draft: null, why: "Mail holds 2 drafts that answer this message" } } as const;
+    const dd = { ...d, draftIds: async (_p: string | undefined, id: number) => ids[id as 7 | 8] ?? { mailRef: null, draft: null, why: "no draft" } };
+    expect(await runOpenCommand("mail.openDraft", { project: "acme-travel", draft: "7" }, dd)).toBe(0);
+    expect(await runOpenCommand("mail.openMessage", { project: "acme-travel", draft: "7" }, dd)).toBe(0);
+    expect(calls.map((c) => c.at(-1))).toEqual(["message://%3CA3F4%40reforms.example%3E", "message://%3Cclient-1%40x.example%3E"]);
+    expect(await runOpenCommand("mail.openDraft", { project: "acme-travel", draft: "8" }, dd)).toBe(2);
+    expect(lines.at(-1)).toBe("refused: Mail holds 2 drafts that answer this message");
+    expect(await runOpenCommand("file.open", { project: "acme-travel", draft: "7" }, dd)).toBe(2);
+    expect(calls).toHaveLength(2);
+  });
 });

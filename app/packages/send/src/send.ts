@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { markerLeft, unresolvedMarkers } from "@hub/config";
 import { RepoError, type DraftRow, type MailVersionRow, type Repos, type SendRow } from "@hub/db";
-import { checkDraftRecipients, loadProject, loadProjects, normalizeAddress, type ProjectConfig } from "@hub/projects";
+import { checkDraftRecipients, isOwnAddress, loadProject, loadProjects, normalizeAddress, type ProjectConfig } from "@hub/projects";
 import { bareId, MAIL_NOT_ANSWERING_FIX, MailNotAnswering, type MailDraft, type Mailer, type TrashItem } from "./mailer";
 
 // `hub send` (decision 0011, plan P23). The only code that sends mail. What a project allows (send.*, draft.recipients) is
@@ -111,8 +111,14 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
     if (!mail.account || !accounts.includes(mail.account.trim().toLowerCase())) reasons.push(`the draft sits in account "${mail.account ?? "?"}", not one of ${project}'s (${config.mail.accounts.join(", ") || "none"})`);
     const from = addresses(mail.sender)[0];
     if (!from) reasons.push("the draft has no sender");
-    else if (config.mail.sender && from !== normalizeAddress(config.mail.sender)) reasons.push(`the draft's sender ${from} is not mail.sender (${config.mail.sender})`);
+    // P58: a reply goes from the address the client wrote to (when the account can send as it) or from the account that
+    // received it; so the From is the project's own: mail.sender, one of its accounts, or an address on its addresses,
+    // aliases or domains. Mail itself lets an account send only as its own addresses.
+    else if (!(config.mail.sender && from === normalizeAddress(config.mail.sender)) && !isOwnAddress(from, config.mail)) reasons.push(`the draft's sender ${from} is not one of ${project}'s addresses (mail.sender ${config.mail.sender ?? "unset"}, mail.accounts, mail.addresses, mail.domains)`);
     const everyone = [...mail.to, ...mail.cc, ...mail.bcc];
+    // P58 point 3: a reply to our own address (a self-sent test answered to the brand or the mailbox itself).
+    const ours = everyone.filter((a) => isOwnAddress(a, config.mail) || (config.mail.sender !== null && config.mail.sender !== undefined && normalizeAddress(a) === normalizeAddress(config.mail.sender)));
+    if (ours.length) reasons.push(`the draft is addressed to this project's own address ${[...new Set(ours.map(normalizeAddress))].join(", ")}: a reply goes to the client, never to us`);
     const g = checkDraftRecipients(config, everyone, deps.allowList);
     if (!g.ok) reasons.push(`draft.recipients of ${project} does not permit ${g.blocked.join(", ")}`);
   }
@@ -180,7 +186,7 @@ export const isRecorded = (d: Pick<MailDraft, "account" | "messageId">, versions
  * ones the Hub wrote (its `mail_versions`); show shows the Hub's newest with a note. None by thread: the old rule for a
  * draft without In-Reply-To (by Message-ID, then one draft by subject and recipient). Read-only.
  */
-export async function findMail(deps: Pick<SendDeps, "mailer">, draft: Pick<DraftRow, "mailRef" | "subject" | "toAddr">, mode: FindMode = "strict", scope: FindScope = {}): Promise<MailFound> {
+export async function findMail(deps: { mailer: Pick<Mailer, "findDrafts"> }, draft: Pick<DraftRow, "mailRef" | "subject" | "toAddr">, mode: FindMode = "strict", scope: FindScope = {}): Promise<MailFound> {
   let all: MailDraft[] = [];
   try {
     all = await deps.mailer.findDrafts({ mailRef: draft.mailRef, subject: draft.subject });

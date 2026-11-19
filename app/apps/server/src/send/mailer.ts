@@ -46,9 +46,10 @@ export function databaseBackedFake(repos: Repos, projectsDir: string): Mailer & 
           if (d.subject !== q.subject || d.body === "") continue;
           found.push({
             ref: `fake-${d.id}`,
-            messageId: bareId(d.mailRef) || null,
+            // Its own Message-ID, and In-Reply-To the message it answers, as Mail's reply sets them (P58 R1: Open draft in Mail links the draft, not the client's mail).
+            messageId: `fake-${d.id}@hub.test`,
             account: config.mail.accounts[0] ?? null,
-            inReplyTo: null,
+            inReplyTo: bareId(d.mailRef) || null,
             sender: config.mail.sender ?? null,
             to: addressesOf(d.toAddr),
             cc: addressesOf(d.ccAddr),

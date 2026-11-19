@@ -1,3 +1,4 @@
+import { hrefOf } from "@hub/contract/local";
 import type { DraftMailDto } from "@hub/contract/responses";
 import type { ReviewDraft } from "../source";
 import { hasSwitch, stateOf, type FlowStep } from "../card/card-state";
@@ -7,6 +8,15 @@ export type MailRead = Pick<DraftMailDto, "configured" | "found" | "hash" | "rea
 
 /** False only when this server reads Mail and Mail has no such draft: the one meaning of the `unreadable` state. */
 export const mailReadable = (mail: MailRead | undefined): boolean => !(mail?.configured && !mail.found);
+
+/**
+ * P58 R1: the Mail draft's own Message-ID, when the card's read found exactly one draft for it (no `note` naming several
+ * versions) and Mail gave it one; else null, and Open in Mail falls back to the client's message.
+ */
+export function draftLinkOf(m: Pick<DraftMailDto, "found" | "note" | "messageId"> | undefined | null): string | null {
+  if (!m?.found || m.note || !m.messageId) return null;
+  return hrefOf("mail.openDraft", { messageId: m.messageId }) ? m.messageId : null;
+}
 
 /**
  * Why "I read the checks" cannot be switched ON for this draft right now, in words, or null when it can (P27 M3, decision

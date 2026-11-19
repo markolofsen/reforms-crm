@@ -216,7 +216,7 @@ export const timelineDto = z.object({ events: z.array(eventDto) });
 
 /**
  * A client's messages the hub holds: stored messenger rows (Telegram when P8 is live), newest first. Mail is not read by
- * the hub (decision 0026): the thread panel offers "Open in Mail" for the full mail thread, and the agent's recorded
+ * the hub (decision 0026): the card offers "Open the client's mail" (More menu) for the full mail thread, and the agent's recorded
  * decisions are the timeline beside it.
  */
 const direction = z.enum(["in", "out"]);
@@ -298,7 +298,10 @@ export const draftMailDto = z.object({
   gone: z.object({ trashRef: z.string().nullable() }).nullable().optional(),
   /** Whether Checked is bound to this very text (the row's hash equals this read's); false after any revision. Optional before API 11. */
   checkedCurrent: z.boolean().optional(),
+  /** The From header the client will see: Mail's own read of the draft (P58). */
   from: z.string().nullable(),
+  /** P58 R1: the Mail draft's own Message-ID, bare (what Open draft in Mail links to); null when Mail gave none. Optional before API 22. */
+  messageId: z.string().nullable().optional(),
   to: z.array(z.string()),
   cc: z.array(z.string()),
   subject: z.string(),
@@ -308,6 +311,20 @@ export const draftMailDto = z.object({
   readAt: z.string(),
 });
 export type DraftMailDto = z.infer<typeof draftMailDto>;
+
+const bareAddress = (v: string): string => (/<([^<>\s]+@[^<>\s]+)>/.exec(v)?.[1] ?? v).trim().toLowerCase();
+
+/**
+ * Why a reply goes From another address than the one the client wrote to (P58), in the one wording the writer's
+ * `fromReason`, the agent and the card share: "info@carapis.com cannot send yet: from hello@reforms.ai". Null when the
+ * From is the address they wrote to, or either is unknown.
+ */
+export function fromReasonOf(clientWroteTo: string | null | undefined, from: string | null | undefined): string | null {
+  if (!clientWroteTo || !from) return null;
+  const w = bareAddress(clientWroteTo);
+  const f = bareAddress(from);
+  return w === f ? null : `${w} cannot send yet: from ${f}`;
+}
 export const sentDto = z.object({ ok: z.literal(true), sendId: z.number() });
 /** A single-use ticket for one apply (P49 S12): minted only for the admin's exact origin, valid for seconds. */
 export const sendTicketDto = z.object({ ticket: z.string(), expiresAt: z.string() });
