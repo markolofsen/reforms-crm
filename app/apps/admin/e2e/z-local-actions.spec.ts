@@ -50,11 +50,12 @@ test("the Knowledge line opens its folder and an expired entry; Files opens proj
   await page.getByRole("button", { name: `Open ${ENTRY}` }).click();
   await expect.poll(() => opened().length).toBe(2);
   expect(opened()[1]).toEqual(["/usr/bin/open", join(folder, ENTRY)]);
-  await page.getByRole("button", { name: "Files" }).click();
+  // exact: "Files" is also a substring of an entry's "Open knowledge/files/..." (Playwright matches a name by substring).
+  await page.getByRole("button", { name: "Files", exact: true }).click();
   await page.getByRole("menuitem", { name: "project.md" }).click();
   await expect.poll(() => opened().at(-1)).toEqual(["/usr/bin/open", join(folder, "project.md")]);
   // Workflows and the project folder, by keyboard: one menu, one tab stop.
-  await page.getByRole("button", { name: "Files" }).focus();
+  await page.getByRole("button", { name: "Files", exact: true }).focus();
   await page.keyboard.press("Enter");
   await page.getByRole("menuitem", { name: "Workflows" }).press("Enter");
   await expect.poll(() => opened().at(-1)).toEqual(["/usr/bin/open", join(folder, "workflows")]);
