@@ -23,8 +23,8 @@ function Mark({ active, dot, id }: { active: boolean; dot: boolean; id: string }
 }
 
 /**
- * The More item (P63 N1): a coss `Menu` of the sections whose phone place is "more" (Agents, Connections, Help), with a dot when
- * one of them has one. Five items share 360px (72px each), so "Connections" is whole in the menu, never cut in the bar.
+ * The More item (P63 N1): a coss `Menu` of the sections whose phone place is "more" (Knowledge, Help, P70), with a dot when
+ * one of them has one. Five items share 360px (72px each).
  */
 function MoreMenu({ items }: { items: ShellNavItem[] }) {
   const active = items.some((i) => i.active);
@@ -50,7 +50,7 @@ function MoreMenu({ items }: { items: ShellNavItem[] }) {
   );
 }
 
-/** Phones (hidden from 640px by CSS): the sections of the bar (Overview, Drafts, Activity, Project), then More, as a bottom tab bar 56px high with the safe area added. Child pages are not here: the sub-nav in a page's header line holds them. */
+/** Phones (hidden from 640px by CSS): the sections of the bar (Overview, Drafts, Activity, Settings), then More, as a bottom tab bar 56px high with the safe area added. Child pages are not here: the sub-nav in a page's header line holds them. */
 export function TabBar({ items }: { items: ShellNavItem[] }) {
   const bar = items.filter((i) => i.phone === "bar");
   const more = items.filter((i) => i.phone === "more");

@@ -9,16 +9,15 @@ const status = (o: Partial<StatusDto> = {}): StatusDto => ({ level: "clear", kin
 describe("the Drafts status line (P48 W3)", () => {
   it("says the worst fact once, then the triage age and the replies owed; never the to-review count", () => {
     expect(lineOf(status(), NOW, ok)).toMatchObject({ level: "clear", sentence: "All clear", numbers: ["triage 2 d ago"], to: null });
-    const l = lineOf(status({ level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "project", numbers: { owed: 1, lastTriageAt: null } }), NOW, ok);
+    const l = lineOf(status({ level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "sending", numbers: { owed: 1, lastTriageAt: null } }), NOW, ok);
     expect(l.numbers).toEqual(["never triaged", "1 reply owed"]);
-    expect(l.to?.route).toBe("project.page");
+    expect(l.to?.route).toBe("settings.page");
   });
-  it("leads to Connections when that is where the fact is fixed", () => {
-    expect(lineOf(status({ level: "attention", next: "connections" }), NOW, ok).to?.route).toBe("connections.page");
-    // P63: a fact fixed on a child page links there (Setup, Knowledge), and Agent tools' place is Agents.
-    expect(lineOf(status({ level: "attention", next: "setup" }), NOW, ok).to?.route).toBe("project.setup");
-    expect(lineOf(status({ level: "attention", next: "knowledge" }), NOW, ok).to?.route).toBe("project.knowledge");
-    expect(lineOf(status({ level: "attention", next: "agents" }), NOW, ok).to?.route).toBe("agents.page");
+  it("leads to the page where the fact is fixed (P70: Overview, Knowledge or a Settings pane)", () => {
+    expect(lineOf(status({ level: "attention", next: "connections" }), NOW, ok).to?.route).toBe("settings.connections");
+    expect(lineOf(status({ level: "attention", next: "overview" }), NOW, ok).to?.route).toBe("overview.page");
+    expect(lineOf(status({ level: "attention", next: "knowledge" }), NOW, ok).to?.route).toBe("knowledge.page");
+    expect(lineOf(status({ level: "attention", next: "agent" }), NOW, ok).to?.route).toBe("settings.agent");
   });
   it("what only the page knows outranks the server's sentence: not answering, or a version mismatch", () => {
     expect(lineOf(status(), NOW, { ...ok, stale: true })).toMatchObject({ level: "blocked", sentence: "Server not answering: data may be old" });

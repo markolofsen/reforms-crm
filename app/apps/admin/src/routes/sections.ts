@@ -6,7 +6,7 @@ type WithNav = Extract<AnyRow, { nav: NavMeta }>;
 type ParentRow = Exclude<WithNav, { nav: { parent: string } }>;
 export type SectionId = ParentRow["section"];
 export type IconKey = WithNav["nav"]["icon"];
-/** The routes drawn under a parent (P63 N1): Project's Knowledge and Setup. */
+/** The routes drawn under a parent (P63 N1): Settings' Mail, Agent, Connections and This Mac (P70). */
 export type ChildRouteId = { [K in RouteId]: (typeof ROUTE_TABLE)[K] extends { nav: { parent: string } } ? K : never }[RouteId];
 
 /** One top-level screen as the shell reads it: derived from the `nav` metadata of the route table, never declared twice. */
@@ -46,9 +46,11 @@ export const sectionTitle = (id: SectionId): string => sectionById(id)?.title ??
  * so a new place fails `tsc` here. A child's dot also lights its parent, and a parent in the phone's More lights More.
  */
 export const NEXT_ROUTE: Readonly<Record<StatusNext, Exclude<RouteId, "drafts.item">>> = {
-  project: "project.page",
-  knowledge: "project.knowledge",
-  setup: "project.setup",
-  agents: "agents.page",
-  connections: "connections.page",
+  overview: "overview.page",
+  knowledge: "knowledge.page",
+  sending: "settings.page",
+  mail: "settings.mail",
+  agent: "settings.agent",
+  connections: "settings.connections",
+  mac: "settings.mac",
 };

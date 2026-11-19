@@ -53,34 +53,40 @@ export const ROUTE_TABLE = {
   "drafts.list": defineRoute("/drafts", { section: "drafts", scoped: true, title: "Drafts", nav: { label: "Drafts", icon: "inbox", order: 1, chord: "d", phone: "bar" } }),
   "drafts.item": defineRoute("/drafts/[id]", { section: "drafts", scoped: true, title: "Drafts", crumb: "Draft" }),
   "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", nav: { label: "Activity", icon: "activity", order: 2, chord: "a", phone: "bar" } }),
-  "project.page": defineRoute("/project", { section: "project", scoped: true, title: "Project", nav: { label: "Project", icon: "settings", order: 3, chord: "p", phone: "bar" } }),
-  "project.knowledge": defineRoute("/project/knowledge", { section: "project", scoped: true, title: "Knowledge", nav: { label: "Knowledge", icon: "knowledge", order: 1, parent: "project.page" } }),
-  "project.setup": defineRoute("/project/setup", { section: "project", scoped: true, title: "Setup", nav: { label: "Setup", icon: "setup", order: 2, parent: "project.page" } }),
-  "agents.page": defineRoute("/agents", { section: "agents", scoped: true, title: "Agents", nav: { label: "Agents", icon: "agents", order: 4, chord: "t", phone: "more" } }),
-  "connections.page": defineRoute("/connections", { section: "connections", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 5, chord: "c", phone: "more" } }),
-  "help.page": defineRoute("/help", { section: "help", scoped: false, title: "Help", nav: { label: "Help", icon: "help", order: 6, chord: "h", phone: "more" } }),
+  "knowledge.page": defineRoute("/knowledge", { section: "knowledge", scoped: true, title: "Knowledge", nav: { label: "Knowledge", icon: "knowledge", order: 3, chord: "k", phone: "more" } }),
+  // P70: Settings opens on its first pane, Sending (the row's title); the nav names the section, the sub-nav the pane.
+  "settings.page": defineRoute("/settings", { section: "settings", scoped: true, title: "Sending", nav: { label: "Settings", icon: "settings", order: 4, chord: "s", phone: "bar" } }),
+  "settings.mail": defineRoute("/settings/mail", { section: "settings", scoped: true, title: "Mail", nav: { label: "Mail", icon: "mail", order: 1, parent: "settings.page" } }),
+  "settings.agent": defineRoute("/settings/agent", { section: "settings", scoped: true, title: "Agent", nav: { label: "Agent", icon: "agents", order: 2, parent: "settings.page" } }),
+  "settings.connections": defineRoute("/settings/connections", { section: "settings", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 3, parent: "settings.page" } }),
+  "settings.mac": defineRoute("/settings/mac", { section: "settings", scoped: false, title: "This Mac", nav: { label: "This Mac", icon: "mac", order: 4, parent: "settings.page" } }),
+  "help.page": defineRoute("/help", { section: "help", scoped: false, title: "Help", nav: { label: "Help", icon: "help", order: 5, chord: "h", phone: "more" } }),
 } as const;
 
 export type RouteId = keyof typeof ROUTE_TABLE;
 type Row = (typeof ROUTE_TABLE)[RouteId];
 
-// A scoped row without its `[project]` twin page makes the property `never`, and `true` fails `tsc`.
-type Twin<R> = R extends { path: infer P extends string; scoped: true } ? Checked<`/[project]${P}`> : string;
+// A scoped row without its `[project]` twin page makes the property `never`, and `true` fails `tsc`. So does a projectless child
+// of a scoped parent (P70) without its fold page (see `PROJECTLESS`).
+type Twin<R> = R extends { path: infer P extends string; scoped: true } ? Checked<`/[project]${P}`> : R extends { path: infer P extends string; nav: { parent: string } } ? Checked<`/[project]${P}`> : string;
 export const TWINS: { readonly [K in RouteId]: [Twin<(typeof ROUTE_TABLE)[K]>] extends [never] ? never : true } = {
   "overview.page": true,
   "drafts.list": true,
   "drafts.item": true,
   "log.list": true,
-  "project.page": true,
-  "project.knowledge": true,
-  "project.setup": true,
-  "agents.page": true,
-  "connections.page": true,
+  "knowledge.page": true,
+  "settings.page": true,
+  "settings.mail": true,
+  "settings.agent": true,
+  "settings.connections": true,
+  "settings.mac": true,
   "help.page": true,
 };
 
-// A nav row is a parent (a chord and a phone place, no `parent`) or a child (a `parent` that is a parent row of the same scope,
-// no chord, no phone place); anything else makes the property `never`, and `true` fails `tsc`.
+// A nav row is a parent (a chord and a phone place, no `parent`) or a child (a `parent` that is a parent row, no chord, no phone
+// place); anything else makes the property `never`, and `true` fails `tsc`. Scope (P70): a child has its parent's scope, or is
+// projectless under a scoped parent (Settings ▸ Connections, This Mac: the instance's panes beside the project's); a scoped child
+// under a projectless parent is refused, since the parent's address could not carry the project its child needs.
 type Parent<R> = R extends { nav: { parent: string } } ? never : R extends { nav: { chord: string; phone: string } } ? R : never;
 export type NavCheck<R> = R extends { nav: infer N }
   ? N extends { parent: infer P }
@@ -89,9 +95,11 @@ export type NavCheck<R> = R extends { nav: infer N }
         ? never
         : N extends { chord: string } | { phone: string }
           ? never
-          : R extends { scoped: (typeof ROUTE_TABLE)[P]["scoped"] }
+          : R extends { scoped: false }
             ? true
-            : never
+            : R extends { scoped: (typeof ROUTE_TABLE)[P]["scoped"] }
+              ? true
+              : never
       : never
     : [Parent<R>] extends [never] ? never : true
   : true;
@@ -100,11 +108,12 @@ export const NAV_SHAPE: { readonly [K in RouteId]: NavCheck<(typeof ROUTE_TABLE)
   "drafts.list": true,
   "drafts.item": true,
   "log.list": true,
-  "project.page": true,
-  "project.knowledge": true,
-  "project.setup": true,
-  "agents.page": true,
-  "connections.page": true,
+  "knowledge.page": true,
+  "settings.page": true,
+  "settings.mail": true,
+  "settings.agent": true,
+  "settings.connections": true,
+  "settings.mac": true,
   "help.page": true,
 };
 
@@ -121,7 +130,11 @@ const pattern = (r: Row): string => (r.scoped ? `(?:/${SLUG})?${escape(r.path)}`
 /** Every page of the tree (both shapes of a scoped one) and the entry `/`, with an optional query: the run-time door `routeOf` accepts exactly these. */
 export const PAGE = new RegExp(`^(/|${rows.map(pattern).join("|")})(\\?[^#]*)?$`);
 
-/** The routes about the whole instance: their address never names a project. */
+/**
+ * The routes about the whole instance: their address never names a project. A projectless child of a scoped parent (P70) also
+ * has a page under `[project]/`, only so that `/<project>/settings/connections` renders inside the shell, where the guard folds
+ * it to `/settings/connections` (`canonicalAddress`); `PAGE` does not accept that form, so nothing links it.
+ */
 export const PROJECTLESS: ReadonlySet<RouteId> = new Set(ROUTE_IDS.filter((id) => !ROUTE_TABLE[id].scoped));
 
 /** The first path segments that are sections, not projects: a project with one of these names cannot be addressed by path. */

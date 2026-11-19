@@ -28,9 +28,16 @@ type DraftsArgs = { filter?: DraftView; q?: string; batch?: number | null };
  */
 export const paths = {
   overview: () => dest("overview.page", route("/overview")),
-  connections: { page: () => dest("connections.page", route("/connections")) },
-  agents: { page: () => dest("agents.page", route("/agents")) },
   help: { page: () => dest("help.page", route("/help")) },
+  knowledge: { page: () => dest("knowledge.page", route("/knowledge")) },
+  /** P70: one Settings, grouped by what each pane governs; `/settings` is Sending. Connections and This Mac name no project. */
+  settings: {
+    sending: () => dest("settings.page", route("/settings")),
+    mail: () => dest("settings.mail", route("/settings/mail")),
+    agent: () => dest("settings.agent", route("/settings/agent")),
+    connections: () => dest("settings.connections", route("/settings/connections")),
+    mac: () => dest("settings.mac", route("/settings/mac")),
+  },
   drafts: {
     list: (s: DraftsArgs = {}) => dest("drafts.list", route("/drafts"), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
     item: (id: number, s: DraftsArgs = {}) => dest("drafts.item", route(`/drafts/${id}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
@@ -38,16 +45,6 @@ export const paths = {
   log: {
     list: (s: { filter?: RunFilter; run?: number | null } = {}) => dest("log.list", route("/log"), { filter: unlessDefault(s.filter, "all"), run: s.run }),
   },
-  project: {
-    page: () => dest("project.page", route("/project")),
-    knowledge: () => dest("project.knowledge", route("/project/knowledge")),
-    setup: () => dest("project.setup", route("/project/setup")),
-  },
-  /**
-   * `/health` (P68: the core version line links there). It has no row in `ROUTE_TABLE` on purpose: it sits outside the shell and
-   * names no project, so it is a plain `Route` rendered with `@hub/ui/link` (a full page load), not a `Dest` for `AppLink`.
-   */
-  health: () => route("/health"),
 };
 
 /** The list destination of a section (the nav item, the chord, the project switch). */

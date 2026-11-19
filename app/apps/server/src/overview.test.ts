@@ -63,7 +63,7 @@ describe("GET /api/overview", () => {
     await repos.sends.stop("beta");
     const { body } = await get();
     expect(body.sentence).toBe("2 projects need you");
-    expect(rowOf(body, "alpha").status).toMatchObject({ level: "blocked", kind: "send-stopped", sentence: "Sending is stopped", next: "project" });
+    expect(rowOf(body, "alpha").status).toMatchObject({ level: "blocked", kind: "send-stopped", sentence: "Sending is stopped", next: "sending" });
   });
 
   it("names the demo Mailer once per project: HUB_MAILER=fake is attention", async () => {

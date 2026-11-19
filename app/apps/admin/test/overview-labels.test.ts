@@ -4,7 +4,7 @@ import { SCHEME_STATES } from "@hub/contract/scheme";
 import { LEVEL, needsYou, nextDest, ordered, SCHEME_LOOK, statusWord, triageText } from "../src/features/overview/labels";
 import { formatDest, paths } from "../src/routes/paths";
 
-const status = (over: Partial<StatusDto> = {}): StatusDto => ({ level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "project", numbers: { owed: 1, lastTriageAt: null }, ...over });
+const status = (over: Partial<StatusDto> = {}): StatusDto => ({ level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "sending", numbers: { owed: 1, lastTriageAt: null }, ...over });
 const row = (slug: string, over: Partial<ProjectRowDto> = {}): ProjectRowDto => ({ slug, name: slug, projectStatus: "active", archived: false, toReview: 0, sentToday: 0, status: status(), ...over });
 const NOW = new Date("2026-11-18T12:00:00Z").getTime();
 const multi = { project: "alpha", multi: true };
@@ -24,18 +24,18 @@ describe("overview labels", () => {
     expect(needsYou(status({ level: "clear", kind: "clear", sentence: "All clear", next: null }))).toBe("-");
   });
 
-  it("a row leads into its own project: Drafts by its name, the fix by Needs you; Connections names no project", () => {
+  it("a row leads into its own project: Drafts by its name, the fix by Needs you; an instance pane names no project", () => {
     expect(formatDest(paths.drafts.list(), multi)).toBe("/alpha/drafts");
-    const project = nextDest(status());
-    expect(project && formatDest(project, multi)).toBe("/alpha/project");
+    const sending = nextDest(status());
+    expect(sending && formatDest(sending, multi)).toBe("/alpha/settings");
     const connections = nextDest(status({ next: "connections" }));
-    expect(connections && formatDest(connections, multi)).toBe("/connections");
-    const setup = nextDest(status({ next: "setup" }));
-    expect(setup && formatDest(setup, multi)).toBe("/alpha/project/setup");
-    const agents = nextDest(status({ next: "agents" }));
-    expect(agents && formatDest(agents, multi)).toBe("/alpha/agents");
+    expect(connections && formatDest(connections, multi)).toBe("/settings/connections");
+    const overview = nextDest(status({ next: "overview" }));
+    expect(overview && formatDest(overview, multi)).toBe("/overview");
+    const agent = nextDest(status({ next: "agent" }));
+    expect(agent && formatDest(agent, multi)).toBe("/alpha/settings/agent");
     expect(nextDest(status({ next: null }))).toBeNull();
-    expect(nextDest(status({ level: "clear", next: "project" }))).toBeNull();
+    expect(nextDest(status({ level: "clear", next: "sending" }))).toBeNull();
   });
 
   it("last triage is an age, or Never", () => {

@@ -2,9 +2,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { coreUpdateDto, type CoreUpdateDto } from "@hub/contract/instance";
-import { checkedLine, commandText, coreLine, factsLine } from "../src/features/health/core-labels";
-import { CoreLine } from "../src/features/health/core-line";
-import { CoreView } from "../src/features/health/core-view";
+import { checkedLine, commandText, coreLine, factsLine } from "../src/features/settings/mac/core-labels";
+import { CoreLine } from "../src/features/settings/mac/core-line";
+import { CoreView } from "../src/features/settings/mac/core-view";
 import { keys } from "../src/lib/cache/keys";
 
 // P68: the core version line in the sidebar and the block on /health, for each level, from fixtures the server could send.

@@ -10,7 +10,7 @@ import { configOf } from "./overview-facts";
 import type { MessengersStatus } from "./messengers";
 
 /**
- * The Connections panel's service: the Notion token and the Telegram bot (files and settings, no network on a list), and the
+ * The service of Settings ▸ Connections and ▸ Mail: the Notion token and the Telegram bot (files and settings, no network on a list), and the
  * projects' mail accounts read-only (decision 0026: one bounded, cached question to Apple Mail, never launched for it). A test
  * is one probe of one token, kept in server memory with its time: two tests closer than MIN_TEST_SECONDS share the earlier
  * result, and one in flight is shared. A cached result belongs to the secret it tested: when the file's change time moves,

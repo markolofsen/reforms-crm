@@ -17,7 +17,7 @@ const DOCTOR: DoctorDto = {
     { name: "project.md parses", outcome: "pass", detail: "ok" },
     { name: "notion databases readable", outcome: "skipped", detail: "needs Notion" },
   ],
-  facts: { status: "active", accounts: ["hello@example.test"], recipients: "list" },
+  facts: { status: "active", accounts: ["hello@example.test"], recipients: "list", listed: 1, autosend: { mode: "draft", classes: [], dailyCap: 5 } },
 };
 const FILES: ProjectOverviewDto = {
   project: null,
@@ -69,15 +69,15 @@ const byId = (d: SchemeDto, id: string) => d.nodes.find((n) => n.id === id);
 describe("composeScheme", () => {
   it("maps each source to its part: pass ok, fail broken with the row's own fix, skipped not checked, signed out a look", async () => {
     const d = schemeDto.parse(await composeScheme(sources()));
-    expect(byId(d, "alpha:mail-mcp")).toMatchObject({ state: "fail", detail: "Codex: connection refused", fix: "hub doctor --only MCP", place: "agents" });
+    expect(byId(d, "alpha:mail-mcp")).toMatchObject({ state: "fail", detail: "Codex: connection refused", fix: "hub doctor --only MCP", place: "agent" });
     expect(byId(d, "alpha:hub-tools")).toMatchObject({ state: "ok", detail: "", fix: null });
     expect(byId(d, "alpha:guard")).toMatchObject({ state: "unknown" }); // Codex's guard row is a skip: never green for what nobody checked
-    expect(byId(d, "alpha:notion-db")).toMatchObject({ state: "unknown", place: "setup" });
+    expect(byId(d, "alpha:notion-db")).toMatchObject({ state: "unknown", place: "overview" });
     expect(byId(d, "alpha:knowledge")).toMatchObject({ state: "ok", label: "Knowledge base (12 entries)", place: "knowledge" });
     expect(byId(d, "alpha:mail-filters")).toMatchObject({ state: "ok", label: "Mail filters (3 rules)" });
     expect(byId(d, "alpha:setup")).toMatchObject({ state: "ok" });
-    expect(byId(d, "alpha:mailbox:hello@example.test")).toMatchObject({ state: "ok", label: "hello@example.test", place: "connections" });
-    expect(byId(d, "alpha:send-door")).toMatchObject({ state: "ok", place: "project" });
+    expect(byId(d, "alpha:mailbox:hello@example.test")).toMatchObject({ state: "ok", label: "hello@example.test", place: "mail" });
+    expect(byId(d, "alpha:send-door")).toMatchObject({ state: "ok", place: "sending" });
     expect(byId(d, "cli:claude")).toMatchObject({ state: "ok", label: "Claude Code 2.1.0" });
     expect(byId(d, "cli:codex")).toMatchObject({ state: "warn", fix: "codex login" });
     expect(byId(d, "notion:notion:notion-token")).toMatchObject({ state: "ok", label: "Notion (Hub bot)" });
@@ -87,7 +87,7 @@ describe("composeScheme", () => {
 
   it("no cached Agent tools rows: their parts are not checked here, with the place to run the check", async () => {
     const d = await composeScheme(sources({ agentTools: () => null, clis: () => null }));
-    for (const id of ["alpha:mail-mcp", "alpha:hub-tools", "alpha:guard", "cli:claude", "cli:codex"]) expect(byId(d, id), id).toMatchObject({ state: "unknown", detail: expect.stringContaining("Run the check on Agents") });
+    for (const id of ["alpha:mail-mcp", "alpha:hub-tools", "alpha:guard", "cli:claude", "cli:codex"]) expect(byId(d, id), id).toMatchObject({ state: "unknown", detail: expect.stringContaining("Run the check on Settings ▸ Agent") });
   });
 
   it("the send door: fake mailer and Stop sending are a look, a failing Sent loop is broken", async () => {
@@ -111,7 +111,7 @@ describe("composeScheme", () => {
 
   it("the core (P68): a required update is broken with the command as its fix; current is ok", async () => {
     const core = { pin: "v0.12.16", inUse: "v0.12.16", level: "required" as const, reason: "a security fix", tags: [], facts: { dependencies: false, migrations: false, rollback: false }, command: ["hub core update"] };
-    expect(byId(await composeScheme(sources({ core: () => core })), "core")).toMatchObject({ state: "fail", label: "Core v0.12.16", fix: "hub core update", place: null });
+    expect(byId(await composeScheme(sources({ core: () => core })), "core")).toMatchObject({ state: "fail", label: "Core v0.12.16", fix: "hub core update", place: "mac" });
     expect(byId(await composeScheme(sources({ core: () => ({ ...core, level: "current", command: [] }) })), "core")).toMatchObject({ state: "ok", fix: null });
   });
 

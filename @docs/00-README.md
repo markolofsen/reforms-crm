@@ -30,7 +30,7 @@ a migration). The server tails it and sends one small frame naming what changed 
 agent writes shows within about a second, with no reload. Without the stream it falls back to polling: [core/06](core/06-local-admin-app.md), Live updates.
 
 **After a restart of the Mac.** The admin and the API start at login (decision 0033, amending 0006's "no launchd"): one LaunchAgent per
-instance runs `./run.sh up --service`, set up by `./run.sh setup` (step `autostart.agent`), switched in Connections > This Mac. It starts the
+instance runs `./run.sh up --service`, set up by `./run.sh setup` (step `autostart.agent`), switched in Settings ▸ This Mac. It starts the
 server only: no agent session starts until the dock is opened, and no browser opens: [core/08](core/08-local-app-stack.md).
 
 **The terminal dock.** The admin always has a right-hand column (decision 0032) (a strip on the right edge when closed, Ctrl+`) whose tabs
@@ -55,9 +55,10 @@ the guard). Details: [core/02-connectors.md](core/02-connectors.md).
 - Notion: the agent writes through the session's connector (no token); an optional integration token is what `notion-dump`, backups and the project doctor's database check read with.
 - Telegram: an optional bot token (`state/secrets/telegram-bot-token`). With it the server polls for messages and stores them; it never sends ([packages/messengers/README.md](../app/packages/messengers/README.md)).
 
-**The Connections page** (`/connections`, key `g c`; the same list in the terminal with `hub connections [--test]`) shows the Notion token and the
-Telegram bot (whether each key is stored, who uses it, the last Test), the projects' mail accounts read-only, and Agent tools: per project and CLI,
-whether a session has what it needs. A key goes from the form to the server and is never shown, returned or kept in the browser (decision 0020).
+**Settings** (`/settings`, key `g s`, P70) is one place for what is set rarely, grouped by what it governs: Sending (Stop sending, the
+sends, who drafts may go to, the checks before sending), Mail (the project's accounts read-only and its filters), Agent (Agent tools: per
+CLI, whether a session has what it needs), Connections (the Notion token and the Telegram bot: whether each key is stored, who uses it, the
+last Test; the same list in the terminal with `hub connections [--test]`) and This Mac (start after a restart, the core version). A key goes from the form to the server and is never shown, returned or kept in the browser (decision 0020).
 
 **Follow-ups.** A quiet client is enrolled in one of the project's follow-up sequences when the owner's words ask for it (recorded with the
 enrolment; the agent never enrols on its own initiative); a session drafts each due step when asked, within the sequence's `max_words`, the owner

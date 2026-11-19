@@ -9,7 +9,7 @@ import type { CliFactDto } from "@hub/contract/terminal";
 /**
  * The Hub's parts and how each stands (P63 O1): a pure function over readers the server already has, so its test needs no Mail,
  * Notion or CLI. It never runs a check of its own: the Agent tools rows come from the cache only (no cached row: "Not checked
- * here", with "Run the check on Agents"), Mail's account list is read within a short budget, and the CLIs are the detector's last
+ * here", with "Run the check on Settings ▸ Agent"), Mail's account list is read within a short budget, and the CLIs are the detector's last
  * answer. Mapping (plan section 4a): pass, fresh, running, found → ok; warn, stale → warn; fail, error, not found → fail;
  * skipped, skip, never, off, nothing cached → unknown. A fix line is the source's own, never invented here.
  */
@@ -30,7 +30,7 @@ export interface SchemeSources {
 }
 
 const CLI_LABEL = { claude: "Claude Code", codex: "Codex" } as const;
-const NOT_RUN = "Run the check on Agents";
+const NOT_RUN = "Run the check on Settings ▸ Agent";
 
 type Part = Omit<SchemeNode, "detail" | "fix"> & { detail?: string; fix?: string | null };
 const node = (p: Part): SchemeNode => ({ ...p, detail: p.state === "ok" ? "" : (p.detail ?? ""), fix: p.state === "ok" ? null : (p.fix ?? null) });
@@ -55,17 +55,17 @@ function tokenNode(c: ConnectionDto): SchemeNode {
   if (c.secret.state === "missing") return node({ ...base, state: "fail", detail: "No key stored." });
   if (c.secret.state === "unsafe-mode" || c.secret.state === "malformed") return node({ ...base, state: "fail", detail: c.secret.state === "malformed" ? "The stored key is not a key." : "The key file is readable by others." });
   if (k.state === "fresh") return node({ ...base, state: "ok" });
-  if (k.state === "stale") return node({ ...base, state: "warn", detail: "Last tested over an hour ago: Test it on Connections." });
+  if (k.state === "stale") return node({ ...base, state: "warn", detail: "Last tested over an hour ago: Test it on Settings ▸ Connections." });
   if (k.state === "error") return node({ ...base, state: "fail", detail: k.message, fix: k.fix });
-  return node({ ...base, state: "unknown", detail: "Not tested since the server started: Test it on Connections." });
+  return node({ ...base, state: "unknown", detail: "Not tested since the server started: Test it on Settings ▸ Connections." });
 }
 
 function cliNodes(clis: readonly CliFactDto[] | null): SchemeNode[] {
-  if (!clis) return (["claude", "codex"] as const).map((cli) => node({ id: `cli:${cli}`, kind: "cli", project: null, label: CLI_LABEL[cli], state: "unknown", detail: `Not detected yet. ${NOT_RUN}.`, place: "agents" }));
+  if (!clis) return (["claude", "codex"] as const).map((cli) => node({ id: `cli:${cli}`, kind: "cli", project: null, label: CLI_LABEL[cli], state: "unknown", detail: `Not detected yet. ${NOT_RUN}.`, place: "agent" }));
   return clis.map((f) => {
     const label = f.version ? `${CLI_LABEL[f.cli]} ${f.version}`.slice(0, 80) : CLI_LABEL[f.cli];
     const state: SchemeState = f.state === "ready" ? "ok" : f.state === "unknown" ? "unknown" : f.state === "signed-out" ? "warn" : "fail";
-    return node({ id: `cli:${f.cli}`, kind: "cli", project: null, label, state, detail: f.detail, fix: f.fix, place: "agents" });
+    return node({ id: `cli:${f.cli}`, kind: "cli", project: null, label, state, detail: f.detail, fix: f.fix, place: "agent" });
   });
 }
 
@@ -73,7 +73,7 @@ function coreNode(d: CoreUpdateDto | null): SchemeNode[] {
   if (!d) return [];
   const label = `Core ${d.pin ?? d.inUse ?? ""}`.trim();
   const state: SchemeState = d.level === "required" ? "fail" : d.level === "recommended" ? "warn" : d.level === "unknown" ? "unknown" : "ok";
-  return [node({ id: "core", kind: "core", project: null, label, state, detail: d.reason, fix: d.command.length > 0 ? d.command.join("\n") : null, place: null })];
+  return [node({ id: "core", kind: "core", project: null, label, state, detail: d.reason, fix: d.command.length > 0 ? d.command.join("\n") : null, place: "mac" })];
 }
 
 async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto | null): Promise<SchemeNode[]> {
@@ -86,11 +86,11 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
     const row = mail?.mail.find((m) => m.account.toLowerCase() === account.toLowerCase());
     const found = row?.foundInMail ?? null;
     const why = mail?.mailRead.state === "not-running" ? "Apple Mail is not running." : "Apple Mail did not answer in time.";
-    out.push(node({ ...p("mailbox", `mailbox:${account.toLowerCase()}`), label: account.slice(0, 80), state: found === null ? "unknown" : found ? "ok" : "fail", detail: found === false ? "Not an account in Apple Mail." : why, fix: mail?.mailRead.fix ?? null, place: "connections" }));
+    out.push(node({ ...p("mailbox", `mailbox:${account.toLowerCase()}`), label: account.slice(0, 80), state: found === null ? "unknown" : found ? "ok" : "fail", detail: found === false ? "Not an account in Apple Mail." : why, fix: mail?.mailRead.fix ?? null, place: "mail" }));
   }
-  out.push(node({ ...p("mail-mcp", "mail-mcp"), label: "mail-mcp", ...fromRows(tools, (id) => id === "mcp.present.mail-mcp" || id === "mcp.answers.mail-mcp"), place: "agents" }));
-  out.push(node({ ...p("hub-tools", "hub-tools"), label: "Hub tools", ...fromRows(tools, (id) => id === "mcp.present.hub" || id === "mcp.answers.hub"), place: "agents" }));
-  out.push(node({ ...p("guard", "guard"), label: "Guard", ...fromRows(tools, (id) => id === "guard.hook" || id === "send-tools.off"), place: "agents" }));
+  out.push(node({ ...p("mail-mcp", "mail-mcp"), label: "mail-mcp", ...fromRows(tools, (id) => id === "mcp.present.mail-mcp" || id === "mcp.answers.mail-mcp"), place: "agent" }));
+  out.push(node({ ...p("hub-tools", "hub-tools"), label: "Hub tools", ...fromRows(tools, (id) => id === "mcp.present.hub" || id === "mcp.answers.hub"), place: "agent" }));
+  out.push(node({ ...p("guard", "guard"), label: "Guard", ...fromRows(tools, (id) => id === "guard.hook" || id === "send-tools.off"), place: "agent" }));
 
   const k = files.knowledge;
   const knowledge = k.state === "absent" ? { state: "unknown" as const, detail: "No knowledge yet." } : k.state === "error" ? { state: "fail" as const, detail: k.message } : !k.consistent ? { state: "fail" as const, detail: `${k.problems} file problems.` } : k.expired > 0 ? { state: "warn" as const, detail: `${k.expired} expired.` } : { state: "ok" as const };
@@ -98,7 +98,7 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
 
   const f = files.filters;
   const filters = f.state === "absent" ? { state: "unknown" as const, detail: "No mail filters yet." } : f.state === "error" ? { state: "fail" as const, detail: f.message } : f.issues.length > 0 ? { state: "warn" as const, detail: f.issues.join("; ") } : { state: "ok" as const };
-  out.push(node({ ...p("mail-filters", "mail-filters"), label: f.state === "ok" ? `Mail filters (${f.rules} rules)` : "Mail filters", ...filters, place: "setup" }));
+  out.push(node({ ...p("mail-filters", "mail-filters"), label: f.state === "ok" ? `Mail filters (${f.rules} rules)` : "Mail filters", ...filters, place: "mail" }));
 
   const checks = doctor.checks;
   const notion = checks.filter((c) => c.name.startsWith("notion"));
@@ -111,10 +111,10 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
     : doctor.facts?.recipients === "test" ? { state: "warn" as const, detail: "Drafts go to the test list only." }
     : run.length === 0 ? { state: "unknown" as const, detail: "No check ran here." }
     : { state: "ok" as const };
-  out.push(node({ ...p("setup", "setup"), label: "Project setup", ...setup, place: "setup" }));
+  out.push(node({ ...p("setup", "setup"), label: "Project setup", ...setup, place: "overview" }));
   const nState: SchemeState = notion.some((c) => c.outcome === "fail") ? "fail" : notion.some((c) => c.outcome === "warn") ? "warn" : notion.length > 0 && notion.every((c) => c.outcome === "pass") ? "ok" : "unknown";
   const nBad = notion.find((c) => c.outcome === "fail" || c.outcome === "warn");
-  out.push(node({ ...p("notion-db", "notion-db"), label: "Notion databases", state: nState, detail: nBad?.detail ?? "Checked by the agent in a session (hub project doctor).", place: "setup" }));
+  out.push(node({ ...p("notion-db", "notion-db"), label: "Notion databases", state: nState, detail: nBad?.detail ?? "Checked by the agent in a session (hub project doctor).", place: "overview" }));
 
   const h = s.health();
   const sent = h.sent.state;
@@ -123,7 +123,7 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
     : sent === "error" ? { state: "fail" as const, detail: h.sent.lastError ?? "Sent detection is failing." }
     : h.mailer === "fake" ? { state: "warn" as const, detail: "Sends are fake (demo mode)." }
     : { state: "ok" as const };
-  out.push(node({ ...p("send-door", "send-door"), label: "Send door", ...door, place: "project" }));
+  out.push(node({ ...p("send-door", "send-door"), label: "Send door", ...door, place: "sending" }));
   return out;
 }
 

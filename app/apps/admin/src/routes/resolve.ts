@@ -3,8 +3,12 @@ import { draftsSearch, logSearch, noSearch, parseQuery, positiveInt, type Drafts
 import type { SectionId } from "./sections";
 import { PROJECTLESS, RESERVED_SEGMENTS, ROUTE_TABLE } from "./table";
 
-/** The first segments of the projectless routes (`overview`, `connections`, `help`): a project segment before one is Not found. */
-const PROJECTLESS_HEADS: ReadonlySet<string> = new Set([...PROJECTLESS].map((id) => ROUTE_TABLE[id].path.split("/")[1] ?? ""));
+/**
+ * The first segments of the projectless sections (`overview`, `help`): a project segment before one is Not found. A projectless
+ * child under a scoped parent (`settings/connections`, P70) is not one: `/<project>/settings/connections` resolves, and the guard
+ * folds it to `/settings/connections`, since the sub-nav of a scoped pane may be followed with the project in mind.
+ */
+const PROJECTLESS_HEADS: ReadonlySet<string> = new Set([...PROJECTLESS].map((id) => ROUTE_TABLE[id].path.split("/")).filter((p) => p.length === 2).map((p) => p[1] ?? ""));
 
 /**
  * `project`: the project the address names, from its first path segment (`/lisbon/drafts`). `inPath` says it came from the
@@ -14,14 +18,15 @@ type Base = { project: string | null; inPath: boolean; entry: boolean };
 /** The address as a value. `notFound` is a real state: an unknown path or a non-numeric id never shows another screen. */
 export type Resolved =
   | (Base & { route: "overview.page"; section: "overview"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "connections.page"; section: "connections"; params: NoSearch; search: NoSearch })
   | (Base & { route: "drafts.list"; section: "drafts"; params: NoSearch; search: DraftsSearch })
   | (Base & { route: "drafts.item"; section: "drafts"; params: { id: number }; search: DraftsSearch })
   | (Base & { route: "log.list"; section: "log"; params: NoSearch; search: LogSearch })
-  | (Base & { route: "project.page"; section: "project"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "project.knowledge"; section: "project"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "project.setup"; section: "project"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "agents.page"; section: "agents"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "knowledge.page"; section: "knowledge"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "settings.page"; section: "settings"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "settings.mail"; section: "settings"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "settings.agent"; section: "settings"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "settings.connections"; section: "settings"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "settings.mac"; section: "settings"; params: NoSearch; search: NoSearch })
   | (Base & { route: "help.page"; section: "help"; params: NoSearch; search: NoSearch })
   | (Base & { route: "notFound"; section: null; path: string });
 
@@ -57,22 +62,22 @@ export function resolveRoute(path: string, searchString: string): Resolved {
   switch (head) {
     case "overview":
       return one ? { ...base, route: "overview.page", section: "overview", params: {}, search: noSearch() } : notFound;
-    case "connections":
-      return one ? { ...base, route: "connections.page", section: "connections", params: {}, search: noSearch() } : notFound;
     case "help":
       return one ? { ...base, route: "help.page", section: "help", params: {}, search: noSearch() } : notFound;
-    case "agents":
-      return one ? { ...base, route: "agents.page", section: "agents", params: {}, search: noSearch() } : notFound;
+    case "knowledge":
+      return one ? { ...base, route: "knowledge.page", section: "knowledge", params: {}, search: noSearch() } : notFound;
     case undefined: // the empty address is the entry
     case "drafts":
       if (segs.length <= 1) return { ...base, route: "drafts.list", section: "drafts", params: {}, search: draftsSearch(raw) };
       return id === null ? notFound : { ...base, route: "drafts.item", section: "drafts", params: { id }, search: draftsSearch(raw) };
     case "log":
       return one ? { ...base, route: "log.list", section: "log", params: {}, search: logSearch(raw) } : notFound;
-    case "project":
-      if (one) return { ...base, route: "project.page", section: "project", params: {}, search: noSearch() };
-      if (tail === "knowledge") return { ...base, route: "project.knowledge", section: "project", params: {}, search: noSearch() };
-      if (tail === "setup") return { ...base, route: "project.setup", section: "project", params: {}, search: noSearch() };
+    case "settings":
+      if (one) return { ...base, route: "settings.page", section: "settings", params: {}, search: noSearch() };
+      if (tail === "mail") return { ...base, route: "settings.mail", section: "settings", params: {}, search: noSearch() };
+      if (tail === "agent") return { ...base, route: "settings.agent", section: "settings", params: {}, search: noSearch() };
+      if (tail === "connections") return { ...base, route: "settings.connections", section: "settings", params: {}, search: noSearch() };
+      if (tail === "mac") return { ...base, route: "settings.mac", section: "settings", params: {}, search: noSearch() };
       return notFound;
     default:
       return notFound;
@@ -84,22 +89,24 @@ export function destOf(r: Resolved): Dest | null {
   switch (r.route) {
     case "overview.page":
       return paths.overview();
-    case "connections.page":
-      return paths.connections.page();
     case "drafts.list":
       return paths.drafts.list(r.search);
     case "drafts.item":
       return paths.drafts.item(r.params.id, r.search);
     case "log.list":
       return paths.log.list(r.search);
-    case "project.page":
-      return paths.project.page();
-    case "project.knowledge":
-      return paths.project.knowledge();
-    case "project.setup":
-      return paths.project.setup();
-    case "agents.page":
-      return paths.agents.page();
+    case "knowledge.page":
+      return paths.knowledge.page();
+    case "settings.page":
+      return paths.settings.sending();
+    case "settings.mail":
+      return paths.settings.mail();
+    case "settings.agent":
+      return paths.settings.agent();
+    case "settings.connections":
+      return paths.settings.connections();
+    case "settings.mac":
+      return paths.settings.mac();
     case "help.page":
       return paths.help.page();
     case "notFound":

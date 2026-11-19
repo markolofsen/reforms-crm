@@ -128,16 +128,16 @@ describe("a capital letter", () => {
 describe("the Overview chord", () => {
   it("g o is declared by the section list", () => {
     expect(SECTIONS.find((s) => s.id === "overview")?.chord).toEqual(["g", "o"]);
-    expect(SECTIONS.find((s) => s.id === "connections")?.chord).toEqual(["g", "c"]);
-    expect(titleOf(resolveRoute("/connections", ""), "lisbon")).toBe("Connections · Hub Workflow");
-    // P63: Agents (g t) is scoped, Help (g h) is the instance's; a child page is titled by itself and its crumb is under its parent.
-    expect(SECTIONS.find((s) => s.id === "agents")?.chord).toEqual(["g", "t"]);
+    // P70: Knowledge (g k) and Settings (g s) are scoped, Help (g h) is the instance's; a pane is titled by itself, under Settings.
+    expect(SECTIONS.find((s) => s.id === "knowledge")?.chord).toEqual(["g", "k"]);
+    expect(SECTIONS.find((s) => s.id === "settings")?.chord).toEqual(["g", "s"]);
     expect(SECTIONS.find((s) => s.id === "help")?.chord).toEqual(["g", "h"]);
-    expect(titleOf(resolveRoute("/agents", ""), "lisbon")).toBe("Agents · lisbon · Hub Workflow");
+    expect(titleOf(resolveRoute("/settings/connections", ""), "lisbon")).toBe("Connections · Hub Workflow");
+    expect(titleOf(resolveRoute("/settings", ""), "lisbon")).toBe("Sending · lisbon · Hub Workflow");
     expect(titleOf(resolveRoute("/help", ""), "lisbon")).toBe("Help · Hub Workflow");
-    expect(titleOf(resolveRoute("/lisbon/project/setup", ""), "lisbon")).toBe(pageTitle("project.setup", "lisbon"));
-    expect(pageTitle("project.knowledge", "lisbon")).toBe("Knowledge · lisbon · Hub Workflow");
-    expect(crumbsOf(resolveRoute("/project/setup", ""))).toEqual(["Project", "Setup"]);
+    expect(titleOf(resolveRoute("/lisbon/settings/agent", ""), "lisbon")).toBe(pageTitle("settings.agent", "lisbon"));
+    expect(pageTitle("knowledge.page", "lisbon")).toBe("Knowledge · lisbon · Hub Workflow");
+    expect(crumbsOf(resolveRoute("/settings/mail", ""))).toEqual(["Settings", "Mail"]);
   });
 });
 

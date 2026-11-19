@@ -33,10 +33,12 @@ export const STATUS_KINDS = [
 export type StatusKind = (typeof STATUS_KINDS)[number];
 
 /**
- * Where the worst fact is fixed: the nav targets that can carry a dot (P63 N1: Project's landing, its Knowledge and Setup pages,
- * Agents, Connections). The server never writes a URL: the admin maps it to `paths.*`. Null: nowhere but the list itself.
+ * Where the worst fact is fixed: the nav targets that can carry a dot (P70: Overview, Knowledge, and the Settings panes Sending,
+ * Mail, Agent, Connections, This Mac). A fact fixed by a phrase in a session (a failing setup check, a draft project) names
+ * Overview, where its "Needs you" item carries the phrase. The server never writes a URL: the admin maps it to `paths.*`.
+ * Null: nowhere but the list itself.
  */
-export const STATUS_NEXT = ["project", "knowledge", "setup", "agents", "connections"] as const;
+export const STATUS_NEXT = ["overview", "knowledge", "sending", "mail", "agent", "connections", "mac"] as const;
 export type StatusNext = (typeof STATUS_NEXT)[number];
 
 /**

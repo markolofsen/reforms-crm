@@ -1,6 +1,6 @@
 import { CONNECTION_KINDS, SECRET_STATES, type ConnectionDto } from "@hub/contract/connections";
 import { describe, expect, it } from "vitest";
-import { foundLook, groupByKind, KIND_ORDER, KIND_TITLE, SECRET } from "../src/features/connections/labels";
+import { foundLook, groupByKind, KIND_ORDER, KIND_TITLE, SECRET } from "../src/features/settings/connections/labels";
 
 const row = (kind: ConnectionDto["kind"], id: string): ConnectionDto => ({ id, kind, label: kind, secret: { state: "missing" }, identity: null, usedBy: [], can: ["set"], check: { state: "never" } });
 

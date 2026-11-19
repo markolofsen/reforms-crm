@@ -5,7 +5,7 @@ import { notFound, v } from "../http";
 import { NotTestable, Refusal, type ConnectionsService } from "../connections";
 
 /**
- * The Connections panel. `GET` reads files and settings and the in-memory test results: no network, no write.
+ * Settings ▸ Connections and ▸ Mail (P70). `GET` reads files and settings and the in-memory test results: no network, no write.
  * `POST .../test` is one read-only probe of one connection (Notion `users/me`, Telegram `getMe`, an IMAP login and a mailbox list). Neither
  * route can send, draft or change a draft, and none returns a secret: the reply schemas have no field for one.
  * The two writes (decision 0020) are the only way a key enters from the browser and the only way one leaves the folder: `PUT .../secret`

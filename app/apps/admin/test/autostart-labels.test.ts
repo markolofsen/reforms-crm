@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AutostartDto } from "@hub/contract/autostart";
-import { autostartSaid, mailMcpSaid } from "../src/features/connections/autostart/labels";
+import { autostartSaid, mailMcpSaid } from "../src/features/settings/mac/autostart-labels";
 import { hhmm } from "../src/lib/format";
 
 // P67 verdict 12: the Connections row "Start the Hub after a restart" says exactly one of these lines.

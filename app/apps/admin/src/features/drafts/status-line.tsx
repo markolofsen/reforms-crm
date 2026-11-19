@@ -19,7 +19,7 @@ const LIVE_WORD: Record<Exclude<LiveState, "connecting">, string> = { live: "Liv
 type Line = { level: StatusLevel; sentence: string; numbers: string[]; to: Dest | null; kind: string };
 
 const DOT: Record<StatusLevel, string> = { clear: "bg-success", attention: "bg-warning", blocked: "bg-destructive" };
-/** The page that fixes the fact (P63: the Project landing, Knowledge, Setup, Agents or Connections). */
+/** The page that fixes the fact (P70: Overview, Knowledge or a Settings pane). */
 const nextDest = (next: NonNullable<StatusDto["next"]>): Dest => routeDest(NEXT_ROUTE[next]);
 
 /** The words of the line: the worst fact once, then the two numbers the list does not show (the to-review count is the View menu's). */

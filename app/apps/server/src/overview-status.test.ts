@@ -16,19 +16,19 @@ const run = (over: Partial<ProjectFacts> = {}, sys: Partial<InstanceFacts> = {},
 // One scenario per kind: the facts that raise it alone, its level, its sentence and where it is fixed.
 const SCENARIOS: Record<StatusKind, { over?: Partial<ProjectFacts>; sys?: Partial<InstanceFacts>; now?: Date; level: string; sentence: string; next: string | null }> = {
   clear: { level: "clear", sentence: "All clear", next: null },
-  "send-stopped": { over: { stopped: true }, level: "blocked", sentence: "Sending is stopped", next: "project" },
-  "sent-loop-error": { sys: { sentError: true }, level: "blocked", sentence: "Sent detection is failing: sent mail is not being noticed", next: "project" },
-  "doctor-fail": { over: { doctorFailed: ["notion.access", "knowledge", "filters"] }, level: "blocked", sentence: "3 setup checks fail: notion.access, knowledge, ...", next: "setup" },
+  "send-stopped": { over: { stopped: true }, level: "blocked", sentence: "Sending is stopped", next: "sending" },
+  "sent-loop-error": { sys: { sentError: true }, level: "blocked", sentence: "Sent detection is failing: sent mail is not being noticed", next: "sending" },
+  "doctor-fail": { over: { doctorFailed: ["notion.access", "knowledge", "filters"] }, level: "blocked", sentence: "3 setup checks fail: notion.access, knowledge, ...", next: "overview" },
   "injection-flagged": { over: { injectionHeld: 1 }, level: "attention", sentence: "1 draft is held: the mail looked like an instruction", next: null },
-  "send-failed": { over: { failed24h: 2 }, level: "attention", sentence: "2 sends failed in the last 24 hours", next: "project" },
-  "sending-stuck": { over: { stuck: 1 }, level: "attention", sentence: "1 send is stuck in \"sending\": check Mail's Sent folder", next: "project" },
-  "project-draft": { over: { status: "draft" }, level: "attention", sentence: "The project is a draft: finish its setup", next: "setup" },
-  "recipients-test": { over: { recipients: "test" }, level: "attention", sentence: "Test mode: sends go to the test list only", next: "setup" },
+  "send-failed": { over: { failed24h: 2 }, level: "attention", sentence: "2 sends failed in the last 24 hours", next: "sending" },
+  "sending-stuck": { over: { stuck: 1 }, level: "attention", sentence: "1 send is stuck in \"sending\": check Mail's Sent folder", next: "sending" },
+  "project-draft": { over: { status: "draft" }, level: "attention", sentence: "The project is a draft: finish its setup", next: "overview" },
+  "recipients-test": { over: { recipients: "test" }, level: "attention", sentence: "Test mode: sends go to the test list only", next: "sending" },
   "fake-mailer": { sys: { fakeMailer: true }, level: "attention", sentence: "Demo mode: nothing is really sent", next: null },
-  "cap-near": { over: { auto: { mode: "auto", cap: 5, used24h: 4 } }, level: "clear", sentence: "4 of 5 automatic sends used in 24 hours", next: "project" },
+  "cap-near": { over: { auto: { mode: "auto", cap: 5, used24h: 4 } }, level: "clear", sentence: "4 of 5 automatic sends used in 24 hours", next: "sending" },
   "knowledge-expired": { over: { knowledgeExpired: 2 }, level: "clear", sentence: "2 knowledge entries have expired", next: "knowledge" },
   "never-triaged": { over: { lastTriageAt: null }, level: "clear", sentence: "No triage has run yet", next: null },
-  "context-block-soon": { over: { contextRequired: null }, level: "clear", sentence: "Drafts without evidence are refused from 2026-11-22", next: "setup" },
+  "context-block-soon": { over: { contextRequired: null }, level: "clear", sentence: "Drafts without evidence are refused from 2026-11-22", next: "overview" },
 };
 
 describe("statusOf", () => {

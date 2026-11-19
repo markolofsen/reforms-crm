@@ -7,7 +7,7 @@ import { overviewDto, projectRowDto, STATUS_KINDS, STATUS_LEVELS, statusDto } fr
 
 const asOf = "2026-11-15T10:00:00.000Z";
 const health = { ok: true, apiVersion: API_VERSION, messengers: { state: "off", failures: 0, stored: 0 }, sent: { state: "off", projects: [], failures: 0, marked: 0 }, mailer: "fake" };
-const status = { level: "attention", kind: "project-draft", sentence: "Test mode: sends go to the test list only", next: "project", numbers: { owed: 1, lastTriageAt: asOf } };
+const status = { level: "attention", kind: "project-draft", sentence: "Test mode: sends go to the test list only", next: "sending", numbers: { owed: 1, lastTriageAt: asOf } };
 const row = { slug: "alpha", name: "Alpha", projectStatus: "draft", archived: false, toReview: 1, sentToday: 0, status };
 
 describe("overview v5 (P48)", () => {

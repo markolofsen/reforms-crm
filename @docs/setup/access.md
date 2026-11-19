@@ -34,7 +34,7 @@ An internal integration the owner creates once, in the workspace that holds the 
   - every database those point to through a relation, for example Leads and People (Clients), even when it is not listed.
 - The rule of Notion: sharing is per page, database or teamspace. A page shared with an integration shares its children, not its siblings, and a relation target must be shared on its own. A database that is moved to another place, or re-created, **loses its grant**: share the whole teamspace again and read one row to confirm.
 - A database that has been archived or merged away still answers 200. The doctor reads the `archived` and `in_trash` flags and fails on it: remove the stale line from `project.md`.
-- Store it with `./run.sh token notion` (hidden prompt or standard input), or in the Connections page of the admin. A wrong or missing token fails `notion.token`; a database it cannot see fails `notion.access` and names the database.
+- Store it with `./run.sh token notion` (hidden prompt or standard input), or in Settings ▸ Connections of the admin. A wrong or missing token fails `notion.token`; a database it cannot see fails `notion.access` and names the database.
 
 ### The Notion connector (session)
 

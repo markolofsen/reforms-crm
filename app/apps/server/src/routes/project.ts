@@ -6,7 +6,7 @@ import { projectOverview, projectsRoot } from "../project-overview";
 import { projectDoctor } from "../project-doctor";
 import { v } from "../http";
 
-/** The Project screen and Activity. `root` is where the project folders live (default: the instance's `projects/`). Read only. */
+/** The project files (Settings ▸ Mail, Knowledge, Overview) and Activity. `root` is where the project folders live (default: the instance's `projects/`). Read only. */
 export function projectRoutes(repos: Repos, root: string = projectsRoot(), policyDir?: string) {
   return new Hono()
     .get("/api/project", v("query", projectQuery), async (c) => c.json(await projectOverview(repos, c.req.valid("query").project, root)))

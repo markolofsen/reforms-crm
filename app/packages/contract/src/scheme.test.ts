@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { schemeDto, schemeNode, worstFirst, type SchemeNode } from "./scheme";
 
-const part = (id: string, state: SchemeNode["state"], project: string | null = "alpha"): SchemeNode => ({ id, kind: "mail-mcp", project, label: id, state, detail: "", fix: null, place: "agents" });
+const part = (id: string, state: SchemeNode["state"], project: string | null = "alpha"): SchemeNode => ({ id, kind: "mail-mcp", project, label: id, state, detail: "", fix: null, place: "agent" });
 
 describe("scheme (P63 O1)", () => {
   it("is strict: a stray field (a client's address, a subject) is a parse failure, and a label is short", () => {

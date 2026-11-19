@@ -4,9 +4,9 @@ import { join } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConnectionDto, ConnectionsDto } from "@hub/contract/connections";
-import { ConnectionRow } from "../src/features/connections/connection-row";
-import { SecretForm } from "../src/features/connections/secret-form";
-import { CONNECTIONS_KEY } from "../src/features/connections/use-connections";
+import { ConnectionRow } from "../src/features/settings/connections/connection-row";
+import { SecretForm } from "../src/features/settings/connections/secret-form";
+import { CONNECTIONS_KEY } from "../src/features/settings/connections/use-connections";
 import { ApiFailure } from "../src/lib/api/client";
 import { connectionsApi } from "../src/lib/api/connections";
 
@@ -64,6 +64,6 @@ describe("a key in the browser", () => {
   });
 
   it("the page's hook keeps a key out of a mutation's variables: it does not use useMutation", () => {
-    expect(readFileSync(join(import.meta.dirname, "../src/features/connections/use-connections.ts"), "utf8")).not.toContain("useMutation");
+    expect(readFileSync(join(import.meta.dirname, "../src/features/settings/connections/use-connections.ts"), "utf8")).not.toContain("useMutation");
   });
 });

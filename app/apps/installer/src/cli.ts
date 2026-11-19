@@ -541,7 +541,7 @@ program.command("token").description("Optional: store the Notion integration tok
     if (known === "telegram") console.log("a new bot token applies on the next server start");
   });
 
-program.command("connections").description("List the instance's connections (Notion token, Telegram bot) as the admin's Connections page shows them. Reads files only; prints no secret.")
+program.command("connections").description("List the instance's connections (Notion token, Telegram bot) as the admin's Settings ▸ Connections shows them. Reads files only; prints no secret.")
   .option("--test", "also test each stored token with the provider (network; read-only)")
   .action(async (o: { test?: boolean }) => {
     const ctx = ctxOf();

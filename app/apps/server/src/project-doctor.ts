@@ -11,7 +11,7 @@ export const countMarkdown = (dir: string): number => {
 };
 
 /**
- * `hub project doctor` for the Project screen: the same checks (`@hub/projects`). The server reads files and the
+ * `hub project doctor` for Settings ▸ Sending and Overview's setup part: the same checks (`@hub/projects`). The server reads files and the
  * index only; the checks that need Mail.app or Notion are not run here and come back as skipped, with one exception:
  * the Notion token always exists (owner decision 2026-11-15), so a missing token file is a failure here, found without
  * any network call. A present token leaves the databases check skipped: reading them is the Overview's Refresh.
@@ -35,5 +35,7 @@ export async function projectDoctor(repos: Repos, slug: string, root: string, en
   });
   const c = project.parsed.config;
   const recipients = c.draft.recipients === "test" || c.draft.recipients === "any" ? c.draft.recipients : "list";
-  return doctorDto.parse({ state: "ok", checks, facts: { status: c.status, accounts: c.mail.accounts, recipients } });
+  const listed = Array.isArray(c.draft.recipients) ? c.draft.recipients.length : 0;
+  const autosend = { mode: c.send.mode, classes: [...c.send.classes], dailyCap: c.send.dailyCap };
+  return doctorDto.parse({ state: "ok", checks, facts: { status: c.status, accounts: c.mail.accounts, recipients, listed, autosend } });
 }

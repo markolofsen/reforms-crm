@@ -22,9 +22,13 @@ export function deriveFocus(o: { tab: string; route: Resolved; project: string |
     }
     case "log.list":
       return { ...base, screen: r.search.run ? "run" : "activity", ...(r.search.run ? { runId: r.search.run } : {}) };
-    case "project.page":
+    // P70: the project's Settings panes keep the focus word of the Project screen they replaced; the instance's say "connections".
+    case "settings.page":
+    case "settings.mail":
+    case "settings.agent":
       return { ...base, screen: "project" };
-    case "connections.page":
+    case "settings.connections":
+    case "settings.mac":
       return { ...base, project: null, screen: "connections" };
     case "overview.page":
       return { ...base, project: null, screen: "overview" };

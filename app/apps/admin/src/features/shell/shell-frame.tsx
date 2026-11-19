@@ -27,9 +27,9 @@ import { AppShell, type ShellNavItem } from "./shell";
 import { keys } from "@/lib/cache/keys";
 
 /**
- * The nav with a dot on the page that fixes the project's worst fact (`statusDto.next`: the Project landing, Knowledge, Setup,
- * Agents or Connections), and on Agents while an Agent tools row is red. A child's dot also lights its parent (the rail and the
- * phone draw parents only); the tab bar lights More from the parents inside it.
+ * The nav with a dot on the page that fixes the project's worst fact (`statusDto.next`: Overview, Knowledge or a Settings pane,
+ * P70), and on Settings ▸ Agent while an Agent tools row is red. A child's dot also lights its parent (the rail and the phone draw
+ * parents only); the tab bar lights More from the parents inside it.
  */
 function useNavWithDots(project: string | null): ShellNavItem[] {
   const items = useSectionNav();
@@ -37,7 +37,7 @@ function useNavWithDots(project: string | null): ShellNavItem[] {
   const next = dotOf(row?.status);
   const tools = useAgentToolsNeedYou(project);
   return useMemo(() => {
-    const lit = new Set<RouteId>([...(next ? [NEXT_ROUTE[next]] : []), ...(tools ? (["agents.page"] as const) : [])]);
+    const lit = new Set<RouteId>([...(next ? [NEXT_ROUTE[next]] : []), ...(tools ? (["settings.agent"] as const) : [])]);
     return items.map((i) => {
       const children = i.children.map((c) => ({ ...c, dot: lit.has(c.route) }));
       return { ...i, children, dot: lit.has(i.route) || children.some((c) => c.dot) };
@@ -66,7 +66,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   const onProject = useMemo(() => (p: string) => route.section && go(sectionList(route.section), { project: p, replace: true }), [route.section, go]);
   const scope = useMemo<ProjectScope | null>(() => (project ? { project, projects: list, multi, onProject: (p) => void onProject(p) } : null), [project, list, multi, onProject]);
   const brand = { name: instance.data?.name ?? DEFAULT_INSTANCE_NAME, logoSrc: instance.data?.hasLogo ? "/api/instance/logo" : null };
-  // The projectless pages (Overview, Connections, Help) are about the whole instance: the switcher belongs to the scoped sections.
+  // The projectless pages (Overview, Help, Settings ▸ Connections and This Mac) are about the whole instance: the switcher belongs to the scoped ones.
   const scoped = route.route !== "notFound" && PROJECTLESS.has(route.route) ? null : project;
   return (
     <PlaceContext value={place}>
@@ -82,7 +82,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
           </Page>
         ) : !scope ? (
           <Page>
-            <EmptyState action={<AppLink to={paths.connections.page()}>Open Connections</AppLink>} title="No projects yet">Ask the agent to set up your project: say “настрой проект” in a session.</EmptyState>
+            <EmptyState action={<AppLink to={paths.settings.connections()}>Open Connections</AppLink>} title="No projects yet">Ask the agent to set up your project: say “настрой проект” in a session.</EmptyState>
           </Page>
         ) : (
           <ProjectScopeContext value={scope}>{children}</ProjectScopeContext>
@@ -93,8 +93,8 @@ export function ShellFrame({ children }: { children: ReactNode }) {
 }
 
 /**
- * The shell with its nav and the terminal (P49), which follows the project of the address. With two or more projects Overview
- * and Connections have none (Shell only); with one, the whole admin is that project, so the terminal has it there too (P57 2l).
+ * The shell with its nav and the terminal (P49), which follows the project of the address. With two or more projects the
+ * projectless pages have none (Shell only); with one, the whole admin is that project, so the terminal has it there too (P57 2l).
  * The agent feed (P59) follows the terminal's project: its rows in the sidebar's footer, its wait on the strip's dot, its tones.
  */
 function Shell({ project, dotsProject, terminalProject, ...props }: Omit<Parameters<typeof AppShell>[0], "items" | "dock"> & { project: string | null; dotsProject: string | null; terminalProject: string | null | undefined }) {

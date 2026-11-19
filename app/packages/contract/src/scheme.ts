@@ -29,7 +29,7 @@ export const schemeNode = z.strictObject({
   detail: z.string(),
   /** The source's own fix line (an Agent tools row's, a Connections test's, the core update command), else null. Never invented here. */
   fix: z.string().nullable(),
-  /** The page that fixes it (a nav target), or null when no page does (the core: `/health` and the command line). */
+  /** The page that fixes it (a nav target: the core's is Settings ▸ This Mac, P70), or null when no page does. */
   place: z.enum(STATUS_NEXT).nullable(),
 });
 export type SchemeNode = z.infer<typeof schemeNode>;

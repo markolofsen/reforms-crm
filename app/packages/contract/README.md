@@ -8,7 +8,7 @@ reuse them. Every object is strict, so a field nobody declared is refused rather
 |---|---|
 | `./requests`, `./responses`, `./errors` | Every query, body and parameter the API accepts (drafts, marks, status, the send and its ticket, safety rules, a Connections key) and the replies; the one error shape (`invalid`, `not_found`, `wrong_state`, `busy`, `forbidden`). `SETTABLE_STATUSES` has no `sent` |
 | `./health` | `API_VERSION`: bumped when a reply changes shape; the admin asks for a server restart when its own number is higher |
-| `./activity`, `./overview`, `./instance`, `./connections`, `./agent-tools`, `./sequences` | The Activity table, the Overview, the brand header, the Connections page, the Agents page's Agent tools block, the follow-ups |
+| `./activity`, `./overview`, `./instance`, `./connections`, `./agent-tools`, `./sequences` | The Activity table, the Overview, the brand header, Settings ▸ Connections and ▸ Mail, Settings ▸ Agent's Agent tools, the follow-ups |
 | `./scheme` | P63 O1: the Hub's parts and how each stands (`GET /api/scheme`, Overview's parts table; patch B's drawing), `worstFirst` |
 | `./terminal` | The terminal's sessions and tickets (a preset and a slug only: no command, no path) |
 | `./live` | The frames of `GET /api/live` (`hello`, `change`, `reset`) and the topics; they name what changed, never the data (`@docs/core/06-local-admin-app.md`, Live updates) |

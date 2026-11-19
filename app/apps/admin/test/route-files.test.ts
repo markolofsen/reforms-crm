@@ -21,7 +21,8 @@ function pages(dir: string, prefix = ""): string[] {
 
 const tree = pages(APP);
 const rows = Object.values(ROUTE_TABLE);
-const rowPaths = rows.flatMap((r) => (r.scoped ? [r.path as string, `/[project]${r.path}`] : [r.path as string]));
+// A scoped row has its `[project]` twin; so does a projectless child of a scoped parent (P70: the fold page of Settings ▸ Connections).
+const rowPaths = rows.flatMap((r) => (r.scoped || ("nav" in r && "parent" in r.nav) ? [r.path as string, `/[project]${r.path}`] : [r.path as string]));
 
 describe("the file tree and the route table", () => {
   it("every row has a page file (a scoped row also its `[project]` twin), and every page file but `/`, `/health` and the API has a row", () => {
@@ -35,8 +36,9 @@ describe("the file tree and the route table", () => {
   });
 
   it("the patterns derived from the table accept the pages in both shapes and nothing else", () => {
-    for (const ok of ["/", "/overview", "/connections", "/drafts", "/drafts?filter=hold", "/drafts/42?filter=hold&batch=3", "/log?run=2", "/project", "/project/knowledge", "/project/setup", "/agents", "/help", "/lisbon/drafts", "/lisbon/drafts/42?filter=hold", "/demo%20shop/log", "/lisbon/project", "/lisbon/project/setup", "/lisbon/agents"]) expect(routeOf(ok), ok).toBe(ok);
-    for (const bad of ["/bulk", "/bulk/3", "/nope", "/drafts/abc", "/drafts/0", "/drafts/1/2", "//evil.test", "/api/pulse", "https://evil.test/drafts", "/lisbon/overview", "/lisbon/help", "/lisbon", "/a/b/drafts", "/project/nope"]) expect(routeOf(bad), bad).toBeNull();
-    expect([...PROJECTLESS].sort()).toEqual(["connections.page", "help.page", "overview.page"]);
+    for (const ok of ["/", "/overview", "/drafts", "/drafts?filter=hold", "/drafts/42?filter=hold&batch=3", "/log?run=2", "/knowledge", "/settings", "/settings/mail", "/settings/agent", "/settings/connections", "/settings/mac", "/help", "/lisbon/drafts", "/lisbon/drafts/42?filter=hold", "/demo%20shop/log", "/lisbon/knowledge", "/lisbon/settings", "/lisbon/settings/agent"]) expect(routeOf(ok), ok).toBe(ok);
+    // The fold form `/lisbon/settings/connections` renders (its page exists) but is never a destination: the guard writes the bare one.
+    for (const bad of ["/bulk", "/bulk/3", "/nope", "/drafts/abc", "/drafts/0", "/drafts/1/2", "//evil.test", "/api/pulse", "https://evil.test/drafts", "/lisbon/overview", "/lisbon/help", "/lisbon", "/a/b/drafts", "/settings/nope", "/project", "/agents", "/connections", "/lisbon/settings/connections"]) expect(routeOf(bad), bad).toBeNull();
+    expect([...PROJECTLESS].sort()).toEqual(["help.page", "overview.page", "settings.connections", "settings.mac"]);
   });
 });

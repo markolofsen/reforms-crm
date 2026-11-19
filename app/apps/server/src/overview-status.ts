@@ -6,8 +6,9 @@ import type { ProjectFacts } from "./overview-facts";
  * One project's status (Overview v5): the worst of its facts, said once, in plain words. A pure function of local facts,
  * so the Drafts status line and the Overview table cannot disagree, and no model writes a sentence. Worst = blocked, then
  * attention, then the facts worth naming at level `clear` (the old "watch" kinds); ties follow `STATUS_KINDS`. The slug is
- * never in the sentence: the row or the screen already names the project. `next` names the page that fixes the fact (P63): the
- * landing for sending (Stop, the sends, the cap), Setup for what project.md and the doctor say, Knowledge for the entries.
+ * never in the sentence: the row or the screen already names the project. `next` names the page that fixes the fact (P70):
+ * Settings ▸ Sending for sending (Stop, the sends, the cap, who drafts may go to), Overview for what is fixed by a phrase in a
+ * session (a failing setup check, a draft project, the evidence rule), Knowledge for the entries.
  */
 
 /** At this share of the daily cap an automatic-send project is "near" it. */
@@ -27,25 +28,25 @@ export function factsOf(f: ProjectFacts, sys: InstanceFacts, now: Date): Fact[] 
   const out: Fact[] = [];
   const add = (kind: StatusKind, level: StatusLevel, sentence: string, next: StatusNext | null) => out.push({ kind, level, sentence, next });
 
-  if (f.stopped) add("send-stopped", "blocked", "Sending is stopped", "project");
-  if (sys.sentError) add("sent-loop-error", "blocked", "Sent detection is failing: sent mail is not being noticed", "project");
+  if (f.stopped) add("send-stopped", "blocked", "Sending is stopped", "sending");
+  if (sys.sentError) add("sent-loop-error", "blocked", "Sent detection is failing: sent mail is not being noticed", "sending");
   if (f.doctorFailed.length > 0) {
     const names = f.doctorFailed.slice(0, 2).join(", ") + (f.doctorFailed.length > 2 ? ", ..." : "");
-    add("doctor-fail", "blocked", `${plural(f.doctorFailed.length, "setup check fails", "setup checks fail")}: ${names}`, "setup");
+    add("doctor-fail", "blocked", `${plural(f.doctorFailed.length, "setup check fails", "setup checks fail")}: ${names}`, "overview");
   }
   if (f.injectionHeld > 0) add("injection-flagged", "attention", `${plural(f.injectionHeld, "draft is", "drafts are")} held: the mail looked like an instruction`, null);
-  if (f.failed24h > 0) add("send-failed", "attention", `${plural(f.failed24h, "send", "sends")} failed in the last 24 hours`, "project");
-  if (f.stuck > 0) add("sending-stuck", "attention", `${plural(f.stuck, "send is", "sends are")} stuck in "sending": check Mail's Sent folder`, "project");
-  if (f.status === "draft") add("project-draft", "attention", f.setupQuestion ? "A setup question is open: the project is a draft" : "The project is a draft: finish its setup", "setup");
-  if (f.status === "active" && f.recipients === "test") add("recipients-test", "attention", "Test mode: sends go to the test list only", "setup");
+  if (f.failed24h > 0) add("send-failed", "attention", `${plural(f.failed24h, "send", "sends")} failed in the last 24 hours`, "sending");
+  if (f.stuck > 0) add("sending-stuck", "attention", `${plural(f.stuck, "send is", "sends are")} stuck in "sending": check Mail's Sent folder`, "sending");
+  if (f.status === "draft") add("project-draft", "attention", f.setupQuestion ? "A setup question is open: the project is a draft" : "The project is a draft: finish its setup", "overview");
+  if (f.status === "active" && f.recipients === "test") add("recipients-test", "attention", "Test mode: sends go to the test list only", "sending");
   if (sys.fakeMailer) add("fake-mailer", "attention", "Demo mode: nothing is really sent", null);
 
   const a = f.auto;
-  if (a.mode === "auto" && a.used24h * 100 >= a.cap * CAP_NEAR_PERCENT) add("cap-near", "clear", `${a.used24h} of ${a.cap} automatic sends used in 24 hours`, "project");
+  if (a.mode === "auto" && a.used24h * 100 >= a.cap * CAP_NEAR_PERCENT) add("cap-near", "clear", `${a.used24h} of ${a.cap} automatic sends used in 24 hours`, "sending");
   if (f.knowledgeExpired > 0) add("knowledge-expired", "clear", `${plural(f.knowledgeExpired, "knowledge entry has", "knowledge entries have")} expired`, "knowledge");
   if (f.status === "active" && f.lastTriageAt === null) add("never-triaged", "clear", "No triage has run yet", null);
   if (f.status === "active" && f.contextRequired === null && now.getTime() < Date.parse(CONTEXT_BLOCK_FROM)) {
-    add("context-block-soon", "clear", `Drafts without evidence are refused from ${CONTEXT_BLOCK_FROM.slice(0, 10)}`, "setup");
+    add("context-block-soon", "clear", `Drafts without evidence are refused from ${CONTEXT_BLOCK_FROM.slice(0, 10)}`, "overview");
   }
   return out;
 }

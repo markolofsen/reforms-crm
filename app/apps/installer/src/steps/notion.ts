@@ -13,7 +13,7 @@ export const notionSteps: Step[] = [
     verifies: "The token file is stored with mode 600 and Notion accepts it (`GET /users/me`). Which databases it reaches is the next step, `notion.access`.",
     manual: {
       steps: [
-        "Easiest: the Connections page of the admin, or `pnpm hub setup --automation` (plain `hub setup` asks for no token); both check it with `GET /users/me`. By hand:",
+        "Easiest: Settings ▸ Connections in the admin, or `pnpm hub setup --automation` (plain `hub setup` asks for no token); both check it with `GET /users/me`. By hand:",
         "Open https://www.notion.so/profile/integrations and create an internal integration; copy its secret.",
         "In Notion, open the CRM teamspace (or each CRM database), choose Connections and add the integration.",
         "Store the token: `pnpm hub token notion` (hidden prompt; writes `state/secrets/notion-token`, mode 600).",

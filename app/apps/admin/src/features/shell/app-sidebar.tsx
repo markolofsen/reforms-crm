@@ -9,7 +9,7 @@ import { AppLink } from "@/components/app-link";
 import { KeyHelp } from "@/components/key-help";
 import { FeedBlock } from "@/features/agent-feed/feed-block";
 import { SoundToggle } from "@/features/agent-feed/sound-toggle";
-import { CoreLine } from "@/features/health/core-line";
+import { CoreLine } from "@/features/settings/mac/core-line";
 import { NavIcon } from "./nav-icon";
 import { ProjectSwitcher } from "./project-switcher";
 import type { ShellNavItem } from "./shell";
