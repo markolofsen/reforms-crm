@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon, RefreshCwIcon } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
@@ -13,6 +13,10 @@ import { useClock } from "@/lib/clock";
 import { copyText } from "@/lib/external";
 import { ago } from "@/lib/format";
 import { useAgentTools } from "@/lib/status";
+import { AGENT_TOOL_CLIS, type AgentToolRow } from "@hub/contract/agent-tools";
+import { SettingsGroup } from "../group";
+import { ClaudeSettings } from "./agent-group";
+import { Connectors } from "./connectors";
 import { CLI_TITLE, columns, needsAttention, toolsSentence } from "./labels";
 import { ToolTable } from "./tool-table";
 import { keys } from "@/lib/cache/keys";
@@ -20,12 +24,51 @@ import { keys } from "@/lib/cache/keys";
 type Say = { text: string; kind: "status" | "alert" } | null;
 
 /**
- * One project's Agent tools, the body of Settings ▸ Agent (P70; P63's Agents page, on Connections before that): whether a hub session of Claude
- * Code and of Codex has what it needs (P49 section 5B: the CLIs, P57, the MCP rows, Send tools off, the skills), as the server
- * last checked it. The status line and Refresh, then only the rows that need a fix or a look (each with its fix line and Copy),
- * then every check, one table per CLI, folded under "All checks" like Overview's "All parts" (UX pass 2026-11-20: thirty green
- * rows and their paths are reassurance, not news). Read-only but for Refresh (the checks run again, about 10 s) and Copy; one
- * live region says what Refresh and Copy did.
+ * One CLI's checks inside its group: only the rows that need a fix or a look (each with its fix line and Copy), then all of
+ * that CLI's checks folded under "All checks" (UX pass 2026-11-20: green rows are reassurance, not news).
+ */
+function CliChecks({ title, rows, onCopy }: { title: string; rows: readonly AgentToolRow[]; onCopy: (fix: string) => void }) {
+  const attention = rows.filter(needsAttention);
+  if (rows.length === 0) return null;
+  return (
+    <div className="flex min-w-0 flex-col gap-2 pt-2">
+      {attention.length > 0 && <ToolTable onCopy={onCopy} rows={attention} title={`${title}: needs a fix or a look`} />}
+      <Collapsible>
+        <CollapsibleTrigger className="group -ms-3 justify-start gap-2" render={<ActionButton size="m" variant="quiet" />}>
+          All checks
+          <span className="font-normal text-muted-foreground tabular-nums">{rows.length}</span>
+          <ChevronDownIcon aria-hidden="true" className="transition-transform group-data-panel-open:rotate-180 motion-reduce:transition-none" />
+        </CollapsibleTrigger>
+        <CollapsiblePanel>
+          <div className="pt-2">
+            <ToolTable onCopy={onCopy} rows={rows} title={`${title}: all checks`} />
+          </div>
+        </CollapsiblePanel>
+      </Collapsible>
+    </div>
+  );
+}
+
+/** What each agent's group says about it before its checks: Claude Code's settings and connectors; Codex has neither here. */
+const CLI_BODY: Record<(typeof AGENT_TOOL_CLIS)[number], (slug: string) => ReactNode> = {
+  claude: (slug) => (
+    <>
+      <ClaudeSettings project={slug} />
+      <Connectors slug={slug} />
+    </>
+  ),
+  codex: () => (
+    <p className="py-2 text-muted-foreground text-sm" data-testid="agent-codex">
+      Uses its own default model; no advisor, no Google connectors.
+    </p>
+  ),
+};
+
+/**
+ * Settings ▸ Agent (P55, P62, P49 section 5B), one group per agent CLI so nothing of one is read as the other's (owner,
+ * 2026-11-20: "everything is mixed, Claude and the rest"). On top, the one status line for both and Refresh (the checks run
+ * again, about 10 s). Then Claude Code: its model and advisor, its connectors, its checks; then Codex: one line, its checks.
+ * Read-only but for the settings, Refresh and Copy; one live region says what Refresh and Copy did.
  */
 export function AgentTools({ slug }: { slug: string }) {
   const qc = useQueryClient();
@@ -45,49 +88,39 @@ export function AgentTools({ slug }: { slug: string }) {
   });
   const copy = (fix: string) => void copyText(fix).then((ok) => setSay(ok ? { text: `Copied: ${fix}`, kind: "status" } : { text: "The browser refused the clipboard: select the line and copy it.", kind: "alert" }));
   const d = q.data;
-  const id = `agent-tools-${slug}`;
-  const attention = d ? d.rows.filter(needsAttention) : [];
   return (
-    <section aria-label="Agent tools" className="flex flex-col gap-3">
-      {q.isPending ? (
-        <Skeleton aria-label="Loading the agent tools" className="h-24 w-full rounded-xl" role="status" />
-      ) : !d ? (
-        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the agent tools" />
-      ) : (
-        <div className="flex min-w-0 flex-col gap-3" data-testid={id}>
-          <div className="flex min-h-(--control-m) min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+    <div className="flex flex-col gap-6" data-testid={`agent-tools-${slug}`}>
+      <div className="flex min-h-(--control-m) min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        {q.isPending ? (
+          <Skeleton aria-label="Loading the agent checks" className="h-6 w-64 rounded-md" role="status" />
+        ) : !d ? (
+          <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the agent checks" />
+        ) : (
+          <>
             <p className="min-w-0 flex-1 font-medium text-base" data-testid="agent-tools-status" role="status">
               {toolsSentence(d)}
               {d.checkedAt && <span className="font-normal text-muted-foreground text-sm"> · checked {ago(d.checkedAt, now)}</span>}
+              <span className="block font-normal text-muted-foreground text-sm">Settings apply to the next agent session.</span>
             </p>
             <ActionButton aria-busy={refresh.isPending} disabled={refresh.isPending} onClick={() => refresh.mutate()} size="m" variant="secondary">
               <RefreshCwIcon aria-hidden="true" />
               {refresh.isPending ? "Checking..." : "Refresh"}
             </ActionButton>
-          </div>
-          {attention.length > 0 && <ToolTable mixed onCopy={copy} rows={attention} title="Needs a fix or a look" />}
-          <Collapsible>
-            <CollapsibleTrigger className="group -ms-3 justify-start gap-2" render={<ActionButton size="m" variant="quiet" />}>
-              All checks
-              <span className="font-normal text-muted-foreground tabular-nums">{d.rows.length}</span>
-              <ChevronDownIcon aria-hidden="true" className="transition-transform group-data-panel-open:rotate-180 motion-reduce:transition-none" />
-            </CollapsibleTrigger>
-            <CollapsiblePanel>
-              <div className="@container pt-2">
-                <div className="grid gap-4 @3xl:grid-cols-2">
-                  {columns(d.rows).map((c) => c.rows.length > 0 && <ToolTable key={c.cli} onCopy={copy} rows={c.rows} title={CLI_TITLE[c.cli]} />)}
-                </div>
-              </div>
-            </CollapsiblePanel>
-          </Collapsible>
-        </div>
-      )}
+          </>
+        )}
+      </div>
+      {AGENT_TOOL_CLIS.map((cli) => (
+        <SettingsGroup id={`agent-${cli}`} key={cli} title={CLI_TITLE[cli]}>
+          {CLI_BODY[cli](slug)}
+          {d && <CliChecks onCopy={copy} rows={columns(d.rows).find((c) => c.cli === cli)?.rows ?? []} title={CLI_TITLE[cli]} />}
+        </SettingsGroup>
+      ))}
       <div className="min-h-5 text-sm">
         <p role="status">{say?.kind === "status" ? say.text : ""}</p>
         <p className="text-destructive-foreground" role="alert">
           {say?.kind === "alert" ? say.text : ""}
         </p>
       </div>
-    </section>
+    </div>
   );
 }

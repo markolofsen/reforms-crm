@@ -10,7 +10,6 @@ import { LoadFailed } from "@/components/state-views";
 import { refreshData, sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
-import { SettingsGroup } from "../group";
 
 type Say = { text: string; kind: "status" | "alert" } | null;
 
@@ -44,11 +43,11 @@ function Choice<T extends keyof typeof MODEL_LABELS>({ id, options, value, disab
 }
 
 /**
- * Settings ▸ Agent, its first group (P55): the model of this project's Claude Code sessions and its advisor. Stored with the
- * safety rules (the database), written into the session's settings.json by `hub agent` at the next start; a running session
- * is never restarted, and the group says so. Codex keeps its own default and has no advisor: one read-only line.
+ * Settings ▸ Agent, the Claude Code group's settings (P55): the model of this project's Claude Code sessions and its advisor.
+ * Stored with the safety rules (the database), written into the session's settings.json by `hub agent` at the next start; a
+ * running session is never restarted (the pane's first line says so). Codex has no settings here: its group says why.
  */
-export function AgentGroup({ project }: { project: string }) {
+export function ClaudeSettings({ project }: { project: string }) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: keys.agentSettings(project), queryFn: () => metaApi.agentSettings(project) });
   const [say, setSay] = useState<Say>(null);
@@ -64,8 +63,7 @@ export function AgentGroup({ project }: { project: string }) {
   const a = q.data?.agent;
   const busy = save.isPending;
   return (
-    <SettingsGroup id="agent" title="Agent">
-      <p className="text-muted-foreground text-sm">Applies to the next agent session.</p>
+    <div className="flex flex-col">
       {q.isPending ? (
         <Skeleton aria-label="Loading the agent settings" className="h-24 w-full rounded-xl" role="status" />
       ) : !a ? (
@@ -85,9 +83,6 @@ export function AgentGroup({ project }: { project: string }) {
               <Choice disabled={busy} id="advisor-model" onChange={(advisorModel) => save.mutate({ advisorModel })} options={ADVISOR_MODELS} value={a.advisorModel} />
             </Row>
           )}
-          <p className="py-3 text-muted-foreground text-sm" data-testid="agent-codex">
-            Codex: its own default model, no advisor.
-          </p>
         </div>
       )}
       <div className="min-h-5 text-sm">
@@ -96,6 +91,6 @@ export function AgentGroup({ project }: { project: string }) {
           {say?.kind === "alert" ? say.text : ""}
         </p>
       </div>
-    </SettingsGroup>
+    </div>
   );
 }

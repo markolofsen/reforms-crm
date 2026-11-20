@@ -26,13 +26,14 @@ test.beforeEach(async ({ page }) => {
 
 test("agent: model Sonnet and advisor off by default; the switch round-trips into the next session's settings.json", async ({ page }) => {
   await page.goto(at(P, "/settings/agent"));
-  const group = page.getByRole("region", { name: "Agent", exact: true });
-  await expect(group.getByText("Applies to the next agent session.")).toBeVisible();
+  // Owner 2026-11-20: one group per agent CLI; the model and the advisor are Claude Code's.
+  const group = page.getByRole("region", { name: "Claude Code", exact: true });
+  await expect(page.getByText("Settings apply to the next agent session.")).toBeVisible();
   await expect(group.getByRole("radiogroup", { name: "Model", exact: true }).getByRole("radio", { name: "Sonnet" })).toHaveAttribute("aria-checked", "true");
   const sw = group.getByRole("switch", { name: "Advisor" });
   await expect(sw).not.toBeChecked();
   await expect(group.getByRole("radiogroup", { name: "Advisor model" })).toHaveCount(0);
-  await expect(group.getByTestId("agent-codex")).toHaveText("Codex: its own default model, no advisor.");
+  await expect(page.getByRole("region", { name: "Codex", exact: true }).getByTestId("agent-codex")).toHaveText("Uses its own default model; no advisor, no Google connectors.");
   expect(prepared()).toMatchObject({ model: "sonnet", env: { CLAUDE_CODE_DISABLE_ADVISOR_TOOL: "1" } });
   expect(prepared()).not.toHaveProperty("advisorModel");
 

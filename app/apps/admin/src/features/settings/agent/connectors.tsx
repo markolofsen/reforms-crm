@@ -2,13 +2,13 @@
 
 import type { AgentCapability } from "@hub/contract/agent-tools";
 import { useAgentTools } from "@/lib/status";
-import { SettingsGroup } from "../group";
 
 const LABEL: Record<AgentCapability["kind"], string> = { calendar: "Calendar", drive: "Drive" };
 const SCOPE: Record<AgentCapability["kind"], string> = { calendar: "read, holds with no guests", drive: "search, read and link only" };
 
 /**
- * Settings ▸ Agent, Connectors (P62): the Google services this project's Claude Code sessions reach beyond mail and Notion, one
+ * Settings ▸ Agent ▸ Claude Code, Connectors (P62): the Google services this project's Claude Code sessions (only they: Codex
+ * cannot sign in) reach beyond mail and Notion, one
  * line each, as the server last checked them (the same read as Checks, so it costs no call). Attached in project.md by a phrase
  * in a session, never here (`admin-principles.md` rule 1); what is wrong with a connector is a Checks row with its fix.
  */
@@ -17,10 +17,13 @@ export function Connectors({ slug }: { slug: string }) {
   const caps = q.data?.capabilities;
   if (!caps) return null;
   return (
-    <SettingsGroup id="agent-connectors" title="Connectors">
+    <section aria-labelledby="agent-connectors-title" className="flex flex-col pt-2">
+      <h3 className="py-2 font-medium text-sm" id="agent-connectors-title">
+        Connectors
+      </h3>
       {caps.length === 0 ? (
         <p className="measure py-2 text-muted-foreground text-sm" data-testid="agent-connectors-none">
-          None attached. To use a Google Calendar or Drive here, say “настрой проект” in a session (project-setup).
+          None. To use a Google Calendar or Drive here, say “настрой проект” in a session.
         </p>
       ) : (
         <ul className="flex flex-col divide-y" data-testid="agent-connectors">
@@ -34,6 +37,6 @@ export function Connectors({ slug }: { slug: string }) {
           ))}
         </ul>
       )}
-    </SettingsGroup>
+    </section>
   );
 }

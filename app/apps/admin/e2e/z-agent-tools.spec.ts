@@ -7,36 +7,38 @@ test.describe.configure({ mode: "serial" });
 
 const P = "lisbon-realty";
 const block = (page: Page) => page.getByTestId(`agent-tools-${P}`);
+// Owner 2026-11-20: one group per agent CLI; the fake red and warn rows are Claude Code's.
+const claude = (page: Page) => page.getByRole("region", { name: "Claude Code", exact: true });
 const checkedAt = async (page: Page) => ((await (await page.request.get(`/api/projects/${P}/agent-tools`)).json()) as { checkedAt: string | null }).checkedAt;
 
 test.beforeEach(async ({ page }) => {
   await remember(page, P);
 });
 
-test("agent tools: the sentence, then only the rows that need a fix or a look (each with its fix line and Copy); every check folded under All checks", async ({ page, context }) => {
+test("agent tools: the sentence, then per agent only the rows that need a fix or a look (each with its fix line and Copy); every check folded under All checks", async ({ page, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto(at(P, "/settings/agent"));
   await expect(page).toHaveTitle(`Agent · ${P} · Hub Workflow`);
   // UX pass 2026-11-20: no eyebrow repeating the pane's name, and the green rows are folded.
   await expect(page.getByRole("heading", { name: "Agent tools" })).toHaveCount(0);
   await expect(block(page).getByTestId("agent-tools-status")).toContainText(/to fix/);
-  // P62: the attached connectors, one line each, above Checks (the fake checks attach one calendar).
-  const connectors = page.getByRole("region", { name: "Connectors" });
+  // P62: the attached connectors, one line each, in the Claude Code group (the fake checks attach one calendar).
+  const connectors = claude(page).getByRole("region", { name: "Connectors" });
   await expect(connectors.getByTestId("agent-connectors").getByRole("listitem")).toHaveCount(1);
   await expect(connectors.getByRole("listitem").first()).toContainText("Calendar");
   await expect(connectors.getByRole("listitem").first()).toContainText("gcal-demo · owner@example.com · read, holds with no guests");
   await expect(connectors.getByRole("button")).toHaveCount(0);
-  const attention = block(page).getByRole("table", { name: "Needs a fix or a look" });
+  const attention = claude(page).getByRole("table", { name: "Claude Code: needs a fix or a look" });
   await expect(attention.locator('tr[data-state="pass"]')).toHaveCount(0);
-  await expect(block(page).getByRole("table", { name: "Claude Code" })).toHaveCount(0);
+  await expect(claude(page).getByRole("table", { name: "Claude Code: all checks" })).toHaveCount(0);
   const red = attention.locator('tr[data-state="fail"]').first();
   await expect(red).toContainText("Needs a fix");
   await expect(red.getByTestId("agent-tool-fix")).toContainText(`hub agent ${P} --prepare`);
   const look = attention.locator('tr[data-state="warn"]').first();
   await expect(look).toContainText("Check");
   await expect(look.getByTestId("agent-tool-fix")).toBeVisible();
-  await block(page).getByRole("button", { name: /^All checks/ }).click();
-  await expect(block(page).getByRole("table", { name: "Claude Code" })).toBeVisible();
+  await claude(page).getByRole("button", { name: /^All checks/ }).click();
+  await expect(claude(page).getByRole("table", { name: "Claude Code: all checks" })).toBeVisible();
   // Only a row that needs a fix or a look carries a fix line.
   await expect(block(page).locator('tr[data-state="pass"], tr[data-state="skip"]').getByTestId("agent-tool-fix")).toHaveCount(0);
   await red.getByRole("button", { name: /^Copy the fix for / }).click();
