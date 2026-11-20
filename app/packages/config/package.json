@@ -8,6 +8,7 @@
     "./paths": "./src/paths.ts",
     "./autostart": "./src/autostart.ts",
     "./core-version": "./src/core-version.ts",
+    "./chat-rules": "./src/chat-rules.ts",
     "./lint-limits": "./src/lint-limits.mjs"
   },
   "scripts": {

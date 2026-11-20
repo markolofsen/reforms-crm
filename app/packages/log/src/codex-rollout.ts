@@ -56,7 +56,7 @@ function argsOf(p: Obj): unknown {
  */
 const VIA = /\b(mcp__[A-Za-z0-9_-]+?__[A-Za-z0-9_]+)\b/g;
 export const viaTools = (code: string): string[] => [...new Set([...code.matchAll(VIA)].map((m) => m[1] ?? ""))].filter(Boolean);
-const carriesMail = (via: readonly string[]): boolean => via.some((t) => isMailBodyResult(t) || t === "mcp__hub__draft_write" || /^mcp__mail-mcp__(create|replace)/.test(t));
+const carriesMail = (via: readonly string[]): boolean => via.some((t) => isMailBodyResult(t) || t === "mcp__hub__draft_write" || t === "mcp__hub__messenger_draft_write" || /^mcp__mail-mcp__(create|replace)/.test(t));
 
 /** Rollout lines into tool events. `names` maps a call id to its tool (and whether it carries mail), across calls to this function's caller. */
 export function rolloutEvents(text: string, base: { project: string | null; session: string; turn?: string }, names: Map<string, { name: string; mail: boolean }> = new Map()): NewLogEvent[] {

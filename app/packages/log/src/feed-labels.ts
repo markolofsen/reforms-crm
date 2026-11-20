@@ -30,7 +30,7 @@ const MAIL_LABELS: Record<string, string> = {
   list_accounts: "looks at mail accounts",
   list_mailboxes: "looks at mail accounts",
 };
-const HUB_LABELS: Record<string, string> = { mcp__hub__drafts_list: "lists drafts", mcp__hub__client_show: "reads a client" };
+const HUB_LABELS: Record<string, string> = { mcp__hub__drafts_list: "lists drafts", mcp__hub__client_show: "reads a client", mcp__hub__messenger_history: "reads a chat", mcp__hub__messenger_draft_write: "writes a messenger draft" };
 
 /** The command texts of a shell call: Claude's `command`, Codex's `cmd` or `command` as a string or an argv (`["bash", "-lc", "..."]`, each part tested). */
 function commandsOf(input: unknown): string[] {

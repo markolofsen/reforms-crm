@@ -73,6 +73,12 @@ describe("privacy", () => {
     expect(toolOutput("mcp__mail-mcp__find_messages", "Re: Hello from mark@x.example")).toBe("Re: Hello from mark@x.example");
     expect(toolOutput("Bash", "y".repeat(5000))).toMatch(/cut, 5000 chars/);
   });
+
+  it("P71: a chat's text is kept like a mail body: the draft's text and the history's reply are hashes", () => {
+    const text = "Привет, цена 100 EUR";
+    expect(toolInput("mcp__hub__messenger_draft_write", { channel: "telegram_user", chat_id: "42", text })).toEqual({ channel: "telegram_user", chat_id: "42", text: { body: hashed(text) } });
+    expect(toolOutput("mcp__hub__messenger_history", { chats: [{ messages: [{ text }] }] })).toEqual({ body: hashed(JSON.stringify({ chats: [{ messages: [{ text }] }] })) });
+  });
 });
 
 describe("hook payloads", () => {

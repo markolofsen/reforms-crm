@@ -98,7 +98,21 @@ describe("only a human path confirms and sends", () => {
     const adapter = new FakeSendingAdapter();
     const d = await draftFor();
     await confirmDraft(env.repos, owner, { project: "p", draftId: d.id });
+    await env.repos.messengers.allowChat("p", "telegram_bot", "200");
+    await env.repos.messengers.createDraft({ project: "p", channel: "telegram_bot", chatId: "200", text: "kept", createdBy: "agent" });
+    // P71 M2b: unlinking deletes the chat's drafts with it (one transaction), so the approved draft is gone, not only blocked.
     await unlinkIdentifier(env.repos, owner, { project: "p", kind: "telegram", value: "100" });
+    await expect(sendConfirmed({ repos: env.repos, adapter }, owner, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "not_confirmed" });
+    expect(await env.repos.messengers.getDraft("p", d.id)).toBeNull();
+    expect((await env.repos.messengers.listDrafts("p")).map((x) => x.chatId)).toEqual(["200"]);
+    expect(adapter.sent).toHaveLength(0);
+  });
+
+  it("send stops if the chat row was taken off the allow-list by hand after approval", async () => {
+    const adapter = new FakeSendingAdapter();
+    const d = await draftFor();
+    await confirmDraft(env.repos, owner, { project: "p", draftId: d.id });
+    env.handle.db.$client.prepare("delete from messenger_chats where chat_id = '100'").run();
     await expect(sendConfirmed({ repos: env.repos, adapter }, owner, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "chat_not_allowed" });
     expect(adapter.sent).toHaveLength(0);
   });

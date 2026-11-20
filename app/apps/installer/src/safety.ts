@@ -1,6 +1,6 @@
 import { slimMessageContent } from "./slim-headers";
 import { codexSessionPaths, pathsAt, type HubPaths } from "@hub/config/paths";
-import { auditToolCalls, defaultProjectsRoot, type AuditLayout, isDraftWrite, kindOf, loadProject, preDraftCheck, type SkillScope, type ToolCall } from "@hub/projects";
+import { auditToolCalls, chatDraftViolations, defaultProjectsRoot, HUB_MESSENGER_DRAFT_WRITE, type AuditLayout, isDraftWrite, kindOf, loadProject, preDraftCheck, type SkillScope, type ToolCall } from "@hub/projects";
 import { instanceServer } from "./mcp-servers";
 import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
 import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
@@ -208,13 +208,17 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   return r.block ? { code: 2, stderr: text } : { code: 0, stderr: text };
 }
 
-/** The pre-draft rule (research 15 section 3.2): only a draft write (`create_reply`, the hub's `draft_write`) is judged, against the ledger of this session and subagent. Never throws. */
+/** The pre-draft rule (research 15 section 3.2): only a draft write (`create_reply`, the hub's `draft_write`, and P71's `messenger_draft_write` by its own rule) is judged, against the ledger of this session and subagent. Never throws. */
 export function preDraftViolations(payload: GuardInput, root: string, slug: string, db?: string): string[] {
   try {
-    if (!isDraftWrite(String(payload.tool_name ?? ""))) return [];
+    const name = String(payload.tool_name ?? "");
+    const messenger = name === HUB_MESSENGER_DRAFT_WRITE;
+    if (!isDraftWrite(name) && !messenger) return [];
     const sid = typeof payload.session_id === "string" ? payload.session_id : "";
     if (!sid) return [];
     const aid = typeof payload.agent_id === "string" && payload.agent_id ? payload.agent_id : undefined;
+    // P71 M2: a messenger reply is judged by its own rule (its chat's history read first), never by the mail chain.
+    if (messenger) return chatDraftViolations(readSession(root, slug, sid), { name, input: payload.tool_input }, aid);
     const replyFrom = revisionClient(payload.tool_input, slug, db);
     return preDraftCheck(readSession(root, slug, sid), { name: String(payload.tool_name), input: payload.tool_input }, { ...(aid ? { aid } : {}), ...(replyFrom ? { replyFrom } : {}) }).violations;
   } catch { return []; }

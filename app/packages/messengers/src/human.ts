@@ -69,7 +69,7 @@ export async function linkIdentifier(repos: Repos, actor: HumanActor, input: Lin
   return { identifierId, value, allowedChannel: channel };
 }
 
-/** Removes the link and takes the chat off the allow-list. Stored messages stay until retention purges them. */
+/** Removes the link and takes the chat off the allow-list; its stored messages and drafts go with it, in one transaction (P71 M2b). */
 export async function unlinkIdentifier(repos: Repos, actor: HumanActor, input: { project: string; kind: IdentifierKind; value: string }) {
   assertHuman(actor);
   const value = normalizeIdentifier(input.kind, input.value);

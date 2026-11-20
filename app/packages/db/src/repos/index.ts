@@ -48,6 +48,8 @@ export type {
   NewMessengerDraft,
   NewMessengerMessage,
 } from "./messengers";
+export type { ChatActivity, MessengerChatRow } from "./messenger-chats";
+export { rulesOf } from "./messenger-chats";
 export type { BatchRow, BatchSummary } from "./batches";
 export type { BasedOn, ReviewDraft } from "./review";
 export type { NewSend, SendRow } from "./sends";

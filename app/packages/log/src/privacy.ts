@@ -18,10 +18,13 @@ const MAIL_HEADER_TOOLS = new Set(["list_accounts", "list_mailboxes", "find_mess
 const BODY_FIELDS = new Set(["content", "body", "html", "text", "plain"]);
 
 const MAIL_PREFIX = "mcp__mail-mcp__";
-/** Tools whose input carries a mail body: the hub's draft writer and mail-mcp's compose tools (denied, but named). */
-const isBodyInputTool = (tool: string): boolean => tool === "mcp__hub__draft_write" || tool.startsWith(MAIL_PREFIX);
-/** Tools whose result is mail text. */
-export const isMailBodyResult = (tool: string): boolean => tool.startsWith(MAIL_PREFIX) && !MAIL_HEADER_TOOLS.has(tool.slice(MAIL_PREFIX.length));
+/** P71 M2: the hub's messenger tools carry a client's chat text (the history's rows, the draft's `text`), kept like a mail body. */
+const MESSENGER_HISTORY = "mcp__hub__messenger_history";
+const MESSENGER_DRAFT_WRITE = "mcp__hub__messenger_draft_write";
+/** Tools whose input carries a mail or chat body: the hub's draft writers and mail-mcp's compose tools (denied, but named). */
+const isBodyInputTool = (tool: string): boolean => tool === "mcp__hub__draft_write" || tool === MESSENGER_DRAFT_WRITE || tool.startsWith(MAIL_PREFIX);
+/** Tools whose result is mail or chat text. */
+export const isMailBodyResult = (tool: string): boolean => tool === MESSENGER_HISTORY || (tool.startsWith(MAIL_PREFIX) && !MAIL_HEADER_TOOLS.has(tool.slice(MAIL_PREFIX.length)));
 
 export interface Hashed { sha256: string; chars: number }
 export const hashed = (text: string): Hashed => ({ sha256: createHash("sha256").update(text).digest("hex"), chars: text.length });

@@ -10,7 +10,7 @@ export { renameProjectInDb, type DbRenameResult, type RenameTable } from "./rena
 export { dataVersion, isBusy } from "./tx";
 export { bumpTopic, bumpTopicIn, liveSeq, liveSince, LIVE_TABLES, TOPIC_PREFIX, type LiveChange, type LiveTable } from "./live";
 export { RepoError, type RepoErrorCode } from "./errors";
-export { adoptable, bareRef, isReplyShell, buildMatchQuery, createRepos, isExpired, shellHashOf, startsWithWrite, textKey, versionHashOf, type Repos } from "./repos";
+export { adoptable, bareRef, isReplyShell, buildMatchQuery, createRepos, isExpired, rulesOf, shellHashOf, startsWithWrite, textKey, versionHashOf, type Repos } from "./repos";
 export { EVENT_DETAIL_DAYS } from "./repos/runs";
 export type {
   Activity,
@@ -27,8 +27,10 @@ export type {
   BatchRow,
   BatchSummary,
   ReviewDraft,
+  ChatActivity,
   ChatRef,
   ClientIdentifierRow,
+  MessengerChatRow,
   MessengerAccountRow,
   MessengerDraftRow,
   MessengerMessageRow,

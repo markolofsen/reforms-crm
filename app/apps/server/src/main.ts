@@ -11,6 +11,7 @@ import { projectsRoot } from "./project-overview";
 import { allowListOf, configFile, createServerMailer } from "./send/mailer";
 import { startMessengers } from "./messengers";
 import { startTelegramUser } from "./telegram-user";
+import { startPurge } from "./purge";
 import { startSentReconciler } from "./sent";
 import { chooseShell, createTerminal, serverDetector } from "./terminal";
 import { chooseAgentTools, createAgentTools } from "./agent-tools";
@@ -35,6 +36,8 @@ const { db, close } = openDb();
 const repos = createRepos(db);
 const port = Number(process.env.HUB_PORT ?? SERVER_PORT);
 
+// P71 M2b: the messenger retention purge runs now and every hour, with or without a connected channel.
+const purge = startPurge({ repos, log: (l) => console.log(l) });
 // The messengers poller runs only when a bot token file exists; it only receives. Its state is part of /api/health.
 const messengers = await startMessengers({ repos });
 console.log(`messengers: ${messengers.status().state}${messengers.status().reason ? ` (${messengers.status().reason})` : ""}`);
@@ -110,6 +113,7 @@ onShutdown({
   exit: (code) => process.exit(code),
   stop: async () => {
     live.stop();
+    purge.stop();
     coreUpdates.stop();
     sent.stop();
     terminal.stop();

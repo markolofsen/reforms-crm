@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
+import type { ReplyMode } from "@hub/config/chat-rules";
 import type { AdvisorModel, AgentModel, BatchStatus, DraftStatus, EnrollmentState, EventKind, EvidenceLevel, EvidenceSource, FinishReason, InboxAction, InboxKind, Mark, NotionKind, RunStatus, SafetyKind, SafetyLevel } from "@hub/config";
 
 // Every table carries `project`: one database serves several projects (owner decision).
@@ -415,6 +416,14 @@ export const messengerChats = sqliteTable(
     chatId: text("chat_id").notNull(),
     title: text("title"),
     createdAt: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+    // The chat's rules (P71 M2b, migration 0025; bounds and defaults in `@hub/config/chat-rules`), set only by the owner.
+    replyMode: text("reply_mode").$type<ReplyMode>().notNull().default("draft"),
+    mayNudge: integer("may_nudge", { mode: "boolean" }).notNull().default(false),
+    nudgeAfterDays: integer("nudge_after_days").notNull().default(3),
+    instruction: text("instruction"),
+    language: text("language"),
+    prefilter: integer("prefilter", { mode: "boolean" }).notNull().default(false),
+    rulesUpdatedAt: text("rules_updated_at"),
   },
   (t) => [uniqueIndex("messenger_chats_key").on(t.project, t.channel, t.chatId)],
 );
@@ -479,6 +488,9 @@ export const messengerDrafts = sqliteTable(
     remoteMessageId: text("remote_message_id"),
     createdAt: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
     updatedAt: text("updated_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+    // What admitted an agent's draft (0025): the owner's words in an `on_request` chat; a follow-up after our own last message.
+    ownerRequest: text("owner_request"),
+    nudge: integer("nudge", { mode: "boolean" }).notNull().default(false),
   },
   (t) => [index("messenger_drafts_project_status").on(t.project, t.status)],
 );

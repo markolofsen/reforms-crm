@@ -148,6 +148,27 @@ describe("migrations 0017 and 0018 (enrolled phrase, a run's batch key)", () => 
   });
 });
 
+describe("migration 0025 (messenger chat rules, P71 M2b)", () => {
+  it("adds the rules with their defaults to linked chats, keeps every row and the three live triggers of each messenger table", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(25) }); // 0000 .. 0024
+    sqlite.prepare("insert into messenger_chats (project, channel, chat_id, title) values ('p','telegram_user','42','Ann')").run();
+    sqlite.prepare("insert into messenger_drafts (project, channel, chat_id, text, created_by) values ('p','telegram_user','42','hi','agent')").run();
+
+    migrate(db, { migrationsFolder: source }); // + 0025
+
+    expect(sqlite.prepare("select reply_mode, may_nudge, nudge_after_days, instruction, language, prefilter, rules_updated_at from messenger_chats").get()).toEqual({ reply_mode: "draft", may_nudge: 0, nudge_after_days: 3, instruction: null, language: null, prefilter: 0, rules_updated_at: null });
+    expect(sqlite.prepare("select text, owner_request, nudge from messenger_drafts").get()).toEqual({ text: "hi", owner_request: null, nudge: 0 });
+    const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and name like 'live_messenger_%'").all() as { name: string }[]).map((t) => t.name);
+    for (const t of ["messenger_chats", "messenger_drafts"]) for (const op of ["ai", "au", "ad"]) expect(triggers).toContain(`live_${t}_${op}`);
+    expect(sqlite.pragma("foreign_key_check")).toEqual([]);
+    expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    sqlite.close();
+  });
+});
+
 describe("restoreCheck", () => {
   it("opens a snapshot made by an OLDER core, applies the newer migrations and loses no row", () => {
     const tmp = mkdtempSync(join(tmpdir(), "hub-restore-"));

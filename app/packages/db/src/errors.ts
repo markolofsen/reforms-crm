@@ -4,7 +4,8 @@ export type RepoErrorCode =
   | "duplicate_claim"
   | "not_found"
   | "duplicate_identifier"
-  | "wrong_state";
+  | "wrong_state"
+  | "invalid";
 
 /** A repository refusal with a stable `code` the callers (CLI, MCP tool) can map without parsing a message. */
 export class RepoError extends Error {

@@ -33,11 +33,23 @@ Privacy (0036 point 3): a message from a chat that is not on the `telegram_user`
 
 `@mtcute/node` depends on better-sqlite3 12; its native build is refused in `pnpm-workspace.yaml` (`allowBuilds: better-sqlite3: false`) because `MemoryStorage` never loads it. The server's supervisor is `apps/server/src/telegram-user.ts`.
 
-## Data (migration 0003 in `@hub/db`)
+## Data (migrations 0003 and 0025 in `@hub/db`)
 
-`messenger_messages` (text kept in full, `retain_until` = stored + 90 days, `purge` deletes past it), `messenger_chats` (the inbound allow-list), `messenger_accounts` (poll cursor, last ok, last error), `client_identifiers` (client, kind `email|telegram|phone|whatsapp`, value; unique per project, kind and value), `messenger_drafts`.
+`messenger_messages` (text kept in full, `retain_until` = stored + 90 days, `purge` deletes past it), `messenger_chats` (the inbound allow-list, and since 0025 each linked chat's rules), `messenger_accounts` (poll cursor, last ok, last error), `client_identifiers` (client, kind `email|telegram|phone|whatsapp`, value; unique per project, kind and value), `messenger_drafts` (since 0025 also `owner_request`, the owner's words that admitted a draft in an `on_request` chat, and `nudge`, a follow-up after our own last message).
 
 Ingest stores only allow-listed chats and never links anything. Linking is `messengers link` by the owner.
+
+**Unlinking deletes the chat's rows** (P71 M2b, research 26 gap 1): `disallowChat` and `unlinkIdentifier` go through `repos.messengers.unlinkChat`, which deletes the chat's `messenger_messages`, its `messenger_drafts` and its `messenger_chats` row in ONE transaction, so an unlinked chat leaves no row, as one never linked (0036 point 3).
+
+**Retention runs without a channel** (gap 2): the server purges at start and every hour (`apps/server/src/purge.ts`), whatever is connected; a running poller still purges every 6 h, and `messengers purge` by hand.
+
+## Rules per chat (P71 M2b, research 23 section 2)
+
+Columns on `messenger_chats`, set only by the owner (Messengers ▸ Settings in M3; until then `repos.messengers.setChatRules`, no API route): `reply_mode` `off` | `on_request` | `draft` (default `draft`; no auto value, 0036 point 8), `may_nudge` (default off) and `nudge_after_days` (1 to 60, default 3), `instruction` (the owner's words, at most 4 000 characters), `language` (BCP-47; null: the client's), `prefilter` (default off, for M-P). The vocabulary, defaults and bounds live once in `@hub/config/chat-rules`; the migration's CHECKs repeat the bounds. The agent reads them with `messenger_history` and `messenger_draft_write` enforces them in code (`@hub/agent`, `src/messenger/rules.ts`): `reply_off`, `no_inbound` (the hub never makes first contact, even with follow-ups on), `not_requested` (an `on_request` chat without the owner's words), `no_nudge`, `too_soon`, and `already_drafted` for a chat that already has an open draft.
+
+## The agent's tools (P71 M2)
+
+The agent never imports this package's send path: `hub mcp` (`@hub/agent`) has `messenger_history` (a linked chat, or a client's linked chats, with the rules and the open draft) and `messenger_draft_write` (one row in `messenger_drafts`, status `draft`, on a short write connection), both through `@hub/db` only, so `hub mcp` loads no Telegram client (research 26 section 4). A chat that is not linked, or is another project's, is `not_linked` and named nowhere. The guard asks for a `messenger_history` read of that chat earlier in the session before a draft (`@hub/projects`, `chat-ledger.ts`). The skill is `skills/triage-messages/SKILL.md`. No send tool exists; Send is M4's door.
 
 ## History
 
@@ -50,8 +62,8 @@ Ingest stores only allow-listed chats and never links anything. Linking is `mess
 | Command | Needs a person at a terminal | Does |
 |---|---|---|
 | `link <clientId> <kind> <value>` | yes | links an identity to a client; a chat is also allow-listed |
-| `unlink <kind> <value>` | yes | removes the link and the allow-list entry |
-| `allow` / `disallow <channel> <chatId>` | yes | lists a chat without a client |
+| `unlink <kind> <value>` | yes | removes the link and the allow-list entry, with the chat's stored messages and drafts |
+| `allow` / `disallow <channel> <chatId>` | yes | lists a chat without a client; `disallow` deletes its stored messages and drafts |
 | `status` | no | poll health (stale after 10 min), allow-list, counts, drafts |
 | `poll [--once]` | no | the worker loop with offset persistence and backoff; `--once` fetches one batch and prints ids of unlisted chats |
 | `purge` | no | deletes rows past retention |

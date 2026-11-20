@@ -176,6 +176,13 @@
       "when": 1795300000007,
       "tag": "0024_agent_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1795300000008,
+      "tag": "0025_messenger_chat_rules",
+      "breakpoints": true
     }
   ]
 }

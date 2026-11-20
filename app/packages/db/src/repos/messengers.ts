@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
+import { messengerChatsRepo } from "./messenger-chats";
 import {
   clientIdentifiers,
   clients,
@@ -22,6 +23,10 @@ export type NewMessengerDraft = {
   text: string;
   createdBy: string;
   clientId?: number | null;
+  /** The owner's words that admitted it in an `on_request` chat (P71 M2b). */
+  ownerRequest?: string | null;
+  /** A follow-up after our own last message (P71 M2b). */
+  nudge?: boolean;
 };
 export type ClientIdentifierRow = typeof clientIdentifiers.$inferSelect;
 export type MessengerAccountRow = typeof messengerAccounts.$inferSelect;
@@ -53,7 +58,10 @@ export function messengersRepo(db: Db) {
     throw new RepoError("wrong_state", `wrong_state: draft ${id} is "${cur.status}", expected "${from}"`);
   };
 
+  const chats = messengerChatsRepo(db);
+
   return {
+    ...chats,
     // ---- allow-list
     async allowChat(project: string, channel: MessengerChannel, chatId: string, title?: string | null): Promise<void> {
       db.insert(messengerChats)
@@ -64,14 +72,9 @@ export function messengersRepo(db: Db) {
         })
         .run();
     },
-    /** Returns whether a row was removed. */
+    /** Takes the chat off the allow-list with its stored messages and drafts, in one transaction (`unlinkChat`). Returns whether it was listed. */
     async disallowChat(project: string, channel: MessengerChannel, chatId: string): Promise<boolean> {
-      return (
-        db
-          .delete(messengerChats)
-          .where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId)))
-          .run().changes > 0
-      );
+      return (await chats.unlinkChat(project, channel, chatId)).removed;
     },
     async isAllowed(project: string, channel: MessengerChannel, chatId: string): Promise<boolean> {
       return !!db
@@ -211,7 +214,7 @@ export function messengersRepo(db: Db) {
       if (input.clientId != null) requireClient(input.project, input.clientId);
       return db
         .insert(messengerDrafts)
-        .values({ project: input.project, channel: input.channel, chatId: input.chatId, text: input.text, createdBy: input.createdBy, clientId: input.clientId ?? null })
+        .values({ project: input.project, channel: input.channel, chatId: input.chatId, text: input.text, createdBy: input.createdBy, clientId: input.clientId ?? null, ownerRequest: input.ownerRequest ?? null, nudge: input.nudge ?? false })
         .returning()
         .get();
     },

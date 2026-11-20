@@ -1,3 +1,4 @@
+import { chatEntry, HUB_MESSENGER_HISTORY } from "./chat-ledger";
 import { fingerprint, judgeSimilarity, sim, type Verdict } from "./similarity";
 
 // The observed witness of P28 (research 15 section 3.2). A ledger line is a thin summary of one tool call: which
@@ -17,7 +18,8 @@ export interface LedgerEntry {
   aid?: string;
   /** Short tool name, e.g. `find_messages`. */
   tool: string;
-  kind: "find" | "read" | "draft" | "notion" | "knowledge";
+  /** `chat`: a `messenger_history` read (P71 M2), judged only by `chatDraftViolations`, never as mail evidence. */
+  kind: "find" | "read" | "draft" | "notion" | "knowledge" | "chat";
   account?: string;
   // find
   sender?: string;
@@ -48,6 +50,8 @@ export interface LedgerEntry {
   editedAt?: string;
   // knowledge
   query?: string;
+  // chat: the chats a messenger_history call returned, as `<channel>:<chat id>`
+  chats?: string[];
 }
 
 export interface CallRecord { name: string; input: unknown; result?: unknown }
@@ -127,6 +131,7 @@ export interface SummarizeOptions {
 
 /** One tool call as a ledger line, or null when the call is not part of the evidence. */
 export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEntry | null {
+  if (c.name === HUB_MESSENGER_HISTORY) return chatEntry(c);
   const tool = shortName(c.name);
   const i = obj(c.input);
   const account = str(i.account);
