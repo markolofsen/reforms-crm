@@ -118,3 +118,71 @@ export const waLinkBody = z.strictObject({
   chatId: z.string().regex(/^\+\d{7,15}$/),
   title: z.string().trim().max(200).optional(),
 });
+
+// ---- P84: chats link themselves (decision 0036 point 3 as amended 2026-11-20)
+
+const userChannel = z.enum(["telegram_user", "whatsapp"]);
+
+/** A client record of the directory (Notion, read only, in memory): its key is the Notion page id. */
+export const autolinkRecordDto = z.strictObject({ key: z.string(), name: z.string(), email: z.string().nullable(), relationship: z.string().nullable() });
+export type AutolinkRecordDto = z.infer<typeof autolinkRecordDto>;
+
+/** Why an unlinked dialog was not linked by itself. */
+export const AUTOLINK_WHY = ["none", "ambiguous", "no_email", "off", "failed"] as const;
+
+/** An unlinked private dialog the Hub saw since the server started, in memory only (its name and the records it matched; never a text). */
+export const recentDialogDto = z.strictObject({
+  channel: userChannel,
+  account: z.string(),
+  chatId: z.string(),
+  title: z.string(),
+  seenAt: z.string(),
+  why: z.enum(AUTOLINK_WHY),
+  by: z.enum(["phone", "username"]).nullable(),
+  candidates: z.array(autolinkRecordDto),
+});
+export type RecentDialogDto = z.infer<typeof recentDialogDto>;
+
+export const directoryStatusDto = z.strictObject({
+  state: z.enum(["off", "loading", "ready", "error"]),
+  reason: z.string().nullable(),
+  entries: z.number().int(),
+  withIdentifier: z.number().int(),
+  byRelationship: z.record(z.string(), z.number().int()),
+  readAt: z.string().nullable(),
+});
+
+/** `POST /api/projects/:slug/messengers/autolink/state`: the setting, the directory, the in-memory suggestions and the count. */
+export const autolinkStateDto = z.strictObject({
+  enabled: z.boolean(),
+  directory: directoryStatusDto,
+  /** Distinct unlinked chats that wrote since the server started: in memory, never stored. */
+  unlinkedActive: z.number().int(),
+  recent: z.array(recentDialogDto),
+});
+export type AutolinkStateDto = z.infer<typeof autolinkStateDto>;
+
+/** The dry run: counts only (no name, no number, no text), per live account. */
+export const autolinkPreviewDto = z.strictObject({
+  enabled: z.boolean(),
+  directory: directoryStatusDto,
+  accounts: z.array(
+    z.strictObject({
+      channel: userChannel,
+      dialogs: z.number().int(),
+      linked: z.number().int(),
+      unique: z.number().int(),
+      ambiguous: z.number().int(),
+      noEmail: z.number().int(),
+      byRelationship: z.record(z.string(), z.number().int()),
+    }),
+  ),
+});
+export type AutolinkPreviewDto = z.infer<typeof autolinkPreviewDto>;
+
+/** The owner's Link of a seen dialog to a directory record (`key`). */
+export const autolinkLinkBody = z.strictObject({ channel: userChannel, account: z.string().regex(/^\d{1,20}$/), chatId: z.string().regex(/^\+?\d{1,20}$/), key: z.string().min(1).max(64), title: z.string().trim().max(200).optional() });
+export const autolinkRecordsBody = z.strictObject({ q: z.string().trim().min(2).max(100) });
+export const autolinkRecordsDto = z.strictObject({ records: z.array(autolinkRecordDto) });
+/** Unlink and Never link answer which chat went and how many of its stored messages. */
+export const chatUnlinkedDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), never: z.boolean() });

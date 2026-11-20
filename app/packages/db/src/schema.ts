@@ -434,6 +434,8 @@ export const messengerChats = sqliteTable(
     language: text("language"),
     prefilter: integer("prefilter", { mode: "boolean" }).notNull().default(false),
     rulesUpdatedAt: text("rules_updated_at"),
+    // P84 (migration 0028): null when the owner linked the chat, else why the Hub's autolink did ("phone matches the client").
+    autolinked: text("autolinked"),
   },
   (t) => [uniqueIndex("messenger_chats_key").on(t.project, t.channel, t.chatId)],
 );
@@ -478,6 +480,19 @@ export const clientIdentifiers = sqliteTable(
     uniqueIndex("client_identifiers_key").on(t.project, t.kind, t.value),
     index("client_identifiers_client").on(t.clientId),
   ],
+);
+
+// "Never link this chat" (P84): the HMAC of (project, channel, chat id), never the chat itself; the autolink skips a listed hash.
+export const messengerLinkRefusals = sqliteTable(
+  "messenger_link_refusals",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    project: text("project").notNull(),
+    channel: text("channel").$type<MessengerChannel>().notNull(),
+    hash: text("hash").notNull(),
+    createdAt: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  },
+  (t) => [uniqueIndex("messenger_link_refusals_key").on(t.project, t.channel, t.hash)],
 );
 
 // Outbound replies. An agent can only insert status `draft`; `confirmed` is written by the human path.

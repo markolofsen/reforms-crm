@@ -45,6 +45,7 @@ async function chatRow(repos: Repos, slug: string, row: MessengerChatRow): Promi
     last: last ? { direction: last.direction, kind: last.kind, text: last.text, at: last.sentAt } : null,
     owed: last?.direction === "in",
     draft: draft ? draftOf(draft) : null,
+    autolinked: row.autolinked ?? null,
   });
 }
 

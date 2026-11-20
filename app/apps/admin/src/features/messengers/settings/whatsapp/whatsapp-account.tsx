@@ -65,7 +65,7 @@ function ConnectWhatsApp() {
  * and, on his click, the QR code to scan. When the server keeps WhatsApp off (`HUB_MESSENGERS=off`, several projects) its reason
  * is the one line above; Connect still asks the server, whose refusal lands in the alert.
  */
-export function WhatsAppAccount() {
+export function WhatsAppAccount({ linked }: { linked?: number }) {
   const q = useWhatsApp();
   if (q.isPending) return <Skeleton className="h-24 w-full rounded-xl" />;
   if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="WhatsApp" />;
@@ -76,6 +76,7 @@ export function WhatsAppAccount() {
         {d.accounts.map((a) => (
           <AccountRow
             a={a}
+            linked={linked}
             disconnect={whatsappApi.disconnect}
             key={a.account}
             label={`WhatsApp +${a.account}`}

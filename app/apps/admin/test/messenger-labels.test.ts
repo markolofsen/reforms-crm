@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CHAT_RULES } from "@hub/config/chat-rules";
 import type { MessengerChatDto } from "@hub/contract/messenger-panel";
-import { chatName, confirmLine, lastText, lastWho, noDraftLine, rulesLine } from "../src/features/messengers/labels";
+import { chatName, confirmLine, emptyLine, lastText, lastWho, noDraftLine, readsLine, rulesLine, whyLine } from "../src/features/messengers/labels";
 
 // The Messengers panel's words (P71 M3): who a chat is, its rules in one line, whose turn it is and why there is no draft.
 
@@ -16,6 +16,7 @@ const chat = (patch: Partial<MessengerChatDto> = {}): MessengerChatDto => ({
   last: { direction: "in", kind: "text", text: "Hi!", at: "2026-11-20T08:00:00.000Z" },
   owed: true,
   draft: null,
+  autolinked: null,
   ...patch,
 });
 
@@ -47,5 +48,21 @@ describe("messenger labels", () => {
 
   it("the confirm step says who, on which channel, from which account, and that it cannot be recalled (P71 M4)", () => {
     expect(confirmLine({ to: "Rita Falsa", channel: "telegram_user", account: "42" })).toBe("To Rita Falsa on Telegram, from your account 42. A sent message cannot be recalled.");
+  });
+
+  it("P84: the account row says what is read, and the empty state names both accounts and why nothing shows", () => {
+    expect(readsLine(3)).toBe("· reads only chats linked to a client (3 linked)");
+    expect(emptyLine({ telegram: true, whatsapp: true, enabled: true, withIdentifier: 224, directoryReady: true })).toBe(
+      "The Hub reads your Telegram account and your WhatsApp number, but only the chats linked to a client: no other chat is stored. A chat links itself when its phone or username equals one of the 224 clients in Notion that have one.",
+    );
+    expect(emptyLine({ telegram: true, whatsapp: false, enabled: false, withIdentifier: 0, directoryReady: true })).toMatch(/your Telegram account, .*Autolink is off for this project/);
+    expect(emptyLine({ telegram: false, whatsapp: false, enabled: true, withIdentifier: 0, directoryReady: false })).toMatch(/^No Telegram account or WhatsApp number is connected/);
+  });
+
+  it("P84: says why a seen chat was not linked by itself", () => {
+    const c = { key: "k", name: "Bob", email: "bob@example.test", relationship: null };
+    expect(whyLine({ why: "ambiguous", by: "phone", candidates: [c, c] })).toBe("Its phone belongs to 2 clients: pick the right one.");
+    expect(whyLine({ why: "off", by: "phone", candidates: [c] })).toMatch(/Autolink is off/);
+    expect(whyLine({ why: "none", by: null, candidates: [] })).toBe("No client in Notion has its phone or username.");
   });
 });

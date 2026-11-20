@@ -30,7 +30,7 @@ function LinkedChats({ project, accounts }: { project: string; accounts: Record<
       {q.isPending ? null : !q.data ? (
         <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the linked chats" />
       ) : q.data.chats.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No chat is linked yet. Nothing of an unlinked chat is stored, not even a count.</p>
+        <p className="text-muted-foreground text-sm">No chat is linked yet. Nothing of an unlinked chat is stored; Chats lists the ones the Hub saw since it started, in memory only.</p>
       ) : (
         <ul aria-label="Linked chats" className="flex flex-col divide-y border-y">
           {q.data.chats.map((c) => (
@@ -52,6 +52,9 @@ function LinkedChats({ project, accounts }: { project: string; accounts: Record<
 export function MessengerSettings({ project }: { project: string }) {
   const tg = useTelegramUser();
   const wa = useWhatsApp();
+  // P84: the account rows say how many chats the Hub reads (the linked ones), from the same list as Linked chats below.
+  const chats = useQuery({ queryKey: keys.messengerChats(project, "all"), queryFn: () => messengersApi.chats(project, "all") });
+  const linkedOf = (ch: UserChannel) => chats.data?.chats.filter((c) => c.channel === ch).length;
   const accounts: Record<UserChannel, string | null> = {
     telegram_user: tg.data?.accounts.find((a) => a.state === "running")?.account ?? null,
     whatsapp: wa.data?.accounts.find((a) => a.state === "running")?.account ?? null,
@@ -60,10 +63,10 @@ export function MessengerSettings({ project }: { project: string }) {
     <Page nav={<SubNav section="messengers" />}>
       <div className="flex flex-col gap-8">
         <Group id="telegram-account" title="Telegram account">
-          <TelegramAccount />
+          <TelegramAccount linked={linkedOf("telegram_user")} />
         </Group>
         <Group id="whatsapp" title="WhatsApp">
-          <WhatsAppAccount />
+          <WhatsAppAccount linked={linkedOf("whatsapp")} />
         </Group>
         {/* No heading: the row's own label says "Telegram bot" (a heading over it said it twice, `admin-principles.md` rule 9). */}
         <ConnectionsView kinds={["telegram"]} label="Telegram bot" />

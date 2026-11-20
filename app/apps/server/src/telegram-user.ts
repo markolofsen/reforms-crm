@@ -16,6 +16,7 @@ import {
   type MtClient,
   type MtLoginClient,
   type LoginCredentials,
+  type DialogIdentity,
   type ParkedCode,
   type PollEvent,
   type TelegramUserAdapter,
@@ -59,6 +60,10 @@ export interface StartTelegramUser {
   clients?: UserClients;
   runner?: typeof runPoller;
   now?: () => Date;
+  /** P84: the identity (never the text) of each inbound message of an unlinked private chat, for the autolink. */
+  onUnlinked?: (account: string, d: DialogIdentity) => void;
+  /** P84: an account's first good poll after it connected (the autolink scans its dialogs then). */
+  onConnected?: (account: string) => void;
 }
 
 interface Slot {
@@ -115,9 +120,14 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
     if (parked) return void park(st, parked);
     const read = readSession(dir, CHANNEL, account);
     if (read.state !== "stored") return void Object.assign(st, { state: "error", fix: NO_SESSION_FIX, lastError: `session file: ${read.state}` });
+    let told = false;
     const onEvent = (e: PollEvent) => {
       // A park a send reported (P71 M4) holds: the loop's last poll after the abort must not read as running again.
       if (st.parked) return;
+      if (e.type === "poll" && !told) {
+        told = true;
+        o.onConnected?.(account);
+      }
       if (e.type === "poll") {
         Object.assign(st, { state: "running", failures: 0, fix: null, lastPollAt: now().toISOString() });
         delete st.lastError;
@@ -128,7 +138,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
       let client: MtClient | null = null;
       try {
         client = (await clientsNow()).session(read.session);
-        const adapter = createTelegramUserAdapter({ client, account, allowedChats: () => allowedChats(p) });
+        const adapter = createTelegramUserAdapter({ client, account, allowedChats: () => allowedChats(p), ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity) => o.onUnlinked?.(account, d) } : {}) });
         slot.adapter = adapter;
         await run({ repos: o.repos, project: p, adapter: pollOnly(adapter), signal: ac.signal, onEvent, now });
         if (st.state !== "error" && st.state !== "parked") st.state = "stopped";

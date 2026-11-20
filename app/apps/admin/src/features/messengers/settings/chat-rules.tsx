@@ -30,6 +30,56 @@ function CommitInput({ id, value, onCommit, disabled, ...rest }: { id: string; v
 }
 
 /**
+ * Unlink and Never link (P84), each confirmed in place: Unlink deletes the chat's stored messages and drafts and stops reading it (a
+ * later exact match may link it again); Never link does the same and remembers the chat (as a keyed hash, never the chat) so the
+ * Hub never links it by itself again. A bot chat has neither: its chats are the bot's queue.
+ */
+function UnlinkControls({ project, c, name }: { project: string; c: MessengerChatDto; name: string }) {
+  const qc = useQueryClient();
+  const [asking, setAsking] = useState<"unlink" | "never" | null>(null);
+  const go = useMutation({ mutationFn: (never: boolean) => messengersApi.unlinkChat(project, c.id, never), onSettled: () => qc.invalidateQueries({ queryKey: keys.messengerChatsOf(project) }) });
+  if (c.channel === "telegram_bot") return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {asking ? (
+          <>
+            <ActionButton disabled={go.isPending} onClick={() => go.mutate(asking === "never")} size="s" variant="danger">
+              {asking === "never" ? "Unlink and never link again" : "Unlink and delete its messages"}
+              <span className="sr-only"> ({name})</span>
+            </ActionButton>
+            <ActionButton disabled={go.isPending} onClick={() => setAsking(null)} size="s" variant="quiet">
+              Keep it
+            </ActionButton>
+          </>
+        ) : (
+          <>
+            <ActionButton onClick={() => setAsking("unlink")} size="s" variant="secondary">
+              Unlink<span className="sr-only"> {name}</span>
+            </ActionButton>
+            <ActionButton onClick={() => setAsking("never")} size="s" variant="quiet">
+              Never link this chat<span className="sr-only"> ({name})</span>
+            </ActionButton>
+          </>
+        )}
+      </div>
+      {asking && (
+        <p className={cn("measure", HINT)}>
+          {asking === "never"
+            ? "Its stored messages and drafts are deleted, and the Hub never links this chat by itself again (it keeps a keyed hash of it, not the chat)."
+            : "Its stored messages and drafts are deleted and the Hub stops reading it. If its phone matches a client again, it may link itself again."}
+        </p>
+      )}
+      {go.isError && (
+        <p className="text-destructive-foreground text-sm" role="alert">
+          {sentence(go.error)}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
  * One linked chat's rules (P71 M2b), every one in view and written by the owner only, through the gated rules route: when the
  * agent may draft (`reply_mode`; no automatic value: Send stays his click), whether it may propose a follow-up and after how many
  * quiet days, the reply language, the pre-analysis switch with its honest note, and his own instruction (at most 4 000
@@ -52,6 +102,7 @@ export function ChatRules({ project, c }: { project: string; c: MessengerChatDto
         <span className={HINT}>
           {CHANNEL_LABEL[c.channel]}
           {c.title && c.title !== name ? ` · ${c.title}` : ""}
+          {c.autolinked ? ` · linked by the Hub: ${c.autolinked}` : ""}
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
@@ -123,6 +174,7 @@ export function ChatRules({ project, c }: { project: string; c: MessengerChatDto
           {sentence(save.error)}
         </p>
       )}
+      <UnlinkControls c={c} name={name} project={project} />
     </li>
   );
 }

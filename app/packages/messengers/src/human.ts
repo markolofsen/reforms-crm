@@ -183,15 +183,69 @@ export async function linkUserChat(
   input: { project: string; clientId: number; chatId: string; title?: string; days?: number },
 ): Promise<{ identifierId: number; imported: number; importError: string | null }> {
   assertHuman(actor);
-  const linked = await linkIdentifier(deps.repos, actor, { project: input.project, clientId: input.clientId, kind: KIND_OF[deps.adapter.channel], value: input.chatId, channel: deps.adapter.channel, ...(input.title ? { title: input.title } : {}) });
+  await deps.repos.projects.requireProject(input.project);
+  return linkAndImport(deps, input);
+}
+
+/** The link itself, shared by the owner's Link and the Hub's autolink: the identifier, the allow-list, then the import. */
+async function linkAndImport(
+  deps: { repos: Repos; adapter: LinkableAdapter; now?: () => Date },
+  input: { project: string; clientId: number; chatId: string; title?: string; days?: number; autolinked?: string },
+): Promise<{ identifierId: number; imported: number; importError: string | null }> {
+  const kind = KIND_OF[deps.adapter.channel];
+  const value = normalizeIdentifier(kind, input.chatId);
+  const identifierId = await deps.repos.messengers.addIdentifier(input.project, input.clientId, kind, value);
+  await deps.repos.messengers.allowChat(input.project, deps.adapter.channel, value, input.title ?? null, input.autolinked ?? null);
   await deps.adapter.refreshAllowed();
   const now = (deps.now ?? (() => new Date()))();
   // The link stands even when the import fails: new messages arrive anyway, and the poller's catch-up reads from its cursor.
   try {
-    const rows = await deps.adapter.history(linked.value, { since: new Date(now.getTime() - (input.days ?? IMPORT_DAYS) * 86_400_000) });
+    const rows = await deps.adapter.history(value, { since: new Date(now.getTime() - (input.days ?? IMPORT_DAYS) * 86_400_000) });
     const r = await ingest({ project: input.project, repos: deps.repos, now: () => now }, rows);
-    return { identifierId: linked.identifierId, imported: r.stored, importError: null };
+    return { identifierId, imported: r.stored, importError: null };
   } catch (e) {
-    return { identifierId: linked.identifierId, imported: 0, importError: e instanceof Error ? e.message : "the import failed" };
+    return { identifierId, imported: 0, importError: e instanceof Error ? e.message : "the import failed" };
   }
+}
+
+/** A client record the autolink found (P84): exactly one record carries the chat's identifier, and it has an email. */
+export interface AutolinkClient {
+  email: string;
+  name: string;
+}
+
+/**
+ * The Hub's own link (P84, decision 0036 point 3 as amended 2026-11-20 on the owner's delegated word): when a connected account
+ * sees a private dialog whose phone or username equals the identifier of exactly ONE client record, and the project's
+ * `messengers.autolink` is on, the server links it without a click. Not a person's act, so no `HumanActor`: only the server's
+ * autolink coordinator (`apps/server/src/autolink.ts`) calls it, after it checked the setting, the refusals and the match. It ensures
+ * the client's row (a row from a link, decision 0009 as amended: never a bulk copy), then links and imports like the owner's Link.
+ */
+export async function autoLinkUserChat(
+  deps: { repos: Repos; adapter: LinkableAdapter; now?: () => Date },
+  input: { project: string; client: AutolinkClient; chatId: string; reason: string; title?: string; days?: number },
+): Promise<{ clientId: number; clientCreated: boolean; identifierId: number; imported: number; importError: string | null }> {
+  await deps.repos.projects.requireProject(input.project);
+  const email = normalizeIdentifier("email", input.client.email);
+  const found = await deps.repos.clients.idByEmail(input.project, email);
+  const clientId = found ?? (await deps.repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
+  const r = await linkAndImport(deps, { project: input.project, clientId, chatId: input.chatId, autolinked: input.reason, ...(input.title ? { title: input.title } : {}), ...(input.days ? { days: input.days } : {}) });
+  return { clientId, clientCreated: found === undefined, ...r };
+}
+
+/**
+ * The owner's Link of a chat to a client record of the directory (P84: the Chats screen's suggestion or his choice), behind the admin
+ * gate. The same as the autolink's but a person's act: no reason is recorded on the chat.
+ */
+export async function linkUserChatToRecord(
+  deps: { repos: Repos; adapter: LinkableAdapter; now?: () => Date },
+  actor: HumanActor,
+  input: { project: string; client: AutolinkClient; chatId: string; title?: string },
+): Promise<{ clientId: number; identifierId: number; imported: number; importError: string | null }> {
+  assertHuman(actor);
+  await deps.repos.projects.requireProject(input.project);
+  const email = normalizeIdentifier("email", input.client.email);
+  const clientId = (await deps.repos.clients.idByEmail(input.project, email)) ?? (await deps.repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
+  const r = await linkAndImport(deps, { project: input.project, clientId, chatId: input.chatId, ...(input.title ? { title: input.title } : {}) });
+  return { clientId, ...r };
 }

@@ -32,6 +32,7 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   messenger_accounts: "messengers",
   messenger_chats: "messengers",
   messenger_drafts: "messengers",
+  messenger_link_refusals: "messengers",
   messenger_messages: "messengers",
   project_addresses: "projects",
   project_questions: "projects",

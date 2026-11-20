@@ -15,6 +15,10 @@ export type KnowledgeSource = "files";
 export const SEND_MODES = ["draft", "auto"] as const;
 export type SendMode = (typeof SEND_MODES)[number];
 
+/** `messengers.autolink` (P84): `on` (default for a new project) or `off`. */
+export const AUTOLINK_MODES = ["on", "off"] as const;
+export type AutolinkMode = (typeof AUTOLINK_MODES)[number];
+
 export const MODULES = ["mail", "calendar", "knowledge", "filters", "notion", "bulk", "sequences"] as const;
 export const Module = z.enum(MODULES);
 export type Module = z.infer<typeof Module>;
@@ -93,6 +97,11 @@ export const ProjectBase = z.object({
   /** P62: Google Drive connectors (`gdrive-<label>`) attached to this project, and the folders a search stays under (empty: none). */
   drive: z.object({ connector: z.array(z.string()).default([]), folder: z.array(z.string()).default([]) }).default({ connector: [], folder: [] }),
   knowledge: z.object({ source: z.literal("files").default("files"), scope: z.enum(KNOWLEDGE_SCOPES).default("shared") }).default({ source: "files", scope: "shared" }),
+  /**
+   * P84 (decision 0036 point 3 as amended 2026-11-20): `autolink` on, the Hub links a private chat of a connected Telegram account or
+   * WhatsApp number by itself when its phone or username equals the identifier of exactly one client record; off, it only suggests.
+   */
+  messengers: z.object({ autolink: z.enum(AUTOLINK_MODES).default("on") }).default({ autolink: "on" }),
   /**
    * What the hub may send (decision 0011). The agent has no send tool in any mode; `hub send` is the only sender.
    * `draft`: nothing is sent unless a person runs `hub send` (or presses Send in the admin). `auto`: `hub send --due`

@@ -37,7 +37,8 @@ describe("migration 0003 tables", () => {
       .all()
       .map((r: { name: string }) => r.name)
       .sort();
-    expect(names).toEqual(["client_identifiers", "messenger_accounts", "messenger_chats", "messenger_drafts", "messenger_messages"]);
+    // `messenger_link_refusals` since 0028 (P84): "never link this chat", a hash per row.
+    expect(names).toEqual(["client_identifiers", "messenger_accounts", "messenger_chats", "messenger_drafts", "messenger_link_refusals", "messenger_messages"]);
   });
 });
 

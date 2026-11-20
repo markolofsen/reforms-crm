@@ -57,6 +57,8 @@ export const messengerChatDto = z.strictObject({
   /** The newest stored message is the client's: a reply is owed. */
   owed: z.boolean(),
   draft: messengerDraftDto.nullable(),
+  /** P84: why the Hub linked the chat by itself ("phone matches the client"), or null when the owner linked it. */
+  autolinked: z.string().nullable(),
 });
 export type MessengerChatDto = z.infer<typeof messengerChatDto>;
 

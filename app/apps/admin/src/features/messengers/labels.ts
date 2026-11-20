@@ -1,6 +1,7 @@
 import { REPLY_MODE_LABELS } from "@hub/config/chat-rules";
 import { phrase } from "@hub/contract/help";
 import type { MessengerChannelDto, MessengerChatDto, MessengerSendPreviewDto, MessengerView } from "@hub/contract/messenger-panel";
+import type { RecentDialogDto } from "@hub/contract/messengers";
 
 // The Messengers section's words (P71 M3), pure so a test holds them (`ui-specifications.md` rule 3).
 
@@ -45,4 +46,40 @@ export function noDraftLine(c: MessengerChatDto, project: string): string | null
   if (c.rules.replyMode === "off") return "A reply is owed. The agent never drafts here (this chat's rule).";
   if (c.rules.replyMode === "on_request") return "A reply is owed. The agent drafts here only when you ask for this chat in a session.";
   return `A reply is owed and no draft yet: say “${phrase("triage-messages", project)}” in a session.`;
+}
+
+// ---- P84: chats link themselves (decision 0036 point 3 as amended 2026-11-20)
+
+/** Why a seen dialog was not linked by itself, in the owner's words. */
+export function whyLine(r: Pick<RecentDialogDto, "why" | "by" | "candidates">): string {
+  const by = r.by === "username" ? "username" : "phone";
+  const n = r.candidates.length;
+  switch (r.why) {
+    case "ambiguous":
+      return `Its ${by} belongs to ${n} clients: pick the right one.`;
+    case "no_email":
+      return `Its ${by} matches a client with no email in Notion: add one, or link it here.`;
+    case "off":
+      return `Its ${by} matches this client. Autolink is off for this project, so it waits for your Link.`;
+    case "failed":
+      return `Its ${by} matches this client, but the link was refused (the number may be another client's already).`;
+    case "none":
+      return "No client in Notion has its phone or username.";
+  }
+}
+
+/** The account row's sentence after its "Connected" badge (Messengers ▸ Settings): what the Hub reads of a connected account. */
+export const readsLine = (linked: number): string => `· reads only chats linked to a client (${linked} linked)`;
+
+/** The Chats empty state's opening: both accounts named, and why nothing shows. */
+export function emptyLine(o: { telegram: boolean; whatsapp: boolean; enabled: boolean; withIdentifier: number; directoryReady: boolean }): string {
+  const names = [o.telegram ? "your Telegram account" : null, o.whatsapp ? "your WhatsApp number" : null].filter((x): x is string => x !== null);
+  if (names.length === 0) return "No Telegram account or WhatsApp number is connected: connect one on Messengers ▸ Settings.";
+  const who = names.join(" and ");
+  const how = !o.directoryReady
+    ? "The client list from Notion is not read yet, so nothing can be matched."
+    : o.enabled
+      ? `A chat links itself when its phone or username equals one of the ${o.withIdentifier} clients in Notion that have one.`
+      : "Autolink is off for this project: a matching chat waits below for your Link.";
+  return `The Hub reads ${who}, but only the chats linked to a client: no other chat is stored. ${how}`;
 }

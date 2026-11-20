@@ -1,5 +1,6 @@
 import { AdapterError, type InboundMessage, type MessengerAdapter, type PollBatch, type PollOptions, type SendingAdapter, type SentReceipt } from "./adapter";
 import { isConfirmed, type ConfirmedDraft } from "./confirmed";
+import type { DialogIdentity } from "./autolink";
 import { redact } from "./poller";
 import { IMPORT_LIMIT, QUEUE_MAX, type UserDialog } from "./telegram-user";
 import type { WaAuthFiles } from "./whatsapp-auth";
@@ -132,6 +133,8 @@ export interface WhatsAppOptions {
   account: string;
   /** The chat ids on the allow-list of this channel, read before each poll so a link or unlink applies within one poll. */
   allowedChats: () => Promise<string[]>;
+  /** P84: told the identity (number, name; never the text) of each private chat seen that is not linked. See `TelegramUserOptions`. */
+  onUnlinked?: (d: DialogIdentity) => void;
   queueMax?: number;
   openMs?: number;
   historyMs?: number;
@@ -200,6 +203,14 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       if (m.chatId === self) continue;
       note(m.chatId, { newest: { id: m.id, fromMe: m.fromMe, at: m.at } });
       const msg = toWaInbound(m, account);
+      if (msg && !allowed.has(msg.chatId)) {
+        // P84: the chat's number and name (never its text) go to the autolink matcher.
+        try {
+          o.onUnlinked?.({ chatId: msg.chatId, title: directory.get(msg.chatId)?.name ?? msg.chatId, phone: msg.chatId, username: null });
+        } catch {
+          // The matcher's failure never stops the receiver.
+        }
+      }
       // An unlinked chat stops here: its text is not kept, counted or written (0036 point 3).
       if (!msg || !allowed.has(msg.chatId)) continue;
       const list = byChat.get(msg.chatId) ?? [];

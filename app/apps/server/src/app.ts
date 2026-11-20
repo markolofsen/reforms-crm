@@ -35,6 +35,8 @@ import { TELEGRAM_USER_OFF, type TelegramUserHandle } from "./telegram-user";
 import { messengerRoutes } from "./routes/messengers";
 import { telegramUserRoutes } from "./routes/telegram-user";
 import { whatsappRoutes } from "./routes/whatsapp";
+import { autolinkRoutes } from "./routes/autolink";
+import type { ProjectAutolink } from "./autolink-setup";
 import { WHATSAPP_OFF, type WhatsAppHandle } from "./whatsapp";
 import { SENT_OFF, type SentStatus } from "./sent";
 import { createOverview, type OverviewService } from "./overview";
@@ -62,6 +64,8 @@ export type AppOptions = {
   telegramUser?: TelegramUserHandle;
   /** P71 M5: the WhatsApp linked devices' supervisor (health, the pairing, the picker, the link); without it those routes are 404. */
   whatsapp?: WhatsAppHandle;
+  /** P84: the autolink of chats to client records (its state, preview, Link, Unlink and Never link routes). */
+  autolink?: ProjectAutolink;
   sent?: () => SentStatus;
   /** Tests: the Overview with its own project folder and zone. */
   overview?: { projectsDir?: string; service?: OverviewService; timeZone?: string };
@@ -203,6 +207,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", autostartRoutes(opts.autostart, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", telegramUserRoutes(repos, opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", whatsappRoutes(repos, opts.whatsapp, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
+    .route("/", autolinkRoutes(repos, opts.autolink, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", messengerRoutes(repos, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
 }
 

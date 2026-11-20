@@ -11,7 +11,7 @@ import { useTelegramUser } from "./use-telegram";
  * its risk sentence. When the server keeps Telegram accounts off (`HUB_MESSENGERS=off`, several projects) its reason is the one
  * line above the form; the form still drives the routes, and the server's refusal lands in the form's alert.
  */
-export function TelegramAccount() {
+export function TelegramAccount({ linked }: { linked?: number }) {
   const q = useTelegramUser();
   if (q.isPending) return <Skeleton className="h-24 w-full rounded-xl" />;
   if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the Telegram account" />;
@@ -22,6 +22,7 @@ export function TelegramAccount() {
         {d.accounts.map((a) => (
           <AccountRow
             a={a}
+            linked={linked}
             disconnect={telegramUserApi.disconnect}
             key={a.account}
             label={`Telegram account ${a.account}`}

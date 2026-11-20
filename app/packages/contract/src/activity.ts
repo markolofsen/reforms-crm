@@ -6,10 +6,13 @@ import { z } from "zod";
  * timeline is not grouped by it. The outcome and the reason are in the row; nothing hides behind a Details click.
  */
 
-/** What happened to the client, in the owner's words. `updated`: a saved revision of an open draft (`action: "update"`). */
-export const ACTIVITY_OUTCOMES = ["drafted", "updated", "skipped", "escalated", "flagged"] as const;
+/**
+ * What happened to the client, in the owner's words. `updated`: a saved revision of an open draft (`action: "update"`). `linked`
+ * (P84): the Hub linked the client's chat by itself on an exact identifier; the row's `why` says which ("phone matches the client").
+ */
+export const ACTIVITY_OUTCOMES = ["drafted", "updated", "skipped", "escalated", "flagged", "linked"] as const;
 export type ActivityOutcome = (typeof ACTIVITY_OUTCOMES)[number];
-export const ACTIVITY_OUTCOME_LABELS: Record<ActivityOutcome, string> = { drafted: "Drafted", updated: "Updated the draft", skipped: "Skipped", escalated: "Escalated", flagged: "Flagged" };
+export const ACTIVITY_OUTCOME_LABELS: Record<ActivityOutcome, string> = { drafted: "Drafted", updated: "Updated the draft", skipped: "Skipped", escalated: "Escalated", flagged: "Flagged", linked: "Linked a chat" };
 
 /** The views of the View menu, by outcome: Needs you is escalated and flagged, Drafts is drafted and updated. */
 export const ACTIVITY_VIEWS = ["all", "needs_you", "drafts", "skipped"] as const;

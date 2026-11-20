@@ -13,6 +13,7 @@ import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
 import { paths } from "@/routes/paths";
 import { ChatRow } from "./chat-row";
+import { UnlinkedChats } from "./unlinked/unlinked-chats";
 import { VIEW_LABEL, VIEW_ORDER } from "./labels";
 import { useChatActions } from "./use-chat-actions";
 
@@ -57,10 +58,13 @@ export function ChatsView({ project, filter }: { project: string; filter: View }
   ) : !d ? (
     <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the chats" />
   ) : d.counts.all === 0 ? (
-    <EmptyState title="No linked chats yet">
-      Only the chats you link to a client reach the Hub. Link one on{" "}
-      <AppLink to={paths.messengers.settings()}>Messengers ▸ Settings</AppLink>.
-    </EmptyState>
+    <div className="flex flex-col gap-6">
+      <EmptyState title="No linked chats yet">
+        Only the chats linked to a client reach the Hub. The accounts and the rules of each linked chat are on{" "}
+        <AppLink to={paths.messengers.settings()}>Messengers ▸ Settings</AppLink>.
+      </EmptyState>
+      <UnlinkedChats intro project={project} />
+    </div>
   ) : d.chats.length === 0 ? (
     <EmptyState action={<ActionButton onClick={() => setFilter("all")} size="s" variant="secondary">Show all chats</ActionButton>} title="Nothing waits">
       No draft to read and no chat where the client wrote last.
@@ -78,6 +82,7 @@ export function ChatsView({ project, filter }: { project: string; filter: View }
         </p>
       )}
       {q.isError && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
+      <UnlinkedChats intro={false} project={project} />
     </>
   );
   return (

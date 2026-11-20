@@ -40,6 +40,10 @@ export const keys = {
   messengerChats: (project: string, view: string) => ["messenger-chats", project, view] as const,
   /** Every view of one project's panel: what an Edit, a Skip or a rules change reads again. */
   messengerChatsOf: (project: string) => ["messenger-chats", project] as const,
+  /** P84: the autolink's state (in memory on the server): under the panel's prefix, so a link or an unlink reads it again. */
+  autolink: (project: string) => ["messenger-chats", project, "autolink"] as const,
+  /** P84: a lookup of the Notion client records for one unlinked chat's Link (two or more characters). */
+  autolinkRecords: (project: string, q: string) => ["messenger-chats", project, "autolink", "records", q] as const,
   telegramUser: () => ["telegram-user"] as const,
   /** P71 M5: the WhatsApp linked devices (instance-wide, ride in health), and one pairing's state while its QR code shows. */
   whatsapp: () => ["whatsapp"] as const,

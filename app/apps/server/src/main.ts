@@ -11,7 +11,9 @@ import { projectsRoot } from "./project-overview";
 import { allowListOf, configFile, createServerMailer } from "./send/mailer";
 import { startMessengers } from "./messengers";
 import { startTelegramUser } from "./telegram-user";
-import { startWhatsApp } from "./whatsapp";
+import { startWhatsApp, type WhatsAppHandle } from "./whatsapp";
+import type { TelegramUserHandle } from "./telegram-user";
+import { startProjectAutolink } from "./autolink-setup";
 import { startPurge } from "./purge";
 import { startSentReconciler } from "./sent";
 import { chooseShell, createTerminal, serverDetector } from "./terminal";
@@ -42,12 +44,29 @@ const purge = startPurge({ repos, log: (l) => console.log(l) });
 // The messengers poller runs only when a bot token file exists; it only receives. Its state is part of /api/health.
 const messengers = await startMessengers({ repos });
 console.log(`messengers: ${messengers.status().state}${messengers.status().reason ? ` (${messengers.status().reason})` : ""}`);
+// P84: the autolink of chats to client records (the Notion clients read into memory, `messengers.autolink` read from project.md). The
+// adapters tell it only who an unlinked chat is (never a text); the handles are bound once they exist.
+const handles: { tg?: TelegramUserHandle; wa?: WhatsAppHandle } = {};
+const linker = await startProjectAutolink({
+  repos,
+  adapterOf: (channel, account) => (channel === "telegram_user" ? handles.tg?.adapter(account) : handles.wa?.adapter(account)),
+  accounts: () => [
+    ...(handles.tg?.status().accounts.filter((a) => a.state === "running").map((a) => ({ channel: "telegram_user" as const, account: a.account })) ?? []),
+    ...(handles.wa?.status().accounts.filter((a) => a.state === "running").map((a) => ({ channel: "whatsapp" as const, account: a.account })) ?? []),
+  ],
+});
 // P71: the Telegram user accounts, one connection per session under state/secrets/sessions/. The line counts accounts, never names one.
-const telegramUser = await startTelegramUser({ repos });
+const telegramUser = await startTelegramUser({
+  repos,
+  onUnlinked: (account, d) => linker.autolink.seen("telegram_user", account, d, true),
+  onConnected: (account) => void linker.autolink.scan("telegram_user", account).catch(() => undefined),
+});
+handles.tg = telegramUser;
 const tgStatus = telegramUser.status();
 console.log(`telegram user accounts: ${tgStatus.state === "on" ? `${tgStatus.accounts.length} connected` : `off (${tgStatus.reason ?? ""})`}`);
 // P71 M5: the WhatsApp linked devices, one socket per folder under state/secrets/sessions/. The line counts numbers, never names one.
-const whatsapp = await startWhatsApp({ repos });
+const whatsapp = await startWhatsApp({ repos, onUnlinked: (account, d) => linker.autolink.seen("whatsapp", account, d, true) });
+handles.wa = whatsapp;
 const waStatus = whatsapp.status();
 console.log(`whatsapp linked devices: ${waStatus.state === "on" ? `${waStatus.accounts.length} connected` : `off (${waStatus.reason ?? ""})`}`);
 
@@ -97,7 +116,7 @@ const focus = createFocusStore({ file: paths.focus });
 const opener = chooseOpener(process.env, paths, throwawayDbNamed(process.env));
 const local = { deps: localOpenDeps(repos, paths), run: opener.run, available: localOpenAvailable(opener.kind) };
 console.log(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens, each argv goes to state/opener.jsonl" : `open: ${local.available ? "on (/usr/bin/open, the admin page only)" : "off (not macOS): the Open buttons are hidden"}`);
-const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
+const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);
@@ -119,6 +138,7 @@ onShutdown({
   stop: async () => {
     live.stop();
     purge.stop();
+    linker.stop();
     coreUpdates.stop();
     sent.stop();
     terminal.stop();

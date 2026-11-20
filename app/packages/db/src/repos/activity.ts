@@ -8,10 +8,11 @@ import { agentEvents, clients, drafts, inboxRows } from "../schema";
 // errors) are the session log's (`hub log`), not this screen's. The outcome and the reason are read from the event's detail.
 // Read only.
 
-export type ActivityOutcome = "drafted" | "updated" | "skipped" | "escalated" | "flagged";
+export type ActivityOutcome = "drafted" | "updated" | "skipped" | "escalated" | "flagged" | "linked";
 /** The views of the View menu, by outcome: Needs you is escalated and flagged, Drafts is drafted and updated. */
 export type ActivityView = "all" | "needs_you" | "drafts" | "skipped";
-const VIEW_OF: Record<ActivityOutcome, Exclude<ActivityView, "all">> = { drafted: "drafts", updated: "drafts", skipped: "skipped", escalated: "needs_you", flagged: "needs_you" };
+// A chat the Hub linked by itself (P84, outcome `linked`) is in All only.
+const VIEW_OF: Record<ActivityOutcome, Exclude<ActivityView, "all"> | null> = { drafted: "drafts", updated: "drafts", skipped: "skipped", escalated: "needs_you", flagged: "needs_you", linked: null };
 
 export interface ActivityRow {
   id: number;
@@ -49,7 +50,7 @@ const str = (v: unknown) => (typeof v === "string" && v.trim() !== "" ? v.trim()
 const int = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : null);
 
 /** The client decisions a session records, in the owner's words. */
-const OUTCOME: Record<string, ActivityOutcome> = { drafted: "drafted", create: "drafted", update: "updated", skipped: "skipped", escalated: "escalated", injection_suspected: "flagged" };
+const OUTCOME: Record<string, ActivityOutcome> = { drafted: "drafted", create: "drafted", update: "updated", skipped: "skipped", escalated: "escalated", injection_suspected: "flagged", linked: "linked" };
 
 /** The outcome of an event, or null for one that is not a client decision. A draft line with no action is a draft made. */
 export function outcomeOf(kind: string, d: Detail): ActivityOutcome | null {
@@ -111,7 +112,10 @@ export async function timelineOf(db: Db, project: string, q: TimelineQuery = {})
   const scoped = q.client != null ? resolved.filter((x) => x.client?.id === q.client) : resolved;
 
   const counts: Record<ActivityView, number> = { all: scoped.length, needs_you: 0, drafts: 0, skipped: 0 };
-  for (const x of scoped) counts[VIEW_OF[x.outcome]] += 1;
+  for (const x of scoped) {
+    const v = VIEW_OF[x.outcome];
+    if (v) counts[v] += 1;
+  }
 
   const older = olderThan(q.before);
   const inView = scoped

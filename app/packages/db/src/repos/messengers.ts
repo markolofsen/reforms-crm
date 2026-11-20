@@ -8,6 +8,7 @@ import {
   messengerAccounts,
   messengerChats,
   messengerDrafts,
+  messengerLinkRefusals,
   messengerMessages,
   type IdentifierKind,
   type MessengerChannel,
@@ -63,9 +64,10 @@ export function messengersRepo(db: Db) {
   return {
     ...chats,
     // ---- allow-list
-    async allowChat(project: string, channel: MessengerChannel, chatId: string, title?: string | null): Promise<void> {
+    /** Lists a chat; `autolinked` is the reason when the Hub's autolink did it (P84), else the owner did. */
+    async allowChat(project: string, channel: MessengerChannel, chatId: string, title?: string | null, autolinked?: string | null): Promise<void> {
       db.insert(messengerChats)
-        .values({ project, channel, chatId, title: title ?? null })
+        .values({ project, channel, chatId, title: title ?? null, autolinked: autolinked ?? null })
         .onConflictDoUpdate({
           target: [messengerChats.project, messengerChats.channel, messengerChats.chatId],
           set: title ? { title } : { chatId },
@@ -75,6 +77,13 @@ export function messengersRepo(db: Db) {
     /** Takes the chat off the allow-list with its stored messages and drafts, in one transaction (`unlinkChat`). Returns whether it was listed. */
     async disallowChat(project: string, channel: MessengerChannel, chatId: string): Promise<boolean> {
       return (await chats.unlinkChat(project, channel, chatId)).removed;
+    },
+    // ---- "never link this chat" (P84): hashes only, made by the server's autolink from a key under state/secrets
+    async refuseLink(project: string, channel: MessengerChannel, hash: string): Promise<void> {
+      db.insert(messengerLinkRefusals).values({ project, channel, hash }).onConflictDoNothing().run();
+    },
+    async linkRefusals(project: string): Promise<{ channel: MessengerChannel; hash: string }[]> {
+      return db.select({ channel: messengerLinkRefusals.channel, hash: messengerLinkRefusals.hash }).from(messengerLinkRefusals).where(eq(messengerLinkRefusals.project, project)).all();
     },
     async isAllowed(project: string, channel: MessengerChannel, chatId: string): Promise<boolean> {
       return !!db

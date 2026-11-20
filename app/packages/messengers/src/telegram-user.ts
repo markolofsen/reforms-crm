@@ -1,5 +1,6 @@
 import { AdapterError, type InboundMessage, type MessengerAdapter, type PollBatch, type PollOptions, type SendingAdapter, type SentReceipt } from "./adapter";
 import { isConfirmed, type ConfirmedDraft } from "./confirmed";
+import type { DialogIdentity } from "./autolink";
 import { redact } from "./poller";
 
 /**
@@ -131,8 +132,16 @@ export interface TelegramUserOptions {
   account: string;
   /** The chat ids on the allow-list of this channel, read before each poll so a link or unlink applies within one poll. */
   allowedChats: () => Promise<string[]>;
+  /**
+   * P84: told the identity (chat id, name, phone, username; never the text) of each inbound message of a private chat that is not
+   * linked, before it is dropped. The autolink matcher listens here; nothing of the chat is kept by the adapter.
+   */
+  onUnlinked?: (d: DialogIdentity) => void;
   queueMax?: number;
 }
+
+/** Telegram gives a phone as international digits without `+`. */
+export const telegramPhone = (p: string | null): string | null => (p ? (p.startsWith("+") ? p : `+${p}`) : null);
 
 export interface TelegramUserAdapter extends MessengerAdapter {
   readonly channel: "telegram_user";
@@ -175,6 +184,14 @@ export function createTelegramUserAdapter(o: TelegramUserOptions): TelegramUserS
   };
   const onMessage = (m: MtMessage) => {
     const msg = toUserInbound(m, account);
+    if (msg && !allowed.has(msg.chatId) && msg.direction === "in" && m.chat.type === "user") {
+      // P84: only who wrote (never what) goes to the autolink matcher, which keeps it in memory.
+      try {
+        o.onUnlinked?.({ chatId: msg.chatId, title: m.chat.displayName, phone: telegramPhone(m.chat.phoneNumber), username: m.chat.username });
+      } catch {
+        // The matcher's failure never stops the receiver.
+      }
+    }
     // An unlinked chat stops here: nothing is counted, kept or written (0036 point 3).
     if (!msg || !allowed.has(msg.chatId)) return;
     if (queue.length >= max) {
@@ -236,7 +253,7 @@ export function createTelegramUserAdapter(o: TelegramUserOptions): TelegramUserS
 
     async dialogs(limit: number) {
       try {
-        return (await client.dialogs(limit)).filter(isPerson).map((d) => ({ chatId: String(d.id), title: d.displayName, username: d.username, phone: d.phoneNumber }));
+        return (await client.dialogs(limit)).filter(isPerson).map((d) => ({ chatId: String(d.id), title: d.displayName, username: d.username, phone: telegramPhone(d.phoneNumber) }));
       } catch (err) {
         throw toUserAdapterError(err);
       }
