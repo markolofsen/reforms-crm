@@ -1,4 +1,4 @@
-import { MARKS, NOTION_KINDS, SEQUENCE_SKILL } from "@hub/config";
+import { MARKS, newThreadKey, NOTION_KINDS, SEQUENCE_SKILL } from "@hub/config";
 import { createRepos, defaultDbPath, openDb, RepoError, type RecordDraftInput } from "@hub/db";
 import { checkContext, contextMode, contextSchema, judgeSimilarity, measureAgainstSet, observeDraft, SIM_AMBER, type Context, type ContextMode, type Evidence, type LedgerEntry, type PriorRecord, type Violation, checkDraftRecipients, kindOf, loadProject } from "@hub/projects";
 import { appendLine, latestSession, readLines, recordsFile } from "./evidence-store";
@@ -41,7 +41,10 @@ export const recordInput = z
     email: z.string().trim().max(320).email(),
     name: text(200).optional(),
     subject: text(300),
-    mailRef: text(500),
+    /** The Message-ID of the message the draft answers. Left out only for a new thread (`newThread`). */
+    mailRef: text(500).optional(),
+    /** P85b: the draft is a new message to a client with no thread at all (it answers nothing); needs `ownerRequest`. */
+    newThread: z.literal(true).optional(),
     to: text(320).nullish(),
     cc: text(1000).nullish(),
     reason: text(1500).nullish(),
@@ -165,7 +168,7 @@ async function previousRevision(dbPath: string, project: string, email: string, 
     const clientId = await repos.clients.idByEmail(project, email.trim());
     if (clientId === undefined) return null;
     const client = await repos.clients.get(project, clientId);
-    const hit = (await repos.drafts.ofClient(project, clientId)).find((d) => (d.status === "ready" || d.status === "hold") && bare(d.mailRef) === bare(mailRef));
+    const hit = (await repos.drafts.ofClient(project, clientId)).find((d) => (d.status === "ready" || d.status === "hold") && bare(d.mailRef ?? (d.context?.includes('"newThread":true') ? newThreadKey(email) : "")) === bare(mailRef));
     if (!hit) return null;
     const ctx = hit.context ? contextSchema.safeParse(JSON.parse(hit.context)) : null;
     const kind = NOTION_KINDS.find((k) => k === hit.notionKind);
@@ -233,10 +236,15 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
     return fail(2, parsed.error.issues.map((i) => `${i.path.join(".") || "payload"}: ${i.message}`).join("; "));
   }
   const given = parsed.data;
+  // P85b: a reply names the message it answers; a new thread names none and is written only on the owner's words.
+  if (!given.mailRef === !given.newThread) return fail(2, 'give mailRef (the Message-ID of the message answered) or "newThread":true (a new message to a client with no thread), exactly one');
+  if (given.newThread && !given.ownerRequest?.trim()) return fail(2, "a new thread is recorded only with ownerRequest: the owner's own words that asked for it");
+  /** The key of re-runs: the answered message, or the client's new-thread key. */
+  const ref = given.mailRef ?? newThreadKey(given.email);
   // P52: a revision of the client's open draft (same mailRef) keeps what the agent did not restate: the client's name,
   // the context block of the draft it revises (what was read before it), the Notion link, recipients, reason and class.
   // The session that revises need not rebuild the evidence; an inherited block is not compared with this session's reads.
-  const prev = await previousRevision(o.dbPath ?? defaultDbPath(), project.data, given.email, given.mailRef, o.ledgerRoot ? readLines<RecordLine>(recordsFile(o.ledgerRoot, project.data)) : []);
+  const prev = await previousRevision(o.dbPath ?? defaultDbPath(), project.data, given.email, ref, o.ledgerRoot ? readLines<RecordLine>(recordsFile(o.ledgerRoot, project.data)) : []);
   const nameGiven = given.name && given.name.trim().toLowerCase() !== given.email.trim().toLowerCase() ? given.name : undefined;
   const inherited = !given.context && prev?.context ? prev.context : undefined;
   const v = {
@@ -255,7 +263,8 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
     email: v.email,
     name: v.name ?? v.email,
     subject: v.subject,
-    mailRef: v.mailRef,
+    mailRef: v.mailRef ?? null,
+    ...(v.newThread ? { newThread: true } : {}),
     to: v.to ?? null,
     cc: v.cc ?? null,
     reason: v.reason ?? null,
@@ -345,7 +354,7 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
       const r = await createRepos(handle.db).drafts.record(input);
       if (o.ledgerRoot) {
         try {
-          const line: RecordLine = { at: (o.now?.() ?? new Date()).toISOString(), ...(v.context?.batchKey ? { batchKey: v.context.batchKey } : {}), email: emailKey, name: v.name ?? v.email, mailRef: v.mailRef, draftId: r.draftId, evidence, source, warnings, ...(v.context ? { context: v.context } : {}), ...(fp ? { fp } : {}), ...(draftHash ? { draftHash } : {}), ...(observed ? { observed } : {}) };
+          const line: RecordLine = { at: (o.now?.() ?? new Date()).toISOString(), ...(v.context?.batchKey ? { batchKey: v.context.batchKey } : {}), email: emailKey, name: v.name ?? v.email, mailRef: ref, draftId: r.draftId, evidence, source, warnings, ...(v.context ? { context: v.context } : {}), ...(fp ? { fp } : {}), ...(draftHash ? { draftHash } : {}), ...(observed ? { observed } : {}) };
           appendLine(recordsFile(o.ledgerRoot, project.data), line);
         } catch { /* the ledger is evidence, not a precondition: the draft is recorded */ }
       }

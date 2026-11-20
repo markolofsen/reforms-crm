@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { adoptable, type Adoption, type MailVersionRow, type MailWriteRow } from "@hub/db";
 import { replyFrom, type ReplyFrom } from "@hub/projects";
+import { WRITE_NEW_SCRIPT, type NewDraftInput } from "./new-thread";
+export { isNewThreadDraft, isNewThreadKey, newThreadKey, WRITE_NEW_SCRIPT, type NewDraftInput } from "./new-thread";
 
 // The hub's draft writer (P52, decision 0030; decision 0031 for what it no longer writes): an unsent reply saved in
 // Mail's Drafts, written by the `hub` MCP server (outside the agent's sandbox) through Mail's own scripting, with no
@@ -62,6 +64,9 @@ export const WRITE_ADVICE: Readonly<Record<string, RetryAdvice>> = {
   no_message: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that the client's message is no longer in Mail.` },
   no_account: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that Mail has no such account (Settings ▸ Mail).` },
   mail_error: { retry: "no", next: `${NO_RETRY} Tell the owner in one line what Mail answered.` },
+  has_thread: { retry: "now", next: "A thread with this client exists: one draft_write as a new reply to the newest message of that thread (ours in Sent, or theirs), with owner_request = his words." },
+  do_not_contact: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that this client is marked do not contact.` },
+  owner_request_needed: { retry: "after_owner", next: "A new thread is written only when the owner asked for it in this session: pass his own words as owner_request, or ask him in one line." },
 };
 /**
  * P83 verdict 2: a sent draft is not revised (the agent's draft_write, the admin's Save and Restore). P85: a new message
@@ -154,6 +159,8 @@ export interface InboundMessage {
 
 export interface DraftWriter {
   writeReply(input: ReplyDraftInput): Promise<ReplyDraftResult>;
+  /** P85b: an unsent NEW message (a new thread: it answers nothing) to one client, saved in Drafts. Absent: a new thread is refused. */
+  writeNew?(input: NewDraftInput): Promise<ReplyDraftResult>;
   /** The message with this Message-ID in one of these accounts (INBOX first, then the other mailboxes, Sent included (P85), but Drafts, Trash and Spam), or null. */
   findInbound(accounts: readonly string[], messageId: string): Promise<InboundMessage | null>;
   /**
@@ -721,6 +728,17 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
       });
       return parseWriteOutput(out);
     },
+    async writeNew(i) {
+      const body = i.body.trimEnd();
+      if (!body.trim()) throw new DraftWriteError("empty", "The message has no text.");
+      const targets = (i.replace ?? []).map((v) => `${v.account}${PS}${v.messageId.trim().replace(/^<|>$/g, "")}`).join(LS);
+      const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
+      const out = await osa(WRITE_NEW_SCRIPT, [i.account, i.sender ?? "", i.to, i.subject, body, probeOf(body), targets, land, String(i.waitSeconds ?? WRITE_WAIT_SECONDS)]).catch((e: Error) => {
+        if (e instanceof OsaTimeout) throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT);
+        return fail(e);
+      });
+      return parseWriteOutput(out);
+    },
     async threadDrafts(accounts, thread, subject) {
       const id = thread.trim().replace(/^<|>$/g, "");
       if (!id || accounts.length === 0) return [];
@@ -806,6 +824,20 @@ export class FakeDraftWriter implements DraftWriter {
     this.drafts = this.drafts.filter((d) => !older.includes(d));
     return { draftId: id, messageId, text: body, subject, thread, from: i.sender ?? i.account, replaced: older.map((d) => d.messageId), left: [], savedIn: i.account, shell: "" };
   }
+  /** P85b: what the fake was asked for each new thread (the client's address). */
+  newTo: string[] = [];
+  async writeNew(i: NewDraftInput): Promise<ReplyDraftResult> {
+    const body = i.body.trimEnd();
+    if (!body.trim()) throw new DraftWriteError("empty", "The message has no text.");
+    const id = this.next++;
+    const messageId = `draft-${id}@hub.test`;
+    const wanted = new Set((i.replace ?? []).map((x) => `${x.account}\u0000${x.messageId.toLowerCase()}`));
+    const older = this.drafts.filter((d) => wanted.has(`${d.account}\u0000${d.messageId.toLowerCase()}`));
+    this.newTo.push(i.to);
+    this.drafts.push({ id, messageId, account: i.account, thread: "", subject: i.subject, text: body, quote: "keep", from: i.sender ?? i.account });
+    this.drafts = this.drafts.filter((d) => !older.includes(d));
+    return { draftId: id, messageId, text: body, subject: i.subject, thread: "", from: i.sender ?? i.account, replaced: older.map((d) => d.messageId), left: [], savedIn: i.account, shell: "" };
+  }
 }
 
 export interface ReviseInput {
@@ -815,8 +847,10 @@ export interface ReviseInput {
   sender: string | null;
   /** The address the client wrote to when no `sign` resolves it from the headers (a person's Save: the draft row's `wrote_to`). */
   clientWroteTo?: string | null;
-  /** The hub draft's `mailRef`: the Message-ID of the message it answers. */
-  mailRef: string;
+  /** The hub draft's `mailRef`: the Message-ID of the message it answers; null for a new thread (P85b, then `newThread`). */
+  mailRef: string | null;
+  /** P85b: the draft is a new thread (it answers nothing): rewritten as a new message to `to` with `subject`, from `from`. */
+  newThread?: { to: string; subject: string; account: string; from: string | null };
   body: string;
   quote: "add" | "keep";
   /** The Hub's recorded versions of this draft still in Drafts (`mail_versions`, not trashed): each is replaced in its own account. */
@@ -847,10 +881,10 @@ const quietly = async <T>(p: () => Promise<T>): Promise<T | null> => {
 };
 
 /** One write through the writer, recorded in `log` first (P65 S5): a `mail_slow` write keeps its open row, with the shell's hash. */
-export async function writeRecorded(writer: DraftWriter, input: ReplyDraftInput, log?: WriteLog): Promise<ReplyDraftResult> {
+export async function writeRecorded(writer: DraftWriter, input: ReplyDraftInput | ({ kind: "new" } & NewDraftInput), log?: WriteLog): Promise<ReplyDraftResult> {
   const id = log ? await quietly(() => log.start(input.body.trimEnd())) : null;
   try {
-    const r = await writer.writeReply(input);
+    const r = "kind" in input ? await newOf(writer)(input) : await writer.writeReply(input);
     if (log && id !== null) {
       await quietly(() => log.settle(id, { mailId: r.draftId, messageId: r.messageId }));
       if (r.shell) await quietly(() => log.shell(id, r.shell));
@@ -861,6 +895,12 @@ export async function writeRecorded(writer: DraftWriter, input: ReplyDraftInput,
     throw e;
   }
 }
+
+/** The writer's new-thread write, or the refusal when this writer has none. */
+const newOf = (writer: DraftWriter) => (i: NewDraftInput): Promise<ReplyDraftResult> => {
+  if (!writer.writeNew) throw new DraftWriteError("unavailable", "This Mail writer cannot write a new message.");
+  return writer.writeNew(i);
+};
 
 /**
  * The thread's drafts that are the Hub's own late saves, not yet recorded (decision 0031 addendum point 2): read from
@@ -912,6 +952,13 @@ export async function fromFor(writer: DraftWriter, inbound: InboundMessage, clie
  * account Mail saved it in (`savedIn`: the From's account, P65 S5).
  */
 export async function reviseDraft(writer: DraftWriter, i: ReviseInput): Promise<Revision> {
+  if (i.newThread) {
+    // P85b: a new thread answers nothing: the revision is a new message to the same client, replacing the recorded versions.
+    const n = i.newThread;
+    const r = await writeRecorded(writer, { kind: "new", account: n.account, sender: n.from, to: n.to, subject: n.subject, body: i.body, replace: i.versions, landIn: i.accounts }, i.log);
+    return { ...r, replyTo: 0, account: r.savedIn || n.account, fromReason: null, clientWroteTo: null };
+  }
+  if (!i.mailRef) throw new DraftWriteError("no_thread", "This draft answers no Mail message and is not a new thread, so it cannot be revised here. Nothing was written.");
   const found = await writer.findInbound(i.accounts, i.mailRef);
   if (!found) throw new DraftWriteError("no_message", `The message this draft answers (Message-ID ${i.mailRef}) is not in ${i.accounts.join(", ") || "this project's accounts"}: it may have been deleted. Nothing was written.`);
   const signed = i.sign ? await i.sign(found, i.body) : null;

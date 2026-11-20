@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { parseProjectMd } from "@hub/projects";
 import { DENIED_TOOLS } from "../src/deny";
-import { ACCOUNT_ADDRESSES_SCRIPT, adviceOf, DraftWriteError, isNotAllowed, FakeDraftWriter, READ_CONTENT_SCRIPT, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
+import { ACCOUNT_ADDRESSES_SCRIPT, adviceOf, DraftWriteError, isNotAllowed, FakeDraftWriter, READ_CONTENT_SCRIPT, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_NEW_SCRIPT, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
 import { appleScriptCompileError, canCompileAppleScript, deleteOfLoopItem } from "../../../test-support/osacompile";
 import { createHubMcpServer, excerptOf, type HubMcpEnv } from "../src/mcp";
 
@@ -31,6 +31,7 @@ describe("the Mail scripts compile (osacompile, no Mail call)", () => {
     ["THREAD_DRAFTS_SCRIPT", THREAD_DRAFTS_SCRIPT],
     ["READ_CONTENT_SCRIPT", READ_CONTENT_SCRIPT],
     ["ACCOUNT_ADDRESSES_SCRIPT", ACCOUNT_ADDRESSES_SCRIPT],
+    ["WRITE_NEW_SCRIPT", WRITE_NEW_SCRIPT],
   ])("%s", (_name, script) => {
     expect(appleScriptCompileError(script)).toBeNull();
     expect(deleteOfLoopItem(script)).toBeNull();
@@ -55,6 +56,9 @@ describe("the Mail scripts compile (osacompile, no Mail call)", () => {
 describe("the Mail script", () => {
   it("never sends, opens no window, activates nothing, pastes nothing, and writes no hub line (decision 0031)", () => {
     expect(WRITE_REPLY_SCRIPT).not.toMatch(/\bsend\b/);
+    // P85b: the new-thread writer only saves too.
+    expect(WRITE_NEW_SCRIPT).not.toMatch(/\bsend\b|activate|keystroke|System Events|clipboard/i);
+    expect(WRITE_NEW_SCRIPT).toMatch(/make new outgoing message with properties \{subject:subj, visible:false\}/);
     expect(WRITE_REPLY_SCRIPT).toMatch(/reply src opening window false/);
     expect(WRITE_REPLY_SCRIPT).not.toMatch(/activate|keystroke|System Events|clipboard/i);
     expect(WRITE_REPLY_SCRIPT).not.toMatch(/hub-draft|marker/);
@@ -369,6 +373,43 @@ describe("draft_write (hub mcp)", () => {
     // A rerun with the same words is the open draft it made: refused, it names that draft.
     expect((await call({ ...args("Hi Ann, again."), owner_request: words })).json.message).toMatch(new RegExp(`revise it with draft=${again.draftId}`));
     expect(await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: message 42", mailRef: w.json.thread, skill: "bulk-drafts", ownerRequest: words })).toMatchObject({ action: "updated", draftId: again.draftId });
+  });
+
+  it("P85b: a new thread to a client with no thread, on the owner's words only: written as a new message, recorded without mailRef, revised in place", async () => {
+    const repos = createRepos(db.db);
+    const mail = new FakeDraftWriter();
+    const call = await connect(mail, undefined, { projectMail: () => ({ accounts: ["desk@acme.example"], sender: "hello@acme.example", identity: { addresses: ["desk@acme.example", "hello@acme.example"], domains: ["acme.example"], signoff: "", brands: [], languages: ["en"] } }) });
+    const fresh = { to: "Bob@Client.example", subject: "New prices", content: "Hi Bob, our new prices." };
+    expect(await call(fresh)).toMatchObject({ isError: true, json: { error: "owner_request_needed" } });
+    expect(await call({ ...fresh, to: "hello@acme.example", owner_request: "write to Bob" })).toMatchObject({ isError: true, json: { error: "not_this_project" } });
+    const words = "write to Bob about the new prices";
+    const w = await call({ ...fresh, owner_request: words });
+    expect(w).toMatchObject({ isError: false, json: { newThread: true, sent: false, subject: "New prices" } });
+    expect(mail.newTo).toEqual(["bob@client.example"]);
+    expect(mail.drafts[0]).toMatchObject({ subject: "New prices", from: "hello@acme.example", thread: "" });
+    expect(w.json.next).toMatch(/"email":"bob@client.example","subject":"New prices","newThread":true,"skill":"bulk-drafts","ownerRequest":"write to Bob about the new prices"/);
+    const [v] = await repos.mailVersions.ofThread("acme", "new:bob@client.example");
+    expect(v).toMatchObject({ draftId: null, messageId: w.json.messageId });
+    // Not recorded yet: a rerun is refused, never a second message.
+    expect(await call({ ...fresh, owner_request: words })).toMatchObject({ isError: true, json: { error: "already_drafted" } });
+    const rec = await repos.drafts.record({ project: "acme", email: "bob@client.example", name: "Bob", subject: "New prices", newThread: true, skill: "bulk-drafts", ownerRequest: words });
+    expect((await repos.drafts.get(rec.draftId))?.mailRef).toBeNull();
+    expect((await repos.mailVersions.ofDraft(rec.draftId)).map((x) => x.id)).toEqual([v?.id]);
+    // The revision is a new message again, replacing the recorded version.
+    const r = await call({ draft: rec.draftId, content: "Hi Bob, our new prices, corrected." });
+    expect(r).toMatchObject({ isError: false });
+    expect(mail.drafts.map((d) => d.text)).toEqual(["Hi Bob, our new prices, corrected."]);
+    // A client the hub already wrote to has a thread: reply to its newest message instead.
+    await repos.drafts.setStatus(rec.draftId, "done");
+    expect(await call({ ...fresh, owner_request: words })).toMatchObject({ isError: true, json: { error: "has_thread" } });
+  });
+
+  it("P85b: a new thread is refused for a client marked do not contact", async () => {
+    const repos = createRepos(db.db);
+    const id = await repos.clients.create({ project: "acme", email: "dnc@client.example", name: "Dee" });
+    await repos.clients.setMarks(id, ["do_not_contact"]);
+    const call = await connect(new FakeDraftWriter());
+    expect(await call({ to: "dnc@client.example", subject: "Hello", content: "Hi", owner_request: "write to Dee" })).toMatchObject({ isError: true, json: { error: "do_not_contact" } });
   });
 
   it("refuses an account outside the project, and refuses without a writer", async () => {

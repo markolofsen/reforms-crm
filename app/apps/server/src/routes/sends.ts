@@ -1,12 +1,13 @@
 import { Hono, type Context } from "hono";
 import type { Repos } from "@hub/db";
-import { assess, sendDraft, type Mailer } from "@hub/send";
-import { idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
-import { sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
+import { assess, BATCH_LIMITS, batchTicketKey, planBatch, sendDraft, type BatchLimits, type Mailer } from "@hub/send";
+import { batchSendBody, batchSendParam, batchTicketBody, idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
+import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
 import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messenger-panel";
 import type { DraftWriter } from "@hub/agent/mail-drafts";
 import { gateRefusal, ticketStore, type TicketStore } from "../admin-gate";
 import { notFound, v } from "../http";
+import { batchRuns, type BatchRuns } from "../send/batch-door";
 import { applyMessenger, assessMessenger, type MessengerSenders } from "../send/messenger-door";
 
 /** What the send routes need from the process: the Mailer, where project.md lives, and `allow_list` for `draft.recipients: test`. */
@@ -25,6 +26,18 @@ export interface SenderOptions {
   writer?: DraftWriter;
   /** Bumps the live topic `mail` of a project after the server wrote one of its Mail drafts, so every open tab reads it again. */
   mailWritten?: (project: string) => void;
+  /** Which Mailer this is; with the fake (the e2e run only) `HUB_BATCH_SPACING_SECONDS` may shorten the batch spacing. */
+  kind?: "mail-app" | "fake";
+  /** P85b: the runs of Send all Checked (tests pass their own, with their own limits). */
+  batchRuns?: BatchRuns;
+  batchLimits?: BatchLimits;
+}
+
+/** The batch guards: the defaults, or (fake Mailer only, so never on a real Mail) a shorter spacing for the e2e run. */
+function limitsOf(sender: SenderOptions): BatchLimits {
+  if (sender.batchLimits) return sender.batchLimits;
+  const env = Number(process.env.HUB_BATCH_SPACING_SECONDS);
+  return sender.kind === "fake" && Number.isInteger(env) && env >= 0 ? { ...BATCH_LIMITS, spacingSeconds: env } : BATCH_LIMITS;
 }
 
 /** A ticket lives 60 s: the person has read the mail and pressed Send; the apply follows at once. */
@@ -43,6 +56,8 @@ const refusal = (refused: string[]) => ({ error: refused.length === 1 ? `Not sen
 export function sendRoutes(repos: Repos, sender?: SenderOptions, messengers?: MessengerSenders) {
   const deps = sender && { repos, mailer: sender.mailer, projectsDir: sender.projectsDir, policyDir: sender.policyDir, allowList: sender.allowList, ...(sender.now ? { now: sender.now } : {}) };
   const tickets = sender?.tickets ?? ticketStore({ ttlMs: TICKET_TTL_MS });
+  const limits = sender ? limitsOf(sender) : BATCH_LIMITS;
+  const runs = sender?.batchRuns ?? batchRuns({ limits });
   const forbidden = (c: Context, why: string) => c.json({ error: `Not sent: ${why}.`, code: "forbidden" as const }, 403);
   /** `*` is every project. */
   const scope = (slug: string) => (slug === "*" ? undefined : slug);
@@ -61,6 +76,48 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions, messengers?: Me
       const draft = await repos.drafts.get(draftId);
       if (!draft || draft.project !== project) return notFound(c, "draft");
       return c.json(sendTicketDto.parse(tickets.mint(`send:${draftId}`)));
+    })
+    // P85b: the ticket of one batch run, bound to the batch and to exactly the drafts and text hashes the person confirmed.
+    .post("/api/sends/batch-tickets", v("json", batchTicketBody), async (c) => {
+      if (!sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
+      const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, sender.adminPort, { sameSite: true });
+      if (why) return forbidden(c, why);
+      const { project, batchId, items } = c.req.valid("json");
+      if (!(await repos.batches.get(project, batchId))) return notFound(c, "batch");
+      return c.json(sendTicketDto.parse(tickets.mint(batchTicketKey(batchId, items))));
+    })
+    // P85b: Send all Checked of one batch. The dry run lists who would get what, and who is held and why; the apply starts one
+    // run of exactly the confirmed drafts (each through the door, one at a time, spaced), which the admin follows and may Stop.
+    .post("/api/projects/:slug/batches/:id/send", v("param", batchSendParam), v("json", batchSendBody), async (c) => {
+      const { slug, id } = c.req.valid("param");
+      const body = c.req.valid("json");
+      if (!deps || !sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
+      if (!(await repos.batches.get(slug, id))) return notFound(c, "batch");
+      if (!body.apply) {
+        const plan = await planBatch(deps, slug, id, limits);
+        if (!plan) return notFound(c, "batch");
+        return c.json(batchSendPlanDto.parse({ ok: true, dryRun: true, ...plan }));
+      }
+      if (!tickets.take(body.ticket, batchTicketKey(id, body.items))) return forbidden(c, "a batch send needs the admin's ticket for exactly the drafts you confirmed; press Send all Checked in the admin");
+      // What the person confirmed must still be what goes out: the plan is read again, and each confirmed draft must be in it with the same hash.
+      const plan = await planBatch(deps, slug, id, limits);
+      if (!plan) return notFound(c, "batch");
+      const now = new Map(plan.items.map((i) => [i.draftId, i]));
+      const changed = body.items.filter((i) => now.get(i.draftId)?.hash !== i.hash);
+      if (changed.length) return c.json(refusal(changed.map((i) => `draft ${i.draftId} ${now.has(i.draftId) ? "changed in Mail after you confirmed it" : "can no longer be sent (read the batch again)"}`)), 409);
+      const r = runs.start(deps, { project: slug, batchId: id, items: body.items.flatMap((i) => now.get(i.draftId) ?? []) });
+      if ("refused" in r) return c.json(refusal([r.refused]), 409);
+      return c.json(batchRunStateDto.parse({ run: r.run }), 202);
+    })
+    .get("/api/projects/:slug/batches/:id/send", v("param", batchSendParam), async (c) => {
+      const { slug, id } = c.req.valid("param");
+      return c.json(batchRunStateDto.parse({ run: runs.get(slug, id) }));
+    })
+    // Stop only ever removes work: the mail being sent finishes, the drafts not yet tried stay Checked.
+    .post("/api/projects/:slug/batches/:id/send/stop", v("param", batchSendParam), async (c) => {
+      const { slug, id } = c.req.valid("param");
+      runs.stop(slug, id);
+      return c.json(batchRunStateDto.parse({ run: runs.get(slug, id) }));
     })
     // P71 M4: one messenger draft. The dry run answers what would go out, or every refusal in words; the apply needs the ticket.
     .post("/api/projects/:slug/messengers/drafts/:id/send", v("param", sendParam), v("json", messengerSendBody), async (c) => {

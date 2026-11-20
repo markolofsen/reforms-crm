@@ -16,6 +16,7 @@ import { useSearchState } from "@/hooks/use-search-state";
 import { reviewApi } from "@/lib/api/review";
 import { paths } from "@/routes/paths";
 import { DRAFT_VIEWS, type DraftView } from "@/routes/search";
+import { BatchSend } from "./batch-send";
 import { NotByEmail, useNotByEmailTotal } from "./not-by-email";
 import { FollowUps } from "./sequences/follow-ups";
 import { StatusLine } from "./status-line";
@@ -90,7 +91,14 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile, measured
               : `Say to the agent: “${phrase("triage-mail", project)}”. Drafts it leaves unsent in Mail appear here.`
       }
       emptyTitle={known && batch === null ? EMPTY[filter] : undefined}
-      listBottom={filter === "sequences" && batch === null ? <FollowUps project={project} /> : undefined}
+      listBottom={
+        batch !== null && known ? (
+          // P85b: a batch's own Send all Checked; every draft still has its own Send on its card.
+          <BatchSend batchId={batch} checked={batches.data?.batches.find((b) => b.id === batch)?.counts.checked ?? 0} project={project} />
+        ) : filter === "sequences" ? (
+          <FollowUps project={project} />
+        ) : undefined
+      }
       mobile={mobile}
       noun={{ list: "Drafts", back: "Drafts" }}
       onView={onView}

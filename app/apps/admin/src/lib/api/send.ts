@@ -1,4 +1,4 @@
-import { doctorDto, draftChangedDto, draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
+import { batchRunStateDto, batchSendPlanDto, doctorDto, draftChangedDto, draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto, type BatchSendPlanDto } from "@hub/contract/responses";
 import { read } from "./client";
 
 const base = (project: string) => `/api/projects/${encodeURIComponent(project)}`;
@@ -27,4 +27,23 @@ export const sendApi = {
   stop: (scope: string) => read(stopDto, { method: "POST", path: `${base(scope)}/sends/stop` }),
   resume: (scope: string) => read(stopDto, { method: "POST", path: `${base(scope)}/sends/resume` }),
   doctor: (project: string) => read(doctorDto, { method: "GET", path: "/api/project/doctor", query: { project } }),
+};
+
+const batchBase = (project: string, batchId: number) => `/api/projects/${encodeURIComponent(project)}/batches/${batchId}/send`;
+
+/**
+ * Send all Checked of one batch (P85b, decision 0011 amendment of 2026-11-20 point 4). `plan` reads every Checked draft of the batch
+ * from Mail through the send door's checks and sends nothing; `start` carries exactly the drafts and text hashes the person
+ * confirmed, with a ticket minted for that list just before; the server then sends them one at a time, spaced, and `run` reads its
+ * progress; `stop` leaves the drafts not yet tried.
+ */
+export const batchSendApi = {
+  plan: (project: string, batchId: number) => read(batchSendPlanDto, { method: "POST", path: batchBase(project, batchId), body: { apply: false } }),
+  start: async (project: string, batchId: number, plan: BatchSendPlanDto) => {
+    const items = plan.items.map((i) => ({ draftId: i.draftId, hash: i.hash }));
+    const { ticket } = await read(sendTicketDto, { method: "POST", path: "/api/sends/batch-tickets", body: { project, batchId, items } });
+    return read(batchRunStateDto, { method: "POST", path: batchBase(project, batchId), body: { apply: true, items, ticket } });
+  },
+  run: (project: string, batchId: number) => read(batchRunStateDto, { method: "GET", path: batchBase(project, batchId) }),
+  stop: (project: string, batchId: number) => read(batchRunStateDto, { method: "POST", path: `${batchBase(project, batchId)}/stop` }),
 };

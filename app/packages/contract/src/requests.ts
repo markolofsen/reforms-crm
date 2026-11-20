@@ -70,6 +70,16 @@ export const sendBody = z.discriminatedUnion("apply", [
 export const sendTicketBody = z.strictObject({ project, draftId: z.number().int().positive(), kind: z.enum(["mail", "messenger"]).default("mail") });
 export type SendBody = z.infer<typeof sendBody>;
 
+/**
+ * P85b: Send all Checked of one batch. The dry run (`apply: false`) lists what would go out; the apply carries exactly the drafts
+ * and text hashes the person confirmed, and a ticket minted for that list (`batchTicketBody`). Never more than the batch cap.
+ */
+const batchItems = z.array(z.strictObject({ draftId: z.number().int().positive(), hash: z.string().regex(/^[0-9a-f]{64}$/) })).min(1).max(200);
+export const batchSendBody = z.discriminatedUnion("apply", [z.strictObject({ apply: z.literal(false) }), z.strictObject({ apply: z.literal(true), items: batchItems, ticket: z.string().min(1).max(200).optional() })]);
+export const batchTicketBody = z.strictObject({ project, batchId: z.number().int().positive(), items: batchItems });
+export const batchSendParam = z.object({ slug: z.string().min(1).max(100), id: z.coerce.number().int().positive() });
+export type BatchSendBody = z.infer<typeof batchSendBody>;
+
 // Connections (P37, decision 0020 as amended by 0026). A secret travels in one direction only: from the form to `PUT /api/connections/:id/secret`. No response,
 // log line, error or read carries it back. `strictObject`: a stray field is refused, never stored.
 export const connectionIdParam = z.object({ id: z.string().min(1).max(200) });

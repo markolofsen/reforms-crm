@@ -24,6 +24,8 @@ export const keys = {
   agentFeed: (project: string) => ["agent-feed", project] as const,
   drafts: (project: string, view: string, batch: number | null, search: string) => ["drafts", project, view, batch, search] as const,
   batches: (project: string) => ["batches", project] as const,
+  /** P85b: the run of Send all Checked of one batch (in the server's memory), polled while it runs. */
+  batchRun: (project: string, batchId: number) => ["batch-run", project, batchId] as const,
   notByEmail: (project: string, kind: string | null) => ["not-by-email", project, kind] as const,
   enrollments: (project: string, view: string) => ["enrollments", project, view] as const,
   /** P73: the timeline of one view, of one client or every one (`null`); its pages live under this key (an infinite query). */
@@ -76,6 +78,7 @@ const rules = of("rules");
 const agentSettings = of("agent-settings");
 const knowledge = of("knowledge");
 const sends = of("sends");
+const batchRun = of("batch-run");
 const messengerChats = of("messenger-chats");
 const agentTools = of("agent-tools");
 const agentFeed = of("agent-feed");
@@ -93,7 +96,7 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   drafts: (p) => [drafts(p), batches(p), timeline(p), project(p), overview()],
   clients: (p) => [drafts(p), notByEmail(p), enrollments(p), timeline(p), overview()],
   activity: (p) => [activity(p), timeline(p), project(p), overview()],
-  sends: (p) => [sends(p), drafts(p), project(p), overview(), scheme()],
+  sends: (p) => [sends(p), batchRun(p), drafts(p), project(p), overview(), scheme()],
   inbox: (p) => [notByEmail(p), drafts(p), overview()],
   "follow-ups": (p) => [enrollments(p), drafts(p)],
   batches: (p) => [batches(p), drafts(p)],

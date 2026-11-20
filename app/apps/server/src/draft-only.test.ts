@@ -50,8 +50,9 @@ describe("no route sends", () => {
     const paths = [...new Set(app.routes.map((r) => `${r.method} ${r.path}`))];
     expect(paths.length).toBeGreaterThan(15);
     expect(paths.filter((p) => /deliver|dispatch|smtp|outbox/i.test(p))).toEqual([]);
-    // `.../sends` (history) and `.../sends/stop|resume|cancel` only read or remove work; the one that sends is below.
-    expect(paths.filter((p) => /send/i.test(p) && !/\/sends(\/|$)/.test(p)).sort()).toEqual(["POST /api/projects/:slug/drafts/:id/send", "POST /api/projects/:slug/messengers/drafts/:id/send"]);
+    // `.../sends` (history) and `.../sends/stop|resume|cancel` only read or remove work; the ones that send are below. P85b: a
+    // batch's Send all Checked is the third (its GET reads the run's progress, its `/send/stop` only removes work).
+    expect(paths.filter((p) => /send/i.test(p) && !/\/sends(\/|$)/.test(p) && !/^GET /.test(p) && !/\/send\/stop$/.test(p)).sort()).toEqual(["POST /api/projects/:slug/batches/:id/send", "POST /api/projects/:slug/drafts/:id/send", "POST /api/projects/:slug/messengers/drafts/:id/send"]);
   });
 
   it("only the confirmed send route imports the sender, and only send/mailer.ts names the real Mailer", () => {
@@ -61,6 +62,9 @@ describe("no route sends", () => {
     const rel = (f: string) => f.slice(dir.length + 1);
     expect(src.filter((f) => /mailAppMailer/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/mailer.ts"]);
     expect(src.filter((f) => /\b(sendDraft|runDue)\b/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["routes/sends.ts"]);
+    // P85b: a batch run sends through `runBatch` (which calls `sendDraft`), started only by the batch door the send route holds.
+    expect(src.filter((f) => /\brunBatch\(/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/batch-door.ts"]);
+    expect(src.filter((f) => /\bbatchRuns\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["routes/sends.ts", "send/batch-door.ts"]);
     // A messenger send: only the door mints the human actor's send, only the send routes call the door, only app.ts hands the
     // account's send (`TelegramUserHandle.sender`, `WhatsAppHandle.sender` since P71 M5) to them.
     expect(src.filter((f) => /\bsendConfirmed\b/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/messenger-door.ts"]);

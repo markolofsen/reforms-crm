@@ -213,7 +213,9 @@ export async function findMail(deps: { mailer: Pick<Mailer, "findDrafts"> }, dra
   // A draft without In-Reply-To (written by hand, or by an older writer): the old rule over every account, so a draft in
   // another account is still found, and refused by `assess` with its account named.
   const byId = ref ? all.filter((c) => bareId(c.messageId) === ref) : [];
-  const pool = byId.length ? byId : all.filter((c) => !c.inReplyTo && forClient(c));
+  // P85b: a new thread answers nothing (no mailRef): the versions the Hub recorded for it come first.
+  const recorded = ref ? [] : candidates.filter((c) => !c.inReplyTo && forClient(c) && hub(c));
+  const pool = byId.length ? byId : recorded.length ? recorded : all.filter((c) => !c.inReplyTo && forClient(c));
   if (pool.length === 0) return { reason: `no draft in Mail with subject "${draft.subject}" for ${draft.toAddr}`, gone: true };
   if (pool.length > 1) {
     const newest = newestFirst(pool)[0] as MailDraft;

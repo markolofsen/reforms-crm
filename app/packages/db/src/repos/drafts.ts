@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { BULK_SKILL, type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type FinishReason, MARKS, SEQUENCE_SKILL, SETTABLE_STATUSES, TONES, type NotionRef, type DraftStatus, type Mark, type SafetyKind, type SettableStatus, type Tone, type ToneBodies } from "@hub/config";
+import { BULK_SKILL, newThreadKey, type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type FinishReason, MARKS, SEQUENCE_SKILL, SETTABLE_STATUSES, TONES, type NotionRef, type DraftStatus, type Mark, type SafetyKind, type SettableStatus, type Tone, type ToneBodies } from "@hub/config";
 import type { Db } from "../client";
 import { write, type WriteTx } from "../tx";
 import { RepoError } from "../errors";
@@ -31,6 +31,11 @@ export type RecordDraftInput = {
    * follow-ups are not finished as `replied`. Stored in the draft's context (`ownerRequest`) and its Activity line.
    */
   ownerRequest?: string | null;
+  /**
+   * P85b: a brand-new thread (no `mailRef`: it answers nothing), written on the owner's words. Its Mail versions are keyed by
+   * `newThreadKey(email)`; a rerun updates the client's open new-thread draft; stored in the context (`newThread`).
+   */
+  newThread?: boolean;
   to?: string | null;
   cc?: string | null;
   reason?: string | null;
@@ -79,10 +84,13 @@ const now = sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`;
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 
 /** The evidence block's `context`, with the owner's words beside it (P85). Null when there is neither. */
-function contextJson(context: unknown, ownerRequest: string | null): string | null {
+function contextJson(context: unknown, ownerRequest: string | null, newThread = false): string | null {
   if (!ownerRequest) return context === undefined ? null : JSON.stringify(context);
-  return JSON.stringify({ ...(isRecord(context) ? context : {}), ownerRequest });
+  return JSON.stringify({ ...(isRecord(context) ? context : {}), ownerRequest, ...(newThread ? { newThread: true } : {}) });
 }
+
+/** P85b: a draft recorded as a new thread (no mailRef, `newThread` in its context). */
+const isNewThreadRow = (d: { mailRef: string | null; context: string | null }): boolean => d.mailRef == null && parseJson<Record<string, unknown> | null>(d.context, null)?.newThread === true;
 
 const purposeOf = (context: unknown): string | null => (isRecord(context) && typeof context.purpose === "string" ? context.purpose.trim() || null : null);
 
@@ -241,6 +249,9 @@ export function draftsRepo(db: Db) {
           insertEvent(tx, { project: input.project, runId, at, kind, summary: `${summary}: ${input.name || input.email}`, detail: JSON.stringify(detail), clientId: client.id, tool: null });
 
         const ownerRequest = input.ownerRequest?.trim() || null;
+        const newThread = input.newThread === true;
+        if (newThread && !ownerRequest) throw new RepoError("wrong_state", "A new thread is recorded only on the owner's words (ownerRequest)");
+        if (newThread && input.mailRef) throw new RepoError("wrong_state", "A new thread answers no message: no mailRef");
         // P47. A step draft must be the open step of an active enrollment of this client. Any other record (but the sequence
         // skill's own) is the client writing back: their follow-ups finish here, in this transaction, and the open step draft is skipped.
         const seq = input.sequence ?? null;
@@ -278,13 +289,13 @@ export function draftsRepo(db: Db) {
                 evidence: input.evidence.level,
                 evidenceSource: input.evidence.source,
                 evidenceFindings: JSON.stringify(input.evidence.findings),
-                context: contextJson(input.evidence.context, ownerRequest),
+                context: contextJson(input.evidence.context, ownerRequest, newThread),
                 similarTo: input.evidence.similarTo ?? null,
                 fingerprint: input.evidence.fingerprint?.length ? JSON.stringify(input.evidence.fingerprint) : null,
                 batchKey: input.evidence.batchKey ?? null,
               }
             : ownerRequest
-              ? { context: contextJson(undefined, ownerRequest) }
+              ? { context: contextJson(undefined, ownerRequest, newThread) }
               : {}),
         };
         // P85: a campaign (`bulk-drafts`, one `batchKey`) is one batch in Drafts; joined only by a draft that is written.
@@ -296,12 +307,13 @@ export function draftsRepo(db: Db) {
         // The same Message-ID with or without angle brackets (draft_write returns it bare, P52) is the same message.
         // P85: a message can have a finished draft and, on the owner's words, an open one; the open one is the rerun's.
         const open = existing.find((d) => d.status === "ready" || d.status === "hold");
-        const matches = mailRef == null ? [] : existing.filter((d) => bareRef(d.mailRef) === bareRef(mailRef) && (!seq || (d.enrollmentId === seq.enrollmentId && d.sequenceStep === seq.step)));
+        const matches = newThread ? existing.filter(isNewThreadRow) : mailRef == null ? [] : existing.filter((d) => bareRef(d.mailRef) === bareRef(mailRef) && (!seq || (d.enrollmentId === seq.enrollmentId && d.sequenceStep === seq.step)));
         const sameRef = matches.find((d) => d === open) ?? matches[0];
 
         // P65: the Mail versions `draft_write` saved for this thread before this record become this draft's.
         const linkVersions = (draftId: number) => {
-          if (mailRef) tx.update(mailVersions).set({ draftId }).where(and(eq(mailVersions.project, input.project), eq(mailVersions.mailRef, bareRef(mailRef)), isNull(mailVersions.draftId))).run();
+          const key = mailRef ?? (newThread ? newThreadKey(input.email) : null);
+          if (key) tx.update(mailVersions).set({ draftId }).where(and(eq(mailVersions.project, input.project), eq(mailVersions.mailRef, bareRef(key)), isNull(mailVersions.draftId))).run();
         };
         if (sameRef && sameRef !== open && !ownerRequest) {
           // Finished (done, sent or skipped) and the same message: a re-run must not bring it back. The owner's own words

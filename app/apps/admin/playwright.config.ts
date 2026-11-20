@@ -73,6 +73,8 @@ export default defineConfig({
         HUB_PORT: String(API_PORT),
         HUB_ADMIN_PORT: String(UI_PORT),
         HUB_MAILER: "fake",
+        // P85b: the batch send's spacing (20 s) shortened to 1 s; the server honours it with the fake Mailer only.
+        HUB_BATCH_SPACING_SECONDS: "1",
         HUB_PROJECTS: PROJECTS,
         HUB_TERMINAL_SHELL: "fake",
         HUB_AGENT_TOOLS: "fake",

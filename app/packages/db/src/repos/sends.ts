@@ -4,7 +4,7 @@ import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { evaluateSafety } from "../safety";
 import { clients, drafts, mailVersions, marks, sendControl, sendLog, type MessengerChannel, type SendStatus } from "../schema";
-import { loadRules, nowIso, parseJson } from "./bulk-shared";
+import { evidenceOf, loadRules, nowIso, parseJson } from "./bulk-shared";
 import { write, type WriteTx } from "../tx";
 
 export type SendRow = typeof sendLog.$inferSelect;
@@ -204,6 +204,18 @@ export function sendsRepo(db: Db) {
       return db.select().from(sendLog).where(and(eq(sendLog.status, "queued"), ...(project ? [eq(sendLog.project, project)] : []))).orderBy(sendLog.dueAt).all();
     },
 
+    /**
+     * P85b: what one project's batch sends have used (`actor` = `actor`): sending and sent rows of the last 24 h (its own daily
+     * cap) and the newest attempt of any outcome (the spacing between two mails of a run).
+     */
+    async actorUsage(project: string, actor: string, at: string): Promise<MessengerUsage> {
+      const mine = and(eq(sendLog.project, project), eq(sendLog.actor, actor), eq(sendLog.channel, "mail"));
+      const since = new Date(new Date(at).getTime() - DAY_MS).toISOString();
+      const n = db.select({ n: sql<number>`count(*)` }).from(sendLog).where(and(mine, inArray(sendLog.status, ["sending", "sent"]), gte(sendLog.createdAt, since))).get();
+      const last = db.select({ at: sql<string | null>`max(${sendLog.createdAt})` }).from(sendLog).where(and(mine, inArray(sendLog.status, ["sending", "sent", "failed"]))).get();
+      return { sentLastDay: Number(n?.n ?? 0), lastAttemptAt: last?.at ?? null };
+    },
+
     /** Attempts that count against the daily cap: queued, sending and sent, autosends only, since `since`. */
     async autoCountSince(project: string, since: string): Promise<number> {
       const r = db
@@ -299,7 +311,9 @@ export function sendsRepo(db: Db) {
       // P65 S2: the newest Mail version the Hub wrote says whether it had to sign in English.
       const newest = db.select({ fallback: mailVersions.signatureFallback }).from(mailVersions).where(eq(mailVersions.draftId, draftId)).orderBy(desc(mailVersions.id)).limit(1).get();
       return evaluateSafety(
-        { draft: { ...actual, mailRef: draft.mailRef }, client, lastClosedAt: closed?.at ?? null, now, signatureFallback: newest?.fallback ?? null },
+        // P85b: the stored evidence block too, as the list's own results have it (`loadSafety`): without it the card's live checks
+        // left out the evidence and near-duplicate checks that still blocked Checked, so a batch draft could not be Checked at all.
+        { draft: { ...actual, mailRef: draft.mailRef }, client, lastClosedAt: closed?.at ?? null, now, signatureFallback: newest?.fallback ?? null, evidence: evidenceOf(draft) },
         loadRules(db, draft.project),
         parseJson<string[]>(draft.acked, []),
       );

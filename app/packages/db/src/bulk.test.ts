@@ -301,6 +301,29 @@ describe("a bulk-drafts run is one batch in Drafts (P85)", () => {
     expect((await repos.batches.list("p")).map((x) => x.total)).toEqual([1, 2]);
   });
 
+  it("P85b: a new thread is recorded without mailRef, joins the run's batch, takes its versions by the client's key, and a rerun updates it", async () => {
+    const words = "write to every client about the new price list";
+    await repos.mailVersions.add({ project: "p", mailRef: "new:eve@x.example", draftId: null, account: "desk", mailId: 7, messageId: "n7@x", hash: "h", source: "agent" });
+    const mk = () => repos.drafts.record({ project: "p", email: "Eve@x.example", name: "Eve", subject: "New prices", newThread: true, skill: "bulk-drafts", ownerRequest: words, evidence: { level: "ok", source: "observed", findings: [], batchKey: "bulk-nt" } });
+    const a = await mk();
+    const d = await repos.drafts.get(a.draftId);
+    expect(d?.mailRef).toBeNull();
+    expect(JSON.parse(d?.context ?? "{}")).toMatchObject({ ownerRequest: words, newThread: true });
+    expect(d?.batchId).not.toBeNull();
+    expect((await repos.mailVersions.ofDraft(a.draftId)).map((v) => v.messageId)).toEqual(["n7@x"]);
+    expect(await mk()).toMatchObject({ action: "updated", draftId: a.draftId });
+    await expect(repos.drafts.record({ project: "p", email: "fay@x.example", name: "Fay", subject: "New", newThread: true, skill: "bulk-drafts" })).rejects.toThrow(/owner's words/);
+  });
+
+  it("P85b: the live checks of the card (Mail's text) carry the evidence checks that block Checked in a batch", async () => {
+    const r = await repos.drafts.record({ project: "p", email: "gus@x.example", name: "Gus", subject: "Re: Hello", mailRef: "<g1@x>", skill: "bulk-drafts", ownerRequest: "write to Gus", evidence: { level: "weak", source: "claimed", findings: [{ code: "facts-missing", text: "no fact was used", amber: true }], batchKey: "bulk-ev" } });
+    const stored = (await repos.batches.drafts("p", (await repos.drafts.get(r.draftId))?.batchId as number))[0];
+    const live = await repos.sends.safetyOf(r.draftId, { subject: "Re: Hello", toAddr: "gus@x.example", ccAddr: null, body: "Hi Gus" });
+    expect(stored?.blocked).toBe(true);
+    expect(live.map((x) => x.kind).sort()).toEqual(stored?.safetyResults.map((x) => x.kind).sort());
+    expect(live.some((x) => x.kind.startsWith("evidence_"))).toBe(true);
+  });
+
   it("a finished draft with the same message is not a batch member again unless the owner's words wrote a new one", async () => {
     const a = await rec("ann@x.example", "<a1@x>");
     await repos.drafts.setStatus(a.draftId, "done");

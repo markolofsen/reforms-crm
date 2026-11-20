@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { alreadySentText, DraftWriteError, reviseDraft, versionHash } from "@hub/agent/mail-drafts";
+import { alreadySentText, DraftWriteError, isNewThreadDraft, newThreadKey, reviseDraft, versionHash } from "@hub/agent/mail-drafts";
 import { writeLogOf } from "@hub/agent/write-record";
 import type { DraftRow, MailVersionRow, Repos } from "@hub/db";
 import { loadProject } from "@hub/projects";
@@ -56,12 +56,17 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
   const write = async (c: Context, d: DraftRow, body: string, source: "save" | "restore") => {
     const pm = projectMail(d.project);
     if (!sender?.writer || !pm) return refuse(c, "Writing Mail drafts is not set up on this server.");
-    if (!d.mailRef) return refuse(c, "This draft answers no Mail message, so it cannot be written here.");
+    // P85b: a new thread answers no message; it is rewritten as a new message to the same client, keyed by its client.
+    const fresh = !d.mailRef && isNewThreadDraft(d);
+    if (!d.mailRef && !fresh) return refuse(c, "This draft answers no Mail message, so it cannot be written here.");
+    const client = d.toAddr.match(/[^\s,;<>"']+@[^\s,;<>"']+/)?.[0] ?? d.toAddr;
+    const key = d.mailRef ?? newThreadKey(client);
     if (d.status === "sent") return refuse(c, alreadySentText(d.id, d.sentAt ?? null, "person"));
     const live: MailVersionRow[] = (await repos.mailVersions.ofDraft(d.id)).filter((v) => !v.trashedAt);
     try {
-      const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, clientWroteTo: d.wroteTo ?? null, mailRef: d.mailRef, body, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), log: writeLogOf((fn) => fn(repos), d.project, d.id, d.mailRef) });
-      await repos.mailVersions.add({ project: d.project, mailRef: d.mailRef, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHash(r.text), source });
+      const acc = live[0]?.account ?? pm.accounts[0] ?? "";
+      const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, clientWroteTo: d.wroteTo ?? null, mailRef: d.mailRef, body, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), ...(fresh ? { newThread: { to: client, subject: d.subject, account: acc, from: pm.sender } } : {}), log: writeLogOf((fn) => fn(repos), d.project, d.id, key) });
+      await repos.mailVersions.add({ project: d.project, mailRef: key, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHash(r.text), source });
       const moved = new Set(r.replaced.map(bareId));
       await repos.mailVersions.markTrashed(live.filter((v) => moved.has(bareId(v.messageId))).map((v) => v.id));
     } catch (e) {

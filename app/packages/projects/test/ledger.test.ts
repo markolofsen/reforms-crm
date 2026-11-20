@@ -153,3 +153,12 @@ describe("where a Notion page came from (P82)", () => {
     expect(c).toMatchObject({ op: "create", sources: ["41806f306f1481acb8e1000bac534e05"], pageIds: ["41806f306f14800080000000000000ff"] });
   });
 });
+
+describe("P85b: the pre-draft rule of a new thread", () => {
+  const write = { name: "mcp__hub__draft_write", input: { to: "bob@client.example", subject: "New prices", content: "Hi Bob", owner_request: "write to Bob" } };
+  it("answers no message, so it asks only for a Notion read of this session first", () => {
+    expect(preDraftCheck([], write).violations[0]).toMatch(/new message to bob@client.example: read this client's record in the project's Notion Clients first/);
+    const notion = summarizeCall({ name: "mcp__notion__notion-query-data-sources", input: { data_source_urls: ["collection://41806f30-6f14-81ac-b8e1-000bac534e05"] }, result: [{ type: "text", text: "{}" }] }) as LedgerEntry;
+    expect(preDraftCheck([notion], write).violations).toEqual([]);
+  });
+});

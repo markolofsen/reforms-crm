@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { BATCH_SEND_ACTOR } from "@hub/config";
 import type { SendRowDto } from "@hub/contract/responses";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
@@ -19,8 +20,8 @@ function useCancel(project: string) {
 const VIA = { manual: "By hand", auto: "Autosend" } as const;
 const STATE: Record<SendRowDto["status"], string | null> = { sent: null, queued: "queued", sending: "sending", failed: "failed", cancelled: "cancelled" };
 
-/** "By hand", "Autosend · queued, goes out 15 Nov, 10:10". */
-const via = (r: SendRowDto): string => [VIA[r.mode], STATE[r.status] && `${STATE[r.status]}${r.status === "queued" && r.dueAt ? `, goes out ${formatTime(r.dueAt)}` : ""}`].filter(Boolean).join(" · ");
+/** "By hand", "Batch" (P85b: Send all Checked of a batch), "Autosend · queued, goes out 15 Nov, 10:10". */
+const via = (r: SendRowDto): string => [r.actor === BATCH_SEND_ACTOR ? "Batch" : VIA[r.mode], STATE[r.status] && `${STATE[r.status]}${r.status === "queued" && r.dueAt ? `, goes out ${formatTime(r.dueAt)}` : ""}`].filter(Boolean).join(" · ");
 const when = (r: SendRowDto): string => formatTime(r.doneAt ?? r.createdAt);
 
 /** A messenger send's channel (P71 M4); a mail row has none. */

@@ -325,6 +325,24 @@ export type DraftMailDto = z.infer<typeof draftMailDto>;
 export const sentDto = z.object({ ok: z.literal(true), sendId: z.number() });
 /** A single-use ticket for one apply (P49 S12): minted only for the admin's exact origin, valid for seconds. */
 export const sendTicketDto = z.object({ ticket: z.string(), expiresAt: z.string() });
+/** P85b: the dry run of Send all Checked of one batch: who would get what (recipients, subject, the text's hash), who is held and why. */
+const batchItemDto = z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), cc: z.array(z.string()), subject: z.string(), hash: z.string() });
+const batchHeldDto = z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), subject: z.string(), reasons: z.array(z.string()) });
+export const batchSendPlanDto = z.object({ ok: z.literal(true), dryRun: z.literal(true), batchId: z.number(), items: z.array(batchItemDto), held: z.array(batchHeldDto), cap: z.object({ limit: z.number(), used: z.number(), room: z.number() }), spacingSeconds: z.number() });
+export type BatchSendPlanDto = z.infer<typeof batchSendPlanDto>;
+export const BATCH_ITEM_STATUSES = ["waiting", "sending", "sent", "refused", "failed", "stopped"] as const;
+/** P85b: one batch run as the server runs it (in its memory: a restart ends the run; the `send_log` rows stay). */
+export const batchRunDto = z.object({
+  project: z.string(),
+  batchId: z.number(),
+  state: z.enum(["running", "finished", "stopped"]),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+  spacingSeconds: z.number(),
+  items: z.array(z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), subject: z.string(), status: z.enum(BATCH_ITEM_STATUSES), reasons: z.array(z.string()), sendId: z.number().nullable(), at: z.string().nullable() })),
+});
+export type BatchRunDto = z.infer<typeof batchRunDto>;
+export const batchRunStateDto = z.object({ run: batchRunDto.nullable() });
 export const sendCancelledDto = z.object({ ok: z.literal(true), sendId: z.number() });
 export const stopDto = z.object({ ok: z.literal(true), cancelled: z.number(), stopped: z.array(z.string()) });
 

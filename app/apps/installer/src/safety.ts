@@ -224,17 +224,21 @@ export function preDraftViolations(payload: GuardInput, root: string, slug: stri
     // P71 M2: a messenger reply is judged by its own rule (its chat's history read first), never by the mail chain.
     if (messenger) return chatDraftViolations(readSession(root, slug, sid), { name, input: payload.tool_input }, aid);
     const replyFrom = revisionClient(payload.tool_input, slug, db);
+    // P85b: a revision of a new thread answers no message either: what it was based on was judged at its first write.
+    if (replyFrom === NEW_THREAD) return [];
     return preDraftCheck(readSession(root, slug, sid), { name: String(payload.tool_name), input: payload.tool_input }, { ...(aid ? { aid } : {}), ...(replyFrom ? { replyFrom } : {}) }).violations;
   } catch { return []; }
 }
 
 /** `draft_write {draft}` (P53): the address of the client that hub draft of this project answers, so the read of their message counts as the target. */
+const NEW_THREAD = "\u0000new-thread";
 function revisionClient(input: unknown, slug: string, db: string | undefined): string | undefined {
   const id = input && typeof input === "object" ? (input as { draft?: unknown }).draft : undefined;
   if (typeof id !== "number" || !db || !existsSync(db)) return undefined;
   const h = openDbReadOnly(db);
   try {
-    const row = h.db.$client.prepare("SELECT to_addr AS t FROM drafts WHERE id = ? AND project = ?").get(id, slug) as { t?: unknown } | undefined;
+    const row = h.db.$client.prepare("SELECT to_addr AS t, mail_ref AS r, context AS c FROM drafts WHERE id = ? AND project = ?").get(id, slug) as { t?: unknown; r?: unknown; c?: unknown } | undefined;
+    if (row && row.r == null && typeof row.c === "string" && row.c.includes('"newThread":true')) return NEW_THREAD;
     return typeof row?.t === "string" ? row.t.match(/[^\s,;<>"']+@[^\s,;<>"']+/)?.[0] : undefined;
   } finally {
     h.close();

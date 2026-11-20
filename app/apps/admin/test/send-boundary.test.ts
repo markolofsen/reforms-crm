@@ -26,6 +26,14 @@ describe("send boundary", () => {
     expect(doors).toEqual(["features/messengers/use-messenger-send.ts", "features/review/card/use-send-flow.ts"]);
   });
 
+  it("starts Send all Checked of a batch (P85b) only from the batch's own panel, after its dry run", () => {
+    const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bbatchSendApi\.(plan|start|stop)\b/.test(f.text)).map((f) => f.path).sort();
+    expect(users).toEqual(["features/drafts/batch-send.tsx"]);
+    // The apply carries exactly the dry run's drafts and hashes: the panel never builds its own list.
+    const panel = all.find((f) => f.path === "features/drafts/batch-send.tsx")?.text ?? "";
+    expect(panel).toMatch(/batchSendApi\.start\(project, batchId, p\)/);
+  });
+
   it("writes a draft's Mail text (Save, Restore: P56) only from the card's one write hook", () => {
     const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(save|restore)\b/.test(f.text)).map((f) => f.path).sort();
     expect(users).toEqual(["features/review/mail/use-mail-write.ts"]);

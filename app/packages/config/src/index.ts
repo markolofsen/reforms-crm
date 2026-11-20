@@ -157,8 +157,8 @@ export const TONES = ["short", "standard", "warm"] as const;
 export type Tone = (typeof TONES)[number];
 export type ToneBodies = Partial<Record<Tone, string>>;
 
-/** Who a batch is for. Each is a chip with a count. */
-export const AUDIENCES = ["all", "owed", "silent", "follow_up", "vip"] as const;
+/** Who a batch is for. Each is a chip with a count. `agent` (P85): a `bulk-drafts` run, whose clients the agent chose from the owner's words. */
+export const AUDIENCES = ["all", "owed", "silent", "follow_up", "vip", "agent"] as const;
 export type Audience = (typeof AUDIENCES)[number];
 export type AudienceCounts = Record<Audience, number>;
 export const AUDIENCE_LABELS: Record<Audience, string> = {
@@ -167,6 +167,7 @@ export const AUDIENCE_LABELS: Record<Audience, string> = {
   silent: "Silent",
   follow_up: "Follow up",
   vip: "VIP",
+  agent: "Chosen by the agent",
 };
 export const DEFAULT_SILENT_DAYS = 14;
 
@@ -334,3 +335,22 @@ export function unresolvedMarkers(text: string): string[] {
  */
 export const CORE_LEVELS = ["unknown", "current", "available", "recommended", "required", "follows"] as const;
 export type CoreLevel = (typeof CORE_LEVELS)[number];
+
+// ---- Send all Checked of a batch (P85b, decision 0011 amendment of 2026-11-20 point 4).
+
+/**
+ * The guards of one batch send, its own and stricter than one click: at most this many batch mails per project in a rolling 24
+ * hours (the dry run lists the rest as held), and this many seconds between two mails of the run (so 30 drafts take about ten
+ * minutes, run by the server, with progress and a Stop). A manual Send of one draft and autosend keep their own rules.
+ */
+export const BATCH_SEND_DAILY_CAP = 50;
+export const BATCH_SEND_SPACING_SECONDS = 20;
+/** The `send_log.actor` of a batch send: what its daily cap counts. One click mints it once per run. */
+export const BATCH_SEND_ACTOR = "admin-batch";
+
+/**
+ * P85b: a brand-new thread (a first message to a client with no thread at all) answers no message, so its draft has no
+ * `mailRef`; its Mail versions and write records (`mail_versions.mail_ref`, `mail_writes.mail_ref`) are keyed by this, one per client.
+ */
+export const newThreadKey = (email: string): string => `new:${email.trim().toLowerCase()}`;
+export const isNewThreadKey = (ref: string | null | undefined): boolean => !!ref && ref.startsWith("new:");

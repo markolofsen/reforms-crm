@@ -11,6 +11,8 @@ test.beforeEach(async ({ page }) => {
 
 test("Enter goes from the list into the open card and Esc comes back to its row", async ({ page }) => {
   const open = page.locator('ul[aria-label="Drafts"] > li[data-open="true"]');
+  // The open card settles first (its Mail read and live checks, P85b): Enter then lands on the card it shows.
+  await page.waitForLoadState("networkidle");
   await page.keyboard.press("Enter");
   await expect(page.locator('[data-pane="detail"] :focus')).toHaveCount(1);
   await page.keyboard.press("Escape");

@@ -291,6 +291,13 @@ export function entryFor(entries: readonly LedgerEntry[], call: CallRecord, o: S
 
 /** The guard's decision for a `create_reply` about to run: the reply as a pending entry, observed against the session so far. */
 export function preDraftCheck(entries: readonly LedgerEntry[], call: CallRecord, o: SummarizeOptions & { aid?: string } = {}): { observation: Observation | null; violations: string[] } {
+  // P85b: a new thread (`draft_write` with `to`) answers no message, so the mail chain is not asked of it: the client is taken
+  // from the project's Notion Clients, so a Notion read of this session (and subagent) must come first.
+  const ni = obj(call.input);
+  if (call.name === HUB_DRAFT_WRITE && typeof ni.to === "string" && ni.draft === undefined) {
+    const read = entries.some((e) => e.kind === "notion" && e.op !== "update" && e.op !== "create" && (e.aid ?? "") === (o.aid ?? ""));
+    return { observation: null, violations: read ? [] : [`a new message to ${lower(ni.to)}: read this client's record in the project's Notion Clients first (no Notion read in this session)`] };
+  }
   const entry = entryFor(entries, call, o);
   if (!entry || entry.kind !== "draft") return { observation: null, violations: [] };
   const all = [...entries, entry];
