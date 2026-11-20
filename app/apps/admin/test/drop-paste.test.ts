@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DROP_LIMITS } from "@hub/contract/terminal";
-import { dropTooBig } from "../src/features/terminal/use-drop-paste";
+import { dropTooBig } from "../src/features/terminal/session";
 
 // P76: the pane refuses a drop past the caps itself, naming the file and the limit (Next's buffer sits in front of the server).
 

@@ -11,7 +11,6 @@ import { useTurnSound } from "@/features/agent-feed/use-turn-sound";
 import { useFocusPublisher } from "@/features/focus/use-focus-publisher";
 import { TerminalDock, TerminalProvider } from "@/features/terminal/terminal";
 import { terminalProjectOf } from "@/features/terminal/use-auto-start";
-import { useFileDropGuard } from "@/hooks/use-file-drop-guard";
 import { useGo } from "@/hooks/use-go";
 import { PlaceContext, ProjectScopeContext, useEnsureAddress, type ProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
@@ -25,6 +24,7 @@ import { PROJECTLESS, type RouteId } from "@/routes/table";
 import { NEXT_ROUTE, sectionTitle } from "@/routes/sections";
 
 import { AppShell, type ShellNavItem } from "./shell";
+import { useFileDropGuard } from "./use-file-drop-guard";
 import { keys } from "@/lib/cache/keys";
 
 /**

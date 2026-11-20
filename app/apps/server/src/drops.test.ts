@@ -36,7 +36,7 @@ function setup() {
     const r = await app.request(`${API}/api/terminal/sessions`, { method: "POST", headers: { ...SAME, "content-type": "application/json" }, body: JSON.stringify(body) });
     return ((await r.json()) as { id: string }).id;
   };
-  const drop = (id: string, files: Array<[string, Uint8Array | string]>, headers: Record<string, string> = SAME) => {
+  const drop = (id: string, files: Array<[string, Uint8Array<ArrayBuffer> | string]>, headers: Record<string, string> = SAME) => {
     const form = new FormData();
     for (const [name, bytes] of files) form.append(DROP_FIELD, new File([bytes], name));
     return app.request(`${API}/api/terminal/sessions/${id}/drops`, { method: "POST", headers, body: form });
