@@ -1,6 +1,6 @@
 import { slimMessageContent } from "./slim-headers";
 import { codexSessionPaths, pathsAt, type HubPaths } from "@hub/config/paths";
-import { auditToolCalls, chatDraftViolations, defaultProjectsRoot, HUB_MESSENGER_DRAFT_WRITE, type AuditLayout, isDraftWrite, kindOf, loadProject, preDraftCheck, type SkillScope, type ToolCall } from "@hub/projects";
+import { auditToolCalls, chatDraftViolations, defaultProjectsRoot, HUB_MESSENGER_DRAFT_WRITE, type AuditLayout, isDraftWrite, kindOf, loadProject, preDraftCheck, type LedgerEntry, type SkillScope, type ToolCall } from "@hub/projects";
 import { instanceServer } from "./mcp-servers";
 import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
 import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
@@ -199,7 +199,8 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
     catch { return mode === "block" ? { code: 2, stderr: `hub guard: project "${slug}" cannot be loaded; blocked` } : { code: 0, stderr: "" }; }
   }
   const sid = typeof payload.session_id === "string" ? payload.session_id : "";
-  const notionRead = slug && sid && String(payload.tool_name ?? "").startsWith("mcp__notion__") ? readSession(g.root, slug, sid).filter((e) => e.kind === "notion") : [];
+  let notionRead: LedgerEntry[] = [];
+  try { if (slug && sid && String(payload.tool_name ?? "").startsWith("mcp__notion__")) notionRead = readSession(g.root, slug, sid).filter((e) => e.kind === "notion"); } catch { /* the guard never throws: no ledger, no provenance */ }
   const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope, notionRead });
   // P28 B3: before a reply is drafted, this session must have read the client's thread and profile, and the reply must not copy an earlier one.
   if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug, paths.db));
