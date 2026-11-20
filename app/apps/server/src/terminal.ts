@@ -13,6 +13,7 @@ import type { Repos } from "@hub/db";
 import { nodePty, nodePtyRoot, presetArgv, presetOrder, SessionLimitError, sessionManager, sessionTitle, spawnLine, tabShell, terminalEnv, terminalReadiness, terminalSocketServer, type PtySpawn, type SessionManager, type TerminalProblem } from "@hub/terminal";
 import { throwawayDbNamed } from "@hub/send";
 import { gateRefusal, ticketStore, type TicketStore } from "./admin-gate";
+import { clearDrops, dropRefusal, removeDrop, writeDrop, type DroppedFile } from "./drops";
 
 // The embedded terminal's server side (P49 section 4, guards S1 to S7). Always on (decision 0032): no switch; the guards
 // make it safe, not a switch. When no tab can start (P66, `terminalReadiness`), the state carries `problem` and a start is
@@ -76,7 +77,7 @@ export function chooseShell(env: NodeJS.ProcessEnv): "login" | "fake" {
 }
 
 export class TerminalRefusal extends Error {
-  constructor(readonly status: 400 | 404 | 409 | 503, message: string, readonly fix: string | null = null) { super(message); }
+  constructor(readonly status: 400 | 404 | 409 | 413 | 503, message: string, readonly fix: string | null = null) { super(message); }
 }
 
 /** A failed readiness is rechecked at most this often (a state read, a start), so a fix lands without a restart. */
@@ -188,6 +189,19 @@ export function createTerminal(o: TerminalOptions) {
     return p;
   }
 
+  /**
+   * P76, decision 0041: files dropped on a running session's tab, written under `state/drops/<project>/<session>/`; the
+   * absolute paths, in order. The pane pastes them; the server types nothing.
+   */
+  function drop(id: string, files: readonly DroppedFile[]): string[] {
+    const s = manager?.list().find((x) => x.id === id);
+    if (!s) throw new TerminalRefusal(404, "terminal session not found");
+    if (s.state !== "running") throw new TerminalRefusal(409, "the program in this tab has ended: nothing is pasted");
+    const no = dropRefusal(files.map((f) => ({ size: f.bytes.byteLength })));
+    if (no) throw new TerminalRefusal(no.status, no.message);
+    return writeDrop(o.paths, s.project, id, files);
+  }
+
   const wss = terminalSocketServer();
   const refuse = (socket: Duplex, status: number, text: string) => {
     socket.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n`);
@@ -217,18 +231,26 @@ export function createTerminal(o: TerminalOptions) {
     recheck: () => currentProblem(true),
     create,
     ensure,
-    /** Server start: check readiness (it sets the helper's bit), then detect in the background so the first open does not wait. */
+    /** Server start: empty `state/drops` (P76: no session survives a restart), check readiness (it sets the helper's bit), then detect in the background so the first open does not wait. */
     warm: (): TerminalProblem | null => {
+      clearDrops(o.paths);
       const p = currentProblem(true);
       void detector.get();
       return p;
     },
     detector,
-    close: (id: string) => manager?.kill(id) ?? false,
+    /** Ends the session and removes its drop folder (P76). */
+    close: (id: string) => {
+      const s = manager?.list().find((x) => x.id === id);
+      const killed = manager?.kill(id) ?? false;
+      if (s) removeDrop(o.paths, s.project, id);
+      return killed;
+    },
+    drop,
     has: (id: string) => manager?.has(id) ?? false,
     ticket: (id: string) => ({ ...tickets.mint(`term:${id}`), url: `ws://127.0.0.1:${o.apiPort}${TERMINAL_PATH}` }),
     upgrade,
-    stop: () => { manager?.killAll(); wss.close(); },
+    stop: () => { manager?.killAll(); wss.close(); clearDrops(o.paths); },
   };
 }
 export type TerminalService = ReturnType<typeof createTerminal>;

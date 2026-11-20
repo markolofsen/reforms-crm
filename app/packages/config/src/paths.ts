@@ -45,6 +45,8 @@ export interface HubPaths {
   coreUpdate: string;
   /** P62: what the hub knows of each connector's Google account (`<state>/connectors.json`: stated by the owner, confirmed by a session's read), written by `hub connectors` and the guard's post hook. */
   connectors: string;
+  /** P76, decision 0041: the files dropped on a terminal tab, `<state>/drops/<slug or _shell>/<session>/`; emptied at server start, a tab's folder removed when it closes. */
+  drops: string;
   secrets: string;
   configDir: string;
   configFile: string;
@@ -132,6 +134,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     autostart: join(state, "autostart"),
     coreUpdate: join(state, "core-update.json"),
     connectors: join(state, "connectors.json"),
+    drops: join(state, "drops"),
     secrets: fromEnv(env, "HUB_CONFIG_DIR") ?? join(state, "secrets"),
     configDir,
     configFile: fromEnv(env, "HUB_CONFIG_FILE") ?? join(configDir, "config.json"),
@@ -226,6 +229,15 @@ export function instanceLogRetention(paths: Pick<HubPaths, "configFile">): numbe
 export function codexSessionPaths(paths: Pick<HubPaths, "codexHomes">, slug: string | undefined): { home: string; skills: string; browserProfile: string; browserOutput: string } {
   const home = join(paths.codexHomes, slug ?? "_unbound");
   return { home, skills: join(home, "skills"), browserProfile: join(home, "browser"), browserOutput: join(home, "browser-output") };
+}
+
+/** The drop folder of the Shell's tabs (no project). */
+export const SHELL_DROPS = "_shell";
+
+/** `<state>/drops/<slug or _shell>`, and with `session` that tab's own folder (P76): where the dock copies a dropped file. */
+export function dropFolder(paths: Pick<HubPaths, "drops">, slug: string | null | undefined, session?: string): string {
+  const project = join(paths.drops, slug ?? SHELL_DROPS);
+  return session === undefined ? project : join(project, session);
 }
 
 /** The CLIs a hub agent session can run (P49): Claude Code and Codex. */

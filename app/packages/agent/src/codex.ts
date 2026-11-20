@@ -1,6 +1,6 @@
 import path from "node:path";
 import { codexSessionPaths, type HubPaths } from "@hub/config/paths";
-import { CODEX_FORBIDDEN_PREFIXES, deniedToolsOf, HUB_MCP_SERVERS, otherProjects } from "./deny";
+import { CODEX_FORBIDDEN_PREFIXES, deniedToolsOf, HUB_MCP_SERVERS, otherDrops, otherProjects } from "./deny";
 import { BROWSER_TOOL_TIMEOUT_SEC, CODEX_BROWSER_SERVER, codexBrowserServer } from "./browser";
 import { focusHookCommand, logHookCommand } from "./claude";
 import { CODEX_BYPASS, codexModeArgs, protectedPaths } from "./session";
@@ -57,7 +57,7 @@ export function codexConfigToml(i: CodexSessionInput): string {
   // One entry per path (TOML refuses a key twice): unreadable wins over read-only.
   const access = new Map<string, "read" | "none">(protectedPaths(i.paths).map((p) => [p, "read"]));
   // P77: the browser's Chrome profile holds the owner's sign-ins: the server (outside the sandbox) writes it, a command never reads it.
-  for (const p of [i.paths.secrets, codexSessionPaths(i.paths, i.slug).browserProfile, ...otherProjects(i.projectsDir, i.slug).map((o) => path.join(i.projectsDir, o))]) access.set(p, "none");
+  for (const p of [i.paths.secrets, codexSessionPaths(i.paths, i.slug).browserProfile, ...otherProjects(i.projectsDir, i.slug).map((o) => path.join(i.projectsDir, o)), ...otherDrops(i.paths, i.projectsDir, i.slug)]) access.set(p, "none");
   for (const [p, a] of access) out.push(`${str(p)} = ${str(a)}`);
   out.push("", `[permissions.${CODEX_PROFILE}.network]`, "enabled = false", "");
   out.push(`[projects.${str(i.paths.home)}]`, `trust_level = "trusted"`, "");

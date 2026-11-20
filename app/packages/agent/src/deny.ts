@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { pathsAt, type HubPaths } from "@hub/config/paths";
+import { dropFolder, pathsAt, SHELL_DROPS, type HubPaths } from "@hub/config/paths";
 
 // What a hub agent session may never do, in both CLIs (plan p17, P49 S10). These match tool names and command text, so
 // they are a belt, not the boundary: a decimal IP or a script defeats a text rule. In unattended mode the OS sandbox is
@@ -97,12 +97,18 @@ export function otherProjects(projectsDir: string, slug: string | undefined): st
     .sort();
 }
 
+/** P76: the drop folders a session bound to `slug` may not read: every other project's and the Shell's (`state/drops/<x>`). */
+export const otherDrops = (paths: Pick<HubPaths, "drops">, projectsDir: string, slug: string | undefined): string[] =>
+  [...otherProjects(projectsDir, slug), SHELL_DROPS].map((o) => dropFolder(paths, o));
+
 /** Deny rules for Claude's settings.json: secrets, the live database, other projects' folders, mail-sending programs. */
 export function denyRules(projectsDir: string, root: string, slug: string | undefined, paths: HubPaths = pathsAt(root)): string[] {
   const rel = (p: string) => (path.relative(root, p) || ".").split(path.sep).join("/");
   const rules: string[] = [];
   const denied = [`./${rel(paths.secrets)}/**`, `./${rel(path.dirname(paths.db))}/**`];
   for (const o of otherProjects(projectsDir, slug)) denied.push(`./${rel(path.join(projectsDir, o))}/**`);
+  // P76: a file dropped on another project's tab, or on a Shell tab, is that tab's only.
+  for (const d of otherDrops(paths, projectsDir, slug)) denied.push(`./${rel(d)}/**`);
   for (const p of denied) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
   // `hub send` is the hub's own sender (decision 0011, plan P23): a person runs it, never the agent.
   rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_CONNECTOR_OWNER_COMMANDS, ...HUB_OPEN_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);

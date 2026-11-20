@@ -1,13 +1,14 @@
 import { Hono, type Context } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { okDto } from "@hub/contract/responses";
-import { createSessionBody, ensureSessionBody, ensureSessionDto, terminalSessionDto, terminalStateDto, terminalTicketBody, terminalTicketDto } from "@hub/contract/terminal";
+import { createSessionBody, DROP_FIELD, DROP_LIMITS, ensureSessionBody, ensureSessionDto, terminalDropDto, terminalSessionDto, terminalStateDto, terminalTicketBody, terminalTicketDto } from "@hub/contract/terminal";
 import { gateRefusal } from "../admin-gate";
 import { notFound, v } from "../http";
 import { TerminalRefusal, type TerminalService } from "../terminal";
 
 /**
  * `/api/terminal` (P49; always on, decision 0032). The state carries `problem` when no tab can start (P66); a start then
- * answers 503 `terminal_unavailable` with the same `fix`. Without the service (a test's bare app) every route is 404. A ticket, a new session and `ensure` need the admin's exact origin and a same-origin fetch (S4, S5); no route takes a command or a path (S7).
+ * answers 503 `terminal_unavailable` with the same `fix`. Without the service (a test's bare app) every route is 404. A ticket, a new session and `ensure` need the admin's exact origin and a same-origin fetch (S4, S5); no route takes a command, and the one that takes a file name (the drop, P76) keeps a safe basename under a folder the server names (S7).
  */
 export function terminalRoutes(t: TerminalService | undefined, adminPort: number) {
   const missing = (c: Context) => c.json({ error: "terminal not set up", code: "not_found" as const }, 404);
@@ -43,6 +44,22 @@ export function terminalRoutes(t: TerminalService | undefined, adminPort: number
       try {
         const r = await t.ensure(project, theme);
         return c.json(ensureSessionDto.parse(r), r.created ? 201 : 200);
+      } catch (e) {
+        return refusal(c, e);
+      }
+    })
+    // P76, decision 0041: the dropped files of one tab. The pane checks the same caps before it posts (Next buffers the body in
+    // front of this route); this limit is the belt, with a little room for the multipart framing.
+    .post("/api/terminal/sessions/:id/drops", bodyLimit({ maxSize: DROP_LIMITS.bytes + 1024 * 1024, onError: (c) => c.json({ error: `A drop takes ${DROP_LIMITS.bytes / 1024 / 1024} MiB in all.`, code: "invalid" as const }, 413) }), async (c) => {
+      if (!t) return missing(c);
+      const no = strict(c);
+      if (no) return no;
+      const form = await c.req.formData().catch(() => null);
+      if (!form) return c.json({ error: "A drop is a multipart form of files.", code: "invalid" as const }, 400);
+      const files = form.getAll(DROP_FIELD).filter((f): f is File => f instanceof File);
+      try {
+        const dropped = await Promise.all(files.map(async (f) => ({ name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })));
+        return c.json(terminalDropDto.parse({ paths: t.drop(c.req.param("id"), dropped) }), 201);
       } catch (e) {
         return refusal(c, e);
       }

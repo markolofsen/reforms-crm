@@ -82,6 +82,17 @@ export const terminalTicketBody = z.strictObject({ session: z.string().min(1).ma
 export const terminalTicketDto = z.strictObject({ ticket: z.string(), expiresAt: z.string(), url: z.string() });
 export type TerminalTicketDto = z.infer<typeof terminalTicketDto>;
 
+/**
+ * `POST /api/terminal/sessions/:id/drops` (P76, decision 0041): files dropped on a tab, as multipart (field `file`, at most
+ * `DROP_LIMITS.files` of them, `DROP_LIMITS.bytes` in all). The server writes each under `state/drops/` and answers the
+ * absolute paths in the order sent; the dock pastes them. One pair of caps, so the pane can refuse before it posts.
+ */
+export const DROP_LIMITS = { files: 10, bytes: 20 * 1024 * 1024 } as const;
+/** The form field each dropped file goes in. */
+export const DROP_FIELD = "file";
+export const terminalDropDto = z.strictObject({ paths: z.array(z.string()).min(1).max(DROP_LIMITS.files) });
+export type TerminalDropDto = z.infer<typeof terminalDropDto>;
+
 /** Control frames on the socket, JSON text; terminal bytes go as binary frames both ways. */
 export const clientFrame = z.discriminatedUnion("op", [
   z.strictObject({ op: z.literal("auth"), ticket: z.string().min(1).max(200) }),
