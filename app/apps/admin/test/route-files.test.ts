@@ -36,7 +36,7 @@ describe("the file tree and the route table", () => {
   });
 
   it("the patterns derived from the table accept the pages in both shapes and nothing else", () => {
-    for (const ok of ["/", "/overview", "/drafts", "/drafts?filter=hold", "/drafts/42?filter=hold&batch=3", "/log?run=2", "/knowledge", "/settings", "/settings/mail", "/settings/agent", "/settings/connections", "/settings/mac", "/help", "/lisbon/drafts", "/lisbon/drafts/42?filter=hold", "/demo%20shop/log", "/lisbon/knowledge", "/lisbon/settings", "/lisbon/settings/agent"]) expect(routeOf(ok), ok).toBe(ok);
+    for (const ok of ["/", "/overview", "/drafts", "/drafts?filter=hold", "/drafts/42?filter=hold&batch=3", "/log?client=2", "/knowledge", "/settings", "/settings/mail", "/settings/agent", "/settings/connections", "/settings/mac", "/help", "/lisbon/drafts", "/lisbon/drafts/42?filter=hold", "/demo%20shop/log", "/lisbon/knowledge", "/lisbon/settings", "/lisbon/settings/agent"]) expect(routeOf(ok), ok).toBe(ok);
     // The fold form `/lisbon/settings/connections` renders (its page exists) but is never a destination: the guard writes the bare one.
     for (const bad of ["/bulk", "/bulk/3", "/nope", "/drafts/abc", "/drafts/0", "/drafts/1/2", "//evil.test", "/api/pulse", "https://evil.test/drafts", "/lisbon/overview", "/lisbon/help", "/lisbon", "/a/b/drafts", "/settings/nope", "/project", "/agents", "/connections", "/lisbon/settings/connections"]) expect(routeOf(bad), bad).toBeNull();
     expect([...PROJECTLESS].sort()).toEqual(["help.page", "overview.page", "settings.connections", "settings.mac"]);

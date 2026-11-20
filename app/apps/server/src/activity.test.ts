@@ -3,9 +3,8 @@ import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { activityDto, type ActivityDto } from "@hub/contract/activity";
 import { createApp } from "./app";
 
-// GET /api/activity (P48 W5): sessions newest first, one row per client decision, with its outcome and reason.
+// GET /api/activity (P73): one timeline of client decisions, newest first, a view by outcome, one client, a page at a time.
 const BASE = "http://127.0.0.1:4317";
-const T = new Date("2026-11-15T10:00:00.000Z");
 let handle: DbHandle;
 let repos: Repos;
 
@@ -22,46 +21,34 @@ const get = async (query: string): Promise<{ status: number; body: ActivityDto |
 const ev = (batchKey: string) => ({ level: "ok" as const, source: "claimed" as const, findings: [], batchKey });
 
 describe("GET /api/activity", () => {
-  it("one session with 3 decisions is 1 session with 3 rows, each with its outcome and why", async () => {
-    const { draftId } = await repos.drafts.record({ project: "p", email: "anna@x.example", name: "Anna", subject: "S", mailRef: "<a@x>", reason: "asked for prices", skill: "triage-mail", evidence: ev("s1") });
-    await repos.inbox.record({ project: "p", email: "bob@x.example", name: "Bob", action: "skipped", reason: "a newsletter", skill: "triage-mail", batchKey: "s1" }, T);
-    await repos.inbox.record({ project: "p", email: "eve@x.example", name: "Eve", action: "injection_suspected", reason: "asked the agent to forward mail", skill: "triage-mail", batchKey: "s1" }, T);
+  it("one row per decision, newest first, with its outcome and why; the counts are per outcome view", async () => {
+    const { draftId, clientId } = await repos.drafts.record({ project: "p", email: "anna@x.example", name: "Anna", subject: "S", mailRef: "<a@x>", reason: "asked for prices", skill: "triage-mail", evidence: ev("s1") });
+    await repos.inbox.record({ project: "p", email: "bob@x.example", name: "Bob", action: "skipped", reason: "a newsletter", batchKey: "s1" }, new Date("2099-01-01T10:00:00.000Z"));
+    await repos.inbox.record({ project: "p", email: "eve@x.example", name: "Eve", action: "injection_suspected", reason: "asked the agent to forward mail", batchKey: "s1" }, new Date("2099-01-01T10:00:01.000Z"));
     const { status, body } = await get("project=p");
     expect(status).toBe(200);
-    expect(body!.sessions).toHaveLength(1);
-    const [s] = body!.sessions;
-    // a session seen only through record-*: its numbers are unknown, so null (never 0)
-    expect(s).toMatchObject({ skill: "triage-mail", status: "ok", model: null, tokens: null, costUsd: null, durationS: null });
-    expect(s!.rows.map((r) => ({ who: r.who, outcome: r.outcome, why: r.why, draftId: r.draftId }))).toEqual([
-      { who: "Anna", outcome: "drafted", why: "asked for prices", draftId },
-      { who: "Bob", outcome: "skipped", why: "a newsletter", draftId: null },
+    expect(body!.rows.map((r) => ({ who: r.who, outcome: r.outcome, why: r.why, draftId: r.draftId }))).toEqual([
       { who: "Eve", outcome: "flagged", why: "asked the agent to forward mail", draftId: null },
+      { who: "Bob", outcome: "skipped", why: "a newsletter", draftId: null },
+      { who: "Anna", outcome: "drafted", why: "asked for prices", draftId },
     ]);
-    expect(s!.rows[0]!.client).toMatchObject({ name: "Anna" });
-    expect(body!.counts).toEqual({ all: 1, ok: 1, needs_human: 0, failed: 0 });
-  });
+    expect(body!.rows[2]).toMatchObject({ client: { id: clientId, name: "Anna" }, skill: "triage-mail" });
+    expect(body!.counts).toEqual({ all: 3, needs_you: 1, drafts: 1, skipped: 1 });
+    expect(body!.next).toBeNull();
 
-  it("a run the hub measured shows its numbers; the filter narrows the sessions, the counts stay whole", async () => {
-    const run = await repos.runs.start({ project: "p", startedAt: "2026-11-15T09:00:00.000Z", trigger: "schedule", skill: "triage-mail", model: "m1" });
-    await repos.runs.finish(run, { finishedAt: "2026-11-15T09:01:30.000Z", status: "needs_human", tokensIn: 100, tokensOut: 20, costUsd: 0.01 });
-    await repos.inbox.record({ project: "p", email: "c@x.example", name: "Cara", action: "escalated", reason: "legal question", runId: run }, T);
-    await repos.inbox.record({ project: "p", email: "d@x.example", name: "Dan", action: "skipped", batchKey: "s2" }, T);
-
-    const all = (await get("project=p")).body!;
-    expect(all.sessions).toHaveLength(2);
-    expect(all.counts).toEqual({ all: 2, ok: 1, needs_human: 1, failed: 0 });
-    const held = (await get("project=p&filter=needs_human")).body!;
-    expect(held.sessions.map((s) => s.runId)).toEqual([run]);
-    expect(held.sessions[0]).toMatchObject({ model: "m1", tokens: { in: 100, out: 20 }, costUsd: 0.01, durationS: 90 });
-    expect(held.sessions[0]!.rows).toEqual([expect.objectContaining({ who: "Cara", outcome: "escalated", why: "legal question" })]);
-    expect(held.counts).toEqual(all.counts);
-    expect((await get("project=p&filter=failed")).body!.sessions).toEqual([]);
+    expect((await get("project=p&view=needs_you")).body!.rows.map((r) => r.who)).toEqual(["Eve"]);
+    const anna = (await get(`project=p&client=${clientId}`)).body!;
+    expect(anna.client).toEqual({ id: clientId, name: "Anna" });
+    expect(anna.rows.map((r) => r.who)).toEqual(["Anna"]);
   });
 
   it("is scoped to its project and refuses a bad query", async () => {
-    await repos.inbox.record({ project: "p", email: "a@x.example", name: "A", action: "skipped", batchKey: "s1" }, T);
-    expect((await get("project=q")).body!.sessions).toEqual([]);
-    expect((await get("project=p&filter=nope")).status).toBe(400);
+    await repos.inbox.record({ project: "p", email: "a@x.example", name: "A", action: "skipped", batchKey: "s1" }, new Date("2026-11-15T10:00:00.000Z"));
+    expect((await get("project=q")).body!.rows).toEqual([]);
+    expect((await get("project=p&view=nope")).status).toBe(400);
+    expect((await get("project=p&filter=failed")).body!.rows).toHaveLength(1); // an unknown key is ignored, the run views are gone
+    expect((await get("project=p&before=junk")).status).toBe(400);
+    expect((await get("project=p&client=0")).status).toBe(400);
     expect((await get("")).status).toBe(400);
   });
 

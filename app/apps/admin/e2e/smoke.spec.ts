@@ -55,8 +55,9 @@ test("I read the checks, then Done moves the card to the bottom", async ({ page 
   await expect.poll(async () => (await cards(page).count()) - (await index())).toBeLessThanOrEqual(3);
 });
 
-test("Activity opens a session beside the table, in the same page", async ({ page }) => {
-  await page.goto(at("lisbon-realty", "/log?run=1"));
-  await expect(page.getByRole("region", { name: "Session", exact: true })).toBeVisible();
+test("Activity is one page: the timeline, no detail pane and no dialog (P73)", async ({ page }) => {
+  await page.goto(at("lisbon-realty", "/log"));
+  await expect(page.getByRole("table", { name: "Activity" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Session", exact: true })).toHaveCount(0);
   await expect(page.getByRole("dialog")).toHaveCount(0);
 });

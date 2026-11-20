@@ -44,7 +44,7 @@ export const paths = {
     item: (id: number, s: DraftsArgs = {}) => dest("drafts.item", route(`/drafts/${id}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
   },
   log: {
-    list: (s: { filter?: ActivityView; run?: number | null } = {}) => dest("log.list", route("/log"), { filter: unlessDefault(s.filter, "all"), run: s.run }),
+    list: (s: { filter?: ActivityView; client?: number | null } = {}) => dest("log.list", route("/log"), { filter: unlessDefault(s.filter, "all"), client: s.client }),
   },
 };
 

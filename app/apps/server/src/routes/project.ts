@@ -11,9 +11,9 @@ export function projectRoutes(repos: Repos, root: string = projectsRoot(), polic
   return new Hono()
     .get("/api/project", v("query", projectQuery), async (c) => c.json(await projectOverview(repos, c.req.valid("query").project, root)))
     .get("/api/project/doctor", v("query", projectQuery), async (c) => c.json(await projectDoctor(repos, c.req.valid("query").project, root, process.env, policyDir)))
-    // What the agent did: sessions newest first, one row per client decision (P48 W5).
+    // What the agent decided: one timeline, newest first, one row per client decision, a page at a time (P73).
     .get("/api/activity", v("query", activityQuery), async (c) => {
-      const { project, filter } = c.req.valid("query");
-      return c.json(activityDto.parse(await repos.runs.activity(project, filter)));
+      const { project, view, client, before } = c.req.valid("query");
+      return c.json(activityDto.parse(await repos.runs.activity(project, { view, client: client ?? null, before: before ?? null })));
     });
 }

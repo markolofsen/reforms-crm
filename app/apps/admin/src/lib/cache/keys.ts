@@ -26,7 +26,8 @@ export const keys = {
   batches: (project: string) => ["batches", project] as const,
   notByEmail: (project: string, kind: string | null) => ["not-by-email", project, kind] as const,
   enrollments: (project: string, view: string) => ["enrollments", project, view] as const,
-  activity: (project: string, filter: string) => ["activity", project, filter] as const,
+  /** P73: the timeline of one view, of one client or every one (`null`); its pages live under this key (an infinite query). */
+  activity: (project: string, view: string, client: number | null) => ["activity", project, view, client ?? "every"] as const,
   timeline: (project: string, clientId: number) => ["timeline", project, clientId] as const,
   project: (project: string) => ["project", project] as const,
   rules: (project: string) => ["rules", project] as const,

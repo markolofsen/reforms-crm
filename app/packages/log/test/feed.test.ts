@@ -9,7 +9,7 @@ import { labelOfTool } from "../src/feed-labels";
 import { readEvents, type LogStore } from "../src/store";
 import { summarize } from "../src/summary";
 
-// P59 F1: the feed over fixture events shaped like the saas file of 2026-11-19 (a Claude turn that revised draft 1, a Codex
+// P59 F1 (P73: the reply is the tones and the wait): the feed over fixture events shaped like the saas file of 2026-11-19 (a Claude turn that revised draft 1, a Codex
 // turn imported at Stop with back-dated rows). The address and the mailRef of that file must never reach a reply.
 const roots: string[] = [];
 const storeOf = (): LogStore => {
@@ -57,25 +57,14 @@ const claudeTurn = (): LogEvent[] => [
 ];
 
 describe("the feed (P59 F1)", () => {
-  it("labels every shown row from the table, newest first, and pairs each call with its result", () => {
-    const { placed } = write(claudeTurn());
-    const f = feedOf(placed, NOW, 10);
-    expect(f.rows.map((r) => `${r.label}|${r.state}|${r.draft ?? "-"}`)).toEqual([
-      "answered|done|-",
-      "records draft 1|done|1",
-      "records a draft|failed|-",
-      "guard warning: writes draft 1|done|1",
-      "writes draft 1|done|1",
-      "reads a message|done|-",
-      "reads draft 1|done|1",
-    ]);
-    expect(feedOf(placed, NOW).rows).toHaveLength(5);
-    expect(f.cursor).toMatch(/^2026-11-19:\d{12}$/);
+  it("is the ended turns' tones and the wait only (P73: no rows, no labels, no cursor)", () => {
+    const f = feedOf(write(claudeTurn()).placed, NOW);
+    expect(Object.keys(f).sort()).toEqual(["turns", "waiting"]);
   });
 
   it("no input, output, text or command reaches the reply: the address and the mailRef are absent", () => {
     const { placed } = write([...claudeTurn(), ev("03:32:00.000", "asked", { why: "permission_request", tool: "Bash", input: { command: `curl ${EMAIL}` } }, { cli: "codex" })]);
-    const text = JSON.stringify(feedOf(placed, NOW, 10));
+    const text = JSON.stringify(feedOf(placed, NOW));
     expect(text).not.toContain(EMAIL);
     expect(text).not.toContain(MAILREF);
     expect(text).not.toContain("record-draft --project");
@@ -98,7 +87,6 @@ describe("the feed (P59 F1)", () => {
     ]);
     const f = feedOf(placed, new Date("2026-11-19T04:10:00.000Z"));
     expect(f.turns.map((x) => `${x.id.split(":")[1]}:${x.tone}`)).toEqual(["q:attention", "p:attention", "e:problem"]);
-    expect(f.rows.map((r) => r.label)).toEqual(["waiting for you", "answered", "stopped on an error", "waits for your permission", "asks you a question"]);
     expect(f.waiting).toBe(false);
   });
 
@@ -111,7 +99,7 @@ describe("the feed (P59 F1)", () => {
     expect(feedOf(after.placed, new Date("2026-11-19T05:10:00.000Z")).waiting).toBe(false);
   });
 
-  it("Codex rows written at Stop are back-dated: sorted by time, and the turn is still new by its position", () => {
+  it("Codex rows written at Stop are back-dated: the turn is still new by its position", () => {
     const codex = (o: Partial<LogEvent>) => ({ cli: "codex" as const, session: "01a1f1db-aaaa", turn: "01a1f1db", ...o });
     const first = write([ev("03:31:08.833", "prompt", { text: "which draft?" }, codex({})), ev("03:31:13.572", "tool_call", { tool: "Bash", input: { command: "ls" } }, { corr: "c0" })]);
     const before = feedOf(first.placed, NOW);
@@ -123,9 +111,7 @@ describe("the feed (P59 F1)", () => {
       ev("03:31:15.574", "answer", { text: "Draft 4, Re: Hello. Shall I revise it?" }, codex({})),
     ], first.store);
     const f = feedOf(later.placed, NOW);
-    expect(f.rows.map((r) => `${r.at.slice(11, 19)} ${r.cli} ${r.label}`)).toEqual(["03:31:15 codex asks you a question", "03:31:13 claude runs a command", "03:31:11 codex reads draft 4"]);
     expect(f.turns).toEqual([{ id: "01a1f1db-aaaa:01a1f1db", tone: "attention" }]);
-    expect(f.cursor > before.cursor).toBe(true);
   });
 
   it("the tail reads the end of today's file and yesterday's when today's is short; a torn first line is dropped", () => {

@@ -1,5 +1,5 @@
-import type { RunStatus, SafetyKind } from "@hub/config";
-import { activityDto } from "@hub/contract/activity";
+import type { SafetyKind } from "@hub/config";
+import { activityDto, type ActivityView } from "@hub/contract/activity";
 import { agentFeedDto } from "@hub/contract/agent-feed";
 import { pulseDto } from "@hub/contract/health";
 import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
@@ -18,7 +18,9 @@ export const metaApi = {
   projects: () => read(projectsDto, { method: "GET", path: "/api/projects" }),
   overview: (project: string) => read(projectOverviewDto, { method: "GET", path: "/api/project", query: { project } }),
   pulse: () => read(pulseDto, { method: "GET", path: "/api/pulse" }),
-  activity: (project: string, filter: "all" | RunStatus) => read(activityDto, { method: "GET", path: "/api/activity", query: { project, filter } }),
+  /** P73: one page of the timeline, older than `before` (the previous page's `next`). */
+  activity: (project: string, view: ActivityView, client: number | null, before: string | null) =>
+    read(activityDto, { method: "GET", path: "/api/activity", query: { project, view, client: client ?? undefined, before: before ?? undefined } }),
   agentFeed: (project: string) => read(agentFeedDto, { method: "GET", path: `/api/projects/${encodeURIComponent(project)}/agent-feed` }),
   /** P70: the Knowledge table of one project, filtered and searched on the server. */
   knowledge: (project: string, filter: KnowledgeView, q: string) => read(knowledgeListDto, { method: "GET", path: `/api/projects/${encodeURIComponent(project)}/knowledge`, query: { filter, q } }),

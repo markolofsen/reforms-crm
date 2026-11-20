@@ -1,11 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { ActivityDto } from "@hub/contract/activity";
-import { groupRows, reasonParts } from "../src/features/log/labels";
+import { daySections, groupCells } from "../src/features/log/groups";
 import { address, remember } from "./support";
 
-// Activity (P48 W5), read flows only. The e2e instance has two projects, so a scoped address names its project first
-// (`/lisbon-realty/log`). The seed's first lisbon-realty session recorded several client decisions (`hub record-client`
-// rows joined to its run); the expected rows are read from the server's own answer, so the spec follows the seed.
+// Activity (P73, decision 0037), read flows only: one timeline of what the agent decided, newest first, a heading per local
+// day, no session and no detail pane. The e2e instance has two projects, so a scoped address names its project first
+// (`/lisbon-realty/log`). The expected lines are computed from the server's own answer, so the spec follows the seed.
 const PROJECT = "lisbon-realty";
 const LOG = `/${PROJECT}/log`;
 const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
@@ -14,91 +14,103 @@ test.beforeEach(async ({ page }) => {
   await remember(page, PROJECT);
 });
 
-async function activity(page: Page): Promise<ActivityDto> {
-  const res = await page.request.get(`${API()}/api/activity?project=${PROJECT}`);
+async function activity(page: Page, query = ""): Promise<ActivityDto> {
+  const res = await page.request.get(`${API()}/api/activity?project=${PROJECT}${query}`);
   expect(res.ok()).toBe(true);
   return (await res.json()) as ActivityDto;
 }
 
-/** The session with the most client decisions: the seed has one with several. */
-async function busiest(page: Page) {
-  const { sessions } = await activity(page);
-  const decisions = (s: ActivityDto["sessions"][number]) => s.rows.filter((r) => r.outcome !== "other");
-  const s = [...sessions].sort((a, b) => decisions(b).length - decisions(a).length)[0];
-  expect(s && decisions(s).length).toBeGreaterThan(1);
-  if (!s) throw new Error("the seed has no session");
-  return { s, decisions: decisions(s) };
-}
-
-test("activity: one session is one group, with one row per decision and its reason, at 0 clicks", async ({ page }) => {
-  const { s, decisions } = await busiest(page);
+test("activity: one timeline, a heading per day, one line per fold, the outcome and reason in the row, no second pane", async ({ page }) => {
+  const dto = await activity(page);
+  expect(dto.rows.length).toBeGreaterThan(1);
+  const days = daySections(dto.rows, Date.now());
   await page.goto(LOG);
   const table = page.getByRole("table", { name: "Activity" });
-  const group = table.locator(`tbody[data-run="${s.runId}"]`);
-  await expect(group.locator("tr[data-session-head]")).toHaveCount(1);
-  await expect(group.locator("tr[data-session-head]")).toContainText(`${decisions.length} decisions`);
-  // The same client with the same outcome in a row is one line ("Drafted ×6", UX pass 2026-11-20).
-  await expect(group.locator("tr[data-row]")).toHaveCount(groupRows(s.rows).length);
+  await expect(table.locator("tr[data-day-head]")).toHaveText(days.map((d) => d.label));
+  await expect(table.locator("tr[data-row]")).toHaveCount(days.reduce((n, d) => n + d.groups.length, 0));
   // T6: who and what is in the row the moment the screen opens; nothing hides behind a Details click.
-  for (const d of decisions) {
-    const r = group.locator("tr[data-row]").filter({ hasText: d.client?.name ?? d.who });
+  for (const g of days.flatMap((d) => d.groups)) {
+    const c = groupCells(g);
+    const r = table.locator("tr[data-row]").filter({ hasText: c.who }).filter({ hasText: c.what });
     await expect(r.first()).toBeVisible();
-    const { why } = reasonParts(d);
-    if (why) await expect(r.first()).toContainText(why);
+    if (c.why) await expect(r.first()).toContainText(c.why);
   }
   await expect(page.getByRole("button", { name: /Details/ })).toHaveCount(0);
-  // Each session appears once in the table: one heading row per session.
-  await expect(table.locator("tr[data-session-head]")).toHaveCount((await activity(page)).sessions.length);
+  // No session: no session heading, no `?run=`, no detail region beside the table.
+  await expect(table.locator("tr[data-session-head]")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Session", exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-slot="list-detail"]')).toHaveCount(0);
+  expect(await address(page)).toBe(LOG);
 });
 
-test("activity: an unknown or zero number is never shown, in the table or in any session's detail", async ({ page }) => {
-  const { sessions } = await activity(page);
-  for (const s of sessions) {
-    await page.goto(`${LOG}?run=${s.runId}`);
-    await expect(page.getByRole("region", { name: "Session", exact: true }).getByRole("heading", { level: 3 })).toBeVisible();
-    const text = await page.locator("#main").innerText();
-    expect(text).not.toMatch(/(^|[^\d.])0s\b/);
-    expect(text).not.toContain("$0.00");
-    expect(text).not.toContain("Model unknown");
-  }
-});
-
-test("activity: a session heading opens the session beside the table as sentences, and Back closes it", async ({ page }) => {
-  const { s, decisions } = await busiest(page);
+test("activity: a folded line's count opens its entries under it", async ({ page }) => {
+  const dto = await activity(page);
+  const fold = daySections(dto.rows, Date.now()).flatMap((d) => d.groups).find((g) => g.rows.length > 1);
+  test.skip(!fold, "the seed has no fold today");
+  if (!fold) return;
   await page.goto(LOG);
-  await page.getByRole("table", { name: "Activity" }).locator(`tbody[data-run="${s.runId}"] tr[data-session-head]`).getByRole("link").click();
-  await expect.poll(() => address(page)).toBe(`${LOG}?run=${s.runId}`);
-  const detail = page.getByRole("region", { name: "Session", exact: true });
-  const first = decisions[0];
-  if (first) await expect(detail.getByRole("list", { name: "What happened" })).toContainText(`${first.client?.name ?? first.who}: ${first.outcome}`);
-  await expect(page.getByRole("table", { name: "Activity" })).toBeVisible(); // from 1024px the table stays
-  await page.goBack();
-  await expect.poll(() => address(page)).toBe(LOG);
+  const table = page.getByRole("table", { name: "Activity" });
+  const line = table.locator(`tr[data-row][data-count="${fold.rows.length}"]`).first();
+  await line.getByRole("button", { name: new RegExp(`×${fold.rows.length}`) }).last().click();
+  await expect(table.locator("tr[data-entry]")).toHaveCount(fold.rows.length);
 });
 
-test("activity: the View menu counts sessions per status and narrows the table; the filter replaces the entry", async ({ page }) => {
+test("activity: the View menu counts decisions by outcome (the server's) and narrows the table; the filter replaces the entry", async ({ page }) => {
   const { counts } = await activity(page);
   await page.goto(LOG);
   const menu = page.getByRole("button", { name: /^View: All/ });
   await expect(menu).toContainText(String(counts.all));
   await menu.click();
-  await page.getByRole("menuitemradio", { name: /Failed/ }).click();
-  await expect.poll(() => address(page)).toBe(`${LOG}?filter=failed`);
-  await expect(page.getByRole("table", { name: "Activity" }).locator("tr[data-session-head]")).toHaveCount(counts.failed);
+  for (const [label, n] of [["Needs you", counts.needs_you], ["Drafts", counts.drafts], ["Skipped", counts.skipped]] as const) await expect(page.getByRole("menuitemradio", { name: new RegExp(`^${label}`) })).toContainText(String(n));
+  await page.getByRole("menuitemradio", { name: /^Skipped/ }).click();
+  await expect.poll(() => address(page)).toBe(`${LOG}?filter=skipped`);
+  const skipped = await activity(page, "&view=skipped");
+  const lines = daySections(skipped.rows, Date.now()).reduce((n, d) => n + d.groups.length, 0);
+  await expect(page.getByRole("table", { name: "Activity" }).locator("tr[data-row]")).toHaveCount(lines);
+});
+
+test("activity: one client's timeline says whose it is, and Show all returns", async ({ page }) => {
+  const client = (await activity(page)).rows.find((r) => r.client)?.client;
+  test.skip(!client, "the seed has no decision with a client row");
+  if (!client) return;
+  await page.goto(`${LOG}?client=${client.id}`);
+  await expect(page.getByTestId("activity-client")).toContainText(`${client.name} only`);
+  const rows = page.getByRole("table", { name: "Activity" }).locator("tr[data-row]");
+  await expect(rows.first()).toContainText(client.name);
+  await page.getByRole("button", { name: "Show all" }).click();
+  await expect.poll(() => address(page)).toBe(LOG);
+  await expect(page.getByTestId("activity-client")).toHaveCount(0);
 });
 
 test("activity: a row that made a draft links into that draft's card", async ({ page }) => {
   await page.route(/\/api\/activity\?/, async (route) => {
     const res = await route.fetch();
     const dto = (await res.json()) as ActivityDto;
-    const [s, ...rest] = dto.sessions;
-    if (!s) return route.fulfill({ response: res });
-    const [r, ...rows] = s.rows;
+    const [r, ...rows] = dto.rows;
     const drafted = r && { ...r, outcome: "drafted" as const, draftId: 7, who: "Draft Person", client: { id: 99, name: "Draft Person" } };
-    await route.fulfill({ response: res, json: { ...dto, sessions: [{ ...s, rows: drafted ? [drafted, ...rows] : rows }, ...rest] } });
+    await route.fulfill({ response: res, json: { ...dto, rows: drafted ? [drafted, ...rows] : rows } });
   });
   await page.goto(LOG);
-  await expect(page.getByRole("table", { name: "Activity" }).getByRole("link", { name: /Draft Person/ })).toHaveAttribute("href", `/${PROJECT}/drafts/7`);
+  const link = page.getByRole("table", { name: "Activity" }).getByRole("link", { name: /Draft Person/ });
+  await expect(link).toHaveAttribute("href", `/${PROJECT}/drafts/7`);
+  await expect(page.locator('tr[data-row][data-agent-ref="draft:7"]')).toHaveCount(1);
+});
+
+test("activity: at 360 px a row is two lines of the same table (client and what happened; when and why)", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 740 });
+  await page.goto(LOG);
+  const row = page.getByRole("table", { name: "Activity" }).locator("tr[data-row]").first();
+  await expect(row).toBeVisible();
+  const cells = await row.locator("td").evaluateAll((tds) => tds.filter((td) => getComputedStyle(td).display !== "none").length);
+  expect(cells).toBe(1);
+  // The client cell's first child is the name (line 1, with what happened); its last child is when and why (line 2), below it.
+  const twoLines = await row.locator("td").first().evaluate((td) => {
+    const first = td.firstElementChild?.getBoundingClientRect();
+    const last = td.lastElementChild?.getBoundingClientRect();
+    return !!first && !!last && last.top >= first.bottom - 1;
+  });
+  expect(twoLines).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 });
 
 test("activity: the request failing shows a sentence and Retry loads it", async ({ page }) => {
@@ -107,6 +119,6 @@ test("activity: the request failing shows a sentence and Retry loads it", async 
   await page.goto(LOG);
   await expect(page.getByText("Could not load the activity")).toBeVisible();
   fail = false;
-  await page.getByRole("button", { name: "Retry" }).click();
+  await page.getByRole("button", { name: "Retry" }).first().click();
   await expect(page.getByRole("table", { name: "Activity" })).toBeVisible();
 });

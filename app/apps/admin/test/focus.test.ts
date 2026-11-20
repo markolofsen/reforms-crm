@@ -45,9 +45,10 @@ describe("deriveFocus", () => {
     const f = derive("/acme/drafts", "q=price", { subject: "draft:7", selected: ["draft:7", "draft:9"] });
     expect(f).toMatchObject({ route: "drafts.list", subject: "draft:7", selected: ["draft:7", "draft:9"], view: { q: "price" } });
   });
-  it("Activity's open session is the subject by its id (/log?run=10), not a view", () => {
-    expect(derive("/acme/log", "run=10")).toMatchObject({ route: "log.list", title: "Activity", subject: "run:10" });
-    expect(derive("/acme/log", "run=10").view).toBeUndefined();
+  it("Activity narrowed to one client names that client as the subject (/log?client=1, P73), not a view", () => {
+    expect(derive("/acme/log", "client=1")).toMatchObject({ route: "log.list", title: "Activity", subject: "client:1" });
+    expect(derive("/acme/log", "client=1").view).toBeUndefined();
+    expect(derive("/acme/log", "filter=skipped&client=1").view).toEqual({ filter: "skipped" });
   });
   it("Knowledge: the row he is on and the rows on screen, refs only", () => {
     const f = derive("/acme/knowledge", "q=csv", { pointed: "knowledge:knowledge/files/a.md", window: { refs: ["knowledge:knowledge/files/a.md", "knowledge:knowledge/files/b.md"], total: 57 } });
@@ -78,11 +79,11 @@ describe("refs", () => {
     expect(parseRef("knowledge:knowledge/files/a.md")).toEqual({ kind: "knowledge", id: "knowledge/files/a.md" });
     for (const bad of ["draft:0", "draft:x", "knowledge:../etc", "screen:knowledge", "draft", ":1"]) expect(parseRef(bad), bad).toBeNull();
   });
-  it("lead somewhere for Show, except a client (no screen of its own)", () => {
+  it("lead somewhere for Show: a client to its timeline in Activity, a run to Activity (P73)", () => {
     expect(destOfRef("draft:4")?.route).toBe("drafts.item");
-    expect(destOfRef("run:10")).toMatchObject({ route: "log.list", search: { run: "10" } });
+    expect(destOfRef("run:10")).toMatchObject({ route: "log.list", search: {} });
     expect(destOfRef("knowledge:knowledge/a.md", "CSV export")).toMatchObject({ route: "knowledge.page", search: { q: "CSV export" } });
-    expect(destOfRef("client:3")).toBeNull();
+    expect(destOfRef("client:3")).toMatchObject({ route: "log.list", search: { client: "3" } });
   });
 });
 

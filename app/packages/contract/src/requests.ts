@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { ADVISOR_MODELS, AGENT_MODELS, BATCH_FILTERS, CLIENT_FILTERS, INBOX_FILTERS, INBOX_KINDS, MARKS, RUN_STATUSES, SAFETY_KINDS, SETTABLE_STATUSES, TONES } from "@hub/config";
+import { ACTIVITY_CURSOR, ACTIVITY_VIEWS } from "./activity";
+import { ADVISOR_MODELS, AGENT_MODELS, BATCH_FILTERS, CLIENT_FILTERS, INBOX_FILTERS, INBOX_KINDS, MARKS, SAFETY_KINDS, SETTABLE_STATUSES, TONES } from "@hub/config";
 
 // Every request the API accepts, once. The server validates with these; the admin imports the types of the bodies it
 // builds. `SETTABLE_STATUSES` has no `sent`: the draft-only invariant is part of the contract.
@@ -24,8 +25,8 @@ export const draftsQuery = z.object({
 export const inboxQuery = z.object({ project, filter: z.enum(INBOX_FILTERS).default("owed"), ...page });
 export const notByEmailQuery = z.object({ project, kind: z.enum(INBOX_KINDS).optional(), ...page });
 export const batchQuery = z.object({ project, filter: z.enum(BATCH_FILTERS).default("all"), ...page });
-/** Activity (P48 W5): `filter` is a run status, or `all`. */
-export const activityQuery = z.object({ project, filter: z.enum(["all", ...RUN_STATUSES]).default("all") });
+/** Activity (P73): a view by outcome, optionally one client, and the page before a cursor (`next` of the previous page). */
+export const activityQuery = z.object({ project, view: z.enum(ACTIVITY_VIEWS).default("all"), client: z.coerce.number().int().positive().optional(), before: z.string().regex(ACTIVITY_CURSOR).optional() });
 export const historyQuery = z.object({ project, limit: z.coerce.number().int().min(1).max(200).optional(), cursor: z.string().min(1).max(2000).optional() });
 // Draft and client mutations carry `project`: a draft or client of another project is "not found" (`@rules/README.md` rule 11).
 export const marksBody = z.object({ project, marks: z.array(z.enum(MARKS)).max(MARKS.length) });

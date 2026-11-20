@@ -115,11 +115,9 @@ describe("agent log", () => {
     const events = await repos.runs.events("p", run);
     expect(events.map((e) => [e.seq, e.summary])).toEqual([[1, "one"], [2, "two"]]);
     expect(await repos.runs.events("elsewhere", run)).toEqual([]);
-    const { sessions } = await repos.runs.activity("p");
-    expect(sessions.map((r) => r.runId)).toEqual([run, other]);
-    expect(sessions[0]).toMatchObject({ status: "needs_human", costUsd: 0.2 });
-    expect(sessions[0]?.rows).toHaveLength(2);
-    expect((await repos.runs.activity("elsewhere")).sessions).toEqual([]);
+    // Activity (P73) lists client decisions only: a thought, an error and a decision with no outcome are the session log's.
+    expect((await repos.runs.activity("p")).rows).toEqual([]);
+    expect((await repos.runs.activity("elsewhere")).rows).toEqual([]);
   });
 });
 
@@ -137,7 +135,7 @@ describe("seed", () => {
     expect(await repos.projects.list()).toEqual(["demo-shop", "lisbon-realty"]);
     const counts = await repos.clients.counts("lisbon-realty");
     expect(counts.all).toBeGreaterThan(5);
-    expect((await repos.runs.activity("lisbon-realty")).counts.all).toBe(3);
+    expect((await repos.runs.activity("lisbon-realty")).counts.all).toBeGreaterThan(3);
     // the same address lives in both projects without clashing
     expect((await repos.clients.list("demo-shop")).some((c) => c.email === "anna@example.com")).toBe(true);
     expect((await repos.clients.list("lisbon-realty")).some((c) => c.email === "anna@example.com")).toBe(true);
@@ -187,7 +185,7 @@ describe("drafts.record", () => {
     expect(c).toMatchObject({ email: "cy@x.example", name: "Cy Roe", repliesOwed: true, marks: ["follow_up"] });
     const events = await repos.runs.events("p", r.runId);
     expect(events.map((e) => [e.kind, e.summary])).toEqual([["draft_created", "Draft recorded: Cy Roe"]]);
-    expect((await repos.runs.activity("p")).sessions[0]).toMatchObject({ skill: "triage-mail", trigger: "owner", status: "ok" });
+    expect((await repos.runs.activity("p")).rows[0]).toMatchObject({ outcome: "drafted", skill: "triage-mail", draftId: r.draftId, why: "They asked for terms." });
   });
 
   it("the same mailRef again updates in place: one row", async () => {

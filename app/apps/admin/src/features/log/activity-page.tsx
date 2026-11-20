@@ -1,44 +1,75 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
+import type { ActivityDto } from "@hub/contract/activity";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { ListDetail } from "@hub/ui/product/list-detail";
 import { Page } from "@hub/ui/product/page";
-import { EmptyState, ListSkeleton, LoadFailed, Loading, StaleNote } from "@/components/state-views";
+import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
 import { useSearchState } from "@/hooks/use-search-state";
 import { metaApi } from "@/lib/api/meta";
+import { keys } from "@/lib/cache/keys";
+import { useClock } from "@/lib/clock";
 import { useSends } from "@/lib/status";
-import type { ActivityView, RunFilter } from "@/routes/search";
+import type { ActivityView, TimelineView } from "@/routes/search";
 import { FilterMenu } from "./filter-menu";
 import { SendsView } from "./sends-table";
-import { SessionDetail, SessionHint, SessionMissing } from "./session-detail";
-import { SessionRows, SessionTable } from "./session-list";
+import { Timeline } from "./timeline";
 import { useNewRows } from "./use-new-rows";
-import { keys } from "@/lib/cache/keys";
 
-type Props = { project: string; filter: ActivityView; run: number | null };
-type SessionProps = { project: string; filter: RunFilter; run: number | null };
+type Props = { project: string; filter: ActivityView; client: number | null };
+/** The first page has no cursor; each later one starts before the previous page's `next`. */
+const FIRST_PAGE: string | null = null;
 
-/** The sessions of a view, in each of the four states of a list. */
-function Sessions({ project, filter, run }: SessionProps) {
+/** The timeline of one view (and one client), its pages one key (`state-and-data.md` rule 2): the newest 100, then Show older. */
+function useTimeline(project: string, view: TimelineView, client: number | null) {
+  const q = useInfiniteQuery({
+    queryKey: keys.activity(project, view, client),
+    queryFn: ({ pageParam }) => metaApi.activity(project, view, client, pageParam),
+    initialPageParam: FIRST_PAGE,
+    getNextPageParam: (last: ActivityDto) => last.next ?? undefined,
+    placeholderData: keepPreviousData,
+  });
+  const rows = useMemo(() => q.data?.pages.flatMap((p) => p.rows) ?? [], [q.data]);
+  // "N new" counts what a live refetch adds at the top, so only the first page's rows are read (Show older adds none).
+  const first = q.data?.pages[0];
+  const ids = useMemo(() => (q.isPlaceholderData ? undefined : first?.rows.map((r) => r.id)), [first, q.isPlaceholderData]);
+  return { q, rows, ids, head: first };
+}
+
+/** "Mark Effect only · Show all": the one-client narrowing (`?client=`), said once under the header line. */
+function ClientLine({ name }: { name: string }) {
+  const setClient = useSearchState("client")[1];
+  return (
+    <p className="flex flex-wrap items-center gap-2 text-sm" data-testid="activity-client">
+      <span>{name} only</span>
+      <ActionButton onClick={() => setClient(null)} size="s" variant="quiet">Show all</ActionButton>
+    </p>
+  );
+}
+
+/** The timeline of a view, in each of the four states of a list, and its last page's Show older. */
+function TimelineView({ project, view, client }: { project: string; view: TimelineView; client: number | null }) {
   const setFilter = useSearchState("filter")[1];
-  const q = useQuery({ queryKey: keys.activity(project, filter), queryFn: () => metaApi.activity(project, filter), placeholderData: keepPreviousData });
-  const data = q.data;
-  const ids = useMemo(() => (q.isPlaceholderData ? undefined : data?.sessions.map((s) => s.runId)), [data, q.isPlaceholderData]);
-  const fresh = useNewRows(`${project}/${filter}`, ids);
+  const now = useClock()();
+  const { q, rows, ids, head } = useTimeline(project, view, client);
+  const fresh = useNewRows(`${project}/${view}/${client ?? ""}`, ids);
   const body = q.isPending ? (
     <ListSkeleton label="Loading the activity" />
-  ) : !data ? (
+  ) : !head ? (
     <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the activity" />
-  ) : data.sessions.length === 0 ? (
-    filter === "all" ? (
-      <EmptyState title="Nothing yet">It fills in when the agent works in a session: each session and what it did for every client appears here.</EmptyState>
+  ) : rows.length === 0 ? (
+    view === "all" && client === null ? (
+      <EmptyState title="Nothing yet">It fills in when the agent works in a session: what it decided for every client appears here, newest first.</EmptyState>
     ) : (
-      <EmptyState action={<ActionButton onClick={() => setFilter("all")} size="s" variant="secondary">Show all</ActionButton>} title="No session in this view" />
+      <EmptyState action={<ActionButton onClick={() => setFilter("all")} size="s" variant="secondary">Show all</ActionButton>} title="Nothing in this view" />
     )
   ) : (
     <>
-      <SessionTable filter={filter} open={run} sessions={data.sessions} />
-      <SessionRows filter={filter} open={run} sessions={data.sessions} />
+      <Timeline now={now} rows={rows} />
+      {q.hasNextPage && (
+        <ActionButton className="self-start" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()} size="m" variant="secondary">
+          Show older
+        </ActionButton>
+      )}
     </>
   );
   return (
@@ -46,43 +77,26 @@ function Sessions({ project, filter, run }: SessionProps) {
       <p className="sr-only" data-testid="activity-new" role="status">
         {fresh}
       </p>
+      {client !== null && <ClientLine name={head?.client?.name ?? "This client"} />}
       {body}
-      {q.isError && data && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
+      {q.isError && head && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
     </>
   );
 }
 
-/** The list side: the View menu in the header line (the session views' counts are the server's; Sends counts the sends), then the view. */
-function List({ project, filter, run }: Props) {
+/**
+ * What happened in one project (P73, decision 0037): one page, no detail pane (`admin-principles.md` rule 6), the View menu in
+ * the header line (the timeline's counts are the server's; Sends counts the sends), then the timeline of what the agent
+ * decided, newest first, or the send history. The view and the one client live in the address (`?filter=`, `?client=`).
+ */
+export function ActivityPage({ project, filter, client }: Props) {
   const setFilter = useSearchState("filter")[1];
-  // The counts of the session views come with any view's reply; on Sends the All reply carries them (one key, cached).
-  const runs = useQuery({ queryKey: keys.activity(project, filter === "sends" ? "all" : filter), queryFn: () => metaApi.activity(project, filter === "sends" ? "all" : filter), placeholderData: keepPreviousData });
+  // The counts come with any view's reply; on Sends the All reply carries them (the same key as the All view, cached).
+  const counts = useTimeline(project, filter === "sends" ? "all" : filter, filter === "sends" ? null : client).head?.counts;
   const sends = useSends(project);
   return (
-    <Page actions={<FilterMenu counts={runs.data?.counts} onChange={setFilter} sends={sends.data?.sends.length} value={filter} />}>
-      {filter === "sends" ? <SendsView project={project} /> : <Sessions filter={filter} project={project} run={run} />}
+    <Page actions={<FilterMenu counts={counts} onChange={setFilter} sends={sends.data?.sends.length} value={filter} />}>
+      {filter === "sends" ? <SendsView project={project} /> : <TimelineView client={client} project={project} view={filter} />}
     </Page>
   );
-}
-
-/** The opened session, read from the same query as the table (one key, `state-and-data.md` rule 2). */
-function Detail({ project, filter, run }: SessionProps) {
-  const q = useQuery({ queryKey: keys.activity(project, filter), queryFn: () => metaApi.activity(project, filter), placeholderData: keepPreviousData });
-  if (run === null) return <SessionHint />;
-  const session = q.data?.sessions.find((s) => s.runId === run);
-  if (session) return <SessionDetail filter={filter} session={session} />;
-  if (q.data) return <SessionMissing filter={filter} />;
-  return <Page>{q.isError ? <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the session" /> : <Loading what="the session" />}</Page>;
-}
-
-/**
- * What happened in one project: what the agent did, the sessions as a table (newest first) and, when the pane is wide enough for the split
- * (`ListDetail`), the opened one beside it as sentences; narrower, the session is its own screen. The view Sends (UX pass) is the send history, one page with no detail. The view and the opened session live in the address (`?filter=`, `?run=`).
- */
-export function ActivityPage(props: Props) {
-  const { filter } = props;
-  // Sends has no subject to open: one page, no split (`admin-principles.md` rule 6).
-  if (filter === "sends") return <List {...props} />;
-  // The table is the subject here and the detail the aside, so the list takes two thirds (`wide`).
-  return <ListDetail detail={<Detail {...props} filter={filter} />} detailLabel="Session" list={<List {...props} />} listLabel="Sessions" showDetail={props.run !== null} wide />;
 }

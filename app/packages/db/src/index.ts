@@ -15,10 +15,10 @@ export { EVENT_DETAIL_DAYS } from "./repos/runs";
 export { REFUSAL_COALESCE_MS } from "./repos/llm-calls";
 export type {
   Activity,
-  ActivityFilter,
   ActivityOutcome,
   ActivityRow,
-  ActivitySession,
+  ActivityView,
+  TimelineQuery,
   AddressRow,
   Candidate,
   EnrollmentItem,

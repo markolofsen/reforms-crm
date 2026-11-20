@@ -11,7 +11,7 @@ import { at, cardOf, remember } from "./support";
 // prompt line, and a scripted agent (`test-support/fake-agent.mjs`: `focus`, `draft_show` over `hub mcp`, then
 // `hub record-draft` with the same mailRef) revises the focused draft in place. Nothing is sent. Named z-* because it writes.
 // P72: every route publishes its id and its own title; a clicked Knowledge row is `pointed`, and the scripted agent reads it
-// with the tool the focus names (knowledge-mcp `knowledge_get`); `/log?run=N` names the run; the file names nothing.
+// with the tool the focus names (knowledge-mcp `knowledge_get`); `/log?client=N` names the client (P73); the file names nothing.
 
 const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
 const fakeAgent = fileURLToPath(new URL("../../../test-support/fake-agent.mjs", import.meta.url));
@@ -108,9 +108,11 @@ test("every screen says its own title; a clicked Knowledge row is what the agent
     const agent = JSON.parse(execFileSync("node", [fakeAgent, "--knowledge"], { env: kbEnv, encoding: "utf8" })) as { focus: { ref: string; entry: string }; got: { path: string; hasBody: boolean } };
     expect(agent.focus).toMatchObject({ ref: key, entry: title });
     expect(agent.got).toEqual({ path: key.slice("knowledge:".length), hasBody: true });
-    // 4. Activity's open session names its id; Settings, Help and Overview say their own titles.
-    await page.goto(at("demo-shop", "/log?run=1"));
-    await expect.poll(() => onDisk()?.focus.subject, { timeout: 2000 }).toBe("run:1");
+    // 4. Activity narrowed to one client names that client (P73); Settings, Help and Overview say their own titles.
+    const client = ((await (await page.request.get("/api/activity?project=demo-shop")).json()) as { rows: Array<{ client: { id: number } | null }> }).rows.find((r) => r.client)?.client?.id;
+    expect(client).toBeDefined();
+    await page.goto(at("demo-shop", `/log?client=${client}`));
+    await expect.poll(() => onDisk()?.focus.subject, { timeout: 2000 }).toBe(`client:${client}`);
     for (const [path, word] of [[at("demo-shop", "/settings"), "Sending"], [at("demo-shop", "/settings/mail"), "Mail"], [at("demo-shop", "/settings/agent"), "Agent"], ["/help", "Help"], ["/overview", "Overview"]] as const) {
       await page.goto(path);
       await expect.poll(() => onDisk()?.focus.title, { timeout: 2000 }).toBe(word);

@@ -8,7 +8,6 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupConte
 import { AppLink } from "@/components/app-link";
 import { KeyHelp } from "@/components/key-help";
 import { NavDot } from "@/components/nav-dot";
-import { FeedBlock } from "@/features/agent-feed/feed-block";
 import { SoundToggle } from "@/features/agent-feed/sound-toggle";
 import { CoreLine } from "@/features/settings/mac/core-line";
 import { NavIcon } from "./nav-icon";
@@ -54,7 +53,6 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys }:
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <FeedBlock />
         <CoreLine />
         <ThemeSegmented className="group-data-[collapsible=icon]:hidden" />
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">

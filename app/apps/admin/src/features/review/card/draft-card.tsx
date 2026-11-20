@@ -93,7 +93,7 @@ export function DraftCard({ d, project, actions, now, thread, onThread, onReplyA
     copySubject: () => {
       void copyText(d.subject).then((ok) => say(ok ? "Copied. In Mail press Option+Command+F and paste." : "The clipboard was blocked: copy the subject from the draft."));
     },
-    history: () => d.runId !== null && go(paths.log.list({ run: d.runId })),
+    history: () => go(paths.log.list({ client: d.clientId })),
     blocked: say,
   };
   // Shift+Enter: read Mail and show the confirmation, then send what was shown. Nothing else sends by key.

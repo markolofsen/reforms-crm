@@ -71,14 +71,8 @@ const SCREENS: Screen[] = [
     ready: async (p) => void (await p.getByText("Could not load the overview").waitFor()),
   },
   { name: "activity", path: at(P, "/log"), ready: async (p) => await expect(p.getByRole("list", { name: "Loading the activity" })).toHaveCount(0) },
-  {
-    name: "activity: session open",
-    path: at(P, "/log?run=1"),
-    ready: async (p) => {
-      await p.getByRole("region", { name: "Session", exact: true }).waitFor();
-      await expect(p.getByText("Loading the session")).toHaveCount(0);
-    },
-  },
+  // P73: one client's timeline (the draft card's history) replaces the opened session.
+  { name: "activity: one client", path: at(P, "/log?client=1"), ready: async (p) => await expect(p.getByRole("list", { name: "Loading the activity" })).toHaveCount(0) },
   { name: "settings: sending", path: at(P, "/settings"), ready: async (p) => void (await p.getByTestId("sending-status").waitFor()) },
   {
     name: "settings: sending, Stop all on",

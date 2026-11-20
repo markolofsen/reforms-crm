@@ -5,7 +5,7 @@ import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "@hu
 import type { ActivityView } from "@/routes/search";
 import { VIEW_LABELS, VIEW_ORDER } from "./labels";
 
-/** The View menu of Activity: which sessions to show, each with its count from the server (`counts`), then Sends with its own. */
+/** The View menu of Activity: which decisions to show, each with its count from the server (`counts`), then Sends with its own. */
 export function FilterMenu({ value, counts, sends, onChange }: { value: ActivityView; counts: ActivityDto["counts"] | undefined; sends: number | undefined; onChange: (v: string) => void }) {
   const count = (f: ActivityView) => (f === "sends" ? sends : counts?.[f]) ?? "-";
   return (

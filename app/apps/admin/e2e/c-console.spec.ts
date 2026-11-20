@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 const P = "lisbon-realty";
-const ROUTES = ["/overview", at(P, "/drafts"), at(P, "/drafts?filter=all"), at(P, "/drafts?filter=sequences"), at(P, "/log"), at(P, "/log?run=1"), at(P, "/knowledge"), at(P, "/knowledge?filter=attention"), at(P, "/settings"), at(P, "/settings/mail"), at(P, "/settings/agent"), "/settings/connections", "/settings/mac", "/help", "/nope", at(P, "/drafts/abc")];
+const ROUTES = ["/overview", at(P, "/drafts"), at(P, "/drafts?filter=all"), at(P, "/drafts?filter=sequences"), at(P, "/log"), at(P, "/log?client=1"), at(P, "/knowledge"), at(P, "/knowledge?filter=attention"), at(P, "/settings"), at(P, "/settings/mail"), at(P, "/settings/agent"), "/settings/connections", "/settings/mac", "/help", "/nope", at(P, "/drafts/abc")];
 
 for (const route of ROUTES) {
   test(`${route} loads cold with a clean console and no hydration message`, async ({ page }) => {

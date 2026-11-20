@@ -93,7 +93,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
 /**
  * The shell with its nav and the terminal (P49), which follows the project of the address. With two or more projects the
  * projectless pages have none (Shell only); with one, the whole admin is that project, so the terminal has it there too (P57 2l).
- * The agent feed (P59) follows the terminal's project: its rows in the sidebar's footer, its wait on the strip's dot, its tones.
+ * The agent feed (P59) follows the terminal's project: its wait on the strip's dot, its tones (P73: no rows in the sidebar).
  */
 function Shell({ project, dotsProject, terminalProject, ...props }: Omit<Parameters<typeof AppShell>[0], "items" | "dock"> & { project: string | null; dotsProject: string | null; terminalProject: string | null | undefined }) {
   // The dots follow the address's project on every page, a projectless one included (its switcher is hidden, not its dots).

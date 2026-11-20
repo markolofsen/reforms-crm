@@ -21,11 +21,12 @@ describe("search state", () => {
     const item = resolveRoute("/drafts/3", "filter=hold&batch=2");
     expect(withSearch(item, "filter", "zzz")).toEqual(paths.drafts.item(3, { batch: 2 }));
     expect(withSearch(item, "q", "ana")).toEqual(paths.drafts.item(3, { filter: "hold", batch: 2, q: "ana" }));
-    const log = resolveRoute("/log", "filter=failed&run=4");
-    expect(withSearch(log, "run", null)).toEqual(paths.log.list({ filter: "failed" }));
-    expect(withSearch(log, "filter", "ok")).toEqual(paths.log.list({ filter: "ok", run: 4 }));
+    const log = resolveRoute("/log", "filter=skipped&client=4");
+    expect(withSearch(log, "client", null)).toEqual(paths.log.list({ filter: "skipped" }));
+    expect(withSearch(log, "filter", "drafts")).toEqual(paths.log.list({ filter: "drafts", client: 4 }));
+    expect(withSearch(log, "filter", "sends")).toEqual(paths.log.list({ filter: "sends" }));
     expect(withSearch(resolveRoute("/project", ""), "filter", "ready")).toBeNull();
-    expect(withSearch(resolveRoute("/drafts", ""), "run", 3)).toBeNull();
+    expect(withSearch(resolveRoute("/drafts", ""), "client", 3)).toBeNull();
     expect(withSearch(resolveRoute("/nope", ""), "filter", "ready")).toBeNull();
   });
 });

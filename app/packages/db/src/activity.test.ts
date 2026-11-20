@@ -1,42 +1,103 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openDb, type DbHandle } from "./client";
 import { createRepos, type Repos } from "./repos";
 
-// Activity (P48 W5): the `record-*` calls of one session join one run by `batchKey`.
+// Activity (P73, decision 0037): one timeline of the agent's client decisions, newest first, read with no regard to runs.
+// The fixtures are shaped like the saas data of 2026-11-20: one draft recorded, skips and an escalation each in a run of their
+// own, then the same draft saved again over two days, its updates joining the draft's first run.
 let handle: DbHandle;
 let repos: Repos;
-const T = new Date("2026-11-15T10:00:00.000Z");
 const ev = (batchKey: string | null) => ({ level: "ok" as const, source: "claimed" as const, findings: [], batchKey });
+const at = (iso: string) => vi.setSystemTime(new Date(iso));
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
   handle = openDb(":memory:");
   repos = createRepos(handle.db);
 });
-afterEach(() => handle.close());
+afterEach(() => {
+  handle.close();
+  vi.useRealTimers();
+});
 
-describe("one session is one run", () => {
-  it("3 decisions with one batchKey (draft, skip, escalate) are 1 session with 3 rows", async () => {
-    await repos.drafts.record({ project: "p", email: "a@x.example", name: "Anna", subject: "S", mailRef: "<a@x>", reason: "asked for prices", skill: "triage-mail", evidence: ev("s1") });
-    await repos.inbox.record({ project: "p", email: "b@x.example", name: "Bob", action: "skipped", reason: "newsletter", skill: "triage-mail", batchKey: "s1" }, T);
-    await repos.inbox.record({ project: "p", email: "c@x.example", name: "Cara", action: "escalated", reason: "legal question", skill: "triage-mail", batchKey: "s1" }, T);
-    const { sessions, counts } = await repos.runs.activity("p");
-    expect(sessions).toHaveLength(1);
-    expect(counts.all).toBe(1);
-    const [s] = sessions;
-    expect(s).toMatchObject({ skill: "triage-mail", model: null, tokens: null, costUsd: null, durationS: null });
-    expect(s!.rows.map((r) => [r.who, r.outcome, r.why])).toEqual([
-      ["Anna", "drafted", "asked for prices"],
-      ["Bob", "skipped", "newsletter"],
-      ["Cara", "escalated", "legal question"],
+async function saasLike() {
+  at("2026-11-16T05:05:24.000Z");
+  const { draftId, clientId } = await repos.drafts.record({ project: "p", email: "mark@x.example", name: "Mark Effect", subject: "S", mailRef: "<a@x>", reason: "asked for API access", skill: "triage-mail", evidence: ev(null) });
+  at("2026-11-16T05:05:36.000Z");
+  await repos.inbox.record({ project: "p", email: "it@x.example", name: "IT-Helpdesk", action: "escalated", reason: "looks like phishing" }, new Date("2026-11-16T05:05:36.000Z"));
+  at("2026-11-16T07:26:14.000Z");
+  await repos.inbox.record({ project: "p", email: "talha@x.example", name: "Talha", action: "skipped", reason: "not-allowed-recipient: not in the allow list" }, new Date("2026-11-16T07:26:14.000Z"));
+  at("2026-11-16T07:26:24.000Z");
+  // Mark Effect's own address: the client row is found through the inbox, though the event carries no client id.
+  await repos.inbox.record({ project: "p", email: "mark@x.example", name: "Mark Effect", action: "skipped", reason: "already-drafted: an unmarked draft replies to it" }, new Date("2026-11-16T07:26:24.000Z"));
+  for (const t of ["2026-11-18T13:36:00.000Z", "2026-11-19T03:05:00.000Z", "2026-11-19T06:26:00.000Z"]) {
+    at(t);
+    await repos.drafts.revised("p", draftId, { excerpt: "v", wroteTo: null, brand: null });
+  }
+  return { draftId, clientId };
+}
+
+describe("one timeline", () => {
+  it("rows newest first across runs and days; an update reads `updated`, `draft_write` gives no skill", async () => {
+    const { draftId, clientId } = await saasLike();
+    const t = await repos.runs.activity("p");
+    expect(t.rows.map((r) => [r.at.slice(0, 16), r.who, r.outcome])).toEqual([
+      ["2026-11-19T06:26", "Mark Effect", "updated"],
+      ["2026-11-19T03:05", "Mark Effect", "updated"],
+      ["2026-11-18T13:36", "Mark Effect", "updated"],
+      ["2026-11-16T07:26", "Mark Effect", "skipped"],
+      ["2026-11-16T07:26", "Talha", "skipped"],
+      ["2026-11-16T05:05", "IT-Helpdesk", "escalated"],
+      ["2026-11-16T05:05", "Mark Effect", "drafted"],
     ]);
+    expect(t.rows.slice(0, 3).every((r) => r.skill === null && r.draftId === draftId && r.why === "asked for API access")).toBe(true);
+    expect(t.rows.at(-1)).toMatchObject({ outcome: "drafted", skill: "triage-mail", client: { id: clientId, name: "Mark Effect" } });
+    expect(t.rows[3]).toMatchObject({ client: { id: clientId }, why: "already-drafted: an unmarked draft replies to it" });
+    expect(t.counts).toEqual({ all: 7, needs_you: 1, drafts: 4, skipped: 2 });
+    expect(t.next).toBeNull();
+    expect(t.client).toBeNull();
+    expect(t.rows[0]).not.toHaveProperty("runId");
   });
 
-  it("another batchKey, or none, starts another run; a key is per project", async () => {
-    await repos.inbox.record({ project: "p", email: "a@x.example", name: "A", action: "skipped", batchKey: "s1" }, T);
-    await repos.inbox.record({ project: "p", email: "b@x.example", name: "B", action: "skipped", batchKey: "s2" }, T);
-    await repos.inbox.record({ project: "p", email: "c@x.example", name: "C", action: "skipped" }, T);
-    await repos.inbox.record({ project: "q", email: "d@x.example", name: "D", action: "skipped", batchKey: "s1" }, T);
-    expect((await repos.runs.activity("p")).sessions).toHaveLength(3);
-    expect((await repos.runs.activity("q")).sessions).toHaveLength(1);
+  it("a view narrows the rows by outcome; the counts stay whole", async () => {
+    await saasLike();
+    const needs = await repos.runs.activity("p", { view: "needs_you" });
+    expect(needs.rows.map((r) => r.who)).toEqual(["IT-Helpdesk"]);
+    expect((await repos.runs.activity("p", { view: "drafts" })).rows.map((r) => r.outcome)).toEqual(["updated", "updated", "updated", "drafted"]);
+    expect((await repos.runs.activity("p", { view: "skipped" })).rows).toHaveLength(2);
+    expect(needs.counts).toEqual((await repos.runs.activity("p")).counts);
+  });
+
+  it("`client` narrows to one client, the inbox-resolved rows included, and names it", async () => {
+    const { clientId } = await saasLike();
+    const one = await repos.runs.activity("p", { client: clientId });
+    expect(one.client).toEqual({ id: clientId, name: "Mark Effect" });
+    expect(one.rows.map((r) => r.outcome)).toEqual(["updated", "updated", "updated", "skipped", "drafted"]);
+    expect(one.counts).toEqual({ all: 5, needs_you: 0, drafts: 4, skipped: 1 });
+    expect(await repos.runs.activity("p", { client: 9999 })).toMatchObject({ rows: [], client: null });
+  });
+
+  it("pages by events: no row twice, none lost, the last page has no cursor", async () => {
+    await saasLike();
+    const seen: number[] = [];
+    let before: string | null = null;
+    for (let i = 0; i < 10; i++) {
+      const page = await repos.runs.activity("p", { limit: 3, before });
+      seen.push(...page.rows.map((r) => r.id));
+      if (!page.next) break;
+      before = page.next;
+    }
+    const all = (await repos.runs.activity("p")).rows.map((r) => r.id);
+    expect(seen).toEqual(all);
+    expect(new Set(seen).size).toBe(seen.length);
+  });
+
+  it("notes are not rows, and a project sees only its own", async () => {
+    const run = await repos.runs.start({ project: "p", startedAt: "2026-11-14T10:00:00.000Z", trigger: "schedule" });
+    await repos.runs.addEvent({ project: "p", runId: run, at: "2026-11-14T10:00:01.000Z", kind: "thought", summary: "one" });
+    await repos.runs.addEvent({ project: "p", runId: run, at: "2026-11-14T10:00:02.000Z", kind: "error", summary: "x" });
+    await repos.inbox.record({ project: "q", email: "a@x.example", name: "A", action: "skipped" }, new Date("2026-11-14T10:00:03.000Z"));
+    expect((await repos.runs.activity("p")).rows).toEqual([]);
+    expect((await repos.runs.activity("q")).rows.map((r) => r.who)).toEqual(["A"]);
   });
 });

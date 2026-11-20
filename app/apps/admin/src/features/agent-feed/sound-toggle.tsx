@@ -7,7 +7,7 @@ import { useFeed } from "./use-agent-feed";
 
 /**
  * The agent sounds' one switch (P59 verdict 8a), beside the theme in the sidebar's footer: a setting, remembered per
- * browser (`lib/storage.ts` key `sound`). The sound is on until he mutes it. Muted, the rows and the strip's dot still change.
+ * browser (`lib/storage.ts` key `sound`). The sound is on until he mutes it. Muted, the strip's dot still changes.
  */
 export function SoundToggle({ className }: { className?: string }) {
   const feed = useFeed();

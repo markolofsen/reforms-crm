@@ -3,7 +3,7 @@ import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { write } from "../tx";
 import { agentEvents, agentRuns, clients } from "../schema";
-import { activityOf, type Activity, type ActivityFilter } from "./activity";
+import { timelineOf, type Activity, type TimelineQuery } from "./activity";
 
 export type EventRow = typeof agentEvents.$inferSelect & { clientName: string | null };
 export type NewRun = Omit<typeof agentRuns.$inferInsert, "id">;
@@ -72,9 +72,9 @@ export function runsRepo(db: Db) {
       return db.update(agentEvents).set({ detail: null }).where(and(isNotNull(agentEvents.detail), lt(agentEvents.at, cutoff))).run().changes;
     },
 
-    /** Activity: sessions newest first, one row per client event (`filter` is the run status, or `all`). */
-    async activity(project: string, filter: ActivityFilter = "all", limit = 50): Promise<Activity> {
-      return activityOf(db, project, filter, limit);
+    /** Activity (P73): the agent's client decisions, newest first, one page at a time; a view by outcome, optionally one client. */
+    async activity(project: string, q: TimelineQuery = {}): Promise<Activity> {
+      return timelineOf(db, project, q);
     },
 
     /** What the agent and the owner did for one client, newest first: the timeline that needs no mail login. */

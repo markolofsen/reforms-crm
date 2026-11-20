@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activityDto, activityRowDto, activitySessionDto } from "./activity";
+import { activityDto, activityRowDto } from "./activity";
 import { connectionsDto, mailAccountDto, mailReadDto } from "./connections";
 import { API_VERSION, healthDto } from "./health";
 import { instanceDto } from "./instance";
@@ -40,17 +40,19 @@ describe("overview v5 (P48)", () => {
   });
 });
 
-describe("activity (P48 W5)", () => {
-  const r = { id: 1, runId: 2, at: asOf, client: { id: 3, name: "Mark Effect" }, who: "Mark Effect", outcome: "skipped", why: "already drafted", draftId: null };
-  it("one row per decision, with the outcome and the reason in the row", () => {
+describe("activity (P73)", () => {
+  const r = { id: 1, at: asOf, client: { id: 3, name: "Mark Effect" }, who: "Mark Effect", outcome: "updated", why: "already drafted", draftId: 1, skill: null };
+  it("one row per decision, with the outcome and the reason in the row; no run", () => {
     expect(activityRowDto.safeParse(r).success).toBe(true);
     expect(activityRowDto.safeParse({ ...r, outcome: "maybe" }).success).toBe(false);
     expect(activityRowDto.safeParse({ ...r, body: "Hi" }).success).toBe(false);
+    expect(activityRowDto.safeParse({ ...r, runId: 2 }).success).toBe(false);
   });
-  it("unknown run numbers are null, never 0", () => {
-    const s = { runId: 2, startedAt: asOf, finishedAt: null, skill: "triage-mail", trigger: "owner", status: "ok", model: null, tokens: null, costUsd: null, durationS: null, rows: [r] };
-    expect(activitySessionDto.safeParse(s).success).toBe(true);
-    expect(activityDto.safeParse({ sessions: [s], counts: { all: 1, ok: 1, needs_human: 0, failed: 0 } }).success).toBe(true);
+  it("a page of rows, the counts per outcome view, the next cursor", () => {
+    const page = { rows: [r], counts: { all: 1, needs_you: 0, drafts: 1, skipped: 0 }, next: "2026-11-19T12:50:40.759Z|19", client: null };
+    expect(activityDto.safeParse(page).success).toBe(true);
+    expect(activityDto.safeParse({ ...page, next: "19" }).success).toBe(false);
+    expect(activityDto.safeParse({ ...page, sessions: [] }).success).toBe(false);
   });
 });
 

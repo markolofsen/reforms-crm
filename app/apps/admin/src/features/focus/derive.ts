@@ -13,18 +13,18 @@ export type FocusParts = {
   pointer: { id: string; outcome: PointerOutcome } | null;
 };
 
-/** The record the address itself names: a draft's id, Activity's open session (`?run=10`). */
+/** The record the address itself names: a draft's id, the client Activity is narrowed to (`?client=1`, P73). */
 function addressSubject(r: Resolved): string | null {
   if (r.route === "drafts.item") return refOf("draft", r.params.id);
-  if (r.route === "log.list" && r.search.run) return refOf("run", r.search.run);
+  if (r.route === "log.list" && r.search.client) return refOf("client", r.search.client);
   return null;
 }
 
-/** The address's search state, defaults left out (as the address writes it); the subject's key (`run`) is not a view. */
+/** The address's search state, defaults left out (as the address writes it); the subject's key (`client`) is not a view. */
 function viewOf(r: Resolved): Record<string, string> | undefined {
   const d = destOf(r);
   if (!d) return undefined;
-  const v = Object.fromEntries(Object.entries(d.search).filter(([k, x]) => k !== "run" && x !== "").map(([k, x]) => [k, x.slice(0, 200)]));
+  const v = Object.fromEntries(Object.entries(d.search).filter(([k, x]) => k !== "client" && x !== "").map(([k, x]) => [k, x.slice(0, 200)]));
   return Object.keys(v).length ? v : undefined;
 }
 

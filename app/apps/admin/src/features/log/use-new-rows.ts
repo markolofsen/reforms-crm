@@ -3,7 +3,7 @@ import { useState } from "react";
 type Seen = { view: string; ids: readonly number[] };
 
 /**
- * "2 new" when sessions appear in the table after it first loaded (a live refetch, P50), for a polite live region:
+ * "2 new" when rows appear at the top of the timeline after it first loaded (a live refetch, P50), for a polite live region:
  * it never moves focus or the scroll (`accessibility.md` rule 5). A new view (filter or project) starts over. `ids` must
  * keep its identity while the data does (a `useMemo` of the query data), since a new array is read as a new answer.
  */

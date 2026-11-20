@@ -7,7 +7,7 @@ import { keys, MAIL_KEYS, TOPIC_KEYS } from "../src/lib/cache/keys";
 // P50 L3: a live frame invalidates only the prefixes of its topic and project, never a Mail read.
 const seed = () => {
   const qc = new QueryClient();
-  const all = [keys.drafts("p", "ready", null, ""), keys.drafts("q", "ready", null, ""), keys.activity("p", "all"), keys.draftMail("p", 1), keys.thread("p", 2), keys.connections(), keys.pulse(), keys.overview(), keys.doctor("p")];
+  const all = [keys.drafts("p", "ready", null, ""), keys.drafts("q", "ready", null, ""), keys.activity("p", "all", null), keys.draftMail("p", 1), keys.thread("p", 2), keys.connections(), keys.pulse(), keys.overview(), keys.doctor("p")];
   for (const k of all) qc.setQueryData(k, 1);
   return qc;
 };
@@ -35,14 +35,14 @@ describe("applyLive", () => {
   it("an instance change reaches every project; Mail and the doctor stay", () => {
     const qc = seed();
     applyLive(qc, { type: "change", seq: 2, changes: [{ topic: "activity", project: null }, { topic: "connections", project: null }] }, false);
-    expect(stale(qc).sort()).toEqual(["activity/p/all", "connections", "overview"]);
+    expect(stale(qc).sort()).toEqual(["activity/p/all/every", "connections", "overview"]);
   });
   it("a reset refreshes everything but the pulse and Mail; a hello does nothing", () => {
     const qc = seed();
     applyLive(qc, { type: "hello", seq: 3, apiVersion: 9 }, false);
     expect(stale(qc)).toEqual([]);
     applyLive(qc, { type: "reset", seq: 3 }, false);
-    expect(stale(qc).sort()).toEqual(["activity/p/all", "connections", "doctor/p", "drafts/p/ready//", "drafts/q/ready//", "overview"]);
+    expect(stale(qc).sort()).toEqual(["activity/p/all/every", "connections", "doctor/p", "drafts/p/ready//", "drafts/q/ready//", "overview"]);
   });
   it("a hidden tab only marks: a watched query refetches only when the tab is seen", async () => {
     const qc = seed();

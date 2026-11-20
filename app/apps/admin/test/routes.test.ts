@@ -24,7 +24,7 @@ describe("resolveRoute", () => {
     expect(at("/drafts?filter=hold")).toEqual({ route: "drafts.list", section: "drafts", project: null, inPath: false, entry: false, params: {}, search: { filter: "hold", q: "", batch: null } });
     expect(at("/lisbon/drafts/42")).toMatchObject({ route: "drafts.item", project: "lisbon", inPath: true, params: { id: 42 }, search: { filter: "ready", q: "" } });
     expect(at("/lisbon/drafts?batch=3&filter=hold")).toMatchObject({ route: "drafts.list", search: { batch: 3, filter: "hold" } });
-    expect(at("/lisbon/log?filter=failed&run=7")).toMatchObject({ route: "log.list", project: "lisbon", search: { filter: "failed", run: 7 } });
+    expect(at("/lisbon/log?filter=skipped&client=7")).toMatchObject({ route: "log.list", project: "lisbon", search: { filter: "skipped", client: 7 } });
     expect(at("/settings")).toMatchObject({ route: "settings.page", section: "settings", project: null, inPath: false });
     expect(at("/demo%20shop/settings")).toMatchObject({ route: "settings.page", project: "demo shop" });
     expect(at("/knowledge")).toMatchObject({ route: "knowledge.page", section: "knowledge", project: null });
@@ -63,7 +63,7 @@ describe("resolveRoute", () => {
     expect(at("/drafts?filter=sequence")).toMatchObject({ search: { filter: "ready" } });
     expect(at("/drafts?batch=abc")).toMatchObject({ search: { batch: null } });
     expect(at("/drafts?batch=0")).toMatchObject({ search: { batch: null } });
-    expect(at("/log?filter=nope&run=abc")).toMatchObject({ search: { filter: "all", run: null } });
+    expect(at("/log?filter=failed&client=abc&run=3")).toEqual(expect.objectContaining({ search: { filter: "all", client: null } }));
     expect(at("/knowledge?filter=nope")).toMatchObject({ search: { filter: "all", q: "" } });
     expect(at("/knowledge?filter=attention&q=x")).toMatchObject({ search: { filter: "attention", q: "x" } });
   });
@@ -76,7 +76,7 @@ describe("paths and places", () => {
     ["drafts item", paths.drafts.item(42, { filter: "hold" }), "/drafts/42?filter=hold", "/lisbon/drafts/42?filter=hold"],
     ["a draft of a batch", paths.drafts.item(42, { batch: 3 }), "/drafts/42?batch=3", "/lisbon/drafts/42?batch=3"],
     ["drafts search", paths.drafts.list({ q: "ana" }), "/drafts?q=ana", "/lisbon/drafts?q=ana"],
-    ["log run", paths.log.list({ filter: "failed", run: 5 }), "/log?filter=failed&run=5", "/lisbon/log?filter=failed&run=5"],
+    ["log client", paths.log.list({ filter: "drafts", client: 5 }), "/log?filter=drafts&client=5", "/lisbon/log?filter=drafts&client=5"],
     ["knowledge", paths.knowledge.page(), "/knowledge", "/lisbon/knowledge"],
     ["knowledge: a view and a search", paths.knowledge.page({ filter: "expired", q: "price" }), "/knowledge?filter=expired&q=price", "/lisbon/knowledge?filter=expired&q=price"],
     ["settings: sending", paths.settings.sending(), "/settings", "/lisbon/settings"],

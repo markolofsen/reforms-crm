@@ -131,13 +131,14 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
     case "draft":
       return paths.drafts.item(Number(p.id), { filter: "all" });
     case "run":
-      return paths.log.list({ run: Number(p.id) });
+      // P73: Activity shows no runs; a run's decisions are on the one timeline.
+      return paths.log.list();
     case "knowledge":
       return paths.knowledge.page(title ? { q: title } : {});
     case "project":
       return paths.overview();
     case "client":
-      return null;
+      return paths.log.list({ client: Number(p.id) });
   }
 }
 

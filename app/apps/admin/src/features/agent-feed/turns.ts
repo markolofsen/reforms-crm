@@ -1,7 +1,7 @@
 import type { AgentFeedDto, FeedTone, FeedTurnDto } from "@hub/contract/agent-feed";
 
 // The agent feed's pure parts (P59), tested in `test/agent-feed.test.ts`: which turns are new since the page read the feed,
-// the one tone a batch earns, which turn the strip's dot is about, and whether the rows are recent enough to show.
+// the one tone a batch earns, and which turn the strip's dot is about.
 
 const RANK: Record<FeedTone, number> = { ready: 1, attention: 2, problem: 3 };
 
@@ -28,8 +28,3 @@ export function waitingTurn(feed: AgentFeedDto | undefined): string | null {
   if (!feed?.waiting) return null;
   return [...feed.turns].reverse().find((t) => t.tone === "attention")?.id ?? "waiting";
 }
-
-/** The block hides when its newest row is over an hour old: old news is `hub log`'s. */
-export const HIDE_AFTER_MS = 3_600_000;
-export const recentRows = (feed: AgentFeedDto | undefined, now: number): AgentFeedDto["rows"] =>
-  feed && feed.rows[0] && now - Date.parse(feed.rows[0].at) < HIDE_AFTER_MS ? feed.rows : [];

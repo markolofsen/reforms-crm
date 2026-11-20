@@ -7,7 +7,7 @@ import type { Repos } from "@hub/db";
 import type { LogStore } from "@hub/log/store";
 import { createApp } from "./app";
 
-// P59 F1: `GET /api/projects/:slug/agent-feed` reads the tail of the session log, labelled on the server.
+// P59 F1: `GET /api/projects/:slug/agent-feed` reads the tail of the session log on the server; since P73 it carries no rows.
 const repos = { projects: { get: async (s: string) => (s === "acme" ? { slug: "acme" } : null) } } as unknown as Repos;
 const root = mkdtempSync(join(tmpdir(), "hub-server-agent-feed-"));
 afterAll(() => rmSync(root, { recursive: true, force: true }));
@@ -16,7 +16,7 @@ const now = () => new Date("2026-11-19T12:00:00.000Z");
 const line = (o: Record<string, unknown>) => JSON.stringify({ v: 1, project: "acme", session: "6a968d65-18b3", cli: "claude", turn: "t1", ...o });
 
 describe("GET /api/projects/:slug/agent-feed", () => {
-  it("labels the project's last rows, says whether the agent waits, and carries no input or output", async () => {
+  it("says whether the agent waits and the tone of each ended turn, and carries no row, input or output", async () => {
     mkdirSync(join(store.dir, "acme"), { recursive: true });
     appendFileSync(
       join(store.dir, "acme", "2026-11-19.jsonl"),
@@ -33,14 +33,13 @@ describe("GET /api/projects/:slug/agent-feed", () => {
     const text = await res.text();
     expect(text).not.toContain("owner@example.com");
     const feed = agentFeedDto.parse(JSON.parse(text));
-    expect(feed.rows.map((r) => [r.label, r.draft])).toEqual([["asks you a question", null], ["reads draft 3", 3]]);
-    expect(feed).toMatchObject({ waiting: true, turns: [{ tone: "attention" }] });
+    expect(feed).toEqual({ waiting: true, turns: [{ id: "6a968d65-18b3:t1", tone: "attention" }] });
   });
 
   it("an unknown project is 404, a project with no log is an empty feed, and without a store the route is 404", async () => {
     const app = createApp({ projects: { get: async (s: string) => (s === "acme" || s === "quiet" ? { slug: s } : null) } } as unknown as Repos, { agentLog: store, now });
     expect((await app.request("http://127.0.0.1:4317/api/projects/nobody/agent-feed")).status).toBe(404);
-    expect(agentFeedDto.parse(await (await app.request("http://127.0.0.1:4317/api/projects/quiet/agent-feed")).json())).toEqual({ rows: [], turns: [], cursor: "", waiting: false });
+    expect(agentFeedDto.parse(await (await app.request("http://127.0.0.1:4317/api/projects/quiet/agent-feed")).json())).toEqual({ turns: [], waiting: false });
     expect((await createApp(repos, {}).request("http://127.0.0.1:4317/api/projects/acme/agent-feed")).status).toBe(404);
   });
 });

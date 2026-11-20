@@ -1,18 +1,19 @@
-import { DRAFT_VIEWS, RUN_STATUSES, type DraftView, type RunStatus } from "@hub/config";
+import { DRAFT_VIEWS, type DraftView } from "@hub/config";
+import { ACTIVITY_VIEWS as TIMELINE_VIEWS, type ActivityView as TimelineView } from "@hub/contract/activity";
 import { KNOWLEDGE_VIEWS, type KnowledgeView } from "@hub/contract/knowledge";
 
 // Every URL parameter name and its allowed values, in one place. No React, no URL library: plain functions, so the
 // address of every screen is testable without a DOM. The enums are the ones the API validates (`@hub/config`, re-used
 // by `@hub/contract`), so the address and the request share one source. A value outside its enum resets to the default.
 
-export const RUN_FILTERS = ["all", ...RUN_STATUSES] as const;
-export type RunFilter = "all" | RunStatus;
 /**
- * Activity's View menu (UX pass 2026-11-20): the session views the API filters by, plus Sends, the send history, which is
- * activity and not a setting (it left Settings ▸ Sending). `sends` is the admin's own view: it never reaches the activity API.
+ * Activity's View menu (P73): the timeline's views by outcome, the ones the API filters by, plus Sends (UX pass 2026-11-20),
+ * the send history, which is activity and not a setting (it left Settings ▸ Sending). `sends` is the admin's own view: it
+ * never reaches the activity API.
  */
-export const ACTIVITY_VIEWS = [...RUN_FILTERS, "sends"] as const;
-export type ActivityView = RunFilter | "sends";
+export { TIMELINE_VIEWS, type TimelineView };
+export const ACTIVITY_VIEWS = [...TIMELINE_VIEWS, "sends"] as const;
+export type ActivityView = TimelineView | "sends";
 
 /**
  * The four views of the Drafts list (research 16 section 6.3): To review (`ready`), Hold, Finished (done, sent and skipped
@@ -67,7 +68,8 @@ export function positiveInt(v: string | undefined): number | null {
 
 /** `batch` limits the list to the drafts one batch wrote (one queue: a batch is a read-only view, not a second place). */
 export type DraftsSearch = { filter: DraftView; q: string; batch: number | null };
-export type LogSearch = { filter: ActivityView; run: number | null };
+/** Activity (P73): the view, and `client` narrows the timeline to one client (the draft card's history opens it). */
+export type LogSearch = { filter: ActivityView; client: number | null };
 /** P70: the Knowledge table's view (the same enum the API validates) and its title search. */
 export type KnowledgeSearch = { filter: KnowledgeView; q: string };
 export { KNOWLEDGE_VIEWS, type KnowledgeView };
@@ -84,7 +86,7 @@ export const draftsSearch = (raw: Raw): DraftsSearch => {
   // `?new=1` (the batch builder, deleted 2026-11-18, P48) is not read: the guard writes the address back without it.
   return { filter: oneOf(DRAFT_VIEWS, renamedView(raw.filter), DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch: positiveInt(raw.batch) };
 };
-export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(ACTIVITY_VIEWS, raw.filter, "all"), run: positiveInt(raw.run) });
+export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(ACTIVITY_VIEWS, raw.filter, "all"), client: positiveInt(raw.client) });
 export const knowledgeSearch = (raw: Raw): KnowledgeSearch => ({ filter: oneOf(KNOWLEDGE_VIEWS, raw.filter, "all"), q: raw.q ?? "" });
 export const agentSearch = (raw: Raw): AgentSearch => ({ filter: oneOf(AGENT_VIEWS, raw.filter, "attention") });
 export const noSearch = (): NoSearch => ({});

@@ -99,11 +99,11 @@ test("the first draft opens in the address without a history entry; moving betwe
   expect(await page.evaluate(() => window.history.length)).toBe(entries); // neither the auto-open, a move nor a view is a page
 });
 
-test("the Activity deep link keeps its view and opened session", async ({ page }) => {
-  await page.goto(at(P, "/log?filter=all&run=1"));
-  await expect.poll(() => address(page)).toBe(at(P, "/log?run=1"));
+test("the Activity deep link keeps its view and its one client", async ({ page }) => {
+  await page.goto(at(P, "/log?filter=all&client=1&run=1"));
+  await expect.poll(() => address(page)).toBe(at(P, "/log?client=1"));
   await page.reload();
-  await expect(page.getByRole("region", { name: "Session", exact: true })).toBeVisible();
+  await expect(page.getByTestId("activity-client")).toBeVisible();
   await expect(page).toHaveTitle(`Activity · ${P} · Hub Workflow`);
 });
 
@@ -229,6 +229,6 @@ test("one project: no project in the address, no switcher, Overview in the nav b
   await expect.poll(() => address(page)).toBe("/settings/mail");
   await page.goto(at(P, "/settings/connections"));
   await expect.poll(() => address(page)).toBe("/settings/connections");
-  await page.goto(at(P, "/log?run=1"));
-  await expect.poll(() => address(page)).toBe("/log?run=1");
+  await page.goto(at(P, "/log?filter=skipped"));
+  await expect.poll(() => address(page)).toBe("/log?filter=skipped");
 });

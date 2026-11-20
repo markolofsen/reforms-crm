@@ -65,9 +65,10 @@ function MoreMenu({ d, state, actions, on, draftLink }: { d: ReviewDraft; state:
         {open && <MenuItem disabled={actions.pending} onClick={on.hold}>Hold for later</MenuItem>}
         {open && <MenuItem disabled={actions.pending} onClick={on.done}>Mark done (handled in Mail)</MenuItem>}
         {skips && SKIP_REASONS.map((r) => <MenuItem disabled={actions.pending} key={r} onClick={() => on.skip(r)}>Skip: {r}</MenuItem>)}
-        {(open || skips) && (d.canUndo || d.runId !== null || hasLink) && <MenuSeparator />}
+        {(open || skips) && <MenuSeparator />}
         {d.canUndo && <MenuItem disabled={actions.pending} onClick={() => actions.undo(d)}>Undo last action</MenuItem>}
-        {d.runId !== null && <MenuItem onClick={on.history}>See what the assistant did</MenuItem>}
+        {/* P73: the client's own timeline in Activity (`?client=`), whatever run wrote the draft. */}
+        <MenuItem onClick={on.history}>See what the assistant did</MenuItem>
         {hasLink && draftLink && <LocalActionItem action="mail.openMessage" args={{ messageId: d.mailRef ?? "" }} />}
         {hasLink && <MenuItem onClick={on.copySubject}>Copy subject</MenuItem>}
       </MenuPopup>
