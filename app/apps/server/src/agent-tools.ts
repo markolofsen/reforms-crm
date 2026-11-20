@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { agentChecks, defaultProbe, fakeAgentRows, type AgentProbe } from "@hub/agent/checks";
+import { agentChecks, defaultProbe, fakeAgentRows, NOTION_EVIDENCE_DAYS, notionEvidenceOf, type AgentProbe } from "@hub/agent/checks";
+import { logStoreOf, readEvents } from "@hub/log/store";
 import { resolveConnectors } from "@hub/agent/connectors";
 import { loadProject } from "@hub/projects";
 import { cliDetector, detectClis, type CliDetector } from "@hub/agent/detect";
@@ -54,7 +55,10 @@ export function createAgentTools(o: AgentToolsOptions) {
     const f = instanceFeatures(o.paths);
     const facts = o.fake ? [] : (await (fresh ? detector.refresh() : detector.get())).facts;
     const rows = [];
-    for (const cli of AGENT_CLIS) rows.push(...(o.fake ? fakeAgentRows(slug, cli) : await agentChecks({ paths: o.paths, slug, cli, unattended: f.agent.unattended, probe, facts })));
+    // P82: the Notion row reads what this project's sessions did with Notion in the last 14 days (the log, P54).
+    const since = new Date(now().getTime() - NOTION_EVIDENCE_DAYS * 86_400_000).toISOString();
+    const events = o.fake ? [] : readEvents(logStoreOf(o.paths), { project: slug, kinds: ["tool_call", "tool_result", "tool_error"], since });
+    for (const cli of AGENT_CLIS) rows.push(...(o.fake ? fakeAgentRows(slug, cli) : await agentChecks({ paths: o.paths, slug, cli, unattended: f.agent.unattended, probe, facts, notionEvidence: notionEvidenceOf(events, cli), defaultCli: f.agent.default })));
     const capabilities = o.fake ? FAKE_CAPABILITIES : capabilitiesOf(o.paths, slug);
     const dto = agentToolsDto.parse({ project: slug, unattended: f.agent.unattended, defaultCli: f.agent.default, rows, capabilities, checkedAt: now().toISOString() });
     last.set(slug, dto);

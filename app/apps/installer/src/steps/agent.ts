@@ -1,5 +1,6 @@
 import path from "node:path";
-import { agentChecks, defaultProbe, type AgentCheckRow } from "@hub/agent/checks";
+import { agentChecks, defaultProbe, NOTION_EVIDENCE_DAYS, notionEvidenceOf, type AgentCheckRow } from "@hub/agent/checks";
+import { logStoreOf, readEvents } from "@hub/log/store";
 import { detectClis, pickPreset, type CliFact, type DetectRun } from "@hub/agent/detect";
 import { AGENT_CLIS, instanceFeatures, instancePorts, type AgentCli } from "@hub/config/paths";
 import { listProjects, type Ctx } from "../context";
@@ -36,7 +37,11 @@ function factsOf(ctx: Ctx, run: DetectRun): Promise<CliFact[]> {
 async function checkCli(ctx: Ctx, slug: string, cli: AgentCli): Promise<CheckResult> {
   const run: DetectRun = async (cmd, args, env) => ctx.run(cmd, args, env ? { env: Object.fromEntries(Object.entries(env).filter((e): e is [string, string] => typeof e[1] === "string")) } : {});
   const probe = { ...defaultProbe(), run };
-  return summarise(await agentChecks({ paths: ctx.paths, slug, cli, unattended: instanceFeatures(ctx.paths).agent.unattended, probe, facts: await factsOf(ctx, run) }));
+  const f = instanceFeatures(ctx.paths).agent;
+  // P82: the Notion row reads this project's session log of the last 14 days, as the server does.
+  const since = new Date(Date.now() - NOTION_EVIDENCE_DAYS * 86_400_000).toISOString();
+  const events = readEvents(logStoreOf(ctx.paths), { project: slug, kinds: ["tool_call", "tool_result", "tool_error"], since });
+  return summarise(await agentChecks({ paths: ctx.paths, slug, cli, unattended: f.unattended, probe, facts: await factsOf(ctx, run), notionEvidence: notionEvidenceOf(events, cli), defaultCli: f.default }));
 }
 
 function cliStep(id: string, title: string, check: (ctx: Ctx) => Promise<CheckResult>): Step {

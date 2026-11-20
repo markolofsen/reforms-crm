@@ -7,21 +7,13 @@ import { connectorRows } from "./connector-checks";
 import { DENIED_TOOLS, DRAFT_TOOLS, HUB_MCP_SERVERS, SEND_LIKE_TOOL } from "./deny";
 import { INSTALL_LINE, LOGIN_LINE, type CliFact } from "./detect";
 import { CLI_LABELS, MEASURED_VERSIONS } from "./session";
+import { codexNotionAuth, NO_NOTION_EVIDENCE, notionFix, notionRow, notionSignIn, type NotionEvidence } from "./notion-signin";
 
 // "Agent tools" (P49 section 5B): per CLI and per project, whether a hub agent session has what it needs, loaded and
 // correct. One source for `hub doctor --only Agent` and the Connections block: the server and the doctor call this.
 // Every row that is not a pass names one command line that fixes it. Read only: nothing here writes or sends.
 
-/**
- * The Notion connector's row when it does not answer: what is wrong and what to do, in his words (UX pass 2026-11-20). It is a
- * remote server that each session home signs in to once; Claude Code does it with /mcp inside a session of this project, Codex
- * with the command on the row.
- */
-export const notionSignIn = (detail: string, cli: AgentCli): string =>
-  `Not signed in to Notion (${detail}). ${cli === "codex" ? "Run the line below once." : "Type the line below in this project's Claude Code session and sign in."}`;
-
-/** The fix of that row: what to type in the session (Claude Code), or the one command (Codex). */
-export const notionFix = (cli: AgentCli, codexHome?: string): string => (cli === "codex" ? `${codexHome ? `CODEX_HOME=${codexHome} ` : ""}codex mcp login notion` : "/mcp");
+export { codexNotionAuth, notionEvidenceOf, notionFix, notionSignIn, NOTION_EVIDENCE_DAYS, NO_NOTION_EVIDENCE, type EvidenceEvent, type NotionEvidence } from "./notion-signin";
 
 export type AgentCheckState = "pass" | "warn" | "fail" | "skip";
 export interface AgentCheckRow { id: string; cli: AgentCli; title: string; state: AgentCheckState; detail: string; fix: string | null }
@@ -44,6 +36,10 @@ export interface AgentCheckInput {
   probe: AgentProbe;
   /** What the detector found on this Mac (`@hub/agent/detect`): rows 1 and 2 are read from it, never probed again here. */
   facts: readonly CliFact[];
+  /** P82: what this project's session log says about Notion for this CLI (the caller reads `@hub/log`); none: nothing seen. */
+  notionEvidence?: NotionEvidence;
+  /** The project's default agent CLI (`features.agent.default`): Codex not signed in to Notion is a warning only when it is Codex. */
+  defaultCli?: AgentCli;
 }
 
 const json = (p: string): Record<string, any> | null => {
@@ -103,10 +99,18 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
     const inCodex = toml === null || section(name) !== "";
     if (!spec) { row(`mcp.present.${name}`, `${name} configured`, "skip", "not in the instance's MCP config"); continue; }
     row(`mcp.present.${name}`, `${name} configured`, inCodex ? "pass" : "fail", inCodex ? String(spec.type ?? "stdio") : "missing from the Codex config", prepare);
+    // P82: Notion is never asked by the hub itself (it holds neither CLI's OAuth token, so it got 401 by construction): the row
+    // below says what the CLI knows. Its tools were never listed here, so its send-like tools stay covered by the deny list alone.
+    if (name === "notion") continue;
     const a = await probe.mcp(name, spec).catch((e: Error) => ({ ok: false, tools: [], detail: e.message }));
     if (a.ok) { listed.push({ name, tools: a.tools }); row(`mcp.answers.${name}`, `${name} answers`, "pass", `${a.tools.length} tools`); }
-    else if (name === "notion") row(`mcp.answers.${name}`, `${name} answers`, "warn", notionSignIn(a.detail, cli), notionFix(cli, cHome));
     else row(`mcp.answers.${name}`, `${name} answers`, "fail", a.detail, "hub doctor --only MCP");
+  }
+  if (servers.notion) {
+    // Codex: its own answer, read only (`codex mcp list --json`, the binary the detector found, this project's home).
+    const codexAuth = cli === "codex" && f?.path ? codexNotionAuth((await probe.run(f.path, ["mcp", "list", "--json"], { ...process.env, CODEX_HOME: cHome }).catch(() => ({ code: 1, stdout: "", stderr: "" }))).stdout) : null;
+    const n = notionRow({ cli, evidence: i.notionEvidence ?? NO_NOTION_EVIDENCE, defaultCli: i.defaultCli ?? "claude", codexHome: cHome, codexAuth });
+    row("notion.signin", "Notion sign-in", n.state, n.detail, n.fix);
   }
 
   // 5. No tool that sends, forwards or removes reaches the session.
@@ -227,7 +231,10 @@ export function fakeAgentRows(slug: string, cli: AgentCli): AgentCheckRow[] {
     r("cli.version", `${CLI_LABELS[cli]} installed`, "pass", MEASURED_VERSIONS[cli]),
     r("cli.signed-in", "Signed in", "pass", "signed in (fake)"),
     r("session.files", "Session files written", "fail", "no session files for this project yet", prepareLine(slug, cli)),
-    r("mcp.answers.notion", "notion answers", "warn", notionSignIn("HTTP 401", cli), notionFix(cli)),
+    // P82 acceptance 3: Claude Code's sign-in request seen in a session (the warn with /mcp); Codex not signed in, quiet.
+    cli === "claude"
+      ? r("notion.signin", "Notion sign-in", "warn", notionSignIn("a session of this project asked for it on 2026-11-20 03:25", cli), notionFix(cli))
+      : r("notion.signin", "Notion sign-in", "skip", `Codex is not signed in to Notion; only needed for Notion from Codex: ${notionFix(cli)}`),
     r("send-tools.off", "Send tools off", "pass", `${DENIED_TOOLS.length} denied`),
   ];
 }

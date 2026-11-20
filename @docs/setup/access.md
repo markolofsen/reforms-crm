@@ -8,7 +8,7 @@ No secret is ever stored in git, a log or a page. Secrets live only in the git-i
 
 | Access | Goes to | Stored in | Needed for | Verified by |
 |---|---|---|---|---|
-| Notion connector (OAuth) | The Notion workspace the agent reads and writes in a session | The CLI's own store: Claude Code after `/mcp`; Codex per project home after `codex mcp login notion`; no file of the hub | Every agent session | `notion.connector` (hint only), Agent tools `mcp.answers.notion` |
+| Notion connector (OAuth) | The Notion workspace the agent reads and writes in a session | The CLI's own store: Claude Code after `/mcp`; Codex per project home after `codex mcp login notion`; no file of the hub | Every agent session | `notion.connector` (hint only), Agent tools `notion.signin` (P82: what the CLI knows, never a call of the hub's own: Claude Code from this project's session log, a Notion tool answered or a sign-in request; Codex from `codex mcp list --json` `auth_status`, a warning only when Codex is the default CLI or tried Notion) |
 | Notion hub integration (read) | Every database of each project, whole teamspace | `state/secrets/notion-token` | `notion-dump`, backups, the project doctor's database check | `notion.token`, `notion.access` |
 | Notion backend integration (django_notion) | Leads and Clients (write) | The backend's environment; never in the hub | A site's form handler writing leads | Owner only (see below) |
 | Mail account | Mail.app, through `mail-mcp` on `localhost:8787` (the agent, read) and `osascript` (the hub: drafts by `hub mcp` `draft_write`, the send, Sent detection) | Mail.app; the name in `config/config.json`; no file in the hub | Reading mail, creating unsent drafts, the confirmed send, Sent detection | `mail.daemon`, `mail.account` |

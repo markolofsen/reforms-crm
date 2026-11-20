@@ -137,10 +137,16 @@ describe("composeScheme", () => {
 
   it("UX pass: every row no other part covers is Agent sessions (the Notion connector's sign-in among them), with its fix", async () => {
     expect(byId(await composeScheme(sources()), "alpha:session")).toMatchObject({ state: "unknown", place: "agent" });
-    const notion = (cli: "claude" | "codex") => ({ id: "mcp.answers.notion", cli, title: "notion answers", state: "warn" as const, detail: "Not signed in to Notion (HTTP 401).", fix: cli === "codex" ? "codex mcp login notion" : "/mcp" });
-    const rows = [...TOOLS.rows, { id: "skills.linked", cli: "claude" as const, title: "Skills linked", state: "pass" as const, detail: "13", fix: null }, notion("claude"), notion("codex")];
+    // P82: the row says what the CLI's own sessions showed; Codex not signed in, used by nobody, is a quiet skip, never "Codex too".
+    const signIn = { id: "notion.signin", cli: "claude" as const, title: "Notion sign-in", state: "warn" as const, detail: "Not signed in to Notion (a session of this project asked for it on 2026-11-21 09:00). Type the line below in this project's Claude Code session and sign in.", fix: "/mcp" };
+    const quiet = { id: "notion.signin", cli: "codex" as const, title: "Notion sign-in", state: "skip" as const, detail: "Codex is not signed in to Notion; only needed for Notion from Codex: codex mcp login notion", fix: null };
+    const rows = [...TOOLS.rows, { id: "skills.linked", cli: "claude" as const, title: "Skills linked", state: "pass" as const, detail: "13", fix: null }, signIn, quiet];
     const d = await composeScheme(sources({ agentTools: () => ({ ...TOOLS, rows }) }));
-    expect(byId(d, "alpha:session")).toMatchObject({ state: "warn", label: "Agent sessions", detail: "Claude Code: Not signed in to Notion (HTTP 401). Codex too.", fix: "/mcp", place: "agent" });
+    expect(byId(d, "alpha:session")).toMatchObject({ state: "warn", label: "Agent sessions", detail: `Claude Code: ${signIn.detail}`, fix: "/mcp", place: "agent" });
+    // Works in Claude Code, quiet in Codex: no "Needs you" item (a skip is "unknown", which Overview lists only under All parts).
+    const works = { ...signIn, state: "pass" as const, detail: "works, last used 2026-11-20 03:25", fix: null };
+    const ok = await composeScheme(sources({ agentTools: () => ({ ...TOOLS, rows: [...TOOLS.rows, works, quiet] }) }));
+    expect(byId(ok, "alpha:session")).toMatchObject({ state: "unknown", detail: "", fix: null });
     expect(d.edges).toContainEqual({ from: "cli:claude", to: "alpha:session", kind: "flow" });
   });
 
