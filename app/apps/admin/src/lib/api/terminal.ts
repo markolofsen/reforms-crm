@@ -1,5 +1,5 @@
 import { okDto } from "@hub/contract/responses";
-import { ensureSessionDto, terminalSessionDto, terminalStateDto, terminalTicketDto, type CreateSessionBody, type EnsureSessionBody, type TerminalStateDto } from "@hub/contract/terminal";
+import { DROP_FIELD, ensureSessionDto, terminalDropDto, terminalSessionDto, terminalStateDto, terminalTicketDto, type CreateSessionBody, type EnsureSessionBody, type TerminalDropDto, type TerminalStateDto } from "@hub/contract/terminal";
 import type { FocusPost } from "@hub/contract/focus";
 import { read } from "./client";
 
@@ -22,6 +22,15 @@ export const terminalApi = {
   ensure: (body: EnsureSessionBody) => read(ensureSessionDto, { method: "POST", path: "/api/terminal/ensure", body: { ...body, theme: theme() } }),
   /** Ends the session (its process group is killed). */
   close: (id: string) => read(okDto, { method: "DELETE", path: `/api/terminal/sessions/${encodeURIComponent(id)}` }),
+  /**
+   * P76, decision 0041: the files dropped on the tab, copied by the server under `state/drops/`; the answer is their absolute
+   * paths in order, which the pane pastes. The caller checks `DROP_LIMITS` first (Next buffers the body in front of the server).
+   */
+  drop: (id: string, files: readonly File[]): Promise<TerminalDropDto> => {
+    const form = new FormData();
+    for (const f of files) form.append(DROP_FIELD, f, f.name);
+    return read(terminalDropDto, { method: "POST", path: `/api/terminal/sessions/${encodeURIComponent(id)}/drops`, body: form });
+  },
   /** A single-use ticket for one connect of the session's socket, and the socket's address (the API port, straight). */
   ticket: (session: string) => read(terminalTicketDto, { method: "POST", path: "/api/terminal/tickets", body: { session } }),
 };

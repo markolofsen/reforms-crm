@@ -21,7 +21,8 @@ const config: NextConfig = {
   distDir: process.env.HUB_NEXT_DIST ?? ".next",
   ...(root ? { turbopack: { root } } : {}),
   // The slowest server call (Notion plus mail) takes about 40 s; the 30 s default answers 500 "socket hang up".
-  experimental: { proxyTimeout: 120_000 },
+  // P76: a terminal drop is up to 20 MiB (`DROP_LIMITS`) plus its multipart framing; Next buffers a proxied body up to 10 MiB by default.
+  experimental: { proxyTimeout: 120_000, proxyClientMaxBodySize: "21mb" },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API}/api/:path*` }];
   },

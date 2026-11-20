@@ -36,13 +36,13 @@ function urlOf(call: Call): string {
   return s ? `${call.path}?${s}` : call.path;
 }
 
+/** A `FormData` body (the terminal's file drop, P76) goes as it is: the browser sets the multipart type and its boundary. */
+const bodyOf = (body: unknown): { headers?: Record<string, string>; body?: BodyInit } =>
+  body === undefined ? {} : body instanceof FormData ? { body } : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
+
 async function send(call: Call): Promise<Response> {
   try {
-    return await fetch(urlOf(call), {
-      method: call.method,
-      headers: call.body === undefined ? undefined : { "content-type": "application/json" },
-      body: call.body === undefined ? undefined : JSON.stringify(call.body),
-    });
+    return await fetch(urlOf(call), { method: call.method, ...bodyOf(call.body) });
   } catch {
     throw new ApiFailure("Cannot reach the local server. Is it running? Start it with `hub up`.", "server", 0);
   }

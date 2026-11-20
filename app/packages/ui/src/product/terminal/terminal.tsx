@@ -3,12 +3,19 @@
 import type { Terminal } from "@xterm/xterm";
 import { useEffect, useRef } from "react";
 import { cn } from "../../cn";
+import type { Dropped } from "./drop";
 import { keyRoute, SHIFT_ENTER } from "./keys";
 import { readTheme } from "./theme";
+import { useDropTarget } from "./use-drop-target";
+
+export { classifyDrop, pasteLine, shellPath, type Dropped } from "./drop";
 
 export type TerminalSize = { cols: number; rows: number };
-/** What the owner of the bytes (the socket) may do to the screen. */
-export type TerminalHandle = { write: (bytes: Uint8Array) => void; reset: () => void; focus: () => void };
+/**
+ * What the owner of the bytes (the socket) may do to the screen. `paste` types text as a paste (P76): it goes out through
+ * `onInput`, wrapped in bracketed-paste marks when the program asked for them, so a CLI sees one paste, not keystrokes.
+ */
+export type TerminalHandle = { write: (bytes: Uint8Array) => void; reset: () => void; focus: () => void; paste: (text: string) => void };
 
 type Callbacks = {
   /** The terminal exists and is open: from here on the caller may write into it. */
@@ -19,6 +26,8 @@ type Callbacks = {
   onSize: (size: TerminalSize) => void;
   /** A link was activated (a plain URL or an OSC 8 hyperlink); the caller opens it, never the terminal. */
   onLink: (uri: string) => void;
+  /** P76: files, text or a folder were dropped on the box; the caller decides (copy and paste the paths, paste the text, refuse). */
+  onDrop?: (dropped: Dropped) => void;
 };
 type Props = Callbacks & {
   /** The resolved theme (`light` or `dark`); a change re-reads the colour tokens. */
@@ -49,11 +58,15 @@ async function load() {
  */
 export function TerminalView({ resolvedTheme, inputLabel = "Terminal input", className, ...callbacks }: Props) {
   const host = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
+  const dropped = useRef(callbacks.onDrop);
   const term = useRef<Terminal | null>(null);
   const cb = useRef({ ...callbacks, inputLabel });
   useEffect(() => {
     cb.current = { ...callbacks, inputLabel };
+    dropped.current = callbacks.onDrop;
   });
+  const dragging = useDropTarget(box, dropped);
 
   useEffect(() => {
     const el = host.current;
@@ -134,7 +147,7 @@ export function TerminalView({ resolvedTheme, inputLabel = "Terminal input", cla
       themeWatch.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "style", "data-theme"] });
       applyTheme();
       measure(FIT_TRIES);
-      cb.current.onReady({ write: (b) => t.write(b), reset: () => t.reset(), focus: () => t.focus() });
+      cb.current.onReady({ write: (b) => t.write(b), reset: () => t.reset(), focus: () => t.focus(), paste: (text) => t.paste(text) });
     })();
     return () => {
       disposed = true;
@@ -159,5 +172,14 @@ export function TerminalView({ resolvedTheme, inputLabel = "Terminal input", cla
     return () => cancelAnimationFrame(id);
   }, [resolvedTheme]);
 
-  return <div className={cn("min-h-0 min-w-0 flex-1 bg-(--terminal-bg) ps-2 pt-1", className)} data-slot="terminal" ref={host} />;
+  return (
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col" data-slot="terminal-drop" ref={box}>
+      <div className={cn("min-h-0 min-w-0 flex-1 bg-(--terminal-bg) ps-2 pt-1", className)} data-slot="terminal" ref={host} />
+      {dragging && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center ring-2 ring-ring ring-inset" data-slot="terminal-drop-hint">
+          <span className="rounded-md bg-popover px-3 py-1.5 text-popover-foreground text-sm shadow-sm">{dragging === "files" ? "Drop to paste the path" : "Drop to paste the text"}</span>
+        </div>
+      )}
+    </div>
+  );
 }

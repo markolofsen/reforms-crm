@@ -24,6 +24,17 @@ describe("read", () => {
     await expect(read(schema, { method: "GET", path: "/api/x" })).rejects.toBeInstanceOf(ApiFailure);
   });
 
+  it("a FormData body goes as it is, with no content type of its own (P76: the browser sets the multipart boundary)", async () => {
+    const fetch = vi.fn(async (_url: string, _init: RequestInit) => reply(200, { ok: true, draftId: 2 }));
+    vi.stubGlobal("fetch", fetch);
+    const form = new FormData();
+    form.append("file", new File(["x"], "a.png"));
+    await read(schema, { method: "POST", path: "/api/x", body: form });
+    const init = fetch.mock.calls[0]![1];
+    expect(init.body).toBe(form);
+    expect(init.headers).toBeUndefined();
+  });
+
   it("retries once when the database is busy", async () => {
     const fetch = vi.fn().mockResolvedValueOnce(reply(503, { error: "busy", code: "busy" })).mockResolvedValueOnce(reply(200, { ok: true, draftId: 1 }));
     vi.stubGlobal("fetch", fetch);

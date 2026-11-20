@@ -8,13 +8,17 @@ import { TerminalView, type TerminalHandle, type TerminalSize } from "@hub/ui/pr
 import { useResolvedTheme } from "@hub/ui/product/theme";
 import { openWebLink } from "@/lib/external";
 import { connectTerminal, type Link, type LinkState } from "./socket";
+import { useDropPaste } from "./use-drop-paste";
 import { useTerminal } from "./use-terminal";
 
 export const panelId = (id: string) => `terminal-panel-${id}`;
 export const tabId = (id: string) => `terminal-tab-${id}`;
 
-/** The one line under the screen when the session is not simply running and connected: what happened, and the one way on. */
-function SessionLine({ session, link, onTakeBack }: { session: TerminalSessionDto; link: LinkState; onTakeBack: () => void }) {
+/**
+ * The one line under the screen when the session is not simply running and connected: what happened, and the one way on;
+ * else the outcome of the last drop (P76), if any.
+ */
+function SessionLine({ session, link, note, onTakeBack }: { session: TerminalSessionDto; link: LinkState; note: string | null; onTakeBack: () => void }) {
   const { close, closing } = useTerminal();
   const line =
     session.state === "exited"
@@ -25,7 +29,9 @@ function SessionLine({ session, link, onTakeBack }: { session: TerminalSessionDt
           ? { text: `Connection lost. Trying again in ${Math.round(link.inMs / 1000)} s.`, action: null }
           : link.kind === "gone"
             ? { text: "This terminal has ended.", action: null }
-            : null;
+            : note
+              ? { text: note, action: null }
+              : null;
   return (
     <div className={cn("flex min-h-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm", line && "border-t px-3 py-2")} role="status">
       {line && <span className="min-w-0 flex-1">{line.text}</span>}
@@ -44,18 +50,22 @@ export function SessionPane({ session, active }: { session: TerminalSessionDto; 
   const theme = useResolvedTheme();
   const link = useRef<Link | null>(null);
   const size = useRef<TerminalSize | null>(null);
+  const screenRef = useRef<TerminalHandle | null>(null);
   const [state, setState] = useState<LinkState>({ kind: "connecting" });
   const id = session.id;
+  const drop = useDropPaste(id, screenRef);
   useEffect(
     () => () => {
       link.current?.close();
       link.current = null;
+      screenRef.current = null;
       register(id, null);
     },
     [id, register],
   );
   const onReady = (screen: TerminalHandle) => {
     register(id, screen);
+    screenRef.current = screen;
     const l = connectTerminal(id, {
       output: (bytes, snapshot) => {
         if (snapshot) screen.reset();
@@ -74,6 +84,7 @@ export function SessionPane({ session, active }: { session: TerminalSessionDto; 
     <div aria-labelledby={tabId(id)} className={cn("min-h-0 min-w-0 flex-1 flex-col", active ? "flex" : "hidden")} id={panelId(id)} role="tabpanel">
       <TerminalView
         onInput={(bytes) => link.current?.input(bytes)}
+        onDrop={session.state === "running" ? drop.onDrop : undefined}
         onLink={(uri) => void openWebLink(uri)}
         onReady={onReady}
         onSize={(s) => {
@@ -82,7 +93,7 @@ export function SessionPane({ session, active }: { session: TerminalSessionDto; 
         }}
         resolvedTheme={theme}
       />
-      <SessionLine link={state} onTakeBack={() => link.current?.takeBack()} session={session} />
+      <SessionLine link={state} note={drop.note} onTakeBack={() => link.current?.takeBack()} session={session} />
     </div>
   );
 }

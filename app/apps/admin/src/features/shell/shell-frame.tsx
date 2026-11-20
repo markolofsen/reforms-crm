@@ -11,6 +11,7 @@ import { useTurnSound } from "@/features/agent-feed/use-turn-sound";
 import { useFocusPublisher } from "@/features/focus/use-focus-publisher";
 import { TerminalDock, TerminalProvider } from "@/features/terminal/terminal";
 import { terminalProjectOf } from "@/features/terminal/use-auto-start";
+import { useFileDropGuard } from "@/hooks/use-file-drop-guard";
 import { useGo } from "@/hooks/use-go";
 import { PlaceContext, ProjectScopeContext, useEnsureAddress, type ProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
@@ -104,6 +105,8 @@ function Shell({ project, dotsProject, terminalProject, ...props }: Omit<Paramet
   const items = useNavWithDots(dotsProject);
   const feed = useAgentFeed(terminalProject ?? null);
   useTurnSound(feed);
+  // P76: a file dropped outside the terminal never opens in the tab.
+  useFileDropGuard();
   return (
     <TerminalProvider project={terminalProject}>
       <AgentFeedContext value={feed}>
