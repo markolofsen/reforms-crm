@@ -27,7 +27,7 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
   - Proves: `config.json` exists, parses and has every required key.
   - `hub install` fixes it: Copies a default from `app/apps/installer/templates/` only when the file is missing.
 - [ ] **Settings file holds no key nothing reads** (`files.config-keys`)
-  - Proves: Every top-level key of `config/config.json` is one the hub reads (`name`, `logo`, `account`, `mailboxes`, `sent_mailbox`, `allow_list`, `extra_dirs`, `admin_port`, `api_port`, `backup_dir`, `backup_repos`, `agent`). An unknown key is a WARN naming it, never a FAIL: nothing is changed or deleted.
+  - Proves: Every top-level key of `config/config.json` is one the hub reads (`name`, `logo`, `account`, `mailboxes`, `sent_mailbox`, `allow_list`, `extra_dirs`, `admin_port`, `api_port`, `backup_dir`, `backup_repos`, `agent`, `llm`). An unknown key is a WARN naming it, never a FAIL: nothing is changed or deleted.
 - [ ] **Instance brand (name and logo)** (`files.brand`)
   - Proves: When `logo` is set, the file exists (a relative path is read from the `config/` folder). No logo, or no name, is a PASS: the admin says "Hub" and draws a monogram. A missing file is a WARN.
   - You: Put the logo file (svg, png, jpg or webp) where `logo` in `config/config.json` points, or remove `logo`.

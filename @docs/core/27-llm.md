@@ -87,3 +87,5 @@ The owner does not expect one to pay (2026-11-20), and the first caller never re
 ## Tests
 
 `HUB_LLM=fake` selects the fake transport, as `HUB_MAILER=fake` selects the fake Mailer: it answers from the request's own schema (one item per index for a batch), costs 10 micro-dollars per answer, and never leaves the process. Any other value of `HUB_LLM` stops `createLlm`. The package's Vitest setup makes the global `fetch` throw and removes `OPENROUTER_API_KEY` and `HUB_LLM` from the environment, so a test that forgot to inject a transport fails loudly. `app/packages/llm/test/`: the strict walk, the ladder, the batch (20 items, one broken, failing alone), the transport against an injected fetch, the key, the real `llm_calls` table.
+
+Update this page when the architecture changes.
