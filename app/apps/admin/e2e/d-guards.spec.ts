@@ -9,7 +9,7 @@ const UI = Number(process.env.HUB_E2E_UI_PORT);
 const API = Number(process.env.HUB_E2E_API_PORT);
 
 test("a foreign Host is 403 on a page and on /api", async ({ request }) => {
-  for (const path of ["/drafts", "/api/pulse"]) {
+  for (const path of ["/mail", "/api/pulse"]) {
     const res = await request.get(path, { headers: { host: "evil.test" } });
     expect(res.status(), path).toBe(403);
   }

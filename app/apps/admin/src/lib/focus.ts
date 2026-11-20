@@ -5,8 +5,8 @@ import type { FocusPost } from "@hub/contract/focus";
 import type { LivePointer, PointerOutcome } from "@hub/contract/pointer";
 
 // What the screen shows that the address does not say (P51, P72 decision 0038), as refs (`<kind>:<id>`, `@hub/contract/focus`):
-// - `subject`: the record a screen opened that its address does not name (the Drafts card the desktop opens on a bare
-//   `/drafts`), written by `useFocusSubject` (below);
+// - `subject`: the record a screen opened that its address does not name (the Mail card the desktop opens on a bare
+//   `/mail`), written by `useFocusSubject` (below);
 // - `selected`: the picked rows (selection is not URL state), written by `useFocusSelection`;
 // - `pointed` and `window`: the row he is on and the rows on screen, written by the `#main` observers (`features/focus`);
 // - `pointer`: the outcome of the agent's last highlight, posted once; `away`: its refs that are not on this screen, for the dock;

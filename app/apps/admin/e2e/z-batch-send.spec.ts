@@ -40,7 +40,7 @@ test("Send all Checked: one confirmation names the count and every recipient, th
   expect(record("ana.batch@example.com", "Ana Batch")).toMatchObject({ ok: true });
   expect(record("rui.batch@example.com", "Rui Batch")).toMatchObject({ ok: true });
   await remember(page, "demo-shop");
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   await viewMenu(page).click();
   await page.getByRole("menuitemradio", { name: new RegExp(`^${TITLE}`) }).click();
   await expect(page).toHaveURL(/batch=\d+/);

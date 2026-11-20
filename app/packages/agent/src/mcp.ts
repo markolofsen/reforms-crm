@@ -12,7 +12,7 @@ import { recordAdoptions, writeLogOf, type AdoptedVersion, type WithRepos } from
 import { projectNotion, type NotionScope } from "./notion-scope";
 
 // `hub mcp` (P51, decision 0029): the hub's own stdio MCP server, bound to `HUB_PROJECT`. Five read-only tools: the admin's
-// focus (refs resolved per kind, P72), one draft, one client, the Drafts list, and the brand of an inbound from its headers (P60 `mail_brand`). The database is opened read-only by the caller (`openDbReadOnly`), so a
+// focus (refs resolved per kind, P72), one draft, one client, the Mail list, and the brand of an inbound from its headers (P60 `mail_brand`). The database is opened read-only by the caller (`openDbReadOnly`), so a
 // write of a row is impossible, not just absent; the one exception is the live counter, bumped through `mailWritten`
 // on a separate short connection (P53), which holds no row the owner sees. One Mail write (P52, decision 0030): `draft_write` saves an unsent reply in
 // Mail's Drafts without a window or focus and moves the older versions the Hub recorded for that draft to Trash
@@ -281,8 +281,8 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
   server.registerTool(
     "drafts_list",
     {
-      title: "The Drafts list of this project",
-      description: `The rows the admin's Drafts list shows: the newest draft of each client, in the admin's order. view: one of ${CLIENT_FILTERS.join(", ")} (default ready). ${DATA}`,
+      title: "The Mail list of this project (its drafts)",
+      description: `The rows the admin's Mail list shows: the newest draft of each client, in the admin's order. view: one of ${CLIENT_FILTERS.join(", ")} (default ready). ${DATA}`,
       inputSchema: z.object({ view: z.enum(CLIENT_FILTERS).optional(), q: z.string().max(200).optional(), limit: z.number().int().min(1).max(50).optional() }),
       annotations: READ_ONLY,
     },

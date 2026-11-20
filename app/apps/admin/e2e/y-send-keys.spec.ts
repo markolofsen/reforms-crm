@@ -30,7 +30,7 @@ async function untick(page: Page) {
 }
 
 async function readyCard(page: Page) {
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const card = await openRow(page, "Sofia Teste");
   await readTheChecks(page);
   return card;
@@ -91,7 +91,7 @@ test("an unreadable draft cannot be sent by Shift+Enter", async ({ page }) => {
     const res = await route.fetch();
     await route.fulfill({ response: res, json: { ...((await res.json()) as Record<string, unknown>), found: false, hash: null, body: "", reason: "no draft in Mail with that subject", safetyResults: [] } });
   });
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const card = await openRow(page, "Sofia Teste");
   await expect(card.getByText(/Mail could not be read/).first()).toBeVisible();
   await page.locator("#main").focus();

@@ -8,10 +8,10 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("Not by email is a View of Drafts: its count in the menu, a phone as plain text, the phrase that fills an empty group", async ({ page }) => {
-  await page.goto(at("lisbon-realty", "/drafts"));
+  await page.goto(at("lisbon-realty", "/mail"));
   await page.getByRole("button", { name: /^View:/ }).click();
   await page.getByRole("menuitemradio", { name: /^Not by email\s*4$/ }).click();
-  await expect.poll(() => address(page)).toBe(at("lisbon-realty", "/drafts?filter=not_by_email"));
+  await expect.poll(() => address(page)).toBe(at("lisbon-realty", "/mail?filter=not_by_email"));
   const block = page.getByTestId("not-by-email");
   await block.getByRole("button", { name: "Call 2", exact: true }).click();
   const rows = page.getByTestId("not-by-email-row");
@@ -24,6 +24,6 @@ test("Not by email is a View of Drafts: its count in the menu, a phone as plain 
 });
 
 test("the draft list never lists them", async ({ page }) => {
-  await page.goto(at("lisbon-realty", "/drafts?filter=all"));
+  await page.goto(at("lisbon-realty", "/mail?filter=all"));
   await expect(page.locator('ul[aria-label="Drafts"]')).not.toContainText("Duarte Exemplo");
 });

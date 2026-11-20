@@ -6,7 +6,7 @@ Scope: the type system is the one gate that reads types across the whole fronten
 
 1. MUST NOT write `any`, `@ts-ignore`, or `as any` / `as unknown as T`. `@ts-expect-error` only with a description and only where the cause is outside the repo.
 2. MUST NOT use a type assertion (`as T`) or non-null `!` in hand-written source. Narrow instead: a guard function, a contract schema's `safeParse`, a discriminated union, an early return that throws a named error. `as const` is allowed. An address text becomes a `Route` only through `routeOf()` (`routes/typed.ts`), a guard, never a cast.
-3. MUST: `import type` (or inline `type`) for type-only imports; this is what keeps `@hub/server` out of the bundle. A page file types its props with the generated global `PageProps<"/drafts/[id]">` (from `next typegen`) and awaits `params` and `searchParams`, which are Promises in Next 16.
+3. MUST: `import type` (or inline `type`) for type-only imports; this is what keeps `@hub/server` out of the bundle. A page file types its props with the generated global `PageProps<"/mail/[id]">` (from `next typegen`) and awaits `params` and `searchParams`, which are Promises in Next 16.
 4. MUST: model states as unions (`{ status: "error"; message: string } | ...`), not as optional fields that can combine into impossible values.
 5. MUST: closed vocabularies (intents, statuses, tones) are unions with a total label map (`Record<Union, string>`), so adding a member fails the build.
 6. MUST: `noUncheckedIndexedAccess` stays on; handle the `undefined`.

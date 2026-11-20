@@ -218,6 +218,13 @@
       "when": 1795300000013,
       "tag": "0030_replied_elsewhere",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1795300000014,
+      "tag": "0031_inbound_mail",
+      "breakpoints": true
     }
   ]
 }

@@ -26,7 +26,7 @@ test("a draft recorded by the CLI shows on the Drafts screen, once, with an Open
   expect(record("demo-shop", draft)).toMatchObject({ ok: true, action: "updated" });
 
   await remember(page, "demo-shop");
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const row = cards(page).filter({ hasText: "Nora Newcomer" });
   await expect(row).toHaveCount(1);
   await expect(row.getByText("Owes reply")).toBeVisible();

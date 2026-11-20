@@ -28,7 +28,7 @@ function Row({ r }: { r: InboxRowDto }) {
 }
 
 /**
- * The Not by email view of Drafts (P48): the clients the agent did not answer by email, grouped by why. Read-only: the owner
+ * The Not by email view of Mail (P48): the clients the agent did not answer by email, grouped by why. Read-only: the owner
  * sees who to call or who was set aside. A phone is text the agent copied from the mail, shown as written, never a link and
  * never dialled. Its count is the View menu's (`useNotByEmailTotal`).
  */

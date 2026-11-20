@@ -14,7 +14,7 @@ export function NotFound() {
         <span>
           Nothing lives at <code>{path}</code>.
         </span>
-        <AppLink to={paths.drafts.list()}>Go to Drafts</AppLink>
+        <AppLink to={paths.mail.list()}>Go to Mail</AppLink>
       </span>
     </EmptyState>
   );

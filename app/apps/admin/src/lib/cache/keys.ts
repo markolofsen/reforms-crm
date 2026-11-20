@@ -29,6 +29,8 @@ export const keys = {
   /** P85b: the run of Send all Checked of one batch (in the server's memory), polled while it runs. */
   batchRun: (project: string, batchId: number) => ["batch-run", project, batchId] as const,
   notByEmail: (project: string, kind: string | null) => ["not-by-email", project, kind] as const,
+  /** P96: the Inbox view of Mail (the clients who wrote, from the server's Mail reader) and its reader line. */
+  inbound: (project: string) => ["inbound", project] as const,
   enrollments: (project: string, view: string) => ["enrollments", project, view] as const,
   /** P73: the timeline of one view, of one client or every one (`null`); its pages live under this key (an infinite query). */
   activity: (project: string, view: string, client: number | null) => ["activity", project, view, client ?? "every"] as const,
@@ -59,19 +61,22 @@ export const keys = {
   /** Reads of Mail (an `osascript` call each): the draft as Mail holds it, and a client's thread. */
   draftMail: (project: string, id: number) => ["draft-mail", project, id] as const,
   thread: (project: string, clientId: number) => ["thread", project, clientId] as const,
+  /** P96: one client message with its text read from Mail (the Inbox card): a Mail read, so on open and on focus only. */
+  inboundText: (project: string, id: number) => ["inbound-text", project, id] as const,
 };
 
 /**
  * The first part of the Mail keys: read on open and on focus (decision 0013). The one live event that reads Mail again is
  * `mail` (P53): the hub itself wrote a Mail draft of that project (`draft_write`), so the open card shows the new text.
  */
-export const MAIL_KEYS: readonly string[] = ["draft-mail", "thread"];
+export const MAIL_KEYS: readonly string[] = ["draft-mail", "thread", "inbound-text"];
 
 /** One project's prefix of a resource, or every project's when the change is the instance's (`null`). */
 const of = (resource: string) => (project: string | null): QueryKey => (project === null ? [resource] : [resource, project]);
 const drafts = of("drafts");
 const batches = of("batches");
 const notByEmail = of("not-by-email");
+const inbound = of("inbound");
 const enrollments = of("enrollments");
 const activity = of("activity");
 const timeline = of("timeline");
@@ -95,12 +100,12 @@ const thread = of("thread");
  * not cheap and not rows.
  */
 export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[]> = {
-  drafts: (p) => [drafts(p), batches(p), timeline(p), project(p), overview()],
+  drafts: (p) => [drafts(p), batches(p), timeline(p), project(p), overview(), inbound(p)],
   clients: (p) => [drafts(p), notByEmail(p), enrollments(p), timeline(p), overview()],
   activity: (p) => [activity(p), timeline(p), project(p), overview()],
   // P87: a send is a row of Activity ▸ All too (decision 0037 as amended).
   sends: (p) => [sends(p), batchRun(p), drafts(p), activity(p), timeline(p), project(p), overview(), scheme()],
-  inbox: (p) => [notByEmail(p), drafts(p), overview()],
+  inbox: (p) => [notByEmail(p), drafts(p), overview(), inbound(p)],
   "follow-ups": (p) => [enrollments(p), drafts(p)],
   batches: (p) => [batches(p), drafts(p)],
   rules: (p) => [rules(p), agentSettings(p), drafts(p), project(p)],
@@ -108,7 +113,7 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   knowledge: (p) => [project(p), knowledge(p), scheme()],
   messengers: (p) => [messengerChats(p), drafts(p), notByEmail(p), project(p), keys.connections()],
   connections: () => [keys.connections(), agentTools(null), overview(), scheme()],
-  health: (p) => [keys.pulse(), project(p), keys.connections(), keys.telegramUser(), keys.whatsapp(), overview(), scheme()],
+  health: (p) => [keys.pulse(), project(p), keys.connections(), keys.telegramUser(), keys.whatsapp(), overview(), scheme(), inbound(p)],
   mail: (p) => [draftMail(p), thread(p)],
   "agent-log": (p) => [agentFeed(p)],
   autostart: () => [keys.autostart()],

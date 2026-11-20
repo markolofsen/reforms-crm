@@ -140,7 +140,7 @@ test("activity ▸ sends: Cancel exists only on a queued send, and the row reads
   await expect(table.getByRole("button", { name: /^Cancel send/ })).toHaveCount(0);
   expect(writes).toEqual(["cancel 3"]);
   // The subject leads to the draft the send came from.
-  await expect(table.getByRole("link", { name: "Re: Refund question" })).toHaveAttribute("href", `/${PROJECT}/drafts/8`);
+  await expect(table.getByRole("link", { name: "Re: Refund question" })).toHaveAttribute("href", `/${PROJECT}/mail/8`);
 });
 
 test("sending: Stop sending asks inline for the scope, Keep sending backs out, Stop all halts every project and Resume lifts it", async ({ page }) => {

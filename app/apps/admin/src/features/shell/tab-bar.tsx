@@ -50,7 +50,7 @@ function MoreMenu({ items }: { items: ShellNavItem[] }) {
   );
 }
 
-/** Phones (hidden from 640px by CSS): the sections of the bar (Overview, Drafts, Activity, Settings), then More, as a bottom tab bar 56px high with the safe area added. Child pages are not here: the sub-nav in a page's header line holds them. */
+/** Phones (hidden from 640px by CSS): the sections of the bar (Overview, Mail, Activity, Settings), then More, as a bottom tab bar 56px high with the safe area added. Child pages are not here: the sub-nav in a page's header line holds them. */
 export function TabBar({ items }: { items: ShellNavItem[] }) {
   const bar = items.filter((i) => i.phone === "bar");
   const more = items.filter((i) => i.phone === "more");

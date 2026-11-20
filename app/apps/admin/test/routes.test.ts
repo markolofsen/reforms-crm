@@ -19,11 +19,17 @@ const at = (address: string): Resolved => {
   return resolveRoute(path, search);
 };
 
+/** The section's name before P96 (Drafts): its addresses are gone, with no redirect (no legacy aliases). */
+const OLD = "drafts";
+
 describe("resolveRoute", () => {
   it("reads the route, params, search and the project from the first path segment", () => {
-    expect(at("/drafts?filter=hold")).toEqual({ route: "drafts.list", section: "drafts", project: null, inPath: false, entry: false, params: {}, search: { filter: "hold", q: "", batch: null } });
-    expect(at("/lisbon/drafts/42")).toMatchObject({ route: "drafts.item", project: "lisbon", inPath: true, params: { id: 42 }, search: { filter: "ready", q: "" } });
-    expect(at("/lisbon/drafts?batch=3&filter=hold")).toMatchObject({ route: "drafts.list", search: { batch: 3, filter: "hold" } });
+    expect(at("/mail?filter=hold")).toEqual({ route: "mail.list", section: "mail", project: null, inPath: false, entry: false, params: {}, search: { filter: "hold", q: "", batch: null } });
+    expect(at("/lisbon/mail/42")).toMatchObject({ route: "mail.item", project: "lisbon", inPath: true, params: { id: 42 }, search: { filter: "ready", q: "" } });
+    expect(at("/lisbon/mail?batch=3&filter=hold")).toMatchObject({ route: "mail.list", search: { batch: 3, filter: "hold" } });
+    // P96: a client's message, and the Inbox view.
+    expect(at("/lisbon/mail/in/7")).toMatchObject({ route: "mail.inbound", section: "mail", project: "lisbon", params: { id: 7 } });
+    expect(at("/mail/in/7?filter=inbox")).toMatchObject({ route: "mail.inbound", project: null, params: { id: 7 }, search: { filter: "inbox" } });
     expect(at("/lisbon/log?filter=skipped&client=7")).toMatchObject({ route: "log.list", project: "lisbon", search: { filter: "skipped", client: 7 } });
     expect(at("/settings")).toMatchObject({ route: "settings.page", section: "settings", project: null, inPath: false });
     expect(at("/demo%20shop/settings")).toMatchObject({ route: "settings.page", project: "demo shop" });
@@ -43,26 +49,26 @@ describe("resolveRoute", () => {
 
   it("knows the sections, and the empty address is the entry", () => {
     for (const s of SECTIONS) expect(at(`/${s.id === "log" ? "log" : s.id}`).section).toBe(s.id);
-    expect(at("/")).toMatchObject({ route: "drafts.list", entry: true });
+    expect(at("/")).toMatchObject({ route: "mail.list", entry: true });
   });
 
   it("an unknown path, the old /clients, a bad id, an extra segment or a project before a projectless section is Not found", () => {
-    for (const p of ["/clients", "/nope", "/drafts/abc", "/drafts/0", "/drafts/-1", "/drafts/1.5", "/bulk", "/bulk/3", "/drafts/1/2", "/log/3", "/settings/x", "/settings/mail/1", "/knowledge/x", "/help/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/help", "/project", "/project/setup", "/agents", "/connections", "/lisbon/project", "/lisbon/agents", "/lisbon/drafts/1/2", "/%E0%A4%A/drafts"]) {
+    for (const p of ["/clients", "/nope", "/mail/abc", "/mail/0", "/mail/-1", "/mail/1.5", "/bulk", "/bulk/3", "/mail/1/2", "/log/3", "/settings/x", "/settings/mail/1", "/knowledge/x", "/help/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/help", "/project", "/project/setup", "/agents", "/connections", "/lisbon/project", "/lisbon/agents", "/lisbon/mail/1/2", "/%E0%A4%A/mail", `/${OLD}`, `/${OLD}/42`, `/lisbon/${OLD}`, "/mail/in", "/mail/in/abc", "/mail/in/1/2"]) {
       expect(at(p).route, p).toBe("notFound");
     }
     expect(REDIRECTS).toEqual([]);
   });
 
   it("a filter outside its enum resets to the default instead of breaking the view", () => {
-    expect(at("/drafts?filter=zzz")).toMatchObject({ search: { filter: "ready" } });
-    expect(at("/drafts?filter=all")).toMatchObject({ search: { filter: "all" } }); // All is a choice, so it keeps its key
+    expect(at("/mail?filter=zzz")).toMatchObject({ search: { filter: "ready" } });
+    expect(at("/mail?filter=all")).toMatchObject({ search: { filter: "all" } }); // All is a choice, so it keeps its key
     // Saved links (renamed 2026-11-18): the old `evidence` view value opens the Thin basis view.
-    expect(at("/drafts?filter=evidence")).toMatchObject({ search: { filter: "thin_basis" } });
-    expect(at("/drafts?filter=sequences")).toMatchObject({ search: { filter: "sequences" } });
-    expect(at("/drafts?filter=not_by_email")).toMatchObject({ search: { filter: "not_by_email" } });
-    expect(at("/drafts?filter=sequence")).toMatchObject({ search: { filter: "ready" } });
-    expect(at("/drafts?batch=abc")).toMatchObject({ search: { batch: null } });
-    expect(at("/drafts?batch=0")).toMatchObject({ search: { batch: null } });
+    expect(at("/mail?filter=evidence")).toMatchObject({ search: { filter: "thin_basis" } });
+    expect(at("/mail?filter=sequences")).toMatchObject({ search: { filter: "sequences" } });
+    expect(at("/mail?filter=not_by_email")).toMatchObject({ search: { filter: "not_by_email" } });
+    expect(at("/mail?filter=sequence")).toMatchObject({ search: { filter: "ready" } });
+    expect(at("/mail?batch=abc")).toMatchObject({ search: { batch: null } });
+    expect(at("/mail?batch=0")).toMatchObject({ search: { batch: null } });
     expect(at("/log?filter=failed&client=abc&run=3")).toEqual(expect.objectContaining({ search: { filter: "all", client: null } }));
     expect(at("/knowledge?filter=nope")).toMatchObject({ search: { filter: "all", q: "" } });
     expect(at("/knowledge?filter=attention&q=x")).toMatchObject({ search: { filter: "attention", q: "x" } });
@@ -71,11 +77,13 @@ describe("resolveRoute", () => {
 
 describe("paths and places", () => {
   const cases: [string, Dest, string, string][] = [
-    ["drafts list", paths.drafts.list(), "/drafts", "/lisbon/drafts"],
-    ["drafts hold", paths.drafts.list({ filter: "hold" }), "/drafts?filter=hold", "/lisbon/drafts?filter=hold"],
-    ["drafts item", paths.drafts.item(42, { filter: "hold" }), "/drafts/42?filter=hold", "/lisbon/drafts/42?filter=hold"],
-    ["a draft of a batch", paths.drafts.item(42, { batch: 3 }), "/drafts/42?batch=3", "/lisbon/drafts/42?batch=3"],
-    ["drafts search", paths.drafts.list({ q: "ana" }), "/drafts?q=ana", "/lisbon/drafts?q=ana"],
+    ["drafts list", paths.mail.list(), "/mail", "/lisbon/mail"],
+    ["drafts hold", paths.mail.list({ filter: "hold" }), "/mail?filter=hold", "/lisbon/mail?filter=hold"],
+    ["drafts item", paths.mail.item(42, { filter: "hold" }), "/mail/42?filter=hold", "/lisbon/mail/42?filter=hold"],
+    ["a draft of a batch", paths.mail.item(42, { batch: 3 }), "/mail/42?batch=3", "/lisbon/mail/42?batch=3"],
+    ["drafts search", paths.mail.list({ q: "ana" }), "/mail?q=ana", "/lisbon/mail?q=ana"],
+    ["inbox", paths.mail.list({ filter: "inbox" }), "/mail?filter=inbox", "/lisbon/mail?filter=inbox"],
+    ["a client's message", paths.mail.inbound(7, { filter: "inbox" }), "/mail/in/7?filter=inbox", "/lisbon/mail/in/7?filter=inbox"],
     ["log client", paths.log.list({ filter: "drafts", client: 5 }), "/log?filter=drafts&client=5", "/lisbon/log?filter=drafts&client=5"],
     ["knowledge", paths.knowledge.page(), "/knowledge", "/lisbon/knowledge"],
     ["knowledge: a view and a search", paths.knowledge.page({ filter: "expired", q: "price" }), "/knowledge?filter=expired&q=price", "/lisbon/knowledge?filter=expired&q=price"],
@@ -101,14 +109,14 @@ describe("paths and places", () => {
 
   it("no address ever carries `?project=`, and a project with a space survives", () => {
     for (const [, d] of cases) for (const place of [ONE, MANY]) expect(formatDest(d, place)).not.toContain("project=");
-    expect(roundTrip(paths.drafts.list(), { project: "demo shop", multi: true }).project).toBe("demo shop");
+    expect(roundTrip(paths.mail.list(), { project: "demo shop", multi: true }).project).toBe("demo shop");
   });
 
   it("every section has a list destination that resolves to that section; every instance has every section (P70: six parents; P71 M3: Messengers)", () => {
     for (const s of SECTIONS) expect(roundTrip(sectionList(s.id), MANY).section).toBe(s.id);
-    expect(SECTIONS.map((s) => s.id)).toEqual(["overview", "drafts", "messengers", "log", "knowledge", "settings", "help"]);
-    expect(SECTIONS.map((s) => s.chord[1])).toEqual(["o", "d", "m", "a", "k", "s", "h"]);
-    expect(SECTIONS.filter((s) => s.phone === "bar").map((s) => s.id)).toEqual(["overview", "drafts", "log", "settings"]);
+    expect(SECTIONS.map((s) => s.id)).toEqual(["overview", "mail", "messengers", "log", "knowledge", "settings", "help"]);
+    expect(SECTIONS.map((s) => s.chord[1])).toEqual(["o", "e", "m", "a", "k", "s", "h"]);
+    expect(SECTIONS.filter((s) => s.phone === "bar").map((s) => s.id)).toEqual(["overview", "mail", "log", "settings"]);
   });
 
   it("child pages (P70): Settings' Mail, Agent, Connections, This Mac in order; Messengers' Settings (P71 M3); no other section has one; `g s` lands on Sending", () => {
@@ -150,8 +158,8 @@ describe("the guard (canonicalAddress, the one normaliser)", () => {
     expect(pickProject(null, "zzz", list)).toBe("a");
     expect(pickProject(null, null, [])).toBeNull();
   });
-  it("the entry opens Drafts with one project and Overview with several; Overview is a page on every instance (P63)", () => {
-    expect(canon("/", ONE)).toBe("/drafts");
+  it("the entry opens Mail with one project and Overview with several; Overview is a page on every instance (P63)", () => {
+    expect(canon("/", ONE)).toBe("/mail");
     expect(canon("/", MANY)).toBe("/overview");
     expect(canon("/overview", ONE)).toBeNull();
     expect(canon("/overview", MANY)).toBeNull();
@@ -160,10 +168,10 @@ describe("the guard (canonicalAddress, the one normaliser)", () => {
     expect(canon("/help", MANY)).toBeNull();
   });
   it("one project: no project in the address; several: the project in the path", () => {
-    expect(canon("/drafts", ONE)).toBeNull();
-    expect(canon("/lisbon/drafts/42", ONE)).toBe("/drafts/42");
-    expect(canon("/drafts/42?filter=hold", MANY)).toBe("/lisbon/drafts/42?filter=hold");
-    expect(canon("/lisbon/drafts/42?filter=hold", MANY)).toBeNull();
+    expect(canon("/mail", ONE)).toBeNull();
+    expect(canon("/lisbon/mail/42", ONE)).toBe("/mail/42");
+    expect(canon("/mail/42?filter=hold", MANY)).toBe("/lisbon/mail/42?filter=hold");
+    expect(canon("/lisbon/mail/42?filter=hold", MANY)).toBeNull();
     expect(canon("/settings/connections", MANY)).toBeNull();
   });
   it("P70: an instance pane under a project's address folds to the bare form, with one project and with several", () => {
@@ -173,20 +181,20 @@ describe("the guard (canonicalAddress, the one normaliser)", () => {
     expect(canon("/settings/mac", ONE)).toBeNull();
   });
   it("saved links of the query era (until 2026-11-18): `?project=` is read once and written back in the path form", () => {
-    expect(canon("/drafts/1?project=lisbon", MANY)).toBe("/lisbon/drafts/1");
-    expect(canonicalAddress(at("/drafts/1?project=lisbon"), { project: "lisbon", multi: false }, "/drafts/1?project=lisbon")).toBe("/drafts/1");
-    expect(at("/drafts/1?project=lisbon").project).toBe("lisbon");
+    expect(canon("/mail/1?project=lisbon", MANY)).toBe("/lisbon/mail/1");
+    expect(canonicalAddress(at("/mail/1?project=lisbon"), { project: "lisbon", multi: false }, "/mail/1?project=lisbon")).toBe("/mail/1");
+    expect(at("/mail/1?project=lisbon").project).toBe("lisbon");
     expect(canon("/settings/connections?project=lisbon", MANY)).toBe("/settings/connections");
   });
   it("a dead filter and the deleted batch builder's `?new=1` (2026-11-18) are dropped; Not found and no project are left alone", () => {
-    expect(canon("/drafts?filter=zzz", ONE)).toBe("/drafts");
-    expect(canon("/drafts?new=1", ONE)).toBe("/drafts");
+    expect(canon("/mail?filter=zzz", ONE)).toBe("/mail");
+    expect(canon("/mail?new=1", ONE)).toBe("/mail");
     expect(canon("/nope", ONE)).toBeNull();
-    expect(canonicalAddress(at("/drafts"), { project: null, multi: false }, "/drafts")).toBeNull();
+    expect(canonicalAddress(at("/mail"), { project: null, multi: false }, "/mail")).toBeNull();
   });
   it("a rewritten address is stable (no redirect loop)", () => {
-    const first = canon("/drafts/3?filter=ready&project=x", { project: "x", multi: true });
-    expect(first).toBe("/x/drafts/3");
+    const first = canon("/mail/3?filter=ready&project=x", { project: "x", multi: true });
+    expect(first).toBe("/x/mail/3");
     expect(canon(first ?? "", { project: "x", multi: true })).toBeNull();
   });
 });

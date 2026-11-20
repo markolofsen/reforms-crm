@@ -34,16 +34,20 @@ describe("deriveFocus", () => {
     expect(derive("/acme/settings").title).toBe("Sending");
     expect(derive("/acme/settings/mail").title).toBe("Mail");
     expect(derive("/acme/settings/agent").title).toBe("Agent");
-    expect(derive("/acme/drafts/12").title).toBe("Draft 12");
+    expect(derive("/acme/mail/12").title).toBe("Draft 12");
+    // P96: the dock says the Mail view too ("Agent sees: Mail · Inbox"), and a client's message by its crumb.
+    expect(derive("/acme/mail", "filter=inbox").title).toBe("Mail · Inbox");
+    expect(derive("/acme/mail").title).toBe("Mail · To review");
+    expect(derive("/acme/mail/in/5").title).toBe("Message 5");
     for (const id of ROUTE_IDS) expect(derive(sample(id)).title, id).not.toMatch(/^(Project|other|another page)$/);
   });
   it("a draft's address names the draft and the view; the open card wins over the address (P53)", () => {
-    expect(derive("/acme/drafts/12", "filter=hold")).toEqual({ tab: "t1", project: "acme", route: "drafts.item", title: "Draft 12", subject: "draft:12", selected: [], view: { filter: "hold" }, visible: true });
-    expect(derive("/acme/drafts/99", "", { subject: "draft:7" })).toMatchObject({ subject: "draft:7" });
+    expect(derive("/acme/mail/12", "filter=hold")).toEqual({ tab: "t1", project: "acme", route: "mail.item", title: "Draft 12", subject: "draft:12", selected: [], view: { filter: "hold" }, visible: true });
+    expect(derive("/acme/mail/99", "", { subject: "draft:7" })).toMatchObject({ subject: "draft:7" });
   });
-  it("the Drafts list: the card on screen, the selection and the search", () => {
-    const f = derive("/acme/drafts", "q=price", { subject: "draft:7", selected: ["draft:7", "draft:9"] });
-    expect(f).toMatchObject({ route: "drafts.list", subject: "draft:7", selected: ["draft:7", "draft:9"], view: { q: "price" } });
+  it("the Mail list: the card on screen, the selection and the search", () => {
+    const f = derive("/acme/mail", "q=price", { subject: "draft:7", selected: ["draft:7", "draft:9"] });
+    expect(f).toMatchObject({ route: "mail.list", subject: "draft:7", selected: ["draft:7", "draft:9"], view: { q: "price" } });
   });
   it("Activity narrowed to one client names that client as the subject (/log?client=1, P73), not a view", () => {
     expect(derive("/acme/log", "client=1")).toMatchObject({ route: "log.list", title: "Activity", subject: "client:1" });
@@ -61,15 +65,15 @@ describe("deriveFocus", () => {
   });
   it("caps the selection at 200 and the window at 30", () => {
     const many = Array.from({ length: 250 }, (_, i) => `draft:${i + 1}`);
-    const f = derive("/acme/drafts", "", { selected: many, window: { refs: many, total: 250 } });
+    const f = derive("/acme/mail", "", { selected: many, window: { refs: many, total: 250 } });
     expect(f.selected).toHaveLength(200);
     expect(f.window?.refs).toHaveLength(30);
     expect(focusInput.safeParse(f).success).toBe(true);
   });
   it("sameFocus compares the whole focus", () => {
-    expect(sameFocus(derive("/acme/drafts/3"), derive("/acme/drafts/3"))).toBe(true);
-    expect(sameFocus(derive("/acme/drafts/3"), derive("/acme/drafts/4"))).toBe(false);
-    expect(sameFocus(null, derive("/acme/drafts/4"))).toBe(false);
+    expect(sameFocus(derive("/acme/mail/3"), derive("/acme/mail/3"))).toBe(true);
+    expect(sameFocus(derive("/acme/mail/3"), derive("/acme/mail/4"))).toBe(false);
+    expect(sameFocus(null, derive("/acme/mail/4"))).toBe(false);
   });
 });
 
@@ -80,7 +84,7 @@ describe("refs", () => {
     for (const bad of ["draft:0", "draft:x", "knowledge:../etc", "screen:knowledge", "draft", ":1"]) expect(parseRef(bad), bad).toBeNull();
   });
   it("lead somewhere for Show: a client to its timeline in Activity, a run to Activity (P73)", () => {
-    expect(destOfRef("draft:4")?.route).toBe("drafts.item");
+    expect(destOfRef("draft:4")?.route).toBe("mail.item");
     expect(destOfRef("run:10")).toMatchObject({ route: "log.list", search: {} });
     expect(destOfRef("knowledge:knowledge/a.md", "CSV export")).toMatchObject({ route: "knowledge.page", search: { q: "CSV export" } });
     expect(destOfRef("client:3")).toMatchObject({ route: "log.list", search: { client: "3" } });
@@ -91,8 +95,8 @@ describe("the dock header line", () => {
   it("says the screen's title and what the agent takes for 'this', by the words on the row", () => {
     const labels = { subject: null, pointed: null };
     expect(agentSeesLine(null, labels)).toBe("Agent sees: nothing current");
-    expect(agentSeesLine(derive("/acme/drafts/12"), { subject: { ref: "draft:12", label: "Fiona Focus" }, pointed: null })).toBe("Agent sees: Draft 12 · Fiona Focus");
-    expect(agentSeesLine(derive("/acme/drafts", "", { selected: ["draft:1", "draft:2", "draft:3"] }), labels)).toBe("Agent sees: Drafts · 3 selected");
+    expect(agentSeesLine(derive("/acme/mail/12"), { subject: { ref: "draft:12", label: "Fiona Focus" }, pointed: null })).toBe("Agent sees: Draft 12 · Fiona Focus");
+    expect(agentSeesLine(derive("/acme/mail", "", { selected: ["draft:1", "draft:2", "draft:3"] }), labels)).toBe("Agent sees: Mail · To review · 3 selected");
     const k = derive("/acme/knowledge", "", { pointed: "knowledge:knowledge/a.md" });
     expect(agentSeesLine(k, { subject: null, pointed: { ref: "knowledge:knowledge/a.md", label: "Can I download everything as CSV?" } })).toBe("Agent sees: Knowledge · Can I download everything as CSV?");
     expect(agentSeesLine(derive("/acme/settings/mail"), labels)).toBe("Agent sees: Mail");

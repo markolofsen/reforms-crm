@@ -21,7 +21,7 @@ async function tabTo(page: Page, match: (label: string) => boolean, key = "Tab",
 }
 
 test("keyboard only: reach the list, move, read the checks, finish, undo", async ({ page }) => {
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const cards = page.locator('ul[aria-label="Drafts"] > li');
   await expect(cards.first()).toBeVisible(); // earlier z-* flows add drafts: no fixed count here
 
@@ -87,7 +87,7 @@ test("keyboard only: reach the list, move, read the checks, finish, undo", async
 });
 
 test("the selection checkboxes are not Tab stops until a selection is under way", async ({ page }) => {
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const boxes = page.locator('ul[aria-label="Drafts"] [role="checkbox"]');
   await expect(boxes.first()).toBeVisible();
   for (const box of await boxes.all()) await expect(box).toHaveAttribute("tabindex", "-1");

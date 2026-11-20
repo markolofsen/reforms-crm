@@ -16,10 +16,11 @@ export function searchValue(r: Resolved, key: "channel"): string;
 export function searchValue(r: Resolved, key: SearchKey): string | number | null {
   if (key === "client") return r.route === "log.list" ? r.search.client : null;
   if (key === "channel") return r.route === "messengers.page" ? r.search.channel : "all";
-  if (key === "q") return r.route === "drafts.list" || r.route === "drafts.item" || r.route === "knowledge.page" ? r.search.q : "";
+  if (key === "q") return r.route === "mail.list" || r.route === "mail.item" || r.route === "mail.inbound" || r.route === "knowledge.page" ? r.search.q : "";
   switch (r.route) {
-    case "drafts.list":
-    case "drafts.item":
+    case "mail.list":
+    case "mail.item":
+    case "mail.inbound":
     case "log.list":
     case "knowledge.page":
     case "settings.agent":
@@ -41,15 +42,19 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
   // P84c: the Messengers panel's channel keeps its view, and its view keeps the channel.
   if (key === "channel") return r.route === "messengers.page" ? paths.messengers.chats({ filter: r.search.filter, channel: oneOf(MESSENGER_CHANNEL_FILTERS, v, "all") }) : null;
   if (key === "q") {
-    if (r.route === "drafts.list") return paths.drafts.list({ filter: r.search.filter, q: v, batch: r.search.batch });
+    if (r.route === "mail.list") return paths.mail.list({ filter: r.search.filter, q: v, batch: r.search.batch });
     if (r.route === "knowledge.page") return paths.knowledge.page({ filter: r.search.filter, q: v });
-    return r.route === "drafts.item" ? paths.drafts.item(r.params.id, { filter: r.search.filter, q: v, batch: r.search.batch }) : null;
+    if (r.route === "mail.inbound") return paths.mail.inbound(r.params.id, { filter: r.search.filter, q: v, batch: r.search.batch });
+    return r.route === "mail.item" ? paths.mail.item(r.params.id, { filter: r.search.filter, q: v, batch: r.search.batch }) : null;
   }
   switch (r.route) {
-    case "drafts.list":
-      return paths.drafts.list({ filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
-    case "drafts.item":
-      return paths.drafts.item(r.params.id, { filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
+    case "mail.list":
+      return paths.mail.list({ filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
+    case "mail.item":
+      return paths.mail.item(r.params.id, { filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
+    case "mail.inbound":
+      // A view change leaves a client's message: the list of the new view opens its own first row.
+      return paths.mail.list({ filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
     case "log.list":
       // Sends is the project's send history: switching to it leaves the one-client narrowing behind.
       return paths.log.list({ filter: oneOf(ACTIVITY_VIEWS, v, "all"), client: v === "sends" ? null : r.search.client });
@@ -66,7 +71,7 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
 
 /**
  * One search key as state. Setting it REPLACES the history entry (a filter is not a page, Back must not step through
- * every chip); the default value drops the key from the address. A subject (`/drafts/42`) is a path and PUSHES: use `useGo`.
+ * every chip); the default value drops the key from the address. A subject (`/mail/42`) is a path and PUSHES: use `useGo`.
  * This is the one hook that writes the query string in place.
  */
 export function useSearchState(key: "filter"): [string, (value: string) => void];

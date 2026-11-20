@@ -7,9 +7,9 @@ test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-test("Drafts list loads with counts and only clients that have a draft", async ({ page }) => {
-  await page.goto("/drafts?filter=all");
-  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Drafts", exact: true })).toBeVisible();
+test("Mail list loads with counts and only clients that have a draft", async ({ page }) => {
+  await page.goto("/mail?filter=all");
+  await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Mail", exact: true })).toBeVisible();
   await expect(cards(page)).toHaveCount(11);
   await expect(cards(page).filter({ hasText: "Rita Falsa" })).toHaveCount(0);
   // The counts live in the one View menu (P48 W4); Replies owed and High value are not views.
@@ -20,7 +20,7 @@ test("Drafts list loads with counts and only clients that have a draft", async (
 });
 
 test("Open draft in Mail links the Mail draft by its own Message-ID; the client's mail is in the More menu (P58 R1)", async ({ page }) => {
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   await cards(page).filter({ hasText: "Pedro Exemplo" }).getByRole("button").first().click();
   const card = page.getByRole("article", { name: "Draft for Pedro Exemplo" });
   await expect(card.getByRole("link", { name: /Open draft in Mail/ })).toHaveAttribute("href", /^message:\/\/%3Cfake-\d+%40hub\.test%3E$/);
@@ -33,12 +33,12 @@ test("A project with no drafts says what to ask the agent", async ({ page }) => 
   await page.route(/\/api\/drafts\?/, (route) =>
     route.fulfill({ json: { drafts: [], counts: { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, thin_basis: 0, sequences: 0 }, total: 0, nextOffset: null } }),
   );
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   await expect(page.getByText("Say to the agent: “triage mail for lisbon-realty”")).toBeVisible();
 });
 
 test("I read the checks, then Done moves the card to the bottom", async ({ page }) => {
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const row = cards(page).filter({ hasText: "Pedro Exemplo" });
   await expect(row).toBeVisible();
   const index = async () => (await cards(page).allTextContents()).findIndex((t) => t.includes("Pedro Exemplo"));

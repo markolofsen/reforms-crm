@@ -10,7 +10,7 @@ import { SchemeBlock } from "./scheme";
 
 /**
  * What needs you, on every instance (P63, P70). With two or more projects first one sentence that counts the projects that need
- * the owner and one row per project leading into its Drafts (list first); with one project neither (they would repeat the Drafts
+ * the owner and one row per project leading into its Mail (list first); with one project neither (they would repeat the Mail
  * status line). Then "Needs you" or "Everything works", every part folded under "All parts", and the ops log's Recent errors folded
  * under it (P86, only when there is one). Reads `GET /api/overview`, `GET /api/ops/errors`,
  * `GET /api/scheme` and each project's files (local state only); nothing here reads Notion or runs a check, so there is nothing

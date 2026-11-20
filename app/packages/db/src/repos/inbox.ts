@@ -5,6 +5,7 @@ import { write } from "../tx";
 import { RepoError } from "../errors";
 import { clients, inboxRows } from "../schema";
 import { onClientWrote } from "./enrollments";
+import { OPEN_INBOUND } from "./inbound-mail";
 import { insertEvent, sessionRun } from "./runs";
 
 export type InboxRow = typeof inboxRows.$inferSelect;
@@ -149,7 +150,11 @@ export function inboxRepo(db: Db) {
         const p = predicates[f](since);
         return db.select({ n: sql<number>`count(*)` }).from(inboxRows).where(and(eq(inboxRows.project, project), p)).get()?.n ?? 0;
       };
-      return { owed: n("owed"), new: n("new"), all: n("all") };
+      // P96 verdict 5: `owed` is one count over both sources, one client once: the agent's owed rows and the clients with an
+      // open message in the Mail reader's Inbox (`inbound_mail`, `inboundMailRepo.open`).
+      const owedEmails = db.select({ email: inboxRows.email }).from(inboxRows).where(and(eq(inboxRows.project, project), SQL_OWED)).all().map((r) => r.email);
+      const wrote = db.$client.prepare(`select distinct email from inbound_mail where project = ? and ${OPEN_INBOUND}`).all(project).flatMap((r) => (typeof r === "object" && r !== null && "email" in r && typeof r.email === "string" ? [r.email] : []));
+      return { owed: new Set([...owedEmails, ...wrote]).size, new: n("new"), all: n("all") };
     },
 
     /** When the agent last recorded a client for the project, or null when it never did: what "never triaged" means. */

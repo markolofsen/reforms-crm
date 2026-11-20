@@ -23,5 +23,5 @@ Scope: the baseline every screen meets. Adapted from the shared "accessibility, 
 | 3-5, 8 | e2e keyboard and state scenarios (`e2e/z-keyboard.spec.ts`, `e2e/b-routing.spec.ts` skip link, `e2e/z-selection.spec.ts` the selection count in the header line; `e2e/zz-live.spec.ts` the "N new" region) |
 | 9 | `@axe-core/playwright` 4.14.0 (`e2e/a-layout.spec.ts`: every screen, light and dark, three widths, `next start` build) |
 | 10 | `e2e/z-terminal.spec.ts` (focus in on open and back to the toggle on hide, the separator's value, Escape reaches the program); `packages/ui/test/side-dock.test.ts` (the separator's keys); axe on the open column in `e2e/a-layout.spec.ts` |
-| 7 | `e2e/y-status-line.spec.ts` (with `prefers-reduced-motion` no animation runs in the Drafts status line or on the Overview; the same check with motion allowed proves it can see one) |
+| 7 | `e2e/y-status-line.spec.ts` (with `prefers-reduced-motion` no animation runs in the Mail status line or on the Overview; the same check with motion allowed proves it can see one) |
 | 4, 6 | browser pass at 360 / 768 / 1280 (see `verification.md`) |

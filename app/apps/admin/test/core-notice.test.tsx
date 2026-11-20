@@ -8,7 +8,7 @@ import { CoreView } from "../src/features/settings/mac/core-view";
 import { keys } from "../src/lib/cache/keys";
 
 // The core line is an AppLink (P70): it reads the address and the router, which a static render has not mounted.
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }), usePathname: () => "/drafts", useSearchParams: () => new URLSearchParams() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: () => {} }), usePathname: () => "/mail", useSearchParams: () => new URLSearchParams() }));
 
 // P68: the core version line in the sidebar and the block on Settings ▸ This Mac (P70; /health until then), for each level, from fixtures the server could send.
 

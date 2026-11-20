@@ -18,6 +18,9 @@ import { startPurge } from "./purge";
 import { createPreanalysis } from "./preanalysis";
 import { createLlm } from "@hub/llm";
 import { startSentReconciler } from "./sent";
+import { startInboundReader } from "./inbound";
+import { mailRunning } from "./apple-mail";
+import { defaultOsa } from "@hub/send";
 import { stampSentMail, teamStampOf } from "@hub/notion/stamp";
 import type { SentNotice } from "@hub/send";
 import { chooseShell, createTerminal, serverDetector } from "./terminal";
@@ -104,6 +107,27 @@ const onSent = kind === "fake" ? undefined : (n: SentNotice) => { void stampSent
 const teamStamp = kind === "fake" ? undefined : (project: string, email: string) => teamStampOf({ projectsDir, secretsDir: paths.secrets, stateDir: paths.state }, project, email);
 const sent = startSentReconciler({ repos, ...(onSent ? { onSent } : {}), ...(teamStamp ? { teamStamp } : {}), ...(kind === "fake" ? { offReason: "HUB_MAILER=fake: Mail is not read" } : {}) });
 log.info(`sent: ${sent.status().state}${sent.status().reason ? ` (${sent.status().reason})` : ""}`);
+// P96: the Mail reader reads the projects' inbound mailboxes read-only (every 2 min while the admin is open or a session runs,
+// else every 15); with the fake Mailer it never asks Mail. Its `busy` is bound below, once the live stream and the terminal exist.
+const busy: { now: () => boolean } = { now: () => false };
+const inbound = startInboundReader({
+  repos,
+  projectsDir,
+  policyDir: hubPaths().stateProjects,
+  configFile: configFile(),
+  busy: () => busy.now(),
+  knownClient: (project, email) => linker.project === project && (linker.directory.current()?.all.some((e) => e.email?.trim().toLowerCase() === email) ?? false),
+  ...(kind === "fake" ? { offReason: "Demo mode: Mail is not read" } : {}),
+});
+log.info(`mail reader: ${inbound.status().state}${inbound.status().reason ? ` (${inbound.status().reason})` : ""}`);
+// The Inbox card's text, read from Mail when a row is opened (never launches Mail; the fake writer finds nothing).
+const mailWriter = kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter();
+const inboundText = async (account: string, messageId: string) => {
+  if (kind === "fake") return { note: "Demo mode: Mail is not read, only the stored preview shows." };
+  if (!(await mailRunning(defaultOsa).catch(() => false))) return { note: "Mail is not running: open Mail to read the whole message." };
+  const found = await mailWriter.findInbound([account], messageId);
+  return found ? { text: await mailWriter.readContent(found) } : { note: "This message is no longer in Mail (moved or deleted)." };
+};
 // Connections: the real probes and Apple Mail's account list, or stubs with HUB_CONNECTIONS_PROBE=fake (refused without HUB_DB).
 const probe = chooseProbeKind(process.env);
 if (probe === "fake") log.info("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PROBE=fake): nothing is sent to Notion or Telegram, Mail is not asked");
@@ -134,16 +158,18 @@ coreUpdates.start();
 log.info(kind === "fake" ? "core update check: off (HUB_MAILER=fake): Check now answers offline" : "core update check: 2 min after start, then every 6 h (the origin's tags)");
 // Live panels (P50): the trigger counter tailed every 200 ms; the pollers' state and the Connections files are watched,
 // since they are not rows (a timestamp of the last poll is left out: it moves on every poll and means nothing to a panel).
-const pollers = () => [messengers.status(), sent.status(), ...telegramUser.status().accounts, ...whatsapp.status().accounts].map((s) => `${s.state}|${"reason" in s ? (s.reason ?? "") : ""}|${s.lastError ?? ""}`).join("\n");
+// P96: the Mail reader's line moves with each pass (its `lastRunAt` is in the signature on purpose: "Mail read 1 min ago" must follow).
+const pollers = () => [messengers.status(), sent.status(), { state: inbound.status().state, reason: `${inbound.status().reason ?? ""}${inbound.status().reading ? " reading" : ""}${inbound.status().lastRunAt ?? ""}`, lastError: inbound.status().lastError }, ...telegramUser.status().accounts, ...whatsapp.status().accounts].map((s) => `${s.state}|${"reason" in s ? (s.reason ?? "") : ""}|${s.lastError ?? ""}`).join("\n");
 // P59: the agent session log is watched per project (one stat per day file), so the feed follows a hook's line in under 1 s.
 const live = createLive({ db, watch: [{ topic: "health", signature: pollers, everyMs: 1000 }, { topic: "connections", signature: () => folderSignature(paths.secrets), everyMs: 1000 }, { topic: "agent-log", signatures: () => logSignatures(paths.log), everyMs: 500 }, { topic: "autostart", signature: autostart.signature, everyMs: 1000 }, { topic: "core", signature: coreUpdates.signature, everyMs: 1000 }, { topic: "ops-log", signature: () => opsSignature(opsStoreOf(paths)), everyMs: 1000 }] });
+busy.now = () => live.count() > 0 || terminal.state().sessions.length > 0;
 // The shared focus (P51): the admin tab says what it shows; the agent reads it from state/focus.json.
 const focus = createFocusStore({ file: paths.focus });
 // P61: the local Open actions (Finder, a project file). HUB_OPENER=fake records each argv in state/opener.jsonl and opens nothing (refused without HUB_DB); a bad value stops the server here.
 const opener = chooseOpener(process.env, paths, throwawayDbNamed(process.env));
 const local = { deps: localOpenDeps(repos, paths), run: opener.run, available: localOpenAvailable(opener.kind) };
 log.info(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens, each argv goes to state/opener.jsonl" : `open: ${local.available ? "on (/usr/bin/open, the admin page only)" : "off (not macOS): the Open buttons are hidden"}`);
-const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
+const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, sent: sent.status, inbound, inboundText, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   log.info(`hub server on http://${info.address}:${info.port}`, { pid: process.pid });
@@ -168,6 +194,7 @@ onShutdown({
     linker.stop();
     coreUpdates.stop();
     sent.stop();
+    inbound.stop();
     terminal.stop();
     try { await Promise.all([messengers.stop(), telegramUser.stop(), whatsapp.stop()]); } finally { server.close(); close(); }
   },

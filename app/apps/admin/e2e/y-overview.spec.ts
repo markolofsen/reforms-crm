@@ -40,13 +40,13 @@ test("overview: one sentence, then one row per project with its numbers, and no 
 test("overview: a row leads into its own project's Drafts, and Back returns", async ({ page }) => {
   await page.goto("/overview");
   await page.locator('tr[data-project="demo-shop"]').getByRole("link").first().click();
-  await expect.poll(() => address(page)).toMatch(/^\/demo-shop\/drafts(\/\d+)?(\?|$)/);
+  await expect.poll(() => address(page)).toMatch(/^\/demo-shop\/mail(\/\d+)?(\?|$)/);
   await page.goBack();
   await expect.poll(() => address(page)).toBe("/overview");
 });
 
 test("overview: g o from Drafts", async ({ page }) => {
-  await page.goto("/lisbon-realty/drafts?filter=all");
+  await page.goto("/lisbon-realty/mail?filter=all");
   await expect(page.locator('ul[aria-label="Drafts"] > li').first()).toBeVisible();
   await page.locator("body").click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("g");

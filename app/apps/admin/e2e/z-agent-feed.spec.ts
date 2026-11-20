@@ -40,7 +40,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("agent feed: the sidebar footer holds no feed rows (P73), and a line in the log adds none", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await expect(page.getByRole("button", { name: "Mute the agent sounds" })).toBeVisible();
   const read = fed(page);
   append({ kind: "tool_call", corr: "c1", data: { tool: "mcp__hub__draft_show", input: { draft: 1 } } }, { kind: "tool_result", corr: "c1", data: { tool: "mcp__hub__draft_show", output: "{}" } });
@@ -51,7 +51,7 @@ test("agent feed: the sidebar footer holds no feed rows (P73), and a line in the
 });
 
 test("agent feed: a question turn sounds the attention tone once and turns the strip's dot; opening the column clears it", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await expect(page.getByRole("button", { name: "Mute the agent sounds" })).toBeVisible();
   await page.locator("#main").click({ position: { x: 5, y: 5 } }); // the gesture that lets audio start
   const routine = fed(page);
@@ -68,7 +68,7 @@ test("agent feed: a question turn sounds the attention tone once and turns the s
 });
 
 test("agent feed: muted, a question turn plays nothing and the strip's dot still turns", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   const mute = page.getByRole("button", { name: "Mute the agent sounds" });
   await mute.click();
   await expect(mute).toHaveAttribute("aria-pressed", "true");
@@ -86,7 +86,7 @@ test("agent feed: of two tabs only one plays", async ({ page, context }) => {
   const other = await context.newPage();
   await other.addInitScript(FAKE_AUDIO);
   for (const p of [page, other]) {
-    await p.goto(at(P, "/drafts"));
+    await p.goto(at(P, "/mail"));
     await expect(p.getByRole("button", { name: "Mute the agent sounds" })).toBeVisible();
     await p.locator("#main").click({ position: { x: 5, y: 5 } });
   }

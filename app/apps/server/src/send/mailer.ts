@@ -77,7 +77,7 @@ export interface ServerMailer {
 
 /**
  * Throws on a bad `HUB_MAILER`: the server refuses to start rather than guess which Mailer was meant. The finds a page waits
- * on (the Drafts card's read) get `MAIL_READ_TIMEOUT_MS`, so a hung Mail is the card's "not answering" line, not a 2 min wait.
+ * on (the Mail card's read) get `MAIL_READ_TIMEOUT_MS`, so a hung Mail is the card's "not answering" line, not a 2 min wait.
  */
 export function createServerMailer(repos: Repos, projectsDir: string, env: NodeJS.ProcessEnv = process.env): ServerMailer {
   const kind = chooseMailerKind(env);

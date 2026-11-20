@@ -58,6 +58,8 @@ export interface ProjectFacts {
   toReview: number;
   sentToday: number;
   owed: number;
+  /** P96: clients with an open message in the Mail reader's Inbox (part of `owed`). */
+  wrote: number;
   lastTriageAt: string | null;
   setupQuestion: boolean;
   injectionHeld: number;
@@ -114,6 +116,7 @@ export async function gatherFacts(i: FactsInput): Promise<ProjectFacts[]> {
       toReview: (await i.repos.drafts.countsByStatus(row.slug)).ready,
       sentToday: s.sentToday,
       owed: (await i.repos.inbox.counts(row.slug)).owed,
+      wrote: (await i.repos.inboundMail.openEmails(row.slug)).length,
       lastTriageAt: await i.repos.inbox.lastTriageAt(row.slug),
       setupQuestion: (await i.repos.projects.questions(row.slug, "open")).length > 0,
       injectionHeld: await i.repos.drafts.injectionHeld(row.slug),

@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("a batch address that is not in this project says so", async ({ page }) => {
-  await page.goto(at("lisbon-realty", "/drafts?batch=99999"));
+  await page.goto(at("lisbon-realty", "/mail?batch=99999"));
   await expect(page.getByText("That batch is not in this project.")).toBeVisible();
   await page.reload();
   await expect(page.getByText("That batch is not in this project.")).toBeVisible();

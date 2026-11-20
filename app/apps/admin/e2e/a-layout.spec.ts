@@ -49,17 +49,17 @@ const tabStopsInView = (page: Page) =>
 const firstRowTop = (page: Page) => page.evaluate(() => document.querySelector('ul[aria-label="Drafts"] > li')?.getBoundingClientRect().top ?? null);
 
 const SCREENS: Screen[] = [
-  { name: "drafts", path: at(P, "/drafts"), ready: async (p) => void (await p.locator('ul[aria-label="Drafts"] > li').first().waitFor()) },
+  { name: "drafts", path: at(P, "/mail"), ready: async (p) => void (await p.locator('ul[aria-label="Drafts"] > li').first().waitFor()) },
   {
     name: "drafts: one draft open",
-    path: at(P, "/drafts"),
+    path: at(P, "/mail"),
     ready: async (p) => {
       await openFirst(p);
       await p.getByRole("group", { name: "Actions" }).waitFor();
     },
   },
-  { name: "drafts: follow-ups", path: at(P, "/drafts?filter=sequences"), ready: async (p) => void (await p.getByTestId("follow-ups").waitFor()) },
-  { name: "drafts: not by email", path: at(P, "/drafts?filter=not_by_email"), ready: async (p) => void (await p.getByTestId("not-by-email").waitFor()) },
+  { name: "drafts: follow-ups", path: at(P, "/mail?filter=sequences"), ready: async (p) => void (await p.getByTestId("follow-ups").waitFor()) },
+  { name: "drafts: not by email", path: at(P, "/mail?filter=not_by_email"), ready: async (p) => void (await p.getByTestId("not-by-email").waitFor()) },
   {
     name: "overview",
     path: "/overview",
@@ -135,7 +135,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: "drafts: Send confirm open",
-    path: at(P, "/drafts"),
+    path: at(P, "/mail"),
     mock: async (p) => {
       await firstDraftIs(p, {});
       await p.route(/\/drafts\/\d+\/send$/, (route) => route.fulfill({ json: PREVIEW }));
@@ -148,7 +148,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: "drafts: Send refused with reasons",
-    path: at(P, "/drafts"),
+    path: at(P, "/mail"),
     mock: async (p) => {
       await firstDraftIs(p, {});
       await p.route(/\/drafts\/\d+\/send$/, (route) => route.fulfill({ status: 409, json: { error: "Not sent: 2 reasons", code: "wrong_state", refused: ["Stop all is on", "a placeholder is left in the text: [Owner: price]"] } }));
@@ -161,7 +161,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: "drafts: injection suspected and a class",
-    path: at(P, "/drafts"),
+    path: at(P, "/mail"),
     mock: async (p) => void (await firstDraftIs(p, { injectionSuspected: true, mailClass: "client" })),
     ready: async (p) => {
       await openFirst(p);
@@ -170,7 +170,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: "drafts: Mail unreadable",
-    path: at(P, "/drafts"),
+    path: at(P, "/mail"),
     mock: async (p) => {
       await firstDraftIs(p, {});
       await mailIs(p, (m) => ({ ...m, found: false, hash: null, body: "", reason: "no draft in Mail with that subject", safetyResults: [] }));
@@ -184,7 +184,7 @@ const SCREENS: Screen[] = [
     // P49: the terminal open (the docked column from 1024px, the full-screen layer below), on the fake shell. The one session
     // this leaves is ended by the next run of this screen and by `z-terminal.spec.ts` before it starts.
     name: "drafts: terminal open",
-    path: at(P, "/drafts"),
+    path: at(P, "/mail"),
     ready: async (p) => {
       for (const s of ((await (await p.request.get("/api/terminal")).json()) as { sessions: { id: string }[] }).sessions) await p.request.delete(`/api/terminal/sessions/${s.id}`);
       // The page loaded before those were ended; a fresh load does not ask for a socket of a session that is gone (a console 404).
@@ -195,7 +195,7 @@ const SCREENS: Screen[] = [
   },
   {
     name: "drafts: two selected",
-    path: at(P, "/drafts"),
+    path: at(P, "/mail"),
     ready: async (p) => {
       await p.getByRole("button", { name: "Select drafts" }).click();
       const boxes = p.locator('ul[aria-label="Drafts"] [role="checkbox"]');
@@ -272,7 +272,7 @@ for (const scheme of ["light", "dark"] as const) {
   }
 }
 
-// P70: the phone bar is five items (Overview, Drafts, Activity, Settings, More); More holds Messengers (P71 M3), Knowledge and Help, each label whole;
+// P70: the phone bar is five items (Overview, Mail, Activity, Settings, More); More holds Messengers (P71 M3), Knowledge and Help, each label whole;
 // the rail (640-1279) draws parents only, so no pane is in the Sections nav there; below 640px the sub-nav is one menu.
 test("phone bar and rail: parents only, the More menu whole, the sub-nav a menu on a phone", async ({ page }) => {
   const width = page.viewportSize()?.width ?? 0;
@@ -282,7 +282,7 @@ test("phone bar and rail: parents only, the More menu whole, the sub-nav a menu 
   if (width < 640) {
     const bar = page.getByRole("navigation", { name: "Sections" }).last();
     // A dot's words ("needs you") are read before the label: the label ends the link.
-    await expect(bar.getByRole("link")).toHaveText([/Overview$/, /Drafts$/, /Activity$/, /Settings$/]);
+    await expect(bar.getByRole("link")).toHaveText([/Overview$/, /Mail$/, /Activity$/, /Settings$/]);
     await bar.getByTestId("tab-more").click();
     const items = page.getByRole("menuitem");
     await expect(items).toHaveText([/Messengers$/, /^Knowledge/, /^Help/]);
@@ -297,13 +297,13 @@ test("phone bar and rail: parents only, the More menu whole, the sub-nav a menu 
     await expect.poll(() => new URL(page.url()).pathname).toBe("/settings/mac");
   } else {
     await expect(sub.getByRole("link")).toHaveText(["Sending", "Checks", "Mail", "Agent", "Connections", "This Mac"].map((n) => new RegExp(`${n}$`)));
-    if (width < 1280) await expect(page.getByRole("navigation", { name: "Sections" }).first().getByRole("link", { name: "Mail", exact: true })).toBeHidden();
+    if (width < 1280) await expect(page.getByRole("navigation", { name: "Sections" }).first().getByRole("link", { name: "This Mac", exact: true })).toBeHidden();
   }
 });
 
 // P48 W4: selecting never moves the list, and a row shows its subject. Light only: the geometry is the same in dark.
 test("drafts: the first row does not move when a row is selected, and the subject is not cut below 40 characters at 1280", async ({ page }) => {
-  await page.goto(at(P, "/drafts?filter=all"));
+  await page.goto(at(P, "/mail?filter=all"));
   const first = page.locator('ul[aria-label="Drafts"] > li').first();
   await first.waitFor();
   const before = await first.evaluate((e) => e.getBoundingClientRect().top);

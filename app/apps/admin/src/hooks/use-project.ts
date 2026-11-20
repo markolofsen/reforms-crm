@@ -32,7 +32,7 @@ export function usePlace(): Place {
 
 /**
  * The address is always canonical (so a reload or a shared link lands on the same view): one project names none, several
- * name theirs in the path, the entry and a one-project Overview open Drafts (`canonicalAddress`, the one normaliser). The
+ * name theirs in the path, the entry and a one-project Overview open Mail (`canonicalAddress`, the one normaliser). The
  * choice of project is remembered in a cookie for a bare multi-project address. Returns the place, null before the list is
  * known or with no projects, and `pending` while the address is on its way to another screen (so that screen is not drawn first).
  */

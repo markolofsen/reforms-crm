@@ -192,7 +192,7 @@ describe("Unlink and Never link", () => {
     await al.scan("telegram_user", "42");
     await al.idle();
     const chat = rows("select id from messenger_chats")[0] as { id: number };
-    const linker: ProjectAutolink = { autolink: al, directory, stop: () => undefined };
+    const linker: ProjectAutolink = { project: null, autolink: al, directory, stop: () => undefined };
     const app = createApp(repos, { telegramUser: tg ?? undefined, autolink: linker, adminPort: ADMIN });
     expect((await post(app, `/api/projects/p/messengers/chats/${chat.id}/never`, {}, { "content-type": "application/json" })).status).toBe(403);
     expect((await post(app, `/api/projects/p/messengers/chats/${chat.id}/never`)).status).toBe(200);
@@ -215,7 +215,7 @@ describe("Unlink and Never link", () => {
     await al.scan("telegram_user", "42");
     await al.idle();
     const chat = rows("select id from messenger_chats")[0] as { id: number };
-    const app = createApp(repos, { telegramUser: tg ?? undefined, autolink: { autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
+    const app = createApp(repos, { telegramUser: tg ?? undefined, autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
     for (const path of ["/api/projects/p/messengers/autolink/state", "/api/projects/p/messengers/autolink/preview"]) {
       expect((await post(app, path, {}, { "content-type": "application/json" })).status).toBe(403);
       expect((await post(app, path)).status).toBe(200);
@@ -231,7 +231,7 @@ describe("Unlink and Never link", () => {
     on = false;
     await al.scan("telegram_user", "42");
     await al.idle();
-    const app = createApp(repos, { telegramUser: tg ?? undefined, autolink: { autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
+    const app = createApp(repos, { telegramUser: tg ?? undefined, autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
     const r = await post(app, "/api/projects/p/messengers/autolink/link", { channel: "telegram_user", account: "42", chatId: "1002", key: "n-bob2", title: "Bob B" });
     expect(r.status).toBe(200);
     expect(rows("select c.email, m.chat_id, m.autolinked from clients c join client_identifiers i on i.client_id = c.id join messenger_chats m on m.chat_id = i.value")).toEqual([{ email: "bobby@example.test", chat_id: "1002", autolinked: null }]);

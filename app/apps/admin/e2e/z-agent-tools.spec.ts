@@ -76,7 +76,7 @@ test("agent tools: Refresh runs the checks again (disabled while they run) and t
 });
 
 test("agent tools: a red row puts a dot on Settings in the nav and on the Agent tab of the sub-nav, and Connections holds no Agent tools", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await expect(page.getByRole("navigation", { name: "Sections" }).first().getByTestId("dot-settings")).toBeVisible();
   // P75: the sidebar draws no Settings children; the tab strip carries the child's dot.
   await page.goto(at(P, "/settings"));

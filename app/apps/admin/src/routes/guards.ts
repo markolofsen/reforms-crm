@@ -18,13 +18,13 @@ export function pickProject(addressed: string | null, stored: string | null, pro
 
 /**
  * The address a route must be rewritten to (replace, no history entry), or null when it is already canonical. The one place
- * that normalises: the entry `/` opens Drafts (Overview with two or more projects; Overview itself is a page on every instance,
+ * that normalises: the entry `/` opens Mail (Overview with two or more projects; Overview itself is a page on every instance,
  * P63), a one-project address drops its project, a multi-project one carries it in the path, a legacy `?project=` and a dead filter
  * (or `?new=1`) are dropped, a default value's key is gone. Not found is never rewritten.
  */
 export function canonicalAddress(r: Resolved, place: Place, current: string): string | null {
   if (!place.project) return null;
-  const d = r.entry ? (place.multi ? paths.overview() : paths.drafts.list()) : destOf(r);
+  const d = r.entry ? (place.multi ? paths.overview() : paths.mail.list()) : destOf(r);
   if (!d) return null;
   const wanted = formatDest(d, place);
   return wanted === current ? null : wanted;

@@ -98,7 +98,7 @@ test("activity: a row that made a draft links into that draft's card", async ({ 
   });
   await page.goto(LOG);
   const link = page.getByRole("table", { name: "Activity" }).getByRole("link", { name: /Draft Person/ });
-  await expect(link).toHaveAttribute("href", `/${PROJECT}/drafts/7`);
+  await expect(link).toHaveAttribute("href", `/${PROJECT}/mail/7`);
   await expect(page.locator('tr[data-row][data-agent-ref="draft:7"]')).toHaveCount(1);
 });
 

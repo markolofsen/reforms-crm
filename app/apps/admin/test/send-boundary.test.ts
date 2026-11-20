@@ -28,9 +28,9 @@ describe("send boundary", () => {
 
   it("starts Send all Checked of a batch (P85b) only from the batch's own panel, after its dry run", () => {
     const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bbatchSendApi\.(plan|start|stop)\b/.test(f.text)).map((f) => f.path).sort();
-    expect(users).toEqual(["features/drafts/batch-send.tsx"]);
+    expect(users).toEqual(["features/mail/batch-send.tsx"]);
     // The apply carries exactly the dry run's drafts and hashes: the panel never builds its own list.
-    const panel = all.find((f) => f.path === "features/drafts/batch-send.tsx")?.text ?? "";
+    const panel = all.find((f) => f.path === "features/mail/batch-send.tsx")?.text ?? "";
     expect(panel).toMatch(/batchSendApi\.start\(project, batchId, p\)/);
   });
 

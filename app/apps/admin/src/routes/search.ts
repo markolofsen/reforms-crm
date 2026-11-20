@@ -17,19 +17,21 @@ export const ACTIVITY_VIEWS = [...TIMELINE_VIEWS, "sends"] as const;
 export type ActivityView = TimelineView | "sends";
 
 /**
- * The four views of the Drafts list (research 16 section 6.3): To review (`ready`), Hold, Finished (done, sent and skipped
- * together) and All. The server filters by one status, so `finished` is narrowed in the page. The default is To review
- * (owner decision Q5, P29): a bare `/drafts` shows what needs the owner, so `ready` drops its key and `all` keeps it.
+ * The views of the Mail list (Drafts until P96; research 16 section 6.3), in their menu order: Inbox (P96: the clients who wrote
+ * and have no draft yet), To review (`ready`), Hold, Thin basis, Follow-ups (`sequences`, P47, read-only), Not by email (P48,
+ * read-only client rows), Sent (P96), Finished (done and skipped) and All. The server filters by one status, so `finished` is
+ * narrowed in the page. The address default is To review (owner decision Q5, P29): a bare `/mail` drops the key; on arrival with
+ * clients waiting the screen moves to Inbox itself (P96 verdict "the default when it is not empty").
+ * The list itself lives in `@hub/config` (the shared focus names a view too, P51).
  */
-// `sequences` (P47, label Follow-ups): the open steps of follow-up sequences and the enrolments, read-only. `not_by_email` (P48):
-// the clients the agent did not answer by email (calls, no reply needed), read-only rows instead of drafts.
-// The list itself lives in `@hub/config` (the shared focus names a view too, P51).
 export { DRAFT_VIEWS, type DraftView };
+/** The one label of each view: the View menu and the dock's "Agent sees: Mail · Inbox" read it. */
+export const DRAFT_VIEW_LABELS: Readonly<Record<DraftView, string>> = { inbox: "Inbox", ready: "To review", hold: "Hold", thin_basis: "Thin basis", sequences: "Follow-ups", not_by_email: "Not by email", sent: "Sent", finished: "Finished", all: "All" };
 export const DEFAULT_DRAFT_VIEW: DraftView = "ready";
 
 /**
  * Settings ▸ Agent's Tools table (P75): by default only the rows that need a fix or a look, `all` every row. A View menu, like
- * Drafts, Activity and Knowledge (`admin-principles.md` rule 11), not a disclosure: the table is always drawn.
+ * Mail, Activity and Knowledge (`admin-principles.md` rule 11), not a disclosure: the table is always drawn.
  */
 export const AGENT_VIEWS = ["attention", "all"] as const;
 export type AgentView = (typeof AGENT_VIEWS)[number];

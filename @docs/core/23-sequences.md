@@ -60,7 +60,7 @@ What the admin shows (waiting, due, draft ready) is derived from those, never st
 
 ## The admin
 
-Drafts has a **Follow-ups** view in its View menu (`?filter=sequences`: the open step drafts; the one control is **Stop follow-ups**; its empty state gives the phrase to say to the agent). The admin has no Enrol control: enrolling is a phrase in a session (decision 0025). A step draft's card is state 17, `follow_up`: Open draft in Mail is its one primary, the badge says "Follow-up N of M", and **Stop follow-ups** is in its header. The admin reads all of it through `/api/projects/:slug/sequences` and `/enrollments`; it never imports `@hub/sequences` (eslint).
+Mail has a **Follow-ups** view in its View menu (`?filter=sequences`: the open step drafts; the one control is **Stop follow-ups**; its empty state gives the phrase to say to the agent). The admin has no Enrol control: enrolling is a phrase in a session (decision 0025). A step draft's card is state 17, `follow_up`: Open draft in Mail is its one primary, the badge says "Follow-up N of M", and **Stop follow-ups** is in its header. The admin reads all of it through `/api/projects/:slug/sequences` and `/enrollments`; it never imports `@hub/sequences` (eslint).
 
 ## In a session
 

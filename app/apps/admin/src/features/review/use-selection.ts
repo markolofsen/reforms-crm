@@ -23,7 +23,7 @@ export function useSelection(rows: ReviewDraft[]) {
 
 /**
  * P51, P72: the card on screen and the picked rows, shared with the focus publisher through the screens' channel
- * (`lib/focus.ts`), because the address says neither (the desktop opens the first row of a bare `/drafts`; selection is
+ * (`lib/focus.ts`), because the address says neither (the desktop opens the first row of a bare `/mail`; selection is
  * not URL state). The card's label is its client's name, shown in the dock header only. Cleared when the list leaves the screen.
  */
 export function useShareReview(shown: ReviewDraft | null, picked: readonly ReviewDraft[]): void {

@@ -6,19 +6,19 @@ import type { NavCheck } from "../src/routes/table";
 import { route } from "../src/routes/typed";
 
 // @ts-expect-error a draft id is a number, not a string
-paths.drafts.item("abc");
+paths.mail.item("abc");
 // @ts-expect-error a batch is a number, not its name
-paths.drafts.list({ batch: "June" });
-// @ts-expect-error there is no Bulk screen: a batch is a filter of Drafts
+paths.mail.list({ batch: "June" });
+// @ts-expect-error there is no Bulk screen: a batch is a filter of Mail
 paths.bulk.list();
 // @ts-expect-error the batch builder is gone (P48): a batch is prepared by a phrase in a session
-paths.drafts.newBatch();
+paths.mail.newBatch();
 // @ts-expect-error not a route of the tree
 paths.drafz.list();
 // @ts-expect-error a filter outside its enum
-paths.drafts.list({ filter: "readyy" });
-// @ts-expect-error `run` belongs to the log, not to Drafts
-paths.drafts.list({ run: 3 });
+paths.mail.list({ filter: "readyy" });
+// @ts-expect-error `run` belongs to the log, not to Mail
+paths.mail.list({ run: 3 });
 
 const id = 42;
 // @ts-expect-error a path that is not a page of the file tree (typedRoutes, P32 N0)
@@ -27,7 +27,7 @@ export const badPath = route(`/draftz/${id}`);
 export const badLiteral = route("/nope");
 
 // The valid forms compile.
-export const ok = [route("/settings"), route(`/drafts/${id}?x=1`), route("/settings/mac?x=1")];
+export const ok = [route("/settings"), route(`/mail/${id}?x=1`), route("/settings/mac?x=1")];
 // @ts-expect-error the Project section is gone (P70): its parts moved to Settings, Knowledge and Overview
 paths.project.page();
 

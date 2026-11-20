@@ -22,6 +22,8 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   drafts: "drafts",
   enrollments: "follow-ups",
   inbox_rows: "inbox",
+  // P96: a client message the Mail reader stored, or No reply needed: the Inbox view, its count and the status line move.
+  inbound_mail: "inbox",
   knowledge_docs: "knowledge",
   // P78: the ledger moves only the Overview's LLM part; `health` is the topic whose keys hold Overview and its parts.
   llm_calls: "health",

@@ -21,7 +21,7 @@ const isChild = (id: RouteId): id is ChildRouteId => {
   return hasNav(r) && !isParent(r);
 };
 
-/** The sections in nav order: the parent rows. The chords are `g` + the row's key (`g d`, `g a`, ...); `NAV_SHAPE` in `table.ts` makes both present. */
+/** The sections in nav order: the parent rows. The chords are `g` + the row's key (`g e`, `g a`, ...); `NAV_SHAPE` in `table.ts` makes both present. */
 export const SECTIONS: readonly Section[] = ROUTE_IDS.flatMap((id) => {
   const r: AnyRow = ROUTE_TABLE[id];
   if (!hasNav(r) || !isParent(r)) return [];
@@ -45,7 +45,7 @@ export const sectionTitle = (id: SectionId): string => sectionById(id)?.title ??
  * The page each place of `statusDto.next` is fixed on (the server names a place, never a URL). Total over the contract's union,
  * so a new place fails `tsc` here. A child's dot also lights its parent, and a parent in the phone's More lights More.
  */
-export const NEXT_ROUTE: Readonly<Record<StatusNext, Exclude<RouteId, "drafts.item">>> = {
+export const NEXT_ROUTE: Readonly<Record<StatusNext, Exclude<RouteId, "mail.item" | "mail.inbound">>> = {
   overview: "overview.page",
   knowledge: "knowledge.page",
   sending: "settings.page",

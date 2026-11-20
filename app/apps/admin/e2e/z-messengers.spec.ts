@@ -33,7 +33,7 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   // P71 M-P: the seeded verdicts of Sofia's chat, counted by reason on its row.
   await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("Pre-analysis: hid 1 of 2 (1 closing).")).toBeVisible();
   // Mail drafts stay in Drafts, and messenger drafts never go there.
-  await page.goto(at(P, "/drafts?filter=all"));
+  await page.goto(at(P, "/mail?filter=all"));
   await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
   await expect(page.getByText(/the 28th stands/)).toHaveCount(0);
 });

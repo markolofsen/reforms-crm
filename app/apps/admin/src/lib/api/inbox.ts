@@ -1,9 +1,10 @@
 import type { EnrollmentView, InboxKind } from "@hub/config";
+import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto } from "@hub/contract/inbound";
 import { notByEmailDto } from "@hub/contract/responses";
 import { enrollmentChangedDto, enrollmentsDto, sequencesDto } from "@hub/contract/sequences";
 import { read } from "./client";
 
-/** The clients the agent did not answer by email (a View of Drafts, P48). Read-only. */
+/** The clients the agent did not answer by email (a View of Mail, P48). Read-only. */
 export const inboxApi = {
   notByEmail: (project: string, kind: InboxKind | null) => read(notByEmailDto, { method: "GET", path: "/api/inbox/not-by-email", query: { project, ...(kind ? { kind } : {}), limit: 50 } }),
 };
@@ -18,4 +19,16 @@ export const sequencesApi = {
   list: (project: string) => read(sequencesDto, { method: "GET", path: `${base(project)}/sequences` }),
   enrollments: (project: string, view: EnrollmentView) => read(enrollmentsDto, { method: "GET", path: `${base(project)}/enrollments`, query: { view } }),
   stop: (project: string, id: number) => read(enrollmentChangedDto, { method: "POST", path: `${base(project)}/enrollments/${id}/stop`, body: {} }),
+};
+
+/**
+ * P96 S1: the Inbox view of Mail, from the server's Mail reader (read-only toward Mail). The writes are local state only: No reply
+ * needed and its Undo; Check now runs one read pass of the project's mailboxes and answers the reader's line after it.
+ */
+export const inboundApi = {
+  list: (project: string) => read(inboundListDto, { method: "GET", path: `${base(project)}/inbound` }),
+  get: (project: string, id: number) => read(inboundDetailDto, { method: "GET", path: `${base(project)}/inbound/${id}` }),
+  check: (project: string) => read(inboundCheckedDto, { method: "POST", path: `${base(project)}/inbound/check`, body: {} }),
+  dismiss: (project: string, id: number) => read(inboundDismissedDto, { method: "POST", path: `${base(project)}/inbound/${id}/dismiss`, body: {} }),
+  undismiss: (project: string, ids: number[]) => read(inboundDismissedDto, { method: "POST", path: `${base(project)}/inbound/undismiss`, body: { ids } }),
 };

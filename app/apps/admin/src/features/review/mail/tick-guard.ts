@@ -30,7 +30,7 @@ export function draftLinkOf(m: Pick<DraftMailDto, "found" | "note" | "messageId"
  * Mail holds more than one version, usually an older one still being removed after a revision, so it says that plainly.
  */
 export function mailProblem(reason: string | null | undefined): string {
-  if (reason && /drafts in Mail match/.test(reason)) return `Mail holds more than one version of this draft: ${reason}`;
+  if (reason?.includes("drafts in Mail match")) return `Mail holds more than one version of this draft: ${reason}`;
   return `Mail could not be read${reason ? `: ${reason}` : ""}`;
 }
 

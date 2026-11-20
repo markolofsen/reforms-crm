@@ -73,7 +73,7 @@ describe("buildScheme (P81, decision 0042)", () => {
         '    b13["Hub tools<br/>hub mcp: drafts, focus, messengers"]',
         '    b14["Server and app.db<br/>the local API and its database"]',
         '    b15["Agent log<br/>every turn of a session"]',
-        '    b16["Admin<br/>Drafts, Messengers, Activity, Knowledge, Overview, Settings, Help"]',
+        '    b16["Admin<br/>Mail, Messengers, Activity, Knowledge, Overview, Settings, Help"]',
         '    b17["LLM<br/>@hub/llm, cheap typed calls"]',
         '    b13 -->|"records"| b14',
         '    b15 -->|"Activity"| b16',

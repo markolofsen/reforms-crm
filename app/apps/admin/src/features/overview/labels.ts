@@ -1,7 +1,6 @@
 import { AlertTriangleIcon, CheckCircle2Icon, CircleHelpIcon, CircleXIcon, OctagonAlertIcon, type LucideIcon } from "lucide-react";
 import type { ProjectRowDto, StatusDto, StatusLevel, StatusNext } from "@hub/contract/overview";
 import { SCHEME_WORDS, type SchemeState } from "@hub/contract/scheme";
-import { ago } from "@/lib/format";
 import { routeDest, type Dest } from "@/routes/paths";
 import { NEXT_ROUTE } from "@/routes/sections";
 
@@ -17,8 +16,6 @@ export const LEVEL: Record<StatusLevel, Look> = {
 /** The Needs you cell: the project's worst fact, or a dash when it is all clear (the sentence is said once, by the page). */
 export const needsYou = (s: StatusDto): string => (s.level === "clear" ? "-" : s.sentence);
 
-/** "2 h ago", or "Never" for a project the agent has not triaged yet. `now` comes from the clock. */
-export const triageText = (iso: string | null, now: number): string => (iso ? ago(iso, now) : "Never");
 
 /** The project's own status word; an archived project says so whatever its file says. */
 export const statusWord = (p: ProjectRowDto): string => (p.archived ? "archived" : p.projectStatus);

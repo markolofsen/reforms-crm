@@ -19,16 +19,17 @@ export type DraftStatus = (typeof DRAFT_STATUSES)[number];
 export const SETTABLE_STATUSES = ["ready", "hold", "done", "skipped"] as const;
 export type SettableStatus = (typeof SETTABLE_STATUSES)[number];
 
-/** Filters of the Drafts list: each shows a count. `sequences`: the open drafts that are a step of a follow-up sequence (P47). */
+/** Filters of the Mail list (drafts): each shows a count. `sequences`: the open drafts that are a step of a follow-up sequence (P47). */
 export const CLIENT_FILTERS = ["all", "ready", "hold", "owed", "done", "sent", "skipped", "thin_basis", "sequences"] as const;
 export type ClientFilter = (typeof CLIENT_FILTERS)[number];
 export type ClientCounts = Record<ClientFilter, number>;
 
 /**
- * The views of the admin's Drafts list (P48; research 16 section 6.3), in their menu order. One source for the address
- * (`apps/admin/src/routes/search.ts`) and the shared focus (`@hub/contract/focus`, P51).
+ * The views of the admin's Mail list (Drafts until P96; P48, research 16 section 6.3), in their menu order. One source for the
+ * address (`apps/admin/src/routes/search.ts`) and the shared focus (`@hub/contract/focus`, P51). P96: `inbox` (the clients who
+ * wrote and have no draft yet, read from Mail by the server) first, `sent` its own view (Finished keeps Done and Skipped).
  */
-export const DRAFT_VIEWS = ["ready", "hold", "thin_basis", "finished", "sequences", "not_by_email", "all"] as const;
+export const DRAFT_VIEWS = ["inbox", "ready", "hold", "thin_basis", "sequences", "not_by_email", "sent", "finished", "all"] as const;
 export type DraftView = (typeof DRAFT_VIEWS)[number];
 
 export const FILTER_LABELS: Record<ClientFilter, string> = {
@@ -79,7 +80,7 @@ export type EnrollmentView = (typeof ENROLLMENT_VIEWS)[number];
 /** The skill that drafts the due steps. A record by any OTHER skill for an enrolled client is a reply (P47 design). */
 export const SEQUENCE_SKILL = "sequence-drafts";
 
-/** P85: the skill that writes on the owner's purpose to one client or many. Its records of one run (`batchKey`) are one batch in Drafts. */
+/** P85: the skill that writes on the owner's purpose to one client or many. Its records of one run (`batchKey`) are one batch in Mail. */
 export const BULK_SKILL = "bulk-drafts";
 
 export const MARKS = ["follow_up", "do_not_contact", "vip"] as const;

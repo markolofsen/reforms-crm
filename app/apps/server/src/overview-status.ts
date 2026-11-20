@@ -4,7 +4,7 @@ import type { ProjectFacts } from "./overview-facts";
 
 /**
  * One project's status (Overview v5): the worst of its facts, said once, in plain words. A pure function of local facts,
- * so the Drafts status line and the Overview table cannot disagree, and no model writes a sentence. Worst = blocked, then
+ * so the Mail status line and the Overview table cannot disagree, and no model writes a sentence. Worst = blocked, then
  * attention, then the facts worth naming at level `clear` (the old "watch" kinds); ties follow `STATUS_KINDS`. The slug is
  * never in the sentence: the row or the screen already names the project. `next` names the page that fixes the fact (P70):
  * Settings ▸ Sending for sending (Stop, the sends, the cap, who drafts may go to), Overview for what is fixed by a phrase in a
@@ -16,7 +16,10 @@ import type { ProjectFacts } from "./overview-facts";
 export const CAP_NEAR_PERCENT = 80;
 
 /** What the instance adds to every project: the Sent loop's state for it, and whether the Mailer is the fake. */
-export interface InstanceFacts { sentError: boolean; fakeMailer: boolean }
+/** P96: the Mail reader's line for one project (`projectReadOf` in `inbound.ts`). Absent in tests that do not set it: never read. */
+export type MailRead = StatusDto["numbers"]["mailRead"];
+export const NO_READ: MailRead = { at: null, reason: "Mail is not read", reading: false, unknown: 0 };
+export interface InstanceFacts { sentError: boolean; fakeMailer: boolean; mailRead?: MailRead }
 
 interface Fact { kind: StatusKind; level: StatusLevel; sentence: string; next: StatusNext | null }
 
@@ -58,7 +61,7 @@ export function statusOf(f: ProjectFacts, sys: InstanceFacts, now: Date): Status
   const worst = factsOf(f, sys, now).sort((a, b) => RANK[a.level] - RANK[b.level] || STATUS_KINDS.indexOf(a.kind) - STATUS_KINDS.indexOf(b.kind))[0];
   const paused = f.status === "paused" ? "Paused: nothing runs" : f.archived || f.status === "archived" ? "Archived" : "All clear";
   const head = worst ?? { kind: "clear" as const, level: "clear" as const, sentence: paused, next: null };
-  return { level: head.level, kind: head.kind, sentence: head.sentence, next: head.next, numbers: { owed: f.owed, lastTriageAt: f.lastTriageAt } };
+  return { level: head.level, kind: head.kind, sentence: head.sentence, next: head.next, numbers: { owed: f.owed, wrote: f.wrote, lastTriageAt: f.lastTriageAt, mailRead: sys.mailRead ?? NO_READ } };
 }
 
 /** The Overview's one sentence: it counts projects, not items. Only `attention` and `blocked` need the owner. */

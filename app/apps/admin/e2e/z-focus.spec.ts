@@ -34,7 +34,7 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
 
   // 1. Opening draft 1 publishes it within a second; the file holds ids only.
   await remember(page, "demo-shop");
-  await page.goto(at("demo-shop", `/drafts/${fiona.draftId}?filter=all`));
+  await page.goto(at("demo-shop", `/mail/${fiona.draftId}?filter=all`));
   const card = cardOf(page, "Fiona Focus");
   await expect(card).toBeVisible();
   await expect.poll(() => draftOf(onDisk()), { timeout: 1500 }).toBe(fiona.draftId);
@@ -60,7 +60,7 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
 
   // 4. A second tab focusing draft 2 wins; the first tab coming back wins again.
   const second = await context.newPage();
-  await second.goto(at("demo-shop", `/drafts/${gus.draftId}?filter=all`));
+  await second.goto(at("demo-shop", `/mail/${gus.draftId}?filter=all`));
   await expect(cardOf(second, "Gus Second")).toBeVisible();
   await expect.poll(() => draftOf(onDisk()), { timeout: 1500 }).toBe(gus.draftId);
 

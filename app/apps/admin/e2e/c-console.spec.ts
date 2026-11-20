@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 const P = "lisbon-realty";
-const ROUTES = ["/overview", at(P, "/drafts"), at(P, "/drafts?filter=all"), at(P, "/drafts?filter=sequences"), at(P, "/log"), at(P, "/log?client=1"), at(P, "/knowledge"), at(P, "/knowledge?filter=attention"), at(P, "/messengers"), at(P, "/messengers?filter=hidden&channel=whatsapp"), at(P, "/messengers/settings"), at(P, "/settings"), at(P, "/settings/mail"), at(P, "/settings/agent"), "/settings/connections", "/settings/mac", "/help", "/nope", at(P, "/drafts/abc")];
+const ROUTES = ["/overview", at(P, "/mail"), at(P, "/mail?filter=all"), at(P, "/mail?filter=sequences"), at(P, "/log"), at(P, "/log?client=1"), at(P, "/knowledge"), at(P, "/knowledge?filter=attention"), at(P, "/messengers"), at(P, "/messengers?filter=hidden&channel=whatsapp"), at(P, "/messengers/settings"), at(P, "/settings"), at(P, "/settings/mail"), at(P, "/settings/agent"), "/settings/connections", "/settings/mac", "/help", "/nope", at(P, "/mail/abc")];
 
 for (const route of ROUTES) {
   test(`${route} loads cold with a clean console and no hydration message`, async ({ page }) => {
@@ -29,7 +29,7 @@ for (const route of ROUTES) {
 test("the server HTML is the loading state, never data, a viewport branch or a stored value", async ({ page }) => {
   // What the server cannot know (the width, the pinned rail, the clock, the projects) is read after mount, so the first render
   // is the same on both sides. Data arrives only through the client's own fetches.
-  const html = (await (await page.request.get(at(P, "/drafts"))).text()).replaceAll("<!-- -->", "");
+  const html = (await (await page.request.get(at(P, "/mail"))).text()).replaceAll("<!-- -->", "");
   expect(html).toContain("Loading projects");
   expect(html).not.toContain("Sofia Teste");
 });
@@ -46,7 +46,7 @@ for (const [saved, scheme, dark] of [["light", "dark", false], ["dark", "light",
     await page.addInitScript(() => {
       document.addEventListener("DOMContentLoaded", () => ((window as unknown as { firstDark: boolean }).firstDark = document.documentElement.classList.contains("dark")), { once: true });
     });
-    await page.goto(at(P, "/drafts"));
+    await page.goto(at(P, "/mail"));
     expect(await page.evaluate(() => (window as unknown as { firstDark: boolean }).firstDark)).toBe(dark);
     await page.waitForLoadState("networkidle");
     expect(await isDark(page)).toBe(dark);
@@ -56,7 +56,7 @@ for (const [saved, scheme, dark] of [["light", "dark", false], ["dark", "light",
 test("theme: a choice made in the sidebar survives a reload", async ({ page }) => {
   test.skip((page.viewportSize()?.width ?? 0) < 1024, "the open sidebar, with its Theme control, is a desktop surface");
   await page.emulateMedia({ colorScheme: "light" });
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" }).click();
   await expect.poll(() => isDark(page)).toBe(true);
   await page.reload();
@@ -70,11 +70,11 @@ test("the terminal saved open (P49) loads cold with a clean console: it restores
   page.on("console", (m) => (m.type() === "error" || m.type() === "warning" || /hydrat|#418|#423|#425/i.test(m.text())) && noise.push(`${m.type()}: ${m.text()}`));
   page.on("pageerror", (e) => noise.push(`pageerror: ${e.message}`));
   await page.addInitScript(() => window.localStorage.setItem("hub.terminal", "open"));
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await page.waitForLoadState("networkidle");
   const wide = (page.viewportSize()?.width ?? 0) >= 1024;
   await expect(page.getByRole("complementary", { name: "Terminal" })).toHaveCount(wide ? 1 : 0);
   expect(noise).toEqual([]);
-  const html = (await (await page.request.get(at(P, "/drafts"))).text()).replaceAll("<!-- -->", "");
+  const html = (await (await page.request.get(at(P, "/mail"))).text()).replaceAll("<!-- -->", "");
   expect(html).not.toContain('aria-label="Terminal"');
 });

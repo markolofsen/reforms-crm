@@ -36,6 +36,6 @@ describe("proxy (Host and Origin guard)", () => {
 
   it("adds nothing to an address (P48: the project is in the path; the shell frame writes the canonical address)", () => {
     const go = (path: string, cookie: string | undefined) => call("127.0.0.1:5173", { path, cookie });
-    for (const path of ["/drafts", "/drafts/42?filter=hold", "/lisbon/drafts", "/drafts?project=lisbon", "/overview", "/"]) expect(passes(go(path, "hub_project=lisbon")), path).toBe(true);
+    for (const path of ["/mail", "/mail/42?filter=hold", "/lisbon/mail", "/mail?project=lisbon", "/overview", "/"]) expect(passes(go(path, "hub_project=lisbon")), path).toBe(true);
   });
 });

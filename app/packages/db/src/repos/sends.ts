@@ -185,6 +185,29 @@ export function sendsRepo(db: Db) {
       });
     },
 
+    /**
+     * P96 verdict 13: the door's sends whose new Message-ID is not known yet (Mail assigns a new one at send, measured on
+     * 2026-11-20), sent since `since`, oldest first. Mail only.
+     */
+    async awaitingMessageId(project: string, since: string): Promise<SendRow[]> {
+      return db
+        .select()
+        .from(sendLog)
+        .where(and(eq(sendLog.project, project), eq(sendLog.channel, "mail"), eq(sendLog.status, "sent"), sql`${sendLog.sentMessageId} is null`, gte(sendLog.doneAt, since)))
+        .orderBy(sendLog.doneAt)
+        .all();
+    },
+
+    /** P96 verdict 13: the Message-ID read back from Sent, on the send row and its draft, only where none is recorded. */
+    async setSentMessageId(id: number, messageId: string): Promise<boolean> {
+      return write(db, (tx) => {
+        const row = tx.update(sendLog).set({ sentMessageId: messageId }).where(and(eq(sendLog.id, id), sql`${sendLog.sentMessageId} is null`)).returning().get();
+        if (!row) return false;
+        if (row.draftId != null) tx.update(drafts).set({ sentMessageId: messageId }).where(and(eq(drafts.id, row.draftId), sql`${drafts.sentMessageId} is null`)).run();
+        return true;
+      });
+    },
+
     async markFailed(id: number, error: string): Promise<SendRow | null> {
       return write(db, (tx) => tx.update(sendLog).set({ status: "failed", error: error.slice(0, 1000), doneAt: nowIso() }).where(and(eq(sendLog.id, id), inArray(sendLog.status, ["queued", "sending"]))).returning().get() ?? null);
     },

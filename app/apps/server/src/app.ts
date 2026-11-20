@@ -8,6 +8,8 @@ import { connectionRoutes } from "./routes/connections";
 import { draftRoutes } from "./routes/drafts";
 import { draftMailRoutes } from "./routes/draft-mail";
 import { inboxRoutes } from "./routes/inbox";
+import { inboundRoutes, type InboundTextReader } from "./routes/inbound";
+import { INBOUND_OFF, type InboundHandle } from "./inbound";
 import { coreRoutes, instanceRoutes } from "./routes/instance";
 import type { CoreUpdatesService } from "./core-updates";
 import { overviewRoutes } from "./routes/overview";
@@ -72,6 +74,10 @@ export type AppOptions = {
   /** P71 M-P: the pre-analysis job (its standing on the chats reply; a pass when the owner turns a chat's switch on). */
   preanalysis?: Preanalysis;
   sent?: () => SentStatus;
+  /** P96: the Mail reader (its state in health, the Inbox routes, Check now); without it the Inbox is empty and Check now reads nothing. */
+  inbound?: InboundHandle;
+  /** P96: reads one message's text from Mail for the Inbox card; without it the card says Mail is not read here. */
+  inboundText?: InboundTextReader;
   /** Tests: the Overview with its own project folder and zone. */
   overview?: { projectsDir?: string; service?: OverviewService; timeZone?: string };
   /** Tests: the instance's config folder (brand); default `hubPaths()`. */
@@ -126,6 +132,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
       telegramUser: opts.telegramUser?.status() ?? TELEGRAM_USER_OFF,
       whatsapp: opts.whatsapp?.status() ?? WHATSAPP_OFF,
       sent: (opts.sent ?? (() => SENT_OFF))(),
+      inbound: opts.inbound?.status() ?? INBOUND_OFF,
       mailer: opts.sender?.kind ?? "mail-app",
     });
   const now = opts.now ?? (() => new Date());
@@ -199,6 +206,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", draftMailRoutes(repos, opts.sender))
     .route("/", projectRoutes(repos, projectsDir, opts.sender?.policyDir))
     .route("/", inboxRoutes(repos))
+    .route("/", inboundRoutes(repos, opts.inbound, opts.inboundText))
     .route("/", sequenceRoutes(repos, projectsDir, now))
     .route("/", bulkRoutes(repos))
     .route("/", overviewRoutes(overview))

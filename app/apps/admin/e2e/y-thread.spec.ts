@@ -12,7 +12,7 @@ test("the thread opens from the button and from the T key, reads nothing before,
   page.on("request", (r) => {
     if (/\/clients\/\d+\/history/.test(r.url())) reads.push(r.url());
   });
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const card = await openRow(page, "Marta Ficticia");
   expect(reads).toEqual([]);
   await expect(card.getByTestId("mail-thread")).toHaveCount(0);

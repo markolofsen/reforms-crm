@@ -1,6 +1,6 @@
 import type { Route } from "next";
 
-// `/drafts/[id]` read as the number it matches, so `Route<...>` (the union of the pages in `src/app`, plus a string that fits a
+// `/mail/[id]` read as the number it matches, so `Route<...>` (the union of the pages in `src/app`, plus a string that fits a
 // dynamic page) can judge it; a path that is not a page makes the parameter `never` and `tsc` refuses the row (decision 0021).
 type Fill<P extends string> = P extends `${infer A}[${string}]${infer B}` ? `${A}${number}${Fill<B>}` : P;
 type Checked<P extends string> = Fill<P> extends Route<Fill<P>> ? P : never;
@@ -23,7 +23,7 @@ export type NavMeta = {
 };
 export type RouteMeta = {
   readonly section: string;
-  /** True: the address names a project when the instance has two or more (`/<project>/drafts`), never a query. */
+  /** True: the address names a project when the instance has two or more (`/<project>/mail`), never a query. */
   readonly scoped: boolean;
   readonly title: string;
   /** The breadcrumb word of an item route (`Draft 42`). */
@@ -50,10 +50,14 @@ export function defineRoute<const P extends string, const M extends RouteMeta>(p
  */
 export const ROUTE_TABLE = {
   "overview.page": defineRoute("/overview", { section: "overview", scoped: false, title: "Overview", nav: { label: "Overview", icon: "overview", order: 0, chord: "o", phone: "bar" } }),
-  "drafts.list": defineRoute("/drafts", { section: "drafts", scoped: true, title: "Drafts", nav: { label: "Drafts", icon: "inbox", order: 1, chord: "d", phone: "bar" } }),
-  "drafts.item": defineRoute("/drafts/[id]", { section: "drafts", scoped: true, title: "Drafts", crumb: "Draft" }),
-  // P71 M3 (decision 0036 point 6): what the messengers owe, an analogue of Drafts for the linked chats; its landing is the panel
-  // (Chats), its child the logins, the bot, each chat's rules and the guards. Mail drafts stay in Drafts.
+  // P96 S3: Drafts became Mail (one section per channel, beside Messengers); its first view is Inbox, the clients who wrote.
+  // Chord `e` (`m` is Messengers). The old Drafts addresses are gone, with no redirect (no legacy aliases).
+  "mail.list": defineRoute("/mail", { section: "mail", scoped: true, title: "Mail", nav: { label: "Mail", icon: "inbox", order: 1, chord: "e", phone: "bar" } }),
+  "mail.item": defineRoute("/mail/[id]", { section: "mail", scoped: true, title: "Mail", crumb: "Draft" }),
+  // P96 S1: one message a client wrote, read from Mail (the Inbox view's card).
+  "mail.inbound": defineRoute("/mail/in/[id]", { section: "mail", scoped: true, title: "Mail", crumb: "Message" }),
+  // P71 M3 (decision 0036 point 6): what the messengers owe, an analogue of Mail for the linked chats; its landing is the panel
+  // (Chats), its child the logins, the bot, each chat's rules and the guards. Mail drafts stay in Mail.
   "messengers.page": defineRoute("/messengers", { section: "messengers", scoped: true, title: "Chats", nav: { label: "Messengers", icon: "messengers", order: 2, chord: "m", phone: "more" } }),
   "messengers.settings": defineRoute("/messengers/settings", { section: "messengers", scoped: true, title: "Messenger settings", nav: { label: "Settings", icon: "settings", order: 1, parent: "messengers.page" } }),
   "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", nav: { label: "Activity", icon: "activity", order: 3, chord: "a", phone: "bar" } }),
@@ -77,8 +81,9 @@ type Row = (typeof ROUTE_TABLE)[RouteId];
 type Twin<R> = R extends { path: infer P extends string; scoped: true } ? Checked<`/[project]${P}`> : R extends { path: infer P extends string; nav: { parent: string } } ? Checked<`/[project]${P}`> : string;
 export const TWINS: { readonly [K in RouteId]: [Twin<(typeof ROUTE_TABLE)[K]>] extends [never] ? never : true } = {
   "overview.page": true,
-  "drafts.list": true,
-  "drafts.item": true,
+  "mail.list": true,
+  "mail.item": true,
+  "mail.inbound": true,
   "messengers.page": true,
   "messengers.settings": true,
   "log.list": true,
@@ -114,8 +119,9 @@ export type NavCheck<R> = R extends { nav: infer N }
   : true;
 export const NAV_SHAPE: { readonly [K in RouteId]: NavCheck<(typeof ROUTE_TABLE)[K]> } = {
   "overview.page": true,
-  "drafts.list": true,
-  "drafts.item": true,
+  "mail.list": true,
+  "mail.item": true,
+  "mail.inbound": true,
   "messengers.page": true,
   "messengers.settings": true,
   "log.list": true,

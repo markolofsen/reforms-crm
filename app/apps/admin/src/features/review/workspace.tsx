@@ -30,7 +30,7 @@ type Props = {
   onView: (value: string) => void;
   /** The search text and its setter: in the address. The host sends it to the server through its source. */
   search: [string, (value: string) => void];
-  /** The open draft: in the address (`/drafts/42`). `onAuto` names the draft the screen opened by itself, replacing the entry. */
+  /** The open draft: in the address (`/mail/42`). `onAuto` names the draft the screen opened by itself, replacing the entry. */
   selection: { id: number | null; onChange: (id: number | null) => void; onAuto: (id: number) => void };
   /** False until the shell has measured the pane: nothing opens by itself before the width is known. */
   measured: boolean;
@@ -40,8 +40,10 @@ type Props = {
   emptyTitle?: string;
   /** Under the header line, scrolling with the list: the project's one status line (P48 W3). */
   status?: ReactNode;
-  /** A view whose rows are not drafts (Not by email): shown instead of the draft rows. */
+  /** A view whose rows are not drafts (Not by email, Inbox): shown instead of the draft rows. */
   body?: ReactNode;
+  /** P96: the pane of such a view (Inbox: the open client's message) and whether its subject is open (a phone shows it alone). */
+  aside?: { node: ReactNode; open: boolean };
   /** Under the rows: the enrolments of the Follow-ups view. */
   listBottom?: ReactNode;
   mobile: boolean;
@@ -82,10 +84,10 @@ function LoadedFooter({ loaded, total, more, fetching, onMore }: { loaded: numbe
 }
 
 /**
- * Drafts and a batch share this: the list column (views, search, rows, Select) and the pane with the open card.
+ * Mail and a batch share this: the list column (views, search, rows, Select) and the pane with the open card.
  * It never sends mail by itself: Send is the card's, and a batch draft opens a compose window you send from.
  */
-export function ReviewWorkspace({ source, views, onView, search, selection, empty, emptyTitle, status, body, listBottom, mobile, measured, noun }: Props) {
+export function ReviewWorkspace({ source, views, onView, search, selection, empty, emptyTitle, status, body, aside, listBottom, mobile, measured, noun }: Props) {
   const qc = useQueryClient();
   const now = useClock()();
   const actions = useReviewActions(source.project);
@@ -209,7 +211,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
       {rows.length === 0 ? (
         <EmptyState action={filtered && !q ? <ActionButton onClick={() => onView("all")} size="s" variant="secondary">Show all</ActionButton> : undefined} title={q ? "Nothing matches" : filtered ? (emptyTitle ?? "Nothing here") : "Nothing to review"}>{q ? "No draft in this view matches the search." : empty(filtered)}</EmptyState>
       ) : (
-        <ul aria-label={noun.list} className="flex flex-col">
+        <ul aria-label="Drafts" className="flex flex-col">
           {rows.map((d) => (
             <ListRow d={d} key={d.id} now={now} onOpen={() => go(d.id)} onToggle={() => sel.toggle(d.id)} open={d.id === current?.id} selected={sel.has(d.id)} selecting={sel.selecting} />
           ))}
@@ -238,12 +240,12 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
         </div>
       )}
       <Notices gone={gone ?? (!body && selection.id !== null && !present && !query.isFetching && !query.hasNextPage ? selection.id : null)} notice={actions.notice} />
-      {current ? (
+      {body && aside ? aside.node : current ? (
         <DraftCard actions={actions} advance={() => advance(current)} d={current} key={current.id} now={now} onThread={() => setThread((t) => !t)} project={source.project} say={say} thread={thread} />
       ) : (
         <EmptyState title="Nothing to open">{body ? "This view lists clients, not drafts." : query.isPending ? "Loading." : "Pick a draft from the list."}</EmptyState>
       )}
     </div>
   );
-  return <ListDetail detail={detail} detailLabel="Draft" list={list} listLabel={noun.list} showDetail={present} />;
+  return <ListDetail detail={detail} detailLabel={body && aside ? "Message" : "Draft"} list={list} listLabel={noun.list} showDetail={body && aside ? aside.open : present} />;
 }

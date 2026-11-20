@@ -28,9 +28,9 @@ describe("hotkeys dispatcher", () => {
   it("a chord fires once, then resets", () => {
     const { calls, dispatch } = setup();
     dispatch(key("g"));
-    dispatch(key("d"));
-    dispatch(key("d"));
-    expect(calls).toEqual(["drafts"]);
+    dispatch(key("e"));
+    dispatch(key("e"));
+    expect(calls).toEqual(["mail"]);
   });
   it("derives one chord per section from SECTIONS", () => {
     const { calls, dispatch } = setup();
@@ -44,7 +44,7 @@ describe("hotkeys dispatcher", () => {
     const { calls, dispatch } = setup();
     dispatch(key("g"));
     dispatch(key("j"));
-    dispatch(key("d"));
+    dispatch(key("e"));
     expect(calls).toEqual(["j"]);
   });
   it("the first key times out after the window", () => {
@@ -52,23 +52,23 @@ describe("hotkeys dispatcher", () => {
     dispatch(key("g"));
     expect(c.open()).toBe(1);
     c.expire(); // CHORD_WINDOW_MS later
-    dispatch(key("d"));
+    dispatch(key("e"));
     expect(calls).toEqual([]);
     expect(CHORD_WINDOW_MS).toBe(800);
   });
   it("is silent while a person types, with a modifier held, or when the switch is off", () => {
     const { calls, dispatch } = setup();
     dispatch(key("g", { typing: true }));
-    dispatch(key("d", { typing: true }));
+    dispatch(key("e", { typing: true }));
     dispatch(key("j", { modifier: true }));
     dispatch(key("g"));
-    dispatch(key("d", { modifier: true }));
-    dispatch(key("d"));
+    dispatch(key("e", { modifier: true }));
+    dispatch(key("e"));
     expect(calls).toEqual([]);
     const off = setup(() => false);
     off.dispatch(key("j"));
     off.dispatch(key("g"));
-    off.dispatch(key("d"));
+    off.dispatch(key("e"));
     expect(off.calls).toEqual([]);
   });
   it("a modifier chord (the terminal's Ctrl+`) fires while a field or the terminal has focus, and only with Control alone", () => {
@@ -95,15 +95,15 @@ describe("hotkeys dispatcher", () => {
 
 describe("document title", () => {
   it("names the item, the section, the project and the app; Not found names no section", () => {
-    expect(titleOf(resolveRoute("/drafts", ""), "lisbon")).toBe("Drafts · lisbon · Hub Workflow");
-    expect(titleOf(resolveRoute("/drafts/42", ""), "lisbon")).toBe("Draft 42 · Drafts · lisbon · Hub Workflow");
+    expect(titleOf(resolveRoute("/mail", ""), "lisbon")).toBe("Mail · lisbon · Hub Workflow");
+    expect(titleOf(resolveRoute("/mail/42", ""), "lisbon")).toBe("Draft 42 · Mail · lisbon · Hub Workflow");
     expect(titleOf(resolveRoute("/log", ""), "x")).toBe("Activity · x · Hub Workflow");
     expect(titleOf(resolveRoute("/clients", ""), "x")).toBe("Not found · Hub Workflow");
-    expect(crumbsOf(resolveRoute("/drafts/42", ""))).toEqual(["Drafts", "Draft 42"]);
+    expect(crumbsOf(resolveRoute("/mail/42", ""))).toEqual(["Mail", "Draft 42"]);
   });
   it("a page file gives the same title as the address it serves (generateMetadata reads pageTitle)", () => {
-    expect(pageTitle("drafts.list", "lisbon")).toBe(titleOf(resolveRoute("/drafts", ""), "lisbon"));
-    expect(pageTitle("drafts.item", "lisbon", 42)).toBe(titleOf(resolveRoute("/drafts/42", ""), "lisbon"));
+    expect(pageTitle("mail.list", "lisbon")).toBe(titleOf(resolveRoute("/mail", ""), "lisbon"));
+    expect(pageTitle("mail.item", "lisbon", 42)).toBe(titleOf(resolveRoute("/mail/42", ""), "lisbon"));
     expect(pageTitle("overview.page", "lisbon")).toBe("Overview · Hub Workflow");
     expect(titleOf(resolveRoute("/overview", ""), "lisbon")).toBe("Overview · Hub Workflow");
   });

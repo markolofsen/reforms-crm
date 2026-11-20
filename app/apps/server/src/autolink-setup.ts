@@ -11,6 +11,8 @@ import { projectsRoot } from "./project-overview";
 export const SETTING_TTL_MS = 30_000;
 
 export interface ProjectAutolink {
+  /** The messengers' project the directory belongs to (P96: the Mail reader asks the directory about this project only). */
+  project: string | null;
   autolink: Autolink;
   directory: ClientDirectory;
   stop(): void;
@@ -52,5 +54,5 @@ export async function startProjectAutolink(o: {
     return on;
   };
   const autolink = startAutolink({ repos: o.repos, project, directory, enabled, adapterOf: o.adapterOf, accounts: o.accounts, keyFile: join(hubPaths({ env }).secrets, "autolink-key") });
-  return { autolink, directory, stop: () => directory.stop() };
+  return { project, autolink, directory, stop: () => directory.stop() };
 }

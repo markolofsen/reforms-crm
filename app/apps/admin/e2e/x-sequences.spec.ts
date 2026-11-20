@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
 
 const block = (p: Page) => p.getByTestId("follow-ups");
 const open = async (p: Page) => {
-  await p.goto(at("lisbon-realty", "/drafts?filter=sequences"));
+  await p.goto(at("lisbon-realty", "/mail?filter=sequences"));
   await expect(block(p)).toBeVisible();
 };
 type Row = { id: number; client: { name: string }; state: string; finishReason: string | null };
@@ -54,7 +54,7 @@ test("loading, then an error with Retry, then the list", async ({ page }) => {
     if (fail) await route.fulfill({ status: 500, json: { error: "The database is busy", code: "server" } });
     else await route.continue();
   });
-  await page.goto(at("lisbon-realty", "/drafts?filter=sequences"));
+  await page.goto(at("lisbon-realty", "/mail?filter=sequences"));
   await expect(page.getByRole("list", { name: "Loading the follow-ups" })).toBeAttached();
   const failed = page.getByTestId("follow-ups-failed");
   await expect(failed).toContainText("Could not load the follow-ups", { timeout: 10_000 });
@@ -68,7 +68,7 @@ test("Stop follow-ups from a step draft's card: the card says so, and the enroll
   if (!tiago) throw new Error("the seeded enrollment for Tiago is missing");
   // The first draft of the real list is shown as a step of Tiago's real enrollment; nothing else is patched or written.
   await firstDraftIs(page, { sequence: { enrollmentId: tiago.id, sequence: "answered-enquiry-no-reply", step: 1, steps: 3, state: "active" } });
-  await page.goto(at("lisbon-realty", "/drafts?filter=all"));
+  await page.goto(at("lisbon-realty", "/mail?filter=all"));
   await page.locator('ul[aria-label="Drafts"] > li').first().getByRole("button").first().click();
   const card = page.getByRole("article");
   await expect(card.getByTestId("follow-up-step")).toContainText("Follow-up 1 of 3");

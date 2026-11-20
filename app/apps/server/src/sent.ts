@@ -72,7 +72,10 @@ const firstTo = (to: string): string | null => {
 
 /**
  * Which Sent messages are which drafts (P90): only by the draft's own Message-IDs, the Mail versions this Hub recorded for
- * it (every version, trashed or not; Mail keeps a draft's Message-ID when it sends it, measured on saas 2026-11-19/20).
+ * it (every version, trashed or not; Mail keeps a draft's Message-ID when the owner sends it from Mail, measured 2026-11-19/20).
+ * The Hub's own door is different (P96, measured 2026-11-20): its send gets a NEW Message-ID, which the door does not learn;
+ * the Mail reader reads it back from Sent into `send_log.sent_message_id` and `drafts.sent_message_id` (`inbound.ts`), so it
+ * is in `taken` here and never reads as a reply by someone else.
  * Never by thread or subject: in a mailbox two people share, a reply in the thread proves only that someone answered
  * (that is `elsewhereOf`). Never the `mailRef`: that is the message the draft ANSWERS (decision 0031 point 2). A sent
  * message satisfies one draft only, and one already attributed to a finished draft (`taken`) is no one's.

@@ -176,6 +176,12 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
   await aside("helena@example.net", "Helena Prova", "call", "The owner said to call her.", null, 20);
   await aside("receipts@example.com", "Payment receipts", "no_action", "A receipt, nothing to answer.", null, 40);
   await aside("vasco@example.org", "Vasco Ensaio", "crossed_off", "The owner asked the agent to leave him alone.", null, 90);
+  // The Mail reader (P96): two clients of demo-shop wrote and have no draft yet (Mail ▸ Inbox). Invented addresses; the preview is
+  // what the reader keeps (120 characters at most), never a body. The e2e run reads no Mail (fake Mailer), so these are the rows.
+  await repos.inboundMail.store([
+    { project: "demo-shop", account: "demo-shop@example.test", mailbox: "INBOX", messageId: "<seed-in-lea@example.test>", email: "lea@example.test", name: "Lea Sample", subject: "Re: Your order", receivedAt: daysAgo(now, 1 / 24), read: false, why: "thread", threadRef: "<seed-out-lea@example.test>", preview: "Thank you, that works for me. Could it arrive before Friday?" },
+    { project: "demo-shop", account: "demo-shop@example.test", mailbox: "INBOX", messageId: "<seed-in-omar@example.test>", email: "omar@example.test", name: "Omar Test", subject: "Question about sizes", receivedAt: daysAgo(now, 3 / 24), read: true, why: "client", preview: "Do you have the jacket in a larger size?" },
+  ], now);
   // Follow-ups (P47): one client enrolled and due now (we wrote 25 days ago), and one candidate (Ines: our message 9 days ago, hers 11).
   // The sequence id is the core starter's; the e2e run writes that file into its project folder.
   const tiago = lisbon.get("tiago@example.com");

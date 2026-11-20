@@ -61,7 +61,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test("terminal: the toggle and Ctrl+` show and hide it; focus goes in, and back to the toggle", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await openTerminal(page);
   await expect(dock(page)).toBeVisible();
   await expect(input(page)).toBeFocused();
@@ -78,7 +78,7 @@ test("terminal: the toggle and Ctrl+` show and hide it; focus goes in, and back 
 });
 
 test("terminal: the width and the open column survive a reload, and the reload re-attaches with the earlier output", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await openTerminal(page);
   await typeLine(page, "e2e-before-reload");
   await separator(page).focus();
@@ -96,7 +96,7 @@ test("terminal: the width and the open column survive a reload, and the reload r
 });
 
 test("terminal: a reload shows the tab he had open, not the project's first session (P88, research 27 B7)", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await openTerminal(page);
   await page.getByRole("button", { name: "New terminal" }).click();
   await page.getByRole("menuitem", { name: "Shell" }).click();
@@ -110,7 +110,7 @@ test("terminal: a reload shows the tab he had open, not the project's first sess
 });
 
 test("terminal: a press on the column while a page menu is open closes the menu and the keys go to the terminal (P88, research 27 B7)", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await openTerminal(page);
   await page.getByRole("button", { name: /^View:/ }).click();
   await expect(page.getByRole("menu")).toBeVisible();
@@ -126,7 +126,7 @@ test("terminal: a press on the column while a page menu is open closes the menu 
 });
 
 test("terminal: a wider column is a wider grid (the size the program sees follows the separator)", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await openTerminal(page);
   const before = await sizeReply(page);
   expect(before.cols).toBeGreaterThan(20);
@@ -142,7 +142,7 @@ const execOf = async (page: Page, cli: string) => {
 };
 
 test("terminal: on a project's screen the presets are Claude Code, Codex, Shell; each agent preset is spawned as argv (nothing typed) and starts in the instance root", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   // Opening an empty column starts the default (`agent.default`: Claude Code).
   await openTerminal(page);
   await expect.poll(() => execOf(page, "claude")).toBe(true);
@@ -163,7 +163,7 @@ test("terminal: on a project's screen the presets are Claude Code, Codex, Shell;
 });
 
 test("terminal: the tab's tips (P63): its CLI's rows and the Hub's, from one list; the desktop handoff row says why it is not offered", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await openTerminal(page);
   await expect.poll(() => execOf(page, "claude")).toBe(true);
   await page.getByRole("button", { name: "Tips for Claude Code" }).click();
@@ -187,7 +187,7 @@ test("terminal: with no project in the address (Settings ▸ Connections) only S
 });
 
 test("terminal: keys typed in it are the program's: ? opens no help, Escape reaches the shell", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await openTerminal(page);
   await typeLine(page, "?");
   await expect(page.getByRole("dialog")).toHaveCount(0);
@@ -198,7 +198,7 @@ test("terminal: keys typed in it are the program's: ? opens no help, Escape reac
 });
 
 test("terminal: Close ends the session on the server; closing the last one hides the column", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await openTerminal(page);
   expect(await sessions(page)).toHaveLength(1);
   await dock(page).getByRole("button", { name: /^Close / }).click();
@@ -209,7 +209,7 @@ test("terminal: Close ends the session on the server; closing the last one hides
 
 test("terminal: at 360px it is a full-screen layer with no sideways scroll, and Hide gives the screen back", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
   await openTerminal(page);
   const layer = page.getByTestId("terminal-layer");
@@ -223,7 +223,7 @@ test("terminal: at 360px it is a full-screen layer with no sideways scroll, and 
 });
 
 test("terminal: keys pressed while a Claude Code session starts cannot corrupt its argv (v0.9.1: \"д/Users/...\")", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
   await toggle(page).click();
   // At once, before the session is ready: a Russian-layout key and a few more.
@@ -235,7 +235,7 @@ test("terminal: keys pressed while a Claude Code session starts cannot corrupt i
 });
 
 test("terminal: collapsed it is a full-height strip on the right edge (no button in the sidebar); Enter expands it, Hide collapses it back, the session keeps running", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
   const strip = page.locator('[data-slot="terminal-strip"]');
   await expect(strip).toBeVisible();
@@ -276,7 +276,7 @@ async function terminalColours(page: Page) {
 }
 
 test("terminal: its background follows the theme, light and dark, live when the owner switches", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
   const theme = page.getByRole("radiogroup", { name: "Theme" });
   await theme.getByRole("radio", { name: "Light" }).click();
@@ -292,7 +292,7 @@ test("terminal: its background follows the theme, light and dark, live when the 
 });
 
 test("terminal: a restored open column whose sessions were closed starts one by itself (P57 2e)", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await openTerminal(page);
   await endAll(page);
   await page.reload();
@@ -306,7 +306,7 @@ test("terminal: two admin pages opening the column at once get one session (P57 
   // work: the pages share localStorage, so the first click opens the other page's column too and its strip is gone.)
   await context.addInitScript(() => window.localStorage.setItem("hub.terminal", "open"));
   const other = await context.newPage();
-  await Promise.all([page.goto(at(P, "/drafts")), other.goto(at(P, "/drafts"))]);
+  await Promise.all([page.goto(at(P, "/mail")), other.goto(at(P, "/mail"))]);
   await Promise.all([expect(dock(page)).toBeVisible(), expect(dock(other)).toBeVisible()]);
   await expect.poll(async () => (await sessions(page)).length, { timeout: 15_000 }).toBe(1);
   expect((await sessions(page)).map((s) => [s.preset, s.project])).toEqual([["claude", P]]);

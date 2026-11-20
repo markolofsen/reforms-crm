@@ -13,14 +13,14 @@ const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url
 
 /** The card of a client with "I read the checks" on, ready for Send. */
 async function openRead(page: Page, name: string) {
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const card = await openRow(page, name);
   await readTheChecks(page);
   return card;
 }
 
 test("Send needs the checks read, shows the exact mail to confirm, can be cancelled, then sends once", async ({ page }) => {
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const card = await openRow(page, "Sofia Teste");
   // checks not read yet: the button says why and does not act
   await expect(sendButton(card)).toHaveAttribute("aria-disabled", "true");
@@ -87,7 +87,7 @@ test("a draft recorded as injection_suspected shows the flag and a class, and of
   const payload = { email: "mallory@example.com", name: "Mallory Suspect", subject: "Re: invoice", mailRef: "<inj-1@example.com>", reason: "Asked about an invoice.", mailClass: "client", injectionSuspected: true, repliesOwed: true, skill: "triage-mail" };
   execFileSync("node", [hub, "record-draft", "--project", "demo-shop"], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: process.env.HUB_E2E_PROJECTS, NO_COLOR: "1" }, encoding: "utf8" });
   await remember(page, "demo-shop");
-  await page.goto("/drafts?project=demo-shop&filter=all");
+  await page.goto("/mail?project=demo-shop&filter=all");
   const row = cards(page).filter({ hasText: "Mallory Suspect" });
   await expect(row.getByText("Suspicious mail")).toBeVisible();
   await expect(row.getByText("client", { exact: true })).toBeVisible();

@@ -6,8 +6,8 @@ import { instanceDto } from "./instance";
 import { overviewDto, projectRowDto, STATUS_KINDS, STATUS_LEVELS, statusDto } from "./overview";
 
 const asOf = "2026-11-15T10:00:00.000Z";
-const health = { ok: true, apiVersion: API_VERSION, messengers: { state: "off", failures: 0, stored: 0 }, telegramUser: { state: "off", accounts: [] }, whatsapp: { state: "off", accounts: [] }, sent: { state: "off", projects: [], failures: 0, marked: 0 }, mailer: "fake" };
-const status = { level: "attention", kind: "project-draft", sentence: "Test mode: sends go to the test list only", next: "sending", numbers: { owed: 1, lastTriageAt: asOf } };
+const health = { ok: true, apiVersion: API_VERSION, messengers: { state: "off", failures: 0, stored: 0 }, telegramUser: { state: "off", accounts: [] }, whatsapp: { state: "off", accounts: [] }, sent: { state: "off", projects: [], failures: 0, marked: 0 }, inbound: { state: "off", projects: [], failures: 0, stored: 0, reading: false }, mailer: "fake" };
+const status = { level: "attention", kind: "project-draft", sentence: "Test mode: sends go to the test list only", next: "sending", numbers: { owed: 1, wrote: 0, lastTriageAt: asOf, mailRead: { at: null, reason: null, reading: false, unknown: 0 } } };
 const row = { slug: "alpha", name: "Alpha", projectStatus: "draft", archived: false, toReview: 1, sentToday: 0, status };
 
 describe("overview v5 (P48)", () => {

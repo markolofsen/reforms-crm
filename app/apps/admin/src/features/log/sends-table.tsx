@@ -34,7 +34,7 @@ function Subject({ r }: { r: SendRowDto }) {
   const title = r.channel === "mail" ? r.subject : r.body;
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      {r.draftId === null || r.channel !== "mail" ? <span className="line-clamp-2 break-words">{title}</span> : <AppLink className="text-foreground text-sm" to={paths.drafts.item(r.draftId)}>{r.subject}</AppLink>}
+      {r.draftId === null || r.channel !== "mail" ? <span className="line-clamp-2 break-words">{title}</span> : <AppLink className="text-foreground text-sm" to={paths.mail.item(r.draftId)}>{r.subject}</AppLink>}
       {r.error && <span className="text-warning-foreground text-xs">{r.error}</span>}
     </span>
   );

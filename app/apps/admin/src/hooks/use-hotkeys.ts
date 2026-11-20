@@ -88,7 +88,7 @@ export const liveKeys = (): (readonly [string, string])[] => [...live.values()].
 
 /**
  * Registers keys for as long as the caller is mounted (pass a module-level `help` array). `enabled` may be a function so a chord can read the remembered
- * switch at press time. `help` rows (`["G D", "go to Drafts"]`) feed the live registry.
+ * switch at press time. `help` rows (`["G E", "go to Mail"]`) feed the live registry.
  */
 export function useHotkeys(keys: KeyMap, enabled: boolean | (() => boolean), help: readonly (readonly [string, string])[] = NO_HELP, options: { capture?: boolean } = {}): void {
   const map = useRef(keys);
@@ -104,7 +104,7 @@ export function useHotkeys(keys: KeyMap, enabled: boolean | (() => boolean), hel
     );
     const capture = options.capture === true;
     // A chord listens in the capture phase and prevents the default, so the single-key listeners (bubble phase)
-    // never see the second key of `g d` as the `d` of the review list.
+    // never see the second key of a chord (`g e`) as a single-key shortcut.
     const onKey = (e: KeyboardEvent) => {
       if (!capture && e.defaultPrevented) return;
       dispatch({

@@ -19,7 +19,8 @@ import { TabBar } from "./tab-bar";
 const WIDTHS: CSSProperties & Record<`--${string}`, string> = { "--sidebar-width": "14rem", "--sidebar-width-icon": "3.5rem" };
 
 /** A section of the nav, with a dot when it (or one of its child pages) is a place that needs the owner (`useLitRoutes`). */
-export type ShellNavItem = NavItem & { dot: boolean };
+/** P96: `count` is the badge of a section (Mail: the clients who wrote and have no draft yet), as Mail's unread badge. */
+export type ShellNavItem = NavItem & { dot: boolean; count?: number };
 
 type Props = {
   items: ShellNavItem[];
@@ -43,7 +44,7 @@ function Frame({ items, projects, project, onProject, brand, route, dock, childr
   useHotkeys(keys, shortcutsOn, FRAME_HELP);
   // A phone shows the subject as a screen of its own; its action bar sticks to the bottom, so the tab bar steps aside.
   // The tab bar and the phone's top line are in the markup of every width and `md:hidden` takes them away (the server cannot know the viewport).
-  const tabs = route.route !== "drafts.item";
+  const tabs = route.route !== "mail.item" && route.route !== "mail.inbound";
   const content = useRef<HTMLDivElement>(null);
   const narrow = useMeasuredNarrow(content);
   return (

@@ -21,7 +21,7 @@ export const SAY = [
   { skill: "triage-mail", example: "handle the mail from <address> in project X", what: "One client: the whole history, one draft, the Notion profile" },
   { skill: "owner-inbox", example: "what do you need from me on X", what: "One ranked list of what waits for you, each with what to say next" },
   { skill: "status", example: "does everything work in X", what: "Runs the project's checks and says what to fix; changes nothing" },
-  { skill: "bulk-drafts", example: "write a follow-up to the clients of X: <who and why>", what: "The agent picks the clients from your words and drafts one mail each; they arrive as one batch in Drafts ▸ View ▸ Batches, sent with Send all Checked" },
+  { skill: "bulk-drafts", example: "write a follow-up to the clients of X: <who and why>", what: "The agent picks the clients from your words and drafts one mail each; they arrive as one batch in Mail ▸ View ▸ Batches, sent with Send all Checked" },
   { skill: "bulk-drafts", example: "write to <client> of X again: <what about>", what: "A new message on your initiative in the client's latest thread, even when they have not answered; you send it" },
   { skill: "bulk-drafts", example: "write a first mail to <client> of X: <what about>", what: "A new thread to a client you never wrote to, from the project's sender; you send it" },
   { skill: "sequence-drafts", example: "prepare the follow-ups of X", what: "Drafts the follow-ups that are due, after checking each client again" },
@@ -51,4 +51,23 @@ export const sayFor = (example: string, project: string): string => example.repl
 export function phrase(skill: SaySkill, project?: string): string {
   const example = SAY.find((s) => s.skill === skill)?.example ?? skill;
   return project ? sayFor(example, project) : example.replace(/\s+(?:(?:of|for|in|on)\s+)?(?<!<)\bX\b(?!>)/g, "");
+}
+
+/** The most clients one Prepare names (P96 verdict 7: the bulk limit). */
+export const PREPARE_MAX = 30;
+
+/**
+ * P96 S2: the request Prepare reply (one client) and Prepare all (every Inbox row, at most `PREPARE_MAX`) paste into the dock,
+ * without Enter: the one-client phrase of `triage-mail` ("handle the mail from <address> in project X") naming each client's
+ * address and the subject they wrote, so the session drafts exactly those. One line: no line break reaches the terminal.
+ */
+export function preparePhrase(project: string, clients: ReadonlyArray<{ email: string; subject: string }>): string {
+  const example = SAY.find((s) => s.example.startsWith("handle the mail from"))?.example ?? "handle the mail from <address> in project X";
+  const one = (c: { email: string; subject: string }) => {
+    const subject = c.subject.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
+    return subject ? `${c.email} (${subject})` : c.email;
+  };
+  const list = clients.slice(0, PREPARE_MAX);
+  const line = sayFor(example, project).replace("<address>", list.map(one).join(", "));
+  return list.length > 1 ? `${line}: one draft each` : line;
 }

@@ -15,7 +15,7 @@ export type FocusParts = {
 
 /** The record the address itself names: a draft's id, the client Activity is narrowed to (`?client=1`, P73). */
 function addressSubject(r: Resolved): string | null {
-  if (r.route === "drafts.item") return refOf("draft", r.params.id);
+  if (r.route === "mail.item") return refOf("draft", r.params.id);
   if (r.route === "log.list" && r.search.client) return refOf("client", r.search.client);
   return null;
 }

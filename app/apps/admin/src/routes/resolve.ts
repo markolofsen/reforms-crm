@@ -12,15 +12,16 @@ import { PROJECTLESS, RESERVED_SEGMENTS, ROUTE_TABLE } from "./table";
 const PROJECTLESS_HEADS: ReadonlySet<string> = new Set([...PROJECTLESS].map((id) => ROUTE_TABLE[id].path.split("/")).filter((p) => p.length === 2).map((p) => p[1] ?? ""));
 
 /**
- * `project`: the project the address names, from its first path segment (`/lisbon/drafts`). `inPath` says it came from the
- * path. `entry`: the bare `/`, decided by the guard (Drafts, or Overview with two or more projects).
+ * `project`: the project the address names, from its first path segment (`/lisbon/mail`). `inPath` says it came from the
+ * path. `entry`: the bare `/`, decided by the guard (Mail, or Overview with two or more projects).
  */
 type Base = { project: string | null; inPath: boolean; entry: boolean };
 /** The address as a value. `notFound` is a real state: an unknown path or a non-numeric id never shows another screen. */
 export type Resolved =
   | (Base & { route: "overview.page"; section: "overview"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "drafts.list"; section: "drafts"; params: NoSearch; search: DraftsSearch })
-  | (Base & { route: "drafts.item"; section: "drafts"; params: { id: number }; search: DraftsSearch })
+  | (Base & { route: "mail.list"; section: "mail"; params: NoSearch; search: DraftsSearch })
+  | (Base & { route: "mail.item"; section: "mail"; params: { id: number }; search: DraftsSearch })
+  | (Base & { route: "mail.inbound"; section: "mail"; params: { id: number }; search: DraftsSearch })
   | (Base & { route: "messengers.page"; section: "messengers"; params: NoSearch; search: MessengersSearch })
   | (Base & { route: "messengers.settings"; section: "messengers"; params: NoSearch; search: NoSearch })
   | (Base & { route: "log.list"; section: "log"; params: NoSearch; search: LogSearch })
@@ -51,7 +52,7 @@ export function resolveRoute(path: string, searchString: string): Resolved {
   const raw = parseQuery(searchString);
   const all = path.split("/").filter(Boolean);
   const inPath = all.length > 0 && !RESERVED_SEGMENTS.has(all[0] ?? "");
-  // Saved links of the query-string era (`/drafts/1?project=lisbon`, until 2026-11-18, P48): the project is read here, once,
+  // Saved links of the query-string era (`/<section>/1?project=lisbon`, until 2026-11-18, P48): the project is read here, once,
   // and the guard writes the address back in the path form (`canonicalAddress`). Delete when no saved link can still hold it.
   const legacy = raw.project ? raw.project : null;
   const project = inPath ? decode(all[0] ?? "") : legacy;
@@ -61,6 +62,11 @@ export function resolveRoute(path: string, searchString: string): Resolved {
   const id = positiveInt(tail);
   const notFound: Resolved = { ...base, route: "notFound", section: null, path };
   const one = segs.length === 1;
+  // P96: a client's message is the one three-segment address (`/mail/in/7`).
+  if (head === "mail" && tail === "in" && segs.length === 3 && !(inPath && project === null)) {
+    const inId = positiveInt(segs[2]);
+    return inId === null ? notFound : { ...base, route: "mail.inbound", section: "mail", params: { id: inId }, search: draftsSearch(raw) };
+  }
   // A project segment heads a scoped section only; `/lisbon`, `/lisbon/overview` and an undecodable slug are Not found.
   if (segs.length > 2 || (inPath && (project === null || head === undefined || PROJECTLESS_HEADS.has(head)))) return notFound;
   switch (head) {
@@ -71,9 +77,9 @@ export function resolveRoute(path: string, searchString: string): Resolved {
     case "knowledge":
       return one ? { ...base, route: "knowledge.page", section: "knowledge", params: {}, search: knowledgeSearch(raw) } : notFound;
     case undefined: // the empty address is the entry
-    case "drafts":
-      if (segs.length <= 1) return { ...base, route: "drafts.list", section: "drafts", params: {}, search: draftsSearch(raw) };
-      return id === null ? notFound : { ...base, route: "drafts.item", section: "drafts", params: { id }, search: draftsSearch(raw) };
+    case "mail":
+      if (segs.length <= 1) return { ...base, route: "mail.list", section: "mail", params: {}, search: draftsSearch(raw) };
+      return id === null ? notFound : { ...base, route: "mail.item", section: "mail", params: { id }, search: draftsSearch(raw) };
     case "messengers":
       if (one) return { ...base, route: "messengers.page", section: "messengers", params: {}, search: messengersSearch(raw) };
       return tail === "settings" ? { ...base, route: "messengers.settings", section: "messengers", params: {}, search: noSearch() } : notFound;
@@ -97,10 +103,12 @@ export function destOf(r: Resolved): Dest | null {
   switch (r.route) {
     case "overview.page":
       return paths.overview();
-    case "drafts.list":
-      return paths.drafts.list(r.search);
-    case "drafts.item":
-      return paths.drafts.item(r.params.id, r.search);
+    case "mail.list":
+      return paths.mail.list(r.search);
+    case "mail.item":
+      return paths.mail.item(r.params.id, r.search);
+    case "mail.inbound":
+      return paths.mail.inbound(r.params.id, r.search);
     case "messengers.page":
       return paths.messengers.chats(r.search);
     case "messengers.settings":
@@ -138,7 +146,7 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
   if (!p) return null;
   switch (p.kind) {
     case "draft":
-      return paths.drafts.item(Number(p.id), { filter: "all" });
+      return paths.mail.item(Number(p.id), { filter: "all" });
     case "run":
       // P73: Activity shows no runs; a run's decisions are on the one timeline.
       return paths.log.list();

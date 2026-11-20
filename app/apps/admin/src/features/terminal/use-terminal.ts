@@ -51,6 +51,12 @@ export type TerminalModel = {
   register: (id: string, handle: TerminalHandle | null) => void;
   /** A session's own news (its program ended, or it is gone): the cached list follows. */
   patch: (id: string, change: Partial<TerminalSessionDto> | null) => void;
+  /**
+   * P96 S2: puts a request into this project's agent session without Enter (Prepare reply): the column opens, the project's
+   * running session is used or the server's pick starts (`ensure`), and the text is pasted (xterm's paste, the session's own
+   * socket) with the focus moved there. The owner presses Enter: the server never types a command (`routes/terminal.ts`).
+   */
+  pasteToAgent: (text: string) => void;
 };
 
 export const TerminalContext = createContext<TerminalModel | null>(null);
@@ -69,14 +75,29 @@ function focusBack() {
   });
 }
 
-/** Focus moves into a session's terminal now, or as soon as it is ready. */
+/** A new session's program (Claude Code, Codex) needs a moment before its prompt reads input: a paste into it waits this long. */
+const FRESH_PASTE_MS = 3000;
+
+/** Focus moves into a session's terminal now, or as soon as it is ready; so does a paste (P96 S2). */
 function useFocus() {
   const handles = useRef(new Map<string, TerminalHandle>());
   const wanted = useRef<string | null>(null);
+  const pending = useRef<{ id: string; text: string; delay: number } | null>(null);
+  const deliver = (handle: TerminalHandle, text: string, delay: number) => {
+    setTimeout(() => {
+      handle.paste(text);
+      handle.focus();
+    }, delay);
+  };
   const focus = useCallback((id: string | null) => {
     const h = id ? handles.current.get(id) : undefined;
     wanted.current = h ? null : id;
     if (h) requestAnimationFrame(() => h.focus());
+  }, []);
+  const paste = useCallback((id: string, text: string, fresh: boolean) => {
+    const h = handles.current.get(id);
+    if (h) return deliver(h, text, fresh ? FRESH_PASTE_MS : 0);
+    pending.current = { id, text, delay: fresh ? FRESH_PASTE_MS : 300 };
   }, []);
   const register = useCallback((id: string, handle: TerminalHandle | null) => {
     if (!handle) return void handles.current.delete(id);
@@ -85,8 +106,13 @@ function useFocus() {
       wanted.current = null;
       requestAnimationFrame(() => handle.focus());
     }
+    const p = pending.current;
+    if (p?.id === id) {
+      pending.current = null;
+      deliver(handle, p.text, p.delay);
+    }
   }, []);
-  return { focus, register };
+  return { focus, register, paste };
 }
 
 /**
@@ -116,7 +142,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   const full = sessions.length >= MAX_SESSIONS;
   const [notice, setNotice] = useState<string | null>(null);
   const [why, setWhy] = useState<string | null>(null);
-  const { focus, register } = useFocus();
+  const { focus, register, paste } = useFocus();
 
   const setList = useCallback((fn: (list: TerminalSessionDto[]) => TerminalSessionDto[]) => qc.setQueryData<TerminalStateDto | null>(TERMINAL_KEY, (old) => old && { ...old, sessions: fn(old.sessions) }), [qc]);
   const setActive = useCallback((id: string) => save("terminal-tab", id), []);
@@ -164,6 +190,19 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   });
 
   const create = creating.mutate;
+  const pasteToAgent = (text: string) => {
+    if (!project) return setNotice("Open a project first: the request goes to that project's agent.");
+    setOpenRaw(true);
+    const running = sessions.find((s) => s.project === project && s.state === "running");
+    if (running) {
+      setActive(running.id);
+      return paste(running.id, text, false);
+    }
+    ensuring.mutateAsync().then(
+      (r) => paste(r.session.id, text, r.created),
+      () => undefined, // `ensuring` says why in the column
+    );
+  };
   // Each time the column becomes visible the list is read fresh (a session closed elsewhere, or a restarted server, must not
   // leave an empty column): this project's session gets the focus, else the server starts its pick, once per page load.
   useAutoStart({
@@ -213,5 +252,6 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
     focusActive: () => focus(active),
     register,
     patch,
+    pasteToAgent,
   };
 }

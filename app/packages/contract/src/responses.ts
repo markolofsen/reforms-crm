@@ -75,7 +75,7 @@ export const basedOnDto = z.object({
 });
 export type BasedOnDto = z.infer<typeof basedOnDto>;
 
-/** One draft to review, the same shape for a recorded draft (Drafts) and a batch draft (Bulk). */
+/** One draft to review, the same shape for a recorded draft (Mail) and a batch draft (Bulk). */
 export const reviewDraftDto = z.object({
   id: z.number(),
   clientId: z.number(),

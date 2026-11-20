@@ -8,25 +8,25 @@ import { resolveRoute } from "../src/routes/resolve";
 describe("search state", () => {
   it("a filter is a destination on the same route: it keeps the subject and the other key, and the default drops its key", () => {
     const multi = { project: "x", multi: true };
-    const filter = withSearch(resolveRoute("/x/drafts", ""), "filter", "hold");
-    expect(filter && formatDest(filter, multi)).toBe("/x/drafts?filter=hold");
-    const back = withSearch(resolveRoute("/x/drafts", "filter=hold"), "filter", "ready");
-    expect(back && formatDest(back, multi)).toBe("/x/drafts");
-    expect(back && formatDest(back, { project: "x", multi: false })).toBe("/drafts");
-    expect(searchValue(resolveRoute("/drafts/42", "filter=hold"), "filter")).toBe("hold");
-    expect(paths.drafts.item(42, { filter: "hold" }).search).toEqual({ filter: "hold" });
+    const filter = withSearch(resolveRoute("/x/mail", ""), "filter", "hold");
+    expect(filter && formatDest(filter, multi)).toBe("/x/mail?filter=hold");
+    const back = withSearch(resolveRoute("/x/mail", "filter=hold"), "filter", "ready");
+    expect(back && formatDest(back, multi)).toBe("/x/mail");
+    expect(back && formatDest(back, { project: "x", multi: false })).toBe("/mail");
+    expect(searchValue(resolveRoute("/mail/42", "filter=hold"), "filter")).toBe("hold");
+    expect(paths.mail.item(42, { filter: "hold" }).search).toEqual({ filter: "hold" });
   });
 
   it("withSearch keeps the subject and the other key, drops an invalid value to the default, and has no key on other routes", () => {
-    const item = resolveRoute("/drafts/3", "filter=hold&batch=2");
-    expect(withSearch(item, "filter", "zzz")).toEqual(paths.drafts.item(3, { batch: 2 }));
-    expect(withSearch(item, "q", "ana")).toEqual(paths.drafts.item(3, { filter: "hold", batch: 2, q: "ana" }));
+    const item = resolveRoute("/mail/3", "filter=hold&batch=2");
+    expect(withSearch(item, "filter", "zzz")).toEqual(paths.mail.item(3, { batch: 2 }));
+    expect(withSearch(item, "q", "ana")).toEqual(paths.mail.item(3, { filter: "hold", batch: 2, q: "ana" }));
     const log = resolveRoute("/log", "filter=skipped&client=4");
     expect(withSearch(log, "client", null)).toEqual(paths.log.list({ filter: "skipped" }));
     expect(withSearch(log, "filter", "drafts")).toEqual(paths.log.list({ filter: "drafts", client: 4 }));
     expect(withSearch(log, "filter", "sends")).toEqual(paths.log.list({ filter: "sends" }));
     expect(withSearch(resolveRoute("/project", ""), "filter", "ready")).toBeNull();
-    expect(withSearch(resolveRoute("/drafts", ""), "client", 3)).toBeNull();
+    expect(withSearch(resolveRoute("/mail", ""), "client", 3)).toBeNull();
     expect(withSearch(resolveRoute("/nope", ""), "filter", "ready")).toBeNull();
   });
 
@@ -37,6 +37,6 @@ describe("search state", () => {
     expect(withSearch(chats, "filter", "linked")).toEqual(paths.messengers.chats({ filter: "linked", channel: "telegram" }));
     expect(withSearch(chats, "channel", "fax")).toEqual(paths.messengers.chats({ filter: "hidden" }));
     expect(searchValue(resolveRoute("/messengers", "filter=all"), "filter")).toBe("todo");
-    expect(withSearch(resolveRoute("/drafts", ""), "channel", "telegram")).toBeNull();
+    expect(withSearch(resolveRoute("/mail", ""), "channel", "telegram")).toBeNull();
   });
 });

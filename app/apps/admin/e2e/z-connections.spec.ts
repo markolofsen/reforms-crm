@@ -15,7 +15,7 @@ const notion = (page: Page) => page.locator("#connection-notion-notion-token");
 test.describe.configure({ mode: "serial" });
 
 test("connections: the address names no project, Settings ▸ Connections opens it, the title and the nav agree, and there is no WhatsApp row", async ({ page }) => {
-  await page.goto("/drafts");
+  await page.goto("/mail?filter=all");
   await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
   await page.locator("body").click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("g");

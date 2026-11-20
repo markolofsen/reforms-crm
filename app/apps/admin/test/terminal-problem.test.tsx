@@ -15,7 +15,7 @@ function model(over: Partial<TerminalModel>): TerminalModel {
   return {
     state: state(null), problem: null, project: "acme", open: false, mounted: false, width: 640, setWidth: () => {}, active: null, setActive: () => {},
     offered: ["claude", "codex", "shell"], clis: [], why: null, full: false, setOpen: () => {}, create: () => {}, creating: false, close: () => {},
-    closing: null, notice: null, focusActive: () => {}, register: () => {}, patch: () => {}, ...over,
+    closing: null, notice: null, focusActive: () => {}, register: () => {}, patch: () => {}, pasteToAgent: () => {}, ...over,
   };
 }
 const render = (m: TerminalModel, node: ReactNode) => renderToStaticMarkup(<TerminalContext value={m}>{node}</TerminalContext>);

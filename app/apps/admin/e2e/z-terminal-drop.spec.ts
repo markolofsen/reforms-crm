@@ -43,7 +43,7 @@ test.afterEach(async ({ page }) => {
 });
 
 async function openTerminal(page: Page) {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   await toggle(page).click();
   await expect.poll(() => screenText(page), { timeout: 15_000 }).toContain("fake$");
 }
@@ -79,10 +79,10 @@ test("terminal drop: text is typed as text, with no request", async ({ page }) =
 });
 
 test("a file dropped elsewhere is swallowed; a text drag into the Drafts search box is left to the box", async ({ page }) => {
-  await page.goto(at(P, "/drafts"));
+  await page.goto(at(P, "/mail"));
   const search = page.getByRole("searchbox", { name: "Search drafts" });
   await expect(search).toBeVisible();
   expect(await drop(page.locator("#main"), { files: [["x.png", "x"]] })).toBe(true);
   expect(await drop(search, { text: "abc" })).toBe(false);
-  await expect(page).toHaveURL(new RegExp(`/${P}/drafts`));
+  await expect(page).toHaveURL(new RegExp(`/${P}/mail`));
 });

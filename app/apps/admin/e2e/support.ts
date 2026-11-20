@@ -1,12 +1,12 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
-/** The address of the page as the person reads it: `/lisbon-realty/drafts/42`. */
+/** The address of the page as the person reads it: `/lisbon-realty/mail/42`. */
 export const address = (page: Page) => page.evaluate(() => location.pathname + location.search);
 
 /** A scoped address of the e2e instance, which has two projects: the project is the first path segment (P48). */
 export const at = (project: string, path: string) => `/${encodeURIComponent(project)}${path}`;
 
-/** The remembered project is the cookie `hub_project` (the shell writes it, a bare `/drafts` reads it); a spec sets it before the first load. */
+/** The remembered project is the cookie `hub_project` (the shell writes it, a bare `/mail` reads it); a spec sets it before the first load. */
 export const remember = (page: Page, slug: string) => page.context().addCookies([{ name: "hub_project", value: slug, domain: "127.0.0.1", path: "/" }]);
 
 /** The draft list rows, in order (a row is a button for the draft and a checkbox for the bulk mode). */
@@ -62,7 +62,8 @@ export async function mailIs(page: Page, patch: (mail: Record<string, unknown>) 
 
 // ---- Overview fixtures: the server's own answer, patched, so every status level can be shown.
 
-export type StatusJson = { level: string; kind: string; sentence: string; next: string | null; numbers: { owed: number; lastTriageAt: string | null } };
+export type MailReadJson = { at: string | null; reason: string | null; reading: boolean; unknown: number };
+export type StatusJson = { level: string; kind: string; sentence: string; next: string | null; numbers: { owed: number; wrote: number; lastTriageAt: string | null; mailRead: MailReadJson } };
 type OverviewJson = { projects: ({ slug: string; status: StatusJson } & Record<string, unknown>)[] } & Record<string, unknown>;
 
 export const minutesAgo = (n: number) => new Date(Date.now() - n * 60_000).toISOString();

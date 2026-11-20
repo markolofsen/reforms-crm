@@ -5,7 +5,7 @@ import { remember } from "./support";
 // Nothing is written (a selection and a popover only), so this runs with the y-* flows.
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   await expect(page.locator('ul[aria-label="Drafts"] > li[data-open="true"]')).toHaveCount(1);
 });
 

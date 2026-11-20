@@ -20,7 +20,7 @@ const WHO = "inline [overflow-wrap:anywhere] sm:block sm:w-full sm:truncate";
 function Who({ draftId, name }: { draftId: number | null; name: string }) {
   if (draftId === null) return <span className={WHO} title={name}>{name}</span>;
   return (
-    <AppLink className={cn(WHO, "text-foreground text-sm")} title={name} to={paths.drafts.item(draftId)}>
+    <AppLink className={cn(WHO, "text-foreground text-sm")} title={name} to={paths.mail.item(draftId)}>
       {name}
       <span className="sr-only"> (open the draft)</span>
     </AppLink>
@@ -54,7 +54,7 @@ function Count({ c, open, id, onToggle }: { c: GroupCells; open: boolean; id: st
 function Entry({ r, c, id }: { r: ActivityRowDto; c: GroupCells; id: string | undefined }) {
   const p = reasonParts(r);
   const time = r.draftId === null ? hhmm(r.at) : (
-    <AppLink to={paths.drafts.item(r.draftId)}>
+    <AppLink to={paths.mail.item(r.draftId)}>
       {hhmm(r.at)}
       <span className="sr-only"> (open the draft)</span>
     </AppLink>

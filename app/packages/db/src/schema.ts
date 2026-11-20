@@ -253,6 +253,35 @@ export const inboxRows = sqliteTable(
   (t) => [uniqueIndex("inbox_rows_project_email").on(t.project, t.email), index("inbox_rows_project_recorded").on(t.project, t.recordedAt)],
 );
 
+// The Mail reader (P96, migration 0031): one row per inbound message the server judged a client's (strict rules, no LLM:
+// a reply in a thread the Hub knows, a known client, or the owner's test address in test mode). Read-only toward Mail.
+// Never the body (decision 0013): `preview` is at most 120 characters of the client's own text; the whole text is read
+// from Mail when the row is opened. A row leaves the Inbox view by work (a draft or an agent record after it) or by the
+// owner's No reply needed (`dismissedAt`, undone by Undo); it is never deleted by the reader.
+export const inboundMail = sqliteTable(
+  "inbound_mail",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    project: text("project").notNull(),
+    account: text("account").notNull(),
+    mailbox: text("mailbox").notNull(),
+    messageId: text("message_id").notNull(), // bare, lower case
+    email: text("email").notNull(), // the sender, lower case
+    name: text("name").notNull(),
+    subject: text("subject").notNull().default(""),
+    receivedAt: text("received_at").notNull(),
+    read: integer("read", { mode: "boolean" }).notNull().default(false),
+    // Why the reader took it: `thread` (it answers a message of ours), `client` (a known client), `test` (allow_list in test mode).
+    why: text("why").$type<"thread" | "client" | "test">().notNull(),
+    threadDraftId: integer("thread_draft_id").references((): AnySQLiteColumn => drafts.id, { onDelete: "set null" }),
+    threadRef: text("thread_ref"), // the Message-ID of ours it answers, bare
+    preview: text("preview").notNull().default(""),
+    dismissedAt: text("dismissed_at"),
+    storedAt: text("stored_at").notNull(),
+  },
+  (t) => [uniqueIndex("inbound_mail_project_message").on(t.project, t.messageId), index("inbound_mail_project_email").on(t.project, t.email, t.receivedAt)],
+);
+
 // The send audit (decision 0011, plan P23): one row per send attempt, with the full text. `queued` is an autosend
 // waiting out its cancel window (`dueAt`); `sending` is the moment around the Mail call (a crash leaves it behind on
 // purpose: nobody can tell whether the mail left, so it blocks a second send until a person resolves it).

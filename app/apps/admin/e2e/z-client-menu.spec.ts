@@ -8,7 +8,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("Client menu: Follow up applies, Undo restores it", async ({ page }) => {
-  await page.goto("/drafts?filter=all&q=Luis");
+  await page.goto("/mail?filter=all&q=Luis");
   await page.getByRole("button", { name: /Luis/ }).first().click();
   await page.getByRole("button", { name: "Client", exact: true }).click();
   const item = page.getByRole("menuitemcheckbox", { name: "Follow up" });
@@ -22,7 +22,7 @@ test("Client menu: Follow up applies, Undo restores it", async ({ page }) => {
 });
 
 test("Client menu: Do not contact asks first in a popover, Cancel changes nothing, Mark does, and Undo lifts it", async ({ page }) => {
-  await page.goto("/drafts?filter=all&q=Pedro");
+  await page.goto("/mail?filter=all&q=Pedro");
   await page.getByRole("button", { name: /Pedro/ }).first().click();
   const menu = () => page.getByRole("button", { name: "Client", exact: true });
   const flag = page.getByRole("menuitem", { name: "Do not contact..." });

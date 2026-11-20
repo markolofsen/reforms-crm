@@ -43,6 +43,12 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys }:
                     <SidebarMenuButton className="relative h-(--control-m) gap-3 px-3 group-data-[collapsible=icon]:size-(--control-m)! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0!" isActive={i.active} render={<AppLink aria-current={i.active && !i.children.some((c) => c.active) ? "page" : undefined} bare to={i.to} />} tooltip={i.dot ? `${i.title}: needs you` : i.title}>
                       <NavIcon name={i.icon} />
                       <span className="min-w-0 truncate group-data-[collapsible=icon]:sr-only">{i.title}</span>
+                      {i.count !== undefined && (
+                        <span className="ms-auto shrink-0 rounded-full bg-primary px-1.5 font-medium text-primary-foreground text-xs tabular-nums group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0.5 group-data-[collapsible=icon]:end-0.5 group-data-[collapsible=icon]:px-1" data-testid={`nav-count-${i.id}`}>
+                          {i.count}
+                          <span className="sr-only"> waiting</span>
+                        </span>
+                      )}
                       {i.dot && <NavDot at="rail" id={i.id} />}
                     </SidebarMenuButton>
                   </SidebarMenuItem>

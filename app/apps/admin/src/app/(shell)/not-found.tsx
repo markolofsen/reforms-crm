@@ -5,7 +5,7 @@ import { NOT_FOUND_TITLE } from "@/routes/meta";
 
 export const metadata: Metadata = { title: { absolute: NOT_FOUND_TITLE } };
 
-// A page of the file tree refused its address (`/drafts/abc`): Not found inside the shell, with its way back.
+// A page of the file tree refused its address (`/mail/abc`): Not found inside the shell, with its way back.
 export default function ShellNotFound() {
   return (
     <Page>

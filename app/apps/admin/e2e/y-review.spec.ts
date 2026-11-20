@@ -15,17 +15,17 @@ test("the project and the filter live in the address", async ({ page }) => {
   const ready = (await (await page.request.get("/api/drafts?project=lisbon-realty&filter=ready")).json()) as { drafts: { id: number }[]; nextOffset: number | null };
   expect(ready.nextOffset).toBeNull();
   expect(ready.drafts.length).toBeGreaterThan(0);
-  await page.goto(at("lisbon-realty", "/drafts?filter=ready"));
+  await page.goto(at("lisbon-realty", "/mail?filter=ready"));
   await expect(viewMenu(page)).toContainText("To review");
   await expect(cards(page)).toHaveCount(ready.drafts.length);
   expect((await cards(page).evaluateAll((rows) => rows.map((r) => r.id))).sort()).toEqual(ready.drafts.map((d) => `draft-${d.id}`).sort());
   await viewMenu(page).click();
   await page.getByRole("menuitemradio", { name: /^Hold/ }).click();
-  await expect.poll(() => address(page)).toMatch(/^\/lisbon-realty\/drafts(\/\d+)?\?filter=hold$/); // P53: the first held draft opens in the address
+  await expect.poll(() => address(page)).toMatch(/^\/lisbon-realty\/mail(\/\d+)?\?filter=hold$/); // P53: the first held draft opens in the address
 });
 
 test("J and K move the cursor, ? shows the keys, and the switch turns them off", async ({ page }) => {
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   await expect(cards(page)).toHaveCount(11);
   const current = page.locator('ul[aria-label="Drafts"] > li[data-open="true"]');
   const first = await current.getAttribute("id");
@@ -46,7 +46,7 @@ test("J and K move the cursor, ? shows the keys, and the switch turns them off",
 test("a server error shows a sentence and Retry loads the list", async ({ page }) => {
   let fail = true;
   await page.route(/\/api\/drafts\?/, (route) => (fail ? route.fulfill({ status: 500, json: { error: "server error", code: "server" } }) : route.fallback()));
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   await expect(page.getByText("Could not load drafts")).toBeVisible();
   fail = false;
   await page.getByRole("button", { name: "Retry" }).click();
@@ -55,7 +55,7 @@ test("a server error shows a sentence and Retry loads the list", async ({ page }
 
 test("a refusal from the server is shown as its sentence", async ({ page }) => {
   await page.route(/\/api\/drafts\/\d+\/status/, (route) => route.fulfill({ status: 409, json: { error: "That draft is already sent.", code: "wrong_state" } }));
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   await expect(cards(page)).toHaveCount(11);
   await page.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Hold for later" }).click();
@@ -71,7 +71,7 @@ test("Settings ▸ Checks shows the checks before sending, one tab from Sending"
 
 test("a refused action is announced as an alert, not politely", async ({ page }) => {
   await page.route(/\/api\/drafts\/\d+\/status/, (route) => route.fulfill({ status: 409, json: { error: "This draft changed in the meantime.", code: "wrong_state" } }));
-  await page.goto("/drafts?filter=ready");
+  await page.goto("/mail?filter=ready");
   await expect(cards(page).first()).toBeVisible();
   await page.locator("#main").focus();
   await page.keyboard.press("h");

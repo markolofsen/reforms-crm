@@ -20,7 +20,7 @@ test("an unreadable draft has no Checked switch, and the C key says why and send
   const posts = checkedPosts(page);
   const reads: string[] = [];
   page.on("request", (r) => /\/drafts\/\d+\/mail/.test(r.url()) && reads.push(r.url()));
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const card = await openRow(page, "Marta Ficticia");
   await expect(card.getByText(/Mail could not be read: no draft in Mail/).first()).toBeVisible();
   // State 12 has one quiet way on besides Open in Mail: read again (a second read of the same draft, no write).
@@ -37,7 +37,7 @@ test("an unreadable draft has no Checked switch, and the C key says why and send
 test("a draft whose text has no hash keeps the switch off and the C key refuses", async ({ page }) => {
   await mailIs(page, (m) => ({ ...m, hash: null }));
   const posts = checkedPosts(page);
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   const card = await openRow(page, "Marta Ficticia");
   const sw = page.getByRole("switch", { name: "I read the checks" });
   await expect(sw).toBeDisabled();
@@ -54,7 +54,7 @@ test("a draft that was read and hashed is Checked by the C key and the tick carr
   page.on("request", (r) => {
     if (r.method() === "POST" && /\/api\/drafts\/\d+\/checked/.test(r.url())) bodies.push(r.postData() ?? "");
   });
-  await page.goto("/drafts?filter=all");
+  await page.goto("/mail?filter=all");
   await openRow(page, "Marta Ficticia");
   for (const button of await page.getByRole("button", { name: /^Understood:/ }).all()) await button.click();
   const sw = page.getByRole("switch", { name: "I read the checks" });

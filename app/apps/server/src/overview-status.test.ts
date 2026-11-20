@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { STATUS_KINDS, statusDto, type StatusKind } from "@hub/contract/overview";
 import type { ProjectFacts } from "./overview-facts";
-import { overviewSentence, statusOf, type InstanceFacts } from "./overview-status";
+import { NO_READ, overviewSentence, statusOf, type InstanceFacts } from "./overview-status";
 
 const NOW = new Date("2026-11-15T12:00:00Z");
 const LATER = new Date("2026-12-01T12:00:00Z");
 const quiet = (over: Partial<ProjectFacts> = {}): ProjectFacts => ({
-  slug: "alpha", name: "Alpha", status: "active", archived: false, toReview: 0, sentToday: 0, owed: 2, lastTriageAt: "2026-11-14T10:00:00.000Z",
+  slug: "alpha", name: "Alpha", status: "active", archived: false, toReview: 0, sentToday: 0, owed: 2, wrote: 0, lastTriageAt: "2026-11-14T10:00:00.000Z",
   setupQuestion: false, injectionHeld: 0, failed24h: 0, stuck: 0, stopped: false, auto: { mode: "draft", cap: 5, used24h: 0 }, recipients: "listed",
   doctorFailed: [], knowledgeExpired: 0, contextRequired: "warn", ...over,
 });
@@ -35,7 +35,7 @@ describe("statusOf", () => {
   for (const kind of STATUS_KINDS) {
     const s = SCENARIOS[kind];
     it(`${kind}: ${s.level}, "${s.sentence}"`, () => {
-      expect(run(s.over, s.sys, s.now)).toEqual({ level: s.level, kind, sentence: s.sentence, next: s.next, numbers: { owed: s.over?.owed ?? 2, lastTriageAt: s.over?.lastTriageAt === undefined ? "2026-11-14T10:00:00.000Z" : s.over.lastTriageAt } });
+      expect(run(s.over, s.sys, s.now)).toEqual({ level: s.level, kind, sentence: s.sentence, next: s.next, numbers: { owed: s.over?.owed ?? 2, wrote: 0, lastTriageAt: s.over?.lastTriageAt === undefined ? "2026-11-14T10:00:00.000Z" : s.over.lastTriageAt, mailRead: NO_READ } });
     });
   }
 

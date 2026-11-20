@@ -71,7 +71,7 @@ test("a draft recorded by another process appears within 1 s, Activity and the s
     if (m.type() === "error") errors.push(m.text());
   });
 
-  await page.goto(at("demo-shop", "/drafts?filter=all"));
+  await page.goto(at("demo-shop", "/mail?filter=all"));
   await expect(liveState(page)).toHaveText("Live");
   const line = page.getByTestId("status-line");
   const before = await line.innerText();
@@ -97,5 +97,5 @@ test("a draft recorded by another process appears within 1 s, Activity and the s
   await expect.poll(apiUp, { timeout: 30_000 }).toBe(true);
   await expect(liveState(page)).toHaveText("Live", { timeout: 15_000 });
   await expect(cards(page).filter({ hasText: "Dora Down" })).toHaveCount(1, { timeout: 5_000 });
-  expect(page.url()).toContain("/drafts");
+  expect(page.url()).toContain("/mail");
 });

@@ -10,7 +10,7 @@ export type Dest = { readonly route: RouteId; readonly path: string; readonly se
 
 /**
  * Where an address is: the project and whether the instance has two or more. One project: no project in any address
- * (`/drafts/42`). Two or more: the project is the first path segment of a scoped route (`/lisbon/drafts/42`), never a query.
+ * (`/mail/42`). Two or more: the project is the first path segment of a scoped route (`/lisbon/mail/42`), never a query.
  */
 export type Place = { readonly project: string | null; readonly multi: boolean };
 
@@ -45,9 +45,11 @@ export const paths = {
       dest("messengers.page", route("/messengers"), { filter: unlessDefault(s.filter, "todo"), channel: unlessDefault(s.channel, "all") }),
     settings: () => dest("messengers.settings", route("/messengers/settings")),
   },
-  drafts: {
-    list: (s: DraftsArgs = {}) => dest("drafts.list", route("/drafts"), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
-    item: (id: number, s: DraftsArgs = {}) => dest("drafts.item", route(`/drafts/${id}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
+  /** P96 S3: Mail (was Drafts): the views, a draft's card, and a client's message (`/mail/in/7`, the Inbox view's card). */
+  mail: {
+    list: (s: DraftsArgs = {}) => dest("mail.list", route("/mail"), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
+    item: (id: number, s: DraftsArgs = {}) => dest("mail.item", route(`/mail/${id}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
+    inbound: (id: number, s: DraftsArgs = {}) => dest("mail.inbound", route(`/mail/in/${id}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
   },
   log: {
     list: (s: { filter?: ActivityView; client?: number | null } = {}) => dest("log.list", route("/log"), { filter: unlessDefault(s.filter, "all"), client: s.client }),
@@ -61,11 +63,11 @@ export function sectionList(id: SectionId): Dest {
 }
 
 /** The bare destination of a route with no parameter (a nav item, a child page of the sub-nav, the page a dot names). */
-export function routeDest(id: Exclude<RouteId, "drafts.item">): Dest {
+export function routeDest(id: Exclude<RouteId, "mail.item" | "mail.inbound">): Dest {
   return dest(id, ROUTE_TABLE[id].path);
 }
 
-/** The address text of a destination: `/drafts/42?filter=hold` with one project, `/lisbon/drafts/42?filter=hold` with several. */
+/** The address text of a destination: `/mail/42?filter=hold` with one project, `/lisbon/mail/42?filter=hold` with several. */
 export function formatDest(d: Dest, place: Place): string {
   const prefix = place.multi && place.project && !PROJECTLESS.has(d.route) ? `/${encodeURIComponent(place.project)}` : "";
   return `${prefix}${d.path}${formatQuery(d.search)}`;

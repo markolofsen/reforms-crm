@@ -4,14 +4,15 @@ import { agentRef } from "@/lib/focus";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { AppLink } from "@/components/app-link";
 import { paths } from "@/routes/paths";
-import { LEVEL, needsYou, nextDest, statusWord, triageText } from "./labels";
+import { mailReadText } from "@/features/mail/inbox/mail-read";
+import { LEVEL, needsYou, nextDest, statusWord } from "./labels";
 
 type Props = { rows: readonly ProjectRowDto[]; now: number };
 
-/** The project's name, leading into its own Drafts. */
+/** The project's name, leading into its own Mail. */
 function Name({ p }: { p: ProjectRowDto }) {
   return (
-    <AppLink className="font-medium text-foreground text-sm" inProject={p.slug} to={paths.drafts.list()}>
+    <AppLink className="font-medium text-foreground text-sm" inProject={p.slug} to={paths.mail.list()}>
       {p.name}
     </AppLink>
   );
@@ -48,7 +49,7 @@ export function ProjectTable({ rows, now }: Props) {
           <TableHead className="w-1/10">To review</TableHead>
           <TableHead className="w-1/10">Owes reply</TableHead>
           <TableHead className="w-1/10">Sent today</TableHead>
-          <TableHead className="w-1/8">Last triage</TableHead>
+          <TableHead className="w-1/8">Mail read</TableHead>
           <TableHead>Needs you</TableHead>
         </TableRow>
       </TableHeader>
@@ -62,7 +63,7 @@ export function ProjectTable({ rows, now }: Props) {
             <TableCell className="tabular-nums">{p.toReview}</TableCell>
             <TableCell className="tabular-nums">{p.status.numbers.owed}</TableCell>
             <TableCell className="tabular-nums">{p.sentToday}</TableCell>
-            <TableCell className="tabular-nums">{triageText(p.status.numbers.lastTriageAt, now)}</TableCell>
+            <TableCell className="tabular-nums">{mailReadText(p.status.numbers.mailRead, now)}</TableCell>
             <TableCell>
               <NeedsYou p={p} />
             </TableCell>
@@ -84,7 +85,7 @@ export function ProjectList({ rows, now }: Props) {
             <span className="text-muted-foreground">{statusWord(p)}</span>
           </p>
           <p className="text-muted-foreground text-xs tabular-nums">
-            {p.toReview} to review · {p.status.numbers.owed} {p.status.numbers.owed === 1 ? "reply" : "replies"} owed · {p.sentToday} sent today · triage {triageText(p.status.numbers.lastTriageAt, now)}
+            {p.toReview} to review · {p.status.numbers.owed} {p.status.numbers.owed === 1 ? "reply" : "replies"} owed · {p.sentToday} sent today · {mailReadText(p.status.numbers.mailRead, now)}
           </p>
           {p.status.level !== "clear" && <NeedsYou p={p} />}
         </li>
