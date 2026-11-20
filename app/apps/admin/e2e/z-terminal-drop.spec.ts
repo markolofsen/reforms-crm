@@ -12,6 +12,10 @@ const toggle = (page: Page) => page.getByRole("button", { name: /^Terminal(, [A-
 const input = (page: Page) => page.getByRole("textbox", { name: "Terminal input" });
 const screenText = (page: Page) =>
   page.getByRole("tabpanel").locator(".xterm-rows").evaluate((el) => [...el.children].map((r) => (r.textContent ?? "").replace(/ /g, " ").trimEnd()).join("\n"));
+/** The screen with wrapped rows joined: a long path spans rows at the dock's width. */
+// Rows untrimmed: a full row has no padding, so a wrapped path joins back whole (a short row's padding becomes spaces).
+const flatText = (page: Page) =>
+  page.getByRole("tabpanel").locator(".xterm-rows").evaluate((el) => [...el.children].map((r) => (r.textContent ?? "").replace(/\u00a0/g, " ")).join(""));
 const dropBox = (page: Page) => page.getByRole("tabpanel").locator('[data-slot="terminal-drop"]');
 
 async function endAll(page: Page) {
@@ -49,10 +53,10 @@ test("terminal drop: a PNG is copied under state/drops/<project>/<session>/ and 
   expect(await drop(dropBox(page), { files: [["Screen shot 1.png", "PNG"]] })).toBe(true);
   await expect(page.getByRole("tabpanel").getByRole("status")).toHaveText("1 file pasted.");
   await expect(input(page)).toBeFocused();
-  await expect.poll(() => screenText(page)).toMatch(/state\/drops\/lisbon-realty\/[\w-]+\/Screen-shot-1\.png/);
+  await expect.poll(() => flatText(page)).toMatch(/state\/drops\/lisbon-realty\/[\w-]+\/Screen-shot-1\.png/);
   expect(await screenText(page)).not.toContain("> ");
   await page.keyboard.press("Enter");
-  await expect.poll(() => screenText(page)).toMatch(/> \S+\/state\/drops\/lisbon-realty\/[\w-]+\/Screen-shot-1\.png/);
+  await expect.poll(() => flatText(page)).toMatch(/> \S+\/state\/drops\/lisbon-realty\/[\w-]+\/Screen-shot-1\.png/);
 });
 
 test("terminal drop: three files, three paths one space apart, in order", async ({ page }) => {
@@ -60,7 +64,7 @@ test("terminal drop: three files, three paths one space apart, in order", async 
   await drop(dropBox(page), { files: [["a.png", "a"], ["b.png", "b"], ["c.png", "c"]] });
   await expect(page.getByRole("tabpanel").getByRole("status")).toHaveText("3 files pasted.");
   await page.keyboard.press("Enter");
-  await expect.poll(() => screenText(page)).toMatch(/> \S+\/a\.png \S+\/b\.png \S+\/c\.png/);
+  await expect.poll(() => flatText(page)).toMatch(/> \S+\/a\.png\s+\S+\/b\.png\s+\S+\/c\.png/);
 });
 
 test("terminal drop: text is typed as text, with no request", async ({ page }) => {
