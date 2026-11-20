@@ -18,18 +18,19 @@ The owner reads the draft in the admin, switches on "I read the checks" and pres
 | Skills (`skills/`) | Instructions, not code | Tell a session what to do for what the owner asks, such as "triage the project's mail" ([skills/README.md](../skills/README.md)) |
 | `hub` CLI (`app/apps/installer`) | Command line; `./run.sh` in an instance | Starts a session (`hub agent`) and the admin (`hub up`), checks health (`hub doctor`), records a session's drafts and clients, serves the `hub` MCP server (`hub mcp`), sets the send policy, updates the core |
 | Server (`app/apps/server`) | Hono API on 127.0.0.1, port 4317 by default | Owns `data/app.db`, streams what changed, runs the confirmed Send and Sent detection, the terminal's sessions and drops, the shared focus, the autostart switch, the core-update check and the messenger receivers |
-| Admin (`app/apps/admin`) | Next.js on 127.0.0.1, port 5173 by default | Six sections and the terminal dock. It shows what the agent did and holds the owner's decisions; it has no form to prepare work and talks only to the server |
+| Admin (`app/apps/admin`) | Next.js on 127.0.0.1, port 5173 by default | Seven sections and the terminal dock. It shows what the agent did and holds the owner's decisions; it has no form to prepare work and talks only to the server |
 | Packages (`app/packages`) | One subject each | Mail drafts and sessions (`agent`), send checks (`send`), database (`db`), messengers, the LLM door (`llm`), the agent log (`log`), knowledge, projects, sequences, the UI kit: [core/08-local-app-stack.md](core/08-local-app-stack.md) |
 
-**The admin's screens.** One sidebar: the instance's brand, the project switcher with two or more projects, the six sections, and in the footer
+**The admin's screens.** One sidebar: the instance's brand, the project switcher with two or more projects, the seven sections, and in the footer
 the core version line, the theme and the sound switch (P73: no agent feed rows). The address `/` opens Drafts with one project and Overview with two or more; with two
 or more the project is the first segment of every scoped address (`/<project>/drafts/42`). Routes and rules: [core/06-local-admin-app.md](core/06-local-admin-app.md).
 - **Overview** (`/overview`): what needs the owner. Each broken part of the Hub with its fix line and one link, or "Everything works"; every part folded under "All parts"; one row per project first when there are two or more. It reads and never writes.
 - **Drafts** (`/drafts`, `/drafts/42`): the home. A list and the open draft beside it, one View menu with counts (To review, Hold, Thin basis, Finished, Follow-ups, Not by email, All). The card shows the Mail text, the checks, Send, Skip, Hold and Done, and the client's stored messenger messages. Bulk drafts and batches: [core/14-bulk-send-interface.md](core/14-bulk-send-interface.md).
+- **Messengers** (`/messengers`, `/messengers/settings`): a review queue of the linked Telegram and WhatsApp chats, not a chat client. Chats lists what waits (the agent's open draft with Send, Edit and Skip, or why there is none) and the fresh unlinked chats to link or hide; Settings connects the owner's own accounts and holds each linked chat's rules: [core/06-local-admin-app.md](core/06-local-admin-app.md).
 - **Activity** (`/log`): what the agent decided for each client, one timeline newest first under a heading per day, repeats of one client and outcome on one day folded into one line; no sessions and no detail pane (P73, decision 0037). Its View menu's Sends view is the send history.
-- **Knowledge** (`/knowledge`): every entry of the project's knowledge base, each with its Open: [core/16-projects-and-knowledge.md](core/16-projects-and-knowledge.md), [core/18-kb-loop.md](core/18-kb-loop.md). Grouping by topic is planned (P74).
-- **Settings** (`/settings`): what is set rarely, in five panes. Sending: Stop sending, who drafts may go to, autosend and the checks before sending. Mail: the project's accounts and filters ([core/17-mail-filters.md](core/17-mail-filters.md)). Agent: per CLI the model, the advisor (Claude Code), the attached connectors and the checks. Connections: the Notion token and the Telegram bot, write-only. This Mac: start after a restart and the core version. One tab per question is planned (P75).
-- **Help** (`/help`): what to say to the agent, the tips for each CLI, where the project's files live, and "How it works", the Hub's wiring drawn live by Mermaid from the same parts as Overview. Help in English and a scheme of the main blocks are planned (P81).
+- **Knowledge** (`/knowledge`): every entry of the project's knowledge base under a heading per topic (P74: the folder, else the category), each with its Open: [core/16-projects-and-knowledge.md](core/16-projects-and-knowledge.md), [core/18-kb-loop.md](core/18-kb-loop.md).
+- **Settings** (`/settings`): what is set rarely, one pane per question, reached by its sub-nav (P75). Sending: Stop sending, who drafts may go to, autosend. Checks: the safety rules that block or warn before Send. Mail: the project's accounts and filters ([core/17-mail-filters.md](core/17-mail-filters.md)). Agent: per CLI the model, the advisor (Claude Code), the attached connectors and the tool checks. Connections: the Notion token, write-only (the Telegram bot's token is on Messengers ▸ Settings). This Mac: start after a restart and the core version.
+- **Help** (`/help`): what to say to the agent, the tips for each CLI, where the project's files live, and "How it works": the main blocks below in five lanes and three cuts, drawn by Mermaid from the fixed model `@hub/contract/scheme-model` and coloured by the live parts Overview reads (P81, decision 0042).
 
 **The terminal dock.** A right-hand column beside every screen, always there (a strip when closed, Ctrl+`). Its tabs run `hub agent <project>`
 with Claude Code or Codex, or the owner's shell. A session is attended (the CLI asks) or unattended (`agent.unattended: true`: no prompts, the
@@ -39,12 +40,13 @@ OS sandbox on); in both the send tools are denied: [core/24-terminal.md](core/24
 pasted into the session's input line. At most 10 files and 20 MiB per drop; the folder goes when the tab closes, and other projects' sessions
 cannot read it: [core/24-terminal.md](core/24-terminal.md).
 
-**Messengers.** The server receives from a Telegram bot (with `state/secrets/telegram-bot-token`) and from the owner's own Telegram account
-(MTProto; its login is a set of server routes, with no screen yet). Only chats the owner linked to a client are stored; any other chat leaves
-no row. The agent reads a linked chat with `messenger_history` and writes a draft row with `messenger_draft_write`, within each chat's rules;
-it has no send tool. The Messengers section holds the review queue and its settings (P71 M3), and its Send goes through the send door
-(P71 M4). WhatsApp is the owner's own number as a linked device (P71 M5, Baileys, a QR code scanned on Messengers ▸ Settings), with the same
-linked chats, rules and send door: [app/packages/messengers/README.md](../app/packages/messengers/README.md).
+**Messengers.** The server receives from a Telegram bot (with `state/secrets/telegram-bot-token`), from the owner's own Telegram account
+(MTProto, logged in on Messengers ▸ Settings) and from his own WhatsApp number as a linked device (Baileys, a QR code scanned there; P71 M5).
+Only chats linked to a client are stored, by the owner's Link or by the autolink on an exact phone or username of one Notion client (P84);
+any other chat leaves no row. The agent reads a linked chat with `messenger_history` and writes a draft row with `messenger_draft_write`,
+within each chat's rules; it has no send tool. The owner reviews the draft on Messengers ▸ Chats and his Send goes through the send door
+(P71 M4). An optional per-chat pre-analysis hides closing, automated and personal messages from the agent (P71 M-P, below):
+[app/packages/messengers/README.md](../app/packages/messengers/README.md).
 
 **The LLM door.** `@hub/llm` is the only code that may call a model API: typed structured calls to OpenRouter with the instance's one API key,
 a ledger row per attempt in `llm_calls` and a monthly cap checked before the call. Without a key a caller says "not analysed". Its first
@@ -86,6 +88,34 @@ done: [core/22-lead-forms.md](core/22-lead-forms.md), [core/21-leads.md](core/21
 an **instance**, kept outside it and selected with `HUB_HOME`; it runs with `./run.sh`. A document goes in `core/` only if it names no specific
 client, project, mailbox or person: [LAYERS.md](LAYERS.md).
 
+## The main blocks
+
+The blocks Help draws under "How it works", in its five lanes (`app/packages/contract/src/scheme-model.ts`, P81, decision 0042). A unit
+test fails when a block of the model has no row here or its row does not link its page.
+
+| Lane | Block | What it is | Page |
+|---|---|---|---|
+| In | You | The owner: a phrase to the agent, Send, Edit and Skip in the admin | [core/24-terminal.md](core/24-terminal.md) |
+| In | Client mail | Apple Mail, read through `mail-mcp` | [core/02-connectors.md](core/02-connectors.md) |
+| In | Messengers | Telegram and WhatsApp, linked chats only | [core/24-terminal.md](core/24-terminal.md), [messengers README](../app/packages/messengers/README.md) |
+| In | Dropped files | A file dragged on a terminal tab, copied under `state/drops` | [core/24-terminal.md](core/24-terminal.md) |
+| Agent | Project rules | `project.md`, the session rules, each chat's rules, the mail filters | [core/16-projects-and-knowledge.md](core/16-projects-and-knowledge.md) |
+| Agent | Skills and workflows | `skills/` and the project's workflows | [core/20-workflows.md](core/20-workflows.md) |
+| Agent | Agent | Claude Code or Codex in `hub agent` | [core/24-terminal.md](core/24-terminal.md) |
+| Agent | Guard | Deny list, hooks, the Notion scope | [core/26-capabilities.md](core/26-capabilities.md) |
+| Reads | Knowledge | The project's entries, through `knowledge-mcp` | [core/16-projects-and-knowledge.md](core/16-projects-and-knowledge.md) |
+| Reads | Notion CRM | The project's own databases | [core/15-notion-project-deploy-skill.md](core/15-notion-project-deploy-skill.md) |
+| Reads | Calendar and Drive | The Google connectors a project attaches | [core/26-capabilities.md](core/26-capabilities.md) |
+| Reads | Your browser | The owner's own extension; the Hub adds none | [core/26-capabilities.md](core/26-capabilities.md) |
+| Hub | Hub tools | `hub mcp`: drafts, focus, highlight, messengers | [core/24-terminal.md](core/24-terminal.md) |
+| Hub | Server and app.db | The local API and its database | [core/08-local-app-stack.md](core/08-local-app-stack.md) |
+| Hub | Agent log | Every turn of a session | [core/25-agent-log.md](core/25-agent-log.md) |
+| Hub | Admin | The seven sections and the terminal dock | [core/06-local-admin-app.md](core/06-local-admin-app.md) |
+| Hub | LLM | `@hub/llm`, cheap typed calls | [core/27-llm.md](core/27-llm.md) |
+| Out | Send policy and checks | Who a draft may go to, the checks before Send | [core/14-bulk-send-interface.md](core/14-bulk-send-interface.md) |
+| Out | Send door | One draft, after the owner's Send | [core/14-bulk-send-interface.md](core/14-bulk-send-interface.md) |
+| Out | The client | A reply by mail or chat | [core/02-connectors.md](core/02-connectors.md) |
+
 ## How the parts talk
 
 **Owner, admin, server, database.** The owner acts only in the admin; the admin calls only the server over `/api`; the server and the `hub`
@@ -96,7 +126,8 @@ while it is down the admin polls: [core/06-local-admin-app.md](core/06-local-adm
 **Dock agent and panel.** The admin posts what it shows (the open draft, its client, the selected rows, the view) to `POST /api/focus`. The
 session reads it with the `focus` tool of `hub mcp` and a `[Hub focus, data]` line the hub adds to each prompt, so "this client" means the
 draft on screen; the dock's header says "Agent sees: draft N". When the agent writes a Mail draft, the hub bumps the `mail` topic and the
-open card reloads. Pointing at parts of the page by reference is planned (P72): [core/24-terminal.md](core/24-terminal.md), Shared focus.
+open card reloads. Every row carries a ref (`draft:42`, `knowledge:<path>`), so "this" is the row he clicked or arrowed to; the agent's
+`highlight` draws a ring on up to five rows for 30 s and never clicks or navigates for him (P72, decision 0038): [core/24-terminal.md](core/24-terminal.md), Shared focus.
 
 **Agent and the outside.** Mail: read through `mail-mcp`, drafts written by `draft_write` through Mail's own scripting, with Mail in the
 background ([core/02-connectors.md](core/02-connectors.md)). Notion: the session's own connector, no token in the Hub; an optional integration
@@ -111,7 +142,7 @@ capabilities line. Deny rules and the `hub guard` hook keep the session draft-on
 **The one send door.** Mail leaves only through the server's `POST /api/projects/:slug/drafts/:id/send` (or `hub send` by a person): a dry run
 shows the exact mail, the apply needs a single-use ticket only the admin page can mint, and `@hub/send` re-checks recipients, the send policy,
 Stop sending and the safety rules. Autosend is off unless a project's send policy turns it on for listed mail classes; it uses the same checks
-and the same door. Messenger messages of a Telegram user account go through the same door with their own guards (P71 M4: an inbound message first, 30 a day, 20 s apart, `telegram:<id>` in `allow_list` in test mode), one at a time by the owner's click, never automatically:
+and the same door. Messenger drafts of the owner's Telegram account and WhatsApp number go through `POST /api/projects/:slug/messengers/drafts/:id/send` with their own guards (P71 M4, M5: an inbound message first, 30 a day and 20 s apart per account, `telegram:<id>` or `whatsapp:+<number>` in `allow_list` in test mode, Stop sending), one at a time by the owner's click, never automatically:
 [core/16-projects-and-knowledge.md](core/16-projects-and-knowledge.md), section 3B.
 
 **The guards.** No agent session has a send tool. Both servers bind to loopback and refuse a foreign Host or Origin. The send ticket, the

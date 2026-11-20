@@ -49,7 +49,7 @@ export const BLOCKS: readonly Block[] = [
   { id: "tools", lane: "hub", label: "Hub tools", what: "hub mcp: drafts, focus, messengers", doc: "core/24-terminal.md" },
   { id: "server", lane: "hub", label: "Server and app.db", what: "the local API and its database", doc: "core/08-local-app-stack.md" },
   { id: "log", lane: "hub", label: "Agent log", what: "every turn of a session", doc: "core/25-agent-log.md" },
-  { id: "admin", lane: "hub", label: "Admin", what: "Drafts, Messengers, Activity, Overview, Settings, Help", doc: "core/06-local-admin-app.md" },
+  { id: "admin", lane: "hub", label: "Admin", what: "Drafts, Messengers, Activity, Knowledge, Overview, Settings, Help", doc: "core/06-local-admin-app.md" },
   { id: "llm", lane: "hub", label: "LLM", what: "@hub/llm, cheap typed calls", doc: "core/27-llm.md" },
   { id: "policy", lane: "out", label: "Send policy and checks", what: "who may get a draft, the checks before Send", doc: "core/14-bulk-send-interface.md" },
   { id: "door", lane: "out", label: "Send door", what: "one draft, after your Send", doc: "core/14-bulk-send-interface.md" },

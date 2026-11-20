@@ -15,7 +15,7 @@ Draft-only is enforced by types and by what can be imported, not by a prompt:
 
 - An agent can only `createDraft` (status `draft`, chat must be allow-listed).
 - `adapter.send` takes a `ConfirmedDraft`, a branded type minted by `confirmDraft` in `human.ts`. A hand-built or cast object is refused at run time (WeakSet check), and the package `exports` map blocks a deep import of the minter.
-- A `HumanActor` is minted only by `humanActor()`: by the messengers CLI when stdin is a TTY, and by the server's Telegram user account link route behind the admin gate (exact admin Origin, loopback Host, `Sec-Fetch-Site: same-origin`; decision 0036 point 7).
+- A `HumanActor` is minted only by `humanActor()`: by the messengers CLI when stdin is a TTY, and by the server behind the admin gate (exact admin Origin, loopback Host, `Sec-Fetch-Site: same-origin`; decision 0036 point 7): the Telegram and WhatsApp link routes, the autolink's `link` of a record the owner picked, and the send door's apply (`apps/server/src/send/messenger-door.ts`), which mints it, confirms the draft and sends. The server mints; the agent and `hub mcp` never import `@hub/messengers/human`.
 - `telegram_user` (P71 M4) and `whatsapp` (M5) send through the server's send door only (decision 0036 point 7: `apps/server/src/send/messenger-door.ts`): a dry run, a ticket, the `send_log` row first, one `sendText` through the adapter's `send`, no retry, after the guards (an inbound message in the chat, 30 a day and 20 s apart per account, `allow_list` entries `telegram:<id>` or `whatsapp:+<number>` in test mode, Stop sending). The poller holds `pollOnly(adapter)`, so the receiving side has no send path. Nothing is copied by hand any more: the copy path (`copyDraft`, the CLI's `copy`) went with M5.
 
 ## The Telegram user account (P71 M1)
@@ -60,11 +60,11 @@ The owner delegated it ("decide the optimal"): a private chat of a connected acc
 
 The records come from the server (`apps/server/src/client-directory.ts`): the project's Notion Clients data source read only, in memory, every 6 h, `Synthetic` and `Do not contact` rows left out; identifiers from the pack's Clients fields (`schema/clients.json`, `@docs/notion/README.md`): `Phone` (or any other `phone_number` property, or one named Mobile or Tel) for both messengers, `WhatsApp` for WhatsApp chats only, `Telegram` (a username, `@name` or `t.me/name`, or a number) for Telegram chats only; `matchDialog` takes the dialog's channel and looks up only that channel's keys. The coordinator (`apps/server/src/autolink.ts`) links a `unique` match when the project's `messengers.autolink` is `on` (the client row from its Notion email and name, the identifier, the allow-list with `messenger_chats.autolinked` = the reason, 30 days imported, an Activity line `linked`), keeps everything else in memory for the Chats screen, scans a Telegram account's 500 newest dialogs when it connects, and skips a chat whose HMAC is in `messenger_link_refusals` ("never link this chat"; the key is `state/secrets/autolink-key`, not backed up). WhatsApp has no dialog list on demand: it sees the chats seen since its socket opened, and a chat linked by its first message imports from the phone's history before that message (P71 M5 finding 2), so that first message itself may be missing.
 
-## Data (migrations 0003 and 0025 in `@hub/db`)
+## Data (migrations 0003, 0025, 0027, 0028 and 0029 in `@hub/db`)
 
-`messenger_messages` (text kept in full, `retain_until` = stored + 90 days, `purge` deletes past it), `messenger_chats` (the inbound allow-list, and since 0025 each linked chat's rules), `messenger_accounts` (poll cursor, last ok, last error), `client_identifiers` (client, kind `email|telegram|phone|whatsapp`, value; unique per project, kind and value), `messenger_drafts` (since 0025 also `owner_request`, the owner's words that admitted a draft in an `on_request` chat, and `nudge`, a follow-up after our own last message).
+`messenger_messages` (text kept in full, `retain_until` = stored + 90 days, `purge` deletes past it), `messenger_chats` (the inbound allow-list, and since 0025 each linked chat's rules), `messenger_accounts` (poll cursor, last ok, last error), `client_identifiers` (client, kind `email|telegram|phone|whatsapp`, value; unique per project, kind and value), `messenger_drafts` (since 0025 also `owner_request`, the owner's words that admitted a draft in an `on_request` chat, and `nudge`, a follow-up after our own last message). `send_log` (0027) carries a messenger send's row (`channel`, `messenger_draft_id`); `messenger_link_refusals` (0028) the HMAC of each chat the owner refused; `messenger_triage` (0029) the pre-analysis verdicts.
 
-Ingest stores only allow-listed chats and never links anything. Linking is `messengers link` by the owner.
+Ingest stores only allow-listed chats and never links anything. Linking is the owner's (the picker on Messengers ▸ Settings, Link on Chats, or `messengers link`) or the autolink's on an exact match (above).
 
 **Unlinking deletes the chat's rows** (P71 M2b, research 26 gap 1): `disallowChat` and `unlinkIdentifier` go through `repos.messengers.unlinkChat`, which deletes the chat's `messenger_messages`, its `messenger_drafts` and its `messenger_chats` row in ONE transaction, so an unlinked chat leaves no row, as one never linked (0036 point 3).
 
@@ -115,3 +115,5 @@ A **new** bot from @BotFather, token alone in `state/secrets/telegram-bot-token`
 ## Tests
 
 `pnpm --filter @hub/messengers test`: Vitest, the `FakeAdapter`, `FakeMtClient`, `FakeLoginClient` and `FakeWaSocket`, an in-memory database. No network, no real token, no Telegram login, no WhatsApp socket (one test loads the real Baileys for its auth state and message mapping and builds no socket).
+
+Update this page when the architecture changes.

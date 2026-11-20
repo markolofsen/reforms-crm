@@ -1,4 +1,5 @@
 import { SESSION_RULES_HEADING, sessionRules } from "@hub/agent/session-rules";
+import { BLOCKS, LANES } from "@hub/contract/scheme-model";
 import { renderNotionFields } from "../src/notion-docs";
 import { lstatSync, readdirSync, readFileSync, readlinkSync } from "node:fs";
 import path from "node:path";
@@ -100,5 +101,19 @@ describe("session rules (P51)", () => {
   });
   it("the instance template says the session's start knowledge is the core's system prompt", () => {
     expect(readFileSync(path.join(defaultRoot(), INSTANCE_TEMPLATE, "CLAUDE.md"), "utf8")).toContain("What the session knows at start is the core's system prompt (`hub agent`), not this file");
+  });
+});
+
+describe("the docs overview names the scheme's blocks (P80 D2)", () => {
+  it("every block of scheme-model.ts has one row in @docs/00-README.md's main blocks table, in its lane, linking its page", () => {
+    const page = readFileSync(path.join(defaultRoot(), "@docs/00-README.md"), "utf8");
+    const rows = page.split("\n").filter((l) => l.startsWith("| ") && l.split("|").length === 6).map((l) => l.split("|").map((c) => c.trim()));
+    for (const block of BLOCKS) {
+      const lane = LANES.find((l) => l.id === block.lane)?.label;
+      const found = rows.filter((c) => c[2] === block.label);
+      expect(found.length, `row for ${block.label}`).toBe(1);
+      expect(found[0]?.[1], `${block.label}'s lane`).toBe(lane);
+      expect(found[0]?.[4], `${block.label} links ${block.doc}`).toContain(`](${block.doc})`);
+    }
   });
 });
