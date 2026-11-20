@@ -23,7 +23,8 @@ const indexKb = () => execFileSync("pnpm", ["--filter", "@hub/knowledge", "knowl
 const highlight = (refs: string[], note?: string) => JSON.parse(execFileSync("node", [fakeAgent, "--highlight", JSON.stringify(refs), ...(note ? [note] : [])], { env, encoding: "utf8" })) as { highlight: { id: string; refs: string[] } };
 const outcome = () => (existsSync(focusFile) ? (JSON.parse(readFileSync(focusFile, "utf8")) as { focus: { pointer?: { id: string; outcome: string } } }).focus.pointer : undefined);
 const record = (payload: object) => JSON.parse(execFileSync("node", [hub, "record-draft", "--project", "demo-shop"], { env, input: JSON.stringify(payload), encoding: "utf8" })) as { draftId: number };
-const rows = (page: Page) => page.getByRole("table", { name: "Knowledge entries" }).locator("tbody tr");
+// Entry rows only: since P74 each topic is its own tbody whose first row is the heading (no td).
+const rows = (page: Page) => page.getByRole("table", { name: "Knowledge entries" }).locator("tbody tr[data-entry]");
 const ring = (page: Page) => page.locator("[data-spotlight]");
 
 test.describe.configure({ mode: "serial" });
@@ -90,7 +91,9 @@ test("a row on another screen is offered in the dock with Show; only his click g
   expect(page.url()).toMatch(/\/knowledge/);
   await points.getByRole("link", { name: /^Show/ }).click();
   await expect(page).toHaveURL(new RegExp(`/drafts/${d.draftId}`));
-  await expect(ring(page)).toHaveCount(1);
+  // One ring per element that carries the ref: since P88 the list row and the open card sit side by side at 1280 with the dock open.
+  await expect(ring(page).first()).toBeVisible();
+  await expect(ring(page)).toHaveCount(await page.locator(`#main [data-agent-ref="draft:${d.draftId}"]`).count());
   // End the dock's sessions again (the cap is eight).
   for (const s of ((await (await page.request.get("/api/terminal")).json()) as { sessions: { id: string }[] }).sessions) await page.request.delete(`/api/terminal/sessions/${encodeURIComponent(s.id)}`);
 });
