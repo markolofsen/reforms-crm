@@ -265,7 +265,8 @@ export function parseDraftHeads(out: string): DraftHead[] {
 // argv: 1 sender, 2 subject, 3 body, 4 to (LS-separated), 5 cc, 6 bcc, 7 draft id, 8 Message-ID of the message answered
 // (bare, or ""), 9 the draft's account. A saved draft is a `message`, which Mail's `send` cannot take, so the script
 // sends an outgoing message with the draft's text and moves the original draft to the Trash. With a Message-ID found in
-// that account (INBOX first) the outgoing message is Mail's own `reply` to it, which carries In-Reply-To and References
+// that account (INBOX first, then its other mailboxes, Sent included: P85, a message on the owner's initiative answers
+// our own sent copy) the outgoing message is Mail's own `reply` to it, which carries In-Reply-To and References
 // (P56: `make new outgoing message` has no header property, so a hub send started a new thread at the client); the
 // recipients are then set to exactly the draft's. Not found: a new outgoing message, as before.
 export const SEND_SCRIPT = `on run argv
@@ -294,7 +295,7 @@ export const SEND_SCRIPT = `on run argv
         try
           repeat with b in (mailboxes of account accName)
             set bn to name of b
-            if bn is not "INBOX" and {"Drafts", "Sent", "Sent Mail", "Sent Messages", "Trash", "Deleted Messages", "Bin", "Spam", "Junk"} does not contain bn then
+            if bn is not "INBOX" and {"Drafts", "Trash", "Deleted Messages", "Bin", "Spam", "Junk"} does not contain bn then
               try
                 set src to (first message of b whose message id is inReplyTo)
                 exit repeat

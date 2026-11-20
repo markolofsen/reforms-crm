@@ -100,6 +100,19 @@ describe("the Mail script", () => {
     expect(WRITE_REPLY_SCRIPT.slice(made, set)).not.toMatch(/content of r/);
   });
 
+  it("P85: a reply to our own message goes to its recipients minus ours, set before the text as the door does; none left is no_recipient before any reply exists", () => {
+    const made = WRITE_REPLY_SCRIPT.indexOf("set r to reply src opening window false");
+    const set = WRITE_REPLY_SCRIPT.indexOf("set content of r to (theBody & tail)");
+    const none = WRITE_REPLY_SCRIPT.indexOf('"no_recipient"');
+    expect(none).toBeGreaterThan(0);
+    expect(none).toBeLessThan(made);
+    const between = WRITE_REPLY_SCRIPT.slice(made, set);
+    expect(between).toMatch(/if ownMsg then\s+delete every to recipient of r\s+delete every cc recipient of r/);
+    expect(between).toMatch(/make new to recipient at end of to recipients with properties \{address:\(contents of x\)\}/);
+    expect(WRITE_REPLY_SCRIPT.slice(0, made)).toMatch(/set toList to my othersOf\(srcTo, accAddrs\)/);
+    expect(adviceOf("no_recipient")).toMatchObject({ retry: "no" });
+  });
+
   it("P83: a refused reply Mail keeps is this run's own (new since priorIds, in the thread, Mail's shell by form) and goes to Trash", () => {
     const refused = WRITE_REPLY_SCRIPT.indexOf('"content_refused"');
     const block = WRITE_REPLY_SCRIPT.slice(WRITE_REPLY_SCRIPT.indexOf("does not contain probe then"), refused);
@@ -157,10 +170,11 @@ describe("the Mail script", () => {
     expect(MAIL_SLOW_TEXT).not.toMatch(/delete|keep one/i);
   });
 
-  it("finds the answered message by Message-ID, read-only: INBOX of each account first, never Drafts, Sent or Trash", async () => {
+  it("finds the answered message by Message-ID, read-only: INBOX of each account first, Sent too (P85), never Drafts or Trash", async () => {
     expect(FIND_INBOUND_SCRIPT).not.toMatch(/\b(send|delete|save|reply|activate)\b/);
     expect(FIND_INBOUND_SCRIPT.indexOf('mailbox "INBOX" of acc')).toBeLessThan(FIND_INBOUND_SCRIPT.indexOf("mailboxes of acc"));
-    expect(FIND_INBOUND_SCRIPT).toMatch(/"Drafts", "Sent"/);
+    expect(FIND_INBOUND_SCRIPT).toMatch(/skipNames to \{"Drafts", "Trash", "Deleted Messages", "Bin", "Spam", "Junk"\}/);
+    expect(FIND_INBOUND_SCRIPT).not.toMatch(/"Sent/);
     expect(MESSAGE_ID_SCRIPT).not.toMatch(/\b(send|delete|save|reply|activate)\b/);
     expect(parseInboundOutput(["ok", "hello@x", "INBOX", "138994"].join(FS) + "\n")).toEqual({ account: "hello@x", mailboxPath: ["INBOX"], messageId: 138994 });
     expect(parseInboundOutput("none\n")).toBeNull();
@@ -333,6 +347,28 @@ describe("draft_write (hub mcp)", () => {
     expect(mail.drafts).toHaveLength(1);
   });
 
+  it("P85: the owner's words open a new draft on a message whose drafts are all finished; an open one still refuses", async () => {
+    const repos = createRepos(db.db);
+    const mail = new FakeDraftWriter();
+    mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
+    const call = await connect(mail);
+    const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: message 42", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail" });
+    await repos.drafts.markSent(rec.draftId, { at: "2026-11-19T14:15:38Z", via: "test", messageId: "s1@x" });
+    expect(await call(args("Hi Ann, more."))).toMatchObject({ isError: true, json: { error: "already_drafted" } });
+    const words = "write to Ann again about the new prices";
+    const w = await call({ ...args("Hi Ann, the new prices."), owner_request: words });
+    expect(w).toMatchObject({ isError: false, json: { thread: "m42@example.com", ownerRequest: words, sent: false } });
+    expect(w.json.next).toMatch(/"skill":"bulk-drafts","ownerRequest":"write to Ann again about the new prices"/);
+    // Recorded with the words: a new draft beside the sent one, and the client's follow-ups are not finished as a reply.
+    const again = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: message 42", mailRef: w.json.thread, reason: "owner", skill: "bulk-drafts", ownerRequest: words });
+    expect(again).toMatchObject({ action: "created" });
+    expect(again.draftId).not.toBe(rec.draftId);
+    expect(JSON.parse((await repos.drafts.get(again.draftId))!.context ?? "{}")).toMatchObject({ ownerRequest: words });
+    // A rerun with the same words is the open draft it made: refused, it names that draft.
+    expect((await call({ ...args("Hi Ann, again."), owner_request: words })).json.message).toMatch(new RegExp(`revise it with draft=${again.draftId}`));
+    expect(await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: message 42", mailRef: w.json.thread, skill: "bulk-drafts", ownerRequest: words })).toMatchObject({ action: "updated", draftId: again.draftId });
+  });
+
   it("refuses an account outside the project, and refuses without a writer", async () => {
     expect(await (await connect(new FakeDraftWriter()))(args("Hi", "private@gmail.com"))).toMatchObject({ isError: true, json: { error: "not_this_project" } });
     expect(await (await connect(undefined))(args("Hi"))).toMatchObject({ isError: true, json: { error: "unavailable" } });
@@ -374,9 +410,10 @@ describe("draft_write (hub mcp)", () => {
     mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
     const call = await connect(mail);
     const r = await call({ draft: rec.draftId, content: "A new poem." });
-    expect(r).toMatchObject({ isError: true, json: { error: "already_sent", retry: "no" } });
+    // P85: "now" means another call, as a new reply with the owner's words, not the same revision again.
+    expect(r).toMatchObject({ isError: true, json: { error: "already_sent", retry: "now" } });
     expect(r.json.message).toMatch(/was sent \(2026-11-19 14:15\): a sent mail is not revised/);
-    expect(r.json.next).toMatch(/Do not call draft_write again/);
+    expect(r.json.message).toMatch(/newest message of the thread .*owner_request/);
     expect(mail.drafts).toHaveLength(0);
     // A refusal of the arguments says "now": another call helps once they are fixed.
     expect(await call({ content: "x" })).toMatchObject({ isError: true, json: { error: "invalid", retry: "now" } });

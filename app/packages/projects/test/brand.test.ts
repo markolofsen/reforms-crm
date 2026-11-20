@@ -77,6 +77,15 @@ describe("resolveBrand", () => {
     });
   }
 
+  it("P85: our own sent message names the client in To; the address the client knows is its From, read only then", () => {
+    const c = project("one-mailbox").config;
+    const ours = `team@${c.mail.domains[0]}`;
+    expect(resolveBrand(headersFromText(`From: Team <${ours}>\nTo: client@example.org\n`), c).wroteTo).toBe(ours);
+    // An inbound that names us in To: To wins, the From (the client's) is never ours.
+    expect(resolveBrand(headersFromText(`From: client@example.org\nTo: ${ours}\n`), c).wroteTo).toBe(ours);
+    expect(resolveBrand(headersFromText("From: client@example.org\nTo: other@example.org\n"), c).wroteTo).toBeNull();
+  });
+
   it("never a default brand: an own address in no row resolves to null with the reason", () => {
     const c = project("one-mailbox").config;
     const r = resolveBrand([{ name: "to", addresses: [`x@${c.mail.domains[0]}`] }], { ...c, brands: c.brands.filter((b) => !b.receivesAt.includes(c.mail.domains[0] ?? "")) });

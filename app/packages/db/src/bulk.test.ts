@@ -277,3 +277,33 @@ describe("a batch as a scope of the Drafts list (P27)", () => {
     expect(await repos.clients.review("p", "all", { batch: batchId, search: "bo" })).toEqual([]);
   });
 });
+
+describe("a bulk-drafts run is one batch in Drafts (P85)", () => {
+  const rec = (email: string, mailRef: string, batchKey = "bulk-2026-11-20-1200-abc") =>
+    repos.drafts.record({ project: "p", email, name: email.split("@")[0]!, subject: "Re: Hello", mailRef, skill: "bulk-drafts", ownerRequest: "write to every client about the new price list", evidence: { level: "ok", source: "observed", findings: [], context: { purpose: "price list" }, batchKey } });
+
+  it("the run's first written draft makes the batch, the rest join it, a rerun adds nobody twice", async () => {
+    const a = await rec("ann@x.example", "<a1@x>");
+    const b = await rec("bob@x.example", "<b1@x>");
+    const again = await rec("ann@x.example", "<a1@x>");
+    expect(again).toMatchObject({ action: "updated", draftId: a.draftId });
+    const list = await repos.batches.list("p");
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ name: "write to every client about the new price list", brief: "write to every client about the new price list", intent: "custom", audience: "agent", total: 2, runId: a.runId });
+    expect(list[0]!.counts.all).toBe(2);
+    expect((await repos.drafts.get(a.draftId))?.batchId).toBe(list[0]!.id);
+    expect((await repos.drafts.get(b.draftId))?.batchId).toBe(list[0]!.id);
+    // Another run is another batch; a triage record with a batchKey is no batch.
+    await rec("cy@x.example", "<c1@x>", "bulk-2026-11-21-0900-xyz");
+    await repos.drafts.record({ project: "p", email: "dee@x.example", name: "Dee", subject: "Re: Q", mailRef: "<d1@x>", skill: "triage-mail", evidence: { level: "ok", source: "observed", findings: [], batchKey: "triage-1" } });
+    expect((await repos.batches.list("p")).map((x) => x.total)).toEqual([1, 2]);
+  });
+
+  it("a finished draft with the same message is not a batch member again unless the owner's words wrote a new one", async () => {
+    const a = await rec("ann@x.example", "<a1@x>");
+    await repos.drafts.setStatus(a.draftId, "done");
+    const b = await rec("ann@x.example", "<a1@x>");
+    expect(b.action).toBe("created");
+    expect(b.draftId).not.toBe(a.draftId);
+  });
+});

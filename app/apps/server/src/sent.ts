@@ -73,15 +73,19 @@ const firstTo = (to: string): string | null => {
 
 /**
  * Which Sent messages are which drafts, by the strongest evidence first:
- *   1. `message-id`: the sent message's own Message-ID is the draft's `mailRef` or one of the Mail versions the Hub
- *      recorded for it (P65; it matches only if Mail keeps a draft's Message-ID when it sends it, which is unverified);
+ *   1. `message-id`: the sent message's own Message-ID is one of the Mail versions the Hub recorded for the draft (P65;
+ *      it matches only if Mail keeps a draft's Message-ID when it sends it, which is unverified). Never the `mailRef`:
+ *      that is the message the draft ANSWERS (decision 0031 point 2), and when it is our own earlier mail (a follow-up,
+ *      a message on the owner's initiative, P85) it sits in Sent and would mark the new draft at once;
  *   2. `thread`: it answers the thread `mailRef` names (In-Reply-To);
  *   3. `subject-recipient`: same subject (Re:/Fwd: ignored).
  * 2 and 3 also need the draft's first recipient in To or Cc and a send after the draft was made. A sent message satisfies
- * one draft only (the oldest first), so two drafts to one client are never marked by one send. Doubt leaves a draft unmarked.
+ * one draft only (the oldest first), so two drafts to one client are never marked by one send, and a message already
+ * attributed to another draft (`taken`: the Message-IDs finished drafts were marked with) is no one's. Doubt leaves a draft unmarked.
  */
-export function matchSent(drafts: Waiting[], sent: SentMessage[]): SentMatch[] {
-  const pool = [...sent].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.messageId < b.messageId ? -1 : 1));
+export function matchSent(drafts: Waiting[], sent: SentMessage[], taken: readonly string[] = []): SentMatch[] {
+  const gone = new Set(taken.map(bareId).filter(Boolean));
+  const pool = [...sent].filter((m) => !gone.has(bareId(m.messageId))).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.messageId < b.messageId ? -1 : 1));
   const queue = [...drafts].sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id - b.id));
   const used = new Set<string>();
   const done = new Set<number>();
@@ -100,7 +104,7 @@ export function matchSent(drafts: Waiting[], sent: SentMessage[]): SentMatch[] {
   };
 
   for (const d of queue) {
-    const own = new Set([bareId(d.mailRef), ...(d.versions ?? []).map(bareId)].filter(Boolean));
+    const own = new Set((d.versions ?? []).map(bareId).filter(Boolean));
     if (own.size) take(d, "message-id", (m) => own.has(m.messageId));
   }
   for (const d of queue) if (bareId(d.mailRef)) take(d, "thread", (m) => fits(d, m) && m.inReplyTo === bareId(d.mailRef));
@@ -111,7 +115,7 @@ export function matchSent(drafts: Waiting[], sent: SentMessage[]): SentMatch[] {
   return out;
 }
 
-export interface ProjectPlan { slug: string; accounts: string[]; mailbox: string; waiting: Array<DraftRow & { versions?: readonly string[] }> }
+export interface ProjectPlan { slug: string; accounts: string[]; mailbox: string; waiting: Array<DraftRow & { versions?: readonly string[] }>; taken?: readonly string[] }
 
 /** One project: read each account's Sent since the oldest waiting draft minus a day, match, mark. Errors are per account. */
 export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan): Promise<{ marked: number; errors: string[] }> {
@@ -127,7 +131,7 @@ export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan
     }
   }
   let marked = 0;
-  for (const m of matchSent(p.waiting, sent)) {
+  for (const m of matchSent(p.waiting, sent, p.taken ?? [])) {
     const d = await repos.drafts.markSent(m.draftId, { at: m.sent.date, via: m.via, messageId: m.sent.messageId });
     if (d?.status === "sent") marked++;
   }
@@ -145,7 +149,7 @@ async function plans(repos: Repos, since: string): Promise<ProjectPlan[]> {
     if (!drafts.length) continue;
     const versions = new Map<number, string[]>();
     for (const v of await repos.mailVersions.ofProject(row.slug)) if (v.draftId !== null) versions.set(v.draftId, [...(versions.get(v.draftId) ?? []), v.messageId]);
-    out.push({ slug: row.slug, accounts: c.mail.accounts, mailbox: c.mail.sentMailbox, waiting: drafts.map((d) => ({ ...d, versions: versions.get(d.id) ?? [] })) });
+    out.push({ slug: row.slug, accounts: c.mail.accounts, mailbox: c.mail.sentMailbox, waiting: drafts.map((d) => ({ ...d, versions: versions.get(d.id) ?? [] })), taken: await repos.drafts.sentMessageIds(row.slug, since) });
   }
   return out;
 }

@@ -101,6 +101,9 @@ export interface HeaderAddresses {
 /** The order the brand address is looked for in (doc 16 section 7): the forward's own headers first, `To` and `Cc` last. */
 export const BRAND_HEADER_ORDER = ["x-gm-original-to", "x-original-to", "x-forwarded-for", "x-forwarded-to", "delivered-to", "to", "cc"] as const;
 
+/** P85: read only when no recipient header names one of ours: the message is our own, and its From is the address the client knows. */
+export const OWN_MESSAGE_HEADER = "from";
+
 const ADDRESS = /[^\s<>,;:"'()[\]]+@[^\s<>,;:"'()[\]]+\.[^\s<>,;:"'()[\]]+/g;
 
 /** Every address in a header value (`Name <a@b>, c@d`, or the space-separated `X-Forwarded-For`), normalised. */
@@ -116,7 +119,7 @@ export function headersFromText(raw: string): HeaderAddresses[] {
     const i = line.indexOf(":");
     if (i <= 0) continue;
     const name = line.slice(0, i).trim().toLowerCase();
-    if ((BRAND_HEADER_ORDER as readonly string[]).includes(name)) out.push({ name, addresses: addressesIn(line.slice(i + 1)) });
+    if ((BRAND_HEADER_ORDER as readonly string[]).includes(name) || name === OWN_MESSAGE_HEADER) out.push({ name, addresses: addressesIn(line.slice(i + 1)) });
   }
   return out;
 }
@@ -135,14 +138,18 @@ export interface BrandResolution {
  * (each name's lines in order, each line's addresses in order); the first address that is the project's own and NOT one of
  * its account addresses wins; only if none, the first account address (a forward names the account in `Delivered-To`, so
  * reading it first would make every forwarded mail the account's). Step 2, `brand`: the row listing `wroteTo` exactly,
- * else the row listing its domain, else null with the reason. The From of a reply is not decided here (P58).
+ * else the row listing its domain, else null with the reason. No recipient header names one of ours, but the From is ours
+ * (our own sent message, P85): that From. The From of a reply is not decided here (P58).
  */
 export function resolveBrand(headers: readonly HeaderAddresses[], c: { mail: Own; brands: readonly Brand[] }): BrandResolution {
   const ordered: string[] = [];
   for (const name of BRAND_HEADER_ORDER) for (const h of headers) if (h.name.toLowerCase() === name) ordered.push(...h.addresses.map(normalizeAddress));
   const accounts = accountAddresses(c.mail);
   const own = ordered.filter((a) => isOwnAddress(a, c.mail));
-  const wroteTo = own.find((a) => !accounts.has(a)) ?? own.find((a) => accounts.has(a)) ?? null;
+  // P85: our own message (a new message on the owner's initiative answers our sent copy) names the client in its
+  // recipients and us in From; the address the client knows is that From.
+  const ownFrom = own.length ? null : (headers.filter((h) => h.name.toLowerCase() === OWN_MESSAGE_HEADER).flatMap((h) => h.addresses.map(normalizeAddress)).find((a) => isOwnAddress(a, c.mail)) ?? null);
+  const wroteTo = own.find((a) => !accounts.has(a)) ?? own.find((a) => accounts.has(a)) ?? ownFrom;
   if (!wroteTo) return { wroteTo: null, brand: null, via: "none", reason: ordered.length ? `no recipient header names an address of this project (${[...new Set(ordered)].slice(0, 3).join(", ")})` : "the message has no recipient headers" };
   if (c.brands.length === 0) return { wroteTo, brand: null, via: "none", reason: "the project has no ## Brands table" };
   const exact = c.brands.find((b) => b.receivesAt.includes(wroteTo));

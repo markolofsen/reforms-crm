@@ -61,6 +61,8 @@ export const recordInput = z
     context: contextSchema.optional(),
     /** P47: this draft is step `step` of enrollment `enrollmentId` (from `hub sequences due --json`). Only skill `sequence-drafts` sends it. */
     sequence: z.object({ enrollmentId: z.number().int().positive(), step: z.number().int().positive() }).strict().optional(),
+    /** P85: the owner's own words in this session that asked for this message (verbatim, never the agent's): a new draft beside a finished one of the same message; not a reply of the client. */
+    ownerRequest: text(1000).nullish(),
   })
   .strict();
 
@@ -267,6 +269,7 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
     mailClass: v.mailClass ?? null,
     runId: v.runId ?? null,
     ...(v.sequence ? { sequence: v.sequence } : {}),
+    ...(v.ownerRequest ? { ownerRequest: v.ownerRequest } : {}),
   };
 
   let required: ContextMode | null = null;

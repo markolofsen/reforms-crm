@@ -56,19 +56,22 @@ export const WRITE_ADVICE: Readonly<Record<string, RetryAdvice>> = {
   mail_not_allowed: { retry: "after_owner", next: "Tell the owner in one line: System Settings ▸ Privacy & Security ▸ Automation, allow the Hub's process to control Mail; then call draft_write once more." },
   content_refused: { retry: "no", next: `Another call, with this text or another, gives the same result. ${NO_RETRY} Tell the owner in one line: the Hub's Mail writer refused the reply, nothing was saved, it is a Hub fault (in the session log), not a macOS permission.` },
   mail_slow: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that Mail is slow and the new text shows on the card when Mail saves it.` },
-  already_sent: { retry: "no", next: `${NO_RETRY} Tell the owner in one line what the message says; never write the text as a new reply to the same message.` },
-  already_drafted: { retry: "no", next: "Revise the draft the message names, with draft = its id, when the owner asks." },
+  already_sent: { retry: "now", next: "A sent draft is not revised. When the owner asked for a new message: one draft_write as a new reply to the newest message of the client's thread (our sent copy in Sent, or the client's newer one), with owner_request = his words; else tell the owner in one line what the message says." },
+  already_drafted: { retry: "no", next: "Revise the draft the message names, with draft = its id, when the owner asks. A finished draft and the owner asked for a new message: reply to the newest message of the thread with owner_request = his words." },
+  no_recipient: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that the message answered is ours and names nobody else; reply to the client's own newest message instead.` },
   no_message: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that the client's message is no longer in Mail.` },
   no_account: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that Mail has no such account (Settings ▸ Mail).` },
   mail_error: { retry: "no", next: `${NO_RETRY} Tell the owner in one line what Mail answered.` },
 };
 /**
- * P83 verdict 2: a sent draft is not revised (the agent's draft_write, the admin's Save and Restore), and its text is
- * not written as a second draft of the message it answered: Sent detection and the send door match a draft by that
- * message, so a second one would read as sent at once.
+ * P83 verdict 2: a sent draft is not revised (the agent's draft_write, the admin's Save and Restore). P85: a new message
+ * to the same client, on the owner's words, is a new reply to the newest message of the thread (our sent copy, or the
+ * client's newer one), with `owner_request`: its own draft, told apart from the sent one by Sent detection.
  */
-export const alreadySentText = (id: number, sentAt: string | null): string =>
-  `Draft ${id} was sent${sentAt ? ` (${sentAt.slice(0, 16).replace("T", " ")})` : ""}: a sent mail is not revised, and the Hub keeps one draft per message it answers. The next reply answers the client's next message and gets its own draft; a nudge now is a follow-up the owner sends from Mail. Nothing was written.`;
+export const alreadySentText = (id: number, sentAt: string | null, reader: "agent" | "person" = "agent"): string =>
+  reader === "person"
+    ? `Draft ${id} was sent${sentAt ? ` (${sentAt.slice(0, 16).replace("T", " ")})` : ""}: a sent mail is not revised. To write to this client again, ask the agent in the dock: it drafts a new message in the same thread, for you to review and send. Nothing was written.`
+    : `Draft ${id} was sent${sentAt ? ` (${sentAt.slice(0, 16).replace("T", " ")})` : ""}: a sent mail is not revised. A new message to this client, when the owner asked for one: draft_write as a new reply to the newest message of the thread (our sent copy, in Sent, or the client's newer message), with owner_request = his words from this session; it gets its own draft. Nothing was written.`;
 
 export const adviceOf = (code: string): RetryAdvice => WRITE_ADVICE[code] ?? { retry: "no", next: NO_RETRY };
 
@@ -151,7 +154,7 @@ export interface InboundMessage {
 
 export interface DraftWriter {
   writeReply(input: ReplyDraftInput): Promise<ReplyDraftResult>;
-  /** The message with this Message-ID in one of these accounts (INBOX first, then the other mailboxes but Drafts, Sent, Trash and Spam), or null. */
+  /** The message with this Message-ID in one of these accounts (INBOX first, then the other mailboxes, Sent included (P85), but Drafts, Trash and Spam), or null. */
   findInbound(accounts: readonly string[], messageId: string): Promise<InboundMessage | null>;
   /**
    * The raw header block of one known message (P60): what `resolveBrand` reads to learn the address the client wrote to.
@@ -225,6 +228,25 @@ export const WRITE_REPLY_SCRIPT = `on run argv
     end try
     set tail to ""
     if addQuote then set tail to linefeed & linefeed & "On " & ((date sent of src) as string) & ", " & (sender of src) & " wrote:" & linefeed & my quoteOf(origText)
+    -- P85: is the answered message our own (its sender one of this account's addresses)? Then its recipients, read now,
+    -- before any reply exists, are who the reply goes to.
+    set srcFrom to ""
+    try
+      set srcFrom to (sender of src) as text
+    end try
+    set ownMsg to false
+    repeat with a in accAddrs
+      if srcFrom contains (contents of a) then set ownMsg to true
+    end repeat
+    set toList to {}
+    set ccList to {}
+    if ownMsg then
+      set srcTo to address of every to recipient of src
+      set srcCc to address of every cc recipient of src
+      set toList to my othersOf(srcTo, accAddrs)
+      set ccList to my othersOf(srcCc, accAddrs)
+      if (count of toList) is 0 then return "error" & FS & "no_recipient" & FS & "The message answered is our own and names no recipient outside this account: there is nobody to write to. Nothing was written."
+    end if
     -- Every draft that exists before the reply: whatever appears after it is this write's (one bulk read).
     set priorIds to id of every message of drafts mailbox
     set r to reply src opening window false
@@ -250,6 +272,21 @@ export const WRITE_REPLY_SCRIPT = `on run argv
       else
         set sender of r to fullName & " <" & (item 1 of accAddrs) & ">"
       end if
+    end if
+    -- P85: a reply to our own message (the owner writes again before the client answered) goes to that message's own
+    -- recipients, minus our addresses, as the Hub's door sets them (Mail's own pick for a reply to us is not measured).
+    -- Set before the text, as the door does.
+    if ownMsg then
+      delete every to recipient of r
+      delete every cc recipient of r
+      tell r
+        repeat with x in toList
+          make new to recipient at end of to recipients with properties {address:(contents of x)}
+        end repeat
+        repeat with x in ccList
+          make new cc recipient at end of cc recipients with properties {address:(contents of x)}
+        end repeat
+      end tell
     end if
     set content of r to (theBody & tail)
     delay 0.3
@@ -369,6 +406,22 @@ on threadDrafts(subj, accNames, thread, skipIds)
   return out
 end threadDrafts
 
+-- The addresses of a recipient list that are not one of ours (lowercase compare).
+on othersOf(addrList, own)
+  set out to {}
+  repeat with x in addrList
+    set ax to (contents of x) as text
+    set mine to false
+    repeat with o in own
+      ignoring case
+        if ax is ((contents of o) as text) then set mine to true
+      end ignoring
+    end repeat
+    if not mine and out does not contain ax then set end of out to ax
+  end repeat
+  return out
+end othersOf
+
 on quoteOf(t)
   set out to ""
   set n to 0
@@ -486,7 +539,8 @@ end parts`;
 export const FIND_INBOUND_SCRIPT = `on run argv
   set FS to (ASCII character 31)
   set mid to item 1 of argv
-  set skipNames to {"Drafts", "Sent", "Sent Mail", "Sent Messages", "Trash", "Deleted Messages", "Bin", "Spam", "Junk"}
+  -- P85: Sent is looked in too (a message on the owner's initiative answers our own sent copy); never Drafts, Trash, Spam.
+  set skipNames to {"Drafts", "Trash", "Deleted Messages", "Bin", "Spam", "Junk"}
   if application "Mail" is not running then return "error" & FS & "mail_not_running" & FS & "Mail is not running: open Mail (it may stay in the background), then write the draft again."
   tell application "Mail"
     repeat with i from 2 to (count of argv)

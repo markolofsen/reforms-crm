@@ -47,8 +47,9 @@ export function draftRoutes(repos: Repos, sender?: SenderOptions) {
         if (f?.mail) {
           hash = mailHash(f.mail);
           if (supplied && supplied !== hash) return c.json({ error: "The draft changed in Mail since you read it: read it again.", code: "wrong_state" as const }, 409);
-        } else if (own && own.batchId === null) {
-          // Fail closed: a Mail draft whose text cannot be read has no hash, so it cannot be Checked (a batch draft has no Mail draft).
+        } else if (own) {
+          // Fail closed: a Mail draft whose text cannot be read has no hash, so it cannot be Checked. A batch draft too (P85:
+          // a campaign's drafts are Mail drafts like any other; the P9 template drafts without one are gone).
           return c.json({ error: `Mail could not be read, so this draft cannot be checked: ${f?.reason ?? "no draft found"}.`, code: "wrong_state" as const }, 409);
         }
       }

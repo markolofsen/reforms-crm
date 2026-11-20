@@ -75,14 +75,44 @@ describe("Sent detection through Apple Mail", () => {
     expect(SENT_SCRIPT).not.toMatch(/content of m\b/);
   });
 
-  it("marks a draft by its Message-ID, and also by the thread it answers", async () => {
+  it("marks a draft by the thread it answers; its mailRef is the answered message, never its own Message-ID (P85)", async () => {
     await register();
-    const byId = await record("Re: One", "<draft-own@x>");
     const byThread = await repos.drafts.record({ project: "p", email: "bob@example.test", name: "Bob", subject: "Re: Two", mailRef: "<bob-thread@x>" });
-    const mail = fakeMail({ sent: { Google: [sentRecord({ id: "<draft-own@x>", subject: "Changed" }), sentRecord({ id: "<s2@x>", to: "bob@example.test", subject: "Changed too", irt: "<bob-thread@x>" })] } });
+    // A Sent message whose own Message-ID is a draft's mailRef is the message that draft answers (ours), not the draft.
+    const answersOurs = await record("Re: One", "<our-earlier@x>");
+    const mail = fakeMail({ sent: { Google: [sentRecord({ id: "<our-earlier@x>", subject: "Re: Other" }), sentRecord({ id: "<s2@x>", to: "bob@example.test", subject: "Changed too", irt: "<bob-thread@x>" })] } });
     await reconciler(mail.osa).tick();
-    expect(await statusOf(byId.draftId)).toMatchObject({ status: "sent", sentVia: "message-id" });
     expect(await statusOf(byThread.draftId)).toMatchObject({ status: "sent", sentVia: "thread" });
+    expect((await statusOf(answersOurs.draftId)).status).toBe("ready");
+  });
+
+  it("P85: a second draft to the client is never marked by the first one's send", async () => {
+    await register();
+    // A answered the client's <t1@x> and was sent as <sentA@x> (In-Reply-To t1).
+    const a = await record("Re: Hello", "<t1@x>");
+    const sentAt = new Date(Date.now() - 3_600_000);
+    await repos.drafts.markSent(a.draftId, { at: sentAt.toISOString(), via: "thread", messageId: "sentA@x" });
+    // B, on the owner's words, answers the newest message of the thread: our sent copy. C, on his words too, answers t1 again.
+    const b = await repos.drafts.record({ project: "p", email: ANNA, name: "Anna", subject: "Re: Hello", mailRef: "<sentA@x>", skill: "bulk-drafts", ownerRequest: "write to Anna again" });
+    const sentCopy = sentRecord({ id: "<sentA@x>", irt: "<t1@x>", at: sentAt });
+    const mail = fakeMail({ sent: { Google: [sentCopy] } });
+    await reconciler(mail.osa).tick();
+    expect((await statusOf(b.draftId)).status).toBe("ready");
+    await repos.drafts.setStatus(b.draftId, "skipped");
+    const c = await repos.drafts.record({ project: "p", email: ANNA, name: "Anna", subject: "Re: Hello", mailRef: "<t1@x>", skill: "bulk-drafts", ownerRequest: "write to Anna again" });
+    await reconciler(mail.osa).tick();
+    expect((await statusOf(c.draftId)).status).toBe("ready");
+    // C's own send (a new Sent message answering t1) marks C, and only C.
+    const own = fakeMail({ sent: { Google: [sentCopy, sentRecord({ id: "<sentC@x>", irt: "<t1@x>", at: new Date(Date.now() + 120_000) })] } });
+    await reconciler(own.osa).tick();
+    expect(await statusOf(c.draftId)).toMatchObject({ status: "sent", sentVia: "thread", sentMessageId: "sentc@x" });
+  });
+
+  it("matchSent: a Sent message already attributed to a draft is no one else's", () => {
+    const d = { id: 2, subject: "Re: Hello", toAddr: ANNA, mailRef: "<t1@x>", createdAt: new Date(Date.now() - 60_000).toISOString(), versions: [] };
+    const m = { messageId: "sentA@x", inReplyTo: "t1@x", date: new Date().toISOString(), to: [ANNA], cc: [], subject: "Re: Hello", account: "Google" };
+    expect(matchSent([d], [m])).toHaveLength(1);
+    expect(matchSent([d], [m], ["<sentA@x>"])).toEqual([]);
   });
 
   it("never marks someone else's mail, another subject, or a send from before the draft", async () => {

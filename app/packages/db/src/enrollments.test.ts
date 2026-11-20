@@ -139,6 +139,12 @@ describe("a reply finishes the follow-ups in the record's own transaction", () =
     expect((await repos.enrollments.get(P, b.id))?.finishReason).toBe("excluded");
     expect((await repos.enrollments.get(P, c.id))?.state).toBe("active");
   });
+  it("P85: a message on the owner's words (ownerRequest) is not a reply: the follow-ups stay active", async () => {
+    const e = await enrol(await quiet("a@x.example"));
+    const r = await repos.drafts.record({ project: P, email: "a@x.example", name: "a", subject: "Re: thanks", mailRef: "<our-last>", skill: "bulk-drafts", ownerRequest: "write to him about the new prices" });
+    expect(r.followUps).toBeUndefined();
+    expect((await repos.enrollments.get(P, e.id))?.state).toBe("active");
+  });
   it("the sequence skill's own records are not a reply; Do not contact finishes as opted out", async () => {
     const e = await enrol(await quiet("a@x.example"));
     await repos.inbox.record({ project: P, email: "a@x.example", name: "a", action: "skipped", skill: "sequence-drafts" });

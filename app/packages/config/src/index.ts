@@ -79,6 +79,9 @@ export type EnrollmentView = (typeof ENROLLMENT_VIEWS)[number];
 /** The skill that drafts the due steps. A record by any OTHER skill for an enrolled client is a reply (P47 design). */
 export const SEQUENCE_SKILL = "sequence-drafts";
 
+/** P85: the skill that writes on the owner's purpose to one client or many. Its records of one run (`batchKey`) are one batch in Drafts. */
+export const BULK_SKILL = "bulk-drafts";
+
 export const MARKS = ["follow_up", "do_not_contact", "vip"] as const;
 export type Mark = (typeof MARKS)[number];
 export const MARK_LABELS: Record<Mark, string> = {

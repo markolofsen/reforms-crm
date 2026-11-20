@@ -22,6 +22,7 @@ export const SAY = [
   { skill: "owner-inbox", example: "what do you need from me on X", what: "One ranked list of what waits for you, each with what to say next" },
   { skill: "status", example: "does everything work in X", what: "Runs the project's checks and says what to fix; changes nothing" },
   { skill: "bulk-drafts", example: "write a follow-up to the clients of X: <who and why>", what: "The agent picks the clients from your words and drafts one mail each" },
+  { skill: "bulk-drafts", example: "write to <client> of X again: <what about>", what: "A new message on your initiative in the client's latest thread, even when they have not answered; you send it" },
   { skill: "sequence-drafts", example: "prepare the follow-ups of X", what: "Drafts the follow-ups that are due, after checking each client again" },
   { skill: "review-sent", example: "look at what I sent for X", what: "Compares what you sent with the drafts and suggests tone and knowledge changes" },
   { skill: "calendar", example: "what do I have this week on X", what: "Reads the project's calendar; a hold is made only after your yes" },

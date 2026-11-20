@@ -1,9 +1,9 @@
 import { and, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
-import { type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type FinishReason, MARKS, SEQUENCE_SKILL, SETTABLE_STATUSES, TONES, type NotionRef, type DraftStatus, type Mark, type SafetyKind, type SettableStatus, type Tone, type ToneBodies } from "@hub/config";
+import { BULK_SKILL, type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type FinishReason, MARKS, SEQUENCE_SKILL, SETTABLE_STATUSES, TONES, type NotionRef, type DraftStatus, type Mark, type SafetyKind, type SettableStatus, type Tone, type ToneBodies } from "@hub/config";
 import type { Db } from "../client";
 import { write, type WriteTx } from "../tx";
 import { RepoError } from "../errors";
-import { clients, drafts, enrollments, mailVersions, marks } from "../schema";
+import { batches, clients, drafts, enrollments, mailVersions, marks } from "../schema";
 import { blocksChecked, isSafetyKind } from "../safety";
 import { loadSafety, logDraftEvent, nowIso, parseJson, type DraftRow } from "./bulk-shared";
 import { touchClient } from "./clients";
@@ -23,8 +23,14 @@ export type RecordDraftInput = {
   email: string;
   name: string;
   subject: string;
-  /** Message-ID of the thread, or the id of the draft the agent made in Mail: the key of re-runs and of Sent matching. */
+  /** Message-ID of the message the draft answers (decision 0031 point 2; ours or theirs, P85): the key of re-runs and of the thread Sent detection reads. */
   mailRef?: string | null;
+  /**
+   * P85: the owner's own words in the session that asked for this message (never the agent's). With them a message whose
+   * drafts are all finished gets a NEW draft (not `unchanged`), and the record is the owner writing, so the client's
+   * follow-ups are not finished as `replied`. Stored in the draft's context (`ownerRequest`) and its Activity line.
+   */
+  ownerRequest?: string | null;
   to?: string | null;
   cc?: string | null;
   reason?: string | null;
@@ -69,6 +75,37 @@ function followStatus(tx: WriteTx, before: DraftStatus, after: DraftRow): void {
 }
 
 const now = sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`;
+
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** The evidence block's `context`, with the owner's words beside it (P85). Null when there is neither. */
+function contextJson(context: unknown, ownerRequest: string | null): string | null {
+  if (!ownerRequest) return context === undefined ? null : JSON.stringify(context);
+  return JSON.stringify({ ...(isRecord(context) ? context : {}), ownerRequest });
+}
+
+const purposeOf = (context: unknown): string | null => (isRecord(context) && typeof context.purpose === "string" ? context.purpose.trim() || null : null);
+
+/**
+ * P85: the batch of one `bulk-drafts` run (its `agent_runs` row, joined by `batchKey`): made by the run's first written
+ * draft, joined by the rest; the client is added to its list once. Name and brief are the owner's words (or the run's
+ * purpose). This is the only writer of `batches` (decision 0025: a batch is the agent's, the admin only views it).
+ */
+function joinBatch(tx: WriteTx, o: { project: string; runId: number; clientId: number; brief: string | null; batchKey: string; at: string }): number {
+  const found = tx.select().from(batches).where(and(eq(batches.project, o.project), eq(batches.runId, o.runId))).get();
+  const row = found ?? tx.insert(batches).values({ project: o.project, name: batchName(o.brief, o.batchKey), intent: "custom", status: "ready", audience: "agent", clientIds: "[]", total: 0, excluded: "{}", brief: o.brief, runId: o.runId, createdAt: o.at }).returning().get();
+  const ids = parseJson<number[]>(row.clientIds, []);
+  if (!ids.includes(o.clientId)) {
+    ids.push(o.clientId);
+    tx.update(batches).set({ clientIds: JSON.stringify(ids), total: ids.length }).where(eq(batches.id, row.id)).run();
+  }
+  return row.id;
+}
+
+const batchName = (brief: string | null, key: string): string => {
+  const line = (brief ?? "").replace(/\s+/g, " ").trim();
+  return line ? (line.length > 60 ? `${line.slice(0, 59)}…` : line) : key;
+};
 
 const isUnique = (e: unknown) => e instanceof Error && /UNIQUE constraint/i.test(e.message);
 
@@ -203,6 +240,7 @@ export function draftsRepo(db: Db) {
         const log = (kind: "draft_created" | "decision", summary: string, detail: Record<string, unknown>) =>
           insertEvent(tx, { project: input.project, runId, at, kind, summary: `${summary}: ${input.name || input.email}`, detail: JSON.stringify(detail), clientId: client.id, tool: null });
 
+        const ownerRequest = input.ownerRequest?.trim() || null;
         // P47. A step draft must be the open step of an active enrollment of this client. Any other record (but the sequence
         // skill's own) is the client writing back: their follow-ups finish here, in this transaction, and the open step draft is skipped.
         const seq = input.sequence ?? null;
@@ -212,7 +250,8 @@ export function draftsRepo(db: Db) {
           if (!e || e.project !== input.project || e.clientId !== client.id) throw new RepoError("not_found", "No such enrollment for this client in this project");
           if (e.state !== "active") throw new RepoError("wrong_state", `The follow-ups of this client are ${e.state}${e.finishReason ? ` (${e.finishReason})` : ""}: no step is due`);
           if (e.step !== seq.step) throw new RepoError("wrong_state", `Step ${seq.step} is not the open step (${e.step})`);
-        } else if (input.skill !== SEQUENCE_SKILL) {
+        } else if (input.skill !== SEQUENCE_SKILL && !ownerRequest) {
+          // P85: a message on the owner's initiative is not the client writing back; their follow-ups stay as they are.
           followUps = onClientWrote(tx, { project: input.project, clientId: client.id, reason: (input.marks ?? []).includes("do_not_contact") ? "opted_out" : "replied", lastInboundAt: input.lastContactAt ?? null, at });
         }
         const stopped = followUps ? { followUps } : {};
@@ -238,31 +277,39 @@ export function draftsRepo(db: Db) {
                 evidence: input.evidence.level,
                 evidenceSource: input.evidence.source,
                 evidenceFindings: JSON.stringify(input.evidence.findings),
-                context: input.evidence.context === undefined ? null : JSON.stringify(input.evidence.context),
+                context: contextJson(input.evidence.context, ownerRequest),
                 similarTo: input.evidence.similarTo ?? null,
                 fingerprint: input.evidence.fingerprint?.length ? JSON.stringify(input.evidence.fingerprint) : null,
                 batchKey: input.evidence.batchKey ?? null,
               }
-            : {}),
+            : ownerRequest
+              ? { context: contextJson(undefined, ownerRequest) }
+              : {}),
         };
+        // P85: a campaign (`bulk-drafts`, one `batchKey`) is one batch in Drafts; joined only by a draft that is written.
+        const batchKey = input.evidence?.batchKey?.trim() || null;
+        const inBatch = (): { batchId?: number } => (input.skill === BULK_SKILL && batchKey ? { batchId: joinBatch(tx, { project: input.project, runId, clientId: client.id, brief: ownerRequest ?? purposeOf(input.evidence?.context), batchKey, at }) } : {});
         const flagged = input.injectionSuspected === true;
         const existing = tx.select().from(drafts).where(eq(drafts.clientId, client.id)).all();
         // A follow-up step answers our own earlier message, so its mailRef can equal a finished draft's: a rerun of a step is the same step.
         // The same Message-ID with or without angle brackets (draft_write returns it bare, P52) is the same message.
-        const sameRef = mailRef == null ? undefined : existing.find((d) => bareRef(d.mailRef) === bareRef(mailRef) && (!seq || (d.enrollmentId === seq.enrollmentId && d.sequenceStep === seq.step)));
+        // P85: a message can have a finished draft and, on the owner's words, an open one; the open one is the rerun's.
         const open = existing.find((d) => d.status === "ready" || d.status === "hold");
+        const matches = mailRef == null ? [] : existing.filter((d) => bareRef(d.mailRef) === bareRef(mailRef) && (!seq || (d.enrollmentId === seq.enrollmentId && d.sequenceStep === seq.step)));
+        const sameRef = matches.find((d) => d === open) ?? matches[0];
 
         // P65: the Mail versions `draft_write` saved for this thread before this record become this draft's.
         const linkVersions = (draftId: number) => {
           if (mailRef) tx.update(mailVersions).set({ draftId }).where(and(eq(mailVersions.project, input.project), eq(mailVersions.mailRef, bareRef(mailRef)), isNull(mailVersions.draftId))).run();
         };
-        if (sameRef && sameRef !== open) {
-          // Finished (done, sent or skipped) and the same message: a re-run must not bring it back.
+        if (sameRef && sameRef !== open && !ownerRequest) {
+          // Finished (done, sent or skipped) and the same message: a re-run must not bring it back. The owner's own words
+          // (P85) ask for a new message, so they record a new draft beside the finished one.
           return { clientId: client.id, draftId: sameRef.id, runId, action: "unchanged" as const, ...stopped };
         }
         if (open && sameRef === open) {
           // A revision of the same draft (P51): new text, so "I read the checks" no longer holds (decision 0013).
-          tx.update(drafts).set({ ...fields, ...(flagged ? { injectionSuspected: true } : {}), checked: false, checkedHash: null, updatedAt: now }).where(eq(drafts.id, open.id)).run();
+          tx.update(drafts).set({ ...fields, ...inBatch(), ...(flagged ? { injectionSuspected: true } : {}), checked: false, checkedHash: null, updatedAt: now }).where(eq(drafts.id, open.id)).run();
           log("draft_created", "Draft updated", { draftId: open.id, action: "update", skill: input.skill ?? null, mailRef });
           linkVersions(open.id);
           return { clientId: client.id, draftId: open.id, runId, action: "updated" as const, ...stopped };
@@ -274,10 +321,10 @@ export function draftsRepo(db: Db) {
         }
         const d = tx
           .insert(drafts)
-          .values({ project: input.project, clientId: client.id, runId, batchId: null, ...fields, injectionSuspected: flagged, status: "ready", ...(seq ? { enrollmentId: seq.enrollmentId, sequenceStep: seq.step } : {}) })
+          .values({ project: input.project, clientId: client.id, runId, batchId: null, ...fields, ...inBatch(), injectionSuspected: flagged, status: "ready", ...(seq ? { enrollmentId: seq.enrollmentId, sequenceStep: seq.step } : {}) })
           .returning({ id: drafts.id })
           .get();
-        log("draft_created", "Draft recorded", { draftId: d.id, action: "create", skill: input.skill ?? null, mailRef });
+        log("draft_created", "Draft recorded", { draftId: d.id, action: "create", skill: input.skill ?? null, mailRef, ...(ownerRequest ? { ownerRequest } : {}) });
         linkVersions(d.id);
         return { clientId: client.id, draftId: d.id, runId, action: open ? ("replaced" as const) : ("created" as const), ...stopped };
       });
@@ -313,6 +360,20 @@ export function draftsRepo(db: Db) {
         .from(drafts)
         .where(and(eq(drafts.project, project), inArray(drafts.status, ["ready", "hold", "done"]), gte(drafts.createdAt, since)))
         .all();
+    },
+
+    /**
+     * P85: the Sent messages already attributed to a draft of the project (the Message-ID a sent draft was marked with),
+     * sent since `since`. Sent detection never gives one of them to another draft.
+     */
+    async sentMessageIds(project: string, since: string): Promise<string[]> {
+      return db
+        .select({ id: drafts.sentMessageId })
+        .from(drafts)
+        .where(and(eq(drafts.project, project), eq(drafts.status, "sent"), gte(drafts.sentAt, since)))
+        .all()
+        .map((r) => r.id ?? "")
+        .filter(Boolean);
     },
 
     /** Drafts of the project by status, every status present (0 when none). Reads the `drafts_project_status` index; the Overview's one count. */
