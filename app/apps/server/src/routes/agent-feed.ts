@@ -6,9 +6,9 @@ import type { LogStore } from "@hub/log/store";
 import { notFound } from "../http";
 
 /**
- * `GET /api/projects/:slug/agent-feed` (P59): the last five things the agent did in the project, the tone of each turn that
- * ended, and whether it waits on the owner, read from the tail of the session log (`@hub/log/feed`, labels computed there).
- * Read only, behind the general guard (loopback Host and Origin); the reply's one text field is the label. The live topic
+ * `GET /api/projects/:slug/agent-feed` (P59): the tone of each turn that ended and whether the agent waits on the owner,
+ * read from the tail of the session log (`@hub/log/feed`). Since P73 no row or label: the reply has no text field.
+ * Read only, behind the general guard (loopback Host and Origin). The live topic
  * `agent-log` says when to read it again. Without a log store the route is 404.
  */
 export function agentFeedRoutes(repos: Repos, store: LogStore | undefined, now: () => Date) {
