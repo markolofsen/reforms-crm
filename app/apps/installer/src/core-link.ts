@@ -46,7 +46,7 @@ async function isCoreCheckout(ctx: Ctx, dir: string): Promise<string | undefined
 async function recordsCoreSubmodule(ctx: Ctx): Promise<string | undefined> {
   const r = await git(ctx, ["ls-files", "--stage", "--", "core"]);
   if (r.code !== 0) return `${ctx.paths.home} is not a git repository`;
-  if (!/^160000 /m.test(r.stdout)) return `${ctx.paths.home} does not record core as a submodule (\`hub init\` makes an instance that does)`;
+  if (!/^160000 /m.test(r.stdout)) return `${ctx.paths.home} does not record core as a submodule (\`hub new-instance\` makes an instance that does)`;
   return undefined;
 }
 

@@ -142,6 +142,18 @@
    "type": "date",
    "writer": "CRM"
   },
+  "Last sent at": {
+   "type": "date",
+   "writer": "Hub",
+   "optional": true,
+   "note": "Description: \"Written by the Hub when a reply to this client is sent (its send button or Sent detection). Do not edit.\" With Last sent by: who of the team last wrote to the client (P89, decision 0043). Not Last outbound, which is the CRM sync's."
+  },
+  "Last sent by": {
+   "type": "text",
+   "writer": "Hub",
+   "optional": true,
+   "note": "Description: \"Written by the Hub: the name of the team member whose Hub sent the last reply (their setup name). Do not edit.\" Project setting notion.stamp_sends (on by default) switches the write (P89)."
+  },
   "Synced at": {
    "type": "date",
    "writer": "CRM"

@@ -9,7 +9,7 @@ Every property of every database the Notion CRM deploys, with its type, who writ
 ## Databases
 
 - [Business contacts](#business-contacts) (`business-contacts`, 18 fields)
-- [Clients](#clients) (`clients`, 42 fields)
+- [Clients](#clients) (`clients`, 44 fields)
 - [Deals](#deals) (`deals`, 45 fields)
 - [Documents](#documents) (`documents`, 18 fields)
 - [Expenses](#expenses) (`expenses`, 19 fields)
@@ -72,6 +72,8 @@ Pack file: `schema/clients.json`.
 | Last inbound | date | CRM |  |
 | Last outbound | date | CRM |  |
 | Last two-way contact | date | CRM |  |
+| Last sent at | date | Hub | Description: "Written by the Hub when a reply to this client is sent (its send button or Sent detection). Do not edit." With Last sent by: who of the team last wrote to the client (P89, decision 0043). Not Last outbound, which is the CRM sync's. Flags: optional. |
+| Last sent by | text | Hub | Description: "Written by the Hub: the name of the team member whose Hub sent the last reply (their setup name). Do not edit." Project setting notion.stamp_sends (on by default) switches the write (P89). Flags: optional. |
 | Synced at | date | CRM |  |
 | Created | created_time | CRM |  |
 | CRM id | text | CRM |  |

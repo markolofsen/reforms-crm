@@ -8,13 +8,25 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 
 - [ ] **Node.js 22.20 or newer** (`tools.node`)
   - Proves: `node --version` reports 22.20 or newer.
-  - You: Install Node 22.20 or newer, for example with nvm: `nvm install 22`. Open a new terminal and run `node --version`.
+  - You: Install Node 22.20 or newer: with nvm `nvm install 22 && nvm alias default 22`, else with Homebrew `brew install node`. Open a new terminal and run `node --version`.
 - [ ] **pnpm** (`tools.pnpm`)
   - Proves: `pnpm --version` answers.
   - You: Run `corepack enable pnpm` (ships with Node) or `npm i -g pnpm`.
 - [ ] **Claude Code CLI** (`tools.claude`)
   - Proves: `claude --version` answers.
   - You: Install Claude Code from https://claude.com/claude-code and sign in once interactively with `claude`.
+- [ ] **git** (`tools.git`)
+  - Proves: `git --version` answers.
+  - You: Run `xcode-select --install` (Apple's command line tools bring git), or `brew install git`.
+- [ ] **GitHub CLI (optional)** (`tools.gh`)
+  - Proves: `gh --version` answers. Missing is a WARN, never a FAIL.
+  - You: `brew install gh`, then `gh auth login` with your own GitHub account.
+- [ ] **At least 5 GB free** (`tools.disk`)
+  - Proves: `df -k` on the instance folder reports 5 GB or more available. Less is a WARN with the numbers.
+  - You: Free space (empty the Trash, delete old node_modules, check `sysctl vm.swapusage`), then rerun ./run.sh setup.
+- [ ] **The instance folder is not in a synced cloud folder** (`files.unsynced`)
+  - Proves: The instance folder is not under ~/Library/CloudStorage, ~/Library/Mobile Documents, ~/Google Drive, ~/My Drive, ~/Dropbox, ~/OneDrive or a Google Drive volume.
+  - You: Clone the instance again into a local folder: `git clone --recurse-submodules <repo> ~/workspace/hub-<name>`, then `./run.sh setup` there; delete the synced copy once nothing local is left in it.
 ## Files
 
 - [ ] **Working folders** (`files.dirs`)

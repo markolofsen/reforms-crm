@@ -293,6 +293,9 @@ importers:
       '@hub/mail-filters':
         specifier: workspace:*
         version: link:../../packages/mail-filters
+      '@hub/notion':
+        specifier: workspace:*
+        version: link:../../packages/notion
       '@hub/projects':
         specifier: workspace:*
         version: link:../../packages/projects

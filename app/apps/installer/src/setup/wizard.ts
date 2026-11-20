@@ -1,11 +1,14 @@
 import { fileState, notionShapeProblem, NOTION_FILE, readValue, redact, storeToken, TELEGRAM_FILE, type Verdict } from "@hub/connections";
-import { chmodSync, mkdirSync, readFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
+import { loadProject } from "@hub/projects";
 import path from "node:path";
 import { listProjects, type Ctx } from "../context";
 import { doctor, install, table } from "../runner";
 import type { Step, StepReport } from "../types";
 import type { Validators } from "./clients";
 import type { Ui } from "./ui";
+import { personalChecklist, personalText, type PersonalFacts, type PersonalItem } from "./personal";
+import { personProblem, projectsOf, readPerson, situationOf, writePerson, type Situation } from "./situation";
 
 export type StageStatus = "ok" | "stored" | "unverified" | "skipped" | "missing" | "invalid";
 export interface StageResult { id: string; title: string; required: boolean; status: StageStatus; detail: string }
@@ -16,13 +19,43 @@ export interface SetupDeps {
   /** Environment for --non-interactive (tests pass a plain object). */
   env: Record<string, string | undefined>;
   steps: Step[];
+  /** P89: Mail's account names (mail-mcp `list_accounts`); undefined when Mail cannot be asked. Absent: not asked. */
+  mailAccounts?: () => Promise<string[] | undefined>;
+  /** P89: ask the person's name once in a terminal when it is not set (the CLI sets it; tests of other stages leave it off). */
+  askPerson?: boolean;
 }
 export interface SetupOptions {
+  /** P89 verdict 7: the person's name for `state/person.json` (`--person`, or HUB_PERSON). */
+  person?: string;
   nonInteractive: boolean;
   /** Off by default (manual-first, decision 0006): the Notion and Telegram tokens. Mail has no key (decision 0026). The caller passes the matching `deps.steps`. */
   automation?: boolean;
 }
-export interface SetupOutcome { stages: StageResult[]; reports: StepReport[]; ownerOnly: string[]; exitCode: number }
+export interface SetupOutcome { stages: StageResult[]; reports: StepReport[]; ownerOnly: string[]; exitCode: number; situation?: Situation; personal?: PersonalItem[] }
+
+/** P89: the facts of the personal checklist, from the doctor rows and the files of this Mac (a secret's value is never read). */
+export async function personalFacts(ctx: Ctx, d: Pick<SetupDeps, "mailAccounts">, reports: readonly StepReport[], situation: Situation): Promise<PersonalFacts> {
+  const projects = projectsOf(ctx.paths.projects);
+  const projectAccounts = projects.map((p) => {
+    try { return { slug: p.slug, accounts: loadProject(ctx.paths.projects, p.slug).parsed.config.mail.accounts }; } catch { return { slug: p.slug, accounts: [] }; }
+  });
+  const row = (id: string) => reports.find((r) => r.step.id === id);
+  const okOf = (id: string) => { const r = row(id); return r ? { ok: r.outcome === "ok" || r.outcome === "changed", detail: r.detail } : undefined; };
+  const sessionsDir = path.join(ctx.configDir, "sessions");
+  const update = /origin has v\d+\.\d+\.\d+[^;)]*/.exec(row("instance.core")?.detail ?? "")?.[0];
+  const clis = okOf("agent.clis"), autostart = okOf("autostart.agent"), person = readPerson(ctx.paths)?.name;
+  return {
+    situation, projectAccounts,
+    ...(person ? { person } : {}),
+    ...(projectAccounts.some((p) => p.accounts.length) && d.mailAccounts ? { mailAccounts: await d.mailAccounts().catch(() => undefined) } : {}),
+    ...(clis ? { clis } : {}),
+    ...(autostart ? { autostart } : {}),
+    notionToken: existsSync(path.join(ctx.configDir, NOTION_FILE)),
+    messengerSessions: existsSync(sessionsDir) ? readdirSync(sessionsDir) : [],
+    ...(projects[0] ? { firstProject: projects[0].slug } : {}),
+    ...(update ? { coreUpdate: update } : {}),
+  };
+}
 
 class Cancelled extends Error {}
 const ask = <T>(v: T | undefined): T => { if (v === undefined) throw new Cancelled(); return v; };
@@ -132,6 +165,7 @@ const MANUAL_OWNER_ONLY = [
 export async function runSetup(ctx: Ctx, d: SetupDeps, o: SetupOptions): Promise<SetupOutcome> {
   const stages: StageResult[] = [];
   let reports: StepReport[] = [];
+  let situation: Situation = "new";
   const { ui } = d;
   try {
     ui.intro(`Hub Workflow setup${o.automation ? " + automation" : " (manual sessions, no tokens)"}${ctx.dryRun ? " (dry run: nothing is written)" : ""}${o.nonInteractive ? " (non-interactive)" : ""}`);
@@ -142,6 +176,20 @@ export async function runSetup(ctx: Ctx, d: SetupDeps, o: SetupOptions): Promise
       chmodSync(ctx.configDir, 0o700);
     }
     ui.info(`${ctx.dryRun ? "would use" : "using"} ${ctx.configDir} (mode 700)`);
+
+    // P89: the situation in one sentence, then the person (asked once, kept on this Mac only).
+    const sit = situationOf(ctx.paths);
+    situation = sit.situation;
+    ui.info(sit.sentence);
+    const given = o.person ?? d.env.HUB_PERSON;
+    if (given !== undefined && given.trim()) {
+      const bad = personProblem(given);
+      if (bad) ui.warn(`--person: ${bad}; not stored`);
+      else if (!ctx.dryRun) { writePerson(ctx.paths, given); ui.info(`your name: ${given.trim()} (state/person.json, this Mac only)`); }
+    } else if (d.askPerson && !readPerson(ctx.paths) && !o.nonInteractive) {
+      const n = (await d.ui.text("Your name, as your team sees it on a client in Notion (\"Last sent by\"); kept on this Mac only, Enter to skip")) ?? "";
+      if (n.trim() && !personProblem(n) && !ctx.dryRun) writePerson(ctx.paths, n);
+    }
 
     // 2-3. Automation only: tokens in the order the owner asked: Notion, Telegram. Mail needs none: Apple Mail is the path.
     if (o.automation) {
@@ -183,13 +231,15 @@ export async function runSetup(ctx: Ctx, d: SetupDeps, o: SetupOptions): Promise
     ...(o.automation ? FIXED_OWNER_ONLY : MANUAL_OWNER_ONLY),
   ];
   ui.note(ownerOnly.map((l) => `- ${l}`).join("\n"), "Still owner-only");
+  const personal = personalChecklist(await personalFacts(ctx, d, reports, situation));
+  ui.note(personalText(personal, situation), "Personal on this Mac (yours to do; nothing here is typed for you)");
   const missing = stages.filter((s) => s.required && (s.status === "missing" || s.status === "invalid"));
   if (o.nonInteractive && missing.length) {
     ui.outro(`Failed. Fix and rerun:\n${missing.map((s) => `- ${s.id}: ${s.detail}`).join("\n")}`);
-    return { stages, reports, ownerOnly, exitCode: 1 };
+    return { stages, reports, ownerOnly, exitCode: 1, situation, personal };
   }
   const failedSteps = reports.some((r) => r.outcome === "failed");
   if (!o.automation) ui.outro(failedSteps ? "Setup left items open: `hub doctor` names them, each with its fix." : "ready: run hub agent");
   else ui.outro(missing.length ? "Setup paused: rerun `pnpm hub setup --automation` to finish." : "Setup finished. `pnpm hub doctor --automation` shows the table any time.");
-  return { stages, reports, ownerOnly, exitCode: missing.length || failedSteps ? 1 : 0 };
+  return { stages, reports, ownerOnly, exitCode: missing.length || failedSteps ? 1 : 0, situation, personal };
 }

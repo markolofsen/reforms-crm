@@ -24,6 +24,7 @@ Purpose: everyone we work with or sell to, the deals in progress and what each n
 | Islands | multi_select | CRM | vertical |
 | Waiting band | select: Today, 1-3 days, Up to 2 weeks, Up to a month, Over a month | CRM | |
 | Waiting since, Follow-up on, Last inbound, Last outbound, Last two-way contact, Synced at | date | CRM | |
+| Last sent at, Last sent by | date, text | Hub | written after a confirmed send, with the sender's setup name (P89); setting `notion.stamp_sends` |
 | Created | created_time | system | |
 | CRM id | text | CRM | |
 | Needs review, Do not contact | checkbox | CRM | |

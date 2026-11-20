@@ -289,7 +289,7 @@ describe("refusals", () => {
     expect(tracked.ok).toBe(false);
     expect(tracked.lines.join("\n")).toContain("tracked by git");
   });
-  it("the instance template ignores backups/, so `hub init` makes it", () => {
+  it("the instance template ignores backups/, so `hub new-instance` makes it", () => {
     expect(readFileSync(path.join(CORE_ROOT, INSTANCE_TEMPLATE, ".gitignore"), "utf8").split("\n")).toContain("backups/");
   });
 });

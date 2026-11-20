@@ -50,11 +50,14 @@ describe("hub setup, default (manual-first)", () => {
     expect(existsSync(path.join(f.ctx.configDir, "notion-token"))).toBe(false);
     expect(statSync(f.ctx.configDir).mode & 0o777).toBe(0o700);
   });
-  it("an interactive default run asks zero questions and ends with `ready: run hub agent`", async () => {
+  it("an interactive default run asks one question, the person's name (P89; Enter skips), and ends with `ready: run hub agent`", async () => {
     const f = fake();
-    const ui = scripted([]);
-    const out = await runSetup(f.ctx, deps(ui, verdicts()), { nonInteractive: false });
-    expect(ui.asked).toEqual([]);
+    const ui = scripted([""]);
+    const out = await runSetup(f.ctx, { ...deps(ui, verdicts()), askPerson: true }, { nonInteractive: false });
+    expect(ui.asked).toHaveLength(1);
+    expect(ui.asked[0]).toMatch(/^Your name/);
+    expect(ui.shown.join("\n")).toContain("A new instance with no project yet");
+    expect(ui.shown.join("\n")).toContain("Personal on this Mac");
     expect(out.exitCode).toBe(0);
     expect(ui.shown.join("\n")).toContain("ready: run hub agent");
   });

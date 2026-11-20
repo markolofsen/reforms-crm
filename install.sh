@@ -71,7 +71,17 @@ if [ -n "$HAVE" ] && ver_ge "$HAVE" "$NEED"; then
   ok "node $HAVE (needs $NEED or newer)"
 else
   [ -n "$HAVE" ] && say "node $HAVE is older than $NEED" || say "node is not installed (needs $NEED or newer)"
-  if command -v brew >/dev/null 2>&1; then
+  NVM_SH="${NVM_DIR:-$HOME/.nvm}/nvm.sh"
+  if [ -s "$NVM_SH" ]; then
+    # nvm manages Node on this Mac: a Homebrew Node would be shadowed by it, so the fix is nvm's (never run for you: it changes your shells).
+    cat >&2 <<FIX
+error: nvm manages Node on this Mac. Fix with one line, then rerun:
+
+  . "$NVM_SH" && nvm install 22 && nvm alias default 22
+
+FIX
+    exit 1
+  elif command -v brew >/dev/null 2>&1; then
     if [ "$DRY" -eq 1 ]; then
       say "would run: brew install node"
     else

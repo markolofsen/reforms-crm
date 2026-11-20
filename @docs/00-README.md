@@ -117,7 +117,7 @@ and the same door. Messenger messages of a Telegram user account go through the 
 **The guards.** No agent session has a send tool. Both servers bind to loopback and refuse a foreign Host or Origin. The send ticket, the
 terminal's socket, its drops and the shared focus accept only the admin's exact Origin. No page shows a key.
 
-The index of every document is [../README.md](../README.md#where-things-are); which credential goes to what is [setup/access.md](setup/access.md);
+The index of every document is [../README.md](../README.md#where-things-are); which credential goes to what is [setup/access.md](setup/access.md); starting an instance and joining one as a teammate is [setup/team.md](setup/team.md);
 the working-order checklist is [setup/checklist.md](setup/checklist.md); frontend rules for the admin are [../app/@rules/README.md](../app/@rules/README.md).
 
 Update this page when the architecture changes.

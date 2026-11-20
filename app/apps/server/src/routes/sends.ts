@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import type { Repos } from "@hub/db";
-import { assess, BATCH_LIMITS, batchTicketKey, planBatch, sendDraft, type BatchLimits, type Mailer } from "@hub/send";
+import { assess, BATCH_LIMITS, batchTicketKey, planBatch, sendDraft, type BatchLimits, type Mailer, type SendDeps } from "@hub/send";
 import { batchSendBody, batchSendParam, batchTicketBody, idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
 import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
 import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messenger-panel";
@@ -32,6 +32,8 @@ export interface SenderOptions {
   /** P85b: the runs of Send all Checked (tests pass their own, with their own limits). */
   batchRuns?: BatchRuns;
   batchLimits?: BatchLimits;
+  /** P89: told after each confirmed send (the Notion stamp of who sent); see `SendDeps.onSent`. */
+  onSent?: SendDeps["onSent"];
 }
 
 /** The batch guards: the defaults, or (fake Mailer only, so never on a real Mail) a shorter spacing for the e2e run. */
@@ -61,7 +63,7 @@ const refused = (what: Record<string, unknown>, reasons: string[]) => {
  * own guards, and `messengers` holds the only send of each connected account.
  */
 export function sendRoutes(repos: Repos, sender?: SenderOptions, messengers?: MessengerSenders) {
-  const deps = sender && { repos, mailer: sender.mailer, projectsDir: sender.projectsDir, policyDir: sender.policyDir, allowList: sender.allowList, ...(sender.now ? { now: sender.now } : {}) };
+  const deps = sender && { repos, mailer: sender.mailer, projectsDir: sender.projectsDir, policyDir: sender.policyDir, allowList: sender.allowList, ...(sender.now ? { now: sender.now } : {}), ...(sender.onSent ? { onSent: sender.onSent } : {}) };
   const tickets = sender?.tickets ?? ticketStore({ ttlMs: TICKET_TTL_MS });
   const limits = sender ? limitsOf(sender) : BATCH_LIMITS;
   const runs = sender?.batchRuns ?? batchRuns({ limits });

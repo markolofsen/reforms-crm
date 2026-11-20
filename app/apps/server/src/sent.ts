@@ -1,5 +1,5 @@
 import type { DraftRow, Repos } from "@hub/db";
-import { bareId, defaultOsa, type OsaRun } from "@hub/send";
+import { bareId, defaultOsa, type OsaRun, type SentNotice } from "@hub/send";
 import { mailRunning, readSent, type SentMessage } from "./apple-mail";
 import { configOf } from "./overview-facts";
 import { errFields, ops } from "@hub/log/ops";
@@ -45,6 +45,8 @@ export interface SentOptions {
   lookbackDays?: number;
   /** Set false in tests that call `tick()` themselves. */
   timer?: boolean;
+  /** P89: told for each draft this loop marks sent (the Notion stamp of who sent); never awaited for the pass, never trusted. */
+  onSent?: (n: SentNotice) => void;
 }
 
 const DAY = 86_400_000;
@@ -119,7 +121,7 @@ export function matchSent(drafts: Waiting[], sent: SentMessage[], taken: readonl
 export interface ProjectPlan { slug: string; accounts: string[]; mailbox: string; waiting: Array<DraftRow & { versions?: readonly string[] }>; taken?: readonly string[] }
 
 /** One project: read each account's Sent since the oldest waiting draft minus a day, match, mark. Errors are per account. */
-export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan): Promise<{ marked: number; errors: string[] }> {
+export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan, onSent?: (n: SentNotice) => void): Promise<{ marked: number; errors: string[] }> {
   const oldest = p.waiting.reduce((m, d) => (d.createdAt < m ? d.createdAt : m), p.waiting[0]!.createdAt);
   const from = new Date(Date.parse(oldest) - DAY);
   const sent: SentMessage[] = [];
@@ -135,7 +137,10 @@ export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan
   let marked = 0;
   for (const m of matchSent(p.waiting, sent, p.taken ?? [])) {
     const d = await repos.drafts.markSent(m.draftId, { at: m.sent.date, via: m.via, messageId: m.sent.messageId });
-    if (d?.status === "sent") marked++;
+    if (d?.status === "sent") {
+      marked++;
+      try { onSent?.({ project: p.slug, draftId: m.draftId, to: [d.toAddr], at: m.sent.date, via: m.via }); } catch { /* a notice never stops the pass */ }
+    }
   }
   return { marked, errors };
 }
@@ -183,7 +188,7 @@ export function startSentReconciler(o: SentOptions): SentHandle {
     if (!(await mailRunning(osa).catch(() => false))) return off("Mail is not running");
     const errors: string[] = [];
     for (const p of todo) {
-      const r = await reconcileProject(osa, o.repos, p);
+      const r = await reconcileProject(osa, o.repos, p, o.onSent);
       st.marked += r.marked;
       errors.push(...r.errors);
     }

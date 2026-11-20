@@ -21,6 +21,7 @@
     "@hub/db": "workspace:*",
     "@hub/log": "workspace:*",
     "@hub/mail-filters": "workspace:*",
+    "@hub/notion": "workspace:*",
     "@hub/projects": "workspace:*",
     "@hub/send": "workspace:*",
     "@hub/sequences": "workspace:*",

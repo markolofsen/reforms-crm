@@ -33,6 +33,6 @@ The admin always carries the agent (a terminal dock on the right edge, Ctrl+`; n
 
 The admin's header shows `name` from `config/config.json` ("Hub" when empty) and, when `logo` names an image file (svg, png, jpg or webp; a relative path is read from `config/`), that logo; otherwise a monogram. `./run.sh doctor` warns when the logo file is missing.
 
-After a fresh clone: `git clone --recurse-submodules <this repo>`, then `(cd core/app && pnpm install --frozen-lockfile)`.
+Joining as a teammate: `git clone --recurse-submodules <this repo>`, then `./run.sh setup` (it checks out the pinned core, installs the dependencies, and lists what is personal and still missing on your Mac). Keep this folder on a local disk, never in Google Drive, iCloud or Dropbox. The whole workflow: `core/@docs/setup/team.md`.
 
 Update this page when the architecture changes.

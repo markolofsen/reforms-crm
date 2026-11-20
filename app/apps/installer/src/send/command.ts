@@ -1,6 +1,6 @@
 import { createRepos, defaultDbPath, openDb, type SendRow } from "@hub/db";
 import { readFileSync } from "node:fs";
-import { mailAppMailer, runDue, sendDraft, type Mailer } from "@hub/send";
+import { mailAppMailer, runDue, sendDraft, type Mailer, type SentNotice } from "@hub/send";
 
 // The CLI face of send.ts: `hub send <draftId>`, `--due`, `--cancel`, `--stop`, `--resume`, `--status`.
 // Dry run by default for the two that can send. The Mailer is injectable so tests never reach Mail.
@@ -25,6 +25,8 @@ export interface SendCommandEnv {
   mailer?: Mailer;
   out?: (l: string) => void;
   now?: () => Date;
+  /** P89: told after each confirmed send (the CLI passes the Notion stamp, awaited before it exits); tests leave it out. */
+  onSent?: (n: SentNotice) => Promise<void> | void;
 }
 
 function allowList(file: string): string[] {
@@ -49,7 +51,7 @@ export async function runSendCommand(o: SendCommandOptions, env: SendCommandEnv)
   const handle = openDb(env.dbPath ?? defaultDbPath());
   try {
     const repos = createRepos(handle.db);
-    const deps = { repos, mailer: env.mailer ?? mailAppMailer(), projectsDir: env.projectsDir, policyDir: env.policyDir, allowList: allowList(env.configFile), ...(env.now ? { now: env.now } : {}) };
+    const deps = { repos, mailer: env.mailer ?? mailAppMailer(), projectsDir: env.projectsDir, policyDir: env.policyDir, allowList: allowList(env.configFile), ...(env.now ? { now: env.now } : {}), ...(env.onSent ? { onSent: env.onSent } : {}) };
     if (o.draftId !== undefined) {
       const r = await sendDraft(deps, { draftId: o.draftId, apply: !!o.apply, actor: "cli" });
       out(r.line);

@@ -41,7 +41,7 @@ unsure where a file goes, this page decides.
 
 1. Make a private repository for the owner (one per business owner, not per project: one client's mail must not share a repo with another party's).
 2. Add this repository as a submodule named `core/` and pin it to a release commit. That commit is the only statement of the core version.
-3. In the instance root run `hub setup` with `HUB_HOME` set to it: `projects/`, `data/`, `state/`, `config/` are created there. `hub init <folder>` does steps 2 and 3 in one command and adds `run.sh`, which sets `HUB_HOME` for every later command (`./run.sh setup`, `./run.sh up`); it makes a local git repository, never a remote.
+3. In the instance root run `hub setup` with `HUB_HOME` set to it: `projects/`, `data/`, `state/`, `config/` are created there. `hub new-instance <name>` (folder `hub-<name>`) does steps 2 and 3 in one command and adds `run.sh`, which sets `HUB_HOME` for every later command (`./run.sh setup`, `./run.sh up`); it makes a local git repository, never a remote.
 4. Say `настрой проект <slug>`: the `project-setup` skill interviews you and writes `projects/<slug>/project.md`, then `hub dev init <slug> --apply` gives the project its own `@dev/`.
 5. Keep your own decisions and plans in the instance's `@dev/` and `@docs/custom/` (a project's development plans in `projects/<slug>/@dev/`); leave core files alone, or change them with a reason that applies to every owner.
 

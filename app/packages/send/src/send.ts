@@ -17,7 +17,15 @@ export interface SendDeps {
   /** `allow_list` of config/config.json: what `draft.recipients: test` means. */
   allowList: string[];
   now?: () => Date;
+  /**
+   * P89: told after a send is out and its log row is finished (the Notion stamp of who sent). Awaited but never trusted: a throw
+   * or a rejection is swallowed here, so it can neither fail nor undo a send that already left.
+   */
+  onSent?: (s: SentNotice) => Promise<void> | void;
 }
+
+/** One confirmed send, as `onSent` hears it (from the send door here, or from Sent detection in the server). */
+export interface SentNotice { project: string; draftId: number; to: string[]; at: string; via: string }
 
 export type SendMode = "manual" | "auto";
 
@@ -293,6 +301,9 @@ async function deliver(deps: SendDeps, o: { draftId: number; project: string; mo
   } catch (e) {
     return { code: 1, line: line({ ok: false, draftId: o.draftId, sendId: row.id, error: `the mail WAS sent but its log row could not be finished (${(e as Error).message}); send ${row.id} stays "sending"` }) };
   }
+  await Promise.resolve()
+    .then(() => deps.onSent?.({ project: o.project, draftId: o.draftId, to: m.to, at: (deps.now?.() ?? new Date()).toISOString(), via: "hub" }))
+    .catch(() => undefined);
   // The send moved the sent draft to Trash; any other version the Hub recorded for this draft follows it (P56, P65). Best
   // effort: the mail is out, and `hub drafts sweep` finds what is left. The sent one is marked trashed too.
   await (async () => {

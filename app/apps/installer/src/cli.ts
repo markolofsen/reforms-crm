@@ -17,7 +17,8 @@ import { backup, verify } from "./backup";
 import { coreUpdate } from "./core-update";
 import { coreDev, coreInstall } from "./core-link";
 import { workspaceCheck, workspaceInit } from "./workspace";
-import { initInstance, InitError } from "./init";
+import { ghCreateLine, initInstance, InitError, instanceDir } from "./init";
+import { buildStarters, STARTERS } from "./starters";
 import { findInstances, instanceStatus, statusTable } from "./status";
 import { execa } from "execa";
 import { runMenu } from "./menu";
@@ -31,6 +32,8 @@ import { recordDraft } from "./record-draft";
 import { runPolicyCommand } from "./send/policy-command";
 import { registerSequencesCommands } from "./sequences-command";
 import { runSendCommand } from "./send/command";
+import { stampSentMail } from "@hub/notion/stamp";
+import type { SentNotice } from "@hub/send";
 import { runDraftsSweep } from "./drafts/sweep-command";
 import { runGuard, runGuardPost } from "./safety";
 import { c, UsageError } from "./term";
@@ -81,7 +84,7 @@ ${c.bold("Examples")}
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, log, open, send, drafts, sequences, connections, connectors, backup, uninstall, stop, restart, autostart. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, log, open, send, drafts, sequences, connections, connectors, backup, uninstall, stop, restart, autostart, new-instance, starters. Each has its own \`hub <name> --help\`.`);
 // Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
@@ -195,23 +198,47 @@ program.command("projects").description("List the projects a session can be boun
     for (const s of list) console.log(`${c.green("●")} ${c.bold(s)}  ${c.dim(`hub agent ${s}`)}`);
   });
 
-program.command("init").description("Create a new instance in an empty folder: git, the core as a submodule at a pin, the instance files, skill links, config defaults, doctor, one commit. Needs no HUB_HOME; never pushes.")
-  .argument("<dir>", "the new instance folder (must not exist or be empty)")
+const execRun = async (cmd: string, args: string[], opts: { cwd?: string; env?: Record<string, string> } = {}) => {
+  const r = await execa(cmd, args, { reject: false, cwd: opts.cwd, env: { ...process.env, ...(opts.env ?? {}) }, timeout: 600_000 });
+  return { code: r.exitCode ?? 1, stdout: String(r.stdout ?? ""), stderr: String(r.stderr ?? "") };
+};
+
+program.command("new-instance").description("Create a new PRIVATE instance (P35, P89): git, the core as a submodule at the newest tag, the instance files, optionally a first project of a kind, skill links, config defaults, doctor, one commit. A bare <name> makes ./hub-<name>. Needs no HUB_HOME; never creates a remote and never pushes: it prints the one `gh repo create --private` line.")
+  .argument("<name>", "the instance name (folder ./hub-<name>), or a path to a new empty folder")
+  .option("--kind <kind>", "also create the first project of this kind (`hub project kinds`)")
+  .option("--project <slug>", "with --kind: the project's slug (default: the name without hub-)")
   .option("--core-url <url>", "the core repository to add as core/ (default: the origin of the core in use)")
   .option("--pin <tag|main>", "a vX.Y.Z tag, or main to follow the tip (default: the newest tag, else main)")
-  .option("--name <name>", "instance name for the README (default: the folder name)")
+  .option("--no-install", "do not install dependencies or run the doctor (./run.sh setup in the instance does it later)")
   .option("--dry-run", "list what would be created, write nothing")
-  .action(async (dir: string, o: { coreUrl?: string; pin?: string; name?: string; dryRun?: boolean }) => {
-    const run = async (cmd: string, args: string[], opts: { cwd?: string; env?: Record<string, string> } = {}) => {
-      const r = await execa(cmd, args, { reject: false, cwd: opts.cwd, env: { ...process.env, ...(opts.env ?? {}) }, timeout: 600_000 });
-      return { code: r.exitCode ?? 1, stdout: String(r.stdout ?? ""), stderr: String(r.stderr ?? "") };
-    };
+  .action(async (name: string, o: { kind?: string; project?: string; coreUrl?: string; pin?: string; install: boolean; dryRun?: boolean }) => {
+    const dir = instanceDir(name, process.cwd());
     try {
-      const r = await initInstance({ dir, ...(o.coreUrl ? { coreUrl: o.coreUrl } : {}), ...(o.pin ? { pin: o.pin } : {}), ...(o.name ? { name: o.name } : {}), ...(o.dryRun ? { dryRun: true } : {}) }, { run, log: (m) => console.log(m) });
+      const r = await initInstance({ dir, name: path.basename(dir), install: o.install, ...(o.kind ? { kind: o.kind } : {}), ...(o.project ? { project: o.project } : {}), ...(o.coreUrl ? { coreUrl: o.coreUrl } : {}), ...(o.pin ? { pin: o.pin } : {}), ...(o.dryRun ? { dryRun: true } : {}) }, { run: execRun, log: (m) => console.log(m) });
       if (!o.dryRun) {
         console.log(c.green(`created ${r.dir} (core ${r.follows ? "follows main" : r.pin})`));
-        console.log(`next: cd ${r.dir} && ./run.sh doctor; then ./run.sh agent <project> and say «настрой проект <project>». Make the repository private before you push it.`);
+        console.log(`\nNext:\n  cd ${JSON.stringify(r.dir)} && ./run.sh setup${r.project ? `\n  ./run.sh agent ${r.project}   then say «настрой проект ${r.project}»` : `\n  ./run.sh agent new   then say «настрой проект <name>»`}`);
+        console.log(`\nMake its GitHub repository PRIVATE and push it (run it yourself; the Hub never creates a remote):\n  ${ghCreateLine(r.url, r.dir)}`);
+        console.log(c.dim("Teammates then join with: git clone --recurse-submodules <repo> && ./run.sh setup (core/@docs/setup/team.md)."));
       }
+      done(0);
+    } catch (e) {
+      if (e instanceof InitError) throw new UsageError(e.message);
+      throw e;
+    }
+  });
+
+const startersCmd = program.command("starters").description("PUBLIC starter repositories, one per project kind (P89): generated from this core, never edited by hand, no data.");
+startersCmd.command("build").description("Generate the starters into <out> (an empty folder): each is `new-instance --kind` without install plus a README preamble, checked by the leak guard, one commit. Never creates a remote: prints the publish lines.")
+  .argument("<out>", "an empty folder to generate into")
+  .option("--only <names...>", `some of: ${STARTERS.map((s) => s.name).join(", ")} (or their kinds)`)
+  .option("--core-url <url>", "the core repository the starters pin (default: the origin of the core in use)")
+  .option("--pin <tag|main>", "default: the newest tag")
+  .action(async (out: string, o: { only?: string[]; coreUrl?: string; pin?: string }) => {
+    try {
+      const rs = await buildStarters(out, { ...(o.only ? { only: o.only } : {}), ...(o.coreUrl ? { coreUrl: o.coreUrl } : {}), ...(o.pin ? { pin: o.pin } : {}) }, { run: execRun, log: (m) => console.log(c.dim(m)) });
+      for (const r of rs) console.log(`${c.green("built")} ${r.starter.name} (kind ${r.starter.kind}, core ${r.pin}) in ${r.dir}: no leak found`);
+      console.log(`\nPublish (the owner runs these; first time only for the create line):\n${rs.map((r) => `  ${r.publishLine}\n  ${r.pushLine}`).join("\n")}`);
       done(0);
     } catch (e) {
       if (e instanceof InitError) throw new UsageError(e.message);
@@ -226,7 +253,7 @@ program.command("status").description("One table over the instances next to this
     const homes = findInstances(o.root ?? []);
     const rows = await Promise.all(homes.map((h) => instanceStatus(h)));
     if (o.json) return console.log(JSON.stringify(rows, null, 2));
-    if (!rows.length) return console.log(c.yellow("no instances found next to this core: pass --root <dir>, or make one with `hub init <dir>`"));
+    if (!rows.length) return console.log(c.yellow("no instances found next to this core: pass --root <dir>, or make one with `hub new-instance <name>`"));
     console.log(statusTable(rows));
   });
 
@@ -311,7 +338,10 @@ program.command("send").argument("[draftId]", "the draft to send, or `policy` (s
     const cancel = num(o.cancel);
     if (Number.isNaN(id) || Number.isNaN(cancel)) { console.log(JSON.stringify({ ok: false, error: "draftId and --cancel take a number" })); return done(2); }
     const { cancel: _c, ...rest } = o;
-    done(await runSendCommand({ ...rest, ...(id !== undefined ? { draftId: id } : {}), ...(cancel !== undefined ? { cancel } : {}) }, { projectsDir: projectsDir(), policyDir: ctxOf().paths.stateProjects, configFile: ctxOf().paths.configFile }));
+    const paths = ctxOf().paths;
+    // P89: a send from this terminal stamps the client's Notion page too (Last sent at / by); a failure is an ops-log line only.
+    const onSent = async (n: SentNotice) => { await stampSentMail({ projectsDir: paths.projects, secretsDir: paths.secrets, stateDir: paths.state }, n); };
+    done(await runSendCommand({ ...rest, ...(id !== undefined ? { draftId: id } : {}), ...(cancel !== undefined ? { cancel } : {}) }, { projectsDir: projectsDir(), policyDir: paths.stateProjects, configFile: paths.configFile, onSent }));
   });
 
 program.command("drafts").argument("<action>", "`sweep`: the Hub's own leftover drafts in Mail (older versions, closed drafts) to Trash").description("Mail drafts the Hub wrote (P56, P65). `hub drafts sweep` lists the versions the Hub recorded that are left over (dry run); --apply moves them to each account's Trash, recoverable. A draft the Hub did not record is the owner's and is never listed. Nothing is sent.")
@@ -377,16 +407,17 @@ program.command("doctor").description("Run the checks a manual session needs plu
     process.exitCode = reports.some((r) => r.outcome === "failed") ? 1 : 0;
   });
 
-program.command("setup").description("Minimal, tokenless setup for manual sessions (tools, folders, config, skills, project registry, doctor). Safe to rerun. --automation adds the optional Notion and Telegram tokens.")
+program.command("setup").description("The smart install (P89): says whether this is a new instance, a teammate joining, or an existing install; then tools, folders, config, skills, project registry and doctor (tokenless, safe to rerun); ends with what is personal and missing on this Mac, each with its fix. --automation adds the optional Notion and Telegram tokens.")
   .option("--automation", "OFF by default: Notion/Telegram tokens")
   .option("--non-interactive", "with --automation: no prompts: read HUB_NOTION_TOKEN, HUB_TELEGRAM_TOKEN (each also as <NAME>_FILE); fail with a list")
   .option("--dry-run", "validate and show what would change, write nothing")
-  .action(async (o: { automation?: boolean; nonInteractive?: boolean; dryRun?: boolean }) => {
+  .option("--person <name>", "your name as your team sees it in Notion (Last sent by); stored in state/person.json on this Mac only (P89). A terminal asks once when it is not set")
+  .action(async (o: { automation?: boolean; nonInteractive?: boolean; dryRun?: boolean; person?: string }) => {
     const automation = !!o.automation;
     const nonInteractive = !!o.nonInteractive || (!automation && !process.stdin.isTTY); // the default run asks nothing; a script never hangs on the automation prompts
     if (automation && !nonInteractive && !process.stdin.isTTY) throw new Error("no terminal: use `pnpm hub setup --automation --non-interactive`");
     const ctx = ctxOf({ dryRun: !!o.dryRun });
-    const out = await runSetup(ctx, { ui: nonInteractive ? quietUi : clackUi, validators: makeValidators(ctx), env: process.env, steps: selectSteps(automation) }, { nonInteractive, automation });
+    const out = await runSetup(ctx, { ui: nonInteractive ? quietUi : clackUi, validators: makeValidators(ctx), env: process.env, steps: selectSteps(automation), mailAccounts: () => mailAccounts(ctx), askPerson: true }, { nonInteractive, automation, ...(o.person ? { person: o.person } : {}) });
     process.exitCode = out.exitCode;
     // Nothing is written outside the instance. The `hub` shortcut on PATH is the owner's choice: `hub link`.
     console.log(c.dim("Run the instance with ./run.sh. Optional: `hub link` puts a `hub` shortcut at ~/.local/bin/hub (the only thing this tool writes in your home)."));

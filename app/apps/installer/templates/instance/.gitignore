@@ -30,3 +30,8 @@ config/mcp.json
 
 # Snapshots of `hub backup` hold client data: never in git
 backups/
+
+# Dependencies and build output: per Mac, never in git and never on a synced drive (decision 0043)
+node_modules/
+.turbo/
+.next/

@@ -75,6 +75,19 @@ describe("Sent detection through Apple Mail", () => {
     expect(SENT_SCRIPT).not.toMatch(/content of m\b/);
   });
 
+  it("P89: tells onSent of each draft it marks (the Notion stamp), and a throwing onSent never stops the pass", async () => {
+    await register();
+    const r = await record();
+    await repos.mailVersions.add({ project: "p", mailRef: "<thread1@x>", draftId: r.draftId, account: "Google", mailId: 9, messageId: "Version1@x", hash: "h", source: "agent" });
+    const mail = fakeMail({ sent: { Google: [sentRecord({ id: "<version1@x>", subject: "Another subject" })] } });
+    const heard: unknown[] = [];
+    const h = startSentReconciler({ repos, osa: mail.osa, env: {}, timer: false, onSent: (n) => { heard.push(n); throw new Error("notion down"); } });
+    await h.tick();
+    expect(await statusOf(r.draftId)).toMatchObject({ status: "sent" });
+    expect(heard).toEqual([expect.objectContaining({ project: "p", draftId: r.draftId, via: "message-id", to: [expect.stringContaining("@")] })]);
+    expect(h.status()).toMatchObject({ state: "running", marked: 1 });
+  });
+
   it("marks a draft by the thread it answers; its mailRef is the answered message, never its own Message-ID (P85)", async () => {
     await register();
     const byThread = await repos.drafts.record({ project: "p", email: "bob@example.test", name: "Bob", subject: "Re: Two", mailRef: "<bob-thread@x>" });

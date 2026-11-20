@@ -3,7 +3,7 @@
 // project-setup all read this; adding a field is adding one entry here and one key to `ProjectBase`.
 import { z } from "zod";
 import { KIND_IDS } from "./kinds";
-import { AUTOLINK_MODES, KNOWLEDGE_SCOPES, SEND_MODES, STATUSES } from "./schema";
+import { AUTOLINK_MODES, KNOWLEDGE_SCOPES, SEND_MODES, STAMP_MODES, STATUSES } from "./schema";
 import { BCP47, EMAIL, isIsoDate, isTimezone, normalizeAddress, normalizeId, splitList, UUID } from "./values";
 
 export interface FieldDef {
@@ -62,6 +62,7 @@ export const FIELDS: Record<string, FieldDef> = {
   "notion.teamspace": { path: "notion.teamspace", schema: oneLine, doc: "Notion teamspace name." },
   "notion.teamspace_id": { path: "notion.teamspaceId", schema: check((v) => UUID.test(v), (v) => `expected a Notion teamspace id (UUID), got "${v}"`).transform(normalizeId), doc: "Id of that teamspace (P82, from notion-get-teams): the session's Notion searches are scoped to it, and a page may be created at its root." },
   "notion.parent_page": { path: "notion.parentPage", schema: check((v) => UUID.test(v), (v) => `expected a Notion page id (UUID), got "${v}"`).transform(normalizeId), doc: "Page the deploy skill creates databases under; wins over the teamspace." },
+  "notion.stamp_sends": { path: "notion.stampSends", schema: check((v) => (STAMP_MODES as readonly string[]).includes(v), (v) => `expected on or off, got "${v}"`), doc: "P89: on (default): after a confirmed send the Hub writes Last sent at and Last sent by (the sender's setup name) on the client's Clients page, so the team sees who wrote last; off: nothing is written to Notion." },
   "notion.token_file": { path: "notion.tokenFile", schema: check((v) => /^[A-Za-z0-9._-]+$/.test(v), () => "expected a file name (no path, no value of a secret)"), doc: "File name in state/secrets/ holding the Notion token." },
   "calendar.name": { path: "calendar.name", schema: oneLine, doc: "Calendar the calendar skill writes holds into." },
   "calendar.id": { path: "calendar.id", schema: oneLine, doc: "Calendar id when the name is not enough; with calendar.connector, the Google calendar id holds go to (default: the connector's primary calendar)." },

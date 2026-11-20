@@ -21,7 +21,7 @@ the drafts. The admin tells the agent what it shows (the shared focus), so "answ
 Needed once: Mail.app with the account, `mail-mcp` running, the Notion connector signed in (`/mcp` in Claude Code). `hub doctor` shows what is missing, each row with its fix; the full list is the generated [`@docs/setup/checklist.md`](@docs/setup/checklist.md).
 
 ## Creating an instance
-Your data does not belong in this repository. Create an instance with one command: `./hub.sh init <folder>` (git, this repository as the `core/` submodule at the newest tag, the instance files, skill links, config defaults, `doctor`, one commit; `--pin main` follows the tip, `--dry-run` lists the files; it never pushes). Make the repository private before you push it.
+Your data does not belong in this repository. Create an instance with one command: `./hub.sh new-instance <name>` (the folder `hub-<name>`: git, this repository as the `core/` submodule at the newest tag, the instance files, `--kind <kind>` for a first project, skill links, config defaults, `doctor`, one commit; `--pin main` follows the tip, `--dry-run` lists the files; it never pushes and prints the `gh repo create --private` line). Or start from a public starter (`hub-starter-saas`, `hub-starter-realty`, `hub-starter-generic`) with GitHub's "Use this template", as Private. A teammate joins with `git clone --recurse-submodules <repo> && ./run.sh setup`. The whole workflow, and what is shared and what is personal: [`@docs/setup/team.md`](@docs/setup/team.md).
 The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` live there, and its `run.sh` sets `HUB_HOME` and runs the pinned core. Move to a newer core with `hub core update` (a test instance may follow `main` with `--branch`). Details:
 [`@docs/LAYERS.md`](@docs/LAYERS.md) and [`@docs/core/08-local-app-stack.md`](@docs/core/08-local-app-stack.md).
 
@@ -41,6 +41,7 @@ The one index. Every page below owns its facts; others link to it.
 
 | You want | Read |
 |---|---|
+| Start an instance, join one as a teammate, what is shared and what is personal | [`@docs/setup/team.md`](@docs/setup/team.md) |
 | Which credential goes to what (Notion, mail, Telegram) | [`@docs/setup/access.md`](@docs/setup/access.md) |
 | The working-order checklist of every node, backups included (generated from `hub doctor`) | [`@docs/setup/checklist.md`](@docs/setup/checklist.md) |
 | The whole system in five minutes | [`@docs/00-README.md`](@docs/00-README.md) |

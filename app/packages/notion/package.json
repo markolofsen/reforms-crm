@@ -2,7 +2,7 @@
   "name": "@hub/notion",
   "version": "0.1.0",
   "private": true,
-  "description": "Read-only Notion dump and restore dry-run for reforms-crm",
+  "description": "Notion dump and restore dry-run for reforms-crm: read only, except the two Last sent fields of ./stamp (P89)",
   "type": "module",
   "bin": {
     "notion-dump": "./src/cli.ts"
@@ -25,6 +25,7 @@
     "vitest": "catalog:"
   },
   "exports": {
-    ".": "./src/read.ts"
+    ".": "./src/read.ts",
+    "./stamp": "./src/stamp.ts"
   }
 }

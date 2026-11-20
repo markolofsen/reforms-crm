@@ -10,6 +10,7 @@
     "./core-version": "./src/core-version.ts",
     "./chat-rules": "./src/chat-rules.ts",
     "./llm": "./src/llm.ts",
+    "./person": "./src/person.ts",
     "./lint-limits": "./src/lint-limits.mjs"
   },
   "scripts": {
