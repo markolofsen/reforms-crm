@@ -111,7 +111,7 @@ describe("autostart.agent check, in verdict 10's order", () => {
     expect((await autostartCheck(setup().ctx, "linux")).level).toBe("pass");
   });
   it("no plist: fails with the fix on explicit ports, warns on the default pair (a fresh instance is told to set ports first)", async () => {
-    expect(await autostartCheck(setup().ctx, "darwin")).toMatchObject({ level: "fail", detail: expect.stringContaining("./run.sh setup --only autostart.agent") });
+    expect(await autostartCheck(setup().ctx, "darwin")).toMatchObject({ level: "fail", detail: expect.stringContaining("./run.sh install --only autostart.agent") });
     const d = await autostartCheck(setup({ ports: {} }).ctx, "darwin");
     expect(d).toMatchObject({ level: "warn", detail: expect.stringContaining("admin_port") });
   });

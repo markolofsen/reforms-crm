@@ -18,7 +18,7 @@ describe("the autostart status line", () => {
   });
   it("the guard and not set up carry their fix line", () => {
     expect(said({ guard: { at: AT, error: "next build: ENOSPC" } })).toEqual({ text: `Stopped after 5 failed starts at ${hhmm(AT)}: next build: ENOSPC. Fix, then`, fix: "./run.sh restart" });
-    expect(said({ installed: false, enabled: false, fix: "./run.sh setup --only autostart.agent" })).toEqual({ text: "Not set up:", fix: "./run.sh setup --only autostart.agent" });
+    expect(said({ installed: false, enabled: false, fix: "./run.sh install --only autostart.agent" })).toEqual({ text: "Not set up:", fix: "./run.sh install --only autostart.agent" });
   });
   it("hidden off macOS; a dead mail-mcp is named only while autostart is on", () => {
     expect(said({ supported: false })).toBeNull();

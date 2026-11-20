@@ -78,10 +78,10 @@ describe("/api/instance/autostart", () => {
     expect(verbs()).toEqual([]);
     rmSync(files.plist);
     const missing = setup({ installed: false });
-    expect(await missing.get()).toMatchObject({ installed: false, fix: "./run.sh setup --only autostart.agent" });
+    expect(await missing.get()).toMatchObject({ installed: false, fix: "./run.sh install --only autostart.agent" });
     const r = await missing.post({ enabled: true });
     expect(r.status).toBe(409);
-    expect((await r.json()).error).toContain("./run.sh setup --only autostart.agent");
+    expect((await r.json()).error).toContain("./run.sh install --only autostart.agent");
   });
   it("off macOS: supported false, and a switch is refused", async () => {
     const { get, post } = setup({ supported: false });

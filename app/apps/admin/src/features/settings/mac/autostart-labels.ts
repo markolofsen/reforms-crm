@@ -5,7 +5,7 @@ import { hhmm } from "@/lib/format";
 export type Said = { text: string; fix?: string };
 
 /** The fix line when the agent is not set up (the server sends it; this is the same words for a server that sent none). */
-const SET_UP = "./run.sh setup --only autostart.agent";
+const SET_UP = "./run.sh install --only autostart.agent";
 
 /**
  * The row's one status line (P67 verdict 12): exactly one of set up, stopped by the guard, off, on (by launchd or by hand).

@@ -182,7 +182,7 @@ program.command("stop").description("Stop the server the LaunchAgent started (la
   .action(async () => done(await stopCommand(ctxOf(), commandDeps())));
 program.command("restart").description("Restart the server through its LaunchAgent (launchctl kickstart -k) and wait until it answers; also clears the start guard after a fix.")
   .action(async () => done(await restartCommand(ctxOf(), commandDeps())));
-program.command("autostart").argument("[action]", "status (default) | on | off").description("Whether this Mac starts the Hub at login (P67). off: launchctl disable plus state/autostart/off, a running server keeps running; on: launchctl enable, and load the agent when it is not loaded. Setting it up is the installer's: ./run.sh setup --only autostart.agent.")
+program.command("autostart").argument("[action]", "status (default) | on | off").description("Whether this Mac starts the Hub at login (P67). off: launchctl disable plus state/autostart/off, a running server keeps running; on: launchctl enable, and load the agent when it is not loaded. Setting it up is the installer's: ./run.sh install --only autostart.agent.")
   .action(async (action: string | undefined) => done(await autostartCommand(ctxOf(), action, commandDeps())));
 
 program.command("test").description("Typecheck, then tests, for the whole monorepo.")

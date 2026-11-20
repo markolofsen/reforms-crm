@@ -224,4 +224,4 @@ export async function switchAutostart(run: LaunchctlRun, files: AutostartFiles, 
 }
 
 /** The one line that sets autostart up (the installer step). */
-export const AUTOSTART_FIX = "./run.sh setup --only autostart.agent";
+export const AUTOSTART_FIX = "./run.sh install --only autostart.agent";

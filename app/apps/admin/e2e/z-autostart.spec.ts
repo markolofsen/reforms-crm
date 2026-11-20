@@ -24,8 +24,8 @@ test("autostart: not set up shows the installer's line with Copy, and the switch
   await page.goto("/settings/mac");
   await expect(page.getByRole("region", { name: "Start after a restart" })).toBeVisible();
   await expect(page.getByTestId("autostart-status")).toContainText("Not set up:");
-  await expect(page.getByTestId("autostart-status")).toContainText("./run.sh setup --only autostart.agent");
-  await expect(page.getByRole("button", { name: "Copy ./run.sh setup --only autostart.agent" })).toBeVisible();
+  await expect(page.getByTestId("autostart-status")).toContainText("./run.sh install --only autostart.agent");
+  await expect(page.getByRole("button", { name: "Copy ./run.sh install --only autostart.agent" })).toBeVisible();
   await expect(page.getByRole("switch", { name: "Start the Hub after a restart" })).toBeDisabled();
 });
 

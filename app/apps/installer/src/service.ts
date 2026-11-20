@@ -117,7 +117,7 @@ export async function runService(o: { files: AutostartFiles; ports: HubPorts; en
     });
   }, deps.readyEveryMs ?? 2000);
   const exit = await new Promise<{ code: number | null; signal: NodeJS.Signals | null; error?: string }>((resolve) => {
-    child.on("error", (e: NodeJS.ErrnoException) => resolve({ code: 127, signal: null, error: e.code === "ENOENT" ? "`pnpm` is not on the agent's PATH (rerun ./run.sh setup --only autostart.agent)" : e.message }));
+    child.on("error", (e: NodeJS.ErrnoException) => resolve({ code: 127, signal: null, error: e.code === "ENOENT" ? "`pnpm` is not on the agent's PATH (rerun ./run.sh install --only autostart.agent)" : e.message }));
     child.on("exit", (code, signal) => resolve({ code, signal }));
   });
   clearInterval(timer);
