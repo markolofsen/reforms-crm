@@ -1,46 +1,23 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import type { SendPreviewDto } from "@hub/contract/responses";
-import { ApiFailure, refreshData, sentence } from "@/lib/api/client";
+import { useSendDoor, type SendFlow as DoorFlow } from "@/components/send/send-flow";
+import { refreshData } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";
 
-export type SendFlow =
-  | { step: "idle" }
-  | { step: "reading" }
-  | { step: "confirm"; mail: SendPreviewDto }
-  | { step: "sending"; mail: SendPreviewDto }
-  | { step: "refused"; reasons: string[] }
-  | { step: "failed"; message: string }
-  | { step: "sent" };
-
-const refusal = (e: unknown): SendFlow => (e instanceof ApiFailure && e.refused.length > 0 ? { step: "refused", reasons: e.refused } : { step: "failed", message: sentence(e) });
+export type SendFlow = DoorFlow<SendPreviewDto>;
 
 /**
- * The two steps of a send: read the draft from Mail (a dry run that sends nothing), then, after the person confirms
- * what they saw, send exactly that. Nothing is queued and nothing goes out without the second step.
+ * The two steps of a mail send through the one door (`components/send/send-flow.ts`): read the draft from Mail (a dry run that
+ * sends nothing), then, after the person confirms what they saw, send exactly that (the recipients and subject he read).
  */
 export function useSendFlow(project: string, draftId: number) {
   const qc = useQueryClient();
-  const [flow, setFlow] = useState<SendFlow>({ step: "idle" });
-  const preview = useMutation({
-    mutationFn: () => sendApi.preview(project, draftId),
-    onMutate: () => setFlow({ step: "reading" }),
-    onSuccess: (mail) => setFlow({ step: "confirm", mail }),
-    onError: (e) => setFlow(refusal(e)),
+  return useSendDoor<SendPreviewDto>({
+    preview: () => sendApi.preview(project, draftId),
+    send: (mail) => sendApi.send(project, draftId, { to: mail.to, subject: mail.subject }),
+    settle: () => refreshData(qc, { mail: true }),
   });
-  const send = useMutation({
-    mutationFn: (mail: SendPreviewDto) => sendApi.send(project, draftId, { to: mail.to, subject: mail.subject }),
-    onMutate: (mail) => setFlow({ step: "sending", mail }),
-    onSuccess: () => {
-      setFlow({ step: "sent" });
-      void refreshData(qc, { mail: true });
-    },
-    onError: (e) => {
-      setFlow(refusal(e));
-      void refreshData(qc, { mail: true });
-    },
-  });
-  return { flow, read: () => preview.mutate(), send: (mail: SendPreviewDto) => send.mutate(mail), close: () => setFlow({ step: "idle" }) };
 }
 
 /** Answers true once per send: the first time it sees `sent`, never again until `sent` has been false. */

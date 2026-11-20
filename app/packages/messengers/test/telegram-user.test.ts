@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdapterError, mtcuteClients, parkedOf } from "../src/adapter";
 import { FakeLoginClient, FakeMtClient, FakeRpcError, fakePerson } from "../src/fake-user";
-import { allowChat, createLoginFlows, humanActor, linkUserChat, removeSession, writeSession } from "../src/human";
+import { allowChat, confirmDraft, createLoginFlows, humanActor, linkUserChat, removeSession, sendConfirmed, writeSession } from "../src/human";
+import { mintConfirmed } from "../src/confirmed";
+import { pollOnly } from "../src/adapter";
 import { pollOnce, runPoller } from "../src/poller";
 import { readSession, redactSessions, sessionAccounts } from "../src/sessions";
 import { createTelegramUserAdapter, toUserAdapterError, toUserInbound } from "../src/telegram-user";
@@ -134,6 +136,34 @@ describe("telegram user account: errors and parking", () => {
     const after = polls;
     await new Promise((r) => setTimeout(r, 20));
     expect(polls).toBe(after);
+  });
+});
+
+describe("telegram user account: send (P71 M4)", () => {
+  it("sends a confirmed draft once to a linked chat, records it as an outbound row, and the poller's view has no send", async () => {
+    await allow("1001");
+    const adapter = adapterOf();
+    await adapter.start!();
+    const d = await env.repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId: "1001", text: "Hi Anna", createdBy: "agent" });
+    await confirmDraft(env.repos, human, { project: "p", draftId: d.id });
+    const r = await sendConfirmed({ repos: env.repos, adapter, now: () => NOW }, human, { project: "p", draftId: d.id });
+    expect(client.sent).toEqual([{ chatId: 1001, text: "Hi Anna", id: Number(r.remoteMessageId) }]);
+    expect((await env.repos.messengers.getDraft("p", d.id))?.status).toBe("sent");
+    expect((await rowsOf("1001")).map((m) => [m.direction, m.text])).toEqual([["out", "Hi Anna"]]);
+    expect("send" in pollOnly(adapter)).toBe(false);
+  });
+
+  it("refuses a hand-built draft, another channel and an unlinked chat, and maps Telegram's refusal", async () => {
+    await allow("1001");
+    const adapter = adapterOf();
+    await adapter.start!();
+    const base = { id: 1, project: "p", chatId: "1001", text: "x", confirmedBy: "owner", confirmedAt: "" };
+    await expect(adapter.send({ ...base, channel: "telegram_user", state: "confirmed" } as never)).rejects.toThrow(/not_confirmed/);
+    await expect(adapter.send(mintConfirmed({ ...base, channel: "telegram_bot" }))).rejects.toThrow(/adapter_mismatch/);
+    await expect(adapter.send(mintConfirmed({ ...base, channel: "telegram_user", chatId: "2002" }))).rejects.toThrow(/chat_not_allowed/);
+    client.sendError = new FakeRpcError(420, "FLOOD_WAIT_7200", 7200);
+    await expect(adapter.send(mintConfirmed({ ...base, channel: "telegram_user" }))).rejects.toMatchObject({ code: "flood_wait" });
+    expect(client.sent).toEqual([]);
   });
 });
 

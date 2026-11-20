@@ -34,7 +34,7 @@ export function ChatRow({ c, project, now, actions }: { c: MessengerChatDto; pro
         )}
         <p className="whitespace-pre-wrap break-words text-sm">{lastText(c)}</p>
       </div>
-      {c.draft ? <DraftBlock actions={actions} d={c.draft} name={name} /> : <p className="text-muted-foreground text-sm">{none}</p>}
+      {c.draft ? <DraftBlock actions={actions} d={c.draft} name={name} project={project} /> : <p className="text-muted-foreground text-sm">{none}</p>}
     </li>
   );
 }

@@ -24,7 +24,8 @@ export const fakePerson = (id: number, name = `Person ${id}`, extra: { username?
 
 /**
  * An mtcute client with no network, for tests: `emit` plays a new message, `fail` an error of the connection, `history` and
- * `dialogs` are scripted, `connectError` makes `connect` throw. It never sends anything: an MtClient has no send.
+ * `dialogs` are scripted, `connectError` makes `connect` throw. `sendText` records the text in `sent` and reaches no network;
+ * `sendError` makes it throw.
  */
 export class FakeMtClient implements MtClient {
   connects = 0;
@@ -33,6 +34,8 @@ export class FakeMtClient implements MtClient {
   peers: MtPeer[] = [];
   past: MtMessage[] = [];
   historyCalls: { chatId: number; minId: number }[] = [];
+  sent: { chatId: number; text: string; id: number }[] = [];
+  sendError: unknown = null;
   private onMessage: ((m: MtMessage) => void) | null = null;
   private onError: ((e: unknown) => void) | null = null;
   private seq = 100;
@@ -69,6 +72,12 @@ export class FakeMtClient implements MtClient {
       .filter((m) => m.chat.id === chatId && m.id > o.minId && m.date >= o.since)
       .sort((a, b) => b.id - a.id)
       .slice(0, o.limit);
+  }
+  async sendText(chatId: number, text: string): Promise<{ id: number; date: Date }> {
+    if (this.sendError) throw this.sendError;
+    const id = ++this.seq;
+    this.sent.push({ chatId, text, id });
+    return { id, date: new Date("2026-11-20T12:00:00.000Z") };
   }
   async close(): Promise<void> {
     this.closed++;

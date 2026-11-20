@@ -247,6 +247,9 @@ export const inboxRows = sqliteTable(
 // purpose: nobody can tell whether the mail left, so it blocks a second send until a person resolves it).
 // A draft has at most one row that is queued, sending or sent.
 export const SEND_STATUSES = ["queued", "sending", "sent", "failed", "cancelled"] as const;
+/** The door of one send (P71 M4): Mail, or a messenger channel. */
+export const SEND_CHANNELS = ["mail", "telegram_user", "telegram_bot", "whatsapp"] as const;
+export type SendChannel = (typeof SEND_CHANNELS)[number];
 export type SendStatus = (typeof SEND_STATUSES)[number];
 export const sendLog = sqliteTable(
   "send_log",
@@ -269,11 +272,17 @@ export const sendLog = sqliteTable(
     mailRef: text("mail_ref"),
     sentMessageId: text("sent_message_id"),
     error: text("error"), // failed: why; cancelled: who or what cancelled it
+    // P71 M4 (migration 0027): the door a send went through. A messenger row has `messenger_draft_id`, `to_addr` = `<channel>:<chat
+    // id>`, `sender` = the account id, `subject` = who it went to; `draft_id` stays Mail's.
+    channel: text("channel").$type<SendChannel>().notNull().default("mail"),
+    messengerDraftId: integer("messenger_draft_id").references((): AnySQLiteColumn => messengerDrafts.id, { onDelete: "set null" }),
   },
   (t) => [
     uniqueIndex("send_log_draft_live").on(t.draftId).where(sql`${t.status} in ('queued','sending','sent')`),
+    uniqueIndex("send_log_messenger_draft_live").on(t.messengerDraftId).where(sql`${t.status} in ('queued','sending','sent')`),
     index("send_log_project_created").on(t.project, t.createdAt),
     index("send_log_due").on(t.status, t.dueAt),
+    index("send_log_channel_sender").on(t.channel, t.sender, t.createdAt),
   ],
 );
 

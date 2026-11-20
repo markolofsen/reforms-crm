@@ -1,4 +1,5 @@
-import { AdapterError, type InboundMessage, type MessengerAdapter, type PollBatch, type PollOptions } from "./adapter";
+import { AdapterError, type InboundMessage, type MessengerAdapter, type PollBatch, type PollOptions, type SendingAdapter, type SentReceipt } from "./adapter";
+import { isConfirmed, type ConfirmedDraft } from "./confirmed";
 import { redact } from "./poller";
 
 /**
@@ -9,7 +10,8 @@ import { redact } from "./poller";
  *
  * Privacy (0036 point 3): a message from a chat that is not on the allow-list is dropped in the event handler, before the queue:
  * it leaves no row, no counter and no log line. Only private chats with a person are read (no groups, channels, bots or Saved
- * Messages). There is no `send`: M1 receives only.
+ * Messages). `send` (P71 M4) takes only a `ConfirmedDraft` the server's send door minted, to a chat on the allow-list; the poller
+ * is handed `pollOnly(adapter)`, so the receiving side holds no send path.
  */
 
 /** A peer as the hub sees it: a person (`user`) or anything else (`other`: a group, a channel), which is never read. */
@@ -43,6 +45,8 @@ export interface MtClient {
   dialogs(limit: number): Promise<MtPeer[]>;
   /** A chat's messages newer than `minId` and not older than `since`, newest first, at most `limit`. */
   history(chatId: number, o: { since: Date; minId: number; limit: number }): Promise<MtMessage[]>;
+  /** Sends one plain text to a private chat (P71 M4): only the adapter's `send` calls it, with a confirmed draft. */
+  sendText(chatId: number, text: string): Promise<{ id: number; date: Date }>;
   close(): Promise<void>;
 }
 
@@ -141,6 +145,9 @@ export interface TelegramUserAdapter extends MessengerAdapter {
   close(): Promise<void>;
 }
 
+/** The same adapter with its send (P71 M4): what the server's send door is handed, and nothing else. */
+export type TelegramUserSendingAdapter = TelegramUserAdapter & SendingAdapter & { readonly channel: "telegram_user"; send(draft: ConfirmedDraft): Promise<SentReceipt> };
+
 const wait = (ms: number, wake: { fn: (() => void) | null }, signal?: AbortSignal) =>
   new Promise<void>((resolve) => {
     const done = () => {
@@ -154,7 +161,7 @@ const wait = (ms: number, wake: { fn: (() => void) | null }, signal?: AbortSigna
     signal?.addEventListener("abort", done, { once: true });
   });
 
-export function createTelegramUserAdapter(o: TelegramUserOptions): TelegramUserAdapter {
+export function createTelegramUserAdapter(o: TelegramUserOptions): TelegramUserSendingAdapter {
   const { client, account } = o;
   const max = o.queueMax ?? QUEUE_MAX;
   let allowed = new Set<string>();
@@ -244,6 +251,20 @@ export function createTelegramUserAdapter(o: TelegramUserOptions): TelegramUserA
     },
 
     refreshAllowed,
+
+    // Once, no retry (decision 0036 point 7): a failure is the door's to record; the owner presses Send again if he wants.
+    async send(draft: ConfirmedDraft): Promise<SentReceipt> {
+      if (!isConfirmed(draft)) throw new AdapterError("unknown", "not_confirmed: send accepts only a ConfirmedDraft");
+      if (draft.channel !== "telegram_user") throw new AdapterError("unknown", `adapter_mismatch: the draft is ${draft.channel}`);
+      try {
+        await refreshAllowed();
+        if (!allowed.has(draft.chatId)) throw new AdapterError("unknown", "chat_not_allowed: the chat is not linked");
+        const m = await client.sendText(Number(draft.chatId), draft.text);
+        return { remoteMessageId: String(m.id), at: m.date.toISOString() };
+      } catch (err) {
+        throw toUserAdapterError(err);
+      }
+    },
 
     async close() {
       wake.fn?.();

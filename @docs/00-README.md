@@ -42,8 +42,8 @@ cannot read it: [core/24-terminal.md](core/24-terminal.md).
 **Messengers.** The server receives from a Telegram bot (with `state/secrets/telegram-bot-token`) and from the owner's own Telegram account
 (MTProto; its login is a set of server routes, with no screen yet). Only chats the owner linked to a client are stored; any other chat leaves
 no row. The agent reads a linked chat with `messenger_history` and writes a draft row with `messenger_draft_write`, within each chat's rules;
-it has no send tool. Planned: the Messengers section with its review queue and settings (P71 M3), Send from the admin through the send door
-(P71 M4), WhatsApp as a linked device (P71 M5): [app/packages/messengers/README.md](../app/packages/messengers/README.md).
+it has no send tool. The Messengers section holds the review queue and its settings (P71 M3), and its Send goes through the send door
+(P71 M4). Planned: WhatsApp as a linked device (P71 M5): [app/packages/messengers/README.md](../app/packages/messengers/README.md).
 
 **The LLM door.** `@hub/llm` is the only code that may call a model API: typed structured calls to OpenRouter with the instance's one API key,
 a ledger row per attempt in `llm_calls` and a monthly cap checked before the call. Without a key a caller says "not analysed". No feature calls
@@ -109,7 +109,7 @@ capabilities line. Deny rules and the `hub guard` hook keep the session draft-on
 **The one send door.** Mail leaves only through the server's `POST /api/projects/:slug/drafts/:id/send` (or `hub send` by a person): a dry run
 shows the exact mail, the apply needs a single-use ticket only the admin page can mint, and `@hub/send` re-checks recipients, the send policy,
 Stop sending and the safety rules. Autosend is off unless a project's send policy turns it on for listed mail classes; it uses the same checks
-and the same door. Messenger messages will go through the same door with their own guards (P71 M4); today they are drafts only:
+and the same door. Messenger messages of a Telegram user account go through the same door with their own guards (P71 M4: an inbound message first, 30 a day, 20 s apart, `telegram:<id>` in `allow_list` in test mode), one at a time by the owner's click, never automatically:
 [core/16-projects-and-knowledge.md](core/16-projects-and-knowledge.md), section 3B.
 
 **The guards.** No agent session has a send tool. Both servers bind to loopback and refuse a foreign Host or Origin. The send ticket, the

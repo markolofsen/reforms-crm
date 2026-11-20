@@ -243,5 +243,12 @@ export function messengersRepo(db: Db) {
     async restoreDraft(project: string, id: number): Promise<MessengerDraftRow> {
       return draftTransition(id, project, "discarded", { status: "draft" });
     },
+    /**
+     * A send that failed after the approval (P71 M4): the draft waits again, so the owner may press Send once more. The hub never
+     * retries by itself; the failed attempt stays in `send_log`.
+     */
+    async unconfirmDraft(project: string, id: number): Promise<MessengerDraftRow> {
+      return draftTransition(id, project, "confirmed", { status: "draft", confirmedBy: null, confirmedAt: null });
+    },
   };
 }

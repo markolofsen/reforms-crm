@@ -13,6 +13,7 @@ import type { CoreUpdatesService } from "./core-updates";
 import { overviewRoutes } from "./routes/overview";
 import { projectRoutes } from "./routes/project";
 import { sendRoutes, type SenderOptions } from "./routes/sends";
+import type { MessengerSenders } from "./send/messenger-door";
 import { sequenceRoutes } from "./routes/sequences";
 import { terminalRoutes } from "./routes/terminal";
 import { liveRoutes } from "./routes/live";
@@ -43,6 +44,13 @@ import type { SchemeSources } from "./scheme";
 import { instanceLlm } from "@hub/config/llm";
 import { hubPaths } from "@hub/config/paths";
 import { capSentence, fakeMode, hasKey, noKeySentence } from "@hub/llm";
+
+/** The one send of each connected messenger account, handed to the send door and nothing else (P71 M4). */
+const messengerSenders = (tg: TelegramUserHandle | undefined): MessengerSenders | undefined =>
+  tg && {
+    sender: (channel, account) => (channel === "telegram_user" ? tg.sender(account) : undefined),
+    failed: (channel, account, err) => (channel === "telegram_user" ? tg.sendFailed(account, err) : Promise.resolve()),
+  };
 
 export type AppOptions = {
   messengers?: () => MessengersStatus;
@@ -169,7 +177,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", instanceRoutes(opts.instance, () => opts.local?.available ?? false))
     .route("/", coreRoutes(opts.coreUpdates))
     .route("/", draftRoutes(repos, opts.sender))
-    .route("/", sendRoutes(repos, opts.sender))
+    .route("/", sendRoutes(repos, opts.sender, messengerSenders(opts.telegramUser)))
     .route("/", draftMailRoutes(repos, opts.sender))
     .route("/", projectRoutes(repos, projectsDir, opts.sender?.policyDir))
     .route("/", inboxRoutes(repos))

@@ -191,6 +191,35 @@ describe("migration 0026 (llm_calls, P78)", () => {
   });
 });
 
+describe("migration 0027 (send_log channel, P71 M4)", () => {
+  it("marks every older send as mail, keeps the rows and the live triggers, and names a messenger draft with one live row", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(27) }); // 0000 .. 0026
+    sqlite.prepare("insert into clients (project, email, name, replies_owed, created_at) values ('p','a@x.example','A',0,'2026-11-01T00:00:00.000Z')").run();
+    sqlite.prepare("insert into drafts (project, client_id, subject, to_addr, body) values ('p',1,'s','a@x.example','b')").run();
+    sqlite.prepare("insert into send_log (project, draft_id, mode, status, actor, to_addr, subject, body) values ('p',1,'manual','sent','admin','a@x.example','s','b')").run();
+    sqlite.prepare("insert into messenger_drafts (project, channel, chat_id, text, created_by) values ('p','telegram_user','42','hi','agent')").run();
+
+    migrate(db, { migrationsFolder: source }); // + 0027
+
+    expect(sqlite.prepare("select channel, messenger_draft_id, draft_id from send_log").get()).toEqual({ channel: "mail", messenger_draft_id: null, draft_id: 1 });
+    const add = (status: string) => sqlite.prepare(`insert into send_log (project, channel, messenger_draft_id, mode, status, actor, sender, to_addr, subject, body) values ('p','telegram_user',1,'manual','${status}','admin','7','telegram:42','A','hi')`).run();
+    add("failed");
+    add("sending");
+    expect(() => add("sent")).toThrow(/UNIQUE/);
+    expect(() => sqlite.prepare("insert into send_log (project, channel, mode, status, actor, to_addr, subject, body) values ('p','fax','manual','sent','a','x','s','b')").run()).toThrow(/CHECK/);
+    const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and name like 'live_send_log_%'").all() as { name: string }[]).map((t) => t.name).sort();
+    expect(triggers).toEqual(["live_send_log_ad", "live_send_log_ai", "live_send_log_au"]);
+    sqlite.prepare("delete from messenger_drafts").run();
+    expect(sqlite.prepare("select count(*) as n from send_log where channel = 'telegram_user' and messenger_draft_id is null").get()).toEqual({ n: 2 });
+    expect(sqlite.pragma("foreign_key_check")).toEqual([]);
+    expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    sqlite.close();
+  });
+});
+
 describe("restoreCheck", () => {
   it("opens a snapshot made by an OLDER core, applies the newer migrations and loses no row", () => {
     const tmp = mkdtempSync(join(tmpdir(), "hub-restore-"));

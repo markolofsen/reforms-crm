@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as agentApi from "../src/index";
 import { createDraft, isConfirmed, listOpenDrafts, type Draft } from "../src/index";
 import * as human from "../src/human";
-import { allowChat, confirmDraft, copyDraft, humanActor, linkIdentifier, sendConfirmed, unlinkIdentifier } from "../src/human";
+import { allowChat, confirmDraft, copyDraft, humanActor, linkIdentifier, openChatUrl, sendConfirmed, unlinkIdentifier } from "../src/human";
 import { FakeAdapter, FakeSendingAdapter } from "../src/fake";
 import { mintConfirmed } from "../src/confirmed";
 import { normalizeIdentifier } from "../src/normalize";
@@ -131,7 +131,7 @@ describe("only a human path confirms and sends", () => {
   });
 });
 
-describe("WhatsApp and user accounts: no send at all", () => {
+describe("WhatsApp: no send at all (a Telegram user account sends through the door since P71 M4)", () => {
   it("confirm refuses; copy hands over the text and the link to open", async () => {
     await linkIdentifier(env.repos, owner, { project: "p", clientId: env.clientId, kind: "whatsapp", value: "+49 151 000 0001" });
     const d = await draftFor("Hallo", "whatsapp", "+491510000001");
@@ -141,10 +141,12 @@ describe("WhatsApp and user accounts: no send at all", () => {
     expect((await env.repos.messengers.getDraft("p", d.id))?.status).toBe("copied");
   });
 
-  it("a user-account Telegram chat opens by id; copy is refused for a sendable bot channel", async () => {
+  it("a user-account Telegram chat is sendable: confirm takes it, copy is refused, as for the bot", async () => {
     await allowChat(env.repos, owner, { project: "p", channel: "telegram_user", chatId: "42" });
     const d = await draftFor("hi", "telegram_user", "42");
-    expect((await copyDraft(env.repos, owner, { project: "p", draftId: d.id })).openUrl).toBe("tg://user?id=42");
+    await expect(copyDraft(env.repos, owner, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "no_send_channel" });
+    await expect(confirmDraft(env.repos, owner, { project: "p", draftId: d.id })).resolves.toMatchObject({ channel: "telegram_user", chatId: "42", text: "hi" });
+    expect(openChatUrl("telegram_user", "42")).toBe("tg://user?id=42");
     const b = await draftFor();
     await expect(copyDraft(env.repos, owner, { project: "p", draftId: b.id })).rejects.toMatchObject({ code: "no_send_channel" });
   });

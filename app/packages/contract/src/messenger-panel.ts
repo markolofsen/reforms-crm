@@ -90,3 +90,29 @@ export type ChatRulesBody = z.infer<typeof chatRulesBody>;
 export const clientMatchDto = z.strictObject({ id: z.number().int(), name: z.string(), email: z.string() });
 export const clientMatchesDto = z.strictObject({ clients: z.array(clientMatchDto) });
 export type ClientMatchDto = z.infer<typeof clientMatchDto>;
+
+/**
+ * The send door for one messenger draft (P71 M4, decision 0036 point 7), `POST /api/projects/:slug/messengers/drafts/:id/send`.
+ * The dry run sends nothing and answers exactly what would go out: the chat, the account it goes from, who it is and the text. The
+ * apply carries the chat and the text the person saw and a single-use ticket (`POST /api/sends/tickets` with `kind: "messenger"`);
+ * the server refuses it when the draft's text changed since. Refusals are the 409 `wrong_state` reply with `refused`, in words.
+ */
+export const messengerSendPreviewDto = z.strictObject({
+  ok: z.literal(true),
+  dryRun: z.literal(true),
+  channel: z.enum(MESSENGER_CHANNELS),
+  chatId: z.string(),
+  /** The account it goes from (its id, never a secret). */
+  account: z.string(),
+  /** Who it goes to: the linked client, else the chat's title. */
+  to: z.string(),
+  text: z.string(),
+});
+export type MessengerSendPreviewDto = z.infer<typeof messengerSendPreviewDto>;
+
+export const messengerSendBody = z.discriminatedUnion("apply", [
+  z.strictObject({ apply: z.literal(false) }),
+  // Not trimmed: the text must equal the draft's, character for character. `ticket` optional so a missing one is the route's 403.
+  z.strictObject({ apply: z.literal(true), confirm: z.strictObject({ chatId: z.string().min(1).max(64), text: z.string().min(1).max(MESSENGER_TEXT_MAX) }), ticket: z.string().min(1).max(200).optional() }),
+]);
+export type MessengerSendBody = z.infer<typeof messengerSendBody>;

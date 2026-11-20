@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CHAT_RULES } from "@hub/config/chat-rules";
 import type { MessengerChatDto } from "@hub/contract/messenger-panel";
-import { chatName, lastText, lastWho, noDraftLine, rulesLine, SEND_LATER } from "../src/features/messengers/labels";
+import { chatName, confirmLine, lastText, lastWho, noDraftLine, rulesLine } from "../src/features/messengers/labels";
 
 // The Messengers panel's words (P71 M3): who a chat is, its rules in one line, whose turn it is and why there is no draft.
 
@@ -45,7 +45,7 @@ describe("messenger labels", () => {
     expect(noDraftLine(chat({ draft: { id: 9, text: "Yes", nudge: false, ownerRequest: null, createdAt: "", updatedAt: "" } }), "p")).toBeNull();
   });
 
-  it("Send waits for the send door, and says so", () => {
-    expect(SEND_LATER).toBe("Sending messengers comes with the send door, P71 M4.");
+  it("the confirm step says who, on which channel, from which account, and that it cannot be recalled (P71 M4)", () => {
+    expect(confirmLine({ to: "Rita Falsa", channel: "telegram_user", account: "42" })).toBe("To Rita Falsa on Telegram, from your account 42. A sent message cannot be recalled.");
   });
 });

@@ -16,7 +16,7 @@ Draft-only is enforced by types and by what can be imported, not by a prompt:
 - An agent can only `createDraft` (status `draft`, chat must be allow-listed).
 - `adapter.send` takes a `ConfirmedDraft`, a branded type minted by `confirmDraft` in `human.ts`. A hand-built or cast object is refused at run time (WeakSet check), and the package `exports` map blocks a deep import of the minter.
 - A `HumanActor` is minted only by `humanActor()`: by the messengers CLI when stdin is a TTY, and by the server's Telegram user account link route behind the admin gate (exact admin Origin, loopback Host, `Sec-Fetch-Site: same-origin`; decision 0036 point 7).
-- Channels `telegram_user` and `whatsapp` have no `send` at all: `copyDraft` returns the text and a link to open the chat.
+- `telegram_user` sends through the server's send door only (P71 M4, decision 0036 point 7: `apps/server/src/send/messenger-door.ts`): a dry run, a ticket, the `send_log` row first, one `sendText` through the adapter's `send`, no retry, after the guards (an inbound message in the chat, 30 a day and 20 s apart per account, `allow_list` entries `telegram:<id>` in test mode, Stop sending). The poller holds `pollOnly(adapter)`, so the receiving side has no send path. `whatsapp` has no `send` until M5: `copyDraft` returns the text and a link to open the chat.
 
 ## The Telegram user account (P71 M1)
 
@@ -29,7 +29,7 @@ The owner's own account (decision 0036; he connects his main number, the risk of
 | `telegram-user-login.ts` | The login: `api_id` and `api_hash`, phone, code, 2FA password, one call each; values in memory for 10 minutes, never logged; refusals are sentences that never echo what was typed. Only the final session is stored. |
 | `sessions.ts` | `state/secrets/sessions/telegram_user-<id>/session`, mode 600 in a 700 folder: the session string with the `api_id` and `api_hash` mtcute needs on every connect. Not in `app.db`, not backed up. |
 
-Privacy (0036 point 3): a message from a chat that is not on the `telegram_user` allow-list is dropped in the event handler (and again at the drain), so it leaves no row, no counter and no log line. A chat enters the allow-list only by `linkUserChat` (the owner's pick in the dialog picker), which also imports its last 30 days. The picker reads dialogs on demand; suggestions match a dialog's Telegram id or phone against the client's identifiers (`client_identifiers` has no username kind, so a username is never a suggestion source). There is no `send` on this adapter in M1.
+Privacy (0036 point 3): a message from a chat that is not on the `telegram_user` allow-list is dropped in the event handler (and again at the drain), so it leaves no row, no counter and no log line. A chat enters the allow-list only by `linkUserChat` (the owner's pick in the dialog picker), which also imports its last 30 days. The picker reads dialogs on demand; suggestions match a dialog's Telegram id or phone against the client's identifiers (`client_identifiers` has no username kind, so a username is never a suggestion source). Its `send` (P71 M4) takes only a `ConfirmedDraft` for a chat on the allow-list and maps Telegram's refusal like a poll error; a park it reports parks the account.
 
 `@mtcute/node` depends on better-sqlite3 12; its native build is refused in `pnpm-workspace.yaml` (`allowBuilds: better-sqlite3: false`) because `MemoryStorage` never loads it. The server's supervisor is `apps/server/src/telegram-user.ts`.
 
@@ -49,7 +49,7 @@ Columns on `messenger_chats`, set only by the owner (Messengers ▸ Settings sin
 
 ## The agent's tools (P71 M2)
 
-The agent never imports this package's send path: `hub mcp` (`@hub/agent`) has `messenger_history` (a linked chat, or a client's linked chats, with the rules and the open draft) and `messenger_draft_write` (one row in `messenger_drafts`, status `draft`, on a short write connection), both through `@hub/db` only, so `hub mcp` loads no Telegram client (research 26 section 4). A chat that is not linked, or is another project's, is `not_linked` and named nowhere. The guard asks for a `messenger_history` read of that chat earlier in the session before a draft (`@hub/projects`, `chat-ledger.ts`). The skill is `skills/triage-messages/SKILL.md`. No send tool exists; Send is M4's door.
+The agent never imports this package's send path: `hub mcp` (`@hub/agent`) has `messenger_history` (a linked chat, or a client's linked chats, with the rules and the open draft) and `messenger_draft_write` (one row in `messenger_drafts`, status `draft`, on a short write connection), both through `@hub/db` only, so `hub mcp` loads no Telegram client (research 26 section 4). A chat that is not linked, or is another project's, is `not_linked` and named nowhere. The guard asks for a `messenger_history` read of that chat earlier in the session before a draft (`@hub/projects`, `chat-ledger.ts`). The skill is `skills/triage-messages/SKILL.md`. No send tool exists; Send is the server's door (P71 M4), pressed by the owner.
 
 ## History
 

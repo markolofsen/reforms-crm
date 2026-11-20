@@ -3,7 +3,8 @@
  * and needs a `HumanActor`. This module is a separate package entry (`@hub/messengers/human`): the agent-facing
  * entry (`@hub/messengers`) does not export it. A `HumanActor` is minted only by `humanActor()`, which an entry
  * point calls once it knows a person is present (the CLI checks for a terminal; the server mints one behind the admin
- * gate, for a Telegram user account's link: decision 0036 point 7). Do not import this file from anything an agent can call.
+ * gate for a Telegram user account's link, and in its send door for the one send a person confirmed: decision 0036 point 7,
+ * P71 M4). Do not import this file from anything an agent can call.
  * The login of a user account and its session writes are exported here too, for the same reason: only a person logs in.
  */
 import type { IdentifierKind, MessengerChannel, Repos } from "@hub/db";

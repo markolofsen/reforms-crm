@@ -6,7 +6,7 @@ const at = (project: string) => `/api/projects/${encodeURIComponent(project)}/me
 /**
  * The Messengers panel (P71 M3): the linked chats with what is owed and the agent's open draft of each, the owner's Edit, Skip and
  * its Undo, one chat's rules, and the client lookup of the link picker. Reads only `messenger_drafts` and the linked chats: Mail
- * drafts are Drafts'. The writes pass the server's admin gate (this page's own Origin). Nothing here sends (P71 M4).
+ * drafts are Drafts'. The writes pass the server's admin gate (this page's own Origin). Nothing here sends: the send door is `./send.ts`.
  */
 export const messengersApi = {
   chats: (project: string, filter: MessengerView) => read(messengerChatsDto, { method: "GET", path: `${at(project)}/chats`, query: { filter } }),

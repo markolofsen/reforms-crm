@@ -46,12 +46,12 @@ async function seedBatch(clientIds: number[]) {
 }
 
 describe("no route sends", () => {
-  it("has exactly one route that sends, and it is a POST that names its project and draft", () => {
+  it("has exactly one route that sends per kind of draft (Mail's, and a messenger's since P71 M4), each a POST that names its project and draft", () => {
     const paths = [...new Set(app.routes.map((r) => `${r.method} ${r.path}`))];
     expect(paths.length).toBeGreaterThan(15);
     expect(paths.filter((p) => /deliver|dispatch|smtp|outbox/i.test(p))).toEqual([]);
     // `.../sends` (history) and `.../sends/stop|resume|cancel` only read or remove work; the one that sends is below.
-    expect(paths.filter((p) => /send/i.test(p) && !/\/sends(\/|$)/.test(p))).toEqual(["POST /api/projects/:slug/drafts/:id/send"]);
+    expect(paths.filter((p) => /send/i.test(p) && !/\/sends(\/|$)/.test(p)).sort()).toEqual(["POST /api/projects/:slug/drafts/:id/send", "POST /api/projects/:slug/messengers/drafts/:id/send"]);
   });
 
   it("only the confirmed send route imports the sender, and only send/mailer.ts names the real Mailer", () => {
@@ -61,6 +61,11 @@ describe("no route sends", () => {
     const rel = (f: string) => f.slice(dir.length + 1);
     expect(src.filter((f) => /mailAppMailer/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/mailer.ts"]);
     expect(src.filter((f) => /\b(sendDraft|runDue)\b/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["routes/sends.ts"]);
+    // A messenger send: only the door mints the human actor's send, only the send routes call the door, only app.ts hands the
+    // account's send (`TelegramUserHandle.sender`) to them.
+    expect(src.filter((f) => /\bsendConfirmed\b/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/messenger-door.ts"]);
+    expect(src.filter((f) => /\bapplyMessenger\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["routes/sends.ts", "send/messenger-door.ts"]);
+    expect(src.filter((f) => /\.sender\(account\)/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["app.ts"]);
   });
 
   it("imports no mail transport anywhere in the server source", () => {

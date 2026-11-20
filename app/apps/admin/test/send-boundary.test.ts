@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 // Decision 0015: mutations go through the Hono API with the typed client. "use server" and `@hub/db` are eslint errors
 // (`no-restricted-syntax`, `no-restricted-imports`); this test holds that the only callers of the send client are the card's
-// own send flow and its action bar.
+// own send flow and its action bar, and of the messenger send door the Messengers panel's send hook (P71 M4).
 const SRC = join(import.meta.dirname, "../src");
 
 function files(dir: string): string[] {
@@ -16,6 +16,14 @@ describe("send boundary", () => {
   it("calls the one send route and its preview only from the card's send flow", () => {
     const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(send|preview)\b/.test(f.text)).map((f) => f.path).sort();
     expect(users).toEqual(["features/review/card/use-send-flow.ts"]);
+  });
+
+  it("calls the messenger send door (P71 M4) only from the Messengers panel's send hook", () => {
+    const users = all.filter((f) => f.path !== "lib/api/messengers/send.ts" && /\bmessengerSendApi\.(send|preview)\b/.test(f.text)).map((f) => f.path).sort();
+    expect(users).toEqual(["features/messengers/use-messenger-send.ts"]);
+    // Both doors' steps are the one shared hook: neither feature runs its own dry-run and apply mutations.
+    const doors = all.filter((f) => /\buseSendDoor(<\w+>)?\(/.test(f.text) && f.path !== "components/send/send-flow.ts").map((f) => f.path).sort();
+    expect(doors).toEqual(["features/messengers/use-messenger-send.ts", "features/review/card/use-send-flow.ts"]);
   });
 
   it("writes a draft's Mail text (Save, Restore: P56) only from the card's one write hook", () => {

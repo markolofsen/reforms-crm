@@ -1,6 +1,6 @@
 import { REPLY_MODE_LABELS } from "@hub/config/chat-rules";
 import { phrase } from "@hub/contract/help";
-import type { MessengerChannelDto, MessengerChatDto, MessengerView } from "@hub/contract/messenger-panel";
+import type { MessengerChannelDto, MessengerChatDto, MessengerSendPreviewDto, MessengerView } from "@hub/contract/messenger-panel";
 
 // The Messengers section's words (P71 M3), pure so a test holds them (`ui-specifications.md` rule 3).
 
@@ -9,8 +9,9 @@ export const CHANNEL_LABEL: Record<MessengerChannelDto, string> = { telegram_use
 export const VIEW_LABEL: Record<MessengerView, string> = { waiting: "Waiting", all: "All chats" };
 export const VIEW_ORDER: readonly MessengerView[] = ["waiting", "all"];
 
-/** Why Send is shown disabled on every draft until the send door takes messenger drafts. */
-export const SEND_LATER = "Sending messengers comes with the send door, P71 M4.";
+/** The confirm step of a messenger send (P71 M4): who, on which channel, from which account, and that it cannot be undone. */
+export const confirmLine = (p: Pick<MessengerSendPreviewDto, "to" | "channel" | "account">): string =>
+  `To ${p.to} on ${CHANNEL_LABEL[p.channel]}, from your account ${p.account}. A sent message cannot be recalled.`;
 
 /** Who the chat is: the client it is linked to, else the chat's own title, else its id. */
 export const chatName = (c: MessengerChatDto): string => c.client?.name || c.client?.email || c.title || `Chat ${c.chatId}`;

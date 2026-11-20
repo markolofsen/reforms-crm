@@ -3,9 +3,9 @@ import { MARKS, type Mark, type SafetyResult } from "@hub/config";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { evaluateSafety } from "../safety";
-import { clients, drafts, mailVersions, marks, sendControl, sendLog, type SendStatus } from "../schema";
+import { clients, drafts, mailVersions, marks, sendControl, sendLog, type MessengerChannel, type SendStatus } from "../schema";
 import { loadRules, nowIso, parseJson } from "./bulk-shared";
-import { write } from "../tx";
+import { write, type WriteTx } from "../tx";
 
 export type SendRow = typeof sendLog.$inferSelect;
 export type DraftRow = typeof drafts.$inferSelect;
@@ -30,8 +30,53 @@ export type NewSend = {
   mailRef?: string | null;
 };
 
+/**
+ * One messenger send a person confirmed (P71 M4). `account` is the sending account's id (stored as `sender`); `to` is
+ * `<channel>:<chat id>`; `name` is who it goes to (stored as `subject`); `text` the full text.
+ */
+export type NewMessengerSend = {
+  project: string;
+  channel: MessengerChannel;
+  messengerDraftId: number;
+  account: string;
+  to: string;
+  name: string;
+  text: string;
+  actor: string;
+  at: string;
+  /** The guards of one account (decision 0036 point 7), re-checked inside the write so two sends cannot both pass. */
+  limits: { dailyCap: number; spacingSeconds: number };
+};
+
+/** What one messenger account has used: live rows of the last 24 h (the cap) and its newest attempt of any outcome (the spacing). */
+export type MessengerUsage = { sentLastDay: number; lastAttemptAt: string | null };
+
+const DAY_MS = 86_400_000;
 const isUnique = (e: unknown) => e instanceof Error && /UNIQUE constraint/i.test(e.message);
 const LIVE: SendStatus[] = ["queued", "sending", "sent"];
+
+type Reader = Db | WriteTx;
+
+function usage(db: Reader, channel: MessengerChannel, account: string, at: string): MessengerUsage {
+  const mine = and(eq(sendLog.channel, channel), eq(sendLog.sender, account));
+  const since = new Date(new Date(at).getTime() - DAY_MS).toISOString();
+  const n = db.select({ n: sql<number>`count(*)` }).from(sendLog).where(and(mine, inArray(sendLog.status, ["sending", "sent"]), gte(sendLog.createdAt, since))).get();
+  const last = db.select({ at: sql<string | null>`max(${sendLog.createdAt})` }).from(sendLog).where(and(mine, inArray(sendLog.status, ["sending", "sent", "failed"]))).get();
+  return { sentLastDay: Number(n?.n ?? 0), lastAttemptAt: last?.at ?? null };
+}
+
+/**
+ * Why one more messenger send on this account is refused now, in the owner's words, or null. The cap counts sending and sent rows of
+ * the last 24 h; the spacing counts every attempt, a failed one too, since it reached Telegram.
+ */
+export function usageRefusal(u: MessengerUsage, limits: { dailyCap: number; spacingSeconds: number }, at: string): string | null {
+  if (u.sentLastDay >= limits.dailyCap) return `this account sent ${u.sentLastDay} messages in the last 24 hours, the cap is ${limits.dailyCap}`;
+  if (u.lastAttemptAt) {
+    const wait = Math.ceil((new Date(u.lastAttemptAt).getTime() + limits.spacingSeconds * 1000 - new Date(at).getTime()) / 1000);
+    if (wait > 0) return `the last send on this account was under ${limits.spacingSeconds} seconds ago: wait ${wait} s`;
+  }
+  return null;
+}
 
 /**
  * The send audit and the Stop all switch (decision 0011). Only the hub's `hub send` calls the writers; the agent has
@@ -82,6 +127,36 @@ export function sendsRepo(db: Db) {
             .get();
         } catch (e) {
           if (isUnique(e)) throw new RepoError("wrong_state", "This draft is already queued, being sent or sent");
+          throw e;
+        }
+      });
+    },
+
+    /** The usage of one messenger account at `at` (P71 M4): what the daily cap and the spacing are judged against. */
+    async messengerUsage(channel: MessengerChannel, account: string, at: string): Promise<MessengerUsage> {
+      return usage(db, channel, account, at);
+    },
+
+    /**
+     * Starts a messenger send (P71 M4): Stop all, the daily cap and the spacing are checked again inside the same write
+     * transaction that inserts the `sending` row, so the audit row exists before anything leaves and two sends cannot race
+     * past a guard. `wrong_state` with the reason in words when a guard refuses, or when the draft already has a live row.
+     */
+    async beginMessage(input: NewMessengerSend): Promise<SendRow> {
+      return write(db, (tx) => {
+        const stopped = tx.select().from(sendControl).where(and(inArray(sendControl.project, ["*", input.project]), eq(sendControl.stopped, true))).get();
+        if (stopped) throw new RepoError("wrong_state", "Stop sending is on");
+        const u = usage(tx, input.channel, input.account, input.at);
+        const refused = usageRefusal(u, input.limits, input.at);
+        if (refused) throw new RepoError("wrong_state", refused);
+        try {
+          return tx
+            .insert(sendLog)
+            .values({ project: input.project, channel: input.channel, messengerDraftId: input.messengerDraftId, draftId: null, mode: "manual", status: "sending", actor: input.actor, createdAt: input.at, sender: input.account, toAddr: input.to, subject: input.name, body: input.text })
+            .returning()
+            .get();
+        } catch (e) {
+          if (isUnique(e)) throw new RepoError("wrong_state", "This draft is already being sent or sent");
           throw e;
         }
       });

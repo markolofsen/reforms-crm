@@ -87,6 +87,10 @@ export function mtcuteSessionClient(s: UserSession): MtClient {
       }
       return out;
     },
+    async sendText(chatId, text) {
+      const m = await tg.sendText(chatId, text);
+      return { id: m.id, date: m.date };
+    },
     async close() {
       if (handlers) {
         tg.onNewMessage.remove(handlers.message);

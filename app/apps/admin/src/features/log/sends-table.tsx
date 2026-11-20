@@ -23,11 +23,17 @@ const STATE: Record<SendRowDto["status"], string | null> = { sent: null, queued:
 const via = (r: SendRowDto): string => [VIA[r.mode], STATE[r.status] && `${STATE[r.status]}${r.status === "queued" && r.dueAt ? `, goes out ${formatTime(r.dueAt)}` : ""}`].filter(Boolean).join(" · ");
 const when = (r: SendRowDto): string => formatTime(r.doneAt ?? r.createdAt);
 
-/** The subject, linking to the draft it came from (the full text lives in that card). */
+/** A messenger send's channel (P71 M4); a mail row has none. */
+const CHANNEL: Record<Exclude<SendRowDto["channel"], "mail">, string> = { telegram_user: "Telegram", telegram_bot: "Telegram bot", whatsapp: "WhatsApp" };
+/** Who it went to: the addresses of a mail, or "Anna on Telegram" for a message (its row keeps the chat as `telegram:<id>`). */
+const to = (r: SendRowDto): string => (r.channel === "mail" ? (r.ccAddr ? `${r.toAddr}, Cc ${r.ccAddr}` : r.toAddr) : `${r.subject} on ${CHANNEL[r.channel]}`);
+
+/** The subject, linking to the draft it came from (the full text lives in that card); a message has no subject, so its text. */
 function Subject({ r }: { r: SendRowDto }) {
+  const title = r.channel === "mail" ? r.subject : r.body;
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      {r.draftId === null ? r.subject : <AppLink className="text-foreground text-sm" to={paths.drafts.item(r.draftId)}>{r.subject}</AppLink>}
+      {r.draftId === null || r.channel !== "mail" ? <span className="line-clamp-2 break-words">{title}</span> : <AppLink className="text-foreground text-sm" to={paths.drafts.item(r.draftId)}>{r.subject}</AppLink>}
       {r.error && <span className="text-warning-foreground text-xs">{r.error}</span>}
     </span>
   );
@@ -61,7 +67,7 @@ function SendsTable({ sends, busy, onCancel }: Props) {
           {sends.map((r) => (
             <TableRow data-send={r.id} key={r.id}>
               <TableCell className="text-muted-foreground tabular-nums">{when(r)}</TableCell>
-              <TableCell className="break-all">{r.ccAddr ? `${r.toAddr}, Cc ${r.ccAddr}` : r.toAddr}</TableCell>
+              <TableCell className="break-all">{to(r)}</TableCell>
               <TableCell>
                 <Subject r={r} />
               </TableCell>
@@ -80,7 +86,7 @@ function SendsTable({ sends, busy, onCancel }: Props) {
           <li className="flex min-w-0 flex-col gap-1 py-2 text-sm" key={r.id}>
             <Subject r={r} />
             <p className="break-all text-muted-foreground text-xs">
-              <span className="tabular-nums">{when(r)}</span> · {r.toAddr} · {via(r)}
+              <span className="tabular-nums">{when(r)}</span> · {to(r)} · {via(r)}
             </p>
             {r.status === "queued" && (
               <div>
@@ -105,7 +111,7 @@ export function SendsView({ project }: { project: string }) {
   if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the sends" />;
   return (
     <>
-      {q.data.sends.length === 0 ? <EmptyState title="No sends yet">A mail you send from a draft appears here.</EmptyState> : <SendsTable busy={cancel.isPending} onCancel={(id) => cancel.mutate(id)} sends={q.data.sends} />}
+      {q.data.sends.length === 0 ? <EmptyState title="No sends yet">A mail or a message you send from a draft appears here.</EmptyState> : <SendsTable busy={cancel.isPending} onCancel={(id) => cancel.mutate(id)} sends={q.data.sends} />}
       <p className="text-destructive-foreground text-sm" role="alert">
         {cancel.isError ? sentence(cancel.error) : ""}
       </p>

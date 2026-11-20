@@ -4,6 +4,8 @@ import {
   AdapterError,
   createTelegramUserAdapter,
   mtcuteClients,
+  isParkedCode,
+  parkedLine,
   parkedOf,
   pollOnly,
   readSession,
@@ -17,6 +19,7 @@ import {
   type ParkedCode,
   type PollEvent,
   type TelegramUserAdapter,
+  type TelegramUserSendingAdapter,
   type UserSession,
 } from "@hub/messengers";
 import { createLoginFlows, removeSession, writeSession, type LoginFlows } from "@hub/messengers/human";
@@ -61,7 +64,7 @@ export interface StartTelegramUser {
 interface Slot {
   st: TelegramUserAccountDto;
   ac: AbortController;
-  adapter: TelegramUserAdapter | null;
+  adapter: TelegramUserSendingAdapter | null;
   done: Promise<void>;
 }
 
@@ -69,8 +72,12 @@ export interface TelegramUserHandle {
   status(): TelegramUserStatusDto;
   /** The project accounts store into, or why there is none. */
   project(): { project: string } | { project: null; reason: string };
-  /** The live adapter of a connected account (the picker and the link read through it), else undefined. */
+  /** The live adapter of a connected account (the picker and the link read through it), else undefined. It has no send. */
   adapter(account: string): TelegramUserAdapter | undefined;
+  /** The same account's send, for the server's send door only (P71 M4); undefined while the account is parked, stopped or absent. */
+  sender(account: string): TelegramUserSendingAdapter | undefined;
+  /** A send that Telegram answered with a park (logged out, banned, a long flood wait) parks the account as a poll would (0036 point 2). */
+  sendFailed(account: string, err: AdapterError): Promise<void>;
   /** The login flows; a finished login writes the session and connects the account. */
   login: LoginFlows;
   /** Stops the account's connection and removes its session folder. */
@@ -109,6 +116,8 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
     const read = readSession(dir, CHANNEL, account);
     if (read.state !== "stored") return void Object.assign(st, { state: "error", fix: NO_SESSION_FIX, lastError: `session file: ${read.state}` });
     const onEvent = (e: PollEvent) => {
+      // A park a send reported (P71 M4) holds: the loop's last poll after the abort must not read as running again.
+      if (st.parked) return;
       if (e.type === "poll") {
         Object.assign(st, { state: "running", failures: 0, fix: null, lastPollAt: now().toISOString() });
         delete st.lastError;
@@ -122,7 +131,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
         const adapter = createTelegramUserAdapter({ client, account, allowedChats: () => allowedChats(p) });
         slot.adapter = adapter;
         await run({ repos: o.repos, project: p, adapter: pollOnly(adapter), signal: ac.signal, onEvent, now });
-        if (st.state !== "error") st.state = "stopped";
+        if (st.state !== "error" && st.state !== "parked") st.state = "stopped";
       } catch (e) {
         if (e instanceof AdapterError && e.parked && (e.code === "logged_out" || e.code === "banned" || e.code === "flood_wait")) park(st, e.code);
         else Object.assign(st, { state: "error", lastError: scrub(e instanceof Error ? e.message : String(e)) });
@@ -159,14 +168,24 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
     },
   });
   const start = login.start;
+  const live = (account: string): TelegramUserAdapter | undefined => {
+    const s = slots.get(account);
+    return s && s.st.state !== "parked" && s.st.state !== "stopped" ? (s.adapter ?? undefined) : undefined;
+  };
 
   return {
     status: () =>
       project ? { state: "on", project, accounts: [...slots.values()].map((s) => ({ ...s.st })) } : { state: "off", reason, accounts: [] },
     project: () => (project ? { project } : { project: null, reason }),
-    adapter: (account) => {
+    adapter: (account) => live(account),
+    // The same live adapter, typed with its send: only `app.ts` hands it on, to the send door.
+    sender: (account) => (live(account) ? (slots.get(account)?.adapter ?? undefined) : undefined),
+    async sendFailed(account, err) {
       const s = slots.get(account);
-      return s && s.st.state !== "parked" && s.st.state !== "stopped" ? (s.adapter ?? undefined) : undefined;
+      if (!project || !s || !isParkedCode(err.code)) return;
+      park(s.st, err.code);
+      await o.repos.messengers.markPollError(project, CHANNEL, account, parkedLine(err.code, scrub(err.message)), now().toISOString());
+      s.ac.abort();
     },
     login: {
       ...login,

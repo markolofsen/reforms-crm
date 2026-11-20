@@ -257,10 +257,14 @@ export const projectOverviewDto = z.object({
 });
 export type ProjectOverviewDto = z.infer<typeof projectOverviewDto>;
 
-// Sending. One row of the audit (`send_log`) as the Project screen shows it; the text is the full text that went out.
+// Sending. One row of the audit (`send_log`) as the Project screen shows it; the text is the full text that went out. Since P71 M4
+// a row is Mail's (`channel: "mail"`, `draftId`) or a messenger's (`messengerDraftId`; `toAddr` is `<channel>:<chat id>`, `subject`
+// who it went to).
 export const sendRowDto = z.object({
   id: z.number(),
   draftId: z.number().nullable(),
+  channel: z.enum(["mail", "telegram_user", "telegram_bot", "whatsapp"]),
+  messengerDraftId: z.number().nullable(),
   mode: z.enum(["manual", "auto"]),
   status: z.enum(["queued", "sending", "sent", "failed", "cancelled"]),
   actor: z.string(),

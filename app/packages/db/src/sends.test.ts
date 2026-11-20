@@ -115,3 +115,52 @@ describe("Overview counts", () => {
     h.close();
   });
 });
+
+describe("messenger sends in send_log (P71 M4)", () => {
+  const limits = { dailyCap: 3, spacingSeconds: 20 };
+  const at = (s: number) => new Date(Date.UTC(2026, 10, 20, 12, 0, s)).toISOString();
+  const msetup = async () => {
+    const h = openDb(":memory:");
+    const repos = createRepos(h.db);
+    const ids: number[] = [];
+    for (let i = 0; i < 5; i++) ids.push((await repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId: "1001", text: `t${i}`, createdBy: "agent" })).id);
+    const one = (i: number, s: number) => ({ project: "p", channel: "telegram_user" as const, messengerDraftId: ids[i]!, account: "42", to: "telegram:1001", name: "Anna", text: `t${i}`, actor: "admin", at: at(s), limits });
+    return { h, repos, ids, one };
+  };
+
+  it("writes the row first with its channel, refuses a second live row of one draft, and frees it after a failure", async () => {
+    const { h, repos, one } = await msetup();
+    const a = await repos.sends.beginMessage(one(0, 0));
+    expect(a).toMatchObject({ channel: "telegram_user", messengerDraftId: one(0, 0).messengerDraftId, draftId: null, status: "sending", sender: "42", toAddr: "telegram:1001", subject: "Anna", body: "t0", mode: "manual" });
+    await expect(repos.sends.beginMessage(one(0, 60))).rejects.toThrow(/already being sent/);
+    await repos.sends.markFailed(a.id, "network");
+    await expect(repos.sends.beginMessage(one(0, 60))).resolves.toMatchObject({ status: "sending" });
+    h.close();
+  });
+
+  it("refuses inside the spacing (a failed attempt counts) and over the 24 h cap, in words", async () => {
+    const { h, repos, one } = await msetup();
+    const a = await repos.sends.beginMessage(one(0, 0));
+    await repos.sends.markFailed(a.id, "network");
+    await expect(repos.sends.beginMessage(one(1, 10))).rejects.toThrow(/under 20 seconds ago: wait 10 s/);
+    await repos.sends.markSent((await repos.sends.beginMessage(one(1, 20))).id, "1");
+    await repos.sends.markSent((await repos.sends.beginMessage(one(2, 40))).id, "2");
+    await repos.sends.beginMessage(one(3, 60));
+    await expect(repos.sends.beginMessage(one(4, 90))).rejects.toThrow(/sent 3 messages in the last 24 hours, the cap is 3/);
+    expect(await repos.sends.messengerUsage("telegram_user", "42", at(90))).toEqual({ sentLastDay: 3, lastAttemptAt: at(60) });
+    // Another account is counted apart; a mail row never counts.
+    await expect(repos.sends.beginMessage({ ...one(4, 90), account: "43" })).resolves.toMatchObject({ sender: "43" });
+    h.close();
+  });
+
+  it("refuses while Stop sending is on, for this project or every project", async () => {
+    const { h, repos, one } = await msetup();
+    await repos.sends.stop();
+    await expect(repos.sends.beginMessage(one(0, 0))).rejects.toThrow(/Stop sending is on/);
+    await repos.sends.resume();
+    await repos.sends.stop("p");
+    await expect(repos.sends.beginMessage(one(0, 0))).rejects.toThrow(/Stop sending is on/);
+    expect(await repos.sends.list("p")).toEqual([]);
+    h.close();
+  });
+});

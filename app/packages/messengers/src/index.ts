@@ -47,6 +47,7 @@ export {
   type MtPeer,
   type TelegramUserAdapter,
   type TelegramUserOptions,
+  type TelegramUserSendingAdapter,
   type UserDialog,
 } from "./telegram-user";
 export { readSession, redactSessions, sessionAccounts, sessionsDir, SESSION_FILE, type SessionRead, type UserSession } from "./sessions";

@@ -5,8 +5,9 @@ import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Textarea } from "@hub/ui/textarea";
 import { agentRef } from "@/lib/focus";
-import { SEND_LATER } from "./labels";
+import { SendBar } from "./send-bar";
 import type { useChatActions } from "./use-chat-actions";
+import { useMessengerSend } from "./use-messenger-send";
 
 type Actions = ReturnType<typeof useChatActions>;
 
@@ -51,13 +52,14 @@ function Editor({ d, actions, onClose }: { d: MessengerDraftDto; actions: Action
 
 /**
  * The agent's open draft of one chat (P71 M3): its text in full, what admitted it (a follow-up, the owner's request), and the
- * three decisions. Send is shown disabled with its reason until the send door takes messenger drafts (P71 M4); Edit opens the
- * text in place (an action's own form, `admin-principles.md` rule 9); Skip sets it aside with Undo. Its ref is `mdraft:<id>`
- * (P72), so a press on it tells the agent which draft he means; it is not a tab stop of its own (the buttons are).
+ * three decisions. Send goes through the send door (P71 M4): a dry run, the confirm in place with the exact text, the apply; Edit
+ * opens the text in place (an action's own form, `admin-principles.md` rule 9); Skip sets it aside with Undo. Its ref is
+ * `mdraft:<id>` (P72), so a press on it tells the agent which draft he means; it is not a tab stop of its own (the buttons are).
  */
-export function DraftBlock({ d, name, actions }: { d: MessengerDraftDto; name: string; actions: Actions }) {
+export function DraftBlock({ d, name, project, actions }: { d: MessengerDraftDto; name: string; project: string; actions: Actions }) {
   const [editing, setEditing] = useState(false);
-  const reason = useId();
+  const door = useMessengerSend(project, d);
+  const shown = door.flow.step === "confirm" || door.flow.step === "sending" ? door.flow.mail.text : d.text;
   return (
     <div className="flex min-w-0 flex-col gap-2" data-testid="messenger-draft" {...agentRef(`mdraft:${d.id}`)}>
       <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
@@ -70,22 +72,23 @@ export function DraftBlock({ d, name, actions }: { d: MessengerDraftDto; name: s
       ) : (
         <>
           <p className="measure whitespace-pre-wrap break-words text-sm" data-agent-label="">
-            {d.text}
+            {shown}
           </p>
-          <div className="flex flex-wrap items-center gap-2">
-            <ActionButton aria-describedby={reason} disabled size="s" variant="primary">
-              Send
-            </ActionButton>
-            <ActionButton disabled={actions.pending} onClick={() => setEditing(true)} size="s" variant="secondary">
-              Edit<span className="sr-only"> the draft for {name}</span>
-            </ActionButton>
-            <ActionButton disabled={actions.pending} onClick={() => actions.skip.mutate({ id: d.id, name })} size="s" variant="quiet">
-              Skip<span className="sr-only"> the draft for {name}</span>
-            </ActionButton>
-            <span className="text-muted-foreground text-xs" id={reason}>
-              {SEND_LATER}
-            </span>
-          </div>
+          <SendBar
+            busy={actions.pending}
+            door={door}
+            name={name}
+            rest={
+              <>
+                <ActionButton disabled={actions.pending} onClick={() => setEditing(true)} size="s" variant="secondary">
+                  Edit<span className="sr-only"> the draft for {name}</span>
+                </ActionButton>
+                <ActionButton disabled={actions.pending} onClick={() => actions.skip.mutate({ id: d.id, name })} size="s" variant="quiet">
+                  Skip<span className="sr-only"> the draft for {name}</span>
+                </ActionButton>
+              </>
+            }
+          />
         </>
       )}
     </div>

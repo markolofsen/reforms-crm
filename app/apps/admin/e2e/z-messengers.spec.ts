@@ -11,13 +11,17 @@ const RITA = "Rita Falsa";
 const chats = (page: Page) => page.getByRole("list", { name: "Chats" });
 const rita = (page: Page) => chats(page).getByRole("listitem", { name: RITA });
 
-test("messengers: the panel lists the waiting chat with the agent's draft, Send waits for M4, and Drafts lists mail only", async ({ page }) => {
+test("messengers: the panel lists the waiting chat with the agent's draft, a refused Send says why in words, and Drafts lists mail only", async ({ page }) => {
   await page.goto(at(P, "/messengers"));
   await expect(rita(page).getByText("They wrote")).toBeVisible();
   await expect(rita(page).getByText(/notary on the 28th/)).toBeVisible();
   await expect(rita(page).getByTestId("messenger-draft")).toContainText("the 28th stands");
-  await expect(rita(page).getByRole("button", { name: "Send", exact: true })).toBeDisabled();
-  await expect(rita(page).getByText("Sending messengers comes with the send door, P71 M4.")).toBeVisible();
+  // P71 M4: the e2e server connects no Telegram account, so the real dry run refuses, in words, and nothing is sent.
+  await rita(page).getByRole("button", { name: `Send the reply to ${RITA}` }).click();
+  await expect(rita(page).getByText(/^Not sent: \d+ reasons?$/)).toBeVisible();
+  await expect(rita(page).getByText("the Telegram account 100200300 is not connected (Messengers ▸ Settings)")).toBeVisible();
+  await rita(page).getByRole("button", { name: "Close" }).click();
+  await expect(rita(page).getByText(/^Not sent:/)).toHaveCount(0);
   await expect(rita(page)).toHaveAttribute("data-agent-ref", /^chat:\d+$/);
   await expect(page.getByRole("button", { name: /^View:/ })).toHaveText(/Waiting\s*1/);
   await expect(chats(page).getByRole("listitem")).toHaveCount(1);
@@ -30,6 +34,37 @@ test("messengers: the panel lists the waiting chat with the agent's draft, Send 
   await page.goto(at(P, "/drafts?filter=all"));
   await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
   await expect(page.getByText(/the 28th stands/)).toHaveCount(0);
+});
+
+test("messengers: Send reads the dry run, confirms in place with the exact text, and applies it with a messenger ticket", async ({ page }) => {
+  // The server side runs on a fake Telegram client in `apps/server/src/messenger-send.test.ts`; here the door's replies are stubbed.
+  const TEXT = "Hi Rita, the 28th stands (as the server read it).";
+  const sends: unknown[] = [];
+  const tickets: unknown[] = [];
+  await page.route(/\/api\/projects\/[^/]+\/messengers\/drafts\/\d+\/send$/, async (r) => {
+    const body = r.request().postDataJSON() as { apply: boolean };
+    sends.push(body);
+    await r.fulfill({ json: body.apply ? { ok: true, sendId: 77 } : { ok: true, dryRun: true, channel: "telegram_user", chatId: "700100", account: "100200300", to: RITA, text: TEXT } });
+  });
+  await page.route(/\/api\/sends\/tickets$/, async (r) => {
+    tickets.push(r.request().postDataJSON());
+    await r.fulfill({ json: { ticket: "t".repeat(43), expiresAt: "2099-01-01T00:00:00.000Z" } });
+  });
+  await page.goto(at(P, "/messengers"));
+  const send = rita(page).getByRole("button", { name: `Send the reply to ${RITA}` });
+  await send.click();
+  await expect(rita(page).getByRole("status")).toHaveText(`To ${RITA} on Telegram, from your account 100200300. A sent message cannot be recalled.`);
+  await expect(rita(page).getByTestId("messenger-draft")).toContainText(TEXT);
+  await expect(rita(page).getByRole("button", { name: "Confirm send" })).toBeFocused();
+  await expect(rita(page).getByRole("button", { name: /^Edit/ })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(send).toBeVisible();
+  expect(sends).toEqual([{ apply: false }]);
+  await send.click();
+  await rita(page).getByRole("button", { name: "Confirm send" }).click();
+  await expect(page.getByText(`Sent to ${RITA} on Telegram`)).toBeVisible();
+  expect(tickets).toEqual([{ project: P, draftId: expect.any(Number), kind: "messenger" }]);
+  expect(sends.at(-1)).toEqual({ apply: true, confirm: { chatId: "700100", text: TEXT }, ticket: "t".repeat(43) });
 });
 
 test("messengers: Edit changes the draft's text, Skip sets it aside with Undo", async ({ page }) => {

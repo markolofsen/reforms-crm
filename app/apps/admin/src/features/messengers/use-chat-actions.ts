@@ -10,8 +10,8 @@ const chatsOf = keys.messengerChatsOf;
 /**
  * The owner's moves on a messenger draft (P71 M3): Edit (his own words, saved to the row while it waits), Skip (set aside, with a
  * toast and Undo, `ui-specifications.md` rule 5d) and the Undo. One settle rule, as on Drafts: on success the panel is read
- * again; on failure the server's sentence is shown and the panel is read again, since a 409 means it was stale. No Send here:
- * the send door takes messenger drafts in P71 M4.
+ * again; on failure the server's sentence is shown and the panel is read again, since a 409 means it was stale. Send is not
+ * here: it is the send door's (`use-messenger-send.ts`, P71 M4).
  */
 export function useChatActions(project: string) {
   const qc = useQueryClient();

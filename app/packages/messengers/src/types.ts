@@ -2,14 +2,17 @@ import type { IdentifierKind, MessengerChannel } from "@hub/db";
 
 export type { IdentifierKind, MessengerChannel };
 
-/** What each channel can do. `canSend` is false for user accounts and WhatsApp: the owner copies the text and opens the chat. */
+/**
+ * What each channel can do. A Telegram user account sends through the server's send door (P71 M4, decision 0036 point 7: the
+ * owner's click, a dry run, a ticket, `send_log` first, the guards). WhatsApp has no send until M5: the owner copies the text.
+ */
 export const CHANNELS: Record<MessengerChannel, { identifier: IdentifierKind; canSend: boolean }> = {
   telegram_bot: { identifier: "telegram", canSend: true },
-  telegram_user: { identifier: "telegram", canSend: false },
+  telegram_user: { identifier: "telegram", canSend: true },
   whatsapp: { identifier: "whatsapp", canSend: false },
 };
 
-export type SendableChannel = "telegram_bot";
+export type SendableChannel = "telegram_bot" | "telegram_user";
 
 export const RETENTION_DAYS = 90;
 export const MAX_TEXT = 4096; // Telegram's own message limit
