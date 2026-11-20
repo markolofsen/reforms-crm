@@ -121,7 +121,7 @@ export function Timeline({ rows, now }: { rows: readonly ActivityRowDto[]; now: 
       <TableHeader>
         <TableRow>
           <TableHead className="w-1/8 max-sm:hidden">When</TableHead>
-          <TableHead className="sm:w-1/5">Client</TableHead>
+          <TableHead className="max-sm:w-full sm:w-1/5">Client</TableHead>
           <TableHead className="w-1/5 max-sm:hidden">What happened</TableHead>
           <TableHead className="max-sm:hidden">Why</TableHead>
         </TableRow>
