@@ -11,6 +11,7 @@ import { onClientWrote, onStepFinished, onStepReopened } from "./enrollments";
 import { upsertInbox } from "./inbox";
 import { insertEvent, sessionRun } from "./runs";
 import { bareRef } from "./mail-versions";
+import { teamNoticeOf, type TeamNotice } from "./review";
 
 export type NewDraft = Omit<typeof drafts.$inferInsert, "id" | "createdAt" | "updatedAt">;
 
@@ -472,6 +473,26 @@ export function draftsRepo(db: Db) {
         .from(drafts)
         .where(and(eq(drafts.project, project), eq(drafts.injectionSuspected, true), inArray(drafts.status, ["ready", "hold"])))
         .get()?.n ?? 0;
+    },
+
+    /** P90: what another person did in this draft's thread or to its client (the card's teammate line), for the agent's tools. */
+    async teamNotice(id: number): Promise<TeamNotice> {
+      const row = db.select({ d: drafts, c: clients }).from(drafts).innerJoin(clients, eq(drafts.clientId, clients.id)).where(eq(drafts.id, id)).get();
+      if (!row) return { repliedElsewhere: null, teamSent: null };
+      const last = db.select({ at: sql<string | null>`max(${drafts.sentAt})` }).from(drafts).where(eq(drafts.clientId, row.c.id)).get()?.at ?? null;
+      return teamNoticeOf(row.d, row.c, last);
+    },
+
+    /**
+     * P90: the newest Sent message that answers this draft's thread and is not the Hub's (Sent detection's `elsewhereOf`).
+     * Writes only when it is newer than what is stored; never touches the status, `updatedAt` or anything in Mail.
+     */
+    async markElsewhere(id: number, seen: { at: string; from: string; messageId: string }): Promise<boolean> {
+      return write(db, (tx) => {
+        const d = tx.select({ at: drafts.elsewhereAt, id: drafts.elsewhereMessageId }).from(drafts).where(eq(drafts.id, id)).get();
+        if (!d || d.id === seen.messageId || (d.at && d.at >= seen.at)) return false;
+        return tx.update(drafts).set({ elsewhereAt: seen.at, elsewhereFrom: seen.from.slice(0, 200), elsewhereMessageId: seen.messageId }).where(eq(drafts.id, id)).run().changes > 0;
+      });
     },
 
     /**

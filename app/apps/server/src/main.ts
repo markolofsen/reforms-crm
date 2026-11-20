@@ -18,7 +18,7 @@ import { startPurge } from "./purge";
 import { createPreanalysis } from "./preanalysis";
 import { createLlm } from "@hub/llm";
 import { startSentReconciler } from "./sent";
-import { stampSentMail } from "@hub/notion/stamp";
+import { stampSentMail, teamStampOf } from "@hub/notion/stamp";
 import type { SentNotice } from "@hub/send";
 import { chooseShell, createTerminal, serverDetector } from "./terminal";
 import { chooseAgentTools, createAgentTools } from "./agent-tools";
@@ -100,7 +100,9 @@ log.info(kind === "fake" ? "SEND IS FAKE (HUB_MAILER=fake): nothing leaves this 
 // background: a send never waits for Notion, and a failure is one ops-log line. Off with the fake Mailer (nothing was really sent).
 const onSent = kind === "fake" ? undefined : (n: SentNotice) => { void stampSentMail({ projectsDir, secretsDir: paths.secrets, stateDir: paths.state }, n); };
 // Sent detection reads Apple Mail's Sent mailbox while a draft waits (decision 0026); with the fake Mailer it never asks Mail.
-const sent = startSentReconciler({ repos, ...(onSent ? { onSent } : {}), ...(kind === "fake" ? { offReason: "HUB_MAILER=fake: Mail is not read" } : {}) });
+// P90: each pass also reads the clients' Notion Last sent stamps written by other people (the open card's teammate line).
+const teamStamp = kind === "fake" ? undefined : (project: string, email: string) => teamStampOf({ projectsDir, secretsDir: paths.secrets, stateDir: paths.state }, project, email);
+const sent = startSentReconciler({ repos, ...(onSent ? { onSent } : {}), ...(teamStamp ? { teamStamp } : {}), ...(kind === "fake" ? { offReason: "HUB_MAILER=fake: Mail is not read" } : {}) });
 log.info(`sent: ${sent.status().state}${sent.status().reason ? ` (${sent.status().reason})` : ""}`);
 // Connections: the real probes and Apple Mail's account list, or stubs with HUB_CONNECTIONS_PROBE=fake (refused without HUB_DB).
 const probe = chooseProbeKind(process.env);

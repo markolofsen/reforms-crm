@@ -225,6 +225,19 @@ export function clientsRepo(db: Db) {
       return { id: c.id, name: c.name, email: c.email, repliesOwed: c.repliesOwed, lastContactAt: c.lastContactAt, marks: m };
     },
 
+    /**
+     * P90: the client's Notion stamp written by another person (`Last sent at` / `Last sent by`), as Sent detection read it;
+     * null clears it. Writes only on a change.
+     */
+    async setTeamSent(id: number, stamp: { at: string; by: string } | null): Promise<boolean> {
+      return write(db, (tx) => {
+        const c = tx.select({ at: clients.teamSentAt, by: clients.teamSentBy }).from(clients).where(eq(clients.id, id)).get();
+        const at = stamp?.at ?? null, by = stamp ? stamp.by.slice(0, 200) : null;
+        if (!c || (c.at === at && c.by === by)) return false;
+        return tx.update(clients).set({ teamSentAt: at, teamSentBy: by }).where(eq(clients.id, id)).run().changes > 0;
+      });
+    },
+
     async isEmpty(): Promise<boolean> {
       return db.select({ id: clients.id }).from(clients).limit(1).get() === undefined;
     },

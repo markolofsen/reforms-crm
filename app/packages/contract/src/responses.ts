@@ -115,6 +115,13 @@ export const reviewDraftDto = z.object({
   sendState: z.object({ id: z.number(), status: z.enum(["queued", "sending", "sent"]), dueAt: nullableIso, via: z.enum(["batch", "manual", "auto"]).default("manual"), doneAt: nullableIso.default(null) }).nullable(),
   /** P87 (B3): how many other drafts the Hub holds for this client: the card's "Earlier drafts to this client". */
   otherDrafts: z.number().int().min(0).default(0),
+  /**
+   * P90: on an open draft, a Sent reply in its thread that is not the Hub's (a teammate in a shared mailbox, or the owner from
+   * another device): "<by> replied at 14:02 · your draft may be out of date". Null when none, or the draft is finished.
+   */
+  repliedElsewhere: z.object({ at: iso, by: z.string(), messageId: z.string() }).nullable().default(null),
+  /** P90: the client's Notion stamp by another person, newer than the client's last message and this Hub's last send. */
+  teamSent: z.object({ at: iso, by: z.string() }).nullable().default(null),
   skipReason: z.string().nullable(),
   sentAt: nullableIso,
   createdAt: iso,

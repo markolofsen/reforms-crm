@@ -15,8 +15,9 @@ end run`;
 
 /**
  * argv: 1 account, 2 mailbox, 3-5 year month day, 6 seconds after local midnight (the oldest date to read).
- * One record per message: Message-ID, In-Reply-To, the sent date as local "y,m,d,seconds", To, Cc and subject; never the
- * text (P65). A Gmail account's Sent is `[Gmail]/<name>`.
+ * One record per message: Message-ID, In-Reply-To, the sent date as local "y,m,d,seconds", To, Cc, subject, References (P90:
+ * a reply further down the thread) and the sender (P90: who replied, when it is not the Hub); never the text (P65). A Gmail
+ * account's Sent is `[Gmail]/<name>`.
  */
 export const SENT_SCRIPT = `on run argv
   set FS to (ASCII character 31)
@@ -43,6 +44,14 @@ export const SENT_SCRIPT = `on run argv
       try
         set irt to content of (first header of m whose name is "In-Reply-To")
       end try
+      set refs to ""
+      try
+        set refs to content of (first header of m whose name is "References")
+      end try
+      set snd to ""
+      try
+        set snd to sender of m
+      end try
       set tos to ""
       set ccs to ""
       try
@@ -55,7 +64,7 @@ export const SENT_SCRIPT = `on run argv
       end try
       set d to date sent of m
       set stamp to ((year of d) as text) & "," & (((month of d) as integer) as text) & "," & ((day of d) as text) & "," & ((time of d) as text)
-      set out to out & (message id of m) & FS & irt & FS & stamp & FS & tos & FS & ccs & FS & (subject of m) & RS
+      set out to out & (message id of m) & FS & irt & FS & stamp & FS & tos & FS & ccs & FS & (subject of m) & FS & refs & FS & snd & RS
     end repeat
   end tell
   return out
@@ -91,6 +100,10 @@ export interface SentMessage {
   cc: string[];
   subject: string;
   account: string;
+  /** P90: the References header's ids, bare (empty when absent). */
+  references: string[];
+  /** P90: the sender as Mail shows it (`Name <address>`), or empty. */
+  from: string;
 }
 
 export async function mailRunning(osa: OsaRun): Promise<boolean> {
@@ -110,10 +123,11 @@ function localStamp(stamp: string): string | null {
 export function parseSent(out: string, account: string): SentMessage[] {
   const msgs: SentMessage[] = [];
   for (const rec of records(out)) {
-    const [id = "", irt = "", stamp = "", to, cc, subject = ""] = rec.split(FS);
+    const [id = "", irt = "", stamp = "", to, cc, subject = "", refs = "", from = ""] = rec.split(FS);
     const date = localStamp(stamp.trim());
     if (!bareId(id) || !date) continue;
-    msgs.push({ messageId: bareId(id), inReplyTo: bareId(irt) || null, date, to: list(to), cc: list(cc), subject, account });
+    const references = [...refs.matchAll(/<([^<>\s]+)>/g)].map((x) => bareId(x[1])).filter(Boolean);
+    msgs.push({ messageId: bareId(id), inReplyTo: bareId(irt) || null, date, to: list(to), cc: list(cc), subject, account, references, from: from.trim() });
   }
   return msgs;
 }

@@ -202,7 +202,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "draft_show",
     {
       title: "One draft of this project",
-      description: `Status, recipients, the Mail key (mailRef: the Message-ID of the client's message this draft answers), the short excerpt, reason, marks, evidence, the recorded context, the Notion link, the follow-up step, the draft's Activity, \`inbound\` (account, mailbox_path, message_id of the client's message, for mail-mcp get_message_content), \`clientWroteTo\` (the project's address the client wrote to), \`fromSeenByClient\` (the From the hub writes this draft with, by its rule: the client sees exactly that, there is no hidden sender; the owner may still change it in Mail, and the admin card reads Mail's own) and \`fromReason\` (why it is not clientWroteTo, else null). Not the body: it lives in Mail (\`mail\` names the Mail draft(s) the hub recorded for it: account and Message-ID; read the text with mail-mcp list_drafts / get_message_content). To revise it: \`draft_write\` with \`draft\` = this id (nothing else to look up); the revision records itself. A \`sent\` draft is not revised (\`already_sent\`). Never send. ${DATA}`,
+      description: `Status, recipients, the Mail key (mailRef: the Message-ID of the client's message this draft answers), the short excerpt, reason, marks, evidence, the recorded context, the Notion link, the follow-up step, the draft's Activity, \`inbound\` (account, mailbox_path, message_id of the client's message, for mail-mcp get_message_content), \`clientWroteTo\` (the project's address the client wrote to), \`fromSeenByClient\` (the From the hub writes this draft with, by its rule: the client sees exactly that, there is no hidden sender; the owner may still change it in Mail, and the admin card reads Mail's own) and \`fromReason\` (why it is not clientWroteTo, else null), \`repliedElsewhere\` (someone else, a teammate in a shared mailbox or the owner from another device, already answered this thread: who and when; the draft may be out of date: never write a second reply on your own, say so and revise only on the owner's word) and \`teamSent\` (another person wrote to this client per Notion's Last sent by). Not the body: it lives in Mail (\`mail\` names the Mail draft(s) the hub recorded for it: account and Message-ID; read the text with mail-mcp list_drafts / get_message_content). To revise it: \`draft_write\` with \`draft\` = this id (nothing else to look up); the revision records itself. A \`sent\` draft is not revised (\`already_sent\`). Never send. ${DATA}`,
       inputSchema: z.object({ draft: z.number().int().positive().describe("The draft id, as the focus or the admin shows it (the same name draft_write takes).") }),
       annotations: READ_ONLY,
     },
@@ -217,6 +217,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         const rf = inbound && env.drafts && pm ? await fromFor(env.drafts, inbound, d.wroteTo ?? null, pm).catch(() => null) : null;
         const versions = await repos.mailVersions.ofDraft(d.id);
         const events = (await repos.runs.eventsForClient(slug, d.clientId, 100)).filter((e) => json<{ draftId?: number }>(e.detail, {}).draftId === d.id).slice(0, 20);
+        const team = await repos.drafts.teamNotice(d.id);
         return {
           id: d.id,
           project: slug,
@@ -239,6 +240,9 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
           mail: versions.filter((x) => !x.trashedAt).map((x) => ({ account: x.account, mail_id: x.mailId, message_id: x.messageId, written_at: x.writtenAt })),
           inbound: inbound ? { account: inbound.account, mailbox_path: inbound.mailboxPath, message_id: inbound.messageId } : null,
           clientWroteTo: d.wroteTo ?? null,
+          // P90: someone else (a teammate in a shared mailbox, or the owner elsewhere) already answered this thread, or wrote to the client per Notion.
+          repliedElsewhere: team.repliedElsewhere,
+          teamSent: team.teamSent,
           fromSeenByClient: rf?.from ?? null,
           fromReason: rf?.fromReason ?? null,
           revise: d.mailRef || isNewThreadDraft(d) ? { draft_write: { draft: d.id, content: d.mailRef ? "<the new reply>" : "<the new message>" }, then: "nothing: the revision records itself" } : { note: "No mailRef: this draft answers no Mail message, so draft_write cannot revise it." },
@@ -283,7 +287,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         const filter = view ?? "ready";
         const opts = q ? { search: q } : {};
         const [rows, total] = await Promise.all([repos.clients.review(slug, filter, { ...opts, limit: limit ?? 20 }), repos.clients.reviewTotal(slug, filter, opts)]);
-        return { project: slug, view: filter, total, drafts: rows.map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), client: { id: d.client.id, name: cut(d.client.name), email: d.client.email, repliesOwed: d.client.repliesOwed }, evidence: d.evidence ?? null })) };
+        return { project: slug, view: filter, total, drafts: rows.map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), client: { id: d.client.id, name: cut(d.client.name), email: d.client.email, repliesOwed: d.client.repliesOwed }, evidence: d.evidence ?? null, repliedElsewhere: d.repliedElsewhere, teamSent: d.teamSent })) };
       }),
   );
 
@@ -517,7 +521,10 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
           }
           // P58: the From is exactly what the client sees; a From that is not the address they wrote to is said, with its reason.
           const fromNote = r.fromReason ? ` The client sees From ${r.from}, not ${r.clientWroteTo ?? "the address they wrote to"} (${r.fromReason}); say so in your one line.` : "";
-          const notes = `${fromNote}${signNote}${langNote}${versionNote}${left}`;
+          // P90: a revision of a draft whose thread someone else already answered succeeds, and says so.
+          const team = draft !== undefined ? await repos.drafts.teamNotice(draft).catch(() => null) : null;
+          const warning = team?.repliedElsewhere ? `${team.repliedElsewhere.by} already replied in this thread at ${team.repliedElsewhere.at} (not this Hub's mail): this draft may repeat or contradict it; say so in your one line.` : team?.teamSent ? `${team.teamSent.by} wrote to this client at ${team.teamSent.at} (Notion Last sent by): say so in your one line.` : null;
+          const notes = `${fromNote}${signNote}${langNote}${versionNote}${left}${warning ? ` ${warning}` : ""}`;
           const next = recorded
             ? `Recorded: draft ${recorded.draftId} updated in place (same id, mailRef, client and context; Checked is off because the text changed). Do not run record-draft. Tell the owner in one line what you changed. Nothing was sent.${notes}`
             : to !== undefined
@@ -525,7 +532,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
               : `Record it, one Bash call from the instance folder: \`echo '{"email":"<client>","subject":"${r.subject.replace(/["'\\]/g, "")}","mailRef":"${r.thread}","skill":"${owner_request ? "bulk-drafts" : "triage-mail"}",${owner_request ? `"ownerRequest":"${owner_request.replace(/["'\\]/g, "")}",` : ""}"excerpt":"<first 240 chars of your reply>","context":{${owner_request ? `"batchKey":"<one key for every client of this run>","batchTitle":"<short English title>",` : ""}...}}' | ./run.sh record-draft --project ${slug}\` (JSON on stdin; skill ${owner_request ? "bulk-drafts" : "triage-mail step 5"})${recordError ? `; recording the revision in place failed: ${recordError}` : ""}. Then tell the owner in one line what you changed. Nothing was sent.${notes}`;
           // P58 live finding: unambiguous names for the agent. `fromSeenByClient` is Mail's own read of the saved draft's From.
           const { text: _text, shell: _shell, from, wroteTo: _wroteTo, ...shown } = r;
-          return { ...shown, fromSeenByClient: from, clientWroteTo: r.clientWroteTo, fromReason: r.fromReason, project: slug, sent: false, ...(draft !== undefined ? { draft } : {}), ...(owner_request ? { ownerRequest: owner_request } : {}), ...(to !== undefined ? { newThread: true } : {}), recorded: recorded !== null, live, next };
+          return { ...shown, fromSeenByClient: from, clientWroteTo: r.clientWroteTo, fromReason: r.fromReason, project: slug, sent: false, ...(draft !== undefined ? { draft } : {}), ...(owner_request ? { ownerRequest: owner_request } : {}), ...(to !== undefined ? { newThread: true } : {}), recorded: recorded !== null, live, ...(warning ? { warning } : {}), next };
         } catch (e) {
           if (e instanceof DraftWriteError) throw new ToolError(e.code, e.message);
           throw e;

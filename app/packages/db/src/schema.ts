@@ -18,6 +18,10 @@ export const clients = sqliteTable(
     name: text("name").notNull(),
     repliesOwed: integer("replies_owed", { mode: "boolean" }).notNull().default(false),
     lastContactAt: text("last_contact_at"),
+    // P90: the client's Notion stamp (`Last sent at` / `Last sent by`, P89) as Sent detection last read it, when another
+    // person wrote it (never this Mac's own name). The open card says so when it is newer than the client's last message.
+    teamSentAt: text("team_sent_at"),
+    teamSentBy: text("team_sent_by"),
     createdAt: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
     // Last time the agent (or a test) refreshed this row: repliesOwed and lastContactAt are "as of" this moment.
     // The migration gives existing rows a constant default; every insert fills it in code.
@@ -114,8 +118,15 @@ export const drafts = sqliteTable(
     // writer's header read at `draft_write`. Null: not resolved (no table, no header, or a draft written before 0020).
     wroteTo: text("wrote_to"),
     brand: text("brand"),
-    sentVia: text("sent_via"), // message-id | thread | subject-recipient
+    // `message-id` (Sent detection: one of the draft's own `mail_versions`, P90) or `hub` (the send door). Rows from before
+    // P90 may say `thread` or `subject-recipient`: history, no longer written.
+    sentVia: text("sent_via"),
     sentMessageId: text("sent_message_id"),
+    // P90: the newest Sent message of the project's accounts that answers this draft's `mailRef` and is not the Hub's (a
+    // teammate in a shared mailbox, or the owner from another device). Informational: it never marks, moves or edits.
+    elsewhereAt: text("elsewhere_at"),
+    elsewhereFrom: text("elsewhere_from"),
+    elsewhereMessageId: text("elsewhere_message_id"),
     // A step of a follow-up sequence (P47): the enrollment it belongs to and which step it is. `@hub/send` never sends such a draft.
     enrollmentId: integer("enrollment_id").references((): AnySQLiteColumn => enrollments.id, { onDelete: "set null" }),
     sequenceStep: integer("sequence_step"),

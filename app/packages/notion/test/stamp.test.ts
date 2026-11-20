@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createStampWriter, stampClientSend, STAMP_FIELDS, type StampWriter } from "../src/stamp";
+import { createStampWriter, readClientStamp, stampClientSend, STAMP_FIELDS, type StampWriter } from "../src/stamp";
 import type { NotionReader, PageObject, PropertyConfig } from "../src/types";
 
 // P89: the Hub's one Notion write, Last sent at / Last sent by on the client's page after a confirmed send.
@@ -42,5 +42,16 @@ describe("stampClientSend", () => {
     expect(seen[0]!.method).toBe("PATCH");
     expect(seen[0]!.url).toMatch(/\/v1\/pages\/p1$/);
     expect(seen[0]!.body).toEqual({ properties: { "Last sent at": { date: { start: "2026-11-20T10:00:00.000Z" } }, "Last sent by": { rich_text: [{ type: "text", text: { content: "Anna" } }] } } });
+  });
+});
+
+// P90: the stamp read back, for the open card's teammate line (personal mailboxes).
+describe("readClientStamp", () => {
+  const stamped = (at: string | null, by: string): PageObject => ({ id: "p1", last_edited_time: "x", properties: { Email: { type: "email", email: "ann@x.example" }, [STAMP_FIELDS.at]: { type: "date", date: at ? { start: at } : null }, [STAMP_FIELDS.by]: { type: "rich_text", rich_text: by ? [{ plain_text: by }] : [] } } });
+  it("returns who and when from the client's page, or null when the client, the date or the name is absent", async () => {
+    expect(await readClientStamp(reader(FIELDS, [stamped("2026-11-20T14:02:00.000+00:00", "Igor")]), "ds", "Ann@x.example")).toEqual({ at: "2026-11-20T14:02:00.000Z", by: "Igor" });
+    expect(await readClientStamp(reader(FIELDS, [stamped(null, "Igor")]), "ds", "ann@x.example")).toBeNull();
+    expect(await readClientStamp(reader(FIELDS, [stamped("2026-11-20T14:02:00.000Z", "")]), "ds", "ann@x.example")).toBeNull();
+    expect(await readClientStamp(reader(FIELDS, [stamped("2026-11-20T14:02:00.000Z", "Igor")]), "ds", "bob@x.example")).toBeNull();
   });
 });

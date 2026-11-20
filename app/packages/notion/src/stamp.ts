@@ -9,7 +9,7 @@ import notionhq from "@notionhq/client";
 import { readPerson } from "@hub/config/person";
 import { ops } from "@hub/log/ops";
 import { loadProject } from "@hub/projects";
-import { findClientByEmail } from "./client-lookup";
+import { findClientByEmail, findClientPage, textOf } from "./client-lookup";
 import { createNotionReader } from "./notion";
 import type { NotionReader } from "./types";
 
@@ -66,6 +66,44 @@ export interface StampEnv {
   clients?: (token: string) => { reader: NotionReader; writer: StampWriter };
 }
 
+/** The name this Mac stamps with: the person's setup name, else the login name with the fix. */
+export function stampName(stateDir: string): string {
+  return readPerson({ state: stateDir })?.name ?? `${userInfo().username} (name not set: ./run.sh setup --person)`;
+}
+
+/** P90: the client's stamp as Notion holds it (`Last sent at` / `Last sent by`), or null when the client or a field is absent. Read only. */
+export async function readClientStamp(reader: NotionReader, clientsDataSource: string, email: string): Promise<{ at: string; by: string } | null> {
+  const found = await findClientPage(reader, clientsDataSource, email);
+  if (found.state === "not_client") return null;
+  const at = found.page.properties[STAMP_FIELDS.at];
+  const start = at?.type === "date" && at.date && typeof at.date === "object" ? Reflect.get(at.date, "start") : null;
+  const by = textOf(found.page.properties[STAMP_FIELDS.by]).trim();
+  return typeof start === "string" && start && by ? { at: new Date(start).toISOString(), by } : null;
+}
+
+/**
+ * P90: another person's stamp on the client this draft goes to, for the open card: null when the project has no clients
+ * database or no token on this Mac, the client has no stamp, or the stamp carries this Mac's own name. Never throws: a
+ * Notion failure is one ops-log line (`notion`) and null. Reads only.
+ */
+export async function teamStampOf(env: StampEnv, project: string, email: string): Promise<{ at: string; by: string } | null> {
+  try {
+    const p = loadProject(env.projectsDir, project).parsed.config;
+    const ds = p.notion.databases.find((d) => d.slug === "clients")?.dataSourceId;
+    if (!ds) return null;
+    let token = "";
+    try { token = readFileSync(join(env.secretsDir, p.notion.tokenFile), "utf8").trim(); } catch { /* absent */ }
+    if (!token) return null;
+    const reader = env.clients?.(token).reader ?? createNotionReader(token);
+    const stamp = await readClientStamp(reader, ds, email);
+    return stamp && stamp.by !== stampName(env.stateDir) ? stamp : null;
+  } catch (e) {
+    const status: unknown = e && typeof e === "object" ? Reflect.get(e, "status") : undefined;
+    ops("notion").warn("reading the client's Last sent stamp failed", { project, status: typeof status === "number" ? status : null, error: e instanceof Error ? e.name : "error" });
+    return null;
+  }
+}
+
 export type SentStampResult = StampOutcome | { state: "off" | "no_database" | "no_token" | "no_recipient"; detail: string } | { state: "failed"; detail: string };
 
 /**
@@ -85,7 +123,7 @@ export async function stampSentMail(env: StampEnv, n: { project: string; to: rea
     let token = "";
     try { token = readFileSync(join(env.secretsDir, p.notion.tokenFile), "utf8").trim(); } catch { /* absent */ }
     if (!token) { log.info("send not stamped in Notion: no read token on this Mac", { project: n.project, draft: n.draftId, file: p.notion.tokenFile }); return { state: "no_token", detail: `no ${p.notion.tokenFile} in state/secrets` }; }
-    const by = readPerson({ state: env.stateDir })?.name ?? `${userInfo().username} (name not set: ./run.sh setup --person)`;
+    const by = stampName(env.stateDir);
     const c = env.clients?.(token) ?? { reader: createNotionReader(token), writer: createStampWriter(token) };
     const r = await stampClientSend(c, { clientsDataSource: ds, email, at: n.at, by });
     if (r.state === "stamped") log.info("send stamped in Notion (Last sent at, Last sent by)", { project: n.project, draft: n.draftId, via: n.via });

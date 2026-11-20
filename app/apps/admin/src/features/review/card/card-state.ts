@@ -135,3 +135,15 @@ export function sentLine(d: Pick<ReviewDraft, "status" | "sentAt" | "sendState">
   const at = d.sentAt ?? door?.doneAt ?? null;
   return `Sent${at ? ` ${formatTime(at)}` : ""} · ${door ? VIA[door.via] : "from Mail"}`;
 }
+
+/**
+ * P90: what another person did that this open draft does not know: a reply in its thread that is not the Hub's ("Anna replied
+ * at 20 Nov, 14:02 · your draft may be out of date"), else the client's Notion stamp by another person ("Anna wrote to this
+ * client at 20 Nov, 14:02 (Notion) · …"). Null when neither, or the draft is sent. It informs; it never blocks a control.
+ */
+export function teammateLine(d: Pick<ReviewDraft, "status" | "repliedElsewhere" | "teamSent">): string | null {
+  if (d.status === "sent") return null;
+  if (d.repliedElsewhere) return `${d.repliedElsewhere.by} replied at ${formatTime(d.repliedElsewhere.at)} · your draft may be out of date`;
+  if (d.teamSent) return `${d.teamSent.by} wrote to this client at ${formatTime(d.teamSent.at)} (Notion) · your draft may be out of date`;
+  return null;
+}

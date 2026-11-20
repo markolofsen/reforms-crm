@@ -7,8 +7,10 @@ import { errFields, ops } from "@hub/log/ops";
 /**
  * Sent detection (decision 0026). A draft becomes `sent` only when its message shows up in the Sent mailbox of one of
  * the project's Apple Mail accounts: the hub never treats a keypress as proof. Each pass reads only while a draft waits,
- * and only since the oldest waiting draft (minus a day); it never launches Mail. A follow-up step found here advances its
- * enrollment through `drafts.markSent`, the one writer of `sent`.
+ * and only since the oldest waiting draft (minus a day); it never launches Mail. A draft is matched only by its own recorded
+ * Message-IDs (P90); a reply in its thread that is not the Hub's is noted on the draft (`drafts.markElsewhere`), never marked.
+ * A follow-up step found here advances its enrollment through `drafts.markSent`, the one writer of `sent`. With a Notion
+ * reader, each pass also refreshes the clients' `Last sent` stamps written by other people (P90, personal mailboxes).
  */
 export interface SentStatus {
   state: "off" | "starting" | "running" | "error" | "stopped";
@@ -47,24 +49,18 @@ export interface SentOptions {
   timer?: boolean;
   /** P89: told for each draft this loop marks sent (the Notion stamp of who sent); never awaited for the pass, never trusted. */
   onSent?: (n: SentNotice) => void;
+  /** P90: reads the client's Notion `Last sent at` / `Last sent by` written by another person; absent, the card shows no Notion line. */
+  teamStamp?: TeamStampReader;
 }
 
 const DAY = 86_400_000;
+/** P90: a client's Notion stamp is read at most this often per open draft. */
+const TEAM_EVERY_MS = 30 * 60_000;
 
-export type SentVia = "message-id" | "thread" | "subject-recipient";
+export type SentVia = "message-id";
 export interface SentMatch { draftId: number; via: SentVia; sent: SentMessage }
 /** A draft that waits, and the Message-IDs of the Mail versions the Hub recorded for it (P65), bare. */
-type Waiting = Pick<DraftRow, "id" | "subject" | "toAddr" | "mailRef" | "createdAt"> & { versions?: readonly string[] };
-
-/** `Re: [x] Aw: Topic` becomes `topic`. */
-export function normSubject(s: string): string {
-  let t = s.normalize("NFC").trim();
-  for (let prev = ""; prev !== t; ) {
-    prev = t;
-    t = t.replace(/^\s*(re|fwd?|aw|wg|sv|vs|odp|ответ|отв|пересл)\s*(\[\d+\])?\s*:\s*/i, "");
-  }
-  return t.replace(/\s+/g, " ").toLowerCase();
-}
+type Waiting = Pick<DraftRow, "id" | "mailRef" | "createdAt"> & { versions?: readonly string[] };
 
 const firstTo = (to: string): string | null => {
   for (const part of to.split(",")) {
@@ -75,53 +71,61 @@ const firstTo = (to: string): string | null => {
 };
 
 /**
- * Which Sent messages are which drafts, by the strongest evidence first:
- *   1. `message-id`: the sent message's own Message-ID is one of the Mail versions the Hub recorded for the draft (P65;
- *      it matches only if Mail keeps a draft's Message-ID when it sends it, which is unverified). Never the `mailRef`:
- *      that is the message the draft ANSWERS (decision 0031 point 2), and when it is our own earlier mail (a follow-up,
- *      a message on the owner's initiative, P85) it sits in Sent and would mark the new draft at once;
- *   2. `thread`: it answers the thread `mailRef` names (In-Reply-To);
- *   3. `subject-recipient`: same subject (Re:/Fwd: ignored).
- * 2 and 3 also need the draft's first recipient in To or Cc and a send after the draft was made. A sent message satisfies
- * one draft only (the oldest first), so two drafts to one client are never marked by one send, and a message already
- * attributed to another draft (`taken`: the Message-IDs finished drafts were marked with) is no one's. Doubt leaves a draft unmarked.
+ * Which Sent messages are which drafts (P90): only by the draft's own Message-IDs, the Mail versions this Hub recorded for
+ * it (every version, trashed or not; Mail keeps a draft's Message-ID when it sends it, measured on saas 2026-11-19/20).
+ * Never by thread or subject: in a mailbox two people share, a reply in the thread proves only that someone answered
+ * (that is `elsewhereOf`). Never the `mailRef`: that is the message the draft ANSWERS (decision 0031 point 2). A sent
+ * message satisfies one draft only, and one already attributed to a finished draft (`taken`) is no one's.
  */
 export function matchSent(drafts: Waiting[], sent: SentMessage[], taken: readonly string[] = []): SentMatch[] {
   const gone = new Set(taken.map(bareId).filter(Boolean));
-  const pool = [...sent].filter((m) => !gone.has(bareId(m.messageId))).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : a.messageId < b.messageId ? -1 : 1));
+  const pool = sent.filter((m) => !gone.has(bareId(m.messageId)));
   const queue = [...drafts].sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : a.id - b.id));
   const used = new Set<string>();
-  const done = new Set<number>();
   const out: SentMatch[] = [];
-  const take = (d: Waiting, via: SentVia, ok: (m: SentMessage) => boolean) => {
-    if (done.has(d.id)) return;
-    const hit = pool.find((m) => !used.has(m.messageId) && ok(m));
-    if (!hit) return;
-    used.add(hit.messageId);
-    done.add(d.id);
-    out.push({ draftId: d.id, via, sent: hit });
-  };
-  const fits = (d: Waiting, m: SentMessage) => {
-    const r = firstTo(d.toAddr);
-    return Date.parse(m.date) >= Date.parse(d.createdAt) && r !== null && [...m.to, ...m.cc].includes(r);
-  };
-
   for (const d of queue) {
     const own = new Set((d.versions ?? []).map(bareId).filter(Boolean));
-    if (own.size) take(d, "message-id", (m) => own.has(m.messageId));
-  }
-  for (const d of queue) if (bareId(d.mailRef)) take(d, "thread", (m) => fits(d, m) && m.inReplyTo === bareId(d.mailRef));
-  for (const d of queue) {
-    const s = normSubject(d.subject);
-    if (s) take(d, "subject-recipient", (m) => fits(d, m) && normSubject(m.subject) === s);
+    const hit = own.size ? pool.find((m) => !used.has(m.messageId) && own.has(m.messageId)) : undefined;
+    if (!hit) continue;
+    used.add(hit.messageId);
+    out.push({ draftId: d.id, via: "message-id", sent: hit });
   }
   return out;
 }
 
-export interface ProjectPlan { slug: string; accounts: string[]; mailbox: string; waiting: Array<DraftRow & { versions?: readonly string[] }>; taken?: readonly string[] }
+export interface ElsewhereMatch { draftId: number; sent: SentMessage }
 
-/** One project: read each account's Sent since the oldest waiting draft minus a day, match, mark. Errors are per account. */
-export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan, onSent?: (n: SentNotice) => void): Promise<{ marked: number; errors: string[] }> {
+/**
+ * P90: for each waiting draft, the newest Sent message that answers its thread (In-Reply-To or References names its
+ * `mailRef`) and is not the Hub's: its Message-ID is none of `ours` (every version the project recorded, every Message-ID a
+ * draft was marked sent with) and is not the `mailRef` itself. A teammate in a shared mailbox, or the owner from another
+ * device (or a hand send whose id Mail changed). Informational only.
+ */
+export function elsewhereOf(drafts: Waiting[], sent: SentMessage[], ours: readonly string[]): ElsewhereMatch[] {
+  const mine = new Set(ours.map(bareId).filter(Boolean));
+  const out: ElsewhereMatch[] = [];
+  for (const d of drafts) {
+    const ref = bareId(d.mailRef);
+    if (!ref) continue;
+    const hits = sent.filter((m) => m.messageId !== ref && !mine.has(m.messageId) && (m.inReplyTo === ref || m.references.includes(ref)));
+    const newest = hits.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0];
+    if (newest) out.push({ draftId: d.id, sent: newest });
+  }
+  return out;
+}
+
+export interface ProjectPlan {
+  slug: string;
+  accounts: string[];
+  mailbox: string;
+  waiting: Array<DraftRow & { versions?: readonly string[] }>;
+  taken?: readonly string[];
+  /** P90: every Message-ID of the project's recorded versions (any draft): a Sent message with one of them is the Hub's. */
+  ours?: readonly string[];
+}
+
+/** One project: read each account's Sent since the oldest waiting draft minus a day, match, mark, note replies elsewhere. Errors are per account. */
+export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan, onSent?: (n: SentNotice) => void): Promise<{ marked: number; elsewhere: number; errors: string[] }> {
   const oldest = p.waiting.reduce((m, d) => (d.createdAt < m ? d.createdAt : m), p.waiting[0]!.createdAt);
   const from = new Date(Date.parse(oldest) - DAY);
   const sent: SentMessage[] = [];
@@ -135,14 +139,21 @@ export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan
     }
   }
   let marked = 0;
-  for (const m of matchSent(p.waiting, sent, p.taken ?? [])) {
+  const matched = matchSent(p.waiting, sent, p.taken ?? []);
+  for (const m of matched) {
     const d = await repos.drafts.markSent(m.draftId, { at: m.sent.date, via: m.via, messageId: m.sent.messageId });
     if (d?.status === "sent") {
       marked++;
       try { onSent?.({ project: p.slug, draftId: m.draftId, to: [d.toAddr], at: m.sent.date, via: m.via }); } catch { /* a notice never stops the pass */ }
     }
   }
-  return { marked, errors };
+  const done = new Set(matched.map((m) => m.draftId));
+  const ours = [...(p.ours ?? []), ...(p.taken ?? []), ...p.waiting.flatMap((d) => d.versions ?? []), ...matched.map((m) => m.sent.messageId)];
+  let elsewhere = 0;
+  for (const e of elsewhereOf(p.waiting.filter((d) => !done.has(d.id)), sent, ours)) {
+    if (await repos.drafts.markElsewhere(e.draftId, { at: e.sent.date, from: e.sent.from || e.sent.account, messageId: e.sent.messageId })) elsewhere++;
+  }
+  return { marked, elsewhere, errors };
 }
 
 /** Active projects that list a Mail account and have drafts waiting. Reads SQLite only. */
@@ -154,12 +165,33 @@ async function plans(repos: Repos, since: string): Promise<ProjectPlan[]> {
     if (c.mail.accounts.length === 0) continue;
     const drafts = await repos.drafts.awaitingSent(row.slug, since);
     if (!drafts.length) continue;
+    const all = await repos.mailVersions.ofProject(row.slug);
     const versions = new Map<number, string[]>();
-    for (const v of await repos.mailVersions.ofProject(row.slug)) if (v.draftId !== null) versions.set(v.draftId, [...(versions.get(v.draftId) ?? []), v.messageId]);
-    out.push({ slug: row.slug, accounts: c.mail.accounts, mailbox: c.mail.sentMailbox, waiting: drafts.map((d) => ({ ...d, versions: versions.get(d.id) ?? [] })), taken: await repos.drafts.sentMessageIds(row.slug, since) });
+    for (const v of all) if (v.draftId !== null) versions.set(v.draftId, [...(versions.get(v.draftId) ?? []), v.messageId]);
+    out.push({ slug: row.slug, accounts: c.mail.accounts, mailbox: c.mail.sentMailbox, waiting: drafts.map((d) => ({ ...d, versions: versions.get(d.id) ?? [] })), taken: await repos.drafts.sentMessageIds(row.slug, since), ours: all.map((v) => v.messageId) });
   }
   return out;
 }
+
+/**
+ * P90: the client's Notion stamp for each open draft (personal mailboxes: Notion is the only cross-person truth), at most
+ * once per `TEAM_EVERY_MS` per draft. Runs whether Mail is open or not. A failure is the reader's ops-log line, never the pass's.
+ */
+async function refreshTeamStamps(repos: Repos, todo: ProjectPlan[], read: TeamStampReader, seen: Map<number, number>, nowMs: number): Promise<void> {
+  for (const p of todo) {
+    for (const d of p.waiting) {
+      if (nowMs - (seen.get(d.id) ?? -Infinity) < TEAM_EVERY_MS) continue;
+      seen.set(d.id, nowMs);
+      const email = firstTo(d.toAddr);
+      if (!email) continue;
+      const stamp = await read(p.slug, email).catch(() => undefined);
+      if (stamp !== undefined) await repos.clients.setTeamSent(d.clientId, stamp);
+    }
+  }
+}
+
+/** Another person's Notion stamp on a client (null: none, or this Mac's own); `undefined` from a rejection means "unknown, keep what is stored". */
+export type TeamStampReader = (project: string, email: string) => Promise<{ at: string; by: string } | null>;
 
 export function startSentReconciler(o: SentOptions): SentHandle {
   const env = o.env ?? process.env;
@@ -171,6 +203,7 @@ export function startSentReconciler(o: SentOptions): SentHandle {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
   let running: Promise<void> | undefined;
+  const teamSeen = new Map<number, number>();
 
   const off = (reason: string) => {
     st.state = "off";
@@ -185,6 +218,7 @@ export function startSentReconciler(o: SentOptions): SentHandle {
     const todo = await plans(o.repos, new Date(now().getTime() - (o.lookbackDays ?? 30) * DAY).toISOString());
     // No draft waits: Mail is not asked anything.
     if (todo.length === 0) return off("no draft waits to be seen in Sent");
+    if (o.teamStamp) await refreshTeamStamps(o.repos, todo, o.teamStamp, teamSeen, now().getTime()).catch((e: unknown) => ops("notion").warn("refreshing the clients' Last sent stamps failed", errFields(e)));
     if (!(await mailRunning(osa).catch(() => false))) return off("Mail is not running");
     const errors: string[] = [];
     for (const p of todo) {

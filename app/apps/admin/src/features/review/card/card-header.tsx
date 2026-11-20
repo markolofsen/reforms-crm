@@ -10,7 +10,7 @@ import { chipsOf } from "../list-row";
 import type { ReviewDraft } from "../source";
 import type { ReviewActions } from "../use-review-actions";
 import { ClientMenu } from "./client-menu";
-import { sentLine } from "./card-state";
+import { sentLine, teammateLine } from "./card-state";
 
 type Props = { d: ReviewDraft; actions: ReviewActions; now: number; ready: boolean };
 
@@ -24,6 +24,7 @@ export function CardHeader({ d, actions, now, ready }: Props) {
   const chips = chipsOf(d).filter((c) => c.id !== "checks");
   const flags = d.client.marks.filter((m) => m !== "do_not_contact");
   const sent = sentLine(d);
+  const teammate = teammateLine(d);
   return (
     <header className="flex min-w-0 flex-col gap-2">
       <div className="flex min-w-0 items-start gap-3">
@@ -53,6 +54,12 @@ export function CardHeader({ d, actions, now, ready }: Props) {
       {sent && (
         <p className="font-medium text-sm" data-testid="sent-line">
           {sent}
+        </p>
+      )}
+      {teammate && (
+        // P90: a teammate (or the owner elsewhere) answered this thread, or wrote to the client per Notion.
+        <p className="text-sm text-warning-foreground" data-testid="teammate-line" role="note">
+          {teammate}
         </p>
       )}
       {age && <p className={cn("text-sm", old ? "text-warning-foreground" : "text-muted-foreground")}>{age}</p>}

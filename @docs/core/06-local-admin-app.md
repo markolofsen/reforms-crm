@@ -51,7 +51,7 @@ A session reports each unsent draft it leaves with `hub record-draft --project <
 0 only when it says `"ok":true`). The command writes straight to the database (no server needed), makes the client row if
 it is missing, and keeps one open draft per client: the same `mailRef` again updates it, another one marks the old draft
 `skipped` and inserts the new one. It never deletes a client (marks and the log hang on that row) and never writes `sent`.
-Sent detection (`14`) finds a recorded draft in the project's Sent mailbox in Apple Mail once the person has sent it from Mail.
+Sent detection (`14`) finds a recorded draft in the project's Sent mailbox in Apple Mail once the person has sent it from Mail, by its own recorded Message-ID only. A reply in its thread that is not the Hub's (a teammate on a shared mailbox), or another person's Notion `Last sent by` newer than the client's last message, is one line on the open card ("… · your draft may be out of date", P90); it never changes the draft.
 Because Notion owns the client record, the admin has no company or deal-value column, no "High value" filter and no `{company}` placeholder.
 
 ## The routes behind the screens
