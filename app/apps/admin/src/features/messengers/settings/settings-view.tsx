@@ -58,9 +58,8 @@ export function MessengerSettings({ project }: { project: string }) {
         <Group id="whatsapp" title="WhatsApp">
           <p className="text-muted-foreground text-sm">WhatsApp as a linked device comes in P71 M5: a QR code to scan here, then the same linked chats and guards.</p>
         </Group>
-        <Group id="telegram-bot" title="Telegram bot">
-          <ConnectionsView kinds={["telegram"]} label="Telegram bot" />
-        </Group>
+        {/* No heading: the row's own label says "Telegram bot" (a heading over it said it twice, `admin-principles.md` rule 9). */}
+        <ConnectionsView kinds={["telegram"]} label="Telegram bot" />
         <Group id="linked-chats" title="Linked chats">
           <LinkedChats account={account} project={project} />
         </Group>
