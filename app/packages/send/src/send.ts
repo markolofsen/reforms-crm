@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { unresolvedMarkers } from "@hub/config";
-import { RepoError, type DraftRow, type MailVersionRow, type Repos, type SendRow } from "@hub/db";
+import { RepoError, withoutLeadingBlankLines, type DraftRow, type MailVersionRow, type Repos, type SendRow } from "@hub/db";
 import { checkDraftRecipients, isOwnAddress, loadProject, loadProjects, normalizeAddress, type ProjectConfig } from "@hub/projects";
 import { bareId, MAIL_NOT_ANSWERING_FIX, MailNotAnswering, type MailDraft, type Mailer, type TrashItem } from "./mailer";
 
@@ -112,7 +112,10 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
     reasons.push(found.reason);
     return out({ project, ...(config ? { config } : {}) });
   }
-  const mail = found.mail;
+  // P94: the text that goes out starts with the text. Mail reads a reply draft back with its empty top line as a leading
+  // line break; set into the new reply at Send it was a second blank line above every reply. The Checked hash, the queued
+  // snapshot, the audit row and the door all see this same text.
+  const mail = { ...found.mail, body: withoutLeadingBlankLines(found.mail.body) };
 
   if (config) {
     const accounts = config.mail.accounts.map((a) => a.trim().toLowerCase());
@@ -251,9 +254,9 @@ export async function trashThread(deps: Pick<SendDeps, "mailer" | "repos">, draf
   return r;
 }
 
-/** Fingerprint of what would go out: subject, recipients, text. What Checked is bound to; the text itself is never kept. */
+/** Fingerprint of what would go out: subject, recipients, text (as sent: no blank lines above it, P94). What Checked is bound to; the text itself is never kept. */
 export function mailHash(m: Pick<MailDraft, "subject" | "to" | "cc" | "bcc" | "body">): string {
-  return createHash("sha256").update(JSON.stringify([m.subject, norm(m.to), norm(m.cc), norm(m.bcc), m.body])).digest("hex");
+  return createHash("sha256").update(JSON.stringify([m.subject, norm(m.to), norm(m.cc), norm(m.bcc), withoutLeadingBlankLines(m.body)])).digest("hex");
 }
 
 export type SendOutcome = { code: 0 | 1 | 2; line: string };

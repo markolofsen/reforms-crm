@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { withoutLeadingBlankLines } from "@hub/db";
 
 // The one door out of the hub (decision 0011). `Mailer` is the whole surface `hub send` needs from Mail: read the
 // drafts that match a recorded draft, and send one of them. `MailAppMailer` does it through Mail.app's scripting
@@ -367,7 +368,8 @@ export function mailAppMailer(osa: OsaRun = defaultOsa, read: OsaRun = osa): Mai
       return parseTrashOutput(await osa(TRASH_SCRIPT, items.flatMap((i) => [i.account, rawId(i.messageId)])));
     },
     async send(d, replyTo) {
-      const out = await osa(SEND_SCRIPT, [d.sender ?? "", d.subject, d.body, d.to.join(LS), d.cc.join(LS), d.bcc.join(LS), d.ref, bareId(replyTo), d.account ?? ""]);
+      // P94: never a blank line above the text (Mail's reply adds its own empty top line; `assess` already strips, this is the door's own guard).
+      const out = await osa(SEND_SCRIPT, [d.sender ?? "", d.subject, withoutLeadingBlankLines(d.body), d.to.join(LS), d.cc.join(LS), d.bcc.join(LS), d.ref, bareId(replyTo), d.account ?? ""]);
       if (!/ok/.test(out)) throw new Error(`Mail answered "${out.trim().slice(0, 100)}"`);
       return { messageId: null };
     },

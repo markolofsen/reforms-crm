@@ -37,6 +37,14 @@ export const bareRef = (x: string | null | undefined): string => (x ?? "").trim(
 const collapse = (t: string): string => t.replace(/[\s\u2028\u2029]+/g, " ").trim();
 const sha = (t: string): string => createHash("sha256").update(t).digest("hex");
 
+/**
+ * P94: the text without the blank lines above it (lines of only spaces, tabs or NBSP; the first line's own indent stays).
+ * Mail's reply holds an empty top line above the reply's text, so its `content` reads back with a leading line break;
+ * handed back to Mail at Send, that break was a second blank line on top of every reply. What the writer hands Mail and
+ * what the send door hands Mail (and hashes, and logs) both pass through this.
+ */
+export const withoutLeadingBlankLines = (text: string): string => text.replace(/^(?:[ \t\u00a0]*(?:\r\n|\r|\n|\u2028|\u2029))+/, "");
+
 /** The record of a text the Hub is about to write: hash and length of the collapsed text. */
 export const textKey = (text: string): { hash: string; len: number } => {
   const c = collapse(text);

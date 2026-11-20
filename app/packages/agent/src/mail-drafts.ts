@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
-import { adoptable, type Adoption, type MailVersionRow, type MailWriteRow } from "@hub/db";
+import { adoptable, withoutLeadingBlankLines, type Adoption, type MailVersionRow, type MailWriteRow } from "@hub/db";
 import { replyFrom, type ReplyFrom } from "@hub/projects";
 import { WRITE_NEW_SCRIPT, type NewDraftInput } from "./new-thread";
 import { ops } from "@hub/log/ops";
@@ -189,6 +189,9 @@ const PS = "\x1c";
 
 /** The fingerprint of a version's text as Mail returned it (decision 0013: the hash, never the text). */
 export const versionHash = (text: string): string => createHash("sha256").update(text.replace(/\s+$/, "")).digest("hex");
+
+/** P94: the text the writer hands Mail: no blank lines above it (Mail's reply adds its own empty top line) and none below. */
+export const writtenBody = (body: string): string => withoutLeadingBlankLines(body.trimEnd());
 
 /** What the script checks Mail took: the body's first 40 characters (Mail may rewrap or add an HTML part, never drop the start). */
 export const probeOf = (body: string): string => body.replace(/^\s+/, "").slice(0, 40);
@@ -728,7 +731,7 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
     };
   return {
     async writeReply(i) {
-      const body = i.body.trimEnd();
+      const body = writtenBody(i.body);
       if (!body.trim()) throw new DraftWriteError("empty", "The reply has no text.");
       const targets = (i.replace ?? []).map((v) => `${v.account}${PS}${v.messageId.trim().replace(/^<|>$/g, "")}`).join(LS);
       const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
@@ -743,7 +746,7 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
       return parseWriteOutput(out);
     },
     async writeNew(i) {
-      const body = i.body.trimEnd();
+      const body = writtenBody(i.body);
       if (!body.trim()) throw new DraftWriteError("empty", "The message has no text.");
       const targets = (i.replace ?? []).map((v) => `${v.account}${PS}${v.messageId.trim().replace(/^<|>$/g, "")}`).join(LS);
       const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
@@ -824,7 +827,7 @@ export class FakeDraftWriter implements DraftWriter {
     return this.drafts.filter((d) => accounts.includes(d.account) && d.thread.toLowerCase() === t).map((d) => ({ ref: String(d.id), messageId: d.messageId, account: d.account, body: d.text }));
   }
   async writeReply(i: ReplyDraftInput): Promise<ReplyDraftResult> {
-    const body = i.body.trimEnd();
+    const body = writtenBody(i.body);
     if (!body.trim()) throw new DraftWriteError("empty", "The reply has no text.");
     const thread = this.threadOf(i.messageId);
     const subject = `Re: message ${i.messageId}`;
@@ -844,7 +847,7 @@ export class FakeDraftWriter implements DraftWriter {
   /** P85b: what the fake was asked for each new thread (the client's address). */
   newTo: string[] = [];
   async writeNew(i: NewDraftInput): Promise<ReplyDraftResult> {
-    const body = i.body.trimEnd();
+    const body = writtenBody(i.body);
     if (!body.trim()) throw new DraftWriteError("empty", "The message has no text.");
     const id = this.next++;
     const messageId = `draft-${id}@hub.test`;
@@ -899,7 +902,7 @@ const quietly = async <T>(p: () => Promise<T>): Promise<T | null> => {
 
 /** One write through the writer, recorded in `log` first (P65 S5): a `mail_slow` write keeps its open row, with the shell's hash. */
 export async function writeRecorded(writer: DraftWriter, input: ReplyDraftInput | ({ kind: "new" } & NewDraftInput), log?: WriteLog): Promise<ReplyDraftResult> {
-  const id = log ? await quietly(() => log.start(input.body.trimEnd())) : null;
+  const id = log ? await quietly(() => log.start(writtenBody(input.body))) : null;
   try {
     const r = "kind" in input ? await newOf(writer)(input) : await writer.writeReply(input);
     if (log && id !== null) {

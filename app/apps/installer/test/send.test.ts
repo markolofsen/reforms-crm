@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { assess, FakeMailer, runDue, sendDraft, type MailDraft, type SendDeps } from "@hub/send";
+import { assess, FakeMailer, mailHash, runDue, sendDraft, type MailDraft, type SendDeps } from "@hub/send";
 import { defaultPolicy, withFieldValues, writeSendPolicy, type PolicyField } from "@hub/projects";
 import { runSendCommand } from "../src/send/command";
 
@@ -93,6 +93,28 @@ async function draft(o: { email?: string; subject?: string; mailRef?: string; ma
   return r.draftId;
 }
 const refused = (r: { code: number; line: string }) => (JSON.parse(r.line) as { refused?: string[] }).refused ?? [];
+
+describe("P94: no blank lines above the text that goes out", () => {
+  // Mail reads a reply draft back with its empty top line as a leading line break (hub-saas send_log 1-3, 2026-11-20):
+  // handed back to Mail, that was a second blank line on top of every sent reply.
+  it("the door hands Mail, and the audit row keeps, the text without the blank lines Mail read above it", async () => {
+    const id = await draft({ mail: { body: "\n\nHello,\n\nThe price is 100." } });
+    const r = await sendDraft(deps(), { draftId: id, apply: true, actor: "cli" });
+    expect(r.code, r.line).toBe(0);
+    expect(mailer.sent[0]?.body).toBe("Hello,\n\nThe price is 100.");
+    expect((await repos.sends.forDraft(id))[0]?.body).toBe("Hello,\n\nThe price is 100.");
+  });
+
+  it("Checked taken on the card's read (leading break included) still matches at Send: one hash rule for both", async () => {
+    const id = await draft({ checked: false, mail: { body: "\nHello,\n\nThe price is 100." } });
+    const seen = mailer.drafts[mailer.drafts.length - 1] as MailDraft;
+    expect(mailHash(seen)).toBe(mailHash({ ...seen, body: "Hello,\n\nThe price is 100." }));
+    await repos.drafts.setChecked(id, true, mailHash(seen));
+    const a = await assess(deps(), id, { mode: "manual" });
+    expect(a.reasons).toEqual([]);
+    expect(a.mail?.body).toBe("Hello,\n\nThe price is 100.");
+  });
+});
 
 describe("hub send <draftId> (manual)", () => {
   it("is a dry run by default: it shows the mail and sends and writes nothing", async () => {

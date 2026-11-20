@@ -56,6 +56,10 @@ describe("Mail.app mailer", () => {
     const d = { ref: "501", messageId: "d1@x", account: "a", inReplyTo: null, sender: "Acme <o@acme.example>", to: ["a@x.example"], cc: ["c@x.example"], bcc: [], subject: "S", body: "B\n\"q\"", attachments: 0 };
     await mailAppMailer(async (script, args) => (calls.push({ script, args }), "ok")).send(d, "<In@Reply.example>");
     expect(calls).toEqual([{ script: SEND_SCRIPT, args: ["Acme <o@acme.example>", "S", "B\n\"q\"", "a@x.example", "c@x.example", "", "501", "in@reply.example", "a"] }]);
+    // P94: never a blank line above the text (Mail's reply adds its own empty top line).
+    calls.length = 0;
+    await mailAppMailer(async (script, args) => (calls.push({ script, args }), "ok")).send({ ...d, body: "\n \nHi,\n\nB" }, null);
+    expect(calls[0]?.args[2]).toBe("Hi,\n\nB");
     await expect(mailAppMailer(async () => "nope").send(d)).rejects.toThrow(/Mail answered/);
     await expect(mailAppMailer(async () => { throw new Error("Mail got an error"); }).send(d)).rejects.toThrow(/Mail got an error/);
   });

@@ -53,6 +53,33 @@ describe("the Mail scripts compile (osacompile, no Mail call)", () => {
   });
 });
 
+describe("P94: the writer hands Mail the text with no blank lines above it", () => {
+  // A person's Save re-writes the card's text, which Mail read back with its reply's empty top line as a leading break.
+  const body = "\n \n\u00a0\nHi Mark,\n\n  indented stays\n\n";
+  const want = "Hi Mark,\n\n  indented stays";
+
+  it("a reply (agent's or a person's Save) and a new thread", async () => {
+    const seen: string[][] = [];
+    const osa: OsaRun = async (_script, args) => (seen.push(args), okOut({ text: want }));
+    const w = mailAppDraftWriter(osa);
+    await w.writeReply({ account: "desk", mailboxPath: ["INBOX"], messageId: 7, body, sender: null, quote: "keep" });
+    await w.writeNew!({ account: "desk", sender: null, to: "c@x.example", subject: "Hello", body });
+    expect(seen[0]![3]).toBe(want);
+    expect(seen[0]![6]).toBe(probeOf(want));
+    expect(seen[1]![4]).toBe(want);
+  });
+
+  it("the write record starts from the same text, and the fake writer saves it", async () => {
+    const started: string[] = [];
+    const log: WriteLog = { start: async (t) => (started.push(t), 1), settle: async () => undefined, shell: async () => undefined };
+    const fake = new FakeDraftWriter();
+    const r = await writeRecorded(fake, { account: "desk", mailboxPath: ["INBOX"], messageId: 7, body, sender: null }, log);
+    expect(started).toEqual([want]);
+    expect(r.text).toBe(want);
+    expect(fake.drafts[0]!.text).toBe(want);
+  });
+});
+
 describe("the Mail script", () => {
   it("never sends, opens no window, activates nothing, pastes nothing, and writes no hub line (decision 0031)", () => {
     expect(WRITE_REPLY_SCRIPT).not.toMatch(/\bsend\b/);

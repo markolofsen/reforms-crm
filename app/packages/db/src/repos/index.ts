@@ -59,7 +59,7 @@ export { senderName, teamNoticeOf } from "./review";
 export type { MessengerUsage, NewMessengerSend, NewSend, SendRow } from "./sends";
 export { usageRefusal } from "./sends";
 export type { Adoption, MailVersionRow, MailVersionSource, MailWriteRow, NewMailVersion, NewMailWrite, ThreadDraft } from "./mail-versions";
-export { adoptable, bareRef, isReplyShell, shellHashOf, startsWithWrite, textKey, versionHashOf } from "./mail-versions";
+export { adoptable, bareRef, isReplyShell, shellHashOf, startsWithWrite, textKey, versionHashOf, withoutLeadingBlankLines } from "./mail-versions";
 export type { LlmMonth, NewLlmCall } from "./llm-calls";
 export type { InboxInput, InboxItem, InboxResult, InboxRow } from "./inbox";
 export type { Candidate, EnrollmentItem, EnrollmentRow, NewEnrollment, Outbound } from "./enrollments";
