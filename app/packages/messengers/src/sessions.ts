@@ -79,7 +79,8 @@ export function removeSession(dir: string, channel: MessengerChannel, account: s
 /** Removes every session value of the folder (and every token shape) from a text before it is shown, thrown or logged. */
 export function redactSessions(dir: string, text: string): string {
   let out = text;
-  for (const ch of ["telegram_user", "whatsapp"] as const)
+  // A WhatsApp folder holds Baileys' keys, not a session string: no error text can carry them, so only Telegram's are scrubbed here.
+  for (const ch of ["telegram_user"] as const)
     for (const a of sessionAccounts(dir, ch)) {
       const r = readSession(dir, ch, a);
       if (r.state === "stored") for (const v of [r.session.session, r.session.apiHash]) if (v.length >= 8) out = out.split(v).join("***");

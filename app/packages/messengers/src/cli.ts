@@ -6,7 +6,7 @@ import { userInfo } from "node:os";
 import { createRepos, openDb, type IdentifierKind, type MessengerChannel } from "@hub/db";
 import { pollCommand, statusLines } from "./commands";
 import { MessengersError } from "./errors";
-import { allowChat, confirmDraft, copyDraft, disallowChat, humanActor, linkIdentifier, sendConfirmed, unlinkIdentifier, type HumanActor } from "./human";
+import { allowChat, confirmDraft, disallowChat, humanActor, linkIdentifier, sendConfirmed, unlinkIdentifier, type HumanActor } from "./human";
 import { purgeNow } from "./purge";
 import { readBotToken, botTokenFile } from "./token";
 import { telegramAdapterFromToken } from "./telegram-api";
@@ -125,16 +125,6 @@ program
         const r = await sendConfirmed({ repos, adapter }, actor, { project, draftId: Number(draftId) });
         console.log(`sent, message ${r.remoteMessageId}`);
       }
-    }),
-  );
-
-program
-  .command("copy <draftId>")
-  .description("for WhatsApp and user accounts (no send): print the text and the link to open the chat")
-  .action((draftId: string) =>
-    withRepos(async (repos, project) => {
-      const r = await copyDraft(repos, person(), { project, draftId: Number(draftId) });
-      console.log(`open: ${r.openUrl}\n---\n${r.text}`);
     }),
   );
 

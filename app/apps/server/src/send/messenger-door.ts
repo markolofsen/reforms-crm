@@ -1,6 +1,6 @@
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
 import { RepoError, usageRefusal, type MessengerChannel, type Repos } from "@hub/db";
-import { AdapterError, canSendVia, type SendingAdapter } from "@hub/messengers";
+import { AdapterError, type SendingAdapter } from "@hub/messengers";
 import { confirmDraft, humanActor, sendConfirmed } from "@hub/messengers/human";
 import { checkDraftRecipients, loadProject } from "@hub/projects";
 
@@ -8,13 +8,13 @@ import { checkDraftRecipients, loadProject } from "@hub/projects";
 // that sends nothing and says exactly what would go out, then the apply with what the person saw and a single-use ticket, the
 // `send_log` row first, one send, no retry. Its own guards, because a user account is the owner's personal account: the chat has an
 // inbound message (the hub never makes first contact), a daily cap and a spacing per account, `draft.recipients: test` admits
-// only `telegram:<id>` / `whatsapp:<jid>` entries of `allow_list`, and Stop sending stops it. Only this module mints the
+// only `telegram:<id>` / `whatsapp:+<number>` entries of `allow_list`, and Stop sending stops it. Only this module mints the
 // `HumanActor` and, through `confirmDraft`, the `ConfirmedDraft` of a messenger send; the agent has no path here.
 
 /** The live send of each connected account, from the server's supervisors; nothing else holds one. */
 export interface MessengerSenders {
   sender(channel: MessengerChannel, account: string): SendingAdapter | undefined;
-  /** A send Telegram refused with a park (logged out, banned, a long flood wait): the supervisor parks the account. */
+  /** A send Telegram or WhatsApp refused with a park (logged out, banned, a long flood wait): the supervisor parks the account. */
   failed?(channel: MessengerChannel, account: string, err: AdapterError): Promise<void>;
 }
 
@@ -68,7 +68,6 @@ export async function assessMessenger(deps: MessengerDoorDeps, project: string, 
   const reasons: string[] = [];
   const at = (deps.now ?? (() => new Date()))().toISOString();
   if (d.status !== "draft") reasons.push(`the draft does not wait any more: ${STATE_WORDS[d.status] ?? d.status}`);
-  if (!canSendVia(d.channel)) reasons.push(`${WORD[d.channel]} has no send yet: copy the text and send it in ${WORD[d.channel]}`);
   if (!d.text.trim()) reasons.push("the draft text is empty");
   const chat = await repos.messengers.chat(project, d.channel, d.chatId);
   if (!chat) reasons.push("the chat is no longer linked to a client");

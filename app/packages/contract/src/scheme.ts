@@ -20,7 +20,7 @@ export type SchemeState = (typeof SCHEME_STATES)[number];
  * O5), one part each with its account. `llm` (P78) is the instance's model access through `@hub/llm`: shown only once a caller has
  * used it this month, broken when the monthly cap or a missing key refused a call.
  */
-export const SCHEME_KINDS = ["core", "cli", "notion", "telegram", "llm", "mailbox", "mail-mcp", "hub-tools", "notion-db", "knowledge", "mail-filters", "setup", "guard", "session", "send-door", "calendar", "drive"] as const;
+export const SCHEME_KINDS = ["core", "cli", "notion", "telegram", "whatsapp", "llm", "mailbox", "mail-mcp", "hub-tools", "notion-db", "knowledge", "mail-filters", "setup", "guard", "session", "send-door", "calendar", "drive"] as const;
 export type SchemeKind = (typeof SCHEME_KINDS)[number];
 
 export const schemeNode = z.strictObject({

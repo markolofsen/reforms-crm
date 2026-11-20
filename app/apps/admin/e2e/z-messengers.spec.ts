@@ -4,7 +4,7 @@ import { at } from "./support";
 // P71 M3: the Messengers section. The panel reads the seeded linked chats of lisbon-realty (Rita, who wrote last, with the
 // agent's draft; Sofia, answered); Edit and Skip write the real row. The Telegram account routes are stubbed with
 // `page.route`: the e2e instance has two projects, so its server keeps Telegram accounts off, and a real login is never made
-// (the server side of the login runs on fakes in `apps/server/src/telegram-user.test.ts`).
+// (the server side of the login runs on fakes in `apps/server/src/telegram-user.test.ts`; WhatsApp's in `whatsapp.test.ts`).
 
 const P = "lisbon-realty";
 const RITA = "Rita Falsa";
@@ -164,4 +164,39 @@ test("messengers settings: Link a chat finds the client, lists the suggested cha
   await expect(picker.getByRole("status")).toHaveText("Linked to Rita Falsa: 3 messages of the last 30 days imported.");
   expect(t.posts.map((p) => p.path)).toEqual([`/api/projects/${P}/messengers/telegram-user/42/dialogs`, `/api/projects/${P}/messengers/telegram-user/42/link`]);
   expect(t.posts[1]?.body).toMatchObject({ chatId: "901", title: "Rita (work)" });
+});
+
+test("messengers settings: WhatsApp shows the QR code only after Connect, then the linked number", async ({ page }) => {
+  // P71 M5: the routes are stubbed; the server side of the pairing runs on a fake Baileys socket in
+  // `apps/server/src/whatsapp.test.ts`. Nothing here reaches WhatsApp and no code is scanned.
+  const posts: string[] = [];
+  let linked = false;
+  let reads = 0;
+  const FLOW = "flow-wa-0123456789abcdef";
+  const account = { account: "351900000001", state: "running", parked: null, fix: null, failures: 0, stored: 0 };
+  const rows = Array.from({ length: 21 }, (_, y) => Array.from({ length: 21 }, (_, x) => ((x * y + x) % 3 === 0 ? "1" : "0")).join(""));
+  await page.route(/\/api\/messengers\/whatsapp$/, (r) => r.fulfill({ json: { state: "on", project: P, accounts: linked ? [account] : [] } }));
+  await page.route(/\/api\/messengers\/whatsapp\/connect$/, async (r) => {
+    posts.push(new URL(r.request().url()).pathname);
+    await r.fulfill({ json: { flow: FLOW } });
+  });
+  await page.route(/\/api\/messengers\/whatsapp\/connect\/state$/, async (r) => {
+    posts.push(new URL(r.request().url()).pathname);
+    expect(r.request().postDataJSON()).toEqual({ flow: FLOW });
+    reads++;
+    if (reads < 2) return r.fulfill({ json: { step: "qr", size: 21, rows } });
+    linked = true;
+    return r.fulfill({ json: { step: "done", account: account.account, name: "Mark Owner" } });
+  });
+  await page.goto(at(P, "/messengers/settings"));
+  const box = page.getByTestId("whatsapp-connect");
+  await expect(box.getByText(/your own, personal WhatsApp number/)).toBeVisible();
+  await expect(box.getByRole("img", { name: /QR code/ })).toHaveCount(0);
+  expect(posts).toEqual([]);
+  await box.getByRole("button", { name: "Connect" }).click();
+  await expect(box.getByRole("img", { name: /QR code/ })).toBeVisible();
+  await expect(box.getByText(/Linked devices ▸ Link a device/)).toBeVisible();
+  await expect(page.getByRole("list", { name: "WhatsApp numbers" }).getByText("WhatsApp +351900000001")).toBeVisible();
+  expect(posts.slice(0, 2)).toEqual(["/api/messengers/whatsapp/connect", "/api/messengers/whatsapp/connect/state"]);
+  expect(page.url()).not.toMatch(/flow-wa/);
 });

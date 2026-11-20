@@ -3,21 +3,17 @@ import type { IdentifierKind, MessengerChannel } from "@hub/db";
 export type { IdentifierKind, MessengerChannel };
 
 /**
- * What each channel can do. A Telegram user account sends through the server's send door (P71 M4, decision 0036 point 7: the
- * owner's click, a dry run, a ticket, `send_log` first, the guards). WhatsApp has no send until M5: the owner copies the text.
+ * Each channel's identifier kind. Every channel sends through the server's send door (P71 M4 and M5, decision 0036 point 7: the
+ * owner's click, a dry run, a ticket, `send_log` first, the guards); the agent never does.
  */
-export const CHANNELS: Record<MessengerChannel, { identifier: IdentifierKind; canSend: boolean }> = {
-  telegram_bot: { identifier: "telegram", canSend: true },
-  telegram_user: { identifier: "telegram", canSend: true },
-  whatsapp: { identifier: "whatsapp", canSend: false },
+export const CHANNELS: Record<MessengerChannel, { identifier: IdentifierKind }> = {
+  telegram_bot: { identifier: "telegram" },
+  telegram_user: { identifier: "telegram" },
+  whatsapp: { identifier: "whatsapp" },
 };
-
-export type SendableChannel = "telegram_bot" | "telegram_user";
 
 export const RETENTION_DAYS = 90;
 export const MAX_TEXT = 4096; // Telegram's own message limit
-
-export const canSendVia = (c: MessengerChannel): c is SendableChannel => CHANNELS[c].canSend;
 
 /** Channels whose chats are linked with this identifier kind. */
 export const channelsOf = (kind: IdentifierKind): MessengerChannel[] =>

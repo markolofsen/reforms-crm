@@ -1,22 +1,22 @@
 # @hub/messengers
 
-Messengers in the local CRM (track P8, decision 0003; track P71, decision 0036). Two channels today: a **Telegram bot on grammY 1.46.0, long polling** (no webhook, no tunnel), and the owner's own **Telegram user account over MTProto with mtcute 0.32.8** (P71 M1, receive only). WhatsApp as a linked device follows (P71 M5).
+Messengers in the local CRM (track P8, decision 0003; track P71, decision 0036). Three channels: a **Telegram bot on grammY 1.46.0, long polling** (no webhook, no tunnel), the owner's own **Telegram user account over MTProto with mtcute 0.32.8** (P71 M1), and his own **WhatsApp number as a linked device with Baileys 7.0.0-rc14** (`baileys` on npm, the maintained name of `@whiskeysockets/baileys`; P71 M5). The two user accounts send only through the server's send door (P71 M4).
 
-**Status.** Optional and receive-only in use. The server starts the poller when `state/secrets/telegram-bot-token` exists (`apps/server/src/messengers.ts`; `HUB_MESSENGERS=off` disables it) and reports its state in `/api/health`. The token is set on Settings ▸ Connections or with `hub token telegram` (access: `@docs/setup/access.md`); a new token applies on the next server start. There is no messenger inbox screen yet. Linking to the one client history with mail goes through `client_identifiers`.
+**Status.** Optional. The server starts the bot poller when `state/secrets/telegram-bot-token` exists (`apps/server/src/messengers.ts`), and one connection per user-account session under `state/secrets/sessions/` (`telegram-user.ts`, `whatsapp.ts`); `HUB_MESSENGERS=off` disables all of them, and each reports its state in `/api/health`. The bot token is set on Messengers ▸ Settings or with `hub token telegram` (access: `@docs/setup/access.md`); the Telegram account and the WhatsApp number are connected there too. The Messengers section (P71 M3) is the review queue of the linked chats. Linking to the one client history with mail goes through `client_identifiers`.
 
 ## Two entries, on purpose
 
 | Import | For | Contains |
 |---|---|---|
 | `@hub/messengers` | the agent, the server, tests | adapters, ingest, poller, `clientHistory`, `createDraft`, `normalizeIdentifier`, types. Nothing here links, approves or sends. |
-| `@hub/messengers/human` | an entry point that knows a person is present | `humanActor`, `linkIdentifier`, `unlinkIdentifier`, `allowChat`, `linkUserChat`, `confirmDraft`, `sendConfirmed`, `copyDraft` (each needs a `HumanActor`); and a user account's login (`createLoginFlows`) and session writes (`writeSession`, `removeSession`): only a person logs in. |
+| `@hub/messengers/human` | an entry point that knows a person is present | `humanActor`, `linkIdentifier`, `unlinkIdentifier`, `allowChat`, `linkUserChat`, `confirmDraft`, `sendConfirmed` (each needs a `HumanActor`); and a user account's login (`createLoginFlows`), WhatsApp's pairing (`createWaPairing`, `qrRows`) and session writes (`writeSession`, `removeSession`): only a person logs in or scans a QR code. |
 
 Draft-only is enforced by types and by what can be imported, not by a prompt:
 
 - An agent can only `createDraft` (status `draft`, chat must be allow-listed).
 - `adapter.send` takes a `ConfirmedDraft`, a branded type minted by `confirmDraft` in `human.ts`. A hand-built or cast object is refused at run time (WeakSet check), and the package `exports` map blocks a deep import of the minter.
 - A `HumanActor` is minted only by `humanActor()`: by the messengers CLI when stdin is a TTY, and by the server's Telegram user account link route behind the admin gate (exact admin Origin, loopback Host, `Sec-Fetch-Site: same-origin`; decision 0036 point 7).
-- `telegram_user` sends through the server's send door only (P71 M4, decision 0036 point 7: `apps/server/src/send/messenger-door.ts`): a dry run, a ticket, the `send_log` row first, one `sendText` through the adapter's `send`, no retry, after the guards (an inbound message in the chat, 30 a day and 20 s apart per account, `allow_list` entries `telegram:<id>` in test mode, Stop sending). The poller holds `pollOnly(adapter)`, so the receiving side has no send path. `whatsapp` has no `send` until M5: `copyDraft` returns the text and a link to open the chat.
+- `telegram_user` (P71 M4) and `whatsapp` (M5) send through the server's send door only (decision 0036 point 7: `apps/server/src/send/messenger-door.ts`): a dry run, a ticket, the `send_log` row first, one `sendText` through the adapter's `send`, no retry, after the guards (an inbound message in the chat, 30 a day and 20 s apart per account, `allow_list` entries `telegram:<id>` or `whatsapp:+<number>` in test mode, Stop sending). The poller holds `pollOnly(adapter)`, so the receiving side has no send path. Nothing is copied by hand any more: the copy path (`copyDraft`, the CLI's `copy`) went with M5.
 
 ## The Telegram user account (P71 M1)
 
@@ -32,6 +32,20 @@ The owner's own account (decision 0036; he connects his main number, the risk of
 Privacy (0036 point 3): a message from a chat that is not on the `telegram_user` allow-list is dropped in the event handler (and again at the drain), so it leaves no row, no counter and no log line. A chat enters the allow-list only by `linkUserChat` (the owner's pick in the dialog picker), which also imports its last 30 days. The picker reads dialogs on demand; suggestions match a dialog's Telegram id or phone against the client's identifiers (`client_identifiers` has no username kind, so a username is never a suggestion source). Its `send` (P71 M4) takes only a `ConfirmedDraft` for a chat on the allow-list and maps Telegram's refusal like a poll error; a park it reports parks the account.
 
 `@mtcute/node` depends on better-sqlite3 12; its native build is refused in `pnpm-workspace.yaml` (`allowBuilds: better-sqlite3: false`) because `MemoryStorage` never loads it. The server's supervisor is `apps/server/src/telegram-user.ts`.
+
+## WhatsApp as a linked device (P71 M5)
+
+The owner's own number (decision 0036 point 2; not the WhatsApp Business API: the risk of a ban is his), linked like WhatsApp Web: Messengers ▸ Settings ▸ WhatsApp, Connect, then he scans the QR code with his phone (WhatsApp ▸ Settings ▸ Linked devices ▸ Link a device). Pieces:
+
+| File | Does |
+|---|---|
+| `whatsapp.ts` | `createWhatsAppAdapter` over a small `WaSocket` interface, the same shape as the Telegram user adapter: Baileys' events go into a bounded queue (1000) that `poll` drains, through the one `runPoller`. Private chats with a person only; text kept, media as its kind, both directions. The chat id is the number as `normalizeIdentifier("whatsapp")` keeps it (`+` and digits), so `client_identifiers` (kind `whatsapp`), the allow-list and `allow_list` (`whatsapp:+<number>`) agree. The cursor is the newest message time (WhatsApp ids are not ordered); after a restart WhatsApp itself delivers what arrived offline. Baileys does not reconnect by itself: a close is the next poll's failure and that poll opens a new socket (a 515 restart is not an error). `toWaAdapterError`: 401, 411 and 500 park as `logged_out`, 403 as `banned` (no flood wait exists here), 440 (opened elsewhere) stops without a park, 429 waits, the rest is `network`. |
+| `whatsapp-api.ts` | The only file that imports Baileys, loaded lazily (`baileysSocketFactory()`). Building a socket connects at once, so no test builds one. Options that are privacy rules: Baileys' log silent; `shouldIgnoreJid` drops groups, broadcasts, newsletters and status before an event is built; `markOnlineOnConnect: false` (his phone keeps ringing for new messages); `syncFullHistory: false`. A LID chat is read through its phone alias (`remoteJidAlt`), else dropped. |
+| `whatsapp-auth.ts` | The auth state: Baileys' creds and Signal keys, one file each in `state/secrets/sessions/whatsapp-<number>/` (`creds.json`, `key.<type>.<id in base64url>.json`), mode 600 in a 700 folder, written atomically; a folder or file readable by others is refused. Not in `app.db`, not backed up; recovery is a new scan. It never imports Baileys (`BufferJSON` is applied in `whatsapp-api.ts`), so the pairing and the tests run on it. |
+| `whatsapp-pairing.ts` | Connect: a socket over an empty in-memory store, the QR code (a new one about every 20 s) as module rows for the admin to draw (`qrRows`, `qrcode-generator`; the QR string never leaves the server), then on the phone's scan the store goes to the number's folder and the supervisor connects the number from its files. Nothing is written before the scan; a pairing lives 3 minutes. |
+| `fake-wa.ts` | `FakeWaSocket` (and `FakeBoom`): the fake Baileys socket every test runs on. |
+
+Privacy (0036 point 3): a message of a chat that is not on the `whatsapp` allow-list is dropped in the event handler (and again at the drain); it leaves no row, no counter and no log line. Baileys has no dialog list to read on demand, so the picker reads a directory held **in this process's memory only**: each private chat's number, its name and the key and time of its newest message, never a text; it goes with the process or the disconnect and is never written. The import on link asks the phone for the chat's history before that newest message (`fetchMessageHistory`) and waits up to 15 s for the answer, so the newest message seen before the link is not imported (it is the anchor), and a chat with no message since the connection opened imports nothing: new messages arrive anyway. **Verify at the real link** (owner items): the phone's answer to an on-demand history request, and LID chats' phone aliases. Disconnect logs the device out on WhatsApp's side (it leaves Linked devices) when it is connected, then deletes the folder. Baileys' preinstall (a Node version check) and protobufjs' postinstall are refused in `pnpm-workspace.yaml`; `sharp`, a peer of Baileys for media, is installed but never loaded. The server's supervisor is `apps/server/src/whatsapp.ts`.
 
 ## Data (migrations 0003 and 0025 in `@hub/db`)
 
@@ -67,8 +81,7 @@ The agent never imports this package's send path: `hub mcp` (`@hub/agent`) has `
 | `status` | no | poll health (stale after 10 min), allow-list, counts, drafts |
 | `poll [--once]` | no | the worker loop with offset persistence and backoff; `--once` fetches one batch and prints ids of unlisted chats |
 | `purge` | no | deletes rows past retention |
-| `confirm <draftId> [--no-send]` | yes | approves a draft and sends it (bot only) |
-| `copy <draftId>` | yes | text and open-chat link for WhatsApp and user accounts |
+| `confirm <draftId> [--no-send]` | yes | approves a draft and sends it (bot only; the user accounts send from the admin's send door) |
 
 ## The bot token
 
@@ -76,4 +89,4 @@ A **new** bot from @BotFather, token alone in `state/secrets/telegram-bot-token`
 
 ## Tests
 
-`pnpm --filter @hub/messengers test`: Vitest, the `FakeAdapter`, `FakeMtClient` and `FakeLoginClient`, an in-memory database. No network, no real token, no Telegram login.
+`pnpm --filter @hub/messengers test`: Vitest, the `FakeAdapter`, `FakeMtClient`, `FakeLoginClient` and `FakeWaSocket`, an in-memory database. No network, no real token, no Telegram login, no WhatsApp socket (one test loads the real Baileys for its auth state and message mapping and builds no socket).

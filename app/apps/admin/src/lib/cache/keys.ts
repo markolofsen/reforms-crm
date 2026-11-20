@@ -41,9 +41,12 @@ export const keys = {
   /** Every view of one project's panel: what an Edit, a Skip or a rules change reads again. */
   messengerChatsOf: (project: string) => ["messenger-chats", project] as const,
   telegramUser: () => ["telegram-user"] as const,
+  /** P71 M5: the WhatsApp linked devices (instance-wide, ride in health), and one pairing's state while its QR code shows. */
+  whatsapp: () => ["whatsapp"] as const,
+  whatsappPairing: (flow: string) => ["whatsapp-pairing", flow] as const,
   /** The link picker: a client lookup, and the owner's dialogs for one client (read on demand, dropped when the picker closes). */
   clientMatches: (project: string, q: string) => ["client-matches", project, q] as const,
-  telegramDialogs: (project: string, account: string, clientId: number) => ["telegram-dialogs", project, account, clientId] as const,
+  userDialogs: (channel: string, project: string, account: string, clientId: number) => ["user-dialogs", channel, project, account, clientId] as const,
   doctor: (project: string) => ["doctor", project] as const,
   /** Reads of Mail (an `osascript` call each): the draft as Mail holds it, and a client's thread. */
   draftMail: (project: string, id: number) => ["draft-mail", project, id] as const,
@@ -95,7 +98,7 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   knowledge: (p) => [project(p), knowledge(p), scheme()],
   messengers: (p) => [messengerChats(p), drafts(p), notByEmail(p), project(p), keys.connections()],
   connections: () => [keys.connections(), agentTools(null), overview(), scheme()],
-  health: (p) => [keys.pulse(), project(p), keys.connections(), keys.telegramUser(), overview(), scheme()],
+  health: (p) => [keys.pulse(), project(p), keys.connections(), keys.telegramUser(), keys.whatsapp(), overview(), scheme()],
   mail: (p) => [draftMail(p), thread(p)],
   "agent-log": (p) => [agentFeed(p)],
   autostart: () => [keys.autostart()],

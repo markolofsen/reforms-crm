@@ -43,7 +43,8 @@ cannot read it: [core/24-terminal.md](core/24-terminal.md).
 (MTProto; its login is a set of server routes, with no screen yet). Only chats the owner linked to a client are stored; any other chat leaves
 no row. The agent reads a linked chat with `messenger_history` and writes a draft row with `messenger_draft_write`, within each chat's rules;
 it has no send tool. The Messengers section holds the review queue and its settings (P71 M3), and its Send goes through the send door
-(P71 M4). Planned: WhatsApp as a linked device (P71 M5): [app/packages/messengers/README.md](../app/packages/messengers/README.md).
+(P71 M4). WhatsApp is the owner's own number as a linked device (P71 M5, Baileys, a QR code scanned on Messengers ▸ Settings), with the same
+linked chats, rules and send door: [app/packages/messengers/README.md](../app/packages/messengers/README.md).
 
 **The LLM door.** `@hub/llm` is the only code that may call a model API: typed structured calls to OpenRouter with the instance's one API key,
 a ledger row per attempt in `llm_calls` and a monthly cap checked before the call. Without a key a caller says "not analysed". No feature calls

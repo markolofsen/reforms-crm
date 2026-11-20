@@ -90,3 +90,31 @@ export const userLinkedDto = z.strictObject({
   importError: z.string().nullable(),
 });
 export type UserLinkedDto = z.infer<typeof userLinkedDto>;
+
+// ---- WhatsApp as a linked device (P71 M5): the same account rows, the pairing by QR code, the same picker and link
+
+/** The WhatsApp linked devices, one row per session (the account is the number's digits): the same shape as the Telegram accounts. */
+export const whatsappStatusDto = telegramUserStatusDto;
+export type WhatsAppStatusDto = TelegramUserStatusDto;
+
+/** Connect: the pairing's id. Nothing else: the QR code comes with the state. */
+export const waConnectStartedDto = z.strictObject({ flow });
+export const waConnectFlowBody = z.strictObject({ flow });
+
+/** QR rows hold `0` and `1` only: a module matrix the admin draws; never the QR string itself. */
+const qrRow = z.string().regex(/^[01]{21,177}$/);
+export const waConnectStepDto = z.discriminatedUnion("step", [
+  z.strictObject({ step: z.literal("waiting") }),
+  z.strictObject({ step: z.literal("qr"), size: z.number().int().min(21).max(177), rows: z.array(qrRow).max(177) }),
+  /** `name` is the owner's own WhatsApp name, so he sees which number was linked. */
+  z.strictObject({ step: z.literal("done"), account: z.string(), name: z.string() }),
+  z.strictObject({ step: z.literal("failed"), reason: z.string() }),
+]);
+export type WaConnectStepDto = z.infer<typeof waConnectStepDto>;
+
+/** A WhatsApp chat is its number, `+` and digits, as `client_identifiers` keeps it (kind `whatsapp`). */
+export const waLinkBody = z.strictObject({
+  clientId: z.number().int().positive(),
+  chatId: z.string().regex(/^\+\d{7,15}$/),
+  title: z.string().trim().max(200).optional(),
+});

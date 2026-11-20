@@ -34,6 +34,8 @@ import { OFF, type MessengersStatus } from "./messengers";
 import { TELEGRAM_USER_OFF, type TelegramUserHandle } from "./telegram-user";
 import { messengerRoutes } from "./routes/messengers";
 import { telegramUserRoutes } from "./routes/telegram-user";
+import { whatsappRoutes } from "./routes/whatsapp";
+import { WHATSAPP_OFF, type WhatsAppHandle } from "./whatsapp";
 import { SENT_OFF, type SentStatus } from "./sent";
 import { createOverview, type OverviewService } from "./overview";
 import { STUCK_MINUTES } from "./overview-facts";
@@ -46,16 +48,20 @@ import { hubPaths } from "@hub/config/paths";
 import { capSentence, fakeMode, hasKey, noKeySentence } from "@hub/llm";
 
 /** The one send of each connected messenger account, handed to the send door and nothing else (P71 M4). */
-const messengerSenders = (tg: TelegramUserHandle | undefined): MessengerSenders | undefined =>
-  tg && {
-    sender: (channel, account) => (channel === "telegram_user" ? tg.sender(account) : undefined),
-    failed: (channel, account, err) => (channel === "telegram_user" ? tg.sendFailed(account, err) : Promise.resolve()),
-  };
+const messengerSenders = (tg: TelegramUserHandle | undefined, wa: WhatsAppHandle | undefined): MessengerSenders | undefined =>
+  tg || wa
+    ? {
+        sender: (channel, account) => (channel === "telegram_user" ? tg?.sender(account) : channel === "whatsapp" ? wa?.sender(account) : undefined),
+        failed: (channel, account, err) => (channel === "telegram_user" ? tg?.sendFailed(account, err) : channel === "whatsapp" ? wa?.sendFailed(account, err) : undefined) ?? Promise.resolve(),
+      }
+    : undefined;
 
 export type AppOptions = {
   messengers?: () => MessengersStatus;
   /** P71: the Telegram user accounts' supervisor (its state in health, the login, the picker, the link); without it those routes are 404. */
   telegramUser?: TelegramUserHandle;
+  /** P71 M5: the WhatsApp linked devices' supervisor (health, the pairing, the picker, the link); without it those routes are 404. */
+  whatsapp?: WhatsAppHandle;
   sent?: () => SentStatus;
   /** Tests: the Overview with its own project folder and zone. */
   overview?: { projectsDir?: string; service?: OverviewService; timeZone?: string };
@@ -107,6 +113,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
       apiVersion: API_VERSION,
       messengers: (opts.messengers ?? (() => OFF))(),
       telegramUser: opts.telegramUser?.status() ?? TELEGRAM_USER_OFF,
+      whatsapp: opts.whatsapp?.status() ?? WHATSAPP_OFF,
       sent: (opts.sent ?? (() => SENT_OFF))(),
       mailer: opts.sender?.kind ?? "mail-app",
     });
@@ -177,7 +184,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", instanceRoutes(opts.instance, () => opts.local?.available ?? false))
     .route("/", coreRoutes(opts.coreUpdates))
     .route("/", draftRoutes(repos, opts.sender))
-    .route("/", sendRoutes(repos, opts.sender, messengerSenders(opts.telegramUser)))
+    .route("/", sendRoutes(repos, opts.sender, messengerSenders(opts.telegramUser, opts.whatsapp)))
     .route("/", draftMailRoutes(repos, opts.sender))
     .route("/", projectRoutes(repos, projectsDir, opts.sender?.policyDir))
     .route("/", inboxRoutes(repos))
@@ -195,6 +202,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", localRoutes(opts.local, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", autostartRoutes(opts.autostart, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", telegramUserRoutes(repos, opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
+    .route("/", whatsappRoutes(repos, opts.whatsapp, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", messengerRoutes(repos, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
 }
 

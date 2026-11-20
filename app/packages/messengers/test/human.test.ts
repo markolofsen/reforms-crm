@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as agentApi from "../src/index";
 import { createDraft, isConfirmed, listOpenDrafts, type Draft } from "../src/index";
 import * as human from "../src/human";
-import { allowChat, confirmDraft, copyDraft, humanActor, linkIdentifier, openChatUrl, sendConfirmed, unlinkIdentifier } from "../src/human";
+import { allowChat, confirmDraft, humanActor, linkIdentifier, sendConfirmed, unlinkIdentifier } from "../src/human";
 import { FakeAdapter, FakeSendingAdapter } from "../src/fake";
 import { mintConfirmed } from "../src/confirmed";
 import { normalizeIdentifier } from "../src/normalize";
@@ -30,7 +30,7 @@ describe("the agent can only make drafts", () => {
 
   it("the agent entry exports no approve, send, link or allow function", () => {
     const names = Object.keys(agentApi);
-    for (const forbidden of ["confirmDraft", "sendConfirmed", "copyDraft", "linkIdentifier", "unlinkIdentifier", "allowChat", "disallowChat", "humanActor", "mintConfirmed", "discardDraft"]) {
+    for (const forbidden of ["confirmDraft", "sendConfirmed", "linkIdentifier", "unlinkIdentifier", "allowChat", "disallowChat", "humanActor", "mintConfirmed", "discardDraft"]) {
       expect(names).not.toContain(forbidden);
     }
     expect(Object.keys(human)).toEqual(expect.arrayContaining(["confirmDraft", "sendConfirmed", "linkIdentifier", "humanActor"]));
@@ -131,28 +131,19 @@ describe("only a human path confirms and sends", () => {
   });
 });
 
-describe("WhatsApp: no send at all (a Telegram user account sends through the door since P71 M4)", () => {
-  it("confirm refuses; copy hands over the text and the link to open", async () => {
+describe("user accounts send through the door (Telegram since P71 M4, WhatsApp since M5)", () => {
+  it("confirm takes a WhatsApp and a Telegram user-account draft of a linked chat", async () => {
     await linkIdentifier(env.repos, owner, { project: "p", clientId: env.clientId, kind: "whatsapp", value: "+49 151 000 0001" });
-    const d = await draftFor("Hallo", "whatsapp", "+491510000001");
-    await expect(confirmDraft(env.repos, owner, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "no_send_channel" });
-    const r = await copyDraft(env.repos, owner, { project: "p", draftId: d.id });
-    expect(r).toMatchObject({ text: "Hallo", openUrl: "https://wa.me/491510000001" });
-    expect((await env.repos.messengers.getDraft("p", d.id))?.status).toBe("copied");
-  });
-
-  it("a user-account Telegram chat is sendable: confirm takes it, copy is refused, as for the bot", async () => {
+    const w = await draftFor("Hallo", "whatsapp", "+491510000001");
+    await expect(confirmDraft(env.repos, owner, { project: "p", draftId: w.id })).resolves.toMatchObject({ channel: "whatsapp", chatId: "+491510000001", text: "Hallo" });
     await allowChat(env.repos, owner, { project: "p", channel: "telegram_user", chatId: "42" });
     const d = await draftFor("hi", "telegram_user", "42");
-    await expect(copyDraft(env.repos, owner, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "no_send_channel" });
     await expect(confirmDraft(env.repos, owner, { project: "p", draftId: d.id })).resolves.toMatchObject({ channel: "telegram_user", chatId: "42", text: "hi" });
-    expect(openChatUrl("telegram_user", "42")).toBe("tg://user?id=42");
-    const b = await draftFor();
-    await expect(copyDraft(env.repos, owner, { project: "p", draftId: b.id })).rejects.toMatchObject({ code: "no_send_channel" });
   });
 
-  it("no adapter shape for these channels carries a send", () => {
-    expect("send" in new FakeAdapter("whatsapp")).toBe(false);
+  it("the copy path is gone: no channel is copied by hand", () => {
+    expect(Object.keys(human)).not.toContain("copyDraft");
+    expect(Object.keys(human)).not.toContain("openChatUrl");
   });
 });
 

@@ -23,7 +23,7 @@ export async function statusLines(repos: Repos, project: string, now: Date = new
   out.push(counts.length ? `messages: ${counts.map((c) => `${c.channel} ${c.n} (newest ${c.newest})`).join(", ")}` : "messages: none stored");
   const open = await repos.messengers.listDrafts(project, ["draft", "confirmed"]);
   out.push(`drafts waiting: ${open.filter((d) => d.status === "draft").length} to approve, ${open.filter((d) => d.status === "confirmed").length} approved not sent`);
-  out.push(`send: ${(Object.keys(CHANNELS) as (keyof typeof CHANNELS)[]).map((c) => `${c} ${CHANNELS[c].canSend ? "yes (after approval)" : "never (copy + open chat)"}`).join("; ")}`);
+  out.push(`send: ${(Object.keys(CHANNELS) as (keyof typeof CHANNELS)[]).join(", ")} after approval, one at a time (the admin's send door for user accounts)`);
   return out;
 }
 

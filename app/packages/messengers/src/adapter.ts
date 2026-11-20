@@ -1,6 +1,5 @@
 import type { MessengerChannel } from "@hub/db";
 import type { ConfirmedDraft } from "./confirmed";
-import type { SendableChannel } from "./types";
 
 /** One received message, already reduced to what is stored. */
 export interface InboundMessage {
@@ -44,9 +43,8 @@ export interface MessengerAdapter {
   poll(opts: PollOptions): Promise<PollBatch>;
 }
 
-/** Only adapters of a sendable channel have `send`, and it takes only a `ConfirmedDraft`. */
+/** An adapter with `send`, which takes only a `ConfirmedDraft`. */
 export interface SendingAdapter extends MessengerAdapter {
-  readonly channel: SendableChannel;
   send(draft: ConfirmedDraft): Promise<SentReceipt>;
 }
 
@@ -64,7 +62,7 @@ export type AdapterErrorCode = "unauthorized" | "conflict" | "rate_limited" | "n
 
 /**
  * A user account's states that park it (decision 0036 point 2): the session was revoked (`logged_out`), the account is banned, or
- * Telegram asked for a wait over an hour (`flood_wait`). Parked is never retried by itself: only a new login clears it.
+ * Telegram asked for a wait over an hour (`flood_wait`; WhatsApp has none). Parked is never retried by itself: only a new login clears it.
  */
 export const PARKED_CODES = ["logged_out", "banned", "flood_wait"] as const;
 export type ParkedCode = (typeof PARKED_CODES)[number];
@@ -111,4 +109,9 @@ export async function telegramPollAdapter(token: string): Promise<MessengerAdapt
 export async function mtcuteClients() {
   const m = await import("./telegram-user-api");
   return { login: m.mtcuteLoginClient, session: m.mtcuteSessionClient };
+}
+
+/** The real Baileys socket of a WhatsApp linked device (P71 M5), loaded only when the server has a session or a pairing starts. */
+export async function baileysSocketFactory() {
+  return (await import("./whatsapp-api")).baileysSocket;
 }

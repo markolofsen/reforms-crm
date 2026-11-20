@@ -62,7 +62,7 @@ describe("no route sends", () => {
     expect(src.filter((f) => /mailAppMailer/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/mailer.ts"]);
     expect(src.filter((f) => /\b(sendDraft|runDue)\b/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["routes/sends.ts"]);
     // A messenger send: only the door mints the human actor's send, only the send routes call the door, only app.ts hands the
-    // account's send (`TelegramUserHandle.sender`) to them.
+    // account's send (`TelegramUserHandle.sender`, `WhatsAppHandle.sender` since P71 M5) to them.
     expect(src.filter((f) => /\bsendConfirmed\b/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/messenger-door.ts"]);
     expect(src.filter((f) => /\bapplyMessenger\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["routes/sends.ts", "send/messenger-door.ts"]);
     expect(src.filter((f) => /\.sender\(account\)/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["app.ts"]);

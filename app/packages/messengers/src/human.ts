@@ -5,17 +5,17 @@
  * point calls once it knows a person is present (the CLI checks for a terminal; the server mints one behind the admin
  * gate for a Telegram user account's link, and in its send door for the one send a person confirmed: decision 0036 point 7,
  * P71 M4). Do not import this file from anything an agent can call.
- * The login of a user account and its session writes are exported here too, for the same reason: only a person logs in.
+ * The login of a user account, the WhatsApp pairing and their session writes are exported here too, for the same reason: only a
+ * person logs in or scans a QR code.
  */
 import type { IdentifierKind, MessengerChannel, Repos } from "@hub/db";
-import { isSending, type MessengerAdapter, type SentReceipt } from "./adapter";
+import { isSending, type InboundMessage, type MessengerAdapter, type SentReceipt } from "./adapter";
 import { mintConfirmed, type ConfirmedDraft } from "./confirmed";
 import { MessengersError } from "./errors";
 import { normalizeIdentifier } from "./normalize";
-import { canSendVia, channelsOf, RETENTION_DAYS, type Draft } from "./types";
-import { toDraft } from "./drafts";
+import { channelsOf, RETENTION_DAYS } from "./types";
 import { ingest } from "./ingest";
-import { IMPORT_DAYS, type TelegramUserAdapter } from "./telegram-user";
+import { IMPORT_DAYS } from "./telegram-user";
 
 declare const humanBrand: unique symbol;
 
@@ -103,12 +103,11 @@ function confirmedFrom(d: { id: number; project: string; channel: MessengerChann
   return mintConfirmed({ id: d.id, project: d.project, channel: d.channel, chatId: d.chatId, text: d.text, confirmedBy: d.confirmedBy ?? "unknown", confirmedAt: d.confirmedAt ?? "" });
 }
 
-/** The owner approves a draft. Only a sendable channel can be approved; the others are copied (`copyDraft`). */
+/** The owner approves a draft (the send door does, right before the one send). */
 export async function confirmDraft(repos: Repos, actor: HumanActor, input: { project: string; draftId: number; at?: string }): Promise<ConfirmedDraft> {
   assertHuman(actor);
   const cur = await repos.messengers.getDraft(input.project, input.draftId);
   if (!cur) throw new MessengersError("not_confirmed", `not_confirmed: draft ${input.draftId} not found`);
-  if (!canSendVia(cur.channel)) throw new MessengersError("no_send_channel", `no_send_channel: ${cur.channel} has no send; copy the text and open the chat`);
   if (!(await repos.messengers.isAllowed(cur.project, cur.channel, cur.chatId))) {
     throw new MessengersError("chat_not_allowed", `chat_not_allowed: ${cur.channel} chat ${cur.chatId} is no longer on the allow-list`);
   }
@@ -131,7 +130,7 @@ export async function sendConfirmed(deps: SendDeps, actor: HumanActor, input: { 
   const { repos, adapter } = deps;
   const row = await repos.messengers.getDraft(input.project, input.draftId);
   if (!row || row.status !== "confirmed") throw new MessengersError("not_confirmed", `not_confirmed: draft ${input.draftId} is not approved`);
-  if (!isSending(adapter) || !canSendVia(row.channel)) throw new MessengersError("no_send_channel", `no_send_channel: ${row.channel} cannot send`);
+  if (!isSending(adapter)) throw new MessengersError("no_send_channel", `no_send_channel: ${row.channel} cannot send`);
   if (adapter.channel !== row.channel) throw new MessengersError("adapter_mismatch", `adapter_mismatch: draft is ${row.channel}, adapter is ${adapter.channel}`);
   if (!(await repos.messengers.isAllowed(row.project, row.channel, row.chatId))) {
     throw new MessengersError("chat_not_allowed", `chat_not_allowed: chat ${row.chatId} is no longer on the allow-list`);
@@ -154,21 +153,6 @@ export async function sendConfirmed(deps: SendDeps, actor: HumanActor, input: { 
   return receipt;
 }
 
-/** Where to open a chat by hand. */
-export function openChatUrl(channel: MessengerChannel, chatId: string): string {
-  return channel === "whatsapp" ? `https://wa.me/${chatId.replace(/^\+/, "")}` : `tg://user?id=${chatId}`;
-}
-
-/** For a channel that cannot send: hands the owner the text and the link to open, and records that it was taken. */
-export async function copyDraft(repos: Repos, actor: HumanActor, input: { project: string; draftId: number }): Promise<{ draft: Draft; text: string; openUrl: string }> {
-  assertHuman(actor);
-  const cur = await repos.messengers.getDraft(input.project, input.draftId);
-  if (!cur) throw new MessengersError("not_confirmed", `not_confirmed: draft ${input.draftId} not found`);
-  if (canSendVia(cur.channel)) throw new MessengersError("no_send_channel", `no_send_channel: ${cur.channel} sends through confirm`);
-  const row = await repos.messengers.markDraftCopied(input.project, input.draftId, actor.name);
-  return { draft: toDraft(row), text: row.text, openUrl: openChatUrl(row.channel, row.chatId) };
-}
-
 export async function discardDraft(repos: Repos, actor: HumanActor, input: { project: string; draftId: number }): Promise<void> {
   assertHuman(actor);
   await repos.messengers.discardDraft(input.project, input.draftId);
@@ -177,19 +161,29 @@ export async function discardDraft(repos: Repos, actor: HumanActor, input: { pro
 // ---- user accounts: the login and the session file (P71, decision 0036 points 4 and 5)
 export { createLoginFlows, LOGIN_TTL_MS, type LoginDeps, type LoginFlows } from "./telegram-user-login";
 export { removeSession, writeSession } from "./sessions";
+export { createWaPairing, PAIRING_TTL_MS, qrRows, type PairingDeps, type PairingStep, type WaPairing } from "./whatsapp-pairing";
+
+/** What a link needs of a user account's adapter (Telegram or WhatsApp): its channel, the allow-list re-read, the import. */
+export interface LinkableAdapter {
+  readonly channel: "telegram_user" | "whatsapp";
+  refreshAllowed(): Promise<void>;
+  history(chatId: string, o: { since: Date }): Promise<InboundMessage[]>;
+}
+
+const KIND_OF = { telegram_user: "telegram", whatsapp: "whatsapp" } as const;
 
 /**
- * Links a Telegram user account's private chat to a client (0036 point 3): writes `client_identifiers` (kind `telegram`, the chat's
- * user id), allows the chat on channel `telegram_user`, then imports its last `days` (default 30) through the one ingest. The
- * chat is chosen by the owner from the picker; nothing is matched for him.
+ * Links a user account's private chat to a client (0036 point 3): writes `client_identifiers` (kind `telegram` with the chat's user
+ * id, or `whatsapp` with its number), allows the chat on the adapter's channel, then imports its last `days` (default 30) through
+ * the one ingest. The chat is chosen by the owner from the picker; nothing is matched for him.
  */
 export async function linkUserChat(
-  deps: { repos: Repos; adapter: TelegramUserAdapter; now?: () => Date },
+  deps: { repos: Repos; adapter: LinkableAdapter; now?: () => Date },
   actor: HumanActor,
   input: { project: string; clientId: number; chatId: string; title?: string; days?: number },
 ): Promise<{ identifierId: number; imported: number; importError: string | null }> {
   assertHuman(actor);
-  const linked = await linkIdentifier(deps.repos, actor, { project: input.project, clientId: input.clientId, kind: "telegram", value: input.chatId, channel: "telegram_user", ...(input.title ? { title: input.title } : {}) });
+  const linked = await linkIdentifier(deps.repos, actor, { project: input.project, clientId: input.clientId, kind: KIND_OF[deps.adapter.channel], value: input.chatId, channel: deps.adapter.channel, ...(input.title ? { title: input.title } : {}) });
   await deps.adapter.refreshAllowed();
   const now = (deps.now ?? (() => new Date()))();
   // The link stands even when the import fails: new messages arrive anyway, and the poller's catch-up reads from its cursor.

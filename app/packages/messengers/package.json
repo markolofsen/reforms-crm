@@ -19,8 +19,10 @@
     "@hub/db": "workspace:*",
     "@mtcute/core": "0.32.8",
     "@mtcute/node": "0.32.8",
+    "baileys": "7.0.0-rc14",
     "commander": "15.1.0",
-    "grammy": "1.46.0"
+    "grammy": "1.46.0",
+    "qrcode-generator": "2.0.4"
   },
   "devDependencies": {
     "@types/node": "catalog:",

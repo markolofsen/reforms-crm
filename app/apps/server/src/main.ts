@@ -11,6 +11,7 @@ import { projectsRoot } from "./project-overview";
 import { allowListOf, configFile, createServerMailer } from "./send/mailer";
 import { startMessengers } from "./messengers";
 import { startTelegramUser } from "./telegram-user";
+import { startWhatsApp } from "./whatsapp";
 import { startPurge } from "./purge";
 import { startSentReconciler } from "./sent";
 import { chooseShell, createTerminal, serverDetector } from "./terminal";
@@ -45,6 +46,10 @@ console.log(`messengers: ${messengers.status().state}${messengers.status().reaso
 const telegramUser = await startTelegramUser({ repos });
 const tgStatus = telegramUser.status();
 console.log(`telegram user accounts: ${tgStatus.state === "on" ? `${tgStatus.accounts.length} connected` : `off (${tgStatus.reason ?? ""})`}`);
+// P71 M5: the WhatsApp linked devices, one socket per folder under state/secrets/sessions/. The line counts numbers, never names one.
+const whatsapp = await startWhatsApp({ repos });
+const waStatus = whatsapp.status();
+console.log(`whatsapp linked devices: ${waStatus.state === "on" ? `${waStatus.accounts.length} connected` : `off (${waStatus.reason ?? ""})`}`);
 
 // The Mailer behind Send: Mail.app, or the fake when HUB_MAILER=fake (refused without HUB_DB). A bad value stops the server here.
 const projectsDir = projectsRoot();
@@ -83,7 +88,7 @@ coreUpdates.start();
 console.log(kind === "fake" ? "core update check: off (HUB_MAILER=fake): Check now answers offline" : "core update check: 2 min after start, then every 6 h (the origin's tags)");
 // Live panels (P50): the trigger counter tailed every 200 ms; the pollers' state and the Connections files are watched,
 // since they are not rows (a timestamp of the last poll is left out: it moves on every poll and means nothing to a panel).
-const pollers = () => [messengers.status(), sent.status(), ...telegramUser.status().accounts].map((s) => `${s.state}|${"reason" in s ? (s.reason ?? "") : ""}|${s.lastError ?? ""}`).join("\n");
+const pollers = () => [messengers.status(), sent.status(), ...telegramUser.status().accounts, ...whatsapp.status().accounts].map((s) => `${s.state}|${"reason" in s ? (s.reason ?? "") : ""}|${s.lastError ?? ""}`).join("\n");
 // P59: the agent session log is watched per project (one stat per day file), so the feed follows a hook's line in under 1 s.
 const live = createLive({ db, watch: [{ topic: "health", signature: pollers, everyMs: 1000 }, { topic: "connections", signature: () => folderSignature(paths.secrets), everyMs: 1000 }, { topic: "agent-log", signatures: () => logSignatures(paths.log), everyMs: 500 }, { topic: "autostart", signature: autostart.signature, everyMs: 1000 }, { topic: "core", signature: coreUpdates.signature, everyMs: 1000 }] });
 // The shared focus (P51): the admin tab says what it shows; the agent reads it from state/focus.json.
@@ -92,7 +97,7 @@ const focus = createFocusStore({ file: paths.focus });
 const opener = chooseOpener(process.env, paths, throwawayDbNamed(process.env));
 const local = { deps: localOpenDeps(repos, paths), run: opener.run, available: localOpenAvailable(opener.kind) };
 console.log(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens, each argv goes to state/opener.jsonl" : `open: ${local.available ? "on (/usr/bin/open, the admin page only)" : "off (not macOS): the Open buttons are hidden"}`);
-const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
+const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   console.log(`hub server on http://${info.address}:${info.port}`);
@@ -117,6 +122,6 @@ onShutdown({
     coreUpdates.stop();
     sent.stop();
     terminal.stop();
-    try { await Promise.all([messengers.stop(), telegramUser.stop()]); } finally { server.close(); close(); }
+    try { await Promise.all([messengers.stop(), telegramUser.stop(), whatsapp.stop()]); } finally { server.close(); close(); }
   },
 });

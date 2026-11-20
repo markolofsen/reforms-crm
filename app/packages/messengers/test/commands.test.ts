@@ -15,7 +15,7 @@ describe("status", () => {
   it("says so before anything was polled", async () => {
     const lines = await statusLines(env.repos, "p");
     expect(lines).toContain("accounts: none polled yet");
-    expect(lines.join("\n")).toContain("never (copy + open chat)");
+    expect(lines.join("\n")).toContain("whatsapp after approval");
   });
 
   it("flags a stale poll and shows the last error", async () => {

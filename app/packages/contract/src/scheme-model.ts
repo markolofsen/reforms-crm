@@ -36,7 +36,7 @@ export interface Block {
 export const BLOCKS: readonly Block[] = [
   { id: "you", lane: "in", label: "You", what: "the owner", doc: "core/24-terminal.md" },
   { id: "mail", lane: "in", label: "Client mail", what: "Apple Mail, read through mail-mcp", counted: { kind: "mailbox", what: (n) => `${n} mailboxes, read through mail-mcp` }, doc: "core/02-connectors.md" },
-  { id: "messengers", lane: "in", label: "Messengers", what: "Telegram, linked chats only", doc: "core/24-terminal.md" },
+  { id: "messengers", lane: "in", label: "Messengers", what: "Telegram and WhatsApp, linked chats only", doc: "core/24-terminal.md" },
   { id: "drops", lane: "in", label: "Dropped files", what: "copied under state/drops", doc: "core/24-terminal.md" },
   { id: "rules", lane: "agent", label: "Project rules", what: "project.md, session and chat rules, mail filters", doc: "core/16-projects-and-knowledge.md" },
   { id: "skills", lane: "agent", label: "Skills and workflows", what: "skills/, the project's workflows", doc: "core/20-workflows.md" },
@@ -90,7 +90,7 @@ export const LINKS: readonly Link[] = [
   flow("server", "llm", "cheap calls"),
   flow("admin", "door", "one draft"),
   flow("policy", "door", "limits", "limits"),
-  flow("door", "client", "Apple Mail, Telegram"),
+  flow("door", "client", "Apple Mail, Telegram, WhatsApp"),
 ];
 
 /**
@@ -150,7 +150,7 @@ export const CUTS: readonly Cut[] = [
       flow("tools", "admin", "a draft for the chat"),
       flow("admin", "you", "Messengers panel"),
       flow("you", "door", "Send, from P71 M4"),
-      flow("door", "client", "Telegram"),
+      flow("door", "client", "Telegram, WhatsApp"),
     ],
   },
   {
@@ -181,6 +181,7 @@ export const BLOCK_OF: Record<SchemeKind, BlockId> = {
   notion: "notion",
   "notion-db": "notion",
   telegram: "messengers",
+  whatsapp: "messengers",
   llm: "llm",
   mailbox: "mail",
   "mail-mcp": "mail",

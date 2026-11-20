@@ -10,7 +10,7 @@ import { createApp } from "./app";
 import { composeScheme, llmNode, type SchemeSources } from "./scheme";
 
 // P63 O1: the Overview's parts from local state, with fake readers (no Mail, no Notion, no CLI). Plan section 4a's mapping.
-const HEALTH: HealthDto = { ok: true, apiVersion: API_VERSION, messengers: { state: "off", failures: 0, stored: 0 }, telegramUser: { state: "off", accounts: [] }, sent: { state: "running", projects: [], failures: 0, marked: 0 }, mailer: "mail-app" };
+const HEALTH: HealthDto = { ok: true, apiVersion: API_VERSION, messengers: { state: "off", failures: 0, stored: 0 }, telegramUser: { state: "off", accounts: [] }, whatsapp: { state: "off", accounts: [] }, sent: { state: "running", projects: [], failures: 0, marked: 0 }, mailer: "mail-app" };
 const DOCTOR: DoctorDto = {
   state: "ok",
   checks: [

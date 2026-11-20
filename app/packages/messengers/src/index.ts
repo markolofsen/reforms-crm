@@ -1,12 +1,13 @@
 // Agent-facing entry. Everything here is read, store or draft: nothing links a chat, approves a reply or sends.
 // Those live in `@hub/messengers/human` and need a HumanActor (see human.ts).
-export { CHANNELS, MAX_TEXT, RETENTION_DAYS, canSendVia, channelsOf } from "./types";
-export type { Draft, IdentifierKind, MessengerChannel, SendableChannel } from "./types";
+export { CHANNELS, MAX_TEXT, RETENTION_DAYS, channelsOf } from "./types";
+export type { Draft, IdentifierKind, MessengerChannel } from "./types";
 export { MessengersError, type MessengersErrorCode } from "./errors";
 export { normalizeIdentifier } from "./normalize";
 export { isConfirmed, type ConfirmedDraft } from "./confirmed";
 export {
   AdapterError,
+  baileysSocketFactory,
   isParkedCode,
   isSending,
   mtcuteClients,
@@ -53,3 +54,25 @@ export {
 export { readSession, redactSessions, sessionAccounts, sessionsDir, SESSION_FILE, type SessionRead, type UserSession } from "./sessions";
 export type { LoginCredentials, LoginStep, MtLoginClient } from "./telegram-user-login";
 export { FakeLoginClient, FakeMtClient, FakeRpcError, fakePerson } from "./fake-user";
+export {
+  createWhatsAppAdapter,
+  toWaAdapterError,
+  toWaInbound,
+  WA_CODES,
+  WA_DIRECTORY_MAX,
+  WA_HISTORY_MS,
+  WA_OPEN_MS,
+  type WaAnchor,
+  type WaChat,
+  type WaConnection,
+  type WaEvents,
+  type WaMe,
+  type WaMessage,
+  type WaSocket,
+  type WaSocketFactory,
+  type WhatsAppAdapter,
+  type WhatsAppOptions,
+  type WhatsAppSendingAdapter,
+} from "./whatsapp";
+export { CREDS as WA_CREDS, readWaAuth, waFolderOf, WaAuthFiles, type WaAuthRead } from "./whatsapp-auth";
+export { FakeBoom, FakeWaSocket } from "./fake-wa";

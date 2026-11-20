@@ -139,6 +139,15 @@ function telegramUserNodes(h: HealthDto): SchemeNode[] {
   });
 }
 
+/** P71 M5: one part per WhatsApp linked device (the owner's own number), as the Telegram accounts'. Its place is Messengers ▸ Settings. */
+function whatsappNodes(h: HealthDto): SchemeNode[] {
+  return h.whatsapp.accounts.map((a) => {
+    const state: SchemeState = a.state === "running" ? "ok" : a.state === "parked" ? "fail" : a.state === "error" ? "warn" : "unknown";
+    const detail = a.state === "parked" ? `Parked (${a.parked ?? "unknown"}): it is not retried by itself.` : a.state === "error" ? (a.lastError ?? "The connection is failing; it retries.") : a.state === "stopped" ? "Stopped." : "Connecting.";
+    return node({ id: `whatsapp:${a.account}`, kind: "whatsapp", project: null, label: `WhatsApp +${a.account}`, state, detail, fix: a.fix, place: "messengers" });
+  });
+}
+
 function cliNodes(clis: readonly CliFactDto[] | null): SchemeNode[] {
   if (!clis) return (["claude", "codex"] as const).map((cli) => node({ id: `cli:${cli}`, kind: "cli", project: null, label: CLI_LABEL[cli], state: "unknown", detail: `Not detected yet. ${NOT_RUN}.`, place: "agent" }));
   return clis.map((f) => {
@@ -239,7 +248,7 @@ export async function composeScheme(s: SchemeSources): Promise<SchemeDto> {
   const [slugs, conn] = await Promise.all([s.projects(), s.connections().catch(() => null)]);
   const tokens = (conn?.connections ?? []).filter((c) => c.kind === "notion" || c.secret.state !== "missing");
   const llm = s.llm ? llmNode(await s.llm()) : [];
-  const instance = [...coreNode(s.core()), ...cliNodes(s.clis()), ...tokens.map(tokenNode), ...telegramUserNodes(s.health()), ...llm];
+  const instance = [...coreNode(s.core()), ...cliNodes(s.clis()), ...tokens.map(tokenNode), ...telegramUserNodes(s.health()), ...whatsappNodes(s.health()), ...llm];
   const perProject = (await Promise.all(slugs.map((slug) => projectNodes(slug, s, conn)))).flat();
   const nodes = [...instance, ...perProject];
   return schemeDto.parse({ nodes });
