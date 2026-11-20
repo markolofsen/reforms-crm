@@ -1,21 +1,18 @@
-// P89 verdict 14 (decision 0043 point 8): what a PUBLIC repository (the core, a generated starter) must never track. One list, used by
-// `public-core.test.ts` on the core's own `git ls-files` and by `hub starters build` on each starter before it is called done.
+// P89 verdict 14 (decision 0043): what the PUBLIC core must never track. One list, used by `public-core.test.ts` on the core's own
+// `git ls-files`.
 // Owner names are not here: they are the private list of `layers.test.ts` (`config/custom-names.txt`).
 
 export interface Leak { file: string; why: string }
 
-/** Paths that hold one owner's data. `where` names the layout: the core (`app/projects/...`) or an instance-shaped starter (`projects/...`). */
-export function pathLeaks(files: readonly string[], where: "core" | "starter"): Leak[] {
+/** Paths of the core that hold one owner's data. */
+export function pathLeaks(files: readonly string[]): Leak[] {
   const out: Leak[] = [];
   for (const f of files) {
     const parts = f.split("/");
     const why = ((): string | undefined => {
-      if (where === "core") {
-        if (parts[0] === "app" && parts[1] === "projects" && parts[2] && !parts[2].startsWith("_") && parts.length > 3) return "a real project in the core (only app/projects/_template may be tracked)";
-        if (f.startsWith("@docs/custom/") || f.startsWith("@dev/") || f.startsWith("@refs/")) return "an instance folder in the core";
-        if (f.startsWith("projects/")) return "an instance projects folder in the core";
-      }
-      if (where === "starter" && parts[0] === "projects" && parts[2] === "knowledge" && parts[3] === "files" && parts[4] && parts[4] !== ".gitkeep") return "a knowledge entry in a starter (starters carry no facts)";
+      if (parts[0] === "app" && parts[1] === "projects" && parts[2] && !parts[2].startsWith("_") && parts.length > 3) return "a real project in the core (only app/projects/_template may be tracked)";
+      if (f.startsWith("@docs/custom/") || f.startsWith("@dev/") || f.startsWith("@refs/")) return "an instance folder in the core";
+      if (f.startsWith("projects/")) return "an instance projects folder in the core";
       if (/(^|\/)projects\/[^/]+\/(dumps|reports|\.generated)\//.test(f)) return "derived client data (dumps, reports, generated)";
       if (/(^|\/)projects\/[^/]+\/knowledge\/notion\//.test(f)) return "a Notion copy of client data";
       if (/^(state|data|backups)\//.test(f) && f !== "state/.gitkeep") return "working state, the database or a backup";

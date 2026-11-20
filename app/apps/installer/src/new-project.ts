@@ -4,7 +4,7 @@ import { hubPaths } from "@hub/config/paths";
 import { KINDS } from "@hub/projects";
 
 /**
- * P89: the first project of a new instance (or of a starter), from a kind. The files the `project-setup` skill's step 5 names:
+ * P89: the first project of a new instance, from a kind. The files the `project-setup` skill's step 5 names:
  * `project.md` with the schema, kind, name and status rows (status draft), the template's workflows, sequences and `@dev`, the kind's
  * taxonomy as `knowledge/taxonomy.md`, an empty `knowledge/files/`. The interview ("настрой проект <slug>") fills everything else.
  * Never overwrites: an existing project folder is refused.

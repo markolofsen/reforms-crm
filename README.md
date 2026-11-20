@@ -3,6 +3,14 @@
 > This repository is the **core**: universal code, skills and docs, free of any owner's data. One owner's projects live in an
 > **instance** outside it. Rule and steps: [`@docs/LAYERS.md`](@docs/LAYERS.md).
 
+## Start
+```sh
+git clone https://github.com/markolofsen/reforms-crm.git && cd reforms-crm
+./hub.sh new-instance <name>             # makes ../hub-<name>, asks the kind of its first project
+cd ../hub-<name> && ./run.sh setup
+```
+Joining a team's instance: `git clone --recurse-submodules <private repo> && ./run.sh setup` in the clone. Both paths: [`@docs/setup/team.md`](@docs/setup/team.md).
+
 **The agent does the work, the admin shows it, the owner decides.** You start an agent session (Claude Code or Codex, `hub agent <project>`) and hand it one
 instruction in your own words. The agent reads the project's mail in Apple Mail, updates the project's CRM in Notion through the session's own connector,
 and leaves UNSENT reply drafts. The local admin (`hub up`) shows what it did, live: the drafts land in Drafts within a second, each with its reason and
@@ -21,7 +29,7 @@ the drafts. The admin tells the agent what it shows (the shared focus), so "answ
 Needed once: Mail.app with the account, `mail-mcp` running, the Notion connector signed in (`/mcp` in Claude Code). `hub doctor` shows what is missing, each row with its fix; the full list is the generated [`@docs/setup/checklist.md`](@docs/setup/checklist.md).
 
 ## Creating an instance
-Your data does not belong in this repository. Create an instance with one command: `./hub.sh new-instance <name>` (the folder `hub-<name>`, next to this checkout: git, this repository as the `core/` submodule at the newest tag, the instance files, `--kind <kind>` for a first project, skill links, config defaults, `doctor`, one commit; `--pin main` follows the tip, `--dry-run` lists the files; it never pushes and prints the `gh repo create --private` line). Or start from a public starter (`hub-starter-saas`, `hub-starter-realty`, `hub-starter-generic`) with GitHub's "Use this template", as Private. A teammate joins with `git clone --recurse-submodules <repo> && ./run.sh setup`. The whole workflow, and what is shared and what is personal: [`@docs/setup/team.md`](@docs/setup/team.md).
+Your data does not belong in this repository. Create an instance with one command: `./hub.sh new-instance <name>` (the folder `hub-<name>`, next to this checkout: git, this repository as the `core/` submodule at the newest tag, the instance files, the kind of a first project (asked on a terminal, or `--kind <kind>`), skill links, config defaults, `doctor`, one commit; `--pin main` follows the tip, `--dry-run` lists the files; it never pushes and prints the `gh repo create --private` line). A teammate joins with `git clone --recurse-submodules <repo> && ./run.sh setup`. The whole workflow, and what is shared and what is personal: [`@docs/setup/team.md`](@docs/setup/team.md).
 The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` live there, and its `run.sh` sets `HUB_HOME` and runs the pinned core. Move to a newer core with `hub core update` (a test instance may follow `main` with `--branch`). Details:
 [`@docs/LAYERS.md`](@docs/LAYERS.md) and [`@docs/core/08-local-app-stack.md`](@docs/core/08-local-app-stack.md).
 

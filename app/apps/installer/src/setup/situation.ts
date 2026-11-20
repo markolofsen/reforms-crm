@@ -5,7 +5,7 @@ import type { HubPaths } from "@hub/config/paths";
 
 /**
  * P89 verdict 6: what `hub setup` is looking at, said in one sentence before it does anything.
- *   new      no project was ever set up here (a fresh `new-instance`, or a starter): the project interview is next;
+ *   new      no project was ever set up here (a fresh `new-instance`, with or without a kind): the project interview is next;
  *   joined   the repo holds a set-up project (someone already ran it) but this Mac has no database: a teammate's first setup;
  *   existing this Mac already runs the instance: a re-run is the doctor plus update hints.
  */

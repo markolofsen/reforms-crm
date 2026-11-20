@@ -16,7 +16,7 @@ const place = () => {
 };
 
 describe("situationOf", () => {
-  it("new: no project, or only draft projects (a fresh new-instance or a starter)", () => {
+  it("new: no project, or only draft projects (a fresh new-instance, with or without --kind)", () => {
     const p = place();
     expect(situationOf(p).situation).toBe("new");
     project(p.projects, "my-product", "| status | draft | 2026-11-20 | default |\n");

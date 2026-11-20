@@ -6,6 +6,7 @@ import type { RunResult } from "./context";
 import { VERSION_TAG } from "@hub/config/core-version";
 import { pinMark } from "./core-update";
 import { syncInstanceSkills } from "./instance-skills";
+import { KINDS } from "@hub/projects";
 import { scaffoldProject } from "./new-project";
 import { MIN_FREE_GB } from "./steps/tools";
 
@@ -25,10 +26,8 @@ export interface InitOptions {
   kind?: string;
   /** Slug of that project. Default: the instance name without its `hub-` prefix. */
   project?: string;
-  /** False: no `pnpm install`, no install steps, no doctor (`--no-install`, and every starter). Default true. */
+  /** False: no `pnpm install`, no install steps, no doctor (`--no-install`). Default true. */
   install?: boolean;
-  /** P89 starter: the commit message names it, and nothing of this Mac (skill links, doctor) is run. */
-  starter?: boolean;
 }
 
 
@@ -42,8 +41,6 @@ export interface InitDeps {
   freeGb?: (dir: string) => Promise<number | undefined>;
   /** Today as YYYY-MM-DD, for the project's Settings rows. */
   today?: () => string;
-  /** Runs on the finished folder just before the one commit (a starter's README preamble and leak check); a throw stops the commit. */
-  beforeCommit?: (dir: string) => void;
 }
 
 /** `df -k <dir>`: available kilobytes of the volume, as GB. */
@@ -83,6 +80,27 @@ export function ghCreateLine(coreUrl: string, dir: string, visibility: "private"
 }
 
 export class InitError extends Error {}
+
+/** P91: the one question `hub new-instance` asks on a terminal without `--kind`: the kinds of `hub project kinds`, numbered. */
+export function kindQuestion(): string {
+  const ks = Object.values(KINDS);
+  const w = Math.max(...ks.map((k) => k.id.length));
+  return [
+    "Which kind is the first project? (`hub project kinds`)",
+    ...ks.map((k, i) => `  ${i + 1}. ${k.id.padEnd(w)}  ${k.title}`),
+    "Number or name; Enter: no project yet (a session creates it later).",
+  ].join("\n");
+}
+
+/** The answer to `kindQuestion`: a number or a kind id; empty is no project. */
+export function kindFromAnswer(answer: string): { kind?: string } | { error: string } {
+  const a = answer.trim();
+  if (!a) return {};
+  const ids = Object.keys(KINDS);
+  const n = /^\d+$/.test(a) ? Number(a) : NaN;
+  const kind = Number.isInteger(n) ? ids[n - 1] : ids.find((id) => id === a.toLowerCase());
+  return kind ? { kind } : { error: `not a kind: answer 1 to ${ids.length}, a name (${ids.join(", ")}), or Enter for none` };
+}
 
 const isLocalPath = (u: string): boolean => u.startsWith("/") || u.startsWith("./") || u.startsWith("../") || u.startsWith("file:");
 
@@ -176,9 +194,8 @@ export async function initInstance(o: InitOptions, d: InitDeps): Promise<{ dir: 
   }
 
   // From here the instance's own pinned core does the work: working folders, config defaults, skill links, then the checks.
-  // A starter (and --no-install) stops before anything of this Mac: the person who clones it runs ./run.sh setup.
-  const install = o.install !== false && !o.starter;
-  if (!o.starter) syncInstanceSkills(hubPaths({ core: path.join(dir, "core"), home: dir, env: {} }));
+  const install = o.install !== false;
+  syncInstanceSkills(hubPaths({ core: path.join(dir, "core"), home: dir, env: {} }));
   const hub = path.join(dir, "core", "hub.sh");
   const env = { HUB_HOME: dir };
   // The pinned core needs its dependencies before its `hub` runs (a fresh submodule has none).
@@ -187,7 +204,7 @@ export async function initInstance(o: InitOptions, d: InitDeps): Promise<{ dir: 
   const free = install && !ready ? await (d.freeGb ?? ((x: string) => dfFreeGb(d.run, x)))(dir) : undefined;
   if (!install) {
     ready = false;
-    if (!o.starter) d.log("dependencies not installed (--no-install): run ./run.sh setup in the instance when you want it running");
+    d.log("dependencies not installed (--no-install): run ./run.sh setup in the instance when you want it running");
   } else if (!ready && free !== undefined && free < MIN_FREE_GB) {
     d.log(`only ${free.toFixed(1)} GB free (under ${MIN_FREE_GB} GB): pnpm install skipped. Free space, then run ./run.sh setup in the instance`);
   } else if (!ready) {
@@ -202,10 +219,9 @@ export async function initInstance(o: InitOptions, d: InitDeps): Promise<{ dir: 
       for (const l of (r.stdout + r.stderr).split("\n").filter(Boolean)) d.log(l);
     }
   }
-  d.beforeCommit?.(dir);
   await git("add", "-A");
   // A failed commit (no user.name, a hook) is an error, not a success with nothing committed.
-  const commit = await d.run("git", ["-C", dir, "commit", "-q", "-m", `instance: created by hub ${o.starter ? "starters build" : "new-instance"}, core pinned at ${sha.slice(0, 9)}${follows ? " (follows main)" : ` (${pin})`}${project ? `, project ${project} (${o.kind})` : ""}`]);
+  const commit = await d.run("git", ["-C", dir, "commit", "-q", "-m", `instance: created by hub new-instance, core pinned at ${sha.slice(0, 9)}${follows ? " (follows main)" : ` (${pin})`}${project ? `, project ${project} (${o.kind})` : ""}`]);
   if (commit.code !== 0) throw new InitError(`the instance was created in ${dir} but git commit failed: ${(commit.stderr || commit.stdout).trim().split("\n")[0] || "no detail"}. Set git user.name and user.email, then run \`git -C ${dir} add -A && git -C ${dir} commit\``);
   return { dir, pin, follows, files, url, ...(project ? { project } : {}) };
 }

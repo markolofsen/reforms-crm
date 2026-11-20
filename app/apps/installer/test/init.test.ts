@@ -3,8 +3,9 @@ import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSyn
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { ghCreateLine, githubOwner, initInstance, INSTANCE_TEMPLATE, InitError, instanceDir, pinFile, renderTemplate, templateFiles } from "../src/init";
-import { buildStarters, STARTERS, starterLeaks } from "../src/starters";
+import { ghCreateLine, githubOwner, initInstance, INSTANCE_TEMPLATE, InitError, instanceDir, kindFromAnswer, kindQuestion, pinFile, renderTemplate, templateFiles } from "../src/init";
+import { situationOf } from "../src/setup/situation";
+import { KIND_IDS } from "@hub/projects";
 import { loadProject } from "@hub/projects";
 import { readCoreVersion } from "@hub/config/core-version";
 import { CORE_ROOT } from "@hub/config/paths";
@@ -156,6 +157,22 @@ describe("hub new-instance (P89)", () => {
     for (const sub of ["workflows/README.md", "sequences/README.md", "@dev/README.md", "knowledge/files/.gitkeep"]) expect(existsSync(path.join(dir, "projects", "acme", sub)), sub).toBe(true);
     expect(git(dir, "log", "--oneline")).toContain("project acme (software-support)");
     expect(git(dir, "status", "--porcelain")).toBe("");
+    // `./run.sh setup` in the fresh folder sees a new instance (the project is a draft, no database yet), not a teammate's join.
+    expect(situationOf({ projects: path.join(dir, "projects"), db: path.join(dir, "data", "app.db") }).situation).toBe("new");
+  });
+
+  it("P91: on a terminal without --kind one question lists the kinds; a number, a name or Enter answers it", () => {
+    const q = kindQuestion();
+    KIND_IDS.forEach((id, i) => expect(q).toContain(`${i + 1}. ${id}`));
+    expect(q).toContain("Enter: no project yet");
+    expect(kindFromAnswer("")).toEqual({});
+    expect(kindFromAnswer("  ")).toEqual({});
+    expect(kindFromAnswer("1")).toEqual({ kind: KIND_IDS[0] });
+    expect(kindFromAnswer(String(KIND_IDS.length))).toEqual({ kind: KIND_IDS[KIND_IDS.length - 1] });
+    expect(kindFromAnswer(" Sales-Pipeline ")).toEqual({ kind: "sales-pipeline" });
+    expect(kindFromAnswer("0")).toHaveProperty("error");
+    expect(kindFromAnswer(String(KIND_IDS.length + 1))).toHaveProperty("error");
+    expect(kindFromAnswer("realty")).toHaveProperty("error");
   });
 
   it("an unknown kind or a bad slug fails with one line", async () => {
@@ -172,36 +189,6 @@ describe("hub new-instance (P89)", () => {
     await initInstance({ dir: path.join(r.base, "b"), coreUrl: r.origin }, low);
     expect(r.calls).toEqual([]);
     expect(r.logs.join("\n")).toContain("only 1.3 GB free (under 5 GB): pnpm install skipped");
-  });
-});
-
-describe("hub starters build (P89)", () => {
-  it("generates one public starter per kind: a project with no facts, the README preamble, one commit, no leak", async () => {
-    const r = rig();
-    const out = path.join(r.base, "starters");
-    const rs = await buildStarters(out, { coreUrl: r.origin }, r.deps);
-    expect(rs.map((x) => x.starter.name)).toEqual(STARTERS.map((s) => s.name));
-    expect(r.calls).toEqual([]); // nothing of this Mac: no install, no doctor
-    for (const x of rs) {
-      expect(readFileSync(path.join(x.dir, "README.md"), "utf8")).toMatch(/^> \*\*Starter for /);
-      expect(readFileSync(path.join(x.dir, "README.md"), "utf8")).toContain(`--private --template <owner>/${x.starter.name}`);
-      expect(existsSync(path.join(x.dir, "projects", x.starter.project, "project.md"))).toBe(true);
-      expect(existsSync(path.join(x.dir, ".claude"))).toBe(false);
-      expect(starterLeaks(x.dir)).toEqual([]);
-      expect(git(x.dir, "status", "--porcelain")).toBe("");
-      expect(git(x.dir, "log", "--oneline")).toContain("created by hub starters build");
-      expect(x.publishLine).toContain("--public");
-    }
-  });
-  it("a starter that would carry a fact is refused before its commit; a non-empty target is refused", async () => {
-    const r = rig();
-    const out = path.join(r.base, "s");
-    const deps = { ...r.deps, beforeCommit: undefined };
-    put(path.join(out, "hub-starter-saas", "x.txt"), "x");
-    await expect(buildStarters(out, { coreUrl: r.origin, only: ["software-support"] }, deps)).rejects.toThrow(/not empty/);
-    const dir = path.join(r.base, "leaky");
-    put(path.join(dir, "projects", "p", "knowledge", "files", "prices.md"), "x");
-    expect(starterLeaks(dir).map((l) => l.file)).toEqual(["projects/p/knowledge/files/prices.md"]);
   });
 });
 

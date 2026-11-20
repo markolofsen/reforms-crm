@@ -7,7 +7,7 @@ How a Hub instance is made, shared with a team and installed on each person's Ma
 - **The core** (`reforms-crm`) is public: code, skills, `@docs/core`, the project template. It never holds a client, an address or a token (`app/apps/installer/test/public-core.test.ts` fails if it does).
 - **An instance** is one PRIVATE git repository per business, named `hub-<name>` (for example `hub-saas`, `hub-realty`). It holds `projects/<slug>/` (project.md, knowledge, workflows, sequences, mail filters), its own `@dev`, `@docs/custom`, `@refs` and config. `core/` inside it is a git submodule pinned by `core.version`.
 - **No branches.** One branch of a public repo cannot be made private, access on GitHub is per repo, and a branch per instance would need the core merged into every branch forever. One instance, one repo.
-- **Starters** are public template repositories generated from the core, one per project kind: `hub-starter-saas` (kind `software-support`), `hub-starter-realty` (`sales-pipeline`), `hub-starter-generic` (`generic`). They hold no data. They are built by `hub starters build <out>` at release and never edited by hand.
+- **Two ways in, nothing else:** start a new instance from a core checkout (`hub new-instance`), or join one by cloning its private repo. There are no template or starter repositories (decision 0043, amended 2026-11-20).
 
 ## What is shared and what is personal
 
@@ -28,15 +28,14 @@ When a reply is sent (the admin's Send, `hub send`, or a send Sent detection see
 From any core checkout (`./hub.sh` in it) or an existing instance (`./run.sh`). Run inside a git checkout, the new folder goes next to it (`../hub-acme`), never inside it; elsewhere it goes in the current folder; a path is used as given. Until the next core tag, add `--pin main` to get a core with this setup:
 
 ```sh
-./hub.sh new-instance acme --kind software-support     # makes ./hub-acme with projects/acme/, core pinned at the newest tag
+git clone https://github.com/markolofsen/reforms-crm.git && cd reforms-crm
+./hub.sh new-instance acme                                 # makes ../hub-acme, core pinned at the newest tag; asks the kind of its first project
 cd ../hub-acme && ./run.sh setup                           # your Mac: tools, folders, skills, checks, your name, the personal list
 gh repo create <you>/hub-acme --private --source . --remote origin --push   # printed by new-instance; you run it
 ./run.sh agent acme                                     # then say «настрой проект acme»
 ```
 
-`--kind` is one of `./hub.sh project kinds`; without it the instance has no project yet (`./run.sh agent new`, then «настрой проект <name>»). `--no-install` leaves the dependencies for `./run.sh setup`; under 5 GB free the install is skipped and said so. The Hub never creates a remote.
-
-Or from a starter: `gh repo create <you>/hub-acme --private --template markolofsen/hub-starter-saas` (or "Use this template" on GitHub, choosing Private), then the join steps below. `./run.sh setup` sees a project nobody set up yet and calls it a new instance.
+On a terminal `new-instance` asks one question: the kinds of `./hub.sh project kinds`, numbered; answer a number or a name, or Enter for no project yet (then `./run.sh agent new` and «настрой проект <name>»). In a script, `--kind <kind>` says it and nothing is asked; without it there is no project. `--no-install` leaves the dependencies for `./run.sh setup`; under 5 GB free the install is skipped and said so. The Hub never creates a remote. `./run.sh setup` in the new folder sees a project nobody set up yet and calls it a new instance.
 
 ## Join an instance as a teammate
 

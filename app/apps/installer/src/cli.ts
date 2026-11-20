@@ -17,8 +17,7 @@ import { backup, verify } from "./backup";
 import { coreUpdate } from "./core-update";
 import { coreDev, coreInstall } from "./core-link";
 import { workspaceCheck, workspaceInit } from "./workspace";
-import { ghCreateLine, gitToplevel, initInstance, InitError, instanceDir } from "./init";
-import { buildStarters, STARTERS } from "./starters";
+import { ghCreateLine, gitToplevel, initInstance, InitError, instanceDir, kindFromAnswer, kindQuestion } from "./init";
 import { findInstances, instanceStatus, statusTable } from "./status";
 import { execa } from "execa";
 import { runMenu } from "./menu";
@@ -84,7 +83,7 @@ ${c.bold("Examples")}
   hub setup                   idempotent, tokenless install of tools, folders, skills
 
 Other commands are hidden to keep this list short: projects, filters, link, install, guide, docs, test, token,
-audit-run, batch-check, log, open, send, drafts, sequences, connections, connectors, backup, uninstall, stop, restart, autostart, new-instance, starters. Each has its own \`hub <name> --help\`.`);
+audit-run, batch-check, log, open, send, drafts, sequences, connections, connectors, backup, uninstall, stop, restart, autostart, new-instance. Each has its own \`hub <name> --help\`.`);
 // Every command that needs an instance builds its context here: without HUB_HOME that is a HubHomeMissingError (exit 2, one line).
 // Commands that need none (`--help`, `docs`, `test`, `link`, `guide`) never call it.
 const ctxOf = (extra: Partial<Ctx> = {}): Ctx => makeCtx(extra);
@@ -205,7 +204,7 @@ const execRun = async (cmd: string, args: string[], opts: { cwd?: string; env?: 
 
 program.command("new-instance").description("Create a new PRIVATE instance (P35, P89): git, the core as a submodule at the newest tag, the instance files, optionally a first project of a kind, skill links, config defaults, doctor, one commit. A bare <name> makes ./hub-<name>. Needs no HUB_HOME; never creates a remote and never pushes: it prints the one `gh repo create --private` line.")
   .argument("<name>", "the instance name: folder hub-<name> here, or next to the git checkout you are in (never inside it); or a path to a new empty folder")
-  .option("--kind <kind>", "also create the first project of this kind (`hub project kinds`)")
+  .option("--kind <kind>", "also create the first project of this kind (`hub project kinds`); on a terminal, without it, one question asks")
   .option("--project <slug>", "with --kind: the project's slug (default: the name without hub-)")
   .option("--core-url <url>", "the core repository to add as core/ (default: the origin of the core in use)")
   .option("--pin <tag|main>", "a vX.Y.Z tag, or main to follow the tip (default: the newest tag, else main)")
@@ -215,6 +214,14 @@ program.command("new-instance").description("Create a new PRIVATE instance (P35,
     const top = gitToplevel(process.cwd());
     const dir = instanceDir(name, process.cwd(), top);
     if (top && !name.includes("/") && !name.startsWith(".")) console.log(c.dim(`inside the checkout ${top}: the new instance goes next to it, ${dir}`));
+    // P91: the kind is chosen at install. A terminal is asked once; a script (no TTY) keeps no project unless --kind says one.
+    if (!o.kind && process.stdin.isTTY && process.stdout.isTTY) {
+      console.log(kindQuestion());
+      const v = await p.text({ message: "Kind", placeholder: "Enter: no project yet", validate: (x) => { const r = kindFromAnswer(x ?? ""); return "error" in r ? r.error : undefined; } });
+      if (p.isCancel(v)) { p.cancel("nothing created"); return done(1); }
+      const r = kindFromAnswer(v ?? "");
+      if ("kind" in r && r.kind) o.kind = r.kind;
+    }
     try {
       const r = await initInstance({ dir, name: path.basename(dir), install: o.install, ...(o.kind ? { kind: o.kind } : {}), ...(o.project ? { project: o.project } : {}), ...(o.coreUrl ? { coreUrl: o.coreUrl } : {}), ...(o.pin ? { pin: o.pin } : {}), ...(o.dryRun ? { dryRun: true } : {}) }, { run: execRun, log: (m) => console.log(m) });
       if (!o.dryRun) {
@@ -223,24 +230,6 @@ program.command("new-instance").description("Create a new PRIVATE instance (P35,
         console.log(`\nMake its GitHub repository PRIVATE and push it (run it yourself; the Hub never creates a remote):\n  ${ghCreateLine(r.url, r.dir)}`);
         console.log(c.dim("Teammates then join with: git clone --recurse-submodules <repo> && ./run.sh setup (core/@docs/setup/team.md)."));
       }
-      done(0);
-    } catch (e) {
-      if (e instanceof InitError) throw new UsageError(e.message);
-      throw e;
-    }
-  });
-
-const startersCmd = program.command("starters").description("PUBLIC starter repositories, one per project kind (P89): generated from this core, never edited by hand, no data.");
-startersCmd.command("build").description("Generate the starters into <out> (an empty folder): each is `new-instance --kind` without install plus a README preamble, checked by the leak guard, one commit. Never creates a remote: prints the publish lines.")
-  .argument("<out>", "an empty folder to generate into")
-  .option("--only <names...>", `some of: ${STARTERS.map((s) => s.name).join(", ")} (or their kinds)`)
-  .option("--core-url <url>", "the core repository the starters pin (default: the origin of the core in use)")
-  .option("--pin <tag|main>", "default: the newest tag")
-  .action(async (out: string, o: { only?: string[]; coreUrl?: string; pin?: string }) => {
-    try {
-      const rs = await buildStarters(out, { ...(o.only ? { only: o.only } : {}), ...(o.coreUrl ? { coreUrl: o.coreUrl } : {}), ...(o.pin ? { pin: o.pin } : {}) }, { run: execRun, log: (m) => console.log(c.dim(m)) });
-      for (const r of rs) console.log(`${c.green("built")} ${r.starter.name} (kind ${r.starter.kind}, core ${r.pin}) in ${r.dir}: no leak found`);
-      console.log(`\nPublish (the owner runs these; first time only for the create line):\n${rs.map((r) => `  ${r.publishLine}\n  ${r.pushLine}`).join("\n")}`);
       done(0);
     } catch (e) {
       if (e instanceof InitError) throw new UsageError(e.message);

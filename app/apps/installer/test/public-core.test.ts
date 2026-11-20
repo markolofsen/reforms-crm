@@ -6,7 +6,7 @@ import { defaultRoot } from "../src/context";
 import { pathLeaks, TEXT_FILE, textLeaks } from "../src/leak-guard";
 
 // P89 verdict 14 (decision 0043 point 8): the core is PUBLIC. It must never track a real project, an instance folder, working state,
-// a database, an env file or a token. The same guard runs on every generated starter (`hub starters build`, init.test.ts).
+// a database, an env file or a token.
 const root = defaultRoot();
 const ls = spawnSync("git", ["-C", root, "ls-files"], { encoding: "utf8" });
 const inRepo = ls.status === 0;
@@ -14,7 +14,7 @@ const tracked = inRepo ? ls.stdout.split("\n").filter(Boolean) : [];
 
 describe.skipIf(!inRepo)("the public core tracks no owner data", () => {
   it("no path of a project other than app/projects/_template, no instance folder, state, database, env or key file", () => {
-    expect(pathLeaks(tracked, "core")).toEqual([]);
+    expect(pathLeaks(tracked)).toEqual([]);
   });
   it("no tracked text file outside test fixtures holds a token shape", () => {
     const leaks = tracked.filter((f) => TEXT_FILE.test(f)).flatMap((f) => {
@@ -31,10 +31,8 @@ describe("the leak guard itself", () => {
     const core = pathLeaks([
       "app/projects/_template/project.md", "app/projects/acme/project.md", "@docs/custom/notes.md", "@dev/x/PLAN.md", "@refs/a.pdf",
       "state/secrets/notion-token", "state/.gitkeep", "data/app.db", "x/.env", "x/.env.example", "projects/acme/reports/r.md", "README.md",
-    ], "core").map((l) => l.file);
+    ]).map((l) => l.file);
     expect(core).toEqual(["app/projects/acme/project.md", "@docs/custom/notes.md", "@dev/x/PLAN.md", "@refs/a.pdf", "state/secrets/notion-token", "data/app.db", "x/.env", "projects/acme/reports/r.md"]);
-    const starter = pathLeaks(["projects/my/knowledge/files/.gitkeep", "projects/my/knowledge/files/prices.md", "projects/my/knowledge/taxonomy.md", "@dev/README.md"], "starter").map((l) => l.file);
-    expect(starter).toEqual(["projects/my/knowledge/files/prices.md"]);
     const fake = `ntn_${"a".repeat(40)}`;
     expect(textLeaks("docs/x.md", `token ${fake}`)).toHaveLength(1);
     expect(textLeaks("app/x/test/a.test.ts", fake)).toEqual([]);
