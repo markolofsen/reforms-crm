@@ -562,7 +562,13 @@ export const FIND_INBOUND_SCRIPT = `on run argv
           if bn is not "INBOX" and skipNames does not contain bn then
             try
               set m to (first message of b whose message id is mid)
-              return "ok" & FS & accName & FS & bn & FS & (id of m) & FS & my addrs(acc)
+              -- A nested mailbox (Gmail's [Gmail]/Sent Mail, [Gmail]/All Mail) is reached by its full name only (read-only check, 2026-11-20).
+              set fullBn to bn
+              try
+                set c to container of b
+                if (class of c as text) is "container" then set fullBn to (name of c) & "/" & bn
+              end try
+              return "ok" & FS & accName & FS & fullBn & FS & (id of m) & FS & my addrs(acc)
             end try
           end if
         end repeat

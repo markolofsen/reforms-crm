@@ -7,9 +7,9 @@ import { tickBlock, type MailRead } from "../src/features/review/mail/tick-guard
 const ctx: Context = { name: "Marta", hasMailLink: true, hasDraftLink: false, acknowledged: true };
 
 describe("the review card state table", () => {
-  it("covers the 16 states of research 16 section 7, plus follow_up (P47)", () => {
-    expect(CARD_STATES).toHaveLength(16);
-    expect(new Set(CARD_STATES).size).toBe(16);
+  it("covers the 15 states of research 16 section 7 (without batch, P85), plus follow_up (P47)", () => {
+    expect(CARD_STATES).toHaveLength(15);
+    expect(new Set(CARD_STATES).size).toBe(15);
   });
 
   it.each(CARD_STATES)("%s has at most one primary and at most two visible secondaries", (state) => {
@@ -41,7 +41,7 @@ describe("the review card state table", () => {
   });
 
   it("the switch is only where a send can follow", () => {
-    expect(CARD_STATES.filter(hasSwitch)).toEqual(["checks_open", "unread", "acknowledged", "batch", "failed"]);
+    expect(CARD_STATES.filter(hasSwitch)).toEqual(["checks_open", "unread", "acknowledged", "failed"]);
   });
 });
 
@@ -112,8 +112,8 @@ describe("Checked fails closed (decision 0013): the switch and the C key hold on
     expect(tickBlock({ ...base, checked: true }, read({ found: false, hash: null }))).toBeNull();
   });
 
-  it("a batch draft has no Mail draft to hash and stays checkable; a draft on hold or suspicious is not", () => {
-    expect(tickBlock({ ...base, batchId: 3 }, undefined)).toBeNull();
+  it("a batch draft is a Mail draft like any other (P85): no text read, no tick; a draft on hold or suspicious is not checkable", () => {
+    expect(tickBlock({ ...base, batchId: 3 }, undefined)).toMatch(/being read/);
     expect(tickBlock({ ...base, status: "hold" }, read())).toMatch(/nothing to check/);
     expect(tickBlock({ ...base, injectionSuspected: true }, read())).toMatch(/nothing to check/);
   });

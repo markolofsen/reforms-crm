@@ -50,7 +50,7 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
   const body = confirmed ?? readable?.body ?? d.body;
   // The owner edits only a text Mail holds exactly once (a hash), on an open draft written to Mail (P56 S1).
   const editable = readable?.hash ? { hash: readable.hash } : null;
-  const canEdit = editable !== null && !closed && d.status === "ready" && d.batchId === null && confirmed === null;
+  const canEdit = editable !== null && !closed && d.status === "ready" && confirmed === null;
   return (
     <section aria-label="Draft" className="flex min-w-0 flex-col gap-2">
       <div className="flex min-w-0 items-center gap-2">

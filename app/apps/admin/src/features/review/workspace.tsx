@@ -239,7 +239,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
       )}
       <Notices gone={gone ?? (!body && selection.id !== null && !present && !query.isFetching && !query.hasNextPage ? selection.id : null)} notice={actions.notice} />
       {current ? (
-        <DraftCard actions={actions} advance={() => advance(current)} d={current} key={current.id} now={now} onReplyAll={(x) => void replyAll(x)} onThread={() => setThread((t) => !t)} project={source.project} say={say} thread={thread} />
+        <DraftCard actions={actions} advance={() => advance(current)} d={current} key={current.id} now={now} onThread={() => setThread((t) => !t)} project={source.project} say={say} thread={thread} />
       ) : (
         <EmptyState title="Nothing to open">{body ? "This view lists clients, not drafts." : query.isPending ? "Loading." : "Pick a draft from the list."}</EmptyState>
       )}

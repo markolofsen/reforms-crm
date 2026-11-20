@@ -33,7 +33,6 @@ const CASES: Case[] = [
   { state: "hold", patch: { status: "hold" }, primary: 1, label: /^Resume$/ },
   { state: "suspicious", patch: { injectionSuspected: true }, primary: 1, label: /Open draft in Mail|Open the client's mail|Copy subject/ },
   { state: "unreadable", patch: {}, primary: 1, label: /Open draft in Mail|Open the client's mail|Copy subject/, before: (p) => mailIs(p, (m) => ({ ...m, found: false, hash: null, body: "", reason: "gone", safetyResults: [] })) },
-  { state: "batch", patch: { batchId: 5 }, primary: 1, label: /^Reply in Mail$/ },
   { state: "no_contact", patch: (d) => ({ client: { ...(d.client as object), marks: ["do_not_contact"] } }), primary: 1, label: /Open draft in Mail|Open the client's mail|Copy subject/ },
   { state: "follow_up", patch: { sequence: { enrollmentId: 999, sequence: "answered-enquiry-no-reply", step: 1, steps: 3, state: "active" } }, primary: 1, label: /Open draft in Mail|Open the client's mail|Copy subject/ },
   {

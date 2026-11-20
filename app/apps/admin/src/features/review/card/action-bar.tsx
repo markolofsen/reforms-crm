@@ -21,7 +21,6 @@ export type Handlers = {
   hold: () => void;
   resume: () => void;
   reopen: () => void;
-  replyMail: () => void;
   cancelSend: () => void;
   copySubject: () => void;
   history: () => void;
@@ -33,7 +32,7 @@ type Props = { d: ReviewDraft; state: CardState; flow: SendFlow; actions: Review
 /** The client's message has a `message:` link (the registry's `mail.openMessage`): a Message-ID, not a Mail draft id. */
 export const hasMailLink = (d: Pick<ReviewDraft, "mailRef">): boolean => d.mailRef !== null && hrefOf("mail.openMessage", { messageId: d.mailRef }) !== null;
 
-const OPEN_STATES: readonly CardState[] = ["checks_open", "unread", "acknowledged", "batch", "failed", "suspicious", "no_contact", "unreadable", "follow_up"];
+const OPEN_STATES: readonly CardState[] = ["checks_open", "unread", "acknowledged", "failed", "suspicious", "no_contact", "unreadable", "follow_up"];
 
 /**
  * P58 R1: Open draft in Mail when the read found the one draft (its own Message-ID); else the client's message
@@ -91,7 +90,7 @@ export function ActionBar({ d, state, flow, actions, context, on, mailHash, draf
   const press = () => {
     if (!primary) return;
     if (!primary.enabled || primary.busy) return primary.reason ? on.blocked(primary.reason) : undefined;
-    const run = { send: on.send, confirm: on.confirm, resume: on.resume, open_mail: on.copySubject, reply_mail: on.replyMail }[primary.action];
+    const run = { send: on.send, confirm: on.confirm, resume: on.resume, open_mail: on.copySubject }[primary.action];
     run();
   };
   const mail = flow.step === "confirm" || flow.step === "sending" ? flow.mail : null;

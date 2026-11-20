@@ -145,6 +145,13 @@ describe("a reply finishes the follow-ups in the record's own transaction", () =
     expect(r.followUps).toBeUndefined();
     expect((await repos.enrollments.get(P, e.id))?.state).toBe("active");
   });
+  it("P85: an open follow-up step is never pushed aside by a message on the owner's words", async () => {
+    const e = await enrol(await quiet("b@x.example"));
+    const step = await recordStep("b@x.example", e.id, 1);
+    await expect(repos.drafts.record({ project: P, email: "b@x.example", name: "b", subject: "Re: thanks", mailRef: "<our-last-b>", skill: "bulk-drafts", ownerRequest: "write to him again" })).rejects.toThrow(/open draft .*follow-up step/);
+    expect((await repos.drafts.get(step.draftId))?.status).toBe("ready");
+    expect((await repos.enrollments.get(P, e.id))?.state).toBe("active");
+  });
   it("the sequence skill's own records are not a reply; Do not contact finishes as opted out", async () => {
     const e = await enrol(await quiet("a@x.example"));
     await repos.inbox.record({ project: P, email: "a@x.example", name: "a", action: "skipped", skill: "sequence-drafts" });

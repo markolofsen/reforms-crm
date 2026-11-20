@@ -175,6 +175,8 @@ describe("the Mail script", () => {
     expect(FIND_INBOUND_SCRIPT.indexOf('mailbox "INBOX" of acc')).toBeLessThan(FIND_INBOUND_SCRIPT.indexOf("mailboxes of acc"));
     expect(FIND_INBOUND_SCRIPT).toMatch(/skipNames to \{"Drafts", "Trash", "Deleted Messages", "Bin", "Spam", "Junk"\}/);
     expect(FIND_INBOUND_SCRIPT).not.toMatch(/"Sent/);
+    // A nested Gmail mailbox ([Gmail]/All Mail, [Gmail]/Sent Mail) is reached only by its full name (read-only check, 2026-11-20).
+    expect(FIND_INBOUND_SCRIPT).toMatch(/if \(class of c as text\) is "container" then set fullBn to \(name of c\) & "\/" & bn/);
     expect(MESSAGE_ID_SCRIPT).not.toMatch(/\b(send|delete|save|reply|activate)\b/);
     expect(parseInboundOutput(["ok", "hello@x", "INBOX", "138994"].join(FS) + "\n")).toEqual({ account: "hello@x", mailboxPath: ["INBOX"], messageId: 138994 });
     expect(parseInboundOutput("none\n")).toBeNull();

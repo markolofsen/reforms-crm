@@ -39,7 +39,6 @@ export function tickBlock(d: ReviewDraft, mail: MailRead | undefined, step: Flow
   const state = stateOf(d, step, mailReadable(mail));
   if (state === "unreadable") return `${mailProblem(mail?.reason)}. Open it in Mail; this draft cannot be checked here.`;
   if (!hasSwitch(state)) return "This draft has nothing to check or send from here.";
-  if (d.batchId !== null) return null;
   if (!mail && readError !== null) return `The text could not be read from Mail: ${readError} Use Retry above, then turn this on.`;
   if (!mail) return "Mail is being read. Checked turns on once the text has been read.";
   if (!mail.configured) return "This server cannot read Mail, so the text has no hash and cannot be checked here.";

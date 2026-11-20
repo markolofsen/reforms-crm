@@ -293,6 +293,8 @@ describe("a bulk-drafts run is one batch in Drafts (P85)", () => {
     expect(list[0]!.counts.all).toBe(2);
     expect((await repos.drafts.get(a.draftId))?.batchId).toBe(list[0]!.id);
     expect((await repos.drafts.get(b.draftId))?.batchId).toBe(list[0]!.id);
+    // A message on the owner's initiative owes the client no reply: not in the triage list's "owed".
+    expect((await repos.inbox.list("p", "owed")).map((r) => r.email)).not.toContain("ann@x.example");
     // Another run is another batch; a triage record with a batchKey is no batch.
     await rec("cy@x.example", "<c1@x>", "bulk-2026-11-21-0900-xyz");
     await repos.drafts.record({ project: "p", email: "dee@x.example", name: "Dee", subject: "Re: Q", mailRef: "<d1@x>", skill: "triage-mail", evidence: { level: "ok", source: "observed", findings: [], batchKey: "triage-1" } });

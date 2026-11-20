@@ -258,7 +258,8 @@ export function draftsRepo(db: Db) {
 
         const mailRef = input.mailRef ?? null;
         // The triage list: a recorded draft is a client the agent handled, whatever else happens below.
-        upsertInbox(tx, { project: input.project, email: input.email, name: input.name, action: input.injectionSuspected ? "injection_suspected" : "drafted", subject: input.subject, mailRef, lastInboundAt: input.lastContactAt ?? null, mailClass: input.mailClass ?? null, reason: input.reason ?? null, repliesOwed: input.repliesOwed ?? true, notion: input.notion ?? null, skill: input.skill ?? null }, at);
+        // P85: a message on the owner's initiative owes the client no reply (repliesOwed false unless stated).
+        upsertInbox(tx, { project: input.project, email: input.email, name: input.name, action: input.injectionSuspected ? "injection_suspected" : "drafted", subject: input.subject, mailRef, lastInboundAt: input.lastContactAt ?? null, mailClass: input.mailClass ?? null, reason: input.reason ?? null, repliesOwed: input.repliesOwed ?? !ownerRequest, notion: input.notion ?? null, skill: input.skill ?? null }, at);
         const fields = {
           subject: input.subject,
           toAddr: (input.to ?? input.email).trim().toLowerCase(),
@@ -315,6 +316,9 @@ export function draftsRepo(db: Db) {
           return { clientId: client.id, draftId: open.id, runId, action: "updated" as const, ...stopped };
         }
         if (open && seq) throw new RepoError("wrong_state", "This client has an open draft: a follow-up step is not recorded over it");
+        // P85: a message on the owner's words never pushes aside a draft that waits for his review (a reply the client is
+        // owed, or an open follow-up step): he closes or revises that one first.
+        if (open && ownerRequest) throw new RepoError("wrong_state", `This client has an open draft (${open.id}${open.enrollmentId != null ? ", a follow-up step" : ""}): revise it, or Skip or Done it, before a new message on your words is recorded`);
         if (open) {
           tx.update(drafts).set({ status: "skipped", skipReason: "Replaced by a newer draft", prevStatus: open.status, prevChecked: open.checked, actedAt: at, updatedAt: now }).where(eq(drafts.id, open.id)).run();
           log("decision", "Replaced by a newer draft", { draftId: open.id, action: "replaced" });

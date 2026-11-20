@@ -33,7 +33,6 @@ export type CardProps = {
   now: number;
   thread: boolean;
   onThread: () => void;
-  onReplyAll: (d: ReviewDraft) => void;
   advance: () => void;
   say: (text: string) => void;
 };
@@ -42,7 +41,7 @@ export type CardProps = {
  * One draft, designed once: header, about, checks (only when present), the draft, the action bar. The bar is a pure
  * function of the card's state (`card-state.ts`), so there is never a second primary and never a dead button.
  */
-export function DraftCard({ d, project, actions, now, thread, onThread, onReplyAll, advance, say }: CardProps) {
+export function DraftCard({ d, project, actions, now, thread, onThread, advance, say }: CardProps) {
   const qc = useQueryClient();
   const go = useGo();
   const { flow, read, send, close } = useSendFlow(project, d.id);
@@ -89,7 +88,6 @@ export function DraftCard({ d, project, actions, now, thread, onThread, onReplyA
     hold: () => actions.setStatus(d, "hold"),
     resume: () => actions.setStatus(d, "ready"),
     reopen: () => actions.setStatus(d, "ready"),
-    replyMail: () => onReplyAll(d),
     cancelSend: () => cancel.mutate(),
     copySubject: () => {
       void copyText(d.subject).then((ok) => say(ok ? "Copied. In Mail press Option+Command+F and paste." : "The clipboard was blocked: copy the subject from the draft."));
