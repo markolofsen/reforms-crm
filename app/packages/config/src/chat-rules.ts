@@ -32,6 +32,31 @@ export const MESSENGER_SPACING_SECONDS = 20;
  */
 export const UNLINKED_FRESH_DAYS = 14;
 
+/**
+ * The pre-analysis of a linked chat (P71 M-P, decision 0039, research 23 sections 1 and 3): a cheap model labels each inbound text
+ * message of a chat whose `prefilter` is on. One owner of the vocabulary for the migration's CHECK (`@hub/db` 0029), the server's
+ * job, the agent's `messenger_history` and the admin. The fail-open labels come first: the fake transport answers the first value
+ * of an enum, so an unscripted `HUB_LLM=fake` run hides nothing.
+ */
+export const TRIAGE_LABELS = ["needs_reply", "unclear", "fyi", "closing", "automated", "personal"] as const;
+export type TriageLabel = (typeof TRIAGE_LABELS)[number];
+/** What is hidden from the agent: kept, counted by reason, readable when asked. Everything else, unjudged included, reaches it. */
+export const HIDDEN_LABELS = ["closing", "automated", "personal"] as const satisfies readonly TriageLabel[];
+export type HiddenLabel = (typeof HIDDEN_LABELS)[number];
+/** A stored verdict: a label, or `unjudged` (the model answered twice and neither answer was usable; never hidden, never re-asked). */
+export const TRIAGE_VERDICTS = [...TRIAGE_LABELS, "unjudged"] as const;
+export type TriageVerdict = (typeof TRIAGE_VERDICTS)[number];
+export const isHiddenLabel = (v: unknown): v is HiddenLabel => typeof v === "string" && (HIDDEN_LABELS as readonly string[]).includes(v);
+/** Each reason in the owner's words (the panel's counts, the Settings note). */
+export const HIDDEN_LABEL_WORDS: Record<HiddenLabel, string> = { closing: "closing", automated: "automated", personal: "personal" };
+/** Bumped when the prompt changes meaning: a stored verdict records the version it was judged under. */
+export const PREANALYSIS_PROMPT_VERSION = 1;
+/** Messages per model call (research 23 section 3.3), and at most this many judged in one pass. */
+export const PREANALYSIS_PER_CALL = 20;
+export const PREANALYSIS_PER_PASS = 100;
+/** Only messages sent this recently are judged: turning the switch on does not send a chat's whole history to the model. */
+export const PREANALYSIS_LOOKBACK_DAYS = 7;
+
 export interface ChatRules {
   replyMode: ReplyMode;
   /** The agent may propose a follow-up after our own last message, in a chat the client already wrote in (never first contact). */
@@ -41,7 +66,7 @@ export interface ChatRules {
   instruction: string | null;
   /** BCP-47; null: reply in the client's language. */
   language: string | null;
-  /** The pre-analysis of M-P (off until the owner turns it on). */
+  /** The pre-analysis (P71 M-P): a cheap model hides closing, automated and personal messages from the agent. Off until the owner turns it on. */
   prefilter: boolean;
 }
 

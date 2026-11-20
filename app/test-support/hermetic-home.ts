@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll } from "vitest";
 
-const KEYS = ["HUB_HOME", "HUB_PROJECTS", "HUB_DB", "HUB_CONFIG_DIR", "HUB_CONFIG_FILE", "HUB_LEDGER_ROOT", "HUB_PROJECT"];
+// P71 M-P: the developer's OPENROUTER_API_KEY and HUB_LLM too, so no test reads a real key or a mode set in his shell.
+const KEYS = ["HUB_HOME", "HUB_PROJECTS", "HUB_DB", "HUB_CONFIG_DIR", "HUB_CONFIG_FILE", "HUB_LEDGER_ROOT", "HUB_PROJECT", "OPENROUTER_API_KEY", "HUB_LLM"];
 const saved = Object.fromEntries(KEYS.map((k) => [k, process.env[k]]));
 for (const k of KEYS) delete process.env[k];
 

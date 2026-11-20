@@ -33,6 +33,7 @@ import { createConnections, type ConnectionsOptions } from "./connections";
 import { OFF, type MessengersStatus } from "./messengers";
 import { TELEGRAM_USER_OFF, type TelegramUserHandle } from "./telegram-user";
 import { messengerRoutes } from "./routes/messengers";
+import type { Preanalysis } from "./preanalysis";
 import { telegramUserRoutes } from "./routes/telegram-user";
 import { whatsappRoutes } from "./routes/whatsapp";
 import { autolinkRoutes } from "./routes/autolink";
@@ -68,6 +69,8 @@ export type AppOptions = {
   whatsapp?: WhatsAppHandle;
   /** P84: the autolink of chats to client records (its state, preview, Link, Unlink and Never link routes). */
   autolink?: ProjectAutolink;
+  /** P71 M-P: the pre-analysis job (its standing on the chats reply; a pass when the owner turns a chat's switch on). */
+  preanalysis?: Preanalysis;
   sent?: () => SentStatus;
   /** Tests: the Overview with its own project folder and zone. */
   overview?: { projectsDir?: string; service?: OverviewService; timeZone?: string };
@@ -213,7 +216,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", telegramUserRoutes(repos, opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", whatsappRoutes(repos, opts.whatsapp, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", autolinkRoutes(repos, opts.autolink, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", messengerRoutes(repos, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
+    .route("/", messengerRoutes(repos, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT, opts.preanalysis));
 }
 
 export type AppType = ReturnType<typeof createApp>;

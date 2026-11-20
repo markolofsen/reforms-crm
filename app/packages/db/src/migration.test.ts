@@ -220,6 +220,31 @@ describe("migration 0027 (send_log channel, P71 M4)", () => {
   });
 });
 
+describe("migration 0029 (messenger_triage, P71 M-P)", () => {
+  it("adds the verdicts with their live triggers, refuses an unknown verdict, and a verdict goes with its message", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(29) }); // 0000 .. 0028
+    sqlite.prepare("insert into messenger_messages (project, channel, account, chat_id, remote_message_id, direction, text, sent_at, retain_until) values ('p','telegram_user','1','c','r1','in','thanks','2026-11-20T00:00:00.000Z','2026-01-01T00:00:00.000Z')").run();
+
+    migrate(db, { migrationsFolder: source }); // + 0029
+
+    expect(sqlite.prepare("select count(*) as n from messenger_messages").get()).toEqual({ n: 1 });
+    sqlite.prepare("insert into messenger_triage (project, message_id, verdict, model, prompt_version) values ('p', 1, 'closing', 'm', 1)").run();
+    expect(() => sqlite.prepare("insert into messenger_triage (project, message_id, verdict, prompt_version) values ('p', 1, 'needs_reply', 1)").run()).toThrow(/UNIQUE/);
+    expect(() => sqlite.prepare("insert into messenger_triage (project, message_id, verdict, prompt_version) values ('p', 1, 'maybe', 1)").run()).toThrow(/CHECK/);
+    expect(() => sqlite.prepare("insert into messenger_triage (project, message_id, verdict, prompt_version) values ('p', 99, 'fyi', 1)").run()).toThrow(/FOREIGN KEY/);
+    const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and name like 'live_messenger_triage_%'").all() as { name: string }[]).map((t) => t.name).sort();
+    expect(triggers).toEqual(["live_messenger_triage_ad", "live_messenger_triage_ai", "live_messenger_triage_au"]);
+    // The retention purge's delete takes the verdict along (ON DELETE CASCADE).
+    sqlite.prepare("delete from messenger_messages where retain_until < '2026-11-20'").run();
+    expect(sqlite.prepare("select count(*) as n from messenger_triage").get()).toEqual({ n: 0 });
+    expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    sqlite.close();
+  });
+});
+
 describe("restoreCheck", () => {
   it("opens a snapshot made by an OLDER core, applies the newer migrations and loses no row", () => {
     const tmp = mkdtempSync(join(tmpdir(), "hub-restore-"));

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { CHAT_INSTRUCTION_MAX, NUDGE_DAYS_MAX, NUDGE_DAYS_MIN, REPLY_MODE_LABELS, REPLY_MODES } from "@hub/config/chat-rules";
-import type { ChatRulesBody, MessengerChatDto } from "@hub/contract/messenger-panel";
+import type { ChatRulesBody, MessengerChatDto, PreanalysisDto } from "@hub/contract/messenger-panel";
 import { cn } from "@hub/ui/cn";
 import { Input } from "@hub/ui/input";
 import { ActionButton } from "@hub/ui/product/action-button";
@@ -12,10 +12,7 @@ import { sentence } from "@/lib/api/client";
 import { messengersApi } from "@/lib/api/messengers/panel";
 import { keys } from "@/lib/cache/keys";
 import { agentRef } from "@/lib/focus";
-import { chatName, CHANNEL_LABEL } from "../labels";
-
-/** The honest line of M-P (P71 plan): what the switch would do, and that nothing reads it yet. */
-export const PREFILTER_NOTE = "Off by default. Only linked chats reach the Hub (a few hundred messages a day), so a cheap pre-read saves little; nothing reads this switch until the pre-analysis is built (P71 M-P).";
+import { chatName, CHANNEL_LABEL, prefilterNote, triageLine } from "../labels";
 
 const LABEL = "text-sm";
 const HINT = "text-muted-foreground text-xs";
@@ -86,10 +83,11 @@ function UnlinkControls({ project, c, name }: { project: string; c: MessengerCha
 /**
  * One linked chat's rules (P71 M2b), every one in view and written by the owner only, through the gated rules route: when the
  * agent may draft (`reply_mode`; no automatic value: Send stays his click), whether it may propose a follow-up and after how many
- * quiet days, the reply language, the pre-analysis switch with its honest note, and his own instruction (at most 4 000
+ * quiet days, the reply language, the pre-analysis switch with what it does (or "needs an OpenRouter key") and the chat's counts
+ * by reason, and his own instruction (at most 4 000
  * characters), saved by its button. Its ref is `chat:<id>` (P72).
  */
-export function ChatRules({ project, c }: { project: string; c: MessengerChatDto }) {
+export function ChatRules({ project, c, preanalysis }: { project: string; c: MessengerChatDto; preanalysis: PreanalysisDto }) {
   const qc = useQueryClient();
   const save = useMutation({ mutationFn: (patch: ChatRulesBody) => messengersApi.setRules(project, c.id, patch), onSettled: () => qc.invalidateQueries({ queryKey: keys.messengerChatsOf(project) }) });
   const ids = { mode: useId(), nudge: useId(), days: useId(), lang: useId(), pre: useId(), text: useId() };
@@ -155,8 +153,9 @@ export function ChatRules({ project, c }: { project: string; c: MessengerChatDto
             Pre-analysis of this chat
           </span>
           <span className={cn("measure", HINT)} id={`${ids.pre}-note`}>
-            {PREFILTER_NOTE}
+            {prefilterNote(preanalysis)}
           </span>
+          {triageLine(c) && <span className={cn("measure", HINT)}>{triageLine(c)}</span>}
         </div>
       </div>
       <div className="flex flex-col gap-1.5">

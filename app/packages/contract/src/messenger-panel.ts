@@ -1,4 +1,4 @@
-import { CHAT_INSTRUCTION_MAX, MESSENGER_TEXT_MAX, NUDGE_DAYS_MAX, NUDGE_DAYS_MIN, REPLY_MODES } from "@hub/config/chat-rules";
+import { CHAT_INSTRUCTION_MAX, HIDDEN_LABELS, MESSENGER_TEXT_MAX, NUDGE_DAYS_MAX, NUDGE_DAYS_MIN, REPLY_MODES } from "@hub/config/chat-rules";
 import { z } from "zod";
 
 /**
@@ -49,7 +49,31 @@ export const messengerDraftDto = z.strictObject({
 export type MessengerDraftDto = z.infer<typeof messengerDraftDto>;
 
 /** The newest stored message of the chat, either side: what the owner reads before the draft (a non-text one is its kind). */
-export const chatMessageDto = z.strictObject({ direction: z.enum(["in", "out"]), kind: z.string(), text: z.string(), at: z.string() });
+export const chatMessageDto = z.strictObject({
+  direction: z.enum(["in", "out"]),
+  kind: z.string(),
+  text: z.string(),
+  at: z.string(),
+  /** P71 M-P: the pre-analysis hid it from the agent, and why; null when it reaches the agent (unjudged included). */
+  hidden: z.enum(HIDDEN_LABELS).nullable(),
+});
+
+/** P71 M-P: one chat's pre-analysis verdicts by reason, over its stored messages (all zero while the switch was never on). */
+export const chatTriageDto = z.strictObject({
+  judged: z.number().int(),
+  hidden: z.strictObject(Object.fromEntries(HIDDEN_LABELS.map((l) => [l, z.number().int()])) as Record<(typeof HIDDEN_LABELS)[number], z.ZodNumber>),
+  /** Asked twice and never answered usably: it reaches the agent unlabelled (fail open). */
+  unjudged: z.number().int(),
+});
+export type ChatTriageDto = z.infer<typeof chatTriageDto>;
+
+/**
+ * P71 M-P: whether the pre-analysis can run on this instance. `no_key`: no OpenRouter key, so nothing runs and `fix` says where the
+ * key goes; `fake`: `HUB_LLM=fake`, nothing leaves the process; `ready`: a key is there (the monthly cap of P78 still applies).
+ */
+export const PREANALYSIS_STATES = ["ready", "fake", "no_key"] as const;
+export const preanalysisDto = z.strictObject({ state: z.enum(PREANALYSIS_STATES), fix: z.string().nullable() });
+export type PreanalysisDto = z.infer<typeof preanalysisDto>;
 
 export const messengerChatDto = z.strictObject({
   /** `messenger_chats.id`: the `chat:<id>` ref. */
@@ -62,11 +86,12 @@ export const messengerChatDto = z.strictObject({
   rules: chatRulesDto,
   inbound: z.number().int(),
   last: chatMessageDto.nullable(),
-  /** The newest stored message is the client's: a reply is owed. */
+  /** The newest stored message is the client's and the pre-analysis did not hide it: a reply is owed. */
   owed: z.boolean(),
   draft: messengerDraftDto.nullable(),
   /** P84: why the Hub linked the chat by itself ("phone matches the client"), or null when the owner linked it. */
   autolinked: z.string().nullable(),
+  triage: chatTriageDto,
 });
 export type MessengerChatDto = z.infer<typeof messengerChatDto>;
 
@@ -74,6 +99,7 @@ export const messengerChatsDto = z.strictObject({
   chats: z.array(messengerChatDto),
   /** The View menu's counts over the linked chats of the project in the channel asked: `todo` those that wait, `linked` all of them. */
   counts: z.strictObject({ todo: z.number().int(), linked: z.number().int() }),
+  preanalysis: preanalysisDto,
 });
 export type MessengerChatsDto = z.infer<typeof messengerChatsDto>;
 

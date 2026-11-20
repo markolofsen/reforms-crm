@@ -93,3 +93,37 @@ describe("unlink (research 26 gap 1)", () => {
     expect(await repos.messengers.isAllowed("a", "telegram_user", "42")).toBe(true);
   });
 });
+
+describe("pre-analysis verdicts (P71 M-P, migration 0029)", () => {
+  const idOf = (remote: string) => (handle.db.$client.prepare("select id from messenger_messages where remote_message_id = ?").get(remote) as { id: number }).id;
+
+  it("pending: only inbound text of chats with the switch on, since the given time, with no verdict; counts by reason; another project's message is refused", async () => {
+    await repos.messengers.insertMessage(msg({ remoteMessageId: "1", text: "thanks" }));
+    await repos.messengers.insertMessage(msg({ remoteMessageId: "2", direction: "out", text: "ours" }));
+    await repos.messengers.insertMessage(msg({ remoteMessageId: "3", kind: "photo", text: "" }));
+    await repos.messengers.insertMessage(msg({ remoteMessageId: "4", text: "old", sentAt: "2026-10-01T00:00:00.000Z" }));
+    await repos.messengers.insertMessage(msg({ remoteMessageId: "5", chatId: "43", text: "switch off" }));
+    await repos.messengers.insertMessage(msg({ project: "b", remoteMessageId: "6", text: "other project" }));
+    const since = "2026-11-13T00:00:00.000Z";
+    expect(await repos.messengers.pendingTriage("a", { since, limit: 10 })).toEqual([]);
+    await repos.messengers.setChatRules("a", "telegram_user", "42", { prefilter: true });
+    expect((await repos.messengers.pendingTriage("a", { since, limit: 10 })).map((m) => m.text)).toEqual(["thanks"]);
+
+    expect(await repos.messengers.recordTriage("a", [{ messageId: idOf("1"), verdict: "closing", model: "m", promptVersion: 1 }, { messageId: idOf("6"), verdict: "closing", model: "m", promptVersion: 1 }])).toBe(1);
+    expect(await repos.messengers.pendingTriage("a", { since, limit: 10 })).toEqual([]);
+    expect(await repos.messengers.triageCounts("a", "telegram_user", "42")).toEqual({ judged: 1, hidden: { closing: 1, automated: 0, personal: 0 }, unjudged: 0 });
+    expect([...(await repos.messengers.verdictsOf("a", [idOf("1"), idOf("6")])).entries()]).toEqual([[idOf("1"), "closing"]]);
+    expect((await repos.messengers.contextBefore("a", { id: idOf("3"), channel: "telegram_user", chatId: "42", sentAt: "2026-11-14T10:00:00.000Z" }, 2)).map((m) => m.remoteMessageId)).toEqual(["2", "1"]);
+  });
+
+  it("a verdict goes with its message: the retention purge and unlinking take it along", async () => {
+    await repos.messengers.setChatRules("a", "telegram_user", "42", { prefilter: true });
+    await repos.messengers.insertMessage(msg({ remoteMessageId: "1", retainUntil: "2026-11-15T00:00:00.000Z" }));
+    await repos.messengers.insertMessage(msg({ remoteMessageId: "2" }));
+    await repos.messengers.recordTriage("a", [{ messageId: idOf("1"), verdict: "fyi", model: "m", promptVersion: 1 }, { messageId: idOf("2"), verdict: "unjudged", model: null, promptVersion: 1 }]);
+    expect(await repos.messengers.purgeExpired("2026-11-16T00:00:00.000Z")).toBe(1);
+    expect(count("messenger_triage")).toBe(1);
+    await repos.messengers.unlinkChat("a", "telegram_user", "42");
+    expect(count("messenger_triage")).toBe(0);
+  });
+});

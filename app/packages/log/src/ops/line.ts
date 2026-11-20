@@ -16,6 +16,7 @@ export const OPS_SOURCES = [
   "telegram", // the owner's Telegram account (MTProto)
   "telegram_bot",
   "autolink",
+  "preanalysis", // P71 M-P: the cheap model's pass over linked chats (through `@hub/llm`)
   "mail", // Apple Mail: the draft writer, Sent detection, Trash moves
   "notion",
   "send", // the send door: refusals and failures of a person's Send, a batch run

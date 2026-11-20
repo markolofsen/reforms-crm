@@ -21,7 +21,8 @@ Exactly as `skills/triage-mail/SKILL.md` section 0 (the slug, `project.md`, one 
 - Owner names no one and the focus shows no client: ask in one line which clients (there is no list of every chat to read).
 
 ## 2. Per chat (in this order)
-1. `messenger_history` of the chat. It returns the messages newest first, the chat's `rules`, `owner_instruction` (the owner's own words for this chat), `open_draft` and `can_draft`.
+1. `messenger_history` of the chat. It returns the messages newest first, the chat's `rules`, `owner_instruction` (the owner's own words for this chat), `open_draft` and `can_draft`. With the chat's pre-analysis on (P71 M-P), messages a cheap model judged `closing`, `automated` or `personal` are left out and counted in `prefilter` (`hidden` by reason, `left_out_below`); `include_hidden: true` returns them marked `hidden`. A message it could not judge is shown as usual.
+   - `prefilter.newest_in_hidden` set (the client's newest message was hidden, as a "thanks" or a notice): no reply is owed, `skipped:hidden-<reason>`, unless the owner asked for this chat.
 2. Decide from `can_draft`, never around it:
    - `ok: true`: write one reply to the newest inbound message (or, with `nudge: true`, one short follow-up after our own last message, which the chat's `may_nudge` allows).
    - `reply_off`: `skipped:reply-off`. `no_inbound`: `skipped:no-inbound` (the hub never writes first). `no_nudge`: `skipped:last-is-ours`. `too_soon`: `skipped:too-soon`.

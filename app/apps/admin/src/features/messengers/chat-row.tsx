@@ -3,7 +3,7 @@ import { cn } from "@hub/ui/cn";
 import { ago } from "@/lib/format";
 import { agentRef } from "@/lib/focus";
 import { DraftBlock } from "./draft-block";
-import { chatName, lastText, lastWho, noDraftLine, rulesLine } from "./labels";
+import { chatName, lastText, lastWho, noDraftLine, rulesLine, triageLine } from "./labels";
 import type { useChatActions } from "./use-chat-actions";
 
 /** The inset ring of a row he can point at (P72, `accessibility.md` rule 3). */
@@ -18,6 +18,7 @@ export function ChatRow({ c, project, now, actions }: { c: MessengerChatDto; pro
   const name = chatName(c);
   const who = lastWho(c);
   const none = noDraftLine(c, project);
+  const triage = triageLine(c);
   return (
     <li aria-label={name} className={cn("grid gap-3 px-1 py-3 lg:grid-cols-[20%_minmax(0,32%)_minmax(0,1fr)] lg:gap-4", POINTABLE)} data-chat={c.id} tabIndex={0} {...agentRef(`chat:${c.id}`)}>
       <div className="flex min-w-0 flex-col gap-0.5">
@@ -25,6 +26,11 @@ export function ChatRow({ c, project, now, actions }: { c: MessengerChatDto; pro
           {name}
         </span>
         <span className="text-muted-foreground text-xs">{rulesLine(c)}</span>
+        {triage && (
+          <span className="text-muted-foreground text-xs" data-triage="">
+            {triage}
+          </span>
+        )}
       </div>
       <div className="flex min-w-0 flex-col gap-0.5">
         {who && c.last && (

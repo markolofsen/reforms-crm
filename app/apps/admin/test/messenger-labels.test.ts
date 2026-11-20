@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CHAT_RULES } from "@hub/config/chat-rules";
 import type { MessengerChatDto } from "@hub/contract/messenger-panel";
-import { chatName, confirmLine, emptyLine, lastText, lastWho, noDraftLine, readsLine, rulesLine, whyLine } from "../src/features/messengers/labels";
+import { chatName, confirmLine, emptyLine, lastText, lastWho, noDraftLine, prefilterNote, readsLine, rulesLine, triageLine, whyLine } from "../src/features/messengers/labels";
 
 // The Messengers panel's words (P71 M3): who a chat is, its rules in one line, whose turn it is and why there is no draft.
 
@@ -13,10 +13,11 @@ const chat = (patch: Partial<MessengerChatDto> = {}): MessengerChatDto => ({
   client: { id: 3, name: "Rita Falsa", email: "rita@example.net" },
   rules: { ...DEFAULT_CHAT_RULES },
   inbound: 1,
-  last: { direction: "in", kind: "text", text: "Hi!", at: "2026-11-20T08:00:00.000Z" },
+  last: { direction: "in", kind: "text", text: "Hi!", at: "2026-11-20T08:00:00.000Z", hidden: null },
   owed: true,
   draft: null,
   autolinked: null,
+  triage: { judged: 0, hidden: { closing: 0, automated: 0, personal: 0 }, unjudged: 0 },
   ...patch,
 });
 
@@ -35,7 +36,7 @@ describe("messenger labels", () => {
   it("says whose turn it is, and a message with no text by its kind", () => {
     expect(lastWho(chat())).toBe("They wrote");
     expect(lastWho(chat({ last: null }))).toBeNull();
-    expect(lastText(chat({ last: { direction: "out", kind: "photo", text: "", at: "2026-11-20T08:00:00.000Z" } }))).toBe("(photo)");
+    expect(lastText(chat({ last: { direction: "out", kind: "photo", text: "", at: "2026-11-20T08:00:00.000Z", hidden: null } }))).toBe("(photo)");
   });
 
   it("without a draft, the line says why: the rule, or the phrase that drafts", () => {
@@ -64,5 +65,19 @@ describe("messenger labels", () => {
     expect(whyLine({ why: "ambiguous", by: "phone", candidates: [c, c] })).toBe("Its phone belongs to 2 clients: pick the right one.");
     expect(whyLine({ why: "off", by: "phone", candidates: [c] })).toMatch(/Autolink is off/);
     expect(whyLine({ why: "none", by: null, candidates: [] })).toBe("No client in Notion has its phone or username.");
+  });
+
+  it("P71 M-P: the pre-analysis' counts by reason, the hidden newest message, and the switch's note with and without a key", () => {
+    const on = { ...DEFAULT_CHAT_RULES, prefilter: true };
+    expect(triageLine(chat())).toBeNull();
+    expect(triageLine(chat({ rules: on }))).toBe("Pre-analysis: nothing read yet.");
+    expect(triageLine(chat({ rules: on, triage: { judged: 5, hidden: { closing: 2, automated: 1, personal: 0 }, unjudged: 1 } }))).toBe("Pre-analysis: hid 3 of 5 (2 closing, 1 automated) · 1 could not be judged and reached the agent.");
+    expect(triageLine(chat({ triage: { judged: 2, hidden: { closing: 0, automated: 0, personal: 0 }, unjudged: 0 } }))).toBe("Pre-analysis (off now): read 2, hid none.");
+    const hidden = chat({ owed: false, last: { direction: "in", kind: "text", text: "thanks", at: "2026-11-20T08:00:00.000Z", hidden: "closing" } });
+    expect(noDraftLine(hidden, "acme")).toBe("Their last message was hidden by the pre-analysis (closing): no reply owed.");
+    expect(prefilterNote({ state: "no_key", fix: "No OpenRouter key: set OPENROUTER_API_KEY." })).toBe("Needs an OpenRouter key: nothing runs until one is set. No OpenRouter key: set OPENROUTER_API_KEY.");
+    expect(prefilterNote({ state: "ready", fix: null })).toMatch(/^A cheap model reads each new message .* never a name or the chat's title/);
+    expect(prefilterNote({ state: "fake", fix: null })).toMatch(/fake model \(HUB_LLM=fake\)/);
+    for (const s of ["ready", "fake", "no_key"] as const) expect(prefilterNote({ state: s, fix: null })).not.toMatch(/nothing reads this switch/);
   });
 });

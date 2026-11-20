@@ -34,7 +34,7 @@ function LinkedChats({ project, accounts }: { project: string; accounts: Record<
       ) : (
         <ul aria-label="Linked chats" className="flex flex-col divide-y border-y">
           {q.data.chats.map((c) => (
-            <ChatRules c={c} key={c.id} project={project} />
+            <ChatRules c={c} key={c.id} preanalysis={q.data.preanalysis} project={project} />
           ))}
         </ul>
       )}

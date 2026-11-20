@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { chatRulesProblem } from "@hub/config/chat-rules";
+import { chatRulesProblem, isHiddenLabel } from "@hub/config/chat-rules";
 import { sentenceOf } from "@hub/contract/errors";
 import {
   chatRulesBody,
@@ -20,6 +20,7 @@ import { rulesOf, type MessengerChatRow, type MessengerDraftRow, type Repos } fr
 import { z, type ZodType } from "zod";
 import { gateRefusal } from "../admin-gate";
 import { notFound } from "../http";
+import { preanalysisStanding, type Preanalysis } from "../preanalysis";
 
 const KIND = { telegram_bot: "telegram", telegram_user: "telegram", whatsapp: "whatsapp" } as const;
 const viewOf = (v: string | undefined): MessengerView => MESSENGER_VIEWS.find((x) => x === v) ?? "todo";
@@ -30,14 +31,18 @@ const waits = (c: MessengerChatDto): boolean => c.draft !== null || c.owed;
 /** One linked chat as the panel shows it: its client, rules, the newest stored message and the agent's open draft. */
 async function chatRow(repos: Repos, slug: string, row: MessengerChatRow): Promise<MessengerChatDto> {
   const m = repos.messengers;
-  const [activity, draft, clientId, newest] = await Promise.all([
+  const [activity, draft, clientId, newest, triage] = await Promise.all([
     m.activity(slug, row.channel, row.chatId),
     m.openDraft(slug, row.channel, row.chatId),
     m.clientByIdentifier(slug, KIND[row.channel], row.chatId),
     m.messagesOf(slug, [{ channel: row.channel, chatId: row.chatId }], { limit: 1 }),
+    m.triageCounts(slug, row.channel, row.chatId),
   ]);
   const client = clientId === null ? null : await repos.clients.get(slug, clientId);
   const last = newest[0] ?? null;
+  // P71 M-P: a newest message the pre-analysis hid (a "thanks", a notice) owes no reply.
+  const verdict = last ? (await m.verdictsOf(slug, [last.id])).get(last.id) : undefined;
+  const hidden = isHiddenLabel(verdict) ? verdict : null;
   return messengerChatDto.parse({
     id: row.id,
     channel: row.channel,
@@ -46,10 +51,11 @@ async function chatRow(repos: Repos, slug: string, row: MessengerChatRow): Promi
     client,
     rules: rulesOf(row),
     inbound: activity.inbound,
-    last: last ? { direction: last.direction, kind: last.kind, text: last.text, at: last.sentAt } : null,
-    owed: last?.direction === "in",
+    last: last ? { direction: last.direction, kind: last.kind, text: last.text, at: last.sentAt, hidden } : null,
+    owed: last?.direction === "in" && hidden === null,
     draft: draft ? draftOf(draft) : null,
     autolinked: row.autolinked ?? null,
+    triage,
   });
 }
 
@@ -64,9 +70,11 @@ const order = (a: MessengerChatDto, b: MessengerChatDto): number =>
  * at most 8, never every client: `app/@rules/README.md` rule 16). Writes, each behind the admin gate (the exact admin Origin,
  * a loopback Host, `Sec-Fetch-Site: same-origin`), since a chat's instruction steers the agent and a draft's text is what Send
  * will carry: the owner's Edit of a draft that still waits, Skip and its Undo, and one chat's rules (`setChatRules`). Nothing
- * here sends: Send is the door of P71 M4.
+ * here sends: Send is the door of P71 M4. P71 M-P: each chat carries its pre-analysis counts by reason, the reply says whether a
+ * pass can run (`preanalysis`), and turning a chat's switch on starts one pass.
  */
-export function messengerRoutes(repos: Repos, adminPort: number) {
+export function messengerRoutes(repos: Repos, adminPort: number, preanalysis?: Preanalysis) {
+  const standing = () => preanalysis?.standing() ?? preanalysisStanding();
   const gated = async <T>(c: Context, schema: ZodType<T>, then: (body: T, slug: string) => Promise<Response>): Promise<Response> => {
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
     if (why) return c.json({ error: `Refused: ${why}.`, code: "forbidden" as const }, 403);
@@ -92,7 +100,7 @@ export function messengerRoutes(repos: Repos, adminPort: number) {
       const all = rows.sort(order);
       const view = viewOf(c.req.query("filter"));
       const shown = view === "linked" ? all : view === "hidden" ? [] : all.filter(waits);
-      return c.json(messengerChatsDto.parse({ chats: shown, counts: { todo: all.filter(waits).length, linked: all.length } }));
+      return c.json(messengerChatsDto.parse({ chats: shown, counts: { todo: all.filter(waits).length, linked: all.length }, preanalysis: standing() }));
     })
     .get("/api/projects/:slug/messengers/clients", async (c) => {
       const slug = c.req.param("slug");
@@ -130,6 +138,8 @@ export function messengerRoutes(repos: Repos, adminPort: number) {
         const row = await repos.messengers.chatById(slug, id);
         if (!row) return notFound(c, "chat");
         const next = await repos.messengers.setChatRules(slug, row.channel, row.chatId, b);
+        // P71 M-P: the owner turned the pre-analysis on: one pass now over the chat's recent messages (none without a key).
+        if (b.prefilter === true && !row.prefilter) preanalysis?.after(slug);
         return c.json(await chatRow(repos, slug, next));
       }),
     );

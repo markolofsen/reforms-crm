@@ -85,6 +85,36 @@ describe("messenger_history", () => {
     expect(c.messages.map((m: { direction: string }) => m.direction)).toEqual(["in", "out"]);
   });
 
+  it("P71 M-P: with the pre-analysis on, a hidden message is left out and counted; include_hidden marks it; an unjudged one is shown", async () => {
+    await w.messengers.setChatRules("acme", "telegram_user", "42", { prefilter: true });
+    await w.messengers.insertMessage(msg("42", "3", "in", "2026-11-19T10:00:00.000Z"));
+    await w.messengers.insertMessage(msg("42", "4", "in", "2026-11-19T11:00:00.000Z"));
+    const id = (remote: string) => (rw.db.$client.prepare("select id from messenger_messages where chat_id = '42' and remote_message_id = ?").get(remote) as { id: number }).id;
+    await w.messengers.recordTriage("acme", [
+      { messageId: id("2"), verdict: "needs_reply", model: "m", promptVersion: 1 },
+      { messageId: id("3"), verdict: "closing", model: "m", promptVersion: 1 },
+      { messageId: id("4"), verdict: "unjudged", model: null, promptVersion: 1 },
+    ]);
+    const call = await connect("acme");
+    const c = (await call("messenger_history", chat42)).json.chats[0];
+    expect(c.prefilter).toMatchObject({ on: true, hidden: { closing: 1, automated: 0, personal: 0 }, unjudged: 1, left_out_below: 1, newest_in_hidden: null });
+    expect(c.messages.map((m: { text: string }) => m.text)).toEqual(["client says 4", "client says 2", "we said 1"]);
+    const all = (await call("messenger_history", { ...chat42, include_hidden: true })).json.chats[0];
+    expect(all.messages.map((m: { text: string; hidden?: string }) => [m.text, m.hidden ?? null])).toEqual([
+      ["client says 4", null],
+      ["client says 3", "closing"],
+      ["client says 2", null],
+      ["we said 1", null],
+    ]);
+    expect(all.prefilter.left_out_below).toBe(0);
+    // The client's newest message hidden: the block says so (no reply owed).
+    await w.messengers.insertMessage(msg("42", "5", "in", "2026-11-19T12:00:00.000Z"));
+    await w.messengers.recordTriage("acme", [{ messageId: id("5"), verdict: "automated", model: "m", promptVersion: 1 }]);
+    expect((await call("messenger_history", chat42)).json.chats[0].prefilter.newest_in_hidden).toBe("automated");
+    // A chat whose switch was never on carries no prefilter block.
+    expect((await call("messenger_history", { channel: "telegram_user", chat_id: "43" })).json.chats[0].prefilter).toBeNull();
+  });
+
   it("by client: every linked chat of that client; a client of another project is not found", async () => {
     const call = await connect("acme");
     const r = await call("messenger_history", { client: ids.ann });

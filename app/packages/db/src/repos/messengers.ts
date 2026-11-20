@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { messengerChatsRepo } from "./messenger-chats";
+import { messengerTriageRepo } from "./messenger-triage";
 import {
   clientIdentifiers,
   clients,
@@ -63,6 +64,8 @@ export function messengersRepo(db: Db) {
 
   return {
     ...chats,
+    // ---- the pre-analysis' verdicts (P71 M-P)
+    ...messengerTriageRepo(db),
     // ---- allow-list
     /** Lists a chat; `autolinked` is the reason when the Hub's autolink did it (P84), else the owner did. */
     async allowChat(project: string, channel: MessengerChannel, chatId: string, title?: string | null, autolinked?: string | null): Promise<void> {

@@ -47,8 +47,9 @@ it has no send tool. The Messengers section holds the review queue and its setti
 linked chats, rules and send door: [app/packages/messengers/README.md](../app/packages/messengers/README.md).
 
 **The LLM door.** `@hub/llm` is the only code that may call a model API: typed structured calls to OpenRouter with the instance's one API key,
-a ledger row per attempt in `llm_calls` and a monthly cap checked before the call. Without a key a caller says "not analysed". No feature calls
-it yet; Overview shows its standing. The first callers are messenger pre-analysis (P71) and Threads topics (P79): [core/27-llm.md](core/27-llm.md).
+a ledger row per attempt in `llm_calls` and a monthly cap checked before the call. Without a key a caller says "not analysed". Its first
+caller is the messenger pre-analysis (P71 M-P: a per-chat switch, off by default, that hides closing, automated and personal messages
+from the agent, kept and counted); Overview shows its standing. Threads topics (P79) is next: [core/27-llm.md](core/27-llm.md).
 
 **Capabilities.** Each session gets one generated line naming what it reaches: mail (read, unsent drafts), Notion, knowledge, the Google
 Calendar and Drive connectors its project attaches in `project.md`, and the owner's browser. A connector reads and makes holds or links; it

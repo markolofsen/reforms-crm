@@ -63,6 +63,8 @@ export type {
   NewRun,
   MessengerUsage,
   NewMessengerSend,
+  NewTriage,
+  TriageCounts,
   NewSend,
   SendRow,
   ProjectRow,

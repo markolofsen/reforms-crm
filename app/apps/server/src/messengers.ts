@@ -37,6 +37,8 @@ export interface StartMessengers {
   adapterFor?: (token: string) => Promise<MessengerAdapter> | MessengerAdapter;
   runner?: typeof runPoller;
   now?: () => Date;
+  /** P71 M-P: a poll stored messages in this project (the pre-analysis runs a pass inside the poll, never on a timer). */
+  onStored?: (project: string) => void;
 }
 
 const off = (reason: string, project?: string): MessengersHandle => ({
@@ -88,6 +90,7 @@ export async function startMessengers(o: StartMessengers): Promise<MessengersHan
       delete st.lastError;
       st.lastPollAt = now().toISOString();
       st.stored += e.result.stored ?? 0;
+      if ((e.result.stored ?? 0) > 0) o.onStored?.(project);
     } else if (e.type === "error") {
       st.failures = e.failures;
       st.lastError = redact(e.error.message);

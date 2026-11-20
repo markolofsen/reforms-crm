@@ -1,6 +1,6 @@
-import { REPLY_MODE_LABELS } from "@hub/config/chat-rules";
+import { HIDDEN_LABEL_WORDS, HIDDEN_LABELS, PREANALYSIS_LOOKBACK_DAYS, REPLY_MODE_LABELS } from "@hub/config/chat-rules";
 import { phrase } from "@hub/contract/help";
-import type { MessengerChannelDto, MessengerChannelFilter, MessengerChatDto, MessengerSendPreviewDto, MessengerView } from "@hub/contract/messenger-panel";
+import type { MessengerChannelDto, MessengerChannelFilter, MessengerChatDto, MessengerSendPreviewDto, MessengerView, PreanalysisDto } from "@hub/contract/messenger-panel";
 import type { RecentDialogDto } from "@hub/contract/messengers";
 
 // The Messengers section's words (P71 M3), pure so a test holds them (`ui-specifications.md` rule 3).
@@ -44,10 +44,39 @@ export const lastText = (c: MessengerChatDto): string => {
 export function noDraftLine(c: MessengerChatDto, project: string): string | null {
   if (c.draft) return null;
   if (!c.last) return "No message stored yet.";
+  if (c.last.direction === "in" && c.last.hidden) return `Their last message was hidden by the pre-analysis (${HIDDEN_LABEL_WORDS[c.last.hidden]}): no reply owed.`;
   if (!c.owed) return "You replied last.";
   if (c.rules.replyMode === "off") return "A reply is owed. The agent never drafts here (this chat's rule).";
   if (c.rules.replyMode === "on_request") return "A reply is owed. The agent drafts here only when you ask for this chat in a session.";
   return `A reply is owed and no draft yet: say “${phrase("triage-messages", project)}” in a session.`;
+}
+
+// ---- P71 M-P: the pre-analysis of a linked chat
+
+/**
+ * The chat's pre-analysis counts by reason in one muted line, or null while the switch is off and nothing was ever judged. What it
+ * could not judge is said apart: it reached the agent (fail open).
+ */
+export function triageLine(c: Pick<MessengerChatDto, "rules" | "triage">): string | null {
+  const t = c.triage;
+  if (!c.rules.prefilter && t.judged === 0 && t.unjudged === 0) return null;
+  const head = c.rules.prefilter ? "Pre-analysis" : "Pre-analysis (off now)";
+  if (t.judged === 0 && t.unjudged === 0) return `${head}: nothing read yet.`;
+  const reasons = HIDDEN_LABELS.filter((l) => t.hidden[l] > 0).map((l) => `${t.hidden[l]} ${HIDDEN_LABEL_WORDS[l]}`);
+  const hidden = HIDDEN_LABELS.reduce((n, l) => n + t.hidden[l], 0);
+  const parts = [hidden ? `hid ${hidden} of ${t.judged} (${reasons.join(", ")})` : `read ${t.judged}, hid none`];
+  if (t.unjudged) parts.push(`${t.unjudged} could not be judged and reached the agent`);
+  return `${head}: ${parts.join(" · ")}.`;
+}
+
+/**
+ * The note under the Settings switch: what it does now, or why nothing runs (no OpenRouter key, and where it goes). Replaces M3's
+ * "nothing reads this switch" line.
+ */
+export function prefilterNote(p: PreanalysisDto): string {
+  if (p.state === "no_key") return `Needs an OpenRouter key: nothing runs until one is set. ${p.fix ?? ""}`.trim();
+  const what = `A cheap model reads each new message the client sends here (its text and the two before it; never a name or the chat's title) and hides closing words, automated notices and personal chatter from the agent. Anything it is unsure of, or could not judge, still reaches the agent. Hidden messages are kept and counted on Chats. Turning it on reads the last ${PREANALYSIS_LOOKBACK_DAYS} days.`;
+  return p.state === "fake" ? `${what} This Hub runs a fake model (HUB_LLM=fake): nothing leaves it.` : what;
 }
 
 // ---- P84: chats link themselves (decision 0036 point 3 as amended 2026-11-20)

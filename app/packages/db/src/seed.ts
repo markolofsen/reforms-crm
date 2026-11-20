@@ -195,7 +195,14 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
     await tg(rita, "700100", "Rita F.", [{ dir: "in", hours: 2, text: "Hi! Is the notary on the 28th still on? I can only do mornings." }]);
     await repos.messengers.createDraft({ project: "lisbon-realty", channel: "telegram_user", chatId: "700100", clientId: rita, createdBy: "seed", text: "Hi Rita, yes, the 28th stands. 10:00 at the notary on Rua Augusta works for us. I will send the address the day before." });
   }
-  if (sofia) await tg(sofia, "700200", "Sofia T.", [{ dir: "in", hours: 30, text: "Any news on the offer?" }, { dir: "out", hours: 26, text: "Not yet, I will write as soon as the seller answers." }]);
+  if (sofia) {
+    await tg(sofia, "700200", "Sofia T.", [{ dir: "in", hours: 30, text: "Any news on the offer?" }, { dir: "in", hours: 29, text: "Thank you!" }, { dir: "out", hours: 26, text: "Not yet, I will write as soon as the seller answers." }]);
+    // P71 M-P: the pre-analysis is on in Sofia's chat, with two seeded verdicts (no model ran): her question reached the agent, her
+    // "Thank you!" was hidden as closing, so the panel shows a count by reason.
+    await repos.messengers.setChatRules("lisbon-realty", "telegram_user", "700200", { prefilter: true });
+    const ids = (await repos.messengers.messagesOf("lisbon-realty", [{ channel: "telegram_user", chatId: "700200" }], { limit: 10 })).filter((m) => m.direction === "in");
+    await repos.messengers.recordTriage("lisbon-realty", ids.map((m) => ({ messageId: m.id, verdict: m.text === "Thank you!" ? "closing" : "needs_reply", model: "seed", promptVersion: 1 })));
+  }
   return true;
 }
 

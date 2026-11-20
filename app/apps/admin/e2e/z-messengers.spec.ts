@@ -30,6 +30,8 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   await page.getByRole("menuitemradio", { name: /Linked/ }).click();
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=linked");
   await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("You replied last.")).toBeVisible();
+  // P71 M-P: the seeded verdicts of Sofia's chat, counted by reason on its row.
+  await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("Pre-analysis: hid 1 of 2 (1 closing).")).toBeVisible();
   // Mail drafts stay in Drafts, and messenger drafts never go there.
   await page.goto(at(P, "/drafts?filter=all"));
   await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
@@ -97,7 +99,10 @@ test("messengers settings: a chat's reply mode and instruction are saved and rea
   await page.reload();
   await expect(rules.getByRole("button", { name: "Only when I ask" })).toHaveAttribute("aria-pressed", "true");
   await expect(rules.getByLabel("Your instruction for this chat")).toHaveValue("Short and formal.");
-  await expect(rules.getByText(/nothing reads this switch until the pre-analysis is built/)).toBeVisible();
+  // P71 M-P: the switch's note says what it does (the e2e server runs HUB_LLM=fake: nothing leaves it).
+  await expect(rules.getByText(/A cheap model reads each new message the client sends here/)).toBeVisible();
+  await expect(rules.getByText(/fake model \(HUB_LLM=fake\)/)).toBeVisible();
+  await expect(page.getByText(/nothing reads this switch/)).toHaveCount(0);
   await page.goto(at(P, "/messengers?filter=linked"));
   await expect(rita(page).getByText(/Telegram · Only when I ask/)).toBeVisible();
   // Back to the default, so the specs after this one see the seed's rules.

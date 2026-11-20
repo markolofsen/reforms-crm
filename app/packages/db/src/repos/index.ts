@@ -51,6 +51,7 @@ export type {
   NewMessengerMessage,
 } from "./messengers";
 export type { ChatActivity, MessengerChatRow } from "./messenger-chats";
+export type { NewTriage, TriageCounts } from "./messenger-triage";
 export { rulesOf } from "./messenger-chats";
 export type { BatchRow, BatchSummary } from "./batches";
 export type { BasedOn, ReviewDraft } from "./review";

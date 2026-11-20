@@ -1,4 +1,4 @@
-import { MESSENGER_TEXT_MAX, OWNER_REQUEST_MAX, type ChatRules } from "@hub/config/chat-rules";
+import { HIDDEN_LABELS, isHiddenLabel, MESSENGER_TEXT_MAX, OWNER_REQUEST_MAX, type ChatRules } from "@hub/config/chat-rules";
 import { RepoError, rulesOf, type MessengerChatRow, type Repos } from "@hub/db";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
@@ -49,16 +49,17 @@ export function registerMessengerTools(server: McpServer, repos: Repos, env: Mes
     "messenger_history",
     {
       title: "One linked chat (or a client's linked chats) with its rules",
-      description: `The stored messages of a linked Telegram or WhatsApp chat, newest first, with the chat's rules: reply_mode (off: never draft; on_request: only when the owner asks for this chat in this session; draft: answer the newest inbound message), may_nudge and nudge_after_days (a follow-up after our own last message), language (null: the client's), and owner_instruction, the owner's own words for this chat, which bind the reply. can_draft says what messenger_draft_write would answer now (without owner_request). Give \`channel\` and \`chat_id\`, or \`client\` (its id) for all its linked chats. Only chats the owner linked exist here: any other is not_linked. ${DATA}`,
+      description: `The stored messages of a linked Telegram or WhatsApp chat, newest first, with the chat's rules (when the chat's prefilter is on, messages the pre-analysis hid as closing, automated or personal are left out and counted in \`prefilter.hidden\`; include_hidden returns them marked \`hidden\`; a message it could not judge is shown as usual): reply_mode (off: never draft; on_request: only when the owner asks for this chat in this session; draft: answer the newest inbound message), may_nudge and nudge_after_days (a follow-up after our own last message), language (null: the client's), and owner_instruction, the owner's own words for this chat, which bind the reply. can_draft says what messenger_draft_write would answer now (without owner_request). Give \`channel\` and \`chat_id\`, or \`client\` (its id) for all its linked chats. Only chats the owner linked exist here: any other is not_linked. ${DATA}`,
       inputSchema: z.object({
         client: z.number().int().positive().optional().describe("A client id: every linked chat of that client."),
         channel: z.enum(CHANNELS).optional().describe("With chat_id: one chat."),
         chat_id: z.string().min(1).max(64).optional(),
         limit: z.number().int().min(1).max(100).optional().describe("Messages per chat, newest first (default 30)."),
+        include_hidden: z.boolean().optional().describe("Also return the messages the pre-analysis hid, each marked `hidden` with its reason (default false)."),
       }),
       annotations: READ_ONLY,
     },
-    ({ client, channel, chat_id, limit }) =>
+    ({ client, channel, chat_id, limit, include_hidden }) =>
       run(async () => {
         const slug = env.project();
         let rows: MessengerChatRow[];
@@ -85,6 +86,15 @@ export function registerMessengerTools(server: McpServer, repos: Repos, env: Mes
           const open = await repos.messengers.openDraft(slug, row.channel, row.chatId);
           const v = draftVerdict({ rules, activity, now: now() });
           const msgs = await repos.messengers.messagesOf(slug, [{ channel: row.channel, chatId: row.chatId }], { limit: limit ?? 30 });
+          // P71 M-P: the pre-analysis' verdicts. A hidden message is left out (or marked) and counted; nothing is deleted.
+          const verdicts = await repos.messengers.verdictsOf(slug, msgs.map((x) => x.id));
+          const hiddenOf = (id: number) => {
+            const v = verdicts.get(id);
+            return isHiddenLabel(v) ? v : null;
+          };
+          const counts = await repos.messengers.triageCounts(slug, row.channel, row.chatId);
+          const shown = include_hidden ? msgs : msgs.filter((x) => hiddenOf(x.id) === null);
+          const left = msgs.length - shown.length;
           chats.push({
             channel: row.channel,
             chat_id: row.chatId,
@@ -96,7 +106,21 @@ export function registerMessengerTools(server: McpServer, repos: Repos, env: Mes
             last_out_at: activity.lastOutAt,
             open_draft: open ? { id: open.id, text: open.text, nudge: open.nudge, created_at: open.createdAt } : null,
             can_draft: open ? { ok: false, code: "already_drafted", draft: open.id } : v.refusal ? { ok: false, code: v.refusal.code } : { ok: true, nudge: v.nudge },
-            messages: msgs.map((m) => ({ at: m.sentAt, direction: m.direction, kind: m.kind, text: m.text })),
+            prefilter:
+              rules.prefilter || counts.judged + counts.unjudged > 0
+                ? {
+                    on: rules.prefilter,
+                    hidden: Object.fromEntries(HIDDEN_LABELS.map((l) => [l, counts.hidden[l]])),
+                    unjudged: counts.unjudged,
+                    left_out_below: left,
+                    newest_in_hidden: (() => {
+                      const newestIn = msgs.find((x) => x.direction === "in");
+                      return newestIn ? hiddenOf(newestIn.id) : null;
+                    })(),
+                    note: "Counts over the chat's stored messages. A hidden message needs no reply; a newest inbound message that is hidden owes none. Unjudged ones are shown as usual.",
+                  }
+                : null,
+            messages: shown.map((m) => ({ at: m.sentAt, direction: m.direction, kind: m.kind, text: m.text, ...(hiddenOf(m.id) ? { hidden: hiddenOf(m.id) } : {}) })),
           });
         }
         return { project: slug, chats };

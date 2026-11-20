@@ -35,6 +35,8 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   messenger_drafts: "messengers",
   messenger_link_refusals: "messengers",
   messenger_messages: "messengers",
+  // P71 M-P: a verdict moves the panel's counts by reason.
+  messenger_triage: "messengers",
   project_addresses: "projects",
   project_questions: "projects",
   projects: "projects",

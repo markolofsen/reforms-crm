@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { index, integer, real, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
-import type { ReplyMode } from "@hub/config/chat-rules";
+import type { ReplyMode, TriageVerdict } from "@hub/config/chat-rules";
 import type { LlmOutcome } from "@hub/config/llm";
 import type { AdvisorModel, AgentModel, BatchStatus, DraftStatus, EnrollmentState, EventKind, EvidenceLevel, EvidenceSource, FinishReason, InboxAction, InboxKind, Mark, NotionKind, RunStatus, SafetyKind, SafetyLevel } from "@hub/config";
 
@@ -461,6 +461,23 @@ export const messengerMessages = sqliteTable(
     index("messenger_messages_chat").on(t.project, t.channel, t.chatId, t.sentAt),
     index("messenger_messages_retain").on(t.retainUntil),
   ],
+);
+
+// The pre-analysis' verdict on one inbound message (P71 M-P, migration 0029): a label and the model, deleted with its message.
+export const messengerTriage = sqliteTable(
+  "messenger_triage",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    project: text("project").notNull(),
+    messageId: integer("message_id")
+      .notNull()
+      .references(() => messengerMessages.id, { onDelete: "cascade" }),
+    verdict: text("verdict").$type<TriageVerdict>().notNull(),
+    model: text("model"),
+    promptVersion: integer("prompt_version").notNull(),
+    createdAt: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
+  },
+  (t) => [uniqueIndex("messenger_triage_message").on(t.messageId), index("messenger_triage_project").on(t.project, t.verdict)],
 );
 
 // Links a client to a mail address, a chat or a number. Written only by the owner (never by ingest).
