@@ -112,12 +112,15 @@ function PhoneRow({ e, c }: { e: KnowledgeEntryDto; c: Cols }) {
   );
 }
 
-/** Below 640px: the same headings (a real heading per level) over the same two-line rows. */
-function PhoneSection({ s, c }: { s: EntrySection; c: Cols }) {
+/**
+ * Below 640px: the same headings (a real heading per level) over the same two-line rows. The first heading has no space above
+ * it, so the first entry stays within `FIRST_ROW_MAX_PHONE` (`admin-principles.md` rule 3; 207 px with it on saas, 2026-11-20).
+ */
+function PhoneSection({ s, c, first }: { s: EntrySection; c: Cols; first: boolean }) {
   const H = PHONE_LEVEL[Math.min(s.depth, PHONE_LEVEL.length - 1)] ?? "h4";
   return (
     <li data-topic={s.id}>
-      <H className={cn("pt-3 pb-1", indent(s.depth))} data-topic-head="">
+      <H className={cn(first ? "pb-1" : "pt-3 pb-1", indent(s.depth))} data-topic-head="">
         <HeadText s={s} />
       </H>
       {s.entries.length > 0 && <ul className="flex flex-col divide-y">{s.entries.map((e) => <PhoneRow c={c} e={e} key={`${s.id}|${e.key}`} />)}</ul>}
@@ -155,8 +158,8 @@ export function EntryTable({ project, entries, facets }: Props) {
         ))}
       </DataTable>
       <ul aria-label="Knowledge entries" className="flex flex-col md:hidden">
-        {sections.map((s) => (
-          <PhoneSection c={c} key={s.id} s={s} />
+        {sections.map((s, i) => (
+          <PhoneSection c={c} first={i === 0} key={s.id} s={s} />
         ))}
       </ul>
     </>
