@@ -31,7 +31,8 @@ function CliChecks({ title, rows, onCopy }: { title: string; rows: readonly Agen
   const attention = rows.filter(needsAttention);
   if (rows.length === 0) return null;
   return (
-    <div className="flex min-w-0 flex-col gap-2 pt-2">
+    <section aria-label={`${title} checks`} className="flex min-w-0 flex-col gap-2 pt-2">
+      <h3 className="pt-2 font-medium text-sm">Checks</h3>
       {attention.length > 0 && <ToolTable onCopy={onCopy} rows={attention} title={`${title}: needs a fix or a look`} />}
       <Collapsible>
         <CollapsibleTrigger className="group -ms-3 justify-start gap-2" render={<ActionButton size="m" variant="quiet" />}>
@@ -45,7 +46,7 @@ function CliChecks({ title, rows, onCopy }: { title: string; rows: readonly Agen
           </div>
         </CollapsiblePanel>
       </Collapsible>
-    </div>
+    </section>
   );
 }
 
