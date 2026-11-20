@@ -29,4 +29,14 @@ describe("search state", () => {
     expect(withSearch(resolveRoute("/drafts", ""), "client", 3)).toBeNull();
     expect(withSearch(resolveRoute("/nope", ""), "filter", "ready")).toBeNull();
   });
+
+  it("P84c: the Messengers channel and view keep each other; an unknown channel resets to All; no other route has a channel", () => {
+    const chats = resolveRoute("/messengers", "filter=hidden&channel=telegram");
+    expect(searchValue(chats, "channel")).toBe("telegram");
+    expect(withSearch(chats, "channel", "whatsapp")).toEqual(paths.messengers.chats({ filter: "hidden", channel: "whatsapp" }));
+    expect(withSearch(chats, "filter", "linked")).toEqual(paths.messengers.chats({ filter: "linked", channel: "telegram" }));
+    expect(withSearch(chats, "channel", "fax")).toEqual(paths.messengers.chats({ filter: "hidden" }));
+    expect(searchValue(resolveRoute("/messengers", "filter=all"), "filter")).toBe("todo");
+    expect(withSearch(resolveRoute("/drafts", ""), "channel", "telegram")).toBeNull();
+  });
 });

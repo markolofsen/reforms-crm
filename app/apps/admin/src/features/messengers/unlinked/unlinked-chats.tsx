@@ -8,12 +8,9 @@ import { useDebounced } from "@/hooks/use-debounced";
 import { sentence } from "@/lib/api/client";
 import { messengersApi } from "@/lib/api/messengers/panel";
 import { keys } from "@/lib/cache/keys";
-import { CHANNEL_LABEL, emptyLine, whyLine } from "../labels";
-import { useTelegramUser } from "../settings/use-telegram";
-import { useWhatsApp } from "../settings/whatsapp/use-whatsapp";
-
-/** The server keeps the list in memory and a new chat does not bump a live topic: read again this often while the screen is open. */
-const POLL_MS = 15_000;
+import { ago } from "@/lib/format";
+import { CHANNEL_LABEL, unlinkedIntro, whyLine, wroteLine } from "../labels";
+import { useHide } from "./use-hide";
 
 const recordName = (r: AutolinkRecordDto) => r.name || r.email || "this client";
 
@@ -47,38 +44,54 @@ function RecordSearch({ project, onPick }: { project: string; onPick: (r: Autoli
   );
 }
 
-/** One seen dialog: who, why it was not linked, and Link to each record it matched (or to a client he finds). */
-function Dialog({ project, r }: { project: string; r: RecentDialogDto }) {
+/**
+ * One unlinked chat (P84c): its name, channel and when it wrote on one line; a suggested client inline with Link; then Link to a
+ * client (a search of Notion) and Hide ("not a client", with Undo). The reason it was not linked is said only when it is not the
+ * common one ("no client has its phone or username"), which the list says once above.
+ */
+function UnlinkedRow({ project, r, now }: { project: string; r: RecentDialogDto; now: number }) {
   const qc = useQueryClient();
+  const { hide } = useHide(project);
   const [searching, setSearching] = useState(false);
   const link = useMutation({
     mutationFn: (rec: AutolinkRecordDto) => messengersApi.linkRecord(project, { channel: r.channel, account: r.account, chatId: r.chatId, key: rec.key, title: r.title }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.messengerChatsOf(project) }),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: keys.messengerChatsOf(project) }), qc.invalidateQueries({ queryKey: keys.autolink(project) })]),
   });
+  const suggested = r.candidates.filter((c) => c.email);
   return (
-    <li className="flex flex-col gap-2 py-3" data-recent-chat={`${r.channel}:${r.chatId}`}>
-      <div className="flex flex-wrap items-baseline gap-2">
+    <li aria-label={r.title} className="flex flex-col gap-2 py-3" data-recent-chat={`${r.channel}:${r.chatId}`}>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="font-medium text-sm">{r.title}</span>
-        <span className="text-muted-foreground text-xs">{CHANNEL_LABEL[r.channel]}</span>
-        {r.candidates.length > 0 && <Badge variant="info">Suggested</Badge>}
-      </div>
-      <p className="measure text-muted-foreground text-sm">{whyLine(r)}</p>
-      <div className="flex flex-wrap gap-2">
-        {r.candidates
-          .filter((c) => c.email)
-          .map((c) => (
-            <ActionButton disabled={link.isPending} key={c.key} onClick={() => link.mutate(c)} size="s" variant="primary">
-              Link to {recordName(c)}
+        <Badge variant="outline">{CHANNEL_LABEL[r.channel]}</Badge>
+        {r.last && <span className="text-muted-foreground text-xs">{wroteLine(r.last, ago(r.last.at, now))}</span>}
+        <div className="ms-auto flex flex-wrap gap-2">
+          {!searching && (
+            <ActionButton onClick={() => setSearching(true)} size="s" variant="secondary">
+              {suggested.length ? "Another client" : "Link to a client"}
               <span className="sr-only"> ({r.title})</span>
             </ActionButton>
-          ))}
-        {!searching && (
-          <ActionButton onClick={() => setSearching(true)} size="s" variant="secondary">
-            {r.candidates.length ? "Another client" : "Link to a client"}
-            <span className="sr-only"> ({r.title})</span>
+          )}
+          <ActionButton disabled={hide.isPending} onClick={() => hide.mutate({ channel: r.channel, chatId: r.chatId, title: r.title })} size="s" variant="quiet">
+            Hide<span className="sr-only"> {r.title}: not a client</span>
           </ActionButton>
-        )}
+        </div>
       </div>
+      {r.why !== "none" && <p className="measure text-muted-foreground text-sm">{whyLine(r)}</p>}
+      {suggested.length > 0 && (
+        <div aria-label={`Suggested for ${r.title}`} className="flex flex-wrap items-center gap-x-4 gap-y-2" role="group">
+          {suggested.map((c) => (
+            <div className="flex items-center gap-2" key={c.key}>
+              <span className="text-sm">
+                Suggested: {recordName(c)}
+                {c.relationship && <span className="text-muted-foreground"> · {c.relationship}</span>}
+              </span>
+              <ActionButton disabled={link.isPending} onClick={() => link.mutate(c)} size="s" variant="primary">
+                Link<span className="sr-only"> {r.title} to {recordName(c)}</span>
+              </ActionButton>
+            </div>
+          ))}
+        </div>
+      )}
       {searching && <RecordSearch onPick={(rec) => link.mutate(rec)} project={project} />}
       {link.isError && (
         <p className="text-destructive-foreground text-sm" role="alert">
@@ -90,54 +103,25 @@ function Dialog({ project, r }: { project: string; r: RecentDialogDto }) {
 }
 
 /**
- * The unlinked chats the Hub saw (P84, decision 0036 point 3 as amended 2026-11-20), on Chats: why nothing (or not this chat) shows,
- * the suggestions (a match it would not link by itself: two clients, no email, autolink off) and the recent private chats nothing
- * matched, each with Link right here. The list and the count live in the server's memory only: nothing of an unlinked chat is
- * stored, and a restart empties them. With `intro` (the empty state) it first says, naming both accounts, why no chat shows.
+ * The unlinked chats of To do (P84, P84c, decision 0036 point 3 as amended 2026-11-20): the fresh private chats nobody decided on,
+ * from the server's memory only (nothing of an unlinked chat is stored; a restart empties the list). Said once above them: why
+ * they are here and that only the last `freshDays` show; then the muted count of unlinked chats that wrote since the server started.
  */
-export function UnlinkedChats({ project, intro }: { project: string; intro: boolean }) {
-  const tg = useTelegramUser();
-  const wa = useWhatsApp();
-  const telegram = tg.data?.accounts.some((a) => a.state === "running") ?? false;
-  const whatsapp = wa.data?.accounts.some((a) => a.state === "running") ?? false;
-  const q = useQuery({ queryKey: keys.autolink(project), queryFn: () => messengersApi.autolinkState(project), refetchInterval: POLL_MS, gcTime: 0, retry: false });
-  const d = q.data;
-  const suggested = d?.recent.filter((r) => r.candidates.length > 0) ?? [];
-  const others = d?.recent.filter((r) => r.candidates.length === 0) ?? [];
-  if (!intro && suggested.length === 0) return null;
+export function UnlinkedChats({ project, rows, freshDays, active, now }: { project: string; rows: RecentDialogDto[]; freshDays: number; active: number; now: number }) {
+  if (rows.length === 0) return null;
   return (
-    <section aria-label="Chats not linked" className="flex flex-col gap-3" data-testid="unlinked-chats">
-      {intro && (
-        <p className="measure text-sm">
-          {emptyLine({ telegram, whatsapp, enabled: d?.enabled ?? false, withIdentifier: d?.directory.withIdentifier ?? 0, directoryReady: d?.directory.state === "ready" })}
-        </p>
-      )}
-      {d && d.unlinkedActive > 0 && (
+    <section aria-label="Chats not linked" className="flex flex-col gap-2" data-testid="unlinked-chats">
+      <p className="measure text-muted-foreground text-sm">{unlinkedIntro(freshDays)}</p>
+      <ul aria-label="New chats" className="flex flex-col divide-y border-y">
+        {rows.map((r) => (
+          <UnlinkedRow key={`${r.channel}:${r.chatId}`} now={now} project={project} r={r} />
+        ))}
+      </ul>
+      {active > 0 && (
         <p className="text-muted-foreground text-xs">
-          {d.unlinkedActive === 1 ? "1 unlinked chat has" : `${d.unlinkedActive} unlinked chats have`} written since the server started (counted in memory, never stored).
+          {active === 1 ? "1 unlinked chat has" : `${active} unlinked chats have`} written since the server started (counted in memory, never stored).
         </p>
       )}
-      {suggested.length > 0 && (
-        <>
-          <h2 className="font-medium text-sm">Suggested links</h2>
-          <ul aria-label="Suggested links" className="flex flex-col divide-y border-y">
-            {suggested.map((r) => (
-              <Dialog key={`${r.channel}:${r.chatId}`} project={project} r={r} />
-            ))}
-          </ul>
-        </>
-      )}
-      {intro && others.length > 0 && (
-        <>
-          <h2 className="font-medium text-sm">Recent private chats</h2>
-          <ul aria-label="Recent private chats" className="flex flex-col divide-y border-y">
-            {others.slice(0, 20).map((r) => (
-              <Dialog key={`${r.channel}:${r.chatId}`} project={project} r={r} />
-            ))}
-          </ul>
-        </>
-      )}
-      {q.isError && <p className="text-muted-foreground text-xs">{sentence(q.error)}</p>}
     </section>
   );
 }

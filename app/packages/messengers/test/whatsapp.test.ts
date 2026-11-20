@@ -169,8 +169,8 @@ describe("whatsapp: the picker and the import", () => {
     sock.chat(ANNA, "Anna");
     sock.history([msg(ANNA, "H1", "old", "2026-11-19T09:00:00.000Z"), msg(STRANGER, "H2", "newer", "2026-11-20T09:00:00.000Z")]);
     expect(await a.dialogs(10)).toEqual([
-      { chatId: STRANGER, title: STRANGER, username: null, phone: STRANGER },
-      { chatId: ANNA, title: "Anna", username: null, phone: ANNA },
+      { chatId: STRANGER, title: STRANGER, username: null, phone: STRANGER, last: { at: "2026-11-20T09:00:00.000Z", inbound: true } },
+      { chatId: ANNA, title: "Anna", username: null, phone: ANNA, last: { at: "2026-11-19T09:00:00.000Z", inbound: true } },
     ]);
     // A history sync of unlinked chats stores nothing.
     expect(count("messenger_messages").n).toBe(0);

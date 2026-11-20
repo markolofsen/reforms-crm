@@ -150,8 +150,8 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
       return paths.log.list({ client: Number(p.id) });
     case "chat":
     case "mdraft":
-      // P71 M3: a chat and its draft are rows of the panel; All chats, so a chat with nothing owed is there too.
-      return paths.messengers.chats({ filter: "all" });
+      // P71 M3: a chat and its draft are rows of the panel; Linked (P84c), so a chat with nothing owed is there too.
+      return paths.messengers.chats({ filter: "linked" });
   }
 }
 

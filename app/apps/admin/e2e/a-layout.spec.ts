@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { stubChats } from "./messengers-stubs";
 import { at, firstDraftIs, mailIs, remember } from "./support";
 
 // Executable form of `app/@rules` ui-specifications 4 and accessibility 4, 6, 9: every screen, in both themes, at
@@ -110,6 +111,9 @@ const SCREENS: Screen[] = [
       await p.getByLabel(/^Your words for this reply/).waitFor();
     },
   },
+  // P84c: To do with the fresh unlinked chats and both accounts connected (the channel control), and Hidden; the memory is stubbed.
+  { name: "messengers: chats, to do", path: at(P, "/messengers"), mock: async (p) => void (await stubChats(p)), ready: async (p) => void (await p.getByRole("list", { name: "New chats" }).waitFor()) },
+  { name: "messengers: chats, hidden", path: at(P, "/messengers?filter=hidden"), mock: async (p) => void (await stubChats(p)), ready: async (p) => void (await p.getByRole("list", { name: "Hidden chats" }).waitFor()) },
   { name: "messengers: settings", path: at(P, "/messengers/settings"), ready: async (p) => void (await p.getByRole("list", { name: "Linked chats" }).waitFor()) },
   // P63, P81: wait for the general view's form (the drawing, or on a phone its list), so axe and the width checks never see the skeleton.
   { name: "help", path: "/help", ready: async (p) => void (await p.locator('[data-testid="scheme-general"]:is([data-form="drawn"], [data-form="list"])').waitFor({ timeout: 15_000 })) },

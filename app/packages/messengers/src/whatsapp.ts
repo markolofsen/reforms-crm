@@ -353,7 +353,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       return [...directory.entries()]
         .sort((a, b) => (b[1].newest?.at.getTime() ?? 0) - (a[1].newest?.at.getTime() ?? 0))
         .slice(0, limit)
-        .map(([chatId, e]) => ({ chatId, title: e.name ?? chatId, username: null, phone: chatId }));
+        .map(([chatId, e]) => ({ chatId, title: e.name ?? chatId, username: null, phone: chatId, last: e.newest ? { at: e.newest.at.toISOString(), inbound: !e.newest.fromMe } : null }));
     },
 
     async history(chatId, h) {

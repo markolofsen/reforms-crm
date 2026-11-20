@@ -42,8 +42,8 @@ export interface MtClient {
   connect(): Promise<MtMe>;
   /** Starts the updates loop; `onMessage` gets every new message, `onError` every error of the connection. */
   listen(onMessage: (m: MtMessage) => void, onError: (e: unknown) => void): Promise<void>;
-  /** The dialog list, newest first, at most `limit`. Read on demand, never stored. */
-  dialogs(limit: number): Promise<MtPeer[]>;
+  /** The dialog list, newest first, at most `limit`. Read on demand, never stored. `last`: the time and side of its newest message (P84c; never its text). */
+  dialogs(limit: number): Promise<(MtPeer & { last?: { at: Date; outgoing: boolean } | null })[]>;
   /** A chat's messages newer than `minId` and not older than `since`, newest first, at most `limit`. */
   history(chatId: number, o: { since: Date; minId: number; limit: number }): Promise<MtMessage[]>;
   /** Sends one plain text to a private chat (P71 M4): only the adapter's `send` calls it, with a confirmed draft. */
@@ -124,6 +124,8 @@ export interface UserDialog {
   title: string;
   username: string | null;
   phone: string | null;
+  /** P84c: when the newest message was, and whether it was theirs (never its text); absent when the source does not say. */
+  last?: { at: string; inbound: boolean } | null;
 }
 
 export interface TelegramUserOptions {
@@ -253,7 +255,10 @@ export function createTelegramUserAdapter(o: TelegramUserOptions): TelegramUserS
 
     async dialogs(limit: number) {
       try {
-        return (await client.dialogs(limit)).filter(isPerson).map((d) => ({ chatId: String(d.id), title: d.displayName, username: d.username, phone: telegramPhone(d.phoneNumber) }));
+        return (await client.dialogs(limit)).flatMap((d) => {
+          const p: MtPeer = d;
+          return isPerson(p) ? [{ chatId: String(p.id), title: p.displayName, username: p.username, phone: telegramPhone(p.phoneNumber), last: d.last ? { at: d.last.at.toISOString(), inbound: !d.last.outgoing } : null }] : [];
+        });
       } catch (err) {
         throw toUserAdapterError(err);
       }

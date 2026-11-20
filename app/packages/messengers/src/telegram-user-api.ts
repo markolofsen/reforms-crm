@@ -75,8 +75,12 @@ export function mtcuteSessionClient(s: UserSession): MtClient {
       await tg.startUpdatesLoop();
     },
     async dialogs(limit) {
-      const out: MtPeer[] = [];
-      for await (const d of tg.iterDialogs({ limit })) out.push(peerOf(d.peer));
+      const out: (MtPeer & { last: { at: Date; outgoing: boolean } | null })[] = [];
+      // The newest message's time and side only (P84c: Chats shows an unlinked chat only while it is fresh); its text is never read.
+      for await (const d of tg.iterDialogs({ limit })) {
+        const m = d.lastMessage;
+        out.push({ ...peerOf(d.peer), last: m ? { at: m.date, outgoing: m.isOutgoing } : null });
+      }
       return out;
     },
     async history(chatId, o) {

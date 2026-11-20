@@ -114,7 +114,10 @@ describe("paths and places", () => {
   it("child pages (P70): Settings' Mail, Agent, Connections, This Mac in order; Messengers' Settings (P71 M3); no other section has one; `g s` lands on Sending", () => {
     expect(childrenOf("settings").map((c) => c.route)).toEqual(["settings.checks", "settings.mail", "settings.agent", "settings.connections", "settings.mac"]);
     expect(childrenOf("messengers").map((c) => c.route)).toEqual(["messengers.settings"]);
-    expect(roundTrip(paths.messengers.chats({ filter: "all" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "all" } });
+    expect(roundTrip(paths.messengers.chats({ filter: "linked" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "linked", channel: "all" } });
+    // P84c: the channel is a filter of the same page; an unknown view or channel resets to its default, the default drops its key.
+    expect(roundTrip(paths.messengers.chats({ filter: "hidden", channel: "whatsapp" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "hidden", channel: "whatsapp" } });
+    expect(paths.messengers.chats({ filter: "todo", channel: "all" }).search).toEqual({});
     for (const s of SECTIONS.filter((x) => x.id !== "settings" && x.id !== "messengers")) expect(childrenOf(s.id), s.id).toEqual([]);
     expect(sectionList("settings").route).toBe("settings.page");
   });

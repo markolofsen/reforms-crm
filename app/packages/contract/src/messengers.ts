@@ -140,8 +140,14 @@ export const recentDialogDto = z.strictObject({
   why: z.enum(AUTOLINK_WHY),
   by: z.enum(["phone", "username"]).nullable(),
   candidates: z.array(autolinkRecordDto),
+  /** P84c: when its newest message was and whether it was theirs (never its text); the state lists only fresh ones. */
+  last: z.strictObject({ at: z.string(), inbound: z.boolean() }).nullable(),
 });
 export type RecentDialogDto = z.infer<typeof recentDialogDto>;
+
+/** P84c: a chat the owner hid ("not a client"), known by name only while the server's memory holds it; the store keeps its HMAC only. */
+export const hiddenDialogDto = z.strictObject({ channel: userChannel, chatId: z.string(), title: z.string(), hiddenAt: z.string() });
+export type HiddenDialogDto = z.infer<typeof hiddenDialogDto>;
 
 export const directoryStatusDto = z.strictObject({
   state: z.enum(["off", "loading", "ready", "error"]),
@@ -158,7 +164,12 @@ export const autolinkStateDto = z.strictObject({
   directory: directoryStatusDto,
   /** Distinct unlinked chats that wrote since the server started: in memory, never stored. */
   unlinkedActive: z.number().int(),
+  /** Only the fresh ones (newest message at most `freshDays` old), newest first. */
   recent: z.array(recentDialogDto),
+  freshDays: z.number().int(),
+  /** P84c: the hidden chats the memory can name, and how many more are hidden by a fingerprint the Hub cannot name back. */
+  hidden: z.array(hiddenDialogDto),
+  hiddenUnnamed: z.number().int(),
 });
 export type AutolinkStateDto = z.infer<typeof autolinkStateDto>;
 
@@ -184,5 +195,8 @@ export type AutolinkPreviewDto = z.infer<typeof autolinkPreviewDto>;
 export const autolinkLinkBody = z.strictObject({ channel: userChannel, account: z.string().regex(/^\d{1,20}$/), chatId: z.string().regex(/^\+?\d{1,20}$/), key: z.string().min(1).max(64), title: z.string().trim().max(200).optional() });
 export const autolinkRecordsBody = z.strictObject({ q: z.string().trim().min(2).max(100) });
 export const autolinkRecordsDto = z.strictObject({ records: z.array(autolinkRecordDto) });
+/** P84c: Hide ("not a client") and Unhide of a chat the Hub saw; a linked chat is hidden by `/chats/:id/never`, which unlinks it first. */
+export const autolinkHideBody = z.strictObject({ channel: userChannel, chatId: z.string().regex(/^\+?\d{1,20}$/) });
+export const autolinkHiddenDto = z.strictObject({ ok: z.literal(true), channel: userChannel, chatId: z.string(), hidden: z.boolean() });
 /** Unlink and Never link answer which chat went and how many of its stored messages. */
 export const chatUnlinkedDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), never: z.boolean() });

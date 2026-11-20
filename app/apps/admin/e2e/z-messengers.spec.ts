@@ -23,12 +23,12 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   await rita(page).getByRole("button", { name: "Close" }).click();
   await expect(rita(page).getByText(/^Not sent:/)).toHaveCount(0);
   await expect(rita(page)).toHaveAttribute("data-agent-ref", /^chat:\d+$/);
-  await expect(page.getByRole("button", { name: /^View:/ })).toHaveText(/Waiting\s*1/);
+  await expect(page.getByRole("button", { name: /^View:/ })).toHaveText(/To do\s*1/);
   await expect(chats(page).getByRole("listitem")).toHaveCount(1);
-  // All chats: Sofia's chat, where we replied last, says whose turn it is.
+  // Linked (P84c): Sofia's chat, where we replied last, says whose turn it is.
   await page.getByRole("button", { name: /^View:/ }).click();
-  await page.getByRole("menuitemradio", { name: /All chats/ }).click();
-  await expect.poll(() => new URL(page.url()).search).toBe("?filter=all");
+  await page.getByRole("menuitemradio", { name: /Linked/ }).click();
+  await expect.poll(() => new URL(page.url()).search).toBe("?filter=linked");
   await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("You replied last.")).toBeVisible();
   // Mail drafts stay in Drafts, and messenger drafts never go there.
   await page.goto(at(P, "/drafts?filter=all"));
@@ -98,7 +98,7 @@ test("messengers settings: a chat's reply mode and instruction are saved and rea
   await expect(rules.getByRole("button", { name: "Only when I ask" })).toHaveAttribute("aria-pressed", "true");
   await expect(rules.getByLabel("Your instruction for this chat")).toHaveValue("Short and formal.");
   await expect(rules.getByText(/nothing reads this switch until the pre-analysis is built/)).toBeVisible();
-  await page.goto(at(P, "/messengers?filter=all"));
+  await page.goto(at(P, "/messengers?filter=linked"));
   await expect(rita(page).getByText(/Telegram · Only when I ask/)).toBeVisible();
   // Back to the default, so the specs after this one see the seed's rules.
   await page.goto(at(P, "/messengers/settings"));

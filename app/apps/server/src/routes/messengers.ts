@@ -4,12 +4,15 @@ import { sentenceOf } from "@hub/contract/errors";
 import {
   chatRulesBody,
   clientMatchesDto,
+  inChannel,
+  MESSENGER_CHANNEL_FILTERS,
   MESSENGER_VIEWS,
   messengerChatDto,
   messengerChatsDto,
   messengerDraftDto,
   messengerDraftTextBody,
   messengerSkippedDto,
+  type MessengerChannelFilter,
   type MessengerChatDto,
   type MessengerView,
 } from "@hub/contract/messenger-panel";
@@ -19,7 +22,8 @@ import { gateRefusal } from "../admin-gate";
 import { notFound } from "../http";
 
 const KIND = { telegram_bot: "telegram", telegram_user: "telegram", whatsapp: "whatsapp" } as const;
-const viewOf = (v: string | undefined): MessengerView => MESSENGER_VIEWS.find((x) => x === v) ?? "waiting";
+const viewOf = (v: string | undefined): MessengerView => MESSENGER_VIEWS.find((x) => x === v) ?? "todo";
+const channelOf = (v: string | undefined): MessengerChannelFilter => MESSENGER_CHANNEL_FILTERS.find((x) => x === v) ?? "all";
 const draftOf = (d: MessengerDraftRow) => messengerDraftDto.parse({ id: d.id, text: d.text, nudge: d.nudge, ownerRequest: d.ownerRequest, createdAt: d.createdAt, updatedAt: d.updatedAt });
 const waits = (c: MessengerChatDto): boolean => c.draft !== null || c.owed;
 
@@ -55,7 +59,8 @@ const order = (a: MessengerChatDto, b: MessengerChatDto): number =>
 
 /**
  * The Messengers section (P71 M3, decision 0036 point 6). Reads: the linked chats of a project with what is owed and the agent's
- * open draft (`GET .../messengers/chats?filter=waiting|all`), and a client lookup for the link picker (two or more characters,
+ * open draft (`GET .../messengers/chats?filter=todo|linked|hidden&channel=all|telegram|whatsapp`; P84c: `hidden` lists no linked chat,
+ * since a hidden chat is never linked: the admin reads it from the autolink's memory), and a client lookup for the link picker (two or more characters,
  * at most 8, never every client: `app/@rules/README.md` rule 16). Writes, each behind the admin gate (the exact admin Origin,
  * a loopback Host, `Sec-Fetch-Site: same-origin`), since a chat's instruction steers the agent and a draft's text is what Send
  * will carry: the owner's Edit of a draft that still waits, Skip and its Undo, and one chat's rules (`setChatRules`). Nothing
@@ -82,10 +87,12 @@ export function messengerRoutes(repos: Repos, adminPort: number) {
     .get("/api/projects/:slug/messengers/chats", async (c) => {
       const slug = c.req.param("slug");
       if ((await repos.projects.get(slug)) === null) return notFound(c, "project");
-      const rows = await Promise.all((await repos.messengers.allowedChats(slug)).map((r) => chatRow(repos, slug, r)));
+      const channel = channelOf(c.req.query("channel"));
+      const rows = await Promise.all((await repos.messengers.allowedChats(slug)).filter((r) => inChannel(r.channel, channel)).map((r) => chatRow(repos, slug, r)));
       const all = rows.sort(order);
-      const shown = viewOf(c.req.query("filter")) === "all" ? all : all.filter(waits);
-      return c.json(messengerChatsDto.parse({ chats: shown, counts: { waiting: all.filter(waits).length, all: all.length } }));
+      const view = viewOf(c.req.query("filter"));
+      const shown = view === "linked" ? all : view === "hidden" ? [] : all.filter(waits);
+      return c.json(messengerChatsDto.parse({ chats: shown, counts: { todo: all.filter(waits).length, linked: all.length } }));
     })
     .get("/api/projects/:slug/messengers/clients", async (c) => {
       const slug = c.req.param("slug");

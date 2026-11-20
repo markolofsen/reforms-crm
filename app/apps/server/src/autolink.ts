@@ -1,6 +1,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { UNLINKED_FRESH_DAYS } from "@hub/config/chat-rules";
 import type { Repos } from "@hub/db";
 import { matchDialog, MATCH_REASON, type DialogChannel, type DialogIdentity, type DirectoryEntry } from "@hub/messengers";
 import { autoLinkUserChat, type LinkableAdapter } from "@hub/messengers/human";
@@ -46,14 +47,37 @@ export interface RecentDialog {
   why: "none" | "ambiguous" | "no_email" | "off" | "failed";
   by: "phone" | "username" | null;
   candidates: Candidate[];
+  /** P84c: the newest message's time and side (never its text): a message seen live, or the dialog list's; null when unknown. */
+  last: LastMessage | null;
+}
+
+export interface LastMessage {
+  at: string;
+  inbound: boolean;
+}
+
+/** P84c: a chat the owner hid ("not a client"), in memory only: its name for the Hidden view and its identity for Unhide. */
+export interface HiddenDialog {
+  channel: UserChannel;
+  account: string | null;
+  identity: DialogIdentity | null;
+  chatId: string;
+  title: string;
+  hiddenAt: string;
+  last: LastMessage | null;
 }
 
 export interface AutolinkState {
   project: string | null;
   enabled: boolean;
+  /** Only the fresh ones (P84c): the newest message at most `freshDays` old. */
   recent: RecentDialog[];
   /** Distinct unlinked chats that wrote since the server started: a number in memory, never stored (0036 point 3 as amended). */
   unlinkedActive: number;
+  freshDays: number;
+  /** P84c: the hidden chats the memory can name, newest first, and how many more refusals it cannot name (a fingerprint only). */
+  hidden: HiddenDialog[];
+  hiddenUnnamed: number;
 }
 
 export interface PreviewCounts {
@@ -76,8 +100,10 @@ export interface Autolink {
   state(): Promise<AutolinkState>;
   /** The dry run: counts only, from the live accounts' dialog lists and the directory; writes nothing, reads no text. */
   preview(): Promise<PreviewCounts[]>;
-  /** "Never link this chat": its HMAC is stored; the caller unlinks it. */
-  refuse(channel: UserChannel, chatId: string): Promise<void>;
+  /** "Never link this chat" / Hide ("not a client", P84c): its HMAC is stored; the caller unlinks a linked one. `title` names it in Hidden. */
+  refuse(channel: UserChannel, chatId: string, title?: string | null): Promise<void>;
+  /** Unhide (P84c): the refusal is deleted and the chat, when its identity is in memory, is considered again. Returns whether one went. */
+  unrefuse(channel: UserChannel, chatId: string): Promise<boolean>;
   /** A directory record by its key, for the owner's Link from the Chats screen. */
   record(key: string): DirectoryEntry | null;
   /** Up to 8 directory records whose name or email holds `q` (two or more characters). */
@@ -118,6 +144,7 @@ function keyOf(file: string): string {
 export function startAutolink(o: StartAutolink): Autolink {
   const now = o.now ?? (() => new Date());
   const recent = new Map<string, RecentDialog>();
+  const hidden = new Map<string, HiddenDialog>();
   const active = new Set<string>();
   const inflight = new Map<string, Promise<void>>();
   let refused: Set<string> | null = null;
@@ -127,10 +154,12 @@ export function startAutolink(o: StartAutolink): Autolink {
   const refusals = async () => (refused ??= new Set(o.project ? (await o.repos.messengers.linkRefusals(o.project)).map((r) => `${r.channel}:${r.hash}`) : []));
   const isRefused = async (channel: UserChannel, chatId: string) => (await refusals()).has(`${channel}:${hmac(channel, chatId)}`);
 
+  const newer = (a: LastMessage | null | undefined, b: LastMessage | null | undefined): LastMessage | null => (!a ? (b ?? null) : !b ? a : a.at >= b.at ? a : b);
   const remember = (r: RecentDialog) => {
     const k = `${r.channel}:${r.chatId}`;
+    const was = recent.get(k);
     recent.delete(k);
-    recent.set(k, r);
+    recent.set(k, { ...r, last: newer(r.last, was?.last) });
     while (recent.size > RECENT_MAX) recent.delete(recent.keys().next().value ?? "");
   };
 
@@ -141,15 +170,24 @@ export function startAutolink(o: StartAutolink): Autolink {
     await o.repos.runs.addEvent({ project, runId, at, kind: "decision", tool: null, summary: `Linked ${name}'s ${CHANNEL_WORD[channel]} chat: ${name}`, detail: JSON.stringify({ action: "linked", reason: why, channel }), clientId });
   }
 
-  async function consider(channel: UserChannel, account: string, d: DialogIdentity): Promise<void> {
+  /** P84c: a refused chat the Hub sees again is named in Hidden (memory only), so the view refills after a restart. */
+  const keepHidden = (channel: UserChannel, account: string | null, chatId: string, title: string, identity: DialogIdentity | null, last: LastMessage | null) => {
+    const k = `${channel}:${chatId}`;
+    const was = hidden.get(k);
+    hidden.delete(k);
+    hidden.set(k, { channel, account: account ?? was?.account ?? null, identity: identity ?? was?.identity ?? null, chatId, title: title || was?.title || chatId, hiddenAt: was?.hiddenAt ?? now().toISOString(), last: newer(last, was?.last) });
+    while (hidden.size > RECENT_MAX) hidden.delete(hidden.keys().next().value ?? "");
+  };
+
+  async function consider(channel: UserChannel, account: string, d: DialogIdentity, last: LastMessage | null = null): Promise<void> {
     const project = o.project;
     if (!project) return;
     if (await o.repos.messengers.isAllowed(project, channel, d.chatId)) {
       recent.delete(`${channel}:${d.chatId}`);
       return;
     }
-    if (await isRefused(channel, d.chatId)) return;
-    const base = { channel, account, chatId: d.chatId, title: d.title, seenAt: now().toISOString() };
+    if (await isRefused(channel, d.chatId)) return keepHidden(channel, account, d.chatId, d.title, d, last);
+    const base = { channel, account, chatId: d.chatId, title: d.title, seenAt: now().toISOString(), last };
     const dir = o.directory.current();
     const m = dir ? matchDialog(dir, d, MATCH_CHANNEL[channel]) : ({ kind: "none" } as const);
     if (m.kind === "none") return remember({ ...base, why: "none", by: null, candidates: [] });
@@ -169,10 +207,10 @@ export function startAutolink(o: StartAutolink): Autolink {
     }
   }
 
-  const run = (channel: UserChannel, account: string, d: DialogIdentity) => {
+  const run = (channel: UserChannel, account: string, d: DialogIdentity, last: LastMessage | null = null) => {
     const k = `${channel}:${d.chatId}`;
     if (inflight.has(k)) return inflight.get(k)!;
-    const p = consider(channel, account, d)
+    const p = consider(channel, account, d, last)
       .catch(() => undefined)
       .finally(() => inflight.delete(k));
     inflight.set(k, p);
@@ -182,22 +220,27 @@ export function startAutolink(o: StartAutolink): Autolink {
   return {
     seen(channel, account, d, inbound) {
       if (inbound) active.add(`${channel}:${d.chatId}`);
-      void run(channel, account, d);
+      void run(channel, account, d, { at: now().toISOString(), inbound });
     },
     async scan(channel, account) {
       const adapter = o.adapterOf(channel, account);
       if (!adapter || !o.project) return;
       const ds = await adapter.dialogs(SCAN_DIALOGS).catch(() => [] as UserDialog[]);
       // Oldest first, so the newest dialog is remembered last and shows first on Chats.
-      for (const d of [...ds].reverse()) await run(channel, account, d);
+      for (const d of [...ds].reverse()) await run(channel, account, d, d.last ?? null);
     },
     async state() {
       const enabled = o.project ? await o.enabled() : false;
       // A chat linked since it was remembered (by the owner or a later match) leaves the list.
       const rows = [...recent.values()].reverse();
       const live: RecentDialog[] = [];
-      for (const r of rows) if (o.project && !(await o.repos.messengers.isAllowed(o.project, r.channel, r.chatId))) live.push(r);
-      return { project: o.project, enabled, recent: live, unlinkedActive: active.size };
+      // P84c: only the fresh ones; an unlinked chat whose newest message is older (or unknown) is never shown.
+      const since = now().getTime() - UNLINKED_FRESH_DAYS * 86_400_000;
+      const fresh = (r: RecentDialog) => r.last !== null && Date.parse(r.last.at) >= since;
+      for (const r of rows) if (fresh(r) && o.project && !(await o.repos.messengers.isAllowed(o.project, r.channel, r.chatId))) live.push(r);
+      const named = [...hidden.values()].reverse();
+      const total = o.project ? (await refusals()).size : 0;
+      return { project: o.project, enabled, recent: live, unlinkedActive: active.size, freshDays: UNLINKED_FRESH_DAYS, hidden: named, hiddenUnnamed: Math.max(0, total - named.length) };
     },
     async preview() {
       const out: PreviewCounts[] = [];
@@ -224,12 +267,26 @@ export function startAutolink(o: StartAutolink): Autolink {
       }
       return out;
     },
-    async refuse(channel, chatId) {
+    async refuse(channel, chatId, title) {
       if (!o.project) return;
       const h = hmac(channel, chatId);
       await o.repos.messengers.refuseLink(o.project, channel, h);
       (await refusals()).add(`${channel}:${h}`);
+      const r = recent.get(`${channel}:${chatId}`);
       recent.delete(`${channel}:${chatId}`);
+      keepHidden(channel, r?.account ?? null, chatId, title ?? r?.title ?? chatId, null, r?.last ?? null);
+    },
+    async unrefuse(channel, chatId) {
+      if (!o.project) return false;
+      const h = hmac(channel, chatId);
+      const gone = await o.repos.messengers.forgetLinkRefusal(o.project, channel, h);
+      (await refusals()).delete(`${channel}:${h}`);
+      const k = `${channel}:${chatId}`;
+      const was = hidden.get(k);
+      hidden.delete(k);
+      // Back on Chats at once when the memory knows who it is; a linked chat hidden by Never link comes back when it writes again.
+      if (was?.account) await run(channel, was.account, was.identity ?? { chatId, title: was.title, phone: channel === "whatsapp" ? chatId : null, username: null }, was.last);
+      return gone || was !== undefined;
     },
     record(k) {
       const dir = o.directory.current();

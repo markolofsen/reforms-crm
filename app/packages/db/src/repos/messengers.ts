@@ -82,6 +82,11 @@ export function messengersRepo(db: Db) {
     async refuseLink(project: string, channel: MessengerChannel, hash: string): Promise<void> {
       db.insert(messengerLinkRefusals).values({ project, channel, hash }).onConflictDoNothing().run();
     },
+    /** Unhide (P84c): the owner takes a "not a client" back; the autolink may consider the chat again. Returns whether a row went. */
+    async forgetLinkRefusal(project: string, channel: MessengerChannel, hash: string): Promise<boolean> {
+      const r = db.delete(messengerLinkRefusals).where(and(eq(messengerLinkRefusals.project, project), eq(messengerLinkRefusals.channel, channel), eq(messengerLinkRefusals.hash, hash))).run();
+      return r.changes > 0;
+    },
     async linkRefusals(project: string): Promise<{ channel: MessengerChannel; hash: string }[]> {
       return db.select({ channel: messengerLinkRefusals.channel, hash: messengerLinkRefusals.hash }).from(messengerLinkRefusals).where(eq(messengerLinkRefusals.project, project)).all();
     },

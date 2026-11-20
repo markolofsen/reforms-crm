@@ -1,5 +1,5 @@
-import { clientMatchesDto, messengerChatDto, messengerChatsDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerView } from "@hub/contract/messenger-panel";
-import { autolinkRecordsDto, autolinkStateDto, chatUnlinkedDto, userLinkedDto } from "@hub/contract/messengers";
+import { clientMatchesDto, messengerChatDto, messengerChatsDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChannelFilter, type MessengerView } from "@hub/contract/messenger-panel";
+import { autolinkHiddenDto, autolinkRecordsDto, autolinkStateDto, chatUnlinkedDto, userLinkedDto } from "@hub/contract/messengers";
 import { read } from "../client";
 
 const at = (project: string) => `/api/projects/${encodeURIComponent(project)}/messengers`;
@@ -10,7 +10,7 @@ const at = (project: string) => `/api/projects/${encodeURIComponent(project)}/me
  * drafts are Drafts'. The writes pass the server's admin gate (this page's own Origin). Nothing here sends: the send door is `./send.ts`.
  */
 export const messengersApi = {
-  chats: (project: string, filter: MessengerView) => read(messengerChatsDto, { method: "GET", path: `${at(project)}/chats`, query: { filter } }),
+  chats: (project: string, filter: MessengerView, channel: MessengerChannelFilter = "all") => read(messengerChatsDto, { method: "GET", path: `${at(project)}/chats`, query: { filter, channel } }),
   editDraft: (project: string, id: number, text: string) => read(messengerDraftDto, { method: "PUT", path: `${at(project)}/drafts/${id}/text`, body: { text } }),
   skipDraft: (project: string, id: number) => read(messengerSkippedDto, { method: "POST", path: `${at(project)}/drafts/${id}/skip`, body: {} }),
   restoreDraft: (project: string, id: number) => read(messengerDraftDto, { method: "POST", path: `${at(project)}/drafts/${id}/restore`, body: {} }),
@@ -20,5 +20,8 @@ export const messengersApi = {
   autolinkState: (project: string) => read(autolinkStateDto, { method: "POST", path: `${at(project)}/autolink/state`, body: {} }),
   findRecords: (project: string, q: string) => read(autolinkRecordsDto, { method: "POST", path: `${at(project)}/autolink/records`, body: { q } }),
   linkRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; key: string; title?: string }) => read(userLinkedDto, { method: "POST", path: `${at(project)}/autolink/link`, body }),
+  // P84c: Hide ("not a client") and Unhide of an unlinked chat; the server keeps a keyed hash, never the chat.
+  hideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => read(autolinkHiddenDto, { method: "POST", path: `${at(project)}/autolink/hide`, body }),
+  unhideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => read(autolinkHiddenDto, { method: "POST", path: `${at(project)}/autolink/unhide`, body }),
   unlinkChat: (project: string, id: number, never: boolean) => read(chatUnlinkedDto, { method: "POST", path: `${at(project)}/chats/${id}/${never ? "never" : "unlink"}`, body: {} }),
 };

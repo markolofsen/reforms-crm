@@ -14,7 +14,7 @@ export function ChatsScreen() {
   const { project } = useProjectScope();
   const route = useRoute();
   if (route.route !== "messengers.page") return null;
-  return <ChatsView filter={route.search.filter} project={project} />;
+  return <ChatsView channel={route.search.channel} filter={route.search.filter} project={project} />;
 }
 
 /** Messengers ▸ Settings. */

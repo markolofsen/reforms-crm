@@ -26,6 +26,12 @@ export const OWNER_REQUEST_MAX = 500;
 export const MESSENGER_DAILY_CAP = 30;
 export const MESSENGER_SPACING_SECONDS = 20;
 
+/**
+ * P84c (owner, 2026-11-20: "only the fresh ones"): an unlinked chat shows on Messengers ▸ Chats only while its newest message is at
+ * most this many days old; an older one is never shown, so the list is what wrote lately, not every contact of the phone.
+ */
+export const UNLINKED_FRESH_DAYS = 14;
+
 export interface ChatRules {
   replyMode: ReplyMode;
   /** The agent may propose a follow-up after our own last message, in a chat the client already wrote in (never first contact). */

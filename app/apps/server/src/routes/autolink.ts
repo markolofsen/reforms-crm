@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
-import { autolinkLinkBody, autolinkPreviewDto, autolinkRecordsBody, autolinkRecordsDto, autolinkStateDto, chatUnlinkedDto, userLinkedDto } from "@hub/contract/messengers";
+import { autolinkHiddenDto, autolinkHideBody, autolinkLinkBody, autolinkPreviewDto, autolinkRecordsBody, autolinkRecordsDto, autolinkStateDto, chatUnlinkedDto, userLinkedDto } from "@hub/contract/messengers";
 import { RepoError, type Repos } from "@hub/db";
 import { AdapterError, MessengersError } from "@hub/messengers";
 import { humanActor, linkUserChatToRecord, unlinkIdentifier } from "@hub/messengers/human";
@@ -47,7 +47,11 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
     if (row.channel === "telegram_bot") return c.json({ error: "A bot chat is not linked by the autolink.", code: "wrong_state" as const }, 409);
     const kind = row.channel === "whatsapp" ? "whatsapp" : "telegram";
     // The identifier, the chat, its messages and its drafts go (P71 M2b); Never link remembers the chat's HMAC first.
-    if (never) await al.autolink.refuse(row.channel, row.chatId);
+    if (never) {
+      const client = await repos.messengers.clientByIdentifier(slug, kind, row.chatId);
+      const name = client === null ? null : ((await repos.clients.get(slug, client))?.name ?? null);
+      await al.autolink.refuse(row.channel, row.chatId, name || row.title);
+    }
     await unlinkIdentifier(repos, humanActor("admin"), { project: slug, kind, value: row.chatId });
     await repos.messengers.disallowChat(slug, row.channel, row.chatId);
     return c.json(chatUnlinkedDto.parse({ ok: true, id, never }));
@@ -57,8 +61,9 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
     .post("/api/projects/:slug/messengers/autolink/state", (c) =>
       guarded(c, empty, async (_b, slug, al) => {
         const st = await al.autolink.state();
-        if (st.project !== slug) return c.json(autolinkStateDto.parse({ enabled: false, directory: al.directory.status(), unlinkedActive: 0, recent: [] }));
-        return c.json(autolinkStateDto.parse({ enabled: st.enabled, directory: al.directory.status(), unlinkedActive: st.unlinkedActive, recent: st.recent }));
+        if (st.project !== slug) return c.json(autolinkStateDto.parse({ enabled: false, directory: al.directory.status(), unlinkedActive: 0, recent: [], freshDays: st.freshDays, hidden: [], hiddenUnnamed: 0 }));
+        const hidden = st.hidden.map((h) => ({ channel: h.channel, chatId: h.chatId, title: h.title, hiddenAt: h.hiddenAt }));
+        return c.json(autolinkStateDto.parse({ enabled: st.enabled, directory: al.directory.status(), unlinkedActive: st.unlinkedActive, recent: st.recent, freshDays: st.freshDays, hidden, hiddenUnnamed: st.hiddenUnnamed }));
       }),
     )
     .post("/api/projects/:slug/messengers/autolink/preview", (c) =>
@@ -78,6 +83,22 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
         if (!adapter) return c.json({ error: "That account is not connected (parked, stopped or unknown): see its state.", code: "wrong_state" as const }, 409);
         const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: rec.email, name: rec.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}) });
         return c.json(userLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError }));
+      }),
+    )
+    // P84c: Hide ("not a client") of an unlinked chat the Hub saw, and Unhide: the refusal's HMAC is written or deleted; nothing else.
+    .post("/api/projects/:slug/messengers/autolink/hide", (c) =>
+      guarded(c, autolinkHideBody, async (b, slug, al) => {
+        if ((await al.autolink.state()).project !== slug) return c.json({ error: "The autolink serves another project.", code: "wrong_state" as const }, 409);
+        if (await repos.messengers.isAllowed(slug, b.channel, b.chatId)) return c.json({ error: "That chat is linked: unlink it on its rules row first.", code: "wrong_state" as const }, 409);
+        await al.autolink.refuse(b.channel, b.chatId);
+        return c.json(autolinkHiddenDto.parse({ ok: true, channel: b.channel, chatId: b.chatId, hidden: true }));
+      }),
+    )
+    .post("/api/projects/:slug/messengers/autolink/unhide", (c) =>
+      guarded(c, autolinkHideBody, async (b, slug, al) => {
+        if ((await al.autolink.state()).project !== slug) return c.json({ error: "The autolink serves another project.", code: "wrong_state" as const }, 409);
+        await al.autolink.unrefuse(b.channel, b.chatId);
+        return c.json(autolinkHiddenDto.parse({ ok: true, channel: b.channel, chatId: b.chatId, hidden: false }));
       }),
     )
     .post("/api/projects/:slug/messengers/chats/:id/unlink", (c) => guarded(c, empty, (_b, slug, al) => unlink(c, slug, al, false)))

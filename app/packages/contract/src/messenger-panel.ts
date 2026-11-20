@@ -11,11 +11,19 @@ export const MESSENGER_CHANNELS = ["telegram_bot", "telegram_user", "whatsapp"] 
 export type MessengerChannelDto = (typeof MESSENGER_CHANNELS)[number];
 
 /**
- * The panel's View menu: `waiting`, the chats with an open draft or whose newest stored message is the client's (what the
- * messengers owe), and `all`, every linked chat. The default is `waiting`, so a bare `/messengers` shows what needs the owner.
+ * The panel's View menu (P84c, owner 2026-11-20): `todo`, the linked chats with an open draft or whose newest stored message is the
+ * client's (what the messengers owe), plus, on the admin, the fresh unlinked chats nobody decided on yet; `linked`, every linked
+ * chat; `hidden`, the chats the owner said are not clients (never linked, so the server's list is empty there and the admin reads
+ * the autolink's memory). The default is `todo`, so a bare `/messengers` shows what needs the owner.
  */
-export const MESSENGER_VIEWS = ["waiting", "all"] as const;
+export const MESSENGER_VIEWS = ["todo", "linked", "hidden"] as const;
 export type MessengerView = (typeof MESSENGER_VIEWS)[number];
+
+/** P84c: the channel as a filter of the same page (`?channel=`), not a page per channel: the job is the same on both. */
+export const MESSENGER_CHANNEL_FILTERS = ["all", "telegram", "whatsapp"] as const;
+export type MessengerChannelFilter = (typeof MESSENGER_CHANNEL_FILTERS)[number];
+/** A chat's channel under a filter: the Telegram bot's chats are Telegram's. */
+export const inChannel = (channel: MessengerChannelDto, f: MessengerChannelFilter): boolean => f === "all" || (f === "whatsapp" ? channel === "whatsapp" : channel !== "whatsapp");
 
 export const chatRulesDto = z.strictObject({
   replyMode: z.enum(REPLY_MODES),
@@ -64,8 +72,8 @@ export type MessengerChatDto = z.infer<typeof messengerChatDto>;
 
 export const messengerChatsDto = z.strictObject({
   chats: z.array(messengerChatDto),
-  /** The View menu's counts, over every linked chat of the project. */
-  counts: z.strictObject({ waiting: z.number().int(), all: z.number().int() }),
+  /** The View menu's counts over the linked chats of the project in the channel asked: `todo` those that wait, `linked` all of them. */
+  counts: z.strictObject({ todo: z.number().int(), linked: z.number().int() }),
 });
 export type MessengerChatsDto = z.infer<typeof messengerChatsDto>;
 

@@ -63,8 +63,14 @@ export class FakeMtClient implements MtClient {
   fail(e: unknown): void {
     this.onError?.(e);
   }
-  async dialogs(limit: number): Promise<MtPeer[]> {
-    return this.peers.slice(0, limit);
+  /** P84c: a dialog's newest message as the list reports it (time and side). Unset: the newest of `past` for that chat, else "just now". */
+  last = new Map<number, { at: Date; outgoing: boolean } | null>();
+  async dialogs(limit: number): Promise<(MtPeer & { last: { at: Date; outgoing: boolean } | null })[]> {
+    return this.peers.slice(0, limit).map((p) => {
+      if (this.last.has(p.id)) return { ...p, last: this.last.get(p.id) ?? null };
+      const top = this.past.filter((m) => m.chat.id === p.id).sort((a, b) => b.date.getTime() - a.date.getTime())[0];
+      return { ...p, last: top ? { at: top.date, outgoing: top.isOutgoing } : { at: new Date(), outgoing: false } };
+    });
   }
   async history(chatId: number, o: { since: Date; minId: number; limit: number }): Promise<MtMessage[]> {
     this.historyCalls.push({ chatId, minId: o.minId });

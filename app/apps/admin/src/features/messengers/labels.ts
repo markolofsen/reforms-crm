@@ -1,14 +1,16 @@
 import { REPLY_MODE_LABELS } from "@hub/config/chat-rules";
 import { phrase } from "@hub/contract/help";
-import type { MessengerChannelDto, MessengerChatDto, MessengerSendPreviewDto, MessengerView } from "@hub/contract/messenger-panel";
+import type { MessengerChannelDto, MessengerChannelFilter, MessengerChatDto, MessengerSendPreviewDto, MessengerView } from "@hub/contract/messenger-panel";
 import type { RecentDialogDto } from "@hub/contract/messengers";
 
 // The Messengers section's words (P71 M3), pure so a test holds them (`ui-specifications.md` rule 3).
 
 export const CHANNEL_LABEL: Record<MessengerChannelDto, string> = { telegram_user: "Telegram", telegram_bot: "Telegram bot", whatsapp: "WhatsApp" };
 
-export const VIEW_LABEL: Record<MessengerView, string> = { waiting: "Waiting", all: "All chats" };
-export const VIEW_ORDER: readonly MessengerView[] = ["waiting", "all"];
+/** P84c (owner, 2026-11-20): three states of a chat in one View menu; no "postponed" state, since Hide covers it and is undone. */
+export const VIEW_LABEL: Record<MessengerView, string> = { todo: "To do", linked: "Linked", hidden: "Hidden" };
+export const VIEW_ORDER: readonly MessengerView[] = ["todo", "linked", "hidden"];
+export const CHANNEL_FILTER_LABEL: Record<MessengerChannelFilter, string> = { all: "All", telegram: "Telegram", whatsapp: "WhatsApp" };
 
 /** The confirm step of a messenger send (P71 M4): who, on which channel, from which account, and that it cannot be undone. */
 export const confirmLine = (p: Pick<MessengerSendPreviewDto, "to" | "channel" | "account">): string =>
@@ -67,6 +69,17 @@ export function whyLine(r: Pick<RecentDialogDto, "why" | "by" | "candidates">): 
       return "No client in Notion has its phone or username.";
   }
 }
+
+/** P84c: said once above the unlinked rows, instead of once per row ("none" rows say nothing of their own). */
+export const unlinkedIntro = (freshDays: number): string =>
+  `New chats no client in Notion has the phone or username of, from the last ${freshDays} days: link one, or hide it if it is not a client.`;
+
+/** P84c: an unlinked row's time: when they wrote, or when the owner wrote last. */
+export const wroteLine = (last: { at: string; inbound: boolean }, ago: string): string => (last.inbound ? `wrote ${ago}` : `you wrote ${ago}`);
+
+/** P84c: the Hidden view's line for the refusals the Hub keeps as a fingerprint only (it cannot name them back). */
+export const unnamedHiddenLine = (n: number): string =>
+  `${n === 1 ? "1 more hidden chat is" : `${n} more hidden chats are`} kept as a fingerprint only: it shows here by name when it writes again.`;
 
 /** The account row's sentence after its "Connected" badge (Messengers ▸ Settings): what the Hub reads of a connected account. */
 export const readsLine = (linked: number): string => `· reads only chats linked to a client (${linked} linked)`;

@@ -24,7 +24,7 @@ export const GUARDS: readonly string[] = [
 
 /** The linked chats with their rules, then the picker that links another. */
 function LinkedChats({ project, accounts }: { project: string; accounts: Record<UserChannel, string | null> }) {
-  const q = useQuery({ queryKey: keys.messengerChats(project, "all"), queryFn: () => messengersApi.chats(project, "all") });
+  const q = useQuery({ queryKey: keys.messengerChats(project, "linked"), queryFn: () => messengersApi.chats(project, "linked") });
   return (
     <div className="flex flex-col gap-4">
       {q.isPending ? null : !q.data ? (
@@ -53,7 +53,7 @@ export function MessengerSettings({ project }: { project: string }) {
   const tg = useTelegramUser();
   const wa = useWhatsApp();
   // P84: the account rows say how many chats the Hub reads (the linked ones), from the same list as Linked chats below.
-  const chats = useQuery({ queryKey: keys.messengerChats(project, "all"), queryFn: () => messengersApi.chats(project, "all") });
+  const chats = useQuery({ queryKey: keys.messengerChats(project, "linked"), queryFn: () => messengersApi.chats(project, "linked") });
   const linkedOf = (ch: UserChannel) => chats.data?.chats.filter((c) => c.channel === ch).length;
   const accounts: Record<UserChannel, string | null> = {
     telegram_user: tg.data?.accounts.find((a) => a.state === "running")?.account ?? null,

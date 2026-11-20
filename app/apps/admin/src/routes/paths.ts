@@ -1,4 +1,4 @@
-import { DEFAULT_DRAFT_VIEW, formatQuery, unlessDefault, type AgentView, type DraftView, type KnowledgeView, type ActivityView, type MessengerView } from "./search";
+import { DEFAULT_DRAFT_VIEW, formatQuery, unlessDefault, type AgentView, type DraftView, type KnowledgeView, type ActivityView, type MessengerChannelFilter, type MessengerView } from "./search";
 import type { SectionId } from "./sections";
 import { listRouteOf, PROJECTLESS, ROUTE_TABLE, type RouteId } from "./table";
 import { route } from "./typed";
@@ -39,9 +39,10 @@ export const paths = {
     connections: () => dest("settings.connections", route("/settings/connections")),
     mac: () => dest("settings.mac", route("/settings/mac")),
   },
-  /** P71 M3: the panel (`/messengers`, Waiting by default) and Messengers ▸ Settings. */
+  /** P71 M3: the panel (`/messengers`, To do and every channel by default, P84c) and Messengers ▸ Settings. */
   messengers: {
-    chats: (s: { filter?: MessengerView } = {}) => dest("messengers.page", route("/messengers"), { filter: unlessDefault(s.filter, "waiting") }),
+    chats: (s: { filter?: MessengerView; channel?: MessengerChannelFilter } = {}) =>
+      dest("messengers.page", route("/messengers"), { filter: unlessDefault(s.filter, "todo"), channel: unlessDefault(s.channel, "all") }),
     settings: () => dest("messengers.settings", route("/messengers/settings")),
   },
   drafts: {
