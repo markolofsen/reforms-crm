@@ -1,10 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
+import { refOf } from "@hub/contract/focus";
 import { toastManager } from "@hub/ui/toast";
 import { useGo } from "@/hooks/use-go";
 import { LoadFailed } from "@/components/state-views";
 import { refreshData, sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
+import { agentRef } from "@/lib/focus";
 import { copyText } from "@/lib/external";
 import { sendApi } from "@/lib/api/send";
 import { paths } from "@/routes/paths";
@@ -97,8 +99,10 @@ export function DraftCard({ d, project, actions, now, thread, onThread, onReplyA
   // Shift+Enter: read Mail and show the confirmation, then send what was shown. Nothing else sends by key.
   useSendKey(state === "acknowledged" || state === "failed" ? read : state === "confirming" ? () => dwellPassed(shownAt.current, clock()) && on.confirm() : null);
   const confirmed = flow.step === "confirm" || flow.step === "sending" ? flow.mail.body : null;
+  // The open draft carries its ref too (P72): beside the terminal dock the list pane is hidden, and a pointer at `draft:<id>`
+  // that Show opened must still find a row to ring.
   return (
-    <article aria-label={`Draft for ${d.client.name}`} className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <article aria-label={`Draft for ${d.client.name}`} className="flex min-h-0 min-w-0 flex-1 flex-col" {...agentRef(refOf("draft", d.id))}>
       <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 lg:p-6">
         <CardHeader actions={actions} d={d} now={now} ready={state === "acknowledged"} />
         {d.reason && (
