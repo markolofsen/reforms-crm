@@ -18,13 +18,14 @@ const BASE = "http://127.0.0.1:4317";
 const HASH = "0123456789abcdef0123456789abcdef";
 
 type Page = { id: string; properties: Record<string, unknown> };
-const page = (id: string, name: string, o: { email?: string; phone?: string; telegram?: string; relationship?: string; synthetic?: boolean; dnc?: boolean } = {}): Page => ({
+const page = (id: string, name: string, o: { email?: string; phone?: string; telegram?: string; whatsapp?: string; relationship?: string; synthetic?: boolean; dnc?: boolean } = {}): Page => ({
   id,
   properties: {
     Name: { type: "title", title: [{ plain_text: name }] },
     Email: { type: "email", email: o.email ?? null },
     Phone: { type: "phone_number", phone_number: o.phone ?? null },
     ...(o.telegram ? { Telegram: { type: "rich_text", rich_text: [{ plain_text: o.telegram }] } } : {}),
+    ...(o.whatsapp ? { WhatsApp: { type: "phone_number", phone_number: o.whatsapp } } : {}),
     Relationship: { type: "select", select: o.relationship ? { name: o.relationship } : null },
     Synthetic: { type: "checkbox", checkbox: o.synthetic ?? false },
     "Do not contact": { type: "checkbox", checkbox: o.dnc ?? false },
@@ -109,6 +110,16 @@ describe("the client directory (Notion, read only, in memory)", () => {
     expect(directory.status()).toMatchObject({ state: "ready", entries: 4, withIdentifier: 4, byRelationship: { Lead: 2, Client: 1, none: 1 } });
     expect(entryOf(page("x", "X", { email: "x@example.test", phone: "0813 0000 1111" }) as never)?.identifiers).toEqual([]);
     expect(entryOf(page("y", "Y", { email: "y@example.test", telegram: "@Anna_Smith" }) as never)?.identifiers).toEqual([{ kind: "username", value: "anna_smith" }]);
+  });
+
+  it("reads Phone for both messengers, WhatsApp for WhatsApp only, and a Telegram username or number for Telegram only", () => {
+    expect(entryOf(page("z", "Z", { email: "z@example.test", phone: "+62 813 0000 1111", whatsapp: "+62 813 0000 8888", telegram: "t.me/Zed_Z, +62 813 0000 9999" }) as never)?.identifiers).toEqual([
+      { kind: "phone", value: "+6281300001111" },
+      { kind: "username", value: "zed_z" },
+      { kind: "phone", value: "+6281300009999", channel: "telegram" },
+      { kind: "phone", value: "+6281300008888", channel: "whatsapp" },
+    ]);
+    expect(entryOf(page("w", "W", { email: "w@example.test", whatsapp: "0813 0000 8888", telegram: "813 0000 9999" }) as never)?.identifiers).toEqual([]);
   });
 });
 

@@ -19,6 +19,16 @@
    "type": "phone_number",
    "writer": "CRM"
   },
+  "Telegram": {
+   "type": "text",
+   "writer": "people",
+   "note": "Description: \"Edited by people. Telegram username without @ (e.g. anna_k) or a phone in +E.164. The Hub links this person's Telegram chat to the client when it matches exactly one client.\" Read by the Hub's messenger autolink (P84)."
+  },
+  "WhatsApp": {
+   "type": "phone_number",
+   "writer": "people",
+   "note": "Description: \"Edited by people. WhatsApp number in +E.164 (country code first), only when it differs from Phone. The Hub matches WhatsApp chats against Phone and this field.\" Read by the Hub's messenger autolink (P84)."
+  },
   "Gmail": {
    "type": "url",
    "writer": "CRM"

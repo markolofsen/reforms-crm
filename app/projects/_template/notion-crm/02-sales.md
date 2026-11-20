@@ -11,7 +11,9 @@ Purpose: everyone we work with or sell to, the deals in progress and what each n
 | Name | title | CRM | |
 | Email | email | CRM | main address; dedupe key (lower-case, trimmed) |
 | Other emails | text | notion | extra addresses, comma-separated; Not synced |
-| Phone | phone_number | CRM | |
+| Phone | phone_number | CRM | in +E.164 (country code first); the Hub also matches WhatsApp and Telegram chats against it |
+| Telegram | text | notion | username without @ (`anna_k`) or a phone in +E.164; the Hub links this person's Telegram chat by it |
+| WhatsApp | phone_number | notion | +E.164, only when it differs from Phone; the Hub matches WhatsApp chats against Phone and this field |
 | Gmail | url | CRM | a Gmail search link, not a log |
 | Drive folder | url | notion | link to Google Drive; Not synced; no folder is created |
 | Relationship | select: Lead, Prospect, Client, Partner, Other | CRM | |
@@ -42,6 +44,8 @@ Purpose: everyone we work with or sell to, the deals in progress and what each n
 | Overdue tasks | rollup | formula | |
 | Task due | rollup, earliest date of open tasks | formula | uses Tasks `Open due` |
 | No task | formula | formula | contact allowed, Relationship Lead/Prospect/Client, Activity Active/Quiet, no open task |
+
+Messenger chats find their client by these three fields (P84, decision 0036 point 3): when the owner's Telegram or WhatsApp sees a private chat whose number or username equals the `Phone`, `WhatsApp` or `Telegram` of exactly one client with an Email, the Hub links that chat to the client by itself (project setting `messengers.autolink`). A WhatsApp chat is matched against `Phone` and `WhatsApp`; a Telegram chat against `Phone`, a number in `Telegram` and the Telegram username. A number without its country code is never guessed into one; two clients with the same number link nothing (a suggestion on Messengers ▸ Chats); a name never counts.
 
 Client history is one rule: the `Conversation summary` property plus a `Conversation log` heading at the bottom of the Client page, both written by Hub only (one bullet `YYYY-MM-DD · Channel · phrase [e:abc123def456]`, newest 40 kept). Hub adds the heading itself; never create it. Leads keep no history.
 

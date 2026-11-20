@@ -9,7 +9,7 @@ Every property of every database the Notion CRM deploys, with its type, who writ
 ## Databases
 
 - [Business contacts](#business-contacts) (`business-contacts`, 18 fields)
-- [Clients](#clients) (`clients`, 40 fields)
+- [Clients](#clients) (`clients`, 42 fields)
 - [Deals](#deals) (`deals`, 45 fields)
 - [Documents](#documents) (`documents`, 18 fields)
 - [Expenses](#expenses) (`expenses`, 19 fields)
@@ -56,6 +56,8 @@ Pack file: `schema/clients.json`.
 | Email | email | CRM |  |
 | Other emails | text | people |  |
 | Phone | phone_number | CRM |  |
+| Telegram | text | people | Description: "Edited by people. Telegram username without @ (e.g. anna_k) or a phone in +E.164. The Hub links this person's Telegram chat to the client when it matches exactly one client." Read by the Hub's messenger autolink (P84). |
+| WhatsApp | phone_number | people | Description: "Edited by people. WhatsApp number in +E.164 (country code first), only when it differs from Phone. The Hub matches WhatsApp chats against Phone and this field." Read by the Hub's messenger autolink (P84). |
 | Gmail | url | CRM |  |
 | Drive folder | url | people |  |
 | Relationship | select | CRM | Options: Lead, Prospect, Client, Partner, Other. |

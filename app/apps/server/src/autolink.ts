@@ -2,7 +2,7 @@ import { createHmac, randomBytes } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { Repos } from "@hub/db";
-import { matchDialog, MATCH_REASON, type DialogIdentity, type DirectoryEntry } from "@hub/messengers";
+import { matchDialog, MATCH_REASON, type DialogChannel, type DialogIdentity, type DirectoryEntry } from "@hub/messengers";
 import { autoLinkUserChat, type LinkableAdapter } from "@hub/messengers/human";
 import type { UserDialog } from "@hub/messengers";
 import type { ClientDirectory } from "./client-directory";
@@ -18,6 +18,8 @@ import type { ClientDirectory } from "./client-directory";
  */
 
 export type UserChannel = "telegram_user" | "whatsapp";
+/** The matcher's name for each account kind: a record's WhatsApp number counts for WhatsApp chats only, its Telegram field for Telegram's. */
+const MATCH_CHANNEL: Record<UserChannel, DialogChannel> = { telegram_user: "telegram", whatsapp: "whatsapp" };
 export const CHANNEL_WORD: Record<UserChannel, string> = { telegram_user: "Telegram", whatsapp: "WhatsApp" };
 /** Telegram's connect scan reads at most this many dialogs (the same bound as the warm-up of `connect`). */
 export const SCAN_DIALOGS = 500;
@@ -149,7 +151,7 @@ export function startAutolink(o: StartAutolink): Autolink {
     if (await isRefused(channel, d.chatId)) return;
     const base = { channel, account, chatId: d.chatId, title: d.title, seenAt: now().toISOString() };
     const dir = o.directory.current();
-    const m = dir ? matchDialog(dir, d) : ({ kind: "none" } as const);
+    const m = dir ? matchDialog(dir, d, MATCH_CHANNEL[channel]) : ({ kind: "none" } as const);
     if (m.kind === "none") return remember({ ...base, why: "none", by: null, candidates: [] });
     if (m.kind === "ambiguous") return remember({ ...base, why: "ambiguous", by: m.by, candidates: m.entries.map(candidateOf) });
     if (m.kind === "no_email") return remember({ ...base, why: "no_email", by: m.by, candidates: [candidateOf(m.entry)] });
@@ -210,7 +212,7 @@ export function startAutolink(o: StartAutolink): Autolink {
             c.linked++;
             continue;
           }
-          const m = dir ? matchDialog(dir, d) : ({ kind: "none" } as const);
+          const m = dir ? matchDialog(dir, d, MATCH_CHANNEL[channel]) : ({ kind: "none" } as const);
           if (m.kind === "unique") {
             c.unique++;
             const rel = m.entry.relationship ?? "none";

@@ -20,6 +20,15 @@ The pack is a snapshot of one live CRM (`📘 Help`), distilled and made generic
 
 Core modules: Clients, Leads, Tasks, Documents (conversation reports are Documents of Type Report; the separate Reports database is retired, decision 0022). Workflows are not a Notion module: they are files in the project folder (`projects/<slug>/workflows/`, `hub workflows list <slug>`). Optional: Deals, Organizations, Open loops, Participants, Expenses and Payments, Business contacts, Knowledge. A property flagged `vertical` (real estate) or `ads` is built only if the interview asks for it.
 
+## Telegram and WhatsApp on a client
+
+Clients has two fields for messengers, next to `Phone`, both edited by people (P84). The Hub reads them to link the owner's messenger chats to the right client by itself (Messengers ▸ Chats; project setting `messengers.autolink`); nothing else uses them, and the Hub never writes them.
+
+- **Telegram** (text): the person's Telegram username without `@`, for example `anna_k` (an `@anna_k` or a `t.me/anna_k` link is read the same way, in any case), or their phone in +E.164. A Telegram chat links when its username or its phone equals this field or `Phone`.
+- **WhatsApp** (phone number): the number in +E.164, country code first, for example `+6281234567890`. Fill it only when it differs from `Phone`. A WhatsApp chat links when its number equals `Phone` or this field.
+
++E.164 means `+`, the country code, then the number, without the leading 0 of a local number. A number written without its country code (`0812...`) is skipped: the Hub never guesses the country. A chat links only when exactly one client with an Email matches; a number two clients share links nothing and shows as a suggestion instead, and a contact's saved name never counts. Field descriptions, word for word: [`fields.md`](fields.md#clients).
+
 ## Rules that matter
 
 - **Names are the interface.** Hub and the CRM sync find fields by their exact name and select options by label. Never rename a property or an option.

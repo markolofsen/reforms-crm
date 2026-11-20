@@ -34,7 +34,7 @@ export { createDraft, listOpenDrafts, type NewDraftInput } from "./drafts";
 export { clientHistory, type ClientHistory, type ClientHistoryDeps, type HistoryItem } from "./history";
 export { pollCommand, pollLine, statusLines, STALE_AFTER_MS } from "./commands";
 export { purgeNow } from "./purge";
-export { buildDirectory, e164, matchDialog, MATCH_REASON, username as telegramUsername, type DialogIdentity, type DialogMatch, type Directory, type DirectoryEntry, type DirectoryKey } from "./autolink";
+export { buildDirectory, e164, matchDialog, MATCH_REASON, username as telegramUsername, type DialogChannel, type DialogIdentity, type DialogMatch, type Directory, type DirectoryEntry, type DirectoryKey } from "./autolink";
 export { extractSignaturePhones, signatureBlock } from "./signature-phones";
 export {
   createTelegramUserAdapter,

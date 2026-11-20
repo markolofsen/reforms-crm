@@ -34,6 +34,28 @@ describe("autolink matcher", () => {
     expect(e164("813 0000 1111")).toBeNull();
     expect(username("https://t.me/Anna_S")).toBe("anna_s");
     expect(username("ab")).toBeNull();
+    expect(username("t.me/Anna_S/")).toBe("anna_s");
+    expect(username("@anna_s")).toBe("anna_s");
+  });
+
+  it("a WhatsApp number matches WhatsApp chats only, a Telegram number Telegram's, a Phone both, a username Telegram only", () => {
+    const d = buildDirectory([
+      entry("pat", { identifiers: [{ kind: "phone", value: "+6281300007777" }] }),
+      entry("wanda", { identifiers: [{ kind: "phone", value: "+6281300008888", channel: "whatsapp" }] }),
+      entry("tom", { identifiers: [{ kind: "phone", value: "+6281300009999", channel: "telegram" }, { kind: "username", value: "tom_t" }] }),
+    ]);
+    const dlg = (phone: string | null, user: string | null = null) => ({ chatId: "c", title: "x", phone, username: user });
+    expect(matchDialog(d, dlg("+6281300007777"), "whatsapp")).toMatchObject({ kind: "unique", entry: { key: "pat" } });
+    expect(matchDialog(d, dlg("+6281300007777"), "telegram")).toMatchObject({ kind: "unique", entry: { key: "pat" } });
+    expect(matchDialog(d, dlg("+6281300008888"), "whatsapp")).toMatchObject({ kind: "unique", entry: { key: "wanda" } });
+    expect(matchDialog(d, dlg("+6281300008888"), "telegram")).toEqual({ kind: "none" });
+    expect(matchDialog(d, dlg("+6281300009999"), "telegram")).toMatchObject({ kind: "unique", entry: { key: "tom" } });
+    expect(matchDialog(d, dlg("+6281300009999"), "whatsapp")).toEqual({ kind: "none" });
+    expect(matchDialog(d, dlg(null, "Tom_T"), "telegram")).toMatchObject({ kind: "unique", by: "username" });
+    expect(matchDialog(d, dlg(null, "tom_t"), "whatsapp")).toEqual({ kind: "none" });
+    // One record with the same number in Phone and WhatsApp is still one record.
+    const same = buildDirectory([entry("sam", { identifiers: [{ kind: "phone", value: "+6281300006666" }, { kind: "phone", value: "+6281300006666", channel: "whatsapp" }] })]);
+    expect(matchDialog(same, dlg("+6281300006666"), "whatsapp")).toMatchObject({ kind: "unique", entry: { key: "sam" } });
   });
 });
 
