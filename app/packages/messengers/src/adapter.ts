@@ -111,7 +111,12 @@ export async function mtcuteClients() {
   return { login: m.mtcuteLoginClient, session: m.mtcuteSessionClient };
 }
 
-/** The real Baileys socket of a WhatsApp linked device (P71 M5), loaded only when the server has a session or a pairing starts. */
+/**
+ * The real Baileys socket of a WhatsApp linked device (P71 M5), loaded only when the server has a session or a pairing starts.
+ * The current WhatsApp Web version is fetched here once (up to 5 s, from GitHub), and every socket of the process announces it.
+ */
 export async function baileysSocketFactory() {
-  return (await import("./whatsapp-api")).baileysSocket;
+  const m = await import("./whatsapp-api");
+  const version = await m.latestWaVersion();
+  return (auth: Parameters<typeof m.baileysSocket>[0]) => m.baileysSocket(auth, version);
 }

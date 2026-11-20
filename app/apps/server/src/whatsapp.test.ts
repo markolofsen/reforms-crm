@@ -72,6 +72,8 @@ async function connect(): Promise<ReturnType<typeof createApp>> {
   expect(JSON.stringify(qr)).not.toMatch(/fake-qr-reference|fake-noise-key/);
   expect(readdirSync(dir)).toEqual([]);
   pairing.scan();
+  // The pairing socket stays open through the scan, so the device's signature goes out before WhatsApp's 515 (the 401 of 2026-11-20).
+  expect(pairing.pairSigned).toBe(true);
   await vi.waitFor(async () => expect(await json(await post(app, "/api/messengers/whatsapp/connect/state", { flow }))).toEqual({ step: "done", account: ACCOUNT, name: "Owner" }));
   // The number's own socket, from its files, is open and listening (it reads "running" after its first poll, up to 30 s later).
   await vi.waitFor(() => expect(socks.length === 2 && last().listening && wa?.adapter(ACCOUNT) !== undefined).toBe(true));

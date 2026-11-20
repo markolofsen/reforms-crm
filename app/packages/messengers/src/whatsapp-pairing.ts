@@ -7,9 +7,14 @@ import { WA_CODES, type WaMe, type WaSocket, type WaSocketFactory } from "./what
 /**
  * Linking WhatsApp as a device (P71 M5, decision 0036 point 4): the owner presses Connect, the server opens a socket over an empty
  * in-memory auth store, Baileys shows a QR code (a new one about every 20 s), the owner scans it with his phone (WhatsApp ▸ Linked
- * devices ▸ Link a device). When the phone has scanned, the store holds the account's creds: it is written to the account's folder
- * (0700, files 0600) by the caller's `store`, the pairing socket is closed, and the supervisor connects the account from its files.
- * Nothing of the pairing is written before the scan; the QR code is never logged or written, it lives in this flow until read.
+ * devices ▸ Link a device). When the phone has scanned, Baileys reports the new login (`paired`), answers WhatsApp's pair-success
+ * with the device's signature (`pair-device-sign`), then WhatsApp closes the socket with 515 (restart required). Only on that 515
+ * is the store written to the account's folder (0700, files 0600) by the caller's `store`, and the supervisor connects the account
+ * from its files over the same creds. Nothing of the pairing is written before the scan; the QR code is never logged or written.
+ *
+ * The socket is never closed on `paired` (P71 M5 fix, 2026-11-20): Baileys emits `paired` before it sends the signature, inside the
+ * same handler, so a close there cut the reply off; WhatsApp accepted the half-registered device for a few minutes, then logged
+ * it out (401). The pairing socket lives until WhatsApp itself closes it.
  */
 
 export type PairingStep =
@@ -49,6 +54,8 @@ interface Flow {
   auth: WaAuthFiles;
   state: PairingStep;
   until: number;
+  /** Set on `paired`: the account the 515 that follows stores. */
+  me: WaMe | null;
 }
 
 const FAILED: Record<number, string> = {
@@ -80,7 +87,7 @@ export function createWaPairing(deps: PairingDeps) {
       const auth = new WaAuthFiles(null);
       const sock = deps.socketFor(auth);
       const id = randomBytes(18).toString("base64url");
-      const f: Flow = { sock, auth, state: { step: "waiting" }, until: now() + ttl };
+      const f: Flow = { sock, auth, state: { step: "waiting" }, until: now() + ttl, me: null };
       flows.set(id, f);
       sock.listen({
         connection(u) {
@@ -88,8 +95,16 @@ export function createWaPairing(deps: PairingDeps) {
           if (u.state === "qr") {
             f.state = { step: "qr", ...qrRows(u.qr) };
           } else if (u.state === "paired") {
-            const me = u.me;
+            // Nothing is closed here: Baileys still has to send the device's signature after this event (see the top).
+            if (f.me) return;
+            f.me = u.me;
             f.state = { step: "waiting" };
+          } else if (u.state === "close" && u.code === WA_CODES.restartRequired && f.me) {
+            // WhatsApp's restart after the scan: the signature went out, the creds are final. Store them and connect the account.
+            const me = f.me;
+            f.state = { step: "waiting" };
+            // The flow lives on until the supervisor has connected; the TTL does not cut a save in progress.
+            f.until = Number.POSITIVE_INFINITY;
             void (async () => {
               try {
                 await f.sock.close().catch(() => undefined);
@@ -97,6 +112,8 @@ export function createWaPairing(deps: PairingDeps) {
                 f.state = { step: "done", account: me.account, name: me.name };
               } catch (e) {
                 f.state = { step: "failed", reason: e instanceof Error ? `The link was made but could not be saved: ${e.message}` : "The link could not be saved." };
+              } finally {
+                f.until = now() + ttl;
               }
             })();
           } else if (u.state === "close" && u.code !== WA_CODES.restartRequired) {

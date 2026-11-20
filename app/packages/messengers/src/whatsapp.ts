@@ -16,7 +16,8 @@ import type { WaAuthFiles } from "./whatsapp-auth";
  * such a chat only its number, its name and the key and time of its newest message (never a text) are held in this process's
  * memory, for the picker and as the anchor of the import's history request; nothing of it is written, counted or logged, and the
  * directory goes with the process or the disconnect. Only private chats with a person are read (no groups, broadcasts,
- * newsletters, status). Unlike mtcute, Baileys does not reconnect by itself: a closed socket is rebuilt by the next poll.
+ * newsletters, status). Unlike mtcute, Baileys does not reconnect by itself: a closed socket is rebuilt by the next poll, one
+ * socket at a time (a connect in flight is shared, never doubled), and a 515 restart is rebuilt at once over the same auth store.
  */
 
 /** Who is signed in: the account is the number's digits (the session folder's name), `name` the owner's WhatsApp name. */
@@ -47,7 +48,8 @@ export type WaConnection =
   /** The phone has just scanned the code: the creds hold the account now (Baileys then closes with 515, restart required). */
   | { state: "paired"; me: WaMe }
   | { state: "open"; me: WaMe }
-  | { state: "close"; code: number | null };
+  /** `reason`: Baileys' own words and the closing node's tag and attributes (`Stream Errored (conflict): conflict type=device_removed`), redacted; it reaches `last_error`. */
+  | { state: "close"; code: number | null; reason?: string | null };
 
 export interface WaEvents {
   connection(u: WaConnection): void;
@@ -103,16 +105,18 @@ const statusOf = (err: unknown): number | null => {
  * longer accepts) park the account as `logged_out`; 403 parks it as `banned`; 440 (the session was opened elsewhere) stops it
  * without a park; 429 waits; the rest is the network's, retried with the backoff.
  */
-export function toWaAdapterError(err: unknown, closeCode?: number | null): AdapterError {
+export function toWaAdapterError(err: unknown, closeCode?: number | null, detail?: string | null): AdapterError {
   if (err instanceof AdapterError) return err;
   const code = closeCode ?? statusOf(err);
   if (code !== null && code !== undefined) {
-    if (code === WA_CODES.loggedOut) return new AdapterError("logged_out", "whatsapp 401: logged out (the device was removed or the session ended)");
-    if (code === WA_CODES.multideviceMismatch || code === WA_CODES.badSession) return new AdapterError("logged_out", `whatsapp ${code}: the session is no longer valid`);
-    if (code === WA_CODES.forbidden) return new AdapterError("banned", "whatsapp 403: the number is banned or restricted");
-    if (code === WA_CODES.connectionReplaced) return new AdapterError("conflict", "whatsapp 440: the session was opened in another place (connection replaced)");
-    if (code === WA_CODES.rateLimited) return new AdapterError("rate_limited", "whatsapp 429: rate limited", 60_000);
-    return new AdapterError("network", `whatsapp ${code}: the connection closed`);
+    // WhatsApp's own reason, when the close carried one: what the next 401 says about why.
+    const why = detail ? ` [${detail}]` : "";
+    if (code === WA_CODES.loggedOut) return new AdapterError("logged_out", `whatsapp 401: logged out (the device was removed or the session ended)${why}`);
+    if (code === WA_CODES.multideviceMismatch || code === WA_CODES.badSession) return new AdapterError("logged_out", `whatsapp ${code}: the session is no longer valid${why}`);
+    if (code === WA_CODES.forbidden) return new AdapterError("banned", `whatsapp 403: the number is banned or restricted${why}`);
+    if (code === WA_CODES.connectionReplaced) return new AdapterError("conflict", `whatsapp 440: the session was opened in another place (connection replaced)${why}`);
+    if (code === WA_CODES.rateLimited) return new AdapterError("rate_limited", `whatsapp 429: rate limited${why}`, 60_000);
+    return new AdapterError("network", `whatsapp ${code}: the connection closed${why}`);
   }
   const name = err instanceof Error ? err.name : "Error";
   const msg = err instanceof Error ? err.message : String(err);
@@ -181,6 +185,8 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
   let queue: InboundMessage[] = [];
   let failure: AdapterError | null = null;
   let sock: WaSocket | null = null;
+  /** The connect in flight: `poll` and `history` share it, so two sockets over one auth state never exist at once. */
+  let connecting: Promise<void> | null = null;
   let closed = false;
   const wake: { fn: (() => void) | null } = { fn: null };
   const directory = new Map<string, Entry>();
@@ -236,7 +242,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
   };
 
   /** Opens a socket and waits for `open`; the close that comes instead is mapped. Later closes become the next poll's failure. */
-  const connect = () =>
+  const connectOnce = (): Promise<void> =>
     new Promise<void>((resolve, reject) => {
       const s = o.socket();
       let opened = false;
@@ -251,6 +257,12 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
             if (opened) return;
             opened = true;
             clearTimeout(timer);
+            if (closed) {
+              // The adapter closed while this socket was opening: it is not kept.
+              void s.close().catch(() => undefined);
+              reject(new AdapterError("network", "whatsapp: closed while connecting"));
+              return;
+            }
             if (u.me.account !== account) {
               void s.close().catch(() => undefined);
               reject(new AdapterError("logged_out", "the session belongs to another WhatsApp number than its folder"));
@@ -259,15 +271,18 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
             sock = s;
             resolve();
           } else if (u.state === "close") {
-            const err = toWaAdapterError(null, u.code ?? WA_CODES.connectionClosed);
+            const err = toWaAdapterError(null, u.code ?? WA_CODES.connectionClosed, u.reason);
             if (!opened) {
               clearTimeout(timer);
-              // 515 right at the start is Baileys' own restart: one more socket, not a failure.
-              if (u.code === WA_CODES.restartRequired) connect().then(resolve, reject);
+              void s.close().catch(() => undefined);
+              // 515 right at the start is Baileys' own restart: one more socket over the same store, not a failure.
+              if (u.code === WA_CODES.restartRequired && !closed) connectOnce().then(resolve, reject);
               else reject(err);
               return;
             }
-            if (sock === s) sock = null;
+            // A socket already replaced says nothing about the live one.
+            if (sock !== s) return;
+            sock = null;
             if (closed) return;
             // A restart is not an error: the next poll opens a new socket. Anything else is the next poll's failure.
             if (u.code !== WA_CODES.restartRequired && (err.fatal || !failure)) failure = err;
@@ -285,6 +300,12 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       });
     });
 
+  const connect = (): Promise<void> => {
+    connecting ??= connectOnce().finally(() => {
+      connecting = null;
+    });
+    return connecting;
+  };
   const ensure = async () => {
     if (!sock && !closed) await connect();
   };
@@ -296,7 +317,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
     async start() {
       try {
         await refreshAllowed();
-        await connect();
+        if (!sock) await connect();
       } catch (err) {
         throw toWaAdapterError(err);
       }

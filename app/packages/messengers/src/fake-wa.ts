@@ -20,6 +20,11 @@ export class FakeBoom extends Error {
 export class FakeWaSocket implements WaSocket {
   closed = 0;
   loggedOut = 0;
+  /**
+   * Whether the device's signature (`pair-device-sign`) went out after the scan. Baileys sends it after the `paired` event, in the
+   * same handler, so a close made while that event is handled cuts it off; the real WhatsApp then logs the device out minutes later.
+   */
+  pairSigned = false;
   sent: { chatId: string; text: string; id: string }[] = [];
   sendError: unknown = null;
   historyRequests: { chatId: string; anchor: WaAnchor; count: number }[] = [];
@@ -47,18 +52,22 @@ export class FakeWaSocket implements WaSocket {
   qr(code = "2@fake-qr-reference,fake-noise-key,fake-identity-key,fake-adv-secret"): void {
     this.events?.connection({ state: "qr", qr: code });
   }
-  /** The phone scans the code: the creds now name the account, then Baileys asks for a restart (515). */
+  /** The phone scans the code: the creds now name the account, Baileys sends the signature unless closed, then WhatsApp asks for a restart (515). */
   scan(): void {
     this.auth.set(CREDS, JSON.stringify({ me: { id: `${this.me.account}:7@s.whatsapp.net`, name: this.me.name }, registered: false, noiseKey: "fake-noise-key-material" }));
     this.auth.set("pre-key/1", JSON.stringify({ public: "fake-public", private: "fake-private" }));
+    const closedBefore = this.closed;
     this.events?.connection({ state: "paired", me: this.me });
-    this.closeWith(515);
+    if (this.closed !== closedBefore || !this.events) return;
+    this.pairSigned = true;
+    this.auth.set(CREDS, JSON.stringify({ me: { id: `${this.me.account}:7@s.whatsapp.net`, name: this.me.name }, registered: false, noiseKey: "fake-noise-key-material", signed: true }));
+    this.closeWith(515, "Stream Errored (restart required)");
   }
   open(): void {
     this.events?.connection({ state: "open", me: this.me });
   }
-  closeWith(code: number | null = 428): void {
-    this.events?.connection({ state: "close", code });
+  closeWith(code: number | null = 428, reason: string | null = null): void {
+    this.events?.connection({ state: "close", code, reason });
   }
   /** Plays one new message; returns it. */
   message(chatId: string, text: string, o: { fromMe?: boolean; kind?: string | null; id?: string; at?: Date } = {}): WaMessage {
