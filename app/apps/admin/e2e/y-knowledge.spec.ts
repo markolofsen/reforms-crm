@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import type { KnowledgeListDto } from "@hub/contract/knowledge";
+import { entryTopic, type KnowledgeListDto } from "@hub/contract/knowledge";
 import { address, remember } from "./support";
 
 // Knowledge (P70, `/<project>/knowledge`) against the real API: the spec copies the knowledge package's fixture base (acme-travel,
@@ -24,6 +24,9 @@ const index = () => execFileSync("pnpm", ["--filter", "@hub/knowledge", "knowled
 const opened = (): string[][] => (existsSync(LOG) ? readFileSync(LOG, "utf8").trim().split("\n").filter(Boolean).map((l) => (JSON.parse(l) as { argv: string[] }).argv) : []);
 const list = async (page: Page, filter = "all") => (await (await page.request.get(`${API()}/api/projects/${PROJECT}/knowledge?filter=${filter}`)).json()) as KnowledgeListDto;
 const table = (page: Page) => page.getByRole("table", { name: "Knowledge entries" });
+/** P74: the top headings the rows of a list should draw (the fixture's folders; its brands are all the same, so no brand level). */
+const topics = (d: KnowledgeListDto) => [...new Set(d.entries.map((e) => entryTopic(e.key, e.category)[0]))].sort((a = "", b = "") => a.localeCompare(b));
+const heads = (page: Page) => table(page).locator("tr[data-topic-head] th");
 
 test.describe.configure({ mode: "serial" });
 
@@ -45,13 +48,18 @@ test("knowledge: every entry is a row with its title, its status in words and it
   expect(d.entries.length).toBeGreaterThan(10);
   await page.goto(`/${PROJECT}/knowledge`);
   await expect(page).toHaveTitle(`Knowledge · ${PROJECT} · Hub Workflow`);
-  await expect(table(page).locator("tbody tr")).toHaveCount(d.entries.length);
+  await expect(table(page).locator("tbody tr[data-entry]")).toHaveCount(d.entries.length);
   for (const e of d.entries) {
     const row = table(page).locator(`tr[data-entry="${e.key}"]`);
     await expect(row, e.key).toContainText(e.title);
     await expect(row).toHaveAttribute("data-status", e.status);
   }
   await expect(table(page).locator('tr[data-status="expired"]')).toContainText("Expired");
+  // P74: a heading per folder, in label order, each with its count; a heading is not a ref and not a tab stop.
+  const want = topics(d).map((t) => new RegExp(`^${t}\\s*${d.entries.filter((e) => entryTopic(e.key, e.category)[0] === t).length}$`));
+  expect(want.length).toBeGreaterThan(1);
+  await expect(heads(page)).toHaveText(want);
+  await expect(table(page).locator("tr[data-topic-head][data-agent-ref], tr[data-topic-head] [tabindex]")).toHaveCount(0);
   await expect(page.getByRole("searchbox", { name: "Search knowledge titles" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open folder" })).toBeVisible();
   // No status sentence: the numbers are the View menu's (admin-principles rule 10).
@@ -68,7 +76,7 @@ test("knowledge: the View menu's counts are the server's, and each view lists ex
   for (const [i, [label, n]] of want.entries()) await expect(items.nth(i)).toHaveText(new RegExp(`^${label}\\s*${n}$`));
   await items.filter({ hasText: "Expired" }).click();
   await expect.poll(() => address(page)).toBe(`/${PROJECT}/knowledge?filter=expired`);
-  await expect(table(page).locator("tbody tr")).toHaveCount(d.counts.expired);
+  await expect(table(page).locator("tbody tr[data-entry]")).toHaveCount(d.counts.expired);
   for (const view of ["attention", "unapproved"] as const) {
     expect((await list(page, view)).entries.length, view).toBe(d.counts[view]);
   }
@@ -78,8 +86,10 @@ test("knowledge: the search narrows by title and the address keeps it", async ({
   await page.goto(`/${PROJECT}/knowledge`);
   await page.getByRole("searchbox", { name: "Search knowledge titles" }).fill("spring");
   await expect.poll(() => address(page)).toBe(`/${PROJECT}/knowledge?q=spring`);
-  await expect(table(page).locator("tbody tr")).toHaveCount(1);
+  await expect(table(page).locator("tbody tr[data-entry]")).toHaveCount(1);
   await expect(table(page)).toContainText("Spring sale 2025");
+  // P74: only the heading that holds the match is drawn, with its count.
+  await expect(heads(page)).toHaveText([/^Prices\s*1$/]);
 });
 
 test("knowledge: an entry's Open opens its file (the fake opener records the argv)", async ({ page }) => {
@@ -95,6 +105,8 @@ test("knowledge: at 360px each entry is at most two lines (title and Open, then 
   const rows = page.getByRole("list", { name: "Knowledge entries" }).locator("li[data-entry]");
   await expect(rows).toHaveCount(d.entries.length);
   await expect(table(page)).toHaveCount(0);
+  // P74: the same headings over the list.
+  await expect(page.getByRole("list", { name: "Knowledge entries" }).locator("[data-topic-head]")).toHaveCount(topics(d).length);
   const first = rows.first();
   // UX pass: a row with nothing to add (no date, the shared audience, approved) is one line; an expired one says so on its second.
   expect(await first.locator("p").count()).toBeLessThanOrEqual(2);

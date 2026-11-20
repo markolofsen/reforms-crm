@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { entryStatus, inView, knowledgeEntryDto, knowledgeListDto } from "./knowledge";
+import { entryStatus, entryTopic, inView, knowledgeEntryDto, knowledgeListDto, OTHER_TOPIC, topicLabel } from "./knowledge";
 
 const entry = { key: "knowledge:knowledge/pricing.md", title: "Pricing", use: "STATE", approved: true, audiences: ["client"], brands: [], category: null, kind: null, validUntil: null, status: "approved" } as const;
 
@@ -29,5 +29,25 @@ describe("knowledge list (P70)", () => {
     expect(inView({ status: "expired", audiences: ["client"] }, "expired")).toBe(true);
     expect(inView({ status: "expiring", audiences: ["client"] }, "expired")).toBe(false);
     expect(inView({ status: "unapproved", audiences: [] }, "all")).toBe(true);
+  });
+});
+
+describe("entry topic (P74)", () => {
+  it("is the folder under files/ or notion/, one label per level; a flat entry falls under its category; neither is Other", () => {
+    expect(entryTopic("knowledge:knowledge/files/playbooks/client/a-lead-asks-41306f30.md", "PLAYBOOK")).toEqual(["Playbooks", "Client"]);
+    expect(entryTopic("knowledge:knowledge/notion/programmes/grenada/x.md", null)).toEqual(["Programmes", "Grenada"]);
+    expect(entryTopic("knowledge:knowledge/files/are-sold-cars-removed-41806f30.md", "DATA")).toEqual(["Data"]);
+    expect(entryTopic("knowledge:knowledge/files/x.md", "API")).toEqual(["API"]);
+    expect(entryTopic("knowledge:knowledge/pricing.md", null)).toEqual([OTHER_TOPIC]);
+    expect(entryTopic("knowledge:knowledge/files/x.md", "  ")).toEqual([OTHER_TOPIC]);
+  });
+
+  it("labels: a code or folder as words, capitalised; an upper-case code of three letters or fewer as written", () => {
+    expect(topicLabel("ABOUT_DAN")).toBe("About dan");
+    expect(topicLabel("four-seasons-nevis")).toBe("Four seasons nevis");
+    expect(topicLabel("API")).toBe("API");
+    expect(topicLabel("TAX")).toBe("TAX");
+    expect(topicLabel("tax")).toBe("Tax");
+    expect(topicLabel("PRICING")).toBe("Pricing");
   });
 });

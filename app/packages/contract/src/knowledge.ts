@@ -61,3 +61,31 @@ export function inView(e: Pick<KnowledgeEntryDto, "status" | "audiences">, view:
   if (view === "attention") return e.status !== "approved" || e.audiences.length === 0;
   return e.status === view;
 }
+
+/** The topic of an entry with no folder and no category (P74). */
+export const OTHER_TOPIC = "Other";
+
+/**
+ * A topic code or folder name as words (P74): `ABOUT_DAN` is "About dan", `four-seasons-nevis` "Four seasons nevis"; an upper-case
+ * code of three letters or fewer stays as written (`API`), since it is an acronym, not a word.
+ */
+export function topicLabel(code: string): string {
+  if (/^[A-Z0-9]{1,3}$/.test(code)) return code;
+  const words = code.toLowerCase().replaceAll(/[_-]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+/**
+ * Where an entry sits (P74), as labels from the outside in: its folder, one label per directory under `knowledge/files/` or
+ * `knowledge/notion/` (`playbooks/client` is ["Playbooks", "Client"]); an entry directly in the base falls under its `category`;
+ * neither is `OTHER_TOPIC`. Read from the row's Open key (P61), so it needs no field, no reindex and no server change. Pure.
+ */
+export function entryTopic(key: string, category: string | null): readonly string[] {
+  const parts = key.replace(/^knowledge:/, "").split("/").slice(0, -1);
+  if (parts[0] === "knowledge") parts.shift();
+  if (parts[0] === "files" || parts[0] === "notion") parts.shift();
+  const dirs = parts.filter((p) => p !== "");
+  if (dirs.length > 0) return dirs.map(topicLabel);
+  const c = category?.trim() ?? "";
+  return [c === "" ? OTHER_TOPIC : topicLabel(c)];
+}

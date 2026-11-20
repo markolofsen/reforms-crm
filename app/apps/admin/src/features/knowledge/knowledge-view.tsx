@@ -57,7 +57,7 @@ function SearchBox({ q, onSearch }: { q: string; onSearch: (v: string) => void }
  * Knowledge (P70, `/knowledge`): the facts the agent cites in the owner's name, every entry with its title. The header line: the
  * View menu with counts, the title search and Open folder (the folder whose files are listed below, `admin-principles.md`
  * rule 12). The body: the index's file problems when it does not match the files (from the project overview, with the phrase),
- * then one line for what every entry shares (its column left out), then the table. No status sentence: its numbers are the View
+ * then one line for what every entry shares (its column left out), then the table under a heading per topic (P74). No status sentence: its numbers are the View
  * menu's counts, said once (rule 10). Read from the index only; a change is a phrase to the agent.
  */
 export function KnowledgeView({ project, filter, q }: { project: string; filter: View; q: string }) {
