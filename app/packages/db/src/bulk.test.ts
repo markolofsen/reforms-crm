@@ -74,7 +74,9 @@ describe("batch (read-only)", () => {
     const list = await repos.clients.list("p");
     expect(list).toHaveLength(1);
     expect(list[0]!.draft?.batchId).toBe(second.batchId);
-    expect((await repos.clients.counts("p")).all).toBe(1);
+    // P87 (B3): the Drafts views count each draft of the client; the finished one is history in All and Finished.
+    expect((await repos.clients.counts("p")).all).toBe(2);
+    expect((await repos.clients.counts("p")).done).toBe(1);
     // the done draft is history: the same client written to again within 7 days is flagged
     const [d2] = await repos.batches.drafts("p", second.batchId);
     expect(d2!.safetyResults.map((s) => s.kind)).toContain("already_sent_recently");
@@ -289,7 +291,9 @@ describe("a bulk-drafts run is one batch in Drafts (P85)", () => {
     expect(again).toMatchObject({ action: "updated", draftId: a.draftId });
     const list = await repos.batches.list("p");
     expect(list).toHaveLength(1);
-    expect(list[0]).toMatchObject({ name: "write to every client about the new price list", brief: "write to every client about the new price list", intent: "custom", audience: "agent", total: 2, runId: a.runId });
+    // P87 (finding 8): no batchTitle, so "Campaign <date>"; the owner's words stay the brief.
+    expect(list[0]).toMatchObject({ brief: "write to every client about the new price list", intent: "custom", audience: "agent", total: 2, runId: a.runId });
+    expect(list[0]!.name).toMatch(/^Campaign \d{1,2} [A-Z][a-z]{2} \d{4}$/);
     expect(list[0]!.counts.all).toBe(2);
     expect((await repos.drafts.get(a.draftId))?.batchId).toBe(list[0]!.id);
     expect((await repos.drafts.get(b.draftId))?.batchId).toBe(list[0]!.id);
@@ -330,5 +334,65 @@ describe("a bulk-drafts run is one batch in Drafts (P85)", () => {
     const b = await rec("ann@x.example", "<a1@x>");
     expect(b.action).toBe("created");
     expect(b.draftId).not.toBe(a.draftId);
+  });
+});
+
+describe("P87: a campaign is a batch whatever the agent remembered, and its history stays listed", () => {
+  const words = "write to Mark Effect and Ann about the Hub test";
+  const rec = (email: string, mailRef: string, context: Record<string, unknown> = {}) =>
+    repos.drafts.record({ project: "p", email, name: email, subject: "Re: Hello", mailRef, skill: "bulk-drafts", ownerRequest: words, evidence: { level: "ok", source: "observed", findings: [], context, batchKey: typeof context.batchKey === "string" ? context.batchKey : null } });
+
+  it("B2: records of one phrase with no batchKey land in ONE batch; neither key nor words is refused", async () => {
+    const a = await rec("mark@x.example", "<m1@x>");
+    const b = await rec("ann@x.example", "<a1@x>");
+    const list = await repos.batches.list("p");
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({ total: 2, brief: words });
+    expect((await repos.drafts.get(a.draftId))?.batchId).toBe(list[0]!.id);
+    expect((await repos.drafts.get(b.draftId))?.batchId).toBe(list[0]!.id);
+    await expect(repos.drafts.record({ project: "p", email: "z@x.example", name: "Z", subject: "Re", mailRef: "<z@x>", skill: "bulk-drafts", evidence: { level: "ok", source: "observed", findings: [] } })).rejects.toThrow(/batchKey/);
+  });
+
+  it("finding 8: the batch takes the agent's English title; a title in Cyrillic falls back to Campaign <date>", async () => {
+    await rec("mark@x.example", "<m1@x>", { batchKey: "k1", batchTitle: "Hub test note" });
+    await rec("ann@x.example", "<a1@x>", { batchKey: "k2", batchTitle: "\u0422\u0435\u0441\u0442" });
+    const names = (await repos.batches.list("p")).map((x) => x.name).sort();
+    expect(names[1]).toBe("Hub test note");
+    expect(names[0]).toMatch(/^Campaign /);
+  });
+
+  it("B5: a record that gives the address as the name never replaces the client's name", async () => {
+    const first = await repos.drafts.record({ project: "p", email: "mark@x.example", name: "Mark Effect", subject: "Re: Hello", mailRef: "<m0@x>", skill: "triage-mail" });
+    await repos.drafts.setStatus(first.draftId, "done");
+    await rec("mark@x.example", "<m1@x>");
+    const id = await repos.clients.idByEmail("p", "mark@x.example");
+    expect((await repos.clients.get("p", id!))?.name).toBe("Mark Effect");
+    await repos.clients.touch({ project: "p", email: "mark@x.example", name: "  " });
+    expect((await repos.clients.get("p", id!))?.name).toBe("Mark Effect");
+    await repos.clients.touch({ project: "p", email: "mark@x.example", name: "Mark E." });
+    expect((await repos.clients.get("p", id!))?.name).toBe("Mark E.");
+  });
+
+  it("B3: a sent draft stays in Finished after a newer draft to the same client, and the card counts the other drafts", async () => {
+    const first = await repos.drafts.record({ project: "p", email: "mark@x.example", name: "Mark Effect", subject: "Re: Hello", mailRef: "<m0@x>", skill: "triage-mail" });
+    await repos.drafts.markSent(first.draftId, { at: "2026-11-19T10:00:00.000Z", via: "message-id", messageId: "s1@x" });
+    const second = await rec("mark@x.example", "<s1@x>");
+    expect((await repos.clients.review("p", "sent")).map((d) => d.id)).toEqual([first.draftId]);
+    expect((await repos.clients.review("p", "ready")).map((d) => d.id)).toEqual([second.draftId]);
+    expect((await repos.clients.counts("p")).sent).toBe(1);
+    expect((await repos.clients.review("p", "ready"))[0]?.otherDrafts).toBe(1);
+    // B6: the sent draft is found by the Message-ID it went out as.
+    expect((await repos.drafts.bySentMessageId("p", "<S1@x>"))?.id).toBe(first.draftId);
+  });
+
+  it("finding 6: Understood all warnings acknowledges every amber result of the batch's open drafts, never a red one", async () => {
+    const r = await repos.drafts.record({ project: "p", email: "gus@x.example", name: "Gus", subject: "Re: Hello", mailRef: "<g1@x>", skill: "bulk-drafts", ownerRequest: "write to Gus", evidence: { level: "weak", source: "claimed", findings: [{ code: "facts-missing", text: "no fact was used", amber: true }], batchKey: "bulk-w" } });
+    const batchId = (await repos.drafts.get(r.draftId))?.batchId as number;
+    const before = (await repos.batches.drafts("p", batchId))[0]!.safetyResults;
+    const out = await repos.drafts.acknowledgeWarnings("p", batchId);
+    const after = (await repos.batches.drafts("p", batchId))[0]!.safetyResults;
+    expect(out.results).toBe(before.filter((x) => x.level === "amber" && !x.acked).length);
+    expect(after.filter((x) => x.level === "amber").every((x) => x.acked)).toBe(true);
+    expect(after.filter((x) => x.level === "red").map((x) => x.acked)).toEqual(before.filter((x) => x.level === "red").map((x) => x.acked));
   });
 });

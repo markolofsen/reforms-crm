@@ -1,21 +1,26 @@
 import { and, eq, inArray } from "drizzle-orm";
+import { BATCH_SEND_ACTOR } from "@hub/config";
 import type { Db } from "../client";
-import { agentEvents, clients, drafts, inboxRows } from "../schema";
+import { agentEvents, clients, drafts, inboxRows, messengerDrafts, sendLog } from "../schema";
 
 // Activity (P73, decision 0037): one timeline of what the agent decided, newest first. A row is one `agent_events` row that
 // names a client decision (drafted, updated a draft, skipped, escalated, flagged); the run it joined is not read, since a run
 // is neither a session nor a day (one `record-*` call each, or one draft's lifetime across days). Notes (thoughts, tool steps,
 // errors) are the session log's (`hub log`), not this screen's. The outcome and the reason are read from the event's detail.
-// Read only.
+// P87 (finding 5, decision 0037 as amended): what went out is part of the one timeline too: every `send_log` row that was sent
+// (both doors, Mail and the messengers) is a row of All, outcome `sent`, its why the way it went. Read only.
 
-export type ActivityOutcome = "drafted" | "updated" | "skipped" | "escalated" | "flagged" | "linked";
+export type ActivityOutcome = "drafted" | "updated" | "skipped" | "escalated" | "flagged" | "linked" | "sent";
 /** The views of the View menu, by outcome: Needs you is escalated and flagged, Drafts is drafted and updated. */
 export type ActivityView = "all" | "needs_you" | "drafts" | "skipped";
-// A chat the Hub linked by itself (P84, outcome `linked`) is in All only.
-const VIEW_OF: Record<ActivityOutcome, Exclude<ActivityView, "all"> | null> = { drafted: "drafts", updated: "drafts", skipped: "skipped", escalated: "needs_you", flagged: "needs_you", linked: null };
+// A chat the Hub linked by itself (P84, outcome `linked`) and a send (P87, `sent`; its own list is Activity ▸ Sends) are in All only.
+const VIEW_OF: Record<ActivityOutcome, Exclude<ActivityView, "all"> | null> = { drafted: "drafts", updated: "drafts", skipped: "skipped", escalated: "needs_you", flagged: "needs_you", linked: null, sent: null };
 
 export interface ActivityRow {
+  /** The source row's id: an `agent_events` id, or a `send_log` id for a send. */
   id: number;
+  /** Unique across both sources (`event:12`, `send:3`): the list key and the cursor's tie-break (the two tables' ids collide). */
+  key: string;
   at: string;
   client: { id: number; name: string } | null;
   who: string;
@@ -75,15 +80,21 @@ const skillOf = (d: Detail): string | null => {
   return s && !HUB_WRITERS.has(s) ? s : null;
 };
 
-const CURSOR = /^(.+)\|(\d+)$/;
-/** `<at>|<id>`: rows strictly older than it, in the timeline's order (`at` desc, then `id` desc). */
-function olderThan(before: string | null | undefined): (r: { at: string; id: number }) => boolean {
+const CURSOR = /^(.+)\|(event|send):(\d+)$/;
+type Pos = { at: string; src: "event" | "send"; id: number };
+/** The timeline's order, newest first: `at` desc, then a send before an event, then the id desc. */
+const newerFirst = (a: Pos, b: Pos): number => (a.at === b.at ? (a.src === b.src ? b.id - a.id : a.src === "send" ? -1 : 1) : a.at < b.at ? 1 : -1);
+/** `<at>|<key>`: rows strictly older than it, in the timeline's order. */
+function olderThan(before: string | null | undefined): (r: Pos) => boolean {
   const m = before ? CURSOR.exec(before) : null;
   if (!m) return () => true;
-  const at = m[1] ?? "";
-  const id = Number(m[2]);
-  return (r) => r.at < at || (r.at === at && r.id < id);
+  const at: Pos = { at: m[1] ?? "", src: m[2] === "send" ? "send" : "event", id: Number(m[3]) };
+  return (r) => newerFirst(at, r) < 0;
 }
+
+const CHANNEL_WORD: Record<string, string> = { telegram_user: "Telegram", telegram_bot: "Telegram bot", whatsapp: "WhatsApp" };
+/** How a send went, in the words of Activity ▸ Sends: Batch, By hand, Autosend; a message names its messenger. */
+const viaOf = (r: { actor: string; mode: string; channel: string }): string => (r.channel !== "mail" ? `${r.actor === BATCH_SEND_ACTOR ? "Batch" : "By hand"} on ${CHANNEL_WORD[r.channel] ?? r.channel}` : r.actor === BATCH_SEND_ACTOR ? "Batch" : r.mode === "auto" ? "Autosend" : "By hand");
 
 export async function timelineOf(db: Db, project: string, q: TimelineQuery = {}): Promise<Activity> {
   const view = q.view ?? "all";
@@ -106,7 +117,39 @@ export async function timelineOf(db: Db, project: string, q: TimelineQuery = {})
   if (inboxIds.length) {
     for (const r of db.select({ inboxId: inboxRows.id, id: clients.id, name: clients.name }).from(inboxRows).innerJoin(clients, and(eq(clients.project, inboxRows.project), eq(clients.email, inboxRows.email))).where(and(eq(inboxRows.project, project), inArray(inboxRows.id, inboxIds))).all()) byInbox.set(r.inboxId, { id: r.id, name: r.name });
   }
-  const resolved = decided.map((x) => ({ ...x, client: x.e.clientId !== null && x.e.clientName !== null ? { id: x.e.clientId, name: x.e.clientName } : (byInbox.get(int(x.d.inboxId) ?? -1) ?? null) }));
+  const resolvedEvents = decided.map((x) => ({ ...x, client: x.e.clientId !== null && x.e.clientName !== null ? { id: x.e.clientId, name: x.e.clientName } : (byInbox.get(int(x.d.inboxId) ?? -1) ?? null) }));
+
+  // P87: the sends, each with its client through the Mail draft or the messenger draft it carried.
+  const sendRows = db
+    .select({ id: sendLog.id, createdAt: sendLog.createdAt, doneAt: sendLog.doneAt, actor: sendLog.actor, mode: sendLog.mode, channel: sendLog.channel, toAddr: sendLog.toAddr, subject: sendLog.subject, draftId: sendLog.draftId, mailClient: drafts.clientId, chatClient: messengerDrafts.clientId })
+    .from(sendLog)
+    .leftJoin(drafts, eq(drafts.id, sendLog.draftId))
+    .leftJoin(messengerDrafts, eq(messengerDrafts.id, sendLog.messengerDraftId))
+    .where(and(eq(sendLog.project, project), eq(sendLog.status, "sent")))
+    .all();
+  const sendClientIds = [...new Set(sendRows.map((r) => r.mailClient ?? r.chatClient).filter((x): x is number => x !== null))];
+  const names = new Map(sendClientIds.length ? db.select({ id: clients.id, name: clients.name }).from(clients).where(and(eq(clients.project, project), inArray(clients.id, sendClientIds))).all().map((c) => [c.id, c.name]) : []);
+  type Item = { pos: Pos; outcome: ActivityOutcome; client: { id: number; name: string } | null; row: () => Omit<ActivityRow, "client"> };
+  const items: Item[] = [
+    ...resolvedEvents.map(({ e, d, outcome, client: c }): Item => ({
+      pos: { at: e.at, src: "event", id: e.id },
+      outcome,
+      client: c,
+      row: () => ({ id: e.id, key: `event:${e.id}`, at: e.at, who: whoOf(e.summary, int(d.inboxId) !== null), outcome, why: str(d.reason), draftId: int(d.draftId), skill: skillOf(d) }),
+    })),
+    ...sendRows.map((r): Item => {
+      const cid = r.mailClient ?? r.chatClient;
+      const name = cid !== null ? names.get(cid) : undefined;
+      const at = r.doneAt ?? r.createdAt;
+      return {
+        pos: { at, src: "send", id: r.id },
+        outcome: "sent",
+        client: cid !== null && name !== undefined ? { id: cid, name } : null,
+        row: () => ({ id: r.id, key: `send:${r.id}`, at, who: r.channel === "mail" ? r.toAddr : r.subject, outcome: "sent", why: viaOf(r), draftId: r.channel === "mail" ? r.draftId : null, skill: null }),
+      };
+    }),
+  ];
+  const resolved = items;
 
   const client = q.client != null ? (db.select({ id: clients.id, name: clients.name }).from(clients).where(and(eq(clients.id, q.client), eq(clients.project, project))).get() ?? null) : null;
   const scoped = q.client != null ? resolved.filter((x) => x.client?.id === q.client) : resolved;
@@ -118,20 +161,14 @@ export async function timelineOf(db: Db, project: string, q: TimelineQuery = {})
   }
 
   const older = olderThan(q.before);
-  const inView = scoped
-    .filter((x) => (view === "all" || VIEW_OF[x.outcome] === view) && older(x.e))
-    .sort((a, b) => (a.e.at === b.e.at ? b.e.id - a.e.id : a.e.at < b.e.at ? 1 : -1));
-  const page = inView.slice(0, limit);
+  const inView = scoped.filter((x) => (view === "all" || VIEW_OF[x.outcome] === view) && older(x.pos)).sort((a, b) => newerFirst(a.pos, b.pos));
+  const page = inView.slice(0, limit).map((x) => ({ ...x.row(), client: x.client }));
 
   // A draft row's "why" is the draft's own reason (the event does not repeat it).
-  const draftIds = [...new Set(page.map(({ d }) => int(d.draftId)).filter((x): x is number => x !== null))];
+  const draftIds = [...new Set(page.filter((r) => r.outcome === "drafted" || r.outcome === "updated").map((r) => r.draftId).filter((x): x is number => x !== null))];
   const reasons = new Map(draftIds.length ? db.select({ id: drafts.id, reason: drafts.reason }).from(drafts).where(and(eq(drafts.project, project), inArray(drafts.id, draftIds))).all().map((d) => [d.id, d.reason]) : []);
 
-  const rows = page.map(({ e, d, outcome, client: c }): ActivityRow => {
-    const draftId = int(d.draftId);
-    const why = str(d.reason) ?? ((outcome === "drafted" || outcome === "updated") && draftId !== null ? str(reasons.get(draftId)) : null);
-    return { id: e.id, at: e.at, client: c, who: whoOf(e.summary, int(d.inboxId) !== null), outcome, why, draftId, skill: skillOf(d) };
-  });
+  const rows = page.map((r): ActivityRow => (r.why === null && (r.outcome === "drafted" || r.outcome === "updated") && r.draftId !== null ? { ...r, why: str(reasons.get(r.draftId)) } : r));
   const last = rows.at(-1);
-  return { rows, counts, next: inView.length > limit && last ? `${last.at}|${last.id}` : null, client };
+  return { rows, counts, next: inView.length > limit && last ? `${last.at}|${last.key}` : null, client };
 }

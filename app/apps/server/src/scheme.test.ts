@@ -112,6 +112,15 @@ describe("composeScheme", () => {
     expect(byId(await composeScheme(sources({ health: () => ({ ...HEALTH, sent: { ...HEALTH.sent, state: "error", lastError: "Mail refused" } }) })), "alpha:send-door")).toMatchObject({ state: "fail" });
   });
 
+  it("P87 (B1): Mail not running is one Apple Mail part that needs a look, with Open Mail; the send door needs a look too; a running Mail adds no part", async () => {
+    const down = await composeScheme(sources({ connections: async () => ({ ...CONN, mail: [{ account: "hello@example.test", foundInMail: null, usedBy: ["alpha"] }], mailRead: { state: "not-running", fix: null } }) }));
+    expect(byId(down, "mail-app")).toMatchObject({ kind: "mail-app", project: null, label: "Apple Mail", state: "warn", action: "mail.openApp" });
+    expect(byId(down, "mail-app")?.detail).toMatch(/never opens Mail itself/);
+    expect(byId(down, "alpha:send-door")).toMatchObject({ state: "warn", detail: "Apple Mail is not running: nothing can be sent until it is open." });
+    expect(down.nodes.filter((n) => n.action !== undefined).map((n) => n.id)).toEqual(["mail-app"]);
+    expect(byId(await composeScheme(sources()), "mail-app")).toBeUndefined();
+  });
+
   it("Mail that did not answer leaves the mailbox not checked; a failing doctor check breaks Setup; expired knowledge is a look", async () => {
     const d = await composeScheme(
       sources({

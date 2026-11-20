@@ -6,7 +6,7 @@ import { dayLabel, daySections, groupCells, groupRows, lineRef, localDay } from 
 // from midnight, so the day of each row is the same in any zone the tests run in.
 const at = (d: number, h: number, m: number) => new Date(2026, 10, d, h, m).toISOString();
 let next = 1;
-const row = (over: Partial<ActivityRowDto> = {}): ActivityRowDto => ({ id: next++, at: at(19, 20, 50), client: { id: 7, name: "Mark Effect" }, who: "Mark Effect", outcome: "updated", why: null, draftId: 1, skill: null, ...over });
+const row = (over: Partial<ActivityRowDto> = {}): ActivityRowDto => ({ ...((id) => ({ id, key: `event:${id}` }))(next++), at: at(19, 20, 50), client: { id: 7, name: "Mark Effect" }, who: "Mark Effect", outcome: "updated", why: null, draftId: 1, skill: null, ...over });
 const NOW = new Date(2026, 10, 20, 14, 0).getTime();
 
 describe("the timeline's fold", () => {

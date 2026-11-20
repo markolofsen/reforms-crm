@@ -94,7 +94,7 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile, measured
       listBottom={
         batch !== null && known ? (
           // P85b: a batch's own Send all Checked; every draft still has its own Send on its card.
-          <BatchSend batchId={batch} checked={batches.data?.batches.find((b) => b.id === batch)?.counts.checked ?? 0} project={project} />
+          <BatchSend batchId={batch} brief={batches.data?.batches.find((b) => b.id === batch)?.brief ?? null} checked={batches.data?.batches.find((b) => b.id === batch)?.counts.checked ?? 0} project={project} />
         ) : filter === "sequences" ? (
           <FollowUps project={project} />
         ) : undefined

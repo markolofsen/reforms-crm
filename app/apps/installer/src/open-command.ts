@@ -94,6 +94,6 @@ export async function runOpenCommand(action: string | undefined, f: OpenFlags, d
     d.out(`refused: ${e instanceof Error ? e.message : String(e)}`);
     return 2;
   }
-  d.out(`opened: ${target.label}  ${target.kind === "path" ? target.path : target.url}`);
+  d.out(`opened: ${target.label}  ${target.kind === "path" ? target.path : target.kind === "url" ? target.url : target.app}`);
   return 0;
 }

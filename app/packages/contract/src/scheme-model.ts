@@ -183,6 +183,7 @@ export const BLOCK_OF: Record<SchemeKind, BlockId> = {
   telegram: "messengers",
   whatsapp: "messengers",
   llm: "llm",
+  "mail-app": "mail",
   mailbox: "mail",
   "mail-mcp": "mail",
   "hub-tools": "tools",

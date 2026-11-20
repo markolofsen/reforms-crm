@@ -1,5 +1,6 @@
 import { SAFETY_LABELS } from "@hub/config";
-import { AlertTriangleIcon, CheckIcon, ShieldAlertIcon } from "lucide-react";
+import { AlertTriangleIcon, CheckIcon, ChevronDownIcon, ShieldAlertIcon } from "lucide-react";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { cn } from "@hub/ui/cn";
 import { isClosed, type ReviewDraft } from "../source";
@@ -14,6 +15,27 @@ export function CheckList({ d, actions, results }: { d: ReviewDraft; actions: Re
   const closed = isClosed(d);
   const items = [...(results ?? d.safetyResults)].sort((a, b) => Number(b.level === "red") - Number(a.level === "red"));
   if (items.length === 0 && !d.safety && !d.injectionSuspected) return null;
+  // P87 (B4): on a finished draft the checks are history, folded under one line; nothing there is still to do.
+  if (closed) {
+    return items.length === 0 ? null : (
+      <Collapsible>
+        <CollapsibleTrigger className="flex min-h-(--control-s) items-center gap-1 rounded-sm text-muted-foreground text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          {`Checks at send (${items.length})`}
+          <ChevronDownIcon aria-hidden="true" className="size-4 shrink-0" />
+        </CollapsibleTrigger>
+        <CollapsiblePanel>
+          <ul aria-label="Checks at send" className="flex flex-col gap-1 pt-1 text-muted-foreground text-sm">
+            {items.map((r) => (
+              <li className="break-words" key={r.kind}>
+                {r.level === "red" ? "Red check" : "Check"}: {r.text}
+                {r.acked ? " (understood)" : ""}
+              </li>
+            ))}
+          </ul>
+        </CollapsiblePanel>
+      </Collapsible>
+    );
+  }
   return (
     <section aria-label="Checks" className="flex flex-col gap-2">
       {d.injectionSuspected && !closed && (
@@ -37,8 +59,9 @@ export function CheckList({ d, actions, results }: { d: ReviewDraft; actions: Re
                   <b className="font-medium">{r.level === "red" ? "Red check" : "Check"}: </b>
                   {r.text}
                 </span>
-                <ActionButton aria-label={`Understood: ${SAFETY_LABELS[r.kind]}`} aria-pressed={r.acked} disabled={closed || actions.pending} onClick={() => actions.acknowledge(d, r.kind, !r.acked)} size="s" variant={r.acked ? "quiet" : "secondary"}>
-                  {r.acked && <CheckIcon aria-hidden="true" />}
+                {/* P87 (finding 6): the same width acknowledged or not (the tick's slot is kept), so the rows do not move under the cursor. */}
+                <ActionButton aria-label={`Understood: ${SAFETY_LABELS[r.kind]}`} aria-pressed={r.acked} className="min-w-30 shrink-0 justify-center" disabled={closed || actions.pending} onClick={() => actions.acknowledge(d, r.kind, !r.acked)} size="s" variant={r.acked ? "quiet" : "secondary"}>
+                  <CheckIcon aria-hidden="true" className={r.acked ? undefined : "invisible"} />
                   Understood
                 </ActionButton>
               </li>

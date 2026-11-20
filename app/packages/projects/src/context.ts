@@ -14,6 +14,8 @@ const day = z.string().trim().max(40);
 export const contextSchema = z
   .object({
     batchKey: z.string().trim().min(1).max(100).optional(),
+    /** P87: a campaign's short English title, the batch's name in Drafts ("Spring price list"); the owner's words stay the brief. */
+    batchTitle: z.string().trim().min(1).max(60).optional(),
     purpose: z.string().trim().max(300).optional(),
     thread: z
       .object({

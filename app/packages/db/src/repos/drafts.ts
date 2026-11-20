@@ -99,9 +99,9 @@ const purposeOf = (context: unknown): string | null => (isRecord(context) && typ
  * draft, joined by the rest; the client is added to its list once. Name and brief are the owner's words (or the run's
  * purpose). This is the only writer of `batches` (decision 0025: a batch is the agent's, the admin only views it).
  */
-function joinBatch(tx: WriteTx, o: { project: string; runId: number; clientId: number; brief: string | null; batchKey: string; at: string }): number {
+function joinBatch(tx: WriteTx, o: { project: string; runId: number; clientId: number; brief: string | null; title: string | null; at: string }): number {
   const found = tx.select().from(batches).where(and(eq(batches.project, o.project), eq(batches.runId, o.runId))).get();
-  const row = found ?? tx.insert(batches).values({ project: o.project, name: batchName(o.brief, o.batchKey), intent: "custom", status: "ready", audience: "agent", clientIds: "[]", total: 0, excluded: "{}", brief: o.brief, runId: o.runId, createdAt: o.at }).returning().get();
+  const row = found ?? tx.insert(batches).values({ project: o.project, name: batchName(o.title, o.at), intent: "custom", status: "ready", audience: "agent", clientIds: "[]", total: 0, excluded: "{}", brief: o.brief, runId: o.runId, createdAt: o.at }).returning().get();
   const ids = parseJson<number[]>(row.clientIds, []);
   if (!ids.includes(o.clientId)) {
     ids.push(o.clientId);
@@ -110,10 +110,33 @@ function joinBatch(tx: WriteTx, o: { project: string; runId: number; clientId: n
   return row.id;
 }
 
-const batchName = (brief: string | null, key: string): string => {
-  const line = (brief ?? "").replace(/\s+/g, " ").trim();
-  return line ? (line.length > 60 ? `${line.slice(0, 59)}…` : line) : key;
+/**
+ * P87 (finding 8): a batch's name is the agent's short English title (`context.batchTitle`), else "Campaign 20 Nov 2026". The
+ * owner's phrase stays the brief; a title in another script (the owner's words pasted as the title) is not taken.
+ */
+export const batchName = (title: string | null, at: string): string => {
+  const t = (title ?? "").replace(/\s+/g, " ").trim();
+  if (t && !/[\u0400-\u04ff]/.test(t)) return t.length > 60 ? `${t.slice(0, 59)}…` : t;
+  const d = new Date(at);
+  return `Campaign ${d.getUTCDate()} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getUTCMonth()]} ${d.getUTCFullYear()}`;
 };
+
+const titleOf = (context: unknown): string | null => (isRecord(context) && typeof context.batchTitle === "string" ? context.batchTitle.trim() || null : null);
+
+/**
+ * P87 (B2): the run key of a `bulk-drafts` record. The agent's `batchKey`, else one derived from the owner's words and the day,
+ * so every record of one phrase joins one run and one batch (the agent once left the key out and the campaign was no batch).
+ * Neither: null, and the record is refused.
+ */
+export function bulkKeyOf(batchKey: string | null | undefined, ownerRequest: string | null, at: string): string | null {
+  const key = batchKey?.trim();
+  if (key) return key;
+  const words = ownerRequest?.normalize("NFKC").toLowerCase().replace(/\s+/g, " ").trim();
+  if (!words) return null;
+  let h = 0x811c9dc5;
+  for (const ch of words) h = Math.imul(h ^ (ch.codePointAt(0) ?? 0), 0x01000193) >>> 0;
+  return `owner-${at.slice(0, 10)}-${h.toString(16).padStart(8, "0")}`;
+}
 
 const isUnique = (e: unknown) => e instanceof Error && /UNIQUE constraint/i.test(e.message);
 
@@ -141,6 +164,16 @@ export function draftsRepo(db: Db) {
       const ref = bareRef(mailRef);
       if (!ref) return [];
       return db.select().from(drafts).where(and(eq(drafts.project, project), sql`lower(trim(trim(${drafts.mailRef}), '<>')) = ${ref}`)).orderBy(desc(drafts.id)).all();
+    },
+
+    /**
+     * P87 (B6): the sent draft of a project that went out as this Message-ID (compared bare and lowercased), newest first, or
+     * null: a reply to our own sent mail keeps that draft's brand and the address the client wrote to. Read only.
+     */
+    async bySentMessageId(project: string, messageId: string): Promise<DraftRow | null> {
+      const ref = bareRef(messageId);
+      if (!ref) return null;
+      return db.select().from(drafts).where(and(eq(drafts.project, project), eq(drafts.status, "sent"), sql`lower(trim(trim(${drafts.sentMessageId}), '<>')) = ${ref}`)).orderBy(desc(drafts.id)).limit(1).get() ?? null;
     },
 
     /** Every draft of one client of a project, newest first (P51: `hub mcp` `client_show`). Read only. */
@@ -231,6 +264,30 @@ export function draftsRepo(db: Db) {
     },
 
     /**
+     * P87 (finding 6): "Understood all warnings" of one batch. Every amber safety result of every open draft of the batch is
+     * acknowledged, as the owner's act (the route passes the admin gate); red results stay one by one. Logged per draft.
+     * Returns how many drafts and results it acknowledged.
+     */
+    async acknowledgeWarnings(project: string, batchId: number): Promise<{ drafts: number; results: number }> {
+      return write(db, (tx) => {
+        const rows = tx.select().from(drafts).where(and(eq(drafts.project, project), eq(drafts.batchId, batchId), inArray(drafts.status, ["ready", "hold"]))).all();
+        const safety = loadSafety(tx, project, rows);
+        let changed = 0;
+        let results = 0;
+        for (const d of rows) {
+          const amber = (safety.get(d.id) ?? []).filter((r) => r.level === "amber" && !r.acked).map((r) => r.kind);
+          if (amber.length === 0) continue;
+          const set = new Set([...parseJson<string[]>(d.acked, []), ...amber]);
+          const next = tx.update(drafts).set({ acked: JSON.stringify([...set]), updatedAt: now }).where(eq(drafts.id, d.id)).returning().get();
+          if (next) logDraftEvent(tx, next, "decision", "Understood all warnings", { action: "acknowledge_warnings", kinds: amber });
+          changed += 1;
+          results += amber.length;
+        }
+        return { drafts: changed, results };
+      });
+    },
+
+    /**
      * The one writer of a draft a session made outside a batch. One transaction: find or create the client, then the
      * draft. The same `mailRef` as the client's open draft updates it (a re-run is idempotent); another one marks the
      * old draft `skipped` first (the unique index `drafts_client_open` allows one open draft) and inserts. Never
@@ -244,11 +301,15 @@ export function draftsRepo(db: Db) {
         for (const mark of new Set(input.marks ?? [])) {
           tx.insert(marks).values({ project: input.project, clientId: client.id, mark }).onConflictDoNothing().run();
         }
-        const runId = sessionRun(tx, { project: input.project, runId: input.runId, batchKey: input.evidence?.batchKey, skill: input.skill, at });
+        const ownerWords = input.ownerRequest?.trim() || null;
+        // P87 (B2): a campaign record always has a run key, so its drafts are one batch whether or not the agent passed one.
+        const runKey = input.skill === BULK_SKILL ? bulkKeyOf(input.evidence?.batchKey, ownerWords, at) : (input.evidence?.batchKey ?? null);
+        if (input.skill === BULK_SKILL && !runKey) throw new RepoError("wrong_state", "A bulk-drafts record needs context.batchKey (one per run, the same for every client of the run) or ownerRequest (the owner's words): without either its drafts are no batch");
+        const runId = sessionRun(tx, { project: input.project, runId: input.runId, batchKey: runKey, skill: input.skill, at });
         const log = (kind: "draft_created" | "decision", summary: string, detail: Record<string, unknown>) =>
           insertEvent(tx, { project: input.project, runId, at, kind, summary: `${summary}: ${input.name || input.email}`, detail: JSON.stringify(detail), clientId: client.id, tool: null });
 
-        const ownerRequest = input.ownerRequest?.trim() || null;
+        const ownerRequest = ownerWords;
         const newThread = input.newThread === true;
         if (newThread && !ownerRequest) throw new RepoError("wrong_state", "A new thread is recorded only on the owner's words (ownerRequest)");
         if (newThread && input.mailRef) throw new RepoError("wrong_state", "A new thread answers no message: no mailRef");
@@ -292,15 +353,14 @@ export function draftsRepo(db: Db) {
                 context: contextJson(input.evidence.context, ownerRequest, newThread),
                 similarTo: input.evidence.similarTo ?? null,
                 fingerprint: input.evidence.fingerprint?.length ? JSON.stringify(input.evidence.fingerprint) : null,
-                batchKey: input.evidence.batchKey ?? null,
+                batchKey: runKey,
               }
             : ownerRequest
               ? { context: contextJson(undefined, ownerRequest, newThread) }
               : {}),
         };
         // P85: a campaign (`bulk-drafts`, one `batchKey`) is one batch in Drafts; joined only by a draft that is written.
-        const batchKey = input.evidence?.batchKey?.trim() || null;
-        const inBatch = (): { batchId?: number } => (input.skill === BULK_SKILL && batchKey ? { batchId: joinBatch(tx, { project: input.project, runId, clientId: client.id, brief: ownerRequest ?? purposeOf(input.evidence?.context), batchKey, at }) } : {});
+        const inBatch = (): { batchId?: number } => (input.skill === BULK_SKILL && runKey ? { batchId: joinBatch(tx, { project: input.project, runId, clientId: client.id, brief: ownerRequest ?? purposeOf(input.evidence?.context), title: titleOf(input.evidence?.context), at }) } : {});
         const flagged = input.injectionSuspected === true;
         const existing = tx.select().from(drafts).where(eq(drafts.clientId, client.id)).all();
         // A follow-up step answers our own earlier message, so its mailRef can equal a finished draft's: a rerun of a step is the same step.

@@ -1,7 +1,9 @@
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2Icon, MessageCircleQuestionIcon } from "lucide-react";
 import type { SchemeNode } from "@hub/contract/scheme";
 import { AppLink } from "@/components/app-link";
+import { useLocalAction } from "@/components/local-action";
+import { ActionButton } from "@hub/ui/product/action-button";
 import { SectionTitle } from "@hub/ui/product/page";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
@@ -26,6 +28,34 @@ function Name({ n, multi }: { n: SchemeNode; multi: boolean }) {
   );
 }
 
+/** After the owner opened Mail, the parts are read again once it had time to start (Mail answers in a few seconds). */
+export const REREAD_AFTER_OPEN_MS = 4000;
+
+/**
+ * P87 (B1): the part's own Open (only Apple Mail's, `mail.openApp`): the owner's click through the local Open door (P61), which
+ * changes nothing in the Hub. The Hub never opens Mail itself. Hidden where this machine cannot open (not macOS).
+ */
+function PartAction({ n }: { n: SchemeNode }) {
+  const qc = useQueryClient();
+  const open = useLocalAction("mail.openApp");
+  if (n.action !== "mail.openApp" || !open.available) return null;
+  return (
+    <span>
+      <ActionButton
+        disabled={open.pending}
+        onClick={() => {
+          open.run({});
+          setTimeout(() => void qc.invalidateQueries({ queryKey: keys.scheme() }), REREAD_AFTER_OPEN_MS);
+        }}
+        size="s"
+        variant="secondary"
+      >
+        Open Mail
+      </ActionButton>
+    </span>
+  );
+}
+
 function Item({ n, multi }: { n: SchemeNode; multi: boolean }) {
   const { word, Icon, tone } = SCHEME_LOOK[n.state];
   return (
@@ -37,7 +67,9 @@ function Item({ n, multi }: { n: SchemeNode; multi: boolean }) {
           <span className="text-muted-foreground text-xs">{word}</span>
         </p>
         {n.detail && <p className="measure break-words text-muted-foreground">{n.detail}</p>}
-        {n.fix && <code className="block min-w-0 whitespace-pre-wrap break-all rounded-sm bg-muted px-1.5 py-0.5 text-xs">{n.fix}</code>}
+        {/* P87 (finding 13): wrap where it must, not inside every word ("disconnect, th / en connect"). */}
+        {n.fix && <code className="block min-w-0 whitespace-pre-wrap rounded-sm bg-muted px-1.5 py-0.5 text-xs [overflow-wrap:anywhere]">{n.fix}</code>}
+        <PartAction n={n} />
       </div>
     </li>
   );
@@ -59,7 +91,8 @@ function QuestionItem({ q, multi }: { q: Question; multi: boolean }) {
 /**
  * "Needs you" (P70, Overview's one job): the agent's open questions first, then every part that is broken or needs a look, worst
  * first, each with what is wrong, the fix line (the source's own, or the phrase) and one link to where it is fixed. A part "Not
- * checked here" is nobody's failure and stays under All parts. Nothing needs him: one line, "Everything works". No control here.
+ * checked here" is nobody's failure and stays under All parts. Nothing needs him: one line, "Everything works". No control here,
+ * only a part's local Open (P87: Open Mail), which changes nothing in the Hub.
  */
 export function NeedsYou({ nodes, questions, multi }: { nodes: readonly SchemeNode[]; questions: readonly Question[]; multi: boolean }) {
   const items = nodes.filter((n) => n.state === "fail" || n.state === "warn");

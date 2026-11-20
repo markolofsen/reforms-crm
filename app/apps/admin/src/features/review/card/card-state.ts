@@ -1,3 +1,4 @@
+import { formatTime } from "@/lib/format";
 import { openResults, type ReviewDraft } from "../source";
 
 /** The 15 states of a review card (research 16 section 7 without `batch_waiting`, whose batch builder P48 deleted, and without `batch` (P85: a batch draft is a Mail draft like any other), plus `follow_up` from P47). The action bar is a pure function of one of these. */
@@ -121,3 +122,16 @@ export function secondaryFor(state: CardState): Secondary[] {
 
 /** Whether the "I read the checks" switch is in the bar: only while there is something to acknowledge and send. */
 export const hasSwitch = (state: CardState): boolean => state === "checks_open" || state === "unread" || state === "acknowledged" || state === "failed";
+
+const VIA = { batch: "Batch", manual: "By hand", auto: "Autosend" } as const;
+
+/**
+ * P87 (B4): a sent draft says first that it went out, when and how: "Sent 20 Nov, 20:06 · Batch" (the send door's row), or
+ * "· from Mail" when Sent detection found it sent from Mail itself. Null while the draft is not sent.
+ */
+export function sentLine(d: Pick<ReviewDraft, "status" | "sentAt" | "sendState">): string | null {
+  const door = d.sendState?.status === "sent" ? d.sendState : null;
+  if (d.status !== "sent" && !door) return null;
+  const at = d.sentAt ?? door?.doneAt ?? null;
+  return `Sent${at ? ` ${formatTime(at)}` : ""} · ${door ? VIA[door.via] : "from Mail"}`;
+}

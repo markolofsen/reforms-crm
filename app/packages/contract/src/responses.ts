@@ -111,7 +111,10 @@ export const reviewDraftDto = z.object({
   wroteTo: z.string().nullable().default(null),
   brand: z.string().nullable().default(null),
   /** The draft's live send, if any: queued in a window, in progress, or sent by the hub. */
-  sendState: z.object({ id: z.number(), status: z.enum(["queued", "sending", "sent"]), dueAt: nullableIso }).nullable(),
+  /** P87: `via` (batch, manual, auto) and `doneAt` give the sent card its line "Sent 20 Nov, 20:06 · Batch". */
+  sendState: z.object({ id: z.number(), status: z.enum(["queued", "sending", "sent"]), dueAt: nullableIso, via: z.enum(["batch", "manual", "auto"]).default("manual"), doneAt: nullableIso.default(null) }).nullable(),
+  /** P87 (B3): how many other drafts the Hub holds for this client: the card's "Earlier drafts to this client". */
+  otherDrafts: z.number().int().min(0).default(0),
   skipReason: z.string().nullable(),
   sentAt: nullableIso,
   createdAt: iso,
@@ -185,6 +188,9 @@ export const batchSummaryDto = z.object({
 });
 export type BatchSummaryDto = z.infer<typeof batchSummaryDto>;
 export const batchesDto = z.object({ batches: z.array(batchSummaryDto) });
+/** P87: the reply of "Understood all warnings" of a batch: how many drafts and amber results it acknowledged. */
+export const warningsAckedDto = z.object({ ok: z.literal(true), drafts: z.number().int().min(0), results: z.number().int().min(0) });
+export type WarningsAckedDto = z.infer<typeof warningsAckedDto>;
 export const batchDto = z.object({ batch: batchSummaryDto, drafts: z.array(reviewDraftDto), ...pageOf });
 export type BatchDto = z.infer<typeof batchDto>;
 

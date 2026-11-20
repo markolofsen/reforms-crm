@@ -31,9 +31,13 @@ const predicates: Record<ClientFilter, SQL | undefined> = {
   sequences: and(open, isNotNull(drafts.enrollmentId)),
 };
 
-/** Which drafts a list covers: the newest of each client, or (a batch) exactly the drafts the batch wrote. */
+/**
+ * Which drafts a list covers: every draft of each client, or (a batch) exactly the drafts the batch wrote. P87 (B3): the open
+ * views stay one row per client (the `drafts_client_open` index allows one open draft), while Finished and All keep each finished
+ * draft, so a sent mail is still listed after a newer draft to the same client (it used to read the newest draft only).
+ */
 export type DraftScope = { batch?: number | null };
-const scopeOf = (s: DraftScope): SQL => (s.batch ? and(eq(drafts.clientId, clients.id), eq(drafts.batchId, s.batch))! : latestDraft);
+const scopeOf = (s: DraftScope): SQL => (s.batch ? and(eq(drafts.clientId, clients.id), eq(drafts.batchId, s.batch))! : eq(drafts.clientId, clients.id));
 
 /** A substring match over the client's name and address and the draft's subject. `%`, `_` and `\` in the text match themselves. */
 function searchSql(text: string | undefined): SQL | undefined {
@@ -46,25 +50,33 @@ function searchSql(text: string | undefined): SQL | undefined {
 /** What `touch` may set. Only these columns; a client row is never deleted (marks, identifiers and the log hang on it). */
 export type ClientTouch = { project: string; email: string; name: string; lastContactAt?: string | null; repliesOwed?: boolean };
 
-/** The shared body of `touch`, sync so `drafts.record` can run it inside its own transaction. */
+/** A name that is a person's or a company's, not empty and not an address (P87, B5: a record without a name gave the address). */
+export const isRealName = (name: string, email: string): boolean => {
+  const n = name.trim();
+  return n !== "" && !n.includes("@") && n.toLowerCase() !== email.trim().toLowerCase();
+};
+
+/**
+ * The shared body of `touch`, sync so `drafts.record` can run it inside its own transaction. A new row takes the name, else the
+ * address; an existing row's name is replaced only by a real name (`isRealName`), never by an empty one or an address (P87, B5).
+ */
 export function touchClient(tx: Pick<Db, "select" | "insert" | "update">, input: ClientTouch): { id: number; created: boolean } {
   const email = input.email.trim().toLowerCase();
-  const name = input.name.trim() || email;
+  const real = isRealName(input.name, email);
   const at = new Date().toISOString();
   const set = {
-    name,
     updatedAt: at,
     ...(input.repliesOwed === undefined ? {} : { repliesOwed: input.repliesOwed }),
     ...(input.lastContactAt === undefined ? {} : { lastContactAt: input.lastContactAt }),
   };
   const found = tx.select({ id: clients.id }).from(clients).where(and(eq(clients.project, input.project), eq(clients.email, email))).get();
   if (found) {
-    tx.update(clients).set(set).where(eq(clients.id, found.id)).run();
+    tx.update(clients).set({ ...set, ...(real ? { name: input.name.trim() } : {}) }).where(eq(clients.id, found.id)).run();
     return { id: found.id, created: false };
   }
   const row = tx
     .insert(clients)
-    .values({ project: input.project, email, ...set })
+    .values({ project: input.project, email, name: real ? input.name.trim() : input.name.trim() || email, ...set })
     .returning({ id: clients.id })
     .get();
   return { id: row.id, created: true };
@@ -114,8 +126,9 @@ export function clientsRepo(db: Db) {
     },
 
     /**
-     * The Drafts screen: the newest draft of each client that has one, in the shape the review screen shares with a
-     * bulk batch (typed safety results, tone bodies, the Checked gate). Same order as `list`; `limit` and `offset` page it.
+     * The Drafts screen: the drafts of each client that has one (every draft since P87; the open views hold one per client), in
+     * the shape the review screen shares with a bulk batch (typed safety results, tone bodies, the Checked gate). Same order as
+     * `list`; `limit` and `offset` page it.
      */
     async review(project: string, filter: ClientFilter = "all", opts: DraftScope & { limit?: number; offset?: number; now?: Date; search?: string } = {}): Promise<ReviewDraft[]> {
       const rows = db

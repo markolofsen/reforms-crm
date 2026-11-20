@@ -57,6 +57,9 @@ export const LOCAL_ACTIONS = {
   "finder.open": { transport: "server", args: z.strictObject({ project: slug, key: folderKey }), label: "Open folder" },
   "finder.reveal": { transport: "server", args: z.strictObject({ project: slug, key: anyKey }), label: "Show in Finder" },
   "file.open": { transport: "server", args: z.strictObject({ project: slug, key: fileKey }), label: "Open" },
+  // P87 (B1): Apple Mail itself, from Overview's "Apple Mail is not running" item: the owner's click only. The Hub never starts
+  // Mail on its own (decision 0030 note: Mail sends what waits in its Outbox when it opens); no argument, nothing else opens.
+  "mail.openApp": { transport: "server", args: z.strictObject({}), label: "Open Mail" },
   "agent.openInDesktop": { transport: "server", args: z.strictObject({ project: slug, tab }), label: "Open in Claude Desktop", offered: false, refusal: DESKTOP_NOT_OFFERED },
 } as const satisfies Record<string, Def>;
 

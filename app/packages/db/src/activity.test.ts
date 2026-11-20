@@ -100,4 +100,20 @@ describe("one timeline", () => {
     expect((await repos.runs.activity("p")).rows).toEqual([]);
     expect((await repos.runs.activity("q")).rows.map((r) => r.who)).toEqual(["A"]);
   });
+
+  it("P87: a sent mail is a row of All (outcome sent, the way it went as why), never of another view; keys tell a send from an event with the same id", async () => {
+    const { draftId, clientId } = await saasLike();
+    at("2026-11-20T12:06:45.000Z");
+    const row = await repos.sends.begin({ project: "p", draftId, mode: "manual", status: "sending", actor: "admin-batch", to: "mark@x.example", subject: "Re: Hello", body: "Hi" });
+    await repos.sends.markSent(row.id, "s@x");
+    const all = await repos.runs.activity("p");
+    expect(all.rows[0]).toMatchObject({ key: `send:${row.id}`, outcome: "sent", why: "Batch", draftId, client: { id: clientId, name: "Mark Effect" } });
+    expect(new Set(all.rows.map((r) => r.key)).size).toBe(all.rows.length);
+    expect((await repos.runs.activity("p", { view: "drafts" })).rows.some((r) => r.outcome === "sent")).toBe(false);
+    expect((await repos.runs.activity("p", { client: clientId })).rows[0]?.outcome).toBe("sent");
+    const first = await repos.runs.activity("p", { limit: 1 });
+    expect(first.next).toBe(`${all.rows[0]!.at}|send:${row.id}`);
+    expect((await repos.runs.activity("p", { before: first.next })).rows[0]?.key).toBe(all.rows[1]?.key);
+  });
 });
+

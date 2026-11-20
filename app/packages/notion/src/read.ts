@@ -4,3 +4,4 @@ export { loadToken, NoTokenError, secretsDir, tokenFile } from "./token";
 export { LEAD_STATUSES, parseLeadPage, renderLeadSummary, summarizeLeads, type Lead, type LeadStatus, type LeadSummary } from "./leads";
 export { classifyNotionError, countPages, COUNT_PAGE_CAP, COUNT_ROW_CAP, type NotionFailure, type PageCount } from "./count";
 export type { NotionReader } from "./types";
+export { findClientByEmail, type ClientLookup } from "./client-lookup";

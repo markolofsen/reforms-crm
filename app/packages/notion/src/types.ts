@@ -35,6 +35,8 @@ export interface NotionReader {
   retrieveDataSource(dataSourceId: string): Promise<DataSourceInfo>;
   /** Every page of the data source, paged to the end. Order is not guaranteed. */
   listPages(dataSourceId: string): AsyncIterable<PageObject>;
+  /** P87: the pages matching a data source query filter (the same read-only query endpoint), at most `limit`. Optional: test fakes may leave it out. */
+  findPages?(dataSourceId: string, filter: unknown, limit?: number): Promise<PageObject[]>;
   retrieveMarkdown(pageId: string): Promise<PageMarkdown>;
 }
 

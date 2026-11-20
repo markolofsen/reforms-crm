@@ -15,6 +15,8 @@ const projects = mkdtempSync(join(tmpdir(), "hub-e2e-batch-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, "demo-shop"), { recursive: true });
 writeSendPolicy(process.env.HUB_E2E_HOME ?? "", "demo-shop");
 const WORDS = "write to every client about the spring offer";
+// P87 (finding 8): the batch is named by the agent's short English title; the owner's words are its brief.
+const TITLE = "Spring offer";
 const record = (email: string, name: string) =>
   JSON.parse(
     execFileSync("node", [hub, "record-draft", "--project", "demo-shop"], {
@@ -27,7 +29,7 @@ const record = (email: string, name: string) =>
         ownerRequest: WORDS,
         excerpt: `Hello ${name}, the spring offer starts on Monday.`,
         notion: { kind: "none" },
-        context: { batchKey: "e2e-batch-send", purpose: "spring offer", thread: { found: 1, read: 1 }, profile: { read: true, state: "filled" }, facts: { queries: 0 }, anchors: ["spring offer"] },
+        context: { batchKey: "e2e-batch-send", batchTitle: TITLE, purpose: "spring offer", thread: { found: 1, read: 1 }, profile: { read: true, state: "filled" }, facts: { queries: 0 }, anchors: ["spring offer"] },
       }),
       env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" },
       encoding: "utf8",
@@ -40,10 +42,12 @@ test("Send all Checked: one confirmation names the count and every recipient, th
   await remember(page, "demo-shop");
   await page.goto("/drafts?filter=all");
   await viewMenu(page).click();
-  await page.getByRole("menuitemradio", { name: new RegExp(WORDS) }).click();
+  await page.getByRole("menuitemradio", { name: new RegExp(`^${TITLE}`) }).click();
   await expect(page).toHaveURL(/batch=\d+/);
 
   const panel = page.getByRole("region", { name: "Send all Checked" });
+  await expect(panel.getByText(WORDS)).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Understood all warnings" })).toBeVisible();
   // Nothing Checked yet: the button says so and does not act.
   await expect(panel.getByText("No draft of this batch is Checked yet.")).toBeVisible();
   for (const name of ["Ana Batch", "Rui Batch"]) {

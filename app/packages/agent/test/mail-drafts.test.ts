@@ -378,7 +378,7 @@ describe("draft_write (hub mcp)", () => {
   it("P85b: a new thread to a client with no thread, on the owner's words only: written as a new message, recorded without mailRef, revised in place", async () => {
     const repos = createRepos(db.db);
     const mail = new FakeDraftWriter();
-    const call = await connect(mail, undefined, { projectMail: () => ({ accounts: ["desk@acme.example"], sender: "hello@acme.example", identity: { addresses: ["desk@acme.example", "hello@acme.example"], domains: ["acme.example"], signoff: "", brands: [], languages: ["en"] } }) });
+    const call = await connect(mail, undefined, { projectMail: () => ({ accounts: ["desk@acme.example"], sender: "hello@acme.example", identity: { addresses: ["desk@acme.example", "hello@acme.example"], domains: ["acme.example"], signoff: "", brands: [], languages: ["en"] } }), clientInNotion: async () => ({ state: "client" }) });
     const fresh = { to: "Bob@Client.example", subject: "New prices", content: "Hi Bob, our new prices." };
     expect(await call(fresh)).toMatchObject({ isError: true, json: { error: "owner_request_needed" } });
     expect(await call({ ...fresh, to: "hello@acme.example", owner_request: "write to Bob" })).toMatchObject({ isError: true, json: { error: "not_this_project" } });
@@ -412,6 +412,31 @@ describe("draft_write (hub mcp)", () => {
     expect(await call({ to: "dnc@client.example", subject: "Hello", content: "Hi", owner_request: "write to Dee" })).toMatchObject({ isError: true, json: { error: "do_not_contact" } });
   });
 
+  it("P87: a new thread goes only to a client: an address in neither the records nor Notion Clients is refused, an unreadable Notion too", async () => {
+    const fresh = { to: "stranger@else.example", subject: "Hello", content: "Hi", owner_request: "write to the stranger" };
+    const seen: string[] = [];
+    const no = await connect(new FakeDraftWriter(), undefined, { clientInNotion: async (_slug, email) => (seen.push(email), { state: "not_client" }) });
+    expect(await no(fresh)).toMatchObject({ isError: true, json: { error: "not_a_client" } });
+    expect(seen).toEqual(["stranger@else.example"]);
+    expect(await (await connect(new FakeDraftWriter()))(fresh)).toMatchObject({ isError: true, json: { error: "notion_unavailable" } });
+    expect(await (await connect(new FakeDraftWriter(), undefined, { clientInNotion: async () => ({ state: "unavailable", reason: "the instance has no Notion token" }) }))(fresh)).toMatchObject({ isError: true, json: { error: "notion_unavailable" } });
+    expect(await (await connect(new FakeDraftWriter(), undefined, { clientInNotion: async () => ({ state: "do_not_contact" }) }))(fresh)).toMatchObject({ isError: true, json: { error: "do_not_contact" } });
+  });
+
+  it("P87: a hub draft id passed as message_id is named, with the field to use", async () => {
+    const repos = createRepos(db.db);
+    const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Hello", mailRef: "<a1@x>", skill: "triage-mail" });
+    class Gone extends FakeDraftWriter {
+      override async messageIdOf(): Promise<string> {
+        throw new DraftWriteError("no_message", "No message in that mailbox.");
+      }
+    }
+    const r = await (await connect(new Gone()))({ account: "desk@acme.example", mailbox_path: ["INBOX"], message_id: rec.draftId, content: "Hi", owner_request: "write to Ann" });
+    expect(r).toMatchObject({ isError: true, json: { error: "wrong_message_id" } });
+    expect(r.json.message).toMatch(new RegExp(`pass draft=${rec.draftId} and content only`));
+    expect(r.json.message).toMatch(/never a hub draft id/);
+  });
+
   it("refuses an account outside the project, and refuses without a writer", async () => {
     expect(await (await connect(new FakeDraftWriter()))(args("Hi", "private@gmail.com"))).toMatchObject({ isError: true, json: { error: "not_this_project" } });
     expect(await (await connect(undefined))(args("Hi"))).toMatchObject({ isError: true, json: { error: "unavailable" } });
@@ -421,7 +446,7 @@ describe("draft_write (hub mcp)", () => {
     const repos = createRepos(db.db);
     const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Hello", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail" });
     const other = await repos.drafts.record({ project: "beta", email: "bob@x.example", name: "Bob", subject: "Re: Hi", mailRef: "<m43@example.com>", reason: "asked", skill: "triage-mail" });
-    const noRef = await repos.drafts.record({ project: "acme", email: "cy@x.example", name: "Cy", subject: "Hello", reason: "new", skill: "bulk-drafts" });
+    const noRef = await repos.drafts.record({ project: "acme", email: "cy@x.example", name: "Cy", subject: "Hello", reason: "new", skill: "triage-mail" });
     const mail = new FakeDraftWriter();
     mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
     const bumped: string[] = [];
@@ -562,6 +587,18 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hello,\n\nHere is the answer." });
     expect(r).toMatchObject({ isError: false, json: { brand: cases.forwarded.brand, clientWroteTo: cases.forwarded.wroteTo, signature: "signed" } });
     expect(mail.drafts[0]?.text).toBe(`Hello,\n\nHere is the answer.\n\n${cases.forwarded.signature.join("\n")}`);
+  });
+
+  it("P87 (B6): a reply on the owner's words to our own sent mail keeps that mail's brand, not the account's", async () => {
+    const repos = createRepos(db.db);
+    const mail = new FakeDraftWriter();
+    mail.headers.set(42, `From: ${account}\nTo: mark@client.example\nSubject: Re: Hello\n`);
+    const sent = await repos.drafts.record({ project: "acme", email: "mark@client.example", name: "Mark", subject: "Re: Hello", mailRef: "<c1@client.example>", skill: "triage-mail", brand: cases.forwarded.brand, wroteTo: cases.forwarded.wroteTo });
+    await repos.drafts.markSent(sent.draftId, { at: "2026-11-19T10:00:00Z", via: "message-id", messageId: "m42@example.com" });
+    const call = await connect(undefined, undefined, { drafts: mail, projectMail });
+    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hello,\n\nOne more note.", owner_request: "write to Mark again" });
+    expect(r).toMatchObject({ isError: false, json: { brand: cases.forwarded.brand, signature: "signed" } });
+    expect(mail.drafts[0]?.text).toBe(`Hello,\n\nOne more note.\n\n${cases.forwarded.signature.join("\n")}`);
   });
 
   it("refuses the ending of Sent 139821 (a Russian closing and the team's name), and a closing in any of the last four lines", async () => {

@@ -111,7 +111,7 @@ function Line({ g }: { g: RowGroup }) {
         </TableCell>
         <TableCell className="max-sm:hidden">{why}</TableCell>
       </TableRow>
-      {open && g.rows.map((r, i) => <Entry c={c} id={i === 0 ? id : undefined} key={r.id} r={r} />)}
+      {open && g.rows.map((r, i) => <Entry c={c} id={i === 0 ? id : undefined} key={r.key} r={r} />)}
     </>
   );
 }
@@ -140,7 +140,7 @@ export function Timeline({ rows, now }: { rows: readonly ActivityRowDto[]; now: 
             </TableHead>
           </TableRow>
           {s.groups.map((g) => (
-            <Line g={g} key={g.rows[0].id} />
+            <Line g={g} key={g.rows[0].key} />
           ))}
         </TableBody>
       ))}

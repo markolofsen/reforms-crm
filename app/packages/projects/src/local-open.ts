@@ -14,7 +14,11 @@ export const OPEN_BIN = "/usr/bin/open";
 /** Runs the opener with its argv (no shell). Injected like `OsaRun`: tests and `HUB_OPENER=fake` never reach the real `open`. */
 export type OpenRun = (file: string, args: string[]) => Promise<void>;
 
-export type Target = { kind: "path"; verb: "open" | "reveal"; path: string; label: string } | { kind: "url"; url: string; label: string };
+export type Target = { kind: "path"; verb: "open" | "reveal"; path: string; label: string } | { kind: "url"; url: string; label: string } | { kind: "app"; app: OpenableApp; label: string };
+
+/** P87: the one application an Open may start by name, Apple Mail (`mail.openApp`, the owner's click). */
+export const OPENABLE_APPS = ["Mail"] as const;
+export type OpenableApp = (typeof OPENABLE_APPS)[number];
 /** Why an action is refused, in words that hold no path; `status` is what the route answers. */
 export type Refusal = { refused: string; status: 400 | 404 | 501 };
 export type Resolved = Target | Refusal;
@@ -122,6 +126,7 @@ export async function resolveTarget(action: LocalActionId, args: unknown, d: Res
     return url ? { kind: "url", url, label: def.label } : refuse("no link can be built from that");
   }
   if ("offered" in def && def.offered === false) return refuse(def.refusal, 501);
+  if (action === "mail.openApp") return { kind: "app", app: "Mail", label: def.label };
   const a = parsed.data as { project: string; key: string };
   if (!(await d.isProject(a.project))) return refuse("not a project of this instance", 404);
   const at = await locate(a.project, a.key, d);
@@ -133,6 +138,10 @@ export async function resolveTarget(action: LocalActionId, args: unknown, d: Res
 
 /** The argv for `open`, after the last checks: an absolute path (never one starting with `-`) or an allowed URL. */
 export function argvOf(t: Target, o: { adminPort?: number } = {}): string[] {
+  if (t.kind === "app") {
+    if (!(OPENABLE_APPS as readonly string[]).includes(t.app)) throw new Error("refused: not an application the hub opens");
+    return ["-a", t.app];
+  }
   if (t.kind === "url") {
     const why = urlRefusal(t.url, o);
     if (why) throw new Error(`refused: ${why}`);

@@ -412,6 +412,9 @@ importers:
       '@hub/db':
         specifier: workspace:*
         version: link:../db
+      '@hub/notion':
+        specifier: workspace:*
+        version: link:../notion
       '@hub/projects':
         specifier: workspace:*
         version: link:../projects

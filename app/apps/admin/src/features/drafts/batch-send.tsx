@@ -7,7 +7,9 @@ import type { BatchRunDto, BatchSendPlanDto } from "@hub/contract/responses";
 import { Alert, AlertDescription, AlertTitle } from "@hub/ui/alert";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ApiFailure, refreshData, sentence } from "@/lib/api/client";
+import { reviewApi } from "@/lib/api/review";
 import { batchSendApi } from "@/lib/api/send";
+import { toastManager } from "@hub/ui/toast";
 import { keys } from "@/lib/cache/keys";
 
 // Send all Checked of one batch (P85b, decision 0011 amendment of 2026-11-20 point 4). Never automatic: a click reads every
@@ -25,7 +27,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const minutes = (n: number, spacing: number) => Math.max(1, Math.round(((n - 1) * spacing) / 60));
 const STATUS: Record<BatchRunDto["items"][number]["status"], string> = { waiting: "Waiting", sending: "Sending", sent: "Sent", refused: "Not sent", failed: "Failed", stopped: "Stopped" };
 
-export function BatchSend({ project, batchId, checked }: { project: string; batchId: number; checked: number }) {
+export function BatchSend({ project, batchId, checked, brief }: { project: string; batchId: number; checked: number; /** The owner's words that asked for the batch, shown in full (P87). */ brief: string | null }) {
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>({ k: "idle" });
   const run = useQuery({
@@ -44,18 +46,42 @@ export function BatchSend({ project, batchId, checked }: { project: string; batc
     onError: failed,
   });
   const stop = useMutation({ mutationFn: () => batchSendApi.stop(project, batchId), onSuccess: (r) => qc.setQueryData(keys.batchRun(project, batchId), r) });
+  // P87 (finding 6): every amber result of the batch's open drafts understood in one click; red ones stay one by one on each card.
+  const warnings = useMutation({
+    mutationFn: () => reviewApi.acknowledgeWarnings(project, batchId),
+    onSuccess: (r) => {
+      toastManager.add({ title: r.results === 0 ? "No warning left to acknowledge" : `Understood ${plural(r.results, "warning")} on ${plural(r.drafts, "draft")}`, type: "success" });
+      return refreshData(qc);
+    },
+    onError: (e) => toastManager.add({ title: "Not acknowledged", description: sentence(e), type: "error" }),
+  });
   // Each mail sent changes the drafts (Sent detection) and the history: read them again when the run moves on, and once at its end.
   const r = run.data?.run ?? null;
   const done = r ? r.items.filter((i) => i.status !== "waiting" && i.status !== "sending").length : 0;
   const seen = useRef(-1);
   useEffect(() => {
-    if (seen.current !== -1 && seen.current !== done) void refreshData(qc);
+    // P87 (B4): with the Mail reads too, so a sent card reads Mail again instead of showing its draft as deleted.
+    if (seen.current !== -1 && seen.current !== done) void refreshData(qc, { mail: true });
     seen.current = done;
   }, [done, qc]);
 
   const running = r?.state === "running";
   return (
     <section aria-label="Send all Checked" className="flex flex-col gap-3 border-t p-3">
+      {brief && (
+        <p className="break-words text-sm">
+          <span className="text-muted-foreground">Asked for: </span>
+          {brief}
+        </p>
+      )}
+      {!running && (
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="min-w-0 flex-1 text-muted-foreground text-sm">In a batch, warnings must be acknowledged too, not only red checks. Red checks stay one by one on each card.</p>
+          <ActionButton aria-disabled={warnings.isPending} className="aria-disabled:opacity-64 max-sm:h-(--control-l)" onClick={() => !warnings.isPending && warnings.mutate()} size="s" variant="quiet">
+            {warnings.isPending ? "Acknowledging" : "Understood all warnings"}
+          </ActionButton>
+        </div>
+      )}
       {r && <RunView onStop={() => stop.mutate()} run={r} stopping={stop.isPending} />}
       {step.k === "confirm" && <Confirm busy={start.isPending} onCancel={() => setStep({ k: "idle" })} onSend={() => start.mutate(step.plan)} plan={step.plan} />}
       {step.k === "refused" && <Notice onClose={() => setStep({ k: "idle" })} reasons={step.reasons} title={`Not started: ${plural(step.reasons.length, "reason")}`} />}

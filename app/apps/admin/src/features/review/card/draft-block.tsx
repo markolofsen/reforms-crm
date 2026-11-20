@@ -45,7 +45,9 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
   const tones = TONES.filter((t) => d.toneBodies[t] !== undefined);
   const readable = live?.found ? live : null;
   const unreadable = live?.configured === true && !live.found;
-  const gone = unreadable ? (live.gone ?? null) : null;
+  // P87 (B4): a sent mail left Drafts by being sent; "deleted ... Restore" would offer to bring back a mail that went out.
+  const sent = d.status === "sent" || d.sendState?.status === "sent" || d.sendState?.status === "sending";
+  const gone = unreadable && !sent ? (live.gone ?? null) : null;
   // Exactly the Mail text (decision 0031): nothing of the Hub's is in it, so nothing is hidden.
   const body = confirmed ?? readable?.body ?? d.body;
   // The owner edits only a text Mail holds exactly once (a hash), on an open draft written to Mail (P56 S1).
@@ -92,7 +94,7 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
       </div>
       {readable && <FromLine d={d} live={readable} />}
       {gone && <MailGone draftId={d.id} project={project} trashRef={gone.trashRef} />}
-      {unreadable && !gone && (
+      {unreadable && !gone && !sent && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <p className="text-sm text-warning-foreground" data-testid="mail-unreadable">{mailProblem(live?.reason)}. Open it in Mail.</p>
           {onRead && (
@@ -126,7 +128,7 @@ export function DraftBlock({ d, project, actions, thread, onThread, confirmed, l
           </ActionButton>
         )}
         <ActionButton aria-expanded={thread} onClick={onThread} size="s" variant="quiet">
-          {thread ? "Hide thread" : "Thread"}
+          {thread ? "Hide thread" : "Show thread"}
         </ActionButton>
       </div>
       {thread && <ThreadPanel clientId={d.clientId} project={project} />}

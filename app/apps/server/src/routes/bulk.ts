@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import type { Repos } from "@hub/db";
 import { agentSettingsBody, batchQuery, idParam, projectQuery, safetyKindParam, safetyRuleBody } from "@hub/contract/requests";
-import { agentSettingsDto, batchDto, batchesDto, okDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
+import { agentSettingsDto, batchDto, batchesDto, okDto, safetyRuleSavedDto, safetyRulesDto, warningsAckedDto } from "@hub/contract/responses";
 import { toDraft } from "../dto";
 import { notFound, v } from "../http";
 
@@ -26,6 +26,13 @@ export function bulkRoutes(repos: Repos) {
     .post("/api/batches/:id/undo", v("param", idParam), v("query", projectQuery), async (c) => {
       const draft = await repos.batches.undoLast(c.req.valid("query").project, c.req.valid("param").id);
       return draft ? c.json(okDto.parse({ ok: true })) : c.json({ error: "Nothing to undo in this batch", code: "not_found" as const }, 404);
+    })
+    // P87 (finding 6): "Understood all warnings" of one batch: every amber result of its open drafts, the owner's act; red stays per draft.
+    .post("/api/batches/:id/acknowledge-warnings", v("param", idParam), v("query", projectQuery), async (c) => {
+      const project = c.req.valid("query").project;
+      const batchId = c.req.valid("param").id;
+      if (!(await repos.batches.get(project, batchId))) return notFound(c, "batch");
+      return c.json(warningsAckedDto.parse({ ok: true, ...(await repos.drafts.acknowledgeWarnings(project, batchId)) }));
     })
     .get("/api/safety-rules", v("query", projectQuery), async (c) => c.json(safetyRulesDto.parse({ rules: await repos.safetyRules.list(c.req.valid("query").project) })))
     .put("/api/safety-rules/:kind", v("param", safetyKindParam), v("json", safetyRuleBody), async (c) => {

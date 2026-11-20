@@ -18,9 +18,18 @@ export type SchemeState = (typeof SCHEME_STATES)[number];
  * The parts. Instance parts: `core`, `cli`, `notion`, `telegram`. The rest belong to one project; `session` is every Agent tools
  * row no other part covers (UX pass 2026-11-20); `calendar` and `drive` are the Google connectors a project attaches (P62, P63
  * O5), one part each with its account. `llm` (P78) is the instance's model access through `@hub/llm`: shown only once a caller has
- * used it this month, broken when the monthly cap or a missing key refused a call.
+ * used it this month, broken when the monthly cap or a missing key refused a call. `mail-app` (P87) is Apple Mail itself, an
+ * instance part shown only while Mail's read says it is not running: every draft write and every send needs it.
  */
-export const SCHEME_KINDS = ["core", "cli", "notion", "telegram", "whatsapp", "llm", "mailbox", "mail-mcp", "hub-tools", "notion-db", "knowledge", "mail-filters", "setup", "guard", "session", "send-door", "calendar", "drive"] as const;
+
+/**
+ * P87: the local Open a part may offer beside its fix (the owner's click through the P61 registry, `@hub/contract/local`):
+ * only `mail.openApp`, on the Apple Mail part. The Hub never opens Mail by itself (decision 0030 note: Mail sends what waits
+ * in its Outbox when it opens), so this is a button for him, never an automatic step.
+ */
+export const SCHEME_ACTIONS = ["mail.openApp"] as const;
+export type SchemeAction = (typeof SCHEME_ACTIONS)[number];
+export const SCHEME_KINDS = ["core", "cli", "notion", "telegram", "whatsapp", "llm", "mail-app", "mailbox", "mail-mcp", "hub-tools", "notion-db", "knowledge", "mail-filters", "setup", "guard", "session", "send-door", "calendar", "drive"] as const;
 export type SchemeKind = (typeof SCHEME_KINDS)[number];
 
 export const schemeNode = z.strictObject({
@@ -37,6 +46,8 @@ export const schemeNode = z.strictObject({
   fix: z.string().nullable(),
   /** The page that fixes it (a nav target: the core's is Settings ▸ This Mac, P70), or null when no page does. */
   place: z.enum(STATUS_NEXT).nullable(),
+  /** P87: a local Open that fixes it (`SCHEME_ACTIONS`); absent on every other part. */
+  action: z.enum(SCHEME_ACTIONS).optional(),
 });
 export type SchemeNode = z.infer<typeof schemeNode>;
 

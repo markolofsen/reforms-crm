@@ -66,6 +66,9 @@ export const WRITE_ADVICE: Readonly<Record<string, RetryAdvice>> = {
   mail_error: { retry: "no", next: `${NO_RETRY} Tell the owner in one line what Mail answered.` },
   has_thread: { retry: "now", next: "A thread with this client exists: one draft_write as a new reply to the newest message of that thread (ours in Sent, or theirs), with owner_request = his words." },
   do_not_contact: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that this client is marked do not contact.` },
+  wrong_message_id: { retry: "now", next: "Use the field the message names: draft = the hub draft's id to revise it, or message_id = mail-mcp's integer id of the message answered (from find_messages or list_messages)." },
+  not_a_client: { retry: "after_owner", next: "Tell the owner in one line that this address is not a client of the project (not in its Notion Clients and not recorded); a new thread goes only to a client. If he wants to write anyway, the client is added to Notion first (by him, or by you on his words)." },
+  notion_unavailable: { retry: "after_owner", next: "Tell the owner in one line why the Notion check could not run (the message says) and the fix; nothing was written." },
   owner_request_needed: { retry: "after_owner", next: "A new thread is written only when the owner asked for it in this session: pass his own words as owner_request, or ask him in one line." },
 };
 /**

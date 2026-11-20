@@ -234,6 +234,8 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
   const sent = h.sent.state;
   const door =
     stopped ? { state: "warn" as const, detail: "Sending is stopped." }
+    // P87 (B1): every send goes through Mail, so with Mail closed the door cannot work; the fix is the Apple Mail item's.
+    : mail?.mailRead.state === "not-running" ? { state: "warn" as const, detail: "Apple Mail is not running: nothing can be sent until it is open." }
     : sent === "error" ? { state: "fail" as const, detail: h.sent.lastError ?? "Sent detection is failing." }
     // The send-failed and sending-stuck facts put a dot on Settings ▸ Sending, so they are items here too (UX pass 2026-11-20).
     : trouble.stuck > 0 ? { state: "warn" as const, detail: `${trouble.stuck === 1 ? "1 send is" : `${trouble.stuck} sends are`} stuck in "sending": check Mail's Sent folder.` }
@@ -244,11 +246,21 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
   return out;
 }
 
+/**
+ * P87 (B1): Apple Mail itself, a part only while Mail's read says it is not running (a fact, not "Not checked here"): the agent
+ * cannot write or revise a draft and nothing can be sent. Its fix is the owner's Open Mail (`mail.openApp`); the Hub never
+ * opens Mail by itself, since Mail sends what waits in its Outbox when it opens (decision 0030 note).
+ */
+export function mailAppNode(conn: ConnectionsDto | null): SchemeNode[] {
+  if (conn?.mailRead.state !== "not-running" || conn.mail.length === 0) return [];
+  return [{ ...node({ id: "mail-app", kind: "mail-app", project: null, label: "Apple Mail", state: "warn", detail: "Apple Mail is not running: the agent cannot write or revise a draft, and nothing can be sent. The Hub never opens Mail itself; when you open it, Mail sends what waits in its Outbox.", place: null }), action: "mail.openApp" }];
+}
+
 export async function composeScheme(s: SchemeSources): Promise<SchemeDto> {
   const [slugs, conn] = await Promise.all([s.projects(), s.connections().catch(() => null)]);
   const tokens = (conn?.connections ?? []).filter((c) => c.kind === "notion" || c.secret.state !== "missing");
   const llm = s.llm ? llmNode(await s.llm()) : [];
-  const instance = [...coreNode(s.core()), ...cliNodes(s.clis()), ...tokens.map(tokenNode), ...telegramUserNodes(s.health()), ...whatsappNodes(s.health()), ...llm];
+  const instance = [...mailAppNode(conn), ...coreNode(s.core()), ...cliNodes(s.clis()), ...tokens.map(tokenNode), ...telegramUserNodes(s.health()), ...whatsappNodes(s.health()), ...llm];
   const perProject = (await Promise.all(slugs.map((slug) => projectNodes(slug, s, conn)))).flat();
   const nodes = [...instance, ...perProject];
   return schemeDto.parse({ nodes });

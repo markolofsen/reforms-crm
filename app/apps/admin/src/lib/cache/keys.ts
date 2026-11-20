@@ -96,7 +96,8 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   drafts: (p) => [drafts(p), batches(p), timeline(p), project(p), overview()],
   clients: (p) => [drafts(p), notByEmail(p), enrollments(p), timeline(p), overview()],
   activity: (p) => [activity(p), timeline(p), project(p), overview()],
-  sends: (p) => [sends(p), batchRun(p), drafts(p), project(p), overview(), scheme()],
+  // P87: a send is a row of Activity ▸ All too (decision 0037 as amended).
+  sends: (p) => [sends(p), batchRun(p), drafts(p), activity(p), timeline(p), project(p), overview(), scheme()],
   inbox: (p) => [notByEmail(p), drafts(p), overview()],
   "follow-ups": (p) => [enrollments(p), drafts(p)],
   batches: (p) => [batches(p), drafts(p)],

@@ -9,23 +9,27 @@ import { z } from "zod";
 /**
  * What happened to the client, in the owner's words. `updated`: a saved revision of an open draft (`action: "update"`). `linked`
  * (P84): the Hub linked the client's chat by itself on an exact identifier; the row's `why` says which ("phone matches the client").
+ * `sent` (P87, decision 0037 as amended): a mail or a message went out through the send door; the row's `why` is the way it
+ * went (Batch, By hand, Autosend, "By hand on Telegram"). In All only; Activity ▸ Sends lists every send.
  */
-export const ACTIVITY_OUTCOMES = ["drafted", "updated", "skipped", "escalated", "flagged", "linked"] as const;
+export const ACTIVITY_OUTCOMES = ["drafted", "updated", "skipped", "escalated", "flagged", "linked", "sent"] as const;
 export type ActivityOutcome = (typeof ACTIVITY_OUTCOMES)[number];
-export const ACTIVITY_OUTCOME_LABELS: Record<ActivityOutcome, string> = { drafted: "Drafted", updated: "Updated the draft", skipped: "Skipped", escalated: "Escalated", flagged: "Flagged", linked: "Linked a chat" };
+export const ACTIVITY_OUTCOME_LABELS: Record<ActivityOutcome, string> = { drafted: "Drafted", updated: "Updated the draft", skipped: "Skipped", escalated: "Escalated", flagged: "Flagged", linked: "Linked a chat", sent: "Sent" };
 
 /** The views of the View menu, by outcome: Needs you is escalated and flagged, Drafts is drafted and updated. */
 export const ACTIVITY_VIEWS = ["all", "needs_you", "drafts", "skipped"] as const;
 export type ActivityView = (typeof ACTIVITY_VIEWS)[number];
 
-/** A page cursor: `<at>|<event id>` of the last row of the page before. */
-export const ACTIVITY_CURSOR = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z\|\d{1,12}$/;
+/** A page cursor: `<at>|<key>` of the last row of the page before (`event:12` or `send:3`, P87). */
+export const ACTIVITY_CURSOR = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z\|(?:event|send):\d{1,12}$/;
 
 const clientRef = z.strictObject({ id: z.number(), name: z.string() });
 
 export const activityRowDto = z.strictObject({
-  /** The event id. */
+  /** The source row's id: the event's, or the send's (`send_log`) for outcome `sent`. */
   id: z.number(),
+  /** Unique across both sources (`event:12`, `send:3`, P87): the list key; the cursor ends with it. */
+  key: z.string().regex(/^(?:event|send):\d{1,12}$/),
   at: z.string(),
   client: clientRef.nullable(),
   /** The name the agent recorded when no client row exists (a skipped sender). */

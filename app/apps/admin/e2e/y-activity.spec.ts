@@ -50,7 +50,7 @@ test("activity: a folded line's count opens its entries under it", async ({ page
     const dto = (await res.json()) as ActivityDto;
     const [r, ...rows] = dto.rows;
     if (!r) return route.fulfill({ response: res });
-    const save = (id: number, s: number) => ({ ...r, id, at: new Date(Date.parse(r.at) + s * 1000).toISOString(), outcome: "updated" as const, draftId: 7, client: { id: 99, name: "Fold Person" }, who: "Fold Person" });
+    const save = (id: number, s: number) => ({ ...r, id, key: `event:${id}`, at: new Date(Date.parse(r.at) + s * 1000).toISOString(), outcome: "updated" as const, draftId: 7, client: { id: 99, name: "Fold Person" }, who: "Fold Person" });
     await route.fulfill({ response: res, json: { ...dto, rows: [save(1_000_003, 3), save(1_000_002, 2), save(1_000_001, 1), r, ...rows] } });
   });
   await page.goto(LOG);

@@ -33,7 +33,7 @@ interface MarkdownResponse {
 
 /**
  * The real reader: @notionhq/client behind a throttle. Three endpoints, all reads: data source retrieve, data source
- * query (a POST that only reads) and page markdown retrieve. The SDK retries 429 and 529 itself and honours Retry-After.
+ * query (a POST that only reads; `listPages` pages through it, `findPages` filters it, P87) and page markdown retrieve. The SDK retries 429 and 529 itself and honours Retry-After.
  */
 export function createNotionReader(token: string, options: ReaderOptions = {}): NotionReader {
   const rps = options.rps ?? 3;
@@ -69,6 +69,12 @@ export function createNotionReader(token: string, options: ReaderOptions = {}): 
         if (!res.has_more || !res.next_cursor) return;
         cursor = res.next_cursor;
       }
+    },
+
+    async findPages(dataSourceId: string, filter: unknown, limit = 10): Promise<PageObject[]> {
+      await gate();
+      const res = (await client.dataSources.query({ data_source_id: dataSourceId, page_size: Math.min(Math.max(limit, 1), 100), filter: filter as never })) as unknown as QueryResponse;
+      return res.results.filter((i) => i.object === "page") as PageObject[];
     },
 
     async retrieveMarkdown(pageId: string): Promise<PageMarkdown> {

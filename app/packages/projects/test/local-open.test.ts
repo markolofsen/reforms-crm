@@ -104,6 +104,13 @@ describe("resolveTarget", () => {
     expect(await resolveTarget("mail.openMessage", { messageId: "a@b.example" }, deps)).toEqual({ kind: "url", url: "message://%3Ca%40b.example%3E", label: "Open the client's mail" });
     expect(await resolveTarget("agent.openInDesktop", { project: "acme-travel", tab: "t1" }, deps)).toMatchObject({ status: 501, refused: expect.stringMatching(/^Not offered/) });
   });
+  it("P87: Open Mail starts Apple Mail by name and takes no argument; no other application is opened", async () => {
+    const t = await resolveTarget("mail.openApp", {}, deps);
+    expect(t).toEqual({ kind: "app", app: "Mail", label: "Open Mail" });
+    expect(argvOf(t as Target)).toEqual(["-a", "Mail"]);
+    expect(await resolveTarget("mail.openApp", { app: "Terminal" }, deps)).toMatchObject({ status: 400 });
+    expect(() => argvOf({ kind: "app", app: "Terminal" as "Mail", label: "x" })).toThrow(/not an application/);
+  });
   it("no refusal names a path", async () => {
     const all = await Promise.all([resolve("file.open", "log:2020-01-01"), resolve("file.open", entryKey("knowledge/files/not-indexed.md")), resolve("finder.open", "project", "nordhaus")]);
     for (const r of all) expect(JSON.stringify(r)).not.toContain(home);

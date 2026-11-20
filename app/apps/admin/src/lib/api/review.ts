@@ -1,6 +1,6 @@
 import type { ClientFilter, Mark, SafetyKind, SettableStatus, Tone } from "@hub/config";
 import type { StatusBody } from "@hub/contract/requests";
-import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto } from "@hub/contract/responses";
+import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto, warningsAckedDto } from "@hub/contract/responses";
 import { read } from "./client";
 
 const draft = (id: number, action: string) => `/api/drafts/${id}/${action}`;
@@ -23,4 +23,6 @@ export const reviewApi = {
   /** The batches of a project, read-only (P48: the builder is gone; a batch is a View of Drafts), and the batch's own Undo. */
   batches: (project: string) => read(batchesDto, { method: "GET", path: "/api/batches", query: { project } }),
   undoBatch: (project: string, id: number) => read(okDto, { method: "POST", path: `/api/batches/${id}/undo`, query: { project } }),
+  /** P87: every amber result of the batch's open drafts acknowledged; red ones stay one by one. */
+  acknowledgeWarnings: (project: string, id: number) => read(warningsAckedDto, { method: "POST", path: `/api/batches/${id}/acknowledge-warnings`, query: { project } }),
 };

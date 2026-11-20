@@ -34,9 +34,8 @@ export function localRoutes(local: LocalService | undefined, adminPort: number) 
     if (!parsed.success) return c.json({ error: sentenceOf(parsed.error), code: "invalid" as const }, 400);
     if ("offered" in def && def.offered === false) return c.json({ error: `${def.refusal}.`, code: "server" as const }, 501);
     if (!local.available) return c.json({ error: `${LOCAL_OPEN_UNAVAILABLE}.`, code: "server" as const }, 501);
-    const args = parsed.data as { project: string; key: string };
     const at = (local.now ?? Date.now)();
-    const k = `${id}|${args.project}|${args.key}`;
+    const k = `${id}|${JSON.stringify(parsed.data)}`;
     if (at - (last.get(k) ?? -Infinity) < REPEAT_MS) return c.json({ error: "Already opening that: wait a moment.", code: "busy" as const }, 429);
     last.set(k, at);
     if (last.size > 256) last.delete(last.keys().next().value as string);

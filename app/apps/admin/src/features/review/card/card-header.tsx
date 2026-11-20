@@ -1,15 +1,19 @@
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { MARK_LABELS } from "@hub/config";
+import { AppLink } from "@/components/app-link";
 import { isOld, wrote } from "@/lib/format";
+import { paths } from "@/routes/paths";
 import { notionOf } from "@/lib/notion";
 import { cn } from "@hub/ui/cn";
 import { chipsOf } from "../list-row";
 import type { ReviewDraft } from "../source";
 import type { ReviewActions } from "../use-review-actions";
 import { ClientMenu } from "./client-menu";
+import { sentLine } from "./card-state";
 
 type Props = { d: ReviewDraft; actions: ReviewActions; now: number; ready: boolean };
+
 
 /** Name and email, the Client menu at the far side, at most two chips plus the read-only flags, the age line. */
 export function CardHeader({ d, actions, now, ready }: Props) {
@@ -19,6 +23,7 @@ export function CardHeader({ d, actions, now, ready }: Props) {
   // The checks are listed whole right under the header ("1 check before sending"): a second "1 check" chip would say it twice (rubric 3).
   const chips = chipsOf(d).filter((c) => c.id !== "checks");
   const flags = d.client.marks.filter((m) => m !== "do_not_contact");
+  const sent = sentLine(d);
   return (
     <header className="flex min-w-0 flex-col gap-2">
       <div className="flex min-w-0 items-start gap-3">
@@ -45,7 +50,21 @@ export function CardHeader({ d, actions, now, ready }: Props) {
           ))}
         </p>
       )}
+      {sent && (
+        <p className="font-medium text-sm" data-testid="sent-line">
+          {sent}
+        </p>
+      )}
       {age && <p className={cn("text-sm", old ? "text-warning-foreground" : "text-muted-foreground")}>{age}</p>}
+      {d.otherDrafts > 0 && (
+        // P87 (B3): the client's earlier drafts are history, listed in Finished and in the client's own Activity.
+        <p className="text-muted-foreground text-sm" data-testid="other-drafts">
+          {d.otherDrafts === 1 ? "1 other draft" : `${d.otherDrafts} other drafts`} to this client ·{" "}
+          <AppLink className="text-sm" to={paths.log.list({ client: d.clientId })}>
+            History
+          </AppLink>
+        </p>
+      )}
       {d.sequence && (
         // P47: a follow-up step. The owner sends it from Mail (the hub refuses it); Stop ends the client's follow-ups and skips this step.
         <p className="flex flex-wrap items-center gap-2 text-sm" data-testid="follow-up-step">

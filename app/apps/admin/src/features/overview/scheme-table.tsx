@@ -28,7 +28,7 @@ function State({ n }: { n: SchemeNode }) {
 /** The fix: the source's own command line as text (copying is the Settings panes' job, not Overview's). */
 function Fix({ n }: { n: SchemeNode }) {
   if (!n.fix) return null;
-  return <code className="block min-w-0 whitespace-pre-wrap break-all rounded-sm bg-muted px-1.5 py-0.5 text-xs">{n.fix}</code>;
+  return <code className="block min-w-0 whitespace-pre-wrap rounded-sm bg-muted px-1.5 py-0.5 text-xs [overflow-wrap:anywhere]">{n.fix}</code>;
 }
 
 /**
