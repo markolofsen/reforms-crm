@@ -21,10 +21,10 @@ test("connections: the address names no project, Settings ▸ Connections opens 
   await page.keyboard.press("g");
   await page.keyboard.press("s");
   await expect.poll(() => address(page)).toMatch(/\/settings$/);
-  await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Connections", exact: true }).click();
+  await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: /(^|needs you ?)Connections$/ }).click();
   await expect.poll(() => address(page)).toBe("/settings/connections");
   await expect(page).toHaveTitle("Connections · Hub Workflow");
-  await expect(page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Connections", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: /(^|needs you ?)Connections$/ })).toHaveAttribute("aria-current", "page");
   await page.goto("/settings/connections?project=lisbon-realty");
   await expect.poll(() => address(page)).toBe("/settings/connections");
   await expect(page.locator("#connection-whatsapp")).toHaveCount(0);

@@ -1,6 +1,6 @@
 import { parseRef } from "@hub/contract/focus";
 import { paths, type Dest } from "./paths";
-import { draftsSearch, knowledgeSearch, logSearch, noSearch, parseQuery, positiveInt, type DraftsSearch, type KnowledgeSearch, type LogSearch, type NoSearch } from "./search";
+import { agentSearch, draftsSearch, knowledgeSearch, logSearch, noSearch, parseQuery, positiveInt, type AgentSearch, type DraftsSearch, type KnowledgeSearch, type LogSearch, type NoSearch } from "./search";
 import type { SectionId } from "./sections";
 import { PROJECTLESS, RESERVED_SEGMENTS, ROUTE_TABLE } from "./table";
 
@@ -24,8 +24,9 @@ export type Resolved =
   | (Base & { route: "log.list"; section: "log"; params: NoSearch; search: LogSearch })
   | (Base & { route: "knowledge.page"; section: "knowledge"; params: NoSearch; search: KnowledgeSearch })
   | (Base & { route: "settings.page"; section: "settings"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "settings.checks"; section: "settings"; params: NoSearch; search: NoSearch })
   | (Base & { route: "settings.mail"; section: "settings"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "settings.agent"; section: "settings"; params: NoSearch; search: NoSearch })
+  | (Base & { route: "settings.agent"; section: "settings"; params: NoSearch; search: AgentSearch })
   | (Base & { route: "settings.connections"; section: "settings"; params: NoSearch; search: NoSearch })
   | (Base & { route: "settings.mac"; section: "settings"; params: NoSearch; search: NoSearch })
   | (Base & { route: "help.page"; section: "help"; params: NoSearch; search: NoSearch })
@@ -75,8 +76,9 @@ export function resolveRoute(path: string, searchString: string): Resolved {
       return one ? { ...base, route: "log.list", section: "log", params: {}, search: logSearch(raw) } : notFound;
     case "settings":
       if (one) return { ...base, route: "settings.page", section: "settings", params: {}, search: noSearch() };
+      if (tail === "checks") return { ...base, route: "settings.checks", section: "settings", params: {}, search: noSearch() };
       if (tail === "mail") return { ...base, route: "settings.mail", section: "settings", params: {}, search: noSearch() };
-      if (tail === "agent") return { ...base, route: "settings.agent", section: "settings", params: {}, search: noSearch() };
+      if (tail === "agent") return { ...base, route: "settings.agent", section: "settings", params: {}, search: agentSearch(raw) };
       if (tail === "connections") return { ...base, route: "settings.connections", section: "settings", params: {}, search: noSearch() };
       if (tail === "mac") return { ...base, route: "settings.mac", section: "settings", params: {}, search: noSearch() };
       return notFound;
@@ -100,10 +102,12 @@ export function destOf(r: Resolved): Dest | null {
       return paths.knowledge.page(r.search);
     case "settings.page":
       return paths.settings.sending();
+    case "settings.checks":
+      return paths.settings.checks();
     case "settings.mail":
       return paths.settings.mail();
     case "settings.agent":
-      return paths.settings.agent();
+      return paths.settings.agent(r.search);
     case "settings.connections":
       return paths.settings.connections();
     case "settings.mac":

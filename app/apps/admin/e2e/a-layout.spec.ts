@@ -101,6 +101,8 @@ const SCREENS: Screen[] = [
   },
   // P70: Knowledge, the Settings panes, Help.
   { name: "knowledge", path: at(P, "/knowledge"), ready: async (p) => void (await p.getByRole("table", { name: "Knowledge entries" }).or(p.getByRole("list", { name: "Knowledge entries" })).or(p.getByText("No knowledge yet")).first().waitFor()) },
+  // P75: every rule in view, nothing folded; measured under CONTROL_CAP before the pane was built (the plan's S1).
+  { name: "settings: checks", path: at(P, "/settings/checks"), ready: async (p) => void (await p.getByRole("table", { name: "Checks before sending" }).locator("tr[data-rule]").first().waitFor()) },
   { name: "settings: mail", path: at(P, "/settings/mail"), ready: async (p) => void (await p.getByRole("list", { name: "Mail filters" }).waitFor()) },
   { name: "settings: agent", path: at(P, "/settings/agent"), ready: async (p) => void (await p.getByTestId("agent-tools-status").waitFor()) },
   { name: "settings: this mac", path: "/settings/mac", ready: async (p) => void (await p.getByTestId("core-block").or(p.getByText("Could not load the core update check")).first().waitFor()) },
@@ -278,11 +280,11 @@ test("phone bar and rail: parents only, the More menu whole, the sub-nav a menu 
     await expect.poll(() => new URL(page.url()).pathname).toBe(at(P, "/knowledge"));
     await page.goto(at(P, "/settings/mail"));
     await sub.getByRole("button", { name: /Settings pages: Mail/ }).click();
-    await expect(page.getByRole("menuitem")).toHaveText(["Sending", "Mail", "Agent", "Connections", "This Mac"]);
+    await expect(page.getByRole("menuitem")).toHaveText(["Sending", "Checks", "Mail", "Agent", "Connections", "This Mac"].map((n) => new RegExp(`${n}$`)));
     await page.getByRole("menuitem", { name: "This Mac" }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe("/settings/mac");
   } else {
-    await expect(sub.getByRole("link")).toHaveText(["Sending", "Mail", "Agent", "Connections", "This Mac"]);
+    await expect(sub.getByRole("link")).toHaveText(["Sending", "Checks", "Mail", "Agent", "Connections", "This Mac"].map((n) => new RegExp(`${n}$`)));
     if (width < 1280) await expect(page.getByRole("navigation", { name: "Sections" }).first().getByRole("link", { name: "Mail", exact: true })).toBeHidden();
   }
 });

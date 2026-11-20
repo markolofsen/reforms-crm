@@ -2,7 +2,7 @@ import { CopyIcon } from "lucide-react";
 import type { AgentToolRow } from "@hub/contract/agent-tools";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
-import { needsAttention, STATE_LOOK } from "./labels";
+import { CLI_TITLE, needsAttention, STATE_LOOK } from "./labels";
 
 /** The fix of a row that needs a fix or a look: the one command line, and a button that copies it. Never a form: the hub does, the panel shows. */
 function FixLine({ row, onCopy }: { row: AgentToolRow; onCopy: (fix: string) => void }) {
@@ -32,7 +32,8 @@ function State({ r }: { r: AgentToolRow }) {
 }
 
 /**
- * Checks as a table: what, the state (an icon and a word), and the detail; a row that needs a fix or a look adds its fix line.
+ * Checks as a table: what, which agent CLI it belongs to (P75: one table for both), the state (an icon and a word), and the
+ * detail; a row that needs a fix or a look adds its fix line.
  * Below 640px each check is two lines (the name and the state; the detail and the fix), never three squeezed columns
  * (`admin-principles.md` rule 5).
  */
@@ -42,8 +43,9 @@ export function ToolTable({ title, rows, onCopy }: Props) {
       <DataTable aria-label={title} className="max-md:hidden">
         <TableHeader>
           <TableRow>
-            <TableHead className="w-2/5">Check</TableHead>
-            <TableHead className="w-1/5">State</TableHead>
+            <TableHead className="w-1/3">Check</TableHead>
+            <TableHead className="w-[15%]">Agent</TableHead>
+            <TableHead className="w-[15%]">State</TableHead>
             <TableHead>Detail</TableHead>
           </TableRow>
         </TableHeader>
@@ -51,6 +53,7 @@ export function ToolTable({ title, rows, onCopy }: Props) {
           {rows.map((r) => (
             <TableRow data-state={r.state} data-tool={r.id} key={`${r.cli}:${r.id}`}>
               <TableCell className="font-medium">{r.title}</TableCell>
+              <TableCell className="text-muted-foreground">{CLI_TITLE[r.cli]}</TableCell>
               <TableCell>
                 <State r={r} />
               </TableCell>
@@ -66,7 +69,9 @@ export function ToolTable({ title, rows, onCopy }: Props) {
         {rows.map((r) => (
           <li className="flex min-w-0 flex-col gap-1 py-2 text-sm" data-state={r.state} key={`${r.cli}:${r.id}`}>
             <p className="flex min-w-0 items-baseline justify-between gap-3">
-              <span className="min-w-0 break-words font-medium">{r.title}</span>
+              <span className="min-w-0 break-words font-medium">
+                {r.title} <span className="font-normal text-muted-foreground">· {CLI_TITLE[r.cli]}</span>
+              </span>
               <State r={r} />
             </p>
             {r.detail && <p className="break-words text-muted-foreground text-xs">{r.detail}</p>}

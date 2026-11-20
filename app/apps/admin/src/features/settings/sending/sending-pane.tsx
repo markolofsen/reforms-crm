@@ -6,7 +6,6 @@ import { refreshData, sentence } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";
 import { useProjectRow, useSends } from "@/lib/status";
 import { paths } from "@/routes/paths";
-import { ChecksBeforeSending } from "./checks";
 import { SendPolicyLines } from "./send-to";
 import { StopSending } from "./stop-sending";
 
@@ -34,8 +33,8 @@ function useStop() {
 /**
  * Settings ▸ Sending (P70, `/settings`, where Settings opens): what lets a mail out, in the order of `admin-principles.md` rule 9.
  * The sentence and the one control, Stop sending or Resume; who drafts may go to and autosend, read only with the owner's
- * command; the checks before sending, closed with a summary. Controls only: the send history is Activity ▸ Sends (UX pass), and
- * a failed or stuck send in the sentence links there.
+ * command. The checks before sending are their own pane, Settings ▸ Checks (P75). Controls only: the send history is Activity ▸
+ * Sends (UX pass), and a failed or stuck send in the sentence links there.
  */
 export function SendingPane({ project }: { project: string }) {
   const q = useSends(project);
@@ -65,7 +64,6 @@ export function SendingPane({ project }: { project: string }) {
       {q.isError && <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the sending status" />}
       <ul aria-label="Sending settings" className="flex flex-col divide-y border-y">
         <SendPolicyLines project={project} />
-        <ChecksBeforeSending project={project} />
       </ul>
     </>
   );

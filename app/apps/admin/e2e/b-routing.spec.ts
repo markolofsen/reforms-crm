@@ -170,30 +170,31 @@ test("the nav links are real anchors in the path form; two projects show the swi
   await expect(page.getByRole("button", { name: P }).first()).toBeVisible();
 });
 
-// P70: the nested nav. Settings' panes show under it in the open sidebar only while Settings is active (no tab stop on any
-// other screen), the landing (Sending) first, never on the rail; every pane carries the sub-nav in its header line.
-test("the nested nav: the five panes under an active Settings, and the sub-nav on every pane", async ({ page }) => {
+// P70, P75: the nested nav. Settings' six panes are reached by the sub-nav in every pane's header line, the landing (Sending)
+// first; the sidebar draws parents only (no Settings children at any width). A tab's name ends with its label (a dot's words
+// come first).
+test("the nested nav: the six panes in the sub-nav of every pane, none in the sidebar", async ({ page }) => {
   const width = page.viewportSize()?.width ?? 0;
   await page.goto(at(P, "/drafts"));
   await expect(cards(page).first()).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Sections" }).first();
-  await expect(nav.getByRole("link", { name: "Mail", exact: true })).toHaveCount(0);
-  const panes = [["Sending", at(P, "/settings")], ["Mail", at(P, "/settings/mail")], ["Agent", at(P, "/settings/agent")], ["Connections", "/settings/connections"], ["This Mac", "/settings/mac"]] as const;
+  const panes = [["Sending", at(P, "/settings")], ["Checks", at(P, "/settings/checks")], ["Mail", at(P, "/settings/mail")], ["Agent", at(P, "/settings/agent")], ["Connections", "/settings/connections"], ["This Mac", "/settings/mac"]] as const;
+  const tab = (name: string) => new RegExp(`(^|needs you ?)${name}$`);
   for (const [name, path] of panes) {
     await page.goto(path);
+    await expect(nav.getByRole("link", { name: /^(Checks|Mail|Agent|Connections|This Mac)$/ })).toHaveCount(0);
     const sub = page.getByRole("navigation", { name: "Settings pages" });
     if (width < 640) {
       await expect(sub.getByRole("button", { name: `Settings pages: ${name}` })).toBeVisible();
       continue;
     }
-    await expect(sub.getByRole("link", { name, exact: true })).toHaveAttribute("aria-current", "page");
-    await expect(sub.getByRole("link")).toHaveText(panes.map(([n]) => n));
-    if (width >= 1280) await expect(nav.getByRole("link", { name: "Mail", exact: true })).toHaveAttribute("href", at(P, "/settings/mail"));
+    await expect(sub.getByRole("link", { name: tab(name) })).toHaveAttribute("aria-current", "page");
+    await expect(sub.getByRole("link")).toHaveText(panes.map(([n]) => tab(n)));
   }
   if (width < 640) return;
   // Keyboard alone: from Sending's sub-nav to Mail.
   await page.goto(at(P, "/settings"));
-  await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Mail" }).focus();
+  await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: tab("Mail") }).focus();
   await page.keyboard.press("Enter");
   await expect.poll(() => address(page)).toBe(at(P, "/settings/mail"));
 });

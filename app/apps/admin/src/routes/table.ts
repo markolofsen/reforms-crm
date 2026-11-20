@@ -7,8 +7,8 @@ type Checked<P extends string> = Fill<P> extends Route<Fill<P>> ? P : never;
 
 /**
  * What the shell reads of a page in the nav (P63 N1). A parent row (no `parent`) is a section: it has its `g` chord and its place
- * on the phone, the tab bar or the More menu. A child row names its parent's route: it is drawn under the parent in the open
- * sidebar while the parent is active, and in the sub-nav of the parent's pages on every width; never on the rail or the phone bar.
+ * on the phone, the tab bar or the More menu. A child row names its parent's route: it is drawn only in the sub-nav of the
+ * parent's pages, on every width (P75: never in the sidebar, the rail or the phone bar).
  * Every row is on every instance: with Overview everywhere no row is for several projects only.
  */
 export type NavMeta = {
@@ -56,10 +56,12 @@ export const ROUTE_TABLE = {
   "knowledge.page": defineRoute("/knowledge", { section: "knowledge", scoped: true, title: "Knowledge", nav: { label: "Knowledge", icon: "knowledge", order: 3, chord: "k", phone: "more" } }),
   // P70: Settings opens on its first pane, Sending (the row's title); the nav names the section, the sub-nav the pane.
   "settings.page": defineRoute("/settings", { section: "settings", scoped: true, title: "Sending", nav: { label: "Settings", icon: "settings", order: 4, chord: "s", phone: "bar" } }),
-  "settings.mail": defineRoute("/settings/mail", { section: "settings", scoped: true, title: "Mail", nav: { label: "Mail", icon: "mail", order: 1, parent: "settings.page" } }),
-  "settings.agent": defineRoute("/settings/agent", { section: "settings", scoped: true, title: "Agent", nav: { label: "Agent", icon: "agents", order: 2, parent: "settings.page" } }),
-  "settings.connections": defineRoute("/settings/connections", { section: "settings", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 3, parent: "settings.page" } }),
-  "settings.mac": defineRoute("/settings/mac", { section: "settings", scoped: false, title: "This Mac", nav: { label: "This Mac", icon: "mac", order: 4, parent: "settings.page" } }),
+  // P75: the checks before sending are their own pane, next to Sending (guards on each draft, a different kind of setting).
+  "settings.checks": defineRoute("/settings/checks", { section: "settings", scoped: true, title: "Checks", nav: { label: "Checks", icon: "checks", order: 1, parent: "settings.page" } }),
+  "settings.mail": defineRoute("/settings/mail", { section: "settings", scoped: true, title: "Mail", nav: { label: "Mail", icon: "mail", order: 2, parent: "settings.page" } }),
+  "settings.agent": defineRoute("/settings/agent", { section: "settings", scoped: true, title: "Agent", nav: { label: "Agent", icon: "agents", order: 3, parent: "settings.page" } }),
+  "settings.connections": defineRoute("/settings/connections", { section: "settings", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 4, parent: "settings.page" } }),
+  "settings.mac": defineRoute("/settings/mac", { section: "settings", scoped: false, title: "This Mac", nav: { label: "This Mac", icon: "mac", order: 5, parent: "settings.page" } }),
   "help.page": defineRoute("/help", { section: "help", scoped: false, title: "Help", nav: { label: "Help", icon: "help", order: 5, chord: "h", phone: "more" } }),
 } as const;
 
@@ -76,6 +78,7 @@ export const TWINS: { readonly [K in RouteId]: [Twin<(typeof ROUTE_TABLE)[K]>] e
   "log.list": true,
   "knowledge.page": true,
   "settings.page": true,
+  "settings.checks": true,
   "settings.mail": true,
   "settings.agent": true,
   "settings.connections": true,
@@ -110,6 +113,7 @@ export const NAV_SHAPE: { readonly [K in RouteId]: NavCheck<(typeof ROUTE_TABLE)
   "log.list": true,
   "knowledge.page": true,
   "settings.page": true,
+  "settings.checks": true,
   "settings.mail": true,
   "settings.agent": true,
   "settings.connections": true,

@@ -10,8 +10,8 @@ const SCOPE: Record<AgentCapability["kind"], string> = { calendar: "read, holds 
 /**
  * Settings ▸ Agent ▸ Claude Code, Connectors (P62): the Google services this project's Claude Code sessions (only they: Codex
  * cannot sign in) reach beyond mail and Notion, one
- * line each, as the server last checked them (the same read as Checks, so it costs no call). Attached in project.md by a phrase
- * in a session, never here (`admin-principles.md` rule 1); what is wrong with a connector is a Checks row with its fix.
+ * line each, as the server last checked them (the same read as Tools, so it costs no call). Attached in project.md by a phrase
+ * in a session, never here (`admin-principles.md` rule 1); what is wrong with a connector is a Tools row with its fix.
  */
 export function Connectors({ slug }: { slug: string }) {
   const q = useAgentTools(slug);

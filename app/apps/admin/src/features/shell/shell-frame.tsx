@@ -6,6 +6,7 @@ import { useMemo, type ReactNode } from "react";
 import { DEFAULT_INSTANCE_NAME } from "@hub/contract/instance";
 import { Page } from "@hub/ui/product/page";
 import { AppLink } from "@/components/app-link";
+import { useLitRoutes } from "@/components/nav-dot";
 import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
 import { AgentFeedContext, useAgentFeed } from "@/features/agent-feed/use-agent-feed";
 import { useTurnSound } from "@/features/agent-feed/use-turn-sound";
@@ -20,34 +21,24 @@ import { useSectionNav } from "@/hooks/use-section-nav";
 import { metaApi } from "@/lib/api/meta";
 import { useLive } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
-import { dotOf, useAgentToolsNeedYou, useInstance, useNeedsYouPlaces, useProjectRow } from "@/lib/status";
+import { useInstance } from "@/lib/status";
 import { paths, sectionList } from "@/routes/paths";
-import { PROJECTLESS, type RouteId } from "@/routes/table";
-import { NEXT_ROUTE, sectionTitle } from "@/routes/sections";
+import { PROJECTLESS } from "@/routes/table";
+import { sectionTitle } from "@/routes/sections";
 
 import { AppShell, type ShellNavItem } from "./shell";
 import { useFileDropGuard } from "./use-file-drop-guard";
 import { keys } from "@/lib/cache/keys";
 
 /**
- * The nav with a dot on the page that fixes the project's worst fact (`statusDto.next`: Overview, Knowledge or a Settings pane,
- * P70), on Settings ▸ Agent while an Agent tools row needs a fix or a look, and on every place Overview's "Needs you" names (UX
- * pass: one source of attention). A child's dot also lights its parent (the rail and the phone draw
- * parents only); the tab bar lights More from the parents inside it.
+ * The nav with a dot on each section whose page needs the owner (`useLitRoutes`: the worst fact's page, a failing Agent tools row,
+ * Overview's "Needs you"). A child page's dot lights its parent, since the sidebar draws parents only (P75; the sub-nav draws the
+ * child's own dot); the tab bar lights More from the parents inside it.
  */
 function useNavWithDots(project: string | null): ShellNavItem[] {
   const items = useSectionNav();
-  const { row } = useProjectRow(project ?? "");
-  const next = dotOf(row?.status);
-  const tools = useAgentToolsNeedYou(project);
-  const places = useNeedsYouPlaces(project);
-  return useMemo(() => {
-    const lit = new Set<RouteId>([...(next ? [NEXT_ROUTE[next]] : []), ...(tools ? (["settings.agent"] as const) : []), ...places.map((p) => NEXT_ROUTE[p])]);
-    return items.map((i) => {
-      const children = i.children.map((c) => ({ ...c, dot: lit.has(c.route) }));
-      return { ...i, children, dot: lit.has(i.route) || children.some((c) => c.dot) };
-    });
-  }, [items, next, tools, places]);
+  const lit = useLitRoutes(project);
+  return useMemo(() => items.map((i) => ({ ...i, dot: lit.has(i.route) || i.children.some((c) => lit.has(c.route)) })), [items, lit]);
 }
 
 /**

@@ -56,12 +56,11 @@ test("a refusal from the server is shown as its sentence", async ({ page }) => {
   await expect(page.getByText("That draft is already sent.")).toBeVisible();
 });
 
-test("Settings ▸ Sending shows the checks before sending", async ({ page }) => {
+test("Settings ▸ Checks shows the checks before sending, one tab from Sending", async ({ page }) => {
   await page.goto("/settings");
-  await expect(page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Sending", exact: true }).or(page.getByRole("button", { name: "Settings pages: Sending" })).first()).toBeVisible();
-  // The rules sit under Checks, one summary line (P48 W6), on Settings ▸ Sending since P70; opening it shows the switches.
-  await page.getByRole("button", { name: /^Checks/ }).click();
-  await expect(page.getByRole("switch").first()).toBeVisible();
+  // P75: the rules are their own pane, Settings ▸ Checks, every switch in view (on Sending, folded, until then).
+  await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: /(^|needs you ?)Checks$/ }).click();
+  await expect(page.getByRole("table", { name: "Checks before sending" }).getByRole("switch").first()).toBeVisible();
 });
 
 test("a refused action is announced as an alert, not politely", async ({ page }) => {

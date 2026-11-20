@@ -6,12 +6,12 @@ type WithNav = Extract<AnyRow, { nav: NavMeta }>;
 type ParentRow = Exclude<WithNav, { nav: { parent: string } }>;
 export type SectionId = ParentRow["section"];
 export type IconKey = WithNav["nav"]["icon"];
-/** The routes drawn under a parent (P63 N1): Settings' Mail, Agent, Connections and This Mac (P70). */
+/** A parent's child pages (P63 N1): Settings' Checks (P75), Mail, Agent, Connections and This Mac (P70). */
 export type ChildRouteId = { [K in RouteId]: (typeof ROUTE_TABLE)[K] extends { nav: { parent: string } } ? K : never }[RouteId];
 
 /** One top-level screen as the shell reads it: derived from the `nav` metadata of the route table, never declared twice. */
 export type Section = { readonly id: SectionId; readonly route: RouteId; readonly title: string; readonly icon: IconKey; readonly order: number; readonly phone: "bar" | "more"; readonly chord: readonly ["g", string] };
-/** One child page: drawn under its parent's section in the open sidebar and in the sub-nav of the parent's pages. */
+/** One child page: drawn in the sub-nav of the parent's pages (P75: the sidebar draws parents only). */
 export type Child = { readonly route: ChildRouteId; readonly title: string; readonly icon: IconKey; readonly order: number };
 
 const hasNav = (r: AnyRow): r is WithNav => "nav" in r;

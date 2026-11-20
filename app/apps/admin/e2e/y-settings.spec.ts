@@ -2,12 +2,13 @@ import { expect, test, type Page } from "@playwright/test";
 import { remember } from "./support";
 
 // Settings ▸ Sending by frequency (P70, `admin-principles.md` rule 9; the Project landing and its Setup page until then): the
-// sentence and Stop sending first, then Send to and Autosend read only with the owner's command, then the checks before sending,
-// closed with a summary even when a rule is off (the cap of rule 3). Controls only: the send history is Activity ▸ Sends (UX pass
-// 2026-11-20), tested here too. The sends are held in this file (a queued send exists only with autosend, which the e2e server
+// sentence and Stop sending first, then Send to and Autosend read only with the owner's command; nothing else. The checks before
+// sending are their own pane, Settings ▸ Checks (P75): every rule in view, grouped by level, nothing folded. Controls only: the send
+// history is Activity ▸ Sends (UX pass 2026-11-20), tested here too. The sends are held in this file (a queued send exists only with autosend, which the e2e server
 // does not run; Stop all is exercised for real in `z-send.spec.ts`). Two projects, so the address names the project first.
 const PROJECT = "lisbon-realty";
 const AT = `/${PROJECT}/settings`;
+const CHECKS = `/${PROJECT}/settings/checks`;
 const SENDS = `/${PROJECT}/log?filter=sends`;
 const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
 
@@ -40,11 +41,11 @@ async function sendsServer(page: Page, start: { sends: Row[]; stopped: string[] 
   return writes;
 }
 
-const checks = (page: Page) => page.getByRole("button", { name: /^Checks/ });
+const checksStatus = (page: Page) => page.getByTestId("checks-status");
 /** A rule set through the API, as the agent or another tab would; the test puts it back after. */
 const setRule = (page: Page, kind: string, enabled: boolean) => page.request.put(`${API()}/api/safety-rules/${kind}`, { data: { project: PROJECT, enabled } });
 
-test("sending: the first viewport at 1280 shows the sentence and Stop sending; then Send to, Autosend, Checks closed; no send history", async ({ page }) => {
+test("sending: the first viewport at 1280 shows the sentence and Stop sending; then Send to and Autosend only; no fold, no send history", async ({ page }) => {
   await sendsServer(page, { sends: [sent], stopped: [] });
   await page.goto(AT);
   const status = page.getByTestId("sending-status");
@@ -57,12 +58,12 @@ test("sending: the first viewport at 1280 shows the sentence and Stop sending; t
     expect((await l.boundingBox())?.y ?? 9999).toBeLessThan(800);
   }
   // Rule 9's order, the policy read only with the owner's own command (P70 Q1: no switch for it here).
-  await expect(page.locator("#main li").getByText(/^(Send to|Autosend|Checks)$/)).toHaveText(["Send to", "Autosend", "Checks"]);
+  await expect(page.locator("#main li").getByText(/^(Send to|Autosend|Checks)$/)).toHaveText(["Send to", "Autosend"]);
   await expect(page.getByTestId("send-to")).toContainText(`./run.sh send policy set ${PROJECT} draft.recipients`);
   await expect(page.getByTestId("send-to").getByRole("button", { name: /^Copy/ })).toBeVisible();
-  await expect(checks(page)).toHaveAttribute("aria-expanded", "false");
-  await expect(checks(page)).toContainText(/All \d+ on/);
-  await expect(page.getByRole("switch")).toHaveCount(0); // the 20 switches are not in view
+  // P75: the rules left for Settings ▸ Checks, and nothing on Sending opens or closes.
+  await expect(page.getByRole("switch")).toHaveCount(0);
+  await expect(page.locator("#main [aria-expanded]:visible")).toHaveCount(0);
   // The setup facts are no longer here: health is Overview's, the filters are Mail's; the sends are Activity's.
   await expect(page.getByRole("button", { name: /^(Health|Mail filters|Advanced)/ })).toHaveCount(0);
   await expect(page.getByRole("table", { name: "Sends" })).toHaveCount(0);
@@ -78,33 +79,47 @@ test("activity ▸ sends: the history is a view of Activity's View menu with its
   await expect(page.getByRole("table", { name: "Sends" })).toHaveCount(0);
 });
 
-test("sending: a rule that is off is named in the closed summary; opening Checks shows it off, in words not colours", async ({ page }) => {
+test("checks: every rule in view, grouped Blocks Send then Warns, each with its switch; the words and the days inline; nothing folded", async ({ page }) => {
+  await page.goto(CHECKS);
+  await expect(page).toHaveTitle(`Checks · ${PROJECT} · Hub Workflow`);
+  await expect(page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Checks", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(checksStatus(page)).toHaveText(/^All \d+ on$/);
+  const table = page.getByRole("table", { name: "Checks before sending" });
+  const rules = table.locator("tr[data-rule]");
+  const count = await rules.count();
+  expect(count).toBeGreaterThan(10);
+  await expect(table.getByRole("switch")).toHaveCount(count);
+  await expect(table.getByLabel("Risky words, separated by commas")).toBeVisible();
+  await expect(table.getByRole("textbox", { name: /Within/ })).toBeVisible();
+  // The level is the group, said once: two headings in this order, no badge per row.
+  await expect(table.locator("tr[data-level-head]")).toHaveText([/^Blocks Send/, /^Warns/]);
+  await expect(table.getByText(/^(Red|Amber)$/)).toHaveCount(0);
+  await expect(page.locator("#main [aria-expanded]:visible")).toHaveCount(0);
+  await page.reload();
+  await expect(table.locator("tr[data-rule]")).toHaveCount(count);
+});
+
+test("checks: a rule that is off is named in the sentence and shows off, in words not colours", async ({ page }) => {
   expect((await setRule(page, "risky_word", false)).ok()).toBe(true);
   try {
-    await page.goto(AT);
-    await expect(checks(page)).toHaveAttribute("aria-expanded", "false");
-    await expect(checks(page)).toContainText("Risky words is off");
-    await checks(page).click();
+    await page.goto(CHECKS);
+    await expect(checksStatus(page)).toContainText("Risky words is off");
     await expect(page.getByRole("switch", { name: "Risky words" })).toHaveAttribute("aria-checked", "false");
-    const table = page.getByRole("table", { name: "Checks before sending" });
-    await expect(table.getByText(/^(Blocks Send|Warns)$/).first()).toBeVisible();
-    await expect(table.getByText(/^(Red|Amber)$/)).toHaveCount(0);
   } finally {
     expect((await setRule(page, "risky_word", true)).ok()).toBe(true);
   }
   await page.reload();
-  await expect(checks(page)).toContainText(/All \d+ on/);
+  await expect(checksStatus(page)).toHaveText(/^All \d+ on$/);
 });
 
-test("sending: a rule switch writes once and reports a refusal inline, in an alert", async ({ page }) => {
+test("checks: a rule switch writes once and reports a refusal inline, in an alert", async ({ page }) => {
   let asked = 0;
   await page.route(/\/api\/safety-rules\//, (route) => {
     if (route.request().method() !== "PUT") return route.fallback();
     asked += 1;
     return route.fulfill({ status: 409, json: { error: "Rules are locked in this test.", code: "wrong_state" } });
   });
-  await page.goto(AT);
-  await checks(page).click();
+  await page.goto(CHECKS);
   const first = page.getByRole("switch").first();
   const before = await first.getAttribute("aria-checked");
   await first.click();

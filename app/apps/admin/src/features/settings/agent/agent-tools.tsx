@@ -1,9 +1,8 @@
 "use client";
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ChevronDownIcon, RefreshCwIcon } from "lucide-react";
+import { RefreshCwIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
 import { LoadFailed } from "@/components/state-views";
@@ -13,44 +12,17 @@ import { useClock } from "@/lib/clock";
 import { copyText } from "@/lib/external";
 import { ago } from "@/lib/format";
 import { useAgentTools } from "@/lib/status";
-import { AGENT_TOOL_CLIS, type AgentToolRow } from "@hub/contract/agent-tools";
+import { AGENT_TOOL_CLIS } from "@hub/contract/agent-tools";
 import { SettingsGroup } from "../group";
 import { ClaudeSettings } from "./agent-group";
 import { Connectors } from "./connectors";
-import { CLI_TITLE, columns, needsAttention, toolsSentence } from "./labels";
-import { ToolTable } from "./tool-table";
+import { CLI_TITLE, toolsSentence } from "./labels";
+import { Tools } from "./tools";
 import { keys } from "@/lib/cache/keys";
 
 type Say = { text: string; kind: "status" | "alert" } | null;
 
-/**
- * One CLI's checks inside its group: only the rows that need a fix or a look (each with its fix line and Copy), then all of
- * that CLI's checks folded under "All checks" (UX pass 2026-11-20: green rows are reassurance, not news).
- */
-function CliChecks({ title, rows, onCopy }: { title: string; rows: readonly AgentToolRow[]; onCopy: (fix: string) => void }) {
-  const attention = rows.filter(needsAttention);
-  if (rows.length === 0) return null;
-  return (
-    <section aria-label={`${title} checks`} className="flex min-w-0 flex-col gap-2 pt-2">
-      <h3 className="pt-2 font-medium text-sm">Checks</h3>
-      {attention.length > 0 && <ToolTable onCopy={onCopy} rows={attention} title={`${title}: needs a fix or a look`} />}
-      <Collapsible>
-        <CollapsibleTrigger className="group -ms-3 justify-start gap-2" render={<ActionButton size="m" variant="quiet" />}>
-          All checks
-          <span className="font-normal text-muted-foreground tabular-nums">{rows.length}</span>
-          <ChevronDownIcon aria-hidden="true" className="transition-transform group-data-panel-open:rotate-180 motion-reduce:transition-none" />
-        </CollapsibleTrigger>
-        <CollapsiblePanel>
-          <div className="pt-2">
-            <ToolTable onCopy={onCopy} rows={rows} title={`${title}: all checks`} />
-          </div>
-        </CollapsiblePanel>
-      </Collapsible>
-    </section>
-  );
-}
-
-/** What each agent's group says about it before its checks: Claude Code's settings and connectors; Codex has neither here. */
+/** What each agent's group holds: Claude Code's settings and connectors; Codex has neither here, so one line says so. */
 const CLI_BODY: Record<(typeof AGENT_TOOL_CLIS)[number], (slug: string) => ReactNode> = {
   claude: (slug) => (
     <>
@@ -68,8 +40,9 @@ const CLI_BODY: Record<(typeof AGENT_TOOL_CLIS)[number], (slug: string) => React
 /**
  * Settings ▸ Agent (P55, P62, P49 section 5B), one group per agent CLI so nothing of one is read as the other's (owner,
  * 2026-11-20: "everything is mixed, Claude and the rest"). On top, the one status line for both and Refresh (the checks run
- * again, about 10 s). Then Claude Code: its model and advisor, its connectors, its checks; then Codex: one line, its checks.
- * Read-only but for the settings, Refresh and Copy; one live region says what Refresh and Copy did.
+ * again, about 10 s). Then Claude Code: its model and advisor, its connectors; then Codex: one line. Then Tools (P75): the
+ * diagnostics of both in one table, after the settings the owner decides, filtered by its View menu. Read-only but for the
+ * settings, Refresh, the view and Copy; one live region says what Refresh and Copy did.
  */
 export function AgentTools({ slug }: { slug: string }) {
   const qc = useQueryClient();
@@ -113,9 +86,9 @@ export function AgentTools({ slug }: { slug: string }) {
       {AGENT_TOOL_CLIS.map((cli) => (
         <SettingsGroup id={`agent-${cli}`} key={cli} title={CLI_TITLE[cli]}>
           {CLI_BODY[cli](slug)}
-          {d && <CliChecks onCopy={copy} rows={columns(d.rows).find((c) => c.cli === cli)?.rows ?? []} title={CLI_TITLE[cli]} />}
         </SettingsGroup>
       ))}
+      {d && d.rows.length > 0 && <Tools onCopy={copy} rows={d.rows} />}
       <div className="min-h-5 text-sm">
         <p role="status">{say?.kind === "status" ? say.text : ""}</p>
         <p className="text-destructive-foreground" role="alert">

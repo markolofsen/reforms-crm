@@ -11,7 +11,7 @@ import { useRoute } from "./use-route";
 
 /**
  * A page drawn under its section (P63 N1): the section's landing first, named by its own title, then its child pages (P70:
- * Settings' Sending, Mail, Agent, Connections, This Mac). `active` is the page on screen.
+ * Settings' Sending, Checks, Mail, Agent, Connections, This Mac), drawn in the sub-nav (P75). `active` is the page on screen.
  */
 export type NavChild = { route: RouteId; title: string; to: Dest; active: boolean };
 /** A section of the nav: `active` while any of its pages is on screen; `children` its child pages, in order. */

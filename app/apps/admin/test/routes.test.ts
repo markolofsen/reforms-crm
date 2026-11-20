@@ -29,7 +29,11 @@ describe("resolveRoute", () => {
     expect(at("/demo%20shop/settings")).toMatchObject({ route: "settings.page", project: "demo shop" });
     expect(at("/knowledge")).toMatchObject({ route: "knowledge.page", section: "knowledge", project: null });
     expect(at("/lisbon/settings/mail")).toMatchObject({ route: "settings.mail", section: "settings", project: "lisbon" });
-    expect(at("/lisbon/settings/agent")).toMatchObject({ route: "settings.agent", section: "settings", project: "lisbon" });
+    expect(at("/lisbon/settings/agent")).toMatchObject({ route: "settings.agent", section: "settings", project: "lisbon", search: { filter: "attention" } });
+    // P75: the Agent pane's Tools view; a value outside the enum resets to the default.
+    expect(at("/settings/agent?filter=all")).toMatchObject({ route: "settings.agent", search: { filter: "all" } });
+    expect(at("/settings/agent?filter=nope")).toMatchObject({ route: "settings.agent", search: { filter: "attention" } });
+    expect(at("/lisbon/settings/checks")).toMatchObject({ route: "settings.checks", section: "settings", project: "lisbon" });
     expect(at("/settings/connections")).toMatchObject({ route: "settings.connections", section: "settings", project: null });
     expect(at("/settings/mac")).toMatchObject({ route: "settings.mac", section: "settings", project: null });
     // P70: an instance pane reached with a project in mind resolves (the guard folds it), unlike a project before Overview.
@@ -77,7 +81,9 @@ describe("paths and places", () => {
     ["knowledge: a view and a search", paths.knowledge.page({ filter: "expired", q: "price" }), "/knowledge?filter=expired&q=price", "/lisbon/knowledge?filter=expired&q=price"],
     ["settings: sending", paths.settings.sending(), "/settings", "/lisbon/settings"],
     ["settings: mail", paths.settings.mail(), "/settings/mail", "/lisbon/settings/mail"],
+    ["settings: checks", paths.settings.checks(), "/settings/checks", "/lisbon/settings/checks"],
     ["settings: agent", paths.settings.agent(), "/settings/agent", "/lisbon/settings/agent"],
+    ["settings: agent, every tool row", paths.settings.agent({ filter: "all" }), "/settings/agent?filter=all", "/lisbon/settings/agent?filter=all"],
     ["settings: connections", paths.settings.connections(), "/settings/connections", "/settings/connections"],
     ["settings: this mac", paths.settings.mac(), "/settings/mac", "/settings/mac"],
     ["help", paths.help.page(), "/help", "/help"],
@@ -106,7 +112,7 @@ describe("paths and places", () => {
   });
 
   it("child pages (P70): Settings' Mail, Agent, Connections, This Mac in order; no other section has one; `g s` lands on Sending", () => {
-    expect(childrenOf("settings").map((c) => c.route)).toEqual(["settings.mail", "settings.agent", "settings.connections", "settings.mac"]);
+    expect(childrenOf("settings").map((c) => c.route)).toEqual(["settings.checks", "settings.mail", "settings.agent", "settings.connections", "settings.mac"]);
     for (const s of SECTIONS.filter((x) => x.id !== "settings")) expect(childrenOf(s.id), s.id).toEqual([]);
     expect(sectionList("settings").route).toBe("settings.page");
   });

@@ -7,7 +7,7 @@ import { useMediaQuery } from "@hub/ui/use-media-query";
 import { cn } from "@hub/ui/cn";
 import { shortcutsOn, useHotkeys, useShortcutsSwitch, type KeyMap } from "@/hooks/use-hotkeys";
 import { PaneNarrowContext, useMeasuredNarrow } from "@/hooks/use-pane";
-import type { NavChild, NavItem } from "@/hooks/use-section-nav";
+import type { NavItem } from "@/hooks/use-section-nav";
 import { useTerminalDocked } from "@/features/terminal/terminal";
 import { save, useStored } from "@/lib/storage";
 import type { Resolved } from "@/routes/resolve";
@@ -18,8 +18,8 @@ import { TabBar } from "./tab-bar";
 // The coss provider sets 16rem and 3rem inline; the product's own widths replace them (`--sidebar-width*`, 224px and 56px).
 const WIDTHS: CSSProperties & Record<`--${string}`, string> = { "--sidebar-width": "14rem", "--sidebar-width-icon": "3.5rem" };
 
-/** A section of the nav, with a dot when it (or one of its child pages, each with its own dot) is where the project's worst fact is fixed. */
-export type ShellNavItem = Omit<NavItem, "children"> & { dot: boolean; children: (NavChild & { dot: boolean })[] };
+/** A section of the nav, with a dot when it (or one of its child pages) is a place that needs the owner (`useLitRoutes`). */
+export type ShellNavItem = NavItem & { dot: boolean };
 
 type Props = {
   items: ShellNavItem[];

@@ -4,23 +4,27 @@ import { ChevronDownIcon } from "lucide-react";
 import { cn } from "@hub/ui/cn";
 import { Menu, MenuLinkItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
+import { usePlace } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { routeDest, sectionList } from "@/routes/paths";
 import { childrenOf, sectionById, type SectionId } from "@/routes/sections";
 import { ROUTE_TABLE } from "@/routes/table";
 import { AppLink } from "./app-link";
+import { NavDot, useLitRoutes } from "./nav-dot";
 
-const LINK = "inline-flex h-11 shrink-0 items-center rounded-md px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-8";
+const LINK = "inline-flex h-11 shrink-0 items-center gap-2 rounded-md px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring lg:h-8";
 
 /**
  * The sub-nav of a section with child pages (P63 N1; Settings since P70), in the header line of each of its pages: the landing
  * first, named by its own title (Settings opens on Sending), then the children in table order, `aria-current` on the page on
- * screen. It is how a child is reached on the rail and the phone, where the nav draws parents only. From 640px one `AppLink`
- * each; below it the five panes do not fit beside a 360px screen's edge (measured, P70 S1), so a coss `Menu` names the pane on
- * screen and lists the others: one tab stop. Both forms are in the markup and CSS picks one (`state-and-data.md` rule 11).
+ * screen, and the dot of a page that needs the owner (`useLitRoutes`). It is the one way to a child page on every width (P75:
+ * the sidebar draws parents only). From 640px one `AppLink` each; below it the six panes do not fit beside a 360px screen's edge
+ * (measured, P70 S1), so a coss `Menu` names the pane on screen and lists the others: one tab stop. Both forms are in the markup
+ * and CSS picks one (`state-and-data.md` rule 11).
  */
 export function SubNav({ section }: { section: SectionId }) {
   const route = useRoute();
+  const lit = useLitRoutes(usePlace().project);
   const parent = sectionById(section);
   if (!parent) return null;
   const pages = [{ key: parent.route, title: ROUTE_TABLE[parent.route].title, to: sectionList(section) }, ...childrenOf(section).map((c) => ({ key: c.route, title: c.title, to: routeDest(c.route) }))];
@@ -32,6 +36,8 @@ export function SubNav({ section }: { section: SectionId }) {
           const on = p.key === here?.key;
           return (
             <AppLink aria-current={on ? "page" : undefined} bare className={cn(LINK, on ? "bg-accent font-medium text-foreground" : "text-muted-foreground hover:text-foreground")} key={p.key} to={p.to}>
+              {/* The dot's words come before the label (as on the phone bar), so the label ends the link's name. */}
+              {lit.has(p.key) && <NavDot at="lead" id={p.key} />}
               {p.title}
             </AppLink>
           );
@@ -46,6 +52,7 @@ export function SubNav({ section }: { section: SectionId }) {
           <MenuPopup align="start">
             {pages.map((p) => (
               <MenuLinkItem aria-current={p.key === here?.key ? "page" : undefined} key={p.key} render={<AppLink bare to={p.to} />}>
+                {lit.has(p.key) && <NavDot at="lead" id={`menu-${p.key}`} />}
                 {p.title}
               </MenuLinkItem>
             ))}

@@ -5,6 +5,7 @@ import { SubNav } from "@/components/sub-nav";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { AgentTools } from "./agent/agent-tools";
+import { ChecksPane } from "./checks/checks-pane";
 import { ConnectionsView } from "./connections/connections-view";
 import { AutostartRow } from "./mac/autostart-row";
 import { CoreBlock } from "./mac/core-block";
@@ -13,15 +14,25 @@ import { SendingPane } from "./sending/sending-pane";
 
 /**
  * Settings (P70): what is set rarely and changes how the Hub behaves, one place, grouped by what each pane governs, as on a Mac.
- * Every pane is one page with the sub-nav (Sending, Mail, Agent, Connections, This Mac) in its header line. Sending, Mail and
- * Agent are the address's project's; Connections and This Mac are the instance's and name no project (`routes-and-url-state.md`
- * rule 10).
+ * Every pane is one page with the sub-nav (Sending, Checks, Mail, Agent, Connections, This Mac) in its header line, the one door
+ * to a pane (P75: the sidebar draws no children), and nothing on a pane is folded. Sending, Checks, Mail and Agent are the
+ * address's project's; Connections and This Mac are the instance's and name no project (`routes-and-url-state.md` rule 10).
  */
 export function SendingScreen() {
   const { project } = useProjectScope();
   return (
     <Page nav={<SubNav section="settings" />}>
       <SendingPane project={project} />
+    </Page>
+  );
+}
+
+/** Settings ▸ Checks (P75): the safety rules, every one in view, grouped by what it does to Send. */
+export function ChecksScreen() {
+  const { project } = useProjectScope();
+  return (
+    <Page nav={<SubNav section="settings" />}>
+      <ChecksPane project={project} />
     </Page>
   );
 }
@@ -36,7 +47,7 @@ export function MailScreen() {
   );
 }
 
-/** Settings ▸ Agent: one group per agent CLI (Claude Code, Codex), each with its settings and its checks (`AgentTools`). */
+/** Settings ▸ Agent: one group per agent CLI (Claude Code, Codex) with its settings, then one Tools table for both (`AgentTools`). */
 export function AgentScreen() {
   const { project } = useProjectScope();
   return (

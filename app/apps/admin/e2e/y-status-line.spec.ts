@@ -28,11 +28,11 @@ test("status line: attention names the fact once, adds the replies owed, and lea
   // No count twice: the to-review number is the View menu's, never the line's.
   await expect(line(page)).not.toContainText("to review");
   await line(page).getByRole("link").click();
-  // P70: sending is fixed on Settings ▸ Sending, so the line leads there; the dot is on Settings (and on Sending under it).
+  // P70: sending is fixed on Settings ▸ Sending, so the line leads there; the dot is on Settings, and (P75) on the Sending tab.
   await expect.poll(() => address(page)).toBe(at(P, "/settings"));
   const nav = page.getByRole("navigation", { name: "Sections" }).first();
   await expect(nav.getByTestId("dot-settings")).toBeVisible();
-  if ((page.viewportSize()?.width ?? 0) >= 1280) await expect(nav.getByTestId("dot-settings.page")).toBeVisible();
+  if ((page.viewportSize()?.width ?? 0) >= 640) await expect(page.getByRole("navigation", { name: "Settings pages" }).getByTestId("dot-settings.page")).toBeVisible();
 });
 
 test("status line: blocked says what stops the sending", async ({ page }) => {

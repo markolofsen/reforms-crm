@@ -25,6 +25,13 @@ export type ActivityView = RunFilter | "sends";
 export { DRAFT_VIEWS, type DraftView };
 export const DEFAULT_DRAFT_VIEW: DraftView = "ready";
 
+/**
+ * Settings ▸ Agent's Tools table (P75): by default only the rows that need a fix or a look, `all` every row. A View menu, like
+ * Drafts, Activity and Knowledge (`admin-principles.md` rule 11), not a disclosure: the table is always drawn.
+ */
+export const AGENT_VIEWS = ["attention", "all"] as const;
+export type AgentView = (typeof AGENT_VIEWS)[number];
+
 export type Raw = Readonly<Record<string, string>>;
 
 /** `a=1&b=2` into a flat record. The last value of a repeated name wins. */
@@ -64,6 +71,7 @@ export type LogSearch = { filter: ActivityView; run: number | null };
 /** P70: the Knowledge table's view (the same enum the API validates) and its title search. */
 export type KnowledgeSearch = { filter: KnowledgeView; q: string };
 export { KNOWLEDGE_VIEWS, type KnowledgeView };
+export type AgentSearch = { filter: AgentView };
 export type NoSearch = Record<string, never>;
 
 /**
@@ -78,4 +86,5 @@ export const draftsSearch = (raw: Raw): DraftsSearch => {
 };
 export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(ACTIVITY_VIEWS, raw.filter, "all"), run: positiveInt(raw.run) });
 export const knowledgeSearch = (raw: Raw): KnowledgeSearch => ({ filter: oneOf(KNOWLEDGE_VIEWS, raw.filter, "all"), q: raw.q ?? "" });
+export const agentSearch = (raw: Raw): AgentSearch => ({ filter: oneOf(AGENT_VIEWS, raw.filter, "attention") });
 export const noSearch = (): NoSearch => ({});

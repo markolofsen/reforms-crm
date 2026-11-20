@@ -1,6 +1,5 @@
 import { CircleCheckIcon, CircleMinusIcon, CircleXIcon, TriangleAlertIcon, type LucideIcon } from "lucide-react";
-import type { AgentToolRow, AgentToolState, AgentToolsDto } from "@hub/contract/agent-tools";
-import { AGENT_TOOL_CLIS } from "@hub/contract/agent-tools";
+import type { AGENT_TOOL_CLIS, AgentToolRow, AgentToolState, AgentToolsDto } from "@hub/contract/agent-tools";
 import { plural } from "@/lib/format";
 
 type Look = { word: string; Icon: LucideIcon; tone: string };
@@ -14,9 +13,6 @@ export const STATE_LOOK: Record<AgentToolState, Look> = {
 };
 
 export const CLI_TITLE: Record<(typeof AGENT_TOOL_CLIS)[number], string> = { claude: "Claude Code", codex: "Codex" };
-
-/** The rows of one CLI, in the server's order. */
-export const columns = (rows: readonly AgentToolRow[]) => AGENT_TOOL_CLIS.map((cli) => ({ cli, rows: rows.filter((r) => r.cli === cli) }));
 
 /** A row that needs the owner: a fix (red) or a look (amber). Both carry their fix line and are Overview items (UX pass). */
 export const needsAttention = (r: AgentToolRow): boolean => r.state === "fail" || r.state === "warn";

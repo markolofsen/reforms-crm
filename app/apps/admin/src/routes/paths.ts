@@ -1,4 +1,4 @@
-import { DEFAULT_DRAFT_VIEW, formatQuery, unlessDefault, type DraftView, type KnowledgeView, type ActivityView } from "./search";
+import { DEFAULT_DRAFT_VIEW, formatQuery, unlessDefault, type AgentView, type DraftView, type KnowledgeView, type ActivityView } from "./search";
 import type { SectionId } from "./sections";
 import { listRouteOf, PROJECTLESS, ROUTE_TABLE, type RouteId } from "./table";
 import { route } from "./typed";
@@ -33,8 +33,9 @@ export const paths = {
   /** P70: one Settings, grouped by what each pane governs; `/settings` is Sending. Connections and This Mac name no project. */
   settings: {
     sending: () => dest("settings.page", route("/settings")),
+    checks: () => dest("settings.checks", route("/settings/checks")),
     mail: () => dest("settings.mail", route("/settings/mail")),
-    agent: () => dest("settings.agent", route("/settings/agent")),
+    agent: (s: { filter?: AgentView } = {}) => dest("settings.agent", route("/settings/agent"), { filter: unlessDefault(s.filter, "attention") }),
     connections: () => dest("settings.connections", route("/settings/connections")),
     mac: () => dest("settings.mac", route("/settings/mac")),
   },
