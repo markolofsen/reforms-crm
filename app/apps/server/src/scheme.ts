@@ -3,7 +3,8 @@ import type { ConnectionsDto, ConnectionDto } from "@hub/contract/connections";
 import type { HealthDto } from "@hub/contract/health";
 import type { CoreUpdateDto } from "@hub/contract/instance";
 import type { DoctorDto, ProjectOverviewDto } from "@hub/contract/responses";
-import { schemeDto, type SchemeDto, type SchemeEdge, type SchemeNode, type SchemeState } from "@hub/contract/scheme";
+import { phrase } from "@hub/contract/help";
+import { schemeDto, type SchemeDto, type SchemeNode, type SchemeState } from "@hub/contract/scheme";
 import type { CliFactDto } from "@hub/contract/terminal";
 import type { LlmMonth } from "@hub/db";
 
@@ -50,8 +51,8 @@ const NOT_RUN = "Run the check on Settings ▸ Agent";
 type Part = Omit<SchemeNode, "detail" | "fix"> & { detail?: string; fix?: string | null; /** What a healthy part may still say (P70: "16 of 16 checks pass"). */ okDetail?: string };
 const node = ({ okDetail, ...p }: Part): SchemeNode => ({ ...p, detail: p.state === "ok" ? (okDetail ?? "") : (p.detail ?? ""), fix: p.state === "ok" ? null : (p.fix ?? null) });
 
-/** The phrase that fixes a project's setup (P70: Overview shows a phrase as the fix of what a session fixes). */
-export const SETUP_PHRASE = "Say “настрой проект” in a session (project-setup)";
+/** The phrase that fixes a project's setup (P70: Overview shows a phrase as the fix of what a session fixes; P81: `phrase()`, English). */
+export const setupFix = (slug: string): string => `Say “${phrase("project-setup", slug)}” in a session (project-setup)`;
 /** "notion.access, knowledge, filters and 2 more": at most three names, then how many more. */
 const names = (list: readonly string[]): string => list.slice(0, 3).join(", ") + (list.length > 3 ? ` and ${list.length - 3} more` : "");
 
@@ -209,9 +210,9 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
   // P70: a failing check is named with its own detail (the first one) and the phrase that fixes it; test mode is Sending's, not setup's.
   const first = failed[0];
   const setup =
-    doctor.state === "absent" ? { state: "fail" as const, detail: "No project.md yet.", fix: SETUP_PHRASE }
-    : first ? { state: "fail" as const, detail: `Failing: ${names(failed.map((c) => c.name))}. ${first.name}: ${first.detail}`, fix: SETUP_PHRASE }
-    : doctor.facts?.status === "draft" ? { state: "warn" as const, detail: "The project is still a draft.", fix: SETUP_PHRASE }
+    doctor.state === "absent" ? { state: "fail" as const, detail: "No project.md yet.", fix: setupFix(slug) }
+    : first ? { state: "fail" as const, detail: `Failing: ${names(failed.map((c) => c.name))}. ${first.name}: ${first.detail}`, fix: setupFix(slug) }
+    : doctor.facts?.status === "draft" ? { state: "warn" as const, detail: "The project is still a draft.", fix: setupFix(slug) }
     : run.length === 0 ? { state: "unknown" as const, detail: "No check ran here." }
     : { state: "ok" as const, okDetail: `${run.length - run.filter((c) => c.outcome === "warn").length} of ${run.length} checks pass` };
   out.push(node({ ...p("setup", "setup"), label: "Project setup", ...setup, place: "overview" }));
@@ -233,36 +234,6 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
   return out;
 }
 
-/** The fixed wiring (plan 4a): client mail reaches the mailbox, the agent reads it through mail-mcp, writes through the Hub tools, and the send door sends; the mail filters limit the mailbox, the project setup binds each session. */
-function edgesOf(nodes: readonly SchemeNode[]): SchemeEdge[] {
-  const ids = new Set(nodes.map((n) => n.id));
-  const out: SchemeEdge[] = [];
-  const add = (from: string, to: string, kind: SchemeEdge["kind"] = "flow") => ids.has(from) && ids.has(to) && out.push({ from, to, kind });
-  const clis = nodes.filter((n) => n.kind === "cli").map((n) => n.id);
-  for (const slug of new Set(nodes.flatMap((n) => (n.project ? [n.project] : [])))) {
-    const of = (key: string) => `${slug}:${key}`;
-    const boxes = nodes.filter((n) => n.project === slug && n.kind === "mailbox").map((n) => n.id);
-    for (const b of boxes) add(b, of("mail-mcp"));
-    for (const c of clis) {
-      add(of("mail-mcp"), c);
-      add(c, of("hub-tools"));
-      add(c, of("knowledge"));
-      add(c, of("notion-db"));
-      add(of("guard"), c, "limits");
-      add(c, of("session"));
-    }
-    // P62: only Claude Code sessions get the Google connectors (Codex has no client-id sign-in).
-    for (const n of nodes.filter((x) => x.project === slug && (x.kind === "calendar" || x.kind === "drive"))) add("cli:claude", n.id);
-    add(of("hub-tools"), of("send-door"));
-    // The filters decide which mail the agent reads; project.md (setup) binds every session. The reply leaves through the send
-    // door to the client (the drawing's end node), not back into the mailbox: a loop there made the layout unreadable.
-    for (const b of boxes) add(of("mail-filters"), b, "limits");
-    for (const c of clis) add(of("setup"), c);
-  }
-  for (const t of nodes.filter((n) => n.kind === "telegram")) for (const c of clis) add(t.id, c);
-  return out;
-}
-
 export async function composeScheme(s: SchemeSources): Promise<SchemeDto> {
   const [slugs, conn] = await Promise.all([s.projects(), s.connections().catch(() => null)]);
   const tokens = (conn?.connections ?? []).filter((c) => c.kind === "notion" || c.secret.state !== "missing");
@@ -270,5 +241,5 @@ export async function composeScheme(s: SchemeSources): Promise<SchemeDto> {
   const instance = [...coreNode(s.core()), ...cliNodes(s.clis()), ...tokens.map(tokenNode), ...telegramUserNodes(s.health()), ...llm];
   const perProject = (await Promise.all(slugs.map((slug) => projectNodes(slug, s, conn)))).flat();
   const nodes = [...instance, ...perProject];
-  return schemeDto.parse({ nodes, edges: edgesOf(nodes) });
+  return schemeDto.parse({ nodes });
 }

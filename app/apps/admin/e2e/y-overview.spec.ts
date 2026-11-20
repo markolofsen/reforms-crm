@@ -75,7 +75,7 @@ test("overview: the request failing shows a sentence and Retry loads it", async 
 });
 
 type Node = { id: string; kind: string; project: string | null; label: string; state: string; detail: string; fix: string | null; place: string | null };
-const scheme = async (page: import("@playwright/test").Page) => (await (await page.request.get(`${API()}/api/scheme`)).json()) as { nodes: Node[]; edges: unknown[] };
+const scheme = async (page: import("@playwright/test").Page) => (await (await page.request.get(`${API()}/api/scheme`)).json()) as { nodes: Node[] };
 
 test("overview: Needs you holds every broken or needs-a-look part, under the projects, each with one link to where it is fixed; All parts is closed", async ({ page }) => {
   const d = await scheme(page);
@@ -102,7 +102,7 @@ test("overview: Needs you holds every broken or needs-a-look part, under the pro
 test("overview: nothing needs you is one line, Everything works, and every part stays folded", async ({ page }) => {
   await page.route(/\/api\/scheme$/, async (route) => {
     const res = await route.fetch();
-    const json = (await res.json()) as { nodes: Node[]; edges: unknown[] };
+    const json = (await res.json()) as { nodes: Node[] };
     await route.fulfill({ response: res, json: { ...json, nodes: json.nodes.map((n) => (n.state === "fail" || n.state === "warn" ? { ...n, state: "ok", detail: "", fix: null } : n)) } });
   });
   await page.route(/\/api\/project\?/, async (route) => {
@@ -118,8 +118,8 @@ test("overview: nothing needs you is one line, Everything works, and every part 
 test("overview: a failing setup check names the check and the phrase (no link: it is fixed in a session); the agent's question comes first", async ({ page }) => {
   await page.route(/\/api\/scheme$/, async (route) => {
     const res = await route.fetch();
-    const json = (await res.json()) as { nodes: Node[]; edges: unknown[] };
-    const nodes = json.nodes.map((n) => (n.id === "lisbon-realty:setup" ? { ...n, state: "fail", detail: "Failing: workflows parse. workflows parse: 1 error", fix: "Say “настрой проект” in a session (project-setup)" } : n));
+    const json = (await res.json()) as { nodes: Node[] };
+    const nodes = json.nodes.map((n) => (n.id === "lisbon-realty:setup" ? { ...n, state: "fail", detail: "Failing: workflows parse. workflows parse: 1 error", fix: "Say “set up project lisbon-realty” in a session (project-setup)" } : n));
     await route.fulfill({ response: res, json: { ...json, nodes } });
   });
   await page.route(/\/api\/project\?project=lisbon-realty/, async (route) => {
@@ -134,7 +134,7 @@ test("overview: a failing setup check names the check and the phrase (no link: i
   await expect(items.first().getByRole("link")).toHaveCount(0);
   const setup = needs.locator('li[data-part="lisbon-realty:setup"]');
   await expect(setup).toContainText("workflows parse");
-  await expect(setup).toContainText("настрой проект");
+  await expect(setup).toContainText("set up project lisbon-realty");
   await expect(setup.getByRole("link")).toHaveCount(0);
   // The fake Mailer (the e2e server's) is a look at the send door, and its link lands on Settings ▸ Sending.
   const door = needs.locator('li[data-part="lisbon-realty:send-door"]');

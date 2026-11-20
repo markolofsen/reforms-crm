@@ -80,8 +80,6 @@ describe("composeScheme", () => {
     expect(byId(d, "alpha:calendar:gcal-hello")).toMatchObject({ kind: "calendar", label: "Calendar · hello@example.test", state: "fail", detail: "Claude Code: HTTP 500", fix: "hub doctor --only Agent", place: "agent" });
     expect(byId(d, "alpha:drive:gdrive-hello")).toMatchObject({ kind: "drive", label: "Drive · gdrive-hello", state: "unknown", detail: "Its Google account is not known yet." });
     expect(byId(d, "alpha:session")?.detail ?? "").not.toContain("HTTP 500");
-    expect(d.edges).toContainEqual({ from: "cli:claude", to: "alpha:calendar:gcal-hello", kind: "flow" });
-    expect(d.edges.some((e) => e.from === "cli:codex" && e.to.includes(":calendar:"))).toBe(false);
     expect(schemeDto.parse(await composeScheme(sources({ agentTools: () => null }))).nodes.some((n) => n.kind === "calendar")).toBe(false);
   });
 
@@ -123,7 +121,7 @@ describe("composeScheme", () => {
       }),
     );
     expect(byId(d, "alpha:mailbox:hello@example.test")).toMatchObject({ state: "unknown", fix: "quit Mail" });
-    expect(byId(d, "alpha:setup")).toMatchObject({ state: "fail", detail: "Failing: workflows parse. workflows parse: 1 error", fix: "Say “настрой проект” in a session (project-setup)", place: "overview" });
+    expect(byId(d, "alpha:setup")).toMatchObject({ state: "fail", detail: "Failing: workflows parse. workflows parse: 1 error", fix: "Say “set up project alpha” in a session (project-setup)", place: "overview" });
     expect(byId(d, "alpha:knowledge")).toMatchObject({ state: "warn", detail: "2 expired." });
   });
 
@@ -147,7 +145,6 @@ describe("composeScheme", () => {
     const works = { ...signIn, state: "pass" as const, detail: "works, last used 2026-11-20 03:25", fix: null };
     const ok = await composeScheme(sources({ agentTools: () => ({ ...TOOLS, rows: [...TOOLS.rows, works, quiet] }) }));
     expect(byId(ok, "alpha:session")).toMatchObject({ state: "unknown", detail: "", fix: null });
-    expect(d.edges).toContainEqual({ from: "cli:claude", to: "alpha:session", kind: "flow" });
   });
 
   it("UX pass: a key that passed over an hour ago still works; failed and stuck sends are a look at the send door", async () => {
@@ -163,11 +160,9 @@ describe("composeScheme", () => {
     expect(byId(await composeScheme(sources({ core: () => ({ ...core, level: "current", command: [] }) })), "core")).toMatchObject({ state: "ok", fix: null });
   });
 
-  it("edges join only parts that exist, and the order is worst first", async () => {
+  it("P81: the reply is parts only (the drawing's links are the contract's fixed model), and the order is worst first", async () => {
     const d = await composeScheme(sources());
-    const ids = new Set(d.nodes.map((n) => n.id));
-    expect(d.edges.length).toBeGreaterThan(0);
-    for (const e of d.edges) expect(ids.has(e.from) && ids.has(e.to), `${e.from} -> ${e.to}`).toBe(true);
+    expect(Object.keys(d)).toEqual(["nodes"]);
     expect(worstFirst(d.nodes)[0]?.state).toBe("fail");
   });
 });

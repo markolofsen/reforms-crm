@@ -113,6 +113,18 @@ describe("the server boundary (decision 0015 section 4 and 5)", () => {
     expect(one).toContain('"image/svg+xml"');
     expect(one).not.toMatch(/innerHTML|insertAdjacentHTML|text\/html/);
   });
+  // P81, standing rule 6 ("UI language: English"): every phrase, empty state and fix line the admin can show is written in the
+  // admin, the contract or the server. One line is allowed: the Russian Re/Fwd subject prefixes the sent matcher strips.
+  it("no Cyrillic in apps/admin/src, packages/contract/src or apps/server/src outside tests (rules README 6)", () => {
+    const dirs = [src, path.join(repo, "app/packages/contract/src"), path.join(repo, "app/apps/server/src")];
+    const lines = dirs.flatMap((d) =>
+      [...walk(d)]
+        .filter((p) => /\.tsx?$/.test(p) && !/\.test\.tsx?$/.test(p))
+        .flatMap((p) => read(p).split("\n").flatMap((l, i) => (/[Ѐ-ӿ]/.test(l) ? [`${path.relative(repo, p)}:${i + 1}`] : []))),
+    );
+    expect(lines.filter((l) => !/^app\/apps\/server\/src\/sent\.ts:\d+$/.test(l))).toEqual([]);
+    expect(lines.filter((l) => l.startsWith("app/apps/server/src/sent.ts")).length).toBeLessThanOrEqual(1);
+  });
   it("the Node-only server packages are banned imports: the eslint list names @hub/terminal and @hub/agent (P49) and @hub/sequences (P47), and no admin file imports them", () => {
     const config = read(path.join(admin, "eslint.config.mjs"));
     for (const name of ["sequences", "terminal", "agent"]) {

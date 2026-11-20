@@ -296,11 +296,16 @@
   }
 }
 
-/* The Hub's scheme on Help (P63 O2, decision 0035): Mermaid draws it, its own <style> is removed, and these rules colour it
-   with the theme's tokens, so light and dark follow the switch with no new render. Each part's state is a class on its node
-   (`ok`, `warn`, `fail`, `unknown`; `outside` for the client mail it starts from) and a word in its label, never a colour alone. */
+/* The Hub's scheme on Help (P63 O2, decision 0035; P81, decision 0042): Mermaid draws it, its own <style> is removed, and these
+   rules colour it with the theme's tokens, so light and dark follow the switch with no new render. Every block is a plain box; a
+   block with a checked part carries a dot (`.scheme-dot`, added by `scheme-svg.tsx`, its word as its title) coloured by its
+   node's class (`ok`, `warn`, `fail`), and the line under the drawing says the same in words, never a colour alone. The SVG keeps
+   its own size as width and height and scales down to the card, never up. */
 .scheme-graph svg {
-  max-width: none;
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
   font-family: inherit;
   overflow: visible;
 }
@@ -309,32 +314,23 @@
   font-size: 13px;
   text-anchor: middle;
 }
-.scheme-graph .node :is(rect, path, polygon, circle, ellipse):not(.label *) {
+.scheme-graph .node :is(rect, path, polygon, circle, ellipse):not(.label *, .scheme-dot) {
   fill: var(--card);
   stroke: var(--muted-foreground);
   stroke-width: 1px;
 }
-.scheme-graph .node.ok :is(rect, path, polygon):not(.label *) {
-  fill: color-mix(in srgb, var(--success) 10%, var(--card));
-  stroke: var(--success);
-}
-.scheme-graph .node.warn :is(rect, path, polygon):not(.label *) {
-  fill: color-mix(in srgb, var(--warning) 14%, var(--card));
-  stroke: var(--warning);
-}
-.scheme-graph .node.fail :is(rect, path, polygon):not(.label *) {
-  fill: color-mix(in srgb, var(--destructive) 12%, var(--card));
-  stroke: var(--destructive);
+.scheme-graph .scheme-dot {
+  stroke: var(--card);
   stroke-width: 1.5px;
 }
-.scheme-graph .node.unknown :is(rect, path, polygon):not(.label *) {
-  fill: var(--card);
-  stroke: var(--muted-foreground);
-  stroke-dasharray: 4 3;
+.scheme-graph .node.ok .scheme-dot {
+  fill: var(--success);
 }
-.scheme-graph .node.outside :is(rect, path, polygon):not(.label *) {
-  fill: var(--muted);
-  stroke: var(--border);
+.scheme-graph .node.warn .scheme-dot {
+  fill: var(--warning);
+}
+.scheme-graph .node.fail .scheme-dot {
+  fill: var(--destructive);
 }
 .scheme-graph .cluster > :is(rect, path) {
   fill: var(--muted);
@@ -349,7 +345,18 @@
   stroke: var(--muted-foreground);
   stroke-width: 1px;
 }
-.scheme-graph marker :is(path, circle) {
+/* The `~~~` links that only order a narrow drawing. */
+.scheme-graph .edge-thickness-invisible {
+  stroke: none;
+}
+.scheme-graph marker :is(path, circle, polygon) {
   fill: var(--muted-foreground);
   stroke: none;
+}
+.scheme-graph .edgeLabel rect.background {
+  fill: var(--card);
+  stroke: none;
+}
+.scheme-graph .edgeLabel text {
+  fill: var(--muted-foreground);
 }

@@ -1,4 +1,5 @@
 import { EmptyState, LoadFailed, StaleNote } from "@/components/state-views";
+import { phrase } from "@hub/contract/help";
 import { Skeleton } from "@hub/ui/skeleton";
 import { usePlace } from "@/hooks/use-project";
 import { useClock } from "@/lib/clock";
@@ -29,7 +30,7 @@ export function ConnectionsView() {
 
   if (q.isPending) return <ConnectionsSkeleton />;
   if (!data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the connections" />;
-  if (data.connections.length === 0) return <EmptyState title="No connections yet">They appear here once a project is set up: say “настрой проект” in a session.</EmptyState>;
+  if (data.connections.length === 0) return <EmptyState title="No connections yet">They appear here once a project is set up: say “{phrase("project-setup")}” in a session.</EmptyState>;
   return (
     <>
       {/* One list of keys, each row named by its own label: a "Notion" heading over "Notion integration" said it twice (UX pass). */}

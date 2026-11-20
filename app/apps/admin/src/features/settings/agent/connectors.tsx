@@ -1,6 +1,7 @@
 "use client";
 
 import type { AgentCapability } from "@hub/contract/agent-tools";
+import { phrase } from "@hub/contract/help";
 import { useAgentTools } from "@/lib/status";
 
 const LABEL: Record<AgentCapability["kind"], string> = { calendar: "Calendar", drive: "Drive" };
@@ -23,7 +24,7 @@ export function Connectors({ slug }: { slug: string }) {
       </h3>
       {caps.length === 0 ? (
         <p className="measure py-2 text-muted-foreground text-sm" data-testid="agent-connectors-none">
-          None. To use a Google Calendar or Drive here, say “настрой проект” in a session.
+          None. To use a Google Calendar or Drive here, say “{phrase("project-setup", slug)}” in a session.
         </p>
       ) : (
         <ul className="flex flex-col divide-y" data-testid="agent-connectors">

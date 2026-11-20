@@ -1,4 +1,5 @@
 import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
+import { phrase } from "@hub/contract/help";
 import { usePlace } from "@/hooks/use-project";
 import { useClock } from "@/lib/clock";
 import { useOverview } from "@/lib/status";
@@ -20,7 +21,7 @@ export function OverviewView() {
   const data = q.data;
   if (q.isPending) return <ListSkeleton label="Loading the overview" rows={2} />;
   if (!data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the overview" />;
-  if (data.projects.length === 0) return <EmptyState title="No projects yet">Ask the agent to set up your project: say “настрой проект” in a session.</EmptyState>;
+  if (data.projects.length === 0) return <EmptyState title="No projects yet">Ask the agent to set up your project: say “{phrase("project-setup")}” in a session.</EmptyState>;
   const rows = ordered(data.projects);
   return (
     <>

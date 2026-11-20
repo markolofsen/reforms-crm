@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { phrase } from "@hub/contract/help";
 import type { DoctorDto } from "@hub/contract/responses";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { CopyFix } from "@/components/copy-fix";
@@ -68,7 +69,7 @@ export function SendPolicyLines({ project }: { project: string }) {
   const q = useDoctor(project);
   if (!q.data) return <Pending q={q} />;
   const f = q.data.facts;
-  if (!f) return <FactLine open summary='No project.md yet. Say "настрой проект" in a session (project-setup).' title="Send to" tone="problem" />;
+  if (!f) return <FactLine open summary={`No project.md yet. Say “${phrase("project-setup", project)}” in a session (project-setup).`} title="Send to" tone="problem" />;
   const toAll = { lead: "To send to anyone, run in your shell:", line: `./run.sh send policy set ${project} draft.recipients any` };
   const toTest = { lead: "To go back to the test list, run in your shell:", line: `./run.sh send policy set ${project} draft.recipients test` };
   return (

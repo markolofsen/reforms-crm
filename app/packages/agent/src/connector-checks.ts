@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
+import { phrase } from "@hub/contract/help";
 import { loadProject } from "@hub/projects";
 import { connectorDeniedTools, instanceConnectors, KINDS, readConnectorAccounts, resolveConnectors, type AttachedConnector } from "./connectors";
 
@@ -22,8 +23,8 @@ export interface ConnectorCheckInput {
   claudeJson?: string;
 }
 
-/** The phrase that changes which connectors a project lists (project-setup asks once per project). */
-export const setupPhrase = (slug: string): string => `настрой проект ${slug}`;
+/** The phrase that changes which connectors a project lists (project-setup asks once per project; P81: the one English phrase, shown on Overview). */
+export const setupPhrase = (slug: string): string => phrase("project-setup", slug);
 export const addLine = (kind: string, name: string): string => `hub connectors add ${kind} ${name} --client-id <OAuth client id> --account <address>`;
 
 /** Every connector name some project of the instance lists. */

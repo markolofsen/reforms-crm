@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { phrase } from "@hub/contract/help";
 import { useState } from "react";
 import { SEQUENCE_DISPLAY_LABELS } from "@hub/config";
 import type { EnrollmentDto } from "@hub/contract/sequences";
@@ -66,7 +67,7 @@ export function FollowUps({ project }: { project: string }) {
       <h3 className="px-3 pt-2 pb-1 font-medium text-sm">In follow-up ({rows.length})</h3>
       {rows.length === 0 ? (
         <p className="measure px-3 pb-3 text-muted-foreground text-sm">
-          Nobody is in a follow-up. Say to the agent: <code>подготовь follow-up молчащим клиентам проекта {project}</code>.
+          Nobody is in a follow-up. Say to the agent: <code>{phrase("sequence-drafts", project)}</code>.
         </p>
       ) : (
         <ul aria-label="Clients in follow-up">{rows.map((e) => <Row e={e} key={e.id} project={project} />)}</ul>

@@ -1,4 +1,5 @@
 import type { MailAccountDto, MailReadDto } from "@hub/contract/connections";
+import { phrase } from "@hub/contract/help";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { foundLook } from "../connections/labels";
 
@@ -8,7 +9,7 @@ import { foundLook } from "../connections/labels";
  * not answer is said once under the table, with its fix line; the rest of the page is not held back by it.
  */
 export function MailAccounts({ mail, read }: { mail: readonly MailAccountDto[]; read: MailReadDto }) {
-  if (mail.length === 0) return <p className="measure text-muted-foreground text-sm">This project lists no mail account yet. Say “настрой проект” in a session (project-setup).</p>;
+  if (mail.length === 0) return <p className="measure text-muted-foreground text-sm">This project lists no mail account yet. Say “{phrase("project-setup")}” in a session (project-setup).</p>;
   return (
     <>
       <DataTable aria-label="Mail accounts">

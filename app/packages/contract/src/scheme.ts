@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { STATUS_NEXT } from "./overview";
+import { BLOCKS, blockStates, blockWhat, CUTS, LANE_LINKS, LANES, LINKS, type Block, type BlockId, type CutId, type LaneId, type Link } from "./scheme-model";
 
 /**
  * The Hub's parts and how each stands (P63 O1, `GET /api/scheme`): the summary on Overview, one row per part, worst first, and
@@ -39,13 +40,10 @@ export const schemeNode = z.strictObject({
 });
 export type SchemeNode = z.infer<typeof schemeNode>;
 
-export const schemeEdge = z.strictObject({ from: z.string(), to: z.string(), kind: z.enum(["flow", "limits"]) });
-export type SchemeEdge = z.infer<typeof schemeEdge>;
-
-export const schemeDto = z.strictObject({ nodes: z.array(schemeNode), edges: z.array(schemeEdge) });
+export const schemeDto = z.strictObject({ nodes: z.array(schemeNode) });
 export type SchemeDto = z.infer<typeof schemeDto>;
 
-/** A part's standing in words (P63 plan 4c): the one copy, used by the parts table and in every label of the drawing (never a colour alone). */
+/** A part's standing in words (P63 plan 4c): the one copy, used by the parts table and by each dot's title in the drawing (never a colour alone). */
 export const SCHEME_WORDS: Record<SchemeState, string> = { fail: "Broken", warn: "Needs a look", unknown: "Not checked here", ok: "Works" };
 
 const RANK: Record<SchemeState, number> = { fail: 0, warn: 1, unknown: 2, ok: 3 };
@@ -65,40 +63,69 @@ export function worstFirst(nodes: readonly SchemeNode[]): SchemeNode[] {
 const CODE: Record<string, string> = { '"': "#quot;", "#": "#35;", "&": "#38;", "<": "#lt;", ">": "#gt;", "`": "#96;", ";": "#59;", "[": "#91;", "]": "#93;", "{": "#123;", "}": "#125;", "(": "#40;", ")": "#41;", "|": "#124;", "\\": "#92;" };
 export const schemeText = (s: string): string => s.replace(/\s+/g, " ").trim().replace(/["#&<>`;[\]{}()|\\]/g, (c) => CODE[c] ?? "");
 
+
 /**
- * The scheme as Mermaid text (P63 O2): `flowchart LR`, the instance's parts on top, one `subgraph` per project, a node per part
- * labelled "name<br/>status word", the fixed edges, then one `class` line per state (styled by `scheme-graph` in `@hub/ui`, so the
- * theme needs no re-render). Node ids are generated (`n1..nN`, clusters `p1..pN`), never derived from a name; an edge whose end is
- * not a node is dropped. Two fixed nodes are the outside world, with no state: "Client mail" starts the chain at every mailbox,
- * and "Reply to the client" ends it after every send door.
+ * Two forms of every drawing (P81, decision 0042); Help shows the first that fits its card with no label under 12 px, else the
+ * drawing's list. `wide`: the general view's lanes are rows stacked top to bottom (each lane left to right), a cut runs left to
+ * right. `narrow`: everything top to bottom, one lane under the other, a lane's blocks under each other.
  */
-export function buildScheme(dto: SchemeDto): string {
-  const id = new Map(dto.nodes.map((n, i) => [n.id, `n${i + 1}`]));
-  const line = (n: SchemeNode) => `${id.get(n.id)}["${schemeText(n.label)}<br/>${SCHEME_WORDS[n.state]}"]`;
-  const out = ["flowchart LR"];
-  const boxes = dto.nodes.filter((n) => n.kind === "mailbox");
-  const doors = dto.nodes.filter((n) => n.kind === "send-door");
-  if (boxes.length > 0) out.push('  mail(["Client mail"])');
-  if (doors.length > 0) out.push('  reply(["Reply to the client"])');
-  for (const n of dto.nodes.filter((x) => x.project === null)) out.push(`  ${line(n)}`);
-  const projects = [...new Set(dto.nodes.flatMap((n) => (n.project === null ? [] : [n.project])))];
-  projects.forEach((p, i) => {
-    out.push(`  subgraph p${i + 1}["${schemeText(p)}"]`);
-    for (const n of dto.nodes.filter((x) => x.project === p)) out.push(`    ${line(n)}`);
-    out.push("  end");
+export const SCHEME_FORMS = ["wide", "narrow"] as const;
+export type SchemeForm = (typeof SCHEME_FORMS)[number];
+
+const ARROW: Record<Link["kind"], string> = { flow: "-->", limits: "-.->", "two-way": "<-->" };
+
+const ids = (blocks: readonly Block[]) => {
+  const m = new Map<BlockId, string>(blocks.map((b, i) => [b.id, `b${i + 1}`]));
+  return (b: BlockId) => m.get(b) ?? "";
+};
+const box = (b: Block, id: string, nodes: readonly SchemeNode[]) => `${id}["${schemeText(b.label)}<br/>${schemeText(blockWhat(b, nodes))}"]`;
+const line = (from: string, l: Link, to: string) => `${from} ${ARROW[l.kind]}|"${schemeText(l.label)}"| ${to}`;
+
+/** A block's standing is a class (`ok`, `warn`, `fail`) that `scheme-svg.tsx` turns into a dot; an unchecked block has none. */
+const classes = (blocks: readonly Block[], id: (b: BlockId) => string, nodes: readonly SchemeNode[]): string[] => {
+  const states = blockStates(nodes);
+  return (["ok", "warn", "fail"] as const).flatMap((state) => {
+    const of = blocks.filter((b) => states[b.id]?.state === state).map((b) => id(b.id));
+    return of.length > 0 ? [`  class ${of.join(",")} ${state}`] : [];
   });
-  for (const b of boxes) out.push(`  mail --> ${id.get(b.id)}`);
-  for (const d of doors) out.push(`  ${id.get(d.id)} --> reply`);
-  for (const e of dto.edges) {
-    const from = id.get(e.from);
-    const to = id.get(e.to);
-    if (from && to) out.push(e.kind === "limits" ? `  ${from} -.-> ${to}` : `  ${from} --> ${to}`);
+};
+
+const laneOf = (b: BlockId): LaneId | undefined => BLOCKS.find((x) => x.id === b)?.lane;
+
+/**
+ * The general view as Mermaid text (P81, decision 0042): one subgraph per lane (`l1..l5`) holding its blocks (`b1..bN` by
+ * position, two fixed lines each) and the links inside it; the lanes are joined by `LANE_LINKS`, never a block to a block of
+ * another lane, so Mermaid lays out each lane by itself and the lanes stay lanes. `narrow` chains a lane's blocks with invisible
+ * links (`~~~`) so they stack, and chains two neighbouring lanes no link joins, so the lanes make one column.
+ */
+export function buildScheme(nodes: readonly SchemeNode[], form: SchemeForm): string {
+  const id = ids(BLOCKS);
+  const lane = (l: LaneId) => `l${LANES.findIndex((x) => x.id === l) + 1}`;
+  const out = ["flowchart TB"];
+  for (const l of LANES) {
+    const of = BLOCKS.filter((b) => b.lane === l.id);
+    out.push(`  subgraph ${lane(l.id)}["${schemeText(l.label)}"]`, `    direction ${form === "wide" ? "LR" : "TB"}`);
+    for (const b of of) out.push(`    ${box(b, id(b.id), nodes)}`);
+    for (const k of LINKS.filter((k) => laneOf(k.from) === l.id && laneOf(k.to) === l.id)) out.push(`    ${line(id(k.from), k, id(k.to))}`);
+    if (form === "narrow" && of.length > 1) out.push(`    ${of.map((b) => id(b.id)).join(" ~~~ ")}`);
+    out.push("  end");
   }
-  for (const state of SCHEME_STATES) {
-    const of = dto.nodes.filter((n) => n.state === state).map((n) => id.get(n.id));
-    if (of.length > 0) out.push(`  class ${of.join(",")} ${state}`);
+  for (const k of LANE_LINKS) out.push(`  ${lane(k.from)} -->|"${schemeText(k.label)}"| ${lane(k.to)}`);
+  if (form === "narrow") {
+    LANES.slice(1).forEach((l, i) => {
+      const prev = LANES[i]?.id;
+      if (prev && !LANE_LINKS.some((k) => k.from === prev && k.to === l.id)) out.push(`  ${lane(prev)} ~~~ ${lane(l.id)}`);
+    });
   }
-  const outside = [boxes.length > 0 ? "mail" : null, doors.length > 0 ? "reply" : null].filter(Boolean);
-  if (outside.length > 0) out.push(`  class ${outside.join(",")} outside`);
+  out.push(...classes(BLOCKS, id, nodes));
   return out.join("\n");
+}
+
+/** One cut (P81): only its blocks, in the order its links first name them, no lanes; `wide` left to right, `narrow` top to bottom. */
+export function buildCut(cut: CutId, nodes: readonly SchemeNode[], form: SchemeForm): string {
+  const links = CUTS.find((c) => c.id === cut)?.links ?? [];
+  const order = [...new Set(links.flatMap((l) => [l.from, l.to]))];
+  const blocks = order.flatMap((i) => BLOCKS.filter((b) => b.id === i));
+  const id = ids(blocks);
+  return [`flowchart ${form === "wide" ? "LR" : "TB"}`, ...blocks.map((b) => `  ${box(b, id(b.id), nodes)}`), ...links.map((l) => `  ${line(id(l.from), l, id(l.to))}`), ...classes(blocks, id, nodes)].join("\n");
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sayFor, SAY } from "./help";
+import { phrase, sayFor, SAY } from "./help";
 import { TIPS, tipDto, tipsFor, tipsVerifiedOn, versionNewer } from "./tips";
 
 describe("tips (P63 O3)", () => {
@@ -25,8 +25,19 @@ describe("tips (P63 O3)", () => {
   });
 
   it("help phrases: X is the project, <X> (a client) stays", () => {
-    expect(sayFor("разбери почту проекта X", "alpha")).toBe("разбери почту проекта alpha");
-    expect(sayFor("привяжи эту папку Drive к клиенту <X>", "alpha")).toBe("привяжи эту папку Drive к клиенту <X>");
+    expect(sayFor("triage mail for X", "alpha")).toBe("triage mail for alpha");
+    expect(sayFor("link this Drive folder to client <X>", "alpha")).toBe("link this Drive folder to client <X>");
     expect(SAY.length).toBeGreaterThan(10);
+  });
+
+  it("P81: every phrase is English, and phrase() is the first row of a skill, with or without the project", () => {
+    for (const s of SAY) expect(s.example, s.skill).not.toMatch(/[\u0400-\u04FF]/);
+    expect(SAY[0]?.example).toBe("triage mail for X");
+    expect(phrase("project-setup", "alpha")).toBe("set up project alpha");
+    expect(phrase("project-setup")).toBe("set up project");
+    expect(phrase("mail-filters")).toBe("set up the mail filters");
+    expect(phrase("knowledge-import")).toBe("load the knowledge");
+    expect(phrase("triage-mail", "alpha")).toBe("triage mail for alpha");
+    expect(phrase("sequence-drafts", "alpha")).toBe("prepare the follow-ups of alpha");
   });
 });

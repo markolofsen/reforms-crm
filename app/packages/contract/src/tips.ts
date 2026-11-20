@@ -83,7 +83,7 @@ export const TIPS: readonly TipDto[] = [
     cli: "hub",
     id: "this-draft",
     title: "Answer the draft on screen",
-    how: "Say “ответь” or “перепиши короче”: the agent rewrites the draft open in the Hub. No need to say which.",
+    how: "Say “answer it” or “make it shorter”, in any language: the agent rewrites the draft open in the Hub. No need to say which.",
     why: "The agent sees what the Hub shows you. It saves a new version; you read it and decide.",
     verifiedOn: null,
     handoff: false,

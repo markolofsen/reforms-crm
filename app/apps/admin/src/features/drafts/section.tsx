@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { phrase } from "@hub/contract/help";
 import { useCallback, useMemo } from "react";
 import type { ClientFilter } from "@hub/config";
 import { ReviewWorkspace } from "@/features/review/workspace";
@@ -86,7 +87,7 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile, measured
             ? `${EMPTY[filter]} in this batch.`
             : filtered
               ? null
-              : `Say to the agent: "разбери почту ${project}". Drafts it leaves unsent in Mail appear here.`
+              : `Say to the agent: “${phrase("triage-mail", project)}”. Drafts it leaves unsent in Mail appear here.`
       }
       emptyTitle={known && batch === null ? EMPTY[filter] : undefined}
       listBottom={filter === "sequences" && batch === null ? <FollowUps project={project} /> : undefined}

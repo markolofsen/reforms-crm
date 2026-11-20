@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { phrase } from "@hub/contract/help";
 import { ChevronDownIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { KnowledgeListDto, KnowledgeView as View } from "@hub/contract/knowledge";
@@ -81,7 +82,7 @@ export function KnowledgeView({ project, filter, q }: { project: string; filter:
   );
   const body =
     k?.state === "absent" ? (
-      <EmptyState title="No knowledge yet">Say “загрузи знания проекта” in a session (knowledge-import).</EmptyState>
+      <EmptyState title="No knowledge yet">Say “{phrase("knowledge-import", project)}” in a session (knowledge-import).</EmptyState>
     ) : list.isPending ? (
       <ListSkeleton label="Loading the knowledge base" rows={4} />
     ) : !d ? (

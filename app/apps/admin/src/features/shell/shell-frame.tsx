@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { phrase } from "@hub/contract/help";
 import { useMemo, type ReactNode } from "react";
 import { DEFAULT_INSTANCE_NAME } from "@hub/contract/instance";
 import { Page } from "@hub/ui/product/page";
@@ -88,7 +89,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
           </Page>
         ) : !scope ? (
           <Page>
-            <EmptyState action={<AppLink to={paths.settings.connections()}>Open Connections</AppLink>} title="No projects yet">Ask the agent to set up your project: say “настрой проект” in a session.</EmptyState>
+            <EmptyState action={<AppLink to={paths.settings.connections()}>Open Connections</AppLink>} title="No projects yet">Ask the agent to set up your project: say “{phrase("project-setup")}” in a session.</EmptyState>
           </Page>
         ) : (
           <ProjectScopeContext value={scope}>{children}</ProjectScopeContext>
