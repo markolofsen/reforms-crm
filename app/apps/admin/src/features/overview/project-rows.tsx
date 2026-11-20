@@ -1,4 +1,6 @@
 import type { ProjectRowDto } from "@hub/contract/overview";
+import { refOf } from "@hub/contract/focus";
+import { agentRef } from "@/lib/focus";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { AppLink } from "@/components/app-link";
 import { paths } from "@/routes/paths";
@@ -52,7 +54,7 @@ export function ProjectTable({ rows, now }: Props) {
       </TableHeader>
       <TableBody>
         {rows.map((p) => (
-          <TableRow data-project={p.slug} key={p.slug}>
+          <TableRow data-project={p.slug} key={p.slug} {...agentRef(refOf("project", p.slug))}>
             <TableCell>
               <Name p={p} />
             </TableCell>
@@ -76,7 +78,7 @@ export function ProjectList({ rows, now }: Props) {
   return (
     <ul aria-label="Projects" className="flex flex-col divide-y md:hidden">
       {rows.map((p) => (
-        <li className="flex min-w-0 flex-col gap-1 py-2 text-sm" data-project={p.slug} key={p.slug}>
+        <li className="flex min-w-0 flex-col gap-1 py-2 text-sm" data-project={p.slug} key={p.slug} {...agentRef(refOf("project", p.slug))}>
           <p className="flex flex-wrap items-baseline gap-x-2">
             <Name p={p} />
             <span className="text-muted-foreground">{statusWord(p)}</span>

@@ -98,7 +98,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
   // Desktop opens the first draft by default (focus follows); a phone opens nothing until a row is chosen.
   const present = selection.id !== null && rows.some((r) => r.id === selection.id);
   const current = body ? null : (rows.find((r) => r.id === selection.id) ?? (mobile ? null : (rows[0] ?? null)));
-  useShareReview(current?.id ?? null, sel.picked);
+  useShareReview(current, sel.picked);
   // P53: the address names the card on screen. Once the list has settled for this view and search, a wide pane whose
   // address names no draft, or one not in the list, replaces it with the first row (no history entry). So a draft the
   // agent records at the top never swaps the card under the owner, and the address, the card and the focus agree.

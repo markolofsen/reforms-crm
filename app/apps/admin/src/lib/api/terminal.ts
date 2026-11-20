@@ -1,6 +1,7 @@
 import { okDto } from "@hub/contract/responses";
 import { DROP_FIELD, ensureSessionDto, terminalDropDto, terminalSessionDto, terminalStateDto, terminalTicketDto, type CreateSessionBody, type EnsureSessionBody, type TerminalDropDto, type TerminalStateDto } from "@hub/contract/terminal";
 import type { FocusPost } from "@hub/contract/focus";
+import { pointerDto, type PointerDto } from "@hub/contract/pointer";
 import { read } from "./client";
 
 /** The resolved theme is the `.dark` class next-themes keeps on <html>: a new tab's CLI learns it through COLORFGBG. */
@@ -50,4 +51,12 @@ export const focusApi = {
       /* the page is going away */
     }
   },
+};
+
+/**
+ * The agent's pointer (P72, decision 0038): what `highlight` in `hub mcp` asks to show, read when the live topic `pointer`
+ * moves. Read only: the admin never writes the pointer; its outcome goes back in the next focus post.
+ */
+export const pointerApi = {
+  get: (): Promise<PointerDto> => read(pointerDto, { method: "GET", path: "/api/pointer" }),
 };

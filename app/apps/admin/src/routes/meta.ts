@@ -34,4 +34,14 @@ export function pageTitle(id: RouteId, project: string | null | undefined, item?
   return [sub, title, PROJECTLESS.has(id) ? null : project, APP].filter(Boolean).join(" · ");
 }
 
+/**
+ * The screen's own words for the shared focus and the dock header (P72): the route table's title (`Knowledge`, `Activity`),
+ * `Draft 42` for an item, `Not found`. The one label map of the screens; the focus keeps no list of its own.
+ */
+export function screenTitleOf(r: Resolved): string {
+  if (r.route === "notFound") return "Not found";
+  const { title, crumb } = metaOf(r.route);
+  return crumb && "id" in r.params ? `${crumb} ${r.params.id}` : title;
+}
+
 export const NOT_FOUND_TITLE = `Not found · ${APP}`;

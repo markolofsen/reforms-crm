@@ -9,6 +9,7 @@
     "./sound": "./src/sound/use-sound.ts",
     "./product/terminal": "./src/product/terminal/terminal.tsx",
     "./product/side-dock": "./src/product/side-dock/side-dock.tsx",
+    "./product/spotlight": "./src/product/spotlight/spotlight.tsx",
     "./product/*": "./src/product/*.tsx",
     "./*": "./src/ui/*.tsx"
   },

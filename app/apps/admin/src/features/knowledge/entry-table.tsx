@@ -3,6 +3,7 @@ import { Badge } from "@hub/ui/badge";
 import { cn } from "@hub/ui/cn";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { LocalActionButton } from "@/components/local-action";
+import { agentRef } from "@/lib/focus";
 import { STATUS_LOOK, forText, type Facets } from "./labels";
 
 type Props = { project: string; entries: readonly KnowledgeEntryDto[]; facets: Facets };
@@ -23,6 +24,12 @@ function Open({ project, e }: { project: string; e: KnowledgeEntryDto }) {
     </LocalActionButton>
   );
 }
+
+/**
+ * A row he can point at (P72): focusable (one Tab stop each, with the inset ring of `accessibility.md` rule 3), and its key is
+ * its ref (`knowledge:<index path>`), so a click on the row or a Tab onto it tells the agent which entry he means.
+ */
+const POINTABLE = "outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
 const day = (v: string | null): string => (v ? v.slice(0, 10) : "");
 /** The date is quiet; it speaks up only when the entry has run out or is about to. */
@@ -55,8 +62,10 @@ export function EntryTable({ project, entries, facets }: Props) {
         </TableHeader>
         <TableBody>
           {entries.map((e) => (
-            <TableRow data-entry={e.key} data-status={e.status} key={e.key}>
-              <TableCell className="break-words font-medium">{e.title}</TableCell>
+            <TableRow className={POINTABLE} data-entry={e.key} data-status={e.status} key={e.key} tabIndex={0} {...agentRef(e.key)}>
+              <TableCell className="break-words font-medium" data-agent-label="">
+                {e.title}
+              </TableCell>
               {showFor && <TableCell className={cn("break-words", e.audiences.length === 0 ? "text-warning-foreground" : "text-muted-foreground")}>{forText(e, facets.brandsDiffer)}</TableCell>}
               {showStatus && (
                 <TableCell>
@@ -76,9 +85,11 @@ export function EntryTable({ project, entries, facets }: Props) {
       </DataTable>
       <ul aria-label="Knowledge entries" className="flex flex-col divide-y md:hidden">
         {entries.map((e) => (
-          <li className="flex min-w-0 flex-col gap-1 py-2 text-sm" data-entry={e.key} data-status={e.status} key={e.key}>
+          <li className={cn("flex min-w-0 flex-col gap-1 py-2 text-sm", POINTABLE)} data-entry={e.key} data-status={e.status} key={e.key} tabIndex={0} {...agentRef(e.key)}>
             <p className="flex min-w-0 items-center gap-2">
-              <span className="min-w-0 flex-1 break-words font-medium">{e.title}</span>
+              <span className="min-w-0 flex-1 break-words font-medium" data-agent-label="">
+                {e.title}
+              </span>
               <Open e={e} project={project} />
             </p>
             {(meta(e) || STATUS_LOOK[e.status].badge) && (

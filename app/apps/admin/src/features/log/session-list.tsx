@@ -1,4 +1,6 @@
 import { ChevronDownIcon } from "lucide-react";
+import { refOf } from "@hub/contract/focus";
+import { agentRef } from "@/lib/focus";
 import { useId, useState } from "react";
 import type { ActivitySessionDto } from "@hub/contract/activity";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
@@ -119,9 +121,9 @@ export function SessionTable({ sessions, filter, open }: Props) {
         </TableRow>
       </TableHeader>
       {sessions.map((s) => (
-        <TableBody data-run={s.runId} key={s.runId}>
+        <TableBody data-run={s.runId} key={s.runId} {...agentRef(refOf("run", s.runId))}>
           <TableRow data-session-head="">
-            <TableHead className="whitespace-normal bg-muted/40" colSpan={5} scope="colgroup">
+            <TableHead className="whitespace-normal bg-muted/40" colSpan={5} data-agent-label="" scope="colgroup">
               <Heading filter={filter} open={open} s={s} />
             </TableHead>
           </TableRow>
@@ -191,7 +193,7 @@ export function SessionRows({ sessions, filter, open }: Props) {
   return (
     <div className="flex flex-col gap-4 @4xl:hidden">
       {sessions.map((s) => (
-        <section aria-label={sessionHeading(s)} data-run={s.runId} key={s.runId}>
+        <section aria-label={sessionHeading(s)} data-run={s.runId} key={s.runId} {...agentRef(refOf("run", s.runId))}>
           <h3 className="border-b pb-1">
             <Heading filter={filter} open={open} s={s} />
           </h3>

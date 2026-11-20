@@ -6,6 +6,7 @@ import { useRoute } from "@/hooks/use-route";
 import { focusApi } from "@/lib/api/terminal";
 import { sharePublished, useSharedFocus } from "@/lib/focus";
 import { deriveFocus, sameFocus } from "./derive";
+import { useMainObservers } from "./use-main-observers";
 
 /** A change settles for this long before it is posted (typing in the search box, arrowing through rows). */
 export const FOCUS_DEBOUNCE_MS = 300;
@@ -19,7 +20,8 @@ const noSubscribe = () => () => {};
 const useTabId = (): string | null => useSyncExternalStore(noSubscribe, tabOf, () => null);
 
 /**
- * The shell frame's publisher (P51, decision 0029): this tab's focus goes to `POST /api/focus` after it settles, again when
+ * The shell frame's publisher (P51, decision 0029; P72, decision 0038): this tab's focus (the route, its title and refs:
+ * `derive.ts`) goes to `POST /api/focus` after it settles, again when
  * the window gets focus or becomes visible (the last focused tab wins), every 60 s while visible (fresh means at most 10
  * minutes old), and is cleared on `pagehide`. A failed post is dropped: the next change or heartbeat sends it again.
  */
@@ -30,6 +32,8 @@ export function useFocusPublisher(project: string | null): void {
   const [visible, setVisible] = useState(true);
   const [beat, setBeat] = useState(0);
   const last = useRef<FocusPost | null>(null);
+  // The row he is on and the rows on screen, from `#main` (cleared when the address moves to another screen).
+  useMainObservers(`${route.route} ${project ?? ""}`);
 
   useEffect(() => {
     if (!tab) return;
@@ -58,7 +62,8 @@ export function useFocusPublisher(project: string | null): void {
 
   useEffect(() => {
     if (!tab) return;
-    const next = deriveFocus({ tab, route, project, openDraftId: shared.openDraftId, selected: shared.selected, visible });
+    const parts = { subject: shared.subject?.ref ?? null, pointed: shared.pointed?.ref ?? null, selected: shared.selected, window: shared.window, pointer: shared.pointer };
+    const next = deriveFocus({ tab, route, project, parts, visible });
     if (sameFocus(next, last.current)) return;
     const t = window.setTimeout(() => {
       last.current = next;
@@ -68,5 +73,5 @@ export function useFocusPublisher(project: string | null): void {
       });
     }, FOCUS_DEBOUNCE_MS);
     return () => window.clearTimeout(t);
-  }, [tab, route, project, shared.openDraftId, shared.selected, visible, beat]);
+  }, [tab, route, project, shared.subject, shared.pointed, shared.selected, shared.window, shared.pointer, visible, beat]);
 }

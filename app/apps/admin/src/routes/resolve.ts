@@ -1,3 +1,4 @@
+import { parseRef } from "@hub/contract/focus";
 import { paths, type Dest } from "./paths";
 import { draftsSearch, knowledgeSearch, logSearch, noSearch, parseQuery, positiveInt, type DraftsSearch, type KnowledgeSearch, type LogSearch, type NoSearch } from "./search";
 import type { SectionId } from "./sections";
@@ -110,6 +111,28 @@ export function destOf(r: Resolved): Dest | null {
     case "help.page":
       return paths.help.page();
     case "notFound":
+      return null;
+  }
+}
+
+/**
+ * Where a ref is (P72): the destination the dock's "Agent points at … · Show" links to, so his click goes there; the agent
+ * never navigates. A knowledge entry has no page of its own: the Knowledge table searched for its title. Null: no screen
+ * shows that kind (a client).
+ */
+export function destOfRef(ref: string, title: string | null = null): Dest | null {
+  const p = parseRef(ref);
+  if (!p) return null;
+  switch (p.kind) {
+    case "draft":
+      return paths.drafts.item(Number(p.id), { filter: "all" });
+    case "run":
+      return paths.log.list({ run: Number(p.id) });
+    case "knowledge":
+      return paths.knowledge.page(title ? { q: title } : {});
+    case "project":
+      return paths.overview();
+    case "client":
       return null;
   }
 }

@@ -17,6 +17,8 @@ export const keys = {
   autostart: () => ["autostart"] as const,
   /** P68: the core update check (the sidebar's version line and the block on /health). */
   core: () => ["core"] as const,
+  /** P72: the agent's live pointer (`GET /api/pointer`), refetched when the live topic `pointer` moves. */
+  pointer: () => ["pointer"] as const,
   agentTools: (project: string) => ["agent-tools", project] as const,
   /** The agent activity feed (P59): the last rows of the session log, read on the server. */
   agentFeed: (project: string) => ["agent-feed", project] as const,
@@ -88,4 +90,5 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   "agent-log": (p) => [agentFeed(p)],
   autostart: () => [keys.autostart()],
   core: () => [keys.core(), scheme()],
+  pointer: () => [keys.pointer()],
 };

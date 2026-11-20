@@ -1,4 +1,6 @@
 import { CheckCircle2Icon, CircleDotIcon, CircleIcon, ClockIcon, MinusCircleIcon, PauseCircleIcon, type LucideIcon } from "lucide-react";
+import { refOf } from "@hub/contract/focus";
+import { agentRef } from "@/lib/focus";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Badge } from "@hub/ui/badge";
 import { Checkbox } from "@hub/ui/checkbox";
@@ -43,7 +45,7 @@ export function ListRow({ d, now, open, selecting, selected, onOpen, onToggle }:
   const chips = chipsOf(d);
   const old = d.status === "ready" && isOld(d.updatedAt, now);
   return (
-    <li className={cn("group/row relative flex min-w-0 items-stretch border-b", open ? "bg-accent" : selected && "bg-info/8")} data-open={open} data-selected={selected} id={`draft-${d.id}`}>
+    <li className={cn("group/row relative flex min-w-0 items-stretch border-b", open ? "bg-accent" : selected && "bg-info/8")} data-open={open} data-selected={selected} id={`draft-${d.id}`} {...agentRef(refOf("draft", d.id))}>
       {open && <span aria-hidden="true" className="absolute inset-y-0 start-0 w-[3px] bg-primary" />}
       <span className="relative grid h-(--control-m) w-(--control-m) shrink-0 place-items-center self-start ms-1 mt-1.5" data-hit="">
         <Icon aria-label={label} className={cn("size-5", tone, selecting ? "opacity-0" : "group-hover/row:opacity-0")} role="img" />
@@ -65,7 +67,7 @@ export function ListRow({ d, now, open, selecting, selected, onOpen, onToggle }:
         variant="quiet"
       >
         <span className="flex w-full min-w-0 items-baseline gap-2">
-          <span className="min-w-0 flex-1 truncate font-medium">{d.client.name}</span>
+          <span className="min-w-0 flex-1 truncate font-medium" data-agent-label="">{d.client.name}</span>
           <span className={cn("shrink-0 text-xs tabular-nums", old ? "text-warning-foreground" : "text-muted-foreground")}>{silence(d.client.lastContactAt, now)}</span>
         </span>
         <span className="w-full min-w-0 truncate text-sm" data-testid="draft-subject">

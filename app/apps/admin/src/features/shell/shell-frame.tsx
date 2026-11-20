@@ -8,6 +8,7 @@ import { AppLink } from "@/components/app-link";
 import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
 import { AgentFeedContext, useAgentFeed } from "@/features/agent-feed/use-agent-feed";
 import { useTurnSound } from "@/features/agent-feed/use-turn-sound";
+import { PointerLayer } from "@/features/focus/pointer";
 import { useFocusPublisher } from "@/features/focus/use-focus-publisher";
 import { TerminalDock, TerminalProvider } from "@/features/terminal/terminal";
 import { terminalProjectOf } from "@/features/terminal/use-auto-start";
@@ -75,6 +76,8 @@ export function ShellFrame({ children }: { children: ReactNode }) {
     <PlaceContext value={place}>
       <Shell brand={brand} dotsProject={project} onProject={(p) => void onProject(p)} project={scoped} projects={list} route={route} terminalProject={terminalProjectOf({ loaded: projects.isSuccess, pending, project, multi, scoped })}>
         <h2 className="sr-only">{heading}</h2>
+        {/* P72: the agent's pointer, drawn over the rows of `#main`; it changes nothing on the page. */}
+        <PointerLayer project={project} />
         {projects.isPending || pending ? (
           <Page>
             <Loading what="projects" />

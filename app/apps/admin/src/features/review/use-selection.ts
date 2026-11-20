@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-import { shareReview } from "@/lib/focus";
+import { useCallback, useState } from "react";
+import { refOf } from "@hub/contract/focus";
+import { useFocusSelection, useFocusSubject } from "@/lib/focus";
 import { isClosed, type ReviewDraft } from "./source";
 
 /**
@@ -21,11 +22,11 @@ export function useSelection(rows: ReviewDraft[]) {
 }
 
 /**
- * P51: the card on screen and the picked rows, shared with the focus publisher, because the address says neither (the desktop
- * opens the first row of a bare `/drafts`; selection is not URL state). Cleared when the list leaves the screen.
+ * P51, P72: the card on screen and the picked rows, shared with the focus publisher through the screens' channel
+ * (`lib/focus.ts`), because the address says neither (the desktop opens the first row of a bare `/drafts`; selection is
+ * not URL state). The card's label is its client's name, shown in the dock header only. Cleared when the list leaves the screen.
  */
-export function useShareReview(shownId: number | null, picked: readonly ReviewDraft[]): void {
-  const ids = picked.map((r) => r.id).join(",");
-  useEffect(() => shareReview(shownId, ids ? ids.split(",").map(Number) : []), [shownId, ids]);
-  useEffect(() => () => shareReview(null, []), []);
+export function useShareReview(shown: ReviewDraft | null, picked: readonly ReviewDraft[]): void {
+  useFocusSubject(shown ? refOf("draft", shown.id) : null, shown ? shown.client.name || shown.client.email : "");
+  useFocusSelection(picked.map((r) => refOf("draft", r.id)));
 }

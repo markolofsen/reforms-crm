@@ -10,8 +10,8 @@ import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@hub/ui/pop
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DesktopHandoffButton } from "@/components/local-action";
 import { CopyFix } from "@/components/copy-fix";
-import { useSharedFocus } from "@/lib/focus";
-import { agentSeesLine } from "./agent-sees";
+import { agentSeesLine, useSharedFocus } from "@/lib/focus";
+import { AgentPoints } from "./agent-points";
 import { panelId, tabId } from "./session";
 import { useTerminal } from "./use-terminal";
 
@@ -105,13 +105,19 @@ function TipsButton({ preset }: { preset: string }) {
   );
 }
 
-/** One quiet line (P51): what "this draft" means to the agent right now, from the focus this tab published. Showing, not a control. */
+/**
+ * One quiet line (P51, P72): what "this" means to the agent right now, from the focus this tab published: the screen's title
+ * and the open record or the row he is on, by its words. Then the rows the agent points at elsewhere. Showing, not a control.
+ */
 function AgentSees() {
-  const { published } = useSharedFocus();
+  const shared = useSharedFocus();
   return (
-    <p className="truncate px-3 pb-1.5 text-muted-foreground text-xs" data-testid="agent-sees">
-      {agentSeesLine(published)}
-    </p>
+    <>
+      <p className="truncate px-3 pb-1.5 text-muted-foreground text-xs" data-testid="agent-sees">
+        {agentSeesLine(shared.published, shared)}
+      </p>
+      <AgentPoints />
+    </>
   );
 }
 
