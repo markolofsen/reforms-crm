@@ -16,6 +16,7 @@
     "./agent-tools": "./src/agent-tools.ts",
     "./live": "./src/live.ts",
     "./focus": "./src/focus.ts",
+    "./pointer": "./src/pointer.ts",
     "./agent-feed": "./src/agent-feed.ts",
     "./local": "./src/local.ts",
     "./autostart": "./src/autostart.ts",

@@ -39,6 +39,8 @@ export interface HubPaths {
   log: string;
   /** The admin's shared focus (P51): `<state>/focus.json`, ids only, written by the server, read by `hub focus` and `hub mcp`. */
   focus: string;
+  /** The agent's pointer (P72): `<state>/pointer.json`, refs only, written by `hub mcp`'s `highlight`, read by the server's `GET /api/pointer`. */
+  pointer: string;
   /** P67: the LaunchAgent's own files: `<state>/autostart/` (`launchd.log`, `starts.jsonl`, the `off` file). */
   autostart: string;
   /** P68: the last answer of the core update check (`<state>/core-update.json`), written by the server, read by the admin and `instance.core`. */
@@ -131,6 +133,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     codexHomes: join(state, "codex"),
     log: join(state, "log"),
     focus: join(state, "focus.json"),
+    pointer: join(state, "pointer.json"),
     autostart: join(state, "autostart"),
     coreUpdate: join(state, "core-update.json"),
     connectors: join(state, "connectors.json"),

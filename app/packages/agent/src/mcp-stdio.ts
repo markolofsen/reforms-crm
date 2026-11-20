@@ -47,7 +47,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
       w.close();
     }
   };
-  const server = createHubMcpServer(createRepos(handle.db), { hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, drafts: mailAppDraftWriter(), projectMail, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  const server = createHubMcpServer(createRepos(handle.db), { hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

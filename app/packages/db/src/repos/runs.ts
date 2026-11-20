@@ -50,6 +50,10 @@ export function runsRepo(db: Db) {
       return db.insert(agentRuns).values(input).returning({ id: agentRuns.id }).get().id;
     },
 
+    /** One run of this project (P72: the focus names `run:10`); null for another project's or a missing id. */
+    async get(project: string, id: number): Promise<typeof agentRuns.$inferSelect | null> {
+      return db.select().from(agentRuns).where(and(eq(agentRuns.id, id), eq(agentRuns.project, project))).get() ?? null;
+    },
     async finish(id: number, patch: Partial<Pick<NewRun, "finishedAt" | "status" | "tokensIn" | "tokensOut" | "costUsd">>) {
       db.update(agentRuns).set(patch).where(eq(agentRuns.id, id)).run();
     },

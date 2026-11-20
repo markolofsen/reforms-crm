@@ -52,7 +52,7 @@ export function createFocusStore(o: { file: string; now?: () => Date }): FocusSt
       if (!input.visible && last && last.focus.tab !== input.tab && last.focus.visible) return;
       const at = now();
       const changed = !last || !same(last.focus, input);
-      last = { schema: 1, at: at.toISOString(), focus: input };
+      last = { schema: 2, at: at.toISOString(), focus: input };
       if (changed || at.getTime() - writtenAt >= HEARTBEAT_WRITE_MS) write(last);
     },
     current: () => last,

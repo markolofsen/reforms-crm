@@ -17,6 +17,7 @@ import { sequenceRoutes } from "./routes/sequences";
 import { terminalRoutes } from "./routes/terminal";
 import { liveRoutes } from "./routes/live";
 import { focusRoutes } from "./routes/focus";
+import { pointerRoutes } from "./routes/pointer";
 import { agentFeedRoutes } from "./routes/agent-feed";
 import { knowledgeRoutes } from "./routes/knowledge";
 import { localRoutes, type LocalService } from "./routes/local";
@@ -67,6 +68,8 @@ export type AppOptions = {
   live?: LiveService;
   /** The shared focus (P51): `POST /api/focus` keeps the admin's last focus for `hub focus` and `hub mcp`; without it the route is 404. */
   focus?: FocusStore;
+  /** The agent's pointer (P72): `state/pointer.json`, read by `GET /api/pointer`; without it the route answers no pointer. */
+  pointerFile?: string;
   /** The agent session log (P54) the activity feed reads (P59); without it `GET /api/projects/:slug/agent-feed` is 404. */
   agentLog?: LogStore;
   /** The local Open actions (P61): `POST /api/local/:action` and `localOpen` on the instance; without it the route is 404 and `localOpen` false. */
@@ -179,6 +182,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", knowledgeRoutes(repos, now, opts.overview?.timeZone))
     .route("/", terminalRoutes(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", focusRoutes(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
+    .route("/", pointerRoutes(repos, opts.pointerFile, now))
     .route("/", localRoutes(opts.local, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", autostartRoutes(opts.autostart, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", telegramUserRoutes(repos, opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));

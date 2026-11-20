@@ -1,31 +1,46 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { FOCUS_LINE_MAX, REF_KINDS } from "@hub/contract/focus";
 import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "@hub/db";
 import { SEND_LIKE_TOOL } from "../src/deny";
-import { focusLine, readFocus } from "../src/focus";
+import { focusLine, livePointer, readFocus, RESOLVERS } from "../src/focus";
 import { createHubMcpServer, HUB_MCP_TOOLS } from "../src/mcp";
 
-// The shared focus reader and the hub MCP server (P51 F1, F2), on a throwaway database: no CLI, no Mail.
+// The shared focus reader, its resolvers per ref kind, the pointer and the hub MCP server (P51 F1, F2; P72), on a throwaway
+// database: no CLI, no Mail.
 
 let dir: string;
 let file: string;
+let pointerFile: string;
 let rw: DbHandle;
 let ro: DbHandle;
 let repos: Repos;
 const NOW = new Date("2026-11-18T10:00:30Z");
-const ids = { mark: 0, ann: 0, other: 0 };
+const ids = { mark: 0, ann: 0, other: 0, markClient: 0, run: 0, otherRun: 0 };
+const CSV = "knowledge/files/csv-export-1a2b.md";
+const CSV_TITLE = "Can I download everything in a single request or as a CSV file?";
+
+const doc = (p: string, title: string) => ({ path: p, title, use: "STATE" as const, approved: true, audiences: ["client"], body: "Yes: /export.csv", phrasings: "", frontMatter: {}, contentHash: p });
 
 beforeEach(async () => {
   dir = mkdtempSync(path.join(tmpdir(), "hub-focus-reader-"));
   file = path.join(dir, "focus.json");
+  pointerFile = path.join(dir, "pointer.json");
   rw = openDb(path.join(dir, "app.db"));
   const w = createRepos(rw.db);
-  ids.mark = (await w.drafts.record({ project: "acme", email: "mark@example.com", name: "Mark Effect", subject: `Re: Hello ${"x".repeat(200)}`, mailRef: "<m1@example.com>", excerpt: "I'm well" })).draftId;
+  await w.projects.replaceRegistry({ projects: [{ slug: "acme", name: "Acme Travel", status: "active", settingsJson: "{}", hash: "a" }, { slug: "beta", name: "Beta Secret", status: "active", settingsJson: "{}", hash: "b" }], addresses: [] });
+  await w.knowledge.upsert("acme", doc(CSV, CSV_TITLE));
+  await w.knowledge.upsert("beta", doc("knowledge/files/beta-only.md", "Beta only entry"));
+  const m = await w.drafts.record({ project: "acme", email: "mark@example.com", name: "Mark Effect", subject: `Re: Hello ${"x".repeat(200)}`, mailRef: "<m1@example.com>", excerpt: "I'm well" });
+  ids.mark = m.draftId;
+  ids.markClient = (await w.drafts.get(m.draftId))?.clientId ?? 0;
   ids.ann = (await w.drafts.record({ project: "acme", email: "ann@example.com", name: "Ann", subject: "Re: Price", mailRef: "<m2@example.com>" })).draftId;
   ids.other = (await w.drafts.record({ project: "beta", email: "zed@example.com", name: "Zed Secret", subject: "Re: Beta only", mailRef: "<m3@example.com>" })).draftId;
+  ids.run = await w.runs.start({ project: "acme", startedAt: "2026-11-18T09:00:00Z", trigger: "owner", skill: "triage-mail" });
+  ids.otherRun = await w.runs.start({ project: "beta", startedAt: "2026-11-18T09:00:00Z", trigger: "owner", skill: "triage-mail" });
   ro = openDbReadOnly(path.join(dir, "app.db"));
   repos = createRepos(ro.db);
 });
@@ -35,55 +50,96 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-const put = (focus: Record<string, unknown>, at = "2026-11-18T10:00:00.000Z") => writeFileSync(file, JSON.stringify({ schema: 1, at, focus: { tab: "t1", project: "acme", screen: "draft", selected: [], visible: true, ...focus } }));
-const read = (slug = "acme", now = NOW) => readFocus({ file, slug, repos, now });
+const put = (focus: Record<string, unknown>, at = "2026-11-18T10:00:00.000Z", schema = 2) =>
+  writeFileSync(file, JSON.stringify({ schema, at, focus: { tab: "t1", project: "acme", route: "knowledge.page", title: "Knowledge", selected: [], visible: true, ...focus } }));
+const read = (slug = "acme", now = NOW, depth: "line" | "full" = "full") => readFocus({ file, slug, repos, now, depth });
 
 describe("readFocus", () => {
-  it("fresh: the draft, its client and the line the hook adds", async () => {
-    put({ draftId: ids.mark, view: "ready" });
+  it("Knowledge with a pointed row: its title, its status and the tool that reads it; the line names it", async () => {
+    put({ pointed: `knowledge:${CSV}`, window: { refs: [`knowledge:${CSV}`], total: 57 }, view: { q: "csv" } });
     const f = await read();
-    expect(f).toMatchObject({ state: "fresh", ageSeconds: 30, screen: "draft", draft: { id: ids.mark, status: "ready", mailRef: "<m1@example.com>", client: { name: "Mark Effect", email: "mark@example.com" } } });
-    expect(f.draft?.subject.length).toBeLessThanOrEqual(120);
-    expect(focusLine(f)).toMatch(new RegExp(`^\\[Hub focus, data\\] draft ${ids.mark} · Mark Effect <mark@example.com> · Re: Hello x+… · ready · 30 s ago`));
+    expect(f).toMatchObject({ state: "fresh", ageSeconds: 30, route: "knowledge.page", title: "Knowledge", subject: null, view: { q: "csv" } });
+    expect(f.pointed).toEqual({ ref: `knowledge:${CSV}`, kind: "knowledge", title: CSV_TITLE, status: "approved", read: { server: "knowledge-mcp", tool: "knowledge_get", args: { project: "acme", path: CSV } } });
+    expect(f.window).toMatchObject({ total: 57, more: 0, items: [{ title: CSV_TITLE }] });
+    const line = focusLine(await read("acme", NOW, "line")) ?? "";
+    expect(line).toMatch(/^\[Hub focus, data\] Knowledge · on knowledge:knowledge\/files\/csv-export-1a2b\.md "Can I download everything in a single request or as a CSV file\?" approved \(knowledge_get\) · 1 of 57 on screen · search "csv" · 30 s ago \(call the hub focus tool for detail\)$/);
+  });
+
+  it("a draft subject names its client and subject, cut to 120; the hook resolves the subject and counts the selection", async () => {
+    put({ route: "drafts.item", title: `Draft ${ids.mark}`, subject: `draft:${ids.mark}`, selected: [`draft:${ids.mark}`, `draft:${ids.ann}`] });
+    const f = await read();
+    expect(f.subject).toMatchObject({ ref: `draft:${ids.mark}`, status: "ready", read: { server: "hub", tool: "draft_show", args: { id: ids.mark } } });
+    expect(f.subject?.title).toMatch(/^Mark Effect <mark@example.com> · Re: Hello x+…$/);
+    expect(f.subject?.title.length).toBeLessThanOrEqual(120);
+    expect(f.selected.map((s) => s.ref)).toEqual([`draft:${ids.mark}`, `draft:${ids.ann}`]);
+    const hook = await read("acme", NOW, "line");
+    expect(hook).toMatchObject({ selected: [], selectedMore: 2 });
+    expect(focusLine(hook)).toMatch(new RegExp(`^\\[Hub focus, data\\] Draft ${ids.mark} · open draft:${ids.mark} "Mark Effect <mark@example.com> · Re: Hello x+…" ready \\(draft_show\\) · 2 selected · 30 s ago`));
+  });
+
+  it("every kind resolves inside the bound project and drops another project's id", async () => {
+    const own = { draft: String(ids.mark), client: String(ids.markClient), run: String(ids.run), knowledge: CSV, project: "acme" };
+    const foreign = { draft: String(ids.other), client: "999", run: String(ids.otherRun), knowledge: "knowledge/files/beta-only.md", project: "beta" };
+    const ctx = { repos, slug: "acme", today: "2026-11-18" };
+    for (const kind of REF_KINDS) {
+      expect(await RESOLVERS[kind](ctx, own[kind]), kind).not.toBeNull();
+      expect(await RESOLVERS[kind](ctx, foreign[kind]), kind).toBeNull();
+    }
+    put({ route: "log.list", title: "Activity", subject: `run:${ids.run}` });
+    expect((await read()).subject).toMatchObject({ ref: `run:${ids.run}`, kind: "run", status: "ok", title: expect.stringMatching(new RegExp(`^run ${ids.run} · triage-mail`)) });
+  });
+
+  it("a resolver exists for every ref kind (a kind added without one fails here)", () => {
+    expect(Object.keys(RESOLVERS).sort()).toEqual([...REF_KINDS].sort());
+  });
+
+  it("refs of another project, or deleted, drop out of the subject, the selection and the window", async () => {
+    put({ subject: `draft:${ids.other}`, selected: [`draft:${ids.ann}`, `draft:${ids.other}`, "draft:9999"], window: { refs: ["knowledge:knowledge/files/beta-only.md", `knowledge:${CSV}`], total: 2 } });
+    const f = await read();
+    expect(f.subject).toBeNull();
+    expect(f.selected.map((s) => s.ref)).toEqual([`draft:${ids.ann}`]);
+    expect(f.selectedMore).toBe(2);
+    expect(f.window).toMatchObject({ items: [{ ref: `knowledge:${CSV}` }], more: 1 });
+    expect(JSON.stringify(f)).not.toMatch(/Zed|Beta only/);
   });
 
   it("stale by age (over 10 minutes) and by a hidden tab: no line", async () => {
-    put({ draftId: ids.mark });
+    put({ pointed: `knowledge:${CSV}` });
     const old = await read("acme", new Date("2026-11-18T10:11:00Z"));
     expect(old.state).toBe("stale");
     expect(focusLine(old)).toBeNull();
-    put({ draftId: ids.mark, visible: false });
+    put({ visible: false });
     expect((await read()).state).toBe("stale");
   });
 
   it("elsewhere names nothing of the other project", async () => {
-    put({ project: "beta", draftId: ids.other });
+    put({ project: "beta", subject: `draft:${ids.other}` });
     const f = await read();
-    expect(f).toMatchObject({ state: "elsewhere", draft: null, client: null, selected: [] });
+    expect(f).toMatchObject({ state: "elsewhere", subject: null, pointed: null, selected: [] });
     expect(JSON.stringify(f)).not.toMatch(/Zed|Beta only|beta/);
     expect(focusLine(f)).toMatch(/another project/);
   });
 
-  it("an id of another project, or a deleted one, drops out of the draft and the selection", async () => {
-    put({ screen: "drafts", draftId: ids.other, selected: [ids.ann, ids.other, 9999] });
-    const f = await read();
-    expect(f.draft).toBeNull();
-    expect(f.selected.map((s) => s.id)).toEqual([ids.ann]);
-    expect(f.selectedMore).toBe(2);
-    expect(JSON.stringify(f)).not.toMatch(/Zed/);
-  });
-
-  it("none: no file, a broken file, no bound project", async () => {
+  it("none: no file, a broken file, a schema 1 file (no reader for it), no bound project", async () => {
     expect((await read()).state).toBe("none");
     writeFileSync(file, "{not json");
     expect((await read()).state).toBe("none");
-    put({ draftId: ids.mark });
+    writeFileSync(file, JSON.stringify({ schema: 1, at: "2026-11-18T10:00:00.000Z", focus: { tab: "t1", project: "acme", screen: "draft", draftId: ids.mark, selected: [], visible: true } }));
+    expect((await read()).state).toBe("none");
+    put({});
     expect((await readFocus({ file, slug: undefined, repos, now: NOW })).state).toBe("none");
+  });
+
+  it("the line is at most 400 characters", async () => {
+    put({ pointed: `knowledge:${CSV}`, subject: `draft:${ids.mark}`, view: { q: "q".repeat(200), filter: "attention" }, selected: Array.from({ length: 200 }, (_, i) => `draft:${i + 1}`) });
+    const line = focusLine(await read("acme", NOW, "line")) ?? "";
+    expect(line.length).toBeLessThanOrEqual(FOCUS_LINE_MAX);
+    expect(line).toMatch(/\(call the hub focus tool for detail\)$/);
   });
 });
 
-async function connect(hubProject: string | undefined) {
-  const server = createHubMcpServer(repos, { hubProject, focusFile: file, now: () => NOW });
+async function connect(hubProject: string | undefined, o: { pointer?: boolean; bumps?: string[] } = {}) {
+  const server = createHubMcpServer(repos, { hubProject, focusFile: file, now: () => NOW, ...(o.pointer === false ? {} : { pointerFile, pointerWritten: (s: string) => void o.bumps?.push(s) }) });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(b);
   const client = new Client({ name: "test", version: "0" });
@@ -91,24 +147,33 @@ async function connect(hubProject: string | undefined) {
   const call = async (name: string, args: Record<string, unknown> = {}) => {
     const res = await client.callTool({ name, arguments: args });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
-    return { isError: res.isError === true, json: JSON.parse(text) as Record<string, any> };
+    // A refusal by the input schema (more than 5 refs) is the SDK's plain text, not the tools' JSON.
+    const json = (() => {
+      try {
+        return JSON.parse(text) as Record<string, any>;
+      } catch {
+        return { error: "invalid_input", message: text };
+      }
+    })();
+    return { isError: res.isError === true, json };
   };
   return { client, call };
 }
 
 describe("hub mcp", () => {
-  it("lists exactly the eight tools: six read-only (mail_brand reads no Mail), draft_write the one Mail write, messenger_draft_write the one messenger write (P71); none send-like", async () => {
+  it("lists exactly the nine tools: six read-only (mail_brand reads no Mail), highlight the pointer, draft_write the one Mail write, messenger_draft_write the one messenger write; none send-like", async () => {
     const { client } = await connect("acme");
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([...HUB_MCP_TOOLS].sort());
-    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["draft_write", "messenger_draft_write"]);
+    expect(HUB_MCP_TOOLS).toHaveLength(9);
+    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["draft_write", "highlight", "messenger_draft_write"]);
     expect(tools.filter((t) => SEND_LIKE_TOOL.test(t.name))).toEqual([]);
   });
 
   it("focus and draft_show: the draft without a body field; another project's draft is refused", async () => {
-    put({ draftId: ids.mark });
+    put({ route: "drafts.item", title: "Draft", subject: `draft:${ids.mark}` });
     const { call } = await connect("acme");
-    expect((await call("focus")).json).toMatchObject({ state: "fresh", draft: { id: ids.mark } });
+    expect((await call("focus")).json).toMatchObject({ state: "fresh", subject: { ref: `draft:${ids.mark}` } });
     const d = await call("draft_show", { id: ids.mark });
     expect(d.isError).toBe(false);
     expect(d.json).toMatchObject({ id: ids.mark, mailRef: "<m1@example.com>", to: "mark@example.com", excerpt: "I'm well", client: { email: "mark@example.com" } });
@@ -129,6 +194,34 @@ describe("hub mcp", () => {
     expect(list.json.drafts.map((r: { id: number }) => r.id).sort()).toEqual([ids.mark, ids.ann].sort());
     const unbound = await connect(undefined);
     expect((await unbound.call("focus")).json.error).toBe("unbound");
+  });
+
+  it("highlight writes refs only (mode 600), bumps the live topic, and a new one replaces the old; [] clears", async () => {
+    put({ pointed: `knowledge:${CSV}` });
+    const bumps: string[] = [];
+    const { call } = await connect("acme", { bumps });
+    const r = await call("highlight", { refs: [`knowledge:${CSV}`], note: "this one" });
+    expect(r).toMatchObject({ isError: false, json: { refs: [`knowledge:${CSV}`], expiresInSeconds: 30, live: true } });
+    expect(bumps).toEqual(["acme"]);
+    expect(statSync(pointerFile).mode & 0o777).toBe(0o600);
+    expect(readFileSync(pointerFile, "utf8")).not.toMatch(/Can I download/);
+    expect(livePointer(pointerFile, NOW)).toMatchObject({ project: "acme", refs: [`knowledge:${CSV}`], note: "this one" });
+    expect(livePointer(pointerFile, new Date(NOW.getTime() + 31_000))).toBeNull();
+    await call("highlight", { refs: [] });
+    expect(livePointer(pointerFile, NOW)).toBeNull();
+  });
+
+  it("highlight refuses more than 5 refs, another project's ref, a stale focus, and without a pointer file", async () => {
+    put({});
+    const { call } = await connect("acme");
+    expect((await call("highlight", { refs: Array.from({ length: 6 }, () => `knowledge:${CSV}`) })).isError).toBe(true);
+    expect((await call("highlight", { refs: ["knowledge:knowledge/files/beta-only.md"] })).json.error).toBe("unknown_ref");
+    expect((await call("highlight", { refs: [`draft:${ids.other}`] })).json.error).toBe("unknown_ref");
+    put({}, "2026-11-18T09:00:00.000Z");
+    expect((await call("highlight", { refs: [`knowledge:${CSV}`] })).json.error).toBe("not_looking");
+    expect(existsSync(pointerFile)).toBe(false);
+    put({});
+    expect((await (await connect("acme", { pointer: false })).call("highlight", { refs: [`knowledge:${CSV}`] })).json.error).toBe("unavailable");
   });
 
   it("the database handle is read-only: a write throws", async () => {

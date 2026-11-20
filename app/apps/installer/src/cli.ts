@@ -428,7 +428,7 @@ program.command("guard").description("PreToolUse hook of `hub agent`: reads one 
     done(r.code);
   });
 
-program.command("focus").description("What the admin shows (P51 shared focus), as the session bound to HUB_PROJECT sees it: the open draft, its client, the selection. --hook is the prompt hook of `hub agent` (one line while fresh, else nothing; never blocks). Read only.")
+program.command("focus").description("What the admin shows (P51 shared focus, P72 refs), as the session bound to HUB_PROJECT sees it: the route and its title, the open record, the pointed row, the selection and the rows on screen, each with its title and the tool that reads it. --hook is the prompt hook of `hub agent` (one line while fresh, else nothing; never blocks). Read only.")
   .option("--json", "print the focus as JSON")
   .option("--hook", "UserPromptSubmit hook output (started by bin/hub.mjs without the CLI); also logs the prompt (P54)")
   .option("--cli <cli>", "with --hook: the CLI that runs it, claude or codex (the session log names it)")
@@ -497,7 +497,7 @@ program.command("open").description("Open a project's folder or file in Finder o
     }
   });
 
-program.command("mcp").description("The hub's read-only MCP server on stdio (P51): focus, draft_show, client_show, drafts_list for HUB_PROJECT. Registered by `hub agent` for Claude Code and Codex; started by bin/hub.mjs without the CLI.")
+program.command("mcp").description("The hub's MCP server on stdio (P51): focus, highlight (P72, a 30 s ring on his screen), draft_show, client_show, drafts_list, mail_brand, draft_write and the messenger tools for HUB_PROJECT; no send. Registered by `hub agent` for Claude Code and Codex; started by bin/hub.mjs without the CLI.")
   .action(async () => { await (await import("@hub/agent/mcp-stdio")).serveHubMcp(); });
 
 program.command("uninstall").description("Remove this instance's skill links (<instance>/.claude/skills) and report old links in ~/.claude/skills with the command that removes them. Keeps config, state and secrets.")

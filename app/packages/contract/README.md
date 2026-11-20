@@ -13,7 +13,8 @@ reuse them. Every object is strict, so a field nobody declared is refused rather
 | `./scheme` | P63 O1: the Hub's parts and how each stands (`GET /api/scheme`, Overview's parts table; patch B's drawing), `worstFirst` |
 | `./terminal` | The terminal's sessions and tickets (a preset and a slug only: no command, no path) |
 | `./live` | The frames of `GET /api/live` (`hello`, `change`, `reset`) and the topics; they name what changed, never the data (`@docs/core/06-local-admin-app.md`, Live updates) |
-| `./focus` | The shared focus the admin publishes (`POST /api/focus`): ids only (`@docs/core/24-terminal.md`, Shared focus) |
+| `./focus` | The shared focus the admin publishes (`POST /api/focus`, `schema: 2`, P72): the route id and title, and refs (`<kind>:<id>`, `REF_KINDS`, `parseRef`, from `src/refs.ts`): subject, pointed, selected, the window on screen, the view; ids only (`@docs/core/24-terminal.md`, Shared focus) |
+| `./pointer` | P72: the agent's pointer (`highlight` in `hub mcp` writes `state/pointer.json`; `GET /api/pointer`): up to 5 refs, a note of 80 characters, 30 s, the outcomes posted back once |
 
 Depends only on `@hub/config` and zod. Tests: `pnpm --filter @hub/contract test`.
 

@@ -1,4 +1,4 @@
-import { focusLine, readFocus } from "@hub/agent/focus";
+import { focusLine, readFocus, type FocusDepth } from "@hub/agent/focus";
 import { hubPaths } from "@hub/config/paths";
 import { createRepos, openDbReadOnly } from "@hub/db";
 import type { FocusDto } from "@hub/contract/focus";
@@ -10,11 +10,12 @@ import type { FocusDto } from "@hub/contract/focus";
 /** The prompt hook's wait on a database lock: past it the hook says nothing (WAL readers normally never wait). */
 export const HOOK_BUSY_MS = 250;
 
-export async function currentFocus(env: NodeJS.ProcessEnv = process.env, o: { busyMs?: number } = {}): Promise<FocusDto> {
+/** The focus as `HUB_PROJECT` sees it; `depth: "line"` for the hook (the subject and the pointed row resolved, the rest counted: P72). */
+export async function currentFocus(env: NodeJS.ProcessEnv = process.env, o: { busyMs?: number; depth?: FocusDepth } = {}): Promise<FocusDto> {
   const paths = hubPaths({ env });
   const handle = openDbReadOnly(paths.db, o.busyMs === undefined ? {} : { busyMs: o.busyMs });
   try {
-    return await readFocus({ file: paths.focus, slug: env.HUB_PROJECT?.trim() || undefined, repos: createRepos(handle.db) });
+    return await readFocus({ file: paths.focus, slug: env.HUB_PROJECT?.trim() || undefined, repos: createRepos(handle.db), depth: o.depth ?? "full" });
   } finally {
     handle.close();
   }
@@ -35,7 +36,7 @@ export async function runFocusHook(env: NodeJS.ProcessEnv = process.env, argv: r
   let line: string | null = null;
   try {
     stdin = await readStdin();
-    const f = await currentFocus(env, { busyMs: HOOK_BUSY_MS });
+    const f = await currentFocus(env, { busyMs: HOOK_BUSY_MS, depth: "line" });
     const out = hookOutput(f);
     if (out) { process.stdout.write(out + "\n"); line = focusLine(f); }
   } catch {

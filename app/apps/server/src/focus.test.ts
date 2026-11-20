@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -29,8 +29,8 @@ function setup() {
   const post = (body: unknown, headers: Record<string, string> = ADMIN) => app.request(`${API}/api/focus`, { method: "POST", headers, body: JSON.stringify(body) });
   return { focus, post };
 }
-const draft = (tab: string, draftId: number, visible = true) => ({ tab, project: "acme", screen: "draft", draftId, selected: [], view: "ready", visible });
-const onDisk = () => JSON.parse(readFileSync(file, "utf8")) as { at: string; focus: { tab: string; draftId?: number } };
+const draft = (tab: string, draftId: number, visible = true) => ({ tab, project: "acme", route: "drafts.item", title: `Draft ${draftId}`, subject: `draft:${draftId}`, selected: [], view: { filter: "hold" }, visible });
+const onDisk = () => JSON.parse(readFileSync(file, "utf8")) as { schema: number; at: string; focus: { tab: string; subject?: string } };
 
 describe("POST /api/focus", () => {
   it("refuses a wrong Origin, a missing Sec-Fetch-Site and a non-loopback Host with 403", async () => {
@@ -41,31 +41,34 @@ describe("POST /api/focus", () => {
     expect(existsSync(file)).toBe(false);
   });
 
-  it("refuses an unknown field, a bad screen and too many selected ids with 400", async () => {
+  it("refuses an unknown field, a v1 screen, a malformed ref, a title in a ref's place and too many selected refs with 400", async () => {
     const { post } = setup();
     expect((await post({ ...draft("a", 1), body: "mail text" })).status).toBe(400);
-    expect((await post({ ...draft("a", 1), screen: "inbox" })).status).toBe(400);
-    expect((await post({ ...draft("a", 1), selected: Array.from({ length: 201 }, (_, i) => i + 1) })).status).toBe(400);
+    expect((await post({ ...draft("a", 1), screen: "draft" })).status).toBe(400);
+    expect((await post({ ...draft("a", 1), subject: "draft:abc" })).status).toBe(400);
+    expect((await post({ ...draft("a", 1), pointed: "Can I download everything as CSV?" })).status).toBe(400);
+    expect((await post({ ...draft("a", 1), window: { refs: Array.from({ length: 31 }, (_, i) => `draft:${i + 1}`), total: 31 } })).status).toBe(400);
+    expect((await post({ ...draft("a", 1), selected: Array.from({ length: 201 }, (_, i) => `draft:${i + 1}`) })).status).toBe(400);
     expect(existsSync(file)).toBe(false);
   });
 
   it("stamps the server's time, writes ids only, and the second tab's post wins", async () => {
     const { post } = setup();
     expect((await post(draft("a", 1))).status).toBe(200);
-    expect(onDisk()).toMatchObject({ at: "2026-11-18T10:00:00.000Z", focus: { tab: "a", draftId: 1 } });
+    expect(onDisk()).toMatchObject({ schema: 2, at: "2026-11-18T10:00:00.000Z", focus: { tab: "a", subject: "draft:1" } });
     expect(statSync(file).mode & 0o777).toBe(0o600);
     t += 1000;
     await post(draft("b", 2));
-    expect(onDisk().focus).toMatchObject({ tab: "b", draftId: 2 });
+    expect(onDisk().focus).toMatchObject({ tab: "b", subject: "draft:2" });
   });
 
   it("a hidden post does not replace another tab's visible focus; it does replace its own", async () => {
     const { post } = setup();
     await post(draft("a", 1));
     await post(draft("b", 2, false));
-    expect(onDisk().focus).toMatchObject({ tab: "a", draftId: 1 });
+    expect(onDisk().focus).toMatchObject({ tab: "a", subject: "draft:1" });
     await post(draft("a", 1, false));
-    expect(onDisk().focus).toMatchObject({ tab: "a", draftId: 1 });
+    expect(onDisk().focus).toMatchObject({ tab: "a", subject: "draft:1" });
     expect(JSON.parse(readFileSync(file, "utf8")).focus.visible).toBe(false);
   });
 
@@ -94,5 +97,33 @@ describe("POST /api/focus", () => {
   it("is 404 without a store", async () => {
     const app = createApp(repos, { adminPort: ADMIN_PORT });
     expect((await app.request(`${API}/api/focus`, { method: "POST", headers: ADMIN, body: JSON.stringify(draft("a", 1)) })).status).toBe(404);
+  });
+});
+
+describe("GET /api/pointer (P72)", () => {
+  const pointerFile = () => join(dir, "state", "pointer.json");
+  const write = (rec: Record<string, unknown>) => {
+    mkdirSync(join(dir, "state"), { recursive: true });
+    writeFileSync(pointerFile(), JSON.stringify({ schema: 1, id: "abcdef0123456789", project: "acme", refs: ["draft:1"], note: "this one", at: "2026-11-18T10:00:00.000Z", ...rec }));
+  };
+  const fakeRepos = { drafts: { get: async (id: number) => (id === 1 ? { id: 1, project: "acme", clientId: 5, subject: "Re: Hello", status: "ready" } : null) }, clients: { get: async (p: string, id: number) => (p === "acme" && id === 5 ? { id: 5, name: "Fiona", email: "f@example.com" } : null) } } as unknown as Repos;
+  const get = async (at: string) => {
+    const app = createApp(fakeRepos, { pointerFile: pointerFile(), adminPort: ADMIN_PORT, now: () => new Date(at) });
+    return (await (await app.request(`${API}/api/pointer`, { headers: { host: ADMIN.host } })).json()) as { pointer: { targets: Array<{ ref: string; title: string | null }>; note: string | null; expiresAt: string } | null };
+  };
+
+  it("no file, a clear and an expired pointer are null", async () => {
+    expect((await get("2026-11-18T10:00:05Z")).pointer).toBeNull();
+    write({ refs: [] });
+    expect((await get("2026-11-18T10:00:05Z")).pointer).toBeNull();
+    write({});
+    expect((await get("2026-11-18T10:00:31Z")).pointer).toBeNull();
+  });
+
+  it("a live pointer names each ref's title inside its project; a ref that names nothing has none", async () => {
+    write({ refs: ["draft:1", "draft:2"] });
+    const p = (await get("2026-11-18T10:00:05Z")).pointer;
+    expect(p).toMatchObject({ note: "this one", expiresAt: "2026-11-18T10:00:30.000Z" });
+    expect(p?.targets).toEqual([{ ref: "draft:1", title: "Fiona <f@example.com> · Re: Hello" }, { ref: "draft:2", title: null }]);
   });
 });
