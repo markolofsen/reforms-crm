@@ -1,4 +1,5 @@
 import { chmodSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import type { RunResult } from "./context";
@@ -53,10 +54,21 @@ export async function dfFreeGb(run: InitDeps["run"], dir: string): Promise<numbe
   return r.code === 0 && Number.isFinite(kb) ? kb / 1024 / 1024 : undefined;
 }
 
-/** P89: `hub new-instance <name>`: a bare name becomes the folder `hub-<name>` here; a path is used as given. */
-export function instanceDir(name: string, cwd: string): string {
+/**
+ * P89: `hub new-instance <name>`: a bare name becomes the folder `hub-<name>`; a path is used as given. Run inside a git checkout (the
+ * core, or an instance), the folder goes NEXT TO that checkout (`toplevel`'s parent), never inside it: an instance inside the public
+ * core, or one instance inside another, is one `git add -A` from a leak.
+ */
+export function instanceDir(name: string, cwd: string, toplevel?: string): string {
   if (name.includes("/") || name.startsWith(".")) return path.resolve(cwd, name);
-  return path.join(cwd, name.startsWith("hub-") ? name : `hub-${name}`);
+  const base = toplevel ? path.dirname(toplevel) : cwd;
+  return path.join(base, name.startsWith("hub-") ? name : `hub-${name}`);
+}
+
+/** The top folder of the git checkout `cwd` is in, or undefined outside one. */
+export function gitToplevel(cwd: string): string | undefined {
+  const r = spawnSync("git", ["-C", cwd, "rev-parse", "--show-toplevel"], { encoding: "utf8" });
+  return r.status === 0 && r.stdout.trim() ? r.stdout.trim() : undefined;
 }
 
 /** The GitHub owner of the core's origin (`https://github.com/<owner>/...` or `git@github.com:<owner>/...`), else undefined. */

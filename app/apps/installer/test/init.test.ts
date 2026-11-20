@@ -132,6 +132,9 @@ describe("hub new-instance (P89)", () => {
     expect(instanceDir("saas", "/w")).toBe("/w/hub-saas");
     expect(instanceDir("hub-saas", "/w")).toBe("/w/hub-saas");
     expect(instanceDir("./x/y", "/w")).toBe("/w/x/y");
+    // inside a checkout (the core, an instance) the new folder goes next to it, never inside it
+    expect(instanceDir("acme", "/w/reforms-crm/app", "/w/reforms-crm")).toBe("/w/hub-acme");
+    expect(instanceDir("./here", "/w/reforms-crm", "/w/reforms-crm")).toBe("/w/reforms-crm/here");
     expect(githubOwner("https://github.com/acme/reforms-crm.git")).toBe("acme");
     expect(githubOwner("git@github.com:acme/reforms-crm.git")).toBe("acme");
     expect(ghCreateLine("https://github.com/acme/reforms-crm.git", "/w/hub-saas")).toBe('gh repo create acme/hub-saas --private --source "/w/hub-saas" --remote origin --push');

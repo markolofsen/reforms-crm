@@ -25,11 +25,11 @@ When a reply is sent (the admin's Send, `hub send`, or a send Sent detection see
 
 ## Start a new instance
 
-From any core checkout (`./hub.sh` in it) or an existing instance (`./run.sh`):
+From any core checkout (`./hub.sh` in it) or an existing instance (`./run.sh`). Run inside a git checkout, the new folder goes next to it (`../hub-acme`), never inside it; elsewhere it goes in the current folder; a path is used as given. Until the next core tag, add `--pin main` to get a core with this setup:
 
 ```sh
 ./hub.sh new-instance acme --kind software-support     # makes ./hub-acme with projects/acme/, core pinned at the newest tag
-cd hub-acme && ./run.sh setup                           # your Mac: tools, folders, skills, checks, your name, the personal list
+cd ../hub-acme && ./run.sh setup                           # your Mac: tools, folders, skills, checks, your name, the personal list
 gh repo create <you>/hub-acme --private --source . --remote origin --push   # printed by new-instance; you run it
 ./run.sh agent acme                                     # then say «настрой проект acme»
 ```

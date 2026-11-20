@@ -17,7 +17,7 @@ import { backup, verify } from "./backup";
 import { coreUpdate } from "./core-update";
 import { coreDev, coreInstall } from "./core-link";
 import { workspaceCheck, workspaceInit } from "./workspace";
-import { ghCreateLine, initInstance, InitError, instanceDir } from "./init";
+import { ghCreateLine, gitToplevel, initInstance, InitError, instanceDir } from "./init";
 import { buildStarters, STARTERS } from "./starters";
 import { findInstances, instanceStatus, statusTable } from "./status";
 import { execa } from "execa";
@@ -204,7 +204,7 @@ const execRun = async (cmd: string, args: string[], opts: { cwd?: string; env?: 
 };
 
 program.command("new-instance").description("Create a new PRIVATE instance (P35, P89): git, the core as a submodule at the newest tag, the instance files, optionally a first project of a kind, skill links, config defaults, doctor, one commit. A bare <name> makes ./hub-<name>. Needs no HUB_HOME; never creates a remote and never pushes: it prints the one `gh repo create --private` line.")
-  .argument("<name>", "the instance name (folder ./hub-<name>), or a path to a new empty folder")
+  .argument("<name>", "the instance name: folder hub-<name> here, or next to the git checkout you are in (never inside it); or a path to a new empty folder")
   .option("--kind <kind>", "also create the first project of this kind (`hub project kinds`)")
   .option("--project <slug>", "with --kind: the project's slug (default: the name without hub-)")
   .option("--core-url <url>", "the core repository to add as core/ (default: the origin of the core in use)")
@@ -212,7 +212,9 @@ program.command("new-instance").description("Create a new PRIVATE instance (P35,
   .option("--no-install", "do not install dependencies or run the doctor (./run.sh setup in the instance does it later)")
   .option("--dry-run", "list what would be created, write nothing")
   .action(async (name: string, o: { kind?: string; project?: string; coreUrl?: string; pin?: string; install: boolean; dryRun?: boolean }) => {
-    const dir = instanceDir(name, process.cwd());
+    const top = gitToplevel(process.cwd());
+    const dir = instanceDir(name, process.cwd(), top);
+    if (top && !name.includes("/") && !name.startsWith(".")) console.log(c.dim(`inside the checkout ${top}: the new instance goes next to it, ${dir}`));
     try {
       const r = await initInstance({ dir, name: path.basename(dir), install: o.install, ...(o.kind ? { kind: o.kind } : {}), ...(o.project ? { project: o.project } : {}), ...(o.coreUrl ? { coreUrl: o.coreUrl } : {}), ...(o.pin ? { pin: o.pin } : {}), ...(o.dryRun ? { dryRun: true } : {}) }, { run: execRun, log: (m) => console.log(m) });
       if (!o.dryRun) {

@@ -19,8 +19,8 @@ case "${1:-}" in
     cat <<'HELP'
 usage: ./install.sh [--dry-run] [--automation [--non-interactive]]
 
-  1. checks Node against the engines of app/package.json (installs it with Homebrew when
-     brew exists, otherwise prints the one-line fix and stops)
+  1. checks Node against the engines of app/package.json (with nvm: prints the nvm line and stops;
+     else installs it with Homebrew when brew exists, otherwise prints the one-line fix and stops)
   2. enables pnpm through corepack (user-level shims; never sudo)
   3. pnpm install --frozen-lockfile in app/ (never edits pnpm-lock.yaml)
   4. with HUB_HOME set, runs `pnpm hub setup` for that instance (without it: stops after step 3 and says how to set up an instance): minimal and tokenless (folders, config, skills, project registry, doctor table);
