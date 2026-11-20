@@ -135,3 +135,21 @@ describe("read summary from a JSON reply", () => {
     expect(summarizeCall({ name: "mcp__mail-mcp__get_message_content", input: { message_id: 1 }, result })).toMatchObject({ from: "ann@x.com", date: "2026-11-16" });
   });
 });
+
+describe("where a Notion page came from (P82)", () => {
+  const CLIENTS = "41806f30-6f14-81ac-b8e1-000bac534e05";
+  const PAGE = "41806f306f1481d5832decbdf9d06c5e";
+  it("a query records its data source and the page ids its result returned; a search records no origin", () => {
+    const q = summarizeCall({ name: "mcp__notion__notion-query-data-sources", input: { data: { data_source_urls: [`collection://${CLIENTS}`] } }, result: [{ type: "text", text: JSON.stringify({ results: [{ url: `https://app.notion.com/p/${PAGE}` }] }) }] });
+    expect(q).toMatchObject({ kind: "notion", op: "query", sources: ["41806f306f1481acb8e1000bac534e05"], pageIds: [PAGE] });
+    const s = summarizeCall({ name: "mcp__notion__notion-search", input: { query: "Clients" }, result: [{ type: "text", text: JSON.stringify({ results: [{ id: "41806f30-6f14-81d5-832d-ecbdf9d06c5e" }] }) }] });
+    expect(s?.sources).toBeUndefined();
+    expect(s?.pageIds).toBeUndefined();
+  });
+  it("a fetch records the data source its object sits in and its own id; a create its parent", () => {
+    const f = summarizeCall({ name: "mcp__notion__notion-fetch", input: { id: "41806f30-6f14-81d5-832d-ecbdf9d06c5e" }, result: [{ type: "text", text: `<parent-data-source url="collection://${CLIENTS}" name="Clients"/>` }] });
+    expect(f).toMatchObject({ op: "fetch", sources: ["41806f306f1481acb8e1000bac534e05"], pageIds: [PAGE] });
+    const c = summarizeCall({ name: "mcp__notion__notion-create-pages", input: { parent: { data_source_id: CLIENTS }, pages: [] }, result: [{ type: "text", text: JSON.stringify({ pages: [{ id: "41806f30-6f14-8000-8000-0000000000ff" }] }) }] });
+    expect(c).toMatchObject({ op: "create", sources: ["41806f306f1481acb8e1000bac534e05"], pageIds: ["41806f306f14800080000000000000ff"] });
+  });
+});

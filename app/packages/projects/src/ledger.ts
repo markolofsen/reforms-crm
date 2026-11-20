@@ -45,8 +45,11 @@ export interface LedgerEntry {
   wroteTo?: string;
   brand?: string;
   // notion
-  op?: "fetch" | "query" | "search" | "update";
+  op?: "fetch" | "query" | "search" | "update" | "create";
   emails?: string[];
+  /** P82: the data sources the call named or (fetch) the result sits in, and the page ids its result returned, as 32 hex characters: where a page came from, for the guard's update rule. */
+  sources?: string[];
+  pageIds?: string[];
   editedAt?: string;
   // knowledge
   query?: string;
@@ -157,16 +160,36 @@ export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEn
     return null;
   }
   if (c.name.startsWith("mcp__notion__")) {
-    const op = ({ "notion-fetch": "fetch", "notion-query-data-sources": "query", "notion-search": "search", "notion-update-page": "update" } as const)[tool as "notion-fetch"];
+    const op = ({ "notion-fetch": "fetch", "notion-query-data-sources": "query", "notion-search": "search", "notion-update-page": "update", "notion-create-pages": "create" } as const)[tool as "notion-fetch"];
     if (!op) return null;
     const emails = [...new Set((JSON.stringify(c.input ?? {}).match(ADDRESS) ?? []).map(lower))];
     const edited = resultText(c.result).match(/"?(?:last_edited_time|lastEditedTime|last_edited)"?\s*[:=]\s*"?(\d{4}-\d{2}-\d{2})/i)?.[1];
-    return { tool, kind: "notion", op, ...(emails.length ? { emails } : {}), ...(edited ? { editedAt: edited } : {}) };
+    return { tool, kind: "notion", op, ...(emails.length ? { emails } : {}), ...(edited ? { editedAt: edited } : {}), ...(c.result !== undefined ? notionOrigin(op, c.input, resultText(c.result)) : {}) };
   }
   if (c.name.startsWith("mcp__knowledge-mcp__") && (tool === "knowledge_search" || tool === "knowledge_get")) {
     return { tool, kind: "knowledge", ...(str(i.query) ? { query: str(i.query)!.slice(0, 200) } : {}) };
   }
   return null;
+}
+
+const COLLECTION = /collection:\/\/([0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12})/gi;
+const NOTION_ID = /(?<![0-9a-f])([0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12})(?![0-9a-f])/gi;
+const hex = (v: string): string => v.replace(/-/g, "").toLowerCase();
+
+/**
+ * P82: where a Notion read or create came from. A query names its data sources; a create its parent data source; a fetch's
+ * result names the data source its object sits in. The page ids are every id its result returned (at most 300). Search is not
+ * an origin: what it finds may be any teamspace's.
+ */
+function notionOrigin(op: string, input: unknown, text: string): Pick<LedgerEntry, "sources" | "pageIds"> {
+  if (op !== "query" && op !== "fetch" && op !== "create") return {};
+  const inText = JSON.stringify(input ?? {});
+  const parent = op === "create" ? str(obj(obj(input).parent).data_source_id) : undefined;
+  const from = op === "fetch" ? text : inText;
+  const sources = [...new Set([...[...from.matchAll(COLLECTION)].map((m) => hex(m[1] ?? "")), ...(parent ? [hex(parent)] : [])])];
+  const fetched = op === "fetch" ? [...inText.matchAll(NOTION_ID)].map((m) => hex(m[1] ?? "")) : [];
+  const pageIds = [...new Set([...fetched, ...[...text.matchAll(NOTION_ID)].map((m) => hex(m[1] ?? ""))])].filter((x) => x.length === 32 && !sources.includes(x)).slice(0, 300);
+  return { ...(sources.length ? { sources } : {}), ...(pageIds.length ? { pageIds } : {}) };
 }
 
 /** The hub MCP server's draft writer (P52): a draft like mail-mcp's `create_reply`. */
@@ -232,7 +255,7 @@ export function observeDraft(entries: readonly LedgerEntry[], index: number): Ob
   const known = finds.map(({ e }) => e.ids).filter((x): x is number[] => Array.isArray(x));
   const found = known.length ? Math.max(...known.map((x) => x.length)) : null;
   const required = Math.max(1, Math.min(found ?? 3, 3));
-  const profile = mine.some(({ e, k }) => e.kind === "notion" && e.op !== "update" && (e.emails?.length ? !!client && e.emails.includes(client) : inWindow(k)));
+  const profile = mine.some(({ e, k }) => e.kind === "notion" && e.op !== "update" && e.op !== "create" && (e.emails?.length ? !!client && e.emails.includes(client) : inWindow(k)));
   const facts = mine.filter(({ e, k }) => e.kind === "knowledge" && inWindow(k)).length;
 
   let maxSim = 0;

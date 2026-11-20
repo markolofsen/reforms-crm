@@ -1,5 +1,9 @@
 import type { HubPaths } from "@hub/config/paths";
 import { connectorKindOf, KINDS, writeConnectorAccount, type AttachedConnector } from "./connectors";
+import type { NotionScope } from "./notion-scope";
+
+// P82: the Notion scope rules live beside these (`notion-scope.ts`); the guard imports them from here, the package's guard door.
+export { collectionIds, hexId, notionNote, notionScopeOf, notionViolations, type NotionRead, type NotionScope } from "./notion-scope";
 
 // P62 K3: the guard's rules for connector calls. These always block, whatever HUB_GUARD says: a connector write leaves the Mac
 // (an invitation, a shared file), and a tool off the allowlist is one the hub never reviewed. The deny rules name the known
@@ -11,6 +15,8 @@ export interface ConnectorScope {
   calendarId: string | null;
   /** `drive.folder` of project.md: a search's query must name one (empty: no check). */
   driveFolders: readonly string[];
+  /** P82: the project's Notion databases; absent or empty: no Notion check (unbound, or setup not done). */
+  notion?: NotionScope;
 }
 
 const CALL = /^mcp__((?:gcal|gdrive)-[a-z0-9][a-z0-9-]*)__(.+)$/;

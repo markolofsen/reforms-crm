@@ -6,7 +6,7 @@ import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/c
 import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
 import { HUB_MCP_SERVERS } from "@hub/agent/deny";
 import { resolveConnectors, type AttachedConnector } from "@hub/agent/connectors";
-import { connectorViolations, recordConnectorRead, type ConnectorScope } from "@hub/agent/connector-guard";
+import { connectorViolations, notionNote, notionScopeOf, notionViolations, recordConnectorRead, type ConnectorScope, type NotionRead } from "@hub/agent/connector-guard";
 import { readSession, recordPost, type PostPayload } from "./evidence-store";
 import { openDbReadOnly, readAgentSettings } from "@hub/db";
 import type { AgentSettings } from "@hub/config";
@@ -58,7 +58,7 @@ export function projectConnectors(paths: HubPaths, projectsDir: string, slug: st
   try {
     const cfg = loadProject(projectsDir, slug).parsed.config;
     const { attached } = resolveConnectors(paths, cfg);
-    return { attached, scope: { attached, calendarId: cfg.calendar.id, driveFolders: cfg.drive.folder } };
+    return { attached, scope: { attached, calendarId: cfg.calendar.id, driveFolders: cfg.drive.folder, notion: notionScopeOf(slug, cfg) } };
   } catch { return none; }
 }
 
@@ -166,12 +166,13 @@ export function skillScope(kindId: string, dir: string): SkillScope | undefined 
   return { allowed: kind.skills, hub };
 }
 
-export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout: AuditLayout; connectors?: ConnectorScope }): GuardResult {
+export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout: AuditLayout; connectors?: ConnectorScope; /** P82: this session's earlier Notion reads (the ledger). */ notionRead?: readonly NotionRead[] }): GuardResult {
   const call: ToolCall = { name: String(payload.tool_name ?? ""), input: payload.tool_input };
   // Unbound session (project-setup, `hub agent new`): no project to compare with, but sends and secrets still count.
   const violations = auditToolCalls([call], o.slug ?? "(unbound)", o.accounts, o.skills, o.layout).filter((v) => o.slug || !/outside project|in a \(unbound\)|touched \S+\/\S+ in a/.test(v));
   // P62 K3: a connector call off its allowlist, or a hold with guests, is refused in every mode (it would leave the Mac).
-  const outward = connectorViolations(call.name, call.input, o.connectors ?? { attached: [], calendarId: null, driveFolders: [] });
+  // P82: a Notion call on another project's database (or a page this session did not read from its own) is refused the same way.
+  const outward = [...connectorViolations(call.name, call.input, o.connectors ?? { attached: [], calendarId: null, driveFolders: [] }), ...notionViolations(call.name, call.input, o.connectors?.notion, o.notionRead)];
   return { violations: [...violations, ...outward], block: outward.length > 0 || (violations.length > 0 && o.mode === "block"), ...(outward.length ? { always: true } : {}) };
 }
 
@@ -197,7 +198,9 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
     }
     catch { return mode === "block" ? { code: 2, stderr: `hub guard: project "${slug}" cannot be loaded; blocked` } : { code: 0, stderr: "" }; }
   }
-  const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope });
+  const sid = typeof payload.session_id === "string" ? payload.session_id : "";
+  const notionRead = slug && sid && String(payload.tool_name ?? "").startsWith("mcp__notion__") ? readSession(g.root, slug, sid).filter((e) => e.kind === "notion") : [];
+  const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope, notionRead });
   // P28 B3: before a reply is drafted, this session must have read the client's thread and profile, and the reply must not copy an earlier one.
   if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug, paths.db));
   r.block = r.always === true || (r.violations.length > 0 && mode === "block");
@@ -255,6 +258,11 @@ export function runGuardPost(stdin: string, g: GuardEnv): { code: 0; stderr: str
     if (String(payload.tool_name ?? "").endsWith("__get_message_content")) {
       const slim = slimMessageContent(payload.tool_response);
       if (slim != null) stdout = JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", updatedMCPToolOutput: slim } });
+    }
+    // P82 (S0 point 3): a Notion search not narrowed to the project, or a fetch from another database, gets one note for the model.
+    if (slug && /^mcp__notion__notion-(search|fetch)$/.test(String(payload.tool_name ?? ""))) {
+      const note = notionNote(String(payload.tool_name), payload.tool_input, payload.tool_response, projectConnectors(g.paths ?? pathsAt(g.root, env), g.projectsDir ?? defaultProjectsRoot(), slug).scope.notion);
+      if (note) stdout = JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: note } });
     }
   } catch { /* the ledger must never stop a session */ }
   return { code: 0, stderr: "", ...(stdout ? { stdout } : {}) };

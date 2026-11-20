@@ -16,6 +16,7 @@ Rules: `skills/README.md` ("Rules"; report format: "Report"). Replies to the own
    set by `hub agent <project>`). Both present and different: ask once. Neither: list `projects/*/` (names only) and ask.
 2. Read `projects/<slug>/project.md`. Take `mail.accounts`, `mail.addresses`, `mail.mailboxes` (default `INBOX`), `mail.sender`,
    `mail.sent_mailbox`, `tone`, `languages`, `## Brands` (the products this project answers for; none: one brand), `knowledge.scope`, and the `clients` data source from `## Notion databases`.
+   - Notion by id only (P82): the session's capabilities line names this project's databases as `collection://<id>` (and `project_notion` of the hub MCP returns them, when the session has it). Query the `clients` id; never pick a database by `notion-search`: the owner's other teamspaces have databases of the same names, which belong to other projects (the guard refuses a query or a write on one).
    - One project per set of mailboxes: mail to any address or domain of this project is its own; a product that writes in is a brand row, never another project (doc 16 section 3C).
    - `draft.recipients` is `recipients` in `state/projects/<slug>/send-policy.json` (read only; no file: `test`), README Rule 6.
    - `projects/<slug>/.generated/PROJECT.json` (written by `hub project sync`) holds the same values resolved, plus the kind's mail classes (`triage: count-only` means count, do not read) and `missing` required fields; prefer it when it exists.

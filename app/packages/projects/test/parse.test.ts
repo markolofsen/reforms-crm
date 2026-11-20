@@ -71,6 +71,10 @@ describe("the example of doc 16", () => {
     expect(d.mail.sender).toBe("a@t.example");
     expect(parseProjectMd(base(["| mail.aliases | not-an-address | 2026-11-14 | owner |"]), "t").issues.map((i) => i.code)).toContain("bad_value");
   });
+  it("reads notion.teamspace_id and normalises the id (P82); unset is null", () => {
+    expect(parseProjectMd(base(), "t").config.notion.teamspaceId).toBeNull();
+    expect(parseProjectMd(base(["| notion.teamspace_id | BBBB3333000040008000000000000004 | 2026-11-20 | agent |"]), "t").config.notion.teamspaceId).toBe("bbbb3333-0000-4000-8000-000000000004");
+  });
   it("reads notion.parent_page and normalises the id", () => {
     expect(parseProjectMd(base(), "t").config.notion.parentPage).toBeNull();
     const p = parseProjectMd(base(["| notion.parent_page | AAAA3333000040008000000000000003 | 2026-11-14 | agent |"]), "t");

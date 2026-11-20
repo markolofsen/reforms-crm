@@ -5,7 +5,7 @@ import { createRepos, openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context";
 import { recordDraft } from "../src/record-draft";
-import { guardDecision, readBinding, resolveBinding, runGuard, skillScope, writeBinding, writeCodexHome, writeSessionFiles } from "../src/safety";
+import { guardDecision, readBinding, resolveBinding, runGuard, runGuardPost, skillScope, writeBinding, writeCodexHome, writeSessionFiles } from "../src/safety";
 import { CODEX_FORBIDDEN_PREFIXES, DENIED_TOOLS } from "@hub/agent/deny";
 import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 import { buildClaudeArgs } from "../src/agent";
@@ -25,6 +25,28 @@ describe("hub guard", () => {
     expect(guard(call("mcp__mail-mcp__find_messages", { account: "owner@acme.example" })).code).toBe(0);
     expect(guard(call("Read", { file_path: "projects/acme-travel/project.md" })).stderr).toBe("");
     expect(guard(call("mcp__mail-mcp__create_reply", {})).stderr).toBe("");
+  });
+  it("P82: a Notion call on another project's database is refused in warn mode too; the project's own passes; an update needs the page read from it first", () => {
+    const root = tmp();
+    const q = (ds: string) => ({ ...call("mcp__notion__notion-query-data-sources", { data: { mode: "sql", data_source_urls: [`collection://${ds}`], query: "SELECT url" } }), session_id: "s-notion" });
+    const foreign = runGuard(JSON.stringify(q("6096f440-6f14-8000-8000-000000001521")), { root, projectsDir: PROJECTS, env: { HUB_PROJECT: "acme-travel" } });
+    expect(foreign.code).toBe(2);
+    expect(foreign.stderr).toMatch(/is not one of acme-travel's Notion databases \(clients collection:\/\/00000000-0000-4000-8000-000000000001, documents/);
+    expect(runGuard(JSON.stringify(q("00000000-0000-4000-8000-000000000001")), { root, projectsDir: PROJECTS, env: { HUB_PROJECT: "acme-travel" } }).code).toBe(0);
+    const page = "0000aaaa-0000-4000-8000-0000000000aa";
+    const update = { ...call("mcp__notion__notion-update-page", { page_id: page, command: "update_properties", properties: {} }), session_id: "s-notion" };
+    expect(runGuard(JSON.stringify(update), { root, projectsDir: PROJECTS, env: { HUB_PROJECT: "acme-travel" } }).code).toBe(2);
+    // The post hook records the query's result in the ledger; then the same update passes.
+    runGuardPost(JSON.stringify({ ...q("00000000-0000-4000-8000-000000000001"), tool_response: [{ type: "text", text: JSON.stringify({ results: [{ url: `https://app.notion.com/p/${page.replace(/-/g, "")}` }] }) }] }), { root, projectsDir: PROJECTS, env: { HUB_PROJECT: "acme-travel" } });
+    expect(runGuard(JSON.stringify(update), { root, projectsDir: PROJECTS, env: { HUB_PROJECT: "acme-travel" } }).code).toBe(0);
+    // An unbound session is told only.
+    expect(runGuard(JSON.stringify(q("6096f440-6f14-8000-8000-000000001521")), { root, projectsDir: PROJECTS, env: {} }).code).toBe(0);
+  });
+  it("P82: the post hook adds a note to an unscoped Notion search, nothing to a search narrowed to the project", () => {
+    const root = tmp();
+    const post = (input: unknown) => runGuardPost(JSON.stringify({ ...call("mcp__notion__notion-search", input), session_id: "s-note", tool_response: { results: [] } }), { root, projectsDir: PROJECTS, env: { HUB_PROJECT: "acme-travel" } });
+    expect(JSON.parse(post({ query: "Clients" }).stdout ?? "{}").hookSpecificOutput).toMatchObject({ hookEventName: "PostToolUse", additionalContext: expect.stringContaining("not narrowed to acme-travel") });
+    expect(post({ query: "x", data_source_url: "collection://00000000-0000-4000-8000-000000000001" }).stdout).toBeUndefined();
   });
   it("warn mode logs and allows; block mode refuses with exit 2", () => {
     const root = tmp();

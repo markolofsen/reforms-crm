@@ -78,12 +78,14 @@ export const ProjectBase = z.object({
   notion: z
     .object({
       teamspace: z.string().nullable().default(null),
+      /** P82: the teamspace's id (normalised), set once from `notion-get-teams`; null: not recorded yet. */
+      teamspaceId: z.string().nullable().default(null),
       /** Notion page id (normalised) the deploy skill creates databases under; wins over `teamspace`. */
       parentPage: z.string().nullable().default(null),
       tokenFile: z.string().default("notion-token"),
       databases: z.array(ProjectDatabase).default([]),
     })
-    .default({ teamspace: null, parentPage: null, tokenFile: "notion-token", databases: [] }),
+    .default({ teamspace: null, teamspaceId: null, parentPage: null, tokenFile: "notion-token", databases: [] }),
   /** Calendar the `calendar` skill writes holds into; null fields: not set (the skill reports a calendar-problem, never guesses). */
   calendar: z
     .object({ name: z.string().nullable().default(null), id: z.string().nullable().default(null), timezone: Tz.nullable().default(null), /** P62: Google Calendar connectors (`gcal-<label>`) attached to this project. */ connector: z.array(z.string()).default([]) })

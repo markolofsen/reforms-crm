@@ -60,6 +60,7 @@ export const FIELDS: Record<string, FieldDef> = {
   tone: { path: "tone", schema: oneLine, doc: "How replies sound, one line." },
   signoff: { path: "signoff", schema: oneLine, doc: "Sign-off line of drafts." },
   "notion.teamspace": { path: "notion.teamspace", schema: oneLine, doc: "Notion teamspace name." },
+  "notion.teamspace_id": { path: "notion.teamspaceId", schema: check((v) => UUID.test(v), (v) => `expected a Notion teamspace id (UUID), got "${v}"`).transform(normalizeId), doc: "Id of that teamspace (P82, from notion-get-teams): the session's Notion searches are scoped to it, and a page may be created at its root." },
   "notion.parent_page": { path: "notion.parentPage", schema: check((v) => UUID.test(v), (v) => `expected a Notion page id (UUID), got "${v}"`).transform(normalizeId), doc: "Page the deploy skill creates databases under; wins over the teamspace." },
   "notion.token_file": { path: "notion.tokenFile", schema: check((v) => /^[A-Za-z0-9._-]+$/.test(v), () => "expected a file name (no path, no value of a secret)"), doc: "File name in state/secrets/ holding the Notion token." },
   "calendar.name": { path: "calendar.name", schema: oneLine, doc: "Calendar the calendar skill writes holds into." },

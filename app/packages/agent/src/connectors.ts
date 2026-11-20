@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 import type { ProjectConfig } from "@hub/projects";
+import { notionCapability, type NotionScope } from "./notion-scope";
 
 // P62: connectors, the Google services a project's sessions may reach beside mail-mcp and Notion. A connector is a Google-hosted
 // MCP server (`calendarmcp.googleapis.com`, `drivemcp.googleapis.com`) under a hub name, one Google account each: `gcal-<label>`,
@@ -148,12 +149,13 @@ export const BROWSER_CAPABILITY =
 /**
  * The capabilities line of a bound session (K4), appended after the project's identity: what this session can reach, built from
  * the same resolver that writes its MCP file, so it never names a tool the session lacks. Rules: `@docs/core/26-capabilities.md`.
+ * P82: with the project's Notion scope, the notion part names its databases by id (one source with the guard, `notion-scope.ts`).
  */
-export function sessionCapabilities(slug: string, attached: readonly AttachedConnector[], cli: AgentCli): string {
+export function sessionCapabilities(slug: string, attached: readonly AttachedConnector[], cli: AgentCli, notion?: NotionScope): string {
   const who = (c: AttachedConnector) => `${c.name} (${c.account ? c.account.account : "account not confirmed yet"})`;
   const cal = attached.filter((c) => c.kind === "calendar");
   const drive = attached.filter((c) => c.kind === "drive");
-  const parts = ["mail: mail-mcp (read only) and the hub's draft_write (unsent drafts)", "notion: the project's CRM databases", "knowledge: knowledge-mcp"];
+  const parts = ["mail: mail-mcp (read only) and the hub's draft_write (unsent drafts)", notion ? notionCapability(notion) : "notion: the project's CRM databases", "knowledge: knowledge-mcp"];
   if (cli === "codex") {
     if (cal.length || drive.length) parts.push(`calendar and drive: not in Codex sessions (${[...cal, ...drive].map((c) => c.name).join(", ")} sign in only in Claude Code)`);
     else parts.push("calendar: none attached", "drive: none attached");

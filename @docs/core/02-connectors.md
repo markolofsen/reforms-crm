@@ -83,8 +83,11 @@ threads but can send: `--read-only` only, never both.
   MCP retries a 429 once if the wait is 2 s or less, else returns `rate_limited` with `retry_after_seconds`.
   Our load (3-6 calls per active run) is far below.
 - Per-request size: 2000 chars per rich-text object, 100 array elements, 1000 blocks, 500 KB.
-- Enrichment: `notion-search` / `notion-query-data-sources` to find the client by email,
-  `notion-update-page` for properties and appended content, `notion-create-comment` as a lighter log.
+- Enrichment: `notion-query-data-sources` on the project's own `clients` data source (its id on the session's capabilities
+  line) to find the client by email, `notion-update-page` for properties and appended content, `notion-create-comment` as a lighter log.
+- One connector, one Notion user, every teamspace he sees (P82): several projects have databases of the same names, so a search by
+  name cannot tell them apart. Sessions work by id; the guard refuses another project's databases (doc 26). Sign-in state comes from
+  the CLI itself (Agent tools `notion.signin`), never from a call of the hub's own.
   Append dated entries; never rewrite the profile body.
 
 ## Sources
