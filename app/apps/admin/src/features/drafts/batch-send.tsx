@@ -27,7 +27,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const minutes = (n: number, spacing: number) => Math.max(1, Math.round(((n - 1) * spacing) / 60));
 const STATUS: Record<BatchRunDto["items"][number]["status"], string> = { waiting: "Waiting", sending: "Sending", sent: "Sent", refused: "Not sent", failed: "Failed", stopped: "Stopped" };
 
-export function BatchSend({ project, batchId, checked, brief }: { project: string; batchId: number; checked: number; /** The owner's words that asked for the batch, shown in full (P87). */ brief: string | null }) {
+export function BatchSend({ project, batchId, checked, open, brief }: { project: string; batchId: number; checked: number; /** Drafts of the batch still open (to review, Checked, on hold): the warnings line only while there are some. */ open: number; /** The owner's words that asked for the batch, shown in full (P87). */ brief: string | null }) {
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>({ k: "idle" });
   const run = useQuery({
@@ -74,7 +74,7 @@ export function BatchSend({ project, batchId, checked, brief }: { project: strin
           {brief}
         </p>
       )}
-      {!running && (
+      {!running && open > 0 && (
         <div className="flex flex-wrap items-center gap-3">
           <p className="min-w-0 flex-1 text-muted-foreground text-sm">In a batch, warnings must be acknowledged too, not only red checks. Red checks stay one by one on each card.</p>
           <ActionButton aria-disabled={warnings.isPending} className="aria-disabled:opacity-64 max-sm:h-(--control-l)" onClick={() => !warnings.isPending && warnings.mutate()} size="s" variant="quiet">

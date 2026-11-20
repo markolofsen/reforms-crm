@@ -59,6 +59,7 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile, measured
   const batches = useQuery({ queryKey: keys.batches(project), queryFn: () => reviewApi.batches(project) });
   const notByEmail = useNotByEmailTotal(project);
   const known = batch === null || (batches.data?.batches.some((b) => b.id === batch) ?? true);
+  const current = batch === null ? undefined : batches.data?.batches.find((b) => b.id === batch);
   const source = useMemo<ReviewSource>(() => {
     const scope = { search, batch };
     return {
@@ -94,7 +95,7 @@ function DraftsSection({ project, filter, q, batch, selectedId, mobile, measured
       listBottom={
         batch !== null && known ? (
           // P85b: a batch's own Send all Checked; every draft still has its own Send on its card.
-          <BatchSend batchId={batch} brief={batches.data?.batches.find((b) => b.id === batch)?.brief ?? null} checked={batches.data?.batches.find((b) => b.id === batch)?.counts.checked ?? 0} project={project} />
+          <BatchSend batchId={batch} brief={current?.brief ?? null} checked={current?.counts.checked ?? 0} open={(current?.counts.review ?? 0) + (current?.counts.checked ?? 0) + (current?.counts.hold ?? 0)} project={project} />
         ) : filter === "sequences" ? (
           <FollowUps project={project} />
         ) : undefined
