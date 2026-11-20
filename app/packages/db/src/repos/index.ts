@@ -6,6 +6,7 @@ import { draftsRepo } from "./drafts";
 import { enrollmentsRepo } from "./enrollments";
 import { inboxRepo } from "./inbox";
 import { knowledgeRepo } from "./knowledge";
+import { llmCallsRepo } from "./llm-calls";
 import { mailVersionsRepo, mailWritesRepo } from "./mail-versions";
 import { messengersRepo } from "./messengers";
 import { projectsRepo } from "./projects";
@@ -29,6 +30,7 @@ export function createRepos(db: Db) {
     enrollments: enrollmentsRepo(db),
     mailVersions: mailVersionsRepo(db),
     mailWrites: mailWritesRepo(db),
+    llmCalls: llmCallsRepo(db),
   };
 }
 export type Repos = ReturnType<typeof createRepos>;
@@ -55,5 +57,6 @@ export type { BasedOn, ReviewDraft } from "./review";
 export type { NewSend, SendRow } from "./sends";
 export type { Adoption, MailVersionRow, MailVersionSource, MailWriteRow, NewMailVersion, NewMailWrite, ThreadDraft } from "./mail-versions";
 export { adoptable, bareRef, isReplyShell, shellHashOf, startsWithWrite, textKey, versionHashOf } from "./mail-versions";
+export type { LlmMonth, NewLlmCall } from "./llm-calls";
 export type { InboxInput, InboxItem, InboxResult, InboxRow } from "./inbox";
 export type { Candidate, EnrollmentItem, EnrollmentRow, NewEnrollment, Outbound } from "./enrollments";

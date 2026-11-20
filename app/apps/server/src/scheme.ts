@@ -5,6 +5,7 @@ import type { CoreUpdateDto } from "@hub/contract/instance";
 import type { DoctorDto, ProjectOverviewDto } from "@hub/contract/responses";
 import { schemeDto, type SchemeDto, type SchemeEdge, type SchemeNode, type SchemeState } from "@hub/contract/scheme";
 import type { CliFactDto } from "@hub/contract/terminal";
+import type { LlmMonth } from "@hub/db";
 
 /**
  * The Hub's parts and how each stands (P63 O1): a pure function over readers the server already has, so its test needs no Mail,
@@ -29,6 +30,18 @@ export interface SchemeSources {
   clis: () => readonly CliFactDto[] | null;
   /** The core update check's cached answer (P68), null when the server has none. */
   core: () => CoreUpdateDto | null;
+  /** P78: the month of `llm_calls`, the cap and whether a key is there; absent: no LLM part. */
+  llm?: () => Promise<LlmStanding>;
+}
+
+/** What the LLM part is judged from (P78): the ledger's month, the cap, the key's presence (never its value) and the fix lines of `@hub/llm`. */
+export interface LlmStanding {
+  month: LlmMonth;
+  capMicroUsd: number;
+  keyPresent: boolean;
+  fake: boolean;
+  noKeyFix: string;
+  capFix: string;
 }
 
 const CLI_LABEL = { claude: "Claude Code", codex: "Codex" } as const;
@@ -140,6 +153,29 @@ function coreNode(d: CoreUpdateDto | null): SchemeNode[] {
   return [node({ id: "core", kind: "core", project: null, label, state, detail: d.reason, fix: d.command.length > 0 ? d.command.join("\n") : null, place: "mac" })];
 }
 
+const usd = (micro: number): string => `$${(micro / 1e6).toFixed(2)}`;
+const calls = (n: number): string => `${n} ${n === 1 ? "call" : "calls"}`;
+
+/**
+ * P78 (decision 0039 point 4): the instance's model access. No part until a caller has used it this month (nothing wants it, so
+ * nothing needs him). Broken, and so a "Needs you" item, when a call was refused for a missing key that is still missing, or
+ * for the monthly cap that is still reached. The fix lines are `@hub/llm`'s own sentences; no pane sets the key or the cap yet.
+ */
+export function llmNode(s: LlmStanding): SchemeNode[] {
+  const m = s.month;
+  if (m.calls === 0 && m.refused.budget === 0 && m.refused.no_key === 0) return [];
+  const spend = `${usd(m.costMicroUsd)} of ${usd(s.capMicroUsd)} this month (UTC)`;
+  const base = { id: "llm", kind: "llm" as const, project: null, label: s.fake ? "LLM (fake)" : "LLM (OpenRouter)", place: null };
+  const refusedLast = (m.lastRefusedAt ?? "") > (m.lastOkAt ?? "");
+  if (!s.keyPresent && !s.fake && m.refused.no_key > 0 && refusedLast) {
+    return [node({ ...base, state: "fail", detail: `No key: ${calls(m.refused.no_key)} refused this month, so callers say "not analysed".`, fix: s.noKeyFix })];
+  }
+  if (m.costMicroUsd >= s.capMicroUsd && m.refused.budget > 0) {
+    return [node({ ...base, state: "fail", detail: `The monthly cap is reached: ${spend}; ${calls(m.refused.budget)} refused.`, fix: s.capFix })];
+  }
+  return [node({ ...base, state: "ok", okDetail: `${spend}, ${calls(m.calls)}` })];
+}
+
 async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto | null): Promise<SchemeNode[]> {
   const [doctor, files, stopped, trouble] = await Promise.all([s.doctor(slug), s.files(slug), s.stopped(slug), s.sendTrouble?.(slug) ?? { failed: 0, stuck: 0 }]);
   const tools = s.agentTools(slug);
@@ -230,7 +266,8 @@ function edgesOf(nodes: readonly SchemeNode[]): SchemeEdge[] {
 export async function composeScheme(s: SchemeSources): Promise<SchemeDto> {
   const [slugs, conn] = await Promise.all([s.projects(), s.connections().catch(() => null)]);
   const tokens = (conn?.connections ?? []).filter((c) => c.kind === "notion" || c.secret.state !== "missing");
-  const instance = [...coreNode(s.core()), ...cliNodes(s.clis()), ...tokens.map(tokenNode), ...telegramUserNodes(s.health())];
+  const llm = s.llm ? llmNode(await s.llm()) : [];
+  const instance = [...coreNode(s.core()), ...cliNodes(s.clis()), ...tokens.map(tokenNode), ...telegramUserNodes(s.health()), ...llm];
   const perProject = (await Promise.all(slugs.map((slug) => projectNodes(slug, s, conn)))).flat();
   const nodes = [...instance, ...perProject];
   return schemeDto.parse({ nodes, edges: edgesOf(nodes) });

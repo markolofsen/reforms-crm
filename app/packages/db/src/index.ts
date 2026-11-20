@@ -12,6 +12,7 @@ export { bumpTopic, bumpTopicIn, liveSeq, liveSince, LIVE_TABLES, TOPIC_PREFIX, 
 export { RepoError, type RepoErrorCode } from "./errors";
 export { adoptable, bareRef, isReplyShell, buildMatchQuery, createRepos, isExpired, rulesOf, shellHashOf, startsWithWrite, textKey, versionHashOf, type Repos } from "./repos";
 export { EVENT_DETAIL_DAYS } from "./repos/runs";
+export { REFUSAL_COALESCE_MS } from "./repos/llm-calls";
 export type {
   Activity,
   ActivityFilter,
@@ -40,6 +41,8 @@ export type {
   DraftRow,
   EventRow,
   KnowledgeDocRow,
+  LlmMonth,
+  NewLlmCall,
   Adoption,
   MailVersionRow,
   MailVersionSource,

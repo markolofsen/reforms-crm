@@ -1,0 +1,5 @@
+{
+  "extends": "@hub/config/tsconfig.base.json",
+  "compilerOptions": { "types": ["node"], "verbatimModuleSyntax": true, "lib": ["ES2023", "DOM"] },
+  "include": ["src", "test", "vitest.config.ts"]
+}

@@ -38,6 +38,9 @@ import { projectOverview, projectsRoot } from "./project-overview";
 import { projectDoctor } from "./project-doctor";
 import { schemeRoutes } from "./routes/scheme";
 import type { SchemeSources } from "./scheme";
+import { instanceLlm } from "@hub/config/llm";
+import { hubPaths } from "@hub/config/paths";
+import { capSentence, fakeMode, hasKey, noKeySentence } from "@hub/llm";
 
 export type AppOptions = {
   messengers?: () => MessengersStatus;
@@ -130,6 +133,8 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     },
     clis: () => opts.agentTools?.clis() ?? null,
     core: () => opts.coreUpdates?.read() ?? null,
+    // P78: read per request (the key and config.json may change while the server runs); the key's value is dropped in hasKey.
+    llm: async () => ({ month: await repos.llmCalls.month(now()), capMicroUsd: instanceLlm(hubPaths()).capMicroUsd, keyPresent: hasKey(), fake: fakeMode(), noKeyFix: noKeySentence(), capFix: capSentence }),
     ...opts.scheme,
   };
   return new Hono()

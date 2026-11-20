@@ -7,7 +7,7 @@ import type { DoctorDto, ProjectOverviewDto } from "@hub/contract/responses";
 import { schemeDto, worstFirst, type SchemeDto } from "@hub/contract/scheme";
 import type { AgentToolsService } from "./agent-tools";
 import { createApp } from "./app";
-import { composeScheme, type SchemeSources } from "./scheme";
+import { composeScheme, llmNode, type SchemeSources } from "./scheme";
 
 // P63 O1: the Overview's parts from local state, with fake readers (no Mail, no Notion, no CLI). Plan section 4a's mapping.
 const HEALTH: HealthDto = { ok: true, apiVersion: API_VERSION, messengers: { state: "off", failures: 0, stored: 0 }, telegramUser: { state: "off", accounts: [] }, sent: { state: "running", projects: [], failures: 0, marked: 0 }, mailer: "mail-app" };
@@ -188,5 +188,44 @@ describe("GET /api/scheme", () => {
     expect(get).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
     expect(text).not.toContain("/Users/");
+  });
+});
+
+describe("P78: the LLM part", () => {
+  const month = { calls: 0, costMicroUsd: 0, refused: { budget: 0, no_key: 0 }, lastRefusedAt: null, lastOkAt: null };
+  const standing = { month, capMicroUsd: 5_000_000, keyPresent: false, fake: false, noKeyFix: "No OpenRouter key: set it", capFix: "Raise llm.monthly_cap_usd" };
+
+  it("no part while no caller used it this month; works with the month's spend once one did", () => {
+    expect(llmNode(standing)).toEqual([]);
+    expect(llmNode({ ...standing, keyPresent: true, month: { ...month, calls: 3, costMicroUsd: 40_000, lastOkAt: "2026-11-20T10:00:00.000Z" } })).toMatchObject([{ id: "llm", kind: "llm", project: null, state: "ok", detail: "$0.04 of $5.00 this month (UTC), 3 calls", fix: null }]);
+  });
+
+  it("a refusal for a missing key that is still missing is broken with the package's fix line; a stored key clears it", () => {
+    const refused = { ...standing, month: { ...month, refused: { budget: 0, no_key: 2 }, lastRefusedAt: "2026-11-20T10:00:00.000Z" } };
+    expect(llmNode(refused)).toMatchObject([{ state: "fail", fix: "No OpenRouter key: set it", place: null }]);
+    expect(llmNode({ ...refused, keyPresent: true })[0]?.state).toBe("ok");
+    expect(llmNode({ ...refused, fake: true })[0]?.state).toBe("ok");
+  });
+
+  it("the cap reached with a refused call is broken; a raised cap clears it", () => {
+    const capped = { ...standing, keyPresent: true, capMicroUsd: 1_000_000, month: { ...month, calls: 9, costMicroUsd: 1_000_000, refused: { budget: 1, no_key: 0 }, lastRefusedAt: "2026-11-20T10:00:00.000Z" } };
+    expect(llmNode(capped)).toMatchObject([{ state: "fail", detail: "The monthly cap is reached: $1.00 of $1.00 this month (UTC); 1 call refused.", fix: "Raise llm.monthly_cap_usd" }]);
+    expect(llmNode({ ...capped, capMicroUsd: 2_000_000 })[0]?.state).toBe("ok");
+  });
+
+  it("GET /api/scheme: a no_key refusal in llm_calls is an instance part that needs him, from the server's own readers", async () => {
+    const saved = process.env.OPENROUTER_API_KEY;
+    delete process.env.OPENROUTER_API_KEY;
+    const handle = openDb(":memory:");
+    try {
+      const repos = createRepos(handle.db);
+      await repos.llmCalls.record({ project: "alpha", task: "t", model: null, attempt: 1, outcome: "no_key", tokensIn: 0, tokensOut: 0, tokensCached: 0, costMicroUsd: 0, latencyMs: 0, generationId: null, sourceKind: null });
+      const app = createApp(repos, { scheme: { projects: async () => [], connections: async () => CONN } });
+      const d = schemeDto.parse(await (await app.request("http://127.0.0.1:4317/api/scheme")).json());
+      expect(byId(d, "llm")).toMatchObject({ state: "fail", fix: expect.stringContaining("openrouter-key") });
+    } finally {
+      handle.close();
+      if (saved !== undefined) process.env.OPENROUTER_API_KEY = saved;
+    }
   });
 });

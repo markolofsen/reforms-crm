@@ -169,6 +169,28 @@ describe("migration 0025 (messenger chat rules, P71 M2b)", () => {
   });
 });
 
+describe("migration 0026 (llm_calls, P78)", () => {
+  it("adds the ledger with its three live triggers, keeps older rows, and refuses an unknown outcome or a negative cost", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(26) }); // 0000 .. 0025
+    sqlite.prepare("insert into agent_runs (project, started_at, trigger) values ('p','x','owner')").run();
+
+    migrate(db, { migrationsFolder: source }); // + 0026
+
+    expect(sqlite.prepare("select count(*) as n from agent_runs").get()).toEqual({ n: 1 });
+    sqlite.prepare("insert into llm_calls (project, task, model, attempt, outcome, cost_micro_usd) values ('p','t','m',1,'ok',812)").run();
+    expect(sqlite.prepare("select outcome, cost_micro_usd, tokens_in, generation_id from llm_calls").get()).toEqual({ outcome: "ok", cost_micro_usd: 812, tokens_in: 0, generation_id: null });
+    expect(() => sqlite.prepare("insert into llm_calls (project, task, attempt, outcome) values ('p','t',1,'maybe')").run()).toThrow(/CHECK/);
+    expect(() => sqlite.prepare("insert into llm_calls (project, task, attempt, outcome, cost_micro_usd) values ('p','t',1,'ok',-1)").run()).toThrow(/CHECK/);
+    const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and name like 'live_llm_calls_%'").all() as { name: string }[]).map((t) => t.name).sort();
+    expect(triggers).toEqual(["live_llm_calls_ad", "live_llm_calls_ai", "live_llm_calls_au"]);
+    expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    sqlite.close();
+  });
+});
+
 describe("restoreCheck", () => {
   it("opens a snapshot made by an OLDER core, applies the newer migrations and loses no row", () => {
     const tmp = mkdtempSync(join(tmpdir(), "hub-restore-"));

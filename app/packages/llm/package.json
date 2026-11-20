@@ -1,0 +1,24 @@
+{
+  "name": "@hub/llm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Hub's one door to a model API (P78, decision 0039): typed structured calls (`object`, `batch`) over OpenRouter with plain fetch, presets, a ledger row per attempt and a monthly cap checked before every request. HUB_LLM=fake selects the fake transport.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@hub/db": "workspace:*",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

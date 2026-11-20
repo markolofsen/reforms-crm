@@ -16,9 +16,10 @@ export type SchemeState = (typeof SCHEME_STATES)[number];
 /**
  * The parts. Instance parts: `core`, `cli`, `notion`, `telegram`. The rest belong to one project; `session` is every Agent tools
  * row no other part covers (UX pass 2026-11-20); `calendar` and `drive` are the Google connectors a project attaches (P62, P63
- * O5), one part each with its account.
+ * O5), one part each with its account. `llm` (P78) is the instance's model access through `@hub/llm`: shown only once a caller has
+ * used it this month, broken when the monthly cap or a missing key refused a call.
  */
-export const SCHEME_KINDS = ["core", "cli", "notion", "telegram", "mailbox", "mail-mcp", "hub-tools", "notion-db", "knowledge", "mail-filters", "setup", "guard", "session", "send-door", "calendar", "drive"] as const;
+export const SCHEME_KINDS = ["core", "cli", "notion", "telegram", "llm", "mailbox", "mail-mcp", "hub-tools", "notion-db", "knowledge", "mail-filters", "setup", "guard", "session", "send-door", "calendar", "drive"] as const;
 export type SchemeKind = (typeof SCHEME_KINDS)[number];
 
 export const schemeNode = z.strictObject({

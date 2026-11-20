@@ -9,6 +9,7 @@
     "./autostart": "./src/autostart.ts",
     "./core-version": "./src/core-version.ts",
     "./chat-rules": "./src/chat-rules.ts",
+    "./llm": "./src/llm.ts",
     "./lint-limits": "./src/lint-limits.mjs"
   },
   "scripts": {

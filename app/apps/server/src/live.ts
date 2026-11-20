@@ -22,6 +22,8 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   enrollments: "follow-ups",
   inbox_rows: "inbox",
   knowledge_docs: "knowledge",
+  // P78: the ledger moves only the Overview's LLM part; `health` is the topic whose keys hold Overview and its parts.
+  llm_calls: "health",
   // P65: a version row is written exactly when the Hub wrote or moved a Mail draft, so the open card reads Mail again.
   mail_versions: "mail",
   // P65 S5: a write the Hub started or settled. Not `mail`: a start must not make the open card read a slow Mail mid-write.

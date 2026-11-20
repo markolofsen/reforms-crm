@@ -3,7 +3,7 @@
 An agent-first mail and CRM workflow on the owner's Mac. The agent does the work, the admin shows it, the owner decides. He starts an agent
 session (Claude Code or Codex: `hub agent <project>`, or a tab of the admin's terminal dock) and hands it one instruction. The agent reads a project's
 mail, updates the project's Notion CRM and leaves UNSENT drafts; the admin shows them within a second, and the owner sends one draft at a time.
-The agent never sends, and nothing is scheduled.
+The agent never sends, and nothing is scheduled (a cheap LLM call through `@hub/llm` runs only inside work already running: [core/27-llm.md](core/27-llm.md)).
 
 ## The whole system in five minutes
 

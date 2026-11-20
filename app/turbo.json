@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalPassThroughEnv": ["HUB_HOME", "HUB_PROJECTS", "HUB_DB", "HUB_CONFIG_DIR", "HUB_CONFIG_FILE", "HUB_ADMIN_PORT", "HUB_PORT", "HUB_NEXT_ROOT", "HUB_NEXT_DIST", "HUB_OPENER", "HUB_AUTOSTART"],
+  "globalPassThroughEnv": ["HUB_HOME", "HUB_PROJECTS", "HUB_DB", "HUB_CONFIG_DIR", "HUB_CONFIG_FILE", "HUB_ADMIN_PORT", "HUB_PORT", "HUB_NEXT_ROOT", "HUB_NEXT_DIST", "HUB_OPENER", "HUB_AUTOSTART", "HUB_LLM", "OPENROUTER_API_KEY"],
   "tasks": {
     "dev": { "cache": false, "persistent": true },
     "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },
