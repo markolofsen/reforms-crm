@@ -12,6 +12,8 @@ export const keys = {
   overview: () => ["overview"] as const,
   /** P63 O1: the Hub's parts (Overview's parts table): instance-wide, read from the server's own state. */
   scheme: () => ["scheme"] as const,
+  /** P86: Overview's Recent errors, the newest error lines of the ops log. */
+  opsErrors: () => ["ops-errors"] as const,
   connections: () => ["connections"] as const,
   /** P67: the instance's LaunchAgent (Connections, "This Mac"). */
   autostart: () => ["autostart"] as const,
@@ -112,4 +114,5 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   autostart: () => [keys.autostart()],
   core: () => [keys.core(), scheme()],
   pointer: () => [keys.pointer()],
+  "ops-log": () => [keys.opsErrors()],
 };

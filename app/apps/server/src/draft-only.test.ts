@@ -1,10 +1,11 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDb, createRepos, type DbHandle, type Repos } from "@hub/db";
 import { API_VERSION } from "@hub/contract/health";
 import { createApp } from "./app";
+import { captureOps } from "@hub/log/ops";
 
 // The draft-only invariant (`@rules/README.md` rule 3, amended by decision 0011): the agent makes drafts and has no send
 // tool; a person sends, from the admin's confirmed Send. This file is the test that the one send route is the only
@@ -241,10 +242,10 @@ describe("the contract at the edge", () => {
     const busy = await boom(Object.assign(new Error("database is locked"), { code: "SQLITE_BUSY" }));
     expect(busy.status).toBe(503);
     expect(await busy.json()).toMatchObject({ code: "busy" });
-    const logged: unknown[][] = [];
-    const spy = vi.spyOn(console, "error").mockImplementation((...a: unknown[]) => { logged.push(a); });
-    const generic = await Promise.resolve(boom(new Error("nope"))).finally(() => spy.mockRestore());
-    expect(logged[0]![0]).toBe("500 GET /api/projects"); // the log line names the request, not just the error
+    const cap = captureOps();
+    const generic = await Promise.resolve(boom(new Error("nope"))).finally(() => cap.stop());
+    // P86: the ops line names the request, not just the error, and carries the error with its first frames.
+    expect(cap.lines[0]).toMatchObject({ level: "error", source: "server", message: "500 GET /api/projects", fields: { error: "Error: nope" } });
     expect(generic.status).toBe(500);
     expect(await generic.json()).toEqual({ error: "server error", code: "server" });
   });

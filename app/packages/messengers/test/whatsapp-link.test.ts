@@ -8,7 +8,8 @@ import { createWaPairing } from "../src/human";
 import { runPoller } from "../src/poller";
 import { createWhatsAppAdapter } from "../src/whatsapp";
 import { CREDS, readWaAuth, WaAuthFiles, waFolderOf } from "../src/whatsapp-auth";
-import { disconnectDetail, logLine, redactWa, waLogger } from "../src/whatsapp-log";
+import { captureOps, redactText } from "@hub/log/ops";
+import { disconnectDetail, logLine, waLogger } from "../src/whatsapp-log";
 import { setup, type Env } from "./helpers";
 
 // P71 M5 fix (2026-11-20): the linked device was logged out (401) minutes after each pairing. On a FAKE socket only: nothing here
@@ -142,8 +143,12 @@ describe("whatsapp: why a socket closed", () => {
     await vi.waitFor(() => expect((sock as FakeWaSocket | null)?.listening).toBe(true));
     const reason = disconnectDetail({ message: "Stream Errored (conflict)", output: { statusCode: 401 }, data: { tag: "conflict", attrs: { type: "device_removed" } } });
     expect(reason).toBe("Stream Errored (conflict): conflict type=device_removed");
+    const cap = captureOps();
     (sock as unknown as FakeWaSocket).closeWith(401, reason);
     await expect(run).rejects.toMatchObject({ code: "logged_out", parked: true });
+    cap.stop();
+    // P86: the 401 that left no line on 2026-11-20 is an error line of the ops log, with WhatsApp's reason in full.
+    expect(cap.lines).toContainEqual(expect.objectContaining({ level: "error", source: "whatsapp", message: expect.stringContaining("parked"), fields: expect.objectContaining({ kind: "logged_out", reason: expect.stringContaining("conflict type=device_removed") }) }));
     const acc = await env.repos.messengers.account("p", "whatsapp", ACCOUNT);
     expect(acc?.lastError).toMatch(/^parked logged_out: whatsapp 401: .*\[Stream Errored \(conflict\): conflict type=device_removed\]$/);
   });
@@ -154,19 +159,19 @@ describe("whatsapp: why a socket closed", () => {
       "Stream Errored (unknown): stream:error code=515 [item jid=[jid]]",
     );
     expect(disconnectDetail(null)).toBeNull();
-    expect(redactWa("from 4915100000002:7@s.whatsapp.net and 12345678@lid, +491510000002, key q8Zp3vYx1Lm2Nk4Rt5Wu6Ab7Cd8Ef9Gh0=")).toBe("from [jid] and [jid], +[n], key [key]");
-    expect(redactWa("uploadPreKeysToServerIfRequired failed")).toBe("uploadPreKeysToServerIfRequired failed");
+    expect(redactText("from 4915100000002:7@s.whatsapp.net and 12345678@lid, +491510000002, key q8Zp3vYx1Lm2Nk4Rt5Wu6Ab7Cd8Ef9Gh0=")).toBe("from [jid] and [jid], +[n], key [key]");
+    expect(redactText("uploadPreKeysToServerIfRequired failed")).toBe("uploadPreKeysToServerIfRequired failed");
   });
 
   it("Baileys' logger writes warn and error as redacted lines, drops trace to info, and never prints an object's content", () => {
     const lines: string[] = [];
-    const log = waLogger((l) => lines.push(l));
+    const log = waLogger((level, l) => lines.push(`${level}: ${l}`));
     expect(log.level).toBe("warn");
     log.child({ class: "ns" }).info({ text: "private" }, "hello");
     log.debug({}, "x");
     log.warn({ jid: "491510000002@s.whatsapp.net", message: { conversation: "private life" }, count: 3 }, "decrypt failed");
     log.error({ reasonNode: { tag: "conflict", attrs: { type: "device_removed" } }, trace: "Error: at secret.ts" }, "stream errored out");
-    expect(lines).toEqual(["whatsapp warn: decrypt failed jid=[jid] message={conversation} count=3", "whatsapp error: stream errored out reasonNode=<conflict type=device_removed>"]);
+    expect(lines).toEqual(["warn: decrypt failed jid=[jid] message={conversation} count=3", "error: stream errored out reasonNode=<conflict type=device_removed>"]);
     expect(logLine(new Error("bad 491510000002"))).toBe("Error: bad [n]");
   });
 });

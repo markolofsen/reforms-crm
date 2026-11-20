@@ -25,6 +25,9 @@ import {
 } from "@hub/messengers";
 import { createLoginFlows, removeSession, writeSession, type LoginFlows } from "@hub/messengers/human";
 import { messengersProject } from "./messengers";
+import { ops } from "@hub/log/ops";
+
+const log = ops("telegram");
 
 /**
  * The supervisor of the Telegram user accounts (P71 M1, decision 0036): one connection per account that has a session under
@@ -119,7 +122,10 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
     const parked = parkedOf((await o.repos.messengers.account(p, CHANNEL, account))?.lastError);
     if (parked) return void park(st, parked);
     const read = readSession(dir, CHANNEL, account);
-    if (read.state !== "stored") return void Object.assign(st, { state: "error", fix: NO_SESSION_FIX, lastError: `session file: ${read.state}` });
+    if (read.state !== "stored") {
+      log.error("the account's session file cannot be read", { account, state: read.state });
+      return void Object.assign(st, { state: "error", fix: NO_SESSION_FIX, lastError: `session file: ${read.state}` });
+    }
     let told = false;
     const onEvent = (e: PollEvent) => {
       // A park a send reported (P71 M4) holds: the loop's last poll after the abort must not read as running again.
@@ -144,7 +150,10 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
         if (st.state !== "error" && st.state !== "parked") st.state = "stopped";
       } catch (e) {
         if (e instanceof AdapterError && e.parked && (e.code === "logged_out" || e.code === "banned" || e.code === "flood_wait")) park(st, e.code);
-        else Object.assign(st, { state: "error", lastError: scrub(e instanceof Error ? e.message : String(e)) });
+        else {
+          Object.assign(st, { state: "error", lastError: scrub(e instanceof Error ? e.message : String(e)) });
+          log.error("the account's receiver stopped", { account, reason: st.lastError });
+        }
       } finally {
         slot.adapter = null;
         await client?.close().catch(() => undefined);
@@ -193,6 +202,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
     async sendFailed(account, err) {
       const s = slots.get(account);
       if (!project || !s || !isParkedCode(err.code)) return;
+      log.error("a send parked the account", { account, kind: err.code, reason: scrub(err.message) });
       park(s.st, err.code);
       await o.repos.messengers.markPollError(project, CHANNEL, account, parkedLine(err.code, scrub(err.message)), now().toISOString());
       s.ac.abort();

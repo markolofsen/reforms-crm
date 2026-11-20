@@ -1,5 +1,6 @@
 import { BATCH_LIMITS, runBatch, type BatchItem, type BatchLimits, type BatchOutcome, type SendDeps } from "@hub/send";
 import type { BatchRunDto } from "@hub/contract/responses";
+import { errFields, ops } from "@hub/log/ops";
 
 // The runs of Send all Checked (P85b, decision 0011 amendment of 2026-11-20 point 4). A run lives in this process only: the
 // person's click starts it, it sends one Checked draft of one batch at a time through the door (`runBatch`), with the spacing
@@ -73,6 +74,7 @@ export function batchRuns(o: { limits?: BatchLimits; onChange?: (project: string
         });
       void runBatch(deps, { project: s.project, batchId: s.batchId, items: s.items, ...(o.limits ? { limits: o.limits } : {}), control: { stopped: () => run.stopRequested, wait, update } })
         .catch((e: unknown) => {
+          ops("send").error("a batch run stopped on an error; the drafts not tried are left", { project: s.project, batch: s.batchId, ...errFields(e, true) });
           // A throw of the database or Mail between two mails: what was not tried is left, with the reason.
           for (const i of run.items) if (i.status === "waiting" || i.status === "sending") Object.assign(i, { status: i.status === "sending" ? "failed" : "stopped", reasons: [`the run stopped: ${e instanceof Error ? e.message : String(e)}`], at: now() });
         })

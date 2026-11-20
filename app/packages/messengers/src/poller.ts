@@ -1,5 +1,6 @@
 import { TELEGRAM_IN_TEXT } from "@hub/connections";
 import type { Repos } from "@hub/db";
+import { ops, type OpsSource } from "@hub/log/ops";
 import { AdapterError, isParkedCode, parkedLine, type MessengerAdapter } from "./adapter";
 import { ingest, type IngestResult } from "./ingest";
 
@@ -75,6 +76,9 @@ const defaultSleep = (ms: number, signal?: AbortSignal) =>
  * `retry_after` wins over the schedule); `unauthorized`, `conflict` and a user account's parked codes stop the loop and
  * throw, because retrying would only fight whoever else holds the bot (or anger Telegram); a park is recorded as such.
  */
+/** The ops log's source of a channel (P86). */
+export const opsSourceOf = (channel: MessengerAdapter["channel"]): OpsSource => (channel === "telegram_user" ? "telegram" : channel === "telegram_bot" ? "telegram_bot" : "whatsapp");
+
 export async function runPoller(deps: RunDeps): Promise<void> {
   const { signal, adapter, repos, project } = deps;
   const sleep = deps.sleep ?? defaultSleep;
@@ -102,13 +106,20 @@ export async function runPoller(deps: RunDeps): Promise<void> {
     } catch (err) {
       if (signal?.aborted) return;
       const error = err instanceof Error ? err : new Error(String(err));
+      const log = ops(opsSourceOf(adapter.channel));
+      const kind = error instanceof AdapterError ? error.code : error.name;
       if (error instanceof AdapterError && error.fatal) {
         const line = redact(error.message);
-        await repos.messengers.markPollError(project, adapter.channel, adapter.account, isParkedCode(error.code) ? parkedLine(error.code, line) : line);
+        const parked = isParkedCode(error.code);
+        // P86: the stop of an account's receiver, with its full reason: a park waits for the owner, nothing reconnects it.
+        log.error(parked ? "account parked: the receiver stopped and waits for a new login" : "the receiver stopped", { account: adapter.account, kind, reason: line });
+        await repos.messengers.markPollError(project, adapter.channel, adapter.account, parked ? parkedLine(error.code, line) : line);
         throw error;
       }
       failures++;
       const retryInMs = error instanceof AdapterError && error.retryAfterMs ? error.retryAfterMs : backoffMs(failures, deps.random);
+      // The first failure of a run and every tenth are warned; the rest repeat it (a flood wait says how long).
+      if (failures === 1 || failures % 10 === 0 || kind === "flood_wait" || kind === "rate_limited") log.warn(kind === "flood_wait" || kind === "rate_limited" ? "flood wait: the poll waits" : "poll failed; retrying", { account: adapter.account, kind, reason: redact(error.message), failures, retryInS: Math.round(retryInMs / 1000) });
       deps.onEvent?.({ type: "error", error, failures, retryInMs });
       await sleep(retryInMs, signal);
     }

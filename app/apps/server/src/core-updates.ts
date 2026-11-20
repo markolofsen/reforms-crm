@@ -3,6 +3,7 @@ import { statSync } from "node:fs";
 import { currentCoreUpdate, refreshCoreUpdate, uncheckedCoreUpdate, type CommandRun } from "@hub/config/core-version";
 import type { HubPaths } from "@hub/config/paths";
 import { CORE_CHECK_GUARD_MS, coreUpdateDto, type CoreUpdateDto } from "@hub/contract/instance";
+import { ops } from "@hub/log/ops";
 
 // P68 (decision 0034): the server's side of "the admin knows when the core can be updated". A timer runs the check of
 // `@hub/config/core-version` 2 minutes after start (clear of the start-up build and P64's resume), then every 6 hours; "Check now"
@@ -59,7 +60,7 @@ export interface CoreUpdatesService {
 
 export function createCoreUpdates(o: CoreUpdatesOptions): CoreUpdatesService {
   const now = o.now ?? (() => new Date());
-  const log = o.log ?? ((l: string) => console.log(l));
+  const log = o.log ?? ((l: string) => ops("core").warn(l));
   const guardMs = o.guardMs ?? CORE_CHECK_GUARD_MS;
   let lastStart = -Infinity;
   let running: Promise<CoreUpdateDto> | null = null;

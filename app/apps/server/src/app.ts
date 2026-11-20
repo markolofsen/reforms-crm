@@ -48,6 +48,8 @@ import type { SchemeSources } from "./scheme";
 import { instanceLlm } from "@hub/config/llm";
 import { hubPaths } from "@hub/config/paths";
 import { capSentence, fakeMode, hasKey, noKeySentence } from "@hub/llm";
+import { errFields, ops, type OpsStore } from "@hub/log/ops";
+import { opsLogRoutes } from "./routes/ops-log";
 
 /** The one send of each connected messenger account, handed to the send door and nothing else (P71 M4). */
 const messengerSenders = (tg: TelegramUserHandle | undefined, wa: WhatsAppHandle | undefined): MessengerSenders | undefined =>
@@ -91,6 +93,8 @@ export type AppOptions = {
   pointerFile?: string;
   /** The agent session log (P54) the activity feed reads (P59); without it `GET /api/projects/:slug/agent-feed` is 404. */
   agentLog?: LogStore;
+  /** P86: the ops log, for Overview's Recent errors (`GET /api/ops/errors`); absent, the route answers an empty list. */
+  opsLog?: OpsStore;
   /** The local Open actions (P61): `POST /api/local/:action` and `localOpen` on the instance; without it the route is 404 and `localOpen` false. */
   local?: LocalService;
   /** P67: "Start the Hub after a restart" (`/api/instance/autostart`); without it both routes are 404. */
@@ -164,7 +168,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .onError((err, c) => {
       if (err instanceof RepoError) return c.json({ error: err.message, code: err.code === "not_found" ? ("not_found" as const) : ("wrong_state" as const) }, err.code === "not_found" ? 404 : 409);
       if (isBusy(err)) return c.json({ error: "The database is busy with another write. Try again in a moment.", code: "busy" as const }, 503);
-      console.error(`500 ${c.req.method} ${c.req.path}`, err);
+      ops("server").error(`500 ${c.req.method} ${c.req.path}`, errFields(err, true));
       return c.json({ error: "server error", code: "server" as const }, 500);
     })
     .use("*", async (c, next) => {
@@ -199,6 +203,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", connectionRoutes(connections))
     .route("/", agentToolRoutes(repos, opts.agentTools))
     .route("/", agentFeedRoutes(repos, opts.agentLog, now))
+    .route("/", opsLogRoutes(opts.opsLog, now))
     .route("/", knowledgeRoutes(repos, now, opts.overview?.timeZone))
     .route("/", terminalRoutes(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", focusRoutes(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))

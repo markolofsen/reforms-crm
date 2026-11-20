@@ -59,7 +59,7 @@ uses the extension he linked. The Hub adds no browser and the guard does not nar
 never go out through it. Through it an agent can also act on the admin's own tab: [core/26-capabilities.md](core/26-capabilities.md), section 8.
 
 **The agent log.** Every prompt, answer, tool call, wait on the owner and guard event of a session is written per project under `state/log/`,
-from the CLIs' own hooks. It records and never decides. `hub log` reads it; the terminal strip's dot and the tones read its tail: [core/25-agent-log.md](core/25-agent-log.md).
+from the CLIs' own hooks. It records and never decides. `hub log` reads it; the terminal strip's dot and the tones read its tail: [core/25-agent-log.md](core/25-agent-log.md). What failed underneath (a messenger's disconnect, Mail, Notion, the send door, the server) is the ops log, one redacted line each, read by `hub logs` and Overview's Recent errors: [core/28-ops-log.md](core/28-ops-log.md).
 
 **After a restart of the Mac.** One LaunchAgent per instance runs `./run.sh up --service` at login, set up by `./run.sh setup` and switched
 on Settings ▸ This Mac. It starts the server and the admin only: no agent session starts and no browser opens until the owner opens them:

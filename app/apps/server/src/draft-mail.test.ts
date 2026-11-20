@@ -7,6 +7,7 @@ import { createRepos, openDb, versionHashOf, type DbHandle, type Repos } from "@
 import { FakeMailer, mailHash, type MailDraft } from "@hub/send";
 import { setSendPolicy } from "@hub/projects";
 import { createApp } from "./app";
+import { captureOps } from "@hub/log/ops";
 
 // P56, P65: the open draft's Mail read (the thread decides, `aside`, `gone`), Restore and Save (each recorded as a Mail
 // version), and Skip moving only the versions the Hub recorded to Trash. FakeMailer and FakeDraftWriter only: nothing
@@ -157,13 +158,13 @@ describe("Skip and Done move the hub's own drafts to Trash (P56, P65)", () => {
   it("a failure to trash never fails the status change; Hold moves nothing", async () => {
     mailer.drafts.push(await hubs("10", "Hi"));
     mailer.failTrash = "Mail is not running";
-    const err = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const cap = captureOps();
     const hold = await app.request(`http://127.0.0.1:4317/api/drafts/${id}/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ project: "acme", status: "hold" }) });
     expect(hold.status).toBe(200);
     const done = await app.request(`http://127.0.0.1:4317/api/drafts/${id}/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ project: "acme", status: "done" }) });
     expect(done.status).toBe(200);
-    await vi.waitFor(() => expect(err).toHaveBeenCalled());
+    await vi.waitFor(() => expect(cap.lines.map((l) => [l.level, l.source])).toContainEqual(["error", "mail"]));
     expect(mailer.drafts.map((d) => d.ref)).toEqual(["10"]);
-    err.mockRestore();
+    cap.stop();
   });
 });

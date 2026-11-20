@@ -1,7 +1,10 @@
 import { AdapterError, type InboundMessage, type MessengerAdapter, type PollBatch, type PollOptions, type SendingAdapter, type SentReceipt } from "./adapter";
 import { isConfirmed, type ConfirmedDraft } from "./confirmed";
 import type { DialogIdentity } from "./autolink";
+import { ops } from "@hub/log/ops";
 import { redact } from "./poller";
+
+const log = ops("telegram");
 
 /**
  * The Telegram USER account (P71 M1, decision 0036): the owner's own account over MTProto. mtcute pushes new messages over a
@@ -204,6 +207,8 @@ export function createTelegramUserAdapter(o: TelegramUserOptions): TelegramUserS
   };
   const onError = (e: unknown) => {
     const err = toUserAdapterError(e);
+    // P86: every connection error, with its kind; a fatal one stops the receiver at the next poll (logged there too).
+    (err.fatal ? log.error : log.warn)("connection error", { account, kind: err.code, reason: err.message });
     // A dead session or a ban is kept until the poller reads it; a passing network error is mtcute's to reconnect.
     if (err.fatal || !failure) failure = err;
     wake.fn?.();

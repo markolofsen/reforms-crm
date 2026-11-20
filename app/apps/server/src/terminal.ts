@@ -14,6 +14,7 @@ import { nodePty, nodePtyRoot, presetArgv, presetOrder, SessionLimitError, sessi
 import { throwawayDbNamed } from "@hub/send";
 import { gateRefusal, ticketStore, type TicketStore } from "./admin-gate";
 import { clearDrops, dropRefusal, removeDrop, writeDrop, type DroppedFile } from "./drops";
+import { errFields, ops } from "@hub/log/ops";
 
 // The embedded terminal's server side (P49 section 4, guards S1 to S7). Always on (decision 0032): no switch; the guards
 // make it safe, not a switch. When no tab can start (P66, `terminalReadiness`), the state carries `problem` and a start is
@@ -110,7 +111,11 @@ export function createTerminal(o: TerminalOptions) {
   };
   let manager: SessionManager | null = null;
   // A session that ends may have been his `claude auth login`, `codex login` or an install: the next pick reads fresh facts.
-  const sessions = (): SessionManager => (manager ??= sessionManager({ spawn: o.spawn ?? nodePty(nodePtyRoot(app)), onExit: () => void detector.refresh() }));
+  const sessions = (): SessionManager => (manager ??= sessionManager({ spawn: o.spawn ?? nodePty(nodePtyRoot(app)), onExit: (d) => {
+    // P86: a session that ended with an error code is a line (Claude Code or Codex failed to start or died); a clean exit says nothing.
+    if (d.exitCode !== null && d.exitCode !== 0) ops("agent").warn("a terminal session ended with an error", { project: d.project, preset: d.preset, status: d.exitCode });
+    void detector.refresh();
+  } }));
 
   /** `resume`: a session id from the log (P64, `ensure` only); the `+` menu never passes one, so it always starts fresh. */
   async function create(preset: TerminalPreset, project: string | undefined, theme?: "light" | "dark", resume?: string) {
@@ -134,6 +139,7 @@ export function createTerminal(o: TerminalOptions) {
       });
     } catch (e) {
       if (e instanceof SessionLimitError) throw new TerminalRefusal(409, e.message);
+      ops("agent").error("a terminal session did not start", { project: slug, preset, ...errFields(e, true) });
       throw e;
     }
   }

@@ -9,6 +9,7 @@ import { gateRefusal, ticketStore, type TicketStore } from "../admin-gate";
 import { notFound, v } from "../http";
 import { batchRuns, type BatchRuns } from "../send/batch-door";
 import { applyMessenger, assessMessenger, type MessengerSenders } from "../send/messenger-door";
+import { ops } from "@hub/log/ops";
 
 /** What the send routes need from the process: the Mailer, where project.md lives, and `allow_list` for `draft.recipients: test`. */
 export interface SenderOptions {
@@ -44,6 +45,12 @@ function limitsOf(sender: SenderOptions): BatchLimits {
 const TICKET_TTL_MS = 60_000;
 
 const refusal = (refused: string[]) => ({ error: refused.length === 1 ? `Not sent: ${refused[0]}` : `Not sent: ${refused.length} reasons`, code: "wrong_state" as const, refused });
+const log = ops("send");
+/** P86: a refusal of a confirmed send (not of a dry run, which only shows the checks) is a `warn` line with every reason. */
+const refused = (what: Record<string, unknown>, reasons: string[]) => {
+  log.warn("a confirmed send was refused", { ...what, reasons });
+  return refusal(reasons);
+};
 
 /**
  * Sending, the one place the admin can do it (decision 0011, stage 1). A person decides each send: the first call is a
@@ -104,9 +111,9 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions, messengers?: Me
       if (!plan) return notFound(c, "batch");
       const now = new Map(plan.items.map((i) => [i.draftId, i]));
       const changed = body.items.filter((i) => now.get(i.draftId)?.hash !== i.hash);
-      if (changed.length) return c.json(refusal(changed.map((i) => `draft ${i.draftId} ${now.has(i.draftId) ? "changed in Mail after you confirmed it" : "can no longer be sent (read the batch again)"}`)), 409);
+      if (changed.length) return c.json(refused({ project: slug, batch: id }, changed.map((i) => `draft ${i.draftId} ${now.has(i.draftId) ? "changed in Mail after you confirmed it" : "can no longer be sent (read the batch again)"}`)), 409);
       const r = runs.start(deps, { project: slug, batchId: id, items: body.items.flatMap((i) => now.get(i.draftId) ?? []) });
-      if ("refused" in r) return c.json(refusal([r.refused]), 409);
+      if ("refused" in r) return c.json(refused({ project: slug, batch: id }, [r.refused]), 409);
       return c.json(batchRunStateDto.parse({ run: r.run }), 202);
     })
     .get("/api/projects/:slug/batches/:id/send", v("param", batchSendParam), async (c) => {
@@ -135,7 +142,8 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions, messengers?: Me
       if (!tickets.take(body.ticket, `msend:${id}`)) return forbidden(c, "a send needs the admin's ticket; press Send in the admin");
       const r = await applyMessenger(door, slug, id, body.confirm);
       if (!r) return notFound(c, "draft");
-      if ("refused" in r) return c.json(refusal(r.refused), 409);
+      if ("refused" in r) return c.json(refused({ project: slug, messengerDraft: id }, r.refused), 409);
+      // The failure itself is logged by the door, with its channel and account.
       if ("failed" in r) return c.json({ error: `The send failed: ${r.failed}. Nothing was retried; the draft waits again.`, code: "server" as const }, 500);
       return c.json(sentDto.parse({ ok: true, sendId: r.sendId }));
     })
@@ -158,7 +166,8 @@ export function sendRoutes(repos: Repos, sender?: SenderOptions, messengers?: Me
       const r = await sendDraft(deps, { draftId: id, apply: true, actor: "admin", confirm: body.confirm });
       const out = JSON.parse(r.line) as { sendId?: number; refused?: string[]; error?: string };
       if (r.code === 0 && out.sendId !== undefined) return c.json(sentDto.parse({ ok: true, sendId: out.sendId }));
-      if (r.code === 2) return c.json(refusal(out.refused ?? [out.error ?? "refused"]), 409);
+      if (r.code === 2) return c.json(refused({ project: slug, draft: id }, out.refused ?? [out.error ?? "refused"]), 409);
+      log.error("a mail send failed; nothing was retried", { project: slug, draft: id, reason: out.error ?? "no reason given" });
       return c.json({ error: out.error ?? "The send failed.", code: "server" as const }, 500);
     })
     .get("/api/projects/:slug/sends", v("param", slugParam), async (c) =>

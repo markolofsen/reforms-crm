@@ -2,7 +2,7 @@
   "name": "@hub/log",
   "version": "0.1.0",
   "private": true,
-  "description": "The agent session log (P54): one event model for what the owner asked, what Claude Code or Codex answered and which tools it called, written by the session hooks as redacted JSONL per project and day under state/log, read by `hub log`. Mail bodies are hashed, never kept.",
+  "description": "Two logs. The agent session log (P54): one event model for what the owner asked, what Claude Code or Codex answered and which tools it called, written by the session hooks as redacted JSONL per project and day under state/log, read by `hub log`. Mail bodies are hashed, never kept. The ops log (P86, `@hub/log/ops`): one redacted JSON line per failure or event of the server and every package, state/log/ops-<day>.jsonl, read by `hub logs` and Overview.",
   "type": "module",
   "exports": {
     "./event": "./src/event.ts",
@@ -13,7 +13,9 @@
     "./summary": "./src/summary.ts",
     "./claude-transcript": "./src/claude-transcript.ts",
     "./feed": "./src/feed.ts",
-    "./resume": "./src/resume.ts"
+    "./resume": "./src/resume.ts",
+    "./ops": "./src/ops/index.ts",
+    "./ops-line": "./src/ops/line.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -1,20 +1,17 @@
+import { ops, redactText } from "@hub/log/ops";
+
 /**
- * What of Baileys reaches the hub's log (P71 M5 fix, 2026-11-20): its `warn` and `error` lines, and the full reason of every
- * close. This file never imports Baileys, so the tests run it on plain objects.
+ * What of Baileys reaches the ops log (P71 M5 fix, P86): its `warn` and `error` lines, and the full reason of every close, as
+ * lines of source `whatsapp`. This file never imports Baileys, so the tests run it on plain objects.
  *
- * Privacy (decision 0036 point 3): a line carries Baileys' own message and the tag and attributes of a WhatsApp node only. A jid,
- * a phone number (any run of 6 or more digits) and anything key-shaped (24 or more base64 characters) is masked; an object that is
- * not a node or an error is named, not printed; a message text never reaches a logger call of Baileys at `warn` or above.
+ * Privacy (decision 0036 point 3): a line carries Baileys' own message and the tag and attributes of a WhatsApp node only. The
+ * ops log's one redactor (`redactText` of `@hub/log/ops`) masks a jid, a phone number, an email and anything key-shaped; an
+ * object that is not a node or an error is named, not printed; a message text never reaches a logger call of Baileys at `warn`
+ * or above.
  */
 
-const JID = /[^\s"'<>=,;()[\]]*@(?:s\.whatsapp\.net|c\.us|g\.us|lid|broadcast|newsletter|bot|hosted(?:\.lid)?)\b/gi;
-const DIGITS = /\d{6,}/g;
-// Key-shaped: 24 or more base64 characters with a digit or `+`/`/` among them (a long camelCase word is not a key).
-const KEYISH = /\b(?=[A-Za-z_-]*[0-9+/])[A-Za-z0-9+/_-]{24,}={0,2}/g;
 const MAX = 300;
-
-/** Masks jids, numbers and key material in one line, and caps it. */
-export const redactWa = (s: string): string => s.replace(JID, "[jid]").replace(KEYISH, "[key]").replace(DIGITS, "[n]").slice(0, MAX);
+const redactWaText = (s: string): string => redactText(s, MAX).slice(0, MAX);
 
 const isNode = (v: unknown): v is { tag: string; attrs?: Record<string, unknown>; content?: unknown } =>
   typeof v === "object" && v !== null && typeof Reflect.get(v, "tag") === "string";
@@ -56,7 +53,7 @@ export function logLine(obj: unknown, msg?: string): string {
       if (line) parts.push(`${k}=${line}`);
     }
   }
-  return redactWa(parts.filter(Boolean).join(" "));
+  return redactWaText(parts.filter(Boolean).join(" "));
 }
 
 export interface WaLogger {
@@ -69,12 +66,15 @@ export interface WaLogger {
   error(obj: unknown, msg?: string): void;
 }
 
-/** Baileys' logger at `warn`: `warn` and `error` become redacted lines through `write`; trace, debug and info are dropped. */
-export function waLogger(write: (line: string) => void, prefix = "whatsapp"): WaLogger {
+export type WaLogWrite = (level: "warn" | "error", line: string) => void;
+const toOps: WaLogWrite = (level, line) => ops("whatsapp")[level](`baileys: ${line}`);
+
+/** Baileys' logger at `warn`: `warn` and `error` become redacted ops lines (through `write` in tests); trace, debug and info are dropped. */
+export function waLogger(write: WaLogWrite = toOps): WaLogger {
   const noop = () => undefined;
-  const out = (level: string) => (obj: unknown, msg?: string) => {
+  const out = (level: "warn" | "error") => (obj: unknown, msg?: string) => {
     try {
-      write(`${prefix} ${level}: ${logLine(obj, msg)}`);
+      write(level, logLine(obj, msg));
     } catch {
       // A log line never breaks the socket.
     }
@@ -101,6 +101,6 @@ export function disconnectDetail(err: unknown): string | null {
       .map(([k, v]) => `${k}=${String(v)}`);
     if (attrs.length) parts.push(attrs.join(" "));
   }
-  const line = redactWa(parts.join(": "));
+  const line = redactWaText(parts.join(": "));
   return line || null;
 }

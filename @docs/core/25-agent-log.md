@@ -1,6 +1,6 @@
 # 25. The agent session log
 
-Every question the owner asks a hub agent session (Claude Code or Codex), every answer, every tool call and every wait on the owner, kept per project so the sessions can be analysed later (track P54). It records; it never decides, blocks or sends. Read it with `hub log`.
+Every question the owner asks a hub agent session (Claude Code or Codex), every answer, every tool call and every wait on the owner, kept per project so the sessions can be analysed later (track P54). It records; it never decides, blocks or sends. Read it with `hub log`. Not the ops log: what failed in the server and the packages (a disconnect, a Mail or Notion error, a refused send) is `hub logs`, `state/log/ops-<day>.jsonl` ([28-ops-log.md](28-ops-log.md)).
 
 ## What is recorded, and from where
 

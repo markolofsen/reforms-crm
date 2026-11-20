@@ -9,6 +9,7 @@ import { createApp } from "./app";
 import { MailNotAnswering } from "@hub/send";
 import { appleMailAccounts, chooseProbeKind, fakeProbeDeps, type MailAccountsRead } from "./connections";
 import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT } from "./apple-mail";
+import { captureOps } from "@hub/log/ops";
 
 // Fake secrets in a throwaway folder; the probes are stubs. Nothing here touches a real instance or the network.
 const NOTION = "ntn_FAKENOTIONSECRET1234567890";
@@ -213,11 +214,12 @@ describe("POST /api/connections/:id/test", () => {
   it("logs nothing that holds a secret", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const cap = captureOps();
     const a = app({ status: 401 });
     await list(a); await test(a, "notion:notion-token");
-    const out = JSON.stringify([...spy.mock.calls, ...log.mock.calls]);
+    const out = JSON.stringify([...spy.mock.calls, ...log.mock.calls, ...cap.lines]);
     for (const s of ALL) expect(out).not.toContain(s);
-    spy.mockRestore(); log.mockRestore();
+    spy.mockRestore(); log.mockRestore(); cap.stop();
   });
 
   it("writes no file and leaves the secrets folder as it was", async () => {

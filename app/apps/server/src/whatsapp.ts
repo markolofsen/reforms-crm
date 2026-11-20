@@ -22,6 +22,9 @@ import {
 } from "@hub/messengers";
 import { createWaPairing, removeSession, type WaPairing } from "@hub/messengers/human";
 import { messengersProject } from "./messengers";
+import { errFields, ops } from "@hub/log/ops";
+
+const log = ops("whatsapp");
 
 /**
  * The supervisor of the WhatsApp linked devices (P71 M5, decision 0036): one socket per number that has a folder under
@@ -108,7 +111,10 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
     const parked = parkedOf((await o.repos.messengers.account(p, CHANNEL, account))?.lastError);
     if (parked) return void park(st, parked);
     const read = readWaAuth(dir, account);
-    if (read.state !== "stored") return void Object.assign(st, { state: "error", fix: NO_SESSION_FIX, lastError: `session folder: ${read.state}` });
+    if (read.state !== "stored") {
+      log.error("the number's session folder cannot be read", { account, state: read.state });
+      return void Object.assign(st, { state: "error", fix: NO_SESSION_FIX, lastError: `session folder: ${read.state}` });
+    }
     const onEvent = (e: PollEvent) => {
       if (st.parked) return;
       if (e.type === "poll") {
@@ -127,7 +133,10 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
         if (st.state !== "error" && st.state !== "parked") st.state = "stopped";
       } catch (e) {
         if (e instanceof AdapterError && e.parked && isParkedCode(e.code)) park(st, e.code);
-        else Object.assign(st, { state: "error", lastError: (e instanceof Error ? e.message : String(e)).slice(0, 300) });
+        else {
+          Object.assign(st, { state: "error", lastError: (e instanceof Error ? e.message : String(e)).slice(0, 300) });
+          log.error("the number's receiver stopped", { account, reason: st.lastError });
+        }
       } finally {
         slot.adapter = null;
         await adapter?.close().catch(() => undefined);
@@ -175,6 +184,7 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
     async sendFailed(account, err) {
       const s = slots.get(account);
       if (!project || !s || !isParkedCode(err.code)) return;
+      log.error("a send parked the number", { account, kind: err.code, reason: err.message.slice(0, 300) });
       park(s.st, err.code);
       await o.repos.messengers.markPollError(project, CHANNEL, account, parkedLine(err.code, err.message.slice(0, 300)), now().toISOString());
       s.ac.abort();
@@ -192,7 +202,7 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
       // A connected number is unlinked on WhatsApp's side too, so the device leaves the phone's Linked devices list; a failure (or
       // a parked number, already unlinked) still removes the folder.
       const adapter = live(account);
-      if (adapter) await Promise.race([adapter.logout(), new Promise((r) => setTimeout(r, 5000))]).catch(() => undefined);
+      if (adapter) await Promise.race([adapter.logout(), new Promise((r) => setTimeout(r, 5000))]).catch((e: unknown) => log.warn("logout on disconnect failed; the folder is removed anyway", { account, ...errFields(e) }));
       await close(account);
       return removeSession(dir, CHANNEL, account);
     },

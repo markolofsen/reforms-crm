@@ -6,6 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { hubPaths } from "@hub/config/paths";
 import * as schema from "./schema";
+import { errFields, ops } from "@hub/log/ops";
 
 export type Db = BetterSQLite3Database<typeof schema> & { $client: Database.Database };
 export type DbHandle = { db: Db; close: () => void };
@@ -31,7 +32,14 @@ export function openDb(path: string = defaultDbPath()): DbHandle {
   sqlite.pragma("foreign_keys = ON");
   sqlite.pragma("synchronous = NORMAL");
   const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder });
+  try {
+    migrate(db, { migrationsFolder });
+  } catch (e) {
+    // P86: a migration that fails stops whoever opened the database; the line says which file and why.
+    ops("db").error("a database migration failed", { db: path, ...errFields(e, true) });
+    sqlite.close();
+    throw e;
+  }
   return { db, close: () => sqlite.close() };
 }
 

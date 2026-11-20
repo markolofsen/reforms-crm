@@ -29,6 +29,7 @@
     "@hub/config": "workspace:*",
     "@hub/contract": "workspace:*",
     "@hub/db": "workspace:*",
+    "@hub/log": "workspace:*",
     "@hub/notion": "workspace:*",
     "@hub/projects": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",

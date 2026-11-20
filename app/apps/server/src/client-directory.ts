@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { createNotionReader, loadToken, secretsDir, type NotionReader } from "@hub/notion";
 import { buildDirectory, e164, telegramUsername, type DialogChannel, type Directory, type DirectoryEntry, type DirectoryKey } from "@hub/messengers";
+import { ops } from "@hub/log/ops";
 
 /**
  * The client directory of the autolink (P84, decision 0036 point 3 and 0009 as amended 2026-11-20): the project's Notion Clients
@@ -117,6 +118,7 @@ export function startClientDirectory(o: StartDirectory): ClientDirectory {
       // The message names the failure's class only: a Notion error can quote a property value.
       const why = e instanceof Error && e.name === "NoTokenError" ? "no Notion token" : `Notion read failed (${e instanceof Error ? e.name : "error"})`;
       st = { ...st, state: dir ? "ready" : "error", reason: why };
+      ops("notion").error("reading the Notion clients for the autolink failed", { reason: why, kept: dir ? "the last read" : "nothing" });
     }
   };
   const refresh = () => (running ??= read().finally(() => (running = null)));

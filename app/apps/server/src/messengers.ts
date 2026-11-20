@@ -2,6 +2,7 @@ import { access, readFile } from "node:fs/promises";
 import { isTelegramToken } from "@hub/connections";
 import { botTokenFile, redact, runPoller, telegramPollAdapter, type MessengerAdapter, type PollEvent } from "@hub/messengers";
 import type { Repos } from "@hub/db";
+import { ops } from "@hub/log/ops";
 
 /**
  * The messengers poller inside the server: receive only. It is handed a `pollOnly` adapter (no outbound call exists
@@ -102,6 +103,7 @@ export async function startMessengers(o: StartMessengers): Promise<MessengersHan
     } catch (e) {
       st.state = "error";
       st.lastError = redact(e instanceof Error ? e.message : String(e));
+      ops("telegram_bot").error("the bot's receiver stopped", { reason: st.lastError });
     }
   })();
   return {

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { API_VERSION } from "@hub/contract/health";
 import { liveTopic, MAX_LIVE_SUBSCRIBERS, type LiveChangeDto, type LiveEvent, type LiveTopic } from "@hub/contract/live";
 import { bumpTopic, liveSeq, liveSince, TOPIC_PREFIX, type Db, type LiveChange, type LiveTable } from "@hub/db";
+import { errFields, ops } from "@hub/log/ops";
 
 // Live panels (P50, decision 0028). A tailer reads the trigger counter of `@hub/db` every 200 ms and, when it moved,
 // sends every subscriber one tiny frame naming the topics and projects that changed. It never sends data: the admin
@@ -172,7 +173,7 @@ export function createLive(o: LiveOptions) {
         tick();
       } catch (e) {
         // A busy database for one tick is not worth a crash: the next tick reads again.
-        console.error(`live: ${e instanceof Error ? e.message : String(e)}`);
+        ops("server").warn("live: a tick of the change feed failed; the next one reads again", errFields(e));
       }
     }, pollMs);
     pinger = setInterval(() => {

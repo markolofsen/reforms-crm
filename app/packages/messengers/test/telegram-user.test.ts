@@ -11,6 +11,7 @@ import { pollOnce, runPoller } from "../src/poller";
 import { readSession, redactSessions, sessionAccounts } from "../src/sessions";
 import { createTelegramUserAdapter, toUserAdapterError, toUserInbound } from "../src/telegram-user";
 import { setup, type Env } from "./helpers";
+import { captureOps } from "@hub/log/ops";
 
 let env: Env;
 let client: FakeMtClient;
@@ -45,6 +46,7 @@ describe("telegram user account: receive", () => {
     const log = vi.spyOn(console, "log");
     const warn = vi.spyOn(console, "warn");
     const error = vi.spyOn(console, "error");
+    const cap = captureOps();
     client.emit(anna, "hello from Anna");
     client.emit(anna, "my reply", { out: true });
     client.emit(stranger, "private life, not for the hub");
@@ -64,6 +66,9 @@ describe("telegram user account: receive", () => {
     const acc = await env.repos.messengers.account("p", "telegram_user", "42");
     expect(JSON.stringify(acc)).not.toMatch(/2002|Stranger/);
     for (const spy of [log, warn, error]) expect(JSON.stringify(spy.mock.calls)).not.toMatch(/2002|Stranger|private life/);
+    // P86: nor a line of the ops log.
+    expect(JSON.stringify(cap.lines)).not.toMatch(/2002|Stranger|private life/);
+    cap.stop();
     vi.restoreAllMocks();
   });
 

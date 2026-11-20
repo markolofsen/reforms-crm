@@ -3,6 +3,7 @@ import { execFile } from "node:child_process";
 import { adoptable, type Adoption, type MailVersionRow, type MailWriteRow } from "@hub/db";
 import { replyFrom, type ReplyFrom } from "@hub/projects";
 import { WRITE_NEW_SCRIPT, type NewDraftInput } from "./new-thread";
+import { ops } from "@hub/log/ops";
 export { isNewThreadDraft, isNewThreadKey, newThreadKey, WRITE_NEW_SCRIPT, type NewDraftInput } from "./new-thread";
 
 // The hub's draft writer (P52, decision 0030; decision 0031 for what it no longer writes): an unsent reply saved in
@@ -670,10 +671,14 @@ export function parseWriteOutput(out: string): ReplyDraftResult {
     // P83: a refused reply Mail kept in Drafts was this run's own and went to Trash; its Mail ids are said, never asked of anyone.
     const cleared = [...new Set((p[3] ?? "").split(LS).map((x) => x.trim()).filter(Boolean))];
     const note = cleared.length ? ` Mail kept the refused reply in Drafts; the Hub moved it to Trash (Mail id ${cleared.join(", ")}).` : "";
+    ops("mail").error("Mail refused a draft write", { kind: p[1] || "mail_error", reason: (p[2] || "no reason given").slice(0, 300) });
     throw new DraftWriteError(p[1] || "mail_error", `${p[2] || "Mail refused the draft."}${note}`);
   }
   if (p[0] === "pending") throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT, p.slice(1).join(FS));
-  if (p[0] !== "ok" || p.length < 12) throw new DraftWriteError("mail_error", `Mail answered "${out.trim().slice(0, 100)}"`);
+  if (p[0] !== "ok" || p.length < 12) {
+    ops("mail").error("Mail's answer to a draft write could not be read", { fields: p.length, head: (p[0] ?? "").slice(0, 20) });
+    throw new DraftWriteError("mail_error", `Mail answered "${out.trim().slice(0, 100)}"`);
+  }
   const [, id, subject, thread, from, replaced, left, mid, savedIn, , shell] = p as [string, string, string, string, string, string, string, string, string, string, string];
   const text = p.slice(11).join(FS);
   const ids = (v: string) => [...new Set(v.split(LS).map((x) => x.trim().replace(/^<|>$/g, "")).filter(Boolean))];
@@ -704,7 +709,10 @@ export const isNotAllowed = (message: string): boolean => /-1743\b|not authori[s
 /** Mail.app through osascript, run by the hub MCP server. Plain text. */
 export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
   const fail = (e: Error) => {
-    if (isNotAllowed(e.message)) throw new DraftWriteError("mail_not_allowed", `macOS did not let the Hub control Mail (${e.message.slice(0, 120)}).`);
+    // P86: Mail's own error, never the draft's text (osascript's error names the script line, not its arguments).
+    const kind = isNotAllowed(e.message) ? "mail_not_allowed" : "mail_error";
+    ops("mail").error("a Mail script failed", { kind, reason: e.message.slice(0, 300) });
+    if (kind === "mail_not_allowed") throw new DraftWriteError("mail_not_allowed", `macOS did not let the Hub control Mail (${e.message.slice(0, 120)}).`);
     throw new DraftWriteError("mail_error", e.message);
   };
   const readBlock = async (script: string, m: InboundMessage): Promise<string> => {
@@ -726,7 +734,10 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
       const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
       const out = await osa(WRITE_REPLY_SCRIPT, [i.account, i.mailboxPath.join(LS), String(i.messageId), body, i.sender ?? "", i.quote ?? "add", probeOf(body), targets, land, String(i.waitSeconds ?? WRITE_WAIT_SECONDS)]).catch((e: Error) => {
         // Cut at the budget: Mail may still save it, exactly like the script's own `pending`.
-        if (e instanceof OsaTimeout) throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT);
+        if (e instanceof OsaTimeout) {
+          ops("mail").warn("Mail did not answer a reply draft's write in time; it may still save it", { account: i.account });
+          throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT);
+        }
         return fail(e);
       });
       return parseWriteOutput(out);
@@ -737,7 +748,10 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
       const targets = (i.replace ?? []).map((v) => `${v.account}${PS}${v.messageId.trim().replace(/^<|>$/g, "")}`).join(LS);
       const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
       const out = await osa(WRITE_NEW_SCRIPT, [i.account, i.sender ?? "", i.to, i.subject, body, probeOf(body), targets, land, String(i.waitSeconds ?? WRITE_WAIT_SECONDS)]).catch((e: Error) => {
-        if (e instanceof OsaTimeout) throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT);
+        if (e instanceof OsaTimeout) {
+          ops("mail").warn("Mail did not answer a new message's write in time; it may still save it", { account: i.account });
+          throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT);
+        }
         return fail(e);
       });
       return parseWriteOutput(out);

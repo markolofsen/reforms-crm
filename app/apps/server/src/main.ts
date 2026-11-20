@@ -25,13 +25,24 @@ import { chooseOpener, localOpenAvailable, localOpenDeps } from "@hub/projects/l
 import { throwawayDbNamed } from "@hub/send";
 import { chooseLaunchctl, createAutostart } from "./autostart";
 import { createCoreUpdates, execRun, offlineRun } from "./core-updates";
+import { errFields, ops, opsSignature, opsStoreOf } from "@hub/log/ops";
+
+// P86: every line of this process goes to the ops log (`<state>/log/ops-<day>.jsonl`) and a human copy to stderr.
+const log = ops("server");
+// An error nothing caught is a line with its stack, never a silent death: a rejection is logged and the server keeps running
+// (each caller owns its failure); an uncaught exception is logged, then the process exits 1 and launchd starts it again.
+process.on("unhandledRejection", (reason) => log.error("unhandled promise rejection", errFields(reason, true)));
+process.on("uncaughtException", (err) => {
+  log.error("uncaught exception: the server exits", errFields(err, true));
+  process.exit(1);
+});
 
 // The server is started by `hub up` (which sets HUB_HOME). Started by hand without it: one line and exit 2, not a stack.
 try {
   hubPaths();
 } catch (e) {
   if (!(e instanceof HubHomeMissingError)) throw e;
-  console.error(`error: ${e.message}`);
+  log.error(e.message);
   process.exit(2);
 }
 
@@ -40,10 +51,10 @@ const repos = createRepos(db);
 const port = Number(process.env.HUB_PORT ?? SERVER_PORT);
 
 // P71 M2b: the messenger retention purge runs now and every hour, with or without a connected channel.
-const purge = startPurge({ repos, log: (l) => console.log(l) });
+const purge = startPurge({ repos });
 // The messengers poller runs only when a bot token file exists; it only receives. Its state is part of /api/health.
 const messengers = await startMessengers({ repos });
-console.log(`messengers: ${messengers.status().state}${messengers.status().reason ? ` (${messengers.status().reason})` : ""}`);
+log.info(`messengers: ${messengers.status().state}${messengers.status().reason ? ` (${messengers.status().reason})` : ""}`);
 // P84: the autolink of chats to client records (the Notion clients read into memory, `messengers.autolink` read from project.md). The
 // adapters tell it only who an unlinked chat is (never a text); the handles are bound once they exist.
 const handles: { tg?: TelegramUserHandle; wa?: WhatsAppHandle } = {};
@@ -59,27 +70,27 @@ const linker = await startProjectAutolink({
 const telegramUser = await startTelegramUser({
   repos,
   onUnlinked: (account, d, inbound) => linker.autolink.seen("telegram_user", account, d, inbound),
-  onConnected: (account) => void linker.autolink.scan("telegram_user", account).catch(() => undefined),
+  onConnected: (account) => void linker.autolink.scan("telegram_user", account).catch((e: unknown) => ops("autolink").warn("the scan of a connected Telegram account failed", { account, ...errFields(e) })),
 });
 handles.tg = telegramUser;
 const tgStatus = telegramUser.status();
-console.log(`telegram user accounts: ${tgStatus.state === "on" ? `${tgStatus.accounts.length} connected` : `off (${tgStatus.reason ?? ""})`}`);
+log.info(`telegram user accounts: ${tgStatus.state === "on" ? `${tgStatus.accounts.length} connected` : `off (${tgStatus.reason ?? ""})`}`);
 // P71 M5: the WhatsApp linked devices, one socket per folder under state/secrets/sessions/. The line counts numbers, never names one.
 const whatsapp = await startWhatsApp({ repos, onUnlinked: (account, d, inbound) => linker.autolink.seen("whatsapp", account, d, inbound) });
 handles.wa = whatsapp;
 const waStatus = whatsapp.status();
-console.log(`whatsapp linked devices: ${waStatus.state === "on" ? `${waStatus.accounts.length} connected` : `off (${waStatus.reason ?? ""})`}`);
+log.info(`whatsapp linked devices: ${waStatus.state === "on" ? `${waStatus.accounts.length} connected` : `off (${waStatus.reason ?? ""})`}`);
 
 // The Mailer behind Send: Mail.app, or the fake when HUB_MAILER=fake (refused without HUB_DB). A bad value stops the server here.
 const projectsDir = projectsRoot();
 const { kind, mailer } = createServerMailer(repos, projectsDir);
-console.log(kind === "fake" ? "SEND IS FAKE (HUB_MAILER=fake): nothing leaves this process" : "send: Mail.app (a person confirms every send in the admin)");
+log.info(kind === "fake" ? "SEND IS FAKE (HUB_MAILER=fake): nothing leaves this process" : "send: Mail.app (a person confirms every send in the admin)");
 // Sent detection reads Apple Mail's Sent mailbox while a draft waits (decision 0026); with the fake Mailer it never asks Mail.
 const sent = startSentReconciler({ repos, ...(kind === "fake" ? { offReason: "HUB_MAILER=fake: Mail is not read" } : {}) });
-console.log(`sent: ${sent.status().state}${sent.status().reason ? ` (${sent.status().reason})` : ""}`);
+log.info(`sent: ${sent.status().state}${sent.status().reason ? ` (${sent.status().reason})` : ""}`);
 // Connections: the real probes and Apple Mail's account list, or stubs with HUB_CONNECTIONS_PROBE=fake (refused without HUB_DB).
 const probe = chooseProbeKind(process.env);
-if (probe === "fake") console.log("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PROBE=fake): nothing is sent to Notion or Telegram, Mail is not asked");
+if (probe === "fake") log.info("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PROBE=fake): nothing is sent to Notion or Telegram, Mail is not asked");
 // Either fake (a demo or e2e run) keeps the server from asking the owner's Mail which accounts it has.
 const listed = async () => (await repos.projects.registry()).projects.flatMap((p) => configOf(p).mail.accounts);
 const mailAccounts = probe === "fake" || kind === "fake" ? fakeMailAccounts(listed) : appleMailAccounts();
@@ -94,46 +105,46 @@ const detector = serverDetector({ env: process.env, fake: fakeShell || fakeTools
 const terminal = createTerminal({ paths, repos, adminPort: ports.admin, apiPort: port, fakeShell, detector });
 // P66: the readiness check runs now (it sets node-pty's helper bit), not on the first tab.
 const terminalProblem = terminal.warm();
-console.log(`terminal: ${terminalProblem ? `cannot start: ${terminalProblem.reason} (fix: ${terminalProblem.fix})` : fakeShell ? "on, FAKE SHELL (HUB_TERMINAL_SHELL=fake)" : "on (admin origin + ticket only)"}`);
+(terminalProblem ? ops("terminal").error : log.info)(`terminal: ${terminalProblem ? `cannot start: ${terminalProblem.reason} (fix: ${terminalProblem.fix})` : fakeShell ? "on, FAKE SHELL (HUB_TERMINAL_SHELL=fake)" : "on (admin origin + ticket only)"}`);
 const agentTools = createAgentTools({ paths, repos, fake: fakeTools, detector, onRefresh: () => void terminal.recheck() });
 // P67: "Start the Hub after a restart". HUB_LAUNCHCTL=fake records each launchctl argv and reaches no launchd (refused without HUB_DB).
 const launchctl = chooseLaunchctl(process.env, paths, throwawayDbNamed(process.env));
 const startedBy = process.env.HUB_AUTOSTART === "1" ? ("launchd" as const) : ("hand" as const);
 const autostart = createAutostart({ paths, run: launchctl.run, agentsDir: launchctl.agentsDir, uid: process.getuid?.() ?? 501, startedBy, supported: launchctl.kind === "fake" || process.platform === "darwin", ...(launchctl.kind === "fake" ? { bootAt: async () => undefined, mailMcp: async () => true } : {}) });
-console.log(launchctl.kind === "fake" ? "LAUNCHCTL IS FAKE (HUB_LAUNCHCTL=fake): launchd is not asked, each argv goes to state/autostart/launchctl.jsonl" : `autostart: this server was started ${startedBy === "launchd" ? "by launchd at login" : "by hand"}`);
+log.info(launchctl.kind === "fake" ? "LAUNCHCTL IS FAKE (HUB_LAUNCHCTL=fake): launchd is not asked, each argv goes to state/autostart/launchctl.jsonl" : `autostart: this server was started ${startedBy === "launchd" ? "by launchd at login" : "by hand"}`);
 // P68: the core update check. Under the fake Mailer (e2e, demos) no timer runs and "Check now" reaches no origin.
 const coreUpdates = createCoreUpdates({ paths, run: kind === "fake" ? offlineRun() : execRun, auto: kind !== "fake" });
 coreUpdates.start();
-console.log(kind === "fake" ? "core update check: off (HUB_MAILER=fake): Check now answers offline" : "core update check: 2 min after start, then every 6 h (the origin's tags)");
+log.info(kind === "fake" ? "core update check: off (HUB_MAILER=fake): Check now answers offline" : "core update check: 2 min after start, then every 6 h (the origin's tags)");
 // Live panels (P50): the trigger counter tailed every 200 ms; the pollers' state and the Connections files are watched,
 // since they are not rows (a timestamp of the last poll is left out: it moves on every poll and means nothing to a panel).
 const pollers = () => [messengers.status(), sent.status(), ...telegramUser.status().accounts, ...whatsapp.status().accounts].map((s) => `${s.state}|${"reason" in s ? (s.reason ?? "") : ""}|${s.lastError ?? ""}`).join("\n");
 // P59: the agent session log is watched per project (one stat per day file), so the feed follows a hook's line in under 1 s.
-const live = createLive({ db, watch: [{ topic: "health", signature: pollers, everyMs: 1000 }, { topic: "connections", signature: () => folderSignature(paths.secrets), everyMs: 1000 }, { topic: "agent-log", signatures: () => logSignatures(paths.log), everyMs: 500 }, { topic: "autostart", signature: autostart.signature, everyMs: 1000 }, { topic: "core", signature: coreUpdates.signature, everyMs: 1000 }] });
+const live = createLive({ db, watch: [{ topic: "health", signature: pollers, everyMs: 1000 }, { topic: "connections", signature: () => folderSignature(paths.secrets), everyMs: 1000 }, { topic: "agent-log", signatures: () => logSignatures(paths.log), everyMs: 500 }, { topic: "autostart", signature: autostart.signature, everyMs: 1000 }, { topic: "core", signature: coreUpdates.signature, everyMs: 1000 }, { topic: "ops-log", signature: () => opsSignature(opsStoreOf(paths)), everyMs: 1000 }] });
 // The shared focus (P51): the admin tab says what it shows; the agent reads it from state/focus.json.
 const focus = createFocusStore({ file: paths.focus });
 // P61: the local Open actions (Finder, a project file). HUB_OPENER=fake records each argv in state/opener.jsonl and opens nothing (refused without HUB_DB); a bad value stops the server here.
 const opener = chooseOpener(process.env, paths, throwawayDbNamed(process.env));
 const local = { deps: localOpenDeps(repos, paths), run: opener.run, available: localOpenAvailable(opener.kind) };
-console.log(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens, each argv goes to state/opener.jsonl" : `open: ${local.available ? "on (/usr/bin/open, the admin page only)" : "off (not macOS): the Open buttons are hidden"}`);
-const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
+log.info(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens, each argv goes to state/opener.jsonl" : `open: ${local.available ? "on (/usr/bin/open, the admin page only)" : "off (not macOS): the Open buttons are hidden"}`);
+const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, sent: sent.status, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, allowList: allowListOf(configFile()), adminPort: ports.admin, writer: kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter(), mailWritten: (project) => void bumpTopic(db, "mail", project) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
-  console.log(`hub server on http://${info.address}:${info.port}`);
+  log.info(`hub server on http://${info.address}:${info.port}`, { pid: process.pid });
 });
 server.on("upgrade", terminal.upgrade);
 // A taken port is one line and exit 2 (the same shape as a missing HUB_HOME above), not a stack.
 server.on("error", (err) => {
   const line = listenErrorLine(err, HOST, port);
   if (!line) throw err;
-  console.error(line);
+  log.error(line);
   process.exit(2);
 });
 
 // A stuck poller must not make SIGTERM hang: 5 s, then the process exits anyway.
 onShutdown({
   deadlineMs: 5000,
-  log: (l) => console.error(l),
+  log: (l) => log.warn(l),
   exit: (code) => process.exit(code),
   stop: async () => {
     live.stop();

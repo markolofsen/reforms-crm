@@ -8,6 +8,7 @@ import { notFound, v } from "../http";
 import type { SenderOptions } from "./sends";
 import { findMail, mailHash, trashThread } from "@hub/send";
 import { loadProject } from "@hub/projects";
+import { errFields, ops } from "@hub/log/ops";
 
 /**
  * Drafts to review, and what a person does to one. Nothing here sends: the only statuses a request can write are
@@ -66,7 +67,7 @@ export function draftRoutes(repos: Repos, sender?: SenderOptions) {
       // effort: the status is the owner's decision and never waits on Mail; Undo finds the copy in Trash (Restore), and
       // `hub drafts sweep` finds whatever is left.
       if (draft && sender && (status === "skipped" || status === "done")) {
-        void trashThread({ mailer: sender.mailer, repos }, draft.id).catch((e: unknown) => console.error(`draft ${id}: its Mail drafts were not moved to Trash: ${(e as Error).message}`));
+        void trashThread({ mailer: sender.mailer, repos }, draft.id).catch((e: unknown) => ops("mail").error("a closed draft's Mail versions were not moved to Trash", { project, draft: id, ...errFields(e) }));
       }
       return draft ? c.json(changed(id)) : notFound(c, "draft");
     })

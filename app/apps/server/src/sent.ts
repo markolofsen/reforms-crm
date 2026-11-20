@@ -2,6 +2,7 @@ import type { DraftRow, Repos } from "@hub/db";
 import { bareId, defaultOsa, type OsaRun } from "@hub/send";
 import { mailRunning, readSent, type SentMessage } from "./apple-mail";
 import { configOf } from "./overview-facts";
+import { errFields, ops } from "@hub/log/ops";
 
 /**
  * Sent detection (decision 0026). A draft becomes `sent` only when its message shows up in the Sent mailbox of one of
@@ -128,6 +129,7 @@ export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan
       sent.push(...(await readSent(osa, account, p.mailbox, from)));
     } catch (e) {
       errors.push(`${p.slug} / ${account}: ${(e instanceof Error ? e.message : String(e)).slice(0, 200)}`);
+      ops("mail").warn("reading Sent for sent detection failed", { project: p.slug, account, ...errFields(e) });
     }
   }
   let marked = 0;

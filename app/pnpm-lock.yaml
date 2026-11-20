@@ -412,6 +412,9 @@ importers:
       '@hub/db':
         specifier: workspace:*
         version: link:../db
+      '@hub/log':
+        specifier: workspace:*
+        version: link:../log
       '@hub/notion':
         specifier: workspace:*
         version: link:../notion
@@ -490,6 +493,9 @@ importers:
       '@hub/config':
         specifier: workspace:*
         version: link:../config
+      '@hub/log':
+        specifier: workspace:*
+        version: link:../log
       '@hub/sequences':
         specifier: workspace:*
         version: link:../sequences
@@ -636,6 +642,9 @@ importers:
       '@hub/db':
         specifier: workspace:*
         version: link:../db
+      '@hub/log':
+        specifier: workspace:*
+        version: link:../log
       '@mtcute/core':
         specifier: 0.32.8
         version: 0.32.8
@@ -673,6 +682,9 @@ importers:
       '@hub/config':
         specifier: workspace:*
         version: link:../config
+      '@hub/log':
+        specifier: workspace:*
+        version: link:../log
       '@hub/projects':
         specifier: workspace:*
         version: link:../projects

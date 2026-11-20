@@ -7,6 +7,7 @@ import { matchDialog, MATCH_REASON, type DialogChannel, type DialogIdentity, typ
 import { autoLinkUserChat, type LinkableAdapter } from "@hub/messengers/human";
 import type { UserDialog } from "@hub/messengers";
 import type { ClientDirectory } from "./client-directory";
+import { errFields, ops } from "@hub/log/ops";
 
 /**
  * The autolink coordinator (P84, decision 0036 point 3 as amended 2026-11-20 on the owner's delegated word). The adapters tell it the
@@ -211,7 +212,7 @@ export function startAutolink(o: StartAutolink): Autolink {
     const k = `${channel}:${d.chatId}`;
     if (inflight.has(k)) return inflight.get(k)!;
     const p = consider(channel, account, d, last)
-      .catch(() => undefined)
+      .catch((e: unknown) => ops("autolink").warn("matching a chat to a client failed", { channel, account, ...errFields(e) }))
       .finally(() => inflight.delete(k));
     inflight.set(k, p);
     return p;
@@ -225,7 +226,10 @@ export function startAutolink(o: StartAutolink): Autolink {
     async scan(channel, account) {
       const adapter = o.adapterOf(channel, account);
       if (!adapter || !o.project) return;
-      const ds = await adapter.dialogs(SCAN_DIALOGS).catch(() => [] as UserDialog[]);
+      const ds = await adapter.dialogs(SCAN_DIALOGS).catch((e: unknown) => {
+        ops("autolink").warn("reading the dialogs for a scan failed", { channel, account, ...errFields(e) });
+        return [] as UserDialog[];
+      });
       // Oldest first, so the newest dialog is remembered last and shows first on Chats.
       for (const d of [...ds].reverse()) await run(channel, account, d, d.last ?? null);
     },
@@ -248,7 +252,10 @@ export function startAutolink(o: StartAutolink): Autolink {
       for (const { channel, account } of o.accounts()) {
         const adapter = o.adapterOf(channel, account);
         if (!adapter) continue;
-        const ds = await adapter.dialogs(channel === "whatsapp" ? 2000 : SCAN_DIALOGS).catch(() => [] as UserDialog[]);
+        const ds = await adapter.dialogs(channel === "whatsapp" ? 2000 : SCAN_DIALOGS).catch((e: unknown) => {
+          ops("autolink").warn("reading the dialogs for a preview failed", { channel, account, ...errFields(e) });
+          return [] as UserDialog[];
+        });
         const c: PreviewCounts = { channel, account, dialogs: ds.length, linked: 0, unique: 0, ambiguous: 0, noEmail: 0, byRelationship: {} };
         for (const d of ds) {
           if (o.project && (await o.repos.messengers.isAllowed(o.project, channel, d.chatId))) {

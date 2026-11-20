@@ -5,6 +5,7 @@ import { importRollout } from "@hub/log/codex-rollout";
 import type { LogCli } from "@hub/log/event";
 import { hookEvents, parsePayload, promptEvents } from "@hub/log/hooks";
 import { appendEvents, logStoreOf } from "@hub/log/store";
+import { configureOps, errFields, ops } from "@hub/log/ops";
 
 // The session log's hook entries (P54). `hub log --hook --cli <cli>` takes the events of `CLAUDE_LOG_EVENTS` (async in
 // Claude) and `CODEX_LOG_EVENTS` (sync in Codex); the prompt comes from the focus hook (`logPrompt`). `bin/hub.mjs` starts
@@ -42,7 +43,9 @@ export function runLogHook(argv: readonly string[], env: NodeJS.ProcessEnv = pro
   try {
     const i = argv.indexOf("--cli");
     logHook(readFileSync(0, "utf8"), argv[i + 1] === "codex" ? "codex" : "claude", env);
-  } catch {
-    /* silence */
+  } catch (e) {
+    // A hook stays silent for the session (stderr would reach Claude Code); its failure is an ops line in the file only (P86).
+    configureOps({ stderr: false });
+    ops("agent").warn("the session log hook failed; this event is not in the agent log", { cli: argv.includes("codex") ? "codex" : "claude", ...errFields(e) });
   }
 }

@@ -18,22 +18,23 @@ import makeWASocket, {
 } from "baileys";
 import { CREDS, keyName, type WaAuthFiles } from "./whatsapp-auth";
 import type { WaChat, WaMe, WaMessage, WaSocket } from "./whatsapp";
-import { disconnectDetail, redactWa, waLogger } from "./whatsapp-log";
+import { ops } from "@hub/log/ops";
+import { disconnectDetail, waLogger } from "./whatsapp-log";
 
 /**
  * The real Baileys socket (`baileys` 7.0.0-rc14, P71 M5). The only file that imports Baileys, so tests and types never touch
  * WhatsApp; it is loaded by `baileysSocketFactory()` in `adapter.ts` only when the server has a session or a pairing starts.
  * Building a socket connects to WhatsApp at once: no test calls `baileysSocket` (they import this file only for its pure mappings).
  *
- * The options are privacy rules, not tuning: Baileys' log reaches the hub's log at `warn` only, each line redacted by
- * `whatsapp-log.ts` (no jid, number, key or text; decision 0036 point 3); `shouldIgnoreJid` drops every chat that is not a person
+ * The options are privacy rules, not tuning: Baileys' log reaches the ops log (P86) at `warn` only, each line redacted by
+ * `whatsapp-log.ts` and the ops log's redactor (no jid, number, key or text; decision 0036 point 3); `shouldIgnoreJid` drops every chat that is not a person
  * (groups, broadcasts, newsletters, status) before an event is built; `markOnlineOnConnect: false` keeps the owner's phone ringing
  * for new messages; `syncFullHistory: false` asks the phone for the recent history only. Every close is logged with its code and
  * WhatsApp's reason (`disconnectDetail`), which also reaches `messenger_accounts.last_error`.
  */
 
-const log = (line: string) => console.warn(line);
-const LOGGER = waLogger(log);
+const log = ops("whatsapp");
+const LOGGER = waLogger();
 
 /** How long the server waits for the current WhatsApp Web version before it uses the one this Baileys release carries. */
 const VERSION_MS = 5000;
@@ -47,7 +48,7 @@ let latest: Promise<WAVersion | undefined> | null = null;
 export function latestWaVersion(): Promise<WAVersion | undefined> {
   latest ??= Promise.race([
     fetchLatestBaileysVersion().then((r) => {
-      if (!r.isLatest) log("whatsapp warn: the current WhatsApp Web version could not be fetched; using the one Baileys carries");
+      if (!r.isLatest) log.warn("the current WhatsApp Web version could not be fetched; using the one Baileys carries");
       return r.isLatest ? r.version : undefined;
     }),
     new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), VERSION_MS).unref()),
@@ -162,7 +163,9 @@ export function baileysSocket(store: WaAuthFiles, version?: WAVersion): WaSocket
           const output: unknown = err ? Reflect.get(err, "output") : undefined;
           const code: unknown = typeof output === "object" && output !== null ? Reflect.get(output, "statusCode") : undefined;
           const reason = disconnectDetail(err);
-          log(redactWa(`whatsapp close: code ${typeof code === "number" ? code : "none"}${reason ? ` ${reason}` : ""}`));
+          // Every close, with WhatsApp's own reason: a logout (401), a ban (403) or a replaced session (440) is an error line.
+          const status = typeof code === "number" ? code : null;
+          (status === 401 || status === 403 || status === 440 ? log.error : status === 515 ? log.info : log.warn)("socket closed", { status, reason });
           e.connection({ state: "close", code: typeof code === "number" ? code : null, reason });
         }
       });

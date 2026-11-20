@@ -6,6 +6,7 @@ import { connectionDto } from "@hub/contract/connections";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { createApp } from "./app";
 import { fakeProbeDeps } from "./connections";
+import { captureOps } from "@hub/log/ops";
 
 // Fake secrets in a throwaway folder; probes are stubs. Nothing here touches a real instance or the network.
 const OLD = "ntn_OLDFAKENOTIONSECRET123456";
@@ -97,6 +98,7 @@ describe("PUT /api/connections/:id/secret", () => {
   it("no value reaches a log line, even when a write fails", async () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const cap = captureOps();
     const a = app();
     await putSecret(a, "notion:notion-token", { value: NEW });
     await putSecret(a, "notion:notion-token", { value: "short" });
@@ -106,7 +108,8 @@ describe("PUT /api/connections/:id/secret", () => {
     const failed = await putSecret(a, "telegram:bot", { value: TG });
     expect(failed.status).not.toBe(200);
     expect(failed.text).not.toContain(TG);
-    const out = JSON.stringify([...spy.mock.calls, ...log.mock.calls]);
+    const out = JSON.stringify([...spy.mock.calls, ...log.mock.calls, ...cap.lines]);
+    cap.stop();
     for (const s of [NEW, TG, OLD, OLDPASS]) expect(out).not.toContain(s);
     spy.mockRestore(); log.mockRestore();
   });

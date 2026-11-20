@@ -3,6 +3,7 @@ import { RepoError, usageRefusal, type MessengerChannel, type Repos } from "@hub
 import { AdapterError, type SendingAdapter } from "@hub/messengers";
 import { confirmDraft, humanActor, sendConfirmed } from "@hub/messengers/human";
 import { checkDraftRecipients, loadProject } from "@hub/projects";
+import { errFields, ops } from "@hub/log/ops";
 
 // The send door for one messenger draft (P71 M4, decision 0036 point 7). The same door as Mail's (`routes/sends.ts`): a dry run
 // that sends nothing and says exactly what would go out, then the apply with what the person saw and a single-use ticket, the
@@ -128,6 +129,7 @@ export async function applyMessenger(deps: MessengerDoorDeps, project: string, d
     return { sendId: row.id };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
+    ops("send").error("a messenger send failed; nothing was retried", { project, draft: draftId, channel: p.channel, account: p.account, send: row.id, ...errFields(e) });
     await repos.sends.markFailed(row.id, message);
     const cur = await repos.messengers.getDraft(project, draftId);
     if (cur?.status === "confirmed") await repos.messengers.unconfirmDraft(project, draftId);

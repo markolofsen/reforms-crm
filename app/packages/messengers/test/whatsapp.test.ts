@@ -10,6 +10,7 @@ import { pollOnce, runPoller } from "../src/poller";
 import { createWhatsAppAdapter, toWaAdapterError, type WaMessage } from "../src/whatsapp";
 import { CREDS, readWaAuth, WaAuthFiles, waFolderOf } from "../src/whatsapp-auth";
 import { setup, type Env } from "./helpers";
+import { captureOps } from "@hub/log/ops";
 
 // P71 M5: WhatsApp as a linked device, on a FAKE Baileys socket. Nothing here opens a WebSocket or reaches WhatsApp: the one test
 // that loads the real Baileys builds no socket (`makeWASocket` connects on creation and is never called).
@@ -53,6 +54,7 @@ describe("whatsapp: receive", () => {
     const a = adapterOf();
     await a.start?.();
     const spies = [vi.spyOn(console, "log"), vi.spyOn(console, "warn"), vi.spyOn(console, "error")];
+    const cap = captureOps();
     sock.message(ANNA, "hello from Anna");
     sock.message(ANNA, "my reply", { fromMe: true });
     sock.message(STRANGER, "private life, not for the hub");
@@ -72,6 +74,9 @@ describe("whatsapp: receive", () => {
     const acc = await env.repos.messengers.account("p", "whatsapp", ACCOUNT);
     expect(JSON.stringify(acc)).not.toMatch(/9999999|Stranger/);
     for (const spy of spies) expect(JSON.stringify(spy.mock.calls)).not.toMatch(/9999999|Stranger|private life/);
+    // P86: nor a line of the ops log.
+    expect(JSON.stringify(cap.lines)).not.toMatch(/9999999|Stranger|private life/);
+    cap.stop();
     vi.restoreAllMocks();
     await a.close();
   });

@@ -37,6 +37,8 @@ export interface HubPaths {
   codexHomes: string;
   /** The agent session log (P54): `<state>/log/<slug>/<YYYY-MM-DD>.jsonl`, written by the session hooks, read by `hub log`. */
   log: string;
+  /** P86: the ops log, what failed or happened in the server and every package: `<state>/log/ops-<YYYY-MM-DD>.jsonl` (flat files beside the agent log's project folders), written by `@hub/log/ops`, read by `hub logs` and Overview. */
+  opsLog: string;
   /** The admin's shared focus (P51): `<state>/focus.json`, ids only, written by the server, read by `hub focus` and `hub mcp`. */
   focus: string;
   /** The agent's pointer (P72): `<state>/pointer.json`, refs only, written by `hub mcp`'s `highlight`, read by the server's `GET /api/pointer`. */
@@ -132,6 +134,7 @@ export function hubPaths(o: HubPathsOptions = {}): HubPaths {
     evidence: join(state, "evidence"),
     codexHomes: join(state, "codex"),
     log: join(state, "log"),
+    opsLog: join(state, "log"),
     focus: join(state, "focus.json"),
     pointer: join(state, "pointer.json"),
     autostart: join(state, "autostart"),

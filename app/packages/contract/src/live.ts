@@ -11,8 +11,9 @@ import { z } from "zod";
  * `autostart` (P67): the LaunchAgent's files moved (`state/autostart/`) or the switch was set, so the Connections row reads again.
  * `core` (P68): a core update check finished (the server's timer or "Check now"), so the version line and the block read again.
  * `pointer` (P72): the agent's `highlight` wrote `state/pointer.json` (`hub mcp`, a short connection like `mail`), so the admin reads `GET /api/pointer`.
+ * `ops-log` (P86): today's ops log file grew (`state/log/ops-<day>.jsonl`), so Overview's Recent errors reads again.
  */
-export const LIVE_TOPICS = ["drafts", "clients", "activity", "sends", "inbox", "follow-ups", "batches", "rules", "projects", "knowledge", "messengers", "connections", "health", "mail", "agent-log", "autostart", "core", "pointer"] as const;
+export const LIVE_TOPICS = ["drafts", "clients", "activity", "sends", "inbox", "follow-ups", "batches", "rules", "projects", "knowledge", "messengers", "connections", "health", "mail", "agent-log", "autostart", "core", "pointer", "ops-log"] as const;
 export const liveTopic = z.enum(LIVE_TOPICS);
 export type LiveTopic = (typeof LIVE_TOPICS)[number];
 

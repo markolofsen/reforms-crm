@@ -17,6 +17,7 @@
     "@hub/config": "workspace:*",
     "@hub/connections": "workspace:*",
     "@hub/db": "workspace:*",
+    "@hub/log": "workspace:*",
     "@mtcute/core": "0.32.8",
     "@mtcute/node": "0.32.8",
     "baileys": "7.0.0-rc14",
