@@ -53,13 +53,13 @@ describe("the adapters tell the matcher who wrote, never what", () => {
   it("Telegram: an unlinked inbound message gives the chat's id, name, phone and username, and is still dropped", async () => {
     const client = new FakeMtClient();
     const seen: unknown[] = [];
-    const a = createTelegramUserAdapter({ client, account: "42", allowedChats: async () => ["9"], onUnlinked: (d) => seen.push(d) });
+    const a = createTelegramUserAdapter({ client, account: "42", allowedChats: async () => ["9"], onUnlinked: (d, inbound) => seen.push({ ...d, inbound }) });
     await a.start?.();
     client.emit(fakePerson(7, "Anna", { phone: "6281300001111", username: "anna_s" }), "secret text");
     client.emit(fakePerson(7, "Anna", { phone: "6281300001111" }), "my own reply", { out: true });
     client.emit({ type: "other", id: -100, displayName: "Group" }, "group text");
     client.emit(fakePerson(9, "Linked"), "kept");
-    expect(seen).toEqual([{ chatId: "7", title: "Anna", phone: "+6281300001111", username: "anna_s" }]);
+    expect(seen).toEqual([{ chatId: "7", title: "Anna", phone: "+6281300001111", username: "anna_s", inbound: true }]);
     const batch = await a.poll({ cursor: null, timeoutSec: 0, limit: 10 });
     expect(batch.messages.map((m) => m.text)).toEqual(["kept"]);
   });
@@ -76,12 +76,12 @@ describe("the adapters tell the matcher who wrote, never what", () => {
       },
       account: "4915100000001",
       allowedChats: async () => [],
-      onUnlinked: (d) => seen.push(d),
+      onUnlinked: (d, inbound) => seen.push({ ...d, inbound }),
     });
     await a.start?.();
     box.sock?.chat("+491519999999", "Stranger");
     box.sock?.message("+491519999999", "private text");
-    expect(seen).toEqual([{ chatId: "+491519999999", title: "Stranger", phone: "+491519999999", username: null }]);
+    expect(seen).toEqual([{ chatId: "+491519999999", title: "Stranger", phone: "+491519999999", username: null, inbound: true }]);
     expect(JSON.stringify(seen)).not.toMatch(/private text/);
     await a.close();
   });

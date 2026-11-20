@@ -186,7 +186,8 @@ export function startAutolink(o: StartAutolink): Autolink {
       const adapter = o.adapterOf(channel, account);
       if (!adapter || !o.project) return;
       const ds = await adapter.dialogs(SCAN_DIALOGS).catch(() => [] as UserDialog[]);
-      for (const d of ds) await run(channel, account, d);
+      // Oldest first, so the newest dialog is remembered last and shows first on Chats.
+      for (const d of [...ds].reverse()) await run(channel, account, d);
     },
     async state() {
       const enabled = o.project ? await o.enabled() : false;

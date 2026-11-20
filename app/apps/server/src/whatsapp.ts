@@ -56,7 +56,7 @@ export interface StartWhatsApp {
   /** Tests: how long a link's import waits for the phone's history answer (default 15 s). */
   historyMs?: number;
   /** P84: the identity (never the text) of each private chat seen that is not linked, for the autolink. */
-  onUnlinked?: (account: string, d: DialogIdentity) => void;
+  onUnlinked?: (account: string, d: DialogIdentity, inbound: boolean) => void;
 }
 
 interface Slot {
@@ -121,7 +121,7 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
       let adapter: WhatsAppSendingAdapter | null = null;
       try {
         const make = await socketsNow();
-        adapter = createWhatsAppAdapter({ socket: () => make(read.auth), account, allowedChats: () => allowedChats(p), ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity) => o.onUnlinked?.(account, d) } : {}), ...(o.historyMs ? { historyMs: o.historyMs } : {}) });
+        adapter = createWhatsAppAdapter({ socket: () => make(read.auth), account, allowedChats: () => allowedChats(p), ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity, inbound: boolean) => o.onUnlinked?.(account, d, inbound) } : {}), ...(o.historyMs ? { historyMs: o.historyMs } : {}) });
         slot.adapter = adapter;
         await run({ repos: o.repos, project: p, adapter: pollOnly(adapter), signal: ac.signal, onEvent, now });
         if (st.state !== "error" && st.state !== "parked") st.state = "stopped";

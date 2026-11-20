@@ -208,6 +208,14 @@ async function linkAndImport(
   }
 }
 
+/** Refuses before any row is written when the chat is already another client's identifier (rule 16: a client row is never deleted). */
+async function refuseTaken(repos: Repos, project: string, channel: LinkableAdapter["channel"], chatId: string): Promise<void> {
+  const kind = KIND_OF[channel];
+  if ((await repos.messengers.clientByIdentifier(project, kind, normalizeIdentifier(kind, chatId))) !== null) {
+    throw new MessengersError("bad_identifier", `bad_identifier: this ${kind} chat is already linked to a client in "${project}"`);
+  }
+}
+
 /** A client record the autolink found (P84): exactly one record carries the chat's identifier, and it has an email. */
 export interface AutolinkClient {
   email: string;
@@ -226,6 +234,7 @@ export async function autoLinkUserChat(
   input: { project: string; client: AutolinkClient; chatId: string; reason: string; title?: string; days?: number },
 ): Promise<{ clientId: number; clientCreated: boolean; identifierId: number; imported: number; importError: string | null }> {
   await deps.repos.projects.requireProject(input.project);
+  await refuseTaken(deps.repos, input.project, deps.adapter.channel, input.chatId);
   const email = normalizeIdentifier("email", input.client.email);
   const found = await deps.repos.clients.idByEmail(input.project, email);
   const clientId = found ?? (await deps.repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
@@ -244,6 +253,7 @@ export async function linkUserChatToRecord(
 ): Promise<{ clientId: number; identifierId: number; imported: number; importError: string | null }> {
   assertHuman(actor);
   await deps.repos.projects.requireProject(input.project);
+  await refuseTaken(deps.repos, input.project, deps.adapter.channel, input.chatId);
   const email = normalizeIdentifier("email", input.client.email);
   const clientId = (await deps.repos.clients.idByEmail(input.project, email)) ?? (await deps.repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
   const r = await linkAndImport(deps, { project: input.project, clientId, chatId: input.chatId, ...(input.title ? { title: input.title } : {}) });

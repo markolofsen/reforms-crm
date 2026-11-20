@@ -58,14 +58,14 @@ const linker = await startProjectAutolink({
 // P71: the Telegram user accounts, one connection per session under state/secrets/sessions/. The line counts accounts, never names one.
 const telegramUser = await startTelegramUser({
   repos,
-  onUnlinked: (account, d) => linker.autolink.seen("telegram_user", account, d, true),
+  onUnlinked: (account, d, inbound) => linker.autolink.seen("telegram_user", account, d, inbound),
   onConnected: (account) => void linker.autolink.scan("telegram_user", account).catch(() => undefined),
 });
 handles.tg = telegramUser;
 const tgStatus = telegramUser.status();
 console.log(`telegram user accounts: ${tgStatus.state === "on" ? `${tgStatus.accounts.length} connected` : `off (${tgStatus.reason ?? ""})`}`);
 // P71 M5: the WhatsApp linked devices, one socket per folder under state/secrets/sessions/. The line counts numbers, never names one.
-const whatsapp = await startWhatsApp({ repos, onUnlinked: (account, d) => linker.autolink.seen("whatsapp", account, d, true) });
+const whatsapp = await startWhatsApp({ repos, onUnlinked: (account, d, inbound) => linker.autolink.seen("whatsapp", account, d, inbound) });
 handles.wa = whatsapp;
 const waStatus = whatsapp.status();
 console.log(`whatsapp linked devices: ${waStatus.state === "on" ? `${waStatus.accounts.length} connected` : `off (${waStatus.reason ?? ""})`}`);

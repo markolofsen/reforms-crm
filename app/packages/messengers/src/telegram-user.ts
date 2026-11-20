@@ -136,7 +136,7 @@ export interface TelegramUserOptions {
    * P84: told the identity (chat id, name, phone, username; never the text) of each inbound message of a private chat that is not
    * linked, before it is dropped. The autolink matcher listens here; nothing of the chat is kept by the adapter.
    */
-  onUnlinked?: (d: DialogIdentity) => void;
+  onUnlinked?: (d: DialogIdentity, inbound: boolean) => void;
   queueMax?: number;
 }
 
@@ -187,7 +187,7 @@ export function createTelegramUserAdapter(o: TelegramUserOptions): TelegramUserS
     if (msg && !allowed.has(msg.chatId) && msg.direction === "in" && m.chat.type === "user") {
       // P84: only who wrote (never what) goes to the autolink matcher, which keeps it in memory.
       try {
-        o.onUnlinked?.({ chatId: msg.chatId, title: m.chat.displayName, phone: telegramPhone(m.chat.phoneNumber), username: m.chat.username });
+        o.onUnlinked?.({ chatId: msg.chatId, title: m.chat.displayName, phone: telegramPhone(m.chat.phoneNumber), username: m.chat.username }, true);
       } catch {
         // The matcher's failure never stops the receiver.
       }

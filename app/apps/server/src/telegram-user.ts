@@ -61,7 +61,7 @@ export interface StartTelegramUser {
   runner?: typeof runPoller;
   now?: () => Date;
   /** P84: the identity (never the text) of each inbound message of an unlinked private chat, for the autolink. */
-  onUnlinked?: (account: string, d: DialogIdentity) => void;
+  onUnlinked?: (account: string, d: DialogIdentity, inbound: boolean) => void;
   /** P84: an account's first good poll after it connected (the autolink scans its dialogs then). */
   onConnected?: (account: string) => void;
 }
@@ -138,7 +138,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
       let client: MtClient | null = null;
       try {
         client = (await clientsNow()).session(read.session);
-        const adapter = createTelegramUserAdapter({ client, account, allowedChats: () => allowedChats(p), ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity) => o.onUnlinked?.(account, d) } : {}) });
+        const adapter = createTelegramUserAdapter({ client, account, allowedChats: () => allowedChats(p), ...(o.onUnlinked ? { onUnlinked: (d: DialogIdentity, inbound: boolean) => o.onUnlinked?.(account, d, inbound) } : {}) });
         slot.adapter = adapter;
         await run({ repos: o.repos, project: p, adapter: pollOnly(adapter), signal: ac.signal, onEvent, now });
         if (st.state !== "error" && st.state !== "parked") st.state = "stopped";

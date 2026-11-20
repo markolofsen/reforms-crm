@@ -133,8 +133,8 @@ export interface WhatsAppOptions {
   account: string;
   /** The chat ids on the allow-list of this channel, read before each poll so a link or unlink applies within one poll. */
   allowedChats: () => Promise<string[]>;
-  /** P84: told the identity (number, name; never the text) of each private chat seen that is not linked. See `TelegramUserOptions`. */
-  onUnlinked?: (d: DialogIdentity) => void;
+  /** P84: told the identity (number, name; never the text) of each private chat seen that is not linked, and whether the message was the client's. See `TelegramUserOptions`. */
+  onUnlinked?: (d: DialogIdentity, inbound: boolean) => void;
   queueMax?: number;
   openMs?: number;
   historyMs?: number;
@@ -206,7 +206,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       if (msg && !allowed.has(msg.chatId)) {
         // P84: the chat's number and name (never its text) go to the autolink matcher.
         try {
-          o.onUnlinked?.({ chatId: msg.chatId, title: directory.get(msg.chatId)?.name ?? msg.chatId, phone: msg.chatId, username: null });
+          o.onUnlinked?.({ chatId: msg.chatId, title: directory.get(msg.chatId)?.name ?? msg.chatId, phone: msg.chatId, username: null }, !m.fromMe);
         } catch {
           // The matcher's failure never stops the receiver.
         }

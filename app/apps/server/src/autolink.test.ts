@@ -88,7 +88,7 @@ beforeEach(async () => {
   on = true;
   directory = startClientDirectory({ dataSourceId: "ds", tokenFile: "notion-token", reader: reader(PAGES), auto: false });
   await directory.refresh();
-  tg = await startTelegramUser({ repos, env: {}, dir, clients: { session: () => fake, login: () => new FakeLoginClient() }, onUnlinked: (account, d) => al.seen("telegram_user", account, d, true) });
+  tg = await startTelegramUser({ repos, env: {}, dir, clients: { session: () => fake, login: () => new FakeLoginClient() }, onUnlinked: (account, d, inbound) => al.seen("telegram_user", account, d, inbound) });
   al = makeAutolink();
   // Sign in through the gated steps, as the owner would.
   const app = createApp(repos, { telegramUser: tg, adminPort: ADMIN });
