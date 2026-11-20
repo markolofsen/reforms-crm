@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { mailAppDraftWriter } from "./mail-drafts";
 import { createHubMcpServer, type VersionRecord } from "./mcp";
 import type { WithRepos } from "./write-record";
+import { notionScopeOf } from "./notion-scope";
 
 /**
  * `hub mcp`: the hub's MCP server on stdio (P51, P52). Env: `HUB_HOME`, `HUB_PROJECT` (every tool refuses without it),
@@ -18,6 +19,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
     const c = loadProject(paths.projects, slug).parsed.config;
     return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages } };
   };
+  const projectNotion = (slug: string) => notionScopeOf(slug, loadProject(paths.projects, slug).parsed.config);
   // A revision the writer saved is recorded in place on a short write connection, closed at once (the tools' handle stays read-only).
   const recordRevision = async (slug: string, draftId: number, r: { excerpt: string; wroteTo: string | null; brand: string | null }) => {
     const w = openDb(paths.db);
@@ -47,7 +49,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
       w.close();
     }
   };
-  const server = createHubMcpServer(createRepos(handle.db), { hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  const server = createHubMcpServer(createRepos(handle.db), { hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectNotion, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

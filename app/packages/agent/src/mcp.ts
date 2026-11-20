@@ -9,6 +9,7 @@ import { cut, DATA, READ_ONLY, run, ToolError } from "./mcp-result";
 import { MESSENGER_TOOLS, registerMessengerTools } from "./messenger/tools";
 import { DraftWriteError, fromFor, lateSaves, reviseDraft, versionHash, writeRecorded, type DraftWriter, type InboundMessage, type Revision, type Signed } from "./mail-drafts";
 import { recordAdoptions, writeLogOf, type AdoptedVersion, type WithRepos } from "./write-record";
+import { projectNotion, type NotionScope } from "./notion-scope";
 
 // `hub mcp` (P51, decision 0029): the hub's own stdio MCP server, bound to `HUB_PROJECT`. Five read-only tools: the admin's
 // focus (refs resolved per kind, P72), one draft, one client, the Drafts list, and the brand of an inbound from its headers (P60 `mail_brand`). The database is opened read-only by the caller (`openDbReadOnly`), so a
@@ -29,7 +30,9 @@ import { recordAdoptions, writeLogOf, type AdoptedVersion, type WithRepos } from
 // `state/pointer.json` and bumps the live topic `pointer` (`pointerWritten`, a short connection like `mailWritten`); it never
 // clicks, types, opens or navigates, and no tool of this server does.
 
-export const HUB_MCP_TOOLS = ["focus", "highlight", "draft_show", "client_show", "drafts_list", "mail_brand", "draft_write", ...MESSENGER_TOOLS] as const;
+// P82: `project_notion`, read only: the bound project's Notion databases by id (the same parse as the capabilities line).
+
+export const HUB_MCP_TOOLS = ["focus", "highlight", "draft_show", "client_show", "drafts_list", "mail_brand", "project_notion", "draft_write", ...MESSENGER_TOOLS] as const;
 
 /** The bound project's Mail settings from `project.md` (`mail.accounts`, `mail.sender`), and what signs its drafts (P60). */
 export interface ProjectMail {
@@ -60,6 +63,8 @@ export interface HubMcpEnv {
   drafts?: DraftWriter;
   /** The project's Mail accounts and sender; `draft_write` writes only from these accounts. */
   projectMail?: (slug: string) => ProjectMail;
+  /** P82: the project's Notion databases (`notionScopeOf` of its project.md); absent, `project_notion` refuses `unavailable`. */
+  projectNotion?: (slug: string) => NotionScope;
   /**
    * Tells the open admin that a Mail draft of this project changed (P53: the live topic `mail`), so the card reads it
    * again. The database handle of the tools stays read-only; this writes only the live counter. A throw is reported, never fatal.
@@ -271,6 +276,22 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         const opts = q ? { search: q } : {};
         const [rows, total] = await Promise.all([repos.clients.review(slug, filter, { ...opts, limit: limit ?? 20 }), repos.clients.reviewTotal(slug, filter, opts)]);
         return { project: slug, view: filter, total, drafts: rows.map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), client: { id: d.client.id, name: cut(d.client.name), email: d.client.email, repliesOwed: d.client.repliesOwed }, evidence: d.evidence ?? null })) };
+      }),
+  );
+
+  server.registerTool(
+    "project_notion",
+    {
+      title: "This project's Notion databases",
+      description: `The bound project's own Notion databases by id (## Notion databases of project.md): role, data source id and its collection:// url, and the teamspace once its id is recorded. One Notion connector sees every teamspace the owner sees, and other projects have databases of the same names: query these ids, never a database found by notion-search. The guard refuses a query or a write on another one. ${DATA}`,
+      inputSchema: z.object({}),
+      annotations: READ_ONLY,
+    },
+    () =>
+      run(async () => {
+        const slug = project();
+        if (!env.projectNotion) throw new ToolError("unavailable", "This hub MCP server cannot read the project's Notion databases.");
+        return projectNotion(env.projectNotion(slug));
       }),
   );
 

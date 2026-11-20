@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { notionCapability, notionNote, notionViolations, projectNotion, type NotionScope } from "../src/notion-scope";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { hubPaths } from "@hub/config/paths";
 import { sessionCapabilities } from "../src/connectors";
+import { capabilitiesOf } from "../src/session-rules";
+import { NOTION_RULE } from "../src/notion-scope";
 
 // P82: one Notion connector sees two teamspaces with databases of the same names. The session is told its own ids and the guard
 // refuses another project's. The ids are saas's and realty's from 2026-11-20 (the owner's case: "есть клиенты по saas?").
@@ -32,6 +38,15 @@ describe("the capabilities line names the project's databases (P82 S2)", () => {
     expect(notionCapability({ ...SAAS, teamspaceId: "aaaa0000-0000-4000-8000-000000000001" })).toContain("; teamspace CRM: SaaS");
     expect(sessionCapabilities("saas-support", [], "codex", SAAS)).toContain("clients collection://41806f30-6f14-81ac-b8e1-000bac534e05");
     expect(sessionCapabilities("saas-support", [], "claude")).toContain("notion: the project's CRM databases");
+  });
+  it("a bound session's capabilities line names the fixture project's ids and carries the rule, for both CLIs", () => {
+    const paths = hubPaths({ home: mkdtempSync(path.join(tmpdir(), "hub-notion-scope-")), env: {} });
+    const fixtures = path.join(__dirname, "..", "..", "projects", "test", "fixtures", "projects");
+    for (const cli of ["claude", "codex"] as const) {
+      const l = capabilitiesOf(paths, fixtures, "acme-travel", cli) ?? "";
+      expect(l).toContain("clients collection://00000000-0000-4000-8000-000000000001, documents collection://00000000-0000-4000-8000-000000000002");
+      expect(l.endsWith(NOTION_RULE)).toBe(true);
+    }
   });
   it("a project with no list says so, with the phrase", () => {
     expect(notionCapability({ ...SAAS, databases: [] })).toBe("notion: no databases listed in project.md (say: настрой проект saas-support)");

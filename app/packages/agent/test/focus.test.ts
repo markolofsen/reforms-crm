@@ -8,6 +8,7 @@ import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "
 import { SEND_LIKE_TOOL } from "../src/deny";
 import { focusLine, livePointer, readFocus, RESOLVERS } from "../src/focus";
 import { createHubMcpServer, HUB_MCP_TOOLS } from "../src/mcp";
+import type { NotionScope } from "../src/notion-scope";
 
 // The shared focus reader, its resolvers per ref kind, the pointer and the hub MCP server (P51 F1, F2; P72), on a throwaway
 // database: no CLI, no Mail.
@@ -138,8 +139,9 @@ describe("readFocus", () => {
   });
 });
 
-async function connect(hubProject: string | undefined, o: { pointer?: boolean; bumps?: string[] } = {}) {
-  const server = createHubMcpServer(repos, { hubProject, focusFile: file, now: () => NOW, ...(o.pointer === false ? {} : { pointerFile, pointerWritten: (s: string) => void o.bumps?.push(s) }) });
+async function connect(hubProject: string | undefined, o: { pointer?: boolean; bumps?: string[]; notion?: NotionScope } = {}) {
+  const notion = o.notion;
+  const server = createHubMcpServer(repos, { hubProject, focusFile: file, now: () => NOW, ...(notion ? { projectNotion: () => notion } : {}), ...(o.pointer === false ? {} : { pointerFile, pointerWritten: (s: string) => void o.bumps?.push(s) }) });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(b);
   const client = new Client({ name: "test", version: "0" });
@@ -161,11 +163,18 @@ async function connect(hubProject: string | undefined, o: { pointer?: boolean; b
 }
 
 describe("hub mcp", () => {
-  it("lists exactly the nine tools: six read-only (mail_brand reads no Mail), highlight the pointer, draft_write the one Mail write, messenger_draft_write the one messenger write; none send-like", async () => {
+  it("project_notion returns the bound project's databases by id, the same parse as the capabilities line (P82)", async () => {
+    const notion: NotionScope = { slug: "acme", databases: [{ role: "clients", dataSourceId: "00000000-0000-4000-8000-000000000001" }], teamspace: "Acme", teamspaceId: null, parentPage: null };
+    const { call } = await connect("acme", { notion });
+    const r = await call("project_notion");
+    expect(r.json).toMatchObject({ project: "acme", teamspace: null, databases: [{ role: "clients", url: "collection://00000000-0000-4000-8000-000000000001" }] });
+    expect((await (await connect("acme")).call("project_notion")).json).toMatchObject({ error: "unavailable" });
+  });
+  it("lists exactly the ten tools: seven read-only (mail_brand reads no Mail, project_notion the project's Notion ids, P82), highlight the pointer, draft_write the one Mail write, messenger_draft_write the one messenger write; none send-like", async () => {
     const { client } = await connect("acme");
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([...HUB_MCP_TOOLS].sort());
-    expect(HUB_MCP_TOOLS).toHaveLength(9);
+    expect(HUB_MCP_TOOLS).toHaveLength(10);
     expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["draft_write", "highlight", "messenger_draft_write"]);
     expect(tools.filter((t) => SEND_LIKE_TOOL.test(t.name))).toEqual([]);
   });
