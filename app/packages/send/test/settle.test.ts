@@ -59,6 +59,17 @@ describe("settleThread (P65 S5)", () => {
     expect(mailer.drafts.map((x) => x.ref).sort()).toEqual(["139868", "139900"]);
   });
 
+  it("P83: a thread of shells only (saas 2026-11-20: refused writes left empty drafts and Mail's empty replies) is emptied; the owner's draft stays", async () => {
+    const repos = createRepos(h.db);
+    const rec = await repos.drafts.record({ project: "saas", email: "mark@x.example", name: "Mark", subject: "Re: Hello", mailRef: "<t1@mail.gmail.com>", reason: "asked", skill: "triage-mail" });
+    await repos.mailWrites.start({ project: "saas", mailRef: "t1@mail.gmail.com", draftId: rec.draftId, text: "Отговорила роща золотая" });
+    const mailer = new FakeMailer([d("140019", "\n\n"), d("140026", "\n\n"), d("140037", "\n\nOn 14 Nov 2026, Mark wrote:\nHow are you?\n\n"), d("139900", "My own reply.")]);
+    const r = await settleThread({ mailer, repos, original: async () => "How are you?\n" }, rec_(rec.draftId), ["hello@reforms.ai"]);
+    expect(r.adopted.sort()).toEqual(["140019", "140026", "140037"]);
+    expect(r.moved.sort()).toEqual(["M140019@reforms.ai", "M140026@reforms.ai", "M140037@reforms.ai"]);
+    expect(mailer.drafts.map((x) => x.ref)).toEqual(["139900"]);
+  });
+
   it("never moves anything when the Hub has no second version in the thread", async () => {
     const repos = createRepos(h.db);
     const rec = await repos.drafts.record({ project: "saas", email: "mark@x.example", name: "Mark", subject: "Re: Hello", mailRef: "<t1@mail.gmail.com>", reason: "asked", skill: "triage-mail" });

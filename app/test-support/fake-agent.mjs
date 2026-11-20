@@ -83,7 +83,7 @@ try {
   } else {
     const subject = focus.subject?.kind === "draft" ? Number(focus.subject.ref.slice("draft:".length)) : null;
     if (!subject) throw new Error("no focused draft");
-    const d = await hubMcp.tool("draft_show", { id: subject });
+    const d = await hubMcp.tool("draft_show", { draft: subject });
     const payload = { email: d.client.email, name: d.client.name, subject: d.subject, mailRef: d.mailRef, to: d.to, reason: "Revised on the owner's request in the dock.", excerpt: text, repliesOwed: true, skill: "triage-mail" };
     const out = execFileSync(process.execPath, [hub, "record-draft", "--project", process.env.HUB_PROJECT ?? ""], { input: JSON.stringify(payload), env: { ...process.env, NO_COLOR: "1" }, encoding: "utf8" });
     console.log(JSON.stringify({ tools, focused: subject, recorded: JSON.parse(out) }));

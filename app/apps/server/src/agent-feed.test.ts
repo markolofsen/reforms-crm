@@ -22,7 +22,7 @@ describe("GET /api/projects/:slug/agent-feed", () => {
       join(store.dir, "acme", "2026-11-19.jsonl"),
       [
         line({ ts: "2026-11-19T11:59:00.000Z", kind: "prompt", data: { text: "open draft 3 for owner@example.com" } }),
-        line({ ts: "2026-11-19T11:59:01.000Z", kind: "tool_call", corr: "c1", data: { tool: "mcp__hub__draft_show", input: { id: 3 } } }),
+        line({ ts: "2026-11-19T11:59:01.000Z", kind: "tool_call", corr: "c1", data: { tool: "mcp__hub__draft_show", input: { draft: 3 } } }),
         line({ ts: "2026-11-19T11:59:02.000Z", kind: "tool_result", corr: "c1", data: { tool: "mcp__hub__draft_show", output: "{\"to\":\"owner@example.com\"}" } }),
         line({ ts: "2026-11-19T11:59:03.000Z", kind: "answer", data: { text: "Formal or friendly?" } }),
       ].join("\n") + "\n",

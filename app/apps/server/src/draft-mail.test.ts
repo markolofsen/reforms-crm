@@ -133,6 +133,16 @@ describe("Restore and Save (P56, P65)", () => {
     const forged = await app.request(url(), { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ text: "x", hash: mailHash(m) }) });
     expect(forged.status).toBe(403);
   });
+
+  it("P83: a sent draft is not saved or restored: 409 with the reason, and nothing reaches the writer", async () => {
+    const m = await hubs("10", "Hi");
+    mailer.drafts.push(m);
+    await repos.drafts.markSent(id, { at: "2026-11-19T14:15:38Z", via: "test", messageId: "s1@x" });
+    const r = await app.request(url(), { method: "PUT", headers: ADMIN, body: JSON.stringify({ text: "Hi again", hash: mailHash(m) }) });
+    expect(r.status).toBe(409);
+    expect(((await r.json()) as { error: string }).error).toMatch(/was sent .*a sent mail is not revised/);
+    expect(writer.drafts).toEqual([]);
+  });
 });
 
 describe("Skip and Done move the hub's own drafts to Trash (P56, P65)", () => {

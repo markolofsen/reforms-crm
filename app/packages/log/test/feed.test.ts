@@ -42,7 +42,7 @@ const claudeTurn = (): LogEvent[] => [
   result("03:30:17.911", "ToolSearch", "{\"matches\":[]}", "t1"),
   call("03:30:20.517", "mcp__hub__focus", {}, "t2"),
   result("03:30:21.698", "mcp__hub__focus", `{"state":"fresh","to":"${EMAIL}"}`, "t2"),
-  call("03:30:26.511", "mcp__hub__draft_show", { id: 1 }, "t3"),
+  call("03:30:26.511", "mcp__hub__draft_show", { draft: 1 }, "t3"),
   result("03:30:29.023", "mcp__hub__draft_show", `{"id":1,"to":"${EMAIL}","mailRef":"${MAILREF}"}`, "t3"),
   call("03:30:40.314", "mcp__mail-mcp__get_message_content", { account: "hello@reforms.ai", message_id: 138994 }, "t4"),
   result("03:31:09.171", "mcp__mail-mcp__get_message_content", { body: { sha256: "ca7d", chars: 12031 } }, "t4"),
@@ -80,7 +80,7 @@ describe("the feed (P59 F1)", () => {
   it("a question, a permission prompt and an error each give their tone; an idle wait and a routine answer give none", () => {
     const t = (turn: string, ...events: LogEvent[]) => events.map((e) => ({ ...e, turn }));
     const { placed } = write([
-      ...t("q", ev("04:00:00.000", "prompt", { text: "x" }), call("04:00:01.000", "mcp__hub__draft_show", { id: 2 }, "a1"), ev("04:00:02.000", "answer", { text: "Formal or friendly?" })),
+      ...t("q", ev("04:00:00.000", "prompt", { text: "x" }), call("04:00:01.000", "mcp__hub__draft_show", { draft: 2 }, "a1"), ev("04:00:02.000", "answer", { text: "Formal or friendly?" })),
       ...t("p", ev("04:01:00.000", "prompt", { text: "x" }), ev("04:01:01.000", "asked", { why: "permission_prompt" })),
       ...t("e", ev("04:02:00.000", "prompt", { text: "x" }), ev("04:02:01.000", "error", { source: "stop_failure", message: "overloaded" })),
       ...t("r", ev("04:03:00.000", "prompt", { text: "x" }), ev("04:03:01.000", "answer", { text: "Draft 2 says hello." }), ev("04:04:01.000", "asked", { why: "idle_prompt" })),
@@ -105,7 +105,7 @@ describe("the feed (P59 F1)", () => {
     const before = feedOf(first.placed, NOW);
     expect(before.turns).toEqual([]);
     const later = write([
-      ev("03:31:11.308", "tool_call", { tool: "exec", input: "const r = await tools.mcp__hub__draft_show({id: 4});", via: ["mcp__hub__draft_show"] }, codex({ corr: "x1" })),
+      ev("03:31:11.308", "tool_call", { tool: "exec", input: "const r = await tools.mcp__hub__draft_show({draft: 4});", via: ["mcp__hub__draft_show"] }, codex({ corr: "x1" })),
       ev("03:31:11.528", "tool_result", { tool: "exec", output: "Script completed" }, codex({ corr: "x1" })),
       ev("03:31:12.000", "tool_call", { tool: "exec", input: "const r = await tools.mcp__hub__focus({});", via: ["mcp__hub__focus"] }, codex({ corr: "x2" })),
       ev("03:31:15.574", "answer", { text: "Draft 4, Re: Hello. Shall I revise it?" }, codex({})),

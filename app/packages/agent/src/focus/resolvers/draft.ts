@@ -7,5 +7,5 @@ export const draft: Resolver = async ({ repos, slug }, id) => {
   if (!d || d.project !== slug) return null;
   const c = await repos.clients.get(slug, d.clientId);
   if (!c) return null;
-  return { title: cut(`${c.name || c.email} <${c.email}> · ${d.subject}`), status: d.status, read: { server: "hub", tool: "draft_show", args: { id: d.id } } };
+  return { title: cut(`${c.name || c.email} <${c.email}> · ${d.subject}`), status: d.status, read: { server: "hub", tool: "draft_show", args: { draft: d.id } } };
 };

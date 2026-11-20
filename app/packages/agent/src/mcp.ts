@@ -7,7 +7,7 @@ import { POINTER_MAX_REFS, POINTER_NOTE_MAX, POINTER_TTL_MS } from "@hub/contrac
 import { readFocus, resolveRef, writePointer } from "./focus";
 import { cut, DATA, READ_ONLY, run, ToolError } from "./mcp-result";
 import { MESSENGER_TOOLS, registerMessengerTools } from "./messenger/tools";
-import { DraftWriteError, fromFor, lateSaves, reviseDraft, versionHash, writeRecorded, type DraftWriter, type InboundMessage, type Revision, type Signed } from "./mail-drafts";
+import { adviceOf, alreadySentText, DraftWriteError, fromFor, lateSaves, reviseDraft, versionHash, writeRecorded, type DraftWriter, type InboundMessage, type Revision, type Signed } from "./mail-drafts";
 import { recordAdoptions, writeLogOf, type AdoptedVersion, type WithRepos } from "./write-record";
 import { projectNotion, type NotionScope } from "./notion-scope";
 
@@ -194,13 +194,13 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "draft_show",
     {
       title: "One draft of this project",
-      description: `Status, recipients, the Mail key (mailRef: the Message-ID of the client's message this draft answers), the short excerpt, reason, marks, evidence, the recorded context, the Notion link, the follow-up step, the draft's Activity, \`inbound\` (account, mailbox_path, message_id of the client's message, for mail-mcp get_message_content), \`clientWroteTo\` (the project's address the client wrote to), \`fromSeenByClient\` (the From the hub writes this draft with, by its rule: the client sees exactly that, there is no hidden sender; the owner may still change it in Mail, and the admin card reads Mail's own) and \`fromReason\` (why it is not clientWroteTo, else null). Not the body: it lives in Mail (\`mail\` names the Mail draft(s) the hub recorded for it: account and Message-ID; read the text with mail-mcp list_drafts / get_message_content). To revise it: \`draft_write\` with \`draft\` = this id (nothing else to look up); the revision records itself. Never send. ${DATA}`,
-      inputSchema: z.object({ id: z.number().int().positive().describe("The draft id, as the focus or the admin shows it.") }),
+      description: `Status, recipients, the Mail key (mailRef: the Message-ID of the client's message this draft answers), the short excerpt, reason, marks, evidence, the recorded context, the Notion link, the follow-up step, the draft's Activity, \`inbound\` (account, mailbox_path, message_id of the client's message, for mail-mcp get_message_content), \`clientWroteTo\` (the project's address the client wrote to), \`fromSeenByClient\` (the From the hub writes this draft with, by its rule: the client sees exactly that, there is no hidden sender; the owner may still change it in Mail, and the admin card reads Mail's own) and \`fromReason\` (why it is not clientWroteTo, else null). Not the body: it lives in Mail (\`mail\` names the Mail draft(s) the hub recorded for it: account and Message-ID; read the text with mail-mcp list_drafts / get_message_content). To revise it: \`draft_write\` with \`draft\` = this id (nothing else to look up); the revision records itself. A \`sent\` draft is not revised (\`already_sent\`). Never send. ${DATA}`,
+      inputSchema: z.object({ draft: z.number().int().positive().describe("The draft id, as the focus or the admin shows it (the same name draft_write takes).") }),
       annotations: READ_ONLY,
     },
-    ({ id }) =>
+    ({ draft }) =>
       run(async () => {
-        const { slug, d } = await ownDraft(id);
+        const { slug, d } = await ownDraft(draft);
         const c = await repos.clients.card(slug, d.clientId);
         // The message this draft answers, where mail-mcp can open it (P53): no hunting with find_messages. Null when not found.
         const pm = env.projectMail?.(slug);
@@ -338,7 +338,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
     },
     ({ draft, account, mailbox_path, message_id, content }) =>
-      run(async () => {
+      run(advised(async () => {
         const slug = project();
         if (!env.drafts || !env.projectMail) throw new ToolError("unavailable", "This hub MCP server cannot write drafts (no Mail writer).");
         const writer = env.drafts;
@@ -367,6 +367,8 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
           if (draft !== undefined) {
             if (account !== undefined || mailbox_path !== undefined || message_id !== undefined) throw new ToolError("invalid", "Give either draft (a revision) or account, mailbox_path and message_id (a new reply), not both.");
             const { d } = await ownDraft(draft);
+            // P83 verdict 2: a sent mail is not revised, and no second draft is made for the message it answered.
+            if (d.status === "sent") throw new ToolError("already_sent", alreadySentText(d.id, d.sentAt ?? null));
             if (!d.mailRef) throw new ToolError("no_thread", `Draft ${draft} has no mailRef: it answers no Mail message, so it cannot be revised here.`);
             mailRef = d.mailRef;
             const all = await repos.mailVersions.ofDraft(d.id);
@@ -448,13 +450,23 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
           if (e instanceof DraftWriteError) throw new ToolError(e.code, e.message);
           throw e;
         }
-      }),
+      })),
   );
 
   registerMessengerTools(server, repos, { project, ...(env.withRepos ? { withRepos: env.withRepos } : {}), ...(env.now ? { now: env.now } : {}) });
 
   return server;
 }
+
+/** P83: every refusal of `draft_write` says whether another call can help (`retry`) and what to tell the owner (`next`). */
+const advised = (fn: () => Promise<Record<string, unknown>>) => async (): Promise<Record<string, unknown>> => {
+  try {
+    return await fn();
+  } catch (e) {
+    if (e instanceof ToolError) throw new ToolError(e.code, e.message, { ...adviceOf(e.code), ...e.detail });
+    throw e;
+  }
+};
 
 /** The slice of the project's config that `resolveBrand` and `signatureFor` read. */
 function configOf(m: ProjectMail): { mail: { accounts: string[]; addresses: string[]; domains: string[] }; signoff: string; brands: Brand[]; languages: string[] } {

@@ -77,7 +77,7 @@ describe("readFocus", () => {
   it("a draft subject names its client and subject, cut to 120; the hook resolves the subject and counts the selection", async () => {
     put({ route: "drafts.item", title: `Draft ${ids.mark}`, subject: `draft:${ids.mark}`, selected: [`draft:${ids.mark}`, `draft:${ids.ann}`] });
     const f = await read();
-    expect(f.subject).toMatchObject({ ref: `draft:${ids.mark}`, status: "ready", read: { server: "hub", tool: "draft_show", args: { id: ids.mark } } });
+    expect(f.subject).toMatchObject({ ref: `draft:${ids.mark}`, status: "ready", read: { server: "hub", tool: "draft_show", args: { draft: ids.mark } } });
     expect(f.subject?.title).toMatch(/^Mark Effect <mark@example.com> · Re: Hello x+…$/);
     expect(f.subject?.title.length).toBeLessThanOrEqual(120);
     expect(f.selected.map((s) => s.ref)).toEqual([`draft:${ids.mark}`, `draft:${ids.ann}`]);
@@ -197,12 +197,12 @@ describe("hub mcp", () => {
     put({ route: "drafts.item", title: "Draft", subject: `draft:${ids.mark}` });
     const { call } = await connect("acme");
     expect((await call("focus")).json).toMatchObject({ state: "fresh", subject: { ref: `draft:${ids.mark}` } });
-    const d = await call("draft_show", { id: ids.mark });
+    const d = await call("draft_show", { draft: ids.mark });
     expect(d.isError).toBe(false);
     expect(d.json).toMatchObject({ id: ids.mark, mailRef: "<m1@example.com>", to: "mark@example.com", excerpt: "I'm well", client: { email: "mark@example.com" } });
     expect(d.json.body).toMatch(/^In Mail, not here/);
     expect(d.json.activity.length).toBeGreaterThan(0);
-    const other = await call("draft_show", { id: ids.other });
+    const other = await call("draft_show", { draft: ids.other });
     expect(other).toMatchObject({ isError: true, json: { error: "not_found" } });
   });
 

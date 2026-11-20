@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { parseProjectMd } from "@hub/projects";
 import { DENIED_TOOLS } from "../src/deny";
-import { ACCOUNT_ADDRESSES_SCRIPT, DraftWriteError, FakeDraftWriter, READ_CONTENT_SCRIPT, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
+import { ACCOUNT_ADDRESSES_SCRIPT, adviceOf, DraftWriteError, isNotAllowed, FakeDraftWriter, READ_CONTENT_SCRIPT, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
 import { appleScriptCompileError, canCompileAppleScript, deleteOfLoopItem } from "../../../test-support/osacompile";
 import { createHubMcpServer, excerptOf, type HubMcpEnv } from "../src/mcp";
 
@@ -79,7 +79,8 @@ describe("the Mail script", () => {
   it("deletes only after the new draft is found: the named versions (re-checked by their own account and Message-ID) and this run's extras", () => {
     const save = WRITE_REPLY_SCRIPT.indexOf("save r");
     const found = WRITE_REPLY_SCRIPT.indexOf('if (count of mine) is 0 then return "pending"');
-    const del = WRITE_REPLY_SCRIPT.indexOf("            delete m");
+    // After the save, nothing is deleted before the new draft is found (the refusal path's clean-up runs before any save, P83).
+    const del = WRITE_REPLY_SCRIPT.indexOf("            delete m", save);
     expect(save).toBeGreaterThan(0);
     expect(found).toBeGreaterThan(save);
     expect(del).toBeGreaterThan(found);
@@ -87,8 +88,53 @@ describe("the Mail script", () => {
     expect(WRITE_REPLY_SCRIPT).toMatch(/\(name of account of mailbox of m\) is tAcc and \(message id of m\) is tid then/);
     // Extras are only drafts that appeared during this run (not in priorIds) and hold its text's start or Mail's own shell.
     expect(WRITE_REPLY_SCRIPT).toMatch(/repeat with x in \(mine & shells\)/);
-    expect(WRITE_REPLY_SCRIPT).toMatch(/else if shellText is not "" and t is shellText then/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/else if my isShell\(t, origText\) then/);
     expect(WRITE_REPLY_SCRIPT).not.toMatch(/whose subject is subj\)\s*\n\s*delete/);
+  });
+
+  it("P83: never reads the reply's content before setting it (on Mail 16 that read makes Mail ignore every set: content_refused)", () => {
+    const made = WRITE_REPLY_SCRIPT.indexOf("set r to reply src opening window false");
+    const set = WRITE_REPLY_SCRIPT.indexOf("set content of r to (theBody & tail)");
+    expect(made).toBeGreaterThan(0);
+    expect(set).toBeGreaterThan(made);
+    expect(WRITE_REPLY_SCRIPT.slice(made, set)).not.toMatch(/content of r/);
+  });
+
+  it("P83: a refused reply Mail keeps is this run's own (new since priorIds, in the thread, Mail's shell by form) and goes to Trash", () => {
+    const refused = WRITE_REPLY_SCRIPT.indexOf('"content_refused"');
+    const block = WRITE_REPLY_SCRIPT.slice(WRITE_REPLY_SCRIPT.indexOf("does not contain probe then"), refused);
+    expect(block).toMatch(/delete r/);
+    expect(block).toMatch(/my threadDrafts\(subj, landIn, thread, priorIds\)/);
+    expect(block).toMatch(/my isShell\(\(content of m\) as text, origText\) then/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/on isShell\(t, orig\)/);
+    expect(WRITE_REPLY_SCRIPT).toMatch(/hd does not end with ":" then return false/);
+    // The message says what it is not, and never sends the owner to System Settings.
+    expect(WRITE_REPLY_SCRIPT).toMatch(/not a macOS permission/);
+    expect(WRITE_REPLY_SCRIPT).not.toMatch(/System Settings|Automation/);
+    let err: DraftWriteError | null = null;
+    try {
+      parseWriteOutput(["error", "content_refused", "Mail did not take the text.", `140019${LS}`].join(FS));
+    } catch (e) {
+      err = e as DraftWriteError;
+    }
+    expect(err?.code).toBe("content_refused");
+    expect(err?.message).toMatch(/moved it to Trash \(Mail id 140019\)/);
+    expect(adviceOf("content_refused")).toMatchObject({ retry: "no" });
+    expect(adviceOf("content_refused").next).toMatch(/not a macOS permission/);
+    expect(adviceOf("mail_not_running")).toMatchObject({ retry: "after_owner" });
+    expect(adviceOf("mail_not_running").next).toMatch(/does not open Mail itself/);
+    // Only a measured refusal of Apple events is a permission.
+    for (const [code, a] of Object.entries({ ...Object.fromEntries(["content_refused", "mail_slow", "mail_error", "already_sent", "mail_not_running"].map((c) => [c, adviceOf(c)])) })) expect(a.next, code).not.toMatch(/System Settings|Automation/);
+    expect(adviceOf("mail_not_allowed").next).toMatch(/Privacy & Security ▸ Automation/);
+    expect(isNotAllowed("execution error: Not authorized to send Apple events to Mail. (-1743)")).toBe(true);
+    expect(isNotAllowed("execution error: Mail got an error: Can’t get account. (-1728)")).toBe(false);
+  });
+
+  it("a -1743 refusal of osascript is mail_not_allowed; any other failure stays mail_error", async () => {
+    const no: OsaRun = async () => Promise.reject(new Error("execution error: Not authorized to send Apple events to Mail. (-1743)"));
+    await expect(mailAppDraftWriter(no).findInbound(["a"], "x@y")).rejects.toMatchObject({ code: "mail_not_allowed" });
+    const other: OsaRun = async () => Promise.reject(new Error("boom"));
+    await expect(mailAppDraftWriter(other).findInbound(["a"], "x@y")).rejects.toMatchObject({ code: "mail_error" });
   });
 
   it("parses ok and error answers: the new Message-ID and the text read back; the replaced ids are unique", () => {
@@ -318,6 +364,22 @@ describe("draft_write (hub mcp)", () => {
     mail.inbound.clear();
     expect(await call({ draft: rec.draftId, content: "x" })).toMatchObject({ isError: true, json: { error: "no_message" } });
     expect(bumped).toEqual(["acme", "acme"]);
+  });
+
+  it("P83: a sent draft is refused with already_sent before Mail is asked; every refusal says whether a retry helps", async () => {
+    const repos = createRepos(db.db);
+    const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Hello", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail" });
+    await repos.drafts.markSent(rec.draftId, { at: "2026-11-19T14:15:38Z", via: "test", messageId: "s1@x" });
+    const mail = new FakeDraftWriter();
+    mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
+    const call = await connect(mail);
+    const r = await call({ draft: rec.draftId, content: "A new poem." });
+    expect(r).toMatchObject({ isError: true, json: { error: "already_sent", retry: "no" } });
+    expect(r.json.message).toMatch(/was sent \(2026-11-19 14:15\): a sent mail is not revised/);
+    expect(r.json.next).toMatch(/Do not call draft_write again/);
+    expect(mail.drafts).toHaveLength(0);
+    // A refusal of the arguments says "now": another call helps once they are fixed.
+    expect(await call({ content: "x" })).toMatchObject({ isError: true, json: { error: "invalid", retry: "now" } });
   });
 
   it("a failed live bump or version record never fails the write", async () => {

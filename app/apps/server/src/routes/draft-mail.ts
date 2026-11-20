@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { DraftWriteError, reviseDraft, versionHash } from "@hub/agent/mail-drafts";
+import { alreadySentText, DraftWriteError, reviseDraft, versionHash } from "@hub/agent/mail-drafts";
 import { writeLogOf } from "@hub/agent/write-record";
 import type { DraftRow, MailVersionRow, Repos } from "@hub/db";
 import { loadProject } from "@hub/projects";
@@ -57,6 +57,7 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
     const pm = projectMail(d.project);
     if (!sender?.writer || !pm) return refuse(c, "Writing Mail drafts is not set up on this server.");
     if (!d.mailRef) return refuse(c, "This draft answers no Mail message, so it cannot be written here.");
+    if (d.status === "sent") return refuse(c, alreadySentText(d.id, d.sentAt ?? null));
     const live: MailVersionRow[] = (await repos.mailVersions.ofDraft(d.id)).filter((v) => !v.trashedAt);
     try {
       const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, clientWroteTo: d.wroteTo ?? null, mailRef: d.mailRef, body, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), log: writeLogOf((fn) => fn(repos), d.project, d.id, d.mailRef) });

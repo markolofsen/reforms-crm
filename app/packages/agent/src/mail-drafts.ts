@@ -41,6 +41,37 @@ export const defaultOsa: OsaRun = osaWithin(150_000);
  */
 export const MAIL_SLOW_TEXT = "Mail is slow: it has not shown the saved draft yet. The write may still land in Drafts; the Hub recorded it and adopts it as this draft's version when it appears (at the next write, the card's next read, or hub drafts sweep). Nothing older was replaced. Do not call draft_write again for this draft now: tell the owner in one line that Mail is slow and the new text will show on the card when Mail saves it.";
 
+/**
+ * What a refusal of a draft write lets the caller do next (P83: the dock agent repeated an identical failing call five
+ * times and named a permission nobody had measured). `retry`: `now` after changing what `next` says, `after_owner` only
+ * once the owner did what `next` says, `no` never in this turn. Only `mail_not_allowed` speaks of a permission.
+ */
+export type RetryAdvice = { retry: "now" | "after_owner" | "no"; next: string };
+const NO_RETRY = "Do not call draft_write again for this draft in this turn.";
+export const WRITE_ADVICE: Readonly<Record<string, RetryAdvice>> = {
+  own_signoff: { retry: "now", next: "Remove your closing as the message says, then call draft_write once with the new text." },
+  invalid: { retry: "now", next: "Fix the arguments as the message says." },
+  empty: { retry: "now", next: "Give the reply's text." },
+  mail_not_running: { retry: "after_owner", next: "Ask the owner in one line to open Mail (it may stay in the background), then call draft_write once more. The Hub does not open Mail itself: opening Mail sends whatever waits in its Outbox." },
+  mail_not_allowed: { retry: "after_owner", next: "Tell the owner in one line: System Settings ▸ Privacy & Security ▸ Automation, allow the Hub's process to control Mail; then call draft_write once more." },
+  content_refused: { retry: "no", next: `Another call, with this text or another, gives the same result. ${NO_RETRY} Tell the owner in one line: the Hub's Mail writer refused the reply, nothing was saved, it is a Hub fault (in the session log), not a macOS permission.` },
+  mail_slow: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that Mail is slow and the new text shows on the card when Mail saves it.` },
+  already_sent: { retry: "no", next: `${NO_RETRY} Tell the owner in one line what the message says; never write the text as a new reply to the same message.` },
+  already_drafted: { retry: "no", next: "Revise the draft the message names, with draft = its id, when the owner asks." },
+  no_message: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that the client's message is no longer in Mail.` },
+  no_account: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that Mail has no such account (Settings ▸ Mail).` },
+  mail_error: { retry: "no", next: `${NO_RETRY} Tell the owner in one line what Mail answered.` },
+};
+/**
+ * P83 verdict 2: a sent draft is not revised (the agent's draft_write, the admin's Save and Restore), and its text is
+ * not written as a second draft of the message it answered: Sent detection and the send door match a draft by that
+ * message, so a second one would read as sent at once.
+ */
+export const alreadySentText = (id: number, sentAt: string | null): string =>
+  `Draft ${id} was sent${sentAt ? ` (${sentAt.slice(0, 16).replace("T", " ")})` : ""}: a sent mail is not revised, and the Hub keeps one draft per message it answers. The next reply answers the client's next message and gets its own draft; a nudge now is a follow-up the owner sends from Mail. Nothing was written.`;
+
+export const adviceOf = (code: string): RetryAdvice => WRITE_ADVICE[code] ?? { retry: "no", next: NO_RETRY };
+
 /** One Mail version the Hub wrote, as the replace step needs it: the account it sits in and its own Message-ID. */
 export interface VersionRef {
   account: string;
@@ -188,16 +219,19 @@ export const WRITE_REPLY_SCRIPT = `on run argv
       return "error" & FS & "no_message" & FS & "No message " & srcId & " in that mailbox of " & accName & "."
     end try
     set thread to message id of src
+    set origText to ""
+    try
+      set origText to (content of src) as text
+    end try
     set tail to ""
-    if addQuote then set tail to linefeed & linefeed & "On " & ((date sent of src) as string) & ", " & (sender of src) & " wrote:" & linefeed & my quoteOf((content of src) as text)
+    if addQuote then set tail to linefeed & linefeed & "On " & ((date sent of src) as string) & ", " & (sender of src) & " wrote:" & linefeed & my quoteOf(origText)
     -- Every draft that exists before the reply: whatever appears after it is this write's (one bulk read).
     set priorIds to id of every message of drafts mailbox
     set r to reply src opening window false
     set subj to subject of r
+    -- Never read the reply's content before it is set (P83): on Mail 16 that read returns "" and Mail then ignores every
+    -- set of it, so each write ended in content_refused (measured 2026-11-20). Mail's shell is recognised by its form instead.
     set shellText to ""
-    try
-      set shellText to (content of r) as text
-    end try
     set fromNow to sender of r
     set inAccount to false
     repeat with a in accAddrs
@@ -221,7 +255,23 @@ export const WRITE_REPLY_SCRIPT = `on run argv
     delay 0.3
     if ((content of r) as text) does not contain probe then
       delete r
-      return "error" & FS & "content_refused" & FS & "Mail did not take the text of the reply; nothing was saved or replaced."
+      -- Mail keeps a refused reply in Drafts (P83, 2026-11-20): this run's own, recognised by its form, goes to Trash.
+      set cleared to ""
+      set deadline to (current date) + 6
+      repeat
+        repeat with fid in my threadDrafts(subj, landIn, thread, priorIds)
+          try
+            set m to (first message of drafts mailbox whose id is (contents of fid))
+            if (deleted status of m) is false and my isShell((content of m) as text, origText) then
+              delete m
+              set cleared to cleared & (contents of fid) & LS
+            end if
+          end try
+        end repeat
+        if cleared is not "" or (current date) > deadline then exit repeat
+        delay 0.5
+      end repeat
+      return "error" & FS & "content_refused" & FS & "Mail did not take the text of the reply. This is the Hub's Mail writer, not a macOS permission (a missing permission is mail_not_allowed). Nothing was saved or replaced." & FS & cleared
     end if
     save r
     delay 0.5
@@ -242,7 +292,7 @@ export const WRITE_REPLY_SCRIPT = `on run argv
         considering case
           if t contains probe then
             set end of mine to (contents of fid)
-          else if shellText is not "" and t is shellText then
+          else if my isShell(t, origText) then
             set end of shells to (contents of fid)
           end if
         end considering
@@ -329,6 +379,34 @@ on quoteOf(t)
   end repeat
   return out
 end quoteOf
+
+-- Mail's own reply shell (P83; the form @hub/db isReplyShell matches): no text at all, or one attribution line ending
+-- in ":" over the quoted original and nothing else. Whitespace and quote marks are ignored on both sides.
+on isShell(t, orig)
+  set flatT to my squeeze(t)
+  if flatT is "" then return true
+  set flatO to my squeeze(orig)
+  if flatO is "" then return false
+  set hd to ""
+  repeat with p in paragraphs of t
+    if my squeeze(contents of p) is not "" then
+      set hd to my squeeze(contents of p)
+      exit repeat
+    end if
+  end repeat
+  if (length of hd) > 300 or hd does not end with ":" then return false
+  considering case
+    return flatT is (hd & flatO)
+  end considering
+end isShell
+
+on squeeze(s)
+  set AppleScript's text item delimiters to {space, tab, linefeed, return, ">", character id 160}
+  set xs to text items of s
+  set AppleScript's text item delimiters to ""
+  set out to xs as text
+  return out
+end squeeze
 
 on parts(s, d)
   if s is "" then return {}
@@ -518,7 +596,12 @@ export function parseInboundOutput(out: string): InboundMessage | null {
 export function parseWriteOutput(out: string): ReplyDraftResult {
   const t = out.replace(/[\r\n]+$/, "");
   const p = t.split(FS);
-  if (p[0] === "error") throw new DraftWriteError(p[1] || "mail_error", p[2] || "Mail refused the draft.");
+  if (p[0] === "error") {
+    // P83: a refused reply Mail kept in Drafts was this run's own and went to Trash; its Mail ids are said, never asked of anyone.
+    const cleared = [...new Set((p[3] ?? "").split(LS).map((x) => x.trim()).filter(Boolean))];
+    const note = cleared.length ? ` Mail kept the refused reply in Drafts; the Hub moved it to Trash (Mail id ${cleared.join(", ")}).` : "";
+    throw new DraftWriteError(p[1] || "mail_error", `${p[2] || "Mail refused the draft."}${note}`);
+  }
   if (p[0] === "pending") throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT, p.slice(1).join(FS));
   if (p[0] !== "ok" || p.length < 12) throw new DraftWriteError("mail_error", `Mail answered "${out.trim().slice(0, 100)}"`);
   const [, id, subject, thread, from, replaced, left, mid, savedIn, , shell] = p as [string, string, string, string, string, string, string, string, string, string, string];
@@ -545,9 +628,13 @@ export function parseThreadDrafts(out: string): ThreadMailDraft[] {
   return list;
 }
 
+/** macOS refused the Apple events (-1743): the one case that is a permission (P83). */
+export const isNotAllowed = (message: string): boolean => /-1743\b|not authori[sz]ed to send apple events/i.test(message);
+
 /** Mail.app through osascript, run by the hub MCP server. Plain text. */
 export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
   const fail = (e: Error) => {
+    if (isNotAllowed(e.message)) throw new DraftWriteError("mail_not_allowed", `macOS did not let the Hub control Mail (${e.message.slice(0, 120)}).`);
     throw new DraftWriteError("mail_error", e.message);
   };
   const readBlock = async (script: string, m: InboundMessage): Promise<string> => {

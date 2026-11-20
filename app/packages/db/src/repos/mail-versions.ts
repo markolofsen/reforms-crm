@@ -82,7 +82,7 @@ export interface Adoption<D extends ThreadDraft = ThreadDraft> {
   draft: D;
   /** The open write it is the late save or the shell of; null when it matched a recorded version's text. */
   writeId: number | null;
-  why: "late_save" | "same_text" | "shell" | "mail_shell";
+  why: "late_save" | "same_text" | "shell" | "mail_shell" | "empty_shell";
 }
 
 const accountKey = (a: string | null | undefined) => (a ?? "").trim().toLowerCase();
@@ -91,7 +91,7 @@ const accountKey = (a: string | null | undefined) => (a ?? "").trim().toLowerCas
  * Pure (decision 0031 addendum point 2): which unrecorded drafts of a thread are the Hub's own. A draft already recorded
  * (account and Message-ID) is skipped; one whose collapsed text (a) begins with an open write's text, (b) equals a
  * recorded version's text, (c) equals an open write's reply shell, or (d) is Mail's empty reply to the answered message
- * (`isReplyShell`, when `original` is given) is adopted. Anything else stays the owner's.
+ * (`isReplyShell`, when `original` is given), or (e) is empty while a write of the Hub to the thread is open (P83: Mail keeps a refused reply), is adopted. Anything else stays the owner's.
  */
 export function adoptable<D extends ThreadDraft>(drafts: readonly D[], versions: readonly Pick<MailVersionRow, "account" | "messageId" | "hash">[], writes: readonly Pick<MailWriteRow, "id" | "textHash" | "textLen" | "shellHash" | "settledAt">[], original: string | null = null): Adoption<D>[] {
   const recorded = new Set(versions.map((v) => `${accountKey(v.account)}\u0000${bareRef(v.messageId)}`));
@@ -113,6 +113,9 @@ export function adoptable<D extends ThreadDraft>(drafts: readonly D[], versions:
     const shell = open.find((w) => w.shellHash && w.shellHash === shellHashOf(d.body));
     if (shell) out.push({ draft: d, writeId: shell.id, why: "shell" });
     else if (isReplyShell(d.body, original)) out.push({ draft: d, writeId: null, why: "mail_shell" });
+    // P83: Mail keeps a refused reply as an empty draft of the thread. With the Hub's write to this thread still open, an
+    // empty one is that write's leftover: it holds nobody's text, and it goes to Trash, never further.
+    else if (!d.body.trim() && open.length > 0) out.push({ draft: d, writeId: [...open].sort((a, b) => b.id - a.id)[0]?.id ?? null, why: "empty_shell" });
   }
   return out;
 }

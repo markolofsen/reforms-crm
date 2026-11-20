@@ -4,20 +4,21 @@ import { FOCUS_TEXT_MAX } from "@hub/contract/focus";
 // one JSON object as text plus `structuredContent`, a refusal as `isError` with a stable `error` code the skills name.
 
 export class ToolError extends Error {
-  constructor(readonly code: string, message: string) {
+  /** P83: fields the refusal carries beside `error` and `message` (a draft write's `retry` and `next`). */
+  constructor(readonly code: string, message: string, readonly detail: Record<string, unknown> = {}) {
     super(message);
   }
 }
 
 export const ok = (value: Record<string, unknown>) => ({ content: [{ type: "text" as const, text: JSON.stringify(value) }], structuredContent: value });
-export const fail = (code: string, message: string) => ({ isError: true, content: [{ type: "text" as const, text: JSON.stringify({ error: code, message }) }] });
+export const fail = (code: string, message: string, detail: Record<string, unknown> = {}) => ({ isError: true, content: [{ type: "text" as const, text: JSON.stringify({ error: code, message, ...detail }) }] });
 
 /** Runs a tool body: its value as the reply, a {@link ToolError} as a refusal; anything else is thrown to the MCP layer. */
 export async function run(fn: () => Promise<Record<string, unknown>>) {
   try {
     return ok(await fn());
   } catch (e) {
-    if (e instanceof ToolError) return fail(e.code, e.message);
+    if (e instanceof ToolError) return fail(e.code, e.message, e.detail);
     throw e;
   }
 }

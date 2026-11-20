@@ -53,9 +53,11 @@ export async function settleThread(deps: { mailer: Pick<Mailer, "findDrafts" | "
   const rowOf = (d: MailDraft) => versions.find((v) => lower(v.account) === lower(d.account) && bareId(v.messageId) === bareId(d.messageId));
   const shells = new Set(writes.flatMap((w) => (w.shellHash ? [w.shellHash] : [])));
   const hubs = thread.filter((d) => rowOf(d) !== undefined).sort((a, b) => (Number(b.ref) || 0) - (Number(a.ref) || 0));
-  // A reply shell (this write's, or Mail's empty reply) is never the draft that stays.
-  const keep = hubs.find((d) => !shells.has(shellHashOf(d.body)) && !isReplyShell(d.body, original));
-  const out = hubs.filter((d) => d !== keep && keep !== undefined);
+  // A reply shell (this write's, Mail's empty reply, or the empty draft Mail kept from a refused write, P83) is never the
+  // draft that stays; when the thread holds nothing but shells, they all go (they hold nobody's text).
+  const isShell = (d: MailDraft) => !d.body.trim() || shells.has(shellHashOf(d.body)) || isReplyShell(d.body, original);
+  const keep = hubs.find((d) => !isShell(d));
+  const out = hubs.filter((d) => d !== keep);
   if (out.length === 0) return { ...none, adopted };
   const r = await deps.mailer.trashDrafts(out.map((d) => ({ account: d.account ?? "", messageId: d.messageId ?? "" })));
   const moved = new Set(r.moved.map(bareId));

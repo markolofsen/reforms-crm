@@ -1,6 +1,6 @@
 // The one label table of the agent activity feed (P59, plan table 4c). A label is a verb and at most one id: never a
 // command, a query, an address, a subject or a path. Only `labelOfTool` reads a tool's input or output, and only for the
-// one id field it names (`draft_show.id`, `draft_write.draft`, `record-draft`'s `draftId`) and the `ok` of a record.
+// one id field it names (`draft_show.draft` and `draft_write.draft`, P83, `record-draft`'s `draftId`) and the `ok` of a record.
 
 export interface Labelled {
   label: string;
@@ -57,7 +57,7 @@ function recordLabel(output: unknown, done: boolean): Labelled {
   return { label: r.draft ? `records draft ${r.draft}` : "records a draft", draft: r.draft, ready: done && r.ok };
 }
 
-/** The first number after `key:` in a Codex script's text (`tools.mcp__hub__draft_show({id: 3})`). */
+/** The first number after `key:` in a Codex script's text (`tools.mcp__hub__draft_show({draft: 3})`). */
 function scriptId(code: string, key: string): number | null {
   const m = new RegExp(`\\b${key}\\s*:\\s*(\\d{1,9})\\b`).exec(code);
   return m?.[1] ? Number(m[1]) : null;
@@ -74,7 +74,7 @@ export function labelOfTool(tool: string, input: unknown, output: unknown, done:
   if (HIDDEN_TOOLS.has(tool)) return null;
   const inp = obj(input);
   if (tool === "mcp__hub__draft_show") {
-    const id = idOf(inp?.id);
+    const id = idOf(inp?.draft);
     return { label: id ? `reads draft ${id}` : "reads a draft", draft: id, ready: false };
   }
   if (tool === "mcp__hub__draft_write") {
@@ -105,7 +105,7 @@ function execLabel(input: unknown, output: unknown, done: boolean, via: readonly
   if (via.length) {
     const first = via.find((t) => !HIDDEN_TOOLS.has(t));
     if (!first) return null;
-    const arg = first === "mcp__hub__draft_show" ? { id: scriptId(code, "id") } : first === "mcp__hub__draft_write" ? { draft: scriptId(code, "draft") } : {};
+    const arg = first === "mcp__hub__draft_show" || first === "mcp__hub__draft_write" ? { draft: scriptId(code, "draft") } : {};
     return labelOfTool(first, arg, output, done);
   }
   if (isRecordDraft(code)) return recordLabel(output, done);

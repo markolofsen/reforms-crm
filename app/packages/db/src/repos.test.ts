@@ -376,6 +376,11 @@ describe("recorded evidence (P28 C1-C3)", () => {
     expect(adoptable([mailShell, owner], [], [], original).map((a) => [a.draft.ref, a.why])).toEqual([["139835", "mail_shell"]]);
     // A settled write no longer adopts anything by its text or its shell.
     expect(adoptable([late, shell], [], [{ ...writes[0]!, settledAt: "2026-11-19T12:50:40Z" }])).toEqual([]);
+    // P83: the empty draft Mail kept from a refused write (saas 140019) is that open write's; with no open write it stays.
+    const empty = { ref: "140019", account: "hello@x", messageId: "5339@x", body: "\n\n" };
+    expect(adoptable([empty, owner], [], writes).map((a) => [a.draft.ref, a.why, a.writeId])).toEqual([["140019", "empty_shell", 3]]);
+    expect(adoptable([empty], [], [])).toEqual([]);
+    expect(adoptable([empty], [], [{ ...writes[0]!, settledAt: "2026-11-19T12:50:40Z" }])).toEqual([]);
   });
 
   it("signature_language (P65 S2): amber when the newest version the Hub wrote was signed in English for another language", async () => {

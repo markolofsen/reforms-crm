@@ -43,7 +43,7 @@ test("agent feed: the sidebar footer holds no feed rows (P73), and a line in the
   await page.goto(at(P, "/drafts"));
   await expect(page.getByRole("button", { name: "Mute the agent sounds" })).toBeVisible();
   const read = fed(page);
-  append({ kind: "tool_call", corr: "c1", data: { tool: "mcp__hub__draft_show", input: { id: 1 } } }, { kind: "tool_result", corr: "c1", data: { tool: "mcp__hub__draft_show", output: "{}" } });
+  append({ kind: "tool_call", corr: "c1", data: { tool: "mcp__hub__draft_show", input: { draft: 1 } } }, { kind: "tool_result", corr: "c1", data: { tool: "mcp__hub__draft_show", output: "{}" } });
   await read;
   await expect(page.getByTestId("agent-feed")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Agent activity" })).toHaveCount(0);
