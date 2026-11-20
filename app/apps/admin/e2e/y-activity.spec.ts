@@ -44,15 +44,21 @@ test("activity: one timeline, a heading per day, one line per fold, the outcome 
 });
 
 test("activity: a folded line's count opens its entries under it", async ({ page }) => {
-  const dto = await activity(page);
-  const fold = daySections(dto.rows, Date.now()).flatMap((d) => d.groups).find((g) => g.rows.length > 1);
-  test.skip(!fold, "the seed has no fold today");
-  if (!fold) return;
+  // Three saves of one draft on one day, as on saas (the seed has none): one line "×3", its entries under it once opened.
+  await page.route(/\/api\/activity\?/, async (route) => {
+    const res = await route.fetch();
+    const dto = (await res.json()) as ActivityDto;
+    const [r, ...rows] = dto.rows;
+    if (!r) return route.fulfill({ response: res });
+    const save = (id: number, s: number) => ({ ...r, id, at: new Date(Date.parse(r.at) + s * 1000).toISOString(), outcome: "updated" as const, draftId: 7, client: { id: 99, name: "Fold Person" }, who: "Fold Person" });
+    await route.fulfill({ response: res, json: { ...dto, rows: [save(1_000_003, 3), save(1_000_002, 2), save(1_000_001, 1), r, ...rows] } });
+  });
   await page.goto(LOG);
   const table = page.getByRole("table", { name: "Activity" });
-  const line = table.locator(`tr[data-row][data-count="${fold.rows.length}"]`).first();
-  await line.getByRole("button", { name: new RegExp(`×${fold.rows.length}`) }).last().click();
-  await expect(table.locator("tr[data-entry]")).toHaveCount(fold.rows.length);
+  const line = table.locator('tr[data-row][data-count="3"]');
+  await expect(line).toContainText("Updated the draft");
+  await line.getByRole("button", { name: /×3/ }).click();
+  await expect(table.locator("tr[data-entry]")).toHaveCount(3);
 });
 
 test("activity: the View menu counts decisions by outcome (the server's) and narrows the table; the filter replaces the entry", async ({ page }) => {
@@ -103,11 +109,11 @@ test("activity: at 360 px a row is two lines of the same table (client and what 
   await expect(row).toBeVisible();
   const cells = await row.locator("td").evaluateAll((tds) => tds.filter((td) => getComputedStyle(td).display !== "none").length);
   expect(cells).toBe(1);
-  // The client cell's first child is the name (line 1, with what happened); its last child is when and why (line 2), below it.
-  const twoLines = await row.locator("td").first().evaluate((td) => {
+  // The one visible cell (the client's): its first child is the name (line 1, with what happened); its last child is when and why (line 2), below it.
+  const twoLines = await row.locator("td:visible").first().evaluate((td) => {
     const first = td.firstElementChild?.getBoundingClientRect();
     const last = td.lastElementChild?.getBoundingClientRect();
-    return !!first && !!last && last.top >= first.bottom - 1;
+    return !!first && !!last && last.top > first.top + first.height / 2;
   });
   expect(twoLines).toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
