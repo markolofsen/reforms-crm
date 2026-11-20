@@ -21,6 +21,8 @@ let fake: FakeMtClient;
 let made: number;
 let login: FakeLoginClient;
 let tg: TelegramUserHandle | null;
+/** P71 M-P: the projects a poll stored messages in (the pre-analysis hook). */
+let stored: string[] = [];
 const anna = fakePerson(1001, "Anna", { phone: "79990001122" });
 const stranger = fakePerson(2002, "Stranger");
 
@@ -30,11 +32,13 @@ const start = () =>
     env: {},
     dir,
     clients: { session: () => (made++, fake), login: () => login },
+    onStored: (project) => stored.push(project),
   });
 const post = (app: ReturnType<typeof createApp>, path: string, body: unknown, headers: Record<string, string> = HEADERS) =>
   app.request(`${BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
 
 beforeEach(async () => {
+  stored = [];
   handle = openDb(":memory:");
   repos = createRepos(handle.db);
   await repos.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: "active", settingsJson: "{}", hash: "p" }], addresses: [] });
@@ -95,6 +99,9 @@ describe("Telegram user account in the server", () => {
     expect(await repos.messengers.messagesOf("p", [{ channel: "telegram_user", chatId: "2002" }], { limit: 5 })).toEqual([]);
     expect((await repos.messengers.allowedChats("p")).map((c) => c.chatId)).toEqual(["1001"]);
     expect(JSON.stringify(tg?.status())).not.toMatch(/2002|Stranger/);
+    // P71 M-P: the poll that stored the message told the pre-analysis hook (and only for this project).
+    await vi.waitFor(() => expect(stored).toContain("p"));
+    expect(new Set(stored)).toEqual(new Set(["p"]));
   });
 
   it("the picker marks a suggestion by phone and a linked chat; nothing of it is stored", async () => {

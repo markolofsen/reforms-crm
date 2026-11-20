@@ -44,6 +44,8 @@ function startApi(): ChildProcess {
       HUB_PORT: String(API_PORT),
       HUB_ADMIN_PORT: process.env.HUB_E2E_UI_PORT,
       HUB_MAILER: "fake",
+      // P71 M-P: the pre-analysis' model is the fake transport of `@hub/llm`: no request leaves the process.
+      HUB_LLM: "fake",
       HUB_PROJECTS: process.env.HUB_E2E_PROJECTS,
       HUB_TERMINAL_SHELL: "fake",
       HUB_AGENT_TOOLS: "fake",
