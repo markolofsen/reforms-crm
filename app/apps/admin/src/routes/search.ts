@@ -1,6 +1,7 @@
 import { DRAFT_VIEWS, type DraftView } from "@hub/config";
 import { ACTIVITY_VIEWS as TIMELINE_VIEWS, type ActivityView as TimelineView } from "@hub/contract/activity";
 import { KNOWLEDGE_VIEWS, type KnowledgeView } from "@hub/contract/knowledge";
+import { MESSENGER_VIEWS, type MessengerView } from "@hub/contract/messenger-panel";
 
 // Every URL parameter name and its allowed values, in one place. No React, no URL library: plain functions, so the
 // address of every screen is testable without a DOM. The enums are the ones the API validates (`@hub/config`, re-used
@@ -74,6 +75,9 @@ export type LogSearch = { filter: ActivityView; client: number | null };
 export type KnowledgeSearch = { filter: KnowledgeView; q: string };
 export { KNOWLEDGE_VIEWS, type KnowledgeView };
 export type AgentSearch = { filter: AgentView };
+/** P71 M3: the Messengers panel's view, Waiting (the default) or All chats; the enum the API validates. */
+export type MessengersSearch = { filter: MessengerView };
+export { MESSENGER_VIEWS, type MessengerView };
 export type NoSearch = Record<string, never>;
 
 /**
@@ -89,4 +93,5 @@ export const draftsSearch = (raw: Raw): DraftsSearch => {
 export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(ACTIVITY_VIEWS, raw.filter, "all"), client: positiveInt(raw.client) });
 export const knowledgeSearch = (raw: Raw): KnowledgeSearch => ({ filter: oneOf(KNOWLEDGE_VIEWS, raw.filter, "all"), q: raw.q ?? "" });
 export const agentSearch = (raw: Raw): AgentSearch => ({ filter: oneOf(AGENT_VIEWS, raw.filter, "attention") });
+export const messengersSearch = (raw: Raw): MessengersSearch => ({ filter: oneOf(MESSENGER_VIEWS, raw.filter, "waiting") });
 export const noSearch = (): NoSearch => ({});

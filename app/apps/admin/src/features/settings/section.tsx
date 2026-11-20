@@ -57,13 +57,13 @@ export function AgentScreen() {
   );
 }
 
-/** Settings ▸ Connections: the instance's Notion token and Telegram bot. Its address names no project. */
+/** Settings ▸ Connections: the instance's Notion token (the Telegram bot's is on Messengers ▸ Settings, P71 M3). Its address names no project. */
 export function ConnectionsScreen() {
   const route = useRoute();
   if (route.route !== "settings.connections") return null;
   return (
     <Page nav={<SubNav section="settings" />}>
-      <ConnectionsView />
+      <ConnectionsView kinds={["notion"]} />
     </Page>
   );
 }

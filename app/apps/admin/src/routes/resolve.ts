@@ -1,6 +1,6 @@
 import { parseRef } from "@hub/contract/focus";
 import { paths, type Dest } from "./paths";
-import { agentSearch, draftsSearch, knowledgeSearch, logSearch, noSearch, parseQuery, positiveInt, type AgentSearch, type DraftsSearch, type KnowledgeSearch, type LogSearch, type NoSearch } from "./search";
+import { agentSearch, draftsSearch, knowledgeSearch, logSearch, messengersSearch, noSearch, parseQuery, positiveInt, type AgentSearch, type DraftsSearch, type KnowledgeSearch, type LogSearch, type MessengersSearch, type NoSearch } from "./search";
 import type { SectionId } from "./sections";
 import { PROJECTLESS, RESERVED_SEGMENTS, ROUTE_TABLE } from "./table";
 
@@ -21,6 +21,8 @@ export type Resolved =
   | (Base & { route: "overview.page"; section: "overview"; params: NoSearch; search: NoSearch })
   | (Base & { route: "drafts.list"; section: "drafts"; params: NoSearch; search: DraftsSearch })
   | (Base & { route: "drafts.item"; section: "drafts"; params: { id: number }; search: DraftsSearch })
+  | (Base & { route: "messengers.page"; section: "messengers"; params: NoSearch; search: MessengersSearch })
+  | (Base & { route: "messengers.settings"; section: "messengers"; params: NoSearch; search: NoSearch })
   | (Base & { route: "log.list"; section: "log"; params: NoSearch; search: LogSearch })
   | (Base & { route: "knowledge.page"; section: "knowledge"; params: NoSearch; search: KnowledgeSearch })
   | (Base & { route: "settings.page"; section: "settings"; params: NoSearch; search: NoSearch })
@@ -72,6 +74,9 @@ export function resolveRoute(path: string, searchString: string): Resolved {
     case "drafts":
       if (segs.length <= 1) return { ...base, route: "drafts.list", section: "drafts", params: {}, search: draftsSearch(raw) };
       return id === null ? notFound : { ...base, route: "drafts.item", section: "drafts", params: { id }, search: draftsSearch(raw) };
+    case "messengers":
+      if (one) return { ...base, route: "messengers.page", section: "messengers", params: {}, search: messengersSearch(raw) };
+      return tail === "settings" ? { ...base, route: "messengers.settings", section: "messengers", params: {}, search: noSearch() } : notFound;
     case "log":
       return one ? { ...base, route: "log.list", section: "log", params: {}, search: logSearch(raw) } : notFound;
     case "settings":
@@ -96,6 +101,10 @@ export function destOf(r: Resolved): Dest | null {
       return paths.drafts.list(r.search);
     case "drafts.item":
       return paths.drafts.item(r.params.id, r.search);
+    case "messengers.page":
+      return paths.messengers.chats(r.search);
+    case "messengers.settings":
+      return paths.messengers.settings();
     case "log.list":
       return paths.log.list(r.search);
     case "knowledge.page":
@@ -139,6 +148,10 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
       return paths.overview();
     case "client":
       return paths.log.list({ client: Number(p.id) });
+    case "chat":
+    case "mdraft":
+      // P71 M3: a chat and its draft are rows of the panel; All chats, so a chat with nothing owed is there too.
+      return paths.messengers.chats({ filter: "all" });
   }
 }
 

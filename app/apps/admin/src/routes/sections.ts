@@ -53,4 +53,5 @@ export const NEXT_ROUTE: Readonly<Record<StatusNext, Exclude<RouteId, "drafts.it
   agent: "settings.agent",
   connections: "settings.connections",
   mac: "settings.mac",
+  messengers: "messengers.settings",
 };

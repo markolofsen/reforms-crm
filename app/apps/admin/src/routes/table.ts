@@ -52,17 +52,21 @@ export const ROUTE_TABLE = {
   "overview.page": defineRoute("/overview", { section: "overview", scoped: false, title: "Overview", nav: { label: "Overview", icon: "overview", order: 0, chord: "o", phone: "bar" } }),
   "drafts.list": defineRoute("/drafts", { section: "drafts", scoped: true, title: "Drafts", nav: { label: "Drafts", icon: "inbox", order: 1, chord: "d", phone: "bar" } }),
   "drafts.item": defineRoute("/drafts/[id]", { section: "drafts", scoped: true, title: "Drafts", crumb: "Draft" }),
-  "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", nav: { label: "Activity", icon: "activity", order: 2, chord: "a", phone: "bar" } }),
-  "knowledge.page": defineRoute("/knowledge", { section: "knowledge", scoped: true, title: "Knowledge", nav: { label: "Knowledge", icon: "knowledge", order: 3, chord: "k", phone: "more" } }),
+  // P71 M3 (decision 0036 point 6): what the messengers owe, an analogue of Drafts for the linked chats; its landing is the panel
+  // (Chats), its child the logins, the bot, each chat's rules and the guards. Mail drafts stay in Drafts.
+  "messengers.page": defineRoute("/messengers", { section: "messengers", scoped: true, title: "Chats", nav: { label: "Messengers", icon: "messengers", order: 2, chord: "m", phone: "more" } }),
+  "messengers.settings": defineRoute("/messengers/settings", { section: "messengers", scoped: true, title: "Messenger settings", nav: { label: "Settings", icon: "settings", order: 1, parent: "messengers.page" } }),
+  "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", nav: { label: "Activity", icon: "activity", order: 3, chord: "a", phone: "bar" } }),
+  "knowledge.page": defineRoute("/knowledge", { section: "knowledge", scoped: true, title: "Knowledge", nav: { label: "Knowledge", icon: "knowledge", order: 4, chord: "k", phone: "more" } }),
   // P70: Settings opens on its first pane, Sending (the row's title); the nav names the section, the sub-nav the pane.
-  "settings.page": defineRoute("/settings", { section: "settings", scoped: true, title: "Sending", nav: { label: "Settings", icon: "settings", order: 4, chord: "s", phone: "bar" } }),
+  "settings.page": defineRoute("/settings", { section: "settings", scoped: true, title: "Sending", nav: { label: "Settings", icon: "settings", order: 5, chord: "s", phone: "bar" } }),
   // P75: the checks before sending are their own pane, next to Sending (guards on each draft, a different kind of setting).
   "settings.checks": defineRoute("/settings/checks", { section: "settings", scoped: true, title: "Checks", nav: { label: "Checks", icon: "checks", order: 1, parent: "settings.page" } }),
   "settings.mail": defineRoute("/settings/mail", { section: "settings", scoped: true, title: "Mail", nav: { label: "Mail", icon: "mail", order: 2, parent: "settings.page" } }),
   "settings.agent": defineRoute("/settings/agent", { section: "settings", scoped: true, title: "Agent", nav: { label: "Agent", icon: "agents", order: 3, parent: "settings.page" } }),
   "settings.connections": defineRoute("/settings/connections", { section: "settings", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 4, parent: "settings.page" } }),
   "settings.mac": defineRoute("/settings/mac", { section: "settings", scoped: false, title: "This Mac", nav: { label: "This Mac", icon: "mac", order: 5, parent: "settings.page" } }),
-  "help.page": defineRoute("/help", { section: "help", scoped: false, title: "Help", nav: { label: "Help", icon: "help", order: 5, chord: "h", phone: "more" } }),
+  "help.page": defineRoute("/help", { section: "help", scoped: false, title: "Help", nav: { label: "Help", icon: "help", order: 6, chord: "h", phone: "more" } }),
 } as const;
 
 export type RouteId = keyof typeof ROUTE_TABLE;
@@ -75,6 +79,8 @@ export const TWINS: { readonly [K in RouteId]: [Twin<(typeof ROUTE_TABLE)[K]>] e
   "overview.page": true,
   "drafts.list": true,
   "drafts.item": true,
+  "messengers.page": true,
+  "messengers.settings": true,
   "log.list": true,
   "knowledge.page": true,
   "settings.page": true,
@@ -110,6 +116,8 @@ export const NAV_SHAPE: { readonly [K in RouteId]: NavCheck<(typeof ROUTE_TABLE)
   "overview.page": true,
   "drafts.list": true,
   "drafts.item": true,
+  "messengers.page": true,
+  "messengers.settings": true,
   "log.list": true,
   "knowledge.page": true,
   "settings.page": true,

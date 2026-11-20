@@ -36,6 +36,14 @@ export const keys = {
   /** P70: the Knowledge table, per view and title search. */
   knowledge: (project: string, view: string, q: string) => ["knowledge", project, view, q] as const,
   sends: (project: string) => ["sends", project] as const,
+  /** P71 M3: the Messengers panel's linked chats per view, and the owner's Telegram account (instance-wide, rides in health). */
+  messengerChats: (project: string, view: string) => ["messenger-chats", project, view] as const,
+  /** Every view of one project's panel: what an Edit, a Skip or a rules change reads again. */
+  messengerChatsOf: (project: string) => ["messenger-chats", project] as const,
+  telegramUser: () => ["telegram-user"] as const,
+  /** The link picker: a client lookup, and the owner's dialogs for one client (read on demand, dropped when the picker closes). */
+  clientMatches: (project: string, q: string) => ["client-matches", project, q] as const,
+  telegramDialogs: (project: string, account: string, clientId: number) => ["telegram-dialogs", project, account, clientId] as const,
   doctor: (project: string) => ["doctor", project] as const,
   /** Reads of Mail (an `osascript` call each): the draft as Mail holds it, and a client's thread. */
   draftMail: (project: string, id: number) => ["draft-mail", project, id] as const,
@@ -61,6 +69,7 @@ const rules = of("rules");
 const agentSettings = of("agent-settings");
 const knowledge = of("knowledge");
 const sends = of("sends");
+const messengerChats = of("messenger-chats");
 const agentTools = of("agent-tools");
 const agentFeed = of("agent-feed");
 const overview = () => keys.overview();
@@ -84,9 +93,9 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   rules: (p) => [rules(p), agentSettings(p), drafts(p), project(p)],
   projects: (p) => [keys.projects(), project(p), knowledge(p), agentTools(p), keys.connections(), overview(), scheme()],
   knowledge: (p) => [project(p), knowledge(p), scheme()],
-  messengers: (p) => [drafts(p), notByEmail(p), project(p), keys.connections()],
+  messengers: (p) => [messengerChats(p), drafts(p), notByEmail(p), project(p), keys.connections()],
   connections: () => [keys.connections(), agentTools(null), overview(), scheme()],
-  health: (p) => [keys.pulse(), project(p), keys.connections(), overview(), scheme()],
+  health: (p) => [keys.pulse(), project(p), keys.connections(), keys.telegramUser(), overview(), scheme()],
   mail: (p) => [draftMail(p), thread(p)],
   "agent-log": (p) => [agentFeed(p)],
   autostart: () => [keys.autostart()],

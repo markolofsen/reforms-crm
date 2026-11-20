@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { AGENT_VIEWS, DEFAULT_DRAFT_VIEW, DRAFT_VIEWS, KNOWLEDGE_VIEWS, oneOf, ACTIVITY_VIEWS } from "@/routes/search";
+import { AGENT_VIEWS, DEFAULT_DRAFT_VIEW, DRAFT_VIEWS, KNOWLEDGE_VIEWS, MESSENGER_VIEWS, oneOf, ACTIVITY_VIEWS } from "@/routes/search";
 import { formatDest, paths, type Dest } from "@/routes/paths";
 import type { Resolved } from "@/routes/resolve";
 import { useRoute } from "./use-route";
@@ -21,6 +21,7 @@ export function searchValue(r: Resolved, key: SearchKey): string | number | null
     case "log.list":
     case "knowledge.page":
     case "settings.agent":
+    case "messengers.page":
       return r.search.filter;
     default:
       return "all";
@@ -51,6 +52,8 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
       return paths.knowledge.page({ filter: oneOf(KNOWLEDGE_VIEWS, v, "all"), q: r.search.q });
     case "settings.agent":
       return paths.settings.agent({ filter: oneOf(AGENT_VIEWS, v, "attention") });
+    case "messengers.page":
+      return paths.messengers.chats({ filter: oneOf(MESSENGER_VIEWS, v, "waiting") });
     default:
       return null;
   }

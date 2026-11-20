@@ -100,6 +100,17 @@ const SCREENS: Screen[] = [
   { name: "settings: mail", path: at(P, "/settings/mail"), ready: async (p) => void (await p.getByRole("list", { name: "Mail filters" }).waitFor()) },
   { name: "settings: agent", path: at(P, "/settings/agent"), ready: async (p) => void (await p.getByTestId("agent-tools-status").waitFor()) },
   { name: "settings: this mac", path: "/settings/mac", ready: async (p) => void (await p.getByTestId("core-block").or(p.getByText("Could not load the core update check")).first().waitFor()) },
+  // P71 M3: the Messengers panel (the seeded chat of Rita with the agent's draft) and Messengers ▸ Settings.
+  { name: "messengers: chats", path: at(P, "/messengers"), ready: async (p) => void (await p.getByRole("list", { name: "Chats" }).getByTestId("messenger-draft").first().waitFor()) },
+  {
+    name: "messengers: chats, a draft in Edit",
+    path: at(P, "/messengers"),
+    ready: async (p) => {
+      await p.getByRole("button", { name: /^Edit the draft for / }).first().click();
+      await p.getByLabel(/^Your words for this reply/).waitFor();
+    },
+  },
+  { name: "messengers: settings", path: at(P, "/messengers/settings"), ready: async (p) => void (await p.getByRole("list", { name: "Linked chats" }).waitFor()) },
   // P63, P81: wait for the general view's form (the drawing, or on a phone its list), so axe and the width checks never see the skeleton.
   { name: "help", path: "/help", ready: async (p) => void (await p.locator('[data-testid="scheme-general"]:is([data-form="drawn"], [data-form="list"])').waitFor({ timeout: 15_000 })) },
   {
@@ -254,7 +265,7 @@ for (const scheme of ["light", "dark"] as const) {
   }
 }
 
-// P70: the phone bar is five items (Overview, Drafts, Activity, Settings, More); More holds Knowledge and Help, each label whole;
+// P70: the phone bar is five items (Overview, Drafts, Activity, Settings, More); More holds Messengers (P71 M3), Knowledge and Help, each label whole;
 // the rail (640-1279) draws parents only, so no pane is in the Sections nav there; below 640px the sub-nav is one menu.
 test("phone bar and rail: parents only, the More menu whole, the sub-nav a menu on a phone", async ({ page }) => {
   const width = page.viewportSize()?.width ?? 0;
@@ -267,7 +278,7 @@ test("phone bar and rail: parents only, the More menu whole, the sub-nav a menu 
     await expect(bar.getByRole("link")).toHaveText([/Overview$/, /Drafts$/, /Activity$/, /Settings$/]);
     await bar.getByTestId("tab-more").click();
     const items = page.getByRole("menuitem");
-    await expect(items).toHaveText([/^Knowledge/, /^Help/]);
+    await expect(items).toHaveText([/Messengers$/, /^Knowledge/, /^Help/]);
     const cut = await items.evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
     expect(cut, "cut labels in More").toEqual([]);
     await items.filter({ hasText: "Knowledge" }).click();

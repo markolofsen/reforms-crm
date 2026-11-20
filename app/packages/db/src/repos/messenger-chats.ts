@@ -34,6 +34,11 @@ export function messengerChatsRepo(db: Db) {
       return db.select().from(messengerChats).where(key(project, channel, chatId)).get() ?? null;
     },
 
+    /** The linked chat by its row id (the `chat:<id>` ref, P71 M3), or null when it is not this project's. */
+    async chatById(project: string, id: number): Promise<MessengerChatRow | null> {
+      return db.select().from(messengerChats).where(and(eq(messengerChats.project, project), eq(messengerChats.id, id))).get() ?? null;
+    },
+
     /**
      * The owner's rules for one linked chat (Messengers ▸ Settings in M3; tests). `invalid` when a value is out of bounds (the
      * migration's CHECKs say the same), `not_found` when the chat is not linked: a rule never creates a chat row.

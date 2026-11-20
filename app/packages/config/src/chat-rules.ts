@@ -19,6 +19,13 @@ export const MESSENGER_TEXT_MAX = 4096;
 export const OWNER_REQUEST_MIN = 3;
 export const OWNER_REQUEST_MAX = 500;
 
+/**
+ * The send guards of a user account (decision 0036 point 7), once here so the send door (P71 M4) enforces the same numbers that
+ * Messengers ▸ Settings prints today (M3). The hub never makes first contact: a chat needs an inbound message before a send.
+ */
+export const MESSENGER_DAILY_CAP = 30;
+export const MESSENGER_SPACING_SECONDS = 20;
+
 export interface ChatRules {
   replyMode: ReplyMode;
   /** The agent may propose a follow-up after our own last message, in a chat the client already wrote in (never first contact). */

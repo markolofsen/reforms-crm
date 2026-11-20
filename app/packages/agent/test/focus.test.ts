@@ -20,7 +20,7 @@ let rw: DbHandle;
 let ro: DbHandle;
 let repos: Repos;
 const NOW = new Date("2026-11-18T10:00:30Z");
-const ids = { mark: 0, ann: 0, other: 0, markClient: 0, run: 0, otherRun: 0 };
+const ids = { mark: 0, ann: 0, other: 0, markClient: 0, run: 0, otherRun: 0, chat: 0, otherChat: 0, mdraft: 0, otherMdraft: 0 };
 const CSV = "knowledge/files/csv-export-1a2b.md";
 const CSV_TITLE = "Can I download everything in a single request or as a CSV file?";
 
@@ -42,6 +42,14 @@ beforeEach(async () => {
   ids.other = (await w.drafts.record({ project: "beta", email: "zed@example.com", name: "Zed Secret", subject: "Re: Beta only", mailRef: "<m3@example.com>" })).draftId;
   ids.run = await w.runs.start({ project: "acme", startedAt: "2026-11-18T09:00:00Z", trigger: "owner", skill: "triage-mail" });
   ids.otherRun = await w.runs.start({ project: "beta", startedAt: "2026-11-18T09:00:00Z", trigger: "owner", skill: "triage-mail" });
+  // P71 M3: a linked chat and its draft in each project (the `chat:` and `mdraft:` refs).
+  await w.messengers.allowChat("acme", "telegram_user", "4242", "Mark");
+  await w.messengers.addIdentifier("acme", ids.markClient, "telegram", "4242");
+  ids.chat = (await w.messengers.chat("acme", "telegram_user", "4242"))?.id ?? 0;
+  ids.mdraft = (await w.messengers.createDraft({ project: "acme", channel: "telegram_user", chatId: "4242", text: "See you Tuesday", createdBy: "agent", clientId: ids.markClient })).id;
+  await w.messengers.allowChat("beta", "telegram_user", "777", "Zed");
+  ids.otherChat = (await w.messengers.chat("beta", "telegram_user", "777"))?.id ?? 0;
+  ids.otherMdraft = (await w.messengers.createDraft({ project: "beta", channel: "telegram_user", chatId: "777", text: "Beta secret", createdBy: "agent" })).id;
   ro = openDbReadOnly(path.join(dir, "app.db"));
   repos = createRepos(ro.db);
 });
@@ -79,8 +87,8 @@ describe("readFocus", () => {
   });
 
   it("every kind resolves inside the bound project and drops another project's id", async () => {
-    const own = { draft: String(ids.mark), client: String(ids.markClient), run: String(ids.run), knowledge: CSV, project: "acme" };
-    const foreign = { draft: String(ids.other), client: "999", run: String(ids.otherRun), knowledge: "knowledge/files/beta-only.md", project: "beta" };
+    const own = { draft: String(ids.mark), client: String(ids.markClient), run: String(ids.run), knowledge: CSV, project: "acme", chat: String(ids.chat), mdraft: String(ids.mdraft) };
+    const foreign = { draft: String(ids.other), client: "999", run: String(ids.otherRun), knowledge: "knowledge/files/beta-only.md", project: "beta", chat: String(ids.otherChat), mdraft: String(ids.otherMdraft) };
     const ctx = { repos, slug: "acme", today: "2026-11-18" };
     for (const kind of REF_KINDS) {
       expect(await RESOLVERS[kind](ctx, own[kind]), kind).not.toBeNull();
@@ -88,6 +96,12 @@ describe("readFocus", () => {
     }
     put({ route: "log.list", title: "Activity", subject: `run:${ids.run}` });
     expect((await read()).subject).toMatchObject({ ref: `run:${ids.run}`, kind: "run", status: "ok", title: expect.stringMatching(new RegExp(`^run ${ids.run} · triage-mail`)) });
+  });
+
+  it("a chat and a messenger draft name the client and the channel, and read with messenger_history (P71 M3)", async () => {
+    const ctx = { repos, slug: "acme", today: "2026-11-18" };
+    expect(await RESOLVERS.chat(ctx, String(ids.chat))).toEqual({ title: "Mark Effect · Telegram", status: "Draft replies", read: { server: "hub", tool: "messenger_history", args: { channel: "telegram_user", chat_id: "4242" } } });
+    expect(await RESOLVERS.mdraft(ctx, String(ids.mdraft))).toMatchObject({ title: "Mark Effect · Telegram draft · See you Tuesday", status: "draft" });
   });
 
   it("a resolver exists for every ref kind (a kind added without one fails here)", () => {

@@ -57,6 +57,7 @@ export const userLoginStepDto = z.discriminatedUnion("step", [
 ]);
 export type UserLoginStepDto = z.infer<typeof userLoginStepDto>;
 
+export const userLoginCancelledDto = z.strictObject({ ok: z.literal(true) });
 export const userDisconnectedDto = z.strictObject({ ok: z.literal(true), account: z.string(), removed: z.boolean() });
 
 // ---- the picker and the link (0036 point 3)

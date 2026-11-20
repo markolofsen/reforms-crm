@@ -118,7 +118,7 @@ describe("Telegram user account in the server", () => {
     const app = createApp(repos, { telegramUser: tg ?? undefined, adminPort: ADMIN });
     const health = (await (await app.request(`${BASE}/api/health`)).json()) as never;
     const scheme = await composeScheme({ projects: async () => [], doctor: async () => ({}) as never, files: async () => ({}) as never, agentTools: () => null, connections: async () => ({ instance: "i", connections: [], mail: [], mailRead: { state: "answered", fix: null } }), health: () => health, stopped: async () => false, clis: () => null, core: () => null });
-    expect(scheme.nodes.find((n) => n.id === "telegram:user:42")).toMatchObject({ state: "fail", fix: expect.stringMatching(/connect it again/) });
+    expect(scheme.nodes.find((n) => n.id === "telegram:user:42")).toMatchObject({ state: "fail", fix: expect.stringMatching(/connect it again/), place: "messengers" });
     await tg?.stop();
     const before = made;
     tg = await start();

@@ -115,7 +115,8 @@ function fromRows(tools: AgentToolsDto | null, match: (id: string) => boolean): 
 function tokenNode(c: ConnectionDto): SchemeNode {
   const k = c.check;
   const id = `${c.kind}:${c.id}`;
-  const base = { id, kind: c.kind, project: null, label: c.identity ? `${c.label} (${c.identity})` : c.label, place: "connections" as const };
+  // P71 M3: the Telegram bot's token is set on Messengers ▸ Settings, beside the accounts; the Notion token stays on Connections.
+  const base = { id, kind: c.kind, project: null, label: c.identity ? `${c.label} (${c.identity})` : c.label, place: c.kind === "telegram" ? ("messengers" as const) : ("connections" as const) };
   if (c.secret.state === "missing") return node({ ...base, state: "fail", detail: "No key stored." });
   if (c.secret.state === "unsafe-mode" || c.secret.state === "malformed") return node({ ...base, state: "fail", detail: c.secret.state === "malformed" ? "The stored key is not a key." : "The key file is readable by others." });
   if (k.state === "fresh") return node({ ...base, state: "ok" });
@@ -127,14 +128,14 @@ function tokenNode(c: ConnectionDto): SchemeNode {
 
 /**
  * P71: one part per Telegram user account (the owner's own account), from the health snapshot. A parked account is broken with its
- * fix line, so it is a "needs you" item; a passing error needs a look. The label names the account's id only, never a chat. No
- * place yet: its page is the Messengers section, a later stage of P71.
+ * fix line, so it is a "needs you" item; a passing error needs a look. The label names the account's id only, never a chat. Its
+ * place is Messengers ▸ Settings (P71 M3), where the account is connected and disconnected.
  */
 function telegramUserNodes(h: HealthDto): SchemeNode[] {
   return h.telegramUser.accounts.map((a) => {
     const state: SchemeState = a.state === "running" ? "ok" : a.state === "parked" ? "fail" : a.state === "error" ? "warn" : "unknown";
     const detail = a.state === "parked" ? `Parked (${a.parked ?? "unknown"}): it is not retried by itself.` : a.state === "error" ? (a.lastError ?? "The connection is failing; it retries.") : a.state === "stopped" ? "Stopped." : "Connecting.";
-    return node({ id: `telegram:user:${a.account}`, kind: "telegram", project: null, label: `Telegram account ${a.account}`, state, detail, fix: a.fix, place: null });
+    return node({ id: `telegram:user:${a.account}`, kind: "telegram", project: null, label: `Telegram account ${a.account}`, state, detail, fix: a.fix, place: "messengers" });
   });
 }
 

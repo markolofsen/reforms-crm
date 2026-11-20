@@ -187,6 +187,23 @@ export function clientsRepo(db: Db) {
       );
     },
 
+    /**
+     * Up to `limit` clients whose name or address contains `q` (two or more characters, case-insensitive), by name: the link
+     * picker of Messengers ▸ Settings (P71 M3). A lookup, never a list of every client row (`app/@rules/README.md` rule 16).
+     */
+    async search(project: string, q: string, limit = 8): Promise<{ id: number; name: string; email: string }[]> {
+      const term = q.trim().toLowerCase();
+      if (term.length < 2) return [];
+      const like = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+      return db
+        .select({ id: clients.id, name: clients.name, email: clients.email })
+        .from(clients)
+        .where(and(eq(clients.project, project), or(sql`lower(${clients.name}) like ${like} escape '\\'`, sql`lower(${clients.email}) like ${like} escape '\\'`)))
+        .orderBy(asc(clients.name), asc(clients.id))
+        .limit(Math.min(Math.max(limit, 1), 20))
+        .all();
+    },
+
     /** One client of a project with its marks and reply state, or null (P51: `hub mcp` `client_show`). Read only. */
     async card(project: string, id: number): Promise<{ id: number; name: string; email: string; repliesOwed: boolean; lastContactAt: string | null; marks: Mark[] } | null> {
       const c = db.select().from(clients).where(and(eq(clients.project, project), eq(clients.id, id))).get();

@@ -1,4 +1,5 @@
 import { EmptyState, LoadFailed, StaleNote } from "@/components/state-views";
+import type { ConnectionKind } from "@hub/contract/connections";
 import { phrase } from "@hub/contract/help";
 import { Skeleton } from "@hub/ui/skeleton";
 import { usePlace } from "@/hooks/use-project";
@@ -17,11 +18,12 @@ function ConnectionsSkeleton() {
 }
 
 /**
- * Settings ▸ Connections (P70): the instance's two keys, the Notion token and the Telegram bot, one list, each row its label. The projects'
- * mail accounts are on Settings ▸ Mail (they are a project's, read-only) and how this instance starts on Settings ▸ This Mac. It
- * reads `GET /api/connections` and tests a key on request. A key is never shown: a row says where it stands, not what it is.
+ * The instance's keys of the given kinds, one list, each row its label: Settings ▸ Connections shows the Notion token, and
+ * Messengers ▸ Settings the Telegram bot's (P71 M3, decision 0036 point 6: the bot is a messenger, so its key sits with the
+ * accounts). The projects' mail accounts are on Settings ▸ Mail. It reads `GET /api/connections` and tests a key on request.
+ * A key is never shown: a row says where it stands, not what it is.
  */
-export function ConnectionsView() {
+export function ConnectionsView({ kinds, label = "Keys" }: { kinds: readonly ConnectionKind[]; label?: string }) {
   const now = useClock()();
   const { multi } = usePlace();
   const q = useConnections();
@@ -30,12 +32,13 @@ export function ConnectionsView() {
 
   if (q.isPending) return <ConnectionsSkeleton />;
   if (!data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the connections" />;
-  if (data.connections.length === 0) return <EmptyState title="No connections yet">They appear here once a project is set up: say “{phrase("project-setup")}” in a session.</EmptyState>;
+  const rows = groupByKind(data.connections.filter((c) => kinds.includes(c.kind))).flatMap((g) => g.rows);
+  if (rows.length === 0) return <EmptyState title="No connections yet">They appear here once a project is set up: say “{phrase("project-setup")}” in a session.</EmptyState>;
   return (
     <>
       {/* One list of keys, each row named by its own label: a "Notion" heading over "Notion integration" said it twice (UX pass). */}
-      <ul aria-label="Keys" className="flex flex-col divide-y border-y">
-        {groupByKind(data.connections).flatMap((g) => g.rows).map((r) => (
+      <ul aria-label={label} className="flex flex-col divide-y border-y">
+        {rows.map((r) => (
           <ConnectionRow actions={{ test: () => void test(r), save: (b) => save(r, b), remove: () => remove(r) }} busy={busy === r.id} key={r.id} locked={busy !== null} multi={multi} now={now} row={r} />
         ))}
       </ul>

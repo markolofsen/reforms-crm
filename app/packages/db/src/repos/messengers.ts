@@ -208,7 +208,7 @@ export function messengersRepo(db: Db) {
       );
     },
 
-    // ---- outbound drafts (state machine: draft -> confirmed -> sent; draft -> copied | discarded)
+    // ---- outbound drafts (state machine: draft -> confirmed -> sent; draft -> copied | discarded; discarded -> draft, the Undo of Skip)
     /** Always creates status `draft`: no argument can set another state. */
     async createDraft(input: NewMessengerDraft): Promise<MessengerDraftRow> {
       if (input.clientId != null) requireClient(input.project, input.clientId);
@@ -238,6 +238,10 @@ export function messengersRepo(db: Db) {
     },
     async discardDraft(project: string, id: number): Promise<MessengerDraftRow> {
       return draftTransition(id, project, "draft", { status: "discarded" });
+    },
+    /** Undo of Skip on the Messengers panel (P71 M3, `ui-specifications.md` rule 5d): a skipped draft waits again. */
+    async restoreDraft(project: string, id: number): Promise<MessengerDraftRow> {
+      return draftTransition(id, project, "discarded", { status: "draft" });
     },
   };
 }

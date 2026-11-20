@@ -31,6 +31,7 @@ import { agentToolRoutes, type AgentToolsService } from "./agent-tools";
 import { createConnections, type ConnectionsOptions } from "./connections";
 import { OFF, type MessengersStatus } from "./messengers";
 import { TELEGRAM_USER_OFF, type TelegramUserHandle } from "./telegram-user";
+import { messengerRoutes } from "./routes/messengers";
 import { telegramUserRoutes } from "./routes/telegram-user";
 import { SENT_OFF, type SentStatus } from "./sent";
 import { createOverview, type OverviewService } from "./overview";
@@ -185,7 +186,8 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", pointerRoutes(repos, opts.pointerFile, now))
     .route("/", localRoutes(opts.local, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", autostartRoutes(opts.autostart, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", telegramUserRoutes(repos, opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
+    .route("/", telegramUserRoutes(repos, opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
+    .route("/", messengerRoutes(repos, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT));
 }
 
 export type AppType = ReturnType<typeof createApp>;

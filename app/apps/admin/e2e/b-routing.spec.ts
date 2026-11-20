@@ -51,6 +51,13 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
   await page.goto("/help");
   await expect.poll(() => address(page)).toBe("/help");
   await expect(page).toHaveTitle("Help · Hub Workflow");
+  // P71 M3: Messengers is scoped (the linked chats are a project's); its View and its Settings page reload in place.
+  await page.goto("/messengers?filter=all");
+  await expect.poll(() => address(page)).toBe(at(P, "/messengers?filter=all"));
+  await page.goto("/messengers/settings");
+  await expect.poll(() => address(page)).toBe(at(P, "/messengers/settings"));
+  await page.reload();
+  await expect(page).toHaveTitle(`Messenger settings · ${P} · Hub Workflow`);
 });
 
 test("saved links of the query era (until 2026-11-18) open the same view in the path form", async ({ page }) => {
@@ -166,6 +173,7 @@ test("the nav links are real anchors in the path form; two projects show the swi
   await expect(nav.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/overview");
   await expect(nav.getByRole("link", { name: "Settings" })).toHaveAttribute("href", at(P, "/settings"));
   await expect(nav.getByRole("link", { name: "Knowledge" })).toHaveAttribute("href", at(P, "/knowledge"));
+  await expect(nav.getByRole("link", { name: "Messengers" })).toHaveAttribute("href", at(P, "/messengers"));
   await expect(nav.getByRole("link", { name: "Help" })).toHaveAttribute("href", "/help");
   await expect(page.getByRole("button", { name: P }).first()).toBeVisible();
 });

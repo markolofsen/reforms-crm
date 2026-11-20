@@ -180,6 +180,22 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
   // The sequence id is the core starter's; the e2e run writes that file into its project folder.
   const tiago = lisbon.get("tiago@example.com");
   if (tiago) await repos.enrollments.enrol({ project: "lisbon-realty", clientId: tiago, sequence: "answered-enquiry-no-reply", sequenceHash: "seed", schedule: { delays: [2, 3, 5], businessDays: true }, by: "owner", now });
+  // Messengers (P71 M3): one linked Telegram chat of Rita, who wrote last, with the agent's open draft, and one of Sofia where we
+  // replied last. Invented ids; no Telegram account is connected in a seeded instance.
+  const rita = lisbon.get("rita@example.net");
+  const sofia = lisbon.get("sofia@example.com");
+  const tg = async (clientId: number, chatId: string, title: string, rows: { dir: "in" | "out"; hours: number; text: string }[]) => {
+    await repos.messengers.allowChat("lisbon-realty", "telegram_user", chatId, title);
+    await repos.messengers.addIdentifier("lisbon-realty", clientId, "telegram", chatId);
+    for (const [i, r] of rows.entries()) {
+      await repos.messengers.insertMessage({ project: "lisbon-realty", channel: "telegram_user", account: "100200300", chatId, remoteMessageId: `${chatId}-${i}`, direction: r.dir, text: r.text, sentAt: daysAgo(now, r.hours / 24), retainUntil: daysAgo(now, -90) });
+    }
+  };
+  if (rita) {
+    await tg(rita, "700100", "Rita F.", [{ dir: "in", hours: 2, text: "Hi! Is the notary on the 28th still on? I can only do mornings." }]);
+    await repos.messengers.createDraft({ project: "lisbon-realty", channel: "telegram_user", chatId: "700100", clientId: rita, createdBy: "seed", text: "Hi Rita, yes, the 28th stands. 10:00 at the notary on Rua Augusta works for us. I will send the address the day before." });
+  }
+  if (sofia) await tg(sofia, "700200", "Sofia T.", [{ dir: "in", hours: 30, text: "Any news on the offer?" }, { dir: "out", hours: 26, text: "Not yet, I will write as soon as the seller answers." }]);
   return true;
 }
 
