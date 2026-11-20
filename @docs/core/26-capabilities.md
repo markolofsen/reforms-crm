@@ -116,4 +116,11 @@ The check is the owner's (P77): in the dock he asks each agent "что откр�
 his extension (not a new window) and names the page. If one cannot reach it, the fix is the extension's site permission or allowlist;
 only if that fails is the Hub's per-project Codex config looked at, never a browser of ours.
 
+
+**Test mode and Notion writes (P92).** The notion part says read and write (query, create and update rows; delete and move are denied),
+so a session never claims it has no Notion write tool. When the project's send policy is `draft.recipients: test`, the line adds one
+sentence naming the instance's `allow_list` (minus the project's own addresses): the owner's test addresses are valid recipients of a
+test draft on his words, never refused as not a client; `draft_write` lets them pass its new-thread client check
+(`14-bulk-send-interface.md`). Built by `capabilitiesOf` from the send policy file, not project.md.
+
 Update this page when the architecture changes.

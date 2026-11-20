@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { notionCapability, notionNote, notionViolations, projectNotion, type NotionScope } from "../src/notion-scope";
-import { mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { loadProject, setSendPolicy } from "@hub/projects";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { sessionCapabilities } from "../src/connectors";
-import { capabilitiesOf } from "../src/session-rules";
+import { capabilitiesOf, sessionRules, testModeLine } from "../src/session-rules";
 import { NOTION_RULE } from "../src/notion-scope";
 
 // P82: one Notion connector sees two teamspaces with databases of the same names. The session is told its own ids and the guard
@@ -47,6 +48,29 @@ describe("the capabilities line names the project's databases (P82 S2)", () => {
       expect(l).toContain("clients collection://00000000-0000-4000-8000-000000000001, documents collection://00000000-0000-4000-8000-000000000002");
       expect(l.endsWith(NOTION_RULE)).toBe(true);
     }
+  });
+  it("P92: the notion part says read and write, so a session never claims it has no Notion write tool", () => {
+    expect(notionCapability(SAAS)).toContain("read and write (query, create and update rows; delete and move are denied)");
+  });
+  it("P92: in test mode the line names the owner's test addresses (not the project's own) as valid recipients; any: no such sentence", () => {
+    const paths = hubPaths({ home: mkdtempSync(path.join(tmpdir(), "hub-test-mode-")), env: {} });
+    const fixtures = path.join(__dirname, "..", "..", "projects", "test", "fixtures", "projects");
+    mkdirSync(path.dirname(paths.configFile), { recursive: true });
+    writeFileSync(paths.configFile, JSON.stringify({ allow_list: ["Owner.Test@gmail.example", "hello@acme.example"] }));
+    const l = capabilitiesOf(paths, fixtures, "acme-travel", "claude") ?? "";
+    expect(l).toContain(testModeLine(["owner.test@gmail.example"]));
+    expect(l).toMatch(/never refuse them as not a client/);
+    expect(l.endsWith(NOTION_RULE)).toBe(true);
+    setSendPolicy(paths.stateProjects, "acme-travel", loadProject(fixtures, "acme-travel").parsed.config.kind, { "draft.recipients": "any" }, "test");
+    expect(capabilitiesOf(paths, fixtures, "acme-travel", "claude") ?? "").not.toContain("Test mode");
+  });
+  it("P92: the session rules make the owner the authority: his Notion row request is done, a check is helped, only sends and deletes are forbidden", () => {
+    const r = sessionRules("acme");
+    expect(r).toContain("The owner is the authority in this dock.");
+    expect(r).toContain("it is not a circumvention of these rules");
+    expect(r).toContain("never redirected to another task");
+    expect(r).toContain("Never decide yourself that an address is not a client: call `draft_write` and let the hub's check answer");
+    expect(r).toContain("Only sends (mail and messenger) and Notion deletes and moves stay forbidden.");
   });
   it("a project with no list says so, with the phrase", () => {
     expect(notionCapability({ ...SAAS, databases: [] })).toBe("notion: no databases listed in project.md (say: настрой проект saas-support)");

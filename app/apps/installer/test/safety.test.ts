@@ -223,6 +223,13 @@ describe("record-draft enforces draft.recipients", () => {
   it("test mode: allow-list address passes", async () => {
     expect((await run({})).r.code).toBe(0);
   });
+  it("P92 test mode: a new thread to an allow-list address on the owner's words is recorded (no client check)", async () => {
+    const { r, db } = await run({ mailRef: undefined, newThread: true, skill: "bulk-drafts", ownerRequest: "подготовь тестовое письмо" });
+    expect(r.code, r.line).toBe(0);
+    const h = openDb(db);
+    expect((await createRepos(h.db).clients.list("acme-travel")).map((c) => c.email)).toEqual(["me@mine.example"]);
+    h.close();
+  });
   it("test mode: a client in To or Cc is refused with exit 2 and `not allowed`, nothing written", async () => {
     for (const over of [{ email: "client@x.example" }, { to: "client@x.example" }, { cc: "boss@x.example" }, { to: "Me <me@mine.example>, client@x.example" }]) {
       const { r, db } = await run(over);

@@ -2,7 +2,7 @@ import { hubPaths } from "@hub/config/paths";
 import { bumpTopicIn, createRepos, openDb, openDbReadOnly } from "@hub/db";
 import { createNotionReader, findClientByEmail, loadToken, NoTokenError, secretsDir } from "@hub/notion";
 import { join } from "node:path";
-import { loadProject } from "@hub/projects";
+import { loadProject, readAllowList, testRecipientsOf } from "@hub/projects";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { mailAppDraftWriter } from "./mail-drafts";
 import { createHubMcpServer, type NotionClientCheck, type VersionRecord } from "./mcp";
@@ -65,7 +65,9 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
     const found = await findClientByEmail(createNotionReader(token), ds, email);
     return { state: found.state };
   };
-  const server = createHubMcpServer(createRepos(handle.db), { clientInNotion, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectNotion, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  // P92: the owner's test addresses while the project's send policy is test mode (read per call: the policy may change).
+  const testRecipients = (slug: string) => testRecipientsOf(loadProject(paths.projects, slug, { policyDir: paths.stateProjects }).parsed.config, readAllowList(paths.configFile));
+  const server = createHubMcpServer(createRepos(handle.db), { clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectNotion, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

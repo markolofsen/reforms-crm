@@ -38,7 +38,7 @@ const listOf = (s: NotionScope): string => s.databases.map((d) => `${d.role} col
 export function notionCapability(s: NotionScope): string {
   if (!s.databases.length) return `notion: no databases listed in project.md (say: настрой проект ${s.slug})`;
   const ts = s.teamspaceId && s.teamspace ? `; teamspace ${s.teamspace}` : "";
-  return `notion: this project's own databases, by id, never by search: ${listOf(s)}${ts}. The owner's Notion has other teamspaces with databases of the same names: they belong to other projects`;
+  return `notion: this project's own databases, read and write (query, create and update rows; delete and move are denied), by id, never by search: ${listOf(s)}${ts}. The owner's Notion has other teamspaces with databases of the same names: they belong to other projects`;
 }
 
 /** The session rule beside the identity (P82 4B point 2). */

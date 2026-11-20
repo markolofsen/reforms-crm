@@ -423,6 +423,32 @@ describe("draft_write (hub mcp)", () => {
     expect(await (await connect(new FakeDraftWriter(), undefined, { clientInNotion: async () => ({ state: "do_not_contact" }) }))(fresh)).toMatchObject({ isError: true, json: { error: "do_not_contact" } });
   });
 
+  it("P92: in test mode the owner's test addresses pass the new-thread client check; outside it not_a_client stays; a thread is then answered by reply", async () => {
+    const repos = createRepos(db.db);
+    const words = "подготовь письмо со стихом Лермонтова на markolofsen@gmail.com";
+    const fresh = { to: "Markolofsen@Gmail.com", subject: "Парус", content: "Белеет парус одинокий.", owner_request: words };
+    const seen: string[] = [];
+    const notClient = async (_slug: string, email: string) => (seen.push(email), { state: "not_client" as const });
+    // recipients any or a list: the allow-list means nothing, the Notion check refuses as before.
+    expect(await (await connect(new FakeDraftWriter(), undefined, { clientInNotion: notClient, testRecipients: () => [] }))(fresh)).toMatchObject({ isError: true, json: { error: "not_a_client" } });
+    expect(seen).toEqual(["markolofsen@gmail.com"]);
+    // Test mode: an allow-list address is written without the Notion read; another address is still checked.
+    const mail = new FakeDraftWriter();
+    const call = await connect(mail, undefined, { clientInNotion: notClient, testRecipients: () => ["markolofsen@gmail.com", "igor.lesin@gmail.com"] });
+    expect(await call({ ...fresh, to: "stranger@else.example" })).toMatchObject({ isError: true, json: { error: "not_a_client" } });
+    seen.length = 0;
+    const w = await call(fresh);
+    expect(w).toMatchObject({ isError: false, json: { newThread: true, sent: false, subject: "Парус" } });
+    expect(seen).toEqual([]);
+    expect(mail.newTo).toEqual(["markolofsen@gmail.com"]);
+    // Recorded, then finished: the hub has a thread with him, so a second new thread is has_thread, and the reply path answers it.
+    const rec = await repos.drafts.record({ project: "acme", email: "markolofsen@gmail.com", name: "Марк", subject: "Парус", newThread: true, skill: "bulk-drafts", ownerRequest: words });
+    await repos.drafts.setStatus(rec.draftId, "done");
+    expect(await call(fresh)).toMatchObject({ isError: true, json: { error: "has_thread" } });
+    const reply = await call({ account: "desk@acme.example", mailbox_path: ["Sent Mail"], message_id: 77, content: "Ещё одна строфа.", owner_request: "напиши ему ещё раз" });
+    expect(reply).toMatchObject({ isError: false, json: { thread: "m77@example.com", sent: false } });
+  });
+
   it("P87: a hub draft id passed as message_id is named, with the field to use", async () => {
     const repos = createRepos(db.db);
     const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Hello", mailRef: "<a1@x>", skill: "triage-mail" });
