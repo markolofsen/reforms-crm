@@ -2,8 +2,6 @@ import { spawn } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { codexSessionPaths, type AgentCli, type HubPaths } from "@hub/config/paths";
-import { browserRow, CODEX_BROWSER_SERVER } from "./browser";
-import { claudeDisallowed } from "./claude";
 import { codexConfigBypasses, codexHome, CODEX_PROFILE } from "./codex";
 import { connectorRows } from "./connector-checks";
 import { DENIED_TOOLS, DRAFT_TOOLS, HUB_MCP_SERVERS, SEND_LIKE_TOOL } from "./deny";
@@ -46,8 +44,6 @@ export interface AgentCheckInput {
   probe: AgentProbe;
   /** What the detector found on this Mac (`@hub/agent/detect`): rows 1 and 2 are read from it, never probed again here. */
   facts: readonly CliFact[];
-  /** P77: where the Browser row looks (tests pass their own): `~/.claude.json`, the Chrome app, the server's `cli.js`. */
-  browser?: { claudeJson?: string; chromeApp?: string; playwrightCli?: string };
 }
 
 const json = (p: string): Record<string, any> | null => {
@@ -125,10 +121,6 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   // 5b. P62: the project's connectors (Calendar, Drive): attached, answering, the account, the writes off; then the info rows.
   const deny = [...((settings?.permissions?.deny ?? []) as string[])];
   for (const r of await connectorRows({ paths, slug, cli, mcpServers: servers, deny, answer: (n, spec) => probe.mcp(n, spec) })) row(r.id, r.title, r.state, r.detail, r.fix);
-
-  // 5c. P77: the browser (Claude in Chrome; Playwright MCP for Codex), one row: works, or why not and the fix.
-  const b = await browserRow({ paths, slug, cli, prepare, signedIn: { ready: f?.state === "ready", detail: f?.detail ?? "" }, denied: [...deny, ...claudeDisallowed()], codexSection: toml === null ? null : section(CODEX_BROWSER_SERVER), answer: (n, spec) => probe.mcp(n, spec), ...i.browser });
-  row(b.id, b.title, b.state, b.detail, b.fix);
 
   // 6. Skills linked where the CLI looks.
   const skillsDir = cli === "claude" ? paths.claudeSkills : codexSessionPaths(paths, slug).skills;

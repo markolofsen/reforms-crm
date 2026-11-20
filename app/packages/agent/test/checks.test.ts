@@ -51,10 +51,7 @@ const factsOf = (o: { version?: Record<string, string>; loggedIn?: boolean } = {
   if (o.loggedIn === false) return { cli, state: "signed-out", path: `/bin/${cli}`, version: v, detail: "not signed in", fix: LOGIN_LINE[cli] };
   return { cli, state: "ready", path: `/bin/${cli}`, version: v, detail: `${v} · signed in`, fix: null };
 });
-// P77: the Browser row reads a fixed `~/.claude.json` (the extension seen) and a Chrome app that exists, not this Mac's.
-const claudeJson = path.join(mkdtempSync(path.join(tmpdir(), "hub-agent-claude-json-")), "claude.json");
-writeFileSync(claudeJson, JSON.stringify({ cachedChromeExtensionInstalled: true }));
-const input = (o: Parameters<typeof probe>[0] & { loggedIn?: boolean } = {}) => ({ probe: probe(o), facts: factsOf(o), browser: { claudeJson, chromeApp: tmpdir() } });
+const input = (o: Parameters<typeof probe>[0] & { loggedIn?: boolean } = {}) => ({ probe: probe(o), facts: factsOf(o) });
 const byId = (rows: Awaited<ReturnType<typeof agentChecks>>) => Object.fromEntries(rows.map((r) => [r.id, r]));
 
 describe("agentChecks", () => {

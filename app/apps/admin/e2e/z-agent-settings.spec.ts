@@ -33,7 +33,7 @@ test("agent: model Sonnet and advisor off by default; the switch round-trips int
   const sw = group.getByRole("switch", { name: "Advisor" });
   await expect(sw).not.toBeChecked();
   await expect(group.getByRole("radiogroup", { name: "Advisor model" })).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Codex", exact: true }).getByTestId("agent-codex")).toHaveText("Uses its own default model; no advisor, no Google connectors. Its browser is Playwright MCP with a Chrome profile of this project: sign in there yourself.");
+  await expect(page.getByRole("region", { name: "Codex", exact: true }).getByTestId("agent-codex")).toHaveText("Uses its own default model; no advisor, no Google connectors.");
   expect(prepared()).toMatchObject({ model: "sonnet", env: { CLAUDE_CODE_DISABLE_ADVISOR_TOOL: "1" } });
   expect(prepared()).not.toHaveProperty("advisorModel");
 

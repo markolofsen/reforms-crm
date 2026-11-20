@@ -133,6 +133,14 @@ describe("the capabilities line", () => {
     expect(sessionCapabilities("realty", [], "claude")).toContain("calendar: none attached");
     expect(sessionCapabilities("realty", [att("gcal-hello", "calendar")], "codex")).toMatch(/not in Codex sessions/);
   });
+  it("names the owner's own browser and the send door, the same for both CLIs (decision 0040 as amended)", () => {
+    for (const cli of ["claude", "codex"] as const) {
+      const l = sessionCapabilities("realty", [], cli);
+      expect(l).toContain("browser: the owner's own browser, as he set it up");
+      expect(l).toContain("mail and messenger messages go only through the hub's drafts and its send door");
+      expect(l).not.toMatch(/playwright/i);
+    }
+  });
 });
 
 describe("the Agent tools rows", () => {

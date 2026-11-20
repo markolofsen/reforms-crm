@@ -4,7 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_AGENT_SETTINGS } from "@hub/config";
 import { hubPaths } from "@hub/config/paths";
-import { ADVISOR_OFF_ENV, claudeModelSettings, claudeSettings } from "../src/claude";
+import { ADVISOR_OFF_ENV, CLAUDE_CHROME_SERVER, claudeBaseArgs, claudeDisallowed, claudeModelSettings, claudeSettings } from "../src/claude";
+import { DENIED_TOOLS, denyRules } from "../src/deny";
 
 // P55: the model keys of a Claude session's settings.json, pinned per project so the owner's personal ones never leak in.
 
@@ -35,5 +36,19 @@ describe("P55: claudeSettings pins the model and the advisor", () => {
   it("keeps the deny rules and hooks beside the model keys", () => {
     const s = claudeSettings(input());
     expect(Object.keys(s)).toEqual(expect.arrayContaining(["model", "permissions", "hooks"]));
+  });
+});
+
+// Decision 0040 as amended: the Hub adds no browser, and cuts off none of the owner's: `--chrome` stays, nothing denies its tools.
+describe("the owner's Claude in Chrome is never cut off", () => {
+  it("every session starts with --chrome, in both modes", () => {
+    expect(claudeBaseArgs(false)).toContain("--chrome");
+    expect(claudeBaseArgs(true)).toContain("--chrome");
+  });
+  it("no deny rule, disallowed tool or settings rule names the Chrome tools, in either mode", () => {
+    const i = input();
+    const all = [...DENIED_TOOLS, ...denyRules(i.projectsDir, i.paths.home, "acme", i.paths), ...claudeDisallowed()];
+    for (const unattended of [false, true]) all.push(...((claudeSettings({ ...i, unattended }).permissions as { deny: string[] }).deny));
+    expect(all.filter((r) => r.includes(CLAUDE_CHROME_SERVER) || /chrome/i.test(r))).toEqual([]);
   });
 });

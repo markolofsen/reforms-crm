@@ -19,8 +19,7 @@
     "./write-record": "./src/write-record.ts",
     "./connectors": "./src/connectors.ts",
     "./connector-guard": "./src/connector-guard.ts",
-    "./connector-checks": "./src/connector-checks.ts",
-    "./browser": "./src/browser.ts"
+    "./connector-checks": "./src/connector-checks.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -32,7 +31,6 @@
     "@hub/db": "workspace:*",
     "@hub/projects": "workspace:*",
     "@modelcontextprotocol/server": "2.4.0",
-    "@playwright/mcp": "0.0.84",
     "zod": "4.6.7"
   },
   "devDependencies": {

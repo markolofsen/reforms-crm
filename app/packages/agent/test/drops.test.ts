@@ -27,7 +27,7 @@ describe("drop folders of other projects", () => {
   });
   it("Codex: the profile makes them \"none\", and leaves its own readable", () => {
     const { paths, projects } = instance();
-    const toml = codexConfigToml({ paths, projectsDir: projects, slug: "acme", unattended: false, servers: {}, instructions: "acme only", nodeBin: "/n/node", playwrightCli: "/core/cli.js" });
+    const toml = codexConfigToml({ paths, projectsDir: projects, slug: "acme", unattended: false, servers: {}, instructions: "acme only", nodeBin: "/n/node" });
     expect(toml).toContain(`${JSON.stringify(dropFolder(paths, "beta"))} = "none"`);
     expect(toml).toContain(`${JSON.stringify(dropFolder(paths, null))} = "none"`);
     expect(toml).not.toContain(JSON.stringify(dropFolder(paths, "acme")));

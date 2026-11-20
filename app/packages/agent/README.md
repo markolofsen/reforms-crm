@@ -19,9 +19,8 @@ two modes, the guards and the Agent tools rows are owned by `@docs/core/24-termi
 | `./connectors` | P62: the connector kinds (Google-hosted Calendar and Drive, `gcal-<label>`, `gdrive-<label>`), their allowlists and hold writers, the instance's connectors, `state/connectors.json` (the account, stated or read), `resolveConnectors()` (what a project's Claude session gets; Codex none), `connectorDeniedTools()` and `sessionCapabilities()` (`@docs/core/26-capabilities.md`) |
 | `./connector-guard` | P62: the guard's connector rules, blocking in every mode (off the allowlist, a hold with guests, a Meet link or a notification, another calendar, a search outside `drive.folder`), and the post hook's account read (`list_calendars`) |
 | `./connector-checks` | P62: the connector rows of Agent tools (attached, answers, account, writes off; unattached, Codex and claude.ai connectors as info) |
-| `./browser` | P77, decision 0040: the browser of each CLI. Claude Code: `--chrome` (Claude in Chrome), never narrowed by a deny rule. Codex: the pinned `@playwright/mcp` server written into every generated `config.toml` (the hub's Node, installed Chrome, the project's own profile `state/codex/<slug>/browser/`, unreadable to commands), and `browserRow`, the Browser row of Agent tools |
 
 Imported by `apps/installer` and `apps/server`, never by the admin. Depends on `@hub/config`, `@hub/contract`, `@hub/db` and `@hub/projects` (a project's Mail accounts for `draft_write`).
-Tests: `pnpm --filter @hub/agent test` (`test/browser.test.ts`, `test/checks.test.ts`, `test/claude-model.test.ts`, `test/connectors.test.ts`, `test/drops.test.ts`, `test/detect.test.ts`, `test/focus.test.ts`, `test/mail-drafts.test.ts`, `test/messenger-tools.test.ts`).
+Tests: `pnpm --filter @hub/agent test` (`test/checks.test.ts`, `test/claude-model.test.ts` (also pins `--chrome` and that no Chrome tool is denied, decision 0040), `test/connectors.test.ts`, `test/drops.test.ts`, `test/detect.test.ts`, `test/focus.test.ts`, `test/mail-drafts.test.ts`, `test/messenger-tools.test.ts`).
 
 Update this page when the architecture changes.

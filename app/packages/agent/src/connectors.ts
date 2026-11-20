@@ -2,7 +2,6 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 import type { ProjectConfig } from "@hub/projects";
-import { browserCapability } from "./browser";
 
 // P62: connectors, the Google services a project's sessions may reach beside mail-mcp and Notion. A connector is a Google-hosted
 // MCP server (`calendarmcp.googleapis.com`, `drivemcp.googleapis.com`) under a hub name, one Google account each: `gcal-<label>`,
@@ -140,6 +139,13 @@ export const connectorDeniedTools = (attached: readonly Pick<AttachedConnector, 
   attached.flatMap((c) => KINDS[c.kind].tools.filter((t) => !KINDS[c.kind].allowed.includes(t)).map((t) => `mcp__${c.name}__${t}`));
 
 /**
+ * The browser part of the capabilities line (decision 0040 as amended 2026-11-20): the Hub ships no browser; the agent may use the
+ * owner's own, as he set it up (his Chrome extension linked to Claude Code or Codex), and it is never a send path.
+ */
+export const BROWSER_CAPABILITY =
+  "browser: the owner's own browser, as he set it up (his Chrome extension for this CLI; the Hub adds none), for reading the web and Notion pages; mail and messenger messages go only through the hub's drafts and its send door, never through the browser";
+
+/**
  * The capabilities line of a bound session (K4), appended after the project's identity: what this session can reach, built from
  * the same resolver that writes its MCP file, so it never names a tool the session lacks. Rules: `@docs/core/26-capabilities.md`.
  */
@@ -155,6 +161,6 @@ export function sessionCapabilities(slug: string, attached: readonly AttachedCon
     parts.push(cal.length ? `calendar: ${cal.map(who).join(", ")}, read, and holds with no guests on the first (skill calendar)` : "calendar: none attached (Apple Calendar is not reachable from a hub session)");
     parts.push(drive.length ? `drive: ${drive.map(who).join(", ")}, search, read and link onto the client's Notion profile only; never share, copy, create or trash` : "drive: none attached");
   }
-  parts.push(browserCapability(cli)); // P77, decision 0040: both CLIs, unnarrowed
+  parts.push(BROWSER_CAPABILITY); // decision 0040 as amended: his browser, the Hub's send door
   return `Project ${slug}'s capabilities (generated from project.md and the instance's connectors; how to use them: @docs/core/26-capabilities.md): ${parts.join("; ")}. A service listed as none is not reachable here: say so, never look for another way.`;
 }

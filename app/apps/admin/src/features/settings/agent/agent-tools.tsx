@@ -60,7 +60,7 @@ const CLI_BODY: Record<(typeof AGENT_TOOL_CLIS)[number], (slug: string) => React
   ),
   codex: () => (
     <p className="py-2 text-muted-foreground text-sm" data-testid="agent-codex">
-      Uses its own default model; no advisor, no Google connectors. Its browser is Playwright MCP with a Chrome profile of this project: sign in there yourself.
+      Uses its own default model; no advisor, no Google connectors.
     </p>
   ),
 };

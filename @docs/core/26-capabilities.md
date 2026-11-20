@@ -1,7 +1,7 @@
 # 26. Capabilities: what a project's session can reach (mail, Notion, knowledge, Calendar, Drive, the browser)
 
-Status: built (P62, 2026-11-20): Calendar and Drive connectors per project, Claude Code sessions. The browser of both CLIs: P77
-(decision 0040), section 8. Gmail as a connector is not built (the
+Status: built (P62, 2026-11-20): Calendar and Drive connectors per project, Claude Code sessions. The browser: the owner's own, as he set it up
+(P77, decision 0040 as amended), section 8. Gmail as a connector is not built (the
 mail half of P62 waits for measurements); mail stays `mail-mcp` plus the hub's `draft_write` (decisions 0026, 0030, 0011).
 
 Every session of `hub agent <slug>` is told, in one generated line after the project's identity, what it can reach: the **capabilities
@@ -17,7 +17,7 @@ file, so it never names a tool the session lacks. Read this page for how to use 
 | knowledge | `knowledge-mcp` | search and read `knowledge/files/` | state a fact from anywhere else |
 | calendar | the attached `gcal-<label>` connector | read the project's calendar; a hold with no guests (`calendar` skill) | invite, notify, delete, answer an invitation |
 | drive | the attached `gdrive-<label>` connector | search, read, link a folder or file onto the client's Notion profile | share, copy, create, update or trash a file, change a permission |
-| browser | Claude Code: Claude in Chrome (`--chrome`); Codex: Playwright MCP (`playwright`) | read the web and Notion pages; every tool of the browser (the guard does not narrow it, 0040) | send mail or a messenger message: those go only through the hub's drafts and its send door (0011, 0036) |
+| browser | the owner's own Chrome extension for each CLI, as he set it up (Claude Code: Claude in Chrome through `--chrome`; Codex: the extension he linked); the Hub adds none | read the web and Notion pages; every tool of it (the guard does not narrow it, 0040) | send mail or a messenger message: those go only through the hub's drafts and its send door (0011, 0036) |
 
 A capability the line calls "none attached" is not reachable in this session: the agent says so and never looks for another way (the
 browser, a script, the owner's claude.ai connectors).
@@ -94,23 +94,26 @@ endpoint, a calendar on a kind with no calendar module). Info, folded: `connecto
 4. `./run.sh agent <slug> --prepare`, then in that project's Claude Code session type `/mcp` and sign in with that account. Then "что у меня
    на неделе": the first `list_calendars` confirms the account.
 
-## 8. The browser (P77, decision 0040)
+## 8. The browser (P77, decision 0040 as amended)
 
-Both CLIs start with a browser, in both modes, and nothing of the hub narrows it (owner, 2026-11-20). The capabilities line says what it is
-for and that it is no send path; nothing in the guard enforces that, by the owner's choice.
+The Hub ships no browser (owner, 2026-11-20: "the extensions in my Chrome link with Codex and Claude by themselves; we do not need to
+think about the browser at all"). The owner sets up his own Chrome, its extensions and their link to Claude Code or Codex; the Hub's one
+job is not to cut that off. It adds no browser server, no profile of its own and no Browser check row, and copies nothing from
+`~/.codex` or Chrome.
 
-| | Claude Code | Codex |
-|---|---|---|
-| What | Claude in Chrome: `--chrome` on every session (`claudeBaseArgs`) | Playwright MCP, `@playwright/mcp` pinned in `@hub/agent` (`browser.ts`), the `playwright` server of the generated `config.toml` |
-| Which Chrome, which sign-ins | the owner's own Chrome and its sign-ins, through the extension | installed Google Chrome with a profile of the project's own, `state/codex/<slug>/browser/`: a sign-in there is the owner's, typed by him once, never by the agent |
-| Needs | a claude.ai sign-in (with an API key or `setup-token` the CLI keeps Chrome off) and the extension | Google Chrome in `/Applications` |
-| Under the hub's config | `--chrome` adds `claude-in-chrome` to the dynamic MCP map that `--strict-mcp-config` keeps (read in the 2.1.220 binary) | an MCP server runs outside the Codex sandbox, so the browser reaches the network while commands do not; the profile folder is unreadable to commands (`"none"`) |
-| Site prompt | attended: the extension asks once per site; unattended (`--dangerously-skip-permissions`) the CLI starts it with its site checks skipped | Codex's own approval for MCP tools, at its default |
+- **Claude Code** keeps `--chrome` in every session, both modes (`claudeBaseArgs`): his Claude in Chrome extension (`/chrome`). Read in
+  the 2.1.220 binary: `--chrome` adds `claude-in-chrome` to the dynamic MCP map that `--strict-mcp-config` keeps, so the Hub's strict
+  config does not drop it. No deny rule or disallowed tool names it (pinned in `app/packages/agent/test/claude-model.test.ts`).
+- **Codex** uses the Chrome extension he installed and linked himself. The Hub's generated `config.toml` adds nothing for it.
+- **The capabilities line** says the agent may use the owner's browser as he set it up, for reading the web and Notion pages, and that
+  mail and messenger messages go only through the Hub's drafts and its send door (0011, 0036). Nothing in the guard enforces that, by
+  the owner's choice. If he has not set a browser up, the agent has none, and nothing in the Hub says otherwise.
+- **What the browser can reach.** Through his extension an agent can act on the Hub's own admin tab too, its Send button included: the
+  send ticket checks the Origin and a loopback Host, not who moved the mouse. He opened the browser to the agents knowingly; no guard is
+  added.
 
-Checks: one `browser` row per CLI (Settings ▸ Agent, `hub doctor --only Agent`). Claude Code: a deny rule on the Chrome tools fails;
-a sign-in other than claude.ai, or no extension recorded in `~/.claude.json`, is a look (fix `/chrome`). Codex: the pinned package, Google
-Chrome, the server in the config (fix: `hub agent <slug> --cli codex --prepare`) and its answer to `tools/list` (the browser opens only at
-the first call). The owner's everyday Chrome is not used by Codex; Playwright's `--extension` (its bridge extension) is the way if he
-wants it there.
+The check is the owner's (P77): in the dock he asks each agent "что открыто на странице Hub?"; it uses the existing admin tab through
+his extension (not a new window) and names the page. If one cannot reach it, the fix is the extension's site permission or allowlist;
+only if that fails is the Hub's per-project Codex config looked at, never a browser of ours.
 
 Update this page when the architecture changes.

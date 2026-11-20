@@ -120,7 +120,6 @@ Presets, a fixed server table: `claude` and `codex` spawn the argv `<server node
 | `mode` | matches `agent.unattended`: Claude's sandbox block; Codex the `hub` profile, network off, the right approval policy, no bypass | prepare |
 | `send.pipeline` | the policy file parses (none = drafts only, test recipients) | `hub send policy <slug>` |
 | `guard.hook` | Claude's PreToolUse runs `hub guard`; Codex: skip | prepare |
-| `browser` (P77, decision 0040) | Claude: no deny rule names the Chrome tools, signed in with claude.ai, the Claude in Chrome extension seen in `~/.claude.json` (`--chrome` is in every session); Codex: Playwright MCP (pinned) installed in the core, Google Chrome installed, the `playwright` server in the generated `config.toml`, and it answers with its tools and the project's Chrome profile (`state/codex/<slug>/browser/`). Not signed in: skip | `hub core update`; `claude auth login`; `/chrome` typed in the session; `brew install --cask google-chrome`; prepare |
 | `log.hooks` | the prompt hook names its CLI (`focus --hook --cli <x>`) and `hub log --hook` is in the session files ([25-agent-log.md](25-agent-log.md)) | prepare |
 
 `--prepare` writes the session files and starts nothing; it does not move the sticky project binding.

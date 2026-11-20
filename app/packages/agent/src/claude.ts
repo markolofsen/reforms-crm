@@ -103,9 +103,13 @@ export function claudeEnforcementArgs(f: ClaudeFiles): string[] {
   return ["--settings", f.settings, "--strict-mcp-config", `--mcp-config=${f.mcp}`, `--disallowedTools=${f.disallowed.join(",")}`];
 }
 
+/** The server `--chrome` adds (Claude in Chrome, the owner's extension); no deny rule or disallowed tool may name it (decision 0040). */
+export const CLAUDE_CHROME_SERVER = "claude-in-chrome";
+
 /**
- * Fixed flags of a mode, then Claude in Chrome (decision 0040: every session, both modes, all its tools; `browser.ts` has what
- * was measured: it survives `--strict-mcp-config`), then the extra readable folders.
+ * Fixed flags of a mode, then `--chrome` (decision 0040 as amended: the owner's own Claude in Chrome, every session, both modes,
+ * all its tools; the Hub adds no browser), then the extra readable folders. Measured in the 2.1.220 binary: `--chrome` adds the
+ * stdio server `claude-in-chrome` to the same dynamic map as `--mcp-config`, which `--strict-mcp-config` keeps.
  */
 export const claudeBaseArgs = (unattended: boolean, extraDirs: string[] = []): string[] => [...claudeModeArgs(unattended), "--chrome", ...extraDirs.flatMap((d) => ["--add-dir", d])];
 
