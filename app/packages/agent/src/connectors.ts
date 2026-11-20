@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 import type { ProjectConfig } from "@hub/projects";
+import { browserCapability } from "./browser";
 
 // P62: connectors, the Google services a project's sessions may reach beside mail-mcp and Notion. A connector is a Google-hosted
 // MCP server (`calendarmcp.googleapis.com`, `drivemcp.googleapis.com`) under a hub name, one Google account each: `gcal-<label>`,
@@ -154,5 +155,6 @@ export function sessionCapabilities(slug: string, attached: readonly AttachedCon
     parts.push(cal.length ? `calendar: ${cal.map(who).join(", ")}, read, and holds with no guests on the first (skill calendar)` : "calendar: none attached (Apple Calendar is not reachable from a hub session)");
     parts.push(drive.length ? `drive: ${drive.map(who).join(", ")}, search, read and link onto the client's Notion profile only; never share, copy, create or trash` : "drive: none attached");
   }
+  parts.push(browserCapability(cli)); // P77, decision 0040: both CLIs, unnarrowed
   return `Project ${slug}'s capabilities (generated from project.md and the instance's connectors; how to use them: @docs/core/26-capabilities.md): ${parts.join("; ")}. A service listed as none is not reachable here: say so, never look for another way.`;
 }

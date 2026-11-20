@@ -1,13 +1,15 @@
 import path from "node:path";
 import { codexSessionPaths, type HubPaths } from "@hub/config/paths";
 import { CODEX_FORBIDDEN_PREFIXES, deniedToolsOf, HUB_MCP_SERVERS, otherProjects } from "./deny";
+import { BROWSER_TOOL_TIMEOUT_SEC, CODEX_BROWSER_SERVER, codexBrowserServer } from "./browser";
 import { focusHookCommand, logHookCommand } from "./claude";
 import { CODEX_BYPASS, codexModeArgs, protectedPaths } from "./session";
 
 // A Codex session of `hub agent --cli codex` (P49 S9, S10), built without writing. Codex has no strict-MCP flag and its
 // `-c` overrides merge into the owner's tables, so a hub session gets its own `CODEX_HOME` (research 21 section 6):
 // `<state>/codex/<slug>/` with `config.toml` (the hub's MCP servers only, the send tools off, the sandbox profile),
-// `rules/hub.rules` (forbidden prefixes), `skills/` (links to the core skills) and `auth.json` (a link to the owner's).
+// `rules/hub.rules` (forbidden prefixes), `skills/` (links to the core skills) and `auth.json` (a link to the owner's). P77: the
+// browser (Playwright MCP, `browser.ts`) is one more server of that config, with its Chrome profile under the same home.
 
 /** `<state>/codex/<slug or _unbound>`: the `CODEX_HOME` of one project's sessions. */
 export const codexHome = (paths: HubPaths, slug: string | undefined): string => codexSessionPaths(paths, slug).home;
@@ -36,8 +38,10 @@ export interface CodexSessionInput {
   instructions: string;
   /** `model` and `model_reasoning_effort` carried over from the owner's own config, when set there. */
   carry?: Record<string, string>;
-  /** The Node that runs the hub (the focus hook calls `hub focus --hook` with it). */
+  /** The Node that runs the hub (the focus hook calls `hub focus --hook` with it; the browser server runs on it). */
   nodeBin?: string;
+  /** P77: the browser server's `cli.js`; default the pinned `@playwright/mcp` (tests pass a fixed path). */
+  playwrightCli?: string;
 }
 
 /**
@@ -52,7 +56,8 @@ export function codexConfigToml(i: CodexSessionInput): string {
   out.push(`[permissions.${CODEX_PROFILE}.filesystem]`, `":root" = "read"`, `":workspace_roots" = "write"`);
   // One entry per path (TOML refuses a key twice): unreadable wins over read-only.
   const access = new Map<string, "read" | "none">(protectedPaths(i.paths).map((p) => [p, "read"]));
-  for (const p of [i.paths.secrets, ...otherProjects(i.projectsDir, i.slug).map((o) => path.join(i.projectsDir, o))]) access.set(p, "none");
+  // P77: the browser's Chrome profile holds the owner's sign-ins: the server (outside the sandbox) writes it, a command never reads it.
+  for (const p of [i.paths.secrets, codexSessionPaths(i.paths, i.slug).browserProfile, ...otherProjects(i.projectsDir, i.slug).map((o) => path.join(i.projectsDir, o))]) access.set(p, "none");
   for (const [p, a] of access) out.push(`${str(p)} = ${str(a)}`);
   out.push("", `[permissions.${CODEX_PROFILE}.network]`, "enabled = false", "");
   out.push(`[projects.${str(i.paths.home)}]`, `trust_level = "trusted"`, "");
@@ -79,6 +84,9 @@ export function codexConfigToml(i: CodexSessionInput): string {
     if (name === "hub") out.push(`tool_timeout_sec = ${HUB_TOOL_TIMEOUT_SEC}`);
     out.push("");
   }
+  // P77, decision 0040: the browser, in every session and mode, unnarrowed (no disabled tools, by the owner's word).
+  const b = codexBrowserServer(i.paths, i.slug, node, i.playwrightCli);
+  out.push(`[mcp_servers.${str(CODEX_BROWSER_SERVER)}]`, `command = ${str(b.command)}`, `args = ${arr(b.args)}`, `tool_timeout_sec = ${BROWSER_TOOL_TIMEOUT_SEC}`, "");
   return out.join("\n");
 }
 

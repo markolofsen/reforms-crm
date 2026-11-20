@@ -103,7 +103,10 @@ export function claudeEnforcementArgs(f: ClaudeFiles): string[] {
   return ["--settings", f.settings, "--strict-mcp-config", `--mcp-config=${f.mcp}`, `--disallowedTools=${f.disallowed.join(",")}`];
 }
 
-/** Fixed flags of a mode, then Chrome for web and Notion checks, then the extra readable folders. */
+/**
+ * Fixed flags of a mode, then Claude in Chrome (decision 0040: every session, both modes, all its tools; `browser.ts` has what
+ * was measured: it survives `--strict-mcp-config`), then the extra readable folders.
+ */
 export const claudeBaseArgs = (unattended: boolean, extraDirs: string[] = []): string[] => [...claudeModeArgs(unattended), "--chrome", ...extraDirs.flatMap((d) => ["--add-dir", d])];
 
 /** `--disallowedTools`: the hub's denied tools and, P62, every attached connector's tool off its allowlist. */

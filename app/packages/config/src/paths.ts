@@ -219,10 +219,13 @@ export function instanceLogRetention(paths: Pick<HubPaths, "configFile">): numbe
   return typeof d === "number" && Number.isInteger(d) && d >= 1 && d <= 3650 ? d : 90;
 }
 
-/** `<state>/codex/<slug or _unbound>`: the `CODEX_HOME` of one project's Codex sessions (P49), and its `skills/` links. */
-export function codexSessionPaths(paths: Pick<HubPaths, "codexHomes">, slug: string | undefined): { home: string; skills: string } {
+/**
+ * `<state>/codex/<slug or _unbound>`: the `CODEX_HOME` of one project's Codex sessions (P49), its `skills/` links, and (P77) the
+ * Chrome profile of its browser (`browser/`, the owner's sign-ins for this project, typed by him) and the browser's output files.
+ */
+export function codexSessionPaths(paths: Pick<HubPaths, "codexHomes">, slug: string | undefined): { home: string; skills: string; browserProfile: string; browserOutput: string } {
   const home = join(paths.codexHomes, slug ?? "_unbound");
-  return { home, skills: join(home, "skills") };
+  return { home, skills: join(home, "skills"), browserProfile: join(home, "browser"), browserOutput: join(home, "browser-output") };
 }
 
 /** The CLIs a hub agent session can run (P49): Claude Code and Codex. */
