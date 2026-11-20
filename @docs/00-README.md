@@ -22,11 +22,11 @@ The owner reads the draft in the admin, switches on "I read the checks" and pres
 | Packages (`app/packages`) | One subject each | Mail drafts and sessions (`agent`), send checks (`send`), database (`db`), messengers, the LLM door (`llm`), the agent log (`log`), knowledge, projects, sequences, the UI kit: [core/08-local-app-stack.md](core/08-local-app-stack.md) |
 
 **The admin's screens.** One sidebar: the instance's brand, the project switcher with two or more projects, the six sections, and in the footer
-the agent's last five steps and the core version line. The address `/` opens Drafts with one project and Overview with two or more; with two
+the core version line, the theme and the sound switch (P73: no agent feed rows). The address `/` opens Drafts with one project and Overview with two or more; with two
 or more the project is the first segment of every scoped address (`/<project>/drafts/42`). Routes and rules: [core/06-local-admin-app.md](core/06-local-admin-app.md).
 - **Overview** (`/overview`): what needs the owner. Each broken part of the Hub with its fix line and one link, or "Everything works"; every part folded under "All parts"; one row per project first when there are two or more. It reads and never writes.
 - **Drafts** (`/drafts`, `/drafts/42`): the home. A list and the open draft beside it, one View menu with counts (To review, Hold, Thin basis, Finished, Follow-ups, Not by email, All). The card shows the Mail text, the checks, Send, Skip, Hold and Done, and the client's stored messenger messages. Bulk drafts and batches: [core/14-bulk-send-interface.md](core/14-bulk-send-interface.md).
-- **Activity** (`/log`): what the agent did with each client, grouped by session, repeats folded into one line. Its View menu's Sends view is the send history. A single timeline without sessions is planned (P73).
+- **Activity** (`/log`): what the agent decided for each client, one timeline newest first under a heading per day, repeats of one client and outcome on one day folded into one line; no sessions and no detail pane (P73, decision 0037). Its View menu's Sends view is the send history.
 - **Knowledge** (`/knowledge`): every entry of the project's knowledge base, each with its Open: [core/16-projects-and-knowledge.md](core/16-projects-and-knowledge.md), [core/18-kb-loop.md](core/18-kb-loop.md). Grouping by topic is planned (P74).
 - **Settings** (`/settings`): what is set rarely, in five panes. Sending: Stop sending, who drafts may go to, autosend and the checks before sending. Mail: the project's accounts and filters ([core/17-mail-filters.md](core/17-mail-filters.md)). Agent: per CLI the model, the advisor (Claude Code), the attached connectors and the checks. Connections: the Notion token and the Telegram bot, write-only. This Mac: start after a restart and the core version. One tab per question is planned (P75).
 - **Help** (`/help`): what to say to the agent, the tips for each CLI, where the project's files live, and "How it works", the Hub's wiring drawn live by Mermaid from the same parts as Overview. Help in English and a scheme of the main blocks are planned (P81).
@@ -58,7 +58,7 @@ uses the extension he linked. The Hub adds no browser and the guard does not nar
 never go out through it. Through it an agent can also act on the admin's own tab: [core/26-capabilities.md](core/26-capabilities.md), section 8.
 
 **The agent log.** Every prompt, answer, tool call, wait on the owner and guard event of a session is written per project under `state/log/`,
-from the CLIs' own hooks. It records and never decides. `hub log` reads it; the sidebar's feed shows the last five steps: [core/25-agent-log.md](core/25-agent-log.md).
+from the CLIs' own hooks. It records and never decides. `hub log` reads it; the terminal strip's dot and the tones read its tail: [core/25-agent-log.md](core/25-agent-log.md).
 
 **After a restart of the Mac.** One LaunchAgent per instance runs `./run.sh up --service` at login, set up by `./run.sh setup` and switched
 on Settings ▸ This Mac. It starts the server and the admin only: no agent session starts and no browser opens until the owner opens them:

@@ -20,7 +20,7 @@ export const keys = {
   /** P72: the agent's live pointer (`GET /api/pointer`), refetched when the live topic `pointer` moves. */
   pointer: () => ["pointer"] as const,
   agentTools: (project: string) => ["agent-tools", project] as const,
-  /** The agent activity feed (P59): the last rows of the session log, read on the server. */
+  /** The agent activity feed (P59): the ended turns' tones and the wait, read from the session log on the server (P73: no rows). */
   agentFeed: (project: string) => ["agent-feed", project] as const,
   drafts: (project: string, view: string, batch: number | null, search: string) => ["drafts", project, view, batch, search] as const,
   batches: (project: string) => ["batches", project] as const,
