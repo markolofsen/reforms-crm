@@ -41,7 +41,9 @@ describe("Chats: channel filter and views", () => {
   it("names the three views in order, no fourth, and says the unlinked sentence once with its window", () => {
     expect(VIEW_ORDER).toEqual([...MESSENGER_VIEWS]);
     expect(VIEW_ORDER.map((v) => VIEW_LABEL[v])).toEqual(["To do", "Linked", "Hidden"]);
-    expect(unlinkedIntro(14)).toMatch(/last 14 days: link one, or hide it if it is not a client\.$/);
+    expect(unlinkedIntro({ freshDays: 14, count: 15, noLinked: false })).toBe("15 new chats of the last 14 days are not linked to a client: link or hide each.");
+    // P88: with no linked chat the same one line says so; there is no second paragraph.
+    expect(unlinkedIntro({ freshDays: 14, count: 1, noLinked: true })).toBe("No linked chats yet · 1 new chat of the last 14 days is not linked to a client: link or hide each.");
     expect(wroteLine({ at: "x", inbound: true }, "2 h ago")).toBe("wrote 2 h ago");
     expect(wroteLine({ at: "x", inbound: false }, "2 h ago")).toBe("you wrote 2 h ago");
     expect(unnamedHiddenLine(1)).toMatch(/^1 more hidden chat is kept as a fingerprint only/);

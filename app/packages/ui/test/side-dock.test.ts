@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DOCK_WIDTH, clampWidth, dragWidth, keyWidth, maxWidth, parseWidth } from "../src/product/side-dock/size";
-import { isToggleChord, keyRoute, SHIFT_ENTER } from "../src/product/terminal/keys";
+import { ENTER_SETTLE_MS, enterPacer, isToggleChord, keyRoute, SHIFT_ENTER } from "../src/product/terminal/keys";
 import { TERMINAL_TOKENS } from "../src/product/terminal/theme";
 
 // The side dock's width rules and the terminal's key routing, as pure functions (P49 T2).
@@ -58,6 +58,44 @@ describe("terminal keys", () => {
   });
   it("gives every other key to the program: Escape, ?, [ and a plain backquote", () => {
     for (const k of [key({ key: "Escape", code: "Escape" }), key({ key: "?", code: "Slash", shiftKey: true }), key({ key: "[", code: "BracketLeft" }), key({ key: "`", code: "Backquote" })]) expect(keyRoute(k)).toBe("program");
+  });
+});
+
+describe("terminal Enter after a chunk (P88)", () => {
+  const rig = () => {
+    let t = 0;
+    const sent: string[] = [];
+    const timers: { at: number; fn: () => void }[] = [];
+    const input = enterPacer((d) => sent.push(d), () => t, (fn, ms) => void timers.push({ at: t + ms, fn }));
+    const tick = (ms: number) => {
+      t += ms;
+      for (const x of timers.splice(0).filter((x) => x.at <= t)) x.fn();
+    };
+    return { input, sent, tick };
+  };
+  it("holds an Enter that follows a chunk of text until the chunk is settled, and keeps the order", () => {
+    const r = rig();
+    r.input("write to the clients");
+    r.tick(10);
+    r.input("\r");
+    r.input("x");
+    expect(r.sent).toEqual(["write to the clients"]);
+    r.tick(ENTER_SETTLE_MS);
+    expect(r.sent).toEqual(["write to the clients", "\r", "x"]);
+  });
+  it("never holds typed keys or an Enter after them, nor one after an escape sequence", () => {
+    const r = rig();
+    for (const k of ["h", "i", "\r"]) r.input(k);
+    r.input("\x1b[A");
+    r.input("\r");
+    expect(r.sent).toEqual(["h", "i", "\r", "\x1b[A", "\r"]);
+  });
+  it("sends an Enter at once when the chunk is older than the settle time", () => {
+    const r = rig();
+    r.input("a phrase");
+    r.tick(ENTER_SETTLE_MS + 1);
+    r.input("\r");
+    expect(r.sent).toEqual(["a phrase", "\r"]);
   });
 });
 

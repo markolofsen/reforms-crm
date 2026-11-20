@@ -15,7 +15,7 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
   await page.goto(at(P, "/messengers"));
   await expect(page.getByRole("list", { name: "Chats", exact: true }).getByRole("listitem", { name: "Rita Falsa" })).toBeVisible();
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Tomas Viera/, /Joana/, /Delivery bot fan/]);
-  await expect(page.getByText(/^New chats no client in Notion has the phone or username of, from the last 14 days/)).toHaveCount(1);
+  await expect(page.getByText("3 new chats of the last 14 days are not linked to a client: link or hide each.", { exact: true })).toHaveCount(1);
   await expect(page.getByText("No client in Notion has its phone or username.")).toHaveCount(0);
   await expect(fresh(page).getByRole("listitem", { name: "Joana" }).getByText(/^wrote 2 h ago$/)).toBeVisible();
   const tomas = fresh(page).getByRole("listitem", { name: "Tomas Viera" });

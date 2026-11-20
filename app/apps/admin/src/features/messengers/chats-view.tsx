@@ -88,7 +88,7 @@ export function ChatsView({ project, filter, channel: asked }: { project: string
         ))}
       </ul>
     ) : null;
-  const unlinkedBlock = st ? <UnlinkedChats active={st.unlinkedActive} freshDays={st.freshDays} now={now} project={project} rows={unlinked} /> : null;
+  const unlinkedBlock = st ? <UnlinkedChats active={st.unlinkedActive} freshDays={st.freshDays} noLinked={!linkedList && d?.counts.linked === 0} now={now} project={project} rows={unlinked} /> : null;
 
   let body;
   if (q.isPending) body = <ListSkeleton label="Loading the chats" rows={3} />;
@@ -114,8 +114,7 @@ export function ChatsView({ project, filter, channel: asked }: { project: string
   else
     body = (
       <>
-        {/* With unlinked rows below, the empty state of the linked chats shrinks to one line (P84c). */}
-        {!linkedList && d.counts.linked === 0 && <p className="text-muted-foreground text-sm">No linked chats yet: only the chats linked to a client are stored and drafted.</p>}
+        {/* With unlinked rows below, "no linked chats yet" is said in the unlinked rows' one line (P84c, P88). */}
         {linkedList}
         {unlinkedBlock}
       </>

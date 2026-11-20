@@ -70,9 +70,15 @@ export function whyLine(r: Pick<RecentDialogDto, "why" | "by" | "candidates">): 
   }
 }
 
-/** P84c: said once above the unlinked rows, instead of once per row ("none" rows say nothing of their own). */
-export const unlinkedIntro = (freshDays: number): string =>
-  `New chats no client in Notion has the phone or username of, from the last ${freshDays} days: link one, or hide it if it is not a client.`;
+/**
+ * P84c, P88: the one line above the unlinked rows, said once instead of once per row ("none" rows say nothing of their own), and
+ * with no linked chat yet it says that too, in the same line (`admin-principles.md` rule 3: one status line, no paragraphs).
+ */
+export function unlinkedIntro(o: { freshDays: number; count: number; noLinked: boolean }): string {
+  const chats = o.count === 1 ? "1 new chat" : `${o.count} new chats`;
+  const line = `${chats} of the last ${o.freshDays} days ${o.count === 1 ? "is" : "are"} not linked to a client: link or hide each.`;
+  return o.noLinked ? `No linked chats yet · ${line}` : line;
+}
 
 /** P84c: an unlinked row's time: when they wrote, or when the owner wrote last. */
 export const wroteLine = (last: { at: string; inbound: boolean }, ago: string): string => (last.inbound ? `wrote ${ago}` : `you wrote ${ago}`);

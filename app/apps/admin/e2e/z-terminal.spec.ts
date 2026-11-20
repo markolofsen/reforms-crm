@@ -83,16 +83,46 @@ test("terminal: the width and the open column survive a reload, and the reload r
   await typeLine(page, "e2e-before-reload");
   await separator(page).focus();
   for (let i = 0; i < 3; i++) await page.keyboard.press("ArrowLeft");
-  await expect(separator(page)).toHaveAttribute("aria-valuenow", "632");
+  await expect(separator(page)).toHaveAttribute("aria-valuenow", "472");
   await page.reload();
   await expect(dock(page)).toBeVisible();
-  await expect(separator(page)).toHaveAttribute("aria-valuenow", "632");
+  await expect(separator(page)).toHaveAttribute("aria-valuenow", "472");
   await expect.poll(() => screenText(page), { timeout: 15_000 }).toContain("> e2e-before-reload");
   // P57: the restored column reattached; it started nothing new.
   expect(await sessions(page)).toHaveLength(1);
   await separator(page).focus();
   await page.keyboard.press("Home");
-  await expect(separator(page)).toHaveAttribute("aria-valuenow", "560");
+  await expect(separator(page)).toHaveAttribute("aria-valuenow", "400");
+});
+
+test("terminal: a reload shows the tab he had open, not the project's first session (P88, research 27 B7)", async ({ page }) => {
+  await page.goto(at(P, "/drafts"));
+  await openTerminal(page);
+  await page.getByRole("button", { name: "New terminal" }).click();
+  await page.getByRole("menuitem", { name: "Shell" }).click();
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  const second = await page.getByRole("tab").nth(1).getAttribute("id");
+  await expect(page.getByRole("tab", { selected: true })).toHaveAttribute("id", second ?? "");
+  await page.reload();
+  await expect(dock(page)).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(2);
+  await expect(page.getByRole("tab", { selected: true })).toHaveAttribute("id", second ?? "");
+});
+
+test("terminal: a press on the column while a page menu is open closes the menu and the keys go to the terminal (P88, research 27 B7)", async ({ page }) => {
+  await page.goto(at(P, "/drafts"));
+  await openTerminal(page);
+  await page.getByRole("button", { name: /^View:/ }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  // The menu's backdrop covers the column, so the press is by position (a locator click would see the backdrop intercept it).
+  const box = await page.getByRole("tabpanel").locator(".xterm-screen").boundingBox();
+  if (!box) throw new Error("no terminal screen");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await expect(input(page)).toBeFocused();
+  await page.keyboard.type("hand off");
+  await page.keyboard.press("Enter");
+  await expect.poll(() => screenText(page)).toContain("> hand off");
 });
 
 test("terminal: a wider column is a wider grid (the size the program sees follows the separator)", async ({ page }) => {

@@ -2,8 +2,11 @@
 // the right and its separator on its start edge, so moving the separator left (ArrowLeft, a drag to the left) widens it.
 
 export const DOCK_WIDTH = {
-  /** About 70 columns of 13px monospace: room for Claude Code's frame. */
-  default: 560,
+  /**
+   * About 50 columns of 13px monospace, enough for Claude Code's frame (UX pass 2026-11-20, P88: 560 took 45 % of a 1280px
+   * window and left Drafts one pane). The owner's drag is saved and wins; Home or a double click comes back here.
+   */
+  default: 400,
   min: 400,
   /** The share of the viewport the dock may take; the screen keeps the rest. */
   maxShare: 0.6,

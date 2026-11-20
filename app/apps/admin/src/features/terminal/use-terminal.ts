@@ -45,6 +45,8 @@ export type TerminalModel = {
   closing: string | null;
   /** The last failure, said in the column. */
   notice: string | null;
+  /** Focus moves into the open tab's terminal (P88: a press on a page menu's backdrop over the column hands the keys here). */
+  focusActive: () => void;
   /** A session's terminal is ready (focus may move into it) or gone. */
   register: (id: string, handle: TerminalHandle | null) => void;
   /** A session's own news (its program ended, or it is gone): the cached list follows. */
@@ -169,6 +171,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
     // P66: with a problem nothing starts by itself; the column says why instead.
     ready: state !== null && state.problem === null && known,
     project,
+    remembered: storedTab,
     fresh: () => qc.fetchQuery({ queryKey: TERMINAL_KEY, queryFn: terminalApi.state, staleTime: 0 }).then((s) => s.sessions, () => sessions),
     ensure: () => ensuring.mutate(),
     show: (s) => {
@@ -207,6 +210,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
     close: closing.mutate,
     closing: closing.isPending ? (closing.variables ?? null) : null,
     notice,
+    focusActive: () => focus(active),
     register,
     patch,
   };

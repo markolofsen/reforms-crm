@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import type { AutolinkRecordDto, RecentDialogDto } from "@hub/contract/messengers";
 import { Badge } from "@hub/ui/badge";
+import { cn } from "@hub/ui/cn";
 import { Input } from "@hub/ui/input";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { useDebounced } from "@/hooks/use-debounced";
@@ -13,6 +14,13 @@ import { CHANNEL_LABEL, unlinkedIntro, whyLine, wroteLine } from "../labels";
 import { useHide } from "./use-hide";
 
 const recordName = (r: AutolinkRecordDto) => r.name || r.email || "this client";
+
+/**
+ * P88 (research 27, F10): fifteen rows each with two buttons read as a chore. Where the pointer can hover, a row's Link to a client
+ * and Hide show while the row is hovered or holds keyboard focus (`focus-within`: each stays one Tab stop, and Hide one click); on
+ * touch, where nothing hovers, they stay visible. A suggested client's Link is always visible.
+ */
+const QUIET = "transition-opacity motion-reduce:transition-none [@media(hover:hover)]:opacity-0 group-hover/row:opacity-100! group-focus-within/row:opacity-100!";
 
 /** Finds a client record in Notion (two or more characters, at most 8) for a chat nothing matched. */
 function RecordSearch({ project, onPick }: { project: string; onPick: (r: AutolinkRecordDto) => void }) {
@@ -59,14 +67,14 @@ function UnlinkedRow({ project, r, now }: { project: string; r: RecentDialogDto;
   });
   const suggested = r.candidates.filter((c) => c.email);
   return (
-    <li aria-label={r.title} className="flex flex-col gap-2 py-3" data-recent-chat={`${r.channel}:${r.chatId}`}>
+    <li aria-label={r.title} className="group/row flex flex-col gap-2 py-3" data-recent-chat={`${r.channel}:${r.chatId}`}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <span className="font-medium text-sm">{r.title}</span>
         <Badge variant="outline">{CHANNEL_LABEL[r.channel]}</Badge>
         {r.last && <span className="text-muted-foreground text-xs">{wroteLine(r.last, ago(r.last.at, now))}</span>}
-        <div className="ms-auto flex flex-wrap gap-2">
+        <div className={cn("ms-auto flex flex-wrap gap-2", !searching && QUIET)} data-row-actions="">
           {!searching && (
-            <ActionButton onClick={() => setSearching(true)} size="s" variant="secondary">
+            <ActionButton onClick={() => setSearching(true)} size="s" variant="quiet">
               {suggested.length ? "Another client" : "Link to a client"}
               <span className="sr-only"> ({r.title})</span>
             </ActionButton>
@@ -107,11 +115,11 @@ function UnlinkedRow({ project, r, now }: { project: string; r: RecentDialogDto;
  * from the server's memory only (nothing of an unlinked chat is stored; a restart empties the list). Said once above them: why
  * they are here and that only the last `freshDays` show; then the muted count of unlinked chats that wrote since the server started.
  */
-export function UnlinkedChats({ project, rows, freshDays, active, now }: { project: string; rows: RecentDialogDto[]; freshDays: number; active: number; now: number }) {
+export function UnlinkedChats({ project, rows, freshDays, active, now, noLinked }: { project: string; rows: RecentDialogDto[]; freshDays: number; active: number; now: number; /** No linked chat at all: the line says so (P88). */ noLinked: boolean }) {
   if (rows.length === 0) return null;
   return (
     <section aria-label="Chats not linked" className="flex flex-col gap-2" data-testid="unlinked-chats">
-      <p className="measure text-muted-foreground text-sm">{unlinkedIntro(freshDays)}</p>
+      <p className="text-muted-foreground text-sm">{unlinkedIntro({ freshDays, count: rows.length, noLinked })}</p>
       <ul aria-label="New chats" className="flex flex-col divide-y border-y">
         {rows.map((r) => (
           <UnlinkedRow key={`${r.channel}:${r.chatId}`} now={now} project={project} r={r} />

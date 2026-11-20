@@ -21,7 +21,7 @@ export const SAY = [
   { skill: "triage-mail", example: "handle the mail from <address> in project X", what: "One client: the whole history, one draft, the Notion profile" },
   { skill: "owner-inbox", example: "what do you need from me on X", what: "One ranked list of what waits for you, each with what to say next" },
   { skill: "status", example: "does everything work in X", what: "Runs the project's checks and says what to fix; changes nothing" },
-  { skill: "bulk-drafts", example: "write a follow-up to the clients of X: <who and why>", what: "The agent picks the clients from your words and drafts one mail each" },
+  { skill: "bulk-drafts", example: "write a follow-up to the clients of X: <who and why>", what: "The agent picks the clients from your words and drafts one mail each; they arrive as one batch in Drafts ▸ View ▸ Batches, sent with Send all Checked" },
   { skill: "bulk-drafts", example: "write to <client> of X again: <what about>", what: "A new message on your initiative in the client's latest thread, even when they have not answered; you send it" },
   { skill: "bulk-drafts", example: "write a first mail to <client> of X: <what about>", what: "A new thread to a client you never wrote to, from the project's sender; you send it" },
   { skill: "sequence-drafts", example: "prepare the follow-ups of X", what: "Drafts the follow-ups that are due, after checking each client again" },

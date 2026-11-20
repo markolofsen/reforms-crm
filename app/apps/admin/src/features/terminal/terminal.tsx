@@ -1,7 +1,7 @@
 "use client";
 
 import { SquareTerminalIcon } from "lucide-react";
-import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { cn } from "@hub/ui/cn";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { SideDock } from "@hub/ui/product/side-dock";
@@ -121,6 +121,55 @@ function Empty() {
   return <p className="measure p-4 text-muted-foreground text-sm">{t.creating ? `Starting ${startingWhat(t)}...` : "No terminal is running. Start one with +."}</p>;
 }
 
+/** How long after the press the keys are held at the terminal: the closing menu hands focus back to its trigger in a later job. */
+const HOLD_MS = 500;
+const PANEL = '[data-slot="side-dock-panel"]';
+
+const over = (el: Element | null, x: number, y: number): boolean => {
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+};
+
+/**
+ * P88 (research 27, B7): a page menu (a View menu, the client menu) is modal by default in Base UI, so while it is open a press
+ * on the docked column lands on the menu's backdrop (`data-base-ui-inert`), not on the terminal: the menu closed, focus went
+ * back to its trigger, and the words he typed next reopened the menu (Space) and went into it. A press on that backdrop over
+ * the column now moves focus into the open tab's terminal, and holds it there for a moment while the menu closes; the menu then
+ * closes on that focus-out and does not take focus back. One guard at the dock for every menu: no menu is edited.
+ */
+function useMenuHandoff(on: boolean, focusActive: () => void) {
+  const latest = useRef(focusActive);
+  useEffect(() => {
+    latest.current = focusActive;
+  });
+  useEffect(() => {
+    if (!on) return;
+    let until = 0;
+    let frame = 0;
+    const panel = () => document.querySelector(PANEL);
+    const hold = () => {
+      frame = 0;
+      if (performance.now() > until) return;
+      const p = panel();
+      if (p && !p.contains(document.activeElement)) latest.current();
+      frame = requestAnimationFrame(hold);
+    };
+    const onDown = (e: PointerEvent) => {
+      const t = e.target;
+      if (!(t instanceof Element) || !t.closest("[data-base-ui-inert]") || !over(panel(), e.clientX, e.clientY)) return;
+      until = performance.now() + HOLD_MS;
+      latest.current();
+      if (!frame) frame = requestAnimationFrame(hold);
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    return () => {
+      window.removeEventListener("pointerdown", onDown, true);
+      cancelAnimationFrame(frame);
+    };
+  }, [on]);
+}
+
 /**
  * The column itself. From 1024px a docked column beside the screen (`SideDock`: full height, resizable); narrower, a
  * full-screen layer over it (header "Terminal", the tabs, +, Hide). Closed, the sessions wait in a hidden holder. The
@@ -129,6 +178,7 @@ function Empty() {
 export function TerminalDock({ attention = false, onSeen }: { attention?: boolean; onSeen?: () => void }) {
   const t = useTerminal();
   const wide = useMediaQuery("lg");
+  useMenuHandoff(t.open && wide, t.focusActive);
   // Opening the column is seeing the wait (P59): the dot goes back to the session colour until the agent waits again.
   useEffect(() => {
     if (t.open && attention) onSeen?.();

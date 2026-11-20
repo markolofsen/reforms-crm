@@ -1,6 +1,7 @@
 import { ChevronDownIcon } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import type { ActivityRowDto } from "@hub/contract/activity";
+import { cn } from "@hub/ui/cn";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { AppLink } from "@/components/app-link";
@@ -10,11 +11,16 @@ import { paths } from "@/routes/paths";
 import { daySections, groupCells, lineRef, type GroupCells, type RowGroup } from "./groups";
 import { reasonParts } from "./labels";
 
-/** The client's name; when the line points at one draft, a link into that draft's card. */
+/**
+ * The client's name; when the line points at one draft, a link into that draft's card. From 640px its own cell, so it truncates
+ * (the full name in its title); on a phone it shares the cell with the outcome and wraps anywhere. The shared `Link` is
+ * `inline-flex w-fit`, which kept a long address from wrapping, so at 1280 with the dock open it ran over "What happened" (P88).
+ */
+const WHO = "inline [overflow-wrap:anywhere] sm:block sm:w-full sm:truncate";
 function Who({ draftId, name }: { draftId: number | null; name: string }) {
-  if (draftId === null) return <>{name}</>;
+  if (draftId === null) return <span className={WHO} title={name}>{name}</span>;
   return (
-    <AppLink className="text-foreground text-sm" to={paths.drafts.item(draftId)}>
+    <AppLink className={cn(WHO, "text-foreground text-sm")} title={name} to={paths.drafts.item(draftId)}>
       {name}
       <span className="sr-only"> (open the draft)</span>
     </AppLink>

@@ -22,7 +22,7 @@ export function terminalProjectOf(o: { loaded: boolean; pending: boolean; projec
 
 /**
  * The column starts its session by itself (P57 2a, 2e, 2g, 2h): each time it becomes visible (the strip, Ctrl+`, the phone's
- * button, or a column restored open from storage) the list is read fresh; a session of the address's project gets the focus,
+ * button, or a column restored open from storage) the list is read fresh; the remembered tab, else a session of the address's project, gets the focus,
  * else the server's pick starts (`ensure`), at most once per project per page load. A hidden page waits until it is shown, so a
  * background tab restored open starts nothing. A collapsed strip on page load starts nothing: `open` is false.
  */
@@ -31,6 +31,8 @@ export function useAutoStart(o: {
   /** The terminal is on, its state was read and the address's project is known (`terminalProjectOf`). */
   ready: boolean;
   project: string | null;
+  /** The tab he had open (`terminal-tab`): shown again when it is one of this project's sessions (P88, B7: a reload showed the first). */
+  remembered: string | null;
   /** The list, read fresh (`staleTime: 0`); the cached one when the read fails. */
   fresh: () => Promise<readonly TerminalSessionDto[]>;
   ensure: () => void;
@@ -47,10 +49,11 @@ export function useAutoStart(o: {
     if (!open || !ready) return;
     let gone = false;
     const run = async () => {
-      const { project, fresh, ensure, show } = latest.current;
+      const { project, remembered, fresh, ensure, show } = latest.current;
       const list = await fresh();
       if (gone || !latest.current.open) return;
-      const s = sessionFor(list, project);
+      const kept = list.find((x) => x.id === remembered && (!project || x.project === project));
+      const s = kept ?? sessionFor(list, project);
       if (s) return show(s);
       const key = project ?? "";
       if (started.current.has(key)) return;

@@ -4,7 +4,7 @@ import type { Terminal } from "@xterm/xterm";
 import { useEffect, useRef } from "react";
 import { cn } from "../../cn";
 import type { Dropped } from "./drop";
-import { keyRoute, SHIFT_ENTER } from "./keys";
+import { enterPacer, keyRoute, SHIFT_ENTER } from "./keys";
 import { readTheme } from "./theme";
 import { useDropTarget } from "./use-drop-target";
 
@@ -119,7 +119,8 @@ export function TerminalView({ resolvedTheme, inputLabel = "Terminal input", cla
         }
         return false;
       });
-      t.onData((d) => cb.current.onInput(encoder.encode(d)));
+      // A lone Enter right after a chunk of text waits for the CLI's paste window to close (P88, `enterPacer`).
+      t.onData(enterPacer((d) => cb.current.onInput(encoder.encode(d))));
       t.onBinary((d) => cb.current.onInput(bytesOf(d)));
       t.open(el);
       t.textarea?.setAttribute("aria-label", cb.current.inputLabel);

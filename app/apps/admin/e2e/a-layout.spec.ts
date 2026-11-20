@@ -34,10 +34,13 @@ const CONTROL_CAP = 36;
 const SELECTING_CAP = 44;
 const FIRST_ROW_MAX_PHONE = 200;
 const P = "lisbon-realty";
+// The docked terminal's own stops (tabs, +, tips, Close, Hide, the separator, its input) are not counted: the dock is not a screen
+// (README rule 8a, decision 0032), and since P88 Drafts keeps its list and card beside it at 1280, so the screen's cap holds alone.
 const tabStopsInView = (page: Page) =>
   page.evaluate(
     () =>
       [...document.querySelectorAll<HTMLElement>('button,a[href],input,select,textarea,[role=switch],[role=checkbox],[role=menuitem],[role=combobox]')].filter((e) => {
+        if (e.closest('[data-slot="side-dock"]')) return false;
         const r = e.getBoundingClientRect();
         const s = getComputedStyle(e);
         return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth && e.tabIndex >= 0 && !(e as HTMLButtonElement).disabled && e.getAttribute("aria-hidden") !== "true";
