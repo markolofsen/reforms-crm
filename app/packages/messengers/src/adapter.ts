@@ -11,6 +11,8 @@ export interface InboundMessage {
   remoteMessageId: string;
   kind: string; // "text" or the media type; bytes are never kept
   text: string;
+  /** `out` for a message the account itself wrote (a user account sees both sides; a bot only `in`). Default `in`. */
+  direction?: "in" | "out";
   sentAt: string; // ISO-8601 UTC
 }
 
@@ -58,9 +60,28 @@ export function pollOnly(a: MessengerAdapter): MessengerAdapter {
 
 export const isSending = (a: MessengerAdapter): a is SendingAdapter => typeof (a as Partial<SendingAdapter>).send === "function";
 
-export type AdapterErrorCode = "unauthorized" | "conflict" | "rate_limited" | "network" | "unknown";
+export type AdapterErrorCode = "unauthorized" | "conflict" | "rate_limited" | "network" | "unknown" | ParkedCode;
 
-/** `unauthorized` (bad token) and `conflict` (another consumer or a webhook) stop the poller: retrying cannot fix them. */
+/**
+ * A user account's states that park it (decision 0036 point 2): the session was revoked (`logged_out`), the account is banned, or
+ * Telegram asked for a wait over an hour (`flood_wait`). Parked is never retried by itself: only a new login clears it.
+ */
+export const PARKED_CODES = ["logged_out", "banned", "flood_wait"] as const;
+export type ParkedCode = (typeof PARKED_CODES)[number];
+export const isParkedCode = (c: string): c is ParkedCode => (PARKED_CODES as readonly string[]).includes(c);
+
+/** How a park is written to `messenger_accounts.last_error`, so a server restart finds it and does not reconnect. */
+export const parkedLine = (code: ParkedCode, message: string): string => `parked ${code}: ${message}`;
+/** The park a stored `last_error` records, or null. */
+export function parkedOf(lastError: string | null | undefined): ParkedCode | null {
+  const code = /^parked ([a-z_]+):/.exec(lastError ?? "")?.[1];
+  return code && isParkedCode(code) ? code : null;
+}
+
+/**
+ * `unauthorized` (bad token) and `conflict` (another consumer or a webhook) stop the poller: retrying cannot fix them. So do
+ * the parked codes of a user account.
+ */
 export class AdapterError extends Error {
   constructor(
     readonly code: AdapterErrorCode,
@@ -71,11 +92,23 @@ export class AdapterError extends Error {
     this.name = "AdapterError";
   }
   get fatal(): boolean {
-    return this.code === "unauthorized" || this.code === "conflict";
+    return this.code === "unauthorized" || this.code === "conflict" || isParkedCode(this.code);
+  }
+  get parked(): boolean {
+    return isParkedCode(this.code);
   }
 }
 
 /** The Telegram bot as a receive-only adapter (grammY is loaded only here). What a long-running poller, like the server, uses: it has no `send`. */
 export async function telegramPollAdapter(token: string): Promise<MessengerAdapter> {
   return pollOnly((await import("./telegram-api")).telegramAdapterFromToken(token));
+}
+
+/**
+ * The real mtcute clients of a Telegram user account (P71), loaded only when the server has a session or a login starts, so a
+ * process without one never loads MTProto.
+ */
+export async function mtcuteClients() {
+  const m = await import("./telegram-user-api");
+  return { login: m.mtcuteLoginClient, session: m.mtcuteSessionClient };
 }

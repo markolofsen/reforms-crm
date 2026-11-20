@@ -6,7 +6,8 @@ export type MessengersErrorCode =
   | "not_confirmed"
   | "no_send_channel"
   | "adapter_mismatch"
-  | "no_token";
+  | "no_token"
+  | "bad_login";
 
 /** A refusal with a stable `code`, so a CLI or tool maps it without parsing the message. */
 export class MessengersError extends Error {

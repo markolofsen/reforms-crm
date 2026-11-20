@@ -13,6 +13,7 @@ No secret is ever stored in git, a log or a page. Secrets live only in the git-i
 | Notion backend integration (django_notion) | Leads and Clients (write) | The backend's environment; never in the hub | A site's form handler writing leads | Owner only (see below) |
 | Mail account | Mail.app, through `mail-mcp` on `localhost:8787` (the agent, read) and `osascript` (the hub: drafts by `hub mcp` `draft_write`, the send, Sent detection) | Mail.app; the name in `config/config.json`; no file in the hub | Reading mail, creating unsent drafts, the confirmed send, Sent detection | `mail.daemon`, `mail.account` |
 | Telegram bot token (optional) | A bot made with @BotFather | `state/secrets/telegram-bot-token` | The receive-only poller | `messengers.token`, `telegram.getme`, `messengers.poller` |
+| Telegram user account (optional, P71) | The owner's own Telegram account over MTProto (mtcute): `api_id` and `api_hash` from my.telegram.org, then phone, code and 2FA password, typed by him in the admin | `state/secrets/sessions/telegram_user-<id>/session` (mode 600: the session string with the `api_id` and `api_hash` it needs; never the phone, code or password); not in `app.db`, not in a backup: recovery is a new login | Receiving his linked chats (decision 0036) | `telegramUser` in `/api/health`; a parked account on Overview |
 | Backup snapshot (`hub backup`) | Nothing external: a folder (default `<instance>/backups/`, git-ignored) | `backups/` or `backup_dir` in `config/config.json` | A copy of the database, the Notion dump and the config that git does not hold | `backup.snapshot` |
 | Lead-form canary secret (optional) | One site's form handler: an HMAC key it shares with the hub, one per handler | `state/secrets/<secretRef>` (named in `config/lead-forms.json`); the same value in the site's environment | `hub doctor --only Leads --canary` ([`../core/22-lead-forms.md`](../core/22-lead-forms.md)) | the `leads.<form>` rows (WARN "canary not run" when missing) |
 | Claude Code sign-in | The `claude` CLI on this machine | Claude's own store | `hub agent` (the default CLI) | `tools.claude`, Agent tools |
@@ -59,6 +60,10 @@ The owner's own backend writes leads (and clients) into the CRM from a site's fo
 ## Telegram (optional)
 
 Create a bot with @BotFather and store the token in `state/secrets/telegram-bot-token` (one `<digits>:<secret>` line) with `./run.sh token telegram`. The server then polls and stores messages; it never sends. A new token applies on the next server start. `telegram.getme` makes one read-only call to confirm Telegram accepts it.
+
+## Telegram user account (optional)
+
+The owner's own account, connected as a real client (decision 0036; the risk of a ban is his, taken knowingly, and he chose his main number). He creates an app on my.telegram.org for its `api_id` and `api_hash` and types them, the phone, the code and the 2FA password into the admin's connect form (with the Messengers section, P71); the server hands each to mtcute and writes only the final session to `state/secrets/sessions/telegram_user-<id>/session`. A revoked session, a ban or a flood wait over an hour parks the account: nothing reconnects it until he logs in again. Disconnect deletes the folder. Only chats he links to a client are stored.
 
 ## Backups need access too
 

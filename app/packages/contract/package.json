@@ -22,7 +22,8 @@
     "./scheme": "./src/scheme.ts",
     "./knowledge": "./src/knowledge.ts",
     "./tips": "./src/tips.ts",
-    "./help": "./src/help.ts"
+    "./help": "./src/help.ts",
+    "./messengers": "./src/messengers.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

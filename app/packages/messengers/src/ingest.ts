@@ -55,7 +55,7 @@ export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Prom
       account: m.account,
       chatId: m.chatId,
       remoteMessageId: m.remoteMessageId,
-      direction: "in",
+      direction: m.direction ?? "in",
       kind: m.kind,
       text: m.text,
       sentAt: m.sentAt,

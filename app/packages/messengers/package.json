@@ -17,6 +17,8 @@
     "@hub/config": "workspace:*",
     "@hub/connections": "workspace:*",
     "@hub/db": "workspace:*",
+    "@mtcute/core": "0.32.8",
+    "@mtcute/node": "0.32.8",
     "commander": "15.1.0",
     "grammy": "1.46.0"
   },

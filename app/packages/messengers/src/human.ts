@@ -2,8 +2,9 @@
  * The human path. Everything that links a chat to a client, lists a chat, approves a reply or sends one lives here
  * and needs a `HumanActor`. This module is a separate package entry (`@hub/messengers/human`): the agent-facing
  * entry (`@hub/messengers`) does not export it. A `HumanActor` is minted only by `humanActor()`, which an entry
- * point calls once it knows a person is present (the CLI checks for a terminal; the server mints none: the admin
- * has no sign-in). Do not import this file from anything an agent can call.
+ * point calls once it knows a person is present (the CLI checks for a terminal; the server mints one behind the admin
+ * gate, for a Telegram user account's link: decision 0036 point 7). Do not import this file from anything an agent can call.
+ * The login of a user account and its session writes are exported here too, for the same reason: only a person logs in.
  */
 import type { IdentifierKind, MessengerChannel, Repos } from "@hub/db";
 import { isSending, type MessengerAdapter, type SentReceipt } from "./adapter";
@@ -12,6 +13,8 @@ import { MessengersError } from "./errors";
 import { normalizeIdentifier } from "./normalize";
 import { canSendVia, channelsOf, RETENTION_DAYS, type Draft } from "./types";
 import { toDraft } from "./drafts";
+import { ingest } from "./ingest";
+import { IMPORT_DAYS, type TelegramUserAdapter } from "./telegram-user";
 
 declare const humanBrand: unique symbol;
 
@@ -168,4 +171,32 @@ export async function copyDraft(repos: Repos, actor: HumanActor, input: { projec
 export async function discardDraft(repos: Repos, actor: HumanActor, input: { project: string; draftId: number }): Promise<void> {
   assertHuman(actor);
   await repos.messengers.discardDraft(input.project, input.draftId);
+}
+
+// ---- user accounts: the login and the session file (P71, decision 0036 points 4 and 5)
+export { createLoginFlows, LOGIN_TTL_MS, type LoginDeps, type LoginFlows } from "./telegram-user-login";
+export { removeSession, writeSession } from "./sessions";
+
+/**
+ * Links a Telegram user account's private chat to a client (0036 point 3): writes `client_identifiers` (kind `telegram`, the chat's
+ * user id), allows the chat on channel `telegram_user`, then imports its last `days` (default 30) through the one ingest. The
+ * chat is chosen by the owner from the picker; nothing is matched for him.
+ */
+export async function linkUserChat(
+  deps: { repos: Repos; adapter: TelegramUserAdapter; now?: () => Date },
+  actor: HumanActor,
+  input: { project: string; clientId: number; chatId: string; title?: string; days?: number },
+): Promise<{ identifierId: number; imported: number; importError: string | null }> {
+  assertHuman(actor);
+  const linked = await linkIdentifier(deps.repos, actor, { project: input.project, clientId: input.clientId, kind: "telegram", value: input.chatId, channel: "telegram_user", ...(input.title ? { title: input.title } : {}) });
+  await deps.adapter.refreshAllowed();
+  const now = (deps.now ?? (() => new Date()))();
+  // The link stands even when the import fails: new messages arrive anyway, and the poller's catch-up reads from its cursor.
+  try {
+    const rows = await deps.adapter.history(linked.value, { since: new Date(now.getTime() - (input.days ?? IMPORT_DAYS) * 86_400_000) });
+    const r = await ingest({ project: input.project, repos: deps.repos, now: () => now }, rows);
+    return { identifierId: linked.identifierId, imported: r.stored, importError: null };
+  } catch (e) {
+    return { identifierId: linked.identifierId, imported: 0, importError: e instanceof Error ? e.message : "the import failed" };
+  }
 }

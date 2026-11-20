@@ -44,6 +44,18 @@ const off = (reason: string, project?: string): MessengersHandle => ({
   done: Promise.resolve(),
 });
 
+/**
+ * The one project a messenger account stores into: `HUB_MESSENGERS_PROJECT`, else the only registered project. Shared by the bot
+ * and the Telegram user accounts (P71), since each instance has one project today.
+ */
+export async function messengersProject(repos: Repos, env: NodeJS.ProcessEnv): Promise<{ project: string; reason?: undefined; named?: undefined } | { project: null; reason: string; named?: string }> {
+  const slugs = (await repos.projects.registry()).projects.map((p) => p.slug);
+  const project = env.HUB_MESSENGERS_PROJECT ?? (slugs.length === 1 ? slugs[0] : undefined);
+  if (!project) return { project: null, reason: slugs.length ? "several projects: set HUB_MESSENGERS_PROJECT" : "no project registered" };
+  if (!slugs.includes(project)) return { project: null, reason: `project "${project}" is not registered`, named: project };
+  return { project };
+}
+
 export async function startMessengers(o: StartMessengers): Promise<MessengersHandle> {
   const env = o.env ?? process.env;
   if (env.HUB_MESSENGERS === "off") return off("HUB_MESSENGERS=off");
@@ -61,10 +73,9 @@ export async function startMessengers(o: StartMessengers): Promise<MessengersHan
   }
   if (!isTelegramToken(token)) return off("bot token file is not a Telegram token");
 
-  const slugs = (await o.repos.projects.registry()).projects.map((p) => p.slug);
-  const project = env.HUB_MESSENGERS_PROJECT ?? (slugs.length === 1 ? slugs[0] : undefined);
-  if (!project) return off(slugs.length ? "several projects: set HUB_MESSENGERS_PROJECT" : "no project registered");
-  if (!slugs.includes(project)) return off(`project "${project}" is not registered`, project);
+  const pick = await messengersProject(o.repos, env);
+  if (pick.project === null) return off(pick.reason, pick.named);
+  const project = pick.project;
 
   const st: MessengersStatus = { state: "starting", project, failures: 0, stored: 0 };
   const ac = new AbortController();

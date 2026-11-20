@@ -12,6 +12,9 @@ allowBuilds:
   esbuild: true
   # P49: the terminal's PTY. Its install script only picks the shipped prebuilt (darwin-arm64); node-gyp is the fallback.
   node-pty: true
+  # P71 M1: reviewed and refused. `@mtcute/node` depends on better-sqlite3 12, but the hub runs mtcute on MemoryStorage and never
+  # loads that addon, so its install script (prebuild-install or node-gyp) is not run. `@hub/db`'s 13.1.1 has no install script.
+  better-sqlite3: false
 minimumReleaseAgeExclude:
   - lucide-react@1.73.0
   - '@playwright/test@1.65.1'

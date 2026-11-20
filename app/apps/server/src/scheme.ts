@@ -111,6 +111,19 @@ function tokenNode(c: ConnectionDto): SchemeNode {
   return node({ ...base, state: "unknown", detail: "Not tested since the server started: Test it on Settings ▸ Connections." });
 }
 
+/**
+ * P71: one part per Telegram user account (the owner's own account), from the health snapshot. A parked account is broken with its
+ * fix line, so it is a "needs you" item; a passing error needs a look. The label names the account's id only, never a chat. No
+ * place yet: its page is the Messengers section, a later stage of P71.
+ */
+function telegramUserNodes(h: HealthDto): SchemeNode[] {
+  return h.telegramUser.accounts.map((a) => {
+    const state: SchemeState = a.state === "running" ? "ok" : a.state === "parked" ? "fail" : a.state === "error" ? "warn" : "unknown";
+    const detail = a.state === "parked" ? `Parked (${a.parked ?? "unknown"}): it is not retried by itself.` : a.state === "error" ? (a.lastError ?? "The connection is failing; it retries.") : a.state === "stopped" ? "Stopped." : "Connecting.";
+    return node({ id: `telegram:user:${a.account}`, kind: "telegram", project: null, label: `Telegram account ${a.account}`, state, detail, fix: a.fix, place: null });
+  });
+}
+
 function cliNodes(clis: readonly CliFactDto[] | null): SchemeNode[] {
   if (!clis) return (["claude", "codex"] as const).map((cli) => node({ id: `cli:${cli}`, kind: "cli", project: null, label: CLI_LABEL[cli], state: "unknown", detail: `Not detected yet. ${NOT_RUN}.`, place: "agent" }));
   return clis.map((f) => {
@@ -217,7 +230,7 @@ function edgesOf(nodes: readonly SchemeNode[]): SchemeEdge[] {
 export async function composeScheme(s: SchemeSources): Promise<SchemeDto> {
   const [slugs, conn] = await Promise.all([s.projects(), s.connections().catch(() => null)]);
   const tokens = (conn?.connections ?? []).filter((c) => c.kind === "notion" || c.secret.state !== "missing");
-  const instance = [...coreNode(s.core()), ...cliNodes(s.clis()), ...tokens.map(tokenNode)];
+  const instance = [...coreNode(s.core()), ...cliNodes(s.clis()), ...tokens.map(tokenNode), ...telegramUserNodes(s.health())];
   const perProject = (await Promise.all(slugs.map((slug) => projectNodes(slug, s, conn)))).flat();
   const nodes = [...instance, ...perProject];
   return schemeDto.parse({ nodes, edges: edgesOf(nodes) });

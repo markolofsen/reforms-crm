@@ -1,6 +1,6 @@
 import { TELEGRAM_IN_TEXT } from "@hub/connections";
 import type { Repos } from "@hub/db";
-import { AdapterError, type MessengerAdapter } from "./adapter";
+import { AdapterError, isParkedCode, parkedLine, type MessengerAdapter } from "./adapter";
 import { ingest, type IngestResult } from "./ingest";
 
 export interface PollDeps {
@@ -72,8 +72,8 @@ const defaultSleep = (ms: number, signal?: AbortSignal) =>
 
 /**
  * The worker loop: `start()` once, then poll until aborted. Transient errors back off and retry (a provider's
- * `retry_after` wins over the schedule); `unauthorized` and `conflict` stop the loop and throw, because retrying
- * would only fight whoever else holds the bot.
+ * `retry_after` wins over the schedule); `unauthorized`, `conflict` and a user account's parked codes stop the loop and
+ * throw, because retrying would only fight whoever else holds the bot (or anger Telegram); a park is recorded as such.
  */
 export async function runPoller(deps: RunDeps): Promise<void> {
   const { signal, adapter, repos, project } = deps;
@@ -103,7 +103,8 @@ export async function runPoller(deps: RunDeps): Promise<void> {
       if (signal?.aborted) return;
       const error = err instanceof Error ? err : new Error(String(err));
       if (error instanceof AdapterError && error.fatal) {
-        await repos.messengers.markPollError(project, adapter.channel, adapter.account, redact(error.message));
+        const line = redact(error.message);
+        await repos.messengers.markPollError(project, adapter.channel, adapter.account, isParkedCode(error.code) ? parkedLine(error.code, line) : line);
         throw error;
       }
       failures++;

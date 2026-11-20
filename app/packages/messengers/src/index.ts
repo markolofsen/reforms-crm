@@ -7,10 +7,16 @@ export { normalizeIdentifier } from "./normalize";
 export { isConfirmed, type ConfirmedDraft } from "./confirmed";
 export {
   AdapterError,
+  isParkedCode,
   isSending,
+  mtcuteClients,
+  parkedLine,
+  parkedOf,
+  PARKED_CODES,
   pollOnly,
   telegramPollAdapter,
   type AdapterErrorCode,
+  type ParkedCode,
   type InboundMessage,
   type MessengerAdapter,
   type PollBatch,
@@ -27,3 +33,22 @@ export { createDraft, listOpenDrafts, type NewDraftInput } from "./drafts";
 export { clientHistory, type ClientHistory, type ClientHistoryDeps, type HistoryItem } from "./history";
 export { pollCommand, pollLine, statusLines, STALE_AFTER_MS } from "./commands";
 export { purgeNow } from "./purge";
+export {
+  createTelegramUserAdapter,
+  toUserAdapterError,
+  toUserInbound,
+  FLOOD_PARK_SECONDS,
+  IMPORT_DAYS,
+  IMPORT_LIMIT,
+  QUEUE_MAX,
+  type MtClient,
+  type MtMe,
+  type MtMessage,
+  type MtPeer,
+  type TelegramUserAdapter,
+  type TelegramUserOptions,
+  type UserDialog,
+} from "./telegram-user";
+export { readSession, redactSessions, sessionAccounts, sessionsDir, SESSION_FILE, type SessionRead, type UserSession } from "./sessions";
+export type { LoginCredentials, LoginStep, MtLoginClient } from "./telegram-user-login";
+export { FakeLoginClient, FakeMtClient, FakeRpcError, fakePerson } from "./fake-user";
