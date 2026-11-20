@@ -250,13 +250,13 @@ describe("replyFrom (P58)", () => {
     const toTeam = wrote("two-accounts", "Delivered-To: info@caribbeanrealestatemls.com\nTo: team@caribbeanrealestatemls.com");
     const r = replyFrom({ account: "info@caribbeanrealestatemls.com", accountAddresses: ["info@caribbeanrealestatemls.com"], clientWroteTo: toTeam }, two);
     expect(r).toMatchObject({ from: "info@caribbeanrealestatemls.com", clientWroteTo: "team@caribbeanrealestatemls.com", via: "account" });
-    expect(r.fromReason).toBe("team@caribbeanrealestatemls.com cannot send yet: from info@caribbeanrealestatemls.com");
+    expect(r.fromReason).toBeNull();
   });
 
-  it("saas: mail to info@carapis.com goes from hello@ with the reason until the account can send as it, then from info@carapis.com", () => {
+  it("saas: mail to info@carapis.com goes from hello@ with no fault reason (a forward is the design), from info@carapis.com only if the account can send as it", () => {
     const w = wrote("one-mailbox", read(cases.forwarded.headersFile));
     expect(w).toBe("info@carapis.com");
-    expect(replyFrom({ account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai"], clientWroteTo: w }, one)).toEqual({ from: "hello@reforms.ai", clientWroteTo: "info@carapis.com", fromReason: "info@carapis.com cannot send yet: from hello@reforms.ai", via: "account" });
+    expect(replyFrom({ account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai"], clientWroteTo: w }, one)).toEqual({ from: "hello@reforms.ai", clientWroteTo: "info@carapis.com", fromReason: null, via: "account" });
     expect(replyFrom({ account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai", "Info@Carapis.com"], clientWroteTo: w }, one)).toEqual({ from: "info@carapis.com", clientWroteTo: "info@carapis.com", fromReason: null, via: "wrote-to" });
     // Mail straight to the mailbox: nothing to explain.
     expect(replyFrom({ account: "hello@reforms.ai", accountAddresses: [], clientWroteTo: "hello@reforms.ai" }, one)).toMatchObject({ from: "hello@reforms.ai", fromReason: null });

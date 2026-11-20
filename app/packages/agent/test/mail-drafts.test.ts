@@ -536,17 +536,17 @@ describe("draft_write: the From the client sees (P58)", () => {
   const account = one.mail.accounts[0] ?? "";
   const projectMail = () => ({ accounts: one.mail.accounts, sender: account, identity: { addresses: one.mail.addresses, domains: one.mail.domains, signoff: one.signoff, brands: one.brands, languages: one.languages } });
 
-  it("saas: from the receiving account with fromReason until it can send as the brand address, then from the brand address", async () => {
+  it("saas: from the receiving account with no fault reason, from the brand address only if the account can send as it", async () => {
     const mail = new FakeDraftWriter();
     mail.headers.set(42, headers);
     mail.headers.set(43, headers);
     const call = await connect(undefined, undefined, { drafts: mail, projectMail });
     const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hello,\n\nHere is the answer." });
     expect(r.isError).toBe(false);
-    expect(r.json).toMatchObject({ fromSeenByClient: account, clientWroteTo: "info@carapis.com", fromReason: `info@carapis.com cannot send yet: from ${account}` });
+    expect(r.json).toMatchObject({ fromSeenByClient: account, clientWroteTo: "info@carapis.com", fromReason: null });
     expect(r.json).not.toHaveProperty("from");
     expect(r.json).not.toHaveProperty("wroteTo");
-    expect(r.json.next).toMatch(/The client sees From/);
+    expect(r.json.next).not.toMatch(/The client sees From/);
     expect(mail.drafts[0]?.from).toBe(account);
     mail.addresses.set(account, [account, "info@carapis.com"]);
     const s = await call({ account, mailbox_path: ["INBOX"], message_id: 43, content: "Hello,\n\nHere is the answer." });

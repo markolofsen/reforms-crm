@@ -6,7 +6,7 @@ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/colla
 import { ToggleGroup, ToggleGroupItem } from "@hub/ui/toggle-group";
 import { ThreadPanel } from "@/features/thread/thread-panel";
 import { isClosed, type ReviewDraft } from "../source";
-import { fromReasonOf, type DraftMailDto } from "@hub/contract/responses";
+import type { DraftMailDto } from "@hub/contract/responses";
 import type { ReviewActions } from "../use-review-actions";
 import { mailProblem } from "../mail/tick-guard";
 import { DraftEditor } from "../mail/draft-editor";
@@ -22,17 +22,14 @@ function addressing(d: ReviewDraft): string {
 
 /**
  * P58: who the client will see the reply from and whom it goes to, from Mail's own read (true after an edit in Mail),
- * then the address they wrote to; when the From is not that address, the reason in the warning tone, in the words the
- * agent is given (`fromReasonOf`).
+ * then the address they wrote to, as context: a reply from the mailbox a brand address forwards into is the design.
  */
 function FromLine({ d, live }: { d: ReviewDraft; live: DraftMailDto }) {
-  const reason = fromReasonOf(d.wroteTo, live.from);
   return (
     <p className="break-words text-muted-foreground text-sm" data-testid="from-line">
       From {live.from ?? "?"} → To {live.to.join(", ") || "nobody"}
       {live.cc.length > 0 ? `, Cc ${live.cc.join(", ")}` : ""}
       {d.wroteTo ? ` · they wrote to ${d.wroteTo}` : ""}
-      {reason && <span className="block text-warning-foreground">{reason}</span>}
     </p>
   );
 }

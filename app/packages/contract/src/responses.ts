@@ -318,19 +318,6 @@ export const draftMailDto = z.object({
 });
 export type DraftMailDto = z.infer<typeof draftMailDto>;
 
-const bareAddress = (v: string): string => (/<([^<>\s]+@[^<>\s]+)>/.exec(v)?.[1] ?? v).trim().toLowerCase();
-
-/**
- * Why a reply goes From another address than the one the client wrote to (P58), in the one wording the writer's
- * `fromReason`, the agent and the card share: "info@carapis.com cannot send yet: from hello@reforms.ai". Null when the
- * From is the address they wrote to, or either is unknown.
- */
-export function fromReasonOf(clientWroteTo: string | null | undefined, from: string | null | undefined): string | null {
-  if (!clientWroteTo || !from) return null;
-  const w = bareAddress(clientWroteTo);
-  const f = bareAddress(from);
-  return w === f ? null : `${w} cannot send yet: from ${f}`;
-}
 export const sentDto = z.object({ ok: z.literal(true), sendId: z.number() });
 /** A single-use ticket for one apply (P49 S12): minted only for the admin's exact origin, valid for seconds. */
 export const sendTicketDto = z.object({ ticket: z.string(), expiresAt: z.string() });
