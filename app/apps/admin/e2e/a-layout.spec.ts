@@ -33,7 +33,9 @@ const SEND_ROWS = [
 // that adds a notice; a screen that goes past it needs something folded away, not a higher number. Selecting drafts makes every row's checkbox a Tab stop on
 // purpose (39 at 1280), so that one state has its own cap. The first draft on a phone: 381px on real data before P48 (a paragraph and an accordion above
 // the list), 200 since (one header line and one status line). Not gated: colours and type sizes (no stable count), copy.
-const CONTROL_CAP = 36;
+// P99 (2026-11-21): Needs you now lists the people who wrote and have no draft too (the demo shows 8 rows, 2 of them Wrote you), each a checkbox and a row
+// button; the error states (Send refused, Mail unreadable) measured 39 and 37 at 1280 against 36. Raised to 40 for that reason; the list, not a control, grew.
+const CONTROL_CAP = 40;
 const SELECTING_CAP = 44;
 const FIRST_ROW_MAX_PHONE = 200;
 const P = "lisbon-realty";

@@ -10,7 +10,7 @@ import { EmptyState, LoadFailed } from "@/components/state-views";
 import { DraftCard } from "@/features/review/card/draft-card";
 import type { ConversationRow } from "@/features/review/source";
 import type { ReviewActions } from "@/features/review/use-review-actions";
-import { refreshData, sentence } from "@/lib/api/client";
+import { ApiFailure, refreshData, sentence } from "@/lib/api/client";
 import { inboundApi } from "@/lib/api/inbox";
 import { reviewApi } from "@/lib/api/review";
 import { keys } from "@/lib/cache/keys";
@@ -81,7 +81,7 @@ export function ConversationPane({ project, clientId, listRow, pointed, actions,
   const row = q.data?.row ?? listRow;
   if (!row) {
     if (q.isPending) return <EmptyState title="Opening the conversation">The Hub looks the person up.</EmptyState>;
-    return q.isError ? (
+    return q.isError && !(q.error instanceof ApiFailure && q.error.status === 404) ? (
       <div className="p-4">
         <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the conversation" />
       </div>
