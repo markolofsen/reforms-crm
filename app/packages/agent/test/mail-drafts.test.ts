@@ -654,6 +654,17 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     expect(mail.drafts[0]?.text).toBe(`Hello,\n\nOne more note.\n\n${cases.forwarded.signature.join("\n")}`);
   });
 
+  it("P97 S3: a Leads row passes the new-thread check, and brand signs the message as that brand whatever it goes from", async () => {
+    const mail = new FakeDraftWriter();
+    const call = await connect(undefined, undefined, { drafts: mail, projectMail, clientInNotion: async () => ({ state: "lead", pageId: "a".repeat(32) }) });
+    const fresh = { to: "koboriubiratan@gmail.com", subject: "Your Carapis API request", content: "Hello,\n\nThank you for your request.", owner_request: "write a first mail to koboriubiratan@gmail.com of acme" };
+    expect(await call({ ...fresh, brand: "Nope" })).toMatchObject({ isError: true, json: { error: "invalid" } });
+    const r = await call({ ...fresh, brand: "carapis" });
+    expect(r).toMatchObject({ isError: false, json: { newThread: true, brand: "Carapis", signature: "signed" } });
+    expect(mail.newTo).toEqual(["koboriubiratan@gmail.com"]);
+    expect(mail.drafts[0]?.text).toBe("Hello,\n\nThank you for your request.\n\nBest regards,\nCarapis team\ncarapis.com");
+  });
+
   it("refuses the ending of Sent 139821 (a Russian closing and the team's name), and a closing in any of the last four lines", async () => {
     const mail = new FakeDraftWriter();
     mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
