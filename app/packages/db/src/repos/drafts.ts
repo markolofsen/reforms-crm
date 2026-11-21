@@ -68,7 +68,17 @@ export type RecordDraftInput = {
 };
 
 /** created: new row; updated: same `mailRef` as the open draft; replaced: another open draft was skipped first; unchanged: this `mailRef` is already a finished draft. */
-export type RecordDraftResult = { clientId: number; draftId: number; runId: number; action: "created" | "updated" | "replaced" | "unchanged"; /** Set when this record finished the client's follow-ups (a reply, an opt-out). */ followUps?: FinishReason };
+export type RecordDraftResult = {
+  clientId: number;
+  draftId: number;
+  runId: number;
+  action: "created" | "updated" | "replaced" | "unchanged";
+  /** P99 S0 (b): false only on `unchanged` (nothing was written); the caller never reports it as recorded. */
+  recorded: boolean;
+  /** On `unchanged`: the plain sentence for the agent ("not recorded"). */
+  message?: string;
+  /** Set when this record finished the client's follow-ups (a reply, an opt-out). */ followUps?: FinishReason;
+};
 
 const isOpen = (s: DraftStatus) => s === "ready" || s === "hold";
 const isFinishedByOwner = (s: DraftStatus) => s === "done" || s === "skipped";
@@ -213,6 +223,10 @@ export function draftsRepo(db: Db) {
         const d = tx.select().from(drafts).where(eq(drafts.id, id)).get();
         if (!d) return null;
         if (d.status === "sent") throw new RepoError("wrong_state", "A sent draft cannot change");
+        // P99 S0 (e2): a second close on a stale card does not stack (draft 4: Skip, then Done). Reopen or Undo first.
+        if ((status === "done" && d.status === "skipped") || (status === "skipped" && d.status === "done")) {
+          throw new RepoError("wrong_state", `Draft ${id} is ${d.status === "skipped" ? "skipped" : "done"}: Reopen or Undo it first`);
+        }
         try {
           const next = tx
             .update(drafts)
@@ -379,14 +393,14 @@ export function draftsRepo(db: Db) {
         if (sameRef && sameRef !== open && !ownerRequest) {
           // Finished (done, sent or skipped) and the same message: a re-run must not bring it back. The owner's own words
           // (P85) ask for a new message, so they record a new draft beside the finished one.
-          return { clientId: client.id, draftId: sameRef.id, runId, action: "unchanged" as const, ...stopped };
+          return { clientId: client.id, draftId: sameRef.id, runId, action: "unchanged" as const, recorded: false, message: `Not recorded: draft ${sameRef.id} is ${sameRef.status} (finished) and answers this message; nothing was recorded. A new message needs ownerRequest (the owner's words) and its own draft_write reply to the newest message of the thread.`, ...stopped };
         }
         if (open && sameRef === open) {
           // A revision of the same draft (P51): new text, so "I read the checks" no longer holds (decision 0013).
           tx.update(drafts).set({ ...fields, ...inBatch(), ...(flagged ? { injectionSuspected: true } : {}), checked: false, checkedHash: null, updatedAt: now }).where(eq(drafts.id, open.id)).run();
           log("draft_created", "Draft updated", { draftId: open.id, action: "update", skill: input.skill ?? null, mailRef });
           linkVersions(open.id);
-          return { clientId: client.id, draftId: open.id, runId, action: "updated" as const, ...stopped };
+          return { clientId: client.id, draftId: open.id, runId, action: "updated" as const, recorded: true, ...stopped };
         }
         if (open && seq) throw new RepoError("wrong_state", "This client has an open draft: a follow-up step is not recorded over it");
         // P85: a message on the owner's words never pushes aside a draft that waits for his review (a reply the client is
@@ -403,7 +417,7 @@ export function draftsRepo(db: Db) {
           .get();
         log("draft_created", "Draft recorded", { draftId: d.id, action: "create", skill: input.skill ?? null, mailRef, ...(ownerRequest ? { ownerRequest } : {}) });
         linkVersions(d.id);
-        return { clientId: client.id, draftId: d.id, runId, action: open ? ("replaced" as const) : ("created" as const), ...stopped };
+        return { clientId: client.id, draftId: d.id, runId, action: open ? ("replaced" as const) : ("created" as const), recorded: true, ...stopped };
       });
     },
 
@@ -413,13 +427,15 @@ export function draftsRepo(db: Db) {
      * wrote to are replaced, and "I read the checks" is cleared because the text changed (decision 0013). Logged as
      * "Draft updated" like `hub record-draft`. Refuses a draft that is not open (done, sent, skipped) or of another project.
      */
-    async revised(project: string, draftId: number, r: { excerpt: string; wroteTo: string | null; brand: string | null }): Promise<{ draftId: number; clientId: number; action: "updated" }> {
+    async revised(project: string, draftId: number, r: { excerpt: string; wroteTo: string | null; brand: string | null; reason?: string | null }): Promise<{ draftId: number; clientId: number; action: "updated" }> {
       return write(db, (tx) => {
         const d = tx.select().from(drafts).where(and(eq(drafts.id, draftId), eq(drafts.project, project))).get();
         if (!d) throw new RepoError("not_found", `No draft ${draftId} in project ${project}`);
         if (!isOpen(d.status)) throw new RepoError("wrong_state", `Draft ${draftId} is ${d.status}: only a ready or held draft is revised in place`);
         const at = nowIso();
-        tx.update(drafts).set({ body: r.excerpt, wroteTo: r.wroteTo, brand: r.brand, checked: false, checkedHash: null, updatedAt: now }).where(eq(drafts.id, d.id)).run();
+        // P99 S0 (c): a revision may replace the recorded "Why this email"; omitted, it stays.
+        const reason = r.reason?.trim() || null;
+        tx.update(drafts).set({ body: r.excerpt, wroteTo: r.wroteTo, brand: r.brand, ...(reason ? { reason } : {}), checked: false, checkedHash: null, updatedAt: now }).where(eq(drafts.id, d.id)).run();
         const c = tx.select({ name: clients.name, email: clients.email }).from(clients).where(eq(clients.id, d.clientId)).get();
         const runId = sessionRun(tx, { project, runId: d.runId, skill: "draft_write", at });
         insertEvent(tx, { project, runId, at, kind: "draft_created", summary: `Draft updated: ${c?.name || c?.email || d.toAddr}`, detail: JSON.stringify({ draftId: d.id, action: "update", skill: "draft_write", mailRef: d.mailRef }), clientId: d.clientId, tool: null });

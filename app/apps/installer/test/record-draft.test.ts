@@ -44,6 +44,19 @@ describe("hub record-draft", () => {
     expect(rows[0]?.draft?.subject).toBe("Re: hello (edited)");
   });
 
+  it("P99 S0 (b): the same mailRef on a finished draft says plainly that nothing was recorded", async () => {
+    const first = JSON.parse((await run()).line) as { draftId: number; recorded: boolean };
+    expect(first.recorded).toBe(true);
+    const h = openDb(db);
+    await createRepos(h.db).drafts.setStatus(first.draftId, "done");
+    h.close();
+    const again = await run({ excerpt: "A poem." });
+    expect(again.code).toBe(0);
+    expect(again.line.startsWith('{"ok":true,"recorded":false,"message":"Not recorded:')).toBe(true);
+    expect(JSON.parse(again.line)).toMatchObject({ recorded: false, action: "unchanged", draftId: first.draftId });
+    expect(JSON.parse(again.line).message).toMatch(/is done .*nothing was recorded.*ownerRequest/);
+  });
+
   it("refuses a bad payload with code 2 and writes nothing", async () => {
     for (const bad of [{ subject: "" }, { email: "nope" }, { mailRef: "x".repeat(501) }, { subject: "s".repeat(301) }, { reason: "r".repeat(1501) }, { marks: ["boss"] }, { status: "sent" }, { lastContactAt: "yesterday" }]) {
       const r = await run(bad);

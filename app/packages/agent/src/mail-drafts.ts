@@ -60,6 +60,7 @@ export const WRITE_ADVICE: Readonly<Record<string, RetryAdvice>> = {
   content_refused: { retry: "no", next: `Another call, with this text or another, gives the same result. ${NO_RETRY} Tell the owner in one line: the Hub's Mail writer refused the reply, nothing was saved, it is a Hub fault (in the session log), not a macOS permission.` },
   mail_slow: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that Mail is slow and the new text shows on the card when Mail saves it.` },
   already_sent: { retry: "now", next: "A sent draft is not revised. When the owner asked for a new message: one draft_write as a new reply to the newest message of the client's thread (our sent copy in Sent, or the client's newer one), with owner_request = his words; else tell the owner in one line what the message says." },
+  draft_finished: { retry: "now", next: "A finished draft (done or skipped) is not revised and record-draft does not bring it back. When the owner asked for a new message: one draft_write as a new reply to the newest message of the client's thread (ours in Sent, or theirs), with owner_request = his words, then record-draft with ownerRequest; else tell the owner in one line that the draft is finished." },
   already_drafted: { retry: "no", next: "Revise the draft the message names, with draft = its id, when the owner asks. A finished draft and the owner asked for a new message: reply to the newest message of the thread with owner_request = his words." },
   no_recipient: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that the message answered is ours and names nobody else; reply to the client's own newest message instead.` },
   no_message: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that the client's message is no longer in Mail.` },
@@ -81,6 +82,10 @@ export const alreadySentText = (id: number, sentAt: string | null, reader: "agen
   reader === "person"
     ? `Draft ${id} was sent${sentAt ? ` (${sentAt.slice(0, 16).replace("T", " ")})` : ""}: a sent mail is not revised. To write to this client again, ask the agent in the dock: it drafts a new message in the same thread, for you to review and send. Nothing was written.`
     : `Draft ${id} was sent${sentAt ? ` (${sentAt.slice(0, 16).replace("T", " ")})` : ""}: a sent mail is not revised. A new message to this client, when the owner asked for one: draft_write as a new reply to the newest message of the thread (our sent copy, in Sent, or the client's newer message), with owner_request = his words from this session; it gets its own draft. Nothing was written.`;
+
+/** P99 S0 (a): a done or skipped draft is not revised in place; a new message on the owner's words is its own draft. */
+export const draftFinishedText = (id: number, status: "done" | "skipped"): string =>
+  `Draft ${id} is ${status}: a finished draft is not revised, and record-draft does not reopen it. A new message to this client, when the owner asked for one: draft_write as a new reply to the newest message of the thread (ours in Sent, or the client's), with owner_request = his words from this session, then record-draft with ownerRequest; it gets its own draft. Nothing was written.`;
 
 export const adviceOf = (code: string): RetryAdvice => WRITE_ADVICE[code] ?? { retry: "no", next: NO_RETRY };
 

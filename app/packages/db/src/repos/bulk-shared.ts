@@ -3,7 +3,7 @@ import { type EvidenceFinding, type Mark, type SafetyResult, type SafetyRule } f
 import type { Db } from "../client";
 import { batches, clients, drafts, marks, safetyRules } from "../schema";
 import { effectiveRules, evaluateSafety, type SafetyInput } from "../safety";
-import { insertEvent } from "./runs";
+import { insertEvent, sessionRun } from "./runs";
 
 // Helpers shared by the drafts and batches repositories. All sync: they run inside the caller's transaction.
 export type Tx = Pick<Db, "select" | "insert" | "update" | "delete">;
@@ -75,15 +75,20 @@ export function loadSafety(tx: Tx, project: string, rows: DraftRow[], now: Date 
   return out;
 }
 
-/** Writes one line to the action log of the draft's batch (its agent run). No-op for a draft outside a batch. */
+/** The run that holds the owner's own decisions on drafts outside a batch (one per project, P99 S0 (d)). */
+export const OWNER_DECISIONS_KEY = "owner-decisions";
+
+/**
+ * Writes one line to the action log: the run of the draft's batch, else (a draft outside a batch, P99 S0 (d)) the
+ * project's owner run (`OWNER_DECISIONS_KEY`), so Done, Skip, Hold and Undo of any draft are in its Activity.
+ */
 export function logDraftEvent(tx: Tx, d: DraftRow, kind: "draft_created" | "decision", summary: string, detail?: Record<string, unknown>): void {
-  if (d.batchId == null) return;
-  const run = tx.select({ runId: batches.runId }).from(batches).where(eq(batches.id, d.batchId)).get();
-  if (run?.runId == null) return;
+  const batchRun = d.batchId == null ? null : (tx.select({ runId: batches.runId }).from(batches).where(eq(batches.id, d.batchId)).get()?.runId ?? null);
+  const runId = batchRun ?? sessionRun(tx, { project: d.project, batchKey: OWNER_DECISIONS_KEY, skill: null, at: nowIso() });
   const name = tx.select({ name: clients.name }).from(clients).where(eq(clients.id, d.clientId)).get()?.name ?? "client";
   insertEvent(tx, {
     project: d.project,
-    runId: run.runId,
+    runId,
     at: nowIso(),
     kind,
     summary: `${summary}: ${name}`,

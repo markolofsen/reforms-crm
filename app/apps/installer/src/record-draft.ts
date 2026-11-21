@@ -358,6 +358,11 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
           appendLine(recordsFile(o.ledgerRoot, project.data), line);
         } catch { /* the ledger is evidence, not a precondition: the draft is recorded */ }
       }
+      // P99 S0 (b): an `unchanged` answer leads with "not recorded", so a caller cannot read it as a success.
+      if (!r.recorded) {
+        const { recorded: _recorded, message, ...rest } = r;
+        return { code: 0, line: JSON.stringify({ ok: true, recorded: false, message, ...rest }) };
+      }
       return { code: 0, line: JSON.stringify({ ok: true, ...r, evidence, source, warnings, similarTo, mode, ...(v.notion ? {} : { notice: "notion not stated: pass {\"kind\":\"client\"|\"lead\"|\"none\"} so the card can link the page" }) }) };
     } catch (e) {
       last = e;

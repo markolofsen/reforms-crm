@@ -540,6 +540,31 @@ describe("draft_write (hub mcp)", () => {
     expect(await call({ content: "x" })).toMatchObject({ isError: true, json: { error: "invalid", retry: "now" } });
   });
 
+  it("P99 S0 (a): a done or skipped draft is refused with draft_finished before any Mail call; the advice names a new reply, not record-draft", async () => {
+    const repos = createRepos(db.db);
+    const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Wow", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail" });
+    const mail = new FakeDraftWriter();
+    mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
+    let mailCalls = 0;
+    const counted = new Proxy(mail, { get: (t, k, r) => { const v = Reflect.get(t, k, r); return typeof v === "function" ? (...a: unknown[]) => { mailCalls += 1; return (v as (...x: unknown[]) => unknown).apply(t, a); } : v; } });
+    const call = await connect(counted, undefined, { recordRevision: (slug, id, r) => repos.drafts.revised(slug, id, r) });
+    for (const status of ["done", "skipped"] as const) {
+      await repos.drafts.setStatus(rec.draftId, "ready").catch(() => undefined);
+      await repos.drafts.setStatus(rec.draftId, status);
+      const r = await call({ draft: rec.draftId, content: "A poem." });
+      expect(r).toMatchObject({ isError: true, json: { error: "draft_finished", retry: "now" } });
+      expect(r.json.message).toMatch(new RegExp(`Draft ${rec.draftId} is ${status}: a finished draft is not revised.*owner_request.*Nothing was written`));
+      expect(r.json.next).toMatch(/new reply to the newest message.*owner_request/);
+      expect(r.json.next).not.toMatch(/same mailRef/);
+    }
+    expect(mailCalls).toBe(0);
+    expect(mail.drafts).toHaveLength(0);
+    expect(await repos.mailVersions.ofThread("acme", "<m42@example.com>")).toHaveLength(0);
+    // reason belongs to a revision only.
+    expect(await call({ account: "desk@acme.example", mailbox_path: ["INBOX"], message_id: 42, content: "x", reason: "why" })).toMatchObject({ isError: true, json: { error: "invalid" } });
+    expect(mail.drafts).toHaveLength(0);
+  });
+
   it("a failed live bump or version record never fails the write", async () => {
     const mail = new FakeDraftWriter();
     const r = await (await connect(mail, () => {
@@ -741,7 +766,7 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     const mail = new FakeDraftWriter();
     mail.inbound.set("m42@example.com", { account, mailboxPath: ["INBOX"], messageId: 42 });
     mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
-    const recordRevision = (slug: string, id: number, r: { excerpt: string; wroteTo: string | null; brand: string | null }) => repos.drafts.revised(slug, id, r);
+    const recordRevision = (slug: string, id: number, r: { excerpt: string; wroteTo: string | null; brand: string | null; reason?: string }) => repos.drafts.revised(slug, id, r);
     const call = await connect(undefined, undefined, { drafts: mail, projectMail, recordRevision });
     const first = await call({ draft: rec.draftId, content: "Warmer answer." });
     expect(first.json).toMatchObject({ recorded: true, draft: rec.draftId, brand: cases.forwarded.brand });
@@ -753,6 +778,11 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     expect(mail.drafts[0]?.text.match(new RegExp(cases.forwarded.signature.at(-1)!.replace(/\./g, "\\."), "g"))).toHaveLength(1);
     const row = await repos.drafts.get(rec.draftId);
     expect(row).toMatchObject({ id: rec.draftId, body: "Warmer answer.", brand: cases.forwarded.brand, wroteTo: cases.forwarded.wroteTo, checked: false, status: "ready" });
+    // P99 S0 (c): a revision may replace "Why this email"; without reason the recorded one stays.
+    expect(row?.reason).toBe("asked");
+    const third = await call({ draft: rec.draftId, content: "Warmer answer, with the offer.", reason: "They asked for the commercial offer." });
+    expect(third.json.recorded).toBe(true);
+    expect((await repos.drafts.get(rec.draftId))?.reason).toBe("They asked for the commercial offer.");
     await repos.drafts.setStatus(rec.draftId, "done");
     await expect(repos.drafts.revised("acme", rec.draftId, { excerpt: "x", wroteTo: null, brand: null })).rejects.toThrow(/only a ready or held draft/);
   });

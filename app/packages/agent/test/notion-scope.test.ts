@@ -61,7 +61,7 @@ describe("the capabilities line names the project's databases (P82 S2)", () => {
     expect(l).toContain(testModeLine(["owner.test@gmail.example"]));
     expect(l).toMatch(/never refuse them as not a client/);
     // P98: a test address is answered as a client, never questioned or remarked on; Prepare reply writes the draft at once.
-    expect(l).toContain("never question it, never remark that it is his own or a test address");
+    expect(l).toContain("never question it, never remark that it is his own or a test address (in the reply nor in the reason you record)");
     expect(l).toContain("Prepare reply (or \"ответь\") on it means write the draft at once");
     expect(l.endsWith(NOTION_RULE)).toBe(true);
     setSendPolicy(paths.stateProjects, "acme-travel", loadProject(fixtures, "acme-travel").parsed.config.kind, { "draft.recipients": "any" }, "test");

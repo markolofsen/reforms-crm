@@ -136,7 +136,7 @@ export function clientsRepo(db: Db) {
         .from(clients)
         .innerJoin(drafts, scopeOf(opts))
         .where(and(eq(clients.project, project), predicates[filter], searchSql(opts.search)))
-        .orderBy(sql`case when ${drafts.status} in ('done','sent','skipped') then 1 else 0 end`, desc(clients.repliesOwed), sql`case when ${clients.lastContactAt} is null then 1 else 0 end`, asc(clients.lastContactAt), asc(drafts.id))
+        .orderBy(sql`case when ${drafts.status} in ('done','sent','skipped') then 1 else 0 end`, desc(clients.repliesOwed), sql`case when ${clients.lastContactAt} is null then 1 else 0 end`, asc(clients.lastContactAt), desc(drafts.id))
         .limit(opts.limit ?? -1)
         .offset(opts.offset ?? 0)
         .all();

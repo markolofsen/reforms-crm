@@ -74,6 +74,15 @@ describe("clients list and counts", () => {
   });
 });
 
+describe("P99 S0 (e): one client's drafts in All", () => {
+  it("are newest first", async () => {
+    const { clientId, draftId: first } = await addClient("p", "me@x.example", { status: "done" });
+    const second = await repos.drafts.create({ project: "p", clientId, subject: "Re: y", toAddr: "me@x.example", body: "b", status: "sent" });
+    const third = await repos.drafts.create({ project: "p", clientId, subject: "Re: z", toAddr: "me@x.example", body: "b", status: "done" });
+    expect((await repos.clients.review("p", "all")).map((d) => d.id)).toEqual([third, second, first]);
+  });
+});
+
 describe("drafts and marks", () => {
   it("ticks Checked and marks done; unknown ids return null", async () => {
     const { draftId, clientId } = await addClient("p", "a@x.example", { status: "ready" });
@@ -216,6 +225,56 @@ describe("drafts.record", () => {
     const b = await repos.drafts.record(input);
     expect(b).toMatchObject({ action: "unchanged", draftId: a.draftId });
     expect((await repos.drafts.get(a.draftId))!.status).toBe("done");
+  });
+
+  it("P99 S0 (b): the unchanged answer says it recorded nothing; a written record says recorded", async () => {
+    const a = await repos.drafts.record(input);
+    expect(a).toMatchObject({ action: "created", recorded: true });
+    await repos.drafts.setStatus(a.draftId, "done");
+    const b = await repos.drafts.record({ ...input, reason: "a poem" });
+    expect(b).toMatchObject({ action: "unchanged", recorded: false, draftId: a.draftId });
+    expect(b.message).toMatch(/^Not recorded: draft \d+ is done .*nothing was recorded.*ownerRequest/);
+    expect((await repos.drafts.get(a.draftId))!.reason).toBeNull();
+  });
+
+  it("P99 S0 (c): a revision may replace the recorded reason; omitted, it stays", async () => {
+    const a = await repos.drafts.record({ ...input, reason: "First reason." });
+    await repos.drafts.revised("p", a.draftId, { excerpt: "v2", wroteTo: null, brand: null });
+    expect(await repos.drafts.get(a.draftId)).toMatchObject({ body: "v2", reason: "First reason." });
+    await repos.drafts.revised("p", a.draftId, { excerpt: "v3", wroteTo: null, brand: null, reason: "  They asked for the offer.  " });
+    expect(await repos.drafts.get(a.draftId)).toMatchObject({ body: "v3", reason: "They asked for the offer." });
+  });
+
+  it("P99 S0 (e2): Done on a skipped draft and Skip on a done one are refused; Reopen first", async () => {
+    const a = await repos.drafts.record(input);
+    await repos.drafts.setStatus(a.draftId, "skipped");
+    await expect(repos.drafts.setStatus(a.draftId, "done")).rejects.toThrow(/is skipped: Reopen or Undo it first/);
+    expect((await repos.drafts.get(a.draftId))!.status).toBe("skipped");
+    await repos.drafts.setStatus(a.draftId, "ready");
+    await repos.drafts.setStatus(a.draftId, "done");
+    await expect(repos.drafts.setStatus(a.draftId, "skipped")).rejects.toThrow(/is done: Reopen or Undo it first/);
+    expect((await repos.drafts.undo(a.draftId))?.status).toBe("ready");
+  });
+
+  it("P99 S0 (d): Done, Skip, Hold and Undo of a draft outside a batch are logged, one event each, in one owner run", async () => {
+    const a = await repos.drafts.record(input);
+    const before = (await repos.runs.eventsForClient("p", a.clientId)).length;
+    await repos.drafts.setStatus(a.draftId, "hold");
+    await repos.drafts.setStatus(a.draftId, "skipped");
+    await repos.drafts.undo(a.draftId);
+    await repos.drafts.setStatus(a.draftId, "done");
+    const events = (await repos.runs.eventsForClient("p", a.clientId)).slice(0, -before || undefined);
+    expect(events.map((e) => e.summary).reverse()).toEqual(["Put on hold: Cy Roe", "Skipped: Cy Roe", "Undid the last action: Cy Roe", "Marked done: Cy Roe"]);
+    expect(new Set(events.map((e) => e.runId)).size).toBe(1);
+    expect(events[0]!.runId).not.toBe(a.runId);
+    expect(JSON.parse(events[0]!.detail ?? "{}")).toMatchObject({ draftId: a.draftId, action: "done" });
+    // Skip is a client decision of the Activity screen.
+    expect((await repos.runs.activity("p")).rows.map((r) => r.outcome)).toContain("skipped");
+    // The run is per project: another project's decision has its own.
+    const q = await repos.drafts.record({ ...input, project: "q" });
+    await repos.drafts.setStatus(q.draftId, "done");
+    const [qe] = await repos.runs.eventsForClient("q", q.clientId);
+    expect(qe!.runId).not.toBe(events[0]!.runId);
   });
 
   it("keeps the owner's marks, records a do-not-contact client, and can log into a given run", async () => {

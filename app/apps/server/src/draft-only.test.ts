@@ -92,6 +92,18 @@ describe("no status says sent", () => {
     expect((await post(`/api/drafts/${id}/status`, { project: "p", status: "done" })).status).toBe(200);
   });
 
+  it("P99 S0 (e2): Done on a skipped draft is refused (409) and changes nothing; Reopen first", async () => {
+    const { ana } = await seedClients();
+    const id = await repos.drafts.create({ project: "p", clientId: ana, subject: "s", toAddr: "ana@x.example", body: "b" });
+    expect((await post(`/api/drafts/${id}/status`, { project: "p", status: "skipped" })).status).toBe(200);
+    const stale = await post(`/api/drafts/${id}/status`, { project: "p", status: "done" });
+    expect(stale.status).toBe(409);
+    expect(((await stale.json()) as { error: string }).error).toMatch(/is skipped: Reopen or Undo it first/);
+    expect((await repos.drafts.get(id))).toMatchObject({ status: "skipped", prevStatus: "ready" });
+    expect((await post(`/api/drafts/${id}/status`, { project: "p", status: "ready" })).status).toBe(200);
+    expect((await post(`/api/drafts/${id}/status`, { project: "p", status: "done" })).status).toBe(200);
+  });
+
   it("the batch builder routes are gone: no route makes a batch or adds a draft to one", async () => {
     const { ana } = await seedClients();
     expect((await post("/api/batches", { project: "p", name: "A", intent: "notice", audience: "all", clientIds: [ana], brief: "b", status: "sent" })).status).toBe(404);

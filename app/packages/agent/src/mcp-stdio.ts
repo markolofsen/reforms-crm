@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { loadProject, readAllowList, testRecipientsOf } from "@hub/projects";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { mailAppDraftWriter } from "./mail-drafts";
-import { createHubMcpServer, type NotionClientCheck, type VersionRecord } from "./mcp";
+import { createHubMcpServer, type NotionClientCheck, type RevisionRecord, type VersionRecord } from "./mcp";
 import type { WithRepos } from "./write-record";
 import { notionScopeOf } from "./notion-scope";
 
@@ -23,7 +23,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   };
   const projectNotion = (slug: string) => notionScopeOf(slug, loadProject(paths.projects, slug).parsed.config);
   // A revision the writer saved is recorded in place on a short write connection, closed at once (the tools' handle stays read-only).
-  const recordRevision = async (slug: string, draftId: number, r: { excerpt: string; wroteTo: string | null; brand: string | null }) => {
+  const recordRevision = async (slug: string, draftId: number, r: RevisionRecord) => {
     const w = openDb(paths.db);
     try {
       return await createRepos(w.db).drafts.revised(slug, draftId, r);
