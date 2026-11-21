@@ -92,8 +92,16 @@ export const ProjectBase = z.object({
       databases: z.array(ProjectDatabase).default([]),
       /** P89 (decision 0043 point 7): `on` (default), after a confirmed send the Hub writes `Last sent at` / `Last sent by` on the client's Clients page; `off`, it writes nothing to Notion. */
       stampSends: z.enum(STAMP_MODES).default("on"),
+      /** P97 (decision 0044): `on` (default), at the first confirmed send to a lead the Hub links or creates the lead's Clients card and sets the lead In progress; `off`, it writes nothing on leads at a send (Spam stays the owner's click). */
+      convertLeads: z.enum(STAMP_MODES).default("on"),
     })
-    .default({ teamspace: null, teamspaceId: null, parentPage: null, tokenFile: "notion-token", databases: [], stampSends: "on" }),
+    .default({ teamspace: null, teamspaceId: null, parentPage: null, tokenFile: "notion-token", databases: [], stampSends: "on", convertLeads: "on" }),
+  /**
+   * P97 (decision 0044): `noticeSenders`, the addresses whose mail is a site's notification of a lead (a copy of a Leads row, never a
+   * person writing): never an Inbox client row, even when the mail filters whitelist them. `windowDays`: the Inbox lists the Leads
+   * rows still New that were received in the last this many days (default 14); older ones are one muted count.
+   */
+  leads: z.object({ noticeSenders: z.array(z.string()).default([]), windowDays: z.number().int().positive().max(365).default(14) }).default({ noticeSenders: [], windowDays: 14 }),
   /** Calendar the `calendar` skill writes holds into; null fields: not set (the skill reports a calendar-problem, never guesses). */
   calendar: z
     .object({ name: z.string().nullable().default(null), id: z.string().nullable().default(null), timezone: Tz.nullable().default(null), /** P62: Google Calendar connectors (`gcal-<label>`) attached to this project. */ connector: z.array(z.string()).default([]) })

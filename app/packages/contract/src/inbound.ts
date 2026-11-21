@@ -30,7 +30,14 @@ export const MAIL_NOT_RUNNING = "Mail is not running";
 export const MAIL_UNREADABLE = "Mail could not be read";
 export const MAIL_READ_RETRYABLE: readonly string[] = [MAIL_NOT_RUNNING, MAIL_UNREADABLE];
 
-export const mailReadDto = z.strictObject({ at: z.string().nullable(), reason: z.string().nullable(), reading: z.boolean(), unknown: z.number().int() });
+export const mailReadDto = z.strictObject({
+  at: z.string().nullable(),
+  reason: z.string().nullable(),
+  reading: z.boolean(),
+  unknown: z.number().int(),
+  /** P97: messages in the window that are a site's notification of a lead (never a client row; the lead is listed from Notion Leads). */
+  notices: z.number().int().optional(),
+});
 export type MailReadDto = z.infer<typeof mailReadDto>;
 
 /** `GET /api/projects/:slug/inbound`: the Inbox view. `unknown` is the muted line, the messages from senders the Hub does not know. */

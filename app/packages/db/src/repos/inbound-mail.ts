@@ -166,6 +166,21 @@ export function inboundMailRepo(db: Db) {
       });
     },
 
+    /**
+     * P97 S1: the open rows whose sender `isNotice` names leave Inbox with `reason` (the reader re-judges what it stored before the
+     * sender was known as a lead notice). Never deletes; Undo of No reply needed does not bring them back. Returns the ids it changed.
+     */
+    async dismissWhere(project: string, isNotice: (email: string) => boolean, reason: "lead_notice", now: Date = new Date()): Promise<number[]> {
+      const open = db.selectDistinct({ email: inboundMail.email }).from(inboundMail).where(and(eq(inboundMail.project, project), SQL_OPEN)).all().map((r) => r.email);
+      const hit = open.filter(isNotice);
+      if (!hit.length) return [];
+      return write(db, (tx) => {
+        const ids = tx.select({ id: inboundMail.id }).from(inboundMail).where(and(eq(inboundMail.project, project), inArray(inboundMail.email, hit), sql`${inboundMail.dismissedAt} is null`)).all().map((r) => r.id);
+        if (ids.length) tx.update(inboundMail).set({ dismissedAt: now.toISOString(), dismissedReason: reason }).where(inArray(inboundMail.id, ids)).run();
+        return ids;
+      });
+    },
+
     async undismiss(project: string, ids: readonly number[]): Promise<number> {
       if (!ids.length) return 0;
       return write(db, (tx) => tx.update(inboundMail).set({ dismissedAt: null }).where(and(eq(inboundMail.project, project), inArray(inboundMail.id, [...ids]))).run().changes);

@@ -24,6 +24,8 @@ export interface InboundProjectStatus {
   readAt: string | null;
   /** Messages in the window from people the Hub does not know (not machines, not filtered): triage's job, one muted line. */
   unknown: number;
+  /** P97: messages in the window that are a site's notification of a lead (the lead itself is listed from Notion Leads). */
+  notices: number;
   error?: string;
 }
 
@@ -72,6 +74,8 @@ export interface InboundOptions {
   timer?: boolean;
   /** Told after a pass stored rows for a project (the live topic moves with the rows themselves; this is for tests). */
   onStored?: (project: string, n: number) => void;
+  /** P97: told when a pass sees a lead notice it had not seen before (after the project's first pass): the Leads reader reads at once. */
+  onNotice?: (project: string) => void;
 }
 
 const HOUR = 3_600_000;
@@ -88,10 +92,11 @@ const MACHINE = /^(no-?reply|do-?not-?reply|noreply-[\w.-]+|[\w.-]*-noreply|noti
 export type Verdict =
   | { kind: "client"; why: "thread" | "client" | "test"; threadRef: string | null; threadDraftId: number | null }
   | { kind: "unknown" }
-  | { kind: "ignored"; reason: "own" | "machine" | "filtered" | "do_not_contact" };
+  | { kind: "ignored"; reason: "own" | "machine" | "filtered" | "do_not_contact" | "lead_notice" };
 
 export interface JudgeContext {
-  config: Pick<ProjectConfig, "mail">;
+  /** `leads.noticeSenders` (P97): the project's lead-notice senders, normalised; absent: none. */
+  config: Pick<ProjectConfig, "mail"> & { leads?: { noticeSenders: readonly string[] } };
   known: InboundKnown;
   rules: RulesFile | null;
   /** The owner's test addresses when the project is in test mode, else empty. */
@@ -111,6 +116,7 @@ export function judge(m: Pick<ReceivedMessage, "email" | "subject" | "inReplyTo"
   if (isOwnAddress(email, c.config.mail)) return { kind: "ignored", reason: "own" };
   const filed = c.rules ? classifyMessage(c.rules, { from: email, subject: m.subject }) : null;
   const whitelisted = filed?.category === "client";
+  if (isLeadNotice(email, c.config.leads?.noticeSenders ?? [], whitelisted)) return { kind: "ignored", reason: "lead_notice" };
   if (!whitelisted && filed && NOT_A_CLIENT.has(filed.category)) return { kind: "ignored", reason: "filtered" };
   if (c.known.doNotContact.has(email)) return { kind: "ignored", reason: "do_not_contact" };
   if (!whitelisted && (m.bulk || MACHINE.test(email))) return { kind: "ignored", reason: "machine" };
@@ -122,6 +128,19 @@ export function judge(m: Pick<ReceivedMessage, "email" | "subject" | "inReplyTo"
   if (c.testAddresses.has(email)) return { kind: "client", why: "test", threadRef: null, threadDraftId: null };
   return { kind: "unknown" };
 }
+
+/**
+ * P97 verdict 1 (decision 0044 point 1): a site's notification of a lead is never a person writing. A sender on the project's
+ * `leads.notice_senders`, or a machine address the mail filters whitelist (the owner keeps `robot@…` visible in Mail, which
+ * made it an Inbox client row), is a lead notice. A machine the filters do not whitelist stays `machine`, as before.
+ */
+export function isLeadNotice(email: string, noticeSenders: readonly string[], whitelisted: boolean): boolean {
+  const e = email.trim().toLowerCase();
+  return noticeSenders.includes(e) || (whitelisted && MACHINE.test(e));
+}
+
+/** A stored Inbox row whose sender is a lead notice by its address alone (the re-judge of rows stored before P97: a stored machine sender was whitelisted). */
+export const storedRowIsNotice = (email: string, noticeSenders: readonly string[]): boolean => isLeadNotice(email, noticeSenders, true);
 
 const lower = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
 const normSubject = (s: string) => s.replace(/\s+/g, " ").trim().toLowerCase();
@@ -154,6 +173,8 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
   const st: InboundStatus = { state: disabled ? "off" : "starting", ...(disabled ? { reason: disabled } : {}), projects: [], failures: 0, stored: 0, reading: false };
   /** Per project: the last good read (the next window starts an hour before it). */
   const lastGood = new Map<string, number>();
+  /** Per project: the lead notices seen so far (P97: a new one makes the Leads reader read at once). Memory only. */
+  const noticeIds = new Map<string, Set<string>>();
   let timer: ReturnType<typeof setTimeout> | undefined;
   let stopped = false;
   let running: Promise<void> | undefined;
@@ -204,9 +225,19 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
     const stored = await o.repos.inboundMail.storedIds(p.slug, msgs.map((m) => m.messageId));
     const rows: NewInbound[] = [];
     let unknown = 0;
+    let notices = 0;
+    const firstPass = !noticeIds.has(p.slug);
+    const seenNotices = noticeIds.get(p.slug) ?? new Set<string>();
+    noticeIds.set(p.slug, seenNotices);
+    let freshNotice = false;
     for (const m of msgs) {
       const v = judge(m, ctx);
       if (v.kind === "unknown") unknown++;
+      if (v.kind === "ignored" && v.reason === "lead_notice") {
+        notices++;
+        if (!firstPass && !seenNotices.has(m.messageId)) freshNotice = true;
+        seenNotices.add(m.messageId);
+      }
       if (v.kind !== "client") continue;
       // A stored row gets its read flag only: its text is not read again.
       let preview = "";
@@ -222,10 +253,15 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
     const added = await o.repos.inboundMail.store(rows, now());
     st.stored += added;
     if (added) o.onStored?.(p.slug, added);
+    // P97 S1: rows stored before a sender was known as a lead notice leave Inbox, re-judged by their address (reason lead_notice).
+    const senders = p.config.leads.noticeSenders;
+    const cleared = await o.repos.inboundMail.dismissWhere(p.slug, (email) => storedRowIsNotice(email, senders), "lead_notice", now());
+    if (cleared.length) ops("mail").info("lead notices left Inbox (re-judged: a notification of a lead is not a client)", { project: p.slug, rows: cleared.length });
+    if (freshNotice) o.onNotice?.(p.slug);
     await recordDoorSends(p).catch((e: unknown) => ops("mail").warn("reading back the door's sent Message-IDs failed", { project: p.slug, ...errFields(e) }));
     if (!errors.length) lastGood.set(p.slug, t);
     const prev = st.projects.find((x) => x.slug === p.slug);
-    return { slug: p.slug, readAt: errors.length ? (prev?.readAt ?? null) : new Date(t).toISOString(), unknown, ...(errors.length ? { error: errors.join("; ").slice(0, 300) } : {}) };
+    return { slug: p.slug, readAt: errors.length ? (prev?.readAt ?? null) : new Date(t).toISOString(), unknown, notices, ...(errors.length ? { error: errors.join("; ").slice(0, 300) } : {}) };
   }
 
   /**
@@ -320,8 +356,8 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
 }
 
 /** The status of one project for the admin's line: when Mail was last read for it, or why not. */
-export function projectReadOf(s: InboundStatus, slug: string): { at: string | null; reason: string | null; reading: boolean; unknown: number } {
+export function projectReadOf(s: InboundStatus, slug: string): { at: string | null; reason: string | null; reading: boolean; unknown: number; notices: number } {
   const p = s.projects.find((x) => x.slug === slug);
   const reason = s.state === "off" || s.state === "stopped" ? (s.reason ?? "Mail is not read") : p?.error ? MAIL_UNREADABLE : null;
-  return { at: p?.readAt ?? null, reason, reading: s.reading, unknown: p?.unknown ?? 0 };
+  return { at: p?.readAt ?? null, reason, reading: s.reading, unknown: p?.unknown ?? 0, notices: p?.notices ?? 0 };
 }

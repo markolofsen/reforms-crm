@@ -49,8 +49,14 @@ function Row({ r, open, now }: { r: InboundRowDto; open: boolean; now: number })
 /** The one muted line under the list: senders the Hub does not know stay triage's job (verdict 3), and the reader's line with Check now. */
 function Footer({ project, data, now }: { project: string; data: InboundListDto; now: number }) {
   const unknown = data.read.unknown;
+  const notices = data.read.notices ?? 0;
   return (
     <div className="flex flex-col gap-1 px-3 py-2 text-muted-foreground text-xs">
+      {notices > 0 && (
+        <p className="measure" data-testid="inbound-notices">
+          {plural(notices, "lead notice")} from the site's robot: not a client writing, the lead is read from Notion Leads
+        </p>
+      )}
       {unknown > 0 && (
         <p className="measure" data-testid="inbound-unknown">
           {plural(unknown, "message")} from senders the Hub does not know · Say: “{phrase("triage-mail", project)}”

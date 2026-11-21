@@ -7,7 +7,7 @@ import type { OsaRun } from "@hub/send";
 import { appleScriptCompileError, canCompileAppleScript } from "../../../test-support/osacompile";
 import { CONTENT_SCRIPT, INBOUND_SCRIPT, ownText, parseInbound, RUNNING_SCRIPT, SENT_SCRIPT } from "./apple-mail";
 import { createApp } from "./app";
-import { startInboundReader } from "./inbound";
+import { judge, startInboundReader } from "./inbound";
 
 // The Mail reader (P96) reads Apple Mail through a fake `OsaRun`: no test reaches Mail.
 const FS = "\x1f";
@@ -48,11 +48,11 @@ function fakeMail(o: { running?: boolean; inbox?: Msg[]; sent?: string[] } = {})
 const register = () =>
   repos.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: "active", settingsJson: "{}", hash: "h" }], addresses: [] });
 
-function projectFolder(recipients: "test" | "any" = "any", filters = "") {
+function projectFolder(recipients: "test" | "any" = "any", filters = "", extra: string[] = []) {
   mkdirSync(join(dir, "projects", "p"), { recursive: true });
   writeFileSync(
     join(dir, "projects", "p", "project.md"),
-    ["# P", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", "| mail.accounts | me@example.test | 2026-11-14 | agent |", "| mail.addresses | me@example.test | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", ""].join("\n"),
+    ["# P", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", "| mail.accounts | me@example.test | 2026-11-14 | agent |", "| mail.addresses | me@example.test | 2026-11-14 | owner |", ...extra, "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", ""].join("\n"),
   );
   mkdirSync(join(dir, "policy", "p"), { recursive: true });
   writeFileSync(join(dir, "policy", "p", "send-policy.json"), JSON.stringify({ schema: 1, recipients, mode: "draft", classes: [], dailyCap: 5, delayMinutes: 10, updatedAt: "2026-11-18T00:00:00.000Z", by: "test" }));
@@ -189,5 +189,44 @@ describe("the Inbox routes", () => {
     expect(list.rows[0]).toMatchObject({ email: "bob@example.test", preview: "When can we talk?", subject: "Question" });
     const one = await (await app.request(`http://127.0.0.1/api/projects/p/inbound/${list.rows[0].id}`)).json();
     expect(one).toMatchObject({ text: "When can we talk?", quoted: true, note: null });
+  });
+});
+
+describe("a lead notice is never a client row (P97 S1, verdict 1)", () => {
+  const filters = ["# Mail filters: p", "", "## Rules", "", "| Match | Category | Label | Action | Why | Date | By |", "|---|---|---|---|---|---|---|", "| from:robot@site.test | client | hub/client | label | leads stay visible | 2026-11-16 | owner |", "| from:pat@example.test | client | hub/client | label | a person | 2026-11-16 | owner |", ""].join("\n");
+
+  it("a listed notice sender is ignored as lead_notice; a machine the filters do not whitelist stays machine", () => {
+    const base = { known: { ours: new Map(), clients: new Set<string>(), doNotContact: new Set<string>() }, testAddresses: new Set<string>(), knownClient: () => false };
+    const config = { mail: { accounts: ["me@example.test"], addresses: ["me@example.test"], aliases: [], domains: [], mailboxes: ["INBOX"], sentMailbox: "Sent Mail", sender: null }, leads: { noticeSenders: ["leads@forms.test"] } };
+    const m = (email: string) => ({ email, subject: "CarAPIS: lead — KodaCar", inReplyTo: null, references: [], bulk: false });
+    const ctx = { ...base, config, rules: null };
+    expect(judge(m("leads@forms.test"), ctx)).toEqual({ kind: "ignored", reason: "lead_notice" });
+    expect(judge(m("noreply@cloud.test"), ctx)).toEqual({ kind: "ignored", reason: "machine" });
+  });
+
+  it("on a pass: the whitelisted robot's notice is not stored, a whitelisted person is, the stored notice rows leave Inbox (lead_notice), a person's row stays; the line counts the notices", async () => {
+    projectFolder("any", filters, ["| leads.notice_senders | leads@forms.test | 2026-11-21 | owner |"]);
+    // Rows stored before P97: the robot was whitelisted, so the reader took it for a client.
+    await repos.inboundMail.store([
+      { project: "p", account: "me@example.test", mailbox: "INBOX", messageId: "<old-robot@x>", email: "robot@site.test", name: "Site", subject: "CarAPIS: lead — Old", receivedAt: new Date(Date.now() - 5 * 86_400_000).toISOString(), read: false, why: "client", preview: "Company: Old" },
+      { project: "p", account: "me@example.test", mailbox: "INBOX", messageId: "<old-pat@x>", email: "pat@example.test", name: "Pat", subject: "Re: Wow", receivedAt: new Date(Date.now() - 86_400_000).toISOString(), read: false, why: "client", preview: "Thanks" },
+    ]);
+    const notices: string[] = [];
+    const { osa } = fakeMail({
+      inbox: [
+        { mailId: 1, id: "<n1@x>", from: "Site <robot@site.test>", subject: "CarAPIS: lead — KodaCar" },
+        { mailId: 2, id: "<n2@x>", from: "leads@forms.test", subject: "New lead" },
+        { mailId: 3, id: "<p1@x>", from: "Pat <pat@example.test>", subject: "Question" },
+      ],
+    });
+    const r = startInboundReader({ repos, osa, env: {}, timer: false, projectsDir: join(dir, "projects"), policyDir: join(dir, "policy"), configFile: join(dir, "config.json"), onNotice: (p) => notices.push(p) });
+    await r.tick();
+    const open = await repos.inboundMail.open("p");
+    expect(open.map((x) => x.email)).toEqual(["pat@example.test"]);
+    const all = await repos.inboundMail.openOf("p", "robot@site.test");
+    expect(all).toEqual([]);
+    expect(r.status().projects[0]).toMatchObject({ notices: 2 });
+    // The first pass does not call onNotice (the Leads reader reads at start anyway); a new notice later does.
+    expect(notices).toEqual([]);
   });
 });
