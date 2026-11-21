@@ -7,6 +7,7 @@ import { enrollmentsRepo } from "./enrollments";
 import { inboxRepo } from "./inbox";
 import { inboundMailRepo } from "./inbound-mail";
 import { knowledgeRepo } from "./knowledge";
+import { leadRowsRepo } from "./lead-rows";
 import { llmCallsRepo } from "./llm-calls";
 import { mailVersionsRepo, mailWritesRepo } from "./mail-versions";
 import { messengersRepo } from "./messengers";
@@ -29,6 +30,7 @@ export function createRepos(db: Db) {
     sends: sendsRepo(db),
     inbox: inboxRepo(db),
     inboundMail: inboundMailRepo(db),
+    leadRows: leadRowsRepo(db),
     enrollments: enrollmentsRepo(db),
     mailVersions: mailVersionsRepo(db),
     mailWrites: mailWritesRepo(db),
@@ -60,6 +62,8 @@ export type { BasedOn, ReviewDraft, TeamNotice } from "./review";
 export { senderName, teamNoticeOf } from "./review";
 export type { InboundItem, InboundKnown, InboundRow, InboundWhy, NewInbound } from "./inbound-mail";
 export { PREVIEW_CHARS } from "./inbound-mail";
+export type { LeadItem, LeadRow, NewLead } from "./lead-rows";
+export { LEAD_PREVIEW_CHARS } from "./lead-rows";
 export type { MessengerUsage, NewMessengerSend, NewSend, SendRow } from "./sends";
 export { usageRefusal } from "./sends";
 export type { Adoption, MailVersionRow, MailVersionSource, MailWriteRow, NewMailVersion, NewMailWrite, ThreadDraft } from "./mail-versions";

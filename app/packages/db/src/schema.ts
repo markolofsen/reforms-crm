@@ -284,6 +284,36 @@ export const inboundMail = sqliteTable(
   (t) => [uniqueIndex("inbound_mail_project_message").on(t.project, t.messageId), index("inbound_mail_project_email").on(t.project, t.email, t.receivedAt)],
 );
 
+// P97 S2 (decision 0044, migration 0033): the Leads reader's rows, one per Notion Leads page read as New in the project's window.
+// Decision 0013: only the page id, name, reply address, account email, brand, when, the Status as read and 120 characters of the
+// Message; the card reads the rest from Notion. `dismissedReason`: the owner's Not now or Spam; `converted*`: the first send (S4).
+export const LEAD_DISMISS_REASONS = ["not_now", "spam"] as const;
+export type LeadDismissReason = (typeof LEAD_DISMISS_REASONS)[number];
+export const leadRows = sqliteTable(
+  "lead_rows",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    project: text("project").notNull(),
+    pageId: text("page_id").notNull(), // normalised, 32 hex
+    name: text("name").notNull(),
+    email: text("email"), // the reply address: the email typed on the form, else the Leads Email; null: none (phone, Telegram)
+    accountEmail: text("account_email"), // the Leads `Email` (the site account)
+    brand: text("brand"),
+    receivedAt: text("received_at").notNull().default(""),
+    preview: text("preview").notNull().default(""),
+    notionStatus: text("notion_status"), // as last read; null: the Status cell is empty (handled as New)
+    hasClient: integer("has_client", { mode: "boolean" }).notNull().default(false),
+    dismissedAt: text("dismissed_at"),
+    dismissedReason: text("dismissed_reason").$type<LeadDismissReason>(),
+    convertedAt: text("converted_at"),
+    clientPageId: text("client_page_id"),
+    convertNote: text("convert_note"),
+    readAt: text("read_at").notNull(),
+    storedAt: text("stored_at").notNull(),
+  },
+  (t) => [uniqueIndex("lead_rows_project_page").on(t.project, t.pageId), index("lead_rows_project_email").on(t.project, t.email)],
+);
+
 // The send audit (decision 0011, plan P23): one row per send attempt, with the full text. `queued` is an autosend
 // waiting out its cancel window (`dueAt`); `sending` is the moment around the Mail call (a crash leaves it behind on
 // purpose: nobody can tell whether the mail left, so it blocks a second send until a person resolves it).

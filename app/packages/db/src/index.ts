@@ -13,6 +13,7 @@ export { RepoError, type RepoErrorCode } from "./errors";
 export { adoptable, bareRef, isReplyShell, buildMatchQuery, createRepos, isExpired, rulesOf, senderName, shellHashOf, startsWithWrite, teamNoticeOf, textKey, usageRefusal, versionHashOf, withoutLeadingBlankLines, type Repos } from "./repos";
 export { EVENT_DETAIL_DAYS } from "./repos/runs";
 export { PREVIEW_CHARS } from "./repos/inbound-mail";
+export { LEAD_PREVIEW_CHARS } from "./repos/lead-rows";
 export { REFUSAL_COALESCE_MS } from "./repos/llm-calls";
 export type {
   Activity,
@@ -58,6 +59,9 @@ export type {
   InboundRow,
   InboundWhy,
   NewInbound,
+  LeadItem,
+  LeadRow,
+  NewLead,
   InboxInput,
   InboxItem,
   InboxResult,
@@ -82,6 +86,7 @@ export type {
   SearchOptions,
 } from "./repos";
 export { SEND_CHANNELS, SEND_STATUSES, type SendChannel, type SendStatus } from "./schema";
+export { LEAD_DISMISS_REASONS, type LeadDismissReason } from "./schema";
 export type { IdentifierKind, MessengerChannel, MessengerDirection, MessengerDraftStatus } from "./schema";
 export { allAcknowledged, effectiveRules, evaluateSafety, type SafetyInput } from "./safety";
 export { seed } from "./seed";
