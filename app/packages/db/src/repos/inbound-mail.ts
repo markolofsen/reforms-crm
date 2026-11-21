@@ -181,6 +181,29 @@ export function inboundMailRepo(db: Db) {
       });
     },
 
+    /**
+     * The owner answered in Mail by hand (2026-11-21, saas "Re: Wow"): an open row leaves Inbox with reason `answered` when a
+     * message of ours in Sent answers it (In-Reply-To or References name it) or went to the same client after it arrived. An
+     * older Sent message does not close it. Never deletes. Returns the ids it changed.
+     */
+    async closeAnswered(project: string, sent: ReadonlyArray<{ inReplyTo: string | null; references: readonly string[]; to: readonly string[]; cc: readonly string[]; date: string }>, now: Date = new Date()): Promise<number[]> {
+      if (!sent.length) return [];
+      const rows = db.select({ id: inboundMail.id, email: inboundMail.email, messageId: inboundMail.messageId, receivedAt: inboundMail.receivedAt }).from(inboundMail).where(and(eq(inboundMail.project, project), SQL_OPEN)).all();
+      const hit = rows.filter((r) =>
+        sent.some((m) => {
+          const refs = [m.inReplyTo, ...m.references].map((x) => bareRef(x)).filter(Boolean);
+          if (refs.includes(r.messageId)) return true;
+          const to = [...m.to, ...m.cc].map((a) => (/<([^>]+)>/.exec(a)?.[1] ?? a).trim().toLowerCase());
+          return to.includes(r.email) && Date.parse(m.date) > Date.parse(r.receivedAt);
+        }),
+      ).map((r) => r.id);
+      if (!hit.length) return [];
+      return write(db, (tx) => {
+        tx.update(inboundMail).set({ dismissedAt: now.toISOString(), dismissedReason: "answered" }).where(inArray(inboundMail.id, hit)).run();
+        return hit;
+      });
+    },
+
     async undismiss(project: string, ids: readonly number[]): Promise<number> {
       if (!ids.length) return 0;
       return write(db, (tx) => tx.update(inboundMail).set({ dismissedAt: null }).where(and(eq(inboundMail.project, project), inArray(inboundMail.id, [...ids]))).run().changes);

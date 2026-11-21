@@ -258,10 +258,21 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
     const cleared = await o.repos.inboundMail.dismissWhere(p.slug, (email) => storedRowIsNotice(email, senders), "lead_notice", now());
     if (cleared.length) ops("mail").info("lead notices left Inbox (re-judged: a notification of a lead is not a client)", { project: p.slug, rows: cleared.length });
     if (freshNotice) o.onNotice?.(p.slug);
+    // The owner may answer a client in Mail by hand: a message of ours in Sent that answers the row, or went to that client
+    // after it arrived, closes it like a Hub draft does (reason answered). Read only when a row is open.
+    await closeAnsweredByHand(p, since).catch((e: unknown) => ops("mail").warn("reading Sent for replies made by hand failed", { project: p.slug, ...errFields(e) }));
     await recordDoorSends(p).catch((e: unknown) => ops("mail").warn("reading back the door's sent Message-IDs failed", { project: p.slug, ...errFields(e) }));
     if (!errors.length) lastGood.set(p.slug, t);
     const prev = st.projects.find((x) => x.slug === p.slug);
     return { slug: p.slug, readAt: errors.length ? (prev?.readAt ?? null) : new Date(t).toISOString(), unknown, notices, ...(errors.length ? { error: errors.join("; ").slice(0, 300) } : {}) };
+  }
+
+  async function closeAnsweredByHand(p: Plan, since: Date): Promise<void> {
+    if ((await o.repos.inboundMail.openEmails(p.slug)).length === 0) return;
+    const sent = [];
+    for (const account of p.config.mail.accounts) sent.push(...(await readSent(osa, account, p.config.mail.sentMailbox, since)));
+    const closed = await o.repos.inboundMail.closeAnswered(p.slug, sent, now());
+    if (closed.length) ops("mail").info("Inbox rows the owner answered in Mail by hand left Inbox", { project: p.slug, rows: closed.length });
   }
 
   /**

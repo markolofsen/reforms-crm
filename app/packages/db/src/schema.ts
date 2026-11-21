@@ -278,7 +278,7 @@ export const inboundMail = sqliteTable(
     preview: text("preview").notNull().default(""),
     dismissedAt: text("dismissed_at"),
     // P97: why the row left Inbox without work: null is the owner's No reply needed; `lead_notice` is the reader's re-judge (a site's notification of a lead).
-    dismissedReason: text("dismissed_reason").$type<"lead_notice">(),
+    dismissedReason: text("dismissed_reason").$type<"lead_notice" | "answered">(), // P97: answered = the owner replied by hand in Mail
     storedAt: text("stored_at").notNull(),
   },
   (t) => [uniqueIndex("inbound_mail_project_message").on(t.project, t.messageId), index("inbound_mail_project_email").on(t.project, t.email, t.receivedAt)],

@@ -230,3 +230,30 @@ describe("a lead notice is never a client row (P97 S1, verdict 1)", () => {
     expect(notices).toEqual([]);
   });
 });
+
+describe("a reply the owner made by hand in Mail closes the row (saas Re: Wow, 2026-11-21)", () => {
+  const sentRecord = (id: string, irt: string, at: Date, to: string) => {
+    const stamp = `${at.getFullYear()},${at.getMonth() + 1},${at.getDate()},${at.getHours() * 3600 + at.getMinutes() * 60 + at.getSeconds()}`;
+    return [id, irt, stamp, `${to}${LS}`, "", "Re: Wow", irt, "me@example.test"].join(FS) + RS;
+  };
+  it("a newer message of ours to the client in Sent clears it, matched by In-Reply-To or by client and time", async () => {
+    projectFolder();
+    await repos.clients.upsert({ project: "p", email: "anna@example.test", name: "Anna" });
+    const inAt = new Date(Date.now() - 2 * 3_600_000);
+    const inbox = [{ mailId: 2, id: "<wow1@x>", from: "Anna <anna@example.test>", subject: "Re: Wow", at: inAt }];
+    await reader(fakeMail({ inbox }).osa).tick();
+    const [row] = await repos.inboundMail.open("p");
+    expect(row?.email).toBe("anna@example.test");
+    await reader(fakeMail({ inbox, sent: [sentRecord("<hand1@me>", "<wow1@x>", new Date(Date.now() - 3_600_000), "anna@example.test")] }).osa).tick();
+    expect(await repos.inboundMail.open("p")).toEqual([]);
+    expect((await repos.inboundMail.get("p", row?.id ?? 0))?.dismissedReason).toBe("answered");
+  });
+  it("an older Sent message to the client does not clear it", async () => {
+    projectFolder();
+    await repos.clients.upsert({ project: "p", email: "anna@example.test", name: "Anna" });
+    const inAt = new Date(Date.now() - 3_600_000);
+    const inbox = [{ mailId: 2, id: "<wow2@x>", from: "Anna <anna@example.test>", subject: "Re: Wow", at: inAt }];
+    await reader(fakeMail({ inbox, sent: [sentRecord("<old1@me>", "<earlier@x>", new Date(Date.now() - 2 * 3_600_000), "anna@example.test")] }).osa).tick();
+    expect((await repos.inboundMail.open("p")).map((r) => r.email)).toEqual(["anna@example.test"]);
+  });
+});
