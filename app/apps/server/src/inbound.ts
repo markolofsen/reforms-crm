@@ -25,7 +25,7 @@ export interface InboundProjectStatus {
   /** Messages in the window from people the Hub does not know (not machines, not filtered): triage's job, one muted line. */
   unknown: number;
   /** P97: messages in the window that are a site's notification of a lead (the lead itself is listed from Notion Leads). */
-  notices: number;
+  notices?: number;
   error?: string;
 }
 

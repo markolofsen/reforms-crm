@@ -55,7 +55,7 @@ function Footer({ project, data, now }: { project: string; data: InboundListDto;
     <div className="flex flex-col gap-1 px-3 py-2 text-muted-foreground text-xs">
       {notices > 0 && (
         <p className="measure" data-testid="inbound-notices">
-          {plural(notices, "lead notice")} from the site's robot: not a client writing, the lead is read from Notion Leads
+          {plural(notices, "lead notice")} from the site’s robot: not a client writing, the lead is read from Notion Leads
         </p>
       )}
       {unknown > 0 && (

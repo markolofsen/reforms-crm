@@ -44,7 +44,7 @@ function fakeNotion(pages: PageObject[], clients: PageObject[] = []) {
       properties: id === LEADS_DS
         ? { Name: { type: "title" }, Email: { type: "email" }, Details: { type: "rich_text" }, Client: { type: "relation" }, Status: { type: "select", select: { options: ["New", "In progress", "Won", "Lost", "Spam"].map((name) => ({ name })) } } }
         : { Name: { type: "title" }, Email: { type: "email" }, Relationship: { type: "select", select: { options: [{ name: "Lead" }, { name: "Client" }] } } },
-    }),
+    }) as never,
     async *listPages(id) { yield* id === LEADS_DS ? pages : clients; },
     findPages: async (id) => (id === LEADS_DS ? pages : clients),
     retrieveMarkdown: async () => ({ markdown: "", truncated: false, unknownBlockIds: [] }),

@@ -206,7 +206,7 @@ export function startLeadsReader(o: LeadsOptions): LeadsHandle {
         return { state: r.state, note };
       } catch (e) {
         if (e instanceof NoTokenError) return { state: "skipped", note: NO_LEADS_TOKEN };
-        ops("notion").warn("writing a lead's Status failed", { project, status, ...notionFailure(e), error: e instanceof Error ? e.name : "error" });
+        ops("notion").warn("writing a lead's Status failed", { project, wanted: status, ...notionFailure(e), error: e instanceof Error ? e.name : "error" });
         return { state: "refused", note: `Notion did not take the Status (${notionFailure(e).status ?? "error"}): set it in Notion` };
       }
     },
@@ -266,7 +266,7 @@ export async function convertSentLead(c: ConvertEnv, n: { project: string; to: r
       token = await loadToken(file === "notion-token" ? env : { ...env, NOTION_TOKEN: "" }, join(secretsDir(env), file));
     } catch (e) {
       if (!(e instanceof NoTokenError)) throw e;
-      const note = `no Notion token on this Mac: say "заведи клиента" in the dock for ${lead.name}`;
+      const note = `no Notion token on this Mac: ask the dock to create ${lead.name}'s Clients card`;
       await c.repos.leadRows.markConverted(n.project, ids, { clientPageId: null, note }, now);
       log.info("lead not converted at the send: no Notion token", { project: n.project, draft: n.draftId });
       return { state: "noted", note };

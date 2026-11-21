@@ -163,7 +163,7 @@ export async function convertLead(deps: { reader: NotionReader; writer: LeadWrit
           } catch (e) {
             if (!refused(e)) throw e;
             card = "refused";
-            notes.push(`Notion did not let the Hub create ${o.name}'s Clients card: give the hub integration Insert content, or say "заведи клиента" in the dock`);
+            notes.push(`Notion did not let the Hub create ${o.name}'s Clients card: give the hub integration Insert content, or ask the dock to create the card`);
           }
         }
       }

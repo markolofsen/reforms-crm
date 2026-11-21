@@ -14,7 +14,7 @@ const derive = (path: string, search = "", parts: Partial<FocusParts> = {}, proj
 
 /** An address of every route of the table, filled with an id where it has one. */
 const sample = (id: (typeof ROUTE_IDS)[number]): string => {
-  const p = ROUTE_TABLE[id].path.replace("[id]", "12");
+  const p = ROUTE_TABLE[id].path.replace("[id]", "12").replace("[page]", "41806f306f14812a8a42000b3b9c3ee4");
   return ROUTE_TABLE[id].scoped ? `/acme${p}` : p;
 };
 

@@ -49,7 +49,7 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
   const now = useClock()();
   const { pasteToAgent } = useTerminal();
   const act = useLeadAction(project, pageId, onClosed);
-  if (q.isPending) return <EmptyState title="Reading the lead">The Hub asks Notion for the lead's page.</EmptyState>;
+  if (q.isPending) return <EmptyState title="Reading the lead">The Hub asks Notion for the lead’s page.</EmptyState>;
   if (!q.data)
     return (
       <div className="p-4">
