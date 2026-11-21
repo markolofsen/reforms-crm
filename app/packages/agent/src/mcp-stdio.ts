@@ -1,6 +1,6 @@
 import { hubPaths } from "@hub/config/paths";
 import { bumpTopicIn, createRepos, openDb, openDbReadOnly } from "@hub/db";
-import { createNotionReader, findClientByEmail, loadToken, NoTokenError, secretsDir } from "@hub/notion";
+import { createNotionReader, findClientByEmail, findLeadByEmail, loadToken, NoTokenError, secretsDir } from "@hub/notion";
 import { join } from "node:path";
 import { loadProject, readAllowList, testRecipientsOf } from "@hub/projects";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
@@ -51,6 +51,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
       w.close();
     }
   };
+  const leadRepos = createRepos(handle.db);
   // P87: a new thread's address is checked against the project's Notion Clients (read only, the project's token file).
   const clientInNotion = async (slug: string, email: string): Promise<NotionClientCheck> => {
     const cfg = loadProject(paths.projects, slug).parsed.config;
@@ -62,12 +63,21 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
       throw e;
     });
     if (token === null) return { state: "unavailable", reason: "the instance has no Notion token (Settings ▸ Connections)" };
-    const found = await findClientByEmail(createNotionReader(token), ds, email);
-    return { state: found.state };
+    const reader = createNotionReader(token);
+    const found = await findClientByEmail(reader, ds, email);
+    if (found.state !== "not_client") return { state: found.state };
+    // P97 S3 (decision 0044 point 2): a lead of the project's Notion Leads (Status not Spam) is a known person for a new thread:
+    // the Hub's own Leads rows first (no Notion call), then the Leads data source.
+    const stored = (await leadRepos.leadRows.ofEmail(slug, email)).find((r) => r.dismissedReason !== "spam" && r.notionStatus !== "Spam");
+    if (stored) return { state: "lead", pageId: stored.pageId };
+    const leads = cfg.notion.databases.find((d) => d.slug === "leads")?.dataSourceId;
+    if (!leads) return { state: "not_client" };
+    const lead = await findLeadByEmail(reader, leads, email);
+    return lead.state === "lead" ? { state: "lead", pageId: lead.pageId } : { state: "not_client" };
   };
   // P92: the owner's test addresses while the project's send policy is test mode (read per call: the policy may change).
   const testRecipients = (slug: string) => testRecipientsOf(loadProject(paths.projects, slug, { policyDir: paths.stateProjects }).parsed.config, readAllowList(paths.configFile));
-  const server = createHubMcpServer(createRepos(handle.db), { clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectNotion, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  const server = createHubMcpServer(leadRepos, { clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectNotion, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

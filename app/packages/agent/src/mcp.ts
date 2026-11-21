@@ -92,7 +92,7 @@ export interface HubMcpEnv {
   testRecipients?: (slug: string) => readonly string[];
 }
 
-export type NotionClientCheck = { state: "client" | "not_client" | "do_not_contact" } | { state: "unavailable"; reason: string };
+export type NotionClientCheck = { state: "client" | "not_client" | "do_not_contact" } | { state: "lead"; pageId: string } | { state: "unavailable"; reason: string };
 
 /** Open writes younger than this keep a new reply to the same message waiting (P65 S5: Mail took 74 s once). */
 const LANDING_MS = 10 * 60_000;
@@ -344,7 +344,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     "draft_write",
     {
       title: "Write or revise an unsent reply draft in Mail",
-      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. A revision of a hub draft: \`draft\` = its id and \`content\`, nothing else (the hub finds the message it answers from its mailRef). A new reply: \`account\`, \`mailbox_path\` and \`message_id\` of the message answered (message_id is mail-mcp's integer id, never a hub draft id). Give the reply body only, plain text: the hub adds nothing to the text but its sign-off and the brand's signature, so never end with your own closing, in any language ("Best regards", "С уважением", "С теплом и …,", "Viele Grüße"), nor a team, brand or personal name line ("Carapis team", "Команда Carapis"): that is refused with own_signoff, rewrite without it. A new reply to a message this project already has a draft for is refused with already_drafted: that is the skip of a rerun, not an error (revise that draft with \`draft\` = its id when the owner asks). To write to a client again on the owner's initiative (P85: the client has not answered, or our draft was sent): reply to the NEWEST message of the client's latest thread, ours (in Sent) or theirs, and pass \`owner_request\` = the owner's own words from this session, verbatim, never yours; then a message whose drafts are all finished gets a new one, and a reply to our own message goes to that message's recipients. mail_slow means Mail is slow: the write may still land and the hub adopts it as the draft's version; do not call draft_write again for that draft, tell the owner in one line, and never ask him to delete a Mail draft. A revision saves the new draft first, then moves the older version the hub recorded to Trash, so one version stays; the open admin card shows the new text within seconds. The result's fromSeenByClient is exactly the From the client sees (there is no hidden sender): the address they wrote to (clientWroteTo) when this project's Mail account can send as it, else the account that received the mail (the design for a brand address that forwards into it, not a fault); fromReason is set only when it fell back to mail.sender. A client with NO thread at all (P85b: we never wrote and they never wrote; search Mail by their address first): on the owner's words only, a NEW message with \`to\` = the client's address from the project's Notion Clients, \`subject\`, \`content\` and \`owner_request\` (no account, mailbox_path or message_id; \`account\` and \`from\` optional: one of the project's accounts and its own address, default mail.sender); refused with has_thread when the hub already wrote to them (reply to the newest message instead), do_not_contact when the client is marked so, and not_a_client when the address is neither a recorded client nor a row of the project's Notion Clients (checked by the hub, P87; in test mode, draft.recipients test, the owner's test addresses of the allow_list pass without it, P92); record it with \`"newThread":true\` in place of mailRef. A first draft of a thread: then record it with \`hub record-draft --project <slug>\` and mailRef = the returned thread; a revision records itself. Only this project's Mail accounts. Never sends. ${DATA}`,
+      description: `Saves an unsent reply to one message in Mail's Drafts, with Mail in the background (no window, no focus, no paste). Use it for every draft and every revision instead of mail-mcp create_reply. A revision of a hub draft: \`draft\` = its id and \`content\`, nothing else (the hub finds the message it answers from its mailRef). A new reply: \`account\`, \`mailbox_path\` and \`message_id\` of the message answered (message_id is mail-mcp's integer id, never a hub draft id). Give the reply body only, plain text: the hub adds nothing to the text but its sign-off and the brand's signature, so never end with your own closing, in any language ("Best regards", "С уважением", "С теплом и …,", "Viele Grüße"), nor a team, brand or personal name line ("Carapis team", "Команда Carapis"): that is refused with own_signoff, rewrite without it. A new reply to a message this project already has a draft for is refused with already_drafted: that is the skip of a rerun, not an error (revise that draft with \`draft\` = its id when the owner asks). To write to a client again on the owner's initiative (P85: the client has not answered, or our draft was sent): reply to the NEWEST message of the client's latest thread, ours (in Sent) or theirs, and pass \`owner_request\` = the owner's own words from this session, verbatim, never yours; then a message whose drafts are all finished gets a new one, and a reply to our own message goes to that message's recipients. mail_slow means Mail is slow: the write may still land and the hub adopts it as the draft's version; do not call draft_write again for that draft, tell the owner in one line, and never ask him to delete a Mail draft. A revision saves the new draft first, then moves the older version the hub recorded to Trash, so one version stays; the open admin card shows the new text within seconds. The result's fromSeenByClient is exactly the From the client sees (there is no hidden sender): the address they wrote to (clientWroteTo) when this project's Mail account can send as it, else the account that received the mail (the design for a brand address that forwards into it, not a fault); fromReason is set only when it fell back to mail.sender. A client with NO thread at all (P85b: we never wrote and they never wrote; search Mail by their address first): on the owner's words only, a NEW message with \`to\` = the client's address from the project's Notion Clients, \`subject\`, \`content\` and \`owner_request\` (no account, mailbox_path or message_id; \`account\` and \`from\` optional: one of the project's accounts and its own address, default mail.sender); refused with has_thread when the hub already wrote to them (reply to the newest message instead), do_not_contact when the client is marked so, and not_a_client when the address is neither a recorded client nor a row of the project's Notion Clients or Leads (checked by the hub, P87; a lead, P97: answer a Notion Leads row this way, to its reply address, with `brand` = its Lead.Brand so the message is signed as that brand; in test mode, draft.recipients test, the owner's test addresses of the allow_list pass without it, P92); record it with \`"newThread":true\` in place of mailRef. A first draft of a thread: then record it with \`hub record-draft --project <slug>\` and mailRef = the returned thread; a revision records itself. Only this project's Mail accounts. Never sends. ${DATA}`,
       inputSchema: z.object({
         draft: z.number().int().positive().optional().describe("Revise this hub draft (its id, as focus or draft_show gives it). Then leave account, mailbox_path and message_id out."),
         account: z.string().min(1).max(320).optional().describe("New reply: Mail account of the message answered, as mail-mcp names it."),
@@ -354,11 +354,12 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         to: z.string().trim().email().max(320).optional().describe("New thread (P85b): the client's address, from the project's Notion Clients. Only for a client with no thread at all; needs owner_request and subject."),
         subject: z.string().trim().min(1).max(300).optional().describe("New thread: the subject of the new message."),
         from: z.string().trim().email().max(320).optional().describe("New thread: the project's own address to write from (a brand address); default mail.sender, else the account's own."),
+        brand: z.string().trim().min(1).max(100).optional().describe("New thread (P97): the ## Brands row the message is signed as (a lead's Lead.Brand), whatever address it goes from; a name not in ## Brands is refused."),
         owner_request: z.string().trim().min(1).max(1000).optional().describe("New reply on the owner's initiative (P85): his own words from this session that asked for it, verbatim (never yours). Lets a message whose drafts are all finished get a new one; pass the same words to record-draft as ownerRequest."),
       }),
       annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
     },
-    ({ draft, account, mailbox_path, message_id, content, owner_request, to, subject, from: fromAddress }) =>
+    ({ draft, account, mailbox_path, message_id, content, owner_request, to, subject, from: fromAddress, brand: brandName }) =>
       run(advised(async () => {
         const slug = project();
         if (!env.drafts || !env.projectMail) throw new ToolError("unavailable", "This hub MCP server cannot write drafts (no Mail writer).");
@@ -382,9 +383,11 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
               return { body: signBody(body, block, signatureLines(cfg)), wroteTo: r?.wroteTo ?? null, brand: r?.brand ?? null, brandReason: r?.reason ?? "the message's headers could not be read", signature: block.placeholder ? "placeholder" : block.lines.length ? "signed" : "none", ...(block.fallback ? { signatureFallback: block.fallback } : {}) };
             }
           : undefined;
-        // P85b: a new thread has no answered message: its brand is the one of the address it goes from.
-        const signFrom = (fromAddr: string, body: string): Signed => {
-          const res = resolveBrand(headersFromText(`From: ${fromAddr}`), cfg);
+        // P85b: a new thread has no answered message: its brand is the one of the address it goes from. P97 S3: or the brand named
+        // (a lead's Lead.Brand): on saas every brand's mail goes from hello@reforms.ai, so the From cannot tell Carapis from Reforms.
+        const signFrom = (fromAddr: string, body: string, named?: string | null): Signed => {
+          const row = named ? cfg.brands.find((b) => b.name.toLowerCase() === named.toLowerCase()) : undefined;
+          const res = row ? { wroteTo: null, brand: row.name, via: "address" as const, reason: `the brand ${row.name} was named for this message` } : resolveBrand(headersFromText(`From: ${fromAddr}`), cfg);
           const block = signatureFor(cfg, res, replyLanguage(body));
           return { body: mail.identity ? signBody(body, block, signatureLines(cfg)) : body, wroteTo: null, brand: res.brand, brandReason: res.reason, signature: !mail.identity ? "none" : block.placeholder ? "placeholder" : block.lines.length ? "signed" : "none", ...(block.fallback ? { signatureFallback: block.fallback } : {}) };
         };
@@ -406,7 +409,8 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
               versionRows = live.map((v) => ({ id: v.id, messageId: v.messageId }));
               const acc = live[0]?.account ?? mail.accounts[0];
               if (!acc) throw new ToolError("not_this_project", `Project ${slug} lists no Mail account.`);
-              const signed = signFrom(mail.sender ?? acc, content);
+              // P97 S3: a new thread signed as a named brand keeps that brand on revision.
+              const signed = signFrom(mail.sender ?? acc, content, d.brand ?? null);
               const { body: _b, ...how } = signed;
               r = { ...(await reviseDraft(writer, { accounts: mail.accounts, sender: mail.sender, mailRef: null, body: signed.body, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), newThread: { to: client, subject: d.subject, account: acc, from: mail.sender }, ...(env.withRepos ? { log: writeLogOf(env.withRepos, slug, d.id, mailRef) } : {}) })), ...how };
             } else {
@@ -425,6 +429,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
             if (mailbox_path !== undefined || message_id !== undefined) throw new ToolError("invalid", "A new thread takes to, subject, content and owner_request (account and from optional), not mailbox_path or message_id.");
             if (!owner_request) throw new ToolError("owner_request_needed", "A new thread is written only on the owner's words: pass owner_request = his own words from this session, verbatim. Nothing was written.");
             if (!subject) throw new ToolError("invalid", "A new thread needs a subject.");
+            if (brandName !== undefined && !cfg.brands.some((b) => b.name.toLowerCase() === brandName.toLowerCase())) throw new ToolError("invalid", `"${brandName}" is not a row of project ${slug}'s ## Brands (${cfg.brands.map((b) => b.name).join(", ") || "none"}). Nothing was written.`);
             const email = normalizeAddress(to);
             if (isOurs(email)) throw new ToolError("not_this_project", `${email} is one of this project's own addresses: a new message goes to the client, never to us. Nothing was written.`);
             const clientId = await repos.clients.idByEmail(slug, email);
@@ -440,7 +445,8 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
               const check: NotionClientCheck = env.clientInNotion ? await env.clientInNotion(slug, email).catch((e: unknown) => ({ state: "unavailable" as const, reason: `the Notion read failed (${e instanceof Error ? e.name : "error"})` })) : { state: "unavailable", reason: "this hub MCP server has no Notion reader" };
               if (check.state === "unavailable") throw new ToolError("notion_unavailable", `${email} is not a recorded client, and the project's Notion Clients could not be checked: ${check.reason}. Nothing was written.`);
               if (check.state === "do_not_contact") throw new ToolError("do_not_contact", `${email} is marked Do not contact in the project's Notion Clients: no message is written. Nothing was written.`);
-              if (check.state === "not_client") throw new ToolError("not_a_client", `${email} is not a client of project ${slug}: no row of its Notion Clients has this address, and the Hub has no record of it. A new thread goes only to a client. Nothing was written.`);
+              if (check.state === "not_client") throw new ToolError("not_a_client", `${email} is not a client of project ${slug}: no row of its Notion Clients or Leads (Status not Spam) has this address, and the Hub has no record of it. A new thread goes only to a client or a lead. Nothing was written.`);
+              // P97 S3 (decision 0044 point 2): a Leads row of the project is a known person for a new thread.
             }
             mailRef = newThreadKey(email);
             const pending = (await repos.mailVersions.ofThread(slug, mailRef)).find((v) => v.draftId === null && !v.trashedAt);
@@ -451,7 +457,7 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
             if (!acc) throw new ToolError("not_this_project", `Account "${account ?? ""}" is not one of project ${slug}'s Mail accounts (${mail.accounts.join(", ") || "none listed in project.md"}).`);
             if (fromAddress !== undefined && !isOurs(fromAddress)) throw new ToolError("not_this_project", `${fromAddress} is not one of project ${slug}'s own addresses: a new message goes from the project's sender or a brand address.`);
             const sender = fromAddress ?? mail.sender ?? null;
-            const signed = signFrom(sender ?? acc, content);
+            const signed = signFrom(sender ?? acc, content, brandName ?? null);
             const w = await writeRecorded(writer, { kind: "new", account: acc, sender, to: email, subject, body: signed.body, replace: [], landIn: mail.accounts }, env.withRepos ? writeLogOf(env.withRepos, slug, null, mailRef) : undefined);
             const { body: _body, ...how } = signed;
             r = { ...w, replyTo: 0, account: w.savedIn || acc, fromReason: null, clientWroteTo: null, ...how };
