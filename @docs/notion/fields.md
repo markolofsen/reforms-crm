@@ -235,7 +235,7 @@ Pack file: `schema/leads.json`.
 | Field | Type | Writer | Options and notes |
 |---|---|---|---|
 | Name | title | Hub |  |
-| Status | select | Hub sets New on create, then people | Options: New, In progress, Won, Lost, Spam. |
+| Status | select | Hub sets New on create, then people; the Hub sets In progress at the first reply sent, Spam on the owner's click, New on its Undo (P97) | Options: New, In progress, Won, Lost, Spam. |
 | Source | select | Hub | Options: Website, Telegram, Referral, Other, Email. option Email carries the description 'The first message arrived by email, not through the website form.'; a missing Email option stops Hub writing |
 | Received at | date | Hub |  |
 | Email | email | Hub |  |
@@ -248,7 +248,7 @@ Pack file: `schema/leads.json`.
 | Page URL | url | Hub |  |
 | Locale | text | Hub |  |
 | Mailbox | text | Hub | a missing Mailbox is tolerated |
-| Client | relation to clients (one), reverse "Leads" | Hub |  |
+| Client | relation to clients (one), reverse "Leads" | Hub (at the first reply sent to the lead, P97) |  |
 | Owner | person | people |  |
 | Next step | date | people |  |
 | Notes | text | people |  |
