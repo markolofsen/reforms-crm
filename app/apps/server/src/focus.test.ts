@@ -124,6 +124,7 @@ describe("GET /api/pointer (P72)", () => {
     write({ refs: ["draft:1", "draft:2"] });
     const p = (await get("2026-11-18T10:00:05Z")).pointer;
     expect(p).toMatchObject({ note: "this one", expiresAt: "2026-11-18T10:00:30.000Z" });
-    expect(p?.targets).toEqual([{ ref: "draft:1", title: "Fiona <f@example.com> · Re: Hello" }, { ref: "draft:2", title: null }]);
+    // P99: a draft lives in its client's conversation, so Show opens `client:5`.
+    expect(p?.targets).toEqual([{ ref: "draft:1", title: "Fiona <f@example.com> · Re: Hello", where: "client:5" }, { ref: "draft:2", title: null, where: null }]);
   });
 });

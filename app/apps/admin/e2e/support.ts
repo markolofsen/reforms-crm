@@ -39,23 +39,25 @@ export async function readTheChecks(page: Page) {
 export const sendButton = (card: Locator) => card.getByRole("button", { name: "Send", exact: true });
 
 /**
- * The open draft of the first person of the real list (P99: a row carries its one open draft), patched: ready, Checked, no send
+ * The open draft of the first person with one in the real list (P99: a row carries its one open draft; people who wrote have none), moved to the top so the wide pane opens it by itself, and patched: ready, Checked, no send
  * yet, unless the patch says otherwise. The rest of the answer is the server's own; the pane's own read of that person is patched
  * the same way. A function patch gets the draft and returns the fields to change (for a nested field such as the client).
  */
 export async function firstDraftIs(page: Page, patch: Record<string, unknown> | ((d: Record<string, unknown>) => Record<string, unknown>)) {
   let firstId: unknown = null;
   const patched = (d: Record<string, unknown>) => {
-    const base = { ...d, status: "ready", checked: true, batchId: null, sendState: null, injectionSuspected: false };
+    // No mark either: the newest-first order of P99 can put a do-not-contact client (Eve, Nuno) on top, whose card never offers Send.
+    const base = { ...d, status: "ready", checked: true, batchId: null, sendState: null, injectionSuspected: false, client: { ...(d.client as object), marks: [] } };
     return { ...base, ...(typeof patch === "function" ? patch(base) : patch) };
   };
   await page.route(/\/api\/projects\/[^/]+\/conversations\?/, async (route) => {
     const res = await route.fetch();
     const json = (await res.json()) as { rows: Array<{ client: { id: unknown }; draft: Record<string, unknown> | null } & Record<string, unknown>> };
-    const [first, ...rest] = json.rows;
+    const i = json.rows.findIndex((r) => r.draft);
+    const first = json.rows[i];
     if (!first?.draft) return route.fulfill({ response: res, json });
     firstId = first.client.id;
-    await route.fulfill({ response: res, json: { ...json, rows: [{ ...first, state: "draft", draft: patched(first.draft) }, ...rest] } });
+    await route.fulfill({ response: res, json: { ...json, rows: [{ ...first, state: "draft", draft: patched(first.draft) }, ...json.rows.filter((_, n) => n !== i)] } });
   });
   await page.route(/\/api\/projects\/[^/]+\/clients\/\d+\/conversation$/, async (route) => {
     const res = await route.fetch();

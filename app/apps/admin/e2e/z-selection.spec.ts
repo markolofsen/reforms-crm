@@ -7,7 +7,8 @@ test.beforeEach(async ({ page }) => {
   await remember(page, "demo-shop");
 });
 
-for (const [verb, done, icon] of [["Skip", "Skipped 2", "Skipped"], ["Hold", "Held 2", "On hold"]] as const) {
+// P99: a row is a person; with its one draft skipped the conversation's word is Done, with it held On hold.
+for (const [verb, done, icon] of [["Skip", "Skipped 2", "Done"], ["Hold", "Held 2", "On hold"]] as const) {
   test(`${verb} on two selected drafts raises one toast with Undo, and Undo restores both`, async ({ page }) => {
     await page.goto(at("demo-shop", "/mail?filter=all"));
     const rows = page.locator('ul[aria-label="People"] > li');

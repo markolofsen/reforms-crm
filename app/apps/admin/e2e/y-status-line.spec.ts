@@ -17,8 +17,8 @@ test("status line: clear says so plainly, with when Mail was read, and links now
   await expect(line(page)).toHaveAttribute("data-level", "clear");
   await expect(line(page)).toContainText("All clear");
   await expect(line(page).getByTestId("mail-read")).toContainText("Mail read just now");
-  // A fresh read needs no button on the line (show less); Inbox has Check now.
-  await expect(line(page).getByRole("button", { name: "Check now" })).toHaveCount(0);
+  // P99: Inbox, which held Check now, is gone, so the line has it whenever it has no link of its own.
+  await expect(line(page).getByRole("button", { name: "Check now" })).toBeVisible();
   // P96: "triage …" was the newest agent record, not a read of Mail; it is gone from the line.
   await expect(line(page)).not.toContainText("triage");
   await expect(line(page).getByRole("link")).toHaveCount(0);
@@ -34,12 +34,14 @@ test("status line: clients who wrote lead to Inbox; replies owed count each clie
   await expect(line(page).getByRole("button", { name: "Check now" })).toBeVisible();
 });
 
-test("status line: attention names the fact once, adds the replies owed, and leads to where it is fixed", async ({ page }) => {
+test("status line: attention names the fact once, no count, and leads to where it is fixed", async ({ page }) => {
   // Test mode is a setting (level clear since the UX pass), so the attention fact here is a failed send.
   await statusIs(page, P, { level: "attention", kind: "send-failed", sentence: "1 send failed in the last 24 hours", next: "sending", numbers: { owed: 2, wrote: 0, lastTriageAt: null, mailRead: { at: null, reason: null, reading: false, unknown: 0 } } });
   await page.goto(at(P, "/mail?filter=all"));
   await expect(line(page)).toHaveAttribute("data-level", "attention");
-  await expect(line(page)).toHaveText(/1 send failed in the last 24 hours\s*· 2 replies owed/);
+  // P99 verdict 14: the replies owed are the Needs you count of the View menu, never a number on the line.
+  await expect(line(page)).toHaveText(/^1 send failed in the last 24 hours\s*· Mail not read yet/);
+  await expect(line(page)).not.toContainText("replies owed");
   // No count twice: the to-review number is the View menu's, never the line's.
   await expect(line(page)).not.toContainText("to review");
   await line(page).getByTestId("status-next").click();
@@ -82,7 +84,7 @@ const running = (page: Page) =>
   page.evaluate(() => document.getAnimations().filter((a) => a.playState === "running" && Number(a.effect?.getComputedTiming().duration ?? 0) > 0).map((a) => `${a.constructor.name} ${a.effect instanceof KeyframeEffect && a.effect.target instanceof Element ? a.effect.target.tagName.toLowerCase() : ""}`));
 
 async function slowDrafts(page: Page) {
-  await page.route(/\/api\/drafts\?/, async (route) => {
+  await page.route(/\/api\/projects\/[^/]+\/conversations\?/, async (route) => {
     await new Promise((r) => setTimeout(r, 2500));
     await route.fallback();
   });
@@ -92,7 +94,7 @@ test("motion: the control animates the skeleton when motion is allowed, so the n
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await slowDrafts(page);
   await page.goto(at(P, "/mail"));
-  await expect(page.getByRole("list", { name: "Loading drafts" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Loading the people" })).toBeVisible();
   expect((await running(page)).length).toBeGreaterThan(0);
 });
 
@@ -100,6 +102,6 @@ test("motion: with reduced motion nothing runs while Drafts loads", async ({ pag
   await page.emulateMedia({ reducedMotion: "reduce" });
   await slowDrafts(page);
   await page.goto(at(P, "/mail"));
-  await expect(page.getByRole("list", { name: "Loading drafts" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Loading the people" })).toBeVisible();
   expect(await running(page)).toEqual([]);
 });

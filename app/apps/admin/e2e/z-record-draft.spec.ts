@@ -29,9 +29,11 @@ test("a draft recorded by the CLI shows on the Drafts screen, once, with an Open
   await page.goto("/mail?filter=all");
   const row = cards(page).filter({ hasText: "Nora Newcomer" });
   await expect(row).toHaveCount(1);
-  await expect(row.getByText("Owes reply")).toBeVisible();
+  // P99: the row says the conversation's one word; the open card carries the Owes reply chip.
+  await expect(row.getByTestId("person-state")).toHaveText("Draft ready");
   await row.getByRole("button").first().click();
   const card = cardOf(page, "Nora Newcomer");
+  await expect(card.getByText("Owes reply")).toBeVisible();
   // Mail holds no draft for it, so the link is the client's mail (P58 R1: never a dead button).
   await expect(card.getByRole("link", { name: /Open the client's mail/ })).toHaveAttribute("href", "message://%3Cquote-1%40example.com%3E");
   // The text of the mail is not stored, so there is nothing to copy. The fake Mailer holds no draft for this client, which since

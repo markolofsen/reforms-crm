@@ -13,17 +13,20 @@ test.beforeEach(async ({ page }) => {
 
 type Screen = { name: string; path: string; ready: (page: Page) => Promise<void>; mock?: (page: Page) => Promise<void> };
 
-/** Opens the first row (a phone shows nothing until one is chosen; desktop already has it open) and waits for its card. */
+/**
+ * Opens the first person with a draft ready (P99: Needs you also lists people who wrote and have none; a phone shows nothing until
+ * a row is chosen) and waits for the unsent message at the bottom of the conversation.
+ */
 const openFirst = async (p: Page) => {
-  await p.locator('ul[aria-label="People"] > li').first().getByRole("button").first().click();
-  await expect(p.getByRole("article")).toBeVisible();
+  await p.locator('ul[aria-label="People"] > li[data-state="draft"]').first().getByRole("button").first().click();
+  await expect(p.getByRole("article", { name: /^Draft for / })).toBeVisible();
 };
 const sendButton = (p: Page) => p.getByRole("button", { name: "Send", exact: true });
 const PREVIEW = { ok: true, dryRun: true, from: "Mark <mark@example.test>", to: ["client@example.com"], cc: ["mark@example.org"], subject: "Re: Second viewing", body: "Hi,\n\nThank you for your message.\n\nBest regards,\nMark" };
 const SEND_ROWS = [
-  { id: 3, draftId: 9, channel: "mail", messengerDraftId: null, mode: "auto", status: "queued", actor: "auto", createdAt: "2026-11-15T10:00:00.000Z", dueAt: "2026-11-15T10:10:00.000Z", doneAt: null, toAddr: "ana@example.com", ccAddr: null, subject: "Re: Order status", body: "Hello Ana", error: null },
-  { id: 2, draftId: 8, channel: "mail", messengerDraftId: null, mode: "manual", status: "sent", actor: "admin", createdAt: "2026-11-14T09:00:00.000Z", dueAt: null, doneAt: "2026-11-14T09:00:02.000Z", toAddr: "bo@example.com", ccAddr: "mark@example.org", subject: "Re: Refund question", body: "Hello Bo", error: null },
-  { id: 1, draftId: 7, channel: "mail", messengerDraftId: null, mode: "manual", status: "failed", actor: "admin", createdAt: "2026-11-13T09:00:00.000Z", dueAt: null, doneAt: "2026-11-13T09:00:01.000Z", toAddr: "cy@example.com", ccAddr: null, subject: "Re: Keys", body: "Hello Cy", error: "Mail is not running" },
+  { id: 3, draftId: 9, clientId: null, channel: "mail", messengerDraftId: null, mode: "auto", status: "queued", actor: "auto", createdAt: "2026-11-15T10:00:00.000Z", dueAt: "2026-11-15T10:10:00.000Z", doneAt: null, toAddr: "ana@example.com", ccAddr: null, subject: "Re: Order status", body: "Hello Ana", error: null },
+  { id: 2, draftId: 8, clientId: null, channel: "mail", messengerDraftId: null, mode: "manual", status: "sent", actor: "admin", createdAt: "2026-11-14T09:00:00.000Z", dueAt: null, doneAt: "2026-11-14T09:00:02.000Z", toAddr: "bo@example.com", ccAddr: "mark@example.org", subject: "Re: Refund question", body: "Hello Bo", error: null },
+  { id: 1, draftId: 7, clientId: null, channel: "mail", messengerDraftId: null, mode: "manual", status: "failed", actor: "admin", createdAt: "2026-11-13T09:00:00.000Z", dueAt: null, doneAt: "2026-11-13T09:00:01.000Z", toAddr: "cy@example.com", ccAddr: null, subject: "Re: Keys", body: "Hello Cy", error: "Mail is not running" },
 ];
 // P44 rubric 2 (show less), mechanical part: how many things a person can Tab to in the first viewport, and how far down the first draft sits on a phone.
 // Measured 2026-11-18 on the shipped screens: at most 30 tab stops (Drafts with a card open at 1280), 22 on the Overview. The cap leaves room for a state
@@ -313,7 +316,7 @@ test("drafts: the first row does not move when a row is selected, and the subjec
   expect(await first.evaluate((e) => e.getBoundingClientRect().top)).toBe(before);
   await expect(page.getByRole("status").filter({ hasText: "1 selected" })).toBeAttached();
   if ((page.viewportSize()?.width ?? 0) >= 1280) {
-    const shown = await page.locator('[data-testid="draft-subject"]').evaluateAll((els) =>
+    const shown = await page.locator('[data-testid="person-subject"]').evaluateAll((els) =>
       els.map((e) => {
         const text = e.textContent ?? "";
         // How many characters fit: the share of the text's own width the box shows.
@@ -323,7 +326,7 @@ test("drafts: the first row does not move when a row is selected, and the subjec
     );
     expect(shown.length).toBeGreaterThan(0);
     // And it sits inside its row: a fixed button height once hid the line under the chips at 640px and up (found on real data, P48 W8).
-    const outside = await page.locator('[data-testid="draft-subject"]').evaluateAll((els) =>
+    const outside = await page.locator('[data-testid="person-subject"]').evaluateAll((els) =>
       els.filter((e) => { const r = e.getBoundingClientRect(); const row = e.closest("button")!.getBoundingClientRect(); return r.height === 0 || r.bottom > row.bottom + 0.5; }).map((e) => e.textContent),
     );
     expect(outside, "subjects drawn outside their row").toEqual([]);

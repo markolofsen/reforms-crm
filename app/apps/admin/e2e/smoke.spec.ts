@@ -1,20 +1,22 @@
 import { expect, test } from "@playwright/test";
 import { at, cards, readTheChecks, remember, viewMenu } from "./support";
 
-// The seeded project `lisbon-realty` is invented data (packages/db/src/seed.ts): 13 clients, 11 of them with a draft.
-// The Drafts screen lists only those 11; a client without a draft (Rita Falsa, the newsletter sender) never appears.
+// The seeded project `lisbon-realty` is invented data (packages/db/src/seed.ts): 11 clients with a draft, and two the agent left
+// to the owner (Marta Gomes, Joao Pires: an owed Inbox row, no draft). P99: Mail lists people, so All has 13 rows, one per person
+// with mail; a client with none (Rita Falsa: a Telegram chat only, the newsletter sender) never appears.
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-test("Mail list loads with counts and only clients that have a draft", async ({ page }) => {
+test("Mail list loads with counts and only people with mail", async ({ page }) => {
   await page.goto("/mail?filter=all");
   await expect(page.getByRole("navigation", { name: "Sections" }).getByRole("link", { name: "Mail", exact: true })).toBeVisible();
-  await expect(cards(page)).toHaveCount(11);
+  await expect(cards(page)).toHaveCount(13);
+  await expect(cards(page).filter({ hasText: "Joao Pires" }).getByTestId("person-state")).toHaveText("Wrote you");
   await expect(cards(page).filter({ hasText: "Rita Falsa" })).toHaveCount(0);
   // The counts live in the one View menu (P48 W4); Replies owed and High value are not views.
   await viewMenu(page).click();
-  await expect(page.getByRole("menuitemradio", { name: /^All\s*11$/ })).toBeVisible();
+  await expect(page.getByRole("menuitemradio", { name: /^All\s*13$/ })).toBeVisible();
   await expect(page.getByRole("menuitemradio", { name: /^Needs you\s*\d+$/ })).toBeVisible();
   await expect(page.getByRole("menuitemradio", { name: /^Replies owed|High value/ })).toHaveCount(0);
 });
@@ -29,30 +31,33 @@ test("Open draft in Mail links the Mail draft by its own Message-ID; the client'
   await expect(page.getByRole("menuitem", { name: "Open the client's mail" })).toHaveAttribute("href", "message://%3Cseed-pedro-at-example.org%40example.com%3E");
 });
 
-test("A project with no drafts says what to ask the agent", async ({ page }) => {
-  await page.route(/\/api\/drafts\?/, (route) =>
-    route.fulfill({ json: { drafts: [], counts: { all: 0, ready: 0, hold: 0, owed: 0, done: 0, sent: 0, skipped: 0, thin_basis: 0, sequences: 0 }, total: 0, nextOffset: null } }),
-  );
+test("A project with no conversation says what to ask the agent", async ({ page }) => {
+  await page.route(/\/api\/projects\/[^/]+\/conversations\?/, (route) => route.fulfill({ json: { rows: [], counts: { needs_you: 0, waiting: 0, all: 0, sequences: 0 }, total: 0, nextOffset: null } }));
   await page.goto("/mail?filter=all");
   await expect(page.getByText("Say to the agent: “triage mail for lisbon-realty”")).toBeVisible();
 });
 
-test("I read the checks, then Done moves the card to the bottom", async ({ page }) => {
+test("I read the checks, then Done moves the person below everyone who needs you", async ({ page }) => {
   await page.goto("/mail?filter=all");
   const row = cards(page).filter({ hasText: "Pedro Exemplo" });
   await expect(row).toBeVisible();
-  const index = async () => (await cards(page).allTextContents()).findIndex((t) => t.includes("Pedro Exemplo"));
-  expect(await index()).toBeLessThan(6);
+  const states = () => cards(page).evaluateAll((rows) => rows.map((r) => [r.textContent?.includes("Pedro Exemplo") ?? false, r.getAttribute("data-state")] as const));
+  const needs = (list: readonly (readonly [boolean, string | null])[]) => list.filter(([, s]) => s === "wrote" || s === "draft").length;
+  const pedro = (list: readonly (readonly [boolean, string | null])[]) => list.findIndex(([p]) => p);
+  expect(pedro(await states())).toBeLessThan(needs(await states()));
 
   await row.getByRole("button").first().click();
   const card = page.getByRole("article", { name: "Draft for Pedro Exemplo" });
+  const draftId = (await card.getAttribute("data-agent-ref"))?.replace("draft:", "");
   await readTheChecks(page);
 
   await card.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: /^Mark done/ }).click();
   await expect(row.getByRole("img", { name: "Done" })).toBeVisible();
-  // Finished cards sort last: Pedro now sits among the final three (done, done, sent).
-  await expect.poll(async () => (await cards(page).count()) - (await index())).toBeLessThanOrEqual(3);
+  // P99: Needs you's words sort first, so Pedro, done, now sits right under the last of them (his activity is the newest).
+  await expect.poll(async () => { const l = await states(); return pedro(l) - needs(l); }).toBe(0);
+  // Reopen his draft: z-client-menu needs Pedro's open card (a Done conversation shows no unsent message).
+  expect((await page.request.post(`/api/drafts/${draftId}/status`, { data: { project: "lisbon-realty", status: "ready" } })).ok()).toBe(true);
 });
 
 test("Activity is one page: the timeline, no detail pane and no dialog (P73)", async ({ page }) => {

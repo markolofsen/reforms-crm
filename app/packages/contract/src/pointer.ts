@@ -31,8 +31,12 @@ export const pointerRecord = z.strictObject({
 });
 export type PointerRecord = z.infer<typeof pointerRecord>;
 
-/** One pointed ref as `GET /api/pointer` returns it: its title resolved inside the project (null: it names nothing there). */
-export const pointerTarget = z.strictObject({ ref: agentRef, title: z.string().nullable() });
+/**
+ * One pointed ref as `GET /api/pointer` returns it: its title resolved inside the project (null: it names nothing there), and
+ * `where`, the ref of the screen it lives on when that is not its own (P99: a draft and a message of theirs live in their
+ * client's conversation, `client:<id>`), so Show opens that conversation; null: the ref's own screen.
+ */
+export const pointerTarget = z.strictObject({ ref: agentRef, title: z.string().nullable(), where: agentRef.nullable() });
 
 /** `GET /api/pointer`: the live pointer, or null (none, cleared, expired). */
 export const pointerDto = z.strictObject({

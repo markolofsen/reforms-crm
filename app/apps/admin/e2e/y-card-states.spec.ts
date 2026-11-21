@@ -66,8 +66,8 @@ for (const c of CASES) {
 test("no permanent control sits within 24 px of Send: the Client menu is across the card, Cancel send is not shown with Send", async ({ page }) => {
   await firstDraftIs(page, { safetyResults: [] });
   await page.goto("/mail?filter=all");
-  // The address settles on the project's draft (/mail is another route tree, so the card mounts again there): measure that card.
-  await expect(page).toHaveURL(/\/lisbon-realty\/mail\/\d+/);
+  // The address settles on the project's conversation (/mail is another route tree, so the card mounts again there): measure that card.
+  await expect(page).toHaveURL(/\/lisbon-realty\/mail\/c\/\d+/);
   const sendButton = page.getByRole("button", { name: "Send", exact: true });
   const clientButton = page.getByRole("button", { name: "Client", exact: true });
   await expect(sendButton).toBeVisible();

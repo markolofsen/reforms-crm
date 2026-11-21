@@ -12,7 +12,8 @@ import { AppLink } from "@/components/app-link";
 export function AgentPoints() {
   const { away } = useSharedFocus();
   const targets = away?.targets.flatMap((t) => {
-    const to = destOfRef(t.ref, t.title);
+    // P99: a draft or a message of theirs opens its client's conversation (`where`), where its row carries the ref.
+    const to = destOfRef(t.where ?? t.ref, t.title);
     return to ? [{ ...t, to }] : [];
   });
   return (

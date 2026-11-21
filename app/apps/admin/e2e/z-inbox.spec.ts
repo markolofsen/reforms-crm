@@ -5,12 +5,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { writeSendPolicy } from "./send-policy";
-import { address, at, remember } from "./support";
+import { address, at, cardOf, cards, remember, viewMenu } from "./support";
 
-// P96: Mail ▸ Inbox, the clients who wrote and have no draft yet, as the server's Mail reader stored them (the seed holds two for
-// demo-shop: the e2e run reads no Mail, its Mailer is fake). The arrival moves to Inbox; a row opens the client's message; Prepare
-// reply pastes the request into the agent's dock without Enter (the fake shell echoes a line only after Enter); No reply needed
-// closes the client with Undo. Named z-* because it starts a terminal session and writes a dismissal (undone at the end).
+// P96, P99: the clients who wrote and have no draft yet, as the server's Mail reader stored them (the seed holds two for demo-shop:
+// the e2e run reads no Mail, its Mailer is fake). Since P99 they are people in Mail's Needs you, the word Wrote you on their row;
+// opening one shows the conversation (the Hub's own rows, demo mode), Prepare reply pastes the request into the agent's dock without
+// Enter (the fake shell echoes a line only after Enter); No reply needed closes them with Undo. Named z-* because it starts a
+// terminal session and writes a dismissal (undone at the end).
 test.describe.configure({ mode: "serial" });
 
 const P = "demo-shop";
@@ -21,7 +22,8 @@ cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/
 writeSendPolicy(process.env.HUB_E2E_HOME ?? "", P);
 const record = (payload: object) =>
   JSON.parse(execFileSync("node", [hub, "record-draft", "--project", P], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" })) as { ok: boolean; action: string; draftId: number };
-const rows = (page: Page) => page.getByTestId("inbound-row");
+const person = (page: Page, name: string) => cards(page).filter({ hasText: name });
+const pane = (page: Page) => page.getByTestId("conversation");
 const screenText = (page: Page) =>
   page.getByRole("tabpanel").locator(".xterm-rows").evaluate((el) => [...el.children].map((r) => (r.textContent ?? "").replace(/\u00a0/g, " ")).join(""));
 
@@ -38,32 +40,36 @@ test.afterAll(async ({ request }) => {
   for (const s of ((await res.json()) as { sessions: { id: string }[] }).sessions) await request.delete(`/api/terminal/sessions/${encodeURIComponent(s.id)}`);
 });
 
-test("inbox: the arrival opens Inbox, the clients who wrote with their first words; the status line and the nav count them", async ({ page }) => {
+test("inbox: the arrival is Needs you, the clients who wrote are its people with their first words; the nav counts them", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await expect.poll(() => address(page)).toBe(at(P, "/mail?filter=inbox"));
-  await expect(rows(page)).toHaveCount(2);
-  await expect(rows(page).first()).toContainText("Lea Sample");
-  await expect(rows(page).first()).toContainText("Re: Your order");
-  await expect(rows(page).first().getByTestId("inbound-preview")).toContainText("Thank you, that works for me.");
-  await expect(page.getByTestId("status-line")).toContainText("2 clients wrote");
-  // Demo mode: the reader is off and says why, never "read just now".
-  await expect(page.getByTestId("inbound-read")).toContainText("Demo mode: Mail is not read");
+  // The default view carries no filter; the wide pane opens the first person in the address.
+  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/\\d+$`));
+  await expect(viewMenu(page)).toContainText("Needs you");
+  const lea = person(page, "Lea Sample");
+  await expect(lea.getByTestId("person-state")).toHaveText("Wrote you");
+  await expect(lea.getByTestId("person-subject")).toContainText("Re: Your order");
+  await expect(lea.getByTestId("person-preview")).toContainText("Thank you, that works for me.");
+  await expect(person(page, "Omar Test").getByTestId("person-state")).toHaveText("Wrote you");
+  // P99 verdict 14: who wrote is the Needs you count of the View menu, not a number on the line; demo mode says why Mail is not read.
+  await expect(page.getByTestId("status-line")).not.toContainText("wrote");
+  await expect(page.getByTestId("status-line")).toContainText("Demo mode: Mail is not read");
   await expect(page.getByRole("navigation", { name: "Sections" }).first().getByTestId("nav-count-mail")).toContainText("2");
-  // The View menu counts Inbox like any view: the two clients and, since P97, the two seeded New leads.
-  await page.getByRole("button", { name: /^View:/ }).click();
-  await expect(page.getByRole("menuitemradio", { name: /^Inbox/ })).toContainText("4");
+  await viewMenu(page).click();
+  await expect(page.getByRole("menuitemradio", { name: /^Needs you/ })).toContainText(String(await cards(page).count()));
   await page.keyboard.press("Escape");
 });
 
-test("inbox: a row opens the client's message; Prepare reply pastes the request into the dock, and nothing runs before Enter", async ({ page }) => {
+test("inbox: a row opens the conversation; Prepare reply pastes the request into the dock, and nothing runs before Enter", async ({ page }) => {
   await endAll(page);
-  await page.goto(at(P, "/mail?filter=inbox"));
-  await rows(page).filter({ hasText: "Lea Sample" }).getByRole("link").click();
-  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/in/\\d+\\?filter=inbox$`));
-  const card = page.getByTestId("inbound-card");
-  await expect(card).toContainText("lea@example.test");
-  await expect(card.getByTestId("inbound-text")).toContainText("Thank you, that works for me.");
-  await card.getByRole("button", { name: "Prepare reply" }).click();
+  await page.goto(at(P, "/mail"));
+  await person(page, "Lea Sample").getByRole("button").first().click();
+  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/\\d+$`));
+  await expect(pane(page)).toContainText("lea@example.test");
+  await expect(pane(page).getByTestId("conversation-state")).toHaveText("Wrote you");
+  // Demo mode: the history is the Hub's own row of her message, its stored first words.
+  await expect(pane(page).getByTestId("history-note")).toContainText("Demo mode");
+  await expect(pane(page).getByTestId("conversation-history")).toContainText("Thank you, that works for me.");
+  await pane(page).getByRole("button", { name: "Prepare reply" }).click();
   await expect.poll(() => screenText(page), { timeout: 20_000 }).toContain(`handle the mail from lea@example.test (Re: Your order) in project ${P}`);
   // Pasted, not entered: the fake shell echoes "> <line>" only after Enter.
   expect(await screenText(page)).not.toContain("> handle the mail");
@@ -71,24 +77,24 @@ test("inbox: a row opens the client's message; Prepare reply pastes the request 
 });
 
 test("inbox: No reply needed closes the client, and Undo brings them back", async ({ page }) => {
-  await page.goto(at(P, "/mail?filter=inbox"));
-  await rows(page).filter({ hasText: "Omar Test" }).getByRole("link").click();
-  await page.getByTestId("inbound-card").getByRole("button", { name: "No reply needed" }).click();
-  await expect(rows(page)).toHaveCount(1);
+  await page.goto(at(P, "/mail"));
+  await person(page, "Omar Test").getByRole("button").first().click();
+  await pane(page).getByRole("button", { name: "No reply needed" }).click();
+  await expect(person(page, "Omar Test")).toHaveCount(0);
   await page.getByRole("button", { name: "Undo" }).click();
-  await expect(rows(page)).toHaveCount(2);
+  await expect(person(page, "Omar Test")).toHaveCount(1);
 });
 
-test("P98: the clients who wrote come before New leads, and the status line keeps its height at 360, 768 and 1280", async ({ page }) => {
+test("P98: the people come before New leads, and the status line keeps its height at 360, 768 and 1280", async ({ page }) => {
   for (const width of [360, 768, 1280]) {
     await page.setViewportSize({ width, height: 800 });
-    await page.goto(at(P, "/mail?filter=inbox"));
-    await expect(rows(page)).toHaveCount(2);
+    await page.goto(at(P, "/mail"));
+    await expect(person(page, "Lea Sample")).toHaveCount(1);
     const leads = page.getByTestId("leads-group");
     await expect(leads).toBeVisible();
-    const firstRow = await rows(page).first().boundingBox();
+    const firstRow = await cards(page).first().boundingBox();
     const group = await leads.boundingBox();
-    expect(firstRow && group && firstRow.y < group.y, `${width}: clients above leads`).toBe(true);
+    expect(firstRow && group && firstRow.y < group.y, `${width}: people above leads`).toBe(true);
     // Item 2: the line is never squeezed under its own content (it painted over "New leads" at 1280 with the dock open).
     const line = page.getByTestId("status-line");
     const fit = await line.evaluate((el) => el.scrollHeight - el.clientHeight);
@@ -96,18 +102,17 @@ test("P98: the clients who wrote come before New leads, and the status line keep
   }
 });
 
-test("P98: a draft recorded for the open message turns its card into Draft ready live, and the client leaves Inbox", async ({ page }) => {
-  await page.goto(at(P, "/mail?filter=inbox"));
-  await rows(page).filter({ hasText: "Omar Test" }).getByRole("link").click();
-  const card = page.getByTestId("inbound-card");
-  await expect(card.getByRole("button", { name: "Prepare reply" })).toBeVisible();
-  const { draftId } = record({ email: "omar@example.test", name: "Omar Test", subject: "Re: Question about sizes", mailRef: "<seed-in-omar@example.test>", excerpt: "Yes, the jacket comes in XL.", reason: "He asked about sizes.", repliesOwed: true, skill: "triage-mail" });
-  // No reload: the live topic `drafts` refreshes the card's state (its Mail text is not read again).
-  const answer = card.getByTestId("inbound-answer");
-  await expect(answer).toContainText("Draft ready", { timeout: 15_000 });
-  await expect(answer).toContainText("Yes, the jacket comes in XL.");
-  await expect(card.getByRole("button", { name: "Prepare reply" })).toHaveCount(0);
-  await expect(rows(page)).toHaveCount(1);
-  await answer.getByRole("link", { name: "Open draft" }).click();
-  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/${draftId}(\\?|$)`));
+test("P98: a draft recorded for their message turns the conversation into Draft ready live, its unsent message at the bottom", async ({ page }) => {
+  await page.goto(at(P, "/mail"));
+  await person(page, "Omar Test").getByRole("button").first().click();
+  await expect(pane(page).getByRole("button", { name: "Prepare reply" })).toBeVisible();
+  const at0 = await address(page);
+  record({ email: "omar@example.test", name: "Omar Test", subject: "Re: Question about sizes", mailRef: "<seed-in-omar@example.test>", excerpt: "Yes, the jacket comes in XL.", reason: "He asked about sizes.", repliesOwed: true, skill: "triage-mail" });
+  // No reload: the live topic `drafts` refreshes the row and the pane (Mail is not read again).
+  await expect(pane(page).getByTestId("conversation-state")).toHaveText("Draft ready", { timeout: 15_000 });
+  await expect(person(page, "Omar Test").getByTestId("person-state")).toHaveText("Draft ready");
+  await expect(cardOf(page, "Omar Test")).toBeVisible();
+  await expect(pane(page).getByRole("button", { name: "Prepare reply" })).toHaveCount(0);
+  // The same conversation stays open: a draft is a part of it, not a page of its own.
+  expect(await address(page)).toBe(at0);
 });

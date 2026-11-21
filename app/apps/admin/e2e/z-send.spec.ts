@@ -51,7 +51,8 @@ test("Send needs the checks read, shows the exact mail to confirm, can be cancel
   const again = await openRead(page, "Sofia Teste");
   await sendButton(again).click();
   await again.getByRole("button", { name: "Send to Sofia" }).click();
-  await expect(cards(page).filter({ hasText: "Sofia Teste" }).getByRole("img", { name: "Sent" })).toBeVisible();
+  // P99: our send is the last word, so her conversation waits for her.
+  await expect(cards(page).filter({ hasText: "Sofia Teste" }).getByRole("img", { name: "Waiting for them" })).toBeVisible();
 
   // the history (Activity ▸ Sends) shows the row
   await page.goto("/log?filter=sends");
@@ -83,14 +84,14 @@ test("Stop all refuses a send with its reason, and Resume lifts it", async ({ pa
   await marta.getByRole("button", { name: "Cancel", exact: true }).click();
 });
 
-test("a draft recorded as injection_suspected shows the flag and a class, and offers no Send", async ({ page }) => {
+test("a draft recorded as injection_suspected shows the flag and offers no Send", async ({ page }) => {
   const payload = { email: "mallory@example.com", name: "Mallory Suspect", subject: "Re: invoice", mailRef: "<inj-1@example.com>", reason: "Asked about an invoice.", mailClass: "client", injectionSuspected: true, repliesOwed: true, skill: "triage-mail" };
   execFileSync("node", [hub, "record-draft", "--project", "demo-shop"], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: process.env.HUB_E2E_PROJECTS, NO_COLOR: "1" }, encoding: "utf8" });
   await remember(page, "demo-shop");
   await page.goto("/mail?project=demo-shop&filter=all");
   const row = cards(page).filter({ hasText: "Mallory Suspect" });
   await expect(row.getByText("Suspicious mail")).toBeVisible();
-  await expect(row.getByText("client", { exact: true })).toBeVisible();
+  // P99 verdict 13: the row's third line is their words or the draft's, so the mail class is no longer written there.
   await row.getByRole("button").first().click();
   const card = cardOf(page, "Mallory Suspect");
   await expect(card.getByText(/Suspicious mail\./)).toBeVisible();

@@ -12,14 +12,14 @@ test.beforeEach(async ({ page }) => {
 const P = "lisbon-realty";
 const cards = (page: Page) => page.locator('ul[aria-label="People"] > li');
 const viewMenu = (page: Page) => page.getByRole("button", { name: /^View:/ });
-/** P53: at 1280 the Drafts list opens its first row and the address names it (`/mail/42`); a bare `/mail` only while loading or empty. */
-const listed = (project: string | null, query = "") => new RegExp(`^${project ? `/${project}` : ""}/mail(/\\d+)?${query.replace(/[?]/g, "\\?")}$`);
+/** P53, P99: at 1280 Mail opens its first person and the address names them (`/mail/c/42`); a bare `/mail` only while loading or empty. */
+const listed = (project: string | null, query = "") => new RegExp(`^${project ? `/${project}` : ""}/mail(/c/\\d+)?${query.replace(/[?]/g, "\\?")}$`);
 
-async function firstDraftId(page: Page): Promise<string> {
+async function secondPersonId(page: Page): Promise<string> {
   await page.goto(at(P, "/mail"));
   await expect(cards(page).first()).toBeVisible();
-  const id = (await cards(page).nth(1).getAttribute("id"))?.replace("draft-", "");
-  if (!id) throw new Error("the seeded list has no second draft");
+  const id = (await cards(page).nth(1).getAttribute("id"))?.replace("person-", "");
+  if (!id) throw new Error("the seeded list has no second person");
   return id;
 }
 
@@ -61,49 +61,49 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
 });
 
 test("saved links of the query era (until 2026-11-18) open the same view in the path form", async ({ page }) => {
-  const id = await firstDraftId(page);
-  await page.goto(`/mail/${id}?project=${P}&filter=all`);
-  await expect.poll(() => address(page)).toBe(at(P, `/mail/${id}?filter=all`));
+  const id = await secondPersonId(page);
+  await page.goto(`/mail/c/${id}?project=${P}&filter=all`);
+  await expect.poll(() => address(page)).toBe(at(P, `/mail/c/${id}?filter=all`));
   await page.goto("/mail?project=demo-shop");
-  // P96: demo-shop has clients who wrote (seeded), so the arrival moves to its Inbox.
-  await expect.poll(() => address(page)).toMatch(listed("demo-shop", "?filter=inbox"));
+  // P99: the arrival is Needs you, the default view, so the address carries no view.
+  await expect.poll(() => address(page)).toMatch(listed("demo-shop"));
   await page.goto(`/mail?project=${P}&new=1`); // the batch builder's address: gone, the list opens
   await expect.poll(() => address(page)).toMatch(listed(P));
 });
 
-test("a Drafts deep link with a selected draft survives a reload", async ({ page }) => {
-  const id = await firstDraftId(page);
-  await page.goto(at(P, `/mail/${id}`));
-  const current = page.locator(`ul[aria-label="People"] > li#draft-${id}`);
+test("a Mail deep link with an open conversation survives a reload", async ({ page }) => {
+  const id = await secondPersonId(page);
+  await page.goto(at(P, `/mail/c/${id}`));
+  const current = page.locator(`ul[aria-label="People"] > li#person-${id}`);
   await expect(current).toHaveAttribute("data-open", "true");
   await page.reload();
   await expect(current).toHaveAttribute("data-open", "true");
-  await expect.poll(() => address(page)).toBe(at(P, `/mail/${id}`));
-  await expect(page).toHaveTitle(new RegExp(`^Draft ${id} · Mail · ${P} · Hub Workflow$`));
+  await expect.poll(() => address(page)).toBe(at(P, `/mail/c/${id}`));
+  await expect(page).toHaveTitle(new RegExp(`^Conversation ${id} · Mail · ${P} · Hub Workflow$`));
 });
 
 test("a view in the address survives a reload, and a bad one resets", async ({ page }) => {
-  await page.goto(at(P, "/mail?filter=hold"));
-  await expect(viewMenu(page)).toContainText("Hold");
+  await page.goto(at(P, "/mail?filter=waiting"));
+  await expect(viewMenu(page)).toContainText("Waiting");
   await page.reload();
-  await expect(viewMenu(page)).toContainText("Hold");
+  await expect(viewMenu(page)).toContainText("Waiting");
   await page.goto(at(P, "/mail?filter=zzz"));
-  await expect(viewMenu(page)).toContainText("To review");
+  await expect(viewMenu(page)).toContainText("Needs you");
   await expect.poll(() => address(page)).toMatch(listed(P));
 });
 
-test("the first draft opens in the address without a history entry; moving between drafts and views replaces (P53)", async ({ page }) => {
+test("the first person opens in the address without a history entry; moving between people and views replaces (P53)", async ({ page }) => {
   await page.goto(at(P, "/mail"));
   await expect(cards(page).first()).toBeVisible();
-  const first = (await cards(page).first().getAttribute("id"))?.replace("draft-", "");
-  await expect.poll(() => address(page)).toBe(at(P, `/mail/${first}`)); // the card on screen is the one the address names
+  const first = (await cards(page).first().getAttribute("id"))?.replace("person-", "");
+  await expect.poll(() => address(page)).toBe(at(P, `/mail/c/${first}`)); // the conversation on screen is the one the address names
   await expect(cards(page).first()).toHaveAttribute("data-open", "true");
   const entries = await page.evaluate(() => window.history.length);
   await page.keyboard.press("j");
-  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/(?!${first}$)\\d+$`));
+  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/(?!${first}$)\\d+$`));
   await viewMenu(page).click();
-  await page.getByRole("menuitemradio", { name: /^Hold/ }).click();
-  await expect.poll(() => address(page)).toMatch(listed(P, "?filter=hold"));
+  await page.getByRole("menuitemradio", { name: /^Waiting/ }).click();
+  await expect.poll(() => address(page)).toMatch(listed(P, "?filter=waiting"));
   expect(await page.evaluate(() => window.history.length)).toBe(entries); // neither the auto-open, a move nor a view is a page
 });
 
@@ -123,7 +123,8 @@ test("Settings ▸ Sending survives a reload", async ({ page }) => {
 });
 
 // P70: the addresses of the Project section, Agents and Connections are gone, with no redirect (routes rule 6).
-for (const bad of ["/clients", "/nope", "/mail/abc", "/mail/1/2", `/${P}/overview`, `/${P}/help`, "/settings/nope", "/project", "/project/setup", `/${P}/project/knowledge`, "/agents", `/${P}/agents`, "/connections"]) {
+// P99: the per-draft and per-message addresses (`/mail/<draftId>`, `/mail/in/<id>`) are gone too.
+for (const bad of ["/clients", "/nope", "/mail/abc", "/mail/1/2", "/mail/1", "/mail/in/1", "/mail/c/abc", `/${P}/overview`, `/${P}/help`, "/settings/nope", "/project", "/project/setup", `/${P}/project/knowledge`, "/agents", `/${P}/agents`, "/connections"]) {
   test(`${bad} is Not found, with a way back, never Mail`, async ({ page }) => {
     await page.goto(bad);
     await expect(page.getByText("Page not found")).toBeVisible();
@@ -135,9 +136,9 @@ for (const bad of ["/clients", "/nope", "/mail/abc", "/mail/1/2", `/${P}/overvie
   });
 }
 
-test("a draft id that is not in the list says so and keeps the list", async ({ page }) => {
-  await page.goto(at(P, "/mail/99999"));
-  await expect(page.getByText("Draft 99999 is not in this list")).toBeVisible();
+test("a client id that is not in the project says so and keeps the list", async ({ page }) => {
+  await page.goto(at(P, "/mail/c/99999"));
+  await expect(page.getByText("This person has no conversation in this project.")).toBeVisible();
   await expect(cards(page).first()).toBeVisible();
 });
 
@@ -215,7 +216,7 @@ test("the nested nav: the six panes in the sub-nav of every pane, none in the si
 // sent: 200 with the Not-found body, title and a way back.
 test("status policy: an unmatched path is a real 404; a streamed bad id is 200 with the Not-found body", async ({ page }) => {
   expect((await page.request.get("/nope/x/y")).status()).toBe(404);
-  const streamed = await page.request.get(at(P, "/mail/abc"));
+  const streamed = await page.request.get(at(P, "/mail/c/abc"));
   expect(streamed.status()).toBe(200);
   expect(await streamed.text()).not.toContain("Sofia Teste");
 });

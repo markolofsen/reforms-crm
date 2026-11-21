@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { address, at, remember, viewMenu } from "./support";
+import { address, at, openRow, remember, viewMenu } from "./support";
 
 // Named y-* so it runs after smoke.spec.ts and before the z-* flows that change the data. Nothing here writes:
 // keys only move, and the failures are mocked.
@@ -9,24 +9,27 @@ test.beforeEach(async ({ page }) => {
 
 const cards = (page: import("@playwright/test").Page) => page.locator('ul[aria-label="People"] > li');
 
-test("the project and the filter live in the address", async ({ page }) => {
-  // The ready drafts are read from the server at test time, not counted by hand: x-sequences' Stop follow-ups skips a
-  // step draft of this project, so a fixed number holds only when that spec ran first.
-  const ready = (await (await page.request.get("/api/drafts?project=lisbon-realty&filter=ready")).json()) as { drafts: { id: number }[]; nextOffset: number | null };
-  expect(ready.nextOffset).toBeNull();
-  expect(ready.drafts.length).toBeGreaterThan(0);
-  await page.goto(at("lisbon-realty", "/mail?filter=ready"));
-  await expect(viewMenu(page)).toContainText("To review");
-  await expect(cards(page)).toHaveCount(ready.drafts.length);
-  expect((await cards(page).evaluateAll((rows) => rows.map((r) => r.id))).sort()).toEqual(ready.drafts.map((d) => `draft-${d.id}`).sort());
+type Listed = { rows: { client: { id: number } }[]; total: number; nextOffset: number | null };
+const listed = async (page: import("@playwright/test").Page, view: string) => (await (await page.request.get(`/api/projects/lisbon-realty/conversations?view=${view}`)).json()) as Listed;
+
+test("the project and the view live in the address", async ({ page }) => {
+  // P99: the people of Needs you are read from the server at test time, not counted by hand (x-sequences and z-* flows change them).
+  const needs = await listed(page, "needs_you");
+  expect(needs.nextOffset).toBeNull();
+  expect(needs.rows.length).toBeGreaterThan(0);
+  await page.goto(at("lisbon-realty", "/mail"));
+  await expect(viewMenu(page)).toContainText("Needs you");
+  await expect(cards(page)).toHaveCount(needs.rows.length);
+  expect((await cards(page).evaluateAll((rows) => rows.map((r) => r.id))).sort()).toEqual(needs.rows.map((r) => `person-${r.client.id}`).sort());
   await viewMenu(page).click();
-  await page.getByRole("menuitemradio", { name: /^Hold/ }).click();
-  await expect.poll(() => address(page)).toMatch(/^\/lisbon-realty\/mail(\/\d+)?\?filter=hold$/); // P53: the first held draft opens in the address
+  await page.getByRole("menuitemradio", { name: /^Waiting/ }).click();
+  await expect.poll(() => address(page)).toMatch(/^\/lisbon-realty\/mail(\/c\/\d+)?\?filter=waiting$/); // P53: the first person opens in the address
 });
 
 test("J and K move the cursor, ? shows the keys, and the switch turns them off", async ({ page }) => {
+  const all = await listed(page, "all");
   await page.goto("/mail?filter=all");
-  await expect(cards(page)).toHaveCount(11);
+  await expect(cards(page)).toHaveCount(all.total);
   const current = page.locator('ul[aria-label="People"] > li[data-open="true"]');
   const first = await current.getAttribute("id");
   await page.keyboard.press("j");
@@ -44,20 +47,21 @@ test("J and K move the cursor, ? shows the keys, and the switch turns them off",
 });
 
 test("a server error shows a sentence and Retry loads the list", async ({ page }) => {
+  const all = await listed(page, "all");
   let fail = true;
-  await page.route(/\/api\/drafts\?/, (route) => (fail ? route.fulfill({ status: 500, json: { error: "server error", code: "server" } }) : route.fallback()));
+  await page.route(/\/api\/projects\/[^/]+\/conversations\?/, (route) => (fail ? route.fulfill({ status: 500, json: { error: "server error", code: "server" } }) : route.fallback()));
   await page.goto("/mail?filter=all");
-  await expect(page.getByText("Could not load drafts")).toBeVisible();
+  await expect(page.getByText("Could not load the people")).toBeVisible();
   fail = false;
   await page.getByRole("button", { name: "Retry" }).click();
-  await expect(cards(page)).toHaveCount(11);
+  await expect(cards(page)).toHaveCount(all.total);
 });
 
 test("a refusal from the server is shown as its sentence", async ({ page }) => {
   await page.route(/\/api\/drafts\/\d+\/status/, (route) => route.fulfill({ status: 409, json: { error: "That draft is already sent.", code: "wrong_state" } }));
   await page.goto("/mail?filter=all");
-  await expect(cards(page)).toHaveCount(11);
-  await page.getByRole("button", { name: "More actions" }).click();
+  const card = await openRow(page, "Marta Ficticia");
+  await card.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Hold for later" }).click();
   await expect(page.getByText("That draft is already sent.")).toBeVisible();
 });
@@ -71,8 +75,8 @@ test("Settings ▸ Checks shows the checks before sending, one tab from Sending"
 
 test("a refused action is announced as an alert, not politely", async ({ page }) => {
   await page.route(/\/api\/drafts\/\d+\/status/, (route) => route.fulfill({ status: 409, json: { error: "This draft changed in the meantime.", code: "wrong_state" } }));
-  await page.goto("/mail?filter=ready");
-  await expect(cards(page).first()).toBeVisible();
+  await page.goto("/mail");
+  await openRow(page, "Marta Ficticia");
   await page.locator("#main").focus();
   await page.keyboard.press("h");
   await expect(page.getByRole("alert").filter({ hasText: "This draft changed in the meantime." })).toBeVisible();

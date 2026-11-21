@@ -35,7 +35,7 @@ test("? opens the shortcuts, which list this screen's keys, and Esc closes them"
   await page.keyboard.press("?");
   const help = page.getByText("Keyboard shortcuts", { exact: true });
   await expect(help).toBeVisible();
-  await expect(page.getByText("select every open draft in the list")).toBeVisible();
+  await expect(page.getByText("select every person with an open draft")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(help).toHaveCount(0);
 });
