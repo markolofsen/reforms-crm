@@ -44,7 +44,7 @@ function LeadRow({ r, open, now }: { r: LeadRowDto; open: boolean; now: number }
 
 /**
  * Mail ▸ Inbox's Leads group (P97 S2, decision 0044): the project's Notion Leads still New, received in the last
- * `leads.window_days`, one row per person, above the clients who wrote. A row opens the lead's card (`/mail/lead/<page id>`).
+ * `leads.window_days`, one row per person, below the clients who wrote (P98: a client who wrote comes first). A row opens the lead's card (`/mail/lead/<page id>`).
  * The older New leads are one muted count: the Hub never writes them. A notice mail of the site is never a row here.
  */
 export function LeadsGroup({ group, openPageId, now }: { group: LeadsGroupDto; openPageId: string | null; now: number }) {

@@ -20,7 +20,7 @@ export function CoreView({ d, now, checking, onCheck, said }: Props) {
       <section aria-labelledby="core-title" className="grid gap-1" data-testid="core-block">
         <SectionTitle id="core-title">Core version</SectionTitle>
         <p className="text-muted-foreground text-sm" data-testid="core-level">
-          Running a local checkout (development): no update check.
+          Running a local checkout (development){d.inUse ? `, ${d.inUse}` : ""}: no update check.
         </p>
       </section>
     );

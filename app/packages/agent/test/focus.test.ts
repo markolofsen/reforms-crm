@@ -20,7 +20,7 @@ let rw: DbHandle;
 let ro: DbHandle;
 let repos: Repos;
 const NOW = new Date("2026-11-18T10:00:30Z");
-const ids = { mark: 0, ann: 0, other: 0, markClient: 0, run: 0, otherRun: 0, chat: 0, otherChat: 0, mdraft: 0, otherMdraft: 0 };
+const ids = { mark: 0, ann: 0, other: 0, markClient: 0, run: 0, otherRun: 0, chat: 0, otherChat: 0, mdraft: 0, otherMdraft: 0, inbound: 0, annInbound: 0, otherInbound: 0 };
 const CSV = "knowledge/files/csv-export-1a2b.md";
 const CSV_TITLE = "Can I download everything in a single request or as a CSV file?";
 
@@ -35,6 +35,16 @@ beforeEach(async () => {
   await w.projects.replaceRegistry({ projects: [{ slug: "acme", name: "Acme Travel", status: "active", settingsJson: "{}", hash: "a" }, { slug: "beta", name: "Beta Secret", status: "active", settingsJson: "{}", hash: "b" }], addresses: [] });
   await w.knowledge.upsert("acme", doc(CSV, CSV_TITLE));
   await w.knowledge.upsert("beta", doc("knowledge/files/beta-only.md", "Beta only entry"));
+  // P98: a client's message in Mail ▸ Inbox (`inbound:`), one in each project; stored before the drafts so every row is open to read its id; Ann's draft (below) answers hers.
+  await w.inboundMail.store([
+    { project: "acme", account: "hello@acme.example", mailbox: "INBOX", messageId: "<in1@example.com>", email: "mark@example.com", name: "Mark Effect", subject: "Re: Wow", receivedAt: "2099-01-01T00:00:00.000Z", read: false, why: "thread", preview: "Are you there?" },
+    { project: "acme", account: "hello@acme.example", mailbox: "INBOX", messageId: "<M2@example.com>", email: "ann@example.com", name: "Ann", subject: "Price", receivedAt: "2020-01-01T00:00:00.000Z", read: true, why: "client", preview: "How much?" },
+    { project: "beta", account: "hello@beta.example", mailbox: "INBOX", messageId: "<in3@example.com>", email: "zed@example.com", name: "Zed Secret", subject: "Beta only", receivedAt: "2099-01-01T00:00:00.000Z", read: false, why: "client", preview: "secret" },
+  ]);
+  const inRows = (await w.inboundMail.open("acme")).concat(await w.inboundMail.open("beta"));
+  ids.inbound = inRows.find((r) => r.email === "mark@example.com")?.id ?? 0;
+  ids.annInbound = inRows.find((r) => r.email === "ann@example.com")?.id ?? 0;
+  ids.otherInbound = inRows.find((r) => r.email === "zed@example.com")?.id ?? 0;
   const m = await w.drafts.record({ project: "acme", email: "mark@example.com", name: "Mark Effect", subject: `Re: Hello ${"x".repeat(200)}`, mailRef: "<m1@example.com>", excerpt: "I'm well" });
   ids.mark = m.draftId;
   ids.markClient = (await w.drafts.get(m.draftId))?.clientId ?? 0;
@@ -87,8 +97,8 @@ describe("readFocus", () => {
   });
 
   it("every kind resolves inside the bound project and drops another project's id", async () => {
-    const own = { draft: String(ids.mark), client: String(ids.markClient), run: String(ids.run), knowledge: CSV, project: "acme", chat: String(ids.chat), mdraft: String(ids.mdraft) };
-    const foreign = { draft: String(ids.other), client: "999", run: String(ids.otherRun), knowledge: "knowledge/files/beta-only.md", project: "beta", chat: String(ids.otherChat), mdraft: String(ids.otherMdraft) };
+    const own = { draft: String(ids.mark), client: String(ids.markClient), run: String(ids.run), knowledge: CSV, project: "acme", chat: String(ids.chat), mdraft: String(ids.mdraft), inbound: String(ids.inbound) };
+    const foreign = { draft: String(ids.other), client: "999", run: String(ids.otherRun), knowledge: "knowledge/files/beta-only.md", project: "beta", chat: String(ids.otherChat), mdraft: String(ids.otherMdraft), inbound: String(ids.otherInbound) };
     const ctx = { repos, slug: "acme", today: "2026-11-18" };
     for (const kind of REF_KINDS) {
       expect(await RESOLVERS[kind](ctx, own[kind]), kind).not.toBeNull();
@@ -102,6 +112,15 @@ describe("readFocus", () => {
     const ctx = { repos, slug: "acme", today: "2026-11-18" };
     expect(await RESOLVERS.chat(ctx, String(ids.chat))).toEqual({ title: "Mark Effect · Telegram", status: "Draft replies", read: { server: "hub", tool: "messenger_history", args: { channel: "telegram_user", chat_id: "4242" } } });
     expect(await RESOLVERS.mdraft(ctx, String(ids.mdraft))).toMatchObject({ title: "Mark Effect · Telegram draft · See you Tuesday", status: "draft" });
+  });
+
+  it("P98: a client's message names who, what and when, waits or names its draft, and reads with inbound_show", async () => {
+    const ctx = { repos, slug: "acme", today: "2026-11-18" };
+    expect(await RESOLVERS.inbound(ctx, String(ids.inbound))).toEqual({ title: "Mark Effect <mark@example.com> · Re: Wow · received 2099-01-01T00:00:00.000Z", status: "waiting for a reply", read: { server: "hub", tool: "inbound_show", args: { inbound: ids.inbound } } });
+    // Ann's draft names this message as its mailRef (in Mail's own case): the message is answered by it.
+    expect(await RESOLVERS.inbound(ctx, String(ids.annInbound))).toMatchObject({ status: `answered by draft ${ids.ann} (ready)` });
+    put({ route: "mail.inbound", title: "Mail", subject: `inbound:${ids.inbound}` });
+    expect((await read()).subject).toMatchObject({ ref: `inbound:${ids.inbound}`, kind: "inbound", title: expect.stringContaining("Re: Wow") });
   });
 
   it("a resolver exists for every ref kind (a kind added without one fails here)", () => {
@@ -184,11 +203,21 @@ describe("hub mcp", () => {
     expect(r.json).toMatchObject({ project: "acme", teamspace: null, databases: [{ role: "clients", url: "collection://00000000-0000-4000-8000-000000000001" }] });
     expect((await (await connect("acme")).call("project_notion")).json).toMatchObject({ error: "unavailable" });
   });
-  it("lists exactly the ten tools: seven read-only (mail_brand reads no Mail, project_notion the project's Notion ids, P82), highlight the pointer, draft_write the one Mail write, messenger_draft_write the one messenger write; none send-like", async () => {
+  it("P98: inbound_show gives from, subject, when, the Message-ID and the reply call; another project's message is refused", async () => {
+    const { call } = await connect("acme");
+    const r = await call("inbound_show", { inbound: ids.inbound });
+    expect(r.isError).toBe(false);
+    expect(r.json).toMatchObject({ id: ids.inbound, from: { name: "Mark Effect", email: "mark@example.com" }, subject: "Re: Wow", receivedAt: "2099-01-01T00:00:00.000Z", messageIdHeader: "in1@example.com", open: true, answer: null });
+    const ann = await call("inbound_show", { inbound: ids.annInbound });
+    expect(ann.json).toMatchObject({ answer: { id: ids.ann, status: "ready" }, reply: { note: expect.stringContaining(`draft_write { draft: ${ids.ann} }`) } });
+    expect(await call("inbound_show", { inbound: ids.otherInbound })).toMatchObject({ isError: true, json: { error: "not_found" } });
+  });
+
+  it("lists exactly the eleven tools: eight read-only (mail_brand reads no Mail, project_notion the project's Notion ids, P82, inbound_show a message of Inbox, P98), highlight the pointer, draft_write the one Mail write, messenger_draft_write the one messenger write; none send-like", async () => {
     const { client } = await connect("acme");
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([...HUB_MCP_TOOLS].sort());
-    expect(HUB_MCP_TOOLS).toHaveLength(10);
+    expect(HUB_MCP_TOOLS).toHaveLength(11);
     expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["draft_write", "highlight", "messenger_draft_write"]);
     expect(tools.filter((t) => SEND_LIKE_TOOL.test(t.name))).toEqual([]);
   });

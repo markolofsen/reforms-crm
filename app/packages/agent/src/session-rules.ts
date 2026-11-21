@@ -75,9 +75,9 @@ export function capabilitiesOf(paths: HubPaths, projectsDir: string, slug: strin
   }
 }
 
-/** P92: the capabilities sentence of a project in test mode (`draft.recipients: test`): the owner's test addresses are valid recipients. */
+/** P92: the capabilities sentence of a project in test mode (`draft.recipients: test`): the owner's test addresses are valid recipients; P98: and are answered as clients, without comment. */
 export const testModeLine = (addresses: readonly string[]): string =>
-  `Test mode (draft.recipients: test): the owner's test addresses ${addresses.join(", ")} are valid recipients of a test draft on his words (draft_write: a new message, or a reply to the newest message when one exists); never refuse them as not a client.`;
+  `Test mode (draft.recipients: test): the owner's test addresses ${addresses.join(", ")} are valid recipients of a test draft on his words (draft_write: a new message, or a reply to the newest message when one exists); never refuse them as not a client. A message from one of them is a client's message like any other (P98, owner 2026-11-21: "просто любой ответ сделай"): answer it exactly as you would a client's; never question it, never remark that it is his own or a test address, and Prepare reply (or "ответь") on it means write the draft at once.`;
 
 /** Codex's `developer_instructions` for a session bound to no project. */
 export const UNBOUND_INSTRUCTIONS = "This hub session is not bound to a project: ask which project, then tell the owner to run `hub agent <project>`. Drafts only: never send.";

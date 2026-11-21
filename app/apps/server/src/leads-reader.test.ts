@@ -17,7 +17,7 @@ const NOW = new Date("2026-11-21T10:00:00.000Z");
 const LEADS_DS = "41806f30-6f14-812a-8a42-000b3b9c3ee4";
 const CLIENTS_DS = "41806f30-6f14-81ac-b8e1-000bac534e05";
 
-function page(id: string, o: { name?: string; email?: string; details?: string; status?: string | null; received?: string; brand?: string } = {}): PageObject {
+function page(id: string, o: { name?: string; email?: string; message?: string; details?: string; status?: string | null; received?: string; brand?: string } = {}): PageObject {
   return {
     id,
     last_edited_time: "x",
@@ -25,7 +25,7 @@ function page(id: string, o: { name?: string; email?: string; details?: string; 
     properties: {
       Name: { type: "title", title: [{ plain_text: o.name ?? "KodaCar" }] },
       Email: { type: "email", email: o.email ?? "koboriubiratan@gmail.com" },
-      Message: { type: "rich_text", rich_text: [{ plain_text: "We need the car data API for Brazil." }] },
+      Message: { type: "rich_text", rich_text: (o.message ?? "We need the car data API for Brazil.") ? [{ plain_text: o.message ?? "We need the car data API for Brazil." }] : [] },
       Details: { type: "rich_text", rich_text: o.details ? [{ plain_text: o.details }] : [] },
       Status: { type: "select", select: o.status === null ? null : { name: o.status ?? "New" } },
       Brand: { type: "multi_select", multi_select: [{ name: o.brand ?? "carapis" }] },
@@ -86,6 +86,17 @@ describe("windowOf (verdict 9 as answered: the last 14 days)", () => {
     const r = windowOf(pages, { project: "p", config: { brands: [{ name: "Carapis", receivesAt: [], signature: [], answered: "", by: "agent" }] as never, leads: { noticeSenders: [], windowDays: 14 } }, now: NOW });
     expect(r.older).toBe(1);
     expect(r.rows).toEqual([expect.objectContaining({ pageId: "a".repeat(32), email: "typed@x.test", accountEmail: "acc@x.test", brand: "Carapis", notionStatus: "New" })]);
+  });
+});
+
+describe("the lead's preview (P98 item 4)", () => {
+  it("is what the person wrote (Message), never the form's metadata (Details); an empty Message stays empty", () => {
+    const meta = "Locale: pt-BR\nApi host: api.carapis.com\nCompany website: https://kobori.xyz/\nConsent version: 2026-09-22";
+    const config = { brands: [] as never, leads: { noticeSenders: [], windowDays: 14 } };
+    const [said] = windowOf([page("a".repeat(32), { message: "cars24.com", details: meta })], { project: "p", config, now: NOW }).rows;
+    expect(said?.preview).toBe("cars24.com");
+    const [silent] = windowOf([page("b".repeat(32), { message: "", details: meta })], { project: "p", config, now: NOW }).rows;
+    expect(silent?.preview).toBe("");
   });
 });
 

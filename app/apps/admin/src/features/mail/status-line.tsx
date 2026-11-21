@@ -61,14 +61,14 @@ export function StatusLine({ project }: { project: string }) {
   const now = useClock()();
   if (!row) {
     return isError ? (
-      <div className="flex min-h-10 items-center gap-2 border-b px-3 text-sm" data-testid="status-line" role="status">
+      <div className="flex min-h-10 shrink-0 items-center gap-2 border-b px-3 text-sm" data-testid="status-line" role="status">
         <span className="min-w-0 flex-1 text-muted-foreground">Status unknown</span>
         <ActionButton onClick={refetch} size="s" variant="quiet">
           Retry
         </ActionButton>
       </div>
     ) : (
-      <div className="flex min-h-10 items-center border-b px-3" data-testid="status-line-loading">
+      <div className="flex min-h-10 shrink-0 items-center border-b px-3" data-testid="status-line-loading">
         <Skeleton className="h-4 w-2/3" />
         <span className="sr-only" role="status">Checking status</span>
       </div>
@@ -84,7 +84,7 @@ export function StatusLine({ project }: { project: string }) {
   );
   const ring = "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset";
   return (
-    <div className="flex min-h-10 flex-wrap items-center gap-x-2 gap-y-1 border-b px-3 py-1.5 text-sm" data-kind={l.kind} data-level={l.level} data-testid="status-line" role="status">
+    <div className="flex min-h-10 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b px-3 py-1.5 text-sm" data-kind={l.kind} data-level={l.level} data-testid="status-line" role="status">
       {l.to ? (
         <AppLink bare className={cn("-mx-1 flex min-h-11 items-center lg:min-h-8 gap-2 rounded-sm px-1 hover:bg-accent/50", ring)} data-testid="status-next" to={l.to}>
           {text}

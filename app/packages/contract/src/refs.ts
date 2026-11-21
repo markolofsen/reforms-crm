@@ -7,7 +7,8 @@ import { isEntryPath } from "./local";
 /** The kinds a ref can name. A kind without a resolver in `@hub/agent/focus` fails that package's test. */
 // P71 M3: `chat` is a linked messenger chat (`messenger_chats.id`), `mdraft` a messenger draft (`messenger_drafts.id`), the rows
 // of the Messengers panel; a mail draft stays `draft`.
-export const REF_KINDS = ["draft", "client", "run", "knowledge", "project", "chat", "mdraft"] as const;
+// P98: `inbound` is a client's message the server's Mail reader stored (`inbound_mail.id`), the rows and the card of Mail ▸ Inbox.
+export const REF_KINDS = ["draft", "client", "run", "knowledge", "project", "chat", "mdraft", "inbound"] as const;
 export type RefKind = (typeof REF_KINDS)[number];
 
 export const NUMERIC_ID = /^[1-9]\d{0,9}$/;
@@ -21,6 +22,7 @@ const ID_OK: Record<RefKind, (id: string) => boolean> = {
   project: (id) => SLUG.test(id) && id.length <= 100,
   chat: (id) => NUMERIC_ID.test(id),
   mdraft: (id) => NUMERIC_ID.test(id),
+  inbound: (id) => NUMERIC_ID.test(id),
 };
 const isKind = (k: string): k is RefKind => (REF_KINDS as readonly string[]).includes(k);
 

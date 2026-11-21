@@ -534,7 +534,7 @@ program.command("open").description("Open a project's folder or file in Finder o
     }
   });
 
-program.command("mcp").description("The hub's MCP server on stdio (P51): focus, highlight (P72, a 30 s ring on his screen), draft_show, client_show, drafts_list, mail_brand, draft_write and the messenger tools for HUB_PROJECT; no send. Registered by `hub agent` for Claude Code and Codex; started by bin/hub.mjs without the CLI.")
+program.command("mcp").description("The hub's MCP server on stdio (P51): focus, highlight (P72, a 30 s ring on his screen), draft_show, client_show, inbound_show (P98), drafts_list, mail_brand, draft_write and the messenger tools for HUB_PROJECT; no send. Registered by `hub agent` for Claude Code and Codex; started by bin/hub.mjs without the CLI.")
   .action(async () => { await (await import("@hub/agent/mcp-stdio")).serveHubMcp(); });
 
 program.command("uninstall").description("Remove this instance's skill links (<instance>/.claude/skills) and report old links in ~/.claude/skills with the command that removes them. Keeps config, state and secrets.")

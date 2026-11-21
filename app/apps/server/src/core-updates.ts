@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { statSync } from "node:fs";
-import { currentCoreUpdate, refreshCoreUpdate, uncheckedCoreUpdate, type CommandRun } from "@hub/config/core-version";
+import { currentCoreUpdate, isLocalCore, refreshCoreUpdate, uncheckedCoreUpdate, type CommandRun } from "@hub/config/core-version";
 import type { HubPaths } from "@hub/config/paths";
 import { CORE_CHECK_GUARD_MS, coreUpdateDto, type CoreUpdateDto } from "@hub/contract/instance";
 import { ops } from "@hub/log/ops";
@@ -98,6 +98,8 @@ export function createCoreUpdates(o: CoreUpdatesOptions): CoreUpdatesService {
     },
     start() {
       if (!o.auto || timers.length) return;
+      // P98 item 6: a local checkout's check is one local git read (no origin): run it at once, so the line names the dev version.
+      if (isLocalCore(o.paths.home)) void run();
       const first = setTimeout(() => {
         void run();
         const every = setInterval(() => void run(), o.everyMs ?? CHECK_EVERY_MS);

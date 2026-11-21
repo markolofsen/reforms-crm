@@ -1,8 +1,10 @@
 "use client";
 
+import { ChevronDownIcon } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { leadPhrase } from "@hub/contract/help";
 import type { LeadActionDto } from "@hub/contract/inbound";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { toastManager } from "@hub/ui/toast";
 import { AppLink } from "@/components/app-link";
@@ -102,7 +104,18 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
           <>
             {lead.company && <span className="block font-medium">{lead.company}</span>}
             {lead.message || <span className="text-muted-foreground">No message.</span>}
-            {lead.details && <span className="block pt-3 text-muted-foreground text-xs">{lead.details}</span>}
+            {lead.details && (
+              // P98 item 4: the form's metadata is folded; the message above is what the person wrote.
+              <Collapsible className="pt-3" data-testid="lead-details">
+                <CollapsibleTrigger className="flex min-h-(--control-s) items-center gap-1 rounded-sm text-muted-foreground text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  Form details
+                  <ChevronDownIcon aria-hidden="true" className="size-4 shrink-0" />
+                </CollapsibleTrigger>
+                <CollapsiblePanel>
+                  <span className="block whitespace-pre-wrap pt-1 text-muted-foreground text-xs">{lead.details}</span>
+                </CollapsiblePanel>
+              </Collapsible>
+            )}
           </>
         ) : (
           <>

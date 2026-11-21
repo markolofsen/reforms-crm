@@ -12,7 +12,7 @@ export { bumpTopic, bumpTopicIn, liveSeq, liveSince, LIVE_TABLES, TOPIC_PREFIX, 
 export { RepoError, type RepoErrorCode } from "./errors";
 export { adoptable, bareRef, isReplyShell, buildMatchQuery, createRepos, isExpired, rulesOf, senderName, shellHashOf, startsWithWrite, teamNoticeOf, textKey, usageRefusal, versionHashOf, withoutLeadingBlankLines, type Repos } from "./repos";
 export { EVENT_DETAIL_DAYS } from "./repos/runs";
-export { PREVIEW_CHARS } from "./repos/inbound-mail";
+export { answeringDraft, PREVIEW_CHARS } from "./repos/inbound-mail";
 export { LEAD_PREVIEW_CHARS } from "./repos/lead-rows";
 export { REFUSAL_COALESCE_MS } from "./repos/llm-calls";
 export type {

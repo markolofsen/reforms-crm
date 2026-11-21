@@ -168,6 +168,9 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
     case "mdraft":
       // P71 M3: a chat and its draft are rows of the panel; Linked (P84c), so a chat with nothing owed is there too.
       return paths.messengers.chats({ filter: "linked" });
+    case "inbound":
+      // P98: a client's message is its Inbox card.
+      return paths.mail.inbound(Number(p.id), { filter: "inbox" });
   }
 }
 

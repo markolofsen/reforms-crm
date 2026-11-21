@@ -73,10 +73,16 @@ describe("the block on Settings ▸ This Mac", () => {
     expect(view(d)).toContain("core: v0.12.12 (P64 resume)");
   });
   it("UX pass: a local checkout (hub core dev) is one quiet line, with no Check now and no facts", () => {
-    const html = view(at("unknown", { local: true, reason: "core/ is a link to a local checkout (hub core dev): no update check" }));
+    const html = view(at("unknown", { local: true, inUse: null, reason: "core/ is a link to a local checkout (hub core dev): no update check" }));
     expect(html).toContain("Running a local checkout (development): no update check.");
     expect(html).not.toContain("Check now");
     expect(html).not.toContain("Newest tag");
+  });
+
+  it("P98: a local checkout names its own dev version, not the stale pin", () => {
+    const d = at("unknown", { local: true, pin: "v0.13.0", inUse: "v0.14.0+13 (086c4e6)", reason: "core/ is a link to a local checkout (hub core dev): no update check" });
+    expect(coreLine(d)).toEqual({ text: "core v0.14.0+13 (086c4e6)", note: "local checkout", dot: false });
+    expect(view(d)).toContain("Running a local checkout (development), v0.14.0+13 (086c4e6): no update check.");
   });
 
   it("required, follows and rollback each say so", () => {

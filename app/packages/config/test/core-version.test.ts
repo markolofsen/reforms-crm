@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { checkCoreUpdates, compareVersions, CoreCheckError, currentCoreUpdate, judgeCoreUpdate, parseLsRemote, pinLabel, readCoreUpdateCache, readCoreVersion, readPinFile, refreshCoreUpdate, sortVersions, updateCommand, type CommandRun, type CoreTag, type JudgeInput } from "../src/core-version";
+import { checkCoreUpdates, compareVersions, CoreCheckError, currentCoreUpdate, devVersionLabel, judgeCoreUpdate, parseLsRemote, pinLabel, readCoreUpdateCache, readCoreVersion, readPinFile, refreshCoreUpdate, sortVersions, updateCommand, type CommandRun, type CoreTag, type JudgeInput } from "../src/core-version";
 import { hubPaths } from "../src/paths";
 
 const HOME = "/x/saas";
@@ -10,6 +10,11 @@ const tag = (name: string, date: string | null = "2026-11-01T10:00:00Z", subject
 const judge = (o: Partial<JudgeInput>) => judgeCoreUpdate({ home: HOME, pin: "v0.12.11", inUse: "v0.12.11", base: { name: "v0.12.11", date: "2026-11-01T10:00:00Z", exact: true }, tags: [tag("v0.12.10"), tag("v0.12.11")], ...o });
 
 describe("versions and the pin file", () => {
+  it("P98: a dev checkout's describe in words: tag+commits (sha), an exact tag alone, nothing without a tag", () => {
+    expect(devVersionLabel("v0.14.0-13-g086c4e6")).toBe("v0.14.0+13 (086c4e6)");
+    expect(devVersionLabel("v0.14.0-0-g086c4e6\n")).toBe("v0.14.0");
+    expect(devVersionLabel("086c4e6")).toBeNull();
+  });
   it("orders by semver, not by text, and drops what is not a version tag", () => {
     expect(compareVersions("v0.10.0", "v0.9.9")).toBeGreaterThan(0);
     expect(sortVersions(["v0.12.10", "v0.12.9", "backup-2026", "v0.2.0", "v0.12.9"])).toEqual(["v0.2.0", "v0.12.9", "v0.12.10"]);
@@ -151,12 +156,16 @@ describe("the check (verdict 2), git injected", () => {
     await expect(checkCoreUpdates(run, instance(), NOW)).rejects.toThrow(CoreCheckError);
     await expect(checkCoreUpdates(run, instance(), NOW)).rejects.toThrow("origin unreachable: fatal: unable to access");
   });
-  it("a core/ link (hub core dev) and a missing pin are unknown, with no git call", async () => {
+  it("a core/ link (hub core dev) is unknown with one local git read, its dev version (P98); a missing pin is unknown", async () => {
     const paths = instance();
     symlinkSync(tmpdir(), join(paths.home, "core"));
-    const { run, calls } = fakeGit(base());
-    expect((await checkCoreUpdates(run, paths, NOW)).level).toBe("unknown");
-    expect(calls).toEqual([]);
+    const { run, calls } = fakeGit({ ...base(), describe: () => ({ stdout: "v0.14.0-13-g086c4e6\n" }) });
+    const r = await checkCoreUpdates(run, paths, NOW);
+    expect(r).toMatchObject({ level: "unknown", local: true, inUse: "v0.14.0+13 (086c4e6)" });
+    expect(calls.map((c) => c.args[0])).toEqual(["describe"]);
+    // The cached dev version is what a GET reads while the link stays.
+    await refreshCoreUpdate(run, paths, NOW);
+    expect(currentCoreUpdate(paths)).toMatchObject({ local: true, inUse: "v0.14.0+13 (086c4e6)" });
     const empty = instance("# nothing\n");
     expect((await checkCoreUpdates(run, empty, NOW)).reason).toBe("core.version is missing or empty");
   });

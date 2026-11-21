@@ -5,7 +5,9 @@ import { phrase, PREPARE_MAX } from "@hub/contract/help";
 import type { InboundListDto, InboundRowDto } from "@hub/contract/inbound";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { cn } from "@hub/ui/cn";
+import { refOf } from "@hub/contract/focus";
 import { AppLink } from "@/components/app-link";
+import { agentRef } from "@/lib/focus";
 import { EmptyState, ListSkeleton, LoadFailed } from "@/components/state-views";
 import { inboundApi } from "@/lib/api/inbox";
 import { keys } from "@/lib/cache/keys";
@@ -23,7 +25,7 @@ export function useInbound(project: string) {
 
 function Row({ r, open, now }: { r: InboundRowDto; open: boolean; now: number }) {
   return (
-    <li className={cn("relative border-b", open && "bg-accent")} data-open={open} data-testid="inbound-row">
+    <li className={cn("relative border-b", open && "bg-accent")} data-open={open} data-testid="inbound-row" {...agentRef(refOf("inbound", r.id))}>
       {open && <span aria-hidden="true" className="absolute inset-y-0 start-0 w-[3px] bg-primary" />}
       <AppLink
         aria-current={open ? "true" : undefined}
@@ -92,7 +94,6 @@ export function InboxView({ project, openId, openPageId = null }: { project: str
   const leadRows = leads?.rows.length ?? 0;
   return (
     <section aria-label="Inbox" className="flex flex-col" data-testid="inbox">
-      {leads && <LeadsGroup group={leads} now={now} openPageId={openPageId} />}
       {rows.length === 0 && leadRows > 0 ? null : rows.length === 0 ? (
         <EmptyState title="No client is waiting">When a client writes, they appear here with their message. Mail is read every few minutes while the Hub is open.</EmptyState>
       ) : (
@@ -110,6 +111,8 @@ export function InboxView({ project, openId, openPageId = null }: { project: str
           </ul>
         </>
       )}
+      {/* P98 item 1: a client who wrote is a conversation in progress, so the clients come first and New leads below them. */}
+      {leads && <LeadsGroup group={leads} now={now} openPageId={openPageId} />}
       <Footer data={q.data} now={now} project={project} />
     </section>
   );

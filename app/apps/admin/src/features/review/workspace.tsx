@@ -221,7 +221,8 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
     </>
   );
   const list = (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-pane="list">
+    // P98 item 2: every block of the scrolling list keeps its own height; a `min-h-*` on a child would else let it shrink under its content and paint over the next one.
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto *:shrink-0" data-pane="list">
       <ListHeader onSearch={setQ} onSelecting={sel.setMode} onView={onView} search={q} searchRef={searchRef} selecting={sel.selecting} selection={header} view={source.filter} views={views(counts)} />
       {status}
       {body ?? rowsView}

@@ -1,5 +1,5 @@
 import { CLIENT_FILTERS } from "@hub/config";
-import type { Repos } from "@hub/db";
+import { answeringDraft, type Repos } from "@hub/db";
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { headersFromText, isOwnAddress, normalizeAddress, ownSignoff, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, signingNames, type Brand, type HeaderAddresses } from "@hub/projects";
@@ -32,7 +32,7 @@ import { projectNotion, type NotionScope } from "./notion-scope";
 
 // P82: `project_notion`, read only: the bound project's Notion databases by id (the same parse as the capabilities line).
 
-export const HUB_MCP_TOOLS = ["focus", "highlight", "draft_show", "client_show", "drafts_list", "mail_brand", "project_notion", "draft_write", ...MESSENGER_TOOLS] as const;
+export const HUB_MCP_TOOLS = ["focus", "highlight", "draft_show", "client_show", "inbound_show", "drafts_list", "mail_brand", "project_notion", "draft_write", ...MESSENGER_TOOLS] as const;
 
 /** The bound project's Mail settings from `project.md` (`mail.accounts`, `mail.sender`), and what signs its drafts (P60). */
 export interface ProjectMail {
@@ -275,6 +275,52 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
         const drafts = await repos.drafts.ofClient(slug, c.id);
         const notion = drafts.find((d) => d.notionUrl)?.notionUrl ?? null;
         return { ...c, name: cut(c.name), project: slug, notion, drafts: drafts.slice(0, 30).map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), createdAt: d.createdAt })) };
+      }),
+  );
+
+  // P98: a client's message in Mail ▸ Inbox (`inbound:<id>` in the focus): who, what and when, where mail-mcp opens it, and the
+  // draft_write call that answers it, so the agent never searches Mail to guess which message the owner means.
+  server.registerTool(
+    "inbound_show",
+    {
+      title: "One client message of this project's Inbox",
+      description: `A message the Hub's Mail reader stored for this project (focus ref \`inbound:<id>\`, Mail ▸ Inbox): from (name and address), subject, when it arrived, the Mail Message-ID, \`inbound\` (account, mailbox_path, message_id: mail-mcp get_message_content reads the full text, and draft_write takes the same three for a new reply), the preview, whether it still waits (\`open\`), the draft that answers it, if any, and the client's drafts. "Prepare reply" / "ответь" on it is a work order: write the reply with \`draft_write\` at once (\`reply\` gives the call), then record it; never ask first. ${DATA}`,
+      inputSchema: z.object({ inbound: z.number().int().positive().describe("The message's id, as the focus ref inbound:<id> gives it.") }),
+      annotations: READ_ONLY,
+    },
+    ({ inbound }) =>
+      run(async () => {
+        const slug = project();
+        const row = await repos.inboundMail.get(slug, inbound);
+        if (!row) throw new ToolError("not_found", `No message ${inbound} in project ${slug}'s Inbox.`);
+        const clientId = await repos.clients.idByEmail(slug, row.email);
+        const drafts = clientId === undefined ? [] : await repos.drafts.ofClient(slug, clientId);
+        const answer = answeringDraft(row, drafts);
+        const pm = env.projectMail?.(slug);
+        const found = env.drafts && pm ? await env.drafts.findInbound(pm.accounts, row.messageId).catch(() => null) : null;
+        return {
+          id: row.id,
+          project: slug,
+          from: { name: cut(row.name), email: row.email },
+          subject: cut(row.subject, 300),
+          receivedAt: row.receivedAt,
+          messageIdHeader: row.messageId,
+          account: row.account,
+          mailbox: row.mailbox,
+          preview: row.preview,
+          why: row.why,
+          open: row.open,
+          dismissedAt: row.dismissedAt,
+          inbound: found ? { account: found.account, mailbox_path: found.mailboxPath, message_id: found.messageId } : null,
+          answer: answer ? { id: answer.id, status: answer.status, subject: cut(answer.subject), createdAt: answer.createdAt } : null,
+          client: clientId === undefined ? null : { id: clientId },
+          drafts: drafts.slice(0, 10).map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), createdAt: d.createdAt })),
+          reply: answer
+            ? { note: `Draft ${answer.id} already answers it: revise that one with draft_write { draft: ${answer.id} } when asked.` }
+            : found
+              ? { draft_write: { account: found.account, mailbox_path: found.mailboxPath, message_id: found.messageId, content: "<the reply>" }, then: "record it: ./run.sh record-draft with mailRef = messageIdHeader" }
+              : { note: "Mail did not find the message now: find it with mail-mcp find_messages by its Message-ID (messageIdHeader), then draft_write." },
+        };
       }),
   );
 

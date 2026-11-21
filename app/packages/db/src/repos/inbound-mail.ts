@@ -42,6 +42,17 @@ export interface InboundKnown {
 
 export const PREVIEW_CHARS = 120;
 
+/**
+ * P98 item 3: the draft that answers this message: the client's draft that names it as its mailRef, else the newest draft of the
+ * client recorded after it arrived (the rule that closes the row, `OPEN_INBOUND`). Null while none exists.
+ */
+export function answeringDraft<D extends { mailRef: string | null; createdAt: string; id: number }>(row: { messageId: string; receivedAt: string }, drafts: readonly D[]): D | null {
+  const own = drafts.find((d) => bareRef(d.mailRef) === row.messageId);
+  if (own) return own;
+  const after = drafts.filter((d) => Date.parse(d.createdAt) > Date.parse(row.receivedAt)).sort((a, b) => b.id - a.id);
+  return after[0] ?? null;
+}
+
 /** An open row: no draft of the client recorded after it, no agent record of the client after it, not dismissed. Literal table names (rule 15). */
 export const OPEN_INBOUND = `inbound_mail.dismissed_at is null
   and not exists (select 1 from drafts d join clients c on c.id = d.client_id where c.project = inbound_mail.project and c.email = inbound_mail.email and d.created_at > inbound_mail.received_at)

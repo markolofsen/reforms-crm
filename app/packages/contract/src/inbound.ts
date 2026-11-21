@@ -80,22 +80,32 @@ export const inboundListDto = z.strictObject({
 });
 export type InboundListDto = z.infer<typeof inboundListDto>;
 
-/** `GET /api/projects/:slug/inbound/:id`: one message, its text read from Mail now (null with `note` when Mail cannot show it). */
+/**
+ * `GET /api/projects/:slug/inbound/:id`: one message's state from the Hub's own record (P98 item 3: no Mail read, so the live
+ * topics `drafts` and `inbox` refresh it the moment a draft lands). The text is `GET .../inbound/:id/text`.
+ */
 export const inboundDetailDto = z.strictObject({
   row: inboundRowDto.extend({ account: z.string(), mailbox: z.string(), messageId: z.string(), open: z.boolean(), dismissedAt: z.string().nullable() }),
+  /** The client's drafts in this project, newest first (links on the card). */
+  drafts: z.array(z.strictObject({ id: z.number().int(), subject: z.string(), status: z.string(), createdAt: z.string() })),
+  /** The draft that answers this message (its mailRef names it, else the client's newest draft recorded after it), or null. */
+  answer: z.strictObject({ id: z.number().int(), subject: z.string(), status: z.string(), createdAt: z.string(), excerpt: z.string() }).nullable(),
+  /** The client's other open messages (subjects and when). */
+  others: z.array(z.strictObject({ id: z.number().int(), subject: z.string(), receivedAt: z.string() })),
+  notionUrl: z.string().nullable(),
+});
+export type InboundDetailDto = z.infer<typeof inboundDetailDto>;
+
+/** `GET /api/projects/:slug/inbound/:id/text`: the client's own words read from Mail now (null with `note` when Mail cannot show it). */
+export const inboundTextDto = z.strictObject({
   /** The client's own words (the quote of the earlier mail folded away), or null. */
   text: z.string().nullable(),
   /** Whether a quote of an earlier mail was folded away. */
   quoted: z.boolean(),
   /** Why there is no text ("Mail is not running", "This message is no longer in Mail"). */
   note: z.string().nullable(),
-  /** The client's drafts in this project, newest first (links on the card). */
-  drafts: z.array(z.strictObject({ id: z.number().int(), subject: z.string(), status: z.string() })),
-  /** The client's other open messages (subjects and when). */
-  others: z.array(z.strictObject({ id: z.number().int(), subject: z.string(), receivedAt: z.string() })),
-  notionUrl: z.string().nullable(),
 });
-export type InboundDetailDto = z.infer<typeof inboundDetailDto>;
+export type InboundTextDto = z.infer<typeof inboundTextDto>;
 
 /** `POST .../inbound/:id/dismiss` (No reply needed) answers the ids it closed, for Undo (`POST .../inbound/undismiss`). */
 export const inboundDismissedDto = z.strictObject({ ok: z.literal(true), ids: z.array(z.number().int()) });

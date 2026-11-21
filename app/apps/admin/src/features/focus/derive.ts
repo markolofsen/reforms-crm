@@ -13,9 +13,11 @@ export type FocusParts = {
   pointer: { id: string; outcome: PointerOutcome } | null;
 };
 
-/** The record the address itself names: a draft's id, the client Activity is narrowed to (`?client=1`, P73). */
+/** The record the address itself names: a draft's id, a client's message in Inbox, the client Activity is narrowed to (`?client=1`, P73). */
 function addressSubject(r: Resolved): string | null {
   if (r.route === "mail.item") return refOf("draft", r.params.id);
+  // P98 item 5: a client's message in Inbox is `inbound:<id>`, so the agent reads it with `inbound_show` (never "Message 10" alone).
+  if (r.route === "mail.inbound") return refOf("inbound", r.params.id);
   if (r.route === "log.list" && r.search.client) return refOf("client", r.search.client);
   return null;
 }

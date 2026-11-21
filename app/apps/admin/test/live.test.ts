@@ -27,6 +27,16 @@ describe("applyLive", () => {
     applyLive(qc, { type: "change", seq: 1, changes: [{ topic: "drafts", project: "p" }] }, false);
     expect(stale(qc).sort()).toEqual(["drafts/p/ready//", "overview"]);
   });
+  it("P98 item 3: a recorded draft (topic drafts) refreshes the open Inbox card's state, never its Mail text", () => {
+    const qc = new QueryClient();
+    for (const k of [keys.inboundItem("p", 10), keys.inboundText("p", 10), keys.inboundItem("q", 10)]) qc.setQueryData(k, 1);
+    applyLive(qc, { type: "change", seq: 1, changes: [{ topic: "drafts", project: "p" }] }, false);
+    expect(stale(qc)).toEqual(["inbound/p/item/10"]);
+    const sent = new QueryClient();
+    sent.setQueryData(keys.inboundItem("p", 10), 1);
+    applyLive(sent, { type: "change", seq: 1, changes: [{ topic: "sends", project: "p" }] }, false);
+    expect(stale(sent)).toEqual(["inbound/p/item/10"]);
+  });
   it("mail re-reads only that project's Mail (P53: the hub wrote a draft)", () => {
     const qc = seed();
     applyLive(qc, { type: "change", seq: 1, changes: [{ topic: "mail", project: "p" }] }, false);

@@ -1,5 +1,5 @@
 import type { EnrollmentView, InboxKind } from "@hub/config";
-import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, leadActionDto, leadDetailDto } from "@hub/contract/inbound";
+import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, inboundTextDto, leadActionDto, leadDetailDto } from "@hub/contract/inbound";
 import { notByEmailDto } from "@hub/contract/responses";
 import { enrollmentChangedDto, enrollmentsDto, sequencesDto } from "@hub/contract/sequences";
 import { read } from "./client";
@@ -27,7 +27,10 @@ export const sequencesApi = {
  */
 export const inboundApi = {
   list: (project: string) => read(inboundListDto, { method: "GET", path: `${base(project)}/inbound` }),
+  /** The card's state from the Hub's record (open, drafts, the answering draft): refreshed by the live topics (P98). */
   get: (project: string, id: number) => read(inboundDetailDto, { method: "GET", path: `${base(project)}/inbound/${id}` }),
+  /** The client's words read from Mail now: a Mail read, on open and on focus only. */
+  text: (project: string, id: number) => read(inboundTextDto, { method: "GET", path: `${base(project)}/inbound/${id}/text` }),
   check: (project: string) => read(inboundCheckedDto, { method: "POST", path: `${base(project)}/inbound/check`, body: {} }),
   dismiss: (project: string, id: number) => read(inboundDismissedDto, { method: "POST", path: `${base(project)}/inbound/${id}/dismiss`, body: {} }),
   undismiss: (project: string, ids: number[]) => read(inboundDismissedDto, { method: "POST", path: `${base(project)}/inbound/undismiss`, body: { ids } }),

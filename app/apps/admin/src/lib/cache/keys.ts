@@ -31,6 +31,8 @@ export const keys = {
   notByEmail: (project: string, kind: string | null) => ["not-by-email", project, kind] as const,
   /** P96: the Inbox view of Mail (the clients who wrote, from the server's Mail reader) and its reader line. */
   inbound: (project: string) => ["inbound", project] as const,
+  /** P98: one Inbox message's state (open, drafts, the answering draft): under `inbound`, so the topics that refresh the list refresh it. */
+  inboundItem: (project: string, id: number) => ["inbound", project, "item", id] as const,
   enrollments: (project: string, view: string) => ["enrollments", project, view] as const,
   /** P73: the timeline of one view, of one client or every one (`null`); its pages live under this key (an infinite query). */
   activity: (project: string, view: string, client: number | null) => ["activity", project, view, client ?? "every"] as const,
@@ -61,7 +63,7 @@ export const keys = {
   /** Reads of Mail (an `osascript` call each): the draft as Mail holds it, and a client's thread. */
   draftMail: (project: string, id: number) => ["draft-mail", project, id] as const,
   thread: (project: string, clientId: number) => ["thread", project, clientId] as const,
-  /** P96: one client message with its text read from Mail (the Inbox card): a Mail read, so on open and on focus only. */
+  /** P96: one client message's text read from Mail (the Inbox card): a Mail read, so on open and on focus only; its state is `inboundItem`. */
   inboundText: (project: string, id: number) => ["inbound-text", project, id] as const,
   /** P97: one lead's card (its Notion page read now). */
   lead: (project: string, pageId: string) => ["lead", project, pageId] as const,
@@ -106,7 +108,7 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   clients: (p) => [drafts(p), notByEmail(p), enrollments(p), timeline(p), overview()],
   activity: (p) => [activity(p), timeline(p), project(p), overview()],
   // P87: a send is a row of Activity ▸ All too (decision 0037 as amended).
-  sends: (p) => [sends(p), batchRun(p), drafts(p), activity(p), timeline(p), project(p), overview(), scheme()],
+  sends: (p) => [sends(p), batchRun(p), drafts(p), activity(p), timeline(p), project(p), overview(), scheme(), inbound(p)],
   inbox: (p) => [notByEmail(p), drafts(p), overview(), inbound(p)],
   "follow-ups": (p) => [enrollments(p), drafts(p)],
   batches: (p) => [batches(p), drafts(p)],

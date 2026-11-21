@@ -187,8 +187,30 @@ describe("the Inbox routes", () => {
     const list = await (await app.request("http://127.0.0.1/api/projects/p/inbound")).json();
     expect(list.rows).toHaveLength(1);
     expect(list.rows[0]).toMatchObject({ email: "bob@example.test", preview: "When can we talk?", subject: "Question" });
+    // P98: the card's state and the Mail text are two reads; the state carries no text.
     const one = await (await app.request(`http://127.0.0.1/api/projects/p/inbound/${list.rows[0].id}`)).json();
-    expect(one).toMatchObject({ text: "When can we talk?", quoted: true, note: null });
+    expect(one).toMatchObject({ row: { open: true }, answer: null });
+    expect(one).not.toHaveProperty("text");
+    const text = await (await app.request(`http://127.0.0.1/api/projects/p/inbound/${list.rows[0].id}/text`)).json();
+    expect(text).toEqual({ text: "When can we talk?", quoted: true, note: null });
+  });
+
+  it("P98 item 3: once a draft answers the message, its state names it (Draft ready) with no Mail read", async () => {
+    projectFolder();
+    await repos.clients.upsert({ project: "p", email: "bob@example.test", name: "Bob" });
+    const r = reader(fakeMail({ inbox: [{ mailId: 2, id: "<B1@x>", from: "Bob <bob@example.test>", subject: "Re: Wow", text: "Are you there? Send a quote", at: new Date(Date.now() - 60_000) }] }).osa);
+    let mailReads = 0;
+    const app = createApp(repos, { inbound: r, inboundText: async () => ((mailReads += 1), { text: "x" }) });
+    await r.tick();
+    const [row] = await repos.inboundMail.open("p");
+    // The draft's mailRef is the Message-ID in Mail's own case (saas draft 4); the stored row is lower case.
+    const d = await repos.drafts.record({ project: "p", email: "bob@example.test", name: "Bob", subject: "Re: Wow", mailRef: "<B1@x>", excerpt: "Yes, here. A short test reply." });
+    const one = await (await app.request(`http://127.0.0.1/api/projects/p/inbound/${row!.id}`)).json();
+    expect(one.row.open).toBe(false);
+    expect(one.answer).toMatchObject({ id: d.draftId, status: "ready", subject: "Re: Wow" });
+    expect(one.drafts.map((x: { id: number }) => x.id)).toContain(d.draftId);
+    expect(mailReads).toBe(0);
+    expect((await (await app.request("http://127.0.0.1/api/projects/p/inbound")).json()).rows).toEqual([]);
   });
 });
 

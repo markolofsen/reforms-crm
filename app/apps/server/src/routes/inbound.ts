@@ -1,6 +1,6 @@
 import { Hono } from "hono";
-import type { InboundRow, LeadItem, LeadRow, Repos } from "@hub/db";
-import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, inboundUndismissBody, leadActionDto, leadDetailDto, type InboundRowDto, type LeadRowDto } from "@hub/contract/inbound";
+import { answeringDraft, type InboundRow, type LeadItem, type LeadRow, type Repos } from "@hub/db";
+import { inboundCheckedDto, inboundDetailDto, inboundTextDto, inboundDismissedDto, inboundListDto, inboundUndismissBody, leadActionDto, leadDetailDto, type InboundRowDto, type LeadRowDto } from "@hub/contract/inbound";
 import { notFound, v } from "../http";
 import { INBOUND_OFF, projectReadOf, type InboundHandle } from "../inbound";
 import { ownText } from "../apple-mail";
@@ -33,6 +33,9 @@ const pageIdOf = (raw: string): string | null => {
   return /^[0-9a-f]{32}$/.test(k) ? k : null;
 };
 const DAY = 86_400_000;
+
+/** How much of the answering draft's text the card shows (the stored body; Mail holds the full draft). */
+const ANSWER_EXCERPT = 600;
 
 const id = (raw: string): number | null => (/^[1-9]\d*$/.test(raw) ? Number(raw) : null);
 
@@ -78,28 +81,37 @@ export function inboundRoutes(repos: Repos, reader: InboundHandle | undefined, r
       if (n === null || !(await repos.inboundMail.get(slug, n))) return notFound(c, "message");
       return c.json(inboundDismissedDto.parse({ ok: true, ids: await repos.inboundMail.dismiss(slug, n) }));
     })
+    // P98 item 3: the card's state from SQLite only (open, the client's drafts, the draft that answers it), so a live topic
+    // refreshes it without a Mail read; the Mail text is its own read below.
     .get("/api/projects/:slug/inbound/:id", async (c) => {
+      const slug = c.req.param("slug");
+      const n = id(c.req.param("id"));
+      const row = n === null ? null : await repos.inboundMail.get(slug, n);
+      if (!row) return notFound(c, "message");
+      const clientId = await repos.clients.idByEmail(slug, row.email);
+      const all = clientId === undefined ? [] : (await repos.drafts.ofClient(slug, clientId)).sort((a, b) => b.id - a.id);
+      const others = (await repos.inboundMail.openOf(slug, row.email)).filter((r) => r.id !== row.id).slice(0, 10).map((r) => ({ id: r.id, subject: r.subject, receivedAt: r.receivedAt }));
+      const notionUrl = (await repos.inbox.list(slug, "all")).find((r) => r.email === row.email)?.notionUrl ?? null;
+      const answer = answeringDraft(row, all);
+      return c.json(
+        inboundDetailDto.parse({
+          row: { ...rowDto(row), account: row.account, mailbox: row.mailbox, messageId: row.messageId, open: row.open, dismissedAt: row.dismissedAt },
+          drafts: all.slice(0, 10).map((d) => ({ id: d.id, subject: d.subject, status: d.status, createdAt: d.createdAt })),
+          answer: answer ? { id: answer.id, subject: answer.subject, status: answer.status, createdAt: answer.createdAt, excerpt: answer.body.replace(/\s+/g, " ").trim().slice(0, ANSWER_EXCERPT) } : null,
+          others,
+          notionUrl,
+        }),
+      );
+    })
+    // The client's own words, read from Mail now (P96 verdict 6): a Mail read, so on open and on focus only (decision 0013).
+    .get("/api/projects/:slug/inbound/:id/text", async (c) => {
       const slug = c.req.param("slug");
       const n = id(c.req.param("id"));
       const row = n === null ? null : await repos.inboundMail.get(slug, n);
       if (!row) return notFound(c, "message");
       const read = readText ? await readText(row.account, row.messageId).catch(() => ({ note: "Mail could not show this message." })) : { note: "Mail is not read here." };
       const own = "text" in read ? ownText(read.text) : null;
-      const clientId = await repos.clients.idByEmail(slug, row.email);
-      const drafts = clientId === undefined ? [] : (await repos.drafts.ofClient(slug, clientId)).sort((a, b) => b.id - a.id).slice(0, 10).map((d) => ({ id: d.id, subject: d.subject, status: d.status }));
-      const others = (await repos.inboundMail.openOf(slug, row.email)).filter((r) => r.id !== row.id).slice(0, 10).map((r) => ({ id: r.id, subject: r.subject, receivedAt: r.receivedAt }));
-      const notionUrl = (await repos.inbox.list(slug, "all")).find((r) => r.email === row.email)?.notionUrl ?? null;
-      return c.json(
-        inboundDetailDto.parse({
-          row: { ...rowDto(row), account: row.account, mailbox: row.mailbox, messageId: row.messageId, open: row.open, dismissedAt: row.dismissedAt },
-          text: own ? own.text : null,
-          quoted: own?.quoted ?? false,
-          note: "note" in read ? read.note : null,
-          drafts,
-          others,
-          notionUrl,
-        }),
-      );
+      return c.json(inboundTextDto.parse({ text: own ? own.text : null, quoted: own?.quoted ?? false, note: "note" in read ? read.note : null }));
     })
     // P97 S2: one lead's card, its page read from Notion now (the stored row is the minimum of decision 0013).
     .get("/api/projects/:slug/leads/:pageId", async (c) => {

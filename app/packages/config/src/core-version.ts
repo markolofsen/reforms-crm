@@ -180,8 +180,22 @@ export function parseLsRemote(out: string): { tags: Map<string, string>; heads: 
 /** Whether `core/` is a link to a local checkout (`hub core dev`). */
 export const isLocalCore = (home: string): boolean => lstatSync(join(home, "core"), { throwIfNoEntry: false })?.isSymbolicLink() ?? false;
 
-/** The answer while `core/` is a local checkout: no check, no command, and `local` so the admin says it in one line. */
-export const localCoreUpdate = (home: string): CoreUpdate => ({ ...uncheckedCoreUpdate(home, "core/ is a link to a local checkout (hub core dev): no update check"), local: true });
+/**
+ * The answer while `core/` is a local checkout: no check, no command, and `local` so the admin says it in one line. P98 item 6:
+ * `inUse` is the checkout's own version (`devVersionLabel`), read by the check; null until the first one ran.
+ */
+export const localCoreUpdate = (home: string, inUse: string | null = null): CoreUpdate => ({ ...uncheckedCoreUpdate(home, "core/ is a link to a local checkout (hub core dev): no update check"), inUse, local: true });
+
+/**
+ * P98 item 6: `git describe --tags --long` of a dev checkout in words: `v0.14.0-13-g086c4e6` is "v0.14.0+13 (086c4e6)" (the nearest
+ * version tag, the commits after it, the short sha), an exact tag is the tag alone; anything else (no tag below it) is null.
+ */
+export function devVersionLabel(describe: string): string | null {
+  const m = /^(v\d+\.\d+\.\d+)-(\d+)-g([0-9a-f]{4,40})$/.exec(describe.trim());
+  if (!m) return null;
+  const [, tag, after, sha] = m;
+  return after === "0" ? `${tag}` : `${tag}+${after} (${sha?.slice(0, 7)})`;
+}
 
 /** The "not checked" answer: the pin from the file, nothing else known. */
 export function uncheckedCoreUpdate(home: string, reason = "not checked yet"): CoreUpdate {
@@ -198,7 +212,11 @@ export async function checkCoreUpdates(run: CommandRun, paths: Pick<HubPaths, "h
   const git = (args: string[], timeoutMs = 10_000, env?: Record<string, string>) => run("git", ["-C", paths.core, ...args], { timeoutMs, ...(env ? { env } : {}) });
   const file = readPinFile(paths.home);
   if (!file?.pin) return uncheckedCoreUpdate(paths.home, `${INSTANCE_MARKER} is missing or empty`);
-  if (isLocalCore(paths.home)) return localCoreUpdate(paths.home);
+  if (isLocalCore(paths.home)) {
+    // A local read only (no origin): the checkout's own version for the sidebar line, never a tag to move to.
+    const d = await git(["describe", "--tags", "--long", "--match", "v[0-9]*", "--abbrev=7", "HEAD"]);
+    return localCoreUpdate(paths.home, d.code === 0 ? devVersionLabel(d.stdout) : null);
+  }
   const head = await git(["rev-parse", "HEAD"]);
   if (head.code !== 0) return uncheckedCoreUpdate(paths.home, "the core is not a git checkout: no update check");
   const inUse = (await git(["describe", "--tags", "--exact-match", "HEAD"])).stdout.trim() || head.stdout.trim().slice(0, 9);
@@ -286,6 +304,8 @@ export function readCoreUpdateCache(file: string): CoreUpdate | undefined {
   const error = obj(r.error);
   const at = str(error?.at), message = str(error?.message);
   if (at && message) out.error = { at, message };
+  // P98: a local checkout's answer is kept as such, so its dev version (`inUse`) is read back while the link stays.
+  if (r.local === true) out.local = true;
   return out;
 }
 
@@ -301,7 +321,7 @@ export function writeCoreUpdateCache(file: string, value: CoreUpdate): void {
 export function currentCoreUpdate(paths: Pick<HubPaths, "home" | "coreUpdate">): CoreUpdate {
   const cached = readCoreUpdateCache(paths.coreUpdate);
   const pin = pinLabel(readPinFile(paths.home));
-  if (isLocalCore(paths.home)) return localCoreUpdate(paths.home);
+  if (isLocalCore(paths.home)) return localCoreUpdate(paths.home, cached?.local ? (cached.inUse ?? null) : null);
   if (!cached) return uncheckedCoreUpdate(paths.home);
   if (cached.pin !== pin) return uncheckedCoreUpdate(paths.home, `the pin moved to ${pin ?? "nothing"} since the last check`);
   return cached;

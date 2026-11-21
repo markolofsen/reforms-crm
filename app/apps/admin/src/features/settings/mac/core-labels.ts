@@ -17,8 +17,9 @@ export const CORE_LEVEL_WORDS: Record<CoreLevel, string> = {
  * plain "update available" for a patch, nothing more otherwise.
  */
 export function coreLine(d: CoreUpdateDto): { text: string; note: string | null; dot: boolean } {
+  // P98 item 6: a local checkout names its own version (nearest tag, commits after it, sha), not the pin it no longer runs.
+  if (d.local) return { text: `core ${d.inUse ?? d.pin ?? "unknown"}`, note: "local checkout", dot: false };
   const text = `core ${d.pin ?? d.inUse ?? "unknown"}`;
-  if (d.local) return { text, note: "local checkout", dot: false };
   if (d.level === "recommended" || d.level === "required") return { text, note: CORE_LEVEL_WORDS[d.level], dot: true };
   if (d.level === "available") return { text, note: CORE_LEVEL_WORDS.available, dot: false };
   return { text, note: null, dot: false };

@@ -47,8 +47,8 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
 
   // 3. "ответь этому клиенту": the scripted agent reads the focus and revises that draft.
   const agent = JSON.parse(run([fakeAgent, "I'm well, thanks — and the revised answer."])) as { tools: string[]; focused: number; recorded: { ok: boolean; action: string; draftId: number } };
-  // P60: mail_brand joined in v0.12.11; P71 M2 the two messenger tools; P72 highlight; P82 project_notion.
-  expect(agent.tools).toEqual(["client_show", "draft_show", "draft_write", "drafts_list", "focus", "highlight", "mail_brand", "messenger_draft_write", "messenger_history", "project_notion"]);
+  // P60: mail_brand joined in v0.12.11; P71 M2 the two messenger tools; P72 highlight; P82 project_notion; P98 inbound_show.
+  expect(agent.tools).toEqual(["client_show", "draft_show", "draft_write", "drafts_list", "focus", "highlight", "inbound_show", "mail_brand", "messenger_draft_write", "messenger_history", "project_notion"]);
   expect(agent.focused).toBe(fiona.draftId);
   expect(agent.recorded).toMatchObject({ ok: true, action: "updated", draftId: fiona.draftId });
   // The open card says so by itself (P50), and the list still has one Fiona.
