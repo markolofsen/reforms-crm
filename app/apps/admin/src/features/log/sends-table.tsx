@@ -29,12 +29,12 @@ const CHANNEL: Record<Exclude<SendRowDto["channel"], "mail">, string> = { telegr
 /** Who it went to: the addresses of a mail, or "Anna on Telegram" for a message (its row keeps the chat as `telegram:<id>`). */
 const to = (r: SendRowDto): string => (r.channel === "mail" ? (r.ccAddr ? `${r.toAddr}, Cc ${r.ccAddr}` : r.toAddr) : `${r.subject} on ${CHANNEL[r.channel]}`);
 
-/** The subject, linking to the draft it came from (the full text lives in that card); a message has no subject, so its text. */
+/** The subject, linking to the conversation it belongs to (P99); a message has no subject, so its text. */
 function Subject({ r }: { r: SendRowDto }) {
   const title = r.channel === "mail" ? r.subject : r.body;
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      {r.draftId === null || r.channel !== "mail" ? <span className="line-clamp-2 break-words">{title}</span> : <AppLink className="text-foreground text-sm" to={paths.mail.item(r.draftId)}>{r.subject}</AppLink>}
+      {r.clientId === null || r.channel !== "mail" ? <span className="line-clamp-2 break-words">{title}</span> : <AppLink className="text-foreground text-sm" to={paths.mail.conversation(r.clientId)}>{r.subject}</AppLink>}
       {r.error && <span className="text-warning-foreground text-xs">{r.error}</span>}
     </span>
   );

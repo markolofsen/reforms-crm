@@ -276,6 +276,8 @@ export type ProjectOverviewDto = z.infer<typeof projectOverviewDto>;
 export const sendRowDto = z.object({
   id: z.number(),
   draftId: z.number().nullable(),
+  /** P99: the client of the draft, whose conversation the row links; null for a messenger send or a draft gone. */
+  clientId: z.number().nullable(),
   channel: z.enum(["mail", "telegram_user", "telegram_bot", "whatsapp"]),
   messengerDraftId: z.number().nullable(),
   mode: z.enum(["manual", "auto"]),

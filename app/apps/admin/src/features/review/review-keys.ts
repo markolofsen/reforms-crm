@@ -5,13 +5,13 @@ import type { ReviewActions } from "./use-review-actions";
 
 // One key map for both review screens; the `?` popover lists it (the keys register themselves through `useHotkeys`).
 export const REVIEW_KEYS: readonly (readonly [string, string])[] = [
-  ["J / K", "next / previous draft"],
-  ["Enter, L, Right", "into the draft: its main action"],
+  ["J / K", "next / previous conversation"],
+  ["Enter, L, Right", "into the conversation: its unsent message's main action"],
   ["Shift Enter", "send: read Mail, then confirm what it shows (the second press counts after a short pause)"],
   ["Esc, Left", "back to the list; clears a selection first"],
   ["C", "I read the checks, on or off (only once the text was read)"],
-  ["X", "select or unselect the draft"],
-  ["Shift A", "select every open draft in the list"],
+  ["X", "select or unselect the person"],
+  ["Shift A", "select every person with an open draft"],
   ["R", "reply in Mail (batch drafts)"],
   ["D", "done, then the next draft"],
   ["S", "skip, then the next draft"],
@@ -25,10 +25,10 @@ export const REVIEW_KEYS: readonly (readonly [string, string])[] = [
 const inside = (el: Element | null, pane: string) => el?.closest(`[data-pane="${pane}"]`) != null;
 const popupOpen = () => document.querySelector('[data-slot$="-popup"], [role="dialog"], [role="menu"]') !== null;
 
-/** Focus a row's button once it has rendered: after Done or Skip the card that held focus is gone, so focus follows to the next draft. */
+/** Focus a row's button once it has rendered: after Done or Skip the card that held focus is gone, so focus follows to the next person. */
 export function focusRow(id: number | null): void {
   if (id === null) return;
-  requestAnimationFrame(() => document.querySelector<HTMLElement>(`#draft-${id} button[data-variant]`)?.focus());
+  requestAnimationFrame(() => document.querySelector<HTMLElement>(`#person-${id} button[data-variant]`)?.focus());
 }
 
 /** Focus the first thing to do in the open card: its primary action, else its first control. */
@@ -42,7 +42,9 @@ export function focusDetail(): void {
 
 export type KeyDeps = {
   enabled: () => boolean;
-  rows: ReviewDraft[];
+  /** P99: the list's people in order (client ids), the open one, and its open draft (the keys that act, act on it). */
+  ids: readonly number[];
+  currentId: number | null;
   current: ReviewDraft | null;
   actions: ReviewActions;
   go: (id: number | null, focus?: boolean) => void;
@@ -64,8 +66,8 @@ export type KeyDeps = {
 
 /** The shared key map. Closed drafts take no action keys; moving, search, help and the thread always work. */
 export function useReviewKeys(k: KeyDeps): void {
-  const { rows, current: d, actions } = k;
-  const index = d ? rows.findIndex((r) => r.id === d.id) : -1;
+  const { ids, current: d, actions } = k;
+  const index = k.currentId === null ? -1 : ids.indexOf(k.currentId);
   const open = d !== null && !isClosed(d);
   const act = (fn: (d: ReviewDraft) => void) => () => {
     if (d && open) fn(d);
@@ -77,23 +79,23 @@ export function useReviewKeys(k: KeyDeps): void {
     else if (d.tone !== t) actions.setTone(d, t);
   };
   // Moving between the panes only starts from the list (or nowhere in particular): a button in the card keeps its own Enter.
-  // A control of the list column that is not a draft row (the Inbox, Follow-ups and Not by email blocks) keeps its own Enter too.
-  const ownEnter = (el: Element) => el.closest("button, a[href], [role=button]") !== null && el.closest('[id^="draft-"]') === null;
+  // A control of the list column that is not a draft row (the New leads, Follow-ups and Not by email blocks) keeps its own Enter too.
+  const ownEnter = (el: Element) => el.closest("button, a[href], [role=button]") !== null && el.closest('[id^="person-"]') === null;
   const fromList = () => document.activeElement === null || document.activeElement === document.body || (inside(document.activeElement, "list") && !ownEnter(document.activeElement));
   const intoDetail = (e: { preventDefault: () => void }) => {
-    if (!d || !fromList()) return;
+    if (k.currentId === null || !fromList()) return;
     e.preventDefault();
     focusDetail();
   };
   const outOfDetail = (clears: boolean) => () => {
     if (popupOpen()) return;
     if (clears && k.selected > 0) k.clearSelection();
-    else if (inside(document.activeElement, "detail")) (k.back ?? (() => focusRow(d?.id ?? null)))();
+    else if (inside(document.activeElement, "detail")) (k.back ?? (() => focusRow(k.currentId)))();
   };
   useHotkeys(
     {
-      j: (e) => { e.preventDefault(); k.go(rows[Math.min(index + 1, rows.length - 1)]?.id ?? null, true); },
-      k: (e) => { e.preventDefault(); k.go(rows[Math.max(index - 1, 0)]?.id ?? null, true); },
+      j: (e) => { e.preventDefault(); k.go(ids[Math.min(index + 1, ids.length - 1)] ?? null, true); },
+      k: (e) => { e.preventDefault(); k.go(ids[Math.max(index - 1, 0)] ?? null, true); },
       enter: intoDetail,
       l: intoDetail,
       arrowright: intoDetail,
@@ -101,7 +103,7 @@ export function useReviewKeys(k: KeyDeps): void {
       arrowleft: outOfDetail(false),
       A: () => k.selectAll(),
       "/": (e) => { e.preventDefault(); k.focusSearch(); },
-      x: () => d && k.toggleSelect(d.id),
+      x: () => k.currentId !== null && k.toggleSelect(k.currentId),
       t: () => k.toggleThread(),
       u: () => (k.undoLast ? k.undoLast() : actions.undoKey(d)),
       c: act(k.toggleChecked),

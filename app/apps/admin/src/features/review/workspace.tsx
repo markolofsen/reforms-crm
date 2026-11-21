@@ -11,12 +11,12 @@ import { useClock } from "@/lib/clock";
 import { runLocalAction } from "@/components/local-action";
 import { metaApi } from "@/lib/api/meta";
 import { copyText, openExternal } from "@/lib/external";
-import { DraftCard } from "./card/draft-card";
+import { ConversationPane } from "@/features/mail/conversation/pane";
 import { useToggleChecked } from "./mail/use-toggle-checked";
 import { ListHeader, type View } from "./list-controls";
 import { ListRow } from "./list-row";
 import { focusRow, useReviewKeys } from "./review-keys";
-import { isClosed, openResults, type ReviewDraft, type ReviewSource } from "./source";
+import { isClosed, openResults, rowId, type ReviewDraft, type ReviewSource } from "./source";
 import { useReviewActions, type Notice } from "./use-review-actions";
 import { useReviewRows } from "./use-review-rows";
 import { useSelection, useShareReview } from "./use-selection";
@@ -30,8 +30,10 @@ type Props = {
   onView: (value: string) => void;
   /** The search text and its setter: in the address. The host sends it to the server through its source. */
   search: [string, (value: string) => void];
-  /** The open draft: in the address (`/mail/42`). `onAuto` names the draft the screen opened by itself, replacing the entry. */
+  /** The open conversation: in the address (`/mail/c/7`, a client id). `onAuto` names the one the screen opened by itself, replacing the entry. */
   selection: { id: number | null; onChange: (id: number | null) => void; onAuto: (id: number) => void };
+  /** `?m=`: one of their messages the open conversation scrolls to. */
+  pointed?: string | null;
   /** False until the shell has measured the pane: nothing opens by itself before the width is known. */
   measured: boolean;
   /** Shown when the list is empty (the host knows its own words). */
@@ -40,9 +42,9 @@ type Props = {
   emptyTitle?: string;
   /** Under the header line, scrolling with the list: the project's one status line (P48 W3). */
   status?: ReactNode;
-  /** A view whose rows are not drafts (Not by email, Inbox): shown instead of the draft rows. */
+  /** A view whose rows are not people (Not by email): shown instead of the rows. */
   body?: ReactNode;
-  /** P96: the pane of such a view (Inbox: the open client's message) and whether its subject is open (a phone shows it alone). */
+  /** A pane that is not a conversation (P97: a lead's card) and whether it is open (a phone shows it alone). */
   aside?: { node: ReactNode; open: boolean };
   /** Under the rows: the enrolments of the Follow-ups view. */
   listBottom?: ReactNode;
@@ -51,14 +53,9 @@ type Props = {
   noun: { list: string; back: string };
 };
 
-function Notices({ gone, notice }: { gone: number | null; notice: Notice | null }) {
+function Notices({ notice }: { notice: Notice | null }) {
   return (
     <>
-      {gone !== null && (
-        <p className="px-4 pt-3 text-sm text-warning-foreground" role="status">
-          Draft {gone} is not in this list (another view, or it is gone). Showing the first draft.
-        </p>
-      )}
       {notice && (
         <p className={notice.kind === "error" ? "px-4 pt-3 text-destructive-foreground text-sm" : "px-4 pt-3 text-sm text-warning-foreground"} role={notice.kind === "error" ? "alert" : "status"}>
           {notice.text}
@@ -84,10 +81,10 @@ function LoadedFooter({ loaded, total, more, fetching, onMore }: { loaded: numbe
 }
 
 /**
- * Mail and a batch share this: the list column (views, search, rows, Select) and the pane with the open card.
- * It never sends mail by itself: Send is the card's, and a batch draft opens a compose window you send from.
+ * Mail (P99): the list column (views, search, people, Select) and the pane with the open conversation, its unsent message at the
+ * bottom. It never sends mail by itself: Send is the unsent message's, and a batch draft opens a compose window you send from.
  */
-export function ReviewWorkspace({ source, views, onView, search, selection, empty, emptyTitle, status, body, aside, listBottom, mobile, measured, noun }: Props) {
+export function ReviewWorkspace({ source, views, onView, search, selection, pointed = null, empty, emptyTitle, status, body, aside, listBottom, mobile, measured, noun }: Props) {
   const qc = useQueryClient();
   const now = useClock()();
   const actions = useReviewActions(source.project);
@@ -97,19 +94,16 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
   const { query, rows, total, counts } = useReviewRows(source);
   const sel = useSelection(rows);
 
-  // Desktop opens the first draft by default (focus follows); a phone opens nothing until a row is chosen.
-  const present = selection.id !== null && rows.some((r) => r.id === selection.id);
-  const current = body ? null : (rows.find((r) => r.id === selection.id) ?? (mobile ? null : (rows[0] ?? null)));
+  // Desktop opens the first person by default (focus follows); a phone opens nothing until a row is chosen. A person the address
+  // names is opened whatever the view (P99: Activity links a Done conversation while the list shows Needs you).
+  const present = selection.id !== null;
+  const openId = body ? null : (selection.id ?? (mobile ? null : (rows[0] ? rowId(rows[0]) : null)));
+  const current = openId === null ? null : (rows.find((r) => rowId(r) === openId) ?? null);
   useShareReview(current, sel.picked);
-  // P53: the address names the card on screen. Once the list has settled for this view and search, a wide pane whose
-  // address names no draft, or one not in the list, replaces it with the first row (no history entry). So a draft the
-  // agent records at the top never swaps the card under the owner, and the address, the card and the focus agree.
-  const [gone, setGone] = useState<number | null>(null);
+  // P53: the address names the conversation on screen. Once the list has settled for this view and search, a wide pane whose
+  // address names nobody replaces it with the first row (no history entry), so the address, the pane and the focus agree.
   const settled = measured && !body && !mobile && !query.isPending && !query.isFetching && !query.hasNextPage;
-  const auto = settled && rows[0] && (selection.id === null || !present) ? rows[0].id : null;
-  // A named draft that is not in the list is said once in the pane; a bare list says nothing (state adjusted while rendering).
-  const missing = auto !== null ? selection.id : gone;
-  if (missing !== gone) setGone(missing);
+  const auto = settled && rows[0] && selection.id === null ? rowId(rows[0]) : null;
   const { onAuto } = selection;
   useEffect(() => {
     if (auto !== null) onAuto(auto);
@@ -127,18 +121,18 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
   const go = useCallback(
     (id: number | null, focus = false) => {
       if (id == null) return;
-      setGone(null);
       onSelect(id);
-      document.getElementById(`draft-${id}`)?.scrollIntoView({ block: "nearest" });
+      document.getElementById(`person-${id}`)?.scrollIntoView({ block: "nearest" });
       if (focus) focusRow(id);
     },
     [onSelect],
   );
-  // Done, Skip and Send move to the next draft, so the loop is: send, send, send.
+  // Done, Skip and Send move to the next person, so the loop is: send, send, send.
   const advance = useCallback(
     (d: ReviewDraft) => {
-      const i = rows.findIndex((r) => r.id === d.id);
-      go(rows[i + 1]?.id ?? rows[i - 1]?.id ?? null, true);
+      const i = rows.findIndex((r) => rowId(r) === d.clientId);
+      const next = rows[i + 1] ?? rows[i - 1];
+      go(next ? rowId(next) : null, true);
     },
     [rows, go],
   );
@@ -168,8 +162,9 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
   useReviewKeys({
     toggleChecked,
     enabled: shortcutsOn,
-    rows,
-    current,
+    ids: rows.map(rowId),
+    currentId: openId,
+    current: current?.draft ?? null,
     actions,
     go,
     advance,
@@ -186,7 +181,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
   });
 
   const bulk = (status: "skipped" | "hold", title: string) => {
-    const targets = sel.picked.filter((d) => !isClosed(d));
+    const targets = sel.drafts.filter((d) => !isClosed(d));
     if (targets.length === 0) return sel.clear();
     for (const d of targets) actions.setStatus(d, status, { quiet: true });
     toastManager.add({ title: `${title} ${targets.length}`, type: "success", actionProps: { children: "Undo", onClick: () => actions.undoMany(targets) } });
@@ -196,10 +191,10 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
   const filtered = source.filter !== "all";
   const header = { count: sel.picked.length, busy: actions.pending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped") };
   const rowsView = query.isPending ? (
-    <ListSkeleton label="Loading drafts" />
+    <ListSkeleton label="Loading the people" />
   ) : query.isError && rows.length === 0 ? (
     <div className="p-3">
-      <LoadFailed error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} what="drafts" />
+      <LoadFailed error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} what="the people" />
     </div>
   ) : (
     <>
@@ -209,11 +204,11 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
         </div>
       )}
       {rows.length === 0 ? (
-        <EmptyState action={filtered && !q ? <ActionButton onClick={() => onView("all")} size="s" variant="secondary">Show all</ActionButton> : undefined} title={q ? "Nothing matches" : filtered ? (emptyTitle ?? "Nothing here") : "Nothing to review"}>{q ? "No draft in this view matches the search." : empty(filtered)}</EmptyState>
+        <EmptyState action={filtered && !q ? <ActionButton onClick={() => onView("all")} size="s" variant="secondary">Show all</ActionButton> : undefined} title={q ? "Nothing matches" : filtered ? (emptyTitle ?? "Nothing here") : "No conversation yet"}>{q ? "Nobody in this view matches the search." : empty(filtered)}</EmptyState>
       ) : (
-        <ul aria-label="Drafts" className="flex flex-col">
-          {rows.map((d) => (
-            <ListRow d={d} key={d.id} now={now} onOpen={() => go(d.id)} onToggle={() => sel.toggle(d.id)} open={d.id === current?.id} selected={sel.has(d.id)} selecting={sel.selecting} />
+        <ul aria-label="People" className="flex flex-col">
+          {rows.map((r) => (
+            <ListRow key={rowId(r)} now={now} onOpen={() => go(rowId(r))} onToggle={() => sel.toggle(rowId(r))} open={rowId(r) === openId} r={r} selected={sel.has(rowId(r))} selecting={sel.selecting} />
           ))}
         </ul>
       )}
@@ -240,13 +235,25 @@ export function ReviewWorkspace({ source, views, onView, search, selection, empt
           </ActionButton>
         </div>
       )}
-      <Notices gone={gone ?? (!body && selection.id !== null && !present && !query.isFetching && !query.hasNextPage ? selection.id : null)} notice={actions.notice} />
-      {body && aside ? aside.node : current ? (
-        <DraftCard actions={actions} advance={() => advance(current)} d={current} key={current.id} now={now} onThread={() => setThread((t) => !t)} project={source.project} say={say} thread={thread} />
+      <Notices notice={actions.notice} />
+      {aside?.open ? aside.node : openId !== null ? (
+        <ConversationPane
+          actions={actions}
+          advance={() => current?.draft && advance(current.draft)}
+          clientId={openId}
+          key={openId}
+          listRow={current}
+          now={now}
+          onThread={() => setThread((t) => !t)}
+          pointed={pointed}
+          project={source.project}
+          say={say}
+          thread={thread}
+        />
       ) : (
-        <EmptyState title="Nothing to open">{body ? "This view lists clients, not drafts." : query.isPending ? "Loading." : "Pick a draft from the list."}</EmptyState>
+        <EmptyState title="Nothing to open">{body ? "This view lists clients by channel, not conversations." : query.isPending ? "Loading." : "Pick a person from the list."}</EmptyState>
       )}
     </div>
   );
-  return <ListDetail detail={detail} detailLabel={body && aside ? "Message" : "Draft"} list={list} listLabel={noun.list} showDetail={body && aside ? aside.open : present} />;
+  return <ListDetail detail={detail} detailLabel={aside?.open ? "Lead" : "Conversation"} list={list} listLabel={noun.list} showDetail={aside?.open ? true : present} />;
 }

@@ -2,9 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { phrase } from "@hub/contract/help";
-import { useCallback, useEffect, useMemo } from "react";
-import type { ClientFilter } from "@hub/config";
-import { EmptyState } from "@/components/state-views";
+import { useCallback, useMemo } from "react";
 import { ReviewWorkspace } from "@/features/review/workspace";
 import type { View } from "@/features/review/list-controls";
 import type { ReviewPage, ReviewSource } from "@/features/review/source";
@@ -15,67 +13,43 @@ import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { useSearchState } from "@/hooks/use-search-state";
 import { reviewApi } from "@/lib/api/review";
+import { keys } from "@/lib/cache/keys";
 import { paths } from "@/routes/paths";
-import { DRAFT_VIEW_LABELS, DRAFT_VIEWS, type DraftView } from "@/routes/search";
+import { DRAFT_FILTERS, DRAFT_VIEW_LABELS, DRAFT_VIEWS, type DraftView } from "@/routes/search";
 import { BatchSend } from "./batch-send";
-import { InboundCard } from "./inbox/inbound-card";
-import { InboxView, useInbound } from "./inbox/inbox-view";
 import { LeadCard } from "./inbox/lead-card";
+import { LeadsGroup, useInbound } from "./inbox/leads-group";
 import { NotByEmail, useNotByEmailTotal } from "./not-by-email";
 import { FollowUps } from "./sequences/follow-ups";
 import { StatusLine } from "./status-line";
-import { keys } from "@/lib/cache/keys";
 
-// Inbox first (P96), All last. To review is the address default (a bare `/mail` shows what needs the owner); All keeps `?filter=all`.
-// P96: Sent is its own view; Finished keeps Done and Skipped.
-const FINISHED: readonly ClientFilter[] = ["done", "skipped"];
-const EMPTY: Record<DraftView, string> = { inbox: "No client is waiting", ready: "Nothing to review", hold: "Nothing on hold", thin_basis: "No draft with a thin basis", sequences: "No follow-up step to review", not_by_email: "Nobody", sent: "Nothing sent yet", finished: "Nothing finished yet", all: "No drafts" };
+// P99 (verdict 3): Mail lists people. Needs you (they wrote, or a draft is ready) is the default, then Waiting and All; Follow-ups
+// and Not by email are filters of All under their own heading. The old views (To review, Hold, Thin basis, Sent, Finished, Inbox)
+// are state words and chips on a row.
+const EMPTY: Record<DraftView, string> = { needs_you: "Nobody needs you", waiting: "Nobody to wait for", all: "No conversation yet", sequences: "No follow-up step to review", not_by_email: "Nobody" };
 const SEARCH_PAUSE_MS = 250;
 /** A batch is chosen from the View menu like a view; its value carries the id. */
 const BATCH = "batch:";
-/**
- * P96: the projects whose bare `/mail` already moved to Inbox in this page load. Inbox is the default when it is not empty
- * (plan section 4) without changing the address default: on arrival only, so To review chosen afterwards stays To review.
- */
-const ARRIVED = new Set<string>();
 
 type Scope = { search: string; batch: number | null };
 
-/** Finished is two server statuses at once (done, skipped): read together, newest first. */
-async function finished(project: string, offset: number, scope: Scope): Promise<ReviewPage> {
-  const pages = await Promise.all(FINISHED.map((f) => reviewApi.drafts(project, f, offset, scope)));
-  const next = pages.flatMap((p) => (p.nextOffset === null ? [] : [p.nextOffset]));
-  return {
-    drafts: pages.flatMap((p) => p.drafts).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    total: pages.reduce((n, p) => n + p.total, 0),
-    nextOffset: next.length > 0 ? Math.max(...next) : null,
-    counts: pages[0]?.counts ?? {},
-  };
-}
+const page = async (project: string, view: Exclude<DraftView, "not_by_email">, offset: number, scope: Scope): Promise<ReviewPage> => {
+  const r = await reviewApi.conversations(project, view, offset, scope);
+  return { rows: r.rows, total: r.total, nextOffset: r.nextOffset, counts: r.counts };
+};
+const countOf = (counts: ReviewPage["counts"], view: string): number | undefined => counts[view];
 
-function countOf(counts: ReviewPage["counts"], view: string): number | undefined {
-  return view === "finished" ? FINISHED.reduce((n, f) => n + (counts[f] ?? 0), 0) : counts[view];
-}
+type Props = { project: string; filter: DraftView; q: string; batch: number | null; clientId: number | null; pointed: string | null; leadPageId: string | null; mobile: boolean; measured: boolean };
 
-type Props = { project: string; filter: DraftView; q: string; batch: number | null; selectedId: number | null; inboundId: number | null; leadPageId: string | null; arrival: boolean; mobile: boolean; measured: boolean };
-
-/** Mail: the list column (View menu, status line, rows) and the open card. The view, the search, the batch and the open draft or message live in the address. */
-function MailSection({ project, filter, q, batch, selectedId, inboundId, leadPageId, arrival, mobile, measured }: Props) {
+/** Mail: the list column (View menu, status line, people) and the open conversation. The view, the search, the batch and the person live in the address. */
+function MailSection({ project, filter, q, batch, clientId, pointed, leadPageId, mobile, measured }: Props) {
   const go = useGo();
-  const onAuto = useCallback((id: number) => go(paths.mail.item(id, { filter, q, batch }), { replace: true }), [go, filter, q, batch]);
+  const onAuto = useCallback((id: number) => go(paths.mail.conversation(id, { filter, q, batch }), { replace: true }), [go, filter, q, batch]);
   const setQ = useSearchState("q")[1];
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
   const batches = useQuery({ queryKey: keys.batches(project), queryFn: () => reviewApi.batches(project) });
   const notByEmail = useNotByEmailTotal(project);
   const inbound = useInbound(project);
-  // P97: the Leads group counts as Inbox's too (arrival moves to Inbox when a lead waits); the View menu counts the people in both.
-  const wrote = inbound.data === undefined ? undefined : inbound.data.total + (inbound.data.leads?.total ?? 0);
-  // Arrival with clients waiting: Inbox (replacing the bare address, no history entry), once per project per page load.
-  useEffect(() => {
-    if (!arrival || wrote === undefined || ARRIVED.has(project)) return;
-    ARRIVED.add(project);
-    if (wrote > 0) go(paths.mail.list({ filter: "inbox" }), { replace: true });
-  }, [arrival, wrote, project, go]);
   const known = batch === null || (batches.data?.batches.some((b) => b.id === batch) ?? true);
   const current = batch === null ? undefined : batches.data?.batches.find((b) => b.id === batch);
   const source = useMemo<ReviewSource>(() => {
@@ -85,37 +59,24 @@ function MailSection({ project, filter, q, batch, selectedId, inboundId, leadPag
       project,
       filter,
       countOf,
-      // Inbox and Not by email list clients, not drafts: the list query still runs (as All) so the View menu keeps every count.
-      load: (offset) => (filter === "finished" ? finished(project, offset, scope) : reviewApi.drafts(project, filter === "inbox" || filter === "not_by_email" ? "all" : filter, offset, scope)),
+      // Not by email lists client rows, not conversations: the list query still runs (as All) so the View menu keeps every count.
+      load: (offset) => page(project, filter === "not_by_email" ? "all" : filter, offset, scope),
       ...(batch === null ? {} : { undoLast: () => reviewApi.undoBatch(project, batch) }),
     };
   }, [project, filter, batch, search]);
   const views = (counts: ReviewPage["counts"]): View[] => [
-    ...DRAFT_VIEWS.map((v) => ({ value: v, label: DRAFT_VIEW_LABELS[v], count: v === "not_by_email" ? notByEmail : v === "inbox" ? wrote : countOf(counts, v) })),
+    ...DRAFT_VIEWS.map((v) => ({ value: v, label: DRAFT_VIEW_LABELS[v], count: v === "not_by_email" ? notByEmail : countOf(counts, v), ...(DRAFT_FILTERS.has(v) ? { group: "Filters" } : {}) })),
     ...(batches.data?.batches ?? []).map((b) => ({ value: `${BATCH}${b.id}`, label: b.name, count: b.total, group: "Batches" })),
   ];
   // The View menu's value is the batch when one is open, else the view.
   const onView = (v: string) =>
-    v.startsWith(BATCH) ? go(paths.mail.list({ filter: "all", batch: Number(v.slice(BATCH.length)) }), { replace: true }) : go(paths.mail.list({ filter: DRAFT_VIEWS.find((x) => x === v) ?? "ready", q }), { replace: true });
-  const inbox = filter === "inbox" && batch === null;
+    v.startsWith(BATCH) ? go(paths.mail.list({ filter: "all", batch: Number(v.slice(BATCH.length)) }), { replace: true }) : go(paths.mail.list({ filter: DRAFT_VIEWS.find((x) => x === v) ?? "needs_you", q }), { replace: true });
+  // P97, P99 verdict 8: a lead is not a conversation until the first reply is sent: New leads stay a group below the people.
+  const leads = batch === null && (filter === "needs_you" || filter === "all") && inbound.data?.leads ? <LeadsGroup group={inbound.data.leads} openPageId={leadPageId} /> : undefined;
   return (
     <ReviewWorkspace
-      aside={
-        inbox
-          ? {
-              open: inboundId !== null || leadPageId !== null,
-              node:
-                leadPageId !== null ? (
-                  <LeadCard key={leadPageId} onClosed={() => go(paths.mail.list({ filter: "inbox" }), { replace: true })} pageId={leadPageId} project={project} />
-                ) : inboundId !== null ? (
-                  <InboundCard id={inboundId} key={inboundId} onClosed={() => go(paths.mail.list({ filter: "inbox" }), { replace: true })} project={project} />
-                ) : (
-                  <EmptyState title="Nothing to open">Pick a client from the list to read what they wrote.</EmptyState>
-                ),
-            }
-          : undefined
-      }
-      body={filter === "not_by_email" ? <NotByEmail project={project} /> : inbox ? <InboxView openId={inboundId} openPageId={leadPageId} project={project} /> : undefined}
+      aside={leadPageId !== null ? { open: true, node: <LeadCard key={leadPageId} onClosed={() => go(paths.mail.list({ filter }), { replace: true })} pageId={leadPageId} project={project} /> } : undefined}
+      body={filter === "not_by_email" ? <NotByEmail project={project} /> : undefined}
       empty={(filtered) =>
         !known
           ? "That batch is not in this project."
@@ -123,26 +84,28 @@ function MailSection({ project, filter, q, batch, selectedId, inboundId, leadPag
             ? `${EMPTY[filter]} in this batch.`
             : filtered
               ? null
-              : `Say to the agent: “${phrase("triage-mail", project)}”. Drafts it leaves unsent in Mail appear here.`
+              : `Say to the agent: “${phrase("triage-mail", project)}”. The people it answers appear here, with their whole correspondence.`
       }
       emptyTitle={known && batch === null ? EMPTY[filter] : undefined}
       listBottom={
         batch !== null && known ? (
-          // P85b: a batch's own Send all Checked; every draft still has its own Send on its card.
+          // P85b: a batch's own Send all Checked; every draft still has its own Send at the bottom of its conversation.
           <BatchSend batchId={batch} brief={current?.brief ?? null} checked={current?.counts.checked ?? 0} open={(current?.counts.review ?? 0) + (current?.counts.checked ?? 0) + (current?.counts.hold ?? 0)} project={project} />
         ) : filter === "sequences" ? (
           <FollowUps project={project} />
-        ) : undefined
+        ) : (
+          leads
+        )
       }
+      measured={measured}
       mobile={mobile}
       noun={{ list: "Mail", back: "Mail" }}
       onView={onView}
+      pointed={pointed}
       search={[q, setQ]}
-      // On arrival nothing opens by itself until the Inbox count is known: with clients waiting the screen moves to Inbox instead.
-      measured={measured && (!arrival || wrote !== undefined)}
-      // The first pick from the list pushes (Back returns to the list); moving between drafts replaces; the draft the screen
-      // opens by itself on a wide pane replaces too (P53), so the address always names the card on screen.
-      selection={{ id: selectedId, onChange: (id) => go(id === null ? paths.mail.list({ filter, q, batch }) : paths.mail.item(id, { filter, q, batch }), { replace: selectedId !== null }), onAuto }}
+      // The first pick from the list pushes (Back returns to the list); moving between people replaces; the person the screen
+      // opens by itself on a wide pane replaces too (P53), so the address always names the conversation on screen.
+      selection={{ id: clientId, onChange: (id) => go(id === null ? paths.mail.list({ filter, q, batch }) : paths.mail.conversation(id, { filter, q, batch }), { replace: clientId !== null }), onAuto }}
       source={{ ...source, filter: batch === null ? filter : `${BATCH}${batch}` }}
       status={<StatusLine project={project} />}
       views={views}
@@ -151,23 +114,19 @@ function MailSection({ project, filter, q, batch, selectedId, inboundId, leadPag
 }
 
 /**
- * The Mail screen (Drafts until P96), the home of every instance, mounted by `mail/layout.tsx` so the list survives opening and
- * closing a card. It reads the address (the view, the search, the batch, the open draft or client message) and the project
- * scope; for any other address (Not found under /mail) it renders nothing and the route's own page shows.
+ * The Mail screen, the home of every instance, mounted by `mail/layout.tsx` so the list survives opening and closing a
+ * conversation. It reads the address (the view, the search, the batch, the person, a lead) and the project scope; for any other
+ * address (Not found under /mail) it renders nothing and the route's own page shows.
  */
 export function MailScreen() {
   const route = useRoute();
   const { project } = useProjectScope();
-  // A pane too narrow for the split (a phone, or the terminal docked beside it) shows the list and the card as separate screens: no card opens until a row is chosen.
+  // A pane too narrow for the split (a phone, or the terminal docked beside it) shows the list and the conversation as separate screens.
   const compact = usePaneNarrow();
   const measured = usePaneMeasured();
-  if (route.route !== "mail.list" && route.route !== "mail.item" && route.route !== "mail.inbound" && route.route !== "mail.lead") return null;
-  const selectedId = route.route === "mail.item" ? route.params.id : null;
-  const inboundId = route.route === "mail.inbound" ? route.params.id : null;
+  if (route.route !== "mail.list" && route.route !== "mail.conversation" && route.route !== "mail.lead") return null;
+  const clientId = route.route === "mail.conversation" ? route.params.id : null;
   const leadPageId = route.route === "mail.lead" ? route.params.pageId : null;
-  const { q, batch } = route.search;
-  // A client's message is always Inbox's card, whatever view the address names.
-  const filter: DraftView = route.route === "mail.inbound" || route.route === "mail.lead" ? "inbox" : route.search.filter;
-  const arrival = route.route === "mail.list" && filter === "ready" && q === "" && batch === null;
-  return <MailSection arrival={arrival} batch={batch} filter={filter} inboundId={inboundId} leadPageId={leadPageId} measured={measured} mobile={compact} project={project} q={q} selectedId={selectedId} />;
+  const { q, batch, filter } = route.search;
+  return <MailSection batch={batch} clientId={clientId} filter={filter} leadPageId={leadPageId} measured={measured} mobile={compact} pointed={route.search.m ?? null} project={project} q={q} />;
 }

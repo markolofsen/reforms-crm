@@ -17,17 +17,16 @@ export const ACTIVITY_VIEWS = [...TIMELINE_VIEWS, "sends"] as const;
 export type ActivityView = TimelineView | "sends";
 
 /**
- * The views of the Mail list (Drafts until P96; research 16 section 6.3), in their menu order: Inbox (P96: the clients who wrote
- * and have no draft yet), To review (`ready`), Hold, Thin basis, Follow-ups (`sequences`, P47, read-only), Not by email (P48,
- * read-only client rows), Sent (P96), Finished (done and skipped) and All. The server filters by one status, so `finished` is
- * narrowed in the page. The address default is To review (owner decision Q5, P29): a bare `/mail` drops the key; on arrival with
- * clients waiting the screen moves to Inbox itself (P96 verdict "the default when it is not empty").
- * The list itself lives in `@hub/config` (the shared focus names a view too, P51).
+ * The views of the Mail list (P99 verdict 3), in their menu order: Needs you (the default: they wrote, or a draft is ready),
+ * Waiting (for them), All; then two filters, Follow-ups (`sequences`, P47) and Not by email (P48, read-only client rows). Hold,
+ * Thin basis, Sent and Finished are words and chips on a row, not views. The list itself lives in `@hub/config`.
  */
 export { DRAFT_VIEWS, type DraftView };
-/** The one label of each view: the View menu and the dock's "Agent sees: Mail · Inbox" read it. */
-export const DRAFT_VIEW_LABELS: Readonly<Record<DraftView, string>> = { inbox: "Inbox", ready: "To review", hold: "Hold", thin_basis: "Thin basis", sequences: "Follow-ups", not_by_email: "Not by email", sent: "Sent", finished: "Finished", all: "All" };
-export const DEFAULT_DRAFT_VIEW: DraftView = "ready";
+/** The one label of each view: the View menu and the dock's "Agent sees: Mail · Needs you" read it. */
+export const DRAFT_VIEW_LABELS: Readonly<Record<DraftView, string>> = { needs_you: "Needs you", waiting: "Waiting", all: "All", sequences: "Follow-ups", not_by_email: "Not by email" };
+/** The filters of the View menu, under their own heading (a filter of All, verdict 3). */
+export const DRAFT_FILTERS: ReadonlySet<DraftView> = new Set(["sequences", "not_by_email"]);
+export const DEFAULT_DRAFT_VIEW: DraftView = "needs_you";
 
 /**
  * Settings ▸ Agent's Tools table (P75): by default only the rows that need a fix or a look, `all` every row. A View menu, like
@@ -70,7 +69,7 @@ export function positiveInt(v: string | undefined): number | null {
 }
 
 /** `batch` limits the list to the drafts one batch wrote (one queue: a batch is a read-only view, not a second place). */
-export type DraftsSearch = { filter: DraftView; q: string; batch: number | null };
+export type DraftsSearch = { filter: DraftView; q: string; batch: number | null; m?: string | null };
 /** Activity (P73): the view, and `client` narrows the timeline to one client (the draft card's history opens it). */
 export type LogSearch = { filter: ActivityView; client: number | null };
 /** P70: the Knowledge table's view (the same enum the API validates) and its title search. */
@@ -82,16 +81,11 @@ export type MessengersSearch = { filter: MessengerView; channel: MessengerChanne
 export { MESSENGER_CHANNEL_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerView };
 export type NoSearch = Record<string, never>;
 
-/**
- * Saved links: the view now called `thin_basis` was `?filter=evidence` until 2026-11-18 (renamed to plain words). The old value is read
- * as the new one here, and only here; no other address is aliased. Delete this line when no saved link can still hold it.
- */
-const renamedView = (v: string | undefined): string | undefined => (v === "evidence" ? "thin_basis" : v);
+/** A Message-ID in the address (`?m=`, P99: the conversation scrolls to that message), or null. */
+const messageRef = (v: string | undefined): string | null => (v !== undefined && v.length >= 3 && v.length <= 998 && !/\s/.test(v) ? v : null);
 
-export const draftsSearch = (raw: Raw): DraftsSearch => {
-  // `?new=1` (the batch builder, deleted 2026-11-18, P48) is not read: the guard writes the address back without it.
-  return { filter: oneOf(DRAFT_VIEWS, renamedView(raw.filter), DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch: positiveInt(raw.batch) };
-};
+/** An old view value (`ready`, `inbox`, `hold`, ...) is not one of these and resets to Needs you (rule 8); no alias. */
+export const draftsSearch = (raw: Raw): DraftsSearch => ({ filter: oneOf(DRAFT_VIEWS, raw.filter, DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch: positiveInt(raw.batch), m: messageRef(raw.m) });
 export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(ACTIVITY_VIEWS, raw.filter, "all"), client: positiveInt(raw.client) });
 export const knowledgeSearch = (raw: Raw): KnowledgeSearch => ({ filter: oneOf(KNOWLEDGE_VIEWS, raw.filter, "all"), q: raw.q ?? "" });
 export const agentSearch = (raw: Raw): AgentSearch => ({ filter: oneOf(AGENT_VIEWS, raw.filter, "attention") });

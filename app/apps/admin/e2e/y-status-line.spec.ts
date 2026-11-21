@@ -27,11 +27,11 @@ test("status line: clear says so plainly, with when Mail was read, and links now
 test("status line: clients who wrote lead to Inbox; replies owed count each client once; Mail closed is said", async ({ page }) => {
   await statusIs(page, P, { level: "clear", kind: "clear", sentence: "All clear", next: null, numbers: { owed: 3, wrote: 1, lastTriageAt: null, mailRead: { at: null, reason: "Mail is not running", reading: false, unknown: 0 } } });
   await page.goto(at(P, "/mail?filter=all"));
-  await expect(line(page)).toHaveText(/All clear\s*· 1 client wrote\s*· 2 replies owed\s*· Mail is not running/);
+  // P99 verdict 14: who wrote and the replies owed are the Needs you count of the View menu, never repeated on the line.
+  await expect(line(page)).toHaveText(/All clear\s*· Mail is not running/);
+  await expect(line(page)).not.toContainText("replies owed");
   // Mail closed: a pass after opening it helps, so Check now is on the line.
   await expect(line(page).getByRole("button", { name: "Check now" })).toBeVisible();
-  await line(page).getByRole("link", { name: "1 client wrote" }).click();
-  await expect.poll(() => address(page)).toBe(at(P, "/mail?filter=inbox"));
 });
 
 test("status line: attention names the fact once, adds the replies owed, and leads to where it is fixed", async ({ page }) => {

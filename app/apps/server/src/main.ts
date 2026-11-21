@@ -20,8 +20,10 @@ import { createLlm } from "@hub/llm";
 import { startSentReconciler } from "./sent";
 import { startInboundReader } from "./inbound";
 import { convertSentLead, startLeadsReader } from "./leads-reader";
-import { mailRunning } from "./apple-mail";
-import { defaultOsa } from "@hub/send";
+import { mailRunning, readMessageText } from "./apple-mail";
+import { defaultOsa, MAIL_READ_TIMEOUT_MS, osaWithin } from "@hub/send";
+import { bodyCache, readHistory } from "./conversation";
+import type { ConversationMail } from "./routes/conversations";
 import { stampSentMail, teamStampOf } from "@hub/notion/stamp";
 import type { SentNotice } from "@hub/send";
 import { chooseShell, createTerminal, serverDetector } from "./terminal";
@@ -140,6 +142,34 @@ const inboundText = async (account: string, messageId: string) => {
   const found = await mailWriter.findInbound([account], messageId);
   return found ? { text: await mailWriter.readContent(found) } : { note: "This message is no longer in Mail (moved or deleted)." };
 };
+// P99: one person's history for the conversation pane, read from Mail on open (AppleScript, the spike's choice), and one body on
+// demand, kept in this process's memory only (decision 0013). The fake Mailer reads nothing: the pane shows the Hub's own rows.
+const bodies = bodyCache();
+const conversationMail: ConversationMail =
+  kind === "fake"
+    ? { history: async () => ({ note: "Demo mode: Mail is not read, the Hub's own rows show." }), text: async () => ({ note: "Demo mode: Mail is not read, only the stored preview shows." }) }
+    : {
+        history: async (q) => {
+          const osa = osaWithin(MAIL_READ_TIMEOUT_MS);
+          if (!(await mailRunning(osa).catch(() => false))) return { note: "Mail is not running: open Mail to see the whole conversation." };
+          const t0 = Date.now();
+          const messages = await readHistory(osa, q);
+          return { messages, ms: Date.now() - t0 };
+        },
+        text: async (at) => {
+          const key = "messageId" in at ? `${at.account}|${at.messageId}` : `${at.account}|${at.mailbox}|${at.mailId}`;
+          const hit = bodies.get(key);
+          if (hit !== null) return { text: hit };
+          const read: { text: string } | { note: string } = "messageId" in at ? await inboundText(at.account, at.messageId) : await (async (): Promise<{ text: string } | { note: string }> => {
+            const osa = osaWithin(MAIL_READ_TIMEOUT_MS);
+            if (!(await mailRunning(osa).catch(() => false))) return { note: "Mail is not running: open Mail to read the whole message." };
+            const text = await readMessageText(osa, at.account, at.mailbox, at.mailId);
+            return text === null ? { note: "This message is no longer in Mail (moved or deleted)." } : { text };
+          })();
+          if ("text" in read) bodies.set(key, read.text);
+          return read;
+        },
+      };
 // Connections: the real probes and Apple Mail's account list, or stubs with HUB_CONNECTIONS_PROBE=fake (refused without HUB_DB).
 const probe = chooseProbeKind(process.env);
 if (probe === "fake") log.info("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PROBE=fake): nothing is sent to Notion or Telegram, Mail is not asked");
@@ -181,7 +211,7 @@ const focus = createFocusStore({ file: paths.focus });
 const opener = chooseOpener(process.env, paths, throwawayDbNamed(process.env));
 const local = { deps: localOpenDeps(repos, paths), run: opener.run, available: localOpenAvailable(opener.kind) };
 log.info(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens, each argv goes to state/opener.jsonl" : `open: ${local.available ? "on (/usr/bin/open, the admin page only)" : "off (not macOS): the Open buttons are hidden"}`);
-const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, sent: sent.status, inbound, leads, inboundText, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project) } });
+const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   log.info(`hub server on http://${info.address}:${info.port}`, { pid: process.pid });

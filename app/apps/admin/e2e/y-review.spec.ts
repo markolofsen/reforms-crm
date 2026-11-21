@@ -7,7 +7,7 @@ test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-const cards = (page: import("@playwright/test").Page) => page.locator('ul[aria-label="Drafts"] > li');
+const cards = (page: import("@playwright/test").Page) => page.locator('ul[aria-label="People"] > li');
 
 test("the project and the filter live in the address", async ({ page }) => {
   // The ready drafts are read from the server at test time, not counted by hand: x-sequences' Stop follow-ups skips a
@@ -27,7 +27,7 @@ test("the project and the filter live in the address", async ({ page }) => {
 test("J and K move the cursor, ? shows the keys, and the switch turns them off", async ({ page }) => {
   await page.goto("/mail?filter=all");
   await expect(cards(page)).toHaveCount(11);
-  const current = page.locator('ul[aria-label="Drafts"] > li[data-open="true"]');
+  const current = page.locator('ul[aria-label="People"] > li[data-open="true"]');
   const first = await current.getAttribute("id");
   await page.keyboard.press("j");
   await expect.poll(() => current.getAttribute("id")).not.toBe(first);

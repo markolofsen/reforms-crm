@@ -5,8 +5,12 @@ import { paths } from "../src/routes/paths";
 import type { NavCheck } from "../src/routes/table";
 import { route } from "../src/routes/typed";
 
-// @ts-expect-error a draft id is a number, not a string
-paths.mail.item("abc");
+// @ts-expect-error a conversation's client id is a number, not a string
+paths.mail.conversation("abc");
+// @ts-expect-error P99: a draft has no address of its own; it is the unsent message of its client's conversation
+paths.mail.item(4);
+// @ts-expect-error P99: a client's message is a part of the conversation, not a card (`/mail/in/<id>` is gone)
+paths.mail.inbound(10);
 // @ts-expect-error a batch is a number, not its name
 paths.mail.list({ batch: "June" });
 // @ts-expect-error there is no Bulk screen: a batch is a filter of Mail
@@ -27,7 +31,7 @@ export const badPath = route(`/draftz/${id}`);
 export const badLiteral = route("/nope");
 
 // The valid forms compile.
-export const ok = [route("/settings"), route(`/mail/${id}?x=1`), route("/settings/mac?x=1")];
+export const ok = [route("/settings"), route(`/mail/c/${id}?x=1`), route("/settings/mac?x=1")];
 // @ts-expect-error the Project section is gone (P70): its parts moved to Settings, Knowledge and Overview
 paths.project.page();
 

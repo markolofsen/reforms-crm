@@ -6,11 +6,11 @@ import { remember } from "./support";
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
   await page.goto("/mail?filter=all");
-  await expect(page.locator('ul[aria-label="Drafts"] > li[data-open="true"]')).toHaveCount(1);
+  await expect(page.locator('ul[aria-label="People"] > li[data-open="true"]')).toHaveCount(1);
 });
 
 test("Enter goes from the list into the open card and Esc comes back to its row", async ({ page }) => {
-  const open = page.locator('ul[aria-label="Drafts"] > li[data-open="true"]');
+  const open = page.locator('ul[aria-label="People"] > li[data-open="true"]');
   // The open card settles first (its Mail read and live checks, P85b): Enter then lands on the card it shows.
   await page.waitForLoadState("networkidle");
   await page.keyboard.press("Enter");

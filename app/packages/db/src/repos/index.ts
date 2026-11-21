@@ -2,6 +2,7 @@ import type { Db } from "../client";
 import { agentSettingsRepo } from "./agent-settings";
 import { batchesRepo } from "./batches";
 import { clientsRepo } from "./clients";
+import { conversationsRepo } from "./conversations";
 import { draftsRepo } from "./drafts";
 import { enrollmentsRepo } from "./enrollments";
 import { inboxRepo } from "./inbox";
@@ -19,6 +20,7 @@ import { sendsRepo } from "./sends";
 export function createRepos(db: Db) {
   return {
     clients: clientsRepo(db),
+    conversations: conversationsRepo(db),
     drafts: draftsRepo(db),
     runs: runsRepo(db),
     projects: projectsRepo(db),

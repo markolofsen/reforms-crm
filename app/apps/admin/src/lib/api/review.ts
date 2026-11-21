@@ -1,12 +1,23 @@
 import type { ClientFilter, Mark, SafetyKind, SettableStatus, Tone } from "@hub/config";
 import type { StatusBody } from "@hub/contract/requests";
 import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto, warningsAckedDto } from "@hub/contract/responses";
+import { conversationDto, conversationMailDto, conversationsDto, conversationTextDto, type ConversationViewDto } from "@hub/contract/conversations";
 import { read } from "./client";
 
 const draft = (id: number, action: string) => `/api/drafts/${id}/${action}`;
+const client = (project: string, id: number) => `/api/projects/${encodeURIComponent(project)}/clients/${id}/conversation`;
 
 /** Everything a person can do to a draft and a client. None of it sends mail. */
 export const reviewApi = {
+  /** P99: the list of people, one row per client with its state word and its open draft; `search` narrows rows, never counts. */
+  conversations: (project: string, view: ConversationViewDto, offset: number, scope: { search?: string; batch?: number | null } = {}) =>
+    read(conversationsDto, { method: "GET", path: `/api/projects/${encodeURIComponent(project)}/conversations`, query: { view, offset, search: scope.search || undefined, batch: scope.batch ?? undefined } }),
+  /** One conversation's header and its unsent message, from the Hub's rows (refreshed by the live topics). */
+  conversation: (project: string, clientId: number) => read(conversationDto, { method: "GET", path: client(project, clientId) }),
+  /** The history with this person, read from Mail now (a Mail read: on open, focus and the `mail` topic only; never stored). */
+  conversationMail: (project: string, clientId: number) => read(conversationMailDto, { method: "GET", path: `${client(project, clientId)}/mail` }),
+  /** One message's own words, read from Mail on demand. */
+  conversationText: (project: string, clientId: number, messageId: string) => read(conversationTextDto, { method: "GET", path: `${client(project, clientId)}/text`, query: { m: messageId } }),
   /** `search` narrows the rows on the server (never the counts); `batch` limits the list to the drafts one batch wrote. */
   drafts: (project: string, filter: ClientFilter, offset: number, scope: { search?: string; batch?: number | null } = {}) =>
     read(draftsDto, { method: "GET", path: "/api/drafts", query: { project, filter, offset, search: scope.search || undefined, batch: scope.batch ?? undefined } }),

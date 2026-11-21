@@ -21,10 +21,11 @@ writeSendPolicy(process.env.HUB_E2E_HOME ?? "", "demo-shop");
 const env = { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, HUB_PROJECT: "demo-shop", NO_COLOR: "1" };
 const focusFile = join(process.env.HUB_E2E_HOME ?? "", "state", "focus.json");
 const run = (args: string[], input?: string) => execFileSync("node", args, { env, encoding: "utf8", ...(input ? { input } : {}) });
-const record = (payload: object) => JSON.parse(run([hub, "record-draft", "--project", "demo-shop"], JSON.stringify(payload))) as { ok: boolean; action: string; draftId: number };
+const record = (payload: object) => JSON.parse(run([hub, "record-draft", "--project", "demo-shop"], JSON.stringify(payload))) as { ok: boolean; action: string; draftId: number; clientId: number };
 type Disk = { at: string; focus: { tab: string; project: string | null; route: string; title: string; subject?: string; pointed?: string; window?: { refs: string[]; total: number } } };
 const onDisk = () => (existsSync(focusFile) ? (JSON.parse(readFileSync(focusFile, "utf8")) as Disk) : null);
-const draftOf = (d: Disk | null) => (d?.focus.subject?.startsWith("draft:") ? Number(d.focus.subject.slice(6)) : undefined);
+/** P99: the open conversation's client (`client:<id>`), whose unsent message is the focused draft. */
+const clientOf = (d: Disk | null) => (d?.focus.subject?.startsWith("client:") ? Number(d.focus.subject.slice(7)) : undefined);
 const sends = async (page: Page) => (await (await page.request.get("/api/projects/demo-shop/sends")).json()) as { sends: Array<{ draftId: number | null }> };
 
 test("the focused draft is what the agent revises: same id, updated, nothing sent", async ({ page, context }) => {
@@ -34,16 +35,16 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
 
   // 1. Opening draft 1 publishes it within a second; the file holds ids only.
   await remember(page, "demo-shop");
-  await page.goto(at("demo-shop", `/mail/${fiona.draftId}?filter=all`));
+  await page.goto(at("demo-shop", `/mail/c/${fiona.clientId}?filter=all`));
   const card = cardOf(page, "Fiona Focus");
   await expect(card).toBeVisible();
-  await expect.poll(() => draftOf(onDisk()), { timeout: 1500 }).toBe(fiona.draftId);
+  await expect.poll(() => clientOf(onDisk()), { timeout: 1500 }).toBe(fiona.clientId);
   expect(readFileSync(focusFile, "utf8")).not.toMatch(/Fiona|fiona@|Hello/);
 
   // 2. The prompt hook prints the line the model gets.
   const hook = JSON.parse(run([hub, "focus", "--hook"], "{}")) as { hookSpecificOutput: { hookEventName: string; additionalContext: string } };
   expect(hook.hookSpecificOutput.hookEventName).toBe("UserPromptSubmit");
-  expect(hook.hookSpecificOutput.additionalContext).toMatch(new RegExp(`^\\[Hub focus, data\\] Draft ${fiona.draftId} · open draft:${fiona.draftId} "Fiona Focus <fiona@example.com> · Re: Hello" ready \\(draft_show\\)`));
+  expect(hook.hookSpecificOutput.additionalContext).toMatch(new RegExp(`^\\[Hub focus, data\\] Conversation ${fiona.clientId} · open client:${fiona.clientId} "Fiona Focus <fiona@example.com> · draft ${fiona.draftId} ready[^"]*" draft ready \\(draft_show\\)`));
 
   // 3. "ответь этому клиенту": the scripted agent reads the focus and revises that draft.
   const agent = JSON.parse(run([fakeAgent, "I'm well, thanks — and the revised answer."])) as { tools: string[]; focused: number; recorded: { ok: boolean; action: string; draftId: number } };
@@ -54,15 +55,15 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
   // The open card says so by itself (P50), and the list still has one Fiona.
   await expect(card.getByText("Changed by the agent since you opened it.")).toBeVisible({ timeout: 5000 });
   await card.getByRole("button", { name: "Reload" }).click();
-  await expect(page.locator('ul[aria-label="Drafts"] > li').filter({ hasText: "Fiona Focus" })).toHaveCount(1);
+  await expect(page.locator('ul[aria-label="People"] > li').filter({ hasText: "Fiona Focus" })).toHaveCount(1);
   // Nothing was sent: no send row for the draft (the fake Mailer's outbox is the sends table's other side).
   expect((await sends(page)).sends.filter((s) => s.draftId === fiona.draftId)).toEqual([]);
 
   // 4. A second tab focusing draft 2 wins; the first tab coming back wins again.
   const second = await context.newPage();
-  await second.goto(at("demo-shop", `/mail/${gus.draftId}?filter=all`));
+  await second.goto(at("demo-shop", `/mail/c/${gus.clientId}?filter=all`));
   await expect(cardOf(second, "Gus Second")).toBeVisible();
-  await expect.poll(() => draftOf(onDisk()), { timeout: 1500 }).toBe(gus.draftId);
+  await expect.poll(() => clientOf(onDisk()), { timeout: 1500 }).toBe(gus.clientId);
 
   // 5. A focus older than 10 minutes is stale: the hook adds nothing.
   const rec = onDisk();

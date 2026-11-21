@@ -132,7 +132,7 @@ export function inboundRoutes(repos: Repos, reader: InboundHandle | undefined, r
           row: { ...leadDto(row), open: row.open, notionStatus: row.notionStatus, dismissedAt: row.dismissedAt, dismissedReason: row.dismissedReason ?? null, convertedAt: row.convertedAt, clientPageId: row.clientPageId, convertNote: row.convertNote },
           lead: l ? { company: l.company, message: l.message, details: l.details, form: l.form, pageUrl: l.pageUrl, phone: l.phone, brands: l.brands, otherContact: l.otherContact } : null,
           note: "note" in read ? read.note : null,
-          drafts: drafts.sort((a, b) => b.id - a.id).slice(0, 10).map((d) => ({ id: d.id, subject: d.subject, status: d.status })),
+          drafts: drafts.sort((a, b) => b.id - a.id).slice(0, 10).map((d) => ({ id: d.id, clientId: d.clientId, subject: d.subject, status: d.status })),
         }),
       );
     })

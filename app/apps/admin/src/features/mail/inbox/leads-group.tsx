@@ -1,10 +1,19 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import type { LeadRowDto, LeadsGroupDto } from "@hub/contract/inbound";
 import { cn } from "@hub/ui/cn";
 import { AppLink } from "@/components/app-link";
+import { inboundApi } from "@/lib/api/inbox";
+import { keys } from "@/lib/cache/keys";
+import { useClock } from "@/lib/clock";
 import { ago, plural } from "@/lib/format";
 import { paths } from "@/routes/paths";
+
+/** The Mail reader's reply (P96): the people who wrote are conversations now (P99); its Leads group and its counts stay here. */
+export function useInbound(project: string) {
+  return useQuery({ queryKey: keys.inbound(project), queryFn: () => inboundApi.list(project) });
+}
 
 /** The Leads line: when Notion Leads were last read, or why not (no token, a failed read, demo mode). */
 export function leadsReadText(r: LeadsGroupDto["read"], now: number): string {
@@ -21,7 +30,7 @@ function LeadRow({ r, open, now }: { r: LeadRowDto; open: boolean; now: number }
         aria-current={open ? "true" : undefined}
         bare
         className="flex min-h-16 min-w-0 flex-col gap-0.5 px-3 py-2 text-sm outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-        to={paths.mail.lead(r.pageId, { filter: "inbox" })}
+        to={paths.mail.lead(r.pageId)}
       >
         <span className="flex w-full min-w-0 items-baseline gap-2">
           <span className="min-w-0 flex-1 truncate font-semibold">{r.name}</span>
@@ -43,11 +52,12 @@ function LeadRow({ r, open, now }: { r: LeadRowDto; open: boolean; now: number }
 }
 
 /**
- * Mail ▸ Inbox's Leads group (P97 S2, decision 0044): the project's Notion Leads still New, received in the last
- * `leads.window_days`, one row per person, below the clients who wrote (P98: a client who wrote comes first). A row opens the lead's card (`/mail/lead/<page id>`).
- * The older New leads are one muted count: the Hub never writes them. A notice mail of the site is never a row here.
+ * Mail's Leads group (P97 S2, decision 0044; P99 verdict 8): the project's Notion Leads still New, received in the last
+ * `leads.window_days`, one row per person, below the conversations (a lead is not a conversation until the first reply is sent).
+ * A row opens the lead's card (`/mail/lead/<page id>`). The older New leads are one muted count: the Hub never writes them.
  */
-export function LeadsGroup({ group, openPageId, now }: { group: LeadsGroupDto; openPageId: string | null; now: number }) {
+export function LeadsGroup({ group, openPageId }: { group: LeadsGroupDto; openPageId: string | null }) {
+  const now = useClock()();
   const { rows, total, read } = group;
   if (rows.length === 0 && read.older === 0 && !read.reason) return null;
   return (

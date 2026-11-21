@@ -28,7 +28,8 @@
     "./messengers": "./src/messengers.ts",
     "./messenger-panel": "./src/messenger-panel.ts",
     "./ops-log": "./src/ops-log.ts",
-    "./inbound": "./src/inbound.ts"
+    "./inbound": "./src/inbound.ts",
+    "./conversations": "./src/conversations.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

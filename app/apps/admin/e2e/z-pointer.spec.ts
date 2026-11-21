@@ -90,7 +90,8 @@ test("a row on another screen is offered in the dock with Show; only his click g
   await expect.poll(() => outcome()).toEqual({ id: h.highlight.id, outcome: "not-on-screen" });
   expect(page.url()).toMatch(/\/knowledge/);
   await points.getByRole("link", { name: /^Show/ }).click();
-  await expect(page).toHaveURL(new RegExp(`/mail/${d.draftId}`));
+  // P99: a draft is a part of a conversation; Show opens All, where the person's row and the open unsent message carry the ref.
+  await expect(page).toHaveURL(/\/mail(\/c\/\d+)?\?filter=all/);
   // One ring per element that carries the ref: since P88 the list row and the open card sit side by side at 1280 with the dock open.
   await expect(ring(page).first()).toBeVisible();
   await expect(ring(page)).toHaveCount(await page.locator(`#main [data-agent-ref="draft:${d.draftId}"]`).count());

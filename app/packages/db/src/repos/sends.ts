@@ -96,8 +96,17 @@ export function sendsRepo(db: Db) {
     },
 
     /** The project's rows, newest first (the Send screen). */
-    async list(project: string, limit = 100): Promise<SendRow[]> {
-      return db.select().from(sendLog).where(eq(sendLog.project, project)).orderBy(sql`${sendLog.id} desc`).limit(limit).all();
+    /** The send history, newest first; each row with its draft's client (P99: a mail send links its conversation). */
+    async list(project: string, limit = 100): Promise<Array<SendRow & { clientId: number | null }>> {
+      return db
+        .select({ s: sendLog, clientId: drafts.clientId })
+        .from(sendLog)
+        .leftJoin(drafts, eq(drafts.id, sendLog.draftId))
+        .where(eq(sendLog.project, project))
+        .orderBy(sql`${sendLog.id} desc`)
+        .limit(limit)
+        .all()
+        .map((r) => ({ ...r.s, clientId: r.clientId ?? null }));
     },
 
     /** Starts an attempt. `wrong_state` when the draft already has a queued, sending or sent row: no second send. */

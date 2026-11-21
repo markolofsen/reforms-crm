@@ -9,6 +9,7 @@ import { draftRoutes } from "./routes/drafts";
 import { draftMailRoutes } from "./routes/draft-mail";
 import { inboxRoutes } from "./routes/inbox";
 import { inboundRoutes, type InboundTextReader } from "./routes/inbound";
+import { conversationRoutes, type ConversationMail } from "./routes/conversations";
 import { INBOUND_OFF, type InboundHandle } from "./inbound";
 import type { LeadsHandle } from "./leads-reader";
 import { coreRoutes, instanceRoutes } from "./routes/instance";
@@ -81,6 +82,8 @@ export type AppOptions = {
   leads?: LeadsHandle;
   /** P96: reads one message's text from Mail for the Inbox card; without it the card says Mail is not read here. */
   inboundText?: InboundTextReader;
+  /** P99: one person's history and one body read from Mail for the conversation pane; without it the pane shows the Hub's own rows. */
+  conversationMail?: ConversationMail;
   /** Tests: the Overview with its own project folder and zone. */
   overview?: { projectsDir?: string; service?: OverviewService; timeZone?: string };
   /** Tests: the instance's config folder (brand); default `hubPaths()`. */
@@ -210,6 +213,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", projectRoutes(repos, projectsDir, opts.sender?.policyDir))
     .route("/", inboxRoutes(repos))
     .route("/", inboundRoutes(repos, opts.inbound, opts.inboundText, opts.leads))
+    .route("/", conversationRoutes(repos, opts.conversationMail))
     .route("/", sequenceRoutes(repos, projectsDir, now))
     .route("/", bulkRoutes(repos))
     .route("/", overviewRoutes(overview))

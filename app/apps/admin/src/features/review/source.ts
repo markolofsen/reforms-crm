@@ -1,13 +1,17 @@
+import type { ConversationRowDto } from "@hub/contract/conversations";
 import type { ReviewDraftDto } from "@hub/contract/responses";
 
 export type ReviewDraft = ReviewDraftDto;
+/** P99: a row of Mail is a person (a client), with its state word and at most one open draft, the unsent message. */
+export type ConversationRow = ConversationRowDto;
+export const rowId = (r: ConversationRow): number => r.client.id;
 
-/** One page of drafts to review, from either screen: recorded drafts (Drafts) or one batch (Bulk). */
-export type ReviewPage = { drafts: ReviewDraft[]; total: number; nextOffset: number | null; counts: Partial<Record<string, number>> };
+/** One page of the list of people (a view, a batch's people). */
+export type ReviewPage = { rows: ConversationRow[]; total: number; nextOffset: number | null; counts: Partial<Record<string, number>> };
 
 /** What the review screen needs from the screen that hosts it. It never learns which endpoint answered. */
 export type ReviewSource = {
-  /** Cache key: the drafts of this view, per filter. */
+  /** Cache key: the people of this view, per filter. */
   queryKey: readonly unknown[];
   project: string;
   filter: string;

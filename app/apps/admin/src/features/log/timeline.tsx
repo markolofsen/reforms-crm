@@ -17,12 +17,12 @@ import { reasonParts } from "./labels";
  * `inline-flex w-fit`, which kept a long address from wrapping, so at 1280 with the dock open it ran over "What happened" (P88).
  */
 const WHO = "inline [overflow-wrap:anywhere] sm:block sm:w-full sm:truncate";
-function Who({ draftId, name }: { draftId: number | null; name: string }) {
-  if (draftId === null) return <span className={WHO} title={name}>{name}</span>;
+function Who({ clientId, name }: { clientId: number | null; name: string }) {
+  if (clientId === null) return <span className={WHO} title={name}>{name}</span>;
   return (
-    <AppLink className={cn(WHO, "text-foreground text-sm")} title={name} to={paths.mail.item(draftId)}>
+    <AppLink className={cn(WHO, "text-foreground text-sm")} title={name} to={paths.mail.conversation(clientId)}>
       {name}
-      <span className="sr-only"> (open the draft)</span>
+      <span className="sr-only"> (open the conversation)</span>
     </AppLink>
   );
 }
@@ -53,10 +53,10 @@ function Count({ c, open, id, onToggle }: { c: GroupCells; open: boolean; id: st
 /** One entry of an opened fold: its time (a link into its draft when it names one) and its reason when the line does not say it. */
 function Entry({ r, c, id }: { r: ActivityRowDto; c: GroupCells; id: string | undefined }) {
   const p = reasonParts(r);
-  const time = r.draftId === null ? hhmm(r.at) : (
-    <AppLink to={paths.mail.item(r.draftId)}>
+  const time = r.draftId === null || r.client === null ? hhmm(r.at) : (
+    <AppLink to={paths.mail.conversation(r.client.id)}>
       {hhmm(r.at)}
-      <span className="sr-only"> (open the draft)</span>
+      <span className="sr-only"> (open the conversation)</span>
     </AppLink>
   );
   const why = <Why detail={c.detail === null ? p.detail : null} skill={c.skill === null ? r.skill : null} why={c.why === "" ? p.why : ""} />;
@@ -93,7 +93,7 @@ function Line({ g }: { g: RowGroup }) {
         <TableCell className="text-muted-foreground tabular-nums max-sm:hidden">{c.when}</TableCell>
         <TableCell>
           <span className="font-medium sm:font-normal" data-agent-label="">
-            <Who draftId={c.draftId} name={c.who} />
+            <Who clientId={c.draftId === null ? null : (g.rows[0]?.client?.id ?? null)} name={c.who} />
           </span>
           <span className="sm:hidden">
             {` ${c.what}`}

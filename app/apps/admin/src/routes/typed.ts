@@ -11,7 +11,7 @@ export function route<T extends string>(path: Route<T>): Route<T> {
 }
 
 // The pages of the file tree as one pattern (derived from `ROUTE_TABLE`), for addresses that exist only at run time
-// (`/mail/42?project=x`): the router's typed routes refuse a bare `string`, so the address is checked here and only then is it a `Route`.
+// (`/mail/c/42?project=x`): the router's typed routes refuse a bare `string`, so the address is checked here and only then is it a `Route`.
 function isRoute(address: string): address is Route {
   return PAGE.test(address);
 }

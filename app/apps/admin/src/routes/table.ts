@@ -53,9 +53,9 @@ export const ROUTE_TABLE = {
   // P96 S3: Drafts became Mail (one section per channel, beside Messengers); its first view is Inbox, the clients who wrote.
   // Chord `e` (`m` is Messengers). The old Drafts addresses are gone, with no redirect (no legacy aliases).
   "mail.list": defineRoute("/mail", { section: "mail", scoped: true, title: "Mail", nav: { label: "Mail", icon: "inbox", order: 1, chord: "e", phone: "bar" } }),
-  "mail.item": defineRoute("/mail/[id]", { section: "mail", scoped: true, title: "Mail", crumb: "Draft" }),
-  // P96 S1: one message a client wrote, read from Mail (the Inbox view's card).
-  "mail.inbound": defineRoute("/mail/in/[id]", { section: "mail", scoped: true, title: "Mail", crumb: "Message" }),
+  // P99 S3: one conversation, the whole correspondence with one client (a `clients` id: stable, an email in a path is not), its
+  // unsent draft at the bottom. `/mail/<draft id>` and `/mail/in/<id>` are gone, with no redirect (no legacy aliases).
+  "mail.conversation": defineRoute("/mail/c/[id]", { section: "mail", scoped: true, title: "Mail", crumb: "Conversation" }),
   // P97 S2: one lead of the Inbox's Leads group, by its Notion page id (32 hex), read from Notion Leads.
   "mail.lead": defineRoute("/mail/lead/[page]", { section: "mail", scoped: true, title: "Mail", crumb: "Lead" }),
   // P71 M3 (decision 0036 point 6): what the messengers owe, an analogue of Mail for the linked chats; its landing is the panel
@@ -84,8 +84,7 @@ type Twin<R> = R extends { path: infer P extends string; scoped: true } ? Checke
 export const TWINS: { readonly [K in RouteId]: [Twin<(typeof ROUTE_TABLE)[K]>] extends [never] ? never : true } = {
   "overview.page": true,
   "mail.list": true,
-  "mail.item": true,
-  "mail.inbound": true,
+  "mail.conversation": true,
   "mail.lead": true,
   "messengers.page": true,
   "messengers.settings": true,
@@ -123,8 +122,7 @@ export type NavCheck<R> = R extends { nav: infer N }
 export const NAV_SHAPE: { readonly [K in RouteId]: NavCheck<(typeof ROUTE_TABLE)[K]> } = {
   "overview.page": true,
   "mail.list": true,
-  "mail.item": true,
-  "mail.inbound": true,
+  "mail.conversation": true,
   "mail.lead": true,
   "messengers.page": true,
   "messengers.settings": true,

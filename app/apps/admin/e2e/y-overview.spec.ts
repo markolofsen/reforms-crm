@@ -47,7 +47,7 @@ test("overview: a row leads into its own project's Drafts, and Back returns", as
 
 test("overview: g o from Drafts", async ({ page }) => {
   await page.goto("/lisbon-realty/mail?filter=all");
-  await expect(page.locator('ul[aria-label="Drafts"] > li').first()).toBeVisible();
+  await expect(page.locator('ul[aria-label="People"] > li').first()).toBeVisible();
   await page.locator("body").click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("g");
   await page.keyboard.press("o");

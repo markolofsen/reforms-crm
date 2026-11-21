@@ -12,7 +12,7 @@ allowed-tools: Read Write Bash mcp__notion__notion-fetch mcp__notion__notion-que
 The owner started the session and said who and why ("follow-up всем лидам acme, кто молчит больше 2 недель"). No gate, no
 `state/bulk-pending.json`, no JSON hand-off. Choosing the clients is this skill's job: the admin has no batch builder and cannot see
 the clients (decision 0009), so never send the owner to the admin to pick or prepare. The result shows in the admin by itself: every
-draft in the admin's Mail (View "To review"), and the run as one session in Activity (one row per client: drafted or skipped, and why).
+draft in the admin's Mail (View "Needs you", the person's conversation with the unsent message at the bottom), and the run as one session in Activity (one row per client: drafted or skipped, and why).
 1. Bind the project as `skills/triage-mail/SKILL.md` section 0 does (one project per session, read its `project.md`).
 2. "выбранные / the selected ones" (P51) means the drafts selected in the admin: the `focus` tool of the `hub` MCP server lists them (up to 50, and how many more); work on exactly those clients, nobody else, and say so in the report. `none` or `stale`: ask in one line. Otherwise build the client list from the phrase: the project's Notion `clients` data source, by the id `project_notion` (hub) gives (from `project.md` "Notion databases"; never a Notion search, which finds another teamspace's look-alike), queried with the session connector and filtered as the owner
    said (Relationship = Client, a brand, a list of names). A client named alone is a list of one. Keep only addresses admitted by `draft.recipients` (`skills/README.md` Rule 6); report the rest as

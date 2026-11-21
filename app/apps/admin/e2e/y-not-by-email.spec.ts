@@ -25,5 +25,5 @@ test("Not by email is a View of Drafts: its count in the menu, a phone as plain 
 
 test("the draft list never lists them", async ({ page }) => {
   await page.goto(at("lisbon-realty", "/mail?filter=all"));
-  await expect(page.locator('ul[aria-label="Drafts"]')).not.toContainText("Duarte Exemplo");
+  await expect(page.locator('ul[aria-label="People"]')).not.toContainText("Duarte Exemplo");
 });

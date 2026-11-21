@@ -22,7 +22,7 @@ async function tabTo(page: Page, match: (label: string) => boolean, key = "Tab",
 
 test("keyboard only: reach the list, move, read the checks, finish, undo", async ({ page }) => {
   await page.goto("/mail?filter=all");
-  const cards = page.locator('ul[aria-label="Drafts"] > li');
+  const cards = page.locator('ul[aria-label="People"] > li');
   await expect(cards.first()).toBeVisible(); // earlier z-* flows add drafts: no fixed count here
 
   // The skip link is the first stop and it lands on the main region.
@@ -32,7 +32,7 @@ test("keyboard only: reach the list, move, read the checks, finish, undo", async
   await expect(page.locator("#main")).toBeFocused();
 
   // Move with J: the draft under the cursor is the one open in the pane.
-  const current = page.locator('ul[aria-label="Drafts"] > li[data-open="true"]');
+  const current = page.locator('ul[aria-label="People"] > li[data-open="true"]');
   // The list opens its first draft on its own (an address, so it lands after mount): wait for it before moving.
   await expect(current).toHaveCount(1);
   // The pane follows the cursor a moment after the row moves, and a key pressed before it settles is dropped. So each step waits until
@@ -77,7 +77,7 @@ test("keyboard only: reach the list, move, read the checks, finish, undo", async
   }
   await expect(row).toHaveAttribute("data-open", "true");
   await page.keyboard.press("u");
-  await expect(row.getByRole("img", { name: /^(Ready to send|To review)$/ })).toBeVisible();
+  await expect(row.getByRole("img", { name: /^(Draft ready, checked|Draft ready)$/ })).toBeVisible();
 
   // Shift+Tab walks back out of the main region to the sidebar: focus is not trapped.
   await page.locator("#main").focus();
@@ -88,7 +88,7 @@ test("keyboard only: reach the list, move, read the checks, finish, undo", async
 
 test("the selection checkboxes are not Tab stops until a selection is under way", async ({ page }) => {
   await page.goto("/mail?filter=all");
-  const boxes = page.locator('ul[aria-label="Drafts"] [role="checkbox"]');
+  const boxes = page.locator('ul[aria-label="People"] [role="checkbox"]');
   await expect(boxes.first()).toBeVisible();
   for (const box of await boxes.all()) await expect(box).toHaveAttribute("tabindex", "-1");
 });

@@ -6,7 +6,7 @@ import { isOld, wrote } from "@/lib/format";
 import { paths } from "@/routes/paths";
 import { notionOf } from "@/lib/notion";
 import { cn } from "@hub/ui/cn";
-import { chipsOf } from "../list-row";
+import { draftChipsOf } from "../list-row";
 import type { ReviewDraft } from "../source";
 import type { ReviewActions } from "../use-review-actions";
 import { ClientMenu } from "./client-menu";
@@ -21,7 +21,7 @@ export function CardHeader({ d, actions, now, ready }: Props) {
   const old = d.status === "ready" && isOld(d.updatedAt, now);
   const notion = notionOf(d);
   // The checks are listed whole right under the header ("1 check before sending"): a second "1 check" chip would say it twice (rubric 3).
-  const chips = chipsOf(d).filter((c) => c.id !== "checks");
+  const chips = draftChipsOf(d);
   const flags = d.client.marks.filter((m) => m !== "do_not_contact");
   const sent = sentLine(d);
   const teammate = teammateLine(d);

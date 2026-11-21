@@ -16,11 +16,10 @@ export function searchValue(r: Resolved, key: "channel"): string;
 export function searchValue(r: Resolved, key: SearchKey): string | number | null {
   if (key === "client") return r.route === "log.list" ? r.search.client : null;
   if (key === "channel") return r.route === "messengers.page" ? r.search.channel : "all";
-  if (key === "q") return r.route === "mail.list" || r.route === "mail.item" || r.route === "mail.inbound" || r.route === "mail.lead" || r.route === "knowledge.page" ? r.search.q : "";
+  if (key === "q") return r.route === "mail.list" || r.route === "mail.conversation" || r.route === "mail.lead" || r.route === "knowledge.page" ? r.search.q : "";
   switch (r.route) {
     case "mail.list":
-    case "mail.item":
-    case "mail.inbound":
+    case "mail.conversation":
     case "mail.lead":
     case "log.list":
     case "knowledge.page":
@@ -45,18 +44,16 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
   if (key === "q") {
     if (r.route === "mail.list") return paths.mail.list({ filter: r.search.filter, q: v, batch: r.search.batch });
     if (r.route === "knowledge.page") return paths.knowledge.page({ filter: r.search.filter, q: v });
-    if (r.route === "mail.inbound") return paths.mail.inbound(r.params.id, { filter: r.search.filter, q: v, batch: r.search.batch });
     if (r.route === "mail.lead") return paths.mail.lead(r.params.pageId, { filter: r.search.filter, q: v, batch: r.search.batch });
-    return r.route === "mail.item" ? paths.mail.item(r.params.id, { filter: r.search.filter, q: v, batch: r.search.batch }) : null;
+    return r.route === "mail.conversation" ? paths.mail.conversation(r.params.id, { filter: r.search.filter, q: v, batch: r.search.batch }) : null;
   }
   switch (r.route) {
     case "mail.list":
       return paths.mail.list({ filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
-    case "mail.item":
-      return paths.mail.item(r.params.id, { filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
-    case "mail.inbound":
+    case "mail.conversation":
+      return paths.mail.conversation(r.params.id, { filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
     case "mail.lead":
-      // A view change leaves a client's message: the list of the new view opens its own first row.
+      // A view change leaves a lead's card: the list of the new view opens its own first row.
       return paths.mail.list({ filter: oneOf(DRAFT_VIEWS, v, DEFAULT_DRAFT_VIEW), q: r.search.q, batch: r.search.batch });
     case "log.list":
       // Sends is the project's send history: switching to it leaves the one-client narrowing behind.
@@ -74,7 +71,7 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
 
 /**
  * One search key as state. Setting it REPLACES the history entry (a filter is not a page, Back must not step through
- * every chip); the default value drops the key from the address. A subject (`/mail/42`) is a path and PUSHES: use `useGo`.
+ * every chip); the default value drops the key from the address. A subject (`/mail/c/42`) is a path and PUSHES: use `useGo`.
  * This is the one hook that writes the query string in place.
  */
 export function useSearchState(key: "filter"): [string, (value: string) => void];

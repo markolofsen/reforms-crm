@@ -81,7 +81,9 @@ try {
     const got = await km.tool(it.read.tool, it.read.args);
     console.log(JSON.stringify({ tools, focus: { route: focus.route, title: focus.title, ref: it.ref, entry: it.title, read: it.read }, got: { path: got.path, hasBody: typeof got.body === "string" && got.body.length > 0 } }));
   } else {
-    const subject = focus.subject?.kind === "draft" ? Number(focus.subject.ref.slice("draft:".length)) : null;
+    // P99: in Mail the subject is the conversation (`client:<id>`); its read is the open draft's `draft_show`, which is "this draft".
+    const viaClient = focus.subject?.kind === "client" && focus.subject.read?.tool === "draft_show" ? Number(focus.subject.read.args.draft) : null;
+    const subject = focus.subject?.kind === "draft" ? Number(focus.subject.ref.slice("draft:".length)) : viaClient;
     if (!subject) throw new Error("no focused draft");
     const d = await hubMcp.tool("draft_show", { draft: subject });
     const payload = { email: d.client.email, name: d.client.name, subject: d.subject, mailRef: d.mailRef, to: d.to, reason: "Revised on the owner's request in the dock.", excerpt: text, repliesOwed: true, skill: "triage-mail" };

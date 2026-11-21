@@ -127,7 +127,7 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
       {drafts.length > 0 && (
         <section aria-label="Drafts" className="flex flex-col gap-1 text-sm">
           {drafts.map((d) => (
-            <AppLink key={d.id} to={paths.mail.item(d.id, { filter: "all" })}>
+            <AppLink key={d.id} to={paths.mail.conversation(d.clientId, { filter: "all" })}>
               Draft {d.id}: {d.subject || "(no subject)"} · {d.status}
             </AppLink>
           ))}

@@ -25,11 +25,12 @@ export type ClientFilter = (typeof CLIENT_FILTERS)[number];
 export type ClientCounts = Record<ClientFilter, number>;
 
 /**
- * The views of the admin's Mail list (Drafts until P96; P48, research 16 section 6.3), in their menu order. One source for the
- * address (`apps/admin/src/routes/search.ts`) and the shared focus (`@hub/contract/focus`, P51). P96: `inbox` (the clients who
- * wrote and have no draft yet, read from Mail by the server) first, `sent` its own view (Finished keeps Done and Skipped).
+ * The views of the admin's Mail list, in their menu order. P99 (verdict 3): Mail lists people, one row per client, and the views
+ * shrink to Needs you (they wrote, or a draft is ready; the default), Waiting (for them) and All; Follow-ups and Not by email are
+ * filters of All. Hold, Thin basis, Sent and Finished became words and chips on the row. One source for the address
+ * (`apps/admin/src/routes/search.ts`).
  */
-export const DRAFT_VIEWS = ["inbox", "ready", "hold", "thin_basis", "sequences", "not_by_email", "sent", "finished", "all"] as const;
+export const DRAFT_VIEWS = ["needs_you", "waiting", "all", "sequences", "not_by_email"] as const;
 export type DraftView = (typeof DRAFT_VIEWS)[number];
 
 export const FILTER_LABELS: Record<ClientFilter, string> = {

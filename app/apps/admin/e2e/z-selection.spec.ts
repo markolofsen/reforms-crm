@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 for (const [verb, done, icon] of [["Skip", "Skipped 2", "Skipped"], ["Hold", "Held 2", "On hold"]] as const) {
   test(`${verb} on two selected drafts raises one toast with Undo, and Undo restores both`, async ({ page }) => {
     await page.goto(at("demo-shop", "/mail?filter=all"));
-    const rows = page.locator('ul[aria-label="Drafts"] > li');
+    const rows = page.locator('ul[aria-label="People"] > li');
     const anna = rows.filter({ hasText: "Anna Fake" });
     const oskar = rows.filter({ hasText: "Oskar Muster" });
     await expect(anna).toHaveCount(1);

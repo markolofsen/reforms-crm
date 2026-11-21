@@ -11,7 +11,7 @@ export function useReviewRows(source: ReviewSource) {
     getNextPageParam: (last) => last.nextOffset ?? undefined,
     placeholderData: keepPreviousData,
   });
-  const rows = useMemo(() => query.data?.pages.flatMap((p) => p.drafts) ?? [], [query.data]);
+  const rows = useMemo(() => query.data?.pages.flatMap((p) => p.rows) ?? [], [query.data]);
   const total = query.data?.pages[0]?.total ?? 0;
   return { query, rows, total, counts: query.data?.pages[0]?.counts ?? {} };
 }

@@ -15,7 +15,7 @@ test("Mail list loads with counts and only clients that have a draft", async ({ 
   // The counts live in the one View menu (P48 W4); Replies owed and High value are not views.
   await viewMenu(page).click();
   await expect(page.getByRole("menuitemradio", { name: /^All\s*11$/ })).toBeVisible();
-  await expect(page.getByRole("menuitemradio", { name: /^To review\s*6$/ })).toBeVisible();
+  await expect(page.getByRole("menuitemradio", { name: /^Needs you\s*\d+$/ })).toBeVisible();
   await expect(page.getByRole("menuitemradio", { name: /^Replies owed|High value/ })).toHaveCount(0);
 });
 

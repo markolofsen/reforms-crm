@@ -25,6 +25,11 @@ export const keys = {
   /** The agent activity feed (P59): the ended turns' tones and the wait, read from the session log on the server (P73: no rows). */
   agentFeed: (project: string) => ["agent-feed", project] as const,
   drafts: (project: string, view: string, batch: number | null, search: string) => ["drafts", project, view, batch, search] as const,
+  /** P99: one conversation's header and unsent message (the Hub's rows): under `drafts`, so every topic that moves a row moves it. */
+  conversation: (project: string, clientId: number) => ["drafts", project, "conversation", clientId] as const,
+  /** P99: one person's history read from Mail, and one body: Mail keys (read on open, on focus and on the `mail` topic). */
+  conversationMail: (project: string, clientId: number) => ["conversation-mail", project, clientId] as const,
+  conversationText: (project: string, clientId: number, messageId: string) => ["conversation-text", project, clientId, messageId] as const,
   batches: (project: string) => ["batches", project] as const,
   /** P85b: the run of Send all Checked of one batch (in the server's memory), polled while it runs. */
   batchRun: (project: string, batchId: number) => ["batch-run", project, batchId] as const,
@@ -73,7 +78,7 @@ export const keys = {
  * The first part of the Mail keys: read on open and on focus (decision 0013). The one live event that reads Mail again is
  * `mail` (P53): the hub itself wrote a Mail draft of that project (`draft_write`), so the open card shows the new text.
  */
-export const MAIL_KEYS: readonly string[] = ["draft-mail", "thread", "inbound-text"];
+export const MAIL_KEYS: readonly string[] = ["draft-mail", "thread", "inbound-text", "conversation-mail", "conversation-text"];
 
 /** One project's prefix of a resource, or every project's when the change is the instance's (`null`). */
 const of = (resource: string) => (project: string | null): QueryKey => (project === null ? [resource] : [resource, project]);
@@ -97,6 +102,7 @@ const overview = () => keys.overview();
 const scheme = () => keys.scheme();
 const draftMail = of("draft-mail");
 const thread = of("thread");
+const conversationMail = of("conversation-mail");
 
 /**
  * What each live topic invalidates (P50). `tsc` fails when a topic is added without its keys. Only `mail` names a Mail key
@@ -118,7 +124,7 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   messengers: (p) => [messengerChats(p), drafts(p), notByEmail(p), project(p), keys.connections()],
   connections: () => [keys.connections(), agentTools(null), overview(), scheme()],
   health: (p) => [keys.pulse(), project(p), keys.connections(), keys.telegramUser(), keys.whatsapp(), overview(), scheme(), inbound(p)],
-  mail: (p) => [draftMail(p), thread(p)],
+  mail: (p) => [draftMail(p), thread(p), conversationMail(p)],
   "agent-log": (p) => [agentFeed(p)],
   autostart: () => [keys.autostart()],
   core: () => [keys.core(), scheme()],

@@ -11,7 +11,7 @@ const metaOf = (id: RouteId): { title: string; crumb: string | null } => {
   return { title: row.title, crumb: "crumb" in row ? row.crumb : null };
 };
 
-/** The breadcrumb of a route, outermost first: `["Mail", "Draft 42"]`, `["Project", "Setup"]` for a child page. Empty for Not found. */
+/** The breadcrumb of a route, outermost first: `["Mail", "Conversation 42"]`, `["Project", "Setup"]` for a child page. Empty for Not found. */
 export function crumbsOf(r: Resolved): string[] {
   if (r.route === "notFound") return [];
   const crumbs = [sectionTitle(r.section)];
@@ -22,7 +22,7 @@ export function crumbsOf(r: Resolved): string[] {
   return crumbs;
 }
 
-/** `Draft 42 · Mail · lisbon · Hub Workflow`, `Setup · lisbon · Hub Workflow`. The projectless pages name no project. */
+/** `Conversation 42 · Mail · lisbon · Hub Workflow`, `Setup · lisbon · Hub Workflow`. The projectless pages name no project. */
 export function titleOf(r: Resolved, project: string | null): string {
   if (r.route === "notFound") return `Not found · ${APP}`;
   return pageTitle(r.route, project, "id" in r.params ? r.params.id : undefined);
@@ -37,13 +37,13 @@ export function pageTitle(id: RouteId, project: string | null | undefined, item?
 
 /**
  * The screen's own words for the shared focus and the dock header (P72): the route table's title (`Knowledge`, `Activity`),
- * `Draft 42` for an item, `Not found`. The one label map of the screens; the focus keeps no list of its own.
+ * `Conversation 42` for an item, `Not found`. The one label map of the screens; the focus keeps no list of its own.
  */
 export function screenTitleOf(r: Resolved): string {
   if (r.route === "notFound") return "Not found";
   const { title, crumb } = metaOf(r.route);
   if (crumb && "id" in r.params) return `${crumb} ${r.params.id}`;
-  // P96: Mail's view is part of what the screen shows ("Mail · Inbox", "Mail · To review"); a batch is its own view.
+  // P96: Mail's view is part of what the screen shows ("Mail · Needs you", "Mail · Waiting"); a batch is its own view.
   if (r.route === "mail.list" && r.search.batch === null) return `${title} · ${DRAFT_VIEW_LABELS[r.search.filter]}`;
   return title;
 }

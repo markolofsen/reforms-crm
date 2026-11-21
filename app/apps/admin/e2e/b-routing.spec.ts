@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 const P = "lisbon-realty";
-const cards = (page: Page) => page.locator('ul[aria-label="Drafts"] > li');
+const cards = (page: Page) => page.locator('ul[aria-label="People"] > li');
 const viewMenu = (page: Page) => page.getByRole("button", { name: /^View:/ });
 /** P53: at 1280 the Drafts list opens its first row and the address names it (`/mail/42`); a bare `/mail` only while loading or empty. */
 const listed = (project: string | null, query = "") => new RegExp(`^${project ? `/${project}` : ""}/mail(/\\d+)?${query.replace(/[?]/g, "\\?")}$`);
@@ -74,7 +74,7 @@ test("saved links of the query era (until 2026-11-18) open the same view in the 
 test("a Drafts deep link with a selected draft survives a reload", async ({ page }) => {
   const id = await firstDraftId(page);
   await page.goto(at(P, `/mail/${id}`));
-  const current = page.locator(`ul[aria-label="Drafts"] > li#draft-${id}`);
+  const current = page.locator(`ul[aria-label="People"] > li#draft-${id}`);
   await expect(current).toHaveAttribute("data-open", "true");
   await page.reload();
   await expect(current).toHaveAttribute("data-open", "true");
@@ -127,7 +127,7 @@ for (const bad of ["/clients", "/nope", "/mail/abc", "/mail/1/2", `/${P}/overvie
   test(`${bad} is Not found, with a way back, never Mail`, async ({ page }) => {
     await page.goto(bad);
     await expect(page.getByText("Page not found")).toBeVisible();
-    await expect(page.locator('ul[aria-label="Drafts"]')).toHaveCount(0);
+    await expect(page.locator('ul[aria-label="People"]')).toHaveCount(0);
     await expect(page).toHaveTitle("Not found · Hub Workflow");
     await page.getByRole("link", { name: "Go to Mail" }).click();
     await expect.poll(() => address(page)).toMatch(listed(P));

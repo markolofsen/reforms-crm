@@ -20,8 +20,7 @@ type Base = { project: string | null; inPath: boolean; entry: boolean };
 export type Resolved =
   | (Base & { route: "overview.page"; section: "overview"; params: NoSearch; search: NoSearch })
   | (Base & { route: "mail.list"; section: "mail"; params: NoSearch; search: DraftsSearch })
-  | (Base & { route: "mail.item"; section: "mail"; params: { id: number }; search: DraftsSearch })
-  | (Base & { route: "mail.inbound"; section: "mail"; params: { id: number }; search: DraftsSearch })
+  | (Base & { route: "mail.conversation"; section: "mail"; params: { id: number }; search: DraftsSearch })
   | (Base & { route: "mail.lead"; section: "mail"; params: { pageId: string }; search: DraftsSearch })
   | (Base & { route: "messengers.page"; section: "messengers"; params: NoSearch; search: MessengersSearch })
   | (Base & { route: "messengers.settings"; section: "messengers"; params: NoSearch; search: NoSearch })
@@ -60,13 +59,12 @@ export function resolveRoute(path: string, searchString: string): Resolved {
   const segs = inPath ? all.slice(1) : all;
   const base: Base = { project, inPath, entry: all.length === 0 };
   const [head, tail] = segs;
-  const id = positiveInt(tail);
   const notFound: Resolved = { ...base, route: "notFound", section: null, path };
   const one = segs.length === 1;
-  // P96: a client's message is the one three-segment address (`/mail/in/7`).
-  if (head === "mail" && tail === "in" && segs.length === 3 && !(inPath && project === null)) {
-    const inId = positiveInt(segs[2]);
-    return inId === null ? notFound : { ...base, route: "mail.inbound", section: "mail", params: { id: inId }, search: draftsSearch(raw) };
+  // P99: a conversation is a three-segment address (`/mail/c/7`, a client id).
+  if (head === "mail" && tail === "c" && segs.length === 3 && !(inPath && project === null)) {
+    const clientId = positiveInt(segs[2]);
+    return clientId === null ? notFound : { ...base, route: "mail.conversation", section: "mail", params: { id: clientId }, search: draftsSearch(raw) };
   }
   // P97: a lead of the Leads group is the other three-segment address (`/mail/lead/<32 hex>`).
   if (head === "mail" && tail === "lead" && segs.length === 3 && !(inPath && project === null)) {
@@ -84,8 +82,7 @@ export function resolveRoute(path: string, searchString: string): Resolved {
       return one ? { ...base, route: "knowledge.page", section: "knowledge", params: {}, search: knowledgeSearch(raw) } : notFound;
     case undefined: // the empty address is the entry
     case "mail":
-      if (segs.length <= 1) return { ...base, route: "mail.list", section: "mail", params: {}, search: draftsSearch(raw) };
-      return id === null ? notFound : { ...base, route: "mail.item", section: "mail", params: { id }, search: draftsSearch(raw) };
+      return segs.length <= 1 ? { ...base, route: "mail.list", section: "mail", params: {}, search: draftsSearch(raw) } : notFound;
     case "messengers":
       if (one) return { ...base, route: "messengers.page", section: "messengers", params: {}, search: messengersSearch(raw) };
       return tail === "settings" ? { ...base, route: "messengers.settings", section: "messengers", params: {}, search: noSearch() } : notFound;
@@ -111,10 +108,8 @@ export function destOf(r: Resolved): Dest | null {
       return paths.overview();
     case "mail.list":
       return paths.mail.list(r.search);
-    case "mail.item":
-      return paths.mail.item(r.params.id, r.search);
-    case "mail.inbound":
-      return paths.mail.inbound(r.params.id, r.search);
+    case "mail.conversation":
+      return paths.mail.conversation(r.params.id, r.search);
     case "mail.lead":
       return paths.mail.lead(r.params.pageId, r.search);
     case "messengers.page":
@@ -146,15 +141,16 @@ export function destOf(r: Resolved): Dest | null {
 
 /**
  * Where a ref is (P72): the destination the dock's "Agent points at … · Show" links to, so his click goes there; the agent
- * never navigates. A knowledge entry has no page of its own: the Knowledge table searched for its title. Null: no screen
- * shows that kind (a client).
+ * never navigates. A knowledge entry has no page of its own: the Knowledge table searched for its title. P99: a client is its
+ * conversation; a draft or a stored message is a part of one, so it opens All (the ref does not carry its client).
  */
 export function destOfRef(ref: string, title: string | null = null): Dest | null {
   const p = parseRef(ref);
   if (!p) return null;
   switch (p.kind) {
     case "draft":
-      return paths.mail.item(Number(p.id), { filter: "all" });
+    case "inbound":
+      return paths.mail.list({ filter: "all" });
     case "run":
       // P73: Activity shows no runs; a run's decisions are on the one timeline.
       return paths.log.list();
@@ -163,14 +159,11 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
     case "project":
       return paths.overview();
     case "client":
-      return paths.log.list({ client: Number(p.id) });
+      return paths.mail.conversation(Number(p.id));
     case "chat":
     case "mdraft":
       // P71 M3: a chat and its draft are rows of the panel; Linked (P84c), so a chat with nothing owed is there too.
       return paths.messengers.chats({ filter: "linked" });
-    case "inbound":
-      // P98: a client's message is its Inbox card.
-      return paths.mail.inbound(Number(p.id), { filter: "inbox" });
   }
 }
 

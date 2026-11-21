@@ -15,7 +15,7 @@ type Screen = { name: string; path: string; ready: (page: Page) => Promise<void>
 
 /** Opens the first row (a phone shows nothing until one is chosen; desktop already has it open) and waits for its card. */
 const openFirst = async (p: Page) => {
-  await p.locator('ul[aria-label="Drafts"] > li').first().getByRole("button").first().click();
+  await p.locator('ul[aria-label="People"] > li').first().getByRole("button").first().click();
   await expect(p.getByRole("article")).toBeVisible();
 };
 const sendButton = (p: Page) => p.getByRole("button", { name: "Send", exact: true });
@@ -46,10 +46,10 @@ const tabStopsInView = (page: Page) =>
         return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth && e.tabIndex >= 0 && !(e as HTMLButtonElement).disabled && e.getAttribute("aria-hidden") !== "true";
       }).length,
   );
-const firstRowTop = (page: Page) => page.evaluate(() => document.querySelector('ul[aria-label="Drafts"] > li')?.getBoundingClientRect().top ?? null);
+const firstRowTop = (page: Page) => page.evaluate(() => document.querySelector('ul[aria-label="People"] > li')?.getBoundingClientRect().top ?? null);
 
 const SCREENS: Screen[] = [
-  { name: "drafts", path: at(P, "/mail"), ready: async (p) => void (await p.locator('ul[aria-label="Drafts"] > li').first().waitFor()) },
+  { name: "drafts", path: at(P, "/mail"), ready: async (p) => void (await p.locator('ul[aria-label="People"] > li').first().waitFor()) },
   {
     name: "drafts: one draft open",
     path: at(P, "/mail"),
@@ -198,7 +198,7 @@ const SCREENS: Screen[] = [
     path: at(P, "/mail"),
     ready: async (p) => {
       await p.getByRole("button", { name: "Select drafts" }).click();
-      const boxes = p.locator('ul[aria-label="Drafts"] [role="checkbox"]');
+      const boxes = p.locator('ul[aria-label="People"] [role="checkbox"]');
       await boxes.nth(0).click();
       await boxes.nth(1).click();
       await p.getByRole("toolbar", { name: "Selected drafts" }).waitFor();
@@ -304,11 +304,11 @@ test("phone bar and rail: parents only, the More menu whole, the sub-nav a menu 
 // P48 W4: selecting never moves the list, and a row shows its subject. Light only: the geometry is the same in dark.
 test("drafts: the first row does not move when a row is selected, and the subject is not cut below 40 characters at 1280", async ({ page }) => {
   await page.goto(at(P, "/mail?filter=all"));
-  const first = page.locator('ul[aria-label="Drafts"] > li').first();
+  const first = page.locator('ul[aria-label="People"] > li').first();
   await first.waitFor();
   const before = await first.evaluate((e) => e.getBoundingClientRect().top);
   await page.getByRole("button", { name: "Select drafts" }).click();
-  await page.locator('ul[aria-label="Drafts"] [role="checkbox"]').first().click();
+  await page.locator('ul[aria-label="People"] [role="checkbox"]').first().click();
   await page.getByRole("toolbar", { name: "Selected drafts" }).waitFor();
   expect(await first.evaluate((e) => e.getBoundingClientRect().top)).toBe(before);
   await expect(page.getByRole("status").filter({ hasText: "1 selected" })).toBeAttached();

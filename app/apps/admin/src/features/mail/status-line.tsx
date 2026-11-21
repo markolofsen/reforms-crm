@@ -1,13 +1,13 @@
 "use client";
 
 import { ChevronRightIcon } from "lucide-react";
-import { MAIL_READ_RETRYABLE } from "@hub/contract/inbound";
 import type { StatusDto, StatusLevel } from "@hub/contract/overview";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
 import { cn } from "@hub/ui/cn";
 import { AppLink } from "@/components/app-link";
 import { useClock } from "@/lib/clock";
+import { MAIL_READ_RETRYABLE } from "@hub/contract/inbound";
 import { plural } from "@/lib/format";
 import { useLiveState, type LiveState } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
@@ -20,33 +20,30 @@ const LIVE_WORD: Record<Exclude<LiveState, "connecting">, string> = { live: "Liv
 
 type Line = { level: StatusLevel; sentence: string; numbers: string[]; to: Dest | null; kind: string; /** P96: "1 client wrote" (a link to Inbox), or null. */ wrote: string | null; /** P97: "2 new leads" (a link to Inbox), or null. */ leads: string | null; /** P96: the Mail reader's words, or null when the page itself is in doubt. */ read: string | null; /** P96: Check now belongs on the line (Mail closed, a failed read or a late one, and the line has no link of its own). */ check: boolean };
 
-/** The reader's idle pass is every 15 minutes: a read older than that is late, and Check now comes to the line. */
-const READ_STALE_MS = 15 * 60_000;
 const DOT: Record<StatusLevel, string> = { clear: "bg-success", attention: "bg-warning", blocked: "bg-destructive" };
 /** The page that fixes the fact (P70: Overview, Knowledge or a Settings pane). */
 const nextDest = (next: NonNullable<StatusDto["next"]>): Dest => routeDest(NEXT_ROUTE[next]);
 
 /**
- * The words of the line: the worst fact once, then what the list does not show (the to-review count is the View menu's). P96
- * verdict 5: "N clients wrote" (the Mail reader's Inbox, a link to it), "K replies owed" (the clients the agent left to the owner
- * and not already counted as wrote: one client once), and the reader's own line ("Mail read 2 min ago", or why not), which
- * replaced "triage 6 min ago": that was the newest agent record, not a read of Mail.
+ * The words of the line: the worst fact once, then what the list does not show. P99 verdict 14: who wrote and the replies owed
+ * are the Needs you count of the View menu, so the line no longer repeats them (rule 10: no number twice); it keeps the new
+ * leads and the reader's own line ("Mail read 2 min ago · Check now", or why not). The Inbox view that held Check now is gone,
+ * so Check now is on the line whenever the line has no link of its own.
  */
 export function lineOf(s: StatusDto, now: number, shell: { stale: boolean; serverOlder: boolean; serverNewer: boolean }): Line {
   const n = s.numbers;
-  const owedOnly = Math.max(0, n.owed - n.wrote);
-  const wrote = n.wrote > 0 ? `${plural(n.wrote, "client")} wrote` : null;
+  const wrote = null;
   const leads = n.leads ? plural(n.leads, "new lead") : null;
-  const numbers = owedOnly > 0 ? [`${plural(owedOnly, "reply", "replies")} owed`] : [];
+  const numbers: string[] = [];
   // What only the page can know outranks the server's own sentence: its data may be old, or the two do not match.
   const doubt = { numbers: [], to: null, wrote: null, leads: null, read: null, check: false };
   if (shell.stale) return { level: "blocked", kind: "server-silent", sentence: "Server not answering: data may be old", ...doubt };
   if (shell.serverOlder) return { level: "attention", kind: "server-older", sentence: "Server older than this page: restart it with hub up", ...doubt };
   if (shell.serverNewer) return { level: "attention", kind: "server-newer", sentence: "Server newer than this page: reload it", ...doubt };
   const r = n.mailRead;
-  // Show less (ui-specifications 4a): a fresh read needs no button here; Inbox always has Check now.
-  const stale = !r.reading && (r.reason !== null ? MAIL_READ_RETRYABLE.includes(r.reason) : r.at !== null && now - Date.parse(r.at) > READ_STALE_MS);
-  return { level: s.level, kind: s.kind, sentence: s.sentence, numbers, to: s.next ? nextDest(s.next) : null, wrote, leads, read: mailReadText(r, now), check: stale && !s.next };
+  // A reason no pass can cure (demo mode, the reader off) gets no Check now.
+  const cures = r.reason === null || MAIL_READ_RETRYABLE.includes(r.reason);
+  return { level: s.level, kind: s.kind, sentence: s.sentence, numbers, to: s.next ? nextDest(s.next) : null, wrote, leads, read: mailReadText(r, now), check: cures && !s.next };
 }
 
 /**
@@ -95,7 +92,7 @@ export function StatusLine({ project }: { project: string }) {
       {l.wrote && (
         <span className="text-muted-foreground">
           {"· "}
-          <AppLink className="font-medium text-foreground" data-testid="status-wrote" to={paths.mail.list({ filter: "inbox" })}>
+          <AppLink className="font-medium text-foreground" data-testid="status-wrote" to={paths.mail.list({ filter: "needs_you" })}>
             {l.wrote}
           </AppLink>
         </span>
@@ -103,7 +100,7 @@ export function StatusLine({ project }: { project: string }) {
       {l.leads && (
         <span className="text-muted-foreground">
           {"· "}
-          <AppLink className="font-medium text-foreground" data-testid="status-leads" to={paths.mail.list({ filter: "inbox" })}>
+          <AppLink className="font-medium text-foreground" data-testid="status-leads" to={paths.mail.list({ filter: "needs_you" })}>
             {l.leads}
           </AppLink>
         </span>

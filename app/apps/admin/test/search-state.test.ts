@@ -8,19 +8,19 @@ import { resolveRoute } from "../src/routes/resolve";
 describe("search state", () => {
   it("a filter is a destination on the same route: it keeps the subject and the other key, and the default drops its key", () => {
     const multi = { project: "x", multi: true };
-    const filter = withSearch(resolveRoute("/x/mail", ""), "filter", "hold");
-    expect(filter && formatDest(filter, multi)).toBe("/x/mail?filter=hold");
-    const back = withSearch(resolveRoute("/x/mail", "filter=hold"), "filter", "ready");
+    const filter = withSearch(resolveRoute("/x/mail", ""), "filter", "waiting");
+    expect(filter && formatDest(filter, multi)).toBe("/x/mail?filter=waiting");
+    const back = withSearch(resolveRoute("/x/mail", "filter=waiting"), "filter", "needs_you");
     expect(back && formatDest(back, multi)).toBe("/x/mail");
     expect(back && formatDest(back, { project: "x", multi: false })).toBe("/mail");
-    expect(searchValue(resolveRoute("/mail/42", "filter=hold"), "filter")).toBe("hold");
-    expect(paths.mail.item(42, { filter: "hold" }).search).toEqual({ filter: "hold" });
+    expect(searchValue(resolveRoute("/mail/c/42", "filter=waiting"), "filter")).toBe("waiting");
+    expect(paths.mail.conversation(42, { filter: "waiting" }).search).toEqual({ filter: "waiting" });
   });
 
   it("withSearch keeps the subject and the other key, drops an invalid value to the default, and has no key on other routes", () => {
-    const item = resolveRoute("/mail/3", "filter=hold&batch=2");
-    expect(withSearch(item, "filter", "zzz")).toEqual(paths.mail.item(3, { batch: 2 }));
-    expect(withSearch(item, "q", "ana")).toEqual(paths.mail.item(3, { filter: "hold", batch: 2, q: "ana" }));
+    const item = resolveRoute("/mail/c/3", "filter=all&batch=2");
+    expect(withSearch(item, "filter", "zzz")).toEqual(paths.mail.conversation(3, { batch: 2 }));
+    expect(withSearch(item, "q", "ana")).toEqual(paths.mail.conversation(3, { filter: "all", batch: 2, q: "ana" }));
     const log = resolveRoute("/log", "filter=skipped&client=4");
     expect(withSearch(log, "client", null)).toEqual(paths.log.list({ filter: "skipped" }));
     expect(withSearch(log, "filter", "drafts")).toEqual(paths.log.list({ filter: "drafts", client: 4 }));

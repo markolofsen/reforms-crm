@@ -210,7 +210,7 @@ test("terminal: Close ends the session on the server; closing the last one hides
 test("terminal: at 360px it is a full-screen layer with no sideways scroll, and Hide gives the screen back", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto(at(P, "/mail"));
-  await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
+  await page.locator('ul[aria-label="People"] > li').first().waitFor();
   await openTerminal(page);
   const layer = page.getByTestId("terminal-layer");
   await expect(layer).toBeVisible();
@@ -224,7 +224,7 @@ test("terminal: at 360px it is a full-screen layer with no sideways scroll, and 
 
 test("terminal: keys pressed while a Claude Code session starts cannot corrupt its argv (v0.9.1: \"д/Users/...\")", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
+  await page.locator('ul[aria-label="People"] > li').first().waitFor();
   await toggle(page).click();
   // At once, before the session is ready: a Russian-layout key and a few more.
   await page.keyboard.type("дl l");
@@ -236,7 +236,7 @@ test("terminal: keys pressed while a Claude Code session starts cannot corrupt i
 
 test("terminal: collapsed it is a full-height strip on the right edge (no button in the sidebar); Enter expands it, Hide collapses it back, the session keeps running", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
+  await page.locator('ul[aria-label="People"] > li').first().waitFor();
   const strip = page.locator('[data-slot="terminal-strip"]');
   await expect(strip).toBeVisible();
   const box = await strip.boundingBox();
@@ -277,7 +277,7 @@ async function terminalColours(page: Page) {
 
 test("terminal: its background follows the theme, light and dark, live when the owner switches", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await page.locator('ul[aria-label="Drafts"] > li').first().waitFor();
+  await page.locator('ul[aria-label="People"] > li').first().waitFor();
   const theme = page.getByRole("radiogroup", { name: "Theme" });
   await theme.getByRole("radio", { name: "Light" }).click();
   await openTerminal(page);

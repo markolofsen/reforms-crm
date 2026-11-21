@@ -16,9 +16,9 @@ test.beforeEach(async ({ page }) => {
   await remember(page, PROJECT);
 });
 
-type Row = { id: number; draftId: number | null; channel: "mail"; messengerDraftId: null; mode: "auto" | "manual"; status: "queued" | "sent" | "failed" | "cancelled" | "sending"; actor: string; createdAt: string; dueAt: string | null; doneAt: string | null; toAddr: string; ccAddr: string | null; subject: string; body: string; error: string | null };
-const queued: Row = { id: 3, draftId: 9, channel: "mail", messengerDraftId: null, mode: "auto", status: "queued", actor: "auto", createdAt: "2026-11-15T10:00:00.000Z", dueAt: "2026-11-15T10:10:00.000Z", doneAt: null, toAddr: "ana@example.com", ccAddr: null, subject: "Re: Order status", body: "Hello Ana", error: null };
-const sent: Row = { id: 2, draftId: 8, channel: "mail", messengerDraftId: null, mode: "manual", status: "sent", actor: "admin", createdAt: "2026-11-14T09:00:00.000Z", dueAt: null, doneAt: "2026-11-14T09:00:02.000Z", toAddr: "bo@example.com", ccAddr: "mark@example.org", subject: "Re: Refund question", body: "Hello Bo", error: null };
+type Row = { id: number; draftId: number | null; clientId: number | null; channel: "mail"; messengerDraftId: null; mode: "auto" | "manual"; status: "queued" | "sent" | "failed" | "cancelled" | "sending"; actor: string; createdAt: string; dueAt: string | null; doneAt: string | null; toAddr: string; ccAddr: string | null; subject: string; body: string; error: string | null };
+const queued: Row = { id: 3, draftId: 9, clientId: 19, channel: "mail", messengerDraftId: null, mode: "auto", status: "queued", actor: "auto", createdAt: "2026-11-15T10:00:00.000Z", dueAt: "2026-11-15T10:10:00.000Z", doneAt: null, toAddr: "ana@example.com", ccAddr: null, subject: "Re: Order status", body: "Hello Ana", error: null };
+const sent: Row = { id: 2, draftId: 8, clientId: 18, channel: "mail", messengerDraftId: null, mode: "manual", status: "sent", actor: "admin", createdAt: "2026-11-14T09:00:00.000Z", dueAt: null, doneAt: "2026-11-14T09:00:02.000Z", toAddr: "bo@example.com", ccAddr: "mark@example.org", subject: "Re: Refund question", body: "Hello Bo", error: null };
 
 /** A server that keeps its own list of sends and its own Stop all state, and records every write the page makes. */
 async function sendsServer(page: Page, start: { sends: Row[]; stopped: string[] }) {
@@ -139,8 +139,8 @@ test("activity ▸ sends: Cancel exists only on a queued send, and the row reads
   await expect(table.locator('tr[data-send="3"]')).toContainText("cancelled");
   await expect(table.getByRole("button", { name: /^Cancel send/ })).toHaveCount(0);
   expect(writes).toEqual(["cancel 3"]);
-  // The subject leads to the draft the send came from.
-  await expect(table.getByRole("link", { name: "Re: Refund question" })).toHaveAttribute("href", `/${PROJECT}/mail/8`);
+  // P99: the subject leads to the conversation of the draft's client.
+  await expect(table.getByRole("link", { name: "Re: Refund question" })).toHaveAttribute("href", `/${PROJECT}/mail/c/18`);
 });
 
 test("sending: Stop sending asks inline for the scope, Keep sending backs out, Stop all halts every project and Resume lifts it", async ({ page }) => {

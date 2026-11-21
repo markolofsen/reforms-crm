@@ -142,7 +142,7 @@ export const leadDetailDto = z.strictObject({
     .nullable(),
   note: z.string().nullable(),
   /** The Hub's drafts to this lead's address, newest first. */
-  drafts: z.array(z.strictObject({ id: z.number().int(), subject: z.string(), status: z.string() })),
+  drafts: z.array(z.strictObject({ id: z.number().int(), clientId: z.number().int(), subject: z.string(), status: z.string() })),
 });
 export type LeadDetailDto = z.infer<typeof leadDetailDto>;
 
