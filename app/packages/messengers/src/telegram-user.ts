@@ -1,6 +1,7 @@
 import { AdapterError, type InboundMessage, type MessengerAdapter, type PollBatch, type PollOptions, type SendingAdapter, type SentReceipt } from "./adapter";
 import { isConfirmed, type ConfirmedDraft } from "./confirmed";
 import type { DialogIdentity } from "./autolink";
+import { IMPORT_DAYS } from "@hub/config/chat-rules";
 import { ops } from "@hub/log/ops";
 import { redact } from "./poller";
 
@@ -58,8 +59,6 @@ export interface MtClient {
 export const QUEUE_MAX = 1000;
 /** A flood wait longer than this parks the account (0036 point 2); a shorter one is waited out by the poller. Seconds. */
 export const FLOOD_PARK_SECONDS = 3600;
-/** How far back a link imports (0036 point 3). Days. */
-export const IMPORT_DAYS = 30;
 /** At most this many messages per chat in one import or one catch-up. */
 export const IMPORT_LIMIT = 500;
 

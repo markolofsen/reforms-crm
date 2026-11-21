@@ -15,7 +15,7 @@ export const recordName = (r: AutolinkRecordDto) => r.name || r.email || "this c
  * P100: nobody in Notion matches, so the owner makes the card here: Name (the chat's name), Email (a link needs one: it is how Mail
  * knows the person) and the chat's own Telegram username or WhatsApp number, written to the card. Then the chat is linked to it.
  */
-function CreateClient({ project, r, onDone }: { project: string; r: RecentDialogDto; onDone: (res: AutolinkLinkedDto) => void }) {
+export function CreateClient({ project, r, onDone }: { project: string; r: RecentDialogDto; onDone: (res: AutolinkLinkedDto) => void }) {
   const id = useId();
   const [name, setName] = useState(r.title);
   const [email, setEmail] = useState("");
@@ -54,11 +54,11 @@ function CreateClient({ project, r, onDone }: { project: string; r: RecentDialog
 }
 
 /**
- * Finds a client for a chat nothing matched (P84, P100): two or more characters of a name, email, @username or phone; the server
+ * Finds a client for a chat (P84, P100; P102: also for Change client and for a hidden chat, where there is no Create): two or more characters of a name, email, @username or phone; the server
  * asks its copy of Notion and Notion itself, so a page made a minute ago shows. Each hit shows its email under the name. Nothing
  * found, or only a namesake: Create client «name» in Notion.
  */
-export function RecordSearch({ project, r, onPick, onLinked }: { project: string; r: RecentDialogDto; onPick: (rec: AutolinkRecordDto) => void; onLinked: (res: AutolinkLinkedDto) => void }) {
+export function RecordSearch({ project, r, onPick, onLinked, onCancel }: { project: string; r?: RecentDialogDto; onPick: (rec: AutolinkRecordDto) => void; onLinked?: (res: AutolinkLinkedDto) => void; onCancel?: () => void }) {
   const id = useId();
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
@@ -91,12 +91,17 @@ export function RecordSearch({ project, r, onPick, onLinked }: { project: string
       {found.data && !found.data.live && <p className="text-muted-foreground text-xs">Notion was not reached just now ({found.data.liveError ?? "unknown"}): these are from the copy read at start.</p>}
       {found.data && found.data.records.length === 0 && <p className="text-muted-foreground text-sm">No client in Notion matches.</p>}
       {/* Offered under any answer: the person found may be a namesake (P100: a client with the same first name was not this chat's person). */}
-      {found.data && !creating && (
+      {r && onLinked && found.data && !creating && (
         <ActionButton className="self-start" onClick={() => setCreating(true)} size="s" variant={found.data.records.length === 0 ? "secondary" : "quiet"}>
           {createLabel(r.title)}
         </ActionButton>
       )}
-      {creating && <CreateClient onDone={onLinked} project={project} r={r} />}
+      {r && onLinked && creating && <CreateClient onDone={onLinked} project={project} r={r} />}
+      {onCancel && (
+        <ActionButton className="self-start" onClick={onCancel} size="s" variant="quiet">
+          Cancel
+        </ActionButton>
+      )}
     </div>
   );
 }

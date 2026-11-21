@@ -1,17 +1,22 @@
 import { Hono, type Context } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
-import { autolinkCreateBody, autolinkHiddenDto, autolinkHideBody, autolinkLinkBody, autolinkLinkedDto, autolinkPreviewDto, autolinkRecordsBody, autolinkRecordsDto, autolinkStateDto, chatUnlinkedDto } from "@hub/contract/messengers";
+import { autolinkCreateBody, autolinkDialogsBody, autolinkHiddenDto, autolinkHideBody, autolinkLinkBody, autolinkLinkedDto, autolinkMoveBody, autolinkPreviewDto, autolinkRecordsBody, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoBody, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
 import { RepoError, type Repos } from "@hub/db";
-import { AdapterError, IMPORT_DAYS, MessengersError } from "@hub/messengers";
-import { humanActor, linkUserChatToRecord, unlinkIdentifier } from "@hub/messengers/human";
+import { IMPORT_DAYS } from "@hub/config/chat-rules";
+import { AdapterError, MessengersError } from "@hub/messengers";
+import { humanActor, linkUserChatToRecord, moveChatToRecord, undoMoveChat, unlinkIdentifier } from "@hub/messengers/human";
 import { findClientPages } from "@hub/notion";
 import { createChatClient, fillChatIdentity, type ChatIdentity, type FillOutcome } from "@hub/notion/chat-client";
 import { ops } from "@hub/log/ops";
 import { entryOf } from "../client-directory";
 import { z, type ZodType } from "zod";
 import { gateRefusal } from "../admin-gate";
+import { markDialogs } from "../autolink-dialogs";
 import type { ProjectAutolink } from "../autolink-setup";
 import { notFound } from "../http";
+
+/** At most this many dialogs in the Link a chat box: the owner's newest chats, read on demand and never stored. */
+const DIALOGS_LIMIT = 200;
 
 /**
  * The autolink's doors (P84, decision 0036 point 3 as amended 2026-11-20). Every route is a POST behind the admin gate (the exact
@@ -51,6 +56,17 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
   };
   const fillLine = (f: FillOutcome): string | null => (f.state === "written" ? `${f.property} set to ${f.value} in Notion` : f.state === "refused" ? f.note : f.reason.startsWith("nothing") ? null : `${f.reason} in Notion, kept`);
 
+  /** P100: writes the chat's username or number into the card's empty Telegram or WhatsApp field; a failure leaves the link standing and is said in one line. */
+  async function fillCard(al: ProjectAutolink, pageId: string, channel: "telegram_user" | "whatsapp", chatId: string): Promise<string | null> {
+    if (!al.directory.dataSourceId) return null;
+    try {
+      return fillLine(await fillChatIdentity(await al.directory.notion(), { clientsDataSource: al.directory.dataSourceId, pageId, identity: identityFor(al, channel, chatId) }));
+    } catch (e) {
+      ops("notion").warn("filling the chat's field on the client failed", { error: e instanceof Error ? e.name : "error" });
+      return "The Hub could not fill the chat's field in Notion (see the ops log); the link stands";
+    }
+  }
+
   async function unlink(c: Context, slug: string, al: ProjectAutolink, never: boolean) {
     const id = idOf(c);
     if (id === null) return c.json({ error: "Not a chat id.", code: "invalid" as const }, 400);
@@ -73,9 +89,9 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
     .post("/api/projects/:slug/messengers/autolink/state", (c) =>
       guarded(c, empty, async (_b, slug, al) => {
         const st = await al.autolink.state();
-        if (st.project !== slug) return c.json(autolinkStateDto.parse({ enabled: false, directory: al.directory.status(), unlinkedActive: 0, recent: [], freshDays: st.freshDays, hidden: [], hiddenUnnamed: 0 }));
-        const hidden = st.hidden.map((h) => ({ channel: h.channel, chatId: h.chatId, title: h.title, hiddenAt: h.hiddenAt }));
-        return c.json(autolinkStateDto.parse({ enabled: st.enabled, directory: al.directory.status(), unlinkedActive: st.unlinkedActive, recent: st.recent, freshDays: st.freshDays, hidden, hiddenUnnamed: st.hiddenUnnamed }));
+        if (st.project !== slug) return c.json(autolinkStateDto.parse({ enabled: false, directory: al.directory.status(), unlinkedActive: 0, recent: [], unlinked: [], freshDays: st.freshDays, hidden: [], hiddenUnnamed: 0 }));
+        const hidden = st.hidden.map((h) => ({ channel: h.channel, account: h.account, chatId: h.chatId, title: h.title, hiddenAt: h.hiddenAt }));
+        return c.json(autolinkStateDto.parse({ enabled: st.enabled, directory: al.directory.status(), unlinkedActive: st.unlinkedActive, recent: st.recent, unlinked: st.unlinked, freshDays: st.freshDays, hidden, hiddenUnnamed: st.hiddenUnnamed }));
       }),
     )
     .post("/api/projects/:slug/messengers/autolink/preview", (c) =>
@@ -94,17 +110,10 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
         const adapter = al.autolink.adapterOf(b.channel, b.account);
         if (!adapter) return c.json({ error: "That account is not connected (parked, stopped or unknown): see its state.", code: "wrong_state" as const }, 409);
         const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: rec.email, name: rec.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}) });
-        // P100: the chat's username or number into the card's empty Telegram or WhatsApp, so the next chat links by itself. Never
-        // an overwrite; a failure leaves the link standing and is said in one line.
-        let notion: string | null = null;
-        if (al.directory.dataSourceId) {
-          try {
-            notion = fillLine(await fillChatIdentity(await al.directory.notion(), { clientsDataSource: al.directory.dataSourceId, pageId: rec.key, identity: identityFor(al, b.channel, b.chatId) }));
-          } catch (e) {
-            ops("notion").warn("filling the chat's field on the client failed", { error: e instanceof Error ? e.name : "error" });
-            notion = "The Hub could not fill the chat's field in Notion (see the ops log); the link stands";
-          }
-        }
+        // P102: a hidden chat linked by hand forgets its refusal in the same call.
+        await al.autolink.forget(b.channel, b.chatId);
+        // P100: the chat's username or number into the card's empty Telegram or WhatsApp, so the next chat links by itself. Never an overwrite.
+        const notion = await fillCard(al, rec.key, b.channel, b.chatId);
         return c.json(autolinkLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError, days: IMPORT_DAYS, notion }));
       }),
     )
@@ -125,6 +134,7 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
           const entry = entryOf(existing as never);
           if (entry) al.directory.put(entry);
           const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: b.email, name: entry?.name || b.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}) });
+          await al.autolink.forget(b.channel, b.chatId);
           const filled = fillLine(await fillChatIdentity(deps, { clientsDataSource: al.directory.dataSourceId, pageId: existing.id, identity }));
           return c.json(autolinkLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError, days: IMPORT_DAYS, notion: `Linked to the existing card of ${b.email}${filled ? `; ${filled}` : ""}` }));
         }
@@ -133,6 +143,7 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
         const entry = entryOf(made.page as never);
         if (entry) al.directory.put(entry);
         const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: b.email, name: b.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}) });
+        await al.autolink.forget(b.channel, b.chatId);
         const field = identity.channel === "telegram" ? (identity.username ?? identity.phone) : identity.phone;
         return c.json(autolinkLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError, days: IMPORT_DAYS, notion: `Created ${b.name} in Notion${field ? ` with ${identity.channel === "telegram" ? "Telegram" : "WhatsApp"} ${field}` : ""}` }));
       }),
@@ -151,6 +162,44 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
         if ((await al.autolink.state()).project !== slug) return c.json({ error: "The autolink serves another project.", code: "wrong_state" as const }, 409);
         await al.autolink.unrefuse(b.channel, b.chatId);
         return c.json(autolinkHiddenDto.parse({ ok: true, channel: b.channel, chatId: b.chatId, hidden: false }));
+      }),
+    )
+    // P102: the dialogs of one account, marked against the picked client record, for "Link a chat…" (read on demand, never stored).
+    .post("/api/projects/:slug/messengers/autolink/dialogs", (c) =>
+      guarded(c, autolinkDialogsBody, async (b, slug, al) => {
+        const rec = al.autolink.record(b.key);
+        if (!rec) return c.json({ error: "That client record is not in the directory now.", code: "wrong_state" as const }, 409);
+        const adapter = al.autolink.adapterOf(b.channel, b.account);
+        if (!adapter) return c.json({ error: "That account is not connected (parked, stopped or unknown): see its state.", code: "wrong_state" as const }, 409);
+        const allowed = new Set((await repos.messengers.allowedChats(slug)).filter((r) => r.channel === b.channel).map((r) => r.chatId));
+        return c.json(userDialogsDto.parse({ dialogs: markDialogs(b.channel, rec, await adapter.dialogs(DIALOGS_LIMIT), allowed) }));
+      }),
+    )
+    // P102 Change client: the chat's identifier moves to another client record, its stored messages stay, the old client's open draft is set aside.
+    .post("/api/projects/:slug/messengers/chats/:id/client", (c) =>
+      guarded(c, autolinkMoveBody, async (b, slug, al) => {
+        const id = idOf(c);
+        if (id === null) return c.json({ error: "Not a chat id.", code: "invalid" as const }, 400);
+        const row = await repos.messengers.chatById(slug, id);
+        if (!row) return notFound(c, "chat");
+        if (row.channel === "telegram_bot") return c.json({ error: "A bot chat is not linked by the autolink.", code: "wrong_state" as const }, 409);
+        const rec = al.autolink.record(b.key);
+        if (!rec?.email) return c.json({ error: "That client record is not in the directory now, or it has no email.", code: "wrong_state" as const }, 409);
+        const r = await moveChatToRecord(repos, humanActor("admin"), { project: slug, channel: row.channel, chatId: row.chatId, client: { email: rec.email, name: rec.name } });
+        const from = await repos.clients.get(slug, r.fromClientId);
+        const notion = await fillCard(al, rec.key, row.channel, row.chatId);
+        return c.json(chatMovedDto.parse({ ok: true, id, fromClientId: r.fromClientId, fromName: from?.name || from?.email || "the old client", toName: rec.name || rec.email, skippedDraftId: r.skippedDraftId, notion }));
+      }),
+    )
+    .post("/api/projects/:slug/messengers/chats/:id/client/undo", (c) =>
+      guarded(c, chatMoveUndoBody, async (b, slug) => {
+        const id = idOf(c);
+        if (id === null) return c.json({ error: "Not a chat id.", code: "invalid" as const }, 400);
+        const row = await repos.messengers.chatById(slug, id);
+        if (!row) return notFound(c, "chat");
+        if (row.channel === "telegram_bot") return c.json({ error: "A bot chat is not linked by the autolink.", code: "wrong_state" as const }, 409);
+        const r = await undoMoveChat(repos, humanActor("admin"), { project: slug, channel: row.channel, chatId: row.chatId, clientId: b.clientId, draftId: b.draftId });
+        return c.json(chatMoveUndoneDto.parse({ ok: true, id, draftRestored: r.draftRestored }));
       }),
     )
     .post("/api/projects/:slug/messengers/chats/:id/unlink", (c) => guarded(c, empty, (_b, slug, al) => unlink(c, slug, al, false)))

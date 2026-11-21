@@ -76,6 +76,8 @@ export interface AutolinkState {
   enabled: boolean;
   /** Only the fresh ones (P84c): the newest message at most `freshDays` old. */
   recent: RecentDialog[];
+  /** P102: every unlinked dialog the memory holds, of any age (up to `RECENT_MAX`), newest first; a superset of `recent`. */
+  unlinked: RecentDialog[];
   /** Distinct unlinked chats that wrote since the server started: a number in memory, never stored (0036 point 3 as amended). */
   unlinkedActive: number;
   freshDays: number;
@@ -108,6 +110,8 @@ export interface Autolink {
   refuse(channel: UserChannel, chatId: string, title?: string | null): Promise<void>;
   /** Unhide (P84c): the refusal is deleted and the chat, when its identity is in memory, is considered again. Returns whether one went. */
   unrefuse(channel: UserChannel, chatId: string): Promise<boolean>;
+  /** P102: a manual Link of a hidden chat takes its refusal back in the same call (the HMAC row and the name in Hidden); the matcher is not re-run. */
+  forget(channel: UserChannel, chatId: string): Promise<void>;
   /** A directory record by its key, for the owner's Link from the Chats screen. */
   record(key: string): DirectoryEntry | null;
   /**
@@ -256,14 +260,14 @@ export function startAutolink(o: StartAutolink): Autolink {
       const enabled = o.project ? await o.enabled() : false;
       // A chat linked since it was remembered (by the owner or a later match) leaves the list.
       const rows = [...recent.values()].reverse();
-      const live: RecentDialog[] = [];
-      // P84c: only the fresh ones; an unlinked chat whose newest message is older (or unknown) is never shown.
+      const unlinked: RecentDialog[] = [];
+      for (const r of rows) if (o.project && !(await o.repos.messengers.isAllowed(o.project, r.channel, r.chatId))) unlinked.push(r);
+      // P84c: To do holds only the fresh ones (the newest message at most `freshDays` old); P102: Not linked holds every one.
       const since = now().getTime() - UNLINKED_FRESH_DAYS * 86_400_000;
-      const fresh = (r: RecentDialog) => r.last !== null && Date.parse(r.last.at) >= since;
-      for (const r of rows) if (fresh(r) && o.project && !(await o.repos.messengers.isAllowed(o.project, r.channel, r.chatId))) live.push(r);
+      const live = unlinked.filter((r) => r.last !== null && Date.parse(r.last.at) >= since);
       const named = [...hidden.values()].reverse();
       const total = o.project ? (await refusals()).size : 0;
-      return { project: o.project, enabled, recent: live, unlinkedActive: active.size, freshDays: UNLINKED_FRESH_DAYS, hidden: named, hiddenUnnamed: Math.max(0, total - named.length) };
+      return { project: o.project, enabled, recent: live, unlinked, unlinkedActive: active.size, freshDays: UNLINKED_FRESH_DAYS, hidden: named, hiddenUnnamed: Math.max(0, total - named.length) };
     },
     async preview() {
       const out: PreviewCounts[] = [];
@@ -300,7 +304,16 @@ export function startAutolink(o: StartAutolink): Autolink {
       (await refusals()).add(`${channel}:${h}`);
       const r = recent.get(`${channel}:${chatId}`);
       recent.delete(`${channel}:${chatId}`);
-      keepHidden(channel, r?.account ?? null, chatId, title ?? r?.title ?? chatId, null, r?.last ?? null);
+      // A linked chat hidden by Never link has no remembered account: with exactly one account on the channel, it is that one (Link on Hidden needs it).
+      const sole = o.accounts().filter((a) => a.channel === channel);
+      keepHidden(channel, r?.account ?? (sole.length === 1 ? (sole[0]?.account ?? null) : null), chatId, title ?? r?.title ?? chatId, null, r?.last ?? null);
+    },
+    async forget(channel, chatId) {
+      if (!o.project) return;
+      const h = hmac(channel, chatId);
+      await o.repos.messengers.forgetLinkRefusal(o.project, channel, h);
+      (await refusals()).delete(`${channel}:${h}`);
+      hidden.delete(`${channel}:${chatId}`);
     },
     async unrefuse(channel, chatId) {
       if (!o.project) return false;

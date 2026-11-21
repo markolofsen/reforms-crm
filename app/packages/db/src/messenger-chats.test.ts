@@ -127,3 +127,15 @@ describe("pre-analysis verdicts (P71 M-P, migration 0029)", () => {
     expect(count("messenger_triage")).toBe(0);
   });
 });
+
+describe("P102 moving an identifier", () => {
+  it("moveIdentifier gives the chat to another client of the project and returns the old one; messageCount keeps counting", async () => {
+    const bob = await repos.clients.create({ project: "a", email: "bob@a.test", name: "Bob" });
+    await repos.messengers.addIdentifier("a", ann, "telegram", "42");
+    await repos.messengers.insertMessage(msg());
+    expect(await repos.messengers.moveIdentifier("a", "telegram", "42", bob)).toBe(ann);
+    expect(await repos.messengers.clientByIdentifier("a", "telegram", "42")).toBe(bob);
+    expect(await repos.messengers.messageCount("a", "telegram_user", "42")).toBe(1);
+    expect(await repos.messengers.moveIdentifier("a", "telegram", "999", bob)).toBeNull();
+  });
+});

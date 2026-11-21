@@ -13,6 +13,7 @@ const chat = (patch: Partial<MessengerChatDto> = {}): MessengerChatDto => ({
   client: { id: 3, name: "Rita Falsa", email: "rita@example.net" },
   rules: { ...DEFAULT_CHAT_RULES },
   inbound: 1,
+  stored: 3,
   last: { direction: "in", kind: "text", text: "Hi!", at: "2026-11-20T08:00:00.000Z", hidden: null },
   owed: true,
   draft: null,

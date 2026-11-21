@@ -122,6 +122,7 @@ const SCREENS: Screen[] = [
   // P84c: To do with the fresh unlinked chats and both accounts connected (the channel control), and Hidden; the memory is stubbed.
   { name: "messengers: chats, to do", path: at(P, "/messengers"), mock: async (p) => void (await stubChats(p)), ready: async (p) => void (await p.getByRole("list", { name: "New chats" }).waitFor()) },
   { name: "messengers: chats, hidden", path: at(P, "/messengers?filter=hidden"), mock: async (p) => void (await stubChats(p)), ready: async (p) => void (await p.getByRole("list", { name: "Hidden chats" }).waitFor()) },
+  { name: "messengers: chats, not linked", path: at(P, "/messengers?filter=unlinked"), mock: async (p) => void (await stubChats(p)), ready: async (p) => void (await p.getByRole("list", { name: "New chats" }).waitFor()) },
   { name: "messengers: settings", path: at(P, "/messengers/settings"), ready: async (p) => void (await p.getByRole("list", { name: "Linked chats" }).waitFor()) },
   // P63, P81: wait for the general view's form (the drawing, or on a phone its list), so axe and the width checks never see the skeleton.
   { name: "help", path: "/help", ready: async (p) => void (await p.locator('[data-testid="scheme-general"]:is([data-form="drawn"], [data-form="list"])').waitFor({ timeout: 15_000 })) },

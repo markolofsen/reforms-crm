@@ -8,11 +8,8 @@ import { keys } from "@/lib/cache/keys";
 import { ConnectionsView } from "../../settings/connections/connections-view";
 import { SettingsGroup as Group } from "../../settings/group";
 import { ChatRules } from "./chat-rules";
-import { LinkPicker, type UserChannel } from "./link-picker";
 import { TelegramAccount } from "./telegram-account";
-import { useTelegramUser } from "./use-telegram";
 import { WhatsAppAccount } from "./whatsapp/whatsapp-account";
-import { useWhatsApp } from "./whatsapp/use-whatsapp";
 
 /** The send guards of a user account (decision 0036 point 7), read only: the send door applies them to Telegram and WhatsApp. */
 export const GUARDS: readonly string[] = [
@@ -22,15 +19,15 @@ export const GUARDS: readonly string[] = [
   "Stop sending (Settings ▸ Sending) stops every channel.",
 ];
 
-/** The linked chats with their rules, then the picker that links another. */
-function LinkedChats({ project, accounts }: { project: string; accounts: Record<UserChannel, string | null> }) {
+/** The linked chats with their rules. Linking, changing the client and unlinking are on Chats (P102): one place, the row's state menu. */
+function LinkedChats({ project }: { project: string }) {
   const q = useQuery({ queryKey: keys.messengerChats(project, "linked"), queryFn: () => messengersApi.chats(project, "linked") });
   return (
     <div className="flex flex-col gap-4">
       {q.isPending ? null : !q.data ? (
         <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the linked chats" />
       ) : q.data.chats.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No chat is linked yet. Nothing of an unlinked chat is stored; Chats lists the ones the Hub saw since it started, in memory only.</p>
+        <p className="text-muted-foreground text-sm">No chat is linked yet. Link one on Chats (Link a chat…, or the menu of a chat in Not linked). Nothing of an unlinked chat is stored.</p>
       ) : (
         <ul aria-label="Linked chats" className="flex flex-col divide-y border-y">
           {q.data.chats.map((c) => (
@@ -38,7 +35,6 @@ function LinkedChats({ project, accounts }: { project: string; accounts: Record<
           ))}
         </ul>
       )}
-      <LinkPicker accounts={accounts} project={project} />
     </div>
   );
 }
@@ -47,18 +43,12 @@ function LinkedChats({ project, accounts }: { project: string; accounts: Record<
  * Messengers ▸ Settings (P71 M3, decision 0036 point 6): what is set rarely for the messengers, every group in view (nothing
  * folded, as Settings since P75). The owner's Telegram account (connect with the risk sentence, its state, Disconnect), his WhatsApp
  * number (P71 M5: Connect, the QR code to scan, its state, Disconnect), the Telegram bot's token, the linked chats with their rules
- * and "Link a chat", and the send guards' numbers.
+ * (linking is on Chats, P102), and the send guards' numbers.
  */
 export function MessengerSettings({ project }: { project: string }) {
-  const tg = useTelegramUser();
-  const wa = useWhatsApp();
   // P84: the account rows say how many chats the Hub reads (the linked ones), from the same list as Linked chats below.
   const chats = useQuery({ queryKey: keys.messengerChats(project, "linked"), queryFn: () => messengersApi.chats(project, "linked") });
-  const linkedOf = (ch: UserChannel) => chats.data?.chats.filter((c) => c.channel === ch).length;
-  const accounts: Record<UserChannel, string | null> = {
-    telegram_user: tg.data?.accounts.find((a) => a.state === "running")?.account ?? null,
-    whatsapp: wa.data?.accounts.find((a) => a.state === "running")?.account ?? null,
-  };
+  const linkedOf = (ch: "telegram_user" | "whatsapp") => chats.data?.chats.filter((c) => c.channel === ch).length;
   return (
     <Page nav={<SubNav section="messengers" />}>
       <div className="flex flex-col gap-8">
@@ -71,7 +61,7 @@ export function MessengerSettings({ project }: { project: string }) {
         {/* No heading: the row's own label says "Telegram bot" (a heading over it said it twice, `admin-principles.md` rule 9). */}
         <ConnectionsView kinds={["telegram"]} label="Telegram bot" />
         <Group id="linked-chats" title="Linked chats">
-          <LinkedChats accounts={accounts} project={project} />
+          <LinkedChats project={project} />
         </Group>
         <Group id="guards" title="Send guards">
           <ul className="measure flex list-disc flex-col gap-1 ps-5 text-sm">

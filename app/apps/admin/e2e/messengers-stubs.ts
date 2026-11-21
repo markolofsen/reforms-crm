@@ -15,22 +15,24 @@ export const RECENT: Recent[] = [
   { channel: "whatsapp", account: "351900000001", chatId: "+351911000111", title: "Joana", seenAt: ago(120), why: "none", by: null, candidates: [], last: { at: ago(120), inbound: true }, username: null, phone: "+351911000111" },
   { channel: "telegram_user", account: "42", chatId: "9002", title: "Delivery bot fan", seenAt: ago(60 * 26), why: "none", by: null, candidates: [], last: { at: ago(60 * 26), inbound: true }, username: "suenot", phone: null },
 ];
+/** P102: Not linked also holds a chat of any age (the fresh window drops it from To do). */
+export const OLD: Recent = { channel: "telegram_user", account: "42", chatId: "9003", title: "Old Olga", seenAt: ago(60 * 24 * 20), why: "none", by: null, candidates: [], last: { at: ago(60 * 24 * 20), inbound: true }, username: null, phone: null };
 
-/** Both accounts connected and the autolink's state, with Hide and Unhide moving a chat between the two lists. Returns the POSTs. */
+/** Both accounts connected and the autolink's state, with Hide and Unhide moving a chat between the lists. Returns the POSTs. */
 export async function stubChats(page: Page) {
   const posts: { path: string; body: unknown }[] = [];
   let recent = [...RECENT];
-  let hidden: { channel: "telegram_user" | "whatsapp"; chatId: string; title: string; hiddenAt: string }[] = [{ channel: "whatsapp", chatId: "+351922000222", title: "Spam Sender", hiddenAt: ago(60 * 50) }];
+  let hidden: { channel: "telegram_user" | "whatsapp"; account: string | null; chatId: string; title: string; hiddenAt: string }[] = [{ channel: "whatsapp", account: "351900000001", chatId: "+351922000222", title: "Spam Sender", hiddenAt: ago(60 * 50) }];
   await page.route(/\/api\/messengers\/telegram-user$/, (r) => r.fulfill({ json: { state: "on", project: P, accounts: [{ account: "42", state: "running", parked: null, fix: null, failures: 0, stored: 0 }] } }));
   await page.route(/\/api\/messengers\/whatsapp$/, (r) => r.fulfill({ json: { state: "on", project: P, accounts: [{ account: "351900000001", state: "running", parked: null, fix: null, failures: 0, stored: 0 }] } }));
-  await page.route(/\/messengers\/autolink\/state$/, (r) => r.fulfill({ json: { enabled: true, directory: dir, unlinkedActive: 2, recent, freshDays: 14, hidden, hiddenUnnamed: 1 } }));
+  await page.route(/\/messengers\/autolink\/state$/, (r) => r.fulfill({ json: { enabled: true, directory: dir, unlinkedActive: 2, recent, unlinked: [...recent, OLD], freshDays: 14, hidden, hiddenUnnamed: 1 } }));
   const move = (to: "hidden" | "recent") => async (r: Route) => {
     const body = r.request().postDataJSON() as { channel: "telegram_user" | "whatsapp"; chatId: string };
     posts.push({ path: new URL(r.request().url()).pathname, body });
     if (to === "hidden") {
       const row = recent.find((x) => x.chatId === body.chatId);
       recent = recent.filter((x) => x.chatId !== body.chatId);
-      hidden = [{ channel: body.channel, chatId: body.chatId, title: row?.title ?? body.chatId, hiddenAt: new Date().toISOString() }, ...hidden];
+      hidden = [{ channel: body.channel, account: row?.account ?? null, chatId: body.chatId, title: row?.title ?? body.chatId, hiddenAt: new Date().toISOString() }, ...hidden];
     } else {
       const row = hidden.find((x) => x.chatId === body.chatId);
       hidden = hidden.filter((x) => x.chatId !== body.chatId);
@@ -60,6 +62,25 @@ export async function stubChats(page: Page) {
   };
   await page.route(/\/messengers\/autolink\/link$/, linked);
   await page.route(/\/messengers\/autolink\/create$/, linked);
+  // P102: Link a chat… (the dialogs of each account marked against the picked record), Change client and its Undo, Unlink.
+  await page.route(/\/messengers\/autolink\/dialogs$/, async (r) => {
+    posts.push({ path: new URL(r.request().url()).pathname, body: r.request().postDataJSON() });
+    const wa = (r.request().postDataJSON() as { channel: string }).channel === "whatsapp";
+    await r.fulfill({ json: { dialogs: wa ? [] : [{ chatId: "9002", title: "Delivery bot fan", username: "suenot", phone: null, suggested: true, linked: false }, { chatId: "700100", title: "Rita F.", username: null, phone: null, suggested: false, linked: true }] } });
+  });
+  await page.route(/\/messengers\/chats\/\d+\/client$/, async (r) => {
+    posts.push({ path: new URL(r.request().url()).pathname, body: r.request().postDataJSON() });
+    await r.fulfill({ json: { ok: true, id: 1, fromClientId: 7, fromName: "Rita Falsa", toName: "Евгений", skippedDraftId: 11, notion: "Telegram set to ritaf in Notion" } });
+  });
+  await page.route(/\/messengers\/chats\/\d+\/client\/undo$/, async (r) => {
+    posts.push({ path: new URL(r.request().url()).pathname, body: r.request().postDataJSON() });
+    await r.fulfill({ json: { ok: true, id: 1, draftRestored: true } });
+  });
+  await page.route(/\/messengers\/chats\/\d+\/(unlink|never)$/, async (r) => {
+    // The seed's linked chats are other specs' fixtures: the unlink is stubbed, never reaches the real server.
+    posts.push({ path: new URL(r.request().url()).pathname, body: r.request().postDataJSON() });
+    await r.fulfill({ json: { ok: true, id: 1, never: r.request().url().endsWith("/never") } });
+  });
   await page.route(/\/messengers\/autolink\/hide$/, move("hidden"));
   await page.route(/\/messengers\/autolink\/unhide$/, move("recent"));
   return { posts };

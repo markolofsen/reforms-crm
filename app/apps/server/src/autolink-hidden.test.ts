@@ -69,6 +69,21 @@ describe("only fresh unlinked chats", () => {
   });
 });
 
+describe("Not linked keeps every remembered chat", () => {
+  it("lists the old and the undated chats in unlinked (newest first) while recent stays the fresh ones; Unhide of an old chat shows it in unlinked only", async () => {
+    await al.scan("telegram_user", "42");
+    await al.idle();
+    let st = await state();
+    expect(st.unlinked.map((r) => r.title)).toEqual(["Fresh Fay", "Old Olga", "Unknown Una"]);
+    await post("hide", { channel: "telegram_user", chatId: "2002" });
+    await post("unhide", { channel: "telegram_user", chatId: "2002" });
+    await al.idle();
+    st = await state();
+    expect(st.recent.map((r) => r.title)).toEqual(["Fresh Fay"]);
+    expect(st.unlinked.map((r) => r.title)).toContain("Old Olga");
+  });
+});
+
 describe("Hide and Unhide", () => {
   it("Hide keeps only a keyed hash, names the chat in Hidden from memory, holds after a restart, and Unhide brings it back", async () => {
     await al.scan("telegram_user", "42");
@@ -77,7 +92,7 @@ describe("Hide and Unhide", () => {
     expect((await post("hide", { channel: "telegram_user", chatId: "2001" })).status).toBe(200);
     let st = await state();
     expect(st.recent).toEqual([]);
-    expect(st.hidden).toEqual([{ channel: "telegram_user", chatId: "2001", title: "Fresh Fay", hiddenAt: NOW.toISOString() }]);
+    expect(st.hidden).toEqual([{ channel: "telegram_user", chatId: "2001", account: "42", title: "Fresh Fay", hiddenAt: NOW.toISOString() }]);
     expect(st.hiddenUnnamed).toBe(0);
     const refusals = rows("select hash from messenger_link_refusals") as { hash: string }[];
     expect(refusals).toHaveLength(1);

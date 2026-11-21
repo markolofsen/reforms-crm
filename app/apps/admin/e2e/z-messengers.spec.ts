@@ -128,8 +128,6 @@ async function stubTelegram(page: Page, opts: { connected: boolean }) {
     connected = true;
     await reply({ step: "done", account: "42", name: "Mark Owner" })(r);
   });
-  await page.route(/\/telegram-user\/42\/dialogs$/, reply({ dialogs: [{ chatId: "900", title: "Someone else", username: null, phone: null, suggested: false, linked: false }, { chatId: "700100", title: "Rita F.", username: "ritaf", phone: null, suggested: true, linked: true }, { chatId: "901", title: "Rita (work)", username: null, phone: "+351911", suggested: true, linked: false }] }));
-  await page.route(/\/telegram-user\/42\/link$/, reply({ ok: true, chatId: "901", imported: 3, importError: null }));
   return { posts, flow: FLOW };
 }
 
@@ -154,21 +152,6 @@ test("messengers settings: the connect form drives M1's routes step by step, wit
   ]);
   // Nothing of the login reached the address.
   expect(page.url()).not.toMatch(/12345|secret|0123456789abcdef/);
-});
-
-test("messengers settings: Link a chat finds the client, lists the suggested chats first and links one", async ({ page }) => {
-  const t = await stubTelegram(page, { connected: true });
-  await page.goto(at(P, "/messengers/settings"));
-  const picker = page.getByTestId("link-picker");
-  await picker.getByLabel("Link a chat to a client").fill("rita");
-  await picker.getByRole("list", { name: "Matching clients" }).getByRole("button", { name: /Rita Falsa/ }).click();
-  const dialogs = picker.getByRole("list", { name: "Telegram chats for Rita Falsa" });
-  await expect(dialogs.getByRole("listitem")).toHaveText([/Rita F\./, /Rita \(work\)/, /Someone else/]);
-  await expect(dialogs.getByRole("listitem").first().getByText("Linked")).toBeVisible();
-  await dialogs.getByRole("button", { name: "Link Rita (work)" }).click();
-  await expect(picker.getByRole("status")).toHaveText("Linked to Rita Falsa: 3 messages of the last 30 days imported.");
-  expect(t.posts.map((p) => p.path)).toEqual([`/api/projects/${P}/messengers/telegram-user/42/dialogs`, `/api/projects/${P}/messengers/telegram-user/42/link`]);
-  expect(t.posts[1]?.body).toMatchObject({ chatId: "901", title: "Rita (work)" });
 });
 
 test("messengers settings: WhatsApp shows the QR code only after Connect, then the linked number", async ({ page }) => {

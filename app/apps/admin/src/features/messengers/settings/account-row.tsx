@@ -4,6 +4,7 @@ import type { TelegramUserAccountDto } from "@hub/contract/messengers";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { sentence } from "@/lib/api/client";
+import { ChannelIcon } from "../channel/channel-icon";
 import { readsLine } from "../labels";
 
 export const STATE_WORD: Record<TelegramUserAccountDto["state"], { word: string; badge: "success" | "warning" | "error" | "outline" }> = {
@@ -18,7 +19,7 @@ export const STATE_WORD: Record<TelegramUserAccountDto["state"], { word: string;
  * One connected account of a user-account channel (Telegram since P71 M3, WhatsApp since M5): its name, its state, the fix line of
  * a park, and Disconnect, confirmed in place (it removes the session; `note` says what that means for this channel).
  */
-export function AccountRow({ a, label, note, disconnect, statusKey, linked }: { a: TelegramUserAccountDto; label: string; note: string; disconnect: (account: string) => Promise<unknown>; statusKey: QueryKey; linked?: number }) {
+export function AccountRow({ a, channel, label, note, disconnect, statusKey, linked }: { a: TelegramUserAccountDto; channel: "telegram_user" | "whatsapp"; label: string; note: string; disconnect: (account: string) => Promise<unknown>; statusKey: QueryKey; linked?: number }) {
   const qc = useQueryClient();
   const [asking, setAsking] = useState(false);
   const off = useMutation({ mutationFn: () => disconnect(a.account), onSettled: () => qc.invalidateQueries({ queryKey: statusKey }) });
@@ -26,6 +27,7 @@ export function AccountRow({ a, label, note, disconnect, statusKey, linked }: { 
   return (
     <li className="flex flex-col gap-2 py-3" data-account={a.account}>
       <div className="flex flex-wrap items-center gap-2">
+        <ChannelIcon channel={channel} />
         <span className="font-medium text-sm">{label}</span>
         <Badge variant={look.badge}>{a.parked ? `${look.word} (${a.parked.replace("_", " ")})` : look.word}</Badge>
         {a.state === "running" && linked !== undefined && <span className="text-sm">{readsLine(linked)}</span>}

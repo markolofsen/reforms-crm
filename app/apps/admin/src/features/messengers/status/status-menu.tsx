@@ -1,0 +1,61 @@
+import { ChevronDownIcon } from "lucide-react";
+import { Menu, MenuItem, MenuLinkItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
+import { ActionButton } from "@hub/ui/product/action-button";
+import { AppLink } from "@/components/app-link";
+import { paths } from "@/routes/paths";
+
+/** What the menu can ask of its row: the row decides what each does (a search box, a confirmation, a move). */
+export type StatusAction = "change" | "unlink" | "hide-linked" | "link" | "create" | "hide" | "unhide";
+
+/** The three states of a chat (P102): the menu's items are the moves that state allows, and only those. */
+export type StatusState = { state: "linked"; client: string } | { state: "unlinked"; canCreate: boolean } | { state: "hidden"; canLink: boolean };
+
+/**
+ * P102 S3: the one state menu of a chat row, the only place a chat changes state, so a row has one control for it instead of a
+ * button per move. Linked to X: Change client (the chat and its messages go to another client), Unlink (deletes), Hide as not a
+ * client, and the rules; Not linked: Link to a client, Create client, Hide; Hidden: Link to a client (a hidden chat can be linked),
+ * Unhide. Every item that deletes or searches opens in the row, never in a dialog (`ui-specifications.md` rule 5d).
+ */
+export function StatusMenu({ s, name, disabled, onAction }: { s: StatusState; name: string; disabled: boolean; onAction: (a: StatusAction) => void }) {
+  const label = s.state === "linked" ? `Linked to ${s.client}` : s.state === "unlinked" ? "Not linked" : "Hidden";
+  const item = (a: StatusAction, text: string, destructive = false) => (
+    <MenuItem disabled={disabled} onClick={() => onAction(a)} variant={destructive ? "destructive" : "default"}>
+      {text}
+    </MenuItem>
+  );
+  return (
+    <Menu>
+      <MenuTrigger render={<ActionButton className="max-w-full" size="s" variant="quiet" />}>
+        <span className="sr-only">Status of {name}: </span>
+        <span className="truncate">{label}</span>
+        <ChevronDownIcon aria-hidden="true" />
+      </MenuTrigger>
+      <MenuPopup align="start">
+        {s.state === "linked" && (
+          <>
+            {item("change", "Change client…")}
+            <MenuLinkItem render={<AppLink to={paths.messengers.settings()} />}>Rules of this chat</MenuLinkItem>
+            <MenuSeparator />
+            {item("hide-linked", "Hide: not a client…", true)}
+            {item("unlink", "Unlink…", true)}
+          </>
+        )}
+        {s.state === "unlinked" && (
+          <>
+            {item("link", "Link to a client…")}
+            {s.canCreate && item("create", "Create client…")}
+            <MenuSeparator />
+            {item("hide", "Hide: not a client")}
+          </>
+        )}
+        {s.state === "hidden" && (
+          <>
+            {s.canLink ? item("link", "Link to a client…") : <MenuItem disabled>Link to a client (its account is not connected)</MenuItem>}
+            <MenuSeparator />
+            {item("unhide", "Unhide")}
+          </>
+        )}
+      </MenuPopup>
+    </Menu>
+  );
+}

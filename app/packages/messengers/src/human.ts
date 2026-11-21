@@ -8,14 +8,14 @@
  * The login of a user account, the WhatsApp pairing and their session writes are exported here too, for the same reason: only a
  * person logs in or scans a QR code.
  */
-import type { IdentifierKind, MessengerChannel, Repos } from "@hub/db";
+import { RepoError, type IdentifierKind, type MessengerChannel, type Repos } from "@hub/db";
 import { isSending, type InboundMessage, type MessengerAdapter, type SentReceipt } from "./adapter";
 import { mintConfirmed, type ConfirmedDraft } from "./confirmed";
 import { MessengersError } from "./errors";
 import { normalizeIdentifier } from "./normalize";
 import { channelsOf, RETENTION_DAYS } from "./types";
 import { ingest } from "./ingest";
-import { IMPORT_DAYS } from "./telegram-user";
+import { IMPORT_DAYS } from "@hub/config/chat-rules";
 
 declare const humanBrand: unique symbol;
 
@@ -258,4 +258,52 @@ export async function linkUserChatToRecord(
   const clientId = (await deps.repos.clients.idByEmail(input.project, email)) ?? (await deps.repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
   const r = await linkAndImport(deps, { project: input.project, clientId, chatId: input.chatId, ...(input.title ? { title: input.title } : {}) });
   return { clientId, ...r };
+}
+
+/**
+ * P102 Change client: a linked chat moves to another client record (a wrong match is the common reason). Only the identifier
+ * moves, so the chat's stored messages stay (they are keyed by chat, not by client); the open draft written for the old client is
+ * set aside (Skip, so it can come back), and the new client's row is ensured as the owner's Link does (decision 0009). Nothing is
+ * imported and nothing is deleted. A bot chat has no identifier and is refused by the caller.
+ */
+export async function moveChatToRecord(
+  repos: Repos,
+  actor: HumanActor,
+  input: { project: string; channel: LinkableAdapter["channel"]; chatId: string; client: AutolinkClient },
+): Promise<{ fromClientId: number; toClientId: number; skippedDraftId: number | null }> {
+  assertHuman(actor);
+  await repos.projects.requireProject(input.project);
+  const kind = KIND_OF[input.channel];
+  const value = normalizeIdentifier(kind, input.chatId);
+  const email = normalizeIdentifier("email", input.client.email);
+  const from = await repos.messengers.clientByIdentifier(input.project, kind, value);
+  if (from === null) throw new MessengersError("bad_identifier", `bad_identifier: this ${kind} chat is not linked to a client in "${input.project}"`);
+  const found = await repos.clients.idByEmail(input.project, email);
+  if (found === from) throw new MessengersError("bad_identifier", "bad_identifier: this chat is already linked to that client");
+  const to = found ?? (await repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
+  await repos.messengers.moveIdentifier(input.project, kind, value, to);
+  const open = (await repos.messengers.listDrafts(input.project, ["draft"])).find((d) => d.channel === input.channel && d.chatId === value);
+  if (open) await repos.messengers.discardDraft(input.project, open.id);
+  return { fromClientId: from, toClientId: to, skippedDraftId: open?.id ?? null };
+}
+
+/** The Undo of `moveChatToRecord`: the chat goes back to the client row it left, and the draft that was set aside waits again (when it still can). */
+export async function undoMoveChat(
+  repos: Repos,
+  actor: HumanActor,
+  input: { project: string; channel: LinkableAdapter["channel"]; chatId: string; clientId: number; draftId: number | null },
+): Promise<{ draftRestored: boolean }> {
+  assertHuman(actor);
+  const kind = KIND_OF[input.channel];
+  const value = normalizeIdentifier(kind, input.chatId);
+  if ((await repos.messengers.moveIdentifier(input.project, kind, value, input.clientId)) === null) throw new MessengersError("bad_identifier", `bad_identifier: this ${kind} chat is not linked to a client in "${input.project}"`);
+  if (input.draftId === null) return { draftRestored: false };
+  try {
+    await repos.messengers.restoreDraft(input.project, input.draftId);
+    return { draftRestored: true };
+  } catch (e) {
+    // The owner already acted on it (or it is gone): the move is undone, the draft is not.
+    if (e instanceof RepoError) return { draftRestored: false };
+    throw e;
+  }
 }

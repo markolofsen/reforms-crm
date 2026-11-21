@@ -73,6 +73,11 @@ export function messengerChatsRepo(db: Db) {
       return { inbound: Number(r?.inbound ?? 0), lastInAt: r?.lastInAt ?? null, lastOutAt: r?.lastOutAt ?? null };
     },
 
+    /** P102: every stored message of the chat, either side: what Unlink would delete, said in its sentence. */
+    async messageCount(project: string, channel: MessengerChannel, chatId: string): Promise<number> {
+      return Number(db.select({ n: sql<number>`count(*)` }).from(messengerMessages).where(msgsOf(project, channel, chatId)).get()?.n ?? 0);
+    },
+
     /** The newest draft of the chat still waiting for the owner (status `draft`), or null. */
     async openDraft(project: string, channel: MessengerChannel, chatId: string) {
       return db.select().from(messengerDrafts).where(and(draftsOf(project, channel, chatId), eq(messengerDrafts.status, "draft"))).orderBy(desc(messengerDrafts.id)).get() ?? null;

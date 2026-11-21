@@ -12,6 +12,8 @@ import { sentence } from "@/lib/api/client";
 import { messengersApi } from "@/lib/api/messengers/panel";
 import { keys } from "@/lib/cache/keys";
 import { agentRef } from "@/lib/focus";
+import { paths } from "@/routes/paths";
+import { AppLink } from "@/components/app-link";
 import { chatName, CHANNEL_LABEL, prefilterNote, triageLine } from "../labels";
 
 const LABEL = "text-sm";
@@ -24,60 +26,6 @@ function CommitInput({ id, value, onCommit, disabled, ...rest }: { id: string; v
     if (text.trim() !== value) onCommit(text.trim());
   };
   return <Input {...rest} className={cn("control-m", rest.className)} disabled={disabled} id={id} onBlur={commit} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && commit()} value={text} />;
-}
-
-/**
- * Unlink and Hide (P84; P84c renamed "Never link this chat" to the owner's word, "not a client"), each confirmed in place: Unlink
- * deletes the chat's stored messages and drafts and stops reading it (a later exact match may link it again); Hide does the same and
- * remembers the chat (as a keyed hash, never the chat), so the Hub never links it by itself again and it is listed under Chats ▸
- * Hidden, where Unhide takes it back. A bot chat has neither: its chats are the bot's queue.
- */
-function UnlinkControls({ project, c, name }: { project: string; c: MessengerChatDto; name: string }) {
-  const qc = useQueryClient();
-  const [asking, setAsking] = useState<"unlink" | "never" | null>(null);
-  const go = useMutation({
-    mutationFn: (never: boolean) => messengersApi.unlinkChat(project, c.id, never),
-    onSettled: () => Promise.all([qc.invalidateQueries({ queryKey: keys.messengerChatsOf(project) }), qc.invalidateQueries({ queryKey: keys.autolink(project) })]),
-  });
-  if (c.channel === "telegram_bot") return null;
-  return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {asking ? (
-          <>
-            <ActionButton disabled={go.isPending} onClick={() => go.mutate(asking === "never")} size="s" variant="danger">
-              {asking === "never" ? "Unlink and hide: not a client" : "Unlink and delete its messages"}
-              <span className="sr-only"> ({name})</span>
-            </ActionButton>
-            <ActionButton disabled={go.isPending} onClick={() => setAsking(null)} size="s" variant="quiet">
-              Keep it
-            </ActionButton>
-          </>
-        ) : (
-          <>
-            <ActionButton onClick={() => setAsking("unlink")} size="s" variant="secondary">
-              Unlink<span className="sr-only"> {name}</span>
-            </ActionButton>
-            <ActionButton onClick={() => setAsking("never")} size="s" variant="quiet">
-              Hide: not a client<span className="sr-only"> ({name})</span>
-            </ActionButton>
-          </>
-        )}
-      </div>
-      {asking && (
-        <p className={cn("measure", HINT)}>
-          {asking === "never"
-            ? "Its stored messages and drafts are deleted, and the Hub never links this chat by itself again (it keeps a keyed hash of it, not the chat). Chats ▸ Hidden lists it with Unhide."
-            : "Its stored messages and drafts are deleted and the Hub stops reading it. If its phone matches a client again, it may link itself again."}
-        </p>
-      )}
-      {go.isError && (
-        <p className="text-destructive-foreground text-sm" role="alert">
-          {sentence(go.error)}
-        </p>
-      )}
-    </div>
-  );
 }
 
 /**
@@ -177,7 +125,9 @@ export function ChatRules({ project, c, preanalysis }: { project: string; c: Mes
           {sentence(save.error)}
         </p>
       )}
-      <UnlinkControls c={c} name={name} project={project} />
+      <p className={HINT}>
+        Change the client, Unlink or Hide this chat from its status on <AppLink to={paths.messengers.chats()}>Messengers ▸ Chats</AppLink>.
+      </p>
     </li>
   );
 }

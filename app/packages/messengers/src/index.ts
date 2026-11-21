@@ -41,7 +41,6 @@ export {
   toUserAdapterError,
   toUserInbound,
   FLOOD_PARK_SECONDS,
-  IMPORT_DAYS,
   IMPORT_LIMIT,
   QUEUE_MAX,
   telegramPhone,

@@ -52,6 +52,7 @@ describe("the Messengers panel", () => {
     expect(all.chats[1]).toMatchObject({ owed: false, draft: null, client: null });
     // P84c: Hidden lists no linked chat (a hidden chat is never linked), and the channel filters the list and its counts.
     expect((await chats("hidden")).chats).toEqual([]);
+    expect((await chats("unlinked")).chats).toEqual([]);
     await repos.messengers.allowChat("p", "whatsapp", "+6281300001111", "Wati");
     expect((await chats("linked", "whatsapp")).chats.map((c) => c.title)).toEqual(["Wati"]);
     expect((await chats("linked", "whatsapp")).counts).toEqual({ todo: 0, linked: 1 });
@@ -87,13 +88,5 @@ describe("the Messengers panel", () => {
     expect((await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, {})).status).toBe(400);
     expect((await call("PUT", `/api/projects/q/messengers/chats/${chatRowId}/rules`, { mayNudge: true })).status).toBe(404);
     expect((await call("PUT", `/api/projects/p/messengers/chats/${chatRowId}/rules`, { mayNudge: false }, { ...HEADERS, "sec-fetch-site": "same-site" })).status).toBe(403);
-  });
-
-  it("the link picker's lookup finds a client of this project by two or more characters, never another project's", async () => {
-    const found = async (q: string) => ((await (await call("GET", `/api/projects/p/messengers/clients?q=${encodeURIComponent(q)}`)).json()) as { clients: { name: string }[] }).clients.map((c) => c.name);
-    expect(await found("ann")).toEqual(["Anna Field"]);
-    expect(await found("EXAMPLE")).toEqual(["Anna Field"]);
-    expect(await found("a")).toEqual([]);
-    expect(await found("%")).toEqual([]);
   });
 });

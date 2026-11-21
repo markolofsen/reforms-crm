@@ -60,36 +60,20 @@ export type UserLoginStepDto = z.infer<typeof userLoginStepDto>;
 export const userLoginCancelledDto = z.strictObject({ ok: z.literal(true) });
 export const userDisconnectedDto = z.strictObject({ ok: z.literal(true), account: z.string(), removed: z.boolean() });
 
-// ---- the picker and the link (0036 point 3)
+// ---- the dialogs of a client's chat picker (0036 point 3; P102: one picker, the autolink's)
 
-export const userDialogsBody = z.strictObject({ clientId: z.number().int().positive() });
 export const userDialogDto = z.strictObject({
   chatId: z.string(),
   title: z.string(),
   username: z.string().nullable(),
   phone: z.string().nullable(),
-  /** Its phone or Telegram id equals one of this client's identifiers: a suggestion, which the owner confirms (never auto-linked). */
+  /** Its phone or Telegram username is one of the picked client record's identifiers: a suggestion, which the owner confirms (never auto-linked). */
   suggested: z.boolean(),
   /** Already linked in this project (to this or another client). */
   linked: z.boolean(),
 });
 export const userDialogsDto = z.strictObject({ dialogs: z.array(userDialogDto) });
 export type UserDialogDto = z.infer<typeof userDialogDto>;
-
-export const userLinkBody = z.strictObject({
-  clientId: z.number().int().positive(),
-  chatId: z.string().regex(/^\d{1,20}$/),
-  title: z.string().trim().max(200).optional(),
-});
-export const userLinkedDto = z.strictObject({
-  ok: z.literal(true),
-  chatId: z.string(),
-  /** Messages of the last 30 days stored by the import. */
-  imported: z.number(),
-  /** Why the import failed while the link stands (new messages still arrive), else null. */
-  importError: z.string().nullable(),
-});
-export type UserLinkedDto = z.infer<typeof userLinkedDto>;
 
 // ---- WhatsApp as a linked device (P71 M5): the same account rows, the pairing by QR code, the same picker and link
 
@@ -111,13 +95,6 @@ export const waConnectStepDto = z.discriminatedUnion("step", [
   z.strictObject({ step: z.literal("failed"), reason: z.string() }),
 ]);
 export type WaConnectStepDto = z.infer<typeof waConnectStepDto>;
-
-/** A WhatsApp chat is its number, `+` and digits, as `client_identifiers` keeps it (kind `whatsapp`). */
-export const waLinkBody = z.strictObject({
-  clientId: z.number().int().positive(),
-  chatId: z.string().regex(/^\+\d{7,15}$/),
-  title: z.string().trim().max(200).optional(),
-});
 
 // ---- P84: chats link themselves (decision 0036 point 3 as amended 2026-11-20)
 
@@ -149,7 +126,14 @@ export const recentDialogDto = z.strictObject({
 export type RecentDialogDto = z.infer<typeof recentDialogDto>;
 
 /** P84c: a chat the owner hid ("not a client"), known by name only while the server's memory holds it; the store keeps its HMAC only. */
-export const hiddenDialogDto = z.strictObject({ channel: userChannel, chatId: z.string(), title: z.string(), hiddenAt: z.string() });
+export const hiddenDialogDto = z.strictObject({
+  channel: userChannel,
+  /** P102: the account that saw it, so Link on a hidden chat can name it; null when the memory never learned it (Link is then not offered). */
+  account: z.string().nullable(),
+  chatId: z.string(),
+  title: z.string(),
+  hiddenAt: z.string(),
+});
 export type HiddenDialogDto = z.infer<typeof hiddenDialogDto>;
 
 export const directoryStatusDto = z.strictObject({
@@ -167,8 +151,10 @@ export const autolinkStateDto = z.strictObject({
   directory: directoryStatusDto,
   /** Distinct unlinked chats that wrote since the server started: in memory, never stored. */
   unlinkedActive: z.number().int(),
-  /** Only the fresh ones (newest message at most `freshDays` old), newest first. */
+  /** Only the fresh ones (newest message at most `freshDays` old), newest first: To do's unlinked chats. */
   recent: z.array(recentDialogDto),
+  /** P102: every unlinked chat the memory holds, of any age (up to 200), newest first: the Not linked view. A superset of `recent`. */
+  unlinked: z.array(recentDialogDto),
   freshDays: z.number().int(),
   /** P84c: the hidden chats the memory can name, and how many more are hidden by a fingerprint the Hub cannot name back. */
   hidden: z.array(hiddenDialogDto),
@@ -227,5 +213,25 @@ export type AutolinkLinkedDto = z.infer<typeof autolinkLinkedDto>;
 /** P84c: Hide ("not a client") and Unhide of a chat the Hub saw; a linked chat is hidden by `/chats/:id/never`, which unlinks it first. */
 export const autolinkHideBody = z.strictObject({ channel: userChannel, chatId: z.string().regex(/^\+?\d{1,20}$/) });
 export const autolinkHiddenDto = z.strictObject({ ok: z.literal(true), channel: userChannel, chatId: z.string(), hidden: z.boolean() });
+/** P102: the dialogs of one account for the Link a chat box, marked against the picked client record (`key`); read on demand, never stored. */
+export const autolinkDialogsBody = z.strictObject({ channel: userChannel, account: z.string().regex(/^\d{1,20}$/), key: z.string().min(1).max(64) });
+/** P102: Change client moves a linked chat to another client record; its stored messages stay. */
+export const autolinkMoveBody = z.strictObject({ key: z.string().min(1).max(64) });
+export const chatMovedDto = z.strictObject({
+  ok: z.literal(true),
+  id: z.number().int(),
+  /** The client row the chat was on, for the Undo (the Hub's own id, never a Notion fact). */
+  fromClientId: z.number().int(),
+  fromName: z.string(),
+  toName: z.string(),
+  /** The open draft written for the old client, set aside; null when there was none. */
+  skippedDraftId: z.number().int().nullable(),
+  /** What the Hub did to the new card's Telegram or WhatsApp field in Notion (null: nothing to say). */
+  notion: z.string().nullable(),
+});
+export type ChatMovedDto = z.infer<typeof chatMovedDto>;
+/** P102: the Undo of a move: the chat goes back to the client row it left and the draft that was set aside waits again. */
+export const chatMoveUndoBody = z.strictObject({ clientId: z.number().int().positive(), draftId: z.number().int().positive().nullable() });
+export const chatMoveUndoneDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), draftRestored: z.boolean() });
 /** Unlink and Never link answer which chat went and how many of its stored messages. */
 export const chatUnlinkedDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), never: z.boolean() });

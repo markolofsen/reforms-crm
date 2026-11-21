@@ -206,6 +206,24 @@ export function messengersRepo(db: Db) {
           .get() ?? null
       );
     },
+    /**
+     * P102 Change client: the identifier moves to another client of the project, in one UPDATE (the chat's stored messages are keyed
+     * by chat, so they stay). Returns the client it left, or null when no such identifier exists.
+     */
+    async moveIdentifier(project: string, kind: IdentifierKind, value: string, toClientId: number): Promise<number | null> {
+      requireClient(project, toClientId);
+      const was = db
+        .select({ clientId: clientIdentifiers.clientId })
+        .from(clientIdentifiers)
+        .where(and(eq(clientIdentifiers.project, project), eq(clientIdentifiers.kind, kind), eq(clientIdentifiers.value, value)))
+        .get();
+      if (!was) return null;
+      db.update(clientIdentifiers)
+        .set({ clientId: toClientId })
+        .where(and(eq(clientIdentifiers.project, project), eq(clientIdentifiers.kind, kind), eq(clientIdentifiers.value, value)))
+        .run();
+      return was.clientId;
+    },
     async identifiersOf(project: string, clientId: number): Promise<ClientIdentifierRow[]> {
       requireClient(project, clientId);
       return db

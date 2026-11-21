@@ -4,6 +4,7 @@ import { toastManager } from "@hub/ui/toast";
 import { useSendDoor } from "@/components/send/send-flow";
 import { messengerSendApi } from "@/lib/api/messengers/send";
 import { keys } from "@/lib/cache/keys";
+import { ChannelIcon } from "./channel/channel-icon";
 import { CHANNEL_LABEL } from "./labels";
 
 /**
@@ -15,7 +16,16 @@ export function useMessengerSend(project: string, d: MessengerDraftDto) {
   return useSendDoor<MessengerSendPreviewDto>({
     preview: () => messengerSendApi.preview(project, d.id),
     send: (p) => messengerSendApi.send(project, d.id, { chatId: p.chatId, text: p.text }),
-    sent: (p) => toastManager.add({ title: `Sent to ${p.to} on ${CHANNEL_LABEL[p.channel]}`, type: "success" }),
+    sent: (p) =>
+      toastManager.add({
+        title: (
+          <span className="flex items-center gap-2">
+            <ChannelIcon channel={p.channel} decorative />
+            Sent to {p.to} on {CHANNEL_LABEL[p.channel]}
+          </span>
+        ),
+        type: "success",
+      }),
     settle: () => Promise.all([qc.invalidateQueries({ queryKey: keys.messengerChatsOf(project) }), qc.invalidateQueries({ queryKey: keys.sends(project) })]),
   });
 }

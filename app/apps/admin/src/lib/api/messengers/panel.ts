@@ -1,12 +1,12 @@
-import { clientMatchesDto, messengerChatDto, messengerChatsDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChannelFilter, type MessengerView } from "@hub/contract/messenger-panel";
-import { autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkStateDto, chatUnlinkedDto } from "@hub/contract/messengers";
+import { messengerChatDto, messengerChatsDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChannelFilter, type MessengerView } from "@hub/contract/messenger-panel";
+import { autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
 import { read } from "../client";
 
 const at = (project: string) => `/api/projects/${encodeURIComponent(project)}/messengers`;
 
 /**
  * The Messengers panel (P71 M3): the linked chats with what is owed and the agent's open draft of each, the owner's Edit, Skip and
- * its Undo, one chat's rules, and the client lookup of the link picker. Reads only `messenger_drafts` and the linked chats: Mail
+ * its Undo, one chat's rules, and (P102) Change client with its Undo. Reads only `messenger_drafts` and the linked chats: Mail
  * drafts are Mail's. The writes pass the server's admin gate (this page's own Origin). Nothing here sends: the send door is `./send.ts`.
  */
 export const messengersApi = {
@@ -15,7 +15,6 @@ export const messengersApi = {
   skipDraft: (project: string, id: number) => read(messengerSkippedDto, { method: "POST", path: `${at(project)}/drafts/${id}/skip`, body: {} }),
   restoreDraft: (project: string, id: number) => read(messengerDraftDto, { method: "POST", path: `${at(project)}/drafts/${id}/restore`, body: {} }),
   setRules: (project: string, chatId: number, patch: ChatRulesBody) => read(messengerChatDto, { method: "PUT", path: `${at(project)}/chats/${chatId}/rules`, body: patch }),
-  findClients: (project: string, q: string) => read(clientMatchesDto, { method: "GET", path: `${at(project)}/clients`, query: { q } }),
   // P84: the autolink. Every call is a gated POST: the state names the owner's own contacts and the records come from his Notion.
   autolinkState: (project: string) => read(autolinkStateDto, { method: "POST", path: `${at(project)}/autolink/state`, body: {} }),
   findRecords: (project: string, q: string) => read(autolinkRecordsDto, { method: "POST", path: `${at(project)}/autolink/records`, body: { q } }),
@@ -23,6 +22,10 @@ export const messengersApi = {
   // P100: nobody in Notion matches: one Clients card from the chat (Name, Email, its username or number), then the link.
   createRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; title?: string; name: string; email: string }) =>
     read(autolinkLinkedDto, { method: "POST", path: `${at(project)}/autolink/create`, body }),
+  // P102: one account's dialogs marked against the picked record (Link a chat…), Change client and its Undo.
+  dialogsOf: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; key: string }) => read(userDialogsDto, { method: "POST", path: `${at(project)}/autolink/dialogs`, body }),
+  changeClient: (project: string, id: number, key: string) => read(chatMovedDto, { method: "POST", path: `${at(project)}/chats/${id}/client`, body: { key } }),
+  undoChange: (project: string, id: number, body: { clientId: number; draftId: number | null }) => read(chatMoveUndoneDto, { method: "POST", path: `${at(project)}/chats/${id}/client/undo`, body }),
   // P84c: Hide ("not a client") and Unhide of an unlinked chat; the server keeps a keyed hash, never the chat.
   hideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => read(autolinkHiddenDto, { method: "POST", path: `${at(project)}/autolink/hide`, body }),
   unhideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => read(autolinkHiddenDto, { method: "POST", path: `${at(project)}/autolink/unhide`, body }),

@@ -1,4 +1,4 @@
-import { HIDDEN_LABEL_WORDS, HIDDEN_LABELS, PREANALYSIS_LOOKBACK_DAYS, REPLY_MODE_LABELS } from "@hub/config/chat-rules";
+import { HIDDEN_LABEL_WORDS, HIDDEN_LABELS, IMPORT_DAYS, PREANALYSIS_LOOKBACK_DAYS, REPLY_MODE_LABELS } from "@hub/config/chat-rules";
 import { phrase } from "@hub/contract/help";
 import type { MessengerChannelDto, MessengerChannelFilter, MessengerChatDto, MessengerSendPreviewDto, MessengerView, PreanalysisDto } from "@hub/contract/messenger-panel";
 import type { AutolinkLinkedDto, RecentDialogDto } from "@hub/contract/messengers";
@@ -7,9 +7,9 @@ import type { AutolinkLinkedDto, RecentDialogDto } from "@hub/contract/messenger
 
 export const CHANNEL_LABEL: Record<MessengerChannelDto, string> = { telegram_user: "Telegram", telegram_bot: "Telegram bot", whatsapp: "WhatsApp" };
 
-/** P84c (owner, 2026-11-20): three states of a chat in one View menu; no "postponed" state, since Hide covers it and is undone. */
-export const VIEW_LABEL: Record<MessengerView, string> = { todo: "To do", linked: "Linked", hidden: "Hidden" };
-export const VIEW_ORDER: readonly MessengerView[] = ["todo", "linked", "hidden"];
+/** P84c (owner, 2026-11-20): the states of a chat in one View menu; no "postponed" state, since Hide covers it and is undone. P102 adds Not linked: every remembered unlinked chat, of any age. */
+export const VIEW_LABEL: Record<MessengerView, string> = { todo: "To do", linked: "Linked", unlinked: "Not linked", hidden: "Hidden" };
+export const VIEW_ORDER: readonly MessengerView[] = ["todo", "linked", "unlinked", "hidden"];
 export const CHANNEL_FILTER_LABEL: Record<MessengerChannelFilter, string> = { all: "All", telegram: "Telegram", whatsapp: "WhatsApp" };
 
 /** The confirm step of a messenger send (P71 M4): who, on which channel, from which account, and that it cannot be undone. */
@@ -103,9 +103,11 @@ export function whyLine(r: Pick<RecentDialogDto, "why" | "by" | "candidates">): 
  * P84c, P88: the one line above the unlinked rows, said once instead of once per row ("none" rows say nothing of their own), and
  * with no linked chat yet it says that too, in the same line (`admin-principles.md` rule 3: one status line, no paragraphs).
  */
-export function unlinkedIntro(o: { freshDays: number; count: number; noLinked: boolean }): string {
-  const chats = o.count === 1 ? "1 new chat" : `${o.count} new chats`;
-  const line = `${chats} of the last ${o.freshDays} days ${o.count === 1 ? "is" : "are"} not linked to a client: link or hide each.`;
+export function unlinkedIntro(o: { freshDays: number | null; count: number; noLinked: boolean }): string {
+  const word = o.freshDays === null ? "chat" : "new chat";
+  const chats = o.count === 1 ? `1 ${word}` : `${o.count} ${word}s`;
+  const span = o.freshDays === null ? "the Hub has seen since it started (any age)" : `of the last ${o.freshDays} days`;
+  const line = `${chats} ${span} ${o.count === 1 ? "is" : "are"} not linked to a client: link or hide each.`;
   return o.noLinked ? `No linked chats yet · ${line}` : line;
 }
 
@@ -154,3 +156,20 @@ export function emptyLine(o: { telegram: boolean; whatsapp: boolean; enabled: bo
       : "Autolink is off for this project: a matching chat waits below for your Link.";
   return `The Hub reads ${who}, but only the chats linked to a client: no other chat is stored. ${how}`;
 }
+
+// ---- P102: one state menu per chat row
+
+/** The client a linked chat belongs to, as the row says it. */
+export const clientName = (c: Pick<MessengerChatDto, "client">): string => c.client?.name || c.client?.email || "a client";
+
+const messages = (n: number): string => (n === 1 ? "1 stored message" : `${n} stored messages`);
+
+/**
+ * The one sentence of Unlink (and of Hide on a linked chat), shown in place before anything is deleted (`ui-specifications.md`
+ * rule 5d): what goes (the stored messages and the draft) and what linking again brings back.
+ */
+export const unlinkSentence = (o: { name: string; client: string; stored: number; hide: boolean }): string =>
+  `${o.hide ? "Unlink and hide" : "Unlink"} ${o.name} ${o.hide ? "(not a client)" : `from ${o.client}`}: its ${messages(o.stored)} and its draft are deleted. ${o.hide ? "The Hub never links it by itself again. " : ""}Linking again reloads the last ${IMPORT_DAYS} days.`;
+
+/** The toast after Change client: both names. The chat's messages stay with it. */
+export const movedLine = (o: { name: string; to: string }): string => `Moved ${o.name} to ${o.to}`;

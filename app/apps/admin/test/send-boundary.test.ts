@@ -20,10 +20,10 @@ describe("send boundary", () => {
 
   it("calls the messenger send door (P71 M4) only from the Messengers panel's send hook", () => {
     const users = all.filter((f) => f.path !== "lib/api/messengers/send.ts" && /\bmessengerSendApi\.(send|preview)\b/.test(f.text)).map((f) => f.path).sort();
-    expect(users).toEqual(["features/messengers/use-messenger-send.ts"]);
+    expect(users).toEqual(["features/messengers/use-messenger-send.tsx"]);
     // Both doors' steps are the one shared hook: neither feature runs its own dry-run and apply mutations.
     const doors = all.filter((f) => /\buseSendDoor(<\w+>)?\(/.test(f.text) && f.path !== "components/send/send-flow.ts").map((f) => f.path).sort();
-    expect(doors).toEqual(["features/messengers/use-messenger-send.ts", "features/review/card/use-send-flow.ts"]);
+    expect(doors).toEqual(["features/messengers/use-messenger-send.tsx", "features/review/card/use-send-flow.ts"]);
   });
 
   it("starts Send all Checked of a batch (P85b) only from the batch's own panel, after its dry run", () => {

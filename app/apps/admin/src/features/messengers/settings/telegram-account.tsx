@@ -22,6 +22,7 @@ export function TelegramAccount({ linked }: { linked?: number }) {
         {d.accounts.map((a) => (
           <AccountRow
             a={a}
+            channel="telegram_user"
             linked={linked}
             disconnect={telegramUserApi.disconnect}
             key={a.account}

@@ -228,8 +228,8 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", pointerRoutes(repos, opts.pointerFile, now))
     .route("/", localRoutes(opts.local, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", autostartRoutes(opts.autostart, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", telegramUserRoutes(repos, opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", whatsappRoutes(repos, opts.whatsapp, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
+    .route("/", telegramUserRoutes(opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
+    .route("/", whatsappRoutes(opts.whatsapp, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", autolinkRoutes(repos, opts.autolink, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
     .route("/", messengerRoutes(repos, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT, opts.preanalysis));
 }

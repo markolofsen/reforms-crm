@@ -19,10 +19,16 @@ export function unlinkedRows(st: Pick<AutolinkStateDto, "recent"> | undefined, c
   return [...rows.filter((r) => r.candidates.length > 0), ...rows.filter((r) => r.candidates.length === 0)];
 }
 
+/** P102, Not linked: every unlinked chat the autolink remembers, of any age, in the channel; suggestions first, each newest first. */
+export function notLinkedRows(st: Pick<AutolinkStateDto, "unlinked"> | undefined, channel: MessengerChannelFilter): RecentDialogDto[] {
+  const rows = (st?.unlinked ?? []).filter((r) => inChannel(r.channel, channel));
+  return [...rows.filter((r) => r.candidates.length > 0), ...rows.filter((r) => r.candidates.length === 0)];
+}
+
 export const hiddenRows = (st: Pick<AutolinkStateDto, "hidden"> | undefined, channel: MessengerChannelFilter): HiddenDialogDto[] => (st?.hidden ?? []).filter((h) => inChannel(h.channel, channel));
 
-/** The View menu's counts: To do is the linked chats that wait plus the undecided unlinked ones; Hidden the ones it can name. */
-export function viewCounts(linked: MessengerChatsDto["counts"] | undefined, st: Pick<AutolinkStateDto, "recent" | "hidden"> | undefined, channel: MessengerChannelFilter): Record<MessengerView, number> | undefined {
+/** The View menu's counts: To do is the linked chats that wait plus the fresh undecided ones; Not linked all the remembered ones; Hidden the ones it can name. */
+export function viewCounts(linked: MessengerChatsDto["counts"] | undefined, st: Pick<AutolinkStateDto, "recent" | "unlinked" | "hidden"> | undefined, channel: MessengerChannelFilter): Record<MessengerView, number> | undefined {
   if (!linked) return undefined;
-  return { todo: linked.todo + unlinkedRows(st, channel).length, linked: linked.linked, hidden: hiddenRows(st, channel).length };
+  return { todo: linked.todo + unlinkedRows(st, channel).length, linked: linked.linked, unlinked: notLinkedRows(st, channel).length, hidden: hiddenRows(st, channel).length };
 }

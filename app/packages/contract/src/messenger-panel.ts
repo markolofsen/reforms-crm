@@ -13,10 +13,10 @@ export type MessengerChannelDto = (typeof MESSENGER_CHANNELS)[number];
 /**
  * The panel's View menu (P84c, owner 2026-11-20): `todo`, the linked chats with an open draft or whose newest stored message is the
  * client's (what the messengers owe), plus, on the admin, the fresh unlinked chats nobody decided on yet; `linked`, every linked
- * chat; `hidden`, the chats the owner said are not clients (never linked, so the server's list is empty there and the admin reads
- * the autolink's memory). The default is `todo`, so a bare `/messengers` shows what needs the owner.
+ * chat; `unlinked` (P102), every unlinked chat the autolink's memory holds, of any age; `hidden`, the chats the owner said are not
+ * clients (never linked, so the server's list is empty on both and the admin reads the autolink's memory). The default is `todo`, so a bare `/messengers` shows what needs the owner.
  */
-export const MESSENGER_VIEWS = ["todo", "linked", "hidden"] as const;
+export const MESSENGER_VIEWS = ["todo", "linked", "unlinked", "hidden"] as const;
 export type MessengerView = (typeof MESSENGER_VIEWS)[number];
 
 /** P84c: the channel as a filter of the same page (`?channel=`), not a page per channel: the job is the same on both. */
@@ -85,6 +85,8 @@ export const messengerChatDto = z.strictObject({
   client: z.strictObject({ id: z.number().int(), name: z.string(), email: z.string() }).nullable(),
   rules: chatRulesDto,
   inbound: z.number().int(),
+  /** P102: every stored message of the chat, either side: what Unlink deletes, said in its sentence. */
+  stored: z.number().int(),
   last: chatMessageDto.nullable(),
   /** The newest stored message is the client's and the pre-analysis did not hide it: a reply is owed. */
   owed: z.boolean(),
@@ -121,11 +123,6 @@ export const chatRulesBody = z
   })
   .refine((b) => Object.keys(b).length > 0, "no rule given");
 export type ChatRulesBody = z.infer<typeof chatRulesBody>;
-
-/** A client the owner can link a chat to: found by name or address (at least two characters), never a list of every client. */
-export const clientMatchDto = z.strictObject({ id: z.number().int(), name: z.string(), email: z.string() });
-export const clientMatchesDto = z.strictObject({ clients: z.array(clientMatchDto) });
-export type ClientMatchDto = z.infer<typeof clientMatchDto>;
 
 /**
  * The send door for one messenger draft (P71 M4, decision 0036 point 7), `POST /api/projects/:slug/messengers/drafts/:id/send`.

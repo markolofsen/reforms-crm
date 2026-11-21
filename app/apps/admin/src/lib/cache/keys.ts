@@ -55,15 +55,14 @@ export const keys = {
   messengerChatsOf: (project: string) => ["messenger-chats", project] as const,
   /** P84: the autolink's state (in memory on the server): under the panel's prefix, so a link or an unlink reads it again. */
   autolink: (project: string) => ["messenger-chats", project, "autolink"] as const,
+  /** P102: one account's dialogs marked against a picked record (Link a chat…); under the autolink's prefix, so a link reads them again. */
+  autolinkDialogs: (project: string, channel: string, account: string, key: string) => ["messenger-chats", project, "autolink", "dialogs", channel, account, key] as const,
   /** P84: a lookup of the Notion client records for one unlinked chat's Link (two or more characters). */
   autolinkRecords: (project: string, q: string) => ["messenger-chats", project, "autolink", "records", q] as const,
   telegramUser: () => ["telegram-user"] as const,
   /** P71 M5: the WhatsApp linked devices (instance-wide, ride in health), and one pairing's state while its QR code shows. */
   whatsapp: () => ["whatsapp"] as const,
   whatsappPairing: (flow: string) => ["whatsapp-pairing", flow] as const,
-  /** The link picker: a client lookup, and the owner's dialogs for one client (read on demand, dropped when the picker closes). */
-  clientMatches: (project: string, q: string) => ["client-matches", project, q] as const,
-  userDialogs: (channel: string, project: string, account: string, clientId: number) => ["user-dialogs", channel, project, account, clientId] as const,
   doctor: (project: string) => ["doctor", project] as const,
   /** Reads of Mail (an `osascript` call each): the draft as Mail holds it, and a client's thread. */
   draftMail: (project: string, id: number) => ["draft-mail", project, id] as const,

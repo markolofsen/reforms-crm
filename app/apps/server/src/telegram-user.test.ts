@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeLoginClient, FakeMtClient, FakeRpcError, fakePerson } from "@hub/messengers";
+import { humanActor, linkUserChat } from "@hub/messengers/human";
 import { createApp } from "./app";
 import { startTelegramUser, type TelegramUserHandle } from "./telegram-user";
 import { composeScheme } from "./scheme";
@@ -85,14 +86,14 @@ describe("Telegram user account in the server", () => {
       const r = await post(app, "/api/messengers/telegram-user/login/start", { apiId: 1, apiHash: HASH, phone: "+10000000000" }, headers);
       expect(r.status).toBe(403);
     }
-    expect((await post(app, "/api/projects/p/messengers/telegram-user/42/link", { clientId, chatId: "1001" }, { "content-type": "application/json" })).status).toBe(403);
     expect(login.sentTo).toEqual([]);
   });
 
   it("stores a linked chat's message and leaves no row of an unlinked one", async () => {
-    const app = await connect();
-    const linked = await (await post(app, "/api/projects/p/messengers/telegram-user/42/link", { clientId, chatId: "1001", title: "Anna" })).json();
-    expect(linked).toEqual({ ok: true, chatId: "1001", imported: 0, importError: null });
+    await connect();
+    const adapter = tg?.adapter("42");
+    if (!adapter) throw new Error("the account is not running");
+    expect(await linkUserChat({ repos, adapter }, humanActor("test"), { project: "p", clientId, chatId: "1001", title: "Anna" })).toMatchObject({ imported: 0, importError: null });
     fake.emit(anna, "hello");
     fake.emit(stranger, "not for the hub");
     await vi.waitFor(async () => expect((await repos.messengers.messagesOf("p", [{ channel: "telegram_user", chatId: "1001" }], { limit: 5 })).map((m) => m.text)).toEqual(["hello"]));
@@ -102,19 +103,6 @@ describe("Telegram user account in the server", () => {
     // P71 M-P: the poll that stored the message told the pre-analysis hook (and only for this project).
     await vi.waitFor(() => expect(stored).toContain("p"));
     expect(new Set(stored)).toEqual(new Set(["p"]));
-  });
-
-  it("the picker marks a suggestion by phone and a linked chat; nothing of it is stored", async () => {
-    const app = await connect();
-    await repos.messengers.addIdentifier("p", clientId, "phone", "+79990001122");
-    fake.peers = [anna, stranger, { type: "other", id: -5, displayName: "A group" }];
-    const r = (await (await post(app, "/api/projects/p/messengers/telegram-user/42/dialogs", { clientId })).json()) as { dialogs: { chatId: string; suggested: boolean; linked: boolean }[] };
-    expect(r.dialogs.map((d) => [d.chatId, d.suggested, d.linked])).toEqual([
-      ["1001", true, false],
-      ["2002", false, false],
-    ]);
-    expect(await repos.messengers.allowedChats("p")).toEqual([]);
-    expect((await post(app, "/api/projects/other/messengers/telegram-user/42/dialogs", { clientId })).status).toBe(409);
   });
 
   it("logged_out parks the account, health shows the fix, the scheme makes it a Needs you item, and a restart does not reconnect", async () => {

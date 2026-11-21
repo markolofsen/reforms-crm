@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeWaSocket, type WaAuthFiles } from "@hub/messengers";
+import { humanActor, linkUserChat } from "@hub/messengers/human";
 import { createApp } from "./app";
 import { composeScheme } from "./scheme";
 import { startWhatsApp, type WhatsAppHandle } from "./whatsapp";
@@ -102,16 +103,16 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
       expect((await post(app, "/api/messengers/whatsapp/connect", {}, headers)).status).toBe(403);
       expect((await post(app, "/api/messengers/whatsapp/connect/state", { flow: "x".repeat(24) }, headers)).status).toBe(403);
     }
-    expect((await post(app, `/api/projects/p/messengers/whatsapp/${ACCOUNT}/link`, { clientId, chatId: ANNA }, { "content-type": "application/json" })).status).toBe(403);
     expect(socks).toEqual([]);
   });
 
   it("stores a linked chat's message and leaves no row of an unlinked one", async () => {
-    const app = await connect();
+    await connect();
     const sock = last();
     sock.message(ANNA, "seen before the link", { id: "N1" });
-    const linked = await json(await post(app, `/api/projects/p/messengers/whatsapp/${ACCOUNT}/link`, { clientId, chatId: ANNA, title: "Anna" }));
-    expect(linked).toMatchObject({ ok: true, chatId: ANNA, importError: null });
+    const adapter = wa?.adapter(ACCOUNT);
+    if (!adapter) throw new Error("the number is not running");
+    expect(await linkUserChat({ repos, adapter }, humanActor("test"), { project: "p", clientId, chatId: ANNA, title: "Anna" })).toMatchObject({ importError: null });
     sock.message(ANNA, "hello");
     sock.message(STRANGER, "not for the hub");
     sock.chat(STRANGER, "Stranger");
@@ -122,22 +123,6 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
     expect(await repos.messengers.identifiersOf("p", clientId)).toEqual([expect.objectContaining({ kind: "whatsapp", value: ANNA })]);
     expect(JSON.stringify(wa?.status())).not.toMatch(/9999999|Stranger/);
     expect(JSON.stringify(await repos.messengers.account("p", "whatsapp", ACCOUNT))).not.toMatch(/9999999|Stranger/);
-  });
-
-  it("the picker marks a suggestion by number and a linked chat; nothing of it is stored", async () => {
-    const app = await connect();
-    const sock = last();
-    await repos.messengers.addIdentifier("p", clientId, "phone", ANNA);
-    sock.chat(ANNA, "Anna");
-    sock.message(STRANGER, "x", { at: new Date("2026-11-20T11:00:00.000Z") });
-    const r = (await json(await post(app, `/api/projects/p/messengers/whatsapp/${ACCOUNT}/dialogs`, { clientId }))) as { dialogs: { chatId: string; suggested: boolean; linked: boolean }[] };
-    expect(r.dialogs.map((d) => [d.chatId, d.suggested, d.linked])).toEqual([
-      [STRANGER, false, false],
-      [ANNA, true, false],
-    ]);
-    expect(await repos.messengers.allowedChats("p")).toEqual([]);
-    expect(count("messenger_messages").n).toBe(0);
-    expect((await post(app, `/api/projects/other/messengers/whatsapp/${ACCOUNT}/dialogs`, { clientId })).status).toBe(409);
   });
 
   it("logged out parks the number, health shows the fix, the scheme makes it a Needs you item, and a restart does not reconnect", async () => {

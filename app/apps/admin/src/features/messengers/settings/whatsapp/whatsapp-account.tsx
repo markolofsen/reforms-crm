@@ -76,6 +76,7 @@ export function WhatsAppAccount({ linked }: { linked?: number }) {
         {d.accounts.map((a) => (
           <AccountRow
             a={a}
+            channel="whatsapp"
             linked={linked}
             disconnect={whatsappApi.disconnect}
             key={a.account}

@@ -18,7 +18,8 @@ export function useHide(project: string) {
   const unhide = useMutation({
     mutationFn: (c: Chat) => messengersApi.unhideChat(project, { channel: c.channel, chatId: c.chatId }),
     onSuccess: (_r, c) => {
-      toastManager.add({ title: `${c.title} is back on To do`, type: "success" });
+      // P102: a hidden chat comes back to Not linked (and to To do while it is fresh); Undo hides it again.
+      toastManager.add({ title: `${c.title} is back in Not linked`, type: "success", actionProps: { children: "Hide again", onClick: () => hide.mutate(c) } });
       return settle();
     },
     onError: fail,

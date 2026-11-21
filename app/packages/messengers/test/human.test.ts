@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as agentApi from "../src/index";
 import { createDraft, isConfirmed, listOpenDrafts, type Draft } from "../src/index";
 import * as human from "../src/human";
-import { allowChat, confirmDraft, humanActor, linkIdentifier, sendConfirmed, unlinkIdentifier } from "../src/human";
+import { allowChat, confirmDraft, humanActor, linkIdentifier, moveChatToRecord, sendConfirmed, undoMoveChat, unlinkIdentifier } from "../src/human";
 import { FakeAdapter, FakeSendingAdapter } from "../src/fake";
 import { mintConfirmed } from "../src/confirmed";
 import { normalizeIdentifier } from "../src/normalize";
@@ -180,5 +180,22 @@ describe("normalizeIdentifier", () => {
     expect(() => normalizeIdentifier("email", "nope")).toThrow("bad_identifier");
     expect(() => normalizeIdentifier("telegram", "@anna")).toThrow("bad_identifier");
     expect(() => normalizeIdentifier("phone", "12")).toThrow("bad_identifier");
+  });
+});
+
+describe("P102 Change client", () => {
+  it("moves a linked chat to another client, sets its open draft aside, refuses the same client or an unlinked chat, and undoes", async () => {
+    await linkIdentifier(env.repos, owner, { project: "p", clientId: env.clientId, kind: "whatsapp", value: "+49 151 000 0001" });
+    const d = await draftFor("Hi", "whatsapp", "+491510000001");
+    const input = { project: "p", channel: "whatsapp" as const, chatId: "+491510000001", client: { email: "new@x.test", name: "New" } };
+    const r = await moveChatToRecord(env.repos, owner, input);
+    expect(r.fromClientId).toBe(env.clientId);
+    expect(r.skippedDraftId).toBe(d.id);
+    expect((await env.repos.messengers.getDraft("p", d.id))?.status).toBe("discarded");
+    await expect(moveChatToRecord(env.repos, owner, input)).rejects.toMatchObject({ code: "bad_identifier" });
+    await expect(moveChatToRecord(env.repos, owner, { ...input, chatId: "+491510000009" })).rejects.toMatchObject({ code: "bad_identifier" });
+    expect(await undoMoveChat(env.repos, owner, { project: "p", channel: "whatsapp", chatId: "+491510000001", clientId: r.fromClientId, draftId: r.skippedDraftId })).toEqual({ draftRestored: true });
+    expect(await env.repos.messengers.clientByIdentifier("p", "whatsapp", "+491510000001")).toBe(env.clientId);
+    expect((await env.repos.messengers.getDraft("p", d.id))?.status).toBe("draft");
   });
 });

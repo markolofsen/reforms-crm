@@ -56,6 +56,8 @@ export const PREANALYSIS_PER_CALL = 20;
 export const PREANALYSIS_PER_PASS = 100;
 /** Only messages sent this recently are judged: turning the switch on does not send a chat's whole history to the model. */
 export const PREANALYSIS_LOOKBACK_DAYS = 7;
+/** How far back a link imports a chat's history (0036 point 3), and so how far back linking again reloads it after an Unlink. Days. */
+export const IMPORT_DAYS = 30;
 
 export interface ChatRules {
   replyMode: ReplyMode;
