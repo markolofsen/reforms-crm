@@ -1,12 +1,14 @@
 import { join } from "node:path";
 import { createNotionReader, loadToken, secretsDir, type NotionReader } from "@hub/notion";
+import { createChatClientWriter, searchClientPages, type ChatClientWriter } from "@hub/notion/chat-client";
 import { buildDirectory, e164, telegramUsername, type DialogChannel, type Directory, type DirectoryEntry, type DirectoryKey } from "@hub/messengers";
 import { ops } from "@hub/log/ops";
 
 /**
  * The client directory of the autolink (P84, decision 0036 point 3 and 0009 as amended 2026-11-20): the project's Notion Clients
- * data source, read ONLY (the instance's Notion token, the reader of `@hub/notion`, which has no write method), at start and every
- * 6 hours, and kept in memory. Nothing of it is written to `app.db` or to a file: a `clients` row is made only when a chat is linked.
+ * data source, read (the instance's Notion token, the reader of `@hub/notion`, which has no write method) at start and every
+ * 6 hours, and kept in memory. P100: the link box also asks Notion live (`search`, read only) and puts what it finds into memory;
+ * `notion()` hands the routes the chat writer of `@hub/notion/chat-client` for the owner's Create and the fill-back on Link. Nothing of it is written to `app.db` or to a file: a `clients` row is made only when a chat is linked.
  * Rows marked `Synthetic` (the mail chain check's test records) or `Do not contact` are left out. Identifiers (the pack's Clients
  * fields, `schema/clients.json`): `Phone` (or any other `phone_number` property, or one named Mobile or Tel) counts for both
  * messengers; `WhatsApp` for WhatsApp chats only; `Telegram` holds a username (`anna_k`, `@anna_k` or a `t.me/` link) or a number,
@@ -34,6 +36,17 @@ export interface ClientDirectory {
   /** The index, or null while none is loaded. */
   current(): Directory | null;
   refresh(): Promise<void>;
+  /**
+   * P100: the link box's live search: one read-only query of the Notion Clients data source (name, email, Other emails, phone,
+   * WhatsApp, Telegram contain the term); the records found are put into memory (so Link finds them and the autolink matches them).
+   */
+  search(q: string): Promise<{ entries: DirectoryEntry[]; error: string | null }>;
+  /** P100: one record into memory now (a live hit, or a card the owner just created), the index rebuilt. */
+  put(entry: DirectoryEntry): void;
+  /** The clients data source id, or null. */
+  dataSourceId: string | null;
+  /** P100: the reader and the chat writer, built from the instance token (fakes in tests). */
+  notion(): Promise<{ reader: NotionReader; writer: ChatClientWriter }>;
   stop(): void;
 }
 
@@ -87,6 +100,8 @@ export interface StartDirectory {
   env?: NodeJS.ProcessEnv;
   /** Tests pass a fake reader; default: the real one, built from the token. */
   reader?: NotionReader;
+  /** Tests pass a fake chat writer (P100); default: the real one, built from the token. */
+  writer?: ChatClientWriter;
   refreshMs?: number;
   now?: () => Date;
   /** false: no first read and no timer (tests call `refresh`). */
@@ -100,25 +115,33 @@ export function startClientDirectory(o: StartDirectory): ClientDirectory {
   let st: DirectoryStatus = { state: "off", reason: o.dataSourceId ? "not read yet" : "no clients database in project.md", entries: 0, withIdentifier: 0, byRelationship: {}, readAt: null };
   let running: Promise<void> | null = null;
 
+  /** Records put in since the last full read began: kept when that read did not list them yet (a page made during the read). */
+  const extra = new Map<string, DirectoryEntry>();
+  const token = () => loadToken(o.tokenFile === "notion-token" ? env : { ...env, NOTION_TOKEN: "" }, join(secretsDir(env), o.tokenFile));
+  const why = (e: unknown) => (e instanceof Error && e.name === "NoTokenError" ? "no Notion token" : `Notion read failed (${e instanceof Error ? e.name : "error"})`);
+
   const read = async () => {
     if (!o.dataSourceId) return;
     st = { ...st, state: dir ? "ready" : "loading" };
+    const began = new Set(extra.keys());
     try {
-      const reader = o.reader ?? createNotionReader(await loadToken(o.tokenFile === "notion-token" ? env : { ...env, NOTION_TOKEN: "" }, join(secretsDir(env), o.tokenFile)));
+      const reader = o.reader ?? createNotionReader(await token());
       const entries: DirectoryEntry[] = [];
       for await (const page of reader.listPages(o.dataSourceId)) {
         const e = entryOf(page as { id: string; properties: Record<string, Prop> });
         if (e) entries.push(e);
       }
+      const listed = new Set(entries.map((e) => e.key));
+      for (const [k, e] of extra) if (!listed.has(k)) entries.push(e);
+      for (const k of began) extra.delete(k);
       const byRelationship: Record<string, number> = {};
       for (const e of entries) if (e.identifiers.length) byRelationship[e.relationship ?? "none"] = (byRelationship[e.relationship ?? "none"] ?? 0) + 1;
       dir = buildDirectory(entries);
       st = { state: "ready", reason: null, entries: entries.length, withIdentifier: entries.filter((e) => e.identifiers.length > 0).length, byRelationship, readAt: now().toISOString() };
     } catch (e) {
       // The message names the failure's class only: a Notion error can quote a property value.
-      const why = e instanceof Error && e.name === "NoTokenError" ? "no Notion token" : `Notion read failed (${e instanceof Error ? e.name : "error"})`;
-      st = { ...st, state: dir ? "ready" : "error", reason: why };
-      ops("notion").error("reading the Notion clients for the autolink failed", { reason: why, kept: dir ? "the last read" : "nothing" });
+      st = { ...st, state: dir ? "ready" : "error", reason: why(e) };
+      ops("notion").error("reading the Notion clients for the autolink failed", { reason: why(e), kept: dir ? "the last read" : "nothing" });
     }
   };
   const refresh = () => (running ??= read().finally(() => (running = null)));
@@ -127,10 +150,44 @@ export function startClientDirectory(o: StartDirectory): ClientDirectory {
   timer?.unref?.();
   if (o.auto !== false) void refresh();
 
+  const put = (entry: DirectoryEntry) => {
+    extra.set(entry.key, entry);
+    const rest = (dir?.all ?? []).filter((e) => e.key !== entry.key);
+    dir = buildDirectory([...rest, entry]);
+  };
+  // An injected reader means a test: the writer is then the injected one or none at all, never a real one from a token on disk.
+  const noWriter = (): ChatClientWriter => {
+    const refuse = async (): Promise<never> => {
+      throw new Error("no Notion writer in this setup");
+    };
+    return { createClient: refuse, retrievePage: refuse, fillEmpty: refuse };
+  };
+  const notion = async () => {
+    if (o.reader) return { reader: o.reader, writer: o.writer ?? noWriter() };
+    const t = await token();
+    return { reader: createNotionReader(t), writer: o.writer ?? createChatClientWriter(t) };
+  };
+
   return {
     status: () => ({ ...st, byRelationship: { ...st.byRelationship } }),
     current: () => dir,
     refresh,
+    put,
+    dataSourceId: o.dataSourceId,
+    notion,
+    async search(q) {
+      if (!o.dataSourceId) return { entries: [], error: "no clients database in project.md" };
+      try {
+        const { reader } = await notion();
+        const pages = await searchClientPages(reader, o.dataSourceId, q);
+        const entries = pages.map((p) => entryOf(p as { id: string; properties: Record<string, Prop> })).filter((e): e is DirectoryEntry => e !== null);
+        for (const e of entries) put(e);
+        return { entries, error: null };
+      } catch (e) {
+        ops("notion").warn("the live search of the Notion clients failed", { reason: why(e) });
+        return { entries: [], error: why(e) };
+      }
+    },
     stop: () => {
       if (timer) clearInterval(timer);
     },

@@ -1,7 +1,7 @@
 import { HIDDEN_LABEL_WORDS, HIDDEN_LABELS, PREANALYSIS_LOOKBACK_DAYS, REPLY_MODE_LABELS } from "@hub/config/chat-rules";
 import { phrase } from "@hub/contract/help";
 import type { MessengerChannelDto, MessengerChannelFilter, MessengerChatDto, MessengerSendPreviewDto, MessengerView, PreanalysisDto } from "@hub/contract/messenger-panel";
-import type { RecentDialogDto } from "@hub/contract/messengers";
+import type { AutolinkLinkedDto, RecentDialogDto } from "@hub/contract/messengers";
 
 // The Messengers section's words (P71 M3), pure so a test holds them (`ui-specifications.md` rule 3).
 
@@ -107,6 +107,29 @@ export function unlinkedIntro(o: { freshDays: number; count: number; noLinked: b
   const chats = o.count === 1 ? "1 new chat" : `${o.count} new chats`;
   const line = `${chats} of the last ${o.freshDays} days ${o.count === 1 ? "is" : "are"} not linked to a client: link or hide each.`;
   return o.noLinked ? `No linked chats yet · ${line}` : line;
+}
+
+// ---- P100: find the client (live Notion search, Create, the fill-back) and what a link loads
+
+/** The link box's placeholder: every identity key the search reads. */
+export const RECORD_SEARCH_PLACEHOLDER = "Name, email, @username or phone";
+
+/** The toast after a link: how much history came with it (a link imports the last `days` once; new messages arrive live). */
+export function linkedLine(r: Pick<AutolinkLinkedDto, "imported" | "importError" | "days">): string {
+  if (r.importError) return `Linked · loading the last ${r.days} days failed (${r.importError}); new messages still arrive`;
+  if (r.imported === 0) return `Linked · no messages in the last ${r.days} days; new ones arrive by themselves`;
+  return `Linked · ${r.imported === 1 ? "1 message" : `${r.imported} messages`} of the last ${r.days} days loaded`;
+}
+
+/** Create's button when nobody matches: the chat's own name in guillemets, as the owner reads it. */
+export const createLabel = (title: string): string => `Create client «${title}» in Notion`;
+
+/** What Create writes besides Name and Email: the chat's Telegram username (else phone) or WhatsApp number, or null. */
+export function createIdentityLine(r: Pick<RecentDialogDto, "channel" | "username" | "phone" | "chatId">): string | null {
+  if (r.channel === "whatsapp") return `WhatsApp ${r.phone ?? r.chatId} is written to the card`;
+  if (r.username) return `Telegram ${r.username.replace(/^@/, "")} is written to the card`;
+  if (r.phone) return `Telegram ${r.phone.startsWith("+") ? r.phone : `+${r.phone}`} is written to the card`;
+  return null;
 }
 
 /** P84c: an unlinked row's time: when they wrote, or when the owner wrote last. */

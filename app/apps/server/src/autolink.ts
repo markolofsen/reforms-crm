@@ -50,6 +50,9 @@ export interface RecentDialog {
   candidates: Candidate[];
   /** P84c: the newest message's time and side (never its text): a message seen live, or the dialog list's; null when unknown. */
   last: LastMessage | null;
+  /** P100: the chat's identity as the messenger gives it (memory only): prefilled into Create, written to an empty Notion field on Link. */
+  username: string | null;
+  phone: string | null;
 }
 
 export interface LastMessage {
@@ -107,8 +110,13 @@ export interface Autolink {
   unrefuse(channel: UserChannel, chatId: string): Promise<boolean>;
   /** A directory record by its key, for the owner's Link from the Chats screen. */
   record(key: string): DirectoryEntry | null;
-  /** Up to 8 directory records whose name or email holds `q` (two or more characters). */
-  findRecords(q: string): Candidate[];
+  /**
+   * P100: up to 8 records for the link box: those in memory whose name, email, Telegram username or phone holds `q` (two or more
+   * characters; `@` and a number's spacing ignored), then a live Notion query for the same term, merged by page id.
+   */
+  findRecords(q: string): Promise<{ records: Candidate[]; live: boolean; liveError: string | null }>;
+  /** P100: the identity of an unlinked or hidden chat the memory knows (username, phone), for Create and the fill on Link. */
+  identityOf(channel: UserChannel, chatId: string): { username: string | null; phone: string | null } | null;
   /** The live adapter of a connected account (the owner's Link reads through it). */
   adapterOf(channel: UserChannel, account: string): AutolinkAdapter | undefined;
   /** Waits for the links in flight (tests). */
@@ -131,6 +139,17 @@ export interface StartAutolink {
 }
 
 const candidateOf = (e: DirectoryEntry): Candidate => ({ key: e.key, name: e.name, email: e.email, relationship: e.relationship });
+export const FIND_MAX = 8;
+
+/** P100: whether a record holds the term in its name, email or an identifier. `@` and a number's spacing do not count. Pure. */
+export function recordMatches(e: DirectoryEntry, q: string): boolean {
+  const text = q.trim().replace(/^@/, "").toLowerCase();
+  if (text.length < 2) return false;
+  const digits = text.replace(/[\s\-().+]/g, "");
+  const number = /^\d{5,15}$/.test(digits) ? digits : null;
+  if (e.name.toLowerCase().includes(text) || (e.email ?? "").includes(text)) return true;
+  return e.identifiers.some((i) => (i.kind === "username" ? i.value.includes(text) : number !== null && i.value.replace(/\D/g, "").includes(number)));
+}
 
 /** The key of "never link": 32 random bytes, hex, in a 0600 file under state/secrets. Not in the backup: a new key forgets refusals. */
 function keyOf(file: string): string {
@@ -188,7 +207,7 @@ export function startAutolink(o: StartAutolink): Autolink {
       return;
     }
     if (await isRefused(channel, d.chatId)) return keepHidden(channel, account, d.chatId, d.title, d, last);
-    const base = { channel, account, chatId: d.chatId, title: d.title, seenAt: now().toISOString(), last };
+    const base = { channel, account, chatId: d.chatId, title: d.title, seenAt: now().toISOString(), last, username: d.username ?? null, phone: d.phone ?? null };
     const dir = o.directory.current();
     const m = dir ? matchDialog(dir, d, MATCH_CHANNEL[channel]) : ({ kind: "none" } as const);
     if (m.kind === "none") return remember({ ...base, why: "none", by: null, candidates: [] });
@@ -300,11 +319,26 @@ export function startAutolink(o: StartAutolink): Autolink {
       if (!dir) return null;
       return dir.all.find((e) => e.key === k) ?? null;
     },
-    findRecords(q) {
-      const term = q.trim().toLowerCase();
-      const dir = o.directory.current();
-      if (term.length < 2 || !dir) return [];
-      return dir.all.filter((e) => e.email && (e.name.toLowerCase().includes(term) || e.email.includes(term))).slice(0, 8).map(candidateOf);
+    async findRecords(q) {
+      if (q.trim().replace(/^@/, "").length < 2) return { records: [], live: false, liveError: null };
+      const local = (o.directory.current()?.all ?? []).filter((e) => e.email && recordMatches(e, q));
+      // Always Notion too: a page made a minute ago is not in the copy read at start and every 6 h (P100).
+      const live = await o.directory.search(q);
+      const seen = new Set<string>();
+      const records: Candidate[] = [];
+      for (const e of [...local, ...live.entries.filter((x) => x.email)]) {
+        if (seen.has(e.key)) continue;
+        seen.add(e.key);
+        records.push(candidateOf(e));
+      }
+      return { records: records.slice(0, FIND_MAX), live: live.error === null, liveError: live.error };
+    },
+    identityOf(channel, chatId) {
+      const r = recent.get(`${channel}:${chatId}`);
+      if (r) return { username: r.username, phone: r.phone ?? (channel === "whatsapp" ? chatId : null) };
+      const h = hidden.get(`${channel}:${chatId}`);
+      if (h) return { username: h.identity?.username ?? null, phone: h.identity?.phone ?? (channel === "whatsapp" ? chatId : null) };
+      return channel === "whatsapp" ? { username: null, phone: chatId } : null;
     },
     adapterOf: (channel, account) => o.adapterOf(channel, account),
     async idle() {

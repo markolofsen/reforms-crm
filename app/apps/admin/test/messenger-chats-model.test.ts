@@ -16,6 +16,8 @@ const rec = (chatId: string, channel: RecentDialogDto["channel"], suggested = fa
   by: suggested ? "phone" : null,
   candidates: suggested ? [{ key: "k", name: "Anna", email: "a@example.test", relationship: null }] : [],
   last: { at: "2026-11-20T10:00:00.000Z", inbound: true },
+  username: null,
+  phone: null,
 });
 const hid = (chatId: string, channel: HiddenDialogDto["channel"]): HiddenDialogDto => ({ channel, chatId, title: chatId, hiddenAt: "2026-11-20T10:00:00.000Z" });
 

@@ -8,12 +8,12 @@ const P = "lisbon-realty";
 const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
 const dir = { state: "ready", reason: null, entries: 3028, withIdentifier: 211, byRelationship: { Lead: 208, Prospect: 2, Client: 1 }, readAt: ago(30) };
 
-type Recent = { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; title: string; seenAt: string; why: string; by: string | null; candidates: unknown[]; last: { at: string; inbound: boolean } | null };
+type Recent = { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; title: string; seenAt: string; why: string; by: string | null; candidates: unknown[]; last: { at: string; inbound: boolean } | null; username: string | null; phone: string | null };
 
 export const RECENT: Recent[] = [
-  { channel: "telegram_user", account: "42", chatId: "9001", title: "Tomas Viera", seenAt: ago(5), why: "ambiguous", by: "phone", candidates: [{ key: "n-1", name: "Tomas Viera", email: "tomas@example.test", relationship: "Lead" }, { key: "n-2", name: "T. Viera (office)", email: "office@example.test", relationship: "Client" }], last: { at: ago(5), inbound: true } },
-  { channel: "whatsapp", account: "351900000001", chatId: "+351911000111", title: "Joana", seenAt: ago(120), why: "none", by: null, candidates: [], last: { at: ago(120), inbound: true } },
-  { channel: "telegram_user", account: "42", chatId: "9002", title: "Delivery bot fan", seenAt: ago(60 * 26), why: "none", by: null, candidates: [], last: { at: ago(60 * 26), inbound: true } },
+  { channel: "telegram_user", account: "42", chatId: "9001", title: "Tomas Viera", seenAt: ago(5), why: "ambiguous", by: "phone", candidates: [{ key: "n-1", name: "Tomas Viera", email: "tomas@example.test", relationship: "Lead" }, { key: "n-2", name: "T. Viera (office)", email: "office@example.test", relationship: "Client" }], last: { at: ago(5), inbound: true }, username: null, phone: "+351911000999" },
+  { channel: "whatsapp", account: "351900000001", chatId: "+351911000111", title: "Joana", seenAt: ago(120), why: "none", by: null, candidates: [], last: { at: ago(120), inbound: true }, username: null, phone: "+351911000111" },
+  { channel: "telegram_user", account: "42", chatId: "9002", title: "Delivery bot fan", seenAt: ago(60 * 26), why: "none", by: null, candidates: [], last: { at: ago(60 * 26), inbound: true }, username: "suenot", phone: null },
 ];
 
 /** Both accounts connected and the autolink's state, with Hide and Unhide moving a chat between the two lists. Returns the POSTs. */
@@ -36,10 +36,30 @@ export async function stubChats(page: Page) {
       hidden = hidden.filter((x) => x.chatId !== body.chatId);
       const back = RECENT.find((x) => x.chatId === body.chatId);
       if (back) recent = [back, ...recent];
-      else if (row) recent = [{ channel: row.channel, account: "1", chatId: row.chatId, title: row.title, seenAt: ago(1), why: "none", by: null, candidates: [], last: { at: ago(1), inbound: true } }, ...recent];
+      else if (row) recent = [{ channel: row.channel, account: "1", chatId: row.chatId, title: row.title, seenAt: ago(1), why: "none", by: null, candidates: [], last: { at: ago(1), inbound: true }, username: null, phone: null }, ...recent];
     }
     await r.fulfill({ json: { ok: true, channel: body.channel, chatId: body.chatId, hidden: to === "hidden" } });
   };
+  // P100: the link box. Notion is stubbed: "Евгений" finds a namesake and the card made a minute ago; Create links the chat.
+  await page.route(/\/messengers\/autolink\/records$/, async (r) => {
+    const { q } = r.request().postDataJSON() as { q: string };
+    posts.push({ path: new URL(r.request().url()).pathname, body: { q } });
+    const all = [
+      { key: "n-ten", name: "Евгений Тен", email: "john.ten@example.test", relationship: "Lead" },
+      { key: "n-evg", name: "Евгений", email: "suenot@example.test", relationship: null },
+    ];
+    const t = q.replace(/^@/, "").toLowerCase();
+    await r.fulfill({ json: { records: all.filter((x) => x.name.toLowerCase().includes(t) || x.email.includes(t)), live: true, liveError: null } });
+  });
+  const linked = async (r: Route) => {
+    const body = r.request().postDataJSON() as { chatId: string };
+    posts.push({ path: new URL(r.request().url()).pathname, body });
+    recent = recent.filter((x) => x.chatId !== body.chatId);
+    const created = r.request().url().endsWith("/create");
+    await r.fulfill({ json: { ok: true, chatId: body.chatId, imported: 7, importError: null, days: 30, notion: created ? "Created Evgeniy in Notion with Telegram suenot" : "Telegram set to suenot in Notion" } });
+  };
+  await page.route(/\/messengers\/autolink\/link$/, linked);
+  await page.route(/\/messengers\/autolink\/create$/, linked);
   await page.route(/\/messengers\/autolink\/hide$/, move("hidden"));
   await page.route(/\/messengers\/autolink\/unhide$/, move("recent"));
   return { posts };

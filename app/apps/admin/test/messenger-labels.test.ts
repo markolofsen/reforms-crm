@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CHAT_RULES } from "@hub/config/chat-rules";
 import type { MessengerChatDto } from "@hub/contract/messenger-panel";
-import { chatName, confirmLine, emptyLine, lastText, lastWho, noDraftLine, prefilterNote, readsLine, rulesLine, triageLine, whyLine } from "../src/features/messengers/labels";
+import { chatName, confirmLine, createIdentityLine, createLabel, emptyLine, linkedLine, lastText, lastWho, noDraftLine, prefilterNote, readsLine, rulesLine, triageLine, whyLine } from "../src/features/messengers/labels";
 
 // The Messengers panel's words (P71 M3): who a chat is, its rules in one line, whose turn it is and why there is no draft.
 
@@ -79,5 +79,17 @@ describe("messenger labels", () => {
     expect(prefilterNote({ state: "ready", fix: null })).toMatch(/^A cheap model reads each new message .* never a name or the chat's title/);
     expect(prefilterNote({ state: "fake", fix: null })).toMatch(/fake model \(HUB_LLM=fake\)/);
     for (const s of ["ready", "fake", "no_key"] as const) expect(prefilterNote({ state: s, fix: null })).not.toMatch(/nothing reads this switch/);
+  });
+
+  it("P100: a link says what history it loaded, and Create says what it writes to the card", () => {
+    expect(linkedLine({ imported: 12, importError: null, days: 30 })).toBe("Linked · 12 messages of the last 30 days loaded");
+    expect(linkedLine({ imported: 1, importError: null, days: 30 })).toBe("Linked · 1 message of the last 30 days loaded");
+    expect(linkedLine({ imported: 0, importError: null, days: 30 })).toBe("Linked · no messages in the last 30 days; new ones arrive by themselves");
+    expect(linkedLine({ imported: 0, importError: "timeout", days: 30 })).toBe("Linked · loading the last 30 days failed (timeout); new messages still arrive");
+    expect(createLabel("Evgeniy")).toBe("Create client «Evgeniy» in Notion");
+    expect(createIdentityLine({ channel: "telegram_user", username: "suenot", phone: null, chatId: "1" })).toBe("Telegram suenot is written to the card");
+    expect(createIdentityLine({ channel: "telegram_user", username: null, phone: "79123456789", chatId: "1" })).toBe("Telegram +79123456789 is written to the card");
+    expect(createIdentityLine({ channel: "whatsapp", username: null, phone: null, chatId: "+351911000111" })).toBe("WhatsApp +351911000111 is written to the card");
+    expect(createIdentityLine({ channel: "telegram_user", username: null, phone: null, chatId: "1" })).toBeNull();
   });
 });

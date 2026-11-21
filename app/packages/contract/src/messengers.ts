@@ -142,6 +142,9 @@ export const recentDialogDto = z.strictObject({
   candidates: z.array(autolinkRecordDto),
   /** P84c: when its newest message was and whether it was theirs (never its text); the state lists only fresh ones. */
   last: z.strictObject({ at: z.string(), inbound: z.boolean() }).nullable(),
+  /** P100: the chat's own identity as the messenger gives it (memory only): prefilled into Create and written to an empty Notion field on Link. */
+  username: z.string().nullable(),
+  phone: z.string().nullable(),
 });
 export type RecentDialogDto = z.infer<typeof recentDialogDto>;
 
@@ -194,7 +197,33 @@ export type AutolinkPreviewDto = z.infer<typeof autolinkPreviewDto>;
 /** The owner's Link of a seen dialog to a directory record (`key`). */
 export const autolinkLinkBody = z.strictObject({ channel: userChannel, account: z.string().regex(/^\d{1,20}$/), chatId: z.string().regex(/^\+?\d{1,20}$/), key: z.string().min(1).max(64), title: z.string().trim().max(200).optional() });
 export const autolinkRecordsBody = z.strictObject({ q: z.string().trim().min(2).max(100) });
-export const autolinkRecordsDto = z.strictObject({ records: z.array(autolinkRecordDto) });
+export const autolinkRecordsDto = z.strictObject({
+  records: z.array(autolinkRecordDto),
+  /** P100: whether Notion was asked live too (false: only the copy read at start and every 6 h; `liveError` says why). */
+  live: z.boolean(),
+  liveError: z.string().nullable(),
+});
+/** P100: Create a client in Notion from an unlinked chat (Name, Email, its Telegram username or WhatsApp number), then link the chat. */
+export const autolinkCreateBody = z.strictObject({
+  channel: userChannel,
+  account: z.string().regex(/^\d{1,20}$/),
+  chatId: z.string().regex(/^\+?\d{1,20}$/),
+  title: z.string().trim().max(200).optional(),
+  name: z.string().trim().min(1).max(200),
+  email: z.email().max(254),
+});
+/** P100: a link from the Chats screen: the import's count and what the Hub did to the client's Notion field (null: nothing to say). */
+export const autolinkLinkedDto = z.strictObject({
+  ok: z.literal(true),
+  chatId: z.string(),
+  imported: z.number(),
+  importError: z.string().nullable(),
+  /** The import's window in days (30). */
+  days: z.number().int(),
+  /** "Telegram set to suenot", "Telegram already filled", or the fix when Notion refused; null when there was nothing to write. */
+  notion: z.string().nullable(),
+});
+export type AutolinkLinkedDto = z.infer<typeof autolinkLinkedDto>;
 /** P84c: Hide ("not a client") and Unhide of a chat the Hub saw; a linked chat is hidden by `/chats/:id/never`, which unlinks it first. */
 export const autolinkHideBody = z.strictObject({ channel: userChannel, chatId: z.string().regex(/^\+?\d{1,20}$/) });
 export const autolinkHiddenDto = z.strictObject({ ok: z.literal(true), channel: userChannel, chatId: z.string(), hidden: z.boolean() });

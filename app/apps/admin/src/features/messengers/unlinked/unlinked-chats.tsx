@@ -1,19 +1,17 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
-import type { AutolinkRecordDto, RecentDialogDto } from "@hub/contract/messengers";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import type { AutolinkLinkedDto, AutolinkRecordDto, RecentDialogDto } from "@hub/contract/messengers";
 import { Badge } from "@hub/ui/badge";
 import { cn } from "@hub/ui/cn";
-import { Input } from "@hub/ui/input";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { useDebounced } from "@/hooks/use-debounced";
+import { toastManager } from "@hub/ui/toast";
 import { sentence } from "@/lib/api/client";
 import { messengersApi } from "@/lib/api/messengers/panel";
 import { keys } from "@/lib/cache/keys";
 import { ago } from "@/lib/format";
-import { CHANNEL_LABEL, unlinkedIntro, whyLine, wroteLine } from "../labels";
+import { CHANNEL_LABEL, linkedLine, unlinkedIntro, whyLine, wroteLine } from "../labels";
+import { recordName, RecordSearch } from "./record-search";
 import { useHide } from "./use-hide";
-
-const recordName = (r: AutolinkRecordDto) => r.name || r.email || "this client";
 
 /**
  * P88 (research 27, F10): fifteen rows each with two buttons read as a chore. Where the pointer can hover, a row's Link to a client
@@ -21,36 +19,6 @@ const recordName = (r: AutolinkRecordDto) => r.name || r.email || "this client";
  * touch, where nothing hovers, they stay visible. A suggested client's Link is always visible.
  */
 const QUIET = "transition-opacity motion-reduce:transition-none [@media(hover:hover)]:opacity-0 group-hover/row:opacity-100! group-focus-within/row:opacity-100!";
-
-/** Finds a client record in Notion (two or more characters, at most 8) for a chat nothing matched. */
-function RecordSearch({ project, onPick }: { project: string; onPick: (r: AutolinkRecordDto) => void }) {
-  const id = useId();
-  const [q, setQ] = useState("");
-  const term = useDebounced(q.trim(), 250);
-  const found = useQuery({ queryKey: keys.autolinkRecords(project, term), queryFn: () => messengersApi.findRecords(project, term), enabled: term.length >= 2, gcTime: 0 });
-  return (
-    <div className="flex flex-col gap-2">
-      <label className="sr-only" htmlFor={id}>
-        The name or email of a client in Notion
-      </label>
-      <Input className="control-m sm:w-72" id={id} onChange={(e) => setQ(e.target.value)} placeholder="The client's name or email in Notion" type="search" value={q} />
-      {found.data && (found.data.records.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No client in Notion matches.</p>
-      ) : (
-        <ul aria-label="Matching clients in Notion" className="flex flex-wrap gap-2">
-          {found.data.records.map((r) => (
-            <li key={r.key}>
-              <ActionButton onClick={() => onPick(r)} size="s" variant="secondary">
-                {recordName(r)}
-                <span className="font-normal text-muted-foreground">{r.relationship ?? ""}</span>
-              </ActionButton>
-            </li>
-          ))}
-        </ul>
-      ))}
-    </div>
-  );
-}
 
 /**
  * One unlinked chat (P84c): its name, channel and when it wrote on one line; a suggested client inline with Link; then Link to a
@@ -61,9 +29,14 @@ function UnlinkedRow({ project, r, now }: { project: string; r: RecentDialogDto;
   const qc = useQueryClient();
   const { hide } = useHide(project);
   const [searching, setSearching] = useState(false);
+  // P100: the toast says what the link loaded (the last 30 days, once) and what it wrote to the client's Notion card.
+  const linked = (res: AutolinkLinkedDto) => {
+    toastManager.add({ title: linkedLine(res), ...(res.notion ? { description: res.notion } : {}), type: res.importError ? "warning" : "success" });
+    return Promise.all([qc.invalidateQueries({ queryKey: keys.messengerChatsOf(project) }), qc.invalidateQueries({ queryKey: keys.autolink(project) })]);
+  };
   const link = useMutation({
     mutationFn: (rec: AutolinkRecordDto) => messengersApi.linkRecord(project, { channel: r.channel, account: r.account, chatId: r.chatId, key: rec.key, title: r.title }),
-    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: keys.messengerChatsOf(project) }), qc.invalidateQueries({ queryKey: keys.autolink(project) })]),
+    onSuccess: linked,
   });
   const suggested = r.candidates.filter((c) => c.email);
   return (
@@ -100,7 +73,7 @@ function UnlinkedRow({ project, r, now }: { project: string; r: RecentDialogDto;
           ))}
         </div>
       )}
-      {searching && <RecordSearch onPick={(rec) => link.mutate(rec)} project={project} />}
+      {searching && <RecordSearch onLinked={linked} onPick={(rec) => link.mutate(rec)} project={project} r={r} />}
       {link.isError && (
         <p className="text-destructive-foreground text-sm" role="alert">
           {sentence(link.error)}

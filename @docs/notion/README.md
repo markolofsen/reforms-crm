@@ -22,12 +22,16 @@ Core modules: Clients, Leads, Tasks, Documents (conversation reports are Documen
 
 ## Telegram and WhatsApp on a client
 
-Clients has two fields for messengers, next to `Phone`, both edited by people (P84). The Hub reads them to link the owner's messenger chats to the right client by itself (Messengers ▸ Chats; project setting `messengers.autolink`); nothing else uses them, and the Hub never writes them.
+Clients has two fields for messengers, next to `Phone`, both edited by people (P84). The Hub reads them to link the owner's messenger chats to the right client by itself (Messengers ▸ Chats; project setting `messengers.autolink`); nothing else uses them. The Hub writes one of them only on the owner's click (P100): when he links a chat to a client whose field is empty, the chat's username or number goes in, and when he creates a client from a chat; a filled field is never overwritten.
 
 - **Telegram** (text): the person's Telegram username without `@`, for example `anna_k` (an `@anna_k` or a `t.me/anna_k` link is read the same way, in any case), or their phone in +E.164. A Telegram chat links when its username or its phone equals this field or `Phone`.
 - **WhatsApp** (phone number): the number in +E.164, country code first, for example `+6281234567890`. Fill it only when it differs from `Phone`. A WhatsApp chat links when its number equals `Phone` or this field.
 
 +E.164 means `+`, the country code, then the number, without the leading 0 of a local number. A number written without its country code (`0812...`) is skipped: the Hub never guesses the country. A chat links only when exactly one client with an Email matches; a number two clients share links nothing and shows as a suggestion instead, and a contact's saved name never counts. Field descriptions, word for word: [`fields.md`](fields.md#clients).
+
+## How one person is identified across Mail, Telegram, WhatsApp and Notion
+
+One person is one Clients page, and its identity keys are fields on it: **Email** (and **Other emails**) for Mail, **Telegram** (username, or +E.164) for Telegram, **WhatsApp** or **Phone** (+E.164) for WhatsApp. The Hub's own `clients` row is keyed by the Email, so a chat links only to a page with an Email. Messengers ▸ Chats' Link to a client searches all of these keys (name, email, `@username`, phone, in any spacing) in the copy of Clients the server reads at start and every 6 hours and, at the same time, in Notion itself, so a page made a minute ago is found. Nothing matches: Create client makes the page there (Name, Email, Relationship Lead, the chat's username or number) and links the chat. Once a page carries the chat's key, the next chat from that person links by itself (`messengers.autolink on`). A link loads the chat's last 30 days once (at most 500 messages); later messages arrive live.
 
 ## Rules that matter
 

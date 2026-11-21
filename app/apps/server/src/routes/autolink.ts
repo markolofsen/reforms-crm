@@ -1,9 +1,13 @@
 import { Hono, type Context } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
-import { autolinkHiddenDto, autolinkHideBody, autolinkLinkBody, autolinkPreviewDto, autolinkRecordsBody, autolinkRecordsDto, autolinkStateDto, chatUnlinkedDto, userLinkedDto } from "@hub/contract/messengers";
+import { autolinkCreateBody, autolinkHiddenDto, autolinkHideBody, autolinkLinkBody, autolinkLinkedDto, autolinkPreviewDto, autolinkRecordsBody, autolinkRecordsDto, autolinkStateDto, chatUnlinkedDto } from "@hub/contract/messengers";
 import { RepoError, type Repos } from "@hub/db";
-import { AdapterError, MessengersError } from "@hub/messengers";
+import { AdapterError, IMPORT_DAYS, MessengersError } from "@hub/messengers";
 import { humanActor, linkUserChatToRecord, unlinkIdentifier } from "@hub/messengers/human";
+import { findClientPages } from "@hub/notion";
+import { createChatClient, fillChatIdentity, type ChatIdentity, type FillOutcome } from "@hub/notion/chat-client";
+import { ops } from "@hub/log/ops";
+import { entryOf } from "../client-directory";
 import { z, type ZodType } from "zod";
 import { gateRefusal } from "../admin-gate";
 import type { ProjectAutolink } from "../autolink-setup";
@@ -39,6 +43,14 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
   };
   const empty = z.unknown();
 
+  /** P100: the chat's identity for Notion: its username, and its phone in +E.164 (Telegram hands digits without the `+`). */
+  const identityFor = (al: ProjectAutolink, channel: "telegram_user" | "whatsapp", chatId: string): ChatIdentity => {
+    const id = al.autolink.identityOf(channel, chatId);
+    const digits = (id?.phone ?? "").replace(/\D/g, "");
+    return { channel: channel === "whatsapp" ? "whatsapp" : "telegram", username: id?.username ?? null, phone: digits.length >= 7 ? `+${digits}` : null };
+  };
+  const fillLine = (f: FillOutcome): string | null => (f.state === "written" ? `${f.property} set to ${f.value} in Notion` : f.state === "refused" ? f.note : f.reason.startsWith("nothing") ? null : `${f.reason} in Notion, kept`);
+
   async function unlink(c: Context, slug: string, al: ProjectAutolink, never: boolean) {
     const id = idOf(c);
     if (id === null) return c.json({ error: "Not a chat id.", code: "invalid" as const }, 400);
@@ -73,8 +85,8 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
         return c.json(autolinkPreviewDto.parse({ enabled: st.enabled, directory: al.directory.status(), accounts }));
       }),
     )
-    .post("/api/projects/:slug/messengers/autolink/records", (c) => guarded(c, autolinkRecordsBody, async (b, _slug, al) => c.json(autolinkRecordsDto.parse({ records: al.autolink.findRecords(b.q) })))
-    )
+    // P100: the link box asks the copy in memory AND Notion live (read only), so a page made a minute ago is found.
+    .post("/api/projects/:slug/messengers/autolink/records", (c) => guarded(c, autolinkRecordsBody, async (b, _slug, al) => c.json(autolinkRecordsDto.parse(await al.autolink.findRecords(b.q)))))
     .post("/api/projects/:slug/messengers/autolink/link", (c) =>
       guarded(c, autolinkLinkBody, async (b, slug, al) => {
         const rec = al.autolink.record(b.key);
@@ -82,7 +94,47 @@ export function autolinkRoutes(repos: Repos, al: ProjectAutolink | undefined, ad
         const adapter = al.autolink.adapterOf(b.channel, b.account);
         if (!adapter) return c.json({ error: "That account is not connected (parked, stopped or unknown): see its state.", code: "wrong_state" as const }, 409);
         const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: rec.email, name: rec.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}) });
-        return c.json(userLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError }));
+        // P100: the chat's username or number into the card's empty Telegram or WhatsApp, so the next chat links by itself. Never
+        // an overwrite; a failure leaves the link standing and is said in one line.
+        let notion: string | null = null;
+        if (al.directory.dataSourceId) {
+          try {
+            notion = fillLine(await fillChatIdentity(await al.directory.notion(), { clientsDataSource: al.directory.dataSourceId, pageId: rec.key, identity: identityFor(al, b.channel, b.chatId) }));
+          } catch (e) {
+            ops("notion").warn("filling the chat's field on the client failed", { error: e instanceof Error ? e.name : "error" });
+            notion = "The Hub could not fill the chat's field in Notion (see the ops log); the link stands";
+          }
+        }
+        return c.json(autolinkLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError, days: IMPORT_DAYS, notion }));
+      }),
+    )
+    // P100: nobody in Notion matches: the owner's Create makes one Clients card (Name, Email, Relationship Lead, the chat's username
+    // or number), puts it into memory and links the chat to it. Insert content refused: nothing made, the fix said.
+    .post("/api/projects/:slug/messengers/autolink/create", (c) =>
+      guarded(c, autolinkCreateBody, async (b, slug, al) => {
+        if ((await al.autolink.state()).project !== slug) return c.json({ error: "The autolink serves another project.", code: "wrong_state" as const }, 409);
+        if (!al.directory.dataSourceId) return c.json({ error: "This project has no Clients database in project.md.", code: "wrong_state" as const }, 409);
+        const adapter = al.autolink.adapterOf(b.channel, b.account);
+        if (!adapter) return c.json({ error: "That account is not connected (parked, stopped or unknown): see its state.", code: "wrong_state" as const }, 409);
+        if (await repos.messengers.isAllowed(slug, b.channel, b.chatId)) return c.json({ error: "That chat is already linked.", code: "wrong_state" as const }, 409);
+        const identity = identityFor(al, b.channel, b.chatId);
+        const deps = await al.directory.notion();
+        // A card with this email already (made since the last read, or not found by the name typed): link to it, never a second one.
+        const existing = (await findClientPages(deps.reader, al.directory.dataSourceId, b.email))[0];
+        if (existing) {
+          const entry = entryOf(existing as never);
+          if (entry) al.directory.put(entry);
+          const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: b.email, name: entry?.name || b.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}) });
+          const filled = fillLine(await fillChatIdentity(deps, { clientsDataSource: al.directory.dataSourceId, pageId: existing.id, identity }));
+          return c.json(autolinkLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError, days: IMPORT_DAYS, notion: `Linked to the existing card of ${b.email}${filled ? `; ${filled}` : ""}` }));
+        }
+        const made = await createChatClient(deps, { clientsDataSource: al.directory.dataSourceId, name: b.name, email: b.email, identity });
+        if (made.state !== "created") return c.json({ error: made.note, code: "wrong_state" as const }, 409);
+        const entry = entryOf(made.page as never);
+        if (entry) al.directory.put(entry);
+        const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: b.email, name: b.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}) });
+        const field = identity.channel === "telegram" ? (identity.username ?? identity.phone) : identity.phone;
+        return c.json(autolinkLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError, days: IMPORT_DAYS, notion: `Created ${b.name} in Notion${field ? ` with ${identity.channel === "telegram" ? "Telegram" : "WhatsApp"} ${field}` : ""}` }));
       }),
     )
     // P84c: Hide ("not a client") of an unlinked chat the Hub saw, and Unhide: the refusal's HMAC is written or deleted; nothing else.

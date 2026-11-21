@@ -1,5 +1,5 @@
 import { clientMatchesDto, messengerChatDto, messengerChatsDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChannelFilter, type MessengerView } from "@hub/contract/messenger-panel";
-import { autolinkHiddenDto, autolinkRecordsDto, autolinkStateDto, chatUnlinkedDto, userLinkedDto } from "@hub/contract/messengers";
+import { autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkStateDto, chatUnlinkedDto } from "@hub/contract/messengers";
 import { read } from "../client";
 
 const at = (project: string) => `/api/projects/${encodeURIComponent(project)}/messengers`;
@@ -19,7 +19,10 @@ export const messengersApi = {
   // P84: the autolink. Every call is a gated POST: the state names the owner's own contacts and the records come from his Notion.
   autolinkState: (project: string) => read(autolinkStateDto, { method: "POST", path: `${at(project)}/autolink/state`, body: {} }),
   findRecords: (project: string, q: string) => read(autolinkRecordsDto, { method: "POST", path: `${at(project)}/autolink/records`, body: { q } }),
-  linkRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; key: string; title?: string }) => read(userLinkedDto, { method: "POST", path: `${at(project)}/autolink/link`, body }),
+  linkRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; key: string; title?: string }) => read(autolinkLinkedDto, { method: "POST", path: `${at(project)}/autolink/link`, body }),
+  // P100: nobody in Notion matches: one Clients card from the chat (Name, Email, its username or number), then the link.
+  createRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; title?: string; name: string; email: string }) =>
+    read(autolinkLinkedDto, { method: "POST", path: `${at(project)}/autolink/create`, body }),
   // P84c: Hide ("not a client") and Unhide of an unlinked chat; the server keeps a keyed hash, never the chat.
   hideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => read(autolinkHiddenDto, { method: "POST", path: `${at(project)}/autolink/hide`, body }),
   unhideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => read(autolinkHiddenDto, { method: "POST", path: `${at(project)}/autolink/unhide`, body }),

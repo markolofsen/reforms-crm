@@ -74,3 +74,44 @@ test("chats: Hide takes a chat off To do with Undo; Hidden lists it with Unhide 
   await expect(page.getByText("Spam Sender is back on To do")).toBeVisible();
   await expect(hidden.getByRole("listitem")).toHaveText([/Delivery bot fan/]);
 });
+
+test("chats: the link box finds the card made a minute ago by name or email, shows the email, says what the link loaded; Create when only a namesake", async ({ page }) => {
+  const s = await stubChats(page);
+  await page.goto(at(P, "/messengers"));
+  const row = fresh(page).getByRole("listitem", { name: "Delivery bot fan" });
+  await row.getByRole("button", { name: "Link to a client (Delivery bot fan)" }).click();
+  const box = row.getByRole("searchbox", { name: /A client in Notion/ });
+  await expect(box).toHaveAttribute("placeholder", "Name, email, @username or phone");
+  await box.fill("Евгений");
+  const found = row.getByRole("list", { name: "Matching clients in Notion" });
+  await expect(found.getByRole("button")).toHaveText([/Евгений Тен · Lead\s*john\.ten@example\.test/, /^Евгений\s*suenot@example\.test$/]);
+  // A namesake is not this person: Create is offered under any answer.
+  await expect(row.getByRole("button", { name: "Create client «Delivery bot fan» in Notion" })).toBeVisible();
+  await box.fill("suenot@");
+  await expect(found.getByRole("button")).toHaveText([/^Евгений\s*suenot@example\.test$/]);
+  await found.getByRole("button").click();
+  await expect(page.getByText("Linked · 7 messages of the last 30 days loaded")).toBeVisible();
+  await expect(page.getByText("Telegram set to suenot in Notion")).toBeVisible();
+  await expect(fresh(page).getByRole("listitem", { name: "Delivery bot fan" })).toHaveCount(0);
+  expect(s.posts.filter((p) => p.path.endsWith("/autolink/link")).map((p) => p.body)).toEqual([{ channel: "telegram_user", account: "42", chatId: "9002", key: "n-evg", title: "Delivery bot fan" }]);
+});
+
+test("chats: nothing matches, so Create client makes the card with the chat's username and links it", async ({ page }) => {
+  const s = await stubChats(page);
+  await page.goto(at(P, "/messengers"));
+  const row = fresh(page).getByRole("listitem", { name: "Delivery bot fan" });
+  await row.getByRole("button", { name: "Link to a client (Delivery bot fan)" }).click();
+  await row.getByRole("searchbox", { name: /A client in Notion/ }).fill("Zorro");
+  await expect(row.getByText("No client in Notion matches.")).toBeVisible();
+  await row.getByRole("button", { name: "Create client «Delivery bot fan» in Notion" }).click();
+  const form = row.getByRole("form", { name: "New client for Delivery bot fan" });
+  await expect(form.getByRole("textbox", { name: "Name" })).toHaveValue("Delivery bot fan");
+  await expect(form.getByText("Telegram suenot is written to the card, with Relationship Lead.")).toBeVisible();
+  await expect(form.getByRole("button", { name: "Create and link" })).toBeDisabled();
+  await form.getByRole("textbox", { name: "Name" }).fill("Evgeniy");
+  await form.getByRole("textbox", { name: "Email" }).fill("suenot@example.test");
+  await form.getByRole("button", { name: "Create and link" }).click();
+  await expect(page.getByText("Linked · 7 messages of the last 30 days loaded")).toBeVisible();
+  await expect(page.getByText("Created Evgeniy in Notion with Telegram suenot")).toBeVisible();
+  expect(s.posts.filter((p) => p.path.endsWith("/autolink/create")).map((p) => p.body)).toEqual([{ channel: "telegram_user", account: "42", chatId: "9002", title: "Delivery bot fan", name: "Evgeniy", email: "suenot@example.test" }]);
+});
