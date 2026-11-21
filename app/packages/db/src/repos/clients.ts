@@ -128,7 +128,8 @@ export function clientsRepo(db: Db) {
     /**
      * The Drafts screen: the drafts of each client that has one (every draft since P87; the open views hold one per client), in
      * the shape the review screen shares with a bulk batch (typed safety results, tone bodies, the Checked gate). Same order as
-     * `list`; `limit` and `offset` page it.
+     * `list`; `limit` and `offset` page it. Two clients that tie keep their order by client (P99 S0: only one client's own drafts
+     * are newest first; the tie-break by draft id alone moved another client's draft to the top).
      */
     async review(project: string, filter: ClientFilter = "all", opts: DraftScope & { limit?: number; offset?: number; now?: Date; search?: string } = {}): Promise<ReviewDraft[]> {
       const rows = db
@@ -136,7 +137,7 @@ export function clientsRepo(db: Db) {
         .from(clients)
         .innerJoin(drafts, scopeOf(opts))
         .where(and(eq(clients.project, project), predicates[filter], searchSql(opts.search)))
-        .orderBy(sql`case when ${drafts.status} in ('done','sent','skipped') then 1 else 0 end`, desc(clients.repliesOwed), sql`case when ${clients.lastContactAt} is null then 1 else 0 end`, asc(clients.lastContactAt), desc(drafts.id))
+        .orderBy(sql`case when ${drafts.status} in ('done','sent','skipped') then 1 else 0 end`, desc(clients.repliesOwed), sql`case when ${clients.lastContactAt} is null then 1 else 0 end`, asc(clients.lastContactAt), asc(clients.id), desc(drafts.id))
         .limit(opts.limit ?? -1)
         .offset(opts.offset ?? 0)
         .all();

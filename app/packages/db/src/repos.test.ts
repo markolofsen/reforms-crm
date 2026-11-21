@@ -81,6 +81,12 @@ describe("P99 S0 (e): one client's drafts in All", () => {
     const third = await repos.drafts.create({ project: "p", clientId, subject: "Re: z", toAddr: "me@x.example", body: "b", status: "done" });
     expect((await repos.clients.review("p", "all")).map((d) => d.id)).toEqual([third, second, first]);
   });
+
+  it("leave two clients that tie in their order (the older client first)", async () => {
+    const { draftId: older } = await addClient("p", "a@x.example", { owed: true, status: "ready" });
+    const { draftId: newer } = await addClient("p", "b@x.example", { owed: true, status: "ready" });
+    expect((await repos.clients.review("p", "all")).map((d) => d.id)).toEqual([older, newer]);
+  });
 });
 
 describe("drafts and marks", () => {
