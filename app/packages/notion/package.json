@@ -2,7 +2,7 @@
   "name": "@hub/notion",
   "version": "0.1.0",
   "private": true,
-  "description": "Notion dump and restore dry-run for reforms-crm: read only, except the two Last sent fields of ./stamp (P89)",
+  "description": "Notion dump and restore dry-run for reforms-crm: read only, except the two Last sent fields of ./stamp (P89) and the lead Status, Client and new Clients card of ./leads-write (P97)",
   "type": "module",
   "bin": {
     "notion-dump": "./src/cli.ts"
@@ -26,6 +26,7 @@
   },
   "exports": {
     ".": "./src/read.ts",
-    "./stamp": "./src/stamp.ts"
+    "./stamp": "./src/stamp.ts",
+    "./leads-write": "./src/lead-convert.ts"
   }
 }

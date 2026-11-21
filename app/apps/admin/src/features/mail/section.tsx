@@ -20,6 +20,7 @@ import { DRAFT_VIEW_LABELS, DRAFT_VIEWS, type DraftView } from "@/routes/search"
 import { BatchSend } from "./batch-send";
 import { InboundCard } from "./inbox/inbound-card";
 import { InboxView, useInbound } from "./inbox/inbox-view";
+import { LeadCard } from "./inbox/lead-card";
 import { NotByEmail, useNotByEmailTotal } from "./not-by-email";
 import { FollowUps } from "./sequences/follow-ups";
 import { StatusLine } from "./status-line";
@@ -56,10 +57,10 @@ function countOf(counts: ReviewPage["counts"], view: string): number | undefined
   return view === "finished" ? FINISHED.reduce((n, f) => n + (counts[f] ?? 0), 0) : counts[view];
 }
 
-type Props = { project: string; filter: DraftView; q: string; batch: number | null; selectedId: number | null; inboundId: number | null; arrival: boolean; mobile: boolean; measured: boolean };
+type Props = { project: string; filter: DraftView; q: string; batch: number | null; selectedId: number | null; inboundId: number | null; leadPageId: string | null; arrival: boolean; mobile: boolean; measured: boolean };
 
 /** Mail: the list column (View menu, status line, rows) and the open card. The view, the search, the batch and the open draft or message live in the address. */
-function MailSection({ project, filter, q, batch, selectedId, inboundId, arrival, mobile, measured }: Props) {
+function MailSection({ project, filter, q, batch, selectedId, inboundId, leadPageId, arrival, mobile, measured }: Props) {
   const go = useGo();
   const onAuto = useCallback((id: number) => go(paths.mail.item(id, { filter, q, batch }), { replace: true }), [go, filter, q, batch]);
   const setQ = useSearchState("q")[1];
@@ -67,7 +68,8 @@ function MailSection({ project, filter, q, batch, selectedId, inboundId, arrival
   const batches = useQuery({ queryKey: keys.batches(project), queryFn: () => reviewApi.batches(project) });
   const notByEmail = useNotByEmailTotal(project);
   const inbound = useInbound(project);
-  const wrote = inbound.data?.total;
+  // P97: the Leads group counts as Inbox's too (arrival moves to Inbox when a lead waits); the View menu counts the people in both.
+  const wrote = inbound.data === undefined ? undefined : inbound.data.total + (inbound.data.leads?.total ?? 0);
   // Arrival with clients waiting: Inbox (replacing the bare address, no history entry), once per project per page load.
   useEffect(() => {
     if (!arrival || wrote === undefined || ARRIVED.has(project)) return;
@@ -101,9 +103,11 @@ function MailSection({ project, filter, q, batch, selectedId, inboundId, arrival
       aside={
         inbox
           ? {
-              open: inboundId !== null,
+              open: inboundId !== null || leadPageId !== null,
               node:
-                inboundId !== null ? (
+                leadPageId !== null ? (
+                  <LeadCard key={leadPageId} onClosed={() => go(paths.mail.list({ filter: "inbox" }), { replace: true })} pageId={leadPageId} project={project} />
+                ) : inboundId !== null ? (
                   <InboundCard id={inboundId} key={inboundId} onClosed={() => go(paths.mail.list({ filter: "inbox" }), { replace: true })} project={project} />
                 ) : (
                   <EmptyState title="Nothing to open">Pick a client from the list to read what they wrote.</EmptyState>
@@ -111,7 +115,7 @@ function MailSection({ project, filter, q, batch, selectedId, inboundId, arrival
             }
           : undefined
       }
-      body={filter === "not_by_email" ? <NotByEmail project={project} /> : inbox ? <InboxView openId={inboundId} project={project} /> : undefined}
+      body={filter === "not_by_email" ? <NotByEmail project={project} /> : inbox ? <InboxView openId={inboundId} openPageId={leadPageId} project={project} /> : undefined}
       empty={(filtered) =>
         !known
           ? "That batch is not in this project."
@@ -157,12 +161,13 @@ export function MailScreen() {
   // A pane too narrow for the split (a phone, or the terminal docked beside it) shows the list and the card as separate screens: no card opens until a row is chosen.
   const compact = usePaneNarrow();
   const measured = usePaneMeasured();
-  if (route.route !== "mail.list" && route.route !== "mail.item" && route.route !== "mail.inbound") return null;
+  if (route.route !== "mail.list" && route.route !== "mail.item" && route.route !== "mail.inbound" && route.route !== "mail.lead") return null;
   const selectedId = route.route === "mail.item" ? route.params.id : null;
   const inboundId = route.route === "mail.inbound" ? route.params.id : null;
+  const leadPageId = route.route === "mail.lead" ? route.params.pageId : null;
   const { q, batch } = route.search;
   // A client's message is always Inbox's card, whatever view the address names.
-  const filter: DraftView = route.route === "mail.inbound" ? "inbox" : route.search.filter;
+  const filter: DraftView = route.route === "mail.inbound" || route.route === "mail.lead" ? "inbox" : route.search.filter;
   const arrival = route.route === "mail.list" && filter === "ready" && q === "" && batch === null;
-  return <MailSection arrival={arrival} batch={batch} filter={filter} inboundId={inboundId} measured={measured} mobile={compact} project={project} q={q} selectedId={selectedId} />;
+  return <MailSection arrival={arrival} batch={batch} filter={filter} inboundId={inboundId} leadPageId={leadPageId} measured={measured} mobile={compact} project={project} q={q} selectedId={selectedId} />;
 }

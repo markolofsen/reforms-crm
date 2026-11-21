@@ -63,6 +63,8 @@ export const keys = {
   thread: (project: string, clientId: number) => ["thread", project, clientId] as const,
   /** P96: one client message with its text read from Mail (the Inbox card): a Mail read, so on open and on focus only. */
   inboundText: (project: string, id: number) => ["inbound-text", project, id] as const,
+  /** P97: one lead's card (its Notion page read now). */
+  lead: (project: string, pageId: string) => ["lead", project, pageId] as const,
 };
 
 /**

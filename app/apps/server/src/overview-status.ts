@@ -61,7 +61,7 @@ export function statusOf(f: ProjectFacts, sys: InstanceFacts, now: Date): Status
   const worst = factsOf(f, sys, now).sort((a, b) => RANK[a.level] - RANK[b.level] || STATUS_KINDS.indexOf(a.kind) - STATUS_KINDS.indexOf(b.kind))[0];
   const paused = f.status === "paused" ? "Paused: nothing runs" : f.archived || f.status === "archived" ? "Archived" : "All clear";
   const head = worst ?? { kind: "clear" as const, level: "clear" as const, sentence: paused, next: null };
-  return { level: head.level, kind: head.kind, sentence: head.sentence, next: head.next, numbers: { owed: f.owed, wrote: f.wrote, lastTriageAt: f.lastTriageAt, mailRead: sys.mailRead ?? NO_READ } };
+  return { level: head.level, kind: head.kind, sentence: head.sentence, next: head.next, numbers: { owed: f.owed, wrote: f.wrote, ...(f.leads ? { leads: f.leads } : {}), lastTriageAt: f.lastTriageAt, mailRead: sys.mailRead ?? NO_READ } };
 }
 
 /** The Overview's one sentence: it counts projects, not items. Only `attention` and `blocked` need the owner. */

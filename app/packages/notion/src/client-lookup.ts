@@ -1,3 +1,4 @@
+import { parseLeadDetail } from "./leads";
 import type { NotionReader, PageObject, PropertyValue } from "./types";
 
 /**
@@ -47,4 +48,38 @@ async function all(reader: NotionReader, dataSourceId: string): Promise<PageObje
   const out: PageObject[] = [];
   for await (const p of reader.listPages(dataSourceId)) out.push(p);
   return out;
+}
+
+/**
+ * P97 S3 (decision 0044 point 2): is this address a lead of the project's Notion Leads data source? A row counts when its `Email`
+ * (the account email) or the email typed in its `Details` (`Contact channel: Email: …`) is the address, and its Status is not
+ * Spam. Read only: the data source's properties, then one filtered query. Returns the newest matching page.
+ */
+export type LeadLookup = { state: "lead"; pageId: string } | { state: "not_lead" };
+
+export async function findLeadByEmail(reader: NotionReader, dataSourceId: string, address: string): Promise<LeadLookup> {
+  const email = address.trim().toLowerCase();
+  const ds = await reader.retrieveDataSource(dataSourceId);
+  const or: unknown[] = [];
+  if (ds.properties["Email"]?.type === "email") or.push({ property: "Email", email: { equals: email } });
+  if (ds.properties["Details"]?.type === "rich_text") or.push({ property: "Details", rich_text: { contains: email } });
+  if (or.length === 0) return { state: "not_lead" };
+  const pages = reader.findPages ? await reader.findPages(dataSourceId, { or }, 20) : await all(reader, dataSourceId);
+  const hits = pages
+    .map(parseLeadDetail)
+    .filter((l) => l.status !== "Spam" && (l.replyTo === email || (l.email ?? "").trim().toLowerCase() === email))
+    .sort((a, b) => (b.receivedAt ?? "").localeCompare(a.receivedAt ?? ""));
+  const hit = hits[0];
+  return hit ? { state: "lead", pageId: hit.id } : { state: "not_lead" };
+}
+
+/** Every live (not Synthetic) Clients page naming the address, Do not contact included: S4 links exactly one and names several. */
+export async function findClientPages(reader: NotionReader, dataSourceId: string, address: string): Promise<PageObject[]> {
+  const email = address.trim().toLowerCase();
+  const ds = await reader.retrieveDataSource(dataSourceId);
+  const props = Object.entries(ds.properties).flatMap(([name, c]) => (c.type === "email" ? [{ name, type: "email" }] : c.type === "rich_text" && OTHER_EMAILS.test(name) ? [{ name, type: "rich_text" }] : []));
+  if (props.length === 0) return [];
+  const filter = { or: props.map((p) => (p.type === "email" ? { property: p.name, email: { equals: email } } : { property: p.name, rich_text: { contains: email } })) };
+  const pages = reader.findPages ? await reader.findPages(dataSourceId, filter, 10) : await all(reader, dataSourceId);
+  return pages.filter((p) => names(p, props.map((x) => x.name), email) && !checked(p.properties["Synthetic"]));
 }

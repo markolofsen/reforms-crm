@@ -22,6 +22,7 @@ export type Resolved =
   | (Base & { route: "mail.list"; section: "mail"; params: NoSearch; search: DraftsSearch })
   | (Base & { route: "mail.item"; section: "mail"; params: { id: number }; search: DraftsSearch })
   | (Base & { route: "mail.inbound"; section: "mail"; params: { id: number }; search: DraftsSearch })
+  | (Base & { route: "mail.lead"; section: "mail"; params: { pageId: string }; search: DraftsSearch })
   | (Base & { route: "messengers.page"; section: "messengers"; params: NoSearch; search: MessengersSearch })
   | (Base & { route: "messengers.settings"; section: "messengers"; params: NoSearch; search: NoSearch })
   | (Base & { route: "log.list"; section: "log"; params: NoSearch; search: LogSearch })
@@ -67,6 +68,11 @@ export function resolveRoute(path: string, searchString: string): Resolved {
     const inId = positiveInt(segs[2]);
     return inId === null ? notFound : { ...base, route: "mail.inbound", section: "mail", params: { id: inId }, search: draftsSearch(raw) };
   }
+  // P97: a lead of the Leads group is the other three-segment address (`/mail/lead/<32 hex>`).
+  if (head === "mail" && tail === "lead" && segs.length === 3 && !(inPath && project === null)) {
+    const pageId = (segs[2] ?? "").replace(/-/g, "").toLowerCase();
+    return /^[0-9a-f]{32}$/.test(pageId) ? { ...base, route: "mail.lead", section: "mail", params: { pageId }, search: draftsSearch(raw) } : notFound;
+  }
   // A project segment heads a scoped section only; `/lisbon`, `/lisbon/overview` and an undecodable slug are Not found.
   if (segs.length > 2 || (inPath && (project === null || head === undefined || PROJECTLESS_HEADS.has(head)))) return notFound;
   switch (head) {
@@ -109,6 +115,8 @@ export function destOf(r: Resolved): Dest | null {
       return paths.mail.item(r.params.id, r.search);
     case "mail.inbound":
       return paths.mail.inbound(r.params.id, r.search);
+    case "mail.lead":
+      return paths.mail.lead(r.params.pageId, r.search);
     case "messengers.page":
       return paths.messengers.chats(r.search);
     case "messengers.settings":

@@ -50,6 +50,61 @@ export function parseLeadPage(page: PageObject): Lead {
   };
 }
 
+/**
+ * P97 S2 (decision 0044, the owner's answer 4 of 2026-11-21): the lead's own words and the address a reply goes to. The carapis
+ * backend writes the account email in `Email` and what the person typed on the form in `Details` as a line
+ * `Contact channel: Email: <address>` (or `WhatsApp: …`, `Telegram: …`). A typed email wins; else the account email; else none
+ * (a phone or Telegram contact gets no mail draft: the card says which channel to use).
+ */
+export interface LeadDetail extends Lead {
+  company: string | null;
+  message: string;
+  details: string;
+  form: string | null;
+  pageUrl: string | null;
+  phone: string | null;
+  /** The reply address (typed email, else `Email`), lower case; null: none. */
+  replyTo: string | null;
+  /** The contact the person typed when it is not an email ("WhatsApp: 0804291728"), else null. */
+  otherContact: string | null;
+}
+
+const EMAIL_RE = /^[^\s@<>(),;:"']+@[^\s@<>(),;:"']+\.[^\s@<>(),;:"']+$/;
+const richOf = (p: PropertyValue | undefined): string => (p?.type === "rich_text" ? plain(p.rich_text) : p?.type === "title" ? plain(p.title) : "");
+
+/** The `Contact channel:` line of Details: `{ email }` when it names an email, `{ other }` for any other channel, null when absent. */
+export function contactChannelOf(details: string): { email: string } | { other: string } | null {
+  const line = details.split(/\r?\n/).map((l) => l.trim()).find((l) => /^contact\s*channel\s*:/i.test(l));
+  if (!line) return null;
+  const value = line.replace(/^contact\s*channel\s*:\s*/i, "").trim();
+  if (!value) return null;
+  const m = /^e-?mail\s*:\s*(\S+)/i.exec(value);
+  const addr = (m?.[1] ?? (EMAIL_RE.test(value) ? value : "")).replace(/[.,;]+$/, "").replace(/^<|>$/g, "").toLowerCase();
+  if (addr && EMAIL_RE.test(addr)) return { email: addr };
+  return { other: value.slice(0, 120) };
+}
+
+/** A Leads page with the fields the card and the reply need. Pure. */
+export function parseLeadDetail(page: PageObject): LeadDetail {
+  const base = parseLeadPage(page);
+  const details = richOf(prop(page, "Details"));
+  const channel = contactChannelOf(details);
+  const account = base.email && EMAIL_RE.test(base.email.trim()) ? base.email.trim().toLowerCase() : null;
+  const url = prop(page, "Page URL")?.url;
+  const phone = prop(page, "Phone")?.phone_number;
+  return {
+    ...base,
+    company: richOf(prop(page, "Company")).trim() || null,
+    message: richOf(prop(page, "Message")),
+    details,
+    form: richOf(prop(page, "Form")).trim() || null,
+    pageUrl: typeof url === "string" ? url : null,
+    phone: typeof phone === "string" && phone.trim() ? phone.trim() : null,
+    replyTo: channel && "email" in channel ? channel.email : account,
+    otherContact: channel && "other" in channel ? channel.other : null,
+  };
+}
+
 export interface LeadSummary {
   total: number;
   byStatus: Record<string, number>;

@@ -60,6 +60,8 @@ export const statusDto = z.strictObject({
     owed: z.number().int(),
     /** P96: the clients who wrote and have no draft yet (the Mail ▸ Inbox view), part of `owed`. */
     wrote: z.number().int(),
+    /** P97: the people in the Inbox's Leads group (Notion Leads, New, in the window, no draft yet); absent when none. */
+    leads: z.number().int().optional(),
     /** P96: when the Mail reader last read this project's mail, or why it does not (`reason`), and the unknown senders it counted. */
     mailRead: mailReadDto,
     /** When the agent last recorded a client; null = never triaged. */

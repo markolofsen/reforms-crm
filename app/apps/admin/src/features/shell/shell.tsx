@@ -44,7 +44,7 @@ function Frame({ items, projects, project, onProject, brand, route, dock, childr
   useHotkeys(keys, shortcutsOn, FRAME_HELP);
   // A phone shows the subject as a screen of its own; its action bar sticks to the bottom, so the tab bar steps aside.
   // The tab bar and the phone's top line are in the markup of every width and `md:hidden` takes them away (the server cannot know the viewport).
-  const tabs = route.route !== "mail.item" && route.route !== "mail.inbound";
+  const tabs = route.route !== "mail.item" && route.route !== "mail.inbound" && route.route !== "mail.lead";
   const content = useRef<HTMLDivElement>(null);
   const narrow = useMeasuredNarrow(content);
   return (

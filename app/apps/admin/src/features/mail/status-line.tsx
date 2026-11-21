@@ -18,7 +18,7 @@ import { CheckNow, mailReadText } from "./inbox/mail-read";
 
 const LIVE_WORD: Record<Exclude<LiveState, "connecting">, string> = { live: "Live", reconnecting: "Reconnecting, data may be old" };
 
-type Line = { level: StatusLevel; sentence: string; numbers: string[]; to: Dest | null; kind: string; /** P96: "1 client wrote" (a link to Inbox), or null. */ wrote: string | null; /** P96: the Mail reader's words, or null when the page itself is in doubt. */ read: string | null; /** P96: Check now belongs on the line (Mail closed, a failed read or a late one, and the line has no link of its own). */ check: boolean };
+type Line = { level: StatusLevel; sentence: string; numbers: string[]; to: Dest | null; kind: string; /** P96: "1 client wrote" (a link to Inbox), or null. */ wrote: string | null; /** P97: "2 new leads" (a link to Inbox), or null. */ leads: string | null; /** P96: the Mail reader's words, or null when the page itself is in doubt. */ read: string | null; /** P96: Check now belongs on the line (Mail closed, a failed read or a late one, and the line has no link of its own). */ check: boolean };
 
 /** The reader's idle pass is every 15 minutes: a read older than that is late, and Check now comes to the line. */
 const READ_STALE_MS = 15 * 60_000;
@@ -36,16 +36,17 @@ export function lineOf(s: StatusDto, now: number, shell: { stale: boolean; serve
   const n = s.numbers;
   const owedOnly = Math.max(0, n.owed - n.wrote);
   const wrote = n.wrote > 0 ? `${plural(n.wrote, "client")} wrote` : null;
+  const leads = n.leads ? plural(n.leads, "new lead") : null;
   const numbers = owedOnly > 0 ? [`${plural(owedOnly, "reply", "replies")} owed`] : [];
   // What only the page can know outranks the server's own sentence: its data may be old, or the two do not match.
-  const doubt = { numbers: [], to: null, wrote: null, read: null, check: false };
+  const doubt = { numbers: [], to: null, wrote: null, leads: null, read: null, check: false };
   if (shell.stale) return { level: "blocked", kind: "server-silent", sentence: "Server not answering: data may be old", ...doubt };
   if (shell.serverOlder) return { level: "attention", kind: "server-older", sentence: "Server older than this page: restart it with hub up", ...doubt };
   if (shell.serverNewer) return { level: "attention", kind: "server-newer", sentence: "Server newer than this page: reload it", ...doubt };
   const r = n.mailRead;
   // Show less (ui-specifications 4a): a fresh read needs no button here; Inbox always has Check now.
   const stale = !r.reading && (r.reason !== null ? MAIL_READ_RETRYABLE.includes(r.reason) : r.at !== null && now - Date.parse(r.at) > READ_STALE_MS);
-  return { level: s.level, kind: s.kind, sentence: s.sentence, numbers, to: s.next ? nextDest(s.next) : null, wrote, read: mailReadText(r, now), check: stale && !s.next };
+  return { level: s.level, kind: s.kind, sentence: s.sentence, numbers, to: s.next ? nextDest(s.next) : null, wrote, leads, read: mailReadText(r, now), check: stale && !s.next };
 }
 
 /**
@@ -96,6 +97,14 @@ export function StatusLine({ project }: { project: string }) {
           {"· "}
           <AppLink className="font-medium text-foreground" data-testid="status-wrote" to={paths.mail.list({ filter: "inbox" })}>
             {l.wrote}
+          </AppLink>
+        </span>
+      )}
+      {l.leads && (
+        <span className="text-muted-foreground">
+          {"· "}
+          <AppLink className="font-medium text-foreground" data-testid="status-leads" to={paths.mail.list({ filter: "inbox" })}>
+            {l.leads}
           </AppLink>
         </span>
       )}

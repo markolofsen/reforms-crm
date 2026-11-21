@@ -50,6 +50,8 @@ export const paths = {
     list: (s: DraftsArgs = {}) => dest("mail.list", route("/mail"), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
     item: (id: number, s: DraftsArgs = {}) => dest("mail.item", route(`/mail/${id}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
     inbound: (id: number, s: DraftsArgs = {}) => dest("mail.inbound", route(`/mail/in/${id}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
+    /** P97 S2: one lead of the Leads group (`/mail/lead/<32 hex>`), Inbox's card like a client's message. */
+    lead: (pageId: string, s: DraftsArgs = {}) => dest("mail.lead", route(`/mail/lead/${pageId}`), { filter: unlessDefault(s.filter, DEFAULT_DRAFT_VIEW), q: s.q, batch: s.batch }),
   },
   log: {
     list: (s: { filter?: ActivityView; client?: number | null } = {}) => dest("log.list", route("/log"), { filter: unlessDefault(s.filter, "all"), client: s.client }),
@@ -63,7 +65,7 @@ export function sectionList(id: SectionId): Dest {
 }
 
 /** The bare destination of a route with no parameter (a nav item, a child page of the sub-nav, the page a dot names). */
-export function routeDest(id: Exclude<RouteId, "mail.item" | "mail.inbound">): Dest {
+export function routeDest(id: Exclude<RouteId, "mail.item" | "mail.inbound" | "mail.lead">): Dest {
   return dest(id, ROUTE_TABLE[id].path);
 }
 

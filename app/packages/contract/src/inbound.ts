@@ -40,11 +40,43 @@ export const mailReadDto = z.strictObject({
 });
 export type MailReadDto = z.infer<typeof mailReadDto>;
 
+// P97 S2 (decision 0044): the Leads group of Inbox, read from the project's Notion Leads (never from a notice mail).
+
+/** One person of the Leads group: their newest open request (Status New or empty, in the window, not dismissed, no draft yet). */
+export const leadRowDto = z.strictObject({
+  pageId: z.string(),
+  name: z.string(),
+  /** The reply address (the email typed on the form, else the Leads Email); null: none, the card says which channel to use. */
+  email: z.string().nullable(),
+  accountEmail: z.string().nullable(),
+  brand: z.string().nullable(),
+  receivedAt: z.string(),
+  preview: z.string(),
+  /** Open requests sharing the address (verdict 7: one person, "2 requests"). */
+  requests: z.number().int(),
+});
+export type LeadRowDto = z.infer<typeof leadRowDto>;
+
+/** The Leads line: when Leads were last read, or why not; the older New leads (one muted count); the window in days. */
+export const leadsReadDto = z.strictObject({
+  at: z.string().nullable(),
+  reason: z.string().nullable(),
+  reading: z.boolean(),
+  older: z.number().int(),
+  windowDays: z.number().int(),
+});
+export type LeadsReadDto = z.infer<typeof leadsReadDto>;
+
+export const leadsGroupDto = z.strictObject({ rows: z.array(leadRowDto), total: z.number().int(), read: leadsReadDto });
+export type LeadsGroupDto = z.infer<typeof leadsGroupDto>;
+
 /** `GET /api/projects/:slug/inbound`: the Inbox view. `unknown` is the muted line, the messages from senders the Hub does not know. */
 export const inboundListDto = z.strictObject({
   rows: z.array(inboundRowDto),
   total: z.number().int(),
   read: mailReadDto,
+  /** P97: the Leads group above the clients who wrote; absent from a server before P97. */
+  leads: leadsGroupDto.optional(),
 });
 export type InboundListDto = z.infer<typeof inboundListDto>;
 
@@ -72,3 +104,38 @@ export const inboundUndismissBody = z.strictObject({ ids: z.array(z.number().int
 
 /** `POST .../inbound/check` (Check now): the line after the pass this request waited for. */
 export const inboundCheckedDto = z.strictObject({ ok: z.literal(true), read: mailReadDto });
+
+/** `GET /api/projects/:slug/leads/:pageId`: one lead, its page read from Notion now (`lead` null with `note` when it cannot be). */
+export const leadDetailDto = z.strictObject({
+  row: leadRowDto.extend({
+    open: z.boolean(),
+    notionStatus: z.string().nullable(),
+    dismissedAt: z.string().nullable(),
+    dismissedReason: z.enum(["not_now", "spam"]).nullable(),
+    convertedAt: z.string().nullable(),
+    clientPageId: z.string().nullable(),
+    /** What the owner must do when Notion refused a write at the first send (S4), else null. */
+    convertNote: z.string().nullable(),
+  }),
+  lead: z
+    .strictObject({
+      company: z.string().nullable(),
+      message: z.string(),
+      details: z.string(),
+      form: z.string().nullable(),
+      pageUrl: z.string().nullable(),
+      phone: z.string().nullable(),
+      brands: z.array(z.string()),
+      /** The contact typed on the form when it is not an email ("WhatsApp: …"): no mail draft, reply on that channel. */
+      otherContact: z.string().nullable(),
+    })
+    .nullable(),
+  note: z.string().nullable(),
+  /** The Hub's drafts to this lead's address, newest first. */
+  drafts: z.array(z.strictObject({ id: z.number().int(), subject: z.string(), status: z.string() })),
+});
+export type LeadDetailDto = z.infer<typeof leadDetailDto>;
+
+/** Not now, Spam and their Undo: the local change, and what Notion did (Spam and its Undo write Status; Not now writes nothing). */
+export const leadActionDto = z.strictObject({ ok: z.literal(true), pageId: z.string(), notion: z.enum(["written", "skipped", "refused", "off", "none"]), note: z.string().nullable() });
+export type LeadActionDto = z.infer<typeof leadActionDto>;

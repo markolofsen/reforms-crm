@@ -1,5 +1,5 @@
 import type { EnrollmentView, InboxKind } from "@hub/config";
-import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto } from "@hub/contract/inbound";
+import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, leadActionDto, leadDetailDto } from "@hub/contract/inbound";
 import { notByEmailDto } from "@hub/contract/responses";
 import { enrollmentChangedDto, enrollmentsDto, sequencesDto } from "@hub/contract/sequences";
 import { read } from "./client";
@@ -31,4 +31,15 @@ export const inboundApi = {
   check: (project: string) => read(inboundCheckedDto, { method: "POST", path: `${base(project)}/inbound/check`, body: {} }),
   dismiss: (project: string, id: number) => read(inboundDismissedDto, { method: "POST", path: `${base(project)}/inbound/${id}/dismiss`, body: {} }),
   undismiss: (project: string, ids: number[]) => read(inboundDismissedDto, { method: "POST", path: `${base(project)}/inbound/undismiss`, body: { ids } }),
+};
+
+/**
+ * P97 S2 and S5: one lead of the Inbox's Leads group (read from Notion Leads), Not now (local), Spam (the lead's Status in Notion,
+ * the owner's click) and their Undo. Nothing here drafts or sends: Prepare reply pastes the request into the dock.
+ */
+export const leadsApi = {
+  get: (project: string, pageId: string) => read(leadDetailDto, { method: "GET", path: `${base(project)}/leads/${pageId}` }),
+  notNow: (project: string, pageId: string) => read(leadActionDto, { method: "POST", path: `${base(project)}/leads/${pageId}/not-now`, body: {} }),
+  spam: (project: string, pageId: string) => read(leadActionDto, { method: "POST", path: `${base(project)}/leads/${pageId}/spam`, body: {} }),
+  undo: (project: string, pageId: string) => read(leadActionDto, { method: "POST", path: `${base(project)}/leads/${pageId}/undo`, body: {} }),
 };

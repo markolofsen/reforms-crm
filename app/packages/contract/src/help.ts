@@ -71,3 +71,14 @@ export function preparePhrase(project: string, clients: ReadonlyArray<{ email: s
   const line = sayFor(example, project).replace("<address>", list.map(one).join(", "));
   return list.length > 1 ? `${line}: one draft each` : line;
 }
+
+/**
+ * P97 S3: the request a lead's Prepare reply pastes into the dock, without Enter: skill bulk-drafts' first-mail phrase ("write a
+ * first mail to <client> of X: <what about>") naming the lead's reply address, its Notion page id and brand, so the session writes
+ * one new-thread draft with the Leads row as its context. One line.
+ */
+export function leadPhrase(project: string, lead: { email: string; pageId: string; brand: string | null }): string {
+  const example = SAY.find((s) => s.example.startsWith("write a first mail to"))?.example ?? "write a first mail to <client> of X: <what about>";
+  const what = `answer their website request (Notion lead ${lead.pageId}${lead.brand ? `, brand ${lead.brand}` : ""})`;
+  return sayFor(example, project).replace("<client>", lead.email).replace("<what about>", what);
+}

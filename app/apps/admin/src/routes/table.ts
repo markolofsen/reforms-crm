@@ -56,6 +56,8 @@ export const ROUTE_TABLE = {
   "mail.item": defineRoute("/mail/[id]", { section: "mail", scoped: true, title: "Mail", crumb: "Draft" }),
   // P96 S1: one message a client wrote, read from Mail (the Inbox view's card).
   "mail.inbound": defineRoute("/mail/in/[id]", { section: "mail", scoped: true, title: "Mail", crumb: "Message" }),
+  // P97 S2: one lead of the Inbox's Leads group, by its Notion page id (32 hex), read from Notion Leads.
+  "mail.lead": defineRoute("/mail/lead/[page]", { section: "mail", scoped: true, title: "Mail", crumb: "Lead" }),
   // P71 M3 (decision 0036 point 6): what the messengers owe, an analogue of Mail for the linked chats; its landing is the panel
   // (Chats), its child the logins, the bot, each chat's rules and the guards. Mail drafts stay in Mail.
   "messengers.page": defineRoute("/messengers", { section: "messengers", scoped: true, title: "Chats", nav: { label: "Messengers", icon: "messengers", order: 2, chord: "m", phone: "more" } }),
@@ -84,6 +86,7 @@ export const TWINS: { readonly [K in RouteId]: [Twin<(typeof ROUTE_TABLE)[K]>] e
   "mail.list": true,
   "mail.item": true,
   "mail.inbound": true,
+  "mail.lead": true,
   "messengers.page": true,
   "messengers.settings": true,
   "log.list": true,
@@ -122,6 +125,7 @@ export const NAV_SHAPE: { readonly [K in RouteId]: NavCheck<(typeof ROUTE_TABLE)
   "mail.list": true,
   "mail.item": true,
   "mail.inbound": true,
+  "mail.lead": true,
   "messengers.page": true,
   "messengers.settings": true,
   "log.list": true,
@@ -138,7 +142,8 @@ export const NAV_SHAPE: { readonly [K in RouteId]: NavCheck<(typeof ROUTE_TABLE)
 const ID = String.raw`[1-9]\d*`;
 /** One project segment of a multi-project address: anything but a slash, a query or a fragment (the slug is URL-encoded). */
 const SLUG = String.raw`[^/?#]+`;
-const escape = (p: string): string => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\\[id\\]", () => ID);
+const PAGE_ID = "[0-9a-f]{32}";
+const escape = (p: string): string => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\\[id\\]", () => ID).replace("\\[page\\]", () => PAGE_ID);
 
 const isRouteId = (k: string): k is RouteId => k in ROUTE_TABLE;
 export const ROUTE_IDS: readonly RouteId[] = Object.keys(ROUTE_TABLE).filter(isRouteId);

@@ -12,6 +12,7 @@ import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
 import { ago, plural } from "@/lib/format";
 import { paths } from "@/routes/paths";
+import { LeadsGroup } from "./leads-group";
 import { CheckNow, mailReadText } from "./mail-read";
 import { usePrepare } from "./use-prepare";
 
@@ -76,7 +77,7 @@ function Footer({ project, data, now }: { project: string; data: InboundListDto;
  * row opens the client's message (`/mail/in/<id>`). Prepare all pastes one request naming every row into the agent's dock,
  * without Enter (S2). A row leaves by work: a draft or an agent record after it, or No reply needed on its card.
  */
-export function InboxView({ project, openId }: { project: string; openId: number | null }) {
+export function InboxView({ project, openId, openPageId = null }: { project: string; openId: number | null; openPageId?: string | null }) {
   const q = useInbound(project);
   const now = useClock()();
   const prepare = usePrepare(project);
@@ -87,10 +88,12 @@ export function InboxView({ project, openId }: { project: string; openId: number
         <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the clients who wrote" />
       </div>
     );
-  const { rows, total } = q.data;
+  const { rows, total, leads } = q.data;
+  const leadRows = leads?.rows.length ?? 0;
   return (
     <section aria-label="Inbox" className="flex flex-col" data-testid="inbox">
-      {rows.length === 0 ? (
+      {leads && <LeadsGroup group={leads} now={now} openPageId={openPageId} />}
+      {rows.length === 0 && leadRows > 0 ? null : rows.length === 0 ? (
         <EmptyState title="No client is waiting">When a client writes, they appear here with their message. Mail is read every few minutes while the Hub is open.</EmptyState>
       ) : (
         <>

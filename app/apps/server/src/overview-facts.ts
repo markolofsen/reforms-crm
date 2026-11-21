@@ -60,6 +60,8 @@ export interface ProjectFacts {
   owed: number;
   /** P96: clients with an open message in the Mail reader's Inbox (part of `owed`). */
   wrote: number;
+  /** P97: people in the Inbox's Leads group (Notion Leads, New, in the window, no draft yet). */
+  leads?: number;
   lastTriageAt: string | null;
   setupQuestion: boolean;
   injectionHeld: number;
@@ -117,6 +119,7 @@ export async function gatherFacts(i: FactsInput): Promise<ProjectFacts[]> {
       sentToday: s.sentToday,
       owed: (await i.repos.inbox.counts(row.slug)).owed,
       wrote: (await i.repos.inboundMail.openEmails(row.slug)).length,
+      leads: await i.repos.leadRows.openCount(row.slug, new Date(i.now.getTime() - (loaded?.parsed.config ?? c).leads.windowDays * 86_400_000).toISOString()),
       lastTriageAt: await i.repos.inbox.lastTriageAt(row.slug),
       setupQuestion: (await i.repos.projects.questions(row.slug, "open")).length > 0,
       injectionHeld: await i.repos.drafts.injectionHeld(row.slug),

@@ -10,6 +10,7 @@ import { draftMailRoutes } from "./routes/draft-mail";
 import { inboxRoutes } from "./routes/inbox";
 import { inboundRoutes, type InboundTextReader } from "./routes/inbound";
 import { INBOUND_OFF, type InboundHandle } from "./inbound";
+import type { LeadsHandle } from "./leads-reader";
 import { coreRoutes, instanceRoutes } from "./routes/instance";
 import type { CoreUpdatesService } from "./core-updates";
 import { overviewRoutes } from "./routes/overview";
@@ -76,6 +77,8 @@ export type AppOptions = {
   sent?: () => SentStatus;
   /** P96: the Mail reader (its state in health, the Inbox routes, Check now); without it the Inbox is empty and Check now reads nothing. */
   inbound?: InboundHandle;
+  /** P97 S2: the Leads reader (Notion Leads into the Inbox's Leads group), its card read and the Spam write. */
+  leads?: LeadsHandle;
   /** P96: reads one message's text from Mail for the Inbox card; without it the card says Mail is not read here. */
   inboundText?: InboundTextReader;
   /** Tests: the Overview with its own project folder and zone. */
@@ -206,7 +209,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", draftMailRoutes(repos, opts.sender))
     .route("/", projectRoutes(repos, projectsDir, opts.sender?.policyDir))
     .route("/", inboxRoutes(repos))
-    .route("/", inboundRoutes(repos, opts.inbound, opts.inboundText))
+    .route("/", inboundRoutes(repos, opts.inbound, opts.inboundText, opts.leads))
     .route("/", sequenceRoutes(repos, projectsDir, now))
     .route("/", bulkRoutes(repos))
     .route("/", overviewRoutes(overview))
