@@ -12,6 +12,7 @@ beforeEach(() => {
 afterEach(() => handle.close());
 
 const P = "p";
+const tick = () => new Promise((r) => setTimeout(r, 5));
 const record = (email: string, mailRef: string, subject = "Re: Hello", brand?: string) => repos.drafts.record({ project: P, email, name: "Mark Effect", subject, mailRef: `<${mailRef}>`, ...(brand ? { brand } : {}) });
 const wrote = (email: string, messageId: string, receivedAt: string, subject = "Re: Wow") =>
   repos.inboundMail.store([{ project: P, account: "hello@x.example", mailbox: "INBOX", messageId, email, name: "Mark Effect", subject, receivedAt, read: false, why: "client", preview: "Are you there?" }]);
@@ -41,7 +42,11 @@ describe("P99 the list of people", () => {
     await repos.drafts.setStatus(r.draftId, "ready");
     await repos.drafts.markSent(r.draftId, { at: "2026-11-20T10:00:00.000Z", via: "admin", messageId: "s1@x" });
     expect((await repos.conversations.one(P, r.clientId))?.state).toBe("waiting");
-    await wrote("m@x.example", "w1@x", "2026-11-21T01:23:06.000Z");
+    // `drafts.created_at` is SQLite's clock, so their message is dated by the real clock, between the two records (a fixed
+    // date goes stale: a draft recorded after it closes it, OPEN_INBOUND).
+    await tick();
+    await wrote("m@x.example", "w1@x", new Date().toISOString());
+    await tick();
     const row = await repos.conversations.one(P, r.clientId);
     expect(row).toMatchObject({ state: "wrote", subject: "Re: Wow", preview: "Are you there?" });
     expect(row?.inboundId).not.toBeNull();

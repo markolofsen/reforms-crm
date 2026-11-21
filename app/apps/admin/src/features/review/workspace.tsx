@@ -16,7 +16,7 @@ import { useToggleChecked } from "./mail/use-toggle-checked";
 import { ListHeader, type View } from "./list-controls";
 import { ListRow } from "./list-row";
 import { focusRow, useReviewKeys } from "./review-keys";
-import { isClosed, openResults, rowId, type ReviewDraft, type ReviewSource } from "./source";
+import { isClosed, openResults, rowId, type ConversationRow, type ReviewDraft, type ReviewSource } from "./source";
 import { useReviewActions, type Notice } from "./use-review-actions";
 import { useReviewRows } from "./use-review-rows";
 import { useSelection, useShareReview } from "./use-selection";
@@ -77,6 +77,39 @@ function LoadedFooter({ loaded, total, more, fetching, onMore }: { loaded: numbe
         {fetching ? "Loading" : "Load more"}
       </ActionButton>
     </div>
+  );
+}
+
+type RowsQuery = ReturnType<typeof useReviewRows>["query"];
+
+/** The people of the view: loading, failed, empty, or the rows with Load more. */
+function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: number; now: number; openId: number | null; sel: ReturnType<typeof useSelection>; searched: boolean; emptyTitle: string; empty: ReactNode; onAll: (() => void) | null; onOpen: (id: number) => void }) {
+  const { query, rows, sel } = p;
+  if (query.isPending) return <ListSkeleton label="Loading the people" />;
+  if (query.isError && rows.length === 0)
+    return (
+      <div className="p-3">
+        <LoadFailed error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} what="the people" />
+      </div>
+    );
+  return (
+    <>
+      {query.isError && (
+        <div className="p-3">
+          <StaleNote error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
+        </div>
+      )}
+      {rows.length === 0 ? (
+        <EmptyState action={p.onAll ? <ActionButton onClick={p.onAll} size="s" variant="secondary">Show all</ActionButton> : undefined} title={p.emptyTitle}>{p.searched ? "Nobody in this view matches the search." : p.empty}</EmptyState>
+      ) : (
+        <ul aria-label="People" className="flex flex-col">
+          {rows.map((r) => (
+            <ListRow key={rowId(r)} now={p.now} onOpen={() => p.onOpen(rowId(r))} onToggle={() => sel.toggle(rowId(r))} open={rowId(r) === p.openId} r={r} selected={sel.has(rowId(r))} selecting={sel.selecting} />
+          ))}
+        </ul>
+      )}
+      <LoadedFooter fetching={query.isFetchingNextPage} loaded={rows.length} more={query.hasNextPage} onMore={() => void query.fetchNextPage()} total={p.total} />
+    </>
   );
 }
 
@@ -190,30 +223,20 @@ export function ReviewWorkspace({ source, views, onView, search, selection, poin
 
   const filtered = source.filter !== "all";
   const header = { count: sel.picked.length, busy: actions.pending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped") };
-  const rowsView = query.isPending ? (
-    <ListSkeleton label="Loading the people" />
-  ) : query.isError && rows.length === 0 ? (
-    <div className="p-3">
-      <LoadFailed error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} what="the people" />
-    </div>
-  ) : (
-    <>
-      {query.isError && (
-        <div className="p-3">
-          <StaleNote error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
-        </div>
-      )}
-      {rows.length === 0 ? (
-        <EmptyState action={filtered && !q ? <ActionButton onClick={() => onView("all")} size="s" variant="secondary">Show all</ActionButton> : undefined} title={q ? "Nothing matches" : filtered ? (emptyTitle ?? "Nothing here") : "No conversation yet"}>{q ? "Nobody in this view matches the search." : empty(filtered)}</EmptyState>
-      ) : (
-        <ul aria-label="People" className="flex flex-col">
-          {rows.map((r) => (
-            <ListRow key={rowId(r)} now={now} onOpen={() => go(rowId(r))} onToggle={() => sel.toggle(rowId(r))} open={rowId(r) === openId} r={r} selected={sel.has(rowId(r))} selecting={sel.selecting} />
-          ))}
-        </ul>
-      )}
-      <LoadedFooter fetching={query.isFetchingNextPage} loaded={rows.length} more={query.hasNextPage} onMore={() => void query.fetchNextPage()} total={total} />
-    </>
+  const rowsView = (
+    <PeopleRows
+      empty={empty(filtered)}
+      emptyTitle={q ? "Nothing matches" : filtered ? (emptyTitle ?? "Nothing here") : "No conversation yet"}
+      now={now}
+      onAll={filtered && !q ? () => onView("all") : null}
+      onOpen={(id) => go(id)}
+      openId={openId}
+      query={query}
+      rows={rows}
+      searched={!!q}
+      sel={sel}
+      total={total}
+    />
   );
   const list = (
     // P98 item 2: every block of the scrolling list keeps its own height; a `min-h-*` on a child would else let it shrink under its content and paint over the next one.
