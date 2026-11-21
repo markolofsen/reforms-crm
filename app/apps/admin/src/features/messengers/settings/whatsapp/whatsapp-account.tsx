@@ -4,22 +4,12 @@ import { LoadFailed } from "@/components/state-views";
 import { whatsappApi } from "@/lib/api/messengers/whatsapp";
 import { keys } from "@/lib/cache/keys";
 import { AccountRow } from "../account-row";
-import { qrPath, qrSide } from "./qr";
+import { QrCode } from "../qr-code";
 import { useWhatsApp, useWhatsAppConnect } from "./use-whatsapp";
 
 /** Said once above Connect (decision 0036 point 2), as the Telegram form's: the number is his own, and the risk is his. */
 export const WA_RISK_SENTENCE =
   "This links your own, personal WhatsApp number as an unofficial device, like WhatsApp Web. WhatsApp may watch such clients and can ban the number. The Hub reads only the chats you link, never sends by itself, and stops the number at the first warning.";
-
-/** The QR code, drawn from the server's module rows: dark on white in both themes, since a phone camera needs that contrast. */
-function QrCode({ size, rows }: { size: number; rows: string[] }) {
-  const side = qrSide(size);
-  return (
-    <svg aria-label="QR code to scan with WhatsApp on your phone" className="size-56 rounded-md bg-white" role="img" shapeRendering="crispEdges" viewBox={`0 0 ${side} ${side}`}>
-      <path d={qrPath(rows)} fill="#000" />
-    </svg>
-  );
-}
 
 /** Connect: the risk sentence, then the button; on the owner's click the QR code with how to scan it, until it is scanned. */
 function ConnectWhatsApp() {
@@ -31,7 +21,7 @@ function ConnectWhatsApp() {
         <div className="flex flex-col gap-3">
           {c.qr ? (
             <>
-              <QrCode rows={c.qr.rows} size={c.qr.size} />
+              <QrCode label="QR code to scan with WhatsApp on your phone" rows={c.qr.rows} />
               <p className="measure text-sm">On your phone open WhatsApp ▸ Settings ▸ Linked devices ▸ Link a device, and scan this code. A new code shows about every 20 seconds.</p>
             </>
           ) : (
