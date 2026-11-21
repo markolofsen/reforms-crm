@@ -9,7 +9,7 @@
     },
     "Status": {
       "type": "select",
-      "writer": "Hub sets New on create, then people",
+      "writer": "Hub sets New on create, then people; the Hub sets In progress at the first reply sent, Spam on the owner's click, New on its Undo (P97)",
       "options": [
         "New",
         "In progress",
@@ -82,7 +82,7 @@
       "target": "clients",
       "limit": 1,
       "reverse": "Leads",
-      "writer": "Hub"
+      "writer": "Hub (at the first reply sent to the lead, P97)"
     },
     "Owner": {
       "type": "person",

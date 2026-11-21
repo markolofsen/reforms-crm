@@ -31,6 +31,7 @@ export async function projectDoctor(repos: Repos, slug: string, root: string, en
     all,
     ...(registered ? { knowledgeDocs: await repos.knowledge.count(slug) } : {}),
     knowledgeFiles: countMarkdown(join(project.folder, "knowledge")),
+    ...(registered ? { leadWrites: await repos.leadRows.lastConvertNote(slug).then((r) => (r ? { note: r.note, at: r.at } : null)) } : {}),
     ...(hasToken ? {} : { notionCheck: async () => ({ ok: false, detail: `no Notion token: put it alone in state/secrets/${tokenFile} (chmod 600), then run hub doctor ${slug}` }) }),
   });
   const c = project.parsed.config;

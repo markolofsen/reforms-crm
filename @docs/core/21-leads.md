@@ -1,6 +1,6 @@
 # Leads in the core
 
-Layer: core. Decision: `crm/@dev/decisions/0019-leads-and-the-notion-pack-follow-the-live-crm.md`. Field list: `app/projects/_template/notion-crm/schema/leads.json`, module page `03-leads.md`.
+Layer: core. Decisions: `crm/@dev/decisions/0019-leads-and-the-notion-pack-follow-the-live-crm.md`, and `0044-a-lead-becomes-a-client-at-the-first-reply-sent.md` (P97), which amends its point 1. Field list: `app/projects/_template/notion-crm/schema/leads.json`, module page `03-leads.md`.
 
 A **lead** is a request that is not yet a client: a website form, a message from an unknown email sender, a referral. Every project that sells has a `Leads` database, at the top level of its teamspace. The core does not care what writes it, only that the writer follows this contract; people handle the rows; the agent reads them and drafts.
 
@@ -9,7 +9,7 @@ A **lead** is a request that is not yet a client: a website form, a message from
 | Writer | Writes | Never writes |
 |---|---|---|
 | The owner's backend (a site's form handler, e.g. django_notion), mail agent for an unknown sender | Name, Status = New (on create only), Source, Received at, Email, Phone, Company, Message, Details, Form, Source page, Page URL, Locale, Brand, Mailbox, Hub run id, ad-click columns | Status after create, Owner, Next step, Notes, Client |
-| The Hub (core) | `Client` (only when exactly one person matches Email or Phone) | everything else |
+| The Hub (core, P97) | `Status` In progress at the first confirmed send of a reply to the lead, Spam on the owner's click and New on its Undo; `Client` at that send (the one Clients card with the lead's address, or the card it creates); one new Clients page per person who had none (Name, Email, Phone, Relationship Lead, Brand) | every intake field, Owner, Next step, Notes; never a delete; never an existing Clients card |
 | People | Status, Owner, Next step, Notes, Client | Hub run id |
 
 - **Idempotency.** `Hub run id` is the writer's key for one submission. A writer looks the row up by it before creating, so a retry never makes a second lead.
@@ -21,9 +21,11 @@ A **lead** is a request that is not yet a client: a website form, a message from
 ## What the core does with leads
 
 1. **Reads them** (read only): `notion-dump leads <project>` (token) prints the counts by Status, Brand and Source and three lists that mirror the live views: *needs reply* (New or no status, received before today), *overdue* (In progress, Next step before today), *won without a client*. A session without a token reads the same rows through the Notion connector and applies the same three rules.
-2. **Drafts for them**: `triage-mail` step 3b picks the workflow `new-website-lead` (project's own `workflows/`) for a lead that waits. Draft only, never a send. The admin shows no Notion count: the agent reads Notion through its connector, and the drafts it leaves show in Drafts.
-
-The core never creates a client from a lead and never changes a lead's Status.
+2. **Shows them** (P97 S2): the server's Leads reader (`apps/server/src/leads-reader.ts`) lists the project's Leads with the hub token at start, every 15 minutes, and at once when the Mail reader sees a new lead notice. Mail ▸ Inbox has a **New leads** group above the clients who wrote: Status New or empty, received in the last `leads.window_days` (default 14), one row per person, not dismissed and with no draft yet; older New rows are one muted count the Hub never writes. `lead_rows` keeps decision 0013's minimum (page id, name, the reply address and the account email, brand, when, the Status as read, 120 characters of the Message); the card reads the page from Notion when it opens. No token: the line says so and the dock reads Leads through the connector.
+3. **A notice is never a person** (P97 S1): the mail a site's backend sends when a form lands (a sender on `leads.notice_senders`, or a machine address the mail filters whitelist, such as `robot@…`) is never an Inbox client row and is never answered. It only makes the Leads reader read at once.
+4. **Drafts for them** (P97 S3): the lead card's Prepare reply pastes the bulk-drafts first-mail phrase into the dock; the agent writes a **new thread** to the lead's reply address (the email typed on the form, the `Contact channel: Email: …` line of Details, else the Leads `Email`), signed as `Lead.Brand` (`draft_write`'s `brand`). `draft_write` admits a Leads row (Status not Spam) as a known person. A lead with only a phone or Telegram gets no mail draft. `triage-mail` step 3b and the workflow `new-website-lead` stay for a lead that wrote by mail.
+5. **A Clients card at the first reply sent** (P97 S4, decision 0044): after a confirmed send to a stored lead, before the P89 stamp, the server links the lead's Clients card (exactly one with that Email or Other emails), creates one (none: Relationship Lead) or says that several have the address, and sets Status New to In progress. Not at arrival (spam would fill Clients), not at the draft. A refusal (403: Insert content or Update content missing) is a note on the lead card and the doctor's `notion lead writes` row, never a failure of the send; `notion.convert_leads off` writes nothing.
+6. **Spam** (P97 S5): the card's Spam sets Status Spam, Undo sets New. The agent may propose it, never set it.
 
 Whether a form still delivers a lead at all (page, CSP, endpoint, the signed canary) is a separate check: [22-lead-forms.md](22-lead-forms.md).
 

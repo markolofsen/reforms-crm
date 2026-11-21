@@ -33,6 +33,12 @@ export interface DoctorInput {
   knowledgeDocs?: number;
   /** Accounts the per-run mail MCP allow-list admits for this project. */
   mcpMailAccounts?: string[];
+  /**
+   * P97 S4: the newest note the Hub recorded when Notion refused a lead write at a send (a lead's Status, its Client link, a new
+   * Clients card), or null when none is recorded; undefined when the Hub's database was not asked. Notion's API does not report an
+   * integration's capabilities, so a missing Insert content is known only from the first refused create.
+   */
+  leadWrites?: { note: string; at: string } | null;
 }
 
 const skip = (name: string, why: string): Check => ({ name, outcome: "skipped", detail: why });
@@ -118,6 +124,18 @@ export async function doctorProject(input: DoctorInput): Promise<Check[]> {
   else {
     const r = await input.notionCheck().catch((e: unknown) => ({ ok: false, skipped: false, detail: e instanceof Error ? e.message : String(e) }));
     checks.push({ name: "notion databases readable", outcome: r.skipped ? "skipped" : r.ok ? "pass" : "fail", detail: r.detail });
+  }
+
+  // P97 S4: the lead writes at the first send (decision 0044 point 4), judged by what Notion last refused, never by a test write.
+  if (has("notion") && c.notion.databases.some((d) => d.slug === "leads") && input.leadWrites !== undefined) {
+    const w = input.leadWrites;
+    checks.push(
+      c.notion.convertLeads === "off"
+        ? { name: "notion lead writes", outcome: "skipped", detail: "notion.convert_leads is off: the Hub writes nothing on leads at a send" }
+        : w
+          ? { name: "notion lead writes", outcome: "warn", detail: `the last lead write at a send (${w.at.slice(0, 10)}) left a note: ${w.note}` }
+          : { name: "notion lead writes", outcome: "pass", detail: "no refusal recorded (Notion reports no capabilities: a missing Insert content shows at the first Clients card the Hub creates)" },
+    );
   }
 
   checks.push(
