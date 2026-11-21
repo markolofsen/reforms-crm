@@ -73,7 +73,7 @@ function UnlinkedRow({ project, r, now }: { project: string; r: RecentDialogDto;
           ))}
         </div>
       )}
-      {searching && <RecordSearch onLinked={linked} onPick={(rec) => link.mutate(rec)} project={project} r={r} />}
+      {searching && <RecordSearch onLinked={(res) => void linked(res)}onPick={(rec) => link.mutate(rec)} project={project} r={r} />}
       {link.isError && (
         <p className="text-destructive-foreground text-sm" role="alert">
           {sentence(link.error)}

@@ -90,7 +90,7 @@ export function RecordSearch({ project, r, onPick, onLinked }: { project: string
       )}
       {found.data && !found.data.live && <p className="text-muted-foreground text-xs">Notion was not reached just now ({found.data.liveError ?? "unknown"}): these are from the copy read at start.</p>}
       {found.data && found.data.records.length === 0 && <p className="text-muted-foreground text-sm">No client in Notion matches.</p>}
-      {/* Offered under any answer: the person found may be a namesake (P100: "Евгений Тен" was not this Евгений). */}
+      {/* Offered under any answer: the person found may be a namesake (P100: a client with the same first name was not this chat's person). */}
       {found.data && !creating && (
         <ActionButton className="self-start" onClick={() => setCreating(true)} size="s" variant={found.data.records.length === 0 ? "secondary" : "quiet"}>
           {createLabel(r.title)}
