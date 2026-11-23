@@ -2,7 +2,7 @@
 
 Messengers in the local CRM (track P8, decision 0003; track P71, decision 0036). Three channels: a **Telegram bot on grammY 1.46.0, long polling** (no webhook, no tunnel), the owner's own **Telegram user account over MTProto with mtcute 0.32.8** (P71 M1), and his own **WhatsApp number as a linked device with Baileys 7.0.0-rc14** (`baileys` on npm, the maintained name of `@whiskeysockets/baileys`; P71 M5). The two user accounts send only through the server's send door (P71 M4).
 
-**Status.** Optional. The server starts the bot poller when `state/secrets/telegram-bot-token` exists (`apps/server/src/messengers.ts`), and one connection per user-account session under `state/secrets/sessions/` (`telegram-user.ts`, `whatsapp.ts`); `HUB_MESSENGERS=off` disables all of them, and each reports its state in `/api/health`. The bot token is set on Messengers ▸ Settings or with `hub token telegram` (access: `@docs/setup/access.md`); the Telegram account and the WhatsApp number are connected there too. The Messengers section (P71 M3) is the review queue of the linked chats. Linking to the one client history with mail goes through `client_identifiers`.
+**Status.** Optional. The server starts the bot poller when `state/secrets/telegram-bot-token` exists (`apps/server/src/messengers.ts`), and one connection per user-account session under `state/secrets/sessions/` (`telegram-user.ts`, `whatsapp.ts`); `HUB_MESSENGERS=off` disables all of them, and each reports its state in `/api/health`. The bot token is set on Messengers ▸ Settings or with `hub token telegram` (access: `@docs/setup/access.md`); the Telegram account and the WhatsApp number are connected there too. The Messengers section (P71 M3) is the review queue of the linked chats. Linking to the one client history with mail goes through `client_identifiers`. Every reply is an unsent draft the owner sends himself; nothing delivers in the background.
 
 ## Two entries, on purpose
 
@@ -11,12 +11,13 @@ Messengers in the local CRM (track P8, decision 0003; track P71, decision 0036).
 | `@hub/messengers` | the agent, the server, tests | adapters, ingest, poller, `clientHistory`, `createDraft`, `normalizeIdentifier`, types. Nothing here links, approves or sends. |
 | `@hub/messengers/human` | an entry point that knows a person is present (and the server's autolink, P84) | `humanActor`, `linkIdentifier`, `unlinkIdentifier`, `allowChat`, `linkUserChat`, `linkUserChatToRecord`, `confirmDraft`, `sendConfirmed` (each needs a `HumanActor`); and a user account's login (`createLoginFlows`), WhatsApp's pairing (`createWaPairing`, `qrRows`) and session writes (`writeSession`, `removeSession`): only a person logs in or scans a QR code. One export needs no `HumanActor`: `autoLinkUserChat` (P84), the Hub's own link on an exact match, called only by `apps/server/src/autolink.ts` after it checked `messengers.autolink`, the refusals and the match. |
 
-Draft-only is enforced by types and by what can be imported, not by a prompt:
+Draft-first is enforced by types and by what can be imported, not by a prompt:
 
 - An agent can only `createDraft` (status `draft`, chat must be allow-listed).
 - `adapter.send` takes a `ConfirmedDraft`, a branded type minted by `confirmDraft` in `human.ts`. A hand-built or cast object is refused at run time (WeakSet check), and the package `exports` map blocks a deep import of the minter.
 - A `HumanActor` is minted only by `humanActor()`: by the messengers CLI when stdin is a TTY, and by the server behind the admin gate (exact admin Origin, loopback Host, `Sec-Fetch-Site: same-origin`; decision 0036 point 7): the Telegram and WhatsApp link routes, the autolink's `link` of a record the owner picked, and the send door's apply (`apps/server/src/send/messenger-door.ts`), which mints it, confirms the draft and sends. The server mints; the agent and `hub mcp` never import `@hub/messengers/human`.
 - `telegram_user` (P71 M4) and `whatsapp` (M5) send through the server's send door only (decision 0036 point 7: `apps/server/src/send/messenger-door.ts`): a dry run, a ticket, the `send_log` row first, one `sendText` through the adapter's `send`, no retry, after the guards (an inbound message in the chat, 30 a day and 20 s apart per account, `allow_list` entries `telegram:<id>` or `whatsapp:+<number>` in test mode, Stop sending). The poller holds `pollOnly(adapter)`, so the receiving side has no send path. Nothing is copied by hand any more: the copy path (`copyDraft`, the CLI's `copy`) went with M5.
+- There is no automatic Messenger delivery and no reply mode that asks for one: no background runner creates a send-log row, mints a `HumanActor` or calls an adapter. The owner reviews the draft and uses the explicit Send action; MCP and the agent package never receive a send capability. A future automatic mode needs a new decision record first (P112, P119).
 
 ## The Telegram user account (P71 M1)
 
@@ -72,6 +73,8 @@ Ingest stores only allow-listed chats and never links anything. Linking is the o
 
 ## Rules per chat (P71 M2b, research 23 section 2)
 
+The Settings page puts the project-level reply policy first: `messengers.language` and `messengers.instruction` are the project defaults. Per-chat columns below are explicit gates or exceptions and are shown under each linked chat's `Advanced rules` disclosure; draft-first remains the safe default.
+
 Columns on `messenger_chats`, set only by the owner (Messengers ▸ Settings since M3, through the gated `PUT /api/projects/:slug/messengers/chats/:id/rules` over `repos.messengers.setChatRules`): `reply_mode` `off` | `on_request` | `draft` (default `draft`; no auto value, 0036 point 8), `may_nudge` (default off) and `nudge_after_days` (1 to 60, default 3), `instruction` (the owner's words, at most 4 000 characters), `language` (BCP-47; null: the client's), `prefilter` (default off; the pre-analysis below). The vocabulary, defaults and bounds live once in `@hub/config/chat-rules`; the migration's CHECKs repeat the bounds. The agent reads them with `messenger_history` and `messenger_draft_write` enforces them in code (`@hub/agent`, `src/messenger/rules.ts`): `reply_off`, `no_inbound` (the hub never makes first contact, even with follow-ups on), `not_requested` (an `on_request` chat without the owner's words), `no_nudge`, `too_soon`, and `already_drafted` for a chat that already has an open draft.
 
 ## Pre-analysis (P71 M-P, decision 0039, research 23 sections 1 and 3)
@@ -88,7 +91,7 @@ A chat whose `prefilter` the owner turned on has each inbound text message label
 
 ## The agent's tools (P71 M2)
 
-The agent never imports this package's send path: `hub mcp` (`@hub/agent`) has `messenger_history` (a linked chat, or a client's linked chats, with the rules and the open draft) and `messenger_draft_write` (one row in `messenger_drafts`, status `draft`, on a short write connection), both through `@hub/db` only, so `hub mcp` loads no Telegram client (research 26 section 4). A chat that is not linked, or is another project's, is `not_linked` and named nowhere. The guard asks for a `messenger_history` read of that chat earlier in the session before a draft (`@hub/projects`, `chat-ledger.ts`). The skill is `skills/triage-messages/SKILL.md`. No send tool exists; Send is the server's door (P71 M4), pressed by the owner.
+The agent never imports this package's send path: `hub mcp` (`@hub/agent`) has `messenger_history` (a linked chat, or a client's linked chats, with the rules and the open draft) and `messenger_draft_write` (one row in `messenger_drafts`, status `draft`, on a short write connection), both through `@hub/db` only, so `hub mcp` loads no Telegram client (research 26 section 4). A chat that is not linked, or is another project's, is `not_linked` and named nowhere. The guard asks for a `messenger_history` read of that chat earlier in the session before a draft (`@hub/projects`, `chat-ledger.ts`). The skill is `skills/triage-messages/SKILL.md`. The admin's owner-gated `Prepare reply` route is a second typed draft-only entry point: the Hub LLM writes one unsent draft (`apps/server/src/messenger-reply.ts`). No send tool exists; Send is the server's door (P71 M4), pressed by the owner.
 
 ## History
 

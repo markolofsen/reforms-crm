@@ -23,6 +23,23 @@ particle catalogue of ready patterns. Skills `coss` and `coss-particles` are ins
 - Tailwind v4 and `@base-ui/react` required.
 - The copies and the product primitives live in the package `app/packages/ui` (`@hub/ui`), imported by subpath (`@hub/ui/button`, `@hub/ui/product/action-button`, `@hub/ui/cn`) with the tokens in `@hub/ui/styles.css`; the admin keeps only what knows its routes, hooks and API. Rules: `app/@rules/architecture-and-ownership.md` rule 15.
 
+The core workspace also has `app/apps/storybook` (`@hub/storybook`) as the
+visual theatre for these shared surfaces. It runs Storybook `10.6.8` (the
+current stable release recorded for this workspace), composes public `@hub/ui`
+subpaths with local fixtures, and never imports admin features, generated
+clients, project data or runtime sessions. The baseline stories include the
+agent panel (`AgentPanelFrame`, the terminal view, resize dock and dictation
+control), the shared Mail/Messenger conversation frame, the visual Markdown
+editor, list/detail shells, identity and filter controls, tooltips, themes and
+the main page/product surfaces.
+Use `pnpm storybook` for the interactive theatre, `pnpm storybook:typecheck`
+for its TypeScript boundary and `pnpm storybook:build` for the production
+artifact. A new reusable product surface is not complete until its named
+light/dark, narrow and interaction states are represented there; Storybook is
+an adopter and contract, not a second place to implement UI.
+
+Messenger settings have one compact project-level Response policy (provider, legacy draft/auto preparation mode, language and global instruction). Per-chat reply mode, follow-up, language, pre-analysis and instruction controls are advanced exceptions under linked chats; background delivery is disabled and every Messenger response remains an unsent draft until the owner uses the existing guarded send door.
+
 ## Shape
 - `reforms-crm/app/`: Next.js (App Router) + React + coss; real paths, with the project as the first segment when the instance has two or more (`/<project>/mail/42`; one project: `/mail/42`), declared in `src/routes` (one table of `defineRoute` rows) and typed by the framework's typed routes. The pages are a client of a thin local
   server (Hono, on 127.0.0.1 only): the browser calls `/api/...` on its own origin and Next forwards it. The app holds no database handle, no secret (Settings ▸ Connections and Messengers ▸ Settings may send a Notion or Telegram token to the server for storage and never receives or keeps one: decision 0020; mail has no key: decision 0026) and no Server Action; a `proxy.ts` refuses a foreign Host or Origin.
@@ -53,6 +70,10 @@ it is missing, and keeps one open draft per client: the same `mailRef` again upd
 `skipped` and inserts the new one. It never deletes a client (marks and the log hang on that row) and never writes `sent`.
 Sent detection (`14`) finds a recorded draft in the project's Sent mailbox in Apple Mail once the person has sent it from Mail, by its own recorded Message-ID only. A reply in its thread that is not the Hub's (a teammate on a shared mailbox), or another person's Notion `Last sent by` newer than the client's last message, is one line on the open card ("… · your draft may be out of date", P90); it never changes the draft.
 Because Notion owns the client record, the admin has no company or deal-value column, no "High value" filter and no `{company}` placeholder.
+
+### Manual reply editor
+
+When a client has written and no unsent draft exists, Mail shows the owner's Markdown editor alongside the conversation. It has formatting actions and a live preview, keeps the saved value as Markdown/plain text, and supports Cmd/Ctrl+Enter and Escape. Saving calls `POST /api/projects/:slug/clients/:id/draft`, which writes one unsent draft through the same Mail writer as agent drafts; it never sends. `Prepare reply` remains the optional agent path, and the send door remains a separate owner confirmation.
 
 ## The routes behind the screens
 Everything the server answers here is local: the database, the project folders and the server's own loops, read in the request. No route reads Mail or Notion to show a number, so no number carries a freshness stamp.

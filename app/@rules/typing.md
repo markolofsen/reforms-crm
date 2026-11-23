@@ -12,6 +12,11 @@ Scope: the type system is the one gate that reads types across the whole fronten
 6. MUST: `noUncheckedIndexedAccess` stays on; handle the `undefined`.
 7. SHOULD: derive types from the source of truth (the `@hub/contract` schemas and `@hub/config` enums, `typeof` of a const list) instead of restating them. A route is typed by the framework (`typedRoutes`) for its path and by `paths.ts` for its search; both fail `tsc`, not a test run.
 8. coss files in `packages/ui/src/ui` are copied, not hand-edited; they are exempt from 2 but not from 1.
+9. MUST: a generated transport value is not a domain value. The only assertion
+   permitted for the generated response generic is inside the isolated
+   `@hub/api/runtime` adapter, and every such response is immediately validated
+   by `readGenerated` before it reaches an admin facade. Hand-written code must
+   not repeat that assertion or pass a generated DTO through to a component.
 
 ## Enforcement
 
