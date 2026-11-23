@@ -9,6 +9,7 @@
     "dev": "tsx watch src/main.ts",
     "typecheck": "tsc --noEmit",
     "start": "tsx src/main.ts",
+    "openapi": "tsx scripts/emit-openapi.ts",
     "test": "vitest run"
   },
   "dependencies": {

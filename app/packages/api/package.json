@@ -9,8 +9,8 @@
     "./zod": "./src/generated-zod/index.ts"
   },
   "scripts": {
-    "generate": "orval --config orval.config.ts",
-    "generate:check": "pnpm generate && git diff --exit-code -- openapi.yaml src/generated src/generated-zod",
+    "generate": "pnpm --filter @hub/server openapi && orval --config orval.config.ts",
+    "generate:check": "pnpm generate && git diff --exit-code -- openapi.json src/generated src/generated-zod",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

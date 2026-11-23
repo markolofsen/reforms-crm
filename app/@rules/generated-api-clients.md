@@ -8,8 +8,10 @@ domain view models, Query state, capabilities, and user-facing recovery.
 
 ## Source of truth and generated artifacts
 
-`app/packages/api/openapi.yaml` and the matching `@hub/contract` schemas are one
-contract. `orval.config.ts` produces two artifacts from that contract:
+`app/packages/api/openapi.json` and the matching `@hub/contract` schemas are one
+contract: the server emits the document from its declared operations (`apps/server/src/<domain>/openapi.ts`, P120 W1)
+over the hand-kept `openapi.base.json` for the domains not declared yet; `apps/server/src/http/openapi.test.ts` fails
+when `openapi.json` is stale or a declared operation is not a route. `orval.config.ts` produces two artifacts from that contract:
 
 - `src/generated/` contains the fetch operations and wire models;
 - `src/generated-zod/` contains runtime parsers for the generated responses.
@@ -23,7 +25,7 @@ imports a generated deep path merely because it is available on disk.
 
 ## Rules
 
-1. MUST: treat the `@hub/contract` schemas plus the checked `app/packages/api/openapi.yaml` document as one contract. Do not maintain a second hand-written wire schema for the same operation. A domain type may be narrower or more useful, but it is mapped at the facade boundary.
+1. MUST: treat the `@hub/contract` schemas plus the emitted `app/packages/api/openapi.json` document as one contract. Do not maintain a second hand-written wire schema for the same operation. A domain type may be narrower or more useful, but it is mapped at the facade boundary.
 2. MUST: generated output is never hand-edited. `app/packages/api/src/generated/` and `app/packages/api/src/generated-zod/` are replaced by `pnpm --filter @hub/api generate`; review the generated diff as an artifact of the contract change.
 3. MUST: when an HTTP JSON operation is present in the checked OpenAPI document, call its generated operation through an admin API facade. Do not hand-write its path, query serialization, request body interface, response interface, or status decoding. A raw-path facade is allowed only for a route group explicitly remaining in the active generated-client migration plan.
 4. MUST: consumers use the public `@hub/api`, `@hub/api/runtime`, and `@hub/api/zod` exports. Feature components never import generated deep paths, generated operation functions, generated Zod schemas, cache keys, or the configured transport directly.

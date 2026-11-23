@@ -2,7 +2,7 @@ import { defineConfig } from "orval";
 
 export default defineConfig({
   hub: {
-    input: { target: "./openapi.yaml" },
+    input: { target: "./openapi.json" },
     output: {
       clean: true,
       client: "fetch",
@@ -19,7 +19,7 @@ export default defineConfig({
     },
   },
   hubZod: {
-    input: { target: "./openapi.yaml" },
+    input: { target: "./openapi.json" },
     output: {
       clean: true,
       client: "zod",

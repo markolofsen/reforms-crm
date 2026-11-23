@@ -1,0 +1,7832 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Hub Admin API",
+    "version": "0.1.0",
+    "description": "The first checked OpenAPI slice of the Hub REST contract. The document is expanded by domain; streams, terminal sessions and local bridges stay out of ordinary generated JSON operations."
+  },
+  "servers": [
+    {
+      "url": "/"
+    }
+  ],
+  "paths": {
+    "/api/instance/autostart": {
+      "get": {
+        "operationId": "getAutostart",
+        "summary": "Read Hub autostart status",
+        "description": "Reads local launch status without changing it.",
+        "tags": [
+          "connections"
+        ],
+        "responses": {
+          "200": {
+            "description": "Autostart status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Autostart"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/connections": {
+      "get": {
+        "operationId": "listConnections",
+        "summary": "List Hub connections",
+        "description": "Reads connection metadata and public check state; secrets are never returned.",
+        "tags": [
+          "connections"
+        ],
+        "responses": {
+          "200": {
+            "description": "Connection metadata and Mail account state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connections"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "operationId": "listProjects",
+        "summary": "List configured projects",
+        "tags": [
+          "meta"
+        ],
+        "responses": {
+          "200": {
+            "description": "Configured project slugs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Projects"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/overview": {
+      "get": {
+        "operationId": "getOverview",
+        "summary": "Read the local project overview",
+        "description": "Reads local project facts and service health. It never reads Mail or Notion and never writes or sends a message.",
+        "tags": [
+          "meta"
+        ],
+        "responses": {
+          "200": {
+            "description": "Local overview with project status rows and system health",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/pulse": {
+      "get": {
+        "operationId": "getPulse",
+        "summary": "Read the Hub pulse",
+        "description": "Reads the data version, server time and health snapshot used by the admin fallback poll. It never writes, sends or starts a service.",
+        "tags": [
+          "meta"
+        ],
+        "responses": {
+          "200": {
+            "description": "Current data version and health snapshot",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pulse"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/messengers/telegram-user": {
+      "get": {
+        "operationId": "getTelegramUserStatus",
+        "summary": "Read Telegram user status",
+        "description": "Reads the owner's Telegram account status. It never starts a login or returns a session secret.",
+        "tags": [
+          "messengers"
+        ],
+        "responses": {
+          "200": {
+            "description": "Telegram user account status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramUserStatus"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/messengers/whatsapp": {
+      "get": {
+        "operationId": "getWhatsAppStatus",
+        "summary": "Read WhatsApp status",
+        "description": "Reads the owner's WhatsApp linked-device status. It never starts pairing or returns a session secret.",
+        "tags": [
+          "messengers"
+        ],
+        "responses": {
+          "200": {
+            "description": "WhatsApp linked-device status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelegramUserStatus"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/project": {
+      "get": {
+        "operationId": "getProjectOverview",
+        "summary": "Read one project's overview",
+        "description": "Reads the configured project files and their derived counts. It never sends a message.",
+        "tags": [
+          "meta"
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project overview and setup sections",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectOverview"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/project/doctor": {
+      "get": {
+        "operationId": "getProjectDoctor",
+        "summary": "Read project doctor results",
+        "description": "Reads local project setup checks and public sending facts. It never changes configuration, reads secrets, or sends a message.",
+        "tags": [
+          "meta"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project setup checks and public sending facts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Doctor"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/links": {
+      "get": {
+        "operationId": "getProjectLinks",
+        "summary": "Read project Quick Links",
+        "description": "Reads the project's declared Quick Links and resolves Notion database roles through the read-only Notion reader. It never writes to Notion or opens a link on the server.",
+        "tags": [
+          "meta"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project Quick Links and Notion resolution state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectLinks"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/scheme": {
+      "get": {
+        "operationId": "getScheme",
+        "summary": "Read the Hub parts scheme",
+        "description": "Reads the cached local system parts and their current state. It never runs a check.",
+        "tags": [
+          "meta"
+        ],
+        "responses": {
+          "200": {
+            "description": "Hub parts and their state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Scheme"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/ops/errors": {
+      "get": {
+        "operationId": "getOpsErrors",
+        "summary": "Read recent operational errors",
+        "description": "Reads the bounded recent error window from the local operations log.",
+        "tags": [
+          "meta"
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent operational errors",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpsErrors"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/agent-settings": {
+      "get": {
+        "operationId": "getAgentSettings",
+        "summary": "Read project agent settings",
+        "description": "Reads the configured runtime agent model and advisor settings. It never starts an agent session.",
+        "tags": [
+          "meta"
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project agent settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/safety-rules": {
+      "get": {
+        "operationId": "getSafetyRules",
+        "summary": "Read project safety rules",
+        "description": "Reads the draft safety rules configured for a project. It never changes a rule or sends a message.",
+        "tags": [
+          "meta"
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project safety rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyRules"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/activity": {
+      "get": {
+        "operationId": "getActivity",
+        "summary": "Read project activity",
+        "description": "Reads the owner's decision timeline, newest first. It never sends a message.",
+        "tags": [
+          "meta"
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "needs_you",
+                "drafts",
+                "skipped"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "client",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}T[\\\\d:.]+Z\\\\|(?:event|send):\\\\d{1,12}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of activity and view counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Activity"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/drafts": {
+      "get": {
+        "operationId": "listDrafts",
+        "summary": "List project Mail drafts",
+        "description": "Reads the legacy draft review queue. It never sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "ready",
+                "hold",
+                "owed",
+                "done",
+                "sent",
+                "skipped",
+                "thin_basis",
+                "sequences"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": ""
+            }
+          },
+          {
+            "name": "batch",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Draft review rows and filter counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Drafts"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/batches": {
+      "get": {
+        "operationId": "listBatches",
+        "summary": "List project Mail batches",
+        "description": "Reads the batches available to the Mail review screen. It never sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "name": "project",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mail batch summaries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Batches"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/inbox/not-by-email": {
+      "get": {
+        "operationId": "listNotByEmail",
+        "summary": "List clients not answered by email",
+        "description": "Reads the triage view of clients the agent left outside an email reply. It never sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectQuery"
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "call",
+                "no_action",
+                "crossed_off",
+                "unknown_sender"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Clients not answered by email and reason counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotByEmail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/inbound": {
+      "get": {
+        "operationId": "listInbound",
+        "summary": "List project inbound mail",
+        "description": "Reads the Hub's inbound Mail projection and lead group. It never sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Open inbound messages, Mail reader state and leads",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboundList"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/inbound/{id}": {
+      "get": {
+        "operationId": "getInboundDetail",
+        "summary": "Read one inbound Mail item",
+        "description": "Reads the stored inbound projection and its related drafts. It never reads or writes Mail.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/ClientId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inbound item state and related drafts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboundDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/inbound/{id}/text": {
+      "get": {
+        "operationId": "getInboundText",
+        "summary": "Read one inbound Mail body",
+        "description": "Reads the client's own words from Mail through the server-owned bridge. It never writes Mail.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/ClientId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inbound body or a reason it is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InboundText"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/enrollments": {
+      "get": {
+        "operationId": "listEnrollments",
+        "summary": "List project follow-up enrollments",
+        "description": "Reads follow-up sequence enrollment state for the Mail review screen. It never sends or drafts a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "due",
+                "active",
+                "finished"
+              ],
+              "default": "due"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Follow-up enrollments and counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Enrollments"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/enrollments/{id}/stop": {
+      "post": {
+        "operationId": "stopEnrollment",
+        "summary": "Stop a project follow-up enrollment",
+        "description": "Finishes one follow-up enrollment and skips its open step draft when present. It never sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/EnrollmentId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StopEnrollmentBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated enrollment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnrollmentChanged"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/leads/{pageId}": {
+      "get": {
+        "operationId": "getLeadDetail",
+        "summary": "Read one project lead",
+        "description": "Reads the stored lead projection and its optional Notion details. It never changes Notion or sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/LeadPageId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lead projection and related drafts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadDetail"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/sequences": {
+      "get": {
+        "operationId": "listSequences",
+        "summary": "List project follow-up sequence definitions",
+        "description": "Reads the project's follow-up definitions and validation state. It never sends or drafts a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Follow-up sequence definitions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sequences"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/clients/{id}/timeline": {
+      "get": {
+        "operationId": "getClientTimeline",
+        "summary": "Read one client's agent timeline",
+        "description": "Reads stored agent and owner events for one client. It never sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientId"
+          },
+          {
+            "$ref": "#/components/parameters/ProjectQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Client timeline",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Timeline"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/clients/{id}/history": {
+      "get": {
+        "operationId": "getClientHistory",
+        "summary": "Read one client's stored messenger history",
+        "description": "Reads stored messenger rows only; Mail remains a separate on-demand read.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientId"
+          },
+          {
+            "$ref": "#/components/parameters/ProjectQuery"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stored messenger rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/History"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/knowledge": {
+      "get": {
+        "operationId": "listKnowledge",
+        "summary": "List project knowledge",
+        "description": "Reads the indexed knowledge entries for one project. It never sends a message.",
+        "tags": [
+          "meta"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "attention",
+                "expired",
+                "unapproved"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Knowledge entries and view counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Knowledge"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/knowledge/text": {
+      "get": {
+        "operationId": "getKnowledgeText",
+        "summary": "Read one knowledge entry's text",
+        "description": "Reads one entry's indexed text for the Knowledge row (P128 X6), cut at 12000 characters. It never sends a message.",
+        "tags": [
+          "meta"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The entry's title and text",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KnowledgeText"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/agent-feed": {
+      "get": {
+        "operationId": "getAgentFeed",
+        "summary": "Read the project agent feed",
+        "description": "Reads the recent tone and waiting state from the project agent log. It never sends a message.",
+        "tags": [
+          "meta"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent turn tones and waiting state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentFeed"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/agent-tools": {
+      "get": {
+        "operationId": "getAgentTools",
+        "summary": "Read project agent tool checks",
+        "description": "Reads the last local checks for the project agent session and its attached capabilities.",
+        "tags": [
+          "connections"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent tool checks and attached capabilities",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTools"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/conversations": {
+      "get": {
+        "operationId": "listConversations",
+        "summary": "List project Mail conversations",
+        "description": "Reads one row per Mail conversation from the Hub projection. It never sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "name": "view",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "needs_you",
+                "waiting",
+                "all",
+                "sequences"
+              ],
+              "default": "needs_you"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": ""
+            }
+          },
+          {
+            "name": "batch",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "default": 100
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mail conversations and view counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversations"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/clients/key/{key}": {
+      "get": {
+        "operationId": "getClientByKey",
+        "summary": "Find the client a Mail address key names",
+        "description": "Resolves a client's key (his email, or id-<n>) to the client row and its canonical key (P103). It never sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The client and his canonical key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientKey"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/clients/{id}/conversation": {
+      "get": {
+        "operationId": "getConversation",
+        "summary": "Read one project Mail conversation header",
+        "description": "Reads the Hub projection for one person, including its unsent draft. It never sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/ClientId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversation header and unsent draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conversation"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/clients/{id}/conversation/mail": {
+      "get": {
+        "operationId": "getConversationMail",
+        "summary": "Read one person's Mail history",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/ClientId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Conversation history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationMail"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/clients/{id}/conversation/text": {
+      "get": {
+        "operationId": "getConversationText",
+        "summary": "Read one Mail message body",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/ClientId"
+          },
+          {
+            "name": "m",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 998
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Message body or an explanatory note",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationText"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/drafts/{id}/mail": {
+      "get": {
+        "operationId": "getDraftMail",
+        "summary": "Read one Mail draft live",
+        "description": "Reads the current unsent Mail draft and its safety result without storing or sending anything.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/DraftId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current Mail draft state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftMail"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/clients/{id}/marks": {
+      "put": {
+        "operationId": "setClientMarks",
+        "summary": "Set one client's Mail review marks",
+        "description": "Updates the project-scoped review marks without sending or changing a draft.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ClientId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClientMarksBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Marks saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Ok"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/clients/{id}/draft": {
+      "post": {
+        "operationId": "createManualMailDraft",
+        "summary": "Create one unsent owner-authored Mail draft",
+        "description": "Creates a draft only. It never sends a message.",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/ClientId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualReplyBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Draft recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DraftChanged"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/sends": {
+      "get": {
+        "operationId": "listSends",
+        "summary": "List project send history",
+        "description": "Reads the bounded send audit and stopped scopes. It never sends, cancels, or changes a send.",
+        "tags": [
+          "sending"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project send history and stopped scopes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Sends"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/messengers/chats": {
+      "get": {
+        "operationId": "listMessengerChats",
+        "summary": "List project Messenger chats",
+        "description": "Reads the project-scoped Messenger projection. It never sends a message.",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "needs_you",
+                "waiting",
+                "all"
+              ],
+              "default": "needs_you"
+            }
+          },
+          {
+            "name": "link",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "any",
+                "linked",
+                "unlinked",
+                "hidden"
+              ],
+              "default": "any"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "telegram",
+                "whatsapp"
+              ],
+              "default": "all"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "default": ""
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Messenger chats and view counts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerChats"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/messengers/chats/{id}/conversation": {
+      "get": {
+        "operationId": "getMessengerConversation",
+        "summary": "Read one Messenger conversation",
+        "description": "Reads the project-scoped stored conversation. It never sends a message.",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/ChatId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Stored Messenger conversation, oldest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerConversation"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/messengers/chats/{id}/draft": {
+      "post": {
+        "operationId": "createMessengerDraft",
+        "summary": "Create one unsent owner-authored Messenger draft",
+        "description": "Creates a draft only. It never sends a message and does not require an inbound message.",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/ChatId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessengerDraftTextBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Messenger chat with the unsent draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerChat"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/messengers/drafts/{id}/text": {
+      "put": {
+        "operationId": "editMessengerDraft",
+        "summary": "Edit one unsent Messenger draft",
+        "description": "Replaces owner-authored text in an existing unsent draft. It never sends a message.",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/DraftId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessengerDraftTextBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated unsent Messenger draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/messengers/drafts/{id}/skip": {
+      "post": {
+        "operationId": "skipMessengerDraft",
+        "summary": "Skip one unsent Messenger draft",
+        "description": "Moves an unsent Messenger draft out of the review queue. It never sends a message.",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/DraftId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Draft skipped",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerSkipped"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/messengers/drafts/{id}/restore": {
+      "post": {
+        "operationId": "restoreMessengerDraft",
+        "summary": "Restore one skipped Messenger draft",
+        "description": "Restores the owner's last skipped Messenger draft. It never sends a message.",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/DraftId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Restored unsent Messenger draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerDraft"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/messengers/chats/{id}/prepare": {
+      "post": {
+        "operationId": "prepareMessengerReply",
+        "summary": "Prepare one unsent Messenger reply",
+        "description": "Asks the configured reply provider to prepare an unsent draft. It never sends a message.",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/ChatId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessengerPrepareBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Messenger chat with the prepared draft",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerChat"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/messengers/chats/{id}/rules": {
+      "put": {
+        "operationId": "setMessengerChatRules",
+        "summary": "Update one Messenger chat's rules",
+        "description": "Updates owner-controlled reply rules for a linked chat. It never sends a message.",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/ProjectSlug"
+          },
+          {
+            "$ref": "#/components/parameters/ChatId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MessengerChatRulesBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated Messenger chat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerChat"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "ProjectSlug": {
+        "name": "slug",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "ClientId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "ProjectQuery": {
+        "name": "project",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "ChatId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "DraftId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "EnrollmentId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "LeadPageId": {
+        "name": "pageId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      }
+    },
+    "responses": {
+      "ApiError": {
+        "description": "A typed Hub refusal",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ApiError"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "InstanceApps": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "notion",
+          "telegram",
+          "whatsapp"
+        ],
+        "properties": {
+          "notion": {
+            "type": "boolean"
+          },
+          "telegram": {
+            "type": "boolean"
+          },
+          "whatsapp": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Autostart": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "supported",
+          "label",
+          "installed",
+          "enabled",
+          "loaded",
+          "running",
+          "startedBy",
+          "lastStart",
+          "guard",
+          "mailMcp",
+          "fix"
+        ],
+        "properties": {
+          "supported": {
+            "type": "boolean"
+          },
+          "label": {
+            "type": "string"
+          },
+          "installed": {
+            "type": "boolean"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "loaded": {
+            "type": "boolean"
+          },
+          "running": {
+            "type": "boolean"
+          },
+          "startedBy": {
+            "type": "string",
+            "enum": [
+              "launchd",
+              "hand"
+            ]
+          },
+          "lastStart": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "at",
+                  "event"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string"
+                  },
+                  "event": {
+                    "type": "string",
+                    "enum": [
+                      "start",
+                      "standby",
+                      false
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "guard": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "at",
+                  "error"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string"
+                  },
+                  "error": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mailMcp": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "fix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ConnectionCheckValue": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "detail",
+          "identity"
+        ],
+        "properties": {
+          "detail": {
+            "type": "string"
+          },
+          "identity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ConnectionCheck": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "asOf",
+              "value"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "fresh",
+                  "stale"
+                ]
+              },
+              "asOf": {
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/components/schemas/ConnectionCheckValue"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "const": "never"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "const": "refreshing"
+              },
+              "asOf": {
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/components/schemas/ConnectionCheckValue"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "code",
+              "message",
+              "fix"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "const": "error"
+              },
+              "code": {
+                "type": "string",
+                "enum": [
+                  "token-missing",
+                  "token-rejected",
+                  "timeout",
+                  "unreachable",
+                  "failed"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "fix": {
+                "type": "string"
+              },
+              "asOf": {
+                "type": "string"
+              },
+              "value": {
+                "$ref": "#/components/schemas/ConnectionCheckValue"
+              }
+            }
+          }
+        ]
+      },
+      "Connection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "secret",
+          "identity",
+          "usedBy",
+          "can",
+          "check"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "notion",
+              "telegram"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "stored",
+                  "missing",
+                  "unsafe-mode",
+                  "malformed",
+                  "from-env"
+                ]
+              },
+              "changedAt": {
+                "type": "string"
+              }
+            }
+          },
+          "identity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "usedBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "can": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "test",
+                "set",
+                "remove"
+              ]
+            }
+          },
+          "note": {
+            "type": "string"
+          },
+          "check": {
+            "$ref": "#/components/schemas/ConnectionCheck"
+          }
+        }
+      },
+      "MailAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "account",
+          "foundInMail",
+          "usedBy"
+        ],
+        "properties": {
+          "account": {
+            "type": "string"
+          },
+          "foundInMail": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "usedBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Connections": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "instance",
+          "connections",
+          "mail",
+          "mailRead"
+        ],
+        "properties": {
+          "instance": {
+            "type": "string"
+          },
+          "connections": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Connection"
+            }
+          },
+          "mail": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MailAccount"
+            }
+          },
+          "mailRead": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "fix"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "answered",
+                  "not-running",
+                  "not-answering"
+                ]
+              },
+              "fix": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "AgentToolRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "cli",
+          "title",
+          "state",
+          "detail",
+          "fix"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "cli": {
+            "type": "string",
+            "enum": [
+              "claude",
+              "codex"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "warn",
+              "fail",
+              "skip"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "fix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AgentCapability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "name",
+          "account"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "calendar",
+              "drive"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "account": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "AgentTools": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project",
+          "unattended",
+          "defaultCli",
+          "rows",
+          "capabilities",
+          "checkedAt"
+        ],
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "unattended": {
+            "type": "boolean"
+          },
+          "defaultCli": {
+            "type": "string",
+            "enum": [
+              "claude",
+              "codex"
+            ]
+          },
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentToolRow"
+            }
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AgentCapability"
+            }
+          },
+          "checkedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Projects": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "projects"
+        ],
+        "properties": {
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "Overview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "serverTime",
+          "timeZone",
+          "dataVersion",
+          "sentence",
+          "projects",
+          "system"
+        ],
+        "properties": {
+          "serverTime": {
+            "type": "string"
+          },
+          "timeZone": {
+            "type": "string"
+          },
+          "dataVersion": {
+            "type": "integer"
+          },
+          "sentence": {
+            "type": "string"
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewProjectRow"
+            }
+          },
+          "system": {
+            "$ref": "#/components/schemas/Health"
+          }
+        }
+      },
+      "Pulse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "dataVersion",
+          "serverTime",
+          "health"
+        ],
+        "properties": {
+          "dataVersion": {
+            "type": "integer"
+          },
+          "serverTime": {
+            "type": "string"
+          },
+          "health": {
+            "$ref": "#/components/schemas/Health"
+          }
+        }
+      },
+      "OverviewProjectRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "slug",
+          "name",
+          "projectStatus",
+          "archived",
+          "toReview",
+          "sentToday",
+          "status"
+        ],
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "projectStatus": {
+            "type": "string"
+          },
+          "archived": {
+            "type": "boolean"
+          },
+          "toReview": {
+            "type": "integer"
+          },
+          "sentToday": {
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/OverviewStatus"
+          }
+        }
+      },
+      "OverviewStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "level",
+          "kind",
+          "sentence",
+          "next",
+          "numbers"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "clear",
+              "attention",
+              "blocked"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "clear",
+              "send-stopped",
+              "sent-loop-error",
+              "doctor-fail",
+              "injection-flagged",
+              "send-failed",
+              "sending-stuck",
+              "project-draft",
+              "recipients-test",
+              "fake-mailer",
+              "cap-near",
+              "knowledge-expired",
+              "never-triaged",
+              "context-block-soon"
+            ]
+          },
+          "sentence": {
+            "type": "string"
+          },
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "overview",
+              "knowledge",
+              "sending",
+              "mail",
+              "agent",
+              "connections",
+              "mac",
+              "messengers",
+              null
+            ]
+          },
+          "numbers": {
+            "$ref": "#/components/schemas/OverviewStatusNumbers"
+          }
+        }
+      },
+      "OverviewStatusNumbers": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "owed",
+          "wrote",
+          "mailRead",
+          "lastTriageAt"
+        ],
+        "properties": {
+          "owed": {
+            "type": "integer"
+          },
+          "wrote": {
+            "type": "integer"
+          },
+          "leads": {
+            "type": "integer"
+          },
+          "mailRead": {
+            "$ref": "#/components/schemas/MailRead"
+          },
+          "lastTriageAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "apiVersion",
+          "messengers",
+          "telegramUser",
+          "whatsapp",
+          "sent",
+          "inbound",
+          "mailer"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "apiVersion": {
+            "type": "integer"
+          },
+          "messengers": {
+            "$ref": "#/components/schemas/HealthMessengers"
+          },
+          "telegramUser": {
+            "$ref": "#/components/schemas/TelegramUserStatus"
+          },
+          "whatsapp": {
+            "$ref": "#/components/schemas/TelegramUserStatus"
+          },
+          "sent": {
+            "$ref": "#/components/schemas/HealthSent"
+          },
+          "inbound": {
+            "$ref": "#/components/schemas/HealthInbound"
+          },
+          "mailer": {
+            "type": "string",
+            "enum": [
+              "mail-app",
+              "fake"
+            ]
+          }
+        }
+      },
+      "HealthMessengers": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "failures",
+          "stored"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              false,
+              "starting",
+              "running",
+              "error",
+              "stopped"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "lastPollAt": {
+            "type": "string"
+          },
+          "lastError": {
+            "type": "string"
+          },
+          "failures": {
+            "type": "integer"
+          },
+          "stored": {
+            "type": "integer"
+          }
+        }
+      },
+      "TelegramUserStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "accounts"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              false,
+              true
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "project": {
+            "type": "string"
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TelegramUserAccount"
+            }
+          }
+        }
+      },
+      "TelegramUserAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "account",
+          "state",
+          "parked",
+          "fix",
+          "failures",
+          "stored"
+        ],
+        "properties": {
+          "account": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "running",
+              "error",
+              "parked",
+              "stopped"
+            ]
+          },
+          "parked": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "logged_out",
+              "banned",
+              "flood_wait",
+              null
+            ]
+          },
+          "fix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastPollAt": {
+            "type": "string"
+          },
+          "lastError": {
+            "type": "string"
+          },
+          "failures": {
+            "type": "integer"
+          },
+          "stored": {
+            "type": "integer"
+          }
+        }
+      },
+      "HealthSent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "projects",
+          "failures",
+          "marked"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              false,
+              "starting",
+              "running",
+              "error",
+              "stopped"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "lastRunAt": {
+            "type": "string"
+          },
+          "lastError": {
+            "type": "string"
+          },
+          "failures": {
+            "type": "integer"
+          },
+          "marked": {
+            "type": "integer"
+          }
+        }
+      },
+      "HealthInbound": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "projects",
+          "failures",
+          "stored",
+          "reading"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              false,
+              "starting",
+              "running",
+              "error",
+              "stopped"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "projects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "slug",
+                "readAt",
+                "unknown"
+              ],
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "readAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "unknown": {
+                  "type": "integer"
+                },
+                "error": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "lastRunAt": {
+            "type": "string"
+          },
+          "lastError": {
+            "type": "string"
+          },
+          "failures": {
+            "type": "integer"
+          },
+          "stored": {
+            "type": "integer"
+          },
+          "reading": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SchemeNode": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "project",
+          "label",
+          "state",
+          "detail",
+          "fix",
+          "place"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "core",
+              "cli",
+              "notion",
+              "telegram",
+              "whatsapp",
+              "llm",
+              "mail-app",
+              "mailbox",
+              "mail-mcp",
+              "hub-tools",
+              "notion-db",
+              "knowledge",
+              "mail-filters",
+              "setup",
+              "guard",
+              "session",
+              "send-door",
+              "calendar",
+              "drive"
+            ]
+          },
+          "project": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "warn",
+              "fail",
+              "unknown"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "fix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "place": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "overview",
+              "knowledge",
+              "sending",
+              "mail",
+              "agent",
+              "connections",
+              "mac",
+              "messengers",
+              null
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "mail.openApp"
+            ]
+          }
+        }
+      },
+      "Scheme": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "nodes"
+        ],
+        "properties": {
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SchemeNode"
+            }
+          }
+        }
+      },
+      "OpsErrorRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "time",
+          "source",
+          "message",
+          "place",
+          "project"
+        ],
+        "properties": {
+          "time": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 40
+          },
+          "message": {
+            "type": "string",
+            "maxLength": 600
+          },
+          "place": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "overview",
+              "knowledge",
+              "sending",
+              "mail",
+              "agent",
+              "connections",
+              "mac",
+              "messengers",
+              null
+            ]
+          },
+          "project": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 100
+          }
+        }
+      },
+      "OpsErrors": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rows",
+          "total",
+          "hours"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "maxItems": 50,
+            "items": {
+              "$ref": "#/components/schemas/OpsErrorRow"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "hours": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "AgentSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "agent"
+        ],
+        "properties": {
+          "agent": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "model",
+              "advisor",
+              "advisorModel"
+            ],
+            "properties": {
+              "model": {
+                "type": "string",
+                "enum": [
+                  "sonnet",
+                  "opus"
+                ]
+              },
+              "advisor": {
+                "type": "boolean"
+              },
+              "advisorModel": {
+                "type": "string",
+                "enum": [
+                  "fable",
+                  "opus"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "SafetyRules": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rules"
+        ],
+        "properties": {
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "enabled",
+                "level",
+                "params"
+              ],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "do_not_contact",
+                    "unresolved_marker",
+                    "cc_present",
+                    "unknown_recipients",
+                    "risky_word",
+                    "wrong_thread",
+                    "already_sent_recently",
+                    "no_thread_read",
+                    "no_profile_read",
+                    "near_duplicate",
+                    "template_echo",
+                    "profile_empty",
+                    "profile_stale",
+                    "claim_exceeds_observation",
+                    "evidence_claimed",
+                    "fact_without_source",
+                    "fact_other_brand",
+                    "evidence_weak",
+                    "signature_language"
+                  ]
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "level": {
+                  "type": "string",
+                  "enum": [
+                    "amber",
+                    "red"
+                  ]
+                },
+                "params": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "words": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "days": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Drafts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "drafts",
+          "counts",
+          "total",
+          "nextOffset"
+        ],
+        "properties": {
+          "drafts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReviewDraft"
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "all",
+              "ready",
+              "hold",
+              "owed",
+              "done",
+              "sent",
+              "skipped",
+              "thin_basis",
+              "sequences"
+            ],
+            "properties": {
+              "all": {
+                "type": "integer"
+              },
+              "ready": {
+                "type": "integer"
+              },
+              "hold": {
+                "type": "integer"
+              },
+              "owed": {
+                "type": "integer"
+              },
+              "done": {
+                "type": "integer"
+              },
+              "sent": {
+                "type": "integer"
+              },
+              "skipped": {
+                "type": "integer"
+              },
+              "thin_basis": {
+                "type": "integer"
+              },
+              "sequences": {
+                "type": "integer"
+              }
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "nextOffset": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      },
+      "InboxRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "name",
+          "subject",
+          "mailRef",
+          "lastInboundAt",
+          "mailClass",
+          "action",
+          "reason",
+          "kind",
+          "phone",
+          "owed",
+          "openDraftId",
+          "notionKind",
+          "notionPageId",
+          "notionUrl",
+          "skill",
+          "firstSeenAt",
+          "recordedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "subject": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mailRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "lastInboundAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mailClass": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "drafted",
+              "skipped",
+              "escalated",
+              "injection_suspected"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "call",
+              "no_action",
+              "crossed_off",
+              "unknown_sender",
+              null
+            ]
+          },
+          "phone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owed": {
+            "type": "boolean"
+          },
+          "openDraftId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "notionKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "client",
+              "lead",
+              "none",
+              null
+            ]
+          },
+          "notionPageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notionUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "skill": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "firstSeenAt": {
+            "type": "string"
+          },
+          "recordedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "NotByEmail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rows",
+          "counts",
+          "total"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboxRow"
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "call",
+              "no_action",
+              "crossed_off",
+              "unknown_sender"
+            ],
+            "properties": {
+              "call": {
+                "type": "integer"
+              },
+              "no_action": {
+                "type": "integer"
+              },
+              "crossed_off": {
+                "type": "integer"
+              },
+              "unknown_sender": {
+                "type": "integer"
+              }
+            }
+          },
+          "total": {
+            "type": "integer"
+          }
+        }
+      },
+      "InboundRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "name",
+          "subject",
+          "receivedAt",
+          "read",
+          "why",
+          "preview",
+          "messages",
+          "threadDraftId"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "email": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string"
+          },
+          "read": {
+            "type": "boolean"
+          },
+          "why": {
+            "type": "string",
+            "enum": [
+              "thread",
+              "client",
+              "test"
+            ]
+          },
+          "preview": {
+            "type": "string"
+          },
+          "messages": {
+            "type": "integer"
+          },
+          "threadDraftId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      },
+      "MailRead": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "at",
+          "reason",
+          "reading",
+          "unknown"
+        ],
+        "properties": {
+          "at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reading": {
+            "type": "boolean"
+          },
+          "unknown": {
+            "type": "integer"
+          },
+          "notices": {
+            "type": "integer"
+          }
+        }
+      },
+      "LeadRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pageId",
+          "name",
+          "email",
+          "accountEmail",
+          "brand",
+          "receivedAt",
+          "preview",
+          "requests"
+        ],
+        "properties": {
+          "pageId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "accountEmail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receivedAt": {
+            "type": "string"
+          },
+          "preview": {
+            "type": "string"
+          },
+          "requests": {
+            "type": "integer"
+          }
+        }
+      },
+      "LeadDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "row",
+          "lead",
+          "note",
+          "drafts"
+        ],
+        "properties": {
+          "row": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LeadRow"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "open",
+                  "notionStatus",
+                  "dismissedAt",
+                  "dismissedReason",
+                  "convertedAt",
+                  "clientPageId",
+                  "convertNote"
+                ],
+                "properties": {
+                  "open": {
+                    "type": "boolean"
+                  },
+                  "notionStatus": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dismissedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dismissedReason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "enum": [
+                      "not_now",
+                      "spam",
+                      null
+                    ]
+                  },
+                  "convertedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "clientPageId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "convertNote": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "lead": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "company",
+                  "message",
+                  "details",
+                  "form",
+                  "pageUrl",
+                  "phone",
+                  "brands",
+                  "otherContact"
+                ],
+                "properties": {
+                  "company": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "details": {
+                    "type": "string"
+                  },
+                  "form": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "pageUrl": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "phone": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "brands": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "otherContact": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "drafts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "clientId",
+                "subject",
+                "status"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "clientId": {
+                  "type": "integer"
+                },
+                "subject": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "LeadsRead": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "at",
+          "reason",
+          "reading",
+          "older",
+          "windowDays"
+        ],
+        "properties": {
+          "at": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reading": {
+            "type": "boolean"
+          },
+          "older": {
+            "type": "integer"
+          },
+          "windowDays": {
+            "type": "integer"
+          }
+        }
+      },
+      "LeadsGroup": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rows",
+          "total",
+          "read"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LeadRow"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "read": {
+            "$ref": "#/components/schemas/LeadsRead"
+          }
+        }
+      },
+      "InboundList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rows",
+          "total",
+          "read"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboundRow"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "read": {
+            "$ref": "#/components/schemas/MailRead"
+          },
+          "leads": {
+            "$ref": "#/components/schemas/LeadsGroup"
+          }
+        }
+      },
+      "InboundDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "subject",
+          "status",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          }
+        }
+      },
+      "InboundOther": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "subject",
+          "receivedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "receivedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "InboundDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "row",
+          "drafts",
+          "answer",
+          "others",
+          "notionUrl"
+        ],
+        "properties": {
+          "row": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InboundRow"
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "account",
+                  "mailbox",
+                  "messageId",
+                  "open",
+                  "dismissedAt"
+                ],
+                "properties": {
+                  "account": {
+                    "type": "string"
+                  },
+                  "mailbox": {
+                    "type": "string"
+                  },
+                  "messageId": {
+                    "type": "string"
+                  },
+                  "open": {
+                    "type": "boolean"
+                  },
+                  "dismissedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "drafts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboundDraft"
+            }
+          },
+          "answer": {
+            "oneOf": [
+              {
+                "allOf": [
+                  {
+                    "$ref": "#/components/schemas/InboundDraft"
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "excerpt"
+                    ],
+                    "properties": {
+                      "excerpt": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "others": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboundOther"
+            }
+          },
+          "notionUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "InboundText": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text",
+          "quoted",
+          "note"
+        ],
+        "properties": {
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quoted": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SequenceSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "description",
+          "status",
+          "appliesTo",
+          "mailClasses",
+          "steps",
+          "usable",
+          "issues"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "Draft",
+              "Active",
+              "Retired",
+              null
+            ]
+          },
+          "appliesTo": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "mailClasses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "steps": {
+            "type": "integer"
+          },
+          "usable": {
+            "type": "boolean"
+          },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "severity",
+                "message"
+              ],
+              "properties": {
+                "severity": {
+                  "type": "string",
+                  "enum": [
+                    "error",
+                    "warning"
+                  ]
+                },
+                "message": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Sequences": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sequences"
+        ],
+        "properties": {
+          "sequences": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SequenceSummary"
+            }
+          }
+        }
+      },
+      "EnrollmentOutbound": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "draftId",
+          "at",
+          "subject",
+          "mailRef",
+          "sentMessageId",
+          "mailClass",
+          "notionKind"
+        ],
+        "properties": {
+          "draftId": {
+            "type": "integer"
+          },
+          "at": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "mailRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sentMessageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mailClass": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notionKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "client",
+              "lead",
+              "none",
+              null
+            ]
+          }
+        }
+      },
+      "Enrollment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "sequence",
+          "sequenceName",
+          "step",
+          "steps",
+          "state",
+          "display",
+          "nextDueAt",
+          "anchorAt",
+          "enrolledAt",
+          "enrolledBy",
+          "enrolledPhrase",
+          "finishedAt",
+          "finishReason",
+          "openDraftId",
+          "client",
+          "last"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "sequence": {
+            "type": "string"
+          },
+          "sequenceName": {
+            "type": "string"
+          },
+          "step": {
+            "type": "integer"
+          },
+          "steps": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "finished"
+            ]
+          },
+          "display": {
+            "type": "string",
+            "enum": [
+              "waiting",
+              "due",
+              "draft_ready",
+              "paused",
+              "finished"
+            ]
+          },
+          "nextDueAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "anchorAt": {
+            "type": "string"
+          },
+          "enrolledAt": {
+            "type": "string"
+          },
+          "enrolledBy": {
+            "type": "string"
+          },
+          "enrolledPhrase": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finishedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finishReason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "replied",
+              "bounced",
+              "opted_out",
+              "closed",
+              "excluded",
+              "completed",
+              "stopped",
+              null
+            ]
+          },
+          "openDraftId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "client": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name",
+              "email"
+            ],
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            }
+          },
+          "last": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/EnrollmentOutbound"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Enrollments": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enrollments",
+          "counts"
+        ],
+        "properties": {
+          "enrollments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Enrollment"
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "due",
+              "active"
+            ],
+            "properties": {
+              "due": {
+                "type": "integer"
+              },
+              "active": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "EnrollmentChanged": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "enrollment"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "enrollment": {
+            "$ref": "#/components/schemas/Enrollment"
+          }
+        }
+      },
+      "StopEnrollmentBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "replied",
+              "bounced",
+              "opted_out",
+              "closed",
+              "excluded",
+              "stopped"
+            ],
+            "default": "stopped"
+          }
+        }
+      },
+      "BatchSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "intent",
+          "status",
+          "audience",
+          "silentDays",
+          "total",
+          "brief",
+          "runId",
+          "createdAt",
+          "closedAt",
+          "excluded",
+          "counts",
+          "run",
+          "lastClosedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "follow_up",
+              "notice",
+              "custom"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "ready",
+              "failed"
+            ]
+          },
+          "audience": {
+            "type": "string",
+            "enum": [
+              "all",
+              "owed",
+              "silent",
+              "follow_up",
+              "vip",
+              "agent"
+            ]
+          },
+          "silentDays": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "total": {
+            "type": "integer"
+          },
+          "brief": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "runId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "closedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "excluded": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer"
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "all",
+              "review",
+              "checked",
+              "hold",
+              "done",
+              "skipped"
+            ],
+            "properties": {
+              "all": {
+                "type": "integer"
+              },
+              "review": {
+                "type": "integer"
+              },
+              "checked": {
+                "type": "integer"
+              },
+              "hold": {
+                "type": "integer"
+              },
+              "done": {
+                "type": "integer"
+              },
+              "skipped": {
+                "type": "integer"
+              }
+            }
+          },
+          "run": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "status",
+                  "finishedAt",
+                  "tokensIn",
+                  "tokensOut",
+                  "costUsd"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string"
+                  },
+                  "finishedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "tokensIn": {
+                    "type": "integer"
+                  },
+                  "tokensOut": {
+                    "type": "integer"
+                  },
+                  "costUsd": {
+                    "type": "number"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lastClosedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Batches": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "batches"
+        ],
+        "properties": {
+          "batches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BatchSummary"
+            }
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "runId",
+          "seq",
+          "at",
+          "kind",
+          "tool",
+          "summary",
+          "detail",
+          "clientId",
+          "clientName"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "runId": {
+            "type": "integer"
+          },
+          "seq": {
+            "type": "integer"
+          },
+          "at": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "thought",
+              "tool_call",
+              "tool_result",
+              "decision",
+              "draft_created",
+              "notion_write",
+              "needs_human",
+              "error"
+            ]
+          },
+          "tool": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "summary": {
+            "type": "string"
+          },
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "clientId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "clientName": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Timeline": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          }
+        }
+      },
+      "HistoryItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "key",
+          "at",
+          "direction",
+          "channel",
+          "chatId",
+          "kind",
+          "text"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "const": "messenger"
+          },
+          "key": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ]
+          },
+          "channel": {
+            "type": "string"
+          },
+          "chatId": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "History": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HistoryItem"
+            }
+          },
+          "nextCursor": {
+            "type": "string"
+          }
+        }
+      },
+      "ProjectOverviewSectionAbsent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "const": "absent"
+          }
+        }
+      },
+      "ProjectOverviewSectionError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "message"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "const": "error"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "ProjectOverviewKnowledge": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ProjectOverviewSectionAbsent"
+          },
+          {
+            "$ref": "#/components/schemas/ProjectOverviewSectionError"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "indexed",
+              "approved",
+              "unapproved",
+              "expired",
+              "noAudiences",
+              "noPhrasings",
+              "problems",
+              "consistent",
+              "examples"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "const": "ok"
+              },
+              "indexed": {
+                "type": "integer"
+              },
+              "approved": {
+                "type": "integer"
+              },
+              "unapproved": {
+                "type": "integer"
+              },
+              "expired": {
+                "type": "integer"
+              },
+              "noAudiences": {
+                "type": "integer"
+              },
+              "noPhrasings": {
+                "type": "integer"
+              },
+              "problems": {
+                "type": "integer"
+              },
+              "consistent": {
+                "type": "boolean"
+              },
+              "examples": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ProjectOverviewFilters": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ProjectOverviewSectionAbsent"
+          },
+          {
+            "$ref": "#/components/schemas/ProjectOverviewSectionError"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "rules",
+              "whitelist",
+              "issues"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "const": "ok"
+              },
+              "rules": {
+                "type": "integer"
+              },
+              "whitelist": {
+                "type": "integer"
+              },
+              "issues": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ProjectOverview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project",
+          "question",
+          "knowledge",
+          "filters"
+        ],
+        "properties": {
+          "project": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "slug",
+                  "name",
+                  "status",
+                  "kind",
+                  "archived",
+                  "syncedAt"
+                ],
+                "properties": {
+                  "slug": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "archived": {
+                    "type": "boolean"
+                  },
+                  "syncedAt": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "question": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "question",
+                  "options"
+                ],
+                "properties": {
+                  "question": {
+                    "type": "string"
+                  },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "messengerPolicy": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "language",
+                  "instruction"
+                ],
+                "properties": {
+                  "language": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "instruction": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "knowledge": {
+            "$ref": "#/components/schemas/ProjectOverviewKnowledge"
+          },
+          "filters": {
+            "$ref": "#/components/schemas/ProjectOverviewFilters"
+          }
+        }
+      },
+      "ProjectLink": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "group",
+          "label",
+          "target",
+          "under",
+          "kind",
+          "href"
+        ],
+        "properties": {
+          "group": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "under": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "notion",
+              "https"
+            ]
+          },
+          "href": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ProjectLinks": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project",
+          "notion",
+          "links"
+        ],
+        "properties": {
+          "project": {
+            "type": "string"
+          },
+          "notion": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "message"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "ready",
+                  "missing_token",
+                  "unresolved",
+                  "error"
+                ]
+              },
+              "message": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          },
+          "links": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectLink"
+            }
+          }
+        }
+      },
+      "ActivityClient": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "ActivityRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "key",
+          "at",
+          "client",
+          "who",
+          "outcome",
+          "why",
+          "draftId",
+          "chatId",
+          "skill",
+          "provider"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^(?:event|send):\\\\d{1,12}$"
+          },
+          "at": {
+            "type": "string"
+          },
+          "client": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ActivityClient"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "who": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "drafted",
+              "updated",
+              "skipped",
+              "escalated",
+              "flagged",
+              "linked",
+              "sent"
+            ]
+          },
+          "why": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "draftId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "chatId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "skill": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "provider": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "hub_llm",
+              "runtime_agent",
+              null
+            ]
+          }
+        }
+      },
+      "Activity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rows",
+          "counts",
+          "next",
+          "client"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActivityRow"
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "all",
+              "needs_you",
+              "drafts",
+              "skipped"
+            ],
+            "properties": {
+              "all": {
+                "type": "integer"
+              },
+              "needs_you": {
+                "type": "integer"
+              },
+              "drafts": {
+                "type": "integer"
+              },
+              "skipped": {
+                "type": "integer"
+              }
+            }
+          },
+          "next": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^\\\\d{4}-\\\\d{2}-\\\\d{2}T[\\\\d:.]+Z\\\\|(?:event|send):\\\\d{1,12}$"
+          },
+          "client": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ActivityClient"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "KnowledgeEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "title",
+          "use",
+          "approved",
+          "audiences",
+          "brands",
+          "category",
+          "kind",
+          "validUntil",
+          "status"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^knowledge:"
+          },
+          "title": {
+            "type": "string"
+          },
+          "use": {
+            "type": "string",
+            "enum": [
+              "STATE",
+              "MARKER"
+            ]
+          },
+          "approved": {
+            "type": "boolean"
+          },
+          "audiences": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "brands": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "kind": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "validUntil": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "expired",
+              "unapproved",
+              "expiring",
+              "approved"
+            ]
+          }
+        }
+      },
+      "ClientKey": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "email",
+          "key"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "email": {
+            "type": "string"
+          },
+          "key": {
+            "type": "string"
+          }
+        }
+      },
+      "KnowledgeText": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "title",
+          "body",
+          "truncated"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Knowledge": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scope",
+          "entries",
+          "counts",
+          "truncated"
+        ],
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "shared",
+              "by-brand"
+            ]
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KnowledgeEntry"
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "all",
+              "attention",
+              "expired",
+              "unapproved"
+            ],
+            "properties": {
+              "all": {
+                "type": "integer"
+              },
+              "attention": {
+                "type": "integer"
+              },
+              "expired": {
+                "type": "integer"
+              },
+              "unapproved": {
+                "type": "integer"
+              }
+            }
+          },
+          "truncated": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentFeed": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "turns",
+          "waiting"
+        ],
+        "properties": {
+          "turns": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "tone"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 240
+                },
+                "tone": {
+                  "type": "string",
+                  "enum": [
+                    "attention",
+                    "ready",
+                    "problem"
+                  ]
+                }
+              }
+            }
+          },
+          "waiting": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ConversationMessage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "messageId",
+          "ours",
+          "fromName",
+          "fromEmail",
+          "date",
+          "subject",
+          "draftId",
+          "preview"
+        ],
+        "properties": {
+          "messageId": {
+            "type": "string"
+          },
+          "ours": {
+            "type": "boolean"
+          },
+          "fromName": {
+            "type": "string"
+          },
+          "fromEmail": {
+            "type": "string"
+          },
+          "date": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "draftId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "preview": {
+            "type": "string"
+          }
+        }
+      },
+      "ConversationThread": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key",
+          "subject",
+          "brand",
+          "ourFrom",
+          "messages"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ourFrom": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationMessage"
+            }
+          }
+        }
+      },
+      "ConversationMail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "note",
+          "ms",
+          "threads",
+          "earlier"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "mail",
+              "hub"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ms": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "threads": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationThread"
+            }
+          },
+          "earlier": {
+            "type": "integer"
+          }
+        }
+      },
+      "ConversationText": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text",
+          "quoted",
+          "note"
+        ],
+        "properties": {
+          "text": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quoted": {
+            "type": "boolean"
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "DraftMail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "configured",
+          "found",
+          "reason",
+          "from",
+          "to",
+          "cc",
+          "subject",
+          "body",
+          "hash",
+          "safetyResults",
+          "readAt"
+        ],
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "found": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "aside": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "gone": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "trashRef"
+                ],
+                "properties": {
+                  "trashRef": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkedCurrent": {
+            "type": "boolean"
+          },
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "messageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "hash": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "safetyResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SafetyResult"
+            }
+          },
+          "readAt": {
+            "type": "string"
+          }
+        }
+      },
+      "ConversationClient": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "email"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          }
+        }
+      },
+      "ReviewClient": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "email",
+          "repliesOwed",
+          "lastContactAt",
+          "marks"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "repliesOwed": {
+            "type": "boolean"
+          },
+          "lastContactAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "marks": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "follow_up",
+                "do_not_contact",
+                "vip"
+              ]
+            }
+          }
+        }
+      },
+      "SafetyResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "level",
+          "text",
+          "acked"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "do_not_contact",
+              "unresolved_marker",
+              "cc_present",
+              "unknown_recipients",
+              "risky_word",
+              "wrong_thread",
+              "already_sent_recently",
+              "no_thread_read",
+              "no_profile_read",
+              "near_duplicate",
+              "template_echo",
+              "profile_empty",
+              "profile_stale",
+              "claim_exceeds_observation",
+              "evidence_claimed",
+              "fact_without_source",
+              "fact_other_brand",
+              "evidence_weak",
+              "signature_language"
+            ]
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "amber",
+              "red"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "acked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BasedOnFinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "text",
+          "amber"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "amber": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BasedOn": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "level",
+          "source",
+          "findings",
+          "similarTo",
+          "context"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "weak",
+              "missing"
+            ]
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "observed",
+              "claimed",
+              null
+            ]
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BasedOnFinding"
+            }
+          },
+          "similarTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "context": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "SendState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "dueAt",
+          "via",
+          "doneAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sending",
+              "sent"
+            ]
+          },
+          "dueAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "via": {
+            "type": "string",
+            "enum": [
+              "batch",
+              "manual",
+              "auto"
+            ]
+          },
+          "doneAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "SendRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "draftId",
+          "clientId",
+          "channel",
+          "messengerDraftId",
+          "mode",
+          "status",
+          "actor",
+          "createdAt",
+          "dueAt",
+          "doneAt",
+          "toAddr",
+          "ccAddr",
+          "subject",
+          "body",
+          "error"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "draftId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "clientId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "mail",
+              "telegram_user",
+              "telegram_bot",
+              "whatsapp"
+            ]
+          },
+          "messengerDraftId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "auto"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "sending",
+              "sent",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "actor": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "dueAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "doneAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "toAddr": {
+            "type": "string"
+          },
+          "ccAddr": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "subject": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string"
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Sends": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sends",
+          "stopped"
+        ],
+        "properties": {
+          "sends": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SendRow"
+            }
+          },
+          "stopped": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DoctorCheck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "outcome",
+          "detail"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "warn",
+              "fail",
+              "skipped"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      },
+      "DoctorFacts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "accounts",
+          "recipients",
+          "listed",
+          "autosend"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "accounts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "recipients": {
+            "type": "string",
+            "enum": [
+              "test",
+              "any",
+              "list"
+            ]
+          },
+          "listed": {
+            "type": "integer"
+          },
+          "autosend": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "classes",
+              "dailyCap"
+            ],
+            "properties": {
+              "mode": {
+                "type": "string"
+              },
+              "classes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "dailyCap": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "Doctor": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "checks",
+          "facts"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "absent"
+            ]
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DoctorCheck"
+            }
+          },
+          "facts": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/DoctorFacts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Sequence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enrollmentId",
+          "sequence",
+          "step",
+          "steps",
+          "state"
+        ],
+        "properties": {
+          "enrollmentId": {
+            "type": "integer"
+          },
+          "sequence": {
+            "type": "string"
+          },
+          "step": {
+            "type": "integer"
+          },
+          "steps": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "active",
+              "paused",
+              "finished"
+            ]
+          }
+        }
+      },
+      "ReviewDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "clientId",
+          "batchId",
+          "runId",
+          "subject",
+          "toAddr",
+          "ccAddr",
+          "body",
+          "reason",
+          "notionUrl",
+          "notionKind",
+          "notionPageId",
+          "mailRef",
+          "safety",
+          "status",
+          "checked",
+          "tone",
+          "toneBodies",
+          "safetyResults",
+          "blocked",
+          "canUndo",
+          "injectionSuspected",
+          "basedOn",
+          "mailClass",
+          "wroteTo",
+          "brand",
+          "sendState",
+          "otherDrafts",
+          "repliedElsewhere",
+          "teamSent",
+          "skipReason",
+          "sentAt",
+          "createdAt",
+          "updatedAt",
+          "client",
+          "sequence"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "clientId": {
+            "type": "integer"
+          },
+          "batchId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "runId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "subject": {
+            "type": "string"
+          },
+          "toAddr": {
+            "type": "string"
+          },
+          "ccAddr": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "body": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notionUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notionKind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "client",
+              "lead",
+              "none",
+              null
+            ]
+          },
+          "notionPageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "mailRef": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "safety": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "hold",
+              "done",
+              "sent",
+              "skipped"
+            ]
+          },
+          "checked": {
+            "type": "boolean"
+          },
+          "tone": {
+            "type": "string",
+            "enum": [
+              "short",
+              "standard",
+              "warm"
+            ]
+          },
+          "toneBodies": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "short": {
+                "type": "string"
+              },
+              "standard": {
+                "type": "string"
+              },
+              "warm": {
+                "type": "string"
+              }
+            }
+          },
+          "safetyResults": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SafetyResult"
+            }
+          },
+          "blocked": {
+            "type": "boolean"
+          },
+          "canUndo": {
+            "type": "boolean"
+          },
+          "injectionSuspected": {
+            "type": "boolean"
+          },
+          "basedOn": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BasedOn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mailClass": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "wroteTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sendState": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/SendState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "otherDrafts": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "repliedElsewhere": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "at",
+                  "by",
+                  "messageId"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string"
+                  },
+                  "by": {
+                    "type": "string"
+                  },
+                  "messageId": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "teamSent": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "at",
+                  "by"
+                ],
+                "properties": {
+                  "at": {
+                    "type": "string"
+                  },
+                  "by": {
+                    "type": "string"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "skipReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "sentAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "client": {
+            "$ref": "#/components/schemas/ReviewClient"
+          },
+          "sequence": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Sequence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ConversationRow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "client",
+          "notion",
+          "state",
+          "at",
+          "subject",
+          "preview",
+          "brands",
+          "inboundId",
+          "draft",
+          "theirLastAt",
+          "ourLastAt",
+          "contact",
+          "agent"
+        ],
+        "properties": {
+          "client": {
+            "$ref": "#/components/schemas/ConversationClient"
+          },
+          "notion": {
+            "$ref": "#/components/schemas/NotionIdentity"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "wrote",
+              "draft",
+              "hold",
+              "waiting",
+              "done"
+            ]
+          },
+          "at": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "preview": {
+            "type": "string"
+          },
+          "brands": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "inboundId": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "draft": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ReviewDraft"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "theirLastAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "ourLastAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "contact": {
+            "$ref": "#/components/schemas/ContactLinks"
+          },
+          "agent": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ConversationAgentVerdict"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "ConversationAgentVerdict": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "reason",
+          "at"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "escalated",
+              "skipped"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "at": {
+            "type": "string"
+          }
+        }
+      },
+      "ContactLinks": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "telegramUsername",
+          "telegramPhone",
+          "whatsappPhone"
+        ],
+        "properties": {
+          "telegramUsername": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "telegramPhone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "whatsappPhone": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Conversations": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rows",
+          "total",
+          "nextOffset",
+          "counts"
+        ],
+        "properties": {
+          "rows": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConversationRow"
+            }
+          },
+          "total": {
+            "type": "integer"
+          },
+          "nextOffset": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "needs_you",
+              "waiting",
+              "all",
+              "sequences"
+            ],
+            "properties": {
+              "needs_you": {
+                "type": "integer"
+              },
+              "waiting": {
+                "type": "integer"
+              },
+              "all": {
+                "type": "integer"
+              },
+              "sequences": {
+                "type": "integer"
+              }
+            }
+          }
+        }
+      },
+      "Conversation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "row",
+          "composer"
+        ],
+        "properties": {
+          "row": {
+            "$ref": "#/components/schemas/ConversationRow"
+          },
+          "composer": {
+            "$ref": "#/components/schemas/MailComposerContext"
+          }
+        }
+      },
+      "MailComposerContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "brand",
+          "wroteTo",
+          "from",
+          "technicalAddress",
+          "language",
+          "signatureLines",
+          "signatureFallback",
+          "signatureLinesByLanguage",
+          "signatureFallbackByLanguage",
+          "status",
+          "reason",
+          "brands"
+        ],
+        "properties": {
+          "brand": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "wroteTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "technicalAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": "string",
+            "enum": [
+              "en",
+              "ru"
+            ]
+          },
+          "signatureLines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "signatureFallback": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "en",
+              "ru",
+              null
+            ]
+          },
+          "signatureLinesByLanguage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "en",
+              "ru"
+            ],
+            "properties": {
+              "en": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ru": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "signatureFallbackByLanguage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "en",
+              "ru"
+            ],
+            "properties": {
+              "en": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "en",
+                  "ru",
+                  null
+                ]
+              },
+              "ru": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "en",
+                  "ru",
+                  null
+                ]
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "resolved",
+              "needs_brand",
+              "needs_mail",
+              "missing_signature"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "brands": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MailComposerBrand"
+            }
+          }
+        }
+      },
+      "MailComposerBrand": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "wroteTo",
+          "from",
+          "technicalAddress",
+          "signatureLines",
+          "signatureFallback",
+          "signatureLinesByLanguage",
+          "signatureFallbackByLanguage",
+          "status"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "wroteTo": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "technicalAddress": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "signatureLines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "signatureFallback": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "en",
+              "ru",
+              null
+            ]
+          },
+          "signatureLinesByLanguage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "en",
+              "ru"
+            ],
+            "properties": {
+              "en": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "ru": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "signatureFallbackByLanguage": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "en",
+              "ru"
+            ],
+            "properties": {
+              "en": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "en",
+                  "ru",
+                  null
+                ]
+              },
+              "ru": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "en",
+                  "ru",
+                  null
+                ]
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "missing_signature"
+            ]
+          }
+        }
+      },
+      "NotionIdentity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "pageId",
+          "url"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "resolved",
+              "unresolved",
+              "unavailable"
+            ]
+          },
+          "pageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "MessengerClient": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "email",
+          "notionPageId",
+          "notionUrl",
+          "notion"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "notionPageId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notionUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notion": {
+            "$ref": "#/components/schemas/NotionIdentity"
+          }
+        }
+      },
+      "MessengerRules": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "replyMode",
+          "mayNudge",
+          "nudgeAfterDays",
+          "instruction",
+          "language",
+          "prefilter"
+        ],
+        "properties": {
+          "replyMode": {
+            "type": "string",
+            "enum": [
+              false,
+              "on_request",
+              "draft"
+            ]
+          },
+          "mayNudge": {
+            "type": "boolean"
+          },
+          "nudgeAfterDays": {
+            "type": "integer"
+          },
+          "instruction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "prefilter": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MessengerDraft": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "text",
+          "createdBy",
+          "nudge",
+          "ownerRequest",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "text": {
+            "type": "string"
+          },
+          "createdBy": {
+            "type": "string"
+          },
+          "nudge": {
+            "type": "boolean"
+          },
+          "ownerRequest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "updatedAt": {
+            "type": "string"
+          }
+        }
+      },
+      "MessengerMessage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "direction",
+          "kind",
+          "text",
+          "at",
+          "hidden"
+        ],
+        "properties": {
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "at": {
+            "type": "string"
+          },
+          "hidden": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "closing",
+              "automated",
+              "personal",
+              null
+            ]
+          }
+        }
+      },
+      "MessengerTriage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "judged",
+          "hidden",
+          "unjudged"
+        ],
+        "properties": {
+          "judged": {
+            "type": "integer"
+          },
+          "hidden": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "closing",
+              "automated",
+              "personal"
+            ],
+            "properties": {
+              "closing": {
+                "type": "integer"
+              },
+              "automated": {
+                "type": "integer"
+              },
+              "personal": {
+                "type": "integer"
+              }
+            }
+          },
+          "unjudged": {
+            "type": "integer"
+          }
+        }
+      },
+      "MessengerPreanalysis": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "fix"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "fake",
+              "no_key"
+            ]
+          },
+          "fix": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "MessengerChat": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "channel",
+          "chatId",
+          "title",
+          "client",
+          "rules",
+          "inbound",
+          "stored",
+          "last",
+          "owed",
+          "draft",
+          "autolinked",
+          "triage",
+          "contact"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "channel": {
+            "type": "string",
+            "enum": [
+              "telegram_bot",
+              "telegram_user",
+              "whatsapp"
+            ]
+          },
+          "chatId": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "client": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MessengerClient"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rules": {
+            "$ref": "#/components/schemas/MessengerRules"
+          },
+          "inbound": {
+            "type": "integer"
+          },
+          "stored": {
+            "type": "integer"
+          },
+          "last": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MessengerMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owed": {
+            "type": "boolean"
+          },
+          "draft": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/MessengerDraft"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "autolinked": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "triage": {
+            "$ref": "#/components/schemas/MessengerTriage"
+          },
+          "contact": {
+            "$ref": "#/components/schemas/ContactLinks"
+          }
+        }
+      },
+      "MessengerChats": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chats",
+          "counts",
+          "preanalysis"
+        ],
+        "properties": {
+          "chats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessengerChat"
+            }
+          },
+          "counts": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "needs_you",
+              "waiting",
+              "all"
+            ],
+            "properties": {
+              "needs_you": {
+                "type": "integer"
+              },
+              "waiting": {
+                "type": "integer"
+              },
+              "all": {
+                "type": "integer"
+              }
+            }
+          },
+          "preanalysis": {
+            "$ref": "#/components/schemas/MessengerPreanalysis"
+          }
+        }
+      },
+      "MessengerConversationMessage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "direction",
+          "kind",
+          "text",
+          "format",
+          "at",
+          "hidden"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "in",
+              "out"
+            ]
+          },
+          "kind": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "markdown"
+            ]
+          },
+          "at": {
+            "type": "string"
+          },
+          "hidden": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "closing",
+              "automated",
+              "personal",
+              null
+            ]
+          }
+        }
+      },
+      "MessengerConversation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "chat",
+          "messages",
+          "earlier"
+        ],
+        "properties": {
+          "chat": {
+            "$ref": "#/components/schemas/MessengerChat"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MessengerConversationMessage"
+            }
+          },
+          "earlier": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Number of messages omitted before the bounded returned window."
+          }
+        }
+      },
+      "ManualReplyBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 20000
+          },
+          "brand": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        }
+      },
+      "ClientMarksBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "project",
+          "marks"
+        ],
+        "properties": {
+          "project": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "marks": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "enum": [
+                "follow_up",
+                "do_not_contact",
+                "vip"
+              ]
+            }
+          }
+        }
+      },
+      "MessengerDraftTextBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096
+          }
+        }
+      },
+      "MessengerPrepareBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "ownerRequest": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        }
+      },
+      "MessengerChatRulesBody": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "replyMode": {
+            "type": "string",
+            "enum": [
+              false,
+              "on_request",
+              "draft"
+            ]
+          },
+          "mayNudge": {
+            "type": "boolean"
+          },
+          "nudgeAfterDays": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          },
+          "instruction": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 4000
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 35
+          },
+          "prefilter": {
+            "type": "boolean"
+          }
+        }
+      },
+      "MessengerSkipped": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "id"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "id": {
+            "type": "integer"
+          }
+        }
+      },
+      "DraftChanged": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok",
+          "draftId"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "draftId": {
+            "type": "integer"
+          }
+        }
+      },
+      "Ok": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ok"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          }
+        }
+      },
+      "ApiError": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error",
+          "code"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid",
+              "not_found",
+              "wrong_state",
+              "busy",
+              "unavailable",
+              "forbidden",
+              "server",
+              "terminal_unavailable"
+            ]
+          },
+          "refused": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fix": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

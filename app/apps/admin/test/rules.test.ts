@@ -67,9 +67,10 @@ describe("the generated API boundary", () => {
   });
   it("every OpenAPI operation is public and recorded in the endpoint ledger", () => {
     const api = path.resolve(repo, "app/packages/api");
-    const spec = read(path.join(api, "openapi.yaml"));
+    // P120 W1: the server emits openapi.json (`pnpm --filter @hub/api generate`); its operations are read from the JSON.
+    const spec = JSON.parse(read(path.join(api, "openapi.json"))) as { paths: Record<string, Record<string, { operationId?: string }>> };
     const barrel = read(path.join(api, "src/index.ts"));
-    const operations = [...spec.matchAll(/^\s+operationId:\s+([A-Za-z][A-Za-z0-9]+)\s*$/gm)].map((match) => match[1] ?? "");
+    const operations = Object.values(spec.paths).flatMap((ops) => Object.values(ops).map((op) => op.operationId ?? ""));
     const ledger: readonly string[] = generatedOperations();
     expect(operations.length).toBeGreaterThan(0);
     expect(operations.filter((operation) => !new RegExp(`\\b${operation}\\b`).test(barrel))).toEqual([]);

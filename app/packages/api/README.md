@@ -6,13 +6,15 @@ The generated JSON API boundary for the Hub admin app.
 pnpm --filter @hub/api generate
 ```
 
-`openapi.yaml` is the checked contract input for the current migration slice.
+`openapi.json` is Orval's one input, emitted by the server (`pnpm --filter @hub/server openapi`, run first by `generate`)
+from its declared operations and their `@hub/contract` schemas, over the hand-kept `openapi.base.json` for the
+domains not declared yet (P120 W1: instance; W2 deletes the base).
 `src/generated` and `src/generated-zod` are Orval output and must not be edited
 by hand. They have no deep package export. `src/runtime` owns same-origin
 credentials and Hub error normalization.
 
 `src/ledger.ts` (`@hub/api/ledger`) is the endpoint ledger: every operation of
-`openapi.yaml` by domain, and every path an admin facade still calls raw with
+`openapi.json` by domain, and every path an admin facade still calls raw with
 the reason it stays raw (credentials, a lifecycle protocol, a local bridge, a
 stream or a send door). `apps/admin/test/rules.test.ts` fails when the spec,
 the barrel and the ledger disagree.
