@@ -35,11 +35,11 @@ export function createMessengerIdentityResolver(source: IdentitySource | undefin
   };
 
   /**
-   * P131 O5: the Telegram username or phone and the WhatsApp number to open a chat with: the chat's own identity first (a
-   * WhatsApp chat id is the number), then the client's Notion card (the directory's `Telegram`, `WhatsApp` and phone fields).
+   * P131 O5: the Telegram username or phone and the WhatsApp number to open a chat with: the chat's own identity first (kept on
+   * the linked chat's row, else the autolink memory; a WhatsApp chat id is the number), then the client's Notion card (the directory's `Telegram`, `WhatsApp` and phone fields).
    * Memory only, never a Notion read here; nulls when nothing is known.
    */
-  const contact = (slug: string, o: { email?: string | null; pageId?: string | null; chat?: { channel: string; chatId: string } }): ContactLinksDto => {
+  const contact = (slug: string, o: { email?: string | null; pageId?: string | null; chat?: { channel: string; chatId: string; own?: { username: string | null; phone: string | null } } }): ContactLinksDto => {
     const all = source?.project === slug ? (source.directory.current()?.all ?? []) : [];
     const key = o.pageId?.replaceAll("-", "").toLowerCase() ?? (o.email ? index(slug).get(o.email.trim().toLowerCase()) : undefined);
     const entry = key ? all.find((e) => e.key.replaceAll("-", "").toLowerCase() === key.replaceAll("-", "").toLowerCase()) : undefined;
@@ -51,11 +51,12 @@ export function createMessengerIdentityResolver(source: IdentitySource | undefin
     const card: ContactLinksDto = entry
       ? { telegramUsername: entry.identifiers.find((i) => i.kind === "username")?.value ?? null, telegramPhone: best("telegram"), whatsappPhone: best("whatsapp") }
       : NO_CONTACT;
-    // The chat's own Telegram identity comes before the card's (verdict 10: it is the conversation he means).
+    // The chat's own Telegram identity comes before the card's (verdict 10: it is the conversation he means): what the linked chat
+    // kept on its row (P131 O5), else what the autolink memory saw of it.
     if (o.chat?.channel === "telegram_user") {
-      const own = source?.project === slug ? source.identityOf?.("telegram_user", o.chat.chatId) : null;
-      const username = own?.username?.replace(/^@/, "") || null;
-      const phone = phoneDigits(own?.phone);
+      const mem = source?.project === slug ? source.identityOf?.("telegram_user", o.chat.chatId) : null;
+      const username = o.chat.own?.username?.replace(/^@/, "") || mem?.username?.replace(/^@/, "") || null;
+      const phone = phoneDigits(o.chat.own?.phone) ?? phoneDigits(mem?.phone);
       if (username || phone) return { ...card, telegramUsername: username ?? card.telegramUsername, telegramPhone: phone ?? card.telegramPhone };
     }
     // A WhatsApp chat id is its number; anything else (a group's id) gives no link by id.

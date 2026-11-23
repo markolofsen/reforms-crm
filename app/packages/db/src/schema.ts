@@ -512,6 +512,10 @@ export const messengerChats = sqliteTable(
     rulesUpdatedAt: text("rules_updated_at"),
     // P84 (migration 0028): null when the owner linked the chat, else why the Hub's autolink did ("phone matches the client").
     autolinked: text("autolinked"),
+    // P131 O5 (migration 0035): the chat's own Telegram username (no `@`) and phone (digits) as the account saw them when it was
+    // linked or on a later dialog scan, so "Open in Telegram" works for a linked chat without the Notion card. Null when unknown.
+    username: text("username"),
+    phone: text("phone"),
   },
   (t) => [uniqueIndex("messenger_chats_key").on(t.project, t.channel, t.chatId)],
 );

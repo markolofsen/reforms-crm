@@ -55,6 +55,11 @@ export function autolinkRoutes({ repos, autolink: al, adminPort }: AutolinkServi
     const digits = (id?.phone ?? "").replace(/\D/g, "");
     return { channel: channel === "whatsapp" ? "whatsapp" : "telegram", username: id?.username ?? null, phone: digits.length >= 7 ? `+${digits}` : null };
   };
+  /** P131 O5: what the memory knows of the chat's own username and phone, kept on the chat row at link time. */
+  const ownIdentity = (al: ProjectAutolink, channel: "telegram_user" | "whatsapp", chatId: string) => {
+    const id = al.autolink.identityOf(channel, chatId);
+    return id ? { identity: { username: id.username, phone: id.phone } } : {};
+  };
   const fillLine = (f: FillOutcome): string | null => (f.state === "written" ? `${f.property} set to ${f.value} in Notion` : f.state === "refused" ? f.note : f.reason.startsWith("nothing") ? null : `${f.reason} in Notion, kept`);
 
   /** P100: writes the chat's username or number into the card's empty Telegram or WhatsApp field; a failure leaves the link standing and is said in one line. */
@@ -110,7 +115,7 @@ export function autolinkRoutes({ repos, autolink: al, adminPort }: AutolinkServi
         if (!rec?.email) return c.json({ error: "That client record is not in the directory now, or it has no email.", code: "wrong_state" as const }, 409);
         const adapter = al.autolink.adapterOf(b.channel, b.account);
         if (!adapter) return c.json({ error: "That account is not connected (parked, stopped or unknown): see its state.", code: "wrong_state" as const }, 409);
-        const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: rec.email, name: rec.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}) });
+        const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: rec.email, name: rec.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}), ...ownIdentity(al, b.channel, b.chatId) });
         // P102: a hidden chat linked by hand forgets its refusal in the same call.
         await al.autolink.forget(b.channel, b.chatId);
         // P100: the chat's username or number into the card's empty Telegram or WhatsApp, so the next chat links by itself. Never an overwrite.
@@ -134,7 +139,7 @@ export function autolinkRoutes({ repos, autolink: al, adminPort }: AutolinkServi
         if (existing) {
           const entry = entryOf(existing as never);
           if (entry) al.directory.put(entry);
-          const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: b.email, name: entry?.name || b.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}) });
+          const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: b.email, name: entry?.name || b.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}), ...ownIdentity(al, b.channel, b.chatId) });
           await al.autolink.forget(b.channel, b.chatId);
           const filled = fillLine(await fillChatIdentity(deps, { clientsDataSource: al.directory.dataSourceId, pageId: existing.id, identity }));
           return c.json(autolinkLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError, days: IMPORT_DAYS, notion: `Linked to the existing card of ${b.email}${filled ? `; ${filled}` : ""}` }));
@@ -143,7 +148,7 @@ export function autolinkRoutes({ repos, autolink: al, adminPort }: AutolinkServi
         if (made.state !== "created") return c.json({ error: made.note, code: "wrong_state" as const }, 409);
         const entry = entryOf(made.page as never);
         if (entry) al.directory.put(entry);
-        const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: b.email, name: b.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}) });
+        const r = await linkUserChatToRecord({ repos, adapter }, humanActor("admin"), { project: slug, client: { email: b.email, name: b.name }, chatId: b.chatId, ...(b.title ? { title: b.title } : {}), ...ownIdentity(al, b.channel, b.chatId) });
         await al.autolink.forget(b.channel, b.chatId);
         const field = identity.channel === "telegram" ? (identity.username ?? identity.phone) : identity.phone;
         return c.json(autolinkLinkedDto.parse({ ok: true, chatId: b.chatId, imported: r.imported, importError: r.importError, days: IMPORT_DAYS, notion: `Created ${b.name} in Notion${field ? ` with ${identity.channel === "telegram" ? "Telegram" : "WhatsApp"} ${field}` : ""}` }));

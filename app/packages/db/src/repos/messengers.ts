@@ -80,6 +80,17 @@ export function messengersRepo(db: Db) {
         })
         .run();
     },
+    /**
+     * P131 O5: the chat's own Telegram username (stored without `@`) and phone (digits only), on a linked chat only. A null or empty
+     * value leaves what is stored: a later scan that does not see the phone never erases it. Returns whether a row changed.
+     */
+    async setChatIdentity(project: string, channel: MessengerChannel, chatId: string, id: { username?: string | null; phone?: string | null }): Promise<boolean> {
+      const username = id.username?.trim().replace(/^@/, "") || null;
+      const digits = id.phone?.replace(/\D/g, "") || null;
+      const set = { ...(username ? { username } : {}), ...(digits && digits.length >= 7 ? { phone: digits } : {}) };
+      if (!Object.keys(set).length) return false;
+      return db.update(messengerChats).set(set).where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId))).run().changes > 0;
+    },
     /** Takes the chat off the allow-list with its stored messages and drafts, in one transaction (`unlinkChat`). Returns whether it was listed. */
     async disallowChat(project: string, channel: MessengerChannel, chatId: string): Promise<boolean> {
       return (await chats.unlinkChat(project, channel, chatId)).removed;

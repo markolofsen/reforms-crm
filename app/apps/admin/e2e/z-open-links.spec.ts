@@ -93,3 +93,24 @@ test("P131 O5: a chat's header opens Telegram and WhatsApp by the contact's iden
   await expect(page.getByTestId("messenger-conversation")).toContainText("Is the notary on the 28th still on?");
   await expect(page.getByTestId("messenger-conversation").getByRole("link", { name: /Open in (Telegram|WhatsApp)/ })).toHaveCount(0);
 });
+
+test("P131 O5 (verdict 10): a linked chat opens Telegram by its own username, kept at link time, with no Notion card", async ({ page }) => {
+  await remember(page, REALTY);
+  const openSofia = async () => {
+    await page.goto(at(REALTY, "/messengers?filter=linked"));
+    await page.getByRole("list", { name: "Chats" }).getByRole("listitem", { name: "Sofia Teste" }).getByRole("link").first().click();
+    await expect(page.getByTestId("messenger-conversation")).toContainText("Any news on the offer?");
+  };
+  const conversation = () => page.getByTestId("messenger-conversation");
+  await setApps(page, { notion: false, telegram: true, whatsapp: false });
+  await openSofia();
+  const tg = conversation().getByRole("link", { name: "Open in Telegram" });
+  await expect(tg).toHaveAttribute("href", "tg://resolve?domain=sofia_t");
+  await expect(tg).not.toHaveAttribute("target", "_blank");
+  // Without the app a username has a web form.
+  await setApps(page, { notion: false, telegram: false, whatsapp: false });
+  await openSofia();
+  const web = conversation().getByRole("link", { name: "Open in Telegram (web)" });
+  await expect(web).toHaveAttribute("href", "https://t.me/sofia_t");
+  await expect(web).toHaveAttribute("target", "_blank");
+});

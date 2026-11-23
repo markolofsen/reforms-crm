@@ -212,6 +212,8 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
     // P71 M-P: the pre-analysis is on in Sofia's chat, with two seeded verdicts (no model ran): her question reached the agent, her
     // "Thank you!" was hidden as closing, so the panel shows a count by reason.
     await repos.messengers.setChatRules("lisbon-realty", "telegram_user", "700200", { prefilter: true });
+    // P131 O5: the chat's own Telegram username, as the account saw it when the chat was linked (no Notion card in a seeded instance).
+    await repos.messengers.setChatIdentity("lisbon-realty", "telegram_user", "700200", { username: "sofia_t", phone: null });
     const ids = (await repos.messengers.messagesOf("lisbon-realty", [{ channel: "telegram_user", chatId: "700200" }], { limit: 10 })).filter((m) => m.direction === "in");
     await repos.messengers.recordTriage("lisbon-realty", ids.map((m) => ({ messageId: m.id, verdict: m.text === "Thank you!" ? "closing" : "needs_reply", model: "seed", promptVersion: 1 })));
   }

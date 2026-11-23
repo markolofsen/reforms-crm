@@ -124,6 +124,21 @@ describe("the client directory (Notion, read only, in memory)", () => {
 });
 
 describe("autolink on the connect scan", () => {
+  it("P131 O5: a linked chat keeps its own phone from the link, and a chat linked before gets it on the next scan, never erased", async () => {
+    await al.scan("telegram_user", "42");
+    await al.idle();
+    expect(rows("select chat_id, username, phone from messenger_chats")).toEqual([{ chat_id: "1001", username: null, phone: "6281300001111" }]);
+    // A chat the owner linked before this column existed: the scan fills what it sees, and a null never erases a stored value.
+    await repos.messengers.allowChat("p", "telegram_user", "1002", "Bob B");
+    await al.scan("telegram_user", "42");
+    await al.idle();
+    expect(rows("select chat_id, phone from messenger_chats order by chat_id")).toEqual([{ chat_id: "1001", phone: "6281300001111" }, { chat_id: "1002", phone: "6281300002222" }]);
+    expect(await repos.messengers.setChatIdentity("p", "telegram_user", "1002", { username: null, phone: null })).toBe(false);
+    expect(await repos.messengers.setChatIdentity("p", "telegram_user", "1002", { username: "@Bob_B", phone: "" })).toBe(true);
+    expect(rows("select username, phone from messenger_chats where chat_id = '1002'")).toEqual([{ username: "Bob_B", phone: "6281300002222" }]);
+    expect(await repos.messengers.setChatIdentity("p", "telegram_user", "9999", { username: "nobody" })).toBe(false);
+  });
+
   it("links the one dialog whose phone equals exactly one record: client row, identifier, chat, 30 days imported, one Activity line", async () => {
     await al.scan("telegram_user", "42");
     await al.idle();

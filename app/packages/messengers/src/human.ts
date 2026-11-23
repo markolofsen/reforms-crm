@@ -187,15 +187,20 @@ export async function linkUserChat(
   return linkAndImport(deps, input);
 }
 
+/** P131 O5: a chat's own Telegram username and phone as the account saw them (either may be unknown). */
+export type ChatOwnIdentity = { username: string | null; phone: string | null };
+
 /** The link itself, shared by the owner's Link and the Hub's autolink: the identifier, the allow-list, then the import. */
 async function linkAndImport(
   deps: { repos: Repos; adapter: LinkableAdapter; now?: () => Date },
-  input: { project: string; clientId: number; chatId: string; title?: string; days?: number; autolinked?: string },
+  input: { project: string; clientId: number; chatId: string; title?: string; days?: number; autolinked?: string; identity?: ChatOwnIdentity },
 ): Promise<{ identifierId: number; imported: number; importError: string | null }> {
   const kind = KIND_OF[deps.adapter.channel];
   const value = normalizeIdentifier(kind, input.chatId);
   const identifierId = await deps.repos.messengers.addIdentifier(input.project, input.clientId, kind, value);
   await deps.repos.messengers.allowChat(input.project, deps.adapter.channel, value, input.title ?? null, input.autolinked ?? null);
+  // P131 O5: the chat keeps its own username and phone, so it opens in Telegram without the client's Notion card.
+  if (input.identity) await deps.repos.messengers.setChatIdentity(input.project, deps.adapter.channel, value, input.identity);
   await deps.adapter.refreshAllowed();
   const now = (deps.now ?? (() => new Date()))();
   // The link stands even when the import fails: new messages arrive anyway, and the poller's catch-up reads from its cursor.
@@ -231,14 +236,14 @@ export interface AutolinkClient {
  */
 export async function autoLinkUserChat(
   deps: { repos: Repos; adapter: LinkableAdapter; now?: () => Date },
-  input: { project: string; client: AutolinkClient; chatId: string; reason: string; title?: string; days?: number },
+  input: { project: string; client: AutolinkClient; chatId: string; reason: string; title?: string; days?: number; identity?: ChatOwnIdentity },
 ): Promise<{ clientId: number; clientCreated: boolean; identifierId: number; imported: number; importError: string | null }> {
   await deps.repos.projects.requireProject(input.project);
   await refuseTaken(deps.repos, input.project, deps.adapter.channel, input.chatId);
   const email = normalizeIdentifier("email", input.client.email);
   const found = await deps.repos.clients.idByEmail(input.project, email);
   const clientId = found ?? (await deps.repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
-  const r = await linkAndImport(deps, { project: input.project, clientId, chatId: input.chatId, autolinked: input.reason, ...(input.title ? { title: input.title } : {}), ...(input.days ? { days: input.days } : {}) });
+  const r = await linkAndImport(deps, { project: input.project, clientId, chatId: input.chatId, autolinked: input.reason, ...(input.title ? { title: input.title } : {}), ...(input.days ? { days: input.days } : {}), ...(input.identity ? { identity: input.identity } : {}) });
   return { clientId, clientCreated: found === undefined, ...r };
 }
 
@@ -249,14 +254,14 @@ export async function autoLinkUserChat(
 export async function linkUserChatToRecord(
   deps: { repos: Repos; adapter: LinkableAdapter; now?: () => Date },
   actor: HumanActor,
-  input: { project: string; client: AutolinkClient; chatId: string; title?: string },
+  input: { project: string; client: AutolinkClient; chatId: string; title?: string; identity?: ChatOwnIdentity },
 ): Promise<{ clientId: number; identifierId: number; imported: number; importError: string | null }> {
   assertHuman(actor);
   await deps.repos.projects.requireProject(input.project);
   await refuseTaken(deps.repos, input.project, deps.adapter.channel, input.chatId);
   const email = normalizeIdentifier("email", input.client.email);
   const clientId = (await deps.repos.clients.idByEmail(input.project, email)) ?? (await deps.repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
-  const r = await linkAndImport(deps, { project: input.project, clientId, chatId: input.chatId, ...(input.title ? { title: input.title } : {}) });
+  const r = await linkAndImport(deps, { project: input.project, clientId, chatId: input.chatId, ...(input.title ? { title: input.title } : {}), ...(input.identity ? { identity: input.identity } : {}) });
   return { clientId, ...r };
 }
 

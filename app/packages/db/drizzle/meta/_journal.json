@@ -246,6 +246,13 @@
       "when": 1795300000017,
       "tag": "0034_send_owner_word",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "6",
+      "when": 1795300000018,
+      "tag": "0035_chat_identity",
+      "breakpoints": true
     }
   ]
 }

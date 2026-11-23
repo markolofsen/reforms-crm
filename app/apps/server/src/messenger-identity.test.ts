@@ -70,4 +70,12 @@ describe("P131 O5: the contact a chat or a Mail conversation opens Telegram and 
     expect(seen.contact("p", { chat: { channel: "telegram_user", chatId: "43" } })).toEqual({ telegramUsername: null, telegramPhone: "351900000000", whatsappPhone: null });
     expect(seen.contact("p", { email: "anna@example.com", chat: { channel: "telegram_user", chatId: "44" } })).toMatchObject({ telegramUsername: "anna_k" });
   });
+  it("verdict 10: a linked chat's own username and phone, kept on its row, come first, and work with no Notion card at all", () => {
+    const none = createMessengerIdentityResolver({ project: "p", directory: { current: () => null } });
+    expect(none.contact("p", { chat: { channel: "telegram_user", chatId: "45", own: { username: "sofia_t", phone: null } } })).toEqual({ telegramUsername: "sofia_t", telegramPhone: null, whatsappPhone: null });
+    expect(none.contact("p", { chat: { channel: "telegram_user", chatId: "45", own: { username: null, phone: "351900000001" } } })).toEqual({ telegramUsername: null, telegramPhone: "351900000001", whatsappPhone: null });
+    const seen = createMessengerIdentityResolver({ project: "p", directory: { current: () => buildDirectory([card]) }, identityOf: () => ({ username: "from_memory", phone: null }) });
+    expect(seen.contact("p", { email: "anna@example.com", chat: { channel: "telegram_user", chatId: "42", own: { username: "kept_on_row", phone: null } } })).toMatchObject({ telegramUsername: "kept_on_row", telegramPhone: "447700900123" });
+    expect(seen.contact("p", { email: "anna@example.com", chat: { channel: "telegram_user", chatId: "42", own: { username: null, phone: null } } })).toMatchObject({ telegramUsername: "from_memory" });
+  });
 });

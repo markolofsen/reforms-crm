@@ -208,6 +208,8 @@ export function startAutolink(o: StartAutolink): Autolink {
     if (!project) return;
     if (await o.repos.messengers.isAllowed(project, channel, d.chatId)) {
       recent.delete(`${channel}:${d.chatId}`);
+      // P131 O5: a chat linked before it kept its own identity gets it on the next dialog scan (only what is seen; never erased).
+      await o.repos.messengers.setChatIdentity(project, channel, d.chatId, { username: d.username ?? null, phone: d.phone ?? null });
       return;
     }
     if (await isRefused(channel, d.chatId)) return keepHidden(channel, account, d.chatId, d.title, d, last);
@@ -222,7 +224,7 @@ export function startAutolink(o: StartAutolink): Autolink {
     if (!adapter) return remember({ ...base, why: "off", by: m.by, candidates: [candidateOf(m.entry)] });
     const reason = MATCH_REASON[m.by];
     try {
-      const r = await autoLinkUserChat({ repos: o.repos, adapter, now }, { project, client: { email: m.entry.email ?? "", name: m.entry.name }, chatId: d.chatId, reason, title: d.title });
+      const r = await autoLinkUserChat({ repos: o.repos, adapter, now }, { project, client: { email: m.entry.email ?? "", name: m.entry.name }, chatId: d.chatId, reason, title: d.title, identity: { username: d.username ?? null, phone: d.phone ?? null } });
       recent.delete(`${channel}:${d.chatId}`);
       await activity(project, r.clientId, m.entry.name || (m.entry.email ?? d.title), channel, reason, r.imported);
     } catch {
