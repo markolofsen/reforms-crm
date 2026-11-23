@@ -65,7 +65,7 @@ describe("llm.object", () => {
 
   it("stops at once on the key's own failure (401, 402): the next model would fail the same way", async () => {
     const { ledger, call } = make(() => ({ error: "credits", status: 402 }));
-    await expect(call()).rejects.toMatchObject({ kind: "credits" });
+    await expect(call()).rejects.toMatchObject({ code: "credits" });
     expect(ledger.rows).toHaveLength(1);
   });
 
@@ -78,14 +78,14 @@ describe("llm.object", () => {
     const { ledger, call } = make(() => ({ content: "not json" }));
     const e = await call().catch((x: unknown) => x);
     expect(e).toBeInstanceOf(LlmError);
-    expect(e).toMatchObject({ kind: "invalid" });
+    expect(e).toMatchObject({ code: "invalid" });
     expect(ledger.rows.map((x) => x.outcome)).toEqual(["invalid", "invalid", "invalid", "invalid"]);
   });
 
   it("with the cap at 0 refuses before any request, writes a budget row and says how to fix it", async () => {
     setCap(0);
     const { ledger, transport, call } = make(() => ({ content: '{"label":"lead"}' }));
-    await expect(call()).rejects.toMatchObject({ kind: "budget", message: expect.stringMatching(/monthly_cap_usd/) });
+    await expect(call()).rejects.toMatchObject({ code: "budget", message: expect.stringMatching(/monthly_cap_usd/) });
     expect(transport.requests).toHaveLength(0);
     expect(ledger.rows).toMatchObject([{ outcome: "budget", costMicroUsd: 0 }]);
   });
@@ -93,7 +93,7 @@ describe("llm.object", () => {
   it("checks the cap before every attempt: a spend that reaches it stops the ladder", async () => {
     setCap(0.000001);
     const { transport, call } = make(() => ({ content: '{"label":"maybe"}', costUsd: 0.000002 }));
-    await expect(call()).rejects.toMatchObject({ kind: "budget" });
+    await expect(call()).rejects.toMatchObject({ code: "budget" });
     expect(transport.requests).toHaveLength(1);
   });
 

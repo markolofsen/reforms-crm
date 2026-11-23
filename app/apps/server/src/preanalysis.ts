@@ -113,8 +113,8 @@ export function createPreanalysis(d: PreanalysisDeps): Preanalysis {
       if (!msg) continue;
       let verdict: TriageVerdict | null = null;
       if (a.ok) verdict = a.value.label;
-      else if (ANSWERED_BADLY.includes(a.error.kind)) verdict = "unjudged";
-      else kinds.set(a.error.kind, (kinds.get(a.error.kind) ?? 0) + 1);
+      else if (ANSWERED_BADLY.includes(a.error.code)) verdict = "unjudged";
+      else kinds.set(a.error.code, (kinds.get(a.error.code) ?? 0) + 1);
       if (verdict === null) {
         result.failed++;
         continue;

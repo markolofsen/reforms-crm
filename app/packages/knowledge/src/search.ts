@@ -4,15 +4,15 @@ import { RepoError, type Repos } from "@hub/db";
 import { ANY_BRAND } from "@hub/projects/brand";
 import { ProjectBase } from "@hub/projects/model";
 
-export type ToolErrorCode = "unknown_project" | "project_mismatch" | "empty_query" | "not_found" | "brand_required" | "unknown_brand";
-const TOOL_KINDS: Readonly<Record<ToolErrorCode, ErrorKind>> = { unknown_project: "not_found", project_mismatch: "forbidden", empty_query: "invalid", not_found: "not_found", brand_required: "invalid", unknown_brand: "invalid" };
+export type KnowledgeErrorCode = "unknown_project" | "project_mismatch" | "empty_query" | "not_found" | "brand_required" | "unknown_brand";
+const KIND_OF: Readonly<Record<KnowledgeErrorCode, ErrorKind>> = { unknown_project: "not_found", project_mismatch: "forbidden", empty_query: "invalid", not_found: "not_found", brand_required: "invalid", unknown_brand: "invalid" };
 
-/** A knowledge tool's refusal (its MCP server and CLI answer with `code`). */
-export class ToolError extends HubError {
-  declare readonly code: ToolErrorCode;
-  constructor(code: ToolErrorCode, message: string) {
-    super(TOOL_KINDS[code], code, message);
-    this.name = "ToolError";
+/** A knowledge refusal (P126 E1: the one `ToolError` is `hub mcp`'s; its knowledge tools map this by `code`, the CLI answers with it). */
+export class KnowledgeError extends HubError {
+  declare readonly code: KnowledgeErrorCode;
+  constructor(code: KnowledgeErrorCode, message: string) {
+    super(KIND_OF[code], code, message);
+    this.name = "KnowledgeError";
   }
 }
 
@@ -65,7 +65,7 @@ export interface GetResult {
 
 function bind(project: string, env: ToolEnv): void {
   if (env.hubProject && env.hubProject !== project) {
-    throw new ToolError("project_mismatch", `project_mismatch: this server is bound to "${env.hubProject}", the call named "${project}"`);
+    throw new KnowledgeError("project_mismatch", `project_mismatch: this server is bound to "${env.hubProject}", the call named "${project}"`);
   }
 }
 
@@ -73,7 +73,7 @@ async function guard<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (err) {
-    if (err instanceof RepoError && (err.code === "unknown_project" || err.code === "empty_query")) throw new ToolError(err.code, err.message);
+    if (err instanceof RepoError && (err.code === "unknown_project" || err.code === "empty_query")) throw new KnowledgeError(err.code, err.message);
     throw err;
   }
 }
@@ -81,7 +81,7 @@ async function guard<T>(fn: () => Promise<T>): Promise<T> {
 export function knowledgeSearch(repos: Repos, args: SearchArgs, env: ToolEnv = {}): Promise<SearchResult> {
   bind(args.project, env);
   return guard(async () => {
-    if (args.query.trim() === "") throw new ToolError("empty_query", "empty_query: the query is empty");
+    if (args.query.trim() === "") throw new KnowledgeError("empty_query", "empty_query: the query is empty");
     const brand = await brandFilter(repos, args.project, args.brand);
     const { total, hits } = await repos.knowledge.search(args.project, args.query.slice(0, QUERY_MAX), {
       ...(args.audience ? { audience: args.audience } : {}),
@@ -122,10 +122,10 @@ async function brandFilter(repos: Repos, project: string, brand: string | undefi
   const parsed = ProjectBase.safeParse(JSON.parse(row.settingsJson));
   if (!parsed.success || parsed.data.knowledge.scope !== "by-brand") return undefined;
   const names = parsed.data.brands.map((b) => b.name);
-  if (!brand?.trim()) throw new ToolError("brand_required", `brand_required: project "${project}" keeps each brand's facts apart (knowledge.scope by-brand): pass brand = the brand message_show gave (${names.join(", ")}), or ${ANY_BRAND} for a mail with no brand`);
+  if (!brand?.trim()) throw new KnowledgeError("brand_required", `brand_required: project "${project}" keeps each brand's facts apart (knowledge.scope by-brand): pass brand = the brand message_show gave (${names.join(", ")}), or ${ANY_BRAND} for a mail with no brand`);
   if (brand.trim() === ANY_BRAND) return ANY_BRAND;
   const hit = names.find((n) => n.toLowerCase() === brand.trim().toLowerCase());
-  if (!hit) throw new ToolError("unknown_brand", `unknown_brand: "${brand}" is not a brand of "${project}" (${names.join(", ")}, or ${ANY_BRAND})`);
+  if (!hit) throw new KnowledgeError("unknown_brand", `unknown_brand: "${brand}" is not a brand of "${project}" (${names.join(", ")}, or ${ANY_BRAND})`);
   return hit;
 }
 
@@ -133,7 +133,7 @@ export function knowledgeGet(repos: Repos, args: { project: string; path: string
   bind(args.project, env);
   return guard(async () => {
     const row = await repos.knowledge.get(args.project, args.path);
-    if (!row) throw new ToolError("not_found", `not_found: no entry "${args.path}" in project "${args.project}"`);
+    if (!row) throw new KnowledgeError("not_found", `not_found: no entry "${args.path}" in project "${args.project}"`);
     return {
       path: row.path,
       front_matter: JSON.parse(row.frontMatter) as Record<string, unknown>,

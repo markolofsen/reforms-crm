@@ -33,7 +33,7 @@ describe("llm.batch", () => {
     expect(out.filter((r) => r.ok)).toHaveLength(19);
     const bad = out[7];
     expect(bad?.ok).toBe(false);
-    if (bad && !bad.ok) expect(bad.error.kind).toBe("invalid");
+    if (bad && !bad.ok) expect(bad.error.code).toBe("invalid");
     const good = out[4];
     expect(good?.ok && good.value).toEqual({ topic: "price", urgent: true });
     // One request for the chunk; item 7 alone then takes the whole ladder (re-ask, next model, re-ask): four more.

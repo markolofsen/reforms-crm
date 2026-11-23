@@ -91,7 +91,7 @@ export async function run<T>(spec: RunSpec<T>, deps: CallDeps): Promise<RunResul
         reply = await transport.chat({ model, messages, schemaName: spec.schemaName, schema: spec.schema, maxTokens, timeoutMs: limits.timeoutMs });
       } catch (e) {
         const err = e instanceof LlmError ? e : new LlmError("network", `${model}: the transport failed`);
-        await record(model, err.kind, err.usage ?? ZERO_USAGE, deps.now().getTime() - t0, null);
+        await record(model, err.code, err.usage ?? ZERO_USAGE, deps.now().getTime() - t0, null);
         if (err.stopsChain) throw err;
         if (err.retryable && retries < deps.retry.retries) {
           await deps.retry.sleep(backoffMs(retries, err, deps.retry));

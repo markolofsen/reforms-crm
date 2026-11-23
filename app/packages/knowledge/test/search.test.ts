@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DbHandle, Repos } from "@hub/db";
-import { indexProject, knowledgeGet, knowledgeSearch, ToolError, type SearchArgs } from "../src/index";
+import { indexProject, knowledgeGet, knowledgeSearch, KnowledgeError, type SearchArgs } from "../src/index";
 import { cleanup, copyRoot, openRegistered } from "./helpers";
 
 let handle: DbHandle;
@@ -25,7 +25,7 @@ async function connect(env: { hubProject?: string | undefined; today?: string })
       const json: Record<string, any> = name === "knowledge_search" ? await knowledgeSearch(repos, args as unknown as SearchArgs, e) : await knowledgeGet(repos, args as { project: string; path: string }, e);
       return { isError: false, json, structured: json };
     } catch (err) {
-      if (err instanceof ToolError) return { isError: true, json: { error: err.code, message: err.message } as Record<string, any>, structured: undefined };
+      if (err instanceof KnowledgeError) return { isError: true, json: { error: err.code, message: err.message } as Record<string, any>, structured: undefined };
       throw err;
     }
   };

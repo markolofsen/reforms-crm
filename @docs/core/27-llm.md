@@ -26,7 +26,7 @@ const rs = await llm.batch({ task, schema: Item, system, items, project, perCall
 ```
 
 - `batch` sends `perCall` items (default 20, at most 50) in one request as `{"items":[{"i","input"}]}` and asks for `{"items":[{"i","value"}]}`. Only the envelope is checked by the ladder; each `value` is checked against `Item` on its own, so one bad item never fails the rest. An item missing, duplicated or invalid is asked again once, alone, through `object`; only if that fails does the item fail. A chunk that fails as a whole (the cap, the key, every model down) fails its own items with that error. OpenRouter has no batch endpoint: "batch" is many items per request and a few requests at once.
-- A failure is an `LlmError` with a `kind` (the outcomes below minus `ok`). Callers branch on `kind`, never on the message. A caller that gets `no_key` or `budget` says "not analysed" and goes on; nothing fails because the LLM is absent.
+- A failure is an `LlmError` with a `code` (the outcomes below minus `ok`); it extends `HubError` (P126 E1), whose `kind` is the Hub's (upstream, busy, unavailable). Callers branch on `code`, never on the message. A caller that gets `no_key` or `budget` says "not analysed" and goes on; nothing fails because the LLM is absent.
 - `llm.monthCost(project?)`: micro-dollars this calendar month (UTC), for one project or the instance.
 
 ## The request

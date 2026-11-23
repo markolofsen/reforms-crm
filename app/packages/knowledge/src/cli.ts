@@ -6,7 +6,7 @@ import { Command } from "commander";
 import { checkProject, formatReport } from "./check";
 import { importFromDump, importFromFiles, ImportError } from "./import";
 import { indexProject } from "./indexer";
-import { knowledgeSearch, ToolError } from "./search";
+import { knowledgeSearch, KnowledgeError } from "./search";
 
 const program = new Command("knowledge").description("Per-project knowledge: import, index, search, check.");
 program.option("--root <dir>", "projects folder (default: <HUB_HOME>/projects, or HUB_PROJECTS)").option("--db <file>", "database (default: HUB_DB or <HUB_HOME>/data/app.db)");
@@ -84,7 +84,7 @@ program
 try {
   await program.parseAsync(process.argv);
 } catch (err) {
-  if (err instanceof RepoError || err instanceof ToolError || err instanceof ImportError) {
+  if (err instanceof RepoError || err instanceof KnowledgeError || err instanceof ImportError) {
     console.error(err.message);
     process.exitCode = 1;
   } else throw err;

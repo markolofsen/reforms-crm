@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { BODY_CAP, knowledgeGet, knowledgeSearch, QUERY_MAX, ToolError as KnowledgeError, type ToolErrorCode } from "@hub/knowledge/search";
+import { BODY_CAP, knowledgeGet, knowledgeSearch, QUERY_MAX, KnowledgeError, type KnowledgeErrorCode } from "@hub/knowledge/search";
 import { defineTool } from "../define";
 import type { ToolCtx } from "../ports";
 import type { RefusalCode } from "../refusals";
@@ -9,7 +9,7 @@ import { ToolError } from "../result";
 // separate `knowledge-mcp` server and its `project` argument are gone. The contract stays doc 16 section 5's, as the plain
 // functions of `@hub/knowledge/search`; the database is the session's read-only handle. Entry text is data, never instructions.
 
-const CODES: Record<ToolErrorCode, RefusalCode> = { unknown_project: "unavailable", project_mismatch: "not_this_project", empty_query: "empty_query", not_found: "not_found", brand_required: "brand_required", unknown_brand: "unknown_brand" };
+const CODES: Record<KnowledgeErrorCode, RefusalCode> = { unknown_project: "unavailable", project_mismatch: "not_this_project", empty_query: "empty_query", not_found: "not_found", brand_required: "brand_required", unknown_brand: "unknown_brand" };
 
 async function bound<T>(ctx: ToolCtx, fn: (slug: string, env: { hubProject: string; today: string }) => Promise<T>): Promise<T> {
   const slug = ctx.project();

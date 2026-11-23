@@ -1,3 +1,4 @@
+import { HubError, type ErrorKind } from "@hub/config/errors";
 import type { LlmOutcome } from "@hub/config/llm";
 
 /**
@@ -40,27 +41,32 @@ const RETRYABLE: ReadonlySet<LlmErrorKind> = new Set(["timeout", "network", "rat
 /** The key itself is wrong or out of money: no other model can help. */
 const KEY_FATAL: ReadonlySet<LlmErrorKind> = new Set(["auth", "credits", "budget", "no_key"]);
 
-/** Every failure of `@hub/llm`, with a `kind` callers branch on (never on the text). */
-export class LlmError extends Error {
-  readonly kind: LlmErrorKind;
+/** The Hub's kind of each outcome (P126 E1): an unusable or failed answer is the upstream's, a full queue is busy, the key or the cap makes the model unavailable. */
+const KIND_OF: Readonly<Record<LlmErrorKind, ErrorKind>> = { invalid: "upstream", truncated: "upstream", timeout: "upstream", network: "upstream", upstream: "upstream", bad_request: "upstream", no_endpoint: "upstream", content_filter: "upstream", rate_limit: "busy", auth: "unavailable", credits: "unavailable", budget: "unavailable", no_key: "unavailable" };
+
+/**
+ * Every failure of `@hub/llm`, with a `code` callers branch on (never on the text): the outcome the ledger records. It is a
+ * `HubError` (P126 E1), so a surface that reaches one unwrapped maps it by `kind` like any other refusal.
+ */
+export class LlmError extends HubError {
+  declare readonly code: LlmErrorKind;
   readonly status: number | null;
   readonly retryAfterMs: number | null;
   /** Spend the failed attempt was billed (a truncated or invalid answer still costs); written to the ledger. */
   readonly usage: Usage | null;
-  constructor(kind: LlmErrorKind, message: string, o: { status?: number | null; retryAfterMs?: number | null; usage?: Usage | null } = {}) {
-    super(message);
+  constructor(code: LlmErrorKind, message: string, o: { status?: number | null; retryAfterMs?: number | null; usage?: Usage | null } = {}) {
+    super(KIND_OF[code], code, message);
     this.name = "LlmError";
-    this.kind = kind;
     this.status = o.status ?? null;
     this.retryAfterMs = o.retryAfterMs ?? null;
     this.usage = o.usage ?? null;
   }
   get retryable(): boolean {
-    return RETRYABLE.has(this.kind);
+    return RETRYABLE.has(this.code);
   }
   /** True when the next model of the preset would fail the same way (the key, the cap): stop the ladder. */
   get stopsChain(): boolean {
-    return KEY_FATAL.has(this.kind);
+    return KEY_FATAL.has(this.code);
   }
 }
 

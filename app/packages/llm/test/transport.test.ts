@@ -52,17 +52,17 @@ describe("the OpenRouter transport", () => {
     expect(retryAfterMs(null)).toBeNull();
     const t = openRouterTransport({ key: KEY, fetch: async () => new Response(JSON.stringify({ error: { message: `bad key ${KEY}` } }), { status: 401, headers: { "retry-after": "2" } }) });
     const e = await t.chat({ model: "m", messages: [], schemaName: "n", schema: {}, maxTokens: 10, timeoutMs: 1000 }).catch((x: unknown) => x);
-    expect(e).toMatchObject({ kind: "auth", status: 401, retryAfterMs: 2000 });
+    expect(e).toMatchObject({ code: "auth", status: 401, retryAfterMs: 2000 });
     expect(String(e instanceof Error ? e.message : "")).not.toContain(KEY);
   });
 
   it("a fetch that throws is a network error; a 200 carrying an error object is the upstream's", async () => {
     const down = openRouterTransport({ key: KEY, fetch: async () => { throw new TypeError(`connect ECONNREFUSED ${KEY}`); } });
     const e = await down.chat({ model: "m", messages: [], schemaName: "n", schema: {}, maxTokens: 10, timeoutMs: 1000 }).catch((x: unknown) => x);
-    expect(e).toMatchObject({ kind: "network" });
+    expect(e).toMatchObject({ code: "network" });
     expect(String(e instanceof Error ? e.message : "")).not.toContain(KEY);
     const mid = openRouterTransport({ key: KEY, fetch: async () => new Response(JSON.stringify({ error: { code: 502, message: "provider died" } }), { status: 200 }) });
-    await expect(mid.chat({ model: "m", messages: [], schemaName: "n", schema: {}, maxTokens: 10, timeoutMs: 1000 })).rejects.toMatchObject({ kind: "upstream" });
+    await expect(mid.chat({ model: "m", messages: [], schemaName: "n", schema: {}, maxTokens: 10, timeoutMs: 1000 })).rejects.toMatchObject({ code: "upstream" });
     expect(usageOf({ usage: { cost: 0.0000014 } }).costMicroUsd).toBe(1);
   });
 });
@@ -72,7 +72,7 @@ describe("the key", () => {
     const ledger = memoryLedger();
     const llm = createLlm({ ledger, retry: quick });
     expect(llm.transport).toBe("none");
-    await expect(llm.object({ task: "t", schema: Label, system: "s", input: "i", project: "p" })).rejects.toMatchObject({ kind: "no_key", message: noKeySentence() });
+    await expect(llm.object({ task: "t", schema: Label, system: "s", input: "i", project: "p" })).rejects.toMatchObject({ code: "no_key", message: noKeySentence() });
     expect(ledger.rows).toMatchObject([{ outcome: "no_key", model: null, costMicroUsd: 0 }]);
     expect(noKeySentence()).toContain(keyFile());
   });
