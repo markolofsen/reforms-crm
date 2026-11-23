@@ -1,4 +1,4 @@
-import { cancelSend, createBatchSendTicket, createSendTicket, getBatchSend, getDraftMail, getProjectDoctor, listSends, restoreDraftMail, resumeSends, runBatchSend, saveDraftMail, sendMailDraft, stopBatchSend, stopSends, tidyDraftMail } from "@hub/api";
+import { cancelSend, createBatchSendTicket, createSendTicket, getBatchSend, getDraftMail, getProjectDoctor, listSends, restoreDraftMail, resumeSends, runBatchSend, saveDraftMail, sendOneMailDraft, stopBatchSend, stopSends, tidyDraftMail } from "@hub/api";
 import { draftMailDto, mailTidyDto } from "@hub/contract/mail";
 import { draftChangedDto } from "@hub/contract/review";
 import { batchRunStateDto, batchSendPlanDto, doctorDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto, type BatchSendPlanDto } from "@hub/contract/sending";
@@ -9,11 +9,11 @@ import { readGenerated } from "./client";
  * person saw, and the server refuses it when Mail's draft no longer matches.
  */
 export const sendApi = {
-  preview: (project: string, draftId: number) => readGenerated(sendMailDraft(project, draftId, { apply: false }), sendPreviewDto),
+  preview: (project: string, draftId: number) => readGenerated(sendOneMailDraft(project, draftId, { apply: false }), sendPreviewDto),
   /** The apply carries a single-use ticket that only this page's own origin can mint (P49 S12), fetched just before. */
   send: async (project: string, draftId: number, confirm: { to: string[]; subject: string }) => {
     const { ticket } = await readGenerated(createSendTicket({ project, draftId }), sendTicketDto);
-    return readGenerated(sendMailDraft(project, draftId, { apply: true, confirm, ticket }), sentDto);
+    return readGenerated(sendOneMailDraft(project, draftId, { apply: true, confirm, ticket }), sentDto);
   },
   /** The draft as Mail holds it now; read-only, never stored. */
   mail: (project: string, draftId: number) => readGenerated(getDraftMail(project, draftId), draftMailDto),

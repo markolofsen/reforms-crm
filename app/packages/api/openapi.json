@@ -4804,7 +4804,7 @@
     },
     "/api/projects/{slug}/drafts/{id}/send": {
       "post": {
-        "operationId": "sendMailDraft",
+        "operationId": "sendOneMailDraft",
         "summary": "Preview or send one Mail draft (the owner's confirmed click)",
         "tags": [
           "sending"

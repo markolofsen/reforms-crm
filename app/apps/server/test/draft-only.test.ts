@@ -67,7 +67,7 @@ describe("no route sends", () => {
     expect(src.filter((f) => /\b(sendDraft|runDue)\b/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/sends-routes.ts"]);
     // P85b: a batch run sends through `runBatch` (which calls `sendDraft`), started only by the batch door the send route holds.
     expect(src.filter((f) => /\brunBatch\(/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/batch-door.ts"]);
-    expect(src.filter((f) => /\bbatchRuns\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["send/sends-routes.ts", "send/batch-door.ts"]);
+    expect(src.filter((f) => /\bbatchRuns\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["send/batch-door.ts", "send/sends-routes.ts"]);
     // A messenger send: only the door mints the human actor's send, only the send routes call the door, only send/messenger-senders.ts hands the
     // account's send (`TelegramUserHandle.sender`, `WhatsAppHandle.sender` since P71 M5) to them.
     expect(src.filter((f) => /\bapplyMessenger\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["send/sends-routes.ts"]);
@@ -113,8 +113,9 @@ describe("no route sends", () => {
       .filter((f) => /\.(m?[jt]sx?)$/.test(f) && !/\.test\.tsx?$/.test(f));
     const rel = (f: string) => f.slice(root.length + 1);
     const having = (re: RegExp) => src.filter((f) => re.test(readFileSync(f, "utf8"))).map(rel).sort();
-    // The route is defined once and called by the tool's loopback port only.
-    expect(having(/\/agent-send(?![-\w])/)).toEqual(["apps/server/src/send/sends-routes.ts", "packages/agent/src/messenger/send-tool.ts"]);
+    // The route is defined once and called by the tool's loopback port only; `composition/operations.ts` names it among the
+    // routes kept out of the OpenAPI document (P120 W2), so no generated client can call it.
+    expect(having(/\/agent-send(?![-\w])/)).toEqual(["apps/server/src/composition/operations.ts", "apps/server/src/send/sends-routes.ts", "packages/agent/src/messenger/send-tool.ts"]);
     // The agent package never reaches a sender: no `@hub/messengers` (human or adapters), no `@hub/send`, no door.
     expect(src.filter((f) => f.includes("/packages/agent/src/") && /from "@hub\/(messengers|send)(\/|")|messenger-door|applyMessenger/.test(readFileSync(f, "utf8"))).map(rel)).toEqual([]);
     // The door is called with the agent's actor from the send routes only, and only after the owner's word was found.

@@ -28,8 +28,9 @@ let al: Autolink;
 let dialogs: UserDialog[];
 
 const adapter = { dialogs: async () => dialogs } as unknown as AutolinkAdapter;
-const routes = (token: string | undefined = TOKEN) => autolinkRoutes({ repos, autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN, ...(token ? { agentToken: token } : {}) });
-const post = (path: string, body: unknown, headers: Record<string, string>, token?: string) =>
+const routes = (token: string | null) => autolinkRoutes({ repos, autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN, ...(token ? { agentToken: token } : {}) });
+// `token: null` starts the routes without an agent token (a default parameter would turn `undefined` back into TOKEN).
+const post = (path: string, body: unknown, headers: Record<string, string>, token: string | null = TOKEN) =>
   routes(token).request(`${BASE}/api/projects/p/messengers/autolink/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
 const state = async () => autolinkStateDto.parse(await (await post("state", {}, ADMIN_HEADERS)).json());
 
@@ -55,7 +56,7 @@ afterEach(() => {
 describe("the agent's proposed hides", () => {
   it("refuses a call without the token, and the admin's Origin is not the token", async () => {
     expect((await post("agent-unlinked", {}, ADMIN_HEADERS)).status).toBe(403);
-    expect((await post("agent-proposals", { items: [{ channel: "telegram_user", chatId: "3001", reason: "A restaurant." }] }, AGENT_HEADERS, undefined)).status).toBe(403);
+    expect((await post("agent-proposals", { items: [{ channel: "telegram_user", chatId: "3001", reason: "A restaurant." }] }, AGENT_HEADERS, null)).status).toBe(403);
   });
 
   it("lists the unlinked chats by identity (no text), keeps a proposal per known chat, and shows them in the owner's state", async () => {

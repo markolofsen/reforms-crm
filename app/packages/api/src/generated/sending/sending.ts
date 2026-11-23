@@ -159,46 +159,46 @@ export const createBatchSendTicket = async (batchTicketBody: BatchTicketBody, op
 );}
 
 
-export type sendMailDraftResponse200 = {
+export type sendOneMailDraftResponse200 = {
   data: MailSendOutcome
   status: 200
 }
 
-export type sendMailDraftResponse400 = {
+export type sendOneMailDraftResponse400 = {
   data: ApiErrorResponse
   status: 400
 }
 
-export type sendMailDraftResponse403 = {
+export type sendOneMailDraftResponse403 = {
   data: ApiErrorResponse
   status: 403
 }
 
-export type sendMailDraftResponse404 = {
+export type sendOneMailDraftResponse404 = {
   data: ApiErrorResponse
   status: 404
 }
 
-export type sendMailDraftResponse409 = {
+export type sendOneMailDraftResponse409 = {
   data: ApiErrorResponse
   status: 409
 }
 
-export type sendMailDraftResponse500 = {
+export type sendOneMailDraftResponse500 = {
   data: ApiErrorResponse
   status: 500
 }
 
-export type sendMailDraftResponseSuccess = (sendMailDraftResponse200) & {
+export type sendOneMailDraftResponseSuccess = (sendOneMailDraftResponse200) & {
   headers: Headers;
 };
-export type sendMailDraftResponseError = (sendMailDraftResponse400 | sendMailDraftResponse403 | sendMailDraftResponse404 | sendMailDraftResponse409 | sendMailDraftResponse500) & {
+export type sendOneMailDraftResponseError = (sendOneMailDraftResponse400 | sendOneMailDraftResponse403 | sendOneMailDraftResponse404 | sendOneMailDraftResponse409 | sendOneMailDraftResponse500) & {
   headers: Headers;
 };
 
-export type sendMailDraftResponse = (sendMailDraftResponseSuccess | sendMailDraftResponseError)
+export type sendOneMailDraftResponse = (sendOneMailDraftResponseSuccess | sendOneMailDraftResponseError)
 
-export const getSendMailDraftUrl = (slug: string,
+export const getSendOneMailDraftUrl = (slug: string,
     id: number,) => {
 
 
@@ -210,11 +210,11 @@ export const getSendMailDraftUrl = (slug: string,
 /**
  * @summary Preview or send one Mail draft (the owner's confirmed click)
  */
-export const sendMailDraft = async (slug: string,
+export const sendOneMailDraft = async (slug: string,
     id: number,
-    sendBody: SendBody, options?: Parameters<typeof hubMutator>[1]): Promise<sendMailDraftResponse> => {
+    sendBody: SendBody, options?: Parameters<typeof hubMutator>[1]): Promise<sendOneMailDraftResponse> => {
 
-  return hubMutator<sendMailDraftResponse>(getSendMailDraftUrl(slug,id),
+  return hubMutator<sendOneMailDraftResponse>(getSendOneMailDraftUrl(slug,id),
   {
     ...options,
     method: 'POST',
