@@ -1,11 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useScheme } from "@/lib/data/overview";
 import { ChevronDownIcon } from "lucide-react";
 import { worstFirst } from "@hub/contract/scheme";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ListSkeleton, QueryView } from "@/components/state-views";
-import { overviewApi } from "@/lib/api/overview";
-import { keys } from "@/lib/cache/keys";
 import { NeedsYou, useQuestions } from "./needs-you";
 import { SchemeTable } from "./scheme-table";
 
@@ -15,7 +13,7 @@ import { SchemeTable } from "./scheme-table";
  * state, no check run) and refetched on the live topics its sources move. Patch B draws the parts under the folded table.
  */
 export function SchemeBlock({ multi, projects }: { multi: boolean; projects: readonly string[] }) {
-  const q = useQuery({ queryKey: keys.scheme(), queryFn: overviewApi.scheme });
+  const q = useScheme();
   const questions = useQuestions(projects);
   return (
     <QueryView loading={<ListSkeleton label="Loading the parts" rows={4} />} query={q} what="the parts">

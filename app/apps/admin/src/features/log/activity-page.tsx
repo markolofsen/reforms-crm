@@ -1,15 +1,10 @@
-import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
-import type { ActivityDto } from "@hub/contract/activity";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Page } from "@hub/ui/product/page";
 import { SectionLayout } from "@hub/ui/product/section-layout";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { useSearch } from "@/hooks/use-search-state";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
-import { useSends } from "@/lib/status";
+import { useSends, useTimeline } from "@/lib/data/project";
 import { LOG_SEARCH, type ActivityView, type TimelineView } from "@/routes/search";
 import { KindNav } from "./kind-nav";
 import { SendsView } from "./sends-table";
@@ -17,25 +12,6 @@ import { Timeline } from "./timeline";
 import { useNewRows } from "./use-new-rows";
 
 type Props = { project: string; kind: ActivityView; client: number | null };
-/** The first page has no cursor; each later one starts before the previous page's `next`. */
-const FIRST_PAGE: string | null = null;
-
-/** The timeline of one view (and one client), its pages one key (`state-and-data.md` rule 2): the newest 100, then Show older. */
-function useTimeline(project: string, view: TimelineView, client: number | null) {
-  const q = useInfiniteQuery({
-    queryKey: keys.activity(project, view, client),
-    queryFn: ({ pageParam }) => metaApi.activity(project, view, client, pageParam),
-    initialPageParam: FIRST_PAGE,
-    getNextPageParam: (last: ActivityDto) => last.next ?? undefined,
-    placeholderData: keepPreviousData,
-  });
-  const rows = useMemo(() => q.data?.pages.flatMap((p) => p.rows) ?? [], [q.data]);
-  // "N new" counts what a live refetch adds at the top, so only the first page's rows are read (Show older adds none).
-  const first = q.data?.pages[0];
-  const ids = useMemo(() => (q.isPlaceholderData ? undefined : first?.rows.map((r) => r.id)), [first, q.isPlaceholderData]);
-  return { q, rows, ids, head: first };
-}
-
 /** "Mark Effect only · Show all": the one-client narrowing (`?client=`), said once under the header line. */
 function ClientLine({ name }: { name: string }) {
   const [, setSearch] = useSearch(LOG_SEARCH);

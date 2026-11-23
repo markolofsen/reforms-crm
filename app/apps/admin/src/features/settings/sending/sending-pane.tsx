@@ -2,9 +2,8 @@ import { Skeleton } from "@hub/ui/skeleton";
 import { AppLink } from "@/components/app-link";
 import { QueryView } from "@/components/state-views";
 import { sentence } from "@/lib/api/client";
-import { useCommand } from "@/lib/cache/topics";
-import { sendApi } from "@/lib/api/send";
-import { useProjectRow, useSends } from "@/lib/status";
+import { useProjectRow } from "@/lib/data/overview";
+import { useSends, useStopSending } from "@/lib/data/project";
 import { dest } from "@/routes/paths";
 import { SendPolicyLines } from "./send-to";
 import { StopSending } from "./stop-sending";
@@ -23,9 +22,7 @@ function useSendingSentence(project: string, stopped: readonly string[] | undefi
 
 /** Stop sending and Resume, for this project or every project. */
 function useStop() {
-  // The scope may be every project, so the topics are invalidated for all of them (a null project is every project's prefix).
-  const stop = useCommand({ project: null, touches: ["sends", "projects"], run: (scope: string) => sendApi.stop(scope) });
-  const resume = useCommand({ project: null, touches: ["sends", "projects"], run: (scope: string) => sendApi.resume(scope) });
+  const { stop, resume } = useStopSending();
   return { stop, resume, busy: stop.isPending || resume.isPending, failed: [stop, resume].find((m) => m.isError)?.error ?? null };
 }
 

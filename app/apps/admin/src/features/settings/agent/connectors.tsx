@@ -2,7 +2,7 @@
 
 import type { AgentCapability } from "@hub/contract/agent-tools";
 import { phrase } from "@hub/contract/help";
-import { useAgentTools } from "@/lib/status";
+import { useAgentTools } from "@/lib/data/project";
 
 const LABEL: Record<AgentCapability["kind"], string> = { calendar: "Calendar", drive: "Drive" };
 const SCOPE: Record<AgentCapability["kind"], string> = { calendar: "read, holds with no guests", drive: "search, read and link only" };

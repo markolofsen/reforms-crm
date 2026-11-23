@@ -1,11 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useOpsErrors } from "@/lib/data/overview";
 import { ChevronDownIcon, CircleXIcon } from "lucide-react";
 import type { OpsErrorRowDto } from "@hub/contract/ops-log";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { AppLink } from "@/components/app-link";
-import { overviewApi } from "@/lib/api/overview";
-import { keys } from "@/lib/cache/keys";
 import { ago } from "@/lib/format";
 import { placeDest } from "./labels";
 
@@ -25,7 +23,7 @@ function Where({ r }: { r: OpsErrorRowDto }) {
  * control, the full log is `./run.sh logs --level error`. Refetched on the live topic `ops-log`. `now` comes from the clock.
  */
 export function RecentErrors({ now }: { now: number }) {
-  const q = useQuery({ queryKey: keys.opsErrors(), queryFn: overviewApi.opsErrors });
+  const q = useOpsErrors();
   const d = q.data;
   if (!d || d.total === 0) return null;
   return (

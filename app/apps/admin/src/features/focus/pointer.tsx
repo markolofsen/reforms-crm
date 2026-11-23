@@ -1,12 +1,10 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { usePointer } from "@/lib/data/instance";
 import { useEffect, useReducer, useRef } from "react";
 import type { LivePointer, PointerOutcome } from "@hub/contract/pointer";
 import { Spotlight } from "@hub/ui/product/spotlight";
 import { useRoute } from "@/hooks/use-route";
-import { pointerApi } from "@/lib/api/terminal";
-import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
 import { shareAway, sharePointerOutcome } from "@/lib/focus";
 
@@ -23,7 +21,7 @@ const ended = new Set<string>();
 export function PointerLayer({ project }: { project: string | null }) {
   const route = useRoute();
   const clock = useClock();
-  const q = useQuery({ queryKey: keys.pointer(), queryFn: pointerApi.get });
+  const q = usePointer();
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const p = q.data?.pointer ?? null;
   const live: LivePointer | null = p && project && p.project === project && !ended.has(p.id) ? p : null;

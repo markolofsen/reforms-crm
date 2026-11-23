@@ -2,7 +2,7 @@ import { SectionTitle } from "@hub/ui/product/page";
 import { LocalActionButton } from "@/components/local-action";
 import { useProjectScope } from "@/hooks/use-project";
 import { useClock } from "@/lib/clock";
-import { useInstance } from "@/lib/status";
+import { useInstance } from "@/lib/data/instance";
 
 const ROW = "flex min-h-(--control-m) min-w-0 items-center gap-3 py-1.5";
 

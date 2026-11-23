@@ -1,17 +1,12 @@
-import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { phrase } from "@hub/contract/help";
 import type { DoctorDto } from "@hub/contract/responses";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { CopyFix } from "@/components/copy-fix";
-import { sendApi } from "@/lib/api/send";
-import { keys } from "@/lib/cache/keys";
+import { useDoctor } from "@/lib/data/project";
 import { plural } from "@/lib/format";
 
 type Facts = NonNullable<DoctorDto["facts"]>;
-
-/** The project doctor (`hub project doctor`): its facts carry the send policy as the server reads it (one key, `state-and-data.md` rule 2). */
-export const useDoctor = (project: string) => useQuery({ queryKey: keys.doctor(project), queryFn: () => sendApi.doctor(project) });
 
 const TO: Record<Facts["recipients"], (f: Facts) => string> = {
   test: () => "The test list only",

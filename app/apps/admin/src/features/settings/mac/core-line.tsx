@@ -1,8 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
+import { useCore } from "@/lib/data/instance";
 import { AppLink } from "@/components/app-link";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@hub/ui/tooltip";
 import { dest } from "@/routes/paths";
@@ -14,7 +12,7 @@ import { coreLine } from "./core-labels";
  * its visible text (WCAG 2.5.3); the reason is the tooltip and the page it opens.
  */
 export function CoreLine() {
-  const q = useQuery({ queryKey: keys.core(), queryFn: metaApi.core, retry: false });
+  const q = useCore();
   if (!q.data) return null;
   const l = coreLine(q.data);
   return (

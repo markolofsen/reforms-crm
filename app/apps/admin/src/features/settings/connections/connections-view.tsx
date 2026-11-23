@@ -6,7 +6,8 @@ import { usePlace } from "@/hooks/use-project";
 import { useClock } from "@/lib/clock";
 import { ConnectionRow } from "./connection-row";
 import { groupByKind } from "./labels";
-import { useConnectionActions, useConnections } from "./use-connections";
+import { useConnections } from "@/lib/data/instance";
+import { useConnectionActions } from "./use-connections";
 
 function ConnectionsSkeleton() {
   return (

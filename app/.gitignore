@@ -3,6 +3,7 @@ node_modules
 dist
 storybook-static
 data/
+!apps/admin/src/lib/data/
 *.db
 *.db-wal
 *.db-shm

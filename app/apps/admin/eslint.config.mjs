@@ -27,6 +27,8 @@ const STORAGE_GLOBALS = [
   { name: "sessionStorage", message: "Storage goes through one module (rules: state-and-data 7)." },
 ];
 const BASE_GROUP = ["@radix-ui/*", "@headlessui/*"];
+const DATA_MESSAGE = "Read and write server data through src/lib/data/* (rules: state-and-data 4b, P127 B2).";
+const DATA_GATE_PENDING = ["src/features/mail/**", "src/features/messengers/**", "src/features/terminal/**", "src/features/focus/use-focus-publisher.ts", "src/components/send/**", "src/components/local-action.tsx"];
 // `sequences` (P47): the follow-up rules are the server's; the admin reads them through /api. `terminal` and `agent` (P49) are
 // Node only (the PTY, the socket, the agent checks): the admin reaches them through /api and the socket, never by import.
 const SERVER_PACKAGES = ["db", "mail", "notion", "send", "messengers", "projects", "sequences", "terminal", "agent", "server"];
@@ -102,6 +104,27 @@ export default tseslint.config(
         {
           paths: [...BASE_IMPORTS.paths, ...SERVER_SIDE, BUTTON, ...["react", "react-dom", "next/link", "next/navigation", "next/router"].map((name) => ({ name, message: "src/routes is pure data and types (rules: routes-and-url-state 14)." }))],
           patterns: [SERVER_SUBPATHS, { group: [...BASE_GROUP, "@/components/*", "@/features/*", "@/hooks/*", "react/*"], message: "src/routes imports no React, component, feature or hook." }],
+        },
+      ],
+    },
+  },
+  // P127 B2 (state rule 4b, structure 4a): features and components reach server data only through src/lib/data/* (query hooks
+  // and commands); a key, a facade or the Query client is never named there. `client.ts` gives them only ApiFailure, sentence and
+  // isNotFound. DATA_GATE_PENDING lists the folders not moved yet (Mail and Messengers: P127 C2's data half; the terminal
+  // and the focus publisher talk to their own transport); a folder leaves the list in the slice that moves it.
+  {
+    files: ["src/features/**", "src/components/**"],
+    ignores: DATA_GATE_PENDING,
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            { name: "@tanstack/react-query", allowTypeImports: true, message: DATA_MESSAGE },
+            { name: "@/lib/cache/keys", message: DATA_MESSAGE },
+            { name: "@/lib/api/client", importNames: ["read", "readGenerated", "refreshData", "queryClient", "isRefreshed"], message: DATA_MESSAGE },
+          ],
+          patterns: [{ group: ["@/lib/api/*", "!@/lib/api/client"], message: DATA_MESSAGE }],
         },
       ],
     },

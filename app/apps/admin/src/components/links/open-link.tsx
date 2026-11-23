@@ -6,7 +6,7 @@ import { Link } from "@hub/ui/link";
 import { MenuLinkItem } from "@hub/ui/menu";
 import { ActionButton, type ActionButtonProps, type ActionSize, type ActionVariant } from "@hub/ui/product/action-button";
 import { anchorProps } from "@/lib/external";
-import { useInstance } from "@/lib/status";
+import { useInstance } from "@/lib/data/instance";
 
 // P131 O3: the one way the admin opens a Notion page, a Telegram chat or a WhatsApp chat. The server knows which apps this
 // Mac has (`apps` on the instance, its probe); the browser never guesses with timers. The app's link in the same tab when

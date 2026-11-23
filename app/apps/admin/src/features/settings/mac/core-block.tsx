@@ -1,12 +1,10 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { QueryView } from "@/components/state-views";
 import { sentence } from "@/lib/api/client";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
+import { useCheckCore, useCore } from "@/lib/data/instance";
 import { CoreView } from "./core-view";
 
 /**
@@ -14,17 +12,12 @@ import { CoreView } from "./core-view";
  * one check (at most once a minute; the server says so) and puts its answer in the cache itself (the check bumps no live topic).
  */
 export function CoreBlock() {
-  const qc = useQueryClient();
   const now = useClock()();
-  const q = useQuery({ queryKey: keys.core(), queryFn: metaApi.core, retry: false });
+  const q = useCore();
   const [said, setSaid] = useState<{ text: string; kind: "status" | "alert" } | null>(null);
-  const check = useMutation({
-    mutationFn: metaApi.checkCore,
+  const check = useCheckCore({
     onMutate: () => setSaid({ text: "Checking the core's origin...", kind: "status" }),
-    onSuccess: (d) => {
-      qc.setQueryData(keys.core(), d);
-      setSaid(d.error ? { text: `The origin did not answer: ${d.error.message}`, kind: "alert" } : { text: "Checked.", kind: "status" });
-    },
+    onSuccess: (d) => setSaid(d.error ? { text: `The origin did not answer: ${d.error.message}`, kind: "alert" } : { text: "Checked.", kind: "status" }),
     onError: (e) => setSaid({ text: `Not checked: ${sentence(e)}`, kind: "alert" }),
   });
   return (

@@ -1,14 +1,10 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { APP_KINDS, DESTINATION_APPS, type AppsDto } from "@hub/contract/local";
-import type { InstanceDto } from "@hub/contract/instance";
+import { APP_KINDS, DESTINATION_APPS } from "@hub/contract/local";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { sentence } from "@/lib/api/client";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
-import { useInstance } from "@/lib/status";
+import { useCheckApps, useInstance } from "@/lib/data/instance";
 import { SettingsGroup } from "../group";
 
 /** One line per app: where its links open on this Mac. */
@@ -19,16 +15,11 @@ const lineOf = (installed: boolean, name: string): string => (installed ? `${nam
  * and every 10 minutes; it opens nothing), and Check again after an install. Hidden where the server cannot open locally.
  */
 export function AppsRow() {
-  const qc = useQueryClient();
   const instance = useInstance();
   const [said, setSaid] = useState<{ text: string; kind: "status" | "alert" } | null>(null);
-  const check = useMutation({
-    mutationFn: metaApi.checkApps,
+  const check = useCheckApps({
     onMutate: () => setSaid({ text: "Checking…", kind: "status" }),
-    onSuccess: (apps: AppsDto) => {
-      qc.setQueryData<InstanceDto>(keys.instance(), (old) => (old ? { ...old, apps } : old));
-      setSaid({ text: "Checked.", kind: "status" });
-    },
+    onSuccess: () => setSaid({ text: "Checked.", kind: "status" }),
     onError: (e) => setSaid({ text: `Not checked: ${sentence(e)}`, kind: "alert" }),
   });
   const d = instance.data;

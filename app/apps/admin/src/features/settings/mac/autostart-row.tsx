@@ -1,15 +1,13 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CopyIcon } from "lucide-react";
 import { useState } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
 import { SettingSwitch } from "@hub/ui/product/field";
 import { QueryView } from "@/components/state-views";
-import { connectionsApi } from "@/lib/api/connections";
 import { sentence } from "@/lib/api/client";
-import { keys } from "@/lib/cache/keys";
+import { useAutostart, useSetAutostart } from "@/lib/data/instance";
 import { copyText } from "@/lib/external";
 import { autostartSaid, mailMcpSaid, type Said } from "./autostart-labels";
 
@@ -38,16 +36,10 @@ function Line({ said, onCopy, testId }: { said: Said; onCopy: (fix: string) => v
  * installer's (the line gives the command). Hidden off macOS.
  */
 export function AutostartRow() {
-  const qc = useQueryClient();
-  const q = useQuery({ queryKey: keys.autostart(), queryFn: connectionsApi.autostart });
+  const q = useAutostart();
   const [say, setSay] = useState<Say>(null);
-  const set = useMutation({
-    mutationFn: (enabled: boolean) => connectionsApi.setAutostart(enabled),
-    onMutate: (enabled) => setSay({ text: enabled ? "Switching on..." : "Switching off...", kind: "status" }),
-    onSuccess: (d) => {
-      qc.setQueryData(keys.autostart(), d);
-      setSay({ text: d.enabled ? "On: the Hub starts after every restart." : "Off: this server keeps running; it will not start after the next restart.", kind: "status" });
-    },
+  const set = useSetAutostart({
+    onSuccess: (d) => setSay({ text: d.enabled ? "On: the Hub starts after every restart." : "Off: this server keeps running; it will not start after the next restart.", kind: "status" }),
     onError: (e) => setSay({ text: `Not switched: ${sentence(e)}`, kind: "alert" }),
   });
   const copy = (fix: string) => void copyText(fix).then((ok) => setSay(ok ? { text: `Copied: ${fix}`, kind: "status" } : { text: "The browser refused the clipboard: select the line and copy it.", kind: "alert" }));
@@ -64,7 +56,7 @@ export function AutostartRow() {
             <div className="flex min-w-0 flex-col gap-1 py-3" data-testid="autostart">
               <div className="flex min-w-0 items-center justify-between gap-4">
                 <span className="min-w-0 font-medium text-sm">{label}</span>
-                <SettingSwitch checked={d.enabled} disabled={!d.installed} id="autostart-switch" label={label} onChange={(v) => set.mutate(v)} pending={set.isPending} />
+                <SettingSwitch checked={d.enabled} disabled={!d.installed} id="autostart-switch" label={label} onChange={(v) => { setSay({ text: v ? "Switching on..." : "Switching off...", kind: "status" }); set.mutate(v); }} pending={set.isPending} />
               </div>
               {said && <Line onCopy={copy} said={said} testId="autostart-status" />}
               {mail && <Line onCopy={copy} said={mail} testId="autostart-mail" />}

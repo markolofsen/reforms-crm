@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useScheme } from "@/lib/data/overview";
 import { useMemo } from "react";
 import { buildScheme, SCHEME_FORMS } from "@hub/contract/scheme";
 import { stateLine } from "@hub/contract/scheme-model";
@@ -6,8 +6,6 @@ import { SectionTitle } from "@hub/ui/product/page";
 import { Skeleton } from "@hub/ui/skeleton";
 import { AppLink } from "@/components/app-link";
 import { QueryView } from "@/components/state-views";
-import { overviewApi } from "@/lib/api/overview";
-import { keys } from "@/lib/cache/keys";
 import { dest } from "@/routes/paths";
 import { Cuts } from "./cuts";
 import { LanesList } from "./scheme-list";
@@ -20,7 +18,7 @@ import { SchemeSvg } from "./scheme-svg";
  * blocks that need a look, so the state is never a colour alone. Then three cuts: what goes through what. Last on Help.
  */
 export function HowItWorks() {
-  const q = useQuery({ queryKey: keys.scheme(), queryFn: overviewApi.scheme });
+  const q = useScheme();
   const nodes = q.data?.nodes;
   const texts = useMemo(() => (nodes ? SCHEME_FORMS.map((f) => buildScheme(nodes, f)) : null), [nodes]);
   const line = nodes ? stateLine(nodes) : null;

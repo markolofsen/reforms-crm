@@ -11,7 +11,7 @@ import { toastManager } from "@hub/ui/toast";
 import { sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
 import { openLink, sameTab } from "@/lib/external";
-import { useInstance } from "@/lib/status";
+import { useInstance } from "@/lib/data/instance";
 
 // P61: the one way the admin opens something on the owner's Mac. `href` actions (Mail) are real links built by the
 // registry (`@hub/contract/local`); `server` actions (Finder, a project file) post a project and a KEY to

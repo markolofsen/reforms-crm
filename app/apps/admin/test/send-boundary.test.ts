@@ -39,10 +39,10 @@ describe("send boundary", () => {
     expect(users).toEqual(["features/mail/draft/mail-read/use-mail-write.ts"]);
   });
 
-  it("reaches Stop all, Resume and the doctor from Settings ▸ Sending (P70), the history and Cancel from Activity ▸ Sends (UX pass), and Cancel also from the card", () => {
+  it("reaches the sends, Cancel, Stop all, Resume and the doctor through lib/data/project.ts (P127 B2), and Cancel also from the card", () => {
     const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(list|cancel|stop|resume|doctor)\b/.test(f.text)).map((f) => f.path).sort();
-    expect(users).toEqual(["features/log/sends-table.tsx", "features/mail/draft/draft-card.tsx", "features/settings/sending/send-to.tsx", "features/settings/sending/sending-pane.tsx", "lib/status.ts"]);
+    expect(users).toEqual(["features/mail/draft/draft-card.tsx", "lib/data/project.ts"]);
     const stops = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(stop|resume)\b/.test(f.text)).map((f) => f.path);
-    expect(stops).toEqual(["features/settings/sending/sending-pane.tsx"]);
+    expect(stops).toEqual(["lib/data/project.ts"]);
   });
 });

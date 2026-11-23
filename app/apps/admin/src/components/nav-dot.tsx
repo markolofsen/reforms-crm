@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { dotOf, useAgentToolsNeedYou, useNeedsYouPlaces, useProjectRow } from "@/lib/status";
+import { dotOf, useNeedsYouPlaces, useProjectRow } from "@/lib/data/overview";
+import { useAgentToolsNeedYou } from "@/lib/data/project";
 import { NEXT_ROUTE } from "@/routes/sections";
 import type { RouteId } from "@/routes/table";
 

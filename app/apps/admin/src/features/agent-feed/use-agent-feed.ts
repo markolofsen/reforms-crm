@@ -1,10 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useAgentFeed } from "@/lib/data/project";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { AgentFeedDto } from "@hub/contract/agent-feed";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
 import { waitingTurn } from "./turns";
 
 // The agent activity feed (P59): one query per project, invalidated by the live topic `agent-log` (the server watches the
@@ -21,7 +19,7 @@ export type AgentFeed = {
 };
 
 export function useAgentFeed(project: string | null): AgentFeed {
-  const q = useQuery({ queryKey: keys.agentFeed(project ?? ""), queryFn: () => metaApi.agentFeed(project ?? ""), enabled: project !== null });
+  const q = useAgentFeed(project);
   const [seenTurn, setSeenTurn] = useState<string | null>(null);
   const waiting = waitingTurn(q.data);
   const seen = useCallback(() => setSeenTurn(waiting), [waiting]);

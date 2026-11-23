@@ -1,19 +1,18 @@
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useRereadScheme } from "@/lib/data/overview";
+import { useProjectsFacts } from "@/lib/data/project";
 import { CheckCircle2Icon, MessageCircleQuestionIcon } from "lucide-react";
 import type { SchemeNode } from "@hub/contract/scheme";
 import { AppLink } from "@/components/app-link";
 import { useLocalAction } from "@/components/local-action";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { SectionTitle } from "@hub/ui/product/page";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
 import { placeDest, SCHEME_LOOK } from "./labels";
 
 type Question = { project: string; question: string; options: readonly string[] };
 
 /** The agent's open questions (`project.md`), one read per project: answered in a session, so they carry no link. */
 export function useQuestions(projects: readonly string[]): Question[] {
-  const qs = useQueries({ queries: projects.map((p) => ({ queryKey: keys.project(p), queryFn: () => metaApi.overview(p) })) });
+  const qs = useProjectsFacts(projects);
   return qs.flatMap((q, i) => (q.data?.question ? [{ project: projects[i] ?? "", ...q.data.question }] : []));
 }
 
@@ -36,7 +35,7 @@ export const REREAD_AFTER_OPEN_MS = 4000;
  * changes nothing in the Hub. The Hub never opens Mail itself. Hidden where this machine cannot open (not macOS).
  */
 function PartAction({ n }: { n: SchemeNode }) {
-  const qc = useQueryClient();
+  const reread = useRereadScheme();
   const open = useLocalAction("mail.openApp");
   if (n.action !== "mail.openApp" || !open.available) return null;
   return (
@@ -45,7 +44,7 @@ function PartAction({ n }: { n: SchemeNode }) {
         disabled={open.pending}
         onClick={() => {
           open.run({});
-          setTimeout(() => void qc.invalidateQueries({ queryKey: keys.scheme() }), REREAD_AFTER_OPEN_MS);
+          reread(REREAD_AFTER_OPEN_MS);
         }}
         size="s"
         variant="secondary"

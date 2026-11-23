@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useKnowledge, useProjectFacts } from "@/lib/data/project";
 import { phrase } from "@hub/contract/help";
 import { useCallback, type ReactNode } from "react";
 import type { KnowledgeListDto, KnowledgeView as View } from "@hub/contract/knowledge";
@@ -12,8 +12,6 @@ import { LocalActionButton } from "@/components/local-action";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useSearch } from "@/hooks/use-search-state";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
 import { plural } from "@/lib/format";
 import { dest, type Dest } from "@/routes/paths";
 import { KNOWLEDGE_SEARCH } from "@/routes/search";
@@ -52,13 +50,13 @@ export function KnowledgeView({ project, filter, q, topic }: { project: string; 
   const [, setSearch] = useSearch(KNOWLEDGE_SEARCH);
   const setQ = useCallback((v: string) => setSearch({ q: v }), [setSearch]);
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
-  const list = useQuery({ queryKey: keys.knowledge(project, filter, search), queryFn: () => metaApi.knowledge(project, filter, search), placeholderData: keepPreviousData });
+  const list = useKnowledge(project, filter, search, true);
   // What every entry shares is read over the whole base (the All view, unsearched: the same key as the default view), so a
   // column does not come and go with the view or the search (UX pass 2026-11-20).
-  const base = useQuery({ queryKey: keys.knowledge(project, "all", ""), queryFn: () => metaApi.knowledge(project, "all", "") });
+  const base = useKnowledge(project, "all", "");
   const facets = facetsOf(base.data?.entries ?? []);
   const shared = base.data && base.data.entries.length > 0 ? sharedLine(facets) : null;
-  const files = useQuery({ queryKey: keys.project(project), queryFn: () => metaApi.overview(project) });
+  const files = useProjectFacts(project);
   const k = files.data?.knowledge;
   const d = list.data;
   // The menu's topics are those of the rows in view (the view and the search); the table shows the chosen topic's rows only,

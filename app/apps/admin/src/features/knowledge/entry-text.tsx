@@ -1,15 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useKnowledgeText } from "@/lib/data/project";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { ListSkeleton, QueryView } from "@/components/state-views";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
 
 /**
  * One entry's text under its row (P128 X6, decision 0045 point 19): read only, at reading width, from the index (never a file
  * read); Open on the row edits the file. Asked only when the row opens, then cached with the knowledge base's other keys.
  */
 export function EntryText({ project, entryKey, title }: { project: string; entryKey: string; title: string }) {
-  const q = useQuery({ queryKey: keys.knowledgeText(project, entryKey), queryFn: () => metaApi.knowledgeText(project, entryKey) });
+  const q = useKnowledgeText(project, entryKey);
   return (
     <QueryView loading={<ListSkeleton label={`Loading ${title}`} rows={2} />} query={q} what={title}>
       {(d) => (

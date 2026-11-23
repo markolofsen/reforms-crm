@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { SAFETY_LABELS } from "@hub/config";
 import type { SafetyRuleDto } from "@hub/contract/responses";
 import { CommitField, SettingSwitch } from "@hub/ui/product/field";
@@ -6,9 +5,7 @@ import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } fro
 import { Skeleton } from "@hub/ui/skeleton";
 import { QueryView } from "@/components/state-views";
 import { sentence } from "@/lib/api/client";
-import { useCommand } from "@/lib/cache/topics";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
+import { useRules, useSaveRule } from "@/lib/data/project";
 
 /** The two groups of the table, in this order (P75): what a level does, said once as a heading instead of a badge on every row. */
 const LEVELS: readonly { level: SafetyRuleDto["level"]; title: string }[] = [
@@ -49,7 +46,7 @@ function Params({ rule, save, pending }: { rule: SafetyRuleDto; save: (p: Patch)
 }
 
 function RuleRow({ project, rule }: { project: string; rule: SafetyRuleDto }) {
-  const save = useCommand({ project, touches: ["rules"], run: (patch: Patch) => metaApi.setRule(project, rule.kind, patch) });
+  const save = useSaveRule(project, rule.kind);
   const label = SAFETY_LABELS[rule.kind];
   return (
     <TableRow data-rule={rule.kind}>
@@ -86,7 +83,7 @@ export function rulesSummary(list: readonly SafetyRuleDto[]): string {
  * pane whose content is its list of controls shows the list (`admin-principles.md` rule 9).
  */
 export function ChecksPane({ project }: { project: string }) {
-  const q = useQuery({ queryKey: keys.rules(project), queryFn: () => metaApi.rules(project) });
+  const q = useRules(project);
   // P127 B1: a failed refetch keeps the rules on screen under the stale note.
   return (
     <QueryView loading={<Skeleton aria-label="Loading the checks" className="h-24 w-full rounded-xl" role="status" />} query={q} what="the checks before sending">

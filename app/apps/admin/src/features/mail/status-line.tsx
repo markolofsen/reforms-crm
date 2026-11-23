@@ -11,7 +11,7 @@ import { useClock } from "@/lib/clock";
 import { MAIL_READ_RETRYABLE } from "@hub/contract/inbound";
 import { useLiveState, type LiveState } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
-import { useProjectRow } from "@/lib/status";
+import { useProjectRow } from "@/lib/data/overview";
 import { dest, type Dest } from "@/routes/paths";
 import { NEXT_ROUTE } from "@/routes/sections";
 import { CheckNow, mailReadText } from "./inbox/mail-read";

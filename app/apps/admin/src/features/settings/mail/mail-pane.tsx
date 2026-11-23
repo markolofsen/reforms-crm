@@ -1,9 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { QueryView } from "@/components/state-views";
 import { Skeleton } from "@hub/ui/skeleton";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
-import { useConnections } from "../connections/use-connections";
+import { useConnections } from "@/lib/data/instance";
+import { useProjectFacts } from "@/lib/data/project";
 import { SettingsGroup } from "../group";
 import { FilterRow, FiltersLine } from "./filters";
 import { MailAccounts } from "./mail-accounts";
@@ -15,7 +13,7 @@ import { MailAccounts } from "./mail-accounts";
  */
 export function MailPane({ project }: { project: string }) {
   const conn = useConnections();
-  const facts = useQuery({ queryKey: keys.project(project), queryFn: () => metaApi.overview(project) });
+  const facts = useProjectFacts(project);
   return (
     <>
       <SettingsGroup id="mail-accounts" title="Accounts">

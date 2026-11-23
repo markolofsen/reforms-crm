@@ -2,7 +2,7 @@ import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { phrase } from "@hub/contract/help";
 import { usePlace } from "@/hooks/use-project";
 import { useClock } from "@/lib/clock";
-import { useOverview } from "@/lib/status";
+import { useOverview } from "@/lib/data/overview";
 import { ordered } from "./labels";
 import { ProjectList, ProjectTable } from "./project-rows";
 import { RecentErrors } from "./recent-errors";

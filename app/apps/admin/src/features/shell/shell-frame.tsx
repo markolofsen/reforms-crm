@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useLinks } from "@/lib/data/project";
 import { phrase } from "@hub/contract/help";
 import { useMemo, type ReactNode } from "react";
 import { DEFAULT_INSTANCE_NAME } from "@hub/contract/instance";
@@ -19,10 +19,9 @@ import { useGo } from "@/hooks/use-go";
 import { PlaceContext, ProjectScopeContext, useEnsureAddress, type ProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { useSectionNav } from "@/hooks/use-section-nav";
-import { metaApi } from "@/lib/api/meta";
 import { useLive } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
-import { useInstance } from "@/lib/status";
+import { useInstance, useProjects } from "@/lib/data/instance";
 import { dest, sectionList } from "@/routes/paths";
 import { PROJECTLESS } from "@/routes/table";
 import { sectionTitle } from "@/routes/sections";
@@ -30,7 +29,6 @@ import { sectionTitle } from "@/routes/sections";
 import { useMessengerChannels } from "@/features/messengers/channel/use-channels";
 import { AppShell, type ShellNavItem } from "./shell";
 import { useFileDropGuard } from "./use-file-drop-guard";
-import { keys } from "@/lib/cache/keys";
 
 /**
  * The nav with a dot on each section whose page needs the owner (`useLitRoutes`: the worst fact's page, a failing Agent tools row,
@@ -70,11 +68,11 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   useLive();
   usePulse();
   const instance = useInstance();
-  const projects = useQuery({ queryKey: keys.projects(), queryFn: metaApi.projects });
+  const projects = useProjects();
   const list = useMemo(() => projects.data?.projects ?? [], [projects.data]);
   const { place, pending } = useEnsureAddress(route, list);
   const project = place?.project ?? null;
-  const links = useQuery({ queryKey: keys.links(project ?? ""), queryFn: () => metaApi.links(project ?? ""), enabled: project !== null, staleTime: 60_000 });
+  const links = useLinks(project);
   useFocusPublisher(project);
   const multi = place?.multi ?? false;
   const heading = route.section ? sectionTitle(route.section) : "Not found";

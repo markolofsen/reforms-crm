@@ -5,18 +5,12 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { AppLink } from "@/components/app-link";
 import { sentence } from "@/lib/api/client";
-import { useCommand } from "@/lib/cache/topics";
-import { sendApi } from "@/lib/api/send";
 import { formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
-import { useSends } from "@/lib/status";
+import { useCancelSend, useSends } from "@/lib/data/project";
 
 /** Cancel for a queued send inside its window (a sent mail cannot be recalled, so Cancel exists only while a send is queued). */
-function useCancel(project: string) {
-  return useCommand({ project, touches: ["sends"], run: (id: number) => sendApi.cancel(project, id) });
-}
-
 const VIA = { manual: "By hand", auto: "Autosend" } as const;
 const STATE: Record<SendRowDto["status"], string | null> = { sent: null, queued: "queued", sending: "sending", failed: "failed", cancelled: "cancelled" };
 
@@ -108,7 +102,7 @@ function SendsTable({ sends, busy, onCancel }: Props) {
  */
 export function SendsView({ project }: { project: string }) {
   const q = useSends(project);
-  const cancel = useCancel(project);
+  const cancel = useCancelSend(project);
   return (
     <QueryView loading={<ListSkeleton label="Loading the sends" />} query={q} what="the sends">
       {(d) => (

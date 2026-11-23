@@ -1,24 +1,21 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { RefreshCwIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
 import { QueryView } from "@/components/state-views";
-import { connectionsApi } from "@/lib/api/connections";
 import { sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
 import { copyText } from "@/lib/external";
 import { ago } from "@/lib/format";
-import { useAgentTools } from "@/lib/status";
+import { useAgentTools, useRefreshAgentTools } from "@/lib/data/project";
 import { AGENT_TOOL_CLIS } from "@hub/contract/agent-tools";
 import { SettingsGroup } from "../group";
 import { ClaudeSettings } from "./agent-group";
 import { Connectors } from "./connectors";
 import { CLI_TITLE, toolsSentence } from "./labels";
 import { Tools } from "./tools";
-import { keys } from "@/lib/cache/keys";
 
 type Say = { text: string; kind: "status" | "alert" } | null;
 
@@ -45,19 +42,11 @@ const CLI_BODY: Record<(typeof AGENT_TOOL_CLIS)[number], (slug: string) => React
  * settings, Refresh, the view and Copy; one live region says what Refresh and Copy did.
  */
 export function AgentTools({ slug }: { slug: string }) {
-  const qc = useQueryClient();
   const now = useClock()();
   const q = useAgentTools(slug);
   const [say, setSay] = useState<Say>(null);
-  const refresh = useMutation({
-    mutationFn: () => connectionsApi.refreshAgentTools(slug),
-    onMutate: () => setSay({ text: "Checking the agent tools...", kind: "status" }),
-    onSuccess: (d) => {
-      qc.setQueryData(keys.agentTools(slug), d);
-      // Overview's parts read the same cache on the server (P63 O1): the refresh bumps no live topic, so this tab reads them again.
-      void qc.invalidateQueries({ queryKey: keys.scheme() });
-      setSay({ text: "Checked again.", kind: "status" });
-    },
+  const refresh = useRefreshAgentTools(slug, {
+    onSuccess: () => setSay({ text: "Checked again.", kind: "status" }),
     onError: (e) => setSay({ text: `Could not check again: ${sentence(e)}`, kind: "alert" }),
   });
   const copy = (fix: string) => void copyText(fix).then((ok) => setSay(ok ? { text: `Copied: ${fix}`, kind: "status" } : { text: "The browser refused the clipboard: select the line and copy it.", kind: "alert" }));
@@ -72,7 +61,7 @@ export function AgentTools({ slug }: { slug: string }) {
               {d.checkedAt && <span className="font-normal text-muted-foreground text-sm"> · checked {ago(d.checkedAt, now)}</span>}
               <span className="block font-normal text-muted-foreground text-sm">Settings apply to the next agent session.</span>
             </p>
-            <ActionButton aria-busy={refresh.isPending} disabled={refresh.isPending} onClick={() => refresh.mutate()} size="m" variant="secondary">
+            <ActionButton aria-busy={refresh.isPending} disabled={refresh.isPending} onClick={() => { setSay({ text: "Checking the agent tools...", kind: "status" }); refresh.mutate(undefined); }} size="m" variant="secondary">
               <RefreshCwIcon aria-hidden="true" />
               {refresh.isPending ? "Checking..." : "Refresh"}
             </ActionButton>
