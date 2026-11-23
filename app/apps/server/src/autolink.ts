@@ -119,6 +119,8 @@ export interface Autolink {
   /** Telegram's connect scan: the account's dialogs, each considered. */
   scan(channel: UserChannel, account: string): Promise<void>;
   state(): Promise<AutolinkState>;
+  /** P126 S1: what `state()` shows changes when this does (the remembered, hidden and proposed chats); a live watch bumps `messengers` on it. Sync, in memory. */
+  signature(): string;
   /** The dry run: counts only, from the live accounts' dialog lists and the directory; writes nothing, reads no text. */
   preview(): Promise<PreviewCounts[]>;
   /** "Never link this chat" / Hide ("not a client", P84c): its HMAC is stored; the caller unlinks a linked one. `title` names it in Hidden. */
@@ -280,6 +282,10 @@ export function startAutolink(o: StartAutolink): Autolink {
       });
       // Oldest first, so the newest dialog is remembered last and shows first on Chats.
       for (const d of [...ds].reverse()) await run(channel, account, d, d.last ?? null);
+    },
+    signature() {
+      const r = [...recent.values()].map((d) => `${d.channel}:${d.chatId}:${d.last?.at ?? ""}`).join(",");
+      return `${r}|${[...hidden.keys()].join(",")}|${[...proposals.keys()].join(",")}|${active.size}`;
     },
     async state() {
       const enabled = o.project ? await o.enabled() : false;

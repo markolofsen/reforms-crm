@@ -29,11 +29,8 @@ export const useMessengerChats = (project: string | null, query: MessengerChatsQ
     ...(o.keep ? { placeholderData: keepPreviousData } : {}),
   });
 
-/** The server keeps the unlinked chats in memory and a new one bumps no live topic: read again this often while the screen is open (state rule 13's exception, until P126 S1). */
-const AUTOLINK_POLL_MS = 15_000;
-
-/** The autolink's memory: the unlinked and hidden chats, the directory's state. Never retried, never kept after the screen. */
-export const useAutolinkState = (project: string) => useQuery({ queryKey: keys.autolink(project), queryFn: () => messengersApi.autolinkState(project), refetchInterval: AUTOLINK_POLL_MS, gcTime: 0, retry: false });
+/** The autolink's memory: the unlinked and hidden chats, the directory's state. Never retried, never kept after the screen; a change bumps `messengers` (P126 S1). */
+export const useAutolinkState = (project: string) => useQuery({ queryKey: keys.autolink(project), queryFn: () => messengersApi.autolinkState(project), gcTime: 0, retry: false });
 
 /** One linked chat's rules (P71 M2b), written by the owner only; the chat's list and conversation read them again. */
 export const useSaveChatRules = (project: string, chatId: number) => useCommand({ project, touches: ["messengers"], run: (patch: ChatRulesBody) => messengersApi.setRules(project, chatId, patch) });
@@ -97,14 +94,11 @@ export function useTelegramLogin() {
 
 export const useWhatsApp = () => useQuery({ queryKey: keys.whatsapp(), queryFn: whatsappApi.status });
 
-/** How often the admin asks for the pairing's state while it waits: WhatsApp shows a new QR code about every 20 s. */
-export const PAIRING_POLL_MS = 2000;
-
 const ended = (s: WaConnectStepDto | undefined) => s?.step === "done" || s?.step === "failed";
 
 /**
  * The WhatsApp Connect (decision 0036 point 4): nothing happens until the owner presses Connect; then the server opens a pairing
- * and the admin reads its state every 2 s (the QR code to scan, then done or failed) until it ends or he cancels. The server drops
+ * and the admin reads its state again on each `connections` bump the server makes when the flow moves (P126 S1: the QR code to scan, then done or failed) until it ends or he cancels. The server drops
  * a pairing once its end is read, so the reads stop there. The flow id lives in this state only; the QR code is never cached past
  * the pairing (`gcTime: 0`).
  */
@@ -121,7 +115,6 @@ export function useWhatsAppConnect() {
       return s;
     },
     enabled: flow !== null,
-    refetchInterval: (q) => (ended(q.state.data) || q.state.error ? false : PAIRING_POLL_MS),
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
     staleTime: Infinity,

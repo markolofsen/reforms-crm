@@ -80,6 +80,10 @@ export function createWaPairing(deps: PairingDeps) {
   };
 
   return {
+    /** P126 S1: every open flow's step (and QR), so a live watch bumps `connections` when the pairing moves; the admin reads `state(flow)` again. */
+    signature(): string {
+      return [...flows].map(([id, f]) => `${id}:${JSON.stringify(f.state)}`).join("|");
+    },
     /** Starts the one pairing (a new Connect cancels an older one): the socket opens and the first QR code follows. */
     async start(): Promise<{ flow: string }> {
       await sweep();

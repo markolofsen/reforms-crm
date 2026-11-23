@@ -69,6 +69,8 @@ export const keys = {
   /** P71 M5: the WhatsApp linked devices (instance-wide, ride in health), and one pairing's state while its QR code shows. */
   whatsapp: () => ["whatsapp"] as const,
   whatsappPairing: (flow: string) => ["whatsapp-pairing", flow] as const,
+  /** Every pairing flow (P126 S1): the server bumps `connections` when a flow's step or QR moves. */
+  whatsappPairings: () => ["whatsapp-pairing"] as const,
   doctor: (project: string) => ["doctor", project] as const,
   /** Reads of Mail (an `osascript` call each): the draft as Mail holds it, and a client's thread. */
   draftMail: (project: string, id: number) => ["draft-mail", project, id] as const,
@@ -129,7 +131,7 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   projects: (p) => [keys.projects(), project(p), links(p), knowledge(p), agentTools(p), keys.connections(), overview(), scheme()],
   knowledge: (p) => [project(p), knowledge(p), scheme()],
   messengers: (p) => [messengerChats(p), drafts(p), notByEmail(p), project(p), keys.connections()],
-  connections: () => [keys.connections(), agentTools(null), overview(), scheme()],
+  connections: () => [keys.connections(), keys.whatsappPairings(), agentTools(null), overview(), scheme()],
   health: (p) => [keys.pulse(), project(p), keys.connections(), keys.telegramUser(), keys.whatsapp(), overview(), scheme(), inbound(p)],
   mail: (p) => [draftMail(p), thread(p), conversationMail(p), conversationText(p)],
   "agent-log": (p) => [agentFeed(p)],
