@@ -20,11 +20,11 @@ type Actions = ReturnType<typeof useChatActions>;
  * opens the text in place (an action's own form, `admin-principles.md` rule 9); Skip sets it aside with Undo. Its ref is
  * `mdraft:<id>` (P72), so a press on it tells the agent which draft he means; it is not a tab stop of its own (the buttons are).
  */
-export function DraftBlock({ d, name, project, chatId, actions, embedded = false }: { d: MessengerDraftDto; name: string; project: string; chatId: number; actions: Actions; embedded?: boolean }) {
+export function DraftBlock({ d, name, project, actions, embedded = false }: { d: MessengerDraftDto; name: string; project: string; actions: Actions; embedded?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(d.text);
   const [editSaved, setEditSaved] = useState(false);
-  const door = useMessengerSend(project, d, chatId);
+  const door = useMessengerSend(project, d);
   const shown = d.text;
   const author = d.createdBy === "hub_llm" ? "Hub LLM" : d.createdBy === "runtime_agent" ? "the agent" : "agent";
   const editOk = editValue.trim().length > 0 && editValue.length <= MESSENGER_TEXT_MAX && editValue !== d.text;

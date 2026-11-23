@@ -79,12 +79,6 @@ export const keys = {
   lead: (project: string, pageId: string) => ["lead", project, pageId] as const,
 };
 
-/** Keys that an owner-authored Messenger mutation may refresh; the detail is optional for mutations without a persisted chat id. */
-export const messengerMutationKeys = (project: string, chatId: number | null = null): QueryKey[] => [
-  keys.messengerChatsOf(project),
-  ...(chatId === null ? [] : [keys.messengerConversation(project, chatId)]),
-];
-
 /**
  * The first part of the Mail keys: read on open and on focus (decision 0013). The one live event that reads Mail again is
  * `mail` (P53): the hub itself wrote a Mail draft of that project (`draft_write`), so the open card shows the new text.

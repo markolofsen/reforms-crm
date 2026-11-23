@@ -1,15 +1,19 @@
 "use client";
 
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import type { ChatRulesBody, MessengerChatsQuery } from "@hub/contract/messenger-panel";
-import type { UserLoginStartBody, WaConnectStepDto } from "@hub/contract/messengers";
+import type { LiveTopic } from "@hub/contract/live";
+import type { MessengerSendPreviewDto } from "@hub/contract/messenger";
+import type { AutolinkLinkedDto, AutolinkRecordDto, ChatMovedDto, UserLoginStartBody, WaConnectStepDto } from "@hub/contract/messengers";
 import { sentence } from "@/lib/api/client";
 import { messengersApi } from "@/lib/api/messengers/panel";
+import { messengerSendApi } from "@/lib/api/messengers/send";
 import { telegramUserApi } from "@/lib/api/messengers/telegram-user";
 import { whatsappApi } from "@/lib/api/messengers/whatsapp";
 import { keys } from "@/lib/cache/keys";
-import { useCommand } from "@/lib/cache/topics";
+import { useCommand, useRefreshTopics } from "@/lib/cache/topics";
+import { useSendDoor } from "./send-door";
 
 /**
  * P127 C2's data half (V3): Messengers' reads and writes (state rule 4b). The chats of a view, a link state, a channel and a
@@ -155,3 +159,108 @@ export function useWhatsAppConnect() {
     cancel,
   };
 }
+
+// ---- One chat, its drafts and its moves (P127 C2's data half: `messengerMutationKeys` is gone, a write names `messengers`)
+
+/** A Messengers write moves the panel's lists, the open conversation and the autolink's memory (all under `messenger-chats`). */
+const MESSENGERS: readonly LiveTopic[] = ["messengers"];
+type UserChannel = "telegram_user" | "whatsapp";
+type Linkable = { channel: UserChannel; account: string; chatId: string; title: string };
+
+/** One linked chat's conversation: the messages, the open draft and the reply policy (P106). */
+export const useMessengerConversation = (project: string, chatId: number) => useQuery({ queryKey: keys.messengerConversation(project, chatId), queryFn: () => messengersApi.conversation(project, chatId) });
+
+/** Prepare reply (the agent drafts one, nothing is sent). The chat is the variable, so a pending Prepare of another chat never shows here. */
+export const usePrepareReply = (project: string) => useCommand({ project, touches: MESSENGERS, run: (chatId: number) => messengersApi.prepareReply(project, chatId) });
+
+/** The owner's own words as an unsent draft of the chat (never sent here). */
+export const useManualMessengerDraft = (project: string, chatId: number, onSuccess: () => void) => useCommand({ project, touches: MESSENGERS, run: (text: string) => messengersApi.createManualDraft(project, chatId, text), onSuccess });
+
+/** Edit, Skip and its Undo (Restore) of a messenger draft (P71 M3). Send is not here: it is the door's (`useMessengerSendFlow`). */
+export function useMessengerDraftCommands(project: string, on: { onSuccess: () => void; onError: (e: unknown) => void; onSkipped: (v: { id: number; name: string }) => void }) {
+  const o = { project, touches: MESSENGERS, onError: on.onError };
+  return {
+    edit: useCommand({ ...o, run: ({ id, text }: { id: number; text: string }) => messengersApi.editDraft(project, id, text), onSuccess: on.onSuccess }),
+    restore: useCommand({ ...o, run: (id: number) => messengersApi.restoreDraft(project, id), onSuccess: on.onSuccess }),
+    skip: useCommand({
+      ...o,
+      run: ({ id }: { id: number; name: string }) => messengersApi.skipDraft(project, id),
+      onSuccess: (_r, v) => {
+        on.onSuccess();
+        on.onSkipped(v);
+      },
+    }),
+  };
+}
+
+/**
+ * Send of one messenger draft (P71 M4, decision 0046) through the one door Mail's card uses (`send-door.ts`): the dry run, then the
+ * apply with the chat and the exact text the owner read. Afterwards the panel and Activity ▸ Sends are read again.
+ */
+export function useMessengerSendFlow(project: string, draftId: number, sent: (p: MessengerSendPreviewDto) => void) {
+  const refresh = useRefreshTopics(project);
+  return useSendDoor<MessengerSendPreviewDto>({
+    preview: () => messengerSendApi.preview(project, draftId),
+    send: (p) => messengerSendApi.send(project, draftId, { chatId: p.chatId, text: p.text }),
+    sent,
+    settle: () => refresh(["messengers", "sends"]),
+  });
+}
+
+/**
+ * P102: the moves of a chat between its states (`features/messengers/status/use-moves.ts` keeps the toasts): Link, Change client
+ * and its Undo, Unlink. `unlinkAgain` is Link's Undo (the row id is known only once linked, so the panel is read for it).
+ */
+export function useChatMoveCommands(project: string, on: { onError: (e: unknown) => void; onUnlinked: (v: { never: boolean; name: string }) => void; onLinked: (res: AutolinkLinkedDto, v: Linkable) => void; onChanged: (r: ChatMovedDto, v: { id: number; name: string }) => void }) {
+  const refresh = useRefreshTopics(project);
+  const o = { project, touches: MESSENGERS, onError: on.onError };
+  const unlinkAgain = async (c: Pick<Linkable, "channel" | "chatId">) => {
+    const linked = await messengersApi.chats(project, { filter: "all", link: "linked" });
+    const row = linked.chats.find((x) => x.chatId === c.chatId && x.channel === c.channel);
+    if (row) await messengersApi.unlinkChat(project, row.id, false);
+    await refresh(MESSENGERS);
+  };
+  return {
+    unlink: useCommand({ ...o, run: ({ id, never }: { id: number; never: boolean; name: string }) => messengersApi.unlinkChat(project, id, never), onSuccess: (_r, v) => on.onUnlinked(v) }),
+    link: useCommand({
+      ...o,
+      run: ({ rec, ...c }: Linkable & { rec: Pick<AutolinkRecordDto, "key"> }) => messengersApi.linkRecord(project, { channel: c.channel, account: c.account, chatId: c.chatId, key: rec.key, title: c.title }),
+      onSuccess: (res, v) => on.onLinked(res, v),
+    }),
+    undoChange: useCommand({ ...o, run: ({ id, clientId, draftId }: { id: number; clientId: number; draftId: number | null }) => messengersApi.undoChange(project, id, { clientId, draftId }) }),
+    change: useCommand({ ...o, run: ({ id, key }: { id: number; key: string; name: string }) => messengersApi.changeClient(project, id, key), onSuccess: (r, v) => on.onChanged(r, v) }),
+    unlinkAgain,
+    refresh: () => refresh(MESSENGERS),
+  };
+}
+
+type HiddenChat = { channel: UserChannel; chatId: string; title: string };
+
+/** Hide ("not a client", P84c) and Unhide of an unlinked chat; the server keeps a keyed hash of the chat, never the chat. */
+export function useHideCommands(project: string, on: { onError: (e: unknown) => void; onHidden: (c: HiddenChat) => void; onUnhidden: (c: HiddenChat) => void }) {
+  const o = { project, touches: MESSENGERS, onError: on.onError };
+  return {
+    hide: useCommand({ ...o, run: (c: HiddenChat) => messengersApi.hideChat(project, { channel: c.channel, chatId: c.chatId }), onSuccess: (_r, c) => on.onHidden(c) }),
+    unhide: useCommand({ ...o, run: (c: HiddenChat) => messengersApi.unhideChat(project, { channel: c.channel, chatId: c.chatId }), onSuccess: (_r, c) => on.onUnhidden(c) }),
+  };
+}
+
+/** P102: each account's dialogs marked against the picked record (Link a chat…), read on demand and never stored. */
+export const useDialogsOf = (project: string, accounts: readonly { channel: UserChannel; account: string }[], key: string | null) =>
+  useQueries({
+    queries: accounts.map((a) => ({
+      queryKey: keys.autolinkDialogs(project, a.channel, a.account, key ?? ""),
+      queryFn: () => messengersApi.dialogsOf(project, { channel: a.channel, account: a.account, key: key ?? "" }),
+      enabled: key !== null,
+      gcTime: 0,
+      retry: false,
+    })),
+  });
+
+/** P84: the Notion client records for one unlinked chat's Link (two or more characters), never kept. */
+export const useRecordSearch = (project: string, term: string) =>
+  useQuery({ queryKey: keys.autolinkRecords(project, term), queryFn: () => messengersApi.findRecords(project, term), enabled: term.replace(/^@/, "").length >= 2, gcTime: 0 });
+
+/** Create a Notion client record for an unlinked chat and link it (P84). */
+export const useCreateRecord = (project: string, onSuccess: (res: AutolinkLinkedDto) => void) =>
+  useCommand({ project, touches: MESSENGERS, run: (body: Linkable & { name: string; email: string }) => messengersApi.createRecord(project, body), onSuccess });

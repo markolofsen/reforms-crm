@@ -1,12 +1,10 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
 import { useId, useState, type FormEvent } from "react";
 import type { AutolinkLinkedDto, AutolinkRecordDto, RecentDialogDto } from "@hub/contract/messengers";
 import { Input } from "@hub/ui/input";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { useDebounced } from "@/hooks/use-debounced";
 import { sentence } from "@/lib/api/client";
-import { messengersApi } from "@/lib/api/messengers/panel";
-import { keys } from "@/lib/cache/keys";
+import { useCreateRecord, useRecordSearch } from "@/lib/data/messengers";
 import { createIdentityLine, createLabel, RECORD_SEARCH_PLACEHOLDER } from "../labels";
 
 export const recordName = (r: AutolinkRecordDto) => r.name || r.email || "this client";
@@ -19,13 +17,10 @@ export function CreateClient({ project, r, onDone }: { project: string; r: Recen
   const id = useId();
   const [name, setName] = useState(r.title);
   const [email, setEmail] = useState("");
-  const create = useMutation({
-    mutationFn: () => messengersApi.createRecord(project, { channel: r.channel, account: r.account, chatId: r.chatId, title: r.title, name: name.trim(), email: email.trim() }),
-    onSuccess: onDone,
-  });
+  const create = useCreateRecord(project, onDone);
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (name.trim() && email.trim()) create.mutate();
+    if (name.trim() && email.trim()) create.mutate({ channel: r.channel, account: r.account, chatId: r.chatId, title: r.title, name: name.trim(), email: email.trim() });
   };
   const identity = createIdentityLine(r);
   return (
@@ -63,7 +58,7 @@ export function RecordSearch({ project, r, onPick, onLinked, onCancel, autoFocus
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const term = useDebounced(q.trim(), 250);
-  const found = useQuery({ queryKey: keys.autolinkRecords(project, term), queryFn: () => messengersApi.findRecords(project, term), enabled: term.replace(/^@/, "").length >= 2, gcTime: 0 });
+  const found = useRecordSearch(project, term);
   return (
     <div className="flex flex-col gap-2">
       <label className="sr-only" htmlFor={id}>

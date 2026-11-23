@@ -63,7 +63,7 @@ export function ChatsView({ project, filter, link, channel: asked, chatId = null
   const q = useMessengerChats(project, { filter, link, channel, q: searchQuery }, { keep: true });
   const al = useAutolinkState(project);
   const actions = useChatActions(project, chatId);
-  const moves = useChatMoves(project, chatId);
+  const moves = useChatMoves(project);
   const [linking, setLinking] = useState(false);
   const accounts = [
     ...(tg.data?.accounts ?? []).filter((a) => a.state === "running").map((a) => ({ channel: "telegram_user" as const, account: a.account })),

@@ -1,11 +1,9 @@
-import { useQueries } from "@tanstack/react-query";
 import { useState } from "react";
 import type { AutolinkRecordDto } from "@hub/contract/messengers";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { sentence } from "@/lib/api/client";
-import { messengersApi } from "@/lib/api/messengers/panel";
-import { keys } from "@/lib/cache/keys";
+import { useDialogsOf } from "@/lib/data/messengers";
 import { ChannelIcon } from "../channel/channel-icon";
 import { recordName, RecordSearch } from "../unlinked/record-search";
 import type { useChatMoves } from "./use-moves";
@@ -19,15 +17,7 @@ export type LinkAccount = { channel: "telegram_user" | "whatsapp"; account: stri
  */
 export function LinkChat({ project, accounts, moves, onClose }: { project: string; accounts: readonly LinkAccount[]; moves: ReturnType<typeof useChatMoves>; onClose: () => void }) {
   const [rec, setRec] = useState<AutolinkRecordDto | null>(null);
-  const reads = useQueries({
-    queries: accounts.map((a) => ({
-      queryKey: keys.autolinkDialogs(project, a.channel, a.account, rec?.key ?? ""),
-      queryFn: () => messengersApi.dialogsOf(project, { channel: a.channel, account: a.account, key: rec?.key ?? "" }),
-      enabled: rec !== null,
-      gcTime: 0,
-      retry: false,
-    })),
-  });
+  const reads = useDialogsOf(project, accounts, rec?.key ?? null);
   return (
     <section aria-label="Link a chat" className="flex flex-col gap-2 border-b bg-muted/20 px-3 py-2.5 sm:px-4" data-testid="link-chat">
       {rec === null ? (

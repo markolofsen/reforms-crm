@@ -1,6 +1,5 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState, type ReactNode } from "react";
 import { MESSENGER_TEXT_MAX } from "@hub/config/chat-rules";
 import { composerStateOf } from "@hub/contract/composer";
@@ -15,9 +14,8 @@ import { useConversationScroll } from "@hub/ui/product/conversation-scroll";
 import { ConversationHeaderActions } from "@/components/conversation/header-actions";
 import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
 import { notionPageIdOf } from "@/lib/notion";
-import { keys, messengerMutationKeys } from "@/lib/cache/keys";
 import { focusAgentRow } from "@/lib/focus";
-import { messengersApi } from "@/lib/api/messengers/panel";
+import { useManualMessengerDraft, useMessengerConversation, usePrepareReply } from "@/lib/data/messengers";
 import { isNotFound, sentence } from "@/lib/api/client";
 import { dayOf, formatDay, formatTime } from "@/lib/format";
 import { CHANNEL_LABEL, chatName, chatStateLine, notionIdentityLine, notionIndicatorState } from "../labels";
@@ -56,16 +54,11 @@ function ManualReply({
   actionError: string | null;
   project: string;
 }) {
-  const qc = useQueryClient();
   const [value, setValue] = useState("");
   const [saved, setSaved] = useState(false);
-  const create = useMutation({
-    mutationFn: (text: string) => messengersApi.createManualDraft(project, chatId, text),
-    onSuccess: () => {
-      setValue("");
-      setSaved(true);
-      return Promise.all(messengerMutationKeys(project, chatId).map((queryKey) => qc.invalidateQueries({ queryKey })));
-    },
+  const create = useManualMessengerDraft(project, chatId, () => {
+    setValue("");
+    setSaved(true);
   });
   const changeValue = (next: string) => {
     if (create.isError) create.reset();
@@ -104,13 +97,12 @@ function ManualReply({
 }
 
 export function MessengerConversationPane({ chatId, project, actions, onBack }: { chatId: number; project: string; actions: Actions; onBack: () => void }) {
-  const qc = useQueryClient();
   const historyRef = useRef<HTMLElement>(null);
   // The chat is the mutation's variable, so a pending or failed Prepare of another chat never shows on this one.
-  const prepare = useMutation({ mutationFn: (id: number) => messengersApi.prepareReply(project, id), onSuccess: (_reply, id) => Promise.all(messengerMutationKeys(project, id).map((queryKey) => qc.invalidateQueries({ queryKey }))) });
+  const prepare = usePrepareReply(project);
   const preparing = prepare.isPending && prepare.variables === chatId;
   const prepareFailed = prepare.isError && prepare.variables === chatId ? prepare.error : null;
-  const q = useQuery({ queryKey: keys.messengerConversation(project, chatId), queryFn: () => messengersApi.conversation(project, chatId) });
+  const q = useMessengerConversation(project, chatId);
   const scrollState = useConversationScroll(historyRef, chatId);
   const data = q.data;
   const chat = data?.chat;
@@ -121,7 +113,7 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
     focusAgentRow(refOf("chat", chatId));
   };
   const composer = chat && data ? chat.draft ? (
-    <DraftBlock actions={actions} chatId={chatId} d={chat.draft} embedded key={`draft:${chatId}:${chat.draft.id}`} name={name} project={project} />
+    <DraftBlock actions={actions} d={chat.draft} embedded key={`draft:${chatId}:${chat.draft.id}`} name={name} project={project} />
   ) : (
     <ManualReply
       chatId={chatId}

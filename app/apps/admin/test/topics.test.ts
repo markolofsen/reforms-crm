@@ -26,4 +26,22 @@ describe("invalidateTopics", () => {
     await invalidateTopics(qc, "p", ["rules", "mail"]);
     expect(stale(qc)).toContain(keys.draftMail("p", 1).join("/"));
   });
+
+  // P127 C2: a Messengers write names `messengers` (messengerMutationKeys is gone): the panel's lists, every conversation, the
+  // autolink and its dialogs of that project are read again, and nothing of another project.
+  it("reads a project's whole Messengers panel again on `messengers`, and no other project's", async () => {
+    const qc = new QueryClient();
+    const mine = [keys.messengerChats("p", "all"), keys.messengerConversation("p", 3), keys.autolink("p"), keys.autolinkDialogs("p", "whatsapp", "1", "k")];
+    for (const k of [...mine, keys.messengerConversation("q", 3)]) qc.setQueryData(k, 1);
+    await invalidateTopics(qc, "p", ["messengers"]);
+    expect(stale(qc)).toEqual(mine.map((k) => k.join("/")).sort());
+  });
+
+  // P127 C2: a messenger send reads the panel and Activity ▸ Sends again (it was a hand list of keys in the send hook).
+  it("reads the sends with the panel after a messenger send", async () => {
+    const qc = new QueryClient();
+    for (const k of [keys.messengerConversation("p", 3), keys.sends("p")]) qc.setQueryData(k, 1);
+    await invalidateTopics(qc, "p", ["messengers", "sends"]);
+    expect(stale(qc)).toEqual([keys.messengerConversation("p", 3), keys.sends("p")].map((k) => k.join("/")).sort());
+  });
 });
