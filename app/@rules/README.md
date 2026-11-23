@@ -1,6 +1,6 @@
 # Local admin app rules
 
-Index. Read the page that owns your question before you edit `app/apps/admin`, the local admin: Next.js 16 (App Router), React 19, coss, a Hono API behind `/api` (decision 0015). Each rule page has MUST / SHOULD rules and an Enforcement section naming the tool or test; `pnpm --filter @hub/admin check` runs the gates, including `test/package-boundaries.test.ts` for stable package edges. Pages are adapted copies of the shared frontend rules: provenance in `SOURCE.md`.
+Index. Read the page that owns your question before you edit `app/apps/admin`, the local admin: Next.js 16 (App Router), React 19, coss, a Hono API behind `/api` (decision 0015). Each rule page has MUST / SHOULD rules and an Enforcement section naming the tool or test; `pnpm --filter @hub/admin check` runs the gates; the package edges are the root `app/test/boundaries.test.ts` (`pnpm test:boundaries`, P120 W5). Pages are adapted copies of the shared frontend rules: provenance in `SOURCE.md`.
 
 
 | Task | Page |

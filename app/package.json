@@ -10,7 +10,7 @@
     "start": "turbo run start",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test",
+    "test": "turbo run test && vitest run --dir test",
     "storybook": "pnpm --filter @hub/storybook storybook",
     "storybook:typecheck": "pnpm --filter @hub/storybook typecheck",
     "storybook:build": "pnpm --filter @hub/storybook build",
@@ -19,10 +19,13 @@
     "db:migrate": "pnpm --filter @hub/db migrate",
     "hub": "pnpm --filter @hub/installer hub",
     "e2e": "pnpm --filter @hub/admin e2e",
-    "live": "bash scripts/live.sh"
+    "live": "bash scripts/live.sh",
+    "test:boundaries": "vitest run --dir test"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "turbo": "2.11.11",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "vitest": "catalog:"
   }
 }
