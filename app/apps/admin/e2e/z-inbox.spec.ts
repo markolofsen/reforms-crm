@@ -54,7 +54,8 @@ test("inbox: the arrival is Needs you, the clients who wrote are its people with
   // P99 verdict 14: who wrote is the Needs you count of the View menu, not a number on the line; demo mode says why Mail is not read.
   await expect(page.getByTestId("status-line")).not.toContainText("wrote");
   await expect(page.getByTestId("status-line")).toContainText("Demo mode: Mail is not read");
-  await expect(page.getByRole("navigation", { name: "Sections" }).first().getByTestId("nav-count-mail")).toContainText("2");
+  // P128 X0 (F5): the rail's badge is Mail's Needs you count, not who wrote (its own test below checks the number).
+  await expect(page.getByRole("navigation", { name: "Sections" }).first().getByTestId("nav-count-mail")).toContainText("need you");
   await viewMenu(page).click();
   await expect(page.getByRole("menuitemradio", { name: /^Needs you/ })).toContainText(String(await cards(page).count()));
   await page.keyboard.press("Escape");
@@ -140,14 +141,19 @@ test("P128 X0 (F16): a New lead opens at a split width and stays open; a cold lo
 test("P123 U0: Mail's composer is plain text: no formatting buttons, Markdown typed stays as typed", async ({ page }) => {
   await page.goto(at(P, "/mail"));
   await person(page, "Omar Test").getByRole("button").first().click();
-  const box = pane(page).getByRole("textbox", { name: /^(Reply|New message) composer$/ });
+  // In a full run P98's test above has recorded Omar's draft: the pane shows its card, whose Edit opens the same editor.
+  const edit = pane(page).getByRole("button", { name: "Edit", exact: true });
+  const editing = await edit.isVisible();
+  if (editing) await edit.click();
+  const box = pane(page).getByRole("textbox", { name: /^((Reply|New message) composer|Edit the Mail draft)$/ });
   await expect(box).toBeVisible();
   await expect(box).toHaveJSProperty("tagName", "TEXTAREA");
   await expect(pane(page).getByRole("toolbar")).toHaveCount(0);
   for (const name of ["Bold", "Italic", "Link", "Quote", "Bulleted list"]) await expect(pane(page).getByRole("button", { name, exact: true })).toHaveCount(0);
   await box.fill("**not bold** and - not a list");
   await expect(box).toHaveValue("**not bold** and - not a list");
-  await box.fill("");
+  if (editing) await box.press("Escape");
+  else await box.fill("");
 });
 
 test("P128 X0 (F5): the rail's Mail badge is Mail's Needs you count, and says need you", async ({ page }) => {

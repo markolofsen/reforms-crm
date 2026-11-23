@@ -102,9 +102,10 @@ test("messengers: Edit changes the draft's text, Skip sets it aside with Undo", 
 });
 
 test("P128 X0 (F30): Activity's row of a messenger draft opens its chat, never Mail's Not found", async ({ page }) => {
-  // The Prepare reply above recorded a messenger draft's event ("Drafted reply for Rita Falsa").
+  // The Prepare reply above recorded a messenger draft's event (skill messenger-reply); its client cell is the row's link.
   await page.goto(at(P, "/log"));
-  const link = page.getByRole("link", { name: new RegExp(`Drafted reply for ${RITA}`) }).first();
+  const row = page.getByRole("row").filter({ hasText: "messenger-reply" }).filter({ hasText: RITA }).first();
+  const link = row.getByRole("link", { name: new RegExp(RITA) });
   await expect(link).toBeVisible();
   await link.click();
   await expect(page).toHaveURL(/\/messengers\/c\/\d+/);
