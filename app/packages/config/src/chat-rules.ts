@@ -1,6 +1,6 @@
 // The rules of one linked messenger chat (P71 M2b, research 23 section 2): what the agent may draft there. One owner of the
 // vocabulary, the defaults and the bounds: the migration's CHECKs (`@hub/db` 0025), the repo's setter, the agent's
-// `messenger_draft_write` and, in M3, the admin's Messengers ▸ Settings read these. No value sends: Send stays a person's
+// `messenger_draft_write` and, in M3, the admin's Settings ▸ Messengers read these. No value sends: Send stays a person's
 // click (decision 0036 point 8), so `reply_mode` has no `auto`.
 
 /** `off`: never draft here. `on_request`: only when the owner asks for this chat in the session. `draft`: triage drafts a reply. */
@@ -21,7 +21,7 @@ export const OWNER_REQUEST_MAX = 500;
 
 /**
  * The send guards of a user account (decision 0036 point 7), once here so the send door (P71 M4) enforces the same numbers that
- * Messengers ▸ Settings prints today (M3). The hub never makes first contact: a chat needs an inbound message before a send.
+ * Settings ▸ Messengers prints today (M3). The hub never makes first contact: a chat needs an inbound message before a send.
  */
 export const MESSENGER_DAILY_CAP = 30;
 export const MESSENGER_SPACING_SECONDS = 20;

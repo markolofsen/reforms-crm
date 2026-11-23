@@ -27,6 +27,7 @@ import { dest, sectionList } from "@/routes/paths";
 import { PROJECTLESS } from "@/routes/table";
 import { sectionTitle } from "@/routes/sections";
 
+import { useMessengerChannels } from "@/features/messengers/channel/use-channels";
 import { AppShell, type ShellNavItem } from "./shell";
 import { useFileDropGuard } from "./use-file-drop-guard";
 import { keys } from "@/lib/cache/keys";
@@ -41,7 +42,19 @@ function useNavWithDots(project: string | null): ShellNavItem[] {
   const lit = useLitRoutes(project);
   // P128 X0 (F5): Mail carries its Needs you count, read from the same query as Mail's default list.
   const needYou = useMailNeedsYou(project);
-  return useMemo(() => items.map((i) => ({ ...i, dot: lit.has(i.route) || i.children.some((c) => lit.has(c.route)), ...(i.id === "mail" && needYou > 0 ? { count: needYou } : {}) })), [items, lit, needYou]);
+  // P125 L5: Messengers' channels as sidebar children; in icon mode the parent's badge is their sum (verdict 15).
+  const channels = useMessengerChannels(project);
+  const chats = channels.reduce((n, c) => n + c.count, 0);
+  return useMemo(
+    () =>
+      items.map((i) => ({
+        ...i,
+        dot: lit.has(i.route) || i.children.some((c) => lit.has(c.route)),
+        ...(i.id === "mail" && needYou > 0 ? { count: needYou } : {}),
+        ...(i.id === "messengers" && channels.length > 0 ? { subs: channels, ...(chats > 0 ? { count: chats } : {}) } : {}),
+      })),
+    [items, lit, needYou, channels, chats],
+  );
 }
 
 /**

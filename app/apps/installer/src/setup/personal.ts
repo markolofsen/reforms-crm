@@ -66,7 +66,7 @@ export function personalChecklist(f: PersonalFacts): PersonalItem[] {
   const tg = f.messengerSessions.some((s) => s.startsWith("telegram")), wa = f.messengerSessions.some((s) => s.startsWith("whatsapp"));
   items.push(tg || wa
     ? { id: "messengers", label: "Telegram / WhatsApp", state: "done", detail: `${[tg ? "Telegram" : "", wa ? "WhatsApp" : ""].filter(Boolean).join(" and ")} signed in on this Mac` }
-    : { id: "messengers", label: "Telegram / WhatsApp", state: "optional", detail: "not connected on this Mac (optional)", fix: "your OWN account only: ./run.sh up, Messengers ▸ Settings; never copy another person's session folder (a copied session is a second device on one key: 440, ban risk)" });
+    : { id: "messengers", label: "Telegram / WhatsApp", state: "optional", detail: "not connected on this Mac (optional)", fix: "your OWN account only: ./run.sh up, Settings ▸ Messengers; never copy another person's session folder (a copied session is a second device on one key: 440, ban risk)" });
 
   if (f.coreUpdate) items.push({ id: "core", label: "Core update", state: "optional", detail: f.coreUpdate, fix: "agree it with the team: one person moves the pin (./run.sh core update <tag> --apply), commits core.version, the others git pull --recurse-submodules" });
   return items;

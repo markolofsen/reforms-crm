@@ -54,7 +54,7 @@ describe("resolveRoute", () => {
   });
 
   it("an unknown path, the old /clients, a bad id, an extra segment or a project before a projectless section is Not found", () => {
-    for (const p of ["/clients", "/nope", "/mail/abc", "/mail/0", "/mail/-1", "/mail/1.5", "/bulk", "/bulk/3", "/mail/1/2", "/log/3", "/settings/x", "/settings/mail/1", "/knowledge/x", "/help/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/help", "/lisbon/settings/connections", "/lisbon/settings/mac", "/_/overview", "/_/settings/connections", "/project", "/project/setup", "/agents", "/connections", "/lisbon/project", "/lisbon/agents", "/lisbon/mail/1/2", "/%E0%A4%A/mail", `/${OLD}`, `/${OLD}/42`, `/lisbon/${OLD}`, "/mail/in", "/mail/in/7", "/mail/in/abc", "/mail/in/1/2", "/mail/42", "/lisbon/mail/42", "/mail/c", "/mail/c/abc", "/mail/c/0", "/mail/c/1/2"]) {
+    for (const p of ["/messengers/settings", "/lisbon/messengers/settings", "/clients", "/nope", "/mail/abc", "/mail/0", "/mail/-1", "/mail/1.5", "/bulk", "/bulk/3", "/mail/1/2", "/log/3", "/settings/x", "/settings/mail/1", "/knowledge/x", "/help/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/help", "/lisbon/settings/connections", "/lisbon/settings/mac", "/_/overview", "/_/settings/connections", "/project", "/project/setup", "/agents", "/connections", "/lisbon/project", "/lisbon/agents", "/lisbon/mail/1/2", "/%E0%A4%A/mail", `/${OLD}`, `/${OLD}/42`, `/lisbon/${OLD}`, "/mail/in", "/mail/in/7", "/mail/in/abc", "/mail/in/1/2", "/mail/42", "/lisbon/mail/42", "/mail/c", "/mail/c/abc", "/mail/c/0", "/mail/c/1/2"]) {
       expect(at(p).route, p).toBe("notFound");
     }
     expect(REDIRECTS).toEqual([]);
@@ -125,8 +125,8 @@ describe("paths and places", () => {
   });
 
   it("child pages (P70): Settings' Mail, Agent, Connections, This Mac in order; Messengers' Settings (P71 M3); no other section has one; `g s` lands on Sending", () => {
-    expect(childrenOf("settings").map((c) => c.route)).toEqual(["settings.checks", "settings.mail", "settings.agent", "settings.connections", "settings.mac"]);
-    expect(childrenOf("messengers").map((c) => c.route)).toEqual(["messengers.settings"]);
+    expect(childrenOf("settings").map((c) => c.route)).toEqual(["settings.checks", "settings.mail", "settings.messengers", "settings.agent", "settings.connections", "settings.mac"]);
+    expect(childrenOf("messengers")).toEqual([]);
     expect(roundTrip(dest("messengers.page", { filter: "linked" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "linked", channel: "all" } });
     expect(roundTrip(dest("messengers.conversation", { id: 7 }, { filter: "linked", channel: "whatsapp" }), MANY)).toMatchObject({ route: "messengers.conversation", params: { id: 7 }, search: { filter: "linked", channel: "whatsapp" } });
     // P84c: the channel is a filter of the same page; an unknown view or channel resets to its default, the default drops its key.

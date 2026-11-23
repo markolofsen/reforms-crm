@@ -40,7 +40,7 @@ export function messengerChatsRepo(db: Db) {
     },
 
     /**
-     * The owner's rules for one linked chat (Messengers ▸ Settings in M3; tests). `invalid` when a value is out of bounds (the
+     * The owner's rules for one linked chat (Settings ▸ Messengers in M3; tests). `invalid` when a value is out of bounds (the
      * migration's CHECKs say the same), `not_found` when the chat is not linked: a rule never creates a chat row.
      */
     async setChatRules(project: string, channel: MessengerChannel, chatId: string, patch: Partial<ChatRules>, at: string = now()): Promise<MessengerChatRow> {

@@ -11,7 +11,6 @@ import { ListDetail, ListScrollArea } from "@hub/ui/product/list-detail";
 import { ListFilterMenu, ListToolbar, ListToolbarRow } from "@hub/ui/product/list-toolbar";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, ListSkeleton, ListState, LoadFailed, Refreshing, StaleNote } from "@/components/state-views";
-import { SubNav } from "@/components/sub-nav";
 import { useSearch } from "@/hooks/use-search-state";
 import { useDebounced } from "@/hooks/use-debounced";
 import { usePaneNarrow } from "@/hooks/use-pane";
@@ -25,7 +24,6 @@ import { ChatRow } from "./chat-row";
 import { emptyLine, VIEW_LABEL, VIEW_ORDER } from "./labels";
 import { useTelegramUser } from "./settings/use-telegram";
 import { useWhatsApp } from "./settings/whatsapp/use-whatsapp";
-import { ChannelFilter } from "./channel/channel-filter";
 import { LinkChat } from "./status/link-chat";
 import { useChatMoves } from "./status/use-moves";
 import { channelOptions, effectiveChannel, hiddenRows, matchesHiddenSearch, matchesRecentSearch, notLinkedRows, unlinkedRows, viewCounts } from "./unlinked/chats-model";
@@ -45,7 +43,7 @@ function ViewMenu({ value, counts, onChange }: { value: View; counts: Record<Vie
 
 /**
  * Messengers ▸ Chats (P71 M3, `/messengers`, `g m`; simplified by P84c on the owner's words of 2026-11-20): what the messengers owe.
- * One page for both channels, the channel a filter (`?channel=`), and the states of a chat in one View menu: To do (the linked
+ * One page for both channels, the channel chosen in the sidebar (P125 L5, `?channel=`), and the states of a chat in one View menu: To do (the linked
  * chats that wait, a draft or the client wrote last, then the fresh unlinked chats nobody decided on), Linked (every linked chat),
  * Not linked (P102: every unlinked chat the Hub remembers, of any age) and Hidden (the chats he said are not clients). Each row has
  * one state menu (P102); "Link a chat…" starts from a client. Rows stay compact and expose identity plus the latest state; the selected
@@ -111,13 +109,13 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
   else if (filter === "linked")
     body = linkedList ?? searchEmpty ?? (
       <EmptyState compact title="No linked chats yet">
-        {accountsLine} The rules of each linked chat are on <AppLink to={dest("messengers.settings")}>Messengers ▸ Settings</AppLink>.
+        {accountsLine} The rules of each linked chat are on <AppLink to={dest("settings.messengers")}>Settings ▸ Messengers</AppLink>.
       </EmptyState>
     );
   else if (!linkedList && unlinked.length === 0)
     body = searchEmpty ?? (d.counts.linked === 0 ? (
         <EmptyState compact title="No linked chats yet">
-          {accountsLine} The accounts and the rules of each linked chat are on <AppLink to={dest("messengers.settings")}>Messengers ▸ Settings</AppLink>.
+          {accountsLine} The accounts and the rules of each linked chat are on <AppLink to={dest("settings.messengers")}>Settings ▸ Messengers</AppLink>.
         </EmptyState>
       ) : (
         <EmptyState action={<ActionButton onClick={() => setSearch({ filter: "linked" })} size="s" variant="secondary">Show linked chats</ActionButton>} compact title="Nothing to do">
@@ -140,7 +138,6 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
       <ListToolbar ariaLabel="Chat filters and actions">
         <ListToolbarRow>
           <ViewMenu counts={viewCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ filter: v })} value={filter} />
-          {options.length > 0 && <ChannelFilter onChange={(v) => setSearch({ channel: v })} options={options} value={channel} />}
           <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
             <Input aria-label="Search chats" className="control-s w-full" onChange={(event) => setSearch({ q: event.target.value })} placeholder="Search people or messages" type="search" value={search} />
           </div>
@@ -160,5 +157,5 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
     </ListScrollArea>
   );
   const detail = chatId === null ? <ConversationEmptyState subtitle="Choose a chat from the list"><EmptyState compact title="Nothing to open">Pick a person from the list.</EmptyState></ConversationEmptyState> : <MessengerConversationPane actions={actions} chatId={chatId} onBack={() => go(dest("messengers.page", { filter, channel, q: search }))} project={project} />;
-  return <Page flush nav={<SubNav section="messengers" />} scroll={false}><ListDetail detail={detail} detailLabel="Conversation" list={list} listLabel="Chats" showDetail={chatId !== null} /></Page>;
+  return <Page flush scroll={false}><ListDetail detail={detail} detailLabel="Conversation" list={list} listLabel="Chats" showDetail={chatId !== null} /></Page>;
 }

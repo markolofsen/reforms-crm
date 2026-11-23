@@ -22,7 +22,7 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   // P71 M4: the e2e server connects no Telegram account, so the real dry run refuses, in words, and nothing is sent.
   await conversation(page).getByRole("button", { name: `Send the reply to ${RITA}` }).click();
   await expect(conversation(page).getByText(/^Not sent: \d+ reasons?$/)).toBeVisible();
-  await expect(conversation(page).getByText("the Telegram account 100200300 is not connected (Messengers ▸ Settings)")).toBeVisible();
+  await expect(conversation(page).getByText("the Telegram account 100200300 is not connected (Settings ▸ Messengers)")).toBeVisible();
   await conversation(page).getByRole("button", { name: "Close" }).click();
   await expect(conversation(page).getByText(/^Not sent:/)).toHaveCount(0);
   await expect(rita(page)).toHaveAttribute("data-agent-ref", /^chat:\d+$/);
@@ -35,7 +35,7 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("Waiting for client")).toBeVisible();
   // P71 M-P: the seeded verdicts of Sofia's chat, counted by reason under its Pre-analysis switch (P115: the compact row shows
   // identity and state only).
-  await page.goto(at(P, "/messengers/settings"));
+  await page.goto(at(P, "/settings/messengers"));
   await expect(page.getByRole("listitem", { name: "Rules for Sofia Teste" }).getByText("Pre-analysis: hid 1 of 2 (1 closing).")).toBeVisible();
   // Mail drafts stay in Drafts, and messenger drafts never go there.
   await page.goto(at(P, "/mail?filter=all"));
@@ -118,7 +118,7 @@ test("P128 X0 (F30): Activity's row of a messenger draft opens its chat, never M
 });
 
 test("messengers settings: a chat's reply mode and instruction are saved and read back", async ({ page }) => {
-  await page.goto(at(P, "/messengers/settings"));
+  await page.goto(at(P, "/settings/messengers"));
   const rules = page.getByRole("listitem", { name: `Rules for ${RITA}` });
   await rules.getByRole("button", { name: "Only when I ask" }).click();
   await expect(rules.getByRole("button", { name: "Only when I ask" })).toHaveAttribute("aria-pressed", "true");
@@ -136,13 +136,13 @@ test("messengers settings: a chat's reply mode and instruction are saved and rea
   await page.goto(at(P, "/messengers?filter=linked"));
   await expect(rita(page)).toContainText(/Only when I ask|Client wrote|Draft ready/);
   // Back to the default, so the specs after this one see the seed's rules.
-  await page.goto(at(P, "/messengers/settings"));
+  await page.goto(at(P, "/settings/messengers"));
   await rules.getByRole("button", { name: "Draft replies" }).click();
   await expect(rules.getByRole("button", { name: "Draft replies" })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("messengers settings: the project reply policy names its language and instruction, nothing about delivery", async ({ page }) => {
-  await page.goto(at(P, "/messengers/settings"));
+  await page.goto(at(P, "/settings/messengers"));
   const policy = page.getByRole("region", { name: "Reply policy" });
   await expect(policy).toContainText("Language follows the client by default");
   await expect(policy.getByRole("button", { name: "Open project policy" })).toBeVisible();
@@ -172,7 +172,7 @@ async function stubTelegram(page: Page, opts: { connected: boolean }) {
 
 test("messengers settings: the connect form drives M1's routes step by step, with the risk sentence", async ({ page }) => {
   const t = await stubTelegram(page, { connected: false });
-  await page.goto(at(P, "/messengers/settings"));
+  await page.goto(at(P, "/settings/messengers"));
   const form = page.getByTestId("telegram-connect");
   await expect(form.getByText(/your own, personal Telegram account/)).toBeVisible();
   await form.getByLabel("api_id").fill("12345");
@@ -215,7 +215,7 @@ test("messengers settings: WhatsApp shows the QR code only after Connect, then t
     linked = true;
     return r.fulfill({ json: { step: "done", account: account.account, name: "Mark Owner" } });
   });
-  await page.goto(at(P, "/messengers/settings"));
+  await page.goto(at(P, "/settings/messengers"));
   const box = page.getByTestId("whatsapp-connect");
   await expect(box.getByText(/your own, personal WhatsApp number/)).toBeVisible();
   await expect(box.getByRole("img", { name: /QR code/ })).toHaveCount(0);

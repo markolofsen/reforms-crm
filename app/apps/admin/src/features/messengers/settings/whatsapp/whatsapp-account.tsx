@@ -61,7 +61,7 @@ function ConnectWhatsApp() {
 }
 
 /**
- * Messengers ▸ Settings, WhatsApp (P71 M5): the linked number with its state and Disconnect, or Connect with its risk sentence
+ * Settings ▸ Messengers, WhatsApp (P71 M5): the linked number with its state and Disconnect, or Connect with its risk sentence
  * and, on his click, the QR code to scan. When the server keeps WhatsApp off (`HUB_MESSENGERS=off`, several projects) its reason
  * is the one line above; Connect still asks the server, whose refusal lands in the alert.
  */

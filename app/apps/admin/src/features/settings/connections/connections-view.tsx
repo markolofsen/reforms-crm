@@ -19,7 +19,7 @@ function ConnectionsSkeleton() {
 
 /**
  * The instance's keys of the given kinds, one list, each row its label: Settings ▸ Connections shows the Notion token, and
- * Messengers ▸ Settings the Telegram bot's (P71 M3, decision 0036 point 6: the bot is a messenger, so its key sits with the
+ * Settings ▸ Messengers the Telegram bot's (P71 M3, decision 0036 point 6: the bot is a messenger, so its key sits with the
  * accounts). The projects' mail accounts are on Settings ▸ Mail. It reads `GET /api/connections` and tests a key on request.
  * A key is never shown: a row says where it stands, not what it is.
  */

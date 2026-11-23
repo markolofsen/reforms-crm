@@ -5,7 +5,7 @@ import type { ProjectLinksDto } from "@hub/contract/responses";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { BrandHeader } from "@hub/ui/product/brand-header";
 import { ThemeSegmented, ThemeToggle } from "@hub/ui/product/theme";
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@hub/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, useSidebar } from "@hub/ui/sidebar";
 import { useHotkey } from "@hub/ui/use-hotkey";
 import { AppLink } from "@/components/app-link";
 import { KeyHelp } from "@/components/key-help";
@@ -44,7 +44,7 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys, l
               <SidebarMenu>
                 {items.map((i) => (
                   <SidebarMenuItem key={i.id}>
-                    <SidebarMenuButton className="relative h-(--control-m) gap-3 px-3 group-data-[collapsible=icon]:size-(--control-m)! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0!" isActive={i.active} render={<AppLink aria-current={i.active && !i.children.some((c) => c.active) ? "page" : undefined} bare to={i.to} />} tooltip={i.dot ? `${i.title}: needs you` : i.title}>
+                    <SidebarMenuButton className="relative h-(--control-m) gap-3 px-3 group-data-[collapsible=icon]:size-(--control-m)! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0!" isActive={i.active} render={<AppLink aria-current={i.active && !i.children.some((c) => c.active) && !i.subs?.some((c) => c.active) ? "page" : undefined} bare to={i.to} />} tooltip={i.dot ? `${i.title}: needs you` : i.title}>
                       <NavIcon name={i.icon} />
                       <span className="min-w-0 truncate group-data-[collapsible=icon]:sr-only">{i.title}</span>
                       {i.count !== undefined && (
@@ -55,6 +55,23 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys, l
                       )}
                       {i.dot && <NavDot at="rail" id={i.id} />}
                     </SidebarMenuButton>
+                    {i.subs && i.subs.length > 0 && (
+                      <SidebarMenuSub aria-label={`${i.title} channels`}>
+                        {i.subs.map((c) => (
+                          <SidebarMenuSubItem key={c.id}>
+                            <SidebarMenuSubButton isActive={c.active} render={<AppLink aria-current={c.active ? "page" : undefined} bare to={c.to} />}>
+                              <span className="min-w-0 truncate">{c.title}</span>
+                              {c.count > 0 && (
+                                <span className="ms-auto shrink-0 text-muted-foreground text-xs tabular-nums" data-testid={`nav-count-${i.id}-${c.id}`}>
+                                  {c.count}
+                                  <span className="sr-only"> need you</span>
+                                </span>
+                              )}
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    )}
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>

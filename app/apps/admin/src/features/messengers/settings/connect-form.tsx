@@ -14,7 +14,7 @@ const onSubmit = (go: () => void) => (e: FormEvent) => {
 };
 
 /**
- * Messengers ▸ Settings, connect a Telegram account (P71 M3 over M1's routes): the risk sentence, then one step at a time, each a
+ * Settings ▸ Messengers, connect a Telegram account (P71 M3 over M1's routes): the risk sentence, then one step at a time, each a
  * server call that keeps nothing but the final session: api_id and api_hash from my.telegram.org with the phone, then the code
  * Telegram sends, then the 2FA password if the account has one. He types every value himself; the agent never does (0036
  * point 4). A refusal is said in the alert and the form stays on its step.

@@ -113,7 +113,7 @@ export const messengerHistoryTool = defineTool({
           if (row) rows.push(row);
         }
       }
-      if (!rows.length) throw new ToolError("not_linked", `Client ${client} has no linked chat in project ${slug}: the owner links one in Messengers ▸ Settings.`);
+      if (!rows.length) throw new ToolError("not_linked", `Client ${client} has no linked chat in project ${slug}: the owner links one in Settings ▸ Messengers.`);
     } else throw new ToolError("invalid", "Give channel and chat_id, or client.");
     const chats = [];
     const policy = policyOf(ctx);

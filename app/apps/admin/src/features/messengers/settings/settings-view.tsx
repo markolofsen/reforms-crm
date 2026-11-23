@@ -3,7 +3,6 @@ import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat
 import { Page } from "@hub/ui/product/page";
 import { LoadFailed, Loading } from "@/components/state-views";
 import { AppLink } from "@/components/app-link";
-import { SubNav } from "@/components/sub-nav";
 import { LocalActionButton } from "@/components/local-action";
 import { messengersApi } from "@/lib/api/messengers/panel";
 import { metaApi } from "@/lib/api/meta";
@@ -55,7 +54,7 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
 }
 
 /**
- * Messengers ▸ Settings (P71 M3, decision 0036 point 6): what is set rarely for the messengers, every group in view (nothing
+ * Settings ▸ Messengers (P71 M3, decision 0036 point 6): what is set rarely for the messengers, every group in view (nothing
  * folded, as Settings since P75). The owner's Telegram account (connect with the risk sentence, its state, Disconnect), his WhatsApp
  * number (P71 M5: Connect, the QR code to scan, its state, Disconnect), the Telegram bot's token, the linked chats with their rules
  * (linking is on Chats, P102), and the send guards' numbers.
@@ -70,7 +69,7 @@ export function MessengerSettings({ project }: { project: string }) {
   const policyLoading = overview.isPending ? "Loading project policy…" : null;
   const linkedOf = (ch: "telegram_user" | "whatsapp") => chats.data?.chats.filter((c) => c.channel === ch).length;
   return (
-    <Page nav={<SubNav section="messengers" />}>
+    <Page>
       <div className="flex flex-col gap-4">
         <Group id="reply-policy" title="Reply policy">
           <div className="measure flex flex-col gap-2 text-sm">

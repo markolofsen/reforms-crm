@@ -35,7 +35,7 @@ export type StatusKind = (typeof STATUS_KINDS)[number];
 
 /**
  * Where the worst fact is fixed: the nav targets that can carry a dot (P70: Overview, Knowledge, and the Settings panes Sending,
- * Mail, Agent, Connections, This Mac; P71 M3: `messengers` is Messengers ▸ Settings, where a parked account and the bot are). A fact fixed by a phrase in a session (a failing setup check, a draft project) names
+ * Mail, Agent, Connections, This Mac; P71 M3: `messengers` is Settings ▸ Messengers, where a parked account and the bot are). A fact fixed by a phrase in a session (a failing setup check, a draft project) names
  * Overview, where its "Needs you" item carries the phrase. The server never writes a URL: the admin maps it to `paths.*`.
  * Null: nowhere but the list itself.
  */

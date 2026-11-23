@@ -115,7 +115,7 @@ function fromRows(tools: AgentToolsDto | null, match: (id: string) => boolean): 
 function tokenNode(c: ConnectionDto): SchemeNode {
   const k = c.check;
   const id = `${c.kind}:${c.id}`;
-  // P71 M3: the Telegram bot's token is set on Messengers ▸ Settings, beside the accounts; the Notion token stays on Connections.
+  // P71 M3: the Telegram bot's token is set on Settings ▸ Messengers, beside the accounts; the Notion token stays on Connections.
   const base = { id, kind: c.kind, project: null, label: c.identity ? `${c.label} (${c.identity})` : c.label, place: c.kind === "telegram" ? ("messengers" as const) : ("connections" as const) };
   if (c.secret.state === "missing") return node({ ...base, state: "fail", detail: "No key stored." });
   if (c.secret.state === "unsafe-mode" || c.secret.state === "malformed") return node({ ...base, state: "fail", detail: c.secret.state === "malformed" ? "The stored key is not a key." : "The key file is readable by others." });
@@ -129,7 +129,7 @@ function tokenNode(c: ConnectionDto): SchemeNode {
 /**
  * P71: one part per Telegram user account (the owner's own account), from the health snapshot. A parked account is broken with its
  * fix line, so it is a "needs you" item; a passing error needs a look. The label names the account's id only, never a chat. Its
- * place is Messengers ▸ Settings (P71 M3), where the account is connected and disconnected.
+ * place is Settings ▸ Messengers (P71 M3), where the account is connected and disconnected.
  */
 function telegramUserNodes(h: HealthDto): SchemeNode[] {
   return h.telegramUser.accounts.map((a) => {
@@ -139,7 +139,7 @@ function telegramUserNodes(h: HealthDto): SchemeNode[] {
   });
 }
 
-/** P71 M5: one part per WhatsApp linked device (the owner's own number), as the Telegram accounts'. Its place is Messengers ▸ Settings. */
+/** P71 M5: one part per WhatsApp linked device (the owner's own number), as the Telegram accounts'. Its place is Settings ▸ Messengers. */
 function whatsappNodes(h: HealthDto): SchemeNode[] {
   return h.whatsapp.accounts.map((a) => {
     const state: SchemeState = a.state === "running" ? "ok" : a.state === "parked" ? "fail" : a.state === "error" ? "warn" : "unknown";

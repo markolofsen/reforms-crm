@@ -147,13 +147,13 @@ export const wroteLine = (last: { at: string; inbound: boolean }, ago: string): 
 export const unnamedHiddenLine = (n: number): string =>
   `${n === 1 ? "1 more hidden chat is" : `${n} more hidden chats are`} kept as a fingerprint only: it shows here by name when it writes again.`;
 
-/** The account row's sentence after its "Connected" badge (Messengers ▸ Settings): what the Hub reads of a connected account. */
+/** The account row's sentence after its "Connected" badge (Settings ▸ Messengers): what the Hub reads of a connected account. */
 export const readsLine = (linked: number): string => `· reads only chats linked to a client (${linked} linked)`;
 
 /** The Chats empty state's opening: both accounts named, and why nothing shows. */
 export function emptyLine(o: { telegram: boolean; whatsapp: boolean; enabled: boolean; withIdentifier: number; directoryReady: boolean }): string {
   const names = [o.telegram ? "your Telegram account" : null, o.whatsapp ? "your WhatsApp number" : null].filter((x): x is string => x !== null);
-  if (names.length === 0) return "No Telegram account or WhatsApp number is connected: connect one on Messengers ▸ Settings.";
+  if (names.length === 0) return "No Telegram account or WhatsApp number is connected: connect one on Settings ▸ Messengers.";
   const who = names.join(" and ");
   const how = !o.directoryReady
     ? "The client list from Notion is not read yet, so nothing can be matched."

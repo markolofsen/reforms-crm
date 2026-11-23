@@ -113,7 +113,7 @@ const SCREENS: Screen[] = [
   { name: "settings: mail", path: at(P, "/settings/mail"), ready: async (p) => void (await p.getByRole("list", { name: "Mail filters" }).waitFor()) },
   { name: "settings: agent", path: at(P, "/settings/agent"), ready: async (p) => void (await p.getByTestId("agent-tools-status").waitFor()) },
   { name: "settings: this mac", path: "/settings/mac", ready: async (p) => void (await p.getByTestId("core-block").or(p.getByText("Could not load the core update check")).first().waitFor()) },
-  // P71 M3: the Messengers panel (the seeded chat of Rita with the agent's draft) and Messengers ▸ Settings.
+  // P71 M3: the Messengers panel (the seeded chat of Rita with the agent's draft) and Settings ▸ Messengers.
   { name: "messengers: chats", path: at(P, "/messengers"), ready: async (p) => void (await openMessengerDraft(p)) },
   {
     name: "messengers: chats, a draft in Edit",
@@ -128,7 +128,7 @@ const SCREENS: Screen[] = [
   { name: "messengers: chats, to do", path: at(P, "/messengers"), mock: async (p) => void (await stubChats(p)), ready: async (p) => void (await p.getByRole("list", { name: "New chats" }).waitFor()) },
   { name: "messengers: chats, hidden", path: at(P, "/messengers?filter=hidden"), mock: async (p) => void (await stubChats(p)), ready: async (p) => void (await p.getByRole("list", { name: "Hidden chats" }).waitFor()) },
   { name: "messengers: chats, not linked", path: at(P, "/messengers?filter=unlinked"), mock: async (p) => void (await stubChats(p)), ready: async (p) => void (await p.getByRole("list", { name: "New chats" }).waitFor()) },
-  { name: "messengers: settings", path: at(P, "/messengers/settings"), ready: async (p) => void (await p.getByRole("list", { name: "Linked chats" }).waitFor()) },
+  { name: "messengers: settings", path: at(P, "/settings/messengers"), ready: async (p) => void (await p.getByRole("list", { name: "Linked chats" }).waitFor()) },
   // P63, P81: wait for the general view's form (the drawing, or on a phone its list), so axe and the width checks never see the skeleton.
   { name: "help", path: "/help", ready: async (p) => void (await p.locator('[data-testid="scheme-general"]:is([data-form="drawn"], [data-form="list"])').waitFor({ timeout: 15_000 })) },
   {

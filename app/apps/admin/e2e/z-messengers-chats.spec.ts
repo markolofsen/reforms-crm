@@ -39,18 +39,15 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
   await expect(page.getByText("4 chats the Hub has seen since it started (any age) are not linked to a client: link or hide each.")).toBeVisible();
 });
 
-test("chats: the channel is a filter of the same page, kept in the address with the view", async ({ page }) => {
+test("chats: the channel is a sidebar child of Messengers (P125 L5), kept in the address with the view; the header has no channel control", async ({ page }) => {
   await stubChats(page);
   await page.goto(at(P, "/messengers"));
-  // P118: the channel is a compact menu like the View one (its trigger reads "Channel: <channel>").
-  const channel = page.getByRole("button", { name: /^Channel:/ });
-  await expect(channel).toHaveText(/All/);
-  await channel.click();
-  await expect(page.getByRole("menuitemradio")).toHaveText(["All", /^Telegram$/, /^WhatsApp$/]);
-  // P102: a channel has its mark beside its word.
-  await expect(page.getByRole("menuitemradio").locator("[data-channel-icon]")).toHaveCount(2);
-  await page.getByRole("menuitemradio", { name: "WhatsApp" }).click();
+  await expect(page.getByRole("button", { name: /^Channel:/ })).toHaveCount(0);
+  const channels = page.getByRole("navigation", { name: "Sections" }).getByRole("list", { name: "Messengers channels" });
+  await expect(channels.getByRole("link")).toHaveText([/^Telegram/, /^WhatsApp/]);
+  await channels.getByRole("link", { name: /^WhatsApp/ }).click();
   await expect.poll(() => new URL(page.url()).search).toBe("?channel=whatsapp");
+  await expect(channels.getByRole("link", { name: /^WhatsApp/ })).toHaveAttribute("aria-current", "page");
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Joana/]);
   await expect(page.getByRole("list", { name: "Chats", exact: true })).toHaveCount(0);
   await expect(view(page)).toHaveText(/To do\s*1/);
@@ -59,8 +56,11 @@ test("chats: the channel is a filter of the same page, kept in the address with 
   await page.keyboard.press("Escape");
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=linked&channel=whatsapp");
   await expect(page.getByText("No linked chats yet")).toBeVisible();
+  // A deep link opens on its channel.
+  await page.goto(at(P, "/messengers?channel=telegram"));
+  await expect(channels.getByRole("link", { name: /^Telegram/ })).toHaveAttribute("aria-current", "page");
   await page.reload();
-  await expect(channel).toHaveText(/WhatsApp/);
+  await expect(channels.getByRole("link", { name: /^Telegram/ })).toHaveAttribute("aria-current", "page");
   // The old "All chats" address reads as the default view.
   await page.goto(at(P, "/messengers?filter=all"));
   await expect(view(page)).toHaveText(/To do/);

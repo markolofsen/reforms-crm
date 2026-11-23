@@ -7,7 +7,7 @@ import { ConnectForm } from "./connect-form";
 import { useTelegramUser } from "./use-telegram";
 
 /**
- * Messengers ▸ Settings, Telegram account (P71 M3): the connected account with its state and Disconnect, or the connect form with
+ * Settings ▸ Messengers, Telegram account (P71 M3): the connected account with its state and Disconnect, or the connect form with
  * its risk sentence. When the server keeps Telegram accounts off (`HUB_MESSENGERS=off`, several projects) its reason is the one
  * line above the form; the form still drives the routes, and the server's refusal lands in the form's alert.
  */

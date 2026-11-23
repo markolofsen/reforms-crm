@@ -41,7 +41,7 @@ export function StatusMenu({ s, name, disabled, onAction, compact = false, conta
             <OpenLinkItem to={chats.telegram} />
             <OpenLinkItem to={chats.whatsapp} />
             {item("change", "Change client…")}
-            <MenuLinkItem render={<AppLink to={dest("messengers.settings")} />}>Rules of this chat</MenuLinkItem>
+            <MenuLinkItem render={<AppLink to={dest("settings.messengers")} />}>Rules of this chat</MenuLinkItem>
             <MenuSeparator />
             {item("hide-linked", "Hide: not a client…", true)}
             {item("unlink", "Unlink…", true)}

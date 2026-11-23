@@ -90,7 +90,7 @@ export async function assessMessenger(deps: MessengerDoorDeps, project: string, 
   const account = await accountOf(repos, project, d.channel, d.chatId);
   if (!account) reasons.push("no stored message tells which account reads this chat");
   else {
-    if (!deps.senders?.sender(d.channel, account)) reasons.push(`the ${WORD[d.channel]} account ${account} is not connected (Messengers ▸ Settings)`);
+    if (!deps.senders?.sender(d.channel, account)) reasons.push(`the ${WORD[d.channel]} account ${account} is not connected (Settings ▸ Messengers)`);
     const refused = usageRefusal(await repos.sends.messengerUsage(d.channel, account, at), LIMITS, at);
     if (refused) reasons.push(refused);
   }
@@ -118,7 +118,7 @@ export async function applyMessenger(deps: MessengerDoorDeps, project: string, d
   if (reasons.length || !a.preview) return { refused: reasons.length ? reasons : ["nothing to send"] };
   const p = a.preview;
   const adapter = deps.senders?.sender(p.channel, p.account);
-  if (!adapter) return { refused: [`the ${WORD[p.channel]} account ${p.account} is not connected (Messengers ▸ Settings)`] };
+  if (!adapter) return { refused: [`the ${WORD[p.channel]} account ${p.account} is not connected (Settings ▸ Messengers)`] };
   const { repos } = deps;
   const at = (deps.now ?? (() => new Date()))().toISOString();
 

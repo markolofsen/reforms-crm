@@ -11,6 +11,7 @@ import { AppsRow } from "./mac/apps-row";
 import { AutostartRow } from "./mac/autostart-row";
 import { CoreBlock } from "./mac/core-block";
 import { MailPane } from "./mail/mail-pane";
+import { MessengerSettings } from "@/features/messengers/settings/settings-view";
 import { SendingPane } from "./sending/sending-pane";
 
 /**
@@ -42,6 +43,17 @@ export function ChecksScreen() {
   );
 }
 
+/** Settings ▸ Messengers (P125 L5; it was a Messengers tab): the logins, the bot, each linked chat's rules, the send guards. */
+export function MessengerSettingsScreen() {
+  const { project } = useProjectScope();
+  if (!useRoute("settings.messengers")) return null;
+  return (
+    <SectionMenu section="settings">
+      <MessengerSettings project={project} />
+    </SectionMenu>
+  );
+}
+
 /** Settings ▸ Mail: the project's accounts and its filters. */
 export function MailScreen() {
   const { project } = useProjectScope();
@@ -66,7 +78,7 @@ export function AgentScreen() {
   );
 }
 
-/** Settings ▸ Connections: the instance's Notion token (the Telegram bot's is on Messengers ▸ Settings, P71 M3). Its address names no project. */
+/** Settings ▸ Connections: the instance's Notion token (the Telegram bot's is on Settings ▸ Messengers, P71 M3). Its address names no project. */
 export function ConnectionsScreen() {
   if (!useRoute("settings.connections")) return null;
   return (

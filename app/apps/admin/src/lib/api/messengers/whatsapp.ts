@@ -3,7 +3,7 @@ import { userDisconnectedDto, userLoginCancelledDto, waConnectStartedDto, waConn
 import { read, readGenerated } from "../client";
 
 /**
- * The owner's WhatsApp linked device (P71 M5's routes, decision 0036 point 4), driven by Messengers ▸ Settings: its state, Connect
+ * The owner's WhatsApp linked device (P71 M5's routes, decision 0036 point 4), driven by Settings ▸ Messengers: its state, Connect
  * (only on his click: the server opens a pairing and the state carries the QR code as module rows, never the string), the pairing's
  * state and cancel, Disconnect. Every write is a POST behind the server's admin gate.
  */

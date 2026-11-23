@@ -81,7 +81,6 @@ export const ROUTE_TABLE = {
   // (Chats), its child the logins, the bot, each chat's rules and the guards. Mail drafts stay in Mail.
   "messengers.page": defineRoute("/messengers", { section: "messengers", scoped: true, title: "Chats", search: MESSENGERS_SEARCH, nav: { label: "Messengers", icon: "messengers", order: 2, chord: "m", phone: "more" } }),
   "messengers.conversation": defineRoute("/messengers/c/[id]", { section: "messengers", scoped: true, title: "Chats", crumb: "Conversation", params: { id: positiveId }, search: MESSENGERS_SEARCH }),
-  "messengers.settings": defineRoute("/messengers/settings", { section: "messengers", scoped: true, title: "Messenger settings", nav: { label: "Settings", icon: "settings", order: 1, parent: "messengers.page" } }),
   "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", search: LOG_SEARCH, nav: { label: "Activity", icon: "activity", order: 3, chord: "a", phone: "bar" } }),
   "knowledge.page": defineRoute("/knowledge", { section: "knowledge", scoped: true, title: "Knowledge", search: KNOWLEDGE_SEARCH, nav: { label: "Knowledge", icon: "knowledge", order: 4, chord: "k", phone: "more" } }),
   // P70: Settings opens on its first pane, Sending (the row's title); the nav names the section, the sub-nav the pane.
@@ -89,9 +88,11 @@ export const ROUTE_TABLE = {
   // P75: the checks before sending are their own pane, next to Sending (guards on each draft, a different kind of setting).
   "settings.checks": defineRoute("/settings/checks", { section: "settings", scoped: true, title: "Checks", nav: { label: "Checks", icon: "checks", order: 1, parent: "settings.page" } }),
   "settings.mail": defineRoute("/settings/mail", { section: "settings", scoped: true, title: "Mail", nav: { label: "Mail", icon: "mail", order: 2, parent: "settings.page" } }),
-  "settings.agent": defineRoute("/settings/agent", { section: "settings", scoped: true, title: "Agent", search: AGENT_SEARCH, nav: { label: "Agent", icon: "agents", order: 3, parent: "settings.page" } }),
-  "settings.connections": defineRoute("/settings/connections", { section: "settings", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 4, parent: "settings.page" } }),
-  "settings.mac": defineRoute("/settings/mac", { section: "settings", scoped: false, title: "This Mac", nav: { label: "This Mac", icon: "mac", order: 5, parent: "settings.page" } }),
+  // P125 L5: Messengers' settings are a Settings group (the Messengers section has one page); `/messengers/settings` is gone, no redirect.
+  "settings.messengers": defineRoute("/settings/messengers", { section: "settings", scoped: true, title: "Messengers", nav: { label: "Messengers", icon: "messengers", order: 3, parent: "settings.page" } }),
+  "settings.agent": defineRoute("/settings/agent", { section: "settings", scoped: true, title: "Agent", search: AGENT_SEARCH, nav: { label: "Agent", icon: "agents", order: 4, parent: "settings.page" } }),
+  "settings.connections": defineRoute("/settings/connections", { section: "settings", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 5, parent: "settings.page" } }),
+  "settings.mac": defineRoute("/settings/mac", { section: "settings", scoped: false, title: "This Mac", nav: { label: "This Mac", icon: "mac", order: 6, parent: "settings.page" } }),
   "help.page": defineRoute("/help", { section: "help", scoped: false, title: "Help", nav: { label: "Help", icon: "help", order: 6, chord: "h", phone: "more" } }),
 } as const;
 

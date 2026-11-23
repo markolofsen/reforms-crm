@@ -42,11 +42,11 @@ test("connections: Settings ▸ Mail is read-only, one row per account this proj
     await expect(mail.getByRole("button")).toHaveCount(0);
   }
   await expect(page.getByText(/IMAP|App password/)).toHaveCount(0);
-  // Notion keeps its key controls on Connections; the Telegram bot's moved to Messengers ▸ Settings (P71 M3).
+  // Notion keeps its key controls on Connections; the Telegram bot's moved to Settings ▸ Messengers (P71 M3).
   await page.goto("/settings/connections");
   await expect(notion(page).getByRole("button", { name: "Set key for Notion" })).toBeVisible();
   await expect(page.locator("#connection-telegram-bot")).toHaveCount(0);
-  await page.goto(at("demo-shop", "/messengers/settings"));
+  await page.goto(at("demo-shop", "/settings/messengers"));
   await expect(page.locator("#connection-telegram-bot").getByRole("button", { name: /^Set key for / })).toBeVisible();
 });
 

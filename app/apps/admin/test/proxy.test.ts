@@ -46,7 +46,7 @@ describe("proxy (Host and Origin guard)", () => {
       ["/mail?project=lisbon", "/_/mail?project=lisbon"],
       ["/settings", "/_/settings"],
       ["/settings/agent", "/_/settings/agent"],
-      ["/messengers/settings", "/_/messengers/settings"],
+      ["/settings/messengers", "/_/settings/messengers"],
     ] as const) {
       const res = call("127.0.0.1:5173", { path, cookie: "hub_project=lisbon" });
       expect(res.status, path).toBe(200);

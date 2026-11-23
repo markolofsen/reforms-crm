@@ -55,10 +55,10 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
   // No channel is connected in the e2e instance, so an asked channel falls back to all and leaves the address (it says what is shown).
   await page.goto("/messengers?filter=linked&channel=whatsapp");
   await expect.poll(() => address(page)).toMatch(new RegExp(`^${at(P, "/messengers/c/")}\\d+\\?filter=linked$`));
-  await page.goto("/messengers/settings");
-  await expect.poll(() => address(page)).toBe(at(P, "/messengers/settings"));
+  await page.goto("/settings/messengers");
+  await expect.poll(() => address(page)).toBe(at(P, "/settings/messengers"));
   await page.reload();
-  await expect(page).toHaveTitle(`Messenger settings · ${P} · Hub Workflow`);
+  await expect(page).toHaveTitle(`Messengers · ${P} · Hub Workflow`);
 });
 
 test("saved links of the query era (until 2026-11-18) open the same view in the path form", async ({ page }) => {
