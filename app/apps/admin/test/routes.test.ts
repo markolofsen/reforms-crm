@@ -71,8 +71,11 @@ describe("resolveRoute", () => {
     expect(at("/mail?batch=abc")).toMatchObject({ search: { batch: null } });
     expect(at("/mail?batch=0")).toMatchObject({ search: { batch: null } });
     expect(at("/log?filter=failed&client=abc&run=3")).toEqual(expect.objectContaining({ search: { filter: "all", client: null } }));
-    expect(at("/knowledge?filter=nope")).toMatchObject({ search: { filter: "all", q: "" } });
+    expect(at("/knowledge?filter=nope")).toMatchObject({ search: { filter: "all", q: "", topic: "" } });
     expect(at("/knowledge?filter=attention&q=x")).toMatchObject({ search: { filter: "attention", q: "x" } });
+    expect(at("/knowledge?topic=API")).toMatchObject({ search: { topic: "api" } });
+    expect(at("/knowledge?topic=all%20brands%2Fpricing")).toMatchObject({ search: { topic: "all brands/pricing" } });
+    expect(at("/knowledge?topic=%2Fapi")).toMatchObject({ search: { topic: "" } });
   });
 });
 
@@ -88,6 +91,7 @@ describe("paths and places", () => {
     ["log client", dest("log.list", { filter: "drafts", client: 5 }), "/log?filter=drafts&client=5", "/lisbon/log?filter=drafts&client=5"],
     ["knowledge", dest("knowledge.page"), "/knowledge", "/lisbon/knowledge"],
     ["knowledge: a view and a search", dest("knowledge.page", { filter: "expired", q: "price" }), "/knowledge?filter=expired&q=price", "/lisbon/knowledge?filter=expired&q=price"],
+    ["knowledge: a topic", dest("knowledge.page", { topic: "api" }), "/knowledge?topic=api", "/lisbon/knowledge?topic=api"],
     ["settings: sending", dest("settings.page"), "/settings", "/lisbon/settings"],
     ["settings: mail", dest("settings.mail"), "/settings/mail", "/lisbon/settings/mail"],
     ["settings: checks", dest("settings.checks"), "/settings/checks", "/lisbon/settings/checks"],

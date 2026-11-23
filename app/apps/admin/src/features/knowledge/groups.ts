@@ -58,3 +58,47 @@ export function groupEntries(entries: readonly KnowledgeEntryDto[], brandsDiffer
   flatten(root, 0, "", out);
   return out;
 }
+
+/** The address form of a heading (P125 L2, `?topic=`): its path without the leading slash, in lower case (`all brands/api`). */
+export const topicOf = (s: Pick<EntrySection, "id">): string => s.id.slice(1).toLowerCase();
+
+/** One item of the menu column: a heading, its address form, its count and its indent (one level, verdict 3). */
+export type TopicItem = { topic: string; label: string; count: number; depth: 0 | 1; group: string | null };
+
+/**
+ * The menu column of Knowledge (P125 L2, verdict 3: one nesting level, not a general tree). When the brands differ, a brand is a
+ * small group heading and its topics are the items, a sub-topic indented under its topic; otherwise the topics are the items and
+ * their sub-topics indented. A level deeper than that is reached through its parent (its rows show under it). Pure.
+ */
+export function topicItems(sections: readonly EntrySection[], brandsDiffer: boolean): TopicItem[] {
+  const out: TopicItem[] = [];
+  let brand: string | null = null;
+  for (const s of sections) {
+    const level = brandsDiffer ? s.depth - 1 : s.depth;
+    if (brandsDiffer && s.depth === 0) {
+      brand = s.label;
+      continue;
+    }
+    if (level > 1) continue;
+    out.push({ topic: topicOf(s), label: s.label, count: s.count, depth: level === 1 ? 1 : 0, group: brand });
+  }
+  return out;
+}
+
+/**
+ * The rows under one topic (P125 L2): every entry of every heading whose address is the topic or below it, once each, in the
+ * server's order. An empty topic, or one the rows do not have, is every row (the menu then marks All). Pure.
+ */
+export function entriesUnder(sections: readonly EntrySection[], entries: readonly KnowledgeEntryDto[], topic: string): readonly KnowledgeEntryDto[] {
+  if (topic === "") return entries;
+  const hit = sections.filter((s) => {
+    const t = topicOf(s);
+    return t === topic || t.startsWith(`${topic}/`);
+  });
+  if (hit.length === 0) return entries;
+  const keys = new Set(hit.flatMap((s) => s.entries.map((e) => e.key)));
+  return entries.filter((e) => keys.has(e.key));
+}
+
+/** True when the rows have a heading at this topic (an unknown `?topic=` shows All and marks All in the menu). */
+export const hasTopic = (sections: readonly EntrySection[], topic: string): boolean => sections.some((s) => topicOf(s) === topic);

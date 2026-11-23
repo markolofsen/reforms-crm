@@ -7,7 +7,8 @@ import { agentRef } from "@/lib/focus";
 import { groupEntries, type EntrySection } from "./groups";
 import { STATUS_LOOK, forText, type Facets } from "./labels";
 
-type Props = { project: string; entries: readonly KnowledgeEntryDto[]; facets: Facets };
+/** `headings` false (a topic chosen in the menu, P125 L2 verdict 4): the rows without their heading rows. */
+type Props = { project: string; entries: readonly KnowledgeEntryDto[]; facets: Facets; headings?: boolean };
 type Cols = { project: string; showFor: boolean; showStatus: boolean; brands: boolean };
 
 /** A status that is not the normal one, as a badge; nothing for an approved entry. */
@@ -80,11 +81,13 @@ function SectionBody({ s, c }: { s: EntrySection; c: Cols }) {
   const span = 3 + (c.showFor ? 1 : 0) + (c.showStatus ? 1 : 0);
   return (
     <TableBody data-topic={s.id}>
-      <TableRow data-topic-head="">
-        <TableHead className={cn("whitespace-normal", s.depth === 0 && "bg-muted/40", indent(s.depth))} colSpan={span} scope="colgroup">
-          <HeadText s={s} />
-        </TableHead>
-      </TableRow>
+      {s.label !== "" && (
+        <TableRow data-topic-head="">
+          <TableHead className={cn("whitespace-normal", s.depth === 0 && "bg-muted/40", indent(s.depth))} colSpan={span} scope="colgroup">
+            <HeadText s={s} />
+          </TableHead>
+        </TableRow>
+      )}
       {s.entries.map((e) => (
         <EntryRow c={c} e={e} key={`${s.id}|${e.key}`} />
       ))}
@@ -120,9 +123,11 @@ function PhoneSection({ s, c, first }: { s: EntrySection; c: Cols; first: boolea
   const H = PHONE_LEVEL[Math.min(s.depth, PHONE_LEVEL.length - 1)] ?? "h4";
   return (
     <li data-topic={s.id}>
-      <H className={cn(first ? "pb-1" : "pt-3 pb-1", indent(s.depth))} data-topic-head="">
-        <HeadText s={s} />
-      </H>
+      {s.label !== "" && (
+        <H className={cn(first ? "pb-1" : "pt-3 pb-1", indent(s.depth))} data-topic-head="">
+          <HeadText s={s} />
+        </H>
+      )}
       {s.entries.length > 0 && <ul className="flex flex-col divide-y">{s.entries.map((e) => <PhoneRow c={c} e={e} key={`${s.id}|${e.key}`} />)}</ul>}
     </li>
   );
@@ -136,9 +141,9 @@ function PhoneSection({ s, c, first }: { s: EntrySection; c: Cols; first: boolea
  * entry is not approved, and then only on that row. From 640px a table; below it two lines a row (the title and Open; then the
  * rest), so no column hides behind a click (`admin-principles.md` rule 5).
  */
-export function EntryTable({ project, entries, facets }: Props) {
+export function EntryTable({ project, entries, facets, headings = true }: Props) {
   const c: Cols = { project, showFor: facets.sameAudiences === null || facets.brandsDiffer, showStatus: !facets.allApproved, brands: facets.brandsDiffer };
-  const sections = groupEntries(entries, facets.brandsDiffer);
+  const sections: readonly EntrySection[] = headings ? groupEntries(entries, facets.brandsDiffer) : [{ id: "", label: "", depth: 0, count: entries.length, entries }];
   return (
     <>
       <DataTable aria-label="Knowledge entries" className="max-md:hidden" data-testid="knowledge-table">

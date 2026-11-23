@@ -9,5 +9,5 @@ export function KnowledgeScreen() {
   const { project } = useProjectScope();
   const route = useRoute("knowledge.page");
   if (!route) return null;
-  return <KnowledgeView filter={route.search.filter} project={project} q={route.search.q} />;
+  return <KnowledgeView filter={route.search.filter} project={project} q={route.search.q} topic={route.search.topic} />;
 }

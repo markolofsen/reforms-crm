@@ -97,8 +97,13 @@ const messageRef: SearchKeySpec<string | null> = { read: (v) => (v !== undefined
 export const MAIL_SEARCH = { filter: view(DRAFT_VIEWS, DEFAULT_DRAFT_VIEW), q: text, batch: queryId, m: messageRef } as const;
 /** Activity (P73): the view, and `client` narrows the timeline to one client (the draft card's history opens it). */
 export const LOG_SEARCH = { filter: view(ACTIVITY_VIEWS, "all"), client: queryId } as const;
-/** P70: the Knowledge table's view (the same enum the API validates) and its title search. */
-export const KNOWLEDGE_SEARCH = { filter: view(KNOWLEDGE_VIEWS, "all"), q: text } as const;
+/**
+ * A topic path of Knowledge's menu column (P125 L2: `api`, `all brands/pricing`): lower case, `/` between levels, at most three
+ * levels and 120 characters; anything else is no topic (All). A topic the base does not have shows All too (the menu reads it).
+ */
+const topic: SearchKeySpec<string> = { read: (v) => (v !== undefined && v.length <= 120 && /^[^/?#]+(\/[^/?#]+){0,2}$/.test(v) ? v.toLowerCase() : ""), fallback: "" };
+/** P70: the Knowledge table's view (the same enum the API validates), its title search, and the topic of the menu column (P125 L2). */
+export const KNOWLEDGE_SEARCH = { filter: view(KNOWLEDGE_VIEWS, "all"), q: text, topic } as const;
 export const AGENT_SEARCH = { filter: view(AGENT_VIEWS, "attention") } as const;
 /** The Messengers panel's view (P84c: To do, the default, Linked, Hidden) and its channel (All, the default, Telegram, WhatsApp); the enums the API validates. */
 export const MESSENGERS_SEARCH = { filter: view(MESSENGER_VIEWS, "todo"), channel: view(MESSENGER_CHANNEL_FILTERS, "all"), q: text } as const;

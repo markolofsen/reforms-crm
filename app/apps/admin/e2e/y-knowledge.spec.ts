@@ -43,7 +43,7 @@ test.beforeEach(async ({ page }) => {
   await remember(page, PROJECT);
 });
 
-test("knowledge: every entry is a row with its title, its status in words and its Open; the header has the search, View and Open folder", async ({ page }) => {
+test("knowledge: every entry is a row with its title, its status in words and its Open; the header has the search and Open folder", async ({ page }) => {
   const d = await list(page);
   expect(d.entries.length).toBeGreaterThan(10);
   await page.goto(`/${PROJECT}/knowledge`);
@@ -66,20 +66,37 @@ test("knowledge: every entry is a row with its title, its status in words and it
   await expect(page.getByTestId("knowledge-status")).toHaveCount(0);
 });
 
-test("knowledge: the View menu's counts are the server's, and each view lists exactly its count", async ({ page }) => {
+test("knowledge: the menu column's view counts are the server's, and each view lists exactly its count (P125 L2)", async ({ page }) => {
   const d = await list(page);
   await page.goto(`/${PROJECT}/knowledge`);
-  await page.getByRole("button", { name: /^View:/ }).click();
-  const items = page.getByRole("menuitemradio");
-  await expect(items).toHaveCount(4);
+  const nav = page.getByRole("navigation", { name: "Knowledge topics" });
+  await expect(page.getByRole("button", { name: /^View:/ })).toHaveCount(0);
   const want = [["All", d.counts.all], ["Needs a look", d.counts.attention], ["Expired", d.counts.expired], ["Not approved", d.counts.unapproved]] as const;
-  for (const [i, [label, n]] of want.entries()) await expect(items.nth(i)).toHaveText(new RegExp(`^${label}\\s*${n}$`));
-  await items.filter({ hasText: "Expired" }).click();
+  for (const [label, n] of want) await expect(nav.getByRole("link", { name: new RegExp(`^${label}\\s*${n}$`) })).toBeVisible();
+  await nav.getByRole("link", { name: /^Expired/ }).click();
   await expect.poll(() => address(page)).toBe(`/${PROJECT}/knowledge?filter=expired`);
   await expect(table(page).locator("tbody tr[data-entry]")).toHaveCount(d.counts.expired);
   for (const view of ["attention", "unapproved"] as const) {
     expect((await list(page, view)).entries.length, view).toBe(d.counts[view]);
   }
+});
+
+test("knowledge: choosing a topic lists exactly its rows, without heading rows, and Back restores All (P125 L2)", async ({ page }) => {
+  const d = await list(page);
+  const first = topics(d)[0];
+  if (!first) throw new Error("the fixture base has no topic");
+  const n = d.entries.filter((e) => entryTopic(e.key, e.category)[0] === first).length;
+  await page.goto(`/${PROJECT}/knowledge`);
+  const nav = page.getByRole("navigation", { name: "Knowledge topics" });
+  await nav.getByRole("link", { name: new RegExp(`^${first}\\s*${n}$`) }).click();
+  await expect.poll(() => address(page)).toBe(`/${PROJECT}/knowledge?topic=${encodeURIComponent(first.toLowerCase())}`);
+  await expect(table(page).locator("tbody tr[data-entry]")).toHaveCount(n);
+  await expect(heads(page)).toHaveCount(0);
+  await expect(nav.getByRole("link", { name: new RegExp(`^${first}`) })).toHaveAttribute("aria-current", "page");
+  await page.goBack();
+  await expect.poll(() => address(page)).toBe(`/${PROJECT}/knowledge`);
+  await expect(table(page).locator("tbody tr[data-entry]")).toHaveCount(d.entries.length);
+  await expect(nav.getByRole("link", { name: "All topics" })).toHaveAttribute("aria-current", "page");
 });
 
 test("knowledge: the search narrows by title and the address keeps it", async ({ page }) => {
