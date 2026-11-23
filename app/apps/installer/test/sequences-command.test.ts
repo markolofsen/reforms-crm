@@ -10,7 +10,7 @@ import { anyRecipients, beforeContextBlock } from "./instance-fixture";
 import { recordClientCall } from "@hub/agent/records/client";
 import { clientRecord } from "@hub/agent/records/schema";
 import { recordFlat } from "./support/seed-draft-impl";
-import { inAgentSession, runSequencesCheck, runSequencesDue, runSequencesEnrol, runSequencesJudge, runSequencesPauseResume, runSequencesStop } from "../src/sequences-command";
+import { inAgentSession, runSequencesCheck, runSequencesDue, runSequencesEnrol, runSequencesJudge, runSequencesPauseResume, runSequencesStop } from "../src/commands/sequences";
 
 // P47 W1 acceptance in a throw-away instance: project `alpha` (a copy of the acme-travel fixture, recipients = any) with the
 // core's starter sequences, a database seeded with one client we wrote to 10 days ago. Nothing reaches Mail.
