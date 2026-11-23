@@ -55,7 +55,8 @@ export function applyLive(qc: QueryClient, e: LiveEvent, hidden: boolean): void 
   }
   for (const c of e.changes) {
     const refetchType = hidden && !(soundHolder && c.topic === "agent-log") ? "none" : "active";
-    for (const queryKey of TOPIC_KEYS[c.topic](c.project)) void qc.invalidateQueries({ queryKey, refetchType });
+    // P127 V4: a frame that follows a write by ~300 ms does not restart the refetch the write already started.
+    for (const queryKey of TOPIC_KEYS[c.topic](c.project)) void qc.invalidateQueries({ queryKey, refetchType }, { cancelRefetch: false });
   }
 }
 

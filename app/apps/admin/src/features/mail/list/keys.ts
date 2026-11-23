@@ -7,7 +7,7 @@ import type { ReviewActions } from "./use-review-actions";
  * Mail's action keys (P127 C2, V9), beside the shared list keys of `components/conversation/list/keys.ts`; the `?` popover lists
  * both. They act on the open person's unsent draft; a closed draft takes none.
  */
-export const MAIL_KEYS: readonly (readonly [string, string])[] = [
+export const MAIL_ACTION_KEYS: readonly (readonly [string, string])[] = [
   ["Shift Enter", "send: opens the review dialog; its Send sends (a press right after it opens does not count)"],
   ["C", "Checked for Send all Checked: on opens the review dialog, off at once"],
   ["R", "reply in Mail (batch drafts)"],
@@ -56,6 +56,6 @@ export function useMailKeys(k: MailKeyDeps): void {
       3: tone(2),
     },
     k.enabled,
-    MAIL_KEYS,
+    MAIL_ACTION_KEYS,
   );
 }

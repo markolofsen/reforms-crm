@@ -1,11 +1,11 @@
 import { clientKey } from "@hub/contract/client-key";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AGENT_WORD_SEND_ACTOR, AGENT_WORD_SEND_LABEL, BATCH_SEND_ACTOR } from "@hub/config";
 import type { SendRowDto } from "@hub/contract/sending";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { AppLink } from "@/components/app-link";
-import { refreshData, sentence } from "@/lib/api/client";
+import { sentence } from "@/lib/api/client";
+import { useCommand } from "@/lib/cache/topics";
 import { sendApi } from "@/lib/api/send";
 import { formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
@@ -14,8 +14,7 @@ import { useSends } from "@/lib/status";
 
 /** Cancel for a queued send inside its window (a sent mail cannot be recalled, so Cancel exists only while a send is queued). */
 function useCancel(project: string) {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: (id: number) => sendApi.cancel(project, id), onSuccess: () => refreshData(qc) });
+  return useCommand({ project, touches: ["sends"], run: (id: number) => sendApi.cancel(project, id) });
 }
 
 const VIA = { manual: "By hand", auto: "Autosend" } as const;

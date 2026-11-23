@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { SAFETY_LABELS } from "@hub/config";
 import type { SafetyRuleDto } from "@hub/contract/responses";
@@ -7,7 +7,8 @@ import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } fro
 import { Skeleton } from "@hub/ui/skeleton";
 import { Switch } from "@hub/ui/switch";
 import { QueryView } from "@/components/state-views";
-import { refreshData, sentence } from "@/lib/api/client";
+import { sentence } from "@/lib/api/client";
+import { useCommand } from "@/lib/cache/topics";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
 
@@ -39,8 +40,7 @@ function Params({ rule, save }: { rule: SafetyRuleDto; save: (p: Patch) => void 
 }
 
 function RuleRow({ project, rule }: { project: string; rule: SafetyRuleDto }) {
-  const qc = useQueryClient();
-  const save = useMutation({ mutationFn: (patch: Patch) => metaApi.setRule(project, rule.kind, patch), onSuccess: () => refreshData(qc) });
+  const save = useCommand({ project, touches: ["rules"], run: (patch: Patch) => metaApi.setRule(project, rule.kind, patch) });
   const label = SAFETY_LABELS[rule.kind];
   return (
     <TableRow data-rule={rule.kind}>

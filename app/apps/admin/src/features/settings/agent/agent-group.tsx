@@ -1,13 +1,14 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { ADVISOR_MODELS, AGENT_MODELS, MODEL_LABELS, type AgentSettings } from "@hub/config";
 import { Radio, RadioGroup } from "@hub/ui/radio-group";
 import { Skeleton } from "@hub/ui/skeleton";
 import { Switch } from "@hub/ui/switch";
 import { LoadFailed } from "@/components/state-views";
-import { refreshData, sentence } from "@/lib/api/client";
+import { sentence } from "@/lib/api/client";
+import { useCommand } from "@/lib/cache/topics";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
 
@@ -51,11 +52,12 @@ export function ClaudeSettings({ project }: { project: string }) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: keys.agentSettings(project), queryFn: () => metaApi.agentSettings(project) });
   const [say, setSay] = useState<Say>(null);
-  const save = useMutation({
-    mutationFn: (patch: Partial<AgentSettings>) => metaApi.setAgentSettings(project, patch),
+  const save = useCommand({
+    project,
+    touches: ["rules"],
+    run: (patch: Partial<AgentSettings>) => metaApi.setAgentSettings(project, patch),
     onSuccess: (d) => {
       qc.setQueryData(keys.agentSettings(project), d);
-      void refreshData(qc);
       setSay({ text: "Saved: applies to the next agent session.", kind: "status" });
     },
     onError: (e) => setSay({ text: `Not saved: ${sentence(e)}`, kind: "alert" }),
