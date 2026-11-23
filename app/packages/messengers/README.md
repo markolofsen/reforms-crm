@@ -109,7 +109,6 @@ The agent never imports this package's send path: `hub mcp` (`@hub/agent`) has `
 | `status` | no | poll health (stale after 10 min), allow-list, counts, drafts |
 | `poll [--once]` | no | the worker loop with offset persistence and backoff; `--once` fetches one batch and prints ids of unlisted chats |
 | `purge` | no | deletes rows past retention |
-| `confirm <draftId> [--no-send]` | yes | approves a draft and sends it (bot only; the user accounts send from the admin's send door) |
 
 ## The bot token
 

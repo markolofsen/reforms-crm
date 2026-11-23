@@ -1,12 +1,13 @@
 #!/usr/bin/env tsx
-// `pnpm --filter @hub/messengers messengers <command>`. Commands that link, list, approve or send need a person at a
-// terminal (stdin is a TTY): an agent running this through a non-interactive shell cannot use them.
+// `pnpm --filter @hub/messengers messengers <command>`. Commands that link or list need a person at a terminal (stdin is a
+// TTY): an agent running this through a non-interactive shell cannot use them. Nothing here sends: a messenger draft is sent
+// only by the admin's send door (decision 0045 point 1).
 import { Command } from "commander";
 import { userInfo } from "node:os";
 import { createRepos, openDb, type IdentifierKind, type MessengerChannel } from "@hub/db";
 import { pollCommand, statusLines } from "./commands";
 import { MessengersError } from "./errors";
-import { allowChat, confirmDraft, disallowChat, humanActor, linkIdentifier, sendConfirmed, unlinkIdentifier, type HumanActor } from "./human";
+import { allowChat, disallowChat, humanActor, linkIdentifier, unlinkIdentifier, type HumanActor } from "./human";
 import { purgeNow } from "./purge";
 import { readBotToken, botTokenFile } from "./token";
 import { telegramAdapterFromToken } from "./telegram-api";
@@ -109,24 +110,6 @@ program
 program.command("purge").description("delete messages past their 90-day retention").action(() =>
   withRepos(async (repos) => console.log(`purged ${await purgeNow(repos)} message(s)`)),
 );
-
-program
-  .command("confirm <draftId>")
-  .description("approve a draft, then send it (Telegram bot only)")
-  .option("--no-send", "approve without sending")
-  .option("--token-file <path>")
-  .action((draftId: string, o: { send: boolean; tokenFile?: string }) =>
-    withRepos(async (repos, project) => {
-      const actor = person();
-      await confirmDraft(repos, actor, { project, draftId: Number(draftId) });
-      console.log(`draft ${draftId} approved`);
-      if (o.send) {
-        const adapter = telegramAdapterFromToken(await readBotToken(o.tokenFile));
-        const r = await sendConfirmed({ repos, adapter }, actor, { project, draftId: Number(draftId) });
-        console.log(`sent, message ${r.remoteMessageId}`);
-      }
-    }),
-  );
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error(err instanceof Error ? err.message : String(err));
