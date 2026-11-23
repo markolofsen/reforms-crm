@@ -1,28 +1,25 @@
 # Typing
 
-Scope: the type system is the one gate that reads types across the whole frontend; keep it truthful. Adapted from the shared "typing and type safety" page.
+Scope: keep the types truthful. History: decision 0047.
 
 ## Rules
 
-1. MUST NOT write `any`, `@ts-ignore`, or `as any` / `as unknown as T`. `@ts-expect-error` only with a description and only where the cause is outside the repo.
-2. MUST NOT use a type assertion (`as T`) or non-null `!` in hand-written source. Narrow instead: a guard function, a contract schema's `safeParse`, a discriminated union, an early return that throws a named error. `as const` is allowed. An address text becomes a `Route` only through `routeOf()` (`routes/typed.ts`), a guard, never a cast.
-3. MUST: `import type` (or inline `type`) for type-only imports; this is what keeps `@hub/server` out of the bundle. A page file types its props with the generated global `PageProps<"/mail/[id]">` (from `next typegen`) and awaits `params` and `searchParams`, which are Promises in Next 16.
-4. MUST: model states as unions (`{ status: "error"; message: string } | ...`), not as optional fields that can combine into impossible values.
-5. MUST: closed vocabularies (intents, statuses, tones) are unions with a total label map (`Record<Union, string>`), so adding a member fails the build.
-6. MUST: `noUncheckedIndexedAccess` stays on; handle the `undefined`.
-7. SHOULD: derive types from the source of truth (the `@hub/contract` schemas and `@hub/config` enums, `typeof` of a const list) instead of restating them. A route is typed by the framework (`typedRoutes`) for its path and by `paths.ts` for its search; both fail `tsc`, not a test run.
-8. coss files in `packages/ui/src/ui` are copied, not hand-edited; they are exempt from 2 but not from 1.
-9. MUST: a generated transport value is not a domain value. The only assertion
-   permitted for the generated response generic is inside the isolated
-   `@hub/api/runtime` adapter, and every such response is immediately validated
-   by `readGenerated` before it reaches an admin facade. Hand-written code must
-   not repeat that assertion or pass a generated DTO through to a component.
+1. MUST NOT write `any`, `@ts-ignore`, `as any` or `as unknown as T`; `@ts-expect-error` only with a description and a cause outside the repo.
+2. MUST NOT use `as T` or a non-null `!` in hand-written source; narrow with a guard, a schema's `safeParse`, a union or a named throw. `as const` is allowed.
+3. MUST: `import type` for type-only imports; a page types its props with the generated `PageProps<…>`.
+4. MUST: states are unions, not combinable optional fields.
+5. MUST: closed vocabularies are unions with a total `Record<Union, string>` label map.
+6. MUST: `noUncheckedIndexedAccess` stays on.
+7. SHOULD: derive types from their source (`@hub/contract`, `@hub/config`).
+8. MUST: the coss copies are exempt from rule 2, not from rule 1.
+9. MUST: the one assertion on a generated response is inside `@hub/api/runtime`, validated at once by `readGenerated`.
 
 ## Enforcement
 
-| Rule | Tool |
+| Rule | Check |
 |---|---|
-| 1 | eslint `no-explicit-any`, `ban-ts-comment` at error |
-| 2 | eslint `consistent-type-assertions` (never) and `no-non-null-assertion` at error |
-| 3 | eslint `consistent-type-imports`; `verbatimModuleSyntax` in tsc |
-| 4-7 | `tsc` (strict, `noUncheckedIndexedAccess`); `test/paths.types.tsx` (`@ts-expect-error` lines for the builders and the typed-route door); review |
+| 1 | eslint `no-explicit-any`, `ban-ts-comment` |
+| 2 | eslint `consistent-type-assertions` (never), `no-non-null-assertion` |
+| 3 | eslint `consistent-type-imports`; `verbatimModuleSyntax` |
+| 4-7, 9 | `tsc`; `test/paths.types.tsx`; review |
+| 8 | review |

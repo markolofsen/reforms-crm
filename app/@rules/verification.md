@@ -13,7 +13,7 @@ Scope: what "done" means for core work. History: decision 0047.
 4. MUST: the handoff names the rungs that ran and those that did not; a skipped rung is stated, never implied green.
 5. MUST: lint has no warnings tier: every rule is an error.
 5a. MUST: a path change passes the `instance-home` tests of the installer, server, projects and knowledge, and `home-seams.test.ts`.
-6. MUST: `pnpm e2e` runs one throwaway stack per worker (`playwright.config.ts`, `e2e/stacks.ts`; `HUB_E2E_WORKERS`, default 2): a fresh seeded `HUB_DB` in the OS temp folder, the API with `HUB_MAILER=fake` (the only way a test sends), and `next start -H 127.0.0.1` on one production build in its own `distDir`. A running `hub up` or `next dev` is never disturbed. Never a real send in a test.
+6. MUST: `pnpm e2e` runs one throwaway stack per worker (`e2e/stacks.ts`, `HUB_E2E_WORKERS`, default 2): a fresh seeded `HUB_DB`, the fake Mailer, `next start -H 127.0.0.1` on one production build in its own `distDir`; a running `hub up` is never disturbed. Never a real send in a test.
 7. MUST: every route is dynamic: the root layout keeps `dynamic = "force-dynamic"` (`architecture-and-ownership.md` rule 9), and the build needs no API.
 8. SHOULD: a new screen adds a flow to `apps/admin/e2e`; a flow that creates data is named `z-*.spec.ts`.
 9. SHOULD: a failure in an unrelated area is reported, not fixed in passing.
