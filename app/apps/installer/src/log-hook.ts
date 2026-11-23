@@ -1,8 +1,11 @@
-import { readFileSync } from "node:fs";
-import { hubPaths } from "@hub/config/paths";
+import { createHash } from "node:crypto";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { readCoreVersion } from "@hub/config/core-version";
+import { hubPaths, type HubPaths } from "@hub/config/paths";
 import { importQueued } from "@hub/log/claude-transcript";
 import { importRollout } from "@hub/log/codex-rollout";
-import type { LogCli } from "@hub/log/event";
+import type { LogCli, NewLogEvent } from "@hub/log/event";
 import { hookEvents, parsePayload, promptEvents } from "@hub/log/hooks";
 import { appendEvents, logStoreOf } from "@hub/log/store";
 import { configureOps, errFields, ops } from "@hub/log/ops";
@@ -20,6 +23,22 @@ export function logPrompt(stdin: string, cli: LogCli, focusLine: string | null, 
   return appendEvents(logStoreOf(hubPaths({ env })), promptEvents(p, cli, project(env), focusLine));
 }
 
+/** P129 verdict 9: an 8-hex hash of each linked skill's `SKILL.md`, so `hub log` says which text ran (no `version:` key). */
+export function skillHashes(dir: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!existsSync(dir)) return out;
+  for (const e of readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))) {
+    const file = path.join(dir, e.name, "SKILL.md");
+    if (existsSync(file)) out[e.name] = createHash("sha256").update(readFileSync(file)).digest("hex").slice(0, 8);
+  }
+  return out;
+}
+
+/** A session start also records the core version and the skill hashes (P129 A6); other events pass through. */
+export function withSessionFacts(events: NewLogEvent[], paths: HubPaths): NewLogEvent[] {
+  return events.map((e) => (e.kind === "session" && e.data.phase === "start" ? { ...e, data: { ...e.data, core: readCoreVersion(paths.home) ?? "unknown", skills: skillHashes(paths.skills) } } : e));
+}
+
 /**
  * One hook event. A Codex `Stop` also imports that turn's tool calls from the rollout, before the answer; a Claude `Stop` the
  * messages the owner queued while the turn ran (they ran no prompt hook).
@@ -27,7 +46,8 @@ export function logPrompt(stdin: string, cli: LogCli, focusLine: string | null, 
 export function logHook(stdin: string, cli: LogCli, env: NodeJS.ProcessEnv = process.env): boolean {
   const p = parsePayload(stdin);
   if (!p) return false;
-  const store = logStoreOf(hubPaths({ env }));
+  const paths = hubPaths({ env });
+  const store = logStoreOf(paths);
   const transcript = typeof p.transcript_path === "string" ? p.transcript_path : "";
   const session = typeof p.session_id === "string" ? p.session_id : "";
   if (cli === "codex" && p.hook_event_name === "Stop" && transcript && session) {
@@ -36,7 +56,7 @@ export function logHook(stdin: string, cli: LogCli, env: NodeJS.ProcessEnv = pro
   if (cli === "claude" && p.hook_event_name === "Stop" && transcript && session) {
     importQueued(store, { file: transcript, project: project(env), session, ...(typeof p.prompt_id === "string" ? { turn: p.prompt_id } : {}) });
   }
-  return appendEvents(store, hookEvents(p, cli, project(env)));
+  return appendEvents(store, withSessionFacts(hookEvents(p, cli, project(env)), paths));
 }
 
 export function runLogHook(argv: readonly string[], env: NodeJS.ProcessEnv = process.env): void {

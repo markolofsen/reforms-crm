@@ -23,6 +23,26 @@ export const DENIED_TOOLS: readonly string[] = [
   ...NOTION_DENIED.map((d) => `${NOTION_PREFIX}${d.tool}`),
 ];
 
+/** mail-mcp's read tools, the only ones a skill may name (decision 0030: mail-mcp is read only for the agent). */
+export const MAIL_MCP_READ_TOOLS: readonly string[] = ["list_accounts", "list_mailboxes", "find_messages", "get_message_content", "list_drafts", "list_outgoing_messages"];
+
+/**
+ * P129 verdict 12: the hosted Notion tools the skills call, plus the owner-request set among them (fetch, search, query,
+ * create pages, update page). P112 S3 enforces it (default-deny); until then the skill lint keeps the skills inside it.
+ */
+export const NOTION_ALLOWED: readonly string[] = [
+  "notion-search",
+  "notion-fetch",
+  "notion-query-data-sources",
+  "notion-create-pages",
+  "notion-update-page",
+  "notion-get-teams",
+  "notion-create-database",
+  "notion-create-view",
+  "notion-update-data-source",
+  "notion-update-view",
+];
+
 /**
  * Decision 0046: the one send tool an ATTENDED session has: `hub`'s `messenger_send`, one messenger draft on the owner's word,
  * verified and sent by the server through the owner's send door. The Agent tools check passes it only in attended mode.
