@@ -12,7 +12,7 @@ const metaOf = (id: RouteId): { title: string; crumb: string | null } => {
 };
 
 /** The item a route's address names: its id, or a client's key (P103). */
-const itemOf = (r: Resolved): number | string | undefined => ("id" in r.params ? r.params.id : "key" in r.params ? r.params.key : undefined);
+const itemOf = (r: Resolved): number | string | undefined => (r.route === "notFound" ? undefined : "id" in r.params ? r.params.id : "key" in r.params ? r.params.key : undefined);
 
 /** The breadcrumb of a route, outermost first: `["Mail", "Conversation 42"]`, `["Project", "Setup"]` for a child page. Empty for Not found. */
 export function crumbsOf(r: Resolved): string[] {
