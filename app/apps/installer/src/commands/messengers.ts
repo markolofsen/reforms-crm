@@ -4,7 +4,7 @@
 import type { Command } from "commander";
 import { userInfo } from "node:os";
 import { createRepos, openDb, type IdentifierKind, type MessengerChannel } from "@hub/db";
-import { botTokenFile, MessengersError, pollCommand, purgeNow, readBotToken, statusLines, telegramAdapterFromToken } from "@hub/messengers";
+import { MessengersError, pollCommand, purgeNow, readBotToken, statusLines, telegramAdapterFromToken } from "@hub/messengers";
 import { allowChat, disallowChat, humanActor, linkIdentifier, unlinkIdentifier, type HumanActor } from "@hub/messengers/human";
 
 const KINDS = ["email", "telegram", "phone", "whatsapp"] as const;
@@ -92,7 +92,7 @@ export function registerMessengersCommands(parent: Command): Command {
     .command("poll")
     .description("poll the Telegram bot; --once fetches one batch and exits")
     .option("--once", "one poll, then exit")
-    .option("--token-file <path>", `bot token file (default ${botTokenFile()})`)
+    .option("--token-file <path>", "bot token file (default state/secrets/telegram-bot-token of the instance)")
     .action((o: { once?: boolean; tokenFile?: string }) =>
       withRepos(async (repos, project) => {
         const adapter = telegramAdapterFromToken(await readBotToken(o.tokenFile));
