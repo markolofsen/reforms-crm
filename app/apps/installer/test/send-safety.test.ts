@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context";
 import { makeInstance } from "./instance-fixture";
 import { auditLayout, guardDecision, writeSessionFiles } from "../src/safety";
-import { DENIED_TOOLS, denyRules, HUB_API_COMMANDS, HUB_MCP_SERVERS } from "@hub/agent/deny";
+import { DENIED_TOOLS, deniedToolsOf, denyRules, HUB_API_COMMANDS, HUB_MCP_SERVERS } from "@hub/agent/deny";
 import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 
 // Decision 0011: the agent gets NO send tool, in any mode. Sending is a hub command. If a rule below is removed or a
@@ -23,6 +23,15 @@ const SEND_TOOLS = [
   "mcp__mail-mcp__delete_outgoing_message",
 ];
 
+// The hosted Notion MCP's outward tools (P119, P129 A0): an event can invite its attendees by mail; a Notion agent session
+// acts outside these rules. Denied by the one list (Claude's deny rules and --disallowedTools, Codex's disabled_tools).
+const NOTION_OUTWARD = [
+  "mcp__notion__notion-calendar-create-events",
+  "mcp__notion__notion-calendar-update-events",
+  "mcp__notion__notion-send-message-to-session",
+  "mcp__notion__notion-spawn-session",
+];
+
 describe("the agent has no send path", () => {
   const rules = denyRules(PROJECTS, INSTANCE.home, "acme-travel");
 
@@ -36,6 +45,15 @@ describe("the agent has no send path", () => {
     expect(DENIED_TOOLS, "disallowed list").toContain(tool);
     const g = guardDecision({ tool_name: tool, tool_input: {} }, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT });
     expect(g.block, "guard blocks").toBe(true);
+  });
+
+  it.each(NOTION_OUTWARD)("%s stays denied (deny rule, --disallowedTools)", (tool) => {
+    expect(rules, "deny rule").toContain(tool);
+    expect(DENIED_TOOLS, "disallowed list").toContain(tool);
+  });
+
+  it("Codex disables the same Notion tools: its `disabled_tools` come from the one list", () => {
+    expect(deniedToolsOf("notion")).toEqual(expect.arrayContaining(NOTION_OUTWARD.map((t) => t.slice("mcp__notion__".length))));
   });
 
   it("the mail programs and osascript stay denied in the agent's shell", () => {

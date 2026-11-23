@@ -23,6 +23,12 @@ export const DENIED_TOOLS: readonly string[] = [
   "mcp__notion__notion-delete-comment",
   "mcp__notion__notion-move-pages",
   "mcp__notion__notion-calendar-cancel-events",
+  // They send outward: creating or updating an event can invite its attendees by mail (P119, P129 A0).
+  "mcp__notion__notion-calendar-create-events",
+  "mcp__notion__notion-calendar-update-events",
+  // They start or message a Notion agent, which then acts outside this session's rules (P119, P129 A0).
+  "mcp__notion__notion-send-message-to-session",
+  "mcp__notion__notion-spawn-session",
 ];
 
 /** `mcp__<server>__<tool>` split back into the server's own tool names (Codex's `disabled_tools` takes these). */
