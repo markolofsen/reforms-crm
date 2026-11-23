@@ -50,9 +50,9 @@ describe("Chats: channel filter and views", () => {
     expect(viewCounts({ needs_you: 0, waiting: 0, all: 0 }, undefined, "all", "any")).toEqual({ needs_you: 0, waiting: 0, all: 0 });
   });
 
-  it("names the four views in order, and says the unlinked sentence once with its window", () => {
+  it("names the three views in order (P123 U3b: the link state is a filter), and says the unlinked sentence once with its window", () => {
     expect(VIEW_ORDER).toEqual([...MESSENGER_VIEWS]);
-    expect(VIEW_ORDER.map((v) => VIEW_LABEL[v])).toEqual(["Needs you", "Linked", "Not linked", "Hidden"]);
+    expect(VIEW_ORDER.map((v) => VIEW_LABEL[v])).toEqual(["Needs you", "Waiting", "All"]);
     expect(unlinkedIntro({ freshDays: 14, count: 15, noLinked: false })).toBe("15 new chats of the last 14 days are not linked to a client: link or hide each.");
     // P88: with no linked chat the same one line says so; there is no second paragraph.
     expect(unlinkedIntro({ freshDays: 14, count: 1, noLinked: true })).toBe("No linked chats yet · 1 new chat of the last 14 days is not linked to a client: link or hide each.");

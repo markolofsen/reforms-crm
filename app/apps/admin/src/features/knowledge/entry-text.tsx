@@ -11,7 +11,7 @@ export function EntryText({ project, entryKey, title }: { project: string; entry
   return (
     <QueryView loading={<ListSkeleton label={`Loading ${title}`} rows={2} />} query={q} what={title}>
       {(d) => (
-        <div className="flex max-w-prose flex-col gap-1" data-testid="knowledge-text">
+        <div className="measure flex flex-col gap-1" data-testid="knowledge-text">
           <p className="whitespace-pre-wrap break-words text-sm">{d.body.trim() === "" ? "This entry has no text." : d.body}</p>
           {d.truncated && <p className="text-muted-foreground text-xs">The text is cut here: Open shows the whole file.</p>}
         </div>

@@ -101,7 +101,7 @@ describe("resolveTarget", () => {
     expect(await resolve("finder.open", "project", "nordhaus")).toMatchObject({ status: 404 });
   });
   it("an href action resolves to its URL; the desktop handoff is not offered", async () => {
-    expect(await resolveTarget("mail.openMessage", { messageId: "a@b.example" }, deps)).toEqual({ kind: "url", url: "message://%3Ca%40b.example%3E", label: "Open the client's mail" });
+    expect(await resolveTarget("mail.openMessage", { messageId: "a@b.example" }, deps)).toEqual({ kind: "url", url: "message://%3Ca%40b.example%3E", label: "Open their message" });
     expect(await resolveTarget("agent.openInDesktop", { project: "acme-travel", tab: "t1" }, deps)).toMatchObject({ status: 501, refused: expect.stringMatching(/^Not offered/) });
   });
   it("P87: Open Mail starts Apple Mail by name and takes no argument; no other application is opened", async () => {

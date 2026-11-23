@@ -3,7 +3,7 @@ import { parseRef } from "@hub/contract/focus";
 import { dest, destFrom, type Dest } from "./paths";
 import { parseQuery, readSearch, type SearchSpec } from "./search";
 import type { SectionId } from "./sections";
-import { addressOf, RESERVED_SEGMENTS, ROUTE_IDS, ROUTE_TABLE, type ParamsOf, type RouteId, type RowOf, type SearchFor } from "./table";
+import { addressOf, NO_PROJECT, RESERVED_SEGMENTS, ROUTE_IDS, ROUTE_TABLE, type ParamsOf, type RouteId, type RowOf, type SearchFor } from "./table";
 
 /**
  * `project`: the project the address names, from its first path segment (`/lisbon/mail`). `inPath` says it came from the
@@ -78,6 +78,8 @@ export function resolveRoute(path: string, searchString: string): Resolved {
   const row = ROUTE_TABLE[found.id];
   // `/lisbon/overview`, `/lisbon/settings/connections`: a project before a projectless route (its page exists once, at the top).
   if (inPath && !row.scoped) return notFound;
+  // `/_/overview`: the inside segment serves scoped addresses only (P127 A2); a projectless page has no inside form.
+  if (!row.scoped && (path === `/${NO_PROJECT}` || path.startsWith(`/${NO_PROJECT}/`))) return notFound;
   const params: Record<string, unknown> = {};
   if ("params" in row) {
     for (const [name, parse] of Object.entries(row.params)) {

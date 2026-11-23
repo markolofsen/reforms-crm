@@ -11,21 +11,26 @@ const metaOf = (id: RouteId): { title: string; crumb: string | null } => {
   return { title: row.title, crumb: "crumb" in row ? row.crumb : null };
 };
 
+/** The item a route's address names: its id, or a client's key (P103). */
+const itemOf = (r: Resolved): number | string | undefined => ("id" in r.params ? r.params.id : "key" in r.params ? r.params.key : undefined);
+
 /** The breadcrumb of a route, outermost first: `["Mail", "Conversation 42"]`, `["Project", "Setup"]` for a child page. Empty for Not found. */
 export function crumbsOf(r: Resolved): string[] {
   if (r.route === "notFound") return [];
   const crumbs = [sectionTitle(r.section)];
   const row = ROUTE_TABLE[r.route];
   if ("nav" in row && "parent" in row.nav) crumbs.push(row.title);
-  const crumb = metaOf(r.route).crumb;
-  if (crumb && "id" in r.params) crumbs.push(`${crumb} ${r.params.id}`);
+  const { crumb } = metaOf(r.route);
+  const item = itemOf(r);
+  // P128 X4: a person's address is his crumb, as in the tab title; an id keeps "Conversation id-12".
+  if (crumb && item !== undefined) crumbs.push(typeof item === "string" && item.includes("@") ? item : `${crumb} ${item}`);
   return crumbs;
 }
 
 /** `Conversation 42 · Mail · lisbon · Hub Workflow`, `Setup · lisbon · Hub Workflow`. The projectless pages name no project. */
 export function titleOf(r: Resolved, project: string | null): string {
   if (r.route === "notFound") return `Not found · ${APP}`;
-  return pageTitle(r.route, project, "id" in r.params ? r.params.id : "key" in r.params ? r.params.key : undefined);
+  return pageTitle(r.route, project, itemOf(r));
 }
 
 /** The title a page file gives its metadata: `routeId` and the id and project of its own address (a page knows both). */

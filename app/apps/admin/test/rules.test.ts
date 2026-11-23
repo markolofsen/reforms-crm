@@ -52,7 +52,8 @@ describe("one key factory, one live stream", () => {
 describe("the generated API boundary", () => {
   // P120 W2: every path comes from the emitted document through a generated operation or its URL helper.
   it("no admin module writes an /api/ path", () => {
-    expect(offenders(appFiles, /["'`]\/api\//)).toEqual([]);
+    // `src/proxy.ts` is the server-side proxy: it forwards `/api/*` by its prefix and calls no operation.
+    expect(offenders(appFiles.filter((p) => rel(p) !== "proxy.ts"), /["'`]\/api\//)).toEqual([]);
   });
   it("generated client imports stay behind lib/api facades", () => {
     const deep = /from ["']@hub\/api\/(?:generated|src|zod)\b/;
@@ -67,7 +68,9 @@ describe("the generated API boundary", () => {
     const operations = Object.values(spec.paths).flatMap((ops) => Object.values(ops).map((op) => op.operationId ?? ""));
     const ledger: readonly string[] = generatedOperations();
     expect(operations.length).toBeGreaterThan(0);
-    expect(operations.filter((operation) => !new RegExp(`\\b${operation}\\b`).test(barrel))).toEqual([]);
+    // A URL_HELPERS operation is exported as its generated URL (`get<Operation>Url`), the only form its facade uses.
+    const exported = (operation: string) => new RegExp(`\\b${operation in URL_HELPERS ? `get${operation[0]?.toUpperCase()}${operation.slice(1)}Url` : operation}\\b`).test(barrel);
+    expect(operations.filter((operation) => !exported(operation))).toEqual([]);
     expect(operations.filter((operation) => !ledger.includes(operation))).toEqual([]);
     expect(ledger.filter((operation) => !operations.includes(operation))).toEqual([]);
   });
@@ -78,7 +81,7 @@ describe("the generated API boundary", () => {
     for (const [file, ops] of Object.entries(DOORS)) for (const op of ops) owners.set(op, [...(owners.get(op) ?? []), file]);
     const wrong = appFiles.flatMap((p) => imported(p).filter((n) => owners.has(n) && !owners.get(n)?.includes(rel(p))).map((n) => `${rel(p)}: ${n}`));
     expect(wrong).toEqual([]);
-    expect([...owners.keys()]).toEqual(expect.arrayContaining(["sendMailDraft", "sendMessengerDraft", "runBatchSend", "createSendTicket", "createBatchSendTicket", "setConnectionSecret"]));
+    expect([...owners.keys()]).toEqual(expect.arrayContaining(["sendOneMailDraft", "sendMessengerDraft", "runBatchSend", "createSendTicket", "createBatchSendTicket", "setConnectionSecret"]));
   });
   it("a URL helper is used only for a ledger URL_HELPERS operation, in the file it names", () => {
     const helpers = new Map(Object.entries(URL_HELPERS).map(([op, v]) => [`get${op[0]?.toUpperCase()}${op.slice(1)}Url`, v?.file]));
@@ -344,7 +347,9 @@ describe("test isolation", () => {
   it("every Vitest config installs the shared temporary root first", () => {
     const configs = testRoots.flatMap((root) => [...walk(root)]).filter((p) => p.endsWith("vitest.config.ts"));
     expect(configs.length).toBeGreaterThan(0);
-    expect(configs.filter((p) => !read(p).match(/setupFiles:\s*\[\s*[\"'][^\"']*temp-root\.ts/)).map((p) => path.relative(repo, p))).toEqual([]);
+    // P121 T1: a config built by `hubVitest` gets it from there, and `hubVitest` puts temp-root.ts first.
+    expect(read(path.join(repo, "app/packages/config/src/vitest.ts"))).toMatch(/setupFiles:\s*\[\s*support\(["']temp-root\.ts["']\)/);
+    expect(configs.filter((p) => !read(p).match(/setupFiles:\s*\[\s*[\"'][^\"']*temp-root\.ts|\bhubVitest\(/)).map((p) => path.relative(repo, p))).toEqual([]);
   });
 
   it("every test that creates a temporary directory uses the process temp directory", () => {
@@ -392,7 +397,9 @@ describe("layout", () => {
   it("no max-w- on a page or pane container", () => {
     // A named width (`max-w-4xl`, `max-w-screen-lg`, `max-w-prose`) is a page container; a percent on a control is not.
     const ui = path.resolve(admin, "../../packages/ui/src/product");
-    const files = [...appFiles, ...walk(ui)];
+    // A modal is neither a page nor a pane: its popup has a width (P105 S1's ReviewDialog, composed from the sheet's parts).
+    const MODALS = new Set([path.join(ui, "conversation/review-dialog.tsx")]);
+    const files = [...appFiles, ...walk(ui)].filter((p) => !MODALS.has(p));
     expect(files.filter((p) => /\bmax-w-(\d?xl|xs|sm|md|lg|screen|prose|\d)/.test(code(p))).map((p) => path.relative(admin, p))).toEqual([]);
   });
 });

@@ -7,7 +7,7 @@ describe("SettingSwitch", () => {
   it("is enabled at rest and says no alert", () => {
     const html = renderToStaticMarkup(<SettingSwitch checked id="s" label="Advisor" onChange={() => {}} pending={false} />);
     expect(html).toContain('aria-label="Advisor"');
-    expect(html).not.toContain("disabled");
+    expect(html).not.toMatch(/\s(disabled|data-disabled|aria-disabled="true")(=|\s|>)/); // the attribute, not the `data-disabled:` class variants
     expect(html).not.toContain('role="alert"');
   });
   it("is disabled and busy while its save runs, and says the failure under it", () => {
@@ -24,7 +24,7 @@ describe("CommitField", () => {
     const html = renderToStaticMarkup(<CommitField id="days" label="Quiet days" onCommit={() => {}} pending={false} value="3" />);
     expect(html).toContain('value="3"');
     expect(html).toContain('aria-label="Quiet days"');
-    expect(html).not.toContain("disabled");
+    expect(html).not.toMatch(/\s(disabled|data-disabled|aria-disabled="true")(=|\s|>)/); // the attribute, not the `data-disabled:` class variants
   });
   it("is disabled while its save runs and says the failure under it", () => {
     const html = renderToStaticMarkup(<CommitField error="Not saved" id="days" onCommit={() => {}} pending value="3" />);

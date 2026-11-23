@@ -14,7 +14,7 @@ const derive = (path: string, search = "", parts: Partial<FocusParts> = {}, proj
 
 /** An address of every route of the table, filled with an id where it has one. */
 const sample = (id: (typeof ROUTE_IDS)[number]): string => {
-  const p = ROUTE_TABLE[id].path.replace("[id]", "12").replace("[page]", "41806f306f14812a8a42000b3b9c3ee4");
+  const p = ROUTE_TABLE[id].path.replace("[id]", "12").replace("[key]", "ann@example.com").replace("[page]", "41806f306f14812a8a42000b3b9c3ee4");
   return ROUTE_TABLE[id].scoped ? `/acme${p}` : p;
 };
 
@@ -51,7 +51,7 @@ describe("deriveFocus", () => {
   it("Activity narrowed to one client names that client as the subject (/log?client=1, P73), not a view", () => {
     expect(derive("/acme/log", "client=1")).toMatchObject({ route: "log.list", title: "Activity", subject: "client:1" });
     expect(derive("/acme/log", "client=1").view).toBeUndefined();
-    expect(derive("/acme/log", "filter=skipped&client=1").view).toEqual({ filter: "skipped" });
+    expect(derive("/acme/log", "kind=skipped&client=1").view).toEqual({ kind: "skipped" });
   });
   it("Knowledge: the row he is on and the rows on screen, refs only", () => {
     const f = derive("/acme/knowledge", "q=csv", { pointed: "knowledge:knowledge/files/a.md", window: { refs: ["knowledge:knowledge/files/a.md", "knowledge:knowledge/files/b.md"], total: 57 } });

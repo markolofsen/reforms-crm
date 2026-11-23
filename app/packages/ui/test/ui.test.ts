@@ -67,6 +67,6 @@ describe("@hub/ui tokens", () => {
     expect(read("styles.css")).toContain("--breakpoint-md: 40rem");
     expect(read("styles.css")).toContain("--container-3xl: 48rem");
     expect(read("use-media-query.ts")).toMatch(/md:\s*640\b/);
-    expect(read("product/list-detail.tsx")).toContain("SPLIT_MIN_PX = 768");
+    expect(read("product/list/detail.tsx")).toContain("SPLIT_MIN_PX = 768");
   });
 });

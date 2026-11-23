@@ -41,6 +41,7 @@ export function shortBatchName(name: string): string {
   const t = name.replace(/\s+/g, " ").trim();
   if (t.length <= BATCH_SHORT_MAX) return t;
   const cut = t.slice(0, BATCH_SHORT_MAX - 1);
-  const space = cut.lastIndexOf(" ");
+  // A cut that ends exactly at a word keeps that word; otherwise it goes back to the last space.
+  const space = t[cut.length] === " " ? cut.length : cut.lastIndexOf(" ");
   return `${(space > 12 ? cut.slice(0, space) : cut).replace(/[\s,.;:·-]+$/, "")}…`;
 }

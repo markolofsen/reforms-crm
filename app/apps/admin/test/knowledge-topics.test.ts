@@ -23,7 +23,7 @@ describe("Knowledge topics (P125 L2)", () => {
 
   it("a flat base: one item per topic with its count, no indent, no group", () => {
     const items = topicItems(groupEntries(flat, false), false);
-    expect(items.map((i) => [i.label, i.count, i.depth, i.group])).toEqual([["API", 2, 0, null], ["PRICING", 1, 0, null]]);
+    expect(items.map((i) => [i.label, i.count, i.depth, i.group])).toEqual([["API", 2, 0, null], ["Pricing", 1, 0, null]]); // labels as words (P74 `topicLabel`)
     expect(items.map((i) => i.topic)).toEqual(["api", "pricing"]);
   });
 
@@ -39,7 +39,7 @@ describe("Knowledge topics (P125 L2)", () => {
     const rows = [entry("playbooks/onboarding/x", null, ["A"]), entry("playbooks/y", null, ["A"]), entry("files/z", "API", ["B"])];
     const sections = groupEntries(rows, true);
     const items = topicItems(sections, true);
-    expect(items.map((i) => [i.group, i.label, i.depth])).toEqual([["A", "playbooks", 0], ["A", "onboarding", 1], ["B", "API", 0]]);
+    expect(items.map((i) => [i.group, i.label, i.depth])).toEqual([["A", "Playbooks", 0], ["A", "Onboarding", 1], ["B", "API", 0]]);
     expect(entriesUnder(sections, rows, "a/playbooks")).toHaveLength(2);
     expect(entriesUnder(sections, rows, "a/playbooks/onboarding")).toHaveLength(1);
   });

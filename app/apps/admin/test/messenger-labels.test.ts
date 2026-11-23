@@ -52,7 +52,7 @@ describe("messenger labels", () => {
     expect(chatStateLine(chat())).toBe("Wrote you");
     expect(chatStateLine(chat({ draft: { id: 9, text: "Yes", createdBy: "agent", nudge: false, ownerRequest: null, createdAt: "", updatedAt: "" } }))).toBe("Draft ready");
     expect(chatStateLine(chat({ owed: false, last: { direction: "out", kind: "text", text: "Done", at: "2026-11-20T08:00:00.000Z", hidden: null } }))).toBe("Waiting for them");
-    expect(chatStateLine(chat({ owed: false, last: { direction: "in", kind: "text", text: "thanks", at: "2026-11-20T08:00:00.000Z", hidden: "closing" } }))).toBe("No reply needed");
+    expect(chatStateLine(chat({ owed: false, last: { direction: "in", kind: "text", text: "thanks", at: "2026-11-20T08:00:00.000Z", hidden: "closing" } }))).toBe("Done"); // P123 U3: Mail's state words
   });
 
   it("keeps the compact Notion marker short without losing the full identity line", () => {
