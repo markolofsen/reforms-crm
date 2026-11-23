@@ -17,7 +17,7 @@ export type StatusState = { state: "linked"; client: string } | { state: "unlink
  * P102 S3: the one state menu of a chat row, the only place a chat changes state, so a row has one control for it instead of a
  * button per move. A linked row shows the client name: Change client (the chat and its messages go to another client), Unlink (deletes), Hide as not a
  * client, and the rules; Not linked: Link to a client, Create client, Hide; Hidden: Link to a client (a hidden chat can be linked),
- * Unhide. Every item that deletes or searches opens in the row, never in a dialog (`ui-specifications.md` rule 5d).
+ * Unhide. A search opens in the row; an item that deletes opens the review dialog (P105, `ui-specifications.md` rules 5d and 5f).
  */
 // Compact is the icon-only trigger, named "Chat actions for <name>"; the full one is named by its content, "Status of <name>: Not linked",
 // so the name always holds the visible state (WCAG 2.5.3).

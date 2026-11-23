@@ -51,18 +51,15 @@ test("keyboard only: reach the list, move, read the checks, finish, undo", async
   const id = await current.getAttribute("id");
   expect(id).toBeTruthy();
   const row = page.locator(`#${id}`);
-  const sw = page.getByRole("switch", { name: "I read the checks" });
-  await expect(sw).toBeVisible();
-
-  // Understand whatever checks the draft carries (focus each, Space), then turn the switch on with C.
-  for (const button of await page.getByRole("button", { name: /^Understood:/ }).all()) {
-    await button.focus();
-    await page.keyboard.press("Space");
-    await expect(button).toHaveAttribute("aria-pressed", "true");
-  }
+  // P105: C opens the review dialog in its Check mode; Enter on its Check (after the dwell) accepts the checks once.
   await page.locator("#main").focus();
   await page.keyboard.press("c");
-  await expect(sw).toBeChecked();
+  const confirm = page.getByTestId("review-dialog").getByTestId("review-confirm");
+  await expect(confirm).toBeFocused();
+  await page.waitForTimeout(450);
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("review-dialog")).toHaveCount(0);
+  await page.locator("#main").focus();
 
   // Done with D (the cursor moves on), back with K, then Undo with U.
   await page.keyboard.press("d");

@@ -106,7 +106,7 @@ function MailSection({ project, filter, q, batch, clientId, pointed, leadPageId,
       listBottom={
         batch !== null && known ? (
           // P85b: a batch's own Send all Checked; every draft still has its own Send at the bottom of its conversation.
-          <BatchSend batchId={batch} brief={current?.brief ?? null} checked={current?.counts.checked ?? 0} open={(current?.counts.review ?? 0) + (current?.counts.checked ?? 0) + (current?.counts.hold ?? 0)} project={project} />
+          <BatchSend batchId={batch} brief={current?.brief ?? null} checked={current?.counts.checked ?? 0} project={project} />
         ) : filter === "sequences" ? (
           <FollowUps project={project} />
         ) : (

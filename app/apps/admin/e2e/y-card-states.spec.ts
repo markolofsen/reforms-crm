@@ -14,18 +14,10 @@ const soon = () => new Date(Date.now() + 10 * 60_000).toISOString();
 
 type Case = { state: string; patch: Record<string, unknown> | ((d: Record<string, unknown>) => Record<string, unknown>); primary: 0 | 1; label?: RegExp; before?: (p: Page) => Promise<unknown>; act?: (p: Page) => Promise<void> };
 const CASES: Case[] = [
-  { state: "checks_open", patch: { checked: false, safetyResults: RED }, primary: 1, label: /^Send$/ },
-  { state: "unread", patch: { checked: false, safetyResults: [] }, primary: 1, label: /^Send$/ },
-  { state: "acknowledged", patch: { safetyResults: [] }, primary: 1, label: /^Send$/ },
-  {
-    state: "confirming",
-    patch: { safetyResults: [] },
-    primary: 1,
-    label: /^Send to /,
-    before: (p) => p.route(/\/drafts\/\d+\/send$/, (r) => r.fulfill({ json: PREVIEW })),
-    act: (p) => p.getByRole("button", { name: "Send", exact: true }).click(),
-  },
-  { state: "sending", patch: { sendState: { id: 1, status: "sending", dueAt: null } }, primary: 1, label: /Sending/ },
+  { state: "checks_open", patch: { checked: false, safetyResults: RED }, primary: 1, label: /^Send the reply to / },
+  { state: "unread", patch: { checked: false, safetyResults: [] }, primary: 1, label: /^Send the reply to / },
+  { state: "acknowledged", patch: { safetyResults: [] }, primary: 1, label: /^Send the reply to / },
+  { state: "sending", patch: { sendState: { id: 1, status: "sending", dueAt: null } }, primary: 1, label: /^Send the reply to / },
   { state: "queued", patch: { sendState: { id: 1, status: "queued", dueAt: soon() } }, primary: 0 },
   { state: "sent", patch: { status: "sent" }, primary: 0 },
   { state: "done", patch: { status: "done" }, primary: 0 },

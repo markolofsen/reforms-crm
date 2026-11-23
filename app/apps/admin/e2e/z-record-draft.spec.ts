@@ -42,8 +42,8 @@ test("a draft recorded by the CLI shows on the Drafts screen, once, with an Open
   await expect(card.getByText(/The Mail draft was deleted|The text of this mail is not stored here|Mail could not be read/)).toBeVisible();
   await expect(card.getByRole("button", { name: /Reply in Mail/ })).toHaveCount(0);
 
-  // Mail holds no draft for it, so the text cannot be judged: there is no Checked switch (P27 M3.1), but Done (handled in Mail) works.
-  await expect(page.getByRole("switch", { name: "I read the checks" })).toHaveCount(0);
+  // Mail holds no draft for it, so the text cannot be judged: there is no Send (P27 M3.1, P105), but Done (handled in Mail) works.
+  await expect(card.getByTestId("draft-send")).toHaveCount(0);
   await card.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: /^Mark done/ }).click();
   await expect(row.getByRole("img", { name: "Done" })).toBeVisible();

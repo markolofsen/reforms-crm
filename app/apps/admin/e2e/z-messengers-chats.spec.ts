@@ -148,12 +148,15 @@ test("chats: Change client moves the chat with its messages (Undo moves it back)
   expect(writes[0]?.body).toEqual({ key: "n-evg" });
   expect(writes[1]?.body).toEqual({ clientId: 7, draftId: 11 });
 
+  // P105 S3: Unlink is reviewed in the one dialog; Cancel keeps everything.
+  const dialog = page.getByTestId("review-dialog");
   await pick(rita(page), "Unlink…");
-  await expect(rita(page).getByText(/^Unlink Rita F\. from Rita Falsa: its 1 stored message and its draft are deleted\. Linking again reloads the last 30 days\.$/)).toBeVisible();
-  await rita(page).getByRole("button", { name: "Cancel" }).click();
-  await expect(rita(page).getByText(/are deleted/)).toHaveCount(0);
+  await expect(dialog.getByTestId("review-lead")).toHaveText(/^Unlink Rita F\. from Rita Falsa: its 1 stored message and its draft are deleted\. Linking again reloads the last 30 days\.$/);
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toHaveCount(0);
   await pick(rita(page), "Unlink…");
-  await rita(page).getByRole("button", { name: "Unlink and delete" }).click();
+  await page.waitForTimeout(450);
+  await dialog.getByRole("button", { name: "Unlink and delete" }).click();
   await expect(page.getByText("Unlinked Rita F.")).toBeVisible();
   expect(s.posts.at(-1)?.path).toMatch(/\/chats\/\d+\/unlink$/);
 });

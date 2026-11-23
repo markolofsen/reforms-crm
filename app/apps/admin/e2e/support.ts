@@ -25,19 +25,29 @@ export async function openRow(page: Page, name: string): Promise<Locator> {
   return card;
 }
 
-/** Turns "I read the checks" on: understand each check first (the switch stays off until the red ones are), then the switch. */
-export async function readTheChecks(page: Page) {
-  for (const button of await page.getByRole("button", { name: /^Understood:/ }).all()) {
-    if ((await button.getAttribute("aria-pressed")) !== "true") await button.click();
-    await expect(button).toHaveAttribute("aria-pressed", "true");
-  }
-  const sw = page.getByRole("switch", { name: "I read the checks" });
-  if ((await sw.getAttribute("aria-checked")) !== "true") await sw.click();
-  await expect(sw).toBeChecked();
+/** P105: the one review dialog (Send, Check, Send all Checked, Unlink). */
+export const reviewDialog = (page: Page) => page.getByTestId("review-dialog");
+
+/** Its confirm, once the dialog's dwell is over (a press right after it opens is ignored on purpose). */
+export async function confirmReview(page: Page) {
+  const dialog = reviewDialog(page);
+  await expect(dialog).toBeVisible();
+  const confirm = dialog.getByTestId("review-confirm");
+  await expect(confirm).not.toHaveAttribute("aria-disabled", "true");
+  await page.waitForTimeout(450);
+  await confirm.click();
 }
 
-/** The one primary button of an open card that is not sending: named plain "Send". */
-export const sendButton = (card: Locator) => card.getByRole("button", { name: "Send", exact: true });
+/** P105 verdict 5: Checked for Send all Checked, from the card's More menu, accepted once in the review dialog. */
+export async function checkForBatch(page: Page, card: Locator) {
+  await card.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Check for Send all Checked…" }).click();
+  await confirmReview(page);
+  await expect(reviewDialog(page)).toHaveCount(0);
+}
+
+/** The one primary of an open card that can send: Send, which opens the review dialog. */
+export const sendButton = (card: Locator) => card.getByTestId("draft-send");
 
 /**
  * The open draft of the first person with one in the real list (P99: a row carries its one open draft; people who wrote have none), moved to the top so the wide pane opens it by itself, and patched: ready, Checked, no send

@@ -16,7 +16,7 @@ type Actions = ReturnType<typeof useChatActions>;
 
 /**
  * The agent's open draft of one chat (P71 M3): its text in full, what admitted it (a follow-up, the owner's request), and the
- * three decisions. Send goes through the send door (P71 M4): a dry run, the confirm in place with the exact text, the apply; Edit
+ * three decisions. Send opens the review dialog (P105) and goes through the send door (P71 M4): the dry run and the apply of the exact text; Edit
  * opens the text in place (an action's own form, `admin-principles.md` rule 9); Skip sets it aside with Undo. Its ref is
  * `mdraft:<id>` (P72), so a press on it tells the agent which draft he means; it is not a tab stop of its own (the buttons are).
  */
@@ -25,7 +25,7 @@ export function DraftBlock({ d, name, project, chatId, actions, embedded = false
   const [editValue, setEditValue] = useState(d.text);
   const [editSaved, setEditSaved] = useState(false);
   const door = useMessengerSend(project, d, chatId);
-  const shown = door.flow.step === "confirm" || door.flow.step === "sending" ? door.flow.mail.text : d.text;
+  const shown = d.text;
   const author = d.createdBy === "hub_llm" ? "Hub LLM" : d.createdBy === "runtime_agent" ? "runtime agent" : "agent";
   const editOk = editValue.trim().length > 0 && editValue.length <= MESSENGER_TEXT_MAX && editValue !== d.text;
   const composerState: ComposerState = composerStateOf({ body: editing ? editValue : shown, draftId: editing ? undefined : d.id, editing, error: actions.error });
@@ -80,6 +80,7 @@ export function DraftBlock({ d, name, project, chatId, actions, embedded = false
           busy={actions.pending}
           door={door}
           name={name}
+          text={d.text}
           rest={
             <>
               <ActionButton disabled={actions.pending} onClick={startEditing} size="s" variant="secondary">

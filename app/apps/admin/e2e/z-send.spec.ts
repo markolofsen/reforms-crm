@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { cards, cardOf, openRow, readTheChecks, remember, sendButton } from "./support";
+import { cards, cardOf, confirmReview, openRow, remember, reviewDialog, sendButton } from "./support";
 
 // Send, from the admin, against the FAKE mailer (the server runs with HUB_MAILER=fake, see playwright.config.ts): a
 // "sent" here never leaves the process. Named z-* because it writes (checks read, a send row, Stop all); it runs last.
@@ -11,46 +11,37 @@ test.beforeEach(async ({ page }) => {
 
 const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
 
-/** The card of a client with "I read the checks" on, ready for Send. */
+/** The card of a client, ready for Send. */
 async function openRead(page: Page, name: string) {
   await page.goto("/mail?filter=all");
-  const card = await openRow(page, name);
-  await readTheChecks(page);
-  return card;
+  return openRow(page, name);
 }
 
-test("Send needs the checks read, shows the exact mail to confirm, can be cancelled, then sends once", async ({ page }) => {
+test("P105: Send opens one review dialog with every check and the exact recipients; Esc sends nothing; its Send sends once", async ({ page }) => {
   await page.goto("/mail?filter=all");
   const card = await openRow(page, "Sofia Teste");
-  // checks not read yet: the button says why and does not act
-  await expect(sendButton(card)).toHaveAttribute("aria-disabled", "true");
-  await expect(card.getByText(/Turn on I read the checks|Understand the checks first/)).toBeVisible();
-
-  await readTheChecks(page);
-  await expect(sendButton(card)).not.toHaveAttribute("aria-disabled", "true");
+  // Send is never disabled: it opens the dialog. No per-check Understood, no switch.
+  await expect(card.getByRole("switch")).toHaveCount(0);
+  await expect(card.getByRole("button", { name: /^Understood/ })).toHaveCount(0);
   await sendButton(card).click();
+  const dialog = reviewDialog(page);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: "Send to Sofia?" })).toBeVisible();
+  await expect(dialog).toContainText("sofia@example.com");
+  await expect(dialog).toContainText("Re: Any news on the offer?");
+  // Warnings only: Send is the focused button at once.
+  await expect(dialog.getByTestId("review-confirm")).toBeFocused();
 
-  // the bar becomes the confirmation: the primary keeps its place, with focus, and says who gets it
-  const confirm = card.getByRole("button", { name: "Send to Sofia" });
-  await expect(confirm).toBeVisible();
-  await expect(confirm).toBeFocused();
-  // The confirm line (role status); the card's From line (P58) also names the To.
-  await expect(card.getByRole("status").filter({ hasText: /To sofia@example\.com/ })).toBeVisible();
-  await expect(card.getByText(/Re: Any news on the offer\?/).first()).toBeVisible();
-  await expect(card.getByRole("region", { name: "Draft", exact: true })).toContainText("Thank you for your message");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-
-  // Cancel: nothing happened
-  await card.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(confirm).toHaveCount(0);
-  // The send history is Activity ▸ Sends (UX pass 2026-11-20): no send yet, so it says so.
+  // Esc: nothing happened
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
   await page.goto("/log?filter=sends");
   await expect(page.getByText("No sends yet")).toBeVisible();
 
-  // now really (to the fake) send
+  // now really (to the fake) send: one click in the dialog
   const again = await openRead(page, "Sofia Teste");
   await sendButton(again).click();
-  await again.getByRole("button", { name: "Send to Sofia" }).click();
+  await confirmReview(page);
   // P99: our send is the last word, so her conversation waits for her.
   await expect(cards(page).filter({ hasText: "Sofia Teste" }).getByRole("img", { name: "Waiting for them" })).toBeVisible();
 
@@ -72,16 +63,20 @@ test("Stop all refuses a send with its reason, and Resume lifts it", async ({ pa
 
   const card = await openRead(page, "Marta Ficticia");
   await sendButton(card).click();
-  await expect(card.getByText("Stop all is on").first()).toBeVisible();
-  await expect(card.getByRole("button", { name: "Send to Marta" })).toHaveCount(0);
+  await confirmReview(page);
+  // The refusal is a blocker in the dialog, in the server's words; nothing was sent.
+  await expect(reviewDialog(page).locator('[data-severity="blocker"]').filter({ hasText: "Stop all is on" })).toBeVisible();
+  await expect(reviewDialog(page).getByTestId("review-confirm")).toHaveAttribute("aria-disabled", "true");
+  await page.keyboard.press("Escape");
 
   await page.goto("/settings");
   await page.getByRole("button", { name: "Resume lisbon-realty" }).click();
   await expect(page.getByText(/Stop all is on/)).toHaveCount(0);
   const marta = await openRead(page, "Marta Ficticia");
   await sendButton(marta).click();
-  await expect(marta.getByRole("button", { name: "Send to Marta" })).toBeVisible();
-  await marta.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(reviewDialog(page).getByTestId("review-confirm")).not.toHaveAttribute("aria-disabled", "true");
+  await reviewDialog(page).getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(reviewDialog(page)).toHaveCount(0);
 });
 
 test("a draft recorded as injection_suspected shows the flag and offers no Send", async ({ page }) => {

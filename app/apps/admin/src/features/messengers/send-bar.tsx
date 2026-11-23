@@ -1,58 +1,49 @@
-import { SendIcon } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { MessengerSendPreviewDto } from "@hub/contract/messenger";
-import { ActionButton } from "@hub/ui/product/action-button";
-import type { SendFlow } from "@/components/send/send-flow";
-import { SendNotices } from "@/components/send/send-notices";
-import { useHotkeys } from "@hub/ui/use-hotkey";
+import { DraftActionRow, DraftSendButton } from "@hub/ui/product/draft-action-row";
+import { ReviewDialog, type ReviewItem } from "@hub/ui/product/review-dialog";
+import { SendIcon } from "lucide-react";
+import { flowProblems, type Go, type SendFlow } from "@/components/send/send-flow";
 import { confirmLine } from "./labels";
 
-type Door = { flow: SendFlow<MessengerSendPreviewDto>; read: () => void; send: (p: MessengerSendPreviewDto) => void; close: () => void };
+type Door = { flow: SendFlow<MessengerSendPreviewDto>; go: (o?: Go<MessengerSendPreviewDto>) => void; close: () => void };
 
 /**
- * The send part of a messenger draft (P71 M4), as Mail's action bar does it: Send reads the dry run; the confirm swaps the bar in
- * place (who, from which account, "cannot be recalled"), focus on Confirm send, Esc cancels; a refusal lists every reason in words.
- * `rest` is the draft's other buttons (Edit, Skip), hidden while the person confirms.
+ * The send part of a messenger draft (P71 M4; P105): the shared draft action row, as Mail's card has it. Send opens the review
+ * dialog, whose Send runs the door's dry run and applies it only when it is the text the dialog showed; who and from which account
+ * is said once the dry run answers, and a refusal lists every reason as a blocker. `rest` is the draft's other buttons (Edit, Skip).
  */
-export function SendBar({ door, name, busy, rest }: { door: Door; name: string; busy: boolean; rest: ReactNode }) {
+export function SendBar({ door, name, text, busy, rest }: { door: Door; name: string; /** The draft's text as the panel shows it. */ text: string; busy: boolean; rest: ReactNode }) {
   const { flow } = door;
-  const confirming = flow.step === "confirm";
-  const primary = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    if (confirming) primary.current?.focus();
-  }, [confirming]);
-  useHotkeys({ escape: () => door.close() }, confirming);
-  const preview = flow.step === "confirm" || flow.step === "sending" ? flow.mail : null;
+  const [open, setOpen] = useState(false);
+  const running = flow.step === "reading" || flow.step === "sending";
+  const close = () => {
+    if (running) return;
+    setOpen(false);
+    door.close();
+  };
+  const items: ReviewItem[] = flowProblems(flow).map((r, n) => ({ key: `refused-${n}`, severity: "blocker", text: r, action: { label: "Try again", onClick: door.close } }));
+  const preview = flow.step === "sending" ? flow.mail : null;
   return (
-    <div className="flex flex-col gap-2">
-      <SendNotices flow={flow} onClose={door.close} />
-      {preview && (
-        <p className="text-sm" role="status">
-          {confirmLine(preview)}
-        </p>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        {preview ? (
-          <>
-            <ActionButton disabled={flow.step === "sending"} onClick={() => flow.step === "confirm" && door.send(flow.mail)} ref={primary} size="s" variant="primary">
-              <SendIcon aria-hidden="true" />
-              {flow.step === "sending" ? "Sending" : "Confirm send"}
-            </ActionButton>
-            <ActionButton disabled={flow.step === "sending"} onClick={door.close} size="s" variant="quiet">
-              Cancel
-            </ActionButton>
-          </>
-        ) : (
-          <>
-            <ActionButton disabled={busy || flow.step === "reading"} onClick={door.read} size="s" variant="primary">
-              <SendIcon aria-hidden="true" />
-              {flow.step === "reading" ? "Reading" : "Send"}
-              <span className="sr-only"> the reply to {name}</span>
-            </ActionButton>
-            {rest}
-          </>
-        )}
-      </div>
-    </div>
+    <>
+      <DraftActionRow primary={<DraftSendButton busy={running} disabled={busy} onClick={() => setOpen(true)} size="s" who={name} />} start={rest} />
+      <ReviewDialog
+        confirmIcon={<SendIcon aria-hidden="true" />}
+        confirmLabel="Send"
+        items={items}
+        onConfirm={() => door.go({ accept: (p) => (p.text === text ? null : "The draft changed while you read: read it again, then Send.") })}
+        onOpenChange={(next) => !next && close()}
+        open={open && flow.step !== "sent"}
+        pending={running}
+        pendingLabel={flow.step === "sending" ? "Sending" : "Checking"}
+        summary={
+          <div className="flex flex-col gap-1">
+            {preview ? <p>{confirmLine(preview)}</p> : <p className="text-muted-foreground">To {name}. A sent message cannot be recalled.</p>}
+            <p className="measure whitespace-pre-wrap break-words rounded-lg border bg-card p-3">{text}</p>
+          </div>
+        }
+        title={`Send to ${name}?`}
+      />
+    </>
   );
 }

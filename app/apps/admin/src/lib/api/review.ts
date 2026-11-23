@@ -1,7 +1,7 @@
 import type { Mark, SafetyKind, SettableStatus, Tone } from "@hub/config";
 import { createManualMailDraft, getClientHistory, getClientTimeline, getConversation, getConversationMail, getConversationText, listBatches, listConversations, listDrafts, setClientMarks, type GetConversationTextParams } from "@hub/api";
 import type { StatusBody } from "@hub/contract/requests";
-import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto, warningsAckedDto } from "@hub/contract/review";
+import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto } from "@hub/contract/review";
 import { conversationDto, conversationMailDto, conversationTextDto, conversationsDto, type ConversationViewDto } from "@hub/contract/conversations";
 import { read, readGenerated } from "./client";
 
@@ -36,6 +36,4 @@ export const reviewApi = {
   /** The batches of a project, read-only (P48: the builder is gone; a batch is a View of Mail), and the batch's own Undo. */
   batches: (project: string) => readGenerated(listBatches({ project }), batchesDto),
   undoBatch: (project: string, id: number) => read(okDto, { method: "POST", path: `/api/batches/${id}/undo`, query: { project } }),
-  /** P87: every amber result of the batch's open drafts acknowledged; red ones stay one by one. */
-  acknowledgeWarnings: (project: string, id: number) => read(warningsAckedDto, { method: "POST", path: `/api/batches/${id}/acknowledge-warnings`, query: { project } }),
 };

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { at, cards, readTheChecks, remember, viewMenu } from "./support";
+import { at, cards, remember, viewMenu } from "./support";
 
 // The seeded project `lisbon-realty` is invented data (packages/db/src/seed.ts): 11 clients with a draft, and two the agent left
 // to the owner (Marta Gomes, Joao Pires: an owed Inbox row, no draft). P99: Mail lists people, so All has 13 rows, one per person
@@ -37,7 +37,7 @@ test("A project with no conversation says what to ask the agent", async ({ page 
   await expect(page.getByText("Say to the agent: “triage mail for lisbon-realty”")).toBeVisible();
 });
 
-test("I read the checks, then Done moves the person below everyone who needs you", async ({ page }) => {
+test("Done moves the person below everyone who needs you", async ({ page }) => {
   await page.goto("/mail?filter=all");
   const row = cards(page).filter({ hasText: "Pedro Exemplo" });
   await expect(row).toBeVisible();
@@ -49,7 +49,6 @@ test("I read the checks, then Done moves the person below everyone who needs you
   await row.getByRole("button").first().click();
   const card = page.getByRole("article", { name: "Draft for Pedro Exemplo" });
   const draftId = (await card.getAttribute("data-agent-ref"))?.replace("draft:", "");
-  await readTheChecks(page);
 
   await card.getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: /^Mark done/ }).click();

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeSendPolicy } from "./send-policy";
-import { contextWarn, openRow, readTheChecks, remember, viewMenu } from "./support";
+import { checkForBatch, confirmReview, contextWarn, openRow, remember, reviewDialog, viewMenu } from "./support";
 
 // P85b: Send all Checked of one batch, against the FAKE mailer (HUB_MAILER=fake: nothing leaves the process; the batch spacing is
 // shortened by HUB_BATCH_SPACING_SECONDS, honoured with the fake only). Named z-* because it writes (two drafts, two send rows).
@@ -37,7 +37,7 @@ const record = (email: string, name: string) =>
     }),
   ) as { ok: boolean; draftId: number };
 
-test("Send all Checked: one confirmation names the count and every recipient, then the server sends each Checked draft once", async ({ page }) => {
+test("Send all Checked: one review dialog names the count and every recipient, then the server sends each Checked draft once", async ({ page }) => {
   expect(record("ana.batch@example.com", "Ana Batch")).toMatchObject({ ok: true });
   expect(record("rui.batch@example.com", "Rui Batch")).toMatchObject({ ok: true });
   await remember(page, "demo-shop");
@@ -48,32 +48,34 @@ test("Send all Checked: one confirmation names the count and every recipient, th
 
   const panel = page.getByRole("region", { name: "Send all Checked" });
   await expect(panel.getByText(WORDS)).toBeVisible();
-  await expect(panel.getByRole("button", { name: "Understood all warnings" })).toBeVisible();
+  // P105: no batch-wide Understood; each draft is checked once in its review dialog.
+  await expect(panel.getByRole("button", { name: "Understood all warnings" })).toHaveCount(0);
   // Nothing Checked yet: the button says so and does not act.
-  await expect(panel.getByText("No draft of this batch is Checked yet.")).toBeVisible();
+  await expect(panel.getByText(/^No draft of this batch is Checked yet/)).toBeVisible();
   for (const name of ["Ana Batch", "Rui Batch"]) {
-    await openRow(page, name);
-    await readTheChecks(page);
+    const card = await openRow(page, name);
+    await checkForBatch(page, card);
   }
   await expect(panel.getByText(/2 Checked drafts in this batch/)).toBeVisible();
 
-  // The dry run: the confirmation in place, with the count and every recipient; no dialog, nothing sent.
+  // The dry run: the review dialog with the count and every recipient; nothing sent.
   await panel.getByRole("button", { name: "Send all Checked" }).click();
-  await expect(panel.getByRole("heading", { name: /^Send 2 mails, one every \d+ s/ })).toBeVisible();
-  const recipients = panel.getByRole("list", { name: "Recipients" });
+  const dialog = reviewDialog(page);
+  await expect(dialog.getByTestId("review-confirm")).toHaveText(/Send 2 mails/);
+  await expect(dialog.getByTestId("review-lead")).toContainText(/One every \d+ s/);
+  const recipients = dialog.getByRole("list", { name: "Recipients" });
   await expect(recipients).toContainText("ana.batch@example.com");
   await expect(recipients).toContainText("rui.batch@example.com");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
   // Cancel: nothing was sent.
   const batchUrl = page.url();
-  await panel.getByRole("button", { name: "Cancel", exact: true }).click();
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.goto("/log?filter=sends");
   await expect(page.getByText("ana.batch@example.com")).toHaveCount(0);
 
   // Confirm: the run goes on the server, its progress is shown, and it ends with both sent once.
   await page.goto(batchUrl);
   await panel.getByRole("button", { name: "Send all Checked" }).click();
-  await panel.getByRole("button", { name: "Send 2 mails" }).click();
+  await confirmReview(page);
   await expect(panel.getByRole("heading", { name: "Finished: 2 of 2 sent" })).toBeVisible({ timeout: 20_000 });
   await expect(panel.getByRole("list", { name: "Batch send progress" }).getByText("Sent", { exact: true })).toHaveCount(2);
 

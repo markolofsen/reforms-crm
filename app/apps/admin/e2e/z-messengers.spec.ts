@@ -61,16 +61,20 @@ test("messengers: Send reads the dry run, confirms in place with the exact text,
   const send = conversation(page).getByRole("button", { name: `Send the reply to ${RITA}` });
   const draft = conversation(page).getByTestId("messenger-draft");
   await expect(draft).toBeVisible();
+  // P105: Send opens the review dialog with the exact text; Esc closes it and nothing was called.
   await send.click();
-  await expect(conversation(page).getByRole("status")).toHaveText(`To ${RITA} on Telegram, from your account 100200300. A sent message cannot be recalled.`);
-  await expect(draft).toContainText(TEXT);
-  await expect(conversation(page).getByRole("button", { name: "Confirm send" })).toBeFocused();
-  await expect(conversation(page).getByRole("button", { name: /^Edit/ })).toHaveCount(0);
+  const dialog = page.getByTestId("review-dialog");
+  await expect(dialog.getByRole("heading", { name: `Send to ${RITA}?` })).toBeVisible();
+  await expect(dialog).toContainText(TEXT);
+  await expect(dialog.getByTestId("review-confirm")).toBeFocused();
   await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
   await expect(send).toBeVisible();
-  expect(sends).toEqual([{ apply: false }]);
+  expect(sends).toEqual([]);
+  // Its Send runs the dry run and the apply of the text it showed, in one press.
   await send.click();
-  await conversation(page).getByRole("button", { name: "Confirm send" }).click();
+  await page.waitForTimeout(450);
+  await dialog.getByTestId("review-confirm").click();
   await expect(page.getByText(`Sent to ${RITA} on Telegram`)).toBeVisible();
   expect(tickets).toEqual([{ project: P, draftId: expect.any(Number), kind: "messenger" }]);
   expect(sends.at(-1)).toEqual({ apply: true, confirm: { chatId: "700100", text: TEXT }, ticket: "t".repeat(43) });

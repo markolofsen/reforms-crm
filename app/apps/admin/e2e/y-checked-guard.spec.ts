@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import { mailIs, openRow, remember } from "./support";
+import { confirmReview, mailIs, openRow, remember, reviewDialog } from "./support";
 
-// Checked fails closed (decision 0013): the switch and the C key refuse a draft Mail cannot show and a draft whose text
+// Checked fails closed (decision 0013; P105): the review dialog and the C key refuse a draft Mail cannot show and a draft whose text
 // has no hash. The Mail read is patched per test (the rest of the answer is the fake mailer's own); nothing is written.
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
@@ -15,7 +15,7 @@ const checkedPosts = (page: Page) => {
   return seen;
 };
 
-test("an unreadable draft has no Checked switch, and the C key says why and sends nothing", async ({ page }) => {
+test("an unreadable draft cannot be Checked: the C key says why and sends nothing", async ({ page }) => {
   await mailIs(page, (m) => ({ ...m, found: false, hash: null, body: "", reason: "no draft in Mail with that subject", safetyResults: [] }));
   const posts = checkedPosts(page);
   const reads: string[] = [];
@@ -27,44 +27,40 @@ test("an unreadable draft has no Checked switch, and the C key says why and send
   const before = reads.length;
   await card.getByRole("button", { name: "Read again" }).click();
   await expect.poll(() => reads.length).toBeGreaterThan(before);
-  await expect(page.getByRole("switch", { name: "I read the checks" })).toHaveCount(0);
   await page.locator("#main").focus();
   await page.keyboard.press("c");
   await expect(page.getByRole("status").filter({ hasText: /Mail could not be read/ })).toBeVisible();
   expect(posts).toEqual([]);
 });
 
-test("a draft whose text has no hash keeps the switch off and the C key refuses", async ({ page }) => {
+test("a draft whose text has no hash: its review dialog names the blocker, Check stays off, nothing is posted", async ({ page }) => {
   await mailIs(page, (m) => ({ ...m, hash: null }));
   const posts = checkedPosts(page);
   await page.goto("/mail?filter=all");
-  const card = await openRow(page, "Marta Ficticia");
-  const sw = page.getByRole("switch", { name: "I read the checks" });
-  await expect(sw).toBeDisabled();
-  await expect(card.getByText(/no hash, so it cannot be checked/)).toBeVisible();
+  await openRow(page, "Marta Ficticia");
   await page.locator("#main").focus();
   await page.keyboard.press("c");
   await expect(page.getByRole("status").filter({ hasText: /no hash/ })).toBeVisible();
-  await expect(sw).not.toBeChecked();
+  await expect(reviewDialog(page)).toHaveCount(0);
   expect(posts).toEqual([]);
 });
 
-test("a draft that was read and hashed is Checked by the C key and the tick carries the hash", async ({ page }) => {
+test("a draft that was read and hashed is Checked through the C key's review dialog, and the tick carries the hash", async ({ page }) => {
   const bodies: string[] = [];
   page.on("request", (r) => {
     if (r.method() === "POST" && /\/api\/drafts\/\d+\/checked/.test(r.url())) bodies.push(r.postData() ?? "");
   });
   await page.goto("/mail?filter=all");
   await openRow(page, "Marta Ficticia");
-  for (const button of await page.getByRole("button", { name: /^Understood:/ }).all()) await button.click();
-  const sw = page.getByRole("switch", { name: "I read the checks" });
-  await expect(sw).toBeEnabled();
   await page.locator("#main").focus();
   await page.keyboard.press("c");
-  await expect(sw).toBeChecked();
+  await expect(reviewDialog(page).getByRole("heading", { name: /^Check the draft for/ })).toBeVisible();
+  await confirmReview(page);
+  await expect(reviewDialog(page)).toHaveCount(0);
   expect(bodies).toHaveLength(1);
   expect(JSON.parse(bodies[0] ?? "{}")).toMatchObject({ checked: true, hash: expect.stringMatching(/^[0-9a-f]{64}$/) });
-  // switching off is always allowed
+  // switching off is always allowed, at once
   await page.keyboard.press("c");
-  await expect(sw).not.toBeChecked();
+  await expect.poll(() => bodies.length).toBe(2);
+  expect(JSON.parse(bodies[1] ?? "{}")).toMatchObject({ checked: false });
 });
