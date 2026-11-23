@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
+import { BARE_HEADS } from "../next.config";
 import { BARE_HEADER, bareScoped, proxy } from "../src/proxy";
+import { SCOPED_HEADS } from "../src/routes/table";
 
 const call = (host: string, init: { method?: string; origin?: string; path?: string; cookie?: string } = {}) => {
   const headers = new Headers({ host });
@@ -57,6 +59,10 @@ describe("proxy (Host and Origin guard)", () => {
       expect(passes(res), path).toBe(true);
       expect(res.headers.get(`x-middleware-request-${BARE_HEADER}`), path).toBeNull();
     }
+  });
+
+  it("next.config rewrites exactly the scoped heads the proxy marks", () => {
+    expect(new Set(BARE_HEADS.split("|"))).toEqual(SCOPED_HEADS);
   });
 
   it("rewrites only the bare scoped heads", () => {
