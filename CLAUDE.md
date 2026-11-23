@@ -21,8 +21,8 @@ any project); one owner's facts live in `projects/<slug>/` (`@docs/LAYERS.md`).
 
 ## Where things are
 - The one index of docs and skills: `README.md` ("Where things are"). Phrases that start a skill and the Report format: `skills/README.md`. Which instruction owns what (P129 verdict 6): `skills/README.md`, "Where the rules live".
-- Editing `app/apps/admin`: read the page that owns your question in `app/@rules/README.md`.
-- Changing core code: typecheck, build and tests run ONCE at the very end, when all the work is written; never per edit, slice or phase (owner, 2026-11-23; `app/CLAUDE.md`, `app/@rules/verification.md` rule 2).
+- Editing `app/`: read the five pages of the reading order in `app/@rules/README.md`, then the page that owns your question.
+- Changing core code: typecheck, build and tests run ONCE at the very end, when all the work is written; never per edit, slice or phase (owner, 2026-11-23; `app/CLAUDE.md`, `app/@rules/verification.md` rule 2). At most two local servers at once (`verification.md` rule 2a).
 - Capabilities (P62): after the project's identity your instructions carry one generated line, "Project <slug>'s capabilities", built from project.md and the instance's connectors: what this session reaches (mail, Notion, knowledge, and the Google Calendar and Drive connectors the project attaches). Use only what it names; a connector call off its allowlist, a hold with guests or a Drive share is refused. How: `@docs/core/26-capabilities.md`.
 - Draft order: draft first, then the Notion profile. A rerun skips a client through the hub's record: `draft_write` refuses a new reply to a message the project already has a draft for (`already_drafted`), and that refusal is the skip. Nothing of the hub's is in a draft's text (decision 0031).
 

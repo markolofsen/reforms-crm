@@ -39,7 +39,7 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
   - Proves: `config.json` exists, parses and has every required key.
   - `hub install` fixes it: Copies a default from `app/apps/installer/templates/` only when the file is missing.
 - [ ] **Settings file holds no key nothing reads** (`files.config-keys`)
-  - Proves: Every top-level key of `config/config.json` is one the hub reads (`name`, `logo`, `account`, `mailboxes`, `sent_mailbox`, `allow_list`, `extra_dirs`, `admin_port`, `api_port`, `backup_dir`, `backup_repos`, `agent`, `llm`). An unknown key is a WARN naming it, never a FAIL: nothing is changed or deleted.
+  - Proves: Every top-level key of `config/config.json` is one the hub reads (`name`, `logo`, `account`, `mailboxes`, `sent_mailbox`, `allow_list`, `extra_dirs`, `admin_port`, `api_port`, `backup_dir`, `backup_repos`, `log`, `agent`, `llm`). An unknown key is a WARN naming it, never a FAIL: nothing is changed or deleted.
 - [ ] **Instance brand (name and logo)** (`files.brand`)
   - Proves: When `logo` is set, the file exists (a relative path is read from the `config/` folder). No logo, or no name, is a PASS: the admin says "Hub" and draws a monogram. A missing file is a WARN.
   - You: Put the logo file (svg, png, jpg or webp) where `logo` in `config/config.json` points, or remove `logo`.
@@ -47,7 +47,7 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
   - Proves: `state/secrets/` holds no `mail-*.json`. One is a WARN naming the files; nothing is deleted.
   - You: Delete the `mail-*.json` files the row names from `state/secrets/`.
 - [ ] **Project .mcp.json** (`files.mcp-json`)
-  - Proves: `.mcp.json` contains every server of `config/mcp.json` (stdio programs as absolute paths under the core), every stdio server command in it exists, and it holds no server the core no longer ships (`hub mcp`'s knowledge tools, whose tools are the `hub` server's since P129).
+  - Proves: `.mcp.json` contains every server of `config/mcp.json` (stdio programs as absolute paths under the core), every stdio server command in it exists, and it holds no server the core no longer ships (`knowledge-mcp`, whose tools are the `hub` server's since P129).
   - `hub install` fixes it: Merges the servers of `config/mcp.json` into `.mcp.json` with stdio paths made absolute under the core, drops the servers the core no longer ships, keeps your other servers, saves a one-time `.mcp.json.bak`.
 - [ ] **App database** (`files.app-db`)
   - Proves: The database file exists (`data/app.db` of the instance).
