@@ -1,5 +1,5 @@
+import { readAllowList } from "@hub/projects";
 import { createRepos, defaultDbPath, openDb, type SendRow } from "@hub/db";
-import { readFileSync } from "node:fs";
 import { mailAppMailer, runDue, sendDraft, type Mailer, type SentNotice } from "@hub/send";
 
 // The CLI face of send.ts: `hub send <draftId>`, `--due`, `--cancel`, `--stop`, `--resume`, `--status`.
@@ -29,14 +29,6 @@ export interface SendCommandEnv {
   onSent?: (n: SentNotice) => Promise<void> | void;
 }
 
-function allowList(file: string): string[] {
-  try {
-    const j = JSON.parse(readFileSync(file, "utf8")) as { allow_list?: unknown };
-    return Array.isArray(j.allow_list) ? j.allow_list.filter((a): a is string => typeof a === "string") : [];
-  } catch {
-    return [];
-  }
-}
 
 const brief = (r: SendRow) => `${String(r.id).padStart(4)} ${r.status.padEnd(9)} ${r.mode.padEnd(6)} ${r.project} draft ${r.draftId ?? "-"} to ${r.toAddr} "${r.subject}"${r.dueAt && r.status === "queued" ? ` due ${r.dueAt}` : ""}${r.error ? ` (${r.error.slice(0, 80)})` : ""}`;
 
@@ -51,7 +43,7 @@ export async function runSendCommand(o: SendCommandOptions, env: SendCommandEnv)
   const handle = openDb(env.dbPath ?? defaultDbPath());
   try {
     const repos = createRepos(handle.db);
-    const deps = { repos, mailer: env.mailer ?? mailAppMailer(), projectsDir: env.projectsDir, policyDir: env.policyDir, allowList: allowList(env.configFile), ...(env.now ? { now: env.now } : {}), ...(env.onSent ? { onSent: env.onSent } : {}) };
+    const deps = { repos, mailer: env.mailer ?? mailAppMailer(), projectsDir: env.projectsDir, policyDir: env.policyDir, allowList: readAllowList(env.configFile), ...(env.now ? { now: env.now } : {}), ...(env.onSent ? { onSent: env.onSent } : {}) };
     if (o.draftId !== undefined) {
       const r = await sendDraft(deps, { draftId: o.draftId, apply: !!o.apply, actor: "cli" });
       out(r.line);

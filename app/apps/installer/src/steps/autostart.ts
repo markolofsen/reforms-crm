@@ -1,10 +1,11 @@
+import { readInstanceConfig } from "@hub/config/instance";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { ADMIN_PORT, SERVER_PORT } from "@hub/config";
 import { AUTOSTART_FIX, guardOf, LABEL_PREFIX, LOG_WARN_BYTES, logBytes, parseBootTime, readStarts, lastStartOf } from "@hub/config/autostart";
 import { hubPaths, instancePorts } from "@hub/config/paths";
 import { autostartPlist, currentNodeDir, filesOf, launchAgentsDir, readPlist } from "../autostart";
-import { readJson, type Ctx } from "../context";
+import type { Ctx } from "../context";
 import { bootout, bootstrap, isDisabled, printJob } from "../launchctl";
 import type { CheckResult, Step } from "../types";
 import { fail, pass, warn } from "./helpers";
@@ -20,7 +21,7 @@ export async function bootTime(ctx: Ctx): Promise<number | undefined> {
 
 /** The instance's ports as written in its config: autostart needs them explicit (`instancePorts` would fill in the defaults). */
 function explicitPorts(ctx: Ctx): { admin?: number; api?: number } {
-  const cfg = readJson<{ admin_port?: unknown; api_port?: unknown }>(ctx.paths.configFile) ?? {};
+  const cfg = readInstanceConfig(ctx.paths).config;
   const n = (v: unknown) => (typeof v === "number" || (typeof v === "string" && v.trim() !== "") ? Number(v) : undefined);
   return { admin: n(cfg.admin_port), api: n(cfg.api_port) };
 }

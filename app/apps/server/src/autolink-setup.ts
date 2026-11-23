@@ -1,3 +1,4 @@
+import { offMode } from "@hub/config/modes";
 import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
@@ -31,7 +32,7 @@ export async function startProjectAutolink(o: {
   root?: string;
 }): Promise<ProjectAutolink> {
   const env = o.env ?? process.env;
-  const off = env.HUB_MESSENGERS === "off";
+  const off = offMode(env, "messengers") === "off";
   const pick = off ? null : await messengersProject(o.repos, env);
   const project = pick?.project ?? null;
   const root = o.root ?? projectsRoot();

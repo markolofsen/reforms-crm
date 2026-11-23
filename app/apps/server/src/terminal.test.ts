@@ -13,7 +13,7 @@ import { createApp } from "./app";
 import { appendEvents, logStoreOf } from "@hub/log/store";
 import { CODEX_RULES_CHANGED } from "@hub/log/resume";
 import { sessionInstructions } from "@hub/agent/session-rules";
-import { chooseShell, createTerminal, TERMINAL_PATH } from "./terminal";
+import { createTerminal, TERMINAL_PATH } from "./terminal";
 
 // The terminal's doors (P49 S1 to S7), on a fake PTY: nothing here starts a shell.
 
@@ -302,14 +302,6 @@ describe("ensure (P57): the column starts the best ready CLI itself, at most one
   });
 });
 
-describe("HUB_TERMINAL_SHELL", () => {
-  it("is the login shell unset, the fake only with HUB_DB, and nothing else", () => {
-    expect(chooseShell({})).toBe("login");
-    expect(chooseShell({ HUB_TERMINAL_SHELL: "fake", HUB_DB: "/tmp/x.db" })).toBe("fake");
-    expect(() => chooseShell({ HUB_TERMINAL_SHELL: "fake" })).toThrow(/needs HUB_DB/);
-    expect(() => chooseShell({ HUB_TERMINAL_SHELL: "/bin/bash" })).toThrow(/unset or "fake"/);
-  });
-});
 
 describe("P64: ensure resumes the project's last session; + always starts fresh", () => {
   const ID = "8d31964d-2edc-490c-91a8-dfb10ffb47de";

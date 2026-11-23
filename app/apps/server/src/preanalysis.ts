@@ -1,7 +1,7 @@
 import { PREANALYSIS_LOOKBACK_DAYS, PREANALYSIS_PER_CALL, PREANALYSIS_PER_PASS, PREANALYSIS_PROMPT_VERSION, TRIAGE_LABELS, type TriageVerdict } from "@hub/config/chat-rules";
 import type { PreanalysisDto } from "@hub/contract/messenger-panel";
 import type { NewTriage, Repos } from "@hub/db";
-import { fakeMode, hasKey, noKeySentence, type LlmErrorKind, type Llm } from "@hub/llm";
+import { hasKey, llmFake, noKeySentence, type LlmErrorKind, type Llm } from "@hub/llm";
 import { errFields, ops } from "@hub/log/ops";
 import { z } from "zod";
 
@@ -77,7 +77,7 @@ export interface PreanalysisDeps {
 
 /** The standing without a job (a test app): the key's presence and `HUB_LLM`, as `@hub/llm` reads them. */
 export function preanalysisStanding(env: NodeJS.ProcessEnv = process.env): PreanalysisDto {
-  if (fakeMode(env)) return { state: "fake", fix: null };
+  if (llmFake(env)) return { state: "fake", fix: null };
   try {
     return hasKey(env) ? { state: "ready", fix: null } : { state: "no_key", fix: noKeySentence(env) };
   } catch {

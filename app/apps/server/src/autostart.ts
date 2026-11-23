@@ -5,13 +5,14 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { AUTOSTART_FIX, autostartFiles, launchAgentsDir, parseBootTime, readAutostart, switchAutostart, type LaunchctlRun } from "@hub/config/autostart";
 import type { HubPaths } from "@hub/config/paths";
+import type { RuntimeModes } from "@hub/config/modes";
 import { autostartDto, type AutostartDto } from "@hub/contract/autostart";
 
 // P67 (decision 0033): the server's side of "Start the Hub after a restart". It reads the LaunchAgent's state and switches it
 // with exactly `launchctl enable|disable gui/<uid>/<label>` (plus `bootstrap` of the installed plist on On when not loaded). It
 // never writes or removes a plist and never runs `bootout`, `kill` or `kickstart`: Off keeps this very server running.
 
-export type LaunchctlKind = "launchctl" | "fake";
+export type LaunchctlKind = RuntimeModes["launchctl"];
 
 const LAUNCHCTL = "/bin/launchctl";
 
@@ -55,16 +56,14 @@ export function fakeLaunchctl(log: string, label: string): LaunchctlRun {
 }
 
 /**
- * `HUB_LAUNCHCTL`: unset is `/bin/launchctl` on the user's `~/Library/LaunchAgents`; `fake` is the recorder above on a LaunchAgents
- * folder inside the instance (`state/autostart/LaunchAgents`), refused unless the database is a throw-away one (as `HUB_OPENER`).
+ * The launchctl for a kind read once at start (`@hub/config/modes`, `HUB_LAUNCHCTL`): `launchctl` is `/bin/launchctl` on the
+ * user's `~/Library/LaunchAgents`; `fake` is the recorder above on a LaunchAgents folder inside the instance
+ * (`state/autostart/LaunchAgents`). The throwaway-database rule is the reader's.
  */
-export function chooseLaunchctl(env: { HUB_LAUNCHCTL?: string | undefined; HOME?: string | undefined }, paths: Pick<HubPaths, "home" | "autostart">, throwaway: boolean): { kind: LaunchctlKind; run: LaunchctlRun; agentsDir: string } {
-  const v = env.HUB_LAUNCHCTL;
-  if (v === undefined || v === "") return { kind: "launchctl", run: realLaunchctl, agentsDir: launchAgentsDir(env.HOME || homedir()) };
-  if (v !== "fake") throw new Error(`HUB_LAUNCHCTL must be "fake" or unset, not "${v}"`);
-  if (!throwaway) throw new Error("HUB_LAUNCHCTL=fake needs HUB_DB (a throw-away database): it is for tests and demos only");
+export function launchctlFor(kind: LaunchctlKind, env: { HOME?: string | undefined }, paths: Pick<HubPaths, "home" | "autostart">): { kind: LaunchctlKind; run: LaunchctlRun; agentsDir: string } {
+  if (kind === "launchctl") return { kind, run: realLaunchctl, agentsDir: launchAgentsDir(env.HOME || homedir()) };
   const agentsDir = join(paths.autostart, "LaunchAgents");
-  return { kind: "fake", run: fakeLaunchctl(join(paths.autostart, "launchctl.jsonl"), autostartFiles(paths, agentsDir).label), agentsDir };
+  return { kind, run: fakeLaunchctl(join(paths.autostart, "launchctl.jsonl"), autostartFiles(paths, agentsDir).label), agentsDir };
 }
 
 /** mail-mcp answers on localhost:8787 (a TCP connect, 1 s): the agent session's Mail, which an autostarted Hub must not hide. */

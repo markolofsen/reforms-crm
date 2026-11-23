@@ -4,7 +4,7 @@ import { inspect, isTelegramToken, notionShapeProblem, parseConnectionId, redact
 import { CONNECTION_FRESH_MINUTES, type CheckErrorCode, type CheckValueDto, type ConnectionDto, type ConnectionsDto, type MailAccountDto, type MailReadDto } from "@hub/contract/connections";
 import type { SetSecretBody } from "@hub/contract/requests";
 import type { Repos } from "@hub/db";
-import { MAIL_NOT_ANSWERING_FIX, MailNotAnswering, osaWithin, throwawayDbNamed, type OsaRun } from "@hub/send";
+import { MAIL_NOT_ANSWERING_FIX, MailNotAnswering, osaWithin, type OsaRun } from "@hub/send";
 import { readAccounts } from "./apple-mail";
 import { configOf } from "./overview-facts";
 import type { MessengersStatus } from "./messengers";
@@ -100,15 +100,6 @@ export function appleMailAccounts(o: { osa?: OsaRun; now?: () => Date; ttlMs?: n
 }
 
 interface Cached { verdict: Verdict; at: Date; changedAt: string | undefined }
-
-/** `HUB_CONNECTIONS_PROBE`: unset is the real probes; `fake` is a stub that never leaves the process and is refused without a throwaway database (the rule of HUB_MAILER=fake). */
-export function chooseProbeKind(env: NodeJS.ProcessEnv): "real" | "fake" {
-  const v = env.HUB_CONNECTIONS_PROBE;
-  if (v === undefined || v === "") return "real";
-  if (v !== "fake") throw new Error(`HUB_CONNECTIONS_PROBE must be unset or exactly "fake", got "${v}"`);
-  if (!throwawayDbNamed(env)) throw new Error("HUB_CONNECTIONS_PROBE=fake needs HUB_DB set to a throwaway database file: the default database is the live one");
-  return "fake";
-}
 
 /**
  * Stub providers: every call succeeds, except for a secret that contains REJECT, which is refused like a wrong key. The real probe code still runs

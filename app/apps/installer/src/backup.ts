@@ -1,3 +1,4 @@
+import { readInstanceConfig } from "@hub/config/instance";
 // `hub backup` (decision 0023): a manual, dated snapshot of what the instance cannot get back from git.
 // Dry run unless --apply. Never reads or copies a secret: only the NAMES in state/secrets/ go into the manifest (a directory listing),
 // and the Notion dump is a child process that loads its own token. Restore is never run here; a snapshot is verified, not applied.
@@ -7,7 +8,7 @@ import { createHash } from "node:crypto";
 import { closeSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { readJson, type Ctx } from "./context";
+import type { Ctx } from "./context";
 import { readCoreVersion } from "@hub/config/core-version";
 
 /** Snapshots kept; older ones are deleted by --apply (only folders with a valid manifest). */
@@ -65,7 +66,7 @@ export interface Target { root: string; instance: string }
 
 /** The one snapshot folder (default `<instance>/backups/`, git-ignored), from config/config.json. Throws BackupError for a folder inside state/ (the secrets) or the core checkout. */
 export function resolveTarget(ctx: Ctx): Target {
-  const cfg = readJson<{ backup_dir?: unknown }>(ctx.paths.configFile) ?? {};
+  const cfg = readInstanceConfig(ctx.paths).config;
   const instance = path.basename(ctx.paths.home);
   let root: string;
   if (cfg.backup_dir === undefined || cfg.backup_dir === null || cfg.backup_dir === "") root = path.join(ctx.paths.home, "backups");

@@ -1,3 +1,4 @@
+import { offMode } from "@hub/config/modes";
 import type { TelegramUserAccountDto, TelegramUserStatusDto } from "@hub/contract/messengers";
 import type { Repos } from "@hub/db";
 import {
@@ -104,7 +105,7 @@ export async function startTelegramUser(o: StartTelegramUser): Promise<TelegramU
   let clients = o.clients;
   const clientsNow = async (): Promise<UserClients> => (clients ??= await mtcuteClients());
 
-  const off = env.HUB_MESSENGERS === "off" ? "HUB_MESSENGERS=off" : null;
+  const off = offMode(env, "messengers") === "off" ? "HUB_MESSENGERS=off" : null;
   const pick = off ? null : await messengersProject(o.repos, env);
   const project = pick?.project ?? null;
   const reason = off ?? pick?.reason ?? "no project";

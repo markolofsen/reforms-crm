@@ -7,7 +7,7 @@ import { connectionDto, connectionsDto, type ConnectionDto } from "@hub/contract
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { createApp } from "./app";
 import { MailNotAnswering } from "@hub/send";
-import { appleMailAccounts, chooseProbeKind, fakeProbeDeps, type MailAccountsRead } from "./connections";
+import { appleMailAccounts, fakeProbeDeps, type MailAccountsRead } from "./connections";
 import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT } from "./apple-mail";
 import { captureOps } from "@hub/log/ops";
 
@@ -231,12 +231,6 @@ describe("POST /api/connections/:id/test", () => {
 });
 
 describe("HUB_CONNECTIONS_PROBE=fake", () => {
-  it("is unset, or exactly fake and only with a throwaway database", () => {
-    expect(chooseProbeKind({})).toBe("real");
-    expect(chooseProbeKind({ HUB_CONNECTIONS_PROBE: "fake", HUB_DB: "/tmp/x.db" })).toBe("fake");
-    expect(() => chooseProbeKind({ HUB_CONNECTIONS_PROBE: "fake" })).toThrow("HUB_DB");
-    expect(() => chooseProbeKind({ HUB_CONNECTIONS_PROBE: "FAKE", HUB_DB: "/tmp/x.db" })).toThrow("exactly");
-  });
   it("the stubs accept a key, and refuse one that contains REJECT, through the real probe code", async () => {
     const a = createApp(repos, { now: () => now, connections: { dir: () => dir, env: {}, deps: fakeProbeDeps() } });
     expect(connectionDto.parse((await test(a, "notion:notion-token")).json).check.state).toBe("fresh");

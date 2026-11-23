@@ -6,6 +6,7 @@ import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpat
 import { homedir } from "node:os";
 import { dirname, extname, isAbsolute, join, sep } from "node:path";
 import type { HubPaths } from "@hub/config/paths";
+import type { RuntimeModes } from "@hub/config/modes";
 import { APP_KINDS, appsDto, hrefOf, LOCAL_ACTIONS, NO_APPS, urlRefusal, type AppKind, type AppsDto, type HrefActionId, type LocalActionId, type LocalArgs, type ServerActionId } from "@hub/contract/local";
 import type { Repos } from "@hub/db";
 
@@ -174,18 +175,15 @@ export function fakeOpener(file: string): OpenRun {
 /** Where the fake opener writes: `state/opener.jsonl` of the instance. */
 export const openerLog = (paths: Pick<HubPaths, "state">): string => join(paths.state, "opener.jsonl");
 
-export type OpenerKind = "open" | "fake";
+export type OpenerKind = RuntimeModes["opener"];
 
 /**
- * `HUB_OPENER`: unset is the real `open`, `fake` the recorder, refused unless the database is a throw-away one (`throwaway`:
- * the caller's `throwawayDbNamed` of `@hub/send`, as for `HUB_MAILER=fake`); anything else throws.
+ * The opener for a kind read once at start (`@hub/config/modes`, `HUB_OPENER`): `open` is the real `open`, `fake` the
+ * recorder. The throwaway-database rule is the reader's.
  */
-export function chooseOpener(env: { HUB_OPENER?: string | undefined }, paths: Pick<HubPaths, "state">, throwaway: boolean): { kind: OpenerKind; run: OpenRun; probe: AppProbe } {
-  const v = env.HUB_OPENER;
-  if (v === undefined || v === "") return { kind: "open", run: execFileOpen, probe: bundleProbe() };
-  if (v !== "fake") throw new Error(`HUB_OPENER must be "fake" or unset, not "${v}"`);
-  if (!throwaway) throw new Error("HUB_OPENER=fake needs HUB_DB (a throw-away database): it is for tests and demos only");
-  return { kind: "fake", run: fakeOpener(openerLog(paths)), probe: fakeAppProbe(fakeAppsFile(paths)) };
+export function openerFor(kind: OpenerKind, paths: Pick<HubPaths, "state">): { kind: OpenerKind; run: OpenRun; probe: AppProbe } {
+  if (kind === "open") return { kind, run: execFileOpen, probe: bundleProbe() };
+  return { kind, run: fakeOpener(openerLog(paths)), probe: fakeAppProbe(fakeAppsFile(paths)) };
 }
 
 /** The server can run `server` actions: macOS with `/usr/bin/open`, or the fake opener. */

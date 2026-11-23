@@ -4,7 +4,7 @@ import { run, type CallDeps, type RunResult, type Validated } from "./call";
 import { fakeTransport } from "./fake";
 import type { Ledger } from "./ledger";
 import { issuesText, plainJsonSchema, schemaName, strictJsonSchema, stripOptionalNulls } from "./schema";
-import { readKey, readSettings, type Preset } from "./settings";
+import { llmFake, readKey, readSettings, type Preset } from "./settings";
 import { DEFAULT_RETRY, openRouterTransport, type Message, type RetryPolicy, type Transport } from "./transport";
 
 /**
@@ -18,7 +18,7 @@ export type { RunResult } from "./call";
 export { FAKE_COST_USD, fakeTransport, sampleOf, type FakeReply, type FakeScript } from "./fake";
 export { memoryLedger, type Ledger, type LlmCallRecord } from "./ledger";
 export { plainJsonSchema, readAnswer, SchemaError, strictJsonSchema, stripOptionalNulls } from "./schema";
-export { capSentence, fakeMode, hasKey, keyFile, noKeySentence, PRESETS, readKey, type Preset } from "./settings";
+export { capSentence, llmFake, hasKey, keyFile, noKeySentence, PRESETS, readKey, type Preset } from "./settings";
 export { LlmError, OPENROUTER_URL, openRouterTransport, type ChatRequest, type ChatResponse, type LlmErrorKind, type Message, type Transport } from "./transport";
 
 export interface LlmDeps {
@@ -70,13 +70,10 @@ export interface Llm {
   monthCost(project?: string): Promise<number>;
 }
 
-const MODES = ["", "openrouter", "fake"] as const;
-
 export function createLlm(deps: LlmDeps): Llm {
   const env = deps.env ?? process.env;
-  const mode = env.HUB_LLM ?? "";
-  if (!MODES.some((m) => m === mode)) throw new Error(`HUB_LLM must be "fake" or unset, not "${mode}"`);
-  const fake = deps.transport ?? (mode === "fake" ? fakeTransport() : null);
+  // A bad HUB_LLM throws here, at start (the rule of `@hub/config/modes`).
+  const fake = deps.transport ?? (llmFake(env) ? fakeTransport() : null);
   const transport = (): Transport | null => {
     if (fake) return fake;
     const key = readKey(env);

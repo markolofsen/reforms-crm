@@ -6,7 +6,7 @@ import { autostartFiles, type LaunchctlRun } from "@hub/config/autostart";
 import { hubPaths, type HubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
 import { createApp } from "./app";
-import { chooseLaunchctl, createAutostart } from "./autostart";
+import { createAutostart, launchctlFor } from "./autostart";
 
 // `/api/instance/autostart` (P67): the switch runs exactly `launchctl enable|disable`, never bootout/kill/kickstart; the label is the server's.
 
@@ -98,13 +98,11 @@ describe("/api/instance/autostart", () => {
 });
 
 describe("HUB_LAUNCHCTL", () => {
-  it("fake is refused without a throw-away database; any other value is refused", () => {
-    expect(() => chooseLaunchctl({ HUB_LAUNCHCTL: "fake" }, paths, false)).toThrow(/HUB_DB/);
-    expect(() => chooseLaunchctl({ HUB_LAUNCHCTL: "yes" }, paths, true)).toThrow(/must be "fake" or unset/);
-    expect(chooseLaunchctl({}, paths, false).kind).toBe("launchctl");
+  it("the real kind is /bin/launchctl on the user's LaunchAgents (the switch is read by @hub/config/modes)", () => {
+    expect(launchctlFor("launchctl", { HOME: "/Users/x" }, paths).agentsDir).toBe("/Users/x/Library/LaunchAgents");
   });
   it("the fake records each argv in the instance and keeps its agents folder there", async () => {
-    const f = chooseLaunchctl({ HUB_LAUNCHCTL: "fake" }, paths, true);
+    const f = launchctlFor("fake", {}, paths);
     expect(f.agentsDir.startsWith(paths.autostart)).toBe(true);
     await f.run(["disable", "gui/501/x"]);
     expect(existsSync(join(paths.autostart, "launchctl.jsonl"))).toBe(true);

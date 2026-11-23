@@ -1,3 +1,4 @@
+import { readInstanceConfig } from "@hub/config/instance";
 // The receiving side of a lead form (P46 L3): when did a lead last arrive where the form lands? Read only, WARN only.
 //   notion-leads: the newest `Received at` in the project's Leads database, by `Brand` (and `Form` when two forms share a brand).
 //   mailbox:      the newest notification mail in a Mail account, by sender and subject, through mail-mcp (the Apple Mail read path).
@@ -5,7 +6,6 @@
 import { fileState, readValue } from "@hub/connections";
 import { loadProject } from "@hub/projects";
 import type { Ctx } from "../context";
-import { readJson } from "../context";
 import { mcpCall } from "../mcp-probe";
 import type { CheckResult } from "../types";
 import type { Silence } from "./config";
@@ -75,7 +75,7 @@ async function readNotion(ctx: Ctx, s: Extract<Silence, { source: "notion-leads"
 }
 
 async function readMailbox(ctx: Ctx, s: Extract<Silence, { source: "mailbox" }>, since: number): Promise<Read> {
-  const account = s.account ?? readJson<{ account?: string }>(ctx.paths.configFile)?.account;
+  const account = s.account ?? readInstanceConfig(ctx.paths).config.account;
   if (!account) return { ok: false, why: "no account: set silence.account or `account` in config/config.json" };
   const r = await mcpCall(ctx, ctx.mailUrl, "find_messages", {
     account, mailboxPath: s.mailbox, dateAfter: new Date(since).toISOString(), limit: 1000,

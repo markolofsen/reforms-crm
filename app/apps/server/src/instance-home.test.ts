@@ -5,7 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import { createRepos, openDb } from "@hub/db";
 import { loadProjects, syncProjects } from "@hub/projects";
-import { allowListOf, configFile } from "./send/mailer";
+import { readAllowList } from "@hub/projects";
+import { configFile } from "./send/mailer";
 import { projectOverview, projectsRoot } from "./project-overview";
 
 // Decision 0016, S1: the server finds its projects, its send settings and its secrets in the instance named by HUB_HOME.
@@ -29,7 +30,7 @@ describe("the server under HUB_HOME", () => {
   it("reads projects, the allow-list and secrets from the instance", () => {
     expect(projectsRoot()).toBe(join(home, "projects"));
     expect(configFile()).toBe(join(home, "config", "config.json"));
-    expect(allowListOf(configFile())).toEqual(["client@example.com"]);
+    expect(readAllowList(configFile())).toEqual(["client@example.com"]);
     expect(hubPaths().secrets).toBe(join(home, "state", "secrets"));
   });
   it("answers a project overview from the instance's folder, and knows nothing of the checkout's projects", async () => {

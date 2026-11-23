@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { readInstanceConfig } from "./instance";
 import type { HubPaths } from "./paths";
 
 /**
@@ -41,27 +41,13 @@ export interface InstanceLlm {
   presets: Record<string, string[]>;
 }
 
-const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
-
 /**
  * The `llm` block of `config/config.json` (tracked, no secrets): `{ "llm": { "monthly_cap_usd": 5, "presets": { "cheap": ["…"] } } }`.
  * A missing or unreadable file, or a cap that is not a number from 0 to 10 000, gives the default cap.
  */
 export function instanceLlm(paths: Pick<HubPaths, "configFile">): InstanceLlm {
-  let cfg: unknown = {};
-  if (existsSync(paths.configFile)) {
-    try { cfg = JSON.parse(readFileSync(paths.configFile, "utf8")); } catch { cfg = {}; }
-  }
-  const llm = isRecord(cfg) && isRecord(cfg.llm) ? cfg.llm : {};
-  const cap = llm.monthly_cap_usd;
-  const usd = typeof cap === "number" && Number.isFinite(cap) && cap >= 0 && cap <= 10_000 ? cap : DEFAULT_LLM_CAP_USD;
-  const presets: Record<string, string[]> = {};
-  if (isRecord(llm.presets)) {
-    for (const [name, list] of Object.entries(llm.presets)) {
-      if (Array.isArray(list) && list.length > 0 && list.every((m): m is string => typeof m === "string" && m.length > 0)) presets[name] = list;
-    }
-  }
-  return { capMicroUsd: Math.round(usd * 1e6), presets };
+  const llm = readInstanceConfig(paths).config.llm;
+  return { capMicroUsd: Math.round((llm?.monthly_cap_usd ?? DEFAULT_LLM_CAP_USD) * 1e6), presets: llm?.presets ?? {} };
 }
 
 /** `2026-11-01T00:00:00.000Z`: the first instant of `now`'s calendar month in UTC, the cap's window. */

@@ -1,10 +1,11 @@
 // The ONE place that knows where the hub's files live (decision 0016). One layout: the core is code, the instance (`HUB_HOME`) is data. Node-only: import it as
 // `@hub/config/paths`, never from the browser entry. Every other file asks `hubPaths()`; a gate test
 // (`apps/installer/test/home-seams.test.ts`) fails when a file outside this one joins a path to the repo root itself.
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ADMIN_PORT, SERVER_PORT } from "./index";
+import { readInstanceConfig } from "./instance";
 
 /** The checkout this code runs from: where `skills/`, `app/` and `config/mcp.json` ship. Four levels above `app/packages/config/src`. */
 export const CORE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
@@ -175,10 +176,7 @@ const portOf = (v: unknown, what: string): number | undefined => {
  * A malformed value is an error, never a silent fallback; an admin and an API on the same port is an error too.
  */
 export function instancePorts(paths: Pick<HubPaths, "configFile">, env: NodeJS.ProcessEnv = process.env): HubPorts {
-  let cfg: Record<string, unknown> = {};
-  if (existsSync(paths.configFile)) {
-    try { cfg = JSON.parse(readFileSync(paths.configFile, "utf8")) as Record<string, unknown>; } catch { cfg = {}; }
-  }
+  const cfg = readInstanceConfig(paths).config;
   const admin = portOf(env.HUB_ADMIN_PORT?.trim(), "HUB_ADMIN_PORT") ?? portOf(cfg.admin_port, "config admin_port") ?? ADMIN_PORT;
   const api = portOf(env.HUB_PORT?.trim(), "HUB_PORT") ?? portOf(cfg.api_port, "config api_port") ?? SERVER_PORT;
   if (admin === api) throw new Error(`the admin and the API both use port ${admin}: set different admin_port and api_port in ${paths.configFile}`);
@@ -202,13 +200,9 @@ export const DEFAULT_BRAND_NAME = "Hub";
  * value that is not a non-empty string, falls back (name "Hub", no logo): a brand is never a reason not to start.
  */
 export function instanceBrand(paths: Pick<HubPaths, "configFile" | "configDir">): InstanceBrand {
-  let cfg: Record<string, unknown> = {};
-  if (existsSync(paths.configFile)) {
-    try { cfg = JSON.parse(readFileSync(paths.configFile, "utf8")) as Record<string, unknown>; } catch { cfg = {}; }
-  }
-  const text = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
-  const name = text(cfg.name) ?? DEFAULT_BRAND_NAME;
-  const raw = text(cfg.logo);
+  const cfg = readInstanceConfig(paths).config;
+  const name = cfg.name ?? DEFAULT_BRAND_NAME;
+  const raw = cfg.logo ?? null;
   const logo = raw === null ? null : isAbsolute(raw) ? raw : resolve(paths.configDir, raw);
   let logoFound = false;
   if (logo) {
@@ -219,13 +213,7 @@ export function instanceBrand(paths: Pick<HubPaths, "configFile" | "configDir">)
 
 /** Days the agent session log keeps (P54): `log.retention_days` in `config/config.json`, a whole number from 1 to 3650; anything else is the default 90. */
 export function instanceLogRetention(paths: Pick<HubPaths, "configFile">): number {
-  let cfg: Record<string, unknown> = {};
-  if (existsSync(paths.configFile)) {
-    try { cfg = JSON.parse(readFileSync(paths.configFile, "utf8")) as Record<string, unknown>; } catch { cfg = {}; }
-  }
-  const log = cfg.log && typeof cfg.log === "object" && !Array.isArray(cfg.log) ? (cfg.log as Record<string, unknown>) : {};
-  const d = log.retention_days;
-  return typeof d === "number" && Number.isInteger(d) && d >= 1 && d <= 3650 ? d : 90;
+  return readInstanceConfig(paths).config.log?.retention_days ?? 90;
 }
 
 /** `<state>/codex/<slug or _unbound>`: the `CODEX_HOME` of one project's Codex sessions (P49), and its `skills/` links. */
@@ -261,12 +249,6 @@ export interface InstanceFeatures {
  * always on (decision 0032); any other key here is ignored (`files.config-keys` names it).
  */
 export function instanceFeatures(paths: Pick<HubPaths, "configFile">): InstanceFeatures {
-  let cfg: Record<string, unknown> = {};
-  if (existsSync(paths.configFile)) {
-    try { cfg = JSON.parse(readFileSync(paths.configFile, "utf8")) as Record<string, unknown>; } catch { cfg = {}; }
-  }
-  const obj = (v: unknown): Record<string, unknown> => (v && typeof v === "object" && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
-  const agent = obj(cfg.agent);
-  const cli = (AGENT_CLIS as readonly unknown[]).includes(agent.default) ? (agent.default as AgentCli) : "claude";
-  return { agent: { default: cli, unattended: agent.unattended === true } };
+  const agent = readInstanceConfig(paths).config.agent;
+  return { agent: { default: agent?.default ?? "claude", unattended: agent?.unattended === true } };
 }

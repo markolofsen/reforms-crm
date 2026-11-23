@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { entryKey } from "@hub/contract/local";
-import { argvOf, bundleProbe, chooseOpener, fakeAppProbe, targetRefusal, fakeOpener, isRefusal, localOpenAvailable, OPEN_BIN, openTarget, resolveTarget, type ResolveDeps, type Target } from "../src/local-open";
+import { argvOf, bundleProbe, fakeAppProbe, targetRefusal, fakeOpener, isRefusal, localOpenAvailable, OPEN_BIN, openerFor, openTarget, resolveTarget, type ResolveDeps, type Target } from "../src/local-open";
 
 // P61: keys to paths inside each key's own root; never a raw path, never a link, never a program. A throw-away instance.
 
@@ -137,12 +137,10 @@ describe("the runner", () => {
     expect(localOpenAvailable("open", { platform: "darwin", exists: () => false })).toBe(false);
     expect(localOpenAvailable("fake", { platform: "linux" })).toBe(true);
   });
-  it("HUB_OPENER=fake needs HUB_DB; another value is refused", () => {
+  it("the opener of a kind: the real open, or the recorder in the instance (the switch is read by @hub/config/modes)", () => {
     const paths = { state: join(home, "state") };
-    expect(chooseOpener({}, paths, false).kind).toBe("open");
-    expect(chooseOpener({ HUB_OPENER: "fake" }, paths, true).kind).toBe("fake");
-    expect(() => chooseOpener({ HUB_OPENER: "fake" }, paths, false)).toThrow(/HUB_DB/);
-    expect(() => chooseOpener({ HUB_OPENER: "yes" }, paths, true)).toThrow(/HUB_OPENER/);
+    expect(openerFor("open", paths).kind).toBe("open");
+    expect(openerFor("fake", paths).kind).toBe("fake");
   });
 });
 

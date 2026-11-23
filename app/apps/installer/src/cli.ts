@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+import { readInstanceConfig } from "@hub/config/instance";
 import * as p from "@clack/prompts";
 import { registerMailFiltersCommands } from "@hub/mail-filters/hub-commands";
 import { registerDevCommands, registerProjectCommands, runProjectDoctor, runSync } from "@hub/projects/hub-commands";
@@ -8,7 +9,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { renderNotionFields } from "./notion-docs";
 import { CORE_ROOT, HubHomeMissingError, instanceFeatures } from "@hub/config/paths";
-import { makeCtx, readJson, type Ctx } from "./context";
+import { makeCtx, type Ctx } from "./context";
 import { auditRun, evidenceTable } from "./audit-run";
 import { batchCheck, batchLines } from "./batch-check";
 import { listProjects, runAgent } from "./agent";
@@ -105,7 +106,7 @@ async function mailAccounts(ctx: Ctx): Promise<string[] | undefined> {
     const list: unknown[] = Array.isArray(j) ? j : Array.isArray(j?.accounts) ? j.accounts : [];
     return list.map((a) => (typeof a === "string" ? a : String((a as { name?: unknown })?.name ?? ""))).filter(Boolean);
   } catch {
-    const acc = readJson(ctx.paths.configFile)?.account;
+    const acc = readInstanceConfig(ctx.paths).config.account;
     return acc && r.text.includes(acc) ? [acc] : [];
   }
 }

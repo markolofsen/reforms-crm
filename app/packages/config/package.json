@@ -11,7 +11,9 @@
     "./chat-rules": "./src/chat-rules.ts",
     "./llm": "./src/llm.ts",
     "./person": "./src/person.ts",
-    "./lint-limits": "./src/lint-limits.mjs"
+    "./lint-limits": "./src/lint-limits.mjs",
+    "./instance": "./src/instance.ts",
+    "./modes": "./src/modes.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

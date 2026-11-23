@@ -57,7 +57,7 @@ import { schemeRoutes } from "./routes/scheme";
 import type { SchemeSources } from "./scheme";
 import { instanceLlm } from "@hub/config/llm";
 import { hubPaths } from "@hub/config/paths";
-import { capSentence, fakeMode, hasKey, noKeySentence } from "@hub/llm";
+import { capSentence, hasKey, llmFake, noKeySentence } from "@hub/llm";
 import { errFields, ops, type OpsStore } from "@hub/log/ops";
 import { opsLogRoutes } from "./routes/ops-log";
 import { agentFeedServicesOf, agentServicesOf, autolinkServicesOf, autostartServicesOf, bulkServicesOf, connectionsServicesOf, conversationServicesOf, coreServicesOf, focusServicesOf, healthServicesOf, inboxServicesOf, inboundServicesOf, instanceServicesOf, knowledgeServicesOf, liveServicesOf, localServicesOf, mailServicesOf, messengerServicesOf, opsLogServicesOf, overviewServicesOf, pointerServicesOf, projectCatalogServicesOf, projectLinksServicesOf, projectServicesOf, reviewServicesOf, schemeServicesOf, sendServicesOf, sequenceServicesOf, telegramUserServicesOf, terminalServicesOf, whatsappServicesOf, type ConversationMail, type InboundTextReader, type LocalService } from "./composition/capabilities";
@@ -187,7 +187,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     clis: () => opts.agentTools?.clis() ?? null,
     core: () => opts.coreUpdates?.read() ?? null,
     // P78: read per request (the key and config.json may change while the server runs); the key's value is dropped in hasKey.
-    llm: async () => ({ month: await repos.llmCalls.month(now()), capMicroUsd: instanceLlm(hubPaths()).capMicroUsd, keyPresent: hasKey(), fake: fakeMode(), noKeyFix: noKeySentence(), capFix: capSentence }),
+    llm: async () => ({ month: await repos.llmCalls.month(now()), capMicroUsd: instanceLlm(hubPaths()).capMicroUsd, keyPresent: hasKey(), fake: llmFake(), noKeyFix: noKeySentence(), capFix: capSentence }),
     ...opts.scheme,
   };
   return new Hono()

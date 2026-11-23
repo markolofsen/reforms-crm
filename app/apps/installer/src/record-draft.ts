@@ -1,8 +1,7 @@
 import { MARKS, newThreadKey, NOTION_KINDS, SEQUENCE_SKILL } from "@hub/config";
 import { createRepos, defaultDbPath, openDb, RepoError, type RecordDraftInput } from "@hub/db";
-import { checkContext, contextMode, contextSchema, judgeSimilarity, measureAgainstSet, observeDraft, SIM_AMBER, type Context, type ContextMode, type Evidence, type LedgerEntry, type PriorRecord, type Violation, checkDraftRecipients, kindOf, loadProject } from "@hub/projects";
+import { checkContext, contextMode, contextSchema, judgeSimilarity, measureAgainstSet, observeDraft, SIM_AMBER, type Context, type ContextMode, type Evidence, type LedgerEntry, type PriorRecord, type Violation, checkDraftRecipients, kindOf, loadProject, readAllowList } from "@hub/projects";
 import { appendLine, latestSession, readLines, recordsFile } from "./evidence-store";
-import { readFileSync } from "node:fs";
 import { z } from "zod";
 
 // `hub record-draft --project <slug>`: the one writer from a Claude session into the admin database (decision 0009).
@@ -139,14 +138,6 @@ function crossCheck(root: string, slug: string, email: string, ctx: Context | un
 
 const ADDRESS = /[^\s,;<>"']+@[^\s,;<>"']+/g;
 const addressesOf = (...fields: Array<string | null | undefined>): string[] => fields.flatMap((f) => f?.match(ADDRESS) ?? []);
-
-function allowList(file: string | undefined): string[] {
-  if (!file) return [];
-  try {
-    const j = JSON.parse(readFileSync(file, "utf8")) as { allow_list?: unknown };
-    return Array.isArray(j.allow_list) ? j.allow_list.filter((a): a is string => typeof a === "string") : [];
-  } catch { return []; }
-}
 
 interface PreviousRevision {
   name: string | null;
@@ -292,7 +283,7 @@ export async function recordDraft(o: RecordOptions): Promise<RecordOutcome> {
       return fail(2, `mailClass "${v.mailClass}" is not a class of kind ${kind.id} (${kind.mailClasses.map((c) => c.id).join(", ")})`);
     }
     // The draft goes to `to` (or to the client when `to` is empty) and to `cc`: every address must pass.
-    const g = checkDraftRecipients(loaded.parsed.config, addressesOf(v.to ?? v.email, v.cc), allowList(o.configFile));
+    const g = checkDraftRecipients(loaded.parsed.config, addressesOf(v.to ?? v.email, v.cc), o.configFile ? readAllowList(o.configFile) : []);
     if (!g.ok) return fail(2, `not allowed: draft.recipients of ${project.data} does not permit ${g.blocked.join(", ")}`, { blocked: g.blocked });
     required = loaded.parsed.config.context.required;
     if (loaded.parsed.config.knowledge.scope === "by-brand") brandScope = { names: loaded.parsed.config.brands.map((b) => b.name) };

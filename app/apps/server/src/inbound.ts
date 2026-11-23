@@ -1,3 +1,4 @@
+import { offMode } from "@hub/config/modes";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { MAIL_NOT_RUNNING, MAIL_UNREADABLE } from "@hub/contract/inbound";
@@ -169,7 +170,7 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
   const env = o.env ?? process.env;
   const osa = o.osa ?? defaultOsa;
   const now = o.now ?? (() => new Date());
-  const disabled = o.offReason ?? (env.HUB_INBOUND === "off" ? "The Mail reader is off (HUB_INBOUND=off)" : undefined);
+  const disabled = o.offReason ?? (offMode(env, "inbound") === "off" ? "The Mail reader is off (HUB_INBOUND=off)" : undefined);
   const activeMs = o.activeMs ?? (Number(env.HUB_INBOUND_ACTIVE_MS) || 2 * 60_000);
   const idleMs = o.idleMs ?? (Number(env.HUB_INBOUND_IDLE_MS) || 15 * 60_000);
   const st: InboundStatus = { state: disabled ? "off" : "starting", ...(disabled ? { reason: disabled } : {}), projects: [], failures: 0, stored: 0, reading: false };

@@ -11,7 +11,7 @@ import { chooseResume, type LoggedSession, type ResumeChoice } from "@hub/log/re
 import type { CliFactDto, TerminalPreset, TerminalSessionDto } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
 import { nodePty, nodePtyRoot, presetArgv, presetOrder, SessionLimitError, sessionManager, sessionTitle, spawnLine, tabShell, terminalEnv, terminalReadiness, terminalSocketServer, type PtySpawn, type SessionManager, type TerminalProblem } from "@hub/terminal";
-import { throwawayDbNamed } from "@hub/send";
+import { fakeMode } from "@hub/config/modes";
 import { gateRefusal, ticketStore, type TicketStore } from "./admin-gate";
 import { clearDrops, dropRefusal, removeDrop, writeDrop, type DroppedFile } from "./drops";
 import { errFields, ops } from "@hub/log/ops";
@@ -68,15 +68,6 @@ export const ENSURE_DETECT_MS = 8_000;
 /** The wire half of a fact: no path. */
 const wireFact = ({ cli, state, version, detail, fix }: CliFactDto): CliFactDto => ({ cli, state, version, detail, fix });
 
-/** `HUB_TERMINAL_SHELL`: unset (the owner's shell) or `fake`; `fake` needs `HUB_DB`, so it can never run against an instance's live data. */
-export function chooseShell(env: NodeJS.ProcessEnv): "login" | "fake" {
-  const v = env.HUB_TERMINAL_SHELL?.trim();
-  if (!v) return "login";
-  if (v !== "fake") throw new Error(`HUB_TERMINAL_SHELL must be unset or "fake", got "${v}"`);
-  if (!throwawayDbNamed(env)) throw new Error("HUB_TERMINAL_SHELL=fake needs HUB_DB set to a throwaway database file: the default database is the live one");
-  return "fake";
-}
-
 export class TerminalRefusal extends Error {
   constructor(readonly status: 400 | 404 | 409 | 413 | 503, message: string, readonly fix: string | null = null) { super(message); }
 }
@@ -89,7 +80,7 @@ export function createTerminal(o: TerminalOptions) {
   const nodeBin = o.nodeBin ?? process.execPath;
   const tickets = o.tickets ?? ticketStore({ ttlMs: TICKET_TTL_MS });
   const features = () => instanceFeatures(o.paths);
-  const fake = o.fakeShell ?? chooseShell(env) === "fake";
+  const fake = o.fakeShell ?? fakeMode(env, "shell") === "fake";
   const detector = o.detector ?? serverDetector({ env, fake });
   const app = path.join(o.paths.core, "app");
   // The fake shell spawns node, not $SHELL: its check is node's own binary.

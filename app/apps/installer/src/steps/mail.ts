@@ -1,4 +1,4 @@
-import { readJson } from "../context";
+import { readInstanceConfig } from "@hub/config/instance";
 import type { Step } from "../types";
 import { isLoaded } from "../launchctl";
 import { mcpCall, mcpReachable } from "../mcp-probe";
@@ -29,8 +29,8 @@ export const mailSteps: Step[] = [
       ],
     },
     async check(ctx) {
-      const cfg = readJson(ctx.paths.configFile);
-      if (!cfg?.account) return fail("`account` is empty in config/config.json");
+      const cfg = readInstanceConfig(ctx.paths).config;
+      if (!cfg.account) return fail("`account` is empty in config/config.json");
       const acc = await mcpCall(ctx, ctx.mailUrl, "list_accounts", { enabled: true });
       if (!acc.ok) return fail(`list_accounts: ${acc.text.slice(0, 120)}`);
       if (!acc.text.includes(cfg.account)) return fail(`account "${cfg.account}" not listed by Mail`);

@@ -1,3 +1,4 @@
+import { offMode } from "@hub/config/modes";
 import type { DraftRow, Repos } from "@hub/db";
 import { bareId, defaultOsa, type OsaRun, type SentNotice } from "@hub/send";
 import { mailRunning, readSent, type SentMessage } from "./apple-mail";
@@ -200,7 +201,7 @@ export function startSentReconciler(o: SentOptions): SentHandle {
   const env = o.env ?? process.env;
   const osa = o.osa ?? defaultOsa;
   const now = o.now ?? (() => new Date());
-  const disabled = o.offReason ?? (env.HUB_SENT === "off" ? "HUB_SENT=off" : undefined);
+  const disabled = o.offReason ?? (offMode(env, "sent") === "off" ? "HUB_SENT=off" : undefined);
   const base = o.intervalMs ?? (Number(env.HUB_SENT_INTERVAL_MS) || 5 * 60_000);
   const st: SentStatus = { state: disabled ? "off" : "starting", ...(disabled ? { reason: disabled } : {}), projects: [], failures: 0, marked: 0 };
   let timer: ReturnType<typeof setTimeout> | undefined;

@@ -1,3 +1,4 @@
+import { readInstanceConfig } from "@hub/config/instance";
 // The backup.* steps. Strictly read only and non-destructive: no push, no dump, no restore, no write to the database or to Notion.
 // Each step PROVES something a backup needs and names the fix; none of them makes a backup (`git push` and `notion-dump dump` do).
 import { copyAndVerify } from "@hub/db";
@@ -7,7 +8,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { ageDays, checkManifest, isInside, listSnapshots, gitGuard, realish, restoreSnapshotDb, MAX_AGE_DAYS as SNAPSHOT_MAX_AGE_DAYS, resolveTarget, BackupError } from "../backup";
-import { readJson, type Ctx } from "../context";
+import type { Ctx } from "../context";
 import type { CheckResult, Step } from "../types";
 import { fail, pass, warn } from "./helpers";
 
@@ -43,9 +44,9 @@ async function headIsPushed(ctx: Ctx, name: string, dir: string): Promise<{ prob
 }
 
 export async function backupGitCheck(ctx: Ctx): Promise<CheckResult> {
-  const extra = readJson<{ backup_repos?: unknown }>(ctx.paths.configFile)?.backup_repos;
+  const extra = readInstanceConfig(ctx.paths).config.backup_repos ?? [];
   const repos: [string, string][] = [["instance", ctx.paths.home], ["core", ctx.paths.core]];
-  if (Array.isArray(extra)) for (const e of extra) if (typeof e === "string" && e.trim()) repos.push([path.basename(path.resolve(ctx.paths.home, e)), path.resolve(ctx.paths.home, e)]);
+  for (const e of extra) repos.push([path.basename(path.resolve(ctx.paths.home, e)), path.resolve(ctx.paths.home, e)]);
   const problems: string[] = [];
   const notes: string[] = [];
   for (const [name, dir] of repos) {

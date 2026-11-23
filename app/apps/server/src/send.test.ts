@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { chooseMailerKind, FakeMailer, type MailDraft } from "@hub/send";
+import { FakeMailer, type MailDraft } from "@hub/send";
 import { createApp } from "./app";
 import { createServerMailer } from "./send/mailer";
 import { setSendPolicy } from "@hub/projects";
@@ -342,20 +342,11 @@ describe("project health (doctor)", () => {
 });
 
 describe("which Mailer the server uses", () => {
-  it("is the real one unless HUB_MAILER is exactly `fake`, and the fake needs a named database", () => {
-    expect(chooseMailerKind({})).toBe("mail-app");
-    expect(chooseMailerKind({ HUB_MAILER: "" })).toBe("mail-app");
-    expect(chooseMailerKind({ HUB_MAILER: "fake", HUB_DB: "/tmp/x.db" })).toBe("fake");
-    expect(() => chooseMailerKind({ HUB_MAILER: "fake" })).toThrow(/HUB_DB/);
-    expect(() => chooseMailerKind({ HUB_MAILER: "fake", HUB_DB: ":memory:" })).toThrow(/HUB_DB/);
-    for (const bad of ["1", "true", "FAKE", "Fake", "real", "fake "]) expect(() => chooseMailerKind({ HUB_MAILER: bad, HUB_DB: "/tmp/x.db" }), bad).toThrow(/HUB_MAILER/);
-  });
-
   it("the database-backed fake offers the database's drafts, sends them to nowhere, and /api/health says which Mailer it is", async () => {
     const dir = mkdtempSync(join(tmpdir(), "hub-server-fake-"));
     mkdirSync(join(dir, "acme"), { recursive: true });
     writeFileSync(join(dir, "acme", "project.md"), projectMd);
-    const { kind, mailer: fake } = createServerMailer(repos, dir, { HUB_MAILER: "fake", HUB_DB: "/tmp/x.db" });
+    const { kind, mailer: fake } = createServerMailer(repos, dir, "fake");
     expect(kind).toBe("fake");
     const r = await repos.drafts.record({ project: "acme", email: "client@example.com", name: "Cli", subject: "Re: hello", mailRef: "<d1@acme.example>", mailClass: "client" });
     await repos.drafts.setChecked(r.draftId, true);

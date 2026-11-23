@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readInstanceConfig } from "@hub/config/instance";
 import { normalizeAddress, type ProjectConfig } from "./parse";
 
 export type GuardResult = { ok: true } | { ok: false; blocked: string[] };
@@ -16,14 +16,7 @@ export function checkDraftRecipients(config: Pick<ProjectConfig, "draft">, to: s
 }
 
 /** `allow_list` of config/config.json (what `draft.recipients: test` means); empty when the file is missing or unreadable. */
-export function readAllowList(file: string): string[] {
-  try {
-    const j = JSON.parse(readFileSync(file, "utf8")) as { allow_list?: unknown };
-    return Array.isArray(j.allow_list) ? j.allow_list.filter((a): a is string => typeof a === "string") : [];
-  } catch {
-    return [];
-  }
-}
+export const readAllowList = (file: string): string[] => readInstanceConfig({ configFile: file }).config.allow_list ?? [];
 
 /** P92: the owner's test addresses when the project is in test mode (`draft.recipients: test`), normalized; else none. */
 export function testRecipientsOf(config: Pick<ProjectConfig, "draft">, allowList: readonly string[]): string[] {

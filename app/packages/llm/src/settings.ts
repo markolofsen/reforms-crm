@@ -1,3 +1,4 @@
+import { fakeMode } from "@hub/config/modes";
 import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { instanceLlm, type InstanceLlm } from "@hub/config/llm";
@@ -60,5 +61,5 @@ export const hasKey = (env: NodeJS.ProcessEnv = process.env): boolean => readKey
 /** The instance's `llm` block (cap, preset overrides), read on every call like the key. */
 export const readSettings = (env: NodeJS.ProcessEnv = process.env): InstanceLlm => instanceLlm(hubPaths({ env }));
 
-/** `HUB_LLM=fake`: the fake transport answers, no key is needed and nothing leaves the process. */
-export const fakeMode = (env: NodeJS.ProcessEnv = process.env): boolean => env.HUB_LLM === "fake";
+/** `HUB_LLM=fake`: the fake transport answers, no key is needed and nothing leaves the process. Read by `@hub/config/modes`'s rule: any other value throws. */
+export const llmFake = (env: NodeJS.ProcessEnv = process.env): boolean => fakeMode(env, "llm") === "fake";

@@ -1,5 +1,6 @@
+import { readInstanceConfig } from "@hub/config/instance";
 import { spawn } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { AGENT_CLIS, expandTilde, instanceFeatures, pathsAt, type AgentCli, type HubPaths } from "@hub/config/paths";
@@ -112,11 +113,7 @@ export function buildCodexArgs(plan: AgentPlan, paths: HubPaths, unattended: boo
  */
 export function extraDirs(root: string, env: NodeJS.ProcessEnv = process.env): string[] {
   const fromEnv = (env.HUB_EXTRA_DIRS ?? "").split(":").map((d) => d.trim()).filter(Boolean);
-  let fromFile: string[] = [];
-  try {
-    const j = JSON.parse(readFileSync(pathsAt(root).configFile, "utf8")) as { extra_dirs?: unknown };
-    if (Array.isArray(j.extra_dirs)) fromFile = j.extra_dirs.filter((d): d is string => typeof d === "string" && d.trim() !== "");
-  } catch { /* no config file: no extra folders */ }
+  const fromFile = readInstanceConfig(pathsAt(root)).config.extra_dirs ?? [];
   return [...new Set([...fromEnv, ...fromFile].map((d) => path.resolve(root, expandTilde(d, env))))].filter((d) => existsSync(d));
 }
 

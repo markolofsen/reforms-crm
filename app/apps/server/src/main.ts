@@ -7,10 +7,10 @@ import { FakeDraftWriter } from "@hub/agent/mail/fake";
 import { createApp } from "./app";
 import { holdIdleSockets, listenErrorLine, onShutdown } from "./lifecycle";
 import { startAppsProbe } from "./apps-probe";
-import { appleMailAccounts, chooseProbeKind, fakeMailAccounts, fakeProbeDeps } from "./connections";
+import { appleMailAccounts, fakeMailAccounts, fakeProbeDeps } from "./connections";
 import { configOf } from "./overview-facts";
 import { projectsRoot } from "./project-overview";
-import { allowListOf, configFile, createServerMailer } from "./send/mailer";
+import { configFile, createServerMailer } from "./send/mailer";
 import { startMessengers } from "./messengers";
 import { startTelegramUser } from "./telegram-user";
 import { startWhatsApp, type WhatsAppHandle } from "./whatsapp";
@@ -28,15 +28,16 @@ import { bodyCache, readHistory } from "./conversation";
 import type { ConversationMail } from "./composition/capabilities";
 import { stampSentMail, teamStampOf } from "@hub/notion/stamp";
 import type { SentNotice } from "@hub/send";
-import { chooseShell, createTerminal, serverDetector } from "./terminal";
-import { chooseAgentTools, createAgentTools } from "./agent-tools";
+import { createTerminal, serverDetector } from "./terminal";
+import { createAgentTools } from "./agent-tools";
 import { logStoreOf, readEvents } from "@hub/log/store";
 import { ensureAgentSendToken } from "@hub/agent/send-token";
 import { createLive, folderSignature, logSignatures } from "./live";
 import { createFocusStore } from "./focus";
-import { chooseOpener, localOpenAvailable, localOpenDeps } from "@hub/projects/local-open";
-import { throwawayDbNamed } from "@hub/send";
-import { chooseLaunchctl, createAutostart } from "./autostart";
+import { localOpenAvailable, localOpenDeps, openerFor } from "@hub/projects/local-open";
+import { readAllowList } from "@hub/projects";
+import { modesLine, runtimeModes } from "@hub/config/modes";
+import { createAutostart, launchctlFor } from "./autostart";
 import { createCoreUpdates, execRun, offlineRun } from "./core-updates";
 import { errFields, ops, opsSignature, opsStoreOf } from "@hub/log/ops";
 
@@ -58,6 +59,18 @@ try {
   log.error(e.message);
   process.exit(2);
 }
+
+// P126 K1: every environment switch, read once here; a bad value (a fake without a throwaway HUB_DB, a typo) stops the server
+// before anything starts. The one line names every fake and every off switch.
+let modes: ReturnType<typeof runtimeModes>;
+try {
+  modes = runtimeModes(process.env);
+} catch (e) {
+  log.error((e as Error).message);
+  process.exit(2);
+}
+const modeLine = modesLine(modes);
+if (modeLine) log.info(`switches: ${modeLine}`);
 
 const { db, close } = openDb();
 const repos = createRepos(db);
@@ -101,9 +114,9 @@ handles.wa = whatsapp;
 const waStatus = whatsapp.status();
 log.info(`whatsapp linked devices: ${waStatus.state === "on" ? `${waStatus.accounts.length} connected` : `off (${waStatus.reason ?? ""})`}`);
 
-// The Mailer behind Send: Mail.app, or the fake when HUB_MAILER=fake (refused without HUB_DB). A bad value stops the server here.
+// The Mailer behind Send: Mail.app, or the fake when HUB_MAILER=fake (read with the other switches above).
 const projectsDir = projectsRoot();
-const { kind, mailer } = createServerMailer(repos, projectsDir);
+const { kind, mailer } = createServerMailer(repos, projectsDir, modes.mailer);
 log.info(kind === "fake" ? "SEND IS FAKE (HUB_MAILER=fake): nothing leaves this process" : "send: Mail.app (a person confirms every send in the admin)");
 // P89: after a confirmed send (the send door or Sent detection) the client's Notion page gets Last sent at / Last sent by. In the
 // background: a send never waits for Notion, and a failure is one ops-log line. Off with the fake Mailer (nothing was really sent).
@@ -180,18 +193,18 @@ const conversationMail: ConversationMail =
           return { headers: await mailWriter.readHeaders(found), accountAddresses: found.accountAddresses ?? [account] };
         },
       };
-// Connections: the real probes and Apple Mail's account list, or stubs with HUB_CONNECTIONS_PROBE=fake (refused without HUB_DB).
-const probe = chooseProbeKind(process.env);
+// Connections: the real probes and Apple Mail's account list, or stubs with HUB_CONNECTIONS_PROBE=fake.
+const probe = modes.probe;
 if (probe === "fake") log.info("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PROBE=fake): nothing is sent to Notion or Telegram, Mail is not asked");
 // Either fake (a demo or e2e run) keeps the server from asking the owner's Mail which accounts it has.
 const listed = async () => (await repos.projects.registry()).projects.flatMap((p) => configOf(p).mail.accounts);
 const mailAccounts = probe === "fake" || kind === "fake" ? fakeMailAccounts(listed) : appleMailAccounts();
 const connections = probe === "fake" ? { deps: fakeProbeDeps(), mailAccounts } : { mailAccounts };
-// The embedded terminal (P49): always on (decision 0032); a bad HUB_TERMINAL_SHELL stops the server here.
+// The embedded terminal (P49): always on (decision 0032).
 const paths = hubPaths();
 const ports = instancePorts(paths);
-const fakeShell = chooseShell(process.env) === "fake";
-const fakeTools = chooseAgentTools(process.env) === "fake";
+const fakeShell = modes.shell === "fake";
+const fakeTools = modes.agentTools === "fake";
 // P57: one detector of Claude Code and Codex (the owner's login shell), shared by the terminal's pick and Agent tools.
 const detector = serverDetector({ env: process.env, fake: fakeShell || fakeTools });
 const terminal = createTerminal({ paths, repos, adminPort: ports.admin, apiPort: port, fakeShell, detector });
@@ -199,8 +212,8 @@ const terminal = createTerminal({ paths, repos, adminPort: ports.admin, apiPort:
 const terminalProblem = terminal.warm();
 (terminalProblem ? ops("terminal").error : log.info)(`terminal: ${terminalProblem ? `cannot start: ${terminalProblem.reason} (fix: ${terminalProblem.fix})` : fakeShell ? "on, FAKE SHELL (HUB_TERMINAL_SHELL=fake)" : "on (admin origin + ticket only)"}`);
 const agentTools = createAgentTools({ paths, repos, fake: fakeTools, detector, onRefresh: () => void terminal.recheck() });
-// P67: "Start the Hub after a restart". HUB_LAUNCHCTL=fake records each launchctl argv and reaches no launchd (refused without HUB_DB).
-const launchctl = chooseLaunchctl(process.env, paths, throwawayDbNamed(process.env));
+// P67: "Start the Hub after a restart". HUB_LAUNCHCTL=fake records each launchctl argv and reaches no launchd.
+const launchctl = launchctlFor(modes.launchctl, process.env, paths);
 const startedBy = process.env.HUB_AUTOSTART === "1" ? ("launchd" as const) : ("hand" as const);
 const autostart = createAutostart({ paths, run: launchctl.run, agentsDir: launchctl.agentsDir, uid: process.getuid?.() ?? 501, startedBy, supported: launchctl.kind === "fake" || process.platform === "darwin", ...(launchctl.kind === "fake" ? { bootAt: async () => undefined, mailMcp: async () => true } : {}) });
 log.info(launchctl.kind === "fake" ? "LAUNCHCTL IS FAKE (HUB_LAUNCHCTL=fake): launchd is not asked, each argv goes to state/autostart/launchctl.jsonl" : `autostart: this server was started ${startedBy === "launchd" ? "by launchd at login" : "by hand"}`);
@@ -217,8 +230,8 @@ const live = createLive({ db, watch: [{ topic: "health", signature: pollers, eve
 busy.now = () => live.count() > 0 || terminal.state().sessions.length > 0;
 // The shared focus (P51): the admin tab says what it shows; the agent reads it from state/focus.json.
 const focus = createFocusStore({ file: paths.focus });
-// P61: the local Open actions (Finder, a project file). HUB_OPENER=fake records each argv in state/opener.jsonl and opens nothing (refused without HUB_DB); a bad value stops the server here.
-const opener = chooseOpener(process.env, paths, throwawayDbNamed(process.env));
+// P61: the local Open actions (Finder, a project file). HUB_OPENER=fake records each argv in state/opener.jsonl and opens nothing.
+const opener = openerFor(modes.opener, paths);
 const local = { deps: localOpenDeps(repos, paths), run: opener.run, available: localOpenAvailable(opener.kind) };
 // P131 O2: the destination apps this Mac has, at start and every 10 minutes (the probe opens nothing).
 const appsProbe = startAppsProbe(opener.probe);
@@ -228,7 +241,7 @@ log.info(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens
 // mode and the session log are read per call.
 const agentStore = logStoreOf(paths);
 const agentSend = { token: ensureAgentSendToken(paths), unattended: () => instanceFeatures(paths).agent.unattended, events: (project: string, since: string) => readEvents(agentStore, { project, kinds: ["prompt", "focus"], since }) };
-const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local: localService, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project), agent: agentSend } });
+const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local: localService, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: readAllowList(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project), agent: agentSend } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   log.info(`hub server on http://${info.address}:${info.port}`, { pid: process.pid });

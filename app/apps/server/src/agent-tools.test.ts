@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { hubPaths } from "@hub/config/paths";
 import { agentToolsDto } from "@hub/contract/agent-tools";
 import type { Repos } from "@hub/db";
-import { chooseAgentTools, createAgentTools } from "./agent-tools";
+import { createAgentTools } from "./agent-tools";
 import { createApp } from "./app";
 
 // Connections' Agent tools (P49 5B) on the fake rows: nothing is probed.
@@ -40,11 +40,5 @@ describe("agent tools", () => {
     expect((await setup()("GET", "/api/projects/nobody/agent-tools")).status).toBe(404);
     const bare = createApp(repos, {});
     expect((await bare.request("http://127.0.0.1:4317/api/projects/acme/agent-tools", { headers: H })).status).toBe(404);
-  });
-  it("HUB_AGENT_TOOLS=fake needs HUB_DB", () => {
-    expect(chooseAgentTools({})).toBe("real");
-    expect(chooseAgentTools({ HUB_AGENT_TOOLS: "fake", HUB_DB: "/tmp/x.db" })).toBe("fake");
-    expect(() => chooseAgentTools({ HUB_AGENT_TOOLS: "fake" })).toThrow(/needs HUB_DB/);
-    expect(() => chooseAgentTools({ HUB_AGENT_TOOLS: "yes" })).toThrow();
   });
 });

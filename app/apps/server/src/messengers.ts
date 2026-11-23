@@ -1,3 +1,4 @@
+import { offMode } from "@hub/config/modes";
 import { access, readFile } from "node:fs/promises";
 import { isTelegramToken } from "@hub/connections";
 import { botTokenFile, redact, runPoller, telegramPollAdapter, type MessengerAdapter, type PollEvent } from "@hub/messengers";
@@ -61,7 +62,7 @@ export async function messengersProject(repos: Repos, env: NodeJS.ProcessEnv): P
 
 export async function startMessengers(o: StartMessengers): Promise<MessengersHandle> {
   const env = o.env ?? process.env;
-  if (env.HUB_MESSENGERS === "off") return off("HUB_MESSENGERS=off");
+  if (offMode(env, "messengers") === "off") return off("HUB_MESSENGERS=off");
   const file = o.tokenFile ?? env.HUB_TELEGRAM_TOKEN_FILE ?? botTokenFile(env);
   try {
     await access(file);

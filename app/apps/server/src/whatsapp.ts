@@ -1,3 +1,4 @@
+import { offMode } from "@hub/config/modes";
 import type { TelegramUserAccountDto, WhatsAppStatusDto } from "@hub/contract/messengers";
 import type { Repos } from "@hub/db";
 import {
@@ -96,7 +97,7 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
   let sockets = o.sockets;
   const socketsNow = async (): Promise<WaSocketFactory> => (sockets ??= await baileysSocketFactory());
 
-  const off = env.HUB_MESSENGERS === "off" ? "HUB_MESSENGERS=off" : null;
+  const off = offMode(env, "messengers") === "off" ? "HUB_MESSENGERS=off" : null;
   const pick = off ? null : await messengersProject(o.repos, env);
   const project = pick?.project ?? null;
   const reason = off ?? pick?.reason ?? "no project";

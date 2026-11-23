@@ -1,3 +1,4 @@
+import { INSTANCE_KEYS, readInstanceConfig } from "@hub/config/instance";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { instanceBrand } from "@hub/config/paths";
@@ -11,12 +12,8 @@ const allDirs = (c: Ctx) => [...stateDirs(c), c.configDir];
 const CONFIGS = ["mcp.json"];
 const SETTINGS = ["config.json"];
 const REQUIRED_CONFIG_KEYS = ["account", "mailboxes", "allow_list"];
-/**
- * Every key of `config/config.json` the hub reads or its template carries: the whole schema. Add a key here in the same change that starts reading it.
- * Readers: account, mailboxes (mail.account), allow_list (send guard), extra_dirs (hub agent), admin_port and api_port (`@hub/config/paths`), backup_dir (hub backup), backup_repos (backup.git), name and logo (the admin's brand header, `instanceBrand`), agent (`instanceFeatures`).
- * `sent_mailbox` is carried by the template only. The keys of the archived daemon (quiet_hours, model, timeouts, budgets, lock and breaker settings) are gone; run limits live per project in `project.md`.
- */
-export const CONFIG_KEYS = ["name", "logo", "account", "mailboxes", "sent_mailbox", "allow_list", "extra_dirs", "admin_port", "api_port", "backup_dir", "backup_repos", "agent", "llm"];
+/** Every key of `config/config.json`: the schema of `@hub/config/instance`, the one reader (P126 K1). Add a key there. */
+export const CONFIG_KEYS: readonly string[] = INSTANCE_KEYS;
 
 /** Mail login files of the removed IMAP reader (decision 0026): nothing reads them; the owner deletes them. */
 const OLD_MAIL_LOGIN = /^mail-[A-Za-z0-9][A-Za-z0-9._-]*\.json$/;
@@ -92,7 +89,10 @@ export const fileSteps: Step[] = [
       const cfg = readJson(ctx.paths.configFile);
       if (!cfg || typeof cfg !== "object" || Array.isArray(cfg)) return pass("no readable config.json: files.settings reports that");
       const unknown = Object.keys(cfg).filter((k) => !CONFIG_KEYS.includes(k));
-      return unknown.length ? warn(`config.json has key(s) nothing reads: ${unknown.join(", ")}. Delete them; the keys the hub reads are listed in this step's page`) : pass(`${Object.keys(cfg).length} key(s), all read by the hub`);
+      // A malformed value is left out by the reader and the rest still applies: say which, beside the unknown keys.
+      const { problems } = readInstanceConfig(ctx.paths);
+      const lines = [...(unknown.length ? [`config.json has key(s) nothing reads: ${unknown.join(", ")}. Delete them; the keys the hub reads are listed in this step's page`] : []), ...problems.map((p) => `${p}: the setting is ignored`)];
+      return lines.length ? warn(lines.join("; ")) : pass(`${Object.keys(cfg).length} key(s), all read by the hub`);
     },
   },
   {
