@@ -154,9 +154,7 @@ export function ConversationText({ text, format = "plain" }: { text: string; for
     if (quote.length === 0) return;
     blocks.push(
       <blockquote className="rounded-lg bg-muted px-3 py-2 text-muted-foreground" key={`quote-${blocks.length}`}>
-        <p className="whitespace-pre-wrap break-words text-sm leading-6">
-          {quote.map((line, lineIndex) => <span key={`quote-line-${lineIndex}`}>{lineIndex > 0 && "\n"}{inlineMarkdown(line)}</span>)}
-        </p>
+        <p className="whitespace-pre-wrap break-words text-sm leading-6">{inlineMarkdown(quote.join("\n"))}</p>
       </blockquote>,
     );
     quote = [];
