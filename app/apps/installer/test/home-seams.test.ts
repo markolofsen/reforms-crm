@@ -11,7 +11,7 @@ const SRC_ROOTS = ["apps", "packages"];
 const THE_ONE = "app/packages/config/src/paths.ts";
 /** file -> why it may name a path or read an override itself */
 const ALLOWED: Record<string, string> = {
-  "app/packages/send/src/select.ts": "reads HUB_DB only to refuse the fake mailer on the live database; it resolves no path",
+  "app/packages/config/src/modes.ts": "reads HUB_DB only to refuse a fake on the live database (P126 K1: the switches' one reader); it resolves no path",
 };
 
 const FORBIDDEN: ReadonlyArray<readonly [name: string, re: RegExp]> = [
@@ -28,7 +28,7 @@ const FORBIDDEN: ReadonlyArray<readonly [name: string, re: RegExp]> = [
 
 function* walk(dir: string): Generator<string> {
   for (const e of readdirSync(dir)) {
-    if (["node_modules", ".next", "dist", ".turbo", "test", "tests", "e2e", "eval", "fixtures"].includes(e)) continue;
+    if (["node_modules", ".next", "dist", ".turbo", "test", "tests", "testing", "e2e", "eval", "fixtures"].includes(e)) continue;
     const f = path.join(dir, e);
     if (statSync(f).isDirectory()) yield* walk(f);
     else if (/\.(ts|tsx|mjs)$/.test(e) && !/\.test\.tsx?$/.test(e)) yield f;

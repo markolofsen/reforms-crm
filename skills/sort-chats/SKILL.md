@@ -1,6 +1,6 @@
 ---
 name: sort-chats
-description: Use when the owner wants the unlinked Telegram and WhatsApp chats of one project sorted ("разбери чаты", "sort the chats"): read the chats linked to no client and propose "Hide: not a client" for those that are not, each with its reason. Nothing is hidden, linked or sent; the owner confirms the list once on Messengers ▸ Not linked.
+description: Use when the owner wants the unlinked Telegram and WhatsApp chats of one project sorted: read the chats linked to no client and propose "Hide: not a client" for those that are not, each with its reason. It never hides, links or sends anything; the owner confirms the list once on Messengers ▸ Not linked. Unlike triage-messages, which drafts replies in linked chats, this only proposes which unlinked chats to hide.
 allowed-tools: mcp__hub__focus mcp__hub__project_show mcp__hub__chats_unlinked mcp__hub__chats_propose_hide
 ---
 
