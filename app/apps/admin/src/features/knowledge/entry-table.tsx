@@ -4,6 +4,8 @@ import { cn } from "@hub/ui/cn";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { LocalActionButton } from "@/components/local-action";
 import { agentRef } from "@/lib/focus";
+import { useState } from "react";
+import { EntryText, toggleProps } from "./entry-text";
 import { groupEntries, type EntrySection } from "./groups";
 import { STATUS_LOOK, forText, type Facets } from "./labels";
 
@@ -53,9 +55,11 @@ function HeadText({ s }: { s: EntrySection }) {
   );
 }
 
-function EntryRow({ e, c }: { e: KnowledgeEntryDto; c: Cols }) {
+function EntryRow({ e, c, span }: { e: KnowledgeEntryDto; c: Cols; span: number }) {
+  const [open, setOpen] = useState(false);
   return (
-    <TableRow className={POINTABLE} data-entry={e.key} data-status={e.status} tabIndex={0} {...agentRef(e.key)}>
+    <>
+    <TableRow className={cn(POINTABLE, "cursor-pointer")} data-entry={e.key} data-status={e.status} tabIndex={0} {...agentRef(e.key)} {...toggleProps(open, () => setOpen((v) => !v))}>
       <TableCell className="break-words font-medium" data-agent-label="">
         {e.title}
       </TableCell>
@@ -73,6 +77,14 @@ function EntryRow({ e, c }: { e: KnowledgeEntryDto; c: Cols }) {
         <Open e={e} project={c.project} />
       </TableCell>
     </TableRow>
+    {open && (
+      <TableRow data-entry-text={e.key}>
+        <TableCell className="whitespace-normal bg-muted/20" colSpan={span}>
+          <EntryText entryKey={e.key} project={c.project} title={e.title} />
+        </TableCell>
+      </TableRow>
+    )}
+    </>
   );
 }
 
@@ -89,16 +101,17 @@ function SectionBody({ s, c }: { s: EntrySection; c: Cols }) {
         </TableRow>
       )}
       {s.entries.map((e) => (
-        <EntryRow c={c} e={e} key={`${s.id}|${e.key}`} />
+        <EntryRow c={c} e={e} key={`${s.id}|${e.key}`} span={span} />
       ))}
     </TableBody>
   );
 }
 
 function PhoneRow({ e, c }: { e: KnowledgeEntryDto; c: Cols }) {
+  const [open, setOpen] = useState(false);
   const meta = [c.showFor ? forText(e, c.brands) : null, e.validUntil ? `until ${day(e.validUntil)}` : null].filter(Boolean).join(" · ");
   return (
-    <li className={cn("flex min-w-0 flex-col gap-1 py-2 text-sm", POINTABLE)} data-entry={e.key} data-status={e.status} tabIndex={0} {...agentRef(e.key)}>
+    <li className={cn("flex min-w-0 flex-col gap-1 py-2 text-sm", POINTABLE)} data-entry={e.key} data-status={e.status} tabIndex={0} {...agentRef(e.key)} {...toggleProps(open, () => setOpen((v) => !v))}>
       <p className="flex min-w-0 items-center gap-2">
         <span className="min-w-0 flex-1 break-words font-medium" data-agent-label="">
           {e.title}
@@ -111,6 +124,7 @@ function PhoneRow({ e, c }: { e: KnowledgeEntryDto; c: Cols }) {
           <span className="tabular-nums">{meta}</span>
         </p>
       )}
+      {open && <EntryText entryKey={e.key} project={c.project} title={e.title} />}
     </li>
   );
 }

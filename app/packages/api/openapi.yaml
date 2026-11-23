@@ -699,6 +699,30 @@ paths:
           $ref: '#/components/responses/ApiError'
         '503':
           $ref: '#/components/responses/ApiError'
+  /api/projects/{slug}/knowledge/text:
+    get:
+      operationId: getKnowledgeText
+      summary: Read one knowledge entry's text
+      description: Reads one entry's indexed text for the Knowledge row (P128 X6), cut at 12000 characters. It never sends a message.
+      tags: [meta]
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+        - name: key
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The entry's title and text
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KnowledgeText'
+        '400':
+          $ref: '#/components/responses/ApiError'
+        '404':
+          $ref: '#/components/responses/ApiError'
   /api/projects/{slug}/agent-feed:
     get:
       operationId: getAgentFeed
@@ -2769,6 +2793,15 @@ components:
         status:
           type: string
           enum: [expired, unapproved, expiring, approved]
+    KnowledgeText:
+      type: object
+      additionalProperties: false
+      required: [key, title, body, truncated]
+      properties:
+        key: { type: string }
+        title: { type: string }
+        body: { type: string }
+        truncated: { type: boolean }
     Knowledge:
       type: object
       additionalProperties: false

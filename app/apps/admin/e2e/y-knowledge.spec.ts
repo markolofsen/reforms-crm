@@ -60,7 +60,7 @@ test("knowledge: every entry is a row with its title, its status in words and it
   expect(want.length).toBeGreaterThan(1);
   await expect(heads(page)).toHaveText(want);
   await expect(table(page).locator("tr[data-topic-head][data-agent-ref], tr[data-topic-head] [tabindex]")).toHaveCount(0);
-  await expect(page.getByRole("searchbox", { name: "Search knowledge titles" })).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "Search knowledge" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open folder" })).toBeVisible();
   // No status sentence: the numbers are the View menu's (admin-principles rule 10).
   await expect(page.getByTestId("knowledge-status")).toHaveCount(0);
@@ -101,7 +101,7 @@ test("knowledge: choosing a topic lists exactly its rows, without heading rows, 
 
 test("knowledge: the search narrows by title and the address keeps it", async ({ page }) => {
   await page.goto(`/${PROJECT}/knowledge`);
-  await page.getByRole("searchbox", { name: "Search knowledge titles" }).fill("spring");
+  await page.getByRole("searchbox", { name: "Search knowledge" }).fill("spring");
   await expect.poll(() => address(page)).toBe(`/${PROJECT}/knowledge?q=spring`);
   await expect(table(page).locator("tbody tr[data-entry]")).toHaveCount(1);
   await expect(table(page)).toContainText("Spring sale 2025");
@@ -130,4 +130,23 @@ test("knowledge: at 360px each entry is at most two lines (title and Open, then 
   await expect(first.locator("p").first().getByRole("button", { name: /^Open / })).toBeVisible();
   await expect(page.getByRole("list", { name: "Knowledge entries" }).locator('li[data-status="expired"] p')).toHaveCount(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+test("knowledge: a row opens its text under itself, read only, and Enter closes it again; Open stays on the row (P128 X6)", async ({ page }) => {
+  const d = await list(page);
+  const e = d.entries[0];
+  if (!e) throw new Error("the fixture base is empty");
+  await page.goto(`/${PROJECT}/knowledge`);
+  const row = table(page).locator(`tr[data-entry="${e.key}"]`);
+  await expect(row).toHaveAttribute("aria-expanded", "false");
+  await row.locator("td").first().click();
+  await expect(row).toHaveAttribute("aria-expanded", "true");
+  const text = table(page).locator(`tr[data-entry-text="${e.key}"]`).getByTestId("knowledge-text");
+  await expect(text).toBeVisible();
+  await expect(text.locator("textarea, input, [contenteditable=true]")).toHaveCount(0);
+  await expect(row.getByRole("button", { name: `Open ${e.title}` })).toBeVisible();
+  await row.focus();
+  await page.keyboard.press("Enter");
+  await expect(row).toHaveAttribute("aria-expanded", "false");
+  await expect(table(page).locator(`tr[data-entry-text="${e.key}"]`)).toHaveCount(0);
 });

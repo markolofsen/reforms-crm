@@ -1,10 +1,10 @@
 import type { SafetyKind } from "@hub/config";
-import { getActivity, getAgentFeed, getAgentSettings, getCoreUpdate, getInstance, getProjectLinks, getProjectOverview, getPulse, getSafetyRules, listKnowledge, listProjects } from "@hub/api";
+import { getActivity, getAgentFeed, getAgentSettings, getCoreUpdate, getInstance, getProjectLinks, getProjectOverview, getPulse, getKnowledgeText, getSafetyRules, listKnowledge, listProjects } from "@hub/api";
 import { activityDto, type ActivityView } from "@hub/contract/activity";
 import { agentFeedDto } from "@hub/contract/agent-feed";
 import { pulseDto } from "@hub/contract/health";
 import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
-import { knowledgeListDto, type KnowledgeView } from "@hub/contract/knowledge";
+import { knowledgeListDto, knowledgeTextDto, type KnowledgeView } from "@hub/contract/knowledge";
 import { appsDto, localOpenedDto, type ServerActionId } from "@hub/contract/local";
 import type { AgentSettingsBody, SafetyRuleBody } from "@hub/contract/requests";
 import { agentSettingsDto, projectLinksDto, projectOverviewDto, projectsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
@@ -28,6 +28,8 @@ export const metaApi = {
   agentFeed: (project: string) => readGenerated(getAgentFeed(project), agentFeedDto),
   /** P70: the Knowledge table of one project, filtered and searched on the server. */
   knowledge: (project: string, filter: KnowledgeView, q: string) => readGenerated(listKnowledge(project, { filter, q }), knowledgeListDto),
+  /** P128 X6: one entry's text, shown under its row (the Orval client is regenerated from the spec at the final gate). */
+  knowledgeText: (project: string, key: string) => readGenerated(getKnowledgeText(project, { key }), knowledgeTextDto),
   rules: (project: string) => readGenerated(getSafetyRules({ project }), safetyRulesDto),
   setRule: (project: string, kind: SafetyKind, patch: Omit<SafetyRuleBody, "project">) => read(safetyRuleSavedDto, { method: "PUT", path: `/api/safety-rules/${kind}`, body: { project, ...patch } }),
   /** P55: the project's agent model and advisor; a change applies at the next session start. */

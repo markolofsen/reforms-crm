@@ -49,6 +49,7 @@ export const keys = {
   agentSettings: (project: string) => ["agent-settings", project] as const,
   /** P70: the Knowledge table, per view and title search. */
   knowledge: (project: string, view: string, q: string) => ["knowledge", project, view, q] as const,
+  knowledgeText: (project: string, key: string) => ["knowledge", project, "text", key] as const,
   sends: (project: string) => ["sends", project] as const,
   /** P71 M3: the Messengers panel's linked chats per view, and the owner's Telegram account (instance-wide, rides in health). */
   messengerChats: (project: string, view: string, channel = "all", search = "") => ["messenger-chats", project, "list", view, channel, search] as const,

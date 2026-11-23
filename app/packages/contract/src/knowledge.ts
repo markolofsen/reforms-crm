@@ -32,6 +32,19 @@ export const knowledgeEntryDto = z.strictObject({
 });
 export type KnowledgeEntryDto = z.infer<typeof knowledgeEntryDto>;
 
+/** At most this many characters of an entry's text are sent to the Knowledge row (P128 X6), the agent's `knowledge_get` cap. */
+export const KNOWLEDGE_TEXT_CAP = 12_000;
+
+/** One entry's text as the Knowledge row shows it under itself (P128 X6, read only): from the index, never a file read. */
+export const knowledgeTextDto = z.strictObject({
+  key: z.string().startsWith("knowledge:"),
+  title: z.string(),
+  body: z.string(),
+  /** True when the body was cut at `KNOWLEDGE_TEXT_CAP`; Open shows the whole file. */
+  truncated: z.boolean(),
+});
+export type KnowledgeTextDto = z.infer<typeof knowledgeTextDto>;
+
 export const knowledgeListDto = z.strictObject({
   /** `by-brand`: the table shows each entry's brands beside its audiences (P60). */
   scope: z.enum(["shared", "by-brand"]),

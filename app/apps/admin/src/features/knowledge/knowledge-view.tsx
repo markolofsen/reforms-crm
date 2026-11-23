@@ -47,7 +47,7 @@ function SearchBox({ q, onSearch }: { q: string; onSearch: (v: string) => void }
   useEffect(() => {
     if (ref.current !== document.activeElement) setText(q);
   }, [q]);
-  return <Input aria-label="Search knowledge titles" className="control-m w-full sm:w-56" onChange={(e) => { setText(e.target.value); onSearch(e.target.value); }} placeholder="Search titles" ref={ref} type="search" value={text} />;
+  return <Input aria-label="Search knowledge" className="control-m w-full sm:w-56" onChange={(e) => { setText(e.target.value); onSearch(e.target.value); }} placeholder="Search titles and text" ref={ref} type="search" value={text} />;
 }
 
 /**

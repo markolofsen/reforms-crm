@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { knowledgeListDto } from "@hub/contract/knowledge";
+import { knowledgeListDto, knowledgeTextDto } from "@hub/contract/knowledge";
 import type { Repos } from "@hub/db";
 import { createApp } from "./app";
 
@@ -16,7 +16,7 @@ const settings = JSON.stringify({ schema: 1, slug: "acme", kind: "saas", name: "
 const asked: string[] = [];
 const repos = {
   projects: { get: async (s: string) => (s === "acme" ? { slug: "acme", settingsJson: settings } : null) },
-  knowledge: { list: async (p: string) => (asked.push(p), p === "acme" ? docs : []) },
+  knowledge: { list: async (p: string) => (asked.push(p), p === "acme" ? docs : []), get: async (p: string, path: string) => (p === "acme" ? (docs.find((d) => d.path === path) ?? null) : null) },
 } as unknown as Repos;
 const app = createApp(repos, { now: () => new Date("2026-11-19T12:00:00.000Z") });
 const get = async (q = "") => {
@@ -45,5 +45,24 @@ describe("GET /api/projects/:slug/knowledge", () => {
     expect(s.counts.all).toBe(1);
     expect((await get("?filter=nope")).entries).toHaveLength(5);
     expect((await app.request("http://127.0.0.1:4317/api/projects/nope/knowledge")).status).toBe(404);
+  });
+});
+
+// P128 X6: the search reads the indexed text too, and one entry's text is served for its row, read only.
+describe("Knowledge text (P128 X6)", () => {
+  it("a search matches a word of the text, not only the title", async () => {
+    const word = docs[0]?.body.split(/\s+/).find((w) => w.length > 3 && !docs[0]?.title.toLowerCase().includes(w.toLowerCase()));
+    if (!word) throw new Error("the fixture body has no word to search");
+    const d = await get(`?q=${encodeURIComponent(word)}`);
+    expect(d.entries.map((e) => e.key)).toContain("knowledge:knowledge/pricing.md");
+  });
+
+  it("GET /knowledge/text gives one entry's text; an unknown entry is 404, a bad key 400", async () => {
+    const res = await app.request("http://127.0.0.1:4317/api/projects/acme/knowledge/text?key=knowledge:knowledge/pricing.md");
+    expect(res.status).toBe(200);
+    expect(knowledgeTextDto.parse(await res.json())).toMatchObject({ key: "knowledge:knowledge/pricing.md", title: "Pricing", truncated: false });
+    expect((await app.request("http://127.0.0.1:4317/api/projects/acme/knowledge/text?key=knowledge:knowledge/nope.md")).status).toBe(404);
+    expect((await app.request("http://127.0.0.1:4317/api/projects/acme/knowledge/text?key=pricing.md")).status).toBe(400);
+    expect((await app.request("http://127.0.0.1:4317/api/projects/nope/knowledge/text?key=knowledge:knowledge/pricing.md")).status).toBe(404);
   });
 });

@@ -69,14 +69,14 @@ test("while he types in the search box a highlight does not scroll", async ({ pa
   await page.goto(at("demo-shop", "/knowledge"));
   const last = rows(page).last();
   await expect(last).toBeAttached();
-  await page.getByRole("searchbox", { name: "Search knowledge titles" }).click();
+  await page.getByRole("searchbox", { name: "Search knowledge" }).click();
   await expect.poll(() => existsSync(focusFile)).toBe(true);
   const scrolled = () => page.evaluate(() => [...document.querySelectorAll("#main *")].reduce((n, el) => n + el.scrollTop, 0));
   const before = await scrolled();
   highlight([(await last.getAttribute("data-agent-ref")) ?? ""]);
   await page.waitForTimeout(1200); // past the 800 ms wait for visibility
   expect(await scrolled()).toBe(before);
-  await expect(page.getByRole("searchbox", { name: "Search knowledge titles" })).toBeFocused();
+  await expect(page.getByRole("searchbox", { name: "Search knowledge" })).toBeFocused();
 });
 
 test("a row on another screen is offered in the dock with Show; only his click goes there, and the ring is drawn there", async ({ page }) => {
