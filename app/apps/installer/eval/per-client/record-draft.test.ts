@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { replayCalls, type LedgerEntry } from "@hub/projects";
 import { batchCheck } from "../../src/batch-check";
-import { appendLine, sessionFile } from "../../src/evidence-store";
+import { appendLine, sessionFile } from "@hub/projects/evidence-store";
 import { recordDraft } from "../../src/record-draft";
 import { anyRecipients } from "../../test/instance-fixture";
 import { carefulSteps, contextFor, recordFor, replyFor, templateLoopSteps } from "./scenario";

@@ -42,7 +42,7 @@ import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { runGuardPost } from "../src/safety";
-import { sessionFile } from "../src/evidence-store";
+import { sessionFile } from "@hub/projects/evidence-store";
 
 describe("hub guard --post on get_message_content", () => {
   it("prints a slim reply and still records the ledger from the original", () => {

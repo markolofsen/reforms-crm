@@ -17,6 +17,7 @@
     "./mcp-stdio": "./src/mcp/stdio.ts",
     "./mail": "./src/mail/index.ts",
     "./mail/fake": "./src/mail/fake.ts",
+    "./records": "./src/records/checks.ts",
     "./messenger-rules": "./src/messenger/rules.ts",
     "./owner-word": "./src/messenger/owner-word.ts",
     "./send-token": "./src/messenger/send-token.ts",

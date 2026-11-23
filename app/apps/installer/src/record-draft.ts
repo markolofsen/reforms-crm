@@ -1,7 +1,7 @@
 import { MARKS, newThreadKey, NOTION_KINDS, SEQUENCE_SKILL } from "@hub/config";
 import { createRepos, defaultDbPath, openDb, RepoError, type RecordDraftInput } from "@hub/db";
 import { checkContext, contextMode, contextSchema, judgeSimilarity, measureAgainstSet, observeDraft, SIM_AMBER, type Context, type ContextMode, type Evidence, type LedgerEntry, type PriorRecord, type Violation, checkDraftRecipients, kindOf, loadProject, readAllowList } from "@hub/projects";
-import { appendLine, latestSession, readLines, recordsFile } from "./evidence-store";
+import { appendLine, latestSession, readLines, recordsFile } from "@hub/projects/evidence-store";
 import { z } from "zod";
 
 // `hub record-draft --project <slug>`: the one writer from a Claude session into the admin database (decision 0009).

@@ -7,7 +7,7 @@ import { replayCalls, type LedgerEntry } from "@hub/projects";
 import { defaultRoot } from "../src/context";
 import { anyRecipients } from "./instance-fixture";
 import { batchCheck, batchLines } from "../src/batch-check";
-import { appendLine, readLines, recordsFile, sessionFile } from "../src/evidence-store";
+import { appendLine, readLines, recordsFile, sessionFile } from "@hub/projects/evidence-store";
 import { recordDraft, type RecordLine } from "../src/record-draft";
 
 let db: string;

@@ -12,7 +12,8 @@
     "./dev": "./src/dev.ts",
     "./hub-commands": "./src/hub-commands.ts",
     "./local-open": "./src/local-open.ts",
-    "./notion-denied": "./src/notion-denied.ts"
+    "./notion-denied": "./src/notion-denied.ts",
+    "./evidence-store": "./src/evidence-store.ts"
   },
   "scripts": {
     "project": "tsx src/cli.ts",

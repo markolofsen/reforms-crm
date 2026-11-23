@@ -1,4 +1,4 @@
-import { entryFor, type LedgerEntry } from "@hub/projects";
+import { entryFor, type LedgerEntry } from "./ledger";
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathsAt } from "@hub/config/paths";

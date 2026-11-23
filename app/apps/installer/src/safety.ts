@@ -8,7 +8,7 @@ import { HUB_MCP_SERVERS } from "@hub/agent/deny";
 import { notionDenial } from "@hub/projects/notion-denied";
 import { resolveConnectors, type AttachedConnector } from "@hub/agent/connectors";
 import { connectorViolations, notionNote, notionScopeOf, notionViolations, recordConnectorRead, type ConnectorScope, type NotionRead } from "@hub/agent/connector-guard";
-import { readSession, recordPost, type PostPayload } from "./evidence-store";
+import { readSession, recordPost, type PostPayload } from "@hub/projects/evidence-store";
 import { openDbReadOnly, readAgentSettings } from "@hub/db";
 import type { AgentSettings } from "@hub/config";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
