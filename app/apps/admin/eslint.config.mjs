@@ -28,7 +28,9 @@ const STORAGE_GLOBALS = [
 ];
 const BASE_GROUP = ["@radix-ui/*", "@headlessui/*"];
 const DATA_MESSAGE = "Read and write server data through src/lib/data/* (rules: state-and-data 4b, P127 B2).";
-const DATA_GATE_PENDING = ["src/features/mail/**", "src/features/messengers/use-chat-actions.ts", "src/features/messengers/use-messenger-send.tsx", "src/features/messengers/conversation/pane.tsx", "src/features/messengers/status/link-chat.tsx", "src/features/messengers/status/use-moves.ts", "src/features/messengers/unlinked/record-search.tsx", "src/features/messengers/unlinked/use-hide.ts", "src/features/terminal/**", "src/features/focus/use-focus-publisher.ts", "src/components/send/**", "src/components/local-action.tsx"];
+// The terminal and the focus publisher talk to their own transport (`lib/api/terminal`: the PTY socket and the focus channel), not
+// to the Hub's server data, so they stay outside the data gate on purpose (P127 C2, state rule 4b).
+const OWN_TRANSPORT = ["src/features/terminal/**", "src/features/focus/use-focus-publisher.ts"];
 // `sequences` (P47): the follow-up rules are the server's; the admin reads them through /api. `terminal` and `agent` (P49) are
 // Node only (the PTY, the socket, the agent checks): the admin reaches them through /api and the socket, never by import.
 const SERVER_PACKAGES = ["db", "mail", "notion", "send", "messengers", "projects", "sequences", "terminal", "agent", "server"];
@@ -110,11 +112,10 @@ export default tseslint.config(
   },
   // P127 B2 (state rule 4b, structure 4a): features and components reach server data only through src/lib/data/* (query hooks
   // and commands); a key, a facade or the Query client is never named there. `client.ts` gives them only ApiFailure, sentence and
-  // isNotFound. DATA_GATE_PENDING lists the folders not moved yet (Mail and Messengers: P127 C2's data half; the terminal
-  // and the focus publisher talk to their own transport); a folder leaves the list in the slice that moves it.
+  // isNotFound. Only OWN_TRANSPORT is outside, by reason (P127 C2 moved Mail, Messengers and the send door in).
   {
     files: ["src/features/**", "src/components/**"],
-    ignores: DATA_GATE_PENDING,
+    ignores: OWN_TRANSPORT,
     rules: {
       "@typescript-eslint/no-restricted-imports": [
         "error",
