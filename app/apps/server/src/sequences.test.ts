@@ -6,7 +6,7 @@ import { CORE_ROOT } from "@hub/config/paths";
 import { enrollmentChangedDto, enrollmentsDto, sequencesDto } from "@hub/contract/sequences";
 import { draftsDto } from "@hub/contract/responses";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 
 // P47 routes after P48 D1: the sequences of a project and its enrollments, read-only, and the owner's Stop (409 on a wrong state).
 // Enrolling is `hub sequences enrol` in a session; pause and resume are the owner's terminal: none of them is a route.
@@ -28,7 +28,7 @@ beforeEach(async () => {
 });
 afterEach(() => handle.close());
 
-const app = () => createApp(repos, { overview: { projectsDir }, now: () => NOW });
+const app = () => testApp(repos, { overview: { projectsDir }, now: () => NOW });
 const call = (path: string, init?: { method: string; body?: unknown }) =>
   app().request(`http://127.0.0.1:4317${path}`, init ? { method: init.method, headers: { "content-type": "application/json" }, body: JSON.stringify(init.body ?? {}) } : undefined);
 

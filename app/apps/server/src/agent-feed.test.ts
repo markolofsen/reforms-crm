@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from "vitest";
 import { agentFeedDto } from "@hub/contract/agent-feed";
 import type { Repos } from "@hub/db";
 import type { LogStore } from "@hub/log/store";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 
 // P59 F1: `GET /api/projects/:slug/agent-feed` reads the tail of the session log on the server; since P73 it carries no rows.
 const repos = { projects: { get: async (s: string) => (s === "acme" ? { slug: "acme" } : null) } } as unknown as Repos;
@@ -27,7 +27,7 @@ describe("GET /api/projects/:slug/agent-feed", () => {
         line({ ts: "2026-11-19T11:59:03.000Z", kind: "answer", data: { text: "Formal or friendly?" } }),
       ].join("\n") + "\n",
     );
-    const app = createApp(repos, { agentLog: store, now });
+    const app = testApp(repos, { agentLog: store, now });
     const res = await app.request("http://127.0.0.1:4317/api/projects/acme/agent-feed");
     expect(res.status).toBe(200);
     const text = await res.text();
@@ -37,9 +37,9 @@ describe("GET /api/projects/:slug/agent-feed", () => {
   });
 
   it("an unknown project is 404, a project with no log is an empty feed, and without a store the route is 404", async () => {
-    const app = createApp({ projects: { get: async (s: string) => (s === "acme" || s === "quiet" ? { slug: s } : null) } } as unknown as Repos, { agentLog: store, now });
+    const app = testApp({ projects: { get: async (s: string) => (s === "acme" || s === "quiet" ? { slug: s } : null) } } as unknown as Repos, { agentLog: store, now });
     expect((await app.request("http://127.0.0.1:4317/api/projects/nobody/agent-feed")).status).toBe(404);
     expect(agentFeedDto.parse(await (await app.request("http://127.0.0.1:4317/api/projects/quiet/agent-feed")).json())).toEqual({ turns: [], waiting: false });
-    expect((await createApp(repos, {}).request("http://127.0.0.1:4317/api/projects/acme/agent-feed")).status).toBe(404);
+    expect((await testApp(repos, {}).request("http://127.0.0.1:4317/api/projects/acme/agent-feed")).status).toBe(404);
   });
 });

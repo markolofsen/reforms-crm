@@ -10,7 +10,7 @@ import { findMail, mailHash, runSweep, settleThread } from "@hub/send";
 import { draftEditBody, sendParam } from "@hub/contract/requests";
 import { draftChangedDto, draftMailDto, mailTidyDto } from "@hub/contract/responses";
 import { notFound, v } from "../http/http";
-import type { MailServices } from "../composition/capabilities";
+import type { MailContext } from "./context";
 import { draftMailKit } from "./draft-mail-kit";
 
 /**
@@ -22,7 +22,7 @@ import { draftMailKit } from "./draft-mail-kit";
  * thread the Hub crowded itself (P65 S5, `settleThread`): its own late saves are adopted, its older versions go to Trash.
  * Nothing here sends.
  */
-export function draftMailRoutes({ repos, sender }: MailServices) {
+export function draftMailRoutes({ repos, sender }: MailContext) {
   const mailer = sender?.mailer;
   const { projectMail, own, refuse, door } = draftMailKit({ repos, sender });
   /** The thread rule's scope (P65): the project's accounts and the versions the Hub recorded for this draft. */

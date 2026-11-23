@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeWaSocket, type WaAuthFiles } from "@hub/messengers";
 import { humanActor, linkUserChat } from "@hub/messengers/human";
-import { createApp } from "../../app";
+import { testApp } from "../../test-support/runtime";
 import { composeScheme } from "../../overview/scheme";
 import { startWhatsApp, type WhatsAppHandle } from "./whatsapp";
 
@@ -40,7 +40,7 @@ const start = () =>
       return s;
     },
   });
-const post = (app: ReturnType<typeof createApp>, path: string, body: unknown, headers: Record<string, string> = HEADERS) =>
+const post = (app: ReturnType<typeof testApp>, path: string, body: unknown, headers: Record<string, string> = HEADERS) =>
   app.request(`${BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
 const json = async (r: Response) => (await r.json()) as Record<string, unknown>;
 const count = (table: string) => handle.db.$client.prepare(`select count(*) as n from ${table}`).get() as { n: number };
@@ -60,9 +60,9 @@ afterEach(async () => {
 });
 
 /** The owner presses Connect, the admin reads the QR code, the (fake) phone scans it; the number connects from its files. */
-async function connect(): Promise<ReturnType<typeof createApp>> {
+async function connect(): Promise<ReturnType<typeof testApp>> {
   wa = await start();
-  const app = createApp(repos, { whatsapp: wa, adminPort: ADMIN });
+  const app = testApp(repos, { whatsapp: wa, adminPort: ADMIN });
   const started = await json(await post(app, "/api/messengers/whatsapp/connect", {}));
   const flow = started.flow as string;
   expect(await json(await post(app, "/api/messengers/whatsapp/connect/state", { flow }))).toEqual({ step: "waiting" });
@@ -98,7 +98,7 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
 
   it("refuses every door without the admin's exact origin, and starts no pairing then", async () => {
     wa = await start();
-    const app = createApp(repos, { whatsapp: wa, adminPort: ADMIN });
+    const app = testApp(repos, { whatsapp: wa, adminPort: ADMIN });
     for (const headers of [{ "content-type": "application/json" }, { ...HEADERS, origin: "http://127.0.0.1:9999" }, { ...HEADERS, "sec-fetch-site": "same-site" }]) {
       expect((await post(app, "/api/messengers/whatsapp/connect", {}, headers)).status).toBe(403);
       expect((await post(app, "/api/messengers/whatsapp/connect/state", { flow: "x".repeat(24) }, headers)).status).toBe(403);
@@ -130,7 +130,7 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
     last().closeWith(401);
     await vi.waitFor(() => expect(wa?.status().accounts[0]).toMatchObject({ state: "parked", parked: "logged_out" }));
     expect(wa?.status().accounts[0]?.fix).toMatch(/connect again with a new QR code/);
-    const app = createApp(repos, { whatsapp: wa ?? undefined, adminPort: ADMIN });
+    const app = testApp(repos, { whatsapp: wa ?? undefined, adminPort: ADMIN });
     const health = (await json(await app.request(`${BASE}/api/health`))) as never;
     const scheme = await composeScheme({ projects: async () => [], doctor: async () => ({}) as never, files: async () => ({}) as never, agentTools: () => null, connections: async () => ({ instance: "i", connections: [], mail: [], mailRead: { state: "answered", fix: null } }), health: () => health, stopped: async () => false, clis: () => null, core: () => null });
     expect(scheme.nodes.find((n) => n.id === `whatsapp:${ACCOUNT}`)).toMatchObject({ kind: "whatsapp", state: "fail", fix: expect.stringMatching(/new QR code/), place: "messengers" });
@@ -145,7 +145,7 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
     await connect();
     last().closeWith(401);
     await vi.waitFor(() => expect(wa?.status().accounts[0]?.state).toBe("parked"));
-    const app = createApp(repos, { whatsapp: wa ?? undefined, adminPort: ADMIN });
+    const app = testApp(repos, { whatsapp: wa ?? undefined, adminPort: ADMIN });
     const flow = (await json(await post(app, "/api/messengers/whatsapp/connect", {}))).flow as string;
     last().qr();
     last().scan();
@@ -162,7 +162,7 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
 
   it("an expired QR code is said in words; cancel ends the pairing", async () => {
     wa = await start();
-    const app = createApp(repos, { whatsapp: wa, adminPort: ADMIN });
+    const app = testApp(repos, { whatsapp: wa, adminPort: ADMIN });
     const flow = (await json(await post(app, "/api/messengers/whatsapp/connect", {}))).flow as string;
     last().closeWith(408);
     expect(await json(await post(app, "/api/messengers/whatsapp/connect/state", { flow }))).toEqual({ step: "failed", reason: expect.stringMatching(/expired/) });
@@ -177,7 +177,7 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
     await repos.projects.replaceRegistry({ projects: ["a", "b"].map((slug) => ({ slug, name: slug, status: "active", settingsJson: "{}", hash: slug })), addresses: [] });
     wa = await start();
     expect(wa.status()).toMatchObject({ state: "off", reason: expect.stringMatching(/HUB_MESSENGERS_PROJECT/) });
-    const app = createApp(repos, { whatsapp: wa, adminPort: ADMIN });
+    const app = testApp(repos, { whatsapp: wa, adminPort: ADMIN });
     expect((await post(app, "/api/messengers/whatsapp/connect", {})).status).toBe(409);
     expect(socks).toEqual([]);
   });

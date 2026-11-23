@@ -12,7 +12,7 @@ import { AdapterError } from "@hub/messengers";
 import { z, type ZodType } from "zod";
 import { gateRefusal } from "../../http/admin-gate";
 import type { TelegramUserHandle } from "./telegram-user";
-import type { TelegramUserServices } from "../../composition/capabilities";
+import type { MessengersContext } from "../context";
 
 /**
  * The Telegram user account's doors (P71 M1, decision 0036 points 3, 4 and 7). Every route is a POST behind the admin gate (the
@@ -20,7 +20,7 @@ import type { TelegramUserServices } from "../../composition/capabilities";
  * carry the owner's api_hash, phone, code and password. Linking a chat is the autolink's (`messengers/autolink/routes.ts`, P102). No body or reply is logged; a reply never holds a session, a code or a password (the schemas have no field).
  * The link mints a `HumanActor` here, behind the gate (0036 point 7). Nothing here sends a message: M1 receives only.
  */
-export function telegramUserRoutes({ tg, adminPort }: TelegramUserServices) {
+export function telegramUserRoutes({ tg, adminPort }: MessengersContext) {
   const gate = (c: Context) =>
     gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
 

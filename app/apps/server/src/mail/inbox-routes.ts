@@ -2,10 +2,10 @@ import { Hono } from "hono";
 import { inboxQuery, notByEmailQuery } from "@hub/contract/requests";
 import { inboxDto, notByEmailDto } from "@hub/contract/responses";
 import { v } from "../http/http";
-import type { InboxServices } from "../composition/capabilities";
+import type { MailContext } from "./context";
 
 /** The triage list: who the agent touched and what it did. Read-only; rows are written by `client_record` and `draft_write`'s record (hub mcp, P129 A3). */
-export function inboxRoutes({ repos }: InboxServices) {
+export function inboxRoutes({ repos }: MailContext) {
   return new Hono()
     .get("/api/inbox/not-by-email", v("query", notByEmailQuery), async (c) => {
       const { project, kind, limit, offset } = c.req.valid("query");

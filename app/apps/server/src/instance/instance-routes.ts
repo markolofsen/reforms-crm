@@ -5,7 +5,7 @@ import { hubPaths, instanceBrand } from "@hub/config/paths";
 import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
 import { NO_APPS } from "@hub/contract/local";
 import { CheckTooSoon } from "./core-updates";
-import type { CoreServices, InstanceServices } from "../composition/capabilities";
+import type { InstanceContext } from "./context";
 import { notFound } from "../http/http";
 
 /** The image types a logo may be; anything else is not served. */
@@ -17,7 +17,7 @@ const LOGO_TYPES: Record<string, string> = { ".svg": "image/svg+xml", ".png": "i
  * the Open actions on this machine; the admin renders no Open button when it is false. `apps` (P131 O2): which destination apps
  * this Mac has (the probe of `apps-probe.ts`); all false without local open, so every link is the web page.
  */
-export function instanceRoutes({ paths, localOpen = () => false, apps = () => NO_APPS }: InstanceServices) {
+export function instanceRoutes({ paths, localOpen = () => false, apps = () => NO_APPS }: InstanceContext) {
   const brand = () => instanceBrand(paths ?? hubPaths());
   return new Hono()
     .get("/api/instance", (c) => {
@@ -44,7 +44,7 @@ export function instanceRoutes({ paths, localOpen = () => false, apps = () => NO
  * them); `POST /api/instance/core/check` runs one check now, 429 within a minute of the last. The check only reads the origin
  * and fetches tags into the core, so the loopback guard of the whole API is its door. Without the service both are 404.
  */
-export function coreRoutes({ service }: CoreServices) {
+export function coreRoutes({ core: service }: InstanceContext) {
   return new Hono()
     .get("/api/instance/core", (c) => {
       if (!service) return notFound(c, "core update check");

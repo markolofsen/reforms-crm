@@ -7,13 +7,13 @@ import { notFound, v } from "../http/http";
 import { findMail, mailHash, trashThread } from "@hub/send";
 import { projectStore } from "@hub/projects";
 import { errFields, ops } from "@hub/log/ops";
-import type { ReviewServices } from "../composition/capabilities";
+import type { MailContext } from "./context";
 
 /**
  * Drafts to review, and what a person does to one. Nothing here sends: the only statuses a request can write are
  * `SETTABLE_STATUSES`, and every mutation names its project, so a draft of another project is "not found".
  */
-export function draftRoutes({ repos, sender }: ReviewServices) {
+export function draftRoutes({ repos, sender }: MailContext) {
   const ownDraft = async (project: string, id: number) => {
     const d = await repos.drafts.get(id);
     return d && d.project === project ? d : null;

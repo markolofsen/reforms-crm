@@ -4,13 +4,13 @@ import type { EnrollmentItem } from "@hub/db";
 import { findSequence, isUsable, loadSequences, type LoadedSequence } from "@hub/sequences";
 import { enrollmentChangedDto, enrollmentParam, enrollmentsDto, enrollmentsQuery, sequencesDto, slugOnlyParam, stopBody, type EnrollmentDto } from "@hub/contract/sequences";
 import { v } from "../http/http";
-import type { SequenceServices } from "../composition/capabilities";
+import type { ProjectsContext } from "./context";
 
 /**
  * Follow-ups (P47, P48 D1): the project's sequences and enrollments, read-only, and the owner's Stop. Enrolling is a phrase
  * in a session (`hub sequences enrol --phrase`); pause and resume are the owner's, in his terminal. Nothing here sends or drafts.
  */
-export function sequenceRoutes({ repos, projectsDir, now }: SequenceServices) {
+export function sequenceRoutes({ repos, root: projectsDir, now }: ProjectsContext) {
   const defs = (slug: string): LoadedSequence[] => loadSequences(join(projectsDir, slug));
   const dto = (all: readonly LoadedSequence[]) => (e: EnrollmentItem): EnrollmentDto => ({ ...e, sequenceName: findSequence(all, e.sequence)?.name ?? e.sequence });
   const known = async (slug: string) => (await repos.projects.list()).includes(slug);

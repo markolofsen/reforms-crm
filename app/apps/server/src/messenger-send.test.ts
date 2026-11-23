@@ -7,7 +7,7 @@ import { FakeMtClient, FakeRpcError } from "@hub/messengers";
 import { writeSession } from "@hub/messengers/human";
 import { setSendPolicy } from "@hub/projects";
 import { FakeMailer } from "@hub/send";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 import { startTelegramUser, type TelegramUserHandle } from "./messengers/accounts/telegram-user";
 
 // P71 M4: the send door for a messenger draft, on a fake mtcute client (no network, no login, nothing sent anywhere). The
@@ -46,7 +46,7 @@ let clock: number;
 let clientId: number;
 
 const appWith = (allowList: string[]) =>
-  createApp(repos, { telegramUser: tg, adminPort: 5173, sender: { kind: "fake", mailer: new FakeMailer(), projectsDir: join(root, "projects"), policyDir, allowList, adminPort: 5173, now: () => new Date(clock) } });
+  testApp(repos, { telegramUser: tg, adminPort: 5173, sender: { kind: "fake", mailer: new FakeMailer(), projectsDir: join(root, "projects"), policyDir, allowList, adminPort: 5173, now: () => new Date(clock) } });
 type App = ReturnType<typeof appWith>;
 
 const url = (id: number) => `${BASE}/api/projects/p/messengers/drafts/${id}/send`;

@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { overviewDto, type OverviewDto } from "@hub/contract/overview";
-import type { SenderOptions } from "../send/sends-routes";
-import { createApp } from "../app";
+import type { SenderOptions } from "../send/context";
+import { testApp } from "../test-support/runtime";
 import { projectStoreOf } from "@hub/projects/testing";
 
 // GET /api/overview (contract v5): one row per project from local facts. No Mail, no Notion, no network.
@@ -38,7 +38,7 @@ beforeEach(() => {
 afterEach(() => handle.close());
 
 const app = (o: { fake?: boolean } = {}) =>
-  createApp(repos, { projects, now: () => now, overview: { projectsDir: root, timeZone: "UTC" }, ...(o.fake ? { sender: { kind: "fake", projectsDir: root, policyDir: join(root, ".policy"), allowList: [], adminPort: 5173, mailer: {} as SenderOptions["mailer"] } } : {}) });
+  testApp(repos, { projects, now: () => now, overview: { projectsDir: root, timeZone: "UTC" }, ...(o.fake ? { sender: { kind: "fake", projectsDir: root, policyDir: join(root, ".policy"), allowList: [], adminPort: 5173, mailer: {} as SenderOptions["mailer"] } } : {}) });
 const get = async (a = app()) => {
   const r = await a.request(`${BASE}/api/overview`);
   return { status: r.status, text: await r.clone().text(), body: overviewDto.parse(await r.json()) };

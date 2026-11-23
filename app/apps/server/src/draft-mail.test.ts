@@ -7,7 +7,7 @@ import { createRepos, openDb, versionHashOf, type DbHandle, type Repos } from "@
 import type { MailDraft } from "@hub/mail-app/drafts";
 import { FakeMailer, mailHash } from "@hub/send";
 import { setSendPolicy } from "@hub/projects";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 import { captureOps } from "@hub/log/ops";
 
 // P56, P65: the open draft's Mail read (the thread decides, `aside`, `gone`), Restore and Save (each recorded as a Mail
@@ -30,7 +30,7 @@ let repos: Repos;
 let mailer: FakeMailer;
 let writer: FakeDraftWriter;
 let bumps: string[];
-let app: ReturnType<typeof createApp>;
+let app: ReturnType<typeof testApp>;
 let id: number;
 const url = (rest = "") => `http://127.0.0.1:4317/api/projects/acme/drafts/${id}/mail${rest}`;
 const get = async () => (await app.request(url())).json() as Promise<Record<string, unknown>>;
@@ -47,7 +47,7 @@ beforeEach(async () => {
   bumps = [];
   const policyDir = join(dir, "state", "projects");
   setSendPolicy(policyDir, "acme", "generic", { "draft.recipients": "any" }, "test");
-  app = createApp(repos, { sender: { kind: "fake", mailer, projectsDir: join(dir, "projects"), policyDir, allowList: [], adminPort: 5173, writer, mailWritten: (p) => bumps.push(p) } });
+  app = testApp(repos, { sender: { kind: "fake", mailer, projectsDir: join(dir, "projects"), policyDir, allowList: [], adminPort: 5173, writer, mailWritten: (p) => bumps.push(p) } });
   id = (await repos.drafts.record({ project: "acme", email: "client@example.com", name: "Cli", subject: "Re: hello", mailRef: `<${THREAD}>`, mailClass: "client" })).draftId;
 });
 afterEach(() => handle.close());

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { inspect } from "@hub/connections";
 import { connectionDto, connectionsDto, type ConnectionDto } from "@hub/contract/connections";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { MailNotAnswering } from "@hub/mail-app/osa";
 import { appleMailAccounts, fakeProbeDeps, type MailAccountsRead } from "./connections";
 import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT } from "@hub/mail-app/scripts/read";
@@ -41,7 +41,7 @@ const stub = (status = 200) => ({
   fetch: (async (url: string) => { calls.push(String(url)); return new Response(JSON.stringify({ name: "Hub bot", result: { username: "hubbot" } }), { status }); }) as unknown as typeof fetch,
 });
 const app = (o: { status?: number; env?: NodeJS.ProcessEnv; minIntervalMs?: number; mail?: () => Promise<MailAccountsRead> } = {}) =>
-  createApp(repos, { projects, now: () => now, messengers: () => ({ state: "off", reason: "no bot token file", failures: 0, stored: 0 }), connections: { dir: () => dir, env: o.env ?? {}, deps: stub(o.status), ...(o.mail ? { mailAccounts: o.mail } : {}), ...(o.minIntervalMs !== undefined ? { minIntervalMs: o.minIntervalMs } : {}) } });
+  testApp(repos, { projects, now: () => now, messengers: () => ({ state: "off", reason: "no bot token file", failures: 0, stored: 0 }), connections: { dir: () => dir, env: o.env ?? {}, deps: stub(o.status), ...(o.mail ? { mailAccounts: o.mail } : {}), ...(o.minIntervalMs !== undefined ? { minIntervalMs: o.minIntervalMs } : {}) } });
 type App = ReturnType<typeof app>;
 const list = async (a: App) => { const r = await a.request(`${BASE}/api/connections`); return { status: r.status, text: await r.clone().text(), body: connectionsDto.parse(await r.json()) }; };
 const test = async (a: App, id: string) => { const r = await a.request(`${BASE}/api/connections/${id}/test`, { method: "POST" }); return { status: r.status, text: await r.clone().text(), json: await r.json() as unknown }; };
@@ -174,7 +174,7 @@ describe("POST /api/connections/:id/test", () => {
   });
 
   it("unreachable is its own code and asks for a retry", async () => {
-    const a = createApp(repos, { projects, now: () => now, connections: { dir: () => dir, env: {}, deps: { fetch: (async () => { throw new TypeError(`boom ${NOTION}`); }) as unknown as typeof fetch } } });
+    const a = testApp(repos, { projects, now: () => now, connections: { dir: () => dir, env: {}, deps: { fetch: (async () => { throw new TypeError(`boom ${NOTION}`); }) as unknown as typeof fetch } } });
     const r = await test(a, "notion:notion-token");
     expect(r.text).not.toContain(NOTION);
     expect(connectionDto.parse(r.json).check).toMatchObject({ state: "error", code: "unreachable", fix: "Check the network, then Test again." });
@@ -239,7 +239,7 @@ describe("POST /api/connections/:id/test", () => {
 
 describe("HUB_CONNECTIONS_PROBE=fake", () => {
   it("the stubs accept a key, and refuse one that contains REJECT, through the real probe code", async () => {
-    const a = createApp(repos, { projects, now: () => now, connections: { dir: () => dir, env: {}, deps: fakeProbeDeps() } });
+    const a = testApp(repos, { projects, now: () => now, connections: { dir: () => dir, env: {}, deps: fakeProbeDeps() } });
     expect(connectionDto.parse((await test(a, "notion:notion-token")).json).check.state).toBe("fresh");
     put("notion-token", "ntn_REJECTEDFAKEVALUE1234567");
     const future = new Date(Date.now() + 5000);

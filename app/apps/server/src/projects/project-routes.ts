@@ -4,10 +4,10 @@ import { activityDto } from "@hub/contract/activity";
 import { projectOverview } from "./overview";
 import { projectDoctor } from "./doctor";
 import { v } from "../http/http";
-import type { ProjectServices } from "../composition/capabilities";
+import type { ProjectsContext } from "./context";
 
 /** The project files (Settings ▸ Mail, Knowledge, Overview) and Activity. `root` is where the project folders live (default: the instance's `projects/`). Read only. */
-export function projectRoutes({ repos, root, policyDir }: ProjectServices) {
+export function projectRoutes({ repos, root, policyDir }: ProjectsContext) {
   return new Hono()
     .get("/api/project", v("query", projectQuery), async (c) => c.json(await projectOverview(repos, c.req.valid("query").project, root, policyDir)))
     .get("/api/project/doctor", v("query", projectQuery), async (c) => c.json(await projectDoctor(repos, c.req.valid("query").project, root, process.env, policyDir)))

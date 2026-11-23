@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
 import { autostartDto, setAutostartBody } from "@hub/contract/autostart";
 import { gateRefusal } from "../http/admin-gate";
-import type { AutostartServices } from "../composition/capabilities";
+import type { InstanceContext } from "./context";
 import { HubError } from "@hub/config/errors";
 
 /**
@@ -11,7 +11,7 @@ import { HubError } from "@hub/config/errors";
  * `Sec-Fetch-Site: same-origin`, as the local Open). The body is strict: the label is the server's. Without the service (tests,
  * off macOS the server still passes one) both are 404.
  */
-export function autostartRoutes({ service, adminPort }: AutostartServices) {
+export function autostartRoutes({ autostart: service, adminPort }: InstanceContext) {
   return new Hono()
     .get("/api/instance/autostart", async (c) => {
       if (!service) return c.json({ error: "No autostart on this server.", code: "not_found" as const }, 404);

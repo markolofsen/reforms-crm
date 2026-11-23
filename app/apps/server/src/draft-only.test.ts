@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDb, createRepos, type DbHandle, type Repos } from "@hub/db";
 import { API_VERSION } from "@hub/contract/health";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 import { captureOps } from "@hub/log/ops";
 
 // The draft-only invariant (`@rules/README.md` rule 3, amended by decision 0011): the agent makes drafts and has no send
@@ -13,7 +13,7 @@ import { captureOps } from "@hub/log/ops";
 
 let handle: DbHandle;
 let repos: Repos;
-let app: ReturnType<typeof createApp>;
+let app: ReturnType<typeof testApp>;
 const H = { "content-type": "application/json" };
 const post = (path: string, body: unknown) => app.request(`http://127.0.0.1:4317${path}`, { method: "POST", headers: H, body: JSON.stringify(body) });
 const put = (path: string, body: unknown) => app.request(`http://127.0.0.1:4317${path}`, { method: "PUT", headers: H, body: JSON.stringify(body) });
@@ -24,7 +24,7 @@ const daysAgo = (d: number) => new Date(NOW - d * 86_400_000).toISOString();
 beforeEach(() => {
   handle = openDb(":memory:");
   repos = createRepos(handle.db);
-  app = createApp(repos);
+  app = testApp(repos);
 });
 afterEach(() => handle.close());
 
@@ -68,10 +68,10 @@ describe("no route sends", () => {
     // P85b: a batch run sends through `runBatch` (which calls `sendDraft`), started only by the batch door the send route holds.
     expect(src.filter((f) => /\brunBatch\(/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/batch-door.ts"]);
     expect(src.filter((f) => /\bbatchRuns\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["send/sends-routes.ts", "send/batch-door.ts"]);
-    // A messenger send: only the door mints the human actor's send, only the send routes call the door, only app.ts hands the
+    // A messenger send: only the door mints the human actor's send, only the send routes call the door, only send/messenger-senders.ts hands the
     // account's send (`TelegramUserHandle.sender`, `WhatsAppHandle.sender` since P71 M5) to them.
     expect(src.filter((f) => /\bapplyMessenger\(/.test(readFileSync(f, "utf8"))).map(rel).sort()).toEqual(["send/sends-routes.ts"]);
-    expect(src.filter((f) => /\.sender\(account\)/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["app.ts"]);
+    expect(src.filter((f) => /\.sender\(account\)/.test(readFileSync(f, "utf8"))).map(rel)).toEqual(["send/messenger-senders.ts"]);
   });
 
   it("calls a messenger's confirmed send from the server's door only, in every package and app (P126 D0)", () => {
@@ -318,7 +318,7 @@ describe("the contract at the edge", () => {
 
   it("maps a locked database to 503 busy and anything else to 500 server", async () => {
     const boom = (error: unknown) => {
-      const r = createApp({ ...repos, projects: { ...repos.projects, list: async () => Promise.reject(error) } } as Repos);
+      const r = testApp({ ...repos, projects: { ...repos.projects, list: async () => Promise.reject(error) } } as Repos);
       return r.request("http://127.0.0.1:4317/api/projects");
     };
     const busy = await boom(Object.assign(new Error("database is locked"), { code: "SQLITE_BUSY" }));

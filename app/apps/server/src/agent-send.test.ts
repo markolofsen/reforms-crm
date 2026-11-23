@@ -9,7 +9,7 @@ import { FakeMtClient } from "@hub/messengers";
 import { writeSession } from "@hub/messengers/human";
 import { setSendPolicy } from "@hub/projects";
 import { FakeMailer } from "@hub/send";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 import { startTelegramUser, type TelegramUserHandle } from "./messengers/accounts/telegram-user";
 
 // Decision 0046 (P132 B1-4): the agent sends one messenger draft on the owner's word, through the same door as his Send, on a
@@ -36,7 +36,7 @@ let chat: number;
 let otherChat: number;
 
 const app = () =>
-  createApp(repos, {
+  testApp(repos, {
     telegramUser: tg,
     adminPort: 5173,
     sender: { kind: "fake", mailer: new FakeMailer(), projectsDir: join(root, "projects"), policyDir: join(root, "state", "projects"), allowList: ["telegram:1001", "telegram:1002"], adminPort: 5173, now: () => new Date(clock), agent: { token: TOKEN, unattended: () => unattended, events: () => events } },

@@ -9,7 +9,7 @@ import { displayNameFor, headersFromText, resolveBrand, type BrandResolution } f
 import { manualReplyBody, sendParam } from "@hub/contract/requests";
 import { draftChangedDto } from "@hub/contract/responses";
 import { notFound, v } from "../http/http";
-import type { MailServices } from "../composition/capabilities";
+import type { MailContext } from "./context";
 import { draftMailKit } from "./draft-mail-kit";
 
 /**
@@ -17,7 +17,7 @@ import { draftMailKit } from "./draft-mail-kit";
  * through the same first write as the agent's (`writeFirstMailDraft`, P126 M3), then recorded. It is not Send: the draft
  * still goes through the normal review and the send door. It carries the send ticket's door. Nothing here sends.
  */
-export function manualDraftRoutes(services: MailServices) {
+export function manualDraftRoutes(services: MailContext) {
   const { repos, sender } = services;
   const { projectMail, refuse, door } = draftMailKit(services);
   return new Hono().post("/api/projects/:slug/clients/:id/draft", v("param", sendParam), v("json", manualReplyBody), async (c) => {

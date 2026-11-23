@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clientKeyDto } from "@hub/contract/client-key";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 
 // P103 verdict 4: a client's other address (P100's identity table, kind `email`) answers with his primary key, so the
 // admin replaces the address; the primary and `id-<n>` keys answer as before; an address nobody has is Not found.
@@ -11,7 +11,7 @@ let handle: DbHandle;
 let repos: Repos;
 let id: number;
 
-const ask = (key: string) => createApp(repos, {}).request(`${BASE}/api/projects/acme/clients/key/${encodeURIComponent(key)}`);
+const ask = (key: string) => testApp(repos, {}).request(`${BASE}/api/projects/acme/clients/key/${encodeURIComponent(key)}`);
 
 beforeEach(async () => {
   handle = openDb(":memory:");

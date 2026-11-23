@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Repos } from "@hub/db";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { createFocusStore } from "./focus";
 
 // The shared focus door (P51 F1): as strict as the send and terminal tickets, last visible tab wins, ids only in the file.
@@ -25,7 +25,7 @@ afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
 function setup() {
   const focus = createFocusStore({ file, now: () => new Date(t) });
-  const app = createApp(repos, { focus, adminPort: ADMIN_PORT });
+  const app = testApp(repos, { focus, adminPort: ADMIN_PORT });
   const post = (body: unknown, headers: Record<string, string> = ADMIN) => app.request(`${API}/api/focus`, { method: "POST", headers, body: JSON.stringify(body) });
   return { focus, post };
 }
@@ -95,7 +95,7 @@ describe("POST /api/focus", () => {
   });
 
   it("is 404 without a store", async () => {
-    const app = createApp(repos, { adminPort: ADMIN_PORT });
+    const app = testApp(repos, { adminPort: ADMIN_PORT });
     expect((await app.request(`${API}/api/focus`, { method: "POST", headers: ADMIN, body: JSON.stringify(draft("a", 1)) })).status).toBe(404);
   });
 });
@@ -108,7 +108,7 @@ describe("GET /api/pointer (P72)", () => {
   };
   const fakeRepos = { drafts: { get: async (id: number) => (id === 1 ? { id: 1, project: "acme", clientId: 5, subject: "Re: Hello", status: "ready" } : null) }, clients: { get: async (p: string, id: number) => (p === "acme" && id === 5 ? { id: 5, name: "Fiona", email: "f@example.com" } : null) } } as unknown as Repos;
   const get = async (at: string) => {
-    const app = createApp(fakeRepos, { pointerFile: pointerFile(), adminPort: ADMIN_PORT, now: () => new Date(at) });
+    const app = testApp(fakeRepos, { pointerFile: pointerFile(), adminPort: ADMIN_PORT, now: () => new Date(at) });
     return (await (await app.request(`${API}/api/pointer`, { headers: { host: ADMIN.host } })).json()) as { pointer: { targets: Array<{ ref: string; title: string | null }>; note: string | null; expiresAt: string } | null };
   };
 

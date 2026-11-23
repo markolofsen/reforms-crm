@@ -11,7 +11,7 @@ import { notFound, v } from "../http/http";
 import { ownText } from "@hub/mail-app/read";
 import { threadsOf } from "./conversation";
 import { LABEL_MAILBOXES } from "./inbound";
-import type { ConversationServices } from "../composition/capabilities";
+import type { MailContext } from "./context";
 import { createMessengerIdentityResolver } from "../messengers/identity";
 
 const id = (raw: string): number | null => (/^[1-9]\d*$/.test(raw) ? Number(raw) : null);
@@ -73,7 +73,7 @@ function threadsDto(msgs: Msg[], f: Facts, versions: ReadonlyMap<string, number>
  * from Mail now and never stored, decision 0013) and `.../conversation/text?m=` (one body, fetched as its bubble renders and kept in the server's
  * memory). Read only toward Mail: no route here writes Mail, Notion or the database except the idempotent clients rows of verdict 1.
  */
-export function conversationRoutes({ repos, projects, mail, directory }: ConversationServices) {
+export function conversationRoutes({ repos, projects, mail, directory }: MailContext) {
   const identity = createMessengerIdentityResolver(directory);
   /** Where the last history read found each message, by project and Message-ID (for its body). Memory only. */
   const where = new Map<string, { account: string; mailbox: string; mailId: number }>();

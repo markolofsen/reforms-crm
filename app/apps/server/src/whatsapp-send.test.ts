@@ -6,7 +6,7 @@ import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeBoom, FakeWaSocket, WA_CREDS, WaAuthFiles, waFolderOf } from "@hub/messengers";
 import { setSendPolicy } from "@hub/projects";
 import { FakeMailer } from "@hub/send";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 import { startWhatsApp, type WhatsAppHandle } from "./messengers/accounts/whatsapp";
 
 // P71 M5: the M4 checks for a WhatsApp draft, on a FAKE Baileys socket (no WebSocket, no QR scan, nothing sent anywhere): test
@@ -45,7 +45,7 @@ let clock: number;
 let clientId: number;
 
 const appWith = (allowList: string[]) =>
-  createApp(repos, { whatsapp: wa, adminPort: 5173, sender: { kind: "fake", mailer: new FakeMailer(), projectsDir: join(root, "projects"), policyDir, allowList, adminPort: 5173, now: () => new Date(clock) } });
+  testApp(repos, { whatsapp: wa, adminPort: 5173, sender: { kind: "fake", mailer: new FakeMailer(), projectsDir: join(root, "projects"), policyDir, allowList, adminPort: 5173, now: () => new Date(clock) } });
 type App = ReturnType<typeof appWith>;
 
 const ACCOUNT = "4915100000001";

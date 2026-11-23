@@ -61,7 +61,7 @@ export interface ConnectionsOptions {
   store?: ProjectStore;
   /** Project settings, mapped to what a connection cares about. Default: the registered projects, read through `store`. */
   projects?: () => Promise<ProjectUse[]>;
-  /** What Apple Mail answered about its accounts. Default: not running, so no test reaches Mail; `main.ts` passes `appleMailAccounts()`. */
+  /** What Apple Mail answered about its accounts. Default: not running, so no test reaches Mail; `instance/start.ts` passes `appleMailAccounts()`. */
   mailAccounts?: () => Promise<MailAccountsRead>;
 }
 

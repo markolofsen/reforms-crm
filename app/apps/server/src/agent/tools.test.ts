@@ -6,7 +6,7 @@ import { hubPaths } from "@hub/config/paths";
 import { agentToolsDto } from "@hub/contract/agent-tools";
 import type { Repos } from "@hub/db";
 import { createAgentTools } from "./tools";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 
 // Connections' Agent tools (P49 5B) on the fake rows: nothing is probed.
 
@@ -19,7 +19,7 @@ function setup() {
   writeFileSync(join(home, "config", "config.json"), JSON.stringify({ agent: { default: "codex", unattended: true } }));
   let t = Date.parse("2026-11-18T10:00:00Z");
   const agentTools = createAgentTools({ paths: hubPaths({ home, env: {} }), repos, fake: true, now: () => new Date((t += 1000)) });
-  const app = createApp(repos, { agentTools });
+  const app = testApp(repos, { agentTools });
   return (method: string, p: string) => app.request(`http://127.0.0.1:4317${p}`, { method, headers: H });
 }
 
@@ -38,7 +38,7 @@ describe("agent tools", () => {
   });
   it("an unknown project is 404; without the service both routes are 404", async () => {
     expect((await setup()("GET", "/api/projects/nobody/agent-tools")).status).toBe(404);
-    const bare = createApp(repos, {});
+    const bare = testApp(repos, {});
     expect((await bare.request("http://127.0.0.1:4317/api/projects/acme/agent-tools", { headers: H })).status).toBe(404);
   });
 });

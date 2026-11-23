@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { instanceDto } from "@hub/contract/instance";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 
 // GET /api/instance and /api/instance/logo (P48 W0): the brand from config/config.json, read per request.
 const BASE = "http://127.0.0.1:4317";
@@ -12,7 +12,7 @@ let handle: DbHandle;
 let configDir: string;
 const configFile = () => join(configDir, "config.json");
 const config = (v: Record<string, unknown>) => writeFileSync(configFile(), JSON.stringify(v));
-const app = () => createApp(createRepos(handle.db), { instance: { configFile: configFile(), configDir } });
+const app = () => testApp(createRepos(handle.db), { instance: { configFile: configFile(), configDir } });
 const SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>';
 
 beforeEach(() => {

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeLoginClient, FakeMtClient, fakePerson, type MtMessage, type MtPeer } from "@hub/messengers";
 import type { ChatClientWriter } from "@hub/notion/chat-client";
-import { createApp } from "../../app";
+import { testApp } from "../../test-support/runtime";
 import { recordMatches, startAutolink, type Autolink } from "./autolink";
 import { startClientDirectory, type ClientDirectory } from "../../clients/directory";
 import { startTelegramUser, type TelegramUserHandle } from "../accounts/telegram-user";
@@ -93,7 +93,7 @@ let fake: FakeMtClient;
 let tg: TelegramUserHandle | null;
 let directory: ClientDirectory;
 let al: Autolink;
-let app: ReturnType<typeof createApp>;
+let app: ReturnType<typeof testApp>;
 
 const post = (path: string, body: unknown = {}) => app.request(`${BASE}${path}`, { method: "POST", headers: HEADERS, body: JSON.stringify(body) });
 const msg = (chat: MtPeer, id: number, text: string): MtMessage => ({ id, date: new Date(Date.now() - 86_400_000), text, mediaType: null, isOutgoing: false, isService: false, chat });
@@ -123,7 +123,7 @@ beforeEach(async () => {
     accounts: () => (tg?.status().accounts ?? []).map((a) => ({ channel: "telegram_user" as const, account: a.account })),
     keyFile: join(dir, "autolink-key"),
   });
-  app = createApp(repos, { telegramUser: tg, autolink: { project: "p", autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
+  app = testApp(repos, { telegramUser: tg, autolink: { project: "p", autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
   const s1 = (await (await post("/api/messengers/telegram-user/login/start", { apiId: 12345, apiHash: HASH, phone: "+62 813 0000 9999" })).json()) as { flow: string };
   await post("/api/messengers/telegram-user/login/code", { flow: s1.flow, code: "12345" });
   await vi.waitFor(() => expect(fake.listening).toBe(true));

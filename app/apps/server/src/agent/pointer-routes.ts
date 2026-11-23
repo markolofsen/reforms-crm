@@ -3,7 +3,7 @@ import { livePointer, resolveRef } from "@hub/agent/focus";
 import { parseRef } from "@hub/contract/focus";
 import { pointerDto } from "@hub/contract/pointer";
 import type { Repos } from "@hub/db";
-import type { PointerServices } from "../composition/capabilities";
+import type { AgentContext } from "./context";
 
 /**
  * `GET /api/pointer` (P72, decision 0038): the agent's live pointer, which `highlight` in `hub mcp` wrote to
@@ -29,7 +29,7 @@ async function whereOf(repos: Repos, slug: string, ref: string): Promise<string 
   return null;
 }
 
-export function pointerRoutes({ repos, file, now }: PointerServices) {
+export function pointerRoutes({ repos, pointerFile: file, now }: AgentContext) {
   return new Hono().get("/api/pointer", async (c) => {
     const at = now();
     const p = file ? livePointer(file, at) : null;

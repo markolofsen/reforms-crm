@@ -21,7 +21,7 @@ import { notFound, v } from "../http/http";
 import { preanalysisStanding } from "./preanalysis";
 import { prepareMessengerReply } from "./reply";
 import { createMessengerIdentityResolver, type MessengerIdentityResolver } from "./identity";
-import { type MessengerServices } from "../composition/capabilities";
+import type { MessengersContext } from "./context";
 
 const draftOf = (d: MessengerDraftRow) => messengerDraftDto.parse({ id: d.id, text: d.text, createdBy: d.createdBy, nudge: d.nudge, ownerRequest: d.ownerRequest, createdAt: d.createdAt, updatedAt: d.updatedAt });
 const waits = (c: MessengerChatDto): boolean => c.draft !== null || c.owed;
@@ -68,7 +68,7 @@ const order = (a: MessengerChatDto, b: MessengerChatDto): number =>
  * here sends: Send is the door of P71 M4. The owner may also create an unsent manual draft without an inbound message. P71 M-P: each chat carries its pre-analysis counts by reason, the reply says whether a
  * pass can run (`preanalysis`), and turning a chat's switch on starts one pass.
  */
-export function messengerRoutes({ repos, adminPort, preanalysis, reply, directory }: MessengerServices) {
+export function messengerRoutes({ repos, adminPort, preanalysis, reply, directory }: MessengersContext) {
   const standing = () => preanalysis?.standing() ?? preanalysisStanding();
   const identity = createMessengerIdentityResolver(directory);
   const gated = async <T>(c: Context, schema: ZodType<T>, then: (body: T, slug: string) => Promise<Response>): Promise<Response> => {

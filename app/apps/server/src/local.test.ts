@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Repos } from "@hub/db";
 import { entryKey } from "@hub/contract/local";
 import type { ResolveDeps } from "@hub/projects/local-open";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 
 // POST /api/local/:action (P61): the focus door's guards, server actions only, keys never paths, nothing on the wire holds a path.
 
@@ -31,7 +31,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 function setup(o: { available?: boolean; withLocal?: boolean } = {}) {
   const deps: ResolveDeps = { projectsRoot: join(root, "projects"), logRoot: join(root, "state", "log"), isProject: async (s) => s === "acme-travel", knowledgeHas: async (_s, e) => e === ENTRY };
   const local = { deps, run: async (bin: string, args: string[]) => void calls.push([bin, ...args]), available: o.available ?? true, now: () => t };
-  const app = createApp(repos, { adminPort: ADMIN_PORT, instance: { configFile: join(root, "config.json"), configDir: root }, ...(o.withLocal === false ? {} : { local }) });
+  const app = testApp(repos, { adminPort: ADMIN_PORT, instance: { configFile: join(root, "config.json"), configDir: root }, ...(o.withLocal === false ? {} : { local }) });
   const post = (action: string, body: unknown, headers: Record<string, string> = ADMIN) => app.request(`${API}/api/local/${action}`, { method: "POST", headers, body: JSON.stringify(body) });
   return { app, post };
 }
@@ -109,7 +109,7 @@ describe("P131 O2: the destination apps on the instance and Check again", () => 
     const apps = { status: () => answer, check: () => { probes += 1; return answer; } };
     const deps: ResolveDeps = { projectsRoot: join(root, "projects"), logRoot: join(root, "state", "log"), isProject: async () => true, knowledgeHas: async () => false };
     const local = { deps, run: async (bin: string, args: string[]) => void calls.push([bin, ...args]), available, now: () => t, apps };
-    const app = createApp(repos, { adminPort: ADMIN_PORT, instance: { configFile: join(root, "config.json"), configDir: root }, local });
+    const app = testApp(repos, { adminPort: ADMIN_PORT, instance: { configFile: join(root, "config.json"), configDir: root }, local });
     return { app, probes: () => probes };
   }
   it("the instance says which apps this Mac has; Check again probes now behind the local door and opens nothing", async () => {

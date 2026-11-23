@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeLoginClient, FakeMtClient, FakeRpcError, fakePerson } from "@hub/messengers";
 import { humanActor, linkUserChat } from "@hub/messengers/human";
-import { createApp } from "../../app";
+import { testApp } from "../../test-support/runtime";
 import { startTelegramUser, type TelegramUserHandle } from "./telegram-user";
 import { composeScheme } from "../../overview/scheme";
 
@@ -35,7 +35,7 @@ const start = () =>
     clients: { session: () => (made++, fake), login: () => login },
     onStored: (project) => stored.push(project),
   });
-const post = (app: ReturnType<typeof createApp>, path: string, body: unknown, headers: Record<string, string> = HEADERS) =>
+const post = (app: ReturnType<typeof testApp>, path: string, body: unknown, headers: Record<string, string> = HEADERS) =>
   app.request(`${BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
 
 beforeEach(async () => {
@@ -55,9 +55,9 @@ afterEach(async () => {
   handle.close();
 });
 
-async function connect(): Promise<ReturnType<typeof createApp>> {
+async function connect(): Promise<ReturnType<typeof testApp>> {
   tg = await start();
-  const app = createApp(repos, { telegramUser: tg, adminPort: ADMIN });
+  const app = testApp(repos, { telegramUser: tg, adminPort: ADMIN });
   const s1 = (await (await post(app, "/api/messengers/telegram-user/login/start", { apiId: 12345, apiHash: HASH, phone: "+7 999 000-11-22" })).json()) as { step: string; flow: string };
   expect(s1.step).toBe("code");
   const s2 = (await (await post(app, "/api/messengers/telegram-user/login/code", { flow: s1.flow, code: "12345" })).json()) as { step: string };
@@ -81,7 +81,7 @@ describe("Telegram user account in the server", () => {
 
   it("refuses every door without the admin's exact origin", async () => {
     tg = await start();
-    const app = createApp(repos, { telegramUser: tg, adminPort: ADMIN });
+    const app = testApp(repos, { telegramUser: tg, adminPort: ADMIN });
     for (const headers of [{ "content-type": "application/json" }, { ...HEADERS, origin: "http://127.0.0.1:9999" }, { ...HEADERS, "sec-fetch-site": "same-site" }]) {
       const r = await post(app, "/api/messengers/telegram-user/login/start", { apiId: 1, apiHash: HASH, phone: "+10000000000" }, headers);
       expect(r.status).toBe(403);
@@ -110,7 +110,7 @@ describe("Telegram user account in the server", () => {
     fake.fail(new FakeRpcError(401, "AUTH_KEY_UNREGISTERED"));
     await vi.waitFor(() => expect(tg?.status().accounts[0]).toMatchObject({ state: "parked", parked: "logged_out" }));
     expect(tg?.status().accounts[0]?.fix).toMatch(/connect it again/);
-    const app = createApp(repos, { telegramUser: tg ?? undefined, adminPort: ADMIN });
+    const app = testApp(repos, { telegramUser: tg ?? undefined, adminPort: ADMIN });
     const health = (await (await app.request(`${BASE}/api/health`)).json()) as never;
     const scheme = await composeScheme({ projects: async () => [], doctor: async () => ({}) as never, files: async () => ({}) as never, agentTools: () => null, connections: async () => ({ instance: "i", connections: [], mail: [], mailRead: { state: "answered", fix: null } }), health: () => health, stopped: async () => false, clis: () => null, core: () => null });
     expect(scheme.nodes.find((n) => n.id === "telegram:user:42")).toMatchObject({ state: "fail", fix: expect.stringMatching(/connect it again/), place: "messengers" });
@@ -126,7 +126,7 @@ describe("Telegram user account in the server", () => {
     fake.fail(new FakeRpcError(401, "SESSION_REVOKED"));
     await vi.waitFor(() => expect(tg?.status().accounts[0]?.state).toBe("parked"));
     fake = new FakeMtClient();
-    const app = createApp(repos, { telegramUser: tg ?? undefined, adminPort: ADMIN });
+    const app = testApp(repos, { telegramUser: tg ?? undefined, adminPort: ADMIN });
     const s1 = (await (await post(app, "/api/messengers/telegram-user/login/start", { apiId: 12345, apiHash: HASH, phone: "+79990001122" })).json()) as { flow: string };
     await post(app, "/api/messengers/telegram-user/login/code", { flow: s1.flow, code: "12345" });
     await post(app, "/api/messengers/telegram-user/login/password", { flow: s1.flow, password: "pw" });
@@ -142,7 +142,7 @@ describe("Telegram user account in the server", () => {
     await repos.projects.replaceRegistry({ projects: ["a", "b"].map((slug) => ({ slug, name: slug, status: "active", settingsJson: "{}", hash: slug })), addresses: [] });
     tg = await start();
     expect(tg.status()).toMatchObject({ state: "off", reason: expect.stringMatching(/HUB_MESSENGERS_PROJECT/) });
-    const app = createApp(repos, { telegramUser: tg, adminPort: ADMIN });
+    const app = testApp(repos, { telegramUser: tg, adminPort: ADMIN });
     expect((await post(app, "/api/messengers/telegram-user/login/start", { apiId: 1, apiHash: HASH, phone: "+10000000000" })).status).toBe(409);
   });
 });

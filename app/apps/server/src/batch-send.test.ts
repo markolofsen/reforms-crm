@@ -7,7 +7,7 @@ import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { setSendPolicy } from "@hub/projects";
 import type { MailDraft } from "@hub/mail-app/drafts";
 import { FakeMailer, mailHash, planBatch, runBatch, type BatchOutcome, type SendDeps } from "@hub/send";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 import { batchRuns } from "./send/batch-door";
 
 // P85b: Send all Checked of one batch. Every test uses FakeMailer: nothing here reaches Mail and nothing is ever sent.
@@ -180,7 +180,7 @@ describe("a batch run", () => {
 
 describe("the batch send routes", () => {
   const appWith = (runs = batchRuns({ limits: { dailyCap: 50, spacingSeconds: 0 } })) =>
-    createApp(repos, { sender: { kind: "fake", mailer, projectsDir: deps.projectsDir, policyDir: deps.policyDir, allowList: [], adminPort: 5173, batchRuns: runs, batchLimits: { dailyCap: 50, spacingSeconds: 0 } } });
+    testApp(repos, { sender: { kind: "fake", mailer, projectsDir: deps.projectsDir, policyDir: deps.policyDir, allowList: [], adminPort: 5173, batchRuns: runs, batchLimits: { dailyCap: 50, spacingSeconds: 0 } } });
   const url = (batchId: number) => `http://127.0.0.1:4317/api/projects/acme/batches/${batchId}/send`;
 
   it("lists a campaign's batch (audience agent, P85) in Drafts' View menu", async () => {

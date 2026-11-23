@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import type { OsaRun } from "@hub/mail-app/osa";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { parseSent } from "@hub/mail-app/read";
 import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT, SENT_SCRIPT } from "@hub/mail-app/scripts/read";
 import { appleScriptCompileError, canCompileAppleScript } from "../../../../test-support/osacompile";
@@ -172,7 +172,7 @@ describe("Sent detection through Apple Mail", () => {
     expect(mail.calls.map((c) => c.script)).toEqual(["running"]);
     expect(h.status()).toMatchObject({ state: "off", reason: "Mail is not running" });
     expect((await statusOf(r.draftId)).status).toBe("ready");
-    const body = (await (await createApp(repos, { sent: h.status }).request("http://127.0.0.1:4317/api/health")).json()) as Record<string, unknown>;
+    const body = (await (await testApp(repos, { sent: h.status }).request("http://127.0.0.1:4317/api/health")).json()) as Record<string, unknown>;
     expect(body.sent).toMatchObject({ state: "off", reason: "Mail is not running" });
     expect(body).not.toHaveProperty("mail");
   });

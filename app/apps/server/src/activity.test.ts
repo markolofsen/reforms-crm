@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { activityDto, type ActivityDto } from "@hub/contract/activity";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 
 // GET /api/activity (P73): one timeline of client decisions, newest first, a view by outcome, one client, a page at a time.
 const BASE = "http://127.0.0.1:4317";
@@ -15,7 +15,7 @@ beforeEach(() => {
 afterEach(() => handle.close());
 
 const get = async (query: string): Promise<{ status: number; body: ActivityDto | null }> => {
-  const r = await createApp(repos).request(`${BASE}/api/activity?${query}`);
+  const r = await testApp(repos).request(`${BASE}/api/activity?${query}`);
   return { status: r.status, body: r.status === 200 ? activityDto.parse(await r.json()) : null };
 };
 const ev = (batchKey: string) => ({ level: "ok" as const, source: "claimed" as const, findings: [], batchKey });
@@ -53,7 +53,7 @@ describe("GET /api/activity", () => {
   });
 
   it("the runs routes are gone", async () => {
-    const app = createApp(repos);
+    const app = testApp(repos);
     expect((await app.request(`${BASE}/api/runs?project=p`)).status).toBe(404);
     expect((await app.request(`${BASE}/api/runs/1/events?project=p`)).status).toBe(404);
   });

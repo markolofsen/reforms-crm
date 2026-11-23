@@ -1,14 +1,14 @@
 import type { Context } from "hono";
 import { projectStore } from "@hub/projects/store";
 import { gateRefusal } from "../http/admin-gate";
-import type { MailServices } from "../composition/capabilities";
+import type { MailContext } from "./context";
 
 /**
  * What the owner's Mail draft writes share (P126 M3): the project's Mail identity read from project.md, the draft of this
  * project, the 409 sentence and the send ticket's door (exact admin Origin, same-origin fetch: a forged write from another
  * loopback page would rewrite a client's mail).
  */
-export function draftMailKit({ repos, sender }: MailServices) {
+export function draftMailKit({ repos, sender }: Pick<MailContext, "repos" | "sender">) {
   const store = sender ? projectStore({ projects: sender.projectsDir, stateProjects: sender.policyDir }) : null;
   const projectMail = (slug: string) => {
     const config = store?.find(slug);

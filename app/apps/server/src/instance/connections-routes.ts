@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { connectionDto, connectionsDto } from "@hub/contract/connections";
 import { setSecretBody } from "@hub/contract/requests";
-import type { ConnectionsServices } from "../composition/capabilities";
+import type { InstanceContext } from "./context";
 import { notFound, v } from "../http/http";
 
 /**
@@ -11,7 +11,7 @@ import { notFound, v } from "../http/http";
  * The two writes (decision 0020) are the only way a key enters from the browser and the only way one leaves the folder: `PUT .../secret`
  * stores it (mode 600, atomic), `POST .../remove` deletes the file. The body of a PUT is never logged, echoed or kept.
  */
-export function connectionRoutes({ service }: ConnectionsServices) {
+export function connectionRoutes({ connections: service }: InstanceContext) {
   return new Hono()
     .get("/api/connections", async (c) => c.json(connectionsDto.parse(await service.list())))
     // `NotTestable` (409) and `Refusal` (400 or 409) are HubErrors: the server's onError answers them (P126 E1).

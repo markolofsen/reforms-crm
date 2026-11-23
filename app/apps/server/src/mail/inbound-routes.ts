@@ -5,7 +5,7 @@ import { notFound, v } from "../http/http";
 import { INBOUND_OFF, projectReadOf } from "./inbound";
 import { ownText } from "@hub/mail-app/read";
 import { LEADS_OFF, projectLeadsOf } from "../clients/leads-reader";
-import type { InboundServices } from "../composition/capabilities";
+import type { MailContext } from "./context";
 
 /** How the card reads a message's text from Mail (P96 verdict 6): null with the reason when Mail cannot show it. */
 
@@ -44,7 +44,7 @@ const id = (raw: string): number | null => (/^[1-9]\d*$/.test(raw) ? Number(raw)
  * read pass, waited for), and No reply needed with its Undo (`POST .../inbound/:id/dismiss`, `POST .../inbound/undismiss`).
  * Read-only toward Mail, so the general loopback guard is enough (rules README 7); nothing here writes Mail or starts an agent.
  */
-export function inboundRoutes({ repos, projects, reader, readText, leads }: InboundServices) {
+export function inboundRoutes({ repos, projects, reader, readText, leads }: MailContext) {
   const status = () => reader?.status() ?? INBOUND_OFF;
   const project = async (slug: string) => (await repos.projects.get(slug)) !== null;
   /** P97 S2: the Leads group (verdicts 2 and 9 as answered): New leads of the last `leads.window_days`, one row per person. */

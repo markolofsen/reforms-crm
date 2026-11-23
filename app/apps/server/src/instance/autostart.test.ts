@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { autostartFiles, type LaunchctlRun } from "@hub/config/autostart";
 import { hubPaths, type HubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { createAutostart, launchctlFor } from "./autostart";
 
 // `/api/instance/autostart` (P67): the switch runs exactly `launchctl enable|disable`, never bootout/kill/kickstart; the label is the server's.
@@ -43,7 +43,7 @@ function setup(o: { installed?: boolean; loaded?: boolean; supported?: boolean; 
     return { code: 0, stdout: "", stderr: "" };
   };
   const autostart = createAutostart({ paths, run, agentsDir: agents, uid: 501, startedBy: o.startedBy ?? "hand", supported: o.supported ?? true, bootAt: async () => undefined, mailMcp: async () => false });
-  const app = createApp(repos, { adminPort: ADMIN_PORT, autostart });
+  const app = testApp(repos, { adminPort: ADMIN_PORT, autostart });
   const post = (body: unknown, headers: Record<string, string> = ADMIN) => app.request(`${API}/api/instance/autostart`, { method: "POST", headers, body: JSON.stringify(body) });
   const get = async () => (await app.request(`${API}/api/instance/autostart`, { headers: { host: ADMIN.host } })).json();
   return { files, post, get, autostart };

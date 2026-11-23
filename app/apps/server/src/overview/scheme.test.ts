@@ -6,7 +6,7 @@ import { API_VERSION, type HealthDto } from "@hub/contract/health";
 import type { DoctorDto, ProjectOverviewDto } from "@hub/contract/responses";
 import { schemeDto, worstFirst, type SchemeDto } from "@hub/contract/scheme";
 import type { AgentToolsService } from "../agent/tools";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { composeScheme, llmNode, type SchemeSources } from "./scheme";
 
 // P63 O1: the Overview's parts from local state, with fake readers (no Mail, no Notion, no CLI). Plan section 4a's mapping.
@@ -189,7 +189,7 @@ describe("GET /api/scheme", () => {
     const get = vi.fn(async () => TOOLS);
     const refresh = vi.fn(async () => TOOLS);
     const agentTools = { get, refresh, peek: () => null, clis: () => null } satisfies AgentToolsService;
-    const app = createApp(repos, { agentTools, scheme: { projects: async () => ["alpha"], doctor: async () => DOCTOR, files: async () => FILES, connections: async () => CONN } });
+    const app = testApp(repos, { agentTools, scheme: { projects: async () => ["alpha"], doctor: async () => DOCTOR, files: async () => FILES, connections: async () => CONN } });
     const r = await app.request("http://127.0.0.1:4317/api/scheme");
     expect(r.status).toBe(200);
     const text = await r.text();
@@ -230,7 +230,7 @@ describe("P78: the LLM part", () => {
     try {
       const repos = createRepos(handle.db);
       await repos.llmCalls.record({ project: "alpha", task: "t", model: null, attempt: 1, outcome: "no_key", tokensIn: 0, tokensOut: 0, tokensCached: 0, costMicroUsd: 0, latencyMs: 0, generationId: null, sourceKind: null });
-      const app = createApp(repos, { scheme: { projects: async () => [], connections: async () => CONN } });
+      const app = testApp(repos, { scheme: { projects: async () => [], connections: async () => CONN } });
       const d = schemeDto.parse(await (await app.request("http://127.0.0.1:4317/api/scheme")).json());
       expect(byId(d, "llm")).toMatchObject({ state: "fail", fix: expect.stringContaining("openrouter-key") });
     } finally {

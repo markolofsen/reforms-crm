@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { historyDto } from "@hub/contract/responses";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 
 // The client's history holds the messenger rows the hub stored; it reads no mail (decision 0026).
 const ANNA = "anna@example.test";
@@ -24,7 +24,7 @@ afterEach(() => handle.close());
 const say = (id: string, sentAt: string, text: string) =>
   repos.messengers.insertMessage({ project: "p", channel: "telegram_bot", account: "1", chatId: "100", remoteMessageId: id, direction: "in", kind: "text", text, sentAt, retainUntil: "2027-12-31T00:00:00.000Z" });
 const get = async (url: string) => {
-  const r = await createApp(repos).request(url);
+  const r = await testApp(repos).request(url);
   return { status: r.status, body: (await r.json()) as unknown };
 };
 
@@ -63,6 +63,6 @@ describe("GET /api/clients/:id/history", () => {
   });
 
   it("is refused for a foreign host like every route", async () => {
-    expect((await createApp(repos).request(`http://evil.example/api/clients/${clientId}/history?project=p`)).status).toBe(403);
+    expect((await testApp(repos).request(`http://evil.example/api/clients/${clientId}/history?project=p`)).status).toBe(403);
   });
 });

@@ -9,7 +9,7 @@ import { agentToolsDto, type AgentCapability, type AgentToolsDto } from "@hub/co
 import type { CliFactDto } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
 import { notFound } from "../http/http";
-import type { AgentServices } from "../composition/capabilities";
+import type { AgentContext } from "./context";
 
 // "Agent tools" in Connections (P49 5B): the rows of `@hub/agent` `agentChecks` for both CLIs, per project. The last result
 // is kept in memory; the first GET computes it, Refresh recomputes and re-detects the CLIs (about 10 s: each MCP server is
@@ -67,7 +67,7 @@ export function createAgentTools(o: AgentToolsOptions) {
 }
 export type AgentToolsService = ReturnType<typeof createAgentTools>;
 
-export function agentToolRoutes({ repos, tools: service }: AgentServices) {
+export function agentToolRoutes({ repos, tools: service }: AgentContext) {
   const known = async (slug: string) => (await repos.projects.get(slug)) !== null;
   const off = { error: "agent tools not set up", code: "not_found" as const };
   return new Hono()

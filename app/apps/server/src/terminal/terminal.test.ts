@@ -9,7 +9,7 @@ import type { Repos } from "@hub/db";
 import type { PtyProcess, PtySpawn } from "@hub/terminal";
 import { cliDetector, type CliFact } from "@hub/agent/detect";
 import { ticketStore } from "../http/admin-gate";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { appendEvents, logStoreOf } from "@hub/log/store";
 import { CODEX_RULES_CHANGED } from "@hub/log/resume";
 import { sessionInstructions } from "@hub/agent/session-rules";
@@ -42,7 +42,7 @@ function setup(o: { now?: () => number; facts?: CliFact[]; detectMs?: number; cl
   // Never the real login shell here: the detector answers the facts given (both ready by default) and counts its runs.
   const detector = cliDetector({ detect: async () => { detects++; if (o.detectMs) await new Promise((r) => setTimeout(r, o.detectMs)); return o.facts ?? [fact("claude", "ready"), fact("codex", "ready")]; } });
   const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { PATH: "/usr/bin", SHELL: "/bin/zsh", HUB_MAILER: "fake", HUB_DB: "/x.db", LANG: "C" }, nodeBin: "/n22/bin/node", tickets: ticketStore({ ttlMs: 30_000, ...(o.now ? { now: o.now } : {}) }), detector, ...(o.clock ? { now: o.clock } : {}) });
-  const app = createApp(repos, { terminal, adminPort: ADMIN_PORT });
+  const app = testApp(repos, { terminal, adminPort: ADMIN_PORT });
   const call = (method: string, p: string, body?: unknown, headers: Record<string, string> = ADMIN) => app.request(`${API}${p}`, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
   return { terminal, app, call };
 }
@@ -103,7 +103,7 @@ describe("P66: when no tab can start, the state says why and a start is 503 with
     config({});
     let ready: typeof broken | null = broken;
     const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { SHELL: "/bin/zsh" }, readiness: () => ready, detector: cliDetector({ detect: async () => [fact("claude", "ready")] }) });
-    const app = createApp(repos, { terminal, adminPort: ADMIN_PORT });
+    const app = testApp(repos, { terminal, adminPort: ADMIN_PORT });
     const call = (method: string, p: string, body?: unknown) => app.request(`${API}${p}`, { method, headers: ADMIN, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     expect(terminal.warm()).toEqual(broken);
     expect(await (await call("GET", "/api/terminal")).json()).toMatchObject({ problem: broken, presets: ["claude", "codex", "shell"] });

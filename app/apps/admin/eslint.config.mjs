@@ -34,7 +34,7 @@ const OWN_TRANSPORT = ["src/features/terminal/**", "src/features/focus/use-focus
 // `sequences` (P47): the follow-up rules are the server's; the admin reads them through /api. `terminal` and `agent` (P49) are
 // Node only (the PTY, the socket, the agent checks): the admin reaches them through /api and the socket, never by import.
 const SERVER_PACKAGES = ["db", "mail", "notion", "send", "messengers", "projects", "sequences", "terminal", "agent", "server"];
-const SERVER_MESSAGE = "The admin talks to the server over /api only; @hub/server is imported as `import type` (decision 0015 section 4).";
+const SERVER_MESSAGE = "The admin talks to the server over /api only, through the generated client and the @hub/contract schemas (decision 0015 section 4).";
 const BASE_IMPORTS = {
   paths: ["clsx", "tailwind-merge"].map((name) => ({ name, message: "Use `cn` from @hub/ui/cn." })),
   patterns: [{ group: BASE_GROUP, message: "Use the coss primitives (rules: design-system-and-tokens 1)." }],

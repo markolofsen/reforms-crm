@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
-import type { LiveServices } from "../composition/capabilities";
+import type { LiveContext } from "./context";
 
 /**
  * `GET /api/live` (P50): the same-origin SSE stream of invalidation events. It reads only, sets no CORS header (no other
  * origin can read it), and goes through the same Host guards as every route. The resume point is the browser's own
  * `Last-Event-ID` on a reconnect, or `?since=` when the page opens a new stream after the old one failed.
  */
-export function liveRoutes({ live }: LiveServices) {
+export function liveRoutes({ live }: LiveContext) {
   return new Hono().get("/api/live", (c) => {
     if (!live) return c.json({ error: "live updates are off", code: "not_found" as const }, 404);
     if (live.full()) return c.json({ error: "Too many live streams are open: close a tab of the admin.", code: "busy" as const }, 503);

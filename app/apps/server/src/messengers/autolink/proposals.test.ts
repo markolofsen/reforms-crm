@@ -8,7 +8,6 @@ import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import type { UserDialog } from "@hub/messengers";
 import { startAutolink, type Autolink, type AutolinkAdapter } from "./autolink";
 import { startClientDirectory, type ClientDirectory } from "../../clients/directory";
-import { autolinkServicesOf } from "../../composition/capabilities";
 import { autolinkRoutes } from "./routes";
 
 // P128 X5 ("sort the chats"): the agent reads the unlinked chats and proposes hides through its token; the proposals live in
@@ -29,7 +28,7 @@ let al: Autolink;
 let dialogs: UserDialog[];
 
 const adapter = { dialogs: async () => dialogs } as unknown as AutolinkAdapter;
-const routes = (token: string | undefined = TOKEN) => autolinkRoutes(autolinkServicesOf(repos, { project: null, autolink: al, directory, stop: () => undefined }, ADMIN, token));
+const routes = (token: string | undefined = TOKEN) => autolinkRoutes({ repos, autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN, ...(token ? { agentToken: token } : {}) });
 const post = (path: string, body: unknown, headers: Record<string, string>, token?: string) =>
   routes(token).request(`${BASE}/api/projects/p/messengers/autolink/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
 const state = async () => autolinkStateDto.parse(await (await post("state", {}, ADMIN_HEADERS)).json());

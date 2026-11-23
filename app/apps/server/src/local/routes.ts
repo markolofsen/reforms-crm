@@ -3,7 +3,7 @@ import { sentenceOf } from "@hub/contract/errors";
 import { appsDto, isLocalAction, isServerAction, LOCAL_ACTIONS, localOpenedDto, NO_APPS } from "@hub/contract/local";
 import { isRefusal, LOCAL_OPEN_UNAVAILABLE, openTarget, resolveTarget } from "@hub/projects/local-open";
 import { gateRefusal } from "../http/admin-gate";
-import type { LocalServices } from "../composition/capabilities";
+import type { LocalContext } from "./context";
 
 /** At most one open per action and key in this window: a held key or a double click must not stack Finder windows. */
 const REPEAT_MS = 500;
@@ -15,7 +15,7 @@ const REPEAT_MS = 500;
  * focus door's (exact admin Origin, loopback Host, `Sec-Fetch-Site: same-origin`): another loopback page cannot pop
  * Finder windows. No ticket: nothing is written or sent.
  */
-export function localRoutes({ local, adminPort }: LocalServices) {
+export function localRoutes({ local, adminPort }: LocalContext) {
   const last = new Map<string, number>();
   return new Hono()
     // P131 O2: Settings ▸ This Mac's Check again: the app probe now. It opens, launches and reveals nothing, but it is the

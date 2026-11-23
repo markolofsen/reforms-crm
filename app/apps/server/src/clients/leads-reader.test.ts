@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import type { NotionReader, PageObject } from "@hub/notion";
 import type { LeadWriter } from "@hub/notion/leads-write";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { convertSentLead, NO_LEADS_TOKEN, startLeadsReader, windowOf } from "./leads-reader";
 
 // P97 S2, S4, S5: the Leads reader with a fake Notion (no test reaches Notion), the Inbox's Leads group, Spam and Undo, and the
@@ -106,7 +106,7 @@ describe("the Leads reader and the Inbox's Leads group", () => {
     const n = fakeNotion([page("a".repeat(32)), page("b".repeat(32), { received: "2026-09-30" })]);
     const leads = reader(n);
     await leads.read();
-    const app = createApp(repos, { leads });
+    const app = testApp(repos, { leads });
     const res = await app.request("/api/projects/p/inbound");
     const body = (await res.json()) as { rows: unknown[]; leads: { rows: Array<{ pageId: string; email: string }>; total: number; read: { older: number; reason: string | null } } };
     expect(body.rows).toEqual([]);
@@ -128,7 +128,7 @@ describe("the Leads reader and the Inbox's Leads group", () => {
     const n = fakeNotion([page("a".repeat(32))]);
     const leads = reader(n);
     await leads.read();
-    const app = createApp(repos, { leads });
+    const app = testApp(repos, { leads });
     const spam = await (await app.request(`/api/projects/p/leads/${"a".repeat(32)}/spam`, { method: "POST" })).json();
     expect(spam).toMatchObject({ ok: true, notion: "written", note: null });
     expect(n.calls).toEqual([["status", "a".repeat(32), { name: "Status", type: "select" }, "Spam"]]);
@@ -145,7 +145,7 @@ describe("the Leads reader and the Inbox's Leads group", () => {
     const n = fakeNotion([page("a".repeat(32))]);
     const leads = reader(n);
     await leads.read();
-    const app = createApp(repos, { leads });
+    const app = testApp(repos, { leads });
     expect(await (await app.request(`/api/projects/p/leads/${"a".repeat(32)}/not-now`, { method: "POST" })).json()).toMatchObject({ notion: "none" });
     expect(n.calls).toEqual([]);
   });

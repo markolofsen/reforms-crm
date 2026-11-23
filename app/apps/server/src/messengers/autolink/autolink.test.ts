@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeLoginClient, FakeMtClient, fakePerson, type MtMessage, type MtPeer } from "@hub/messengers";
-import { createApp } from "../../app";
+import { testApp } from "../../test-support/runtime";
 import { startAutolink, type Autolink } from "./autolink";
 import type { ProjectAutolink } from "./setup";
 import { entryOf, startClientDirectory, type ClientDirectory } from "../../clients/directory";
@@ -63,7 +63,7 @@ let on: boolean;
 let directory: ClientDirectory;
 let al: Autolink;
 
-const post = (app: ReturnType<typeof createApp>, path: string, body: unknown = {}, headers: Record<string, string> = HEADERS) => app.request(`${BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
+const post = (app: ReturnType<typeof testApp>, path: string, body: unknown = {}, headers: Record<string, string> = HEADERS) => app.request(`${BASE}${path}`, { method: "POST", headers, body: JSON.stringify(body) });
 const msg = (chat: MtPeer, id: number, text: string): MtMessage => ({ id, date: new Date(Date.now() - 86_400_000), text, mediaType: null, isOutgoing: false, isService: false, chat });
 
 function makeAutolink() {
@@ -92,7 +92,7 @@ beforeEach(async () => {
   tg = await startTelegramUser({ repos, env: {}, dir, clients: { session: () => fake, login: () => new FakeLoginClient() }, onUnlinked: (account, d, inbound) => al.seen("telegram_user", account, d, inbound) });
   al = makeAutolink();
   // Sign in through the gated steps, as the owner would.
-  const app = createApp(repos, { telegramUser: tg, adminPort: ADMIN });
+  const app = testApp(repos, { telegramUser: tg, adminPort: ADMIN });
   const s1 = (await (await post(app, "/api/messengers/telegram-user/login/start", { apiId: 12345, apiHash: HASH, phone: "+62 813 0000 9999" })).json()) as { flow: string };
   await post(app, "/api/messengers/telegram-user/login/code", { flow: s1.flow, code: "12345" });
   await vi.waitFor(() => expect(fake.listening).toBe(true));
@@ -208,7 +208,7 @@ describe("Unlink and Never link", () => {
     await al.idle();
     const chat = rows("select id from messenger_chats")[0] as { id: number };
     const linker: ProjectAutolink = { project: null, autolink: al, directory, stop: () => undefined };
-    const app = createApp(repos, { telegramUser: tg ?? undefined, autolink: linker, adminPort: ADMIN });
+    const app = testApp(repos, { telegramUser: tg ?? undefined, autolink: linker, adminPort: ADMIN });
     expect((await post(app, `/api/projects/p/messengers/chats/${chat.id}/never`, {}, { "content-type": "application/json" })).status).toBe(403);
     expect((await post(app, `/api/projects/p/messengers/chats/${chat.id}/never`)).status).toBe(200);
     expect(rows("select count(*) n from messenger_chats")).toEqual([{ n: 0 }]);
@@ -230,7 +230,7 @@ describe("Unlink and Never link", () => {
     await al.scan("telegram_user", "42");
     await al.idle();
     const chat = rows("select id from messenger_chats")[0] as { id: number };
-    const app = createApp(repos, { telegramUser: tg ?? undefined, autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
+    const app = testApp(repos, { telegramUser: tg ?? undefined, autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
     for (const path of ["/api/projects/p/messengers/autolink/state", "/api/projects/p/messengers/autolink/preview"]) {
       expect((await post(app, path, {}, { "content-type": "application/json" })).status).toBe(403);
       expect((await post(app, path)).status).toBe(200);
@@ -246,7 +246,7 @@ describe("Unlink and Never link", () => {
     on = false;
     await al.scan("telegram_user", "42");
     await al.idle();
-    const app = createApp(repos, { telegramUser: tg ?? undefined, autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
+    const app = testApp(repos, { telegramUser: tg ?? undefined, autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
     const r = await post(app, "/api/projects/p/messengers/autolink/link", { channel: "telegram_user", account: "42", chatId: "1002", key: "n-bob2", title: "Bob B" });
     expect(r.status).toBe(200);
     expect(rows("select c.email, m.chat_id, m.autolinked from clients c join client_identifiers i on i.client_id = c.id join messenger_chats m on m.chat_id = i.value")).toEqual([{ email: "bobby@example.test", chat_id: "1002", autolinked: null }]);

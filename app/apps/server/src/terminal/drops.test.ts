@@ -8,7 +8,7 @@ import type { Repos } from "@hub/db";
 import type { PtyProcess, PtySpawn } from "@hub/terminal";
 import { cliDetector } from "@hub/agent/detect";
 import { ticketStore } from "../http/admin-gate";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { numbered, safeName, SAFE_NAME_MAX } from "./drops";
 import { createTerminal } from "./terminal";
 
@@ -31,7 +31,7 @@ const spawn: PtySpawn = () => {
 function setup() {
   const detector = cliDetector({ detect: async () => [] });
   const terminal = createTerminal({ paths, repos, adminPort: ADMIN_PORT, apiPort: 4317, spawn, fakeShell: false, env: { SHELL: "/bin/zsh" }, nodeBin: "/n/node", tickets: ticketStore({ ttlMs: 30_000 }), detector });
-  const app = createApp(repos, { terminal, adminPort: ADMIN_PORT });
+  const app = testApp(repos, { terminal, adminPort: ADMIN_PORT });
   const start = async (body: Record<string, string>) => {
     const r = await app.request(`${API}/api/terminal/sessions`, { method: "POST", headers: { ...SAME, "content-type": "application/json" }, body: JSON.stringify(body) });
     return ((await r.json()) as { id: string }).id;

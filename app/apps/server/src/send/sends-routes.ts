@@ -1,64 +1,20 @@
 import { Hono, type Context } from "hono";
-import type { Repos } from "@hub/db";
-import { assess, BATCH_LIMITS, batchTicketKey, planBatch, sendDraft, type BatchLimits, type Mailer, type SendDeps } from "@hub/send";
+import { assess, BATCH_LIMITS, batchTicketKey, planBatch, sendDraft, type BatchLimits } from "@hub/send";
 import { batchSendBody, batchSendParam, batchTicketBody, idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
 import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/sending";
 import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messenger";
-import type { DraftWriter } from "@hub/mail-app/writer/types";
-import { gateRefusal, ticketStore, type TicketStore } from "../http/admin-gate";
+import { gateRefusal, ticketStore } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
-import { batchRuns, type BatchRuns } from "./batch-door";
-import { applyMessenger, assessMessenger, type MessengerSenders } from "@hub/messengers/door";
+import { batchRuns } from "./batch-door";
+import { applyMessenger, assessMessenger } from "@hub/messengers/door";
 import { messengerRecipients } from "./messenger-recipients";
 import { ops } from "@hub/log/ops";
-import type { LogEvent } from "@hub/log/event";
+import type { SendContext, SenderOptions } from "./context";
 import { AGENT_WORD_SEND_ACTOR, OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
 import { agentSendBody, agentSentDto } from "@hub/contract/messenger";
 import { ownerWordFor } from "@hub/agent/owner-word";
 import { AGENT_SEND_HEADER, tokenMatches } from "@hub/agent/send-token";
 
-/** What the send routes need from the process: the Mailer, where project.md lives, and `allow_list` for `draft.recipients: test`. */
-export interface SenderOptions {
-  mailer: Mailer;
-  projectsDir: string;
-  /** `hubPaths().stateProjects`: the send policy files (P49 S11). */
-  policyDir: string;
-  allowList: string[];
-  /** The admin's port: a send ticket is minted only for its exact origin (P49 S12). */
-  adminPort: number;
-  /** Tests: the ticket store (its clock). */
-  tickets?: TicketStore;
-  now?: () => Date;
-  /** The hub's Mail draft writer (P56: a person's Save and Restore go through the agent's one writer); absent, both refuse. */
-  writer?: DraftWriter;
-  /** Bumps the live topic `mail` of a project after the server wrote one of its Mail drafts, so every open tab reads it again. */
-  mailWritten?: (project: string) => void;
-  /** Which Mailer this is; with the fake (the e2e run only) `HUB_BATCH_SPACING_SECONDS` may shorten the batch spacing. */
-  kind?: "mail-app" | "fake";
-  /** P85b: the runs of Send all Checked (tests pass their own, with their own limits). */
-  batchRuns?: BatchRuns;
-  batchLimits?: BatchLimits;
-  /** P89: told after each confirmed send (the Notion stamp of who sent); see `SendDeps.onSent`. */
-  onSent?: SendDeps["onSent"];
-  /** Decision 0046: the agent's send on the owner's word; absent, the agent send route refuses. */
-  agent?: AgentSendOptions;
-}
-
-/** What the agent send route needs (decision 0046): the token `hub mcp` presents, the instance's mode, the session log. */
-export interface AgentSendOptions {
-  /** The server's token (`state/secrets/agent-send-token`), made at start. */
-  token: string;
-  /** `agent.unattended` of the instance, read per call: an unattended instance never sends on the agent's call. */
-  unattended: () => boolean;
-  /** The project's `prompt` and `focus` events of the session log since `since`. */
-  events: (project: string, since: string) => readonly LogEvent[];
-}
-
-export type SendServices = {
-  repos: Repos;
-  sender?: SenderOptions;
-  messengers?: MessengerSenders;
-};
 
 /** The batch guards: the defaults, or (fake Mailer only, so never on a real Mail) a shorter spacing for the e2e run. */
 function limitsOf(sender: SenderOptions): BatchLimits {
@@ -95,7 +51,7 @@ const LEAVE = "Leave the draft for the owner and tell him in one line that it wa
  * `hub mcp` may ask (its token), never on an unattended instance, never for Mail (this route knows messenger drafts only); the
  * word is found here, in the project's session log, never taken from the caller; the `send_log` row carries the word's reference.
  */
-function agentSendRoute({ repos, sender, messengers }: SendServices) {
+function agentSendRoute({ repos, sender, messengers }: SendContext) {
   return new Hono().post("/api/projects/:slug/messengers/drafts/:id/agent-send", v("param", sendParam), v("json", agentSendBody), async (c) => {
     const { slug, id } = c.req.valid("param");
     const { chat } = c.req.valid("json");
@@ -131,7 +87,7 @@ function agentSendRoute({ repos, sender, messengers }: SendServices) {
   });
 }
 
-export function sendRoutes(services: SendServices) {
+export function sendRoutes(services: SendContext) {
   const { repos, sender, messengers } = services;
   const deps = sender && { repos, mailer: sender.mailer, projectsDir: sender.projectsDir, policyDir: sender.policyDir, allowList: sender.allowList, ...(sender.now ? { now: sender.now } : {}), ...(sender.onSent ? { onSent: sender.onSent } : {}) };
   const tickets = sender?.tickets ?? ticketStore({ ttlMs: TICKET_TTL_MS });

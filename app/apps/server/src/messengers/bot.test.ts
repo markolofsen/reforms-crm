@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeAdapter } from "@hub/messengers";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { startMessengers } from "./bot";
 
 const TOKEN = "1234567:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
@@ -30,12 +30,12 @@ describe("messengers in the server", () => {
     await sync(["p"]);
     const h = await startMessengers({ repos, env: {}, tokenFile: join(dir, "missing") });
     expect(h.status()).toMatchObject({ state: "off", reason: "no bot token file" });
-    const res = await createApp(repos, { messengers: h.status }).request("http://127.0.0.1:4317/api/health");
+    const res = await testApp(repos, { messengers: h.status }).request("http://127.0.0.1:4317/api/health");
     expect(await res.json()).toMatchObject({ ok: true, messengers: { state: "off" } });
   });
 
   it("health defaults to off when nothing was started", async () => {
-    const res = await createApp(repos).request("http://127.0.0.1:4317/api/health");
+    const res = await testApp(repos).request("http://127.0.0.1:4317/api/health");
     expect(await res.json()).toMatchObject({ ok: true, messengers: { state: "off" } });
   });
 

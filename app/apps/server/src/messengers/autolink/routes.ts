@@ -13,7 +13,7 @@ import { gateRefusal } from "../../http/admin-gate";
 import { markDialogs } from "./dialogs";
 import type { ProjectAutolink } from "./setup";
 import { notFound } from "../../http/http";
-import type { AutolinkServices } from "../../composition/capabilities";
+import type { MessengersContext } from "../context";
 
 /** At most this many dialogs in the Link a chat box: the owner's newest chats, read on demand and never stored. */
 const DIALOGS_LIMIT = 200;
@@ -24,7 +24,7 @@ const DIALOGS_LIMIT = 200;
  * the records come from his Notion, and Link, Unlink and Never link change what the Hub reads. The preview is the dry run: counts
  * only, no name, number or text, and nothing written. Nothing here sends.
  */
-export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken }: AutolinkServices) {
+export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken }: MessengersContext) {
   async function guarded<T>(c: Context, schema: ZodType<T>, then: (body: T, slug: string, al: ProjectAutolink) => Promise<Response>): Promise<Response> {
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
     if (why) return c.json({ error: `Refused: ${why}.`, code: "forbidden" as const }, 403);

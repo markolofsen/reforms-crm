@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { inboxDto, notByEmailDto } from "@hub/contract/responses";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 
 let handle: DbHandle;
 let repos: Repos;
@@ -11,7 +11,7 @@ beforeEach(() => {
 });
 afterEach(() => handle.close());
 
-const get = async (q: string) => createApp(repos).request(`http://127.0.0.1:4317/api/inbox?${q}`);
+const get = async (q: string) => testApp(repos).request(`http://127.0.0.1:4317/api/inbox?${q}`);
 
 describe("GET /api/inbox", () => {
   it("says plainly that nothing was ever recorded", async () => {
@@ -39,7 +39,7 @@ describe("GET /api/inbox", () => {
 });
 
 describe("GET /api/inbox/not-by-email", () => {
-  const nbe = async (q: string) => createApp(repos).request(`http://127.0.0.1:4317/api/inbox/not-by-email?${q}`);
+  const nbe = async (q: string) => testApp(repos).request(`http://127.0.0.1:4317/api/inbox/not-by-email?${q}`);
   it("lists the clients with a kind, by group, keeps them out of the reply queue and shows a phone as plain text", async () => {
     await repos.inbox.record({ project: "p", email: "a@x.example", name: "Ann", action: "escalated", kind: "call", phone: "+351 912 000 111 (after 5)", repliesOwed: false });
     await repos.inbox.record({ project: "p", email: "b@x.example", name: "Bo", action: "skipped", kind: "crossed_off" });

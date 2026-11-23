@@ -6,7 +6,7 @@ import { UNLINKED_FRESH_DAYS } from "@hub/config/chat-rules";
 import { autolinkStateDto } from "@hub/contract/messengers";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import type { UserDialog } from "@hub/messengers";
-import { createApp } from "../../app";
+import { testApp } from "../../test-support/runtime";
 import { startAutolink, type Autolink, type AutolinkAdapter } from "./autolink";
 import { startClientDirectory, type ClientDirectory } from "../../clients/directory";
 
@@ -29,7 +29,7 @@ let dialogs: UserDialog[];
 const adapter = { dialogs: async () => dialogs } as unknown as AutolinkAdapter;
 const make = () =>
   startAutolink({ repos, project: "p", directory, enabled: async () => true, adapterOf: () => adapter, accounts: () => [{ channel: "telegram_user", account: "42" }], keyFile: join(dir, "autolink-key"), now: () => NOW });
-const app = () => createApp(repos, { autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
+const app = () => testApp(repos, { autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
 const post = async (path: string, body: unknown = {}, headers: Record<string, string> = HEADERS) => app().request(`${BASE}/api/projects/p/messengers/autolink/${path}`, { method: "POST", headers, body: JSON.stringify(body) });
 const state = async () => autolinkStateDto.parse(await (await post("state")).json());
 const rows = (sql: string) => handle.db.$client.prepare(sql).all();

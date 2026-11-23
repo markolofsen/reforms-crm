@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { connectionDto } from "@hub/contract/connections";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 import { fakeProbeDeps } from "./instance/connections";
 import { captureOps } from "@hub/log/ops";
 import { projectStoreOf } from "@hub/projects/testing";
@@ -23,7 +23,7 @@ let dir: string;
 const put = (name: string, text: string, mode = 0o600) => { writeFileSync(join(dir, name), text, { mode }); chmodSync(join(dir, name), mode); };
 const settings = JSON.stringify({ schema: 1, slug: "x", kind: "generic", name: "x", mail: { accounts: ["Work", "Apple Only"], addresses: [] } });
 const projects = projectStoreOf({ alpha: JSON.parse(settings) as Record<string, unknown> });
-const app = (env: NodeJS.ProcessEnv = {}) => createApp(repos, { projects, connections: { dir: () => dir, env, deps: fakeProbeDeps() } });
+const app = (env: NodeJS.ProcessEnv = {}) => testApp(repos, { projects, connections: { dir: () => dir, env, deps: fakeProbeDeps() } });
 type App = ReturnType<typeof app>;
 const send = async (a: App, method: string, path: string, body?: unknown) => {
   const r = await a.request(`${BASE}${path}`, { method, ...(body === undefined ? {} : { headers: { "content-type": "application/json" }, body: JSON.stringify(body) }) });
@@ -94,7 +94,7 @@ describe("PUT /api/connections/:id/secret", () => {
     const w = await putSecret(a, "whatsapp", { value: NEW });
     expect(w.status).toBe(404);
     expect(w.text).not.toContain(NEW);
-    expect((await putSecret(createApp(repos, { projects, connections: { dir: () => dir, env: { NOTION_TOKEN: NEW }, deps: fakeProbeDeps() } }), "notion:notion-token", { value: NEW })).status).toBe(409);
+    expect((await putSecret(testApp(repos, { projects, connections: { dir: () => dir, env: { NOTION_TOKEN: NEW }, deps: fakeProbeDeps() } }), "notion:notion-token", { value: NEW })).status).toBe(409);
   });
 
   it("no value reaches a log line, even when a write fails", async () => {

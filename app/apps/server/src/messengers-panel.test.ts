@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { messengerChatDto, messengerChatsDto, messengerConversationDto } from "@hub/contract/messenger-panel";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 
 // The Messengers section's routes (P71 M3): the panel's chats with their open draft, Edit, Skip and its Undo, one chat's rules,
 // and the client lookup of the link picker, on an in-memory database. No Telegram client: nothing here sends or reads Telegram.
@@ -12,7 +12,7 @@ const BASE = "http://127.0.0.1:4317";
 
 let handle: DbHandle;
 let repos: Repos;
-let app: ReturnType<typeof createApp>;
+let app: ReturnType<typeof testApp>;
 let anna: number;
 let draftId: number;
 let chatRowId: number;
@@ -37,7 +37,7 @@ beforeEach(async () => {
   await repos.messengers.allowChat("p", "telegram_user", "2002", "Bob");
   await msg("2002", "out", "2026-11-19T09:00:00.000Z", "Thanks!");
   chatRowId = (await repos.messengers.chat("p", "telegram_user", "1001"))?.id ?? 0;
-  app = createApp(repos, { adminPort: ADMIN });
+  app = testApp(repos, { adminPort: ADMIN });
 });
 afterEach(() => handle.close());
 

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import type { MailDraft } from "@hub/mail-app/drafts";
 import { FakeMailer } from "@hub/send";
-import { createApp } from "./app";
+import { testApp } from "./test-support/runtime";
 import { createServerMailer } from "./send/mailer";
 import { setSendPolicy } from "@hub/projects";
 import { ticketStore } from "./http/admin-gate";
@@ -36,17 +36,17 @@ const projectMd = [
 let handle: DbHandle;
 let repos: Repos;
 let mailer: FakeMailer;
-let app: ReturnType<typeof createApp>;
+let app: ReturnType<typeof testApp>;
 let policyDir: string;
 const H = { "content-type": "application/json" };
 const call = (method: string, path: string, body?: unknown) => app.request(`http://127.0.0.1:4317${path}`, { method, headers: H, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 const post = (path: string, body?: unknown) => call("POST", path, body ?? {});
 /** The admin page's own request headers (P49 S12): exact origin, same-origin fetch. */
 const ADMIN = { ...H, origin: "http://127.0.0.1:5173", "sec-fetch-site": "same-origin" };
-const ticketFor = async (a: ReturnType<typeof createApp>, draftId: number, headers: Record<string, string> = ADMIN, project = "acme") =>
+const ticketFor = async (a: ReturnType<typeof testApp>, draftId: number, headers: Record<string, string> = ADMIN, project = "acme") =>
   a.request("http://127.0.0.1:4317/api/sends/tickets", { method: "POST", headers, body: JSON.stringify({ project, draftId }) });
 /** What the admin's Send does: a ticket, then the apply carrying it. */
-async function apply(id: number, body: Record<string, unknown>, a: ReturnType<typeof createApp> = app) {
+async function apply(id: number, body: Record<string, unknown>, a: ReturnType<typeof testApp> = app) {
   const t = (await (await ticketFor(a, id)).json()) as { ticket: string };
   return a.request(`http://127.0.0.1:4317${sendUrl(id)}`, { method: "POST", headers: H, body: JSON.stringify({ apply: true, ...body, ticket: t.ticket }) });
 }
@@ -84,7 +84,7 @@ beforeEach(() => {
   mailer = new FakeMailer();
   policyDir = join(dir, "state", "projects");
   setSendPolicy(policyDir, "acme", "generic", { "draft.recipients": "any" }, "test");
-  app = createApp(repos, { sender: { kind: "fake", mailer, projectsDir: join(dir, "projects"), policyDir, allowList: [], adminPort: 5173 } });
+  app = testApp(repos, { sender: { kind: "fake", mailer, projectsDir: join(dir, "projects"), policyDir, allowList: [], adminPort: 5173 } });
 });
 afterEach(() => handle.close());
 
@@ -231,7 +231,7 @@ describe("Send from the admin", () => {
   });
 
   it("without a Mailer configured nothing can send", async () => {
-    const bare = createApp(repos);
+    const bare = testApp(repos);
     const id = await draft();
     const res = await bare.request(`http://127.0.0.1:4317${sendUrl(id)}`, { method: "POST", headers: H, body: JSON.stringify({ apply: false }) });
     expect(res.status).toBe(409);
@@ -354,10 +354,10 @@ describe("which Mailer the server uses", () => {
     await handle.db.$client.prepare("update drafts set body = ? where id = ?").run("Hello", r.draftId);
     const pol = join(dir, "..", `${join(dir).split("/").pop()}-policy`);
     setSendPolicy(pol, "acme", "generic", { "draft.recipients": "any" }, "test");
-    const a = createApp(repos, { sender: { kind, mailer: fake, projectsDir: dir, policyDir: pol, allowList: [], adminPort: 5173 } });
+    const a = testApp(repos, { sender: { kind, mailer: fake, projectsDir: dir, policyDir: pol, allowList: [], adminPort: 5173 } });
     expect((await apply(r.draftId, { confirm }, a)).status).toBe(200);
     expect((await (await a.request("http://127.0.0.1:4317/api/health")).json()) as { mailer: string }).toMatchObject({ mailer: "fake" });
     expect((await (await app.request("http://127.0.0.1:4317/api/health")).json()) as { mailer: string }).toMatchObject({ mailer: "fake" });
-    expect((await (await createApp(repos).request("http://127.0.0.1:4317/api/health")).json()) as { mailer: string }).toMatchObject({ mailer: "mail-app" });
+    expect((await (await testApp(repos).request("http://127.0.0.1:4317/api/health")).json()) as { mailer: string }).toMatchObject({ mailer: "mail-app" });
   });
 });

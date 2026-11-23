@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { messengerChatsDto } from "@hub/contract/messenger-panel";
 import { createLlm, fakeTransport, memoryLedger, type ChatRequest, type FakeScript } from "@hub/llm";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { createPreanalysis, PREANALYSIS_TASK, preanalysisStanding } from "./preanalysis";
 
 // P71 M-P: the pre-analysis of linked chats on the fake model (decision 0039 point 7: no network). Its "Done when": a batch with one
@@ -93,7 +93,7 @@ describe("the pre-analysis (P71 M-P)", () => {
       { text: "BROKEN please answer in a strange way", verdict: "unjudged" },
     ]);
 
-    const app = createApp(repos, { adminPort: ADMIN, preanalysis: job });
+    const app = testApp(repos, { adminPort: ADMIN, preanalysis: job });
     const list = messengerChatsDto.parse(await (await app.request(`${BASE}/api/projects/p/messengers/chats?filter=all`, { headers: HEADERS })).json());
     const anna = list.chats.find((c) => c.chatId === "1001");
     expect(anna?.triage).toEqual({ judged: 3, hidden: { closing: 1, automated: 1, personal: 0 }, unjudged: 1 });
@@ -111,7 +111,7 @@ describe("the pre-analysis (P71 M-P)", () => {
     await msg("1001", "in", 12, "thanks!");
     const { job } = setup(byWord);
     await job.run("p");
-    const app = createApp(repos, { adminPort: ADMIN, preanalysis: job });
+    const app = testApp(repos, { adminPort: ADMIN, preanalysis: job });
     const chat = async () => messengerChatsDto.parse(await (await app.request(`${BASE}/api/projects/p/messengers/chats?filter=all`, { headers: HEADERS })).json()).chats.find((c) => c.chatId === "1001");
     expect(await chat()).toMatchObject({ owed: false, last: { text: "thanks!", hidden: "closing" } });
     await msg("1001", "in", 20, "And the price?");
@@ -141,7 +141,7 @@ describe("the pre-analysis (P71 M-P)", () => {
     expect(preanalysisStanding(env).state).toBe("no_key");
     expect(await job.run("p")).toMatchObject({ skipped: "no_key" });
     expect(ledger.rows).toEqual([]);
-    const app = createApp(repos, { adminPort: ADMIN, preanalysis: job });
+    const app = testApp(repos, { adminPort: ADMIN, preanalysis: job });
     const list = messengerChatsDto.parse(await (await app.request(`${BASE}/api/projects/p/messengers/chats?filter=all`, { headers: HEADERS })).json());
     expect(list.preanalysis.state).toBe("no_key");
   });
@@ -165,7 +165,7 @@ describe("the pre-analysis (P71 M-P)", () => {
       return byWord(req, n);
     };
     const { transport, job } = setup(script);
-    const app = createApp(repos, { adminPort: ADMIN, preanalysis: job });
+    const app = testApp(repos, { adminPort: ADMIN, preanalysis: job });
     const id = (await repos.messengers.chat("p", "telegram_user", "1001"))?.id;
     const put = await app.request(`${BASE}/api/projects/p/messengers/chats/${id}/rules`, { method: "PUT", headers: HEADERS, body: JSON.stringify({ prefilter: true }) });
     expect(put.status).toBe(200);

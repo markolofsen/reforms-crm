@@ -6,7 +6,7 @@ import { readCoreUpdateCache, type CommandRun, type CoreUpdate } from "@hub/conf
 import { hubPaths, type HubPaths } from "@hub/config/paths";
 import { coreUpdateDto, type CoreUpdateDto } from "@hub/contract/instance";
 import type { Repos } from "@hub/db";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { createCoreUpdates, offlineRun } from "./core-updates";
 
 // `/api/instance/core` (P68): GET reads the cache and never runs git; POST checks once, and again only after a minute.
@@ -52,7 +52,7 @@ const git = (online = true): CommandRun =>
 function setup(run: CommandRun, clock = { t: Date.parse("2026-11-19T12:00:00Z") }) {
   const lines: string[] = [];
   const service = createCoreUpdates({ paths, run, auto: false, now: () => new Date(clock.t), log: (l) => lines.push(l) });
-  const app = createApp(repos, { coreUpdates: service });
+  const app = testApp(repos, { coreUpdates: service });
   const get = async () => app.request(`${API}/api/instance/core`, { headers: HOST });
   const post = async () => app.request(`${API}/api/instance/core/check`, { method: "POST", headers: HOST });
   return { service, get, post, lines, clock };
@@ -118,7 +118,7 @@ describe("POST /api/instance/core/check", () => {
     expect(inner).toHaveBeenCalledTimes(1);
   });
   it("without the service both routes are 404", async () => {
-    const app = createApp(repos, {});
+    const app = testApp(repos, {});
     expect((await app.request(`${API}/api/instance/core`, { headers: HOST })).status).toBe(404);
     expect((await app.request(`${API}/api/instance/core/check`, { method: "POST", headers: HOST })).status).toBe(404);
   });

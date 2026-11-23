@@ -3,7 +3,7 @@ import { entryKey } from "@hub/contract/local";
 import { entryStatus, inView, KNOWLEDGE_MAX_ROWS, KNOWLEDGE_TEXT_CAP, KNOWLEDGE_VIEWS, knowledgeListDto, knowledgeTextDto, type KnowledgeEntryDto, type KnowledgeView } from "@hub/contract/knowledge";
 import { notFound } from "../http/http";
 import { hostTimeZone, localDate } from "../overview/facts";
-import type { KnowledgeServices } from "../composition/capabilities";
+import type { ProjectsContext } from "./context";
 
 const list = (json: string): string[] => {
   try {
@@ -21,7 +21,7 @@ const viewOf = (v: string | undefined): KnowledgeView => KNOWLEDGE_VIEWS.find((x
  * `consistent`). `status` is computed on the project's local day; `q` matches the title or the indexed text (P128 X6), case-insensitive; the counts are every
  * view's size for that search. Read only, behind the general guard; an unknown project is 404.
  */
-export function knowledgeRoutes({ repos, projects, now, timeZone }: KnowledgeServices) {
+export function knowledgeRoutes({ repos, projects, now, timeZone }: ProjectsContext) {
   const app = new Hono();
   /**
    * `GET /api/projects/:slug/knowledge/text?key=knowledge:<path>` (P128 X6): one entry's indexed text, read only, cut at

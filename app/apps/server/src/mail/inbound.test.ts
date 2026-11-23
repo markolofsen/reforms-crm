@@ -7,7 +7,7 @@ import type { OsaRun } from "@hub/mail-app/osa";
 import { appleScriptCompileError, canCompileAppleScript } from "../../../../test-support/osacompile";
 import { ownText, parseInbound } from "@hub/mail-app/read";
 import { CONTENT_SCRIPT, INBOUND_SCRIPT, RUNNING_SCRIPT, SENT_SCRIPT } from "@hub/mail-app/scripts/read";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { judge, startInboundReader } from "./inbound";
 
 // The Mail reader (P96) reads Apple Mail through a fake `OsaRun`: no test reaches Mail.
@@ -182,7 +182,7 @@ describe("the Inbox routes", () => {
     projectFolder();
     await repos.clients.upsert({ project: "p", email: "bob@example.test", name: "Bob" });
     const r = reader(fakeMail({ inbox: [{ mailId: 2, id: "<b1@x>", from: "Bob <bob@example.test>", subject: "Question", text: "When can we talk?" }] }).osa);
-    const app = createApp(repos, { inbound: r, inboundText: async () => ({ text: "When can we talk?\n\nOn Mon, x wrote:\nold" }) });
+    const app = testApp(repos, { inbound: r, inboundText: async () => ({ text: "When can we talk?\n\nOn Mon, x wrote:\nold" }) });
     const checked = await (await app.request("http://127.0.0.1/api/projects/p/inbound/check", { method: "POST" })).json();
     expect(checked.read.at).not.toBeNull();
     const list = await (await app.request("http://127.0.0.1/api/projects/p/inbound")).json();
@@ -201,7 +201,7 @@ describe("the Inbox routes", () => {
     await repos.clients.upsert({ project: "p", email: "bob@example.test", name: "Bob" });
     const r = reader(fakeMail({ inbox: [{ mailId: 2, id: "<B1@x>", from: "Bob <bob@example.test>", subject: "Re: Wow", text: "Are you there? Send a quote", at: new Date(Date.now() - 60_000) }] }).osa);
     let mailReads = 0;
-    const app = createApp(repos, { inbound: r, inboundText: async () => ((mailReads += 1), { text: "x" }) });
+    const app = testApp(repos, { inbound: r, inboundText: async () => ((mailReads += 1), { text: "x" }) });
     await r.tick();
     const [row] = await repos.inboundMail.open("p");
     // The draft's mailRef is the Message-ID in Mail's own case (saas draft 4); the stored row is lower case.

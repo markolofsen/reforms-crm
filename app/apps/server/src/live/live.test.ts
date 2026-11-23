@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { bumpTopic, createRepos, LIVE_TABLES, liveSeq, openDb, type DbHandle, type Repos } from "@hub/db";
 import { MAX_LIVE_SUBSCRIBERS, parseLiveEvent, type LiveEvent } from "@hub/contract/live";
-import { createApp } from "../app";
+import { testApp } from "../test-support/runtime";
 import { changesOf, createLive, logSignatures, movedKeys, resumeOf, TABLE_TOPIC, type LiveService, type LiveSink } from "./live";
 
 // P50 L2: the tailer, the frames, resume and reset, backpressure, the cap, and the route's guards.
@@ -183,7 +183,7 @@ describe("live service", () => {
 describe("GET /api/live", () => {
   const url = "http://127.0.0.1:4317/api/live";
   it("streams text/event-stream with no-transform and no CORS header, hello first", async () => {
-    const app = createApp(repos, { live });
+    const app = testApp(repos, { live });
     const ctl = new AbortController();
     const res = await app.request(url, { signal: ctl.signal });
     expect(res.status).toBe(200);
@@ -201,10 +201,10 @@ describe("GET /api/live", () => {
   });
 
   it("a foreign Host or Origin is refused; without the service it is 404; when full it is 503", async () => {
-    const app = createApp(repos, { live });
+    const app = testApp(repos, { live });
     expect((await app.request("http://evil.example/api/live")).status).toBe(403);
     expect((await app.request(url, { headers: { origin: "http://evil.example" } })).status).toBe(403);
-    expect((await createApp(repos).request(url)).status).toBe(404);
+    expect((await testApp(repos).request(url)).status).toBe(404);
     for (let i = 0; i < MAX_LIVE_SUBSCRIBERS; i++) live.subscribe(sink(), undefined);
     expect((await app.request(url)).status).toBe(503);
   });

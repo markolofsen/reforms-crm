@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { agentFeedDto } from "@hub/contract/agent-feed";
 import { feedOf, tailEvents } from "@hub/log/feed";
 import { notFound } from "../http/http";
-import type { AgentFeedServices } from "../composition/capabilities";
+import type { AgentContext } from "./context";
 
 /**
  * `GET /api/projects/:slug/agent-feed` (P59): the tone of each turn that ended and whether the agent waits on the owner,
@@ -10,7 +10,7 @@ import type { AgentFeedServices } from "../composition/capabilities";
  * Read only, behind the general guard (loopback Host and Origin). The live topic
  * `agent-log` says when to read it again. Without a log store the route is 404.
  */
-export function agentFeedRoutes({ repos, store, now }: AgentFeedServices) {
+export function agentFeedRoutes({ repos, log: store, now }: AgentContext) {
   return new Hono().get("/api/projects/:slug/agent-feed", async (c) => {
     if (!store) return c.json({ error: "agent feed not set up", code: "not_found" as const }, 404);
     const slug = c.req.param("slug");
