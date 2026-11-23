@@ -24,7 +24,9 @@ export const REVIEW_KEYS: readonly (readonly [string, string])[] = [
 ];
 
 const inside = (el: Element | null, pane: string) => el?.closest(`[data-pane="${pane}"]`) != null;
-const popupOpen = () => document.querySelector('[data-slot$="-popup"], [role="dialog"], [role="menu"]') !== null;
+// A tooltip is not a popup that owns Esc (a focused control's hint, such as Open draft in Mail's, must not keep Esc in the card).
+const popupOpen = () => document.querySelector('[data-slot$="-popup"]:not([data-slot="tooltip-popup"]), [role="dialog"], [role="menu"]') !== null;
+const tooltipOpen = () => document.querySelector('[data-slot="tooltip-popup"]') !== null;
 
 /** Focus a row's button once it has rendered: after Done or Skip the card that held focus is gone, so focus follows to the next person. */
 export function focusRow(id: number | null): void {
@@ -117,4 +119,6 @@ export function useReviewKeys(k: KeyDeps): void {
     k.enabled,
     REVIEW_KEYS,
   );
+  // An open tooltip stops Esc before the keys above (bubble phase) see it: that one case is taken in the capture phase.
+  useHotkeys({ escape: () => { if (tooltipOpen()) outOfDetail(false)(); } }, k.enabled, [], { capture: true });
 }

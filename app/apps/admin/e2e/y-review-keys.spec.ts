@@ -21,6 +21,8 @@ test("Enter goes from the list into the open card and Esc comes back to its row"
 });
 
 test("Shift+A selects every open draft, the bar says how many, and Esc clears it before anything else", async ({ page }) => {
+  // The keys are registered once the list has settled (its reads and live checks), as in the Enter test above.
+  await page.waitForLoadState("networkidle");
   await page.keyboard.press("Shift+A");
   const bar = page.getByRole("toolbar", { name: "Selected drafts" });
   await expect(bar).toBeVisible();
