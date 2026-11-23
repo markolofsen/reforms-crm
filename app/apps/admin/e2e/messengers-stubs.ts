@@ -2,7 +2,7 @@ import type { Page, Route } from "@playwright/test";
 
 // P84c: the e2e instance has two projects, so its server runs no Telegram or WhatsApp account and its autolink serves no project
 // (`recent` and `hidden` are empty there). The Chats views of unlinked and hidden chats are driven by these stubs; the server side
-// (freshness, Hide's keyed hash, Unhide) runs on fakes in `apps/server/src/autolink-hidden.test.ts`. Nothing here reaches a messenger.
+// (freshness, Hide's keyed hash, Unhide) runs on fakes in `apps/server/src/messengers/autolink/hidden.test.ts`. Nothing here reaches a messenger.
 
 const P = "lisbon-realty";
 const ago = (min: number) => new Date(Date.now() - min * 60_000).toISOString();

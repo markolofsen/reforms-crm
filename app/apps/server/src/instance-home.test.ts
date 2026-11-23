@@ -7,7 +7,7 @@ import { createRepos, openDb } from "@hub/db";
 import { projectStore, syncProjects } from "@hub/projects";
 import { readAllowList } from "@hub/projects";
 import { configFile } from "./send/mailer";
-import { projectOverview, projectsRoot } from "./project-overview";
+import { projectOverview, projectsRoot } from "./projects/overview";
 
 // Decision 0016, S1: the server finds its projects, its send settings and its secrets in the instance named by HUB_HOME.
 const home = mkdtempSync(join(tmpdir(), "hub-server-instance-"));

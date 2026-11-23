@@ -173,8 +173,8 @@ describe("the server boundary (decision 0015 section 4 and 5)", () => {
         .filter((p) => /\.tsx?$/.test(p) && !/\.test\.tsx?$/.test(p))
         .flatMap((p) => read(p).split("\n").flatMap((l, i) => (/[Ѐ-ӿ]/.test(l) ? [`${path.relative(repo, p)}:${i + 1}`] : []))),
     );
-    expect(lines.filter((l) => !/^app\/apps\/server\/src\/sent\.ts:\d+$/.test(l))).toEqual([]);
-    expect(lines.filter((l) => l.startsWith("app/apps/server/src/sent.ts")).length).toBeLessThanOrEqual(1);
+    expect(lines.filter((l) => !/^app\/apps\/server\/src\/mail\/sent\.ts:\d+$/.test(l))).toEqual([]);
+    expect(lines.filter((l) => l.startsWith("app/apps/server/src/mail/sent.ts")).length).toBeLessThanOrEqual(1);
   });
   it("the Node-only server packages are banned imports: the eslint list names @hub/terminal and @hub/agent (P49) and @hub/sequences (P47), and no admin file imports them", () => {
     const config = read(path.join(admin, "eslint.config.mjs"));
@@ -250,7 +250,7 @@ describe("bounded contract ownership", () => {
     const sendFiles = [
       path.join(admin, "src/lib/api/messengers/send.ts"),
       path.join(admin, "src/features/messengers/send-bar.tsx"),
-      path.resolve(repo, "app/apps/server/src/routes/sends.ts"),
+      path.resolve(repo, "app/apps/server/src/send/sends-routes.ts"),
     ];
     expect(offenders(sendFiles, /from ["']@hub\/contract\/messenger-panel["']/)).toEqual([]);
   });

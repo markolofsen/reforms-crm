@@ -44,7 +44,7 @@ Measured on Claude Code 2.1.220 and Codex 0.146.0 (2026-11-18), unattended, in a
 
 ## The terminal: contract
 
-Wire shapes: `@hub/contract/terminal`. Server: `@hub/terminal` (sessions, PTY, presets, env, socket; imported by `apps/server` only) and `apps/server/src/terminal.ts`, `routes/terminal.ts`.
+Wire shapes: `@hub/contract/terminal`. Server: `@hub/terminal` (sessions, PTY, presets, env, socket; imported by `apps/server` only) and `apps/server/src/terminal/terminal.ts`, `routes/terminal.ts`.
 
 | Route | What it does |
 |---|---|

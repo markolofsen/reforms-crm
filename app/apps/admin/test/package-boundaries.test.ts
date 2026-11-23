@@ -47,6 +47,6 @@ describe("package boundaries", () => {
   });
 
   it("server route adapters do not reach package internals", () => {
-    expect(forbidden(sourceFiles("app/apps/server/src/routes"), /^@hub\/[^/]+\/src\//)).toEqual([]);
+    expect(forbidden(sourceFiles("app/apps/server/src"), /^@hub\/[^/]+\/src\//)).toEqual([]);
   });
 });

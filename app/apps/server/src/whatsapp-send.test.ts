@@ -7,7 +7,7 @@ import { FakeBoom, FakeWaSocket, WA_CREDS, WaAuthFiles, waFolderOf } from "@hub/
 import { setSendPolicy } from "@hub/projects";
 import { FakeMailer } from "@hub/send";
 import { createApp } from "./app";
-import { startWhatsApp, type WhatsAppHandle } from "./whatsapp";
+import { startWhatsApp, type WhatsAppHandle } from "./messengers/accounts/whatsapp";
 
 // P71 M5: the M4 checks for a WhatsApp draft, on a FAKE Baileys socket (no WebSocket, no QR scan, nothing sent anywhere): test
 // mode refuses an unlisted chat, a chat with no inbound row, over the cap, inside the spacing, after the text changed, while Stop

@@ -193,7 +193,7 @@ export interface AutolinkClient {
  * The Hub's own link (P84, decision 0036 point 3 as amended 2026-11-20 on the owner's delegated word): when a connected account
  * sees a private dialog whose phone or username equals the identifier of exactly ONE client record, and the project's
  * `messengers.autolink` is on, the server links it without a click. Not a person's act, so no `HumanActor`: only the server's
- * autolink coordinator (`apps/server/src/autolink.ts`) calls it, after it checked the setting, the refusals and the match. It ensures
+ * autolink coordinator (`apps/server/src/messengers/autolink/autolink.ts`) calls it, after it checked the setting, the refusals and the match. It ensures
  * the client's row (a row from a link, decision 0009 as amended: never a bulk copy), then links and imports like the owner's Link.
  */
 export async function autoLinkUserChat(

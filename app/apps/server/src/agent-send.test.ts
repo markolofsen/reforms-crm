@@ -10,7 +10,7 @@ import { writeSession } from "@hub/messengers/human";
 import { setSendPolicy } from "@hub/projects";
 import { FakeMailer } from "@hub/send";
 import { createApp } from "./app";
-import { startTelegramUser, type TelegramUserHandle } from "./telegram-user";
+import { startTelegramUser, type TelegramUserHandle } from "./messengers/accounts/telegram-user";
 
 // Decision 0046 (P132 B1-4): the agent sends one messenger draft on the owner's word, through the same door as his Send, on a
 // fake mtcute client and a fake session log (no network, no login, nothing sent anywhere). One test per case of the slice:

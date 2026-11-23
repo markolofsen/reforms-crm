@@ -1,6 +1,6 @@
 # 27. The typed LLM package (`@hub/llm`)
 
-The Hub's one door to a model API (track P78, decision `@dev/decisions/0039`). It turns a zod 4 schema into a strict structured-output request to OpenRouter, checks the answer, and returns a typed value. It is for cheap, short, structured jobs inside work the owner already started (labelling messages, tagging threads), never for the agent's own reasoning, which stays in the CLIs he signs in to. The first caller is P71 M-P, the pre-analysis of linked messenger chats (`apps/server/src/preanalysis.ts`, task `messages.preanalysis`, `llm.batch` on the `cheap` preset; `app/packages/messengers/README.md`, section Pre-analysis); P79 (Threads topics) is next.
+The Hub's one door to a model API (track P78, decision `@dev/decisions/0039`). It turns a zod 4 schema into a strict structured-output request to OpenRouter, checks the answer, and returns a typed value. It is for cheap, short, structured jobs inside work the owner already started (labelling messages, tagging threads), never for the agent's own reasoning, which stays in the CLIs he signs in to. The first caller is P71 M-P, the pre-analysis of linked messenger chats (`apps/server/src/messengers/preanalysis.ts`, task `messages.preanalysis`, `llm.batch` on the `cheap` preset; `app/packages/messengers/README.md`, section Pre-analysis); P79 (Threads topics) is next.
 
 Code: `app/packages/llm/src/` (eight files). It imports `@hub/config` and zod only: the caller passes the ledger, so the package never opens the database, and `@hub/send` never imports it.
 

@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { opsErrorsDto } from "@hub/contract/ops-log";
 import { OPS_SOURCES, appendOps, type OpsStore } from "@hub/log/ops";
-import { OPS_PLACE, opsLogRoutes } from "./routes/ops-log";
+import { OPS_PLACE, opsLogRoutes } from "./instance/ops-log-routes";
 
 // P86: Overview's Recent errors, read from the ops log.
 const store = (): OpsStore => ({ dir: mkdtempSync(path.join(tmpdir(), "ops-route-")), secrets: path.join(tmpdir(), "none"), keepDays: 7, softCap: 1e9, hardCap: 2e9 });

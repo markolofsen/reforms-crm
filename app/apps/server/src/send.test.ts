@@ -8,7 +8,7 @@ import { FakeMailer } from "@hub/send";
 import { createApp } from "./app";
 import { createServerMailer } from "./send/mailer";
 import { setSendPolicy } from "@hub/projects";
-import { ticketStore } from "./admin-gate";
+import { ticketStore } from "./http/admin-gate";
 
 // The admin's Send. Every test uses FakeMailer: nothing here reaches Mail and nothing is ever sent.
 

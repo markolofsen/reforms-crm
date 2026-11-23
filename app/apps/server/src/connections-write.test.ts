@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { connectionDto } from "@hub/contract/connections";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { createApp } from "./app";
-import { fakeProbeDeps } from "./connections";
+import { fakeProbeDeps } from "./instance/connections";
 import { captureOps } from "@hub/log/ops";
 import { projectStoreOf } from "@hub/projects/testing";
 

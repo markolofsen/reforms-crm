@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { HubError, STATUS_OF } from "@hub/config/errors";
 import { RepoError } from "@hub/db";
 import { AdapterError, MessengersError } from "@hub/messengers";
-import { NotTestable, Refusal } from "./connections";
-import { MessengerReplyError } from "./messenger-reply";
-import { AutostartNotSetUp } from "./autostart";
+import { NotTestable, Refusal } from "./instance/connections";
+import { MessengerReplyError } from "./messengers/reply";
+import { AutostartNotSetUp } from "./instance/autostart";
 
 // P126 E1: the before/after table of the server's answers. Exactly two rows changed: a repository's `invalid` (409 → 400)
 // and `unknown_project` (409 → 404); every other refusal keeps the status its route gave it by hand.

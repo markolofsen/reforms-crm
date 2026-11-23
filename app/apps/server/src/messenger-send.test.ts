@@ -8,7 +8,7 @@ import { writeSession } from "@hub/messengers/human";
 import { setSendPolicy } from "@hub/projects";
 import { FakeMailer } from "@hub/send";
 import { createApp } from "./app";
-import { startTelegramUser, type TelegramUserHandle } from "./telegram-user";
+import { startTelegramUser, type TelegramUserHandle } from "./messengers/accounts/telegram-user";
 
 // P71 M4: the send door for a messenger draft, on a fake mtcute client (no network, no login, nothing sent anywhere). The
 // "Done when" of M4, one test each: test mode refuses an unlisted chat, a chat with no inbound row, over the cap, inside the
