@@ -81,7 +81,7 @@ test("a Mail deep link with an open conversation survives a reload", async ({ pa
   await expect(current).toHaveAttribute("data-open", "true");
   // P103: the address names him by his email (the id form replaced in place).
   await expect.poll(() => address(page)).toBe(at(P, await clientPath(page, P, id)));
-  await expect(page).toHaveTitle(new RegExp(`^Conversation \\S+@\\S+ · Mail · ${P} · Hub Workflow$`));
+  await expect(page).toHaveTitle(new RegExp(`^\\S+@\\S+ · Mail · ${P} · Hub Workflow$`));
 });
 
 test("a view in the address survives a reload, and a bad one resets", async ({ page }) => {

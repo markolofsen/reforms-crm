@@ -15,6 +15,8 @@ export type BatchSummary = Omit<BatchRow, "clientIds" | "excluded"> & {
   excluded: Excluded;
   counts: BatchFilterCounts;
   run: { status: string; finishedAt: string | null; tokensIn: number; tokensOut: number; costUsd: number } | null;
+  /** P128 X4: when its last draft was sent or done (the newest `sent_at` or `acted_at` of a closed draft); null while none is. */
+  lastClosedAt: string | null;
 };
 
 const closedSql = sql`case when ${drafts.status} in ('done','sent','skipped') then 1 else 0 end`;
@@ -51,8 +53,21 @@ function countsFor(tx: Tx, ids: number[]): Map<number, BatchFilterCounts> {
   return out;
 }
 
+/** P128 X4: per batch, the newest time one of its drafts was sent or done; the View menu drops a batch 7 days after it. */
+function lastClosedFor(tx: Tx, ids: number[]): Map<number, string> {
+  if (ids.length === 0) return new Map();
+  const rows = tx
+    .select({ batchId: drafts.batchId, at: sql<string | null>`max(coalesce(${drafts.sentAt}, ${drafts.actedAt}))` })
+    .from(drafts)
+    .where(and(inArray(drafts.batchId, ids), inArray(drafts.status, ["done", "sent"])))
+    .groupBy(drafts.batchId)
+    .all();
+  return new Map(rows.flatMap((r) => (r.batchId != null && r.at ? [[r.batchId, r.at] as const] : [])));
+}
+
 function summarize(tx: Tx, rows: BatchRow[]): BatchSummary[] {
   const counts = countsFor(tx, rows.map((r) => r.id));
+  const closed = lastClosedFor(tx, rows.map((r) => r.id));
   const runIds = rows.map((r) => r.runId).filter((v): v is number => v != null);
   const runs = new Map(
     (runIds.length ? tx.select().from(agentRuns).where(inArray(agentRuns.id, runIds)).all() : []).map((r) => [r.id, r]),
@@ -64,6 +79,7 @@ function summarize(tx: Tx, rows: BatchRow[]): BatchSummary[] {
       excluded: parseJson<Excluded>(excluded, {}),
       counts: counts.get(b.id) as BatchFilterCounts,
       run: run ? { status: run.status, finishedAt: run.finishedAt, tokensIn: run.tokensIn, tokensOut: run.tokensOut, costUsd: run.costUsd } : null,
+      lastClosedAt: closed.get(b.id) ?? null,
     };
   });
 }

@@ -2418,7 +2418,7 @@ components:
     BatchSummary:
       type: object
       additionalProperties: false
-      required: [id, name, intent, status, audience, silentDays, total, brief, runId, createdAt, closedAt, excluded, counts, run]
+      required: [id, name, intent, status, audience, silentDays, total, brief, runId, createdAt, closedAt, excluded, counts, run, lastClosedAt]
       properties:
         id:
           type: integer
@@ -2483,6 +2483,8 @@ components:
                 costUsd:
                   type: number
             - type: 'null'
+        lastClosedAt:
+          type: [string, 'null']
     Batches:
       type: object
       additionalProperties: false

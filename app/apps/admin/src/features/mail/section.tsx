@@ -6,6 +6,8 @@ import { useClientKey } from "./use-client-key";
 import { phrase } from "@hub/contract/help";
 import { useCallback, useMemo } from "react";
 import { MailWorkspace } from "./adapter";
+import { batchListed, shortBatchName } from "./model";
+import { useClock } from "@/lib/clock";
 import type { View } from "@/features/mail/list/header";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useGo } from "@/hooks/use-go";
@@ -65,6 +67,7 @@ function MailSection({ project, filter, q, batch, clientId, pointed, leadPageId 
   const setQ = useCallback((v: string) => setSearch({ q: v }), [setSearch]);
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
   const batches = useBatches(project);
+  const now = useClock()();
   const notByEmail = useNotByEmailTotal(project);
   const inbound = useInbound(project);
   const known = batch === null || (batches.data?.batches.some((b) => b.id === batch) ?? true);
@@ -73,7 +76,8 @@ function MailSection({ project, filter, q, batch, clientId, pointed, leadPageId 
   const source = useMemo(() => mailSource(project, filter, filter === "not_by_email" ? "all" : filter, { search, batch }), [project, filter, batch, search]);
   const views = (counts: ReviewPage["counts"]): View[] => [
     ...DRAFT_VIEWS.map((v) => ({ value: v, label: DRAFT_VIEW_LABELS[v], count: v === "not_by_email" ? notByEmail : countOf(counts, v), ...(DRAFT_FILTERS.has(v) ? { group: "Filters" } : {}) })),
-    ...(batches.data?.batches ?? []).map((b) => ({ value: `${BATCH}${b.id}`, label: b.name, count: b.total, group: "Batches" })),
+    // P128 X4: a batch shows its short name and leaves the menu 7 days after its last draft was sent or done.
+    ...(batches.data?.batches ?? []).filter((b) => batchListed(b, now, batch)).map((b) => ({ value: `${BATCH}${b.id}`, label: shortBatchName(b.name), count: b.total, group: "Batches" })),
   ];
   // The View menu's value is the batch when one is open, else the view.
   const onView = (v: string) =>

@@ -25,13 +25,14 @@ export function crumbsOf(r: Resolved): string[] {
 /** `Conversation 42 · Mail · lisbon · Hub Workflow`, `Setup · lisbon · Hub Workflow`. The projectless pages name no project. */
 export function titleOf(r: Resolved, project: string | null): string {
   if (r.route === "notFound") return `Not found · ${APP}`;
-  return pageTitle(r.route, project, "id" in r.params ? r.params.id : undefined);
+  return pageTitle(r.route, project, "id" in r.params ? r.params.id : "key" in r.params ? r.params.key : undefined);
 }
 
 /** The title a page file gives its metadata: `routeId` and the id and project of its own address (a page knows both). */
 export function pageTitle(id: RouteId, project: string | null | undefined, item?: number | string): string {
   const { title, crumb } = metaOf(id);
-  const sub = crumb && item !== undefined ? `${crumb} ${item}` : null;
+  // P128 X4: a person's address names him ("ana@example.com · Mail · …"); an id keeps its crumb ("Conversation id-12").
+  const sub = crumb && item !== undefined ? (typeof item === "string" && item.includes("@") ? item : `${crumb} ${item}`) : null;
   return [sub, title, PROJECTLESS.has(id) ? null : project, APP].filter(Boolean).join(" · ");
 }
 

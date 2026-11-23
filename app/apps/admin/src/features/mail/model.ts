@@ -24,3 +24,23 @@ export function undoTarget(last: { draft: ReviewDraft; at: number } | null, open
   if (last && now - last.at <= UNDO_WINDOW_MS) return last.draft;
   return open?.canUndo ? open : null;
 }
+
+/** P128 X4: a batch leaves the View menu this many days after its last draft was sent or done, once nothing in it is open. */
+export const BATCH_KEEP_DAYS = 7;
+const BATCH_SHORT_MAX = 28;
+
+/** Whether the View menu still lists a batch: one with an open draft, a closed one for 7 days after its last send or done, or the one on screen. */
+export function batchListed(b: { id: number; lastClosedAt: string | null; counts: { review: number; checked: number; hold: number } }, now: number, onScreen: number | null): boolean {
+  if (b.id === onScreen) return true;
+  if (b.counts.review + b.counts.checked + b.counts.hold > 0 || b.lastClosedAt === null) return true;
+  return now - Date.parse(b.lastClosedAt) < BATCH_KEEP_DAYS * 86_400_000;
+}
+
+/** The batch chip's short name (P128 X4): the name cut at a word to 28 characters; the asking prompt stays its "Asked for" line. */
+export function shortBatchName(name: string): string {
+  const t = name.replace(/\s+/g, " ").trim();
+  if (t.length <= BATCH_SHORT_MAX) return t;
+  const cut = t.slice(0, BATCH_SHORT_MAX - 1);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > 12 ? cut.slice(0, space) : cut).replace(/[\s,.;:·-]+$/, "")}…`;
+}

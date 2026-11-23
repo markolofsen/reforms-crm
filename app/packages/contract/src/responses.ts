@@ -194,6 +194,8 @@ export const batchSummaryDto = z.object({
   excluded: z.partialRecord(z.enum(EXCLUSION_REASONS), z.number()),
   counts: filterCounts(BATCH_FILTERS),
   run: z.object({ status: z.string(), finishedAt: nullableIso, tokensIn: z.number(), tokensOut: z.number(), costUsd: z.number() }).nullable(),
+  /** P128 X4: when its last draft was sent or done; the View menu drops the batch 7 days later when nothing in it is open. */
+  lastClosedAt: nullableIso,
 });
 export type BatchSummaryDto = z.infer<typeof batchSummaryDto>;
 export const batchesDto = z.object({ batches: z.array(batchSummaryDto) });

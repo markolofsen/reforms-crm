@@ -97,6 +97,8 @@ describe("document title", () => {
   it("names the item, the section, the project and the app; Not found names no section", () => {
     expect(titleOf(resolveRoute("/mail", ""), "lisbon")).toBe("Mail · lisbon · Hub Workflow");
     expect(titleOf(resolveRoute("/mail/c/id-42", ""), "lisbon")).toBe("Conversation id-42 · Mail · lisbon · Hub Workflow");
+    // P128 X4: the tab names the person by his address.
+    expect(titleOf(resolveRoute("/mail/c/ana%40example.com", ""), "lisbon")).toBe("ana@example.com · Mail · lisbon · Hub Workflow");
     expect(titleOf(resolveRoute("/log", ""), "x")).toBe("Activity · x · Hub Workflow");
     expect(titleOf(resolveRoute("/clients", ""), "x")).toBe("Not found · Hub Workflow");
     expect(crumbsOf(resolveRoute("/mail/c/id-42", ""))).toEqual(["Mail", "Conversation id-42"]);
