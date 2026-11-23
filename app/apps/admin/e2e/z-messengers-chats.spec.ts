@@ -36,7 +36,7 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=unlinked");
   // P128 X5: Not linked lists the last 14 days; the 20-day-old chat is one line, and a search still finds it.
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Tomas Viera/, /Joana/, /Delivery bot fan/]);
-  await expect(page.getByText("3 chats the Hub has seen since it started (any age) are not linked to a client: link or hide each.")).toBeVisible();
+  await expect(page.getByText("3 new chats of the last 14 days are not linked to a client: link or hide each.")).toBeVisible();
   await expect(page.getByTestId("not-linked-older")).toHaveText("and 1 older, untouched. Search finds them.");
   await page.getByRole("searchbox", { name: "Search chats" }).fill("Olga");
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Old Olga/]);

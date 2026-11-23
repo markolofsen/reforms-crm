@@ -28,7 +28,7 @@ import { useTelegramUser } from "./settings/use-telegram";
 import { useWhatsApp } from "./settings/whatsapp/use-whatsapp";
 import { LinkChat } from "./status/link-chat";
 import { useChatMoves } from "./status/use-moves";
-import { channelOptions, effectiveChannel, foldOlder, hiddenRows, matchesHiddenSearch, matchesRecentSearch, notLinkedRows, unlinkedRows, viewCounts } from "./unlinked/chats-model";
+import { channelOptions, effectiveChannel, foldOlder, hiddenRows, NOT_LINKED_DAYS, matchesHiddenSearch, matchesRecentSearch, notLinkedRows, unlinkedRows, viewCounts } from "./unlinked/chats-model";
 import { HiddenChats } from "./unlinked/hidden-chats";
 import { UnlinkedChats } from "./unlinked/unlinked-chats";
 import { useChatActions } from "./use-chat-actions";
@@ -111,7 +111,7 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
         <EmptyState compact title="No unlinked chats">Every chat the Hub has seen since it started is linked or hidden. A chat that writes and matches no client shows here.</EmptyState>
       ) : st ? (
         <>
-          {shown.length > 0 && <UnlinkedChats active={0} freshDays={null} moves={moves} noLinked={false} now={now} project={project} rows={shown} />}
+          {shown.length > 0 && <UnlinkedChats active={0} freshDays={searchQuery !== "" ? null : NOT_LINKED_DAYS} moves={moves} noLinked={false} now={now} project={project} rows={shown} />}
           {olderLine}
         </>
       ) : null;
