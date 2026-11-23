@@ -56,6 +56,22 @@ export function protectedEditRules(paths: HubPaths): string[] {
 }
 
 /**
+ * P129 verdict 13 (decision 0045 point 13): the memory files of the folders above the instance (`@projects/CLAUDE.md`,
+ * `crm/CLAUDE.md`: django-cfg, a lead-form check) are rules for developers of other projects. Claude Code loads every
+ * `CLAUDE.md` from the working directory up; its `claudeMdExcludes` setting (picomatch on absolute paths, measured in the
+ * 2.1.220 binary) drops them. The instance's own `CLAUDE.md` and the owner's `~/.claude/CLAUDE.md` stay.
+ */
+export function ancestorMemoryExcludes(home: string): string[] {
+  const out: string[] = [];
+  for (let dir = path.dirname(path.resolve(home)); ; dir = path.dirname(dir)) {
+    const base = dir.split(path.sep).join("/").replace(/\/$/, "");
+    out.push(`${base}/CLAUDE.md`, `${base}/CLAUDE.local.md`);
+    if (path.dirname(dir) === dir) break;
+  }
+  return out;
+}
+
+/**
  * `state/projects/<slug>/settings.json`: deny rules, the guard hooks, and in unattended mode the sandbox. In unattended
  * mode the database folder is left out of the Read/Edit deny rules: Claude turns them into sandbox read and write
  * denials, and `hub record-draft` (the agent's one writer, decision 0009) must open the database. The database holds
@@ -68,6 +84,7 @@ export function claudeSettings(i: ClaudeSessionInput): Record<string, unknown> {
   const hub = `${JSON.stringify(i.nodeBin)} ${JSON.stringify(i.paths.hubBin)} guard`;
   return {
     ...claudeModelSettings(i.agent),
+    claudeMdExcludes: ancestorMemoryExcludes(i.paths.home),
     permissions: { deny },
     hooks: {
       PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: hub, timeout: 20 }] }],

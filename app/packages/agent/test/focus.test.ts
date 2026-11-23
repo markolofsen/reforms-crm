@@ -3,10 +3,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FOCUS_LINE_MAX, REF_KINDS } from "@hub/contract/focus";
+import { FOCUS_LINE_MAX, REF_KINDS, type FocusItem } from "@hub/contract/focus";
 import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "@hub/db";
 import { SEND_LIKE_TOOL } from "../src/deny";
-import { focusLine, livePointer, readFocus, RESOLVERS } from "../src/focus";
+import { focusLine, livePointer, readFocus, RESOLVERS, thisOf } from "../src/focus";
 import { createHubMcpServer, HUB_MCP_TOOLS } from "../src/mcp/server";
 import type { NotionScope } from "../src/notion-scope";
 
@@ -81,7 +81,7 @@ describe("readFocus", () => {
     expect(f.pointed).toEqual({ ref: `knowledge:${CSV}`, kind: "knowledge", title: CSV_TITLE, status: "approved", read: { server: "knowledge-mcp", tool: "knowledge_get", args: { project: "acme", path: CSV } } });
     expect(f.window).toMatchObject({ total: 57, more: 0, items: [{ title: CSV_TITLE }] });
     const line = focusLine(await read("acme", NOW, "line")) ?? "";
-    expect(line).toMatch(/^\[Hub focus, data\] Knowledge · on knowledge:knowledge\/files\/csv-export-1a2b\.md "Can I download everything in a single request or as a CSV file\?" approved \(knowledge_get\) · 1 of 57 on screen · search "csv" · 30 s ago \(call the hub focus tool for detail\)$/);
+    expect(line).toMatch(/^\[Hub focus, data\] this knowledge:knowledge\/files\/csv-export-1a2b\.md · Knowledge · on knowledge:knowledge\/files\/csv-export-1a2b\.md "Can I download everything in a single request or as a CSV file\?" approved \(knowledge_get\) · 1 of 57 on screen · search "csv" · 30 s ago \(call the hub focus tool for detail\)$/);
   });
 
   it("a draft subject names its client and subject, cut to 120; the hook resolves the subject and counts the selection", async () => {
@@ -93,7 +93,7 @@ describe("readFocus", () => {
     expect(f.selected.map((s) => s.ref)).toEqual([`draft:${ids.mark}`, `draft:${ids.ann}`]);
     const hook = await read("acme", NOW, "line");
     expect(hook).toMatchObject({ selected: [], selectedMore: 2 });
-    expect(focusLine(hook)).toMatch(new RegExp(`^\\[Hub focus, data\\] Draft ${ids.mark} · open draft:${ids.mark} "Mark Effect <mark@example.com> · Re: Hello x+…" ready \\(draft_show\\) · 2 selected · 30 s ago`));
+    expect(focusLine(hook)).toMatch(new RegExp(`^\\[Hub focus, data\\] this draft:${ids.mark} · Draft ${ids.mark} · open draft:${ids.mark} "Mark Effect <mark@example.com> · Re: Hello x+…" ready \\(draft_show\\) · 2 selected · 30 s ago`));
   });
 
   it("every kind resolves inside the bound project and drops another project's id", async () => {
@@ -121,6 +121,37 @@ describe("readFocus", () => {
     expect(await RESOLVERS.inbound(ctx, String(ids.annInbound))).toMatchObject({ status: `answered by draft ${ids.ann} (ready)` });
     put({ route: "mail.inbound", title: "Mail", subject: `inbound:${ids.inbound}` });
     expect((await read()).subject).toMatchObject({ ref: `inbound:${ids.inbound}`, kind: "inbound", title: expect.stringContaining("Re: Wow") });
+  });
+
+  it("P129 verdict 8: \"this\" is the subject, else the pointed row, else the one selected, else the one on screen", () => {
+    const it_ = (ref: string): FocusItem => ({ ref, kind: "draft", title: ref, status: null, read: null });
+    const [a, b, c] = [it_("draft:1"), it_("draft:2"), it_("draft:3")];
+    const win = (items: FocusItem[], total = items.length, more = 0) => ({ items, total, more });
+    const none = { subject: null, pointed: null, selected: [], selectedMore: 0, window: null };
+    const table: Array<[string, Parameters<typeof thisOf>[0], string | null, string | null]> = [
+      ["subject wins over all", { subject: a, pointed: b, selected: [c], selectedMore: 0, window: win([c]) }, "draft:1", "subject"],
+      ["pointed when no subject", { ...none, pointed: b, selected: [c], window: win([a, c]) }, "draft:2", "pointed"],
+      ["the one selected row", { ...none, selected: [c], window: win([a, b, c]) }, "draft:3", "selected"],
+      ["two selected: none", { ...none, selected: [a, b], window: win([a, b]) }, null, null],
+      ["one selected listed, more not resolved: none", { ...none, selected: [a], selectedMore: 1 }, null, null],
+      ["the one row on screen", { ...none, window: win([a]) }, "draft:1", "window"],
+      ["one listed of several on screen: none", { ...none, window: win([a], 3) }, null, null],
+      ["nothing", none, null, null],
+    ];
+    for (const [name, parts, ref, from] of table) {
+      const t = thisOf(parts);
+      expect(t.this?.ref ?? null, name).toBe(ref);
+      expect(t.thisFrom, name).toBe(from);
+    }
+  });
+
+  it("readFocus returns this and thisFrom; the hook line starts with it", async () => {
+    put({ pointed: `knowledge:${CSV}`, window: { refs: [`knowledge:${CSV}`], total: 57 } });
+    expect(await read()).toMatchObject({ this: { ref: `knowledge:${CSV}` }, thisFrom: "pointed" });
+    put({ window: { refs: [`knowledge:${CSV}`, `draft:${ids.mark}`], total: 2 } });
+    const f = await read();
+    expect(f).toMatchObject({ this: null, thisFrom: null });
+    expect(focusLine(f)).toMatch(/^\[Hub focus, data\] this: none · /);
   });
 
   it("a resolver exists for every ref kind (a kind added without one fails here)", () => {

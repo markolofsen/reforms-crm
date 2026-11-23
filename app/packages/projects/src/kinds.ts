@@ -54,12 +54,13 @@ const RAW = [
     id: "software-support",
     title: "SaaS support",
     description: "Customer support for a software product: clients and documents in Notion, billing and bug mail, no calendar.",
-    modules: ["mail", "knowledge", "filters", "notion", "sequences"],
+    modules: ["mail", "knowledge", "filters", "notion", "bulk", "sequences"],
     required: [...REQUIRED, "notion.databases.clients"],
     notionModules: ["sales", "leads", "documents", "business-contacts", "tasks"],
     mailClasses: [...MAIL_CLASSES, { id: "customer-bug", color: "Orange", neverSpam: true }, { id: "billing", color: "Light green", neverSpam: true }],
     send: SEND("customer-bug", "billing"),
-    skills: SKILLS.filter((s) => s !== "calendar" && s !== "bulk-drafts"),
+    // Campaigns run on saas (P85), so bulk-drafts stays; calendar waits for an attached calendar connector (P62; decision 0045 point 12).
+    skills: SKILLS.filter((s) => s !== "calendar"),
     defaults: { languages: ["en"], toneHint: "neutral, precise" },
     taxonomy: {
       audiences: ["CLIENT", "LEAD", "ANY"],

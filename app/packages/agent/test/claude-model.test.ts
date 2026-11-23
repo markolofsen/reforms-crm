@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_AGENT_SETTINGS } from "@hub/config";
 import { hubPaths } from "@hub/config/paths";
-import { ADVISOR_OFF_ENV, CLAUDE_CHROME_SERVER, claudeBaseArgs, claudeDisallowed, claudeModelSettings, claudeSettings } from "../src/claude";
+import { ADVISOR_OFF_ENV, CLAUDE_CHROME_SERVER, ancestorMemoryExcludes, claudeBaseArgs, claudeDisallowed, claudeModelSettings, claudeSettings } from "../src/claude";
 import { DENIED_TOOLS, denyRules } from "../src/deny";
 
 // P55: the model keys of a Claude session's settings.json, pinned per project so the owner's personal ones never leak in.
@@ -50,5 +50,21 @@ describe("the owner's Claude in Chrome is never cut off", () => {
     const all = [...DENIED_TOOLS, ...denyRules(i.projectsDir, i.paths.home, "acme", i.paths), ...claudeDisallowed()];
     for (const unattended of [false, true]) all.push(...((claudeSettings({ ...i, unattended }).permissions as { deny: string[] }).deny));
     expect(all.filter((r) => r.includes(CLAUDE_CHROME_SERVER) || /chrome/i.test(r))).toEqual([]);
+  });
+});
+
+describe("P129 verdict 13: a hub session skips the memory files of the folders above the instance", () => {
+  it("excludes every ancestor CLAUDE.md and CLAUDE.local.md, never the instance's own or the owner's ~/.claude/CLAUDE.md", () => {
+    const ex = ancestorMemoryExcludes("/Users/o/workspace/@projects/crm/hub-saas");
+    expect(ex).toContain("/Users/o/workspace/@projects/CLAUDE.md");
+    expect(ex).toContain("/Users/o/workspace/@projects/crm/CLAUDE.md");
+    expect(ex).toContain("/Users/o/workspace/@projects/crm/CLAUDE.local.md");
+    expect(ex).not.toContain("/Users/o/workspace/@projects/crm/hub-saas/CLAUDE.md");
+    expect(ex).not.toContain("/Users/o/.claude/CLAUDE.md");
+    expect(ex.at(-2)).toBe("/CLAUDE.md");
+  });
+  it("is written into the session's settings.json", () => {
+    const i = input();
+    expect(claudeSettings(i).claudeMdExcludes).toEqual(ancestorMemoryExcludes(i.paths.home));
   });
 });
