@@ -25,6 +25,20 @@ export function notLinkedRows(st: Pick<AutolinkStateDto, "unlinked"> | undefined
   return [...rows.filter((r) => r.candidates.length > 0), ...rows.filter((r) => r.candidates.length === 0)];
 }
 
+/** P128 X5 (decision 0045 point 18): Not linked lists the last 14 days, like Mail's To do; older chats are one count. */
+export const NOT_LINKED_DAYS = 14;
+
+/**
+ * The Not linked rows split by age: `shown` had a message in the last `NOT_LINKED_DAYS` days (or are found by a search, which
+ * folds nothing), `older` is how many were left out ("and 44 older, untouched"). A chat with no known last message is older.
+ */
+export function foldOlder(rows: readonly RecentDialogDto[], now: number, searched: boolean): { shown: RecentDialogDto[]; older: number } {
+  if (searched) return { shown: [...rows], older: 0 };
+  const since = now - NOT_LINKED_DAYS * 86_400_000;
+  const shown = rows.filter((r) => r.last !== null && Date.parse(r.last.at) >= since);
+  return { shown, older: rows.length - shown.length };
+}
+
 export const hiddenRows = (st: Pick<AutolinkStateDto, "hidden"> | undefined, channel: MessengerChannelFilter): HiddenDialogDto[] => (st?.hidden ?? []).filter((h) => inChannel(h.channel, channel));
 
 const includes = (value: string | null | undefined, query: string): boolean => value?.toLocaleLowerCase().includes(query) ?? false;

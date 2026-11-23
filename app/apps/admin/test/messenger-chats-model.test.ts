@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MESSENGER_VIEWS } from "@hub/contract/messenger-panel";
 import type { HiddenDialogDto, RecentDialogDto } from "@hub/contract/messengers";
 import { movedLine, unlinkedIntro, unlinkSentence, unnamedHiddenLine, VIEW_LABEL, VIEW_ORDER, wroteLine } from "../src/features/messengers/labels";
-import { channelOptions, effectiveChannel, hiddenRows, notLinkedRows, unlinkedRows, viewCounts } from "../src/features/messengers/unlinked/chats-model";
+import { channelOptions, effectiveChannel, foldOlder, hiddenRows, notLinkedRows, unlinkedRows, viewCounts } from "../src/features/messengers/unlinked/chats-model";
 
 // P84c: Messengers ▸ Chats, the channel filter and the views (owner, 2026-11-20; P102 adds Not linked).
 
@@ -57,5 +57,20 @@ describe("Chats: channel filter and views", () => {
     expect(wroteLine({ at: "x", inbound: false }, "2 h ago")).toBe("you wrote 2 h ago");
     expect(unnamedHiddenLine(1)).toMatch(/^1 more hidden chat is kept as a fingerprint only/);
     expect(unnamedHiddenLine(3)).toMatch(/^3 more hidden chats are/);
+  });
+});
+
+// P128 X5: Not linked lists the last 14 days; older chats are one count, and a search folds nothing.
+describe("Not linked: older chats fold into a count", () => {
+  const now = Date.parse("2026-11-23T12:00:00.000Z");
+  const at = (iso: string | null): RecentDialogDto => ({ ...rec(iso ?? "none", "telegram_user"), last: iso === null ? null : { at: iso, inbound: true } });
+  const rows = [at("2026-11-22T10:00:00.000Z"), at("2026-11-09T12:00:00.000Z"), at("2026-11-01T10:00:00.000Z"), at(null)];
+  it("keeps the chats of the last 14 days and counts the rest, a chat with no message among them", () => {
+    const { shown, older } = foldOlder(rows, now, false);
+    expect(shown.map((r) => r.last?.at)).toEqual(["2026-11-22T10:00:00.000Z", "2026-11-09T12:00:00.000Z"]);
+    expect(older).toBe(2);
+  });
+  it("folds nothing while a search is typed", () => {
+    expect(foldOlder(rows, now, true)).toEqual({ shown: rows, older: 0 });
   });
 });

@@ -28,7 +28,7 @@ import { useTelegramUser } from "./settings/use-telegram";
 import { useWhatsApp } from "./settings/whatsapp/use-whatsapp";
 import { LinkChat } from "./status/link-chat";
 import { useChatMoves } from "./status/use-moves";
-import { channelOptions, effectiveChannel, hiddenRows, matchesHiddenSearch, matchesRecentSearch, notLinkedRows, unlinkedRows, viewCounts } from "./unlinked/chats-model";
+import { channelOptions, effectiveChannel, foldOlder, hiddenRows, matchesHiddenSearch, matchesRecentSearch, notLinkedRows, unlinkedRows, viewCounts } from "./unlinked/chats-model";
 import { HiddenChats } from "./unlinked/hidden-chats";
 import { UnlinkedChats } from "./unlinked/unlinked-chats";
 import { useChatActions } from "./use-chat-actions";
@@ -102,13 +102,20 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
   else if (!d) body = <ListState><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the chats" /></ListState>;
   else if (autolinkNeeded && !st && al.isPending) body = <ListSkeleton label="Loading chat decisions" rows={3} />;
   else if (autolinkNeeded && !st && al.isError) body = <ListState><LoadFailed error={al.error} onRetry={() => void al.refetch()} retrying={al.isFetching} what="chat decisions" /></ListState>;
-  else if (filter === "unlinked")
+  else if (filter === "unlinked") {
+    // P128 X5: the last 14 days; the older ones are one line, and a search still finds them.
+    const { shown, older } = foldOlder(notLinked, now, searchQuery !== "");
+    const olderLine = older > 0 ? <p className="px-3 py-2 text-muted-foreground text-sm" data-testid="not-linked-older">{shown.length > 0 ? "and " : ""}{older} older, untouched. Search finds them.</p> : null;
     body =
       notLinked.length === 0 ? searchEmpty ?? (
         <EmptyState compact title="No unlinked chats">Every chat the Hub has seen since it started is linked or hidden. A chat that writes and matches no client shows here.</EmptyState>
       ) : st ? (
-        <UnlinkedChats active={0} freshDays={null} moves={moves} noLinked={false} now={now} project={project} rows={notLinked} />
+        <>
+          {shown.length > 0 && <UnlinkedChats active={0} freshDays={null} moves={moves} noLinked={false} now={now} project={project} rows={shown} />}
+          {olderLine}
+        </>
       ) : null;
+  }
   else if (filter === "hidden") body = hidden.length === 0 && searchEmpty ? searchEmpty : <HiddenChats moves={moves} now={now} project={project} rows={hidden} unnamed={channel === "all" && !searchQuery ? (st?.hiddenUnnamed ?? 0) : 0} />;
   else if (filter === "linked")
     body = linkedList ?? searchEmpty ?? (
