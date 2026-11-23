@@ -2,7 +2,10 @@ import { hubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
 import { loadProject, normalizeAddress } from "@hub/projects";
 import type { MailerKind } from "@hub/config/modes";
-import { bareId, defaultOsa, FakeMailer, MAIL_READ_TIMEOUT_MS, mailAppMailer, osaWithin, type MailDraft, type Mailer, type DraftQuery } from "@hub/send";
+import type { DraftQuery, MailDraft } from "@hub/mail-app/drafts";
+import { osaFor } from "@hub/mail-app/osa";
+import { bareId } from "@hub/mail-app/records";
+import { FakeMailer, mailAppMailer, type Mailer } from "@hub/send";
 
 // Which Mailer the server sends with (decision 0011). `HUB_MAILER` is read once by `runtimeModes` of `@hub/config/modes`
 // (P126 K1); the fake never leaves the process: it is what the e2e run and tests use.
@@ -68,8 +71,8 @@ export interface ServerMailer {
 
 /**
  * The Mailer of `kind` (`runtimeModes(env).mailer`, which refuses a bad `HUB_MAILER`). The finds a page waits on (the Mail
- * card's read) get `MAIL_READ_TIMEOUT_MS`, so a hung Mail is the card's "not answering" line, not a 2 min wait.
+ * card's read) get the `read` budget, so a hung Mail is the card's "not answering" line, not a 2 min wait.
  */
 export function createServerMailer(repos: Repos, projectsDir: string, kind: MailerKind): ServerMailer {
-  return kind === "fake" ? { kind, mailer: databaseBackedFake(repos, projectsDir) } : { kind, mailer: mailAppMailer(defaultOsa, osaWithin(MAIL_READ_TIMEOUT_MS)) };
+  return kind === "fake" ? { kind, mailer: databaseBackedFake(repos, projectsDir) } : { kind, mailer: mailAppMailer(osaFor("long"), osaFor("read")) };
 }

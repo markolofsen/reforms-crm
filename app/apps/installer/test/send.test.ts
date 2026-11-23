@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { assess, FakeMailer, mailHash, runDue, sendDraft, type MailDraft, type SendDeps } from "@hub/send";
+import type { MailDraft } from "@hub/mail-app/drafts";
+import { assess, FakeMailer, mailHash, runDue, sendDraft, type SendDeps } from "@hub/send";
 import { defaultPolicy, withFieldValues, writeSendPolicy, type PolicyField } from "@hub/projects";
 import { runSendCommand } from "../src/send/command";
 

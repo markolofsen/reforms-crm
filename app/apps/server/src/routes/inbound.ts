@@ -3,7 +3,7 @@ import { answeringDraft, type InboundRow, type LeadItem, type LeadRow } from "@h
 import { inboundCheckedDto, inboundDetailDto, inboundTextDto, inboundDismissedDto, inboundListDto, inboundUndismissBody, leadActionDto, leadDetailDto, type InboundRowDto, type LeadRowDto } from "@hub/contract/inbound";
 import { notFound, v } from "../http";
 import { INBOUND_OFF, projectReadOf } from "../inbound";
-import { ownText } from "../apple-mail";
+import { ownText } from "@hub/mail-app/read";
 import { LEADS_OFF, projectLeadsOf } from "../leads-reader";
 import { configOf } from "../overview-facts";
 import type { InboundServices } from "../composition/capabilities";

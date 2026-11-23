@@ -5,8 +5,8 @@ import { inspect, isTelegramToken, notionShapeProblem, parseConnectionId, redact
 import { CONNECTION_FRESH_MINUTES, type CheckErrorCode, type CheckValueDto, type ConnectionDto, type ConnectionsDto, type MailAccountDto, type MailReadDto } from "@hub/contract/connections";
 import type { SetSecretBody } from "@hub/contract/requests";
 import type { Repos } from "@hub/db";
-import { MAIL_NOT_ANSWERING_FIX, MailNotAnswering, osaWithin, type OsaRun } from "@hub/send";
-import { readAccounts } from "./apple-mail";
+import { MAIL_NOT_ANSWERING_FIX, MailNotAnswering, osaWithin, type OsaRun } from "@hub/mail-app/osa";
+import { readAccounts } from "@hub/mail-app/read";
 import { configOf } from "./overview-facts";
 import type { MessengersStatus } from "./messengers";
 

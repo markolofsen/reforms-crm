@@ -1,5 +1,7 @@
 import type { MailVersionRow, Repos } from "@hub/db";
-import { bareId, type DraftHead, type DraftsCleaner, type TrashItem } from "./mailer";
+import type { DraftHead, TrashItem } from "@hub/mail-app/drafts";
+import { bareId } from "@hub/mail-app/records";
+import type { DraftsCleaner } from "./mailer";
 
 // `hub drafts sweep` (P56 S0, P65 verdict 10): the Hub's own leftovers in Mail's Drafts, moved to Trash (recoverable),
 // and nothing else. Who wrote a draft is the Hub's record (`mail_versions`, decision 0031), never its text: a draft is

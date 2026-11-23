@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { withoutLeadingBlankLines, type DraftRow, type MailVersionRow } from "@hub/db";
-import { bareId, MAIL_NOT_ANSWERING_FIX, MailNotAnswering, type MailDraft, type Mailer, type TrashItem } from "./mailer";
+import type { MailDraft, TrashItem } from "@hub/mail-app/drafts";
+import { MAIL_NOT_ANSWERING_FIX, MailNotAnswering } from "@hub/mail-app/osa";
+import { bareId } from "@hub/mail-app/records";
+import type { Mailer } from "./mailer";
 import type { SendDeps } from "./assess";
 import { addresses, norm } from "./recipients";
 

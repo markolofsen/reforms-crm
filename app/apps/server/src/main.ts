@@ -22,9 +22,10 @@ import { createLlm } from "@hub/llm";
 import { startSentReconciler } from "./sent";
 import { startInboundReader } from "./inbound";
 import { convertSentLead, startLeadsReader } from "./leads-reader";
-import { mailRunning, readMessageText } from "./apple-mail";
-import { defaultOsa, MAIL_READ_TIMEOUT_MS, osaWithin } from "@hub/send";
-import { bodyCache, readHistory } from "./conversation";
+import { readHistory } from "@hub/mail-app/history";
+import { osaFor } from "@hub/mail-app/osa";
+import { mailRunning, readMessageText } from "@hub/mail-app/read";
+import { bodyCache } from "./conversation";
 import type { ConversationMail } from "./composition/capabilities";
 import { stampSentMail, teamStampOf } from "@hub/notion/stamp";
 import type { SentNotice } from "@hub/send";
@@ -154,7 +155,7 @@ log.info(`mail reader: ${inbound.status().state}${inbound.status().reason ? ` ($
 const mailWriter = kind === "fake" ? new FakeDraftWriter() : mailAppDraftWriter();
 const inboundText = async (account: string, messageId: string) => {
   if (kind === "fake") return { note: "Demo mode: Mail is not read, only the stored preview shows." };
-  if (!(await mailRunning(defaultOsa).catch(() => false))) return { note: "Mail is not running: open Mail to read the whole message." };
+  if (!(await mailRunning(osaFor("long")).catch(() => false))) return { note: "Mail is not running: open Mail to read the whole message." };
   const found = await mailWriter.findInbound([account], messageId);
   return found ? { text: await mailWriter.readContent(found) } : { note: "This message is no longer in Mail (moved or deleted)." };
 };
@@ -166,7 +167,7 @@ const conversationMail: ConversationMail =
     ? { history: async () => ({ note: "Demo mode: Mail is not read, the Hub's own rows show." }), text: async () => ({ note: "Demo mode: Mail is not read, only the stored preview shows." }), headers: async () => ({ note: "Demo mode: Mail headers are not read." }) }
     : {
         history: async (q) => {
-          const osa = osaWithin(MAIL_READ_TIMEOUT_MS);
+          const osa = osaFor("read");
           if (!(await mailRunning(osa).catch(() => false))) return { note: "Mail is not running: open Mail to see the whole conversation." };
           const t0 = Date.now();
           const messages = await readHistory(osa, q);
@@ -177,7 +178,7 @@ const conversationMail: ConversationMail =
           const hit = bodies.get(key);
           if (hit !== null) return { text: hit };
           const read: { text: string } | { note: string } = "messageId" in at ? await inboundText(at.account, at.messageId) : await (async (): Promise<{ text: string } | { note: string }> => {
-            const osa = osaWithin(MAIL_READ_TIMEOUT_MS);
+            const osa = osaFor("read");
             if (!(await mailRunning(osa).catch(() => false))) return { note: "Mail is not running: open Mail to read the whole message." };
             const text = await readMessageText(osa, at.account, at.mailbox, at.mailId);
             return text === null ? { note: "This message is no longer in Mail (moved or deleted)." } : { text };
@@ -186,7 +187,7 @@ const conversationMail: ConversationMail =
           return read;
         },
         headers: async ({ account, messageId }) => {
-          const osa = osaWithin(MAIL_READ_TIMEOUT_MS);
+          const osa = osaFor("read");
           if (!(await mailRunning(osa).catch(() => false))) return { note: "Mail is not running: open Mail to resolve the conversation's recipient." };
           const found = await mailWriter.findInbound([account], messageId);
           if (!found) return { note: "This message is no longer in Mail (moved or deleted)." };

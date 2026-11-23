@@ -1,5 +1,6 @@
 import { RepoError, type SendRow } from "@hub/db";
-import { bareId, type MailDraft } from "./mailer";
+import type { MailDraft } from "@hub/mail-app/drafts";
+import { bareId } from "@hub/mail-app/records";
 import { assess, type SendDeps, type SendMode } from "./assess";
 import { trashThread } from "./find";
 import { addresses, norm, same } from "./recipients";

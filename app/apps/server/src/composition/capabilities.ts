@@ -11,7 +11,7 @@ import type { ChatIdentityOf } from "../messenger-identity";
 import type { AppsProbe } from "../apps-probe";
 import type { AppsDto } from "@hub/contract/local";
 import type { ConnectionsService } from "../connections";
-import type { HistoryMessage, ReadInput } from "../conversation";
+import type { HistoryMessage, ReadInput } from "@hub/mail-app/history";
 import type { FocusStore } from "../focus";
 import type { InboundHandle } from "../inbound";
 import type { LeadsHandle } from "../leads-reader";

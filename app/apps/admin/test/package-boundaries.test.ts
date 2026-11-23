@@ -37,6 +37,10 @@ describe("package boundaries", () => {
     expect(forbidden(sourceFiles("app/packages/agent/src"), /^@hub\/(send|messengers\/human|ui)(\/|$)/)).toEqual([]);
   });
 
+  it("@hub/mail-app is an adapter: it imports no Hub package but @hub/config and @hub/log (P126 M1, tier 3)", () => {
+    expect(forbidden(sourceFiles("app/packages/mail-app/src"), /^@hub\/(?!config(\/|$)|log(\/|$))/)).toEqual([]);
+  });
+
   it("generated API transport does not depend on domain write packages", () => {
     expect(forbidden(sourceFiles("app/packages/api/src/generated"), /^@hub\/(send|messengers)(\/|$)/)).toEqual([]);
     expect(forbidden(sourceFiles("app/packages/api/src/generated-zod"), /^@hub\/(send|messengers)(\/|$)/)).toEqual([]);

@@ -3,9 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import type { OsaRun } from "@hub/send";
+import type { OsaRun } from "@hub/mail-app/osa";
 import { appleScriptCompileError, canCompileAppleScript } from "../../../test-support/osacompile";
-import { CONTENT_SCRIPT, INBOUND_SCRIPT, ownText, parseInbound, RUNNING_SCRIPT, SENT_SCRIPT } from "./apple-mail";
+import { ownText, parseInbound } from "@hub/mail-app/read";
+import { CONTENT_SCRIPT, INBOUND_SCRIPT, RUNNING_SCRIPT, SENT_SCRIPT } from "@hub/mail-app/scripts/read";
 import { createApp } from "./app";
 import { judge, startInboundReader } from "./inbound";
 

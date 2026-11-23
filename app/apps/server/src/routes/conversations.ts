@@ -8,7 +8,7 @@ import { errFields, ops } from "@hub/log/ops";
 import { displayNameFor, headersFromText, mailComposerContext, resolveBrand, visibleFrom } from "@hub/projects/brand";
 import { toDraft } from "../dto";
 import { notFound, v } from "../http";
-import { ownText } from "../apple-mail";
+import { ownText } from "@hub/mail-app/read";
 import { threadsOf } from "../conversation";
 import { LABEL_MAILBOXES } from "../inbound";
 import { configOf } from "../overview-facts";

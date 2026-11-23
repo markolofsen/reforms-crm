@@ -3,7 +3,8 @@ import { withoutLeadingBlankLines, type DraftRow, type Repos, type SendRow } fro
 import { isOwnAddress } from "@hub/projects/brand";
 import { checkDraftRecipients, loadProject, normalizeAddress } from "@hub/projects";
 import type { ProjectConfig } from "@hub/projects/model";
-import type { MailDraft, Mailer } from "./mailer";
+import type { MailDraft } from "@hub/mail-app/drafts";
+import type { Mailer } from "./mailer";
 import { findMail, mailHash } from "./find";
 import { addresses, DAY_MS, norm, same } from "./recipients";
 

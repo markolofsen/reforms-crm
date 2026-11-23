@@ -22,6 +22,7 @@
     "@hub/knowledge": "workspace:*",
     "@hub/llm": "workspace:*",
     "@hub/log": "workspace:*",
+    "@hub/mail-app": "workspace:*",
     "@hub/mail-filters": "workspace:*",
     "@hub/messengers": "workspace:*",
     "@hub/notion": "workspace:*",

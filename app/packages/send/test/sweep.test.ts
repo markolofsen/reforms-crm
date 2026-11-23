@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MailVersionRow } from "@hub/db";
-import type { DraftHead } from "../src/mailer";
+import type { DraftHead } from "@hub/mail-app/drafts";
 import { planSweep } from "../src/sweep";
 
 // P65 verdict 10: the sweep lists only drafts the Hub's record (`mail_versions`) says it wrote, by account and

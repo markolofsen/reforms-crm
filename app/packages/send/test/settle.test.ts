@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, versionHashOf, type DbHandle } from "@hub/db";
-import { FakeMailer, type MailDraft } from "../src/mailer";
+import type { MailDraft } from "@hub/mail-app/drafts";
+import { FakeMailer } from "../src/mailer";
 import { settleThread } from "../src/settle";
 import { runSweep } from "../src/sweep";
 

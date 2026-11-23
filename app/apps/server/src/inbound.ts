@@ -7,9 +7,10 @@ import { classifyMessage, parseRulesFile, type RulesFile } from "@hub/mail-filte
 import { isOwnAddress } from "@hub/projects/brand";
 import { loadProject, readAllowList, testRecipientsOf } from "@hub/projects";
 import type { ProjectConfig } from "@hub/projects/model";
-import { bareId, defaultOsa, type OsaRun } from "@hub/send";
+import { osaFor, type OsaRun } from "@hub/mail-app/osa";
+import { bareId } from "@hub/mail-app/records";
 import { errFields, ops } from "@hub/log/ops";
-import { mailRunning, previewOf, readInbound, readMessageText, readSent, type ReceivedMessage } from "./apple-mail";
+import { mailRunning, previewOf, readInbound, readMessageText, readSent, type ReceivedMessage } from "@hub/mail-app/read";
 
 /**
  * The Mail reader (P96 S1, verdicts 1 to 4, 12, 13). The server reads each active project's inbound mailboxes in Apple Mail,
@@ -168,7 +169,7 @@ function rulesOf(projectsDir: string, slug: string): RulesFile | null {
 
 export function startInboundReader(o: InboundOptions): InboundHandle {
   const env = o.env ?? process.env;
-  const osa = o.osa ?? defaultOsa;
+  const osa = o.osa ?? osaFor("long");
   const now = o.now ?? (() => new Date());
   const disabled = o.offReason ?? (offMode(env, "inbound") === "off" ? "The Mail reader is off (HUB_INBOUND=off)" : undefined);
   const activeMs = o.activeMs ?? (Number(env.HUB_INBOUND_ACTIVE_MS) || 2 * 60_000);

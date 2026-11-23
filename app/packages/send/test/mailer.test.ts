@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { bareId, FakeMailer, FIND_SCRIPT, LIST_DRAFTS_SCRIPT, mailAppMailer, parseDraftHeads, parseFindOutput, parseTrashOutput, SEND_SCRIPT, TRASH_SCRIPT } from "../src/mailer";
+import { parseDraftHeads, parseFindOutput, parseTrashOutput } from "@hub/mail-app/drafts";
+import { bareId } from "@hub/mail-app/records";
+import { FIND_SCRIPT, LIST_DRAFTS_SCRIPT, TRASH_SCRIPT } from "@hub/mail-app/scripts/drafts";
+import { FakeMailer, mailAppMailer, SEND_SCRIPT } from "../src/mailer";
 import { appleScriptCompileError, canCompileAppleScript, deleteOfLoopItem } from "../../../test-support/osacompile";
 
 // osascript is injected: nothing here starts Mail.

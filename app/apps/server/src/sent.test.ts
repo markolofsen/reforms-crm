@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import type { OsaRun } from "@hub/send";
+import type { OsaRun } from "@hub/mail-app/osa";
 import { createApp } from "./app";
-import { ACCOUNTS_SCRIPT, parseSent, RUNNING_SCRIPT, SENT_SCRIPT } from "./apple-mail";
+import { parseSent } from "@hub/mail-app/read";
+import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT, SENT_SCRIPT } from "@hub/mail-app/scripts/read";
 import { appleScriptCompileError, canCompileAppleScript } from "../../../test-support/osacompile";
 import { matchSent, startSentReconciler } from "./sent";
 

@@ -6,9 +6,9 @@ import { inspect } from "@hub/connections";
 import { connectionDto, connectionsDto, type ConnectionDto } from "@hub/contract/connections";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { createApp } from "./app";
-import { MailNotAnswering } from "@hub/send";
+import { MailNotAnswering } from "@hub/mail-app/osa";
 import { appleMailAccounts, fakeProbeDeps, type MailAccountsRead } from "./connections";
-import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT } from "./apple-mail";
+import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT } from "@hub/mail-app/scripts/read";
 import { captureOps } from "@hub/log/ops";
 
 // Fake secrets in a throwaway folder; the probes are stubs. Nothing here touches a real instance or the network.
@@ -118,7 +118,7 @@ describe("GET /api/connections", () => {
   });
 
   it("the real runner cuts a read at its budget and says Mail is not answering", async () => {
-    const { osaWithin } = await import("@hub/send");
+    const { osaWithin } = await import("@hub/mail-app/osa");
     const started = Date.now();
     // `delay 5` never reaches Mail: it only proves the cut. osascript runs on macOS only.
     if (process.platform !== "darwin") return;

@@ -4,7 +4,9 @@ import { alreadySentText, DraftWriteError, isNewThreadDraft, reviseDraft, type I
 import type { DraftRow, MailVersionRow } from "@hub/db";
 import { brandResolutionFor, displayNameFor, headersFromText, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, visibleFrom } from "@hub/projects/brand";
 import { loadProject } from "@hub/projects";
-import { bareId, findMail, mailHash, runSweep, settleThread, type MailDraft } from "@hub/send";
+import type { MailDraft } from "@hub/mail-app/drafts";
+import { bareId } from "@hub/mail-app/records";
+import { findMail, mailHash, runSweep, settleThread } from "@hub/send";
 import { draftEditBody, manualReplyBody, sendParam } from "@hub/contract/requests";
 import { draftChangedDto, draftMailDto, mailTidyDto } from "@hub/contract/responses";
 import { gateRefusal } from "../admin-gate";

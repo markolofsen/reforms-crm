@@ -1,7 +1,9 @@
 import { offMode } from "@hub/config/modes";
 import type { DraftRow, Repos } from "@hub/db";
-import { bareId, defaultOsa, type OsaRun, type SentNotice } from "@hub/send";
-import { mailRunning, readSent, type SentMessage } from "./apple-mail";
+import { osaFor, type OsaRun } from "@hub/mail-app/osa";
+import { mailRunning, readSent, type SentMessage } from "@hub/mail-app/read";
+import { bareId } from "@hub/mail-app/records";
+import type { SentNotice } from "@hub/send";
 import { configOf } from "./overview-facts";
 import { errFields, ops } from "@hub/log/ops";
 
@@ -199,7 +201,7 @@ export type TeamStampReader = (project: string, email: string) => Promise<{ at: 
 
 export function startSentReconciler(o: SentOptions): SentHandle {
   const env = o.env ?? process.env;
-  const osa = o.osa ?? defaultOsa;
+  const osa = o.osa ?? osaFor("long");
   const now = o.now ?? (() => new Date());
   const disabled = o.offReason ?? (offMode(env, "sent") === "off" ? "HUB_SENT=off" : undefined);
   const base = o.intervalMs ?? (Number(env.HUB_SENT_INTERVAL_MS) || 5 * 60_000);

@@ -1,6 +1,8 @@
 import { adoptable, isReplyShell, shellHashOf, versionHashOf, type DraftRow, type Repos } from "@hub/db";
 import { normalizeAddress } from "@hub/projects";
-import { bareId, type MailDraft, type Mailer } from "./mailer";
+import type { MailDraft } from "@hub/mail-app/drafts";
+import { bareId } from "@hub/mail-app/records";
+import type { Mailer } from "./mailer";
 
 // P65 S5 (decision 0031 addendum points 2 and 3): the card's read heals a thread the Hub itself crowded. A slow Mail can
 // save a write after the writer stopped waiting, or save it twice, so the thread holds several drafts that are all the

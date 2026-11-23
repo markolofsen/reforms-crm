@@ -90,6 +90,19 @@ describe("no route sends", () => {
     expect(callers).toEqual(["apps/server/src/send/messenger-door.ts", "packages/messengers/src/human.ts"]);
   });
 
+  it("names Mail's send script only in packages/send, in every package and app (P126 M1)", () => {
+    // `@hub/mail-app` reads, writes drafts and trashes the Hub's own drafts; the AppleScript `send` lives in one file.
+    const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const files = (d: string): string[] =>
+      readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.name === "node_modules" ? [] : e.isDirectory() ? files(join(d, e.name)) : [join(d, e.name)]));
+    const src = ["apps", "packages"]
+      .flatMap((group) => readdirSync(join(root, group), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => join(root, group, e.name, "src")))
+      .flatMap((d) => { try { return files(d); } catch { return []; } })
+      .filter((f) => /\.(m?[jt]sx?)$/.test(f) && !/\.test\.tsx?$/.test(f));
+    const named = src.filter((f) => /\bSEND_SCRIPT\b/.test(readFileSync(f, "utf8"))).map((f) => f.slice(root.length + 1)).sort();
+    expect(named).toEqual(["packages/send/src/mailer.ts"]);
+  });
+
   it("decision 0046: the agent's one way to a send is hub mcp's messenger_send to the agent-send route, which calls the same door", () => {
     const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
     const files = (d: string): string[] =>

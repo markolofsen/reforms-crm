@@ -1,0 +1,29 @@
+{
+  "name": "@hub/mail-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Apple Mail through osascript (P126 M1): the one runner and its budgets, the record format, the read scripts and readers, the Hub's own drafts (find, list, trash). No send (that is @hub/send), no key, no IMAP (decision 0026).",
+  "type": "module",
+  "exports": {
+    "./osa": "./src/osa.ts",
+    "./records": "./src/records.ts",
+    "./read": "./src/read.ts",
+    "./history": "./src/history.ts",
+    "./drafts": "./src/drafts.ts",
+    "./scripts/read": "./src/scripts/read.ts",
+    "./scripts/history": "./src/scripts/history.ts",
+    "./scripts/drafts": "./src/scripts/drafts.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hub/config": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

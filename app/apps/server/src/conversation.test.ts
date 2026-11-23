@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { OsaRun } from "@hub/send";
-import { baseSubject, bodyCache, FROM_SCRIPT, parseHistory, readHistory, SENT_TO_SCRIPT, threadsOf } from "./conversation";
+import type { OsaRun } from "@hub/mail-app/osa";
+import { baseSubject, parseHistory, readHistory } from "@hub/mail-app/history";
+import { FROM_SCRIPT, SENT_TO_SCRIPT } from "@hub/mail-app/scripts/history";
+import { bodyCache, threadsOf } from "./conversation";
 
 const FS = "\x1f";
 const RS = "\x1e";
