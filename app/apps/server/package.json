@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "tsx watch src/main.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "start": "tsx src/main.ts",
     "openapi": "tsx scripts/emit-openapi.ts",
     "test": "vitest run"
@@ -36,6 +37,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "eslint": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

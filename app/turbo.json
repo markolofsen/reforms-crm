@@ -5,6 +5,7 @@
     "dev": { "cache": false, "persistent": true },
     "typecheck": { "dependsOn": ["^typecheck"], "outputs": [] },
     "test": { "outputs": [] },
+    "lint": { "outputs": [] },
     "build": {
       "dependsOn": ["^build"],
       "env": ["HUB_PORT", "HUB_NEXT_DIST", "HUB_NEXT_ROOT"],

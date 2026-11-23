@@ -2,7 +2,7 @@
 import nextVitals from "eslint-config-next/core-web-vitals";
 import globals from "globals";
 import tseslint from "typescript-eslint";
-import { FILE_LINE_CAP, FUNCTION_LINE_CAP, LINE_COUNT } from "@hub/config/lint-limits";
+import { SIZE_RULES, TYPED_RULES, TYPING_RULES } from "@hub/config/eslint";
 
 const error = (rules) => Object.fromEntries(Object.entries(rules).map(([k, v]) => [k, Array.isArray(v) ? ["error", ...v] : ["error", v]]));
 
@@ -59,17 +59,13 @@ export default tseslint.config(
       parserOptions: { projectService: { allowDefaultProject: [] }, tsconfigRootDir: import.meta.dirname },
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/ban-ts-comment": ["error", { "ts-ignore": true, "ts-expect-error": "allow-with-description" }],
+      ...TYPING_RULES,
+      ...TYPED_RULES,
+      ...SIZE_RULES,
       "jsx-a11y/alt-text": "error",
       ...error({
         "@typescript-eslint/no-non-null-assertion": [],
         "@typescript-eslint/consistent-type-assertions": [{ assertionStyle: "never" }],
-        "@typescript-eslint/consistent-type-imports": [{ fixStyle: "inline-type-imports" }],
-        "@typescript-eslint/no-floating-promises": [],
-        "@typescript-eslint/no-misused-promises": [],
-        "max-lines": [{ max: FILE_LINE_CAP, ...LINE_COUNT }],
-        "max-lines-per-function": [{ max: FUNCTION_LINE_CAP, ...LINE_COUNT }],
         "no-restricted-globals": [
           ...STORAGE_GLOBALS,
           { name: "location", message: "The address bar is touched only in src/hooks/use-search-state.ts and src/lib/external.ts." },

@@ -10,6 +10,7 @@
     "start": "turbo run start",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
     "test": "turbo run test && vitest run --dir test",
     "storybook": "pnpm --filter @hub/storybook storybook",
     "storybook:typecheck": "pnpm --filter @hub/storybook typecheck",

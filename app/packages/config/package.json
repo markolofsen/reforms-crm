@@ -17,15 +17,20 @@
     "./lint-limits": "./src/lint-limits.mjs",
     "./instance": "./src/instance.ts",
     "./errors": "./src/errors.ts",
-    "./modes": "./src/modes.ts"
+    "./modes": "./src/modes.ts",
+    "./eslint": "./src/eslint.mjs"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "globals": "catalog:",
     "typescript": "catalog:",
+    "typescript-eslint": "catalog:",
     "vitest": "catalog:"
   }
 }

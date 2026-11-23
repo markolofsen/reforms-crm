@@ -1,6 +1,6 @@
 // The package's gate (`app/@rules`). The coss copies in src/ui are not hand-edited: only the typing bans, the server bans and the
 // direction rule apply to them; the hand-written files (src/product, cn) get every rule of the admin's typing and size caps.
-import { FILE_LINE_CAP, FUNCTION_LINE_CAP, LINE_COUNT } from "@hub/config/lint-limits";
+import { SIZE_RULES, TYPED_RULES, TYPING_RULES } from "@hub/config/eslint";
 import jsxA11y from "eslint-plugin-jsx-a11y";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
@@ -29,16 +29,12 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.flat.recommended.rules,
       ...jsxA11y.flatConfigs.recommended.rules,
-      "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/ban-ts-comment": ["error", { "ts-ignore": true, "ts-expect-error": "allow-with-description" }],
+      ...TYPING_RULES,
+      ...TYPED_RULES,
+      ...SIZE_RULES,
       ...error({
         "@typescript-eslint/no-non-null-assertion": [],
         "@typescript-eslint/consistent-type-assertions": [{ assertionStyle: "never" }],
-        "@typescript-eslint/consistent-type-imports": [{ fixStyle: "inline-type-imports" }],
-        "@typescript-eslint/no-floating-promises": [],
-        "@typescript-eslint/no-misused-promises": [],
-        "max-lines": [{ max: FILE_LINE_CAP, ...LINE_COUNT }],
-        "max-lines-per-function": [{ max: FUNCTION_LINE_CAP, ...LINE_COUNT }],
         "no-restricted-properties": [
           { object: "Date", property: "now", message: "Inject a clock; render stays deterministic (rules: ui-specifications 2)." },
           { object: "Math", property: "random", message: "No randomness in render (rules: ui-specifications 2)." },

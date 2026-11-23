@@ -11,7 +11,8 @@
     "generate": "pnpm --filter @hub/server openapi && orval --config orval.config.ts",
     "generate:check": "pnpm generate && git diff --exit-code -- openapi.json src/generated",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@hub/contract": "workspace:*",
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@hub/config": "workspace:*",
+    "eslint": "catalog:",
     "orval": "8.48.0",
     "typescript": "catalog:",
     "vitest": "catalog:"

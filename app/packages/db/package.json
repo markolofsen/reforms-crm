@@ -9,6 +9,7 @@
     "generate": "drizzle-kit generate",
     "seed": "tsx src/seed-cli.ts",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "test": "vitest run",
     "migrate": "tsx src/migrate-cli.ts"
   },
@@ -23,6 +24,7 @@
     "@types/better-sqlite3": "9.6.0",
     "@types/node": "catalog:",
     "drizzle-kit": "0.31.11",
+    "eslint": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

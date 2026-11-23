@@ -43,6 +43,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
     "test": "vitest run"
   },
   "dependencies": {
@@ -50,6 +51,7 @@
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "eslint": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   }
