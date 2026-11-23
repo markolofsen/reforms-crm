@@ -2,7 +2,7 @@ import { parseRef } from "@hub/contract/focus";
 import { dest, destFrom, type Dest } from "./paths";
 import { parseQuery, readSearch, type SearchSpec } from "./search";
 import type { SectionId } from "./sections";
-import { RESERVED_SEGMENTS, ROUTE_IDS, ROUTE_TABLE, type ParamsOf, type RouteId, type RowOf, type SearchFor } from "./table";
+import { addressOf, RESERVED_SEGMENTS, ROUTE_IDS, ROUTE_TABLE, type ParamsOf, type RouteId, type RowOf, type SearchFor } from "./table";
 
 /**
  * `project`: the project the address names, from its first path segment (`/lisbon/mail`). `inPath` says it came from the
@@ -60,7 +60,8 @@ function isResolved(v: { route: RouteId; section: string; params: Readonly<Recor
  */
 export function resolveRoute(path: string, searchString: string): Resolved {
   const raw = parseQuery(searchString);
-  const all = path.split("/").filter(Boolean);
+  // The segment a bare scoped address is served under (P127 A2): the server may render `/_/mail` for `/mail`; both are one address.
+  const all = addressOf(path).split("/").filter(Boolean);
   const inPath = all.length > 0 && !RESERVED_SEGMENTS.has(all[0] ?? "");
   // Saved links of the query-string era (`/<section>/1?project=lisbon`, until 2026-11-18, P48): the project is read here, once,
   // and the guard writes the address back in the path form (`canonicalAddress`). Delete when no saved link can still hold it.
@@ -74,9 +75,8 @@ export function resolveRoute(path: string, searchString: string): Resolved {
   const found = segs.length === 0 ? { id: ENTRY, raw: {} } : match(segs);
   if (!found) return notFound;
   const row = ROUTE_TABLE[found.id];
-  // `/lisbon/overview`, `/lisbon/help`: a project before a projectless section. A projectless child of a scoped parent
-  // (`/lisbon/settings/connections`, P70) resolves, and the guard folds it to the bare address.
-  if (inPath && !row.scoped && segmentsOf(found.id).length === 1) return notFound;
+  // `/lisbon/overview`, `/lisbon/settings/connections`: a project before a projectless route (its page exists once, at the top).
+  if (inPath && !row.scoped) return notFound;
   const params: Record<string, unknown> = {};
   if ("params" in row) {
     for (const [name, parse] of Object.entries(row.params)) {

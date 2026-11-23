@@ -1,4 +1,4 @@
-import { PROJECTLESS, ROUTE_TABLE, type RouteId } from "./table";
+import { NO_PROJECT, PROJECTLESS, ROUTE_TABLE, type RouteId } from "./table";
 import type { Resolved } from "./resolve";
 import { sectionTitle } from "./sections";
 import { DRAFT_VIEW_LABELS } from "./search";
@@ -49,3 +49,16 @@ export function screenTitleOf(r: Resolved): string {
 }
 
 export const NOT_FOUND_TITLE = `Not found · ${APP}`;
+
+/**
+ * The project a page file's `[project]` segment names, for its title: none for the segment a bare address is served under
+ * (`/mail` is `/_/mail` inside, P127 A2) or one that does not decode, so the title of an address without a project names none.
+ */
+export function addressedProject(segment: string): string | null {
+  if (segment === NO_PROJECT) return null;
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return null;
+  }
+}

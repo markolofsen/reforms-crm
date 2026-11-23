@@ -34,13 +34,16 @@ export const badPath = route(`/draftz/${id}`);
 // @ts-expect-error a bare string that is not a page of the file tree
 export const badLiteral = route("/nope");
 
-// The valid forms compile.
-export const ok = [route("/settings"), route(`/mail/c/${id}?x=1`), route("/settings/mac?x=1")];
+// The valid forms compile. P127 A2: a scoped page exists once, under `[project]`, so its literal names a project; the bare
+// `/settings` is an address (served by the rewrite in `src/proxy.ts`), not a page, and only `routeOf` admits it.
+export const ok = [route("/lisbon/settings"), route(`/lisbon/mail/c/${id}?x=1`), route("/settings/mac?x=1"), route("/help")];
+// @ts-expect-error P127 A2: no twin pages, so a bare scoped literal is no page of the tree
+export const bareScoped = route("/settings/agent");
 // @ts-expect-error the Project section is gone (P70): its parts moved to Settings, Knowledge and Overview
 dest("project.page");
 
 // What `route` returns is a `Route`, so a link or a redirect accepts it.
-export const href: LinkProps<string>["href"] = route("/settings");
+export const href: LinkProps<string>["href"] = route("/help");
 
 // The nav shape (P63 N1, `NAV_SHAPE` in routes/table.ts): a child names a parent row and has no chord; a parent has both. Scope
 // (P70): a child has its parent's scope, or is projectless under a scoped parent; never scoped under a projectless parent.

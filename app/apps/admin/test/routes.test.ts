@@ -41,8 +41,10 @@ describe("resolveRoute", () => {
     expect(at("/lisbon/settings/checks")).toMatchObject({ route: "settings.checks", section: "settings", project: "lisbon" });
     expect(at("/settings/connections")).toMatchObject({ route: "settings.connections", section: "settings", project: null });
     expect(at("/settings/mac")).toMatchObject({ route: "settings.mac", section: "settings", project: null });
-    // P70: an instance pane reached with a project in mind resolves (the guard folds it), unlike a project before Overview.
-    expect(at("/lisbon/settings/connections")).toMatchObject({ route: "settings.connections", project: "lisbon", inPath: true });
+    // P127 A2: the server renders a bare scoped address from `/_/…` (the rewrite in `src/proxy.ts`); both forms are one address.
+    expect(at("/_/mail/c/42?filter=all")).toEqual(at("/mail/c/42?filter=all"));
+    expect(at("/_/settings")).toEqual(at("/settings"));
+    expect(at("/_")).toEqual(at("/"));
     expect(at("/help")).toMatchObject({ route: "help.page", section: "help", project: null });
   });
 
@@ -52,7 +54,7 @@ describe("resolveRoute", () => {
   });
 
   it("an unknown path, the old /clients, a bad id, an extra segment or a project before a projectless section is Not found", () => {
-    for (const p of ["/clients", "/nope", "/mail/abc", "/mail/0", "/mail/-1", "/mail/1.5", "/bulk", "/bulk/3", "/mail/1/2", "/log/3", "/settings/x", "/settings/mail/1", "/knowledge/x", "/help/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/help", "/project", "/project/setup", "/agents", "/connections", "/lisbon/project", "/lisbon/agents", "/lisbon/mail/1/2", "/%E0%A4%A/mail", `/${OLD}`, `/${OLD}/42`, `/lisbon/${OLD}`, "/mail/in", "/mail/in/7", "/mail/in/abc", "/mail/in/1/2", "/mail/42", "/lisbon/mail/42", "/mail/c", "/mail/c/abc", "/mail/c/0", "/mail/c/1/2"]) {
+    for (const p of ["/clients", "/nope", "/mail/abc", "/mail/0", "/mail/-1", "/mail/1.5", "/bulk", "/bulk/3", "/mail/1/2", "/log/3", "/settings/x", "/settings/mail/1", "/knowledge/x", "/help/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/help", "/lisbon/settings/connections", "/lisbon/settings/mac", "/_/overview", "/_/settings/connections", "/project", "/project/setup", "/agents", "/connections", "/lisbon/project", "/lisbon/agents", "/lisbon/mail/1/2", "/%E0%A4%A/mail", `/${OLD}`, `/${OLD}/42`, `/lisbon/${OLD}`, "/mail/in", "/mail/in/7", "/mail/in/abc", "/mail/in/1/2", "/mail/42", "/lisbon/mail/42", "/mail/c", "/mail/c/abc", "/mail/c/0", "/mail/c/1/2"]) {
       expect(at(p).route, p).toBe("notFound");
     }
     expect(REDIRECTS).toEqual([]);
@@ -175,10 +177,9 @@ describe("the guard (canonicalAddress, the one normaliser)", () => {
     expect(canon("/lisbon/mail/c/42?filter=waiting", MANY)).toBeNull();
     expect(canon("/settings/connections", MANY)).toBeNull();
   });
-  it("P70: an instance pane under a project's address folds to the bare form, with one project and with several", () => {
-    expect(canon("/lisbon/settings/connections", MANY)).toBe("/settings/connections");
-    expect(canon("/lisbon/settings/mac", MANY)).toBe("/settings/mac");
-    expect(canon("/lisbon/settings/connections", ONE)).toBe("/settings/connections");
+  it("P127 A2: an instance pane exists once, at the top; with a project before it, it is Not found and left alone (no fold page)", () => {
+    expect(canon("/lisbon/settings/connections", MANY)).toBeNull();
+    expect(canon("/lisbon/settings/mac", ONE)).toBeNull();
     expect(canon("/settings/mac", ONE)).toBeNull();
   });
   it("saved links of the query era (until 2026-11-18): `?project=` is read once and written back in the path form", () => {

@@ -3,10 +3,14 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { resolveRoute, type Resolved } from "@/routes/resolve";
-import type { RouteId } from "@/routes/table";
+import { addressOf, type RouteId } from "@/routes/table";
 
-/** The path of the address. One of the places the framework's navigation state is read (`next/navigation` stays in `hooks/` and `app/`). */
-export const usePath = (): string => usePathname();
+/**
+ * The path of the address, as the address bar shows it. One of the places the framework's navigation state is read
+ * (`next/navigation` stays in `hooks/` and `app/`). A bare scoped address is rendered from `/_/…` (P127 A2, `src/proxy.ts`), and
+ * the server may report that inside form, so it is read back as the address here, once, and no screen ever sees `_`.
+ */
+export const usePath = (): string => addressOf(usePathname());
 
 /**
  * The address as a typed route. The one place the router state is turned into a value. With a route id (P127 A1): that route,

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
-import { proxy } from "../src/proxy";
+import { bareScoped, proxy } from "../src/proxy";
 
 const call = (host: string, init: { method?: string; origin?: string; path?: string; cookie?: string } = {}) => {
   const headers = new Headers({ host });
@@ -34,8 +34,34 @@ describe("proxy (Host and Origin guard)", () => {
     expect(passes(call("127.0.0.1:5173", { method: "GET", origin: "http://evil.test" }))).toBe(true);
   });
 
-  it("adds nothing to an address (P48: the project is in the path; the shell frame writes the canonical address)", () => {
+  it("passes a project's address, a projectless page and the entry untouched (P48: the shell frame writes the canonical address)", () => {
     const go = (path: string, cookie: string | undefined) => call("127.0.0.1:5173", { path, cookie });
-    for (const path of ["/mail", "/mail/c/42?filter=all", "/lisbon/mail", "/mail?project=lisbon", "/overview", "/"]) expect(passes(go(path, "hub_project=lisbon")), path).toBe(true);
+    for (const path of ["/lisbon/mail", "/lisbon/mail/c/42?filter=all", "/overview", "/help", "/settings/connections", "/settings/mac", "/"]) expect(passes(go(path, "hub_project=lisbon")), path).toBe(true);
+  });
+
+  it("serves a bare scoped address from the one tree: a rewrite to the `_` segment, never a redirect (P127 A2)", () => {
+    for (const [path, inside] of [
+      ["/mail", "/_/mail"],
+      ["/mail/c/42?filter=all", "/_/mail/c/42?filter=all"],
+      ["/mail?project=lisbon", "/_/mail?project=lisbon"],
+      ["/settings", "/_/settings"],
+      ["/settings/agent", "/_/settings/agent"],
+      ["/messengers/settings", "/_/messengers/settings"],
+    ] as const) {
+      const res = call("127.0.0.1:5173", { path, cookie: "hub_project=lisbon" });
+      expect(res.status, path).toBe(200);
+      expect(res.headers.get("location"), path).toBeNull();
+      expect(new URL(res.headers.get("x-middleware-rewrite") ?? "").pathname + new URL(res.headers.get("x-middleware-rewrite") ?? "").search, path).toBe(inside);
+    }
+  });
+
+  it("rewrites only the bare scoped heads", () => {
+    expect(bareScoped("/log")).toBe("/_/log");
+    expect(bareScoped("/knowledge")).toBe("/_/knowledge");
+    for (const path of ["/", "/overview", "/help", "/settings/connections", "/settings/mac", "/lisbon/mail", "/api/x", "/health", "/_/mail"]) expect(bareScoped(path), path).toBeNull();
+  });
+
+  it("still refuses a foreign Host before it rewrites", () => {
+    expect(call("evil.test", { path: "/mail" }).status).toBe(403);
   });
 });

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ChatsScreen } from "@/features/messengers/section";
 
-export default function ProjectMessengersLayout({ children }: { children: ReactNode }) {
+export default function MessengersLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <ChatsScreen />

@@ -2,9 +2,21 @@ import type { Route } from "next";
 import { AGENT_SEARCH, KNOWLEDGE_SEARCH, LOG_SEARCH, MAIL_SEARCH, MESSENGERS_SEARCH, notionPage, positiveId, type ParamSpec, type SearchOf, type SearchSpec } from "./search";
 
 // `/mail/[id]` read as the number it matches, so `Route<...>` (the union of the pages in `src/app`, plus a string that fits a
-// dynamic page) can judge it; a path that is not a page makes the parameter `never` and `tsc` refuses the row (decision 0021).
+// dynamic page) can judge it (decision 0021). P127 A2 (owner remark 2026-11-23): there is ONE route tree. A scoped row's page
+// lives only under `src/app/(shell)/[project]/`, so its pattern is judged with `/[project]` in front; a projectless row's page
+// is at the top. A path that is not a page of the tree makes `meta` demand `notAPageOfTheTree`, and `tsc` refuses the row.
 type Fill<P extends string> = P extends `${infer A}[${string}]${infer B}` ? `${A}${number}${Fill<B>}` : P;
-type Checked<P extends string> = Fill<P> extends Route<Fill<P>> ? P : never;
+type IsPage<P extends string> = Fill<P> extends Route<Fill<P>> ? true : false;
+type PathCheck<P extends string, M> = (M extends { scoped: true } ? IsPage<`/[project]${P}`> : IsPage<P>) extends true ? unknown : { notAPageOfTheTree: P };
+
+/**
+ * The segment a bare scoped address is served under (`/mail` is `/_/mail` inside, `src/proxy.ts` rewrites it, never redirects):
+ * the `[project]` of an address that names none. `_` is no project slug (`[a-z0-9-]`), and the address bar never shows it.
+ */
+export const NO_PROJECT = "_";
+
+/** The address as the address bar shows it: the inside form `/_/mail` (the server may render it for `/mail`) is `/mail`. */
+export const addressOf = (pathname: string): string => (pathname === `/${NO_PROJECT}` ? "/" : pathname.startsWith(`/${NO_PROJECT}/`) ? pathname.slice(NO_PROJECT.length + 1) : pathname);
 
 /**
  * What the shell reads of a page in the nav (P63 N1). A parent row (no `parent`) is a section: it has its `g` chord and its place
@@ -45,15 +57,15 @@ export type RouteMeta = {
  * own dependencies (chalk, conf, consola, semver) and its metadata has no project placement and no typed-route check, so
  * importing it would add weight for an identity function (`architecture-and-ownership.md` rule 14).
  */
-export function defineRoute<const P extends string, const M extends RouteMeta>(path: Checked<P>, meta: M) {
+export function defineRoute<const P extends string, const M extends RouteMeta>(path: P, meta: M & PathCheck<P, M>) {
   return { path, ...meta } as const;
 }
 
 /**
  * The one declaration of which pages exist (decision 0021). Every internal address is built from it (`dest` in `paths.ts`), the
- * nav and the chords derive from its `nav` metadata (`sections.ts`), and nothing concatenates a path at a call site. A scoped row
- * has a twin page under `src/app/(shell)/[project]/` (checked below and by `test/route-files.test.ts`). It imports the specs of
- * `search.ts` and a type only.
+ * nav and the chords derive from its `nav` metadata (`sections.ts`), and nothing concatenates a path at a call site. A scoped row's
+ * page is under `src/app/(shell)/[project]/` only, a projectless one's at the top (checked by `defineRoute` and by
+ * `test/route-files.test.ts`). It imports the specs of `search.ts` and a type only.
  */
 export const ROUTE_TABLE = {
   "overview.page": defineRoute("/overview", { section: "overview", scoped: false, title: "Overview", nav: { label: "Overview", icon: "overview", order: 0, chord: "o", phone: "bar" } }),
@@ -95,12 +107,6 @@ export type SearchFor<K extends RouteId> = RowOf<K> extends { search: infer S } 
 /** The routes whose path takes a parameter (`/mail/c/[id]`): they have no bare destination. */
 export type ParamRouteId = { [K in RouteId]: RowOf<K> extends { params: object } ? K : never }[RouteId];
 
-// A scoped row without its `[project]` twin page fails here, naming the row; so does a projectless child of a scoped parent
-// (P70) without its fold page (see `PROJECTLESS`).
-type Twin<R> = R extends { path: infer P extends string; scoped: true } ? Checked<`/[project]${P}`> : R extends { path: infer P extends string; nav: { parent: string } } ? Checked<`/[project]${P}`> : string;
-type NoTwin = { [K in RouteId]: [Twin<RowOf<K>>] extends [never] ? K : never }[RouteId];
-export const TWINS: [NoTwin] extends [never] ? true : { missingTwin: NoTwin } = true;
-
 // A nav row is a parent (a chord and a phone place, no `parent`) or a child (a `parent` that is a parent row, no chord, no phone
 // place); anything else fails here, naming the row. Scope (P70): a child has its parent's scope, or is projectless under a scoped
 // parent (Settings ▸ Connections, This Mac: the instance's panes beside the project's); a scoped child under a projectless parent
@@ -131,8 +137,11 @@ type BadParams = { [K in RouteId]: [ParamsMatch<RowOf<K>>] extends [never] ? K :
 export const PARAMS_MATCH: [BadParams] extends [never] ? true : { badParams: BadParams } = true;
 
 const ID = String.raw`[1-9]\d*`;
-/** One project segment of a multi-project address: anything but a slash, a query or a fragment (the slug is URL-encoded). */
-const SLUG = String.raw`[^/?#]+`;
+/**
+ * One project segment of a multi-project address: anything but a slash, a query or a fragment (the slug is URL-encoded), and
+ * never the inside segment `_` (P127 A2: the rewrite's, so no destination is ever written with it).
+ */
+const SLUG = String.raw`(?!${NO_PROJECT}[/?#])[^/?#]+`;
 const PAGE_ID = "[0-9a-f]{32}";
 const escape = (p: string): string => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\\[id\\]", () => ID).replace("\\[page\\]", () => PAGE_ID);
 
@@ -141,18 +150,21 @@ export const ROUTE_IDS: readonly RouteId[] = Object.keys(ROUTE_TABLE).filter(isR
 const rows: readonly Row[] = Object.values(ROUTE_TABLE);
 const pattern = (r: Row): string => (r.scoped ? `(?:/${SLUG})?${escape(r.path)}` : escape(r.path));
 
-/** Every page of the tree (both shapes of a scoped one) and the entry `/`, with an optional query: the run-time door `routeOf` accepts exactly these. */
+/** Every address of the tree (a scoped one with or without its project) and the entry `/`, with an optional query: the run-time door `routeOf` accepts exactly these. */
 export const PAGE = new RegExp(`^(/|${rows.map(pattern).join("|")})(\\?[^#]*)?$`);
 
 /**
- * The routes about the whole instance: their address never names a project. A projectless child of a scoped parent (P70) also
- * has a page under `[project]/`, only so that `/<project>/settings/connections` renders inside the shell, where the guard folds
- * it to `/settings/connections` (`canonicalAddress`); `PAGE` does not accept that form, so nothing links it.
+ * The routes about the whole instance (Overview, Help, Settings ▸ Connections and This Mac): their address never names a project,
+ * and their page exists once, at the top of the tree. A project segment before one is Not found (`/lisbon/settings/connections`).
  */
 export const PROJECTLESS: ReadonlySet<RouteId> = new Set(ROUTE_IDS.filter((id) => !ROUTE_TABLE[id].scoped));
 
 /** The first path segments that are sections, not projects: a project with one of these names cannot be addressed by path. */
-export const RESERVED_SEGMENTS: ReadonlySet<string> = new Set([...rows.map((r) => r.path.split("/")[1] ?? ""), "health", "api"]);
+export const RESERVED_SEGMENTS: ReadonlySet<string> = new Set([...rows.map((r) => r.path.split("/")[1] ?? ""), "health", "api", NO_PROJECT]);
+
+/** The first segments of the scoped rows, and the projectless rows' paths: what `src/proxy.ts` needs to rewrite a bare scoped address. */
+export const SCOPED_HEADS: ReadonlySet<string> = new Set(rows.filter((r) => r.scoped).map((r) => r.path.split("/")[1] ?? ""));
+export const PROJECTLESS_PATHS: ReadonlySet<string> = new Set(rows.filter((r) => !r.scoped).map((r) => r.path));
 
 /** The list route of a section: its parent row (with `nav` and no `parent`). */
 export function listRouteOf(section: string): RouteId {

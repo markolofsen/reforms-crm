@@ -21,24 +21,33 @@ function pages(dir: string, prefix = ""): string[] {
 
 const tree = pages(APP);
 const rows = Object.values(ROUTE_TABLE);
-// A scoped row has its `[project]` twin; so does a projectless child of a scoped parent (P70: the fold page of Settings ▸ Connections).
-const rowPaths = rows.flatMap((r) => (r.scoped || ("nav" in r && "parent" in r.nav) ? [r.path as string, `/[project]${r.path}`] : [r.path as string]));
+// P127 A2 (owner remark 2026-11-23): ONE route tree. A scoped row's page is only under `[project]`; a projectless row's page is
+// only at the top. A bare scoped address (`/mail`) is served by the rewrite in `src/proxy.ts` to `/_/mail`, not by a twin page.
+const pageOf = (r: (typeof rows)[number]): string => (r.scoped ? `/[project]${r.path}` : r.path);
+const rowPaths = rows.map(pageOf);
 
 describe("the file tree and the route table", () => {
-  it("every row has a page file (a scoped row also its `[project]` twin), and every page file but `/`, `/health` and the API has a row", () => {
+  it("every row has exactly one page file, and every page file but `/`, `/health` and the API has a row", () => {
     for (const p of rowPaths) expect(tree, p).toContain(p);
     expect(tree.filter((p) => !rowPaths.includes(p))).toEqual(["/", "/health"]);
   });
 
-  it("the sections of the table are the sections of SECTIONS, and each list path is a page file", () => {
-    expect([...new Set(rows.map((r) => r.section))].sort()).toEqual(SECTIONS.map((s) => s.id).sort());
-    for (const s of SECTIONS) expect(tree).toContain(sectionList(s.id).path);
+  it("no twins: a scoped row has no page at the top, a projectless row none under `[project]`", () => {
+    for (const r of rows) expect(tree, r.path).not.toContain(r.scoped ? r.path : `/[project]${r.path}`);
   });
 
-  it("the patterns derived from the table accept the pages in both shapes and nothing else", () => {
+  it("the sections of the table are the sections of SECTIONS, and each list route has its page file", () => {
+    expect([...new Set(rows.map((r) => r.section))].sort()).toEqual(SECTIONS.map((s) => s.id).sort());
+    for (const s of SECTIONS) {
+      const list = sectionList(s.id);
+      expect(tree).toContain(ROUTE_TABLE[list.route].scoped ? `/[project]${list.path}` : list.path);
+    }
+  });
+
+  it("the patterns derived from the table accept the addresses (a scoped one with or without its project) and nothing else", () => {
     for (const ok of ["/", "/overview", "/mail", "/mail?filter=hold", "/mail/c/42?filter=all&batch=3", "/messengers/c/7?filter=linked&channel=whatsapp", "/log?client=2", "/knowledge", "/settings", "/settings/mail", "/settings/agent", "/settings/connections", "/settings/mac", "/help", "/lisbon/mail", "/lisbon/mail/c/42?filter=waiting", "/lisbon/messengers/c/7", "/demo%20shop/log", "/lisbon/knowledge", "/lisbon/settings", "/lisbon/settings/agent"]) expect(routeOf(ok), ok).toBe(ok);
-    // The fold form `/lisbon/settings/connections` renders (its page exists) but is never a destination: the guard writes the bare one.
-    for (const bad of ["/bulk", "/bulk/3", "/nope", "/mail/abc", "/mail/0", "/mail/1/2", "/mail/42", "/mail/in/7", "//evil.test", "/api/pulse", "https://evil.test/mail", "/lisbon/overview", "/lisbon/help", "/lisbon", "/a/b/mail", "/settings/nope", "/project", "/agents", "/connections", "/lisbon/settings/connections"]) expect(routeOf(bad), bad).toBeNull();
+    // A project before an instance pane is Not found (P127 A2: no fold page), like one before Overview or Help.
+    for (const bad of ["/bulk", "/bulk/3", "/nope", "/mail/abc", "/mail/0", "/mail/1/2", "/mail/42", "/mail/in/7", "//evil.test", "/api/pulse", "https://evil.test/mail", "/lisbon/overview", "/lisbon/help", "/lisbon", "/a/b/mail", "/settings/nope", "/project", "/agents", "/connections", "/lisbon/settings/connections", "/lisbon/settings/mac", "/_/mail"]) expect(routeOf(bad), bad).toBeNull();
     expect([...PROJECTLESS].sort()).toEqual(["help.page", "overview.page", "settings.connections", "settings.mac"]);
   });
 });

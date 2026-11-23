@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { pageTitle } from "@/routes/meta";
+import { addressedProject, pageTitle } from "@/routes/meta";
 
 export async function generateMetadata(props: PageProps<"/[project]/mail">): Promise<Metadata> {
   const { project } = await props.params;
-  return { title: { absolute: pageTitle("mail.list", decodeURIComponent(project)) } };
+  return { title: { absolute: pageTitle("mail.list", addressedProject(project)) } };
 }
 
-export default function ProjectMailPage() {
+export default function MailPage() {
   return null;
 }
