@@ -1,12 +1,12 @@
 import { AGENT_WORD_SEND_ACTOR } from "@hub/config";
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
 import { RepoError, usageRefusal, type MessengerChannel, type Repos } from "@hub/db";
-import { AdapterError, type SendingAdapter } from "@hub/messengers";
-import { confirmDraft, humanActor, sendConfirmed } from "@hub/messengers/human";
-import { checkDraftRecipients, loadProject } from "@hub/projects";
 import { errFields, ops } from "@hub/log/ops";
+import { AdapterError, type SendingAdapter } from "./adapter";
+import { confirmDraft, humanActor } from "./human";
+import { sendConfirmed } from "./send-confirmed";
 
-// The send door for one messenger draft (P71 M4, decision 0036 point 7). The same door as Mail's (`routes/sends.ts`): a dry run
+// The send door for one messenger draft (P71 M4, decision 0036 point 7; P126 D1 moved it from the server next to its send). The same door as Mail's (`routes/sends.ts`): a dry run
 // that sends nothing and says exactly what would go out, then the apply with what the person saw and a single-use ticket, the
 // `send_log` row first, one send, no retry. Its own guards, because a user account is the owner's personal account: the chat has an
 // inbound message (the hub never makes first contact), a daily cap and a spacing per account, `draft.recipients: test` admits
@@ -23,9 +23,11 @@ export interface MessengerSenders {
 
 export interface MessengerDoorDeps {
   repos: Repos;
-  projectsDir: string;
-  policyDir: string;
-  allowList: string[];
+  /**
+   * Who the project may send to (P126 D1: passed in by composition, so this package reads no project file): null when `entry`
+   * (`telegram:<id>`, `whatsapp:+<number>`) is permitted, else the owner's sentence why not.
+   */
+  recipients(project: string, entry: string): string | null;
   senders?: MessengerSenders | undefined;
   now?: () => Date;
 }
@@ -77,15 +79,8 @@ export async function assessMessenger(deps: MessengerDoorDeps, project: string, 
   else if ((await repos.messengers.activity(project, d.channel, d.chatId)).inbound === 0) reasons.push("nobody wrote in this chat yet: the hub never makes the first contact");
   if (await repos.sends.isStopped(project)) reasons.push("Stop sending is on");
 
-  try {
-    const config = loadProject(deps.projectsDir, project, { policyDir: deps.policyDir }).parsed.config;
-    const entry = `${KIND[d.channel]}:${d.chatId}`;
-    if (!checkDraftRecipients(config, [entry], deps.allowList).ok) {
-      reasons.push(config.draft.recipients === "test" ? `this project sends in test mode (draft.recipients: test) and ${entry} is not on allow_list in config/config.json` : `draft.recipients of ${project} does not permit ${entry}`);
-    }
-  } catch {
-    reasons.push(`the project file of ${project} cannot be read, so who it may send to is unknown`);
-  }
+  const refusedRecipient = deps.recipients(project, `${KIND[d.channel]}:${d.chatId}`);
+  if (refusedRecipient) reasons.push(refusedRecipient);
 
   const account = await accountOf(repos, project, d.channel, d.chatId);
   if (!account) reasons.push("no stored message tells which account reads this chat");

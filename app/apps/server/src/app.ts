@@ -20,7 +20,7 @@ import { projectRoutes } from "./routes/project";
 import { projectCatalogRoutes } from "./routes/projects";
 import { healthRoutes } from "./routes/health";
 import { sendRoutes, type SenderOptions } from "./routes/sends";
-import type { MessengerSenders } from "./send/messenger-door";
+import type { MessengerSenders } from "@hub/messengers/door";
 import { sequenceRoutes } from "./routes/sequences";
 import { terminalRoutes } from "./routes/terminal";
 import { liveRoutes } from "./routes/live";

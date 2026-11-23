@@ -21,7 +21,7 @@ import type { Preanalysis } from "../preanalysis";
 import type { ProjectLinksOptions } from "../project-links";
 import type { SendServices, SenderOptions } from "../routes/sends";
 import type { SchemeSources } from "../scheme";
-import type { MessengerSenders } from "../send/messenger-door";
+import type { MessengerSenders } from "@hub/messengers/door";
 import type { TerminalService } from "../terminal";
 import type { AutostartService } from "../autostart";
 import type { CoreUpdatesService } from "../core-updates";

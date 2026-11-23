@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./human": "./src/human.ts"
+    "./human": "./src/human.ts",
+    "./door": "./src/door.ts"
   },
   "scripts": {
     "messengers": "tsx src/cli.ts",

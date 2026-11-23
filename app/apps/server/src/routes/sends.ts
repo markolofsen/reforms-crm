@@ -8,7 +8,8 @@ import type { DraftWriter } from "@hub/mail-app/writer/types";
 import { gateRefusal, ticketStore, type TicketStore } from "../admin-gate";
 import { notFound, v } from "../http";
 import { batchRuns, type BatchRuns } from "../send/batch-door";
-import { applyMessenger, assessMessenger, type MessengerSenders } from "../send/messenger-door";
+import { applyMessenger, assessMessenger, type MessengerSenders } from "@hub/messengers/door";
+import { messengerRecipients } from "../send/messenger-recipients";
 import { ops } from "@hub/log/ops";
 import type { LogEvent } from "@hub/log/event";
 import { AGENT_WORD_SEND_ACTOR, OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
@@ -82,7 +83,7 @@ const refused = (what: Record<string, unknown>, reasons: string[]) => {
  * dry run that reads Mail and returns the exact mail; the second carries what the person saw (recipients and subject)
  * and sends only if Mail's draft still matches. Every send goes through `@hub/send`, the same checks as `hub send`,
  * and writes its audit row first. Cancel and Stop all only ever remove work: nothing here queues a send.
- * A messenger draft goes through the same door (P71 M4, `../send/messenger-door.ts`): the same dry run, ticket and audit row, its
+ * A messenger draft goes through the same door (P71 M4, `@hub/messengers/door`, P126 D1): the same dry run, ticket and audit row, its
  * own guards, and `messengers` holds the only send of each connected account.
  */
 /** One refusal of an agent send: its code, the reasons in words and the agent's next step (409; 403 for the token). */
@@ -115,7 +116,7 @@ function agentSendRoute({ repos, sender, messengers }: SendServices) {
     });
     const word = ownerWordFor({ events: agent.events(slug, since), draft: { id, chat, updatedAt: d.updatedAt }, openDrafts, used: await repos.sends.ownerWordsUsed(slug), now });
     if (!word.ok) return c.json(agentRefusal(word.refusal.code, word.refusal.message, word.refusal.next), 409);
-    const door = { repos, projectsDir: sender.projectsDir, policyDir: sender.policyDir, allowList: sender.allowList, senders: messengers, ...(sender.now ? { now: sender.now } : {}) };
+    const door = { repos, recipients: messengerRecipients(sender), senders: messengers, ...(sender.now ? { now: sender.now } : {}) };
     const a = await assessMessenger(door, slug, id);
     if (!a?.preview) return c.json(agentRefusal("refused", a?.reasons.join("; ") || "nothing to send", LEAVE, a?.reasons), 409);
     const r = await applyMessenger(door, slug, id, { chatId: d.chatId, text: d.text }, { actor: AGENT_WORD_SEND_ACTOR, ownerWord: word.ref });
@@ -203,7 +204,7 @@ export function sendRoutes(services: SendServices) {
       const { slug, id } = c.req.valid("param");
       const body = c.req.valid("json");
       if (!sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
-      const door = { repos, projectsDir: sender.projectsDir, policyDir: sender.policyDir, allowList: sender.allowList, senders: messengers, ...(sender.now ? { now: sender.now } : {}) };
+      const door = { repos, recipients: messengerRecipients(sender), senders: messengers, ...(sender.now ? { now: sender.now } : {}) };
       if (!body.apply) {
         const a = await assessMessenger(door, slug, id);
         if (!a) return notFound(c, "draft");

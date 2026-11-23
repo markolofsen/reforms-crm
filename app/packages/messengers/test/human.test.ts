@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as agentApi from "../src/index";
 import { createDraft, isConfirmed, listOpenDrafts, type Draft } from "../src/index";
 import * as human from "../src/human";
-import { allowChat, confirmDraft, humanActor, linkIdentifier, moveChatToRecord, sendConfirmed, undoMoveChat, unlinkIdentifier } from "../src/human";
+import { allowChat, confirmDraft, humanActor, linkIdentifier, moveChatToRecord, undoMoveChat, unlinkIdentifier } from "../src/human";
+import { sendConfirmed } from "../src/send-confirmed";
 import { FakeAdapter, FakeSendingAdapter } from "../src/fake";
 import { mintConfirmed } from "../src/confirmed";
 import { normalizeIdentifier } from "../src/normalize";
@@ -33,7 +34,9 @@ describe("the agent can only make drafts", () => {
     for (const forbidden of ["confirmDraft", "sendConfirmed", "linkIdentifier", "unlinkIdentifier", "allowChat", "disallowChat", "humanActor", "mintConfirmed", "discardDraft"]) {
       expect(names).not.toContain(forbidden);
     }
-    expect(Object.keys(human)).toEqual(expect.arrayContaining(["confirmDraft", "sendConfirmed", "linkIdentifier", "humanActor"]));
+    expect(Object.keys(human)).toEqual(expect.arrayContaining(["confirmDraft", "linkIdentifier", "humanActor"]));
+    // P126 D1: the send itself is not on `./human` any more; only the door (`./door`) reaches it.
+    expect(Object.keys(human)).not.toContain("sendConfirmed");
   });
 
   it("the package exposes only two entries, so mintConfirmed cannot be deep-imported", () => {
