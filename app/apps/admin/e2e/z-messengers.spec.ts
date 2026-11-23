@@ -91,7 +91,8 @@ test("messengers: Edit changes the draft's text, Skip sets it aside with Undo", 
   await conversation(page).getByRole("button", { name: `Skip the draft for ${RITA}` }).click();
   await expect(page.getByText(`Skipped the draft for ${RITA}`)).toBeVisible();
   await expect(conversation(page).getByTestId("messenger-draft")).toHaveCount(0);
-  await expect(conversation(page).getByText(/A reply is owed and no draft yet/)).toBeVisible();
+  // P115: with no draft the pane is the reply composer, and its header says a reply is owed.
+  await expect(conversation(page).getByText(/Client wrote — reply needed/)).toBeVisible();
   await expect(conversation(page).getByRole("button", { name: "Prepare reply" })).toBeVisible();
   await conversation(page).getByRole("button", { name: "Prepare reply" }).click();
   await expect(conversation(page).getByTestId("messenger-draft")).toContainText("fake");
