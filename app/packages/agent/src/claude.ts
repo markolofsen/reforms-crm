@@ -74,7 +74,7 @@ export function ancestorMemoryExcludes(home: string): string[] {
 /**
  * `state/projects/<slug>/settings.json`: deny rules, the guard hooks, and in unattended mode the sandbox. In unattended
  * mode the database folder is left out of the Read/Edit deny rules: Claude turns them into sandbox read and write
- * denials, and `hub record-draft` (the agent's one writer, decision 0009) must open the database. The database holds
+ * denials, and `hub sequences enrol|judge` (until P129 A9 moves them into `hub mcp`, which records drafts outside the sandbox) must open the database. The database holds
  * no permission to send: a manual send needs a person's ticket (S12), an autosend the policy file (S11).
  */
 export function claudeSettings(i: ClaudeSessionInput): Record<string, unknown> {

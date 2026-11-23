@@ -19,6 +19,15 @@ export interface DraftScope {
   isOurs: (address: string) => boolean;
 }
 
+/**
+ * P129 verdict 4: a version of this thread the hub saved and has not recorded yet (the record failed or never ran). A repeat
+ * of the call records it instead of writing a second one (adoption).
+ */
+export interface Pending {
+  pending: { mailId: number; messageId: string; account: string };
+  mailRef: string;
+}
+
 /** What a branch of `draft_write` saved: the revision, the version rows it may have replaced, and its thread key. */
 export interface Written {
   r: Revision;

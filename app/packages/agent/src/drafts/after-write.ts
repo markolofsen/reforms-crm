@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { displayNameFor } from "@hub/projects/brand";
-import { normalizeAddress } from "@hub/projects/parse";
 import { versionHash } from "../mail";
 import type { DraftScope, Written } from "./sign";
 
@@ -45,6 +44,10 @@ export const draftWriteOutput = z.object({
   ownerRequest: z.string().optional(),
   newThread: z.literal(true).optional(),
   recorded: z.boolean(),
+  /** P129 verdict 4: the record of a first draft (kind reply or new), written by this call. */
+  record: z.object({ draftId: z.number(), action: z.string(), evidence: z.enum(["ok", "weak", "missing"]), warnings: z.array(z.string()), notice: z.string().optional() }).optional(),
+  /** The hub recorded the version it had already saved for this message instead of writing again. */
+  adopted: z.literal(true).optional(),
   live: z.boolean(),
   warning: z.string().optional(),
   next: z.string(),
@@ -58,7 +61,24 @@ export interface WriteRequest {
   reason: string | undefined;
 }
 
-export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Written, q: WriteRequest): Promise<z.input<typeof draftWriteOutput>> {
+/** What the record step of a first draft returned (`./record-step.ts`). */
+export interface FirstRecord {
+  draftId: number;
+  action: string;
+  recorded: boolean;
+  message?: string;
+  evidence: "ok" | "weak" | "missing";
+  warnings: string[];
+  notice?: string;
+}
+
+/** The `next` of a first draft, from its record. */
+export const firstNext = (f: FirstRecord, notes = ""): string =>
+  f.recorded
+    ? `Recorded: draft ${f.draftId} (${f.action}${f.evidence !== "ok" ? `, evidence ${f.evidence}: ${f.warnings.length} finding(s) on the card` : ""}). Tell the owner in one line what you wrote. Nothing was sent.${f.notice ? ` ${f.notice}.` : ""}${notes}`
+    : `Saved in Mail but NOT recorded: ${f.message ?? "the hub refused the record"}. Tell the owner in one line; never say "recorded". Nothing was sent.${notes}`;
+
+export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Written, q: WriteRequest, first?: () => Promise<FirstRecord>): Promise<z.input<typeof draftWriteOutput>> {
   const { ctx, slug, cfg } = s;
   const { env, repos } = ctx;
   const { draft, owner_request, to, reason } = q;
@@ -82,7 +102,7 @@ export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Wri
   const signNote = r.signature === "placeholder" ? ` The draft ends with [Owner: signature for ...] (${r.brandReason}): hub send refuses it until the owner fills it in; say so in your one line.` : "";
   const langNote = r.signatureFallback ? ` The project has no sign-off or signature line for "${r.signatureFallback}", the reply's language: it was signed in English and the card shows the check signature_language; say so in your one line.` : "";
   const versionNote = versionError ? ` The hub could not record this Mail version (${versionError}): Skip and Done will not move it to Trash; say so in your one line.` : "";
-  // A revision of a known hub draft is recorded here, in place; only a first draft of a thread needs `record-draft`.
+  // A revision of a known hub draft is recorded here, in place; a first draft by its record (P129 verdict 4).
   let recorded: { draftId: number; action: string } | null = null;
   let recordError: string | null = null;
   if (draft !== undefined && env.recordRevision) {
@@ -98,14 +118,14 @@ export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Wri
   const team = draft !== undefined ? await repos.drafts.teamNotice(draft).catch(() => null) : null;
   const warning = team?.repliedElsewhere ? `${team.repliedElsewhere.by} already replied in this thread at ${team.repliedElsewhere.at} (not this Hub's mail): this draft may repeat or contradict it; say so in your one line.` : team?.teamSent ? `${team.teamSent.by} wrote to this client at ${team.teamSent.at} (Notion Last sent by): say so in your one line.` : null;
   const notes = `${fromNote}${signNote}${langNote}${versionNote}${left}${warning ? ` ${warning}` : ""}`;
-  const next = recorded
-    ? `Recorded: draft ${recorded.draftId} updated in place (same id, mailRef, client and context; Checked is off because the text changed). Do not run record-draft. Tell the owner in one line what you changed. Nothing was sent.${notes}`
-    : draft !== undefined
-      ? `Saved in Mail but NOT recorded: the hub could not update draft ${draft} in place${recordError ? ` (${recordError})` : ""}. Record it once, one Bash call from the instance folder: \`echo '{"email":"<client>","subject":"${r.subject.replace(/["'\\]/g, "")}","mailRef":"${r.thread}","skill":"triage-mail","excerpt":"<first 240 chars of your reply>"}' | ./run.sh record-draft --project ${slug}\`; if it answers "recorded":false, nothing was recorded: tell the owner in one line that the new text is in Mail and the card still shows the old one, never "recorded". Nothing was sent.${notes}`
-      : to !== undefined
-        ? `Record it, one Bash call from the instance folder: \`echo '{"email":"${normalizeAddress(to)}","subject":"${r.subject.replace(/["'\\]/g, "")}","newThread":true,"skill":"bulk-drafts","ownerRequest":"${(owner_request ?? "").replace(/["'\\]/g, "")}","excerpt":"<first 240 chars of your message>","context":{"batchKey":"<one key for every client of this run>","batchTitle":"<short English title>",...}}' | ./run.sh record-draft --project ${slug}\` (JSON on stdin; a new thread has no mailRef; the records of one run share batchKey and are one batch in Drafts). Then tell the owner in one line who it goes to. Nothing was sent.${notes}`
-        : `Record it, one Bash call from the instance folder: \`echo '{"email":"<client>","subject":"${r.subject.replace(/["'\\]/g, "")}","mailRef":"${r.thread}","skill":"${owner_request ? "bulk-drafts" : "triage-mail"}",${owner_request ? `"ownerRequest":"${owner_request.replace(/["'\\]/g, "")}",` : ""}"excerpt":"<first 240 chars of your reply>","context":{${owner_request ? `"batchKey":"<one key for every client of this run>","batchTitle":"<short English title>",` : ""}...}}' | ./run.sh record-draft --project ${slug}\` (JSON on stdin; skill ${owner_request ? "bulk-drafts" : "triage-mail step 5"}). Then tell the owner in one line what you changed. Nothing was sent.${notes}`;
+  // P129 verdict 4: the first draft of a thread is recorded after Mail saved it; a refusal leaves the version pending for the same call again.
+  const rec = draft === undefined && first ? await first() : undefined;
+  const next = rec
+    ? firstNext(rec, notes)
+    : recorded
+    ? `Recorded: draft ${recorded.draftId} updated in place (same id, mailRef, client and context; Checked is off because the text changed). Tell the owner in one line what you changed. Nothing was sent.${notes}`
+    : `Saved in Mail but NOT recorded: the hub could not update draft ${draft ?? "(none)"} in place${recordError ? ` (${recordError})` : ""}. Tell the owner in one line that the new text is in Mail and the card still shows the old one; never say "recorded". Nothing was sent.${notes}`;
   // P58 live finding: unambiguous names for the agent. `fromSeenByClient` is Mail's own read of the saved draft's From.
   const { text: _text, shell: _shell, from, wroteTo: _wroteTo, ...shown } = r;
-  return { ...shown, sent: false as const, fromSeenByClient: from, clientWroteTo: r.clientWroteTo, brand: r.brand ?? null, brandDisplayName: displayNameFor(cfg, r.brand), fromReason: r.fromReason, project: slug, ...(draft !== undefined ? { draft } : {}), ...(owner_request ? { ownerRequest: owner_request } : {}), ...(to !== undefined ? { newThread: true as const } : {}), recorded: recorded !== null, live, ...(warning ? { warning } : {}), next };
+  return { ...shown, sent: false as const, fromSeenByClient: from, clientWroteTo: r.clientWroteTo, brand: r.brand ?? null, brandDisplayName: displayNameFor(cfg, r.brand), fromReason: r.fromReason, project: slug, ...(draft !== undefined ? { draft } : {}), ...(owner_request ? { ownerRequest: owner_request } : {}), ...(to !== undefined ? { newThread: true as const } : {}), recorded: recorded !== null || rec?.recorded === true, ...(rec ? { record: { draftId: rec.draftId, action: rec.action, evidence: rec.evidence, warnings: rec.warnings, ...(rec.notice ? { notice: rec.notice } : {}) } } : {}), live, ...(warning ? { warning } : {}), next };
 }

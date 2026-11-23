@@ -8,7 +8,7 @@ import { writeSendPolicy } from "./send-policy";
 import { at, cardOf, cards, contextWarn, remember, viewMenu } from "./support";
 
 // P99 S2 and S3: Mail lists people. A Mark-Effect-like client (two threads, "Re: Hello" finished and "Re: Wow" with an open draft,
-// recorded the way the agent records them, `hub record-draft`) is ONE row; opening it shows both threads with a divider each, his
+// recorded the way the agent records them, the seeder of draft_write's writer) is ONE row; opening it shows both threads with a divider each, his
 // messages and ours, and the unsent message at the bottom. The e2e run reads no Mail (fake Mailer), so the pane's Mail read is
 // answered with a Mark-Effect-like history (the shape the server's AppleScript read returns). Named z-* because it records drafts.
 test.describe.configure({ mode: "serial" });
@@ -16,13 +16,14 @@ test.describe.configure({ mode: "serial" });
 const P = "demo-shop";
 const EMAIL = "mark.effect@example.test";
 const NAME = "Mark Effect";
-const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
+// P129 A3: `hub record-draft` is gone (the agent records through draft_write); flows seed a draft row with the same writer.
+const seedDraft = fileURLToPath(new URL("../../installer/test/support/seed-draft.mjs", import.meta.url));
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-conv-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, P), { recursive: true });
 contextWarn(join(projects, P, "project.md"));
 writeSendPolicy(process.env.HUB_E2E_HOME ?? "", P);
 const record = (payload: object) =>
-  JSON.parse(execFileSync("node", [hub, "record-draft", "--project", P], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" })) as { ok: boolean; action: string; draftId: number };
+  JSON.parse(execFileSync("node", [seedDraft, "--project", P], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" })) as { ok: boolean; action: string; draftId: number };
 
 const msg = (id: string, ours: boolean, date: string, subject: string, preview: string) => ({ messageId: id, ours, fromName: ours ? "" : NAME, fromEmail: ours ? "demo-shop@example.test" : EMAIL, date, subject, draftId: null, preview });
 const HISTORY = {

@@ -5,7 +5,7 @@ import { writeLogOf, writeRecorded } from "../mail";
 import type { NotionClientCheck } from "../mcp/ports";
 import { ToolError } from "../mcp/result";
 import { landingWrite, pendingVersion } from "./guards";
-import type { DraftScope, Written } from "./sign";
+import type { DraftScope, Pending, Written } from "./sign";
 
 export interface NewThreadArgs {
   to: string;
@@ -18,7 +18,7 @@ export interface NewThreadArgs {
 }
 
 /** P85b: a brand-new thread to a client the project never wrote to and who never wrote, on the owner's words only. */
-export async function writeNewThread(s: DraftScope, a: NewThreadArgs): Promise<Written> {
+export async function writeNewThread(s: DraftScope, a: NewThreadArgs): Promise<Written | Pending> {
   const { ctx, slug, writer, mail, cfg } = s;
   if (!a.owner_request) throw new ToolError("owner_request_needed", "A new thread is written only on the owner's words: pass owner_request = his own words from this session, verbatim. Nothing was written.");
   if (!a.subject) throw new ToolError("invalid", "A new thread needs a subject.");
@@ -44,7 +44,7 @@ export async function writeNewThread(s: DraftScope, a: NewThreadArgs): Promise<W
   }
   const mailRef = newThreadKey(email);
   const pending = await pendingVersion(s, mailRef);
-  if (pending) throw new ToolError("already_drafted", `The hub already wrote a new message to ${email} (Mail id ${pending.mailId}) that is not recorded yet: record it with hub record-draft ("newThread":true), then revise it with draft=<id>. Nothing was written.`);
+  if (pending) return { pending: { mailId: pending.mailId, messageId: pending.messageId, account: pending.account }, mailRef };
   const landing = await landingWrite(s, mailRef);
   if (landing) throw new ToolError("mail_slow", `The hub's new message to ${email} at ${landing.startedAt} has not shown in Mail yet (Mail is slow). Do not write it again now: tell the owner in one line. Nothing was written.`);
   const account = a.account;

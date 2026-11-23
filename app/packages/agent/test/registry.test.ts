@@ -32,8 +32,9 @@ describe("the tool registry", () => {
     expect(TOOLS.some((t) => t.effect === "send")).toBe(false);
   });
 
-  it("has exactly two draft writers (approval-and-capabilities: the draft tools are the only writers of a draft)", () => {
-    expect(ALL.filter((t) => t.effect === "draft").map((t) => t.name).sort()).toEqual(["draft_write", "messenger_draft_write"]);
+  it("has exactly two draft writers and the record of a client handled without one (approval-and-capabilities: the draft tools are the only writers of a draft)", () => {
+    // P129 A3: client_record writes one Inbox row (no draft, no mail text) with the draft effect, since it writes as the session.
+    expect(ALL.filter((t) => t.effect === "draft").map((t) => t.name).sort()).toEqual(["client_record", "draft_write", "messenger_draft_write"]);
     expect(annotationsOf("read")).toMatchObject({ readOnlyHint: true });
     for (const e of ["pointer", "draft", "send"] as const) expect(annotationsOf(e).readOnlyHint).toBe(false);
   });

@@ -168,8 +168,8 @@ describe("hub on the session's PATH (P52)", () => {
     expect(statSync(join(dir, "hub")).mode & 0o111).toBeTruthy();
     const env: NodeJS.ProcessEnv = { ...process.env, PATH: `${dir}:/usr/bin:/bin` };
     delete env.HUB_HOME;
-    const out = JSON.parse(execFileSync("hub", ["record-draft", "--project", "acme"], { env, encoding: "utf8" }));
-    expect(out).toEqual({ home, args: ["record-draft", "--project", "acme"] });
+    const out = JSON.parse(execFileSync("hub", ["doctor", "--project", "acme"], { env, encoding: "utf8" }));
+    expect(out).toEqual({ home, args: ["doctor", "--project", "acme"] });
   });
 });
 

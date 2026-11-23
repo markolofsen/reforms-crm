@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditEvidence, entryFor, preDraftCheck, replayCalls, summarizeCall, type CallRecord, type ClaimedRecord, type LedgerEntry } from "../src/index";
+import { auditEvidence, claimOfDraftWrite, entryFor, preDraftCheck, replayCalls, summarizeCall, type CallRecord, type ClaimedRecord, type LedgerEntry } from "../src/index";
 
 const M = "mcp__mail-mcp__";
 const t = (s: unknown) => [{ type: "text", text: typeof s === "string" ? s : JSON.stringify(s) }];
@@ -56,7 +56,7 @@ describe("pre-draft check (B3)", () => {
 
   it("a revision named by its hub draft id (P53): the client's read is the target before Mail's id is known, and the result gives the id", () => {
     const e = build(careful(10, "a@x.example"));
-    const rev: CallRecord = { name: "mcp__hub__draft_write", input: { draft: 1, content: "Your lot 14 certificate arrived; the plan matches the Harbour Road survey." } };
+    const rev: CallRecord = { name: "mcp__hub__draft_write", input: { kind: "revise", draft: 1, content: "Your lot 14 certificate arrived; the plan matches the Harbour Road survey." } };
     expect(preDraftCheck(e, rev).violations.join()).toContain("(a)");
     expect(preDraftCheck(e, rev, { replyFrom: "A@X.example" }).violations).toEqual([]);
     const done = summarizeCall({ ...rev, result: t({ draftId: 7, thread: "m@x", replyTo: 10, sent: false }) });
@@ -78,7 +78,7 @@ describe("pre-draft check (B3)", () => {
     // The session: focus, draft_show, one get_message_content refused for its arguments (no PostToolUse, so no ledger
     // line), the same read again, then draft_write {draft: 1}. No find_messages, no Notion read.
     const e = build([read(138994, "markolofsen@gmail.example")]);
-    const rev: CallRecord = { name: "mcp__hub__draft_write", input: { draft: 1, content: "Короткий ответ стихами о новом запросе." } };
+    const rev: CallRecord = { name: "mcp__hub__draft_write", input: { kind: "revise", draft: 1, content: "Короткий ответ стихами о новом запросе." } };
     const r = preDraftCheck(e, rev, { replyFrom: "markolofsen@gmail.example" });
     expect(r.observation).toMatchObject({ targetRead: true, targetId: 138994, read: 1, required: 3, found: null, historyFind: false, profile: false });
     const v = r.violations.join(" ");
@@ -120,6 +120,22 @@ describe("audit evidence (B4)", () => {
     expect(rows[0]).toMatchObject({ client: "a@x.example", read: "1/3", profile: "read", facts: 1, anchors: "1", verdict: "red" });
     expect(rows[0]!.notes.join()).toContain("claims 3 read, observed 1");
   });
+  it("P129 A3: a draft_write reply names its message in `message`; its `record.context` is the claim replayCalls collects", () => {
+    const write: CallRecord = { name: "mcp__hub__draft_write", input: { kind: "reply", message: { account: "a", mailbox_path: ["INBOX"], message_id: 1 }, content: "A reply.", record: { skill: "triage-mail", context: { thread: { read: 3 }, anchors: ["x"] } } }, result: t({ draftId: 7, replyTo: 1, account: "a", sent: false, recorded: true }) };
+    expect(summarizeCall(write)).toMatchObject({ kind: "draft", replyTo: 1, account: "a" });
+    const entries: LedgerEntry[] = [];
+    const claims: Array<{ after: number; claim: ClaimedRecord }> = [];
+    replayCalls([notion("a@x.example"), find("a@x.example", [1, 2, 3, 4]), read(1, "a@x.example"), kb, write], entries, claims);
+    expect(claims).toEqual([{ after: entries.length, claim: { context: { thread: { read: 3 }, anchors: ["x"] } } }]);
+    expect(auditEvidence(entries, claims)[0]).toMatchObject({ client: "a@x.example", read: "1/3", anchors: "1", verdict: "red" });
+    // A new thread's claim names its address; a revision, a write with no record and a shell command claim nothing.
+    expect(claimOfDraftWrite({ name: "mcp__hub__draft_write", input: { kind: "new", to: "Bob@Client.example", subject: "s", content: "c", owner_request: "w", record: { context: { anchors: [] } } } })).toEqual({ email: "bob@client.example", context: { anchors: [] } });
+    expect(claimOfDraftWrite({ name: "mcp__hub__draft_write", input: { kind: "revise", draft: 1, content: "c" } })).toBeNull();
+    expect(claimOfDraftWrite({ name: "Bash", input: { command: `echo '{"email":"a@x.example","context":{}}' | hub doctor` } })).toBeNull();
+    // Without a record the draft is still judged, as one nobody recorded.
+    expect(auditEvidence(build([read(1, "a@x.example"), { ...write, input: { kind: "reply", message: { account: "a", mailbox_path: ["INBOX"], message_id: 1 }, content: "A reply." } }]))[0]!.notes).toContain("draft was never recorded with context");
+  });
+
   it("entryFor takes the client's own name out of the sketch", () => {
     const e = build([read(1, "anna@x.example")]);
     const a = entryFor(e, reply(1, "Thanks, anna, the lot 14 plan is here. Anna, see it."))!;
@@ -155,7 +171,7 @@ describe("where a Notion page came from (P82)", () => {
 });
 
 describe("P85b: the pre-draft rule of a new thread", () => {
-  const write = { name: "mcp__hub__draft_write", input: { to: "bob@client.example", subject: "New prices", content: "Hi Bob", owner_request: "write to Bob" } };
+  const write = { name: "mcp__hub__draft_write", input: { kind: "new", to: "bob@client.example", subject: "New prices", content: "Hi Bob", owner_request: "write to Bob", record: { skill: "bulk-drafts" } } };
   it("answers no message, so it asks only for a Notion read of this session first", () => {
     expect(preDraftCheck([], write).violations[0]).toMatch(/new message to bob@client.example: read this client's record in the project's Notion Clients first/);
     const notion = summarizeCall({ name: "mcp__notion__notion-query-data-sources", input: { data_source_urls: ["collection://41806f30-6f14-81ac-b8e1-000bac534e05"] }, result: [{ type: "text", text: "{}" }] }) as LedgerEntry;

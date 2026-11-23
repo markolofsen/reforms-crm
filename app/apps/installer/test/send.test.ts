@@ -82,7 +82,7 @@ const mailDraft = (over: Partial<MailDraft> = {}): MailDraft => ({
   ...over,
 });
 
-/** Records a draft (as `hub record-draft` does), checks it and puts the matching draft into the fake Mail. */
+/** Records a draft (the row draft_write's record writes), checks it and puts the matching draft into the fake Mail. */
 async function draft(o: { email?: string; subject?: string; mailRef?: string; mailClass?: string | null; injection?: boolean; checked?: boolean; mail?: Partial<MailDraft> | null } = {}) {
   const email = o.email ?? "client@example.com";
   const subject = o.subject ?? "Re: hello";

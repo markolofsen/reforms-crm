@@ -1,6 +1,6 @@
 import { judgeSimilarity, measureAgainstSet, pairwise, type Level } from "@hub/projects";
 import { readLines, recordsFile } from "@hub/projects/evidence-store";
-import type { RecordLine } from "@hub/agent/records";
+import type { RecordLine } from "@hub/agent/records/checks";
 
 // `hub batch-check --project X --batch K [--json]` (P28 B5): the one place the skill and the owner look at a batch as a
 // set. Reads state/evidence/<slug>/records.jsonl (written by `hub record-draft`), so it works with the server off and

@@ -246,16 +246,16 @@ describe("hub mcp", () => {
     expect(r.isError).toBe(false);
     expect(r.json).toMatchObject({ id: ids.inbound, from: { name: "Mark Effect", email: "mark@example.com" }, subject: "Re: Wow", receivedAt: "2099-01-01T00:00:00.000Z", messageIdHeader: "in1@example.com", open: true, answer: null });
     const ann = await call("inbound_show", { inbound: ids.annInbound });
-    expect(ann.json).toMatchObject({ answer: { id: ids.ann, status: "ready" }, reply: { note: expect.stringContaining(`draft_write { draft: ${ids.ann} }`) } });
+    expect(ann.json).toMatchObject({ answer: { id: ids.ann, status: "ready" }, reply: { note: expect.stringContaining(`draft_write { kind: "revise", draft: ${ids.ann} }`) } });
     expect(await call("inbound_show", { inbound: ids.otherInbound })).toMatchObject({ isError: true, json: { error: "not_found" } });
   });
 
-  it("lists exactly the twelve tools: nine read-only (including project_links), highlight the pointer, draft_write the one Mail write, messenger_draft_write the one messenger write; none send-like", async () => {
+  it("lists exactly the thirteen tools: nine read-only (including project_links), highlight the pointer, draft_write the one Mail write, client_record the record of a client without a draft, messenger_draft_write the one messenger write; none send-like", async () => {
     const { client } = await connect("acme");
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([...HUB_MCP_TOOLS].sort());
-    expect(HUB_MCP_TOOLS).toHaveLength(12);
-    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["draft_write", "highlight", "messenger_draft_write"]);
+    expect(HUB_MCP_TOOLS).toHaveLength(13);
+    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["client_record", "draft_write", "highlight", "messenger_draft_write"]);
     expect(tools.filter((t) => SEND_LIKE_TOOL.test(t.name))).toEqual([]);
   });
 

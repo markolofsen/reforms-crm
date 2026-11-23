@@ -4,6 +4,7 @@ import type { DraftWriter } from "../mail";
 import type { WithRepos } from "../mail/write-log";
 import type { AgentSendPort } from "../messenger/send-tool";
 import type { NotionScope } from "../notion-scope";
+import type { DraftRecordEnv } from "../records/draft";
 import { ToolError } from "./result";
 
 // What `hub mcp`'s tools reach (P51, P52, P65, P82, P87, P92, P101, decision 0046), passed by `stdio.ts` or a test.
@@ -50,7 +51,7 @@ export interface HubMcpEnv {
    * again. The database handle of the tools stays read-only; this writes only the live counter. A throw is reported, never fatal.
    */
   mailWritten?: (slug: string) => void;
-  /** Records a revision of an open hub draft in place (same id, mailRef, client, context block). Absent: the result says to run `hub record-draft`. */
+  /** Records a revision of an open hub draft in place (same id, mailRef, client, context block). Absent: the revision is saved in Mail and not recorded. */
   recordRevision?: (slug: string, draftId: number, r: RevisionRecord) => Promise<{ draftId: number; action: string }>;
   /** Records the Mail version the writer saved (`mail_versions`) and marks the versions it replaced as trashed (P65). A throw is reported, never fatal. */
   recordVersion?: (slug: string, v: VersionRecord) => Promise<void>;
@@ -75,6 +76,13 @@ export interface HubMcpEnv {
    * not exist in this server (unattended sessions never see it).
    */
   agentSend?: AgentSendPort;
+  /**
+   * P129 A3 (decision 0045 point 10): where `draft_write` records a first draft and `client_record` a client handled without
+   * one: the database, the project folders, the send policy and the ledger. Absent: both refuse `unavailable`.
+   */
+  records?: DraftRecordEnv;
+  /** P129 verdict 7: whether these words are in one of this project's owner prompts of the last 12 hours (the P54 log). Absent: not checked. */
+  ownerWords?: (slug: string, words: string) => boolean;
 }
 
 export type NotionClientCheck = { state: "client" | "not_client" | "do_not_contact" } | { state: "lead"; pageId: string } | { state: "unavailable"; reason: string };

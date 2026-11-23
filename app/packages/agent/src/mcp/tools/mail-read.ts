@@ -57,7 +57,7 @@ export const inboundShowTool = defineTool({
     answer: draftLine.nullable(),
     client: z.object({ id: z.number() }).nullable(),
     drafts: z.array(draftLine),
-    reply: z.object({ note: z.string().optional(), draft_write: z.object({ account: z.string(), mailbox_path: z.array(z.string()), message_id: z.number(), content: z.string() }).optional(), then: z.string().optional() }),
+    reply: z.object({ note: z.string().optional(), draft_write: z.object({ kind: z.literal("reply"), message: z.object({ inbound: z.number() }), content: z.string() }).optional(), then: z.string().optional() }),
   }),
   effect: "read",
   refusals: ["not_found"],
@@ -88,9 +88,9 @@ export const inboundShowTool = defineTool({
       client: clientId === undefined ? null : { id: clientId },
       drafts: drafts.slice(0, 10).map((d) => ({ id: d.id, status: d.status, subject: cut(d.subject), createdAt: d.createdAt })),
       reply: answer
-        ? { note: `Draft ${answer.id} already answers it: revise that one with draft_write { draft: ${answer.id} } when asked.` }
+        ? { note: `Draft ${answer.id} already answers it: revise that one with draft_write { kind: "revise", draft: ${answer.id} } when asked.` }
         : found
-          ? { draft_write: { account: found.account, mailbox_path: found.mailboxPath, message_id: found.messageId, content: "<the reply>" }, then: "record it: ./run.sh record-draft with mailRef = messageIdHeader" }
+          ? { draft_write: { kind: "reply", message: { inbound: row.id }, content: "<the reply>" }, then: "nothing: pass record (skill, notion, context) in the same call; it records the draft" }
           : { note: "Mail did not find the message now: find it with mail-mcp find_messages by its Message-ID (messageIdHeader), then draft_write." },
     };
   },

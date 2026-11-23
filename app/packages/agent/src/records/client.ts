@@ -1,11 +1,11 @@
-import { createRepos, openDb, RepoError, type InboxInput } from "@hub/db";
+import { createRepos, openDb, RepoError, type InboxInput, type InboxResult } from "@hub/db";
 import type { ClientRecord } from "./schema";
 
 // `client_record` (P129 verdict 4, decision 0045 point 10): a client the session handled WITHOUT a draft (skipped,
 // escalated, injection suspected, a call), so Mail and Activity show who was seen and why (P26). Nothing of the mail is
 // stored: no body, no excerpt (decision 0013). Replaces `hub record-client`; one short write connection per call.
 
-export type ClientRecordOutcome = { ok: true; [k: string]: unknown } | { ok: false; code: "record_failed" | "busy"; error: string };
+export type ClientRecordOutcome = ({ ok: true } & InboxResult) | { ok: false; code: "record_failed" | "busy"; error: string };
 
 export async function recordClientCall(project: string, v: ClientRecord, o: { dbPath: string; now?: () => Date }): Promise<ClientRecordOutcome> {
   const input: InboxInput = {

@@ -81,7 +81,7 @@ describe("the agent has no send path", () => {
       expect(g.violations.join(), command).toMatch(/hub send/);
     }
     // ordinary hub commands are not flagged
-    for (const command of ["hub record-draft --project acme-travel", "hub project show acme-travel", "hub doctor"]) {
+    for (const command of ["hub sequences due acme-travel --json", "hub project show acme-travel", "hub doctor"]) {
       expect(guardDecision({ tool_name: "Bash", tool_input: { command } }, { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT }).violations, command).toEqual([]);
     }
   });
@@ -154,7 +154,7 @@ describe("the agent has no send path", () => {
 
   it("no agent module imports the sender", () => {
     const src = path.join(ROOT, "app", "apps", "installer", "src");
-    for (const f of ["agent.ts", "safety.ts", "audit-run.ts", "record-draft.ts"]) expect(readFileSync(path.join(src, f), "utf8"), f).not.toMatch(/from ["'](\.\/send\/|@hub\/send)/);
+    for (const f of ["agent.ts", "safety.ts", "audit-run.ts"]) expect(readFileSync(path.join(src, f), "utf8"), f).not.toMatch(/from ["'](\.\/send\/|@hub\/send)/);
     // the mail MCP server config the sessions get is read-only plus drafts: nothing in `config/mcp.json` is a send tool
     expect(readFileSync(path.join(ROOT, "config", "mcp.json"), "utf8")).not.toMatch(/send/i);
   });

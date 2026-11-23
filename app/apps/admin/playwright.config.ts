@@ -17,7 +17,7 @@ const HOME = (process.env.HUB_E2E_HOME ??= join(tmpdir(), `hub-e2e-home-${proces
 mkdirSync(HOME, { recursive: true });
 // The server's project folders (project.md): Send reads the project's accounts and sender from here. Seeded projects only.
 // `context.required` is warn: the flows record drafts without a context block, which a project that sets nothing refuses since
-// 2026-11-22 (CONTEXT_BLOCK_FROM); the block rule is the installer's record-draft-context test.
+// 2026-11-22 (CONTEXT_BLOCK_FROM); the block rule is @hub/agent's records-context test.
 const PROJECTS = (process.env.HUB_E2E_PROJECTS ??= join(tmpdir(), `hub-e2e-projects-${process.pid}`));
 for (const slug of ["lisbon-realty", "demo-shop"]) {
   mkdirSync(join(PROJECTS, slug), { recursive: true });

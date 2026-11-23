@@ -9,11 +9,13 @@ import { at, cardOf, contextWarn, remember } from "./support";
 
 // P51 shared focus, end to end on the fake mailer: the admin publishes what it shows, `hub focus --hook` turns it into the
 // prompt line, and a scripted agent (`test-support/fake-agent.mjs`: `focus`, `draft_show` over `hub mcp`, then
-// `hub record-draft` with the same mailRef) revises the focused draft in place. Nothing is sent. Named z-* because it writes.
+// the seeder of draft_write's writer with the same mailRef) revises the focused draft in place. Nothing is sent. Named z-* because it writes.
 // P72: every route publishes its id and its own title; a clicked Knowledge row is `pointed`, and the scripted agent reads it
 // with the tool the focus names (knowledge-mcp `knowledge_get`); `/log?client=N` names the client (P73); the file names nothing.
 
 const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
+// P129 A3: `hub record-draft` is gone (the agent records through draft_write); flows seed a draft row with the same writer.
+const seedDraft = fileURLToPath(new URL("../../installer/test/support/seed-draft.mjs", import.meta.url));
 const fakeAgent = fileURLToPath(new URL("../../../test-support/fake-agent.mjs", import.meta.url));
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-focus-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, "demo-shop"), { recursive: true });
@@ -22,7 +24,7 @@ writeSendPolicy(process.env.HUB_E2E_HOME ?? "", "demo-shop");
 const env = { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, HUB_PROJECT: "demo-shop", NO_COLOR: "1" };
 const focusFile = join(process.env.HUB_E2E_HOME ?? "", "state", "focus.json");
 const run = (args: string[], input?: string) => execFileSync("node", args, { env, encoding: "utf8", ...(input ? { input } : {}) });
-const record = (payload: object) => JSON.parse(run([hub, "record-draft", "--project", "demo-shop"], JSON.stringify(payload))) as { ok: boolean; action: string; draftId: number; clientId: number };
+const record = (payload: object) => JSON.parse(run([seedDraft, "--project", "demo-shop"], JSON.stringify(payload))) as { ok: boolean; action: string; draftId: number; clientId: number };
 type Disk = { at: string; focus: { tab: string; project: string | null; route: string; title: string; subject?: string; pointed?: string; window?: { refs: string[]; total: number } } };
 const onDisk = () => (existsSync(focusFile) ? (JSON.parse(readFileSync(focusFile, "utf8")) as Disk) : null);
 /** P99: the open conversation's client (`client:<id>`), whose unsent message is the focused draft. */

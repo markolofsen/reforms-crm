@@ -30,6 +30,7 @@ export const profileFor = (c: FixtureClient): Step => ({
   result: text(c.profile === "absent" ? "[]" : JSON.stringify([{ email: c.email, summary: c.profile === "empty" ? "" : "durable facts", last_edited_time: c.profileEdited ?? "2026-11-01" }])),
 });
 export const factsFor = (c: FixtureClient): Step => ({ name: "mcp__knowledge-mcp__knowledge_search", input: { project: FIXTURE_PROJECT, query: c.needles[0] }, result: text("[]") });
+/** mail-mcp's own reply writer, as older transcripts hold it: a draft nobody recorded (the lazy and brief-less sessions). */
 export const replyFor = (c: FixtureClient, body = replyBody(c)): Step => ({
   name: `${MAIL}create_reply`,
   input: { account: ACCOUNT, mailbox_path: ["INBOX"], message_id: c.ids[0], content: body },
@@ -50,15 +51,19 @@ export function contextFor(c: FixtureClient, over: { read?: number; batchKey?: s
   };
 }
 
-export const recordFor = (c: FixtureClient, ctx: unknown = contextFor(c)): Step => ({
-  name: "Bash",
-  input: { command: `echo '${JSON.stringify({ email: c.email, name: c.name, subject: "Re: your property", mailRef: `m${c.ids[0]}@clients.example`, skill: "bulk-drafts", context: ctx })}' | (cd app && pnpm hub record-draft --project ${FIXTURE_PROJECT})` },
-  result: text('{"ok":true}'),
+/**
+ * The hub's `draft_write` of the reply with the record it carries (P129 A3, decision 0045 point 10): one call writes the
+ * draft in Mail and records it, so the audit's claim is the call's own `record.context` (`claimOfDraftWrite`), no shell step.
+ */
+export const writeFor = (c: FixtureClient, ctx: unknown = contextFor(c), body = replyBody(c)): Step => ({
+  name: "mcp__hub__draft_write",
+  input: { kind: "reply", message: { account: ACCOUNT, mailbox_path: ["INBOX"], message_id: c.ids[0] }, content: body, record: { name: c.name, skill: "bulk-drafts", context: ctx } },
+  result: text(JSON.stringify({ draftId: 9000, thread: `m${c.ids[0]}@clients.example`, replyTo: c.ids[0], account: ACCOUNT, sent: false, recorded: true })),
 });
 
-/** The careful sequence for one client: profile, history, opened messages, facts, draft, record. */
+/** The careful sequence for one client: profile, history, opened messages, facts, the draft with its record. */
 export function carefulSteps(c: FixtureClient, o: { read?: number } = {}): Step[] {
-  return [profileFor(c), findFor(c), ...readsFor(c, o.read ?? Math.min(Math.max(c.found, 1), 3)), factsFor(c), replyFor(c), recordFor(c, contextFor(c, o.read !== undefined ? { read: o.read } : {}))];
+  return [profileFor(c), findFor(c), ...readsFor(c, o.read ?? Math.min(Math.max(c.found, 1), 3)), factsFor(c), writeFor(c, contextFor(c, o.read !== undefined ? { read: o.read } : {}))];
 }
 
 /** One agent that opens only the newest message and then drafts everyone (the shortcut of failure mode F5/F6). */
@@ -70,13 +75,13 @@ export function lazySteps(cs: readonly FixtureClient[]): Step[] {
 export function templateLoopSteps(cs: readonly FixtureClient[]): Step[] {
   return cs.flatMap((c) => {
     const body = `Hi ${c.name.split(" ")[0]},\n\nThank you for your message and for your patience. We have received your question and our team is reviewing the details of your property. We will come back to you in the next few days with the information you need. In the meantime, please do not hesitate to contact us if anything changes or if you have further questions about the process.\n\nKind regards, the desk`;
-    return [profileFor(c), findFor(c), ...readsFor(c, Math.min(Math.max(c.found, 1), 3)), factsFor(c), replyFor(c, body), recordFor(c)];
+    return [profileFor(c), findFor(c), ...readsFor(c, Math.min(Math.max(c.found, 1), 3)), factsFor(c), writeFor(c, contextFor(c), body)];
   });
 }
 
 /** Claims three messages read while the session opened one. */
 export function claimExceedsSteps(c: FixtureClient): Step[] {
-  return [profileFor(c), findFor(c), ...readsFor(c, 1), factsFor(c), replyFor(c), recordFor(c, contextFor(c, { read: 3 }))];
+  return [profileFor(c), findFor(c), ...readsFor(c, 1), factsFor(c), writeFor(c, contextFor(c, { read: 3 }))];
 }
 
 let seq = 0;

@@ -28,8 +28,6 @@ import { runTests, runUp } from "./serve";
 import { healthy, portBusy } from "./net";
 import { autostartCommand, restartCommand, stopCommand } from "./autostart-command";
 import { projectRows, projectTable } from "./project-table";
-import { recordClient } from "./record-client";
-import { recordDraft } from "./record-draft";
 import { runPolicyCommand } from "./send/policy-command";
 import { registerSequencesCommands } from "./sequences-command";
 import { runSendCommand } from "./send/command";
@@ -296,22 +294,6 @@ program.command("link").description("Optional shortcut: put `hub` on PATH (a sym
     if (!plan.onPath) console.log(c.yellow(pathHint(plan)));
   });
 
-program.command("record-draft").description("A session reports one UNSENT draft it left in Mail, so it shows in the admin. JSON on stdin (email, subject, mailRef, ...); prints one JSON line, exit 0 only when it says ok.")
-  .requiredOption("--project <slug>", "the project the session is bound to")
-  .action(async (o: { project: string }) => {
-    const r = await recordDraft({ project: o.project, payload: readFileSync(0, "utf8"), projectsDir: projectsDir(), policyDir: ctxOf().paths.stateProjects, configFile: ctxOf().paths.configFile, ledgerRoot: ledgerRoot() });
-    console.log(r.line);
-    done(r.code);
-  });
-
-program.command("record-client").description("A session reports a client it handled without a draft (skipped, escalated, injection_suspected), so the admin inbox shows who was seen. JSON on stdin (email, action, notion, ...); no mail text; prints one JSON line, exit 0 only when it says ok.")
-  .requiredOption("--project <slug>", "the project the session is bound to")
-  .action(async (o: { project: string }) => {
-    const r = await recordClient({ project: o.project, payload: readFileSync(0, "utf8") });
-    console.log(r.line);
-    done(r.code);
-  });
-
 program.command("send").argument("[draftId]", "the draft to send, or `policy` (see below)").argument("[policyArgs...]", "`hub send policy [<slug>] | set <slug> <field> <value> ... | migrate [<slug>]`: the send policy, written only here").description("Send an accepted draft from Mail (dry run unless --apply); --due runs the autosend queue (off unless a project's send policy says send.mode auto); --cancel/--stop/--resume/--status; `policy` shows or sets the send policy. Only a person or this command sends: the agent has no send tool.")
   .option("--dry-run", "`policy migrate`: show what would move")
   .option("--apply", "really send (default: dry run, nothing leaves)")
@@ -436,7 +418,7 @@ program.command("audit-run").description("Audit of one finished session: did any
 
 program.command("batch-check").description("One batch of drafts as a set: evidence per client, the closest pairs, counts; exit 1 on a red row. Reads state/evidence (works with the server off).")
   .requiredOption("--project <slug>", "the project")
-  .requiredOption("--batch <key>", "the batchKey every record-draft of the run passed")
+  .requiredOption("--batch <key>", "the batchKey every draft_write record of the run passed")
   .option("--json", "machine-readable output")
   .action((o: { project: string; batch: string; json?: boolean }) => {
     const r = batchCheck(ledgerRoot(), o.project, o.batch);

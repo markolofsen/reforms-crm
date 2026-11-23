@@ -95,9 +95,9 @@ export const draftShowTool = defineTool({
       fromSeenByClient: rf?.from ?? null,
       fromReason: rf?.fromReason ?? null,
       revise: finished
-        ? { note: `Draft ${d.id} is ${d.status}: it is not revised. A new message on the owner's words: draft_write as a new reply to the newest message of the thread with owner_request, then record-draft with ownerRequest.` }
+        ? { note: `Draft ${d.id} is ${d.status}: it is not revised. A new message on the owner's words: draft_write kind reply to the newest message of the thread, with owner_request and its record.` }
         : d.mailRef || isNewThreadDraft(d)
-          ? { draft_write: { draft: d.id, content: d.mailRef ? "<the new reply>" : "<the new message>" }, then: "nothing: the revision records itself" }
+          ? { draft_write: { kind: "revise", draft: d.id, content: d.mailRef ? "<the new reply>" : "<the new message>" }, then: "nothing: the revision records itself" }
           : { note: "No mailRef: this draft answers no Mail message, so draft_write cannot revise it." },
       createdAt: d.createdAt,
       updatedAt: d.updatedAt,

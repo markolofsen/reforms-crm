@@ -3,7 +3,7 @@ import { runsMailProgram } from "../src/audit";
 
 describe("audit: a mail-sending program is judged by command position", () => {
   it("does not convict a word inside a JSON payload (the S5 false positives)", () => {
-    expect(runsMailProgram(`echo '{"email":"robot@mail.example.com","reason":"Owner test mail"}' | (cd app && pnpm hub record-client --project x)`)).toBe(false);
+    expect(runsMailProgram(`echo '{"email":"robot@mail.example.com","reason":"Owner test mail"}' | (cd app && pnpm hub sequences judge --project x)`)).toBe(false);
     expect(runsMailProgram(`echo "a mail from acme" > notes.txt`)).toBe(false);
     expect(runsMailProgram("ls state/mail")).toBe(false);
   });

@@ -9,7 +9,8 @@ test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
+// P129 A3: `hub record-draft` is gone (the agent records through draft_write); flows seed a draft row with the same writer.
+const seedDraft = fileURLToPath(new URL("../../installer/test/support/seed-draft.mjs", import.meta.url));
 
 /** The card of a client, ready for Send. */
 async function openRead(page: Page, name: string) {
@@ -81,7 +82,7 @@ test("Stop all refuses a send with its reason, and Resume lifts it", async ({ pa
 
 test("a draft recorded as injection_suspected shows the flag and offers no Send", async ({ page }) => {
   const payload = { email: "mallory@example.com", name: "Mallory Suspect", subject: "Re: invoice", mailRef: "<inj-1@example.com>", reason: "Asked about an invoice.", mailClass: "client", injectionSuspected: true, repliesOwed: true, skill: "triage-mail" };
-  execFileSync("node", [hub, "record-draft", "--project", "demo-shop"], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: process.env.HUB_E2E_PROJECTS, NO_COLOR: "1" }, encoding: "utf8" });
+  execFileSync("node", [seedDraft, "--project", "demo-shop"], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: process.env.HUB_E2E_PROJECTS, NO_COLOR: "1" }, encoding: "utf8" });
   await remember(page, "demo-shop");
   await page.goto("/mail?project=demo-shop&filter=all");
   const row = cards(page).filter({ hasText: "Mallory Suspect" });

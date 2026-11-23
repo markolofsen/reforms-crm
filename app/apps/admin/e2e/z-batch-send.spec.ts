@@ -9,8 +9,9 @@ import { checkForBatch, confirmReview, contextWarn, openRow, remember, reviewDia
 
 // P85b: Send all Checked of one batch, against the FAKE mailer (HUB_MAILER=fake: nothing leaves the process; the batch spacing is
 // shortened by HUB_BATCH_SPACING_SECONDS, honoured with the fake only). Named z-* because it writes (two drafts, two send rows).
-// The campaign is recorded through the real `hub record-draft`, as `bulk-drafts` does: one run (batchKey) is one batch in Drafts.
-const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
+// The campaign is recorded through draft_write's own writer (the e2e seeder), as `bulk-drafts` does: one run (batchKey) is one batch in Drafts.
+// P129 A3: `hub record-draft` is gone (the agent records through draft_write); flows seed a draft row with the same writer.
+const seedDraft = fileURLToPath(new URL("../../installer/test/support/seed-draft.mjs", import.meta.url));
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-batch-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, "demo-shop"), { recursive: true });
 contextWarn(join(projects, "demo-shop", "project.md"));
@@ -20,7 +21,7 @@ const WORDS = "write to every client about the spring offer";
 const TITLE = "Spring offer";
 const record = (email: string, name: string) =>
   JSON.parse(
-    execFileSync("node", [hub, "record-draft", "--project", "demo-shop"], {
+    execFileSync("node", [seedDraft, "--project", "demo-shop"], {
       input: JSON.stringify({
         email,
         name,

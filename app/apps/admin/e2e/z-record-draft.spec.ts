@@ -8,9 +8,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // Named z-* because it adds a draft to the seeded database, which changes the counts the smoke flows assert on.
-// It goes through the real `hub record-draft` (decision 0009): the row must show up in the admin with no sync.
-const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
-// record-draft loads the project (project.md) and its send policy (recipients), so the project needs a folder: a copy of the
+// It goes through draft_write's own writer (the e2e seeder) (decision 0009): the row must show up in the admin with no sync.
+// P129 A3: `hub record-draft` is gone (the agent records through draft_write); flows seed a draft row with the same writer.
+const seedDraft = fileURLToPath(new URL("../../installer/test/support/seed-draft.mjs", import.meta.url));
+// The writer loads the project (project.md) and its send policy (recipients), so the project needs a folder: a copy of the
 // projects fixture, and recipients = any in the send policy of the instance the command runs in (P49 S11: the server's file).
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-proj-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, "demo-shop"), { recursive: true });
@@ -18,7 +19,7 @@ contextWarn(join(projects, "demo-shop", "project.md"));
 writeSendPolicy(process.env.HUB_E2E_HOME ?? "", "demo-shop");
 const record = (project: string, payload: object) =>
   JSON.parse(
-    execFileSync("node", [hub, "record-draft", "--project", project], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" }),
+    execFileSync("node", [seedDraft, "--project", project], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" }),
   ) as { ok: boolean; action: string; draftId: number };
 
 test("a draft recorded by the CLI shows on the Drafts screen, once, with an Open their message link", async ({ page }) => {
