@@ -10,7 +10,7 @@ export const at = (project: string, path: string) => `/${encodeURIComponent(proj
 /** The remembered project is the cookie `hub_project` (the shell writes it, a bare `/mail` reads it); a spec sets it before the first load. */
 export const remember = (page: Page, slug: string) => page.context().addCookies([{ name: "hub_project", value: slug, domain: "127.0.0.1", path: "/" }]);
 
-/** The people of the Mail list, in order (P99: a row is a person, a button for the conversation and a checkbox for the bulk mode). */
+/** The people of the Mail list, in order (P99: a row is a person; since P130 a link to the conversation, and a checkbox for the bulk mode). */
 export const cards = (page: Page) => page.locator('ul[aria-label="People"] > li');
 /** The one View menu of the Drafts list (its trigger reads "View: <view> <count>"). */
 export const viewMenu = (page: Page) => page.getByRole("button", { name: /^View:/ });
@@ -19,7 +19,7 @@ export const cardOf = (page: Page, name: string): Locator => page.getByRole("art
 
 /** Opens the row of a client (a phone shows the card as its own screen; desktop shows it beside the list). */
 export async function openRow(page: Page, name: string): Promise<Locator> {
-  await cards(page).filter({ hasText: name }).getByRole("button").first().click();
+  await cards(page).filter({ hasText: name }).getByRole("link").first().click();
   const card = cardOf(page, name);
   await expect(card).toBeVisible();
   return card;

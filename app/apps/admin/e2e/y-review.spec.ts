@@ -23,7 +23,7 @@ test("the project and the view live in the address", async ({ page }) => {
   expect((await cards(page).evaluateAll((rows) => rows.map((r) => r.id))).sort()).toEqual(needs.rows.map((r) => `person-${r.client.id}`).sort());
   await viewMenu(page).click();
   await page.getByRole("menuitemradio", { name: /^Waiting/ }).click();
-  await expect.poll(() => address(page)).toMatch(/^\/lisbon-realty\/mail(\/c\/\d+)?\?filter=waiting$/); // P53: the first person opens in the address
+  await expect.poll(() => address(page)).toMatch(/^\/lisbon-realty\/mail(\/c\/[^/?]+)?\?filter=waiting$/); // P53: the first person opens in the address
 });
 
 test("J and K move the cursor, ? shows the keys, and the switch turns them off", async ({ page }) => {
@@ -31,6 +31,9 @@ test("J and K move the cursor, ? shows the keys, and the switch turns them off",
   await page.goto("/mail?filter=all");
   await expect(cards(page)).toHaveCount(all.total);
   const current = page.locator('ul[aria-label="People"] > li[data-open="true"]');
+  // The bare /mail settles first (the project and the auto-opened person are written into the address), as in y-review-keys.
+  await expect(page).toHaveURL(/\/lisbon-realty\/mail\/c\/[^/?]+\?filter=all$/);
+  await page.waitForLoadState("networkidle");
   const first = await current.getAttribute("id");
   await page.keyboard.press("j");
   await expect.poll(() => current.getAttribute("id")).not.toBe(first);

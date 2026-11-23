@@ -20,7 +20,8 @@ const LOG = join(HOME, "state", "opener.jsonl");
 const folder = join(PROJECTS, PROJECT);
 const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
 
-const index = () => execFileSync("pnpm", ["--filter", "@hub/knowledge", "knowledge", "--root", PROJECTS, "--db", DB, "index", PROJECT], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: HOME } });
+// P126 C1: the package CLIs are `hub <group>` now (`hub knowledge index`).
+const index = () => execFileSync("pnpm", ["hub", "knowledge", "--root", PROJECTS, "--db", DB, "index", PROJECT], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: HOME } });
 const opened = (): string[][] => (existsSync(LOG) ? readFileSync(LOG, "utf8").trim().split("\n").filter(Boolean).map((l) => (JSON.parse(l) as { argv: string[] }).argv) : []);
 const list = async (page: Page, filter = "all") => (await (await page.request.get(`${API()}/api/projects/${PROJECT}/knowledge?filter=${filter}`)).json()) as KnowledgeListDto;
 const table = (page: Page) => page.getByRole("table", { name: "Knowledge entries" });

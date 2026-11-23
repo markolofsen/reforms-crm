@@ -58,7 +58,8 @@ test("sending: the first viewport at 1280 shows the sentence and Stop sending; t
     expect((await l.boundingBox())?.y ?? 9999).toBeLessThan(800);
   }
   // Rule 9's order, the policy read only with the owner's own command (P70 Q1: no switch for it here).
-  await expect(page.locator("#main li").getByText(/^(Send to|Autosend|Checks)$/)).toHaveText(["Send to", "Autosend"]);
+  // P125 L4: the Settings menu column (a nav, with its own "Checks") sits beside the pane; the order is the pane's own.
+  await expect(page.locator("#main li:not(nav li)").getByText(/^(Send to|Autosend|Checks)$/)).toHaveText(["Send to", "Autosend"]);
   await expect(page.getByTestId("send-to")).toContainText(`./run.sh send policy set ${PROJECT} draft.recipients`);
   await expect(page.getByTestId("send-to").getByRole("button", { name: /^Copy/ })).toBeVisible();
   // P75: the rules left for Settings ▸ Checks, and nothing on Sending opens or closes.
@@ -69,11 +70,11 @@ test("sending: the first viewport at 1280 shows the sentence and Stop sending; t
   await expect(page.getByRole("table", { name: "Sends" })).toHaveCount(0);
 });
 
-test("activity ▸ sends: the history is a view of Activity's View menu with its count; none yet says so", async ({ page }) => {
+// P125 L3: Activity's kinds are a menu column (it replaced the View menu); Sends is its own group there, with its count.
+test("activity ▸ sends: the history is an item of Activity's kinds column; none yet says so", async ({ page }) => {
   await sendsServer(page, { sends: [], stopped: [] });
   await page.goto(`/${PROJECT}/log`);
-  await page.getByRole("button", { name: /^View: All/ }).click();
-  await page.getByRole("menuitemradio", { name: /^Sends/ }).click();
+  await page.getByRole("navigation", { name: "Activity kinds" }).getByRole("link", { name: /^Sends/ }).click();
   await expect.poll(() => new URL(page.url()).pathname + new URL(page.url()).search).toBe(SENDS);
   await expect(page.getByText("No sends yet")).toBeVisible();
   await expect(page.getByRole("table", { name: "Sends" })).toHaveCount(0);

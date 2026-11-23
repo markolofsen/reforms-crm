@@ -23,7 +23,7 @@ test("Mail list loads with counts and only people with mail", async ({ page }) =
 
 test("Open the draft in Mail links the Mail draft by its own Message-ID; the client's mail is in the More menu (P58 R1)", async ({ page }) => {
   await page.goto("/mail?filter=all");
-  await cards(page).filter({ hasText: "Pedro Exemplo" }).getByRole("button").first().click();
+  await cards(page).filter({ hasText: "Pedro Exemplo" }).getByRole("link").first().click();
   const card = page.getByRole("article", { name: "Draft for Pedro Exemplo" });
   await expect(card.getByRole("link", { name: /Open the draft in Mail/ })).toHaveAttribute("href", /^message:\/\/%3Cfake-\d+%40hub\.test%3E$/);
   await expect(card.getByTestId("from-line")).toContainText(/^From .+ → To .*pedro/i);
@@ -46,7 +46,7 @@ test("Done moves the person below everyone who needs you", async ({ page }) => {
   const pedro = (list: readonly (readonly [boolean, string | null])[]) => list.findIndex(([p]) => p);
   expect(pedro(await states())).toBeLessThan(needs(await states()));
 
-  await row.getByRole("button").first().click();
+  await row.getByRole("link").first().click();
   const card = page.getByRole("article", { name: "Draft for Pedro Exemplo" });
   const draftId = (await card.getAttribute("data-agent-ref"))?.replace("draft:", "");
 

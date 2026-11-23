@@ -81,7 +81,7 @@ test("agent tools: a red row puts a dot on Settings in the nav and on the Agent 
   // P75: the sidebar draws no Settings children; the tab strip carries the child's dot.
   await page.goto(at(P, "/settings"));
   await expect(page.getByRole("navigation", { name: "Sections" }).first().getByRole("link", { name: "Agent", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Settings pages" }).getByTestId("dot-settings.agent")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Settings pages" }).getByTestId("dot-section-settings.agent")).toBeVisible();
   await page.goto("/settings/connections");
   await expect(page.getByRole("heading", { name: /^Agent tools/ })).toHaveCount(0);
 });

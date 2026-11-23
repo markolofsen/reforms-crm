@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { firstDraftIs, mailIs, remember } from "./support";
+import { confirmReview, firstDraftIs, mailIs, remember, reviewDialog } from "./support";
 
 // Acceptance 1 and 4 of P29, in a browser: every state of the review card (research 16 section 7) shows the number of
 // `primary` buttons its row of the table says (`primaryFor`), never two, and the permanent controls stay away from Send.
@@ -30,11 +30,17 @@ const CASES: Case[] = [
     state: "failed",
     patch: { safetyResults: [] },
     primary: 1,
-    label: /^Send$/,
+    label: /^Send the reply to /, // P105 S1: Send names the person for a screen reader
     before: (p) => p.route(/\/drafts\/\d+\/send$/, (r) => r.fulfill({ status: 409, json: { error: "Not sent: 1 reason", code: "wrong_state", refused: ["Stop all is on"] } })),
     act: async (p) => {
-      await p.getByRole("button", { name: "Send", exact: true }).click();
-      await p.getByText("Not sent: 1 reason").waitFor();
+      // P105 S2: Send opens the review dialog; its confirm runs the dry run, which the route refuses: the refusal becomes a blocker
+      // there and its Send goes off.
+      await p.getByTestId("draft-send").click();
+      await confirmReview(p);
+      await reviewDialog(p).getByText("Must be fixed: Stop all is on").waitFor();
+      await expect(reviewDialog(p).getByTestId("review-confirm")).toHaveAttribute("aria-disabled", "true");
+      await p.keyboard.press("Escape");
+      await expect(reviewDialog(p)).toHaveCount(0);
     },
   },
 ];
@@ -58,8 +64,8 @@ test("no permanent control sits within 24 px of Send: the Client menu is across 
   await firstDraftIs(page, { safetyResults: [] });
   await page.goto("/mail?filter=all");
   // The address settles on the project's conversation (/mail is another route tree, so the card mounts again there): measure that card.
-  await expect(page).toHaveURL(/\/lisbon-realty\/mail\/c\/\d+/);
-  const sendButton = page.getByRole("button", { name: "Send", exact: true });
+  await expect(page).toHaveURL(/\/lisbon-realty\/mail\/c\/[^/?]+/);
+  const sendButton = page.getByTestId("draft-send");
   const clientButton = page.getByRole("button", { name: "Client", exact: true });
   await expect(sendButton).toBeVisible();
   await expect(clientButton).toBeVisible();

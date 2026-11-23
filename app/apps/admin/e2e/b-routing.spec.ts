@@ -13,7 +13,7 @@ const P = "lisbon-realty";
 const cards = (page: Page) => page.locator('ul[aria-label="People"] > li');
 const viewMenu = (page: Page) => page.getByRole("button", { name: /^View:/ });
 /** P53, P99: at 1280 Mail opens its first person and the address names them (`/mail/c/42`); a bare `/mail` only while loading or empty. */
-const listed = (project: string | null, query = "") => new RegExp(`^${project ? `/${project}` : ""}/mail(/c/\\d+)?${query.replace(/[?]/g, "\\?")}$`);
+const listed = (project: string | null, query = "") => new RegExp(`^${project ? `/${project}` : ""}/mail(/c/[^/?]+)?${query.replace(/[?]/g, "\\?")}$`);
 
 async function secondPersonId(page: Page): Promise<string> {
   await page.goto(at(P, "/mail"));
@@ -37,11 +37,7 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
   await expect.poll(() => address(page)).toBe(at(P, "/settings"));
   await page.goto("/settings/agent");
   await expect.poll(() => address(page)).toBe(at(P, "/settings/agent"));
-  // An instance pane under a project's address folds to the bare form (the sub-nav followed with the project in mind).
-  await page.goto(at(P, "/settings/mac"));
-  await expect.poll(() => address(page)).toBe("/settings/mac");
-  await page.goto(at(P, "/settings/connections"));
-  await expect.poll(() => address(page)).toBe("/settings/connections");
+  // P127 A2: an instance pane under a project's address is Not found (no fold page), like Overview or Help: see the list below.
   await page.goto("/knowledge?filter=expired");
   await expect.poll(() => address(page)).toBe(at(P, "/knowledge?filter=expired"));
   await page.goto(at(P, "/knowledge"));
@@ -128,7 +124,8 @@ test("Settings ▸ Sending survives a reload", async ({ page }) => {
 // P70: the addresses of the Project section, Agents and Connections are gone, with no redirect (routes rule 6).
 // P99: the per-draft and per-message addresses (`/mail/<draftId>`, `/mail/in/<id>`) are gone too; P103: the bare client number
 // (`/mail/c/42`, now `id-42` or his email); P125 L5: `/messengers/settings` (now Settings ▸ Messengers).
-for (const bad of ["/clients", "/nope", "/mail/abc", "/mail/1/2", "/mail/1", "/mail/in/1", "/mail/c/abc", "/mail/c/42", "/messengers/settings", `/${P}/overview`, `/${P}/help`, "/settings/nope", "/project", "/project/setup", `/${P}/project/knowledge`, "/agents", `/${P}/agents`, "/connections"]) {
+// P127 A2: a project before an instance pane (`/<p>/settings/mac`, `/<p>/settings/connections`) is Not found, the fold pages are gone.
+for (const bad of ["/clients", "/nope", "/mail/abc", "/mail/1/2", "/mail/1", "/mail/in/1", "/mail/c/abc", "/mail/c/42", "/messengers/settings", `/${P}/overview`, `/${P}/help`, `/${P}/settings/mac`, `/${P}/settings/connections`, "/settings/nope", "/project", "/project/setup", `/${P}/project/knowledge`, "/agents", `/${P}/agents`, "/connections"]) {
   test(`${bad} is Not found, with a way back, never Mail`, async ({ page }) => {
     await page.goto(bad);
     await expect(page.getByText("Page not found")).toBeVisible();
@@ -184,7 +181,9 @@ test("the skip link moves focus and leaves the address alone", async ({ page }) 
 test("the nav links are real anchors in the path form; two projects show the switcher and Overview", async ({ page }) => {
   await page.goto(at(P, "/mail"));
   const nav = page.getByRole("navigation", { name: "Sections" }).first();
-  await expect(nav.getByRole("link", { name: "Mail" })).toHaveAttribute("aria-current", "page");
+  // P125 L2: Mail's views are its children in the sidebar; the view on screen carries aria-current, Mail itself is the active parent.
+  await expect(nav.getByRole("link", { name: "Mail", exact: true })).toHaveAttribute("href", at(P, "/mail"));
+  await expect(nav.getByRole("list", { name: "Mail views" }).getByRole("link", { name: /^Needs you/ })).toHaveAttribute("aria-current", "page");
   await expect(nav.getByRole("link", { name: "Activity" })).toHaveAttribute("href", at(P, "/log"));
   await expect(nav.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/overview");
   await expect(nav.getByRole("link", { name: "Settings" })).toHaveAttribute("href", at(P, "/settings"));
@@ -194,15 +193,15 @@ test("the nav links are real anchors in the path form; two projects show the swi
   await expect(page.getByRole("button", { name: P }).first()).toBeVisible();
 });
 
-// P70, P75: the nested nav. Settings' six panes are reached by the sub-nav in every pane's header line, the landing (Sending)
+// P70, P75, P125 L4-L5: the nested nav. Settings' seven panes (Messengers among them since L5) are reached by the sub-nav in every pane's header line, the landing (Sending)
 // first; the sidebar draws parents only (no Settings children at any width). A tab's name ends with its label (a dot's words
 // come first).
-test("the nested nav: the six panes in the sub-nav of every pane, none in the sidebar", async ({ page }) => {
+test("the nested nav: the seven panes in the sub-nav of every pane, none in the sidebar", async ({ page }) => {
   const width = page.viewportSize()?.width ?? 0;
   await page.goto(at(P, "/mail"));
   await expect(cards(page).first()).toBeVisible();
   const nav = page.getByRole("navigation", { name: "Sections" }).first();
-  const panes = [["Sending", at(P, "/settings")], ["Checks", at(P, "/settings/checks")], ["Mail", at(P, "/settings/mail")], ["Agent", at(P, "/settings/agent")], ["Connections", "/settings/connections"], ["This Mac", "/settings/mac"]] as const;
+  const panes = [["Sending", at(P, "/settings")], ["Checks", at(P, "/settings/checks")], ["Mail", at(P, "/settings/mail")], ["Messengers", at(P, "/settings/messengers")], ["Agent", at(P, "/settings/agent")], ["Connections", "/settings/connections"], ["This Mac", "/settings/mac"]] as const;
   const tab = (name: string) => new RegExp(`(^|needs you ?)${name}$`);
   for (const [name, path] of panes) {
     await page.goto(path);
@@ -253,7 +252,7 @@ test("one project: no project in the address, no switcher, Overview in the nav b
   await expect(page.getByTestId("overview-sentence")).toHaveCount(0);
   await page.goto(at(P, "/settings/mail"));
   await expect.poll(() => address(page)).toBe("/settings/mail");
-  await page.goto(at(P, "/settings/connections"));
+  await page.goto("/settings/connections");
   await expect.poll(() => address(page)).toBe("/settings/connections");
   await page.goto(at(P, "/log?kind=skipped"));
   await expect.poll(() => address(page)).toBe("/log?kind=skipped");

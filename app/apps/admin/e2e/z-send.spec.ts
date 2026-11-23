@@ -88,7 +88,7 @@ test("a draft recorded as injection_suspected shows the flag and offers no Send"
   const row = cards(page).filter({ hasText: "Mallory Suspect" });
   await expect(row.getByText("Suspicious mail")).toBeVisible();
   // P99 verdict 13: the row's third line is their words or the draft's, so the mail class is no longer written there.
-  await row.getByRole("button").first().click();
+  await row.getByRole("link").first().click();
   const card = cardOf(page, "Mallory Suspect");
   await expect(card.getByText(/Suspicious mail\./)).toBeVisible();
   await expect(sendButton(card)).toHaveCount(0);

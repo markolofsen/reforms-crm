@@ -49,7 +49,7 @@ test("status line: attention names the fact once, no count, and leads to where i
   await expect.poll(() => address(page)).toBe(at(P, "/settings"));
   const nav = page.getByRole("navigation", { name: "Sections" }).first();
   await expect(nav.getByTestId("dot-settings")).toBeVisible();
-  if ((page.viewportSize()?.width ?? 0) >= 640) await expect(page.getByRole("navigation", { name: "Settings pages" }).getByTestId("dot-settings.page")).toBeVisible();
+  if ((page.viewportSize()?.width ?? 0) >= 640) await expect(page.getByRole("navigation", { name: "Settings pages" }).getByTestId("dot-section-settings.page")).toBeVisible();
 });
 
 test("status line: blocked says what stops the sending", async ({ page }) => {

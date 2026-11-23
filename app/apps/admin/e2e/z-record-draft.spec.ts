@@ -33,7 +33,7 @@ test("a draft recorded by the CLI shows on the Drafts screen, once, with an Open
   await expect(row).toHaveCount(1);
   // P99: the row says the conversation's one word; the open card carries the Owes reply chip.
   await expect(row.getByTestId("person-state")).toHaveText("Draft ready");
-  await row.getByRole("button").first().click();
+  await row.getByRole("link").first().click();
   const card = cardOf(page, "Nora Newcomer");
   await expect(card.getByText("Owes reply")).toBeVisible();
   // Mail holds no draft for it, so the link is the client's mail (P58 R1: never a dead button).

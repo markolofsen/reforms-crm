@@ -69,11 +69,11 @@ test("Stop follow-ups from a step draft's card: the card says so, and the enroll
   // The first draft of the real list is shown as a step of Tiago's real enrollment; nothing else is patched or written.
   await firstDraftIs(page, { sequence: { enrollmentId: tiago.id, sequence: "answered-enquiry-no-reply", step: 1, steps: 3, state: "active" } });
   await page.goto(at("lisbon-realty", "/mail?filter=all"));
-  await page.locator('ul[aria-label="People"] > li').first().getByRole("button").first().click();
+  await page.locator('ul[aria-label="People"] > li').first().getByRole("link").first().click();
   const card = page.getByRole("article");
   await expect(card.getByTestId("follow-up-step")).toContainText("Follow-up 1 of 3");
   // a step is sent from Mail: no Send on its card, and Open the draft in Mail is the one primary
-  await expect(card.getByRole("button", { name: "Send", exact: true })).toHaveCount(0);
+  await expect(card.getByTestId("draft-send")).toHaveCount(0);
   await expect(page.locator('[data-pane="detail"] [data-variant="primary"]')).toHaveText(/Open the draft in Mail|Open their message|Copy subject/);
   await card.getByRole("button", { name: "Stop follow-ups" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Follow-ups stopped for" })).toBeVisible();

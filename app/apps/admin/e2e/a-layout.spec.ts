@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { stubChats } from "./messengers-stubs";
-import { at, firstDraftIs, mailIs, remember } from "./support";
+import { at, confirmReview, firstDraftIs, mailIs, remember } from "./support";
 
 // Executable form of `app/@rules` ui-specifications 4 and accessibility 4, 6, 9: every screen, in both themes, at
 // 360, 768 and 1280 px (the Playwright projects), has no axe violation, no sideways scroll, and 44px touch targets
@@ -18,10 +18,11 @@ type Screen = { name: string; path: string; ready: (page: Page) => Promise<void>
  * a row is chosen) and waits for the unsent message at the bottom of the conversation.
  */
 const openFirst = async (p: Page) => {
-  await p.locator('ul[aria-label="People"] > li[data-state="draft"]').first().getByRole("button").first().click();
+  await p.locator('ul[aria-label="People"] > li[data-state="draft"]').first().getByRole("link").first().click();
   await expect(p.getByRole("article", { name: /^Draft for / })).toBeVisible();
 };
-const sendButton = (p: Page) => p.getByRole("button", { name: "Send", exact: true });
+// P105 S1: Send is named "Send the reply to <name>"; its test id is the stable handle.
+const sendButton = (p: Page) => p.getByTestId("draft-send");
 const PREVIEW = { ok: true, dryRun: true, from: "Mark <mark@example.test>", to: ["client@example.com"], cc: ["mark@example.org"], subject: "Re: Second viewing", body: "Hi,\n\nThank you for your message.\n\nBest regards,\nMark" };
 const SEND_ROWS = [
   { id: 3, draftId: 9, clientId: null, channel: "mail", messengerDraftId: null, mode: "auto", status: "queued", actor: "auto", createdAt: "2026-11-15T10:00:00.000Z", dueAt: "2026-11-15T10:10:00.000Z", doneAt: null, toAddr: "ana@example.com", ccAddr: null, subject: "Re: Order status", body: "Hello Ana", error: null },
@@ -35,8 +36,10 @@ const SEND_ROWS = [
 // the list), 200 since (one header line and one status line). Not gated: colours and type sizes (no stable count), copy.
 // P99 (2026-11-21): Needs you now lists the people who wrote and have no draft too (the demo shows 8 rows, 2 of them Wrote you), each a checkbox and a row
 // button; the error states (Send refused, Mail unreadable) measured 39 and 37 at 1280 against 36. Raised to 40 for that reason; the list, not a control, grew.
-const CONTROL_CAP = 40;
-const SELECTING_CAP = 44;
+// P125 (2026-11-23, measured at the P130 gate): the nav grew, not a control. Settings' pages became a menu column with Messengers among
+// them (L4, L5: Checks 41), and the sidebar draws Mail's three views as children (L2: two selected 45). Raised by one each for that reason.
+const CONTROL_CAP = 41;
+const SELECTING_CAP = 45;
 const FIRST_ROW_MAX_PHONE = 200;
 const P = "lisbon-realty";
 // The docked terminal's own stops (tabs, +, tips, Close, Hide, the separator, its input) are not counted: the dock is not a screen
@@ -46,6 +49,9 @@ const tabStopsInView = (page: Page) =>
     () =>
       [...document.querySelectorAll<HTMLElement>('button,a[href],input,select,textarea,[role=switch],[role=checkbox],[role=menuitem],[role=combobox]')].filter((e) => {
         if (e.closest('[data-slot="side-dock"]')) return false;
+        // An open modal dialog (P105's review dialog) traps Tab: the page behind it is not a stop.
+        const modal = document.querySelector('[role="alertdialog"], [role="dialog"][aria-modal="true"]');
+        if (modal && !modal.contains(e)) return false;
         const r = e.getBoundingClientRect();
         const s = getComputedStyle(e);
         return r.width > 0 && r.height > 0 && s.visibility !== "hidden" && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth && e.tabIndex >= 0 && !(e as HTMLButtonElement).disabled && e.getAttribute("aria-hidden") !== "true";
@@ -166,8 +172,11 @@ const SCREENS: Screen[] = [
     },
     ready: async (p) => {
       await openFirst(p);
+      // P105 S2: Send opens the review dialog; its confirm runs the dry run, which the route refuses: each reason becomes a blocker.
       await sendButton(p).click();
-      await p.getByText("Not sent: 2 reasons").waitFor();
+      await confirmReview(p);
+      await p.getByText("Must be fixed: Stop all is on").waitFor();
+      await p.getByText(/^Must be fixed: a placeholder is left/).waitFor();
     },
   },
   {
@@ -284,12 +293,13 @@ for (const scheme of ["light", "dark"] as const) {
 }
 
 // P70: the phone bar is five items (Overview, Mail, Activity, Settings, More); More holds Messengers (P71 M3), Knowledge and Help, each label whole;
-// the rail (640-1279) draws parents only, so no pane is in the Sections nav there; below 640px the sub-nav is one menu.
-test("phone bar and rail: parents only, the More menu whole, the sub-nav a menu on a phone", async ({ page }) => {
+// the rail (640-1279) draws parents only, so no pane is in the Sections nav there. P125 L4-L5: Settings' pages are a menu column (Messengers
+// among them) from 960px of the layout's own width; below it (the 768 rail and the phone) one "Settings pages" button opens the same menu in a sheet.
+const SETTINGS_PAGES = ["Sending", "Checks", "Mail", "Messengers", "Agent", "Connections", "This Mac"].map((n) => new RegExp(`${n}$`));
+test("phone bar and rail: parents only, the More menu whole, the Settings pages a sheet below the column width", async ({ page }) => {
   const width = page.viewportSize()?.width ?? 0;
   await page.goto(at(P, "/settings/mail"));
   const sub = page.getByRole("navigation", { name: "Settings pages" });
-  await sub.waitFor();
   if (width < 640) {
     const bar = page.getByRole("navigation", { name: "Sections" }).last();
     // A dot's words ("needs you") are read before the label: the label ends the link.
@@ -302,13 +312,16 @@ test("phone bar and rail: parents only, the More menu whole, the sub-nav a menu 
     await items.filter({ hasText: "Knowledge" }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe(at(P, "/knowledge"));
     await page.goto(at(P, "/settings/mail"));
-    await sub.getByRole("button", { name: /Settings pages: Mail/ }).click();
-    await expect(page.getByRole("menuitem")).toHaveText(["Sending", "Checks", "Mail", "Agent", "Connections", "This Mac"].map((n) => new RegExp(`${n}$`)));
-    await page.getByRole("menuitem", { name: "This Mac" }).click();
+  }
+  if (width < 1280) {
+    await page.getByRole("button", { name: "Settings pages" }).click();
+    const sheet = page.getByRole("dialog");
+    await expect(sheet.getByRole("navigation", { name: "Settings pages" }).getByRole("link")).toHaveText(SETTINGS_PAGES);
+    await sheet.getByRole("link", { name: /This Mac$/ }).click();
     await expect.poll(() => new URL(page.url()).pathname).toBe("/settings/mac");
+    if (width >= 640) await expect(page.getByRole("navigation", { name: "Sections" }).first().getByRole("link", { name: "This Mac", exact: true })).toBeHidden();
   } else {
-    await expect(sub.getByRole("link")).toHaveText(["Sending", "Checks", "Mail", "Agent", "Connections", "This Mac"].map((n) => new RegExp(`${n}$`)));
-    if (width < 1280) await expect(page.getByRole("navigation", { name: "Sections" }).first().getByRole("link", { name: "This Mac", exact: true })).toBeHidden();
+    await expect(sub.getByRole("link")).toHaveText(SETTINGS_PAGES);
   }
 });
 
@@ -335,7 +348,7 @@ test("drafts: the first row does not move when a row is selected, and the subjec
     expect(shown.length).toBeGreaterThan(0);
     // And it sits inside its row: a fixed button height once hid the line under the chips at 640px and up (found on real data, P48 W8).
     const outside = await page.locator('[data-testid="person-subject"]').evaluateAll((els) =>
-      els.filter((e) => { const r = e.getBoundingClientRect(); const row = e.closest("button")!.getBoundingClientRect(); return r.height === 0 || r.bottom > row.bottom + 0.5; }).map((e) => e.textContent),
+      els.filter((e) => { const r = e.getBoundingClientRect(); const row = e.closest("a")!.getBoundingClientRect(); /* P127 C1: the row is a link */ return r.height === 0 || r.bottom > row.bottom + 0.5; }).map((e) => e.textContent),
     );
     expect(outside, "subjects drawn outside their row").toEqual([]);
     // Every subject shows at least 40 characters, or the whole of a shorter one.

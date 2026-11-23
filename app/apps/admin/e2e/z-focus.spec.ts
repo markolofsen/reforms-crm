@@ -81,7 +81,7 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
 const APP = fileURLToPath(new URL("../../..", import.meta.url));
 const SERVER_PROJECTS = process.env.HUB_E2E_PROJECTS ?? "";
 const kbFolder = join(SERVER_PROJECTS, "demo-shop", "knowledge");
-const indexKb = () => execFileSync("pnpm", ["--filter", "@hub/knowledge", "knowledge", "--root", SERVER_PROJECTS, "--db", process.env.HUB_E2E_DB ?? "", "index", "demo-shop"], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME } });
+const indexKb = () => execFileSync("pnpm", ["hub", "knowledge", "--root", SERVER_PROJECTS, "--db", process.env.HUB_E2E_DB ?? "", "index", "demo-shop"], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME } });
 const kbEnv = { ...env, HUB_PROJECTS: SERVER_PROJECTS };
 const focusJson = () => JSON.parse(execFileSync("node", [hub, "focus", "--json"], { env: kbEnv, encoding: "utf8" })) as { state: string; route: string; title: string; subject: { ref: string; title: string } | null; pointed: { ref: string; title: string; read: { server: string; tool: string; args: Record<string, string> } } | null; window: { total: number } | null };
 

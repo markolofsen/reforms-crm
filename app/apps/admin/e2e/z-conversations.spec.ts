@@ -80,7 +80,7 @@ test("a client with two threads is one row, Draft ready, the newest thread's sub
 
 test("opening the row shows both threads with dividers, his messages and ours in order, and the unsent message at the bottom", async ({ page }) => {
   await page.goto(at(P, "/mail?filter=all"));
-  await row(page).getByRole("button").first().click();
+  await row(page).getByRole("link").first().click();
   const pane = page.getByTestId("conversation");
   await expect(pane).toHaveAttribute("aria-label", `Conversation with ${NAME}`);
   await expect(pane.getByTestId("conversation-state")).toHaveText("Draft ready");

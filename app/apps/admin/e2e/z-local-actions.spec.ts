@@ -21,7 +21,7 @@ const FIXTURE = join(APP, "packages", "knowledge", "test", "fixtures", "projects
 const LOG = join(HOME, "state", "opener.jsonl");
 const folder = join(PROJECTS, PROJECT);
 
-const index = () => execFileSync("pnpm", ["--filter", "@hub/knowledge", "knowledge", "--root", PROJECTS, "--db", DB, "index", PROJECT], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: HOME } });
+const index = () => execFileSync("pnpm", ["hub", "knowledge", "--root", PROJECTS, "--db", DB, "index", PROJECT], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: HOME } });
 const opened = (): string[][] => (existsSync(LOG) ? readFileSync(LOG, "utf8").trim().split("\n").filter(Boolean).map((l) => (JSON.parse(l) as { argv: string[] }).argv) : []);
 const row = (page: Page) => page.getByRole("table", { name: "Knowledge entries" }).locator(`tr[data-entry$="/springsale.md"]`);
 

@@ -20,7 +20,7 @@ const kbFolder = join(PROJECTS, "demo-shop", "knowledge");
 const env = { ...process.env, HUB_HOME: HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: PROJECTS, HUB_PROJECT: "demo-shop", NO_COLOR: "1" };
 const focusFile = join(HOME, "state", "focus.json");
 const pointerFile = join(HOME, "state", "pointer.json");
-const indexKb = () => execFileSync("pnpm", ["--filter", "@hub/knowledge", "knowledge", "--root", PROJECTS, "--db", process.env.HUB_E2E_DB ?? "", "index", "demo-shop"], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: HOME } });
+const indexKb = () => execFileSync("pnpm", ["hub", "knowledge", "--root", PROJECTS, "--db", process.env.HUB_E2E_DB ?? "", "index", "demo-shop"], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: HOME } });
 const highlight = (refs: string[], note?: string) => JSON.parse(execFileSync("node", [fakeAgent, "--highlight", JSON.stringify(refs), ...(note ? [note] : [])], { env, encoding: "utf8" })) as { highlight: { id: string; refs: string[] } };
 const outcome = () => (existsSync(focusFile) ? (JSON.parse(readFileSync(focusFile, "utf8")) as { focus: { pointer?: { id: string; outcome: string } } }).focus.pointer : undefined);
 const record = (payload: object) => JSON.parse(execFileSync("node", [seedDraft, "--project", "demo-shop"], { env, input: JSON.stringify(payload), encoding: "utf8" })) as { draftId: number };
@@ -92,7 +92,7 @@ test("a row on another screen is offered in the dock with Show; only his click g
   expect(page.url()).toMatch(/\/knowledge/);
   await points.getByRole("link", { name: /^Show/ }).click();
   // P99: a draft is a part of a conversation; Show opens that client's conversation, whose unsent message carries the ref.
-  await expect(page).toHaveURL(/\/mail\/c\/\d+$/);
+  await expect(page).toHaveURL(/\/mail\/c\/[^/?]+$/);
   // One ring per element that carries the ref (the open unsent message; a person's row carries the client ref).
   await expect(ring(page).first()).toBeVisible();
   await expect(ring(page)).toHaveCount(await page.locator(`#main [data-agent-ref="draft:${d.draftId}"]`).count());

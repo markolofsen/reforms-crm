@@ -40,7 +40,7 @@ test("overview: one sentence, then one row per project with its numbers, and no 
 test("overview: a row leads into its own project's Drafts, and Back returns", async ({ page }) => {
   await page.goto("/overview");
   await page.locator('tr[data-project="demo-shop"]').getByRole("link").first().click();
-  await expect.poll(() => address(page)).toMatch(/^\/demo-shop\/mail(\/c\/\d+)?(\?|$)/);
+  await expect.poll(() => address(page)).toMatch(/^\/demo-shop\/mail(\/c\/[^/?]+)?(\?|$)/);
   await page.goBack();
   await expect.poll(() => address(page)).toBe("/overview");
 });

@@ -68,7 +68,7 @@ test("inbox: the arrival is Needs you, the clients who wrote are its people with
 test("inbox: a row opens the conversation; Prepare reply pastes the request into the dock, and nothing runs before Enter", async ({ page }) => {
   await endAll(page);
   await page.goto(at(P, "/mail"));
-  await person(page, "Lea Sample").getByRole("button").first().click();
+  await person(page, "Lea Sample").getByRole("link").first().click();
   await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/[^/?]+$`));
   await expect(pane(page)).toContainText("lea@example.test");
   await expect(pane(page).getByTestId("conversation-state")).toHaveText("Wrote you");
@@ -84,7 +84,7 @@ test("inbox: a row opens the conversation; Prepare reply pastes the request into
 
 test("inbox: No reply needed closes the client, and Undo brings them back", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await person(page, "Omar Test").getByRole("button").first().click();
+  await person(page, "Omar Test").getByRole("link").first().click();
   await pane(page).getByRole("button", { name: "No reply needed" }).click();
   await expect(person(page, "Omar Test")).toHaveCount(0);
   // The toast's Undo; the reply composer of the next person has its own (text) Undo.
@@ -111,7 +111,7 @@ test("P98: the people come before New leads, and the status line keeps its heigh
 
 test("P98: a draft recorded for their message turns the conversation into Draft ready live, its unsent message at the bottom", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await person(page, "Omar Test").getByRole("button").first().click();
+  await person(page, "Omar Test").getByRole("link").first().click();
   await expect(pane(page).getByRole("button", { name: "Prepare reply" })).toBeVisible();
   const at0 = await address(page);
   record({ email: "omar@example.test", name: "Omar Test", subject: "Re: Question about sizes", mailRef: "<seed-in-omar@example.test>", excerpt: "Yes, the jacket comes in XL.", reason: "He asked about sizes.", repliesOwed: true, skill: "triage-mail" });
@@ -128,7 +128,7 @@ test("P128 X0 (F16): a New lead opens at a split width and stays open; a cold lo
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(at(P, "/mail"));
   // The list settles and opens its first person by itself (P53); a lead's click must not be replaced by that.
-  await expect(page).toHaveURL(/\/mail\/c\/\d+/);
+  await expect(page).toHaveURL(/\/mail\/c\/[^/?]+/);
   const lead = page.getByTestId("lead-row").first();
   await lead.getByRole("link").click();
   await expect(page).toHaveURL(/\/mail\/lead\/[0-9a-f]{32}/);
@@ -144,7 +144,7 @@ test("P128 X0 (F16): a New lead opens at a split width and stays open; a cold lo
 
 test("P123 U0: Mail's composer is plain text: no formatting buttons, Markdown typed stays as typed", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await person(page, "Omar Test").getByRole("button").first().click();
+  await person(page, "Omar Test").getByRole("link").first().click();
   // In a full run P98's test above has recorded Omar's draft: the pane shows its card, whose Edit opens the same editor.
   const edit = pane(page).getByRole("button", { name: "Edit", exact: true });
   const editing = await edit.isVisible();
@@ -177,7 +177,7 @@ test("P128 X0 (F5): the rail's Mail badge is Mail's Needs you count, and says ne
 
 test("P128 X1: a person with no draft shows one action row and no open composer; Close folds the composer again", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await person(page, "Omar Test").getByRole("button").first().click();
+  await person(page, "Omar Test").getByRole("link").first().click();
   const start = pane(page).getByTestId("reply-start");
   if ((await start.count()) === 0) return; // a full run has given Omar a draft: its card is the composer
   await expect(pane(page).getByRole("textbox", { name: /composer$/ })).toHaveCount(0);
