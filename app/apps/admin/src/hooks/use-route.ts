@@ -12,6 +12,9 @@ import { addressOf, type RouteId } from "@/routes/table";
  */
 export const usePath = (): string => addressOf(usePathname());
 
+/** The query of the address as it is written (`filter=all&link=linked`), for an effect that must follow every replace of it. */
+export const useQueryString = (): string => useSearchParams().toString();
+
 /**
  * The address as a typed route. The one place the router state is turned into a value. With a route id (P127 A1): that route,
  * narrowed, or null on any other address, so a screen reads its params and search without its own `route.route !== …` check.

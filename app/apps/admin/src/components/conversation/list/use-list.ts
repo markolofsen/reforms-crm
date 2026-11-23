@@ -1,6 +1,6 @@
-import { useSearchParams } from "next/navigation";
 import { useEffect, useEffectEvent } from "react";
 import { useGo } from "@/hooks/use-go";
+import { useQueryString } from "@/hooks/use-route";
 import type { Channel } from "../adapter";
 import { focusRow } from "./keys";
 
@@ -18,7 +18,7 @@ export function useOpen(channel: Channel, k: { asked: number | null; narrow: boo
   const to = useEffectEvent((id: number | null) => channel.to(id));
   // The address's query is a dependency too: another replace of the bare list (Messengers dropping an unavailable channel) can
   // land after this one and write the bare address back; the auto-open then runs again instead of leaving it bare (P130 gate).
-  const search = useSearchParams().toString();
+  const search = useQueryString();
   useEffect(() => {
     if (auto !== null) go(to(auto), { replace: true });
   }, [auto, go, search]);
