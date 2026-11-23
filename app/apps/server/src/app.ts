@@ -223,7 +223,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", projectLinksRoutes(projectLinksServicesOf(repos, projectsDir, { ...(opts.projectLinks?.reader ? { reader: opts.projectLinks.reader } : {}) })))
     .route("/", inboxRoutes(inboxServicesOf(repos)))
     .route("/", inboundRoutes(inboundServicesOf(repos, opts.inbound, opts.inboundText, opts.leads)))
-    .route("/", conversationRoutes(conversationServicesOf(repos, opts.conversationMail, opts.autolink ? { project: opts.autolink.project, directory: opts.autolink.directory } : undefined)))
+    .route("/", conversationRoutes(conversationServicesOf(repos, opts.conversationMail, opts.autolink ? { project: opts.autolink.project, directory: opts.autolink.directory, identityOf: opts.autolink.autolink.identityOf } : undefined)))
     .route("/", sequenceRoutes(sequenceServicesOf(repos, projectsDir, now)))
     .route("/", bulkRoutes(bulkServicesOf(repos)))
     .route("/", overviewRoutes(overviewServicesOf(overview)))
@@ -248,7 +248,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
           adminPort: opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT,
           ...(opts.preanalysis ? { preanalysis: opts.preanalysis } : {}),
           ...(opts.reply ? { reply: { llm: opts.reply.llm, projectsDir, ...(opts.sender?.policyDir ? { policyDir: opts.sender.policyDir } : {}) } } : {}),
-          ...(opts.autolink ? { directory: { project: opts.autolink.project, directory: opts.autolink.directory } } : {}),
+          ...(opts.autolink ? { directory: { project: opts.autolink.project, directory: opts.autolink.directory, identityOf: opts.autolink.autolink.identityOf } } : {}),
         }),
       ),
     );

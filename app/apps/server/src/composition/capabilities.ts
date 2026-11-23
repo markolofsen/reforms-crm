@@ -7,6 +7,7 @@ import type { OpsStore } from "@hub/log/ops";
 import type { LogStore } from "@hub/log/store";
 import type { Llm } from "@hub/llm";
 import type { ClientDirectory } from "../client-directory";
+import type { ChatIdentityOf } from "../messenger-identity";
 import type { AppsProbe } from "../apps-probe";
 import type { AppsDto } from "@hub/contract/local";
 import type { ConnectionsService } from "../connections";
@@ -63,6 +64,8 @@ export const bulkServicesOf = (repos: Repos): BulkServices => ({ repos });
 export type MessengerDirectory = {
   project: string | null;
   directory: ClientDirectory;
+  /** P131 O5: a chat's own Telegram username and phone from the autolink memory. */
+  identityOf?: ChatIdentityOf;
 };
 
 export type MessengerServices = {

@@ -60,4 +60,14 @@ describe("P131 O5: the contact a chat or a Mail conversation opens Telegram and 
     expect(resolver.contact("p", { email: "anna@example.com", chat: { channel: "whatsapp", chatId: "120363025246125486@g.us" } }).whatsappPhone).toBeNull();
     expect(resolver.contact("p", { email: "anna@example.com", chat: { channel: "whatsapp", chatId: "351912345678-1608000000" } }).whatsappPhone).toBeNull();
   });
+  it("a Telegram chat's own username or phone (the autolink memory) comes before the card's; without one the card's stays", () => {
+    const seen = createMessengerIdentityResolver({
+      project: "p",
+      directory: { current: () => buildDirectory([card]) },
+      identityOf: (_channel, chatId) => (chatId === "42" ? { username: "@anna_real", phone: null } : chatId === "43" ? { username: null, phone: "+351 900 000 000" } : null),
+    });
+    expect(seen.contact("p", { email: "anna@example.com", chat: { channel: "telegram_user", chatId: "42" } })).toMatchObject({ telegramUsername: "anna_real", telegramPhone: "447700900123" });
+    expect(seen.contact("p", { chat: { channel: "telegram_user", chatId: "43" } })).toEqual({ telegramUsername: null, telegramPhone: "351900000000", whatsappPhone: null });
+    expect(seen.contact("p", { email: "anna@example.com", chat: { channel: "telegram_user", chatId: "44" } })).toMatchObject({ telegramUsername: "anna_k" });
+  });
 });

@@ -4,7 +4,9 @@ import type { ClientDirectory } from "./client-directory";
 
 type ClientSource = { id: number; name: string; email: string };
 type NotionSource = { notionPageId: string | null; notionUrl: string | null } | null;
-type IdentitySource = { project: string | null; directory: Pick<ClientDirectory, "current"> };
+/** A chat's own identity as the autolink memory saw it (Telegram username and phone), when the server runs one. */
+export type ChatIdentityOf = (channel: "telegram_user" | "whatsapp", chatId: string) => { username: string | null; phone: string | null } | null;
+type IdentitySource = { project: string | null; directory: Pick<ClientDirectory, "current">; identityOf?: ChatIdentityOf };
 type ClientDto = NonNullable<MessengerChatDto["client"]>;
 
 export type MessengerIdentityResolver = ReturnType<typeof createMessengerIdentityResolver>;
@@ -49,6 +51,13 @@ export function createMessengerIdentityResolver(source: IdentitySource | undefin
     const card: ContactLinksDto = entry
       ? { telegramUsername: entry.identifiers.find((i) => i.kind === "username")?.value ?? null, telegramPhone: best("telegram"), whatsappPhone: best("whatsapp") }
       : NO_CONTACT;
+    // The chat's own Telegram identity comes before the card's (verdict 10: it is the conversation he means).
+    if (o.chat?.channel === "telegram_user") {
+      const own = source?.project === slug ? source.identityOf?.("telegram_user", o.chat.chatId) : null;
+      const username = own?.username?.replace(/^@/, "") || null;
+      const phone = phoneDigits(own?.phone);
+      if (username || phone) return { ...card, telegramUsername: username ?? card.telegramUsername, telegramPhone: phone ?? card.telegramPhone };
+    }
     // A WhatsApp chat id is its number; anything else (a group's id) gives no link by id.
     if (o.chat?.channel === "whatsapp") return { ...card, whatsappPhone: /^\+?\d{7,15}$/.test(o.chat.chatId) ? phoneDigits(o.chat.chatId) : null };
     return card;
