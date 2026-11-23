@@ -22,8 +22,17 @@ export const FILE_RATCHET = {
 };
 
 // The same for functions over FUNCTION_LINE_CAP: `"<file>": <longest function's lines>`. Filled once by the first full lint run
-// (the final gate of P130), from its `max-lines-per-function` errors; empty until then.
-export const FUNCTION_RATCHET = {};
+// (the final gate of P130, 2026-11-24), from its `max-lines-per-function` errors: repository and route factories, none an easy split.
+export const FUNCTION_RATCHET = {
+  "packages/db/src/repos/messengers.ts": 220,
+  "packages/db/src/repos/drafts.ts": 215,
+  "packages/db/src/repos/sends.ts": 208,
+  "packages/messengers/src/whatsapp.ts": 207,
+  "apps/server/src/messengers/autolink/autolink.ts": 205,
+  "apps/server/src/messengers/autolink/routes.ts": 193,
+  "apps/installer/src/commands/instance.ts": 190,
+  "apps/server/src/mail/inbound.ts": 180,
+};
 
 /** The typing rules every workspace holds (the admin and @hub/ui add the assertion bans of their own pages). */
 export const TYPING_RULES = {
