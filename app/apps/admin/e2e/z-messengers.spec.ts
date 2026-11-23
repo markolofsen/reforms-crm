@@ -77,7 +77,8 @@ test("messengers: Send reads the dry run, confirms in place with the exact text,
 test("messengers: Edit changes the draft's text, Skip sets it aside with Undo", async ({ page }) => {
   await page.goto(at(P, "/messengers"));
   await conversation(page).getByRole("button", { name: `Edit the draft for ${RITA}` }).click();
-  const box = page.getByLabel(/^Your words for this reply/);
+  // P93: the Markdown composer, named by its aria-label; its help line says what Save does.
+  const box = page.getByLabel("Edit the messenger draft", { exact: true });
   await expect(box).toBeFocused();
   await box.fill("Hi Rita, yes: the 28th at 10:00 stands.");
   await box.press("ControlOrMeta+Enter");

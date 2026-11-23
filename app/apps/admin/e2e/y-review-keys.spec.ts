@@ -33,7 +33,8 @@ test("Shift+A selects every open draft, the bar says how many, and Esc clears it
 
 test("? opens the shortcuts, which list this screen's keys, and Esc closes them", async ({ page }) => {
   await page.keyboard.press("?");
-  const help = page.getByText("Keyboard shortcuts", { exact: true });
+  // The popover is the dialog named by its title; the trigger's tooltip says the same words when Esc gives it focus back.
+  const help = page.getByRole("dialog", { name: "Keyboard shortcuts" });
   await expect(help).toBeVisible();
   await expect(page.getByText("select every person with an open draft")).toBeVisible();
   await page.keyboard.press("Escape");

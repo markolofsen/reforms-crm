@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { writeSendPolicy } from "./send-policy";
-import { at, cardOf, cards, remember, viewMenu } from "./support";
+import { at, cardOf, cards, contextWarn, remember, viewMenu } from "./support";
 
 // P99 S2 and S3: Mail lists people. A Mark-Effect-like client (two threads, "Re: Hello" finished and "Re: Wow" with an open draft,
 // recorded the way the agent records them, `hub record-draft`) is ONE row; opening it shows both threads with a divider each, his
@@ -19,6 +19,7 @@ const NAME = "Mark Effect";
 const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-conv-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, P), { recursive: true });
+contextWarn(join(projects, P, "project.md"));
 writeSendPolicy(process.env.HUB_E2E_HOME ?? "", P);
 const record = (payload: object) =>
   JSON.parse(execFileSync("node", [hub, "record-draft", "--project", P], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" })) as { ok: boolean; action: string; draftId: number };

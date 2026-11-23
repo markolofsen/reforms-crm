@@ -10,9 +10,9 @@ import { at } from "./support";
 const P = "lisbon-realty";
 const view = (page: Page) => page.getByRole("button", { name: /^View:/ });
 const fresh = (page: Page) => page.getByRole("list", { name: "New chats" });
-/** P102: a row's one state menu, opened, then one of its items. */
-const pick = async (row: Locator, status: string, item: string) => {
-  await row.getByRole("button", { name: new RegExp(`^Status of .*: ${status}`) }).click();
+/** P102: a row's one state menu (P115: the compact "Chat actions for <name>"), opened, then one of its items. */
+const pick = async (row: Locator, item: string) => {
+  await row.getByRole("button", { name: /^Chat actions for / }).click();
   await row.page().getByRole("menuitem", { name: item }).click();
 };
 
@@ -42,11 +42,14 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
 test("chats: the channel is a filter of the same page, kept in the address with the view", async ({ page }) => {
   await stubChats(page);
   await page.goto(at(P, "/messengers"));
-  const channel = page.getByRole("radiogroup", { name: "Channel" });
-  await expect(channel.getByRole("radio")).toHaveText(["All", /^Telegram$/, /^WhatsApp$/]);
+  // P118: the channel is a compact menu like the View one (its trigger reads "Channel: <channel>").
+  const channel = page.getByRole("button", { name: /^Channel:/ });
+  await expect(channel).toHaveText(/All/);
+  await channel.click();
+  await expect(page.getByRole("menuitemradio")).toHaveText(["All", /^Telegram$/, /^WhatsApp$/]);
   // P102: a channel has its mark beside its word.
-  await expect(channel.locator("[data-channel-icon]")).toHaveCount(2);
-  await channel.getByRole("radio", { name: "WhatsApp" }).click();
+  await expect(page.getByRole("menuitemradio").locator("[data-channel-icon]")).toHaveCount(2);
+  await page.getByRole("menuitemradio", { name: "WhatsApp" }).click();
   await expect.poll(() => new URL(page.url()).search).toBe("?channel=whatsapp");
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Joana/]);
   await expect(page.getByRole("list", { name: "Chats", exact: true })).toHaveCount(0);
@@ -57,7 +60,7 @@ test("chats: the channel is a filter of the same page, kept in the address with 
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=linked&channel=whatsapp");
   await expect(page.getByText("No linked chats yet")).toBeVisible();
   await page.reload();
-  await expect(channel.getByRole("radio", { name: "WhatsApp" })).toBeChecked();
+  await expect(channel).toHaveText(/WhatsApp/);
   // The old "All chats" address reads as the default view.
   await page.goto(at(P, "/messengers?filter=all"));
   await expect(view(page)).toHaveText(/To do/);
@@ -66,7 +69,7 @@ test("chats: the channel is a filter of the same page, kept in the address with 
 test("chats: Hide takes a chat off To do with Undo; Hidden lists it with Unhide and says how many it cannot name", async ({ page }) => {
   const s = await stubChats(page);
   await page.goto(at(P, "/messengers"));
-  await pick(fresh(page).getByRole("listitem", { name: "Joana" }), "Not linked", "Hide: not a client");
+  await pick(fresh(page).getByRole("listitem", { name: "Joana" }), "Hide: not a client");
   await expect(page.getByText("Hid Joana: not a client")).toBeVisible();
   await expect(fresh(page).getByRole("listitem", { name: "Joana" })).toHaveCount(0);
   await page.getByRole("button", { name: "Undo" }).click();
@@ -74,7 +77,7 @@ test("chats: Hide takes a chat off To do with Undo; Hidden lists it with Unhide 
   expect(s.posts.map((p) => p.path)).toEqual([`/api/projects/${P}/messengers/autolink/hide`, `/api/projects/${P}/messengers/autolink/unhide`]);
   expect(s.posts[0]?.body).toEqual({ channel: "whatsapp", chatId: "+351911000111" });
 
-  await pick(fresh(page).getByRole("listitem", { name: "Delivery bot fan" }), "Not linked", "Hide: not a client");
+  await pick(fresh(page).getByRole("listitem", { name: "Delivery bot fan" }), "Hide: not a client");
   await view(page).click();
   await page.getByRole("menuitemradio", { name: /Hidden/ }).click();
   await page.keyboard.press("Escape");
@@ -82,7 +85,7 @@ test("chats: Hide takes a chat off To do with Undo; Hidden lists it with Unhide 
   const hidden = page.getByRole("list", { name: "Hidden chats" });
   await expect(hidden.getByRole("listitem")).toHaveText([/Delivery bot fan/, /Spam Sender/]);
   await expect(page.getByText(/^1 more hidden chat is kept as a fingerprint only/)).toBeVisible();
-  await pick(hidden.getByRole("listitem", { name: "Spam Sender" }), "Hidden", "Unhide");
+  await pick(hidden.getByRole("listitem", { name: "Spam Sender" }), "Unhide");
   await expect(page.getByText("Spam Sender is back in Not linked")).toBeVisible();
   await expect(hidden.getByRole("listitem")).toHaveText([/Delivery bot fan/]);
 });
@@ -91,7 +94,7 @@ test("chats: the link box finds the card made a minute ago by name or email, sho
   const s = await stubChats(page);
   await page.goto(at(P, "/messengers"));
   const row = fresh(page).getByRole("listitem", { name: "Delivery bot fan" });
-  await pick(row, "Not linked", "Link to a client…");
+  await pick(row, "Link to a client…");
   const box = row.getByRole("searchbox", { name: /A client in Notion/ });
   await expect(box).toHaveAttribute("placeholder", "Name, email, @username or phone");
   await box.fill("Евгений");
@@ -112,7 +115,7 @@ test("chats: nothing matches, so Create client makes the card with the chat's us
   const s = await stubChats(page);
   await page.goto(at(P, "/messengers"));
   const row = fresh(page).getByRole("listitem", { name: "Delivery bot fan" });
-  await pick(row, "Not linked", "Link to a client…");
+  await pick(row, "Link to a client…");
   await row.getByRole("searchbox", { name: /A client in Notion/ }).fill("Zorro");
   await expect(row.getByText("No client in Notion matches.")).toBeVisible();
   await row.getByRole("button", { name: "Create client «Delivery bot fan» in Notion" }).click();
@@ -133,8 +136,8 @@ const rita = (page: Page) => page.getByRole("list", { name: "Chats", exact: true
 test("chats: Change client moves the chat with its messages (Undo moves it back); Unlink says what it deletes and asks once, in place", async ({ page }) => {
   const s = await stubChats(page);
   await page.goto(at(P, "/messengers"));
-  await expect(rita(page).getByRole("button", { name: /^Status of Rita Falsa: Linked to Rita Falsa/ })).toBeVisible();
-  await pick(rita(page), "Linked to Rita Falsa", "Change client…");
+  await expect(rita(page).getByRole("button", { name: /^Chat actions for / })).toBeVisible();
+  await pick(rita(page), "Change client…");
   await rita(page).getByRole("searchbox", { name: /A client in Notion/ }).fill("suenot@");
   await rita(page).getByRole("list", { name: "Matching clients in Notion" }).getByRole("button").click();
   await expect(page.getByText("Moved Rita F. to Евгений")).toBeVisible();
@@ -145,11 +148,11 @@ test("chats: Change client moves the chat with its messages (Undo moves it back)
   expect(writes[0]?.body).toEqual({ key: "n-evg" });
   expect(writes[1]?.body).toEqual({ clientId: 7, draftId: 11 });
 
-  await pick(rita(page), "Linked to Rita Falsa", "Unlink…");
+  await pick(rita(page), "Unlink…");
   await expect(rita(page).getByText(/^Unlink Rita F\. from Rita Falsa: its 1 stored message and its draft are deleted\. Linking again reloads the last 30 days\.$/)).toBeVisible();
   await rita(page).getByRole("button", { name: "Cancel" }).click();
   await expect(rita(page).getByText(/are deleted/)).toHaveCount(0);
-  await pick(rita(page), "Linked to Rita Falsa", "Unlink…");
+  await pick(rita(page), "Unlink…");
   await rita(page).getByRole("button", { name: "Unlink and delete" }).click();
   await expect(page.getByText("Unlinked Rita F.")).toBeVisible();
   expect(s.posts.at(-1)?.path).toMatch(/\/chats\/\d+\/unlink$/);
@@ -159,7 +162,7 @@ test("chats: a hidden chat can be linked, and Link a chat… starts from the cli
   const s = await stubChats(page);
   await page.goto(at(P, "/messengers?filter=hidden"));
   const spam = page.getByRole("list", { name: "Hidden chats" }).getByRole("listitem", { name: "Spam Sender" });
-  await pick(spam, "Hidden", "Link to a client…");
+  await pick(spam, "Link to a client…");
   await spam.getByRole("searchbox", { name: /A client in Notion/ }).fill("suenot@");
   await spam.getByRole("list", { name: "Matching clients in Notion" }).getByRole("button").click();
   await expect(page.getByText("Linked · 7 messages of the last 30 days loaded")).toBeVisible();

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { writeSendPolicy } from "./send-policy";
-import { address, at, cardOf, cards, remember, viewMenu } from "./support";
+import { address, at, cardOf, cards, contextWarn, remember, viewMenu } from "./support";
 
 // P96, P99: the clients who wrote and have no draft yet, as the server's Mail reader stored them (the seed holds two for demo-shop:
 // the e2e run reads no Mail, its Mailer is fake). Since P99 they are people in Mail's Needs you, the word Wrote you on their row;
@@ -19,6 +19,7 @@ const P = "demo-shop";
 const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-inbox-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, P), { recursive: true });
+contextWarn(join(projects, P, "project.md"));
 writeSendPolicy(process.env.HUB_E2E_HOME ?? "", P);
 const record = (payload: object) =>
   JSON.parse(execFileSync("node", [hub, "record-draft", "--project", P], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" })) as { ok: boolean; action: string; draftId: number };

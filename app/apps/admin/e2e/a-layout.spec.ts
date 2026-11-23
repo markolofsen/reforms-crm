@@ -53,7 +53,7 @@ const tabStopsInView = (page: Page) =>
   );
 const firstRowTop = (page: Page) => page.evaluate(() => document.querySelector('ul[aria-label="People"] > li')?.getBoundingClientRect().top ?? null);
 const openMessengerDraft = async (page: Page) => {
-  if (await page.getByTestId("messenger-draft").count() === 0) await page.getByRole("list", { name: "Chats" }).getByRole("listitem").first().getByRole("button").click();
+  if (await page.getByTestId("messenger-draft").count() === 0) await page.getByRole("list", { name: "Chats" }).getByRole("listitem").first().getByRole("link").click();
   await page.getByTestId("messenger-draft").waitFor();
 };
 
@@ -121,7 +121,7 @@ const SCREENS: Screen[] = [
     ready: async (p) => {
       await openMessengerDraft(p);
       await p.getByRole("button", { name: /^Edit the draft for / }).first().click();
-      await p.getByLabel(/^Your words for this reply/).waitFor();
+      await p.getByLabel("Edit the messenger draft", { exact: true }).waitFor();
     },
   },
   // P84c: To do with the fresh unlinked chats and both accounts connected (the channel control), and Hidden; the memory is stubbed.

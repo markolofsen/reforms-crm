@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeSendPolicy } from "./send-policy";
-import { at, cardOf, remember } from "./support";
+import { at, cardOf, contextWarn, remember } from "./support";
 
 // P51 shared focus, end to end on the fake mailer: the admin publishes what it shows, `hub focus --hook` turns it into the
 // prompt line, and a scripted agent (`test-support/fake-agent.mjs`: `focus`, `draft_show` over `hub mcp`, then
@@ -17,6 +17,7 @@ const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url
 const fakeAgent = fileURLToPath(new URL("../../../test-support/fake-agent.mjs", import.meta.url));
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-focus-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, "demo-shop"), { recursive: true });
+contextWarn(join(projects, "demo-shop", "project.md"));
 writeSendPolicy(process.env.HUB_E2E_HOME ?? "", "demo-shop");
 const env = { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, HUB_PROJECT: "demo-shop", NO_COLOR: "1" };
 const focusFile = join(process.env.HUB_E2E_HOME ?? "", "state", "focus.json");

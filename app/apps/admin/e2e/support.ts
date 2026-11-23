@@ -1,3 +1,4 @@
+import { readFileSync, writeFileSync } from "node:fs";
 import { expect, type Locator, type Page } from "@playwright/test";
 
 /** The address of the page as the person reads it: `/lisbon-realty/mail/c/42`. */
@@ -90,4 +91,14 @@ export async function statusIs(page: Page, slug: string, status: Partial<StatusJ
     const json = (await res.json()) as OverviewJson;
     await route.fulfill({ response: res, json: { ...json, projects: json.projects.map((p) => (p.slug === slug ? { ...p, status: { ...p.status, ...status } } : p)) } });
   });
+}
+
+/**
+ * A copied fixture project that records a draft without a context block: `context.required` warn. Since 2026-11-22
+ * (CONTEXT_BLOCK_FROM) a project that sets nothing refuses one, and these flows are not about context.
+ */
+export function contextWarn(projectMd: string): void {
+  const text = readFileSync(projectMd, "utf8");
+  if (!text.includes("| tone |")) throw new Error(`${projectMd}: no tone row to put context.required before`);
+  writeFileSync(projectMd, text.replace("| tone |", "| context.required | warn | 2026-11-15 | owner |\n| tone |"));
 }

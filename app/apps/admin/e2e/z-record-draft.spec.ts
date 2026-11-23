@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { writeSendPolicy } from "./send-policy";
-import { cards, cardOf, remember } from "./support";
+import { cardOf, cards, contextWarn, remember } from "./support";
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,6 +14,7 @@ const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url
 // projects fixture, and recipients = any in the send policy of the instance the command runs in (P49 S11: the server's file).
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-proj-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, "demo-shop"), { recursive: true });
+contextWarn(join(projects, "demo-shop", "project.md"));
 writeSendPolicy(process.env.HUB_E2E_HOME ?? "", "demo-shop");
 const record = (project: string, payload: object) =>
   JSON.parse(

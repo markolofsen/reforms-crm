@@ -16,12 +16,14 @@ const DB = (process.env.HUB_E2E_DB ??= join(tmpdir(), `hub-e2e-${process.pid}.db
 const HOME = (process.env.HUB_E2E_HOME ??= join(tmpdir(), `hub-e2e-home-${process.pid}`));
 mkdirSync(HOME, { recursive: true });
 // The server's project folders (project.md): Send reads the project's accounts and sender from here. Seeded projects only.
+// `context.required` is warn: the flows record drafts without a context block, which a project that sets nothing refuses since
+// 2026-11-22 (CONTEXT_BLOCK_FROM); the block rule is the installer's record-draft-context test.
 const PROJECTS = (process.env.HUB_E2E_PROJECTS ??= join(tmpdir(), `hub-e2e-projects-${process.pid}`));
 for (const slug of ["lisbon-realty", "demo-shop"]) {
   mkdirSync(join(PROJECTS, slug), { recursive: true });
   writeFileSync(
     join(PROJECTS, slug, "project.md"),
-    ["# E2E project", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", `| mail.accounts | ${slug}@example.test | 2026-11-14 | agent |`, `| mail.addresses | ${slug}@example.test | 2026-11-14 | owner |`, `| mail.sender | ${slug}@example.test | 2026-11-14 | owner |`, "| tone | brief | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", "- reports: 00000000-0000-4000-8000-000000000002", ""].join("\n"),
+    ["# E2E project", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", `| mail.accounts | ${slug}@example.test | 2026-11-14 | agent |`, `| mail.addresses | ${slug}@example.test | 2026-11-14 | owner |`, `| mail.sender | ${slug}@example.test | 2026-11-14 | owner |`, "| context.required | warn | 2026-11-15 | owner |", "| tone | brief | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", "- reports: 00000000-0000-4000-8000-000000000002", ""].join("\n"),
   );
 }
 // P49 S11: the send policy is the server's file, not a row of project.md (recipients = any, drafts only, as the seeded flows expect).

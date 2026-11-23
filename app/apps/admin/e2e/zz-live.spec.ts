@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeSendPolicy } from "./send-policy";
-import { at, cards } from "./support";
+import { at, cards, contextWarn } from "./support";
 
 // P50 L4: the admin updates by itself while an agent writes from another process. Named zz-* because it adds drafts
 // and restarts the API, so it runs after every other flow. The restarted API is the same command and environment as
@@ -16,6 +16,7 @@ const API_PORT = Number(process.env.HUB_E2E_API_PORT ?? 4499);
 const HOME = process.env.HUB_E2E_HOME ?? "";
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-live-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, "demo-shop"), { recursive: true });
+contextWarn(join(projects, "demo-shop", "project.md"));
 writeSendPolicy(HOME, "demo-shop");
 
 /** `hub record-draft` in its own process, as the agent runs it in a terminal: it writes the database file, never the API. */
