@@ -76,7 +76,7 @@ describe("live triggers", () => {
     expect(moved(s0)).toEqual(["topic:connections/", "topic:health/p"]);
   });
 
-  it("every table in schema.ts has its three triggers, and the live tables have none", () => {
+  it("every table in schema/ has its three triggers, and the live tables have none", () => {
     const triggers = (handle.db.$client.prepare("SELECT name, tbl_name FROM sqlite_master WHERE type = 'trigger' AND name LIKE 'live\\_%' ESCAPE '\\'").all() as { name: string; tbl_name: string }[]);
     expect(LIVE_TABLES.length).toBeGreaterThanOrEqual(20);
     for (const t of LIVE_TABLES) expect(triggers.filter((r) => r.tbl_name === t).map((r) => r.name).sort(), t).toEqual([`live_${t}_ad`, `live_${t}_ai`, `live_${t}_au`]);

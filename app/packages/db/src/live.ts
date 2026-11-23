@@ -10,7 +10,7 @@ import { write } from "./tx";
 // the admin which topics moved. State that is not a row (the Connections files, the health of the pollers) is bumped
 // with `bumpTopic`, which takes the same path.
 
-/** The SQL name of every table in `schema.ts`: the server's `Record<LiveTable, LiveTopic>` fails `tsc` on a new one. */
+/** The SQL name of every table in `schema/`: the server's `Record<LiveTable, LiveTopic>` fails `tsc` on a new one. */
 export type LiveTable = { [K in keyof typeof schema]: (typeof schema)[K] extends { _: { name: infer N extends string } } ? N : never }[keyof typeof schema];
 
 /** The same names at run time (the triggers test checks each has its three triggers). */

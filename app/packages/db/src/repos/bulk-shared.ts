@@ -1,4 +1,4 @@
-import { and, eq, inArray, max, notInArray } from "drizzle-orm";
+import { and, eq, inArray, max, notInArray, sql } from "drizzle-orm";
 import { type EvidenceFinding, type Mark, type SafetyResult, type SafetyRule } from "@hub/config";
 import type { Db } from "../client";
 import { batches, clients, drafts, marks, safetyRules } from "../schema";
@@ -10,6 +10,8 @@ export type Tx = Pick<Db, "select" | "insert" | "update" | "delete">;
 export type DraftRow = typeof drafts.$inferSelect;
 
 export const nowIso = () => new Date().toISOString();
+/** SQLite's own clock in the same ISO form, for a column set inside a write. */
+export const now = sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`;
 
 export const parseJson = <T>(text: string | null | undefined, fallback: T): T => {
   if (!text) return fallback;
