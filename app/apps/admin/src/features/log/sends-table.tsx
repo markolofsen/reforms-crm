@@ -9,7 +9,7 @@ import { useCommand } from "@/lib/cache/topics";
 import { sendApi } from "@/lib/api/send";
 import { formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
-import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
+import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { useSends } from "@/lib/status";
 
 /** Cancel for a queued send inside its window (a sent mail cannot be recalled, so Cancel exists only while a send is queued). */
@@ -109,15 +109,16 @@ function SendsTable({ sends, busy, onCancel }: Props) {
 export function SendsView({ project }: { project: string }) {
   const q = useSends(project);
   const cancel = useCancel(project);
-  if (q.isPending) return <ListSkeleton label="Loading the sends" />;
-  if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the sends" />;
   return (
-    <>
-      {q.data.sends.length === 0 ? <EmptyState title="No sends yet">A mail or a message you send from a draft appears here.</EmptyState> : <SendsTable busy={cancel.isPending} onCancel={(id) => cancel.mutate(id)} sends={q.data.sends} />}
-      <p className="text-destructive-foreground text-sm" role="alert">
-        {cancel.isError ? sentence(cancel.error) : ""}
-      </p>
-      {q.isError && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
-    </>
+    <QueryView loading={<ListSkeleton label="Loading the sends" />} query={q} what="the sends">
+      {(d) => (
+        <>
+          {d.sends.length === 0 ? <EmptyState title="No sends yet">A mail or a message you send from a draft appears here.</EmptyState> : <SendsTable busy={cancel.isPending} onCancel={(id) => cancel.mutate(id)} sends={d.sends} />}
+          <p className="text-destructive-foreground text-sm" role="alert">
+            {cancel.isError ? sentence(cancel.error) : ""}
+          </p>
+        </>
+      )}
+    </QueryView>
   );
 }

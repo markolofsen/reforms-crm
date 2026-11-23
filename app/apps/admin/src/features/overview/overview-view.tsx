@@ -1,4 +1,4 @@
-import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
+import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { phrase } from "@hub/contract/help";
 import { usePlace } from "@/hooks/use-project";
 import { useClock } from "@/lib/clock";
@@ -20,12 +20,17 @@ export function OverviewView() {
   const now = useClock()();
   const { multi } = usePlace();
   const q = useOverview();
-  const data = q.data;
-  if (q.isPending) return <ListSkeleton label="Loading the overview" rows={2} />;
-  if (!data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the overview" />;
-  if (data.projects.length === 0) return <EmptyState title="No projects yet">Ask the agent to set up your project: say “{phrase("project-setup")}” in a session.</EmptyState>;
-  const rows = ordered(data.projects);
   return (
+    <QueryView
+      empty={<EmptyState title="No projects yet">Ask the agent to set up your project: say “{phrase("project-setup")}” in a session.</EmptyState>}
+      isEmpty={(d) => d.projects.length === 0}
+      loading={<ListSkeleton label="Loading the overview" rows={2} />}
+      query={q}
+      what="the overview"
+    >
+      {(data) => {
+        const rows = ordered(data.projects);
+        return (
     <>
       {multi && (
         <>
@@ -36,9 +41,11 @@ export function OverviewView() {
           <ProjectList now={now} rows={rows} />
         </>
       )}
-      {q.isError && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
       <SchemeBlock multi={multi} projects={rows.filter((p) => !p.archived).map((p) => p.slug)} />
       <RecentErrors now={now} />
     </>
+        );
+      }}
+    </QueryView>
   );
 }

@@ -6,7 +6,7 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList } from "@hub/ui/product/conversation";
 import { ConversationEmptyState } from "@hub/ui/product/conversation-frame";
 import { Page } from "@hub/ui/product/page";
-import { EmptyState, ListSkeleton, ListState, LoadFailed, StaleNote } from "@/components/state-views";
+import { EmptyState, ListSkeleton, ListState, QueryView } from "@/components/state-views";
 import { toastManager } from "@hub/ui/toast";
 import { ListDetail, ListScrollArea } from "@hub/ui/product/list-detail";
 import { shortcutsOn } from "@/hooks/use-hotkeys";
@@ -93,20 +93,10 @@ type RowsQuery = ReturnType<typeof useReviewRows>["query"];
 /** The people of the view: loading, failed, empty, or the rows with Load more. */
 function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: number; now: number; openId: number | null; sel: ReturnType<typeof useSelection>; searched: boolean; emptyTitle: string; empty: ReactNode; onAll: (() => void) | null; rowTo: (r: ConversationRow) => Dest; replace: boolean }) {
   const { query, rows, sel } = p;
-  if (query.isPending) return <ListSkeleton label="Loading the people" />;
-  if (query.isError && rows.length === 0)
-    return (
-      <ListState>
-        <LoadFailed error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} what="the people" />
-      </ListState>
-    );
   return (
+    <QueryView frame={(note) => <ListState>{note}</ListState>} loading={<ListSkeleton label="Loading the people" />} query={query} what="the people">
+      {() => (
     <>
-      {query.isError && (
-        <ListState>
-          <StaleNote error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
-        </ListState>
-      )}
       {rows.length === 0 ? (
         <EmptyState action={p.onAll ? <ActionButton onClick={p.onAll} size="s" variant="secondary">Show all</ActionButton> : undefined} compact title={p.emptyTitle}>{p.searched ? "Nobody in this view matches the search." : p.empty}</EmptyState>
       ) : (
@@ -118,6 +108,8 @@ function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: numbe
       )}
       <LoadedFooter fetching={query.isFetchingNextPage} loaded={rows.length} more={query.hasNextPage} onMore={() => void query.fetchNextPage()} total={p.total} />
     </>
+      )}
+    </QueryView>
   );
 }
 

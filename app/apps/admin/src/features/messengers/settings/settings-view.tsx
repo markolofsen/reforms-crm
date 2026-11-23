@@ -1,7 +1,7 @@
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
 import { Page } from "@hub/ui/product/page";
-import { LoadFailed, Loading } from "@/components/state-views";
+import { Loading, QueryView } from "@/components/state-views";
 import { AppLink } from "@/components/app-link";
 import { LocalActionButton } from "@/components/local-action";
 import { messengersApi } from "@/lib/api/messengers/panel";
@@ -30,9 +30,9 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
   const q = query;
   return (
     <div className="flex flex-col gap-4">
-      {q.isPending ? <Loading what="chats" /> : !q.data ? (
-        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the linked chats" />
-      ) : q.data.chats.length === 0 ? (
+      <QueryView loading={<Loading what="chats" />} query={q} what="the linked chats">
+        {(d) =>
+          d.chats.length === 0 ? (
         <div className="flex flex-col gap-1 text-sm">
           <p>No linked chats yet. <AppLink to={dest("messengers.page")}>Link a chat from Chats.</AppLink></p>
           <p className="text-muted-foreground text-xs">Unlinked chats are not stored.</p>
@@ -43,12 +43,14 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
             Change the client, unlink or hide a chat from its status menu on <AppLink to={dest("messengers.page")}>Messengers ▸ Chats</AppLink>.
           </p>
           <ul aria-label="Linked chats" className="flex flex-col divide-y border-y">
-            {q.data.chats.map((c) => (
-              <ChatRules c={c} key={c.id} preanalysis={q.data.preanalysis} project={project} />
+            {d.chats.map((c) => (
+              <ChatRules c={c} key={c.id} preanalysis={d.preanalysis} project={project} />
             ))}
           </ul>
         </>
-      )}
+          )
+        }
+      </QueryView>
     </div>
   );
 }

@@ -5,7 +5,7 @@ import { refOf } from "@hub/contract/focus";
 import { ConversationComposer, ConversationComposerFooter } from "@hub/ui/product/conversation-frame";
 import { toastManager } from "@hub/ui/toast";
 import { useGo } from "@/hooks/use-go";
-import { LoadFailed } from "@/components/state-views";
+import { QueryView } from "@/components/state-views";
 import { refreshData, sentence } from "@/lib/api/client";
 import { agentRef } from "@/lib/focus";
 import { copyText } from "@/lib/external";
@@ -146,7 +146,10 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
             </ActionButton>
           </div>
         )}
-        {mailError !== null && <LoadFailed error={mailRead.error} onRetry={() => void mailRead.refetch()} retrying={mailRead.isFetching} what="the draft from Mail" />}
+        {/* The card draws without Mail's copy; this says only a failed read of it, or a stale one (state rule 5). */}
+        <QueryView loading={<></>} query={mailRead} what="the draft from Mail">
+          {() => null}
+        </QueryView>
         <CheckList d={d} onOpen={on.send} {...(mail?.found ? { results: mail.safetyResults } : {})} />
         <DraftBlock
           actions={actions}

@@ -7,7 +7,7 @@ import { DEFAULT_INSTANCE_NAME } from "@hub/contract/instance";
 import { Page } from "@hub/ui/product/page";
 import { AppLink } from "@/components/app-link";
 import { useLitRoutes } from "@/components/nav-dot";
-import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
+import { EmptyState, Loading, QueryView } from "@/components/state-views";
 import { AgentFeedContext, useAgentFeed } from "@/features/agent-feed/use-agent-feed";
 import { useTurnSound } from "@/features/agent-feed/use-turn-sound";
 import { PointerLayer } from "@/features/focus/pointer";
@@ -89,20 +89,31 @@ export function ShellFrame({ children }: { children: ReactNode }) {
         <h2 className="sr-only">{heading}</h2>
         {/* P72: the agent's pointer, drawn over the rows of `#main`; it changes nothing on the page. */}
         <PointerLayer project={project} />
-        {projects.isPending || pending ? (
+        {pending ? (
           <Page>
             <Loading what="projects" />
           </Page>
-        ) : projects.isError ? (
-          <Page>
-            <LoadFailed error={projects.error} onRetry={() => void projects.refetch()} retrying={projects.isFetching} what="projects" />
-          </Page>
-        ) : !scope ? (
-          <Page>
-            <EmptyState action={<AppLink to={dest("settings.connections")}>Open Connections</AppLink>} title="No projects yet">Ask the agent to set up your project: say “{phrase("project-setup")}” in a session.</EmptyState>
-          </Page>
         ) : (
-          <ProjectScopeContext value={scope}>{children}</ProjectScopeContext>
+          <QueryView
+            frame={(note) => <Page>{note}</Page>}
+            loading={
+              <Page>
+                <Loading what="projects" />
+              </Page>
+            }
+            query={projects}
+            what="projects"
+          >
+            {() =>
+              !scope ? (
+                <Page>
+                  <EmptyState action={<AppLink to={dest("settings.connections")}>Open Connections</AppLink>} title="No projects yet">Ask the agent to set up your project: say “{phrase("project-setup")}” in a session.</EmptyState>
+                </Page>
+              ) : (
+                <ProjectScopeContext value={scope}>{children}</ProjectScopeContext>
+              )
+            }
+          </QueryView>
         )}
       </Shell>
     </PlaceContext>

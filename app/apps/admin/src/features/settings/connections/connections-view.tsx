@@ -1,4 +1,4 @@
-import { EmptyState, LoadFailed, StaleNote } from "@/components/state-views";
+import { EmptyState, QueryView } from "@/components/state-views";
 import type { ConnectionKind } from "@hub/contract/connections";
 import { phrase } from "@hub/contract/help";
 import { Skeleton } from "@hub/ui/skeleton";
@@ -28,28 +28,29 @@ export function ConnectionsView({ kinds, label = "Keys" }: { kinds: readonly Con
   const { multi } = usePlace();
   const q = useConnections();
   const { status, busy, test, save, remove } = useConnectionActions();
-  const data = q.data;
-
-  if (q.isPending) return <ConnectionsSkeleton />;
-  if (!data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the connections" />;
-  const rows = groupByKind(data.connections.filter((c) => kinds.includes(c.kind))).flatMap((g) => g.rows);
-  if (rows.length === 0) return <EmptyState title="No connections yet">They appear here once a project is set up: say “{phrase("project-setup")}” in a session.</EmptyState>;
   return (
-    <>
-      {/* One list of keys, each row named by its own label: a "Notion" heading over "Notion integration" said it twice (UX pass). */}
-      <ul aria-label={label} className="flex flex-col divide-y border-y">
-        {rows.map((r) => (
-          <ConnectionRow actions={{ test: () => void test(r), save: (b) => save(r, b), remove: () => remove(r) }} busy={busy === r.id} key={r.id} locked={busy !== null} multi={multi} now={now} row={r} />
-        ))}
-      </ul>
-      {/* One live region for every Test, save and remove: a result is a status, a failure an alert. */}
-      <div className="min-h-5 text-sm">
-        <p role="status">{status?.kind === "status" ? status.text : ""}</p>
-        <p className="text-destructive-foreground" role="alert">
-          {status?.kind === "alert" ? status.text : ""}
-        </p>
-      </div>
-      {q.isError && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
-    </>
+    <QueryView loading={<ConnectionsSkeleton />} query={q} what="the connections">
+      {(data) => {
+        const rows = groupByKind(data.connections.filter((c) => kinds.includes(c.kind))).flatMap((g) => g.rows);
+        if (rows.length === 0) return <EmptyState title="No connections yet">They appear here once a project is set up: say “{phrase("project-setup")}” in a session.</EmptyState>;
+        return (
+          <>
+            {/* One list of keys, each row named by its own label: a "Notion" heading over "Notion integration" said it twice (UX pass). */}
+            <ul aria-label={label} className="flex flex-col divide-y border-y">
+              {rows.map((r) => (
+                <ConnectionRow actions={{ test: () => void test(r), save: (b) => save(r, b), remove: () => remove(r) }} busy={busy === r.id} key={r.id} locked={busy !== null} multi={multi} now={now} row={r} />
+              ))}
+            </ul>
+            {/* One live region for every Test, save and remove: a result is a status, a failure an alert. */}
+            <div className="min-h-5 text-sm">
+              <p role="status">{status?.kind === "status" ? status.text : ""}</p>
+              <p className="text-destructive-foreground" role="alert">
+                {status?.kind === "alert" ? status.text : ""}
+              </p>
+            </div>
+          </>
+        );
+      }}
+    </QueryView>
   );
 }

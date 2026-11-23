@@ -4,14 +4,14 @@ import { clientKey } from "@hub/contract/client-key";
 import { ChevronDownIcon } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { leadPhrase } from "@hub/contract/help";
-import type { LeadActionDto } from "@hub/contract/inbound";
+import type { LeadActionDto, LeadDetailDto } from "@hub/contract/inbound";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { toastManager } from "@hub/ui/toast";
 import { AppLink } from "@/components/app-link";
 import { notionPageDestination } from "@hub/contract/local";
 import { OpenLinkButton } from "@/components/links/open-link";
-import { EmptyState, LoadFailed } from "@/components/state-views";
+import { EmptyState, QueryView } from "@/components/state-views";
 import { useTerminal } from "@/features/terminal/use-terminal";
 import { refreshData, sentence } from "@/lib/api/client";
 import { leadsApi } from "@/lib/api/inbox";
@@ -53,14 +53,16 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
   const now = useClock()();
   const { pasteToAgent } = useTerminal();
   const act = useLeadAction(project, pageId, onClosed);
-  if (q.isPending) return <EmptyState title="Reading the lead">The Hub asks Notion for the lead’s page.</EmptyState>;
-  if (!q.data)
-    return (
-      <div className="p-3 lg:p-4">
-        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the lead" />
-      </div>
-    );
-  const { row, lead, note, drafts } = q.data;
+  return (
+    <QueryView frame={(note) => <div className="p-3 lg:p-4">{note}</div>} loading={<EmptyState title="Reading the lead">The Hub asks Notion for the lead’s page.</EmptyState>} query={q} what="the lead">
+      {(d) => <LeadArticle act={act} d={d} now={now} onPrepare={(email) => pasteToAgent(leadPhrase(project, { email, pageId: d.row.pageId, brand: d.row.brand }))} project={project} />}
+    </QueryView>
+  );
+}
+
+/** The read lead: who, its controls, its words and its drafts (the card above owns the read and its states). */
+function LeadArticle({ project, d, now, act, onPrepare }: { project: string; d: LeadDetailDto; now: number; act: ReturnType<typeof useLeadAction>; onPrepare: (email: string) => void }) {
+  const { row, lead, note, drafts } = d;
   const email = row.email;
   return (
     <article aria-label={`Lead ${row.name}`} className="flex flex-col gap-3 p-3 lg:p-4" data-testid="lead-card">
@@ -74,7 +76,7 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
       </header>
       <div className="flex flex-wrap gap-2">
         {row.open && email && (
-          <ActionButton data-testid="lead-prepare-reply" onClick={() => pasteToAgent(leadPhrase(project, { email, pageId: row.pageId, brand: row.brand }))} size="m" variant="primary">
+          <ActionButton data-testid="lead-prepare-reply" onClick={() => onPrepare(email)} size="m" variant="primary">
             Prepare reply
           </ActionButton>
         )}

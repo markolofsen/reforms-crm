@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { LoadFailed, Loading } from "@/components/state-views";
+import { QueryView } from "@/components/state-views";
 import { sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
@@ -27,7 +27,9 @@ export function CoreBlock() {
     },
     onError: (e) => setSaid({ text: `Not checked: ${sentence(e)}`, kind: "alert" }),
   });
-  if (q.isPending) return <Loading what="the core update check" />;
-  if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the core update check" />;
-  return <CoreView checking={check.isPending} d={q.data} now={now} onCheck={() => check.mutate()} said={said} />;
+  return (
+    <QueryView query={q} what="the core update check">
+      {(d) => <CoreView checking={check.isPending} d={d} now={now} onCheck={() => check.mutate()} said={said} />}
+    </QueryView>
+  );
 }

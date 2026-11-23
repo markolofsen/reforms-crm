@@ -1,5 +1,5 @@
 import { Skeleton } from "@hub/ui/skeleton";
-import { LoadFailed } from "@/components/state-views";
+import { QueryView } from "@/components/state-views";
 import { telegramUserApi } from "@/lib/api/messengers/telegram-user";
 import { keys } from "@/lib/cache/keys";
 import { AccountRow } from "./account-row";
@@ -13,9 +13,15 @@ import { useTelegramUser } from "./use-telegram";
  */
 export function TelegramAccount({ linked }: { linked?: number }) {
   const q = useTelegramUser();
-  if (q.isPending) return <Skeleton className="h-24 w-full rounded-xl" />;
-  if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the Telegram account" />;
-  const d = q.data;
+  return (
+    <QueryView loading={<Skeleton className="h-24 w-full rounded-xl" />} query={q} what="the Telegram account">
+      {(d) => <TelegramAccountBody d={d} linked={linked} />}
+    </QueryView>
+  );
+}
+
+/** The connected accounts, or the connect form (the block above owns the read and its states). */
+function TelegramAccountBody({ d, linked }: { d: NonNullable<ReturnType<typeof useTelegramUser>["data"]>; linked?: number }) {
   if (d.accounts.length > 0)
     return (
       <ul aria-label="Telegram accounts" className="flex flex-col divide-y border-y">

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { KeyboardEvent, MouseEvent } from "react";
-import { ListSkeleton, LoadFailed } from "@/components/state-views";
+import { ListSkeleton, QueryView } from "@/components/state-views";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
 
@@ -10,13 +10,15 @@ import { keys } from "@/lib/cache/keys";
  */
 export function EntryText({ project, entryKey, title }: { project: string; entryKey: string; title: string }) {
   const q = useQuery({ queryKey: keys.knowledgeText(project, entryKey), queryFn: () => metaApi.knowledgeText(project, entryKey) });
-  if (q.isPending) return <ListSkeleton label={`Loading ${title}`} rows={2} />;
-  if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what={title} />;
   return (
-    <div className="flex max-w-prose flex-col gap-1" data-testid="knowledge-text">
-      <p className="whitespace-pre-wrap break-words text-sm">{q.data.body.trim() === "" ? "This entry has no text." : q.data.body}</p>
-      {q.data.truncated && <p className="text-muted-foreground text-xs">The text is cut here: Open shows the whole file.</p>}
-    </div>
+    <QueryView loading={<ListSkeleton label={`Loading ${title}`} rows={2} />} query={q} what={title}>
+      {(d) => (
+        <div className="flex max-w-prose flex-col gap-1" data-testid="knowledge-text">
+          <p className="whitespace-pre-wrap break-words text-sm">{d.body.trim() === "" ? "This entry has no text." : d.body}</p>
+          {d.truncated && <p className="text-muted-foreground text-xs">The text is cut here: Open shows the whole file.</p>}
+        </div>
+      )}
+    </QueryView>
   );
 }
 

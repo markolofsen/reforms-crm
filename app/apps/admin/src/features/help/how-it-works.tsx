@@ -5,7 +5,7 @@ import { stateLine } from "@hub/contract/scheme-model";
 import { SectionTitle } from "@hub/ui/product/page";
 import { Skeleton } from "@hub/ui/skeleton";
 import { AppLink } from "@/components/app-link";
-import { LoadFailed } from "@/components/state-views";
+import { QueryView } from "@/components/state-views";
 import { overviewApi } from "@/lib/api/overview";
 import { keys } from "@/lib/cache/keys";
 import { dest } from "@/routes/paths";
@@ -32,18 +32,18 @@ export function HowItWorks() {
           The Hub’s main blocks in five lanes: what comes in, the agent and what binds it, what it reads, the Hub itself, and what goes out to the client. A dot shows how
           a block’s checked parts stand.
         </p>
-        {nodes && texts ? (
-          <>
-            <SchemeSvg labelledBy="help-scheme" list={<LanesList nodes={nodes} />} testId="scheme-general" texts={texts} />
-            <p className="measure" data-testid="scheme-state">
-              {line ?? "Every checked part works."} Every part and its fix are on <AppLink to={dest("overview.page")}>Overview</AppLink>.
-            </p>
-          </>
-        ) : q.isPending ? (
-          <Skeleton aria-busy="true" aria-label="Drawing the scheme" className="h-64 w-full" role="img" />
-        ) : (
-          <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the scheme" />
-        )}
+        <QueryView loading={<Skeleton aria-busy="true" aria-label="Drawing the scheme" className="h-64 w-full" role="img" />} query={q} what="the scheme">
+          {() =>
+            texts && (
+              <>
+                <SchemeSvg labelledBy="help-scheme" list={<LanesList nodes={nodes ?? []} />} testId="scheme-general" texts={texts} />
+                <p className="measure" data-testid="scheme-state">
+                  {line ?? "Every checked part works."} Every part and its fix are on <AppLink to={dest("overview.page")}>Overview</AppLink>.
+                </p>
+              </>
+            )
+          }
+        </QueryView>
       </section>
       {nodes && <Cuts nodes={nodes} />}
     </>

@@ -1,6 +1,6 @@
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
-import { LoadFailed } from "@/components/state-views";
+import { QueryView } from "@/components/state-views";
 import { whatsappApi } from "@/lib/api/messengers/whatsapp";
 import { keys } from "@/lib/cache/keys";
 import { AccountRow } from "../account-row";
@@ -67,9 +67,15 @@ function ConnectWhatsApp() {
  */
 export function WhatsAppAccount({ linked }: { linked?: number }) {
   const q = useWhatsApp();
-  if (q.isPending) return <Skeleton className="h-24 w-full rounded-xl" />;
-  if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="WhatsApp" />;
-  const d = q.data;
+  return (
+    <QueryView loading={<Skeleton className="h-24 w-full rounded-xl" />} query={q} what="WhatsApp">
+      {(d) => <WhatsAppAccountBody d={d} linked={linked} />}
+    </QueryView>
+  );
+}
+
+/** The linked numbers, or Connect (the block above owns the read and its states). */
+function WhatsAppAccountBody({ d, linked }: { d: NonNullable<ReturnType<typeof useWhatsApp>["data"]>; linked?: number }) {
   if (d.accounts.length > 0)
     return (
       <ul aria-label="WhatsApp numbers" className="flex flex-col divide-y border-y">

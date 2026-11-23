@@ -5,7 +5,7 @@ import { RefreshCwIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
-import { LoadFailed } from "@/components/state-views";
+import { QueryView } from "@/components/state-views";
 import { connectionsApi } from "@/lib/api/connections";
 import { sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
@@ -61,15 +61,11 @@ export function AgentTools({ slug }: { slug: string }) {
     onError: (e) => setSay({ text: `Could not check again: ${sentence(e)}`, kind: "alert" }),
   });
   const copy = (fix: string) => void copyText(fix).then((ok) => setSay(ok ? { text: `Copied: ${fix}`, kind: "status" } : { text: "The browser refused the clipboard: select the line and copy it.", kind: "alert" }));
-  const d = q.data;
   return (
     <div className="flex flex-col gap-6" data-testid={`agent-tools-${slug}`}>
       <div className="flex min-h-(--control-m) min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-        {q.isPending ? (
-          <Skeleton aria-label="Loading the agent checks" className="h-6 w-64 rounded-md" role="status" />
-        ) : !d ? (
-          <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the agent checks" />
-        ) : (
+        <QueryView loading={<Skeleton aria-label="Loading the agent checks" className="h-6 w-64 rounded-md" role="status" />} query={q} what="the agent checks">
+          {(d) => (
           <>
             <p className="min-w-0 flex-1 font-medium text-base" data-testid="agent-tools-status" role="status">
               {toolsSentence(d)}
@@ -81,14 +77,15 @@ export function AgentTools({ slug }: { slug: string }) {
               {refresh.isPending ? "Checking..." : "Refresh"}
             </ActionButton>
           </>
-        )}
+          )}
+        </QueryView>
       </div>
       {AGENT_TOOL_CLIS.map((cli) => (
         <SettingsGroup id={`agent-${cli}`} key={cli} title={CLI_TITLE[cli]}>
           {CLI_BODY[cli](slug)}
         </SettingsGroup>
       ))}
-      {d && d.rows.length > 0 && <Tools onCopy={copy} rows={d.rows} />}
+      {q.data && q.data.rows.length > 0 && <Tools onCopy={copy} rows={q.data.rows} />}
       <div className="min-h-5 text-sm">
         <p role="status">{say?.kind === "status" ? say.text : ""}</p>
         <p className="text-destructive-foreground" role="alert">

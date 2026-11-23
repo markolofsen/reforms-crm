@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { LoadFailed } from "@/components/state-views";
+import { QueryView } from "@/components/state-views";
 import { Skeleton } from "@hub/ui/skeleton";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
@@ -16,22 +16,20 @@ import { MailAccounts } from "./mail-accounts";
 export function MailPane({ project }: { project: string }) {
   const conn = useConnections();
   const facts = useQuery({ queryKey: keys.project(project), queryFn: () => metaApi.overview(project) });
-  const mine = (conn.data?.mail ?? []).filter((m) => m.usedBy.includes(project));
   return (
     <>
       <SettingsGroup id="mail-accounts" title="Accounts">
-        {conn.isPending ? (
-          <Skeleton aria-label="Loading the mail accounts" className="h-16 w-full rounded-xl" role="status" />
-        ) : !conn.data ? (
-          <LoadFailed error={conn.error} onRetry={() => void conn.refetch()} retrying={conn.isFetching} what="the mail accounts" />
-        ) : (
-          <MailAccounts mail={mine} read={conn.data.mailRead} />
-        )}
+        <QueryView loading={<Skeleton aria-label="Loading the mail accounts" className="h-16 w-full rounded-xl" role="status" />} query={conn} what="the mail accounts">
+          {(c) => <MailAccounts mail={c.mail.filter((m) => m.usedBy.includes(project))} read={c.mailRead} />}
+        </QueryView>
       </SettingsGroup>
-      {facts.isError && <LoadFailed error={facts.error} onRetry={() => void facts.refetch()} retrying={facts.isFetching} what="the mail filters" />}
-      <ul aria-label="Mail filters" className="flex flex-col divide-y border-y">
-        {facts.data ? <FiltersLine f={facts.data.filters} /> : !facts.isError && <FilterRow summary="Reading..." />}
-      </ul>
+      <QueryView
+        loading={<ul aria-label="Mail filters" className="flex flex-col divide-y border-y"><FilterRow summary="Reading..." /></ul>}
+        query={facts}
+        what="the mail filters"
+      >
+        {(f) => <ul aria-label="Mail filters" className="flex flex-col divide-y border-y"><FiltersLine f={f.filters} /></ul>}
+      </QueryView>
     </>
   );
 }

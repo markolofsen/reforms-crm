@@ -5,8 +5,8 @@ import { useState, type ReactNode } from "react";
 import { ADVISOR_MODELS, AGENT_MODELS, MODEL_LABELS, type AgentSettings } from "@hub/config";
 import { Radio, RadioGroup } from "@hub/ui/radio-group";
 import { Skeleton } from "@hub/ui/skeleton";
-import { Switch } from "@hub/ui/switch";
-import { LoadFailed } from "@/components/state-views";
+import { SettingSwitch } from "@hub/ui/product/field";
+import { QueryView } from "@/components/state-views";
 import { sentence } from "@/lib/api/client";
 import { useCommand } from "@/lib/cache/topics";
 import { metaApi } from "@/lib/api/meta";
@@ -62,23 +62,17 @@ export function ClaudeSettings({ project }: { project: string }) {
     },
     onError: (e) => setSay({ text: `Not saved: ${sentence(e)}`, kind: "alert" }),
   });
-  const a = q.data?.agent;
   const busy = save.isPending;
   return (
     <div className="flex flex-col">
-      {q.isPending ? (
-        <Skeleton aria-label="Loading the agent settings" className="h-24 w-full rounded-xl" role="status" />
-      ) : !a ? (
-        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the agent settings" />
-      ) : (
+      <QueryView loading={<Skeleton aria-label="Loading the agent settings" className="h-24 w-full rounded-xl" role="status" />} query={q} what="the agent settings">
+        {({ agent: a }) => (
         <div className="flex flex-col divide-y" data-testid="agent-settings">
           <Row hint="Sonnet suits draft work; Opus takes longer over hard mail." id="model" label="Model">
             <Choice disabled={busy} id="model" onChange={(model) => save.mutate({ model })} options={AGENT_MODELS} value={a.model} />
           </Row>
           <Row hint="The advisor re-reads the whole session on each call: use it for long sessions with real decisions." id="advisor" label="Advisor">
-            <label className="flex min-h-11 cursor-pointer items-center lg:min-h-0" htmlFor="agent-advisor-switch">
-              <Switch aria-labelledby="agent-advisor-label" checked={a.advisor} disabled={busy} id="agent-advisor-switch" onCheckedChange={(advisor) => save.mutate({ advisor })} />
-            </label>
+            <SettingSwitch checked={a.advisor} id="agent-advisor-switch" labelledBy="agent-advisor-label" onChange={(advisor) => save.mutate({ advisor })} pending={busy} />
           </Row>
           {a.advisor && (
             <Row hint="The model the agent consults before a hard step." id="advisor-model" label="Advisor model">
@@ -86,7 +80,8 @@ export function ClaudeSettings({ project }: { project: string }) {
             </Row>
           )}
         </div>
-      )}
+        )}
+      </QueryView>
       <div className="min-h-5 text-sm">
         <p role="status">{say?.kind === "status" ? say.text : ""}</p>
         <p className="text-destructive-foreground" role="alert">

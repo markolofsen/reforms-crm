@@ -3,7 +3,7 @@ import { ChevronDownIcon } from "lucide-react";
 import { worstFirst } from "@hub/contract/scheme";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
+import { ListSkeleton, QueryView } from "@/components/state-views";
 import { overviewApi } from "@/lib/api/overview";
 import { keys } from "@/lib/cache/keys";
 import { NeedsYou, useQuestions } from "./needs-you";
@@ -17,9 +17,15 @@ import { SchemeTable } from "./scheme-table";
 export function SchemeBlock({ multi, projects }: { multi: boolean; projects: readonly string[] }) {
   const q = useQuery({ queryKey: keys.scheme(), queryFn: overviewApi.scheme });
   const questions = useQuestions(projects);
-  if (q.isPending) return <ListSkeleton label="Loading the parts" rows={4} />;
-  if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the parts" />;
-  const nodes = worstFirst(q.data.nodes);
+  return (
+    <QueryView loading={<ListSkeleton label="Loading the parts" rows={4} />} query={q} what="the parts">
+      {(d) => <SchemeParts multi={multi} nodes={worstFirst(d.nodes)} questions={questions} />}
+    </QueryView>
+  );
+}
+
+/** Needs you, then every part folded under All parts (the block above owns the read and its states). */
+function SchemeParts({ multi, nodes, questions }: { multi: boolean; nodes: ReturnType<typeof worstFirst>; questions: ReturnType<typeof useQuestions> }) {
   return (
     <>
       <NeedsYou multi={multi} nodes={nodes} questions={questions} />
@@ -35,7 +41,6 @@ export function SchemeBlock({ multi, projects }: { multi: boolean; projects: rea
           </div>
         </CollapsiblePanel>
       </Collapsible>
-      {q.isError && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
     </>
   );
 }

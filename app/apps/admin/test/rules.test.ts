@@ -185,6 +185,23 @@ describe("the server boundary (decision 0015 section 4 and 5)", () => {
   });
 });
 
+/**
+ * P127 B1 (V8): a read's four states live in `QueryView`. Only it draws `LoadFailed` and `StaleNote`; the error boundaries in
+ * `src/app` draw `LoadFailed` for a thrown render, and the conversation history panes draw their own frame's states (the
+ * history keeps its scroll and its stale notice inside the frame).
+ */
+const STATE_NOTE_OWNERS = new Set(["components/state-views.tsx", "app/error.tsx", "app/(shell)/error.tsx", "features/mail/conversation/history.tsx", "features/mail/conversation/pane.tsx", "features/messengers/conversation/pane.tsx"]);
+
+describe("one view of a read (state rule 5)", () => {
+  it("LoadFailed and StaleNote are drawn only by QueryView, the error boundaries and the conversation history panes", () => {
+    const users = appFiles.filter((p) => !STATE_NOTE_OWNERS.has(rel(p)));
+    expect(offenders(users, /\bimport\s*\{[^}]*\b(?:LoadFailed|StaleNote)\b[^}]*\}\s*from\s*["']@\/components\/state-views["']/)).toEqual([]);
+  });
+  it("every owner switch is a SettingSwitch: no bare Switch in features", () => {
+    expect(offenders(inDir("features"), /from ["']@hub\/ui\/switch["']/)).toEqual([]);
+  });
+});
+
 describe("shared UI ownership", () => {
   it("Mail and Messenger writing surfaces use the visual Markdown editor", () => {
     const composers = [...inDir("features/mail"), ...inDir("features/messengers")];

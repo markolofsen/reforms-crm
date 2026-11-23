@@ -1,11 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import { SAFETY_LABELS } from "@hub/config";
 import type { SafetyRuleDto } from "@hub/contract/responses";
-import { Input } from "@hub/ui/input";
+import { CommitField, SettingSwitch } from "@hub/ui/product/field";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { Skeleton } from "@hub/ui/skeleton";
-import { Switch } from "@hub/ui/switch";
 import { QueryView } from "@/components/state-views";
 import { sentence } from "@/lib/api/client";
 import { useCommand } from "@/lib/cache/topics";
@@ -20,18 +18,29 @@ const LEVELS: readonly { level: SafetyRuleDto["level"]; title: string }[] = [
 
 type Patch = { enabled?: boolean; params?: { words?: string[]; days?: number } };
 
-/** The words or the days of a rule that has them, inline in its row; saved when the field is left. */
-function Params({ rule, save }: { rule: SafetyRuleDto; save: (p: Patch) => void }) {
-  const [words, setWords] = useState((rule.params.words ?? []).join(", "));
-  const [days, setDays] = useState(String(rule.params.days ?? ""));
+/** The words or the days of a rule that has them, inline in its row; saved when the field is left or Enter is pressed (`CommitField`). */
+function Params({ rule, save, pending }: { rule: SafetyRuleDto; save: (p: Patch) => void; pending: boolean }) {
   if (rule.kind === "risky_word") {
-    return <Input aria-label="Risky words, separated by commas" className="control-m" onBlur={() => save({ params: { words: words.split(",").map((w) => w.trim()).filter(Boolean) } })} onChange={(e) => setWords(e.target.value)} value={words} />;
+    const words = (rule.params.words ?? []).join(", ");
+    return <CommitField id={`rule-${rule.kind}-words`} key={words} label="Risky words, separated by commas" onCommit={(v) => save({ params: { words: v.split(",").map((w) => w.trim()).filter(Boolean) } })} pending={pending} value={words} />;
   }
   if (rule.kind === "already_sent_recently") {
+    const days = String(rule.params.days ?? "");
     return (
       <label className="flex items-center gap-2" htmlFor="rule-days">
         Within
-        <Input className="control-m w-20" id="rule-days" inputMode="numeric" onBlur={() => Number(days) >= 1 && save({ params: { days: Math.round(Number(days)) } })} onChange={(e) => setDays(e.target.value)} value={days} />
+        <CommitField
+          className="w-20"
+          id="rule-days"
+          inputMode="numeric"
+          key={days}
+          onCommit={(v) => {
+            if (!(Number(v) >= 1)) return false;
+            save({ params: { days: Math.round(Number(v)) } });
+          }}
+          pending={pending}
+          value={days}
+        />
         days
       </label>
     );
@@ -47,7 +56,7 @@ function RuleRow({ project, rule }: { project: string; rule: SafetyRuleDto }) {
       <TableCell>
         <div className="flex min-w-0 flex-col gap-1.5 py-1">
           <span>{label}</span>
-          <Params rule={rule} save={(p) => save.mutate(p)} />
+          <Params pending={save.isPending} rule={rule} save={(p) => save.mutate(p)} />
           {save.isError && (
             <span className="text-destructive-foreground text-xs" role="alert">
               {sentence(save.error)}
@@ -56,11 +65,7 @@ function RuleRow({ project, rule }: { project: string; rule: SafetyRuleDto }) {
         </div>
       </TableCell>
       <TableCell>
-        {/* The label is the touch target: 44px high below 1024px, the switch alone is smaller. */}
-        <label className="flex min-h-11 cursor-pointer items-center lg:min-h-0" htmlFor={`rule-${rule.kind}`}>
-          <Switch aria-label={label} checked={rule.enabled} disabled={save.isPending} id={`rule-${rule.kind}`} onCheckedChange={(v) => save.mutate({ enabled: v })} />
-          <span className="sr-only">{label}</span>
-        </label>
+        <SettingSwitch checked={rule.enabled} id={`rule-${rule.kind}`} label={label} onChange={(v) => save.mutate({ enabled: v })} pending={save.isPending} />
       </TableCell>
     </TableRow>
   );

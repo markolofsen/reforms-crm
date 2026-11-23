@@ -3,11 +3,11 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { INBOX_KIND_HINTS, INBOX_KIND_LABELS, INBOX_KINDS, type InboxKind } from "@hub/config";
-import type { InboxRowDto } from "@hub/contract/responses";
+import type { InboxRowDto, NotByEmailDto } from "@hub/contract/responses";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList, ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
-import { ListSkeleton, ListState, LoadFailed, StaleNote } from "@/components/state-views";
+import { ListSkeleton, ListState, QueryView } from "@/components/state-views";
 import { inboxApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
 import { keys } from "@/lib/cache/keys";
@@ -33,14 +33,19 @@ function Row({ r }: { r: InboxRowDto }) {
 export function NotByEmail({ project }: { project: string }) {
   const [kind, setKind] = useState<InboxKind | null>(null);
   const q = useQuery({ queryKey: keys.notByEmail(project, kind), queryFn: () => inboxApi.notByEmail(project, kind), placeholderData: keepPreviousData });
-  if (q.isPending) return <ListSkeleton label="Loading the clients not answered by email" />;
-  if (!q.data) return <ListState><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the clients not answered by email" /></ListState>;
-  const { counts, rows } = q.data;
+  return (
+    <QueryView frame={(note) => <ListState>{note}</ListState>} loading={<ListSkeleton label="Loading the clients not answered by email" />} query={q} what="the clients not answered by email">
+      {(d) => <NotByEmailList d={d} kind={kind} setKind={setKind} />}
+    </QueryView>
+  );
+}
+
+/** The groups and their rows, once read; a failed refetch's stale note sits above them (`QueryView`, state rule 5). */
+function NotByEmailList({ d, kind, setKind }: { d: NotByEmailDto; kind: InboxKind | null; setKind: (k: InboxKind | null) => void }) {
+  const { counts, rows } = d;
   const all = INBOX_KINDS.reduce((n, k) => n + counts[k], 0);
   return (
     <section aria-label="Not by email" className="flex flex-col" data-testid="not-by-email">
-      {/* P127 B1: a failed refetch keeps the rows under the stale note (state rule 5). */}
-      {q.isError && <ListState><StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} /></ListState>}
       <div aria-label="Not by email, group" className="scroll-strip flex gap-1 px-3 py-2" role="group">
         <ActionButton aria-pressed={kind === null} onClick={() => setKind(null)} size="s" variant={kind === null ? "secondary" : "quiet"}>
           All {all}

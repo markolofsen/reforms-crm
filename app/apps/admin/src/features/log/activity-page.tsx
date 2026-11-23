@@ -4,7 +4,7 @@ import type { ActivityDto } from "@hub/contract/activity";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Page } from "@hub/ui/product/page";
 import { SectionLayout } from "@hub/ui/product/section-layout";
-import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
+import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { useSearch } from "@/hooks/use-search-state";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
@@ -53,34 +53,30 @@ function TimelineView({ project, view, client }: { project: string; view: Timeli
   const now = useClock()();
   const { q, rows, ids, head } = useTimeline(project, view, client);
   const fresh = useNewRows(`${project}/${view}/${client ?? ""}`, ids);
-  const body = q.isPending ? (
-    <ListSkeleton label="Loading the activity" />
-  ) : !head ? (
-    <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the activity" />
-  ) : rows.length === 0 ? (
+  const empty =
     view === "all" && client === null ? (
       <EmptyState title="Nothing yet">It fills in when the agent works in a session: what it decided for every client appears here, newest first.</EmptyState>
     ) : (
       <EmptyState action={<ActionButton onClick={() => setSearch({ kind: "all" })} size="s" variant="secondary">Show all</ActionButton>} title="Nothing in this view" />
-    )
-  ) : (
-    <>
-      <Timeline now={now} rows={rows} />
-      {q.hasNextPage && (
-        <ActionButton className="self-start" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()} size="m" variant="secondary">
-          Show older
-        </ActionButton>
-      )}
-    </>
-  );
+    );
   return (
     <>
       <p className="sr-only" data-testid="activity-new" role="status">
         {fresh}
       </p>
       {client !== null && <ClientLine name={head?.client?.name ?? "This client"} />}
-      {body}
-      {q.isError && head && <StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />}
+      <QueryView empty={empty} isEmpty={() => rows.length === 0} loading={<ListSkeleton label="Loading the activity" />} query={q} what="the activity">
+        {() => (
+          <>
+            <Timeline now={now} rows={rows} />
+            {q.hasNextPage && (
+              <ActionButton className="self-start" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()} size="m" variant="secondary">
+                Show older
+              </ActionButton>
+            )}
+          </>
+        )}
+      </QueryView>
     </>
   );
 }

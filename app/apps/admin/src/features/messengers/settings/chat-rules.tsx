@@ -1,32 +1,20 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { CHAT_INSTRUCTION_MAX, NUDGE_DAYS_MAX, NUDGE_DAYS_MIN, REPLY_MODE_LABELS, REPLY_MODES } from "@hub/config/chat-rules";
 import type { ChatRulesBody, MessengerChatDto, PreanalysisDto } from "@hub/contract/messenger-panel";
 import { cn } from "@hub/ui/cn";
-import { Input } from "@hub/ui/input";
+import { CommitField, SettingSwitch } from "@hub/ui/product/field";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { MarkdownEditor } from "@hub/ui/product/markdown-editor";
 import { LanguagePicker } from "@hub/ui/product/language-picker";
-import { Switch } from "@hub/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@hub/ui/toggle-group";
 import { sentence } from "@/lib/api/client";
 import { messengersApi } from "@/lib/api/messengers/panel";
-import { messengerMutationKeys } from "@/lib/cache/keys";
+import { useCommand } from "@/lib/cache/topics";
 import { agentRef } from "@/lib/focus";
 import { chatName, CHANNEL_LABEL, prefilterNote, triageLine } from "../labels";
 
 const LABEL = "text-sm";
 const HINT = "text-muted-foreground text-xs";
-
-/** One field that saves when it is left or Enter is pressed, and only when its value changed. */
-function CommitInput({ id, value, onCommit, disabled, ariaLabel, ...rest }: { id: string; value: string; onCommit: (v: string) => boolean | void; disabled: boolean; ariaLabel?: string; inputMode?: "numeric"; placeholder?: string; list?: string; className?: string }) {
-  const [text, setText] = useState(value);
-  const commit = () => {
-    const next = text.trim();
-    if (next !== value && onCommit(next) === false) setText(value);
-  };
-  return <Input {...rest} aria-label={ariaLabel} className={cn("control-m", rest.className)} disabled={disabled} id={id} onBlur={commit} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && commit()} value={text} />;
-}
 
 /**
  * One linked chat's rules (P71 M2b), every one in view and written by the owner only, through the gated rules route: when the
@@ -36,8 +24,7 @@ function CommitInput({ id, value, onCommit, disabled, ariaLabel, ...rest }: { id
  * characters), saved by its button. Its ref is `chat:<id>` (P72).
  */
 export function ChatRules({ project, c, preanalysis }: { project: string; c: MessengerChatDto; preanalysis: PreanalysisDto }) {
-  const qc = useQueryClient();
-  const save = useMutation({ mutationFn: (patch: ChatRulesBody) => messengersApi.setRules(project, c.id, patch), onSettled: () => Promise.all(messengerMutationKeys(project, c.id).map((queryKey) => qc.invalidateQueries({ queryKey }))) });
+  const save = useCommand({ project, touches: ["messengers"], run: (patch: ChatRulesBody) => messengersApi.setRules(project, c.id, patch) });
   const ids = { mode: useId(), nudge: useId(), days: useId(), lang: useId(), pre: useId(), text: useId() };
   const [instruction, setInstruction] = useState(c.rules.instruction ?? "");
   const r = c.rules;
@@ -68,10 +55,7 @@ export function ChatRules({ project, c, preanalysis }: { project: string; c: Mes
         </fieldset>
         <div className="grid gap-x-6 gap-y-3 border-t pt-3 sm:grid-cols-2" data-testid="chat-rules-options">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            {/* The label is the touch target: 44px high below 1024px, the switch alone is smaller. */}
-            <label className="flex min-h-11 cursor-pointer items-center lg:min-h-0">
-              <Switch aria-labelledby={ids.nudge} checked={r.mayNudge} disabled={busy} onCheckedChange={(v) => save.mutate({ mayNudge: v })} />
-            </label>
+            <SettingSwitch checked={r.mayNudge} labelledBy={ids.nudge} onChange={(v) => save.mutate({ mayNudge: v })} pending={busy} />
             <span className={cn("min-w-0", LABEL)} id={ids.nudge}>
               May propose a follow-up
             </span>
@@ -80,7 +64,7 @@ export function ChatRules({ project, c, preanalysis }: { project: string; c: Mes
                 <label className={HINT} htmlFor={ids.days}>
                   after quiet days
                 </label>
-                <CommitInput ariaLabel={`Quiet days, from ${NUDGE_DAYS_MIN} to ${NUDGE_DAYS_MAX}`} className="w-16 shrink-0" disabled={busy} id={ids.days} inputMode="numeric" key={r.nudgeAfterDays} onCommit={(v) => {
+                <CommitField className="w-16 shrink-0" id={ids.days} label={`Quiet days, from ${NUDGE_DAYS_MIN} to ${NUDGE_DAYS_MAX}`} pending={busy} inputMode="numeric" key={r.nudgeAfterDays} onCommit={(v) => {
                   if (!/^\d+$/.test(v)) return false;
                   const days = Number(v);
                   if (days < NUDGE_DAYS_MIN || days > NUDGE_DAYS_MAX) return false;
@@ -104,9 +88,7 @@ export function ChatRules({ project, c, preanalysis }: { project: string; c: Mes
           </div>
         </div>
         <div className="flex items-start gap-2 border-t pt-3">
-          <label className="flex min-h-11 cursor-pointer items-center lg:min-h-0">
-            <Switch aria-describedby={`${ids.pre}-note`} aria-labelledby={ids.pre} checked={r.prefilter} disabled={busy} onCheckedChange={(v) => save.mutate({ prefilter: v })} />
-          </label>
+          <SettingSwitch checked={r.prefilter} describedBy={`${ids.pre}-note`} labelledBy={ids.pre} onChange={(v) => save.mutate({ prefilter: v })} pending={busy} />
           <div className="flex flex-col gap-0.5">
             <span className={LABEL} id={ids.pre}>
               Pre-analysis

@@ -9,7 +9,7 @@ import { SectionLayout } from "@hub/ui/product/section-layout";
 import { SectionNav, type SectionNavItem } from "@hub/ui/product/section-nav";
 import { AppLink } from "@/components/app-link";
 import { LocalActionButton } from "@/components/local-action";
-import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
+import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useSearch } from "@/hooks/use-search-state";
 import { metaApi } from "@/lib/api/meta";
@@ -76,11 +76,9 @@ export function KnowledgeView({ project, filter, q, topic }: { project: string; 
   const body =
     k?.state === "absent" ? (
       <EmptyState title="No knowledge yet">Say “{phrase("knowledge-import", project)}” in a session (knowledge-import).</EmptyState>
-    ) : list.isPending ? (
-      <ListSkeleton label="Loading the knowledge base" rows={4} />
-    ) : !d ? (
-      <LoadFailed error={list.error} onRetry={() => void list.refetch()} retrying={list.isFetching} what="the knowledge base" />
     ) : (
+      <QueryView loading={<ListSkeleton label="Loading the knowledge base" rows={4} />} query={list} what="the knowledge base">
+        {(d) => (
       <>
         {k?.state === "error" && <p className="text-warning-foreground text-sm">{k.message}</p>}
         {k?.state === "ok" && !k.consistent && <p className="text-warning-foreground text-sm">The index is out of date ({plural(k.problems, "file problem")}): ask the agent to re-run `hub knowledge index`.</p>}
@@ -103,8 +101,9 @@ export function KnowledgeView({ project, filter, q, topic }: { project: string; 
           </p>
         )}
         {d.truncated && <p className="text-muted-foreground text-sm">The first {d.entries.length} are shown: search a title to find the rest.</p>}
-        {list.isError && <StaleNote error={list.error} onRetry={() => void list.refetch()} retrying={list.isFetching} />}
       </>
+        )}
+      </QueryView>
     );
   return (
     <SectionLayout nav={<KnowledgeNav counts={d?.counts} filter={filter} items={topicItems(sections, facets.brandsDiffer)} q={q} topic={here} />} navButton="Topics" navLabel="Knowledge topics">

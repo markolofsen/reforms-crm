@@ -1,6 +1,6 @@
 import { Skeleton } from "@hub/ui/skeleton";
 import { AppLink } from "@/components/app-link";
-import { LoadFailed } from "@/components/state-views";
+import { QueryView } from "@/components/state-views";
 import { sentence } from "@/lib/api/client";
 import { useCommand } from "@/lib/cache/topics";
 import { sendApi } from "@/lib/api/send";
@@ -60,7 +60,10 @@ export function SendingPane({ project }: { project: string }) {
           {failed ? sentence(failed) : ""}
         </p>
       </div>
-      {q.isError && <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the sending status" />}
+      {/* The status line above draws the data (or its skeleton); this says only a failed read, or a stale one under the data. */}
+      <QueryView loading={<></>} query={q} what="the sending status">
+        {() => null}
+      </QueryView>
       <ul aria-label="Sending settings" className="flex flex-col divide-y border-y">
         <SendPolicyLines project={project} />
       </ul>

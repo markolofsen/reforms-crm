@@ -98,18 +98,20 @@ export type ViewQuery<T> = { isPending: boolean; isError: boolean; isFetching: b
  * P127 B1 (V8): the four states of a read in one place (state rule 5). Pending shows `loading` (a skeleton the shape of what
  * comes); a failure with no data shows `LoadFailed` with Retry; data shows the children, with `StaleNote` above them when the last
  * refetch failed; data that `isEmpty` says is empty shows `empty`. A screen that keeps the last data after a failed refetch is
- * never silent about it.
+ * never silent about it. `frame` wraps either note in the list's own frame (a `ListState`, a history pane), so a list keeps its
+ * padding; it is told which note it wraps.
  */
-export function QueryView<T>({ query, what, loading, isEmpty, empty, children }: { query: ViewQuery<T>; what: string; loading?: ReactNode; isEmpty?: (data: T) => boolean; empty?: ReactNode; children: (data: T) => ReactNode }) {
+export function QueryView<T>({ query, what, loading, isEmpty, empty, frame, children }: { query: ViewQuery<T>; what: string; loading?: ReactNode; isEmpty?: (data: T) => boolean; empty?: ReactNode; frame?: (note: ReactNode, kind: "failed" | "stale") => ReactNode; children: (data: T) => ReactNode }) {
   const retry = () => void query.refetch();
+  const framed = (note: ReactNode, kind: "failed" | "stale") => (frame ? frame(note, kind) : note);
   if (query.data === undefined) {
-    if (query.isError) return <LoadFailed error={query.error} onRetry={retry} retrying={query.isFetching} what={what} />;
+    if (query.isError) return <>{framed(<LoadFailed error={query.error} onRetry={retry} retrying={query.isFetching} what={what} />, "failed")}</>;
     return <>{loading ?? <Loading what={what} />}</>;
   }
   const data = query.data;
   return (
     <>
-      {query.isError && <StaleNote error={query.error} onRetry={retry} retrying={query.isFetching} />}
+      {query.isError && framed(<StaleNote error={query.error} onRetry={retry} retrying={query.isFetching} />, "stale")}
       {isEmpty?.(data) && empty !== undefined ? empty : children(data)}
     </>
   );
