@@ -89,7 +89,7 @@ export function register(program: Command): void {
             const repos = createRepos(h.db);
             const row = await repos.drafts.get(id);
             if (!row || (project && row.project !== project)) return { mailRef: null, draft: null, why: `no draft ${id}${project ? ` in project ${project}` : ""}` };
-            const [{ findMail, mailAppDraftsCleaner }, { projectStore }] = await Promise.all([import("@hub/send"), import("@hub/projects/store")]);
+            const [{ findMail }, { mailAppDraftsCleaner }, { projectStore }] = await Promise.all([import("@hub/send/find"), import("@hub/send/mailer"), import("@hub/projects/store")]);
             const accounts = projectStore({ projects: paths.projects }).config(row.project).mail.accounts;
             const f = await findMail({ mailer: mailAppDraftsCleaner() }, row, "strict", { accounts, versions: await repos.mailVersions.ofDraft(row.id) });
             return { mailRef: row.mailRef, draft: f.mail?.messageId ?? null, why: f.mail ? null : (f.reason ?? null) };

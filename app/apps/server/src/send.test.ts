@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import type { MailDraft } from "@hub/mail-app/drafts";
-import { FakeMailer } from "@hub/send";
+import { FakeMailer } from "@hub/send/mailer";
 import { testApp } from "./test-support/runtime";
 import { createServerMailer } from "./send/mailer";
 import { setSendPolicy } from "@hub/projects/send-policy";

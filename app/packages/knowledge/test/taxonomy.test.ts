@@ -1,7 +1,10 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkAgainstTaxonomy, checkProject, indexProject, parseTaxonomy, TaxonomyError, type FrontMatter } from "../src/index";
+import { checkAgainstTaxonomy, parseTaxonomy, TaxonomyError } from "../src/taxonomy";
+import { checkProject } from "../src/check";
+import { indexProject } from "../src/indexer";
+import { type FrontMatter } from "../src/entry";
 import { cleanup, copyRoot, openRegistered } from "./helpers";
 
 afterEach(cleanup);

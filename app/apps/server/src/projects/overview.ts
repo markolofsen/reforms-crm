@@ -1,8 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
-import { checkProject } from "@hub/knowledge";
-import { parseRulesFile } from "@hub/mail-filters";
+import { checkProject } from "@hub/knowledge/check";
+import { parseRulesFile } from "@hub/mail-filters/rules-file";
 import { projectStore } from "@hub/projects/store";
 import type { Repos } from "@hub/db";
 import { projectOverviewDto, type ProjectOverviewDto } from "@hub/contract/project";

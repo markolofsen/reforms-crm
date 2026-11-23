@@ -1,7 +1,9 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkProject, indexProject, knowledgeSearch } from "../src/index";
+import { checkProject } from "../src/check";
+import { indexProject } from "../src/indexer";
+import { knowledgeSearch } from "../src/search";
 import { cleanup, openRegistered, tmp } from "./helpers";
 
 // P60 B3: the brand axis. One project with two brands keeps their facts apart (knowledge.scope by-brand); the same

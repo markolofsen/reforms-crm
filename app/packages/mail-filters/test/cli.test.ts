@@ -72,7 +72,7 @@ describe("hub mail-filters", () => {
 
 describe("hub mail-filters colors", () => {
   it("prints the universal palette, applies project overrides, and rejects unknown class or color", async () => {
-    const { parseRulesFile, writeRulesFile, DEFAULT_COLORS, GMAIL_PALETTE } = await import("../src/index");
+    const [{ parseRulesFile, writeRulesFile }, { DEFAULT_COLORS, GMAIL_PALETTE }] = await Promise.all([import("../src/rules-file"), import("../src/colors")]);
     const t = setup();
     expect(runColors("acme-travel", t.o)).toBe(0);
     const text = t.lines.join("\n");

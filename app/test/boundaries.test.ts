@@ -78,6 +78,10 @@ describe("protected edges", () => {
     expect(pkg("packages/projects/package.json").exports["."]).toBeUndefined();
     expect(pkg("packages/contract/package.json").exports["./responses"]).toBeUndefined();
   });
+  it("no package root re-exports its modules wholesale (P113: a deliberate public export per subject)", () => {
+    const roots = readdirSync(path.join(app, "packages")).map((p) => path.join(app, "packages", p, "src/index.ts")).filter(existsSync);
+    expect(roots.filter((f) => /^export \* from/m.test(readFileSync(f, "utf8"))).map((f) => path.relative(app, f))).toEqual([]);
+  });
   it("the owner-gated human capability reaches one route module, the autolink's (link and confirm); the send routes use the door", () => {
     const human = routeFiles.filter((f) => importsOf([f]).some(({ specifier }) => specifier === "@hub/messengers/human")).map((f) => path.relative(app, f));
     expect(human).toEqual(["apps/server/src/messengers/autolink/routes.ts"]);

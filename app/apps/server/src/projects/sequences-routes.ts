@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import { join } from "node:path";
-import { findSequence, isUsable, loadSequences, type LoadedSequence } from "@hub/sequences";
+import { findSequence, loadSequences, type LoadedSequence } from "@hub/sequences/load";
+import { isUsable } from "@hub/sequences/definition";
 import { enrollmentChangedDto, enrollmentParam, enrollmentsDto, enrollmentsQuery, sequencesDto, slugOnlyParam, stopBody, type EnrollmentDto } from "@hub/contract/sequences";
 import { v } from "../http/http";
 import type { ProjectsContext } from "./context";

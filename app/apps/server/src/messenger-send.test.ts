@@ -6,7 +6,7 @@ import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeMtClient, FakeRpcError } from "@hub/messengers";
 import { writeSession } from "@hub/messengers/human";
 import { setSendPolicy } from "@hub/projects/send-policy";
-import { FakeMailer } from "@hub/send";
+import { FakeMailer } from "@hub/send/mailer";
 import { testApp } from "./test-support/runtime";
 import { startTelegramUser, type TelegramUserHandle } from "./messengers/accounts/telegram-user";
 

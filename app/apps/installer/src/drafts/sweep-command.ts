@@ -1,7 +1,8 @@
 import { createRepos, defaultDbPath, openDb } from "@hub/db";
 import { projectStore } from "@hub/projects/store";
 import { bareId } from "@hub/mail-app/records";
-import { closedDrafts, mailAppDraftsCleaner, planSweep, type DraftsCleaner, type SweepRow } from "@hub/send";
+import { closedDrafts, planSweep, type SweepRow } from "@hub/send/sweep";
+import { mailAppDraftsCleaner, type DraftsCleaner } from "@hub/send/mailer";
 
 // `hub drafts sweep` (P56 S0, P65 verdict 10): the Hub's own leftovers in Mail's Drafts go to Trash, recoverable; a draft
 // the Hub did not record (`mail_versions`, decision 0031) is the owner's and is never listed. Mail is read by headers

@@ -1,5 +1,7 @@
 import type { Repos } from "@hub/db";
-import type { Mailer, SendDeps, BatchLimits } from "@hub/send";
+import type { Mailer } from "@hub/send/mailer";
+import type { SendDeps } from "@hub/send/assess";
+import type { BatchLimits } from "@hub/send/batch";
 import type { DraftWriter } from "@hub/mail-app/writer/types";
 import type { LogEvent } from "@hub/log/event";
 import type { MessengerSenders } from "@hub/messengers/door";

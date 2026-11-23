@@ -1,7 +1,10 @@
 import { existsSync, readFileSync, statSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { checkProject, formatReport, importFromDump, importFromFiles, indexProject, ImportError, mapPage, parseEntry, walkMarkdown } from "../src/index";
+import { checkProject, formatReport } from "../src/check";
+import { importFromDump, importFromFiles, ImportError, mapPage } from "../src/import";
+import { indexProject, walkMarkdown } from "../src/indexer";
+import { parseEntry } from "../src/entry";
 import { cleanup, copyRoot, openRegistered, PAGES, tmp, writeDump } from "./helpers";
 
 afterEach(cleanup);

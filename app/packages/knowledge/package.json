@@ -5,8 +5,10 @@
   "description": "Per-project knowledge: markdown entries, Notion dump import, SQLite FTS5 index, and the search behind hub mcp's knowledge_search / knowledge_get",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./search": "./src/search.ts"
+    "./search": "./src/search.ts",
+    "./check": "./src/check.ts",
+    "./import": "./src/import.ts",
+    "./indexer": "./src/indexer.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

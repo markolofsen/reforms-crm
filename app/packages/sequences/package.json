@@ -5,7 +5,11 @@
   "description": "Follow-up sequences (P47): the definition parser, the transition table, due and business-day maths, the stop-rule decision and the one loader of projects/<slug>/sequences/. Pure apart from load.ts; depends only on @hub/config. Nothing here sends or schedules.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    "./definition": "./src/definition.ts",
+    "./due": "./src/due.ts",
+    "./load": "./src/load.ts",
+    "./stops": "./src/stops.ts",
+    "./transitions": "./src/transitions.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

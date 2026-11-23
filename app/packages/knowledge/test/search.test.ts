@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DbHandle, Repos } from "@hub/db";
-import { indexProject, knowledgeGet, knowledgeSearch, KnowledgeError, type SearchArgs } from "../src/index";
+import { indexProject } from "../src/indexer";
+import { knowledgeGet, knowledgeSearch, KnowledgeError, type SearchArgs } from "../src/search";
 import { cleanup, copyRoot, openRegistered } from "./helpers";
 
 let handle: DbHandle;

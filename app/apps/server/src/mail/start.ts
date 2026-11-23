@@ -2,7 +2,7 @@ import type { Repos } from "@hub/db";
 import type { HubPaths } from "@hub/config/paths";
 import type { RuntimeModes } from "@hub/config/modes";
 import type { ProjectStore } from "@hub/projects/store";
-import type { SentNotice } from "@hub/send";
+import type { SentNotice } from "@hub/send/assess";
 import { ops } from "@hub/log/ops";
 import { readHistory } from "@hub/mail-app/history";
 import { mailAppDraftWriter } from "@hub/mail-app/writer";

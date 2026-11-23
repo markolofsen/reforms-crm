@@ -2,7 +2,10 @@
 import { createRepos, openDb } from "@hub/db";
 import { defaultProjectsRoot } from "@hub/projects/registry";
 import type { Command } from "commander";
-import { checkProject, formatReport, importFromDump, importFromFiles, ImportError, indexProject, knowledgeSearch } from "@hub/knowledge";
+import { checkProject, formatReport } from "@hub/knowledge/check";
+import { importFromDump, importFromFiles, ImportError } from "@hub/knowledge/import";
+import { indexProject } from "@hub/knowledge/indexer";
+import { knowledgeSearch } from "@hub/knowledge/search";
 
 export function registerKnowledgeCommands(parent: Command): Command {
   const program = parent.command("knowledge").description("Per-project knowledge: import, index, search, check.");

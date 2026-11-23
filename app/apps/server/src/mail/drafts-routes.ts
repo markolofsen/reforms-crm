@@ -4,7 +4,7 @@ import { ackBody, checkedBody, draftsQuery, historyQuery, idParam, marksBody, pr
 import { draftChangedDto, draftsDto, historyDto, timelineDto } from "@hub/contract/review";
 import { toDraft } from "../http/dto";
 import { notFound, v } from "../http/http";
-import { findMail, mailHash, trashThread } from "@hub/send";
+import { findMail, mailHash, trashThread } from "@hub/send/find";
 import { projectStore } from "@hub/projects/store";
 import { errFields, ops } from "@hub/log/ops";
 import type { MailContext } from "./context";

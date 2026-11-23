@@ -5,8 +5,11 @@
   "description": "Gmail filter rules per project: rules file, safety checks, mailFilters.xml and API request exporters, sender analyzer",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./commands": "./src/commands.ts"
+    "./commands": "./src/commands.ts",
+    "./analyze": "./src/analyze.ts",
+    "./export": "./src/export.ts",
+    "./model": "./src/model.ts",
+    "./rules-file": "./src/rules-file.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeBoom, FakeWaSocket, WA_CREDS, WaAuthFiles, waFolderOf } from "@hub/messengers";
 import { setSendPolicy } from "@hub/projects/send-policy";
-import { FakeMailer } from "@hub/send";
+import { FakeMailer } from "@hub/send/mailer";
 import { testApp } from "./test-support/runtime";
 import { startWhatsApp, type WhatsAppHandle } from "./messengers/accounts/whatsapp";
 

@@ -1,4 +1,5 @@
-import { BATCH_LIMITS, runBatch, type BatchItem, type BatchLimits, type BatchOutcome, type SendDeps } from "@hub/send";
+import { BATCH_LIMITS, runBatch, type BatchItem, type BatchLimits, type BatchOutcome } from "@hub/send/batch";
+import { type SendDeps } from "@hub/send/assess";
 import type { BatchRunDto } from "@hub/contract/sending";
 import { errFields, ops } from "@hub/log/ops";
 

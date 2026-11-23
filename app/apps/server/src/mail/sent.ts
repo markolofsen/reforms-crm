@@ -3,7 +3,7 @@ import type { DraftRow, Repos } from "@hub/db";
 import { osaFor, type OsaRun } from "@hub/mail-app/osa";
 import { mailRunning, readSent, type SentMessage } from "@hub/mail-app/read";
 import { bareId } from "@hub/mail-app/records";
-import type { SentNotice } from "@hub/send";
+import type { SentNotice } from "@hub/send/assess";
 import type { ProjectStore } from "@hub/projects/store";
 import { errFields, ops } from "@hub/log/ops";
 

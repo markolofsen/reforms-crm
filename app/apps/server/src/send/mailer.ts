@@ -6,7 +6,7 @@ import type { MailerKind } from "@hub/config/modes";
 import type { DraftQuery, MailDraft } from "@hub/mail-app/drafts";
 import { osaFor } from "@hub/mail-app/osa";
 import { bareId } from "@hub/mail-app/records";
-import { FakeMailer, mailAppMailer, type Mailer } from "@hub/send";
+import { FakeMailer, mailAppMailer, type Mailer } from "@hub/send/mailer";
 
 // Which Mailer the server sends with (decision 0011). `HUB_MAILER` is read once by `runtimeModes` of `@hub/config/modes`
 // (P126 K1); the fake never leaves the process: it is what the e2e run and tests use.

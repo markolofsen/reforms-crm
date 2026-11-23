@@ -1,7 +1,7 @@
 // P126 C1: `hub mail-filters …` (alias `filters`), registered by the installer; the work is @hub/mail-filters/commands.
 import type { Command } from "commander";
 import { runCheck, runColors, runExportApi, runExportXml, runPropose, type MailFiltersOptions } from "@hub/mail-filters/commands";
-import { UnsafeRulesError } from "@hub/mail-filters";
+import { UnsafeRulesError } from "@hub/mail-filters/export";
 
 export function registerMailFiltersCommands(program: Command, o: MailFiltersOptions = {}): Command {
   return program

@@ -6,7 +6,10 @@ import { BATCH_SEND_ACTOR } from "@hub/config";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { setSendPolicy } from "@hub/projects/send-policy";
 import type { MailDraft } from "@hub/mail-app/drafts";
-import { FakeMailer, mailHash, planBatch, runBatch, type BatchOutcome, type SendDeps } from "@hub/send";
+import { FakeMailer } from "@hub/send/mailer";
+import { mailHash } from "@hub/send/find";
+import { planBatch, runBatch, type BatchOutcome } from "@hub/send/batch";
+import { type SendDeps } from "@hub/send/assess";
 import { testApp } from "./test-support/runtime";
 import { batchRuns } from "./send/batch-door";
 

@@ -4,7 +4,7 @@ import { batchCheck, batchLines } from "../batch-check";
 import { runPolicyCommand } from "../send/policy-command";
 import { runSendCommand } from "../send/command";
 import { stampSentMail } from "@hub/notion/stamp";
-import type { SentNotice } from "@hub/send";
+import type { SentNotice } from "@hub/send/assess";
 import { runDraftsSweep } from "../drafts/sweep-command";
 import { ctxOf, projectsDir, ledgerRoot, done } from "./shared";
 import type { Command } from "commander";

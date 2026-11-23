@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb } from "@hub/db";
 import { doctorProject } from "@hub/projects/doctor";
 import { projectStore } from "@hub/projects/store";
-import { FakeMailer } from "@hub/send";
+import { FakeMailer } from "@hub/send/mailer";
 import { defaultRoot } from "../src/context";
 import { anyRecipients, beforeContextBlock } from "./instance-fixture";
 import { recordClientCall } from "@hub/agent/records/client";

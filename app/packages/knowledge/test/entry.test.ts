@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EntryError, parseEntry, renderEntry } from "../src/index";
+import { EntryError, parseEntry, renderEntry } from "../src/entry";
 
 describe("parseEntry", () => {
   it("applies the defaults of doc 16", () => {

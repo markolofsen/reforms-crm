@@ -1,6 +1,8 @@
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { STOP_REASONS, type EnrollmentView, type FinishReason, type NotionKind, type SequenceDisplayState, type StopReason } from "@hub/config";
-import { addDays, displayStateOf, enrolSnapshot, isDue, transition, type Schedule, type SequenceEvent, type Snapshot } from "@hub/sequences";
+import { addDays, displayStateOf, isDue } from "@hub/sequences/due";
+import { enrolSnapshot, transition, type SequenceEvent, type Snapshot } from "@hub/sequences/transitions";
+import { type Schedule } from "@hub/sequences/definition";
 import type { Db } from "../client";
 import { write } from "../tx";
 import { RepoError } from "../errors";

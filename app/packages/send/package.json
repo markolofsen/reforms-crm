@@ -5,7 +5,14 @@
   "description": "The one door out of the hub (decision 0011): the Mailer, the send checks, the manual and due sends. Imported by `hub send` and by the server's confirmed Send.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    "./assess": "./src/assess.ts",
+    "./batch": "./src/batch.ts",
+    "./deliver": "./src/deliver.ts",
+    "./due": "./src/due.ts",
+    "./find": "./src/find.ts",
+    "./mailer": "./src/mailer.ts",
+    "./settle": "./src/settle.ts",
+    "./sweep": "./src/sweep.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

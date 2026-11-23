@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyMessage, propose, type SenderSample } from "../src/index";
+import { classifyMessage, propose, type SenderSample } from "../src/analyze";
 
 const today = "2026-11-14";
 const wl = [{ match: { kind: "from" as const, value: "jane@clientco.example" }, why: "", date: today, by: "owner" as const }];

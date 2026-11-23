@@ -1,6 +1,9 @@
 import { readAllowList } from "@hub/projects/guard";
 import { createRepos, defaultDbPath, openDb, type SendRow } from "@hub/db";
-import { mailAppMailer, runDue, sendDraft, type Mailer, type SentNotice } from "@hub/send";
+import { mailAppMailer, type Mailer } from "@hub/send/mailer";
+import { runDue } from "@hub/send/due";
+import { sendDraft } from "@hub/send/deliver";
+import { type SentNotice } from "@hub/send/assess";
 
 // The CLI face of send.ts: `hub send <draftId>`, `--due`, `--cancel`, `--stop`, `--resume`, `--status`.
 // Dry run by default for the two that can send. The Mailer is injectable so tests never reach Mail.

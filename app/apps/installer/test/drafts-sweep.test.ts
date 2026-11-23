@@ -4,7 +4,7 @@ import path from "node:path";
 import { createRepos, openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
 import type { MailDraft } from "@hub/mail-app/drafts";
-import { FakeMailer } from "@hub/send";
+import { FakeMailer } from "@hub/send/mailer";
 import { runDraftsSweep } from "../src/drafts/sweep-command";
 
 // `hub drafts sweep` (P56 S0, P65) with FakeMailer: nothing reaches Mail. Dry run by default; --apply moves only listed drafts, judged by the Hub's record.
