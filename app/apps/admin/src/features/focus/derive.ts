@@ -49,7 +49,7 @@ export function deriveFocus(o: { tab: string; route: Resolved; project: string |
     tab: o.tab,
     project: r.route !== "notFound" && PROJECTLESS.has(r.route) ? null : o.project,
     route: r.route,
-    title: screenTitleOf(r),
+    title: focusTitle(r, subject),
     ...(subject ? { subject } : {}),
     ...(o.parts.pointed && o.parts.pointed !== subject ? { pointed: o.parts.pointed } : {}),
     selected: o.parts.selected.slice(0, FOCUS_SELECTED_MAX),
@@ -58,6 +58,17 @@ export function deriveFocus(o: { tab: string; route: Resolved; project: string |
     ...(o.parts.pointer ? { pointer: o.parts.pointer } : {}),
     visible: o.visible,
   };
+}
+
+/**
+ * The focus holds ids only (contract `focus.ts`): a conversation the address names by his email (P103) is titled by the client
+ * row the open card knows (`Conversation 24`), never by the address, which the tab title shows since P128 X4.
+ */
+function focusTitle(r: Resolved, subject: string | null): string {
+  const title = screenTitleOf(r);
+  if (r.route !== "mail.conversation" || !r.params.key.includes("@")) return title;
+  const crumb = title.slice(0, title.length - r.params.key.length).trimEnd();
+  return subject?.startsWith("client:") ? `${crumb} ${subject.slice("client:".length)}` : crumb;
 }
 
 /** Two focuses say the same (the heartbeat re-posts an unchanged one; a change posts at once after the debounce). */
