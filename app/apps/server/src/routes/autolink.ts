@@ -1,9 +1,7 @@
 import { Hono, type Context } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
 import { autolinkCreateBody, autolinkDialogsBody, autolinkHiddenDto, autolinkHideBody, autolinkLinkBody, autolinkLinkedDto, autolinkMoveBody, autolinkPreviewDto, autolinkRecordsBody, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoBody, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
-import { RepoError } from "@hub/db";
 import { IMPORT_DAYS } from "@hub/config/chat-rules";
-import { AdapterError, MessengersError } from "@hub/messengers";
 import { humanActor, linkUserChatToRecord, moveChatToRecord, undoMoveChat, unlinkIdentifier } from "@hub/messengers/human";
 import { findClientPages } from "@hub/notion";
 import { createChatClient, fillChatIdentity, type ChatIdentity, type FillOutcome } from "@hub/notion/chat-client";
@@ -34,14 +32,8 @@ export function autolinkRoutes({ repos, autolink: al, adminPort }: AutolinkServi
     const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
     if (!parsed.success) return c.json({ error: sentenceOf(parsed.error), code: "invalid" as const }, 400);
     if (!al) return c.json({ error: "The autolink is not set up on this server.", code: "not_found" as const }, 404);
-    try {
-      return await then(parsed.data, slug, al);
-    } catch (e) {
-      if (e instanceof MessengersError) return c.json({ error: e.message, code: "wrong_state" as const }, 409);
-      if (e instanceof RepoError) return c.json({ error: e.message, code: e.code === "not_found" ? ("not_found" as const) : ("wrong_state" as const) }, e.code === "not_found" ? 404 : 409);
-      if (e instanceof AdapterError) return c.json({ error: e.message, code: "server" as const }, 502);
-      throw e;
-    }
+    // A refusal (MessengersError, RepoError, AdapterError) is the server's onError's: its kind gives the status (P126 E1).
+    return then(parsed.data, slug, al);
   }
   const idOf = (c: Context): number | null => {
     const v = c.req.param("id") ?? "";

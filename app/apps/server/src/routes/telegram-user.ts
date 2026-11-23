@@ -8,8 +8,7 @@ import {
   userLoginStartBody,
   userLoginStepDto,
 } from "@hub/contract/messengers";
-import { RepoError } from "@hub/db";
-import { AdapterError, MessengersError } from "@hub/messengers";
+import { AdapterError } from "@hub/messengers";
 import { z, type ZodType } from "zod";
 import { gateRefusal } from "../admin-gate";
 import type { TelegramUserHandle } from "../telegram-user";
@@ -32,11 +31,10 @@ export function telegramUserRoutes({ tg, adminPort }: TelegramUserServices) {
     if (!tg) return c.json({ error: "Telegram user accounts are not set up on this server.", code: "not_found" as const }, 404);
     const parsed = schema.safeParse(await c.req.json().catch(() => undefined));
     if (!parsed.success) return c.json({ error: sentenceOf(parsed.error), code: "invalid" as const }, 400);
+    // Every other refusal is the server's onError's (P126 E1); only the account's failure is named here.
     try {
       return await then(parsed.data, tg);
     } catch (e) {
-      if (e instanceof MessengersError) return c.json({ error: e.message, code: "wrong_state" as const }, 409);
-      if (e instanceof RepoError) return c.json({ error: e.message, code: e.code === "not_found" ? ("not_found" as const) : ("wrong_state" as const) }, e.code === "not_found" ? 404 : 409);
       if (e instanceof AdapterError) return c.json({ error: `Telegram: ${e.message}`, code: "server" as const }, 502);
       throw e;
     }

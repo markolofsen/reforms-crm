@@ -78,6 +78,8 @@ When a client has written and no unsent draft exists, Mail shows the owner's Mar
 ## The routes behind the screens
 Everything the server answers here is local: the database, the project folders and the server's own loops, read in the request. No route reads Mail or Notion to show a number, so no number carries a freshness stamp.
 
+A refusal is `{ error, code }` (`@hub/contract/errors`). Every refusal the Hub states is a `HubError` (`@hub/config/errors`, P126 E1) whose kind gives the status: `invalid` 400, `not_found` 404, `wrong_state` 409, `unavailable` and `busy` 503, `forbidden` 403, `upstream` 502 (wire code `server`). The server's `onError` answers it, so a route catches only to add words (a Telegram or WhatsApp failure is named, Mail's slow save is explained) or a header (`retry-after` on a second core check, 429). A repository's `invalid` is 400 and its `unknown_project` 404.
+
 | Route | What it does | Cost |
 |---|---|---|
 | `GET /api/overview` | One row per project (status word, to review, sent today) with its standing (`statusDto`: level, the worst fact as one sentence, at most one place that fixes it, reply owed, last triage), a sentence that counts projects, and the health snapshot. With one project the admin shows the standing as the Mail status line; with two or more, as the Overview table | milliseconds |

@@ -3,7 +3,7 @@ import { sentenceOf } from "@hub/contract/errors";
 import { autostartDto, setAutostartBody } from "@hub/contract/autostart";
 import { gateRefusal } from "../admin-gate";
 import type { AutostartServices } from "../composition/capabilities";
-import { AutostartNotSetUp } from "../autostart";
+import { HubError } from "@hub/config/errors";
 
 /**
  * `GET /api/instance/autostart` reads whether this Mac starts the Hub at login (P67); `POST` with `{enabled}` switches it. The
@@ -26,7 +26,8 @@ export function autostartRoutes({ service, adminPort }: AutostartServices) {
       try {
         return c.json(autostartDto.parse(await service.set(parsed.data.enabled)));
       } catch (e) {
-        if (e instanceof AutostartNotSetUp) return c.json({ error: e.message, code: "wrong_state" as const }, 409);
+        // A HubError (AutostartNotSetUp: 409) is the server's onError's (P126 E1); launchctl's own failure is named here.
+        if (e instanceof HubError) throw e;
         return c.json({ error: `Not switched: ${e instanceof Error ? e.message : String(e)}`, code: "server" as const }, 500);
       }
     });

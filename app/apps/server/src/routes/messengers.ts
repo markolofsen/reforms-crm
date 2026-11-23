@@ -19,7 +19,7 @@ import { z, type ZodType } from "zod";
 import { gateRefusal } from "../admin-gate";
 import { notFound, v } from "../http";
 import { preanalysisStanding } from "../preanalysis";
-import { MessengerReplyError, prepareMessengerReply } from "../messenger-reply";
+import { prepareMessengerReply } from "../messenger-reply";
 import { createMessengerIdentityResolver, type MessengerIdentityResolver } from "../messenger-identity";
 import { type MessengerServices } from "../composition/capabilities";
 
@@ -144,19 +144,12 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
         const id = idOf(c, "id");
         if (id === null) return c.json({ error: "Not a chat id.", code: "invalid" as const }, 400);
         if (!reply) return c.json({ error: "Reply preparation is unavailable in this server mode.", code: "unavailable" as const }, 503);
-        try {
-          await prepareMessengerReply({ repos, llm: reply.llm, projectsDir: reply.projectsDir, ...(reply.policyDir ? { policyDir: reply.policyDir } : {}), project: slug, chatId: id, body: b });
-          const row = await repos.messengers.chatById(slug, id);
-          if (!row) return notFound(c, "chat");
-          const chat = await projectedChatOf(repos, slug, row, identity);
-          return chat ? c.json(chat) : notFound(c, "chat");
-        } catch (e) {
-          if (e instanceof MessengerReplyError) {
-            const code = e.code === "not_found" ? "not_found" : e.code === "unavailable" ? "unavailable" : "wrong_state";
-            return c.json({ error: e.message, code }, e.code === "not_found" ? 404 : e.code === "unavailable" ? 503 : 409);
-          }
-          throw e;
-        }
+        // A MessengerReplyError (404, 503 or 409) is the server's onError's (P126 E1).
+        await prepareMessengerReply({ repos, llm: reply.llm, projectsDir: reply.projectsDir, ...(reply.policyDir ? { policyDir: reply.policyDir } : {}), project: slug, chatId: id, body: b });
+        const row = await repos.messengers.chatById(slug, id);
+        if (!row) return notFound(c, "chat");
+        const chat = await projectedChatOf(repos, slug, row, identity);
+        return chat ? c.json(chat) : notFound(c, "chat");
       }),
     )
     .post("/api/projects/:slug/messengers/chats/:id/draft", (c) =>
