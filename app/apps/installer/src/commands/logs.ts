@@ -2,6 +2,7 @@ import { c } from "../term";
 import { LOG_VIEWS, runLogCommand } from "../log-command";
 import { runLogHook } from "../log-hook";
 import { runLogsCommand } from "../logs-command";
+import { LOG_KIND_LABELS } from "@hub/log/event";
 import { OPS_LEVELS, OPS_SOURCES } from "@hub/log/ops";
 import { ctxOf, done } from "./shared";
 import type { Command } from "commander";
