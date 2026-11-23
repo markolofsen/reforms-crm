@@ -2,7 +2,7 @@ import path from "node:path";
 import { DEFAULT_AGENT_SETTINGS, type AgentSettings } from "@hub/config";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 import { connectorDeniedTools, type AttachedConnector } from "./connectors";
-import { denyRules, DENIED_TOOLS } from "./deny";
+import { deniedTools, denyRules } from "./deny";
 import { claudeModeArgs, claudeProtectedPaths, claudeSandbox } from "./session";
 
 // A Claude Code session of `hub agent`, built without writing (the launcher writes it; the Agent tools check reads it).
@@ -63,7 +63,7 @@ export function protectedEditRules(paths: HubPaths): string[] {
  */
 export function claudeSettings(i: ClaudeSessionInput): Record<string, unknown> {
   const dbRules = new Set(["Read", "Edit"].map((t) => `${t}(./${(path.relative(i.paths.home, path.dirname(i.paths.db)) || ".").split(path.sep).join("/")}/**)`));
-  const all = denyRules(i.projectsDir, i.paths.home, i.slug, i.paths);
+  const all = denyRules(i.projectsDir, i.paths.home, i.slug, i.paths, i.unattended);
   const deny = [...(i.unattended ? all.filter((r) => !dbRules.has(r)) : all), ...connectorDeniedTools(i.connectors ?? []), ...protectedEditRules(i.paths)];
   const hub = `${JSON.stringify(i.nodeBin)} ${JSON.stringify(i.paths.hubBin)} guard`;
   return {
@@ -113,5 +113,5 @@ export const CLAUDE_CHROME_SERVER = "claude-in-chrome";
  */
 export const claudeBaseArgs = (unattended: boolean, extraDirs: string[] = []): string[] => [...claudeModeArgs(unattended), "--chrome", ...extraDirs.flatMap((d) => ["--add-dir", d])];
 
-/** `--disallowedTools`: the hub's denied tools and, P62, every attached connector's tool off its allowlist. */
-export const claudeDisallowed = (connectors: readonly AttachedConnector[] = []): string[] => [...DENIED_TOOLS, ...connectorDeniedTools(connectors)];
+/** `--disallowedTools`: the hub's denied tools of the mode (decision 0046) and, P62, every attached connector's tool off its allowlist. */
+export const claudeDisallowed = (connectors: readonly AttachedConnector[] = [], unattended = true): string[] => [...deniedTools(unattended), ...connectorDeniedTools(connectors)];

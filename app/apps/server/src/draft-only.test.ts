@@ -90,6 +90,27 @@ describe("no route sends", () => {
     expect(callers).toEqual(["apps/server/src/send/messenger-door.ts", "packages/messengers/src/human.ts"]);
   });
 
+  it("decision 0046: the agent's one way to a send is hub mcp's messenger_send to the agent-send route, which calls the same door", () => {
+    const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
+    const files = (d: string): string[] =>
+      readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.name === "node_modules" ? [] : e.isDirectory() ? files(join(d, e.name)) : [join(d, e.name)]));
+    const src = ["apps", "packages"]
+      .flatMap((group) => readdirSync(join(root, group), { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => join(root, group, e.name, "src")))
+      .flatMap((d) => { try { return files(d); } catch { return []; } })
+      .filter((f) => /\.(m?[jt]sx?)$/.test(f) && !/\.test\.tsx?$/.test(f));
+    const rel = (f: string) => f.slice(root.length + 1);
+    const having = (re: RegExp) => src.filter((f) => re.test(readFileSync(f, "utf8"))).map(rel).sort();
+    // The route is defined once and called by the tool's loopback port only.
+    expect(having(/\/agent-send(?![-\w])/)).toEqual(["apps/server/src/routes/sends.ts", "packages/agent/src/messenger/send-tool.ts"]);
+    // The agent package never reaches a sender: no `@hub/messengers` (human or adapters), no `@hub/send`, no door.
+    expect(src.filter((f) => f.includes("/packages/agent/src/") && /from "@hub\/(messengers|send)(\/|")|messenger-door|applyMessenger/.test(readFileSync(f, "utf8"))).map(rel)).toEqual([]);
+    // The door is called with the agent's actor from the send routes only, and only after the owner's word was found.
+    const sends = readFileSync(join(root, "apps/server/src/routes/sends.ts"), "utf8");
+    expect(sends.match(/applyMessenger\(/g)).toHaveLength(2);
+    expect(sends.indexOf("ownerWordFor(")).toBeGreaterThan(0);
+    expect(sends.indexOf("ownerWordFor(")).toBeLessThan(sends.indexOf("actor: AGENT_WORD_SEND_ACTOR"));
+  });
+
   it("imports no mail transport anywhere in the server source", () => {
     const dir = dirname(fileURLToPath(import.meta.url));
     const files = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? files(join(d, e.name)) : [join(d, e.name)]));

@@ -72,7 +72,8 @@ export function codexConfigToml(i: CodexSessionInput): string {
       if (Array.isArray(s.args)) out.push(`args = ${arr(s.args.map(String))}`);
       if (s.env && typeof s.env === "object") out.push(`env = ${inline(Object.fromEntries(Object.entries(s.env as Record<string, unknown>).map(([k, v]) => [k, String(v)])))}`);
     } else out.push(`url = ${str(String(s.url))}`);
-    const off = deniedToolsOf(name);
+    // Decision 0046: an unattended session also has `hub.messenger_send` disabled (hub mcp does not register it there either).
+    const off = deniedToolsOf(name, i.unattended);
     if (off.length) out.push(`disabled_tools = ${arr(off)}`);
     // P65 S5: `draft_write` waits up to 45 s for a slow Mail, then reads and replaces (one call took 53 s on 2026-11-19).
     // Codex cuts a tool call at 60 s by default; cut, the agent would see a generic error and write again (a second draft).

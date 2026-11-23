@@ -1,6 +1,6 @@
 import { slimMessageContent } from "./slim-headers";
 import { codexSessionPaths, instanceFeatures, pathsAt, type HubPaths } from "@hub/config/paths";
-import { auditToolCalls, chatDraftViolations, defaultProjectsRoot, HUB_MESSENGER_DRAFT_WRITE, type AuditLayout, isDraftWrite, kindOf, loadProject, preDraftCheck, type LedgerEntry, type SkillScope, type ToolCall } from "@hub/projects";
+import { auditToolCalls, chatDraftViolations, HUB_MESSENGER_SEND, defaultProjectsRoot, HUB_MESSENGER_DRAFT_WRITE, type AuditLayout, isDraftWrite, kindOf, loadProject, preDraftCheck, type LedgerEntry, type SkillScope, type ToolCall } from "@hub/projects";
 import { instanceServer } from "./mcp-servers";
 import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
 import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
@@ -77,7 +77,7 @@ export function writeSessionFiles(root: string, projectsDir: string, slug: strin
   writeFileSync(settingsFile, JSON.stringify(settings, null, 2) + "\n");
   const mcpFile = path.join(dir, "mcp.json");
   writeFileSync(mcpFile, JSON.stringify({ mcpServers: instanceMcpServers(paths, slug, nodeBin, attached) }, null, 2) + "\n");
-  return { settings: settingsFile, mcp: mcpFile, disallowed: claudeDisallowed(attached), rules: (settings.permissions as { deny: string[] }).deny, agent };
+  return { settings: settingsFile, mcp: mcpFile, disallowed: claudeDisallowed(attached, unattended), rules: (settings.permissions as { deny: string[] }).deny, agent };
 }
 
 /** The owner's own Codex folder: where `auth.json` lives (`CODEX_HOME` of the caller, else `~/.codex`). */
@@ -173,12 +173,14 @@ export function guardDecision(payload: GuardInput, o: { slug?: string; accounts:
   // P129 A0, P131 verdict 6: a Notion tool of the one deny list is refused in every mode. The audit names it in the same
   // words (`@hub/projects/notion-denied`); here it moves from the mode-bound violations to the outward ones.
   const denied = notionDenial(call.name);
+  // Decision 0046 point 3: an unattended session never sends, so `messenger_send` is refused there in every guard mode.
+  const unattendedSend = call.name === HUB_MESSENGER_SEND && (o.unattended ?? true) ? `messenger_send is denied in an unattended session (decision 0046: the agent sends only in an attended one, on the owner's word)` : null;
   const violations = auditToolCalls([call], o.slug ?? "(unbound)", o.accounts, o.skills, o.layout, { unattended: o.unattended ?? true })
     .filter((v) => o.slug || !/outside project|in a \(unbound\)|touched \S+\/\S+ in a/.test(v))
-    .filter((v) => v !== denied);
+    .filter((v) => v !== denied && v !== unattendedSend);
   // P62 K3: a connector call off its allowlist, or a hold with guests, is refused in every mode (it would leave the Mac).
   // P82: a Notion call on another project's database (or a page this session did not read from its own) is refused the same way.
-  const outward = [...(denied ? [denied] : []), ...connectorViolations(call.name, call.input, o.connectors ?? { attached: [], calendarId: null, driveFolders: [] }), ...notionViolations(call.name, call.input, o.connectors?.notion, o.notionRead)];
+  const outward = [...(denied ? [denied] : []), ...(unattendedSend ? [unattendedSend] : []), ...connectorViolations(call.name, call.input, o.connectors ?? { attached: [], calendarId: null, driveFolders: [] }), ...notionViolations(call.name, call.input, o.connectors?.notion, o.notionRead)];
   return { violations: [...violations, ...outward], block: outward.length > 0 || (violations.length > 0 && o.mode === "block"), ...(outward.length ? { always: true } : {}) };
 }
 

@@ -4,7 +4,7 @@ import path from "node:path";
 import { codexSessionPaths, type AgentCli, type HubPaths } from "@hub/config/paths";
 import { codexConfigBypasses, codexHome, CODEX_PROFILE } from "./codex";
 import { connectorRows } from "./connector-checks";
-import { ATTENDED_SEND_TOOLS, DENIED_TOOLS, DRAFT_TOOLS, HUB_MCP_SERVERS, SEND_LIKE_TOOL } from "./deny";
+import { ATTENDED_SEND_TOOLS, DENIED_TOOLS, deniedTools, DRAFT_TOOLS, HUB_MCP_SERVERS, SEND_LIKE_TOOL } from "./deny";
 import { INSTALL_LINE, LOGIN_LINE, type CliFact } from "./detect";
 import { CLI_LABELS, MEASURED_VERSIONS } from "./session";
 import { codexNotionAuth, NO_NOTION_EVIDENCE, notionFix, notionRow, notionSignIn, type NotionEvidence } from "./notion-signin";
@@ -114,15 +114,16 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   }
 
   // 5. No tool that sends, forwards or removes reaches the session.
-  const denied = new Set(DENIED_TOOLS);
+  const deniedList = deniedTools(i.unattended);
+  const denied = new Set(deniedList);
   // Decision 0046: an attended session keeps `hub.messenger_send` (the owner's word, verified by the server, through his door).
   const allowed = new Set(i.unattended ? [] : ATTENDED_SEND_TOOLS);
   const open = listed.flatMap((l) => l.tools.filter((t) => SEND_LIKE_TOOL.test(t) && !DRAFT_TOOLS.includes(t) && !denied.has(`mcp__${l.name}__${t}`) && !allowed.has(`mcp__${l.name}__${t}`)).map((t) => `${l.name}.${t}`));
-  const codexOff = toml === null || HUB_MCP_SERVERS.every((n) => !servers[n] || !DENIED_TOOLS.some((t) => t.startsWith(`mcp__${n}__`)) || /^disabled_tools = /m.test(section(n)));
+  const codexOff = toml === null || HUB_MCP_SERVERS.every((n) => !servers[n] || !deniedList.some((t) => t.startsWith(`mcp__${n}__`)) || /^disabled_tools = /m.test(section(n)));
   if (!listed.length) row("send-tools.off", "Send tools off", "skip", "no server answered");
   else if (open.length) row("send-tools.off", "Send tools off", "fail", `not denied: ${open.join(", ")}`, "hub core update");
   else if (!codexOff) row("send-tools.off", "Send tools off", "fail", "the Codex config does not disable the send tools", prepare);
-  else row("send-tools.off", "Send tools off", "pass", `${DENIED_TOOLS.length} denied`);
+  else row("send-tools.off", "Send tools off", "pass", `${deniedList.length} denied${i.unattended ? "" : "; messenger_send on the owner's word (decision 0046)"}`);
 
   // 5b. P62: the project's connectors (Calendar, Drive): attached, answering, the account, the writes off; then the info rows.
   const deny = [...((settings?.permissions?.deny ?? []) as string[])];

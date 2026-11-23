@@ -82,6 +82,17 @@ describe("hub guard", () => {
     expect(guardDecision(call("Read", { file_path: "projects/_template/x.md" }), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT }).violations).toEqual([]);
     expect(guardDecision(call("mcp__mail-mcp__create_reply"), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT }).violations).toEqual([]);
   });
+  it("decision 0046: messenger_send is refused unattended in every guard mode, passed attended, and never by a mode default", () => {
+    const send = call("mcp__hub__messenger_send", { chat: 3, draft: 7 });
+    for (const mode of ["warn", "block"]) {
+      const un = guardDecision(send, { slug: "acme-travel", accounts: [], mode, layout: LAYOUT, unattended: true });
+      expect(un).toMatchObject({ block: true, always: true, violations: [expect.stringMatching(/messenger_send is denied in an unattended session/)] });
+      expect(guardDecision(send, { slug: "acme-travel", accounts: [], mode, layout: LAYOUT }).block).toBe(true);
+      expect(guardDecision(send, { slug: "acme-travel", accounts: [], mode, layout: LAYOUT, unattended: false })).toMatchObject({ block: false, violations: [] });
+    }
+    // Any other send-like tool of the hub stays a violation attended too.
+    expect(guardDecision(call("mcp__hub__mail_send"), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT, unattended: false }).violations).toEqual([expect.stringMatching(/send-capable/)]);
+  });
   it("an unbound session still blocks sends and secrets, not project reads", () => {
     const env = { HUB_GUARD: "block" };
     expect(guard(call("Read", { file_path: "projects/acme-travel/project.md" }), env).code).toBe(0);

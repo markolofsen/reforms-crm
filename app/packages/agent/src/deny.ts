@@ -29,10 +29,16 @@ export const DENIED_TOOLS: readonly string[] = [
  */
 export const ATTENDED_SEND_TOOLS: readonly string[] = ["mcp__hub__messenger_send"];
 
-/** `mcp__<server>__<tool>` split back into the server's own tool names (Codex's `disabled_tools` takes these). */
-export function deniedToolsOf(server: string): string[] {
+/**
+ * The denied tools of a mode: {@link DENIED_TOOLS} in every mode, and in an unattended one also {@link ATTENDED_SEND_TOOLS}
+ * (decision 0046 point 3: background and unattended sessions never send). Default unattended: the stricter list.
+ */
+export const deniedTools = (unattended = true): readonly string[] => (unattended ? [...DENIED_TOOLS, ...ATTENDED_SEND_TOOLS] : DENIED_TOOLS);
+
+/** `mcp__<server>__<tool>` split back into the server's own tool names (Codex's `disabled_tools` takes these), for a mode. */
+export function deniedToolsOf(server: string, unattended = true): string[] {
   const pre = `mcp__${server}__`;
-  return DENIED_TOOLS.filter((t) => t.startsWith(pre)).map((t) => t.slice(pre.length));
+  return deniedTools(unattended).filter((t) => t.startsWith(pre)).map((t) => t.slice(pre.length));
 }
 
 /** A tool name that looks like it sends, forwards or removes: the Agent tools check fails when one is not denied (P49 5B). */
@@ -106,7 +112,7 @@ export const otherDrops = (paths: Pick<HubPaths, "drops">, projectsDir: string, 
   [...otherProjects(projectsDir, slug), SHELL_DROPS].map((o) => dropFolder(paths, o));
 
 /** Deny rules for Claude's settings.json: secrets, the live database, other projects' folders, mail-sending programs. */
-export function denyRules(projectsDir: string, root: string, slug: string | undefined, paths: HubPaths = pathsAt(root)): string[] {
+export function denyRules(projectsDir: string, root: string, slug: string | undefined, paths: HubPaths = pathsAt(root), unattended = true): string[] {
   const rel = (p: string) => (path.relative(root, p) || ".").split(path.sep).join("/");
   const rules: string[] = [];
   const denied = [`./${rel(paths.secrets)}/**`, `./${rel(path.dirname(paths.db))}/**`];
@@ -115,6 +121,6 @@ export function denyRules(projectsDir: string, root: string, slug: string | unde
   for (const d of otherDrops(paths, projectsDir, slug)) denied.push(`./${rel(d)}/**`);
   for (const p of denied) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);
   // `hub send` is the hub's own sender (decision 0011, plan P23): a person runs it, never the agent.
-  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_CONNECTOR_OWNER_COMMANDS, ...HUB_OPEN_COMMANDS, ...HUB_API_COMMANDS, ...DENIED_TOOLS);
+  rules.push("Bash(osascript *)", "Bash(*state/secrets*)", "Bash(sendmail *)", "Bash(mail *)", ...HUB_SEND_COMMANDS, ...HUB_SEQUENCE_OWNER_COMMANDS, ...HUB_MAIL_OWNER_COMMANDS, ...HUB_CONNECTOR_OWNER_COMMANDS, ...HUB_OPEN_COMMANDS, ...HUB_API_COMMANDS, ...deniedTools(unattended));
   return rules;
 }
