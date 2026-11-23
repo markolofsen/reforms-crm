@@ -26,10 +26,13 @@ export type MessengerChannelFilter = (typeof MESSENGER_CHANNEL_FILTERS)[number];
 /** A chat's channel under a filter: the Telegram bot's chats are Telegram's. */
 export const inChannel = (channel: MessengerChannelDto, f: MessengerChannelFilter): boolean => f === "all" || (f === "whatsapp" ? channel === "whatsapp" : channel !== "whatsapp");
 
-/** The list projection's URL inputs. Defaults keep a bare `/messengers` request on the owner's Todo view. */
+/**
+ * The list projection's URL inputs. A missing or unknown view is the owner's Todo view and a missing or unknown channel is
+ * all of them, as the panel read them before this schema (an address typed by hand lists, it does not answer 400).
+ */
 export const messengerChatsQuery = z.object({
-  filter: z.enum(MESSENGER_VIEWS).default("todo"),
-  channel: z.enum(MESSENGER_CHANNEL_FILTERS).default("all"),
+  filter: z.enum(MESSENGER_VIEWS).catch("todo"),
+  channel: z.enum(MESSENGER_CHANNEL_FILTERS).catch("all"),
   q: z.string().trim().max(200).default(""),
 });
 export type MessengerChatsQuery = z.infer<typeof messengerChatsQuery>;

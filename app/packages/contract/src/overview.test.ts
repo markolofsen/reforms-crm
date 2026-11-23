@@ -41,7 +41,7 @@ describe("overview v5 (P48)", () => {
 });
 
 describe("activity (P73)", () => {
-  const r = { id: 1, key: "event:1", at: asOf, client: { id: 3, name: "Mark Effect" }, who: "Mark Effect", outcome: "updated", why: "already drafted", draftId: 1, skill: null };
+  const r = { id: 1, key: "event:1", at: asOf, client: { id: 3, name: "Mark Effect" }, who: "Mark Effect", outcome: "updated", why: "already drafted", draftId: 1, skill: null, provider: null };
   it("one row per decision, with the outcome and the reason in the row; no run", () => {
     expect(activityRowDto.safeParse(r).success).toBe(true);
     expect(activityRowDto.safeParse({ ...r, outcome: "maybe" }).success).toBe(false);

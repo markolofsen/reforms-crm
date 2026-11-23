@@ -1,6 +1,7 @@
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { projectLinks } from "./project-links";
 
@@ -16,7 +17,7 @@ describe("project Quick Links", () => {
     roots.push(root);
     const project = join(root, "acme-travel");
     mkdirSync(project);
-    const fixture = join(new URL("../packages/projects/test/fixtures/projects/acme-travel/project.md", import.meta.url).pathname);
+    const fixture = fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel/project.md", import.meta.url));
     const source = readFileSync(fixture, "utf8");
     writeFileSync(join(project, "project.md"), `${source}\n## Links\n\n| Group | Label | Target | Under | Answered | By |\n|---|---|---|---|---|---|\n| Notion | Clients | notion:clients |  | 2026-11-20 | agent |\n| Sites | Website | https://example.com/ |  | 2026-11-20 | owner |\n`);
     const result = await projectLinks(repos(), "acme-travel", root, { reader: { retrieveDataSource: async () => ({ id: "ds", pageId: ID, title: "Clients", properties: {} }), listPages: async function* () {}, retrieveMarkdown: async () => ({ markdown: "", truncated: false, unknownBlockIds: [] }) } });
