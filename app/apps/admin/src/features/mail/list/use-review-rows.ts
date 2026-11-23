@@ -1,6 +1,6 @@
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
-import type { ReviewSource } from "./source";
+import type { ReviewSource } from "@/features/mail/model";
 
 /** The pages of a source as one list (paged, kept while the next view loads). The search is the source's: the server narrows the rows. */
 export function useReviewRows(source: ReviewSource) {

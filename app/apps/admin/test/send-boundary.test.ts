@@ -15,7 +15,7 @@ const all = files(SRC).map((f) => ({ path: relative(SRC, f), text: readFileSync(
 describe("send boundary", () => {
   it("calls the one send route and its preview only from the card's send flow", () => {
     const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(send|preview)\b/.test(f.text)).map((f) => f.path).sort();
-    expect(users).toEqual(["features/review/card/use-send-flow.ts"]);
+    expect(users).toEqual(["features/mail/draft/send/use-send-flow.ts"]);
   });
 
   it("calls the messenger send door (P71 M4) only from the Messengers panel's send hook", () => {
@@ -23,7 +23,7 @@ describe("send boundary", () => {
     expect(users).toEqual(["features/messengers/use-messenger-send.tsx"]);
     // Both doors' steps are the one shared hook: neither feature runs its own dry-run and apply mutations.
     const doors = all.filter((f) => /\buseSendDoor(<\w+>)?\(/.test(f.text) && f.path !== "components/send/send-flow.ts").map((f) => f.path).sort();
-    expect(doors).toEqual(["features/messengers/use-messenger-send.tsx", "features/review/card/use-send-flow.ts"]);
+    expect(doors).toEqual(["features/mail/draft/send/use-send-flow.ts", "features/messengers/use-messenger-send.tsx"]);
   });
 
   it("starts Send all Checked of a batch (P85b) only from the batch's own panel, after its dry run", () => {
@@ -36,12 +36,12 @@ describe("send boundary", () => {
 
   it("writes a draft's Mail text (Save, Restore: P56) only from the card's one write hook", () => {
     const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(save|restore)\b/.test(f.text)).map((f) => f.path).sort();
-    expect(users).toEqual(["features/review/mail/use-mail-write.ts"]);
+    expect(users).toEqual(["features/mail/draft/mail-read/use-mail-write.ts"]);
   });
 
   it("reaches Stop all, Resume and the doctor from Settings ▸ Sending (P70), the history and Cancel from Activity ▸ Sends (UX pass), and Cancel also from the card", () => {
     const users = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(list|cancel|stop|resume|doctor)\b/.test(f.text)).map((f) => f.path).sort();
-    expect(users).toEqual(["features/log/sends-table.tsx", "features/review/card/draft-card.tsx", "features/settings/sending/send-to.tsx", "features/settings/sending/sending-pane.tsx", "lib/status.ts"]);
+    expect(users).toEqual(["features/log/sends-table.tsx", "features/mail/draft/draft-card.tsx", "features/settings/sending/send-to.tsx", "features/settings/sending/sending-pane.tsx", "lib/status.ts"]);
     const stops = all.filter((f) => f.path !== "lib/api/send.ts" && /\bsendApi\.(stop|resume)\b/.test(f.text)).map((f) => f.path);
     expect(stops).toEqual(["features/settings/sending/sending-pane.tsx"]);
   });

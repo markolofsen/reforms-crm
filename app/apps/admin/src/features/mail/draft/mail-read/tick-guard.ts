@@ -1,7 +1,7 @@
 import { hrefOf } from "@hub/contract/local";
 import type { DraftMailDto } from "@hub/contract/mail";
-import type { ReviewDraft } from "../source";
-import { canCheck, stateOf, type FlowStep } from "../card/card-state";
+import type { ReviewDraft } from "@/features/mail/model";
+import { canCheck, stateOf, type FlowStep } from "@/features/mail/draft/card-state";
 
 /** What the guard needs of a Mail read: nothing of the text itself. */
 export type MailRead = Pick<DraftMailDto, "configured" | "found" | "hash" | "reason" | "note">;

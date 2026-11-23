@@ -219,7 +219,7 @@ describe("shared UI ownership", () => {
 
 describe("bounded contract ownership", () => {
   it("Mail and review features do not reach the compatibility response barrel", () => {
-    const bounded = [...inDir("features/review"), path.join(admin, "src/lib/api/review.ts"), path.join(admin, "src/lib/api/send.ts")];
+    const bounded = [...inDir("features/mail/draft"), ...inDir("features/mail/list"), path.join(admin, "src/features/mail/model.ts"), path.join(admin, "src/lib/api/review.ts"), path.join(admin, "src/lib/api/send.ts")];
     expect(offenders(bounded, /from ["']@hub\/contract\/responses["']/)).toEqual([]);
   });
 

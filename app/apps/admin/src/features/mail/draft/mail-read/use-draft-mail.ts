@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { sendApi } from "@/lib/api/send";
-import { isClosed, type ReviewDraft } from "../source";
+import { isClosed, type ReviewDraft } from "@/features/mail/model";
 import { keys } from "@/lib/cache/keys";
 
 /** One key factory for the read, so the card and the `C` key see the same answer (`state-and-data.md` rule 2). */

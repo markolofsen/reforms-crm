@@ -11,7 +11,7 @@ import { sentence } from "@/lib/api/client";
 import { reviewApi } from "@/lib/api/review";
 import { sendApi } from "@/lib/api/send";
 import { keys } from "@/lib/cache/keys";
-import type { ReviewDraft } from "../source";
+import type { ReviewDraft } from "@/features/mail/model";
 import { differsFromShown, sendLoading, sendProblems, shownResults, type SendFix } from "./send-review";
 import type { SendFlow } from "./use-send-flow";
 

@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { refOf } from "@hub/contract/focus";
 import { useFocusSelection, useFocusSubject } from "@/lib/focus";
-import { isClosed, rowId, type ConversationRow, type ReviewDraft } from "./source";
+import { isClosed, rowId, type ConversationRow, type ReviewDraft } from "@/features/mail/model";
 
 /**
  * The people picked for a bulk action (P99: selection is over conversations, `x` selects the client; Skip and Hold act on each

@@ -2,11 +2,11 @@ import { type ReactNode } from "react";
 import { TONES, type Tone } from "@hub/config";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ToggleGroup, ToggleGroupItem } from "@hub/ui/toggle-group";
-import { isClosed, type ReviewDraft } from "../source";
+import { isClosed, type ReviewDraft } from "@/features/mail/model";
 import type { DraftMailDto } from "@hub/contract/mail";
-import type { ReviewActions } from "../use-review-actions";
-import { mailProblem } from "../mail/tick-guard";
-import { MailGone } from "../mail/mail-gone";
+import type { ReviewActions } from "@/features/mail/list/use-review-actions";
+import { mailProblem } from "@/features/mail/draft/mail-read/tick-guard";
+import { MailGone } from "@/features/mail/draft/mail-read/mail-gone";
 import { ConversationText } from "@hub/ui/product/conversation";
 
 const TONE_LABEL: Record<Tone, string> = { short: "Short", standard: "Standard", warm: "Warm" };

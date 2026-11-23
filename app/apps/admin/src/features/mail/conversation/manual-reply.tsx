@@ -12,7 +12,7 @@ import { ConversationContext, ConversationContextActions, ConversationContextIte
 import { ConversationComposerEditor } from "@hub/ui/product/composer-editor";
 import { ConversationLabel } from "@hub/ui/product/conversation";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
-import type { Notice } from "@/features/review/use-review-actions";
+import type { Notice } from "@/features/mail/list/use-review-actions";
 import { refreshData, sentence } from "@/lib/api/client";
 import { reviewApi } from "@/lib/api/review";
 import { useMailSignature } from "./use-mail-signature";

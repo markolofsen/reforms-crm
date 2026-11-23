@@ -16,11 +16,13 @@ import { runLocalAction } from "@/components/local-action";
 import { metaApi } from "@/lib/api/meta";
 import { copyText, openLink, sameTab } from "@/lib/external";
 import { ConversationPane } from "@/features/mail/conversation/pane";
-import { useToggleChecked } from "./mail/use-toggle-checked";
-import { ListHeader, type View } from "./list-controls";
-import { ListRow } from "./list-row";
-import { focusRow, useReviewKeys } from "./review-keys";
-import { isClosed, rowId, type ConversationRow, type ReviewDraft, type ReviewSource } from "./source";
+import { useToggleChecked } from "@/features/mail/draft/mail-read/use-toggle-checked";
+import { ListHeader, type View } from "./header";
+import { ListRow } from "./row";
+import { useMailKeys } from "./keys";
+import { focusRow, useListKeys } from "@/components/conversation/list/keys";
+import { refOf } from "@hub/contract/focus";
+import { isClosed, rowId, type ConversationRow, type ReviewDraft, type ReviewSource } from "@/features/mail/model";
 import { useReviewActions, type Notice } from "./use-review-actions";
 import { useReviewRows } from "./use-review-rows";
 import { useSelection, useShareReview } from "./use-selection";
@@ -174,7 +176,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, rowT
       if (id == null) return;
       onSelect(id);
       document.getElementById(`person-${id}`)?.scrollIntoView({ block: "nearest" });
-      if (focus) focusRow(id);
+      if (focus) focusRow(refOf("client", id));
     },
     [onSelect],
   );
@@ -196,25 +198,18 @@ export function ReviewWorkspace({ source, views, onView, search, selection, rowT
       }
     : null;
   const toggleChecked = useToggleChecked(source.project, actions, say);
-  useReviewKeys({
-    toggleChecked,
+  useListKeys({
     enabled: shortcutsOn,
     ids: rows.map(rowId),
     currentId: openId,
-    current: current?.draft ?? null,
-    actions,
+    refOf: (id) => refOf("client", id),
     go,
-    advance,
-    replyAll: (d) => void replyAllInMail(d, say),
-    undoLast,
-    toggleSelect: sel.toggle,
-    selectAll: sel.all,
-    selected: sel.picked.length,
-    clearSelection: sel.clear,
     back: mobile && present ? () => onSelect(null) : null,
     focusSearch: () => searchRef.current?.focus(),
-    say,
+    selection: { count: sel.picked.length, toggle: sel.toggle, all: sel.all, clear: sel.clear },
   });
+  useMailKeys({ enabled: shortcutsOn, current: current?.draft ?? null, actions, advance, replyAll: (d) => void replyAllInMail(d, say), toggleChecked, undoLast, say });
+
 
   const bulk = (status: "skipped" | "hold", title: string) => {
     const targets = sel.drafts.filter((d) => !isClosed(d));

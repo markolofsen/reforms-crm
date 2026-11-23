@@ -1,8 +1,8 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
-import { sendLatch } from "../src/features/review/card/use-send-flow";
+import { sendLatch } from "../src/features/mail/draft/send/use-send-flow";
 import { REVIEW_DWELL_MS } from "@hub/ui/product/review-dialog";
-import { UNDO_WINDOW_MS, undoTarget, type ReviewDraft } from "../src/features/review/source";
+import { UNDO_WINDOW_MS, undoTarget, type ReviewDraft } from "../src/features/mail/model";
 import { refreshData } from "../src/lib/api/client";
 
 const draft = (id: number, canUndo = false) => ({ id, canUndo }) as unknown as ReviewDraft;

@@ -5,8 +5,8 @@ import { DraftActionRow, DraftSendButton } from "@hub/ui/product/draft-action-ro
 import { formatTime } from "@/lib/format";
 import { hrefOf } from "@hub/contract/local";
 import { LocalActionButton, LocalActionItem } from "@/components/local-action";
-import { SKIP_REASONS, type ReviewDraft } from "../source";
-import type { ReviewActions } from "../use-review-actions";
+import { SKIP_REASONS, type ReviewDraft } from "@/features/mail/model";
+import type { ReviewActions } from "@/features/mail/list/use-review-actions";
 import { canCheck, primaryFor, secondaryFor, type CardState, type Context, type Secondary } from "./card-state";
 
 export type Handlers = {

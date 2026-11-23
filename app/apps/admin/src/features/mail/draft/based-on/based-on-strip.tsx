@@ -2,7 +2,7 @@ import { ChevronDownIcon } from "lucide-react";
 import { Badge } from "@hub/ui/badge";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { plural } from "@/lib/format";
-import type { ReviewDraft } from "../source";
+import type { ReviewDraft } from "@/features/mail/model";
 
 const LEVEL = { ok: { text: "Well grounded", variant: "success" }, weak: { text: "Thin evidence", variant: "warning" }, missing: { text: "No evidence", variant: "error" } } as const;
 

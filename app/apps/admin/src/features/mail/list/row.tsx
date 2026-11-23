@@ -9,7 +9,7 @@ import { IntegrationStatus } from "@hub/ui/product/integration-status";
 import { ago } from "@/lib/format";
 import { cn } from "@hub/ui/cn";
 import { notionIdentityLine, notionIndicatorState } from "@/lib/notion";
-import { isClosed, openResults, rowId, type ConversationRow, type ReviewDraft } from "./source";
+import { isClosed, openResults, rowId, type ConversationRow, type ReviewDraft } from "@/features/mail/model";
 import { agentLine } from "@/lib/agent-reasons";
 
 type Status = { Icon: LucideIcon; label: string; tone: string };

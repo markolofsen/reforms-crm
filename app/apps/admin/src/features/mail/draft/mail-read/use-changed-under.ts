@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ReviewDraft } from "../source";
+import type { ReviewDraft } from "@/features/mail/model";
 
 /** The words of a draft the agent can change: what a person reads before Send. A status, tone or tick is the owner's own. */
 const textOf = (d: ReviewDraft) => JSON.stringify([d.subject, d.toAddr, d.ccAddr, d.body, d.toneBodies]);

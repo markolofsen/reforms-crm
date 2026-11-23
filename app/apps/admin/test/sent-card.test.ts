@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sentLine, teammateLine } from "../src/features/review/card/card-state";
+import { sentLine, teammateLine } from "../src/features/mail/draft/card-state";
 import { formatTime } from "../src/lib/format";
 
 // P87 (B4): a sent draft's card says first that it went out, when and how.

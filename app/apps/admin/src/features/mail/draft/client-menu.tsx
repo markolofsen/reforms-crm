@@ -9,8 +9,8 @@ import { toastManager } from "@hub/ui/toast";
 import { chatDestinations } from "@/components/conversation/header-actions";
 import { OpenLinkItem } from "@/components/links/open-link";
 import { notionOf } from "@/lib/notion";
-import type { ReviewActions } from "../use-review-actions";
-import type { ReviewDraft } from "../source";
+import type { ReviewActions } from "@/features/mail/list/use-review-actions";
+import type { ReviewDraft } from "@/features/mail/model";
 
 /**
  * The only place a client flag can change (never a control in a list row, never next to Send). Follow up and VIP apply

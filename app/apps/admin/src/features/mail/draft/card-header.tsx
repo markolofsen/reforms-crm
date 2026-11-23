@@ -7,9 +7,9 @@ import { isOld, wrote } from "@/lib/format";
 import { dest } from "@/routes/paths";
 import { notionOf } from "@/lib/notion";
 import { cn } from "@hub/ui/cn";
-import { draftChipsOf } from "../list-row";
-import type { ReviewDraft } from "../source";
-import type { ReviewActions } from "../use-review-actions";
+import { draftChipsOf } from "@/features/mail/list/row";
+import type { ReviewDraft } from "@/features/mail/model";
+import type { ReviewActions } from "@/features/mail/list/use-review-actions";
 import { ClientMenu } from "./client-menu";
 import { sentLine, teammateLine } from "./card-state";
 

@@ -1,5 +1,5 @@
 import { formatTime } from "@/lib/format";
-import { openResults, type ReviewDraft } from "../source";
+import { openResults, type ReviewDraft } from "@/features/mail/model";
 
 /**
  * The 14 states of a review card (research 16 section 7 without `batch_waiting`, whose batch builder P48 deleted, and without

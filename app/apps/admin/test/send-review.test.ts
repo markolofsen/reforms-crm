@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DraftMailDto } from "@hub/contract/mail";
-import { differsFromShown, sendLoading, sendProblems, shownResults, type SendReviewInput } from "../src/features/review/card/send-review";
+import { differsFromShown, sendLoading, sendProblems, shownResults, type SendReviewInput } from "../src/features/mail/draft/send/send-review";
 
 // P105: what the review dialog of one Mail Send lists, and when its Send may apply the dry run.
 const read = (o: Partial<DraftMailDto> = {}): DraftMailDto => ({ configured: true, found: true, reason: null, note: null, from: "hello@x.example", to: ["anna@y.example"], cc: [], subject: "Re: Hi", body: "b", hash: "h", safetyResults: [], readAt: "2026-11-23T00:00:00.000Z", ...o });

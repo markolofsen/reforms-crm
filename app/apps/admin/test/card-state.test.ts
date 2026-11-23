@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { CARD_STATES, canCheck, primaryFor, secondaryFor, stateOf, type Context } from "../src/features/review/card/card-state";
+import { CARD_STATES, canCheck, primaryFor, secondaryFor, stateOf, type Context } from "../src/features/mail/draft/card-state";
 
-import type { ReviewDraft } from "../src/features/review/source";
-import { tickBlock, type MailRead } from "../src/features/review/mail/tick-guard";
+import type { ReviewDraft } from "../src/features/mail/model";
+import { tickBlock, type MailRead } from "../src/features/mail/draft/mail-read/tick-guard";
 
 const ctx: Context = { name: "Marta", hasMailLink: true, hasDraftLink: false };
 
@@ -117,7 +117,7 @@ describe("Checked fails closed (decision 0013): the review dialog and the C key 
 });
 
 describe("Open draft in Mail (P58 R1)", async () => {
-  const { draftLinkOf } = await import("../src/features/review/mail/tick-guard");
+  const { draftLinkOf } = await import("../src/features/mail/draft/mail-read/tick-guard");
   const read = { configured: true, found: true, reason: null, note: null, from: "hello@x.example", messageId: "A3F4@x.example", to: ["c@y.example"], cc: [], subject: "Re", body: "b", hash: "h", safetyResults: [], readAt: "2026-11-20T00:00:00.000Z" };
   it("links the draft's own Message-ID when the read found the one draft, else nothing (the client's mail instead)", () => {
     expect(draftLinkOf(read)).toBe("A3F4@x.example");

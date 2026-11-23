@@ -42,3 +42,23 @@ test("? opens the shortcuts, which list this screen's keys, and Esc closes them"
   await page.keyboard.press("Escape");
   await expect(help).toHaveCount(0);
 });
+
+// P127 C2: Messengers takes Mail's list keys (J/K move and replace the entry, / searches); it registers no selection keys.
+test("Messengers: J moves to the next linked chat in place, / focuses the search, Shift+A selects nothing", async ({ page }) => {
+  await page.goto("/lisbon-realty/messengers?filter=linked");
+  const chats = page.getByRole("list", { name: "Chats" });
+  await expect(chats.getByRole("listitem")).toHaveCount(2);
+  await expect(page).toHaveURL(/\/messengers\/c\/\d+/);
+  await page.waitForLoadState("networkidle");
+  const first = page.url();
+  const length = await page.evaluate(() => history.length);
+  await page.keyboard.press("j");
+  await expect(page).not.toHaveURL(first);
+  expect(await page.evaluate(() => history.length)).toBe(length);
+  await page.keyboard.press("/");
+  await expect(page.getByRole("searchbox", { name: "Search chats" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  await page.locator("body").click({ position: { x: 1, y: 1 } });
+  await page.keyboard.press("Shift+A");
+  await expect(page.getByRole("toolbar", { name: "Selected drafts" })).toHaveCount(0);
+});

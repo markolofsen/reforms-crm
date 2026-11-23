@@ -1,7 +1,7 @@
 import { AlertTriangleIcon, ChevronDownIcon, ShieldAlertIcon } from "lucide-react";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { isClosed, type ReviewDraft } from "../source";
+import { isClosed, type ReviewDraft } from "@/features/mail/model";
 import type { SafetyResultDto } from "@hub/contract/review";
 
 /**

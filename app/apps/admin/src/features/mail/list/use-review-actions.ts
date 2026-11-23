@@ -6,7 +6,7 @@ import { refreshData, sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
 import { reviewApi } from "@/lib/api/review";
 import { sequencesApi } from "@/lib/api/inbox";
-import { firstName, undoTarget, type ReviewDraft } from "./source";
+import { firstName, undoTarget, type ReviewDraft } from "@/features/mail/model";
 
 export type Notice = { text: string; kind: "info" | "error" };
 

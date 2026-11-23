@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { PlusIcon } from "lucide-react";
 import type { MessengerChannelFilter, MessengerView as View } from "@hub/contract/messenger-panel";
 import { ActionButton } from "@hub/ui/product/action-button";
@@ -15,6 +15,8 @@ import { useSearch } from "@/hooks/use-search-state";
 import { useDebounced } from "@/hooks/use-debounced";
 import { usePaneMeasured, usePaneNarrow } from "@/hooks/use-pane";
 import { useGo } from "@/hooks/use-go";
+import { shortcutsOn } from "@/hooks/use-hotkeys";
+import { focusRow, useListKeys } from "@/components/conversation/list/keys";
 import { messengersApi } from "@/lib/api/messengers/panel";
 import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
@@ -136,13 +138,34 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
     // Routes rule 9: a narrow pane opens nothing, and the width is not known before the shell measures it (P127 divergence 2).
     if (measured && !narrow && chatId === null && !q.isFetching && d?.chats[0]) go(dest("messengers.conversation", { id: d.chats[0].id }, { filter, channel, q: search }), { replace: true });
   }, [channel, chatId, d?.chats, filter, go, measured, narrow, q.isFetching, search]);
+  // P127 C2 (question 1, delegated: yes): Mail's list keys. J/K move between the linked chats (replacing the entry), Enter goes in,
+  // Esc comes back, / searches. No selection keys: Messengers has no multi-select (question 4).
+  const searchRef = useRef<HTMLInputElement>(null);
+  const chatTo = useCallback((id: number) => dest("messengers.conversation", { id }, { filter, channel, q: search }), [channel, filter, search]);
+  const openChat = useCallback(
+    (id: number | null, focus = false) => {
+      if (id === null) return;
+      go(chatTo(id), { replace: chatId !== null });
+      if (focus) focusRow(`chat:${id}`);
+    },
+    [chatId, chatTo, go],
+  );
+  useListKeys({
+    enabled: shortcutsOn,
+    ids: d?.chats.map((c) => c.id) ?? [],
+    currentId: chatId,
+    refOf: (id) => `chat:${id}`,
+    go: openChat,
+    back: narrow && chatId !== null ? () => go(dest("messengers.page", { filter, channel, q: search })) : null,
+    focusSearch: () => searchRef.current?.focus(),
+  });
   const list = (
     <ListScrollArea ariaBusy={Boolean(d && q.isFetching)}>
       <ListToolbar ariaLabel="Chat filters and actions">
         <ListToolbarRow>
           <ViewMenu counts={viewCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ filter: v })} value={filter} where={channel === "all" ? "Messengers" : CHANNEL_FILTER_LABEL[channel]} />
           <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
-            <SearchField label="Search chats" onChange={(v) => setSearch({ q: v })} value={search} />
+            <SearchField inputRef={searchRef} label="Search chats" onChange={(v) => setSearch({ q: v })} value={search} />
           </div>
           {accounts.length > 0 && (
             <ActionButton aria-expanded={linking} aria-label={linking ? "Close link a chat" : "Link a chat"} className="ms-auto" icon onClick={() => setLinking((v) => !v)} size="s" tooltip={linking ? "Close link a chat" : "Link a chat"} variant="secondary">

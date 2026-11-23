@@ -2,9 +2,9 @@ import { SAFETY_LABELS } from "@hub/config";
 import type { DraftMailDto } from "@hub/contract/mail";
 import type { SafetyResultDto } from "@hub/contract/review";
 import type { SendPreviewDto } from "@hub/contract/sending";
-import { mailProblem } from "../mail/tick-guard";
-import type { ReviewDraft } from "../source";
-import { teammateLine } from "./card-state";
+import { mailProblem } from "@/features/mail/draft/mail-read/tick-guard";
+import type { ReviewDraft } from "@/features/mail/model";
+import { teammateLine } from "@/features/mail/draft/card-state";
 
 // P105: what the review dialog of one Mail Send lists, as a pure function of what the card already knows (the draft, its live
 // Mail read, a changed-under mark, what a refused confirm said). Two severities: a warning is read and accepted by Send; a
