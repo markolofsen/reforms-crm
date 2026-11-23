@@ -39,3 +39,6 @@ export function ago(iso: string, now: number): string {
   if (min < 48 * 60) return `${Math.floor(min / 60)} h ago`;
   return `${Math.floor(min / 1440)} d ago`;
 }
+
+/** The calendar day of an ISO time (`2026-11-23`): a history draws a day divider where it changes (P127 B1, both channels). */
+export const dayOf = (iso: string): string => iso.slice(0, 10);

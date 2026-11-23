@@ -18,8 +18,8 @@ import { notionPageIdOf } from "@/lib/notion";
 import { keys, messengerMutationKeys } from "@/lib/cache/keys";
 import { focusAgentRow } from "@/lib/focus";
 import { messengersApi } from "@/lib/api/messengers/panel";
-import { ApiFailure, sentence } from "@/lib/api/client";
-import { formatDay, formatTime } from "@/lib/format";
+import { isNotFound, sentence } from "@/lib/api/client";
+import { dayOf, formatDay, formatTime } from "@/lib/format";
 import { CHANNEL_LABEL, chatName, chatStateLine, notionIdentityLine, notionIndicatorState } from "../labels";
 import { DraftBlock } from "../draft-block";
 import type { useChatActions } from "../use-chat-actions";
@@ -33,10 +33,6 @@ function Message({ m, name }: { m: MessengerConversationMessageDto; name: string
       <ConversationText format={m.format} text={m.text.trim() || `(${m.kind})`} />
     </ConversationMessage>
   );
-}
-
-function dayKey(iso: string): string {
-  return iso.slice(0, 10);
 }
 
 function ManualReply({
@@ -142,8 +138,8 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
   ) : undefined;
   let history: ReactNode;
   if (q.isPending) history = <ConversationHistoryState><Loading what="the conversation" /></ConversationHistoryState>;
-  else if (q.isError && (!data || (q.error instanceof ApiFailure && q.error.code === "not_found"))) {
-    history = q.error instanceof ApiFailure && q.error.code === "not_found" ? (
+  else if (q.isError && (!data || isNotFound(q.error))) {
+    history = isNotFound(q.error) ? (
       <ConversationHistoryState flush><EmptyState action={<ActionButton onClick={onBack} size="s" variant="secondary">Back to chats</ActionButton>} title="Chat not found">This conversation is no longer linked to this project.</EmptyState></ConversationHistoryState>
     ) : (
       <ConversationHistoryState><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the conversation" /></ConversationHistoryState>
@@ -157,8 +153,8 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
         {earlier > 0 && <ConversationHistorySummary>Earlier: {earlier} messages are not shown.</ConversationHistorySummary>}
         {messages.length === 0 ? <ConversationHistoryState flush><EmptyState title="No messages yet">New messages from this linked chat will appear here.</EmptyState></ConversationHistoryState> : <ConversationMessageList ariaLabel={`Messages with ${name}`}>{messages.reduce<ReactNode[]>((items, message, index) => {
           const previous = messages[index - 1];
-          const currentDay = dayKey(message.at);
-          if (!previous || dayKey(previous.at) !== currentDay) items.push(<ConversationDayDivider key={`day-${currentDay}`} label={formatDay(message.at)} />);
+          const currentDay = dayOf(message.at);
+          if (!previous || dayOf(previous.at) !== currentDay) items.push(<ConversationDayDivider key={`day-${currentDay}`} label={formatDay(message.at)} />);
           items.push(<Message key={message.id} m={message} name={name} />);
           return items;
         }, [])}</ConversationMessageList>}

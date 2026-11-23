@@ -11,7 +11,7 @@ import { LoadFailed, Loading } from "@/components/state-views";
 import { reviewApi } from "@/lib/api/review";
 import { keys } from "@/lib/cache/keys";
 import { sentence } from "@/lib/api/client";
-import { formatDay, formatTime, plural } from "@/lib/format";
+import { dayOf, formatDay, formatTime, plural } from "@/lib/format";
 
 /** One message's own words, read from Mail (decision 0013: never stored; the server keeps it in memory). */
 function Body({ project, clientId, m }: { project: string; clientId: number; m: ConversationMessageDto }) {
@@ -59,17 +59,13 @@ function Divider({ t }: { t: ConversationThreadDto }) {
   );
 }
 
-function dayKey(iso: string): string {
-  return iso.slice(0, 10);
-}
-
 function ThreadMessages({ clientId, messages, name, pointed, project, subject }: { clientId: number; messages: ConversationMessageDto[]; name: string; pointed: string | null; project: string; subject: string }) {
   return (
     <ConversationMessageList ariaLabel={`Messages in ${subject || "this thread"}`} className="py-0">
       {messages.reduce<ReactNode[]>((items, message, index) => {
         const previous = messages[index - 1];
-        const currentDay = dayKey(message.date);
-        if (previous && dayKey(previous.date) !== currentDay) items.push(<ConversationDayDivider key={`day-${currentDay}`} label={formatDay(message.date)} />);
+        const currentDay = dayOf(message.date);
+        if (previous && dayOf(previous.date) !== currentDay) items.push(<ConversationDayDivider key={`day-${currentDay}`} label={formatDay(message.date)} />);
         items.push(<Message clientId={clientId} key={message.messageId} m={message} name={name} pointed={message.messageId === pointed} project={project} />);
         return items;
       }, [])}

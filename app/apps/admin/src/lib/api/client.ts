@@ -95,3 +95,6 @@ export const refreshData = (qc: QueryClient, { mail = false }: { mail?: boolean 
 
 /** Whether `refreshData` reads a key again: never the pulse; Mail only when asked. */
 export const isRefreshed = (head: unknown, mail: boolean): boolean => head !== "pulse" && (mail || typeof head !== "string" || !MAIL_KEYS.includes(head));
+
+/** P127 B1: the one Not found predicate (a 404, or the server's `not_found` code on any status): both conversation panes use it. */
+export const isNotFound = (e: unknown): boolean => e instanceof ApiFailure && (e.status === 404 || e.code === "not_found");

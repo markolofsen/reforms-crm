@@ -90,3 +90,27 @@ export function EmptyState({ title, children, action, compact = false }: { title
     </Empty>
   );
 }
+
+/** What `QueryView` reads of a query: structural, so a `useQuery`, a `useInfiniteQuery` or a derived pair fits. */
+export type ViewQuery<T> = { isPending: boolean; isError: boolean; isFetching: boolean; data: T | undefined; error: unknown; refetch: () => unknown };
+
+/**
+ * P127 B1 (V8): the four states of a read in one place (state rule 5). Pending shows `loading` (a skeleton the shape of what
+ * comes); a failure with no data shows `LoadFailed` with Retry; data shows the children, with `StaleNote` above them when the last
+ * refetch failed; data that `isEmpty` says is empty shows `empty`. A screen that keeps the last data after a failed refetch is
+ * never silent about it.
+ */
+export function QueryView<T>({ query, what, loading, isEmpty, empty, children }: { query: ViewQuery<T>; what: string; loading?: ReactNode; isEmpty?: (data: T) => boolean; empty?: ReactNode; children: (data: T) => ReactNode }) {
+  const retry = () => void query.refetch();
+  if (query.data === undefined) {
+    if (query.isError) return <LoadFailed error={query.error} onRetry={retry} retrying={query.isFetching} what={what} />;
+    return <>{loading ?? <Loading what={what} />}</>;
+  }
+  const data = query.data;
+  return (
+    <>
+      {query.isError && <StaleNote error={query.error} onRetry={retry} retrying={query.isFetching} />}
+      {isEmpty?.(data) && empty !== undefined ? empty : children(data)}
+    </>
+  );
+}

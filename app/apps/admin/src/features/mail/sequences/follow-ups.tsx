@@ -10,7 +10,7 @@ import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList, ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
 import { AppLink } from "@/components/app-link";
-import { ListSkeleton, ListState, LoadFailed } from "@/components/state-views";
+import { ListSkeleton, ListState, LoadFailed, StaleNote } from "@/components/state-views";
 import { refreshData, sentence } from "@/lib/api/client";
 import { sequencesApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
@@ -61,6 +61,8 @@ export function FollowUps({ project }: { project: string }) {
   const rows = q.data.enrollments;
   return (
     <section aria-label="Follow-ups" className="flex flex-col" data-testid="follow-ups">
+      {/* P127 B1: a failed refetch keeps the enrolments under the stale note (state rule 5). */}
+      {q.isError && <ListState><StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} /></ListState>}
       <h3 className="px-3 pt-2 pb-1 font-medium text-sm">In follow-up ({rows.length})</h3>
       {rows.length === 0 ? (
         <p className="measure px-3 pb-3 text-muted-foreground text-sm">

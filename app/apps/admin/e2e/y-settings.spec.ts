@@ -175,3 +175,23 @@ test("sending: Stop sending for one project, then Resume that project", async ({
   await expect(page.getByRole("button", { name: "Stop sending" })).toBeVisible();
   expect(writes).toEqual([`stop ${PROJECT}`, `resume ${PROJECT}`]);
 });
+
+// P127 B1: a failed refetch keeps the rules on screen under the stale note, with Retry (state rule 5). The save is stubbed, so
+// no rule changes; every read after the first answers 500.
+test("Checks: a failed refetch keeps the rules under a stale note", async ({ page }) => {
+  let reads = 0;
+  await page.route(/\/api\/safety-rules\?/, async (route) => {
+    reads += 1;
+    if (reads === 1) return route.continue();
+    await route.fulfill({ status: 500, json: { error: "boom", code: "internal" } });
+  });
+  await page.route(/\/api\/safety-rules\/[a-z_]+$/, async (route) => route.fulfill({ json: { ok: true } }));
+  await remember(page, PROJECT);
+  await page.goto(CHECKS);
+  const table = page.getByRole("table", { name: "Checks before sending" });
+  await expect(table.locator("tr[data-rule]").first()).toBeVisible();
+  await table.locator("tr[data-rule]").first().locator("label").click();
+  await expect(page.getByText("Showing the last list that loaded")).toBeVisible();
+  await expect(table.locator("tr[data-rule]").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
+});

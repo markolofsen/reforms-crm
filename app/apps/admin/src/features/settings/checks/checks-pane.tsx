@@ -6,7 +6,7 @@ import { Input } from "@hub/ui/input";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { Skeleton } from "@hub/ui/skeleton";
 import { Switch } from "@hub/ui/switch";
-import { LoadFailed } from "@/components/state-views";
+import { QueryView } from "@/components/state-views";
 import { refreshData, sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
@@ -82,9 +82,15 @@ export function rulesSummary(list: readonly SafetyRuleDto[]): string {
  */
 export function ChecksPane({ project }: { project: string }) {
   const q = useQuery({ queryKey: keys.rules(project), queryFn: () => metaApi.rules(project) });
-  if (q.isPending) return <Skeleton aria-label="Loading the checks" className="h-24 w-full rounded-xl" role="status" />;
-  if (!q.data) return <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the checks before sending" />;
-  const { rules } = q.data;
+  // P127 B1: a failed refetch keeps the rules on screen under the stale note.
+  return (
+    <QueryView loading={<Skeleton aria-label="Loading the checks" className="h-24 w-full rounded-xl" role="status" />} query={q} what="the checks before sending">
+      {(data) => <Checks project={project} rules={data.rules} />}
+    </QueryView>
+  );
+}
+
+function Checks({ project, rules }: { project: string; rules: SafetyRuleDto[] }) {
   const anyOff = rules.some((r) => !r.enabled);
   return (
     <>

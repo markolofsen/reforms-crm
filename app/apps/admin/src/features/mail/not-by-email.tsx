@@ -7,7 +7,7 @@ import type { InboxRowDto } from "@hub/contract/responses";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList, ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
-import { ListSkeleton, ListState, LoadFailed } from "@/components/state-views";
+import { ListSkeleton, ListState, LoadFailed, StaleNote } from "@/components/state-views";
 import { inboxApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
 import { keys } from "@/lib/cache/keys";
@@ -39,6 +39,8 @@ export function NotByEmail({ project }: { project: string }) {
   const all = INBOX_KINDS.reduce((n, k) => n + counts[k], 0);
   return (
     <section aria-label="Not by email" className="flex flex-col" data-testid="not-by-email">
+      {/* P127 B1: a failed refetch keeps the rows under the stale note (state rule 5). */}
+      {q.isError && <ListState><StaleNote error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} /></ListState>}
       <div aria-label="Not by email, group" className="scroll-strip flex gap-1 px-3 py-2" role="group">
         <ActionButton aria-pressed={kind === null} onClick={() => setKind(null)} size="s" variant={kind === null ? "secondary" : "quiet"}>
           All {all}

@@ -16,7 +16,7 @@ import { EmptyState, LoadFailed } from "@/components/state-views";
 import { DraftCard } from "@/features/mail/draft/draft-card";
 import type { ConversationRow } from "@/features/mail/model";
 import type { Notice, ReviewActions } from "@/features/mail/list/use-review-actions";
-import { ApiFailure, refreshData, sentence } from "@/lib/api/client";
+import { isNotFound, refreshData, sentence } from "@/lib/api/client";
 import { inboundApi } from "@/lib/api/inbox";
 import { reviewApi } from "@/lib/api/review";
 import { keys } from "@/lib/cache/keys";
@@ -153,7 +153,7 @@ export function ConversationPane({ project, clientId, listRow, pointed, actions,
     <History clientId={row.client.id} name={row.client.name || row.client.email} onNote={onHistoryNote} onScrollState={onHistoryScrollState} onSourceMessageId={onHistorySourceMessageId} pointed={pointed} project={project} />
   ) : q.isPending ? (
     <ConversationHistoryState flush><EmptyState title="Opening the conversation">The Hub looks the person up.</EmptyState></ConversationHistoryState>
-  ) : q.isError && !(q.error instanceof ApiFailure && q.error.status === 404) ? (
+  ) : q.isError && !isNotFound(q.error) ? (
     <ConversationHistoryState><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the conversation" /></ConversationHistoryState>
   ) : (
     <ConversationHistoryState flush><EmptyState title="Not found">This person has no conversation in this project.</EmptyState></ConversationHistoryState>
