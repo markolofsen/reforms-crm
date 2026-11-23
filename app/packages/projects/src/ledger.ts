@@ -55,6 +55,8 @@ export interface LedgerEntry {
   query?: string;
   // chat: the chats a messenger_history call returned, as `<channel>:<chat id>`
   chats?: string[];
+  /** Internal Hub refs returned by messenger_history, used to bind a focused `chat:<id>` draft to its prior read. */
+  chatRefs?: string[];
 }
 
 export interface CallRecord { name: string; input: unknown; result?: unknown }

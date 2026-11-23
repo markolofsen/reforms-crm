@@ -39,6 +39,7 @@ export type {
   MessengerAccountRow,
   MessengerDraftRow,
   MessengerMessageRow,
+  MessengerProjectionRow,
   NewMessengerDraft,
   NewMessengerMessage,
   ClientRow,

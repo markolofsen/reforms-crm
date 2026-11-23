@@ -163,7 +163,7 @@ export async function runProjectDoctor(slug: string, o: ProjectCommandOptions = 
   }
 }
 
-export interface SetupFlags { tone?: string; signoff?: string; languages?: string; /** `<Brand>=<addresses and domains>` (P60): adds or updates a `## Brands` row. */ brand?: string[]; /** `<Brand>=<line><br><line>` (P60): the Signature of an existing brand row. */ brandSignature?: string[] }
+export interface SetupFlags { tone?: string; signoff?: string; languages?: string; /** `<Brand>=<addresses and domains>` (P60): adds or updates a `## Brands` row. */ brand?: string[]; /** `<Brand>=<line><br><line>` (P60): the Signature of an existing brand row. */ brandSignature?: string[]; /** `<Brand>=<visible From name>` (P107): optional name shown before the technical sender address. */ brandDisplayName?: string[] }
 
 const pair = (v: string): [string, string] | null => {
   const i = v.indexOf("=");
@@ -211,7 +211,7 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
     if (!p) { out(`error brand: expected <Brand>=<addresses and domains>, got "${raw}"`); return 1; }
     const old = loadProject(root, slug).parsed.config.brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
     try {
-      writeBrandRow(before.folder, slug, { name: old?.name ?? p[0], receivesAt: p[1].split(",").map((x) => x.trim()).filter(Boolean), signature: old?.signature ?? [], by: "owner" });
+      writeBrandRow(before.folder, slug, { name: old?.name ?? p[0], receivesAt: p[1].split(",").map((x) => x.trim()).filter(Boolean), signature: old?.signature ?? [], displayName: old?.displayName, by: "owner" });
       out(`brand ${p[0]} receives at ${p[1]}`);
       wrote++;
     } catch (e) {
@@ -225,11 +225,25 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
     const old = loadProject(root, slug).parsed.config.brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
     if (!old) { out(`error brand-signature: no ## Brands row named ${p[0]} (add it with --brand ${p[0]}=<addresses and domains>)`); return 1; }
     try {
-      writeBrandRow(before.folder, slug, { name: old.name, receivesAt: old.receivesAt, signature: splitSignature(p[1].replace(/\\n/g, "<br>")), by: "owner" });
+      writeBrandRow(before.folder, slug, { name: old.name, receivesAt: old.receivesAt, signature: splitSignature(p[1].replace(/\\n/g, "<br>")), displayName: old.displayName, by: "owner" });
       out(`brand ${old.name} signs with ${splitSignature(p[1].replace(/\\n/g, "<br>")).join(" / ")}`);
       wrote++;
     } catch (e) {
       if (e instanceof ProjectError) { out(`error brand-signature ${p[0]}: ${e.message}`); return 1; }
+      throw e;
+    }
+  }
+  for (const raw of flags.brandDisplayName ?? []) {
+    const p = pair(raw);
+    if (!p) { out(`error brand-display-name: expected <Brand>=<display name>, got "${raw}"`); return 1; }
+    const old = loadProject(root, slug).parsed.config.brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
+    if (!old) { out(`error brand-display-name: no ## Brands row named ${p[0]} (add it with --brand ${p[0]}=<addresses and domains>)`); return 1; }
+    try {
+      writeBrandRow(before.folder, slug, { name: old.name, receivesAt: old.receivesAt, signature: old.signature, displayName: p[1], by: "owner" });
+      out(`brand ${old.name} displays as ${p[1]}`);
+      wrote++;
+    } catch (e) {
+      if (e instanceof ProjectError) { out(`error brand-display-name ${p[0]}: ${e.message}`); return 1; }
       throw e;
     }
   }
@@ -397,6 +411,7 @@ export function registerProjectCommands(program: Command, o: ProjectCommandOptio
     .option("--signoff <text>", "sign-off line of every draft (the same for all brands); with a ## Brands table the brand's Signature follows it")
     .option("--brand <brand=receives>", "add or update a ## Brands row: <Brand>=<addresses and domains, comma separated>; repeatable", (v: string, a: string[] = []) => [...a, v])
     .option("--brand-signature <brand=text>", "the Signature of a brand row, lines separated by <br>: Carapis=\"Carapis team<br>carapis.com\"; repeatable", (v: string, a: string[] = []) => [...a, v])
+    .option("--brand-display-name <brand=name>", "the visible From name of a brand row; the technical sender address is unchanged; repeatable", (v: string, a: string[] = []) => [...a, v])
     .option("--languages <tags>", "BCP-47 tags, comma separated")
     .action(async (slug: string, opts: SetupFlags) => {
       let rl: import("node:readline/promises").Interface | undefined;

@@ -6,6 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./model": "./src/schema.ts",
+    "./brand": "./src/brand.ts",
     "./parse": "./src/parse.ts",
     "./dev": "./src/dev.ts",
     "./hub-commands": "./src/hub-commands.ts",

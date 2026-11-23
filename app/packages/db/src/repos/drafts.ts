@@ -65,6 +65,8 @@ export type RecordDraftInput = {
   /** P58/P60: the address the client wrote to and its brand, as the hub's writer resolved them (never the agent's claim). Left out: kept as stored. */
   wroteTo?: string | null;
   brand?: string | null;
+  /** The admin's manual composer may create a new thread without an agent owner request. */
+  manual?: boolean;
 };
 
 /** created: new row; updated: same `mailRef` as the open draft; replaced: another open draft was skipped first; unchanged: this `mailRef` is already a finished draft. */
@@ -96,8 +98,8 @@ const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "obj
 
 /** The evidence block's `context`, with the owner's words beside it (P85). Null when there is neither. */
 function contextJson(context: unknown, ownerRequest: string | null, newThread = false): string | null {
-  if (!ownerRequest) return context === undefined ? null : JSON.stringify(context);
-  return JSON.stringify({ ...(isRecord(context) ? context : {}), ownerRequest, ...(newThread ? { newThread: true } : {}) });
+  if (!ownerRequest && !newThread) return context === undefined ? null : JSON.stringify(context);
+  return JSON.stringify({ ...(isRecord(context) ? context : {}), ...(ownerRequest ? { ownerRequest } : {}), ...(newThread ? { newThread: true } : {}) });
 }
 
 /** P85b: a draft recorded as a new thread (no mailRef, `newThread` in its context). */
@@ -326,7 +328,7 @@ export function draftsRepo(db: Db) {
 
         const ownerRequest = ownerWords;
         const newThread = input.newThread === true;
-        if (newThread && !ownerRequest) throw new RepoError("wrong_state", "A new thread is recorded only on the owner's words (ownerRequest)");
+        if (newThread && !ownerRequest && input.manual !== true) throw new RepoError("wrong_state", "A new thread is recorded only on the owner's words (ownerRequest)");
         if (newThread && input.mailRef) throw new RepoError("wrong_state", "A new thread answers no message: no mailRef");
         // P47. A step draft must be the open step of an active enrollment of this client. Any other record (but the sequence
         // skill's own) is the client writing back: their follow-ups finish here, in this transaction, and the open step draft is skipped.
@@ -370,7 +372,7 @@ export function draftsRepo(db: Db) {
                 fingerprint: input.evidence.fingerprint?.length ? JSON.stringify(input.evidence.fingerprint) : null,
                 batchKey: runKey,
               }
-            : ownerRequest
+            : ownerRequest || newThread
               ? { context: contextJson(undefined, ownerRequest, newThread) }
               : {}),
         };

@@ -115,5 +115,17 @@ describe("one timeline", () => {
     expect(first.next).toBe(`${all.rows[0]!.at}|send:${row.id}`);
     expect((await repos.runs.activity("p", { before: first.next })).rows[0]?.key).toBe(all.rows[1]?.key);
   });
+
+  it("labels a manually confirmed Messenger send as By hand", async () => {
+    const clientId = await repos.clients.create({ project: "p", email: "anna@x.example", name: "Anna" });
+    await repos.messengers.allowChat("p", "telegram_user", "1001", "Anna");
+    await repos.messengers.addIdentifier("p", clientId, "telegram", "1001");
+    const draft = await repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId: "1001", text: "Hi", createdBy: "hub_llm", clientId });
+    await repos.messengers.confirmDraft("p", draft.id, "admin", "2026-11-20T12:00:00.000Z");
+    const row = await repos.sends.beginMessage({ project: "p", channel: "telegram_user", messengerDraftId: draft.id, account: "1", to: "telegram:1001", name: "Anna", text: "Hi", actor: "admin", at: "2026-11-20T12:00:00.000Z", limits: { dailyCap: 5, spacingSeconds: 20 } });
+    await repos.messengers.markDraftSent("p", draft.id, "remote-1", "2026-11-20T12:00:01.000Z");
+    await repos.sends.markSent(row.id, "remote-1");
+    expect((await repos.runs.activity("p")).rows[0]).toMatchObject({ key: `send:${row.id}`, why: "By hand on Telegram", provider: null });
+  });
 });
 

@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql, type SQL } from "drizzle-orm";
 import { type FinishReason, INBOX_ACTIONS, INBOX_KINDS, SEQUENCE_SKILL, TRIAGE_GAP_MINUTES, type InboxAction, type InboxCounts, type InboxKind, type InboxKindCounts, type InboxFilter, type NotionRef } from "@hub/config";
 import type { Db } from "../client";
 import { write } from "../tx";
@@ -135,6 +135,29 @@ export function inboxRepo(db: Db) {
         .limit(opts.limit ?? -1)
         .offset(opts.offset ?? 0)
         .all();
+    },
+
+    /** The Notion link recorded for one address, when the agent has already seen it. Read only. */
+    async byEmail(project: string, email: string): Promise<Pick<InboxRow, "notionKind" | "notionPageId" | "notionUrl"> | null> {
+      return (
+        db
+          .select({ notionKind: inboxRows.notionKind, notionPageId: inboxRows.notionPageId, notionUrl: inboxRows.notionUrl })
+          .from(inboxRows)
+          .where(and(eq(inboxRows.project, project), eq(inboxRows.email, email.trim().toLowerCase())))
+          .get() ?? null
+      );
+    },
+
+    /** The Notion links recorded for a bounded set of addresses, read in one query for list projections. */
+    async notionByEmails(project: string, emails: readonly string[]): Promise<ReadonlyMap<string, Pick<InboxRow, "notionKind" | "notionPageId" | "notionUrl">>> {
+      const normalized = [...new Set(emails.map((email) => email.trim().toLowerCase()).filter(Boolean))];
+      if (normalized.length === 0) return new Map();
+      const rows = db
+        .select({ email: inboxRows.email, notionKind: inboxRows.notionKind, notionPageId: inboxRows.notionPageId, notionUrl: inboxRows.notionUrl })
+        .from(inboxRows)
+        .where(and(eq(inboxRows.project, project), inArray(inboxRows.email, normalized)))
+        .all();
+      return new Map(rows.map(({ email, ...ref }) => [email, ref]));
     },
 
     async kindCounts(project: string): Promise<InboxKindCounts> {

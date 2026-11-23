@@ -56,6 +56,7 @@ export type {
   NewMessengerDraft,
   NewMessengerMessage,
 } from "./messengers";
+export type { MessengerProjectionRow } from "./messenger-projection";
 export type { ChatActivity, MessengerChatRow } from "./messenger-chats";
 export type { NewTriage, TriageCounts } from "./messenger-triage";
 export { rulesOf } from "./messenger-chats";

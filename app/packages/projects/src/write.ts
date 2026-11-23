@@ -1,12 +1,13 @@
 // In-place edits of project.md: table rows only, every other byte stays. Pure text functions plus thin file wrappers.
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { BRANDS_HEADER, joinSignature } from "./brand";
+import { BRANDS_HEADER, joinSignature, normalizedDisplayName } from "./brand";
 import { isPolicyField } from "./fields";
 import { BYS, checkValue, FIELDS, isIsoDate, parseProjectMd, ProjectError, scan, tableOf, type By, type Issue } from "./parse";
 
 const SETTINGS_HEADER = "| Field | Value | Answered | By |";
 const ANSWERS_HEADER = "| Date | Field | Question | Answer |";
+const LINKS_HEADER = "| Group | Label | Target | Under | Answered | By |";
 
 /** Lines with their terminators, so joining them gives the original bytes back. */
 const rawLines = (text: string): string[] => text.match(/[^\n]*\n|[^\n]+$/g) ?? [];
@@ -109,12 +110,66 @@ export function applyAnswer(text: string, a: { date: string; field: string; ques
   return insertAt(raws, t.lastIdx + 1, [`${row}${eol}`]);
 }
 
+export interface LinkRowInput {
+  group: string;
+  label: string;
+  target: string;
+  under?: string | null;
+  by: By;
+  date: string;
+}
+
+/** Replaces the declarative `## Links` table and validates all rows before returning. */
+export function applyLinkRows(text: string, slug: string, links: readonly LinkRowInput[]): string {
+  const bad: Issue[] = [];
+  for (const link of links) {
+    if (!link.group.trim() || !link.label.trim()) bad.push({ severity: "error", code: "bad_link", line: null, field: "links", message: "a link needs a Group and Label" });
+    if (!link.target.trim()) bad.push({ severity: "error", code: "bad_link", line: null, field: "links", message: `link "${link.label}" has no Target` });
+    if (!isIsoDate(link.date)) bad.push({ severity: "error", code: "bad_date", line: null, field: "links", message: `"${link.date}" is not an ISO date` });
+    if (!(BYS as readonly string[]).includes(link.by)) bad.push({ severity: "error", code: "bad_by", line: null, field: "links", message: `By "${link.by}" must be one of ${BYS.join(", ")}` });
+  }
+  if (bad.length) throw new ProjectError(bad);
+
+  const raws = rawLines(text);
+  const lines = raws.map(bare);
+  const sc = scan(lines);
+  const eol = eolOf(raws.find((raw) => raw.endsWith("\n")), "\n");
+  const row = (link: LinkRowInput): string => `| ${escapeCell(link.group)} | ${escapeCell(link.label)} | ${escapeCell(link.target)} | ${escapeCell(link.under ?? "")} | ${link.date} | ${link.by} |`;
+  const section = sc.sections.find((s) => s.name === "links");
+  let next: string;
+
+  if (!section) {
+    const before = sc.sections.find((s) => s.name === "notion databases") ?? sc.sections.find((s) => s.name === "answers") ?? sc.sections.find((s) => s.name === "notes");
+    const at = before ? before.start : raws.length;
+    const lead = !before && raws.length && (lines[lines.length - 1] ?? "").trim() !== "" ? [eol] : [];
+    next = insertAt(raws, at, [...lead, `## Links${eol}`, eol, `${LINKS_HEADER}${eol}`, `|---|---|---|---|---|---|${eol}`, ...links.map((link) => `${row(link)}${eol}`), eol]);
+  } else {
+    const table = tableOf(lines, sc.fenced, section);
+    const start = table.headerIdx >= 0 ? table.headerIdx : section.start + 1;
+    const end = table.lastIdx >= 0 ? table.lastIdx + 1 : section.end;
+    const replacement = [`${LINKS_HEADER}${eol}`, `|---|---|---|---|---|---|${eol}`, ...links.map((link) => `${row(link)}${eol}`)];
+    raws.splice(start, Math.max(0, end - start), ...replacement);
+    next = raws.join("");
+  }
+
+  const linkErrors = parseProjectMd(next, slug).issues.filter((issue) => issue.field === "links" && issue.severity === "error");
+  if (linkErrors.length) throw new ProjectError(linkErrors);
+  return next;
+}
+
+/** `folder` is <projects>/<slug>. */
+export function writeLinkRows(folder: string, slug: string, links: readonly (Omit<LinkRowInput, "date"> & { date?: string })[]): void {
+  rewrite(join(folder, "project.md"), (text) => applyLinkRows(text, slug, links.map((link) => ({ ...link, date: link.date ?? localDate() }))));
+}
+
 export interface BrandRowInput {
   name: string;
   /** Addresses and domains, as written in the Receives at cell. */
   receivesAt: readonly string[];
   /** Signature lines; empty: not answered yet. */
   signature: readonly string[];
+  /** Optional visible From name; absent keeps Mail's account name. */
+  displayName?: string | null;
   by: By;
   date: string;
 }
@@ -139,7 +194,8 @@ export function applyBrandRow(text: string, slug: string, b: BrandRowInput): str
   const lines = raws.map(bare);
   const sc = scan(lines);
   const eol = eolOf(raws.find((r) => r.endsWith("\n")), "\n");
-  const row = `| ${brandCell(b.name)} | ${brandCell(b.receivesAt.join(", "))} | ${brandCell(joinSignature(b.signature))} | ${b.date} | ${b.by} |`;
+  const displayName = normalizedDisplayName(b.displayName);
+  const row = (withDisplayName: boolean) => `| ${brandCell(b.name)} | ${brandCell(b.receivesAt.join(", "))} | ${brandCell(joinSignature(b.signature))} | ${b.date} | ${b.by} |${withDisplayName ? ` ${brandCell(displayName ?? "")} |` : ""}`;
   const section = sc.sections.find((s) => s.name === "brands");
   let next: string;
   if (!section) {
@@ -147,15 +203,22 @@ export function applyBrandRow(text: string, slug: string, b: BrandRowInput): str
     const after = settings ? sc.sections[sc.sections.indexOf(settings) + 1] : sc.sections.find((s) => s.name === "notion databases");
     const at = after ? after.start : raws.length;
     const lead = !after && raws.length && (lines[lines.length - 1] ?? "").trim() !== "" ? [eol] : [];
-    next = insertAt(raws, at, [...lead, `## Brands${eol}`, eol, `${BRANDS_HEADER}${eol}`, `|---|---|---|---|---|${eol}`, `${row}${eol}`, eol]);
+    next = insertAt(raws, at, [...lead, `## Brands${eol}`, eol, `${BRANDS_HEADER}${eol}`, `|---|---|---|---|---|---|${eol}`, `${row(true)}${eol}`, eol]);
   } else {
     const t = tableOf(lines, sc.fenced, section);
+    let withDisplayName = t.header?.length === 6;
+    if (!withDisplayName && displayName !== null && t.header?.length === 5) {
+      raws[t.headerIdx] = `${BRANDS_HEADER}${eolOf(raws[t.headerIdx], eol)}`;
+      if (raws[t.headerIdx + 1] !== undefined) raws[t.headerIdx + 1] = `|---|---|---|---|---|---|${eolOf(raws[t.headerIdx + 1], eol)}`;
+      for (const r of t.rows) raws[r.idx] = `${bare(raws[r.idx] ?? "")} |${eolOf(raws[r.idx], eol)}`;
+      withDisplayName = true;
+    }
     const existing = t.rows.find((r) => (r.cells[0] ?? "").toLowerCase() === b.name.trim().toLowerCase());
-    if (t.header === null) next = insertAt(raws, section.start + 1, [eol, `${BRANDS_HEADER}${eol}`, `|---|---|---|---|---|${eol}`, `${row}${eol}`]);
+    if (t.header === null) next = insertAt(raws, section.start + 1, [eol, `${BRANDS_HEADER}${eol}`, `|---|---|---|---|---|---|${eol}`, `${row(true)}${eol}`]);
     else if (existing) {
-      raws[existing.idx] = `${row}${eolOf(raws[existing.idx], "")}`;
+      raws[existing.idx] = `${row(withDisplayName)}${eolOf(raws[existing.idx], "")}`;
       next = raws.join("");
-    } else next = insertAt(raws, t.lastIdx + 1, [`${row}${eol}`]);
+    } else next = insertAt(raws, t.lastIdx + 1, [`${row(withDisplayName)}${eol}`]);
   }
   const brandErrors = parseProjectMd(next, slug).issues.filter((i) => i.field === "brands" && i.severity === "error");
   if (brandErrors.length) throw new ProjectError(brandErrors);

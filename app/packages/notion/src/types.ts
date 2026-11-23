@@ -15,6 +15,8 @@ export interface PropertyValue {
 export interface DataSourceInfo {
   id: string;
   title: string;
+  /** The Notion database page that owns this data source, when the API returns it. */
+  pageId?: string;
   properties: Record<string, PropertyConfig>;
 }
 

@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { unresolvedMarkers } from "@hub/config";
 import { RepoError, withoutLeadingBlankLines, type DraftRow, type MailVersionRow, type Repos, type SendRow } from "@hub/db";
-import { checkDraftRecipients, isOwnAddress, loadProject, loadProjects, normalizeAddress, type ProjectConfig } from "@hub/projects";
+import { isOwnAddress } from "@hub/projects/brand";
+import { checkDraftRecipients, loadProject, loadProjects, normalizeAddress } from "@hub/projects";
+import type { ProjectConfig } from "@hub/projects/model";
 import { bareId, MAIL_NOT_ANSWERING_FIX, MailNotAnswering, type MailDraft, type Mailer, type TrashItem } from "./mailer";
 
 // `hub send` (decision 0011, plan P23). The only code that sends mail. What a project allows (send.*, draft.recipients) is

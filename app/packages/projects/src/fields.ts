@@ -4,6 +4,7 @@
 import { z } from "zod";
 import { KIND_IDS } from "./kinds";
 import { AUTOLINK_MODES, KNOWLEDGE_SCOPES, SEND_MODES, STAMP_MODES, STATUSES } from "./schema";
+import { CHAT_INSTRUCTION_MAX } from "@hub/config/chat-rules";
 import { BCP47, EMAIL, isIsoDate, isTimezone, normalizeAddress, normalizeId, splitList, UUID } from "./values";
 
 export interface FieldDef {
@@ -76,6 +77,8 @@ export const FIELDS: Record<string, FieldDef> = {
   "knowledge.source": { path: "knowledge.source", schema: check((v) => v === "files", (v) => `expected files, got "${v}"`), doc: "Always files." },
   "knowledge.scope": { path: "knowledge.scope", schema: check((v) => (KNOWLEDGE_SCOPES as readonly string[]).includes(v), (v) => `expected shared or by-brand, got "${v}"`), doc: "shared (default): one knowledge base for every brand; by-brand: each entry lists its brands and search filters by the thread's brand (needs two or more ## Brands rows)." },
   "messengers.autolink": { path: "messengers.autolink", schema: check((v) => (AUTOLINK_MODES as readonly string[]).includes(v), (v) => `expected on or off, got "${v}"`), doc: "P84: on (default): the Hub links a private Telegram or WhatsApp chat by itself when its phone or username equals the identifier of exactly one client record, imports 30 days and says so in Activity; off: it only suggests." },
+  "messengers.language": { path: "messengers.language", schema: check((v) => BCP47.test(v), (v) => `"${v}" is not a BCP-47 language tag`), doc: "Project reply-language override, BCP-47; empty: use the client's language." },
+  "messengers.instruction": { path: "messengers.instruction", schema: check((v) => v.length <= CHAT_INSTRUCTION_MAX, (v) => `instruction is ${v.length} characters, the limit is ${CHAT_INSTRUCTION_MAX}`), doc: "One project-wide Messenger instruction; a chat's instruction overrides it. Empty: none." },
   "run.quiet_hours": {
     path: "run.quietHours",
     schema: check((v) => v === "off" || /^([01]\d|2[0-3]):([0-5]\d)-([01]\d|2[0-3]):([0-5]\d)$/.test(v), (v) => `expected HH:MM-HH:MM or off, got "${v}"`),

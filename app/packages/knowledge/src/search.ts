@@ -1,6 +1,7 @@
 // The tool contract of doc 16 section 5, as plain functions. The MCP server only adapts these.
 import { RepoError, type Repos } from "@hub/db";
-import { ANY_BRAND, ProjectBase } from "@hub/projects";
+import { ANY_BRAND } from "@hub/projects/brand";
+import { ProjectBase } from "@hub/projects/model";
 
 export type ToolErrorCode = "unknown_project" | "project_mismatch" | "empty_query" | "not_found" | "brand_required" | "unknown_brand";
 export class ToolError extends Error {

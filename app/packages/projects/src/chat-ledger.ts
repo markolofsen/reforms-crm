@@ -36,11 +36,13 @@ export function chatEntry(c: CallRecord): LedgerEntry | null {
   if (c.name !== HUB_MESSENGER_HISTORY) return null;
   const reply = replyOf(c.result);
   if (reply.error !== undefined) return null;
-  const listed = Array.isArray(reply.chats) ? reply.chats.map(obj).flatMap((x) => (str(x.channel) && str(x.chat_id) ? [chatKey(str(x.channel)!, str(x.chat_id)!)] : [])) : [];
+  const chatRows = Array.isArray(reply.chats) ? reply.chats.map(obj) : [];
+  const listed = chatRows.flatMap((x) => (str(x.channel) && str(x.chat_id) ? [chatKey(str(x.channel)!, str(x.chat_id)!)] : []));
+  const chatRefs = chatRows.flatMap((x) => Number.isInteger(Number(x.id)) && Number(x.id) > 0 ? [`chat:${Number(x.id)}`] : []);
   const i = obj(c.input);
   const named = str(i.channel) && str(i.chat_id) ? [chatKey(str(i.channel)!, str(i.chat_id)!)] : [];
   const chats = [...new Set(listed.length ? listed : c.result === undefined ? named : [])];
-  return chats.length ? { tool: "messenger_history", kind: "chat", chats } : null;
+  return chats.length ? { tool: "messenger_history", kind: "chat", chats, ...(chatRefs.length ? { chatRefs: [...new Set(chatRefs)] } : {}) } : null;
 }
 
 /** The guard's decision for a `messenger_draft_write` about to run: its chat must have been read in this session (and subagent). */
@@ -49,7 +51,12 @@ export function chatDraftViolations(entries: readonly LedgerEntry[], call: CallR
   const i = obj(call.input);
   const channel = str(i.channel);
   const chatId = str(i.chat_id);
-  if (!channel || !chatId) return [];
+  const focused = Number.isInteger(Number(i.chat)) && Number(i.chat) > 0 ? `chat:${Number(i.chat)}` : undefined;
+  if (focused) {
+    const read = entries.some((e) => e.kind === "chat" && (e.aid ?? "") === (aid ?? "") && (e.chatRefs ?? []).includes(focused));
+    return read ? [] : [`read this chat first: no messenger_history of ${focused} in this session before messenger_draft_write (a messenger reply is written from that chat's own history and rules)`];
+  }
+  if (!channel || !chatId) return ["messenger_draft_write must identify a chat with chat, or channel and chat_id"];
   const want = chatKey(channel, chatId);
   const read = entries.some((e) => e.kind === "chat" && (e.aid ?? "") === (aid ?? "") && (e.chats ?? []).includes(want));
   return read ? [] : [`read this chat first: no messenger_history of ${want} in this session before messenger_draft_write (a messenger reply is written from that chat's own history and rules)`];

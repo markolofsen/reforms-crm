@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyBrandRow, brandChecks, headersFromText, lineVariants, ownSignoff, parseProjectMd, replyLanguage, replyFrom, resolveBrand, signatureFor, signatureLines, signBody, signingNames, type LoadedProject } from "../src/index";
+import { applyBrandRow, brandChecks, displayNameFor, headersFromText, lineVariants, mailComposerContext, ownSignoff, parseProjectMd, replyLanguage, replyFrom, resolveBrand, signatureFor, signatureLines, signBody, signingNames, type LoadedProject } from "../src/index";
 
 // P60 B1/B2: the `## Brands` table, the resolver and the signature, on fixtures shaped like the two live instances.
 // The names live in test/fixtures/brands (core test code names no owner, `@docs/LAYERS.md`).
@@ -29,6 +29,32 @@ describe("## Brands parses", () => {
     expect(project("two-accounts").config.knowledge.scope).toBe("shared");
   });
 
+  it("accepts an optional display name while legacy tables stay unchanged", () => {
+    const legacy = project("one-mailbox").config;
+    expect(legacy.brands[0]?.displayName).toBeNull();
+    const text = read("one-mailbox.md").replace(
+      "| Brand | Receives at | Signature | Answered | By |",
+      "| Brand | Receives at | Signature | Answered | By | Display name |",
+    ).replace("|---|---|---|---|---|", "|---|---|---|---|---|---|")
+      .replace(/^(\| (?:Carapis|GPT-Kino|IdTypes) \|[^\n]*\|)$/gm, "$1 |")
+      .replace(/^(\| Reforms \|[^\n]*\| owner \|)$/gm, "$1 Reforms |");
+    const parsed = parseProjectMd(text, "one-mailbox");
+    expect(parsed.issues.filter((i) => i.severity === "error")).toEqual([]);
+    expect(parsed.config.brands.find((b) => b.name === "Reforms")?.displayName).toBe("Reforms");
+    expect(displayNameFor(parsed.config, "Reforms")).toBe("Reforms");
+  });
+
+  it("rejects unsafe display names", () => {
+    const base = read("one-mailbox.md").replace(
+      "| Brand | Receives at | Signature | Answered | By |",
+      "| Brand | Receives at | Signature | Answered | By | Display name |",
+    ).replace("|---|---|---|---|---|", "|---|---|---|---|---|---|")
+      .replace(/^(\| [^\n]*\| owner \|)$/gm, "$1 |")
+      .replace(/^\| Carapis \|[^\n]*$/m, (line) => `${line.slice(0, -1)} ${"a".repeat(121)} |`);
+    const parsed = parseProjectMd(base, "one-mailbox");
+    expect(parsed.issues.filter((i) => i.severity === "error").map((i) => i.message).join("\n")).toMatch(/longer than 120/);
+  });
+
   it("refuses a domain in two rows, an address that is not the project's, a duplicate brand and a bad header", () => {
     const base = read("one-mailbox.md");
     const row = (r: string) => base.replace(/(\| Reforms \|[^\n]*\n)/, `$1${r}\n`);
@@ -53,6 +79,9 @@ describe("## Brands parses", () => {
     expect(again.issues.filter((i) => i.severity === "error")).toEqual([]);
     expect(again.config.brands[1]?.signature).toEqual(["Line one", "Line | two"]);
     expect(next.split("\n").length).toBe(base.split("\n").length);
+    const named = applyBrandRow(base, "two-accounts", { name: second.name, receivesAt: second.receivesAt, signature: second.signature, displayName: "Caribbean MLS", by: "owner", date: "2026-11-20" });
+    expect(parseProjectMd(named, "two-accounts").config.brands[1]?.displayName).toBe("Caribbean MLS");
+    expect(named).toContain("| Display name |");
     expect(() => applyBrandRow(base, "two-accounts", { name: "Other", receivesAt: ["someone@example.org"], signature: [], by: "owner", date: "2026-11-20" })).toThrow(/not one of the project's/);
     const noTable = base.replace(/## Brands[\s\S]*?(?=## Notion databases)/, "");
     const created = applyBrandRow(noTable, "two-accounts", { name: second.name, receivesAt: second.receivesAt, signature: [], by: "owner", date: "2026-11-20" });
@@ -117,6 +146,44 @@ describe("the signature", () => {
     const placeholder = signatureFor(c, null);
     expect(signBody(signBody("Answer.", placeholder), block, signatureLines(c))).toBe(`Answer.\n\n${block.lines.join("\n")}`);
   });
+
+  it("builds the manual composer context without changing the technical sender", () => {
+    const named = { ...c, brands: c.brands.map((b) => b.name === "Carapis" ? { ...b, displayName: "Carapis" } : b) };
+    const resolution = resolveBrand(headersFromText("To: info@carapis.com\nDelivered-To: hello@reforms.ai\n"), named);
+    const context = mailComposerContext(named, { account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai"], resolution }, "Hello there");
+    expect(context).toMatchObject({
+      brand: "Carapis",
+      wroteTo: "info@carapis.com",
+      from: "Carapis <hello@reforms.ai>",
+      technicalAddress: "hello@reforms.ai",
+      language: "en",
+      signatureLines: ["Best regards,", "Carapis team", "carapis.com"],
+      status: "resolved",
+    });
+    expect(context.signatureLinesByLanguage).toEqual(expect.objectContaining({ en: expect.any(Array), ru: expect.any(Array) }));
+    expect(context.brands).toEqual(expect.arrayContaining([expect.objectContaining({ name: "Carapis", status: "ready", technicalAddress: "hello@reforms.ai" })]));
+  });
+
+  it("uses the first configured supported language for an empty composer", () => {
+    const russian = { ...c, languages: ["ru"] };
+    expect(mailComposerContext(russian, { account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai"], resolution: null })).toMatchObject({ language: "ru" });
+  });
+
+  it("exposes every configured brand for an ambiguous shared mailbox and auto-resolves a single brand", () => {
+    const context = mailComposerContext(c, { account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai"], resolution: null });
+    expect(context.brands.map((brand) => brand.name)).toEqual(c.brands.map((brand) => brand.name));
+    expect(context.brands.every((brand) => brand.from === "hello@reforms.ai")).toBe(true);
+    const selected = c.brands.find((brand) => brand.name === "Carapis");
+    if (!selected) throw new Error("fixture needs Carapis");
+    const one = { ...c, brands: [selected] };
+    expect(mailComposerContext(one, { account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai"], resolution: null })).toMatchObject({ brand: "Carapis", status: "resolved" });
+  });
+
+  it("marks an unresolved multi-brand composer instead of picking a default brand", () => {
+    const context = mailComposerContext(c, { account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai"], resolution: null });
+    expect(context).toMatchObject({ brand: null, status: "needs_brand", reason: "the conversation does not identify one brand" });
+    expect(context.signatureLines.at(-1)).toBe("[Owner: signature for unknown brand]");
+  });
 });
 
 describe("doctor rows", () => {
@@ -149,10 +216,10 @@ describe("doctor rows", () => {
       const [a, b] = c.brands;
       if (!a || !b) throw new Error("fixture");
       const out: string[] = [];
-      const code = await runProjectSetup("two-accounts", { brand: [`${a.name}=${a.receivesAt.join(", ")}`, `${b.name}=${b.receivesAt.join(", ")}`], brandSignature: [`${b.name}=One<br>Two`] }, { projectsRoot: root, out: (l) => out.push(l) });
+      const code = await runProjectSetup("two-accounts", { brand: [`${a.name}=${a.receivesAt.join(", ")}`, `${b.name}=${b.receivesAt.join(", ")}`], brandSignature: [`${b.name}=One<br>Two`], brandDisplayName: [`${b.name}=Caribbean MLS`] }, { projectsRoot: root, out: (l) => out.push(l) });
       expect(code, out.join("\n")).toBe(0);
       const after = parseProjectMd(readFileSync(path.join(root, "two-accounts", "project.md"), "utf8"), "two-accounts").config.brands;
-      expect(after.map((x) => [x.name, x.signature])).toEqual([[a.name, []], [b.name, ["One", "Two"]]]);
+      expect(after.map((x) => [x.name, x.signature, x.displayName])).toEqual([[a.name, [], null], [b.name, ["One", "Two"], "Caribbean MLS"]]);
       expect(await runProjectSetup("two-accounts", { brandSignature: ["Nobody=x"] }, { projectsRoot: root, out: () => {} })).toBe(1);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -269,6 +336,11 @@ describe("replyFrom (P58)", () => {
     expect(replyFrom({ account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai", "Info@Carapis.com"], clientWroteTo: w }, one)).toEqual({ from: "info@carapis.com", clientWroteTo: "info@carapis.com", fromReason: null, via: "wrote-to" });
     // Mail straight to the mailbox: nothing to explain.
     expect(replyFrom({ account: "hello@reforms.ai", accountAddresses: [], clientWroteTo: "hello@reforms.ai" }, one)).toMatchObject({ from: "hello@reforms.ai", fromReason: null });
+  });
+
+  it("uses the brand display name without changing the technical address", () => {
+    const r = replyFrom({ account: "hello@reforms.ai", accountAddresses: ["hello@reforms.ai"], clientWroteTo: "info@carapis.com", displayName: "Carapis" }, one);
+    expect(r).toMatchObject({ from: "Carapis <hello@reforms.ai>", clientWroteTo: "info@carapis.com", via: "account" });
   });
 
   it("a receiving account outside mail.accounts falls back to mail.sender, with the reason; never silently", () => {

@@ -2,6 +2,7 @@ import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
 import { messengerChatsRepo } from "./messenger-chats";
+import { messengerProjectionRepo } from "./messenger-projection";
 import { messengerTriageRepo } from "./messenger-triage";
 import {
   clientIdentifiers,
@@ -61,9 +62,11 @@ export function messengersRepo(db: Db) {
   };
 
   const chats = messengerChatsRepo(db);
+  const projection = messengerProjectionRepo(db);
 
   return {
     ...chats,
+    ...projection,
     // ---- the pre-analysis' verdicts (P71 M-P)
     ...messengerTriageRepo(db),
     // ---- allow-list

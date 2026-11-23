@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { appendAnswer, applyAnswer, applySetting, hasErrors, parseProjectMd, ProjectError, writeSetting } from "../src/index";
+import { appendAnswer, applyAnswer, applyLinkRows, applySetting, hasErrors, parseProjectMd, ProjectError, writeSetting } from "../src/index";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const acme = readFileSync(join(here, "fixtures", "projects", "acme-travel", "project.md"), "utf8");
@@ -89,6 +89,21 @@ describe("applyAnswer", () => {
   it("creates the section before Notes when missing", () => {
     const out = applyAnswer(`# x\n\n## Settings\n\n| Field | Value | Answered | By |\n|---|---|---|---|\n\n## Notes\n\nn\n`, { date: "2026-11-20", field: "a", question: "q|q", answer: "yes" });
     expect(out).toContain("## Answers\n\n| Date | Field | Question | Answer |\n|---|---|---|---|\n| 2026-11-20 | a | q\\|q | yes |\n\n## Notes");
+  });
+});
+
+describe("applyLinkRows", () => {
+  it("creates the Links section before Notion databases and parses the rows back", () => {
+    const out = applyLinkRows(acme, "acme-travel", [
+      { group: "Notion", label: "Clients", target: "notion:clients", by: "agent", date: "2026-11-20" },
+      { group: "Sites", label: "Website", target: "https://example.com", by: "owner", date: "2026-11-20" },
+    ]);
+    expect(out.indexOf("## Links")).toBeLessThan(out.indexOf("## Notion databases"));
+    expect(parseProjectMd(out, "acme-travel").config.links.map((link) => link.label)).toEqual(["Clients", "Website"]);
+  });
+
+  it("rejects an invalid target before returning a changed document", () => {
+    expect(() => applyLinkRows(acme, "acme-travel", [{ group: "Notion", label: "Clients", target: "http://example.com", by: "agent", date: "2026-11-20" }])).toThrow(ProjectError);
   });
 });
 

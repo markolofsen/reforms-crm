@@ -107,6 +107,28 @@ describe("schema 1 is the only format", () => {
   });
 });
 
+describe("## Links", () => {
+  it("is optional for legacy projects and parses database roles, ids, nesting and https targets", () => {
+    const legacy = parseProjectMd(base(), "t");
+    expect(legacy.links).toEqual([]);
+    const text = `${base()}\n## Links\n\n| Group | Label | Target | Under | Answered | By |\n|---|---|---|---|---|---|\n| Notion | Clients | notion:clients | Customers | 2026-11-14 | agent |\n| Notion | Customers | notion:00000000000040008000000000000003 |  | 2026-11-14 | owner |\n| Sites | Reforms | https://reforms.ai/ |  | 2026-11-14 | owner |\n`;
+    const parsed = parseProjectMd(text, "t");
+    expect(parsed.issues).toEqual([]);
+    expect(parsed.config.links).toEqual([
+      { group: "Notion", label: "Clients", target: "notion:clients", under: "Customers", answered: "2026-11-14", by: "agent" },
+      { group: "Notion", label: "Customers", target: "notion:00000000000040008000000000000003", under: null, answered: "2026-11-14", by: "owner" },
+      { group: "Sites", label: "Reforms", target: "https://reforms.ai/", under: null, answered: "2026-11-14", by: "owner" },
+    ]);
+  });
+
+  it("rejects unsafe targets, unknown roles and deeper nesting", () => {
+    const text = `${base()}\n## Links\n\n| Group | Label | Target | Under | Answered | By |\n|---|---|---|---|---|---|\n| Notion | Customers | notion:missing |  | 2026-11-14 | owner |\n| Notion | Clients | http://example.com | Customers | 2026-11-14 | owner |\n| Notion | Deals | https://example.com | Clients | 2026-11-14 | owner |\n| Notion | Tasks | notion:00000000000040008000000000000004 | Deals | 2026-11-14 | owner |\n`;
+    const parsed = parseProjectMd(text, "t");
+    expect(parsed.issues.filter((issue) => issue.code === "bad_link")).toHaveLength(4);
+    expect(parsed.links).toEqual([]);
+  });
+});
+
 describe("precise errors", () => {
   it("unknown schema version", () => {
     const p = parseProjectMd(base().replace("| schema | 1 |", "| schema | 2 |"), "t");

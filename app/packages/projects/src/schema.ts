@@ -2,6 +2,7 @@
 // `ProjectBase` is the resolved shape every consumer reads (parser, doctor, router, registry, installer, skills);
 // `Kind` is the data a kind of project declares. A `Kind` is validated here, its instances live in kinds.ts.
 import { z } from "zod";
+import { CHAT_INSTRUCTION_MAX } from "@hub/config/chat-rules";
 import { BCP47, isIsoDate, isTimezone, SLUG } from "./values";
 
 export const STATUSES = ["draft", "active", "paused", "archived"] as const;
@@ -32,6 +33,19 @@ const IsoDate = z.string().refine(isIsoDate, "not an ISO date");
 export const ProjectDatabase = z.object({ slug: z.string(), dataSourceId: z.string() });
 export type ProjectDatabase = z.infer<typeof ProjectDatabase>;
 
+/** One declared destination in the project's Quick Links menu (P101). */
+export const ProjectLink = z.object({
+  group: z.string().trim().min(1).max(120),
+  label: z.string().trim().min(1).max(120),
+  /** Normalized `notion:<role|32hex>` or an https URL. */
+  target: z.string().trim().min(1).max(2048),
+  /** One-level parent label in the same group; null means a top-level item. */
+  under: z.string().trim().min(1).max(120).nullable().default(null),
+  answered: z.string().default(""),
+  by: z.enum(BYS).default("owner"),
+});
+export type ProjectLink = z.infer<typeof ProjectLink>;
+
 /**
  * One row of `## Brands` (P60): a product the project answers for, the addresses and domains its mail arrives at, and
  * the lines that sign a draft for it. `name` is the exact Notion `Brand` option; `receivesAt` holds normalised
@@ -41,6 +55,8 @@ export const Brand = z.object({
   name: z.string().min(1),
   receivesAt: z.array(z.string()).default([]),
   signature: z.array(z.string()).default([]),
+  /** Optional visible From name. Empty/absent keeps Mail's account name for backward compatibility. */
+  displayName: z.string().trim().nullable().optional(),
   answered: z.string().default(""),
   by: z.enum(BYS).default("owner"),
 });
@@ -81,6 +97,8 @@ export const ProjectBase = z.object({
   signoff: z.string().default(""),
   /** The `## Brands` table (P60); empty: the project has one brand and its drafts are signed with `signoff` alone. */
   brands: z.array(Brand).default([]),
+  /** The declarative Quick Links menu (P101); absent in legacy project.md files. */
+  links: z.array(ProjectLink).default([]),
   notion: z
     .object({
       teamspace: z.string().nullable().default(null),
@@ -113,7 +131,14 @@ export const ProjectBase = z.object({
    * P84 (decision 0036 point 3 as amended 2026-11-20): `autolink` on, the Hub links a private chat of a connected Telegram account or
    * WhatsApp number by itself when its phone or username equals the identifier of exactly one client record; off, it only suggests.
    */
-  messengers: z.object({ autolink: z.enum(AUTOLINK_MODES).default("on") }).default({ autolink: "on" }),
+  messengers: z
+    .object({
+      autolink: z.enum(AUTOLINK_MODES).default("on"),
+      /** The project's reply language and instruction; a chat's non-null language/instruction remains an explicit exception. */
+      language: Lang.nullable().default(null),
+      instruction: z.string().max(CHAT_INSTRUCTION_MAX).nullable().default(null),
+    })
+    .default({ autolink: "on", language: null, instruction: null }),
   /**
    * What the hub may send (decision 0011). The agent has no send tool in any mode; `hub send` is the only sender.
    * `draft`: nothing is sent unless a person runs `hub send` (or presses Send in the admin). `auto`: `hub send --due`

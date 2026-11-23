@@ -19,6 +19,7 @@ interface RichText {
 interface DataSourceResponse {
   id: string;
   title?: RichText[];
+  parent?: { type?: string; database_id?: string };
   properties?: Record<string, PropertyConfig>;
 }
 interface QueryResponse {
@@ -68,6 +69,7 @@ export function createNotionReader(token: string, options: ReaderOptions = {}): 
       return {
         id: res.id,
         title: (res.title ?? []).map((t) => t.plain_text ?? "").join(""),
+        ...(res.parent?.database_id ? { pageId: res.parent.database_id } : {}),
         properties: res.properties ?? {},
       };
     },

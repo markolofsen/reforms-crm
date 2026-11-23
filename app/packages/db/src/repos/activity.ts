@@ -29,6 +29,7 @@ export interface ActivityRow {
   draftId: number | null;
   /** The skill the event itself names (never the run's, never the hub's own `draft_write`). */
   skill: string | null;
+  provider: "hub_llm" | "runtime_agent" | null;
 }
 
 export interface Activity {
@@ -42,7 +43,7 @@ export interface Activity {
 
 export interface TimelineQuery { view?: ActivityView; client?: number | null; before?: string | null; limit?: number }
 
-type Detail = { action?: unknown; reason?: unknown; draftId?: unknown; inboxId?: unknown; skill?: unknown };
+type Detail = { action?: unknown; reason?: unknown; draftId?: unknown; inboxId?: unknown; skill?: unknown; provider?: unknown };
 const detailOf = (text: string | null): Detail => {
   try {
     const v: unknown = JSON.parse(text ?? "{}");
@@ -79,6 +80,7 @@ const skillOf = (d: Detail): string | null => {
   const s = str(d.skill);
   return s && !HUB_WRITERS.has(s) ? s : null;
 };
+const providerOf = (d: Detail): "hub_llm" | "runtime_agent" | null => (d.provider === "hub_llm" || d.provider === "runtime_agent" ? d.provider : null);
 
 const CURSOR = /^(.+)\|(event|send):(\d+)$/;
 type Pos = { at: string; src: "event" | "send"; id: number };
@@ -135,7 +137,7 @@ export async function timelineOf(db: Db, project: string, q: TimelineQuery = {})
       pos: { at: e.at, src: "event", id: e.id },
       outcome,
       client: c,
-      row: () => ({ id: e.id, key: `event:${e.id}`, at: e.at, who: whoOf(e.summary, int(d.inboxId) !== null), outcome, why: str(d.reason), draftId: int(d.draftId), skill: skillOf(d) }),
+      row: () => ({ id: e.id, key: `event:${e.id}`, at: e.at, who: whoOf(e.summary, int(d.inboxId) !== null), outcome, why: str(d.reason), draftId: int(d.draftId), skill: skillOf(d), provider: providerOf(d) }),
     })),
     ...sendRows.map((r): Item => {
       const cid = r.mailClient ?? r.chatClient;
@@ -145,7 +147,7 @@ export async function timelineOf(db: Db, project: string, q: TimelineQuery = {})
         pos: { at, src: "send", id: r.id },
         outcome: "sent",
         client: cid !== null && name !== undefined ? { id: cid, name } : null,
-        row: () => ({ id: r.id, key: `send:${r.id}`, at, who: r.channel === "mail" ? r.toAddr : r.subject, outcome: "sent", why: viaOf(r), draftId: r.channel === "mail" ? r.draftId : null, skill: null }),
+        row: () => ({ id: r.id, key: `send:${r.id}`, at, who: r.channel === "mail" ? r.toAddr : r.subject, outcome: "sent", why: viaOf(r), draftId: r.channel === "mail" ? r.draftId : null, skill: null, provider: null }),
       };
     }),
   ];

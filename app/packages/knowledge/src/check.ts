@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isExpired, type Repos } from "@hub/db";
-import { entryBrandProblem, loadProject, type ProjectConfig } from "@hub/projects";
+import { loadProject } from "@hub/projects";
+import { entryBrandProblem } from "@hub/projects/brand";
+import type { ProjectConfig } from "@hub/projects/model";
 import { EntryError, parseEntry } from "./entry";
 import { walkMarkdown } from "./indexer";
 import { checkAgainstTaxonomy, loadTaxonomy, TAXONOMY_FILE, TaxonomyError, type Taxonomy } from "./taxonomy";

@@ -340,6 +340,19 @@ describe("inbox", () => {
     expect(await repos.inbox.lastTriageAt("other")).toBeNull();
   });
 
+  it("loads Notion references in one project-scoped batch and normalizes addresses", async () => {
+    await repos.inbox.record({ ...base, notion: { kind: "client", pageId: "0123456789abcdef0123456789abcdef", url: null } });
+    await repos.inbox.record({ ...base, email: "Other@x.example", notion: { kind: "none" } });
+    await repos.inbox.record({ ...base, project: "other", notion: { kind: "client", pageId: "fedcba9876543210fedcba9876543210", url: null } });
+
+    const refs = await repos.inbox.notionByEmails("p", [" ANN@X.EXAMPLE ", "other@x.example", "missing@x.example"]);
+
+    expect([...refs.entries()]).toEqual([
+      ["ann@x.example", { notionKind: "client", notionPageId: "0123456789abcdef0123456789abcdef", notionUrl: null }],
+      ["other@x.example", { notionKind: "none", notionPageId: null, notionUrl: null }],
+    ]);
+  });
+
   it("rejects an unknown action", async () => {
     await expect(repos.inbox.record({ ...base, action: "x" as never })).rejects.toThrow(/Unknown action/);
   });

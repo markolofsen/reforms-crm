@@ -2,12 +2,18 @@
 // headers to the brand the client wrote to. Pure: no file, Mail or database access, so parse.ts and @hub/notion can
 // import it, and the hub MCP server, the draft writer and doctor all call the same functions.
 import type { Brand, ProjectConfig } from "./schema";
+import { replyLanguage, type ReplyLanguage } from "@hub/contract/language";
 import { EMAIL, isIsoDate, normalizeAddress } from "./values";
+
+export { replyLanguage } from "@hub/contract/language";
+export type { ReplyLanguage } from "@hub/contract/language";
 
 export type BrandIssue = { severity: "error" | "warning"; code: "bad_table" | "duplicate_row" | "bad_value" | "bad_date" | "bad_by"; line: number; field: "brands"; message: string };
 
-export const BRANDS_COLUMNS = ["brand", "receives at", "signature", "answered", "by"] as const;
-export const BRANDS_HEADER = "| Brand | Receives at | Signature | Answered | By |";
+export const LEGACY_BRANDS_COLUMNS = ["brand", "receives at", "signature", "answered", "by"] as const;
+export const BRANDS_COLUMNS = [...LEGACY_BRANDS_COLUMNS, "display name"] as const;
+export const BRANDS_HEADER = "| Brand | Receives at | Signature | Answered | By | Display name |";
+export const LEGACY_BRANDS_HEADER = "| Brand | Receives at | Signature | Answered | By |";
 const BYS = ["owner", "default", "agent"] as const;
 const DOMAIN = /^(?=.{1,253}$)([a-z0-9-]+\.)+[a-z]{2,}$/i;
 /** `<br>` (or `<br/>`, `<br />`) separates the lines of a Signature cell: a table cell holds one line. */
@@ -15,6 +21,21 @@ const BR = /<br\s*\/?>/i;
 
 export const splitSignature = (cell: string): string[] => (cell.trim() === "" ? [] : cell.split(BR).map((l) => l.trim()).filter((l) => l !== ""));
 export const joinSignature = (lines: readonly string[]): string => lines.map((l) => l.trim()).filter(Boolean).join("<br>");
+
+const DISPLAY_NAME_MAX = 120;
+const DISPLAY_NAME_INVALID = /[<>\r\n\u0000-\u001f\u007f]/;
+
+export function displayNameIssue(value: string): string | null {
+  const name = value.trim();
+  if (name.length > DISPLAY_NAME_MAX) return `display name is longer than ${DISPLAY_NAME_MAX} characters`;
+  if (DISPLAY_NAME_INVALID.test(name)) return "display name contains a control character or angle bracket";
+  return null;
+}
+
+export const normalizedDisplayName = (value: string | null | undefined): string | null => {
+  const name = value?.trim() ?? "";
+  return name === "" ? null : name;
+};
 
 /** The project's own Mail identity, as `resolveBrand` and the table check read it. */
 type Own = Pick<ProjectConfig["mail"], "accounts" | "addresses" | "domains">;
@@ -39,19 +60,21 @@ export function parseBrands(t: { header: string[] | null; headerIdx: number; row
   const brands: Brand[] = [];
   const err = (line: number, code: BrandIssue["code"], message: string) => issues.push({ severity: "error", code, line, field: "brands", message });
   const header = t.header?.map((c) => c.toLowerCase());
-  if (!header || header.length !== BRANDS_COLUMNS.length || header.some((c, i) => c !== BRANDS_COLUMNS[i])) {
-    err(t.headerIdx >= 0 ? t.headerIdx + 1 : sectionLine, "bad_table", "## Brands needs a table with the columns Brand | Receives at | Signature | Answered | By");
+  const legacy = header?.length === LEGACY_BRANDS_COLUMNS.length && header.every((c, i) => c === LEGACY_BRANDS_COLUMNS[i]);
+  const current = header?.length === BRANDS_COLUMNS.length && header.every((c, i) => c === BRANDS_COLUMNS[i]);
+  if (!legacy && !current) {
+    err(t.headerIdx >= 0 ? t.headerIdx + 1 : sectionLine, "bad_table", "## Brands needs a table with the columns Brand | Receives at | Signature | Answered | By, with optional Display name");
     return { brands, issues };
   }
   const names = new Map<string, number>();
   const claimed = new Map<string, string>();
   for (const r of t.rows) {
     const line = r.idx + 1;
-    if (r.cells.length !== BRANDS_COLUMNS.length) {
-      err(line, "bad_table", `a Brands row has ${r.cells.length} cells, expected ${BRANDS_COLUMNS.length} (escape "|" in a value as "\\|")`);
+    if (r.cells.length !== (current ? BRANDS_COLUMNS.length : LEGACY_BRANDS_COLUMNS.length)) {
+      err(line, "bad_table", `a Brands row has ${r.cells.length} cells, expected ${current ? BRANDS_COLUMNS.length : LEGACY_BRANDS_COLUMNS.length} (escape "|" in a value as "\\|")`);
       continue;
     }
-    const [name, receives, signature, answered, by] = r.cells as [string, string, string, string, string];
+    const [name = "", receives = "", signature = "", answered = "", by = "", displayName = ""] = r.cells;
     if (!name) {
       err(line, "bad_value", "a Brands row has no Brand name");
       continue;
@@ -83,9 +106,14 @@ export function parseBrands(t: { header: string[] | null; headerIdx: number; row
       if (!receivesAt.includes(v)) receivesAt.push(v);
     }
     if (receivesAt.length === 0) err(line, "bad_value", `brand ${name} receives at nothing: list its addresses or domains`);
+    const normalizedName = normalizedDisplayName(current ? displayName : null);
+    if (normalizedName) {
+      const problem = displayNameIssue(normalizedName);
+      if (problem) err(line, "bad_value", `display name of brand ${name}: ${problem}`);
+    }
     if (!isIsoDate(answered)) err(line, "bad_date", `Answered "${answered}" of brand ${name} is not an ISO date (YYYY-MM-DD)`);
     if (!(BYS as readonly string[]).includes(by)) err(line, "bad_by", `By "${by}" of brand ${name} must be one of ${BYS.join(", ")}`);
-    brands.push({ name, receivesAt, signature: splitSignature(signature), answered, by: (BYS as readonly string[]).includes(by) ? (by as Brand["by"]) : "owner" });
+    brands.push({ name, receivesAt, signature: splitSignature(signature), displayName: normalizedName, answered, by: (BYS as readonly string[]).includes(by) ? (by as Brand["by"]) : "owner" });
   }
   return { brands, issues };
 }
@@ -172,6 +200,19 @@ export interface ReplyFrom {
   via: "wrote-to" | "account" | "sender";
 }
 
+/** The configured visible name for a resolved brand; absent means Mail keeps its account name. */
+export function displayNameFor(c: { brands: readonly Brand[] }, brand: string | null | undefined): string | null {
+  if (!brand) return null;
+  return normalizedDisplayName(c.brands.find((b) => b.name.toLowerCase() === brand.toLowerCase())?.displayName);
+}
+
+/** Formats the visible From without changing or authorizing the technical sender address. */
+export function visibleFrom(address: string | null, displayName?: string | null): string | null {
+  if (!address) return null;
+  const name = normalizedDisplayName(displayName);
+  return name ? `${name} <${normalizeAddress(address)}>` : address;
+}
+
 /**
  * The From of a reply (P58). A reply goes from the address the client wrote to when the Mail account that received it
  * can send as that address (it is among the account's own addresses in Mail: `email addresses of acc`, the one truth for
@@ -182,17 +223,17 @@ export interface ReplyFrom {
  * mail to info@carapis.com from hello@reforms.ai; realty answers mail to dan@ from dan@ and mail to info@ (or its
  * aliases) from info@. Pure.
  */
-export function replyFrom(q: { account: string; accountAddresses: readonly string[]; clientWroteTo: string | null }, c: { mail: Pick<ProjectConfig["mail"], "accounts" | "sender"> }): ReplyFrom {
+export function replyFrom(q: { account: string; accountAddresses: readonly string[]; clientWroteTo: string | null; displayName?: string | null }, c: { mail: Pick<ProjectConfig["mail"], "accounts" | "sender"> }): ReplyFrom {
   const wrote = q.clientWroteTo ? normalizeAddress(q.clientWroteTo) : null;
   const acct = q.account.trim();
   const onList = c.mail.accounts.some((a) => a.trim().toLowerCase() === acct.toLowerCase());
   const own = [...new Set([...(EMAIL.test(acct) ? [normalizeAddress(acct)] : []), ...q.accountAddresses.map(normalizeAddress).filter((a) => EMAIL.test(a))])];
   const sender = c.mail.sender ? normalizeAddress(c.mail.sender) : null;
-  if (onList && wrote && own.includes(wrote)) return { from: wrote, clientWroteTo: wrote, fromReason: null, via: "wrote-to" };
+  if (onList && wrote && own.includes(wrote)) return { from: visibleFrom(wrote, q.displayName), clientWroteTo: wrote, fromReason: null, via: "wrote-to" };
   const receiving = own[0] ?? null;
-  if (onList && receiving) return { from: receiving, clientWroteTo: wrote, fromReason: null, via: "account" };
+  if (onList && receiving) return { from: visibleFrom(receiving, q.displayName), clientWroteTo: wrote, fromReason: null, via: "account" };
   const why = onList ? `the receiving account ${acct} shows no address in Mail` : `the receiving account ${acct} is not on mail.accounts`;
-  return { from: sender, clientWroteTo: wrote, fromReason: `${why}: from mail.sender ${sender ?? "(none set)"}`, via: "sender" };
+  return { from: visibleFrom(sender, q.displayName), clientWroteTo: wrote, fromReason: `${why}: from mail.sender ${sender ?? "(none set)"}`, via: "sender" };
 }
 
 // ---- the signature -----------------------------------------------------------------------------------------------
@@ -203,22 +244,7 @@ export interface SignatureBlock {
   /** True when the block is the `[Owner: signature for ...]` placeholder (`hub send` refuses it). */
   placeholder: boolean;
   /** P65 S2: the reply's language had no line of its own, so the English lines were used (the amber check `signature_language`). */
-  fallback?: string;
-}
-
-/** The languages a sign-off or signature line may be tagged with (`ru: С уважением,`). Untagged lines are for every language. */
-export type ReplyLanguage = "en" | "ru";
-
-/**
- * The reply's language, from its script (P65 S2, P60 finding 2): more than half of its letters Cyrillic is `ru`, else
- * `en`. Quoted lines (`> `) are not the reply and are not counted.
- */
-export function replyLanguage(body: string): ReplyLanguage {
-  const own = body.split("\n").filter((l) => !/^\s*>/.test(l)).join("\n");
-  const letters = own.match(/\p{L}/gu) ?? [];
-  if (letters.length === 0) return "en";
-  const cyr = letters.filter((c) => /\p{Script=Cyrillic}/u.test(c)).length;
-  return cyr / letters.length > 0.5 ? "ru" : "en";
+  fallback?: "en" | "ru";
 }
 
 const TAG = /^([a-z]{2}):\s*(.*)$/;
@@ -278,6 +304,127 @@ export function signatureFor(c: { signoff: string; brands: readonly Brand[]; lan
   }
   const sig = pick(row.signature, lang, c.languages);
   return withFallback({ lines: [...so.lines, ...sig.lines], placeholder: false }, so.fallback || sig.fallback);
+}
+
+export const MAIL_COMPOSER_STATUSES = ["resolved", "needs_brand", "needs_mail", "missing_signature"] as const;
+export type MailComposerStatus = (typeof MAIL_COMPOSER_STATUSES)[number];
+
+export interface MailComposerContext {
+  brand: string | null;
+  wroteTo: string | null;
+  from: string | null;
+  technicalAddress: string | null;
+  language: ReplyLanguage;
+  signatureLines: string[];
+  signatureFallback: ReplyLanguage | null;
+  signatureLinesByLanguage: Record<ReplyLanguage, string[]>;
+  signatureFallbackByLanguage: Record<ReplyLanguage, ReplyLanguage | null>;
+  status: MailComposerStatus;
+  reason: string | null;
+  brands: MailComposerBrandOption[];
+}
+
+export interface MailComposerBrandOption {
+  name: string;
+  wroteTo: string | null;
+  from: string | null;
+  technicalAddress: string | null;
+  signatureLines: string[];
+  signatureFallback: ReplyLanguage | null;
+  signatureLinesByLanguage: Record<ReplyLanguage, string[]>;
+  signatureFallbackByLanguage: Record<ReplyLanguage, ReplyLanguage | null>;
+  status: "ready" | "missing_signature";
+}
+
+const technicalAddressOf = (from: string | null): string | null => {
+  if (!from) return null;
+  const named = /<([^>]+)>/.exec(from)?.[1];
+  const address = named ?? from;
+  return EMAIL.test(address) ? normalizeAddress(address) : null;
+};
+
+/** A deterministic resolution used when the owner explicitly chooses one brand in a shared mailbox. */
+export function brandResolutionFor(brands: readonly Brand[], name: string, wroteTo: string | null = null): BrandResolution | null {
+  const row = brands.find((brand) => brand.name.toLowerCase() === name.trim().toLowerCase());
+  if (!row) return null;
+  const address = wroteTo ?? row.receivesAt.find((value) => EMAIL.test(value)) ?? null;
+  return { brand: row.name, wroteTo: address, via: address ? "address" : "none", reason: `brand ${row.name} was selected for this draft` };
+}
+
+function brandOptions(c: { mail: Pick<ProjectConfig["mail"], "accounts" | "sender">; brands: readonly Brand[]; signoff: string; languages: readonly string[] }, q: { account: string; accountAddresses: readonly string[] }, body: string): MailComposerBrandOption[] {
+  const language = body.trim() ? replyLanguage(body) : defaultReplyLanguage(c.languages);
+  return c.brands.map((brand) => {
+    const resolution = brandResolutionFor(c.brands, brand.name);
+    const reply = replyFrom({ account: q.account, accountAddresses: q.accountAddresses, clientWroteTo: resolution?.wroteTo ?? null, displayName: displayNameFor(c, brand.name) }, { mail: c.mail });
+    const block = signatureFor(c, resolution, language);
+    const variants = signatureVariants(c, resolution);
+    return {
+      name: brand.name,
+      wroteTo: resolution?.wroteTo ?? null,
+      from: reply.from,
+      technicalAddress: technicalAddressOf(reply.from),
+      signatureLines: block.lines,
+      signatureFallback: block.fallback ?? null,
+      ...variants,
+      status: block.placeholder ? "missing_signature" : "ready",
+    };
+  });
+}
+
+const defaultReplyLanguage = (languages: readonly string[]): ReplyLanguage => {
+  const configured = languages.map((language) => language.trim().toLowerCase().split("-")[0]).find((language) => language === "en" || language === "ru");
+  return configured === "ru" ? "ru" : "en";
+};
+
+function signatureVariants(c: { signoff: string; brands: readonly Brand[]; languages: readonly string[] }, resolution: BrandResolution | null): Pick<MailComposerBrandOption, "signatureLinesByLanguage" | "signatureFallbackByLanguage"> {
+  const en = signatureFor(c, resolution, "en");
+  const ru = signatureFor(c, resolution, "ru");
+  return {
+    signatureLinesByLanguage: { en: en.lines, ru: ru.lines },
+    signatureFallbackByLanguage: { en: en.fallback ?? null, ru: ru.fallback ?? null },
+  };
+}
+
+/** The server-owned addressing and signature context shown by a manual Mail composer. */
+export function mailComposerContext(c: { mail: Pick<ProjectConfig["mail"], "accounts" | "sender">; brands: readonly Brand[]; signoff: string; languages: readonly string[] }, q: { account: string; accountAddresses: readonly string[]; resolution: BrandResolution | null }, body = ""): MailComposerContext {
+  const language = body.trim() ? replyLanguage(body) : defaultReplyLanguage(c.languages);
+  const brands = brandOptions(c, q, body);
+  const one = brands.length === 1 ? brands[0] : null;
+  const oneWroteTo = q.resolution?.wroteTo ?? one?.wroteTo ?? null;
+  const oneVia = q.resolution?.wroteTo ? q.resolution.via : one?.wroteTo ? "address" as const : "none" as const;
+  const resolution = q.resolution?.brand || !one
+    ? q.resolution
+    : { brand: one.name, wroteTo: oneWroteTo, via: oneVia, reason: q.resolution?.reason ?? `the project has one configured brand: ${one.name}` };
+  const brand = resolution?.brand ?? null;
+  const reply = replyFrom({ account: q.account, accountAddresses: q.accountAddresses, clientWroteTo: resolution?.wroteTo ?? null, displayName: displayNameFor(c, brand) }, { mail: c.mail });
+  const technicalAddress = reply.from ? (/<([^>]+)>/.exec(reply.from)?.[1] ?? (EMAIL.test(reply.from) ? normalizeAddress(reply.from) : null)) : null;
+  const block = signatureFor(c, resolution, language);
+  const variants = signatureVariants(c, resolution);
+  let status: MailComposerStatus = "resolved";
+  let reason: string | null = null;
+  if (c.brands.length > 0 && brand === null) {
+    status = "needs_brand";
+    reason = resolution?.reason ?? "the conversation does not identify one brand";
+  } else if (technicalAddress === null) {
+    status = "needs_mail";
+    reason = reply.fromReason ?? "Mail has no usable sending address";
+  } else if (block.placeholder) {
+    status = "missing_signature";
+    reason = "the selected brand has no configured signature";
+  }
+  return {
+    brand,
+    wroteTo: resolution?.wroteTo ?? null,
+    from: reply.from,
+    technicalAddress,
+    language,
+    signatureLines: block.lines,
+    signatureFallback: block.fallback ?? null,
+    ...variants,
+    status,
+    reason,
+    brands,
+  };
 }
 
 const norm = (l: string) => l.replace(/\s+/g, " ").trim().toLowerCase();

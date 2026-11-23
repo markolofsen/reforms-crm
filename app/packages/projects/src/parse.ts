@@ -4,13 +4,13 @@
 import { parseBrands } from "./brand";
 import { checkValue, FIELDS, isPolicyField, readField, setPath } from "./fields";
 import { DEFAULT_KIND, hasValue, kindOf } from "./kinds";
-import { BYS, ProjectBase, STATUSES, type By, type ProjectConfig, type ProjectDatabase, type ProjectStatus } from "./schema";
+import { BYS, ProjectBase, STATUSES, type By, type ProjectConfig, type ProjectDatabase, type ProjectLink, type ProjectStatus } from "./schema";
 import { EMAIL, isIsoDate, normalizeAddress, normalizeId, SLUG, UUID } from "./values";
 
 export const SCHEMA_VERSION = 1;
 
 export { BYS, STATUSES, checkValue, FIELDS, isIsoDate, normalizeAddress, normalizeId };
-export type { By, ProjectConfig, ProjectDatabase, ProjectStatus };
+export type { By, ProjectConfig, ProjectDatabase, ProjectLink, ProjectStatus };
 export type { KnowledgeSource } from "./schema";
 
 export type IssueCode =
@@ -27,6 +27,7 @@ export type IssueCode =
   | "stray_list_item"
   | "bad_database_id"
   | "duplicate_database"
+  | "bad_link"
   | "send_policy_in_project_md";
 
 export interface Issue {
@@ -60,6 +61,7 @@ export interface ParsedProject {
   summary: string;
   settings: Record<string, SettingRow>;
   databases: ProjectDatabase[];
+  links: ProjectLink[];
   answers: AnswerRow[];
   issues: Issue[];
   /** Missing required fields were found (an error for active/paused projects, a warning for drafts). */
@@ -214,6 +216,124 @@ export function extractDatabases(text: string): { name: string | null; databases
   return { name: sc.title, databases, issues };
 }
 
+const LINKS_COLUMNS = ["group", "label", "target", "under", "answered", "by"] as const;
+const LINK_ID = /^[0-9a-f]{32}$/i;
+const LINK_ID_WITH_DASHES = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
+
+const compactNotionId = (value: string): string => value.replace(/-/g, "").toLowerCase();
+
+const notionIdFromUrl = (url: URL): string | null => {
+  if (!/(^|\.)notion\.(so|site)$/i.test(url.hostname)) return null;
+  const match = /([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}|[0-9a-f]{32})(?:$|[-/])/i.exec(url.pathname);
+  return match?.[1] ? compactNotionId(match[1]) : null;
+};
+
+/** Normalizes a declared Quick Link and rejects non-https or unknown Notion targets. */
+export function normalizeProjectLinkTarget(raw: string, databases: readonly ProjectDatabase[]): string | null {
+  const value = raw.trim();
+  if (/^notion:/i.test(value)) {
+    const reference = value.slice("notion:".length).trim().toLowerCase();
+    if (LINK_ID.test(reference) || LINK_ID_WITH_DASHES.test(reference)) return `notion:${compactNotionId(reference)}`;
+    if (SLUG.test(reference) && databases.some((database) => database.slug.toLowerCase() === reference)) return `notion:${reference}`;
+    return null;
+  }
+  if (!/^https:\/\//i.test(value)) return null;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:") return null;
+    const notionId = notionIdFromUrl(url);
+    return notionId ? `notion:${notionId}` : url.href;
+  } catch {
+    return null;
+  }
+}
+
+/** Parses the optional `## Links` table. A missing section is deliberately valid for legacy projects. */
+export function extractLinks(text: string, databases: readonly ProjectDatabase[]): { links: ProjectLink[]; issues: Issue[] } {
+  const lines = splitLines(text);
+  const sc = scan(lines);
+  const section = sc.sections.find((s) => s.name === "links");
+  if (!section) return { links: [], issues: [] };
+
+  const table = tableOf(lines, sc.fenced, section);
+  const issues: Issue[] = [];
+  const candidates: Array<ProjectLink & { valid: boolean; line: number }> = [];
+  const seen = new Map<string, number>();
+  const addIssue = (line: number, message: string, field = "links") => issues.push({ severity: "error", code: "bad_link", line, field, message });
+
+  if (!same(table.header, [...LINKS_COLUMNS])) {
+    addIssue(table.headerIdx >= 0 ? table.headerIdx + 1 : section.start + 1, "## Links needs a table with the columns Group | Label | Target | Under | Answered | By");
+    return { links: [], issues };
+  }
+
+  for (const row of table.rows) {
+    const line = row.idx + 1;
+    if (row.cells.length !== LINKS_COLUMNS.length) {
+      addIssue(line, `a Links row has ${row.cells.length} cells, expected ${LINKS_COLUMNS.length} (escape "|" in a value as "\\|")`);
+      continue;
+    }
+    const [group = "", label = "", rawTarget = "", rawUnder = "", answered = "", by = ""] = row.cells;
+    let valid = true;
+    const normalizedGroup = group.trim();
+    const normalizedLabel = label.trim();
+    const under = rawUnder.trim() || null;
+    if (!normalizedGroup || normalizedGroup.length > 120) {
+      addIssue(line, "a link needs a Group between 1 and 120 characters");
+      valid = false;
+    }
+    if (!normalizedLabel || normalizedLabel.length > 120) {
+      addIssue(line, "a link needs a Label between 1 and 120 characters");
+      valid = false;
+    }
+    const target = normalizeProjectLinkTarget(rawTarget, databases);
+    if (!target) {
+      addIssue(line, `Target "${rawTarget}" must be notion:<database role>, notion:<32 hex id>, or an https URL`);
+      valid = false;
+    }
+    if (!isIsoDate(answered)) {
+      addIssue(line, `Answered "${answered}" is not an ISO date (YYYY-MM-DD)`);
+      valid = false;
+    }
+    if (!(BYS as readonly string[]).includes(by)) {
+      addIssue(line, `By "${by}" must be one of ${BYS.join(", ")}`);
+      valid = false;
+    }
+    const key = `${normalizedGroup.toLowerCase()}\u0000${normalizedLabel.toLowerCase()}`;
+    if (seen.has(key)) {
+      addIssue(line, `link "${normalizedLabel}" in group "${normalizedGroup}" is listed twice (first on line ${seen.get(key)})`);
+      valid = false;
+    } else if (normalizedGroup && normalizedLabel) {
+      seen.set(key, line);
+    }
+    if (valid) candidates.push({ group: normalizedGroup, label: normalizedLabel, target: target as string, under, answered, by: by as By, valid, line });
+  }
+
+  const byKey = new Map(candidates.map((candidate) => [`${candidate.group.toLowerCase()}\u0000${candidate.label.toLowerCase()}`, candidate]));
+  for (const candidate of candidates) {
+    if (!candidate.under) continue;
+    const parent = byKey.get(`${candidate.group.toLowerCase()}\u0000${candidate.under.toLowerCase()}`);
+    if (!parent) {
+      addIssue(candidate.line, `Under "${candidate.under}" does not name another link in group "${candidate.group}"`);
+      candidate.valid = false;
+      continue;
+    }
+    if (parent.label.toLowerCase() === candidate.label.toLowerCase()) {
+      addIssue(candidate.line, "a link cannot be nested under itself");
+      candidate.valid = false;
+      continue;
+    }
+    if (parent.under) {
+      addIssue(candidate.line, `Under "${candidate.under}" is already nested; Links supports one level of nesting`);
+      candidate.valid = false;
+    }
+  }
+
+  return {
+    links: candidates.filter((candidate) => candidate.valid).map((candidate) => ({ group: candidate.group, label: candidate.label, target: candidate.target, under: candidate.under, answered: candidate.answered, by: candidate.by })),
+    issues,
+  };
+}
+
 /**
  * Parses and validates one project.md. Never throws: problems come back as `issues`. `slug` is the folder name.
  * A project in `draft` may be incomplete (setup fills it row by row): missing required fields are warnings there and
@@ -233,6 +353,8 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
 
   const dbs = extractDatabases(text);
   issues.push(...dbs.issues);
+  const parsedLinks = extractLinks(text, dbs.databases);
+  issues.push(...parsedLinks.issues);
 
   const settingsSection = sc.sections.find((s) => s.name === "settings");
   const answersSection = sc.sections.find((s) => s.name === "answers");
@@ -354,6 +476,7 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
   const config = ProjectBase.parse({
     ...raw,
     brands,
+    links: parsedLinks.links,
     schema: 1,
     slug,
     kind: kind.id,
@@ -389,7 +512,7 @@ export function parseProjectMd(text: string, slug: string): ParsedProject {
     }
   }
 
-  return { slug, name: config.name, summary, settings, databases: dbs.databases, answers, issues, incomplete, config, policyRows };
+  return { slug, name: config.name, summary, settings, databases: dbs.databases, links: parsedLinks.links, answers, issues, incomplete, config, policyRows };
 }
 
 /** parseProjectMd, throwing a ProjectError when there is an error-level issue. */
