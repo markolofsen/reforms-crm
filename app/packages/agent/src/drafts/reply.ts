@@ -1,9 +1,10 @@
 import { displayNameFor } from "@hub/projects/brand";
 import { DraftWriteError } from "@hub/mail-app/writer/types";
-import { fromFor, writeLogOf, writeRecorded, type Revision } from "../mail";
+import { writeLogOf } from "../mail";
 import { ToolError } from "../mcp/result";
 import { adoptLate } from "./adopt";
 import { landingWrite, pendingVersion } from "./guards";
+import { writeFirstMailDraft } from "./write";
 import type { DraftScope, Pending, Written } from "./sign";
 
 export interface ReplyArgs {
@@ -45,15 +46,15 @@ export async function writeNewReply(s: DraftScope, a: ReplyArgs): Promise<Writte
   const ours = a.owner_request ? await ctx.repos.drafts.bySentMessageId(slug, mailRef) : null;
   const ourThread = ours?.brand ? { brand: ours.brand, wroteTo: ours.wroteTo ?? null, draftId: ours.id } : undefined;
   const signed = s.sign ? await s.sign(inbound, a.content, ourThread) : null;
-  // P58: From the address the client wrote to when the receiving account can send as it, else that account.
-  const rf = await fromFor(writer, inbound, signed?.wroteTo ?? null, mail, displayNameFor(cfg, signed?.brand));
-  const w = await writeRecorded(writer, { ...inbound, body: signed?.body ?? a.content, sender: rf.from, replace: [], landIn: mail.accounts }, ctx.env.withRepos ? writeLogOf(ctx.env.withRepos, slug, null, mailRef) : undefined);
-  const savedIn = w.savedIn || own;
-  const why = { fromReason: rf.fromReason, clientWroteTo: rf.clientWroteTo };
-  let r: Revision;
-  if (signed) {
-    const { body: _body, ...how } = signed;
-    r = { ...w, replyTo: a.message_id, account: savedIn, ...how, ...why };
-  } else r = { ...w, replyTo: a.message_id, account: savedIn, ...why };
+  const how = signed ? (({ body: _body, ...rest }) => rest)(signed) : null;
+  const r = await writeFirstMailDraft({
+    writer,
+    mail,
+    displayName: displayNameFor(cfg, signed?.brand),
+    target: { kind: "reply", inbound },
+    body: signed?.body ?? a.content,
+    ...(how ? { signed: how } : {}),
+    ...(ctx.env.withRepos ? { log: writeLogOf(ctx.env.withRepos, slug, null, mailRef) } : {}),
+  });
   return { r, mailRef, versionRows: [] };
 }

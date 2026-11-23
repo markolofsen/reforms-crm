@@ -28,6 +28,7 @@
     "./connector-guard": "./src/connector-guard.ts",
     "./connector-checks": "./src/connector-checks.ts",
     "./drafts/write": "./src/drafts/write.ts",
+    "./drafts/person": "./src/drafts/person.ts",
     "./evidence/ledger": "./src/evidence/ledger.ts",
     "./evidence/chat-ledger": "./src/evidence/chat-ledger.ts",
     "./evidence/store": "./src/evidence/store.ts"

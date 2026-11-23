@@ -1,10 +1,11 @@
 import { newThreadKey } from "@hub/config";
-import { displayNameFor, visibleFrom } from "@hub/projects/brand";
+import { displayNameFor } from "@hub/projects/brand";
 import { normalizeAddress } from "@hub/projects/parse";
-import { writeLogOf, writeRecorded } from "../mail";
+import { writeLogOf } from "../mail";
 import type { NotionClientCheck } from "../mcp/ports";
 import { ToolError } from "../mcp/result";
 import { landingWrite, pendingVersion } from "./guards";
+import { writeFirstMailDraft } from "./write";
 import type { DraftScope, Pending, Written } from "./sign";
 
 export interface NewThreadArgs {
@@ -52,9 +53,15 @@ export async function writeNewThread(s: DraftScope, a: NewThreadArgs): Promise<W
   if (!acc) throw new ToolError("not_this_project", `Account "${account ?? ""}" is not one of project ${slug}'s Mail accounts (${mail.accounts.join(", ") || "none listed in project.md"}).`);
   if (a.from !== undefined && !s.isOurs(a.from)) throw new ToolError("not_this_project", `${a.from} is not one of project ${slug}'s own addresses: a new message goes from the project's sender or a brand address.`);
   const sender = a.from ?? mail.sender ?? null;
-  const signed = s.signFrom(sender ?? acc, a.content, brandName ?? null);
-  const visibleSender = visibleFrom(sender, displayNameFor(cfg, signed.brand));
-  const w = await writeRecorded(writer, { kind: "new", account: acc, sender: visibleSender, to: email, subject: a.subject, body: signed.body, replace: [], landIn: mail.accounts }, ctx.env.withRepos ? writeLogOf(ctx.env.withRepos, slug, null, mailRef) : undefined);
-  const { body: _body, ...how } = signed;
-  return { r: { ...w, replyTo: 0, account: w.savedIn || acc, fromReason: null, clientWroteTo: null, ...how }, mailRef, versionRows: [] };
+  const { body, ...how } = s.signFrom(sender ?? acc, a.content, brandName ?? null);
+  const r = await writeFirstMailDraft({
+    writer,
+    mail,
+    displayName: displayNameFor(cfg, how.brand),
+    target: { kind: "new", to: email, subject: a.subject, account: acc, from: sender },
+    body,
+    signed: how,
+    ...(ctx.env.withRepos ? { log: writeLogOf(ctx.env.withRepos, slug, null, mailRef) } : {}),
+  });
+  return { r, mailRef, versionRows: [] };
 }

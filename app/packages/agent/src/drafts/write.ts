@@ -3,7 +3,7 @@ import { HubError } from "@hub/config/errors";
 import type { DraftRow, MailVersionRow } from "@hub/db";
 import { displayNameFor, visibleFrom } from "@hub/projects/brand";
 import type { DraftWriter, InboundMessage } from "@hub/mail-app/writer/types";
-import { alreadySentText, draftFinishedText, isNewThreadDraft, reviseDraft, type Revision, type Signed, type WriteLog } from "../mail";
+import { alreadySentText, draftFinishedText, fromFor, isNewThreadDraft, reviseDraft, writeRecorded, type Revision, type Signed, type WriteLog } from "../mail";
 
 // P126 M3 (verdict 3.3, decision 0030): one use case for a revision of a Hub Mail draft, for both actors. The agent's
 // `draft_write {draft}` and the owner's Save and Restore (`PUT`/`POST .../drafts/:id/mail`) call it; each keeps its own
@@ -68,4 +68,51 @@ export async function reviseMailDraft(i: ReviseMailDraftInput): Promise<{ r: Rev
   }
   const r = await reviseDraft(i.writer, { accounts: i.mail.accounts, sender: i.mail.sender, clientWroteTo: d.wroteTo ?? null, displayName: displayNameFor(i.brands, d.brand), mailRef: d.mailRef, body: i.body, quote: i.quote, versions, ...(i.signReply ? { sign: i.signReply } : {}), ...log(d.mailRef) });
   return { r, mailRef: d.mailRef };
+}
+
+// ---- the first write -------------------------------------------------------------------------------------------------
+
+/** What a first write answers: one message of the project's Mail (a reply), or nothing yet (a new thread to a client). */
+export type FirstMailTarget =
+  | { kind: "reply"; inbound: InboundMessage }
+  | { kind: "new"; to: string; subject: string; account: string; from: string | null };
+
+export interface FirstMailDraftInput {
+  writer: DraftWriter;
+  mail: { accounts: readonly string[]; sender: string | null };
+  /** The brand's display name for the From, or null. */
+  displayName: string | null;
+  target: FirstMailTarget;
+  /** The text as written to Mail: signed by the caller (each actor signs its own way), or unsigned when `signed` is absent. */
+  body: string;
+  /** How the text was signed; absent: written unsigned (a project with no brands and no signature). */
+  signed?: Omit<Signed, "body">;
+  /** The address the client wrote to, for a reply's From when `signed` does not carry one. */
+  clientWroteTo?: string | null;
+  /** A reply's quote: "add" (the agent: the message answered goes under the text) or "keep" (a person). Default: the writer's. */
+  quote?: "add" | "keep";
+  /** The write record of this thread (`mail_writes`). */
+  log?: WriteLog;
+}
+
+/**
+ * P126 M3: the one first write of a Hub Mail draft, for the agent's first reply (`draft_write` with a message id), the
+ * agent's new thread (`draft_write` with `to`) and the owner's manual first reply (`POST .../clients/:id/draft`). Each
+ * caller keeps its own refusals before it (the agent's `already_drafted`, `owner_request_needed`, the Notion client
+ * check; the route's exact Origin and its open-draft and Mail-draft checks) and records the version and the draft row
+ * after it on its own handle. A first write replaces nothing. Nothing here sends.
+ */
+export async function writeFirstMailDraft(i: FirstMailDraftInput): Promise<Revision> {
+  const how = i.signed ?? {};
+  if (i.target.kind === "new") {
+    const t = i.target;
+    const w = await writeRecorded(i.writer, { kind: "new", account: t.account, sender: visibleFrom(t.from, i.displayName), to: t.to, subject: t.subject, body: i.body, replace: [], landIn: i.mail.accounts }, i.log);
+    return { ...w, replyTo: 0, account: w.savedIn || t.account, fromReason: null, clientWroteTo: null, ...how };
+  }
+  const inbound = i.target.inbound;
+  // P58: From the address the client wrote to when the receiving account can send as it, else that account.
+  const rf = await fromFor(i.writer, inbound, i.signed ? i.signed.wroteTo : (i.clientWroteTo ?? null), i.mail, i.displayName);
+  const { accountAddresses: _addresses, ...where } = inbound;
+  const w = await writeRecorded(i.writer, { ...where, body: i.body, sender: rf.from, ...(i.quote ? { quote: i.quote } : {}), replace: [], landIn: i.mail.accounts }, i.log);
+  return { ...w, replyTo: inbound.messageId, account: w.savedIn || inbound.account, ...how, fromReason: rf.fromReason, clientWroteTo: rf.clientWroteTo };
 }

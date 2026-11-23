@@ -8,6 +8,7 @@ import { bulkRoutes } from "./routes/bulk";
 import { connectionRoutes } from "./routes/connections";
 import { draftRoutes } from "./routes/drafts";
 import { draftMailRoutes } from "./routes/draft-mail";
+import { manualDraftRoutes } from "./routes/manual-draft";
 import { inboxRoutes } from "./routes/inbox";
 import { inboundRoutes } from "./routes/inbound";
 import { conversationRoutes } from "./routes/conversations";
@@ -228,6 +229,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", draftRoutes(reviewServicesOf(repos, opts.sender)))
     .route("/", sendRoutes(sendServicesOf(repos, opts.sender, messengerSenders(opts.telegramUser, opts.whatsapp))))
     .route("/", draftMailRoutes(mailServicesOf(repos, opts.sender)))
+    .route("/", manualDraftRoutes(mailServicesOf(repos, opts.sender)))
     .route("/", projectRoutes(projectServicesOf(repos, projectsDir, opts.sender?.policyDir)))
     .route("/", projectLinksRoutes(projectLinksServicesOf(repos, projectsDir, { ...(opts.projectLinks?.reader ? { reader: opts.projectLinks.reader } : {}) })))
     .route("/", inboxRoutes(inboxServicesOf(repos)))
