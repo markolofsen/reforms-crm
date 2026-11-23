@@ -20,8 +20,13 @@ const sources = (dir: string, { tests = false } = {}) =>
   existsSync(path.join(app, dir)) ? [...walk(path.join(app, dir))].filter((f) => /\.tsx?$/.test(f) && (tests || !/\.test\.tsx?$/.test(f))) : [];
 
 type Edge = { file: string; specifier: string };
+/** A static `import`/`export … from`, a bare `import "x"`, or a dynamic `import("x")`; prose such as "the import's" or
+ *  `startsWith("… from")` inside a string is not an edge. */
+const IMPORT = /^\s*(?:import|export)\s[^;]*?\bfrom\s*["']([^"'./][^"']*)["']|^\s*import\s*["']([^"'./][^"']*)["']|\bimport\(\s*["']([^"'./][^"']*)["']\s*\)/gm;
 const importsOf = (files: string[]): Edge[] =>
-  files.flatMap((file) => [...readFileSync(file, "utf8").matchAll(/(?:\bfrom|\bimport\(?)\s*["']([^"'./][^"']*)["']/g)].map((m) => ({ file: path.relative(app, file), specifier: m[1] ?? "" })));
+  files.flatMap((file) =>
+    [...readFileSync(file, "utf8").matchAll(IMPORT)].map((m) => ({ file: path.relative(app, file), specifier: m[1] ?? m[2] ?? m[3] ?? "" })),
+  );
 const breaking = (files: string[], forbidden: RegExp, allowed?: RegExp) =>
   importsOf(files)
     .filter(({ specifier }) => forbidden.test(specifier) && !(allowed?.test(specifier) ?? false))
