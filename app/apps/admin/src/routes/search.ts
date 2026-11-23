@@ -121,10 +121,13 @@ export { KNOWLEDGE_VIEWS, type KnowledgeView };
 export { MESSENGER_CHANNEL_FILTERS, MESSENGER_LINK_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerLinkFilter, type MessengerView };
 
 /** The address's query read by a spec: every key of the spec, each parsed (a key the spec does not know is dropped, rule 8). */
-export function readSearch<S extends SearchSpec>(spec: S, raw: Raw): SearchOf<S> {
+export function readSearch<S extends SearchSpec>(spec: S, raw: Raw): SearchOf<S>;
+// The implementation builds the object key by key, which TypeScript cannot follow through a mapped type; the overload above is
+// what callers see, and each value is the spec's own `read` of that key.
+export function readSearch(spec: SearchSpec, raw: Raw): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [k, key] of Object.entries(spec)) out[k] = key.read(raw[k]);
-  return out as SearchOf<S>;
+  return out;
 }
 
 /** The query entries of a search value, in the spec's order, each default left out (so its key leaves the address). */

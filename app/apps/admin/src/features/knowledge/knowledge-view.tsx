@@ -27,11 +27,14 @@ const SEARCH_PAUSE_MS = 250;
  * indented once. Each item is a link to its address: a view keeps the topic, a topic keeps the view and the search.
  */
 function KnowledgeNav({ filter, topic, q, counts, items }: { filter: View; topic: string; q: string; counts: KnowledgeListDto["counts"] | undefined; items: readonly TopicItem[] }) {
-  const link = (to: Dest, current: boolean) => (content: ReactNode, className: string) => (
-    <AppLink aria-current={current ? "page" : undefined} bare className={className} to={to}>
-      {content}
-    </AppLink>
-  );
+  const link = (to: Dest, current: boolean) =>
+    function NavLink(content: ReactNode, className: string) {
+      return (
+        <AppLink aria-current={current ? "page" : undefined} bare className={className} to={to}>
+          {content}
+        </AppLink>
+      );
+    };
   const views: SectionNavItem[] = VIEW_ORDER.map((v) => ({ id: `view-${v}`, label: VIEW_LABEL[v], count: counts?.[v] ?? null, current: v === filter, group: "Show", render: link(dest("knowledge.page", { filter: v, q, topic }), v === filter) }));
   const all: SectionNavItem = { id: "topic-all", label: "All topics", current: topic === "", group: "Topics", render: link(dest("knowledge.page", { filter, q, topic: "" }), topic === "") };
   const topics: SectionNavItem[] = items.map((t) => ({ id: `topic-${t.topic}`, label: t.label, count: t.count, depth: t.depth, current: t.topic === topic, ...(t.group !== null ? { group: t.group } : {}), render: link(dest("knowledge.page", { filter, q, topic: t.topic }), t.topic === topic) }));

@@ -19,26 +19,28 @@ export function SearchField({ value, onChange, label, placeholder = "Search peop
   className?: string;
   inputRef?: Ref<HTMLInputElement>;
 }) {
-  const own = useRef<HTMLInputElement | null>(null);
+  // Typing owns the text while the field has focus; a new value from outside replaces it only when the field is not focused.
+  const focused = useRef(false);
   const [text, setText] = useState(value);
   useEffect(() => {
-    if (own.current !== document.activeElement) setText(value);
+    if (!focused.current) setText(value);
   }, [value]);
-  const setRef = (el: HTMLInputElement | null) => {
-    own.current = el;
-    if (typeof inputRef === "function") inputRef(el);
-    else if (inputRef) inputRef.current = el;
-  };
   return (
     <Input
       aria-label={label}
       className={cn("control-s w-full", className)}
+      onBlur={() => {
+        focused.current = false;
+      }}
       onChange={(e) => {
         setText(e.target.value);
         onChange(e.target.value);
       }}
+      onFocus={() => {
+        focused.current = true;
+      }}
       placeholder={placeholder}
-      ref={setRef}
+      ref={inputRef}
       type="search"
       value={text}
     />

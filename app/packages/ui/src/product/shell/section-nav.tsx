@@ -35,7 +35,7 @@ function onKeys(e: KeyboardEvent<HTMLElement>) {
   const keys = ["ArrowDown", "ArrowUp", "Home", "End"];
   if (!keys.includes(e.key)) return;
   const all = [...e.currentTarget.querySelectorAll<HTMLElement>("li > a[href], li > button")];
-  const at = all.indexOf(document.activeElement as HTMLElement);
+  const at = all.findIndex((el) => el === document.activeElement);
   const next = e.key === "Home" ? 0 : e.key === "End" ? all.length - 1 : Math.min(Math.max(at + (e.key === "ArrowDown" ? 1 : -1), 0), all.length - 1);
   const target = all[next];
   if (!target) return;
@@ -51,6 +51,7 @@ const ITEM = "flex min-h-(--control-s) min-w-0 items-center gap-2 rounded-md px-
  */
 export function SectionNav({ label, items }: { label: string; items: readonly SectionNavItem[] }) {
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the links hold the focus; the nav only hears their arrow keys (roving between items)
     <nav aria-label={label} className="flex min-w-0 flex-col gap-3 p-2" data-slot="section-nav" onKeyDown={onKeys}>
       {navGroups(items).map((g, i) => (
         <div className="flex min-w-0 flex-col gap-0.5" key={g.group ?? `group-${i}`}>

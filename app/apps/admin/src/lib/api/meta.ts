@@ -5,7 +5,7 @@ import { agentFeedDto } from "@hub/contract/agent-feed";
 import { pulseDto } from "@hub/contract/health";
 import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
 import { knowledgeListDto, knowledgeTextDto, type KnowledgeView } from "@hub/contract/knowledge";
-import { appsDto, localOpenedDto, type ServerActionId } from "@hub/contract/local";
+import { appsDto, LOCAL_ACTIONS, localOpenedDto, type ServerActionId } from "@hub/contract/local";
 import type { AgentSettingsBody, SafetyRuleBody } from "@hub/contract/requests";
 import { agentSettingsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/settings";
 import { projectLinksDto, projectOverviewDto, projectsDto } from "@hub/contract/project";
@@ -41,5 +41,9 @@ export const metaApi = {
   agentSettings: (project: string) => readGenerated(getAgentSettings({ project }), agentSettingsDto),
   setAgentSettings: (project: string, patch: Omit<AgentSettingsBody, "project">) => readGenerated(setAgentSettings({ project, ...patch }), agentSettingsDto),
   /** P61: the only local Open (a project and a key; the server resolves the path and checks `args` against the action's own schema). Called by `lib/data/instance.ts` (`postLocalOpen`). */
-  localOpen: (action: ServerActionId, args: unknown) => readGenerated(openLocal(action, args as Parameters<typeof openLocal>[1]), localOpenedDto),
+  localOpen: (action: ServerActionId, args: unknown) => {
+    const checked = LOCAL_ACTIONS[action].args.safeParse(args);
+    if (!checked.success) return Promise.reject(new Error(`This Open was given the wrong details: ${checked.error.issues[0]?.message ?? "invalid"}.`));
+    return readGenerated(openLocal(action, checked.data), localOpenedDto);
+  },
 };
