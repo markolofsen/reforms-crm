@@ -26,7 +26,7 @@ type Props = {
 };
 
 /**
- * A full-height column on the right of the screen with a resize separator on its start edge (the window splitter pattern):
+ * A full-height column inside its host with a resize separator on its start edge (the window splitter pattern):
  * drag with a pointer (captured, so it never loses the drag to the content), ArrowLeft and ArrowRight in 24px steps, Home or
  * a double click back to the default. The width is clamped between 400px and 60 % of the viewport and re-clamped when the
  * viewport changes, without overwriting the saved width. It is set once, as `--terminal-w`, for the column and its content.
@@ -34,18 +34,21 @@ type Props = {
 export function SideDock({ label, width, onWidth, children, className }: Props) {
   const viewport = useSyncExternalStore(onViewport, viewportWidth, noViewport);
   const [live, setLive] = useState<number | null>(null);
+  const liveRef = useRef<number | null>(null);
   const drag = useRef<{ startX: number; startWidth: number } | null>(null);
   const drawn = clampWidth(live ?? width, viewport);
   const max = Math.min(maxWidth(viewport), Math.max(drawn, DOCK_WIDTH.min));
   const style: CSSProperties & Record<"--terminal-w", string> = { "--terminal-w": `${drawn}px` };
   const end = () => {
     if (!drag.current) return;
+    const finalWidth = liveRef.current;
     drag.current = null;
+    liveRef.current = null;
     setLive(null);
-    if (live !== null) onWidth(live);
+    if (finalWidth !== null) onWidth(finalWidth);
   };
   return (
-    <div className={cn("flex h-svh min-h-0 shrink-0", className)} data-slot="side-dock" style={style}>
+    <div className={cn("flex h-full min-h-0 shrink-0", className)} data-slot="side-dock" style={style}>
       {/* A focusable separator is a widget in ARIA 1.2 (the window splitter pattern); aria-query still files it under structure. */}
       {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the window splitter: see above */}
       <div
@@ -71,11 +74,16 @@ export function SideDock({ label, width, onWidth, children, className }: Props) 
           e.preventDefault();
           e.currentTarget.setPointerCapture(e.pointerId);
           drag.current = { startX: e.clientX, startWidth: drawn };
+          liveRef.current = drawn;
           setLive(drawn);
         }}
         onPointerMove={(e) => {
           const d = drag.current;
-          if (d) setLive(dragWidth(d.startWidth, d.startX, e.clientX, viewport));
+          if (d) {
+            const next = dragWidth(d.startWidth, d.startX, e.clientX, viewport);
+            liveRef.current = next;
+            setLive(next);
+          }
         }}
         onPointerUp={end}
         role="separator"

@@ -6,9 +6,9 @@ import { cn } from "../cn";
  * (the title is the section, or `nav`, the sub-nav of a section with child pages, P63; actions at the end) and a body that fills
  * the pane and scrolls. Full width: no page container, prose blocks take the `measure` utility themselves (P48).
  */
-export function Page({ title, nav, actions, children, className }: { title?: ReactNode; nav?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string }) {
+export function Page({ title, nav, actions, children, className, flush = false, scroll = true }: { title?: ReactNode; nav?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; flush?: boolean; scroll?: boolean }) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto" data-slot="page">
+    <div className={cn("flex min-h-0 flex-1 flex-col", scroll ? "overflow-y-auto" : "overflow-hidden")} data-slot="page">
       {(title || nav || actions) && (
         <div className="flex min-h-14 flex-wrap items-center gap-3 border-b px-4 py-2 sm:px-6" data-slot="page-header">
           {title && <h1 className="min-w-0 flex-1 font-heading font-semibold text-base">{title}</h1>}
@@ -16,7 +16,7 @@ export function Page({ title, nav, actions, children, className }: { title?: Rea
           {actions && <div className="ms-auto flex items-center gap-2">{actions}</div>}
         </div>
       )}
-      <div className={cn("flex w-full flex-col gap-4 p-4 sm:p-6", className)} data-slot="page-body">
+      <div className={cn("flex min-h-0 flex-1 w-full flex-col gap-4 p-4 sm:p-6", flush && "gap-0 overflow-hidden p-0 sm:p-0", className)} data-slot="page-body">
         {children}
       </div>
     </div>

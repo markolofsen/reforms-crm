@@ -1,8 +1,12 @@
 "use client";
 
 import type { Terminal } from "@xterm/xterm";
-import { useEffect, useRef } from "react";
+import { MicIcon, SquareIcon } from "lucide-react";
+import { useEffect, useRef, type RefObject } from "react";
 import { cn } from "../../cn";
+import { ActionButton } from "../action-button";
+import { LanguagePicker } from "../language-picker";
+import { useTerminalDictation } from "./dictation";
 import type { Dropped } from "./drop";
 import { enterPacer, keyRoute, SHIFT_ENTER } from "./keys";
 import { readTheme } from "./theme";
@@ -16,6 +20,20 @@ export type TerminalSize = { cols: number; rows: number };
  * `onInput`, wrapped in bracketed-paste marks when the program asked for them, so a CLI sees one paste, not keystrokes.
  */
 export type TerminalHandle = { write: (bytes: Uint8Array) => void; reset: () => void; focus: () => void; paste: (text: string) => void };
+
+export function TerminalDictationButton({ screen }: { screen: RefObject<TerminalHandle | null> }) {
+  const { available, chooseLanguage, error, language, recording, preview, toggle } = useTerminalDictation(screen);
+  return (
+    <div className="flex min-h-11 shrink-0 items-center gap-2 px-3 py-1.5" data-slot="terminal-dictation" data-testid="terminal-dictation">
+      <ActionButton aria-keyshortcuts="Meta+D Control+D" aria-label={recording ? "Stop dictation" : "Start dictation"} aria-pressed={recording} className={recording ? "text-destructive-foreground" : undefined} data-recording={recording || undefined} disabled={!available && !recording} icon onClick={toggle} size="s" tooltip={{ content: !available ? "Dictation is unavailable in this Chrome" : recording ? "Stop dictation" : "Start dictation; press Enter to send", hotkey: "Meta/Ctrl + D" }} variant="quiet">
+        {recording ? <SquareIcon aria-hidden="true" /> : <MicIcon aria-hidden="true" />}
+      </ActionButton>
+      <LanguagePicker ariaLabel="Dictation language" compact onChange={(value) => value && chooseLanguage(value)} value={language} />
+      {(recording || error) && <span className="min-w-0 flex-1 truncate text-muted-foreground text-xs" role="status">{error || preview || "Listening…"}</span>}
+      {!available && !recording && !error && <span className="text-muted-foreground text-xs">Dictation unavailable</span>}
+    </div>
+  );
+}
 
 type Callbacks = {
   /** The terminal exists and is open: from here on the caller may write into it. */

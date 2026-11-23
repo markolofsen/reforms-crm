@@ -7,8 +7,9 @@ import { cn } from "../cn";
 export const TooltipCreateHandle: typeof TooltipPrimitive.createHandle =
   TooltipPrimitive.createHandle;
 
-export const TooltipProvider: typeof TooltipPrimitive.Provider =
-  TooltipPrimitive.Provider;
+export function TooltipProvider({ children }: { children?: React.ReactNode }): React.ReactElement {
+  return <TooltipPrimitive.Provider closeDelay={0} delay={100} timeout={400}>{children}</TooltipPrimitive.Provider>;
+}
 
 export const Tooltip: typeof TooltipPrimitive.Root = TooltipPrimitive.Root;
 

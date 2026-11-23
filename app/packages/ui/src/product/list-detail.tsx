@@ -9,6 +9,11 @@ import { cn } from "../cn";
  */
 export const SPLIT_MIN_PX = 768;
 
+/** The one scrolling viewport for a contact/list column. Toolbar chrome can stay sticky inside it without creating a second scrollbar. */
+export function ListScrollArea({ ariaBusy, children, className }: { ariaBusy?: boolean; children: ReactNode; className?: string }) {
+  return <div aria-busy={ariaBusy || undefined} className={cn("flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain [scrollbar-gutter:stable] *:shrink-0", className)} data-pane="list">{children}</div>;
+}
+
 /**
  * A list and the detail of its open subject. From 768px of its own width both are on screen (the list 360px, 400px from 1440,
  * never more than 40 % of the box; then the detail); narrower, one at a time, chosen by `showDetail` and switched by a container
@@ -16,12 +21,12 @@ export const SPLIT_MIN_PX = 768;
  */
 export function ListDetail({ list, detail, showDetail, listLabel, detailLabel, wide = false }: { list: ReactNode; detail: ReactNode; showDetail: boolean; listLabel: string; detailLabel: string; /** The list is the subject (Activity's table): two thirds of the width. */ wide?: boolean }) {
   return (
-    <div className="@container flex min-h-0 min-w-0 flex-1" data-slot="list-detail">
+    <div className="@container flex h-full min-h-0 min-w-0 flex-1 overflow-hidden" data-slot="list-detail">
       <div className={cn("flex min-h-0 min-w-0 flex-1 @3xl:grid", wide ? "@3xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]" : "@3xl:grid-cols-[min(var(--list-width),40%)_minmax(0,1fr)]")}>
-        <section aria-label={listLabel} className={cn("flex min-h-0 min-w-0 flex-1 flex-col @3xl:border-e", showDetail && "@max-3xl:hidden")}>
+        <section aria-label={listLabel} className={cn("flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden @3xl:border-e", showDetail && "@max-3xl:hidden")}>
           {list}
         </section>
-        <section aria-label={detailLabel} className={cn("flex min-h-0 min-w-0 flex-1 flex-col", !showDetail && "@max-3xl:hidden")}>
+        <section aria-label={detailLabel} className={cn("flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden", !showDetail && "@max-3xl:hidden")}>
           {detail}
         </section>
       </div>

@@ -113,6 +113,8 @@
    (the same number as `md` in `hooks/use-media-query.ts`; `design-system-and-tokens.md` rule 13). */
 @theme {
   --breakpoint-md: 40rem;
+  /* Product split panes use @3xl at the same 768px boundary as SPLIT_MIN_PX; keep it explicit instead of inheriting Tailwind defaults. */
+  --container-3xl: 48rem;
   /* The shimmer coss's Skeleton names (`animate-skeleton`) and does not ship: without it the class was a no-op (found by
      the motion control in e2e/y-status-line.spec.ts, P48). Zeroed under reduced motion like every other animation. */
   --animate-skeleton: skeleton 2s -1s infinite linear;
@@ -359,4 +361,54 @@
 }
 .scheme-graph .edgeLabel text {
   fill: var(--muted-foreground);
+}
+
+.markdown-editor-content.ProseMirror {
+  color: var(--foreground);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.markdown-editor-content.ProseMirror p.is-editor-empty:first-child::before {
+  color: var(--muted-foreground);
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.markdown-editor-content.ProseMirror > * + * {
+  margin-top: 0.65rem;
+}
+.markdown-editor-content.ProseMirror :is(h1, h2, h3) {
+  font-weight: 600;
+  line-height: 1.25;
+}
+.markdown-editor-content.ProseMirror h1 {
+  font-size: 1.25rem;
+}
+.markdown-editor-content.ProseMirror h2 {
+  font-size: 1.125rem;
+}
+.markdown-editor-content.ProseMirror h3 {
+  font-size: 1rem;
+}
+.markdown-editor-content.ProseMirror :is(ul, ol) {
+  padding-inline-start: 1.25rem;
+}
+.markdown-editor-content.ProseMirror ul {
+  list-style: disc;
+}
+.markdown-editor-content.ProseMirror ol {
+  list-style: decimal;
+}
+.markdown-editor-content.ProseMirror blockquote {
+  border-radius: 0.5rem;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  padding: 0.5rem 0.75rem;
+}
+.markdown-editor-content.ProseMirror code {
+  border-radius: 0.25rem;
+  background: var(--muted);
+  padding: 0.1rem 0.3rem;
+  font-size: 0.9em;
 }

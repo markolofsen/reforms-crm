@@ -37,6 +37,11 @@ describe("@hub/ui direction rule", () => {
       expect(statSync(dir).isDirectory(), target).toBe(true);
     }
   });
+
+  it("keeps the terminal speech preference behind one storage seam", () => {
+    const users = files.filter((p) => readFileSync(p, "utf8").includes("window.localStorage")).map((p) => path.relative(src, p));
+    expect(users).toEqual(["product/terminal/storage.ts"]);
+  });
 });
 
 describe("@hub/ui tokens", () => {
@@ -58,8 +63,10 @@ describe("@hub/ui tokens", () => {
     expect(dark).toEqual(light);
   });
 
-  it("styles.css and use-media-query.ts both say 640px", () => {
+  it("styles.css keeps the product breakpoints explicit", () => {
     expect(read("styles.css")).toContain("--breakpoint-md: 40rem");
+    expect(read("styles.css")).toContain("--container-3xl: 48rem");
     expect(read("use-media-query.ts")).toMatch(/md:\s*640\b/);
+    expect(read("list-detail.tsx")).toContain("SPLIT_MIN_PX = 768");
   });
 });

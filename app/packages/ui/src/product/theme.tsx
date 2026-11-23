@@ -5,6 +5,7 @@ import { ThemeProvider as NextThemes, useTheme } from "next-themes";
 import { useSyncExternalStore, type ReactNode } from "react";
 import { cn } from "../cn";
 import { SegmentedControl, SegmentedControlItem } from "../ui/segmented-control";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ActionButton } from "./action-button";
 
 /**
@@ -18,9 +19,9 @@ export type ThemeChoice = (typeof THEMES)[number];
 const LABEL: Record<ThemeChoice, string> = { light: "Light", dark: "Dark", system: "System" };
 const ICON: Record<ThemeChoice, LucideIcon> = { light: SunIcon, dark: MoonIcon, system: MonitorIcon };
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+export function ThemeProvider({ children, forcedTheme }: { children: ReactNode; forcedTheme?: ThemeChoice }) {
   return (
-    <NextThemes attribute="class" defaultTheme="system" disableTransitionOnChange enableSystem storageKey={THEME_STORAGE_KEY}>
+    <NextThemes attribute="class" defaultTheme="system" disableTransitionOnChange enableSystem forcedTheme={forcedTheme} storageKey={THEME_STORAGE_KEY}>
       {children}
     </NextThemes>
   );
@@ -48,9 +49,12 @@ export function ThemeSegmented({ className }: { className?: string }) {
         const Icon = ICON[t];
         const on = mounted && value === t;
         return (
-          <SegmentedControlItem aria-checked={on} aria-label={LABEL[t]} className="flex-1 text-muted-foreground max-lg:min-h-11 max-lg:min-w-11" data-checked={on ? "" : undefined} disabled={!mounted} key={t} onClick={() => setTheme(t)} role="radio" title={LABEL[t]}>
-            <Icon aria-hidden="true" />
-          </SegmentedControlItem>
+          <Tooltip key={t}>
+            <TooltipTrigger render={<SegmentedControlItem aria-checked={on} aria-label={LABEL[t]} className="flex-1 text-muted-foreground max-lg:min-h-11 max-lg:min-w-11" data-checked={on ? "" : undefined} disabled={!mounted} onClick={() => setTheme(t)} role="radio" />}>
+              <Icon aria-hidden="true" />
+            </TooltipTrigger>
+            <TooltipPopup>{LABEL[t]}</TooltipPopup>
+          </Tooltip>
         );
       })}
     </SegmentedControl>
@@ -64,8 +68,9 @@ export function ThemeToggle({ className }: { className?: string }) {
   const value = choiceOf(theme);
   const next = THEMES[(THEMES.indexOf(value) + 1) % THEMES.length] ?? "system";
   const Icon = ICON[mounted ? value : "system"];
+  const label = mounted ? `Theme: ${LABEL[value]}. Switch to ${LABEL[next]}` : "Theme";
   return (
-    <ActionButton aria-label={mounted ? `Theme: ${LABEL[value]}. Switch to ${LABEL[next]}` : "Theme"} className={className} disabled={!mounted} icon onClick={() => setTheme(next)} size="s" variant="quiet">
+    <ActionButton aria-label={label} className={className} disabled={!mounted} icon onClick={() => setTheme(next)} size="s" tooltip={label} variant="quiet">
       <Icon aria-hidden="true" />
     </ActionButton>
   );
