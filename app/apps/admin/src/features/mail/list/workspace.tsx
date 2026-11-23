@@ -1,4 +1,3 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import type { Dest } from "@/routes/paths";
@@ -10,10 +9,11 @@ import { EmptyState, ListSkeleton, ListState, QueryView } from "@/components/sta
 import { toastManager } from "@hub/ui/toast";
 import { ListDetail, ListScrollArea } from "@hub/ui/product/list-detail";
 import { shortcutsOn } from "@/hooks/use-hotkeys";
-import { refreshData, sentence } from "@/lib/api/client";
+import { sentence } from "@/lib/api/client";
+import { useRefreshTopics } from "@/lib/cache/topics";
 import { useClock } from "@/lib/clock";
 import { runLocalAction } from "@/components/local-action";
-import { metaApi } from "@/lib/api/meta";
+import { postLocalOpen } from "@/lib/data/instance";
 import { copyText, openLink, sameTab } from "@/lib/external";
 import { ConversationPane } from "@/features/mail/conversation/pane";
 import { useToggleChecked } from "@/features/mail/draft/mail-read/use-toggle-checked";
@@ -22,9 +22,9 @@ import { ListRow } from "./row";
 import { useMailKeys } from "./keys";
 import { focusRow, useListKeys } from "@/components/conversation/list/keys";
 import { refOf } from "@hub/contract/focus";
-import { isClosed, rowId, type ConversationRow, type ReviewDraft, type ReviewSource } from "@/features/mail/model";
+import { isClosed, rowId, type ConversationRow, type ReviewDraft } from "@/features/mail/model";
+import { useReviewRows, type ReviewSource } from "@/lib/data/conversations";
 import { useReviewActions, type Notice } from "./use-review-actions";
-import { useReviewRows } from "./use-review-rows";
 import { useSelection, useShareReview } from "./use-selection";
 
 const NOTICE_MS = 8000;
@@ -120,7 +120,7 @@ async function replyAllInMail(d: ReviewDraft, say: (text: string) => void): Prom
     return;
   }
   const copied = await copyText(d.body); // blocked: the compose window still opens
-  if (!(await runLocalAction("mail.compose", { to: d.toAddr, cc: d.ccAddr, subject: d.subject }, { post: metaApi.localOpen, open: (href) => void openLink(sameTab(href)), say }))) return;
+  if (!(await runLocalAction("mail.compose", { to: d.toAddr, cc: d.ccAddr, subject: d.subject }, { post: postLocalOpen, open: (href) => void openLink(sameTab(href)), say }))) return;
   if (copied) say("Copied. Paste it into the Mail window and press Send there, then mark it done.");
   else say("The compose window opened; the clipboard was blocked, so copy the text from the draft.");
 }
@@ -130,7 +130,7 @@ async function replyAllInMail(d: ReviewDraft, say: (text: string) => void): Prom
  * bottom. It never sends mail by itself: Send is the unsent message's, and a batch draft opens a compose window you send from.
  */
 export function ReviewWorkspace({ source, views, onView, search, selection, rowTo, pointed = null, empty, emptyTitle, status, body, aside, listBottom, mobile, measured, noun }: Props) {
-  const qc = useQueryClient();
+  const refresh = useRefreshTopics(source.project);
   const now = useClock()();
   const actions = useReviewActions(source.project);
   const [q, setQ] = search;
@@ -185,7 +185,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, rowT
   const undoLast = undoBatch
     ? () => {
         void undoBatch()
-          .then(() => refreshData(qc))
+          .then(() => refresh(["batches", "drafts"]))
           .catch((e: unknown) => say(sentence(e)));
       }
     : null;

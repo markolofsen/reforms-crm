@@ -4,25 +4,23 @@ import { clientKey } from "@hub/contract/client-key";
 import type { SearchFor } from "@/routes/table";
 import { NoSuchClient } from "./no-such-client";
 import { useClientKey } from "./use-client-key";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { phrase } from "@hub/contract/help";
 import { useCallback, useMemo } from "react";
 import { ReviewWorkspace } from "@/features/mail/list/workspace";
 import type { View } from "@/features/mail/list/header";
-import type { ReviewPage, ReviewSource } from "./model";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useGo } from "@/hooks/use-go";
 import { usePaneMeasured, usePaneNarrow } from "@/hooks/use-pane";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { useSearch } from "@/hooks/use-search-state";
-import { reviewApi } from "@/lib/api/review";
-import { keys } from "@/lib/cache/keys";
+import { countOf, mailSource, useBatches, useMailCounts, type ReviewPage } from "@/lib/data/conversations";
 import { dest, type Dest } from "@/routes/paths";
 import { DRAFT_FILTERS, DRAFT_VIEW_LABELS, DRAFT_VIEWS, MAIL_SEARCH, type DraftView } from "@/routes/search";
 import { BatchSend } from "./batch-send";
 import { LeadCard } from "./inbox/lead-card";
-import { LeadsGroup, useInbound } from "./inbox/leads-group";
+import { LeadsGroup } from "./inbox/leads-group";
+import { useInbound } from "@/lib/data/inbound";
 import { NotByEmail, useNotByEmailTotal } from "./not-by-email";
 import { FollowUps } from "./sequences/follow-ups";
 import { StatusLine } from "./status-line";
@@ -35,13 +33,6 @@ const SEARCH_PAUSE_MS = 250;
 /** A batch is chosen from the View menu like a view; its value carries the id. */
 const BATCH = "batch:";
 
-type Scope = { search: string; batch: number | null };
-
-const page = async (project: string, view: Exclude<DraftView, "not_by_email">, offset: number, scope: Scope): Promise<ReviewPage> => {
-  const r = await reviewApi.conversations(project, view, offset, scope);
-  return { rows: r.rows, total: r.total, nextOffset: r.nextOffset, counts: r.counts };
-};
-const countOf = (counts: ReviewPage["counts"], view: string): number | undefined => counts[view];
 
 /**
  * P128 X0 (F5): the rail's Mail badge is the Needs you count of the very query Mail's default list reads (same key, same loader;
@@ -57,27 +48,14 @@ export type MailViewItem = { id: "needs_you" | "waiting" | "all"; title: string;
  */
 export function useMailViews(project: string | null): MailViewItem[] {
   const route = useRoute();
-  const q = useInfiniteQuery({
-    queryKey: keys.drafts(project ?? "", "needs_you", null, ""),
-    queryFn: ({ pageParam }) => page(project ?? "", "needs_you", pageParam, { search: "", batch: null }),
-    initialPageParam: 0,
-    getNextPageParam: (last) => last.nextOffset ?? undefined,
-    enabled: project !== null,
-  });
-  const counts = q.data?.pages[0]?.counts ?? {};
+  const counts = useMailCounts(project);
   const here = route.route === "mail.list" || route.route === "mail.conversation" ? (route.search.batch === null ? route.search.filter : null) : null;
   return (["needs_you", "waiting", "all"] as const).map((v) => ({ id: v, title: DRAFT_VIEW_LABELS[v], to: dest("mail.list", { filter: v }), count: countOf(counts, v) ?? 0, active: here === v }));
 }
 
 export function useMailNeedsYou(project: string | null): number {
-  const q = useInfiniteQuery({
-    queryKey: keys.drafts(project ?? "", "needs_you", null, ""),
-    queryFn: ({ pageParam }) => page(project ?? "", "needs_you", pageParam, { search: "", batch: null }),
-    initialPageParam: 0,
-    getNextPageParam: (last) => last.nextOffset ?? undefined,
-    enabled: project !== null,
-  });
-  return project === null ? 0 : (countOf(q.data?.pages[0]?.counts ?? {}, "needs_you") ?? 0);
+  const counts = useMailCounts(project);
+  return project === null ? 0 : (countOf(counts, "needs_you") ?? 0);
 }
 
 type Props = { project: string; filter: DraftView; q: string; batch: number | null; clientId: number | null; pointed: string | null; leadPageId: string | null; mobile: boolean; measured: boolean };
@@ -90,23 +68,13 @@ function MailSection({ project, filter, q, batch, clientId, pointed, leadPageId,
   const [, setSearch] = useSearch(MAIL_SEARCH);
   const setQ = useCallback((v: string) => setSearch({ q: v }), [setSearch]);
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
-  const batches = useQuery({ queryKey: keys.batches(project), queryFn: () => reviewApi.batches(project) });
+  const batches = useBatches(project);
   const notByEmail = useNotByEmailTotal(project);
   const inbound = useInbound(project);
   const known = batch === null || (batches.data?.batches.some((b) => b.id === batch) ?? true);
   const current = batch === null ? undefined : batches.data?.batches.find((b) => b.id === batch);
-  const source = useMemo<ReviewSource>(() => {
-    const scope = { search, batch };
-    return {
-      queryKey: keys.drafts(project, filter, batch, search),
-      project,
-      filter,
-      countOf,
-      // Not by email lists client rows, not conversations: the list query still runs (as All) so the View menu keeps every count.
-      load: (offset) => page(project, filter === "not_by_email" ? "all" : filter, offset, scope),
-      ...(batch === null ? {} : { undoLast: () => reviewApi.undoBatch(project, batch) }),
-    };
-  }, [project, filter, batch, search]);
+  // Not by email lists client rows, not conversations: the list query still runs (as All) so the View menu keeps every count.
+  const source = useMemo(() => mailSource(project, filter, filter === "not_by_email" ? "all" : filter, { search, batch }), [project, filter, batch, search]);
   const views = (counts: ReviewPage["counts"]): View[] => [
     ...DRAFT_VIEWS.map((v) => ({ value: v, label: DRAFT_VIEW_LABELS[v], count: v === "not_by_email" ? notByEmail : countOf(counts, v), ...(DRAFT_FILTERS.has(v) ? { group: "Filters" } : {}) })),
     ...(batches.data?.batches ?? []).map((b) => ({ value: `${BATCH}${b.id}`, label: b.name, count: b.total, group: "Batches" })),

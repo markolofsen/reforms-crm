@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import type { ConnectionDto, ConnectionsDto } from "@hub/contract/connections";
 import type { InstanceDto } from "@hub/contract/instance";
-import type { AppsDto } from "@hub/contract/local";
+import type { AppsDto, ServerActionId } from "@hub/contract/local";
 import type { SetSecretBody } from "@hub/contract/requests";
 import { connectionsApi } from "@/lib/api/connections";
 import { metaApi } from "@/lib/api/meta";
@@ -105,3 +105,12 @@ export const usePulse = () => useQuery({ queryKey: keys.pulse(), queryFn: metaAp
 
 /** The agent's pointer (P72): the rows it rings on the owner's screen. */
 export const usePointer = () => useQuery({ queryKey: keys.pointer(), queryFn: pointerApi.get });
+
+/** P61: the one POST to `/api/local` (an action and its project and key; the server resolves the path). An Open changes nothing in the Hub. */
+export const postLocalOpen = (action: ServerActionId, args: unknown) => metaApi.localOpen(action, args);
+
+/** One Open as a mutation (P61, `components/local-action.tsx`): `run(args)` and whether it is running. It invalidates nothing. */
+export function useLocalOpen(run: (args: unknown) => Promise<boolean>) {
+  const m = useMutation({ mutationFn: run });
+  return { run: (args: unknown) => m.mutate(args), pending: m.isPending };
+}

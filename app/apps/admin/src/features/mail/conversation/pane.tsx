@@ -1,6 +1,5 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
 import { CONVERSATION_STATE_LABELS } from "@hub/contract/conversations";
 import { refOf } from "@hub/contract/focus";
@@ -16,10 +15,9 @@ import { EmptyState, LoadFailed } from "@/components/state-views";
 import { DraftCard } from "@/features/mail/draft/draft-card";
 import type { ConversationRow } from "@/features/mail/model";
 import type { Notice, ReviewActions } from "@/features/mail/list/use-review-actions";
-import { isNotFound, refreshData, sentence } from "@/lib/api/client";
-import { inboundApi } from "@/lib/api/inbox";
-import { reviewApi } from "@/lib/api/review";
-import { keys } from "@/lib/cache/keys";
+import { isNotFound, sentence } from "@/lib/api/client";
+import { useConversation } from "@/lib/data/conversations";
+import { useDismissInbound } from "@/lib/data/inbound";
 import { agentLine } from "@/lib/agent-reasons";
 import { focusAgentRow } from "@/lib/focus";
 import { notionIdentityLine, notionIndicatorState, notionPageIdOf } from "@/lib/notion";
@@ -29,19 +27,16 @@ import { History } from "./history";
 
 /** No reply needed (P96 verdict 4): their open messages leave Needs you, stored, with Undo in the toast. */
 function useDismiss(project: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: number) => inboundApi.dismiss(project, id),
-    onSuccess: (r) => {
-      void refreshData(qc);
+  const { dismiss, undo } = useDismissInbound(project, {
+    onSuccess: (r) =>
       toastManager.add({
         title: "No reply needed",
         type: "success",
-        actionProps: { children: "Undo", onClick: () => void inboundApi.undismiss(project, r.ids).then(() => refreshData(qc), (e: unknown) => toastManager.add({ title: "Not undone", description: sentence(e), type: "error" })) },
-      });
-    },
+        actionProps: { children: "Undo", onClick: () => void undo(r.ids).catch((e: unknown) => toastManager.add({ title: "Not undone", description: sentence(e), type: "error" })) },
+      }),
     onError: (e) => toastManager.add({ title: "Not changed", description: sentence(e), type: "error" }),
   });
+  return dismiss;
 }
 
 /**
@@ -106,7 +101,7 @@ export type PaneProps = {
  * Skip, Hold, Done, Undo). Without a draft, one action row (P128 X1): the manual composer is one click away, Write it myself.
  */
 export function ConversationPane({ project, clientId, listRow, pointed, actions, notice, now, advance, say, onBack }: PaneProps) {
-  const q = useQuery({ queryKey: keys.conversation(project, clientId), queryFn: () => reviewApi.conversation(project, clientId) });
+  const q = useConversation(project, clientId);
   const [historyNote, setHistoryNote] = useState<string | null>(null);
   // The history's scroll position and newest message belong to the conversation (and pointed message) they were read for, so
   // opening another one shows none until its history reports (stored with their key, no reset effect).

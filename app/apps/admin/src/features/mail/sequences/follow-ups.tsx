@@ -1,7 +1,6 @@
 "use client";
 
 import { clientKey } from "@hub/contract/client-key";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { phrase } from "@hub/contract/help";
 import { useState } from "react";
 import { SEQUENCE_DISPLAY_LABELS } from "@hub/config";
@@ -11,17 +10,15 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList, ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
 import { AppLink } from "@/components/app-link";
 import { ListSkeleton, ListState, QueryView } from "@/components/state-views";
-import { refreshData, sentence } from "@/lib/api/client";
-import { sequencesApi } from "@/lib/api/inbox";
+import { sentence } from "@/lib/api/client";
+import { useEnrollments, useStopFollowUps } from "@/lib/data/inbound";
 import { formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
-import { keys } from "@/lib/cache/keys";
 
 /** Stop follow-ups for one client: it only reduces mail, but the admin cannot restart it (resume is the owner's, in his terminal), so it asks in place. */
 function StopControl({ project, e }: { project: string; e: EnrollmentDto }) {
-  const qc = useQueryClient();
   const [asking, setAsking] = useState(false);
-  const stop = useMutation({ mutationFn: () => sequencesApi.stop(project, e.id), onSuccess: () => void refreshData(qc) });
+  const stop = useStopFollowUps(project, e.id);
   if (stop.isError) return <p className="text-destructive-foreground text-xs" role="alert">{sentence(stop.error)}</p>;
   if (!asking) return <ActionButton onClick={() => setAsking(true)} size="s" variant="quiet">Stop</ActionButton>;
   return (
@@ -55,7 +52,7 @@ function Row({ project, e }: { project: string; e: EnrollmentDto }) {
  * due step into Mail, and the owner sends it from Mail. Nothing here enrols, drafts or sends.
  */
 export function FollowUps({ project }: { project: string }) {
-  const q = useQuery({ queryKey: keys.enrollments(project, "active"), queryFn: () => sequencesApi.enrollments(project, "active") });
+  const q = useEnrollments(project, "active");
   return (
     <QueryView frame={(note, kind) => <ListState testId={kind === "failed" ? "follow-ups-failed" : undefined}>{note}</ListState>} loading={<ListSkeleton label="Loading the follow-ups" rows={2} />} query={q} what="the follow-ups">
       {(d) => <FollowUpList project={project} rows={d.enrollments} />}

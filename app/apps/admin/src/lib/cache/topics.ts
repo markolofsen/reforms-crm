@@ -25,3 +25,12 @@ export function useCommand<V, R>(o: { project: string | null; touches: readonly 
     onSettled: () => invalidateTopics(qc, o.project, o.touches),
   });
 }
+
+/**
+ * The same invalidation for a write that is not one mutation of a screen: a toast's Undo, a batch's own Undo, a run that moved on
+ * (P127 C2). `refresh(touches)` invalidates exactly `TOPIC_KEYS` of those topics.
+ */
+export function useRefreshTopics(project: string | null) {
+  const qc = useQueryClient();
+  return (touches: readonly LiveTopic[]) => invalidateTopics(qc, project, touches);
+}

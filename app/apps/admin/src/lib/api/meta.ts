@@ -35,6 +35,6 @@ export const metaApi = {
   /** P55: the project's agent model and advisor; a change applies at the next session start. */
   agentSettings: (project: string) => readGenerated(getAgentSettings({ project }), agentSettingsDto),
   setAgentSettings: (project: string, patch: Omit<AgentSettingsBody, "project">) => read(agentSettingsDto, { method: "PUT", path: "/api/agent-settings", body: { project, ...patch } }),
-  /** P61: the only POST to `/api/local` (a project and a key; the server resolves the path). Called by `components/local-action.tsx`. */
+  /** P61: the only POST to `/api/local` (a project and a key; the server resolves the path). Called by `lib/data/instance.ts` (`postLocalOpen`). */
   localOpen: (action: ServerActionId, args: unknown) => read(localOpenedDto, { method: "POST", path: `/api/local/${action}`, body: args }),
 };

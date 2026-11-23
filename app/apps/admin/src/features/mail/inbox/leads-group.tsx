@@ -1,20 +1,12 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import type { LeadRowDto, LeadsGroupDto } from "@hub/contract/inbound";
 import { cn } from "@hub/ui/cn";
 import { ConversationList } from "@hub/ui/product/conversation";
 import { AppLink } from "@/components/app-link";
-import { inboundApi } from "@/lib/api/inbox";
-import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
 import { ago, plural } from "@/lib/format";
 import { dest } from "@/routes/paths";
-
-/** The Mail reader's reply (P96): the people who wrote are conversations now (P99); its Leads group and its counts stay here. */
-export function useInbound(project: string) {
-  return useQuery({ queryKey: keys.inbound(project), queryFn: () => inboundApi.list(project) });
-}
 
 /** The Leads line: when Notion Leads were last read, or why not (no token, a failed read, demo mode). */
 export function leadsReadText(r: LeadsGroupDto["read"], now: number): string {

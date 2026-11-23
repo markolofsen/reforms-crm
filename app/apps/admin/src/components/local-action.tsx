@@ -1,6 +1,5 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
 import { MonitorIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { desktopHandoffReason, isServerAction, linkOf, LOCAL_ACTIONS, type HrefActionId, type LocalActionId, type LocalArgs, type ServerActionId } from "@hub/contract/local";
@@ -9,9 +8,8 @@ import { MenuItem, MenuLinkItem } from "@hub/ui/menu";
 import { ActionButton, type ActionButtonProps, type ActionSize, type ActionVariant } from "@hub/ui/product/action-button";
 import { toastManager } from "@hub/ui/toast";
 import { sentence } from "@/lib/api/client";
-import { metaApi } from "@/lib/api/meta";
 import { openLink, sameTab } from "@/lib/external";
-import { useInstance } from "@/lib/data/instance";
+import { postLocalOpen, useInstance, useLocalOpen } from "@/lib/data/instance";
 
 // P61: the one way the admin opens something on the owner's Mac. `href` actions (Mail) are real links built by the
 // registry (`@hub/contract/local`); `server` actions (Finder, a project file) post a project and a KEY to
@@ -45,8 +43,8 @@ const sayRefusal = (text: string) => toastManager.add({ title: "Not opened", des
 /** `run(args)`, whether it is running, and whether this machine can run server actions (`localOpen` of the instance). */
 export function useLocalAction(action: LocalActionId) {
   const instance = useInstance();
-  const m = useMutation({ mutationFn: (args: unknown) => runLocalAction(action, args, { post: metaApi.localOpen, open: (href) => void openLink(sameTab(href)), say: sayRefusal }) });
-  return { run: (args: unknown) => m.mutate(args), pending: m.isPending, available: !isServerAction(action) || instance.data?.localOpen === true };
+  const m = useLocalOpen((args) => runLocalAction(action, args, { post: postLocalOpen, open: (href) => void openLink(sameTab(href)), say: sayRefusal }));
+  return { ...m, available: !isServerAction(action) || instance.data?.localOpen === true };
 }
 
 /** `ariaLabel` only for an icon-only button: otherwise the content names it, so the name holds its visible text (WCAG 2.5.3). */

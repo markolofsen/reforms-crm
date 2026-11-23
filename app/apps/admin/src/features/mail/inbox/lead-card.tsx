@@ -2,9 +2,8 @@
 
 import { clientKey } from "@hub/contract/client-key";
 import { ChevronDownIcon } from "lucide-react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { leadPhrase } from "@hub/contract/help";
-import type { LeadActionDto, LeadDetailDto } from "@hub/contract/inbound";
+import type { LeadDetailDto } from "@hub/contract/inbound";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { toastManager } from "@hub/ui/toast";
@@ -13,33 +12,29 @@ import { notionPageDestination } from "@hub/contract/local";
 import { OpenLinkButton } from "@/components/links/open-link";
 import { EmptyState, QueryView } from "@/components/state-views";
 import { useTerminal } from "@/features/terminal/use-terminal";
-import { refreshData, sentence } from "@/lib/api/client";
-import { leadsApi } from "@/lib/api/inbox";
-import { keys } from "@/lib/cache/keys";
+import { sentence } from "@/lib/api/client";
+import { useLead, useLeadAction as useLeadCommand, type LeadAction as Action } from "@/lib/data/inbound";
 import { useClock } from "@/lib/clock";
 import { ago, formatTime } from "@/lib/format";
 import { dest } from "@/routes/paths";
 
-type Action = "notNow" | "spam";
 const DONE: Record<Action, string> = { notNow: "Not now", spam: "Marked as spam" };
 
 /** Not now (local) and Spam (the lead's Status in Notion): the row leaves the group, with Undo in the toast. */
 function useLeadAction(project: string, pageId: string, onDone: () => void) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (a: Action) => (a === "spam" ? leadsApi.spam(project, pageId) : leadsApi.notNow(project, pageId)).then((r): [Action, LeadActionDto] => [a, r]),
+  const { act, undo } = useLeadCommand(project, pageId, {
     onSuccess: ([a, r]) => {
-      void refreshData(qc);
       onDone();
       toastManager.add({
         title: DONE[a],
         ...(r.note ? { description: r.note } : {}),
         type: r.notion === "refused" ? "warning" : "success",
-        actionProps: { children: "Undo", onClick: () => void leadsApi.undo(project, pageId).then(() => refreshData(qc), (e: unknown) => toastManager.add({ title: "Not undone", description: sentence(e), type: "error" })) },
+        actionProps: { children: "Undo", onClick: () => void undo().catch((e: unknown) => toastManager.add({ title: "Not undone", description: sentence(e), type: "error" })) },
       });
     },
     onError: (e) => toastManager.add({ title: "Not changed", description: sentence(e), type: "error" }),
   });
+  return act;
 }
 
 /**
@@ -49,7 +44,7 @@ function useLeadAction(project: string, pageId: string, onDone: () => void) {
  * with Undo; Spam sets the lead's Status Spam in Notion, with Undo (S5). Never a reply box and never a send here.
  */
 export function LeadCard({ project, pageId, onClosed }: { project: string; pageId: string; onClosed: () => void }) {
-  const q = useQuery({ queryKey: keys.lead(project, pageId), queryFn: () => leadsApi.get(project, pageId) });
+  const q = useLead(project, pageId);
   const now = useClock()();
   const { pasteToAgent } = useTerminal();
   const act = useLeadAction(project, pageId, onClosed);

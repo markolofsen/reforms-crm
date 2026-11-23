@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, type ReactNode } from "react";
 import type { ConversationMailDto, ConversationMessageDto, ConversationThreadDto } from "@hub/contract/conversations";
 import { refOf } from "@hub/contract/focus";
@@ -8,14 +7,13 @@ import { ConversationDayDivider, ConversationLabel, ConversationMessage, Convers
 import { ConversationHistoryContent, ConversationHistoryNotice, ConversationHistoryState, ConversationHistorySummary, ConversationRefreshing, ConversationStaleNotice } from "@hub/ui/product/conversation-frame";
 import { useConversationScroll, type ConversationScrollState } from "@hub/ui/product/conversation-scroll";
 import { LoadFailed, Loading } from "@/components/state-views";
-import { reviewApi } from "@/lib/api/review";
-import { keys } from "@/lib/cache/keys";
+import { useConversationMail, useConversationText } from "@/lib/data/conversations";
 import { sentence } from "@/lib/api/client";
 import { dayOf, formatDay, formatTime, plural } from "@/lib/format";
 
 /** One message's own words, read from Mail (decision 0013: never stored; the server keeps it in memory). */
 function Body({ project, clientId, m }: { project: string; clientId: number; m: ConversationMessageDto }) {
-  const q = useQuery({ queryKey: keys.conversationText(project, clientId, m.messageId), queryFn: () => reviewApi.conversationText(project, clientId, m.messageId) });
+  const q = useConversationText(project, clientId, m.messageId);
   if (q.isPending) {
     return (
       <div aria-busy="true" className="flex flex-col gap-1" data-testid="message-text">
@@ -94,7 +92,7 @@ function Threads({ project, clientId, name, data, pointed }: { project: string; 
  * spike's AppleScript read, about a second) and never stored. When Mail cannot be read the Hub's own rows show, with the reason.
  */
 export function History({ project, clientId, name, onNote, onScrollState, onSourceMessageId, pointed }: { project: string; clientId: number; name: string; onNote?: (note: string | null) => void; onScrollState?: (state: ConversationScrollState) => void; onSourceMessageId?: (messageId: string | null) => void; pointed: string | null }) {
-  const q = useQuery({ queryKey: keys.conversationMail(project, clientId), queryFn: () => reviewApi.conversationMail(project, clientId) });
+  const q = useConversationMail(project, clientId);
   const historyRef = useRef<HTMLElement>(null);
   const lastScrolledPointed = useRef<string | null | undefined>(undefined);
   const scrollState = useConversationScroll(historyRef, `${clientId}:${pointed ?? ""}`, pointed === null);

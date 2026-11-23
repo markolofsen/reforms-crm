@@ -1,11 +1,9 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { parseClientKey } from "@hub/contract/client-key";
 import { useGo } from "@/hooks/use-go";
-import { reviewApi } from "@/lib/api/review";
-import { keys } from "@/lib/cache/keys";
+import { useClientByKey } from "@/lib/data/conversations";
 import { dest } from "@/routes/paths";
 import type { SearchFor } from "@/routes/table";
 
@@ -20,7 +18,7 @@ export type KeyedClient = { id: number | null; missing: boolean };
 export function useClientKey(project: string, key: string | null, search: SearchFor<"mail.conversation">): KeyedClient {
   const go = useGo();
   const ref = key === null ? null : parseClientKey(key);
-  const q = useQuery({ queryKey: keys.clientKey(project, key ?? ""), queryFn: () => reviewApi.clientByKey(project, key ?? ""), enabled: key !== null && ref !== null, retry: false });
+  const q = useClientByKey(project, key, ref !== null);
   const canonical = q.data?.key ?? null;
   useEffect(() => {
     if (key !== null && canonical !== null && canonical !== key) go(dest("mail.conversation", { key: canonical }, search), { replace: true });

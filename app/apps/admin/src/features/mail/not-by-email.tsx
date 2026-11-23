@@ -1,6 +1,5 @@
 "use client";
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { INBOX_KIND_HINTS, INBOX_KIND_LABELS, INBOX_KINDS, type InboxKind } from "@hub/config";
 import type { InboxRowDto, NotByEmailDto } from "@hub/contract/responses";
@@ -8,9 +7,8 @@ import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList, ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
 import { ListSkeleton, ListState, QueryView } from "@/components/state-views";
-import { inboxApi } from "@/lib/api/inbox";
+import { useNotByEmail } from "@/lib/data/inbound";
 import { formatTime } from "@/lib/format";
-import { keys } from "@/lib/cache/keys";
 
 function Row({ r }: { r: InboxRowDto }) {
   return (
@@ -32,7 +30,7 @@ function Row({ r }: { r: InboxRowDto }) {
  */
 export function NotByEmail({ project }: { project: string }) {
   const [kind, setKind] = useState<InboxKind | null>(null);
-  const q = useQuery({ queryKey: keys.notByEmail(project, kind), queryFn: () => inboxApi.notByEmail(project, kind), placeholderData: keepPreviousData });
+  const q = useNotByEmail(project, kind, { keep: true });
   return (
     <QueryView frame={(note) => <ListState>{note}</ListState>} loading={<ListSkeleton label="Loading the clients not answered by email" />} query={q} what="the clients not answered by email">
       {(d) => <NotByEmailList d={d} kind={kind} setKind={setKind} />}
@@ -69,6 +67,6 @@ function NotByEmailList({ d, kind, setKind }: { d: NotByEmailDto; kind: InboxKin
 
 /** The number beside "Not by email" in the View menu. */
 export function useNotByEmailTotal(project: string): number | undefined {
-  const q = useQuery({ queryKey: keys.notByEmail(project, null), queryFn: () => inboxApi.notByEmail(project, null) });
+  const q = useNotByEmail(project, null);
   return q.data ? INBOX_KINDS.reduce((n, k) => n + q.data.counts[k], 0) : undefined;
 }
