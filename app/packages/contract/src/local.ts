@@ -49,9 +49,9 @@ export const DESKTOP_NOT_OFFERED = "Not offered: Claude Desktop would run this s
 
 export const LOCAL_ACTIONS = {
   // The client's message (the draft's mailRef). P58 R1: the card's Open goes to the draft itself; this is its fallback and a More item.
-  "mail.openMessage": { transport: "href", args: z.strictObject({ messageId }), label: "Open the client's mail" },
+  "mail.openMessage": { transport: "href", args: z.strictObject({ messageId }), label: "Open their message" },
   // P58 R1: the Mail draft's own Message-ID (`draftMailDto.messageId`, from the card's read); `hub open mail.openDraft --draft <id>`.
-  "mail.openDraft": { transport: "href", args: z.strictObject({ messageId }), label: "Open draft in Mail" },
+  "mail.openDraft": { transport: "href", args: z.strictObject({ messageId }), label: "Open the draft in Mail" },
   "mail.compose": { transport: "href", args: z.strictObject({ to: z.string(), cc: z.string().nullable(), subject: z.string() }), label: "Reply in Mail" },
   // P131 O3: the web page; whether the Notion app opens it is decided at render by this Mac's apps (`openLinkOf`), not by a caller.
   "notion.openPage": { transport: "href", args: z.strictObject({ pageId }), label: "Open in Notion" },

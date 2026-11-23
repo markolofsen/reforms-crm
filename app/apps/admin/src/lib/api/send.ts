@@ -1,5 +1,5 @@
 import { getDraftMail, getProjectDoctor, listSends } from "@hub/api";
-import { draftMailDto } from "@hub/contract/mail";
+import { draftMailDto, mailTidyDto } from "@hub/contract/mail";
 import { draftChangedDto } from "@hub/contract/review";
 import { batchRunStateDto, batchSendPlanDto, doctorDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto, type BatchSendPlanDto } from "@hub/contract/sending";
 import { read, readGenerated } from "./client";
@@ -23,6 +23,8 @@ export const sendApi = {
   save: (project: string, draftId: number, text: string, hash: string) => read(draftChangedDto, { method: "PUT", path: `${base(project)}/drafts/${draftId}/mail`, body: { text, hash } }),
   /** Restore (P56 S0): Mail holds no draft for it; the Hub's last copy in Trash is written again. */
   restore: (project: string, draftId: number) => read(draftChangedDto, { method: "POST", path: `${base(project)}/drafts/${draftId}/mail/restore` }),
+  /** Tidy (P105): the Hub's own leftover drafts of the project moved to Mail's Trash (recoverable), the review dialog's fix for two drafts in Mail. */
+  tidy: (project: string, draftId: number) => read(mailTidyDto, { method: "POST", path: `${base(project)}/drafts/${draftId}/mail/tidy` }),
   /** The last five messages of the conversation, read from Mail on demand; read-only, never stored. */
   list: (project: string) => readGenerated(listSends(project), sendsDto),
   cancel: (project: string, sendId: number) => read(sendCancelledDto, { method: "POST", path: `/api/sends/${sendId}/cancel`, query: { project } }),

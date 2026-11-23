@@ -334,3 +334,7 @@ export const draftMailDto = z.object({
 });
 export type DraftMailDto = z.infer<typeof draftMailDto>;
 
+/** P105: what Tidy moved to Mail's Trash (the Hub's own leftover drafts of the project), and what Mail refused because it changed since the read. */
+export const mailTidyDto = z.object({ ok: z.literal(true), moved: z.number().int(), refused: z.number().int() });
+export type MailTidyDto = z.infer<typeof mailTidyDto>;
+

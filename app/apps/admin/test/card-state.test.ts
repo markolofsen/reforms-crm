@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { CARD_STATES, hasSwitch, primaryFor, secondaryFor, stateOf, type Context } from "../src/features/review/card/card-state";
+import { CARD_STATES, canCheck, primaryFor, secondaryFor, stateOf, type Context } from "../src/features/review/card/card-state";
 
 import type { ReviewDraft } from "../src/features/review/source";
 import { tickBlock, type MailRead } from "../src/features/review/mail/tick-guard";
 
-const ctx: Context = { name: "Marta", hasMailLink: true, hasDraftLink: false, acknowledged: true };
+const ctx: Context = { name: "Marta", hasMailLink: true, hasDraftLink: false };
 
 describe("the review card state table", () => {
-  it("covers the 15 states of research 16 section 7 (without batch, P85), plus follow_up (P47)", () => {
-    expect(CARD_STATES).toHaveLength(15);
-    expect(new Set(CARD_STATES).size).toBe(15);
+  it("covers the 14 states of research 16 section 7 (without batch, P85; without confirming, P105), plus follow_up (P47)", () => {
+    expect(CARD_STATES).toHaveLength(14);
+    expect(new Set(CARD_STATES).size).toBe(14);
+    expect(CARD_STATES).not.toContain("confirming");
   });
 
   it.each(CARD_STATES)("%s has at most one primary and at most two visible secondaries", (state) => {
@@ -23,35 +24,31 @@ describe("the review card state table", () => {
     if (primary?.action === "open_mail") expect(secondaryFor(state)).not.toContain("open_mail");
   });
 
-  it("a disabled primary always says why (a screen reader reads the reason)", () => {
-    for (const state of CARD_STATES) {
-      for (const acknowledged of [true, false]) {
-        const primary = primaryFor(state, { ...ctx, acknowledged });
-        if (primary && !primary.enabled && !primary.busy) expect(primary.reason).toBeTruthy();
-      }
-    }
+  it("P105: Send is never disabled while a send can follow: it opens the review dialog, which names what stands in the way", () => {
+    for (const state of ["checks_open", "unread", "acknowledged", "failed"] as const) expect(primaryFor(state, ctx)).toEqual({ action: "send", label: "Send", busy: false });
+    expect(primaryFor("sending", ctx)).toEqual({ action: "send", label: "Sending", busy: true });
   });
 
-  it("the primary in the states that cannot send opens the draft in Mail (P58 R1), else the client's mail, or a plain Copy when there is no link", () => {
+  it("the primary in the states that cannot send opens the draft in Mail (P58 R1), else their message (P105 verdict 3), or a plain Copy when there is no link", () => {
     for (const state of ["suspicious", "no_contact", "unreadable", "follow_up"] as const) {
-      expect(primaryFor(state, { ...ctx, hasDraftLink: true })?.label).toBe("Open draft in Mail");
-      expect(primaryFor(state, ctx)?.label).toBe("Open the client's mail");
+      expect(primaryFor(state, { ...ctx, hasDraftLink: true })?.label).toBe("Open the draft in Mail");
+      expect(primaryFor(state, ctx)?.label).toBe("Open their message");
       expect(primaryFor(state, { ...ctx, hasMailLink: false })?.label).toBe("Copy subject to find in Mail");
     }
   });
 
-  it("the switch is only where a send can follow", () => {
-    expect(CARD_STATES.filter(hasSwitch)).toEqual(["checks_open", "unread", "acknowledged", "failed"]);
+  it("Checked (for Send all Checked) can be set only where a send can follow", () => {
+    expect(CARD_STATES.filter(canCheck)).toEqual(["checks_open", "unread", "acknowledged", "failed"]);
   });
 });
 
 describe("a draft Mail cannot show (P27 M3.1)", () => {
   const draft = { status: "ready", checked: true, batchId: null, injectionSuspected: false, sendState: null, client: { marks: [] }, safetyResults: [] } as unknown as ReviewDraft;
 
-  it("is unreadable, with no switch and Open in Mail as the way on, even when it was Checked before", () => {
+  it("is unreadable, not checkable, with Open in Mail as the way on, even when it was Checked before", () => {
     expect(stateOf(draft, "idle", false)).toBe("unreadable");
     expect(stateOf(draft, "idle", true)).toBe("acknowledged");
-    expect(hasSwitch("unreadable")).toBe(false);
+    expect(canCheck("unreadable")).toBe(false);
   });
 
   it("a mail the server was never asked to read (Mail-only mode) is not unreadable", () => {
@@ -62,11 +59,11 @@ describe("a draft Mail cannot show (P27 M3.1)", () => {
 describe("a follow-up step (P47) is sent from Mail, never by the hub", () => {
   const step = { status: "ready", checked: true, batchId: null, injectionSuspected: false, sendState: null, client: { marks: [] }, safetyResults: [], sequence: { enrollmentId: 4, sequence: "s", step: 2, steps: 3, state: "active" } } as unknown as ReviewDraft;
 
-  it("is follow_up even when Checked, with Open in Mail as the one primary, Skip beside it and no switch", () => {
+  it("is follow_up even when Checked, with Open in Mail as the one primary, Skip beside it, not checkable", () => {
     expect(stateOf(step, "idle")).toBe("follow_up");
     expect(primaryFor("follow_up", ctx)?.action).toBe("open_mail");
     expect(secondaryFor("follow_up")).toEqual(["skip"]);
-    expect(hasSwitch("follow_up")).toBe(false);
+    expect(canCheck("follow_up")).toBe(false);
   });
 
   it("do not contact still wins over a step, and a finished step is just finished", () => {
@@ -81,7 +78,7 @@ describe("no batch_waiting state (P48: the batch builder is gone, nothing queues
   });
 });
 
-describe("Checked fails closed (decision 0013): the switch and the C key hold one guard", () => {
+describe("Checked fails closed (decision 0013): the review dialog and the C key hold one guard", () => {
   const base = { status: "ready", checked: false, batchId: null, injectionSuspected: false, sendState: null, client: { marks: [] }, safetyResults: [] } as unknown as ReviewDraft;
   const read = (o: Partial<MailRead> = {}): MailRead => ({ configured: true, found: true, hash: "a".repeat(64), reason: null, ...o });
 

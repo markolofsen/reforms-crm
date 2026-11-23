@@ -6,15 +6,16 @@ import type { ReviewActions } from "../use-review-actions";
 import { keys } from "@/lib/cache/keys";
 
 /**
- * `C`: Checked on or off from the keyboard. It asks the guard the switch asks (an unreadable draft, or one whose text has
- * no hash, is refused with the reason) and binds the tick to the hash of the read the card holds.
+ * `C`: Checked (for Send all Checked of a batch) from the keyboard. Off is at once; on opens the review dialog in its Check mode
+ * (P105), where the checks are read and accepted once. An unreadable draft, or one with nothing to check, is refused with the reason.
  */
 export function useToggleChecked(project: string, actions: ReviewActions, say: (text: string) => void) {
   const qc = useQueryClient();
   return (d: ReviewDraft) => {
     const mail = qc.getQueryData<DraftMailDto>(keys.draftMail(project, d.id));
+    if (d.checked) return actions.setChecked(d, false);
     const why = tickBlock(d, mail);
     if (why) say(why);
-    else actions.setChecked(d, !d.checked, d.checked ? null : (mail?.hash ?? null));
+    else actions.openReview(d, "check");
   };
 }

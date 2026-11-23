@@ -8,8 +8,8 @@ import { sendApi } from "@/lib/api/send";
 export type SendFlow = DoorFlow<SendPreviewDto>;
 
 /**
- * The two steps of a mail send through the one door (`components/send/send-flow.ts`): read the draft from Mail (a dry run that
- * sends nothing), then, after the person confirms what they saw, send exactly that (the recipients and subject he read).
+ * A mail send through the one door (`components/send/send-flow.ts`): after the person confirmed in the review dialog (P105), the
+ * dry run reads the draft from Mail (it sends nothing) and the apply sends exactly that, when it is what the dialog showed.
  */
 export function useSendFlow(project: string, draftId: number) {
   const qc = useQueryClient();

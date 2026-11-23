@@ -21,7 +21,7 @@ const record = (project: string, payload: object) =>
     execFileSync("node", [hub, "record-draft", "--project", project], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" }),
   ) as { ok: boolean; action: string; draftId: number };
 
-test("a draft recorded by the CLI shows on the Drafts screen, once, with an Open the client's mail link", async ({ page }) => {
+test("a draft recorded by the CLI shows on the Drafts screen, once, with an Open their message link", async ({ page }) => {
   const draft = { email: "newcomer@example.com", name: "Nora Newcomer", subject: "Re: your quote", mailRef: "<quote-1@example.com>", reason: "She asked for a quote.", repliesOwed: true, skill: "triage-mail" };
   expect(record("demo-shop", draft)).toMatchObject({ ok: true, action: "created" });
   expect(record("demo-shop", draft)).toMatchObject({ ok: true, action: "updated" });
@@ -36,7 +36,7 @@ test("a draft recorded by the CLI shows on the Drafts screen, once, with an Open
   const card = cardOf(page, "Nora Newcomer");
   await expect(card.getByText("Owes reply")).toBeVisible();
   // Mail holds no draft for it, so the link is the client's mail (P58 R1: never a dead button).
-  await expect(card.getByRole("link", { name: /Open the client's mail/ })).toHaveAttribute("href", "message://%3Cquote-1%40example.com%3E");
+  await expect(card.getByRole("link", { name: /Open their message/ })).toHaveAttribute("href", "message://%3Cquote-1%40example.com%3E");
   // The text of the mail is not stored, so there is nothing to copy. The fake Mailer holds no draft for this client, which since
   // P56 S0 (v0.12.7) is the gone line (`mail/mail-gone.tsx`), not "not stored here": the Mail draft is missing and Trash has no Hub copy.
   await expect(card.getByText(/The Mail draft was deleted|The text of this mail is not stored here|Mail could not be read/)).toBeVisible();

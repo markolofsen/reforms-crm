@@ -1,15 +1,10 @@
 import { useHotkey } from "@hub/ui/use-hotkey";
 
-/** After the preview appears, a second Shift+Enter does not confirm for this long: a double tap must not send what nobody read. The button stays instant. */
-export const CONFIRM_DWELL_MS = 400;
-
-/** Whether the dwell is over. `shownAt` is when the preview appeared (null: no preview is waiting); `now` comes from the clock. */
-export const dwellPassed = (shownAt: number | null, now: number, dwell: number = CONFIRM_DWELL_MS): boolean => shownAt === null || now - shownAt >= dwell;
-
 /**
- * Shift+Enter is the send key of an open card (P27 M4): the first press reads Mail and shows the confirmation, the
- * second sends what was shown. It is never a plain key, so Enter keeps its meaning in the list and on every button, and
- * it does nothing while a person types (or in an open menu or dialog) or when the card has no send to make.
+ * Shift+Enter is the send key of an open card (P27 M4; P105): it opens the review dialog, whose Send sends. A confirm right after
+ * the dialog opens is ignored there (`REVIEW_DWELL_MS`), so a held key never sends what nobody read. It is never a plain key, so
+ * Enter keeps its meaning in the list and on every button, and it does nothing while a person types (or in an open menu or
+ * dialog) or when the card has no send to make.
  */
 export function useSendKey(run: (() => void) | null): void {
   useHotkey("Shift+Enter", () => run?.(), run !== null);

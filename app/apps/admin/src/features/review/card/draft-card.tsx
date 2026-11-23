@@ -1,13 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ContactLinksDto } from "@hub/contract/local";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { refOf } from "@hub/contract/focus";
 import { ConversationComposer, ConversationComposerFooter } from "@hub/ui/product/conversation-frame";
 import { toastManager } from "@hub/ui/toast";
 import { useGo } from "@/hooks/use-go";
 import { LoadFailed } from "@/components/state-views";
 import { refreshData, sentence } from "@/lib/api/client";
-import { useClock } from "@/lib/clock";
 import { agentRef } from "@/lib/focus";
 import { copyText } from "@/lib/external";
 import { sendApi } from "@/lib/api/send";
@@ -15,11 +14,10 @@ import { dest } from "@/routes/paths";
 import { firstName, type ReviewDraft } from "../source";
 import type { ReviewActions } from "../use-review-actions";
 import { BasedOnStrip } from "../based-on/based-on-strip";
-import { SendNotices } from "@/components/send/send-notices";
 import { ActionBar, hasMailLink, type Handlers } from "./action-bar";
 import { CardHeader } from "./card-header";
 import { stateOf } from "./card-state";
-import { draftLinkOf, mailReadable, tickBlock } from "../mail/tick-guard";
+import { draftLinkOf, mailReadable } from "../mail/tick-guard";
 import { CheckList } from "./check-list";
 import { DraftBlock } from "./draft-block";
 import { DraftEditor, DraftEditorFooter } from "../mail/draft-editor";
@@ -27,7 +25,8 @@ import { useMailWrite } from "../mail/use-mail-write";
 import { useDraftMail } from "../mail/use-draft-mail";
 import { useChangedUnder } from "../mail/use-changed-under";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { dwellPassed, useSendKey } from "../mail/use-send-key";
+import { useSendKey } from "../mail/use-send-key";
+import { MailSendDialog } from "./send-dialog";
 import { useOnSent, useSendFlow } from "./use-send-flow";
 
 export type CardProps = {
@@ -49,9 +48,8 @@ export type CardProps = {
  */
 export function DraftCard({ d, project, actions, now, advance, say, embedded = false, composerNotice, contact = null }: CardProps) {
   const qc = useQueryClient();
-  const go = useGo();
-  const { flow, read, send, close } = useSendFlow(project, d.id);
-  const clock = useClock();
+  const navigate = useGo();
+  const { flow, go, close } = useSendFlow(project, d.id);
   const mailRead = useDraftMail(project, d);
   const mail = mailRead.data;
   const mailError = mailRead.isError && !mail ? sentence(mailRead.error) : null;
@@ -74,19 +72,26 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
   // After a send the card moves on to the next draft, and the person hears what went where.
   const sent = flow.step === "sent";
   useOnSent(sent, () => {
+    actions.closeReview();
+    close();
     toastManager.add({ title: `Sent to ${first}`, type: "success" });
     advance();
   });
-  // When the preview appeared: a second Shift+Enter counts only after `CONFIRM_DWELL_MS`.
-  const shownAt = useRef<number | null>(null);
-  const confirming = flow.step === "confirm";
-  useEffect(() => {
-    shownAt.current = confirming ? clock() : null;
-  }, [confirming, clock]);
+  // P105: the review dialog of this draft (the workspace's `C` opens it too, so its state is the actions').
+  const review = actions.review?.id === d.id ? actions.review.mode : null;
+  const closeReview = () => {
+    if (flow.step === "reading" || flow.step === "sending") return;
+    actions.closeReview();
+    close();
+  };
+  const reread = () => {
+    under.seen();
+    void mailRead.refetch();
+  };
   const on: Handlers = {
-    send: read,
-    confirm: () => flow.step === "confirm" && send(flow.mail),
-    cancelFlow: close,
+    send: () => actions.openReview(d, "send"),
+    check: () => actions.openReview(d, "check"),
+    uncheck: () => actions.setChecked(d, false),
     skip: (reason) => {
       advance();
       actions.setStatus(d, "skipped", { reason });
@@ -102,12 +107,11 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
     copySubject: () => {
       void copyText(d.subject).then((ok) => say(ok ? "Copied. In Mail press Option+Command+F and paste." : "The clipboard was blocked: copy the subject from the draft."));
     },
-    history: () => go(dest("log.list", { client: d.clientId })),
-    blocked: say,
+    history: () => navigate(dest("log.list", { client: d.clientId })),
   };
-  // Shift+Enter: read Mail and show the confirmation, then send what was shown. Nothing else sends by key.
-  useSendKey(state === "acknowledged" || state === "failed" ? read : state === "confirming" ? () => dwellPassed(shownAt.current, clock()) && on.confirm() : null);
-  const confirmed = flow.step === "confirm" || flow.step === "sending" ? flow.mail.body : null;
+  // Shift+Enter opens the review dialog; only the dialog's Send sends (a press right after it opens does not count).
+  const sendable = state === "checks_open" || state === "unread" || state === "acknowledged" || state === "failed";
+  useSendKey(sendable && review === null ? on.send : null);
   const editDirty = editing !== null && editValue !== editing.text;
   const editChangedUnder = editing !== null && mail?.found === true && mail.hash !== editing.hash;
   const startEditing = (value: { text: string; hash: string }) => {
@@ -137,22 +141,15 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
         {under.changed && (
           <div className="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm lg:min-h-0" role="status">
             <span className="min-w-0 flex-1">Changed by the agent since you opened it.</span>
-            <ActionButton
-              onClick={() => {
-                under.seen();
-                void mailRead.refetch();
-              }}
-              size="s"
-            >
+            <ActionButton onClick={reread} size="s">
               Reload
             </ActionButton>
           </div>
         )}
         {mailError !== null && <LoadFailed error={mailRead.error} onRetry={() => void mailRead.refetch()} retrying={mailRead.isFetching} what="the draft from Mail" />}
-        <CheckList actions={actions} d={d} {...(mail?.found ? { results: mail.safetyResults } : {})} />
+        <CheckList d={d} onOpen={on.send} {...(mail?.found ? { results: mail.safetyResults } : {})} />
         <DraftBlock
           actions={actions}
-          confirmed={confirmed}
           d={d}
           editing={editing}
           editor={editing !== null ? <DraftEditor disabled={editSave.isPending} onCancel={cancelEditing} onChange={setEditValue} onSubmit={submitEditing} value={editValue} /> : null}
@@ -166,15 +163,16 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
   );
   const actionBarContent = (
     <ConversationComposerFooter feedback={
-      flow.step === "refused" || flow.step === "failed" ? <SendNotices flow={flow} onClose={close} /> : editSaved ? <p className="text-muted-foreground text-sm" role="status">Draft saved in Mail. It remains unsent.</p> : undefined
+      editSaved ? <p className="text-muted-foreground text-sm" role="status">Draft saved in Mail. It remains unsent.</p> : undefined
     }>
       <div className="min-w-0 flex-1">
         {editing !== null ? (
           <DraftEditorFooter changedUnder={editChangedUnder} dirty={editDirty} error={editSave.isError ? sentence(editSave.error) : null} onCancel={cancelEditing} onSubmit={submitEditing} pending={editSave.isPending} value={editValue} />
         ) : (
-          <ActionBar actions={actions} context={{ name: first, hasMailLink: hasMailLink(d), hasDraftLink: draftLink !== null, acknowledged: d.checked }} d={d} draftLink={draftLink} flow={flow} mailHash={mail?.hash ?? null} on={on} tickBlock={tickBlock(d, mail, flow.step, mailError)} state={state} />
+          <ActionBar actions={actions} context={{ name: first, hasMailLink: hasMailLink(d), hasDraftLink: draftLink !== null }} d={d} draftLink={draftLink} on={on} state={state} />
         )}
       </div>
+      <MailSendDialog changedUnder={under.changed} d={d} flow={flow} go={go} mail={mail} mode={review ?? "send"} name={first} onClose={closeReview} onReread={reread} open={review !== null} project={project} readError={mailError} resetFlow={close} />
     </ConversationComposerFooter>
   );
   const actionBar = embedded ? actionBarContent : <div className="shrink-0 border-t bg-background px-4 py-3 lg:px-6">{actionBarContent}</div>;

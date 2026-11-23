@@ -9,9 +9,9 @@ import type { ReviewActions } from "./use-review-actions";
 export const REVIEW_KEYS: readonly (readonly [string, string])[] = [
   ["J / K", "next / previous conversation"],
   ["Enter, L, Right", "into the conversation: its unsent message's main action"],
-  ["Shift Enter", "send: read Mail, then confirm what it shows (the second press counts after a short pause)"],
+  ["Shift Enter", "send: opens the review dialog; its Send sends (a press right after it opens does not count)"],
   ["Esc, Left", "back to the list; clears a selection first"],
-  ["C", "I read the checks, on or off (only once the text was read)"],
+  ["C", "Checked for Send all Checked: on opens the review dialog, off at once"],
   ["X", "select or unselect the person"],
   ["Shift A", "select every person with an open draft"],
   ["R", "reply in Mail (batch drafts)"],

@@ -15,7 +15,7 @@ type EditorProps = {
  * what is typed here; it says the text changed in Mail, and the Save is refused until read again.
  */
 export function DraftEditor({ value, disabled, onCancel, onChange, onSubmit }: EditorProps) {
-  return <ConversationEditorSurface ariaLabel="Edit the Mail draft" autoFocus description="Editing the text Mail holds. Save writes it to Mail and turns I read the checks off." disabled={disabled} maxLength={20_000} onCancel={onCancel} onChange={onChange} onSubmit={onSubmit} title="Edit draft" value={value} />;
+  return <ConversationEditorSurface ariaLabel="Edit the Mail draft" autoFocus description="Editing the text Mail holds. Save writes it to Mail and turns Checked off." disabled={disabled} maxLength={20_000} onCancel={onCancel} onChange={onChange} onSubmit={onSubmit} title="Edit draft" value={value} />;
 }
 
 type FooterProps = {

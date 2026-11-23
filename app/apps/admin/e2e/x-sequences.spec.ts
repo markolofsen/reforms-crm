@@ -72,9 +72,9 @@ test("Stop follow-ups from a step draft's card: the card says so, and the enroll
   await page.locator('ul[aria-label="People"] > li').first().getByRole("button").first().click();
   const card = page.getByRole("article");
   await expect(card.getByTestId("follow-up-step")).toContainText("Follow-up 1 of 3");
-  // a step is sent from Mail: no Send on its card, and Open draft in Mail is the one primary
+  // a step is sent from Mail: no Send on its card, and Open the draft in Mail is the one primary
   await expect(card.getByRole("button", { name: "Send", exact: true })).toHaveCount(0);
-  await expect(page.locator('[data-pane="detail"] [data-variant="primary"]')).toHaveText(/Open draft in Mail|Open the client's mail|Copy subject/);
+  await expect(page.locator('[data-pane="detail"] [data-variant="primary"]')).toHaveText(/Open the draft in Mail|Open their message|Copy subject/);
   await card.getByRole("button", { name: "Stop follow-ups" }).click();
   await expect(page.getByRole("status").filter({ hasText: "Follow-ups stopped for" })).toBeVisible();
   expect((await enrollments(page, "finished")).find((e) => e.id === tiago.id)).toMatchObject({ state: "finished", finishReason: "stopped" });

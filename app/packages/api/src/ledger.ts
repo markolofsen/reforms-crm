@@ -21,7 +21,7 @@ export const RAW_PATHS = {
   /** Credential and lifecycle protocols, local bridges and streams. */
   protocols: ["/api/connections", "/api/instance", "/api/messengers/telegram-user", "/api/messengers/whatsapp", "/api/terminal", "/api/focus", "/api/pointer", "/api/projects/:slug/agent-tools", "/api/safety-rules", "/api/agent-settings", "/api/local"],
   /** The Mail draft and send doors. */
-  mailDoors: ["/api/drafts", "/api/batches", "/api/projects/:slug/drafts/:id/mail", "/api/projects/:slug/drafts/:id/mail/restore", "/api/projects/:slug/drafts/:id/send", "/api/projects/:slug/batches/:id/send", "/api/projects/:slug/batches/:id/send/stop", "/api/sends", "/api/sends/tickets", "/api/sends/batch-tickets"],
+  mailDoors: ["/api/drafts", "/api/batches", "/api/projects/:slug/drafts/:id/mail", "/api/projects/:slug/drafts/:id/mail/restore", "/api/projects/:slug/drafts/:id/mail/tidy", "/api/projects/:slug/drafts/:id/send", "/api/projects/:slug/batches/:id/send", "/api/projects/:slug/batches/:id/send/stop", "/api/sends", "/api/sends/tickets", "/api/sends/batch-tickets"],
   /** The owner-gated Messenger identity writes (autolink, chat management) and the Messenger send door. */
   messengerDoors: ["/api/projects/:slug/messengers/autolink/*", "/api/projects/:slug/messengers/chats/*", "/api/projects/:slug/messengers/drafts/:id/send"],
 } as const;

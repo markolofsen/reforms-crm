@@ -1,12 +1,15 @@
 import { formatTime } from "@/lib/format";
 import { openResults, type ReviewDraft } from "../source";
 
-/** The 15 states of a review card (research 16 section 7 without `batch_waiting`, whose batch builder P48 deleted, and without `batch` (P85: a batch draft is a Mail draft like any other), plus `follow_up` from P47). The action bar is a pure function of one of these. */
+/**
+ * The 14 states of a review card (research 16 section 7 without `batch_waiting`, whose batch builder P48 deleted, and without
+ * `batch` (P85: a batch draft is a Mail draft like any other), plus `follow_up` from P47; P105: without `confirming`, since Send
+ * is confirmed in the review dialog, not in the bar). The action row is a pure function of one of these.
+ */
 export const CARD_STATES = [
   "checks_open",
   "unread",
   "acknowledged",
-  "confirming",
   "sending",
   "queued",
   "sent",
@@ -22,7 +25,7 @@ export const CARD_STATES = [
 export type CardState = (typeof CARD_STATES)[number];
 
 /** Where the Send flow is, as far as the state needs it (the full flow lives in `use-send-flow`). */
-export type FlowStep = "idle" | "reading" | "confirm" | "sending" | "refused" | "failed" | "sent";
+export type FlowStep = "idle" | "reading" | "sending" | "refused" | "failed" | "sent";
 
 /**
  * Which of the 15 states a draft is in. `follow_up` (P47) is an open step of a follow-up sequence: the hub refuses to send
@@ -39,51 +42,40 @@ export function stateOf(d: ReviewDraft, step: FlowStep, readable = true): CardSt
   if (d.client.marks.includes("do_not_contact")) return "no_contact";
   if (d.injectionSuspected) return "suspicious";
   if (d.sequence) return "follow_up";
-  if (step === "confirm") return "confirming";
   if (step === "refused" || step === "failed") return "failed";
   if (!readable) return "unreadable";
   if (d.checked) return "acknowledged";
   return openResults(d).length > 0 ? "checks_open" : "unread";
 }
 
-export type PrimaryAction = "send" | "confirm" | "resume" | "open_mail";
-export type Primary = {
-  action: PrimaryAction;
-  label: string;
-  enabled: boolean;
-  /** Why it is disabled, in words (shown, and read by a screen reader). */
-  reason: string | null;
-  busy: boolean;
-};
-export type Secondary = "skip" | "open_mail" | "cancel" | "cancel_send" | "reopen";
+export type PrimaryAction = "send" | "resume" | "open_mail";
+/** The one primary. Send is never disabled (P105): it opens the review dialog, which names whatever stands in the way. */
+export type Primary = { action: PrimaryAction; label: string; busy: boolean };
+export type Secondary = "skip" | "open_mail" | "cancel_send" | "reopen";
 
-/** `hasDraftLink` (P58 R1): the card's Mail read found the one draft, so Open goes to the draft itself; else to the client's mail. */
-export type Context = { name: string; hasMailLink: boolean; hasDraftLink: boolean; acknowledged: boolean };
+/** `hasDraftLink` (P58 R1): the card's Mail read found the one draft, so Open goes to the draft itself; else to the client's message. */
+export type Context = { name: string; hasMailLink: boolean; hasDraftLink: boolean };
 
-const mailLabel = (c: Context) => (c.hasDraftLink ? "Open draft in Mail" : c.hasMailLink ? "Open the client's mail" : "Copy subject to find in Mail");
+/** P105 verdict 3: the draft opens by its own id; the client's message button says it is theirs. Same words as the local action registry. */
+export const mailLabel = (c: Pick<Context, "hasMailLink" | "hasDraftLink">) => (c.hasDraftLink ? "Open the draft in Mail" : c.hasMailLink ? "Open their message" : "Copy subject to find in Mail");
 
 /** The one primary button of a state, or null when the state has none. At most one, by construction. */
 export function primaryFor(state: CardState, c: Context): Primary | null {
-  const send = (enabled: boolean, reason: string | null): Primary => ({ action: "send", label: "Send", enabled, reason, busy: false });
   switch (state) {
     case "checks_open":
-      return send(false, "Understand the checks first");
     case "unread":
-      return send(false, "Turn on I read the checks");
     case "acknowledged":
     case "failed":
-      return send(true, null);
-    case "confirming":
-      return { action: "confirm", label: `Send to ${c.name}`, enabled: true, reason: null, busy: false };
+      return { action: "send", label: "Send", busy: false };
     case "sending":
-      return { action: "confirm", label: `Send to ${c.name}`, enabled: false, reason: null, busy: true };
+      return { action: "send", label: "Sending", busy: true };
     case "hold":
-      return { action: "resume", label: "Resume", enabled: true, reason: null, busy: false };
+      return { action: "resume", label: "Resume", busy: false };
     case "suspicious":
     case "unreadable":
     case "no_contact":
     case "follow_up":
-      return { action: "open_mail", label: mailLabel(c), enabled: true, reason: null, busy: false };
+      return { action: "open_mail", label: mailLabel(c), busy: false };
     case "queued":
     case "sent":
     case "done":
@@ -100,8 +92,6 @@ export function secondaryFor(state: CardState): Secondary[] {
     case "acknowledged":
     case "failed":
       return ["skip", "open_mail"];
-    case "confirming":
-      return ["cancel"];
     case "queued":
       return ["cancel_send"];
     case "sent":
@@ -120,8 +110,8 @@ export function secondaryFor(state: CardState): Secondary[] {
   }
 }
 
-/** Whether the "I read the checks" switch is in the bar: only while there is something to acknowledge and send. */
-export const hasSwitch = (state: CardState): boolean => state === "checks_open" || state === "unread" || state === "acknowledged" || state === "failed";
+/** Whether Checked (accepted, for Send all Checked of a batch) can be set in this state: only while a send can follow. */
+export const canCheck = (state: CardState): boolean => state === "checks_open" || state === "unread" || state === "acknowledged" || state === "failed";
 
 const VIA = { batch: "Batch", manual: "By hand", auto: "Autosend" } as const;
 

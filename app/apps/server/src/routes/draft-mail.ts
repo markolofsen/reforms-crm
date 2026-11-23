@@ -4,9 +4,9 @@ import { alreadySentText, DraftWriteError, isNewThreadDraft, reviseDraft, type I
 import type { DraftRow, MailVersionRow } from "@hub/db";
 import { brandResolutionFor, displayNameFor, headersFromText, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, visibleFrom } from "@hub/projects/brand";
 import { loadProject } from "@hub/projects";
-import { bareId, findMail, mailHash, settleThread, type MailDraft } from "@hub/send";
+import { bareId, findMail, mailHash, runSweep, settleThread, type MailDraft } from "@hub/send";
 import { draftEditBody, manualReplyBody, sendParam } from "@hub/contract/requests";
-import { draftChangedDto, draftMailDto } from "@hub/contract/responses";
+import { draftChangedDto, draftMailDto, mailTidyDto } from "@hub/contract/responses";
 import { gateRefusal } from "../admin-gate";
 import { notFound, v } from "../http";
 import type { MailServices } from "../composition/capabilities";
@@ -147,6 +147,20 @@ export function draftMailRoutes({ repos, sender }: MailServices) {
       const copy = await inTrash(draft, projectMail(slug)?.accounts ?? []);
       if (!copy) return refuse(c, "No version the Hub recorded for this draft is in Mail's Trash.");
       return write(c, draft, copy.body, "restore");
+    })
+    // Tidy (P105): the review dialog's fix for "Mail holds more than one draft for this". The Hub's own leftovers in Mail's Drafts
+    // go to Trash (recoverable from Mail's Trash), exactly what `hub drafts sweep --apply` moves for the project: versions the Hub
+    // recorded (`mail_versions`) that a newer one superseded or whose draft is closed. A draft the owner wrote is never listed.
+    // Nothing is deleted for good and nothing is sent; it carries the same door as Restore and Save.
+    .post("/api/projects/:slug/drafts/:id/mail/tidy", v("param", sendParam), async (c) => {
+      const why = door(c);
+      if (why) return c.json({ error: `Not moved: ${why}.`, code: "forbidden" as const }, 403);
+      const { slug, id } = c.req.valid("param");
+      const draft = await own(slug, id);
+      if (!draft) return notFound(c, "draft");
+      if (!mailer) return refuse(c, "Reading Mail is not set up on this server.");
+      const r = await runSweep({ mailer, repos }, { project: slug, accounts: projectMail(slug)?.accounts ?? [], apply: true });
+      return c.json(mailTidyDto.parse({ ok: true, moved: r.moved.length, refused: r.refused.length }));
     })
     // Manual reply (P99 amendment): write one owner-authored unsent draft through the same Mail writer, then record it.
     // This is deliberately separate from Send: the returned draft still needs the normal review and send door.

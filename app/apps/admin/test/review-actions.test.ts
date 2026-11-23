@@ -1,7 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { describe, expect, it } from "vitest";
 import { sendLatch } from "../src/features/review/card/use-send-flow";
-import { CONFIRM_DWELL_MS, dwellPassed } from "../src/features/review/mail/use-send-key";
+import { REVIEW_DWELL_MS } from "@hub/ui/product/review-dialog";
 import { UNDO_WINDOW_MS, undoTarget, type ReviewDraft } from "../src/features/review/source";
 import { refreshData } from "../src/lib/api/client";
 
@@ -37,17 +37,9 @@ describe("a send is announced and advanced once", () => {
   });
 });
 
-describe("the confirm dwell (a double Shift+Enter must not send what nobody read)", () => {
-  it("is a named constant of about 400 ms", () => {
-    expect(CONFIRM_DWELL_MS).toBe(400);
-  });
-  it("swallows a second press inside the dwell and accepts one after it", () => {
-    expect(dwellPassed(1_000, 1_100)).toBe(false);
-    expect(dwellPassed(1_000, 1_000 + CONFIRM_DWELL_MS - 1)).toBe(false);
-    expect(dwellPassed(1_000, 1_000 + CONFIRM_DWELL_MS)).toBe(true);
-  });
-  it("has no dwell when no preview is waiting", () => {
-    expect(dwellPassed(null, 0)).toBe(true);
+describe("the review dialog's dwell (P105: a held Shift+Enter must not press the Send it opened)", () => {
+  it("is a named constant of about 400 ms, in the dialog", () => {
+    expect(REVIEW_DWELL_MS).toBe(400);
   });
 });
 

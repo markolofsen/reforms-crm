@@ -1,7 +1,7 @@
 import { hrefOf } from "@hub/contract/local";
 import type { DraftMailDto } from "@hub/contract/mail";
 import type { ReviewDraft } from "../source";
-import { hasSwitch, stateOf, type FlowStep } from "../card/card-state";
+import { canCheck, stateOf, type FlowStep } from "../card/card-state";
 
 /** What the guard needs of a Mail read: nothing of the text itself. */
 export type MailRead = Pick<DraftMailDto, "configured" | "found" | "hash" | "reason" | "note">;
@@ -19,8 +19,8 @@ export function draftLinkOf(m: Pick<DraftMailDto, "found" | "note" | "messageId"
 }
 
 /**
- * Why "I read the checks" cannot be switched ON for this draft right now, in words, or null when it can (P27 M3, decision
- * 0013: fail closed). The switch, the `C` key and the server all hold the same line: a Mail draft is Checked only against a
+ * Why Checked cannot be switched ON for this draft right now, in words, or null when it can (P27 M3, decision 0013: fail
+ * closed). The review dialog, the `C` key and the server all hold the same line: a Mail draft is Checked only against a
  * text that was read and hashed. Switching OFF is always allowed. A batch draft (written into the hub, no Mail draft of its own) has to read, so
  * it is the one draft that is checked without a hash. `readError` is the sentence of a failed read of Mail (the request
  * itself failed, not "Mail has no such draft"): it is named, so the card never says "being read" forever.
@@ -38,8 +38,8 @@ export function tickBlock(d: ReviewDraft, mail: MailRead | undefined, step: Flow
   if (d.checked) return null;
   const state = stateOf(d, step, mailReadable(mail));
   if (state === "unreadable") return `${mailProblem(mail?.reason)}. Open it in Mail; this draft cannot be checked here.`;
-  if (!hasSwitch(state)) return "This draft has nothing to check or send from here.";
-  if (!mail && readError !== null) return `The text could not be read from Mail: ${readError} Use Retry above, then turn this on.`;
+  if (!canCheck(state)) return "This draft has nothing to check or send from here.";
+  if (!mail && readError !== null) return `The text could not be read from Mail: ${readError} Use Retry above, then try again.`;
   if (!mail) return "Mail is being read. Checked turns on once the text has been read.";
   if (!mail.configured) return "This server cannot read Mail, so the text has no hash and cannot be checked here.";
   if (mail.found && mail.note) return mail.note;

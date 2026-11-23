@@ -161,6 +161,25 @@ describe("Restore and Save (P56, P65)", () => {
   });
 });
 
+describe("Tidy (P105): the review dialog's fix for two drafts in Mail", () => {
+  it("moves the Hub's own leftovers of the project to Trash, never the owner's draft, sends nothing, and only from the admin's page", async () => {
+    // A closed draft's recorded version still in Drafts (saas draft 140163 "Re: Wow", 2026-11-21, swept by hand that day).
+    const other = (await repos.drafts.record({ project: "acme", email: "old@example.com", name: "Old", subject: "Re: Wow", mailRef: "<old@client.example>", mailClass: "client" })).draftId;
+    await repos.drafts.setStatus(other, "skipped");
+    const left = mail("30", "old text", { inReplyTo: "old@client.example", subject: "Re: Wow", to: ["old@example.com"] });
+    await repos.mailVersions.add({ project: "acme", mailRef: "old@client.example", draftId: other, account: "owner@acme.example", mailId: 30, messageId: left.messageId ?? "", hash: "h", source: "agent" });
+    mailer.drafts.push(await hubs("10", "Hi"), left, mail("11", "my own notes", { inReplyTo: null, subject: "Notes" }));
+    expect((await app.request(url("/tidy"), { method: "POST", headers: { ...ADMIN, origin: "http://evil.test", "sec-fetch-site": "cross-site" } })).status).toBe(403);
+    expect(mailer.drafts).toHaveLength(3);
+    const r = await app.request(url("/tidy"), { method: "POST", headers: ADMIN });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ ok: true, moved: 1, refused: 0 });
+    expect(mailer.drafts.map((d) => d.ref).sort()).toEqual(["10", "11"]);
+    expect(mailer.trash.map((d) => d.ref)).toEqual(["30"]);
+    expect(mailer.sent).toEqual([]);
+  });
+});
+
 describe("Skip and Done move the hub's own drafts to Trash (P56, P65)", () => {
   it("Skip trashes the versions the Hub recorded only; the owner's draft in the same thread stays", async () => {
     mailer.drafts.push(await hubs("10", "Hi"), mail("11", "my own"));

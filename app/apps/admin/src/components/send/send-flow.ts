@@ -3,13 +3,13 @@ import { useState } from "react";
 import { ApiFailure, sentence } from "@/lib/api/client";
 
 // The send door's two steps, once for every channel (decision 0011; P71 M4 for messengers): a dry run that sends nothing and
-// returns exactly what would go out, then, after the person confirmed what he saw, the apply with exactly that. Mail's card and the
-// Messengers panel each hand it their own `SendDoor`; neither copies the steps.
+// returns exactly what would go out, then the apply with exactly that. P105: the person confirms in the review dialog BEFORE the
+// dry run, on what the dialog showed, so the two steps run as one call (`go`) and the apply happens only when the dry run's
+// answer is what the dialog showed (`accept`). Mail's card and the Messengers panel each hand it their own `SendDoor`.
 
 export type SendFlow<P> =
   | { step: "idle" }
   | { step: "reading" }
-  | { step: "confirm"; mail: P }
   | { step: "sending"; mail: P }
   | { step: "refused"; reasons: string[] }
   | { step: "failed"; message: string }
@@ -24,22 +24,33 @@ export interface SendDoor<P> {
   sent?: (previewed: P) => void;
 }
 
+/**
+ * The dialog's confirm: `before` runs first (Mail's acknowledgements and Checked, bound to the text read); `accept` judges the dry
+ * run's answer against what the dialog showed and returns why not in words, or null to send it.
+ */
+export type Go<P> = { before?: () => Promise<unknown>; accept?: (previewed: P) => string | null };
+
 const refusal = <P>(e: unknown): SendFlow<P> => (e instanceof ApiFailure && e.refused.length > 0 ? { step: "refused", reasons: e.refused } : { step: "failed", message: sentence(e) });
 
 export function useSendDoor<P>(door: SendDoor<P>) {
   const [flow, setFlow] = useState<SendFlow<P>>({ step: "idle" });
-  const preview = useMutation({
-    mutationFn: () => door.preview(),
+  const go = useMutation({
+    mutationFn: async (o: Go<P>): Promise<{ mail: P; refused: string | null }> => {
+      await o.before?.();
+      const mail = await door.preview();
+      const refused = o.accept?.(mail) ?? null;
+      if (refused !== null) return { mail, refused };
+      setFlow({ step: "sending", mail });
+      await door.send(mail);
+      return { mail, refused: null };
+    },
     onMutate: () => setFlow({ step: "reading" }),
-    onSuccess: (mail) => setFlow({ step: "confirm", mail }),
-    onError: (e) => setFlow(refusal<P>(e)),
-  });
-  const send = useMutation({
-    mutationFn: (mail: P) => door.send(mail),
-    onMutate: (mail) => setFlow({ step: "sending", mail }),
-    onSuccess: (_r, mail) => {
-      setFlow({ step: "sent" });
-      door.sent?.(mail);
+    onSuccess: ({ mail, refused }) => {
+      if (refused !== null) setFlow({ step: "refused", reasons: [refused] });
+      else {
+        setFlow({ step: "sent" });
+        door.sent?.(mail);
+      }
       void door.settle();
     },
     onError: (e) => {
@@ -47,5 +58,8 @@ export function useSendDoor<P>(door: SendDoor<P>) {
       void door.settle();
     },
   });
-  return { flow, read: () => preview.mutate(), send: (mail: P) => send.mutate(mail), close: () => setFlow({ step: "idle" }) };
+  return { flow, go: (o: Go<P> = {}) => go.mutate(o), close: () => setFlow({ step: "idle" }) };
 }
+
+/** The reasons a refused or failed send gives, as the review dialog's blockers. */
+export const flowProblems = (flow: SendFlow<unknown>): string[] => (flow.step === "refused" ? flow.reasons : flow.step === "failed" ? [flow.message] : []);

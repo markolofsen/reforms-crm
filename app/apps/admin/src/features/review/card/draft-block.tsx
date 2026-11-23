@@ -32,7 +32,7 @@ function FromLine({ d, live }: { d: ReviewDraft; live: DraftMailDto }) {
 }
 
 type EditingValue = { text: string; hash: string };
-type Props = { d: ReviewDraft; project: string; actions: ReviewActions; /** What Mail holds, shown while the send is confirmed. */ confirmed: string | null; /** The text as Mail holds it now (read on demand), when it could be read. */ live?: DraftMailDto; /** Read Mail again: the quiet way out of state 12. */ onRead?: () => void; reading?: boolean; editing?: EditingValue | null; editor?: ReactNode; onEdit?: (value: EditingValue) => void };
+type Props = { d: ReviewDraft; project: string; actions: ReviewActions; /** The text as Mail holds it now (read on demand), when it could be read. */ live?: DraftMailDto; /** Read Mail again: the quiet way out of state 12. */ onRead?: () => void; reading?: boolean; editing?: EditingValue | null; editor?: ReactNode; onEdit?: (value: EditingValue) => void };
 
 function AddressDetails({ d }: { d: ReviewDraft }) {
   const facts = [d.ccAddr ? `Cc ${d.ccAddr}` : null, d.wroteTo ? `They wrote to ${d.wroteTo}` : null, d.brand ? `Brand ${d.brand}` : null].filter((fact): fact is string => fact !== null);
@@ -41,7 +41,7 @@ function AddressDetails({ d }: { d: ReviewDraft }) {
 }
 
 /** The draft as a document: addressing, versions, the paper surface and owner actions. */
-export function DraftBlock({ d, project, actions, confirmed, live, onRead, reading, editing = null, editor, onEdit }: Props) {
+export function DraftBlock({ d, project, actions, live, onRead, reading, editing = null, editor, onEdit }: Props) {
   const closed = isClosed(d);
   const tones = TONES.filter((t) => d.toneBodies[t] !== undefined);
   const readable = live?.found ? live : null;
@@ -50,10 +50,10 @@ export function DraftBlock({ d, project, actions, confirmed, live, onRead, readi
   const sent = d.status === "sent" || d.sendState?.status === "sent" || d.sendState?.status === "sending";
   const gone = unreadable && !sent ? (live.gone ?? null) : null;
   // Exactly the Mail text (decision 0031): nothing of the Hub's is in it, so nothing is hidden.
-  const body = confirmed ?? readable?.body ?? d.body;
+  const body = readable?.body ?? d.body;
   // The owner edits only a text Mail holds exactly once (a hash), on an open draft written to Mail (P56 S1).
   const editable = readable?.hash ? { hash: readable.hash } : null;
-  const canEdit = editable !== null && !closed && d.status === "ready" && confirmed === null;
+  const canEdit = editable !== null && !closed && d.status === "ready";
   return (
     <section aria-label="Draft" className="flex min-w-0 flex-col gap-2">
       <div className="min-w-0">
@@ -93,8 +93,8 @@ export function DraftBlock({ d, project, actions, confirmed, live, onRead, readi
         !unreadable && <p className="text-muted-foreground text-sm">The text of this mail is not stored here. Open it in Mail.</p>
       ) : (
         <div className="rounded-lg border bg-card p-4">
-          {(confirmed !== null || readable) && <p className="mb-2 text-muted-foreground text-xs">{confirmed !== null ? "Exactly as Mail holds it:" : "As Mail holds it now:"}</p>}
-          {unreadable && confirmed === null && <p className="mb-2 text-muted-foreground text-xs">A preview stored with the draft (up to 240 characters), not what Mail holds:</p>}
+          {readable && <p className="mb-2 text-muted-foreground text-xs">As Mail holds it now:</p>}
+          {unreadable && <p className="mb-2 text-muted-foreground text-xs">A preview stored with the draft (up to 240 characters), not what Mail holds:</p>}
           <ConversationText format="plain" text={body} />
         </div>
       )}

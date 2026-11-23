@@ -19,7 +19,7 @@ import { useToggleChecked } from "./mail/use-toggle-checked";
 import { ListHeader, type View } from "./list-controls";
 import { ListRow } from "./list-row";
 import { focusRow, useReviewKeys } from "./review-keys";
-import { isClosed, openResults, rowId, type ConversationRow, type ReviewDraft, type ReviewSource } from "./source";
+import { isClosed, rowId, type ConversationRow, type ReviewDraft, type ReviewSource } from "./source";
 import { useReviewActions, type Notice } from "./use-review-actions";
 import { useReviewRows } from "./use-review-rows";
 import { useSelection, useShareReview } from "./use-selection";
@@ -119,7 +119,7 @@ function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: numbe
 /** Reply all + copy (owner 2026-11-14): the text goes to the clipboard first, then the registry's compose window opens. Nothing is sent. */
 async function replyAllInMail(d: ReviewDraft, say: (text: string) => void): Promise<void> {
   if (!d.checked) {
-    say(openResults(d).length > 0 ? "Understand the checks, then turn on I read the checks (key C)." : "Turn on I read the checks first (key C).");
+    say("Check the draft first (key C): its checks are read in one dialog.");
     return;
   }
   const copied = await copyText(d.body); // blocked: the compose window still opens
