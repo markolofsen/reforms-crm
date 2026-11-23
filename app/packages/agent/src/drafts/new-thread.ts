@@ -1,5 +1,5 @@
 import { newThreadKey } from "@hub/config";
-import { displayNameFor } from "@hub/projects/brand";
+import { displayNameFor } from "@hub/projects/brands";
 import { normalizeAddress } from "@hub/projects/parse";
 import { writeLogOf } from "../mail";
 import type { NotionClientCheck } from "../mcp/ports";

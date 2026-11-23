@@ -1,4 +1,4 @@
-import { displayNameFor } from "@hub/projects/brand";
+import { displayNameFor } from "@hub/projects/brands";
 import { DraftWriteError } from "@hub/mail-app/writer/types";
 import { writeLogOf } from "../mail";
 import { ToolError } from "../mcp/result";

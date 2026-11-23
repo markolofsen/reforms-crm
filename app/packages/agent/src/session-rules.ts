@@ -5,7 +5,7 @@
 
 import path from "node:path";
 import { pathsAt, type AgentCli, type HubPaths } from "@hub/config/paths";
-import { isOwnAddress } from "@hub/projects/brand";
+import { isOwnAddress } from "@hub/projects/addresses";
 import { projectStore, readAllowList, testRecipientsOf } from "@hub/projects";
 import { resolveConnectors, sessionCapabilities } from "./connectors";
 import { NOTION_RULE, notionScopeOf } from "./notion-scope";

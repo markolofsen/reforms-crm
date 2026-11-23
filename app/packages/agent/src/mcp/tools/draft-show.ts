@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { DRAFT_STATUSES, EVIDENCE_LEVELS, EVIDENCE_SOURCES, MARKS, NOTION_KINDS } from "@hub/config";
-import { displayNameFor } from "@hub/projects/brand";
+import { displayNameFor } from "@hub/projects/brands";
 import { fromFor, isNewThreadDraft } from "../../mail";
 import { defineTool } from "../define";
 import { configOf, json } from "../ports";

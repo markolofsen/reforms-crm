@@ -1,7 +1,7 @@
 // The tool contract of doc 16 section 5, as plain functions. `hub mcp` (`@hub/agent`, P129 A4) adapts these, bound to the session's project.
 import { HubError, type ErrorKind } from "@hub/config/errors";
 import { RepoError, type Repos } from "@hub/db";
-import { ANY_BRAND } from "@hub/projects/brand";
+import { ANY_BRAND } from "@hub/projects/brands";
 import { ProjectBase } from "@hub/projects/model";
 
 export type KnowledgeErrorCode = "unknown_project" | "project_mismatch" | "empty_query" | "not_found" | "brand_required" | "unknown_brand";

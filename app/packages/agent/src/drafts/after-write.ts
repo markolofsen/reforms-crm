@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { displayNameFor } from "@hub/projects/brand";
+import { displayNameFor } from "@hub/projects/brands";
 import { versionHashOf } from "@hub/db";
 import type { DraftScope, Written } from "./sign";
 

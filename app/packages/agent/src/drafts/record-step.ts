@@ -1,5 +1,5 @@
 import { checkDraftRecipients, projectStore } from "@hub/projects";
-import { headersFromText } from "@hub/projects/brand";
+import { headersFromText } from "@hub/projects/brands";
 import { normalizeAddress } from "@hub/projects/parse";
 import type { InboundMessage } from "@hub/mail-app/writer/types";
 import { ToolError } from "../mcp/result";

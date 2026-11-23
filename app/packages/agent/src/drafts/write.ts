@@ -1,7 +1,7 @@
 import { newThreadKey } from "@hub/config";
 import { HubError } from "@hub/config/errors";
 import type { DraftRow, MailVersionRow } from "@hub/db";
-import { displayNameFor, visibleFrom } from "@hub/projects/brand";
+import { displayNameFor, visibleFrom } from "@hub/projects/brands";
 import type { DraftWriter, InboundMessage } from "@hub/mail-app/writer/types";
 import { alreadySentText, draftFinishedText, fromFor, isNewThreadDraft, reviseDraft, writeRecorded, type Revision, type Signed, type WriteLog } from "../mail";
 

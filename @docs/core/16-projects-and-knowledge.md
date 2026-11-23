@@ -198,7 +198,7 @@ Which Mailer the server uses is decided once at start by `HUB_MAILER`. Unset: Ma
 | Acme Villas | villas.example | Acme Villas team<br>villas.example | 2026-11-14 | owner | Acme Villas |
 ```
 
-- `Receives at`: addresses and domains, comma separated. An address must be one of the project's accounts, `mail.addresses` or `mail.aliases`, or sit on one of its `mail.domains`; a domain must be on `mail.domains`. No address or domain in two rows; brand names are unique (case-insensitive). The parser (`parseBrands`, `packages/projects/src/brand.ts`) refuses anything else as an error.
+- `Receives at`: addresses and domains, comma separated. An address must be one of the project's accounts, `mail.addresses` or `mail.aliases`, or sit on one of its `mail.domains`; a domain must be on `mail.domains`. No address or domain in two rows; brand names are unique (case-insensitive). The parser (`parseBrands`, `packages/projects/src/brands/table.ts`) refuses anything else as an error.
 - `Signature`: the lines that sign a draft of this brand, `<br>` between lines. Empty = not answered yet.
 - `Display name`: the optional visible name in the `From` header. The writer composes `Display name <technical address>` while keeping the address selected by P58 and the send gate. Empty or absent preserves Mail's current account name, so legacy five-column tables and single-brand projects are unchanged. Control characters, angle brackets and names over 120 characters are refused.
 - Writer: `hub project setup --brand`, `--brand-signature` and optional `--brand-display-name` (or `applyBrandRow` / `writeBrandRow`), through the parser's own check.

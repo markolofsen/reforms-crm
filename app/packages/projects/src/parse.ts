@@ -1,6 +1,6 @@
 // project.md schema v1 (doc 16 section 3). Pure: text in, structure and issues out. No file or database access, so
 // @hub/notion can import this file alone.
-import { parseBrands } from "./brand";
+import { parseBrands } from "./brands";
 import { checkValue, FIELDS, isPolicyField, readField, setPath } from "./fields";
 import { DEFAULT_KIND, kindOf, requiredIssues } from "./kinds";
 import { hasErrors, ProjectError, type Issue } from "./md/issues";

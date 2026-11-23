@@ -1,7 +1,7 @@
 // P126 M3: how the owner's own text is signed and which brand it goes out under, for Save, Restore and his manual first
 // reply. The agent signs from the message's headers (`sign.ts`); a person's text is signed from the recorded Mail context
 // of the draft or the conversation. Pure: the caller reads Mail's headers and the recorded drafts.
-import { brandResolutionFor, replyLanguage, signatureFor, signatureLines, signBody, type BrandResolution } from "@hub/projects/brand";
+import { brandResolutionFor, replyLanguage, signatureFor, signatureLines, signBody, type BrandResolution } from "@hub/projects/brands";
 import type { Brand } from "@hub/projects/model";
 import type { Signed } from "../mail";
 

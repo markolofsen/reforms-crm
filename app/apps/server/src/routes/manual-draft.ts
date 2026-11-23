@@ -5,7 +5,7 @@ import { writeLogOf, type Revision } from "@hub/agent/mail";
 import { newThreadKey } from "@hub/config";
 import { versionHashOf } from "@hub/db";
 import { DraftWriteError } from "@hub/mail-app/writer/types";
-import { displayNameFor, headersFromText, resolveBrand, type BrandResolution } from "@hub/projects/brand";
+import { displayNameFor, headersFromText, resolveBrand, type BrandResolution } from "@hub/projects/brands";
 import { manualReplyBody, sendParam } from "@hub/contract/requests";
 import { draftChangedDto } from "@hub/contract/responses";
 import { notFound, v } from "../http";

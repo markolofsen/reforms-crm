@@ -1,7 +1,7 @@
 // In-place edits of project.md: table rows only, every other byte stays. Pure text functions plus thin file wrappers.
 import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { BRANDS_HEADER, joinSignature, normalizedDisplayName } from "./brand";
+import { BRANDS_HEADER, joinSignature, normalizedDisplayName } from "./brands";
 import { isPolicyField } from "./fields";
 import { ProjectError, type Issue } from "./md/issues";
 import { scan, tableOf } from "./md/scan";

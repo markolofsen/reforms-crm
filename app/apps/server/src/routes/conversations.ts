@@ -5,7 +5,7 @@ import type { NotionKind } from "@hub/config";
 import { CONVERSATION_MAX, conversationDto, conversationMailDto, conversationsDto, conversationsListQuery, conversationTextDto, conversationTextQuery, type ConversationMessageDto, type ConversationThreadDto } from "@hub/contract/conversations";
 import { notionIdentityDto, type NotionIdentityDto } from "@hub/contract/notion";
 import { errFields, ops } from "@hub/log/ops";
-import { displayNameFor, headersFromText, mailComposerContext, resolveBrand, visibleFrom } from "@hub/projects/brand";
+import { displayNameFor, headersFromText, mailComposerContext, resolveBrand, visibleFrom } from "@hub/projects/brands";
 import { toDraft } from "../dto";
 import { notFound, v } from "../http";
 import { ownText } from "@hub/mail-app/read";

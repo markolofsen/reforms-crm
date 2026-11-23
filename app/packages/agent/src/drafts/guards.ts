@@ -1,4 +1,4 @@
-import { ownSignoff, signatureLines, signingNames } from "@hub/projects/brand";
+import { ownSignoff, signatureLines, signingNames } from "@hub/projects/brands";
 import { cut, ToolError } from "../mcp/result";
 import type { DraftScope } from "./sign";
 

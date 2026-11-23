@@ -2,7 +2,7 @@ import { z } from "zod";
 import { DRAFT_STATUSES, EVIDENCE_LEVELS, MARKS } from "@hub/config";
 import { CONVERSATION_STATES, CONVERSATION_VIEWS } from "@hub/contract/conversations";
 import { answeringDraft } from "@hub/db";
-import { displayNameFor, headersFromText, resolveBrand, signatureFor, type HeaderAddresses } from "@hub/projects/brand";
+import { displayNameFor, headersFromText, resolveBrand, signatureFor, type HeaderAddresses } from "@hub/projects/brands";
 import { defineTool } from "../define";
 import { configOf } from "../ports";
 import { cut, ToolError } from "../result";

@@ -1,4 +1,5 @@
-import { headersFromText, isOwnAddress, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody } from "@hub/projects/brand";
+import { isOwnAddress } from "@hub/projects/addresses";
+import { headersFromText, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody } from "@hub/projects/brands";
 import { normalizeAddress } from "@hub/projects/parse";
 import type { DraftWriter, InboundMessage } from "@hub/mail-app/writer/types";
 import type { Revision, Signed } from "../mail";

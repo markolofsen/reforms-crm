@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { MAIL_NOT_RUNNING, MAIL_UNREADABLE } from "@hub/contract/inbound";
 import { PREVIEW_CHARS, type InboundKnown, type NewInbound, type Repos } from "@hub/db";
 import { classifyMessage, parseRulesFile, type RulesFile } from "@hub/mail-filters";
-import { isOwnAddress } from "@hub/projects/brand";
+import { isOwnAddress } from "@hub/projects/addresses";
 import { projectStore, readAllowList, testRecipientsOf } from "@hub/projects";
 import type { ProjectConfig } from "@hub/projects/model";
 import { osaFor, type OsaRun } from "@hub/mail-app/osa";

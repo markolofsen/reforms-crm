@@ -1,4 +1,5 @@
-import { normalizeAddress } from "./values";
+import type { ProjectConfig } from "./schema";
+import { EMAIL, normalizeAddress } from "./values";
 
 /** One Email Routing rule, in the shape the Cloudflare API returns (only what is read). */
 export interface RoutingRule {
@@ -41,4 +42,17 @@ export function proposeAddresses(snapshot: RoutingSnapshot, project: { accounts:
     }
   }
   return { add: [...add].sort(), known: [...known].sort(), catchAll: [...catchAll].sort() };
+}
+
+/** The project's own Mail identity, as `resolveBrand` and the table check read it. */
+export type OwnMail = Pick<ProjectConfig["mail"], "accounts" | "addresses" | "domains">;
+
+export const accountAddresses = (m: OwnMail): Set<string> => new Set(m.accounts.filter((a) => EMAIL.test(a.trim())).map(normalizeAddress));
+export const domainOf = (a: string): string => a.slice(a.lastIndexOf("@") + 1);
+
+/** Whether an address belongs to the project: one of its accounts, addresses or aliases, or on one of its domains. */
+export function isOwnAddress(address: string, m: OwnMail): boolean {
+  const a = normalizeAddress(address);
+  if (!EMAIL.test(a)) return false;
+  return accountAddresses(m).has(a) || m.addresses.map(normalizeAddress).includes(a) || m.domains.includes(domainOf(a));
 }

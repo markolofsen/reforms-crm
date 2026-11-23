@@ -14,7 +14,7 @@ import { projectJson, writeProjectJson } from "./generated";
 import { renameProject } from "./rename";
 import { ProjectError } from "./md/issues";
 import { writeBrandRow, writeSetting } from "./write";
-import { splitSignature } from "./brand";
+import { splitSignature } from "./brands";
 import { proposeAddresses, type RoutingSnapshot } from "./addresses";
 import { agentIndex, loadWorkflows, workflowErrors } from "./workflows";
 import { devFolder, indexDev, initDev } from "./dev";

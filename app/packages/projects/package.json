@@ -7,7 +7,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./model": "./src/schema.ts",
-    "./brand": "./src/brand.ts",
+    "./brands": "./src/brands/index.ts",
+    "./addresses": "./src/addresses.ts",
     "./parse": "./src/parse.ts",
     "./store": "./src/store.ts",
     "./testing": "./src/testing.ts",
