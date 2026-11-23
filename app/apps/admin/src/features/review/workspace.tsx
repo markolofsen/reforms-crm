@@ -149,7 +149,8 @@ export function ReviewWorkspace({ source, views, onView, search, selection, poin
   useShareReview(current, sel.picked);
   // P53: the address names the conversation on screen. Once the list has settled for this view and search, a wide pane whose
   // address names nobody replaces it with the first row (no history entry), so the address, the pane and the focus agree.
-  const settled = measured && !body && !mobile && !query.isPending && !query.isFetching && !query.hasNextPage;
+  // P128 X0 (F16): an address that names a lead (the aside) is already the screen's subject; only a bare list is replaced.
+  const settled = measured && !body && !aside?.open && !mobile && !query.isPending && !query.isFetching && !query.hasNextPage;
   const auto = settled && rows[0] && selection.id === null ? rowId(rows[0]) : null;
   const { onAuto } = selection;
   useEffect(() => {

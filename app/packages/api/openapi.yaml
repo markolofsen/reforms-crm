@@ -2666,7 +2666,7 @@ components:
     ActivityRow:
       type: object
       additionalProperties: false
-      required: [id, key, at, client, who, outcome, why, draftId, skill, provider]
+      required: [id, key, at, client, who, outcome, why, draftId, chatId, skill, provider]
       properties:
         id:
           type: integer
@@ -2687,6 +2687,8 @@ components:
         why:
           type: [string, 'null']
         draftId:
+          type: [integer, 'null']
+        chatId:
           type: [integer, 'null']
         skill:
           type: [string, 'null']

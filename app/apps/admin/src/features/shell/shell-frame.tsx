@@ -12,13 +12,13 @@ import { AgentFeedContext, useAgentFeed } from "@/features/agent-feed/use-agent-
 import { useTurnSound } from "@/features/agent-feed/use-turn-sound";
 import { PointerLayer } from "@/features/focus/pointer";
 import { useFocusPublisher } from "@/features/focus/use-focus-publisher";
+import { useMailNeedsYou } from "@/features/mail/section";
 import { TerminalDock, TerminalProvider } from "@/features/terminal/terminal";
 import { terminalProjectOf } from "@/features/terminal/use-auto-start";
 import { useGo } from "@/hooks/use-go";
 import { PlaceContext, ProjectScopeContext, useEnsureAddress, type ProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { useSectionNav } from "@/hooks/use-section-nav";
-import { inboundApi } from "@/lib/api/inbox";
 import { metaApi } from "@/lib/api/meta";
 import { useLive } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
@@ -39,10 +39,9 @@ import { keys } from "@/lib/cache/keys";
 function useNavWithDots(project: string | null): ShellNavItem[] {
   const items = useSectionNav();
   const lit = useLitRoutes(project);
-  // P96 verdict 10: Mail carries the count of clients who wrote (the Inbox view), read from the same query as the list.
-  const inbound = useQuery({ queryKey: keys.inbound(project ?? ""), queryFn: () => inboundApi.list(project ?? ""), enabled: project !== null });
-  const wrote = project === null ? 0 : (inbound.data?.total ?? 0);
-  return useMemo(() => items.map((i) => ({ ...i, dot: lit.has(i.route) || i.children.some((c) => lit.has(c.route)), ...(i.id === "mail" && wrote > 0 ? { count: wrote } : {}) })), [items, lit, wrote]);
+  // P128 X0 (F5): Mail carries its Needs you count, read from the same query as Mail's default list.
+  const needYou = useMailNeedsYou(project);
+  return useMemo(() => items.map((i) => ({ ...i, dot: lit.has(i.route) || i.children.some((c) => lit.has(c.route)), ...(i.id === "mail" && needYou > 0 ? { count: needYou } : {}) })), [items, lit, needYou]);
 }
 
 /**

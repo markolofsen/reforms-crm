@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { phrase } from "@hub/contract/help";
 import { useCallback, useMemo } from "react";
 import { ReviewWorkspace } from "@/features/review/workspace";
@@ -38,6 +38,21 @@ const page = async (project: string, view: Exclude<DraftView, "not_by_email">, o
   return { rows: r.rows, total: r.total, nextOffset: r.nextOffset, counts: r.counts };
 };
 const countOf = (counts: ReviewPage["counts"], view: string): number | undefined => counts[view];
+
+/**
+ * P128 X0 (F5): the rail's Mail badge is the Needs you count of the very query Mail's default list reads (same key, same loader;
+ * the counts do not depend on the view or the search), so the badge and Mail ▸ Needs you never disagree.
+ */
+export function useMailNeedsYou(project: string | null): number {
+  const q = useInfiniteQuery({
+    queryKey: keys.drafts(project ?? "", "needs_you", null, ""),
+    queryFn: ({ pageParam }) => page(project ?? "", "needs_you", pageParam, { search: "", batch: null }),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextOffset ?? undefined,
+    enabled: project !== null,
+  });
+  return project === null ? 0 : (countOf(q.data?.pages[0]?.counts ?? {}, "needs_you") ?? 0);
+}
 
 type Props = { project: string; filter: DraftView; q: string; batch: number | null; clientId: number | null; pointed: string | null; leadPageId: string | null; mobile: boolean; measured: boolean };
 

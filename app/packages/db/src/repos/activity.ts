@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { BATCH_SEND_ACTOR } from "@hub/config";
 import type { Db } from "../client";
-import { agentEvents, clients, drafts, inboxRows, messengerDrafts, sendLog } from "../schema";
+import { agentEvents, clients, drafts, inboxRows, messengerChats, messengerDrafts, sendLog } from "../schema";
 
 // Activity (P73, decision 0037): one timeline of what the agent decided, newest first. A row is one `agent_events` row that
 // names a client decision (drafted, updated a draft, skipped, escalated, flagged); the run it joined is not read, since a run
@@ -27,6 +27,8 @@ export interface ActivityRow {
   outcome: ActivityOutcome;
   why: string | null;
   draftId: number | null;
+  /** P128 X0 (F30): the messenger chat (a `messenger_chats` id) a messenger draft or send is about; its row opens that chat. */
+  chatId: number | null;
   /** The skill the event itself names (never the run's, never the hub's own `draft_write`). */
   skill: string | null;
   provider: "hub_llm" | "runtime_agent" | null;
@@ -82,6 +84,10 @@ const skillOf = (d: Detail): string | null => {
 };
 const providerOf = (d: Detail): "hub_llm" | "runtime_agent" | null => (d.provider === "hub_llm" || d.provider === "runtime_agent" ? d.provider : null);
 
+/** A messenger draft's event (P71, P115): its `draftId` is a `messenger_drafts` id, never a Mail draft's. */
+const MESSENGER_TOOLS = new Set(["messenger_draft_write", "messenger_prepare"]);
+const isMessengerEvent = (tool: string | null, d: Detail): boolean => (tool !== null && MESSENGER_TOOLS.has(tool)) || str(d.skill) === "messenger-reply";
+
 const CURSOR = /^(.+)\|(event|send):(\d+)$/;
 type Pos = { at: string; src: "event" | "send"; id: number };
 /** The timeline's order, newest first: `at` desc, then a send before an event, then the id desc. */
@@ -102,7 +108,7 @@ export async function timelineOf(db: Db, project: string, q: TimelineQuery = {})
   const view = q.view ?? "all";
   const limit = q.limit ?? 100;
   const events = db
-    .select({ id: agentEvents.id, at: agentEvents.at, kind: agentEvents.kind, summary: agentEvents.summary, detail: agentEvents.detail, clientId: agentEvents.clientId, clientName: clients.name })
+    .select({ id: agentEvents.id, at: agentEvents.at, kind: agentEvents.kind, tool: agentEvents.tool, summary: agentEvents.summary, detail: agentEvents.detail, clientId: agentEvents.clientId, clientName: clients.name })
     .from(agentEvents)
     .leftJoin(clients, eq(clients.id, agentEvents.clientId))
     .where(and(eq(agentEvents.project, project), inArray(agentEvents.kind, ["decision", "draft_created", "needs_human"])))
@@ -123,7 +129,7 @@ export async function timelineOf(db: Db, project: string, q: TimelineQuery = {})
 
   // P87: the sends, each with its client through the Mail draft or the messenger draft it carried.
   const sendRows = db
-    .select({ id: sendLog.id, createdAt: sendLog.createdAt, doneAt: sendLog.doneAt, actor: sendLog.actor, mode: sendLog.mode, channel: sendLog.channel, toAddr: sendLog.toAddr, subject: sendLog.subject, draftId: sendLog.draftId, mailClient: drafts.clientId, chatClient: messengerDrafts.clientId })
+    .select({ id: sendLog.id, createdAt: sendLog.createdAt, doneAt: sendLog.doneAt, actor: sendLog.actor, mode: sendLog.mode, channel: sendLog.channel, toAddr: sendLog.toAddr, subject: sendLog.subject, draftId: sendLog.draftId, mailClient: drafts.clientId, chatClient: messengerDrafts.clientId, chatChannel: messengerDrafts.channel, chatRemote: messengerDrafts.chatId })
     .from(sendLog)
     .leftJoin(drafts, eq(drafts.id, sendLog.draftId))
     .leftJoin(messengerDrafts, eq(messengerDrafts.id, sendLog.messengerDraftId))
@@ -131,13 +137,22 @@ export async function timelineOf(db: Db, project: string, q: TimelineQuery = {})
     .all();
   const sendClientIds = [...new Set(sendRows.map((r) => r.mailClient ?? r.chatClient).filter((x): x is number => x !== null))];
   const names = new Map(sendClientIds.length ? db.select({ id: clients.id, name: clients.name }).from(clients).where(and(eq(clients.project, project), inArray(clients.id, sendClientIds))).all().map((c) => [c.id, c.name]) : []);
+  // P128 X0 (F30): a messenger row opens its chat (`/messengers/c/<id>`), never `/mail/c/<client>`, which has no conversation.
+  const messengerDraftIds = [...new Set(resolvedEvents.filter(({ e, d }) => isMessengerEvent(e.tool, d)).map(({ d }) => int(d.draftId)).filter((x): x is number => x !== null))];
+  const chatOfDraft = new Map(messengerDraftIds.length ? db.select({ id: messengerDrafts.id, channel: messengerDrafts.channel, chatId: messengerDrafts.chatId }).from(messengerDrafts).where(and(eq(messengerDrafts.project, project), inArray(messengerDrafts.id, messengerDraftIds))).all().map((m) => [m.id, `${m.channel}|${m.chatId}`]) : []);
+  const chatRows = new Map(db.select({ id: messengerChats.id, channel: messengerChats.channel, chatId: messengerChats.chatId }).from(messengerChats).where(eq(messengerChats.project, project)).all().map((c) => [`${c.channel}|${c.chatId}`, c.id]));
+  const chatOf = (key: string | undefined): number | null => (key === undefined ? null : (chatRows.get(key) ?? null));
   type Item = { pos: Pos; outcome: ActivityOutcome; client: { id: number; name: string } | null; row: () => Omit<ActivityRow, "client"> };
   const items: Item[] = [
     ...resolvedEvents.map(({ e, d, outcome, client: c }): Item => ({
       pos: { at: e.at, src: "event", id: e.id },
       outcome,
       client: c,
-      row: () => ({ id: e.id, key: `event:${e.id}`, at: e.at, who: whoOf(e.summary, int(d.inboxId) !== null), outcome, why: str(d.reason), draftId: int(d.draftId), skill: skillOf(d), provider: providerOf(d) }),
+      row: () => {
+        const messenger = isMessengerEvent(e.tool, d);
+        const draftId = int(d.draftId);
+        return { id: e.id, key: `event:${e.id}`, at: e.at, who: whoOf(e.summary, int(d.inboxId) !== null), outcome, why: str(d.reason), draftId: messenger ? null : draftId, chatId: messenger && draftId !== null ? chatOf(chatOfDraft.get(draftId)) : null, skill: skillOf(d), provider: providerOf(d) };
+      },
     })),
     ...sendRows.map((r): Item => {
       const cid = r.mailClient ?? r.chatClient;
@@ -147,7 +162,7 @@ export async function timelineOf(db: Db, project: string, q: TimelineQuery = {})
         pos: { at, src: "send", id: r.id },
         outcome: "sent",
         client: cid !== null && name !== undefined ? { id: cid, name } : null,
-        row: () => ({ id: r.id, key: `send:${r.id}`, at, who: r.channel === "mail" ? r.toAddr : r.subject, outcome: "sent", why: viaOf(r), draftId: r.channel === "mail" ? r.draftId : null, skill: null, provider: null }),
+        row: () => ({ id: r.id, key: `send:${r.id}`, at, who: r.channel === "mail" ? r.toAddr : r.subject, outcome: "sent", why: viaOf(r), draftId: r.channel === "mail" ? r.draftId : null, chatId: r.channel === "mail" || r.chatChannel === null || r.chatRemote === null ? null : chatOf(`${r.chatChannel}|${r.chatRemote}`), skill: null, provider: null }),
       };
     }),
   ];

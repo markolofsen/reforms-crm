@@ -125,7 +125,19 @@ describe("one timeline", () => {
     const row = await repos.sends.beginMessage({ project: "p", channel: "telegram_user", messengerDraftId: draft.id, account: "1", to: "telegram:1001", name: "Anna", text: "Hi", actor: "admin", at: "2026-11-20T12:00:00.000Z", limits: { dailyCap: 5, spacingSeconds: 20 } });
     await repos.messengers.markDraftSent("p", draft.id, "remote-1", "2026-11-20T12:00:01.000Z");
     await repos.sends.markSent(row.id, "remote-1");
-    expect((await repos.runs.activity("p")).rows[0]).toMatchObject({ key: `send:${row.id}`, why: "By hand on Telegram", provider: null });
+    const chat = handle.db.$client.prepare("select id from messenger_chats where project = 'p' and chat_id = '1001'").get() as { id: number };
+    expect((await repos.runs.activity("p")).rows[0]).toMatchObject({ key: `send:${row.id}`, why: "By hand on Telegram", provider: null, draftId: null, chatId: chat.id });
+  });
+
+  it("P128 X0 (F30): a messenger draft's row opens its chat: chatId is the chat row, draftId is not read as a Mail draft", async () => {
+    const clientId = await repos.clients.create({ project: "p", email: "anna@x.example", name: "Anna" });
+    await repos.messengers.allowChat("p", "telegram_user", "1001", "Anna");
+    const draft = await repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId: "1001", text: "Hi", createdBy: "hub_llm", clientId });
+    const t = "2026-11-21T09:00:00.000Z";
+    const runId = await repos.runs.start({ project: "p", startedAt: t, finishedAt: t, trigger: "owner", skill: "messenger-reply", status: "ok" });
+    await repos.runs.addEvent({ project: "p", runId, at: t, kind: "draft_created", tool: "messenger_prepare", summary: "Drafted reply for Anna", detail: JSON.stringify({ action: "drafted", draftId: draft.id, reason: "Hub LLM prepared an unsent draft.", skill: "messenger-reply", provider: "hub_llm" }), clientId });
+    const chat = handle.db.$client.prepare("select id from messenger_chats where project = 'p' and chat_id = '1001'").get() as { id: number };
+    expect((await repos.runs.activity("p")).rows[0]).toMatchObject({ outcome: "drafted", draftId: null, chatId: chat.id, why: "Hub LLM prepared an unsent draft.", client: { id: clientId, name: "Anna" } });
   });
 });
 

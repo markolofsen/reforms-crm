@@ -313,3 +313,23 @@ test("terminal: two admin pages opening the column at once get one session (P57 
   await other.close();
   expect(await sessions(page)).toHaveLength(1);
 });
+
+test("P128 X0 (F2): after a reload the restored column keeps its session, not the focus: Hub keys reach the Hub; his own open moves focus in", async ({ page }) => {
+  await page.goto(at(P, "/mail"));
+  await openTerminal(page);
+  await expect(input(page)).toBeFocused();
+  await page.reload();
+  await expect(dock(page)).toBeVisible();
+  await expect.poll(() => screenText(page), { timeout: 15_000 }).toContain("fake$");
+  await page.waitForTimeout(1000);
+  await expect(input(page)).not.toBeFocused();
+  expect(await page.evaluate(() => document.activeElement?.closest('[aria-label="Terminal"]') ?? null)).toBeNull();
+  // A Hub key goes to the Hub: ? opens the keyboard help, and the terminal saw no "?".
+  await page.keyboard.press("?");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  // His own open (Ctrl+` hides, Ctrl+` shows) is an opening: focus goes in.
+  await page.keyboard.press("Control+Backquote");
+  await page.keyboard.press("Control+Backquote");
+  await expect(input(page)).toBeFocused();
+});

@@ -498,6 +498,7 @@ export const GetActivityResponse = zod.object({
   "outcome": zod.enum(['drafted', 'updated', 'skipped', 'escalated', 'flagged', 'linked', 'sent']),
   "why": zod.string().nullable(),
   "draftId": zod.int().nullable(),
+  "chatId": zod.int().nullable(),
   "skill": zod.string().nullable(),
   "provider": zod.union([zod.literal('hub_llm'),zod.literal('runtime_agent'),zod.literal(null)]).nullable()
 })),

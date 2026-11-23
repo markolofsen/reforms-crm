@@ -50,7 +50,7 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys, l
                       {i.count !== undefined && (
                         <span className="ms-auto shrink-0 rounded-full bg-primary px-1.5 font-medium text-primary-foreground text-xs tabular-nums group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0.5 group-data-[collapsible=icon]:end-0.5 group-data-[collapsible=icon]:px-1" data-testid={`nav-count-${i.id}`}>
                           {i.count}
-                          <span className="sr-only"> waiting</span>
+                          <span className="sr-only"> need you</span>
                         </span>
                       )}
                       {i.dot && <NavDot at="rail" id={i.id} />}

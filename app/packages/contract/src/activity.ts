@@ -39,6 +39,8 @@ export const activityRowDto = z.strictObject({
   why: z.string().nullable(),
   /** The draft this row made or points at, when there is one (opens the card). */
   draftId: z.number().nullable(),
+  /** P128 X0 (F30): the messenger chat a messenger draft or send is about (a chat row id): the row opens `/messengers/c/<id>`. */
+  chatId: z.number().nullable(),
   /** The skill the event itself names; never the run's, never the hub's own writer (`draft_write`). */
   skill: z.string().nullable(),
   /** The reply preparation provider, when this activity row came from Messenger drafting. */

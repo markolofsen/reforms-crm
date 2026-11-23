@@ -6,7 +6,7 @@ import { dayLabel, daySections, groupCells, groupRows, lineRef, localDay } from 
 // from midnight, so the day of each row is the same in any zone the tests run in.
 const at = (d: number, h: number, m: number) => new Date(2026, 10, d, h, m).toISOString();
 let next = 1;
-const row = (over: Partial<ActivityRowDto> = {}): ActivityRowDto => ({ ...((id) => ({ id, key: `event:${id}` }))(next++), at: at(19, 20, 50), client: { id: 7, name: "Mark Effect" }, who: "Mark Effect", outcome: "updated", why: null, draftId: 1, skill: null, provider: null, ...over });
+const row = (over: Partial<ActivityRowDto> = {}): ActivityRowDto => ({ ...((id) => ({ id, key: `event:${id}` }))(next++), at: at(19, 20, 50), client: { id: 7, name: "Mark Effect" }, who: "Mark Effect", outcome: "updated", why: null, draftId: 1, chatId: null, skill: null, provider: null, ...over });
 const NOW = new Date(2026, 10, 20, 14, 0).getTime();
 
 describe("the timeline's fold", () => {
@@ -30,7 +30,7 @@ describe("the timeline's fold", () => {
   it("a folded line says the count and the range from the oldest entry to the newest; reason, draft and skill only when shared", () => {
     const [g] = groupRows([row({ at: at(19, 20, 50), draftId: 3 }), row({ at: at(19, 14, 26), draftId: 4 }), row({ at: at(19, 11, 5), draftId: 5 })]);
     if (!g) throw new Error("no group");
-    expect(groupCells(g)).toEqual({ who: "Mark Effect", what: "Updated the draft", count: 3, when: "11:05 – 20:50", why: "", detail: null, draftId: null, skill: null });
+    expect(groupCells(g)).toEqual({ who: "Mark Effect", what: "Updated the draft", count: 3, when: "11:05 – 20:50", why: "", detail: null, draftId: null, chatId: null, skill: null });
     const why = "already-drafted: draft 9 in Drafts";
     const [s] = groupRows([row({ outcome: "skipped", why, draftId: 9, skill: "triage-mail" }), row({ outcome: "skipped", why, draftId: 9, skill: "triage-mail" })]);
     if (!s) throw new Error("no group");

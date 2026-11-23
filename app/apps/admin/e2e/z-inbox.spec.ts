@@ -77,19 +77,6 @@ test("inbox: a row opens the conversation; Prepare reply pastes the request into
   await endAll(page);
 });
 
-test("P123 U0: Mail's composer is plain text: no formatting buttons, Markdown typed stays as typed", async ({ page }) => {
-  await page.goto(at(P, "/mail"));
-  await person(page, "Omar Test").getByRole("button").first().click();
-  const box = pane(page).getByRole("textbox", { name: /^(Reply|New message) composer$/ });
-  await expect(box).toBeVisible();
-  await expect(box).toHaveJSProperty("tagName", "TEXTAREA");
-  await expect(pane(page).getByRole("toolbar")).toHaveCount(0);
-  for (const name of ["Bold", "Italic", "Link", "Quote", "Bulleted list"]) await expect(pane(page).getByRole("button", { name, exact: true })).toHaveCount(0);
-  await box.fill("**not bold** and - not a list");
-  await expect(box).toHaveValue("**not bold** and - not a list");
-  await box.fill("");
-});
-
 test("inbox: No reply needed closes the client, and Undo brings them back", async ({ page }) => {
   await page.goto(at(P, "/mail"));
   await person(page, "Omar Test").getByRole("button").first().click();
@@ -130,4 +117,47 @@ test("P98: a draft recorded for their message turns the conversation into Draft 
   await expect(pane(page).getByRole("button", { name: "Prepare reply" })).toHaveCount(0);
   // The same conversation stays open: a draft is a part of it, not a page of its own.
   expect(await address(page)).toBe(at0);
+});
+
+test("P128 X0 (F16): a New lead opens at a split width and stays open; a cold load of its address stays too", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(at(P, "/mail"));
+  // The list settles and opens its first person by itself (P53); a lead's click must not be replaced by that.
+  await expect(page).toHaveURL(/\/mail\/c\/\d+/);
+  const lead = page.getByTestId("lead-row").first();
+  await lead.getByRole("link").click();
+  await expect(page).toHaveURL(/\/mail\/lead\/[0-9a-f]{32}/);
+  const leadUrl = page.url();
+  await page.waitForTimeout(1500);
+  expect(page.url()).toBe(leadUrl);
+  await expect(page.locator('[data-pane="aside"]')).toBeVisible();
+  await page.goto(leadUrl);
+  await expect(page.locator('[data-pane="aside"]')).toBeVisible();
+  await page.waitForTimeout(1500);
+  expect(page.url()).toBe(leadUrl);
+});
+
+test("P123 U0: Mail's composer is plain text: no formatting buttons, Markdown typed stays as typed", async ({ page }) => {
+  await page.goto(at(P, "/mail"));
+  await person(page, "Omar Test").getByRole("button").first().click();
+  const box = pane(page).getByRole("textbox", { name: /^(Reply|New message) composer$/ });
+  await expect(box).toBeVisible();
+  await expect(box).toHaveJSProperty("tagName", "TEXTAREA");
+  await expect(pane(page).getByRole("toolbar")).toHaveCount(0);
+  for (const name of ["Bold", "Italic", "Link", "Quote", "Bulleted list"]) await expect(pane(page).getByRole("button", { name, exact: true })).toHaveCount(0);
+  await box.fill("**not bold** and - not a list");
+  await expect(box).toHaveValue("**not bold** and - not a list");
+  await box.fill("");
+});
+
+test("P128 X0 (F5): the rail's Mail badge is Mail's Needs you count, and says need you", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(at(P, "/mail"));
+  const res = await page.request.get(`/api/projects/${P}/conversations?view=needs_you&offset=0`);
+  expect(res.ok()).toBe(true);
+  const n = ((await res.json()) as { counts: Record<string, number> }).counts.needs_you ?? 0;
+  expect(n).toBeGreaterThan(0);
+  const mail = page.getByRole("navigation", { name: "Sections" }).locator('a[href*="/mail"]').first();
+  await expect(mail).toContainText(`${n} need you`);
+  await expect(viewMenu(page)).toContainText(String(n));
 });

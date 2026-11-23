@@ -22,6 +22,8 @@ export interface ActivityRow {
   /** @nullable */
   draftId: number | null;
   /** @nullable */
+  chatId: number | null;
+  /** @nullable */
   skill: string | null;
   /** @nullable */
   provider: ActivityRowProvider;

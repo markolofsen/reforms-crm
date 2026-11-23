@@ -101,6 +101,17 @@ test("messengers: Edit changes the draft's text, Skip sets it aside with Undo", 
   await expect(conversation(page).getByTestId("messenger-draft")).toContainText("fake");
 });
 
+test("P128 X0 (F30): Activity's row of a messenger draft opens its chat, never Mail's Not found", async ({ page }) => {
+  // The Prepare reply above recorded a messenger draft's event ("Drafted reply for Rita Falsa").
+  await page.goto(at(P, "/log"));
+  const link = page.getByRole("link", { name: new RegExp(`Drafted reply for ${RITA}`) }).first();
+  await expect(link).toBeVisible();
+  await link.click();
+  await expect(page).toHaveURL(/\/messengers\/c\/\d+/);
+  await expect(conversation(page)).toContainText("Is the notary on the 28th still on?");
+  await expect(page.getByText(/Not found/)).toHaveCount(0);
+});
+
 test("messengers settings: a chat's reply mode and instruction are saved and read back", async ({ page }) => {
   await page.goto(at(P, "/messengers/settings"));
   const rules = page.getByRole("listitem", { name: `Rules for ${RITA}` });

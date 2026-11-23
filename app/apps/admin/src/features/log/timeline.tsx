@@ -8,7 +8,7 @@ import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } fro
 import { AppLink } from "@/components/app-link";
 import { agentRef } from "@/lib/focus";
 import { hhmm } from "@/lib/format";
-import { paths } from "@/routes/paths";
+import { paths, type Dest } from "@/routes/paths";
 import { daySections, groupCells, lineRef, type GroupCells, type RowGroup } from "./groups";
 import { reasonParts } from "./labels";
 
@@ -18,11 +18,16 @@ import { reasonParts } from "./labels";
  * `inline-flex w-fit`, which kept a long address from wrapping, so at 1280 with the dock open it ran over "What happened" (P88).
  */
 const WHO = "inline [overflow-wrap:anywhere] sm:block sm:w-full sm:truncate";
-function Who({ clientId, name }: { clientId: number | null; name: string }) {
-  const trigger = clientId === null ? (
+/** Where a row leads (P128 X0, F30): a messenger row to its chat, a Mail draft's row to the client's conversation, else nowhere. */
+type RowTarget = { chatId: number | null; draftId: number | null; clientId: number | null };
+const targetOf = (t: RowTarget): Dest | null =>
+  t.chatId !== null ? paths.messengers.conversation(t.chatId) : t.draftId !== null && t.clientId !== null ? paths.mail.conversation(t.clientId) : null;
+function Who({ target, name }: { target: RowTarget; name: string }) {
+  const to = targetOf(target);
+  const trigger = to === null ? (
     <span className={WHO}>{name}</span>
   ) : (
-    <AppLink className={cn(WHO, "text-foreground text-sm")} to={paths.mail.conversation(clientId)}>
+    <AppLink className={cn(WHO, "text-foreground text-sm")} to={to}>
       {name}
       <span className="sr-only"> (open the conversation)</span>
     </AppLink>
@@ -63,8 +68,9 @@ function Count({ c, open, id, onToggle }: { c: GroupCells; open: boolean; id: st
 /** One entry of an opened fold: its time (a link into its draft when it names one) and its reason when the line does not say it. */
 function Entry({ r, c, id }: { r: ActivityRowDto; c: GroupCells; id: string | undefined }) {
   const p = reasonParts(r);
-  const time = r.draftId === null || r.client === null ? hhmm(r.at) : (
-    <AppLink to={paths.mail.conversation(r.client.id)}>
+  const to = targetOf({ chatId: r.chatId, draftId: r.draftId, clientId: r.client?.id ?? null });
+  const time = to === null ? hhmm(r.at) : (
+    <AppLink to={to}>
       {hhmm(r.at)}
       <span className="sr-only"> (open the conversation)</span>
     </AppLink>
@@ -104,7 +110,7 @@ function Line({ g }: { g: RowGroup }) {
         <TableCell className="text-muted-foreground tabular-nums max-sm:hidden">{c.when}</TableCell>
         <TableCell>
           <span className="font-medium sm:font-normal" data-agent-label="">
-            <Who clientId={c.draftId === null ? null : (g.rows[0]?.client?.id ?? null)} name={c.who} />
+            <Who name={c.who} target={{ chatId: c.chatId, draftId: c.draftId, clientId: g.rows[0]?.client?.id ?? null }} />
           </span>
           <span className="sm:hidden">
             {` ${c.what}`}

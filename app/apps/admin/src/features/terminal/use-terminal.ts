@@ -138,6 +138,9 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   const wide = useMediaQuery("lg");
   const stored = useStored("terminal");
   const [chosen, setChosen] = useState<boolean | null>(null);
+  // P128 X0 (F2): the terminal takes focus only when the owner opened it on this page (accessibility rule 10: "opening"); a
+  // column restored open by a reload or a launchd restart shows its session and leaves focus where the page put it.
+  const ownerOpened = useRef(false);
   const open = state !== null && (chosen ?? (stored === "open" && wide));
   const mounted = open || chosen !== null;
   const width = parseWidth(useStored("terminal-width"));
@@ -155,20 +158,21 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   const setList = useCallback((fn: (list: TerminalSessionDto[]) => TerminalSessionDto[]) => qc.setQueryData<TerminalStateDto | null>(TERMINAL_KEY, (old) => old && { ...old, sessions: fn(old.sessions) }), [qc]);
   const setActive = useCallback((id: string) => save("terminal-tab", id), []);
   const setOpenRaw = useCallback((next: boolean) => {
+    ownerOpened.current = next;
     setChosen(next);
     save("terminal", next ? "open" : "closed");
     if (!next) focusBack();
   }, []);
 
-  const shown = useCallback((s: TerminalSessionDto) => {
+  const shown = useCallback((s: TerminalSessionDto, takeFocus = true) => {
     setList((list) => [...list.filter((x) => x.id !== s.id), s]);
     setActive(s.id);
-    focus(s.id);
+    if (takeFocus) focus(s.id);
   }, [setList, setActive, focus]);
   const creating = useMutation({
     mutationFn: (preset: TerminalPreset) => terminalApi.create(project ? { preset, project } : { preset }),
     onMutate: () => { setNotice(null); setWhy(null); },
-    onSuccess: shown,
+    onSuccess: (s) => shown(s),
     onError: (e) => setNotice(`Could not start a terminal: ${sentence(e)}`),
   });
   /** The automatic start (P57): the server's pick, or its running session of this project. */
@@ -176,7 +180,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
     mutationFn: () => terminalApi.ensure(project ? { project } : {}),
     onMutate: () => setNotice(null),
     onSuccess: (r) => {
-      shown(r.session);
+      shown(r.session, ownerOpened.current);
       if (r.created) setWhy(r.why);
     },
     onError: (e) => setNotice(`Could not start a terminal: ${sentence(e)}`),
@@ -223,7 +227,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
     ensure: () => ensuring.mutate(),
     show: (s) => {
       setActive(s.id);
-      focus(s.id);
+      if (ownerOpened.current) focus(s.id);
     },
   });
   const setOpen = setOpenRaw;

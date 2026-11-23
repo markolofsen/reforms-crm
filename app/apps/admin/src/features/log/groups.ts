@@ -58,8 +58,8 @@ export function daySections(rows: readonly ActivityRowDto[], now: number): DaySe
   return out;
 }
 
-/** What a line of the table shows. `count` is 1 for a single entry; `why`, `detail`, `draftId` and `skill` only when every entry shares them. */
-export type GroupCells = { who: string; what: string; count: number; when: string; why: string; detail: string | null; draftId: number | null; skill: string | null };
+/** What a line of the table shows. `count` is 1 for a single entry; `why`, `detail`, `draftId`, `chatId` and `skill` only when every entry shares them. */
+export type GroupCells = { who: string; what: string; count: number; when: string; why: string; detail: string | null; draftId: number | null; chatId: number | null; skill: string | null };
 
 const one = <T,>(values: readonly T[]): T | null => (values.every((v) => v === values[0]) ? (values[0] ?? null) : null);
 
@@ -78,6 +78,7 @@ export function groupCells(g: RowGroup): GroupCells {
     why: one(parts.map((p) => p.why)) ?? "",
     detail: one(parts.map((p) => p.detail)),
     draftId: one(g.rows.map((r) => r.draftId)),
+    chatId: one(g.rows.map((r) => r.chatId)),
     skill: one(g.rows.map((r) => r.skill)),
   };
 }
