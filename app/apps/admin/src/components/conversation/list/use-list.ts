@@ -1,3 +1,4 @@
+import { useSearchParams } from "next/navigation";
 import { useEffect, useEffectEvent } from "react";
 import { useGo } from "@/hooks/use-go";
 import type { Channel } from "../adapter";
@@ -15,9 +16,12 @@ export function useOpen(channel: Channel, k: { asked: number | null; narrow: boo
   const shown = still ? null : (asked ?? (narrow ? null : (channel.ids[0] ?? null)));
   const auto = measured && !narrow && !still && channel.settled && asked === null ? (channel.ids[0] ?? null) : null;
   const to = useEffectEvent((id: number | null) => channel.to(id));
+  // The address's query is a dependency too: another replace of the bare list (Messengers dropping an unavailable channel) can
+  // land after this one and write the bare address back; the auto-open then runs again instead of leaving it bare (P130 gate).
+  const search = useSearchParams().toString();
   useEffect(() => {
     if (auto !== null) go(to(auto), { replace: true });
-  }, [auto, go]);
+  }, [auto, go, search]);
   const open = useOpenRow(channel, asked);
   // Back to the list replaces: the conversation's entry is not one more step of Back.
   const back = () => go(channel.to(null), { replace: true });
