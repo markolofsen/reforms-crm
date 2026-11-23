@@ -51,7 +51,7 @@ describe("prepareMessengerReply", () => {
     expect(result.provider).toBe("hub_llm");
     expect(draft).toMatchObject({ id: result.draftId, status: "draft", createdBy: "hub_llm", clientId });
     expect(draft?.text).toBe("fake");
-    expect((await repos.runs.activity("p", { view: "drafts" })).rows[0]).toMatchObject({ outcome: "drafted", client: { id: clientId, name: "Anna" }, draftId: result.draftId, skill: "messenger-reply", why: "Hub LLM prepared an unsent draft." });
+    expect((await repos.runs.activity("p", { view: "drafts" })).rows[0]).toMatchObject({ outcome: "drafted", client: { id: clientId, name: "Anna" }, draftId: null, chatId: expect.any(Number), skill: "messenger-reply", why: "Hub LLM prepared an unsent draft." });
     expect((await repos.sends.summarySince("p", { today: "2026-11-21T00:00:00.000Z", day: "2026-11-21T00:00:00.000Z", stuckBefore: "2026-11-20T00:00:00.000Z" })).sentToday).toBe(0);
   });
 
