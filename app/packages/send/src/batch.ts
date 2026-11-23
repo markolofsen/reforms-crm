@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
 import { BATCH_SEND_ACTOR, BATCH_SEND_DAILY_CAP, BATCH_SEND_SPACING_SECONDS } from "@hub/config";
 import { usageRefusal } from "@hub/db";
-import { assess, mailHash, sendDraft, type SendDeps } from "./send";
+import { assess, type SendDeps } from "./assess";
+import { sendDraft } from "./deliver";
+import { mailHash } from "./find";
 
 // Send all Checked of one batch (P85b, decision 0011 amendment of 2026-11-20 point 4). Not a bulk send: the same door as one
 // click (`assess` and `sendDraft`, every guard), applied to each Checked draft of ONE batch in turn, after one confirmation that

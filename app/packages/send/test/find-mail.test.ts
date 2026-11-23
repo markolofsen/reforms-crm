@@ -4,7 +4,7 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { FakeMailer, MailNotAnswering, mailAppMailer, type MailDraft } from "../src/mailer";
-import { findMail, trashThread } from "../src/send";
+import { findMail, trashThread } from "../src/find";
 
 // P65 (decision 0031): the thread decides which Mail draft is the hub draft (In-Reply-To = mailRef, To holds the
 // client, one of the project's accounts), and the Hub's record (`mail_versions`) decides which ones it may move to Trash.
