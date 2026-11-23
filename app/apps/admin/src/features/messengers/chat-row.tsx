@@ -25,6 +25,8 @@ export function ChatRow({ c, project, now, moves, to, open = false }: { c: Messe
   const [mode, setMode] = useState<"change" | "unlink" | "hide" | null>(null);
   const name = chatName(c);
   const heading = c.client ? name : c.title || name;
+  // The moves name the chat by its own title, not by the client the row leads with: "Unlink Rita F. from Rita Falsa".
+  const chat = c.title || name;
   const done = () => setMode(null);
   const on = (a: StatusAction) => setMode(a === "change" ? "change" : a === "unlink" ? "unlink" : a === "hide-linked" ? "hide" : null);
   const notionState = notionIndicatorState(c);
@@ -48,7 +50,7 @@ export function ChatRow({ c, project, now, moves, to, open = false }: { c: Messe
       </div>
       {mode === "change" && (
         <div className="border-t px-3 py-2">
-          <RecordSearch autoFocus onCancel={done} onPick={(rec) => moves.change.mutate({ id: c.id, key: rec.key, name: heading }, { onSuccess: done })} project={project} />
+          <RecordSearch autoFocus onCancel={done} onPick={(rec) => moves.change.mutate({ id: c.id, key: rec.key, name: chat }, { onSuccess: done })} project={project} />
         </div>
       )}
       {(mode === "unlink" || mode === "hide") && (
@@ -56,9 +58,9 @@ export function ChatRow({ c, project, now, moves, to, open = false }: { c: Messe
           <Confirm
             act={mode === "hide" ? "Unlink, hide and delete" : "Unlink and delete"}
             onCancel={done}
-            onConfirm={() => moves.unlink.mutate({ id: c.id, never: mode === "hide", name: heading }, { onSuccess: done })}
+            onConfirm={() => moves.unlink.mutate({ id: c.id, never: mode === "hide", name: chat }, { onSuccess: done })}
             pending={moves.unlink.isPending}
-            sentence={unlinkSentence({ name: heading, client: clientName(c), stored: c.stored, hide: mode === "hide" })}
+            sentence={unlinkSentence({ name: chat, client: clientName(c), stored: c.stored, hide: mode === "hide" })}
           />
         </div>
       )}

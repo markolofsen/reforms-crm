@@ -40,10 +40,13 @@ function SearchBox({ search, onSearch, searchRef }: Pick<Header, "search" | "onS
   return <Input aria-label="Search drafts" className="control-s" onChange={(e) => { setText(e.target.value); onSearch(e.target.value); }} placeholder="Search" ref={searchRef} type="search" value={text} />;
 }
 
-/** "3 selected · Skip · Hold · Clear": the header line itself while drafts are picked, so nothing below it moves. */
+/**
+ * "3 selected · Skip · Hold · Clear": the header line itself while drafts are picked, so nothing below it moves. Its height is
+ * the header line's: the search field is `control-s` inside its 1px border, 2px taller than the buttons beside it.
+ */
 function SelectionLine({ count, busy, onSkip, onHold, onClear }: Selection) {
   return (
-    <div aria-label="Selected drafts" className="flex h-(--control-s) min-w-0 items-center gap-2" role="toolbar">
+    <div aria-label="Selected drafts" className="flex h-[calc(var(--control-s)+2px)] min-w-0 items-center gap-2" role="toolbar">
       <p className="me-auto min-w-0 truncate font-medium text-sm tabular-nums">{count} selected</p>
       <ActionButton disabled={busy} onClick={onSkip} size="s" variant="secondary">
         Skip
@@ -70,15 +73,13 @@ export function ListHeader({ views, view, onView, search, onSearch, searchRef, s
         {selection.count > 0 ? `${selection.count} selected` : ""}
       </p>
       {selection.count > 0 ? (
-        <>
-          <SelectionLine {...selection} />
-          {/* Below 48rem the search wraps to a second row; its place stays while drafts are picked, so the rows below never move. */}
-          <div aria-hidden="true" className="hidden h-(--control-s) @max-3xl:block" />
-        </>
+        <SelectionLine {...selection} />
       ) : (
-        <ListToolbarRow>
+        // One line at every width, the search between the View and Select: a second line pushed the first draft past 200px on a
+        // phone (admin-principles 3) and made the rows jump when a selection replaced both lines (ui-specifications 4a).
+        <ListToolbarRow className="flex-nowrap">
           <ViewMenu onView={onView} view={view} views={views} />
-          <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
+          <div className="min-w-0 flex-1">
             <SearchBox onSearch={onSearch} search={search} searchRef={searchRef} />
           </div>
           <ActionButton aria-label={selecting ? "Exit draft selection" : "Select drafts"} aria-pressed={selecting} icon onClick={() => onSelecting(!selecting)} size="s" tooltip={selecting ? "Exit draft selection" : "Select drafts"} variant="secondary">

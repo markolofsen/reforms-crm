@@ -16,7 +16,7 @@ export function ComboboxInputGroup({ className, ...props }: ComboboxPrimitive.In
 }
 
 export function ComboboxInput({ className, ...props }: ComboboxPrimitive.Input.Props): React.ReactElement {
-  return <ComboboxPrimitive.Input className={cn("min-w-0 flex-1 bg-transparent px-3 py-1.5 text-base outline-none placeholder:text-muted-foreground sm:text-sm", className)} data-slot="combobox-input" {...props} />;
+  return <ComboboxPrimitive.Input className={cn("min-w-0 flex-1 self-stretch bg-transparent px-3 py-1.5 text-base outline-none placeholder:text-muted-foreground sm:text-sm", className)} data-slot="combobox-input" {...props} />;
 }
 
 export function ComboboxTrigger({ className, ...props }: ComboboxPrimitive.Trigger.Props): React.ReactElement {
