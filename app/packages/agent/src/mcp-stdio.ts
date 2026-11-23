@@ -1,4 +1,4 @@
-import { hubPaths } from "@hub/config/paths";
+import { hubPaths, instanceFeatures, instancePorts } from "@hub/config/paths";
 import { bumpTopicIn, createRepos, openDb, openDbReadOnly } from "@hub/db";
 import { createNotionReader, findClientByEmail, findLeadByEmail, loadToken, NoTokenError, secretsDir } from "@hub/notion";
 import { join } from "node:path";
@@ -8,6 +8,8 @@ import { mailAppDraftWriter } from "./mail-drafts";
 import { createHubMcpServer, type NotionClientCheck, type RevisionRecord, type VersionRecord } from "./mcp";
 import type { WithRepos } from "./write-record";
 import { notionScopeOf } from "./notion-scope";
+import { httpAgentSend } from "./messenger/send-tool";
+import { readAgentSendToken } from "./messenger/send-token";
 
 /**
  * `hub mcp`: the hub's MCP server on stdio (P51, P52). Env: `HUB_HOME`, `HUB_PROJECT` (every tool refuses without it),
@@ -78,7 +80,10 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   };
   // P92: the owner's test addresses while the project's send policy is test mode (read per call: the policy may change).
   const testRecipients = (slug: string) => testRecipientsOf(loadProject(paths.projects, slug, { policyDir: paths.stateProjects }).parsed.config, readAllowList(paths.configFile));
-  const server = createHubMcpServer(leadRepos, { clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectNotion, projectLinks, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  // Decision 0046: `messenger_send` exists only in an attended instance (read at start; the server refuses an unattended one anyway).
+  const attended = !instanceFeatures(paths).agent.unattended;
+  const agentSend = attended ? { agentSend: httpAgentSend({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) }) } : {};
+  const server = createHubMcpServer(leadRepos, { ...agentSend, clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectNotion, projectLinks, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

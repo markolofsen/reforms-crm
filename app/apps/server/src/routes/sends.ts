@@ -10,6 +10,11 @@ import { notFound, v } from "../http";
 import { batchRuns, type BatchRuns } from "../send/batch-door";
 import { applyMessenger, assessMessenger, type MessengerSenders } from "../send/messenger-door";
 import { ops } from "@hub/log/ops";
+import type { LogEvent } from "@hub/log/event";
+import { AGENT_WORD_SEND_ACTOR, OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
+import { agentSendBody, agentSentDto } from "@hub/contract/messenger";
+import { ownerWordFor } from "@hub/agent/owner-word";
+import { AGENT_SEND_HEADER, tokenMatches } from "@hub/agent/send-token";
 
 /** What the send routes need from the process: the Mailer, where project.md lives, and `allow_list` for `draft.recipients: test`. */
 export interface SenderOptions {
@@ -34,6 +39,18 @@ export interface SenderOptions {
   batchLimits?: BatchLimits;
   /** P89: told after each confirmed send (the Notion stamp of who sent); see `SendDeps.onSent`. */
   onSent?: SendDeps["onSent"];
+  /** Decision 0046: the agent's send on the owner's word; absent, the agent send route refuses. */
+  agent?: AgentSendOptions;
+}
+
+/** What the agent send route needs (decision 0046): the token `hub mcp` presents, the instance's mode, the session log. */
+export interface AgentSendOptions {
+  /** The server's token (`state/secrets/agent-send-token`), made at start. */
+  token: string;
+  /** `agent.unattended` of the instance, read per call: an unattended instance never sends on the agent's call. */
+  unattended: () => boolean;
+  /** The project's `prompt` and `focus` events of the session log since `since`. */
+  events: (project: string, since: string) => readonly LogEvent[];
 }
 
 export type SendServices = {
@@ -68,7 +85,53 @@ const refused = (what: Record<string, unknown>, reasons: string[]) => {
  * A messenger draft goes through the same door (P71 M4, `../send/messenger-door.ts`): the same dry run, ticket and audit row, its
  * own guards, and `messengers` holds the only send of each connected account.
  */
-export function sendRoutes({ repos, sender, messengers }: SendServices) {
+/** One refusal of an agent send: its code, the reasons in words and the agent's next step (409; 403 for the token). */
+const agentRefusal = (reason: string, error: string, next: string, refused?: string[]) => ({ error: `Not sent: ${error}`, code: "wrong_state" as const, reason, next, ...(refused ? { refused } : {}) });
+const LEAVE = "Leave the draft for the owner and tell him in one line that it waits on the Messengers panel.";
+
+/**
+ * Decision 0046 (P132 B1-2): the agent sends ONE messenger draft on the owner's word, through the same door as his Send. Only
+ * `hub mcp` may ask (its token), never on an unattended instance, never for Mail (this route knows messenger drafts only); the
+ * word is found here, in the project's session log, never taken from the caller; the `send_log` row carries the word's reference.
+ */
+function agentSendRoute({ repos, sender, messengers }: SendServices) {
+  return new Hono().post("/api/projects/:slug/messengers/drafts/:id/agent-send", v("param", sendParam), v("json", agentSendBody), async (c) => {
+    const { slug, id } = c.req.valid("param");
+    const { chat } = c.req.valid("json");
+    const agent = sender?.agent;
+    if (!sender || !agent) return c.json(agentRefusal("unavailable", "the agent send is not set up on this server.", LEAVE), 409);
+    if (!tokenMatches(c.req.header(AGENT_SEND_HEADER), agent.token)) return c.json(agentRefusal("forbidden", "only the hub's own MCP server may ask for an agent send.", LEAVE), 403);
+    if (agent.unattended()) return c.json(agentRefusal("unattended", "this instance runs unattended sessions, which never send (decision 0046).", LEAVE), 409);
+    const d = await repos.messengers.getDraft(slug, id);
+    const row = await repos.messengers.chatById(slug, chat);
+    if (!d || !row) return c.json(agentRefusal("not_found", `there is no messenger draft ${id} in chat:${chat} of ${slug} (a Mail draft is never sent by the agent).`, "Read the chat with messenger_history and use its open_draft id."), 404);
+    if (row.channel !== d.channel || row.chatId !== d.chatId) return c.json(agentRefusal("other_chat", `draft ${id} is not a draft of chat:${chat}.`, "Use the open_draft id messenger_history gives for this chat."), 409);
+    const now = (sender.now ?? (() => new Date()))();
+    const since = new Date(now.getTime() - OWNER_WORD_MAX_AGE_HOURS * 3_600_000).toISOString();
+    const chatIds = new Map((await repos.messengers.allowedChats(slug)).map((r) => [`${r.channel}|${r.chatId}`, r.id]));
+    const openDrafts = (await repos.messengers.listDrafts(slug, ["draft"])).flatMap((x) => {
+      const cid = chatIds.get(`${x.channel}|${x.chatId}`);
+      return cid === undefined ? [] : [{ id: x.id, chat: cid, updatedAt: x.updatedAt }];
+    });
+    const word = ownerWordFor({ events: agent.events(slug, since), draft: { id, chat, updatedAt: d.updatedAt }, openDrafts, used: await repos.sends.ownerWordsUsed(slug), now });
+    if (!word.ok) return c.json(agentRefusal(word.refusal.code, word.refusal.message, word.refusal.next), 409);
+    const door = { repos, projectsDir: sender.projectsDir, policyDir: sender.policyDir, allowList: sender.allowList, senders: messengers, ...(sender.now ? { now: sender.now } : {}) };
+    const a = await assessMessenger(door, slug, id);
+    if (!a?.preview) return c.json(agentRefusal("refused", a?.reasons.join("; ") || "nothing to send", LEAVE, a?.reasons), 409);
+    const r = await applyMessenger(door, slug, id, { chatId: d.chatId, text: d.text }, { actor: AGENT_WORD_SEND_ACTOR, ownerWord: word.ref });
+    if (!r) return c.json(agentRefusal("not_found", `draft ${id} is gone.`, LEAVE), 404);
+    if ("refused" in r) {
+      log.warn("an agent send on the owner's word was refused", { project: slug, messengerDraft: id, reasons: r.refused });
+      return c.json(agentRefusal("refused", r.refused.length === 1 ? r.refused[0]! : `${r.refused.length} reasons`, `${LEAVE} Say why in his words; never retry.`, r.refused), 409);
+    }
+    if ("failed" in r) return c.json(agentRefusal("failed", `the send failed: ${r.failed}. Nothing was retried; the draft waits again.`, `Tell the owner in one line that it failed and why; never retry.`), 500);
+    const sent = await repos.sends.get(r.sendId);
+    return c.json(agentSentDto.parse({ ok: true, sendId: r.sendId, channel: a.preview.channel, chatId: a.preview.chatId, to: a.preview.to, text: a.preview.text, at: sent?.doneAt ?? now.toISOString() }));
+  });
+}
+
+export function sendRoutes(services: SendServices) {
+  const { repos, sender, messengers } = services;
   const deps = sender && { repos, mailer: sender.mailer, projectsDir: sender.projectsDir, policyDir: sender.policyDir, allowList: sender.allowList, ...(sender.now ? { now: sender.now } : {}), ...(sender.onSent ? { onSent: sender.onSent } : {}) };
   const tickets = sender?.tickets ?? ticketStore({ ttlMs: TICKET_TTL_MS });
   const limits = sender ? limitsOf(sender) : BATCH_LIMITS;
@@ -78,6 +141,7 @@ export function sendRoutes({ repos, sender, messengers }: SendServices) {
   const scope = (slug: string) => (slug === "*" ? undefined : slug);
 
   return new Hono()
+    .route("/", agentSendRoute(services))
     // P49 S12: the admin page fetches one ticket per apply. Only the admin's exact origin, from a same-origin fetch, gets one.
     .post("/api/sends/tickets", v("json", sendTicketBody), async (c) => {
       if (!sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);

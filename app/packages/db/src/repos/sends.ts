@@ -46,6 +46,8 @@ export type NewMessengerSend = {
   at: string;
   /** The guards of one account (decision 0036 point 7), re-checked inside the write so two sends cannot both pass. */
   limits: { dailyCap: number; spacingSeconds: number };
+  /** Decision 0046: the session-log reference of the owner's word an agent send goes out on; one send per word. */
+  ownerWord?: string | null;
 };
 
 /** What one messenger account has used: live rows of the last 24 h (the cap) and its newest attempt of any outcome (the spacing). */
@@ -95,7 +97,11 @@ export function sendsRepo(db: Db) {
       return db.select().from(sendLog).where(eq(sendLog.draftId, draftId)).orderBy(sql`${sendLog.id} desc`).all();
     },
 
-    /** The project's rows, newest first (the Send screen). */
+    /** Decision 0046: the owner's words of this project an agent send already went out on (any outcome): one send per word. */
+    async ownerWordsUsed(project: string): Promise<Set<string>> {
+      return new Set(db.select({ w: sendLog.ownerWord }).from(sendLog).where(and(eq(sendLog.project, project), sql`${sendLog.ownerWord} is not null`)).all().map((r) => r.w as string));
+    },
+
     /** The send history, newest first; each row with its draft's client (P99: a mail send links its conversation). */
     async list(project: string, limit = 100): Promise<Array<SendRow & { clientId: number | null }>> {
       return db
@@ -158,10 +164,12 @@ export function sendsRepo(db: Db) {
         const u = usage(tx, input.channel, input.account, input.at);
         const refused = usageRefusal(u, input.limits, input.at);
         if (refused) throw new RepoError("wrong_state", refused);
+        const word = input.ownerWord ?? null;
+        if (word !== null && tx.select({ id: sendLog.id }).from(sendLog).where(eq(sendLog.ownerWord, word)).get()) throw new RepoError("wrong_state", "this word of the owner was already used for a send: one send per word");
         try {
           return tx
             .insert(sendLog)
-            .values({ project: input.project, channel: input.channel, messengerDraftId: input.messengerDraftId, draftId: null, mode: "manual", status: "sending", actor: input.actor, createdAt: input.at, sender: input.account, toAddr: input.to, subject: input.name, body: input.text })
+            .values({ project: input.project, channel: input.channel, messengerDraftId: input.messengerDraftId, draftId: null, mode: "manual", status: "sending", actor: input.actor, createdAt: input.at, sender: input.account, toAddr: input.to, subject: input.name, body: input.text, ownerWord: word })
             .returning()
             .get();
         } catch (e) {

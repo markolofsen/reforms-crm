@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { auditEvidence, auditToolCalls, defaultProjectsRoot, loadProject, replayCalls, toolCallsFromLog, type ClaimedRecord, type EvidenceRow, type LedgerEntry, type ToolCall } from "@hub/projects";
-import { hubPaths } from "@hub/config/paths";
+import { hubPaths, instanceFeatures } from "@hub/config/paths";
 import { auditLayout, skillScope } from "./safety";
 
 export interface AuditResult { project: string; calls: number; violations: string[]; evidence: EvidenceRow[] }
@@ -29,7 +29,7 @@ export function auditRun(logFile: string, slug: string, projectsRoot?: string): 
   return {
     project: slug,
     calls: calls.length,
-    violations: auditToolCalls(calls, slug, p.parsed.config.mail.accounts, skillScope(p.parsed.config.kind, hubPaths().skills), auditLayout(hubPaths())),
+    violations: auditToolCalls(calls, slug, p.parsed.config.mail.accounts, skillScope(p.parsed.config.kind, hubPaths().skills), auditLayout(hubPaths()), { unattended: instanceFeatures(hubPaths()).agent.unattended }),
     evidence: auditEvidence(entries, claims),
   };
 }

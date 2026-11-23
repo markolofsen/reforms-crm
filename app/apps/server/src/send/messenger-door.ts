@@ -1,3 +1,4 @@
+import { AGENT_WORD_SEND_ACTOR } from "@hub/config";
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
 import { RepoError, usageRefusal, type MessengerChannel, type Repos } from "@hub/db";
 import { AdapterError, type SendingAdapter } from "@hub/messengers";
@@ -10,7 +11,8 @@ import { errFields, ops } from "@hub/log/ops";
 // `send_log` row first, one send, no retry. Its own guards, because a user account is the owner's personal account: the chat has an
 // inbound message (the hub never makes first contact), a daily cap and a spacing per account, `draft.recipients: test` admits
 // only `telegram:<id>` / `whatsapp:+<number>` entries of `allow_list`, and Stop sending stops it. Only this module mints the
-// `HumanActor` and, through `confirmDraft`, the `ConfirmedDraft` of a messenger send; the agent has no path here.
+// `HumanActor` and, through `confirmDraft`, the `ConfirmedDraft` of a messenger send. The agent reaches it only through the agent
+// send route, on the owner's word that route verified (decision 0046), with `actor: agent_on_owner_word`.
 
 /** The live send of each connected account, from the server's supervisors; nothing else holds one. */
 export interface MessengerSenders {
@@ -99,10 +101,16 @@ export async function assessMessenger(deps: MessengerDoorDeps, project: string, 
 export type MessengerApply = { sendId: number } | { refused: string[] } | { failed: string; sendId: number } | null;
 
 /**
+ * Who asked for the send: the owner's Send in the admin (the default), or, decision 0046, the agent on the owner's word, which
+ * the send route verified in the session log before it came here; `ownerWord` is that word's log reference (one send per word).
+ */
+export type MessengerSendActor = { actor: typeof ACTOR } | { actor: typeof AGENT_WORD_SEND_ACTOR; ownerWord: string };
+
+/**
  * The apply: the guards again, the text the person saw against the draft's, the `send_log` row first (its guards re-checked in the
  * same write), then the one send. A failure is recorded on the row and the draft waits again; nothing is retried.
  */
-export async function applyMessenger(deps: MessengerDoorDeps, project: string, draftId: number, confirm: { chatId: string; text: string }): Promise<MessengerApply> {
+export async function applyMessenger(deps: MessengerDoorDeps, project: string, draftId: number, confirm: { chatId: string; text: string }, who: MessengerSendActor = { actor: ACTOR }): Promise<MessengerApply> {
   const a = await assessMessenger(deps, project, draftId);
   if (!a) return null;
   const changed = a.preview && (a.preview.chatId !== confirm.chatId || a.preview.text !== confirm.text);
@@ -116,12 +124,13 @@ export async function applyMessenger(deps: MessengerDoorDeps, project: string, d
 
   let row;
   try {
-    row = await repos.sends.beginMessage({ project, channel: p.channel, messengerDraftId: draftId, account: p.account, to: `${KIND[p.channel]}:${p.chatId}`, name: p.to, text: p.text, actor: ACTOR, at, limits: LIMITS });
+    row = await repos.sends.beginMessage({ project, channel: p.channel, messengerDraftId: draftId, account: p.account, to: `${KIND[p.channel]}:${p.chatId}`, name: p.to, text: p.text, actor: who.actor, at, limits: LIMITS, ownerWord: "ownerWord" in who ? who.ownerWord : null });
   } catch (e) {
     if (e instanceof RepoError) return { refused: [e.message] };
     throw e;
   }
-  const human = humanActor(ACTOR);
+  // The owner's click, or his word the route verified: the one place a messenger send's actor is minted.
+  const human = humanActor(who.actor);
   try {
     await confirmDraft(repos, human, { project, draftId, at });
     const receipt = await sendConfirmed({ repos, adapter, ...(deps.now ? { now: deps.now } : {}) }, human, { project, draftId });

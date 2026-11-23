@@ -23,6 +23,12 @@ export const DENIED_TOOLS: readonly string[] = [
   ...NOTION_DENIED.map((d) => `${NOTION_PREFIX}${d.tool}`),
 ];
 
+/**
+ * Decision 0046: the one send tool an ATTENDED session has: `hub`'s `messenger_send`, one messenger draft on the owner's word,
+ * verified and sent by the server through the owner's send door. The Agent tools check passes it only in attended mode.
+ */
+export const ATTENDED_SEND_TOOLS: readonly string[] = ["mcp__hub__messenger_send"];
+
 /** `mcp__<server>__<tool>` split back into the server's own tool names (Codex's `disabled_tools` takes these). */
 export function deniedToolsOf(server: string): string[] {
   const pre = `mcp__${server}__`;

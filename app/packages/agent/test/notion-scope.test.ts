@@ -73,7 +73,7 @@ describe("the capabilities line names the project's databases (P82 S2)", () => {
     expect(r).toContain("it is not a circumvention of these rules");
     expect(r).toContain("never redirected to another task");
     expect(r).toContain("Never decide yourself that an address is not a client: call `draft_write` and let the hub's check answer");
-    expect(r).toContain("Only sends (mail and messenger) and Notion deletes and moves stay forbidden.");
+    expect(r).toContain("Only sends (mail, and messenger except `messenger_send` on his word) and Notion deletes and moves stay forbidden.");
   });
   it("a project with no list says so, with the phrase", () => {
     expect(notionCapability({ ...SAAS, databases: [] })).toBe("notion: no databases listed in project.md (say: настрой проект saas-support)");

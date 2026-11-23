@@ -349,6 +349,15 @@ export const BATCH_SEND_DAILY_CAP = 50;
 export const BATCH_SEND_SPACING_SECONDS = 20;
 /** The `send_log.actor` of a batch send: what its daily cap counts. One click mints it once per run. */
 export const BATCH_SEND_ACTOR = "admin-batch";
+/**
+ * Decision 0046 (P132 B1): the `send_log.actor` of a messenger draft the agent sent on the owner's word in an attended
+ * session (`messenger_send`, through the same door as the owner's Send). Activity calls it "Agent (your word)".
+ */
+export const AGENT_WORD_SEND_ACTOR = "agent_on_owner_word";
+/** Its label in Activity, beside "By hand" and "Batch". */
+export const AGENT_WORD_SEND_LABEL = "Agent (your word)";
+/** How old an owner's word may be when the agent sends on it (P129 verdict 7's window). */
+export const OWNER_WORD_MAX_AGE_HOURS = 12;
 
 /**
  * P85b: a brand-new thread (a first message to a client with no thread at all) answers no message, so its draft has no

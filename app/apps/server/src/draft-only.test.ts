@@ -53,8 +53,9 @@ describe("no route sends", () => {
     expect(paths.length).toBeGreaterThan(15);
     expect(paths.filter((p) => /deliver|dispatch|smtp|outbox/i.test(p))).toEqual([]);
     // `.../sends` (history) and `.../sends/stop|resume|cancel` only read or remove work; the ones that send are below. P85b: a
-    // batch's Send all Checked is the third (its GET reads the run's progress, its `/send/stop` only removes work).
-    expect(paths.filter((p) => /send/i.test(p) && !/\/sends(\/|$)/.test(p) && !/^GET /.test(p) && !/\/send\/stop$/.test(p)).sort()).toEqual(["POST /api/projects/:slug/batches/:id/send", "POST /api/projects/:slug/drafts/:id/send", "POST /api/projects/:slug/messengers/drafts/:id/send"]);
+    // batch's Send all Checked is the third (its GET reads the run's progress, its `/send/stop` only removes work). Decision 0046:
+    // the fourth is the agent's send of one messenger draft on the owner's word, the same door (`applyMessenger`) as the third.
+    expect(paths.filter((p) => /send/i.test(p) && !/\/sends(\/|$)/.test(p) && !/^GET /.test(p) && !/\/send\/stop$/.test(p)).sort()).toEqual(["POST /api/projects/:slug/batches/:id/send", "POST /api/projects/:slug/drafts/:id/send", "POST /api/projects/:slug/messengers/drafts/:id/agent-send", "POST /api/projects/:slug/messengers/drafts/:id/send"]);
   });
 
   it("only the confirmed send route imports the sender, and only send/mailer.ts names the real Mailer", () => {

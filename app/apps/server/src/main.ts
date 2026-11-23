@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { HOST, SERVER_PORT } from "@hub/config";
-import { HubHomeMissingError, hubPaths, instancePorts } from "@hub/config/paths";
+import { HubHomeMissingError, hubPaths, instanceFeatures, instancePorts } from "@hub/config/paths";
 import { bumpTopic, createRepos, dataVersion, openDb } from "@hub/db";
 import { FakeDraftWriter, mailAppDraftWriter } from "@hub/agent/mail-drafts";
 import { createApp } from "./app";
@@ -29,7 +29,8 @@ import { stampSentMail, teamStampOf } from "@hub/notion/stamp";
 import type { SentNotice } from "@hub/send";
 import { chooseShell, createTerminal, serverDetector } from "./terminal";
 import { chooseAgentTools, createAgentTools } from "./agent-tools";
-import { logStoreOf } from "@hub/log/store";
+import { logStoreOf, readEvents } from "@hub/log/store";
+import { ensureAgentSendToken } from "@hub/agent/send-token";
 import { createLive, folderSignature, logSignatures } from "./live";
 import { createFocusStore } from "./focus";
 import { chooseOpener, localOpenAvailable, localOpenDeps } from "@hub/projects/local-open";
@@ -222,7 +223,11 @@ const local = { deps: localOpenDeps(repos, paths), run: opener.run, available: l
 const appsProbe = startAppsProbe(opener.probe);
 const localService = { ...local, apps: appsProbe };
 log.info(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens, each argv goes to state/opener.jsonl" : `open: ${local.available ? "on (/usr/bin/open, the admin page only)" : "off (not macOS): the Open buttons are hidden"}`);
-const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local: localService, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project) } });
+// Decision 0046: the agent's send on the owner's word. The token is `hub mcp`'s (state/secrets, denied to every session); the
+// mode and the session log are read per call.
+const agentStore = logStoreOf(paths);
+const agentSend = { token: ensureAgentSendToken(paths), unattended: () => instanceFeatures(paths).agent.unattended, events: (project: string, since: string) => readEvents(agentStore, { project, kinds: ["prompt", "focus"], since }) };
+const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local: localService, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project), agent: agentSend } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   log.info(`hub server on http://${info.address}:${info.port}`, { pid: process.pid });

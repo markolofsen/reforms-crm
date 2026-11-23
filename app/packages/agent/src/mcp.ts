@@ -9,6 +9,7 @@ import { POINTER_MAX_REFS, POINTER_NOTE_MAX, POINTER_TTL_MS } from "@hub/contrac
 import { readFocus, resolveRef, writePointer } from "./focus";
 import { cut, DATA, READ_ONLY, run, ToolError } from "./mcp-result";
 import { MESSENGER_TOOLS, registerMessengerTools } from "./messenger/tools";
+import { MESSENGER_SEND_TOOL, registerMessengerSend, type AgentSendPort } from "./messenger/send-tool";
 import { adviceOf, alreadySentText, draftFinishedText, DraftWriteError, fromFor, isNewThreadDraft, lateSaves, newThreadKey, reviseDraft, versionHash, writeRecorded, type DraftWriter, type InboundMessage, type Revision, type Signed } from "./mail-drafts";
 import { recordAdoptions, writeLogOf, type AdoptedVersion, type WithRepos } from "./write-record";
 import { projectNotion, type NotionScope } from "./notion-scope";
@@ -26,7 +27,8 @@ import { projectNotion, type NotionScope } from "./notion-scope";
 // draft is recorded by the hub itself (`recordRevision`, a short write connection like `mailWritten`); the first draft of a
 // thread is still recorded by `hub record-draft` (decision 0009), which alone carries the evidence block. The tool names stay clear of `SEND_LIKE_TOOL`; a test pins the list.
 // P71 M2: two messenger tools (`messenger/tools.ts`): `messenger_history` (read) and `messenger_draft_write` (a row in
-// `messenger_drafts` on a short write connection, `withRepos`), linked chats only, bound by each chat's rules. No send tool.
+// `messenger_drafts` on a short write connection, `withRepos`), linked chats only, bound by each chat's rules. Decision 0046: in an
+// attended instance a third, `messenger_send` (`messenger/send-tool.ts`), asks the server to send one draft on the owner's word.
 
 // P72 (decision 0038): `highlight`, the pointer: up to five refs on the owner's screen get a ring for 30 s. It writes only
 // `state/pointer.json` and bumps the live topic `pointer` (`pointerWritten`, a short connection like `mailWritten`); it never
@@ -35,6 +37,8 @@ import { projectNotion, type NotionScope } from "./notion-scope";
 // P82: `project_notion`, read only: the bound project's Notion databases by id (the same parse as the capabilities line).
 
 export const HUB_MCP_TOOLS = ["focus", "highlight", "draft_show", "client_show", "inbound_show", "drafts_list", "mail_brand", "project_notion", "project_links", "draft_write", ...MESSENGER_TOOLS] as const;
+/** Decision 0046: the tools an attended session gets besides {@link HUB_MCP_TOOLS}: the one send on the owner's word. Never unattended. */
+export const HUB_MCP_ATTENDED_TOOLS = [MESSENGER_SEND_TOOL] as const;
 
 /** The bound project's Mail settings from `project.md` (`mail.accounts`, `mail.sender`), and what signs its drafts (P60). */
 export interface ProjectMail {
@@ -98,6 +102,11 @@ export interface HubMcpEnv {
    * else none. A new thread to one of them passes without the Notion Clients check: they are exactly who a send may reach.
    */
   testRecipients?: (slug: string) => readonly string[];
+  /**
+   * Decision 0046: the server's agent send route (`messenger_send`). Passed only in an attended instance; absent, the tool does
+   * not exist in this server (unattended sessions never see it).
+   */
+  agentSend?: AgentSendPort;
 }
 
 export type NotionClientCheck = { state: "client" | "not_client" | "do_not_contact" } | { state: "lead"; pageId: string } | { state: "unavailable"; reason: string };
@@ -637,6 +646,8 @@ export function createHubMcpServer(repos: Repos, env: HubMcpEnv): McpServer {
     ...(env.now ? { now: env.now } : {}),
     policy: () => env.projectMail?.(project()).messengers ?? { language: null, instruction: null },
   });
+  // Decision 0046: the one send of an attended session, on the owner's word; `hub mcp` passes the port only when not unattended.
+  if (env.agentSend) registerMessengerSend(server, { project, send: env.agentSend });
 
   return server;
 }

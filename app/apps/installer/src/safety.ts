@@ -1,5 +1,5 @@
 import { slimMessageContent } from "./slim-headers";
-import { codexSessionPaths, pathsAt, type HubPaths } from "@hub/config/paths";
+import { codexSessionPaths, instanceFeatures, pathsAt, type HubPaths } from "@hub/config/paths";
 import { auditToolCalls, chatDraftViolations, defaultProjectsRoot, HUB_MESSENGER_DRAFT_WRITE, type AuditLayout, isDraftWrite, kindOf, loadProject, preDraftCheck, type LedgerEntry, type SkillScope, type ToolCall } from "@hub/projects";
 import { instanceServer } from "./mcp-servers";
 import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
@@ -167,13 +167,13 @@ export function skillScope(kindId: string, dir: string): SkillScope | undefined 
   return { allowed: kind.skills, hub };
 }
 
-export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout: AuditLayout; connectors?: ConnectorScope; /** P82: this session's earlier Notion reads (the ledger). */ notionRead?: readonly NotionRead[] }): GuardResult {
+export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout: AuditLayout; connectors?: ConnectorScope; /** P82: this session's earlier Notion reads (the ledger). */ notionRead?: readonly NotionRead[]; /** Decision 0046: the instance's `agent.unattended` (default true: the stricter answer). */ unattended?: boolean }): GuardResult {
   const call: ToolCall = { name: String(payload.tool_name ?? ""), input: payload.tool_input };
   // Unbound session (project-setup, `hub agent new`): no project to compare with, but sends and secrets still count.
   // P129 A0, P131 verdict 6: a Notion tool of the one deny list is refused in every mode. The audit names it in the same
   // words (`@hub/projects/notion-denied`); here it moves from the mode-bound violations to the outward ones.
   const denied = notionDenial(call.name);
-  const violations = auditToolCalls([call], o.slug ?? "(unbound)", o.accounts, o.skills, o.layout)
+  const violations = auditToolCalls([call], o.slug ?? "(unbound)", o.accounts, o.skills, o.layout, { unattended: o.unattended ?? true })
     .filter((v) => o.slug || !/outside project|in a \(unbound\)|touched \S+\/\S+ in a/.test(v))
     .filter((v) => v !== denied);
   // P62 K3: a connector call off its allowlist, or a hold with guests, is refused in every mode (it would leave the Mac).
@@ -207,7 +207,9 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   const sid = typeof payload.session_id === "string" ? payload.session_id : "";
   let notionRead: LedgerEntry[] = [];
   try { if (slug && sid && String(payload.tool_name ?? "").startsWith("mcp__notion__")) notionRead = readSession(g.root, slug, sid).filter((e) => e.kind === "notion"); } catch { /* the guard never throws: no ledger, no provenance */ }
-  const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope, notionRead });
+  let unattended = true;
+  try { unattended = instanceFeatures(paths).agent.unattended; } catch { /* unreadable config: the stricter answer */ }
+  const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope, notionRead, unattended });
   // P28 B3: before a reply is drafted, this session must have read the client's thread and profile, and the reply must not copy an earlier one.
   if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug, paths.db));
   r.block = r.always === true || (r.violations.length > 0 && mode === "block");

@@ -18,6 +18,8 @@
     "./mail-drafts": "./src/mail-drafts.ts",
     "./write-record": "./src/write-record.ts",
     "./messenger-rules": "./src/messenger/rules.ts",
+    "./owner-word": "./src/messenger/owner-word.ts",
+    "./send-token": "./src/messenger/send-token.ts",
     "./connectors": "./src/connectors.ts",
     "./connector-guard": "./src/connector-guard.ts",
     "./connector-checks": "./src/connector-checks.ts"

@@ -348,8 +348,12 @@ export const sendLog = sqliteTable(
     // id>`, `sender` = the account id, `subject` = who it went to; `draft_id` stays Mail's.
     channel: text("channel").$type<SendChannel>().notNull().default("mail"),
     messengerDraftId: integer("messenger_draft_id").references((): AnySQLiteColumn => messengerDrafts.id, { onDelete: "set null" }),
+    // Decision 0046 (migration 0034): the session-log reference of the owner's word an agent send went out on
+    // (`<session>@<ts>`), null for every other send. Unique: one send per word.
+    ownerWord: text("owner_word"),
   },
   (t) => [
+    uniqueIndex("send_log_owner_word").on(t.ownerWord).where(sql`${t.ownerWord} is not null`),
     uniqueIndex("send_log_draft_live").on(t.draftId).where(sql`${t.status} in ('queued','sending','sent')`),
     uniqueIndex("send_log_messenger_draft_live").on(t.messengerDraftId).where(sql`${t.status} in ('queued','sending','sent')`),
     index("send_log_project_created").on(t.project, t.createdAt),
