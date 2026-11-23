@@ -62,12 +62,12 @@ belts.
 | Rule | Tool |
 |---|---|
 | 1-6 | P112 safety tests and dispatcher policy tests for unattended, attended, unknown tool and cross-project cases |
-| 2-3, 6 | `apps/server/src/draft-only.test.ts`, Messenger draft/send-boundary tests and final `verification.md` gate |
+| 2-3, 6 | `apps/server/test/draft-only.test.ts`, Messenger draft/send-boundary tests and final `verification.md` gate |
 | 2 | `packages/agent/test/deny-modes.test.ts` (the deny list, `claudeDisallowed` and Codex `disabled_tools` per mode); `apps/installer/test/safety.test.ts` (`hub guard` blocks `messenger_send` unattended, passes it attended) |
 | 4-5 | installer/config safety tests and review of the approval dispatcher; no bypass flags are permitted |
-| 7 | `packages/agent/test/owner-word.test.ts` (the word: after the draft, newest of its session, negations, the chat), `apps/server/src/agent-send.test.ts` (owner word sends once; no word, a word before the draft, another chat, a second call refused; Activity says "Agent (your word)"), `draft-only.test.ts` (the door is the only caller of the senders) |
-| 8 | `apps/server/src/agent-send.test.ts` (a Mail draft id is refused), `packages/agent/test/messenger-send-tool.test.ts` (no Mail send tool; the tool is absent unattended) |
-| 9 | `apps/server/src/agent-send.test.ts` (no token, a wrong token, an unattended instance) |
+| 7 | `packages/agent/test/owner-word.test.ts` (the word: after the draft, newest of its session, negations, the chat), `apps/server/test/agent-send.test.ts` (owner word sends once; no word, a word before the draft, another chat, a second call refused; Activity says "Agent (your word)"), `draft-only.test.ts` (the door is the only caller of the senders) |
+| 8 | `apps/server/test/agent-send.test.ts` (a Mail draft id is refused), `packages/agent/test/messenger-send-tool.test.ts` (no Mail send tool; the tool is absent unattended) |
+| 9 | `apps/server/test/agent-send.test.ts` (no token, a wrong token, an unattended instance) |
 
 Update this page whenever a tool permission, approval mode or delivery door
 changes.

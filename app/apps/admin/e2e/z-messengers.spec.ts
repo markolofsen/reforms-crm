@@ -4,7 +4,7 @@ import { at } from "./support";
 // P71 M3: the Messengers section. The panel reads the seeded linked chats of lisbon-realty (Rita, who wrote last, with the
 // agent's draft; Sofia, answered); Edit and Skip write the real row. The Telegram account routes are stubbed with
 // `page.route`: the e2e instance has two projects, so its server keeps Telegram accounts off, and a real login is never made
-// (the server side of the login runs on fakes in `apps/server/src/messengers/accounts/telegram-user.test.ts`; WhatsApp's in `whatsapp.test.ts`).
+// (the server side of the login runs on fakes in `apps/server/test/messengers/accounts/telegram-user.test.ts`; WhatsApp's in `whatsapp.test.ts`).
 
 const P = "lisbon-realty";
 const RITA = "Rita Falsa";
@@ -46,7 +46,7 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
 });
 
 test("messengers: Send reads the dry run, confirms in place with the exact text, and applies it with a messenger ticket", async ({ page }) => {
-  // The server side runs on a fake Telegram client in `apps/server/src/messenger-send.test.ts`; here the door's replies are stubbed.
+  // The server side runs on a fake Telegram client in `apps/server/test/messenger-send.test.ts`; here the door's replies are stubbed.
   const TEXT = "Hi Rita, the 28th stands (as the server read it).";
   const sends: unknown[] = [];
   const tickets: unknown[] = [];
@@ -226,7 +226,7 @@ test("messengers settings: the connect form drives M1's routes step by step, wit
 
 test("messengers settings: WhatsApp shows the QR code only after Connect, then the linked number", async ({ page }) => {
   // P71 M5: the routes are stubbed; the server side of the pairing runs on a fake Baileys socket in
-  // `apps/server/src/messengers/accounts/whatsapp.test.ts`. Nothing here reaches WhatsApp and no code is scanned.
+  // `apps/server/test/messengers/accounts/whatsapp.test.ts`. Nothing here reaches WhatsApp and no code is scanned.
   const posts: string[] = [];
   let linked = false;
   let reads = 0;

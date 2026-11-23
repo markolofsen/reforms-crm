@@ -40,4 +40,4 @@ The layer, in one picture: `src/app/` holds only the files Next names (`page.tsx
 | 14 | eslint `no-restricted-imports` (`src/routes/**`: React, components, features, hooks, navigation libraries) |
 | 15 | `test/route-files.test.ts`; rules test "a page.tsx is thin"; `NAV_SHAPE` in `routes/table.ts` and its `@ts-expect-error` cases in `test/paths.types.tsx` (`tsc`: a child of a missing, a child or another-scope parent, a child with a chord, a parent without one) |
 | 16 | review |
-| 17 | `test/rules.test.ts` "no notion.so, notion.site, notion.com, t.me, wa.me, tg:, notion: or whatsapp: literal and no _blank target outside lib/external.ts"; `packages/contract/src/local.test.ts` (the table, each host form); `e2e/z-open-links.spec.ts` (apps on and off) |
+| 17 | `test/rules.test.ts` "no notion.so, notion.site, notion.com, t.me, wa.me, tg:, notion: or whatsapp: literal and no _blank target outside lib/external.ts"; `packages/contract/test/local.test.ts` (the table, each host form); `e2e/z-open-links.spec.ts` (apps on and off) |

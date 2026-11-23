@@ -58,7 +58,7 @@ export function ratchetFor(dirname) {
 
 const IGNORES = ["node_modules", "dist", "storybook-static", "drizzle", "src/generated", "**/*.d.ts", "**/*.d.mts", "templates", "fixtures"];
 const SOURCE = ["src/**/*.{ts,tsx,mts}"];
-const TESTS = ["test/**/*.{ts,tsx}", "eval/**/*.ts", "src/**/*.test.{ts,tsx}", "src/test-support/**", "src/testing/**", "src/**/testing.ts"];
+const TESTS = ["test/**/*.{ts,tsx}", "eval/**/*.ts", "src/**/*.test.{ts,tsx}", "src/testing/**", "src/**/testing.ts"];
 
 /**
  * The config of a workspace without its own page of bans: typing everywhere, typed rules and the size caps in `src` (tests are

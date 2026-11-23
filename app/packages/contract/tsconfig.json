@@ -1,4 +1,4 @@
 {
   "extends": "@hub/config/tsconfig.base.json",
-  "include": ["src"]
+  "include": ["src", "test"]
 }

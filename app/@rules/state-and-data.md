@@ -33,7 +33,7 @@ Scope: where each kind of state lives in the admin. Adapted from the shared "sta
 | 14 | rules test "the shared focus (P51) is posted only from lib/api/terminal.ts"; `test/focus.test.ts` (every route of the table derives a post the server accepts, with its own title); `e2e/z-focus.spec.ts` (a clicked Knowledge row is `pointed`, nothing named on disk), `e2e/z-pointer.spec.ts` |
 | 4b | eslint `@typescript-eslint/no-restricted-imports` (`@tanstack/react-query` but types, `@/lib/cache/keys`, `@/lib/api/*` but `client.ts`'s `ApiFailure`, `sentence`, `isNotFound`), outside `OWN_TRANSPORT` (the terminal, the focus publisher); `test/topics.test.ts` (the `messengers` topic covers the panel, P127 C2) |
 | 4, 4a | eslint `consistent-type-assertions` (never, error), `read()`/`readGenerated`, `@hub/contract` and generated Zod parsers; `test/api-client.test.ts`; review against `generated-api-clients.md` |
-| 4c | `packages/contract/src/composer.test.ts` covers the discriminated lifecycle and precedence; review that feature adapters call `composerStateOf` rather than constructing local unions |
+| 4c | `packages/contract/test/composer.test.ts` covers the discriminated lifecycle and precedence; review that feature adapters call `composerStateOf` rather than constructing local unions |
 | 5-6 | `test/rules.test.ts` "one view of a read" (`LoadFailed`/`StaleNote` imported only by their owners; no `@hub/ui/switch` in features); e2e scenarios named by state (see `ui-specifications.md`) |
 | 7 | eslint `no-restricted-globals` on `localStorage`/`sessionStorage` (error); rules test "document.cookie is touched only by lib/storage.ts" |
 | 8-10 | review |

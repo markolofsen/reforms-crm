@@ -24,4 +24,4 @@ Scope: how these rules bind agents that edit the admin. Adapted from the shared 
 | 4 | live-edit hook scope (`live-edit.md`); review of commits |
 | 3, 6-8 | review |
 | 9 | `hub doctor --only Leads --canary`; the contract |
-| 10 | `apps/server/src/draft-only.test.ts`, `apps/server/src/agent-send.test.ts`, `packages/agent/test/deny-modes.test.ts`, `packages/agent/test/owner-word.test.ts` |
+| 10 | `apps/server/test/draft-only.test.ts`, `apps/server/test/agent-send.test.ts`, `packages/agent/test/deny-modes.test.ts`, `packages/agent/test/owner-word.test.ts` |

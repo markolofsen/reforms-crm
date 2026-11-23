@@ -10,7 +10,7 @@ domain view models, Query state, capabilities, and user-facing recovery.
 
 `app/packages/api/openapi.json` and the matching `@hub/contract` schemas are one
 contract: the server emits the whole document from its declared operations (`apps/server/src/<domain>/openapi.ts`,
-listed in `composition/operations.ts`; P120 W1-W2), with nothing kept by hand. `apps/server/src/http/openapi.test.ts`
+listed in `composition/operations.ts`; P120 W1-W2), with nothing kept by hand. `apps/server/test/http/openapi.test.ts`
 fails when `openapi.json` is stale, a declared operation is not a route, or an `/api` route is neither declared nor
 named in `NOT_DECLARED` with its reason (the agent's own routes, which `hub mcp` calls). `orval.config.ts` produces one
 artifact from that contract: `src/generated/`, the fetch operations, their URL helpers and the wire models. Replies
