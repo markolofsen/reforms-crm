@@ -1,2 +1,3 @@
-import { defineConfig } from "vitest/config";
-export default defineConfig({ test: { globalSetup: ["../../test-support/temp-sweep.ts"], setupFiles: ["../../test-support/temp-root.ts"], include: ["test/**/*.test.ts", "eval/**/*.test.ts"], testTimeout: 90000 } });
+import { hubVitest } from "@hub/config/vitest";
+
+export default hubVitest({ include: ["test/**/*.test.ts", "eval/**/*.test.ts"], testTimeout: 90000 });

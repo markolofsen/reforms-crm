@@ -5,6 +5,9 @@
   "exports": {
     ".": "./src/index.ts",
     "./tsconfig.base.json": "./tsconfig.base.json",
+    "./tsconfig.node.json": "./tsconfig.node.json",
+    "./tsconfig.dom.json": "./tsconfig.dom.json",
+    "./vitest": "./src/vitest.ts",
     "./paths": "./src/paths.ts",
     "./autostart": "./src/autostart.ts",
     "./core-version": "./src/core-version.ts",

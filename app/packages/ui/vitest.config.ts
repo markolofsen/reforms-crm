@@ -1,3 +1,3 @@
-import { defineConfig } from "vitest/config";
+import { hubVitest } from "@hub/config/vitest";
 
-export default defineConfig({ test: { globalSetup: ["../../test-support/temp-sweep.ts"], setupFiles: ["../../test-support/temp-root.ts"], include: ["test/**/*.test.{ts,tsx}"] } });
+export default hubVitest({ include: ["test/**/*.test.{ts,tsx}"] });

@@ -1,15 +1,13 @@
 {
-  "extends": "@hub/config/tsconfig.base.json",
+  "extends": "@hub/config/tsconfig.dom.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "jsx": "react-jsx",
-    "types": ["node"],
-    "verbatimModuleSyntax": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
+    "types": [
+      "node"
+    ]
   },
-  "include": ["src", "test", "eslint.config.mjs"]
+  "include": [
+    "src",
+    "test",
+    "eslint.config.mjs"
+  ]
 }

@@ -1,9 +1,9 @@
 {
-  "extends": "@hub/config/tsconfig.base.json",
-  "compilerOptions": {
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "types": ["node"]
-  },
-  "include": ["src", "test", "eval", "vitest.config.ts"]
+  "extends": "@hub/config/tsconfig.node.json",
+  "include": [
+    "src",
+    "test",
+    "eval",
+    "vitest.config.ts"
+  ]
 }

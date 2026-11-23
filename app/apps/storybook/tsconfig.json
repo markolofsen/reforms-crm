@@ -1,10 +1,13 @@
 {
-  "extends": "@hub/config/tsconfig.base.json",
+  "extends": "@hub/config/tsconfig.dom.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "jsx": "react-jsx",
-    "types": ["node", "vite/client"],
-    "noEmit": true
+    "types": [
+      "node",
+      "vite/client"
+    ]
   },
-  "include": [".storybook", "src"]
+  "include": [
+    ".storybook",
+    "src"
+  ]
 }
