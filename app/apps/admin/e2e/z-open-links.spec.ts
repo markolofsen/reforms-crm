@@ -97,7 +97,7 @@ test("P131 O5: a chat's header opens Telegram and WhatsApp by the contact's iden
 test("P131 O5 (verdict 10): a linked chat opens Telegram by its own username, kept at link time, with no Notion card", async ({ page }) => {
   await remember(page, REALTY);
   const openSofia = async () => {
-    await page.goto(at(REALTY, "/messengers?filter=linked"));
+    await page.goto(at(REALTY, "/messengers?filter=all&link=linked"));
     await page.getByRole("list", { name: "Chats" }).getByRole("listitem", { name: "Sofia Teste" }).getByRole("link").first().click();
     await expect(page.getByTestId("messenger-conversation")).toContainText("Any news on the offer?");
   };

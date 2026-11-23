@@ -1,6 +1,6 @@
 import { HIDDEN_LABEL_WORDS, HIDDEN_LABELS, IMPORT_DAYS, PREANALYSIS_LOOKBACK_DAYS, REPLY_MODE_LABELS } from "@hub/config/chat-rules";
 import { CONVERSATION_STATE_LABELS, type ConversationState } from "@hub/contract/conversations";
-import type { MessengerChannelFilter, MessengerChatDto, MessengerView, PreanalysisDto } from "@hub/contract/messenger-panel";
+import type { MessengerChannelFilter, MessengerChatDto, MessengerLinkFilter, MessengerView, PreanalysisDto } from "@hub/contract/messenger-panel";
 import type { MessengerChannelDto, MessengerSendPreviewDto } from "@hub/contract/messenger";
 import type { AutolinkLinkedDto, RecentDialogDto } from "@hub/contract/messengers";
 import { notionIdentityLine as notionLine, notionIndicatorState as notionStateOf } from "@/lib/notion";
@@ -10,8 +10,12 @@ import { notionIdentityLine as notionLine, notionIndicatorState as notionStateOf
 export const CHANNEL_LABEL: Record<MessengerChannelDto, string> = { telegram_user: "Telegram", telegram_bot: "Telegram bot", whatsapp: "WhatsApp" };
 
 /** P84c (owner, 2026-11-20): the states of a chat in one View menu; no "postponed" state, since Hide covers it and is undone. P102 adds Not linked: every remembered unlinked chat, of any age. */
-export const VIEW_LABEL: Record<MessengerView, string> = { todo: "Needs you", linked: "Linked", unlinked: "Not linked", hidden: "Hidden" };
-export const VIEW_ORDER: readonly MessengerView[] = ["todo", "linked", "unlinked", "hidden"];
+/** P123 U3b: Mail's three views, in Mail's words (decision 0045). */
+export const VIEW_LABEL: Record<MessengerView, string> = { needs_you: "Needs you", waiting: "Waiting", all: "All" };
+export const VIEW_ORDER: readonly MessengerView[] = ["needs_you", "waiting", "all"];
+/** P123 U3b: the link state, a filter beside the view (`?link=`). */
+export const LINK_LABEL: Record<MessengerLinkFilter, string> = { any: "Any link", linked: "Linked", unlinked: "Not linked", hidden: "Hidden" };
+export const LINK_ORDER: readonly MessengerLinkFilter[] = ["any", "linked", "unlinked", "hidden"];
 export const CHANNEL_FILTER_LABEL: Record<MessengerChannelFilter, string> = { all: "All", telegram: "Telegram", whatsapp: "WhatsApp" };
 
 /** The confirm step of a messenger send (P71 M4): who, on which channel, from which account, and that it cannot be undone. */

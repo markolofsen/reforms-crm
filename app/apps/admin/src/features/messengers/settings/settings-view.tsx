@@ -1,12 +1,11 @@
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
 import { Page } from "@hub/ui/product/page";
 import { Loading, QueryView } from "@/components/state-views";
 import { AppLink } from "@/components/app-link";
 import { LocalActionButton } from "@/components/local-action";
-import { messengersApi } from "@/lib/api/messengers/panel";
-import { metaApi } from "@/lib/api/meta";
-import { keys } from "@/lib/cache/keys";
+import type { ViewQuery } from "@/components/state-views";
+import { useMessengerChats } from "@/lib/data/messengers";
+import { useProjectFacts } from "@/lib/data/project";
 import { dest } from "@/routes/paths";
 import { ConnectionsView } from "../../settings/connections/connections-view";
 import { SettingsGroup as Group } from "../../settings/group";
@@ -23,8 +22,7 @@ export const GUARDS: readonly string[] = [
 ];
 
 /** The linked chats with their rules. Linking, changing the client and unlinking are on Chats (P102): one place, the row's state menu. */
-type LinkedChatsData = Awaited<ReturnType<typeof messengersApi.chats>>;
-type LinkedChatsQuery = UseQueryResult<LinkedChatsData, unknown>;
+type LinkedChatsQuery = ViewQuery<NonNullable<ReturnType<typeof useMessengerChats>["data"]>>;
 
 function LinkedChats({ project, query }: { project: string; query: LinkedChatsQuery }) {
   const q = query;
@@ -63,8 +61,8 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
  */
 export function MessengerSettings({ project }: { project: string }) {
   // P84: the account rows say how many chats the Hub reads (the linked ones), from the same list as Linked chats below.
-  const chats = useQuery({ queryKey: keys.messengerChats(project, "linked"), queryFn: () => messengersApi.chats(project, { filter: "linked" }) });
-  const overview = useQuery({ queryKey: keys.project(project), queryFn: () => metaApi.overview(project) });
+  const chats = useMessengerChats(project, { filter: "all", link: "linked", channel: "all", q: "" });
+  const overview = useProjectFacts(project);
   const policy = overview.data?.messengerPolicy;
   const languageLine = `Language follows the client by default${policy?.language ? ` · project: ${policy.language}` : ""}`;
   const policyUnavailable = overview.isError ? "Project policy could not be loaded." : null;

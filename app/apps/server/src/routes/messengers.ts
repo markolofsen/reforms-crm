@@ -25,6 +25,8 @@ import { type MessengerServices } from "../composition/capabilities";
 
 const draftOf = (d: MessengerDraftRow) => messengerDraftDto.parse({ id: d.id, text: d.text, createdBy: d.createdBy, nudge: d.nudge, ownerRequest: d.ownerRequest, createdAt: d.createdAt, updatedAt: d.updatedAt });
 const waits = (c: MessengerChatDto): boolean => c.draft !== null || c.owed;
+/** Waiting for them (P123 U3b): nothing owed, and the newest message is ours (the admin's `chatState` "waiting"). */
+const waitsForThem = (c: MessengerChatDto): boolean => !waits(c) && c.last !== null && c.last.direction === "out";
 
 /** Maps the bounded DB projection into the same DTO as the detail route without per-chat repository calls. */
 function projectedChatRow(projected: MessengerProjectionRow, identity: MessengerIdentityResolver, slug: string): MessengerChatDto {
@@ -59,7 +61,7 @@ const order = (a: MessengerChatDto, b: MessengerChatDto): number =>
 
 /**
  * The Messengers section (P71 M3, decision 0036 point 6). Reads: the linked chats of a project with what is owed and the agent's
- * open draft (`GET .../messengers/chats?filter=todo|linked|unlinked|hidden&channel=all|telegram|whatsapp`; P84c, P102: `unlinked` and `hidden` list no linked
+ * open draft (`GET .../messengers/chats?filter=needs_you|waiting|all&link=any|linked|unlinked|hidden&channel=all|telegram|whatsapp`; P84c, P102, P123 U3b: `unlinked` and `hidden` list no linked
  * chat, since such a chat is not linked: the admin reads them from the autolink's memory). Writes, each behind the admin gate (the exact admin Origin,
  * a loopback Host, `Sec-Fetch-Site: same-origin`), since a chat's instruction steers the agent and a draft's text is what Send
  * will carry: the owner's Edit of a draft that still waits, Skip and its Undo, and one chat's rules (`setChatRules`). Nothing
@@ -89,15 +91,17 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
     .get("/api/projects/:slug/messengers/chats", v("query", messengerChatsQuery), async (c) => {
       const slug = c.req.param("slug");
       if ((await repos.projects.get(slug)) === null) return notFound(c, "project");
-      const { channel, filter: view, q } = c.req.valid("query");
+      const { channel, filter: view, link, q } = c.req.valid("query");
       const rows = (await repos.messengers.list(slug)).filter((projection) => inChannel(projection.row.channel, channel)).map((projection) => projectedChatRow(projection, identity, slug));
       const all = rows.sort(order);
       const search = q.toLocaleLowerCase();
       const matching = search
         ? all.filter((r) => [r.title, r.chatId, r.client?.name, r.client?.email, r.last?.text].some((value) => value?.toLocaleLowerCase().includes(search)))
         : all;
-      const shown = view === "linked" ? matching : view === "todo" ? matching.filter(waits) : [];
-      return c.json(messengerChatsDto.parse({ chats: shown, counts: { todo: all.filter(waits).length, linked: all.length }, preanalysis: standing() }));
+      // Only linked chats are stored here: the unlinked and hidden ones are the autolink's memory, read by the admin.
+      const linkedShown = link === "any" || link === "linked";
+      const shown = !linkedShown ? [] : view === "all" ? matching : matching.filter(view === "waiting" ? waitsForThem : waits);
+      return c.json(messengerChatsDto.parse({ chats: shown, counts: { needs_you: all.filter(waits).length, waiting: all.filter(waitsForThem).length, all: all.length }, preanalysis: standing() }));
     })
     .get("/api/projects/:slug/messengers/chats/:id/conversation", async (c) => {
       const slug = c.req.param("slug");

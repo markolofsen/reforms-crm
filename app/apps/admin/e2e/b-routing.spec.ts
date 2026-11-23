@@ -53,8 +53,8 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
   await expect(page).toHaveTitle("Help · Hub Workflow");
   // P71 M3: Messengers is scoped (the linked chats are a project's); its View and its Settings page reload in place.
   // No channel is connected in the e2e instance, so an asked channel falls back to all and leaves the address (it says what is shown).
-  await page.goto("/messengers?filter=linked&channel=whatsapp");
-  await expect.poll(() => address(page)).toMatch(new RegExp(`^${at(P, "/messengers/c/")}\\d+\\?filter=linked$`));
+  await page.goto("/messengers?filter=all&link=linked&channel=whatsapp");
+  await expect.poll(() => address(page)).toMatch(new RegExp(`^${at(P, "/messengers/c/")}\\d+\\?filter=all&link=linked$`));
   await page.goto("/settings/messengers");
   await expect.poll(() => address(page)).toBe(at(P, "/settings/messengers"));
   await page.reload();

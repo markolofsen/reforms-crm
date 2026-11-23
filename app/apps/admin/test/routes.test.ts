@@ -129,12 +129,12 @@ describe("paths and places", () => {
   it("child pages (P70): Settings' Mail, Agent, Connections, This Mac in order; Messengers' Settings (P71 M3); no other section has one; `g s` lands on Sending", () => {
     expect(childrenOf("settings").map((c) => c.route)).toEqual(["settings.checks", "settings.mail", "settings.messengers", "settings.agent", "settings.connections", "settings.mac"]);
     expect(childrenOf("messengers")).toEqual([]);
-    expect(roundTrip(dest("messengers.page", { filter: "linked" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "linked", channel: "all" } });
-    expect(roundTrip(dest("messengers.conversation", { id: 7 }, { filter: "linked", channel: "whatsapp" }), MANY)).toMatchObject({ route: "messengers.conversation", params: { id: 7 }, search: { filter: "linked", channel: "whatsapp" } });
+    expect(roundTrip(dest("messengers.page", { filter: "waiting" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "waiting", link: "any", channel: "all" } });
+    expect(roundTrip(dest("messengers.conversation", { id: 7 }, { filter: "all", link: "linked", channel: "whatsapp" }), MANY)).toMatchObject({ route: "messengers.conversation", params: { id: 7 }, search: { filter: "all", link: "linked", channel: "whatsapp" } });
     // P84c: the channel is a filter of the same page; an unknown view or channel resets to its default, the default drops its key.
-    expect(roundTrip(dest("messengers.page", { filter: "hidden", channel: "whatsapp" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "hidden", channel: "whatsapp" } });
-    expect(roundTrip(dest("messengers.page", { filter: "linked", q: "Anna Field" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "linked", channel: "all", q: "Anna Field" } });
-    expect(dest("messengers.page", { filter: "todo", channel: "all" }).search).toEqual({});
+    expect(roundTrip(dest("messengers.page", { filter: "all", link: "hidden", channel: "whatsapp" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "all", link: "hidden", channel: "whatsapp" } });
+    expect(roundTrip(dest("messengers.page", { link: "unlinked", q: "Anna Field" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "needs_you", link: "unlinked", channel: "all", q: "Anna Field" } });
+    expect(dest("messengers.page", { filter: "needs_you", link: "any", channel: "all" }).search).toEqual({});
     for (const s of SECTIONS.filter((x) => x.id !== "settings" && x.id !== "messengers")) expect(childrenOf(s.id), s.id).toEqual([]);
     expect(sectionList("settings").route).toBe("settings.page");
   });

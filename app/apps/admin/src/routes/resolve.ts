@@ -142,7 +142,7 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
     case "chat":
     case "mdraft":
       // P108: a chat opens the selected conversation; a draft still opens the linked list until its client ref is available.
-      return p.kind === "chat" ? dest("messengers.conversation", { id: Number(p.id) }, { filter: "linked" }) : dest("messengers.page", { filter: "linked" });
+      return p.kind === "chat" ? dest("messengers.conversation", { id: Number(p.id) }, { filter: "all", link: "linked" }) : dest("messengers.page", { filter: "all", link: "linked" });
   }
 }
 

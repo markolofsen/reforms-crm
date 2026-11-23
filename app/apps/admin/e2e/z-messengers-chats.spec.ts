@@ -3,12 +3,19 @@ import { stubChats } from "./messengers-stubs";
 import { at } from "./support";
 
 // P84c (owner, 2026-11-20): Messengers ▸ Chats simplified. One page for both channels with the channel a filter, the states in
-// one View menu (To do, Linked, Not linked, Hidden), only fresh unlinked chats on To do, Hide ("not a client") with Undo, Unhide on
+// Mail's three views (Needs you, Waiting, All) with the link state a filter (P123 U3b), only fresh unlinked chats on Needs you, Hide ("not a client") with Undo, Unhide on
 // Hidden. P102 (2026-11-21): one state menu per row (Link, Create, Hide, Unhide, Change client, Unlink), Link a chat… from a client. The
 // accounts and the autolink's memory are stubbed (`messengers-stubs.ts`); the linked chats are the seed's (Rita waits, Sofia not).
 
 const P = "lisbon-realty";
 const view = (page: Page) => page.getByRole("button", { name: /^View:/ });
+/** P123 U3b: the link state is its own filter beside the view. */
+const link = (page: Page) => page.getByRole("button", { name: /^Link:/ });
+const pickIn = async (page: Page, menu: (page: Page) => ReturnType<typeof view>, name: RegExp) => {
+  await menu(page).click();
+  await page.getByRole("menuitemradio", { name }).click();
+  await page.keyboard.press("Escape");
+};
 const fresh = (page: Page) => page.getByRole("list", { name: "New chats" });
 /** P102: a row's one state menu (P115: the compact "Chat actions for <name>"), opened, then one of its items. */
 const pick = async (row: Locator, item: string) => {
@@ -28,12 +35,18 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
   await expect(tomas.getByText(/Suggested: Tomas Viera/)).toBeVisible();
   await expect(tomas.getByRole("button", { name: "Link Tomas Viera to Tomas Viera" })).toBeVisible();
   await expect(page.getByText("2 unlinked chats have written since the server started (counted in memory, never stored).")).toBeVisible();
-  // 1 linked chat waits + 3 unlinked; Linked is the two seeded chats; Not linked adds the old chat; Hidden names one.
+  // 1 linked chat waits + 3 unlinked; All is the two seeded chats and the four remembered unlinked ones (P123 U3b); the link
+  // filter counts Linked 2, Not linked 4 (with the old chat), Hidden 1.
   await expect(view(page)).toHaveText(/Needs you\s*4/);
   await view(page).click();
-  await expect(page.getByRole("menuitemradio")).toHaveText([/Needs you\s*4/, /Linked\s*2/, /Not linked\s*4/, /Hidden\s*1/]);
-  await page.getByRole("menuitemradio", { name: /Not linked/ }).click();
-  await expect.poll(() => new URL(page.url()).search).toBe("?filter=unlinked");
+  await expect(page.getByRole("menuitemradio")).toHaveText([/Needs you\s*4/, /Waiting\s*\d+/, /All\s*6/]);
+  await page.keyboard.press("Escape");
+  await link(page).click();
+  await expect(page.getByRole("menuitemradio")).toHaveText([/Any link\s*6/, /Linked\s*2/, /Not linked\s*4/, /Hidden\s*1/]);
+  await page.keyboard.press("Escape");
+  await pickIn(page, view, /^All/);
+  await pickIn(page, link, /Not linked/);
+  await expect.poll(() => new URL(page.url()).search).toBe("?filter=all&link=unlinked");
   // P128 X5: Not linked lists the last 14 days; the 20-day-old chat is one line, and a search still finds it.
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Tomas Viera/, /Joana/, /Delivery bot fan/]);
   await expect(page.getByText("3 new chats of the last 14 days are not linked to a client: link or hide each.")).toBeVisible();
@@ -54,10 +67,8 @@ test("chats: the channel is a sidebar child of Messengers (P125 L5), kept in the
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Joana/]);
   await expect(page.getByRole("list", { name: "Chats", exact: true })).toHaveCount(0);
   await expect(view(page)).toHaveText(/Needs you\s*1/);
-  await view(page).click();
-  await page.getByRole("menuitemradio", { name: /Linked/ }).click();
-  await page.keyboard.press("Escape");
-  await expect.poll(() => new URL(page.url()).search).toBe("?filter=linked&channel=whatsapp");
+  await pickIn(page, link, /^Linked/);
+  await expect.poll(() => new URL(page.url()).search).toBe("?link=linked&channel=whatsapp");
   await expect(page.getByText("No linked chats yet")).toBeVisible();
   // A deep link opens on its channel.
   await page.goto(at(P, "/messengers?channel=telegram"));
@@ -81,10 +92,9 @@ test("chats: Hide takes a chat off To do with Undo; Hidden lists it with Unhide 
   expect(s.posts[0]?.body).toEqual({ channel: "whatsapp", chatId: "+351911000111" });
 
   await pick(fresh(page).getByRole("listitem", { name: "Delivery bot fan" }), "Hide: not a client");
-  await view(page).click();
-  await page.getByRole("menuitemradio", { name: /Hidden/ }).click();
-  await page.keyboard.press("Escape");
-  await expect.poll(() => new URL(page.url()).search).toBe("?filter=hidden");
+  await pickIn(page, view, /^All/);
+  await pickIn(page, link, /Hidden/);
+  await expect.poll(() => new URL(page.url()).search).toBe("?filter=all&link=hidden");
   const hidden = page.getByRole("list", { name: "Hidden chats" });
   await expect(hidden.getByRole("listitem")).toHaveText([/Delivery bot fan/, /Spam Sender/]);
   await expect(page.getByText(/^1 more hidden chat is kept as a fingerprint only/)).toBeVisible();
@@ -166,7 +176,7 @@ test("chats: Change client moves the chat with its messages (Undo moves it back)
 
 test("chats: a hidden chat can be linked, and Link a chat… starts from the client and lists the chats marked for it", async ({ page }) => {
   const s = await stubChats(page);
-  await page.goto(at(P, "/messengers?filter=hidden"));
+  await page.goto(at(P, "/messengers?filter=all&link=hidden"));
   const spam = page.getByRole("list", { name: "Hidden chats" }).getByRole("listitem", { name: "Spam Sender" });
   await pick(spam, "Link to a client…");
   await spam.getByRole("searchbox", { name: /A client in Notion/ }).fill("suenot@");

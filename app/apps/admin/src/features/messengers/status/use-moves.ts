@@ -34,7 +34,7 @@ export function useChatMoves(project: string, activeChatId: number | null = null
 
   // Undo of Link: the chat's row id is only known once it is linked, so the panel is read for it.
   const unlinkAgain = async (c: Pick<Linkable, "channel" | "chatId">) => {
-    const linked = await messengersApi.chats(project, { filter: "linked" });
+    const linked = await messengersApi.chats(project, { filter: "all", link: "linked" });
     const row = linked.chats.find((x) => x.chatId === c.chatId && (x.channel === c.channel));
     if (row) await messengersApi.unlinkChat(project, row.id, false);
     await settle(row?.id ?? null);

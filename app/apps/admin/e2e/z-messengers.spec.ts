@@ -28,10 +28,10 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   await expect(rita(page)).toHaveAttribute("data-agent-ref", /^chat:\d+$/);
   await expect(page.getByRole("button", { name: /^View:/ })).toHaveText(/Needs you\s*1/);
   await expect(chats(page).getByRole("listitem")).toHaveCount(1);
-  // Linked (P84c): Sofia's chat, where we replied last, says whose turn it is.
+  // Waiting (P123 U3b, Mail's word): Sofia's chat, where we replied last, says whose turn it is.
   await page.getByRole("button", { name: /^View:/ }).click();
-  await page.getByRole("menuitemradio", { name: /Linked/ }).click();
-  await expect.poll(() => new URL(page.url()).search).toBe("?filter=linked");
+  await page.getByRole("menuitemradio", { name: /Waiting/ }).click();
+  await expect.poll(() => new URL(page.url()).search).toBe("?filter=waiting");
   await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("Waiting for them")).toBeVisible();
   // P71 M-P: the seeded verdicts of Sofia's chat, counted by reason under its Pre-analysis switch (P115: the compact row shows
   // identity and state only).
@@ -133,7 +133,7 @@ test("messengers settings: a chat's reply mode and instruction are saved and rea
   await expect(rules.getByText(/A cheap model reads each new message and the two before it/)).toBeVisible();
   await expect(rules.getByText(/local test model; no request leaves this computer/)).toBeVisible();
   await expect(page.getByText(/nothing reads this switch/)).toHaveCount(0);
-  await page.goto(at(P, "/messengers?filter=linked"));
+  await page.goto(at(P, "/messengers?filter=all&link=linked"));
   await expect(rita(page)).toContainText(/Only when I ask|Client wrote|Draft ready/);
   // Back to the default, so the specs after this one see the seed's rules.
   await page.goto(at(P, "/settings/messengers"));

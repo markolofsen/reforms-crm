@@ -94,7 +94,7 @@ describe("the pre-analysis (P71 M-P)", () => {
     ]);
 
     const app = createApp(repos, { adminPort: ADMIN, preanalysis: job });
-    const list = messengerChatsDto.parse(await (await app.request(`${BASE}/api/projects/p/messengers/chats?filter=linked`, { headers: HEADERS })).json());
+    const list = messengerChatsDto.parse(await (await app.request(`${BASE}/api/projects/p/messengers/chats?filter=all`, { headers: HEADERS })).json());
     const anna = list.chats.find((c) => c.chatId === "1001");
     expect(anna?.triage).toEqual({ judged: 3, hidden: { closing: 1, automated: 1, personal: 0 }, unjudged: 1 });
     expect(list.chats.find((c) => c.chatId === "2002")?.triage).toEqual({ judged: 0, hidden: { closing: 0, automated: 0, personal: 0 }, unjudged: 0 });
@@ -112,7 +112,7 @@ describe("the pre-analysis (P71 M-P)", () => {
     const { job } = setup(byWord);
     await job.run("p");
     const app = createApp(repos, { adminPort: ADMIN, preanalysis: job });
-    const chat = async () => messengerChatsDto.parse(await (await app.request(`${BASE}/api/projects/p/messengers/chats?filter=linked`, { headers: HEADERS })).json()).chats.find((c) => c.chatId === "1001");
+    const chat = async () => messengerChatsDto.parse(await (await app.request(`${BASE}/api/projects/p/messengers/chats?filter=all`, { headers: HEADERS })).json()).chats.find((c) => c.chatId === "1001");
     expect(await chat()).toMatchObject({ owed: false, last: { text: "thanks!", hidden: "closing" } });
     await msg("1001", "in", 20, "And the price?");
     expect(await chat()).toMatchObject({ owed: true, last: { text: "And the price?", hidden: null } });
@@ -142,7 +142,7 @@ describe("the pre-analysis (P71 M-P)", () => {
     expect(await job.run("p")).toMatchObject({ skipped: "no_key" });
     expect(ledger.rows).toEqual([]);
     const app = createApp(repos, { adminPort: ADMIN, preanalysis: job });
-    const list = messengerChatsDto.parse(await (await app.request(`${BASE}/api/projects/p/messengers/chats?filter=linked`, { headers: HEADERS })).json());
+    const list = messengerChatsDto.parse(await (await app.request(`${BASE}/api/projects/p/messengers/chats?filter=all`, { headers: HEADERS })).json());
     expect(list.preanalysis.state).toBe("no_key");
   });
 

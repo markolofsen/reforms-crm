@@ -1011,8 +1011,15 @@ paths:
           required: false
           schema:
             type: string
-            enum: [todo, linked, unlinked, hidden]
-            default: todo
+            enum: [needs_you, waiting, all]
+            default: needs_you
+        - name: link
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [any, linked, unlinked, hidden]
+            default: any
         - name: channel
           in: query
           required: false
@@ -3770,11 +3777,13 @@ components:
         counts:
           type: object
           additionalProperties: false
-          required: [todo, linked]
+          required: [needs_you, waiting, all]
           properties:
-            todo:
+            needs_you:
               type: integer
-            linked:
+            waiting:
+              type: integer
+            all:
               type: integer
         preanalysis:
           $ref: '#/components/schemas/MessengerPreanalysis'

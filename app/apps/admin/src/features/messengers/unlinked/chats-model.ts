@@ -1,4 +1,4 @@
-import { inChannel, type MessengerChannelFilter, type MessengerChatsDto, type MessengerView } from "@hub/contract/messenger-panel";
+import { inChannel, type MessengerChannelFilter, type MessengerChatsDto, type MessengerLinkFilter, type MessengerView } from "@hub/contract/messenger-panel";
 import type { AutolinkStateDto, HiddenDialogDto, RecentDialogDto } from "@hub/contract/messengers";
 
 // Messengers ▸ Chats (P84c, owner 2026-11-20): what each view lists and counts, pure so a test holds it (`ui-specifications.md`
@@ -54,8 +54,26 @@ export function matchesHiddenSearch(row: HiddenDialogDto, query: string): boolea
   return !q || [row.title, row.chatId, row.account].some((value) => includes(value, q));
 }
 
-/** The View menu's counts: To do is the linked chats that wait plus the fresh undecided ones; Not linked all the remembered ones; Hidden the ones it can name. */
-export function viewCounts(linked: MessengerChatsDto["counts"] | undefined, st: Pick<AutolinkStateDto, "recent" | "unlinked" | "hidden"> | undefined, channel: MessengerChannelFilter): Record<MessengerView, number> | undefined {
+type Memory = Pick<AutolinkStateDto, "recent" | "unlinked" | "hidden"> | undefined;
+
+/**
+ * The View menu's counts under a link state (P123 U3b): Needs you is the linked chats that wait plus the fresh undecided unlinked
+ * ones; Waiting the linked chats whose newest message is ours; All every chat of the link state. Hidden chats are counted only
+ * under Hidden, and only in All: a chat the owner said is not a client needs nothing.
+ */
+export function viewCounts(linked: MessengerChatsDto["counts"] | undefined, st: Memory, channel: MessengerChannelFilter, link: MessengerLinkFilter): Record<MessengerView, number> | undefined {
   if (!linked) return undefined;
-  return { todo: linked.todo + unlinkedRows(st, channel).length, linked: linked.linked, unlinked: notLinkedRows(st, channel).length, hidden: hiddenRows(st, channel).length };
+  const fresh = unlinkedRows(st, channel).length;
+  const notLinked = notLinkedRows(st, channel).length;
+  if (link === "hidden") return { needs_you: 0, waiting: 0, all: hiddenRows(st, channel).length };
+  if (link === "unlinked") return { needs_you: fresh, waiting: 0, all: notLinked };
+  if (link === "linked") return { needs_you: linked.needs_you, waiting: linked.waiting, all: linked.all };
+  return { needs_you: linked.needs_you + fresh, waiting: linked.waiting, all: linked.all + notLinked };
+}
+
+/** The link filter's counts, in the channel asked: Any is the linked and the remembered unlinked chats (P123 U3b). */
+export function linkCounts(linked: MessengerChatsDto["counts"] | undefined, st: Memory, channel: MessengerChannelFilter): Record<MessengerLinkFilter, number> | undefined {
+  if (!linked) return undefined;
+  const notLinked = notLinkedRows(st, channel).length;
+  return { any: linked.all + notLinked, linked: linked.all, unlinked: notLinked, hidden: hiddenRows(st, channel).length };
 }

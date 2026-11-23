@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { MESSENGER_VIEWS } from "@hub/contract/messenger-panel";
 import type { HiddenDialogDto, RecentDialogDto } from "@hub/contract/messengers";
 import { movedLine, unlinkedIntro, unlinkSentence, unnamedHiddenLine, VIEW_LABEL, VIEW_ORDER, wroteLine } from "../src/features/messengers/labels";
-import { channelOptions, effectiveChannel, foldOlder, hiddenRows, notLinkedRows, unlinkedRows, viewCounts } from "../src/features/messengers/unlinked/chats-model";
+import { channelOptions, effectiveChannel, foldOlder, hiddenRows, linkCounts, notLinkedRows, unlinkedRows, viewCounts } from "../src/features/messengers/unlinked/chats-model";
 
 // P84c: Messengers ▸ Chats, the channel filter and the views (owner, 2026-11-20; P102 adds Not linked).
 
@@ -29,7 +29,7 @@ describe("Chats: channel filter and views", () => {
     expect(effectiveChannel("whatsapp", ["all", "telegram", "whatsapp"])).toBe("whatsapp");
   });
 
-  it("To do counts the linked chats that wait plus the undecided unlinked ones of the channel; suggestions first; Hidden the named ones", () => {
+  it("P123 U3b: Needs you counts the linked chats that wait plus the undecided unlinked ones; Waiting only linked chats; All the link state's chats; Hidden only under Hidden", () => {
     const old = rec("9", "telegram_user");
     const st = { recent: [rec("1", "telegram_user"), rec("+62", "whatsapp"), rec("2", "telegram_user", true)], unlinked: [rec("1", "telegram_user"), old, rec("+62", "whatsapp"), rec("2", "telegram_user", true)], hidden: [hid("3", "telegram_user"), hid("+63", "whatsapp")] };
     expect(unlinkedRows(st, "all").map((r) => r.chatId)).toEqual(["2", "1", "+62"]);
@@ -37,10 +37,17 @@ describe("Chats: channel filter and views", () => {
     // Not linked keeps the old chat the fresh window drops, suggestions first.
     expect(notLinkedRows(st, "all").map((r) => r.chatId)).toEqual(["2", "1", "9", "+62"]);
     expect(hiddenRows(st, "telegram").map((h) => h.chatId)).toEqual(["3"]);
-    expect(viewCounts({ todo: 1, linked: 4 }, st, "all")).toEqual({ todo: 4, linked: 4, unlinked: 4, hidden: 2 });
-    expect(viewCounts({ todo: 0, linked: 1 }, st, "telegram")).toEqual({ todo: 2, linked: 1, unlinked: 3, hidden: 1 });
-    expect(viewCounts(undefined, st, "all")).toBeUndefined();
-    expect(viewCounts({ todo: 0, linked: 0 }, undefined, "all")).toEqual({ todo: 0, linked: 0, unlinked: 0, hidden: 0 });
+    const server = { needs_you: 1, waiting: 2, all: 4 };
+    expect(viewCounts(server, st, "all", "any")).toEqual({ needs_you: 4, waiting: 2, all: 8 });
+    expect(viewCounts(server, st, "all", "linked")).toEqual({ needs_you: 1, waiting: 2, all: 4 });
+    expect(viewCounts(server, st, "all", "unlinked")).toEqual({ needs_you: 3, waiting: 0, all: 4 });
+    expect(viewCounts(server, st, "all", "hidden")).toEqual({ needs_you: 0, waiting: 0, all: 2 });
+    expect(viewCounts({ needs_you: 0, waiting: 1, all: 1 }, st, "telegram", "any")).toEqual({ needs_you: 2, waiting: 1, all: 4 });
+    expect(linkCounts(server, st, "all")).toEqual({ any: 8, linked: 4, unlinked: 4, hidden: 2 });
+    expect(linkCounts(server, st, "telegram")).toEqual({ any: 7, linked: 4, unlinked: 3, hidden: 1 });
+    expect(viewCounts(undefined, st, "all", "any")).toBeUndefined();
+    expect(linkCounts(undefined, st, "all")).toBeUndefined();
+    expect(viewCounts({ needs_you: 0, waiting: 0, all: 0 }, undefined, "all", "any")).toEqual({ needs_you: 0, waiting: 0, all: 0 });
   });
 
   it("names the four views in order, and says the unlinked sentence once with its window", () => {

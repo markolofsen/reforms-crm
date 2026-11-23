@@ -54,7 +54,7 @@ export const keys = {
   knowledgeText: (project: string, key: string) => ["knowledge", project, "text", key] as const,
   sends: (project: string) => ["sends", project] as const,
   /** P71 M3: the Messengers panel's linked chats per view, and the owner's Telegram account (instance-wide, rides in health). */
-  messengerChats: (project: string, view: string, channel = "all", search = "") => ["messenger-chats", project, "list", view, channel, search] as const,
+  messengerChats: (project: string, view: string, link = "any", channel = "all", search = "") => ["messenger-chats", project, "list", view, link, channel, search] as const,
   /** Every list view of one project's panel; conversations and autolink have separate prefixes. */
   messengerChatsOf: (project: string) => ["messenger-chats", project, "list"] as const,
   messengerConversations: (project: string) => ["messenger-chats", project, "conversation"] as const,

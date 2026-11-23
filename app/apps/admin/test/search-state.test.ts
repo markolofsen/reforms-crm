@@ -38,14 +38,17 @@ describe("search state", () => {
     expect(searchDest(resolveRoute("/log", "kind=skipped&client=4"), { kind: "sends" })).toEqual(dest("log.list", { kind: "sends" }));
   });
 
-  it("P84c: the Messengers channel and view keep each other; an unknown channel resets to All; no other route has a channel", () => {
-    const chats = resolveRoute("/messengers", "filter=hidden&channel=telegram");
+  it("P84c, P123 U3b: the Messengers channel, view and link state keep each other; an unknown one resets to its default; no other route has a channel", () => {
+    const chats = resolveRoute("/messengers", "filter=all&link=hidden&channel=telegram");
     expect(chats.route === "messengers.page" && chats.search.channel).toBe("telegram");
-    expect(searchDest(chats, { channel: "whatsapp" })).toEqual(dest("messengers.page", { filter: "hidden", channel: "whatsapp" }));
-    expect(searchDest(chats, { filter: "linked" })).toEqual(dest("messengers.page", { filter: "linked", channel: "telegram" }));
-    expect(searchDest(chats, { channel: "fax" })).toEqual(dest("messengers.page", { filter: "hidden" }));
-    const old = resolveRoute("/messengers", "filter=all");
-    expect(old.route === "messengers.page" && old.search.filter).toBe("todo");
+    expect(searchDest(chats, { channel: "whatsapp" })).toEqual(dest("messengers.page", { filter: "all", link: "hidden", channel: "whatsapp" }));
+    expect(searchDest(chats, { filter: "waiting" })).toEqual(dest("messengers.page", { filter: "waiting", link: "hidden", channel: "telegram" }));
+    expect(searchDest(chats, { link: "linked" })).toEqual(dest("messengers.page", { filter: "all", link: "linked", channel: "telegram" }));
+    expect(searchDest(chats, { channel: "fax" })).toEqual(dest("messengers.page", { filter: "all", link: "hidden" }));
+    // The old views are no longer views: an address that still says one lists Needs you over every link state.
+    const old = resolveRoute("/messengers", "filter=linked");
+    expect(old.route === "messengers.page" && old.search.filter).toBe("needs_you");
+    expect(old.route === "messengers.page" && old.search.link).toBe("any");
     expect(searchDest(resolveRoute("/mail", ""), { channel: "telegram" })).toBeNull();
   });
 });

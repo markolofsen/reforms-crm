@@ -13,13 +13,22 @@ export type { MessengerChannelDto, MessengerSendBody, MessengerSendPreviewDto } 
  */
 
 /**
- * The panel's View menu (P84c, owner 2026-11-20): `todo`, the linked chats with an open draft or whose newest stored message is the
- * client's (what the messengers owe), plus, on the admin, the fresh unlinked chats nobody decided on yet; `linked`, every linked
- * chat; `unlinked` (P102), every unlinked chat the autolink's memory holds, of any age; `hidden`, the chats the owner said are not
- * clients (never linked, so the server's list is empty on both and the admin reads the autolink's memory). The default is `todo`, so a bare `/messengers` shows what needs the owner.
+ * The panel's views (P123 U3b, the words of Mail, decision 0045): `needs_you`, the linked chats with an open draft or whose newest
+ * stored message is the client's, plus, on the admin, the fresh unlinked chats nobody decided on yet; `waiting`, the linked chats
+ * whose newest message is ours (Waiting for them); `all`, every chat. The default is `needs_you`, so a bare `/messengers` shows what
+ * needs the owner.
  */
-export const MESSENGER_VIEWS = ["todo", "linked", "unlinked", "hidden"] as const;
+export const MESSENGER_VIEWS = ["needs_you", "waiting", "all"] as const;
 export type MessengerView = (typeof MESSENGER_VIEWS)[number];
+
+/**
+ * P123 U3b: the link state is a filter beside the view (`?link=`), not a view of its own. `any` is the linked and the unlinked
+ * chats; `linked` only those linked to a client; `unlinked` (P102) every unlinked chat the autolink's memory holds, of any age;
+ * `hidden` the chats the owner said are not clients, shown only when asked. The server lists linked chats only, so for `unlinked`
+ * and `hidden` its list is empty and the admin reads the autolink's memory.
+ */
+export const MESSENGER_LINK_FILTERS = ["any", "linked", "unlinked", "hidden"] as const;
+export type MessengerLinkFilter = (typeof MESSENGER_LINK_FILTERS)[number];
 
 /** P84c: the channel as a filter of the same page (`?channel=`), not a page per channel: the job is the same on both. */
 export const MESSENGER_CHANNEL_FILTERS = ["all", "telegram", "whatsapp"] as const;
@@ -28,11 +37,12 @@ export type MessengerChannelFilter = (typeof MESSENGER_CHANNEL_FILTERS)[number];
 export const inChannel = (channel: MessengerChannelDto, f: MessengerChannelFilter): boolean => f === "all" || (f === "whatsapp" ? channel === "whatsapp" : channel !== "whatsapp");
 
 /**
- * The list projection's URL inputs. A missing or unknown view is the owner's Todo view and a missing or unknown channel is
- * all of them, as the panel read them before this schema (an address typed by hand lists, it does not answer 400).
+ * The list projection's URL inputs. A missing or unknown view is Needs you, a missing or unknown link state or channel is all of
+ * them (an address typed by hand lists, it does not answer 400).
  */
 export const messengerChatsQuery = z.object({
-  filter: z.enum(MESSENGER_VIEWS).catch("todo"),
+  filter: z.enum(MESSENGER_VIEWS).catch("needs_you"),
+  link: z.enum(MESSENGER_LINK_FILTERS).catch("any"),
   channel: z.enum(MESSENGER_CHANNEL_FILTERS).catch("all"),
   q: z.string().trim().max(200).default(""),
 });
@@ -146,8 +156,8 @@ export type MessengerConversationDto = z.infer<typeof messengerConversationDto>;
 
 export const messengerChatsDto = z.strictObject({
   chats: z.array(messengerChatDto),
-  /** The View menu's counts over the linked chats of the project in the channel asked: `todo` those that wait, `linked` all of them. */
-  counts: z.strictObject({ todo: z.number().int(), linked: z.number().int() }),
+  /** The View menu's counts over the linked chats of the project in the channel asked: those that need the owner, those that wait for the client, all of them. */
+  counts: z.strictObject({ needs_you: z.number().int(), waiting: z.number().int(), all: z.number().int() }),
   preanalysis: preanalysisDto,
 });
 export type MessengerChatsDto = z.infer<typeof messengerChatsDto>;

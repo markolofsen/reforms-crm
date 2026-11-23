@@ -4,7 +4,7 @@ import { autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkState
 import { read, readGenerated } from "../client";
 
 const at = (project: string) => `/api/projects/${encodeURIComponent(project)}/messengers`;
-type MessengerChatsInput = Pick<MessengerChatsQuery, "filter"> & Partial<Pick<MessengerChatsQuery, "channel" | "q">>;
+type MessengerChatsInput = Pick<MessengerChatsQuery, "filter"> & Partial<Pick<MessengerChatsQuery, "link" | "channel" | "q">>;
 
 /**
  * The Messengers panel (P71 M3): the linked chats with what is owed and the agent's open draft of each, the owner's Edit, Skip and
@@ -14,7 +14,7 @@ type MessengerChatsInput = Pick<MessengerChatsQuery, "filter"> & Partial<Pick<Me
  */
 export const messengersApi = {
   chats: (project: string, input: MessengerChatsInput) => {
-    const query: MessengerChatsQuery = { filter: input.filter, channel: input.channel ?? "all", q: input.q ?? "" };
+    const query: MessengerChatsQuery = { filter: input.filter, link: input.link ?? "any", channel: input.channel ?? "all", q: input.q ?? "" };
     return readGenerated(listMessengerChats(project, query), messengerChatsDto);
   },
   conversation: (project: string, chatId: number) => readGenerated(getMessengerConversation(project, chatId), messengerConversationDto),

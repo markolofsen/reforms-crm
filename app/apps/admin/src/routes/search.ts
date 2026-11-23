@@ -2,7 +2,7 @@ import { DRAFT_VIEWS, type DraftView } from "@hub/config";
 import { ACTIVITY_VIEWS as TIMELINE_VIEWS, type ActivityView as TimelineView } from "@hub/contract/activity";
 import { keyText, parseClientKey } from "@hub/contract/client-key";
 import { KNOWLEDGE_VIEWS, type KnowledgeView } from "@hub/contract/knowledge";
-import { MESSENGER_CHANNEL_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerView } from "@hub/contract/messenger-panel";
+import { MESSENGER_CHANNEL_FILTERS, MESSENGER_LINK_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerLinkFilter, type MessengerView } from "@hub/contract/messenger-panel";
 
 // Every URL parameter name and its allowed values, in one place. No React, no URL library: plain functions, so the
 // address of every screen is testable without a DOM. The enums are the ones the API validates (`@hub/config`, re-used
@@ -111,11 +111,14 @@ const topic: SearchKeySpec<string> = { read: (v) => (v !== undefined && v.length
 /** P70: the Knowledge table's view (the same enum the API validates), its title search, and the topic of the menu column (P125 L2). */
 export const KNOWLEDGE_SEARCH = { filter: view(KNOWLEDGE_VIEWS, "all"), q: text, topic } as const;
 export const AGENT_SEARCH = { filter: view(AGENT_VIEWS, "attention") } as const;
-/** The Messengers panel's view (P84c: To do, the default, Linked, Hidden) and its channel (All, the default, Telegram, WhatsApp); the enums the API validates. */
-export const MESSENGERS_SEARCH = { filter: view(MESSENGER_VIEWS, "todo"), channel: view(MESSENGER_CHANNEL_FILTERS, "all"), q: text } as const;
+/**
+ * The Messengers panel's view (P123 U3b: Needs you, the default, Waiting, All, Mail's words), its link state (`?link=`: any, the
+ * default, Linked, Not linked, Hidden) and its channel (All, the default, Telegram, WhatsApp); the enums the API validates.
+ */
+export const MESSENGERS_SEARCH = { filter: view(MESSENGER_VIEWS, "needs_you"), link: view(MESSENGER_LINK_FILTERS, "any"), channel: view(MESSENGER_CHANNEL_FILTERS, "all"), q: text } as const;
 
 export { KNOWLEDGE_VIEWS, type KnowledgeView };
-export { MESSENGER_CHANNEL_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerView };
+export { MESSENGER_CHANNEL_FILTERS, MESSENGER_LINK_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerLinkFilter, type MessengerView };
 
 /** The address's query read by a spec: every key of the spec, each parsed (a key the spec does not know is dropped, rule 8). */
 export function readSearch<S extends SearchSpec>(spec: S, raw: Raw): SearchOf<S> {

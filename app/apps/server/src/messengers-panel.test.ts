@@ -19,7 +19,7 @@ let chatRowId: number;
 
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = HEADERS) =>
   app.request(`${BASE}${path}`, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-const chats = async (filter = "todo", channel = "all", q = "") => messengerChatsDto.parse(await (await call("GET", `/api/projects/p/messengers/chats?filter=${filter}&channel=${channel}&q=${encodeURIComponent(q)}`)).json());
+const chats = async (filter = "needs_you", channel = "all", q = "", link = "any") => messengerChatsDto.parse(await (await call("GET", `/api/projects/p/messengers/chats?filter=${filter}&link=${link}&channel=${channel}&q=${encodeURIComponent(q)}`)).json());
 const msg = (chatId: string, direction: "in" | "out", sentAt: string, text: string) =>
   repos.messengers.insertMessage({ project: "p", channel: "telegram_user", account: "1", chatId, remoteMessageId: `${chatId}-${sentAt}`, direction, text, sentAt, retainUntil: "2099-01-01T00:00:00Z" });
 
@@ -42,25 +42,29 @@ beforeEach(async () => {
 afterEach(() => handle.close());
 
 describe("the Messengers panel", () => {
-  it("lists the waiting chat with its client, its newest message and the agent's draft; Linked has both, counts over both", async () => {
+  it("lists the chat that needs you with its client, its newest message and the agent's draft; Waiting has the other, All both, counts over both (P123 U3b)", async () => {
     const w = await chats();
-    expect(w.counts).toEqual({ todo: 1, linked: 2 });
+    expect(w.counts).toEqual({ needs_you: 1, waiting: 1, all: 2 });
     expect(w.chats).toHaveLength(1);
     expect(w.chats[0]).toMatchObject({ id: chatRowId, channel: "telegram_user", client: { id: anna, name: "Anna Field" }, owed: true, inbound: 1, last: { direction: "in", text: "Is the flat still free?" }, draft: { id: draftId, text: "Yes, it is." }, rules: { replyMode: "draft", prefilter: false } });
-    const all = await chats("linked");
+    expect((await chats("waiting")).chats.map((c) => c.title)).toEqual(["Bob"]);
+    const all = await chats("all");
     expect(all.chats.map((c) => c.title)).toEqual(["Anna", "Bob"]);
+    expect((await chats("all", "all", "", "linked")).chats.map((c) => c.title)).toEqual(["Anna", "Bob"]);
     expect(all.chats[1]).toMatchObject({ owed: false, draft: null, client: null });
     // P84c: Hidden lists no linked chat (a hidden chat is never linked), and the channel filters the list and its counts.
-    expect((await chats("hidden")).chats).toEqual([]);
-    expect((await chats("unlinked")).chats).toEqual([]);
+    expect((await chats("all", "all", "", "hidden")).chats).toEqual([]);
+    expect((await chats("all", "all", "", "unlinked")).chats).toEqual([]);
+    // An unknown view or link state lists as Needs you over every link state, never a 400.
+    expect((await chats("todo", "all", "", "nope")).chats.map((c) => c.title)).toEqual(["Anna"]);
     await repos.messengers.allowChat("p", "whatsapp", "+6281300001111", "Wati");
-    expect((await chats("linked", "whatsapp")).chats.map((c) => c.title)).toEqual(["Wati"]);
-    expect((await chats("linked", "whatsapp")).counts).toEqual({ todo: 0, linked: 1 });
-    expect((await chats("linked", "telegram")).counts).toEqual({ todo: 1, linked: 2 });
-    expect((await chats("linked", "nope")).counts).toEqual({ todo: 1, linked: 3 });
-    expect((await chats("linked", "all", "Anna")).chats.map((c) => c.title)).toEqual(["Anna"]);
-    expect((await chats("linked", "all", "flat still")).chats.map((c) => c.title)).toEqual(["Anna"]);
-    expect((await chats("linked", "all", "missing")).chats).toEqual([]);
+    expect((await chats("all", "whatsapp")).chats.map((c) => c.title)).toEqual(["Wati"]);
+    expect((await chats("all", "whatsapp")).counts).toEqual({ needs_you: 0, waiting: 0, all: 1 });
+    expect((await chats("all", "telegram")).counts).toEqual({ needs_you: 1, waiting: 1, all: 2 });
+    expect((await chats("all", "nope")).counts).toEqual({ needs_you: 1, waiting: 1, all: 3 });
+    expect((await chats("all", "all", "Anna")).chats.map((c) => c.title)).toEqual(["Anna"]);
+    expect((await chats("all", "all", "flat still")).chats.map((c) => c.title)).toEqual(["Anna"]);
+    expect((await chats("all", "all", "missing")).chats).toEqual([]);
     expect((await call("GET", "/api/projects/nope/messengers/chats")).status).toBe(404);
   });
 
