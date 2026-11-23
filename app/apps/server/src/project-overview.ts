@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { checkProject } from "@hub/knowledge";
 import { parseRulesFile } from "@hub/mail-filters";
+import { loadProject } from "@hub/projects";
 import type { Repos } from "@hub/db";
 import { projectOverviewDto, type ProjectOverviewDto } from "@hub/contract/responses";
 
@@ -47,14 +48,24 @@ function filtersOf(root: string, slug: string): Filters {
 }
 
 /** One project's profile, open setup question, knowledge index and mail filters, read from its folder and the index. */
-export async function projectOverview(repos: Repos, slug: string, root: string = projectsRoot()): Promise<ProjectOverviewDto> {
+export async function projectOverview(repos: Repos, slug: string, root: string = projectsRoot(), policyDir?: string): Promise<ProjectOverviewDto> {
   const row = await repos.projects.get(slug);
   // `questions` refuses a slug that is not registered; a project known only by its clients has no setup state.
   const open = row ? await repos.projects.questions(slug, "open") : [];
   const q = open[0];
+  let messengerPolicy: ProjectOverviewDto["messengerPolicy"] = null;
+  if (row) {
+    try {
+      const config = loadProject(root, slug, policyDir ? { policyDir } : {}).parsed.config;
+      messengerPolicy = { language: config.messengers.language, instruction: config.messengers.instruction };
+    } catch {
+      messengerPolicy = null;
+    }
+  }
   return projectOverviewDto.parse({
     project: row ? { slug: row.slug, name: row.name, status: row.status, kind: row.kind, archived: row.archived, syncedAt: row.syncedAt } : null,
     question: q ? { question: q.question, options: q.optionsJson ? JSON.parse(q.optionsJson) : [] } : null,
+    messengerPolicy,
     knowledge: await knowledgeOf(repos, root, slug),
     filters: filtersOf(root, slug),
   });

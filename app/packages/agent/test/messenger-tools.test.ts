@@ -58,8 +58,14 @@ const withRepos: WithRepos = async (fn) => {
   }
 };
 
-async function connect(hubProject: string | undefined, write = true) {
-  const server = createHubMcpServer(repos, { hubProject, focusFile: path.join(dir, "focus.json"), now: () => NOW, ...(write ? { withRepos } : {}) });
+async function connect(hubProject: string | undefined, write = true, policy?: { language: string | null; instruction: string | null }) {
+  const server = createHubMcpServer(repos, {
+    hubProject,
+    focusFile: path.join(dir, "focus.json"),
+    now: () => NOW,
+    ...(write ? { withRepos } : {}),
+    ...(policy ? { projectMail: () => ({ accounts: [], sender: null, messengers: policy }) } : {}),
+  });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(b);
   const client = new Client({ name: "test", version: "0" });
@@ -83,6 +89,15 @@ describe("messenger_history", () => {
     const c = r.json.chats[0];
     expect(c).toMatchObject({ channel: "telegram_user", chat_id: "42", client: { id: ids.ann, name: "Ann" }, rules: { reply_mode: "draft", may_nudge: false, nudge_after_days: 3, language: "ru", prefilter: false }, owner_instruction: { text: "Formal; never quote prices." }, can_draft: { ok: true, nudge: false }, open_draft: null });
     expect(c.messages.map((m: { direction: string }) => m.direction)).toEqual(["in", "out"]);
+  });
+
+  it("applies project language and instruction defaults, while a chat exception wins", async () => {
+    const call = await connect("acme", true, { language: "id-ID", instruction: "Keep every reply concise." });
+    const global = (await call("messenger_history", chat42)).json.chats[0];
+    expect(global).toMatchObject({ rules: { language: "id-ID" }, owner_instruction: { text: "Keep every reply concise." } });
+    await w.messengers.setChatRules("acme", "telegram_user", "42", { language: "ru", instruction: "Use formal Russian." });
+    const local = (await call("messenger_history", chat42)).json.chats[0];
+    expect(local).toMatchObject({ rules: { language: "ru" }, owner_instruction: { text: "Use formal Russian." } });
   });
 
   it("P71 M-P: with the pre-analysis on, a hidden message is left out and counted; include_hidden marks it; an unjudged one is shown", async () => {
@@ -122,6 +137,18 @@ describe("messenger_history", () => {
     expect(await call("messenger_history", { client: ids.zed })).toMatchObject({ isError: true, json: { error: "not_found" } });
   });
 
+  it("resolves the focused chat ref without treating its row id as the external chat id", async () => {
+    const row = await w.messengers.chat("acme", "telegram_user", "42");
+    const foreign = await w.messengers.chat("beta", "telegram_user", "77");
+    expect(row).not.toBeNull();
+    expect(foreign).not.toBeNull();
+    const call = await connect("acme");
+    const r = await call("messenger_history", { chat: row!.id });
+    expect(r.isError).toBe(false);
+    expect(r.json.chats[0]).toMatchObject({ channel: "telegram_user", chat_id: "42", client: { id: ids.ann, name: "Ann" } });
+    expect(await call("messenger_history", { chat: foreign!.id })).toMatchObject({ isError: true, json: { error: "not_linked" } });
+  });
+
   it("refuses an unlinked chat and another project's chat alike, naming nothing of it", async () => {
     const call = await connect("acme");
     const unlinked = await call("messenger_history", { channel: "telegram_user", chat_id: "999" });
@@ -143,6 +170,16 @@ describe("messenger_draft_write", () => {
     const r = await call("messenger_draft_write", { ...chat42, text: "  Добрый день, Анна!  " });
     expect(r).toMatchObject({ isError: false, json: { action: "created", sent: false, nudge: false } });
     expect(await drafts()).toMatchObject([{ id: r.json.draft, status: "draft", text: "Добрый день, Анна!", clientId: ids.ann, createdBy: "agent", nudge: false, ownerRequest: null }]);
+    expect((await w.runs.activity("acme", { view: "drafts" })).rows[0]).toMatchObject({ outcome: "drafted", draftId: r.json.draft, skill: "messenger-reply", why: "Runtime agent prepared an unsent draft." });
+  });
+
+  it("writes through the focused chat ref and still leaves an unsent draft", async () => {
+    const row = await w.messengers.chat("acme", "telegram_user", "42");
+    expect(row).not.toBeNull();
+    const call = await connect("acme");
+    const r = await call("messenger_draft_write", { chat: row!.id, text: "Ответ через focus" });
+    expect(r).toMatchObject({ isError: false, json: { action: "created", sent: false, channel: "telegram_user", chat_id: "42" } });
+    expect((await drafts())[0]).toMatchObject({ text: "Ответ через focus", status: "draft" });
   });
 
   it("refuses an unlinked chat, another project's chat and an empty text, and writes nothing", async () => {

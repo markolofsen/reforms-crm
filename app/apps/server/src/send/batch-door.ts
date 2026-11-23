@@ -1,5 +1,5 @@
 import { BATCH_LIMITS, runBatch, type BatchItem, type BatchLimits, type BatchOutcome, type SendDeps } from "@hub/send";
-import type { BatchRunDto } from "@hub/contract/responses";
+import type { BatchRunDto } from "@hub/contract/sending";
 import { errFields, ops } from "@hub/log/ops";
 
 // The runs of Send all Checked (P85b, decision 0011 amendment of 2026-11-20 point 4). A run lives in this process only: the

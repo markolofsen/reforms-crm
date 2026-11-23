@@ -16,6 +16,7 @@ let repos: Repos;
 let app: ReturnType<typeof createApp>;
 const H = { "content-type": "application/json" };
 const post = (path: string, body: unknown) => app.request(`http://127.0.0.1:4317${path}`, { method: "POST", headers: H, body: JSON.stringify(body) });
+const put = (path: string, body: unknown) => app.request(`http://127.0.0.1:4317${path}`, { method: "PUT", headers: H, body: JSON.stringify(body) });
 const get = (path: string) => app.request(`http://127.0.0.1:4317${path}`);
 const NOW = Date.now();
 const daysAgo = (d: number) => new Date(NOW - d * 86_400_000).toISOString();
@@ -110,6 +111,25 @@ describe("no status says sent", () => {
     expect((await post("/api/batches/1/drafts", { project: "p", clientId: ana, subject: "s", body: "b", status: "sent" })).status).toBe(404);
     expect((await post("/api/batches/1/close", { project: "p", status: "ready" })).status).toBe(404);
     expect((await get("/api/bulk/audience?project=p&audience=all")).status).toBe(404);
+  });
+});
+
+describe("project-scoped client marks", () => {
+  it("uses the generated-client route without weakening project isolation or mark validation", async () => {
+    const { ana } = await seedClients();
+
+    const saved = await put(`/api/clients/${ana}/marks`, { project: "p", marks: ["vip"] });
+    expect(saved.status).toBe(200);
+    expect(await saved.json()).toEqual({ ok: true });
+    expect((await repos.clients.card("p", ana))?.marks).toEqual(["vip"]);
+
+    const foreign = await put(`/api/clients/${ana}/marks`, { project: "other", marks: ["do_not_contact"] });
+    expect(foreign.status).toBe(404);
+    expect((await repos.clients.card("p", ana))?.marks).toEqual(["vip"]);
+
+    const invalid = await put(`/api/clients/${ana}/marks`, { project: "p", marks: ["unknown"] });
+    expect(invalid.status).toBe(400);
+    expect((await repos.clients.card("p", ana))?.marks).toEqual(["vip"]);
   });
 });
 

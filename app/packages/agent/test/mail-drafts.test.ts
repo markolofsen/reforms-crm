@@ -827,6 +827,17 @@ describe("draft_write: the From the client sees (P58)", () => {
     expect(mail.drafts[1]?.from).toBe("info@carapis.com");
   });
 
+  it("writes the resolved brand display name while retaining the technical account address", async () => {
+    const mail = new FakeDraftWriter();
+    mail.headers.set(47, headers);
+    const named = () => ({ ...projectMail(), identity: { ...projectMail().identity, brands: one.brands.map((b) => b.name === "Carapis" ? { ...b, displayName: "Carapis" } : b) } });
+    const call = await connect(undefined, undefined, { drafts: mail, projectMail: named });
+    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 47, content: "Hello,\n\nHere is the answer." });
+    expect(r.isError).toBe(false);
+    expect(r.json).toMatchObject({ fromSeenByClient: "Carapis <hello@reforms.ai>", clientWroteTo: "info@carapis.com" });
+    expect(mail.drafts[0]?.from).toBe("Carapis <hello@reforms.ai>");
+  });
+
   it("realty: a revision of mail received in dan@ is written from dan@ and saved there, though mail.sender is info@ (realty drafts 1 and 2)", async () => {
     const mail = new FakeDraftWriter();
     mail.inbound.set("ref-dan@x", { account: "dan@danmerriam.com", mailboxPath: ["INBOX"], messageId: 9 });

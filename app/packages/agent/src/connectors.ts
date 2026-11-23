@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
-import type { ProjectConfig } from "@hub/projects";
+import type { ProjectConfig } from "@hub/projects/model";
 import { notionCapability, type NotionScope } from "./notion-scope";
 
 // P62: connectors, the Google services a project's sessions may reach beside mail-mcp and Notion. A connector is a Google-hosted

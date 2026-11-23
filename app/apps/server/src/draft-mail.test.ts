@@ -96,6 +96,21 @@ describe("the Mail read (P56, P65)", () => {
 });
 
 describe("Restore and Save (P56, P65)", () => {
+  it("manual composer creates a new unsent Mail draft when the client has no open incoming message", async () => {
+    await repos.drafts.setStatus(id, "done");
+    const finished = await repos.drafts.get(id);
+    expect(finished).not.toBeNull();
+    const res = await app.request(`http://127.0.0.1:4317/api/projects/acme/clients/${finished!.clientId}/draft`, { method: "POST", headers: ADMIN, body: JSON.stringify({ text: "A follow-up from the owner." }) });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { draftId: number };
+    expect(writer.newTo).toEqual(["client@example.com"]);
+    expect(writer.drafts).toMatchObject([{ subject: "Re: hello", text: "A follow-up from the owner.", quote: "keep" }]);
+    const created = await repos.drafts.get(body.draftId);
+    expect(created).toMatchObject({ mailRef: null, subject: "Re: hello" });
+    expect(await repos.inbox.list("acme", "all")).toMatchObject([{ email: "client@example.com", skill: "manual-reply" }]);
+    expect(JSON.parse(created?.context ?? "{}")).toMatchObject({ newThread: true });
+  });
+
   it("Restore writes the recorded Trash copy again through the writer, verbatim, records it, turns Checked off and bumps mail", async () => {
     mailer.trash.push(await hubs("9", "Hi Cli,\n\n> their question"));
     await repos.drafts.setChecked(id, true);

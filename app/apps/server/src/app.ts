@@ -1,21 +1,22 @@
 import { Hono } from "hono";
 import { ADMIN_PORT, ALLOWED_HOSTNAMES } from "@hub/config";
-import { API_VERSION, healthDto, pulseDto } from "@hub/contract/health";
-import { projectsDto } from "@hub/contract/responses";
+import { API_VERSION, healthDto } from "@hub/contract/health";
 import { isBusy, RepoError, type Repos } from "@hub/db";
 import { bulkRoutes } from "./routes/bulk";
 import { connectionRoutes } from "./routes/connections";
 import { draftRoutes } from "./routes/drafts";
 import { draftMailRoutes } from "./routes/draft-mail";
 import { inboxRoutes } from "./routes/inbox";
-import { inboundRoutes, type InboundTextReader } from "./routes/inbound";
-import { conversationRoutes, type ConversationMail } from "./routes/conversations";
+import { inboundRoutes } from "./routes/inbound";
+import { conversationRoutes } from "./routes/conversations";
 import { INBOUND_OFF, type InboundHandle } from "./inbound";
 import type { LeadsHandle } from "./leads-reader";
 import { coreRoutes, instanceRoutes } from "./routes/instance";
 import type { CoreUpdatesService } from "./core-updates";
 import { overviewRoutes } from "./routes/overview";
 import { projectRoutes } from "./routes/project";
+import { projectCatalogRoutes } from "./routes/projects";
+import { healthRoutes } from "./routes/health";
 import { sendRoutes, type SenderOptions } from "./routes/sends";
 import type { MessengerSenders } from "./send/messenger-door";
 import { sequenceRoutes } from "./routes/sequences";
@@ -25,7 +26,7 @@ import { focusRoutes } from "./routes/focus";
 import { pointerRoutes } from "./routes/pointer";
 import { agentFeedRoutes } from "./routes/agent-feed";
 import { knowledgeRoutes } from "./routes/knowledge";
-import { localRoutes, type LocalService } from "./routes/local";
+import { localRoutes } from "./routes/local";
 import { autostartRoutes } from "./routes/autostart";
 import type { AutostartService } from "./autostart";
 import type { LogStore } from "@hub/log/store";
@@ -38,6 +39,7 @@ import { OFF, type MessengersStatus } from "./messengers";
 import { TELEGRAM_USER_OFF, type TelegramUserHandle } from "./telegram-user";
 import { messengerRoutes } from "./routes/messengers";
 import type { Preanalysis } from "./preanalysis";
+import type { Llm } from "@hub/llm";
 import { telegramUserRoutes } from "./routes/telegram-user";
 import { whatsappRoutes } from "./routes/whatsapp";
 import { autolinkRoutes } from "./routes/autolink";
@@ -48,6 +50,8 @@ import { createOverview, type OverviewService } from "./overview";
 import { STUCK_MINUTES } from "./overview-facts";
 import { projectOverview, projectsRoot } from "./project-overview";
 import { projectDoctor } from "./project-doctor";
+import { projectLinksRoutes } from "./routes/project-links";
+import type { NotionReader } from "@hub/notion";
 import { schemeRoutes } from "./routes/scheme";
 import type { SchemeSources } from "./scheme";
 import { instanceLlm } from "@hub/config/llm";
@@ -55,6 +59,7 @@ import { hubPaths } from "@hub/config/paths";
 import { capSentence, fakeMode, hasKey, noKeySentence } from "@hub/llm";
 import { errFields, ops, type OpsStore } from "@hub/log/ops";
 import { opsLogRoutes } from "./routes/ops-log";
+import { agentFeedServicesOf, agentServicesOf, autolinkServicesOf, autostartServicesOf, bulkServicesOf, connectionsServicesOf, conversationServicesOf, coreServicesOf, focusServicesOf, healthServicesOf, inboxServicesOf, inboundServicesOf, instanceServicesOf, knowledgeServicesOf, liveServicesOf, localServicesOf, mailServicesOf, messengerServicesOf, opsLogServicesOf, overviewServicesOf, pointerServicesOf, projectCatalogServicesOf, projectLinksServicesOf, projectServicesOf, reviewServicesOf, schemeServicesOf, sendServicesOf, sequenceServicesOf, telegramUserServicesOf, terminalServicesOf, whatsappServicesOf, type ConversationMail, type InboundTextReader, type LocalService } from "./composition/capabilities";
 
 /** The one send of each connected messenger account, handed to the send door and nothing else (P71 M4). */
 const messengerSenders = (tg: TelegramUserHandle | undefined, wa: WhatsAppHandle | undefined): MessengerSenders | undefined =>
@@ -75,6 +80,8 @@ export type AppOptions = {
   autolink?: ProjectAutolink;
   /** P71 M-P: the pre-analysis job (its standing on the chats reply; a pass when the owner turns a chat's switch on). */
   preanalysis?: Preanalysis;
+  /** P106: the typed Hub-LLM draft preparation door; it only creates an unsent messenger draft. */
+  reply?: { llm: Llm };
   sent?: () => SentStatus;
   /** P96: the Mail reader (its state in health, the Inbox routes, Check now); without it the Inbox is empty and Check now reads nothing. */
   inbound?: InboundHandle;
@@ -118,6 +125,8 @@ export type AppOptions = {
   coreUpdates?: CoreUpdatesService;
   /** Tests: the readers of `GET /api/scheme` (P63); default: the server's own services, read without running a check. */
   scheme?: Partial<SchemeSources>;
+  /** P101: optional injected read-only Notion reader for resolving declared Quick Links. */
+  projectLinks?: { reader?: NotionReader };
   now?: () => Date;
 };
 
@@ -201,37 +210,47 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
       if (!allowed(new URL(c.req.url).hostname) || !originOk) return c.json({ error: "forbidden host", code: "forbidden" as const }, 403);
       await next();
     })
-    .get("/api/health", (c) => c.json(health()))
-    .route("/", liveRoutes(opts.live))
-    .get("/api/pulse", (c) => c.json(pulseDto.parse({ dataVersion: opts.dataVersion?.() ?? 0, serverTime: (opts.now?.() ?? new Date()).toISOString(), health: health() })))
-    .get("/api/projects", async (c) => c.json(projectsDto.parse({ projects: await repos.projects.list() })))
-    .route("/", instanceRoutes(opts.instance, () => opts.local?.available ?? false))
-    .route("/", coreRoutes(opts.coreUpdates))
-    .route("/", draftRoutes(repos, opts.sender))
-    .route("/", sendRoutes(repos, opts.sender, messengerSenders(opts.telegramUser, opts.whatsapp)))
-    .route("/", draftMailRoutes(repos, opts.sender))
-    .route("/", projectRoutes(repos, projectsDir, opts.sender?.policyDir))
-    .route("/", inboxRoutes(repos))
-    .route("/", inboundRoutes(repos, opts.inbound, opts.inboundText, opts.leads))
-    .route("/", conversationRoutes(repos, opts.conversationMail))
-    .route("/", sequenceRoutes(repos, projectsDir, now))
-    .route("/", bulkRoutes(repos))
-    .route("/", overviewRoutes(overview))
-    .route("/", schemeRoutes(scheme))
-    .route("/", connectionRoutes(connections))
-    .route("/", agentToolRoutes(repos, opts.agentTools))
-    .route("/", agentFeedRoutes(repos, opts.agentLog, now))
-    .route("/", opsLogRoutes(opts.opsLog, now))
-    .route("/", knowledgeRoutes(repos, now, opts.overview?.timeZone))
-    .route("/", terminalRoutes(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", focusRoutes(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", pointerRoutes(repos, opts.pointerFile, now))
-    .route("/", localRoutes(opts.local, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", autostartRoutes(opts.autostart, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", telegramUserRoutes(opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", whatsappRoutes(opts.whatsapp, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", autolinkRoutes(repos, opts.autolink, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT))
-    .route("/", messengerRoutes(repos, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT, opts.preanalysis));
+    .route("/", healthRoutes(healthServicesOf(health, () => opts.dataVersion?.() ?? 0, now)))
+    .route("/", liveRoutes(liveServicesOf(opts.live)))
+    .route("/", projectCatalogRoutes(projectCatalogServicesOf(repos)))
+    .route("/", instanceRoutes(instanceServicesOf(opts.instance, () => opts.local?.available ?? false)))
+    .route("/", coreRoutes(coreServicesOf(opts.coreUpdates)))
+    .route("/", draftRoutes(reviewServicesOf(repos, opts.sender)))
+    .route("/", sendRoutes(sendServicesOf(repos, opts.sender, messengerSenders(opts.telegramUser, opts.whatsapp))))
+    .route("/", draftMailRoutes(mailServicesOf(repos, opts.sender)))
+    .route("/", projectRoutes(projectServicesOf(repos, projectsDir, opts.sender?.policyDir)))
+    .route("/", projectLinksRoutes(projectLinksServicesOf(repos, projectsDir, { ...(opts.projectLinks?.reader ? { reader: opts.projectLinks.reader } : {}) })))
+    .route("/", inboxRoutes(inboxServicesOf(repos)))
+    .route("/", inboundRoutes(inboundServicesOf(repos, opts.inbound, opts.inboundText, opts.leads)))
+    .route("/", conversationRoutes(conversationServicesOf(repos, opts.conversationMail)))
+    .route("/", sequenceRoutes(sequenceServicesOf(repos, projectsDir, now)))
+    .route("/", bulkRoutes(bulkServicesOf(repos)))
+    .route("/", overviewRoutes(overviewServicesOf(overview)))
+    .route("/", schemeRoutes(schemeServicesOf(scheme)))
+    .route("/", connectionRoutes(connectionsServicesOf(connections)))
+    .route("/", agentToolRoutes(agentServicesOf(repos, opts.agentTools)))
+    .route("/", agentFeedRoutes(agentFeedServicesOf(repos, opts.agentLog, now)))
+    .route("/", opsLogRoutes(opsLogServicesOf(opts.opsLog, now)))
+    .route("/", knowledgeRoutes(knowledgeServicesOf(repos, now, opts.overview?.timeZone)))
+    .route("/", terminalRoutes(terminalServicesOf(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
+    .route("/", focusRoutes(focusServicesOf(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
+    .route("/", pointerRoutes(pointerServicesOf(repos, opts.pointerFile, now)))
+    .route("/", localRoutes(localServicesOf(opts.local, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
+    .route("/", autostartRoutes(autostartServicesOf(opts.autostart, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
+    .route("/", telegramUserRoutes(telegramUserServicesOf(opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
+    .route("/", whatsappRoutes(whatsappServicesOf(opts.whatsapp, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
+    .route("/", autolinkRoutes(autolinkServicesOf(repos, opts.autolink, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
+    .route(
+      "/",
+      messengerRoutes(
+        messengerServicesOf(repos, {
+          adminPort: opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT,
+          ...(opts.preanalysis ? { preanalysis: opts.preanalysis } : {}),
+          ...(opts.reply ? { reply: { llm: opts.reply.llm, projectsDir, ...(opts.sender?.policyDir ? { policyDir: opts.sender.policyDir } : {}) } } : {}),
+          ...(opts.autolink ? { directory: { project: opts.autolink.project, directory: opts.autolink.directory } } : {}),
+        }),
+      ),
+    );
 }
 
 export type AppType = ReturnType<typeof createApp>;

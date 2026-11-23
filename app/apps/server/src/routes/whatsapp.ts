@@ -6,6 +6,7 @@ import { AdapterError, MessengersError } from "@hub/messengers";
 import { z, type ZodType } from "zod";
 import { gateRefusal } from "../admin-gate";
 import type { WhatsAppHandle } from "../whatsapp";
+import type { WhatsAppServices } from "../composition/capabilities";
 
 /**
  * The WhatsApp linked device's doors (P71 M5, decision 0036 points 3, 4 and 7). Every route but the state read is a POST behind
@@ -14,7 +15,7 @@ import type { WhatsAppHandle } from "../whatsapp";
  * chat is the autolink's (`routes/autolink.ts`, P102). No body or reply is logged. Nothing here sends a message: the
  * send is the send door's (`routes/sends.ts`).
  */
-export function whatsappRoutes(wa: WhatsAppHandle | undefined, adminPort: number) {
+export function whatsappRoutes({ wa, adminPort }: WhatsAppServices) {
   const gate = (c: Context) =>
     gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
 

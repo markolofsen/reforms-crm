@@ -1,14 +1,15 @@
 import { Hono, type Context } from "hono";
-import { alreadySentText, DraftWriteError, isNewThreadDraft, newThreadKey, reviseDraft, versionHash } from "@hub/agent/mail-drafts";
+import { alreadySentText, DraftWriteError, isNewThreadDraft, newThreadKey, reviseDraft, type InboundMessage, versionHash } from "@hub/agent/mail-drafts";
 import { writeLogOf } from "@hub/agent/write-record";
-import type { DraftRow, MailVersionRow, Repos } from "@hub/db";
+import type { DraftRow, MailVersionRow } from "@hub/db";
+import { brandResolutionFor, displayNameFor, headersFromText, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, visibleFrom } from "@hub/projects/brand";
 import { loadProject } from "@hub/projects";
 import { bareId, findMail, mailHash, settleThread, type MailDraft } from "@hub/send";
-import { draftEditBody, sendParam } from "@hub/contract/requests";
+import { draftEditBody, manualReplyBody, sendParam } from "@hub/contract/requests";
 import { draftChangedDto, draftMailDto } from "@hub/contract/responses";
 import { gateRefusal } from "../admin-gate";
 import { notFound, v } from "../http";
-import type { SenderOptions } from "./sends";
+import type { MailServices } from "../composition/capabilities";
 
 /**
  * The open draft's Mail text (decision 0013: read live, never stored) and the two writes a person makes to it (P56):
@@ -19,13 +20,13 @@ import type { SenderOptions } from "./sends";
  * thread the Hub crowded itself (P65 S5, `settleThread`): its own late saves are adopted, its older versions go to Trash.
  * Nothing here sends.
  */
-export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
+export function draftMailRoutes({ repos, sender }: MailServices) {
   const mailer = sender?.mailer;
   const projectMail = (slug: string) => {
     if (!sender) return null;
     try {
-      const m = loadProject(sender.projectsDir, slug, { policyDir: sender.policyDir }).parsed.config.mail;
-      return { accounts: m.accounts, sender: m.sender ?? null };
+      const config = loadProject(sender.projectsDir, slug, { policyDir: sender.policyDir }).parsed.config;
+      return { ...config.mail, sender: config.mail.sender ?? null, brands: config.brands, signoff: config.signoff, languages: config.languages };
     } catch {
       return null;
     }
@@ -65,7 +66,22 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
     const live: MailVersionRow[] = (await repos.mailVersions.ofDraft(d.id)).filter((v) => !v.trashedAt);
     try {
       const acc = live[0]?.account ?? pm.accounts[0] ?? "";
-      const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, clientWroteTo: d.wroteTo ?? null, mailRef: d.mailRef, body, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), ...(fresh ? { newThread: { to: client, subject: d.subject, account: acc, from: pm.sender } } : {}), log: writeLogOf((fn) => fn(repos), d.project, d.id, key) });
+      const displayName = displayNameFor(pm, d.brand);
+      const resolution = d.brand || d.wroteTo ? { brand: d.brand ?? null, wroteTo: d.wroteTo ?? null, via: "none" as const, reason: "the draft's recorded Mail context" } : null;
+      const signText = (text: string) => {
+        const block = signatureFor(pm, resolution, replyLanguage(text));
+        return {
+          body: signBody(text, block, signatureLines(pm)),
+          wroteTo: resolution?.wroteTo ?? null,
+          brand: resolution?.brand ?? null,
+          brandReason: resolution?.reason ?? "the draft has no recorded brand context",
+          signature: block.placeholder ? "placeholder" as const : block.lines.length ? "signed" as const : "none" as const,
+          ...(block.fallback ? { signatureFallback: block.fallback } : {}),
+        };
+      };
+      const sign = async (_inbound: InboundMessage, text: string) => signText(text);
+      const signedBody = fresh ? signText(body).body : body;
+      const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, displayName, clientWroteTo: d.wroteTo ?? null, mailRef: d.mailRef, body: signedBody, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), ...(!fresh ? { sign } : {}), ...(fresh ? { newThread: { to: client, subject: d.subject, account: acc, from: visibleFrom(pm.sender, displayName) } } : {}), log: writeLogOf((fn) => fn(repos), d.project, d.id, key) });
       await repos.mailVersions.add({ project: d.project, mailRef: key, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHash(r.text), source });
       const moved = new Set(r.replaced.map(bareId));
       await repos.mailVersions.markTrashed(live.filter((v) => moved.has(bareId(v.messageId))).map((v) => v.id));
@@ -131,6 +147,148 @@ export function draftMailRoutes(repos: Repos, sender?: SenderOptions) {
       const copy = await inTrash(draft, projectMail(slug)?.accounts ?? []);
       if (!copy) return refuse(c, "No version the Hub recorded for this draft is in Mail's Trash.");
       return write(c, draft, copy.body, "restore");
+    })
+    // Manual reply (P99 amendment): write one owner-authored unsent draft through the same Mail writer, then record it.
+    // This is deliberately separate from Send: the returned draft still needs the normal review and send door.
+    .post("/api/projects/:slug/clients/:id/draft", v("param", sendParam), v("json", manualReplyBody), async (c) => {
+      const why = door(c);
+      if (why) return c.json({ error: `Not saved: ${why}.`, code: "forbidden" as const }, 403);
+      const { slug, id } = c.req.valid("param");
+      const input = c.req.valid("json");
+      const row = await repos.conversations.one(slug, id);
+      if (!row) return notFound(c, "client");
+      if (row.draft) return refuse(c, "This conversation already has an unsent draft. Edit that draft instead.");
+      const pm = projectMail(slug);
+      if (!sender?.writer || !pm) return refuse(c, "Writing Mail drafts is not set up on this server.");
+      const facts = await repos.conversations.facts(slug, row.client.id);
+      const recordedDrafts = [...(facts?.drafts ?? [])].sort((a, b) => b.id - a.id);
+      const recordedBrands = [...new Set(recordedDrafts.map((draft) => draft.brand).filter((value): value is string => Boolean(value)))];
+      const latest = facts
+        ? [
+            ...facts.inbound.map((message) => ({ messageId: message.messageId, at: message.receivedAt, subject: message.subject })),
+            ...facts.sends.filter((send) => send.status === "sent" && send.sentMessageId).map((send) => ({ messageId: send.sentMessageId as string, at: send.doneAt ?? send.createdAt, subject: send.subject })),
+          ].sort((a, b) => b.at.localeCompare(a.at))[0] ?? null
+        : null;
+      const incoming = row.inboundId === null ? null : await repos.inboundMail.get(slug, row.inboundId);
+      if (row.inboundId !== null && (!incoming || !incoming.open)) return refuse(c, "The incoming message is no longer open. Refresh the conversation and try again.");
+      const threadRef = incoming?.messageId ?? (row.inboundId === null ? latest?.messageId ?? null : null);
+      const target = threadRef ? await sender.writer.findInbound(pm.accounts, threadRef) : null;
+      if (row.inboundId !== null && !target) return refuse(c, "Mail could not find the incoming message. Refresh the conversation and try again.");
+      const existing = target ? await sender.writer.threadDrafts(pm.accounts, threadRef ?? "", incoming?.subject ?? latest?.subject ?? row.subject) : [];
+      if (existing.length > 0) return refuse(c, "Mail already has an unsent draft for this conversation. Read or resolve it in Mail first.");
+
+      let wroteTo: string | null = null;
+      let brand: string | null = recordedBrands.length === 1 ? recordedBrands[0] ?? null : null;
+      let resolution: ReturnType<typeof resolveBrand> | null = null;
+      if (target) {
+        try {
+          resolution = resolveBrand(headersFromText(await sender.writer.readHeaders(target)), { mail: pm, brands: pm.brands });
+          wroteTo = resolution.wroteTo;
+          brand = resolution.brand ?? brand;
+        } catch {
+          // A manual reply can still be written from the receiving account when an old Mail message has no readable headers.
+        }
+      }
+
+      const requestedBrand = input.brand ?? null;
+      if (requestedBrand && !pm.brands.some((candidate) => candidate.name.toLowerCase() === requestedBrand.toLowerCase())) {
+        return refuse(c, `The selected brand "${requestedBrand}" is not configured for this project.`);
+      }
+      if (requestedBrand && resolution?.brand && resolution.brand.toLowerCase() !== requestedBrand.toLowerCase()) {
+        return refuse(c, `Mail identifies this conversation as ${resolution.brand}. Refresh the conversation before choosing a different brand.`);
+      }
+      if (!resolution?.brand && brand) resolution = brandResolutionFor(pm.brands, brand, resolution?.wroteTo ?? wroteTo);
+      if (!resolution?.brand && requestedBrand) resolution = brandResolutionFor(pm.brands, requestedBrand, resolution?.wroteTo ?? wroteTo);
+      if (!resolution?.brand && pm.brands.length === 1 && pm.brands[0]) resolution = brandResolutionFor(pm.brands, pm.brands[0].name, resolution?.wroteTo ?? wroteTo);
+      brand = resolution?.brand ?? brand;
+      wroteTo = resolution?.wroteTo ?? wroteTo;
+      if (pm.brands.length > 1 && !brand) return refuse(c, "Choose a brand before saving this Mail draft.");
+
+      const body = input.text.trimEnd();
+      const subject = incoming?.subject || latest?.subject || row.subject || "New message";
+      const mailRef = target ? threadRef : null;
+      const writeKey = mailRef ?? newThreadKey(row.client.email);
+      const signingResolution = brand || wroteTo ? { brand, wroteTo, via: resolution?.via ?? "none", reason: resolution?.reason ?? "the conversation's recorded Mail context" } : null;
+      const signText = (text: string) => {
+        const block = signatureFor(pm, signingResolution, replyLanguage(text));
+        return {
+          body: signBody(text, block, signatureLines(pm)),
+          wroteTo: signingResolution?.wroteTo ?? null,
+          brand: signingResolution?.brand ?? null,
+          brandReason: signingResolution?.reason ?? "the conversation has no recorded brand context",
+          signature: block.placeholder ? "placeholder" as const : block.lines.length ? "signed" as const : "none" as const,
+          ...(block.fallback ? { signatureFallback: block.fallback } : {}),
+        };
+      };
+      const sign = async (_inbound: InboundMessage, text: string) => signText(text);
+      const signed = signText(body);
+      if (signed.signature === "placeholder") return refuse(c, "The selected brand has no configured signature. Choose a brand with a signature before saving this Mail draft.");
+      const signedBody = signed.body;
+      let revision: Awaited<ReturnType<typeof reviseDraft>>;
+      try {
+        revision = target
+          ? await reviseDraft(sender.writer, {
+              accounts: pm.accounts,
+              sender: pm.sender ?? null,
+              clientWroteTo: wroteTo,
+              displayName: displayNameFor(pm, brand),
+              mailRef: threadRef ?? "",
+              body,
+              quote: "keep",
+              versions: [],
+              sign,
+              log: writeLogOf((fn) => fn(repos), slug, null, writeKey),
+            })
+          : await reviseDraft(sender.writer, {
+              accounts: pm.accounts,
+              sender: pm.sender ?? null,
+              displayName: displayNameFor(pm, brand),
+              mailRef: null,
+              body: signedBody,
+              quote: "keep",
+              versions: [],
+              newThread: { to: row.client.email, subject, account: pm.accounts[0] ?? "", from: visibleFrom(pm.sender, displayNameFor(pm, brand)) },
+              log: writeLogOf((fn) => fn(repos), slug, null, writeKey),
+            });
+      } catch (e) {
+        if (e instanceof DraftWriteError && e.code === "mail_slow") return refuse(c, "Mail is slow: the draft may still land. Do not save again now; refresh this conversation shortly.");
+        if (e instanceof DraftWriteError) return refuse(c, `Mail did not take the draft: ${e.message}`);
+        throw e;
+      }
+
+      await repos.mailVersions.add({
+        project: slug,
+        mailRef: writeKey,
+        account: revision.account,
+        mailId: revision.draftId,
+        messageId: revision.messageId,
+        hash: versionHash(revision.text),
+        source: "save",
+        signatureFallback: revision.signatureFallback ?? null,
+      });
+      const recorded = await repos.drafts.record({
+        project: slug,
+        email: row.client.email,
+        name: row.client.name,
+        subject,
+        mailRef,
+        newThread: mailRef === null,
+        manual: true,
+        reason: null,
+        excerpt: body.replace(/\s+/g, " ").trim().slice(0, 240),
+        lastContactAt: incoming?.receivedAt ?? row.theirLastAt,
+        repliesOwed: false,
+        skill: "manual-reply",
+        wroteTo: revision.clientWroteTo ?? wroteTo,
+        brand: revision.brand ?? brand,
+      });
+      if (!recorded.recorded) return refuse(c, "The draft was written to Mail, but the Hub could not record it. Refresh the conversation before trying again.");
+      try {
+        sender.mailWritten?.(slug);
+      } catch {
+        // The draft is written; the open page will read the updated row on its next refresh.
+      }
+      return c.json(draftChangedDto.parse({ ok: true, draftId: recorded.draftId }));
     })
     // Save (P56 S1): the person's text, written only over the very read it was edited from.
     .put("/api/projects/:slug/drafts/:id/mail", v("param", sendParam), v("json", draftEditBody), async (c) => {

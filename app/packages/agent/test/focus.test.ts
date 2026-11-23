@@ -172,9 +172,10 @@ describe("readFocus", () => {
   });
 });
 
-async function connect(hubProject: string | undefined, o: { pointer?: boolean; bumps?: string[]; notion?: NotionScope } = {}) {
+async function connect(hubProject: string | undefined, o: { pointer?: boolean; bumps?: string[]; notion?: NotionScope; links?: Array<{ group: string; label: string; target: string; under: string | null; answered: string; by: "owner" | "default" | "agent" }> } = {}) {
   const notion = o.notion;
-  const server = createHubMcpServer(repos, { hubProject, focusFile: file, now: () => NOW, ...(notion ? { projectNotion: () => notion } : {}), ...(o.pointer === false ? {} : { pointerFile, pointerWritten: (s: string) => void o.bumps?.push(s) }) });
+  const links = o.links;
+  const server = createHubMcpServer(repos, { hubProject, focusFile: file, now: () => NOW, ...(notion ? { projectNotion: () => notion } : {}), ...(links ? { projectLinks: () => links } : {}), ...(o.pointer === false ? {} : { pointerFile, pointerWritten: (s: string) => void o.bumps?.push(s) }) });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(b);
   const client = new Client({ name: "test", version: "0" });
@@ -203,6 +204,11 @@ describe("hub mcp", () => {
     expect(r.json).toMatchObject({ project: "acme", teamspace: null, databases: [{ role: "clients", url: "collection://00000000-0000-4000-8000-000000000001" }] });
     expect((await (await connect("acme")).call("project_notion")).json).toMatchObject({ error: "unavailable" });
   });
+  it("P101: project_links returns declared destinations without granting a write or open capability", async () => {
+    const { call } = await connect("acme", { links: [{ group: "CRM", label: "Clients", target: "notion:clients", under: null, answered: "2026-11-22", by: "owner" }] });
+    expect(await call("project_links")).toMatchObject({ isError: false, json: { project: "acme", links: [{ group: "CRM", label: "Clients", target: "notion:clients", under: null, by: "owner" }] } });
+    expect((await (await connect("acme")).call("project_links")).json.error).toBe("unavailable");
+  });
   it("P98: inbound_show gives from, subject, when, the Message-ID and the reply call; another project's message is refused", async () => {
     const { call } = await connect("acme");
     const r = await call("inbound_show", { inbound: ids.inbound });
@@ -213,11 +219,11 @@ describe("hub mcp", () => {
     expect(await call("inbound_show", { inbound: ids.otherInbound })).toMatchObject({ isError: true, json: { error: "not_found" } });
   });
 
-  it("lists exactly the eleven tools: eight read-only (mail_brand reads no Mail, project_notion the project's Notion ids, P82, inbound_show a message of Inbox, P98), highlight the pointer, draft_write the one Mail write, messenger_draft_write the one messenger write; none send-like", async () => {
+  it("lists exactly the twelve tools: nine read-only (including project_links), highlight the pointer, draft_write the one Mail write, messenger_draft_write the one messenger write; none send-like", async () => {
     const { client } = await connect("acme");
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([...HUB_MCP_TOOLS].sort());
-    expect(HUB_MCP_TOOLS).toHaveLength(11);
+    expect(HUB_MCP_TOOLS).toHaveLength(12);
     expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["draft_write", "highlight", "messenger_draft_write"]);
     expect(tools.filter((t) => SEND_LIKE_TOOL.test(t.name))).toEqual([]);
   });

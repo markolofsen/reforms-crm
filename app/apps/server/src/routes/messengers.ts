@@ -4,60 +4,52 @@ import { sentenceOf } from "@hub/contract/errors";
 import {
   chatRulesBody,
   inChannel,
-  MESSENGER_CHANNEL_FILTERS,
-  MESSENGER_VIEWS,
   messengerChatDto,
+  messengerChatsQuery,
+  messengerConversationDto,
   messengerChatsDto,
   messengerDraftDto,
   messengerDraftTextBody,
+  messengerPrepareBody,
   messengerSkippedDto,
-  type MessengerChannelFilter,
   type MessengerChatDto,
-  type MessengerView,
 } from "@hub/contract/messenger-panel";
-import { rulesOf, type MessengerChatRow, type MessengerDraftRow, type Repos } from "@hub/db";
+import { rulesOf, type MessengerChatRow, type MessengerDraftRow, type MessengerProjectionRow, type Repos } from "@hub/db";
 import { z, type ZodType } from "zod";
 import { gateRefusal } from "../admin-gate";
-import { notFound } from "../http";
-import { preanalysisStanding, type Preanalysis } from "../preanalysis";
+import { notFound, v } from "../http";
+import { preanalysisStanding } from "../preanalysis";
+import { MessengerReplyError, prepareMessengerReply } from "../messenger-reply";
+import { createMessengerIdentityResolver, type MessengerIdentityResolver } from "../messenger-identity";
+import { type MessengerServices } from "../composition/capabilities";
 
-const KIND = { telegram_bot: "telegram", telegram_user: "telegram", whatsapp: "whatsapp" } as const;
-const viewOf = (v: string | undefined): MessengerView => MESSENGER_VIEWS.find((x) => x === v) ?? "todo";
-const channelOf = (v: string | undefined): MessengerChannelFilter => MESSENGER_CHANNEL_FILTERS.find((x) => x === v) ?? "all";
-const draftOf = (d: MessengerDraftRow) => messengerDraftDto.parse({ id: d.id, text: d.text, nudge: d.nudge, ownerRequest: d.ownerRequest, createdAt: d.createdAt, updatedAt: d.updatedAt });
+const draftOf = (d: MessengerDraftRow) => messengerDraftDto.parse({ id: d.id, text: d.text, createdBy: d.createdBy, nudge: d.nudge, ownerRequest: d.ownerRequest, createdAt: d.createdAt, updatedAt: d.updatedAt });
 const waits = (c: MessengerChatDto): boolean => c.draft !== null || c.owed;
 
-/** One linked chat as the panel shows it: its client, rules, the newest stored message and the agent's open draft. */
-async function chatRow(repos: Repos, slug: string, row: MessengerChatRow): Promise<MessengerChatDto> {
-  const m = repos.messengers;
-  const [activity, stored, draft, clientId, newest, triage] = await Promise.all([
-    m.activity(slug, row.channel, row.chatId),
-    m.messageCount(slug, row.channel, row.chatId),
-    m.openDraft(slug, row.channel, row.chatId),
-    m.clientByIdentifier(slug, KIND[row.channel], row.chatId),
-    m.messagesOf(slug, [{ channel: row.channel, chatId: row.chatId }], { limit: 1 }),
-    m.triageCounts(slug, row.channel, row.chatId),
-  ]);
-  const client = clientId === null ? null : await repos.clients.get(slug, clientId);
-  const last = newest[0] ?? null;
-  // P71 M-P: a newest message the pre-analysis hid (a "thanks", a notice) owes no reply.
-  const verdict = last ? (await m.verdictsOf(slug, [last.id])).get(last.id) : undefined;
-  const hidden = isHiddenLabel(verdict) ? verdict : null;
+/** Maps the bounded DB projection into the same DTO as the detail route without per-chat repository calls. */
+function projectedChatRow(projected: MessengerProjectionRow, identity: MessengerIdentityResolver, slug: string): MessengerChatDto {
+  const { row, client, notion, activity, last, lastVerdict } = projected;
+  const hidden = isHiddenLabel(lastVerdict) ? lastVerdict : null;
   return messengerChatDto.parse({
     id: row.id,
     channel: row.channel,
     chatId: row.chatId,
     title: row.title,
-    client,
+    client: identity.client(slug, client, notion),
     rules: rulesOf(row),
     inbound: activity.inbound,
-    stored,
+    stored: projected.stored,
     last: last ? { direction: last.direction, kind: last.kind, text: last.text, at: last.sentAt, hidden } : null,
     owed: last?.direction === "in" && hidden === null,
-    draft: draft ? draftOf(draft) : null,
+    draft: projected.draft ? draftOf(projected.draft) : null,
     autolinked: row.autolinked ?? null,
-    triage,
+    triage: projected.triage,
   });
+}
+
+async function projectedChatOf(repos: Repos, slug: string, row: MessengerChatRow, identity: MessengerIdentityResolver): Promise<MessengerChatDto | null> {
+  const projected = (await repos.messengers.list(slug)).find((item) => item.row.id === row.id);
+  return projected ? projectedChatRow(projected, identity, slug) : null;
 }
 
 /** Waiting first (a draft, then a reply owed), then by the newest message, newest first. */
@@ -70,11 +62,12 @@ const order = (a: MessengerChatDto, b: MessengerChatDto): number =>
  * chat, since such a chat is not linked: the admin reads them from the autolink's memory). Writes, each behind the admin gate (the exact admin Origin,
  * a loopback Host, `Sec-Fetch-Site: same-origin`), since a chat's instruction steers the agent and a draft's text is what Send
  * will carry: the owner's Edit of a draft that still waits, Skip and its Undo, and one chat's rules (`setChatRules`). Nothing
- * here sends: Send is the door of P71 M4. P71 M-P: each chat carries its pre-analysis counts by reason, the reply says whether a
+ * here sends: Send is the door of P71 M4. The owner may also create an unsent manual draft without an inbound message. P71 M-P: each chat carries its pre-analysis counts by reason, the reply says whether a
  * pass can run (`preanalysis`), and turning a chat's switch on starts one pass.
  */
-export function messengerRoutes(repos: Repos, adminPort: number, preanalysis?: Preanalysis) {
+export function messengerRoutes({ repos, adminPort, preanalysis, reply, directory }: MessengerServices) {
   const standing = () => preanalysis?.standing() ?? preanalysisStanding();
+  const identity = createMessengerIdentityResolver(directory);
   const gated = async <T>(c: Context, schema: ZodType<T>, then: (body: T, slug: string) => Promise<Response>): Promise<Response> => {
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
     if (why) return c.json({ error: `Refused: ${why}.`, code: "forbidden" as const }, 403);
@@ -92,15 +85,36 @@ export function messengerRoutes(repos: Repos, adminPort: number, preanalysis?: P
   const noBody = z.unknown();
 
   return new Hono()
-    .get("/api/projects/:slug/messengers/chats", async (c) => {
+    .get("/api/projects/:slug/messengers/chats", v("query", messengerChatsQuery), async (c) => {
       const slug = c.req.param("slug");
       if ((await repos.projects.get(slug)) === null) return notFound(c, "project");
-      const channel = channelOf(c.req.query("channel"));
-      const rows = await Promise.all((await repos.messengers.allowedChats(slug)).filter((r) => inChannel(r.channel, channel)).map((r) => chatRow(repos, slug, r)));
+      const { channel, filter: view, q } = c.req.valid("query");
+      const rows = (await repos.messengers.list(slug)).filter((projection) => inChannel(projection.row.channel, channel)).map((projection) => projectedChatRow(projection, identity, slug));
       const all = rows.sort(order);
-      const view = viewOf(c.req.query("filter"));
-      const shown = view === "linked" ? all : view === "todo" ? all.filter(waits) : [];
+      const search = q.toLocaleLowerCase();
+      const matching = search
+        ? all.filter((r) => [r.title, r.chatId, r.client?.name, r.client?.email, r.last?.text].some((value) => value?.toLocaleLowerCase().includes(search)))
+        : all;
+      const shown = view === "linked" ? matching : view === "todo" ? matching.filter(waits) : [];
       return c.json(messengerChatsDto.parse({ chats: shown, counts: { todo: all.filter(waits).length, linked: all.length }, preanalysis: standing() }));
+    })
+    .get("/api/projects/:slug/messengers/chats/:id/conversation", async (c) => {
+      const slug = c.req.param("slug");
+      if ((await repos.projects.get(slug)) === null) return notFound(c, "project");
+      const id = idOf(c, "id");
+      const row = id === null ? null : await repos.messengers.chatById(slug, id);
+      if (!row) return notFound(c, "chat");
+      const [chat, messages] = await Promise.all([
+        projectedChatOf(repos, slug, row, identity),
+        repos.messengers.messagesOf(slug, [{ channel: row.channel, chatId: row.chatId }], { limit: 101 }),
+      ]);
+      if (!chat) return notFound(c, "chat");
+      const verdicts = await repos.messengers.verdictsOf(slug, messages.map((m) => m.id));
+      const ordered = messages
+        .slice()
+        .reverse()
+        .map((m) => ({ id: m.id, direction: m.direction, kind: m.kind, text: m.text, format: "plain" as const, at: m.sentAt, hidden: isHiddenLabel(verdicts.get(m.id)) ? verdicts.get(m.id) : null }));
+      return c.json(messengerConversationDto.parse({ chat, messages: ordered.slice(-100), earlier: Math.max(0, messages.length - 100) }));
     })
     .put("/api/projects/:slug/messengers/drafts/:id/text", (c) =>
       gated(c, messengerDraftTextBody, async (b, slug) => {
@@ -124,6 +138,40 @@ export function messengerRoutes(repos: Repos, adminPort: number, preanalysis?: P
         return c.json(draftOf(await repos.messengers.restoreDraft(slug, id)));
       }),
     )
+    .post("/api/projects/:slug/messengers/chats/:id/prepare", (c) =>
+      gated(c, messengerPrepareBody, async (b, slug) => {
+        const id = idOf(c, "id");
+        if (id === null) return c.json({ error: "Not a chat id.", code: "invalid" as const }, 400);
+        if (!reply) return c.json({ error: "Reply preparation is unavailable in this server mode.", code: "unavailable" as const }, 503);
+        try {
+          await prepareMessengerReply({ repos, llm: reply.llm, projectsDir: reply.projectsDir, ...(reply.policyDir ? { policyDir: reply.policyDir } : {}), project: slug, chatId: id, body: b });
+          const row = await repos.messengers.chatById(slug, id);
+          if (!row) return notFound(c, "chat");
+          const chat = await projectedChatOf(repos, slug, row, identity);
+          return chat ? c.json(chat) : notFound(c, "chat");
+        } catch (e) {
+          if (e instanceof MessengerReplyError) {
+            const code = e.code === "not_found" ? "not_found" : e.code === "unavailable" ? "unavailable" : "wrong_state";
+            return c.json({ error: e.message, code }, e.code === "not_found" ? 404 : e.code === "unavailable" ? 503 : 409);
+          }
+          throw e;
+        }
+      }),
+    )
+    .post("/api/projects/:slug/messengers/chats/:id/draft", (c) =>
+      gated(c, messengerDraftTextBody, async (b, slug) => {
+        const id = idOf(c, "id");
+        if (id === null) return c.json({ error: "Not a chat id.", code: "invalid" as const }, 400);
+        const row = await repos.messengers.chatById(slug, id);
+        if (!row) return notFound(c, "chat");
+        const open = await repos.messengers.openDraft(slug, row.channel, row.chatId);
+        if (open) return c.json({ error: `Draft ${open.id} already waits for review.`, code: "wrong_state" as const }, 409);
+        const clientId = await repos.messengers.clientByIdentifier(slug, row.channel === "whatsapp" ? "whatsapp" : "telegram", row.chatId);
+        await repos.messengers.createDraft({ project: slug, channel: row.channel, chatId: row.chatId, text: b.text, createdBy: "owner", clientId });
+        const next = await projectedChatOf(repos, slug, row, identity);
+        return next ? c.json(next) : notFound(c, "chat");
+      }),
+    )
     .put("/api/projects/:slug/messengers/chats/:id/rules", (c) =>
       gated(c, chatRulesBody, async (b, slug) => {
         const id = idOf(c, "id");
@@ -135,7 +183,8 @@ export function messengerRoutes(repos: Repos, adminPort: number, preanalysis?: P
         const next = await repos.messengers.setChatRules(slug, row.channel, row.chatId, b);
         // P71 M-P: the owner turned the pre-analysis on: one pass now over the chat's recent messages (none without a key).
         if (b.prefilter === true && !row.prefilter) preanalysis?.after(slug);
-        return c.json(await chatRow(repos, slug, next));
+        const chat = await projectedChatOf(repos, slug, next, identity);
+        return chat ? c.json(chat) : notFound(c, "chat");
       }),
     );
 }

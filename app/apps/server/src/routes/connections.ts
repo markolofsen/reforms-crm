@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { connectionDto, connectionsDto } from "@hub/contract/connections";
 import { setSecretBody } from "@hub/contract/requests";
+import type { ConnectionsServices } from "../composition/capabilities";
 import { notFound, v } from "../http";
-import { NotTestable, Refusal, type ConnectionsService } from "../connections";
+import { NotTestable, Refusal } from "../connections";
 
 /**
  * Settings ▸ Connections and ▸ Mail (P70). `GET` reads files and settings and the in-memory test results: no network, no write.
@@ -11,7 +12,7 @@ import { NotTestable, Refusal, type ConnectionsService } from "../connections";
  * The two writes (decision 0020) are the only way a key enters from the browser and the only way one leaves the folder: `PUT .../secret`
  * stores it (mode 600, atomic), `POST .../remove` deletes the file. The body of a PUT is never logged, echoed or kept.
  */
-export function connectionRoutes(service: ConnectionsService) {
+export function connectionRoutes({ service }: ConnectionsServices) {
   return new Hono()
     .get("/api/connections", async (c) => c.json(connectionsDto.parse(await service.list())))
     .post("/api/connections/:id/test", async (c) => {

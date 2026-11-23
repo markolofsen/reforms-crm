@@ -2,7 +2,8 @@ import { Hono } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
 import { autostartDto, setAutostartBody } from "@hub/contract/autostart";
 import { gateRefusal } from "../admin-gate";
-import { AutostartNotSetUp, type AutostartService } from "../autostart";
+import type { AutostartServices } from "../composition/capabilities";
+import { AutostartNotSetUp } from "../autostart";
 
 /**
  * `GET /api/instance/autostart` reads whether this Mac starts the Hub at login (P67); `POST` with `{enabled}` switches it. The
@@ -10,7 +11,7 @@ import { AutostartNotSetUp, type AutostartService } from "../autostart";
  * `Sec-Fetch-Site: same-origin`, as the local Open). The body is strict: the label is the server's. Without the service (tests,
  * off macOS the server still passes one) both are 404.
  */
-export function autostartRoutes(service: AutostartService | undefined, adminPort: number) {
+export function autostartRoutes({ service, adminPort }: AutostartServices) {
   return new Hono()
     .get("/api/instance/autostart", async (c) => {
       if (!service) return c.json({ error: "No autostart on this server.", code: "not_found" as const }, 404);

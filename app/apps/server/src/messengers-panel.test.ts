@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { messengerChatsDto } from "@hub/contract/messenger-panel";
+import { messengerChatDto, messengerChatsDto, messengerConversationDto } from "@hub/contract/messenger-panel";
 import { createApp } from "./app";
 
 // The Messengers section's routes (P71 M3): the panel's chats with their open draft, Edit, Skip and its Undo, one chat's rules,
@@ -19,7 +19,7 @@ let chatRowId: number;
 
 const call = (method: string, path: string, body?: unknown, headers: Record<string, string> = HEADERS) =>
   app.request(`${BASE}${path}`, { method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
-const chats = async (filter = "todo", channel = "all") => messengerChatsDto.parse(await (await call("GET", `/api/projects/p/messengers/chats?filter=${filter}&channel=${channel}`)).json());
+const chats = async (filter = "todo", channel = "all", q = "") => messengerChatsDto.parse(await (await call("GET", `/api/projects/p/messengers/chats?filter=${filter}&channel=${channel}&q=${encodeURIComponent(q)}`)).json());
 const msg = (chatId: string, direction: "in" | "out", sentAt: string, text: string) =>
   repos.messengers.insertMessage({ project: "p", channel: "telegram_user", account: "1", chatId, remoteMessageId: `${chatId}-${sentAt}`, direction, text, sentAt, retainUntil: "2099-01-01T00:00:00Z" });
 
@@ -58,6 +58,9 @@ describe("the Messengers panel", () => {
     expect((await chats("linked", "whatsapp")).counts).toEqual({ todo: 0, linked: 1 });
     expect((await chats("linked", "telegram")).counts).toEqual({ todo: 1, linked: 2 });
     expect((await chats("linked", "nope")).counts).toEqual({ todo: 1, linked: 3 });
+    expect((await chats("linked", "all", "Anna")).chats.map((c) => c.title)).toEqual(["Anna"]);
+    expect((await chats("linked", "all", "flat still")).chats.map((c) => c.title)).toEqual(["Anna"]);
+    expect((await chats("linked", "all", "missing")).chats).toEqual([]);
     expect((await call("GET", "/api/projects/nope/messengers/chats")).status).toBe(404);
   });
 
@@ -68,6 +71,25 @@ describe("the Messengers panel", () => {
     expect((await call("PUT", `/api/projects/p/messengers/drafts/${draftId}/text`, { text: "  " })).status).toBe(400);
     expect((await call("PUT", `/api/projects/p/messengers/drafts/${draftId}/text`, { text: "x" }, { ...HEADERS, origin: "http://127.0.0.1:9999" })).status).toBe(403);
     expect((await call("PUT", `/api/projects/q/messengers/drafts/${draftId}/text`, { text: "x" })).status).toBe(404);
+  });
+
+  it("returns one linked chat conversation oldest first and refuses another project's row", async () => {
+    const r = messengerConversationDto.parse(await (await call("GET", `/api/projects/p/messengers/chats/${chatRowId}/conversation`)).json());
+    expect(r).toMatchObject({ chat: { id: chatRowId, channel: "telegram_user", client: { id: anna } }, earlier: 0 });
+    expect(r.messages.map((m) => [m.direction, m.text])).toEqual([["in", "Is the flat still free?"]]);
+    expect((await call("GET", `/api/projects/q/messengers/chats/${chatRowId}/conversation`)).status).toBe(404);
+    expect((await call("GET", "/api/projects/p/messengers/chats/9999/conversation")).status).toBe(404);
+  });
+
+  it("creates an owner Messenger draft without an inbound message and never sends it", async () => {
+    const bobId = (await repos.messengers.chat("p", "telegram_user", "2002"))?.id ?? 0;
+    const response = await call("POST", `/api/projects/p/messengers/chats/${bobId}/draft`, { text: "A proactive follow-up." });
+    expect(response.status).toBe(200);
+    const chat = messengerChatDto.parse(await response.json());
+    expect(chat).toMatchObject({ id: bobId, owed: false, draft: { text: "A proactive follow-up.", createdBy: "owner" } });
+    expect((await repos.messengers.openDraft("p", "telegram_user", "2002"))?.text).toBe("A proactive follow-up.");
+    expect((await call("POST", `/api/projects/p/messengers/chats/${bobId}/draft`, { text: "Second draft" })).status).toBe(409);
+    expect((await call("POST", `/api/projects/p/messengers/chats/${bobId}/draft`, { text: "Nope" }, { ...HEADERS, origin: "http://127.0.0.1:9999" })).status).toBe(403);
   });
 
   it("Skip sets the draft aside and its Undo brings it back; a second Skip is a conflict", async () => {

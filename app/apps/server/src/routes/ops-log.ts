@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import type { StatusNext } from "@hub/contract/overview";
 import { opsErrorsDto, RECENT_ERRORS_HOURS, RECENT_ERRORS_LIMIT } from "@hub/contract/ops-log";
-import { readOps, type OpsSource, type OpsStore } from "@hub/log/ops";
+import { readOps, type OpsSource } from "@hub/log/ops";
+import type { OpsLogServices } from "../composition/capabilities";
 
 /** The page that fixes what a source's error is about (P86): the same places as a part's `place`. Total over the sources. */
 export const OPS_PLACE: Readonly<Record<OpsSource, StatusNext | null>> = {
@@ -26,7 +27,7 @@ export const OPS_PLACE: Readonly<Record<OpsSource, StatusNext | null>> = {
  * place that fixes it. Read only, behind the general guard; the live topic `ops-log` says when to read it again. Without a store
  * (a test app) the list is empty.
  */
-export function opsLogRoutes(store: OpsStore | undefined, now: () => Date) {
+export function opsLogRoutes({ store, now }: OpsLogServices) {
   return new Hono().get("/api/ops/errors", (c) => {
     const since = new Date(now().getTime() - RECENT_ERRORS_HOURS * 3_600_000).toISOString();
     const lines = store ? readOps(store, { level: "error", since }) : [];

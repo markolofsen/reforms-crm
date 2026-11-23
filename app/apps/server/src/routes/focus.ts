@@ -3,7 +3,7 @@ import { sentenceOf } from "@hub/contract/errors";
 import { focusInput } from "@hub/contract/focus";
 import { okDto } from "@hub/contract/responses";
 import { gateRefusal } from "../admin-gate";
-import type { FocusStore } from "../focus";
+import type { FocusServices } from "../composition/capabilities";
 
 /**
  * `POST /api/focus` (P51): the admin tab publishes what it shows. No GET: the admin knows its own focus, and the agent reads
@@ -11,7 +11,7 @@ import type { FocusStore } from "../focus";
  * `Sec-Fetch-Site: same-origin`, strict body), because a forged focus steers the agent: "answer this client" would revise
  * another client's draft. The agent's sandbox has no loopback; the agent never writes the focus.
  */
-export function focusRoutes(store: FocusStore | undefined, adminPort: number) {
+export function focusRoutes({ store, adminPort }: FocusServices) {
   return new Hono().post("/api/focus", async (c) => {
     if (!store) return c.json({ error: "focus not found", code: "not_found" as const }, 404);
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });

@@ -19,9 +19,10 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   const handle = openDbReadOnly(paths.db);
   const projectMail = (slug: string) => {
     const c = loadProject(paths.projects, slug).parsed.config;
-    return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages } };
+    return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages }, messengers: c.messengers };
   };
   const projectNotion = (slug: string) => notionScopeOf(slug, loadProject(paths.projects, slug).parsed.config);
+  const projectLinks = (slug: string) => loadProject(paths.projects, slug).parsed.config.links;
   // A revision the writer saved is recorded in place on a short write connection, closed at once (the tools' handle stays read-only).
   const recordRevision = async (slug: string, draftId: number, r: RevisionRecord) => {
     const w = openDb(paths.db);
@@ -77,7 +78,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   };
   // P92: the owner's test addresses while the project's send policy is test mode (read per call: the policy may change).
   const testRecipients = (slug: string) => testRecipientsOf(loadProject(paths.projects, slug, { policyDir: paths.stateProjects }).parsed.config, readAllowList(paths.configFile));
-  const server = createHubMcpServer(leadRepos, { clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectNotion, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  const server = createHubMcpServer(leadRepos, { clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectNotion, projectLinks, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

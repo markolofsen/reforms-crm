@@ -872,6 +872,8 @@ export interface ReviseInput {
   sender: string | null;
   /** The address the client wrote to when no `sign` resolves it from the headers (a person's Save: the draft row's `wrote_to`). */
   clientWroteTo?: string | null;
+  /** The resolved brand's visible From name; absent keeps Mail's account name. */
+  displayName?: string | null;
   /** The hub draft's `mailRef`: the Message-ID of the message it answers; null for a new thread (P85b, then `newThread`). */
   mailRef: string | null;
   /** P85b: the draft is a new thread (it answers nothing): rewritten as a new message to `to` with `subject`, from `from`. */
@@ -964,9 +966,9 @@ export type Revision = ReplyDraftResult & { replyTo: number; account: string; fr
  * as it, else the receiving account, else `mail.sender`. The receiving account's addresses come from the lookup that found
  * the message, else one read of the account (`addressesOf`); a failed read leaves the account name alone.
  */
-export async function fromFor(writer: DraftWriter, inbound: InboundMessage, clientWroteTo: string | null, mail: { accounts: readonly string[]; sender: string | null }): Promise<ReplyFrom> {
+export async function fromFor(writer: DraftWriter, inbound: InboundMessage, clientWroteTo: string | null, mail: { accounts: readonly string[]; sender: string | null }, displayName?: string | null): Promise<ReplyFrom> {
   const addresses = inbound.accountAddresses ?? (await writer.addressesOf(inbound.account).catch(() => []));
-  return replyFrom({ account: inbound.account, accountAddresses: addresses, clientWroteTo }, { mail: { accounts: [...mail.accounts], sender: mail.sender } });
+  return replyFrom({ account: inbound.account, accountAddresses: addresses, clientWroteTo, displayName }, { mail: { accounts: [...mail.accounts], sender: mail.sender } });
 }
 
 /**
@@ -987,7 +989,7 @@ export async function reviseDraft(writer: DraftWriter, i: ReviseInput): Promise<
   const found = await writer.findInbound(i.accounts, i.mailRef);
   if (!found) throw new DraftWriteError("no_message", `The message this draft answers (Message-ID ${i.mailRef}) is not in ${i.accounts.join(", ") || "this project's accounts"}: it may have been deleted. Nothing was written.`);
   const signed = i.sign ? await i.sign(found, i.body) : null;
-  const rf = await fromFor(writer, found, signed ? signed.wroteTo : (i.clientWroteTo ?? null), i);
+  const rf = await fromFor(writer, found, signed ? signed.wroteTo : (i.clientWroteTo ?? null), i, i.displayName);
   const { accountAddresses: _addresses, ...where } = found;
   const r = await writeRecorded(writer, { ...where, body: signed?.body ?? i.body, sender: rf.from, quote: i.quote, replace: i.versions, landIn: i.accounts }, i.log);
   const account = r.savedIn || found.account;

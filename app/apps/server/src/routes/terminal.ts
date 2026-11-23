@@ -3,14 +3,15 @@ import { bodyLimit } from "hono/body-limit";
 import { okDto } from "@hub/contract/responses";
 import { createSessionBody, DROP_FIELD, DROP_LIMITS, ensureSessionBody, ensureSessionDto, terminalDropDto, terminalSessionDto, terminalStateDto, terminalTicketBody, terminalTicketDto } from "@hub/contract/terminal";
 import { gateRefusal } from "../admin-gate";
+import type { TerminalServices } from "../composition/capabilities";
 import { notFound, v } from "../http";
-import { TerminalRefusal, type TerminalService } from "../terminal";
+import { TerminalRefusal } from "../terminal";
 
 /**
  * `/api/terminal` (P49; always on, decision 0032). The state carries `problem` when no tab can start (P66); a start then
  * answers 503 `terminal_unavailable` with the same `fix`. Without the service (a test's bare app) every route is 404. A ticket, a new session and `ensure` need the admin's exact origin and a same-origin fetch (S4, S5); no route takes a command, and the one that takes a file name (the drop, P76) keeps a safe basename under a folder the server names (S7).
  */
-export function terminalRoutes(t: TerminalService | undefined, adminPort: number) {
+export function terminalRoutes({ terminal: t, adminPort }: TerminalServices) {
   const missing = (c: Context) => c.json({ error: "terminal not set up", code: "not_found" as const }, 404);
   /** The exact admin Origin and a same-origin fetch: a tab starts without a click on a `+` item (P57 2f), so both start doors take it. */
   const strict = (c: Context) => {

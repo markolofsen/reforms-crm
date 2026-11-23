@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import type { Repos } from "@hub/db";
 import { entryKey } from "@hub/contract/local";
 import { entryStatus, inView, KNOWLEDGE_MAX_ROWS, KNOWLEDGE_VIEWS, knowledgeListDto, type KnowledgeEntryDto, type KnowledgeView } from "@hub/contract/knowledge";
 import { notFound } from "../http";
 import { configOf, hostTimeZone, localDate } from "../overview-facts";
+import type { KnowledgeServices } from "../composition/capabilities";
 
 const list = (json: string): string[] => {
   try {
@@ -21,7 +21,7 @@ const viewOf = (v: string | undefined): KnowledgeView => KNOWLEDGE_VIEWS.find((x
  * `consistent`). `status` is computed on the project's local day; `q` matches the title, case-insensitive; the counts are every
  * view's size for that search. Read only, behind the general guard; an unknown project is 404.
  */
-export function knowledgeRoutes(repos: Repos, now: () => Date, timeZone?: string) {
+export function knowledgeRoutes({ repos, now, timeZone }: KnowledgeServices) {
   return new Hono().get("/api/projects/:slug/knowledge", async (c) => {
     const slug = c.req.param("slug");
     const row = await repos.projects.get(slug);

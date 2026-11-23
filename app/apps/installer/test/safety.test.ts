@@ -179,11 +179,18 @@ describe("the Codex home (P49 S10)", () => {
   });
   it("is unattended without the bypass: approvals never, the profile's sandbox, network off, the policy read-only", () => {
     expect(toml).toContain('approval_policy = "never"');
+    expect(toml).toContain('[mcp_servers."hub".tools."draft_write"]\napproval_mode = "approve"');
     expect(toml).toContain('default_permissions = "hub"');
     expect(toml).not.toMatch(/danger-full-access|dangerously/);
     expect(toml).toContain(`${JSON.stringify(path.join(root, "state", "projects"))} = "read"`);
     expect(toml).toMatch(/\[permissions\.hub\.network\]\nenabled = false/);
     expect(toml).toContain('model = "gpt-test"');
+  });
+  it("keeps the draft writer approval-gated in attended mode", () => {
+    const attendedHome = writeCodexHome({ paths: pathsAt(root), projectsDir: PROJECTS, slug: "acme-travel", unattended: false, instructions: "bound", env: { HOME: "/nowhere", CODEX_HOME: owner } });
+    const attended = readFileSync(path.join(attendedHome, "config.toml"), "utf8");
+    expect(attended).toContain('approval_policy = "on-request"');
+    expect(attended).not.toContain('[mcp_servers."hub".tools."draft_write"]');
   });
   it("links auth.json and the skills, writes the forbidden rules", () => {
     expect(lstatSync(path.join(home, "auth.json")).isSymbolicLink()).toBe(true);

@@ -1,20 +1,19 @@
 import { Hono } from "hono";
 import { clientHistory } from "@hub/messengers";
-import { type Repos } from "@hub/db";
 import { ackBody, checkedBody, draftsQuery, historyQuery, idParam, marksBody, projectQuery, statusBody, toneBody } from "@hub/contract/requests";
-import { draftChangedDto, draftsDto, historyDto, timelineDto } from "@hub/contract/responses";
+import { draftChangedDto, draftsDto, historyDto, timelineDto } from "@hub/contract/review";
 import { toDraft } from "../dto";
 import { notFound, v } from "../http";
-import type { SenderOptions } from "./sends";
 import { findMail, mailHash, trashThread } from "@hub/send";
 import { loadProject } from "@hub/projects";
 import { errFields, ops } from "@hub/log/ops";
+import type { ReviewServices } from "../composition/capabilities";
 
 /**
  * Drafts to review, and what a person does to one. Nothing here sends: the only statuses a request can write are
  * `SETTABLE_STATUSES`, and every mutation names its project, so a draft of another project is "not found".
  */
-export function draftRoutes(repos: Repos, sender?: SenderOptions) {
+export function draftRoutes({ repos, sender }: ReviewServices) {
   const ownDraft = async (project: string, id: number) => {
     const d = await repos.drafts.get(id);
     return d && d.project === project ? d : null;

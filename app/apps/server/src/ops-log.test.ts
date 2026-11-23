@@ -17,7 +17,7 @@ describe("GET /api/ops/errors", () => {
     for (let i = 0; i < 6; i++) appendOps(s, { time: `2026-11-20T1${i}:00:00.000Z`, level: "error", source: "notion", message: `notion ${i}` }, NOW);
     appendOps(s, { time: "2026-11-20T18:07:00.000Z", level: "error", source: "whatsapp", message: "account parked", fields: { project: "acme" } }, NOW);
     appendOps(s, { time: "2026-11-20T19:00:00.000Z", level: "warn", source: "send", message: "a warning is not an error" }, NOW);
-    const r = await opsLogRoutes(s, () => NOW).request("/api/ops/errors");
+    const r = await opsLogRoutes({ store: s, now: () => NOW }).request("/api/ops/errors");
     const d = opsErrorsDto.parse(await r.json());
     expect(d.total).toBe(7);
     expect(d.rows.map((x) => x.message)).toEqual(["account parked", "notion 5", "notion 4", "notion 3", "notion 2"]);
@@ -26,7 +26,7 @@ describe("GET /api/ops/errors", () => {
   });
 
   it("without a store the list is empty, and every source has a place", async () => {
-    const d = opsErrorsDto.parse(await (await opsLogRoutes(undefined, () => NOW).request("/api/ops/errors")).json());
+    const d = opsErrorsDto.parse(await (await opsLogRoutes({ now: () => NOW }).request("/api/ops/errors")).json());
     expect(d).toEqual({ rows: [], total: 0, hours: 24 });
     for (const s of OPS_SOURCES) expect(s in OPS_PLACE).toBe(true);
   });

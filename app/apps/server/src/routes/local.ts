@@ -1,16 +1,9 @@
 import { Hono } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
 import { isLocalAction, isServerAction, LOCAL_ACTIONS, localOpenedDto } from "@hub/contract/local";
-import { isRefusal, LOCAL_OPEN_UNAVAILABLE, openTarget, resolveTarget, type OpenRun, type ResolveDeps } from "@hub/projects/local-open";
+import { isRefusal, LOCAL_OPEN_UNAVAILABLE, openTarget, resolveTarget } from "@hub/projects/local-open";
 import { gateRefusal } from "../admin-gate";
-
-/** What the server needs to run an Open (P61): the key resolver's deps, the opener, and whether this machine can open at all. */
-export interface LocalService {
-  deps: ResolveDeps;
-  run: OpenRun;
-  available: boolean;
-  now?: () => number;
-}
+import type { LocalServices } from "../composition/capabilities";
 
 /** At most one open per action and key in this window: a held key or a double click must not stack Finder windows. */
 const REPEAT_MS = 500;
@@ -22,7 +15,7 @@ const REPEAT_MS = 500;
  * focus door's (exact admin Origin, loopback Host, `Sec-Fetch-Site: same-origin`): another loopback page cannot pop
  * Finder windows. No ticket: nothing is written or sent.
  */
-export function localRoutes(local: LocalService | undefined, adminPort: number) {
+export function localRoutes({ local, adminPort }: LocalServices) {
   const last = new Map<string, number>();
   return new Hono().post("/api/local/:action", async (c) => {
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });

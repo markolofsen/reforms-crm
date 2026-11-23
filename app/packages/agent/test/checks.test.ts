@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -65,6 +65,17 @@ describe("agentChecks", () => {
       expect(bad, cli).toEqual([]);
       expect(rows.every((r) => r.cli === cli && (r.state === "pass" || r.state === "skip") === (r.fix === null))).toBe(true);
     }
+  });
+  it("reports the exact Codex approval exception and rejects a second automatic MCP override", async () => {
+    const paths = instance({ unattended: true });
+    const good = byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input() }));
+    expect(good["approval.policy"]).toMatchObject({ state: "pass", detail: "unattended: only hub.draft_write is automatically approved" });
+    const home = codexHome(paths, "acme");
+    writeFileSync(path.join(home, "config.toml"), `${readFileSync(path.join(home, "config.toml"), "utf8")}\n[mcp_servers."hub".tools."project_write"]\napproval_mode = "approve"\n`);
+    expect(byId(await agentChecks({ paths, slug: "acme", cli: "codex", unattended: true, ...input() }))["approval.policy"]).toMatchObject({ state: "fail" });
+    const attendedPaths = instance({ unattended: false });
+    const attended = byId(await agentChecks({ paths: attendedPaths, slug: "acme", cli: "codex", unattended: false, ...input() }));
+    expect(attended["approval.policy"]).toMatchObject({ state: "pass", detail: "attended: MCP tools remain on-request" });
   });
   it("a missing CLI fails; another version warns; Codex not signed in fails with the login line", async () => {
     const paths = instance({ unattended: true });

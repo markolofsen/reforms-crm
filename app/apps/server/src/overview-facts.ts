@@ -1,5 +1,6 @@
 import { join } from "node:path";
-import { doctorProject, loadProjects, ProjectBase, type ProjectConfig } from "@hub/projects";
+import { doctorProject, loadProjects } from "@hub/projects";
+import { ProjectBase, type ProjectConfig } from "@hub/projects/model";
 import type { ProjectRow, Repos } from "@hub/db";
 import { countMarkdown } from "./project-doctor";
 

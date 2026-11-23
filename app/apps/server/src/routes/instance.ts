@@ -1,9 +1,10 @@
 import { readFileSync } from "node:fs";
 import { extname } from "node:path";
 import { Hono } from "hono";
-import { hubPaths, instanceBrand, type HubPaths } from "@hub/config/paths";
+import { hubPaths, instanceBrand } from "@hub/config/paths";
 import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
-import { CheckTooSoon, type CoreUpdatesService } from "../core-updates";
+import { CheckTooSoon } from "../core-updates";
+import type { CoreServices, InstanceServices } from "../composition/capabilities";
 import { notFound } from "../http";
 
 /** The image types a logo may be; anything else is not served. */
@@ -14,7 +15,7 @@ const LOGO_TYPES: Record<string, string> = { ".svg": "image/svg+xml", ".png": "i
  * so an edit shows on reload. The browser never learns the logo's path. Read only. `localOpen` (P61): whether the server can run
  * the Open actions on this machine; the admin renders no Open button when it is false.
  */
-export function instanceRoutes(paths?: Pick<HubPaths, "configFile" | "configDir">, localOpen: () => boolean = () => false) {
+export function instanceRoutes({ paths, localOpen = () => false }: InstanceServices) {
   const brand = () => instanceBrand(paths ?? hubPaths());
   return new Hono()
     .get("/api/instance", (c) => {
@@ -41,7 +42,7 @@ export function instanceRoutes(paths?: Pick<HubPaths, "configFile" | "configDir"
  * them); `POST /api/instance/core/check` runs one check now, 429 within a minute of the last. The check only reads the origin
  * and fetches tags into the core, so the loopback guard of the whole API is its door. Without the service both are 404.
  */
-export function coreRoutes(service: CoreUpdatesService | undefined) {
+export function coreRoutes({ service }: CoreServices) {
   return new Hono()
     .get("/api/instance/core", (c) => {
       if (!service) return notFound(c, "core update check");

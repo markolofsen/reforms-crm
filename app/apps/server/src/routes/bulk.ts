@@ -1,7 +1,8 @@
 import { Hono } from "hono";
-import type { Repos } from "@hub/db";
 import { agentSettingsBody, batchQuery, idParam, projectQuery, safetyKindParam, safetyRuleBody } from "@hub/contract/requests";
-import { agentSettingsDto, batchDto, batchesDto, okDto, safetyRuleSavedDto, safetyRulesDto, warningsAckedDto } from "@hub/contract/responses";
+import { batchDto, batchesDto, warningsAckedDto } from "@hub/contract/review";
+import { agentSettingsDto, okDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
+import type { BulkServices } from "../composition/capabilities";
 import { toDraft } from "../dto";
 import { notFound, v } from "../http";
 
@@ -10,7 +11,7 @@ import { notFound, v } from "../http";
  * route creates a batch or adds to one. A batch is a view of the drafts it wrote, with one Undo. The safety rules live here
  * too, and the agent's model and advisor (P55: the same store; the next session start reads them). None sends: `drafts.status` has no `sent` in anything the API accepts (see `SETTABLE_STATUSES`).
  */
-export function bulkRoutes(repos: Repos) {
+export function bulkRoutes({ repos }: BulkServices) {
   return new Hono()
     .get("/api/batches", v("query", projectQuery), async (c) => c.json(batchesDto.parse({ batches: await repos.batches.list(c.req.valid("query").project) })))
     .get("/api/batches/:id", v("param", idParam), v("query", batchQuery), async (c) => {

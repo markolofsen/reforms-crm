@@ -23,7 +23,7 @@ import { convertSentLead, startLeadsReader } from "./leads-reader";
 import { mailRunning, readMessageText } from "./apple-mail";
 import { defaultOsa, MAIL_READ_TIMEOUT_MS, osaWithin } from "@hub/send";
 import { bodyCache, readHistory } from "./conversation";
-import type { ConversationMail } from "./routes/conversations";
+import type { ConversationMail } from "./composition/capabilities";
 import { stampSentMail, teamStampOf } from "@hub/notion/stamp";
 import type { SentNotice } from "@hub/send";
 import { chooseShell, createTerminal, serverDetector } from "./terminal";
@@ -67,7 +67,7 @@ const purge = startPurge({ repos });
 const llm = createLlm({ ledger: repos.llmCalls });
 const preanalysis = createPreanalysis({ repos, llm });
 log.info(`pre-analysis: ${preanalysis.standing().state === "no_key" ? "off (no OpenRouter key)" : llm.transport === "fake" ? "on, FAKE MODEL (HUB_LLM=fake): nothing leaves this process" : "ready (only chats whose switch is on)"}`);
-const onStored = (project: string) => preanalysis.after(project);
+const onStored = (project: string) => { preanalysis.after(project); };
 // The messengers poller runs only when a bot token file exists; it only receives. Its state is part of /api/health.
 const messengers = await startMessengers({ repos, onStored });
 log.info(`messengers: ${messengers.status().state}${messengers.status().reason ? ` (${messengers.status().reason})` : ""}`);
@@ -147,7 +147,7 @@ const inboundText = async (account: string, messageId: string) => {
 const bodies = bodyCache();
 const conversationMail: ConversationMail =
   kind === "fake"
-    ? { history: async () => ({ note: "Demo mode: Mail is not read, the Hub's own rows show." }), text: async () => ({ note: "Demo mode: Mail is not read, only the stored preview shows." }) }
+    ? { history: async () => ({ note: "Demo mode: Mail is not read, the Hub's own rows show." }), text: async () => ({ note: "Demo mode: Mail is not read, only the stored preview shows." }), headers: async () => ({ note: "Demo mode: Mail headers are not read." }) }
     : {
         history: async (q) => {
           const osa = osaWithin(MAIL_READ_TIMEOUT_MS);
@@ -168,6 +168,13 @@ const conversationMail: ConversationMail =
           })();
           if ("text" in read) bodies.set(key, read.text);
           return read;
+        },
+        headers: async ({ account, messageId }) => {
+          const osa = osaWithin(MAIL_READ_TIMEOUT_MS);
+          if (!(await mailRunning(osa).catch(() => false))) return { note: "Mail is not running: open Mail to resolve the conversation's recipient." };
+          const found = await mailWriter.findInbound([account], messageId);
+          if (!found) return { note: "This message is no longer in Mail (moved or deleted)." };
+          return { headers: await mailWriter.readHeaders(found), accountAddresses: found.accountAddresses ?? [account] };
         },
       };
 // Connections: the real probes and Apple Mail's account list, or stubs with HUB_CONNECTIONS_PROBE=fake (refused without HUB_DB).
@@ -211,7 +218,7 @@ const focus = createFocusStore({ file: paths.focus });
 const opener = chooseOpener(process.env, paths, throwawayDbNamed(process.env));
 const local = { deps: localOpenDeps(repos, paths), run: opener.run, available: localOpenAvailable(opener.kind) };
 log.info(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens, each argv goes to state/opener.jsonl" : `open: ${local.available ? "on (/usr/bin/open, the admin page only)" : "off (not macOS): the Open buttons are hidden"}`);
-const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project) } });
+const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   log.info(`hub server on http://${info.address}:${info.port}`, { pid: process.pid });

@@ -77,6 +77,13 @@ export function codexConfigToml(i: CodexSessionInput): string {
     // P65 S5: `draft_write` waits up to 45 s for a slow Mail, then reads and replaces (one call took 53 s on 2026-11-19).
     // Codex cuts a tool call at 60 s by default; cut, the agent would see a generic error and write again (a second draft).
     if (name === "hub") out.push(`tool_timeout_sec = ${HUB_TOOL_TIMEOUT_SEC}`);
+    // `approval_policy = "never"` rejects MCP tools that still require approval. The
+    // unsent Mail draft writer is the one intentional write in unattended sessions,
+    // so grant only that exact tool an automatic approval override. Other writes keep
+    // the normal MCP approval path, and attended sessions keep on-request behavior.
+    if (i.unattended && name === "hub") {
+      out.push("[mcp_servers.\"hub\".tools.\"draft_write\"]", "approval_mode = \"approve\"");
+    }
     out.push("");
   }
   return out.join("\n");

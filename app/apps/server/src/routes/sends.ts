@@ -2,8 +2,8 @@ import { Hono, type Context } from "hono";
 import type { Repos } from "@hub/db";
 import { assess, BATCH_LIMITS, batchTicketKey, planBatch, sendDraft, type BatchLimits, type Mailer, type SendDeps } from "@hub/send";
 import { batchSendBody, batchSendParam, batchTicketBody, idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
-import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/responses";
-import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messenger-panel";
+import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/sending";
+import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messenger";
 import type { DraftWriter } from "@hub/agent/mail-drafts";
 import { gateRefusal, ticketStore, type TicketStore } from "../admin-gate";
 import { notFound, v } from "../http";
@@ -36,6 +36,12 @@ export interface SenderOptions {
   onSent?: SendDeps["onSent"];
 }
 
+export type SendServices = {
+  repos: Repos;
+  sender?: SenderOptions;
+  messengers?: MessengerSenders;
+};
+
 /** The batch guards: the defaults, or (fake Mailer only, so never on a real Mail) a shorter spacing for the e2e run. */
 function limitsOf(sender: SenderOptions): BatchLimits {
   if (sender.batchLimits) return sender.batchLimits;
@@ -62,7 +68,7 @@ const refused = (what: Record<string, unknown>, reasons: string[]) => {
  * A messenger draft goes through the same door (P71 M4, `../send/messenger-door.ts`): the same dry run, ticket and audit row, its
  * own guards, and `messengers` holds the only send of each connected account.
  */
-export function sendRoutes(repos: Repos, sender?: SenderOptions, messengers?: MessengerSenders) {
+export function sendRoutes({ repos, sender, messengers }: SendServices) {
   const deps = sender && { repos, mailer: sender.mailer, projectsDir: sender.projectsDir, policyDir: sender.policyDir, allowList: sender.allowList, ...(sender.now ? { now: sender.now } : {}), ...(sender.onSent ? { onSent: sender.onSent } : {}) };
   const tickets = sender?.tickets ?? ticketStore({ ttlMs: TICKET_TTL_MS });
   const limits = sender ? limitsOf(sender) : BATCH_LIMITS;

@@ -145,6 +145,16 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
     row("mode", "Mode", profile && approval ? "pass" : "fail", profile && approval ? `${i.unattended ? "unattended" : "attended"}: the hub profile, no network` : "the Codex config does not use the hub profile for this mode", prepare);
   }
 
+  // The unattended exception is deliberately narrower than the global mode: only the hub's unsent draft writer may
+  // receive an automatic approval override. Attended configs must not carry the override forward from another session.
+  if (cli === "codex" && toml !== null) {
+    const overrides = [...toml.matchAll(/^\[mcp_servers\."([^"]+)"\.tools\."([^"]+)"\]\s*\n(?:[^\[]*\n)*?approval_mode\s*=\s*"([^"]+)"/gm)].map((match) => ({ server: match[1], tool: match[2], mode: match[3] }));
+    const onlyDraftWriter = overrides.length === 1 && overrides[0]?.server === "hub" && overrides[0].tool === "draft_write" && overrides[0].mode === "approve";
+    const safe = i.unattended ? onlyDraftWriter : overrides.length === 0;
+    row("approval.policy", "MCP approval", safe ? "pass" : "fail", safe ? (i.unattended ? "unattended: only hub.draft_write is automatically approved" : "attended: MCP tools remain on-request") : "unexpected MCP approval override; only unattended hub.draft_write may be automatic", prepare);
+  } else if (cli === "codex") row("approval.policy", "MCP approval", "fail", "no Codex config", prepare);
+  else row("approval.policy", "MCP approval", "skip", "Claude Code uses its attended permission flow");
+
   // 8. The send pipeline: the policy file is the server's, not the project's.
   const pol = json(path.join(paths.stateProjects, slug, "send-policy.json"));
   if (!existsSync(path.join(paths.stateProjects, slug, "send-policy.json"))) row("send.pipeline", "Send pipeline", "pass", "no policy file: drafts only, test recipients");
@@ -236,5 +246,8 @@ export function fakeAgentRows(slug: string, cli: AgentCli): AgentCheckRow[] {
       ? r("notion.signin", "Notion sign-in", "warn", notionSignIn("a session of this project asked for it on 2026-11-20 03:25", cli), notionFix(cli))
       : r("notion.signin", "Notion sign-in", "skip", `Codex is not signed in to Notion; only needed for Notion from Codex: ${notionFix(cli)}`),
     r("send-tools.off", "Send tools off", "pass", `${DENIED_TOOLS.length} denied`),
+    cli === "codex"
+      ? r("approval.policy", "MCP approval", "pass", "unattended: only hub.draft_write is automatically approved")
+      : r("approval.policy", "MCP approval", "skip", "Claude Code uses its attended permission flow"),
   ];
 }
