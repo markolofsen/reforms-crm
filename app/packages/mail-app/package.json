@@ -20,7 +20,8 @@
     "./writer/protocol": "./src/writer/protocol.ts",
     "./scripts/thread": "./src/scripts/thread.ts",
     "./scripts/write-new": "./src/scripts/write-new.ts",
-    "./scripts/write-reply": "./src/scripts/write-reply.ts"
+    "./scripts/write-reply": "./src/scripts/write-reply.ts",
+    "./own-text": "./src/own-text.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
