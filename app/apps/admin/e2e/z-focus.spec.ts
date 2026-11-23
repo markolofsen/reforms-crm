@@ -44,16 +44,17 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
   await expect.poll(() => clientOf(onDisk()), { timeout: 1500 }).toBe(fiona.clientId);
   expect(readFileSync(focusFile, "utf8")).not.toMatch(/Fiona|fiona@|Hello/);
 
-  // 2. The prompt hook prints the line the model gets.
+  // 2. The prompt hook prints the line the model gets; P129 A5 (verdict 8): it starts with what "this" is.
   const hook = JSON.parse(run([hub, "focus", "--hook"], "{}")) as { hookSpecificOutput: { hookEventName: string; additionalContext: string } };
   expect(hook.hookSpecificOutput.hookEventName).toBe("UserPromptSubmit");
-  expect(hook.hookSpecificOutput.additionalContext).toMatch(new RegExp(`^\\[Hub focus, data\\] Conversation ${fiona.clientId} · open client:${fiona.clientId} "Fiona Focus <fiona@example.com> · draft ${fiona.draftId} ready[^"]*" draft ready \\(draft_show\\)`));
+  expect(hook.hookSpecificOutput.additionalContext).toMatch(new RegExp(`^\\[Hub focus, data\\] this client:${fiona.clientId} · Conversation ${fiona.clientId} · open client:${fiona.clientId} "Fiona Focus <fiona@example.com> · draft ${fiona.draftId} ready[^"]*" draft ready \\(draft_show\\)`));
 
   // 3. "ответь этому клиенту": the scripted agent reads the focus and revises that draft.
   const agent = JSON.parse(run([fakeAgent, "I'm well, thanks — and the revised answer."])) as { tools: string[]; focused: number; recorded: { ok: boolean; action: string; draftId: number } };
   // P129 A3 client_record; A4 project_show (was project_notion, project_links), message_show (was inbound_show, mail_brand),
   // mail_list (was drafts_list) and the knowledge tools (were knowledge-mcp's).
-  expect(agent.tools).toEqual(["client_record", "client_show", "draft_show", "draft_write", "focus", "highlight", "knowledge_get", "knowledge_search", "mail_list", "message_show", "messenger_draft_write", "messenger_history", "project_show"]);
+  // P128 X5: chats_unlinked and chats_propose_hide (the agent's proposed hides).
+  expect(agent.tools).toEqual(["chats_propose_hide", "chats_unlinked", "client_record", "client_show", "draft_show", "draft_write", "focus", "highlight", "knowledge_get", "knowledge_search", "mail_list", "message_show", "messenger_draft_write", "messenger_history", "project_show"]);
   expect(agent.focused).toBe(fiona.draftId);
   expect(agent.recorded).toMatchObject({ ok: true, action: "updated", draftId: fiona.draftId });
   // The open card says so by itself (P50), and the list still has one Fiona.
@@ -108,7 +109,7 @@ test("every screen says its own title; a clicked Knowledge row is what the agent
     const f = focusJson();
     expect(f).toMatchObject({ state: "fresh", route: "knowledge.page", title: "Knowledge", pointed: { ref: key, title, read: { server: "hub", tool: "knowledge_get", args: { path: key.slice("knowledge:".length) } } } });
     const hook = JSON.parse(execFileSync("node", [hub, "focus", "--hook"], { env: kbEnv, input: "{}", encoding: "utf8" })) as { hookSpecificOutput: { additionalContext: string } };
-    expect(hook.hookSpecificOutput.additionalContext).toMatch(/^\[Hub focus, data\] Knowledge · on knowledge:knowledge\/.* \(knowledge_get\) · \d+ of \d+ on screen/);
+    expect(hook.hookSpecificOutput.additionalContext).toMatch(/^\[Hub focus, data\] this knowledge:knowledge\/\S+ · Knowledge · on knowledge:knowledge\/.* \(knowledge_get\) · \d+ of \d+ on screen/);
     // 3. "ответь по этой записи": the scripted agent reads the pointed entry with knowledge_get, never asking for a file name.
     const agent = JSON.parse(execFileSync("node", [fakeAgent, "--knowledge"], { env: kbEnv, encoding: "utf8" })) as { focus: { ref: string; entry: string }; got: { path: string; hasBody: boolean } };
     expect(agent.focus).toMatchObject({ ref: key, entry: title });

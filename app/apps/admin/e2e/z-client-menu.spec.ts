@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { remember } from "./support";
+import { cards, remember } from "./support";
 
 // The Client menu in a real browser: a flag changes at once, the toast offers Undo, and Undo puts the mark back.
 // Luis is used because no later spec touches his flags (Sofia and Marta carry the send specs); the mark is restored.
@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 
 test("Client menu: Follow up applies, Undo restores it", async ({ page }) => {
   await page.goto("/mail?filter=all&q=Luis");
-  await page.getByRole("button", { name: /Luis/ }).first().click();
+  await cards(page).filter({ hasText: "Luis" }).getByRole("link").first().click(); // P127 C1: a row is a link
   await page.getByRole("button", { name: "Client", exact: true }).click();
   const item = page.getByRole("menuitemcheckbox", { name: "Follow up" });
   const before = await item.getAttribute("aria-checked");
@@ -23,7 +23,7 @@ test("Client menu: Follow up applies, Undo restores it", async ({ page }) => {
 
 test("Client menu: Do not contact asks first in a popover, Cancel changes nothing, Mark does, and Undo lifts it", async ({ page }) => {
   await page.goto("/mail?filter=all&q=Pedro");
-  await page.getByRole("button", { name: /Pedro/ }).first().click();
+  await cards(page).filter({ hasText: "Pedro" }).getByRole("link").first().click(); // P127 C1: a row is a link
   const menu = () => page.getByRole("button", { name: "Client", exact: true });
   const flag = page.getByRole("menuitem", { name: "Do not contact..." });
 

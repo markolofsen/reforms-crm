@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { stubChats } from "./messengers-stubs";
-import { at } from "./support";
+import { at, confirmReview } from "./support";
 
 // P84c (owner, 2026-11-20): Messengers ▸ Chats simplified. One page for both channels with the channel a filter, the states in
 // Mail's three views (Needs you, Waiting, All) with the link state a filter (P123 U3b), only fresh unlinked chats on Needs you, Hide ("not a client") with Undo, Unhide on
@@ -14,7 +14,15 @@ const link = (page: Page) => page.getByRole("button", { name: /^Link:/ });
 const pickIn = async (page: Page, menu: (page: Page) => ReturnType<typeof view>, name: RegExp) => {
   await menu(page).click();
   await page.getByRole("menuitemradio", { name }).click();
+  await closeMenu(page, menu(page));
+};
+/** Esc closes a filter menu and gives its trigger the focus (and the pointer still rests on it): its tooltip would then cover the
+ * menu beside it, so the pointer moves away and the focus leaves before the next click. */
+const closeMenu = async (page: Page, trigger: Locator) => {
   await page.keyboard.press("Escape");
+  await page.mouse.move(0, 0);
+  await trigger.blur();
+  await expect(page.locator('[data-slot="tooltip-viewport"]')).toHaveCount(0);
 };
 const fresh = (page: Page) => page.getByRole("list", { name: "New chats" });
 /** P102: a row's one state menu (P115: the compact "Chat actions for <name>"), opened, then one of its items. */
@@ -41,10 +49,10 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
   await expect(view(page)).toHaveText(/Needs you\s*4/);
   await view(page).click();
   await expect(page.getByRole("menuitemradio")).toHaveText([/Needs you\s*4/, /Waiting\s*\d+/, /All\s*6/]);
-  await page.keyboard.press("Escape");
+  await closeMenu(page, view(page));
   await link(page).click();
   await expect(page.getByRole("menuitemradio")).toHaveText([/Any link\s*6/, /Linked\s*2/, /Not linked\s*4/, /Hidden\s*1/]);
-  await page.keyboard.press("Escape");
+  await closeMenu(page, link(page));
   await pickIn(page, view, /^All/);
   await pickIn(page, link, /Not linked/);
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=all&link=unlinked");
@@ -76,9 +84,9 @@ test("chats: the channel is a sidebar child of Messengers (P125 L5), kept in the
   await expect(channels.getByRole("link", { name: /^Telegram/ })).toHaveAttribute("aria-current", "page");
   await page.reload();
   await expect(channels.getByRole("link", { name: /^Telegram/ })).toHaveAttribute("aria-current", "page");
-  // The old "All chats" address reads as the default view.
+  // P123 U3b: `?filter=all` is the All view now (Needs you / Waiting / All), no longer an old address read as the default.
   await page.goto(at(P, "/messengers?filter=all"));
-  await expect(view(page)).toHaveText(/Needs you/);
+  await expect(view(page)).toHaveText(/All/);
 });
 
 // P128 X5 ("sort the chats"): the agent's proposed hides are said once and reviewed in ONE dialog naming every chat with its
@@ -101,7 +109,7 @@ test("chats: the agent's proposed hides, one dialog naming each chat, Keep one, 
   await expect(dialog).toContainText("Joana (WhatsApp): A private contact.");
   await dialog.getByRole("button", { name: "Keep Joana" }).click();
   await expect(dialog.getByRole("heading", { name: "Hide 1 chat: not clients?" })).toBeVisible();
-  await dialog.getByTestId("review-confirm").click();
+  await confirmReview(page); // P105: a confirm inside the dialog's dwell is ignored on purpose
   await expect(page.getByText("Hid 1 chat: not clients")).toBeVisible();
   expect(posts.map((p) => p.path.replace(/^.*\/autolink\//, ""))).toEqual(["proposals/drop", "hide"]);
   await expect(page.getByTestId("proposed-hides")).toHaveCount(0);

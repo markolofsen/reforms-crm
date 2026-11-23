@@ -1,5 +1,7 @@
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { expect, test, type Page, type Route } from "@playwright/test";
-import { at } from "./support";
+import { at, confirmReview, reviewDialog } from "./support";
 
 // P71 M3: the Messengers section. The panel reads the seeded linked chats of lisbon-realty (Rita, who wrote last, with the
 // agent's draft; Sofia, answered); Edit and Skip write the real row. The Telegram account routes are stubbed with
@@ -19,12 +21,15 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   await expect(conversation(page)).toContainText("Hi! Is the notary on the 28th still on?");
   await expect(conversation(page)).toContainText("Telegram");
   await expect(conversation(page).getByTestId("messenger-draft")).toContainText("the 28th stands");
-  // P71 M4: the e2e server connects no Telegram account, so the real dry run refuses, in words, and nothing is sent.
+  // P71 M4: the e2e server connects no Telegram account, so the real dry run refuses, in words, and nothing is sent. P105 S3: Send
+  // opens the review dialog; its Send runs the dry run, and the refusal is a blocker there, the Send off.
   await conversation(page).getByRole("button", { name: `Send the reply to ${RITA}` }).click();
-  await expect(conversation(page).getByText(/^Not sent: \d+ reasons?$/)).toBeVisible();
-  await expect(conversation(page).getByText("the Telegram account 100200300 is not connected (Settings ▸ Messengers)")).toBeVisible();
-  await conversation(page).getByRole("button", { name: "Close" }).click();
-  await expect(conversation(page).getByText(/^Not sent:/)).toHaveCount(0);
+  await confirmReview(page);
+  const dialog = reviewDialog(page);
+  await expect(dialog.getByText("Must be fixed: the Telegram account 100200300 is not connected (Settings ▸ Messengers)")).toBeVisible();
+  await expect(dialog.getByTestId("review-confirm")).toHaveAttribute("aria-disabled", "true");
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
   await expect(rita(page)).toHaveAttribute("data-agent-ref", /^chat:\d+$/);
   await expect(page.getByRole("button", { name: /^View:/ })).toHaveText(/Needs you\s*1/);
   await expect(chats(page).getByRole("listitem")).toHaveCount(1);
@@ -47,13 +52,15 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
 
 test("messengers: Send reads the dry run, confirms in place with the exact text, and applies it with a messenger ticket", async ({ page }) => {
   // The server side runs on a fake Telegram client in `apps/server/test/messenger-send.test.ts`; here the door's replies are stubbed.
-  const TEXT = "Hi Rita, the 28th stands (as the server read it).";
+  // P105 S3: the dialog shows the draft as the panel has it, and its Send applies only when the dry run reads that same text.
+  const TEXT = "Hi Rita, yes, the 28th stands. 10:00 at the notary on Rua Augusta works for us. I will send the address the day before.";
+  let serverText = "Hi Rita, the 28th stands (changed in the meantime).";
   const sends: unknown[] = [];
   const tickets: unknown[] = [];
   await page.route(/\/api\/projects\/[^/]+\/messengers\/drafts\/\d+\/send$/, async (r) => {
     const body = r.request().postDataJSON() as { apply: boolean };
     sends.push(body);
-    await r.fulfill({ json: body.apply ? { ok: true, sendId: 77 } : { ok: true, dryRun: true, channel: "telegram_user", chatId: "700100", account: "100200300", to: RITA, text: TEXT } });
+    await r.fulfill({ json: body.apply ? { ok: true, sendId: 77 } : { ok: true, dryRun: true, channel: "telegram_user", chatId: "700100", account: "100200300", to: RITA, text: serverText } });
   });
   await page.route(/\/api\/sends\/tickets$/, async (r) => {
     tickets.push(r.request().postDataJSON());
@@ -73,10 +80,17 @@ test("messengers: Send reads the dry run, confirms in place with the exact text,
   await expect(dialog).toHaveCount(0);
   await expect(send).toBeVisible();
   expect(sends).toEqual([]);
-  // Its Send runs the dry run and the apply of the text it showed, in one press.
+  // A dry run that reads another text than the dialog showed applies nothing: it says so, as a blocker.
   await send.click();
-  await page.waitForTimeout(450);
-  await dialog.getByTestId("review-confirm").click();
+  await confirmReview(page);
+  await expect(dialog.getByText(/The draft changed while you read/)).toBeVisible();
+  expect(sends).toEqual([{ apply: false }]);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  // Its Send runs the dry run and the apply of the text it showed, in one press.
+  serverText = TEXT;
+  await send.click();
+  await confirmReview(page);
   await expect(page.getByText(`Sent to ${RITA} on Telegram`)).toBeVisible();
   expect(tickets).toEqual([{ project: P, draftId: expect.any(Number), kind: "messenger" }]);
   expect(sends.at(-1)).toEqual({ apply: true, confirm: { chatId: "700100", text: TEXT }, ticket: "t".repeat(43) });
@@ -145,7 +159,8 @@ test("messengers settings: a chat's reply mode and instruction are saved and rea
   const rules = page.getByRole("listitem", { name: `Rules for ${RITA}` });
   // P128 X5: one line per chat with its values; Edit opens the rules in place.
   await expect(rules.getByTestId("chat-rules-line")).toContainText(/Telegram · Draft replies · no instruction/);
-  const edit = rules.getByRole("button", { name: `Edit the rules for ${RITA}` });
+  // The toggle says what it does: "Edit the rules for…" closed, "Done the rules for…" open.
+  const edit = rules.getByRole("button", { name: new RegExp(`^(Edit|Done) the rules for ${RITA}$`) });
   await edit.click();
   await expect(edit).toHaveAttribute("aria-expanded", "true");
   await rules.getByRole("button", { name: "Only when I ask" }).click();
@@ -254,7 +269,13 @@ test("messengers settings: WhatsApp shows the QR code only after Connect, then t
   await box.getByRole("button", { name: "Connect" }).click();
   await expect(box.getByRole("img", { name: /QR code/ })).toBeVisible();
   await expect(box.getByText(/Linked devices ▸ Link a device/)).toBeVisible();
+  // P126 S1: the admin reads the pairing again on the server's `connections` bump, not on a timer. The stubbed pairing moves
+  // nothing on the server, so the spec makes the bump the way the server does: a change in the stack's own secrets folder.
+  const bump = join(process.env.HUB_E2E_HOME ?? "", "secrets", "e2e-live-bump");
+  mkdirSync(dirname(bump), { recursive: true });
+  writeFileSync(bump, String(Date.now()));
   await expect(page.getByRole("list", { name: "WhatsApp numbers" }).getByText("WhatsApp +351900000001")).toBeVisible();
+  rmSync(bump, { force: true });
   expect(posts.slice(0, 2)).toEqual(["/api/messengers/whatsapp/connect", "/api/messengers/whatsapp/connect/state"]);
   expect(page.url()).not.toMatch(/flow-wa/);
 });
