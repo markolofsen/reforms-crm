@@ -105,6 +105,27 @@ test("messengers: Edit changes the draft's text, Skip sets it aside with Undo", 
   await expect(conversation(page).getByTestId("messenger-draft")).toContainText("fake");
 });
 
+// P127 C2 question 1: the open draft takes Mail's S, E and U: S skips it (toast with Undo), U puts it back, E opens its editor.
+test("Messengers: S skips the open draft, U puts it back, E opens its editor, and none of them sends", async ({ page }) => {
+  await page.goto(at(P, "/messengers"));
+  const draft = conversation(page).getByTestId("messenger-draft");
+  await expect(draft).toContainText("fake");
+  await page.locator("body").click({ position: { x: 1, y: 1 } });
+  await page.keyboard.press("s");
+  await expect(page.getByText(`Skipped the draft for ${RITA}`)).toBeVisible();
+  await expect(draft).toHaveCount(0);
+  await page.keyboard.press("u");
+  await expect(draft).toContainText("fake");
+  await page.locator("body").click({ position: { x: 1, y: 1 } });
+  await page.keyboard.press("e");
+  await expect(page.getByLabel("Edit the messenger draft", { exact: true })).toBeFocused();
+  // A key typed into the editor is text, not a Skip.
+  await page.keyboard.press("s");
+  await expect(draft).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(draft).toContainText("fake");
+});
+
 test("P128 X0 (F30): Activity's row of a messenger draft opens its chat, never Mail's Not found", async ({ page }) => {
   // The Prepare reply above recorded a messenger draft's event (skill messenger-reply); its client cell is the row's link.
   await page.goto(at(P, "/log"));

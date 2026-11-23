@@ -37,6 +37,17 @@ does not own API, Query or permission semantics.
    expose a feature-level body class override. A stale
    conversation keeps its last history and uses `ConversationStaleNotice` for
    error detail and retry; features must not create a parallel banner layout.
+6a. MUST: Mail and Messengers draw ONE list-and-pane workspace,
+   `ConversationWorkspace` (`components/conversation/workspace.tsx`, P127 C2),
+   fed by a `Channel` adapter (`components/conversation/adapter.ts`:
+   `features/mail/adapter.tsx`, `features/messengers/adapter.tsx`) and five
+   slots (toolbar, list top, rows or a body, list bottom, aside). The workspace
+   owns the list column, the pane, opening a conversation (`useOpen`: push from
+   the list, replace between rows, the auto-open of a wide pane) and the list
+   keys; a channel owns its rows, its draft block and its action keys. Why: two
+   hosts drifted six times (P127 section 2d). A channel difference goes into
+   an existing `Channel` member or a slot (eleven members at most), never a
+   second workspace.
 7. MUST: editors own shortcuts while focused. Global shortcuts ignore text
    inputs, content-editable elements, menus and dialogs unless a shortcut
    explicitly opts in; an opt-in must also provide an owned target predicate

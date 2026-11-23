@@ -7,7 +7,9 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationText } from "@hub/ui/product/conversation";
 import { ConversationEditorSurface } from "@hub/ui/product/composer-editor";
 import { ConversationComposer, ConversationComposerFooter } from "@hub/ui/product/conversation-frame";
+import { shortcutsOn } from "@/hooks/use-hotkeys";
 import { agentRef } from "@/lib/focus";
+import { useMessengerDraftKeys } from "./conversation/keys";
 import { SendBar } from "./send-bar";
 import type { useChatActions } from "./use-chat-actions";
 import { useMessengerSend } from "./use-messenger-send";
@@ -17,7 +19,7 @@ type Actions = ReturnType<typeof useChatActions>;
 /**
  * The agent's open draft of one chat (P71 M3): its text in full, what admitted it (a follow-up, the owner's request), and the
  * three decisions. Send opens the review dialog (P105) and goes through the send door (P71 M4): the dry run and the apply of the exact text; Edit
- * opens the text in place (an action's own form, `admin-principles.md` rule 9); Skip sets it aside with Undo. Its ref is
+ * opens the text in place (an action's own form, `admin-principles.md` rule 9); Skip sets it aside with Undo; S and E are their keys. Its ref is
  * `mdraft:<id>` (P72), so a press on it tells the agent which draft he means; it is not a tab stop of its own (the buttons are).
  */
 export function DraftBlock({ d, name, project, actions, embedded = false }: { d: MessengerDraftDto; name: string; project: string; actions: Actions; embedded?: boolean }) {
@@ -40,6 +42,9 @@ export function DraftBlock({ d, name, project, actions, embedded = false }: { d:
     setEditValue(d.text);
     setEditing(true);
   };
+  const skip = () => actions.skip.mutate({ id: d.id, name });
+  // P127 C2 question 1: S skips and E edits the draft on screen; U (the last Skip's Undo) is the workspace's.
+  useMessengerDraftKeys({ enabled: shortcutsOn, busy: actions.pending, editing, skip, edit: startEditing });
   const submitEdit = () => {
     if (editOk && !actions.pending) actions.edit.mutate({ id: d.id, text: editValue }, { onSuccess: () => { closeEditor(); setEditSaved(true); } });
   };
@@ -86,7 +91,7 @@ export function DraftBlock({ d, name, project, actions, embedded = false }: { d:
               <ActionButton disabled={actions.pending} onClick={startEditing} size="s" variant="secondary">
                 Edit<span className="sr-only"> the draft for {name}</span>
               </ActionButton>
-              <ActionButton disabled={actions.pending} onClick={() => actions.skip.mutate({ id: d.id, name })} size="s" variant="quiet">
+              <ActionButton disabled={actions.pending} onClick={skip} size="s" variant="quiet">
                 Skip<span className="sr-only"> the draft for {name}</span>
               </ActionButton>
             </>

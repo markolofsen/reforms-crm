@@ -1,13 +1,12 @@
-import { ArrowLeftIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import type { Dest } from "@/routes/paths";
+import { clientKey } from "@hub/contract/client-key";
+import { dest, type Dest } from "@/routes/paths";
+import type { DraftView } from "@/routes/search";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList } from "@hub/ui/product/conversation";
 import { ConversationEmptyState } from "@hub/ui/product/conversation-frame";
-import { Page } from "@hub/ui/product/page";
 import { EmptyState, ListSkeleton, ListState, QueryView } from "@/components/state-views";
 import { toastManager } from "@hub/ui/toast";
-import { ListDetail, ListScrollArea } from "@hub/ui/product/list-detail";
 import { shortcutsOn } from "@/hooks/use-hotkeys";
 import { sentence } from "@/lib/api/client";
 import { useRefreshTopics } from "@/lib/cache/topics";
@@ -17,15 +16,18 @@ import { postLocalOpen } from "@/lib/data/instance";
 import { copyText, openLink, sameTab } from "@/lib/external";
 import { ConversationPane } from "@/features/mail/conversation/pane";
 import { useToggleChecked } from "@/features/mail/draft/mail-read/use-toggle-checked";
-import { ListHeader, type View } from "./header";
-import { ListRow } from "./row";
-import { useMailKeys } from "./keys";
-import { focusRow, useListKeys } from "@/components/conversation/list/keys";
+import { ListHeader, type View } from "./list/header";
+import { ListRow } from "./list/row";
+import { useMailKeys } from "./list/keys";
+import type { Channel } from "@/components/conversation/adapter";
+import { useOpenRow } from "@/components/conversation/list/use-list";
+import { ConversationWorkspace } from "@/components/conversation/workspace";
+import { usePaneNarrow } from "@/hooks/use-pane";
 import { refOf } from "@hub/contract/focus";
 import { isClosed, rowId, type ConversationRow, type ReviewDraft } from "@/features/mail/model";
 import { useReviewRows, type ReviewSource } from "@/lib/data/conversations";
-import { useReviewActions, type Notice } from "./use-review-actions";
-import { useSelection, useShareReview } from "./use-selection";
+import { useReviewActions, type Notice } from "./list/use-review-actions";
+import { useSelection, useShareReview } from "./list/use-selection";
 
 const NOTICE_MS = 8000;
 
@@ -36,14 +38,11 @@ type Props = {
   onView: (value: string) => void;
   /** The search text and its setter: in the address. The host sends it to the server through its source. */
   search: [string, (value: string) => void];
-  /** The open conversation: in the address (`/mail/c/7`, a client id). `onAuto` names the one the screen opened by itself, replacing the entry. */
-  selection: { id: number | null; onChange: (id: number | null) => void; onAuto: (id: number) => void };
-  /** A row's link (P127 C1: rows are links): the person's address with the view and search kept. */
-  rowTo: (r: ConversationRow) => Dest;
+  /** The open conversation the address names (`/mail/c/<key>`, resolved to a client id), and the view, search and batch it keeps. */
+  clientId: number | null;
+  place: { filter: DraftView; q: string; batch: number | null };
   /** `?m=`: one of their messages the open conversation scrolls to. */
   pointed?: string | null;
-  /** False until the shell has measured the pane: nothing opens by itself before the width is known. */
-  measured: boolean;
   /** Shown when the list is empty (the host knows its own words). */
   empty: (filtered: boolean) => ReactNode;
   /** The empty title of a filtered view ("Nothing on hold"), so the body need not say it again (UX pass 2026-11-20). */
@@ -56,9 +55,6 @@ type Props = {
   aside?: { node: ReactNode; open: boolean };
   /** Under the rows: the enrolments of the Follow-ups view. */
   listBottom?: ReactNode;
-  mobile: boolean;
-  /** The label of the Back control on a phone, and the names of the two panes. */
-  noun: { list: string; back: string };
 };
 
 function Notices({ notice }: { notice: Notice | null }) {
@@ -126,33 +122,30 @@ async function replyAllInMail(d: ReviewDraft, say: (text: string) => void): Prom
 }
 
 /**
- * Mail (P99): the list column (views, search, people, Select) and the pane with the open conversation, its unsent message at the
- * bottom. It never sends mail by itself: Send is the unsent message's, and a batch draft opens a compose window you send from.
+ * Mail's channel adapter (P127 C2, V5; P99): the people of a view or a batch as rows, a person's conversation as the pane, Mail's
+ * action keys (D S H U C R 1 2 3) and its multi-select, drawn by the one `ConversationWorkspace`. It never sends mail by itself:
+ * Send is the unsent message's, and a batch draft opens a compose window you send from.
  */
-export function ReviewWorkspace({ source, views, onView, search, selection, rowTo, pointed = null, empty, emptyTitle, status, body, aside, listBottom, mobile, measured, noun }: Props) {
+export function MailWorkspace({ source, views, onView, search, clientId, place, pointed = null, empty, emptyTitle, status, body, aside, listBottom }: Props) {
   const refresh = useRefreshTopics(source.project);
   const now = useClock()();
+  const narrow = usePaneNarrow();
   const actions = useReviewActions(source.project);
   const [q, setQ] = search;
   const searchRef = useRef<HTMLInputElement>(null);
   const { query, rows, total, counts } = useReviewRows(source);
   const sel = useSelection(rows);
+  const { filter, batch } = place;
+  const emailOf = (id: number) => rows.find((r) => rowId(r) === id)?.client.email ?? null;
+  const channelTo = (id: number | null): Dest => (id === null ? dest("mail.list", { filter, q: place.q, batch }) : dest("mail.conversation", { key: clientKey({ id, email: emailOf(id) }) }, { filter, q: place.q, batch }));
+  const toRef = (id: number) => refOf("client", id);
+  const openRow = useOpenRow({ to: channelTo, refOf: toRef }, clientId);
 
-  // Desktop opens the first person by default (focus follows); a phone opens nothing until a row is chosen. A person the address
-  // names is opened whatever the view (P99: Activity links a Done conversation while the list shows Needs you).
-  const present = selection.id !== null;
-  const openId = body ? null : (selection.id ?? (mobile ? null : (rows[0] ? rowId(rows[0]) : null)));
+  // The person on screen: the one the address names, else (a wide pane, a bare list) the first row, which the workspace's auto-open
+  // then writes into the address. A person the address names is opened whatever the view (P99: Activity links a Done conversation).
+  const openId = body || aside?.open ? null : (clientId ?? (narrow ? null : (rows[0] ? rowId(rows[0]) : null)));
   const current = openId === null ? null : (rows.find((r) => rowId(r) === openId) ?? null);
   useShareReview(current, sel.picked);
-  // P53: the address names the conversation on screen. Once the list has settled for this view and search, a wide pane whose
-  // address names nobody replaces it with the first row (no history entry), so the address, the pane and the focus agree.
-  // P128 X0 (F16): an address that names a lead (the aside) is already the screen's subject; only a bare list is replaced.
-  const settled = measured && !body && !aside?.open && !mobile && !query.isPending && !query.isFetching && !query.hasNextPage;
-  const auto = settled && rows[0] && selection.id === null ? rowId(rows[0]) : null;
-  const { onAuto } = selection;
-  useEffect(() => {
-    if (auto !== null) onAuto(auto);
-  }, [auto, onAuto]);
 
   const { setNotice } = actions;
   const say = useCallback((text: string) => setNotice({ text, kind: "info" }), [setNotice]);
@@ -162,25 +155,12 @@ export function ReviewWorkspace({ source, views, onView, search, selection, rowT
     return () => clearTimeout(t);
   }, [actions.notice, setNotice]);
 
-  const onSelect = selection.onChange;
-  const go = useCallback(
-    (id: number | null, focus = false) => {
-      if (id == null) return;
-      onSelect(id);
-      document.getElementById(`person-${id}`)?.scrollIntoView({ block: "nearest" });
-      if (focus) focusRow(refOf("client", id));
-    },
-    [onSelect],
-  );
   // Done, Skip and Send move to the next person, so the loop is: send, send, send.
-  const advance = useCallback(
-    (d: ReviewDraft) => {
-      const i = rows.findIndex((r) => rowId(r) === d.clientId);
-      const next = rows[i + 1] ?? rows[i - 1];
-      go(next ? rowId(next) : null, true);
-    },
-    [rows, go],
-  );
+  const advance = (d: ReviewDraft) => {
+    const i = rows.findIndex((r) => rowId(r) === d.clientId);
+    const next = rows[i + 1] ?? rows[i - 1];
+    openRow(next ? rowId(next) : null, true);
+  };
   const undoBatch = source.undoLast;
   const undoLast = undoBatch
     ? () => {
@@ -190,18 +170,7 @@ export function ReviewWorkspace({ source, views, onView, search, selection, rowT
       }
     : null;
   const toggleChecked = useToggleChecked(source.project, actions, say);
-  useListKeys({
-    enabled: shortcutsOn,
-    ids: rows.map(rowId),
-    currentId: openId,
-    refOf: (id) => refOf("client", id),
-    go,
-    back: mobile && present ? () => onSelect(null) : null,
-    focusSearch: () => searchRef.current?.focus(),
-    selection: { count: sel.picked.length, toggle: sel.toggle, all: sel.all, clear: sel.clear },
-  });
   useMailKeys({ enabled: shortcutsOn, current: current?.draft ?? null, actions, advance, replyAll: (d) => void replyAllInMail(d, say), toggleChecked, undoLast, say });
-
 
   const bulk = (status: "skipped" | "hold", title: string) => {
     const targets = sel.drafts.filter((d) => !isClosed(d));
@@ -213,71 +182,58 @@ export function ReviewWorkspace({ source, views, onView, search, selection, rowT
 
   const filtered = source.filter !== "all";
   const header = { count: sel.picked.length, busy: actions.pending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped") };
-  const rowsView = (
-    <PeopleRows
-      empty={empty(filtered)}
-      emptyTitle={q ? "Nothing matches" : filtered ? (emptyTitle ?? "Nothing here") : "No conversation yet"}
-      now={now}
-      onAll={filtered && !q ? () => onView("all") : null}
-      openId={openId}
-      replace={present}
-      rowTo={rowTo}
-      query={query}
-      rows={rows}
-      searched={!!q}
-      sel={sel}
-      total={total}
-    />
-  );
-  const list = (
-    // P98 item 2: every block of the scrolling list keeps its own height; a `min-h-*` on a child would else let it shrink under its content and paint over the next one.
-    <ListScrollArea ariaBusy={query.isFetching && !query.isPending}>
-      <ListHeader onSearch={setQ} onSelecting={sel.setMode} onView={onView} refreshing={query.isFetching && !query.isPending} search={q} searchRef={searchRef} selecting={sel.selecting} selection={header} view={source.filter} views={views(counts)} />
-      {status}
-      {body ?? rowsView}
-      {listBottom}
-    </ListScrollArea>
-  );
-
-  const detail = (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-pane="detail">
-      {mobile && aside?.open && (
-        <div className="border-b p-2">
-          <ActionButton onClick={() => selection.onChange(null)} size="m" variant="quiet">
-            <ArrowLeftIcon aria-hidden="true" />
-            {noun.back}
-          </ActionButton>
-        </div>
-      )}
-      {aside?.open && <Notices notice={actions.notice} />}
-      {aside?.open ? <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]" data-pane="aside">{aside.node}</div> : openId !== null ? (
-        <ConversationPane
-          actions={actions}
-          advance={() => current?.draft && advance(current.draft)}
-          clientId={openId}
-          key={openId}
-          listRow={current}
-          notice={actions.notice}
-          now={now}
-          pointed={pointed}
-          project={source.project}
-          say={say}
-          onBack={() => selection.onChange(null)}
-        />
-      ) : (
-        <ConversationEmptyState subtitle="Choose a person from the list"><EmptyState compact title="Nothing to open">{body ? "This view lists clients by channel, not conversations." : query.isPending ? "Loading." : "Pick a person from the list."}</EmptyState></ConversationEmptyState>
-      )}
-    </div>
-  );
-  return (
-    <Page flush scroll={false}>
-      <ListDetail
-        detail={detail}
-        detailLabel={aside?.open ? "Lead" : "Conversation"}
-        list={list}
-        listLabel={noun.list}
-        showDetail={aside?.open ? true : present}
+  const channel: Channel = {
+    noun: { list: "Mail", detail: "Conversation", back: "Mail" },
+    ids: rows.map(rowId),
+    settled: !query.isPending && !query.isFetching && !query.hasNextPage,
+    refOf: toRef,
+    to: channelTo,
+    pane: (id, back) => (
+      <ConversationPane
+        actions={actions}
+        advance={() => current?.draft && advance(current.draft)}
+        clientId={id}
+        key={id}
+        listRow={current}
+        notice={actions.notice}
+        now={now}
+        pointed={pointed}
+        project={source.project}
+        say={say}
+        onBack={back}
       />
-    </Page>
+    ),
+    idle: <ConversationEmptyState subtitle="Choose a person from the list"><EmptyState compact title="Nothing to open">{body ? "This view lists clients by channel, not conversations." : query.isPending ? "Loading." : "Pick a person from the list."}</EmptyState></ConversationEmptyState>,
+    selection: { count: sel.picked.length, toggle: sel.toggle, all: sel.all, clear: sel.clear },
+  };
+  return (
+    <ConversationWorkspace
+      aside={aside ? { ...aside, label: "Lead" } : undefined}
+      asked={clientId}
+      body={body}
+      busy={query.isFetching && !query.isPending}
+      channel={channel}
+      listBottom={listBottom}
+      listTop={status}
+      notice={<Notices notice={actions.notice} />}
+      rows={
+        <PeopleRows
+          empty={empty(filtered)}
+          emptyTitle={q ? "Nothing matches" : filtered ? (emptyTitle ?? "Nothing here") : "No conversation yet"}
+          now={now}
+          onAll={filtered && !q ? () => onView("all") : null}
+          openId={openId}
+          replace={clientId !== null}
+          rowTo={(r) => channelTo(rowId(r))}
+          query={query}
+          rows={rows}
+          searched={!!q}
+          sel={sel}
+          total={total}
+        />
+      }
+      searchRef={searchRef}
+      toolbar={<ListHeader onSearch={setQ} onSelecting={sel.setMode} onView={onView} refreshing={query.isFetching && !query.isPending} search={q} searchRef={searchRef} selecting={sel.selecting} selection={header} view={source.filter} views={views(counts)} />}
+    />
   );
 }

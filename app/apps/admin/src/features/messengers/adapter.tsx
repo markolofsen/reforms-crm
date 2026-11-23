@@ -1,19 +1,16 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PlusIcon } from "lucide-react";
 import type { MessengerChannelFilter, MessengerLinkFilter, MessengerView as View } from "@hub/contract/messenger-panel";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationEmptyState } from "@hub/ui/product/conversation-frame";
 import { SearchField } from "@hub/ui/product/search-field";
-import { Page } from "@hub/ui/product/page";
-import { ListDetail, ListScrollArea } from "@hub/ui/product/list-detail";
 import { ListFilterMenu, ListToolbar, ListToolbarRow } from "@hub/ui/product/list-toolbar";
 import { EmptyState, ListState, Refreshing } from "@/components/state-views";
 import { useSearch } from "@/hooks/use-search-state";
 import { useDebounced } from "@/hooks/use-debounced";
-import { usePaneMeasured, usePaneNarrow } from "@/hooks/use-pane";
-import { useGo } from "@/hooks/use-go";
 import { shortcutsOn } from "@/hooks/use-hotkeys";
-import { focusRow, useListKeys } from "@/components/conversation/list/keys";
+import type { Channel } from "@/components/conversation/adapter";
+import { ConversationWorkspace } from "@/components/conversation/workspace";
 import { useClock } from "@/lib/clock";
 import { useAutolinkState, useMessengerChats, useTelegramUser, useWhatsApp } from "@/lib/data/messengers";
 import { dest } from "@/routes/paths";
@@ -25,6 +22,7 @@ import { ChatsBody } from "./unlinked/chats-body";
 import { channelOptions, effectiveChannel, linkCounts, viewCounts } from "./unlinked/chats-model";
 import { useChatActions } from "./use-chat-actions";
 import { MessengerConversationPane } from "./conversation/pane";
+import { useMessengerUndoKey } from "./conversation/keys";
 
 /** The View menu; its trigger is the list's title (P128 X4): "Messengers · Needs you 3", or the channel chosen in the sidebar, "WhatsApp · Needs you 1". */
 function ViewMenu({ value, counts, onChange, where }: { value: View; counts: Record<View, number> | undefined; onChange: (v: string) => void; where: string }) {
@@ -41,12 +39,10 @@ function LinkMenu({ value, counts, onChange }: { value: MessengerLinkFilter; cou
  * the channel chosen in the sidebar (P125 L5, `?channel=`); Mail's three views in one View menu (Needs you, the default: the linked
  * chats that wait, then the fresh unlinked chats nobody decided on; Waiting: the linked chats where we wrote last; All) and the
  * link state as a filter beside it (`?link=`: Any link, Linked, Not linked, Hidden). Each row has one state menu (P102); "Link a
- * chat…" starts from a client. The list draws its reads' states through `ChatsBody`.
+ * chat…" starts from a client. The list draws its reads' states through `ChatsBody`. This is Messengers' channel adapter of the one
+ * `ConversationWorkspace` (P127 C2, V5): the list, the pane, the list keys and opening a chat are the workspace's.
  */
-export function ChatsView({ project, filter, link, channel: asked, chatId = null }: { project: string; filter: View; link: MessengerLinkFilter; channel: MessengerChannelFilter; chatId?: number | null }) {
-  const go = useGo();
-  const narrow = usePaneNarrow();
-  const measured = usePaneMeasured();
+export function MessengersWorkspace({ project, filter, link, channel: asked, chatId = null }: { project: string; filter: View; link: MessengerLinkFilter; channel: MessengerChannelFilter; chatId?: number | null }) {
   const [{ q: search }, setSearch] = useSearch(MESSENGERS_SEARCH);
   const now = useClock()();
   const tg = useTelegramUser();
@@ -73,49 +69,40 @@ export function ChatsView({ project, filter, link, channel: asked, chatId = null
   const st = al.data;
   const searchEmpty = search.trim() ? <EmptyState action={<ActionButton onClick={() => setSearch({ q: "" })} size="s" variant="secondary">Clear search</ActionButton>} compact title="No chats match your search">Try a name, username, email, chat ID or message text.</EmptyState> : null;
   const accountsLine = emptyLine({ telegram, whatsapp, enabled: st?.enabled ?? false, withIdentifier: st?.directory.withIdentifier ?? 0, directoryReady: st?.directory.state === "ready" });
-  useEffect(() => {
-    // Routes rule 9: a narrow pane opens nothing, and the width is not known before the shell measures it (P127 divergence 2).
-    if (measured && !narrow && chatId === null && !q.isFetching && d?.chats[0]) go(dest("messengers.conversation", { id: d.chats[0].id }, { filter, link, channel, q: search }), { replace: true });
-  }, [channel, chatId, d?.chats, filter, go, link, measured, narrow, q.isFetching, search]);
-  // P127 C2 (question 1, delegated: yes): Mail's list keys. J/K move between the linked chats (replacing the entry), Enter goes in,
-  // Esc comes back, / searches. No selection keys: Messengers has no multi-select (question 4).
+  // P127 C2 (question 1, delegated: yes): Mail's list keys come with the workspace; U puts back the last skipped draft, S and E
+  // register on the open draft (`DraftBlock`). No selection keys: Messengers has no multi-select (question 4).
   const searchRef = useRef<HTMLInputElement>(null);
-  const chatTo = useCallback((id: number) => dest("messengers.conversation", { id }, { filter, link, channel, q: search }), [channel, filter, link, search]);
-  const openChat = useCallback(
-    (id: number | null, focus = false) => {
-      if (id === null) return;
-      go(chatTo(id), { replace: chatId !== null });
-      if (focus) focusRow(`chat:${id}`);
-    },
-    [chatId, chatTo, go],
-  );
-  useListKeys({
-    enabled: shortcutsOn,
+  useMessengerUndoKey({ enabled: shortcutsOn, undo: actions.undoSkip });
+  const place = { filter, link, channel, q: search };
+  const chatTo = (id: number) => dest("messengers.conversation", { id }, place);
+  const ws: Channel = {
+    noun: { list: "Chats", detail: "Conversation", back: "Chats" },
     ids: d?.chats.map((c) => c.id) ?? [],
-    currentId: chatId,
+    settled: d !== undefined && !q.isFetching,
     refOf: (id) => `chat:${id}`,
-    go: openChat,
-    back: narrow && chatId !== null ? () => go(dest("messengers.page", { filter, link, channel, q: search })) : null,
-    focusSearch: () => searchRef.current?.focus(),
-  });
-  const list = (
-    <ListScrollArea ariaBusy={Boolean(d && q.isFetching)}>
-      <ListToolbar ariaLabel="Chat filters and actions">
-        <ListToolbarRow>
-          <ViewMenu counts={viewCounts(d?.counts, st, channel, link)} onChange={(v) => setSearch({ filter: v })} value={filter} where={channel === "all" ? "Messengers" : CHANNEL_FILTER_LABEL[channel]} />
-          <LinkMenu counts={linkCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ link: v })} value={link} />
-          <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
-            <SearchField inputRef={searchRef} label="Search chats" onChange={(v) => setSearch({ q: v })} value={search} />
-          </div>
-          {accounts.length > 0 && (
-            <ActionButton aria-expanded={linking} aria-label={linking ? "Close link a chat" : "Link a chat"} className="ms-auto" icon onClick={() => setLinking((v) => !v)} size="s" tooltip={linking ? "Close link a chat" : "Link a chat"} variant="secondary">
-              <PlusIcon aria-hidden="true" />
-            </ActionButton>
-          )}
-          {d && q.isFetching && <Refreshing />}
-        </ListToolbarRow>
-      </ListToolbar>
-      {linking && <LinkChat accounts={accounts} moves={moves} onClose={() => setLinking(false)} project={project} />}
+    to: (id) => (id === null ? dest("messengers.page", place) : chatTo(id)),
+    pane: (id, back) => <MessengerConversationPane actions={actions} chatId={id} onBack={back} project={project} />,
+    idle: <ConversationEmptyState subtitle="Choose a chat from the list"><EmptyState compact title="Nothing to open">Pick a person from the list.</EmptyState></ConversationEmptyState>,
+  };
+  const toolbar = (
+    <ListToolbar ariaLabel="Chat filters and actions">
+      <ListToolbarRow>
+        <ViewMenu counts={viewCounts(d?.counts, st, channel, link)} onChange={(v) => setSearch({ filter: v })} value={filter} where={channel === "all" ? "Messengers" : CHANNEL_FILTER_LABEL[channel]} />
+        <LinkMenu counts={linkCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ link: v })} value={link} />
+        <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
+          <SearchField inputRef={searchRef} label="Search chats" onChange={(v) => setSearch({ q: v })} value={search} />
+        </div>
+        {accounts.length > 0 && (
+          <ActionButton aria-expanded={linking} aria-label={linking ? "Close link a chat" : "Link a chat"} className="ms-auto" icon onClick={() => setLinking((v) => !v)} size="s" tooltip={linking ? "Close link a chat" : "Link a chat"} variant="secondary">
+            <PlusIcon aria-hidden="true" />
+          </ActionButton>
+        )}
+        {d && q.isFetching && <Refreshing />}
+      </ListToolbarRow>
+    </ListToolbar>
+  );
+  const rows = (
+    <>
       <ChatsBody
         accountsLine={accountsLine}
         channel={channel}
@@ -133,8 +120,17 @@ export function ChatsView({ project, filter, link, channel: asked, chatId = null
         view={filter}
       />
       {actions.error && chatId === null && <ListState><p className="text-destructive-foreground text-sm" role="alert">{actions.error}</p></ListState>}
-    </ListScrollArea>
+    </>
   );
-  const detail = chatId === null ? <ConversationEmptyState subtitle="Choose a chat from the list"><EmptyState compact title="Nothing to open">Pick a person from the list.</EmptyState></ConversationEmptyState> : <MessengerConversationPane actions={actions} chatId={chatId} onBack={() => go(dest("messengers.page", { filter, link, channel, q: search }))} project={project} />;
-  return <Page flush scroll={false}><ListDetail detail={detail} detailLabel="Conversation" list={list} listLabel="Chats" showDetail={chatId !== null} /></Page>;
+  return (
+    <ConversationWorkspace
+      asked={chatId}
+      busy={Boolean(d && q.isFetching)}
+      channel={ws}
+      listTop={linking ? <LinkChat accounts={accounts} moves={moves} onClose={() => setLinking(false)} project={project} /> : undefined}
+      rows={rows}
+      searchRef={searchRef}
+      toolbar={toolbar}
+    />
+  );
 }
