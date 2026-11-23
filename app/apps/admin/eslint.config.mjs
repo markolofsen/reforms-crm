@@ -28,7 +28,7 @@ const STORAGE_GLOBALS = [
 ];
 const BASE_GROUP = ["@radix-ui/*", "@headlessui/*"];
 const DATA_MESSAGE = "Read and write server data through src/lib/data/* (rules: state-and-data 4b, P127 B2).";
-const DATA_GATE_PENDING = ["src/features/mail/**", "src/features/messengers/**", "src/features/terminal/**", "src/features/focus/use-focus-publisher.ts", "src/components/send/**", "src/components/local-action.tsx"];
+const DATA_GATE_PENDING = ["src/features/mail/**", "src/features/messengers/use-chat-actions.ts", "src/features/messengers/use-messenger-send.tsx", "src/features/messengers/conversation/pane.tsx", "src/features/messengers/status/link-chat.tsx", "src/features/messengers/status/use-moves.ts", "src/features/messengers/unlinked/record-search.tsx", "src/features/messengers/unlinked/use-hide.ts", "src/features/terminal/**", "src/features/focus/use-focus-publisher.ts", "src/components/send/**", "src/components/local-action.tsx"];
 // `sequences` (P47): the follow-up rules are the server's; the admin reads them through /api. `terminal` and `agent` (P49) are
 // Node only (the PTY, the socket, the agent checks): the admin reaches them through /api and the socket, never by import.
 const SERVER_PACKAGES = ["db", "mail", "notion", "send", "messengers", "projects", "sequences", "terminal", "agent", "server"];

@@ -1,4 +1,3 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PlusIcon } from "lucide-react";
 import type { MessengerChannelFilter, MessengerLinkFilter, MessengerView as View } from "@hub/contract/messenger-panel";
@@ -15,24 +14,17 @@ import { usePaneMeasured, usePaneNarrow } from "@/hooks/use-pane";
 import { useGo } from "@/hooks/use-go";
 import { shortcutsOn } from "@/hooks/use-hotkeys";
 import { focusRow, useListKeys } from "@/components/conversation/list/keys";
-import { messengersApi } from "@/lib/api/messengers/panel";
-import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
-import { useMessengerChats } from "@/lib/data/messengers";
+import { useAutolinkState, useMessengerChats, useTelegramUser, useWhatsApp } from "@/lib/data/messengers";
 import { dest } from "@/routes/paths";
 import { MESSENGERS_SEARCH } from "@/routes/search";
 import { CHANNEL_FILTER_LABEL, emptyLine, LINK_LABEL, LINK_ORDER, VIEW_LABEL, VIEW_ORDER } from "./labels";
-import { useTelegramUser } from "./settings/use-telegram";
-import { useWhatsApp } from "./settings/whatsapp/use-whatsapp";
 import { LinkChat } from "./status/link-chat";
 import { useChatMoves } from "./status/use-moves";
 import { ChatsBody } from "./unlinked/chats-body";
 import { channelOptions, effectiveChannel, linkCounts, viewCounts } from "./unlinked/chats-model";
 import { useChatActions } from "./use-chat-actions";
 import { MessengerConversationPane } from "./conversation/pane";
-
-/** The server keeps the unlinked chats in memory and a new one bumps no live topic: read again this often while the screen is open. */
-const POLL_MS = 15_000;
 
 /** The View menu; its trigger is the list's title (P128 X4): "Messengers · Needs you 3", or the channel chosen in the sidebar, "WhatsApp · Needs you 1". */
 function ViewMenu({ value, counts, onChange, where }: { value: View; counts: Record<View, number> | undefined; onChange: (v: string) => void; where: string }) {
@@ -69,7 +61,7 @@ export function ChatsView({ project, filter, link, channel: asked, chatId = null
   }, [asked, channel, setSearch, tg.isSuccess, wa.isSuccess]);
   const searchQuery = useDebounced(search.trim(), 200);
   const q = useMessengerChats(project, { filter, link, channel, q: searchQuery }, { keep: true });
-  const al = useQuery({ queryKey: keys.autolink(project), queryFn: () => messengersApi.autolinkState(project), refetchInterval: POLL_MS, gcTime: 0, retry: false });
+  const al = useAutolinkState(project);
   const actions = useChatActions(project, chatId);
   const moves = useChatMoves(project, chatId);
   const [linking, setLinking] = useState(false);

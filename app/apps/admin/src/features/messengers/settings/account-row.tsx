@@ -1,9 +1,9 @@
-import { useMutation, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useState } from "react";
 import type { TelegramUserAccountDto } from "@hub/contract/messengers";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { sentence } from "@/lib/api/client";
+import { useDisconnectAccount } from "@/lib/data/messengers";
 import { ChannelIcon } from "../channel/channel-icon";
 import { readsLine } from "../labels";
 
@@ -25,10 +25,9 @@ const PARKED_REASON: Record<NonNullable<TelegramUserAccountDto["parked"]>, strin
  * One connected account of a user-account channel (Telegram since P71 M3, WhatsApp since M5): its name, its state, the fix line of
  * a park, and Disconnect, confirmed in place (it removes the session; `note` says what that means for this channel).
  */
-export function AccountRow({ a, channel, label, note, disconnect, statusKey, linked }: { a: TelegramUserAccountDto; channel: "telegram_user" | "whatsapp"; label: string; note: string; disconnect: (account: string) => Promise<unknown>; statusKey: QueryKey; linked?: number }) {
-  const qc = useQueryClient();
+export function AccountRow({ a, channel, label, note, linked }: { a: TelegramUserAccountDto; channel: "telegram_user" | "whatsapp"; label: string; note: string; linked?: number }) {
   const [asking, setAsking] = useState(false);
-  const off = useMutation({ mutationFn: () => disconnect(a.account), onSettled: () => qc.invalidateQueries({ queryKey: statusKey }) });
+  const off = useDisconnectAccount(channel, a.account);
   const look = STATE_WORD[a.state];
   return (
     <li className="flex flex-col gap-1.5 py-2.5" data-account={a.account}>

@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { CHAT_INSTRUCTION_MAX, NUDGE_DAYS_MAX, NUDGE_DAYS_MIN, REPLY_MODE_LABELS, REPLY_MODES } from "@hub/config/chat-rules";
-import type { ChatRulesBody, MessengerChatDto, PreanalysisDto } from "@hub/contract/messenger-panel";
+import type { MessengerChatDto, PreanalysisDto } from "@hub/contract/messenger-panel";
 import { cn } from "@hub/ui/cn";
 import { CommitField, SettingSwitch } from "@hub/ui/product/field";
 import { ActionButton } from "@hub/ui/product/action-button";
@@ -8,8 +8,7 @@ import { MarkdownEditor } from "@hub/ui/product/markdown-editor";
 import { LanguagePicker } from "@hub/ui/product/language-picker";
 import { ToggleGroup, ToggleGroupItem } from "@hub/ui/toggle-group";
 import { sentence } from "@/lib/api/client";
-import { messengersApi } from "@/lib/api/messengers/panel";
-import { useCommand } from "@/lib/cache/topics";
+import { useSaveChatRules } from "@/lib/data/messengers";
 import { agentRef } from "@/lib/focus";
 import { chatName, CHANNEL_LABEL, prefilterNote, triageLine } from "../labels";
 
@@ -24,7 +23,7 @@ const HINT = "text-muted-foreground text-xs";
  * characters), saved by its button. Its ref is `chat:<id>` (P72).
  */
 export function ChatRules({ project, c, preanalysis }: { project: string; c: MessengerChatDto; preanalysis: PreanalysisDto }) {
-  const save = useCommand({ project, touches: ["messengers"], run: (patch: ChatRulesBody) => messengersApi.setRules(project, c.id, patch) });
+  const save = useSaveChatRules(project, c.id);
   const ids = { mode: useId(), nudge: useId(), days: useId(), lang: useId(), pre: useId(), text: useId() };
   const [instruction, setInstruction] = useState(c.rules.instruction ?? "");
   const r = c.rules;

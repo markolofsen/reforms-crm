@@ -2,11 +2,9 @@
 
 import type { MessengerChannelFilter } from "@hub/contract/messenger-panel";
 import { useRoute } from "@/hooks/use-route";
-import { useMessengerChats } from "@/lib/data/messengers";
+import { useMessengerChats, useTelegramUser, useWhatsApp } from "@/lib/data/messengers";
 import { dest, type Dest } from "@/routes/paths";
 import { CHANNEL_FILTER_LABEL } from "../labels";
-import { useTelegramUser } from "../settings/use-telegram";
-import { useWhatsApp } from "../settings/whatsapp/use-whatsapp";
 import { channelOptions } from "../unlinked/chats-model";
 
 /** One channel under Messengers in the sidebar (P125 L5): its words, its address, its "client wrote" count, and whether it is on screen. */

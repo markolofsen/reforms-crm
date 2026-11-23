@@ -1,11 +1,9 @@
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
 import { QueryView } from "@/components/state-views";
-import { whatsappApi } from "@/lib/api/messengers/whatsapp";
-import { keys } from "@/lib/cache/keys";
 import { AccountRow } from "../account-row";
 import { qrPath, qrSide } from "./qr";
-import { useWhatsApp, useWhatsAppConnect } from "./use-whatsapp";
+import { useWhatsApp, useWhatsAppConnect } from "@/lib/data/messengers";
 
 /** Said once above Connect (decision 0036 point 2), as the Telegram form's: the number is his own, and the risk is his. */
 export const WA_RISK_SENTENCE =
@@ -84,11 +82,9 @@ function WhatsAppAccountBody({ d, linked }: { d: NonNullable<ReturnType<typeof u
             a={a}
             channel="whatsapp"
             linked={linked}
-            disconnect={whatsappApi.disconnect}
             key={a.account}
             label={`WhatsApp +${a.account}`}
             note="The device is unlinked (it leaves Linked devices on your phone) and its keys are deleted; the linked chats and their messages stay. To read them again, connect and scan a new code."
-            statusKey={keys.whatsapp()}
           />
         ))}
       </ul>

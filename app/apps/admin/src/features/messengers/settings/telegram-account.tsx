@@ -1,10 +1,8 @@
 import { Skeleton } from "@hub/ui/skeleton";
 import { QueryView } from "@/components/state-views";
-import { telegramUserApi } from "@/lib/api/messengers/telegram-user";
-import { keys } from "@/lib/cache/keys";
 import { AccountRow } from "./account-row";
 import { ConnectForm } from "./connect-form";
-import { useTelegramUser } from "./use-telegram";
+import { useTelegramUser } from "@/lib/data/messengers";
 
 /**
  * Settings ▸ Messengers, Telegram account (P71 M3): the connected account with its state and Disconnect, or the connect form with
@@ -30,11 +28,9 @@ function TelegramAccountBody({ d, linked }: { d: NonNullable<ReturnType<typeof u
             a={a}
             channel="telegram_user"
             linked={linked}
-            disconnect={telegramUserApi.disconnect}
             key={a.account}
             label={`Telegram account ${a.account}`}
             note="The session file is deleted; the linked chats and their messages stay. To read them again, connect the account again."
-            statusKey={keys.telegramUser()}
           />
         ))}
       </ul>

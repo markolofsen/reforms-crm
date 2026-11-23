@@ -2,7 +2,7 @@ import { useId, useState, type FormEvent } from "react";
 import { Input } from "@hub/ui/input";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Field } from "@hub/ui/product/field";
-import { useTelegramLogin } from "./use-telegram";
+import { useTelegramLogin } from "@/lib/data/messengers";
 
 /** Said once on the form (decision 0036 point 2): the account is his own, and the risk is his. */
 export const RISK_SENTENCE =
