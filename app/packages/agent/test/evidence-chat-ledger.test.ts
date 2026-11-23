@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { auditToolCalls } from "@hub/projects/audit";
-import { chatDraftViolations, HUB_MESSENGER_HISTORY } from "../src/evidence/chat-ledger";
-import { entryFor, HUB_MESSENGER_DRAFT_WRITE, isDraftWrite, preDraftCheck, type LedgerEntry } from "../src/evidence/ledger";
+import { chatDraftViolations, HUB_MESSENGER_DRAFT_WRITE, HUB_MESSENGER_HISTORY } from "../src/evidence/chat-ledger";
+import { entryFor, isDraftWrite, preDraftCheck, type LedgerEntry } from "../src/evidence/ledger";
 
 // P71 M2: the guard's messenger rule. A messenger draft is judged by its own chat's history read, never by the mail chain.
 

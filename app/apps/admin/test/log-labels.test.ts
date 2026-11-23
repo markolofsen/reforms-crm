@@ -12,9 +12,9 @@ describe("activity labels (P73)", () => {
   });
 
   it("the address holds the view and the one client; the run views and `?run=` are gone", () => {
-    expect(readSearch(LOG_SEARCH, { filter: "sends" }).filter).toBe("sends");
-    expect(readSearch(LOG_SEARCH, { filter: "needs_you", client: "1" })).toEqual({ filter: "needs_you", client: 1 });
-    expect(readSearch(LOG_SEARCH, { filter: "failed", run: "3" })).toEqual({ filter: "all", client: null });
+    expect(readSearch(LOG_SEARCH, { kind: "sends" }).kind).toBe("sends");
+    expect(readSearch(LOG_SEARCH, { kind: "needs_you", client: "1" })).toEqual({ kind: "needs_you", client: 1 });
+    expect(readSearch(LOG_SEARCH, { kind: "failed", run: "3" })).toEqual({ kind: "all", client: null });
     expect(TIMELINE_VIEWS).not.toContain("sends");
   });
 });

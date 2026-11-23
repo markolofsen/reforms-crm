@@ -1,6 +1,8 @@
 import { ENROLLMENT_STATES } from "@hub/config";
 import { describe, expect, it } from "vitest";
-import { addDays, decideStop, displayStateOf, enrolSnapshot, EVENT_TYPES, isDue, transition, type SequenceEvent, type Snapshot } from "../src";
+import { addDays, displayStateOf, isDue } from "../src/due";
+import { decideStop } from "../src/stops";
+import { enrolSnapshot, EVENT_TYPES, transition, type SequenceEvent, type Snapshot } from "../src/transitions";
 
 // Local dates on purpose: business days are counted on the machine's own calendar.
 const local = (y: number, m: number, d: number, h = 10) => new Date(y, m - 1, d, h).toISOString();

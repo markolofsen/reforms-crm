@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { CORE_STOP_ON, DEFAULT_MAX_WORDS, findSequence, isUsable, loadSequences, parseSequence, pickSequence, scheduleOf, sequenceErrors, type SequenceDefinition } from "../src";
+import { CORE_STOP_ON, DEFAULT_MAX_WORDS, isUsable, parseSequence, pickSequence, scheduleOf, sequenceErrors, type SequenceDefinition } from "../src/definition";
+import { findSequence, loadSequences } from "../src/load";
 
 const fixture = (name: string) => parseSequence(readFileSync(join(import.meta.dirname, "fixtures", name), "utf8"), name);
 const errors = (d: SequenceDefinition) => d.issues.filter((i) => i.severity === "error").map((i) => i.message);
