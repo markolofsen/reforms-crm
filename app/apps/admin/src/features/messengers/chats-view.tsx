@@ -5,7 +5,7 @@ import type { MessengerChannelFilter, MessengerView as View } from "@hub/contrac
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList } from "@hub/ui/product/conversation";
 import { ConversationEmptyState } from "@hub/ui/product/conversation-frame";
-import { Input } from "@hub/ui/input";
+import { SearchField } from "@hub/ui/product/search-field";
 import { Page } from "@hub/ui/product/page";
 import { ListDetail, ListScrollArea } from "@hub/ui/product/list-detail";
 import { ListFilterMenu, ListToolbar, ListToolbarRow } from "@hub/ui/product/list-toolbar";
@@ -13,7 +13,7 @@ import { AppLink } from "@/components/app-link";
 import { EmptyState, ListSkeleton, ListState, LoadFailed, Refreshing, StaleNote } from "@/components/state-views";
 import { useSearch } from "@/hooks/use-search-state";
 import { useDebounced } from "@/hooks/use-debounced";
-import { usePaneNarrow } from "@/hooks/use-pane";
+import { usePaneMeasured, usePaneNarrow } from "@/hooks/use-pane";
 import { useGo } from "@/hooks/use-go";
 import { messengersApi } from "@/lib/api/messengers/panel";
 import { keys } from "@/lib/cache/keys";
@@ -54,6 +54,7 @@ function ViewMenu({ value, counts, onChange, where }: { value: View; counts: Rec
 export function ChatsView({ project, filter, channel: asked, chatId = null }: { project: string; filter: View; channel: MessengerChannelFilter; chatId?: number | null }) {
   const go = useGo();
   const narrow = usePaneNarrow();
+  const measured = usePaneMeasured();
   const [{ q: search }, setSearch] = useSearch(MESSENGERS_SEARCH);
   const now = useClock()();
   const tg = useTelegramUser();
@@ -87,7 +88,7 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
     d && d.chats.length > 0 ? (
       <ConversationList ariaLabel="Chats">
         {d.chats.map((c) => (
-          <ChatRow c={c} key={c.id} moves={moves} now={now} open={c.id === chatId} project={project} to={dest("messengers.conversation", { id: c.id }, { filter, channel, q: search })} />
+          <ChatRow c={c} key={c.id} moves={moves} now={now} open={c.id === chatId} project={project} replace={chatId !== null} to={dest("messengers.conversation", { id: c.id }, { filter, channel, q: search })} />
         ))}
       </ConversationList>
     ) : null;
@@ -132,15 +133,16 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
       </>
     );
   useEffect(() => {
-    if (!narrow && chatId === null && !q.isFetching && d?.chats[0]) go(dest("messengers.conversation", { id: d.chats[0].id }, { filter, channel, q: search }), { replace: true });
-  }, [channel, chatId, d?.chats, filter, go, narrow, q.isFetching, search]);
+    // Routes rule 9: a narrow pane opens nothing, and the width is not known before the shell measures it (P127 divergence 2).
+    if (measured && !narrow && chatId === null && !q.isFetching && d?.chats[0]) go(dest("messengers.conversation", { id: d.chats[0].id }, { filter, channel, q: search }), { replace: true });
+  }, [channel, chatId, d?.chats, filter, go, measured, narrow, q.isFetching, search]);
   const list = (
     <ListScrollArea ariaBusy={Boolean(d && q.isFetching)}>
       <ListToolbar ariaLabel="Chat filters and actions">
         <ListToolbarRow>
           <ViewMenu counts={viewCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ filter: v })} value={filter} where={channel === "all" ? "Messengers" : CHANNEL_FILTER_LABEL[channel]} />
           <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
-            <Input aria-label="Search chats" className="control-s w-full" onChange={(event) => setSearch({ q: event.target.value })} placeholder="Search people or messages" type="search" value={search} />
+            <SearchField label="Search chats" onChange={(v) => setSearch({ q: v })} value={search} />
           </div>
           {accounts.length > 0 && (
             <ActionButton aria-expanded={linking} aria-label={linking ? "Close link a chat" : "Link a chat"} className="ms-auto" icon onClick={() => setLinking((v) => !v)} size="s" tooltip={linking ? "Close link a chat" : "Link a chat"} variant="secondary">

@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
+import type { Dest } from "@/routes/paths";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList } from "@hub/ui/product/conversation";
 import { ConversationEmptyState } from "@hub/ui/product/conversation-frame";
@@ -35,6 +36,8 @@ type Props = {
   search: [string, (value: string) => void];
   /** The open conversation: in the address (`/mail/c/7`, a client id). `onAuto` names the one the screen opened by itself, replacing the entry. */
   selection: { id: number | null; onChange: (id: number | null) => void; onAuto: (id: number) => void };
+  /** A row's link (P127 C1: rows are links): the person's address with the view and search kept. */
+  rowTo: (r: ConversationRow) => Dest;
   /** `?m=`: one of their messages the open conversation scrolls to. */
   pointed?: string | null;
   /** False until the shell has measured the pane: nothing opens by itself before the width is known. */
@@ -86,7 +89,7 @@ function LoadedFooter({ loaded, total, more, fetching, onMore }: { loaded: numbe
 type RowsQuery = ReturnType<typeof useReviewRows>["query"];
 
 /** The people of the view: loading, failed, empty, or the rows with Load more. */
-function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: number; now: number; openId: number | null; sel: ReturnType<typeof useSelection>; searched: boolean; emptyTitle: string; empty: ReactNode; onAll: (() => void) | null; onOpen: (id: number) => void }) {
+function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: number; now: number; openId: number | null; sel: ReturnType<typeof useSelection>; searched: boolean; emptyTitle: string; empty: ReactNode; onAll: (() => void) | null; rowTo: (r: ConversationRow) => Dest; replace: boolean }) {
   const { query, rows, sel } = p;
   if (query.isPending) return <ListSkeleton label="Loading the people" />;
   if (query.isError && rows.length === 0)
@@ -107,7 +110,7 @@ function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: numbe
       ) : (
         <ConversationList ariaLabel="People">
           {rows.map((r) => (
-            <ListRow key={rowId(r)} now={p.now} onOpen={() => p.onOpen(rowId(r))} onToggle={() => sel.toggle(rowId(r))} open={rowId(r) === p.openId} r={r} selected={sel.has(rowId(r))} selecting={sel.selecting} />
+            <ListRow key={rowId(r)} now={p.now} replace={p.replace} to={p.rowTo(r)} onToggle={() => sel.toggle(rowId(r))} open={rowId(r) === p.openId} r={r} selected={sel.has(rowId(r))} selecting={sel.selecting} />
           ))}
         </ConversationList>
       )}
@@ -132,7 +135,7 @@ async function replyAllInMail(d: ReviewDraft, say: (text: string) => void): Prom
  * Mail (P99): the list column (views, search, people, Select) and the pane with the open conversation, its unsent message at the
  * bottom. It never sends mail by itself: Send is the unsent message's, and a batch draft opens a compose window you send from.
  */
-export function ReviewWorkspace({ source, views, onView, search, selection, pointed = null, empty, emptyTitle, status, body, aside, listBottom, mobile, measured, noun }: Props) {
+export function ReviewWorkspace({ source, views, onView, search, selection, rowTo, pointed = null, empty, emptyTitle, status, body, aside, listBottom, mobile, measured, noun }: Props) {
   const qc = useQueryClient();
   const now = useClock()();
   const actions = useReviewActions(source.project);
@@ -229,8 +232,9 @@ export function ReviewWorkspace({ source, views, onView, search, selection, poin
       emptyTitle={q ? "Nothing matches" : filtered ? (emptyTitle ?? "Nothing here") : "No conversation yet"}
       now={now}
       onAll={filtered && !q ? () => onView("all") : null}
-      onOpen={(id) => go(id)}
       openId={openId}
+      replace={present}
+      rowTo={rowTo}
       query={query}
       rows={rows}
       searched={!!q}

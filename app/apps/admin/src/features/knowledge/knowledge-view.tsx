@@ -1,8 +1,8 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { phrase } from "@hub/contract/help";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, type ReactNode } from "react";
 import type { KnowledgeListDto, KnowledgeView as View } from "@hub/contract/knowledge";
-import { Input } from "@hub/ui/input";
+import { SearchField } from "@hub/ui/product/search-field";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Page } from "@hub/ui/product/page";
 import { SectionLayout } from "@hub/ui/product/section-layout";
@@ -40,15 +40,6 @@ function KnowledgeNav({ filter, topic, q, counts, items }: { filter: View; topic
   return <SectionNav items={[...views, all, ...topics]} label="Knowledge topics" />;
 }
 
-/** The title search: the box keeps what was typed; the address follows it (`features/review/list-controls.tsx` for why). */
-function SearchBox({ q, onSearch }: { q: string; onSearch: (v: string) => void }) {
-  const ref = useRef<HTMLInputElement>(null);
-  const [text, setText] = useState(q);
-  useEffect(() => {
-    if (ref.current !== document.activeElement) setText(q);
-  }, [q]);
-  return <Input aria-label="Search knowledge" className="control-m w-full sm:w-56" onChange={(e) => { setText(e.target.value); onSearch(e.target.value); }} placeholder="Search titles and text" ref={ref} type="search" value={text} />;
-}
 
 /**
  * Knowledge (P70, `/knowledge`): the facts the agent cites in the owner's name, every entry with its title. The menu column
@@ -78,7 +69,7 @@ export function KnowledgeView({ project, filter, q, topic }: { project: string; 
   const hidden = d ? d.entries.length - shown.length : 0;
   const header = (
     <>
-      <SearchBox onSearch={setQ} q={q} />
+      <SearchField className="control-m sm:w-56" label="Search knowledge" onChange={setQ} placeholder="Search titles and text" value={q} />
       <LocalActionButton action="finder.open" args={{ project, key: "knowledge" }} variant="secondary" />
     </>
   );

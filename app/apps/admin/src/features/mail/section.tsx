@@ -148,6 +148,7 @@ function MailSection({ project, filter, q, batch, clientId, pointed, leadPageId,
       search={[q, setQ]}
       // The first pick from the list pushes (Back returns to the list); moving between people replaces; the person the screen
       // opens by itself on a wide pane replaces too (P53), so the address always names the conversation on screen.
+      rowTo={(r) => dest("mail.conversation", { key: clientKey({ id: r.client.id, email: r.client.email }) }, { filter, q, batch })}
       selection={{ id: clientId, onChange: (id) => go(id === null ? dest("mail.list", { filter, q, batch }) : dest("mail.conversation", { key: clientKey({ id }) }, { filter, q, batch }), { replace: clientId !== null }), onAuto }}
       source={{ ...source, filter: batch === null ? filter : `${BATCH}${batch}` }}
       status={<StatusLine project={project} />}

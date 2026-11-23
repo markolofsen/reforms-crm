@@ -1,7 +1,7 @@
 import { ListChecksIcon } from "lucide-react";
-import { useEffect, useState, type RefObject } from "react";
+import type { RefObject } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { Input } from "@hub/ui/input";
+import { SearchField } from "@hub/ui/product/search-field";
 import { ListFilterMenu, ListToolbar, ListToolbarRow } from "@hub/ui/product/list-toolbar";
 import { Refreshing } from "@/components/state-views";
 
@@ -30,19 +30,6 @@ type Header = {
 function ViewMenu({ views, view, onView }: Pick<Header, "views" | "view" | "onView">) {
   const shown = views.filter((v) => v.group === undefined || v.value === view || v.count !== 0);
   return <ListFilterMenu name="View" onChange={onView} options={shown} tooltip="Filter mail by view" value={view} where="Mail" />;
-}
-
-/**
- * The search box. The address is the state (a search is a link), but it follows `replaceState` a moment late: a box bound only to it
- * dropped letters typed faster than the page caught up (P44 S1 measured "Marta Fic" arriving as "Mata Fic" at 30 ms a key). The box
- * keeps what the person typed; the address is adopted only while the box is not the one being typed in (Back, a link, Clear).
- */
-function SearchBox({ search, onSearch, searchRef }: Pick<Header, "search" | "onSearch" | "searchRef">) {
-  const [text, setText] = useState(search);
-  useEffect(() => {
-    if (searchRef.current !== document.activeElement) setText(search);
-  }, [search, searchRef]);
-  return <Input aria-label="Search drafts" className="control-s" onChange={(e) => { setText(e.target.value); onSearch(e.target.value); }} placeholder="Search" ref={searchRef} type="search" value={text} />;
 }
 
 /**
@@ -85,7 +72,7 @@ export function ListHeader({ views, view, onView, search, onSearch, searchRef, s
         <ListToolbarRow className="flex-nowrap">
           <ViewMenu onView={onView} view={view} views={views} />
           <div className="min-w-0 flex-1">
-            <SearchBox onSearch={onSearch} search={search} searchRef={searchRef} />
+            <SearchField inputRef={searchRef} label="Search drafts" onChange={onSearch} value={search} />
           </div>
           <ActionButton aria-label={selecting ? "Exit draft selection" : "Select drafts"} aria-pressed={selecting} icon onClick={() => onSelecting(!selecting)} size="s" tooltip={selecting ? "Exit draft selection" : "Select drafts"} variant="secondary">
             <ListChecksIcon aria-hidden="true" />

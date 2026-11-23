@@ -1,10 +1,10 @@
 import { CheckCircle2Icon, CircleDotIcon, CircleIcon, ClockIcon, MailIcon, PauseCircleIcon, type LucideIcon } from "lucide-react";
 import { CONVERSATION_STATE_LABELS } from "@hub/contract/conversations";
 import { refOf } from "@hub/contract/focus";
-import { ActionButton } from "@hub/ui/product/action-button";
-import { Badge } from "@hub/ui/badge";
 import { Checkbox } from "@hub/ui/checkbox";
-import { ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
+import { ConversationRow as Row, type ConversationChip, type ConversationSummary } from "@hub/ui/product/conversation-row";
+import { AppLink } from "@/components/app-link";
+import type { Dest } from "@/routes/paths";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
 import { ago } from "@/lib/format";
 import { cn } from "@hub/ui/cn";
@@ -25,7 +25,7 @@ export function statusOf(r: ConversationRow): Status {
   return { Icon: CheckCircle2Icon, label, tone: "text-success-foreground" };
 }
 
-type Chip = { id: string; text: string; variant: "error" | "warning" | "info" | "outline" };
+type Chip = ConversationChip;
 
 /** At most two chips (verdict 3: what were views are chips): do not contact, suspicious mail, checks, thin basis, a follow-up step, two brands. */
 export function chipsOf(r: ConversationRow): Chip[] {
@@ -50,65 +50,60 @@ export function draftChipsOf(d: ReviewDraft): Chip[] {
   return out.slice(0, 2);
 }
 
-type Props = { r: ConversationRow; now: number; open: boolean; selecting: boolean; selected: boolean; onOpen: () => void; onToggle: () => void };
+/** Mail's row as the shared three lines (P127 C1): the person, the state word and subject, their words or the agent's verdict. */
+export function summaryOf(r: ConversationRow, now: number): ConversationSummary {
+  const id = rowId(r);
+  const name = r.client.name || r.client.email;
+  return {
+    ref: refOf("client", id),
+    domId: `person-${id}`,
+    name,
+    label: name,
+    time: ago(r.at, now),
+    strong: r.state === "wrote" || r.state === "draft",
+    state: CONVERSATION_STATE_LABELS[r.state],
+    subject: r.subject,
+    preview: r.preview || undefined,
+    agent: r.agent ? agentLine(r.agent) : undefined,
+    chips: chipsOf(r),
+    marker: <IntegrationStatus compact className="shrink-0" detail={notionIdentityLine(r.notion, r.client.name)} label="Notion" state={notionIndicatorState(r.notion)} />,
+    data: { "data-state": r.state },
+  };
+}
+
+type Props = { r: ConversationRow; now: number; open: boolean; selecting: boolean; selected: boolean; to: Dest; replace: boolean; onToggle: () => void };
 
 /**
- * One person in the list (P99 verdict 13), three lines: the name and the time of the newest activity; the state word and the
- * newest thread's subject; their newest message's words (or our draft's) muted, with at most two chips. Three states that never
- * share a look: focus (a ring inset on the button), open (fill and a bar at the start edge) and selected (a checkbox, a tint).
+ * One person in the list (P99 verdict 13), drawn by the shared `ConversationRow`: a real link to `/mail/c/<email>` (routes rule 7,
+ * P128 F20; open in a new tab works), replacing the entry while a conversation is open (routes rule 9). The leading control is the
+ * state shape, which becomes the checkbox on hover or while a selection is under way.
  */
-export function ListRow({ r, now, open, selecting, selected, onOpen, onToggle }: Props) {
+export function ListRow({ r, now, open, selecting, selected, to, replace, onToggle }: Props) {
   const { Icon, label, tone } = statusOf(r);
-  const chips = chipsOf(r);
-  const id = rowId(r);
-  const notionState = notionIndicatorState(r.notion);
-  const notionDetail = notionIdentityLine(r.notion, r.client.name);
+  const leading = (
+    <span className="relative grid h-(--control-m) w-(--control-m) shrink-0 place-items-center self-start ms-1 mt-1.5" data-hit="">
+      <Icon aria-label={label} className={cn("size-5", tone, selecting ? "opacity-0" : "group-hover/list-item:opacity-0")} role="img" />
+      <Checkbox
+        aria-label={`Select ${r.client.name}`}
+        checked={selected}
+        // Not a Tab stop until a selection is under way: `x` selects, `j`/`k` move, and 120 invisible stops stand between Tab and the pane.
+        tabIndex={selecting ? 0 : -1}
+        className={cn("absolute inset-0 m-auto after:absolute after:-inset-3.5 after:content-['']", !selecting && "opacity-0 focus-visible:opacity-100 group-hover/list-item:opacity-100")}
+        onCheckedChange={onToggle}
+      />
+    </span>
+  );
   return (
-    <ConversationListItem className="flex items-stretch" dataAgentRef={refOf("client", id)} dataAttributes={{ "data-state": r.state }} id={`person-${id}`} open={open} selected={selected}>
-      <span className="relative grid h-(--control-m) w-(--control-m) shrink-0 place-items-center self-start ms-1 mt-1.5" data-hit="">
-        <Icon aria-label={label} className={cn("size-5", tone, selecting ? "opacity-0" : "group-hover/list-item:opacity-0")} role="img" />
-        <Checkbox
-          aria-label={`Select ${r.client.name}`}
-          checked={selected}
-          // Not a Tab stop until a selection is under way: `x` selects, `j`/`k` move, and 120 invisible stops stand between Tab and the pane.
-          tabIndex={selecting ? 0 : -1}
-          className={cn("absolute inset-0 m-auto after:absolute after:-inset-3.5 after:content-['']", !selecting && "opacity-0 focus-visible:opacity-100 group-hover/list-item:opacity-100")}
-          onCheckedChange={onToggle}
-        />
-      </span>
-      <ActionButton
-        aria-current={open ? "true" : undefined}
-        className="min-h-16 min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-none py-2.5 ps-1 pe-2 text-start font-normal outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-        data-slot="conversation-list-focus"
-        data-testid="person-row"
-        onClick={onOpen}
-        size="m"
-        variant="quiet"
-      >
-        <ConversationListIdentity
-          marker={<IntegrationStatus compact className="shrink-0" detail={notionDetail} label="Notion" state={notionState} />}
-          name={<span data-agent-label="">{r.client.name || r.client.email}</span>}
-          nameClassName={r.state === "wrote" || r.state === "draft" ? "font-semibold" : undefined}
-          time={ago(r.at, now)}
-        />
-        {/* At 1280 the list is 360px: a 35-character subject fits whole beside the state only with this end padding and gap
-            (ui-specifications 4a: a subject is not cut below 40 characters; measured 4px short with pe-3 and gap-1). */}
-        <span className="flex w-full min-w-0 items-baseline gap-0.5 text-sm">
-          <span className={cn("shrink-0", r.state === "wrote" || r.state === "draft" ? "font-medium text-foreground" : "text-muted-foreground")} data-testid="person-state">{CONVERSATION_STATE_LABELS[r.state]}</span>
-          <span className="min-w-0 truncate" data-testid="person-subject">· {r.subject || "(no subject)"}</span>
-        </span>
-        {(r.agent || r.preview || chips.length > 0) && (
-          <span className="flex w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
-            {/* P128 X2: the agent's judgement replaces their words on the third line, so a junk sender is read without Activity. */}
-            {r.agent ? <span className="min-w-0 flex-1 truncate text-foreground" data-testid="person-agent">{agentLine(r.agent)}</span> : r.preview && <span className="min-w-0 flex-1 truncate" data-testid="person-preview">{r.preview}</span>}
-            {chips.map((c) => (
-              <Badge className="shrink-0" key={c.id} variant={c.variant}>
-                {c.text}
-              </Badge>
-            ))}
-          </span>
-        )}
-      </ActionButton>
-    </ConversationListItem>
+    <Row
+      leading={leading}
+      open={open}
+      render={(content, className) => (
+        <AppLink aria-current={open ? "page" : undefined} bare className={className} data-slot="conversation-list-focus" data-testid="person-row" replace={replace} to={to}>
+          {content}
+        </AppLink>
+      )}
+      selected={selected}
+      summary={summaryOf(r, now)}
+    />
   );
 }
