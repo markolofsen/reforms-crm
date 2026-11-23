@@ -41,7 +41,12 @@ export const projectShowTool = defineTool({
   handler: async ({ env, project }) => {
     const slug = project();
     if (!env.projectConfig) throw new ToolError("unavailable", "This hub MCP server cannot read the project's settings.");
-    const c = env.projectConfig(slug);
+    let c: ReturnType<NonNullable<typeof env.projectConfig>>;
+    try {
+      c = env.projectConfig(slug);
+    } catch (e) {
+      throw new ToolError("unavailable", `project.md of ${slug} does not load (${e instanceof Error ? e.message : String(e)}): say "проект не настроен, скажи: настрой проект ${slug}" and stop.`);
+    }
     const { project: _p, ...notion } = projectNotion(notionScopeOf(slug, c));
     const tests = env.testRecipients?.(slug) ?? [];
     return {

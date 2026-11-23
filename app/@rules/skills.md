@@ -17,5 +17,7 @@ Two kinds, kept apart on purpose:
 ## Run-time skills
 Stay in `skills/`, next to `config/` and `app/`: they are the workflow, and they change with it. Each skill file names the tools it calls (`allowed-tools`) and the state it writes. Do not move them into `@rules/`: rules constrain how code changes, skills are what the agent does. Which skill does what, and its boundary: the one index, [`skills/README.md`](../../skills/README.md).
 
+A skill's frontmatter `description` states the situation it serves, the result and the boundary: no list of quoted phrases, at most one example, no Cyrillic phrase list (`skills-descriptions.test.ts`); skill names never change. `allowed-tools` names only tools that exist and every tool the body names; a `SKILL.md` is at most 10 KB, rare branches in `references/` (`skills-lint.test.ts`, P129 verdict 9).
+
 ## If a dev-time skill must be pinned
 Only then vendor a snapshot into `app/@rules/vendor/<name>/` with the upstream commit in a `SOURCE` file and a re-sync date; otherwise leave it global.

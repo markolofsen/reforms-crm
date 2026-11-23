@@ -30,9 +30,10 @@ export const draftWriteOutput = z.object({
   savedIn: z.string(),
   replyTo: z.number(),
   account: z.string(),
-  fromSeenByClient: z.string().describe("Exactly the From the client sees."),
-  clientWroteTo: z.string().nullable(),
-  fromReason: z.string().nullable(),
+  // P129 A5: session rules paragraph 11 (P58) moved here, beside the fields it explains.
+  fromSeenByClient: z.string().describe("Exactly the From header the client gets; there is no hidden, technical or SMTP sender behind it."),
+  clientWroteTo: z.string().nullable().describe("Our address the client wrote to, never the From. The reply goes from it when the account can send as it, else from the account that received the mail: the design, not a fault; never suggest a send-as setup."),
+  fromReason: z.string().nullable().describe("Set only when the reply fell back to mail.sender: say so in your one line."),
   brand: z.string().nullable(),
   brandDisplayName: z.string().nullable(),
   brandReason: z.string().optional(),

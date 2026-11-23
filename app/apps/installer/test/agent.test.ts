@@ -98,7 +98,7 @@ describe("bindingPrompt", () => {
     const t = bindingPrompt("acme");
     expect(t).toContain("ONE project: acme (HUB_PROJECT)");
     expect(t).toContain("projects/acme/");
-    expect(t).toContain("project=acme");
+    expect(t).toContain("the hub's tools are bound to it");
     expect(t).toContain("hub agent <other>");
     expect(t).not.toContain("agent.sh");
   });

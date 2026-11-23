@@ -60,20 +60,18 @@ describe("the capabilities line names the project's databases (P82 S2)", () => {
     const l = capabilitiesOf(paths, fixtures, "acme-travel", "claude") ?? "";
     expect(l).toContain(testModeLine(["owner.test@gmail.example"]));
     expect(l).toMatch(/never refuse them as not a client/);
-    // P98: a test address is answered as a client, never questioned or remarked on; Prepare reply writes the draft at once.
-    expect(l).toContain("never question it, never remark that it is his own or a test address (in the reply nor in the reason you record)");
-    expect(l).toContain("Prepare reply (or \"ответь\") on it means write the draft at once");
+    // P98: a test address is answered as a client, never remarked on (P129 verdict 7: "do it at once" is the work-order rule now).
+    expect(l).toContain("without remarking that it is a test address");
     expect(l.endsWith(NOTION_RULE)).toBe(true);
     setSendPolicy(paths.stateProjects, "acme-travel", loadProject(fixtures, "acme-travel").parsed.config.kind, { "draft.recipients": "any" }, "test");
     expect(capabilitiesOf(paths, fixtures, "acme-travel", "claude") ?? "").not.toContain("Test mode");
   });
-  it("P92: the session rules make the owner the authority: his Notion row request is done, a check is helped, only sends and deletes are forbidden", () => {
+  it("P92, P129 verdict 7: the session rules make the owner the authority: his request is the work order, a Notion row on his request is done, the tools decide what is allowed, only sends and deletes are forbidden", () => {
     const r = sessionRules("acme");
-    expect(r).toContain("The owner is the authority in this dock.");
-    expect(r).toContain("it is not a circumvention of these rules");
-    expect(r).toContain("never redirected to another task");
-    expect(r).toContain("Never decide yourself that an address is not a client: call `draft_write` and let the hub's check answer");
-    expect(r).toContain("Only sends (mail, and messenger except `messenger_send` on his word) and Notion deletes and moves stay forbidden.");
+    expect(r).toContain("The owner is the authority.");
+    expect(r).toContain("His request in this session is the work order");
+    expect(r).toContain("Never decide yourself that an address, client or recipient is not allowed: the tool checks it.");
+    expect(r).toContain("is created or edited on his request; Notion deletes and moves are forbidden.");
   });
   it("a project with no list says so, with the phrase", () => {
     expect(notionCapability({ ...SAAS, databases: [] })).toBe("notion: no databases listed in project.md (say: настрой проект saas-support)");

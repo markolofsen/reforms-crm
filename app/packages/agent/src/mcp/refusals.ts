@@ -117,7 +117,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   owner_request_needed: { retry: "after_owner", next: "Pass the owner's own words from this session as owner_request, or ask him in one line." },
   owner_words_not_found: { retry: "now", next: "Pass his words exactly as he typed them in this session (his language, not a summary) as owner_request, or leave it out and read the thread first." },
   record_invalid: { retry: "now", next: "Fix the record as the message says and call once more; the draft in Mail is kept and adopted, not written twice." },
-  recipient_not_allowed: { retry: "no", next: `${ONE_LINE} that the project's draft.recipients does not permit this address (the message names it); nothing was written.` },
+  recipient_not_allowed: { retry: "no", next: `${ONE_LINE} that draft.recipients does not permit this address; nothing was written. He changes it himself: hub send policy set <slug> draft.recipients any.` },
   context_refused: { retry: "now", next: "Read what the message says is missing (thread, profile, knowledge), then call once more with the context block." },
   busy: { retry: "now", next: "The database was busy: call once more; the draft in Mail is adopted, not written twice." },
   record_failed: { retry: "no", next: `${ONE_LINE} that the draft is in Mail but the Hub could not record it (the message says why).` },
