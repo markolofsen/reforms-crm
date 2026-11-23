@@ -274,12 +274,12 @@ describe("hub mcp", () => {
     expect((await (await connect(undefined)).call("knowledge_search", { query: "csv" })).json.error).toBe("unbound");
   });
 
-  it("lists exactly the thirteen tools: nine read-only (project_show, mail_list, message_show and the knowledge tools among them), highlight the pointer, draft_write the one Mail write, client_record the record of a client without a draft, messenger_draft_write the one messenger write; none send-like", async () => {
+  it("lists exactly the fifteen tools: ten read-only (project_show, mail_list, message_show and the knowledge tools among them), highlight the pointer, draft_write the one Mail write, client_record the record of a client without a draft, chats_unlinked and chats_propose_hide (P128 X5: the agent reads the unlinked chats and proposes hides, the owner confirms), messenger_draft_write the one messenger write; none send-like", async () => {
     const { client } = await connect("acme");
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([...HUB_MCP_TOOLS].sort());
-    expect(HUB_MCP_TOOLS).toHaveLength(13);
-    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["client_record", "draft_write", "highlight", "messenger_draft_write"]);
+    expect(HUB_MCP_TOOLS).toHaveLength(15);
+    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["chats_propose_hide", "client_record", "draft_write", "highlight", "messenger_draft_write"]);
     expect(tools.filter((t) => SEND_LIKE_TOOL.test(t.name))).toEqual([]);
   });
 

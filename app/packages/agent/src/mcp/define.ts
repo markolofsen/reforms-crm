@@ -39,9 +39,10 @@ const ANNOTATIONS: Record<Effect, { readOnlyHint: boolean; idempotentHint: boole
 
 export const annotationsOf = (effect: Effect) => ANNOTATIONS[effect];
 
-/** Registers each tool on the server, its body run by `run` (refusals with their advice). */
+/** Registers each tool on the server, its body run by `run` (refusals with their advice). The SDK parses the arguments with
+ *  `inputSchema` and hands over the parsed value (transforms applied); parsing it again would run each transform twice. */
 export function registerTools(server: McpServer, tools: readonly ToolDef[], ctx: ToolCtx): void {
   for (const t of tools) {
-    server.registerTool(t.name, { title: t.title, description: t.description, inputSchema: t.input, outputSchema: t.output, annotations: annotationsOf(t.effect) }, (input: unknown) => run(async () => t.handler(ctx, t.input.parse(input))));
+    server.registerTool(t.name, { title: t.title, description: t.description, inputSchema: t.input, outputSchema: t.output, annotations: annotationsOf(t.effect) }, (input: unknown) => run(async () => t.handler(ctx, input as Parameters<typeof t.handler>[1])));
   }
 }

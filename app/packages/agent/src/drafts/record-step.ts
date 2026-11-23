@@ -7,6 +7,7 @@ import { ToolError } from "../mcp/result";
 import { addressesOf } from "../records/checks";
 import { recordDraftCall, type DraftRecordOutcome } from "../records/draft";
 import type { DraftRecord } from "../records/schema";
+import { answeredRef } from "./reply";
 import type { DraftScope } from "./sign";
 
 // P129 verdict 4 (decision 0045 point 10): `draft_write` records the draft it wrote, so the agent writes no JSON into a
@@ -28,6 +29,8 @@ const ADDRESS = /[^\s,;<>"']+@[^\s,;<>"']+/g;
 /** The client a reply goes to: the answered message's From, or (our own sent message answered) its first To or Cc that is not ours. */
 export async function clientOfReply(s: DraftScope, inbound: InboundMessage): Promise<string> {
   const raw = await s.writer.readHeaders(inbound).catch(() => "");
+  // No headers: the message may not exist (P87: a hub draft id passed as message_id); that refusal names the field to use.
+  if (!raw.trim()) await answeredRef(s, inbound);
   const unfolded = raw.replace(/\r\n/g, "\n").replace(/\n[ \t]+/g, " ");
   const from = /^from:(.*)$/im.exec(unfolded)?.[1]?.match(ADDRESS)?.[0];
   if (from && !s.isOurs(from)) return normalizeAddress(from);

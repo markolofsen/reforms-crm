@@ -70,7 +70,9 @@ export async function replay(c: ReplayCase, p: FakePorts, o: { guard?: ReplayGua
     }
     if (got !== (s.refusal ?? null)) out.unexpected.push({ step: i, name: s.name, got, want: s.refusal ?? null });
     out.results.push(result);
-    if (o.observe) await o.observe({ name: s.name, input, result: { content: [{ type: "text", text: JSON.stringify(result ?? null) }] }, sessionId: REPLAY_SESSION }, p);
+    // The hook sees an MCP reply: a hub tool's JSON wrapped as its text content, an external step's recorded reply as written.
+    const reply = s.name.startsWith("mcp__hub__") ? { content: [{ type: "text", text: JSON.stringify(result ?? null) }] } : (s.result ?? { content: [] });
+    if (o.observe) await o.observe({ name: s.name, input, result: reply, sessionId: REPLAY_SESSION }, p);
   }
   await hub.client.close();
   out.drafts = (await p.repos.clients.list(p.slug)).filter((r) => r.draft).map((r) => ({ email: r.email, status: String(r.draft?.status) })).sort((a, b) => a.email.localeCompare(b.email));

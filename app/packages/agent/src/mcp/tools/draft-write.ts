@@ -7,7 +7,7 @@ import { writeNewReply } from "../../drafts/reply";
 import { reviseHubDraft } from "../../drafts/revise";
 import { draftScope, type DraftScope, type Pending } from "../../drafts/sign";
 import { DraftWriteError, type InboundMessage } from "@hub/mail-app/writer/types";
-import { draftRecord } from "../../records/schema";
+import { draftRecord, type DraftRecord } from "../../records/schema";
 import { defineTool } from "../define";
 import { isRefusalCode } from "../refusals";
 import { ToolError } from "../result";
@@ -23,11 +23,13 @@ const ownerRequest = z.string().trim().min(1).max(1000).describe("The owner's wo
 const mailIds = z.object({ account: z.string().min(1).max(320), mailbox_path: z.array(z.string().min(1).max(200)).min(1).max(8), message_id: z.number().int().positive().describe("mail-mcp's integer id, never a hub draft id") }).strict();
 const message = z.union([z.object({ inbound: z.number().int().positive().describe("the Hub's Inbox id (focus ref inbound:<id>)") }).strict(), mailIds]);
 
+/** The record as the SDK hands it over: already parsed by `input`'s `draftRecord` (its notion page normalized). */
+const parsedRecord = z.custom<DraftRecord>((v) => typeof v === "object" && v !== null, "record: the draft's record object");
 /** The three uses, exclusive: what the handler accepts. */
 export const draftWriteCall = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("revise"), draft: z.number().int().positive(), content, reason: z.string().trim().min(1).max(500).optional(), owner_request: ownerRequest.optional() }).strict(),
-  z.object({ kind: z.literal("reply"), message, content, owner_request: ownerRequest.optional(), record: draftRecord }).strict(),
-  z.object({ kind: z.literal("new"), to: z.string().trim().email().max(320), subject: z.string().trim().min(1).max(300), content, owner_request: ownerRequest, account: z.string().min(1).max(320).optional(), from: z.string().trim().email().max(320).optional(), brand: z.string().trim().min(1).max(100).optional(), record: draftRecord }).strict(),
+  z.object({ kind: z.literal("reply"), message, content, owner_request: ownerRequest.optional(), record: parsedRecord }).strict(),
+  z.object({ kind: z.literal("new"), to: z.string().trim().email().max(320), subject: z.string().trim().min(1).max(300), content, owner_request: ownerRequest, account: z.string().min(1).max(320).optional(), from: z.string().trim().email().max(320).optional(), brand: z.string().trim().min(1).max(100).optional(), record: parsedRecord }).strict(),
 ]);
 export type DraftWriteCall = z.output<typeof draftWriteCall>;
 

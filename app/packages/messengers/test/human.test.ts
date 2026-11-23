@@ -39,9 +39,12 @@ describe("the agent can only make drafts", () => {
     expect(Object.keys(human)).not.toContain("sendConfirmed");
   });
 
-  it("the package exposes only two entries, so mintConfirmed cannot be deep-imported", () => {
+  it("the package exposes three entries (P126 D1 added the door), none of them mintConfirmed or sendConfirmed", async () => {
     const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { exports: Record<string, string> };
-    expect(Object.keys(pkg.exports).sort()).toEqual([".", "./human"]);
+    expect(Object.keys(pkg.exports).sort()).toEqual([".", "./door", "./human"]);
+    const door = await import("../src/door");
+    expect(Object.keys(door)).not.toContain("mintConfirmed");
+    expect(Object.keys(door)).not.toContain("sendConfirmed");
   });
 
   it("refuses a chat the owner has not listed", async () => {

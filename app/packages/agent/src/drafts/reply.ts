@@ -1,5 +1,5 @@
 import { displayNameFor } from "@hub/projects/brands";
-import { DraftWriteError } from "@hub/mail-app/writer/types";
+import { DraftWriteError, type InboundMessage } from "@hub/mail-app/writer/types";
 import { writeLogOf } from "../mail";
 import { ToolError } from "../mcp/result";
 import { adoptLate } from "./adopt";
@@ -15,6 +15,17 @@ export interface ReplyArgs {
   owner_request: string | undefined;
 }
 
+/** The Message-ID of the message a reply answers. P87: a hub draft id passed as message_id (the walkthrough's first try) is
+ *  named, with the field to use instead. */
+export function answeredRef(s: DraftScope, inbound: InboundMessage): Promise<string> {
+  return s.writer.messageIdOf(inbound).catch(async (e: unknown) => {
+    if (!(e instanceof DraftWriteError) || e.code !== "no_message") throw e;
+    const hub = await s.ctx.repos.drafts.get(inbound.messageId);
+    const asDraft = hub && hub.project === s.slug ? ` ${inbound.messageId} is hub draft ${inbound.messageId} (${hub.status}) of this project: to revise it pass draft=${inbound.messageId} and content only;${hub.status === "sent" ? " it is sent, so for a new message reply to the newest message of its thread (ours in Sent) with owner_request;" : ""}` : "";
+    throw new ToolError("wrong_message_id", `No message ${inbound.messageId} in ${inbound.mailboxPath.join("/")} of ${inbound.account}.${asDraft} message_id is mail-mcp's integer id of the message answered (the id find_messages or list_messages gives), never a hub draft id. Nothing was written.`);
+  });
+}
+
 /** `draft_write` with account, mailbox_path and message_id: a new reply to one message of this project's Mail. */
 export async function writeNewReply(s: DraftScope, a: ReplyArgs): Promise<Written | Pending> {
   const { ctx, slug, writer, mail, cfg } = s;
@@ -22,13 +33,7 @@ export async function writeNewReply(s: DraftScope, a: ReplyArgs): Promise<Writte
   if (!own) throw new ToolError("not_this_project", `Account "${a.account}" is not one of project ${slug}'s Mail accounts (${mail.accounts.join(", ") || "none listed in project.md"}).`);
   const inbound = { account: own, mailboxPath: a.mailbox_path, messageId: a.message_id };
   // P65 verdict 4: a rerun is idempotent through the record, not through Drafts. Asked before anything is written.
-  // P87: a hub draft id passed as message_id (the walkthrough's first try) is named, with the field to use instead.
-  const mailRef = await writer.messageIdOf(inbound).catch(async (e: unknown) => {
-    if (!(e instanceof DraftWriteError) || e.code !== "no_message") throw e;
-    const hub = await ctx.repos.drafts.get(a.message_id);
-    const asDraft = hub && hub.project === slug ? ` ${a.message_id} is hub draft ${a.message_id} (${hub.status}) of this project: to revise it pass draft=${a.message_id} and content only;${hub.status === "sent" ? " it is sent, so for a new message reply to the newest message of its thread (ours in Sent) with owner_request;" : ""}` : "";
-    throw new ToolError("wrong_message_id", `No message ${a.message_id} in ${a.mailbox_path.join("/")} of ${own}.${asDraft} message_id is mail-mcp's integer id of the message answered (the id find_messages or list_messages gives), never a hub draft id. Nothing was written.`);
-  });
+  const mailRef = await answeredRef(s, inbound);
   const rows = await ctx.repos.drafts.byMailRef(slug, mailRef);
   const open = rows.find((x) => x.status === "ready" || x.status === "hold");
   if (open) throw new ToolError("already_drafted", `Draft ${open.id} already answers this message: revise it with draft=${open.id}. Nothing was written.`);
