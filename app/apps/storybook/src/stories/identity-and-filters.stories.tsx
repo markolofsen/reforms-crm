@@ -1,9 +1,9 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { BrandHeader } from "@hub/ui/product/brand-header";
-import { FilterChips, type Chip } from "@hub/ui/product/filter-chips";
+import { BrandHeader } from "@hub/ui/product/shell/brand-header";
+import { FilterChips, type Chip } from "@hub/ui/product/list/filter-chips";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
-import { Page, SectionTitle } from "@hub/ui/product/page";
+import { Page, SectionTitle } from "@hub/ui/product/shell/page";
 import { ActionButton } from "@hub/ui/product/action-button";
 
 const views = [

@@ -1,5 +1,5 @@
 import { TIP_CLIS, TIP_GROUPS, TIPS } from "@hub/contract/tips";
-import { SectionTitle } from "@hub/ui/product/page";
+import { SectionTitle } from "@hub/ui/product/shell/page";
 
 /**
  * Tips for the agents (P63 O3), all of them, grouped: the same list the dock's tips button shows per tab (`@hub/contract/tips`),

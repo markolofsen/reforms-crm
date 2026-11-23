@@ -1,7 +1,7 @@
 import type { ProjectRowDto } from "@hub/contract/overview";
 import { refOf } from "@hub/contract/focus";
 import { agentRef } from "@/lib/focus";
-import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
+import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { AppLink } from "@/components/app-link";
 import { dest } from "@/routes/paths";
 import { mailReadText } from "@/features/mail/inbox/mail-read";

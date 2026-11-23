@@ -1,7 +1,7 @@
 import type React from "react";
-import { cn } from "../cn";
+import { cn } from "../../cn";
 
-export { TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+export { TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "../../ui/table";
 
 /**
  * The coss `Table` parts with the product's `grid` look: no header band, hairline rows, 36px rows from 1024px and 44px below,

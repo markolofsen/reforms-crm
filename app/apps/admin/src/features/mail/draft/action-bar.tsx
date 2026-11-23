@@ -1,7 +1,7 @@
 import { EllipsisIcon } from "lucide-react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
-import { DraftActionRow, DraftSendButton } from "@hub/ui/product/draft-action-row";
+import { DraftActionRow, DraftSendButton } from "@hub/ui/product/conversation/draft-action-row";
 import { formatTime } from "@/lib/format";
 import { hrefOf } from "@hub/contract/local";
 import { LocalActionButton, LocalActionItem } from "@/components/local-action";

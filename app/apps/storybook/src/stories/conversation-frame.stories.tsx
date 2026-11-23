@@ -3,10 +3,10 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ExternalLinkIcon } from "lucide-react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationDayDivider, ConversationLabel, ConversationMessage, ConversationMessageList, ConversationText } from "@hub/ui/product/conversation";
-import { ConversationBackButton, ConversationComposer, ConversationComposerFooter, ConversationEmptyState, ConversationFrame, ConversationHeader, ConversationHeaderFacts, ConversationHistoryContent, ConversationHistoryNotice, ConversationHistoryState, ConversationHistorySummary, ConversationRefreshing, ConversationScrollToLatest, ConversationStaleNotice } from "@hub/ui/product/conversation-frame";
-import { useConversationScroll } from "@hub/ui/product/conversation-scroll";
-import { ConversationEditorSurface } from "@hub/ui/product/composer-editor";
-import { PlainTextEditor } from "@hub/ui/product/plain-text-editor";
+import { ConversationBackButton, ConversationComposer, ConversationComposerFooter, ConversationEmptyState, ConversationFrame, ConversationHeader, ConversationHeaderFacts, ConversationHistoryContent, ConversationHistoryNotice, ConversationHistoryState, ConversationHistorySummary, ConversationRefreshing, ConversationScrollToLatest, ConversationStaleNotice } from "@hub/ui/product/conversation/frame";
+import { useConversationScroll } from "@hub/ui/product/conversation/scroll";
+import { ConversationEditorSurface } from "@hub/ui/product/composer/editor";
+import { PlainTextEditor } from "@hub/ui/product/composer/plain-text-editor";
 
 function ConversationDemo() {
   const [draft, setDraft] = useState("");

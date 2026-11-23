@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type Ref } from "react";
-import { Input } from "../ui/input";
-import { cn } from "../cn";
+import { Input } from "../../ui/input";
+import { cn } from "../../cn";
 
 /**
  * The one search box of a list (P127 C1; Mail, Messengers, Knowledge). The address is the state (a search is a link), but it

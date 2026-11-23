@@ -1,4 +1,4 @@
-import { SectionTitle } from "@hub/ui/product/page";
+import { SectionTitle } from "@hub/ui/product/shell/page";
 import { LocalActionButton } from "@/components/local-action";
 import { useProjectScope } from "@/hooks/use-project";
 import { useClock } from "@/lib/clock";

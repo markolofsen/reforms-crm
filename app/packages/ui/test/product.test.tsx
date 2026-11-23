@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ActionButton } from "../src/product/action-button";
-import { FilterChips } from "../src/product/filter-chips";
+import { FilterChips } from "../src/product/list/filter-chips";
 
 // The render test P29 W0 asked for and P44 S1 found missing: the two product primitives every screen is built from.
 describe("ActionButton", () => {

@@ -1,6 +1,6 @@
 import { SAY, sayFor } from "@hub/contract/help";
-import { SectionTitle } from "@hub/ui/product/page";
-import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
+import { SectionTitle } from "@hub/ui/product/shell/page";
+import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { useProjectScope } from "@/hooks/use-project";
 
 /**

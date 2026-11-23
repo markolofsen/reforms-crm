@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { AgentPanelFrame } from "@hub/ui/product/agent-panel";
-import { ConversationHeader } from "@hub/ui/product/conversation-frame";
+import { AgentPanelFrame } from "@hub/ui/product/shell/agent-panel";
+import { ConversationHeader } from "@hub/ui/product/conversation/frame";
 import { SideDock, DOCK_WIDTH } from "@hub/ui/product/side-dock";
 import { TerminalDictationButton, TerminalView, type TerminalHandle, type TerminalSize } from "@hub/ui/product/terminal";
-import { useResolvedTheme } from "@hub/ui/product/theme";
+import { useResolvedTheme } from "@hub/ui/product/shell/theme";
 import { useHotkey } from "@hub/ui/use-hotkey";
 
 type AgentPanelProps = {

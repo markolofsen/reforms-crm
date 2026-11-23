@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
-import { cn } from "../cn";
-import { Textarea } from "../ui/textarea";
+import { cn } from "../../cn";
+import { Textarea } from "../../ui/textarea";
 
 // The composers' editor until P93's RTF write and canonical read-back land (P123 U0, decision 0045 point 3): plain text in,
 // the same plain text out. No formatting buttons, and a paste arrives as plain text (a textarea holds no markup), so no

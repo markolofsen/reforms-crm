@@ -1,5 +1,5 @@
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
-import { Page } from "@hub/ui/product/page";
+import { Page } from "@hub/ui/product/shell/page";
 import { Loading, QueryView } from "@/components/state-views";
 import { AppLink } from "@/components/app-link";
 import type { ViewQuery } from "@/components/state-views";

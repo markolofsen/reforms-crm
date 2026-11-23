@@ -1,8 +1,8 @@
 import { ListChecksIcon } from "lucide-react";
 import type { RefObject } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { SearchField } from "@hub/ui/product/search-field";
-import { ListFilterMenu, ListToolbar, ListToolbarRow } from "@hub/ui/product/list-toolbar";
+import { SearchField } from "@hub/ui/product/list/search-field";
+import { ListFilterMenu, ListToolbar, ListToolbarRow } from "@hub/ui/product/list/toolbar";
 import { Refreshing } from "@/components/state-views";
 
 /** One entry of the View menu. `group` starts a labelled block (the batches). */

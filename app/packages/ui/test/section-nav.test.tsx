@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { navGroups, SectionNav, type SectionNavItem } from "../src/product/section-nav";
+import { navGroups, SectionNav, type SectionNavItem } from "../src/product/shell/section-nav";
 
 // P125 L1: the section menu's grouping, nesting and counts, and that the selection is marked for a screen reader.
 const item = (id: string, o: Partial<SectionNavItem> = {}): SectionNavItem => ({ id, label: id, current: false, render: (content, className) => <a className={className} href={`#${id}`}>{content}</a>, ...o });

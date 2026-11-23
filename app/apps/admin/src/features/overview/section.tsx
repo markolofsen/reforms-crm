@@ -1,6 +1,6 @@
 "use client";
 
-import { Page } from "@hub/ui/product/page";
+import { Page } from "@hub/ui/product/shell/page";
 import { useRoute } from "@/hooks/use-route";
 import { OverviewView } from "./overview-view";
 

@@ -1,7 +1,7 @@
 import { CopyIcon } from "lucide-react";
 import type { AgentToolRow } from "@hub/contract/agent-tools";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
+import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { CLI_TITLE, needsAttention, STATE_LOOK } from "./labels";
 
 /** The fix of a row that needs a fix or a look: the one command line, and a button that copies it. Never a form: the hub does, the panel shows. */

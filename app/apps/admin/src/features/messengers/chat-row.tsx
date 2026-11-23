@@ -1,13 +1,13 @@
 import { useState } from "react";
 import type { MessengerChatDto } from "@hub/contract/messenger-panel";
-import { ConversationRow } from "@hub/ui/product/conversation-row";
+import { ConversationRow } from "@hub/ui/product/list/conversation-row";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
 import { AppLink } from "@/components/app-link";
 import { ago } from "@/lib/format";
 import type { Dest } from "@/routes/paths";
 import { ChannelIcon } from "./channel/channel-icon";
 import { chatName, chatStateLine, clientName, lastText, notionIdentityLine, notionIndicatorState, unlinkSentence } from "./labels";
-import { ReviewDialog } from "@hub/ui/product/review-dialog";
+import { ReviewDialog } from "@hub/ui/product/conversation/review-dialog";
 import { sentence } from "@/lib/api/client";
 import { StatusMenu, type StatusAction } from "./status/status-menu";
 import type { useChatMoves } from "./status/use-moves";

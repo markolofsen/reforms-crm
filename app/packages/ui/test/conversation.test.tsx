@@ -1,10 +1,10 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ConversationLabel, ConversationList, ConversationListIdentity, ConversationListItem, ConversationMessage, ConversationMessageList, ConversationText } from "../src/product/conversation";
-import { ConversationComposerEditor, ConversationEditorSurface } from "../src/product/composer-editor";
-import { ConversationContext, ConversationContextActions, ConversationContextItem, ConversationContextRow } from "../src/product/conversation-context";
-import { ConversationBackButton, ConversationComposer, ConversationComposerFooter, ConversationEmptyState, ConversationFrame, ConversationHeader, ConversationHeaderFacts, ConversationHistoryNotice, ConversationHistoryState, ConversationHistorySummary, ConversationStaleNotice } from "../src/product/conversation-frame";
-import { ListToolbar, ListToolbarRow } from "../src/product/list-toolbar";
+import { ConversationLabel, ConversationList, ConversationListIdentity, ConversationListItem, ConversationMessage, ConversationMessageList, ConversationText } from "../src/product/conversation/conversation";
+import { ConversationComposerEditor, ConversationEditorSurface } from "../src/product/composer/editor";
+import { ConversationContext, ConversationContextActions, ConversationContextItem, ConversationContextRow } from "../src/product/conversation/context";
+import { ConversationBackButton, ConversationComposer, ConversationComposerFooter, ConversationEmptyState, ConversationFrame, ConversationHeader, ConversationHeaderFacts, ConversationHistoryNotice, ConversationHistoryState, ConversationHistorySummary, ConversationStaleNotice } from "../src/product/conversation/frame";
+import { ListToolbar, ListToolbarRow } from "../src/product/list/toolbar";
 
 describe("ConversationText", () => {
   it("keeps plain client text literal", () => {

@@ -7,10 +7,10 @@ import type { MessengerConversationMessageDto } from "@hub/contract/messenger-pa
 import { refOf } from "@hub/contract/focus";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationDayDivider, ConversationLabel, ConversationMessage, ConversationMessageList, ConversationText } from "@hub/ui/product/conversation";
-import { ConversationBackButton, ConversationComposerFooter, ConversationFrame, ConversationHeader, ConversationHeaderFacts, ConversationHistoryContent, ConversationHistoryNotice, ConversationHistoryState, ConversationHistorySummary, ConversationRefreshing, ConversationScrollToLatest, ConversationStaleNotice } from "@hub/ui/product/conversation-frame";
-import { ConversationComposerEditor } from "@hub/ui/product/composer-editor";
+import { ConversationBackButton, ConversationComposerFooter, ConversationFrame, ConversationHeader, ConversationHeaderFacts, ConversationHistoryContent, ConversationHistoryNotice, ConversationHistoryState, ConversationHistorySummary, ConversationRefreshing, ConversationScrollToLatest, ConversationStaleNotice } from "@hub/ui/product/conversation/frame";
+import { ConversationComposerEditor } from "@hub/ui/product/composer/editor";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
-import { useConversationScroll } from "@hub/ui/product/conversation-scroll";
+import { useConversationScroll } from "@hub/ui/product/conversation/scroll";
 import { ConversationHeaderActions } from "@/components/conversation/header-actions";
 import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
 import { notionPageIdOf } from "@/lib/notion";

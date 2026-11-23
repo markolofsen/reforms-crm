@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { SectionTitle } from "@hub/ui/product/page";
+import { SectionTitle } from "@hub/ui/product/shell/page";
 
 /**
  * One group of a Settings pane (P70): its heading (`SectionTitle`, one style everywhere) and its rows (Accounts on Mail). Another

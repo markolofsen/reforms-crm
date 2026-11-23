@@ -5,7 +5,7 @@ import type { SchemeNode } from "@hub/contract/scheme";
 import { AppLink } from "@/components/app-link";
 import { useLocalAction } from "@/components/local-action";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { SectionTitle } from "@hub/ui/product/page";
+import { SectionTitle } from "@hub/ui/product/shell/page";
 import { placeDest, SCHEME_LOOK } from "./labels";
 
 type Question = { project: string; question: string; options: readonly string[] };

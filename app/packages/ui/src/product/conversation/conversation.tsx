@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { cn } from "../cn";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { cn } from "../../cn";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../../ui/tooltip";
 
 export type ConversationTextFormat = "plain" | "markdown";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import type { AgentToolRow } from "@hub/contract/agent-tools";
-import { ListFilterMenu } from "@hub/ui/product/list-toolbar";
+import { ListFilterMenu } from "@hub/ui/product/list/toolbar";
 import { useSearch } from "@/hooks/use-search-state";
 import { AGENT_SEARCH, AGENT_VIEWS, type AgentView } from "@/routes/search";
 import { SettingsGroup } from "../group";

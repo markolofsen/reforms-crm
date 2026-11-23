@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { HideProposalDto } from "@hub/contract/messengers";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { ReviewDialog } from "@hub/ui/product/review-dialog";
+import { ReviewDialog } from "@hub/ui/product/conversation/review-dialog";
 import { toastManager } from "@hub/ui/toast";
 import { sentence } from "@/lib/api/client";
 import { useHideCommands, useProposalDrop } from "@/lib/data/messengers";

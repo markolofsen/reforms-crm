@@ -2,10 +2,10 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Input } from "@hub/ui/input";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { TelegramIcon, WhatsAppIcon } from "@hub/ui/product/channel-icons";
-import { DataTable, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
+import { TelegramIcon, WhatsAppIcon } from "@hub/ui/product/conversation/channel-icons";
+import { DataTable, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { Field, Progress } from "@hub/ui/product/field";
-import { ListFilterMenu } from "@hub/ui/product/list-toolbar";
+import { ListFilterMenu } from "@hub/ui/product/list/toolbar";
 import { Spotlight } from "@hub/ui/product/spotlight";
 
 function DataTableDemo() {

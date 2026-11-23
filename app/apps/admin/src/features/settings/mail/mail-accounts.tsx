@@ -1,6 +1,6 @@
 import type { MailAccountDto, MailReadDto } from "@hub/contract/connections";
 import { phrase } from "@hub/contract/help";
-import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
+import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { foundLook } from "../connections/labels";
 
 /**

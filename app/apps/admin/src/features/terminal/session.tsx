@@ -5,7 +5,7 @@ import { DROP_LIMITS, type TerminalSessionDto } from "@hub/contract/terminal";
 import { cn } from "@hub/ui/cn";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { pasteLine, TerminalView, type Dropped, type TerminalHandle, type TerminalSize } from "@hub/ui/product/terminal";
-import { useResolvedTheme } from "@hub/ui/product/theme";
+import { useResolvedTheme } from "@hub/ui/product/shell/theme";
 import { sentence } from "@/lib/api/client";
 import { terminalApi } from "@/lib/api/terminal";
 import { openLink, webLink } from "@/lib/external";

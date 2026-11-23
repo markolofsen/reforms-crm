@@ -2,12 +2,12 @@ import { useRef, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList, ConversationListIdentity, ConversationListItem, ConversationMessage, ConversationMessageList, ConversationText } from "@hub/ui/product/conversation";
-import { ConversationBackButton, ConversationComposer, ConversationComposerFooter, ConversationFrame, ConversationHeader } from "@hub/ui/product/conversation-frame";
+import { ConversationBackButton, ConversationComposer, ConversationComposerFooter, ConversationFrame, ConversationHeader } from "@hub/ui/product/conversation/frame";
 import { IntegrationStatus, type IntegrationStatusState } from "@hub/ui/product/integration-status";
 import { Input } from "@hub/ui/input";
-import { ListDetail, ListScrollArea } from "@hub/ui/product/list-detail";
-import { ListToolbar, ListToolbarRow } from "@hub/ui/product/list-toolbar";
-import { Page } from "@hub/ui/product/page";
+import { ListDetail, ListScrollArea } from "@hub/ui/product/list/detail";
+import { ListToolbar, ListToolbarRow } from "@hub/ui/product/list/toolbar";
+import { Page } from "@hub/ui/product/shell/page";
 import { Spinner } from "@hub/ui/spinner";
 
 const people = [

@@ -1,6 +1,6 @@
 import type { Preview } from "@storybook/react-vite";
 import { UiProviders } from "@hub/ui/providers";
-import { ThemeProvider } from "@hub/ui/product/theme";
+import { ThemeProvider } from "@hub/ui/product/shell/theme";
 import { ToastProvider } from "@hub/ui/toast";
 import "../src/index.css";
 

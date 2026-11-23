@@ -2,7 +2,7 @@ import { RefreshCwIcon } from "lucide-react";
 import type { CoreUpdateDto } from "@hub/contract/instance";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { CopyFix } from "@/components/copy-fix";
-import { SectionTitle } from "@hub/ui/product/page";
+import { SectionTitle } from "@hub/ui/product/shell/page";
 import { formatTime } from "@/lib/format";
 import { checkedLine, commandText, CORE_LEVEL_WORDS, factsLine } from "./core-labels";
 

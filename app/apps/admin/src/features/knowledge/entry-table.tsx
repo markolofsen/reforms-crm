@@ -1,7 +1,7 @@
 import type { KnowledgeEntryDto } from "@hub/contract/knowledge";
 import { Badge } from "@hub/ui/badge";
 import { cn } from "@hub/ui/cn";
-import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
+import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { LocalActionButton } from "@/components/local-action";
 import { agentRef } from "@/lib/focus";
 import { useState } from "react";

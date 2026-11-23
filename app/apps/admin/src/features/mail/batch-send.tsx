@@ -3,7 +3,7 @@
 import { SendIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { BatchRunDto, BatchSendPlanDto } from "@hub/contract/sending";
-import { ReviewDialog, type ReviewItem } from "@hub/ui/product/review-dialog";
+import { ReviewDialog, type ReviewItem } from "@hub/ui/product/conversation/review-dialog";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ApiFailure, sentence } from "@/lib/api/client";
 import { useBatchRun, useBatchSend } from "@/lib/data/drafts";

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { MarkdownEditor } from "@hub/ui/product/markdown-editor";
+import { MarkdownEditor } from "@hub/ui/product/composer/markdown-editor";
 import { useHotkey } from "@hub/ui/use-hotkey";
 
 function MarkdownEditorDemo() {

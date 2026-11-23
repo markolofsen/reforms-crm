@@ -2,7 +2,7 @@ import { CheckCircle2Icon, CircleDotIcon, CircleIcon, ClockIcon, MailIcon, Pause
 import { CONVERSATION_STATE_LABELS } from "@hub/contract/conversations";
 import { refOf } from "@hub/contract/focus";
 import { Checkbox } from "@hub/ui/checkbox";
-import { ConversationRow as Row, type ConversationChip, type ConversationSummary } from "@hub/ui/product/conversation-row";
+import { ConversationRow as Row, type ConversationChip, type ConversationSummary } from "@hub/ui/product/list/conversation-row";
 import { AppLink } from "@/components/app-link";
 import type { Dest } from "@/routes/paths";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";

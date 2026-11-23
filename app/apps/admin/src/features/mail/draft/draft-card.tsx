@@ -1,7 +1,7 @@
 import type { ContactLinksDto } from "@hub/contract/local";
 import { useState, type ReactNode } from "react";
 import { refOf } from "@hub/contract/focus";
-import { ConversationComposer, ConversationComposerFooter } from "@hub/ui/product/conversation-frame";
+import { ConversationComposer, ConversationComposerFooter } from "@hub/ui/product/conversation/frame";
 import { toastManager } from "@hub/ui/toast";
 import { useGo } from "@/hooks/use-go";
 import { QueryView } from "@/components/state-views";

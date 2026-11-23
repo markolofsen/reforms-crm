@@ -2,8 +2,8 @@
 
 import { ListIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import { Sheet, SheetPopup, SheetTitle, SheetTrigger } from "../ui/sheet";
-import { ActionButton } from "./action-button";
+import { Sheet, SheetPopup, SheetTitle, SheetTrigger } from "../../ui/sheet";
+import { ActionButton } from "../action-button";
 
 /** The width of its own box from which the section menu is a column (60rem); below it, a button opens the same menu in a sheet. */
 export const SECTION_NAV_MIN_PX = 960;

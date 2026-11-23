@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { cn } from "../cn";
-import { ConversationComposer } from "./conversation-frame";
+import { cn } from "../../cn";
+import { ConversationComposer } from "../conversation/frame";
 import { PlainTextEditor } from "./plain-text-editor";
 
 export type ConversationEditorSurfaceProps = {

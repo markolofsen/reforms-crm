@@ -4,7 +4,7 @@ import { useLinks } from "@/lib/data/project";
 import { phrase } from "@hub/contract/help";
 import { useMemo, type ReactNode } from "react";
 import { DEFAULT_INSTANCE_NAME } from "@hub/contract/instance";
-import { Page } from "@hub/ui/product/page";
+import { Page } from "@hub/ui/product/shell/page";
 import { AppLink } from "@/components/app-link";
 import { useLitRoutes } from "@/components/nav-dot";
 import { EmptyState, Loading, QueryView } from "@/components/state-views";

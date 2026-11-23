@@ -2,7 +2,7 @@ import { clientKey } from "@hub/contract/client-key";
 import { AGENT_WORD_SEND_ACTOR, AGENT_WORD_SEND_LABEL, BATCH_SEND_ACTOR } from "@hub/config";
 import type { SendRowDto } from "@hub/contract/sending";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
+import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { AppLink } from "@/components/app-link";
 import { sentence } from "@/lib/api/client";
 import { formatTime } from "@/lib/format";

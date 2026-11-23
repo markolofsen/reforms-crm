@@ -1,7 +1,7 @@
 import { SAFETY_LABELS } from "@hub/config";
 import type { SafetyRuleDto } from "@hub/contract/settings";
 import { CommitField, SettingSwitch } from "@hub/ui/product/field";
-import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
+import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { Skeleton } from "@hub/ui/skeleton";
 import { QueryView } from "@/components/state-views";
 import { sentence } from "@/lib/api/client";

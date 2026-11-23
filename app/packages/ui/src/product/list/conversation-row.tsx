@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { Badge } from "../ui/badge";
-import { cn } from "../cn";
-import { ConversationListIdentity, ConversationListItem } from "./conversation";
+import { Badge } from "../../ui/badge";
+import { cn } from "../../cn";
+import { ConversationListIdentity, ConversationListItem } from "../conversation/conversation";
 
 /** At most two chips under a row: do not contact, suspicious mail, checks, a follow-up step, brands. */
 export type ConversationChip = { id: string; text: string; variant: "error" | "warning" | "info" | "outline" };

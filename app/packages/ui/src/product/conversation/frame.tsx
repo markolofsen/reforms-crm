@@ -1,10 +1,10 @@
 import { Children, type ReactNode, type Ref } from "react";
 import { ArrowDownIcon, ArrowLeftIcon } from "lucide-react";
-import { cn } from "../cn";
-import { Alert, AlertAction, AlertDescription, AlertTitle } from "../ui/alert";
-import { Spinner } from "../ui/spinner";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { ActionButton } from "./action-button";
+import { cn } from "../../cn";
+import { Alert, AlertAction, AlertDescription, AlertTitle } from "../../ui/alert";
+import { Spinner } from "../../ui/spinner";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../../ui/tooltip";
+import { ActionButton } from "../action-button";
 
 /** The shared fixed-height conversation skeleton used by Mail and Messengers. */
 export function ConversationFrame({ ariaLabel, children, composer, header, historyActions, className, dataAgentRef, dataState, testId }: {

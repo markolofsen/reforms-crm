@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "../cn";
+import { cn } from "../../cn";
 
 /** Compact, wrapping context surface for the shared Mail and Messenger composers. */
 export function ConversationContext({ ariaLabel = "Conversation context", children, className, testId }: { ariaLabel?: string; children: ReactNode; className?: string; testId?: string }) {

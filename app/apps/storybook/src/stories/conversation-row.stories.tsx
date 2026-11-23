@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ConversationList } from "@hub/ui/product/conversation";
-import { ConversationRow, type ConversationSummary } from "@hub/ui/product/conversation-row";
-import { SearchField } from "@hub/ui/product/search-field";
+import { ConversationRow, type ConversationSummary } from "@hub/ui/product/list/conversation-row";
+import { SearchField } from "@hub/ui/product/list/search-field";
 
 const rows: ConversationSummary[] = [
   { ref: "client:1", name: "Ana Teste", label: "Ana Teste", time: "2 min", strong: true, state: "Wrote you", subject: "Invoice for October", preview: "Could you resend the invoice with our new address?" },

@@ -4,7 +4,7 @@ import { dest, type Dest } from "@/routes/paths";
 import type { DraftView } from "@/routes/search";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList } from "@hub/ui/product/conversation";
-import { ConversationEmptyState } from "@hub/ui/product/conversation-frame";
+import { ConversationEmptyState } from "@hub/ui/product/conversation/frame";
 import { EmptyState, ListSkeleton, ListState, QueryView } from "@/components/state-views";
 import { toastManager } from "@hub/ui/toast";
 import { shortcutsOn } from "@/hooks/use-hotkeys";

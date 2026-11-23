@@ -1,4 +1,4 @@
-import { cn } from "../cn";
+import { cn } from "../../cn";
 
 /** The monogram of a name: the first letters of its first two words (`Reforms SaaS` -> `RS`, `Hub` -> `H`). */
 export function monogram(name: string): string {

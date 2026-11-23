@@ -3,7 +3,7 @@
 import { SendIcon } from "lucide-react";
 import type { DraftMailDto } from "@hub/contract/mail";
 import type { SendPreviewDto } from "@hub/contract/sending";
-import { ReviewDialog, type ReviewItem } from "@hub/ui/product/review-dialog";
+import { ReviewDialog, type ReviewItem } from "@hub/ui/product/conversation/review-dialog";
 import { toastManager } from "@hub/ui/toast";
 import { flowProblems, type Go } from "@/lib/data/send-door";
 import { sentence } from "@/lib/api/client";

@@ -3,8 +3,8 @@
 import { PanelLeftIcon } from "lucide-react";
 import type { ProjectLinksDto } from "@hub/contract/project";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { BrandHeader } from "@hub/ui/product/brand-header";
-import { ThemeSegmented, ThemeToggle } from "@hub/ui/product/theme";
+import { BrandHeader } from "@hub/ui/product/shell/brand-header";
+import { ThemeSegmented, ThemeToggle } from "@hub/ui/product/shell/theme";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, useSidebar } from "@hub/ui/sidebar";
 import { useHotkey } from "@hub/ui/use-hotkey";
 import { AppLink } from "@/components/app-link";

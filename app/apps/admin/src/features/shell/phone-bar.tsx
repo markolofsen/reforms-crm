@@ -1,5 +1,5 @@
-import { BrandHeader } from "@hub/ui/product/brand-header";
-import { ThemeToggle } from "@hub/ui/product/theme";
+import { BrandHeader } from "@hub/ui/product/shell/brand-header";
+import { ThemeToggle } from "@hub/ui/product/shell/theme";
 import { useFeed } from "@/features/agent-feed/use-agent-feed";
 import { TerminalToggle } from "@/features/terminal/terminal";
 import type { Brand } from "./app-sidebar";

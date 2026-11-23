@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { DraftActionRow, DraftSendButton } from "../src/product/draft-action-row";
-import { orderItems, reviewGate, type ReviewItem } from "../src/product/review-dialog";
+import { DraftActionRow, DraftSendButton } from "../src/product/conversation/draft-action-row";
+import { orderItems, reviewGate, type ReviewItem } from "../src/product/conversation/review-dialog";
 
 // P105 S1: the review dialog's two pure rules (the reading order and when the one confirm may run), and the shared action row.
 const warn = (key: string): ReviewItem => ({ key, severity: "warning", text: key });

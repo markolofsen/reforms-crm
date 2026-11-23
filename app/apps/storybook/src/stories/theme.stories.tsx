@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { ThemeSegmented, ThemeToggle } from "@hub/ui/product/theme";
+import { ThemeSegmented, ThemeToggle } from "@hub/ui/product/shell/theme";
 
 function ThemeDemo() {
   return (

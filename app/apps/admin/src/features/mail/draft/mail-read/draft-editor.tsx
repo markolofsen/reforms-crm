@@ -1,5 +1,5 @@
 import { ActionButton } from "@hub/ui/product/action-button";
-import { ConversationEditorSurface } from "@hub/ui/product/composer-editor";
+import { ConversationEditorSurface } from "@hub/ui/product/composer/editor";
 
 type EditorProps = {
   value: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { Page } from "@hub/ui/product/page";
+import { Page } from "@hub/ui/product/shell/page";
 import { SectionMenu } from "@/components/section-menu";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";

@@ -214,7 +214,7 @@ describe("shared UI ownership", () => {
 
   // P123 U0 (`ui-composition.md` rule 8): the conversation composers are plain text until P93's RTF path lands.
   it("conversation editors are the plain-text editor in production and Storybook: no Markdown toolbar", () => {
-    const composer = read(path.resolve(repo, "app/packages/ui/src/product/composer-editor.tsx"));
+    const composer = read(path.resolve(repo, "app/packages/ui/src/product/composer/editor.tsx"));
     expect(composer).toContain("<PlainTextEditor");
     expect(composer).not.toMatch(/MarkdownEditor|toolbarPreset/);
     const story = read(path.resolve(repo, "app/apps/storybook/src/stories/conversation-frame.stories.tsx"));
@@ -257,7 +257,7 @@ describe("the Next shell of the app", () => {
     expect(layout).toContain("suppressHydrationWarning");
     expect(layout).not.toContain("dangerouslySetInnerHTML");
     expect(read(path.join(src, "app/providers.tsx"))).toMatch(/<ThemeProvider>/);
-    // The theme is `@hub/ui/product/theme`'s alone: nothing else toggles the class or imports next-themes.
+    // The theme is `@hub/ui/product/shell/theme`'s alone: nothing else toggles the class or imports next-themes.
     expect(offenders(appFiles, /classList\.(toggle|add|remove)\(\s*["']dark["']|from ["']next-themes["']/)).toEqual([]);
   });
   it("proxy.ts lives in src/ (at the app root Next ignores it) and guards Host and Origin", () => {

@@ -4,7 +4,7 @@ import type { MessengerChatDto, PreanalysisDto } from "@hub/contract/messenger-p
 import { cn } from "@hub/ui/cn";
 import { CommitField, SettingSwitch } from "@hub/ui/product/field";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { MarkdownEditor } from "@hub/ui/product/markdown-editor";
+import { MarkdownEditor } from "@hub/ui/product/composer/markdown-editor";
 import { LanguagePicker } from "@hub/ui/product/language-picker";
 import { ToggleGroup, ToggleGroupItem } from "@hub/ui/toggle-group";
 import { sentence } from "@/lib/api/client";

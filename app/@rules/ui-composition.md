@@ -55,7 +55,7 @@ does not own API, Query or permission semantics.
    prevent the browser command before the global dispatcher sees it.
 8. MUST: conversation composers (Mail's and Messengers' reply, message and
    draft editors) use the shared plain-text editor
-   (`@hub/ui/product/plain-text-editor`, through `composer-editor.tsx`): no
+   (`@hub/ui/product/composer/plain-text-editor`, through `composer-editor.tsx`): no
    formatting buttons, a paste arrives as plain text. Why: nothing turns
    Markdown into the client's formatting yet, so a bold word would reach the
    inbox as `**word**` (P123 U0, decision 0045 point 3). P93's RTF write and

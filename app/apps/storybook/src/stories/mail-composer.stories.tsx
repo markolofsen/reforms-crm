@@ -3,9 +3,9 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { fn } from "storybook/test";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationMessage, ConversationMessageList, ConversationText } from "@hub/ui/product/conversation";
-import { ConversationComposerFooter, ConversationFrame, ConversationHeader, ConversationHeaderFacts } from "@hub/ui/product/conversation-frame";
-import { ConversationContext, ConversationContextActions, ConversationContextItem, ConversationContextRow } from "@hub/ui/product/conversation-context";
-import { ConversationComposerEditor } from "@hub/ui/product/composer-editor";
+import { ConversationComposerFooter, ConversationFrame, ConversationHeader, ConversationHeaderFacts } from "@hub/ui/product/conversation/frame";
+import { ConversationContext, ConversationContextActions, ConversationContextItem, ConversationContextRow } from "@hub/ui/product/conversation/context";
+import { ConversationComposerEditor } from "@hub/ui/product/composer/editor";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
 
 function MailComposerDemo() {

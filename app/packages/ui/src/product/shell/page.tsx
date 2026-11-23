@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "../cn";
+import { cn } from "../../cn";
 
 /**
  * The one page shell of a single-column screen (Activity on a phone, Project, Connections, Overview): an optional header line

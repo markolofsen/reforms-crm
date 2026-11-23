@@ -1,7 +1,7 @@
 "use client";
 
-import { SectionLayout } from "@hub/ui/product/section-layout";
-import { SectionNav } from "@hub/ui/product/section-nav";
+import { SectionLayout } from "@hub/ui/product/shell/section-layout";
+import { SectionNav } from "@hub/ui/product/shell/section-nav";
 import type { ReactNode } from "react";
 import { usePlace } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";

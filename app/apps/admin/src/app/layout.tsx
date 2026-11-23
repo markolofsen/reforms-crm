@@ -8,7 +8,7 @@ import "../index.css";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: { default: "Hub Workflow", template: "%s | Hub" } };
 
-// The theme is the ThemeProvider's (in `Providers`, `@hub/ui/product/theme`): its blocking script sets the `.dark` class before
+// The theme is the ThemeProvider's (in `Providers`, `@hub/ui/product/shell/theme`): its blocking script sets the `.dark` class before
 // paint, so `<html>` carries `suppressHydrationWarning` (the class is not in the server markup).
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (

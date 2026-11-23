@@ -4,7 +4,7 @@ import { SquareTerminalIcon } from "lucide-react";
 import { useCallback, useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { cn } from "@hub/ui/cn";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { AgentPanelFrame } from "@hub/ui/product/agent-panel";
+import { AgentPanelFrame } from "@hub/ui/product/shell/agent-panel";
 import { SideDock } from "@hub/ui/product/side-dock";
 import { TerminalDictationButton, type TerminalHandle } from "@hub/ui/product/terminal";
 import { useMediaQuery } from "@hub/ui/use-media-query";
@@ -22,7 +22,7 @@ import { TerminalContext, useTerminal, useTerminalModel } from "./use-terminal";
 // empty box of their size until mounted, so nothing jumps, and a terminal saved open is restored after mount.
 
 const noop = () => () => {};
-/** False on the server and in the first render, true after mount (the theme switcher's pattern in `@hub/ui/product/theme`). */
+/** False on the server and in the first render, true after mount (the theme switcher's pattern in `@hub/ui/product/shell/theme`). */
 const useMounted = (): boolean => useSyncExternalStore(noop, () => true, () => false);
 
 /** `project` is `undefined` while the shell does not know it yet (the automatic start waits). */

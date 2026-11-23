@@ -1,6 +1,6 @@
 import type { MessengerChannelDto, MessengerChannelFilter } from "@hub/contract/messenger-panel";
 import { cn } from "@hub/ui/cn";
-import { TelegramIcon, WhatsAppIcon } from "@hub/ui/product/channel-icons";
+import { TelegramIcon, WhatsAppIcon } from "@hub/ui/product/conversation/channel-icons";
 import { CHANNEL_LABEL } from "../labels";
 
 /**

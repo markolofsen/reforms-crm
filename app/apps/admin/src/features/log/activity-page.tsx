@@ -1,6 +1,6 @@
 import { ActionButton } from "@hub/ui/product/action-button";
-import { Page } from "@hub/ui/product/page";
-import { SectionLayout } from "@hub/ui/product/section-layout";
+import { Page } from "@hub/ui/product/shell/page";
+import { SectionLayout } from "@hub/ui/product/shell/section-layout";
 import { EmptyState, ListSkeleton, QueryView } from "@/components/state-views";
 import { useSearch } from "@/hooks/use-search-state";
 import { useClock } from "@/lib/clock";

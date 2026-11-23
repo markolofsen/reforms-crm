@@ -3,10 +3,10 @@
 import { MonitorIcon, MoonIcon, SunIcon, type LucideIcon } from "lucide-react";
 import { ThemeProvider as NextThemes, useTheme } from "next-themes";
 import { useSyncExternalStore, type ReactNode } from "react";
-import { cn } from "../cn";
-import { SegmentedControl, SegmentedControlItem } from "../ui/segmented-control";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { ActionButton } from "./action-button";
+import { cn } from "../../cn";
+import { SegmentedControl, SegmentedControlItem } from "../../ui/segmented-control";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../../ui/tooltip";
+import { ActionButton } from "../action-button";
 
 /**
  * The one way the product themes (`design-system-and-tokens.md` rule 10). `next-themes` (the library `@djangocfg/ui-core/theme`

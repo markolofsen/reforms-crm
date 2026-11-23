@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { buildCut, SCHEME_FORMS, type SchemeNode } from "@hub/contract/scheme";
 import { CUTS, type Cut } from "@hub/contract/scheme-model";
-import { SectionTitle } from "@hub/ui/product/page";
+import { SectionTitle } from "@hub/ui/product/shell/page";
 import { CutList } from "./scheme-list";
 import { SchemeSvg } from "./scheme-svg";
 

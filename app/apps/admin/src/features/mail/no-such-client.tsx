@@ -1,5 +1,5 @@
 import { ActionButton } from "@hub/ui/product/action-button";
-import { Page } from "@hub/ui/product/page";
+import { Page } from "@hub/ui/product/shell/page";
 import { AppLink } from "@/components/app-link";
 import { EmptyState } from "@/components/state-views";
 import { dest } from "@/routes/paths";

@@ -2,7 +2,7 @@ import { useScheme } from "@/lib/data/overview";
 import { useMemo } from "react";
 import { buildScheme, SCHEME_FORMS } from "@hub/contract/scheme";
 import { stateLine } from "@hub/contract/scheme-model";
-import { SectionTitle } from "@hub/ui/product/page";
+import { SectionTitle } from "@hub/ui/product/shell/page";
 import { Skeleton } from "@hub/ui/skeleton";
 import { AppLink } from "@/components/app-link";
 import { QueryView } from "@/components/state-views";

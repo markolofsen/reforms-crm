@@ -1,8 +1,8 @@
 import { ArrowLeftIcon } from "lucide-react";
 import type { ReactNode, RefObject } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { Page } from "@hub/ui/product/page";
-import { ListDetail, ListScrollArea } from "@hub/ui/product/list-detail";
+import { Page } from "@hub/ui/product/shell/page";
+import { ListDetail, ListScrollArea } from "@hub/ui/product/list/detail";
 import { shortcutsOn } from "@/hooks/use-hotkeys";
 import { usePaneMeasured, usePaneNarrow } from "@/hooks/use-pane";
 import type { Channel, ChannelSlots } from "./adapter";

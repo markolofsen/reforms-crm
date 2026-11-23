@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { ActivityDto } from "@hub/contract/activity";
-import { SectionNav, type SectionNavItem } from "@hub/ui/product/section-nav";
+import { SectionNav, type SectionNavItem } from "@hub/ui/product/shell/section-nav";
 import { AppLink } from "@/components/app-link";
 import { dest } from "@/routes/paths";
 import type { ActivityView } from "@/routes/search";

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { ListDetail, ListScrollArea } from "@hub/ui/product/list-detail";
-import { Page } from "@hub/ui/product/page";
+import { ListDetail, ListScrollArea } from "@hub/ui/product/list/detail";
+import { Page } from "@hub/ui/product/shell/page";
 
 function SampleContent({ rows = 12 }: { rows?: number }) {
   return (

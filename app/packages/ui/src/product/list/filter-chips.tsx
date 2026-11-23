@@ -1,5 +1,5 @@
-import { RadioGroupPrimitive, RadioPrimitive } from "../ui/radio-group";
-import { SegmentedControl, SegmentedControlItem } from "../ui/segmented-control";
+import { RadioGroupPrimitive, RadioPrimitive } from "../../ui/radio-group";
+import { SegmentedControl, SegmentedControlItem } from "../../ui/segmented-control";
 
 export type Chip<T extends string> = { value: T; label: string; count: number | undefined | null };
 

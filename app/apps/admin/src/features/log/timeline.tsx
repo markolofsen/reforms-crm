@@ -5,7 +5,7 @@ import type { ActivityRowDto } from "@hub/contract/activity";
 import { cn } from "@hub/ui/cn";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@hub/ui/tooltip";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
+import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/list/data-table";
 import { AppLink } from "@/components/app-link";
 import { agentRef } from "@/lib/focus";
 import { hhmm } from "@/lib/format";

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { cn } from "../cn";
+import { cn } from "../../cn";
 
 /**
  * The width of its own box from which a list and its detail sit side by side (`@3xl`, 48rem; the app's pane hook uses the

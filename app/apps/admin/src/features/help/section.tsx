@@ -1,6 +1,6 @@
 "use client";
 
-import { Page } from "@hub/ui/product/page";
+import { Page } from "@hub/ui/product/shell/page";
 import { HowItWorks } from "./how-it-works";
 import { WhereThingsLive } from "./places";
 import { SayTable } from "./say-table";

@@ -3,9 +3,9 @@
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { AlertTriangleIcon, OctagonXIcon } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
-import { cn } from "../cn";
-import { SheetBackdrop, SheetDescription, SheetFooter, SheetPortal, SheetTitle } from "../ui/sheet";
-import { ActionButton } from "./action-button";
+import { cn } from "../../cn";
+import { SheetBackdrop, SheetDescription, SheetFooter, SheetPortal, SheetTitle } from "../../ui/sheet";
+import { ActionButton } from "../action-button";
 
 /**
  * A problem the dialog lists. A `blocker` keeps the confirm off until it is gone, and carries the fix as its own button when

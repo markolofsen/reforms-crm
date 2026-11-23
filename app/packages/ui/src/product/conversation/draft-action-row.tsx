@@ -1,6 +1,6 @@
 import { SendIcon } from "lucide-react";
 import type { ReactNode, Ref } from "react";
-import { ActionButton, type ActionSize } from "./action-button";
+import { ActionButton, type ActionSize } from "../action-button";
 
 /**
  * The one action row of an unsent message (P105, P127 C3), the same in Mail's draft card, a messenger draft and Mail's reply

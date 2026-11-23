@@ -8,10 +8,10 @@ import { Markdown } from "@tiptap/markdown";
 import type { AnyExtension } from "@tiptap/core";
 import { BoldIcon, Code2Icon, Heading1Icon, Heading2Icon, Heading3Icon, ItalicIcon, LinkIcon, ListIcon, ListOrderedIcon, MinusIcon, QuoteIcon, Redo2Icon, StrikethroughIcon, Undo2Icon, type LucideIcon } from "lucide-react";
 import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { cn } from "../cn";
-import { Input } from "../ui/input";
-import { Popover, PopoverClose, PopoverPopup, PopoverTrigger } from "../ui/popover";
-import { ActionButton } from "./action-button";
+import { cn } from "../../cn";
+import { Input } from "../../ui/input";
+import { Popover, PopoverClose, PopoverPopup, PopoverTrigger } from "../../ui/popover";
+import { ActionButton } from "../action-button";
 
 export type MarkdownEditorProps = {
   value: string;

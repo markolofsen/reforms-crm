@@ -1,5 +1,5 @@
 import type { KeyboardEvent, ReactNode } from "react";
-import { cn } from "../cn";
+import { cn } from "../../cn";
 
 /**
  * One item of a section's own menu (P125 L1): a label, an optional count, one optional level of nesting (a sub-topic under its
