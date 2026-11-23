@@ -26,7 +26,8 @@
     "./send-token": "./src/messenger/send-token.ts",
     "./connectors": "./src/connectors.ts",
     "./connector-guard": "./src/connector-guard.ts",
-    "./connector-checks": "./src/connector-checks.ts"
+    "./connector-checks": "./src/connector-checks.ts",
+    "./drafts/write": "./src/drafts/write.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

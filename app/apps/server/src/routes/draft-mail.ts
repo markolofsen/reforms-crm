@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
+import { DraftRefused, reviseMailDraft } from "@hub/agent/drafts/write";
 import { newThreadKey } from "@hub/config";
-import { alreadySentText, isNewThreadDraft, reviseDraft, writeLogOf } from "@hub/agent/mail";
+import { reviseDraft, writeLogOf } from "@hub/agent/mail";
 import { versionHashOf } from "@hub/db";
 import { DraftWriteError, type InboundMessage } from "@hub/mail-app/writer/types";
 import type { DraftRow, MailVersionRow } from "@hub/db";
@@ -17,8 +18,8 @@ import type { MailServices } from "../composition/capabilities";
 
 /**
  * The open draft's Mail text (decision 0013: read live, never stored) and the two writes a person makes to it (P56):
- * Restore (the hub's own copy from Trash, written again) and Save (the person's edited text). Both go through the agent's
- * one writer (`reviseDraft`), carry the send ticket's door (exact admin Origin, same-origin fetch: a forged write from
+ * Restore (the hub's own copy from Trash, written again) and Save (the person's edited text). Both go through the one
+ * revision use case the agent's `draft_write` uses too (`reviseMailDraft`, P126 M3), carry the send ticket's door (exact admin Origin, same-origin fetch: a forged write from
  * another loopback page would rewrite a client's mail), turn Checked off and bump the live topic `mail`. Each records the
  * Mail version it saved (`mail_versions`, P65), and the replace moves only the versions the Hub recorded. The read heals a
  * thread the Hub crowded itself (P65 S5, `settleThread`): its own late saves are adopted, its older versions go to Trash.
@@ -61,35 +62,27 @@ export function draftMailRoutes({ repos, sender }: MailServices) {
   const write = async (c: Context, d: DraftRow, body: string, source: "save" | "restore") => {
     const pm = projectMail(d.project);
     if (!sender?.writer || !pm) return refuse(c, "Writing Mail drafts is not set up on this server.");
-    // P85b: a new thread answers no message; it is rewritten as a new message to the same client, keyed by its client.
-    const fresh = !d.mailRef && isNewThreadDraft(d);
-    if (!d.mailRef && !fresh) return refuse(c, "This draft answers no Mail message, so it cannot be written here.");
-    const client = d.toAddr.match(/[^\s,;<>"']+@[^\s,;<>"']+/)?.[0] ?? d.toAddr;
-    const key = d.mailRef ?? newThreadKey(client);
-    if (d.status === "sent") return refuse(c, alreadySentText(d.id, d.sentAt ?? null, "person"));
     const live: MailVersionRow[] = (await repos.mailVersions.ofDraft(d.id)).filter((v) => !v.trashedAt);
-    try {
-      const acc = live[0]?.account ?? pm.accounts[0] ?? "";
-      const displayName = displayNameFor(pm, d.brand);
-      const resolution = d.brand || d.wroteTo ? { brand: d.brand ?? null, wroteTo: d.wroteTo ?? null, via: "none" as const, reason: "the draft's recorded Mail context" } : null;
-      const signText = (text: string) => {
-        const block = signatureFor(pm, resolution, replyLanguage(text));
-        return {
-          body: signBody(text, block, signatureLines(pm)),
-          wroteTo: resolution?.wroteTo ?? null,
-          brand: resolution?.brand ?? null,
-          brandReason: resolution?.reason ?? "the draft has no recorded brand context",
-          signature: block.placeholder ? "placeholder" as const : block.lines.length ? "signed" as const : "none" as const,
-          ...(block.fallback ? { signatureFallback: block.fallback } : {}),
-        };
+    // A person's text is signed from the draft's recorded Mail context (its brand and the address the client wrote to).
+    const resolution = d.brand || d.wroteTo ? { brand: d.brand ?? null, wroteTo: d.wroteTo ?? null, via: "none" as const, reason: "the draft's recorded Mail context" } : null;
+    const signText = (text: string) => {
+      const block = signatureFor(pm, resolution, replyLanguage(text));
+      return {
+        body: signBody(text, block, signatureLines(pm)),
+        wroteTo: resolution?.wroteTo ?? null,
+        brand: resolution?.brand ?? null,
+        brandReason: resolution?.reason ?? "the draft has no recorded brand context",
+        signature: block.placeholder ? "placeholder" as const : block.lines.length ? "signed" as const : "none" as const,
+        ...(block.fallback ? { signatureFallback: block.fallback } : {}),
       };
-      const sign = async (_inbound: InboundMessage, text: string) => signText(text);
-      const signedBody = fresh ? signText(body).body : body;
-      const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, displayName, clientWroteTo: d.wroteTo ?? null, mailRef: d.mailRef, body: signedBody, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), ...(!fresh ? { sign } : {}), ...(fresh ? { newThread: { to: client, subject: d.subject, account: acc, from: visibleFrom(pm.sender, displayName) } } : {}), log: writeLogOf((fn) => fn(repos), d.project, d.id, key) });
-      await repos.mailVersions.add({ project: d.project, mailRef: key, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHashOf(r.text), source });
+    };
+    try {
+      const { r, mailRef } = await reviseMailDraft({ actor: "person", draft: d, body, writer: sender.writer, mail: pm, brands: pm, live, quote: "keep", signNew: signText, signReply: async (_inbound, text) => signText(text), log: (ref) => writeLogOf((fn) => fn(repos), d.project, d.id, ref) });
+      await repos.mailVersions.add({ project: d.project, mailRef, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHashOf(r.text), source });
       const moved = new Set(r.replaced.map(bareId));
       await repos.mailVersions.markTrashed(live.filter((v) => moved.has(bareId(v.messageId))).map((v) => v.id));
     } catch (e) {
+      if (e instanceof DraftRefused) return refuse(c, e.message);
       // P65 S5: slow is not failed. The write is recorded; the card's next read adopts it when Mail saves it.
       if (e instanceof DraftWriteError && e.code === "mail_slow") return refuse(c, "Mail is slow: it has not shown the saved draft yet. It may still land; the card shows the new text when Mail saves it, and the Hub then moves the older version to Trash. Do not save again now.");
       if (e instanceof DraftWriteError) return refuse(c, `Mail did not take the draft: ${e.message}`);
