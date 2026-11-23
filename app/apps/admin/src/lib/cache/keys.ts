@@ -24,7 +24,7 @@ export const keys = {
   agentTools: (project: string) => ["agent-tools", project] as const,
   /** The agent activity feed (P59): the ended turns' tones and the wait, read from the session log on the server (P73: no rows). */
   agentFeed: (project: string) => ["agent-feed", project] as const,
-  drafts: (project: string, view: string, batch: number | null, search: string) => ["drafts", project, view, batch, search] as const,
+  conversations: (project: string, view: string, batch: number | null, search: string) => ["drafts", project, view, batch, search] as const,
   /** P99: one conversation's header and unsent message (the Hub's rows): under `drafts`, so every topic that moves a row moves it. */
   conversation: (project: string, clientId: number) => ["drafts", project, "conversation", clientId] as const,
   /** P103: a client's key in the address to his row (under `drafts`, so a topic that moves a client refreshes it too). */
@@ -44,7 +44,7 @@ export const keys = {
   /** P73: the timeline of one view, of one client or every one (`null`); its pages live under this key (an infinite query). */
   activity: (project: string, view: string, client: number | null) => ["activity", project, view, client ?? "every"] as const,
   timeline: (project: string, clientId: number) => ["timeline", project, clientId] as const,
-  project: (project: string) => ["project", project] as const,
+  projectFacts: (project: string) => ["project", project] as const,
   links: (project: string) => ["links", project] as const,
   rules: (project: string) => ["rules", project] as const,
   /** P55: the project's agent model and advisor (Settings ▸ Agent); the same live topic as the safety rules. */

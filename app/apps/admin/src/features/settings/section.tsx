@@ -55,7 +55,7 @@ export function MessengerSettingsScreen() {
 }
 
 /** Settings ▸ Mail: the project's accounts and its filters. */
-export function MailScreen() {
+export function MailSettingsScreen() {
   const { project } = useProjectScope();
   return (
     <SectionMenu section="settings">

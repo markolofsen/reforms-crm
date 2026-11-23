@@ -8,7 +8,7 @@ import { ListFilterMenu, ListToolbar, ListToolbarRow } from "@hub/ui/product/lis
 import { EmptyState, ListState, Refreshing } from "@/components/state-views";
 import { useSearch } from "@/hooks/use-search-state";
 import { useDebounced } from "@/hooks/use-debounced";
-import { shortcutsOn } from "@/hooks/use-hotkeys";
+import { shortcutsOn } from "@/hooks/use-shortcuts";
 import type { Channel } from "@/components/conversation/adapter";
 import { ConversationWorkspace } from "@/components/conversation/workspace";
 import { useClock } from "@/lib/clock";
@@ -25,7 +25,7 @@ import { MessengerConversationPane } from "./conversation/pane";
 import { useMessengerUndoKey } from "./conversation/keys";
 
 /** The View menu; its trigger is the list's title (P128 X4): "Messengers · Needs you 3", or the channel chosen in the sidebar, "WhatsApp · Needs you 1". */
-function ViewMenu({ value, counts, onChange, where }: { value: View; counts: Record<View, number> | undefined; onChange: (v: string) => void; where: string }) {
+function ChatViewMenu({ value, counts, onChange, where }: { value: View; counts: Record<View, number> | undefined; onChange: (v: string) => void; where: string }) {
   return <ListFilterMenu name="View" onChange={onChange} options={VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v], count: counts?.[v] }))} tooltip="Filter chats by view" value={value} where={where} />;
 }
 
@@ -70,7 +70,7 @@ export function MessengersWorkspace({ project, filter, link, channel: asked, cha
   const searchEmpty = search.trim() ? <EmptyState action={<ActionButton onClick={() => setSearch({ q: "" })} size="s" variant="secondary">Clear search</ActionButton>} compact title="No chats match your search">Try a name, username, email, chat ID or message text.</EmptyState> : null;
   const accountsLine = emptyLine({ telegram, whatsapp, enabled: st?.enabled ?? false, withIdentifier: st?.directory.withIdentifier ?? 0, directoryReady: st?.directory.state === "ready" });
   // P127 C2 (question 1, delegated: yes): Mail's list keys come with the workspace; U puts back the last skipped draft, S and E
-  // register on the open draft (`DraftBlock`). No selection keys: Messengers has no multi-select (question 4).
+  // register on the open draft (`MessengerDraft`). No selection keys: Messengers has no multi-select (question 4).
   const searchRef = useRef<HTMLInputElement>(null);
   useMessengerUndoKey({ enabled: shortcutsOn, undo: actions.undoSkip });
   const place = { filter, link, channel, q: search };
@@ -87,7 +87,7 @@ export function MessengersWorkspace({ project, filter, link, channel: asked, cha
   const toolbar = (
     <ListToolbar ariaLabel="Chat filters and actions">
       <ListToolbarRow>
-        <ViewMenu counts={viewCounts(d?.counts, st, channel, link)} onChange={(v) => setSearch({ filter: v })} value={filter} where={channel === "all" ? "Messengers" : CHANNEL_FILTER_LABEL[channel]} />
+        <ChatViewMenu counts={viewCounts(d?.counts, st, channel, link)} onChange={(v) => setSearch({ filter: v })} value={filter} where={channel === "all" ? "Messengers" : CHANNEL_FILTER_LABEL[channel]} />
         <LinkMenu counts={linkCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ link: v })} value={link} />
         <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
           <SearchField inputRef={searchRef} label="Search chats" onChange={(v) => setSearch({ q: v })} value={search} />

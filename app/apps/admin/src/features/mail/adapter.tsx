@@ -7,7 +7,7 @@ import { ConversationList } from "@hub/ui/product/conversation";
 import { ConversationEmptyState } from "@hub/ui/product/conversation/frame";
 import { EmptyState, ListSkeleton, ListState, QueryView } from "@/components/state-views";
 import { toastManager } from "@hub/ui/toast";
-import { shortcutsOn } from "@/hooks/use-hotkeys";
+import { shortcutsOn } from "@/hooks/use-shortcuts";
 import { sentence } from "@/lib/api/client";
 import { useRefreshTopics } from "@/lib/cache/topics";
 import { useClock } from "@/lib/clock";

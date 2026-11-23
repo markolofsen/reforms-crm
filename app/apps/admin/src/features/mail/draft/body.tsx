@@ -41,7 +41,7 @@ function AddressDetails({ d }: { d: ReviewDraft }) {
 }
 
 /** The draft as a document: addressing, versions, the paper surface and owner actions. */
-export function DraftBlock({ d, project, actions, live, onRead, reading, editing = null, editor, onEdit }: Props) {
+export function DraftBody({ d, project, actions, live, onRead, reading, editing = null, editor, onEdit }: Props) {
   const closed = isClosed(d);
   const tones = TONES.filter((t) => d.toneBodies[t] !== undefined);
   const readable = live?.found ? live : null;

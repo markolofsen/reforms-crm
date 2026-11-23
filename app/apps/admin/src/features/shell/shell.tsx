@@ -7,7 +7,7 @@ import { SidebarInset, SidebarProvider, useSidebar } from "@hub/ui/sidebar";
 import { useMediaQuery } from "@hub/ui/use-media-query";
 import { cn } from "@hub/ui/cn";
 import { useHotkeys, type KeyMap } from "@hub/ui/use-hotkey";
-import { shortcutsOn, useShortcutsSwitch } from "@/hooks/use-hotkeys";
+import { shortcutsOn, useShortcutsSwitch } from "@/hooks/use-shortcuts";
 import { PaneNarrowContext, useMeasuredNarrow } from "@/hooks/use-pane";
 import type { NavItem } from "@/hooks/use-section-nav";
 import { useTerminalDocked } from "@/features/terminal/terminal";

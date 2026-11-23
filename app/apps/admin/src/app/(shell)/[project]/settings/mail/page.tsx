@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { MailScreen } from "@/features/settings/section";
+import { MailSettingsScreen } from "@/features/settings/section";
 import { addressedProject, pageTitle } from "@/routes/meta";
 
 export async function generateMetadata(props: PageProps<"/[project]/settings/mail">): Promise<Metadata> {
@@ -8,5 +8,5 @@ export async function generateMetadata(props: PageProps<"/[project]/settings/mai
 }
 
 export default function MailSettingsPage() {
-  return <MailScreen />;
+  return <MailSettingsScreen />;
 }

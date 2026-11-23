@@ -19,10 +19,10 @@ import type { CommandEvents } from "./instance";
  */
 
 /** The project's facts (`project.md`, its files, its open question): Settings ▸ Mail's filters, Knowledge's files, the dots. */
-export const useProjectFacts = (project: string | null) => useQuery({ queryKey: keys.project(project ?? ""), queryFn: () => metaApi.overview(project ?? ""), enabled: project !== null });
+export const useProjectFacts = (project: string | null) => useQuery({ queryKey: keys.projectFacts(project ?? ""), queryFn: () => metaApi.overview(project ?? ""), enabled: project !== null });
 
 /** The facts of several projects, one read each (Overview's open questions). */
-export const useProjectsFacts = (projects: readonly string[]) => useQueries({ queries: projects.map((p) => ({ queryKey: keys.project(p), queryFn: () => metaApi.overview(p) })) });
+export const useProjectsFacts = (projects: readonly string[]) => useQueries({ queries: projects.map((p) => ({ queryKey: keys.projectFacts(p), queryFn: () => metaApi.overview(p) })) });
 
 /** The project's Quick Links (the shell's), read again after a minute at most. */
 export const useLinks = (project: string | null) => useQuery({ queryKey: keys.links(project ?? ""), queryFn: () => metaApi.links(project ?? ""), enabled: project !== null, staleTime: 60_000 });

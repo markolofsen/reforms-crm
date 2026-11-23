@@ -195,7 +195,7 @@ describe("shared UI ownership", () => {
   it("Mail and Messenger writing surfaces use the visual Markdown editor", () => {
     const composers = [...inDir("features/mail"), ...inDir("features/messengers")];
     expect(offenders(composers, /<Textarea\b|from ["']@hub\/ui\/textarea["']/)).toEqual([]);
-    expect(composers.filter((p) => /(?:conversation\/pane|draft-block|chat-rules|draft-editor)\.tsx$/.test(rel(p)) && /<MarkdownEditor\b|<ConversationEditorSurface\b|<ConversationComposerEditor\b/.test(read(p))).length).toBeGreaterThan(0);
+    expect(composers.filter((p) => /(?:conversation\/pane|draft\/body|messengers\/draft|chat-rules|draft-editor)\.tsx$/.test(rel(p)) && /<MarkdownEditor\b|<ConversationEditorSurface\b|<ConversationComposerEditor\b/.test(read(p))).length).toBeGreaterThan(0);
   });
 
   it("copied UI primitives do not import product behavior or domain packages", () => {

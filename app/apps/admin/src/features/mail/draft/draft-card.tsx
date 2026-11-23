@@ -18,7 +18,7 @@ import { CardHeader } from "./card-header";
 import { stateOf } from "./card-state";
 import { draftLinkOf, mailReadable } from "@/features/mail/draft/mail-read/tick-guard";
 import { CheckList } from "./check-list";
-import { DraftBlock } from "./draft-block";
+import { DraftBody } from "./body";
 import { DraftEditor, DraftEditorFooter } from "@/features/mail/draft/mail-read/draft-editor";
 import { useDraftMail } from "@/features/mail/draft/mail-read/use-draft-mail";
 import { useChangedUnder } from "@/features/mail/draft/mail-read/use-changed-under";
@@ -144,7 +144,7 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
           {() => null}
         </QueryView>
         <CheckList d={d} onOpen={on.send} {...(mail?.found ? { results: mail.safetyResults } : {})} />
-        <DraftBlock
+        <DraftBody
           actions={actions}
           d={d}
           editing={editing}

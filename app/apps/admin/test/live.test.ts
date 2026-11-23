@@ -7,7 +7,7 @@ import { keys, MAIL_KEYS, TOPIC_KEYS } from "../src/lib/cache/keys";
 // P50 L3: a live frame invalidates only the prefixes of its topic and project, never a Mail read.
 const seed = () => {
   const qc = new QueryClient();
-  const all = [keys.drafts("p", "ready", null, ""), keys.drafts("q", "ready", null, ""), keys.activity("p", "all", null), keys.draftMail("p", 1), keys.thread("p", 2), keys.connections(), keys.pulse(), keys.overview(), keys.doctor("p")];
+  const all = [keys.conversations("p", "ready", null, ""), keys.conversations("q", "ready", null, ""), keys.activity("p", "all", null), keys.draftMail("p", 1), keys.thread("p", 2), keys.connections(), keys.pulse(), keys.overview(), keys.doctor("p")];
   for (const k of all) qc.setQueryData(k, 1);
   return qc;
 };

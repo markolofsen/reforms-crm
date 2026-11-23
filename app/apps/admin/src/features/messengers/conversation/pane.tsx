@@ -19,7 +19,7 @@ import { useManualMessengerDraft, useMessengerConversation, usePrepareReply } fr
 import { isNotFound, sentence } from "@/lib/api/client";
 import { dayOf, formatDay, formatTime } from "@/lib/format";
 import { CHANNEL_LABEL, chatName, chatStateLine, notionIdentityLine, notionIndicatorState } from "../labels";
-import { DraftBlock } from "../draft-block";
+import { MessengerDraft } from "../draft";
 import type { useChatActions } from "../use-chat-actions";
 
 type Actions = ReturnType<typeof useChatActions>;
@@ -113,7 +113,7 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
     focusAgentRow(refOf("chat", chatId));
   };
   const composer = chat && data ? chat.draft ? (
-    <DraftBlock actions={actions} d={chat.draft} embedded key={`draft:${chatId}:${chat.draft.id}`} name={name} project={project} />
+    <MessengerDraft actions={actions} d={chat.draft} embedded key={`draft:${chatId}:${chat.draft.id}`} name={name} project={project} />
   ) : (
     <ManualReply
       chatId={chatId}

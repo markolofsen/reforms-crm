@@ -7,7 +7,7 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationText } from "@hub/ui/product/conversation";
 import { ConversationEditorSurface } from "@hub/ui/product/composer/editor";
 import { ConversationComposer, ConversationComposerFooter } from "@hub/ui/product/conversation/frame";
-import { shortcutsOn } from "@/hooks/use-hotkeys";
+import { shortcutsOn } from "@/hooks/use-shortcuts";
 import { agentRef } from "@/lib/focus";
 import { useMessengerDraftKeys } from "./conversation/keys";
 import { SendBar } from "./send-bar";
@@ -22,7 +22,7 @@ type Actions = ReturnType<typeof useChatActions>;
  * opens the text in place (an action's own form, `admin-principles.md` rule 9); Skip sets it aside with Undo; S and E are their keys. Its ref is
  * `mdraft:<id>` (P72), so a press on it tells the agent which draft he means; it is not a tab stop of its own (the buttons are).
  */
-export function DraftBlock({ d, name, project, actions, embedded = false }: { d: MessengerDraftDto; name: string; project: string; actions: Actions; embedded?: boolean }) {
+export function MessengerDraft({ d, name, project, actions, embedded = false }: { d: MessengerDraftDto; name: string; project: string; actions: Actions; embedded?: boolean }) {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(d.text);
   const [editSaved, setEditSaved] = useState(false);

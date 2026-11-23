@@ -45,7 +45,7 @@ export const countOf = (counts: ReviewPage["counts"], view: string): number | un
 export function mailSource(project: string, filter: string, view: ConversationViewDto, scope: Scope): ReviewSource {
   const { batch } = scope;
   return {
-    queryKey: keys.drafts(project, filter, batch, scope.search),
+    queryKey: keys.conversations(project, filter, batch, scope.search),
     project,
     filter,
     countOf,
@@ -74,7 +74,7 @@ export function useReviewRows(source: ReviewSource) {
  */
 export function useMailCounts(project: string | null): ReviewPage["counts"] {
   const q = useInfiniteQuery({
-    queryKey: keys.drafts(project ?? "", "needs_you", null, ""),
+    queryKey: keys.conversations(project ?? "", "needs_you", null, ""),
     queryFn: ({ pageParam }) => page(project ?? "", "needs_you", pageParam, { search: "", batch: null }),
     initialPageParam: 0,
     getNextPageParam: (last) => last.nextOffset ?? undefined,

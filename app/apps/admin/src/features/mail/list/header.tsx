@@ -27,7 +27,7 @@ type Header = {
  * is the list's title, "Mail · Needs you 2" (P128 X4); a filter or a batch with nothing in it is left out unless it is the one
  * on screen (the three views always show, so the owner sees an empty Needs you as such).
  */
-function ViewMenu({ views, view, onView }: Pick<Header, "views" | "view" | "onView">) {
+function MailViewMenu({ views, view, onView }: Pick<Header, "views" | "view" | "onView">) {
   const shown = views.filter((v) => v.group === undefined || v.value === view || v.count !== 0);
   return <ListFilterMenu name="View" onChange={onView} options={shown} tooltip="Filter mail by view" value={view} where="Mail" />;
 }
@@ -70,7 +70,7 @@ export function ListHeader({ views, view, onView, search, onSearch, searchRef, s
         // One line at every width, the search between the View and Select: a second line pushed the first draft past 200px on a
         // phone (admin-principles 3) and made the rows jump when a selection replaced both lines (ui-specifications 4a).
         <ListToolbarRow className="flex-nowrap">
-          <ViewMenu onView={onView} view={view} views={views} />
+          <MailViewMenu onView={onView} view={view} views={views} />
           <div className="min-w-0 flex-1">
             <SearchField inputRef={searchRef} label="Search drafts" onChange={onSearch} value={search} />
           </div>
