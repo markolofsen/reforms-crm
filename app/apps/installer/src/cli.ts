@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 import { readInstanceConfig } from "@hub/config/instance";
+import { HubError } from "@hub/config/errors";
 import * as p from "@clack/prompts";
 import { registerMailFiltersCommands } from "@hub/mail-filters/hub-commands";
 import { registerDevCommands, registerProjectCommands, runProjectDoctor, runSync } from "@hub/projects/hub-commands";
@@ -643,5 +644,6 @@ main().catch((e) => {
   let msg = e instanceof Error ? e.message : String(e);
   if (!missing) { try { msg = redact(ctxOf().configDir, msg); } catch { /* no instance to read secrets from: nothing to redact */ } }
   console.error(`${c.red("error:")} ${msg}`);
-  process.exit(missing || e instanceof UsageError ? 2 : 1);
+  // P126 E1: a refusal the Hub states (any HubError) exits 2, like a usage error; anything else is a failure (1).
+  process.exit(missing || e instanceof UsageError || e instanceof HubError ? 2 : 1);
 });

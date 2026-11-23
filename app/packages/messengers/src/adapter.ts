@@ -1,3 +1,4 @@
+import { HubError } from "@hub/config/errors";
 import type { MessengerChannel } from "@hub/db";
 import type { ConfirmedDraft } from "./confirmed";
 
@@ -80,13 +81,15 @@ export function parkedOf(lastError: string | null | undefined): ParkedCode | nul
  * `unauthorized` (bad token) and `conflict` (another consumer or a webhook) stop the poller: retrying cannot fix them. So do
  * the parked codes of a user account.
  */
-export class AdapterError extends Error {
+export class AdapterError extends HubError {
+  declare readonly code: AdapterErrorCode;
+  /** Telegram or WhatsApp failed: `upstream` (502). */
   constructor(
-    readonly code: AdapterErrorCode,
+    code: AdapterErrorCode,
     message: string,
     readonly retryAfterMs?: number,
   ) {
-    super(message);
+    super("upstream", code, message);
     this.name = "AdapterError";
   }
   get fatal(): boolean {

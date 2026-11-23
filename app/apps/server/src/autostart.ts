@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { AUTOSTART_FIX, autostartFiles, launchAgentsDir, parseBootTime, readAutostart, switchAutostart, type LaunchctlRun } from "@hub/config/autostart";
 import type { HubPaths } from "@hub/config/paths";
 import type { RuntimeModes } from "@hub/config/modes";
+import { HubError } from "@hub/config/errors";
 import { autostartDto, type AutostartDto } from "@hub/contract/autostart";
 
 // P67 (decision 0033): the server's side of "Start the Hub after a restart". It reads the LaunchAgent's state and switches it
@@ -94,7 +95,12 @@ export interface AutostartOptions {
   mailMcp?: () => Promise<boolean>;
 }
 
-export class AutostartNotSetUp extends Error {}
+export class AutostartNotSetUp extends HubError {
+  constructor(message: string) {
+    super("wrong_state", "not_set_up", message);
+    this.name = "AutostartNotSetUp";
+  }
+}
 
 export interface AutostartService {
   read(): Promise<AutostartDto>;

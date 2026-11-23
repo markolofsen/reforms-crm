@@ -11,6 +11,7 @@ import { chooseResume, type LoggedSession, type ResumeChoice } from "@hub/log/re
 import type { CliFactDto, TerminalPreset, TerminalSessionDto } from "@hub/contract/terminal";
 import type { Repos } from "@hub/db";
 import { nodePty, nodePtyRoot, presetArgv, presetOrder, SessionLimitError, sessionManager, sessionTitle, spawnLine, tabShell, terminalEnv, terminalReadiness, terminalSocketServer, type PtySpawn, type SessionManager, type TerminalProblem } from "@hub/terminal";
+import { HubError } from "@hub/config/errors";
 import { fakeMode } from "@hub/config/modes";
 import { gateRefusal, ticketStore, type TicketStore } from "./admin-gate";
 import { clearDrops, dropRefusal, removeDrop, writeDrop, type DroppedFile } from "./drops";
@@ -68,8 +69,14 @@ export const ENSURE_DETECT_MS = 8_000;
 /** The wire half of a fact: no path. */
 const wireFact = ({ cli, state, version, detail, fix }: CliFactDto): CliFactDto => ({ cli, state, version, detail, fix });
 
-export class TerminalRefusal extends Error {
-  constructor(readonly status: 400 | 404 | 409 | 413 | 503, message: string, readonly fix: string | null = null) { super(message); }
+const TERMINAL_KINDS = { 400: "invalid", 404: "not_found", 409: "wrong_state", 413: "invalid", 503: "unavailable" } as const;
+
+/** The terminal route keeps its own mapping (`terminal_unavailable` with `fix`, 413 for a drop); `kind` is for every other surface. */
+export class TerminalRefusal extends HubError {
+  constructor(readonly status: 400 | 404 | 409 | 413 | 503, message: string, readonly fix: string | null = null) {
+    super(TERMINAL_KINDS[status], "terminal_refusal", message);
+    this.name = "TerminalRefusal";
+  }
 }
 
 /** A failed readiness is rechecked at most this often (a state read, a start), so a fix lands without a restart. */

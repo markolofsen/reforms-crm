@@ -1,4 +1,5 @@
 import { basename } from "node:path";
+import { HubError } from "@hub/config/errors";
 import { hubPaths } from "@hub/config/paths";
 import { inspect, isTelegramToken, notionShapeProblem, parseConnectionId, redact, removeSecret, storeToken, testConnection, type ConnectionRow, type ProbeDeps, type ProjectUse, type Verdict } from "@hub/connections";
 import { CONNECTION_FRESH_MINUTES, type CheckErrorCode, type CheckValueDto, type ConnectionDto, type ConnectionsDto, type MailAccountDto, type MailReadDto } from "@hub/contract/connections";
@@ -31,18 +32,18 @@ export interface ConnectionsService {
 }
 
 /** A write the panel will not do, with a sentence that never holds a value: 400 for a key that cannot be one, 409 for a row that cannot take the action. */
-export class Refusal extends Error {
+export class Refusal extends HubError {
   readonly status: 400 | 409;
   constructor(message: string, status: 400 | 409) {
-    super(message);
+    super(status === 400 ? "invalid" : "wrong_state", "refused", message);
     this.name = "Refusal";
     this.status = status;
   }
 }
 
-export class NotTestable extends Error {
+export class NotTestable extends HubError {
   constructor(what: string) {
-    super(`${what} has nothing to test: store a token first, or fix the file.`);
+    super("wrong_state", "not_testable", `${what} has nothing to test: store a token first, or fix the file.`);
     this.name = "NotTestable";
   }
 }

@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { statSync } from "node:fs";
+import { HubError } from "@hub/config/errors";
 import { currentCoreUpdate, isLocalCore, refreshCoreUpdate, uncheckedCoreUpdate, type CommandRun } from "@hub/config/core-version";
 import type { HubPaths } from "@hub/config/paths";
 import { CORE_CHECK_GUARD_MS, coreUpdateDto, type CoreUpdateDto } from "@hub/contract/instance";
@@ -29,9 +30,11 @@ export const offlineRun = (inner: CommandRun = execRun): CommandRun => async (cm
   args.includes("ls-remote") || args.includes("fetch") ? { code: 1, stdout: "", stderr: "a test server does not reach the origin (HUB_MAILER=fake)" } : inner(cmd, args, o);
 
 /** "Check now" again within a minute. */
-export class CheckTooSoon extends Error {
+export class CheckTooSoon extends HubError {
+  /** The route answers 429 with `retry-after`; `wrong_state` is for every other surface. */
   constructor(readonly retryAfterS: number) {
-    super(`Checked less than a minute ago: try again in ${retryAfterS} s.`);
+    super("wrong_state", "too_soon", `Checked less than a minute ago: try again in ${retryAfterS} s.`);
+    this.name = "CheckTooSoon";
   }
 }
 

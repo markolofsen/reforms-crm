@@ -1,3 +1,4 @@
+import { HubError } from "@hub/config/errors";
 import { isHiddenLabel, MESSENGER_TEXT_MAX, type ChatRules } from "@hub/config/chat-rules";
 import type { MessengerPrepareBody } from "@hub/contract/messenger-panel";
 import { rulesOf, type MessengerChatRow, type Repos } from "@hub/db";
@@ -10,9 +11,12 @@ const TASK = "messages.reply_draft";
 const CHANNELS = ["telegram_bot", "telegram_user", "whatsapp"] as const;
 const Reply = z.object({ text: z.string().trim().min(1).max(MESSENGER_TEXT_MAX) });
 
-export class MessengerReplyError extends Error {
-  constructor(readonly code: "unavailable" | "not_found" | "refused", message: string) {
-    super(message);
+const REPLY_KINDS = { unavailable: "unavailable", not_found: "not_found", refused: "wrong_state" } as const;
+
+export class MessengerReplyError extends HubError {
+  declare readonly code: keyof typeof REPLY_KINDS;
+  constructor(code: keyof typeof REPLY_KINDS, message: string) {
+    super(REPLY_KINDS[code], code, message);
     this.name = "MessengerReplyError";
   }
 }

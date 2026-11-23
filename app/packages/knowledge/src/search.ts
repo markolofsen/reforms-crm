@@ -1,15 +1,17 @@
 // The tool contract of doc 16 section 5, as plain functions. The MCP server only adapts these.
+import { HubError, type ErrorKind } from "@hub/config/errors";
 import { RepoError, type Repos } from "@hub/db";
 import { ANY_BRAND } from "@hub/projects/brand";
 import { ProjectBase } from "@hub/projects/model";
 
 export type ToolErrorCode = "unknown_project" | "project_mismatch" | "empty_query" | "not_found" | "brand_required" | "unknown_brand";
-export class ToolError extends Error {
-  constructor(
-    readonly code: ToolErrorCode,
-    message: string,
-  ) {
-    super(message);
+const TOOL_KINDS: Readonly<Record<ToolErrorCode, ErrorKind>> = { unknown_project: "not_found", project_mismatch: "forbidden", empty_query: "invalid", not_found: "not_found", brand_required: "invalid", unknown_brand: "invalid" };
+
+/** A knowledge tool's refusal (its MCP server and CLI answer with `code`). */
+export class ToolError extends HubError {
+  declare readonly code: ToolErrorCode;
+  constructor(code: ToolErrorCode, message: string) {
+    super(TOOL_KINDS[code], code, message);
     this.name = "ToolError";
   }
 }

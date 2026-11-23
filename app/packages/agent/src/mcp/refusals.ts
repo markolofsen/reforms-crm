@@ -10,6 +10,10 @@ export const REFUSAL_CODES = [
   "unavailable",
   "not_found",
   "not_this_project",
+  // a HubError's kind, when its own code is not registered (P126 E1)
+  "wrong_state",
+  "busy",
+  "upstream",
   // focus, highlight
   "not_looking",
   "unknown_ref",
@@ -75,6 +79,9 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   unavailable: { retry: "no", next: `${ONE_LINE} that this session cannot do it (the message says why).`, fix: { line: "Restart the agent session with hub agent <project>.", place: "the dock" } },
   not_found: { retry: "now", next: "Use an id that focus or a read tool of this project gives." },
   not_this_project: { retry: "now", next: "Use only this project's accounts and addresses (the message lists them)." },
+  wrong_state: { retry: "no", next: "Read the thing again (focus or its show tool): its state does not allow this now." },
+  busy: { retry: "now", next: "Call once more in a moment; if it is busy again, tell the owner in one line." },
+  upstream: { retry: "no", next: `${ONE_LINE} which service failed (the message names it).` },
   not_looking: { retry: "no", next: "Say it in words: the owner is not looking at this project's admin." },
   unknown_ref: { retry: "now", next: "Use a ref that focus gives." },
   own_signoff: { retry: "now", next: "Remove your closing as the message says, then call draft_write once with the new text." },

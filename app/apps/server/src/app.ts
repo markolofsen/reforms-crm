@@ -1,7 +1,9 @@
 import { Hono } from "hono";
 import { ADMIN_PORT, ALLOWED_HOSTNAMES } from "@hub/config";
 import { API_VERSION, healthDto } from "@hub/contract/health";
-import { isBusy, RepoError, type Repos } from "@hub/db";
+import { isBusy, type Repos } from "@hub/db";
+import { HubError, STATUS_OF, type ErrorKind } from "@hub/config/errors";
+import type { ApiErrorCode } from "@hub/contract/errors";
 import { bulkRoutes } from "./routes/bulk";
 import { connectionRoutes } from "./routes/connections";
 import { draftRoutes } from "./routes/drafts";
@@ -139,6 +141,9 @@ export type AppOptions = {
  * (which has no `sent`: Mail's Sent folder is the one source of that).
  * Every refusal is `{ error, code }` (`@hub/contract/errors`); a locked database is 503 `busy`.
  */
+/** The wire code of a kind (`@hub/contract/errors`): the kind itself, except a failed upstream service, which the wire calls `server`. */
+const wireCode = (kind: ErrorKind): ApiErrorCode => (kind === "upstream" ? "server" : kind);
+
 export function createApp(repos: Repos, opts: AppOptions = {}) {
   const health = () =>
     healthDto.parse({
@@ -192,7 +197,8 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
   };
   return new Hono()
     .onError((err, c) => {
-      if (err instanceof RepoError) return c.json({ error: err.message, code: err.code === "not_found" ? ("not_found" as const) : ("wrong_state" as const) }, err.code === "not_found" ? 404 : 409);
+      // P126 E1: every refusal the Hub states is a HubError; its kind gives the status (a failed upstream is the wire's `server`).
+      if (err instanceof HubError) return c.json({ ...err.detail, error: err.message, code: wireCode(err.kind) }, STATUS_OF[err.kind]);
       if (isBusy(err)) return c.json({ error: "The database is busy with another write. Try again in a moment.", code: "busy" as const }, 503);
       ops("server").error(`500 ${c.req.method} ${c.req.path}`, errFields(err, true));
       return c.json({ error: "server error", code: "server" as const }, 500);

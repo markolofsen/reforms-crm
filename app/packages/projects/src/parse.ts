@@ -1,5 +1,6 @@
 // project.md schema v1 (doc 16 section 3). Pure: text in, structure and issues out. No file or database access, so
 // @hub/notion can import this file alone.
+import { HubError } from "@hub/config/errors";
 
 import { parseBrands } from "./brand";
 import { checkValue, FIELDS, isPolicyField, readField, setPath } from "./fields";
@@ -72,9 +73,9 @@ export interface ParsedProject {
   policyRows: Record<string, SettingRow>;
 }
 
-export class ProjectError extends Error {
+export class ProjectError extends HubError {
   constructor(readonly issues: Issue[]) {
-    super(issues.filter((i) => i.severity === "error").map(formatIssue).join("\n") || "invalid project.md");
+    super("invalid", "invalid_project", issues.filter((i) => i.severity === "error").map(formatIssue).join("\n") || "invalid project.md");
     this.name = "ProjectError";
   }
 }

@@ -1,3 +1,4 @@
+import { HubError } from "@hub/config/errors";
 import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import { CLOSE, clampSize, MAX_SESSIONS, type ServerFrame, type TerminalPreset, type TerminalSessionDto } from "@hub/contract/terminal";
@@ -60,7 +61,13 @@ interface Session {
   rows: number;
 }
 
-export class SessionLimitError extends Error {}
+/** At the session cap: `wrong_state` (409), as the terminal route answers it. */
+export class SessionLimitError extends HubError {
+  constructor(message: string) {
+    super("wrong_state", "session_limit", message);
+    this.name = "SessionLimitError";
+  }
+}
 
 export function sessionManager(o: ManagerOptions) {
   const sessions = new Map<string, Session>();

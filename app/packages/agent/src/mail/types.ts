@@ -1,4 +1,5 @@
 // The Mail draft writer's types (P52, P65, P85b): what a write takes and returns, and the writer's interface.
+import { HubError } from "@hub/config/errors";
 
 /** One Mail version the Hub wrote, as the replace step needs it: the account it sits in and its own Message-ID. */
 export interface VersionRef {
@@ -51,11 +52,13 @@ export interface ReplyDraftResult {
   shell: string;
 }
 
-export class DraftWriteError extends Error {
+/** Mail did not take the draft: `unavailable` (503); `code` is the Mail script's own (`mail_slow`, `mail_not_running`…). */
+export class DraftWriteError extends HubError {
   /** `mail_slow`: Mail's reply shell, when the writer saw it (its hash goes on the write record). */
   shell?: string;
-  constructor(readonly code: string, message: string, shell?: string) {
-    super(message);
+  constructor(code: string, message: string, shell?: string) {
+    super("unavailable", code, message);
+    this.name = "DraftWriteError";
     if (shell !== undefined) this.shell = shell;
   }
 }

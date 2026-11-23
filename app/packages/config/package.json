@@ -13,6 +13,7 @@
     "./person": "./src/person.ts",
     "./lint-limits": "./src/lint-limits.mjs",
     "./instance": "./src/instance.ts",
+    "./errors": "./src/errors.ts",
     "./modes": "./src/modes.ts"
   },
   "scripts": {
