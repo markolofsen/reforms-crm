@@ -13,6 +13,8 @@ type Props = ChannelSlots & {
   channel: Channel;
   /** The conversation the address names (null: the bare list). */
   asked: number | null;
+  /** The address names one whose id is still being asked (Mail's email key): no auto-open, so the first row cannot replace it. */
+  pending?: boolean;
   /** The list is refetching behind its rows (the list column says so to assistive tech). */
   busy: boolean;
   /** `/` focuses it. */
@@ -27,11 +29,11 @@ type Props = ChannelSlots & {
  * a conversation (`useOpen`: push, replace, the auto-open of a wide pane), the list keys (J/K, Enter, Esc, /; X and Shift A where
  * the channel selects) and the phone's Back. Each channel adds its own action keys and draws its own draft block in `pane`.
  */
-export function ConversationWorkspace({ channel, asked, busy, searchRef, notice, toolbar, listTop, rows, body, listBottom, aside }: Props) {
+export function ConversationWorkspace({ channel, asked, pending = false, busy, searchRef, notice, toolbar, listTop, rows, body, listBottom, aside }: Props) {
   const narrow = usePaneNarrow();
   const measured = usePaneMeasured();
   const asideOpen = aside?.open ?? false;
-  const { shown, present, open, back } = useOpen(channel, { asked, narrow, measured, still: Boolean(body) || asideOpen });
+  const { shown, present, open, back } = useOpen(channel, { asked, narrow, measured, still: Boolean(body) || asideOpen || pending });
   useListKeys({
     enabled: shortcutsOn,
     ids: channel.ids,

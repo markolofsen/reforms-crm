@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { ConversationRowDto, ConversationViewDto } from "@hub/contract/conversations";
 import { reviewApi } from "@/lib/api/review";
@@ -87,8 +87,20 @@ export function useMailCounts(project: string | null): ReviewPage["counts"] {
 export const useBatches = (project: string) => useQuery({ queryKey: keys.batches(project), queryFn: () => reviewApi.batches(project) });
 
 /** P103: the client a key of the address names, and his canonical key. Never retried: a key that names nobody is Not found. */
-export const useClientByKey = (project: string, key: string | null, enabled: boolean) =>
-  useQuery({ queryKey: keys.clientKey(project, key ?? ""), queryFn: () => reviewApi.clientByKey(project, key ?? ""), enabled: key !== null && enabled, retry: false });
+export function useClientByKey(project: string, key: string | null, enabled: boolean) {
+  const client = useQueryClient();
+  return useQuery({
+    queryKey: keys.clientKey(project, key ?? ""),
+    queryFn: async () => {
+      const answer = await reviewApi.clientByKey(project, key ?? "");
+      // The canonical key the address is replaced with names the same client: known at once, so the pane does not close and reopen.
+      if (answer.key !== key) client.setQueryData(keys.clientKey(project, answer.key), answer);
+      return answer;
+    },
+    enabled: key !== null && enabled,
+    retry: false,
+  });
+}
 
 /** One conversation's header and its unsent message, from the Hub's rows (refreshed by the live topics). */
 export const useConversation = (project: string, clientId: number) => useQuery({ queryKey: keys.conversation(project, clientId), queryFn: () => reviewApi.conversation(project, clientId) });

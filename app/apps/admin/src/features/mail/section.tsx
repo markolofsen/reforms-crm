@@ -58,10 +58,10 @@ export function useMailNeedsYou(project: string | null): number {
   return project === null ? 0 : (countOf(counts, "needs_you") ?? 0);
 }
 
-type Props = { project: string; filter: DraftView; q: string; batch: number | null; clientId: number | null; pointed: string | null; leadPageId: string | null };
+type Props = { project: string; filter: DraftView; q: string; batch: number | null; clientId: number | null; pending: boolean; pointed: string | null; leadPageId: string | null };
 
 /** Mail: the list column (View menu, status line, people) and the open conversation. The view, the search, the batch and the person live in the address. */
-function MailSection({ project, filter, q, batch, clientId, pointed, leadPageId }: Props) {
+function MailSection({ project, filter, q, batch, clientId, pending, pointed, leadPageId }: Props) {
   const go = useGo();
   const [, setSearch] = useSearch(MAIL_SEARCH);
   const setQ = useCallback((v: string) => setSearch({ q: v }), [setSearch]);
@@ -109,6 +109,7 @@ function MailSection({ project, filter, q, batch, clientId, pointed, leadPageId 
         )
       }
       clientId={clientId}
+      pending={pending}
       onView={onView}
       pointed={pointed}
       search={[q, setQ]}
@@ -139,5 +140,7 @@ function KeyedMail({ project, routeKey, search, leadPageId, pointed }: { project
   const { q, batch, filter } = search;
   if (client.missing) return <NoSuchClient />;
   const clientId = client.id;
-  return <MailSection batch={batch} clientId={clientId} filter={filter} leadPageId={leadPageId} pointed={pointed} project={project} q={q} />;
+  // An email key the server has not answered yet: the address names someone, so the wide pane must not open the first row.
+  const pending = routeKey !== null && clientId === null;
+  return <MailSection batch={batch} clientId={clientId} pending={pending} filter={filter} leadPageId={leadPageId} pointed={pointed} project={project} q={q} />;
 }

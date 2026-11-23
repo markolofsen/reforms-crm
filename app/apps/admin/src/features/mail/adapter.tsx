@@ -40,6 +40,8 @@ type Props = {
   search: [string, (value: string) => void];
   /** The open conversation the address names (`/mail/c/<key>`, resolved to a client id), and the view, search and batch it keeps. */
   clientId: number | null;
+  /** The address names a person by email and the server has not yet said who (P103): nobody is auto-opened in the meantime. */
+  pending?: boolean;
   place: { filter: DraftView; q: string; batch: number | null };
   /** `?m=`: one of their messages the open conversation scrolls to. */
   pointed?: string | null;
@@ -126,7 +128,7 @@ async function replyAllInMail(d: ReviewDraft, say: (text: string) => void): Prom
  * action keys (D S H U C R 1 2 3) and its multi-select, drawn by the one `ConversationWorkspace`. It never sends mail by itself:
  * Send is the unsent message's, and a batch draft opens a compose window you send from.
  */
-export function MailWorkspace({ source, views, onView, search, clientId, place, pointed = null, empty, emptyTitle, status, body, aside, listBottom }: Props) {
+export function MailWorkspace({ source, views, onView, search, clientId, pending = false, place, pointed = null, empty, emptyTitle, status, body, aside, listBottom }: Props) {
   const refresh = useRefreshTopics(source.project);
   const now = useClock()();
   const narrow = usePaneNarrow();
@@ -143,7 +145,8 @@ export function MailWorkspace({ source, views, onView, search, clientId, place, 
 
   // The person on screen: the one the address names, else (a wide pane, a bare list) the first row, which the workspace's auto-open
   // then writes into the address. A person the address names is opened whatever the view (P99: Activity links a Done conversation).
-  const openId = body || aside?.open ? null : (clientId ?? (narrow ? null : (rows[0] ? rowId(rows[0]) : null)));
+  // While his email key is still being asked, nobody: the first row would win the address over the person it names (P130 gate).
+  const openId = body || aside?.open ? null : (clientId ?? (narrow || pending ? null : (rows[0] ? rowId(rows[0]) : null)));
   const current = openId === null ? null : (rows.find((r) => rowId(r) === openId) ?? null);
   useShareReview(current, sel.picked);
 
@@ -210,6 +213,7 @@ export function MailWorkspace({ source, views, onView, search, clientId, place, 
     <ConversationWorkspace
       aside={aside ? { ...aside, label: "Lead" } : undefined}
       asked={clientId}
+      pending={pending}
       body={body}
       busy={query.isFetching && !query.isPending}
       channel={channel}
