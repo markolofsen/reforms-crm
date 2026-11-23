@@ -102,3 +102,7 @@ export function entryTopic(key: string, category: string | null): readonly strin
   const c = category?.trim() ?? "";
   return [c === "" ? OTHER_TOPIC : topicLabel(c)];
 }
+
+/** P120 W2: the list's view and search, and one entry's text by its key (the routes read them; the document declares them). */
+export const knowledgeListQuery = z.object({ filter: z.enum(KNOWLEDGE_VIEWS).default("all"), q: z.string().max(200).default("") });
+export const knowledgeTextQuery = z.object({ key: z.string().min(1).max(500) });

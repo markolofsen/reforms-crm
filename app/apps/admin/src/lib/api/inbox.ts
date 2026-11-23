@@ -1,16 +1,14 @@
 import type { EnrollmentView, InboxKind } from "@hub/config";
-import { getInboundDetail, getInboundText, getLeadDetail, listEnrollments, listInbound, listNotByEmail, listSequences, stopEnrollment } from "@hub/api";
+import { checkInbound, dismissInbound, getInboundDetail, getInboundText, getLeadDetail, listEnrollments, listInbound, listNotByEmail, listSequences, notNowLead, spamLead, stopEnrollment, undismissInbound, undoLead } from "@hub/api";
 import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, inboundTextDto, leadActionDto, leadDetailDto } from "@hub/contract/inbound";
 import { notByEmailDto } from "@hub/contract/responses";
 import { enrollmentChangedDto, enrollmentsDto, sequencesDto } from "@hub/contract/sequences";
-import { read, readGenerated } from "./client";
+import { readGenerated } from "./client";
 
 /** The clients the agent did not answer by email (a View of Mail, P48). Read-only. */
 export const inboxApi = {
   notByEmail: (project: string, kind: InboxKind | null) => readGenerated(listNotByEmail({ project, ...(kind ? { kind } : {}), limit: 50 }), notByEmailDto),
 };
-
-const base = (project: string) => `/api/projects/${encodeURIComponent(project)}`;
 
 /**
  * Follow-ups (P47), read-only but for Stop: the project's sequences and its enrolments (a session enrols on the owner's
@@ -32,9 +30,9 @@ export const inboundApi = {
   get: (project: string, id: number) => readGenerated(getInboundDetail(project, id), inboundDetailDto),
   /** The client's words read from Mail now: a Mail read, on open and on focus only. */
   text: (project: string, id: number) => readGenerated(getInboundText(project, id), inboundTextDto),
-  check: (project: string) => read(inboundCheckedDto, { method: "POST", path: `${base(project)}/inbound/check`, body: {} }),
-  dismiss: (project: string, id: number) => read(inboundDismissedDto, { method: "POST", path: `${base(project)}/inbound/${id}/dismiss`, body: {} }),
-  undismiss: (project: string, ids: number[]) => read(inboundDismissedDto, { method: "POST", path: `${base(project)}/inbound/undismiss`, body: { ids } }),
+  check: (project: string) => readGenerated(checkInbound(project), inboundCheckedDto),
+  dismiss: (project: string, id: number) => readGenerated(dismissInbound(project, id), inboundDismissedDto),
+  undismiss: (project: string, ids: number[]) => readGenerated(undismissInbound(project, { ids }), inboundDismissedDto),
 };
 
 /**
@@ -43,7 +41,7 @@ export const inboundApi = {
  */
 export const leadsApi = {
   get: (project: string, pageId: string) => readGenerated(getLeadDetail(project, pageId), leadDetailDto),
-  notNow: (project: string, pageId: string) => read(leadActionDto, { method: "POST", path: `${base(project)}/leads/${pageId}/not-now`, body: {} }),
-  spam: (project: string, pageId: string) => read(leadActionDto, { method: "POST", path: `${base(project)}/leads/${pageId}/spam`, body: {} }),
-  undo: (project: string, pageId: string) => read(leadActionDto, { method: "POST", path: `${base(project)}/leads/${pageId}/undo`, body: {} }),
+  notNow: (project: string, pageId: string) => readGenerated(notNowLead(project, pageId), leadActionDto),
+  spam: (project: string, pageId: string) => readGenerated(spamLead(project, pageId), leadActionDto),
+  undo: (project: string, pageId: string) => readGenerated(undoLead(project, pageId), leadActionDto),
 };

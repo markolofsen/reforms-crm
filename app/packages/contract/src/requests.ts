@@ -88,3 +88,9 @@ export const connectionIdParam = z.object({ id: z.string().min(1).max(200) });
 /** A Notion or Telegram token, the only secret the admin can send (mail has no key: decision 0026). The server checks its shape for that kind; the provider decides whether it works (that is Test). */
 export const setSecretBody = z.strictObject({ value: z.string().trim().min(1).max(512) });
 export type SetSecretBody = z.infer<typeof setSecretBody>;
+
+/** P120 W2: the path parameters the routes read by hand, declared for the document (a lead's Notion page; a client's address key). */
+export const leadParam = z.object({ slug: project, pageId: z.string().min(1).max(200) });
+export const clientKeyParam = z.object({ slug: project, key: z.string().min(1).max(400) });
+/** A messenger account of this Mac (Telegram or WhatsApp), the disconnect routes' path. */
+export const accountParam = z.object({ account: z.string().min(1).max(200) });

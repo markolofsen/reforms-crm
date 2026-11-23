@@ -21,7 +21,7 @@ import { useRoute } from "@/hooks/use-route";
 import { useSectionNav } from "@/hooks/use-section-nav";
 import { useLive } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
-import { useInstance, useProjects } from "@/lib/data/instance";
+import { instanceLogoUrl, useInstance, useProjects } from "@/lib/data/instance";
 import { dest, sectionList } from "@/routes/paths";
 import { PROJECTLESS } from "@/routes/table";
 import { sectionTitle } from "@/routes/sections";
@@ -78,7 +78,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   const heading = route.section ? sectionTitle(route.section) : "Not found";
   const onProject = useMemo(() => (p: string) => route.section && go(sectionList(route.section), { project: p, replace: true }), [route.section, go]);
   const scope = useMemo<ProjectScope | null>(() => (project ? { project, projects: list, multi, onProject: (p) => void onProject(p) } : null), [project, list, multi, onProject]);
-  const brand = { name: instance.data?.name ?? DEFAULT_INSTANCE_NAME, logoSrc: instance.data?.hasLogo ? "/api/instance/logo" : null };
+  const brand = { name: instance.data?.name ?? DEFAULT_INSTANCE_NAME, logoSrc: instance.data?.hasLogo ? instanceLogoUrl() : null };
   // The projectless pages (Overview, Help, Settings ▸ Connections and This Mac) are about the whole instance: the switcher belongs to the scoped ones.
   const scoped = route.route !== "notFound" && PROJECTLESS.has(route.route) ? null : project;
   return (

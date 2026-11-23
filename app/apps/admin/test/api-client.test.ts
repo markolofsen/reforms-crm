@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { draftChangedDto as schema } from "@hub/contract/responses";
-import { ApiFailure, read } from "../src/lib/api/client";
+import { ApiFailure, read, readGenerated } from "../src/lib/api/client";
 
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
@@ -47,5 +47,17 @@ describe("read", () => {
       throw new TypeError("failed");
     });
     await expect(read(schema, { method: "GET", path: "/api/x" })).rejects.toMatchObject({ code: "server", status: 0 });
+  });
+});
+
+// P120 W2: a generated operation states its success statuses (a created terminal session answers 201).
+describe("readGenerated", () => {
+  const ok = { ok: true, draftId: 1 };
+  it("accepts the statuses the facade names, 200 by default", async () => {
+    await expect(readGenerated(Promise.resolve({ data: ok, status: 200 }), schema)).resolves.toEqual(ok);
+    await expect(readGenerated(Promise.resolve({ data: ok, status: 201 }), schema, [200, 201])).resolves.toEqual(ok);
+  });
+  it("refuses a status the facade did not name", async () => {
+    await expect(readGenerated(Promise.resolve({ data: ok, status: 201 }), schema)).rejects.toBeInstanceOf(ApiFailure);
   });
 });

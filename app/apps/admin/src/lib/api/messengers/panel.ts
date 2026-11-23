@@ -1,9 +1,8 @@
-import { createMessengerDraft, editMessengerDraft, getMessengerConversation, listMessengerChats, prepareMessengerReply, restoreMessengerDraft, setMessengerChatRules, skipMessengerDraft } from "@hub/api";
+import { changeChatClient, createChatRecord, createMessengerDraft, dropHideProposals, editMessengerDraft, findAutolinkRecords, getAutolinkState, getMessengerConversation, hideChat, linkChatRecord, listAccountDialogs, listMessengerChats, neverLinkChat, prepareMessengerReply, restoreMessengerDraft, setMessengerChatRules, skipMessengerDraft, undoChatClient, unhideChat, unlinkChat } from "@hub/api";
 import { messengerChatDto, messengerChatsDto, messengerConversationDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChatsQuery } from "@hub/contract/messenger-panel";
 import { autolinkProposalsDroppedDto, autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
-import { read, readGenerated } from "../client";
+import { readGenerated } from "../client";
 
-const at = (project: string) => `/api/projects/${encodeURIComponent(project)}/messengers`;
 type MessengerChatsInput = Pick<MessengerChatsQuery, "filter"> & Partial<Pick<MessengerChatsQuery, "link" | "channel" | "q">>;
 
 /**
@@ -25,19 +24,19 @@ export const messengersApi = {
   prepareReply: (project: string, chatId: number) => readGenerated(prepareMessengerReply(project, chatId, { ownerRequest: "The owner asked to prepare a reply from the Messenger panel." }), messengerChatDto),
   setRules: (project: string, chatId: number, patch: ChatRulesBody) => readGenerated(setMessengerChatRules(project, chatId, patch), messengerChatDto),
   // P84: the autolink. Every call is a gated POST: the state names the owner's own contacts and the records come from his Notion.
-  autolinkState: (project: string) => read(autolinkStateDto, { method: "POST", path: `${at(project)}/autolink/state`, body: {} }),
-  findRecords: (project: string, q: string) => read(autolinkRecordsDto, { method: "POST", path: `${at(project)}/autolink/records`, body: { q } }),
-  linkRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; key: string; title?: string }) => read(autolinkLinkedDto, { method: "POST", path: `${at(project)}/autolink/link`, body }),
+  autolinkState: (project: string) => readGenerated(getAutolinkState(project), autolinkStateDto),
+  findRecords: (project: string, q: string) => readGenerated(findAutolinkRecords(project, { q }), autolinkRecordsDto),
+  linkRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; key: string; title?: string }) => readGenerated(linkChatRecord(project, body), autolinkLinkedDto),
   // P100: nobody in Notion matches: one Clients card from the chat (Name, Email, its username or number), then the link.
   createRecord: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; title?: string; name: string; email: string }) =>
-    read(autolinkLinkedDto, { method: "POST", path: `${at(project)}/autolink/create`, body }),
+    readGenerated(createChatRecord(project, body), autolinkLinkedDto),
   // P102: one account's dialogs marked against the picked record (Link a chat…), Change client and its Undo.
-  dialogsOf: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; key: string }) => read(userDialogsDto, { method: "POST", path: `${at(project)}/autolink/dialogs`, body }),
-  changeClient: (project: string, id: number, key: string) => read(chatMovedDto, { method: "POST", path: `${at(project)}/chats/${id}/client`, body: { key } }),
-  undoChange: (project: string, id: number, body: { clientId: number; draftId: number | null }) => read(chatMoveUndoneDto, { method: "POST", path: `${at(project)}/chats/${id}/client/undo`, body }),
+  dialogsOf: (project: string, body: { channel: "telegram_user" | "whatsapp"; account: string; key: string }) => readGenerated(listAccountDialogs(project, body), userDialogsDto),
+  changeClient: (project: string, id: number, key: string) => readGenerated(changeChatClient(project, id, { key }), chatMovedDto),
+  undoChange: (project: string, id: number, body: { clientId: number; draftId: number | null }) => readGenerated(undoChatClient(project, id, body), chatMoveUndoneDto),
   // P84c: Hide ("not a client") and Unhide of an unlinked chat; the server keeps a keyed hash, never the chat.
-  hideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => read(autolinkHiddenDto, { method: "POST", path: `${at(project)}/autolink/hide`, body }),
-  unhideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => read(autolinkHiddenDto, { method: "POST", path: `${at(project)}/autolink/unhide`, body }),
-  dropProposals: (project: string, items: { channel: "telegram_user" | "whatsapp"; chatId: string }[]) => read(autolinkProposalsDroppedDto, { method: "POST", path: `${at(project)}/autolink/proposals/drop`, body: { items } }),
-  unlinkChat: (project: string, id: number, never: boolean) => read(chatUnlinkedDto, { method: "POST", path: `${at(project)}/chats/${id}/${never ? "never" : "unlink"}`, body: {} }),
+  hideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => readGenerated(hideChat(project, body), autolinkHiddenDto),
+  unhideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => readGenerated(unhideChat(project, body), autolinkHiddenDto),
+  dropProposals: (project: string, items: { channel: "telegram_user" | "whatsapp"; chatId: string }[]) => readGenerated(dropHideProposals(project, { items }), autolinkProposalsDroppedDto),
+  unlinkChat: (project: string, id: number, never: boolean) => readGenerated((never ? neverLinkChat : unlinkChat)(project, id), chatUnlinkedDto),
 };

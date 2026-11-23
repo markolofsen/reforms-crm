@@ -1,12 +1,10 @@
 import type { Mark, SafetyKind, SettableStatus, Tone } from "@hub/config";
-import { createManualMailDraft, getClientByKey, getClientHistory, getClientTimeline, getConversation, getConversationMail, getConversationText, listBatches, listConversations, listDrafts, setClientMarks, type GetConversationTextParams } from "@hub/api";
+import { ackDraftCheck, createManualMailDraft, getClientByKey, getClientHistory, getClientTimeline, getConversation, getConversationMail, getConversationText, listBatches, listConversations, listDrafts, setClientMarks, setDraftChecked, setDraftStatus, setDraftTone, undoBatch, undoDraftStatus, type GetConversationTextParams } from "@hub/api";
 import type { StatusBody } from "@hub/contract/requests";
 import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto } from "@hub/contract/review";
 import { conversationDto, conversationMailDto, conversationTextDto, conversationsDto, type ConversationViewDto } from "@hub/contract/conversations";
-import { read, readGenerated } from "./client";
+import { readGenerated } from "./client";
 import { clientKeyDto } from "@hub/contract/client-key";
-
-const draft = (id: number, action: string) => `/api/drafts/${id}/${action}`;
 
 /** Everything a person can do to a draft and a client. None of it sends mail. */
 export const reviewApi = {
@@ -27,16 +25,16 @@ export const reviewApi = {
   drafts: (project: string, filter: Parameters<typeof listDrafts>[0]["filter"], offset: number, scope: { search?: string; batch?: number | null } = {}) =>
     readGenerated(listDrafts({ project, filter, offset, search: scope.search || undefined, batch: scope.batch ?? undefined }), draftsDto),
   /** `hash` is the Mail text the person read; the server refuses the tick if Mail changed since. */
-  setChecked: (project: string, id: number, checked: boolean, hash?: string) => read(draftChangedDto, { method: "POST", path: draft(id, "checked"), body: { project, checked, ...(hash ? { hash } : {}) } }),
+  setChecked: (project: string, id: number, checked: boolean, hash?: string) => readGenerated(setDraftChecked(id, { project, checked, ...(hash ? { hash } : {}) }), draftChangedDto),
   setStatus: (project: string, id: number, status: SettableStatus, reason?: StatusBody["reason"]) =>
-    read(draftChangedDto, { method: "POST", path: draft(id, "status"), body: { project, status, reason } }),
-  setTone: (project: string, id: number, tone: Tone) => read(draftChangedDto, { method: "POST", path: draft(id, "tone"), body: { project, tone } }),
-  ack: (project: string, id: number, kind: SafetyKind, acked: boolean) => read(draftChangedDto, { method: "POST", path: draft(id, "ack"), body: { project, kind, acked } }),
-  undo: (project: string, id: number) => read(draftChangedDto, { method: "POST", path: draft(id, "undo"), query: { project } }),
+    readGenerated(setDraftStatus(id, { project, status, reason }), draftChangedDto),
+  setTone: (project: string, id: number, tone: Tone) => readGenerated(setDraftTone(id, { project, tone }), draftChangedDto),
+  ack: (project: string, id: number, kind: SafetyKind, acked: boolean) => readGenerated(ackDraftCheck(id, { project, kind, acked }), draftChangedDto),
+  undo: (project: string, id: number) => readGenerated(undoDraftStatus(id, { project }), draftChangedDto),
   setMarks: (project: string, clientId: number, marks: Mark[]) => readGenerated(setClientMarks(clientId, { project, marks }), okDto),
   timeline: (project: string, clientId: number) => readGenerated(getClientTimeline(clientId, { project }), timelineDto),
   history: (project: string, clientId: number) => readGenerated(getClientHistory(clientId, { project }), historyDto),
   /** The batches of a project, read-only (P48: the builder is gone; a batch is a View of Mail), and the batch's own Undo. */
   batches: (project: string) => readGenerated(listBatches({ project }), batchesDto),
-  undoBatch: (project: string, id: number) => read(okDto, { method: "POST", path: `/api/batches/${id}/undo`, query: { project } }),
+  undoBatch: (project: string, id: number) => readGenerated(undoBatch(id, { project }), okDto),
 };

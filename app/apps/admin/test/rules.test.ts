@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ADMIN_PORT } from "@hub/config";
-import { apiFamily, generatedOperations, rawPaths } from "@hub/api/ledger";
+import { DOORS, generatedOperations, URL_HELPERS } from "@hub/api/ledger";
 
 // Executable half of `app/@rules` (see its Enforcement sections). Hard gates: every count is zero, nothing is ratcheted.
 const admin = path.resolve(import.meta.dirname, "..");
@@ -34,9 +34,6 @@ describe("one key factory, one live stream", () => {
   it("no query key is a literal outside lib/cache/keys.ts", () => {
     expect(offenders(appFiles.filter((p) => rel(p) !== "lib/cache/keys.ts"), /queryKey:\s*\[/)).toEqual([]);
   });
-  it("the shared focus (P51) is posted only from lib/api/terminal.ts", () => {
-    expect(offenders(appFiles.filter((p) => rel(p) !== "lib/api/terminal.ts"), /["'`]\/api\/focus/)).toEqual([]);
-  });
   // P61: one registry builds every OS link (`@hub/contract/local`); only the server resolves a path (`@hub/projects/local-open`).
   it("no message:, mailto: or notion: link and no /usr/bin/open is written in the admin: the registry builds them", () => {
     expect(offenders(appFiles, /["'`](message|mailto|notion):|\/usr\/bin\/open/)).toEqual([]);
@@ -47,18 +44,15 @@ describe("one key factory, one live stream", () => {
     const hosts = /notion\.so\b|notion\.site\b|notion\.com\b|\bt\.me\/|\bwa\.me\/|["'`](tg|notion|whatsapp):|_blank/;
     expect(offenders(appFiles.filter((p) => rel(p) !== "lib/external.ts"), hosts)).toEqual([]);
   });
-  it("only lib/api/meta.ts posts to /api/local (lib/api holds eight files: the one call sits with the instance's)", () => {
-    expect(offenders(appFiles.filter((p) => rel(p) !== "lib/api/meta.ts"), /["'`]\/api\/local/)).toEqual([]);
-  });
   it("new EventSource and BroadcastChannel only in lib/cache/live.ts", () => {
     expect(offenders(appFiles.filter((p) => rel(p) !== "lib/cache/live.ts"), /new (EventSource|BroadcastChannel)\b/)).toEqual([]);
   });
 });
 
 describe("the generated API boundary", () => {
-  it("features, components and hooks do not write raw JSON API paths", () => {
-    const consumers = [...inDir("features"), ...inDir("components"), ...inDir("hooks")].filter((p) => rel(p) !== "features/shell/shell-frame.tsx");
-    expect(offenders(consumers, /["'`]\/api\//)).toEqual([]);
+  // P120 W2: every path comes from the emitted document through a generated operation or its URL helper.
+  it("no admin module writes an /api/ path", () => {
+    expect(offenders(appFiles, /["'`]\/api\//)).toEqual([]);
   });
   it("generated client imports stay behind lib/api facades", () => {
     const deep = /from ["']@hub\/api\/(?:generated|src|zod)\b/;
@@ -77,25 +71,19 @@ describe("the generated API boundary", () => {
     expect(operations.filter((operation) => !ledger.includes(operation))).toEqual([]);
     expect(ledger.filter((operation) => !operations.includes(operation))).toEqual([]);
   });
-  it("every raw facade path belongs to a ledger-owned API family", () => {
-    const facades = [...walk(path.join(src, "lib/api"))].filter((p) => /\.tsx?$/.test(p));
-    const paths = facades.flatMap((p) => [...read(p).matchAll(/["'`](\/api\/[^"'`]+)["'`]/g)].map((match) => ({ file: rel(p), value: match[1] ?? "" })));
-    const families = new Set(rawPaths().map(apiFamily));
-    expect(paths.filter(({ value }) => !families.has(apiFamily(value)))).toEqual([]);
+  // The names an admin module imports from the public barrel, per file.
+  const imported = (p: string): string[] => [...code(p).matchAll(/import\s*(?:type\s*)?\{([^}]*)\}\s*from\s*["']@hub\/api["']/g)].flatMap((m) => (m[1] ?? "").split(",").map((n) => n.trim().replace(/^type\s+/, "")).filter(Boolean));
+  it("a door (send, ticket, credential, local Open, focus) is imported only by the facade the ledger names", () => {
+    const owners = new Map<string, string[]>();
+    for (const [file, ops] of Object.entries(DOORS)) for (const op of ops) owners.set(op, [...(owners.get(op) ?? []), file]);
+    const wrong = appFiles.flatMap((p) => imported(p).filter((n) => owners.has(n) && !owners.get(n)?.includes(rel(p))).map((n) => `${rel(p)}: ${n}`));
+    expect(wrong).toEqual([]);
+    expect([...owners.keys()]).toEqual(expect.arrayContaining(["sendMailDraft", "sendMessengerDraft", "runBatchSend", "createSendTicket", "createBatchSendTicket", "setConnectionSecret"]));
   });
-  it("the ledger names the sensitive project seams at endpoint level", () => {
-    const required = [
-      "/api/projects/:slug/drafts/:id/mail",
-      "/api/projects/:slug/drafts/:id/mail/restore",
-      "/api/projects/:slug/drafts/:id/send",
-      "/api/projects/:slug/batches/:id/send",
-      "/api/projects/:slug/batches/:id/send/stop",
-      "/api/projects/:slug/messengers/drafts/:id/send",
-      "/api/projects/:slug/messengers/autolink/*",
-      "/api/projects/:slug/messengers/chats/*",
-    ];
-    const ledger: readonly string[] = rawPaths();
-    expect(required.filter((endpoint) => !ledger.includes(endpoint))).toEqual([]);
+  it("a URL helper is used only for a ledger URL_HELPERS operation, in the file it names", () => {
+    const helpers = new Map(Object.entries(URL_HELPERS).map(([op, v]) => [`get${op[0]?.toUpperCase()}${op.slice(1)}Url`, v?.file]));
+    const wrong = appFiles.flatMap((p) => imported(p).filter((n) => /^get\w+Url$/.test(n) && helpers.get(n) !== rel(p)).map((n) => `${rel(p)}: ${n}`));
+    expect(wrong).toEqual([]);
   });
 });
 

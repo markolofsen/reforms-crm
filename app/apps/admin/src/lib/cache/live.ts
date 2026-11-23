@@ -4,6 +4,7 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useSyncExternalStore } from "react";
 import { parseLiveEvent, type LiveEvent } from "@hub/contract/live";
 import { refreshData } from "../api/client";
+import { metaApi } from "../api/meta";
 import { TOPIC_KEYS } from "./keys";
 
 // Live panels (P50, decision 0028): one SSE stream per browser, not per tab (HTTP/1.1 gives an origin about six
@@ -61,7 +62,7 @@ export function applyLive(qc: QueryClient, e: LiveEvent, hidden: boolean): void 
 }
 
 /** The URL of a new stream: after the last applied counter, when this page has one. */
-export const streamUrl = (after: number | null): string => (after === null ? "/api/live" : `/api/live?since=${after}`);
+export const streamUrl = metaApi.streamUrl;
 
 /** The leader's stream, reopened with backoff when the server refused or cut it. Returns the closer. */
 function openStream(onEvent: (text: string) => void, onState: (s: LiveState) => void): () => void {

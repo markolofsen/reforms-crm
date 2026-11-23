@@ -43,7 +43,6 @@ describe("package boundaries", () => {
 
   it("generated API transport does not depend on domain write packages", () => {
     expect(forbidden(sourceFiles("app/packages/api/src/generated"), /^@hub\/(send|messengers)(\/|$)/)).toEqual([]);
-    expect(forbidden(sourceFiles("app/packages/api/src/generated-zod"), /^@hub\/(send|messengers)(\/|$)/)).toEqual([]);
   });
 
   it("server route adapters do not reach package internals", () => {

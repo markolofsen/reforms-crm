@@ -71,10 +71,10 @@ export async function read<T>(schema: Parser<T>, call: Call): Promise<T> {
   return parsed.data;
 }
 
-/** Compatibility seam for Orval operations: preserve the admin's ApiFailure contract while using generated transport. */
-export async function readGenerated<T>(request: Promise<GeneratedResponse>, parser: Parser<T>): Promise<T> {
+/** The seam of every generated operation: the operation's own success statuses (200, or 201 for a created session), the contract parse, and the admin's ApiFailure. */
+export async function readGenerated<T>(request: Promise<GeneratedResponse>, parser: Parser<T>, statuses: readonly number[] = [200]): Promise<T> {
   try {
-    return parseHubResponse(await request, parser);
+    return parseHubResponse(await request, parser, statuses);
   } catch (error) {
     if (error instanceof HubApiError) throw new ApiFailure(error.message, error.code, error.status, error.refused);
     throw error;

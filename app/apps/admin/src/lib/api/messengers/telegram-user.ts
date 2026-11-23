@@ -1,6 +1,6 @@
-import { getTelegramUserStatus } from "@hub/api";
+import { cancelTelegramUserLogin, disconnectTelegramUser, getTelegramUserStatus, sendTelegramUserCode, sendTelegramUserPassword, startTelegramUserLogin } from "@hub/api";
 import { telegramUserStatusDto, userLoginCancelledDto, userDisconnectedDto, userLoginStepDto, type UserLoginStartBody } from "@hub/contract/messengers";
-import { read, readGenerated } from "../client";
+import { readGenerated } from "../client";
 
 /**
  * The owner's Telegram user account (P71 M1's routes, decision 0036 point 4), driven by Settings ▸ Messengers: its state, the
@@ -9,9 +9,9 @@ import { read, readGenerated } from "../client";
  */
 export const telegramUserApi = {
   status: () => readGenerated(getTelegramUserStatus(), telegramUserStatusDto),
-  start: (body: UserLoginStartBody) => read(userLoginStepDto, { method: "POST", path: "/api/messengers/telegram-user/login/start", body }),
-  code: (flow: string, code: string) => read(userLoginStepDto, { method: "POST", path: "/api/messengers/telegram-user/login/code", body: { flow, code } }),
-  password: (flow: string, password: string) => read(userLoginStepDto, { method: "POST", path: "/api/messengers/telegram-user/login/password", body: { flow, password } }),
-  cancel: (flow: string) => read(userLoginCancelledDto, { method: "POST", path: "/api/messengers/telegram-user/login/cancel", body: { flow } }),
-  disconnect: (account: string) => read(userDisconnectedDto, { method: "POST", path: `/api/messengers/telegram-user/${encodeURIComponent(account)}/disconnect`, body: {} }),
+  start: (body: UserLoginStartBody) => readGenerated(startTelegramUserLogin(body), userLoginStepDto),
+  code: (flow: string, code: string) => readGenerated(sendTelegramUserCode({ flow, code }), userLoginStepDto),
+  password: (flow: string, password: string) => readGenerated(sendTelegramUserPassword({ flow, password }), userLoginStepDto),
+  cancel: (flow: string) => readGenerated(cancelTelegramUserLogin({ flow }), userLoginCancelledDto),
+  disconnect: (account: string) => readGenerated(disconnectTelegramUser(account), userDisconnectedDto),
 };

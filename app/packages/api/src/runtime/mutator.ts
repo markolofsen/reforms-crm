@@ -48,8 +48,8 @@ export async function hubMutator<T extends GeneratedEnvelope>(url: string, optio
 type ParsedResponse = { data: unknown; status: number };
 type Parser<T> = { safeParse(value: unknown): { success: true; data: T } | { success: false } };
 
-export function parseHubResponse<T>(response: ParsedResponse, parser: Parser<T>, expectedStatus = 200): T {
-  if (response.status !== expectedStatus) throw new HubApiError("The server answered with an unexpected status.", "server", response.status);
+export function parseHubResponse<T>(response: ParsedResponse, parser: Parser<T>, expected: readonly number[] = [200]): T {
+  if (!expected.includes(response.status)) throw new HubApiError("The server answered with an unexpected status.", "server", response.status);
   const parsed = parser.safeParse(response.data);
   if (!parsed.success) throw new HubApiError("The server answered in a shape this page does not know. Restart the server with `hub up`.", "server", response.status);
   return parsed.data;

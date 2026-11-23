@@ -24,6 +24,9 @@ export type CommandEvents<R> = { onMutate?: () => void; onSuccess?: (r: R) => vo
  * The instance's brand (name, and whether a logo is served), its local Open and its destination apps (P131 O2). Read again
  * after the server's own probe interval (10 minutes), so an app installed meanwhile is used without a reload; Check again sets it.
  */
+/** The brand's logo, an <img> source (the file is the server's; the URL is the generated operation's). */
+export const instanceLogoUrl = (): string => metaApi.logoUrl();
+
 export const useInstance = () => useQuery({ queryKey: keys.instance(), queryFn: metaApi.instance, staleTime: 10 * 60_000 });
 
 /** Settings ▸ This Mac's Check again: the server probes the apps now, and its answer replaces the instance's `apps`. */
@@ -106,7 +109,7 @@ export const usePulse = () => useQuery({ queryKey: keys.pulse(), queryFn: metaAp
 /** The agent's pointer (P72): the rows it rings on the owner's screen. */
 export const usePointer = () => useQuery({ queryKey: keys.pointer(), queryFn: pointerApi.get });
 
-/** P61: the one POST to `/api/local` (an action and its project and key; the server resolves the path). An Open changes nothing in the Hub. */
+/** P61: the one local Open (`metaApi.localOpen`: an action and its project and key; the server resolves the path). An Open changes nothing in the Hub. */
 export const postLocalOpen = (action: ServerActionId, args: unknown) => metaApi.localOpen(action, args);
 
 /** One Open as a mutation (P61, `components/local-action.tsx`): `run(args)` and whether it is running. It invalidates nothing. */

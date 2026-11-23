@@ -49,3 +49,6 @@ export function parseLiveEvent(text: string): LiveEvent | null {
 
 /** At most this many streams at once: one per browser is the design (a leader tab), so 16 is a lot of browsers. */
 export const MAX_LIVE_SUBSCRIBERS = 16;
+
+/** P120 W2: `GET /api/live?since=` (a page opening a new stream after the old one failed; `Last-Event-ID` on a reconnect). */
+export const liveQuery = z.object({ since: z.string().max(40).optional() });

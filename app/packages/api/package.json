@@ -5,12 +5,11 @@
   "exports": {
     ".": "./src/index.ts",
     "./runtime": "./src/runtime/index.ts",
-    "./ledger": "./src/ledger.ts",
-    "./zod": "./src/generated-zod/index.ts"
+    "./ledger": "./src/ledger.ts"
   },
   "scripts": {
     "generate": "pnpm --filter @hub/server openapi && orval --config orval.config.ts",
-    "generate:check": "pnpm generate && git diff --exit-code -- openapi.json src/generated src/generated-zod",
+    "generate:check": "pnpm generate && git diff --exit-code -- openapi.json src/generated",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

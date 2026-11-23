@@ -18,13 +18,4 @@ export default defineConfig({
       },
     },
   },
-  hubZod: {
-    input: { target: "./openapi.json" },
-    output: {
-      clean: true,
-      client: "zod",
-      mode: "tags-split",
-      target: "./src/generated-zod",
-    },
-  },
 });
