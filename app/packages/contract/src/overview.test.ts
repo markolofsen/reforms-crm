@@ -41,7 +41,7 @@ describe("overview v5 (P48)", () => {
 });
 
 describe("activity (P73)", () => {
-  const r = { id: 1, key: "event:1", at: asOf, client: { id: 3, name: "Mark Effect" }, who: "Mark Effect", outcome: "updated", why: "already drafted", draftId: 1, skill: null, provider: null };
+  const r = { id: 1, key: "event:1", at: asOf, client: { id: 3, name: "Mark Effect" }, who: "Mark Effect", outcome: "updated", why: "already drafted", draftId: 1, chatId: null, skill: null, provider: null };
   it("one row per decision, with the outcome and the reason in the row; no run", () => {
     expect(activityRowDto.safeParse(r).success).toBe(true);
     expect(activityRowDto.safeParse({ ...r, outcome: "maybe" }).success).toBe(false);
@@ -65,7 +65,7 @@ describe("connections and instance (P48 W0)", () => {
     expect(mailReadDto.safeParse({ state: "hung", fix: null }).success).toBe(false);
   });
   it("the brand has a name, and says only whether a logo exists", () => {
-    expect(instanceDto.safeParse({ name: "Reforms SaaS", hasLogo: false, localOpen: true }).success).toBe(true);
+    expect(instanceDto.safeParse({ name: "Reforms SaaS", hasLogo: false, localOpen: true, apps: { notion: false, telegram: false, whatsapp: false } }).success).toBe(true);
     expect(instanceDto.safeParse({ name: "", hasLogo: false, localOpen: true }).success).toBe(false);
     expect(instanceDto.safeParse({ name: "x", hasLogo: true, localOpen: true, logo: "/Users/x/logo.png" }).success).toBe(false);
   });

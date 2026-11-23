@@ -170,7 +170,7 @@ describe("messenger_draft_write", () => {
     const r = await call("messenger_draft_write", { ...chat42, text: "  Добрый день, Анна!  " });
     expect(r).toMatchObject({ isError: false, json: { action: "created", sent: false, nudge: false } });
     expect(await drafts()).toMatchObject([{ id: r.json.draft, status: "draft", text: "Добрый день, Анна!", clientId: ids.ann, createdBy: "agent", nudge: false, ownerRequest: null }]);
-    expect((await w.runs.activity("acme", { view: "drafts" })).rows[0]).toMatchObject({ outcome: "drafted", draftId: r.json.draft, skill: "messenger-reply", why: "Runtime agent prepared an unsent draft." });
+    expect((await w.runs.activity("acme", { view: "drafts" })).rows[0]).toMatchObject({ outcome: "drafted", draftId: null, chatId: expect.any(Number), skill: "messenger-reply", why: "Runtime agent prepared an unsent draft." });
   });
 
   it("writes through the focused chat ref and still leaves an unsent draft", async () => {
