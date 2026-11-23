@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CORE_ROOT } from "@hub/config/paths";
 import { defaultDbPath } from "@hub/db";
-import { runRename, runSync } from "../src/hub-commands";
+import { runRename, runSync } from "../src/commands";
 import { defaultProjectsRoot } from "../src/registry";
 import { projectStore } from "../src/store";
 

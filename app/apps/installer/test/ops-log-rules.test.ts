@@ -15,10 +15,8 @@ const ROOTS = ["apps/server/src", ...readdirSync(path.join(APP, "packages")).map
 const USER_OUTPUT: Record<string, string> = {
   "packages/db/src/seed-cli.ts": "`pnpm db:seed` prints what it added",
   "packages/db/src/migrate-cli.ts": "`pnpm db:migrate` prints the database it migrated (a failed migration is an ops line in openDb)",
-  "packages/knowledge/src/cli.ts": "the `knowledge` CLI prints its import, index and search results",
-  "packages/messengers/src/cli.ts": "the `messengers` CLI prints links, status and poll lines to the person running it",
-  "packages/mail-filters/src/hub-commands.ts": "`hub mail-filters` commands print through `o.out ?? console.log`",
-  "packages/projects/src/hub-commands.ts": "`hub project` commands print through `o.out ?? console.log`",
+  "packages/mail-filters/src/commands.ts": "`hub mail-filters` commands print through `o.out ?? console.log`",
+  "packages/projects/src/commands.ts": "`hub project` commands print through `o.out ?? console.log`",
 };
 const CONSOLE = /\bconsole\.(log|warn|error|info|debug|trace)\b/;
 

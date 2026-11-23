@@ -207,7 +207,7 @@ describe("doctor rows", () => {
   });
 
   it("project setup --brand and --brand-signature write rows through the validator", async () => {
-    const { runProjectSetup } = await import("../src/hub-commands");
+    const { runProjectSetup } = await import("../src/commands");
     const root = mkdtempSync(path.join(tmpdir(), "hub-brand-setup-"));
     try {
       mkdirSync(path.join(root, "two-accounts"));

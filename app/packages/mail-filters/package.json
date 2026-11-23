@@ -6,7 +6,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./hub-commands": "./src/hub-commands.ts"
+    "./commands": "./src/commands.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
@@ -14,8 +14,7 @@
   },
   "dependencies": {
     "@hub/config": "workspace:*",
-    "@hub/projects": "workspace:*",
-    "commander": "15.1.0"
+    "@hub/projects": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

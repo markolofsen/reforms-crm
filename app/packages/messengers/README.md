@@ -99,7 +99,7 @@ The agent never imports this package's send path: `hub mcp` (`@hub/agent`) has `
 
 ## CLI
 
-`pnpm --filter @hub/messengers messengers -p <project> <command>`
+`hub messengers -p <project> <command>`
 
 | Command | Needs a person at a terminal | Does |
 |---|---|---|

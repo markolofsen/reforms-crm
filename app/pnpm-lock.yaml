@@ -290,6 +290,9 @@ importers:
       '@hub/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@hub/knowledge':
+        specifier: workspace:*
+        version: link:../../packages/knowledge
       '@hub/log':
         specifier: workspace:*
         version: link:../../packages/log
@@ -299,6 +302,9 @@ importers:
       '@hub/mail-filters':
         specifier: workspace:*
         version: link:../../packages/mail-filters
+      '@hub/messengers':
+        specifier: workspace:*
+        version: link:../../packages/messengers
       '@hub/notion':
         specifier: workspace:*
         version: link:../../packages/notion
@@ -628,9 +634,6 @@ importers:
       '@hub/projects':
         specifier: workspace:*
         version: link:../projects
-      commander:
-        specifier: 15.1.0
-        version: 15.1.0
       yaml:
         specifier: 2.9.1
         version: 2.9.1
@@ -725,9 +728,6 @@ importers:
       '@hub/projects':
         specifier: workspace:*
         version: link:../projects
-      commander:
-        specifier: 15.1.0
-        version: 15.1.0
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
@@ -762,9 +762,6 @@ importers:
       baileys:
         specifier: 7.0.0-rc14
         version: 7.0.0-rc14(sharp@0.35.5(@types/node@22.20.5))
-      commander:
-        specifier: 15.1.0
-        version: 15.1.0
       grammy:
         specifier: 1.46.0
         version: 1.46.0
@@ -827,9 +824,6 @@ importers:
       '@hub/sequences':
         specifier: workspace:*
         version: link:../sequences
-      commander:
-        specifier: 15.1.0
-        version: 15.1.0
       zod:
         specifier: 4.6.7
         version: 4.6.7

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { runProjectSetup } from "../src/hub-commands";
+import { runProjectSetup } from "../src/commands";
 
 // P36 U4: `hub project setup` answers tone, signoff and languages in one pass.
 const here = dirname(fileURLToPath(import.meta.url));

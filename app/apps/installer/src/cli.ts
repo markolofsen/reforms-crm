@@ -2,8 +2,11 @@
 import { readInstanceConfig } from "@hub/config/instance";
 import { HubError } from "@hub/config/errors";
 import * as p from "@clack/prompts";
-import { registerMailFiltersCommands } from "@hub/mail-filters/hub-commands";
-import { registerDevCommands, registerProjectCommands, runProjectDoctor, runSync } from "@hub/projects/hub-commands";
+import { registerKnowledgeCommands } from "./commands/knowledge";
+import { registerMailFiltersCommands } from "./commands/mail-filters";
+import { registerMessengersCommands } from "./commands/messengers";
+import { runProjectDoctor, runSync } from "@hub/projects/commands";
+import { registerDevCommands, registerProjectCommands } from "./commands/projects";
 import { Command } from "commander";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -333,6 +336,8 @@ registerProjectCommands(program, projectOptions());
 registerDevCommands(program, projectOptions());
 registerSequencesCommands(program, () => ({ projectsDir: projectsDir() }));
 registerMailFiltersCommands(program).alias("filters");
+registerKnowledgeCommands(program);
+registerMessengersCommands(program);
 
 program.command("install").description("Run the steps a manual session needs: check, apply only when it fails, print what is left. --automation adds the optional background automation.")
   .option("--dry-run", "show what would change, change nothing")

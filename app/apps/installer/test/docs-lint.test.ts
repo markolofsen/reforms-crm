@@ -17,12 +17,10 @@ function* walk(dir: string): Generator<string> {
 }
 const mdIn = (rel: string): string[] => [...walk(path.join(root, rel))].filter((f) => f.endsWith(".md")).map((f) => path.relative(root, f));
 
-/** Top-level commands of the CLI: every `.command("x")` in the installer and the two packages that register commands, minus known subcommands. */
+/** Top-level commands of the CLI: every `.command("x")` in the installer (P126 C1: packages register none), minus known subcommands. */
 function registeredCommands(): Set<string> {
   const sources = [
     ...[...walk(path.join(root, "app", "apps", "installer", "src"))].filter((f) => f.endsWith(".ts")),
-    path.join(root, "app", "packages", "projects", "src", "hub-commands.ts"),
-    path.join(root, "app", "packages", "mail-filters", "src", "hub-commands.ts"),
   ];
   const names = new Set<string>();
   for (const f of sources) for (const m of readFileSync(f, "utf8").matchAll(/\.command\("([a-z][a-z-]*)"/g)) names.add(m[1]!);
