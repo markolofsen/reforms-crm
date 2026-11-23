@@ -50,13 +50,13 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
   const act = useLeadAction(project, pageId, onClosed);
   return (
     <QueryView frame={(note) => <div className="p-3 lg:p-4">{note}</div>} loading={<EmptyState title="Reading the lead">The Hub asks Notion for the lead’s page.</EmptyState>} query={q} what="the lead">
-      {(d) => <LeadArticle act={act} d={d} now={now} onPrepare={(email) => pasteToAgent(leadPhrase(project, { email, pageId: d.row.pageId, brand: d.row.brand }))} project={project} />}
+      {(d) => <LeadArticle act={act} d={d} now={now} onPrepare={(email) => pasteToAgent(leadPhrase(project, { email, pageId: d.row.pageId, brand: d.row.brand }))} />}
     </QueryView>
   );
 }
 
 /** The read lead: who, its controls, its words and its drafts (the card above owns the read and its states). */
-function LeadArticle({ project, d, now, act, onPrepare }: { project: string; d: LeadDetailDto; now: number; act: ReturnType<typeof useLeadAction>; onPrepare: (email: string) => void }) {
+function LeadArticle({ d, now, act, onPrepare }: { d: LeadDetailDto; now: number; act: ReturnType<typeof useLeadAction>; onPrepare: (email: string) => void }) {
   const { row, lead, note, drafts } = d;
   const email = row.email;
   return (

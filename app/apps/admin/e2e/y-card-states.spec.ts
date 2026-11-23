@@ -8,7 +8,6 @@ test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-const PREVIEW = { ok: true, dryRun: true, from: "Mark <mark@example.test>", to: ["client@example.com"], cc: [], subject: "Re: Second viewing", body: "Hi,\n\nThank you.\n\nBest regards" };
 const RED = [{ kind: "cc_present", level: "red", text: "Someone is in Cc.", acked: false }];
 const soon = () => new Date(Date.now() + 10 * 60_000).toISOString();
 

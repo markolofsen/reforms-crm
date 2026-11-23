@@ -1,6 +1,6 @@
 "use client";
 
-import { useAgentFeed } from "@/lib/data/project";
+import { useAgentFeed as useAgentFeedQuery } from "@/lib/data/project";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { AgentFeedDto } from "@hub/contract/agent-feed";
 import { waitingTurn } from "./turns";
@@ -19,7 +19,7 @@ export type AgentFeed = {
 };
 
 export function useAgentFeed(project: string | null): AgentFeed {
-  const q = useAgentFeed(project);
+  const q = useAgentFeedQuery(project);
   const [seenTurn, setSeenTurn] = useState<string | null>(null);
   const waiting = waitingTurn(q.data);
   const seen = useCallback(() => setSeenTurn(waiting), [waiting]);

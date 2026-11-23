@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ADVISOR_MODELS, AGENT_MODELS, MODEL_LABELS, type AgentSettings } from "@hub/config";
+import { ADVISOR_MODELS, AGENT_MODELS, MODEL_LABELS } from "@hub/config";
 import { Radio, RadioGroup } from "@hub/ui/radio-group";
 import { Skeleton } from "@hub/ui/skeleton";
 import { SettingSwitch } from "@hub/ui/product/field";

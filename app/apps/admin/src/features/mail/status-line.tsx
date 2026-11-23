@@ -110,8 +110,8 @@ export function StatusLine({ project }: { project: string }) {
       {/* P128 X4: "Live" is not said while it is true; only its loss is ("Reconnecting, data may be old", state-and-data 10). */}
       {live === "reconnecting" && (
         <Tooltip>
-          <TooltipTrigger aria-label={live === "live" ? "Updates arrive as the agent writes" : "Live updates stopped; the page checks the server every 10 seconds"} render={<span className="ms-auto shrink-0 text-xs text-muted-foreground" data-state={live} data-testid="live-state">{LIVE_WORD[live]}</span>} />
-          <TooltipPopup>{live === "live" ? "Updates arrive as the agent writes" : "Live updates stopped; the page checks the server every 10 seconds"}</TooltipPopup>
+          <TooltipTrigger aria-label="Live updates stopped; the page checks the server every 10 seconds" render={<span className="ms-auto shrink-0 text-xs text-muted-foreground" data-state={live} data-testid="live-state">{LIVE_WORD[live]}</span>} />
+          <TooltipPopup>Live updates stopped; the page checks the server every 10 seconds</TooltipPopup>
         </Tooltip>
       )}
     </div>
