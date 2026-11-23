@@ -1,7 +1,8 @@
 import { adoptable, type Adoption, type MailVersionRow, type MailWriteRow } from "@hub/db";
 import { replyFrom, type ReplyFrom } from "@hub/projects";
-import { writtenBody } from "./text";
-import { DraftWriteError, type DraftWriter, type InboundMessage, type NewDraftInput, type ReplyDraftInput, type ReplyDraftResult, type Revision, type Signed, type ThreadMailDraft, type VersionRef, type WriteLog } from "./types";
+import { writtenBody } from "@hub/mail-app/writer/text";
+import { DraftWriteError, type DraftWriter, type InboundMessage, type NewDraftInput, type ReplyDraftInput, type ReplyDraftResult, type ThreadMailDraft, type VersionRef } from "@hub/mail-app/writer/types";
+import type { Revision, Signed, WriteLog } from "./types";
 
 // The one revision path (P56) and the recorded write (P65 S5), shared by `draft_write` and the admin's Save and Restore.
 

@@ -6,7 +6,7 @@ import { clientOfReply, ownerWordsOf, precheckRecord, recordFirst, replySubjectO
 import { writeNewReply } from "../../drafts/reply";
 import { reviseHubDraft } from "../../drafts/revise";
 import { draftScope, type DraftScope, type Pending } from "../../drafts/sign";
-import { DraftWriteError, type InboundMessage } from "../../mail";
+import { DraftWriteError, type InboundMessage } from "@hub/mail-app/writer/types";
 import { draftRecord } from "../../records/schema";
 import { defineTool } from "../define";
 import { isRefusalCode } from "../refusals";

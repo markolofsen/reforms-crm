@@ -1,6 +1,6 @@
 import type { Repos } from "@hub/db";
 import type { Brand, ProjectConfig } from "@hub/projects/model";
-import type { DraftWriter } from "../mail";
+import type { DraftWriter } from "@hub/mail-app/writer/types";
 import type { WithRepos } from "../mail/write-log";
 import type { ChatSortPort } from "../messenger/chat-sort-port";
 import type { AgentSendPort } from "../messenger/send-tool";

@@ -5,7 +5,7 @@ import { createNotionReader, findClientByEmail, findLeadByEmail, loadToken, NoTo
 import { join } from "node:path";
 import { loadProject, readAllowList, testRecipientsOf } from "@hub/projects";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { mailAppDraftWriter } from "../mail";
+import { mailAppDraftWriter } from "@hub/mail-app/writer";
 import type { NotionClientCheck, RevisionRecord, VersionRecord } from "./ports";
 import { createHubMcpServer } from "./server";
 import type { WithRepos } from "../mail/write-log";

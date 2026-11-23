@@ -2,7 +2,7 @@
   "name": "@hub/mail-app",
   "version": "0.1.0",
   "private": true,
-  "description": "Apple Mail through osascript (P126 M1): the one runner and its budgets, the record format, the read scripts and readers, the Hub's own drafts (find, list, trash). No send (that is @hub/send), no key, no IMAP (decision 0026).",
+  "description": "Apple Mail through osascript (P126 M1, M2): the one runner and its budgets, the record format, the read scripts and readers, the Hub's own drafts (find, list, trash) and the unsent-draft writer with its fake. No send (that is @hub/send), no key, no IMAP (decision 0026).",
   "type": "module",
   "exports": {
     "./osa": "./src/osa.ts",
@@ -12,14 +12,24 @@
     "./drafts": "./src/drafts.ts",
     "./scripts/read": "./src/scripts/read.ts",
     "./scripts/history": "./src/scripts/history.ts",
-    "./scripts/drafts": "./src/scripts/drafts.ts"
+    "./scripts/drafts": "./src/scripts/drafts.ts",
+    "./writer": "./src/writer/writer.ts",
+    "./writer/types": "./src/writer/types.ts",
+    "./writer/fake": "./src/writer/fake.ts",
+    "./writer/text": "./src/writer/text.ts",
+    "./writer/protocol": "./src/writer/protocol.ts",
+    "./scripts/thread": "./src/scripts/thread.ts",
+    "./scripts/write-new": "./src/scripts/write-new.ts",
+    "./scripts/write-reply": "./src/scripts/write-reply.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
-    "@hub/config": "workspace:*"
+    "@hub/config": "workspace:*",
+    "@hub/db": "workspace:*",
+    "@hub/log": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

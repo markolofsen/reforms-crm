@@ -7,12 +7,17 @@ import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { parseProjectMd } from "@hub/projects";
 import { DENIED_TOOLS } from "../src/deny";
 import { adviceOf } from "../src/mcp/refusals";
-import { FakeDraftWriter } from "../src/mail/fake";
-import { parseInboundOutput, parseThreadDrafts, parseWriteOutput } from "../src/mail/protocol";
-import { ACCOUNT_ADDRESSES_SCRIPT, FIND_INBOUND_SCRIPT, MESSAGE_ID_SCRIPT, READ_CONTENT_SCRIPT, READ_HEADERS_SCRIPT, THREAD_DRAFTS_SCRIPT } from "../src/mail/scripts/read";
-import { WRITE_NEW_SCRIPT } from "../src/mail/scripts/write-new";
-import { WRITE_REPLY_SCRIPT } from "../src/mail/scripts/write-reply";
-import { DraftWriteError, isNotAllowed, MAIL_SLOW_TEXT, mailAppDraftWriter, OsaTimeout, probeOf, reviseDraft, versionHash, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail";
+import { versionHashOf as versionHash } from "@hub/db";
+import { isNotAllowed, MailNotAnswering, type OsaRun } from "@hub/mail-app/osa";
+import { ACCOUNT_ADDRESSES_SCRIPT, FIND_INBOUND_SCRIPT, MESSAGE_ID_SCRIPT, READ_CONTENT_SCRIPT, READ_HEADERS_SCRIPT, THREAD_DRAFTS_SCRIPT } from "@hub/mail-app/scripts/thread";
+import { WRITE_NEW_SCRIPT } from "@hub/mail-app/scripts/write-new";
+import { WRITE_REPLY_SCRIPT } from "@hub/mail-app/scripts/write-reply";
+import { mailAppDraftWriter, WRITE_WAIT_SECONDS } from "@hub/mail-app/writer";
+import { FakeDraftWriter } from "@hub/mail-app/writer/fake";
+import { parseInboundOutput, parseThreadDrafts, parseWriteOutput } from "@hub/mail-app/writer/protocol";
+import { MAIL_SLOW_TEXT, probeOf } from "@hub/mail-app/writer/text";
+import { DraftWriteError } from "@hub/mail-app/writer/types";
+import { reviseDraft, writeRecorded, type WriteLog } from "../src/mail";
 import { appleScriptCompileError, canCompileAppleScript, deleteOfLoopItem } from "../../../test-support/osacompile";
 import { excerptOf } from "../src/drafts/after-write";
 import type { HubMcpEnv } from "../src/mcp/ports";
@@ -258,7 +263,7 @@ describe("the stored preview of a revision (P65 S5, saas draft 1: a poem cut mid
 describe("a slow Mail (P65 S5)", () => {
   it("a cut osascript is mail_slow, not a failure; the thread read is read-only and parses id, Message-ID, account, text", async () => {
     const cut: OsaRun = async () => {
-      throw new OsaTimeout("Mail did not answer within 150 s");
+      throw new MailNotAnswering(150_000);
     };
     await expect(mailAppDraftWriter(cut).writeReply({ account: "desk", mailboxPath: ["INBOX"], messageId: 7, body: "Hi", sender: null })).rejects.toMatchObject({ code: "mail_slow", message: MAIL_SLOW_TEXT });
     expect(THREAD_DRAFTS_SCRIPT).not.toMatch(/\b(send|delete|save|reply|activate)\b/);

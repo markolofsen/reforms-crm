@@ -1,7 +1,7 @@
 import { MAIL_SLOW_TEXT, writtenBody } from "./text";
 import { DraftWriteError, type DraftWriter, type InboundMessage, type NewDraftInput, type ReplyDraftInput, type ReplyDraftResult, type ThreadMailDraft } from "./types";
 
-// `@hub/agent/mail/fake` (architecture rule 3b: a fake behind its own subpath): the in-memory Mail of tests and of the server's fake switch.
+// `@hub/mail-app/writer/fake` (architecture rule 3b: a fake behind its own subpath): the in-memory Mail of tests and of the server's fake switch.
 
 /** In memory: what tests use. A write replaces exactly the versions it is told to, in the same account, as Mail does. */
 export class FakeDraftWriter implements DraftWriter {

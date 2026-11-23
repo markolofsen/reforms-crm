@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { displayNameFor } from "@hub/projects/brand";
-import { versionHash } from "../mail";
+import { versionHashOf } from "@hub/db";
 import type { DraftScope, Written } from "./sign";
 
 // After a `draft_write` saved a draft: the live bump (P53), the version record (P65), the revision record in place, and
@@ -94,7 +94,7 @@ export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Wri
   if (env.recordVersion) {
     const moved = new Set(r.replaced.map((x) => x.toLowerCase()));
     try {
-      await env.recordVersion(slug, { draftId: draft ?? null, mailRef, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHash(r.text), signatureFallback: r.signatureFallback ?? null, trashed: versionRows.filter((v) => moved.has(v.messageId.toLowerCase())).map((v) => v.id) });
+      await env.recordVersion(slug, { draftId: draft ?? null, mailRef, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHashOf(r.text), signatureFallback: r.signatureFallback ?? null, trashed: versionRows.filter((v) => moved.has(v.messageId.toLowerCase())).map((v) => v.id) });
     } catch (e) {
       versionError = e instanceof Error ? e.message : String(e);
     }

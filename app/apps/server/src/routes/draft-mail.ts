@@ -1,6 +1,8 @@
 import { Hono, type Context } from "hono";
 import { newThreadKey } from "@hub/config";
-import { alreadySentText, DraftWriteError, isNewThreadDraft, reviseDraft, type InboundMessage, versionHash, writeLogOf } from "@hub/agent/mail";
+import { alreadySentText, isNewThreadDraft, reviseDraft, writeLogOf } from "@hub/agent/mail";
+import { versionHashOf } from "@hub/db";
+import { DraftWriteError, type InboundMessage } from "@hub/mail-app/writer/types";
 import type { DraftRow, MailVersionRow } from "@hub/db";
 import { brandResolutionFor, displayNameFor, headersFromText, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, visibleFrom } from "@hub/projects/brand";
 import { loadProject } from "@hub/projects";
@@ -84,7 +86,7 @@ export function draftMailRoutes({ repos, sender }: MailServices) {
       const sign = async (_inbound: InboundMessage, text: string) => signText(text);
       const signedBody = fresh ? signText(body).body : body;
       const r = await reviseDraft(sender.writer, { accounts: pm.accounts, sender: pm.sender, displayName, clientWroteTo: d.wroteTo ?? null, mailRef: d.mailRef, body: signedBody, quote: "keep", versions: live.map((v) => ({ account: v.account, messageId: v.messageId })), ...(!fresh ? { sign } : {}), ...(fresh ? { newThread: { to: client, subject: d.subject, account: acc, from: visibleFrom(pm.sender, displayName) } } : {}), log: writeLogOf((fn) => fn(repos), d.project, d.id, key) });
-      await repos.mailVersions.add({ project: d.project, mailRef: key, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHash(r.text), source });
+      await repos.mailVersions.add({ project: d.project, mailRef: key, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHashOf(r.text), source });
       const moved = new Set(r.replaced.map(bareId));
       await repos.mailVersions.markTrashed(live.filter((v) => moved.has(bareId(v.messageId))).map((v) => v.id));
     } catch (e) {
@@ -278,7 +280,7 @@ export function draftMailRoutes({ repos, sender }: MailServices) {
         account: revision.account,
         mailId: revision.draftId,
         messageId: revision.messageId,
-        hash: versionHash(revision.text),
+        hash: versionHashOf(revision.text),
         source: "save",
         signatureFallback: revision.signatureFallback ?? null,
       });

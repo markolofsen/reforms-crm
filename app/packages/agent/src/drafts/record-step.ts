@@ -1,7 +1,7 @@
 import { checkDraftRecipients, loadProject } from "@hub/projects";
 import { headersFromText } from "@hub/projects/brand";
 import { normalizeAddress } from "@hub/projects/parse";
-import type { InboundMessage } from "../mail";
+import type { InboundMessage } from "@hub/mail-app/writer/types";
 import { ToolError } from "../mcp/result";
 import { addressesOf, allowList } from "../records/checks";
 import { recordDraftCall, type DraftRecordOutcome } from "../records/draft";

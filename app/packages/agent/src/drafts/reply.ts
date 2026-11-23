@@ -1,5 +1,6 @@
 import { displayNameFor } from "@hub/projects/brand";
-import { DraftWriteError, fromFor, writeLogOf, writeRecorded, type Revision } from "../mail";
+import { DraftWriteError } from "@hub/mail-app/writer/types";
+import { fromFor, writeLogOf, writeRecorded, type Revision } from "../mail";
 import { ToolError } from "../mcp/result";
 import { adoptLate } from "./adopt";
 import { landingWrite, pendingVersion } from "./guards";

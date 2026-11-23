@@ -482,6 +482,9 @@ importers:
       '@hub/log':
         specifier: workspace:*
         version: link:../log
+      '@hub/mail-app':
+        specifier: workspace:*
+        version: link:../mail-app
       '@hub/notion':
         specifier: workspace:*
         version: link:../notion
@@ -697,6 +700,12 @@ importers:
       '@hub/config':
         specifier: workspace:*
         version: link:../config
+      '@hub/db':
+        specifier: workspace:*
+        version: link:../db
+      '@hub/log':
+        specifier: workspace:*
+        version: link:../log
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

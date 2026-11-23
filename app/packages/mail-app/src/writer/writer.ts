@@ -1,9 +1,10 @@
-import { execFile } from "node:child_process";
 import { ops } from "@hub/log/ops";
-import { FS, LS, parseInboundOutput, parseThreadDrafts, parseWriteOutput, PS } from "./protocol";
-import { ACCOUNT_ADDRESSES_SCRIPT, FIND_INBOUND_SCRIPT, MESSAGE_ID_SCRIPT, READ_CONTENT_SCRIPT, READ_HEADERS_SCRIPT, THREAD_DRAFTS_SCRIPT } from "./scripts/read";
-import { WRITE_NEW_SCRIPT } from "./scripts/write-new";
-import { WRITE_REPLY_SCRIPT } from "./scripts/write-reply";
+import { isNotAllowed, MailNotAnswering, osaFor, type OsaRun } from "../osa";
+import { FS, LS, PS } from "../records";
+import { ACCOUNT_ADDRESSES_SCRIPT, FIND_INBOUND_SCRIPT, MESSAGE_ID_SCRIPT, READ_CONTENT_SCRIPT, READ_HEADERS_SCRIPT, THREAD_DRAFTS_SCRIPT } from "../scripts/thread";
+import { WRITE_NEW_SCRIPT } from "../scripts/write-new";
+import { WRITE_REPLY_SCRIPT } from "../scripts/write-reply";
+import { parseInboundOutput, parseThreadDrafts, parseWriteOutput } from "./protocol";
 import { MAIL_SLOW_TEXT, probeOf, writtenBody } from "./text";
 import { DraftWriteError, type DraftWriter, type InboundMessage } from "./types";
 
@@ -18,32 +19,11 @@ import { DraftWriteError, type DraftWriter, type InboundMessage } from "./types"
 // addendum point 4). Nothing else is ever deleted, and nothing is deleted when the new draft is not seen. Mail slow (not
 // seen within the wait): the write is `mail_slow`, not failed; the caller's write record lets a late save be adopted.
 
-/** Runs osascript with the script and its arguments (`on run argv`). Injected so tests never reach Mail. */
-export type OsaRun = (script: string, args: string[]) => Promise<string>;
-
 /** How long the writer waits for Mail to show the draft it saved (P65 S5: Mail took 74 s once on 2026-11-19; past this the write is `mail_slow`). */
 export const WRITE_WAIT_SECONDS = 45;
 
-/** osascript was cut at its budget: Mail did not answer (the write may still land). */
-export class OsaTimeout extends Error {}
-
-/** osascript with a budget: well past the writer's own wait, so a slow Mail still ends in the script's `pending`. */
-export const osaWithin = (timeoutMs: number): OsaRun => (script, args) =>
-  new Promise((resolve, reject) =>
-    execFile("osascript", ["-e", script, ...args], { timeout: timeoutMs, killSignal: "SIGKILL", maxBuffer: 16 * 1024 * 1024 }, (err, stdout, stderr) => {
-      if (!err) return resolve(stdout);
-      if ((err as { killed?: boolean }).killed) return reject(new OsaTimeout(`Mail did not answer within ${Math.round(timeoutMs / 1000)} s`));
-      reject(new Error(String(stderr || err.message).slice(0, 300)));
-    }),
-  );
-
-export const defaultOsa: OsaRun = osaWithin(150_000);
-
-/** macOS refused the Apple events (-1743): the one case that is a permission (P83). */
-export const isNotAllowed = (message: string): boolean => /-1743\b|not authori[sz]ed to send apple events/i.test(message);
-
 /** Mail.app through osascript, run by the hub MCP server. Plain text. */
-export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
+export function mailAppDraftWriter(osa: OsaRun = osaFor("write")): DraftWriter {
   const fail = (e: Error) => {
     // P86: Mail's own error, never the draft's text (osascript's error names the script line, not its arguments).
     const kind = isNotAllowed(e.message) ? "mail_not_allowed" : "mail_error";
@@ -70,7 +50,7 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
       const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
       const out = await osa(WRITE_REPLY_SCRIPT, [i.account, i.mailboxPath.join(LS), String(i.messageId), body, i.sender ?? "", i.quote ?? "add", probeOf(body), targets, land, String(i.waitSeconds ?? WRITE_WAIT_SECONDS)]).catch((e: Error) => {
         // Cut at the budget: Mail may still save it, exactly like the script's own `pending`.
-        if (e instanceof OsaTimeout) {
+        if (e instanceof MailNotAnswering) {
           ops("mail").warn("Mail did not answer a reply draft's write in time; it may still save it", { account: i.account });
           throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT);
         }
@@ -84,7 +64,7 @@ export function mailAppDraftWriter(osa: OsaRun = defaultOsa): DraftWriter {
       const targets = (i.replace ?? []).map((v) => `${v.account}${PS}${v.messageId.trim().replace(/^<|>$/g, "")}`).join(LS);
       const land = [...new Set([i.account, ...(i.landIn ?? [])])].join(LS);
       const out = await osa(WRITE_NEW_SCRIPT, [i.account, i.sender ?? "", i.to, i.subject, body, probeOf(body), targets, land, String(i.waitSeconds ?? WRITE_WAIT_SECONDS)]).catch((e: Error) => {
-        if (e instanceof OsaTimeout) {
+        if (e instanceof MailNotAnswering) {
           ops("mail").warn("Mail did not answer a new message's write in time; it may still save it", { account: i.account });
           throw new DraftWriteError("mail_slow", MAIL_SLOW_TEXT);
         }

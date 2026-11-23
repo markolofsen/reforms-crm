@@ -1,12 +1,9 @@
 import { ops } from "@hub/log/ops";
+import { FS, LS, RS } from "../records";
 import { MAIL_SLOW_TEXT } from "./text";
 import { DraftWriteError, type InboundMessage, type ReplyDraftResult, type ThreadMailDraft } from "./types";
 
-// The separators the Mail scripts print between fields, lines, records and parts, and the parsers of their output.
-export const FS = "\x1f";
-export const LS = "\x1d";
-export const RS = "\x1e";
-export const PS = "\x1c";
+// The parsers of the writer scripts' output (separators: `../records`).
 
 export function parseInboundOutput(out: string): InboundMessage | null {
   const p = out.replace(/[\r\n]+$/, "").split(FS);

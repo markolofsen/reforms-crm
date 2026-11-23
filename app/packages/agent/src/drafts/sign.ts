@@ -1,6 +1,7 @@
 import { headersFromText, isOwnAddress, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody } from "@hub/projects/brand";
 import { normalizeAddress } from "@hub/projects/parse";
-import type { DraftWriter, InboundMessage, Revision, Signed } from "../mail";
+import type { DraftWriter, InboundMessage } from "@hub/mail-app/writer/types";
+import type { Revision, Signed } from "../mail";
 import { configOf, type ProjectMail, type ToolCtx } from "../mcp/ports";
 
 // P60: the writer signs. What one `draft_write` call works with: the bound project, its writer, its Mail settings and

@@ -4,7 +4,7 @@ import path from "node:path";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createRepos, openDb, openDbReadOnly, type Repos } from "@hub/db";
 import { CONTEXT_BLOCK_FROM, loadProject, readAllowList, setSendPolicy, testRecipientsOf } from "@hub/projects";
-import { FakeDraftWriter } from "../mail/fake";
+import { FakeDraftWriter } from "@hub/mail-app/writer/fake";
 import { ownerWordsFound } from "../messenger/owner-word";
 import type { HubMcpEnv, NotionClientCheck, RevisionRecord, VersionRecord } from "../mcp/ports";
 import { createHubMcpServer } from "../mcp/server";
