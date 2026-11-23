@@ -21,7 +21,7 @@ const INBOX: readonly LiveTopic[] = ["inbox"];
 export const useInbound = (project: string) => useQuery({ queryKey: keys.inbound(project), queryFn: () => inboundApi.list(project) });
 
 /** P96 verdict 12: Check now, one read pass of the project's mailboxes (read-only toward Mail); the lists are read again after it. */
-export const useCheckNow = (project: string) => useCommand({ project, touches: INBOX, run: () => inboundApi.check(project) });
+export const useCheckNow = (project: string) => useCommand({ project, touches: INBOX, run: (_: void) => inboundApi.check(project) });
 
 /**
  * No reply needed (P96 verdict 4): their open messages leave Needs you, stored. `undo(ids)` is the toast's Undo: the same rows
@@ -69,4 +69,4 @@ export const useNotByEmail = (project: string, kind: InboxKind | null, o: { keep
 export const useEnrollments = (project: string, view: EnrollmentView) => useQuery({ queryKey: keys.enrollments(project, view), queryFn: () => sequencesApi.enrollments(project, view) });
 
 /** Stop one client's follow-ups (the server skips the open step in the same write). Resume is the owner's, in his terminal. */
-export const useStopFollowUps = (project: string, enrollmentId: number) => useCommand({ project, touches: ["follow-ups"], run: () => sequencesApi.stop(project, enrollmentId) });
+export const useStopFollowUps = (project: string, enrollmentId: number) => useCommand({ project, touches: ["follow-ups"], run: (_: void) => sequencesApi.stop(project, enrollmentId) });

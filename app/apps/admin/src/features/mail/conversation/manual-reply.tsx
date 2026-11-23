@@ -1,6 +1,5 @@
 "use client";
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon } from "lucide-react";
 import { useState } from "react";
 import { composerStateOf } from "@hub/contract/composer";
@@ -13,8 +12,8 @@ import { ConversationComposerEditor } from "@hub/ui/product/composer-editor";
 import { ConversationLabel } from "@hub/ui/product/conversation";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
 import type { Notice } from "@/features/mail/list/use-review-actions";
-import { refreshData, sentence } from "@/lib/api/client";
-import { reviewApi } from "@/lib/api/review";
+import { sentence } from "@/lib/api/client";
+import { useManualDraft } from "@/lib/data/drafts";
 import { useMailSignature } from "./use-mail-signature";
 
 export function MailComposerNotice({ notice, historyNote }: { notice: Notice | null; historyNote: string | null }) {
@@ -36,7 +35,6 @@ function languageLabel(language: MailComposerContextDto["language"]): string {
  * in the body. It saves one unsent draft and never sends; Close folds it again.
  */
 export function MailManualReply({ composer, project, clientId, hasOpenIncoming, notice, historyNote, onClose }: { composer: MailComposerContextDto; project: string; clientId: number; hasOpenIncoming: boolean; notice: Notice | null; historyNote: string | null; onClose: () => void }) {
-  const qc = useQueryClient();
   const [saved, setSaved] = useState(false);
   const { value, setValue, selected, selectedBrand, chooseBrand, body, language: detectedLanguage, signature: visibleSignature, signatureFallback: visibleSignatureFallback, brandSelectionRequired, pending: pendingSignature, applyPending: applyPendingSignature } = useMailSignature(composer);
   const visibleFrom = selected?.from ?? composer.from;
@@ -48,13 +46,9 @@ export function MailManualReply({ composer, project, clientId, hasOpenIncoming, 
   const signatureUnavailable = visibleStatus === "missing_signature";
   const mailUnavailable = composer.status === "needs_mail";
   const saveBlocked = mailUnavailable || brandSelectionRequired || signatureUnavailable;
-  const create = useMutation({
-    mutationFn: (text: string) => reviewApi.createManualDraft(project, clientId, text, selectedBrand),
-    onSuccess: () => {
-      setValue("");
-      setSaved(true);
-      void refreshData(qc, { mail: true });
-    },
+  const create = useManualDraft(project, clientId, selectedBrand, () => {
+    setValue("");
+    setSaved(true);
   });
   const changeValue = (next: string) => {
     if (create.isError) create.reset();

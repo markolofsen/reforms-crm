@@ -3,7 +3,7 @@ import type { MessengerSendPreviewDto } from "@hub/contract/messenger";
 import { DraftActionRow, DraftSendButton } from "@hub/ui/product/draft-action-row";
 import { ReviewDialog, type ReviewItem } from "@hub/ui/product/review-dialog";
 import { SendIcon } from "lucide-react";
-import { flowProblems, type Go, type SendFlow } from "@/components/send/send-flow";
+import { flowProblems, type Go, type SendFlow } from "@/lib/data/send-door";
 import { confirmLine } from "./labels";
 
 type Door = { flow: SendFlow<MessengerSendPreviewDto>; go: (o?: Go<MessengerSendPreviewDto>) => void; close: () => void };

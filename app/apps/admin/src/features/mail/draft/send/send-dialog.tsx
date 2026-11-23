@@ -1,16 +1,14 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
 import { SendIcon } from "lucide-react";
 import type { DraftMailDto } from "@hub/contract/mail";
 import type { SendPreviewDto } from "@hub/contract/sending";
 import { ReviewDialog, type ReviewItem } from "@hub/ui/product/review-dialog";
 import { toastManager } from "@hub/ui/toast";
-import { flowProblems, type Go } from "@/components/send/send-flow";
+import { flowProblems, type Go } from "@/lib/data/send-door";
 import { sentence } from "@/lib/api/client";
-import { reviewApi } from "@/lib/api/review";
-import { sendApi } from "@/lib/api/send";
-import { keys } from "@/lib/cache/keys";
+import { useCheckDraft, useTidyMail } from "@/lib/data/drafts";
+import { useDoctor } from "@/lib/data/project";
 import type { ReviewDraft } from "@/features/mail/model";
 import { differsFromShown, sendLoading, sendProblems, shownResults, type SendFix } from "./send-review";
 import type { SendFlow } from "./use-send-flow";
@@ -44,9 +42,8 @@ const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
  * (decision 0013), then runs the send door's dry run and applies it only when it is what the dialog showed.
  */
 export function MailSendDialog({ mode, open, onClose, project, d, name, mail, readError, changedUnder, onReread, flow, go, resetFlow }: Props) {
-  const doctor = useQuery({ queryKey: keys.doctor(project), queryFn: () => sendApi.doctor(project), enabled: open });
-  const tidy = useMutation({
-    mutationFn: () => sendApi.tidy(project, d.id),
+  const doctor = useDoctor(project, open);
+  const tidy = useTidyMail(project, d.id, {
     onSuccess: (r) => {
       toastManager.add({ title: r.moved === 0 ? "Nothing of the Hub's to move: the other draft is not one the Hub wrote. Keep one in Mail." : `Moved ${plural(r.moved, "leftover draft")} to Mail's Trash`, type: r.moved === 0 ? "info" : "success" });
       reread();
@@ -54,16 +51,10 @@ export function MailSendDialog({ mode, open, onClose, project, d, name, mail, re
     onError: (e) => toastManager.add({ title: "Not moved", description: sentence(e), type: "error" }),
   });
   // Acknowledge what the dialog listed and tick Checked on the very text that was read (the server refuses a stale hash).
-  const consent = async (hash: string, listed: readonly { kind: Parameters<typeof reviewApi.ack>[2] }[]) => {
-    for (const r of listed) await reviewApi.ack(project, d.id, r.kind, true);
-    if (!(d.checked && mail?.checkedCurrent)) await reviewApi.setChecked(project, d.id, true, hash);
-  };
-  const check = useMutation({
-    mutationFn: (o: { hash: string; listed: ReturnType<typeof shownResults> }) => consent(o.hash, o.listed),
-    onSuccess: () => {
-      toastManager.add({ title: `Checked: ${name} goes with Send all Checked`, type: "success" });
-      onClose();
-    },
+  const tick = !(d.checked && mail?.checkedCurrent);
+  const { check, consent } = useCheckDraft(project, d.id, () => {
+    toastManager.add({ title: `Checked: ${name} goes with Send all Checked`, type: "success" });
+    onClose();
   });
   const reread = () => {
     resetFlow();
@@ -79,8 +70,8 @@ export function MailSendDialog({ mode, open, onClose, project, d, name, mail, re
     const shown = mail;
     const hash = mail.hash;
     const listed = shownResults(input);
-    if (mode === "check") check.mutate({ hash, listed });
-    else go({ before: () => consent(hash, listed), accept: (p) => differsFromShown(shown, p) });
+    if (mode === "check") check.mutate({ hash, listed, tick });
+    else go({ before: () => consent({ hash, listed, tick }), accept: (p) => differsFromShown(shown, p) });
   };
   const pending = mode === "check" ? check.isPending : flow.step === "reading" || flow.step === "sending";
   const test = doctor.data?.facts?.recipients === "test";

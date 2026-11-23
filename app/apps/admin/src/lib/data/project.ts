@@ -118,8 +118,8 @@ export function useStopSending() {
   return { stop, resume };
 }
 
-/** The project's send doctor: who it may send to and through what (Settings ▸ Sending). */
-export const useDoctor = (project: string) => useQuery({ queryKey: keys.doctor(project), queryFn: () => sendApi.doctor(project) });
+/** The project's send doctor: who it may send to and through what (Settings ▸ Sending; Mail's send dialog reads it while open). */
+export const useDoctor = (project: string, enabled = true) => useQuery({ queryKey: keys.doctor(project), queryFn: () => sendApi.doctor(project), enabled });
 
 /** The agent's feed of one project (P59), when a project is open. */
 export const useAgentFeed = (project: string | null) => useQuery({ queryKey: keys.agentFeed(project ?? ""), queryFn: () => metaApi.agentFeed(project ?? ""), enabled: project !== null });

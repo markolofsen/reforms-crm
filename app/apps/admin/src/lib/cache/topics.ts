@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
 import type { LiveTopic } from "@hub/contract/live";
 import { TOPIC_KEYS } from "./keys";
 
@@ -32,5 +33,5 @@ export function useCommand<V, R>(o: { project: string | null; touches: readonly 
  */
 export function useRefreshTopics(project: string | null) {
   const qc = useQueryClient();
-  return (touches: readonly LiveTopic[]) => invalidateTopics(qc, project, touches);
+  return useCallback((touches: readonly LiveTopic[]) => invalidateTopics(qc, project, touches), [qc, project]);
 }

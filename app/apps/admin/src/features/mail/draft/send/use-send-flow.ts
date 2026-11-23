@@ -1,24 +1,9 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import type { SendPreviewDto } from "@hub/contract/sending";
-import { useSendDoor, type SendFlow as DoorFlow } from "@/components/send/send-flow";
-import { refreshData } from "@/lib/api/client";
-import { sendApi } from "@/lib/api/send";
+import type { SendFlow as DoorFlow } from "@/lib/data/send-door";
 
+/** A mail send's steps through the one door (`useSendFlow` of `lib/data/drafts.ts`, over `lib/data/send-door.ts`). */
 export type SendFlow = DoorFlow<SendPreviewDto>;
-
-/**
- * A mail send through the one door (`components/send/send-flow.ts`): after the person confirmed in the review dialog (P105), the
- * dry run reads the draft from Mail (it sends nothing) and the apply sends exactly that, when it is what the dialog showed.
- */
-export function useSendFlow(project: string, draftId: number) {
-  const qc = useQueryClient();
-  return useSendDoor<SendPreviewDto>({
-    preview: () => sendApi.preview(project, draftId),
-    send: (mail) => sendApi.send(project, draftId, { to: mail.to, subject: mail.subject }),
-    settle: () => refreshData(qc, { mail: true }),
-  });
-}
 
 /** Answers true once per send: the first time it sees `sent`, never again until `sent` has been false. */
 export function sendLatch(): (sent: boolean) => boolean {

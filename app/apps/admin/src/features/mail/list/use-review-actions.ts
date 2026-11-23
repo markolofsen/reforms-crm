@@ -1,11 +1,9 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import type { Mark, SettableStatus, Tone } from "@hub/config";
 import { toastManager } from "@hub/ui/toast";
-import { refreshData, sentence } from "@/lib/api/client";
+import { sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
-import { reviewApi } from "@/lib/api/review";
-import { sequencesApi } from "@/lib/api/inbox";
+import { useDraftCommands, useStopStepFollowUps } from "@/lib/data/drafts";
 import { firstName, undoTarget, type ReviewDraft } from "@/features/mail/model";
 
 export type Notice = { text: string; kind: "info" | "error" };
@@ -14,38 +12,23 @@ export type Notice = { text: string; kind: "info" | "error" };
 const STATUS_TOAST: Partial<Record<SettableStatus, (name: string) => string>> = { done: (n) => `Marked ${n} done`, skipped: (n) => `Skipped ${n}`, hold: (n) => `Held ${n}` };
 
 /**
- * Everything a person does to a draft, as mutations that share one settle rule: on success every list is read again,
- * on failure the server's sentence is shown (and the lists are read again too, because a 409 means they were stale).
+ * Everything a person does to a draft, as commands of `lib/data/drafts.ts` that share one settle rule: the touched topics are read
+ * again on success and on failure (a 409 means they were stale), and a failure's sentence is shown.
  * `pending` is true while any write is in flight, so the controls disable instead of double-firing.
  */
 export function useReviewActions(project: string) {
-  const qc = useQueryClient();
   const clock = useClock();
   const [notice, setNotice] = useState<Notice | null>(null);
   // P105: the review dialog of one open draft (Send, or Check for Send all Checked), opened by the card's Send, Shift+Enter or `C`.
   const [review, setReview] = useState<{ id: number; mode: "send" | "check" } | null>(null);
   // The draft last moved by Done, Skip or Hold, so `U` reaches it even after the card moved on to the next one.
   const last = useRef<{ draft: ReviewDraft; at: number } | null>(null);
-  const settle = (mail: boolean) => ({
-    onSuccess: () => refreshData(qc, { mail }),
-    onError: (e: unknown) => {
-      setNotice({ text: sentence(e), kind: "error" });
-      void refreshData(qc, { mail });
-    },
-  });
-  const checked = useMutation({ mutationFn: (v: { id: number; checked: boolean; hash?: string }) => reviewApi.setChecked(project, v.id, v.checked, v.hash), ...settle(false) });
-  const status = useMutation({ mutationFn: (v: { id: number; status: SettableStatus; reason?: string }) => reviewApi.setStatus(project, v.id, v.status, v.reason), ...settle(true) });
-  const tone = useMutation({ mutationFn: (v: { id: number; tone: Tone }) => reviewApi.setTone(project, v.id, v.tone), ...settle(false) });
-  const undo = useMutation({ mutationFn: (id: number) => reviewApi.undo(project, id), ...settle(true) });
-  const marks = useMutation({ mutationFn: (v: { clientId: number; marks: Mark[] }) => reviewApi.setMarks(project, v.clientId, v.marks), ...settle(false) });
+  const onError = (e: unknown) => setNotice({ text: sentence(e), kind: "error" });
+  const { checked, status, tone, undo, undoMany, marks } = useDraftCommands(project, onError);
   // P47: the owner stops a client's follow-ups from the step draft's card; the server skips the open step in the same write.
-  const stop = useMutation({
-    mutationFn: (v: { enrollmentId: number; name: string }) => sequencesApi.stop(project, v.enrollmentId),
-    onSuccess: (_r, v) => {
-      setNotice({ text: `Follow-ups stopped for ${v.name}. The open step is skipped; nothing more is drafted.`, kind: "info" });
-      void refreshData(qc, { mail: true });
-    },
-    onError: settle(true).onError,
+  const stop = useStopStepFollowUps<{ enrollmentId: number; name: string }>(project, {
+    onSuccess: (_r, v) => setNotice({ text: `Follow-ups stopped for ${v.name}. The open step is skipped; nothing more is drafted.`, kind: "info" }),
+    onError,
   });
 
   const undoNow = (d: ReviewDraft) => {
@@ -54,9 +37,7 @@ export function useReviewActions(project: string) {
     undo.mutate(d.id);
   };
 
-  // A bulk move says one thing for all of them, so its Undo is one write per draft and one re-read at the end.
-  const undoMany = useMutation({ mutationFn: (ids: number[]) => Promise.all(ids.map((id) => reviewApi.undo(project, id))), ...settle(true) });
-
+  // A bulk move says one thing for all of them, so its Undo (`undoMany`) is one write per draft and one re-read at the end.
   const pending = [undoMany, checked, status, tone, undo, marks, stop].some((m) => m.isPending);
   return {
     notice,

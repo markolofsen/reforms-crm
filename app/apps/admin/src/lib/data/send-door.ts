@@ -5,7 +5,8 @@ import { ApiFailure, sentence } from "@/lib/api/client";
 // The send door's two steps, once for every channel (decision 0011; P71 M4 for messengers): a dry run that sends nothing and
 // returns exactly what would go out, then the apply with exactly that. P105: the person confirms in the review dialog BEFORE the
 // dry run, on what the dialog showed, so the two steps run as one call (`go`) and the apply happens only when the dry run's
-// answer is what the dialog showed (`accept`). Mail's card and the Messengers panel each hand it their own `SendDoor`.
+// answer is what the dialog showed (`accept`). Mail's card (`lib/data/drafts.ts`) and the Messengers panel (`lib/data/messengers.ts`)
+// each hand it their own `SendDoor` (P127 C2: the door moved here from `components/send/`, so no feature runs a mutation).
 
 export type SendFlow<P> =
   | { step: "idle" }

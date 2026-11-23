@@ -1,6 +1,6 @@
 import { ActionButton } from "@hub/ui/product/action-button";
 import { sentence } from "@/lib/api/client";
-import { useMailWrite } from "./use-mail-write";
+import { useMailWrite } from "@/lib/data/drafts";
 
 type Props = { project: string; draftId: number; /** The Hub's last copy in Mail's Trash, or null. */ trashRef: string | null };
 

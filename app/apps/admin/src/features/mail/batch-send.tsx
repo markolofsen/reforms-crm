@@ -1,14 +1,12 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SendIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { BatchRunDto, BatchSendPlanDto } from "@hub/contract/sending";
 import { ReviewDialog, type ReviewItem } from "@hub/ui/product/review-dialog";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { ApiFailure, refreshData, sentence } from "@/lib/api/client";
-import { batchSendApi } from "@/lib/api/send";
-import { keys } from "@/lib/cache/keys";
+import { ApiFailure, sentence } from "@/lib/api/client";
+import { useBatchRun, useBatchSend } from "@/lib/data/drafts";
 
 // Send all Checked of one batch (P85b, decision 0011 amendment of 2026-11-20 point 4). Never automatic: a click reads every
 // Checked draft of the batch from Mail through the send door's checks (a dry run, nothing sent); the review dialog (P105) names
@@ -16,8 +14,6 @@ import { keys } from "@/lib/cache/keys";
 // draft at a time, spaced, through the same door. The run's progress is read while it runs (like WhatsApp's pairing: a process
 // on the server, not rows), and Stop leaves the drafts not yet tried Checked.
 
-/** While a run is going, its progress is read this often (the `sends` live topic also moves on each mail). */
-export const BATCH_RUN_POLL_MS = 2000;
 
 type Step = { k: "idle" } | { k: "reading" } | { k: "confirm"; plan: BatchSendPlanDto } | { k: "refused"; reasons: string[] } | { k: "failed"; message: string };
 
@@ -26,33 +22,20 @@ const minutes = (n: number, spacing: number) => Math.max(1, Math.round(((n - 1) 
 const STATUS: Record<BatchRunDto["items"][number]["status"], string> = { waiting: "Waiting", sending: "Sending", sent: "Sent", refused: "Not sent", failed: "Failed", stopped: "Stopped" };
 
 export function BatchSend({ project, batchId, checked, brief }: { project: string; batchId: number; checked: number; /** The owner's words that asked for the batch, shown in full (P87). */ brief: string | null }) {
-  const qc = useQueryClient();
   const [step, setStep] = useState<Step>({ k: "idle" });
-  const run = useQuery({
-    queryKey: keys.batchRun(project, batchId),
-    queryFn: () => batchSendApi.run(project, batchId),
-    refetchInterval: (q) => (q.state.data?.run?.state === "running" ? BATCH_RUN_POLL_MS : false),
-  });
+  // While a run is going, its progress is read every BATCH_RUN_POLL_MS (the `sends` live topic also moves on each mail).
+  const run = useBatchRun(project, batchId);
   const failed = (e: unknown) => setStep(e instanceof ApiFailure && e.refused.length > 0 ? { k: "refused", reasons: e.refused } : { k: "failed", message: sentence(e) });
-  const plan = useMutation({ mutationFn: () => batchSendApi.plan(project, batchId), onMutate: () => setStep({ k: "reading" }), onSuccess: (p) => setStep({ k: "confirm", plan: p }), onError: failed });
-  const start = useMutation({
-    mutationFn: (p: BatchSendPlanDto) => batchSendApi.start(project, batchId, p),
-    onSuccess: (r) => {
-      qc.setQueryData(keys.batchRun(project, batchId), r);
-      setStep({ k: "idle" });
-    },
-    onError: failed,
-  });
-  const stop = useMutation({ mutationFn: () => batchSendApi.stop(project, batchId), onSuccess: (r) => qc.setQueryData(keys.batchRun(project, batchId), r) });
+  const { plan, start, stop, moved } = useBatchSend(project, batchId, { onMutate: () => setStep({ k: "reading" }), onPlan: (p) => setStep({ k: "confirm", plan: p }), onStarted: () => setStep({ k: "idle" }), onError: failed });
   // Each mail sent changes the drafts (Sent detection) and the history: read them again when the run moves on, and once at its end.
   const r = run.data?.run ?? null;
   const done = r ? r.items.filter((i) => i.status !== "waiting" && i.status !== "sending").length : 0;
   const seen = useRef(-1);
   useEffect(() => {
     // P87 (B4): with the Mail reads too, so a sent card reads Mail again instead of showing its draft as deleted.
-    if (seen.current !== -1 && seen.current !== done) void refreshData(qc, { mail: true });
+    if (seen.current !== -1 && seen.current !== done) void moved();
     seen.current = done;
-  }, [done, qc]);
+  }, [done, moved]);
 
   const running = r?.state === "running";
   return (

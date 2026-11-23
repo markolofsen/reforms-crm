@@ -1,4 +1,3 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ContactLinksDto } from "@hub/contract/local";
 import { useState, type ReactNode } from "react";
 import { refOf } from "@hub/contract/focus";
@@ -6,10 +5,10 @@ import { ConversationComposer, ConversationComposerFooter } from "@hub/ui/produc
 import { toastManager } from "@hub/ui/toast";
 import { useGo } from "@/hooks/use-go";
 import { QueryView } from "@/components/state-views";
-import { refreshData, sentence } from "@/lib/api/client";
+import { sentence } from "@/lib/api/client";
+import { useCancelQueued, useMailWrite, useSendFlow } from "@/lib/data/drafts";
 import { agentRef } from "@/lib/focus";
 import { copyText } from "@/lib/external";
-import { sendApi } from "@/lib/api/send";
 import { dest } from "@/routes/paths";
 import { firstName, type ReviewDraft } from "@/features/mail/model";
 import type { ReviewActions } from "@/features/mail/list/use-review-actions";
@@ -21,13 +20,12 @@ import { draftLinkOf, mailReadable } from "@/features/mail/draft/mail-read/tick-
 import { CheckList } from "./check-list";
 import { DraftBlock } from "./draft-block";
 import { DraftEditor, DraftEditorFooter } from "@/features/mail/draft/mail-read/draft-editor";
-import { useMailWrite } from "@/features/mail/draft/mail-read/use-mail-write";
 import { useDraftMail } from "@/features/mail/draft/mail-read/use-draft-mail";
 import { useChangedUnder } from "@/features/mail/draft/mail-read/use-changed-under";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { useSendKey } from "@/features/mail/draft/mail-read/use-send-key";
 import { MailSendDialog } from "@/features/mail/draft/send/send-dialog";
-import { useOnSent, useSendFlow } from "@/features/mail/draft/send/use-send-flow";
+import { useOnSent } from "@/features/mail/draft/send/use-send-flow";
 
 export type CardProps = {
   d: ReviewDraft;
@@ -47,7 +45,6 @@ export type CardProps = {
  * function of the card's state (`card-state.ts`), so there is never a second primary and never a dead button.
  */
 export function DraftCard({ d, project, actions, now, advance, say, embedded = false, composerNotice, contact = null }: CardProps) {
-  const qc = useQueryClient();
   const navigate = useGo();
   const { flow, go, close } = useSendFlow(project, d.id);
   const mailRead = useDraftMail(project, d);
@@ -61,12 +58,8 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
   const [editValue, setEditValue] = useState("");
   const [editSaved, setEditSaved] = useState(false);
   const { save: editSave } = useMailWrite(project, d.id);
-  const cancel = useMutation({
-    mutationFn: () => (d.sendState ? sendApi.cancel(project, d.sendState.id) : Promise.reject(new Error("Nothing is queued."))),
-    onSuccess: () => {
-      toastManager.add({ title: `Cancelled the send to ${first}`, type: "success" });
-      return refreshData(qc, { mail: true });
-    },
+  const cancel = useCancelQueued(project, d.sendState?.id ?? null, {
+    onSuccess: () => toastManager.add({ title: `Cancelled the send to ${first}`, type: "success" }),
     onError: (e) => say(sentence(e)),
   });
   // After a send the card moves on to the next draft, and the person hears what went where.

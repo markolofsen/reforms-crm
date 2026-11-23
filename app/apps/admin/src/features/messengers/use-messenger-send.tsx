@@ -2,14 +2,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { MessengerSendPreviewDto } from "@hub/contract/messenger";
 import type { MessengerDraftDto } from "@hub/contract/messenger-panel";
 import { toastManager } from "@hub/ui/toast";
-import { useSendDoor } from "@/components/send/send-flow";
+import { useSendDoor } from "@/lib/data/send-door";
 import { messengerSendApi } from "@/lib/api/messengers/send";
 import { keys, messengerMutationKeys } from "@/lib/cache/keys";
 import { ChannelIcon } from "./channel/channel-icon";
 import { CHANNEL_LABEL } from "./labels";
 
 /**
- * Send of one messenger draft (P71 M4) through the one door Mail's card uses (`components/send/send-flow.ts`): the dry run, then
+ * Send of one messenger draft (P71 M4) through the one door Mail's card uses (`lib/data/send-door.ts`): the dry run, then
  * the apply with the chat and the exact text the owner read. Afterwards the panel and Activity ▸ Sends are read again.
  */
 export function useMessengerSend(project: string, d: MessengerDraftDto, chatId: number) {
