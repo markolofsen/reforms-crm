@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { inboxQuery, notByEmailQuery } from "@hub/contract/requests";
-import { inboxDto, notByEmailDto } from "@hub/contract/responses";
+import { inboxDto, notByEmailDto } from "@hub/contract/inbox";
 import { v } from "../http/http";
 import type { MailContext } from "./context";
 

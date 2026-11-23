@@ -3,7 +3,7 @@ import { readInstanceConfig } from "@hub/config/instance";
 // Each step PROVES something a backup needs and names the fix; none of them makes a backup (`git push` and `notion-dump dump` do).
 import { copyAndVerify } from "@hub/db";
 import { fileState, readValue } from "@hub/connections";
-import { projectStore, type LoadedProject } from "@hub/projects";
+import { projectStore, type LoadedProject } from "@hub/projects/store";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";

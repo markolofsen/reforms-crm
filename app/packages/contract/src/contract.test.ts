@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { coreUpdateDto } from "./instance";
 import { apiError, parseApiError } from "./errors";
 import { sendBody, statusBody } from "./requests";
-import { reviewDraftDto } from "./responses";
+import { reviewDraftDto } from "./review";
 import { enrollmentDto, enrollmentsQuery, stopBody } from "./sequences";
 import { notionIdentityDto } from "./notion";
 

@@ -1,6 +1,6 @@
 import { fileState, notionShapeProblem, NOTION_FILE, readValue, redact, storeToken, TELEGRAM_FILE, type Verdict } from "@hub/connections";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import path from "node:path";
 import { listProjects, type Ctx } from "../context";
 import { doctor, install, table } from "../runner";

@@ -1,4 +1,5 @@
-import { checkDraftRecipients, projectStore } from "@hub/projects";
+import { checkDraftRecipients } from "@hub/projects/guard";
+import { projectStore } from "@hub/projects/store";
 import { headersFromText } from "@hub/projects/brands";
 import { normalizeAddress } from "@hub/projects/parse";
 import type { InboundMessage } from "@hub/mail-app/writer/types";

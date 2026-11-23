@@ -1,6 +1,10 @@
 import { newThreadKey, SEQUENCE_SKILL, type EvidenceLevel } from "@hub/config";
 import { createRepos, openDb, RepoError, type RecordDraftInput, type RecordDraftResult } from "@hub/db";
-import { checkContext, checkDraftRecipients, contextMode, judgeSimilarity, kindOf, projectStore, measureAgainstSet, readAllowList, SIM_AMBER, type ContextMode, type PriorRecord, type Violation } from "@hub/projects";
+import { checkContext, contextMode, type ContextMode, type PriorRecord, type Violation } from "@hub/projects/context";
+import { checkDraftRecipients, readAllowList } from "@hub/projects/guard";
+import { judgeSimilarity, measureAgainstSet, SIM_AMBER } from "@hub/projects/similarity";
+import { kindOf } from "@hub/projects/kinds";
+import { projectStore } from "@hub/projects/store";
 import { appendLine, readLines, recordsFile } from "../evidence/store";
 import { addressesOf, crossCheck, otherBrandFacts, previousRevision, type RecordLine } from "./checks";
 import type { DraftRecord } from "./schema";

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { headerLine, headerWidth, readTable, scan, SECTIONS, separatorLine, splitLines } from "../src/index";
+import { headerLine, headerWidth, readTable, SECTIONS, separatorLine } from "../src/md/sections";
+import { scan, splitLines } from "../src/md/scan";
 
 // P126 P2: one spec per project.md section; trailing columns past `required` are optional.
 

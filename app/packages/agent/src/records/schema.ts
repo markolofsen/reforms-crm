@@ -1,5 +1,5 @@
 import { INBOX_ACTIONS, INBOX_KINDS, MARKS, NOTION_KINDS } from "@hub/config";
-import { contextSchema } from "@hub/projects";
+import { contextSchema } from "@hub/projects/context";
 import { z } from "zod";
 
 // What the agent records with a draft (P129 verdict 4, decision 0045 point 10): `draft_write`'s `record` and

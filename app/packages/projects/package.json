@@ -5,7 +5,6 @@
   "description": "project.md schema v1: parser, validator, in-place writer, registry sync and mail routing for reforms-crm",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
     "./model": "./src/schema.ts",
     "./brands": "./src/brands/index.ts",
     "./addresses": "./src/addresses.ts",
@@ -15,7 +14,16 @@
     "./dev": "./src/dev.ts",
     "./commands": "./src/commands.ts",
     "./local-open": "./src/local-open.ts",
-    "./notion-denied": "./src/notion-denied.ts"
+    "./notion-denied": "./src/notion-denied.ts",
+    "./registry": "./src/registry.ts",
+    "./send-policy": "./src/send-policy.ts",
+    "./kinds": "./src/kinds.ts",
+    "./guard": "./src/guard.ts",
+    "./context": "./src/context.ts",
+    "./similarity": "./src/similarity.ts",
+    "./fields": "./src/fields.ts",
+    "./doctor": "./src/doctor.ts",
+    "./audit": "./src/audit.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -5,7 +5,6 @@
   "exports": {
     "./errors": "./src/errors.ts",
     "./requests": "./src/requests.ts",
-    "./responses": "./src/responses.ts",
     "./sending": "./src/sending.ts",
     "./health": "./src/health.ts",
     "./connections": "./src/connections.ts",
@@ -37,7 +36,10 @@
     "./composer": "./src/composer.ts",
     "./mail": "./src/mail.ts",
     "./review": "./src/review.ts",
-    "./notion": "./src/notion.ts"
+    "./notion": "./src/notion.ts",
+    "./project": "./src/project.ts",
+    "./inbox": "./src/inbox.ts",
+    "./settings": "./src/settings.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

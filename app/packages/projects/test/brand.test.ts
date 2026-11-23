@@ -2,7 +2,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { applyBrandRow, brandChecks, displayNameFor, headersFromText, lineVariants, mailComposerContext, ownSignoff, parseProjectMd, replyLanguage, replyFrom, resolveBrand, signatureFor, signatureLines, signBody, signingNames, type LoadedProject } from "../src/index";
+import { applyBrandRow } from "../src/write";
+import { brandChecks } from "../src/doctor";
+import { displayNameFor, headersFromText, lineVariants, mailComposerContext, ownSignoff, replyLanguage, replyFrom, resolveBrand, signatureFor, signatureLines, signBody, signingNames } from "../src/brands";
+import { parseProjectMd } from "../src/parse";
+import { type LoadedProject } from "../src/store";
 
 // P60 B1/B2: the `## Brands` table, the resolver and the signature, on fixtures shaped like the two live instances.
 // The names live in test/fixtures/brands (core test code names no owner, `@docs/LAYERS.md`).

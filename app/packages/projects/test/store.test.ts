@@ -2,7 +2,8 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { projectStore, setSendPolicy } from "../src/index";
+import { projectStore } from "../src/store";
+import { setSendPolicy } from "../src/send-policy";
 import { projectStoreOf } from "../src/testing";
 
 // P126 P3: one store reads every project's config from project.md, with its send policy when it knows `stateProjects`.

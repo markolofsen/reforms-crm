@@ -1,5 +1,5 @@
 import { copyAndVerify } from "@hub/db";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { Ctx } from "../../context";

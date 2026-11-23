@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CORE_ROOT } from "@hub/config/paths";
 import { enrollmentChangedDto, enrollmentsDto, sequencesDto } from "@hub/contract/sequences";
-import { draftsDto } from "@hub/contract/responses";
+import { draftsDto } from "@hub/contract/review";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { testApp } from "./test-support/runtime";
 

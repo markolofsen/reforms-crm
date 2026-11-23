@@ -2,7 +2,9 @@
 // Files only: this code never talks to Gmail or Mail.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { defaultProjectsRoot, kindOf, projectStore } from "@hub/projects";
+import { defaultProjectsRoot } from "@hub/projects/registry";
+import { kindOf } from "@hub/projects/kinds";
+import { projectStore } from "@hub/projects/store";
 import { colorTable } from "./colors";
 import { propose, type SenderSample } from "./analyze";
 import { exportApi, exportXml, UnsafeRulesError } from "./export";

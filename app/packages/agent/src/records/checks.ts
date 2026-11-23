@@ -1,6 +1,6 @@
 import { newThreadKey, NOTION_KINDS } from "@hub/config";
 import { createRepos, openDb } from "@hub/db";
-import { contextSchema, type Context, type Violation } from "@hub/projects";
+import { contextSchema, type Context, type Violation } from "@hub/projects/context";
 import { observeDraft, type LedgerEntry } from "../evidence/ledger";
 import { latestSession } from "../evidence/store";
 

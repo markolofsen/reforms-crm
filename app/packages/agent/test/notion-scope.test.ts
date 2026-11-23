@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { notionCapability, notionNote, notionViolations, projectNotion, type NotionScope } from "../src/notion-scope";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { projectStore, setSendPolicy } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
+import { setSendPolicy } from "@hub/projects/send-policy";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { hubPaths } from "@hub/config/paths";

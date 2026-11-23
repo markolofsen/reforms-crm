@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { projectsDto } from "@hub/contract/responses";
+import { projectsDto } from "@hub/contract/project";
 import type { ProjectsContext } from "./context";
 
 export function projectCatalogRoutes({ repos }: ProjectsContext) {

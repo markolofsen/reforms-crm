@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { pathsAt } from "@hub/config/paths";
 import { appendEvents, logStoreOf } from "@hub/log/store";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { recordPost } from "@hub/agent/evidence/store";
 import { fakePorts, REPLAY_CASES, replay, type FakePorts, type ReplayGuard, type ReplayObserver } from "@hub/agent/testing";
 import { auditLayout, guardDecision, preDraftViolations } from "../src/safety";

@@ -1,7 +1,7 @@
 import type { EnrollmentView, InboxKind } from "@hub/config";
 import { checkInbound, dismissInbound, getInboundDetail, getInboundText, getLeadDetail, listEnrollments, listInbound, listNotByEmail, listSequences, notNowLead, spamLead, stopEnrollment, undismissInbound, undoLead } from "@hub/api";
 import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, inboundTextDto, leadActionDto, leadDetailDto } from "@hub/contract/inbound";
-import { notByEmailDto } from "@hub/contract/responses";
+import { notByEmailDto } from "@hub/contract/inbox";
 import { enrollmentChangedDto, enrollmentsDto, sequencesDto } from "@hub/contract/sequences";
 import { readGenerated } from "./client";
 

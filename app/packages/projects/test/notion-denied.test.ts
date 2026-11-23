@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditToolCalls } from "../src/index";
+import { auditToolCalls } from "../src/audit";
 import { NOTION_DENIED, notionDenial } from "../src/notion-denied";
 
 const LAYOUT = { projects: ["projects"], db: ["data/app.db"] };

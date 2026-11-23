@@ -2,7 +2,7 @@ import { offMode } from "@hub/config/modes";
 import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { startAutolink, type Autolink, type AutolinkAdapter, type UserChannel } from "./autolink";
 import { startClientDirectory, type ClientDirectory } from "../../clients/directory";
 import { messengersProject } from "../bot";

@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { LEAD_PREVIEW_CHARS, type NewLead, type Repos } from "@hub/db";
 import { createNotionReader, loadToken, NoTokenError, parseLeadDetail, secretsDir, type LeadDetail, type NotionReader } from "@hub/notion";
 import { convertLead, createLeadWriter, notionFailure, writeLeadStatus, type LeadWriter, type LeadWriteStatus } from "@hub/notion/leads-write";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import type { ProjectConfig } from "@hub/projects/model";
 import { errFields, ops } from "@hub/log/ops";
 

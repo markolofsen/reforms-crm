@@ -12,8 +12,9 @@ Scope: how `app/apps/admin` (Next.js 16 App Router on Turbopack, React 19, coss 
 subpaths. `@hub/contract` owns wire schemas only; `@hub/projects` owns project
 model and policy adapters; `@hub/messengers` owns ingest/read/draft behavior;
 `@hub/send` owns Mail send authorization; `@hub/ui` owns browser-safe UI only.
-Root barrels are compatibility facades during migration, not a permission
-boundary. Provider adapters, fakes, filesystem/CLI helpers, local bridges and
+No compatibility barrel (P120 verdict 2): a split moves its callers and
+deletes the old path in the same change; `@hub/projects` has no root export and
+`@hub/contract` no `responses` file. Provider adapters, fakes, filesystem/CLI helpers, local bridges and
 human send capabilities stay behind explicit subpaths.
 3c. MUST: dependency direction is one-way: contract/config primitives → domain
 packages → protocol adapters → server composition → API facades → features.

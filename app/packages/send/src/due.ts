@@ -1,5 +1,5 @@
 import { RepoError } from "@hub/db";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { assess, type SendDeps } from "./assess";
 import { deliver } from "./deliver";
 import { DAY_MS } from "./recipients";

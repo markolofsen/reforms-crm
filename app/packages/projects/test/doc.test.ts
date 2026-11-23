@@ -1,7 +1,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { FIELDS, KIND_IDS } from "../src/index";
+import { FIELDS } from "../src/parse";
+import { KIND_IDS } from "../src/kinds";
 
 // Doc 16 section 3 lists every field; the code (fields.ts) is the source, so the doc may not fall behind it.
 const doc = resolve(import.meta.dirname, "../../../../@docs/core/16-projects-and-knowledge.md");

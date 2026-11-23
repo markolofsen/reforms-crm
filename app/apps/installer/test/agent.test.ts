@@ -187,7 +187,7 @@ describe("the bound project's identity in the session rules (P52)", () => {
   });
 
   it("mail.domains is a project.md field: parsed lowercase, a non-domain refused", async () => {
-    const { readProject } = await import("@hub/projects");
+    const { readProject } = await import("@hub/projects/parse");
     const md = (v: string) => ["# x", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| mail.accounts | a@x.example | 2026-11-14 | agent |", "| mail.addresses | a@x.example | 2026-11-14 | owner |", `| mail.domains | ${v} | 2026-11-18 | owner |`, ""].join("\n");
     expect(readProject(md("Carapis.com, cmdop.ai"), "x").config.mail.domains).toEqual(["carapis.com", "cmdop.ai"]);
     expect(() => readProject(md("not a domain"), "x")).toThrow(/is not a domain/);

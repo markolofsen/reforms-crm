@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { phrase } from "@hub/contract/help";
-import type { DoctorDto } from "@hub/contract/responses";
+import type { DoctorDto } from "@hub/contract/sending";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { CopyFix } from "@/components/copy-fix";
 import { useDoctor } from "@/lib/data/project";

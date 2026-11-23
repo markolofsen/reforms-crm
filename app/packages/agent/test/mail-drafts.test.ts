@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
-import { parseProjectMd } from "@hub/projects";
+import { parseProjectMd } from "@hub/projects/parse";
 import { DENIED_TOOLS } from "../src/deny";
 import { adviceOf } from "../src/mcp/refusals";
 import { versionHashOf as versionHash } from "@hub/db";

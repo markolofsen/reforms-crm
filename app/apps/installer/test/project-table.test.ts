@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { storeToken } from "@hub/connections";
 import { projectRows, projectTable } from "../src/project-table";
 import { verifyProjectDatabases } from "../src/notion-check";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { fake } from "./helpers";
 
 const ID = "00000000-0000-4000-8000-000000000001";

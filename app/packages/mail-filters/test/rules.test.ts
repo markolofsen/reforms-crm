@@ -144,14 +144,14 @@ describe("mail classes come from the kind", () => {
   const row = (cat: string, action = "label") => `## Rules\n\n| Match | Category | Label | Action | Why | Date | By |\n|---|---|---|---|---|---|---|\n| from:pay@example.com | ${cat} | hub/${cat} | ${action} | invoice | 2026-11-15 | owner |\n`;
 
   it("accepts a class of the kind and refuses it under the generic set", async () => {
-    const { KINDS } = await import("@hub/projects");
+    const { KINDS } = await import("@hub/projects/kinds");
     const saas = KINDS["software-support"]!.mailClasses;
     expect(parseRulesFile(row("billing"), saas).issues).toEqual([]);
     expect(parseRulesFile(row("billing")).issues.map((i) => i.code)).toEqual(["bad_category"]);
   });
 
   it("takes skippable, never-spam and color from the class data", async () => {
-    const { KINDS } = await import("@hub/projects");
+    const { KINDS } = await import("@hub/projects/kinds");
     const { colorTable } = await import("../src/index");
     const saas = KINDS["software-support"]!.mailClasses;
     const f = parseRulesFile(row("billing", "label+skip+read"), saas).file;

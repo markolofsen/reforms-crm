@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 import { phrase } from "@hub/contract/help";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { connectorDeniedTools, instanceConnectors, KINDS, readConnectorAccounts, resolveConnectors, type AttachedConnector } from "./connectors";
 
 // P62 K2: the connector rows of Agent tools (Settings ▸ Agent, `hub doctor --only Agent`). Read only. A row that needs the owner

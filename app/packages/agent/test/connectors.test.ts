@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { hubPaths, type HubPaths } from "@hub/config/paths";
-import { readProject } from "@hub/projects";
+import { readProject } from "@hub/projects/parse";
 import { connectorRows } from "../src/connector-checks";
 import { connectorViolations, primaryCalendarOf, recordConnectorRead, type ConnectorScope } from "../src/connector-guard";
 import { connectorDeniedTools, connectorKindOf, KINDS, readConnectorAccounts, resolveConnectors, sessionCapabilities, writeConnectorAccount, type AttachedConnector } from "../src/connectors";

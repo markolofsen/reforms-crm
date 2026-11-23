@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { BATCH_SEND_ACTOR } from "@hub/config";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { setSendPolicy } from "@hub/projects";
+import { setSendPolicy } from "@hub/projects/send-policy";
 import type { MailDraft } from "@hub/mail-app/drafts";
 import { FakeMailer, mailHash, planBatch, runBatch, type BatchOutcome, type SendDeps } from "@hub/send";
 import { testApp } from "./test-support/runtime";

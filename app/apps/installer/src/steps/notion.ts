@@ -1,4 +1,4 @@
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { readJson } from "../context";
 import { verifyProjectDatabases } from "../notion-check";
 import path from "node:path";

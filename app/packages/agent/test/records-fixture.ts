@@ -1,7 +1,8 @@
 import { cpSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { CONTEXT_BLOCK_FROM, setSendPolicy } from "@hub/projects";
+import { CONTEXT_BLOCK_FROM } from "@hub/projects/context";
+import { setSendPolicy } from "@hub/projects/send-policy";
 import type { DraftRecordCall, DraftRecordOutcome } from "../src/records/draft";
 import { draftRecord } from "../src/records/schema";
 

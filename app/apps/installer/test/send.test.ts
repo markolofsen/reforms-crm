@@ -5,7 +5,8 @@ import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { MailDraft } from "@hub/mail-app/drafts";
 import { assess, FakeMailer, mailHash, runDue, sendDraft, type SendDeps } from "@hub/send";
-import { defaultPolicy, withFieldValues, writeSendPolicy, type PolicyField } from "@hub/projects";
+import { defaultPolicy, withFieldValues, writeSendPolicy } from "@hub/projects/send-policy";
+import { type PolicyField } from "@hub/projects/fields";
 import { runSendCommand } from "../src/send/command";
 
 // Every test here uses FakeMailer: nothing reaches Mail and nothing is ever sent.

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { hrefOf } from "@hub/contract/local";
-import { projectLinksDto, type ProjectLinksDto } from "@hub/contract/responses";
-import { projectStore } from "@hub/projects";
+import { projectLinksDto, type ProjectLinksDto } from "@hub/contract/project";
+import { projectStore } from "@hub/projects/store";
 import { createNotionReader, loadToken, secretsDir, type NotionReader } from "@hub/notion";
 import type { Repos } from "@hub/db";
 

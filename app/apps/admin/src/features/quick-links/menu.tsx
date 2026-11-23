@@ -2,7 +2,7 @@
 
 import { ChevronRightIcon, ExternalLinkIcon, Link2Icon } from "lucide-react";
 import type { OpenLink } from "@hub/contract/local";
-import type { ProjectLinksDto } from "@hub/contract/responses";
+import type { ProjectLinksDto } from "@hub/contract/project";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuLinkItem, MenuPopup, MenuSeparator, MenuSub, MenuSubPopup, MenuSubTrigger, MenuTrigger } from "@hub/ui/menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@hub/ui/sidebar";

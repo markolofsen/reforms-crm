@@ -7,7 +7,8 @@ import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
 import { knowledgeListDto, knowledgeTextDto, type KnowledgeView } from "@hub/contract/knowledge";
 import { appsDto, localOpenedDto, type ServerActionId } from "@hub/contract/local";
 import type { AgentSettingsBody, SafetyRuleBody } from "@hub/contract/requests";
-import { agentSettingsDto, projectLinksDto, projectOverviewDto, projectsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
+import { agentSettingsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/settings";
+import { projectLinksDto, projectOverviewDto, projectsDto } from "@hub/contract/project";
 import { readGenerated } from "./client";
 
 /** The instance's brand and its core update notice (P68), the projects, the pulse, the agent's activity (and its live feed, P59), the safety rules and the agent settings (P55), and the one local Open (P61). */

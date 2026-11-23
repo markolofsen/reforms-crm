@@ -7,7 +7,7 @@ import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import type { LogEvent } from "@hub/log/event";
 import { FakeMtClient } from "@hub/messengers";
 import { writeSession } from "@hub/messengers/human";
-import { setSendPolicy } from "@hub/projects";
+import { setSendPolicy } from "@hub/projects/send-policy";
 import { FakeMailer } from "@hub/send";
 import { testApp } from "./test-support/runtime";
 import { startTelegramUser, type TelegramUserHandle } from "./messengers/accounts/telegram-user";

@@ -1,5 +1,5 @@
 import { EllipsisIcon } from "lucide-react";
-import type { ProjectLinksDto } from "@hub/contract/responses";
+import type { ProjectLinksDto } from "@hub/contract/project";
 import { Menu, MenuLinkItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { cn } from "@hub/ui/cn";
 import { AppLink } from "@/components/app-link";

@@ -1,6 +1,7 @@
 import { hubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
-import { projectStore, normalizeAddress } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
+import { normalizeAddress } from "@hub/projects/parse";
 import type { MailerKind } from "@hub/config/modes";
 import type { DraftQuery, MailDraft } from "@hub/mail-app/drafts";
 import { osaFor } from "@hub/mail-app/osa";

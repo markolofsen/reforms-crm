@@ -2,7 +2,14 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { applySetting, checkValue, doctorProject, FIELDS, KINDS, projectStore, migrateSendPolicy, parseProjectMd, policyFile, projectJson, readSendPolicy, setSendPolicy, writeSendPolicy, defaultPolicy, POLICY_FIELDS } from "../src/index";
+import { applySetting } from "../src/write";
+import { checkValue, FIELDS, parseProjectMd } from "../src/parse";
+import { doctorProject } from "../src/doctor";
+import { KINDS } from "../src/kinds";
+import { projectStore } from "../src/store";
+import { migrateSendPolicy, policyFile, readSendPolicy, setSendPolicy, writeSendPolicy, defaultPolicy } from "../src/send-policy";
+import { projectJson } from "../src/generated";
+import { POLICY_FIELDS } from "../src/fields";
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const ID2 = ID.replace(/1$/, "2");

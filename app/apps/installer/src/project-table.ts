@@ -1,4 +1,5 @@
-import { doctorProject, projectStore, type Check, type LoadedProject } from "@hub/projects";
+import { doctorProject, type Check } from "@hub/projects/doctor";
+import { projectStore, type LoadedProject } from "@hub/projects/store";
 
 export interface ProjectRow { slug: string; kind: string; status: string; failed: number; passed: number; skipped: number; firstFailure: string }
 

@@ -1,5 +1,5 @@
 import { createRepos, defaultDbPath, openDb } from "@hub/db";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { bareId } from "@hub/mail-app/records";
 import { closedDrafts, mailAppDraftsCleaner, planSweep, type DraftsCleaner, type SweepRow } from "@hub/send";
 

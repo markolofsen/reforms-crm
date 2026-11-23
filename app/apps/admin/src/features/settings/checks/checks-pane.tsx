@@ -1,5 +1,5 @@
 import { SAFETY_LABELS } from "@hub/config";
-import type { SafetyRuleDto } from "@hub/contract/responses";
+import type { SafetyRuleDto } from "@hub/contract/settings";
 import { CommitField, SettingSwitch } from "@hub/ui/product/field";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { Skeleton } from "@hub/ui/skeleton";

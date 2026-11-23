@@ -1,4 +1,4 @@
-import { okDto } from "@hub/contract/responses";
+import { okDto } from "@hub/contract/review";
 import { createSessionBody, DROP_FIELD, ensureSessionBody, ensureSessionDto, terminalDropDto, terminalSessionDto, terminalStateDto, terminalTicketBody, terminalTicketDto } from "@hub/contract/terminal";
 import type { Operation } from "../http/openapi";
 

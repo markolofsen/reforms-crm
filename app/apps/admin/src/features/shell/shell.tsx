@@ -13,7 +13,7 @@ import type { NavItem } from "@/hooks/use-section-nav";
 import { useTerminalDocked } from "@/features/terminal/terminal";
 import { save, useStored } from "@/lib/storage";
 import type { Resolved } from "@/routes/resolve";
-import type { ProjectLinksDto } from "@hub/contract/responses";
+import type { ProjectLinksDto } from "@hub/contract/project";
 import { AppSidebar, type Brand } from "./app-sidebar";
 import { PhoneBar } from "./phone-bar";
 import { TabBar } from "./tab-bar";

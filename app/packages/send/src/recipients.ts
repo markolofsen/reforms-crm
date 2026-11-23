@@ -1,4 +1,4 @@
-import { normalizeAddress } from "@hub/projects";
+import { normalizeAddress } from "@hub/projects/parse";
 
 // The address helpers of the send door (`assess`, `findMail`, `deliver`, `runDue`): internal, not exported by `@hub/send`.
 

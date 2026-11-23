@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditToolCalls } from "@hub/projects";
+import { auditToolCalls } from "@hub/projects/audit";
 import { chatDraftViolations, HUB_MESSENGER_HISTORY } from "../src/evidence/chat-ledger";
 import { entryFor, HUB_MESSENGER_DRAFT_WRITE, isDraftWrite, preDraftCheck, type LedgerEntry } from "../src/evidence/ledger";
 

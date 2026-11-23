@@ -2,7 +2,10 @@ import { clientKeyDto } from "@hub/contract/client-key";
 import { conversationDto, conversationMailDto, conversationsDto, conversationsListQuery, conversationTextDto, conversationTextQuery } from "@hub/contract/conversations";
 import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, inboundTextDto, inboundUndismissBody, leadActionDto, leadDetailDto } from "@hub/contract/inbound";
 import { ackBody, agentSettingsBody, batchQuery, checkedBody, clientKeyParam, draftEditBody, draftsQuery, historyQuery, idParam, inboxQuery, leadParam, manualReplyBody, marksBody, notByEmailQuery, projectQuery, safetyKindParam, safetyRuleBody, sendParam, slugParam, statusBody, toneBody } from "@hub/contract/requests";
-import { agentSettingsDto, batchDto, batchesDto, draftChangedDto, draftMailDto, draftsDto, historyDto, inboxDto, mailTidyDto, notByEmailDto, okDto, safetyRulesDto, safetyRuleSavedDto, timelineDto, warningsAckedDto } from "@hub/contract/responses";
+import { agentSettingsDto, safetyRulesDto, safetyRuleSavedDto } from "@hub/contract/settings";
+import { batchDto, batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto, warningsAckedDto } from "@hub/contract/review";
+import { draftMailDto, mailTidyDto } from "@hub/contract/mail";
+import { inboxDto, notByEmailDto } from "@hub/contract/inbox";
 import type { Operation } from "../http/openapi";
 
 const changed = { name: "DraftChanged", schema: draftChangedDto };

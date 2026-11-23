@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
-import { appendAnswer, applyAnswer, applyLinkRows, applySetting, hasErrors, parseProjectMd, ProjectError, writeSetting } from "../src/index";
+import { appendAnswer, applyAnswer, applyLinkRows, applySetting, writeSetting } from "../src/write";
+import { hasErrors, ProjectError } from "../src/md/issues";
+import { parseProjectMd } from "../src/parse";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const acme = readFileSync(join(here, "fixtures", "projects", "acme-travel", "project.md"), "utf8");

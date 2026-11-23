@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { draftChangedDto as schema } from "@hub/contract/responses";
+import { draftChangedDto as schema } from "@hub/contract/review";
 import { ApiFailure, read, readGenerated } from "../src/lib/api/client";
 
 const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });

@@ -1,6 +1,9 @@
 import { slimMessageContent } from "./slim-headers";
 import { codexSessionPaths, instanceFeatures, pathsAt, type HubPaths } from "@hub/config/paths";
-import { auditToolCalls, HUB_MESSENGER_SEND, defaultProjectsRoot, type AuditLayout, kindOf, projectStore, type SkillScope, type ToolCall } from "@hub/projects";
+import { auditToolCalls, HUB_MESSENGER_SEND, type AuditLayout, type SkillScope, type ToolCall } from "@hub/projects/audit";
+import { defaultProjectsRoot } from "@hub/projects/registry";
+import { kindOf } from "@hub/projects/kinds";
+import { projectStore } from "@hub/projects/store";
 import { isDraftWrite, preDraftCheck, type LedgerEntry } from "@hub/agent/evidence/ledger";
 import { chatDraftViolations, HUB_MESSENGER_DRAFT_WRITE } from "@hub/agent/evidence/chat-ledger";
 import { instanceServer } from "./mcp-servers";

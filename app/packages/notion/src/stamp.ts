@@ -8,7 +8,7 @@ import { join } from "node:path";
 import notionhq from "@notionhq/client";
 import { readPerson } from "@hub/config/person";
 import { ops } from "@hub/log/ops";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { findClientByEmail, findClientPage, textOf } from "./client-lookup";
 import { createNotionReader } from "./notion";
 import type { NotionReader } from "./types";

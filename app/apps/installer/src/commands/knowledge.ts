@@ -1,6 +1,6 @@
 // P126 C1: `hub knowledge import|index|search|check <project> ...` (was the package CLI `pnpm --filter @hub/knowledge knowledge`).
 import { createRepos, openDb } from "@hub/db";
-import { defaultProjectsRoot } from "@hub/projects";
+import { defaultProjectsRoot } from "@hub/projects/registry";
 import type { Command } from "commander";
 import { checkProject, formatReport, importFromDump, importFromFiles, ImportError, indexProject, knowledgeSearch } from "@hub/knowledge";
 

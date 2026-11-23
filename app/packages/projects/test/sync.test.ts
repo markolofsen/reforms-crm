@@ -4,17 +4,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  checkDraftRecipients,
-  doctorFailed,
-  doctorProject,
-  projectStore,
-  parseProjectMd,
-  registryFromDb,
-  registryFromLoaded,
-  resolveProject,
-  syncProjects,
-} from "../src/index";
+import { checkDraftRecipients } from "../src/guard";
+import { doctorFailed, doctorProject } from "../src/doctor";
+import { projectStore } from "../src/store";
+import { parseProjectMd } from "../src/parse";
+import { registryFromDb, registryFromLoaded, syncProjects } from "../src/registry";
+import { resolveProject } from "../src/route";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureRoot = join(here, "fixtures", "projects");

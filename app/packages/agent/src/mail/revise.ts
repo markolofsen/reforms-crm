@@ -1,5 +1,5 @@
 import { adoptable, type Adoption, type MailVersionRow, type MailWriteRow } from "@hub/db";
-import { replyFrom, type ReplyFrom } from "@hub/projects";
+import { replyFrom, type ReplyFrom } from "@hub/projects/brands";
 import { writtenBody } from "@hub/mail-app/writer/text";
 import { DraftWriteError, type DraftWriter, type InboundMessage, type NewDraftInput, type ReplyDraftInput, type ReplyDraftResult, type ThreadMailDraft, type VersionRef } from "@hub/mail-app/writer/types";
 import type { Revision, Signed, WriteLog } from "./types";

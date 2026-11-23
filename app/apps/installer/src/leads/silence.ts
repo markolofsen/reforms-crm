@@ -4,7 +4,7 @@ import { readInstanceConfig } from "@hub/config/instance";
 //   mailbox:      the newest notification mail in a Mail account, by sender and subject, through mail-mcp (the Apple Mail read path).
 // Only dates are read and printed: never a name, an address or a message.
 import { fileState, readValue } from "@hub/connections";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import type { Ctx } from "../context";
 import { mcpCall } from "../mcp-probe";
 import type { CheckResult } from "../types";

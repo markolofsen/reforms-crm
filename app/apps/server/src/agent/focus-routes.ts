@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
 import { focusInput } from "@hub/contract/focus";
-import { okDto } from "@hub/contract/responses";
+import { okDto } from "@hub/contract/review";
 import { gateRefusal } from "../http/admin-gate";
 import type { AgentContext } from "./context";
 

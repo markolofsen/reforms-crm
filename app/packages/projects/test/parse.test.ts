@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { checkValue, extractDatabases, hasErrors, normalizeAddress, parseProjectMd, readProject, ProjectError } from "../src/index";
+import { checkValue, extractDatabases, normalizeAddress, parseProjectMd, readProject } from "../src/parse";
+import { hasErrors, ProjectError } from "../src/md/issues";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaV1Fixture = (name: string) => readFileSync(join(here, "fixtures", name, "project.md"), "utf8");

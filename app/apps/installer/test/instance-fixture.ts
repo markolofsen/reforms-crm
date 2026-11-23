@@ -2,7 +2,8 @@ import { cpSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { CORE_ROOT, hubPaths, type HubPaths } from "@hub/config/paths";
-import { CONTEXT_BLOCK_FROM, setSendPolicy } from "@hub/projects";
+import { CONTEXT_BLOCK_FROM } from "@hub/projects/context";
+import { setSendPolicy } from "@hub/projects/send-policy";
 
 /** The fixture projects (invented clients) shipped with the projects package tests. */
 export const FIXTURE_PROJECTS = path.join(CORE_ROOT, "app", "packages", "projects", "test", "fixtures", "projects");

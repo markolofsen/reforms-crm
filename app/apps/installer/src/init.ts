@@ -6,7 +6,7 @@ import type { RunResult } from "./context";
 import { VERSION_TAG } from "@hub/config/core-version";
 import { pinMark } from "./core-update";
 import { syncInstanceSkills } from "./instance-skills";
-import { KINDS } from "@hub/projects";
+import { KINDS } from "@hub/projects/kinds";
 import { scaffoldProject } from "./new-project";
 import { MIN_FREE_GB } from "./steps/tools";
 

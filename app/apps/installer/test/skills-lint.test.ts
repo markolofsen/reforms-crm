@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { MAIL_MCP_READ_TOOLS, NOTION_ALLOWED } from "@hub/agent/deny";
 import { NOTION_PREFIX } from "@hub/projects/notion-denied";
 import { HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "@hub/agent/mcp";
-import { KINDS } from "@hub/projects";
+import { KINDS } from "@hub/projects/kinds";
 import { defaultRoot } from "../src/context";
 
 // P129 verdict 9 (A6): the skill file is the one source, and this lint keeps it true. No generated frontmatter, no

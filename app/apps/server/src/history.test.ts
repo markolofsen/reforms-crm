@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { historyDto } from "@hub/contract/responses";
+import { historyDto } from "@hub/contract/review";
 import { testApp } from "./test-support/runtime";
 
 // The client's history holds the messenger rows the hub stored; it reads no mail (decision 0026).

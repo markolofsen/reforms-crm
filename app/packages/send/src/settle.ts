@@ -1,5 +1,5 @@
 import { adoptable, isReplyShell, shellHashOf, versionHashOf, type DraftRow, type Repos } from "@hub/db";
-import { normalizeAddress } from "@hub/projects";
+import { normalizeAddress } from "@hub/projects/parse";
 import type { MailDraft } from "@hub/mail-app/drafts";
 import { bareId } from "@hub/mail-app/records";
 import type { Mailer } from "./mailer";

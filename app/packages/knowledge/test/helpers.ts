@@ -1,5 +1,6 @@
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { projectStore, syncProjects } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
+import { syncProjects } from "@hub/projects/registry";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";

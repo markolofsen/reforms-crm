@@ -1,7 +1,7 @@
 import { cpSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { hubPaths } from "@hub/config/paths";
-import { KINDS } from "@hub/projects";
+import { KINDS } from "@hub/projects/kinds";
 
 /**
  * P89: the first project of a new instance, from a kind. The files the `project-setup` skill's step 5 names:

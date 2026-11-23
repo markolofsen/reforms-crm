@@ -1,7 +1,9 @@
 import { unresolvedMarkers } from "@hub/config";
 import { withoutLeadingBlankLines, type DraftRow, type Repos, type SendRow } from "@hub/db";
 import { isOwnAddress } from "@hub/projects/addresses";
-import { checkDraftRecipients, projectStore, normalizeAddress } from "@hub/projects";
+import { checkDraftRecipients } from "@hub/projects/guard";
+import { projectStore } from "@hub/projects/store";
+import { normalizeAddress } from "@hub/projects/parse";
 import type { ProjectConfig } from "@hub/projects/model";
 import type { MailDraft } from "@hub/mail-app/drafts";
 import type { Mailer } from "./mailer";

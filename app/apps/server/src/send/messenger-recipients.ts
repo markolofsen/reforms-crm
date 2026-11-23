@@ -1,4 +1,5 @@
-import { checkDraftRecipients, projectStore } from "@hub/projects";
+import { checkDraftRecipients } from "@hub/projects/guard";
+import { projectStore } from "@hub/projects/store";
 
 // P126 D1: the one project fact the messenger door (`@hub/messengers/door`) needs, read by composition so the messengers
 // package reads no project file: may this project send to `entry` (`telegram:<id>`, `whatsapp:+<number>`)? Read live on each

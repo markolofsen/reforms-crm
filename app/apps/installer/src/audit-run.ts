@@ -1,6 +1,8 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { auditToolCalls, defaultProjectsRoot, projectStore, toolCallsFromLog, type ToolCall } from "@hub/projects";
+import { auditToolCalls, toolCallsFromLog, type ToolCall } from "@hub/projects/audit";
+import { defaultProjectsRoot } from "@hub/projects/registry";
+import { projectStore } from "@hub/projects/store";
 import { auditEvidence, replayCalls, type ClaimedRecord, type EvidenceRow, type LedgerEntry } from "@hub/agent/evidence/ledger";
 import { hubPaths, instanceFeatures } from "@hub/config/paths";
 import { auditLayout, skillScope } from "./safety";

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { agentChecks, defaultProbe, fakeAgentRows, NOTION_EVIDENCE_DAYS, notionEvidenceOf, type AgentProbe } from "@hub/agent/checks";
 import { logStoreOf, readEvents } from "@hub/log/store";
 import { resolveConnectors } from "@hub/agent/connectors";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { cliDetector, detectClis, type CliDetector } from "@hub/agent/detect";
 import { AGENT_CLIS, instanceFeatures, type HubPaths } from "@hub/config/paths";
 import { agentToolsDto, type AgentCapability, type AgentToolsDto } from "@hub/contract/agent-tools";

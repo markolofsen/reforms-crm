@@ -1,6 +1,7 @@
 // Rule model for per-project Gmail filters. Pure types and constants: no file or network access.
 
-import { KINDS, type Kind } from "@hub/projects";
+import { KINDS } from "@hub/projects/kinds";
+import { type Kind } from "@hub/projects/model";
 
 /** One mail class of a project's kind (`@hub/projects` kinds.ts is the only place that lists them). */
 export type MailClass = Kind["mailClasses"][number];

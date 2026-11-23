@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CORE_ROOT } from "@hub/config/paths";
 import { createRepos, openDb } from "@hub/db";
-import { defaultProjectsRoot } from "@hub/projects";
+import { defaultProjectsRoot } from "@hub/projects/registry";
 import { runSync as syncCommand } from "@hub/projects/commands";
 import { checkProject } from "../src/check";
 import { indexProject } from "../src/indexer";

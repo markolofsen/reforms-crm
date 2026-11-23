@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { okDto } from "@hub/contract/responses";
+import { okDto } from "@hub/contract/review";
 import { createSessionBody, DROP_FIELD, DROP_LIMITS, ensureSessionBody, ensureSessionDto, terminalDropDto, terminalSessionDto, terminalStateDto, terminalTicketBody, terminalTicketDto } from "@hub/contract/terminal";
 import { gateRefusal } from "../http/admin-gate";
 import type { TerminalContext } from "./context";

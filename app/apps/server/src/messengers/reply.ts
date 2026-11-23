@@ -3,7 +3,7 @@ import { isHiddenLabel, MESSENGER_TEXT_MAX, type ChatRules } from "@hub/config/c
 import type { MessengerPrepareBody } from "@hub/contract/messenger-panel";
 import { rulesOf, type MessengerChatRow, type Repos } from "@hub/db";
 import { LlmError, type Llm } from "@hub/llm";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { draftVerdict } from "@hub/agent/messenger-rules";
 import { z } from "zod";
 

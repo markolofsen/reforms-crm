@@ -5,8 +5,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ghCreateLine, githubOwner, initInstance, INSTANCE_TEMPLATE, InitError, instanceDir, kindFromAnswer, kindQuestion, pinFile, renderTemplate, templateFiles } from "../src/init";
 import { situationOf } from "../src/setup/situation";
-import { KIND_IDS } from "@hub/projects";
-import { projectStore } from "@hub/projects";
+import { KIND_IDS } from "@hub/projects/kinds";
+import { projectStore } from "@hub/projects/store";
 import { readCoreVersion } from "@hub/config/core-version";
 import { CORE_ROOT } from "@hub/config/paths";
 

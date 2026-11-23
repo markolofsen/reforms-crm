@@ -5,7 +5,7 @@ import { draftChangedDto, draftsDto, historyDto, timelineDto } from "@hub/contra
 import { toDraft } from "../http/dto";
 import { notFound, v } from "../http/http";
 import { findMail, mailHash, trashThread } from "@hub/send";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { errFields, ops } from "@hub/log/ops";
 import type { MailContext } from "./context";
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { inboxDto, notByEmailDto } from "@hub/contract/responses";
+import { inboxDto, notByEmailDto } from "@hub/contract/inbox";
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { testApp } from "./test-support/runtime";
 

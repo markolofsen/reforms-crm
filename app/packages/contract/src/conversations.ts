@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { reviewDraftDto } from "./responses";
+import { reviewDraftDto } from "./review";
 import { contactLinksDto } from "./local";
 import { notionIdentityDto } from "./notion";
 

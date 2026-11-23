@@ -4,7 +4,9 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { projectStore, registryFromDb, renameProject, rewriteProjectMd, rewriteSlugTokens, syncProjects } from "../src/index";
+import { projectStore } from "../src/store";
+import { registryFromDb, syncProjects } from "../src/registry";
+import { renameProject, rewriteProjectMd, rewriteSlugTokens } from "../src/rename";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const Database = function (file: string, _o?: unknown) { return openDb(file).db.$client; } as unknown as new (file: string, o?: unknown) => ReturnType<typeof openDb>["db"]["$client"];
@@ -131,7 +133,7 @@ describe("project rename", () => {
 
 describe("PROJECT.json", () => {
   it("is written per project on sync: kind, modules, skills, mail classes, resolved config, missing required fields", async () => {
-    const { writeProjectJson, projectJson } = await import("../src/index");
+    const { writeProjectJson, projectJson } = await import("../src/generated");
     const all = projectStore({ projects: projects }).list();
     const files = writeProjectJson(all);
     expect(files.length).toBe(all.length);

@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { Repos } from "@hub/db";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { canonicalBrands, entryBrandProblem } from "@hub/projects/brands";
 import type { ProjectConfig } from "@hub/projects/model";
 import { EntryError, parseEntry, sha256 } from "./entry";

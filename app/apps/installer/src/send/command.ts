@@ -1,4 +1,4 @@
-import { readAllowList } from "@hub/projects";
+import { readAllowList } from "@hub/projects/guard";
 import { createRepos, defaultDbPath, openDb, type SendRow } from "@hub/db";
 import { mailAppMailer, runDue, sendDraft, type Mailer, type SentNotice } from "@hub/send";
 

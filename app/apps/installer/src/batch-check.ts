@@ -1,4 +1,4 @@
-import { judgeSimilarity, measureAgainstSet, pairwise, type Level } from "@hub/projects";
+import { judgeSimilarity, measureAgainstSet, pairwise, type Level } from "@hub/projects/similarity";
 import { readLines, recordsFile } from "@hub/agent/evidence/store";
 import type { RecordLine } from "@hub/agent/records/checks";
 

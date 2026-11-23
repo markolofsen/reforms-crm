@@ -1,7 +1,7 @@
 "use client";
 
 import { PanelLeftIcon } from "lucide-react";
-import type { ProjectLinksDto } from "@hub/contract/responses";
+import type { ProjectLinksDto } from "@hub/contract/project";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { BrandHeader } from "@hub/ui/product/brand-header";
 import { ThemeSegmented, ThemeToggle } from "@hub/ui/product/theme";

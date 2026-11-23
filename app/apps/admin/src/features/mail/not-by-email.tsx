@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { INBOX_KIND_HINTS, INBOX_KIND_LABELS, INBOX_KINDS, type InboxKind } from "@hub/config";
-import type { InboxRowDto, NotByEmailDto } from "@hub/contract/responses";
+import type { InboxRowDto, NotByEmailDto } from "@hub/contract/inbox";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ConversationList, ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";

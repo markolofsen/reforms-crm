@@ -1,7 +1,7 @@
 import { activityDto } from "@hub/contract/activity";
 import { knowledgeListDto, knowledgeListQuery, knowledgeTextDto, knowledgeTextQuery } from "@hub/contract/knowledge";
 import { activityQuery, projectQuery, slugParam } from "@hub/contract/requests";
-import { projectLinksDto, projectOverviewDto, projectsDto } from "@hub/contract/responses";
+import { projectLinksDto, projectOverviewDto, projectsDto } from "@hub/contract/project";
 import { doctorDto } from "@hub/contract/sending";
 import { enrollmentChangedDto, enrollmentParam, enrollmentsDto, enrollmentsQuery, sequencesDto, slugOnlyParam, stopBody } from "@hub/contract/sequences";
 import type { Operation } from "../http/openapi";

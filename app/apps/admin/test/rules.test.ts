@@ -224,9 +224,12 @@ describe("shared UI ownership", () => {
 });
 
 describe("bounded contract ownership", () => {
-  it("Mail and review features do not reach the compatibility response barrel", () => {
-    const bounded = [...inDir("features/mail/draft"), ...inDir("features/mail/list"), path.join(admin, "src/features/mail/model.ts"), path.join(admin, "src/lib/api/review.ts"), path.join(admin, "src/lib/api/send.ts")];
-    expect(offenders(bounded, /from ["']@hub\/contract\/responses["']/)).toEqual([]);
+  // P120 W3: `responses.ts` was split by subject and deleted; no compatibility barrel takes its place.
+  it("the contract has no responses barrel and no file re-exports another wholesale", () => {
+    const contract = JSON.parse(read(path.resolve(repo, "app/packages/contract/package.json"))) as { exports?: Record<string, string> };
+    expect(contract.exports?.["./responses"]).toBeUndefined();
+    const files = [...walk(path.resolve(repo, "app/packages/contract/src"))].filter((p) => p.endsWith(".ts"));
+    expect(offenders(files, /^export \* from/m)).toEqual([]);
   });
 
   it("Mail and review contract subpaths remain public", () => {

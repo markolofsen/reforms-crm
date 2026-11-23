@@ -1,4 +1,4 @@
-import { okDto } from "@hub/contract/responses";
+import { okDto } from "@hub/contract/review";
 import { DROP_FIELD, ensureSessionDto, terminalDropDto, terminalSessionDto, terminalStateDto, terminalTicketDto, type CreateSessionBody, type EnsureSessionBody, type TerminalDropDto, type TerminalStateDto } from "@hub/contract/terminal";
 import type { FocusPost } from "@hub/contract/focus";
 import { pointerDto, type PointerDto } from "@hub/contract/pointer";

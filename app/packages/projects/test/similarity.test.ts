@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fingerprint, judgeSimilarity, measureAgainstSet, normalizeBody, residue, sim, SKETCH_SIZE, templateEcho } from "../src/index";
+import { fingerprint, judgeSimilarity, measureAgainstSet, normalizeBody, residue, sim, SKETCH_SIZE, templateEcho } from "../src/similarity";
 
 const TEMPLATE = (name: string) => `Hi ${name},
 

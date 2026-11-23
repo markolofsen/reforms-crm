@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { ProjectOverviewDto } from "@hub/contract/responses";
+import type { ProjectOverviewDto } from "@hub/contract/project";
 import { phrase } from "@hub/contract/help";
 import { plural } from "@/lib/format";
 

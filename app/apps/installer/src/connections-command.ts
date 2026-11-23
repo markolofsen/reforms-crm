@@ -1,5 +1,5 @@
 import { inspect, isTelegramToken, notionShapeProblem, NOTION_FILE, storeToken, TELEGRAM_FILE, testConnection, type ConnectionRow, type ProbeDeps, type ProjectUse, type Verdict } from "@hub/connections";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import type { Ctx } from "./context";
 
 /** What each project says about connections, read from the instance's project.md files. */

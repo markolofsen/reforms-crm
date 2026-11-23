@@ -8,7 +8,8 @@ import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "
 import { SEND_LIKE_TOOL } from "../src/deny";
 import { focusLine, livePointer, readFocus, RESOLVERS, thisOf } from "../src/focus";
 import { createHubMcpServer, HUB_MCP_TOOLS } from "../src/mcp/server";
-import { kindOf, projectStore } from "@hub/projects";
+import { kindOf } from "@hub/projects/kinds";
+import { projectStore } from "@hub/projects/store";
 import type { ProjectConfig } from "@hub/projects/model";
 
 // The shared focus reader, its resolvers per ref kind, the pointer and the hub MCP server (P51 F1, F2; P72), on a throwaway

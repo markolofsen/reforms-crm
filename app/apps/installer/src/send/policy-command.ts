@@ -1,4 +1,6 @@
-import { isPolicyField, projectStore, migrateSendPolicy, POLICY_FIELDS, setSendPolicy, type LoadedProject, type PolicyField, type SendPolicy } from "@hub/projects";
+import { isPolicyField, POLICY_FIELDS, type PolicyField } from "@hub/projects/fields";
+import { projectStore, type LoadedProject } from "@hub/projects/store";
+import { migrateSendPolicy, setSendPolicy, type SendPolicy } from "@hub/projects/send-policy";
 
 // `hub send policy`: the one command that writes a project's send policy (P49 S11). A person runs it in their own
 // shell; an agent's session cannot (deny rules on `hub send`, and the sandbox cannot write state/projects).

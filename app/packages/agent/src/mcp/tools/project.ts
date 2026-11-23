@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { kindOf } from "@hub/projects";
+import { kindOf } from "@hub/projects/kinds";
 import { ProjectLink } from "@hub/projects/model";
 import { notionScopeOf, projectNotion } from "../../notion-scope";
 import { defineTool } from "../define";

@@ -3,7 +3,7 @@ import { instancePorts, type HubPaths } from "@hub/config/paths";
 import type { RuntimeModes } from "@hub/config/modes";
 import { opsSignature, opsStoreOf } from "@hub/log/ops";
 import { projectStore } from "@hub/projects/store";
-import { readAllowList } from "@hub/projects";
+import { readAllowList } from "@hub/projects/guard";
 import type { Runtime } from "./runtime";
 import { createLive, folderSignature, logSignatures } from "../live/live";
 import { projectsRoot } from "../projects/overview";

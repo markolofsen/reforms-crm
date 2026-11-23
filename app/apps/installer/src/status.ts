@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { draftCountsReadOnly } from "@hub/db";
 import { CORE_ROOT, findInstanceHome, hubPaths, INSTANCE_MARKER, instancePorts } from "@hub/config/paths";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { portBusy } from "./net";
 import { readPinFile } from "@hub/config/core-version";
 

@@ -6,7 +6,7 @@ import { FakeDraftWriter } from "@hub/mail-app/writer/fake";
 import { createRepos, openDb, versionHashOf, type DbHandle, type Repos } from "@hub/db";
 import type { MailDraft } from "@hub/mail-app/drafts";
 import { FakeMailer, mailHash } from "@hub/send";
-import { setSendPolicy } from "@hub/projects";
+import { setSendPolicy } from "@hub/projects/send-policy";
 import { testApp } from "./test-support/runtime";
 import { captureOps } from "@hub/log/ops";
 

@@ -1,9 +1,10 @@
-import { doctorProject, projectStore } from "@hub/projects";
+import { doctorProject } from "@hub/projects/doctor";
+import { projectStore } from "@hub/projects/store";
 import { loadToken, secretsDir } from "@hub/notion";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Repos } from "@hub/db";
-import { doctorDto, type DoctorDto } from "@hub/contract/responses";
+import { doctorDto, type DoctorDto } from "@hub/contract/sending";
 
 export const countMarkdown = (dir: string): number => {
   if (!existsSync(dir)) return 0;

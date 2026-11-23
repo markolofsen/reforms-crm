@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } fro
 import path from "node:path";
 import type { HubPaths } from "@hub/config/paths";
 import { CONNECTOR_KINDS, connectorKindOf, instanceConnectors, KINDS, readConnectorAccounts, writeConnectorAccount, type ConnectorKind } from "@hub/agent/connectors";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { instanceServer } from "./mcp-servers";
 
 // `hub connectors` (P62): the instance's Google connectors. `list` reads; `add` and `account` are the owner's (a session is denied

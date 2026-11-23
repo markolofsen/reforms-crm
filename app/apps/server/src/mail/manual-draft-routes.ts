@@ -7,7 +7,7 @@ import { versionHashOf } from "@hub/db";
 import { DraftWriteError } from "@hub/mail-app/writer/types";
 import { displayNameFor, headersFromText, resolveBrand, type BrandResolution } from "@hub/projects/brands";
 import { manualReplyBody, sendParam } from "@hub/contract/requests";
-import { draftChangedDto } from "@hub/contract/responses";
+import { draftChangedDto } from "@hub/contract/review";
 import { notFound, v } from "../http/http";
 import type { MailContext } from "./context";
 import { draftMailKit } from "./draft-mail-kit";

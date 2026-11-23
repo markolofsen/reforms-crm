@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { fingerprint, judgeSimilarity, measureAgainstSet } from "@hub/projects";
+import { fingerprint, judgeSimilarity, measureAgainstSet } from "@hub/projects/similarity";
 import { CLIENTS, DRAFTED, NEEDLES_JSON, replyBody } from "./fixture";
 import { transcriptFiles } from "./scenario";
 

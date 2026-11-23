@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isExpired, type Repos } from "@hub/db";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import { entryBrandProblem } from "@hub/projects/brands";
 import type { ProjectConfig } from "@hub/projects/model";
 import { EntryError, parseEntry } from "./entry";

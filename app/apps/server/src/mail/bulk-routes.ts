@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import { agentSettingsBody, batchQuery, idParam, projectQuery, safetyKindParam, safetyRuleBody } from "@hub/contract/requests";
 import { batchDto, batchesDto, warningsAckedDto } from "@hub/contract/review";
-import { agentSettingsDto, okDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
+import { agentSettingsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/settings";
+import { okDto } from "@hub/contract/review";
 import type { MailContext } from "./context";
 import { toDraft } from "../http/dto";
 import { notFound, v } from "../http/http";

@@ -3,9 +3,9 @@ import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { checkProject } from "@hub/knowledge";
 import { parseRulesFile } from "@hub/mail-filters";
-import { projectStore } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
 import type { Repos } from "@hub/db";
-import { projectOverviewDto, type ProjectOverviewDto } from "@hub/contract/responses";
+import { projectOverviewDto, type ProjectOverviewDto } from "@hub/contract/project";
 
 /** The instance's projects folder (HUB_PROJECTS, else under HUB_HOME): the same folder the CLIs read. */
 export const projectsRoot = () => hubPaths().projects;

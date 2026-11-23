@@ -1,6 +1,7 @@
 import { STOP_REASONS, type StopReason } from "@hub/config";
 import { createRepos, defaultDbPath, openDb, RepoError, type EnrollmentItem, type Repos } from "@hub/db";
-import { kindOf, projectStore } from "@hub/projects";
+import { kindOf } from "@hub/projects/kinds";
+import { projectStore } from "@hub/projects/store";
 import { CORE_STOP_ON, decideStop, findSequence, isUsable, loadSequences, pickSequence, scheduleOf, sequenceErrors, type LoadedSequence, type StopFacts } from "@hub/sequences";
 import type { Command } from "commander";
 import { readFileSync } from "node:fs";

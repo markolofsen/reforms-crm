@@ -2,7 +2,7 @@ import { agentFeedDto } from "@hub/contract/agent-feed";
 import { agentToolsDto } from "@hub/contract/agent-tools";
 import { focusInput } from "@hub/contract/focus";
 import { pointerDto } from "@hub/contract/pointer";
-import { okDto } from "@hub/contract/responses";
+import { okDto } from "@hub/contract/review";
 import { slugParam } from "@hub/contract/requests";
 import type { Operation } from "../http/openapi";
 

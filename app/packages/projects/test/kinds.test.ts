@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_KIND, FIELDS, hasValue, hasErrors, Kind, KINDS, KIND_IDS, MODULES, parseProjectMd, ProjectBase, checkValue, type ProjectConfig } from "../src/index";
+import { DEFAULT_KIND, hasValue, KINDS, KIND_IDS } from "../src/kinds";
+import { FIELDS, parseProjectMd, checkValue, type ProjectConfig } from "../src/parse";
+import { hasErrors } from "../src/md/issues";
+import { Kind, MODULES, ProjectBase } from "../src/schema";
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const ID2 = ID.replace(/1$/, "2");

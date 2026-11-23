@@ -1,4 +1,4 @@
-import { CONTEXT_BLOCK_FROM } from "@hub/projects";
+import { CONTEXT_BLOCK_FROM } from "@hub/projects/context";
 import { STATUS_KINDS, type StatusDto, type StatusKind, type StatusLevel, type StatusNext } from "@hub/contract/overview";
 import type { ProjectFacts } from "./facts";
 

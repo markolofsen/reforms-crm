@@ -4,8 +4,9 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import { createRepos, openDb } from "@hub/db";
-import { projectStore, syncProjects } from "@hub/projects";
-import { readAllowList } from "@hub/projects";
+import { projectStore } from "@hub/projects/store";
+import { syncProjects } from "@hub/projects/registry";
+import { readAllowList } from "@hub/projects/guard";
 import { configFile } from "./send/mailer";
 import { projectOverview, projectsRoot } from "./projects/overview";
 
