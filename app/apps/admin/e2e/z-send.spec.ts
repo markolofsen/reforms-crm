@@ -36,7 +36,7 @@ test("P105: Send opens one review dialog with every check and the exact recipien
   // Esc: nothing happened
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
-  await page.goto("/log?filter=sends");
+  await page.goto("/log?kind=sends");
   await expect(page.getByText("No sends yet")).toBeVisible();
 
   // now really (to the fake) send: one click in the dialog
@@ -47,7 +47,7 @@ test("P105: Send opens one review dialog with every check and the exact recipien
   await expect(cards(page).filter({ hasText: "Sofia Teste" }).getByRole("img", { name: "Waiting for them" })).toBeVisible();
 
   // the history (Activity ▸ Sends) shows the row
-  await page.goto("/log?filter=sends");
+  await page.goto("/log?kind=sends");
   const row = page.getByRole("table", { name: "Sends" }).locator("tr[data-send]").first();
   await expect(row).toContainText("By hand");
   await expect(row).toContainText("sofia@example.com");

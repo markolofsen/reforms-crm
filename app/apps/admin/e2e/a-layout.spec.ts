@@ -96,13 +96,13 @@ const SCREENS: Screen[] = [
   // UX pass 2026-11-20: the send history is Activity ▸ Sends.
   {
     name: "activity: sends, none yet",
-    path: at(P, "/log?filter=sends"),
+    path: at(P, "/log?kind=sends"),
     mock: async (p) => void (await p.route(/\/api\/projects\/[^/]+\/sends$/, (route) => route.fulfill({ json: { sends: [], stopped: [] } }))),
     ready: async (p) => void (await p.getByText("No sends yet").waitFor()),
   },
   {
     name: "activity: sends, a queued one",
-    path: at(P, "/log?filter=sends"),
+    path: at(P, "/log?kind=sends"),
     mock: async (p) => void (await p.route(/\/api\/projects\/[^/]+\/sends$/, (route) => route.fulfill({ json: { sends: SEND_ROWS, stopped: [] } }))),
     ready: async (p) => void (await p.getByRole(p.viewportSize()!.width < 640 ? "list" : "table", { name: "Sends" }).getByText("Re: Order status").waitFor()),
   },

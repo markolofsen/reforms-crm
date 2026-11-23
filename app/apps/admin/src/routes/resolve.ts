@@ -113,7 +113,7 @@ export function searchDest(r: Resolved, patch: Readonly<Record<string, string | 
     next[k] = spec[k]?.read(v === null || v === undefined ? undefined : String(v));
   }
   if (r.route === "mail.lead" && "filter" in patch) return destFrom("mail.list", {}, next);
-  if (r.route === "log.list" && "filter" in patch && next.filter === "sends") next.client = null;
+  if (r.route === "log.list" && "kind" in patch && next.kind === "sends") next.client = null;
   return destFrom(r.route, r.params, next);
 }
 

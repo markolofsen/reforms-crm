@@ -70,7 +70,7 @@ test("Send all Checked: one review dialog names the count and every recipient, t
   // Cancel: nothing was sent.
   const batchUrl = page.url();
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-  await page.goto("/log?filter=sends");
+  await page.goto("/log?kind=sends");
   await expect(page.getByText("ana.batch@example.com")).toHaveCount(0);
 
   // Confirm: the run goes on the server, its progress is shown, and it ends with both sent once.
@@ -80,6 +80,6 @@ test("Send all Checked: one review dialog names the count and every recipient, t
   await expect(panel.getByRole("heading", { name: "Finished: 2 of 2 sent" })).toBeVisible({ timeout: 20_000 });
   await expect(panel.getByRole("list", { name: "Batch send progress" }).getByText("Sent", { exact: true })).toHaveCount(2);
 
-  await page.goto("/log?filter=sends");
+  await page.goto("/log?kind=sends");
   await expect(page.getByRole("table", { name: "Sends" }).locator("tr[data-send]").filter({ hasText: "batch@example.com" })).toHaveCount(2);
 });

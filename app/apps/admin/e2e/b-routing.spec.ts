@@ -109,7 +109,7 @@ test("the first person opens in the address without a history entry; moving betw
 });
 
 test("the Activity deep link keeps its view and its one client", async ({ page }) => {
-  await page.goto(at(P, "/log?filter=all&client=1&run=1"));
+  await page.goto(at(P, "/log?kind=all&client=1&run=1"));
   await expect.poll(() => address(page)).toBe(at(P, "/log?client=1"));
   await page.reload();
   await expect(page.getByTestId("activity-client")).toBeVisible();
@@ -242,6 +242,6 @@ test("one project: no project in the address, no switcher, Overview in the nav b
   await expect.poll(() => address(page)).toBe("/settings/mail");
   await page.goto(at(P, "/settings/connections"));
   await expect.poll(() => address(page)).toBe("/settings/connections");
-  await page.goto(at(P, "/log?filter=skipped"));
-  await expect.poll(() => address(page)).toBe("/log?filter=skipped");
+  await page.goto(at(P, "/log?kind=skipped"));
+  await expect.poll(() => address(page)).toBe("/log?kind=skipped");
 });

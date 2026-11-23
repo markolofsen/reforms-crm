@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import type { ActivityDto } from "@hub/contract/activity";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Page } from "@hub/ui/product/page";
+import { SectionLayout } from "@hub/ui/product/section-layout";
 import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
 import { useSearch } from "@/hooks/use-search-state";
 import { metaApi } from "@/lib/api/meta";
@@ -10,12 +11,12 @@ import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
 import { useSends } from "@/lib/status";
 import { LOG_SEARCH, type ActivityView, type TimelineView } from "@/routes/search";
-import { FilterMenu } from "./filter-menu";
+import { KindNav } from "./kind-nav";
 import { SendsView } from "./sends-table";
 import { Timeline } from "./timeline";
 import { useNewRows } from "./use-new-rows";
 
-type Props = { project: string; filter: ActivityView; client: number | null };
+type Props = { project: string; kind: ActivityView; client: number | null };
 /** The first page has no cursor; each later one starts before the previous page's `next`. */
 const FIRST_PAGE: string | null = null;
 
@@ -60,7 +61,7 @@ function TimelineView({ project, view, client }: { project: string; view: Timeli
     view === "all" && client === null ? (
       <EmptyState title="Nothing yet">It fills in when the agent works in a session: what it decided for every client appears here, newest first.</EmptyState>
     ) : (
-      <EmptyState action={<ActionButton onClick={() => setSearch({ filter: "all" })} size="s" variant="secondary">Show all</ActionButton>} title="Nothing in this view" />
+      <EmptyState action={<ActionButton onClick={() => setSearch({ kind: "all" })} size="s" variant="secondary">Show all</ActionButton>} title="Nothing in this view" />
     )
   ) : (
     <>
@@ -85,18 +86,17 @@ function TimelineView({ project, view, client }: { project: string; view: Timeli
 }
 
 /**
- * What happened in one project (P73, decision 0037): one page, no detail pane (`admin-principles.md` rule 6), the View menu in
- * the header line (the timeline's counts are the server's; Sends counts the sends), then the timeline of what the agent
- * decided, newest first, or the send history. The view and the one client live in the address (`?filter=`, `?client=`).
+ * What happened in one project (P73, decision 0037): one page, no detail pane (`admin-principles.md` rule 6), the kinds in the
+ * menu column (P125 L3; the timeline's counts are the server's, Sends counts the sends), then the timeline of what the agent
+ * decided, newest first, or the send history. The kind and the one client live in the address (`?kind=`, `?client=`).
  */
-export function ActivityPage({ project, filter, client }: Props) {
-  const [, setSearch] = useSearch(LOG_SEARCH);
+export function ActivityPage({ project, kind, client }: Props) {
   // The counts come with any view's reply; on Sends the All reply carries them (the same key as the All view, cached).
-  const counts = useTimeline(project, filter === "sends" ? "all" : filter, filter === "sends" ? null : client).head?.counts;
+  const counts = useTimeline(project, kind === "sends" ? "all" : kind, kind === "sends" ? null : client).head?.counts;
   const sends = useSends(project);
   return (
-    <Page actions={<FilterMenu counts={counts} onChange={(v) => setSearch({ filter: v })} sends={sends.data?.sends.length} value={filter} />}>
-      {filter === "sends" ? <SendsView project={project} /> : <TimelineView client={client} project={project} view={filter} />}
-    </Page>
+    <SectionLayout nav={<KindNav client={client} counts={counts} sends={sends.data?.sends.length} value={kind} />} navButton="Kinds" navLabel="Activity kinds">
+      <Page>{kind === "sends" ? <SendsView project={project} /> : <TimelineView client={client} project={project} view={kind} />}</Page>
+    </SectionLayout>
   );
 }

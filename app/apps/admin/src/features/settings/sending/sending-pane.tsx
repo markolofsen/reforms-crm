@@ -49,7 +49,7 @@ export function SendingPane({ project }: { project: string }) {
             {said.sends && (
               <>
                 {" · "}
-                <AppLink className="font-normal text-sm" to={dest("log.list", { filter: "sends" })}>
+                <AppLink className="font-normal text-sm" to={dest("log.list", { kind: "sends" })}>
                   See the sends
                 </AppLink>
               </>

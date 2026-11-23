@@ -29,7 +29,7 @@ describe("resolveRoute", () => {
     expect(at("/lisbon/mail/c/42")).toMatchObject({ route: "mail.conversation", project: "lisbon", inPath: true, params: { id: 42 }, search: { filter: "needs_you", q: "" } });
     expect(at("/mail/c/7?filter=all&m=abc%40mail.example")).toMatchObject({ route: "mail.conversation", project: null, params: { id: 7 }, search: { filter: "all", m: "abc@mail.example" } });
     expect(at("/lisbon/mail?batch=3&filter=all")).toMatchObject({ route: "mail.list", search: { batch: 3, filter: "all" } });
-    expect(at("/lisbon/log?filter=skipped&client=7")).toMatchObject({ route: "log.list", project: "lisbon", search: { filter: "skipped", client: 7 } });
+    expect(at("/lisbon/log?kind=skipped&client=7")).toMatchObject({ route: "log.list", project: "lisbon", search: { kind: "skipped", client: 7 } });
     expect(at("/settings")).toMatchObject({ route: "settings.page", section: "settings", project: null, inPath: false });
     expect(at("/demo%20shop/settings")).toMatchObject({ route: "settings.page", project: "demo shop" });
     expect(at("/knowledge")).toMatchObject({ route: "knowledge.page", section: "knowledge", project: null });
@@ -70,7 +70,7 @@ describe("resolveRoute", () => {
     expect(at("/mail?filter=sequence")).toMatchObject({ search: { filter: "needs_you" } });
     expect(at("/mail?batch=abc")).toMatchObject({ search: { batch: null } });
     expect(at("/mail?batch=0")).toMatchObject({ search: { batch: null } });
-    expect(at("/log?filter=failed&client=abc&run=3")).toEqual(expect.objectContaining({ search: { filter: "all", client: null } }));
+    expect(at("/log?kind=failed&client=abc&run=3")).toEqual(expect.objectContaining({ search: { kind: "all", client: null } }));
     expect(at("/knowledge?filter=nope")).toMatchObject({ search: { filter: "all", q: "", topic: "" } });
     expect(at("/knowledge?filter=attention&q=x")).toMatchObject({ search: { filter: "attention", q: "x" } });
     expect(at("/knowledge?topic=API")).toMatchObject({ search: { topic: "api" } });
@@ -88,7 +88,7 @@ describe("paths and places", () => {
     ["a conversation at one message", dest("mail.conversation", { id: 7 }, { m: "a@b" }), "/mail/c/7?m=a%40b", "/lisbon/mail/c/7?m=a%40b"],
     ["drafts search", dest("mail.list", { q: "ana" }), "/mail?q=ana", "/lisbon/mail?q=ana"],
     ["needs you is the default", dest("mail.list", { filter: "needs_you" }), "/mail", "/lisbon/mail"],
-    ["log client", dest("log.list", { filter: "drafts", client: 5 }), "/log?filter=drafts&client=5", "/lisbon/log?filter=drafts&client=5"],
+    ["log client", dest("log.list", { kind: "drafts", client: 5 }), "/log?kind=drafts&client=5", "/lisbon/log?kind=drafts&client=5"],
     ["knowledge", dest("knowledge.page"), "/knowledge", "/lisbon/knowledge"],
     ["knowledge: a view and a search", dest("knowledge.page", { filter: "expired", q: "price" }), "/knowledge?filter=expired&q=price", "/lisbon/knowledge?filter=expired&q=price"],
     ["knowledge: a topic", dest("knowledge.page", { topic: "api" }), "/knowledge?topic=api", "/lisbon/knowledge?topic=api"],

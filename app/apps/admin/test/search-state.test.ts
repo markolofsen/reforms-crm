@@ -22,9 +22,9 @@ describe("search state", () => {
     const item = resolveRoute("/mail/c/3", "filter=all&batch=2");
     expect(searchDest(item, { filter: "zzz" })).toEqual(dest("mail.conversation", { id: 3 }, { batch: 2 }));
     expect(searchDest(item, { q: "ana" })).toEqual(dest("mail.conversation", { id: 3 }, { filter: "all", batch: 2, q: "ana" }));
-    const log = resolveRoute("/log", "filter=skipped&client=4");
-    expect(searchDest(log, { client: null })).toEqual(dest("log.list", { filter: "skipped" }));
-    expect(searchDest(log, { filter: "drafts" })).toEqual(dest("log.list", { filter: "drafts", client: 4 }));
+    const log = resolveRoute("/log", "kind=skipped&client=4");
+    expect(searchDest(log, { client: null })).toEqual(dest("log.list", { kind: "skipped" }));
+    expect(searchDest(log, { kind: "drafts" })).toEqual(dest("log.list", { kind: "drafts", client: 4 }));
     expect(searchDest(resolveRoute("/project", ""), { filter: "ready" })).toBeNull();
     expect(searchDest(resolveRoute("/mail", ""), { client: 3 })).toBeNull();
     expect(searchDest(resolveRoute("/nope", ""), { filter: "ready" })).toBeNull();
@@ -35,7 +35,7 @@ describe("search state", () => {
     const lead = resolveRoute("/mail/lead/0123456789abcdef0123456789abcdef", "q=ana");
     expect(searchDest(lead, { filter: "waiting" })).toEqual(dest("mail.list", { filter: "waiting", q: "ana" }));
     expect(searchDest(lead, { q: "bo" })).toEqual(dest("mail.lead", { page: "0123456789abcdef0123456789abcdef" }, { q: "bo" }));
-    expect(searchDest(resolveRoute("/log", "filter=skipped&client=4"), { filter: "sends" })).toEqual(dest("log.list", { filter: "sends" }));
+    expect(searchDest(resolveRoute("/log", "kind=skipped&client=4"), { kind: "sends" })).toEqual(dest("log.list", { kind: "sends" }));
   });
 
   it("P84c: the Messengers channel and view keep each other; an unknown channel resets to All; no other route has a channel", () => {

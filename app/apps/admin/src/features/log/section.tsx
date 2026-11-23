@@ -9,5 +9,5 @@ export function ActivityScreen() {
   const route = useRoute("log.list");
   const { project } = useProjectScope();
   if (!route) return null;
-  return <ActivityPage filter={route.search.filter} project={project} client={route.search.client} />;
+  return <ActivityPage kind={route.search.kind} project={project} client={route.search.client} />;
 }

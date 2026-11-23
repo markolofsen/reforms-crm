@@ -9,7 +9,7 @@ import { remember } from "./support";
 const PROJECT = "lisbon-realty";
 const AT = `/${PROJECT}/settings`;
 const CHECKS = `/${PROJECT}/settings/checks`;
-const SENDS = `/${PROJECT}/log?filter=sends`;
+const SENDS = `/${PROJECT}/log?kind=sends`;
 const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
 
 test.beforeEach(async ({ page }) => {

@@ -61,19 +61,44 @@ test("activity: a folded line's count opens its entries under it", async ({ page
   await expect(table.locator("tr[data-entry]")).toHaveCount(3);
 });
 
-test("activity: the View menu counts decisions by outcome (the server's) and narrows the table; the filter replaces the entry", async ({ page }) => {
+test("activity: the menu column counts decisions by outcome (the server's), narrows the table, and Back undoes the choice (P125 L3)", async ({ page }) => {
   const { counts } = await activity(page);
   await page.goto(LOG);
-  const menu = page.getByRole("button", { name: /^View: All/ });
-  await expect(menu).toContainText(String(counts.all));
-  await menu.click();
-  for (const [label, n] of [["Needs you", counts.needs_you], ["Drafts", counts.drafts], ["Skipped", counts.skipped]] as const) await expect(page.getByRole("menuitemradio", { name: new RegExp(`^${label}`) })).toContainText(String(n));
-  await page.getByRole("menuitemradio", { name: /^Skipped/ }).click();
-  await expect.poll(() => address(page)).toBe(`${LOG}?filter=skipped`);
+  await expect(page.getByRole("button", { name: /^View:/ })).toHaveCount(0);
+  const nav = page.getByRole("navigation", { name: "Activity kinds" });
+  await expect(nav.getByRole("link", { name: /^All/ })).toHaveAttribute("aria-current", "page");
+  for (const [label, n] of [["All", counts.all], ["Needs you", counts.needs_you], ["Drafts", counts.drafts], ["Skipped", counts.skipped]] as const) await expect(nav.getByRole("link", { name: new RegExp(`^${label}`) })).toContainText(String(n));
+  await nav.getByRole("link", { name: /^Skipped/ }).click();
+  await expect.poll(() => address(page)).toBe(`${LOG}?kind=skipped`);
   const skipped = await activity(page, "&view=skipped");
   const lines = daySections(skipped.rows, Date.now()).reduce((n, d) => n + d.groups.length, 0);
   await expect(page.getByRole("table", { name: "Activity" }).locator("tr[data-row]")).toHaveCount(lines);
+  await page.goBack();
+  await expect.poll(() => address(page)).toBe(LOG);
 });
+
+for (const dock of [false, true]) {
+  test(`activity: at 1280px ${dock ? "with" : "without"} the dock the menu column sits beside the table (P125 L3)`, async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto(LOG);
+    if (dock) {
+      await page.getByRole("button", { name: "Terminal", exact: true }).click();
+      await expect(page.locator('[data-slot="side-dock"]')).toBeVisible();
+    }
+    const nav = page.getByRole("navigation", { name: "Activity kinds" });
+    const table = page.getByRole("table", { name: "Activity" });
+    await expect(table).toBeVisible();
+    if (dock) {
+      // The layout is narrower than 960px with the dock open: the column folds into its button (verdict 6).
+      await expect(page.getByRole("button", { name: /^Kinds/ }).or(nav)).toBeVisible();
+    } else {
+      await expect(nav).toBeVisible();
+      const [n, t] = await Promise.all([nav.boundingBox(), table.boundingBox()]);
+      expect(n && t && n.x + n.width <= t.x + 1).toBe(true);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  });
+}
 
 test("activity: one client's timeline says whose it is, and Show all returns", async ({ page }) => {
   const client = (await activity(page)).rows.find((r) => r.client)?.client;

@@ -95,8 +95,8 @@ const messageRef: SearchKeySpec<string | null> = { read: (v) => (v !== undefined
 
 /** Mail's three routes share one search, so a person opened from the list keeps its view, search and batch. `batch` limits the list to the drafts one batch wrote. An old view value (`ready`, `inbox`, `hold`, ...) resets to Needs you; no alias. */
 export const MAIL_SEARCH = { filter: view(DRAFT_VIEWS, DEFAULT_DRAFT_VIEW), q: text, batch: queryId, m: messageRef } as const;
-/** Activity (P73): the view, and `client` narrows the timeline to one client (the draft card's history opens it). */
-export const LOG_SEARCH = { filter: view(ACTIVITY_VIEWS, "all"), client: queryId } as const;
+/** Activity (P73): the kind (P125 L3: `?kind=`, the menu column's; it was `?filter=`, no alias), and `client` narrows the timeline to one client (the draft card's history opens it). */
+export const LOG_SEARCH = { kind: view(ACTIVITY_VIEWS, "all"), client: queryId } as const;
 /**
  * A topic path of Knowledge's menu column (P125 L2: `api`, `all brands/pricing`): lower case, `/` between levels, at most three
  * levels and 120 characters; anything else is no topic (All). A topic the base does not have shows All too (the menu reads it).
