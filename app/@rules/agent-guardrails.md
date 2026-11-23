@@ -14,6 +14,7 @@ Scope: how these rules bind agents that edit the admin. Adapted from the shared 
 7. SHOULD: keep instruction files short (under 200 lines) and move detail into the page that owns it.
 8. SHOULD: end a task with the contract: what changed, evidence (commands, viewports), what was not done.
 9. MUST: an agent that changes a public site, a lead form, Turnstile, a CSP or security header, a proxy or CDN rule, an API route under a form's endpoint, or a DNS or Cloudflare record, runs `hub doctor --only Leads --canary` in the owning instance before it reports done, and puts the result in the contract (rule 8). A red or unrun check means not done: say which. A new domain or form is added to `config/lead-forms.json` in the same change. The check reads the live site, so a run before the change is deployed proves nothing about it: say "not done: not deployed". Never edit `config/lead-forms.json` to turn a red row green; a wrong-looking entry is reported with its suspected correction and left for the owner (P46 L5 drill). Why: a site's own tests run in process and cannot see DNS, CSP, a proxy or Cloudflare, so a form can stop taking leads with every test green (`@docs/core/22-lead-forms.md`).
+10. MUST: an agent sends nothing on its own initiative. In an attended session it sends one messenger draft only on the owner's word in that session, through `messenger_send` and the one send door; never Mail, never unattended (decision 0046, `approval-and-capabilities.md` rules 7-9). A change that adds a sending path, a second caller of `applyMessenger` or `sendConfirmed`, or a send tool outside that rule fails `draft-only.test.ts` and `deny-modes.test.ts`; do not edit the pin to pass, write a decision record first.
 
 ## Enforcement
 
@@ -23,3 +24,4 @@ Scope: how these rules bind agents that edit the admin. Adapted from the shared 
 | 4 | live-edit hook scope (`live-edit.md`); review of commits |
 | 3, 6-8 | review |
 | 9 | `hub doctor --only Leads --canary`; the contract |
+| 10 | `apps/server/src/draft-only.test.ts`, `apps/server/src/agent-send.test.ts`, `packages/agent/test/deny-modes.test.ts`, `packages/agent/test/owner-word.test.ts` |
