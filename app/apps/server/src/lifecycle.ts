@@ -24,3 +24,19 @@ export function onShutdown(opts: { stop: () => Promise<void>; exit: (code: numbe
     });
   }
 }
+
+/**
+ * How long the API keeps an idle keep-alive socket (P119 finding, P130 phase 0). The admin's `/api` rewrite proxies through
+ * Next's httpxy agent (`keepAlive: true`, no idle limit of its own: it frees a socket only on the server's `Keep-Alive`
+ * hint, minus one second). With Node's default 5 s the server closed idle sockets every few seconds, and a request the
+ * proxy wrote onto one at that moment failed with ECONNRESET, a 500 on the page (2-5 per e2e run, on saas too). Two
+ * minutes, the proxy's own `proxyTimeout`, makes such a close rare; the loopback server holds at most the agent's 64 free
+ * sockets. `headersTimeout` stays above it, as Node requires for keep-alive, and below `requestTimeout` (300 s).
+ */
+export const KEEP_ALIVE_MS = 120_000;
+export const HEADERS_TIMEOUT_MS = KEEP_ALIVE_MS + 5_000;
+
+export function holdIdleSockets(server: { keepAliveTimeout: number; headersTimeout: number }): void {
+  server.keepAliveTimeout = KEEP_ALIVE_MS;
+  server.headersTimeout = HEADERS_TIMEOUT_MS;
+}

@@ -4,7 +4,7 @@ import { HubHomeMissingError, hubPaths, instancePorts } from "@hub/config/paths"
 import { bumpTopic, createRepos, dataVersion, openDb } from "@hub/db";
 import { FakeDraftWriter, mailAppDraftWriter } from "@hub/agent/mail-drafts";
 import { createApp } from "./app";
-import { listenErrorLine, onShutdown } from "./lifecycle";
+import { holdIdleSockets, listenErrorLine, onShutdown } from "./lifecycle";
 import { appleMailAccounts, chooseProbeKind, fakeMailAccounts, fakeProbeDeps } from "./connections";
 import { configOf } from "./overview-facts";
 import { projectsRoot } from "./project-overview";
@@ -223,6 +223,8 @@ const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, a
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   log.info(`hub server on http://${info.address}:${info.port}`, { pid: process.pid });
 });
+// The `/api` proxy reuses idle sockets; the server must not close them first (ECONNRESET, a 500 on the page).
+if ("keepAliveTimeout" in server) holdIdleSockets(server);
 server.on("upgrade", terminal.upgrade);
 // A taken port is one line and exit 2 (the same shape as a missing HUB_HOME above), not a stack.
 server.on("error", (err) => {

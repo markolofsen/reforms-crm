@@ -1,6 +1,6 @@
 import { createServer } from "node:net";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { listenErrorLine, onShutdown } from "./lifecycle";
+import { holdIdleSockets, KEEP_ALIVE_MS, listenErrorLine, onShutdown } from "./lifecycle";
 
 afterEach(() => { vi.useRealTimers(); });
 
@@ -52,4 +52,34 @@ describe("shutdown", () => {
     await vi.waitFor(() => expect(r.exits).toEqual([1]));
     expect(r.logs[0]).toContain("poller blew up");
   });
+});
+
+describe("idle keep-alive sockets (the /api proxy's ECONNRESET)", () => {
+  it("the server keeps an idle socket two minutes and says so in its Keep-Alive hint, so the proxy frees it first", async () => {
+    const { createServer: httpServer, request, Agent } = await import("node:http");
+    const server = httpServer((_req, res) => res.end("ok"));
+    holdIdleSockets(server);
+    expect(server.keepAliveTimeout).toBe(KEEP_ALIVE_MS);
+    expect(server.headersTimeout).toBeGreaterThan(server.keepAliveTimeout);
+    expect(server.headersTimeout).toBeLessThanOrEqual(server.requestTimeout);
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const port = (server.address() as { port: number }).port;
+    const agent = new Agent({ keepAlive: true });
+    try {
+      const get = () => new Promise<{ hint: string | undefined; socket: unknown }>((resolve, reject) => {
+        const req = request({ host: "127.0.0.1", port, path: "/", agent }, (res) => { res.resume(); res.on("end", () => resolve({ hint: String(res.headers["keep-alive"]), socket: req.socket })); });
+        req.on("error", reject);
+        req.end();
+      });
+      const first = await get();
+      expect(first.hint).toBe(`timeout=${KEEP_ALIVE_MS / 1000}`);
+      // Past Node's old 5 s default the same socket is reused, not closed under the proxy.
+      await new Promise((r) => setTimeout(r, 5_600));
+      const second = await get();
+      expect(second.socket).toBe(first.socket);
+    } finally {
+      agent.destroy();
+      await new Promise<void>((r) => server.close(() => r()));
+    }
+  }, 15_000);
 });
