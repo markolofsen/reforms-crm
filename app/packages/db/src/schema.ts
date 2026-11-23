@@ -58,7 +58,7 @@ export const agentRuns = sqliteTable(
     tokensIn: integer("tokens_in").notNull().default(0),
     tokensOut: integer("tokens_out").notNull().default(0),
     costUsd: real("cost_usd").notNull().default(0),
-    // The session's `batchKey` (P48 W5): every `hub record-draft` / `record-client` of one session joins this run.
+    // The session's `batchKey` (P48 W5): every `draft_write` / `client_record` of one session joins this run.
     batchKey: text("batch_key"),
   },
   (t) => [index("agent_runs_project_started").on(t.project, t.startedAt), index("agent_runs_project_batch_key").on(t.project, t.batchKey)],
@@ -86,10 +86,10 @@ export const drafts = sqliteTable(
     tones: text("tones"), // JSON {short?, standard?, warm?}: bodies of the tones that exist
     reason: text("reason"), // "Why this email", two sentences
     mailRef: text("mail_ref"), // Message-ID of the thread, or of the draft the agent made in Mail
-    notionUrl: text("notion_url"), // the client's Notion profile, set by `hub record-draft`
+    notionUrl: text("notion_url"), // the client's Notion profile, set by the draft record (`draft_write`)
     notionKind: text("notion_kind").$type<NotionKind>(), // client | lead | none; null = never reported (a row from before P26)
     notionPageId: text("notion_page_id"), // the page id the link is built from when `notionUrl` is empty
-    // The evidence block of `hub record-draft` (P28): what the draft was based on. JSON, no body text beyond 120-char
+    // The evidence block of the draft record (`draft_write`) (P28): what the draft was based on. JSON, no body text beyond 120-char
     // excerpts of the INCOMING thread (decision 0013). Null on a draft recorded before it, and on a batch draft.
     context: text("context"),
     evidence: text("evidence").$type<EvidenceLevel>(),
@@ -100,9 +100,9 @@ export const drafts = sqliteTable(
     batchKey: text("batch_key"), // one per triage or bulk run: the set similarity is judged against
     safety: text("safety"), // the agent's one-line "check before sending"
     acked: text("acked").notNull().default("[]"), // JSON: safety kinds the person acknowledged
-    // Set by `hub record-draft`: the mail the draft answers carried a prompt-injection hint, so the hub never sends it.
+    // Set by the draft record (`draft_write`): the mail the draft answers carried a prompt-injection hint, so the hub never sends it.
     injectionSuspected: integer("injection_suspected", { mode: "boolean" }).notNull().default(false),
-    // Mail class of the kind (`hub/<class>`), set by `hub record-draft`; autosend sends only the classes a project lists.
+    // Mail class of the kind (`hub/<class>`), set by the draft record (`draft_write`); autosend sends only the classes a project lists.
     mailClass: text("mail_class"),
     skipReason: text("skip_reason"), // why the person skipped it ("not interested", "wrong person"); set only with status skipped
     status: text("status").$type<DraftStatus>().notNull().default("ready"),
@@ -146,7 +146,7 @@ export const drafts = sqliteTable(
 // whose command S4 deleted). Mail's text is never kept (decision
 // 0013): `hash` is the sha256 of the text Mail returned after the save. A Mail draft is the Hub's to move to Trash only
 // when its account and `message id` match a row here. `draftId` is null between `draft_write` of a new reply and its
-// `hub record-draft`, which links the rows of its `mailRef` (bare, lowercased). `signatureFallback`: the language the
+// the draft record (`draft_write`), which links the rows of its `mailRef` (bare, lowercased). `signatureFallback`: the language the
 // project had no sign-off or signature line for, so the writer signed in English (P65 S2, the amber check).
 export const mailVersions = sqliteTable(
   "mail_versions",

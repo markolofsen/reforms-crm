@@ -78,7 +78,7 @@ describe("the capabilities line names the project's databases (P82 S2)", () => {
   it("a project with no list says so, with the phrase", () => {
     expect(notionCapability({ ...SAAS, databases: [] })).toBe("notion: no databases listed in project.md (say: настрой проект saas-support)");
   });
-  it("project_notion returns the same five", () => {
+  it("project_show's notion part (projectNotion) returns the same five", () => {
     expect(projectNotion(SAAS).databases.map((d) => d.url)).toEqual(SAAS.databases.map((d) => `collection://${d.dataSourceId}`));
     expect(projectNotion(SAAS).teamspace).toBeNull();
   });

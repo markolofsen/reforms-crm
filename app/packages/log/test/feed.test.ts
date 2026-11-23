@@ -134,12 +134,15 @@ describe("labels (table 4c)", () => {
     expect(l("ToolSearch")).toBeNull();
     expect(l("mcp__hub__focus")).toBeNull();
     expect(l("mcp__hub__draft_write", {})).toBe("writes a new draft");
-    expect(l("mcp__hub__drafts_list")).toBe("lists drafts");
+    expect(l("mcp__hub__mail_list")).toBe("lists mail");
+    expect(l("mcp__hub__project_show")).toBe("reads the project's settings");
+    expect(l("mcp__hub__message_show", { inbound: 3 })).toBe("reads a client's message");
     expect(l("mcp__hub__client_show", { email: EMAIL })).toBe("reads a client");
     expect(l("mcp__mail-mcp__find_messages", { query: EMAIL })).toBe("searches mail");
     expect(l("mcp__mail-mcp__list_mailboxes")).toBe("looks at mail accounts");
     expect(l("mcp__mail-mcp__get_selected_messages")).toBe("mcp__mail-mcp__get_selected_messages");
-    expect(l("mcp__knowledge-mcp__search")).toBe("reads the knowledge base");
+    expect(l("mcp__hub__knowledge_search", { query: "visa" })).toBe("reads the knowledge base");
+    expect(l("mcp__hub__knowledge_get", { path: "knowledge/files/a.md" })).toBe("reads the knowledge base");
     expect(l("mcp__notion__notion-fetch")).toBe("reads Notion");
     expect(l("mcp__notion__notion-update-page")).toBe("updates Notion");
     expect(l("mcp__claude_ai_Notion__notion-create-pages")).toBe("updates Notion");

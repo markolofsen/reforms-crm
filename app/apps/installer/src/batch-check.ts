@@ -3,7 +3,7 @@ import { readLines, recordsFile } from "@hub/projects/evidence-store";
 import type { RecordLine } from "@hub/agent/records/checks";
 
 // `hub batch-check --project X --batch K [--json]` (P28 B5): the one place the skill and the owner look at a batch as a
-// set. Reads state/evidence/<slug>/records.jsonl (written by `hub record-draft`), so it works with the server off and
+// set. Reads state/evidence/<slug>/records.jsonl (written by `draft_write`'s record, P129 A3), so it works with the server off and
 // needs no database column. Until the admin DB carries fingerprints (C1), a batch recorded in a session with no hooks
 // (Claude Desktop) has no sketches: its similarity column says so instead of pretending.
 

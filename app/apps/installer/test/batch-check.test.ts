@@ -47,7 +47,7 @@ const careful = (id: number, who: string, body: string) => [
   { name: "mcp__notion__notion-query-data-sources", input: { query: `Email = ${who}` }, result: t([]) },
   { name: `${M}find_messages`, input: { account: "a", mailboxPath: ["INBOX"], sender: who }, result: t([{ id: id }, { id: id - 1 }, { id: id - 2 }]) },
   ...[id, id - 1, id - 2].map((i) => ({ name: `${M}get_message_content`, input: { account: "a", mailboxPath: ["INBOX"], message_id: i }, result: t({ id: i, from: `W <${who}>` }) })),
-  { name: "mcp__knowledge-mcp__knowledge_search", input: { project: "p", query: "q" }, result: t([]) },
+  { name: "mcp__hub__knowledge_search", input: { query: "q" }, result: t([]) },
   { name: "mcp__hub__draft_write", input: { kind: "reply", message: { account: "a", mailbox_path: ["INBOX"], message_id: id }, content: body, record: {} }, result: t({ draftId: 9000 + id, replyTo: id, account: "a", sent: false, recorded: true }) },
 ];
 

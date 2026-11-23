@@ -65,7 +65,6 @@ describe("hub guard", () => {
   });
   it.each([
     ["foreign mail account", call("mcp__mail-mcp__find_messages", { account: "a@b.example" })],
-    ["foreign knowledge project", call("mcp__knowledge-mcp__knowledge_search", { project: "nordhaus", query: "x" })],
     ["send tool", call("mcp__x__send_message", {})],
     ["Gmail reply", call("mcp__x__reply", {})],
     ["trash", call("mcp__x__trash_thread", {})],
@@ -130,14 +129,13 @@ describe("generated session files", () => {
     }
     expect(settings.permissions.deny).toContain("Edit(./state/log/**)");
   });
-  it("strict MCP: only the hub's servers, the knowledge server pinned to the slug", () => {
+  it("strict MCP: only the hub's servers (an old knowledge-mcp is dropped, P129 A4), hub pinned to the slug", () => {
     mkdirSync(path.join(root, "config"), { recursive: true });
     writeFileSync(path.join(root, "config", "mcp.json"), JSON.stringify({ mcpServers: { "mail-mcp": { type: "http" }, gmail: { type: "http" }, "knowledge-mcp": { type: "stdio", env: { HUB_PROJECT: "${HUB_PROJECT:-}" } } } }));
     const f = writeSessionFiles(root, PROJECTS, "acme-travel");
     const m = JSON.parse(readFileSync(f.mcp, "utf8")).mcpServers;
     // `hub` (P51) is the core's own server: there even when the instance's file predates it.
-    expect(Object.keys(m).sort()).toEqual(["hub", "knowledge-mcp", "mail-mcp"]);
-    expect(m["knowledge-mcp"].env.HUB_PROJECT).toBe("acme-travel");
+    expect(Object.keys(m).sort()).toEqual(["hub", "mail-mcp"]);
     expect(m.hub.env.HUB_PROJECT).toBe("acme-travel");
   });
   it("claude gets the enforcement flags in = form, and send tools are denied", () => {

@@ -105,7 +105,7 @@ describe("the record cross-checked with the session's ledger (B5)", () => {
     { name: "mcp__notion__notion-query-data-sources", input: { query: `Email = ${who}` }, result: t([]) },
     { name: `${M}find_messages`, input: { account: "a", mailboxPath: ["INBOX"], sender: who }, result: t([{ id: id }, { id: id - 1 }, { id: id - 2 }]) },
     ...[id, id - 1, id - 2].map((i) => ({ name: `${M}get_message_content`, input: { account: "a", mailboxPath: ["INBOX"], message_id: i }, result: t({ id: i, from: `W <${who}>` }) })),
-    { name: "mcp__knowledge-mcp__knowledge_search", input: { project: "p", query: "q" }, result: t([]) },
+    { name: "mcp__hub__knowledge_search", input: { query: "q" }, result: t([]) },
     write(id, body),
   ];
 

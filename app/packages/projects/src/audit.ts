@@ -19,7 +19,6 @@ const HUB_DRAFT_WRITE = "mcp__hub__draft_write";
  * the word and sends through the door); in an unattended one it is a send-capable tool like any other, and `hub guard` blocks it.
  */
 export const HUB_MESSENGER_SEND = "mcp__hub__messenger_send";
-const KNOWLEDGE = "mcp__knowledge-mcp__";
 // Send, forward, reply (Gmail connector: sends; mail-mcp's `create_reply` only drafts), trash/delete (Notion, Gmail, mail),
 // calendar cancel, and every outgoing-message writer of mail-mcp. `delete_draft` falls under delete.
 const SEND_CAPABLE = /(^|[_-])(send|forward|reply[_-]?all|(create|replace|delete)[_-]outgoing|replace[_-]reply|trash|delete|cancel)([_-]|$)|^reply$/i;
@@ -136,9 +135,6 @@ export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, acc
     if (skills && c.name === "Skill" && typeof input.skill === "string") {
       const name = input.skill.split(":").pop() ?? input.skill;
       if (skills.hub.includes(name) && !skills.allowed.includes(name)) out.push(`skill ${name} is not in the skill list of project ${slug}'s kind`);
-    }
-    if (c.name.startsWith(KNOWLEDGE) && typeof input.project === "string" && input.project !== slug) {
-      out.push(`${short} named project "${input.project}" in a ${slug} run`);
     }
     const denied = notionDenial(c.name);
     if (denied) out.push(denied);

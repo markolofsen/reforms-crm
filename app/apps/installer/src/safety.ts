@@ -45,7 +45,7 @@ export function instanceMcpServers(paths: HubPaths, slug: string | undefined, no
     const spec = all[name] ?? (name === "hub" ? core[name] : undefined);
     if (!spec) continue;
     const s = instanceServer(spec, paths);
-    if ((name === "knowledge-mcp" || name === "hub") && slug) s.env = { ...(s.env as object), HUB_PROJECT: slug };
+    if (name === "hub" && slug) s.env = { ...(s.env as object), HUB_PROJECT: slug };
     if (name === "hub" && s.type === "stdio" && s.command === "node") s.command = nodeBin;
     servers[name] = s;
   }

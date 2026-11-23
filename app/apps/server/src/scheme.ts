@@ -82,7 +82,7 @@ function connectorParts(slug: string, tools: AgentToolsDto | null): SchemeNode[]
 }
 
 /**
- * Agent sessions (UX pass 2026-11-20): every Agent tools row no other part covers (the Notion connector, knowledge-mcp, the
+ * Agent sessions (UX pass 2026-11-20): every Agent tools row no other part covers (the Notion connector, hub mcp, the
  * session files, the skills, the mode, the send pipeline, the session log), so a row that puts a dot on Settings ▸ Agent is also a
  * "Needs you" item on Overview. The detail names the row, and how many more there are.
  */

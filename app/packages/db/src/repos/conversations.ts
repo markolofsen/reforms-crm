@@ -61,7 +61,7 @@ export function stateOf(f: { wrote: boolean; open: "ready" | "hold" | null; thei
 export function conversationsRepo(db: Db) {
   /**
    * Verdict 1: a sender with an open message the reader kept, and an owed `inbox_rows` row the agent escalated, get a `clients`
-   * row as `record-client` would (rules README 16 as amended by P99), so every person who needs the owner is one conversation.
+   * row as `client_record` would (rules README 16 as amended by P99), so every person who needs the owner is one conversation.
    * Idempotent: nothing is written once every such person has a row.
    */
   const ensure = (project: string): void => {
@@ -136,8 +136,9 @@ export function conversationsRepo(db: Db) {
      * newest activity on top; the client id breaks a tie. `batch` keeps the clients a batch wrote a draft for (a read-only view,
      * decision 0025); `search` narrows by name, address or subject. Counts are never narrowed by the search; a batch narrows them.
      */
-    async list(project: string, view: ConversationView, opts: { batch?: number | null; search?: string; limit?: number; offset?: number; now?: Date } = {}): Promise<{ rows: ConversationItem[]; total: number; counts: ConversationCounts }> {
-      let rows = build(project, opts.now, { ensure: true });
+    /** `ensure: false` (P129 A4: `hub mcp`'s `mail_list` on its read-only connection) lists without writing the senders' client rows. */
+    async list(project: string, view: ConversationView, opts: { batch?: number | null; search?: string; limit?: number; offset?: number; now?: Date; ensure?: boolean } = {}): Promise<{ rows: ConversationItem[]; total: number; counts: ConversationCounts }> {
+      let rows = build(project, opts.now, { ensure: opts.ensure ?? true });
       if (opts.batch) {
         const inBatch = new Set(db.select({ id: drafts.clientId }).from(drafts).where(and(eq(drafts.project, project), eq(drafts.batchId, opts.batch))).all().map((r) => r.id));
         rows = rows.filter((r) => inBatch.has(r.client.id));

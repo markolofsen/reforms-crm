@@ -5,7 +5,7 @@ import type { Resolver } from "./types";
 /**
  * `inbound:10` (P98): a client's message the server's Mail reader stored (Mail ▸ Inbox), by its row id: who wrote, the subject and
  * when, so the agent never has to search Mail to guess it; the status says whether it waits or which draft answers it; read with
- * `inbound_show` (the Mail Message-ID, account and mailbox for `draft_write`). Another project's message names nothing.
+ * `message_show` (the Mail Message-ID, account and mailbox, the brand it was written to, P129 A4). Another project's message names nothing.
  */
 export const inbound: Resolver = async ({ repos, slug }, id) => {
   const row = await repos.inboundMail.get(slug, Number(id));
@@ -13,5 +13,5 @@ export const inbound: Resolver = async ({ repos, slug }, id) => {
   const clientId = await repos.clients.idByEmail(slug, row.email);
   const answer = clientId === undefined ? null : answeringDraft(row, await repos.drafts.ofClient(slug, clientId));
   const status = row.open ? "waiting for a reply" : answer ? `answered by draft ${answer.id} (${answer.status})` : row.dismissedAt ? "no reply needed" : "closed";
-  return { title: cut(`${row.name} <${row.email}> · ${row.subject || "(no subject)"} · received ${row.receivedAt}`), status, read: { server: "hub", tool: "inbound_show", args: { inbound: row.id } } };
+  return { title: cut(`${row.name} <${row.email}> · ${row.subject || "(no subject)"} · received ${row.receivedAt}`), status, read: { server: "hub", tool: "message_show", args: { inbound: row.id } } };
 };

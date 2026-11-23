@@ -5,7 +5,7 @@ import { fingerprint, judgeSimilarity, sim, type Verdict } from "./similarity";
 // message was opened, who wrote it, which search ran, whether a Notion page was read, the sketch of a reply. No mail
 // body, no Notion text. The same functions serve three callers, so one rule means one thing:
 //   - the PreToolUse/PostToolUse hooks (`hub guard`, `hub guard --post`) that append and check live,
-//   - `hub record-draft`, which cross-checks what the agent claims against the ledger,
+//   - the draft record (`draft_write`), which cross-checks what the agent claims against the ledger,
 //   - `hub audit-run`, which rebuilds the ledger from a finished transcript.
 // mail-mcp ids are INTEGERS per mailbox (find_messages / get_message_content / create_reply), not Message-ID headers.
 // The shape of the tool RESULTS is not verified against the real mail-mcp (S1 used a stub): parsing is tolerant and an
@@ -173,7 +173,7 @@ export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEn
     const edited = resultText(c.result).match(/"?(?:last_edited_time|lastEditedTime|last_edited)"?\s*[:=]\s*"?(\d{4}-\d{2}-\d{2})/i)?.[1];
     return { tool, kind: "notion", op, ...(emails.length ? { emails } : {}), ...(edited ? { editedAt: edited } : {}), ...(c.result !== undefined ? notionOrigin(op, c.input, resultText(c.result)) : {}) };
   }
-  if (c.name.startsWith("mcp__knowledge-mcp__") && (tool === "knowledge_search" || tool === "knowledge_get")) {
+  if (c.name === "mcp__hub__knowledge_search" || c.name === "mcp__hub__knowledge_get") {
     return { tool, kind: "knowledge", ...(str(i.query) ? { query: str(i.query)!.slice(0, 200) } : {}) };
   }
   return null;

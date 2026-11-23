@@ -6,7 +6,7 @@ const t = (s: unknown) => [{ type: "text", text: typeof s === "string" ? s : JSO
 const find = (sender: string, ids: number[]): CallRecord => ({ name: `${M}find_messages`, input: { account: "a", mailboxPath: ["INBOX"], sender }, result: t(ids.map((id) => ({ id, sender }))) });
 const read = (id: number, from: string): CallRecord => ({ name: `${M}get_message_content`, input: { account: "a", mailboxPath: ["INBOX"], message_id: id }, result: t({ id, from: `X <${from}>`, date: "2026-11-01", body: "..." }) });
 const notion = (email: string): CallRecord => ({ name: "mcp__notion__notion-query-data-sources", input: { query: `Email = ${email}` }, result: t("[]") });
-const kb: CallRecord = { name: "mcp__knowledge-mcp__knowledge_search", input: { project: "p", query: "x" }, result: t("[]") };
+const kb: CallRecord = { name: "mcp__hub__knowledge_search", input: { query: "x" }, result: t("[]") };
 const reply = (id: number, content: string): CallRecord => ({ name: `${M}create_reply`, input: { account: "a", mailbox_path: ["INBOX"], message_id: id, content }, result: t("ok") });
 
 const build = (calls: CallRecord[]): LedgerEntry[] => { const e: LedgerEntry[] = []; replayCalls(calls, e, []); return e; };

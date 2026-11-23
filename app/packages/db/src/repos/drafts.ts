@@ -16,7 +16,7 @@ import { teamNoticeOf, type TeamNotice } from "./review";
 export type NewDraft = Omit<typeof drafts.$inferInsert, "id" | "createdAt" | "updatedAt">;
 
 /**
- * What a session reports after it left one unsent draft in Mail (`hub record-draft`). The text of the mail is not here:
+ * What a session reports after it left one unsent draft in Mail (the draft record (`draft_write`)). The text of the mail is not here:
  * Mail holds the one copy. `excerpt` is an optional short preview for the screen, never the whole body.
  */
 export type RecordDraftInput = {
@@ -54,7 +54,7 @@ export type RecordDraftInput = {
   /** The skill that made the draft, for the Agent log line. */
   skill?: string | null;
   /**
-   * What the draft was based on, judged by `hub record-draft` before it wrote (P28). `context` is the validated block;
+   * What the draft was based on, judged by the draft record (`draft_write`) before it wrote (P28). `context` is the validated block;
    * `fingerprint` is the sketch of the reply (ints, never text). Left out, the draft has no evidence and no evidence rule fires.
    */
   evidence?: { level: EvidenceLevel; source: EvidenceSource; findings: EvidenceFinding[]; context?: unknown; similarTo?: string | null; fingerprint?: number[] | null; batchKey?: string | null } | null;
@@ -427,7 +427,7 @@ export function draftsRepo(db: Db) {
      * A revision the hub's own writer saved (`draft_write {draft}`, coordinator 2026-11-19): the open draft keeps its id,
      * client, mailRef, recipients and context block; its preview text, the brand it answers for and the address the client
      * wrote to are replaced, and "I read the checks" is cleared because the text changed (decision 0013). Logged as
-     * "Draft updated" like `hub record-draft`. Refuses a draft that is not open (done, sent, skipped) or of another project.
+     * "Draft updated" like the draft record (`draft_write`). Refuses a draft that is not open (done, sent, skipped) or of another project.
      */
     async revised(project: string, draftId: number, r: { excerpt: string; wroteTo: string | null; brand: string | null; reason?: string | null }): Promise<{ draftId: number; clientId: number; action: "updated" }> {
       return write(db, (tx) => {

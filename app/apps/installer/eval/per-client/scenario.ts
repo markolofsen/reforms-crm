@@ -29,7 +29,7 @@ export const profileFor = (c: FixtureClient): Step => ({
   input: { data_source_url: "collection://clients", query: `Email = ${c.email}` },
   result: text(c.profile === "absent" ? "[]" : JSON.stringify([{ email: c.email, summary: c.profile === "empty" ? "" : "durable facts", last_edited_time: c.profileEdited ?? "2026-11-01" }])),
 });
-export const factsFor = (c: FixtureClient): Step => ({ name: "mcp__knowledge-mcp__knowledge_search", input: { project: FIXTURE_PROJECT, query: c.needles[0] }, result: text("[]") });
+export const factsFor = (c: FixtureClient): Step => ({ name: "mcp__hub__knowledge_search", input: { query: c.needles[0] }, result: text("[]") });
 /** mail-mcp's own reply writer, as older transcripts hold it: a draft nobody recorded (the lazy and brief-less sessions). */
 export const replyFor = (c: FixtureClient, body = replyBody(c)): Step => ({
   name: `${MAIL}create_reply`,

@@ -135,7 +135,7 @@ describe("the agent has no send path", () => {
     const args = enforcementArgs(f).join(" ");
     for (const t of SEND_TOOLS) expect(args).toContain(t);
     expect(args).toContain("--strict-mcp-config");
-    expect(HUB_MCP_SERVERS).toEqual(["mail-mcp", "notion", "knowledge-mcp", "hub"]);
+    expect(HUB_MCP_SERVERS).toEqual(["mail-mcp", "notion", "hub"]);
   });
 
   it("P51: the session gets the read-only hub MCP server bound to its project, and the focus hook on every prompt", () => {

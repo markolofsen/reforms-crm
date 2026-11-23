@@ -30,7 +30,8 @@ const MAIL_LABELS: Record<string, string> = {
   list_accounts: "looks at mail accounts",
   list_mailboxes: "looks at mail accounts",
 };
-const HUB_LABELS: Record<string, string> = { mcp__hub__client_record: "records a client", mcp__hub__drafts_list: "lists drafts", mcp__hub__client_show: "reads a client", mcp__hub__inbound_show: "reads a client's message", mcp__hub__messenger_history: "reads a chat", mcp__hub__messenger_draft_write: "writes a messenger draft", mcp__hub__highlight: "points at your screen" };
+// P129 A4: the hub's read tools as renamed (project_show, mail_list, message_show) and the knowledge tools, which are the hub's now.
+const HUB_LABELS: Record<string, string> = { mcp__hub__client_record: "records a client", mcp__hub__mail_list: "lists mail", mcp__hub__client_show: "reads a client", mcp__hub__message_show: "reads a client's message", mcp__hub__project_show: "reads the project's settings", mcp__hub__knowledge_search: "reads the knowledge base", mcp__hub__knowledge_get: "reads the knowledge base", mcp__hub__messenger_history: "reads a chat", mcp__hub__messenger_draft_write: "writes a messenger draft", mcp__hub__highlight: "points at your screen" };
 
 /** P129 A3: the hub draft a `draft_write` reply or new thread recorded, from its logged result (`"record":{"draftId":7`). */
 function recordedDraft(output: unknown): number | null {
@@ -65,7 +66,6 @@ export function labelOfTool(tool: string, input: unknown, output: unknown, done:
   const hub = HUB_LABELS[tool];
   if (hub) return plain(hub);
   if (tool.startsWith(MAIL)) return plain(MAIL_LABELS[tool.slice(MAIL.length)] ?? tool);
-  if (tool.startsWith("mcp__knowledge-mcp__")) return plain("reads the knowledge base");
   const [, server = "", ...action] = tool.split("__");
   if (tool.startsWith("mcp__") && /notion/i.test(server)) return plain(notionWrite.test(action.join("__")) ? "updates Notion" : "reads Notion");
   if (COMMAND_TOOLS.has(tool)) return plain("runs a command");

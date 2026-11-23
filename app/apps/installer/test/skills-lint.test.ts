@@ -9,14 +9,14 @@ import { defaultRoot } from "../src/context";
 
 // P129 verdict 9 (A6): the skill file is the one source, and this lint keeps it true. No generated frontmatter, no
 // `skills.yaml`: every name `allowed-tools` lists exists, every hub tool the body names is listed, a SKILL.md is at most
-// 10 KB (rare branches go to `references/`), and the kinds name only skills that exist.
+// 10 KB (rare branches go to `references/`), and the kinds name only skills that exist. The knowledge tools are the hub's
+// since P129 A4 (`mcp__hub__knowledge_*`): a `knowledge-mcp` name is "no such server".
 
 const skillsDir = path.join(defaultRoot(), "skills");
 const names = readdirSync(skillsDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name).sort();
 const SKILL_MAX_BYTES = 10 * 1024;
 const BUILT_IN = new Set(["Read", "Write", "Edit", "Bash", "Glob", "Grep"]);
 const HUB = new Set<string>([...HUB_MCP_TOOLS, ...HUB_MCP_ATTENDED_TOOLS]);
-const KNOWLEDGE = new Set(["knowledge_search", "knowledge_get"]);
 
 const text = (name: string): string => readFileSync(path.join(skillsDir, name, "SKILL.md"), "utf8");
 function allowedTools(name: string): string[] {
@@ -35,7 +35,6 @@ function unknownTool(t: string): string | null {
   if (server === "hub") return HUB.has(tool ?? "") ? null : `${t}: hub mcp has no tool ${tool}`;
   if (server === "mail-mcp") return MAIL_MCP_READ_TOOLS.includes(tool ?? "") ? null : `${t}: not one of mail-mcp's read tools`;
   if (server === "notion") return NOTION_ALLOWED.includes(tool ?? "") ? null : `${t}: not on NOTION_ALLOWED (${NOTION_PREFIX}…)`;
-  if (server === "knowledge-mcp") return KNOWLEDGE.has(tool ?? "") ? null : `${t}: knowledge-mcp has no tool ${tool}`;
   return `${t}: no such server for a hub session`;
 }
 

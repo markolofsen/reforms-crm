@@ -13,7 +13,7 @@ export type InboxRow = typeof inboxRows.$inferSelect;
 export type InboxItem = InboxRow & { openDraftId: number | null; owed: boolean };
 type Tx = Pick<Db, "select" | "insert" | "update">;
 
-/** What `hub record-client` (and `hub record-draft`, for a drafted client) reports for one client. No mail text. */
+/** What `client_record` (and `draft_write`, for a drafted client) reports for one client. No mail text. */
 export type InboxInput = {
   project: string;
   email: string;

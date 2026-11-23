@@ -13,7 +13,7 @@ const fields = (m: MailDraft) => ({ from: m.sender, to: m.to, cc: m.cc, subject:
 
 /**
  * `hub send <draftId>`. `confirm` (the server's Send) is the recipient and subject the person saw; a mismatch refuses. Dry run unless `apply`: it reads Mail and prints what it would send (full text included). With
- * `apply` it writes the audit row first, sends, and finishes the row. Exit codes as `record-draft`: 0 ok, 1 failure
+ * `apply` it writes the audit row first, sends, and finishes the row. Exit codes: 0 ok, 1 failure
  * while sending or writing, 2 refused (nothing sent, nothing written).
  */
 export async function sendDraft(deps: SendDeps, o: { draftId: number; apply: boolean; actor: string; confirm?: { to: string[]; subject: string } }): Promise<SendOutcome> {

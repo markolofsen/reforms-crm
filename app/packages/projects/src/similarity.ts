@@ -1,5 +1,5 @@
 // Near-duplicate detection of reply bodies (P28 B2, research 15 section 3.3). Pure, no dependencies, deterministic.
-// The guard, `hub record-draft`, `hub batch-check` and `hub audit-run` all call these functions, so one number means one thing.
+// The guard, `draft_write`'s record, `hub batch-check` and `hub audit-run` all call these functions, so one number means one thing.
 // Only hashes of word shingles leave this module: a sketch cannot rebuild a body (decision 0011 point 5, 0013).
 
 /** Size of a sketch: the 256 smallest shingle hashes. A body of up to 256 shingles (about 250 words) is held exactly. */

@@ -16,7 +16,7 @@ describe("hub audit-run", () => {
   it("a session that stays inside its project is clean", () => {
     const f = log([
       line("mcp__mail-mcp__find_messages", { account: "owner@acme.example" }),
-      line("mcp__knowledge-mcp__knowledge_search", { project: "acme-travel", query: "visa" }),
+      line("mcp__hub__knowledge_search", { query: "visa" }),
       line("Read", { file_path: "/x/projects/acme-travel/project.md" }),
       line("Read", { file_path: "/x/projects/_template/knowledge/README.md" }),
     ]);
@@ -25,10 +25,11 @@ describe("hub audit-run", () => {
     expect(r.calls).toBe(4);
   });
 
-  it("flags a foreign account, a foreign knowledge project, another project's folder and a send tool", () => {
+  // P129 A4: the knowledge tools are the hub's, bound to the session's project (no project argument to name another one).
+  it("flags a foreign account, a Notion delete, another project's folder and a send tool", () => {
     const f = log([
       line("mcp__mail-mcp__find_messages", { account: "someone@else.example" }),
-      line("mcp__knowledge-mcp__knowledge_get", { project: "nordhaus", id: "1" }),
+      line("mcp__notion__notion-delete-pages", {}),
       line("Bash", { command: "cat projects/nordhaus/project.md" }),
       line("mcp__mail-mcp__create_outgoing_message", {}),
     ]);

@@ -55,7 +55,7 @@ function readOne(root: string, name: string, o: LoadOptions): LoadedProject | nu
 
 /**
  * The project `slug`, read alone: never the other project folders (an agent's sandbox may not read them, and
- * `hub record-draft` runs inside it). A slug that is a template (`_`), hidden or missing is an error.
+ * `hub mcp` reads only the bound project's). A slug that is a template (`_`), hidden or missing is an error.
  */
 export function loadProject(root: string, slug: string, o: LoadOptions = {}): LoadedProject {
   const found = /^[a-z0-9][a-z0-9._-]*$/.test(slug) && existsSync(join(root, slug)) ? readOne(root, slug, o) : null;

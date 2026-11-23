@@ -62,7 +62,7 @@ export type HealthDto = z.infer<typeof healthDto>;
 
 /**
  * What the admin polls every 10 s while the tab is visible. `dataVersion` changes when ANY connection commits to the
- * database file (SQLite `PRAGMA data_version`), so a `hub record-draft` run in a terminal is noticed; the lists are
+ * database file (SQLite `PRAGMA data_version`), so a draft `hub mcp` records on its own connection is noticed; the lists are
  * refetched only when it changed.
  */
 export const pulseDto = z.object({ dataVersion: z.number(), serverTime: z.string(), health: healthDto });

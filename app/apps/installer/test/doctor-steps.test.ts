@@ -1,4 +1,4 @@
-// Doctor steps added by P39 B: notion.access, telegram.getme, server.health, mcp.knowledge, backup.*.
+// Doctor steps added by P39 B: notion.access, telegram.getme, server.health, mcp.hub (mcp.knowledge until P129 A4), backup.*.
 // No live call anywhere: fetch and the process runner are fakes; git works on throw-away local repositories.
 import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
@@ -31,7 +31,7 @@ const respond = (status: number, body: unknown = {}) => (async () => new Respons
 
 describe("the new steps are in the list and explain themselves", () => {
   it("every id exists exactly once, with a fix guide", () => {
-    for (const id of ["notion.access", "telegram.getme", "server.health", "mcp.knowledge", "backup.git", "backup.db", "backup.snapshot", "backup.notion", "backup.secrets"]) {
+    for (const id of ["notion.access", "telegram.getme", "server.health", "mcp.hub", "backup.git", "backup.db", "backup.snapshot", "backup.notion", "backup.secrets"]) {
       expect(STEPS.filter((s) => s.id === id), id).toHaveLength(1);
       expect(step(id).manual?.steps.length, id).toBeGreaterThan(0);
     }
@@ -122,35 +122,40 @@ describe("server.health", () => {
   });
 });
 
-describe("mcp.knowledge", () => {
-  const KNOW = (command: string) => ({ mcpServers: { "knowledge-mcp": { type: "stdio", command, args: ["x"], env: { HUB_PROJECT: "${HUB_PROJECT:-}" } } } });
+describe("mcp.hub", () => {
+  const HUB = (command: string, script = process.argv[1]!) => ({ mcpServers: { hub: { type: "stdio", command, args: [script, "mcp"], env: { HUB_PROJECT: "${HUB_PROJECT:-}" } } } });
   it("fails when the server is missing from .mcp.json or its program does not exist", async () => {
     const f = fake();
-    expect((await step("mcp.knowledge").check(f.ctx)).level).toBe("fail");
-    writeFileSync(f.ctx.paths.mcpFile, JSON.stringify(KNOW("/no/such/tsx")));
-    expect((await step("mcp.knowledge").check(f.ctx)).detail).toContain("does not exist");
+    expect((await step("mcp.hub").check(f.ctx)).level).toBe("fail");
+    writeFileSync(f.ctx.paths.mcpFile, JSON.stringify(HUB("/no/such/node")));
+    expect((await step("mcp.hub").check(f.ctx)).detail).toContain("does not exist");
+    writeFileSync(f.ctx.paths.mcpFile, JSON.stringify(HUB("node", "/no/such/hub.mjs")));
+    expect((await step("mcp.hub").check(f.ctx)).detail).toContain("/no/such/hub.mjs does not exist");
   });
-  it("starts it with a throw-away database (never the real one) and passes on an initialize reply", async () => {
+  it("starts `node` as the hub's own Node with a throw-away database (never the real one) and passes on an initialize reply", async () => {
     const calls: { cmd: string; env?: Record<string, string>; input?: string }[] = [];
     const f = fake();
-    writeFileSync(f.ctx.paths.mcpFile, JSON.stringify(KNOW(process.execPath)));
+    const script = path.join(f.root, "hub.mjs");
+    writeFileSync(script, "");
+    writeFileSync(f.ctx.paths.mcpFile, JSON.stringify(HUB("node", script)));
     const realRun = f.ctx.run;
     f.ctx.run = async (cmd, args, opts) => {
       if (cmd !== process.execPath) return realRun(cmd, args, opts);
       calls.push({ cmd, env: opts?.env, input: opts?.input });
-      return { code: 0, stdout: '{"jsonrpc":"2.0","id":1,"result":{"serverInfo":{"name":"knowledge-mcp"}}}\n', stderr: "" };
+      return { code: 0, stdout: '{"jsonrpc":"2.0","id":1,"result":{"serverInfo":{"name":"hub"}}}\n', stderr: "" };
     };
-    const r = await step("mcp.knowledge").check(f.ctx);
+    const r = await step("mcp.hub").check(f.ctx);
     expect(r.level, r.detail).toBe("pass");
     expect(calls).toHaveLength(1);
     expect(calls[0]!.input).toContain('"method":"initialize"');
     expect(calls[0]!.env!.HUB_DB).not.toBe(f.ctx.paths.db);
-    expect(path.dirname(calls[0]!.env!.HUB_DB!).startsWith(tmpdir()) || path.dirname(calls[0]!.env!.HUB_DB!).includes("hub-knowledge-check-")).toBe(true);
+    expect(calls[0]!.env!.HUB_PROJECT).toBe("");
+    expect(path.dirname(calls[0]!.env!.HUB_DB!).includes("hub-mcp-check-")).toBe(true);
     expect(readdirSync(tmpdir()).filter((n) => n === path.basename(path.dirname(calls[0]!.env!.HUB_DB!)))).toEqual([]); // removed
     f.ctx.run = async () => ({ code: 1, stdout: "", stderr: "Error: cannot find module\nboom" });
-    expect((await step("mcp.knowledge").check(f.ctx)).detail).toContain("boom");
+    expect((await step("mcp.hub").check(f.ctx)).detail).toContain("boom");
     f.ctx.run = async () => ({ code: 124, stdout: "", stderr: "" });
-    expect((await step("mcp.knowledge").check(f.ctx)).detail).toContain("45 s");
+    expect((await step("mcp.hub").check(f.ctx)).detail).toContain("45 s");
   });
 });
 

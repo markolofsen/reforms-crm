@@ -45,6 +45,10 @@ export const REFUSAL_CODES = [
   "context_refused",
   "busy",
   "record_failed",
+  // knowledge_search (P129 A4: the knowledge tools are hub mcp's)
+  "empty_query",
+  "brand_required",
+  "unknown_brand",
   // messenger_history, messenger_draft_write (the chat's rules, `messenger/rules.ts`)
   "not_linked",
   "empty_text",
@@ -117,6 +121,9 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   context_refused: { retry: "now", next: "Read what the message says is missing (thread, profile, knowledge), then call once more with the context block." },
   busy: { retry: "now", next: "The database was busy: call once more; the draft in Mail is adopted, not written twice." },
   record_failed: { retry: "no", next: `${ONE_LINE} that the draft is in Mail but the Hub could not record it (the message says why).` },
+  empty_query: { retry: "now", next: "Search with the client's own words (letters, not only punctuation)." },
+  brand_required: { retry: "now", next: "Pass brand = the brand message_show gave for this mail, or ANY for a mail with no brand." },
+  unknown_brand: { retry: "now", next: "Use one of the brands the message lists (project_show names them too), or ANY." },
   not_linked: { retry: "no", next: "Only chats the owner linked exist here; say so in one line." },
   empty_text: { retry: "now", next: "Give the reply's text." },
   reply_off: { retry: "no", next: "The owner set this chat to never draft: write nothing and say so in one line." },

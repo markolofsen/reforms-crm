@@ -154,7 +154,7 @@ export const ProjectBase = z.object({
     })
     .default({ mode: "draft", classes: [], dailyCap: 5, delayMinutes: 10 }),
   /**
-   * `hub record-draft` and the evidence block (P28): `warn` records a missing or failing `context` and reports it,
+   * the draft record (`draft_write`) and the evidence block (P28): `warn` records a missing or failing `context` and reports it,
    * `block` refuses the draft. null: warn until CONTEXT_BLOCK_FROM, block after (owner decision 2026-11-15).
    */
   context: z.object({ required: z.enum(["warn", "block"]).nullable().default(null) }).default({ required: null }),

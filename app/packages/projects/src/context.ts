@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-// The `context` evidence block of `hub record-draft` (P28 B1, research 15 section 3.1) and the rules V1 to V5 the hub
-// applies to it. Pure: the writer (apps/installer record-draft.ts) supplies the earlier records of the batch.
+// The `context` evidence block of a draft record (P28 B1, research 15 section 3.1; `draft_write`'s `record` since P129 A3) and the rules V1 to V5 the hub
+// applies to it. Pure: the writer (`@hub/agent` records/draft.ts) supplies the earlier records of the batch.
 // No mail text lives here beyond short owner-approved fields: anchors, personalization, and thread rows of at most 120
 // characters of the INCOMING thread (decision 0013). Never our own body.
 

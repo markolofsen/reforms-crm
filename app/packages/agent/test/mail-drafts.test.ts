@@ -884,16 +884,20 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     await expect(repos.drafts.revised("acme", rec.draftId, { excerpt: "x", wroteTo: null, brand: null })).rejects.toThrow(/only a ready or held draft/);
   });
 
-  it("mail_brand resolves pasted headers without a Mail read", async () => {
-    const server = createHubMcpServer(createRepos(db.db), { hubProject: "acme", focusFile: path.join(dir, "focus.json"), projectMail });
+  // P129 A4: message_show (was mail_brand) reads the headers from Mail itself, read only; the agent pastes nothing.
+  it("message_show resolves the brand from the message's own headers, read from Mail", async () => {
+    const mail = new FakeDraftWriter();
+    mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
+    mail.headers.set(43, `Delivered-To: ${account}\nTo: ${cases.forwarded.wroteTo}\nFrom: Ann <ann@x.example>\nSubject: Hello\n`);
+    const server = createHubMcpServer(createRepos(db.db), { hubProject: "acme", focusFile: path.join(dir, "focus.json"), projectMail, drafts: mail });
     const [a, b] = InMemoryTransport.createLinkedPair();
     await server.connect(b);
     const client = new Client({ name: "test", version: "0" });
     await client.connect(a);
-    const res = await client.callTool({ name: "mail_brand", arguments: { headers: readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8") } });
-    expect(JSON.parse((res.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ brand: cases.forwarded.brand, clientWroteTo: cases.forwarded.wroteTo, signature: "signed" });
-    const viaTo = await client.callTool({ name: "mail_brand", arguments: { headers: `Delivered-To: ${account}`, to: [cases.forwarded.wroteTo] } });
-    expect(JSON.parse((viaTo.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ brand: cases.forwarded.brand });
+    const show = async (message_id: number) => JSON.parse(((await client.callTool({ name: "message_show", arguments: { message: { account, mailbox_path: ["INBOX"], message_id } } })).content as Array<{ text: string }>)[0]!.text);
+    expect(await show(42)).toMatchObject({ brand: cases.forwarded.brand, clientWroteTo: cases.forwarded.wroteTo, signature: "signed", reply: { draft_write: { kind: "reply", message: { account, mailbox_path: ["INBOX"], message_id: 42 } } } });
+    expect(await show(43)).toMatchObject({ brand: cases.forwarded.brand, from: { email: "ann@x.example" }, subject: "Hello" });
+    expect(mail.drafts).toHaveLength(0);
   });
 });
 

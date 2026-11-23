@@ -100,9 +100,10 @@ export const HUB_API_COMMANDS: readonly string[] = ["Bash(*127.0.0.1*)", "Bash(*
 
 /**
  * The hub's own MCP servers: everything else is dropped (Claude `--strict-mcp-config`, Codex its own `CODEX_HOME`). `hub` is
- * the core's read-only server (`hub mcp`, P51: the admin's focus and read-only views), always registered.
+ * the core's server (`hub mcp`, P51: the admin's focus, the read-only views, the knowledge tools since P129 A4, the draft
+ * writer), always registered.
  */
-export const HUB_MCP_SERVERS = ["mail-mcp", "notion", "knowledge-mcp", "hub"] as const;
+export const HUB_MCP_SERVERS = ["mail-mcp", "notion", "hub"] as const;
 
 /**
  * Command prefixes Codex refuses without asking (`prefix_rule(..., decision="forbidden")`): the same doors as the

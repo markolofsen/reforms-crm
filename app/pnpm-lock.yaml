@@ -470,6 +470,9 @@ importers:
       '@hub/db':
         specifier: workspace:*
         version: link:../db
+      '@hub/knowledge':
+        specifier: workspace:*
+        version: link:../knowledge
       '@hub/log':
         specifier: workspace:*
         version: link:../log
@@ -616,9 +619,6 @@ importers:
       '@hub/projects':
         specifier: workspace:*
         version: link:../projects
-      '@modelcontextprotocol/server':
-        specifier: 2.4.0
-        version: 2.4.0
       commander:
         specifier: 15.1.0
         version: 15.1.0
@@ -629,9 +629,6 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
-      '@modelcontextprotocol/client':
-        specifier: 2.4.0
-        version: 2.4.0
       '@types/node':
         specifier: 'catalog:'
         version: 22.20.5

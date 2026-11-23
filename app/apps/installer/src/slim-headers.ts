@@ -4,7 +4,7 @@
  * so the hook then leaves the original output alone.
  */
 const KEEP = new Set([
-  // to, cc and x-gm-original-to: the first and last headers of the brand order (P60 `mail_brand`); without them a forwarded mail can never match its brand
+  // to, cc and x-gm-original-to: the first and last headers of the brand order (P60; `message_show` and `draft_write`); without them a forwarded mail can never match its brand
   "to", "cc", "x-gm-original-to",
   "delivered-to", "x-forwarded-to", "x-original-to", "x-forwarded-for", "reply-to", "return-path", "list-unsubscribe", "list-id",
   "precedence", "auto-submitted", "authentication-results", "received-spf", "message-id", "in-reply-to", "references",

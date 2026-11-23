@@ -36,6 +36,7 @@
     "@hub/config": "workspace:*",
     "@hub/contract": "workspace:*",
     "@hub/db": "workspace:*",
+    "@hub/knowledge": "workspace:*",
     "@hub/log": "workspace:*",
     "@hub/notion": "workspace:*",
     "@hub/projects": "workspace:*",

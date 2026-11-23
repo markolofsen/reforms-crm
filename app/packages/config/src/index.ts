@@ -217,7 +217,7 @@ export const SAFETY_KINDS = [
   "risky_word",
   "wrong_thread",
   "already_sent_recently",
-  // What the draft was based on (P28): judged from the evidence block `hub record-draft` stored, never from the body.
+  // What the draft was based on (P28): judged from the evidence block the draft record (`draft_write`) stored, never from the body.
   "no_thread_read",
   "no_profile_read",
   "near_duplicate",
@@ -261,13 +261,13 @@ export const SAFETY_LABELS: Record<SafetyKind, string> = {
   signature_language: "Signature not in the reply's language",
 };
 
-/** How well a recorded draft's own evidence block holds up (`hub record-draft`, rules V1 to V5). Null on a draft with no block (older rows, batch drafts). */
+/** How well a recorded draft's own evidence block holds up (the draft record (`draft_write`), rules V1 to V5). Null on a draft with no block (older rows, batch drafts). */
 export const EVIDENCE_LEVELS = ["ok", "weak", "missing"] as const;
 export type EvidenceLevel = (typeof EVIDENCE_LEVELS)[number];
 /** `observed`: the hook ledger confirmed the counts; `claimed`: only the agent said so. */
 export const EVIDENCE_SOURCES = ["observed", "claimed"] as const;
 export type EvidenceSource = (typeof EVIDENCE_SOURCES)[number];
-/** One finding of the evidence check, as `hub record-draft` reported it. */
+/** One finding of the evidence check, as the draft record (`draft_write`) reported it. */
 export type EvidenceFinding = { code: string; text: string; amber: boolean };
 
 /** Which safety kind a finding code belongs to. Codes no kind names land on `evidence_weak`. */

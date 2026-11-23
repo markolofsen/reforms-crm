@@ -70,8 +70,8 @@ export type FocusRecord = z.infer<typeof focusRecord>;
 export const FOCUS_STATES = ["fresh", "stale", "elsewhere", "none"] as const;
 export type FocusState = (typeof FOCUS_STATES)[number];
 
-/** How the agent reads an item: the MCP server, the tool and its arguments. */
-export const focusRead = z.strictObject({ server: z.enum(["hub", "knowledge-mcp"]), tool: z.string(), args: z.record(z.string(), z.union([z.string(), z.number()])) });
+/** How the agent reads an item: the MCP server (the hub's own since P129 A4 moved the knowledge tools), the tool and its arguments. */
+export const focusRead = z.strictObject({ server: z.enum(["hub"]), tool: z.string(), args: z.record(z.string(), z.union([z.string(), z.number()])) });
 export type FocusRead = z.infer<typeof focusRead>;
 
 /** One ref resolved inside the bound project: its title (client data), its status, and the tool that reads it (null: none). */

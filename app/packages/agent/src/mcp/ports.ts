@@ -1,9 +1,8 @@
 import type { Repos } from "@hub/db";
-import type { Brand, ProjectLink } from "@hub/projects/model";
+import type { Brand, ProjectConfig } from "@hub/projects/model";
 import type { DraftWriter } from "../mail";
 import type { WithRepos } from "../mail/write-log";
 import type { AgentSendPort } from "../messenger/send-tool";
-import type { NotionScope } from "../notion-scope";
 import type { DraftRecordEnv } from "../records/draft";
 import { ToolError } from "./result";
 
@@ -42,10 +41,11 @@ export interface HubMcpEnv {
   drafts?: DraftWriter;
   /** The project's Mail accounts and sender; `draft_write` writes only from these accounts. */
   projectMail?: (slug: string) => ProjectMail;
-  /** P82: the project's Notion databases (`notionScopeOf` of its project.md); absent, `project_notion` refuses `unavailable`. */
-  projectNotion?: (slug: string) => NotionScope;
-  /** P101: the project's declarative Quick Links; links are data only and this tool never opens or writes them. */
-  projectLinks?: (slug: string) => readonly ProjectLink[];
+  /**
+   * P129 verdict 5: the project's resolved config (project.md with its send policy), what `project_show` returns a slice of
+   * (P82 its Notion databases, P101 its Quick Links, P92 test mode). Absent, `project_show` refuses `unavailable`.
+   */
+  projectConfig?: (slug: string) => ProjectConfig;
   /**
    * Tells the open admin that a Mail draft of this project changed (P53: the live topic `mail`), so the card reads it
    * again. The database handle of the tools stays read-only; this writes only the live counter. A throw is reported, never fatal.
