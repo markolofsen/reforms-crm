@@ -9,7 +9,7 @@ The agent never sends. The Hub starts no agent on a timer (a cheap LLM call thro
 
 **The loop.** A session follows a skill in `skills/`. It reads mail through `mail-mcp` (Apple Mail; no send tool), writes the client's Notion
 record through its own Notion connector, and writes each reply as an unsent Mail draft with the `hub` MCP's `draft_write`. The Hub knows its
-Mail drafts by its own record of each version it wrote, never by a line in the text, and the session records the draft with `hub record-draft`.
+Mail drafts by its own record of each version it wrote, never by a line in the text, and the session records the draft with `draft_write`'s record.
 The owner reads the draft in the admin, switches on "I read the checks" and presses Send: [core/06-local-admin-app.md](core/06-local-admin-app.md).
 
 **The parts.**
@@ -103,7 +103,7 @@ test fails when a block of the model has no row here or its row does not link it
 | Agent | Skills and workflows | `skills/` and the project's workflows | [core/20-workflows.md](core/20-workflows.md) |
 | Agent | Agent | Claude Code or Codex in `hub agent` | [core/24-terminal.md](core/24-terminal.md) |
 | Agent | Guard | Deny list, hooks, the Notion scope | [core/26-capabilities.md](core/26-capabilities.md) |
-| Reads | Knowledge | The project's entries, through `knowledge-mcp` | [core/16-projects-and-knowledge.md](core/16-projects-and-knowledge.md) |
+| Reads | Knowledge | The project's entries, through `hub mcp` (`knowledge_search`) | [core/16-projects-and-knowledge.md](core/16-projects-and-knowledge.md) |
 | Reads | Notion CRM | The project's own databases | [core/15-notion-project-deploy-skill.md](core/15-notion-project-deploy-skill.md) |
 | Reads | Calendar and Drive | The Google connectors a project attaches | [core/26-capabilities.md](core/26-capabilities.md) |
 | Reads | Your browser | The owner's own extension; the Hub adds none | [core/26-capabilities.md](core/26-capabilities.md) |

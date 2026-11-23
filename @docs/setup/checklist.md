@@ -47,8 +47,8 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
   - Proves: `state/secrets/` holds no `mail-*.json`. One is a WARN naming the files; nothing is deleted.
   - You: Delete the `mail-*.json` files the row names from `state/secrets/`.
 - [ ] **Project .mcp.json** (`files.mcp-json`)
-  - Proves: `.mcp.json` contains every server of `config/mcp.json` (stdio programs as absolute paths under the core), and every stdio server command in it exists.
-  - `hub install` fixes it: Merges the servers of `config/mcp.json` into `.mcp.json` with stdio paths made absolute under the core, keeps your other servers, saves a one-time `.mcp.json.bak`.
+  - Proves: `.mcp.json` contains every server of `config/mcp.json` (stdio programs as absolute paths under the core), every stdio server command in it exists, and it holds no server the core no longer ships (`hub mcp`'s knowledge tools, whose tools are the `hub` server's since P129).
+  - `hub install` fixes it: Merges the servers of `config/mcp.json` into `.mcp.json` with stdio paths made absolute under the core, drops the servers the core no longer ships, keeps your other servers, saves a one-time `.mcp.json.bak`.
 - [ ] **App database** (`files.app-db`)
   - Proves: The database file exists (`data/app.db` of the instance).
   - `hub install` fixes it: Runs the app's `db:migrate` script (`pnpm --dir app run db:migrate`).
@@ -87,8 +87,8 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
   - `hub install` fixes it: write ~/Library/LaunchAgents/com.reforms.hub.<instance>.plist and state/autostart/, then launchctl bootstrap it (a running agent is left running). It needs admin_port and api_port set in config/config.json (not 5173/4317) first; if macOS shows "Background Items Added", leave it allowed (Login Items > Allow in the Background)
 ## MCP
 
-- [ ] **knowledge-mcp starts** (`mcp.knowledge`)
-  - Proves: The `knowledge-mcp` command of `.mcp.json` is started exactly as Claude would start it and answers an MCP `initialize`. It runs against a throw-away empty database, so the real `data/app.db` is never opened; the process is closed at once.
+- [ ] **hub mcp starts** (`mcp.hub`)
+  - Proves: The `hub` command of `.mcp.json` is started exactly as a session starts it (`node` is the hub's own Node) and answers an MCP `initialize`. It opens a throw-away empty database, read-only, so the real `data/app.db` is never opened; the process is closed at once.
   - You: Run `hub install --only files.mcp-json` (writes the server with absolute paths), then `pnpm install` in the core's `app/` if the program is missing.
 ## Mail
 
