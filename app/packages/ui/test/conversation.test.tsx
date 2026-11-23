@@ -67,16 +67,19 @@ describe("ConversationFrame contract", () => {
   it("keeps the owner editor shell shared across product surfaces", () => {
     const html = renderToStaticMarkup(<ConversationComposerEditor ariaLabel="Reply composer" onChange={() => undefined} testId="shared-editor" title="Write a reply" value="Draft" />);
     expect(html).toContain('data-testid="shared-editor"');
-    expect(html).toContain('data-editor="tiptap-markdown"');
-    expect(html).not.toContain("Markdown is saved as written");
+    // P123 U0: the composers are plain text until P93's RTF path lands: no formatting toolbar, no Markdown editor.
+    expect(html).toContain('data-editor="plain-text"');
+    expect(html).not.toContain('role="toolbar"');
+    expect(html).not.toContain("tiptap");
+    expect(html).not.toContain("Plain text, saved as written");
     const detailed = renderToStaticMarkup(<ConversationComposerEditor ariaLabel="Reply composer" onChange={() => undefined} showEditorMeta title="Write a reply" value="Draft" />);
-    expect(detailed).toContain("Markdown is saved as written");
+    expect(detailed).toContain("Plain text, saved as written");
   });
 
   it("lets an existing draft reuse the editor surface without nesting a composer", () => {
     const html = renderToStaticMarkup(<ConversationEditorSurface ariaLabel="Edit draft" onChange={() => undefined} title="Edit draft" value="Draft" />);
     expect(html).toContain("Edit draft");
-    expect(html).toContain('data-editor="tiptap-markdown"');
+    expect(html).toContain('data-editor="plain-text"');
     expect(html).not.toContain('data-pane="composer"');
   });
 

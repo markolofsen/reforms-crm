@@ -77,6 +77,19 @@ test("inbox: a row opens the conversation; Prepare reply pastes the request into
   await endAll(page);
 });
 
+test("P123 U0: Mail's composer is plain text: no formatting buttons, Markdown typed stays as typed", async ({ page }) => {
+  await page.goto(at(P, "/mail"));
+  await person(page, "Omar Test").getByRole("button").first().click();
+  const box = pane(page).getByRole("textbox", { name: /^(Reply|New message) composer$/ });
+  await expect(box).toBeVisible();
+  await expect(box).toHaveJSProperty("tagName", "TEXTAREA");
+  await expect(pane(page).getByRole("toolbar")).toHaveCount(0);
+  for (const name of ["Bold", "Italic", "Link", "Quote", "Bulleted list"]) await expect(pane(page).getByRole("button", { name, exact: true })).toHaveCount(0);
+  await box.fill("**not bold** and - not a list");
+  await expect(box).toHaveValue("**not bold** and - not a list");
+  await box.fill("");
+});
+
 test("inbox: No reply needed closes the client, and Undo brings them back", async ({ page }) => {
   await page.goto(at(P, "/mail"));
   await person(page, "Omar Test").getByRole("button").first().click();

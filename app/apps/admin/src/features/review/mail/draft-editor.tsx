@@ -10,7 +10,7 @@ type EditorProps = {
 };
 
 /**
- * The owner edits the draft's words (P56 S1) with the shared Markdown editor. The saved value remains Markdown/plain text,
+ * The owner edits the draft's words (P56 S1) in the shared plain-text editor (P123 U0, until P93). The saved value is plain text,
  * so Mail receives exactly the owner's words. Save is explicit: Meta or Ctrl + Enter, Esc cancels. A live read never replaces
  * what is typed here; it says the text changed in Mail, and the Save is refused until read again.
  */

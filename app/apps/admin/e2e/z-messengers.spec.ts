@@ -79,9 +79,12 @@ test("messengers: Send reads the dry run, confirms in place with the exact text,
 test("messengers: Edit changes the draft's text, Skip sets it aside with Undo", async ({ page }) => {
   await page.goto(at(P, "/messengers"));
   await conversation(page).getByRole("button", { name: `Edit the draft for ${RITA}` }).click();
-  // P93: the Markdown composer, named by its aria-label; its help line says what Save does.
+  // P123 U0: a plain-text composer, named by its aria-label: no formatting buttons until P93's RTF path lands.
   const box = page.getByLabel("Edit the messenger draft", { exact: true });
   await expect(box).toBeFocused();
+  await expect(box).toHaveJSProperty("tagName", "TEXTAREA");
+  await expect(conversation(page).getByRole("toolbar")).toHaveCount(0);
+  for (const name of ["Bold", "Italic", "Link", "Quote", "Bulleted list"]) await expect(conversation(page).getByRole("button", { name, exact: true })).toHaveCount(0);
   await box.fill("Hi Rita, yes: the 28th at 10:00 stands.");
   await box.press("ControlOrMeta+Enter");
   await expect(conversation(page).getByTestId("messenger-draft")).toContainText("the 28th at 10:00 stands");

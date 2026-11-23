@@ -42,10 +42,15 @@ does not own API, Query or permission semantics.
    explicitly opts in; an opt-in must also provide an owned target predicate
    when the control is mounted beside other typing surfaces. The editor may
    prevent the browser command before the global dispatcher sees it.
-8. MUST: conversation composers use the shared `mail` Markdown toolbar
-   preset. It exposes quote, emphasis, links, lists and history actions; the
-   full Markdown toolbar remains available for general instruction and
-   knowledge editors. Product features must not duplicate this filtering.
+8. MUST: conversation composers (Mail's and Messengers' reply, message and
+   draft editors) use the shared plain-text editor
+   (`@hub/ui/product/plain-text-editor`, through `composer-editor.tsx`): no
+   formatting buttons, a paste arrives as plain text. Why: nothing turns
+   Markdown into the client's formatting yet, so a bold word would reach the
+   inbox as `**word**` (P123 U0, decision 0045 point 3). P93's RTF write and
+   canonical read-back bring the `mail` Markdown preset back here. The full
+   Markdown toolbar remains for instruction and knowledge editors. Product
+   features must not pick an editor of their own.
 9. SHOULD: use a coss primitive or an existing `@hub/ui/product` pattern
    before adding JSX. A new primitive requires an accessibility scenario and a
    reason why the existing component cannot express it.

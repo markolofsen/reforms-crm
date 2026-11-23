@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { cn } from "../cn";
 import { ConversationComposer } from "./conversation-frame";
-import { MarkdownEditor } from "./markdown-editor";
+import { PlainTextEditor } from "./plain-text-editor";
 
 export type ConversationEditorSurfaceProps = {
   ariaLabel: string;
@@ -34,8 +34,9 @@ export function ConversationEditorSurface({ ariaLabel, title, description, befor
       {description && <p className="text-muted-foreground text-xs">{description}</p>}
     </div>
     {beforeEditor}
+    {/* P123 U0: plain text until P93's RTF path lands (no formatting buttons, paste as plain text). */}
     {/* eslint-disable-next-line jsx-a11y/no-autofocus -- the editor opens on the owner's Edit click and focuses itself in an effect, never on page load */}
-    <MarkdownEditor ariaLabel={ariaLabel} autoFocus={autoFocus} disabled={disabled} maxLength={maxLength} onCancel={onCancel} onChange={onChange} onSubmit={onSubmit} placeholder={placeholder} showMeta={showEditorMeta} toolbarPreset="mail" value={value} />
+    <PlainTextEditor ariaLabel={ariaLabel} autoFocus={autoFocus} disabled={disabled} maxLength={maxLength} onCancel={onCancel} onChange={onChange} onSubmit={onSubmit} placeholder={placeholder} showMeta={showEditorMeta} value={value} />
   </div>;
 }
 
