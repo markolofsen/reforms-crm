@@ -17,6 +17,7 @@
     "./mcp-stdio": "./src/mcp/stdio.ts",
     "./mail": "./src/mail/index.ts",
     "./mail/fake": "./src/mail/fake.ts",
+    "./testing": "./src/testing/index.ts",
     "./records/checks": "./src/records/checks.ts",
     "./records/client": "./src/records/client.ts",
     "./records/draft": "./src/records/draft.ts",
