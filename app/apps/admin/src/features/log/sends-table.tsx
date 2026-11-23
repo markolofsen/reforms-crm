@@ -1,3 +1,4 @@
+import { clientKey } from "@hub/contract/client-key";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AGENT_WORD_SEND_ACTOR, AGENT_WORD_SEND_LABEL, BATCH_SEND_ACTOR } from "@hub/config";
 import type { SendRowDto } from "@hub/contract/sending";
@@ -35,7 +36,7 @@ function Subject({ r }: { r: SendRowDto }) {
   const title = r.channel === "mail" ? r.subject : r.body;
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      {r.clientId === null || r.channel !== "mail" ? <span className="line-clamp-2 break-words">{title}</span> : <AppLink className="text-foreground text-sm" to={dest("mail.conversation", { id: r.clientId })}>{r.subject}</AppLink>}
+      {r.clientId === null || r.channel !== "mail" ? <span className="line-clamp-2 break-words">{title}</span> : <AppLink className="text-foreground text-sm" to={dest("mail.conversation", { key: clientKey({ id: r.clientId }) })}>{r.subject}</AppLink>}
       {r.error && <span className="text-warning-foreground text-xs">{r.error}</span>}
     </span>
   );

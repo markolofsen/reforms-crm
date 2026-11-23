@@ -1,5 +1,6 @@
 import { DRAFT_VIEWS, type DraftView } from "@hub/config";
 import { ACTIVITY_VIEWS as TIMELINE_VIEWS, type ActivityView as TimelineView } from "@hub/contract/activity";
+import { keyText, parseClientKey } from "@hub/contract/client-key";
 import { KNOWLEDGE_VIEWS, type KnowledgeView } from "@hub/contract/knowledge";
 import { MESSENGER_CHANNEL_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerView } from "@hub/contract/messenger-panel";
 
@@ -72,6 +73,11 @@ export function positiveInt(v: string | undefined): number | null {
 export type ParamSpec<T> = (raw: string) => T | null;
 /** A client or chat id: a canonical positive integer (`abc`, `0`, `007` are Not found). */
 export const positiveId: ParamSpec<number> = (v) => positiveInt(v);
+/** A client's key (P103): his email, or `id-<n>` without one, in its canonical text; a bare number is Not found (no alias). */
+export const clientKeyParam: ParamSpec<string> = (v) => {
+  const r = parseClientKey(v);
+  return r === null ? null : keyText(r);
+};
 /** A Notion page id: 32 hex, read with or without its dashes and in any case (P97). */
 export const notionPage: ParamSpec<string> = (v) => {
   const p = v.replace(/-/g, "").toLowerCase();

@@ -5,8 +5,8 @@ import { dest } from "../src/routes/paths";
 import type { NavCheck } from "../src/routes/table";
 import { route } from "../src/routes/typed";
 
-// @ts-expect-error a conversation's client id is a number, not a string
-dest("mail.conversation", { id: "abc" });
+// @ts-expect-error P103: a conversation's client key is a string (his email, or id-<n>), not the row number
+dest("mail.conversation", { key: 42 });
 // @ts-expect-error a conversation needs its client id
 dest("mail.conversation");
 // @ts-expect-error P99: a draft has no address of its own; it is the unsent message of its client's conversation

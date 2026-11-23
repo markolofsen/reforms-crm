@@ -1,5 +1,5 @@
 import type { Route } from "next";
-import { AGENT_SEARCH, KNOWLEDGE_SEARCH, LOG_SEARCH, MAIL_SEARCH, MESSENGERS_SEARCH, notionPage, positiveId, type ParamSpec, type SearchOf, type SearchSpec } from "./search";
+import { AGENT_SEARCH, clientKeyParam, KNOWLEDGE_SEARCH, LOG_SEARCH, MAIL_SEARCH, MESSENGERS_SEARCH, notionPage, positiveId, type ParamSpec, type SearchOf, type SearchSpec } from "./search";
 
 // `/mail/[id]` read as the number it matches, so `Route<...>` (the union of the pages in `src/app`, plus a string that fits a
 // dynamic page) can judge it (decision 0021). P127 A2 (owner remark 2026-11-23): there is ONE route tree. A scoped row's page
@@ -74,7 +74,8 @@ export const ROUTE_TABLE = {
   "mail.list": defineRoute("/mail", { section: "mail", scoped: true, title: "Mail", search: MAIL_SEARCH, nav: { label: "Mail", icon: "inbox", order: 1, chord: "e", phone: "bar" } }),
   // P99 S3: one conversation, the whole correspondence with one client (a `clients` id: stable, an email in a path is not), its
   // unsent draft at the bottom. `/mail/<draft id>` and `/mail/in/<id>` are gone, with no redirect (no legacy aliases).
-  "mail.conversation": defineRoute("/mail/c/[id]", { section: "mail", scoped: true, title: "Mail", crumb: "Conversation", params: { id: positiveId }, search: MAIL_SEARCH }),
+  // P103: a person by his email (`/mail/c/ana%40example.com`), `id-<n>` without one; the bare number is Not found.
+  "mail.conversation": defineRoute("/mail/c/[key]", { section: "mail", scoped: true, title: "Mail", crumb: "Conversation", params: { key: clientKeyParam }, search: MAIL_SEARCH }),
   // P97 S2: one lead of the Inbox's Leads group, by its Notion page id (32 hex), read from Notion Leads.
   "mail.lead": defineRoute("/mail/lead/[page]", { section: "mail", scoped: true, title: "Mail", crumb: "Lead", params: { page: notionPage }, search: MAIL_SEARCH }),
   // P71 M3 (decision 0036 point 6): what the messengers owe, an analogue of Mail for the linked chats; its landing is the panel
@@ -144,7 +145,9 @@ const ID = String.raw`[1-9]\d*`;
  */
 const SLUG = String.raw`(?!${NO_PROJECT}[/?#])[^/?#]+`;
 const PAGE_ID = "[0-9a-f]{32}";
-const escape = (p: string): string => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\\[id\\]", () => ID).replace("\\[page\\]", () => PAGE_ID);
+/** A client key in the address (P103): an encoded email or `id-<n>`; `clientKeyParam` then decides (a bare number is Not found). */
+const KEY = "[^/?#]+";
+const escape = (p: string): string => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace("\\[id\\]", () => ID).replace("\\[page\\]", () => PAGE_ID).replace("\\[key\\]", () => KEY);
 
 const isRouteId = (k: string): k is RouteId => k in ROUTE_TABLE;
 export const ROUTE_IDS: readonly RouteId[] = Object.keys(ROUTE_TABLE).filter(isRouteId);

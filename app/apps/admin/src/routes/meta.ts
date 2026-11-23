@@ -29,7 +29,7 @@ export function titleOf(r: Resolved, project: string | null): string {
 }
 
 /** The title a page file gives its metadata: `routeId` and the id and project of its own address (a page knows both). */
-export function pageTitle(id: RouteId, project: string | null | undefined, item?: number): string {
+export function pageTitle(id: RouteId, project: string | null | undefined, item?: number | string): string {
   const { title, crumb } = metaOf(id);
   const sub = crumb && item !== undefined ? `${crumb} ${item}` : null;
   return [sub, title, PROJECTLESS.has(id) ? null : project, APP].filter(Boolean).join(" · ");
@@ -43,6 +43,7 @@ export function screenTitleOf(r: Resolved): string {
   if (r.route === "notFound") return "Not found";
   const { title, crumb } = metaOf(r.route);
   if (crumb && "id" in r.params) return `${crumb} ${r.params.id}`;
+  if (crumb && "key" in r.params) return `${crumb} ${r.params.key}`;
   // P96: Mail's view is part of what the screen shows ("Mail · Needs you", "Mail · Waiting"); a batch is its own view.
   if (r.route === "mail.list" && r.search.batch === null) return `${title} · ${DRAFT_VIEW_LABELS[r.search.filter]}`;
   return title;

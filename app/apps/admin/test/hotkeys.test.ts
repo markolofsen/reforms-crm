@@ -96,14 +96,14 @@ describe("hotkeys dispatcher", () => {
 describe("document title", () => {
   it("names the item, the section, the project and the app; Not found names no section", () => {
     expect(titleOf(resolveRoute("/mail", ""), "lisbon")).toBe("Mail · lisbon · Hub Workflow");
-    expect(titleOf(resolveRoute("/mail/c/42", ""), "lisbon")).toBe("Conversation 42 · Mail · lisbon · Hub Workflow");
+    expect(titleOf(resolveRoute("/mail/c/id-42", ""), "lisbon")).toBe("Conversation id-42 · Mail · lisbon · Hub Workflow");
     expect(titleOf(resolveRoute("/log", ""), "x")).toBe("Activity · x · Hub Workflow");
     expect(titleOf(resolveRoute("/clients", ""), "x")).toBe("Not found · Hub Workflow");
-    expect(crumbsOf(resolveRoute("/mail/c/42", ""))).toEqual(["Mail", "Conversation 42"]);
+    expect(crumbsOf(resolveRoute("/mail/c/id-42", ""))).toEqual(["Mail", "Conversation id-42"]);
   });
   it("a page file gives the same title as the address it serves (generateMetadata reads pageTitle)", () => {
     expect(pageTitle("mail.list", "lisbon")).toBe(titleOf(resolveRoute("/mail", ""), "lisbon"));
-    expect(pageTitle("mail.conversation", "lisbon", 42)).toBe(titleOf(resolveRoute("/mail/c/42", ""), "lisbon"));
+    expect(pageTitle("mail.conversation", "lisbon", "id-42")).toBe(titleOf(resolveRoute("/mail/c/id-42", ""), "lisbon"));
     expect(pageTitle("overview.page", "lisbon")).toBe("Overview · Hub Workflow");
     expect(titleOf(resolveRoute("/overview", ""), "lisbon")).toBe("Overview · Hub Workflow");
   });

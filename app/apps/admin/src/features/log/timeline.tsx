@@ -1,3 +1,4 @@
+import { clientKey } from "@hub/contract/client-key";
 import { ChevronDownIcon } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import type { ActivityRowDto } from "@hub/contract/activity";
@@ -21,7 +22,7 @@ const WHO = "inline [overflow-wrap:anywhere] sm:block sm:w-full sm:truncate";
 /** Where a row leads (P128 X0, F30): a messenger row to its chat, a Mail draft's row to the client's conversation, else nowhere. */
 type RowTarget = { chatId: number | null; draftId: number | null; clientId: number | null };
 const targetOf = (t: RowTarget): Dest | null =>
-  t.chatId !== null ? dest("messengers.conversation", { id: t.chatId }) : t.draftId !== null && t.clientId !== null ? dest("mail.conversation", { id: t.clientId }) : null;
+  t.chatId !== null ? dest("messengers.conversation", { id: t.chatId }) : t.draftId !== null && t.clientId !== null ? dest("mail.conversation", { key: clientKey({ id: t.clientId }) }) : null;
 function Who({ target, name }: { target: RowTarget; name: string }) {
   const to = targetOf(target);
   const trigger = to === null ? (

@@ -25,9 +25,10 @@ const OLD = "drafts";
 describe("resolveRoute", () => {
   it("reads the route, params, search and the project from the first path segment", () => {
     expect(at("/mail?filter=waiting")).toEqual({ route: "mail.list", section: "mail", project: null, inPath: false, entry: false, params: {}, search: { filter: "waiting", q: "", batch: null, m: null } });
-    // P99: a conversation is a client id under /mail/c/; `?m=` names one of their messages.
-    expect(at("/lisbon/mail/c/42")).toMatchObject({ route: "mail.conversation", project: "lisbon", inPath: true, params: { id: 42 }, search: { filter: "needs_you", q: "" } });
-    expect(at("/mail/c/7?filter=all&m=abc%40mail.example")).toMatchObject({ route: "mail.conversation", project: null, params: { id: 7 }, search: { filter: "all", m: "abc@mail.example" } });
+    // P99, P103: a conversation is a client key under /mail/c/ (his email, or id-<n>); `?m=` names one of their messages.
+    expect(at("/mail/c/Ana%40Example.com")).toMatchObject({ route: "mail.conversation", params: { key: "ana@example.com" } });
+    expect(at("/lisbon/mail/c/id-42")).toMatchObject({ route: "mail.conversation", project: "lisbon", inPath: true, params: { key: "id-42" }, search: { filter: "needs_you", q: "" } });
+    expect(at("/mail/c/id-7?filter=all&m=abc%40mail.example")).toMatchObject({ route: "mail.conversation", project: null, params: { key: "id-7" }, search: { filter: "all", m: "abc@mail.example" } });
     expect(at("/lisbon/mail?batch=3&filter=all")).toMatchObject({ route: "mail.list", search: { batch: 3, filter: "all" } });
     expect(at("/lisbon/log?kind=skipped&client=7")).toMatchObject({ route: "log.list", project: "lisbon", search: { kind: "skipped", client: 7 } });
     expect(at("/settings")).toMatchObject({ route: "settings.page", section: "settings", project: null, inPath: false });
@@ -42,7 +43,7 @@ describe("resolveRoute", () => {
     expect(at("/settings/connections")).toMatchObject({ route: "settings.connections", section: "settings", project: null });
     expect(at("/settings/mac")).toMatchObject({ route: "settings.mac", section: "settings", project: null });
     // P127 A2: the server renders a bare scoped address from `/_/…` (the rewrite in `src/proxy.ts`); both forms are one address.
-    expect(at("/_/mail/c/42?filter=all")).toEqual(at("/mail/c/42?filter=all"));
+    expect(at("/_/mail/c/id-42?filter=all")).toEqual(at("/mail/c/id-42?filter=all"));
     expect(at("/_/settings")).toEqual(at("/settings"));
     expect(at("/_")).toEqual(at("/"));
     expect(at("/help")).toMatchObject({ route: "help.page", section: "help", project: null });
@@ -54,7 +55,7 @@ describe("resolveRoute", () => {
   });
 
   it("an unknown path, the old /clients, a bad id, an extra segment or a project before a projectless section is Not found", () => {
-    for (const p of ["/messengers/settings", "/lisbon/messengers/settings", "/clients", "/nope", "/mail/abc", "/mail/0", "/mail/-1", "/mail/1.5", "/bulk", "/bulk/3", "/mail/1/2", "/log/3", "/settings/x", "/settings/mail/1", "/knowledge/x", "/help/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/help", "/lisbon/settings/connections", "/lisbon/settings/mac", "/_/overview", "/_/settings/connections", "/project", "/project/setup", "/agents", "/connections", "/lisbon/project", "/lisbon/agents", "/lisbon/mail/1/2", "/%E0%A4%A/mail", `/${OLD}`, `/${OLD}/42`, `/lisbon/${OLD}`, "/mail/in", "/mail/in/7", "/mail/in/abc", "/mail/in/1/2", "/mail/42", "/lisbon/mail/42", "/mail/c", "/mail/c/abc", "/mail/c/0", "/mail/c/1/2"]) {
+    for (const p of ["/mail/c/42", "/mail/c/abc%40", "/messengers/settings", "/lisbon/messengers/settings", "/clients", "/nope", "/mail/abc", "/mail/0", "/mail/-1", "/mail/1.5", "/bulk", "/bulk/3", "/mail/1/2", "/log/3", "/settings/x", "/settings/mail/1", "/knowledge/x", "/help/x", "/main", "/lisbon", "/lisbon/overview", "/lisbon/help", "/lisbon/settings/connections", "/lisbon/settings/mac", "/_/overview", "/_/settings/connections", "/project", "/project/setup", "/agents", "/connections", "/lisbon/project", "/lisbon/agents", "/lisbon/mail/1/2", "/%E0%A4%A/mail", `/${OLD}`, `/${OLD}/42`, `/lisbon/${OLD}`, "/mail/in", "/mail/in/7", "/mail/in/abc", "/mail/in/1/2", "/mail/42", "/lisbon/mail/42", "/mail/c", "/mail/c/abc", "/mail/c/id-0", "/mail/c/id-1/2"]) {
       expect(at(p).route, p).toBe("notFound");
     }
     expect(REDIRECTS).toEqual([]);
@@ -83,9 +84,10 @@ describe("paths and places", () => {
   const cases: [string, Dest, string, string][] = [
     ["drafts list", dest("mail.list"), "/mail", "/lisbon/mail"],
     ["waiting", dest("mail.list", { filter: "waiting" }), "/mail?filter=waiting", "/lisbon/mail?filter=waiting"],
-    ["a conversation", dest("mail.conversation", { id: 42 }, { filter: "all" }), "/mail/c/42?filter=all", "/lisbon/mail/c/42?filter=all"],
-    ["a conversation of a batch", dest("mail.conversation", { id: 42 }, { batch: 3 }), "/mail/c/42?batch=3", "/lisbon/mail/c/42?batch=3"],
-    ["a conversation at one message", dest("mail.conversation", { id: 7 }, { m: "a@b" }), "/mail/c/7?m=a%40b", "/lisbon/mail/c/7?m=a%40b"],
+    ["a conversation by email", dest("mail.conversation", { key: "ana@example.com" }), "/mail/c/ana%40example.com", "/lisbon/mail/c/ana%40example.com"],
+    ["a conversation", dest("mail.conversation", { key: "id-42" }, { filter: "all" }), "/mail/c/id-42?filter=all", "/lisbon/mail/c/id-42?filter=all"],
+    ["a conversation of a batch", dest("mail.conversation", { key: "id-42" }, { batch: 3 }), "/mail/c/id-42?batch=3", "/lisbon/mail/c/id-42?batch=3"],
+    ["a conversation at one message", dest("mail.conversation", { key: "id-7" }, { m: "a@b" }), "/mail/c/id-7?m=a%40b", "/lisbon/mail/c/id-7?m=a%40b"],
     ["drafts search", dest("mail.list", { q: "ana" }), "/mail?q=ana", "/lisbon/mail?q=ana"],
     ["needs you is the default", dest("mail.list", { filter: "needs_you" }), "/mail", "/lisbon/mail"],
     ["log client", dest("log.list", { kind: "drafts", client: 5 }), "/log?kind=drafts&client=5", "/lisbon/log?kind=drafts&client=5"],
@@ -176,9 +178,9 @@ describe("the guard (canonicalAddress, the one normaliser)", () => {
   });
   it("one project: no project in the address; several: the project in the path", () => {
     expect(canon("/mail", ONE)).toBeNull();
-    expect(canon("/lisbon/mail/c/42", ONE)).toBe("/mail/c/42");
-    expect(canon("/mail/c/42?filter=waiting", MANY)).toBe("/lisbon/mail/c/42?filter=waiting");
-    expect(canon("/lisbon/mail/c/42?filter=waiting", MANY)).toBeNull();
+    expect(canon("/lisbon/mail/c/id-42", ONE)).toBe("/mail/c/id-42");
+    expect(canon("/mail/c/id-42?filter=waiting", MANY)).toBe("/lisbon/mail/c/id-42?filter=waiting");
+    expect(canon("/lisbon/mail/c/id-42?filter=waiting", MANY)).toBeNull();
     expect(canon("/settings/connections", MANY)).toBeNull();
   });
   it("P127 A2: an instance pane exists once, at the top; with a project before it, it is Not found and left alone (no fold page)", () => {
@@ -187,9 +189,9 @@ describe("the guard (canonicalAddress, the one normaliser)", () => {
     expect(canon("/settings/mac", ONE)).toBeNull();
   });
   it("saved links of the query era (until 2026-11-18): `?project=` is read once and written back in the path form", () => {
-    expect(canon("/mail/c/1?project=lisbon", MANY)).toBe("/lisbon/mail/c/1");
-    expect(canonicalAddress(at("/mail/c/1?project=lisbon"), { project: "lisbon", multi: false }, "/mail/c/1?project=lisbon")).toBe("/mail/c/1");
-    expect(at("/mail/c/1?project=lisbon").project).toBe("lisbon");
+    expect(canon("/mail/c/id-1?project=lisbon", MANY)).toBe("/lisbon/mail/c/id-1");
+    expect(canonicalAddress(at("/mail/c/id-1?project=lisbon"), { project: "lisbon", multi: false }, "/mail/c/id-1?project=lisbon")).toBe("/mail/c/id-1");
+    expect(at("/mail/c/id-1?project=lisbon").project).toBe("lisbon");
     expect(canon("/settings/connections?project=lisbon", MANY)).toBe("/settings/connections");
   });
   it("a dead filter and the deleted batch builder's `?new=1` (2026-11-18) are dropped; Not found and no project are left alone", () => {
@@ -199,8 +201,8 @@ describe("the guard (canonicalAddress, the one normaliser)", () => {
     expect(canonicalAddress(at("/mail"), { project: null, multi: false }, "/mail")).toBeNull();
   });
   it("a rewritten address is stable (no redirect loop)", () => {
-    const first = canon("/mail/c/3?filter=needs_you&project=x", { project: "x", multi: true });
-    expect(first).toBe("/x/mail/c/3");
+    const first = canon("/mail/c/id-3?filter=needs_you&project=x", { project: "x", multi: true });
+    expect(first).toBe("/x/mail/c/id-3");
     expect(canon(first ?? "", { project: "x", multi: true })).toBeNull();
   });
 });

@@ -1,5 +1,6 @@
 "use client";
 
+import { clientKey } from "@hub/contract/client-key";
 import { ChevronDownIcon } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { leadPhrase } from "@hub/contract/help";
@@ -128,7 +129,7 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
       {drafts.length > 0 && (
         <section aria-label="Drafts" className="flex flex-col gap-1 text-sm">
           {drafts.map((d) => (
-            <AppLink key={d.id} to={dest("mail.conversation", { id: d.clientId }, { filter: "all" })}>
+            <AppLink key={d.id} to={dest("mail.conversation", { key: clientKey({ id: d.clientId, email: row.email }) }, { filter: "all" })}>
               Draft {d.id}: {d.subject || "(no subject)"} · {d.status}
             </AppLink>
           ))}

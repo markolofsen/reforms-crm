@@ -1,3 +1,4 @@
+import { clientKey, parseClientKey, type ClientKeyDto } from "@hub/contract/client-key";
 import { Hono } from "hono";
 import { bareRef, type ConversationItem, type Repos } from "@hub/db";
 import type { NotionKind } from "@hub/config";
@@ -107,6 +108,18 @@ export function conversationRoutes({ repos, mail, directory }: ConversationServi
       const inboxRefs = await repos.inbox.notionByEmails(slug, r.rows.map((item) => item.client.email));
       const next = q.offset + r.rows.length < r.total ? q.offset + r.rows.length : null;
       return c.json(conversationsDto.parse({ rows: await Promise.all(r.rows.map((item) => rowDto(slug, item, inboxRefs))), total: r.total, nextOffset: next, counts: r.counts }));
+    })
+    // P103: the client a key names (his email, or `id-<n>`), with the canonical key the admin's address replaces to. Only the
+    // primary address is looked up; another of his addresses is Not found until P100's identity table is read here.
+    .get("/api/projects/:slug/clients/key/:key", async (c) => {
+      const slug = c.req.param("slug");
+      const ref = parseClientKey(c.req.param("key"));
+      if (ref === null || (await repos.projects.get(slug)) === null) return notFound(c, "client");
+      const n = "id" in ref ? ref.id : await repos.clients.idByEmail(slug, ref.email);
+      const row = n === undefined ? null : await repos.clients.get(slug, n);
+      if (!row) return notFound(c, "client");
+      const dto: ClientKeyDto = { id: row.id, email: row.email, key: clientKey(row) };
+      return c.json(dto);
     })
     .get("/api/projects/:slug/clients/:id/conversation", async (c) => {
       const slug = c.req.param("slug");

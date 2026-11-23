@@ -817,6 +817,28 @@ paths:
           $ref: '#/components/responses/ApiError'
         '503':
           $ref: '#/components/responses/ApiError'
+  /api/projects/{slug}/clients/key/{key}:
+    get:
+      operationId: getClientByKey
+      summary: Find the client a Mail address key names
+      description: Resolves a client's key (his email, or id-<n>) to the client row and its canonical key (P103). It never sends a message.
+      tags: [mail]
+      parameters:
+        - $ref: '#/components/parameters/ProjectSlug'
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: The client and his canonical key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ClientKey'
+        '404':
+          $ref: '#/components/responses/ApiError'
   /api/projects/{slug}/clients/{id}/conversation:
     get:
       operationId: getConversation
@@ -2793,6 +2815,14 @@ components:
         status:
           type: string
           enum: [expired, unapproved, expiring, approved]
+    ClientKey:
+      type: object
+      additionalProperties: false
+      required: [id, email, key]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        key: { type: string }
     KnowledgeText:
       type: object
       additionalProperties: false

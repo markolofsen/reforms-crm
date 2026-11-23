@@ -363,7 +363,7 @@ describe("app/@rules pages", () => {
   });
   it("the Next pages state the Next facts, and no page still describes the hash router", () => {
     const text = (f: string) => read(path.join(dir, f));
-    expect(text("routes-and-url-state.md")).toContain("`/lisbon/mail/c/42`");
+    expect(text("routes-and-url-state.md")).toContain("`/lisbon/mail/c/ana%40example.com`");
     expect(text("routes-and-url-state.md")).toContain("defineRoute");
     expect(text("architecture-and-ownership.md")).toContain("turbopack.root");
     expect(text("verification.md")).toContain("force-dynamic");

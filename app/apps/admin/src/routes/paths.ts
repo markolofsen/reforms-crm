@@ -33,7 +33,7 @@ export function destFrom(id: RouteId, params: Readonly<Record<string, unknown>>,
 
 /**
  * The ONLY producer of a destination (P127 A1: one builder over the route table, in place of a builder per route). A component
- * never writes a path: `dest("mail.conversation", { id }, { filter: "all" })`; a wrong route, param or search value fails `tsc`
+ * never writes a path: `dest("mail.conversation", { key: clientKey(c) }, { filter: "all" })`; a wrong route, param or search value fails `tsc`
  * (`test/paths.types.tsx`), and a default value leaves the address.
  */
 export function dest<K extends RouteId>(id: K, ...args: DestArgs<K>): Dest;

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChannelItem } from "@/features/messengers/channel/use-channels";
+import type { Dest } from "@/routes/paths";
 import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Link } from "@hub/ui/link";
 import { SidebarInset, SidebarProvider, useSidebar } from "@hub/ui/sidebar";
@@ -23,8 +23,10 @@ const WIDTHS: CSSProperties & Record<`--${string}`, string> = { "--sidebar-width
 
 /** A section of the nav, with a dot when it (or one of its child pages) is a place that needs the owner (`useLitRoutes`). */
 /** P96: `count` is the badge of a section (Mail: the clients who wrote and have no draft yet), as Mail's unread badge. */
-/** `subs`: the sidebar children of a section that splits by one axis (P125 L5: Messengers' channels), each with its count. */
-export type ShellNavItem = NavItem & { dot: boolean; count?: number; subs?: readonly ChannelItem[] };
+/** One sidebar child: Mail's views (P103/P104) or Messengers' channels (P125 L5), each with its count. */
+export type NavSub = { readonly id: string; readonly title: string; readonly to: Dest; readonly count: number; readonly active: boolean };
+/** `subs`: the sidebar children of a section that splits by one axis, each with its count. */
+export type ShellNavItem = NavItem & { dot: boolean; count?: number; subs?: readonly NavSub[] };
 
 type Props = {
   items: ShellNavItem[];

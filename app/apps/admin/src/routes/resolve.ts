@@ -1,3 +1,4 @@
+import { clientKey } from "@hub/contract/client-key";
 import { parseRef } from "@hub/contract/focus";
 import { dest, destFrom, type Dest } from "./paths";
 import { parseQuery, readSearch, type SearchSpec } from "./search";
@@ -137,7 +138,7 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
     case "project":
       return dest("overview.page");
     case "client":
-      return dest("mail.conversation", { id: Number(p.id) });
+      return dest("mail.conversation", { key: clientKey({ id: Number(p.id) }) });
     case "chat":
     case "mdraft":
       // P108: a chat opens the selected conversation; a draft still opens the linked list until its client ref is available.

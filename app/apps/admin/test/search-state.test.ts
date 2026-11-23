@@ -13,15 +13,15 @@ describe("search state", () => {
     const back = searchDest(resolveRoute("/x/mail", "filter=waiting"), { filter: "needs_you" });
     expect(back && formatDest(back, multi)).toBe("/x/mail");
     expect(back && formatDest(back, { project: "x", multi: false })).toBe("/mail");
-    const conversation = resolveRoute("/mail/c/42", "filter=waiting");
+    const conversation = resolveRoute("/mail/c/id-42", "filter=waiting");
     expect(conversation.route === "mail.conversation" && conversation.search.filter).toBe("waiting");
-    expect(dest("mail.conversation", { id: 42 }, { filter: "waiting" }).search).toEqual({ filter: "waiting" });
+    expect(dest("mail.conversation", { key: "id-42" }, { filter: "waiting" }).search).toEqual({ filter: "waiting" });
   });
 
   it("keeps the subject and the other key, drops an invalid value to the default, and has no key on other routes", () => {
-    const item = resolveRoute("/mail/c/3", "filter=all&batch=2");
-    expect(searchDest(item, { filter: "zzz" })).toEqual(dest("mail.conversation", { id: 3 }, { batch: 2 }));
-    expect(searchDest(item, { q: "ana" })).toEqual(dest("mail.conversation", { id: 3 }, { filter: "all", batch: 2, q: "ana" }));
+    const item = resolveRoute("/mail/c/id-3", "filter=all&batch=2");
+    expect(searchDest(item, { filter: "zzz" })).toEqual(dest("mail.conversation", { key: "id-3" }, { batch: 2 }));
+    expect(searchDest(item, { q: "ana" })).toEqual(dest("mail.conversation", { key: "id-3" }, { filter: "all", batch: 2, q: "ana" }));
     const log = resolveRoute("/log", "kind=skipped&client=4");
     expect(searchDest(log, { client: null })).toEqual(dest("log.list", { kind: "skipped" }));
     expect(searchDest(log, { kind: "drafts" })).toEqual(dest("log.list", { kind: "drafts", client: 4 }));

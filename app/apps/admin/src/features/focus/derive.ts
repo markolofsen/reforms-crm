@@ -1,3 +1,4 @@
+import { parseClientKey } from "@hub/contract/client-key";
 import { FOCUS_SELECTED_MAX, FOCUS_WINDOW_MAX, refOf, type FocusPost } from "@hub/contract/focus";
 import type { PointerOutcome } from "@hub/contract/pointer";
 import { screenTitleOf } from "@/routes/meta";
@@ -17,7 +18,11 @@ export type FocusParts = {
 function addressSubject(r: Resolved): string | null {
   // P99 verdict 11: a conversation is `client:<id>`; its focus title names the open draft and their newest message, so the agent
   // never loses its anchor (P98 showed it guessing from "Message 10").
-  if (r.route === "mail.conversation") return refOf("client", r.params.id);
+  // P103: an `id-<n>` key names the client row; an email key leaves the subject to the open card (it knows the row).
+  if (r.route === "mail.conversation") {
+    const k = parseClientKey(r.params.key);
+    return k !== null && "id" in k ? refOf("client", k.id) : null;
+  }
   if (r.route === "log.list" && r.search.client) return refOf("client", r.search.client);
   return null;
 }

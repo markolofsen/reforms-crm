@@ -12,7 +12,7 @@ import { AgentFeedContext, useAgentFeed } from "@/features/agent-feed/use-agent-
 import { useTurnSound } from "@/features/agent-feed/use-turn-sound";
 import { PointerLayer } from "@/features/focus/pointer";
 import { useFocusPublisher } from "@/features/focus/use-focus-publisher";
-import { useMailNeedsYou } from "@/features/mail/section";
+import { useMailNeedsYou, useMailViews } from "@/features/mail/section";
 import { TerminalDock, TerminalProvider } from "@/features/terminal/terminal";
 import { terminalProjectOf } from "@/features/terminal/use-auto-start";
 import { useGo } from "@/hooks/use-go";
@@ -44,16 +44,18 @@ function useNavWithDots(project: string | null): ShellNavItem[] {
   const needYou = useMailNeedsYou(project);
   // P125 L5: Messengers' channels as sidebar children; in icon mode the parent's badge is their sum (verdict 15).
   const channels = useMessengerChannels(project);
+  // P103 with P104: Mail's three views as its children (decision 0045 point 21).
+  const views = useMailViews(project);
   const chats = channels.reduce((n, c) => n + c.count, 0);
   return useMemo(
     () =>
       items.map((i) => ({
         ...i,
         dot: lit.has(i.route) || i.children.some((c) => lit.has(c.route)),
-        ...(i.id === "mail" && needYou > 0 ? { count: needYou } : {}),
+        ...(i.id === "mail" ? { subs: views, ...(needYou > 0 ? { count: needYou } : {}) } : {}),
         ...(i.id === "messengers" && channels.length > 0 ? { subs: channels, ...(chats > 0 ? { count: chats } : {}) } : {}),
       })),
-    [items, lit, needYou, channels, chats],
+    [items, lit, needYou, channels, chats, views],
   );
 }
 

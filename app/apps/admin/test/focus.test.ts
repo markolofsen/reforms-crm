@@ -34,15 +34,15 @@ describe("deriveFocus", () => {
     expect(derive("/acme/settings").title).toBe("Sending");
     expect(derive("/acme/settings/mail").title).toBe("Mail");
     expect(derive("/acme/settings/agent").title).toBe("Agent");
-    expect(derive("/acme/mail/c/12").title).toBe("Conversation 12");
+    expect(derive("/acme/mail/c/id-12").title).toBe("Conversation id-12");
     // P96, P99: the dock says the Mail view too ("Agent sees: Mail · Waiting").
     expect(derive("/acme/mail", "filter=waiting").title).toBe("Mail · Waiting");
     expect(derive("/acme/mail").title).toBe("Mail · Needs you");
     for (const id of ROUTE_IDS) expect(derive(sample(id)).title, id).not.toMatch(/^(Project|other|another page)$/);
   });
   it("a conversation's address names the client (P99 verdict 11) and the view; the open pane wins over the address (P53)", () => {
-    expect(derive("/acme/mail/c/12", "filter=all")).toEqual({ tab: "t1", project: "acme", route: "mail.conversation", title: "Conversation 12", subject: "client:12", selected: [], view: { filter: "all" }, visible: true });
-    expect(derive("/acme/mail/c/99", "", { subject: "client:7" })).toMatchObject({ subject: "client:7" });
+    expect(derive("/acme/mail/c/id-12", "filter=all")).toEqual({ tab: "t1", project: "acme", route: "mail.conversation", title: "Conversation id-12", subject: "client:12", selected: [], view: { filter: "all" }, visible: true });
+    expect(derive("/acme/mail/c/id-99", "", { subject: "client:7" })).toMatchObject({ subject: "client:7" });
   });
   it("the Mail list: the card on screen, the selection and the search", () => {
     const f = derive("/acme/mail", "q=price", { subject: "client:7", selected: ["client:7", "client:9"] });
@@ -70,9 +70,9 @@ describe("deriveFocus", () => {
     expect(focusInput.safeParse(f).success).toBe(true);
   });
   it("sameFocus compares the whole focus", () => {
-    expect(sameFocus(derive("/acme/mail/c/3"), derive("/acme/mail/c/3"))).toBe(true);
-    expect(sameFocus(derive("/acme/mail/c/3"), derive("/acme/mail/c/4"))).toBe(false);
-    expect(sameFocus(null, derive("/acme/mail/c/4"))).toBe(false);
+    expect(sameFocus(derive("/acme/mail/c/id-3"), derive("/acme/mail/c/id-3"))).toBe(true);
+    expect(sameFocus(derive("/acme/mail/c/id-3"), derive("/acme/mail/c/id-4"))).toBe(false);
+    expect(sameFocus(null, derive("/acme/mail/c/id-4"))).toBe(false);
   });
 });
 
@@ -86,7 +86,7 @@ describe("refs", () => {
     expect(destOfRef("draft:4")).toMatchObject({ route: "mail.list", search: { filter: "all" } });
     expect(destOfRef("run:10")).toMatchObject({ route: "log.list", search: {} });
     expect(destOfRef("knowledge:knowledge/a.md", "CSV export")).toMatchObject({ route: "knowledge.page", search: { q: "CSV export" } });
-    expect(destOfRef("client:3")).toMatchObject({ route: "mail.conversation", path: "/mail/c/3" });
+    expect(destOfRef("client:3")).toMatchObject({ route: "mail.conversation", path: "/mail/c/id-3" });
   });
 });
 
@@ -94,7 +94,7 @@ describe("the dock header line", () => {
   it("says the screen's title and what the agent takes for 'this', by the words on the row", () => {
     const labels = { subject: null, pointed: null };
     expect(agentSeesLine(null, labels)).toBe("Agent sees: nothing current");
-    expect(agentSeesLine(derive("/acme/mail/c/12"), { subject: { ref: "client:12", label: "Fiona Focus" }, pointed: null })).toBe("Agent sees: Conversation 12 · Fiona Focus");
+    expect(agentSeesLine(derive("/acme/mail/c/id-12"), { subject: { ref: "client:12", label: "Fiona Focus" }, pointed: null })).toBe("Agent sees: Conversation id-12 · Fiona Focus");
     expect(agentSeesLine(derive("/acme/mail", "", { selected: ["client:1", "client:2", "client:3"] }), labels)).toBe("Agent sees: Mail · Needs you · 3 selected");
     const k = derive("/acme/knowledge", "", { pointed: "knowledge:knowledge/a.md" });
     expect(agentSeesLine(k, { subject: null, pointed: { ref: "knowledge:knowledge/a.md", label: "Can I download everything as CSV?" } })).toBe("Agent sees: Knowledge · Can I download everything as CSV?");

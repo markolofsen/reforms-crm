@@ -1,9 +1,10 @@
 import type { Mark, SafetyKind, SettableStatus, Tone } from "@hub/config";
-import { createManualMailDraft, getClientHistory, getClientTimeline, getConversation, getConversationMail, getConversationText, listBatches, listConversations, listDrafts, setClientMarks, type GetConversationTextParams } from "@hub/api";
+import { createManualMailDraft, getClientByKey, getClientHistory, getClientTimeline, getConversation, getConversationMail, getConversationText, listBatches, listConversations, listDrafts, setClientMarks, type GetConversationTextParams } from "@hub/api";
 import type { StatusBody } from "@hub/contract/requests";
 import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto } from "@hub/contract/review";
 import { conversationDto, conversationMailDto, conversationTextDto, conversationsDto, type ConversationViewDto } from "@hub/contract/conversations";
 import { read, readGenerated } from "./client";
+import { clientKeyDto } from "@hub/contract/client-key";
 
 const draft = (id: number, action: string) => `/api/drafts/${id}/${action}`;
 
@@ -14,6 +15,8 @@ export const reviewApi = {
     readGenerated(listConversations(project, { view, offset, search: scope.search || undefined, batch: scope.batch ?? undefined }), conversationsDto),
   /** One conversation's header and its unsent message, from the Hub's rows (refreshed by the live topics). */
   conversation: (project: string, clientId: number) => readGenerated(getConversation(project, clientId), conversationDto),
+  /** P103: the client a key of the address names, and his canonical key. */
+  clientByKey: (project: string, key: string) => readGenerated(getClientByKey(project, key), clientKeyDto),
   /** The owner's manual reply: creates one unsent Mail draft and never sends it. */
   createManualDraft: (project: string, clientId: number, text: string, brand?: string | null) => readGenerated(createManualMailDraft(project, clientId, { text, ...(brand ? { brand } : {}) }), draftChangedDto),
   /** The history with this person, read from Mail now (a Mail read: on open, focus and the `mail` topic only; never stored). */

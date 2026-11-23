@@ -20,6 +20,7 @@
     "./pointer": "./src/pointer.ts",
     "./agent-feed": "./src/agent-feed.ts",
     "./local": "./src/local.ts",
+    "./client-key": "./src/client-key.ts",
     "./autostart": "./src/autostart.ts",
     "./scheme": "./src/scheme.ts",
     "./scheme-model": "./src/scheme-model.ts",

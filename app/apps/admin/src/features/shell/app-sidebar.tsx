@@ -48,7 +48,8 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys, l
                       <NavIcon name={i.icon} />
                       <span className="min-w-0 truncate group-data-[collapsible=icon]:sr-only">{i.title}</span>
                       {i.count !== undefined && (
-                        <span className="ms-auto shrink-0 rounded-full bg-primary px-1.5 font-medium text-primary-foreground text-xs tabular-nums group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0.5 group-data-[collapsible=icon]:end-0.5 group-data-[collapsible=icon]:px-1" data-testid={`nav-count-${i.id}`}>
+                        <span className={`ms-auto shrink-0 rounded-full bg-primary px-1.5 font-medium text-primary-foreground text-xs tabular-nums ${i.subs && i.subs.length > 0 ? "hidden group-data-[collapsible=icon]:inline" : ""} group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-0.5 group-data-[collapsible=icon]:end-0.5 group-data-[collapsible=icon]:px-1`} data-testid={`nav-count-${i.id}`}>
+                          {/* With children the badge is the collapsed rail's sum only; open, each child says its own (rule 10: no number twice). */}
                           {i.count}
                           <span className="sr-only"> need you</span>
                         </span>
@@ -56,7 +57,7 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys, l
                       {i.dot && <NavDot at="rail" id={i.id} />}
                     </SidebarMenuButton>
                     {i.subs && i.subs.length > 0 && (
-                      <SidebarMenuSub aria-label={`${i.title} channels`}>
+                      <SidebarMenuSub aria-label={i.id === "mail" ? "Mail views" : `${i.title} channels`}>
                         {i.subs.map((c) => (
                           <SidebarMenuSubItem key={c.id}>
                             <SidebarMenuSubButton isActive={c.active} render={<AppLink aria-current={c.active ? "page" : undefined} bare to={c.to} />}>
@@ -64,7 +65,7 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys, l
                               {c.count > 0 && (
                                 <span className="ms-auto shrink-0 text-muted-foreground text-xs tabular-nums" data-testid={`nav-count-${i.id}-${c.id}`}>
                                   {c.count}
-                                  <span className="sr-only"> need you</span>
+                                  {c.id !== "waiting" && c.id !== "all" && <span className="sr-only"> need you</span>}
                                 </span>
                               )}
                             </SidebarMenuSubButton>

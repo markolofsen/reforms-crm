@@ -45,7 +45,7 @@ test.afterAll(async ({ request }) => {
 test("inbox: the arrival is Needs you, the clients who wrote are its people with their first words; the nav counts them", async ({ page }) => {
   await page.goto(at(P, "/mail"));
   // The default view carries no filter; the wide pane opens the first person in the address.
-  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/\\d+$`));
+  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/[^/?]+$`));
   await expect(viewMenu(page)).toContainText("Needs you");
   const lea = person(page, "Lea Sample");
   await expect(lea.getByTestId("person-state")).toHaveText("Wrote you");
@@ -55,8 +55,11 @@ test("inbox: the arrival is Needs you, the clients who wrote are its people with
   // P99 verdict 14: who wrote is the Needs you count of the View menu, not a number on the line; demo mode says why Mail is not read.
   await expect(page.getByTestId("status-line")).not.toContainText("wrote");
   await expect(page.getByTestId("status-line")).toContainText("Demo mode: Mail is not read");
-  // P128 X0 (F5): the rail's badge is Mail's Needs you count, not who wrote (its own test below checks the number).
-  await expect(page.getByRole("navigation", { name: "Sections" }).first().getByTestId("nav-count-mail")).toContainText("need you");
+  // P128 X0 (F5): Mail's Needs you count, not who wrote (its own test below checks the number). P103/P104: with the sidebar open
+  // it is the Needs you child's; the parent's badge is the collapsed rail's only.
+  const sections = page.getByRole("navigation", { name: "Sections" }).first();
+  await expect(sections.getByRole("list", { name: "Mail views" }).getByRole("link")).toHaveText([/^Needs you/, /^Waiting/, /^All/]);
+  await expect(sections.getByTestId("nav-count-mail-needs_you")).toContainText("need you");
   await viewMenu(page).click();
   await expect(page.getByRole("menuitemradio", { name: /^Needs you/ })).toContainText(String(await cards(page).count()));
   await page.keyboard.press("Escape");
@@ -66,7 +69,7 @@ test("inbox: a row opens the conversation; Prepare reply pastes the request into
   await endAll(page);
   await page.goto(at(P, "/mail"));
   await person(page, "Lea Sample").getByRole("button").first().click();
-  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/\\d+$`));
+  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/[^/?]+$`));
   await expect(pane(page)).toContainText("lea@example.test");
   await expect(pane(page).getByTestId("conversation-state")).toHaveText("Wrote you");
   // Demo mode: the history is the Hub's own row of her message, its stored first words.

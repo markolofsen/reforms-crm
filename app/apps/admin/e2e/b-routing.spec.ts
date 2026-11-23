@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { address, at, remember } from "./support";
+import { address, clientPath, at, remember } from "./support";
 
 // Navigation contract (rules: routes-and-url-state): the e2e instance has two projects, so a scoped address names its project
 // in the path (`/lisbon-realty/mail/42`), never in a query; deep links survive a reload, Back returns from a subject to its
@@ -63,8 +63,8 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
 
 test("saved links of the query era (until 2026-11-18) open the same view in the path form", async ({ page }) => {
   const id = await secondPersonId(page);
-  await page.goto(`/mail/c/${id}?project=${P}&filter=all`);
-  await expect.poll(() => address(page)).toBe(at(P, `/mail/c/${id}?filter=all`));
+  await page.goto(`/mail/c/id-${id}?project=${P}&filter=all`);
+  await expect.poll(() => address(page)).toBe(at(P, `${await clientPath(page, P, id)}?filter=all`));
   await page.goto("/mail?project=demo-shop");
   // P99: the arrival is Needs you, the default view, so the address carries no view.
   await expect.poll(() => address(page)).toMatch(listed("demo-shop"));
@@ -74,13 +74,14 @@ test("saved links of the query era (until 2026-11-18) open the same view in the 
 
 test("a Mail deep link with an open conversation survives a reload", async ({ page }) => {
   const id = await secondPersonId(page);
-  await page.goto(at(P, `/mail/c/${id}`));
+  await page.goto(at(P, `/mail/c/id-${id}`));
   const current = page.locator(`ul[aria-label="People"] > li#person-${id}`);
   await expect(current).toHaveAttribute("data-open", "true");
   await page.reload();
   await expect(current).toHaveAttribute("data-open", "true");
-  await expect.poll(() => address(page)).toBe(at(P, `/mail/c/${id}`));
-  await expect(page).toHaveTitle(new RegExp(`^Conversation ${id} · Mail · ${P} · Hub Workflow$`));
+  // P103: the address names him by his email (the id form replaced in place).
+  await expect.poll(() => address(page)).toBe(at(P, await clientPath(page, P, id)));
+  await expect(page).toHaveTitle(new RegExp(`^Conversation \\S+@\\S+ · Mail · ${P} · Hub Workflow$`));
 });
 
 test("a view in the address survives a reload, and a bad one resets", async ({ page }) => {
@@ -97,11 +98,12 @@ test("the first person opens in the address without a history entry; moving betw
   await page.goto(at(P, "/mail"));
   await expect(cards(page).first()).toBeVisible();
   const first = (await cards(page).first().getAttribute("id"))?.replace("person-", "");
-  await expect.poll(() => address(page)).toBe(at(P, `/mail/c/${first}`)); // the conversation on screen is the one the address names
+  const firstPath = await clientPath(page, P, first ?? "");
+  await expect.poll(() => address(page)).toBe(at(P, firstPath)); // the conversation on screen is the one the address names
   await expect(cards(page).first()).toHaveAttribute("data-open", "true");
   const entries = await page.evaluate(() => window.history.length);
   await page.keyboard.press("j");
-  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/(?!${first}$)\\d+$`));
+  await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/(?!${firstPath.slice("/mail/c/".length)}$)[^/?]+$`));
   await viewMenu(page).click();
   await page.getByRole("menuitemradio", { name: /^Waiting/ }).click();
   await expect.poll(() => address(page)).toMatch(listed(P, "?filter=waiting"));
@@ -124,8 +126,9 @@ test("Settings ▸ Sending survives a reload", async ({ page }) => {
 });
 
 // P70: the addresses of the Project section, Agents and Connections are gone, with no redirect (routes rule 6).
-// P99: the per-draft and per-message addresses (`/mail/<draftId>`, `/mail/in/<id>`) are gone too.
-for (const bad of ["/clients", "/nope", "/mail/abc", "/mail/1/2", "/mail/1", "/mail/in/1", "/mail/c/abc", `/${P}/overview`, `/${P}/help`, "/settings/nope", "/project", "/project/setup", `/${P}/project/knowledge`, "/agents", `/${P}/agents`, "/connections"]) {
+// P99: the per-draft and per-message addresses (`/mail/<draftId>`, `/mail/in/<id>`) are gone too; P103: the bare client number
+// (`/mail/c/42`, now `id-42` or his email); P125 L5: `/messengers/settings` (now Settings ▸ Messengers).
+for (const bad of ["/clients", "/nope", "/mail/abc", "/mail/1/2", "/mail/1", "/mail/in/1", "/mail/c/abc", "/mail/c/42", "/messengers/settings", `/${P}/overview`, `/${P}/help`, "/settings/nope", "/project", "/project/setup", `/${P}/project/knowledge`, "/agents", `/${P}/agents`, "/connections"]) {
   test(`${bad} is Not found, with a way back, never Mail`, async ({ page }) => {
     await page.goto(bad);
     await expect(page.getByText("Page not found")).toBeVisible();
@@ -137,10 +140,20 @@ for (const bad of ["/clients", "/nope", "/mail/abc", "/mail/1/2", "/mail/1", "/m
   });
 }
 
-test("a client id that is not in the project says so and keeps the list", async ({ page }) => {
-  await page.goto(at(P, "/mail/c/99999"));
-  await expect(page.getByText("This person has no conversation in this project.")).toBeVisible();
-  await expect(cards(page).first()).toBeVisible();
+test("a client key nobody in the project has says No such client, with the way back (P103 S2)", async ({ page }) => {
+  for (const key of ["id-99999", "nobody%40nowhere.example"]) {
+    await page.goto(at(P, `/mail/c/${key}`));
+    await expect(page.getByText("No such client")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Back to Mail" })).toBeVisible();
+  }
+});
+
+test("a conversation opens by email and by id-<n>, both ending on the email (P103 S2)", async ({ page }) => {
+  const id = await secondPersonId(page);
+  const path = await clientPath(page, P, id);
+  await page.goto(at(P, path.toUpperCase().replace("/MAIL/C/", "/mail/c/")));
+  await expect.poll(() => address(page)).toBe(at(P, path));
+  await expect(page.locator(`ul[aria-label="People"] > li#person-${id}`)).toHaveAttribute("data-open", "true");
 });
 
 test("g then e / a / k / s move between screens; typing in a field is left alone", async ({ page }) => {

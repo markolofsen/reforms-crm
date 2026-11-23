@@ -27,6 +27,8 @@ export const keys = {
   drafts: (project: string, view: string, batch: number | null, search: string) => ["drafts", project, view, batch, search] as const,
   /** P99: one conversation's header and unsent message (the Hub's rows): under `drafts`, so every topic that moves a row moves it. */
   conversation: (project: string, clientId: number) => ["drafts", project, "conversation", clientId] as const,
+  /** P103: a client's key in the address to his row (under `drafts`, so a topic that moves a client refreshes it too). */
+  clientKey: (project: string, key: string) => ["drafts", project, "client-key", key] as const,
   /** P99: one person's history read from Mail, and one body: Mail keys (read on open, on focus and on the `mail` topic). */
   conversationMail: (project: string, clientId: number) => ["conversation-mail", project, clientId] as const,
   conversationText: (project: string, clientId: number, messageId: string) => ["conversation-text", project, clientId, messageId] as const,

@@ -101,7 +101,7 @@ test("opening the row shows both threads with dividers, his messages and ours in
   const last = await messages.nth(5).boundingBox();
   const unsent = await card.boundingBox();
   expect(last && unsent && unsent.y > last.y, "the unsent message sits below the history").toBe(true);
-  expect(page.url()).toMatch(new RegExp(`/${P}/mail/c/\\d+\\?filter=all$`));
+  expect(page.url()).toMatch(new RegExp(`/${P}/mail/c/[^/?]+\\?filter=all$`));
 });
 
 test("the state word follows each view: Needs you holds Wrote you and Draft ready, Waiting holds Waiting for them, All every word", async ({ page }) => {

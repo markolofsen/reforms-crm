@@ -1,5 +1,9 @@
 "use client";
 
+import { clientKey } from "@hub/contract/client-key";
+import type { SearchFor } from "@/routes/table";
+import { NoSuchClient } from "./no-such-client";
+import { useClientKey } from "./use-client-key";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { phrase } from "@hub/contract/help";
 import { useCallback, useMemo } from "react";
@@ -14,7 +18,7 @@ import { useRoute } from "@/hooks/use-route";
 import { useSearch } from "@/hooks/use-search-state";
 import { reviewApi } from "@/lib/api/review";
 import { keys } from "@/lib/cache/keys";
-import { dest } from "@/routes/paths";
+import { dest, type Dest } from "@/routes/paths";
 import { DRAFT_FILTERS, DRAFT_VIEW_LABELS, DRAFT_VIEWS, MAIL_SEARCH, type DraftView } from "@/routes/search";
 import { BatchSend } from "./batch-send";
 import { LeadCard } from "./inbox/lead-card";
@@ -43,6 +47,28 @@ const countOf = (counts: ReviewPage["counts"], view: string): number | undefined
  * P128 X0 (F5): the rail's Mail badge is the Needs you count of the very query Mail's default list reads (same key, same loader;
  * the counts do not depend on the view or the search), so the badge and Mail ▸ Needs you never disagree.
  */
+/** The three views of Mail as its sidebar children (P103 with P104, decision 0045 point 21), each with its count from the same query. */
+export type MailViewItem = { id: "needs_you" | "waiting" | "all"; title: string; to: Dest; count: number; active: boolean };
+
+/**
+ * Mail's sidebar submenu (P104's scope, P125 verdict 12): Needs you · Waiting · All with the counts of the Needs you reply (it
+ * carries every view's count), the one on screen marked. The filters (Follow-ups, Not by email) and batches stay in the list
+ * header's View menu, which is also the list's title (P128 X4): sidebar = where, header = which subset.
+ */
+export function useMailViews(project: string | null): MailViewItem[] {
+  const route = useRoute();
+  const q = useInfiniteQuery({
+    queryKey: keys.drafts(project ?? "", "needs_you", null, ""),
+    queryFn: ({ pageParam }) => page(project ?? "", "needs_you", pageParam, { search: "", batch: null }),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextOffset ?? undefined,
+    enabled: project !== null,
+  });
+  const counts = q.data?.pages[0]?.counts ?? {};
+  const here = route.route === "mail.list" || route.route === "mail.conversation" ? (route.search.batch === null ? route.search.filter : null) : null;
+  return (["needs_you", "waiting", "all"] as const).map((v) => ({ id: v, title: DRAFT_VIEW_LABELS[v], to: dest("mail.list", { filter: v }), count: countOf(counts, v) ?? 0, active: here === v }));
+}
+
 export function useMailNeedsYou(project: string | null): number {
   const q = useInfiniteQuery({
     queryKey: keys.drafts(project ?? "", "needs_you", null, ""),
@@ -59,7 +85,8 @@ type Props = { project: string; filter: DraftView; q: string; batch: number | nu
 /** Mail: the list column (View menu, status line, people) and the open conversation. The view, the search, the batch and the person live in the address. */
 function MailSection({ project, filter, q, batch, clientId, pointed, leadPageId, mobile, measured }: Props) {
   const go = useGo();
-  const onAuto = useCallback((id: number) => go(dest("mail.conversation", { id }, { filter, q, batch }), { replace: true }), [go, filter, q, batch]);
+  // P103: a row knows its client id; `id-<n>` opens it and `useClientKey` replaces the address with his email key.
+  const onAuto = useCallback((id: number) => go(dest("mail.conversation", { key: clientKey({ id }) }, { filter, q, batch }), { replace: true }), [go, filter, q, batch]);
   const [, setSearch] = useSearch(MAIL_SEARCH);
   const setQ = useCallback((v: string) => setSearch({ q: v }), [setSearch]);
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
@@ -121,7 +148,7 @@ function MailSection({ project, filter, q, batch, clientId, pointed, leadPageId,
       search={[q, setQ]}
       // The first pick from the list pushes (Back returns to the list); moving between people replaces; the person the screen
       // opens by itself on a wide pane replaces too (P53), so the address always names the conversation on screen.
-      selection={{ id: clientId, onChange: (id) => go(id === null ? dest("mail.list", { filter, q, batch }) : dest("mail.conversation", { id }, { filter, q, batch }), { replace: clientId !== null }), onAuto }}
+      selection={{ id: clientId, onChange: (id) => go(id === null ? dest("mail.list", { filter, q, batch }) : dest("mail.conversation", { key: clientKey({ id }) }, { filter, q, batch }), { replace: clientId !== null }), onAuto }}
       source={{ ...source, filter: batch === null ? filter : `${BATCH}${batch}` }}
       status={<StatusLine project={project} />}
       views={views}
@@ -141,8 +168,16 @@ export function MailScreen() {
   const compact = usePaneNarrow();
   const measured = usePaneMeasured();
   if (route.route !== "mail.list" && route.route !== "mail.conversation" && route.route !== "mail.lead") return null;
-  const clientId = route.route === "mail.conversation" ? route.params.id : null;
   const leadPageId = route.route === "mail.lead" ? route.params.page : null;
   const { q, batch, filter } = route.search;
-  return <MailSection batch={batch} clientId={clientId} filter={filter} leadPageId={leadPageId} measured={measured} mobile={compact} pointed={route.search.m ?? null} project={project} q={q} />;
+  return <KeyedMail compact={compact} leadPageId={leadPageId} measured={measured} pointed={route.search.m ?? null} project={project} routeKey={route.route === "mail.conversation" ? route.params.key : null} search={route.search} />;
+}
+
+/** P103: the address's client key to his row id, then the Mail section; a key nobody has is "No such client", not a blank pane. */
+function KeyedMail({ project, routeKey, search, leadPageId, measured, compact, pointed }: { project: string; routeKey: string | null; search: SearchFor<"mail.conversation">; leadPageId: string | null; measured: boolean; compact: boolean; pointed: string | null }) {
+  const client = useClientKey(project, routeKey, search);
+  const { q, batch, filter } = search;
+  if (client.missing) return <NoSuchClient />;
+  const clientId = client.id;
+  return <MailSection batch={batch} clientId={clientId} filter={filter} leadPageId={leadPageId} measured={measured} mobile={compact} pointed={pointed} project={project} q={q} />;
 }

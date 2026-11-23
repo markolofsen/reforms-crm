@@ -1,5 +1,6 @@
 "use client";
 
+import { clientKey } from "@hub/contract/client-key";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { phrase } from "@hub/contract/help";
 import { useState } from "react";
@@ -41,7 +42,7 @@ function Row({ project, e }: { project: string; e: EnrollmentDto }) {
       {e.enrolledPhrase && <p className="measure text-muted-foreground text-xs">Enrolled on your words: “{e.enrolledPhrase}”</p>}
       <div className="flex flex-wrap items-center gap-x-3 text-muted-foreground text-xs">
         {e.nextDueAt && <span>Due {formatTime(e.nextDueAt)}</span>}
-        {e.openDraftId !== null && <AppLink to={dest("mail.conversation", { id: e.client.id }, { filter: "sequences" })}>Open the step draft</AppLink>}
+        {e.openDraftId !== null && <AppLink to={dest("mail.conversation", { key: clientKey(e.client) }, { filter: "sequences" })}>Open the step draft</AppLink>}
         {e.state !== "finished" && <span className="ms-auto"><StopControl e={e} project={project} /></span>}
       </div>
     </ConversationListItem>

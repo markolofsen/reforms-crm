@@ -36,13 +36,13 @@ describe("proxy (Host and Origin guard)", () => {
 
   it("passes a project's address, a projectless page and the entry untouched (P48: the shell frame writes the canonical address)", () => {
     const go = (path: string, cookie: string | undefined) => call("127.0.0.1:5173", { path, cookie });
-    for (const path of ["/lisbon/mail", "/lisbon/mail/c/42?filter=all", "/overview", "/help", "/settings/connections", "/settings/mac", "/"]) expect(passes(go(path, "hub_project=lisbon")), path).toBe(true);
+    for (const path of ["/lisbon/mail", "/lisbon/mail/c/id-42?filter=all", "/overview", "/help", "/settings/connections", "/settings/mac", "/"]) expect(passes(go(path, "hub_project=lisbon")), path).toBe(true);
   });
 
   it("serves a bare scoped address from the one tree: a rewrite to the `_` segment, never a redirect (P127 A2)", () => {
     for (const [path, inside] of [
       ["/mail", "/_/mail"],
-      ["/mail/c/42?filter=all", "/_/mail/c/42?filter=all"],
+      ["/mail/c/id-42?filter=all", "/_/mail/c/id-42?filter=all"],
       ["/mail?project=lisbon", "/_/mail?project=lisbon"],
       ["/settings", "/_/settings"],
       ["/settings/agent", "/_/settings/agent"],

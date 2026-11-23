@@ -112,3 +112,10 @@ export function contextWarn(projectMd: string): void {
   if (!text.includes("| tone |")) throw new Error(`${projectMd}: no tone row to put context.required before`);
   writeFileSync(projectMd, text.replace("| tone |", "| context.required | warn | 2026-11-15 | owner |\n| tone |"));
 }
+
+/** P103: the address path of a client's conversation, by his canonical key (his email, or `id-<n>`), as the server gives it. */
+export async function clientPath(page: Page, project: string, id: number | string): Promise<string> {
+  const res = await page.request.get(`/api/projects/${project}/clients/key/id-${id}`);
+  const { key } = (await res.json()) as { key: string };
+  return `/mail/c/${encodeURIComponent(key)}`;
+}

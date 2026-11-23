@@ -5,7 +5,7 @@ const hhmm = (iso: string): string => iso.slice(11, 16);
 const STATE: Record<string, string> = { wrote: "wrote you", draft: "draft ready", hold: "draft on hold", waiting: "waiting for them", done: "done" };
 
 /**
- * `client:7`: a person, and since P99 (verdict 11) their conversation in Mail (`/mail/c/7`). The title names the open draft and
+ * `client:7`: a person, and since P99 (verdict 11) their conversation in Mail (`/mail/c/ana%40example.com`). The title names the open draft and
  * their newest message, e.g. "Mark Effect <m@x> · draft 4 ready · their newest: Re: Wow 01:23", so a "this" in the dock lands on
  * the right draft; the status is the state word. Read with `client_show`, and the open draft with `draft_show`.
  */
