@@ -1,7 +1,7 @@
 import { newThreadKey, SEQUENCE_SKILL, type EvidenceLevel } from "@hub/config";
 import { createRepos, openDb, RepoError, type RecordDraftInput, type RecordDraftResult } from "@hub/db";
 import { checkContext, checkDraftRecipients, contextMode, judgeSimilarity, kindOf, loadProject, measureAgainstSet, readAllowList, SIM_AMBER, type ContextMode, type PriorRecord, type Violation } from "@hub/projects";
-import { appendLine, readLines, recordsFile } from "@hub/projects/evidence-store";
+import { appendLine, readLines, recordsFile } from "../evidence/store";
 import { addressesOf, crossCheck, otherBrandFacts, previousRevision, type RecordLine } from "./checks";
 import type { DraftRecord } from "./schema";
 

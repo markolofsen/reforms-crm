@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditEvidence, claimOfDraftWrite, entryFor, preDraftCheck, replayCalls, summarizeCall, type CallRecord, type ClaimedRecord, type LedgerEntry } from "../src/index";
+import { auditEvidence, claimOfDraftWrite, entryFor, preDraftCheck, replayCalls, summarizeCall, type CallRecord, type ClaimedRecord, type LedgerEntry } from "../src/evidence/ledger";
 
 const M = "mcp__mail-mcp__";
 const t = (s: unknown) => [{ type: "text", text: typeof s === "string" ? s : JSON.stringify(s) }];

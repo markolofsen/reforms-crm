@@ -4,7 +4,7 @@ import path from "node:path";
 import { pathsAt } from "@hub/config/paths";
 
 // Where the evidence ledger lives (P28 B3): state/evidence/<slug>/<session_id>.jsonl, one thin line per tool call
-// (no bodies; see @hub/projects ledger.ts), and state/evidence/<slug>/records.jsonl, one line per the draft record (`draft_write`)
+// (no bodies; see `./ledger.ts`; P126 P1 moved the evidence ledger from `@hub/projects` to `@hub/agent/evidence`), and state/evidence/<slug>/records.jsonl, one line per the draft record (`draft_write`)
 // with the evidence block and the reply's sketch. `state/` is git-ignored. Keyed by session_id of the PARENT session;
 // a subagent's calls carry `aid` (S1: hooks fire in subagents with the parent's session_id).
 

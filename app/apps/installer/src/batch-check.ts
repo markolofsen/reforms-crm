@@ -1,5 +1,5 @@
 import { judgeSimilarity, measureAgainstSet, pairwise, type Level } from "@hub/projects";
-import { readLines, recordsFile } from "@hub/projects/evidence-store";
+import { readLines, recordsFile } from "@hub/agent/evidence/store";
 import type { RecordLine } from "@hub/agent/records/checks";
 
 // `hub batch-check --project X --batch K [--json]` (P28 B5): the one place the skill and the owner look at a batch as a

@@ -1,6 +1,8 @@
 import { slimMessageContent } from "./slim-headers";
 import { codexSessionPaths, instanceFeatures, pathsAt, type HubPaths } from "@hub/config/paths";
-import { auditToolCalls, chatDraftViolations, HUB_MESSENGER_SEND, defaultProjectsRoot, HUB_MESSENGER_DRAFT_WRITE, type AuditLayout, isDraftWrite, kindOf, loadProject, preDraftCheck, type LedgerEntry, type SkillScope, type ToolCall } from "@hub/projects";
+import { auditToolCalls, HUB_MESSENGER_SEND, defaultProjectsRoot, type AuditLayout, kindOf, loadProject, type SkillScope, type ToolCall } from "@hub/projects";
+import { HUB_MESSENGER_DRAFT_WRITE, isDraftWrite, preDraftCheck, type LedgerEntry } from "@hub/agent/evidence/ledger";
+import { chatDraftViolations } from "@hub/agent/evidence/chat-ledger";
 import { instanceServer } from "./mcp-servers";
 import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
 import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
@@ -8,7 +10,7 @@ import { HUB_MCP_SERVERS } from "@hub/agent/deny";
 import { notionDenial } from "@hub/projects/notion-denied";
 import { resolveConnectors, type AttachedConnector } from "@hub/agent/connectors";
 import { connectorViolations, notionNote, notionScopeOf, notionViolations, recordConnectorRead, type ConnectorScope, type NotionRead } from "@hub/agent/connector-guard";
-import { readSession, recordPost, type PostPayload } from "@hub/projects/evidence-store";
+import { readSession, recordPost, type PostPayload } from "@hub/agent/evidence/store";
 import { openDbReadOnly, readAgentSettings } from "@hub/db";
 import type { AgentSettings } from "@hub/config";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";

@@ -1,5 +1,5 @@
 import { chatEntry, HUB_MESSENGER_HISTORY } from "./chat-ledger";
-import { fingerprint, judgeSimilarity, sim, type Verdict } from "./similarity";
+import { fingerprint, judgeSimilarity, sim, type Verdict } from "@hub/projects";
 
 // The observed witness of P28 (research 15 section 3.2). A ledger line is a thin summary of one tool call: which
 // message was opened, who wrote it, which search ran, whether a Notion page was read, the sketch of a reply. No mail

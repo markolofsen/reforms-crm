@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { pathsAt } from "@hub/config/paths";
 import { appendEvents, logStoreOf } from "@hub/log/store";
 import { loadProject } from "@hub/projects";
-import { recordPost } from "@hub/projects/evidence-store";
+import { recordPost } from "@hub/agent/evidence/store";
 import { fakePorts, REPLAY_CASES, replay, type FakePorts, type ReplayGuard, type ReplayObserver } from "@hub/agent/testing";
 import { auditLayout, guardDecision, preDraftViolations } from "../src/safety";
 

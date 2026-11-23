@@ -5,9 +5,9 @@ import { describe, expect, it } from "vitest";
 import { pathsAt } from "@hub/config/paths";
 import { createRepos, openDb } from "@hub/db";
 import { runGuard, runGuardPost, writeSessionFiles } from "../src/safety";
-import { sessionFile } from "@hub/projects/evidence-store";
+import { sessionFile } from "@hub/agent/evidence/store";
 import { appendEvents, logStoreOf } from "@hub/log/store";
-import { isDraftWrite } from "@hub/projects";
+import { isDraftWrite } from "@hub/agent/evidence/ledger";
 import { CLIENTS } from "../eval/per-client/fixture";
 import { carefulSteps, contextFor, lazySteps, replyFor, writeFor } from "../eval/per-client/scenario";
 

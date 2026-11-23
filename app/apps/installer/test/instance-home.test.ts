@@ -7,7 +7,7 @@ import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import { defaultProjectsRoot, loadProjects } from "@hub/projects";
 import { defaultDbPath, openDb } from "@hub/db";
 import { listProjects, makeCtx } from "../src/context";
-import { evidenceDir } from "@hub/projects/evidence-store";
+import { evidenceDir } from "@hub/agent/evidence/store";
 import { auditLayout, guardDecision, runGuard, writeSessionFiles } from "../src/safety";
 import { syncInstanceSkills } from "../src/instance-skills";
 

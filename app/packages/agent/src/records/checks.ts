@@ -1,7 +1,8 @@
 import { newThreadKey, NOTION_KINDS } from "@hub/config";
 import { createRepos, openDb } from "@hub/db";
-import { contextSchema, observeDraft, type Context, type LedgerEntry, type Violation } from "@hub/projects";
-import { latestSession } from "@hub/projects/evidence-store";
+import { contextSchema, type Context, type Violation } from "@hub/projects";
+import { observeDraft, type LedgerEntry } from "../evidence/ledger";
+import { latestSession } from "../evidence/store";
 
 // The checks a draft record runs before it is written (moved from `hub record-draft`, P129 A3): the claim against this
 // session's ledger, the open draft a revision inherits from, and the knowledge entries of another brand.
