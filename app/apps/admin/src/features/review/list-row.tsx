@@ -77,7 +77,7 @@ export function ListRow({ r, now, open, selecting, selected, onOpen, onToggle }:
       </span>
       <ActionButton
         aria-current={open ? "true" : undefined}
-        className="min-h-16 min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-none py-2.5 ps-1 pe-3 text-start font-normal outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="min-h-16 min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-none py-2.5 ps-1 pe-2 text-start font-normal outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         data-slot="conversation-list-focus"
         data-testid="person-row"
         onClick={onOpen}
@@ -90,7 +90,9 @@ export function ListRow({ r, now, open, selecting, selected, onOpen, onToggle }:
           nameClassName={r.state === "wrote" || r.state === "draft" ? "font-semibold" : undefined}
           time={ago(r.at, now)}
         />
-        <span className="flex w-full min-w-0 items-baseline gap-1 text-sm">
+        {/* At 1280 the list is 360px: a 35-character subject fits whole beside the state only with this end padding and gap
+            (ui-specifications 4a: a subject is not cut below 40 characters; measured 4px short with pe-3 and gap-1). */}
+        <span className="flex w-full min-w-0 items-baseline gap-0.5 text-sm">
           <span className={cn("shrink-0", r.state === "wrote" || r.state === "draft" ? "font-medium text-foreground" : "text-muted-foreground")} data-testid="person-state">{CONVERSATION_STATE_LABELS[r.state]}</span>
           <span className="min-w-0 truncate" data-testid="person-subject">· {r.subject || "(no subject)"}</span>
         </span>
