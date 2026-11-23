@@ -15,14 +15,15 @@ import { address, at, cardOf, cards, contextWarn, remember, viewMenu } from "./s
 test.describe.configure({ mode: "serial" });
 
 const P = "demo-shop";
-// P98: a draft recorded the way the agent records one (`hub record-draft`, as z-record-draft does), so the open card must change live.
-const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
+// P98: a draft recorded the way the agent records one (the seeder of draft_write's writer, as z-record-draft does), so the open card must change live.
+// P129 A3: `hub record-draft` is gone (the agent records through draft_write); flows seed a draft row with the same writer.
+const seedDraft = fileURLToPath(new URL("../../installer/test/support/seed-draft.mjs", import.meta.url));
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-inbox-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, P), { recursive: true });
 contextWarn(join(projects, P, "project.md"));
 writeSendPolicy(process.env.HUB_E2E_HOME ?? "", P);
 const record = (payload: object) =>
-  JSON.parse(execFileSync("node", [hub, "record-draft", "--project", P], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" })) as { ok: boolean; action: string; draftId: number };
+  JSON.parse(execFileSync("node", [seedDraft, "--project", P], { input: JSON.stringify(payload), env: { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" })) as { ok: boolean; action: string; draftId: number };
 const person = (page: Page, name: string) => cards(page).filter({ hasText: name });
 const pane = (page: Page) => page.getByTestId("conversation");
 const screenText = (page: Page) =>

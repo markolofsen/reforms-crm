@@ -3,7 +3,7 @@ import { DraftWriteError, fromFor, writeLogOf, writeRecorded, type Revision } fr
 import { ToolError } from "../mcp/result";
 import { adoptLate } from "./adopt";
 import { landingWrite, pendingVersion } from "./guards";
-import type { DraftScope, Written } from "./sign";
+import type { DraftScope, Pending, Written } from "./sign";
 
 export interface ReplyArgs {
   account: string;
@@ -14,7 +14,7 @@ export interface ReplyArgs {
 }
 
 /** `draft_write` with account, mailbox_path and message_id: a new reply to one message of this project's Mail. */
-export async function writeNewReply(s: DraftScope, a: ReplyArgs): Promise<Written> {
+export async function writeNewReply(s: DraftScope, a: ReplyArgs): Promise<Written | Pending> {
   const { ctx, slug, writer, mail, cfg } = s;
   const own = mail.accounts.find((x) => x.trim().toLowerCase() === a.account.trim().toLowerCase());
   if (!own) throw new ToolError("not_this_project", `Account "${a.account}" is not one of project ${slug}'s Mail accounts (${mail.accounts.join(", ") || "none listed in project.md"}).`);
@@ -35,10 +35,11 @@ export async function writeNewReply(s: DraftScope, a: ReplyArgs): Promise<Writte
   const thread = await ctx.repos.mailVersions.ofThread(slug, mailRef);
   await adoptLate(ctx, slug, null, mailRef, null, thread.filter((v) => v.draftId === null));
   const pending = await pendingVersion(s, mailRef);
-  if (pending) throw new ToolError("already_drafted", `The hub already wrote a draft for this message (Mail id ${pending.mailId}) that is not recorded yet: record it with hub record-draft (mailRef ${mailRef}), then revise it with draft=<id>. Nothing was written.`);
+  // P129 verdict 4: the hub's own unrecorded version of this reply is recorded by this call, not written twice.
+  if (pending) return { pending: { mailId: pending.mailId, messageId: pending.messageId, account: pending.account }, mailRef };
   // P65 S5: the Hub's last write for this message may still be landing (Mail slow): a second one would be a duplicate.
   const landing = await landingWrite(s, mailRef);
-  if (landing) throw new ToolError("mail_slow", `The hub's write for this message at ${landing.startedAt} has not shown in Mail yet (Mail is slow); it is adopted when it lands. Do not write it again now: tell the owner in one line, and record it with hub record-draft once draft_write for it reports it saved. Nothing was written.`);
+  if (landing) throw new ToolError("mail_slow", `The hub's write for this message at ${landing.startedAt} has not shown in Mail yet (Mail is slow); it is adopted when it lands. Do not write it again now: tell the owner in one line; a later draft_write with the same record records it once it landed. Nothing was written.`);
   // P87 (B6): the message answered is our own sent mail when a hub draft of this project went out as it.
   const ours = a.owner_request ? await ctx.repos.drafts.bySentMessageId(slug, mailRef) : null;
   const ourThread = ours?.brand ? { brand: ours.brand, wroteTo: ours.wroteTo ?? null, draftId: ours.id } : undefined;

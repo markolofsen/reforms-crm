@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import { FOCUS_FRESH_MS, FOCUS_SELECTED_SHOWN, focusRecord, type FocusDto, type FocusItem, type FocusRecord } from "@hub/contract/focus";
+import { FOCUS_FRESH_MS, FOCUS_SELECTED_SHOWN, focusRecord, type FocusDto, type FocusItem, type FocusRecord, type ThisFrom } from "@hub/contract/focus";
 import type { Repos } from "@hub/db";
 import { cut } from "../mcp/result";
 import { resolveRef, type ResolveCtx } from "./resolvers";
@@ -21,7 +21,7 @@ export function readFocusFile(file: string): FocusRecord | null {
   }
 }
 
-const NONE = (slug: string | null): FocusDto => ({ state: "none", project: slug, ageSeconds: null, route: null, title: null, subject: null, pointed: null, selected: [], selectedMore: 0, window: null, view: null, pointer: null });
+const NONE = (slug: string | null): FocusDto => ({ state: "none", this: null, thisFrom: null, project: slug, ageSeconds: null, route: null, title: null, subject: null, pointed: null, selected: [], selectedMore: 0, window: null, view: null, pointer: null });
 
 /** Each ref resolved in order, at most `max` listed. */
 async function resolveAll(ctx: ResolveCtx, refs: readonly string[], max: number): Promise<FocusItem[]> {
@@ -35,6 +35,24 @@ async function resolveAll(ctx: ResolveCtx, refs: readonly string[], max: number)
 }
 
 export type FocusDepth = "line" | "full";
+
+type ThisParts = Pick<FocusDto, "subject" | "pointed" | "selected" | "selectedMore" | "window">;
+
+/**
+ * What "this" is (P129 verdict 8), the precedence the session rules used to state in prose: the subject (the open card or
+ * the address), else the pointed row, else the one selected row, else the one row on screen. Several selected or several on
+ * screen with none pointed: null, and the agent names the first few of `window` and asks which.
+ */
+export function thisOf(f: ThisParts): { this: FocusItem | null; thisFrom: ThisFrom | null } {
+  if (f.subject) return { this: f.subject, thisFrom: "subject" };
+  if (f.pointed) return { this: f.pointed, thisFrom: "pointed" };
+  const [one] = f.selected;
+  if (one && f.selected.length === 1 && f.selectedMore === 0) return { this: one, thisFrom: "selected" };
+  const w = f.window;
+  const [row] = w?.items ?? [];
+  if (row && w && w.items.length === 1 && w.more === 0 && w.total === 1) return { this: row, thisFrom: "window" };
+  return { this: null, thisFrom: null };
+}
 
 /** The focus as the session bound to `slug` may see it. Never throws on a bad file: that is `none`. */
 export async function readFocus(o: { file: string; slug: string | undefined; repos: Repos; now?: Date; depth?: FocusDepth }): Promise<FocusDto> {
@@ -56,8 +74,11 @@ export async function readFocus(o: { file: string; slug: string | undefined; rep
   const selected = full ? await resolveAll(ctx, f.selected, FOCUS_SELECTED_SHOWN) : [];
   const windowItems = full && f.window ? await resolveAll(ctx, f.window.refs, f.window.refs.length) : [];
   const view = f.view ? Object.fromEntries(Object.entries(f.view).map(([k, v]) => [k, cut(v)])) : null;
+  const selectedMore = f.selected.length - selected.length;
+  const win = f.window ? { items: windowItems, total: f.window.total, more: f.window.refs.length - windowItems.length } : null;
   return {
     state: stale ? "stale" : "fresh",
+    ...thisOf({ subject, pointed, selected, selectedMore, window: win }),
     project: slug,
     ageSeconds: age,
     route: f.route,
@@ -65,8 +86,8 @@ export async function readFocus(o: { file: string; slug: string | undefined; rep
     subject,
     pointed,
     selected,
-    selectedMore: f.selected.length - selected.length,
-    window: f.window ? { items: windowItems, total: f.window.total, more: f.window.refs.length - windowItems.length } : null,
+    selectedMore,
+    window: win,
     view: view && Object.keys(view).length ? view : null,
     pointer: f.pointer ?? null,
   };

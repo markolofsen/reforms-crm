@@ -5,7 +5,7 @@ export type WriteTx = Parameters<Parameters<Db["transaction"]>[0]>[0];
 
 /**
  * The one way a repository opens a write transaction. It is `BEGIN IMMEDIATE`: the write lock is taken up front, so
- * `busy_timeout` can wait for the other writer process (the server and `hub record-draft` share one WAL file). A
+ * `busy_timeout` can wait for the other writer process (the server and the draft record (`draft_write`) share one WAL file). A
  * deferred transaction that reads first and writes after another process committed fails at once with
  * SQLITE_BUSY_SNAPSHOT, and no timeout retries that.
  */
@@ -14,7 +14,7 @@ export function write<T>(db: Db, fn: (tx: WriteTx) => T): T {
 }
 
 /**
- * SQLite's `data_version` of this connection: it changes whenever ANOTHER connection commits (a `hub record-draft` in
+ * SQLite's `data_version` of this connection: it changes whenever ANOTHER connection commits (a the draft record (`draft_write`) in
  * a terminal), and not for this connection's own writes. The server hands it to the admin, which refetches on change.
  */
 export function dataVersion(db: Db): number {

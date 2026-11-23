@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { filterOf, runLogCommand, sinceOf } from "../src/log-command";
-import { logHook, logPrompt } from "../src/log-hook";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { logHook, logPrompt, skillHashes } from "../src/log-hook";
 import { makeInstance } from "./instance-fixture";
 
 // P54: the hook entries write into the instance's state/log; `hub log` reads them back.
@@ -22,6 +25,21 @@ describe("hub log", () => {
     const json: string[] = [];
     await runLogCommand("sessions", { json: true }, (l) => json.push(l), env);
     expect(JSON.parse(json[0] ?? "[]")).toMatchObject([{ session: "sess-abc", prompts: 1, answers: 1, transcript: "/t/sess-abc.jsonl" }]);
+  });
+  it("P129 A6: a session start records the core version and an 8-hex hash per linked SKILL.md", async () => {
+    const { home } = makeInstance();
+    const env = { HUB_HOME: home, HUB_PROJECT: "acme-travel" };
+    expect(logHook(JSON.stringify({ hook_event_name: "SessionStart", session_id: "sess-v", source: "startup" }), "claude", env)).toBe(true);
+    const json: string[] = [];
+    await runLogCommand("events", { json: true }, (l) => json.push(l), env);
+    const start = json.map((l) => JSON.parse(l) as { kind: string; data: Record<string, unknown> }).find((e) => e.kind === "session");
+    expect(start?.data.core).toEqual(expect.any(String));
+    expect(start?.data.skills).toEqual(expect.any(Object));
+    const dir = mkdtempSync(path.join(tmpdir(), "hub-skill-hash-"));
+    mkdirSync(path.join(dir, "triage-mail"));
+    writeFileSync(path.join(dir, "triage-mail", "SKILL.md"), "---\nname: triage-mail\n---\n");
+    mkdirSync(path.join(dir, "empty"));
+    expect(skillHashes(dir)).toEqual({ "triage-mail": expect.stringMatching(/^[0-9a-f]{8}$/) });
   });
   it("filters: kinds and times are checked", () => {
     const now = new Date("2026-11-19T10:00:00.000Z");

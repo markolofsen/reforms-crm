@@ -188,7 +188,7 @@ export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
     if (caps) plan.capabilities = caps;
   }
   const childEnv: NodeJS.ProcessEnv = { ...process.env, ...(plan.project ? { HUB_PROJECT: plan.project } : {}), HUB_HOME: paths.home };
-  // `hub` itself (P52: the skills and rules say `hub record-draft`), then the Node this hub runs on, go first on PATH, so
+  // `hub` itself (the skills say `hub sequences`, `hub doctor`), then the Node this hub runs on, go first on PATH, so
   // `hub`, `./run.sh` and `node` in the session are this instance's core on the Node the hub needs.
   childEnv.PATH = [hubShimDir(paths, process.execPath), path.dirname(process.execPath), childEnv.PATH ?? ""].filter(Boolean).join(path.delimiter);
 

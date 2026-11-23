@@ -4,7 +4,7 @@ import { inboxDto, notByEmailDto } from "@hub/contract/responses";
 import { v } from "../http";
 import type { InboxServices } from "../composition/capabilities";
 
-/** The triage list: who the agent touched and what it did. Read-only; rows are written by `hub record-client` and `hub record-draft`. */
+/** The triage list: who the agent touched and what it did. Read-only; rows are written by `client_record` and `draft_write`'s record (hub mcp, P129 A3). */
 export function inboxRoutes({ repos }: InboxServices) {
   return new Hono()
     .get("/api/inbox/not-by-email", v("query", notByEmailQuery), async (c) => {

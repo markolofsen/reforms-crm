@@ -13,7 +13,7 @@ A **lead** is a request that is not yet a client: a website form, a message from
 | People | Status, Owner, Next step, Notes, Client | Hub run id |
 
 - **Idempotency.** `Hub run id` is the writer's key for one submission. A writer looks the row up by it before creating, so a retry never makes a second lead.
-- **Brand** names the site or product. Its options are the names of the project's `## Brands` rows (doc 16 section 3C), exactly, and a project's options never name another project's brands; a writer uses exactly those names (the agent takes the brand of a mail from `mail_brand`). A lead for two products carries two.
+- **Brand** names the site or product. Its options are the names of the project's `## Brands` rows (doc 16 section 3C), exactly, and a project's options never name another project's brands; a writer uses exactly those names (the agent takes the brand of a mail from `message_show`). A lead for two products carries two.
 - **A missing option stops the writer**, not the form: if `Source` lacks `Email` or `Brand` lacks the site, the writer must report it, never invent an option.
 - **Spam** is a Status, not a deletion.
 - A form field with no column of its own goes to `Details`, one `Label: value` line each. Secrets and honeypot fields never.

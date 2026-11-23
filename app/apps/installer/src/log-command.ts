@@ -61,7 +61,7 @@ export function eventText(e: LogEvent): string {
     case "tool_error": return `${t(d.tool)}${d.denied === true ? " (refused)" : ""}: ${one(t(d.error), 160)}`;
     case "asked": return `${t(d.why)}${d.tool ? ` ${t(d.tool)}` : ""}${d.message ? `: ${one(t(d.message), 140)}` : ""}`;
     case "guard": return `${t(d.mode)} ${t(d.tool)}: ${one(Array.isArray(d.violations) ? d.violations.map(String).join("; ") : "", 160)}`;
-    case "session": return `${t(d.phase)}${d.source ? ` (${t(d.source)})` : ""}${d.reason ? ` (${t(d.reason)})` : ""}${d.transcript ? ` ${t(d.transcript)}` : ""}`;
+    case "session": return `${t(d.phase)}${d.source ? ` (${t(d.source)})` : ""}${d.reason ? ` (${t(d.reason)})` : ""}${d.core ? ` core ${t(d.core)}` : ""}${d.skills && typeof d.skills === "object" ? ` skills ${Object.entries(d.skills).map(([k, v]) => `${k}@${String(v)}`).join(" ")}` : ""}${d.transcript ? ` ${t(d.transcript)}` : ""}`;
     case "error": return `${t(d.source)}: ${one(t(d.message), 160)}`;
   }
 }

@@ -27,7 +27,7 @@ The loop closes with the owner, not with the agent: the agent never edits or app
 
 ## 2. Order of sources for a fact
 
-1. `knowledge_search`, `project` = the slug; in a `knowledge.scope by-brand` project also `brand` = the brand of the mail (`mail_brand`), or `ANY` for an unbranded mail (doc 16 section 5, "Brands"). Usable only with `use: STATE`, `approved: true`, `expired: false`. A draft that used an entry of another brand gets the red safety result `fact_other_brand` at `hub record-draft`.
+1. `knowledge_search` (bound to the project); in a `knowledge.scope by-brand` project also `brand` = the brand of the mail (`message_show`), or `ANY` for an unbranded mail (doc 16 section 5, "Brands"). Usable only with `use: STATE`, `approved: true`, `expired: false`. A draft that used an entry of another brand gets the red safety result `fact_other_brand` at `draft_write`'s record.
    Freshness is judged from the local entry: a `valid_until` that is near or passed, an old `last_confirmed`, or a contradiction by the mail
    or the client's profile makes the hit `stale` (a gap is recorded; the fact is stated only while it is still usable).
 2. Nothing usable: a `[Owner: ...]` placeholder. The agent never invents, never answers from memory, never

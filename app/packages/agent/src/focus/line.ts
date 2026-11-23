@@ -12,7 +12,8 @@ const itemText = (verb: string, it: FocusItem): string => `${verb} ${it.ref} "${
 export function focusLine(f: FocusDto): string | null {
   if (f.state === "elsewhere") return `[Hub focus, data] the admin shows another project, not ${f.project ?? "this one"}; this session is bound to ${f.project ?? "no project"}.`;
   if (f.state !== "fresh") return null;
-  const parts: string[] = [f.title ?? "the admin"];
+  // P129 verdict 8: the line starts with what "this" is, so the agent reads it instead of computing the precedence.
+  const parts: string[] = [f.this ? `this ${f.this.ref}` : "this: none", f.title ?? "the admin"];
   if (f.subject) parts.push(itemText("open", f.subject));
   if (f.pointed) parts.push(itemText("on", f.pointed));
   const picked = f.selected.length + f.selectedMore;

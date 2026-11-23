@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSendWord, ownerWordFor, ownerWordRef, type OwnerWordInput } from "../src/messenger/owner-word";
+import { isSendWord, ownerWordFor, ownerWordRef, ownerWordsFound, type OwnerWordInput } from "../src/messenger/owner-word";
 
 // Decision 0046 (P132 B1-2): the owner's word that lets the agent send one messenger draft, read from the session log only.
 
@@ -65,5 +65,22 @@ describe("ownerWordFor", () => {
     expect(code(base(events, { openDrafts: [DRAFT, other] }))).toBe("chat_unclear");
     // A draft changed before his previous prompt is not "just written".
     expect(code(base(events, { openDrafts: [DRAFT, { id: 8, chat: 4, updatedAt: at(40) }] }))).toBe("ok");
+  });
+});
+
+describe("P129 verdict 7: ownerWordsFound, the owner's words as the basis of a draft", () => {
+  const NOW = new Date("2026-11-23T12:00:00.000Z");
+  const p = (ts: string, text: string) => ({ ts, session: "s1", kind: "prompt" as const, data: { text } });
+  const events = [p("2026-11-23T11:00:00.000Z", "Подготовь какой-нибудь ответ в виде стишка"), p("2026-11-23T11:30:00.000Z", "переведи на русский"), p("2026-11-22T10:00:00.000Z", "old words from yesterday")];
+  it("finds his words, folded for case, whitespace, quotes and end punctuation; a quote of part of the prompt counts", () => {
+    expect(ownerWordsFound({ events, words: "«Переведи  на РУССКИЙ.»", now: NOW })).toMatchObject({ ok: true, ref: "s1@2026-11-23T11:30:00.000Z" });
+    expect(ownerWordsFound({ events, words: "ответ в виде стишка", now: NOW })).toMatchObject({ ok: true });
+  });
+  it("refuses a summary, a translation, a too-short phrase and words older than 12 hours", () => {
+    for (const words of ["write a poem", "translate to Russian", "на", "old words from yesterday"]) expect(ownerWordsFound({ events, words, now: NOW })).toMatchObject({ ok: false, code: "owner_words_not_found" });
+  });
+  it("a prompt the log cut matches words that start with what is left", () => {
+    const long = [p("2026-11-23T11:50:00.000Z", "напиши всем клиентам про новые цены… [cut, 9000 chars]")];
+    expect(ownerWordsFound({ events: long, words: "напиши всем клиентам про новые цены и скидки", now: NOW })).toMatchObject({ ok: true });
   });
 });

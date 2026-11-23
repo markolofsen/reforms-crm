@@ -9,11 +9,13 @@ import { at, cardOf, contextWarn, remember } from "./support";
 
 // P51 shared focus, end to end on the fake mailer: the admin publishes what it shows, `hub focus --hook` turns it into the
 // prompt line, and a scripted agent (`test-support/fake-agent.mjs`: `focus`, `draft_show` over `hub mcp`, then
-// `hub record-draft` with the same mailRef) revises the focused draft in place. Nothing is sent. Named z-* because it writes.
+// the seeder of draft_write's writer with the same mailRef) revises the focused draft in place. Nothing is sent. Named z-* because it writes.
 // P72: every route publishes its id and its own title; a clicked Knowledge row is `pointed`, and the scripted agent reads it
-// with the tool the focus names (knowledge-mcp `knowledge_get`); `/log?client=N` names the client (P73); the file names nothing.
+// with the tool the focus names (the hub's `knowledge_get`, P129 A4); `/log?client=N` names the client (P73); the file names nothing.
 
 const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
+// P129 A3: `hub record-draft` is gone (the agent records through draft_write); flows seed a draft row with the same writer.
+const seedDraft = fileURLToPath(new URL("../../installer/test/support/seed-draft.mjs", import.meta.url));
 const fakeAgent = fileURLToPath(new URL("../../../test-support/fake-agent.mjs", import.meta.url));
 const projects = mkdtempSync(join(tmpdir(), "hub-e2e-focus-"));
 cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/acme-travel", import.meta.url)), join(projects, "demo-shop"), { recursive: true });
@@ -22,7 +24,7 @@ writeSendPolicy(process.env.HUB_E2E_HOME ?? "", "demo-shop");
 const env = { ...process.env, HUB_HOME: process.env.HUB_E2E_HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, HUB_PROJECT: "demo-shop", NO_COLOR: "1" };
 const focusFile = join(process.env.HUB_E2E_HOME ?? "", "state", "focus.json");
 const run = (args: string[], input?: string) => execFileSync("node", args, { env, encoding: "utf8", ...(input ? { input } : {}) });
-const record = (payload: object) => JSON.parse(run([hub, "record-draft", "--project", "demo-shop"], JSON.stringify(payload))) as { ok: boolean; action: string; draftId: number; clientId: number };
+const record = (payload: object) => JSON.parse(run([seedDraft, "--project", "demo-shop"], JSON.stringify(payload))) as { ok: boolean; action: string; draftId: number; clientId: number };
 type Disk = { at: string; focus: { tab: string; project: string | null; route: string; title: string; subject?: string; pointed?: string; window?: { refs: string[]; total: number } } };
 const onDisk = () => (existsSync(focusFile) ? (JSON.parse(readFileSync(focusFile, "utf8")) as Disk) : null);
 /** P99: the open conversation's client (`client:<id>`), whose unsent message is the focused draft. */
@@ -49,8 +51,9 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
 
   // 3. "ответь этому клиенту": the scripted agent reads the focus and revises that draft.
   const agent = JSON.parse(run([fakeAgent, "I'm well, thanks — and the revised answer."])) as { tools: string[]; focused: number; recorded: { ok: boolean; action: string; draftId: number } };
-  // P60: mail_brand joined in v0.12.11; P71 M2 the two messenger tools; P72 highlight; P82 project_notion; P98 inbound_show; P101 project_links.
-  expect(agent.tools).toEqual(["client_show", "draft_show", "draft_write", "drafts_list", "focus", "highlight", "inbound_show", "mail_brand", "messenger_draft_write", "messenger_history", "project_links", "project_notion"]);
+  // P129 A3 client_record; A4 project_show (was project_notion, project_links), message_show (was inbound_show, mail_brand),
+  // mail_list (was drafts_list) and the knowledge tools (were knowledge-mcp's).
+  expect(agent.tools).toEqual(["client_record", "client_show", "draft_show", "draft_write", "focus", "highlight", "knowledge_get", "knowledge_search", "mail_list", "message_show", "messenger_draft_write", "messenger_history", "project_show"]);
   expect(agent.focused).toBe(fiona.draftId);
   expect(agent.recorded).toMatchObject({ ok: true, action: "updated", draftId: fiona.draftId });
   // The open card says so by itself (P50), and the list still has one Fiona.
@@ -103,7 +106,7 @@ test("every screen says its own title; a clicked Knowledge row is what the agent
     expect(readFileSync(focusFile, "utf8")).not.toContain(title);
     // 2. What the agent gets: the entry by title, and how to read it.
     const f = focusJson();
-    expect(f).toMatchObject({ state: "fresh", route: "knowledge.page", title: "Knowledge", pointed: { ref: key, title, read: { server: "knowledge-mcp", tool: "knowledge_get", args: { project: "demo-shop", path: key.slice("knowledge:".length) } } } });
+    expect(f).toMatchObject({ state: "fresh", route: "knowledge.page", title: "Knowledge", pointed: { ref: key, title, read: { server: "hub", tool: "knowledge_get", args: { path: key.slice("knowledge:".length) } } } });
     const hook = JSON.parse(execFileSync("node", [hub, "focus", "--hook"], { env: kbEnv, input: "{}", encoding: "utf8" })) as { hookSpecificOutput: { additionalContext: string } };
     expect(hook.hookSpecificOutput.additionalContext).toMatch(/^\[Hub focus, data\] Knowledge · on knowledge:knowledge\/.* \(knowledge_get\) · \d+ of \d+ on screen/);
     // 3. "ответь по этой записи": the scripted agent reads the pointed entry with knowledge_get, never asking for a file name.

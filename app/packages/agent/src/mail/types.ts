@@ -39,7 +39,7 @@ export interface ReplyDraftResult {
   /** The text Mail returned after the save: what the version's hash is taken of (never stored). */
   text: string;
   subject: string;
-  /** The answered message's Message-ID, bare: the `mailRef` for `hub record-draft`. */
+  /** The answered message's Message-ID, bare: the `mailRef` the draft is recorded with. */
   thread: string;
   from: string;
   /** Message-IDs of the older versions that were moved to Trash. */

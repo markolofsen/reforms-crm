@@ -155,7 +155,7 @@ export function sessionCapabilities(slug: string, attached: readonly AttachedCon
   const who = (c: AttachedConnector) => `${c.name} (${c.account ? c.account.account : "account not confirmed yet"})`;
   const cal = attached.filter((c) => c.kind === "calendar");
   const drive = attached.filter((c) => c.kind === "drive");
-  const parts = ["mail: mail-mcp (read only) and the hub's draft_write (unsent drafts)", notion ? notionCapability(notion) : "notion: the project's CRM databases", "knowledge: knowledge-mcp"];
+  const parts = ["mail: mail-mcp (read only) and the hub's draft_write (unsent drafts)", notion ? notionCapability(notion) : "notion: the project's CRM databases", "knowledge: the hub's knowledge_search and knowledge_get"];
   if (cli === "codex") {
     if (cal.length || drive.length) parts.push(`calendar and drive: not in Codex sessions (${[...cal, ...drive].map((c) => c.name).join(", ")} sign in only in Claude Code)`);
     else parts.push("calendar: none attached", "drive: none attached");

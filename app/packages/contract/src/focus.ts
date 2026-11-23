@@ -70,17 +70,24 @@ export type FocusRecord = z.infer<typeof focusRecord>;
 export const FOCUS_STATES = ["fresh", "stale", "elsewhere", "none"] as const;
 export type FocusState = (typeof FOCUS_STATES)[number];
 
-/** How the agent reads an item: the MCP server, the tool and its arguments. */
-export const focusRead = z.strictObject({ server: z.enum(["hub", "knowledge-mcp"]), tool: z.string(), args: z.record(z.string(), z.union([z.string(), z.number()])) });
+/** How the agent reads an item: the MCP server (the hub's own since P129 A4 moved the knowledge tools), the tool and its arguments. */
+export const focusRead = z.strictObject({ server: z.enum(["hub"]), tool: z.string(), args: z.record(z.string(), z.union([z.string(), z.number()])) });
 export type FocusRead = z.infer<typeof focusRead>;
 
 /** One ref resolved inside the bound project: its title (client data), its status, and the tool that reads it (null: none). */
 export const focusItem = z.strictObject({ ref: z.string(), kind: z.enum(REF_KINDS), title: z.string(), status: z.string().nullable(), read: focusRead.nullable() });
 export type FocusItem = z.infer<typeof focusItem>;
 
+/** Where "this" came from, in precedence order (P129 verdict 8): the open card, the pointed row, the one selected row, the one row on screen. */
+export const THIS_FROM = ["subject", "pointed", "selected", "window"] as const;
+export type ThisFrom = (typeof THIS_FROM)[number];
+
 /** What the hook, the `focus` tool and `hub focus --json` return: the focus resolved inside the bound project. */
 export const focusDto = z.strictObject({
   state: z.enum(FOCUS_STATES),
+  /** What "this" means on his screen, computed by the reader (P129 verdict 8); null: none, or several on screen and none pointed. */
+  this: focusItem.nullable(),
+  thisFrom: z.enum(THIS_FROM).nullable(),
   project: slug.nullable(),
   ageSeconds: z.number().int().nonnegative().nullable(),
   route: z.string().nullable(),

@@ -6,19 +6,20 @@ import { instanceServer } from "../src/mcp-servers";
 import { fake } from "./helpers";
 
 // S5 trap: an instance root `.mcp.json` that names the core's stdio program by a relative `app/...` path. Claude starts in the instance
-// folder, where that path does not exist, so the knowledge server silently never starts. `files.mcp-json` must catch it and write it absolute.
+// folder, where that path does not exist, so the server silently never starts. `files.mcp-json` must catch it and write it absolute.
+// (The trap's server was `knowledge-mcp` until P129 A4 retired it; any core stdio program behaves the same.)
 const step = fileSteps.find((s) => s.id === "files.mcp-json")!;
-const KNOWLEDGE = { type: "stdio", command: "app/packages/knowledge/node_modules/.bin/tsx", args: ["app/packages/knowledge/src/mcp-bin.ts"], env: { HUB_PROJECT: "${HUB_PROJECT:-}" } };
+const CORE_STDIO = { type: "stdio", command: "app/apps/installer/node_modules/.bin/tsx", args: ["app/apps/installer/src/cli.ts"], env: { HUB_PROJECT: "${HUB_PROJECT:-}" } };
 const put = (f: string, v: unknown) => { mkdirSync(path.dirname(f), { recursive: true }); writeFileSync(f, JSON.stringify(v)); };
 
 describe("files.mcp-json: stdio commands of the instance .mcp.json exist", () => {
   it("fails on a relative core path, names the server and the fix", async () => {
     const f = fake();
-    put(path.join(f.root, "config", "mcp.json"), { mcpServers: { "knowledge-mcp": KNOWLEDGE } });
-    put(f.ctx.paths.mcpFile, { mcpServers: { "knowledge-mcp": KNOWLEDGE } });
+    put(path.join(f.root, "config", "mcp.json"), { mcpServers: { "core-stdio": CORE_STDIO } });
+    put(f.ctx.paths.mcpFile, { mcpServers: { "core-stdio": CORE_STDIO } });
     const r = await step.check(f.ctx);
     expect(r.level).toBe("fail");
-    expect(r.detail).toContain("knowledge-mcp: command app/packages/knowledge/node_modules/.bin/tsx does not exist");
+    expect(r.detail).toContain("core-stdio: command app/apps/installer/node_modules/.bin/tsx does not exist");
     expect(r.detail).toContain("hub install --only files.mcp-json");
   });
   it("fails on an absolute path that is not there", async () => {
@@ -29,15 +30,28 @@ describe("files.mcp-json: stdio commands of the instance .mcp.json exist", () =>
   });
   it("apply writes the stdio paths absolute under the core, and the check then passes", async () => {
     const f = fake();
-    put(path.join(f.root, "config", "mcp.json"), { mcpServers: { "mail-mcp": { type: "http", url: "http://localhost:8787" }, "knowledge-mcp": KNOWLEDGE } });
-    put(f.ctx.paths.mcpFile, { mcpServers: { "knowledge-mcp": KNOWLEDGE } }); // the stale file the trap leaves behind
+    put(path.join(f.root, "config", "mcp.json"), { mcpServers: { "mail-mcp": { type: "http", url: "http://localhost:8787" }, "core-stdio": CORE_STDIO } });
+    put(f.ctx.paths.mcpFile, { mcpServers: { "core-stdio": CORE_STDIO } }); // the stale file the trap leaves behind
     await step.apply!(f.ctx);
-    const k = JSON.parse(readFileSync(f.ctx.paths.mcpFile, "utf8")).mcpServers["knowledge-mcp"];
-    expect(k.command).toBe(path.join(f.ctx.paths.core, KNOWLEDGE.command));
-    expect(k.args).toEqual([path.join(f.ctx.paths.core, KNOWLEDGE.args[0]!)]);
+    const k = JSON.parse(readFileSync(f.ctx.paths.mcpFile, "utf8")).mcpServers["core-stdio"];
+    expect(k.command).toBe(path.join(f.ctx.paths.core, CORE_STDIO.command));
+    expect(k.args).toEqual([path.join(f.ctx.paths.core, CORE_STDIO.args[0]!)]);
     expect(k.env.HUB_HOME).toBe(f.root);
     const r = await step.check!(f.ctx);
     expect(r.level, r.detail).toBe("pass");
+  });
+  it("drops a server the core no longer ships (knowledge-mcp, P129 A4) and keeps the owner's own", async () => {
+    const f = fake();
+    const old = { type: "stdio", command: "/bin/sh", args: ["app/packages/knowledge/src/mcp-bin.ts"] };
+    put(path.join(f.root, "config", "mcp.json"), { mcpServers: { "mail-mcp": { type: "http", url: "http://localhost:8787" }, "knowledge-mcp": old } });
+    put(f.ctx.paths.mcpFile, { mcpServers: { "knowledge-mcp": old, mine: { type: "http", url: "http://mine" } } });
+    const r = await step.check(f.ctx);
+    expect(r.level).toBe("fail");
+    expect(r.detail).toContain("knowledge-mcp");
+    await step.apply!(f.ctx);
+    const servers = JSON.parse(readFileSync(f.ctx.paths.mcpFile, "utf8")).mcpServers;
+    expect(Object.keys(servers).sort()).toEqual(["mail-mcp", "mine"]);
+    expect((await step.check(f.ctx)).level).toBe("pass");
   });
   it("an http server is returned unchanged", () => {
     const f = fake();

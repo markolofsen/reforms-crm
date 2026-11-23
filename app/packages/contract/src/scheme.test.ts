@@ -63,7 +63,7 @@ describe("buildScheme (P81, decision 0042)", () => {
         "  end",
         '  subgraph l3["Reads"]',
         "    direction LR",
-        '    b9["Knowledge<br/>the project\'s entries, knowledge-mcp"]',
+        '    b9["Knowledge<br/>the project\'s entries, hub mcp"]',
         '    b10["Notion CRM<br/>the project\'s own databases"]',
         '    b11["Calendar and Drive<br/>the connectors a project attaches"]',
         '    b12["Your browser<br/>your own extension#59; the Hub adds none"]',

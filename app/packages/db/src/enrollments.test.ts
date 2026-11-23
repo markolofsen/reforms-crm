@@ -26,7 +26,7 @@ async function quiet(email: string, outDays = 10, inDays = 12) {
   return clientId;
 }
 const enrol = (clientId: number) => repos.enrollments.enrol({ project: P, clientId, sequence: "s1", sequenceHash: "h", schedule, by: "owner", now: NOW });
-/** What `hub record-draft` writes for a step drafted by the sequence skill. */
+/** What the draft record (`draft_write`) writes for a step drafted by the sequence skill. */
 const recordStep = (email: string, enrollmentId: number, step: number, mailRef = `<step-${step}-${email}>`) =>
   repos.drafts.record({ project: P, email, name: email, subject: "Re: your enquiry", mailRef, skill: "sequence-drafts", repliesOwed: false, sequence: { enrollmentId, step } });
 
@@ -120,7 +120,7 @@ describe("the step draft moves the enrollment", () => {
 });
 
 describe("a reply finishes the follow-ups in the record's own transaction", () => {
-  it("a triage record-draft: finished as replied, the open step draft skipped, the reply drafted", async () => {
+  it("a triage draft record: finished as replied, the open step draft skipped, the reply drafted", async () => {
     const e = await enrol(await quiet("a@x.example"));
     const step = await recordStep("a@x.example", e.id, 1);
     const reply = await repos.drafts.record({ project: P, email: "a@x.example", name: "a", subject: "Re: thanks", mailRef: "<their-reply>", skill: "triage-mail", lastContactAt: NOW.toISOString() });
@@ -128,7 +128,7 @@ describe("a reply finishes the follow-ups in the record's own transaction", () =
     expect(await repos.enrollments.get(P, e.id, NOW)).toMatchObject({ state: "finished", finishReason: "replied" });
     expect(await repos.drafts.get(step.draftId)).toMatchObject({ status: "skipped", skipReason: "Client replied" });
   });
-  it("a triage record-client does the same; a crossed-off client is excluded; an inbound before our anchor is no reply", async () => {
+  it("a triage client_record does the same; a crossed-off client is excluded; an inbound before our anchor is no reply", async () => {
     const a = await enrol(await quiet("a@x.example"));
     const b = await enrol(await quiet("b@x.example"));
     const c = await enrol(await quiet("c@x.example"));

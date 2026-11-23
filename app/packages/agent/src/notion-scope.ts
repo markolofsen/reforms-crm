@@ -2,7 +2,7 @@ import type { ProjectConfig } from "@hub/projects/model";
 
 // P82 S2/S3: one Notion connector, one Notion user, several teamspaces with databases of the same names (Clients, Leads, ...).
 // A search by name cannot tell them apart; only the ids can. This is the one place that turns a project's `## Notion databases`
-// into what its session is told (the capabilities line, `project_notion`) and what the guard enforces (`notionViolations`), so
+// into what its session is told (the capabilities line, `project_show`) and what the guard enforces (`notionViolations`), so
 // the two never disagree (decision 0009). Ids compare as 32 lowercase hex characters: Notion writes them with and without dashes.
 
 export interface NotionScope {
@@ -43,9 +43,9 @@ export function notionCapability(s: NotionScope): string {
 
 /** The session rule beside the identity (P82 4B point 2). */
 export const NOTION_RULE =
-  "Never pick a Notion database by search. For clients, leads, documents, contacts or tasks, query the id on the capabilities line first (or call `project_notion`). A database or page that search finds outside these ids belongs to another project: do not read from it or write to it; say so in one line.";
+  "Never pick a Notion database by search. For clients, leads, documents, contacts or tasks, query the id on the capabilities line first (or call `project_show`). A database or page that search finds outside these ids belongs to another project: do not read from it or write to it; say so in one line.";
 
-/** `project_notion` of `hub mcp`: the same parse as the line, for a session after a compaction and for the skills' step 0. */
+/** The Notion part of `project_show` (`hub mcp`): the same parse as the line, for a session after a compaction and for the skills' step 0. */
 export const projectNotion = (s: NotionScope) => ({
   project: s.slug,
   teamspace: s.teamspaceId ? s.teamspace : null,

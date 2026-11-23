@@ -162,7 +162,7 @@ export function mailVersionsRepo(db: Db) {
       return db.select().from(mailVersions).where(eq(mailVersions.project, project)).orderBy(desc(mailVersions.id)).all();
     },
 
-    /** Versions of this thread written before `hub record-draft` made its draft row: they become that draft's. */
+    /** Versions of this thread written before the draft record (`draft_write`) made its draft row: they become that draft's. */
     async link(project: string, mailRef: string, draftId: number): Promise<number> {
       return write(db, (tx) => tx.update(mailVersions).set({ draftId }).where(and(eq(mailVersions.project, project), eq(mailVersions.mailRef, bareRef(mailRef)), isNull(mailVersions.draftId))).run().changes);
     },

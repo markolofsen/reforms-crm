@@ -1,5 +1,5 @@
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -17,6 +17,7 @@ import { appleScriptCompileError, canCompileAppleScript, deleteOfLoopItem } from
 import { excerptOf } from "../src/drafts/after-write";
 import type { HubMcpEnv } from "../src/mcp/ports";
 import { createHubMcpServer } from "../src/mcp/server";
+import { beforeContextBlock, FIXTURE_PROJECTS } from "./records-fixture";
 
 // The hub's draft writer (P52): the script's contract, its parser and the `draft_write` tool, on a fake Mail. No test touches Mail.
 
@@ -347,6 +348,8 @@ async function connect(writer: FakeDraftWriter | undefined, mailWritten?: (slug:
     ...(writer ? { drafts: writer, projectMail: () => ({ accounts: ["desk@acme.example"], sender: null }) } : {}),
     ...(mailWritten ? { mailWritten } : {}),
     recordVersion: recordVersionIn(repos),
+    // P129 A3: a reply or a new thread is recorded by draft_write itself, on its own short write connection to this database.
+    records: { dbPath: path.join(dir, "app.db"), now: beforeContextBlock },
     ...extra,
   });
   const [a, b] = InMemoryTransport.createLinkedPair();
@@ -359,83 +362,153 @@ async function connect(writer: FakeDraftWriter | undefined, mailWritten?: (slug:
   };
 }
 
-describe("draft_write (hub mcp)", () => {
-  const args = (content: string, account = "desk@acme.example") => ({ account, mailbox_path: ["INBOX"], message_id: 42, content });
+/** The answered message's headers in the fake Mail: a reply's client is read from them (P129 A3), its From or (ours) its To. */
+const heard = (mail: FakeDraftWriter, id: number, from = "Ann <ann@x.example>", to = "desk@acme.example") => mail.headers.set(id, `From: ${from}\nTo: ${to}\nSubject: Hello\n`);
+/** What a triage reply records beside the write (P129 verdict 4): the skill, and the client's Notion page always stated. */
+const REC = { skill: "triage-mail", notion: { kind: "none" } };
 
-  it("writes the reply text only and records the version; a rerun is refused by the record, not by Drafts (P65 verdict 4)", async () => {
+describe("draft_write (hub mcp)", () => {
+  const args = (content: string, account = "desk@acme.example", id = 42) => ({ kind: "reply", message: { account, mailbox_path: ["INBOX"], message_id: id }, content, record: REC });
+  const revise = (draft: number, content: string, more: Record<string, unknown> = {}) => ({ kind: "revise", draft, content, ...more });
+
+  it("writes the reply text only and records the version and the draft in one call; a rerun names the draft to revise (P65 verdict 4, P129 verdict 4)", async () => {
     const repos = createRepos(db.db);
     const mail = new FakeDraftWriter();
     mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
+    heard(mail, 42);
     const call = await connect(mail);
     const first = await call(args("Hi Ann, first."));
-    expect(first).toMatchObject({ isError: false, json: { thread: "m42@example.com", replaced: [], sent: false } });
+    expect(first).toMatchObject({ isError: false, json: { thread: "m42@example.com", replaced: [], sent: false, recorded: true, record: { action: "created", evidence: "missing" } } });
     expect(first.json.text).toBeUndefined();
     expect(mail.drafts.map((d) => d.text)).toEqual(["Hi Ann, first."]);
+    const draftId = first.json.record.draftId as number;
+    expect(first.json.next).toMatch(new RegExp(`^Recorded: draft ${draftId} \\(created`));
+    expect(first.json.next).not.toMatch(/run\.sh|JSON on stdin/);
+    // The record: the client from the answered message's From, the reply's subject and the thread; the version is the draft's.
+    const ann = await repos.clients.idByEmail("acme", "ann@x.example");
+    expect((await repos.drafts.ofClient("acme", ann!)).map((d) => [d.id, d.subject, d.status])).toEqual([[draftId, "Re: message 42", "ready"]]);
     const [v] = await repos.mailVersions.ofThread("acme", "<M42@example.com>");
-    expect(v).toMatchObject({ draftId: null, account: "desk@acme.example", messageId: first.json.messageId, mailId: first.json.draftId, source: "agent", trashedAt: null });
+    expect(v).toMatchObject({ draftId, account: "desk@acme.example", messageId: first.json.messageId, mailId: first.json.draftId, source: "agent", trashedAt: null });
     expect(v?.hash).toMatch(/^[0-9a-f]{64}$/);
-    expect(first.json.next).toMatch(/"mailRef":"m42@example.com".*\| \.\/run\.sh record-draft --project acme` \(JSON on stdin/);
-    // Written, not yet recorded: a rerun is refused and says to record it.
-    expect(await call(args("Hi Ann, again."))).toMatchObject({ isError: true, json: { error: "already_drafted" } });
-    // Recorded: the version becomes the draft's, and a rerun names the draft to revise.
-    const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: message 42", mailRef: first.json.thread, reason: "asked", skill: "triage-mail" });
-    expect((await repos.mailVersions.ofDraft(rec.draftId)).map((x) => x.id)).toEqual([v?.id]);
+    expect((await repos.mailVersions.ofDraft(draftId)).map((x) => x.id)).toEqual([v?.id]);
+    // Recorded: a rerun is refused by the record, not by Drafts, and names the draft to revise.
     const again = await call(args("Hi Ann, again."));
     expect(again).toMatchObject({ isError: true, json: { error: "already_drafted" } });
-    expect(again.json.message).toMatch(new RegExp(`revise it with draft=${rec.draftId}`));
-    await repos.drafts.setStatus(rec.draftId, "done");
+    expect(again.json.message).toMatch(new RegExp(`revise it with draft=${draftId}`));
+    await repos.drafts.setStatus(draftId, "done");
     expect((await call(args("Hi Ann, again."))).json.message).toMatch(/\(done\) already answered this message: a rerun does not bring it back/);
     expect(mail.drafts).toHaveLength(1);
+  });
+
+  it("P129 verdict 4: a record refused after Mail saved leaves the version pending; the same call with the record fixed adopts it, never a second write", async () => {
+    const repos = createRepos(db.db);
+    const mail = new FakeDraftWriter();
+    heard(mail, 42);
+    const call = await connect(mail);
+    // The writer's own rule (a follow-up step only with the sequence skill) refuses after the Mail write.
+    const bad = await call({ ...args("Hi Ann, first."), record: { skill: "triage-mail", sequence: { enrollment_id: 1, step: 1 } } });
+    expect(bad).toMatchObject({ isError: true, json: { error: "record_invalid", retry: "now" } });
+    expect(bad.json.message).toMatch(/saved in Mail but not recorded: .*sequence-drafts.*once more/);
+    expect(mail.drafts.map((d) => d.text)).toEqual(["Hi Ann, first."]);
+    const [v] = await repos.mailVersions.ofThread("acme", "m42@example.com");
+    expect(v).toMatchObject({ draftId: null, trashedAt: null });
+    // Again with the record fixed: the saved version is recorded; the repeat's text is not written.
+    const fixed = await call(args("Hi Ann, second wording."));
+    expect(fixed).toMatchObject({ isError: false, json: { adopted: true, recorded: true, sent: false, thread: "m42@example.com", record: { action: "created" } } });
+    expect(fixed.json.next).toMatch(/^Recorded: draft \d+ .*nothing new was written/);
+    expect(mail.drafts.map((d) => d.text)).toEqual(["Hi Ann, first."]);
+    expect((await repos.mailVersions.ofDraft(fixed.json.record.draftId)).map((x) => x.id)).toEqual([v?.id]);
+    expect(await call(args("Hi Ann, third."))).toMatchObject({ isError: true, json: { error: "already_drafted" } });
+  });
+
+  it("P129 A3: the record's recipients are checked against draft.recipients before Mail is asked", async () => {
+    const projects = path.join(dir, "projects");
+    cpSync(path.join(FIXTURE_PROJECTS, "acme-travel"), path.join(projects, "acme"), { recursive: true });
+    const configFile = path.join(dir, "config.json");
+    writeFileSync(configFile, JSON.stringify({ allow_list: ["me@mine.example"] }));
+    const mail = new FakeDraftWriter();
+    heard(mail, 42);
+    heard(mail, 43, "Me <me@mine.example>");
+    // No send policy: the safe default, the owner's test list (`allow_list`).
+    const call = await connect(mail, undefined, { records: { dbPath: path.join(dir, "app.db"), projectsDir: projects, configFile, now: beforeContextBlock } });
+    expect(await call(args("Hi Ann."))).toMatchObject({ isError: true, json: { error: "recipient_not_allowed", blocked: ["ann@x.example"] } });
+    expect(await call({ ...args("Hi me.", "desk@acme.example", 43), record: { ...REC, cc: "boss@x.example" } })).toMatchObject({ isError: true, json: { error: "recipient_not_allowed", blocked: ["boss@x.example"] } });
+    expect(mail.drafts).toHaveLength(0);
+    expect(await call(args("Hi me.", "desk@acme.example", 43))).toMatchObject({ isError: false, json: { recorded: true } });
+    expect(mail.drafts).toHaveLength(1);
+  });
+
+  it("P129 verdict 7: owner_request not in the owner's prompts is refused before Mail; found, the record does not ask for the chain", async () => {
+    const mail = new FakeDraftWriter();
+    heard(mail, 42);
+    heard(mail, 43, "Bob <bob@x.example>");
+    const said = "ответь Анне стихами";
+    const call = await connect(mail, undefined, { ownerWords: (_slug, words) => words === said });
+    expect(await call({ ...args("Стихи."), owner_request: "answer Ann with a poem" })).toMatchObject({ isError: true, json: { error: "owner_words_not_found" } });
+    expect(mail.drafts).toHaveLength(0);
+    expect(await call({ ...args("Стихи."), owner_request: said })).toMatchObject({ isError: false, json: { ownerRequest: said, recorded: true, record: { evidence: "ok" } } });
+    // Without his words the same record (no context block) is evidence missing.
+    expect(await call(args("Hi Bob.", "desk@acme.example", 43))).toMatchObject({ isError: false, json: { recorded: true, record: { evidence: "missing" } } });
   });
 
   it("P85: the owner's words open a new draft on a message whose drafts are all finished; an open one still refuses", async () => {
     const repos = createRepos(db.db);
     const mail = new FakeDraftWriter();
     mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
+    heard(mail, 42);
     const call = await connect(mail);
     const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: message 42", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail" });
     await repos.drafts.markSent(rec.draftId, { at: "2026-11-19T14:15:38Z", via: "test", messageId: "s1@x" });
     expect(await call(args("Hi Ann, more."))).toMatchObject({ isError: true, json: { error: "already_drafted" } });
     const words = "write to Ann again about the new prices";
-    const w = await call({ ...args("Hi Ann, the new prices."), owner_request: words });
-    expect(w).toMatchObject({ isError: false, json: { thread: "m42@example.com", ownerRequest: words, sent: false } });
-    expect(w.json.next).toMatch(/"skill":"bulk-drafts","ownerRequest":"write to Ann again about the new prices"/);
+    const owner = { skill: "bulk-drafts", notion: { kind: "none" } };
+    const w = await call({ ...args("Hi Ann, the new prices."), owner_request: words, record: owner });
+    expect(w).toMatchObject({ isError: false, json: { thread: "m42@example.com", ownerRequest: words, sent: false, recorded: true, record: { action: "created" } } });
+    expect(w.json.next).toMatch(/^Recorded: draft /);
     // Recorded with the words: a new draft beside the sent one, and the client's follow-ups are not finished as a reply.
-    const again = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: message 42", mailRef: w.json.thread, reason: "owner", skill: "bulk-drafts", ownerRequest: words });
-    expect(again).toMatchObject({ action: "created" });
-    expect(again.draftId).not.toBe(rec.draftId);
-    expect(JSON.parse((await repos.drafts.get(again.draftId))!.context ?? "{}")).toMatchObject({ ownerRequest: words });
+    const again = w.json.record.draftId as number;
+    expect(again).not.toBe(rec.draftId);
+    expect(JSON.parse((await repos.drafts.get(again))!.context ?? "{}")).toMatchObject({ ownerRequest: words });
     // A rerun with the same words is the open draft it made: refused, it names that draft.
-    expect((await call({ ...args("Hi Ann, again."), owner_request: words })).json.message).toMatch(new RegExp(`revise it with draft=${again.draftId}`));
-    expect(await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: message 42", mailRef: w.json.thread, skill: "bulk-drafts", ownerRequest: words })).toMatchObject({ action: "updated", draftId: again.draftId });
+    expect((await call({ ...args("Hi Ann, again."), owner_request: words, record: owner })).json.message).toMatch(new RegExp(`revise it with draft=${again}`));
+    expect(await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: message 42", mailRef: w.json.thread, skill: "bulk-drafts", ownerRequest: words })).toMatchObject({ action: "updated", draftId: again });
+    expect(mail.drafts).toHaveLength(1);
   });
 
   it("P85b: a new thread to a client with no thread, on the owner's words only: written as a new message, recorded without mailRef, revised in place", async () => {
     const repos = createRepos(db.db);
     const mail = new FakeDraftWriter();
     const call = await connect(mail, undefined, { projectMail: () => ({ accounts: ["desk@acme.example"], sender: "hello@acme.example", identity: { addresses: ["desk@acme.example", "hello@acme.example"], domains: ["acme.example"], signoff: "", brands: [], languages: ["en"] } }), clientInNotion: async () => ({ state: "client" }) });
-    const fresh = { to: "Bob@Client.example", subject: "New prices", content: "Hi Bob, our new prices." };
-    expect(await call(fresh)).toMatchObject({ isError: true, json: { error: "owner_request_needed" } });
+    const fresh = { kind: "new", to: "Bob@Client.example", subject: "New prices", content: "Hi Bob, our new prices.", record: { name: "Bob", skill: "bulk-drafts", notion: { kind: "none" } } };
+    // P129 A3: kind new carries the owner's words in its shape: without them the call is invalid before anything runs.
+    const none = await call(fresh);
+    expect(none).toMatchObject({ isError: true, json: { error: "invalid" } });
+    expect(none.json.message).toMatch(/owner_request/);
     expect(await call({ ...fresh, to: "hello@acme.example", owner_request: "write to Bob" })).toMatchObject({ isError: true, json: { error: "not_this_project" } });
     const words = "write to Bob about the new prices";
     const w = await call({ ...fresh, owner_request: words });
-    expect(w).toMatchObject({ isError: false, json: { newThread: true, sent: false, subject: "New prices" } });
+    expect(w).toMatchObject({ isError: false, json: { newThread: true, sent: false, subject: "New prices", recorded: true, record: { action: "created" } } });
     expect(mail.newTo).toEqual(["bob@client.example"]);
     expect(mail.drafts[0]).toMatchObject({ subject: "New prices", from: "hello@acme.example", thread: "" });
-    expect(w.json.next).toMatch(/"email":"bob@client.example","subject":"New prices","newThread":true,"skill":"bulk-drafts","ownerRequest":"write to Bob about the new prices"/);
+    expect(w.json.next).toMatch(/^Recorded: draft /);
+    const draftId = w.json.record.draftId as number;
+    const row = await repos.drafts.get(draftId);
+    expect(row?.mailRef).toBeNull();
+    expect(JSON.parse(row?.context ?? "{}")).toMatchObject({ ownerRequest: words, newThread: true });
+    expect(await repos.clients.idByEmail("acme", "bob@client.example")).toBeDefined();
     const [v] = await repos.mailVersions.ofThread("acme", "new:bob@client.example");
-    expect(v).toMatchObject({ draftId: null, messageId: w.json.messageId });
-    // Not recorded yet: a rerun is refused, never a second message.
-    expect(await call({ ...fresh, owner_request: words })).toMatchObject({ isError: true, json: { error: "already_drafted" } });
-    const rec = await repos.drafts.record({ project: "acme", email: "bob@client.example", name: "Bob", subject: "New prices", newThread: true, skill: "bulk-drafts", ownerRequest: words });
-    expect((await repos.drafts.get(rec.draftId))?.mailRef).toBeNull();
-    expect((await repos.mailVersions.ofDraft(rec.draftId)).map((x) => x.id)).toEqual([v?.id]);
+    expect(v).toMatchObject({ draftId, messageId: w.json.messageId });
+    // Recorded: a rerun is refused and names the draft, never a second message.
+    const rerun = await call({ ...fresh, owner_request: words });
+    expect(rerun).toMatchObject({ isError: true, json: { error: "already_drafted" } });
+    expect(rerun.json.message).toMatch(new RegExp(`revise it with draft=${draftId}`));
+    expect(mail.drafts).toHaveLength(1);
     // The revision is a new message again, replacing the recorded version.
-    const r = await call({ draft: rec.draftId, content: "Hi Bob, our new prices, corrected." });
+    const r = await call(revise(draftId, "Hi Bob, our new prices, corrected."));
     expect(r).toMatchObject({ isError: false });
     expect(mail.drafts.map((d) => d.text)).toEqual(["Hi Bob, our new prices, corrected."]);
     // A client the hub already wrote to has a thread: reply to its newest message instead.
-    await repos.drafts.setStatus(rec.draftId, "done");
+    await repos.drafts.setStatus(draftId, "done");
     expect(await call({ ...fresh, owner_request: words })).toMatchObject({ isError: true, json: { error: "has_thread" } });
   });
 
@@ -444,11 +517,11 @@ describe("draft_write (hub mcp)", () => {
     const id = await repos.clients.create({ project: "acme", email: "dnc@client.example", name: "Dee" });
     await repos.clients.setMarks(id, ["do_not_contact"]);
     const call = await connect(new FakeDraftWriter());
-    expect(await call({ to: "dnc@client.example", subject: "Hello", content: "Hi", owner_request: "write to Dee" })).toMatchObject({ isError: true, json: { error: "do_not_contact" } });
+    expect(await call({ kind: "new", to: "dnc@client.example", subject: "Hello", content: "Hi", owner_request: "write to Dee", record: REC })).toMatchObject({ isError: true, json: { error: "do_not_contact" } });
   });
 
   it("P87: a new thread goes only to a client: an address in neither the records nor Notion Clients is refused, an unreadable Notion too", async () => {
-    const fresh = { to: "stranger@else.example", subject: "Hello", content: "Hi", owner_request: "write to the stranger" };
+    const fresh = { kind: "new", to: "stranger@else.example", subject: "Hello", content: "Hi", owner_request: "write to the stranger", record: REC };
     const seen: string[] = [];
     const no = await connect(new FakeDraftWriter(), undefined, { clientInNotion: async (_slug, email) => (seen.push(email), { state: "not_client" }) });
     expect(await no(fresh)).toMatchObject({ isError: true, json: { error: "not_a_client" } });
@@ -461,7 +534,7 @@ describe("draft_write (hub mcp)", () => {
   it("P92: in test mode the owner's test addresses pass the new-thread client check; outside it not_a_client stays; a thread is then answered by reply", async () => {
     const repos = createRepos(db.db);
     const words = "подготовь письмо со стихом Лермонтова на markolofsen@gmail.com";
-    const fresh = { to: "Markolofsen@Gmail.com", subject: "Парус", content: "Белеет парус одинокий.", owner_request: words };
+    const fresh = { kind: "new", to: "Markolofsen@Gmail.com", subject: "Парус", content: "Белеет парус одинокий.", owner_request: words, record: { name: "Марк", skill: "bulk-drafts", notion: { kind: "none" } } };
     const seen: string[] = [];
     const notClient = async (_slug: string, email: string) => (seen.push(email), { state: "not_client" as const });
     // recipients any or a list: the allow-list means nothing, the Notion check refuses as before.
@@ -473,15 +546,18 @@ describe("draft_write (hub mcp)", () => {
     expect(await call({ ...fresh, to: "stranger@else.example" })).toMatchObject({ isError: true, json: { error: "not_a_client" } });
     seen.length = 0;
     const w = await call(fresh);
-    expect(w).toMatchObject({ isError: false, json: { newThread: true, sent: false, subject: "Парус" } });
+    expect(w).toMatchObject({ isError: false, json: { newThread: true, sent: false, subject: "Парус", recorded: true } });
     expect(seen).toEqual([]);
     expect(mail.newTo).toEqual(["markolofsen@gmail.com"]);
     // Recorded, then finished: the hub has a thread with him, so a second new thread is has_thread, and the reply path answers it.
-    const rec = await repos.drafts.record({ project: "acme", email: "markolofsen@gmail.com", name: "Марк", subject: "Парус", newThread: true, skill: "bulk-drafts", ownerRequest: words });
-    await repos.drafts.setStatus(rec.draftId, "done");
+    await repos.drafts.setStatus(w.json.record.draftId, "done");
     expect(await call(fresh)).toMatchObject({ isError: true, json: { error: "has_thread" } });
-    const reply = await call({ account: "desk@acme.example", mailbox_path: ["Sent Mail"], message_id: 77, content: "Ещё одна строфа.", owner_request: "напиши ему ещё раз" });
-    expect(reply).toMatchObject({ isError: false, json: { thread: "m77@example.com", sent: false } });
+    // Our own sent message answered: its From is ours, so the client is its To (P129 A3, read from the headers).
+    heard(mail, 77, "desk@acme.example", "Марк <markolofsen@gmail.com>");
+    const reply = await call({ kind: "reply", message: { account: "desk@acme.example", mailbox_path: ["Sent Mail"], message_id: 77 }, content: "Ещё одна строфа.", owner_request: "напиши ему ещё раз", record: { skill: "bulk-drafts", notion: { kind: "none" } } });
+    expect(reply).toMatchObject({ isError: false, json: { thread: "m77@example.com", sent: false, recorded: true, record: { action: "created" } } });
+    const mark = await repos.clients.idByEmail("acme", "markolofsen@gmail.com");
+    expect((await repos.drafts.ofClient("acme", mark!)).map((d) => d.id)).toContain(reply.json.record.draftId);
   });
 
   it("P87: a hub draft id passed as message_id is named, with the field to use", async () => {
@@ -492,14 +568,18 @@ describe("draft_write (hub mcp)", () => {
         throw new DraftWriteError("no_message", "No message in that mailbox.");
       }
     }
-    const r = await (await connect(new Gone()))({ account: "desk@acme.example", mailbox_path: ["INBOX"], message_id: rec.draftId, content: "Hi", owner_request: "write to Ann" });
+    // No such message in Mail: its headers cannot be read either (the fake holds none), as with the real writer.
+    const r = await (await connect(new Gone()))({ kind: "reply", message: { account: "desk@acme.example", mailbox_path: ["INBOX"], message_id: rec.draftId }, content: "Hi", owner_request: "write to Ann", record: REC });
     expect(r).toMatchObject({ isError: true, json: { error: "wrong_message_id" } });
     expect(r.json.message).toMatch(new RegExp(`pass draft=${rec.draftId} and content only`));
     expect(r.json.message).toMatch(/never a hub draft id/);
   });
 
   it("refuses an account outside the project, and refuses without a writer", async () => {
-    expect(await (await connect(new FakeDraftWriter()))(args("Hi", "private@gmail.com"))).toMatchObject({ isError: true, json: { error: "not_this_project" } });
+    const mail = new FakeDraftWriter();
+    heard(mail, 42);
+    expect(await (await connect(mail))(args("Hi", "private@gmail.com"))).toMatchObject({ isError: true, json: { error: "not_this_project" } });
+    expect(mail.drafts).toHaveLength(0);
     expect(await (await connect(undefined))(args("Hi"))).toMatchObject({ isError: true, json: { error: "unavailable" } });
   });
 
@@ -512,22 +592,22 @@ describe("draft_write (hub mcp)", () => {
     mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
     const bumped: string[] = [];
     const call = await connect(mail, (slug) => bumped.push(slug));
-    const r = await call({ draft: rec.draftId, content: "Hi Ann, warmer." });
+    const r = await call({ kind: "revise", draft: rec.draftId, content: "Hi Ann, warmer." });
     expect(r).toMatchObject({ isError: false, json: { thread: "m42@example.com", draft: rec.draftId, sent: false, live: true, replaced: [] } });
     // The owner writes his own draft in the same thread: no record names it.
     mail.drafts.push({ id: 1, messageId: "owner-own@x", account: "desk@acme.example", thread: "m42@example.com", subject: "Re: message 42", text: "my own", quote: "keep" });
-    const r2 = await call({ draft: rec.draftId, content: "Hi Ann, warmest." });
+    const r2 = await call({ kind: "revise", draft: rec.draftId, content: "Hi Ann, warmest." });
     expect(r2.json.replaced).toEqual([r.json.messageId]);
     expect(mail.drafts.map((d) => d.text).sort()).toEqual(["Hi Ann, warmest.", "my own"]);
     const versions = await repos.mailVersions.ofDraft(rec.draftId);
     expect(versions.map((v) => [v.messageId, v.trashedAt === null])).toEqual([[r2.json.messageId, true], [r.json.messageId, false]]);
     expect(bumped).toEqual(["acme", "acme"]);
-    expect(await call({ draft: other.draftId, content: "x" })).toMatchObject({ isError: true, json: { error: "not_found" } });
-    expect(await call({ draft: noRef.draftId, content: "x" })).toMatchObject({ isError: true, json: { error: "no_thread" } });
-    expect(await call({ draft: rec.draftId, account: "desk@acme.example", content: "x" })).toMatchObject({ isError: true, json: { error: "invalid" } });
-    expect(await call({ content: "x" })).toMatchObject({ isError: true, json: { error: "invalid" } });
+    expect(await call({ kind: "revise", draft: other.draftId, content: "x" })).toMatchObject({ isError: true, json: { error: "not_found" } });
+    expect(await call({ kind: "revise", draft: noRef.draftId, content: "x" })).toMatchObject({ isError: true, json: { error: "no_thread" } });
+    expect(await call({ kind: "revise", draft: rec.draftId, account: "desk@acme.example", content: "x" })).toMatchObject({ isError: true, json: { error: "invalid" } });
+    expect(await call({ kind: "revise", content: "x" })).toMatchObject({ isError: true, json: { error: "invalid" } });
     mail.inbound.clear();
-    expect(await call({ draft: rec.draftId, content: "x" })).toMatchObject({ isError: true, json: { error: "no_message" } });
+    expect(await call({ kind: "revise", draft: rec.draftId, content: "x" })).toMatchObject({ isError: true, json: { error: "no_message" } });
     expect(bumped).toEqual(["acme", "acme"]);
   });
 
@@ -538,17 +618,17 @@ describe("draft_write (hub mcp)", () => {
     const mail = new FakeDraftWriter();
     mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
     const call = await connect(mail);
-    const r = await call({ draft: rec.draftId, content: "A new poem." });
+    const r = await call({ kind: "revise", draft: rec.draftId, content: "A new poem." });
     // P85: "now" means another call, as a new reply with the owner's words, not the same revision again.
     expect(r).toMatchObject({ isError: true, json: { error: "already_sent", retry: "now" } });
     expect(r.json.message).toMatch(/was sent \(2026-11-19 14:15\): a sent mail is not revised/);
     expect(r.json.message).toMatch(/newest message of the thread .*owner_request/);
     expect(mail.drafts).toHaveLength(0);
     // A refusal of the arguments says "now": another call helps once they are fixed.
-    expect(await call({ content: "x" })).toMatchObject({ isError: true, json: { error: "invalid", retry: "now" } });
+    expect(await call({ kind: "revise", content: "x" })).toMatchObject({ isError: true, json: { error: "invalid", retry: "now" } });
   });
 
-  it("P99 S0 (a): a done or skipped draft is refused with draft_finished before any Mail call; the advice names a new reply, not record-draft", async () => {
+  it("P99 S0 (a): a done or skipped draft is refused with draft_finished before any Mail call; the advice names a new reply on the owner's words", async () => {
     const repos = createRepos(db.db);
     const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Wow", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail" });
     const mail = new FakeDraftWriter();
@@ -559,7 +639,7 @@ describe("draft_write (hub mcp)", () => {
     for (const status of ["done", "skipped"] as const) {
       await repos.drafts.setStatus(rec.draftId, "ready").catch(() => undefined);
       await repos.drafts.setStatus(rec.draftId, status);
-      const r = await call({ draft: rec.draftId, content: "A poem." });
+      const r = await call({ kind: "revise", draft: rec.draftId, content: "A poem." });
       expect(r).toMatchObject({ isError: true, json: { error: "draft_finished", retry: "now" } });
       expect(r.json.message).toMatch(new RegExp(`Draft ${rec.draftId} is ${status}: a finished draft is not revised.*owner_request.*Nothing was written`));
       expect(r.json.next).toMatch(/new reply to the newest message.*owner_request/);
@@ -569,18 +649,19 @@ describe("draft_write (hub mcp)", () => {
     expect(mail.drafts).toHaveLength(0);
     expect(await repos.mailVersions.ofThread("acme", "<m42@example.com>")).toHaveLength(0);
     // reason belongs to a revision only.
-    expect(await call({ account: "desk@acme.example", mailbox_path: ["INBOX"], message_id: 42, content: "x", reason: "why" })).toMatchObject({ isError: true, json: { error: "invalid" } });
+    expect(await call({ kind: "reply", message: { account: "desk@acme.example", mailbox_path: ["INBOX"], message_id: 42 }, content: "x", reason: "why", record: REC })).toMatchObject({ isError: true, json: { error: "invalid" } });
     expect(mail.drafts).toHaveLength(0);
   });
 
   it("a failed live bump or version record never fails the write", async () => {
     const mail = new FakeDraftWriter();
+    heard(mail, 42);
     const r = await (await connect(mail, () => {
       throw new Error("SQLITE_BUSY");
     }, { recordVersion: async () => {
       throw new Error("SQLITE_BUSY");
     } }))(args("Hi Ann."));
-    expect(r).toMatchObject({ isError: false, json: { live: false, sent: false } });
+    expect(r).toMatchObject({ isError: false, json: { live: false, sent: false, recorded: true } });
     expect(r.json.next).toMatch(/could not record this Mail version/);
     expect(mail.drafts).toHaveLength(1);
   });
@@ -594,7 +675,7 @@ describe("draft_write (hub mcp)", () => {
     mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
     const call = await connect(mail, undefined, { withRepos: (fn) => fn(repos) });
     mail.slowNext = true;
-    const slow = await call({ draft: rec.draftId, content: "Hi Ann, slow." });
+    const slow = await call({ kind: "revise", draft: rec.draftId, content: "Hi Ann, slow." });
     expect(slow).toMatchObject({ isError: true, json: { error: "mail_slow" } });
     expect(slow.json.message).toMatch(/Do not call draft_write again/);
     expect(slow.json.message).not.toMatch(/delete|keep one/i);
@@ -603,7 +684,7 @@ describe("draft_write (hub mcp)", () => {
     // Mail saved it after all; the owner also keeps a draft of his own in the thread.
     expect(mail.drafts.map((d) => d.text)).toEqual(["Hi Ann, slow."]);
     mail.drafts.push({ id: 1, messageId: "owner-own@x", account: "desk@acme.example", thread: "m42@example.com", subject: "Re: message 42", text: "my own words", quote: "keep" });
-    const next = await call({ draft: rec.draftId, content: "Hi Ann, again." });
+    const next = await call({ kind: "revise", draft: rec.draftId, content: "Hi Ann, again." });
     expect(next).toMatchObject({ isError: false });
     expect(mail.drafts.map((d) => d.text).sort()).toEqual(["Hi Ann, again.", "my own words"]);
     const versions = await repos.mailVersions.ofDraft(rec.draftId);
@@ -618,19 +699,23 @@ describe("draft_write (hub mcp)", () => {
     mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
     mail.inbound.set("m43@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 43 });
     const call = await connect(mail, undefined, { withRepos: (fn) => fn(repos) });
-    const first = await call({ draft: rec.draftId, content: "Hi Ann, the poem." });
+    const first = await call({ kind: "revise", draft: rec.draftId, content: "Hi Ann, the poem." });
     mail.drafts.push({ id: 2, messageId: "dup@x", account: "desk@acme.example", thread: "m42@example.com", subject: "Re: message 42", text: "Hi Ann, the poem.", quote: "add" });
-    const second = await call({ draft: rec.draftId, content: "Hi Ann, sarcasm." });
+    const second = await call({ kind: "revise", draft: rec.draftId, content: "Hi Ann, sarcasm." });
     expect(new Set(second.json.replaced)).toEqual(new Set([first.json.messageId, "dup@x"]));
     expect(mail.drafts.map((d) => d.text)).toEqual(["Hi Ann, sarcasm."]);
-    // A new reply whose write is still landing: the late save is adopted and the agent is told to record it, not to write again.
+    // A new reply whose write is still landing: the same call again adopts the late save and records it (P129 verdict 4), never writes again.
+    heard(mail, 43, "Bob <bob@x.example>");
     mail.slowNext = true;
-    const nr = { account: "desk@acme.example", mailbox_path: ["INBOX"], message_id: 43, content: "Hi Bob." };
+    const nr = args("Hi Bob.", "desk@acme.example", 43);
     expect(await call(nr)).toMatchObject({ isError: true, json: { error: "mail_slow" } });
     const again = await call(nr);
-    expect(again).toMatchObject({ isError: true, json: { error: "already_drafted" } });
-    expect(again.json.message).toMatch(/record it with hub record-draft/);
+    expect(again).toMatchObject({ isError: false, json: { adopted: true, recorded: true, sent: false, thread: "m43@example.com", record: { action: "created" } } });
+    expect(again.json.next).toMatch(/nothing new was written/);
     expect(mail.drafts.filter((d) => d.text === "Hi Bob.")).toHaveLength(1);
+    const bob = await repos.clients.idByEmail("acme", "bob@x.example");
+    expect((await repos.drafts.ofClient("acme", bob!)).map((d) => d.id)).toEqual([again.json.record.draftId]);
+    expect((await repos.mailVersions.ofDraft(again.json.record.draftId)).map((v) => v.source)).toEqual(["adopted"]);
   });
 
   it("Mail's empty reply in the thread (saas 139835: the original under one attribution line) is adopted and replaced; read-only otherwise", async () => {
@@ -640,10 +725,10 @@ describe("draft_write (hub mcp)", () => {
     mail.inbound.set("m42@example.com", { account: "desk@acme.example", mailboxPath: ["INBOX"], messageId: 42 });
     mail.contents.set(42, "How are you? Its new request\n\n-- \nRegards!\n\n\n");
     const call = await connect(mail, undefined, { withRepos: (fn) => fn(repos) });
-    await call({ draft: rec.draftId, content: "Hi Ann." });
+    await call({ kind: "revise", draft: rec.draftId, content: "Hi Ann." });
     mail.drafts.push({ id: 3, messageId: "shell@x", account: "desk@acme.example", thread: "m42@example.com", subject: "Re: message 42", text: "\n\nOn 14 Nov 2026, at 14:26, Ann <ann@x.example> wrote:\nHow are you? Its new request\n\n-- \nRegards!\n\n\n\n", quote: "add" });
     mail.drafts.push({ id: 4, messageId: "own@x", account: "desk@acme.example", thread: "m42@example.com", subject: "Re: message 42", text: "On Monday I will call.\nHow are you? Its new request", quote: "add" });
-    const r = await call({ draft: rec.draftId, content: "Hi Ann, again." });
+    const r = await call({ kind: "revise", draft: rec.draftId, content: "Hi Ann, again." });
     expect(r.json.replaced).toContain("shell@x");
     expect(mail.drafts.map((d) => d.messageId).sort()).toEqual(["own@x", r.json.messageId].sort());
   });
@@ -666,11 +751,11 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     const mail = new FakeDraftWriter();
     mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
     const call = await connect(undefined, undefined, { drafts: mail, projectMail });
-    const typed = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: `Hello,\n\nHere is the answer.\n\n${one.signoff}` });
+    const typed = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: `Hello,\n\nHere is the answer.\n\n${one.signoff}` });
     expect(typed).toMatchObject({ isError: true, json: { error: "own_signoff" } });
     expect(typed.json.message).toMatch(/"Best regards,"/);
     expect(mail.drafts).toHaveLength(0);
-    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hello,\n\nHere is the answer." });
+    const r = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Hello,\n\nHere is the answer." });
     expect(r).toMatchObject({ isError: false, json: { brand: cases.forwarded.brand, clientWroteTo: cases.forwarded.wroteTo, signature: "signed" } });
     expect(mail.drafts[0]?.text).toBe(`Hello,\n\nHere is the answer.\n\n${cases.forwarded.signature.join("\n")}`);
   });
@@ -682,7 +767,7 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     const sent = await repos.drafts.record({ project: "acme", email: "mark@client.example", name: "Mark", subject: "Re: Hello", mailRef: "<c1@client.example>", skill: "triage-mail", brand: cases.forwarded.brand, wroteTo: cases.forwarded.wroteTo });
     await repos.drafts.markSent(sent.draftId, { at: "2026-11-19T10:00:00Z", via: "message-id", messageId: "m42@example.com" });
     const call = await connect(undefined, undefined, { drafts: mail, projectMail });
-    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hello,\n\nOne more note.", owner_request: "write to Mark again" });
+    const r = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Hello,\n\nOne more note.", owner_request: "write to Mark again" });
     expect(r).toMatchObject({ isError: false, json: { brand: cases.forwarded.brand, signature: "signed" } });
     expect(mail.drafts[0]?.text).toBe(`Hello,\n\nOne more note.\n\n${cases.forwarded.signature.join("\n")}`);
   });
@@ -690,10 +775,10 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
   it("P97 S3: a Leads row passes the new-thread check, and brand signs the message as that brand whatever it goes from", async () => {
     const mail = new FakeDraftWriter();
     const call = await connect(undefined, undefined, { drafts: mail, projectMail, clientInNotion: async () => ({ state: "lead", pageId: "a".repeat(32) }) });
-    const fresh = { to: "koboriubiratan@gmail.com", subject: "Your Carapis API request", content: "Hello,\n\nThank you for your request.", owner_request: "write a first mail to koboriubiratan@gmail.com of acme" };
+    const fresh = { kind: "new", to: "koboriubiratan@gmail.com", subject: "Your Carapis API request", content: "Hello,\n\nThank you for your request.", owner_request: "write a first mail to koboriubiratan@gmail.com of acme", record: { skill: "bulk-drafts", notion: { kind: "lead", page_id: "a".repeat(32) } } };
     expect(await call({ ...fresh, brand: "Nope" })).toMatchObject({ isError: true, json: { error: "invalid" } });
     const r = await call({ ...fresh, brand: "carapis" });
-    expect(r).toMatchObject({ isError: false, json: { newThread: true, brand: "Carapis", signature: "signed" } });
+    expect(r).toMatchObject({ isError: false, json: { newThread: true, brand: "Carapis", signature: "signed", recorded: true } });
     expect(mail.newTo).toEqual(["koboriubiratan@gmail.com"]);
     expect(mail.drafts[0]?.text).toBe("Hello,\n\nThank you for your request.\n\nBest regards,\nCarapis team\ncarapis.com");
   });
@@ -702,24 +787,24 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     const mail = new FakeDraftWriter();
     mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
     const call = await connect(undefined, undefined, { drafts: mail, projectMail });
-    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Здравствуйте, Марк!\n\nСпасибо за письмо, ответим подробно завтра.\n\nС теплом,\nкоманда Carapis" });
+    const r = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Здравствуйте, Марк!\n\nСпасибо за письмо, ответим подробно завтра.\n\nС теплом,\nкоманда Carapis" });
     expect(r).toMatchObject({ isError: true, json: { error: "own_signoff" } });
     expect(r.json.message).toMatch(/"С теплом,"/);
-    expect((await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hi,\n\nAnswer.\n\nKind regards, Mark\nCarapis" })).json.error).toBe("own_signoff");
-    expect((await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hi,\n\nAnswer below.\n\nCarapis team" })).json.error).toBe("own_signoff");
+    expect((await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Hi,\n\nAnswer.\n\nKind regards, Mark\nCarapis" })).json.error).toBe("own_signoff");
+    expect((await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Hi,\n\nAnswer below.\n\nCarapis team" })).json.error).toBe("own_signoff");
     // A sentence that starts like a closing is the reply, not a sign-off.
-    expect((await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hi,\n\nThank you for your patience, we will answer tomorrow." })).isError).toBe(false);
+    expect((await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Hi,\n\nThank you for your patience, we will answer tomorrow." })).isError).toBe(false);
   });
 
   it("refuses the ending of the first Hub send (send_log 1): a closing no list names, over the team's name in Russian (P65 live send check)", async () => {
     const mail = new FakeDraftWriter();
     mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
     const call = await connect(undefined, undefined, { drafts: mail, projectMail });
-    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Здравствуйте, Марк!\n\nВот стихотворение, как вы просили.\n\nС теплом и дружеским поклоном,\nКоманда Carapis" });
+    const r = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Здравствуйте, Марк!\n\nВот стихотворение, как вы просили.\n\nС теплом и дружеским поклоном,\nКоманда Carapis" });
     expect(r).toMatchObject({ isError: true, json: { error: "own_signoff" } });
     expect(r.json.message).toMatch(/"С теплом и дружеским поклоном,"/);
-    expect((await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Здравствуйте!\n\nОтвет ниже.\n\nКоманда Carapis" })).json.error).toBe("own_signoff");
-    expect((await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hallo,\n\nDie Antwort.\n\nViele Grüße\nIhr Carapis Team" })).json.error).toBe("own_signoff");
+    expect((await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Здравствуйте!\n\nОтвет ниже.\n\nКоманда Carapis" })).json.error).toBe("own_signoff");
+    expect((await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Hallo,\n\nDie Antwort.\n\nViele Grüße\nIhr Carapis Team" })).json.error).toBe("own_signoff");
     expect(mail.drafts).toHaveLength(0);
   });
 
@@ -729,45 +814,48 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     const repos = createRepos(db.db);
     const mail = new FakeDraftWriter();
     mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
-    mail.headers.set(43, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
+    // Every message answered here is the forwarded one: the reply's client and brand come from its headers (P129 A3).
+    for (const id of [43, 44, 45, 46]) mail.headers.set(id, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
     const call = await connect(undefined, undefined, { drafts: mail, projectMail: pm(ru) });
-    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Здравствуйте!\n\nДа, API отдаёт цены по всем рынкам." });
+    const r = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Здравствуйте!\n\nДа, API отдаёт цены по всем рынкам." });
     expect(r).toMatchObject({ isError: false, json: { signature: "signed" } });
     expect(r.json.signatureFallback).toBeUndefined();
     expect(mail.drafts[0]?.text.split("\n").slice(-3)).toEqual(["С уважением,", "Команда Carapis", "carapis.com"]);
-    const en = await call({ account, mailbox_path: ["INBOX"], message_id: 43, content: "Hello,\n\nYes, the API returns prices for every market." });
+    const en = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 43 }, content: "Hello,\n\nYes, the API returns prices for every market." });
     expect(mail.drafts[1]?.text.split("\n").slice(-3)).toEqual(["Best regards,", "Carapis team", "carapis.com"]);
     expect(en.json.signatureFallback).toBeUndefined();
     // The fixture as it is: English lines only. A Russian reply falls back to English and says so.
-    const plain = await (await connect(undefined, undefined, { drafts: mail, projectMail: pm({ ...one, signoff: "en: Best regards," }) }))({ account, mailbox_path: ["INBOX"], message_id: 44, content: "Здравствуйте!\n\nОтветим завтра." });
+    const plain = await (await connect(undefined, undefined, { drafts: mail, projectMail: pm({ ...one, signoff: "en: Best regards," }) }))({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 44 }, content: "Здравствуйте!\n\nОтветим завтра." });
     expect(plain.json).toMatchObject({ signatureFallback: "ru" });
     expect(plain.json.next).toMatch(/signature_language/);
     const [v] = await repos.mailVersions.ofThread("acme", "m44@example.com");
     expect(v?.signatureFallback).toBe("ru");
     // The first Hub send's shape (P65 live send check): untagged English lines, `languages: en`, a Russian reply.
     const saas = { ...one, signoff: "Best regards,", languages: ["en"] };
-    const untagged = await (await connect(undefined, undefined, { drafts: mail, projectMail: pm(saas) }))({ account, mailbox_path: ["INBOX"], message_id: 45, content: "Здравствуйте!\n\nОтветим завтра." });
+    const untagged = await (await connect(undefined, undefined, { drafts: mail, projectMail: pm(saas) }))({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 45 }, content: "Здравствуйте!\n\nОтветим завтра." });
     expect(untagged.json).toMatchObject({ signatureFallback: "ru" });
     expect(untagged.json.next).toMatch(/signature_language/);
     // Russian among `languages`: the owner's untagged lines are for it, no check.
-    const both = await (await connect(undefined, undefined, { drafts: mail, projectMail: pm({ ...saas, languages: ["en", "ru"] }) }))({ account, mailbox_path: ["INBOX"], message_id: 46, content: "Здравствуйте!\n\nОтветим завтра." });
+    const both = await (await connect(undefined, undefined, { drafts: mail, projectMail: pm({ ...saas, languages: ["en", "ru"] }) }))({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 46 }, content: "Здравствуйте!\n\nОтветим завтра." });
     expect(both.json.signatureFallback).toBeUndefined();
   });
 
-  it("headers that name no brand, or cannot be read: the placeholder, and the result says so", async () => {
+  it("headers that name no brand: the placeholder, and the result says so; headers that cannot be read name no client: nothing is written", async () => {
     const mail = new FakeDraftWriter();
     mail.headers.set(42, "To: someone@example.org");
     const call = await connect(undefined, undefined, { drafts: mail, projectMail });
-    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Answer." });
+    const r = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Answer." });
     expect(r.json).toMatchObject({ brand: null, signature: "placeholder" });
     expect(r.json.next).toMatch(/\[Owner: signature for/);
     expect(mail.drafts[0]?.text.split("\n").at(-1)).toBe("[Owner: signature for unknown brand]");
     mail.drafts = [];
-    const unread = await call({ account, mailbox_path: ["INBOX"], message_id: 7, content: "Answer." });
-    expect(unread.json).toMatchObject({ signature: "placeholder", brandReason: "the message's headers could not be read" });
+    // P129 A3: the reply's client is read from the same headers before Mail is asked; unreadable, the call is refused (it was signed with the placeholder).
+    const unread = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 7 }, content: "Answer." });
+    expect(unread).toMatchObject({ isError: true, json: { error: "no_recipient" } });
+    expect(mail.drafts).toHaveLength(0);
   });
 
-  it("a revision is signed once and recorded in place: same draft id, brand stored, no record-draft step", async () => {
+  it("a revision is signed once and recorded in place: same draft id, brand stored, no record of its own", async () => {
     const repos = createRepos(db.db);
     const rec = await repos.drafts.record({ project: "acme", email: "ann@x.example", name: "Ann", subject: "Re: Hello", mailRef: "<m42@example.com>", reason: "asked", skill: "triage-mail", excerpt: "old" });
     await repos.drafts.setChecked(rec.draftId, true).catch(() => undefined);
@@ -776,11 +864,12 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
     const recordRevision = (slug: string, id: number, r: { excerpt: string; wroteTo: string | null; brand: string | null; reason?: string }) => repos.drafts.revised(slug, id, r);
     const call = await connect(undefined, undefined, { drafts: mail, projectMail, recordRevision });
-    const first = await call({ draft: rec.draftId, content: "Warmer answer." });
+    const first = await call({ kind: "revise", draft: rec.draftId, content: "Warmer answer." });
     expect(first.json).toMatchObject({ recorded: true, draft: rec.draftId, brand: cases.forwarded.brand });
-    expect(first.json.next).toMatch(/Do not run record-draft/);
-    expect(await call({ draft: rec.draftId, content: `Warmer answer.\n\n${cases.forwarded.signature.join("\n")}` })).toMatchObject({ isError: true, json: { error: "own_signoff" } });
-    const second = await call({ draft: rec.draftId, content: "Warmer answer." });
+    expect(first.json.next).toMatch(new RegExp(`^Recorded: draft ${rec.draftId} updated in place`));
+    expect(first.json.record).toBeUndefined();
+    expect(await call({ kind: "revise", draft: rec.draftId, content: `Warmer answer.\n\n${cases.forwarded.signature.join("\n")}` })).toMatchObject({ isError: true, json: { error: "own_signoff" } });
+    const second = await call({ kind: "revise", draft: rec.draftId, content: "Warmer answer." });
     expect(second.json.recorded).toBe(true);
     expect(mail.drafts).toHaveLength(1);
     expect(mail.drafts[0]?.text.match(new RegExp(cases.forwarded.signature.at(-1)!.replace(/\./g, "\\."), "g"))).toHaveLength(1);
@@ -788,23 +877,27 @@ describe("draft_write signs per brand and records a revision (P60)", () => {
     expect(row).toMatchObject({ id: rec.draftId, body: "Warmer answer.", brand: cases.forwarded.brand, wroteTo: cases.forwarded.wroteTo, checked: false, status: "ready" });
     // P99 S0 (c): a revision may replace "Why this email"; without reason the recorded one stays.
     expect(row?.reason).toBe("asked");
-    const third = await call({ draft: rec.draftId, content: "Warmer answer, with the offer.", reason: "They asked for the commercial offer." });
+    const third = await call({ kind: "revise", draft: rec.draftId, content: "Warmer answer, with the offer.", reason: "They asked for the commercial offer." });
     expect(third.json.recorded).toBe(true);
     expect((await repos.drafts.get(rec.draftId))?.reason).toBe("They asked for the commercial offer.");
     await repos.drafts.setStatus(rec.draftId, "done");
     await expect(repos.drafts.revised("acme", rec.draftId, { excerpt: "x", wroteTo: null, brand: null })).rejects.toThrow(/only a ready or held draft/);
   });
 
-  it("mail_brand resolves pasted headers without a Mail read", async () => {
-    const server = createHubMcpServer(createRepos(db.db), { hubProject: "acme", focusFile: path.join(dir, "focus.json"), projectMail });
+  // P129 A4: message_show (was mail_brand) reads the headers from Mail itself, read only; the agent pastes nothing.
+  it("message_show resolves the brand from the message's own headers, read from Mail", async () => {
+    const mail = new FakeDraftWriter();
+    mail.headers.set(42, readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8"));
+    mail.headers.set(43, `Delivered-To: ${account}\nTo: ${cases.forwarded.wroteTo}\nFrom: Ann <ann@x.example>\nSubject: Hello\n`);
+    const server = createHubMcpServer(createRepos(db.db), { hubProject: "acme", focusFile: path.join(dir, "focus.json"), projectMail, drafts: mail });
     const [a, b] = InMemoryTransport.createLinkedPair();
     await server.connect(b);
     const client = new Client({ name: "test", version: "0" });
     await client.connect(a);
-    const res = await client.callTool({ name: "mail_brand", arguments: { headers: readFileSync(path.join(fx, cases.forwarded.headersFile), "utf8") } });
-    expect(JSON.parse((res.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ brand: cases.forwarded.brand, clientWroteTo: cases.forwarded.wroteTo, signature: "signed" });
-    const viaTo = await client.callTool({ name: "mail_brand", arguments: { headers: `Delivered-To: ${account}`, to: [cases.forwarded.wroteTo] } });
-    expect(JSON.parse((viaTo.content as Array<{ text: string }>)[0]!.text)).toMatchObject({ brand: cases.forwarded.brand });
+    const show = async (message_id: number) => JSON.parse(((await client.callTool({ name: "message_show", arguments: { message: { account, mailbox_path: ["INBOX"], message_id } } })).content as Array<{ text: string }>)[0]!.text);
+    expect(await show(42)).toMatchObject({ brand: cases.forwarded.brand, clientWroteTo: cases.forwarded.wroteTo, signature: "signed", reply: { draft_write: { kind: "reply", message: { account, mailbox_path: ["INBOX"], message_id: 42 } } } });
+    expect(await show(43)).toMatchObject({ brand: cases.forwarded.brand, from: { email: "ann@x.example" }, subject: "Hello" });
+    expect(mail.drafts).toHaveLength(0);
   });
 });
 
@@ -822,7 +915,7 @@ describe("draft_write: the From the client sees (P58)", () => {
     mail.headers.set(42, headers);
     mail.headers.set(43, headers);
     const call = await connect(undefined, undefined, { drafts: mail, projectMail });
-    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 42, content: "Hello,\n\nHere is the answer." });
+    const r = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 42 }, content: "Hello,\n\nHere is the answer." });
     expect(r.isError).toBe(false);
     expect(r.json).toMatchObject({ fromSeenByClient: account, clientWroteTo: "info@carapis.com", fromReason: null });
     expect(r.json).not.toHaveProperty("from");
@@ -830,7 +923,7 @@ describe("draft_write: the From the client sees (P58)", () => {
     expect(r.json.next).not.toMatch(/The client sees From/);
     expect(mail.drafts[0]?.from).toBe(account);
     mail.addresses.set(account, [account, "info@carapis.com"]);
-    const s = await call({ account, mailbox_path: ["INBOX"], message_id: 43, content: "Hello,\n\nHere is the answer." });
+    const s = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 43 }, content: "Hello,\n\nHere is the answer." });
     expect(s.json).toMatchObject({ fromSeenByClient: "info@carapis.com", clientWroteTo: "info@carapis.com", fromReason: null });
     expect(mail.drafts[1]?.from).toBe("info@carapis.com");
   });
@@ -840,7 +933,7 @@ describe("draft_write: the From the client sees (P58)", () => {
     mail.headers.set(47, headers);
     const named = () => ({ ...projectMail(), identity: { ...projectMail().identity, brands: one.brands.map((b) => b.name === "Carapis" ? { ...b, displayName: "Carapis" } : b) } });
     const call = await connect(undefined, undefined, { drafts: mail, projectMail: named });
-    const r = await call({ account, mailbox_path: ["INBOX"], message_id: 47, content: "Hello,\n\nHere is the answer." });
+    const r = await call({ kind: "reply", record: REC, message: { account, mailbox_path: ["INBOX"], message_id: 47 }, content: "Hello,\n\nHere is the answer." });
     expect(r.isError).toBe(false);
     expect(r.json).toMatchObject({ fromSeenByClient: "Carapis <hello@reforms.ai>", clientWroteTo: "info@carapis.com" });
     expect(mail.drafts[0]?.from).toBe("Carapis <hello@reforms.ai>");

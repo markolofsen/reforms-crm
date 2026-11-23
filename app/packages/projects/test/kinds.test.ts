@@ -44,6 +44,12 @@ describe("the kind registry is data", () => {
       if (!k.modules.includes("notion")) expect(k.notionModules, k.id).toEqual([]);
     }
   });
+  it("software-support runs campaigns (P85) but has no calendar until a connector is attached (decision 0045 point 12)", () => {
+    const k = KINDS["software-support"];
+    expect(k?.skills).toContain("bulk-drafts");
+    expect(k?.modules).toContain("bulk");
+    expect(k?.skills).not.toContain("calendar");
+  });
   it("generic reproduces the required set that was hard-coded before kinds existed", () => {
     expect([...(KINDS.generic?.required ?? [])].sort()).toEqual(["mail.accounts", "mail.sender", "notion.databases.clients", "tone"]);
   });

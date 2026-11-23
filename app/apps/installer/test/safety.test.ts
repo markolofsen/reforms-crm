@@ -4,7 +4,7 @@ import path from "node:path";
 import { createRepos, openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context";
-import { recordDraft } from "../src/record-draft";
+import { recordFlat } from "./support/seed-draft-impl";
 import { guardDecision, readBinding, resolveBinding, runGuard, runGuardPost, skillScope, writeBinding, writeCodexHome, writeSessionFiles } from "../src/safety";
 import { CODEX_FORBIDDEN_PREFIXES, DENIED_TOOLS } from "@hub/agent/deny";
 import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
@@ -65,7 +65,6 @@ describe("hub guard", () => {
   });
   it.each([
     ["foreign mail account", call("mcp__mail-mcp__find_messages", { account: "a@b.example" })],
-    ["foreign knowledge project", call("mcp__knowledge-mcp__knowledge_search", { project: "nordhaus", query: "x" })],
     ["send tool", call("mcp__x__send_message", {})],
     ["Gmail reply", call("mcp__x__reply", {})],
     ["trash", call("mcp__x__trash_thread", {})],
@@ -130,14 +129,13 @@ describe("generated session files", () => {
     }
     expect(settings.permissions.deny).toContain("Edit(./state/log/**)");
   });
-  it("strict MCP: only the hub's servers, the knowledge server pinned to the slug", () => {
+  it("strict MCP: only the hub's servers (an old knowledge-mcp is dropped, P129 A4), hub pinned to the slug", () => {
     mkdirSync(path.join(root, "config"), { recursive: true });
     writeFileSync(path.join(root, "config", "mcp.json"), JSON.stringify({ mcpServers: { "mail-mcp": { type: "http" }, gmail: { type: "http" }, "knowledge-mcp": { type: "stdio", env: { HUB_PROJECT: "${HUB_PROJECT:-}" } } } }));
     const f = writeSessionFiles(root, PROJECTS, "acme-travel");
     const m = JSON.parse(readFileSync(f.mcp, "utf8")).mcpServers;
     // `hub` (P51) is the core's own server: there even when the instance's file predates it.
-    expect(Object.keys(m).sort()).toEqual(["hub", "knowledge-mcp", "mail-mcp"]);
-    expect(m["knowledge-mcp"].env.HUB_PROJECT).toBe("acme-travel");
+    expect(Object.keys(m).sort()).toEqual(["hub", "mail-mcp"]);
     expect(m.hub.env.HUB_PROJECT).toBe("acme-travel");
   });
   it("claude gets the enforcement flags in = form, and send tools are denied", () => {
@@ -156,7 +154,7 @@ describe("generated session files", () => {
     expect(u.sandbox.allowAppleEvents).toBeUndefined();
     const dw: string[] = u.sandbox.filesystem.denyWrite;
     for (const p of ["state/projects", "state/secrets", "state/codex", "config", "core", "run.sh", ".claude", ".mcp.json"]) expect(dw, p).toContain(path.join(root, p));
-    // the database stays writable for `hub record-draft`: its Read/Edit rules would become sandbox denials
+    // the database stays writable for the hub's own record writers (draft_write, client_record): its Read/Edit rules would become sandbox denials
     expect(u.permissions.deny.some((r: string) => r.includes("./data/"))).toBe(false);
     expect(u.permissions.deny).toContain("Bash(*hub send*)");
     writeSessionFiles(root, PROJECTS, "acme-travel", "/n/node"); // back to normal for the rest of the suite
@@ -232,34 +230,33 @@ describe("sticky binding", () => {
   });
 });
 
-describe("record-draft enforces draft.recipients", () => {
+describe("the draft record enforces draft.recipients", () => {
   const cfg = () => { const f = path.join(tmp(), "config.json"); writeFileSync(f, JSON.stringify({ allow_list: ["me@mine.example"] })); return f; };
   const run = (over: Record<string, unknown>, project = "acme-travel") => {
     const db = path.join(tmp(), "app.db");
-    return recordDraft({ project, payload: JSON.stringify({ email: "me@mine.example", subject: "s", mailRef: "<1@x>", ...over }), dbPath: db, attempts: 1, projectsDir: PROJECTS, configFile: cfg(), now: beforeContextBlock }).then(async (r) => ({ r, db }));
+    return recordFlat(project, { email: "me@mine.example", subject: "s", mailRef: "<1@x>", ...over }, { dbPath: db, attempts: 1, projectsDir: PROJECTS, configFile: cfg(), now: beforeContextBlock }).then(async (r) => ({ r, db }));
   };
   it("test mode: allow-list address passes", async () => {
-    expect((await run({})).r.code).toBe(0);
+    expect((await run({})).r).toMatchObject({ ok: true });
   });
   it("P92 test mode: a new thread to an allow-list address on the owner's words is recorded (no client check)", async () => {
     const { r, db } = await run({ mailRef: undefined, newThread: true, skill: "bulk-drafts", ownerRequest: "подготовь тестовое письмо" });
-    expect(r.code, r.line).toBe(0);
+    expect(r, JSON.stringify(r)).toMatchObject({ ok: true });
     const h = openDb(db);
     expect((await createRepos(h.db).clients.list("acme-travel")).map((c) => c.email)).toEqual(["me@mine.example"]);
     h.close();
   });
-  it("test mode: a client in To or Cc is refused with exit 2 and `not allowed`, nothing written", async () => {
+  it("test mode: a client in To or Cc is refused as not_allowed, nothing written", async () => {
     for (const over of [{ email: "client@x.example" }, { to: "client@x.example" }, { cc: "boss@x.example" }, { to: "Me <me@mine.example>, client@x.example" }]) {
       const { r, db } = await run(over);
-      expect(r.code, JSON.stringify(over)).toBe(2);
-      expect(r.line).toMatch(/not allowed/);
+      expect(r, JSON.stringify(over)).toMatchObject({ ok: false, code: "not_allowed", error: expect.stringMatching(/does not permit/) });
       const h = openDb(db);
       expect(await createRepos(h.db).clients.list("acme-travel")).toEqual([]);
       h.close();
     }
   });
   it("an unknown project is refused", async () => {
-    expect((await run({}, "ghost")).r.code).toBe(2);
+    expect((await run({}, "ghost")).r).toMatchObject({ ok: false, code: "not_allowed" });
   });
 });
 

@@ -7,7 +7,7 @@ import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import { defaultProjectsRoot, loadProjects } from "@hub/projects";
 import { defaultDbPath, openDb } from "@hub/db";
 import { listProjects, makeCtx } from "../src/context";
-import { evidenceDir } from "../src/evidence-store";
+import { evidenceDir } from "@hub/projects/evidence-store";
 import { auditLayout, guardDecision, runGuard, writeSessionFiles } from "../src/safety";
 import { syncInstanceSkills } from "../src/instance-skills";
 
@@ -93,11 +93,13 @@ describe("what an agent started in an instance gets", () => {
     expect(f.rules.some((r) => r.includes("acme-travel/**"))).toBe(false);
     expect(f.rules.join("\n")).not.toContain("app/projects");
   });
-  it("the knowledge MCP server is started by absolute path in the core and told where the instance is", () => {
+  it("the hub MCP server (the knowledge tools too, P129 A4) is started by the hub's Node and absolute path in the core and told where the instance is", () => {
     const f = writeSessionFiles(paths().home, paths().projects, "acme-travel", process.execPath, paths());
-    const s = (JSON.parse(readFileSync(f.mcp, "utf8")) as { mcpServers: Record<string, { command?: string; args?: string[]; env?: Record<string, string> }> }).mcpServers["knowledge-mcp"];
-    expect(s?.command?.startsWith(CORE_ROOT)).toBe(true);
-    expect(s?.args?.every((a) => path.isAbsolute(a))).toBe(true);
+    const servers = (JSON.parse(readFileSync(f.mcp, "utf8")) as { mcpServers: Record<string, { command?: string; args?: string[]; env?: Record<string, string> }> }).mcpServers;
+    expect(servers["knowledge-mcp"]).toBeUndefined();
+    const s = servers.hub;
+    expect(s?.command).toBe(process.execPath);
+    expect(s?.args?.[0]?.startsWith(CORE_ROOT)).toBe(true);
     expect(s?.env).toMatchObject({ HUB_PROJECT: "acme-travel", HUB_HOME: home });
     const hooks = readFileSync(f.settings, "utf8");
     expect(hooks).toContain(path.join(CORE_ROOT, "app", "apps", "installer", "bin", "hub.mjs"));

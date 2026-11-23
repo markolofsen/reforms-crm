@@ -397,7 +397,7 @@ describe("recorded evidence (P28 C1-C3)", () => {
     expect((await repos.clients.counts("p")).thin_basis).toBe(1);
   });
 
-  it("mail_versions (P65): a version written before record-draft is linked to the draft it records; byMailRef finds the draft in any form", async () => {
+  it("mail_versions (P65): a version written before draft record is linked to the draft it records; byMailRef finds the draft in any form", async () => {
     const v = await repos.mailVersions.add({ project: "p", mailRef: "<T1@X>", account: "desk", mailId: 5, messageId: "<New@x>", hash: "h", source: "agent" });
     expect((await repos.mailVersions.ofThread("p", "t1@x"))[0]).toMatchObject({ id: v, draftId: null, mailRef: "t1@x", messageId: "New@x" });
     const r = await repos.drafts.record({ project: "p", email: "v@x.example", name: "V", subject: "Re", mailRef: "t1@x" });

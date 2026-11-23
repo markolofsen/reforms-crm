@@ -5,7 +5,7 @@ import { fingerprint, judgeSimilarity, sim, type Verdict } from "./similarity";
 // message was opened, who wrote it, which search ran, whether a Notion page was read, the sketch of a reply. No mail
 // body, no Notion text. The same functions serve three callers, so one rule means one thing:
 //   - the PreToolUse/PostToolUse hooks (`hub guard`, `hub guard --post`) that append and check live,
-//   - `hub record-draft`, which cross-checks what the agent claims against the ledger,
+//   - the draft record (`draft_write`), which cross-checks what the agent claims against the ledger,
 //   - `hub audit-run`, which rebuilds the ledger from a finished transcript.
 // mail-mcp ids are INTEGERS per mailbox (find_messages / get_message_content / create_reply), not Message-ID headers.
 // The shape of the tool RESULTS is not verified against the real mail-mcp (S1 used a stub): parsing is tolerant and an
@@ -144,7 +144,12 @@ export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEn
   // A revision names only the hub draft (P53): Mail's id of the answered message comes back in the result (`replyTo`).
   if (c.name === HUB_DRAFT_WRITE) {
     const r = obj(parsedResult(c.result));
-    const e = draftEntry(tool, i.message_id === undefined ? { ...i, message_id: r.replyTo } : i, account, o);
+    // P129 A3: a reply names its message in `message` (mail-mcp's ids, or the Hub's Inbox id resolved by the hub: then the
+    // result's `account` and `replyTo` say which message it was).
+    const m = obj(i.message);
+    const flat = { ...i, ...(m.message_id !== undefined ? { message_id: m.message_id } : {}) };
+    const acc = str(m.account) ?? account ?? str(r.account);
+    const e = draftEntry(tool, flat.message_id === undefined ? { ...flat, message_id: r.replyTo } : flat, acc, o);
     // P58: the result names it `clientWroteTo` (the address the client wrote to; never the From of the reply).
     return { ...e, ...(str(r.clientWroteTo) ? { wroteTo: lower(str(r.clientWroteTo)!) } : {}), ...(str(r.brand) ? { brand: str(r.brand)! } : {}) };
   }
@@ -168,7 +173,7 @@ export function summarizeCall(c: CallRecord, o: SummarizeOptions = {}): LedgerEn
     const edited = resultText(c.result).match(/"?(?:last_edited_time|lastEditedTime|last_edited)"?\s*[:=]\s*"?(\d{4}-\d{2}-\d{2})/i)?.[1];
     return { tool, kind: "notion", op, ...(emails.length ? { emails } : {}), ...(edited ? { editedAt: edited } : {}), ...(c.result !== undefined ? notionOrigin(op, c.input, resultText(c.result)) : {}) };
   }
-  if (c.name.startsWith("mcp__knowledge-mcp__") && (tool === "knowledge_search" || tool === "knowledge_get")) {
+  if (c.name === "mcp__hub__knowledge_search" || c.name === "mcp__hub__knowledge_get") {
     return { tool, kind: "knowledge", ...(str(i.query) ? { query: str(i.query)!.slice(0, 200) } : {}) };
   }
   return null;
@@ -319,17 +324,16 @@ export function preDraftCheck(entries: readonly LedgerEntry[], call: CallRecord,
 
 export interface ClaimedRecord { email?: string; mailRef?: string; context?: unknown }
 
-/** `hub record-draft` calls inside a Bash command: the JSON the agent piped in. Best effort (an `echo '...' | ... record-draft` form). */
-export function claimsFromBash(command: string): ClaimedRecord[] {
-  if (!/record-draft/.test(command)) return [];
-  const out: ClaimedRecord[] = [];
-  for (const m of command.matchAll(/echo\s+'([\s\S]*?)'\s*\|/g)) {
-    try {
-      const j = obj(JSON.parse(m[1]!));
-      out.push({ ...(typeof j.email === "string" ? { email: lower(j.email) } : {}), ...(typeof j.mailRef === "string" ? { mailRef: j.mailRef } : {}), ...(j.context !== undefined ? { context: j.context } : {}) });
-    } catch { /* not JSON */ }
-  }
-  return out;
+/**
+ * P129 verdict 4: what a `draft_write` claimed in its `record` (the context block of a reply or a new thread). The record
+ * goes through the tool, so the audit reads it from the call's input, never out of a shell command.
+ */
+export function claimOfDraftWrite(c: CallRecord): ClaimedRecord | null {
+  if (c.name !== HUB_DRAFT_WRITE) return null;
+  const i = obj(c.input);
+  if (i.record === undefined) return null;
+  const rec = obj(i.record);
+  return { ...(typeof i.to === "string" ? { email: lower(i.to) } : {}), ...(rec.context !== undefined ? { context: rec.context } : {}) };
 }
 
 export interface EvidenceRow {
@@ -379,6 +383,7 @@ export function replayCalls(calls: readonly CallRecord[], entries: LedgerEntry[]
   for (const c of calls) {
     const e = entryFor(entries, c, aid ? { aid } : {});
     if (e) entries.push(e);
-    if (c.name === "Bash") for (const claim of claimsFromBash(String(obj(c.input).command ?? ""))) claims.push({ after: entries.length, claim });
+    const claim = claimOfDraftWrite(c);
+    if (claim) claims.push({ after: entries.length, claim });
   }
 }

@@ -31,7 +31,7 @@ describe("step list", () => {
     for (const id of ["tools.node", "tools.pnpm", "tools.claude", "files.mcp-json", "files.app-db", "skills.runtime", "skills.legacy", "projects.registry", "dev.kanban", "mail.daemon", "notion.connector"]) expect(ids).toContain(id);
     expect(selectSteps(true).map((s) => s.id)).toEqual(expect.arrayContaining(["notion.token", "mail.account", "messengers.poller", "files.settings"]));
     expect(ids.some((i) => i.startsWith("backup."))).toBe(false); // a fresh instance has no backup yet: setup and install must not go red for it
-    expect(selectSteps(false, true).map((s) => s.id)).toEqual(expect.arrayContaining(["backup.git", "backup.db", "backup.snapshot", "backup.notion", "backup.secrets", "server.health", "mcp.knowledge", "autostart.agent"]));
+    expect(selectSteps(false, true).map((s) => s.id)).toEqual(expect.arrayContaining(["backup.git", "backup.db", "backup.snapshot", "backup.notion", "backup.secrets", "server.health", "mcp.hub", "autostart.agent"]));
     expect(STEPS.map((s) => s.id).filter((i) => /^(claude|gate|launchd|sounds|prefs|power)[.]/.test(i)), "archived steps (P25)").toEqual([]);
   });
   it("@docs/notion/fields.md equals the text generated from the pack's schema files (run `pnpm hub docs`)", () => {

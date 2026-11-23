@@ -16,7 +16,7 @@ export const CLI_LABELS: Record<AgentCli, string> = { claude: "Claude Code", cod
  * What an unattended session may not write, absolute paths: the send policy and the generated session files
  * (`state/projects`), secrets, the Codex homes, the instance config (allow-list, switches), the core, the instance's
  * own launcher, Claude's project settings, the MCP file the session config is built from, and the git folder (hooks).
- * The project folder, the evidence ledger and the database stay writable: `hub record-draft` writes there.
+ * The project folder, the evidence ledger and the database stay writable: `hub sequences enrol|judge` write there (P129 A9 moves them into `hub mcp`; then the database folder becomes read-only).
  */
 export function protectedPaths(paths: HubPaths): string[] {
   const home = paths.home;

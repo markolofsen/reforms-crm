@@ -6,6 +6,12 @@ import { which, type Ctx } from "./context";
 type Server = Record<string, unknown>;
 
 /**
+ * Servers the core no longer ships (P129 A4: `knowledge-mcp`, whose tools are `hub mcp`'s now). `files.mcp-json` drops them from
+ * an instance's `.mcp.json` and ignores them in an older `config/mcp.json`, so the owner's Claude never starts a removed program.
+ */
+export const RETIRED_MCP_SERVERS: readonly string[] = ["knowledge-mcp"];
+
+/**
  * A stdio server of the core's `config/mcp.json` names its program by a path relative to the core (`app/packages/...`). An instance starts
  * claude in its own folder, where that path does not exist: so the server is written with absolute paths under the core, and told where
  * the instance is. HTTP servers are returned unchanged.

@@ -1,6 +1,6 @@
 // The one label table of the agent activity feed (P59, plan table 4c). A label is a verb and at most one id: never a
 // command, a query, an address, a subject or a path. Only `labelOfTool` reads a tool's input or output, and only for the
-// one id field it names (`draft_show.draft` and `draft_write.draft`, P83, `record-draft`'s `draftId`) and the `ok` of a record.
+// one id field it names (`draft_show.draft` and `draft_write.draft`, P83, and the hub draft id `draft_write` recorded, P129 A3).
 
 export interface Labelled {
   label: string;
@@ -30,31 +30,13 @@ const MAIL_LABELS: Record<string, string> = {
   list_accounts: "looks at mail accounts",
   list_mailboxes: "looks at mail accounts",
 };
-const HUB_LABELS: Record<string, string> = { mcp__hub__drafts_list: "lists drafts", mcp__hub__client_show: "reads a client", mcp__hub__inbound_show: "reads a client's message", mcp__hub__messenger_history: "reads a chat", mcp__hub__messenger_draft_write: "writes a messenger draft", mcp__hub__highlight: "points at your screen" };
+// P129 A4: the hub's read tools as renamed (project_show, mail_list, message_show) and the knowledge tools, which are the hub's now.
+const HUB_LABELS: Record<string, string> = { mcp__hub__client_record: "records a client", mcp__hub__mail_list: "lists mail", mcp__hub__client_show: "reads a client", mcp__hub__message_show: "reads a client's message", mcp__hub__project_show: "reads the project's settings", mcp__hub__knowledge_search: "reads the knowledge base", mcp__hub__knowledge_get: "reads the knowledge base", mcp__hub__messenger_history: "reads a chat", mcp__hub__messenger_draft_write: "writes a messenger draft", mcp__hub__highlight: "points at your screen" };
 
-/** The command texts of a shell call: Claude's `command`, Codex's `cmd` or `command` as a string or an argv (`["bash", "-lc", "..."]`, each part tested). */
-function commandsOf(input: unknown): string[] {
-  if (typeof input === "string") return [input];
-  const o = obj(input);
-  const c = o?.command ?? o?.cmd;
-  return typeof c === "string" ? [c] : Array.isArray(c) ? c.map(String) : [];
-}
-
-/** `hub record-draft` run as a command (also at the end of a pipe: `echo '{...}' | hub record-draft --project x`); `--help` is not a record. */
-const RECORD_DRAFT = /(?:^|[|;&(]\s*)(?:\S*\/)?hub\s+record-draft\b/;
-export const isRecordDraft = (command: string): boolean => RECORD_DRAFT.test(command) && !/--help\b/.test(command);
-
-/** `record-draft`'s own JSON reply inside the logged excerpt (escaped once when it sits in a `stdout` string). */
-function recordReply(output: unknown): { ok: boolean; draft: number | null } {
-  const t = textOf(output);
-  const ok = /\\*"ok\\*"\s*:\s*true/.test(t);
-  const m = /\\*"draftId\\*"\s*:\s*(\d{1,9})/.exec(t);
-  return { ok, draft: ok && m?.[1] ? Number(m[1]) : null };
-}
-
-function recordLabel(output: unknown, done: boolean): Labelled {
-  const r = recordReply(output);
-  return { label: r.draft ? `records draft ${r.draft}` : "records a draft", draft: r.draft, ready: done && r.ok };
+/** P129 A3: the hub draft a `draft_write` reply or new thread recorded, from its logged result (`"record":{"draftId":7`). */
+function recordedDraft(output: unknown): number | null {
+  const m = /\\*"record\\*"\s*:\s*\{\\*"draftId\\*"\s*:\s*(\d{1,9})/.exec(textOf(output));
+  return m?.[1] ? Number(m[1]) : null;
 }
 
 /** The first number after `key:` in a Codex script's text (`tools.mcp__hub__draft_show({draft: 3})`). */
@@ -78,16 +60,15 @@ export function labelOfTool(tool: string, input: unknown, output: unknown, done:
     return { label: id ? `reads draft ${id}` : "reads a draft", draft: id, ready: false };
   }
   if (tool === "mcp__hub__draft_write") {
-    const id = idOf(inp?.draft);
+    const id = idOf(inp?.draft) ?? recordedDraft(output);
     return { label: id ? `writes draft ${id}` : "writes a new draft", draft: id, ready: done };
   }
   const hub = HUB_LABELS[tool];
   if (hub) return plain(hub);
   if (tool.startsWith(MAIL)) return plain(MAIL_LABELS[tool.slice(MAIL.length)] ?? tool);
-  if (tool.startsWith("mcp__knowledge-mcp__")) return plain("reads the knowledge base");
   const [, server = "", ...action] = tool.split("__");
   if (tool.startsWith("mcp__") && /notion/i.test(server)) return plain(notionWrite.test(action.join("__")) ? "updates Notion" : "reads Notion");
-  if (COMMAND_TOOLS.has(tool)) return commandsOf(input).some(isRecordDraft) ? recordLabel(output, done) : plain("runs a command");
+  if (COMMAND_TOOLS.has(tool)) return plain("runs a command");
   if (READ_TOOLS.has(tool)) return plain("reads a file");
   if (EDIT_TOOLS.has(tool)) return plain("edits a file");
   if (WEB_TOOLS.has(tool)) return plain("looks something up on the web");
@@ -98,7 +79,7 @@ export function labelOfTool(tool: string, input: unknown, output: unknown, done:
 /**
  * Codex code mode (`exec`): the label of the first tool its script names that is not hidden, with its id when the script's
  * text was kept (a script that names a mail-body tool or the draft writer is a hash, so it gives no id). A script that names
- * only hidden tools is hidden; one that names none runs a script, or records a draft.
+ * only hidden tools is hidden; one that names none runs a script.
  */
 function execLabel(input: unknown, output: unknown, done: boolean, via: readonly string[]): Labelled | null {
   const code = typeof input === "string" ? input : "";
@@ -108,7 +89,6 @@ function execLabel(input: unknown, output: unknown, done: boolean, via: readonly
     const arg = first === "mcp__hub__draft_show" || first === "mcp__hub__draft_write" ? { draft: scriptId(code, "draft") } : {};
     return labelOfTool(first, arg, output, done);
   }
-  if (isRecordDraft(code)) return recordLabel(output, done);
   return { label: "runs a script", draft: null, ready: false };
 }
 

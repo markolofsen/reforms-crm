@@ -15,9 +15,12 @@ exception (decision 0046): `mcp__hub__messenger_send` is denied in unattended
 mode only. Mail send, batch send, adapter calls, HumanActor creation,
 approval-ticket minting and unknown tools are denied in every mode unless the
 existing attended owner flow explicitly owns them.
-3. MUST: `hub.draft_write` and `hub.messenger_draft_write` never send, never
-create a send-log row and never construct a `HumanActor`. Their success means
-only that an unsent draft was recorded or saved through the existing writer.
+3. MUST: `hub.draft_write`, `hub.client_record` and `hub.messenger_draft_write`
+never send, never create a send-log row and never construct a `HumanActor`.
+Their success means only that an unsent draft (or, for `client_record`, one
+Inbox row of a client handled without a draft, P129 A3) was recorded or saved
+through the existing writer. `client_record` is a `draft`-effect tool: in
+unattended Codex it runs only once P112's capability matrix admits it.
 4. MUST: attended mode keeps `on-request` for operations that need owner
 approval. Do not turn a safe unattended exception into a global auto-approve
 rule, and do not use `yolo`, `dangerously-bypass`, sandbox weakening or an

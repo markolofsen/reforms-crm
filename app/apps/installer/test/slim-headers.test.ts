@@ -14,7 +14,7 @@ describe("slimHeaders", () => {
     expect(s.match(/Authentication-Results/g)?.length).toBe(1);
     expect(s).not.toMatch(/Received|DKIM|X-Mailer|Subject/);
   });
-  it("keeps To, Cc and X-Gm-Original-To: the brand order reads them (P60 mail_brand)", () => {
+  it("keeps To, Cc and X-Gm-Original-To: the brand order reads them (P60; message_show and draft_write)", () => {
     const s = slimHeaders("X-Gm-Original-To: a@brand.example\r\nTo: b@brand.example\r\nCc: c@brand.example\r\nX-Forwarded-For: a@brand.example desk@x.example");
     for (const h of ["X-Gm-Original-To: a@brand.example", "To: b@brand.example", "Cc: c@brand.example", "X-Forwarded-For: a@brand.example desk@x.example"]) expect(s).toContain(h);
   });
@@ -42,7 +42,7 @@ import { mkdtempSync, readFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { runGuardPost } from "../src/safety";
-import { sessionFile } from "../src/evidence-store";
+import { sessionFile } from "@hub/projects/evidence-store";
 
 describe("hub guard --post on get_message_content", () => {
   it("prints a slim reply and still records the ledger from the original", () => {

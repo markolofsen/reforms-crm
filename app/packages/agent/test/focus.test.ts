@@ -3,12 +3,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FOCUS_LINE_MAX, REF_KINDS } from "@hub/contract/focus";
+import { FOCUS_LINE_MAX, REF_KINDS, type FocusItem } from "@hub/contract/focus";
 import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "@hub/db";
 import { SEND_LIKE_TOOL } from "../src/deny";
-import { focusLine, livePointer, readFocus, RESOLVERS } from "../src/focus";
+import { focusLine, livePointer, readFocus, RESOLVERS, thisOf } from "../src/focus";
 import { createHubMcpServer, HUB_MCP_TOOLS } from "../src/mcp/server";
-import type { NotionScope } from "../src/notion-scope";
+import { kindOf, loadProject } from "@hub/projects";
+import type { ProjectConfig } from "@hub/projects/model";
 
 // The shared focus reader, its resolvers per ref kind, the pointer and the hub MCP server (P51 F1, F2; P72), on a throwaway
 // database: no CLI, no Mail.
@@ -78,10 +79,10 @@ describe("readFocus", () => {
     put({ pointed: `knowledge:${CSV}`, window: { refs: [`knowledge:${CSV}`], total: 57 }, view: { q: "csv" } });
     const f = await read();
     expect(f).toMatchObject({ state: "fresh", ageSeconds: 30, route: "knowledge.page", title: "Knowledge", subject: null, view: { q: "csv" } });
-    expect(f.pointed).toEqual({ ref: `knowledge:${CSV}`, kind: "knowledge", title: CSV_TITLE, status: "approved", read: { server: "knowledge-mcp", tool: "knowledge_get", args: { project: "acme", path: CSV } } });
+    expect(f.pointed).toEqual({ ref: `knowledge:${CSV}`, kind: "knowledge", title: CSV_TITLE, status: "approved", read: { server: "hub", tool: "knowledge_get", args: { path: CSV } } });
     expect(f.window).toMatchObject({ total: 57, more: 0, items: [{ title: CSV_TITLE }] });
     const line = focusLine(await read("acme", NOW, "line")) ?? "";
-    expect(line).toMatch(/^\[Hub focus, data\] Knowledge · on knowledge:knowledge\/files\/csv-export-1a2b\.md "Can I download everything in a single request or as a CSV file\?" approved \(knowledge_get\) · 1 of 57 on screen · search "csv" · 30 s ago \(call the hub focus tool for detail\)$/);
+    expect(line).toMatch(/^\[Hub focus, data\] this knowledge:knowledge\/files\/csv-export-1a2b\.md · Knowledge · on knowledge:knowledge\/files\/csv-export-1a2b\.md "Can I download everything in a single request or as a CSV file\?" approved \(knowledge_get\) · 1 of 57 on screen · search "csv" · 30 s ago \(call the hub focus tool for detail\)$/);
   });
 
   it("a draft subject names its client and subject, cut to 120; the hook resolves the subject and counts the selection", async () => {
@@ -93,7 +94,7 @@ describe("readFocus", () => {
     expect(f.selected.map((s) => s.ref)).toEqual([`draft:${ids.mark}`, `draft:${ids.ann}`]);
     const hook = await read("acme", NOW, "line");
     expect(hook).toMatchObject({ selected: [], selectedMore: 2 });
-    expect(focusLine(hook)).toMatch(new RegExp(`^\\[Hub focus, data\\] Draft ${ids.mark} · open draft:${ids.mark} "Mark Effect <mark@example.com> · Re: Hello x+…" ready \\(draft_show\\) · 2 selected · 30 s ago`));
+    expect(focusLine(hook)).toMatch(new RegExp(`^\\[Hub focus, data\\] this draft:${ids.mark} · Draft ${ids.mark} · open draft:${ids.mark} "Mark Effect <mark@example.com> · Re: Hello x+…" ready \\(draft_show\\) · 2 selected · 30 s ago`));
   });
 
   it("every kind resolves inside the bound project and drops another project's id", async () => {
@@ -114,13 +115,44 @@ describe("readFocus", () => {
     expect(await RESOLVERS.mdraft(ctx, String(ids.mdraft))).toMatchObject({ title: "Mark Effect · Telegram draft · See you Tuesday", status: "draft" });
   });
 
-  it("P98: a client's message names who, what and when, waits or names its draft, and reads with inbound_show", async () => {
+  it("P98: a client's message names who, what and when, waits or names its draft, and reads with message_show (P129 A4)", async () => {
     const ctx = { repos, slug: "acme", today: "2026-11-18" };
-    expect(await RESOLVERS.inbound(ctx, String(ids.inbound))).toEqual({ title: "Mark Effect <mark@example.com> · Re: Wow · received 2099-01-01T00:00:00.000Z", status: "waiting for a reply", read: { server: "hub", tool: "inbound_show", args: { inbound: ids.inbound } } });
+    expect(await RESOLVERS.inbound(ctx, String(ids.inbound))).toEqual({ title: "Mark Effect <mark@example.com> · Re: Wow · received 2099-01-01T00:00:00.000Z", status: "waiting for a reply", read: { server: "hub", tool: "message_show", args: { inbound: ids.inbound } } });
     // Ann's draft names this message as its mailRef (in Mail's own case): the message is answered by it.
     expect(await RESOLVERS.inbound(ctx, String(ids.annInbound))).toMatchObject({ status: `answered by draft ${ids.ann} (ready)` });
     put({ route: "mail.inbound", title: "Mail", subject: `inbound:${ids.inbound}` });
     expect((await read()).subject).toMatchObject({ ref: `inbound:${ids.inbound}`, kind: "inbound", title: expect.stringContaining("Re: Wow") });
+  });
+
+  it("P129 verdict 8: \"this\" is the subject, else the pointed row, else the one selected, else the one on screen", () => {
+    const it_ = (ref: string): FocusItem => ({ ref, kind: "draft", title: ref, status: null, read: null });
+    const [a, b, c] = [it_("draft:1"), it_("draft:2"), it_("draft:3")];
+    const win = (items: FocusItem[], total = items.length, more = 0) => ({ items, total, more });
+    const none = { subject: null, pointed: null, selected: [], selectedMore: 0, window: null };
+    const table: Array<[string, Parameters<typeof thisOf>[0], string | null, string | null]> = [
+      ["subject wins over all", { subject: a, pointed: b, selected: [c], selectedMore: 0, window: win([c]) }, "draft:1", "subject"],
+      ["pointed when no subject", { ...none, pointed: b, selected: [c], window: win([a, c]) }, "draft:2", "pointed"],
+      ["the one selected row", { ...none, selected: [c], window: win([a, b, c]) }, "draft:3", "selected"],
+      ["two selected: none", { ...none, selected: [a, b], window: win([a, b]) }, null, null],
+      ["one selected listed, more not resolved: none", { ...none, selected: [a], selectedMore: 1 }, null, null],
+      ["the one row on screen", { ...none, window: win([a]) }, "draft:1", "window"],
+      ["one listed of several on screen: none", { ...none, window: win([a], 3) }, null, null],
+      ["nothing", none, null, null],
+    ];
+    for (const [name, parts, ref, from] of table) {
+      const t = thisOf(parts);
+      expect(t.this?.ref ?? null, name).toBe(ref);
+      expect(t.thisFrom, name).toBe(from);
+    }
+  });
+
+  it("readFocus returns this and thisFrom; the hook line starts with it", async () => {
+    put({ pointed: `knowledge:${CSV}`, window: { refs: [`knowledge:${CSV}`], total: 57 } });
+    expect(await read()).toMatchObject({ this: { ref: `knowledge:${CSV}` }, thisFrom: "pointed" });
+    put({ window: { refs: [`knowledge:${CSV}`, `draft:${ids.mark}`], total: 2 } });
+    const f = await read();
+    expect(f).toMatchObject({ this: null, thisFrom: null });
+    expect(focusLine(f)).toMatch(/^\[Hub focus, data\] this: none · /);
   });
 
   it("a resolver exists for every ref kind (a kind added without one fails here)", () => {
@@ -172,10 +204,13 @@ describe("readFocus", () => {
   });
 });
 
-async function connect(hubProject: string | undefined, o: { pointer?: boolean; bumps?: string[]; notion?: NotionScope; links?: Array<{ group: string; label: string; target: string; under: string | null; answered: string; by: "owner" | "default" | "agent" }> } = {}) {
-  const notion = o.notion;
-  const links = o.links;
-  const server = createHubMcpServer(repos, { hubProject, focusFile: file, now: () => NOW, ...(notion ? { projectNotion: () => notion } : {}), ...(links ? { projectLinks: () => links } : {}), ...(o.pointer === false ? {} : { pointerFile, pointerWritten: (s: string) => void o.bumps?.push(s) }) });
+// P129 A4: `project_show` reads the project's resolved config; the fixture project stands in for "acme".
+const FIXTURES = path.join(import.meta.dirname, "..", "..", "projects", "test", "fixtures", "projects");
+const fixtureConfig = (): ProjectConfig => loadProject(FIXTURES, "acme-travel").parsed.config;
+
+async function connect(hubProject: string | undefined, o: { pointer?: boolean; bumps?: string[]; config?: ProjectConfig; tests?: string[] } = {}) {
+  const config = o.config;
+  const server = createHubMcpServer(repos, { hubProject, focusFile: file, now: () => NOW, projectMail: () => ({ accounts: ["hello@acme.example"], sender: null }), ...(config ? { projectConfig: () => config } : {}), ...(o.tests ? { testRecipients: () => o.tests! } : {}), ...(o.pointer === false ? {} : { pointerFile, pointerWritten: (s: string) => void o.bumps?.push(s) }) });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await server.connect(b);
   const client = new Client({ name: "test", version: "0" });
@@ -197,34 +232,53 @@ async function connect(hubProject: string | undefined, o: { pointer?: boolean; b
 }
 
 describe("hub mcp", () => {
-  it("project_notion returns the bound project's databases by id, the same parse as the capabilities line (P82)", async () => {
-    const notion: NotionScope = { slug: "acme", databases: [{ role: "clients", dataSourceId: "00000000-0000-4000-8000-000000000001" }], teamspace: "Acme", teamspaceId: null, parentPage: null };
-    const { call } = await connect("acme", { notion });
-    const r = await call("project_notion");
-    expect(r.json).toMatchObject({ project: "acme", teamspace: null, databases: [{ role: "clients", url: "collection://00000000-0000-4000-8000-000000000001" }] });
-    expect((await (await connect("acme")).call("project_notion")).json).toMatchObject({ error: "unavailable" });
-  });
-  it("P101: project_links returns declared destinations without granting a write or open capability", async () => {
-    const { call } = await connect("acme", { links: [{ group: "CRM", label: "Clients", target: "notion:clients", under: null, answered: "2026-11-22", by: "owner" }] });
-    expect(await call("project_links")).toMatchObject({ isError: false, json: { project: "acme", links: [{ group: "CRM", label: "Clients", target: "notion:clients", under: null, by: "owner" }] } });
-    expect((await (await connect("acme")).call("project_links")).json.error).toBe("unavailable");
-  });
-  it("P98: inbound_show gives from, subject, when, the Message-ID and the reply call; another project's message is refused", async () => {
-    const { call } = await connect("acme");
-    const r = await call("inbound_show", { inbound: ids.inbound });
+  it("project_show returns the bound project's resolved settings: Mail, brands, its Notion databases by id (P82), Quick Links as data (P101), test mode (P92) and its kind's skills", async () => {
+    const cfg = fixtureConfig();
+    const { call } = await connect("acme", { config: cfg, tests: ["owner+test@example.com"] });
+    const r = await call("project_show");
     expect(r.isError).toBe(false);
-    expect(r.json).toMatchObject({ id: ids.inbound, from: { name: "Mark Effect", email: "mark@example.com" }, subject: "Re: Wow", receivedAt: "2099-01-01T00:00:00.000Z", messageIdHeader: "in1@example.com", open: true, answer: null });
-    const ann = await call("inbound_show", { inbound: ids.annInbound });
-    expect(ann.json).toMatchObject({ answer: { id: ids.ann, status: "ready" }, reply: { note: expect.stringContaining(`draft_write { draft: ${ids.ann} }`) } });
-    expect(await call("inbound_show", { inbound: ids.otherInbound })).toMatchObject({ isError: true, json: { error: "not_found" } });
+    expect(r.json).toMatchObject({ project: "acme", name: cfg.name, kind: cfg.kind, status: cfg.status, mail: { accounts: cfg.mail.accounts, domains: cfg.mail.domains, sender: cfg.mail.sender }, languages: cfg.languages, knowledge: { scope: cfg.knowledge.scope }, draft: { recipients: cfg.draft.recipients }, skills: kindOf(cfg.kind)?.skills ?? [] });
+    expect(r.json.mail.addresses).toEqual([...new Set([...cfg.mail.addresses, ...cfg.mail.aliases])]);
+    expect(r.json.brands.map((b: { name: string }) => b.name)).toEqual(cfg.brands.map((b) => b.name));
+    expect(r.json.notion.databases.map((d: { url: string }) => d.url)).toEqual(cfg.notion.databases.map((d) => `collection://${d.dataSourceId}`));
+    expect(r.json.links).toEqual(cfg.links.map(({ group, label, target, under, answered, by }) => ({ group, label, target, under, answered, by })));
+    expect(r.json.testMode).toEqual({ on: cfg.draft.recipients === "test", addresses: ["owner+test@example.com"] });
+    expect(r.json).not.toHaveProperty("notion.project");
+    expect((await (await connect("acme")).call("project_show")).json).toMatchObject({ error: "unavailable", retry: "no" });
+    expect((await (await connect(undefined, { config: cfg })).call("project_show")).json.error).toBe("unbound");
+  });
+  it("message_show (was inbound_show and mail_brand) gives from, subject, when, the Message-ID and the reply call; another project's message and account are refused", async () => {
+    const { call } = await connect("acme");
+    const r = await call("message_show", { inbound: ids.inbound });
+    expect(r.isError).toBe(false);
+    expect(r.json).toMatchObject({ project: "acme", inbound: ids.inbound, from: { name: "Mark Effect", email: "mark@example.com" }, subject: "Re: Wow", receivedAt: "2099-01-01T00:00:00.000Z", messageIdHeader: "in1@example.com", open: true, answer: null, reply: { draft_write: { kind: "reply", message: { inbound: ids.inbound } } } });
+    // No Mail in this test: the brand cannot be read from headers, and the result says so instead of guessing.
+    expect(r.json.brandReason).toMatch(/could not be read/);
+    const ann = await call("message_show", { inbound: ids.annInbound });
+    expect(ann.json).toMatchObject({ answer: { id: ids.ann, status: "ready" }, reply: { note: expect.stringContaining(`draft_write { kind: "revise", draft: ${ids.ann} }`) } });
+    expect(await call("message_show", { inbound: ids.otherInbound })).toMatchObject({ isError: true, json: { error: "not_found" } });
+    expect((await call("message_show", { message: { account: "hello@beta.example", mailbox_path: ["INBOX"], message_id: 1 } })).json.error).toBe("not_this_project");
+    expect((await call("message_show", {})).json.error).toBe("invalid");
+  });
+  it("knowledge_search and knowledge_get are the hub's, bound to the session's project: no project argument, another project's entry is not found (P129 A4)", async () => {
+    const { call } = await connect("acme");
+    const s = await call("knowledge_search", { query: "csv" });
+    expect(s.isError).toBe(false);
+    expect(s.json).toMatchObject({ project: "acme", results: [{ path: CSV, title: CSV_TITLE, use: "STATE", approved: true }] });
+    const g = await call("knowledge_get", { path: CSV });
+    expect(g.json).toMatchObject({ path: CSV, body: "Yes: /export.csv", truncated: false });
+    expect((await call("knowledge_get", { path: "knowledge/files/beta-only.md" })).json).toMatchObject({ error: "not_found", retry: "now" });
+    expect((await call("knowledge_search", { query: "beta only" })).json.results).toEqual([]);
+    expect((await call("knowledge_search", { query: "  " })).json.error).toBe("empty_query");
+    expect((await (await connect(undefined)).call("knowledge_search", { query: "csv" })).json.error).toBe("unbound");
   });
 
-  it("lists exactly the twelve tools: nine read-only (including project_links), highlight the pointer, draft_write the one Mail write, messenger_draft_write the one messenger write; none send-like", async () => {
+  it("lists exactly the thirteen tools: nine read-only (project_show, mail_list, message_show and the knowledge tools among them), highlight the pointer, draft_write the one Mail write, client_record the record of a client without a draft, messenger_draft_write the one messenger write; none send-like", async () => {
     const { client } = await connect("acme");
     const tools = (await client.listTools()).tools;
     expect(tools.map((t) => t.name).sort()).toEqual([...HUB_MCP_TOOLS].sort());
-    expect(HUB_MCP_TOOLS).toHaveLength(12);
-    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["draft_write", "highlight", "messenger_draft_write"]);
+    expect(HUB_MCP_TOOLS).toHaveLength(13);
+    expect(tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name).sort()).toEqual(["client_record", "draft_write", "highlight", "messenger_draft_write"]);
     expect(tools.filter((t) => SEND_LIKE_TOOL.test(t.name))).toEqual([]);
   });
 
@@ -241,15 +295,19 @@ describe("hub mcp", () => {
     expect(other).toMatchObject({ isError: true, json: { error: "not_found" } });
   });
 
-  it("client_show by id and by email, drafts_list for a view; unbound refuses", async () => {
+  it("client_show by id and by email, mail_list for a view (was drafts_list); unbound refuses", async () => {
     const { call } = await connect("acme");
     const byEmail = await call("client_show", { email: "ann@example.com" });
     expect(byEmail.json).toMatchObject({ name: "Ann", drafts: [{ id: ids.ann, status: "ready" }] });
     const byId = await call("client_show", { id: byEmail.json.id });
     expect(byId.json.email).toBe("ann@example.com");
     expect((await call("client_show", { email: "zed@example.com" })).isError).toBe(true);
-    const list = await call("drafts_list", { view: "ready" });
-    expect(list.json.drafts.map((r: { id: number }) => r.id).sort()).toEqual([ids.mark, ids.ann].sort());
+    const list = await call("mail_list", { view: "all" });
+    expect(list.isError).toBe(false);
+    expect(list.json).toMatchObject({ project: "acme", view: "all" });
+    expect(list.json.rows.map((r: { client: { email: string } }) => r.client.email).sort()).toEqual(["ann@example.com", "mark@example.com"]);
+    expect(list.json.rows.find((r: { client: { email: string } }) => r.client.email === "ann@example.com").draft).toMatchObject({ id: ids.ann, status: "ready" });
+    expect(JSON.stringify(list.json)).not.toContain("Zed Secret");
     const unbound = await connect(undefined);
     expect((await unbound.call("focus")).json.error).toBe("unbound");
   });

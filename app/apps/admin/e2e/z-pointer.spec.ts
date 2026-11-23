@@ -10,7 +10,8 @@ import { at, remember } from "./support";
 // text; Escape removes it and the outcome reaches the next focus post. A ref that is not on this screen is offered in the dock
 // ("Agent points at … · Show"); only the click navigates. While he types, a highlight does not scroll. Named z-* because it writes.
 
-const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
+// P129 A3: `hub record-draft` is gone (the agent records through draft_write); flows seed a draft row with the same writer.
+const seedDraft = fileURLToPath(new URL("../../installer/test/support/seed-draft.mjs", import.meta.url));
 const fakeAgent = fileURLToPath(new URL("../../../test-support/fake-agent.mjs", import.meta.url));
 const APP = fileURLToPath(new URL("../../..", import.meta.url));
 const PROJECTS = process.env.HUB_E2E_PROJECTS ?? "";
@@ -22,7 +23,7 @@ const pointerFile = join(HOME, "state", "pointer.json");
 const indexKb = () => execFileSync("pnpm", ["--filter", "@hub/knowledge", "knowledge", "--root", PROJECTS, "--db", process.env.HUB_E2E_DB ?? "", "index", "demo-shop"], { cwd: APP, stdio: "ignore", env: { ...process.env, HUB_HOME: HOME } });
 const highlight = (refs: string[], note?: string) => JSON.parse(execFileSync("node", [fakeAgent, "--highlight", JSON.stringify(refs), ...(note ? [note] : [])], { env, encoding: "utf8" })) as { highlight: { id: string; refs: string[] } };
 const outcome = () => (existsSync(focusFile) ? (JSON.parse(readFileSync(focusFile, "utf8")) as { focus: { pointer?: { id: string; outcome: string } } }).focus.pointer : undefined);
-const record = (payload: object) => JSON.parse(execFileSync("node", [hub, "record-draft", "--project", "demo-shop"], { env, input: JSON.stringify(payload), encoding: "utf8" })) as { draftId: number };
+const record = (payload: object) => JSON.parse(execFileSync("node", [seedDraft, "--project", "demo-shop"], { env, input: JSON.stringify(payload), encoding: "utf8" })) as { draftId: number };
 // Entry rows only: since P74 each topic is its own tbody whose first row is the heading (no td).
 const rows = (page: Page) => page.getByRole("table", { name: "Knowledge entries" }).locator("tbody tr[data-entry]");
 const ring = (page: Page) => page.locator("[data-spotlight]");

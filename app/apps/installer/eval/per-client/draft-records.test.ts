@@ -2,15 +2,16 @@ import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { recordDraftCall } from "@hub/agent/records/draft";
+import { draftRecord } from "@hub/agent/records/schema";
 import { replayCalls, type LedgerEntry } from "@hub/projects";
+import { appendLine, sessionFile } from "@hub/projects/evidence-store";
 import { batchCheck } from "../../src/batch-check";
-import { appendLine, sessionFile } from "../../src/evidence-store";
-import { recordDraft } from "../../src/record-draft";
 import { anyRecipients } from "../../test/instance-fixture";
-import { carefulSteps, contextFor, recordFor, replyFor, templateLoopSteps } from "./scenario";
+import { carefulSteps, contextFor, templateLoopSteps, writeFor } from "./scenario";
 import { DRAFTED, FIXTURE_PROJECT } from "./fixture";
 
-// Tier 1 on the whole fixture: 17 careful drafts through record-draft with a replayed ledger, then batch-check.
+// Tier 1 on the whole fixture: 17 careful drafts recorded by draft_write's writer against a replayed ledger, then batch-check.
 const PROJECTS = path.join(import.meta.dirname, "fixture", "projects");
 const POLICY = anyRecipients(mkdtempSync(path.join(tmpdir(), "hub-eval-policy-")), FIXTURE_PROJECT);
 const setup = () => {
@@ -23,19 +24,19 @@ const feed = (root: string, steps: ReturnType<typeof carefulSteps>) => {
   replayCalls(steps.map((s) => ({ name: s.name, input: s.input, result: s.result })), e, []);
   e.forEach((x) => appendLine(sessionFile(root, FIXTURE_PROJECT, "S"), { sid: "S", ...x }));
 };
+const env = (s: ReturnType<typeof setup>, now = "2026-11-16T09:00:00Z") => ({ dbPath: s.db, projectsDir: PROJECTS, policyDir: POLICY, ledgerRoot: s.root, attempts: 1, now: () => new Date(now) });
+/** What draft_write records after Mail saved the reply: the call's `record`, as the tool parses it, for the message it answered. */
 const record = (s: ReturnType<typeof setup>, c: (typeof DRAFTED)[number], ctx: unknown) => {
-  const step = recordFor(c, ctx);
-  const json = /echo '(.*)' \|/.exec(String((step.input as { command: string }).command))![1]!;
-  return recordDraft({ project: FIXTURE_PROJECT, payload: json, dbPath: s.db, projectsDir: PROJECTS, policyDir: POLICY, ledgerRoot: s.root, attempts: 1, now: () => new Date("2026-11-16T09:00:00Z") });
+  const step = writeFor(c, ctx);
+  return recordDraftCall({ project: FIXTURE_PROJECT, email: c.email, subject: "Re: your property", mailRef: `m${c.ids[0]}@clients.example`, ownerRequest: null, ownerVerified: false, record: draftRecord.parse(step.input.record) }, env(s));
 };
 
-describe("per-client record-draft on the 20-client fixture (E2)", () => {
+describe("per-client draft records on the 20-client fixture (E2)", () => {
   it("17 careful drafts are observed, ok, and the batch is green", async () => {
     const s = setup();
     for (const c of DRAFTED) {
-      feed(s.root, carefulSteps(c).filter((x) => x.name !== "Bash"));
-      const r = JSON.parse((await record(s, c, contextFor(c))).line);
-      expect(r, c.email).toMatchObject({ ok: true, source: "observed", evidence: c.shape === "stale-profile" ? "weak" : "ok" });
+      feed(s.root, carefulSteps(c));
+      expect(await record(s, c, contextFor(c)), c.email).toMatchObject({ ok: true, source: "observed", evidence: c.shape === "stale-profile" ? "weak" : "ok" });
     }
     const rep = batchCheck(s.root, FIXTURE_PROJECT, "bulk-fixture-1");
     expect(rep.counts.total).toBe(17);
@@ -48,7 +49,7 @@ describe("per-client record-draft on the 20-client fixture (E2)", () => {
     const s = setup();
     const four = DRAFTED.slice(0, 4);
     for (const c of four) {
-      feed(s.root, templateLoopSteps([c]).filter((x) => x.name !== "Bash"));
+      feed(s.root, templateLoopSteps([c]));
       await record(s, c, contextFor(c));
     }
     const rep = batchCheck(s.root, FIXTURE_PROJECT, "bulk-fixture-1");
@@ -59,8 +60,6 @@ describe("per-client record-draft on the 20-client fixture (E2)", () => {
   it("a draft with no ledger and no context is evidence missing", async () => {
     const s = setup();
     const c = DRAFTED[0]!;
-    const r = JSON.parse((await recordDraft({ project: FIXTURE_PROJECT, payload: JSON.stringify({ email: c.email, subject: "s", mailRef: "<m>" }), dbPath: s.db, projectsDir: PROJECTS, policyDir: POLICY, ledgerRoot: s.root, attempts: 1, now: () => new Date("2026-11-16") })).line);
-    expect(r).toMatchObject({ evidence: "missing" });
-    void replyFor;
+    expect(await recordDraftCall({ project: FIXTURE_PROJECT, email: c.email, subject: "s", mailRef: "<m>", ownerRequest: null, ownerVerified: false, record: draftRecord.parse({}) }, env(s, "2026-11-16T00:00:00Z"))).toMatchObject({ evidence: "missing" });
   });
 });

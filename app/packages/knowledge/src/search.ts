@@ -1,4 +1,4 @@
-// The tool contract of doc 16 section 5, as plain functions. The MCP server only adapts these.
+// The tool contract of doc 16 section 5, as plain functions. `hub mcp` (`@hub/agent`, P129 A4) adapts these, bound to the session's project.
 import { HubError, type ErrorKind } from "@hub/config/errors";
 import { RepoError, type Repos } from "@hub/db";
 import { ANY_BRAND } from "@hub/projects/brand";
@@ -30,7 +30,7 @@ export interface SearchArgs {
   project: string;
   query: string;
   audience?: string | undefined;
-  /** P60: required in a `knowledge.scope by-brand` project (the brand `mail_brand` gave, or `ANY` for an unbranded mail); ignored in a `shared` one. */
+  /** P60: required in a `knowledge.scope by-brand` project (the brand `message_show` gave, or `ANY` for an unbranded mail); ignored in a `shared` one. */
   brand?: string | undefined;
   limit?: number | undefined;
   include?: "approved" | "all" | undefined;
@@ -122,7 +122,7 @@ async function brandFilter(repos: Repos, project: string, brand: string | undefi
   const parsed = ProjectBase.safeParse(JSON.parse(row.settingsJson));
   if (!parsed.success || parsed.data.knowledge.scope !== "by-brand") return undefined;
   const names = parsed.data.brands.map((b) => b.name);
-  if (!brand?.trim()) throw new ToolError("brand_required", `brand_required: project "${project}" keeps each brand's facts apart (knowledge.scope by-brand): pass brand = the brand mail_brand gave (${names.join(", ")}), or ${ANY_BRAND} for a mail with no brand`);
+  if (!brand?.trim()) throw new ToolError("brand_required", `brand_required: project "${project}" keeps each brand's facts apart (knowledge.scope by-brand): pass brand = the brand message_show gave (${names.join(", ")}), or ${ANY_BRAND} for a mail with no brand`);
   if (brand.trim() === ANY_BRAND) return ANY_BRAND;
   const hit = names.find((n) => n.toLowerCase() === brand.trim().toLowerCase());
   if (!hit) throw new ToolError("unknown_brand", `unknown_brand: "${brand}" is not a brand of "${project}" (${names.join(", ")}, or ${ANY_BRAND})`);

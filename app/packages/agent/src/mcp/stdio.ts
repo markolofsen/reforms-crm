@@ -8,13 +8,15 @@ import { mailAppDraftWriter } from "../mail";
 import type { NotionClientCheck, RevisionRecord, VersionRecord } from "./ports";
 import { createHubMcpServer } from "./server";
 import type { WithRepos } from "../mail/write-log";
-import { notionScopeOf } from "../notion-scope";
 import { httpAgentSend } from "../messenger/send-tool";
 import { readAgentSendToken } from "../messenger/send-token";
+import { ownerWordsFound } from "../messenger/owner-word";
+import { OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
+import { logStoreOf, readEvents } from "@hub/log/store";
 
 /**
  * `hub mcp`: the hub's MCP server on stdio (P51, P52). Env: `HUB_HOME`, `HUB_PROJECT` (every tool refuses without it),
- * `HUB_DB` optional. The database is opened read-only (a `draft_write` bumps the live counter, P53, records the Mail version it saved, P65, and records a revision of an open hub draft in place, each on its own short connection); the one Mail write is `draft_write` (an unsent draft, through Mail's
+ * `HUB_DB` optional. The database is opened read-only (the knowledge index too, P129 A4) (a `draft_write` bumps the live counter, P53, records the Mail version it saved, P65, and records a revision of an open hub draft in place, each on its own short connection); the one Mail write is `draft_write` (an unsent draft, through Mail's
  * scripting from this process, outside the agent's sandbox). Nothing but the protocol may reach stdout.
  */
 export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise<void> {
@@ -24,8 +26,8 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
     const c = loadProject(paths.projects, slug).parsed.config;
     return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages }, messengers: c.messengers };
   };
-  const projectNotion = (slug: string) => notionScopeOf(slug, loadProject(paths.projects, slug).parsed.config);
-  const projectLinks = (slug: string) => loadProject(paths.projects, slug).parsed.config.links;
+  // P129 verdict 5: what `project_show` returns a slice of, with the send policy applied (read per call: it may change).
+  const projectConfig = (slug: string) => loadProject(paths.projects, slug, { policyDir: paths.stateProjects }).parsed.config;
   // A revision the writer saved is recorded in place on a short write connection, closed at once (the tools' handle stays read-only).
   const recordRevision = async (slug: string, draftId: number, r: RevisionRecord) => {
     const w = openDb(paths.db);
@@ -84,7 +86,15 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   // Decision 0046: `messenger_send` exists only in an attended instance (read at start; the server refuses an unattended one anyway).
   const attended = !instanceFeatures(paths).agent.unattended;
   const agentSend = attended ? { agentSend: httpAgentSend({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) }) } : {};
-  const server = createHubMcpServer(leadRepos, { ...agentSend, clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectNotion, projectLinks, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  // P129 A3: draft_write and client_record record on their own short write connection (decision 0045 point 10).
+  const records = { dbPath: paths.db, projectsDir: paths.projects, policyDir: paths.stateProjects, configFile: paths.configFile, ledgerRoot: env.HUB_LEDGER_ROOT ?? paths.home };
+  // P129 verdict 7: the owner's words are looked up in this project's session log (the prompt hook writes every prompt).
+  const ownerWords = (slug: string, words: string): boolean => {
+    const now = new Date();
+    const since = new Date(now.getTime() - OWNER_WORD_MAX_AGE_HOURS * 3_600_000).toISOString();
+    return ownerWordsFound({ events: readEvents(logStoreOf(paths), { project: slug, kinds: ["prompt"], since }), words, now }).ok;
+  };
+  const server = createHubMcpServer(leadRepos, { ...agentSend, records, ownerWords, clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

@@ -50,7 +50,7 @@ export const clientDto = z.object({
   marks: z.array(z.enum(MARKS)),
 });
 
-/** What a recorded draft was based on (P28): the evidence block `hub record-draft` judged and stored. No reply text, only short excerpts of the incoming thread. */
+/** What a recorded draft was based on (P28): the evidence block the draft record (`draft_write`) judged and stored. No reply text, only short excerpts of the incoming thread. */
 export const basedOnDto = z.object({
   level: z.enum(EVIDENCE_LEVELS),
   source: z.enum(EVIDENCE_SOURCES).nullable(),
@@ -103,7 +103,7 @@ export const reviewDraftDto = z.object({
   /** True while Checked is refused: the server's own gate, so the screen never re-derives it. */
   blocked: z.boolean(),
   canUndo: z.boolean(),
-  /** Set by `hub record-draft` when the mail it answers looked like an injection: the hub never sends such a draft. */
+  /** Set by the draft record (`draft_write`) when the mail it answers looked like an injection: the hub never sends such a draft. */
   injectionSuspected: z.boolean(),
   /** What the draft was based on; null on a draft with no evidence block (older rows, batch drafts). */
   basedOn: basedOnDto.nullable(),
@@ -134,7 +134,7 @@ export const reviewDraftDto = z.object({
 });
 export type ReviewDraftDto = z.infer<typeof reviewDraftDto>;
 
-/** One client the agent touched in a triage (`hub record-client` / `record-draft`). No mail text: the body is read from Mail on demand. */
+/** One client the agent touched in a triage (`client_record` / `draft_write`). No mail text: the body is read from Mail on demand. */
 export const inboxRowDto = z.object({
   id: z.number(),
   email: z.string(),

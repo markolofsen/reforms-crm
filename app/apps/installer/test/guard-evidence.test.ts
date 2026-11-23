@@ -5,9 +5,11 @@ import { describe, expect, it } from "vitest";
 import { pathsAt } from "@hub/config/paths";
 import { createRepos, openDb } from "@hub/db";
 import { runGuard, runGuardPost, writeSessionFiles } from "../src/safety";
-import { sessionFile } from "../src/evidence-store";
+import { sessionFile } from "@hub/projects/evidence-store";
+import { appendEvents, logStoreOf } from "@hub/log/store";
+import { isDraftWrite } from "@hub/projects";
 import { CLIENTS } from "../eval/per-client/fixture";
-import { carefulSteps, lazySteps, replyFor } from "../eval/per-client/scenario";
+import { carefulSteps, contextFor, lazySteps, replyFor, writeFor } from "../eval/per-client/scenario";
 
 // B3: the evidence ledger by hook, and the pre-draft rule of `hub guard`, driven by scripted call lists (what the hooks
 // receive: tool_name, tool_input, tool_response, session_id, agent_id). No Claude session, no mail.
@@ -27,7 +29,8 @@ const mk = (mode: "warn" | "block") => {
   };
   return { root, feed };
 };
-const replies = (r: ReturnType<ReturnType<typeof mk>["feed"]>) => r.filter((x) => x.tool.endsWith("create_reply"));
+/** The draft writes of a feed: mail-mcp's create_reply (older sessions) and the hub's draft_write (P129 A3: the careful steps). */
+const replies = (r: ReturnType<ReturnType<typeof mk>["feed"]>) => r.filter((x) => isDraftWrite(x.tool));
 
 describe("hub guard evidence ledger and pre-draft check (B3)", () => {
   it("the session file registers a PostToolUse hook for `hub guard --post`", () => {
@@ -53,9 +56,21 @@ describe("hub guard evidence ledger and pre-draft check (B3)", () => {
     expect(b[0]!.stderr).toContain("(d)");
   });
 
+  it("P129 verdict 7: a draft on the owner's own words, found in this project's session log, is not asked for the thread first", () => {
+    const g = mk("block");
+    const draft = (owner_request?: string) => ({ name: "mcp__hub__draft_write", input: { kind: "reply", message: { account: "desk@fixture-pc.example", mailbox_path: ["INBOX"], message_id: 1 }, content: "Парус", ...(owner_request ? { owner_request } : {}), record: { skill: "triage-mail", notion: { kind: "none" } } }, result: {} });
+    // No words in the log yet: the evidence rule asks for the chain, and block mode refuses.
+    expect(g.feed([draft("Подготовь какой-нибудь ответ в виде стишка")])[0]?.code).toBe(2);
+    appendEvents(logStoreOf(pathsAt(g.root)), [{ project: "fixture-pc", session: "S1", cli: "claude", kind: "prompt", data: { text: "Подготовь какой-нибудь ответ в виде стишка" } }]);
+    expect(g.feed([draft("Подготовь какой-нибудь ответ в виде стишка")])[0]).toMatchObject({ code: 0, stderr: "" });
+    // His words, but not as he typed them (a translation): the chain is asked for again.
+    expect(g.feed([draft("prepare a reply as a poem")])[0]?.code).toBe(2);
+    expect(g.feed([draft()])[0]?.code).toBe(2);
+  });
+
   it("the careful sequence passes in block mode, for three clients one after the other", () => {
     const g = mk("block");
-    const r = g.feed(CLIENTS.slice(0, 3).flatMap((c) => carefulSteps(c).filter((s) => s.name !== "Bash")));
+    const r = g.feed(CLIENTS.slice(0, 3).flatMap((c) => carefulSteps(c)));
     expect(r.every((x) => x.code === 0), JSON.stringify(r.filter((x) => x.code))).toBe(true);
   });
 
@@ -63,23 +78,23 @@ describe("hub guard evidence ledger and pre-draft check (B3)", () => {
     const g = mk("block");
     const c = CLIENTS[4]!;
     expect(c.found).toBe(0);
-    expect(g.feed(carefulSteps(c).filter((s) => s.name !== "Bash")).every((x) => x.code === 0)).toBe(true);
+    expect(g.feed(carefulSteps(c)).every((x) => x.code === 0)).toBe(true);
   });
 
   it("subagents are keyed by agent_id: reads of one do not license another's reply", () => {
     const g = mk("block");
     const [a, b] = [CLIENTS[0]!, CLIENTS[1]!];
-    expect(g.feed(carefulSteps(a).filter((s) => s.name !== "Bash"), "A1").every((x) => x.code === 0)).toBe(true);
+    expect(g.feed(carefulSteps(a), "A1").every((x) => x.code === 0)).toBe(true);
     expect(replies(g.feed([replyFor(b)], "A2"))[0]!.code).toBe(2);
-    expect(g.feed(carefulSteps(b).filter((s) => s.name !== "Bash"), "A3").every((x) => x.code === 0)).toBe(true);
+    expect(g.feed(carefulSteps(b), "A3").every((x) => x.code === 0)).toBe(true);
   });
 
   it("a name-swapped copy of an earlier reply is caught at the moment it would be created", () => {
     const g = mk("block");
     const [a, b] = [CLIENTS[0]!, CLIENTS[1]!];
     const body = (n: string) => `Hi ${n},\n\nThank you for your message and for your patience. We have received your question and our team is reviewing the details of your property now. We will come back to you in the next few days with the information you need, and please contact us if anything changes in the meantime.\n\nKind regards, the desk`;
-    g.feed(carefulSteps(a).filter((s) => s.name !== "Bash").map((s) => (s.name.endsWith("create_reply") ? replyFor(a, body("Anna")) : s)));
-    const r = g.feed(carefulSteps(b).filter((s) => s.name !== "Bash").map((s) => (s.name.endsWith("create_reply") ? replyFor(b, body("Boris")) : s)));
+    g.feed(carefulSteps(a).map((s) => (isDraftWrite(s.name) ? writeFor(a, contextFor(a), body("Anna")) : s)));
+    const r = g.feed(carefulSteps(b).map((s) => (isDraftWrite(s.name) ? writeFor(b, contextFor(b), body("Boris")) : s)));
     expect(replies(r)[0]!.code).toBe(2);
     expect(replies(r)[0]!.stderr).toContain("near-copy");
   });
@@ -97,7 +112,7 @@ describe("hub guard evidence ledger and pre-draft check (B3)", () => {
     const read = base("mcp__mail-mcp__get_message_content", { account: "hello@reforms.example", mailboxPath: ["INBOX"], message_id: 138994 });
     runGuard(JSON.stringify(read), { root: g.root, projectsDir: PROJECTS, env });
     runGuardPost(JSON.stringify({ ...read, tool_response: [{ type: "text", text: JSON.stringify({ id: 138994, sender: `Mark Effect <${client}>`, dateReceived: "2026-11-14T06:27:03.000Z", content: "Hello, a new request" }) }] }), { root: g.root, env });
-    const w = runGuard(JSON.stringify(base("mcp__hub__draft_write", { draft: draftId, content: "Короткий ответ стихами о новом запросе." })), { root: g.root, projectsDir: PROJECTS, env });
+    const w = runGuard(JSON.stringify(base("mcp__hub__draft_write", { kind: "revise", draft: draftId, content: "Короткий ответ стихами о новом запросе." })), { root: g.root, projectsDir: PROJECTS, env });
     expect(w.code).toBe(0);
     expect(w.stderr).toContain("the message being answered (138994) was read");
     expect(w.stderr).not.toContain("(a)");
@@ -109,11 +124,13 @@ describe("hub guard evidence ledger and pre-draft check (B3)", () => {
   it("the ledger holds no body text", () => {
     const g = mk("warn");
     const c = CLIENTS[0]!;
-    g.feed(carefulSteps(c).filter((s) => s.name !== "Bash"));
+    g.feed(carefulSteps(c));
     const text = readFileSync(sessionFile(g.root, "fixture-pc", "S1"), "utf8");
     expect(text).not.toContain("Thank you for writing");
     expect(text).not.toContain("thread text about");
-    expect(text).toContain("create_reply");
+    expect(text).toContain('"tool":"draft_write"');
+    // nor the record the draft carried: the claim is read from the call, never copied into the ledger
+    expect(text).not.toContain("personalization");
   });
 
   it("an unbound or malformed call never throws", () => {

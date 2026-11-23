@@ -49,10 +49,8 @@ const claudeTurn = (): LogEvent[] => [
   call("03:31:13.572", "mcp__hub__draft_write", { draft: 1, content: { body: { sha256: "230c", chars: 30 } } }, "t5"),
   ev("03:31:13.572", "guard", { mode: "warn", tool: "mcp__hub__draft_write", violations: [`read this client's thread first: ${EMAIL}`] }, { corr: "t5" }),
   result("03:31:20.345", "mcp__hub__draft_write", `{"draftId":139779,"thread":"${MAILREF}"}`, "t5"),
-  call("03:31:26.118", "Bash", { command: `hub record-draft --project saas-support --mailRef "${MAILREF}"` }, "t6"),
-  ev("03:31:31.779", "tool_error", { tool: "Bash", error: "unknown option '--mailRef'" }, { corr: "t6" }),
-  call("03:31:43.726", "Bash", { command: `echo '{"email":"${EMAIL}","mailRef":"${MAILREF}"}' | hub record-draft --project saas-support` }, "t7"),
-  result("03:31:46.730", "Bash", "{\"stdout\":\"{\\\"ok\\\":true,\\\"clientId\\\":1,\\\"draftId\\\":1,\\\"action\\\":\\\"updated\\\"}\"}", "t7"),
+  call("03:31:26.118", "Bash", { command: `ls ${MAILREF}` }, "t6"),
+  result("03:31:27.000", "Bash", "{\"stdout\":\"\"}", "t6"),
   ev("03:31:49.390", "answer", { text: "Готово. Черновик обновлён. Не отправлено." }),
 ];
 
@@ -67,7 +65,7 @@ describe("the feed (P59 F1)", () => {
     const text = JSON.stringify(feedOf(placed, NOW));
     expect(text).not.toContain(EMAIL);
     expect(text).not.toContain(MAILREF);
-    expect(text).not.toContain("record-draft --project");
+    expect(text).not.toContain("ls ");
     expect(text).not.toMatch(/"(input|output|text|command)"/);
   });
 
@@ -136,16 +134,19 @@ describe("labels (table 4c)", () => {
     expect(l("ToolSearch")).toBeNull();
     expect(l("mcp__hub__focus")).toBeNull();
     expect(l("mcp__hub__draft_write", {})).toBe("writes a new draft");
-    expect(l("mcp__hub__drafts_list")).toBe("lists drafts");
+    expect(l("mcp__hub__mail_list")).toBe("lists mail");
+    expect(l("mcp__hub__project_show")).toBe("reads the project's settings");
+    expect(l("mcp__hub__message_show", { inbound: 3 })).toBe("reads a client's message");
     expect(l("mcp__hub__client_show", { email: EMAIL })).toBe("reads a client");
     expect(l("mcp__mail-mcp__find_messages", { query: EMAIL })).toBe("searches mail");
     expect(l("mcp__mail-mcp__list_mailboxes")).toBe("looks at mail accounts");
     expect(l("mcp__mail-mcp__get_selected_messages")).toBe("mcp__mail-mcp__get_selected_messages");
-    expect(l("mcp__knowledge-mcp__search")).toBe("reads the knowledge base");
+    expect(l("mcp__hub__knowledge_search", { query: "visa" })).toBe("reads the knowledge base");
+    expect(l("mcp__hub__knowledge_get", { path: "knowledge/files/a.md" })).toBe("reads the knowledge base");
     expect(l("mcp__notion__notion-fetch")).toBe("reads Notion");
     expect(l("mcp__notion__notion-update-page")).toBe("updates Notion");
     expect(l("mcp__claude_ai_Notion__notion-create-pages")).toBe("updates Notion");
-    expect(l("Bash", { command: "hub record-draft --help" })).toBe("runs a command");
+    expect(l("Bash", { command: "hub doctor --help" })).toBe("runs a command");
     expect(l("Bash", { command: "ls ~/mail" })).toBe("runs a command");
     expect(l("Read", { file_path: "/x" })).toBe("reads a file");
     expect(l("Edit", { file_path: "/x" })).toBe("edits a file");
@@ -154,8 +155,9 @@ describe("labels (table 4c)", () => {
     expect(l("exec", "await tools.mcp__hub__focus({})")).toBe("runs a script");
     expect(labelOfTool("exec", "await tools.mcp__hub__focus({})", undefined, true, ["mcp__hub__focus"])).toBeNull();
     expect(labelOfTool("exec", { code: { sha256: "a", chars: 9 } }, undefined, true, ["mcp__hub__draft_write"])).toMatchObject({ label: "writes a new draft", ready: true });
-    expect(labelOfTool("exec", "x = 1; // hub record-draft", "{\"ok\":true,\"draftId\":7}", true)?.label).toBe("runs a script");
-    expect(labelOfTool("exec_command", { cmd: ["bash", "-lc", "hub record-draft --project p"] }, "{\"ok\":true,\"draftId\":7}", true)).toMatchObject({ label: "records draft 7", draft: 7, ready: true });
+    // P129 A3: a reply or a new thread is recorded by draft_write itself; its row links the draft its result recorded.
+    expect(labelOfTool("mcp__hub__draft_write", { kind: "reply", content: { sha256: "a", chars: 9 } }, "{\"recorded\":true,\"record\":{\"draftId\":7,\"action\":\"created\"}}", true)).toMatchObject({ label: "writes draft 7", draft: 7, ready: true });
+    expect(l("mcp__hub__client_record", { email: EMAIL })).toBe("records a client");
     expect(l("SomeNewTool")).toBe("SomeNewTool");
   });
 });

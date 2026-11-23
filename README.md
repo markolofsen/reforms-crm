@@ -41,7 +41,7 @@ The instance root is `HUB_HOME`: `projects/`, `data/`, `state/` and `config/` li
 | `hub doctor [project]` | Read-only health table, each row printed as its step ends, with its time; `--only <step or group>` runs just those, `--fast` leaves the audit (backup, Agent) checks out, `--canary` adds the lead-form canaries; never fails on optional things |
 | `hub setup` | Idempotent install of folders, config, skills and the project registry (`./install.sh` runs it) |
 
-`hub` alone opens a menu of the same things; `./hub.sh` does the same from a core checkout without an install. Other commands are hidden from `--help` and each has `hub <name> --help`: among them `hub send policy` (the send policy, the one writer), `hub sequences` (follow-ups), `hub connections`, `hub token`, `hub backup`, `hub core update`, and the ones a session calls (`hub record-draft`, `hub record-client`, `hub mcp`, `hub focus`).
+`hub` alone opens a menu of the same things; `./hub.sh` does the same from a core checkout without an install. Other commands are hidden from `--help` and each has `hub <name> --help`: among them `hub send policy` (the send policy, the one writer), `hub sequences` (follow-ups), `hub connections`, `hub token`, `hub backup`, `hub core update`, and the ones a session calls (`draft_write`'s record and `client_record` (hub mcp), `hub mcp`, `hub focus`).
 
 ## Where things are
 
@@ -86,7 +86,7 @@ A new document takes the next free number in `@docs/core/` and a row here. Secre
 | Part | Where | Does |
 |---|---|---|
 | Skills | `skills/` (instructions, not code) | Tell an agent session what to do for what you ask; each instance links them into its own `.claude/skills/` (and the Codex home), generated and git-ignored |
-| `hub` CLI | `app/apps/installer` | Starts the agent (`hub agent`) and the admin (`hub up`), checks health (`hub doctor`), records what a session did (`hub record-draft`, `hub record-client`), serves the read-only `hub` MCP server (`hub mcp`) |
+| `hub` CLI | `app/apps/installer` | Starts the agent (`hub agent`) and the admin (`hub up`), checks health (`hub doctor`), records what a session did (`draft_write`'s record and `client_record` (hub mcp)), serves the read-only `hub` MCP server (`hub mcp`) |
 | Server | `app/apps/server`, 127.0.0.1:4317 | Owns `data/app.db`, the live stream, the confirmed Send (send policy and single-use ticket), Sent detection, the terminal's sessions, the shared focus, the optional Telegram poller |
 | Admin | `app/apps/admin`, 127.0.0.1:5173 | Drafts (the home), Activity, Project, Connections, Overview with two or more projects, and the terminal dock; talks only to the server |
 

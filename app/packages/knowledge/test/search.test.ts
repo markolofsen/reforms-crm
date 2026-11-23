@@ -1,7 +1,6 @@
-import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DbHandle, Repos } from "@hub/db";
-import { createKnowledgeServer, indexProject } from "../src/index";
+import { indexProject, knowledgeGet, knowledgeSearch, ToolError, type SearchArgs } from "../src/index";
 import { cleanup, copyRoot, openRegistered } from "./helpers";
 
 let handle: DbHandle;
@@ -17,33 +16,27 @@ afterEach(() => {
   cleanup();
 });
 
+// The tool contract of doc 16 section 5 as plain functions (P129 A4: the tools are `hub mcp`'s now, bound to the session's
+// project; their MCP side is tested in @hub/agent's knowledge-tools test). `call` answers like a tool: the value, or the refusal.
 async function connect(env: { hubProject?: string | undefined; today?: string }) {
-  const server = createKnowledgeServer(repos, { today: "2026-11-14", ...env });
-  const [a, b] = InMemoryTransport.createLinkedPair();
-  await server.connect(b);
-  const client = new Client({ name: "test", version: "0" });
-  await client.connect(a);
+  const e = { today: "2026-11-14", ...env };
   const call = async (name: string, args: Record<string, unknown>) => {
-    const res = await client.callTool({ name, arguments: args });
-    const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
-    return { isError: res.isError === true, json: JSON.parse(text) as Record<string, any>, structured: res.structuredContent as Record<string, any> | undefined };
+    try {
+      const json: Record<string, any> = name === "knowledge_search" ? await knowledgeSearch(repos, args as unknown as SearchArgs, e) : await knowledgeGet(repos, args as { project: string; path: string }, e);
+      return { isError: false, json, structured: json };
+    } catch (err) {
+      if (err instanceof ToolError) return { isError: true, json: { error: err.code, message: err.message } as Record<string, any>, structured: undefined };
+      throw err;
+    }
   };
-  return { client, call };
+  return { call };
 }
 
 describe("knowledge_search", () => {
-  it("lists the two tools with read-only annotations", async () => {
-    const { client } = await connect({ hubProject: "acme-travel" });
-    const tools = (await client.listTools()).tools;
-    expect(tools.map((t) => t.name).sort()).toEqual(["knowledge_get", "knowledge_search"]);
-    expect(tools.every((t) => t.annotations?.readOnlyHint === true)).toBe(true);
-  });
-
   it("returns the contract fields", async () => {
     const { call } = await connect({ hubProject: "acme-travel" });
     const r = await call("knowledge_search", { project: "acme-travel", query: "can I cancel my booking" });
     expect(r.isError).toBe(false);
-    expect(r.structured).toEqual(r.json);
     expect(Object.keys(r.json).sort()).toEqual(["project", "query", "results", "total", "truncated"]);
     expect(r.json.project).toBe("acme-travel");
     expect(r.json.results[0]).toMatchObject({ path: "knowledge/files/terms/cancel.md", title: "Cancellation policy", use: "STATE", approved: true, expired: false, audiences: ["ANY"], category: "TERMS", valid_until: null });
@@ -59,12 +52,6 @@ describe("knowledge_search", () => {
     expect(many.json.truncated).toBe(true);
     const two = await call("knowledge_search", { project: "acme-travel", query: "the and of to in for you can", limit: 2 });
     expect(two.json.results).toHaveLength(2);
-  });
-
-  it("rejects a limit outside 1..10 and a query over 300 characters", async () => {
-    const { client } = await connect({ hubProject: "acme-travel" });
-    await expect(client.callTool({ name: "knowledge_search", arguments: { project: "acme-travel", query: "x", limit: 11 } })).resolves.toMatchObject({ isError: true });
-    await expect(client.callTool({ name: "knowledge_search", arguments: { project: "acme-travel", query: "x".repeat(301) } })).resolves.toMatchObject({ isError: true });
   });
 
   it("project_mismatch when HUB_PROJECT and the argument differ", async () => {

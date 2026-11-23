@@ -27,7 +27,7 @@ export function insertEvent(tx: Tx, input: NewEvent): number {
 }
 
 /**
- * The run a `hub record-draft` / `record-client` call writes into: the one it names (of this project), else the run of its
+ * The run a `draft_write` / `client_record` call writes into: the one it names (of this project), else the run of its
  * session (same project and `batchKey`; its end moves to now), else a new one. So one session is one run.
  */
 export function sessionRun(tx: Pick<Db, "select" | "insert" | "update">, o: { project: string; runId?: number | null; batchKey?: string | null; skill?: string | null; at: string }): number {

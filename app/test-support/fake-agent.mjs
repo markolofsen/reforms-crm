@@ -2,17 +2,17 @@
 // A scripted agent for the e2e of the shared focus (P51 F6, P72): what a dock session does, minus the model and minus Mail.
 // It speaks MCP over stdio (newline-delimited JSON-RPC, no SDK).
 // - `fake-agent.mjs [text]` ("ответь этому клиенту"): asks `focus` and `draft_show` of `hub mcp`, then revises the focused
-//   draft (the focus's subject) through the one writer, `hub record-draft`, with the SAME mailRef.
+//   draft (the focus's subject) through draft_write's record writer (P129 A3: the e2e seeder, since `hub mcp` has no fake
+//   Mail here), with the SAME mailRef.
 // - `fake-agent.mjs --knowledge` ("ответь по этой записи"): asks `focus`, takes the pointed row, and reads it with the tool
-//   the focus names (`read`: knowledge-mcp `knowledge_get` with its path), never asking for a file name.
+//   the focus names (`read`: the hub's own `knowledge_get` with its path, P129 A4), never asking for a file name.
 // - `fake-agent.mjs --highlight '<refs as JSON>' [note]` ("покажи, где это"): calls `highlight` and prints its answer.
 // It never sends: there is no send tool to call and it calls none. Env: HUB_HOME, HUB_PROJECT, HUB_DB, HUB_PROJECTS. Prints one JSON line.
 import { execFileSync, spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const hub = fileURLToPath(new URL("../apps/installer/bin/hub.mjs", import.meta.url));
-const tsx = fileURLToPath(new URL("../packages/knowledge/node_modules/.bin/tsx", import.meta.url));
-const knowledgeBin = fileURLToPath(new URL("../packages/knowledge/src/mcp-bin.ts", import.meta.url));
+const seedDraft = fileURLToPath(new URL("../apps/installer/test/support/seed-draft.mjs", import.meta.url));
 const mode = process.argv[2] === "--knowledge" ? "knowledge" : process.argv[2] === "--highlight" ? "highlight" : "revise";
 const text = mode === "revise" ? (process.argv[2] ?? "I'm well, thanks — and here is the revised answer.") : "";
 
@@ -74,11 +74,8 @@ try {
   if (mode === "knowledge") {
     const it = focus.subject ?? focus.pointed;
     if (!it?.read) throw new Error("the focus names no entry with a read tool");
-    if (it.read.server !== "knowledge-mcp") throw new Error(`read by ${it.read.server}, not knowledge-mcp`);
-    const km = server(tsx, [knowledgeBin]);
-    open.push(km);
-    await km.start();
-    const got = await km.tool(it.read.tool, it.read.args);
+    if (it.read.server !== "hub") throw new Error(`read by ${it.read.server}, not the hub`);
+    const got = await hubMcp.tool(it.read.tool, it.read.args);
     console.log(JSON.stringify({ tools, focus: { route: focus.route, title: focus.title, ref: it.ref, entry: it.title, read: it.read }, got: { path: got.path, hasBody: typeof got.body === "string" && got.body.length > 0 } }));
   } else {
     // P99: in Mail the subject is the conversation (`client:<id>`); its read is the open draft's `draft_show`, which is "this draft".
@@ -87,7 +84,7 @@ try {
     if (!subject) throw new Error("no focused draft");
     const d = await hubMcp.tool("draft_show", { draft: subject });
     const payload = { email: d.client.email, name: d.client.name, subject: d.subject, mailRef: d.mailRef, to: d.to, reason: "Revised on the owner's request in the dock.", excerpt: text, repliesOwed: true, skill: "triage-mail" };
-    const out = execFileSync(process.execPath, [hub, "record-draft", "--project", process.env.HUB_PROJECT ?? ""], { input: JSON.stringify(payload), env: { ...process.env, NO_COLOR: "1" }, encoding: "utf8" });
+    const out = execFileSync(process.execPath, [seedDraft, "--project", process.env.HUB_PROJECT ?? ""], { input: JSON.stringify(payload), env: { ...process.env, NO_COLOR: "1" }, encoding: "utf8" });
     console.log(JSON.stringify({ tools, focused: subject, recorded: JSON.parse(out) }));
   }
 } catch (e) {

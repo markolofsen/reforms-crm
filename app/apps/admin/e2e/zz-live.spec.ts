@@ -10,7 +10,8 @@ import { at, cards, contextWarn } from "./support";
 // P50 L4: the admin updates by itself while an agent writes from another process. Named zz-* because it adds drafts
 // and restarts the API, so it runs after every other flow. The restarted API is the same command and environment as
 // the one `playwright.config.ts` starts, on the same throwaway database; it is stopped at the end.
-const hub = fileURLToPath(new URL("../../installer/bin/hub.mjs", import.meta.url));
+// P129 A3: `hub record-draft` is gone (the agent records through draft_write); flows seed a draft row with the same writer.
+const seedDraft = fileURLToPath(new URL("../../installer/test/support/seed-draft.mjs", import.meta.url));
 const server = fileURLToPath(new URL("../../server", import.meta.url));
 const API_PORT = Number(process.env.HUB_E2E_API_PORT ?? 4499);
 const HOME = process.env.HUB_E2E_HOME ?? "";
@@ -19,11 +20,11 @@ cpSync(fileURLToPath(new URL("../../../packages/projects/test/fixtures/projects/
 contextWarn(join(projects, "demo-shop", "project.md"));
 writeSendPolicy(HOME, "demo-shop");
 
-/** `hub record-draft` in its own process, as the agent runs it in a terminal: it writes the database file, never the API. */
+/** The e2e seeder in its own process (draft_write's writer): it writes the database file, never the API. */
 const record = (name: string) => {
   const slug = name.toLowerCase().replace(/\W+/g, "-");
   const draft = { email: `${slug}@example.com`, name, subject: `Re: ${name}`, mailRef: `<${slug}@example.com>`, reason: "Asked for a viewing.", repliesOwed: true, skill: "triage-mail" };
-  execFileSync("node", [hub, "record-draft", "--project", "demo-shop"], { input: JSON.stringify(draft), env: { ...process.env, HUB_HOME: HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" });
+  execFileSync("node", [seedDraft, "--project", "demo-shop"], { input: JSON.stringify(draft), env: { ...process.env, HUB_HOME: HOME, HUB_DB: process.env.HUB_E2E_DB, HUB_PROJECTS: projects, NO_COLOR: "1" }, encoding: "utf8" });
 };
 
 const apiUp = async () => fetch(`http://127.0.0.1:${API_PORT}/api/health`).then((r) => r.ok, () => false);

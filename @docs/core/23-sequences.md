@@ -37,7 +37,7 @@ One SQLite table, `enrollments` (migration 0016): project, client, sequence id, 
 
 What the admin shows (waiting, due, draft ready) is derived from those, never stored. Transitions are one table, `app/packages/sequences/src/transitions.ts`, tested case by case.
 
-- **A reply stops it.** Any record of the client by another skill (`triage-mail`, `bulk-drafts`, `hub record-client`) finishes the open enrollment as `replied`, except a record carrying the owner's words (`ownerRequest`, P85: a message on his initiative is not the client writing), and skips the open step draft in the same write. Crossed off: `excluded`. The do-not-contact mark: `opted_out`. A message dated at or before our anchor is not a reply.
+- **A reply stops it.** Any record of the client by another skill (`triage-mail`, `bulk-drafts`, `client_record`) finishes the open enrollment as `replied`, except a record carrying the owner's words (`ownerRequest`, P85: a message on his initiative is not the client writing), and skips the open step draft in the same write. Crossed off: `excluded`. The do-not-contact mark: `opted_out`. A message dated at or before our anchor is not a reply.
 - **A step moves it.** A step draft that becomes done, skipped or sent advances the enrollment once (sent: Sent detection finds it in the project's Sent mailbox in Apple Mail, which needs Mail running; otherwise the owner's Done moves it, decision 0026); Undo or Reopen moves it back. The last step finishes it as `completed`.
 - **Not now** writes a finished row for this silence, so the client is not offered again until we write again.
 

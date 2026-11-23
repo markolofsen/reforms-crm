@@ -1,7 +1,7 @@
 ---
 name: kb-review
 description: Use when the owner wants to know what the knowledge base of one project is missing, judged from the gaps that past runs saved. Produces a ranked list of concrete fixes with draft text and a local summary. Never reads Notion and never approves or edits a knowledge entry itself. Unlike knowledge-import, which loads files into the base, this only recommends what to write.
-allowed-tools: Read Write Bash mcp__knowledge-mcp__knowledge_search mcp__knowledge-mcp__knowledge_get
+allowed-tools: Read Write Bash mcp__hub__knowledge_search mcp__hub__knowledge_get
 ---
 
 # KB review (manual, one project)
