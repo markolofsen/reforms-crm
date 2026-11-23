@@ -34,9 +34,12 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
   await expect(page.getByRole("menuitemradio")).toHaveText([/Needs you\s*4/, /Linked\s*2/, /Not linked\s*4/, /Hidden\s*1/]);
   await page.getByRole("menuitemradio", { name: /Not linked/ }).click();
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=unlinked");
-  // Not linked keeps the chat of any age, which To do dropped.
-  await expect(fresh(page).getByRole("listitem")).toHaveText([/Tomas Viera/, /Joana/, /Delivery bot fan/, /Old Olga/]);
-  await expect(page.getByText("4 chats the Hub has seen since it started (any age) are not linked to a client: link or hide each.")).toBeVisible();
+  // P128 X5: Not linked lists the last 14 days; the 20-day-old chat is one line, and a search still finds it.
+  await expect(fresh(page).getByRole("listitem")).toHaveText([/Tomas Viera/, /Joana/, /Delivery bot fan/]);
+  await expect(page.getByText("3 chats the Hub has seen since it started (any age) are not linked to a client: link or hide each.")).toBeVisible();
+  await expect(page.getByTestId("not-linked-older")).toHaveText("and 1 older, untouched. Search finds them.");
+  await page.getByRole("searchbox", { name: "Search chats" }).fill("Olga");
+  await expect(fresh(page).getByRole("listitem")).toHaveText([/Old Olga/]);
 });
 
 test("chats: the channel is a sidebar child of Messengers (P125 L5), kept in the address with the view; the header has no channel control", async ({ page }) => {
