@@ -9,7 +9,7 @@
       "dependsOn": ["^build"],
       "env": ["HUB_PORT", "HUB_NEXT_DIST", "HUB_NEXT_ROOT"],
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/packages/contract/**", "$TURBO_ROOT$/packages/config/**", "$TURBO_ROOT$/packages/ui/**"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "outputs": ["dist/**", ".next/**", "storybook-static/**", "!.next/cache/**"]
     },
     "start": { "dependsOn": ["build"], "cache": false, "persistent": true }
   }

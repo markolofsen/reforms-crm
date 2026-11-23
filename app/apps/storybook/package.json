@@ -1,0 +1,31 @@
+{
+  "name": "@hub/storybook",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "storybook dev -p ${STORYBOOK_PORT:-6006}",
+    "storybook": "storybook dev -p ${STORYBOOK_PORT:-6006}",
+    "build": "storybook build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hub/ui": "workspace:*",
+    "lucide-react": "1.73.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@hub/config": "workspace:*",
+    "@storybook/addon-a11y": "10.6.8",
+    "@storybook/addon-docs": "10.6.8",
+    "@storybook/react-vite": "10.6.8",
+    "@tailwindcss/postcss": "4.3.5",
+    "@types/node": "catalog:",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "storybook": "10.6.8",
+    "tailwindcss": "4.3.5",
+    "typescript": "catalog:",
+    "vite": "8.3.8"
+  }
+}
