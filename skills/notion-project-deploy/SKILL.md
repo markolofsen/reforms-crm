@@ -18,7 +18,7 @@ Talk to the owner in Russian, briefly; every file and every Notion page you crea
 2. **Never touch rows.** No page is created in a deployed database, no property of an existing row is changed. Only structure (databases, properties, options, relations, views) and the Help pages.
 3. **Nothing in the owner's live CRM is a target.** The parent is the project's own teamspace page, or a scratch page the owner names. A project whose `project.md` already lists databases is a verify run, not a deploy.
 4. **Dry run first, always.** Create nothing until the owner says go to the printed plan, except in a setup run where the owner already said "deploy" for this project (the go still covers only the printed plan; a changed plan needs a new go).
-5. **One session, one project** (`skills/README.md` Rules, item 2): work only for the project named in the phrase or `$HUB_PROJECT`; asked for a second one, refuse and say to start `hub agent <other>`.
+5. **One session, one project** (the binding prompt): work only for the project named in the phrase or `$HUB_PROJECT`; asked for a second one, refuse and say to start `hub agent <other>`.
 6. Add only: a property, an option, a relation, a view. Never change a property's type or remove an option.
 
 ## Inputs
@@ -66,15 +66,7 @@ Differs, will not change: Leads.Status is type "status" (stays)
 Every skipped item names the trap number from `10-api-traps.md`. Order of creation: `01-modules.md`.
 
 ## Step 3: apply (only after go; sequential, one database at a time)
-
-1. **Probe**: create one scratch page `Deploy check {{deploy_id}}` under the parent; fetch it back. If it fails, stop. Leave it (rule 1: the owner deletes it).
-2. **Databases without relations**, in the order of `01-modules.md`. For each: `notion-create-database` with title (emoji icon as in the knowledge file), every property of the module file with type, select/multi_select options (the full list, trap 5), and for every property a **description starting with its writer** (`00-principles.md`). Where the property's `note` in `schema/<db>.json` gives `Description: "..."`, use that text word for word (Clients `Telegram` and `WhatsApp`: the Hub's messenger autolink reads them, `@docs/notion/README.md`). Types: `Status` is created as a real `STATUS` with its groups (trap 1, outdated); formulas: same-database ones only (trap 2). Relations: add ONE side of a self-relation (trap 14). Put `deploy-id: <slug>/<db>` as the first line of the database description. Record the **data source id** at once: write it under `## Notion databases` of `project.md` before any update of it (P82: once the project lists databases, the guard refuses `notion-update-data-source` and view changes on a data source the list does not hold). Then `notion-fetch` the data source and compare with what you asked: a missing option is added with `notion-update-data-source`.
-3. **Relations**, second pass, once both ends exist: add each relation property with `notion-update-data-source`, with the target data source id; two-way where the file says so; limit 1 on the "belongs to one" side. Fetch back and check the reverse property exists.
-4. **Formulas and rollups** that need Tasks: rollups through the relation if the API accepts them; cross-database formulas skipped (trap 2).
-5. **Views**: for each database `notion-fetch` the data source, take the property ids, build each view from `views/<db>.json` with the name-based view DSL (trap 6, outdated) — `NOT IN` is refused, use `!=` pairs; the default view is renamed and becomes the first working list. Read the created view back.
-6. **Help pages** (`09-help-pack.md`): create `📘 Help`, then `CRM overview`, `Modules`, `Guides` and the module pages of the deployed modules, then the guides; fill placeholders; module Fields and Views tables are generated from the knowledge files of the modules deployed. Link database mentions with the live urls.
-7. **Write back to `project.md`** after every database (not at the end): the data source id under `## Notion databases` (`- <slug>: <id>`), `notion.teamspace`, and a row in `## Answers` for each decision (date, field, question, answer). Keep the file parsable: do not add `- key: value` items elsewhere. Stage only `projects/<slug>/project.md`.
-8. If a step fails: stop, write what exists to project.md, report the failed step and the exact error. Do not retry a create twice (a duplicate database is worse than a missing one): re-run the inventory first.
+Probe, databases without relations, relations, formulas and rollups, views, Help pages, and the write-back to `project.md` after every database: `references/apply.md`, in that order.
 
 ## Step 4: after the creation (verify)
 
@@ -88,14 +80,5 @@ Every skipped item names the trap number from `10-api-traps.md`. Order of creati
 
 Created / existed / differs / skipped (with trap numbers); data source ids written; the sentence "re-share the teamspace with the integration" until the owner confirms it; next step (`project-setup` continues, or the owner reviews).
 
-## Trap checklist (every run, copy into the working notes and tick)
-
-- [ ] Parent `in_trash` checked before anything (trap 4).
-- [ ] Status columns are `status` properties (trap 1); the DDL differences of trap 15 are listed as `differs`.
-- [ ] Cross-database formulas skipped with a caveat in the report, not patched one by one (trap 2).
-- [ ] A moved or re-created database loses its grant: teamspace re-shared, one row read (trap 3).
-- [ ] Select and multi_select options passed in full and read back; missing ones added with `notion-update-data-source` (trap 5).
-- [ ] View filters built from property ids fetched in this run (trap 6).
-- [ ] Sequential creates, one retry policy, no duplicate on retry (trap 10).
-- [ ] `project.md` lists data source ids, not database ids (trap 11).
-- [ ] Nothing deleted, nothing moved, no row touched.
+## Trap checklist
+Every run: copy `references/traps.md` into the working notes and tick each item.

@@ -18,7 +18,7 @@ The email and what the knowledge base says about services and prices.
 
 ### Steps
 
-1. Search the knowledge base for services, process and any price statement (`knowledge_search`, `project` = this project). Use only entries with `use: STATE`, `approved: true`, `expired: false` and audience LEAD or ANY (or the sender's audience).
+1. Search the knowledge base for services, process and any price statement (`knowledge_search`, hub). Use only entries with `use: STATE`, `approved: true`, `expired: false` and audience LEAD or ANY (or the sender's audience).
 2. List what is missing to quote: market, scope, timing, budget range, who decides.
 3. Draft: thank them, say in two sentences what we can do for that case, ask the two or three most useful missing questions, propose a call with two time options if Knowledge says calls are offered.
 4. If the knowledge base has no price: say a person will confirm price after the call. Never invent one.

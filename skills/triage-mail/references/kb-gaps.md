@@ -7,8 +7,8 @@ Knowledge page, never approves an entry, never writes into `knowledge/`.
 
 ## 1. Order of sources for a fact (a price, date, term, policy, procedure)
 
-1. **`knowledge_search`** (local index of `projects/<slug>/knowledge/`), `project` = the slug, one to three short queries in the
-   client's own words; in a `knowledge.scope by-brand` project also `brand` (from `mail_brand`, `ANY` when the mail has none): a gap is then the gap of that brand, and its record names the brand (another brand's entry that would answer is a proposal to mark it `ANY`, never a fact for this client). A result is usable only when `use: STATE`, `approved: true`, `expired: false`. `MARKER` is background, never
+1. **`knowledge_search`** (local index of `projects/<slug>/knowledge/`), bound to the project, one to three short queries in the
+   client's own words; in a `knowledge.scope by-brand` project also `brand` (from `message_show`, `ANY` when the mail has none): a gap is then the gap of that brand, and its record names the brand (another brand's entry that would answer is a proposal to mark it `ANY`, never a fact for this client). A result is usable only when `use: STATE`, `approved: true`, `expired: false`. `MARKER` is background, never
    quoted. A hit that looks stale (its `valid_until` is near or passed, its `last_confirmed` is old, or the mail or the client's
    profile contradicts it) is judged from the local entry alone: record a `stale` gap, and state the fact only if it is still usable.
    The agent reads no other knowledge source while drafting: not Notion, not another project, not the web. An error from
