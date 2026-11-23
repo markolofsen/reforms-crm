@@ -1,9 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { MessengerDraftDto, MessengerSendPreviewDto } from "@hub/contract/messenger-panel";
+import type { MessengerSendPreviewDto } from "@hub/contract/messenger";
+import type { MessengerDraftDto } from "@hub/contract/messenger-panel";
 import { toastManager } from "@hub/ui/toast";
 import { useSendDoor } from "@/components/send/send-flow";
 import { messengerSendApi } from "@/lib/api/messengers/send";
-import { keys } from "@/lib/cache/keys";
+import { keys, messengerMutationKeys } from "@/lib/cache/keys";
 import { ChannelIcon } from "./channel/channel-icon";
 import { CHANNEL_LABEL } from "./labels";
 
@@ -11,7 +12,7 @@ import { CHANNEL_LABEL } from "./labels";
  * Send of one messenger draft (P71 M4) through the one door Mail's card uses (`components/send/send-flow.ts`): the dry run, then
  * the apply with the chat and the exact text the owner read. Afterwards the panel and Activity ▸ Sends are read again.
  */
-export function useMessengerSend(project: string, d: MessengerDraftDto) {
+export function useMessengerSend(project: string, d: MessengerDraftDto, chatId: number) {
   const qc = useQueryClient();
   return useSendDoor<MessengerSendPreviewDto>({
     preview: () => messengerSendApi.preview(project, d.id),
@@ -26,6 +27,6 @@ export function useMessengerSend(project: string, d: MessengerDraftDto) {
         ),
         type: "success",
       }),
-    settle: () => Promise.all([qc.invalidateQueries({ queryKey: keys.messengerChatsOf(project) }), qc.invalidateQueries({ queryKey: keys.sends(project) })]),
+    settle: () => Promise.all([...messengerMutationKeys(project, chatId).map((queryKey) => qc.invalidateQueries({ queryKey })), qc.invalidateQueries({ queryKey: keys.sends(project) })]),
   });
 }

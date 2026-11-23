@@ -6,24 +6,22 @@ import { INBOX_KIND_HINTS, INBOX_KIND_LABELS, INBOX_KINDS, type InboxKind } from
 import type { InboxRowDto } from "@hub/contract/responses";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { ListSkeleton, LoadFailed } from "@/components/state-views";
+import { ConversationList, ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
+import { ListSkeleton, ListState, LoadFailed } from "@/components/state-views";
 import { inboxApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
 import { keys } from "@/lib/cache/keys";
 
 function Row({ r }: { r: InboxRowDto }) {
   return (
-    <li className="flex min-w-0 flex-col gap-0.5 border-t px-3 py-2 text-sm" data-testid="not-by-email-row">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="min-w-0 flex-1 truncate font-medium">{r.name}</span>
-        {r.kind && <Badge variant="outline">{INBOX_KIND_LABELS[r.kind]}</Badge>}
-      </div>
+    <ConversationListItem className="flex min-w-0 flex-col gap-0.5 px-3 py-2 text-sm" dataAttributes={{ "data-testid": "not-by-email-row" }}>
+      <ConversationListIdentity name={r.name} time={r.kind ? <Badge variant="outline">{INBOX_KIND_LABELS[r.kind]}</Badge> : undefined} />
       {r.phone && <p>{r.phone}</p>}
       {r.reason && <p className="text-muted-foreground">{r.reason}</p>}
       <p className="text-muted-foreground text-xs">
         {r.email} · recorded {formatTime(r.recordedAt)}
       </p>
-    </li>
+    </ConversationListItem>
   );
 }
 
@@ -36,7 +34,7 @@ export function NotByEmail({ project }: { project: string }) {
   const [kind, setKind] = useState<InboxKind | null>(null);
   const q = useQuery({ queryKey: keys.notByEmail(project, kind), queryFn: () => inboxApi.notByEmail(project, kind), placeholderData: keepPreviousData });
   if (q.isPending) return <ListSkeleton label="Loading the clients not answered by email" />;
-  if (!q.data) return <div className="p-3"><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the clients not answered by email" /></div>;
+  if (!q.data) return <ListState><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the clients not answered by email" /></ListState>;
   const { counts, rows } = q.data;
   const all = INBOX_KINDS.reduce((n, k) => n + counts[k], 0);
   return (
@@ -56,7 +54,7 @@ export function NotByEmail({ project }: { project: string }) {
           {kind ? INBOX_KIND_HINTS[kind] : "Nobody yet. Tell the agent \"call him\" about a client, and it appears here."}
         </p>
       ) : (
-        <ul aria-label="Not answered by email">{rows.map((r) => <Row key={r.id} r={r} />)}</ul>
+        <ConversationList ariaLabel="Not answered by email">{rows.map((r) => <Row key={r.id} r={r} />)}</ConversationList>
       )}
     </section>
   );

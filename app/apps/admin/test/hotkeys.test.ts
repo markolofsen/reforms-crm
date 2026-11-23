@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CHORD_WINDOW_MS, createDispatcher, isTypingTarget, TYPING, type KeyEventLike, type Timers } from "../src/hooks/use-hotkeys";
+import { CHORD_WINDOW_MS, createDispatcher, isHotkeyTypingTarget, TYPING, type KeyEventLike, type Timers } from "@hub/ui/use-hotkey";
 import { SECTIONS } from "../src/routes/sections";
 import { crumbsOf, pageTitle, titleOf } from "../src/routes/meta";
 import { resolveRoute } from "../src/routes/resolve";
@@ -156,12 +156,12 @@ describe("typing guard", () => {
   it("covers fields and every open menu, list or dialog, so first-letter typeahead never fires a page key", () => {
     vi.stubGlobal("Element", FakeElement);
     const menu = new FakeElement("div", "menu");
-    expect(isTypingTarget(as(new FakeElement("div", "menuitem", menu)))).toBe(true);
-    expect(isTypingTarget(as(new FakeElement("button", null, menu)))).toBe(true);
-    expect(isTypingTarget(as(new FakeElement("button", null, new FakeElement("div", "dialog"))))).toBe(true);
-    expect(isTypingTarget(as(new FakeElement("input")))).toBe(true);
-    expect(isTypingTarget(as(new FakeElement("button")))).toBe(false);
-    expect(isTypingTarget(null)).toBe(false);
+    expect(isHotkeyTypingTarget(as(new FakeElement("div", "menuitem", menu)))).toBe(true);
+    expect(isHotkeyTypingTarget(as(new FakeElement("button", null, menu)))).toBe(true);
+    expect(isHotkeyTypingTarget(as(new FakeElement("button", null, new FakeElement("div", "dialog"))))).toBe(true);
+    expect(isHotkeyTypingTarget(as(new FakeElement("input")))).toBe(true);
+    expect(isHotkeyTypingTarget(as(new FakeElement("button")))).toBe(false);
+    expect(isHotkeyTypingTarget(null)).toBe(false);
     expect(TYPING.split(",")).toEqual(expect.arrayContaining(["[role=menu]", "[role=menuitem]", "[role=dialog]", "[role=listbox]"]));
   });
 });

@@ -98,9 +98,9 @@ export type InboundDetailDto = z.infer<typeof inboundDetailDto>;
 
 /** `GET /api/projects/:slug/inbound/:id/text`: the client's own words read from Mail now (null with `note` when Mail cannot show it). */
 export const inboundTextDto = z.strictObject({
-  /** The client's own words (the quote of the earlier mail folded away), or null. */
+  /** The client's own words (quoted history is represented by its own messages), or null. */
   text: z.string().nullable(),
-  /** Whether a quote of an earlier mail was folded away. */
+  /** Whether the Mail reader found quoted history outside the client's own words. */
   quoted: z.boolean(),
   /** Why there is no text ("Mail is not running", "This message is no longer in Mail"). */
   note: z.string().nullable(),

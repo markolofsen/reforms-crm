@@ -13,8 +13,8 @@ import { MessengerSettings } from "./settings/settings-view";
 export function ChatsScreen() {
   const { project } = useProjectScope();
   const route = useRoute();
-  if (route.route !== "messengers.page") return null;
-  return <ChatsView channel={route.search.channel} filter={route.search.filter} project={project} />;
+  if (route.route !== "messengers.page" && route.route !== "messengers.conversation") return null;
+  return <ChatsView channel={route.search.channel} chatId={route.route === "messengers.conversation" ? route.params.id : null} filter={route.search.filter} project={project} />;
 }
 
 /** Messengers ▸ Settings. */

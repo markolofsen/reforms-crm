@@ -23,6 +23,7 @@ export type Resolved =
   | (Base & { route: "mail.conversation"; section: "mail"; params: { id: number }; search: DraftsSearch })
   | (Base & { route: "mail.lead"; section: "mail"; params: { pageId: string }; search: DraftsSearch })
   | (Base & { route: "messengers.page"; section: "messengers"; params: NoSearch; search: MessengersSearch })
+  | (Base & { route: "messengers.conversation"; section: "messengers"; params: { id: number }; search: MessengersSearch })
   | (Base & { route: "messengers.settings"; section: "messengers"; params: NoSearch; search: NoSearch })
   | (Base & { route: "log.list"; section: "log"; params: NoSearch; search: LogSearch })
   | (Base & { route: "knowledge.page"; section: "knowledge"; params: NoSearch; search: KnowledgeSearch })
@@ -71,6 +72,10 @@ export function resolveRoute(path: string, searchString: string): Resolved {
     const pageId = (segs[2] ?? "").replace(/-/g, "").toLowerCase();
     return /^[0-9a-f]{32}$/.test(pageId) ? { ...base, route: "mail.lead", section: "mail", params: { pageId }, search: draftsSearch(raw) } : notFound;
   }
+  if (head === "messengers" && tail === "c" && segs.length === 3 && !(inPath && project === null)) {
+    const chatId = positiveInt(segs[2]);
+    return chatId === null ? notFound : { ...base, route: "messengers.conversation", section: "messengers", params: { id: chatId }, search: messengersSearch(raw) };
+  }
   // A project segment heads a scoped section only; `/lisbon`, `/lisbon/overview` and an undecodable slug are Not found.
   if (segs.length > 2 || (inPath && (project === null || head === undefined || PROJECTLESS_HEADS.has(head)))) return notFound;
   switch (head) {
@@ -114,6 +119,8 @@ export function destOf(r: Resolved): Dest | null {
       return paths.mail.lead(r.params.pageId, r.search);
     case "messengers.page":
       return paths.messengers.chats(r.search);
+    case "messengers.conversation":
+      return paths.messengers.conversation(r.params.id, r.search);
     case "messengers.settings":
       return paths.messengers.settings();
     case "log.list":
@@ -162,8 +169,8 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
       return paths.mail.conversation(Number(p.id));
     case "chat":
     case "mdraft":
-      // P71 M3: a chat and its draft are rows of the panel; Linked (P84c), so a chat with nothing owed is there too.
-      return paths.messengers.chats({ filter: "linked" });
+      // P108: a chat opens the selected conversation; a draft still opens the linked list until its client ref is available.
+      return p.kind === "chat" ? paths.messengers.conversation(Number(p.id), { filter: "linked" }) : paths.messengers.chats({ filter: "linked" });
   }
 }
 

@@ -1,5 +1,5 @@
-import { messengerSendPreviewDto } from "@hub/contract/messenger-panel";
-import { sendTicketDto, sentDto } from "@hub/contract/responses";
+import { messengerSendPreviewDto } from "@hub/contract/messenger";
+import { sendTicketDto, sentDto } from "@hub/contract/sending";
 import { read } from "../client";
 
 const at = (project: string, id: number) => `/api/projects/${encodeURIComponent(project)}/messengers/drafts/${id}/send`;

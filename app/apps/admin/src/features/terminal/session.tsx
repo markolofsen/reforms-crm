@@ -89,7 +89,7 @@ function SessionLine({ session, link, note, onTakeBack }: { session: TerminalSes
               ? { text: note, action: null }
               : null;
   return (
-    <div className={cn("flex min-h-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm", line && "border-t px-3 py-2")} role="status">
+    <div className={cn("flex min-h-0 shrink-0 flex-wrap items-center gap-x-3 gap-y-1 text-sm", line && "border-t px-3 py-2")} data-slot="terminal-status" role="status">
       {line && <span className="min-w-0 flex-1">{line.text}</span>}
       {line?.action}
     </div>
@@ -101,7 +101,7 @@ function SessionLine({ session, link, note, onTakeBack }: { session: TerminalSes
  * screen to write it on) and closes with the pane; the snapshot after every connect replaces the screen. Inactive panes stay
  * mounted, hidden, so their output keeps arriving.
  */
-export function SessionPane({ session, active }: { session: TerminalSessionDto; active: boolean }) {
+export function SessionPane({ session, active, onActiveScreen }: { session: TerminalSessionDto; active: boolean; onActiveScreen?: (screen: TerminalHandle | null) => void }) {
   const { register, patch } = useTerminal();
   const theme = useResolvedTheme();
   const link = useRef<Link | null>(null);
@@ -119,9 +119,15 @@ export function SessionPane({ session, active }: { session: TerminalSessionDto; 
     },
     [id, register],
   );
+  useEffect(() => {
+    if (!active) return;
+    onActiveScreen?.(screenRef.current);
+    return () => onActiveScreen?.(null);
+  }, [active, onActiveScreen]);
   const onReady = (screen: TerminalHandle) => {
     register(id, screen);
     screenRef.current = screen;
+    if (active) onActiveScreen?.(screen);
     const l = connectTerminal(id, {
       output: (bytes, snapshot) => {
         if (snapshot) screen.reset();

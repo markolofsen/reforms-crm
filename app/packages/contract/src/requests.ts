@@ -61,6 +61,8 @@ export const slugParam = z.object({ slug: project });
 export const sendParam = z.object({ slug: project, id: z.coerce.number().int().positive() });
 /** A person's Save of the draft's text (P56 S1): the whole text after the hub marker, and the hash of the read it was edited from. */
 export const draftEditBody = z.strictObject({ text: z.string().min(1).max(20_000), hash: z.string().min(1).max(128) });
+/** The owner's first manual reply: creates one unsent Mail draft, never a send. `brand` resolves an ambiguous shared mailbox. */
+export const manualReplyBody = z.strictObject({ text: z.string().trim().min(1).max(20_000), brand: z.string().trim().min(1).max(120).optional() });
 export const sendBody = z.discriminatedUnion("apply", [
   z.object({ apply: z.literal(false) }),
   // `ticket` (P49 S12): minted by POST /api/sends/tickets for this draft, single use. Optional here so a missing one is the route's 403, not a 400.

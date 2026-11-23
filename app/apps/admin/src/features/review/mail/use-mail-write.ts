@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { DraftMailDto } from "@hub/contract/responses";
+import type { DraftMailDto } from "@hub/contract/mail";
 import { refreshData } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";
 import { keys } from "@/lib/cache/keys";

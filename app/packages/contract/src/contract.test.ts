@@ -4,6 +4,7 @@ import { apiError, parseApiError } from "./errors";
 import { sendBody, statusBody } from "./requests";
 import { reviewDraftDto } from "./responses";
 import { enrollmentDto, enrollmentsQuery, stopBody } from "./sequences";
+import { notionIdentityDto } from "./notion";
 
 describe("contract", () => {
   it("never accepts `sent` as a status", () => {
@@ -12,6 +13,7 @@ describe("contract", () => {
   });
   it("reads a refusal body, an old one with no code, and a foreign one", () => {
     expect(parseApiError({ error: "Nope", code: "wrong_state" }, 409)).toEqual({ error: "Nope", code: "wrong_state" });
+    expect(parseApiError({ error: "Unavailable", code: "unavailable" }, 503)).toEqual({ error: "Unavailable", code: "unavailable" });
     expect(parseApiError({ error: "Nope" }, 404)).toEqual({ error: "Nope", code: "not_found" });
     expect(parseApiError("<html>bad gateway</html>", 502)).toEqual({ error: "Request failed (502)", code: "server" });
     expect(apiError.safeParse({ error: "x", code: "weird" }).success).toBe(false);
@@ -35,6 +37,12 @@ describe("contract", () => {
     expect(enrollmentsQuery.safeParse({ view: "everything" }).success).toBe(false);
     expect(reviewDraftDto.shape.sequence.safeParse(null).success).toBe(true);
     expect(reviewDraftDto.shape.sequence.safeParse({ enrollmentId: 1, sequence: "s", step: 2, steps: 4, state: "active" }).success).toBe(true);
+  });
+  it("keeps the shared Notion identity states distinct for Mail and Messenger", () => {
+    expect(notionIdentityDto.parse({ state: "resolved", pageId: "page", url: null })).toEqual({ state: "resolved", pageId: "page", url: null });
+    expect(notionIdentityDto.safeParse({ state: "unresolved", pageId: null, url: null }).success).toBe(true);
+    expect(notionIdentityDto.safeParse({ state: "connected", pageId: "page", url: null }).success).toBe(false);
+    expect(notionIdentityDto.safeParse({ state: "resolved", pageId: null, url: null, label: "extra" }).success).toBe(false);
   });
 });
 

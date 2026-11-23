@@ -77,7 +77,7 @@ export type KnowledgeSearch = { filter: KnowledgeView; q: string };
 export { KNOWLEDGE_VIEWS, type KnowledgeView };
 export type AgentSearch = { filter: AgentView };
 /** The Messengers panel's view (P84c: To do, the default, Linked, Hidden) and its channel (All, the default, Telegram, WhatsApp); the enums the API validates. */
-export type MessengersSearch = { filter: MessengerView; channel: MessengerChannelFilter };
+export type MessengersSearch = { filter: MessengerView; channel: MessengerChannelFilter; q: string };
 export { MESSENGER_CHANNEL_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerView };
 export type NoSearch = Record<string, never>;
 
@@ -89,5 +89,5 @@ export const draftsSearch = (raw: Raw): DraftsSearch => ({ filter: oneOf(DRAFT_V
 export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(ACTIVITY_VIEWS, raw.filter, "all"), client: positiveInt(raw.client) });
 export const knowledgeSearch = (raw: Raw): KnowledgeSearch => ({ filter: oneOf(KNOWLEDGE_VIEWS, raw.filter, "all"), q: raw.q ?? "" });
 export const agentSearch = (raw: Raw): AgentSearch => ({ filter: oneOf(AGENT_VIEWS, raw.filter, "attention") });
-export const messengersSearch = (raw: Raw): MessengersSearch => ({ filter: oneOf(MESSENGER_VIEWS, raw.filter, "todo"), channel: oneOf(MESSENGER_CHANNEL_FILTERS, raw.channel, "all") });
+export const messengersSearch = (raw: Raw): MessengersSearch => ({ filter: oneOf(MESSENGER_VIEWS, raw.filter, "todo"), channel: oneOf(MESSENGER_CHANNEL_FILTERS, raw.channel, "all"), q: raw.q ?? "" });
 export const noSearch = (): NoSearch => ({});

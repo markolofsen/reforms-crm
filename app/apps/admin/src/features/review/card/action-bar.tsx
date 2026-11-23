@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
 import { Switch } from "@hub/ui/switch";
-import { useHotkeys } from "@/hooks/use-hotkeys";
+import { useHotkeys } from "@hub/ui/use-hotkey";
 import { formatTime } from "@/lib/format";
 import { hrefOf } from "@hub/contract/local";
 import { LocalActionButton, LocalActionItem } from "@/components/local-action";
@@ -56,7 +56,7 @@ function MoreMenu({ d, state, actions, on, draftLink }: { d: ReviewDraft; state:
   if (!open && !d.canUndo && d.runId === null && !hasLink) return null;
   return (
     <Menu>
-      <MenuTrigger render={<ActionButton aria-label="More actions" icon size="m" variant="quiet" />}>
+      <MenuTrigger render={<ActionButton aria-label="More actions" icon size="m" tooltip="More actions" variant="quiet" />}>
         <EllipsisIcon aria-hidden="true" />
       </MenuTrigger>
       <MenuPopup align="start" side="top">
@@ -76,8 +76,8 @@ function MoreMenu({ d, state, actions, on, draftLink }: { d: ReviewDraft; state:
 
 /**
  * The only place with buttons: frequent and reversible on the left, the gate and the ONE primary on the right.
- * Confirming swaps the content in place (the primary keeps its place, focus on it, Esc cancels). It sticks to the
- * bottom of the pane, so Send is always in reach.
+ * Confirming swaps the content in place (the primary keeps its place, focus on it, Esc cancels). Its parent composer
+ * owns the fixed bottom dock, so this component only owns action semantics and layout inside it.
  */
 export function ActionBar({ d, state, flow, actions, context, on, mailHash, draftLink = null, tickBlock = null }: Props) {
   const primary = primaryFor(state, context);
@@ -111,7 +111,7 @@ export function ActionBar({ d, state, flow, actions, context, on, mailHash, draf
   const primaryMail = primary?.action === "open_mail";
   return (
     <div
-      className="sticky bottom-0 z-10 flex flex-col gap-2 border-t bg-background px-4 py-3 lg:px-6"
+      className="flex flex-col gap-2"
       role="group"
       aria-label="Actions"
     >

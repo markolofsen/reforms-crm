@@ -15,8 +15,8 @@ export function searchValue(r: Resolved, key: "q"): string;
 export function searchValue(r: Resolved, key: "channel"): string;
 export function searchValue(r: Resolved, key: SearchKey): string | number | null {
   if (key === "client") return r.route === "log.list" ? r.search.client : null;
-  if (key === "channel") return r.route === "messengers.page" ? r.search.channel : "all";
-  if (key === "q") return r.route === "mail.list" || r.route === "mail.conversation" || r.route === "mail.lead" || r.route === "knowledge.page" ? r.search.q : "";
+  if (key === "channel") return r.route === "messengers.page" || r.route === "messengers.conversation" ? r.search.channel : "all";
+  if (key === "q") return r.route === "mail.list" || r.route === "mail.conversation" || r.route === "mail.lead" || r.route === "knowledge.page" || r.route === "messengers.page" || r.route === "messengers.conversation" ? r.search.q : "";
   switch (r.route) {
     case "mail.list":
     case "mail.conversation":
@@ -25,6 +25,7 @@ export function searchValue(r: Resolved, key: SearchKey): string | number | null
     case "knowledge.page":
     case "settings.agent":
     case "messengers.page":
+    case "messengers.conversation":
       return r.search.filter;
     default:
       return "all";
@@ -40,11 +41,17 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
   if (key === "client") return r.route === "log.list" && typeof value !== "string" ? paths.log.list({ filter: r.search.filter, client: value }) : null;
   const v = String(value);
   // P84c: the Messengers panel's channel keeps its view, and its view keeps the channel.
-  if (key === "channel") return r.route === "messengers.page" ? paths.messengers.chats({ filter: r.search.filter, channel: oneOf(MESSENGER_CHANNEL_FILTERS, v, "all") }) : null;
+  if (key === "channel") {
+    if (r.route === "messengers.page") return paths.messengers.chats({ filter: r.search.filter, channel: oneOf(MESSENGER_CHANNEL_FILTERS, v, "all"), q: r.search.q });
+    if (r.route === "messengers.conversation") return paths.messengers.conversation(r.params.id, { filter: r.search.filter, channel: oneOf(MESSENGER_CHANNEL_FILTERS, v, "all"), q: r.search.q });
+    return null;
+  }
   if (key === "q") {
     if (r.route === "mail.list") return paths.mail.list({ filter: r.search.filter, q: v, batch: r.search.batch });
     if (r.route === "knowledge.page") return paths.knowledge.page({ filter: r.search.filter, q: v });
     if (r.route === "mail.lead") return paths.mail.lead(r.params.pageId, { filter: r.search.filter, q: v, batch: r.search.batch });
+    if (r.route === "messengers.page") return paths.messengers.chats({ filter: r.search.filter, channel: r.search.channel, q: v });
+    if (r.route === "messengers.conversation") return paths.messengers.conversation(r.params.id, { filter: r.search.filter, channel: r.search.channel, q: v });
     return r.route === "mail.conversation" ? paths.mail.conversation(r.params.id, { filter: r.search.filter, q: v, batch: r.search.batch }) : null;
   }
   switch (r.route) {
@@ -63,7 +70,9 @@ export function withSearch(r: Resolved, key: SearchKey, value: string | number |
     case "settings.agent":
       return paths.settings.agent({ filter: oneOf(AGENT_VIEWS, v, "attention") });
     case "messengers.page":
-      return paths.messengers.chats({ filter: oneOf(MESSENGER_VIEWS, v, "todo"), channel: r.search.channel });
+      return paths.messengers.chats({ filter: oneOf(MESSENGER_VIEWS, v, "todo"), channel: r.search.channel, q: r.search.q });
+    case "messengers.conversation":
+      return paths.messengers.conversation(r.params.id, { filter: oneOf(MESSENGER_VIEWS, v, "todo"), channel: r.search.channel, q: r.search.q });
     default:
       return null;
   }

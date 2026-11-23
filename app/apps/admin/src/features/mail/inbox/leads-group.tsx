@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { LeadRowDto, LeadsGroupDto } from "@hub/contract/inbound";
 import { cn } from "@hub/ui/cn";
+import { ConversationList } from "@hub/ui/product/conversation";
 import { AppLink } from "@/components/app-link";
 import { inboundApi } from "@/lib/api/inbox";
 import { keys } from "@/lib/cache/keys";
@@ -67,11 +68,11 @@ export function LeadsGroup({ group, openPageId }: { group: LeadsGroupDto; openPa
           <h3 className="px-3 pt-2 pb-1 font-medium text-muted-foreground text-xs">
             New leads ({total > rows.length ? `${rows.length} of ${total}` : total})
           </h3>
-          <ul aria-label="New leads" className="flex flex-col">
+          <ConversationList ariaLabel="New leads">
             {rows.map((r) => (
               <LeadRow key={r.pageId} now={now} open={r.pageId === openPageId} r={r} />
             ))}
-          </ul>
+          </ConversationList>
         </>
       )}
       <div className="flex flex-col gap-1 px-3 py-2 text-muted-foreground text-xs">

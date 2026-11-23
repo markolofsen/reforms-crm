@@ -1,10 +1,12 @@
 "use client";
 
 import { SquareTerminalIcon } from "lucide-react";
-import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { cn } from "@hub/ui/cn";
 import { ActionButton } from "@hub/ui/product/action-button";
+import { AgentPanelFrame } from "@hub/ui/product/agent-panel";
 import { SideDock } from "@hub/ui/product/side-dock";
+import { TerminalDictationButton, type TerminalHandle } from "@hub/ui/product/terminal";
 import { useMediaQuery } from "@hub/ui/use-media-query";
 import { HostPortal, HostSlot } from "./host";
 import { SessionPane } from "./session";
@@ -38,7 +40,7 @@ export function useTerminalDocked(): boolean {
 const NEEDS_YOU = "Terminal, the agent needs you";
 
 /**
- * The phone's button (below 640px): shows or hides the terminal (Ctrl+` does the same from anywhere). Focus comes back here when
+ * The phone's button (below 640px): shows or hides the terminal (Ctrl+` and Meta/Ctrl+J do the same from anywhere). Focus comes back here when
  * the terminal hides. `attention` (P59): the agent waits on him, so the button carries the attention dot.
  */
 export function TerminalToggle({ className, attention = false }: { className?: string; attention?: boolean }) {
@@ -47,7 +49,7 @@ export function TerminalToggle({ className, attention = false }: { className?: s
   // Before mount, a box of the button's size (control-s, 44px below 1024px) and no name: never in the server HTML.
   if (!mounted) return <span aria-hidden="true" className={cn("inline-block size-(--control-s) shrink-0", className)} />;
   return (
-    <ActionButton aria-keyshortcuts="Control+`" aria-label={attention ? NEEDS_YOU : "Terminal"} aria-pressed={t.open} className={cn("relative", className)} data-terminal-toggle="" icon onClick={() => t.setOpen(!t.open)} size="s" variant="quiet">
+    <ActionButton aria-keyshortcuts="Meta+J Control+J" aria-label={attention ? NEEDS_YOU : "Terminal"} aria-pressed={t.open} className={cn("relative", className)} data-terminal-toggle="" icon onClick={() => t.setOpen(!t.open)} size="s" tooltip={{ content: "Show or hide terminal", hotkey: "Meta/Ctrl + J" }} variant="quiet">
       <SquareTerminalIcon aria-hidden="true" />
       {attention && <span aria-hidden="true" className="absolute end-1.5 top-1.5 size-2 rounded-full bg-warning" data-testid="terminal-toggle-dot" />}
     </ActionButton>
@@ -79,13 +81,13 @@ function TerminalStrip({ attention }: { attention: boolean }) {
       <ActionButton
         aria-describedby="terminal-strip-state"
         aria-expanded={false}
-        aria-keyshortcuts="Control+`"
+        aria-keyshortcuts="Meta+J Control+J"
         // The name holds the visible label (WCAG 2.5.3, label in name): "Terminal", or "Terminal, Claude Code".
         aria-label={name}
         className="h-auto min-h-0 w-full flex-1 flex-col justify-start gap-3 rounded-none border-0 py-3 text-muted-foreground sm:h-auto"
         data-terminal-toggle=""
         onClick={() => t.setOpen(true)}
-        title="Open the terminal (Ctrl+`)"
+        tooltip={{ content: "Open the terminal", hotkey: "Meta/Ctrl + J" }}
         variant="quiet"
       >
         <SquareTerminalIcon aria-hidden="true" className="size-4 shrink-0" />
@@ -101,9 +103,9 @@ function TerminalStrip({ attention }: { attention: boolean }) {
   );
 }
 
-function Sessions() {
+function Sessions({ onActiveScreen }: { onActiveScreen: (screen: TerminalHandle | null) => void }) {
   const t = useTerminal();
-  return (t.state?.sessions ?? []).map((s) => <SessionPane active={s.id === t.active} key={s.id} session={s} />);
+  return (t.state?.sessions ?? []).map((s) => <SessionPane active={s.id === t.active} key={s.id} onActiveScreen={onActiveScreen} session={s} />);
 }
 
 /** What is starting, as far as the admin can tell before the server answers: the first ready CLI here, else "a terminal". */
@@ -178,6 +180,11 @@ function useMenuHandoff(on: boolean, focusActive: () => void) {
 export function TerminalDock({ attention = false, onSeen }: { attention?: boolean; onSeen?: () => void }) {
   const t = useTerminal();
   const wide = useMediaQuery("lg");
+  const activeSession = t.active !== null && (t.state?.sessions.some((session) => session.id === t.active) ?? false);
+  const activeScreen = useRef<TerminalHandle | null>(null);
+  const onActiveScreen = useCallback((screen: TerminalHandle | null) => {
+    activeScreen.current = screen;
+  }, []);
   useMenuHandoff(t.open && wide, t.focusActive);
   // Opening the column is seeing the wait (P59): the dot goes back to the session colour until the agent waits again.
   useEffect(() => {
@@ -187,20 +194,22 @@ export function TerminalDock({ attention = false, onSeen }: { attention?: boolea
     <>
       {t.mounted && (
         <HostPortal>
-          <Sessions />
+          <Sessions onActiveScreen={onActiveScreen} />
         </HostPortal>
       )}
       {t.open && wide ? (
         <SideDock label="Terminal" onWidth={t.setWidth} width={t.width}>
-          <TerminalHeader layer={false} />
-          <Empty />
-          <HostSlot />
+          <AgentPanelFrame footer={activeSession ? <TerminalDictationButton screen={activeScreen} /> : undefined} header={<TerminalHeader layer={false} />}>
+            <Empty />
+            <HostSlot />
+          </AgentPanelFrame>
         </SideDock>
       ) : t.open ? (
         <section aria-label="Terminal" className="fixed inset-0 z-30 flex flex-col bg-background" data-testid="terminal-layer">
-          <TerminalHeader layer />
-          <Empty />
-          <HostSlot />
+          <AgentPanelFrame footer={activeSession ? <TerminalDictationButton screen={activeScreen} /> : undefined} header={<TerminalHeader layer />}>
+            <Empty />
+            <HostSlot />
+          </AgentPanelFrame>
         </section>
       ) : (
         <>

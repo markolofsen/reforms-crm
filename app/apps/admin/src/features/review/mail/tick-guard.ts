@@ -1,5 +1,5 @@
 import { hrefOf } from "@hub/contract/local";
-import type { DraftMailDto } from "@hub/contract/responses";
+import type { DraftMailDto } from "@hub/contract/mail";
 import type { ReviewDraft } from "../source";
 import { hasSwitch, stateOf, type FlowStep } from "../card/card-state";
 

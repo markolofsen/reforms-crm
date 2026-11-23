@@ -23,7 +23,7 @@ export function CheckNow({ project, size = "s" }: { project: string; size?: "s" 
   const qc = useQueryClient();
   const check = useMutation({ mutationFn: () => inboundApi.check(project), onSettled: () => refreshData(qc) });
   return (
-    <ActionButton data-testid="check-now" disabled={check.isPending} onClick={() => check.mutate()} size={size} title={check.isError ? sentence(check.error) : "Read the project's mail now"} variant="quiet">
+    <ActionButton data-testid="check-now" disabled={check.isPending} onClick={() => check.mutate()} size={size} tooltip={check.isError ? sentence(check.error) : "Read the project's mail now"} variant="quiet">
       {check.isPending ? "Checking…" : check.isError ? "Try again" : "Check now"}
     </ActionButton>
   );

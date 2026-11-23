@@ -1,4 +1,4 @@
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon, EllipsisIcon } from "lucide-react";
 import { Menu, MenuItem, MenuLinkItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { AppLink } from "@/components/app-link";
@@ -12,12 +12,13 @@ export type StatusState = { state: "linked"; client: string } | { state: "unlink
 
 /**
  * P102 S3: the one state menu of a chat row, the only place a chat changes state, so a row has one control for it instead of a
- * button per move. Linked to X: Change client (the chat and its messages go to another client), Unlink (deletes), Hide as not a
+ * button per move. A linked row shows the client name: Change client (the chat and its messages go to another client), Unlink (deletes), Hide as not a
  * client, and the rules; Not linked: Link to a client, Create client, Hide; Hidden: Link to a client (a hidden chat can be linked),
  * Unhide. Every item that deletes or searches opens in the row, never in a dialog (`ui-specifications.md` rule 5d).
  */
-export function StatusMenu({ s, name, disabled, onAction }: { s: StatusState; name: string; disabled: boolean; onAction: (a: StatusAction) => void }) {
-  const label = s.state === "linked" ? `Linked to ${s.client}` : s.state === "unlinked" ? "Not linked" : "Hidden";
+export function StatusMenu({ s, name, disabled, onAction, compact = false }: { s: StatusState; name: string; disabled: boolean; onAction: (a: StatusAction) => void; compact?: boolean }) {
+  const label = s.state === "linked" ? s.client : s.state === "unlinked" ? "Not linked" : "Hidden";
+  const tooltip = compact ? `Chat actions for ${name}` : undefined;
   const item = (a: StatusAction, text: string, destructive = false) => (
     <MenuItem disabled={disabled} onClick={() => onAction(a)} variant={destructive ? "destructive" : "default"}>
       {text}
@@ -25,10 +26,8 @@ export function StatusMenu({ s, name, disabled, onAction }: { s: StatusState; na
   );
   return (
     <Menu>
-      <MenuTrigger render={<ActionButton className="max-w-full" size="s" variant="quiet" />}>
-        <span className="sr-only">Status of {name}: </span>
-        <span className="truncate">{label}</span>
-        <ChevronDownIcon aria-hidden="true" />
+      <MenuTrigger render={<ActionButton aria-label={compact ? `Chat actions for ${name}` : `Client link and actions for ${name}`} className={compact ? "shrink-0" : "max-w-full"} icon={compact} size="s" tooltip={tooltip} variant="quiet" />}>
+        {compact ? <EllipsisIcon aria-hidden="true" /> : <><span className="sr-only">Status of {name}: </span><span className="truncate">{label}</span><ChevronDownIcon aria-hidden="true" /></>}
       </MenuTrigger>
       <MenuPopup align="start">
         {s.state === "linked" && (

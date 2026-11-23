@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
+import { HubApiError, parseHubResponse } from "@hub/api/runtime";
 import { parseApiError, type ApiErrorCode } from "@hub/contract/errors";
 import { MAIL_KEYS } from "../cache/keys";
 
@@ -19,6 +20,7 @@ export class ApiFailure extends Error {
 
 // Structural, so the admin needs no zod of its own: every contract schema has this `safeParse`.
 type Parser<T> = { safeParse(value: unknown): { success: true; data: T } | { success: false } };
+type GeneratedResponse = { data: unknown; status: number };
 type Scalar = string | number | boolean | undefined;
 export type Call = { method: "GET" | "POST" | "PUT" | "DELETE"; path: string; query?: Record<string, Scalar>; body?: unknown };
 
@@ -67,6 +69,16 @@ export async function read<T>(schema: Parser<T>, call: Call): Promise<T> {
   const parsed = schema.safeParse(body);
   if (!parsed.success) throw new ApiFailure("The server answered in a shape this page does not know. Restart the server with `hub up`.", "server", res.status);
   return parsed.data;
+}
+
+/** Compatibility seam for Orval operations: preserve the admin's ApiFailure contract while using generated transport. */
+export async function readGenerated<T>(request: Promise<GeneratedResponse>, parser: Parser<T>): Promise<T> {
+  try {
+    return parseHubResponse(await request, parser);
+  } catch (error) {
+    if (error instanceof HubApiError) throw new ApiFailure(error.message, error.code, error.status, error.refused);
+    throw error;
+  }
 }
 
 /** The sentence for any thrown value. */

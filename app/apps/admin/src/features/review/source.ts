@@ -1,5 +1,5 @@
 import type { ConversationRowDto } from "@hub/contract/conversations";
-import type { ReviewDraftDto } from "@hub/contract/responses";
+import type { ReviewDraftDto } from "@hub/contract/review";
 
 export type ReviewDraft = ReviewDraftDto;
 /** P99: a row of Mail is a person (a client), with its state word and at most one open draft, the unsent message. */

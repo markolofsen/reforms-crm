@@ -5,12 +5,14 @@ import { Link } from "@hub/ui/link";
 import { SidebarInset, SidebarProvider, useSidebar } from "@hub/ui/sidebar";
 import { useMediaQuery } from "@hub/ui/use-media-query";
 import { cn } from "@hub/ui/cn";
-import { shortcutsOn, useHotkeys, useShortcutsSwitch, type KeyMap } from "@/hooks/use-hotkeys";
+import { useHotkeys, type KeyMap } from "@hub/ui/use-hotkey";
+import { shortcutsOn, useShortcutsSwitch } from "@/hooks/use-hotkeys";
 import { PaneNarrowContext, useMeasuredNarrow } from "@/hooks/use-pane";
 import type { NavItem } from "@/hooks/use-section-nav";
 import { useTerminalDocked } from "@/features/terminal/terminal";
 import { save, useStored } from "@/lib/storage";
 import type { Resolved } from "@/routes/resolve";
+import type { ProjectLinksDto } from "@hub/contract/responses";
 import { AppSidebar, type Brand } from "./app-sidebar";
 import { PhoneBar } from "./phone-bar";
 import { TabBar } from "./tab-bar";
@@ -31,12 +33,13 @@ type Props = {
   route: Resolved;
   /** The right-hand column beside the screen, outside `#main` (P49 docks the embedded terminal here; it renders nothing when off). */
   dock?: ReactNode;
+  links?: ProjectLinksDto | null;
   children: ReactNode;
 };
 
 const FRAME_HELP = [["[", "collapse or expand the sidebar"], ["?", "this list"]] as const;
 
-function Frame({ items, projects, project, onProject, brand, route, dock, children }: Props) {
+function Frame({ items, projects, project, onProject, brand, route, dock, links, children }: Props) {
   const { toggleSidebar } = useSidebar();
   const [helpOpen, setHelpOpen] = useState(false);
   const [shortcuts, setShortcuts] = useShortcutsSwitch();
@@ -61,7 +64,7 @@ function Frame({ items, projects, project, onProject, brand, route, dock, childr
       >
         Skip to content
       </Link>
-      <AppSidebar brand={brand} items={items} keys={{ open: helpOpen, onOpenChange: setHelpOpen, enabled: shortcuts, onEnabled: setShortcuts }} onProject={onProject} project={project} projects={projects} />
+      <AppSidebar brand={brand} items={items} keys={{ open: helpOpen, onOpenChange: setHelpOpen, enabled: shortcuts, onEnabled: setShortcuts }} links={links} onProject={onProject} project={project} projects={projects} />
       <SidebarInset className={cn("flex h-svh min-h-0 min-w-0 flex-col overflow-hidden outline-none", tabs && "max-md:pb-(--tab-bar)")} id="main" tabIndex={-1}>
         {tabs && <PhoneBar brand={brand} onProject={onProject} project={project} projects={projects} />}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col" ref={content}>
@@ -69,7 +72,7 @@ function Frame({ items, projects, project, onProject, brand, route, dock, childr
         </div>
       </SidebarInset>
       {dock}
-      {tabs && <TabBar items={items} />}
+      {tabs && <TabBar items={items} links={links} />}
     </>
   );
 }

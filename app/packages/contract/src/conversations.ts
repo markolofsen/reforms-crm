@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { reviewDraftDto } from "./responses";
+import { notionIdentityDto } from "./notion";
 
 // P99 (one conversation per client): Mail lists people, not drafts. The list and its state words come from the Hub's own rows
 // (drafts, the Mail reader's messages, sends); the history of one person is read from Mail when the conversation opens and never
-// stored (decision 0013), and each body is read on demand.
+// stored (decision 0013), and each body is fetched separately as the conversation renders.
 
 /** The state word of a row (verdict 2): Wrote you, Draft ready, On hold, Waiting for them, Done. */
 export const CONVERSATION_STATES = ["wrote", "draft", "hold", "waiting", "done"] as const;
@@ -25,6 +26,7 @@ export const conversationsQuery = z.object({
 
 export const conversationRowDto = z.strictObject({
   client: z.strictObject({ id: z.number().int(), name: z.string(), email: z.string() }),
+  notion: notionIdentityDto,
   state: z.enum(CONVERSATION_STATES),
   at: z.string(),
   subject: z.string(),
@@ -47,7 +49,7 @@ export const conversationsDto = z.strictObject({
 });
 export type ConversationsDto = z.infer<typeof conversationsDto>;
 
-/** One message of the history, its header only (the body is `conversationTextDto`, read on demand). */
+/** One message of the history, its header and preview (the body is fetched through `conversationTextDto`). */
 export const conversationMessageDto = z.strictObject({
   messageId: z.string(),
   ours: z.boolean(),
@@ -87,14 +89,43 @@ export const conversationMailDto = z.strictObject({
 export type ConversationMailDto = z.infer<typeof conversationMailDto>;
 export const CONVERSATION_MAX = 30;
 
+export const mailComposerBrandDto = z.strictObject({
+  name: z.string(),
+  wroteTo: z.string().nullable(),
+  from: z.string().nullable(),
+  technicalAddress: z.string().nullable(),
+  signatureLines: z.array(z.string()),
+  signatureFallback: z.enum(["en", "ru"]).nullable(),
+  signatureLinesByLanguage: z.strictObject({ en: z.array(z.string()), ru: z.array(z.string()) }),
+  signatureFallbackByLanguage: z.strictObject({ en: z.enum(["en", "ru"]).nullable(), ru: z.enum(["en", "ru"]).nullable() }),
+  status: z.enum(["ready", "missing_signature"]),
+});
+export type MailComposerBrandDto = z.infer<typeof mailComposerBrandDto>;
+
+export const mailComposerContextDto = z.strictObject({
+  brand: z.string().nullable(),
+  wroteTo: z.string().nullable(),
+  from: z.string().nullable(),
+  technicalAddress: z.string().nullable(),
+  language: z.enum(["en", "ru"]),
+  signatureLines: z.array(z.string()),
+  signatureFallback: z.enum(["en", "ru"]).nullable(),
+  signatureLinesByLanguage: z.strictObject({ en: z.array(z.string()), ru: z.array(z.string()) }),
+  signatureFallbackByLanguage: z.strictObject({ en: z.enum(["en", "ru"]).nullable(), ru: z.enum(["en", "ru"]).nullable() }),
+  status: z.enum(["resolved", "needs_brand", "needs_mail", "missing_signature"]),
+  reason: z.string().nullable(),
+  brands: z.array(mailComposerBrandDto),
+});
+export type MailComposerContextDto = z.infer<typeof mailComposerContextDto>;
+
 /** The pane's header and its unsent message, from SQLite only (a live topic refreshes it without a Mail read). */
 export const conversationDto = z.strictObject({
   row: conversationRowDto,
-  notionUrl: z.string().nullable(),
+  composer: mailComposerContextDto,
 });
 export type ConversationDto = z.infer<typeof conversationDto>;
 
-/** One message's own words, read from Mail now (the quote of the earlier mail cut off), or why it cannot show. */
+/** One message's own words, read from Mail now (quoted history is represented by its own messages), or why it cannot show. */
 export const conversationTextDto = z.strictObject({ text: z.string().nullable(), quoted: z.boolean(), note: z.string().nullable() });
 export type ConversationTextDto = z.infer<typeof conversationTextDto>;
 export const conversationTextQuery = z.object({ m: z.string().min(3).max(998) });

@@ -18,6 +18,15 @@ export function Loading({ what }: { what: string }) {
   );
 }
 
+export function Refreshing() {
+  return (
+    <span aria-live="polite" className="inline-flex shrink-0 items-center gap-1.5 text-muted-foreground text-xs" role="status">
+      <Spinner aria-hidden="true" className="size-3" />
+      Updating
+    </span>
+  );
+}
+
 export function LoadFailed({ what, error, onRetry, retrying }: { what: string; error: unknown; onRetry: () => void; retrying?: boolean }) {
   return (
     <Alert variant="error">
@@ -65,9 +74,14 @@ export function ListSkeleton({ label, rows = 5 }: { label: string; rows?: number
   );
 }
 
-export function EmptyState({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
+/** Compact chrome for retry and stale notices inside a scrolling list column. */
+export function ListState({ children, testId }: { children: ReactNode; testId?: string }) {
+  return <div className="flex shrink-0 flex-col gap-2 px-3 py-3" data-testid={testId}>{children}</div>;
+}
+
+export function EmptyState({ title, children, action, compact = false }: { title: string; children?: ReactNode; action?: ReactNode; compact?: boolean }) {
   return (
-    <Empty>
+    <Empty className={compact ? "gap-4 px-4 py-8 md:py-12" : undefined}>
       <EmptyHeader>
         <EmptyTitle>{title}</EmptyTitle>
         {children && <EmptyDescription>{children}</EmptyDescription>}

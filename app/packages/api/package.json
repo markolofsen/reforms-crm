@@ -1,0 +1,27 @@
+{
+  "name": "@hub/api",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./runtime": "./src/runtime/index.ts",
+    "./ledger": "./src/ledger.ts",
+    "./zod": "./src/generated-zod/index.ts"
+  },
+  "scripts": {
+    "generate": "orval --config orval.config.ts",
+    "generate:check": "pnpm generate && git diff --exit-code -- openapi.yaml src/generated src/generated-zod",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hub/contract": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@hub/config": "workspace:*",
+    "orval": "8.48.0",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

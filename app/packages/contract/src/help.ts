@@ -82,3 +82,9 @@ export function leadPhrase(project: string, lead: { email: string; pageId: strin
   const what = `answer their website request (Notion lead ${lead.pageId}${lead.brand ? `, brand ${lead.brand}` : ""})`;
   return sayFor(example, project).replace("<client>", lead.email).replace("<what about>", what);
 }
+
+/** P106: the runtime-agent handoff from one Messenger row; unlike the project-wide triage phrase it names exactly one linked chat. */
+export function messengerPhrase(project: string, chat: { channel: string; chatId: string; clientName?: string | null }): string {
+  const who = chat.clientName ? ` for ${chat.clientName}` : "";
+  return `Prepare one reply${who} from the ${chat.channel} chat ${chat.chatId} in project ${project}. Read only this linked chat with messenger_history, then leave one unsent draft with messenger_draft_write; do not send anything.`;
+}

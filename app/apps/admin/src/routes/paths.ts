@@ -41,8 +41,10 @@ export const paths = {
   },
   /** P71 M3: the panel (`/messengers`, To do and every channel by default, P84c) and Messengers ▸ Settings. */
   messengers: {
-    chats: (s: { filter?: MessengerView; channel?: MessengerChannelFilter } = {}) =>
-      dest("messengers.page", route("/messengers"), { filter: unlessDefault(s.filter, "todo"), channel: unlessDefault(s.channel, "all") }),
+    chats: (s: { filter?: MessengerView; channel?: MessengerChannelFilter; q?: string } = {}) =>
+      dest("messengers.page", route("/messengers"), { filter: unlessDefault(s.filter, "todo"), channel: unlessDefault(s.channel, "all"), q: s.q }),
+    conversation: (chatId: number, s: { filter?: MessengerView; channel?: MessengerChannelFilter; q?: string } = {}) =>
+      dest("messengers.conversation", route(`/messengers/c/${chatId}`), { filter: unlessDefault(s.filter, "todo"), channel: unlessDefault(s.channel, "all"), q: s.q }),
     settings: () => dest("messengers.settings", route("/messengers/settings")),
   },
   /** P99: Mail lists people: the views, and one conversation (`/mail/c/7`, a client id; `m` scrolls to one of their messages). */
@@ -64,7 +66,7 @@ export function sectionList(id: SectionId): Dest {
 }
 
 /** The bare destination of a route with no parameter (a nav item, a child page of the sub-nav, the page a dot names). */
-export function routeDest(id: Exclude<RouteId, "mail.conversation" | "mail.lead">): Dest {
+export function routeDest(id: Exclude<RouteId, "mail.conversation" | "mail.lead" | "messengers.conversation">): Dest {
   return dest(id, ROUTE_TABLE[id].path);
 }
 

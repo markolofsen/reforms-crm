@@ -1,7 +1,8 @@
 import { HIDDEN_LABEL_WORDS, HIDDEN_LABELS, IMPORT_DAYS, PREANALYSIS_LOOKBACK_DAYS, REPLY_MODE_LABELS } from "@hub/config/chat-rules";
-import { phrase } from "@hub/contract/help";
-import type { MessengerChannelDto, MessengerChannelFilter, MessengerChatDto, MessengerSendPreviewDto, MessengerView, PreanalysisDto } from "@hub/contract/messenger-panel";
+import type { MessengerChannelFilter, MessengerChatDto, MessengerView, PreanalysisDto } from "@hub/contract/messenger-panel";
+import type { MessengerChannelDto, MessengerSendPreviewDto } from "@hub/contract/messenger";
 import type { AutolinkLinkedDto, RecentDialogDto } from "@hub/contract/messengers";
+import { notionIdentityLine as notionLine, notionIndicatorState as notionStateOf } from "@/lib/notion";
 
 // The Messengers section's words (P71 M3), pure so a test holds them (`ui-specifications.md` rule 3).
 
@@ -19,7 +20,7 @@ export const confirmLine = (p: Pick<MessengerSendPreviewDto, "to" | "channel" | 
 /** Who the chat is: the client it is linked to, else the chat's own title, else its id. */
 export const chatName = (c: MessengerChatDto): string => c.client?.name || c.client?.email || c.title || `Chat ${c.chatId}`;
 
-/** The chat's rules in one muted line: the channel, the reply mode and, when on, the follow-up days. */
+/** The chat's rules in one line for detail and diagnostics; the compact list does not render this legacy summary. */
 export function rulesLine(c: MessengerChatDto): string {
   const parts = [CHANNEL_LABEL[c.channel], REPLY_MODE_LABELS[c.rules.replyMode]];
   if (c.rules.mayNudge) parts.push(`follow-up after ${c.rules.nudgeAfterDays} ${c.rules.nudgeAfterDays === 1 ? "day" : "days"}`);
@@ -27,7 +28,7 @@ export function rulesLine(c: MessengerChatDto): string {
   return parts.join(" · ");
 }
 
-/** Who wrote last, as the row says it. */
+/** Who wrote last, for diagnostics and label tests; the list now keeps this implicit in its state line. */
 export const lastWho = (c: MessengerChatDto): string | null => (c.last ? (c.last.direction === "in" ? "They wrote" : "You wrote") : null);
 
 /** The newest message's words: its text, or its kind for a message with no text (media bytes are never stored). */
@@ -37,18 +38,23 @@ export const lastText = (c: MessengerChatDto): string => {
   return t || `(${c.last.kind})`;
 };
 
-/**
- * What the row says where there is no draft: whose turn it is and, when a reply is owed, why the agent has not drafted one (the
- * chat's rule) or the phrase that makes it draft. Null when a draft is there.
- */
-export function noDraftLine(c: MessengerChatDto, project: string): string | null {
+/** The detailed explanation used below a chat when no draft is present. */
+export function noDraftLine(c: MessengerChatDto): string | null {
   if (c.draft) return null;
   if (!c.last) return "No message stored yet.";
   if (c.last.direction === "in" && c.last.hidden) return `Their last message was hidden by the pre-analysis (${HIDDEN_LABEL_WORDS[c.last.hidden]}): no reply owed.`;
   if (!c.owed) return "You replied last.";
   if (c.rules.replyMode === "off") return "A reply is owed. The agent never drafts here (this chat's rule).";
-  if (c.rules.replyMode === "on_request") return "A reply is owed. The agent drafts here only when you ask for this chat in a session.";
-  return `A reply is owed and no draft yet: say “${phrase("triage-messages", project)}” in a session.`;
+  if (c.rules.replyMode === "on_request") return "A reply is owed. Prepare a reply when you want the agent to draft it.";
+  return "A reply is owed and no draft yet. Prepare a reply to ask the agent to draft it.";
+}
+
+/** The single state phrase shown on a linked chat, so the owner can tell the next step without reading the row's details. */
+export function chatStateLine(c: Pick<MessengerChatDto, "last" | "owed" | "draft">): string {
+  if (c.draft) return "Draft ready — review";
+  if (!c.last) return "No messages yet";
+  if (c.last.direction === "in" && c.last.hidden) return "No reply needed";
+  return c.owed ? "Client wrote — reply needed" : "Waiting for client";
 }
 
 // ---- P71 M-P: the pre-analysis of a linked chat
@@ -70,13 +76,13 @@ export function triageLine(c: Pick<MessengerChatDto, "rules" | "triage">): strin
 }
 
 /**
- * The note under the Settings switch: what it does now, or why nothing runs (no OpenRouter key, and where it goes). Replaces M3's
+ * The note under the Settings switch: what it does now, or why nothing runs (no OpenRouter key). Replaces M3's
  * "nothing reads this switch" line.
  */
 export function prefilterNote(p: PreanalysisDto): string {
-  if (p.state === "no_key") return `Needs an OpenRouter key: nothing runs until one is set. ${p.fix ?? ""}`.trim();
-  const what = `A cheap model reads each new message the client sends here (its text and the two before it; never a name or the chat's title) and hides closing words, automated notices and personal chatter from the agent. Anything it is unsure of, or could not judge, still reaches the agent. Hidden messages are kept and counted on Chats. Turning it on reads the last ${PREANALYSIS_LOOKBACK_DAYS} days.`;
-  return p.state === "fake" ? `${what} This Hub runs a fake model (HUB_LLM=fake): nothing leaves it.` : what;
+  if (p.state === "no_key") return "Needs an OpenRouter key: pre-analysis stays off until the Hub instance is configured.";
+  const what = `A cheap model reads each new message and the two before it (never a name or the chat's title), then hides closing words, automated notices and personal chatter. Uncertain messages still reach the agent; turning it on reads the last ${PREANALYSIS_LOOKBACK_DAYS} days.`;
+  return p.state === "fake" ? `${what} This Hub is using a local test model; no request leaves this computer.` : what;
 }
 
 // ---- P84: chats link themselves (decision 0036 point 3 as amended 2026-11-20)
@@ -118,9 +124,9 @@ export const RECORD_SEARCH_PLACEHOLDER = "Name, email, @username or phone";
 
 /** The toast after a link: how much history came with it (a link imports the last `days` once; new messages arrive live). */
 export function linkedLine(r: Pick<AutolinkLinkedDto, "imported" | "importError" | "days">): string {
-  if (r.importError) return `Linked · loading the last ${r.days} days failed (${r.importError}); new messages still arrive`;
-  if (r.imported === 0) return `Linked · no messages in the last ${r.days} days; new ones arrive by themselves`;
-  return `Linked · ${r.imported === 1 ? "1 message" : `${r.imported} messages`} of the last ${r.days} days loaded`;
+  if (r.importError) return `Could not load the last ${r.days} days (${r.importError}); new messages still arrive`;
+  if (r.imported === 0) return `No messages from the last ${r.days} days; new ones arrive automatically`;
+  return `${r.imported === 1 ? "1 message" : `${r.imported} messages`} from the last ${r.days} days loaded`;
 }
 
 /** Create's button when nobody matches: the chat's own name in guillemets, as the owner reads it. */
@@ -161,6 +167,24 @@ export function emptyLine(o: { telegram: boolean; whatsapp: boolean; enabled: bo
 
 /** The client a linked chat belongs to, as the row says it. */
 export const clientName = (c: Pick<MessengerChatDto, "client">): string => c.client?.name || c.client?.email || "a client";
+
+export function notionIndicatorState(c: Pick<MessengerChatDto, "client">): "connected" | "not_found" | "unavailable" | null {
+  if (!c.client) return null;
+  return notionStateOf(c.client.notion);
+}
+
+/** The identity state is visible in the row/header; a missing Notion ref must not look like a successful link. */
+export function notionIdentityLine(c: Pick<MessengerChatDto, "client">): string | null {
+  if (!c.client) return null;
+  return notionLine(c.client.notion, clientName(c));
+}
+
+/** The compact row marker: the contact name already identifies the Notion record, so only its state belongs in the list. */
+export function notionStatusLine(c: Pick<MessengerChatDto, "client">): string | null {
+  if (!c.client) return null;
+  const state = notionIndicatorState(c);
+  return state === "connected" ? "Notion" : state === "not_found" ? "Notion not found" : "Notion unavailable";
+}
 
 const messages = (n: number): string => (n === 1 ? "1 stored message" : `${n} stored messages`);
 

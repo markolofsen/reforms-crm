@@ -41,6 +41,8 @@ export const activityRowDto = z.strictObject({
   draftId: z.number().nullable(),
   /** The skill the event itself names; never the run's, never the hub's own writer (`draft_write`). */
   skill: z.string().nullable(),
+  /** The reply preparation provider, when this activity row came from Messenger drafting. */
+  provider: z.enum(["hub_llm", "runtime_agent"]).nullable(),
 });
 export type ActivityRowDto = z.infer<typeof activityRowDto>;
 

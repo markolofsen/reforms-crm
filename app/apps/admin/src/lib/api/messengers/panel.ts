@@ -1,20 +1,29 @@
-import { messengerChatDto, messengerChatsDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChannelFilter, type MessengerView } from "@hub/contract/messenger-panel";
+import { createMessengerDraft, editMessengerDraft, getMessengerConversation, listMessengerChats, prepareMessengerReply, restoreMessengerDraft, setMessengerChatRules, skipMessengerDraft } from "@hub/api";
+import { messengerChatDto, messengerChatsDto, messengerConversationDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChatsQuery } from "@hub/contract/messenger-panel";
 import { autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
-import { read } from "../client";
+import { read, readGenerated } from "../client";
 
 const at = (project: string) => `/api/projects/${encodeURIComponent(project)}/messengers`;
+type MessengerChatsInput = Pick<MessengerChatsQuery, "filter"> & Partial<Pick<MessengerChatsQuery, "channel" | "q">>;
 
 /**
  * The Messengers panel (P71 M3): the linked chats with what is owed and the agent's open draft of each, the owner's Edit, Skip and
  * its Undo, one chat's rules, and (P102) Change client with its Undo. Reads only `messenger_drafts` and the linked chats: Mail
- * drafts are Mail's. The writes pass the server's admin gate (this page's own Origin). Nothing here sends: the send door is `./send.ts`.
+ * drafts are Mail's. Manual draft creation and the other writes pass the server's admin gate (this page's own Origin). Nothing
+ * here sends: the send door is `./send.ts`.
  */
 export const messengersApi = {
-  chats: (project: string, filter: MessengerView, channel: MessengerChannelFilter = "all") => read(messengerChatsDto, { method: "GET", path: `${at(project)}/chats`, query: { filter, channel } }),
-  editDraft: (project: string, id: number, text: string) => read(messengerDraftDto, { method: "PUT", path: `${at(project)}/drafts/${id}/text`, body: { text } }),
-  skipDraft: (project: string, id: number) => read(messengerSkippedDto, { method: "POST", path: `${at(project)}/drafts/${id}/skip`, body: {} }),
-  restoreDraft: (project: string, id: number) => read(messengerDraftDto, { method: "POST", path: `${at(project)}/drafts/${id}/restore`, body: {} }),
-  setRules: (project: string, chatId: number, patch: ChatRulesBody) => read(messengerChatDto, { method: "PUT", path: `${at(project)}/chats/${chatId}/rules`, body: patch }),
+  chats: (project: string, input: MessengerChatsInput) => {
+    const query: MessengerChatsQuery = { filter: input.filter, channel: input.channel ?? "all", q: input.q ?? "" };
+    return readGenerated(listMessengerChats(project, query), messengerChatsDto);
+  },
+  conversation: (project: string, chatId: number) => readGenerated(getMessengerConversation(project, chatId), messengerConversationDto),
+  createManualDraft: (project: string, chatId: number, text: string) => readGenerated(createMessengerDraft(project, chatId, { text }), messengerChatDto),
+  editDraft: (project: string, id: number, text: string) => readGenerated(editMessengerDraft(project, id, { text }), messengerDraftDto),
+  skipDraft: (project: string, id: number) => readGenerated(skipMessengerDraft(project, id), messengerSkippedDto),
+  restoreDraft: (project: string, id: number) => readGenerated(restoreMessengerDraft(project, id), messengerDraftDto),
+  prepareReply: (project: string, chatId: number) => readGenerated(prepareMessengerReply(project, chatId, { ownerRequest: "The owner asked to prepare a reply from the Messenger panel." }), messengerChatDto),
+  setRules: (project: string, chatId: number, patch: ChatRulesBody) => readGenerated(setMessengerChatRules(project, chatId, patch), messengerChatDto),
   // P84: the autolink. Every call is a gated POST: the state names the owner's own contacts and the records come from his Notion.
   autolinkState: (project: string) => read(autolinkStateDto, { method: "POST", path: `${at(project)}/autolink/state`, body: {} }),
   findRecords: (project: string, q: string) => read(autolinkRecordsDto, { method: "POST", path: `${at(project)}/autolink/records`, body: { q } }),

@@ -27,6 +27,19 @@ export function notLinkedRows(st: Pick<AutolinkStateDto, "unlinked"> | undefined
 
 export const hiddenRows = (st: Pick<AutolinkStateDto, "hidden"> | undefined, channel: MessengerChannelFilter): HiddenDialogDto[] => (st?.hidden ?? []).filter((h) => inChannel(h.channel, channel));
 
+const includes = (value: string | null | undefined, query: string): boolean => value?.toLocaleLowerCase().includes(query) ?? false;
+
+export function matchesRecentSearch(row: RecentDialogDto, query: string): boolean {
+  const q = query.trim().toLocaleLowerCase();
+  if (!q) return true;
+  return [row.title, row.chatId, row.account, row.username, row.phone, ...row.candidates.flatMap((candidate) => [candidate.name, candidate.email, candidate.relationship])].some((value) => includes(value, q));
+}
+
+export function matchesHiddenSearch(row: HiddenDialogDto, query: string): boolean {
+  const q = query.trim().toLocaleLowerCase();
+  return !q || [row.title, row.chatId, row.account].some((value) => includes(value, q));
+}
+
 /** The View menu's counts: To do is the linked chats that wait plus the fresh undecided ones; Not linked all the remembered ones; Hidden the ones it can name. */
 export function viewCounts(linked: MessengerChatsDto["counts"] | undefined, st: Pick<AutolinkStateDto, "recent" | "unlinked" | "hidden"> | undefined, channel: MessengerChannelFilter): Record<MessengerView, number> | undefined {
   if (!linked) return undefined;

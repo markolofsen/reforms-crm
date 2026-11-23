@@ -1,7 +1,22 @@
 import { NOTION_KIND_LABELS, type NotionKind } from "@hub/config";
+import type { NotionIdentityDto } from "@hub/contract/notion";
 import { hrefOf } from "@hub/contract/local";
 
 type Stated = { notionKind: NotionKind | null; notionPageId: string | null; notionUrl: string | null };
+
+export type NotionIndicatorState = "connected" | "not_found" | "unavailable";
+
+export function notionIndicatorState(identity: Pick<NotionIdentityDto, "state">): NotionIndicatorState {
+  return identity.state === "resolved" ? "connected" : identity.state === "unresolved" ? "not_found" : "unavailable";
+}
+
+export function notionIdentityLine(identity: Pick<NotionIdentityDto, "state">, name: string): string {
+  const state = notionIndicatorState(identity);
+  return `${state === "connected" ? "Notion" : state === "not_found" ? "Notion not found" : "Notion unavailable"} · ${name}`;
+}
+
+export const notionPageIdOf = (url: string | null): string | null => (url ? (/([0-9a-f]{32})(?:\?|$)/.exec(url.replace(/-/g, ""))?.[1] ?? null) : null);
+
 export type NotionView = {
   /** `client` or `lead`: which Notion database the page is in. Null for a draft recorded before the kind was stated. */
   kind: NotionKind | null;

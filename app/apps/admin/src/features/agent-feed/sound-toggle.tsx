@@ -13,8 +13,9 @@ export function SoundToggle({ className }: { className?: string }) {
   const feed = useFeed();
   const muted = useStored("sound") === "off";
   if (!feed?.project) return null;
+  const label = muted ? "Unmute the agent sounds" : "Mute the agent sounds";
   return (
-    <ActionButton aria-label="Mute the agent sounds" aria-pressed={muted} className={className} icon onClick={() => save("sound", muted ? "on" : "off")} size="s" title={muted ? "Agent sounds are muted" : "Mute the agent sounds"} variant="quiet">
+    <ActionButton aria-label={label} aria-pressed={muted} className={className} icon onClick={() => save("sound", muted ? "on" : "off")} size="s" tooltip={label} variant="quiet">
       {muted ? <VolumeXIcon aria-hidden="true" /> : <Volume2Icon aria-hidden="true" />}
     </ActionButton>
   );

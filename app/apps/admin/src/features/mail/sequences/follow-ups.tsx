@@ -7,8 +7,9 @@ import { SEQUENCE_DISPLAY_LABELS } from "@hub/config";
 import type { EnrollmentDto } from "@hub/contract/sequences";
 import { Badge } from "@hub/ui/badge";
 import { ActionButton } from "@hub/ui/product/action-button";
+import { ConversationList, ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
 import { AppLink } from "@/components/app-link";
-import { ListSkeleton, LoadFailed } from "@/components/state-views";
+import { ListSkeleton, ListState, LoadFailed } from "@/components/state-views";
 import { refreshData, sentence } from "@/lib/api/client";
 import { sequencesApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
@@ -34,13 +35,8 @@ function StopControl({ project, e }: { project: string; e: EnrollmentDto }) {
 
 function Row({ project, e }: { project: string; e: EnrollmentDto }) {
   return (
-    <li className="flex min-w-0 flex-col gap-0.5 border-t px-3 py-2 text-sm" data-testid="follow-up">
-      <div className="flex min-w-0 items-center gap-2">
-        <span className="min-w-0 flex-1 truncate font-medium">{e.client.name}</span>
-        <Badge variant={e.display === "due" || e.display === "draft_ready" ? "info" : "outline"}>
-          {SEQUENCE_DISPLAY_LABELS[e.display]} · step {e.step} of {e.steps}
-        </Badge>
-      </div>
+    <ConversationListItem className="flex min-w-0 flex-col gap-0.5 px-3 py-2 text-sm" dataAttributes={{ "data-testid": "follow-up" }}>
+      <ConversationListIdentity name={e.client.name} time={<Badge variant={e.display === "due" || e.display === "draft_ready" ? "info" : "outline"}>{SEQUENCE_DISPLAY_LABELS[e.display]} · step {e.step} of {e.steps}</Badge>} />
       <p className="truncate text-muted-foreground">{e.sequenceName}</p>
       {e.enrolledPhrase && <p className="measure text-muted-foreground text-xs">Enrolled on your words: “{e.enrolledPhrase}”</p>}
       <div className="flex flex-wrap items-center gap-x-3 text-muted-foreground text-xs">
@@ -48,7 +44,7 @@ function Row({ project, e }: { project: string; e: EnrollmentDto }) {
         {e.openDraftId !== null && <AppLink to={paths.mail.conversation(e.client.id, { filter: "sequences" })}>Open the step draft</AppLink>}
         {e.state !== "finished" && <span className="ms-auto"><StopControl e={e} project={project} /></span>}
       </div>
-    </li>
+    </ConversationListItem>
   );
 }
 
@@ -60,17 +56,17 @@ function Row({ project, e }: { project: string; e: EnrollmentDto }) {
 export function FollowUps({ project }: { project: string }) {
   const q = useQuery({ queryKey: keys.enrollments(project, "active"), queryFn: () => sequencesApi.enrollments(project, "active") });
   if (q.isPending) return <ListSkeleton label="Loading the follow-ups" rows={2} />;
-  if (!q.data) return <div className="p-3" data-testid="follow-ups-failed"><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the follow-ups" /></div>;
+  if (!q.data) return <ListState testId="follow-ups-failed"><LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the follow-ups" /></ListState>;
   const rows = q.data.enrollments;
   return (
-    <section aria-label="Follow-ups" className="mt-2 flex flex-col" data-testid="follow-ups">
+    <section aria-label="Follow-ups" className="flex flex-col" data-testid="follow-ups">
       <h3 className="px-3 pt-2 pb-1 font-medium text-sm">In follow-up ({rows.length})</h3>
       {rows.length === 0 ? (
         <p className="measure px-3 pb-3 text-muted-foreground text-sm">
           Nobody is in a follow-up. Say to the agent: <code>{phrase("sequence-drafts", project)}</code>.
         </p>
       ) : (
-        <ul aria-label="Clients in follow-up">{rows.map((e) => <Row e={e} key={e.id} project={project} />)}</ul>
+        <ConversationList ariaLabel="Clients in follow-up">{rows.map((e) => <Row e={e} key={e.id} project={project} />)}</ConversationList>
       )}
     </section>
   );

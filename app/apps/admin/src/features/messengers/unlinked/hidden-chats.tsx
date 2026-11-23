@@ -6,6 +6,7 @@ import { ChannelIcon } from "../channel/channel-icon";
 import { unnamedHiddenLine } from "../labels";
 import { StatusMenu, type StatusAction } from "../status/status-menu";
 import type { useChatMoves } from "../status/use-moves";
+import { ConversationList, ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
 import { RecordSearch } from "./record-search";
 import { useHide } from "./use-hide";
 
@@ -26,33 +27,32 @@ function HiddenRow({ project, h, now, moves }: { project: string; h: HiddenDialo
     else if (a === "link") setSearching(true);
   };
   return (
-    <li aria-label={h.title} className="flex flex-col gap-2 py-3" data-hidden-chat={`${h.channel}:${h.chatId}`}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <ChannelIcon channel={h.channel} />
-        <span className="font-medium text-sm">{h.title}</span>
-        <span className="text-muted-foreground text-xs">hidden {ago(h.hiddenAt, now)}</span>
-        <div className="ms-auto">
-          <StatusMenu disabled={unhide.isPending || moves.pending} name={h.title} onAction={on} s={{ state: "hidden", canLink: account !== null }} />
+    <ConversationListItem ariaLabel={h.title} className="flex flex-col gap-1.5 px-3 py-2" dataAttributes={{ "data-hidden-chat": `${h.channel}:${h.chatId}` }}>
+      <div className="flex min-w-0 items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <ConversationListIdentity leading={<ChannelIcon channel={h.channel} />} name={<span data-agent-label="">{h.title}</span>} />
+          <span className="mt-0.5 block truncate text-muted-foreground text-xs">hidden {ago(h.hiddenAt, now)}</span>
         </div>
+        <StatusMenu compact disabled={unhide.isPending || moves.pending} name={h.title} onAction={on} s={{ state: "hidden", canLink: account !== null }} />
       </div>
       {searching && account !== null && (
-        <RecordSearch onCancel={() => setSearching(false)} onPick={(rec) => moves.link.mutate({ channel: h.channel, account, chatId: h.chatId, title: h.title, rec }, { onSuccess: () => setSearching(false) })} project={project} />
+        <RecordSearch autoFocus onCancel={() => setSearching(false)} onPick={(rec) => moves.link.mutate({ channel: h.channel, account, chatId: h.chatId, title: h.title, rec }, { onSuccess: () => setSearching(false) })} project={project} />
       )}
-    </li>
+    </ConversationListItem>
   );
 }
 
 export function HiddenChats({ project, rows, unnamed, now, moves }: { project: string; rows: HiddenDialogDto[]; unnamed: number; now: number; moves: Moves }) {
   if (rows.length === 0 && unnamed === 0)
-    return <EmptyState title="No hidden chats">Hide a chat when it is not a client: it leaves the list and never links by itself.</EmptyState>;
+    return <EmptyState compact title="No hidden chats">Hide a chat when it is not a client: it leaves the list and never links by itself.</EmptyState>;
   return (
     <section className="flex flex-col gap-2">
       {rows.length > 0 && (
-        <ul aria-label="Hidden chats" className="flex flex-col divide-y border-y">
+        <ConversationList ariaLabel="Hidden chats">
           {rows.map((h) => (
             <HiddenRow h={h} key={`${h.channel}:${h.chatId}`} moves={moves} now={now} project={project} />
           ))}
-        </ul>
+        </ConversationList>
       )}
       {unnamed > 0 && <p className="measure text-muted-foreground text-xs">{unnamedHiddenLine(unnamed)}</p>}
     </section>

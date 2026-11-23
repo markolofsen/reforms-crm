@@ -4,7 +4,7 @@ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/colla
 import { ActionButton } from "@hub/ui/product/action-button";
 import { cn } from "@hub/ui/cn";
 import { isClosed, type ReviewDraft } from "../source";
-import type { SafetyResultDto } from "@hub/contract/responses";
+import type { SafetyResultDto } from "@hub/contract/review";
 import type { ReviewActions } from "../use-review-actions";
 
 /**

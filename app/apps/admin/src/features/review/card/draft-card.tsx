@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { refOf } from "@hub/contract/focus";
+import { ConversationComposer, ConversationComposerFooter } from "@hub/ui/product/conversation-frame";
 import { toastManager } from "@hub/ui/toast";
 import { useGo } from "@/hooks/use-go";
 import { LoadFailed } from "@/components/state-views";
@@ -20,6 +21,8 @@ import { stateOf } from "./card-state";
 import { draftLinkOf, mailReadable, tickBlock } from "../mail/tick-guard";
 import { CheckList } from "./check-list";
 import { DraftBlock } from "./draft-block";
+import { DraftEditor, DraftEditorFooter } from "../mail/draft-editor";
+import { useMailWrite } from "../mail/use-mail-write";
 import { useDraftMail } from "../mail/use-draft-mail";
 import { useChangedUnder } from "../mail/use-changed-under";
 import { ActionButton } from "@hub/ui/product/action-button";
@@ -31,17 +34,17 @@ export type CardProps = {
   project: string;
   actions: ReviewActions;
   now: number;
-  thread: boolean;
-  onThread: () => void;
   advance: () => void;
   say: (text: string) => void;
+  embedded?: boolean;
+  composerNotice?: ReactNode;
 };
 
 /**
  * One draft, designed once: header, about, checks (only when present), the draft, the action bar. The bar is a pure
  * function of the card's state (`card-state.ts`), so there is never a second primary and never a dead button.
  */
-export function DraftCard({ d, project, actions, now, thread, onThread, advance, say }: CardProps) {
+export function DraftCard({ d, project, actions, now, advance, say, embedded = false, composerNotice }: CardProps) {
   const qc = useQueryClient();
   const go = useGo();
   const { flow, read, send, close } = useSendFlow(project, d.id);
@@ -53,6 +56,10 @@ export function DraftCard({ d, project, actions, now, thread, onThread, advance,
   const draftLink = draftLinkOf(mail);
   const first = firstName(d);
   const under = useChangedUnder(d);
+  const [editing, setEditing] = useState<{ text: string; hash: string } | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editSaved, setEditSaved] = useState(false);
+  const { save: editSave } = useMailWrite(project, d.id);
   const cancel = useMutation({
     mutationFn: () => (d.sendState ? sendApi.cancel(project, d.sendState.id) : Promise.reject(new Error("Nothing is queued."))),
     onSuccess: () => {
@@ -98,11 +105,23 @@ export function DraftCard({ d, project, actions, now, thread, onThread, advance,
   // Shift+Enter: read Mail and show the confirmation, then send what was shown. Nothing else sends by key.
   useSendKey(state === "acknowledged" || state === "failed" ? read : state === "confirming" ? () => dwellPassed(shownAt.current, clock()) && on.confirm() : null);
   const confirmed = flow.step === "confirm" || flow.step === "sending" ? flow.mail.body : null;
-  // The open draft carries its ref too (P72): beside the terminal dock the list pane is hidden, and a pointer at `draft:<id>`
-  // that Show opened must still find a row to ring.
-  return (
-    <article aria-label={`Draft for ${d.client.name}`} className="flex min-h-0 min-w-0 flex-1 flex-col" {...agentRef(refOf("draft", d.id))}>
-      <div className="flex min-w-0 flex-1 flex-col gap-6 p-4 lg:p-6">
+  const editDirty = editing !== null && editValue !== editing.text;
+  const editChangedUnder = editing !== null && mail?.found === true && mail.hash !== editing.hash;
+  const startEditing = (value: { text: string; hash: string }) => {
+    editSave.reset();
+    setEditSaved(false);
+    setEditing(value);
+    setEditValue(value.text);
+  };
+  const cancelEditing = () => {
+    if (!editSave.isPending) setEditing(null);
+  };
+  const submitEditing = () => {
+    if (editing === null || !editDirty || editSave.isPending || !editValue.trim() || editChangedUnder) return;
+    editSave.mutate({ text: editValue, hash: editing.hash }, { onSuccess: () => { setEditing(null); setEditSaved(true); } });
+  };
+  const content = (
+    <div className="flex min-w-0 flex-1 flex-col gap-3">
         <CardHeader actions={actions} d={d} now={now} ready={state === "acknowledged"} />
         {d.reason && (
           <p className="break-words text-sm">
@@ -128,10 +147,49 @@ export function DraftCard({ d, project, actions, now, thread, onThread, advance,
         )}
         {mailError !== null && <LoadFailed error={mailRead.error} onRetry={() => void mailRead.refetch()} retrying={mailRead.isFetching} what="the draft from Mail" />}
         <CheckList actions={actions} d={d} {...(mail?.found ? { results: mail.safetyResults } : {})} />
-        <DraftBlock actions={actions} confirmed={confirmed} d={d} {...(mail ? { live: mail } : {})} onRead={() => void mailRead.refetch()} onThread={onThread} project={project} reading={mailRead.isFetching} thread={thread} />
-        <SendNotices flow={flow} onClose={close} />
+        <DraftBlock
+          actions={actions}
+          confirmed={confirmed}
+          d={d}
+          editing={editing}
+          editor={editing !== null ? <DraftEditor disabled={editSave.isPending} onCancel={cancelEditing} onChange={setEditValue} onSubmit={submitEditing} value={editValue} /> : null}
+          {...(mail ? { live: mail } : {})}
+          onEdit={startEditing}
+          onRead={() => void mailRead.refetch()}
+          project={project}
+          reading={mailRead.isFetching}
+        />
+    </div>
+  );
+  const actionBarContent = (
+    <ConversationComposerFooter feedback={
+      flow.step === "refused" || flow.step === "failed" ? <SendNotices flow={flow} onClose={close} /> : editSaved ? <p className="text-muted-foreground text-sm" role="status">Draft saved in Mail. It remains unsent.</p> : undefined
+    }>
+      <div className="min-w-0 flex-1">
+        {editing !== null ? (
+          <DraftEditorFooter changedUnder={editChangedUnder} dirty={editDirty} error={editSave.isError ? sentence(editSave.error) : null} onCancel={cancelEditing} onSubmit={submitEditing} pending={editSave.isPending} value={editValue} />
+        ) : (
+          <ActionBar actions={actions} context={{ name: first, hasMailLink: hasMailLink(d), hasDraftLink: draftLink !== null, acknowledged: d.checked }} d={d} draftLink={draftLink} flow={flow} mailHash={mail?.hash ?? null} on={on} tickBlock={tickBlock(d, mail, flow.step, mailError)} state={state} />
+        )}
       </div>
-      <ActionBar actions={actions} context={{ name: first, hasMailLink: hasMailLink(d), hasDraftLink: draftLink !== null, acknowledged: d.checked }} d={d} draftLink={draftLink} flow={flow} mailHash={mail?.hash ?? null} on={on} tickBlock={tickBlock(d, mail, flow.step, mailError)} state={state} />
+    </ConversationComposerFooter>
+  );
+  const actionBar = embedded ? actionBarContent : <div className="shrink-0 border-t bg-background px-4 py-3 lg:px-6">{actionBarContent}</div>;
+  // The open draft carries its ref too (P72): beside the terminal dock the list pane is hidden, and a pointer at `draft:<id>`
+  // that Show opened must still find a row to ring.
+  if (embedded) {
+    return (
+      <ConversationComposer ariaLabel="Mail draft and actions" footer={actionBar} notice={composerNotice}>
+        <article aria-label={`Draft for ${d.client.name}`} className="flex h-full min-h-0 min-w-0 flex-1 flex-col" {...agentRef(refOf("draft", d.id))}>
+          {content}
+        </article>
+      </ConversationComposer>
+    );
+  }
+  return (
+    <article aria-label={`Draft for ${d.client.name}`} className="flex min-h-0 min-w-0 flex-1 flex-col" {...agentRef(refOf("draft", d.id))}>
+      {content}
+      {actionBar}
     </article>
   );
 }

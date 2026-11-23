@@ -1,10 +1,12 @@
 "use client";
 
 import { PanelLeftIcon } from "lucide-react";
+import type { ProjectLinksDto } from "@hub/contract/responses";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { BrandHeader } from "@hub/ui/product/brand-header";
 import { ThemeSegmented, ThemeToggle } from "@hub/ui/product/theme";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@hub/ui/sidebar";
+import { useHotkey } from "@hub/ui/use-hotkey";
 import { AppLink } from "@/components/app-link";
 import { KeyHelp } from "@/components/key-help";
 import { NavDot } from "@/components/nav-dot";
@@ -12,11 +14,12 @@ import { SoundToggle } from "@/features/agent-feed/sound-toggle";
 import { CoreLine } from "@/features/settings/mac/core-line";
 import { NavIcon } from "./nav-icon";
 import { ProjectSwitcher } from "./project-switcher";
+import { hasQuickLinks, QuickLinksMenu } from "./quick-links";
 import type { ShellNavItem } from "./shell";
 
 type Keys = { open: boolean; onOpenChange: (open: boolean) => void; enabled: boolean; onEnabled: (on: boolean) => void };
 export type Brand = { name: string; logoSrc: string | null };
-type Props = { items: ShellNavItem[]; projects: string[]; project: string | null; onProject: (p: string) => void; brand: Brand; keys: Keys };
+type Props = { items: ShellNavItem[]; projects: string[]; project: string | null; onProject: (p: string) => void; brand: Brand; keys: Keys; links?: ProjectLinksDto | null };
 
 /**
  * The left column: the instance's brand on top, the project switcher under it only with two or more projects, the sections
@@ -25,8 +28,9 @@ type Props = { items: ShellNavItem[]; projects: string[]; project: string | null
  * (P68, a link to /health), the theme switcher, the agent sounds' switch and the sidebar toggle (the terminal is the strip on the right edge). Wide
  * screens show it open; 640-1279 it is a 56px rail (labels as tooltips, the theme as one toggle) unless pinned open.
  */
-export function AppSidebar({ items, projects, project, onProject, brand, keys }: Props) {
+export function AppSidebar({ items, projects, project, onProject, brand, keys, links }: Props) {
   const { toggleSidebar, state } = useSidebar();
+  useHotkey("mod+b", toggleSidebar, keys.enabled);
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-1">
@@ -57,6 +61,17 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys }:
             </nav>
           </SidebarGroupContent>
         </SidebarGroup>
+        {hasQuickLinks(links) && (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <QuickLinksMenu links={links} />
+                </SidebarMenuItem>
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <CoreLine />
@@ -64,7 +79,7 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys }:
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
           <ThemeToggle className="hidden group-data-[collapsible=icon]:inline-flex" />
           <SoundToggle />
-          <ActionButton aria-label={state === "expanded" ? "Collapse the sidebar" : "Expand the sidebar"} icon onClick={toggleSidebar} size="s" variant="quiet">
+          <ActionButton aria-keyshortcuts="Meta+B Control+B" aria-label={state === "expanded" ? "Collapse the sidebar" : "Expand the sidebar"} icon onClick={toggleSidebar} size="s" tooltip={{ content: state === "expanded" ? "Collapse the sidebar" : "Expand the sidebar", hotkey: "Meta/Ctrl + B" }} variant="quiet">
             <PanelLeftIcon aria-hidden="true" />
           </ActionButton>
           <KeyHelp {...keys} />

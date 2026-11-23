@@ -42,6 +42,12 @@ const subscribe = (cb: () => void) => {
 /** The attribute a row carries so the observers, the focus and the agent's pointer find it: `<tr {...agentRef("draft:42")}>`. */
 export const agentRef = (ref: string): { "data-agent-ref": string } => ({ "data-agent-ref": ref });
 export const AGENT_REF_ATTR = "data-agent-ref";
+export const CONVERSATION_LIST_FOCUS_SLOT = "conversation-list-focus";
+
+export function focusAgentRow(ref: string): void {
+  const escapedRef = globalThis.CSS?.escape?.(ref) ?? ref;
+  document.querySelector<HTMLElement>(`[${AGENT_REF_ATTR}="${escapedRef}"] [data-slot="${CONVERSATION_LIST_FOCUS_SLOT}"]`)?.focus();
+}
 
 export const shareSubject = (subject: FocusLabel | null): void => set({ subject });
 export const shareSelection = (selected: readonly string[]): void => set({ selected });

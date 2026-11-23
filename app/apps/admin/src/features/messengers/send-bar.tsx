@@ -1,10 +1,10 @@
 import { SendIcon } from "lucide-react";
 import { useEffect, useRef, type ReactNode } from "react";
-import type { MessengerSendPreviewDto } from "@hub/contract/messenger-panel";
+import type { MessengerSendPreviewDto } from "@hub/contract/messenger";
 import { ActionButton } from "@hub/ui/product/action-button";
 import type { SendFlow } from "@/components/send/send-flow";
 import { SendNotices } from "@/components/send/send-notices";
-import { useHotkeys } from "@/hooks/use-hotkeys";
+import { useHotkeys } from "@hub/ui/use-hotkey";
 import { confirmLine } from "./labels";
 
 type Door = { flow: SendFlow<MessengerSendPreviewDto>; read: () => void; send: (p: MessengerSendPreviewDto) => void; close: () => void };

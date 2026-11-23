@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { desktopHandoffReason, isServerAction, linkOf, LOCAL_ACTIONS, type HrefActionId, type LocalActionId, type LocalArgs, type ServerActionId } from "@hub/contract/local";
 import { Link } from "@hub/ui/link";
 import { MenuItem, MenuLinkItem } from "@hub/ui/menu";
-import { ActionButton, type ActionSize, type ActionVariant } from "@hub/ui/product/action-button";
+import { ActionButton, type ActionButtonProps, type ActionSize, type ActionVariant } from "@hub/ui/product/action-button";
 import { toastManager } from "@hub/ui/toast";
 import { sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
@@ -49,25 +49,25 @@ export function useLocalAction(action: LocalActionId) {
   return { run: (args: unknown) => m.mutate(args), pending: m.isPending, available: !isServerAction(action) || instance.data?.localOpen === true };
 }
 
-type Look = { size?: ActionSize; variant?: ActionVariant; children?: ReactNode; className?: string };
+type Look = { size?: ActionSize; variant?: ActionVariant; children?: ReactNode; className?: string; tooltip?: ActionButtonProps["tooltip"]; ariaLabel?: string };
 type Untyped<A> = Look & { action: A; args: unknown };
 
 /** An `href` action as a real anchor: keyboard, middle click and the server being down all work. Null when no link can be built. */
-function HrefButton({ action, args, size = "s", variant = "quiet", children, className }: Untyped<HrefActionId>) {
+function HrefButton({ action, args, size = "s", variant = "quiet", children, className, tooltip, ariaLabel }: Untyped<HrefActionId>) {
   const href = linkOf(action, args);
   if (!href) return null;
   return (
-    <ActionButton className={className} render={<Link bare href={href} />} size={size} variant={variant}>
+    <ActionButton aria-label={ariaLabel ?? LOCAL_ACTIONS[action].label} className={className} render={<Link bare href={href} />} size={size} tooltip={tooltip ?? LOCAL_ACTIONS[action].label} variant={variant}>
       {children ?? LOCAL_ACTIONS[action].label}
     </ActionButton>
   );
 }
 
-function ServerButton({ action, args, size = "s", variant = "quiet", children, className }: Untyped<ServerActionId>) {
+function ServerButton({ action, args, size = "s", variant = "quiet", children, className, tooltip, ariaLabel }: Untyped<ServerActionId>) {
   const a = useLocalAction(action);
   if (!a.available) return null;
   return (
-    <ActionButton className={className} disabled={a.pending} onClick={() => a.run(args)} size={size} variant={variant}>
+    <ActionButton aria-label={ariaLabel ?? LOCAL_ACTIONS[action].label} className={className} disabled={a.pending} onClick={() => a.run(args)} size={size} tooltip={tooltip ?? LOCAL_ACTIONS[action].label} variant={variant}>
       {children ?? LOCAL_ACTIONS[action].label}
     </ActionButton>
   );
@@ -110,7 +110,7 @@ export function DesktopHandoffButton({ preset }: { preset: string }) {
   const reason = desktopHandoffReason(preset);
   if (!reason || instance.data?.localOpen !== true) return null;
   return (
-    <ActionButton aria-label={`${LOCAL_ACTIONS["agent.openInDesktop"].label}: ${reason}`} disabled icon size="s" title={reason} variant="quiet">
+    <ActionButton aria-label={`${LOCAL_ACTIONS["agent.openInDesktop"].label}: ${reason}`} disabled icon size="s" tooltip={reason} variant="quiet">
       <MonitorIcon aria-hidden="true" />
     </ActionButton>
   );

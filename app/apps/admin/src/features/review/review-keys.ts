@@ -1,5 +1,7 @@
 import { TONES } from "@hub/config";
-import { useHotkeys } from "@/hooks/use-hotkeys";
+import { refOf } from "@hub/contract/focus";
+import { useHotkeys } from "@hub/ui/use-hotkey";
+import { focusAgentRow } from "@/lib/focus";
 import { isClosed, type ReviewDraft } from "./source";
 import type { ReviewActions } from "./use-review-actions";
 
@@ -18,7 +20,6 @@ export const REVIEW_KEYS: readonly (readonly [string, string])[] = [
   ["H", "hold, or back to ready"],
   ["U", "undo the last Done, Skip or Hold (also on its toast)"],
   ["1 2 3", "short, standard, warm version"],
-  ["T", "show or hide the thread"],
   ["/", "search"],
 ];
 
@@ -28,7 +29,7 @@ const popupOpen = () => document.querySelector('[data-slot$="-popup"], [role="di
 /** Focus a row's button once it has rendered: after Done or Skip the card that held focus is gone, so focus follows to the next person. */
 export function focusRow(id: number | null): void {
   if (id === null) return;
-  requestAnimationFrame(() => document.querySelector<HTMLElement>(`#person-${id} button[data-variant]`)?.focus());
+  requestAnimationFrame(() => focusAgentRow(refOf("client", id)));
 }
 
 /** Focus the first thing to do in the open card: its primary action, else its first control. */
@@ -54,7 +55,6 @@ export type KeyDeps = {
   toggleChecked: (d: ReviewDraft) => void;
   undoLast: (() => void) | null;
   toggleSelect: (id: number) => void;
-  toggleThread: () => void;
   selectAll: () => void;
   selected: number;
   clearSelection: () => void;
@@ -64,7 +64,7 @@ export type KeyDeps = {
   say: (text: string) => void;
 };
 
-/** The shared key map. Closed drafts take no action keys; moving, search, help and the thread always work. */
+/** The shared key map. Closed drafts take no action keys; moving and search remain available. */
 export function useReviewKeys(k: KeyDeps): void {
   const { ids, current: d, actions } = k;
   const index = k.currentId === null ? -1 : ids.indexOf(k.currentId);
@@ -104,7 +104,6 @@ export function useReviewKeys(k: KeyDeps): void {
       A: () => k.selectAll(),
       "/": (e) => { e.preventDefault(); k.focusSearch(); },
       x: () => k.currentId !== null && k.toggleSelect(k.currentId),
-      t: () => k.toggleThread(),
       u: () => (k.undoLast ? k.undoLast() : actions.undoKey(d)),
       c: act(k.toggleChecked),
       r: act(k.replyAll),

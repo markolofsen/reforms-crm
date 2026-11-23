@@ -6,15 +6,23 @@ import type { CliFactDto, TerminalPreset, TerminalProblemDto, TerminalSessionDto
 import { MAX_SESSIONS } from "@hub/contract/terminal";
 import type { TerminalHandle } from "@hub/ui/product/terminal";
 import { parseWidth } from "@hub/ui/product/side-dock";
+import { useHotkey } from "@hub/ui/use-hotkey";
 import { useMediaQuery } from "@hub/ui/use-media-query";
-import { useHotkeys } from "@/hooks/use-hotkeys";
+import { useHotkeys } from "@hub/ui/use-hotkey";
 import { sentence } from "@/lib/api/client";
 import { terminalApi } from "@/lib/api/terminal";
 import { save, useStored } from "@/lib/storage";
 import { sessionFor, useAutoStart } from "./use-auto-start";
 
 export const TERMINAL_KEY = ["terminal"] as const;
-const HELP = [["Ctrl `", "show or hide the terminal"]] as const;
+const HELP = [["Ctrl `", "show or hide the terminal"], ["Meta/Ctrl + J", "show or hide the terminal"]] as const;
+
+const isTerminalToggleTarget = (event: KeyboardEvent): boolean => {
+  const target = event.target instanceof Element ? event.target : null;
+  if (!target) return true;
+  if (target.closest("[data-terminal-toggle], [data-testid=terminal-layer], .xterm")) return true;
+  return target.closest("input,textarea,select,[contenteditable],[role=combobox],[role=listbox],[role=menu],[role=menuitem],[role=dialog]") === null;
+};
 
 /** Everything the toggle, the dock, the tabs and the sessions read and do. One instance, made by `TerminalProvider`. */
 export type TerminalModel = {
@@ -118,7 +126,7 @@ function useFocus() {
 /**
  * The terminal's state: the server's sessions and `problem` (`GET /api/terminal`), and three viewing preferences in storage
  * (open, width, active tab; read after mount, so the first render is closed). A saved "open" is restored only from 1024px;
- * below that the person opens it. Ctrl+` toggles it from anywhere, the terminal included.
+ * below that the person opens it. Ctrl+` and Meta/Ctrl+J toggle it from anywhere, including the terminal.
  */
 export function useTerminalModel(place: string | null | undefined): TerminalModel {
   // `undefined`: the shell does not know the project yet; nothing starts by itself until it does.
@@ -220,6 +228,7 @@ export function useTerminalModel(place: string | null | undefined): TerminalMode
   });
   const setOpen = setOpenRaw;
   useHotkeys({ "ctrl+`": () => setOpen(!open) }, true, HELP);
+  useHotkey("mod+j", () => setOpen(!open), true, { allowInInput: true, capture: true, isAllowedTarget: isTerminalToggleTarget });
 
   const patch = useCallback(
     (id: string, change: Partial<TerminalSessionDto> | null) => {

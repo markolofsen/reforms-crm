@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { ChatsScreen } from "@/features/messengers/section";
 import { pageTitle } from "@/routes/meta";
 
 export async function generateMetadata(props: PageProps<"/[project]/messengers">): Promise<Metadata> {
@@ -8,5 +7,5 @@ export async function generateMetadata(props: PageProps<"/[project]/messengers">
 }
 
 export default function ProjectMessengersPage() {
-  return <ChatsScreen />;
+  return null;
 }

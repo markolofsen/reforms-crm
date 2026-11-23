@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
 import { AppLink } from "@/components/app-link";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@hub/ui/tooltip";
 import { paths } from "@/routes/paths";
 import { coreLine } from "./core-labels";
 
@@ -16,10 +17,15 @@ export function CoreLine() {
   if (!q.data) return null;
   const l = coreLine(q.data);
   return (
-    <AppLink className="gap-2 px-2 text-xs group-data-[collapsible=icon]:hidden" data-testid="core-line" title={q.data.reason} to={paths.settings.mac()}>
-      <span className="truncate">{l.text}</span>
-      {l.note && <span className={l.dot ? "text-foreground" : undefined}>{l.note}</span>}
-      {l.dot && <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-warning" data-testid="core-dot" />}
-    </AppLink>
+    <Tooltip>
+      <TooltipTrigger aria-label={q.data.reason} render={
+        <AppLink className="gap-2 px-2 text-xs group-data-[collapsible=icon]:hidden" data-testid="core-line" to={paths.settings.mac()}>
+          <span className="truncate">{l.text}</span>
+          {l.note && <span className={l.dot ? "text-foreground" : undefined}>{l.note}</span>}
+          {l.dot && <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-warning" data-testid="core-dot" />}
+        </AppLink>
+      } />
+      <TooltipPopup>{q.data.reason}</TooltipPopup>
+    </Tooltip>
   );
 }

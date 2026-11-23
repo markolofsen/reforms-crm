@@ -7,6 +7,7 @@ import { unlinkedIntro, whyLine, wroteLine } from "../labels";
 import { StatusMenu, type StatusAction } from "../status/status-menu";
 import type { useChatMoves } from "../status/use-moves";
 import { ActionButton } from "@hub/ui/product/action-button";
+import { ConversationList, ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
 import { CreateClient, recordName, RecordSearch } from "./record-search";
 import { useHide } from "./use-hide";
 
@@ -28,18 +29,17 @@ function UnlinkedRow({ project, r, now, moves }: { project: string; r: RecentDia
   };
   const done = () => setMode(null);
   return (
-    <li aria-label={r.title} className="flex flex-col gap-2 py-3" data-recent-chat={`${r.channel}:${r.chatId}`}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <ChannelIcon channel={r.channel} />
-        <span className="font-medium text-sm">{r.title}</span>
-        {r.last && <span className="text-muted-foreground text-xs">{wroteLine(r.last, ago(r.last.at, now))}</span>}
-        <div className="ms-auto">
-          <StatusMenu disabled={hide.isPending || moves.pending} name={r.title} onAction={on} s={{ state: "unlinked", canCreate: true }} />
+    <ConversationListItem ariaLabel={r.title} className="flex flex-col gap-1.5 px-3 py-2" dataAttributes={{ "data-recent-chat": `${r.channel}:${r.chatId}` }}>
+      <div className="flex min-w-0 items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <ConversationListIdentity leading={<ChannelIcon channel={r.channel} />} name={<span data-agent-label="">{r.title}</span>} />
+          {r.last && <span className="mt-0.5 block truncate text-muted-foreground text-xs">{wroteLine(r.last, ago(r.last.at, now))}</span>}
         </div>
+        <StatusMenu compact disabled={hide.isPending || moves.pending} name={r.title} onAction={on} s={{ state: "unlinked", canCreate: true }} />
       </div>
       {r.why !== "none" && <p className="measure text-muted-foreground text-sm">{whyLine(r)}</p>}
       {suggested.length > 0 && (
-        <div aria-label={`Suggested for ${r.title}`} className="flex flex-wrap items-center gap-x-4 gap-y-2" role="group">
+        <div aria-label={`Suggested for ${r.title}`} className="flex flex-wrap items-center gap-x-4 gap-y-1.5" role="group">
           {suggested.map((c) => (
             <div className="flex items-center gap-2" key={c.key}>
               <span className="text-sm">
@@ -53,14 +53,14 @@ function UnlinkedRow({ project, r, now, moves }: { project: string; r: RecentDia
           ))}
         </div>
       )}
-      {mode === "search" && <RecordSearch onCancel={done} onLinked={(res) => { void moves.announce(res, r); done(); }} onPick={(rec) => moves.link.mutate({ ...r, rec }, { onSuccess: done })} project={project} r={r} />}
+      {mode === "search" && <RecordSearch autoFocus onCancel={done} onLinked={(res) => { void moves.announce(res, r); done(); }} onPick={(rec) => moves.link.mutate({ ...r, rec }, { onSuccess: done })} project={project} r={r} />}
       {mode === "create" && <CreateClient onDone={(res) => { void moves.announce(res, r); done(); }} project={project} r={r} />}
       {moves.link.isError && (
         <p className="text-destructive-foreground text-sm" role="alert">
           {sentence(moves.link.error)}
         </p>
       )}
-    </li>
+    </ConversationListItem>
   );
 }
 
@@ -75,11 +75,11 @@ export function UnlinkedChats({ project, rows, freshDays, active, now, noLinked,
   return (
     <section aria-label="Chats not linked" className="flex flex-col gap-2" data-testid="unlinked-chats">
       <p className="text-muted-foreground text-sm">{unlinkedIntro({ freshDays, count: rows.length, noLinked })}</p>
-      <ul aria-label="New chats" className="flex flex-col divide-y border-y">
+      <ConversationList ariaLabel="New chats">
         {rows.map((r) => (
           <UnlinkedRow key={`${r.channel}:${r.chatId}`} moves={moves} now={now} project={project} r={r} />
         ))}
-      </ul>
+      </ConversationList>
       {active > 0 && (
         <p className="text-muted-foreground text-xs">
           {active === 1 ? "1 unlinked chat has" : `${active} unlinked chats have`} written since the server started (counted in memory, never stored).

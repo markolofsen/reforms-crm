@@ -1,8 +1,9 @@
-import { ChevronDownIcon, ListChecksIcon } from "lucide-react";
-import { Fragment, useEffect, useState, type RefObject } from "react";
+import { ListChecksIcon } from "lucide-react";
+import { useEffect, useState, type RefObject } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Input } from "@hub/ui/input";
-import { Menu, MenuGroup, MenuGroupLabel, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
+import { ListFilterMenu, ListToolbar, ListToolbarRow } from "@hub/ui/product/list-toolbar";
+import { Refreshing } from "@/components/state-views";
 
 /** One entry of the View menu. `group` starts a labelled block (the batches). */
 export type View = { value: string; label: string; count: number | undefined; group?: string };
@@ -18,39 +19,12 @@ type Header = {
   selecting: boolean;
   onSelecting: (on: boolean) => void;
   selection: Selection;
+  refreshing: boolean;
 };
 
 /** The view as ONE menu with counts, at every width: the views, Follow-ups, Not by email, then the batches (read-only). */
 function ViewMenu({ views, view, onView }: Pick<Header, "views" | "view" | "onView">) {
-  const now = views.find((v) => v.value === view);
-  const groups = [...new Set(views.map((v) => v.group ?? ""))];
-  return (
-    <Menu>
-      <MenuTrigger render={<ActionButton className="min-w-0 max-w-full shrink" size="m" variant="secondary" />}>
-        <span className="sr-only">View: </span>
-        <span className="truncate">{now?.label ?? view}</span>
-        <span className="font-normal tabular-nums">{now?.count ?? ""}</span>
-        <ChevronDownIcon aria-hidden="true" />
-      </MenuTrigger>
-      <MenuPopup align="start">
-        <MenuRadioGroup onValueChange={onView} value={view}>
-          {groups.map((g, i) => (
-            <Fragment key={g || "views"}>
-              {i > 0 && <MenuSeparator />}
-              <MenuGroup>
-                {g && <MenuGroupLabel>{g}</MenuGroupLabel>}
-                {views.filter((v) => (v.group ?? "") === g).map((v) => (
-                  <MenuRadioItem closeOnClick key={v.value} value={v.value}>
-                    {v.label} <span className="ms-auto ps-3 text-muted-foreground tabular-nums">{v.count ?? ""}</span>
-                  </MenuRadioItem>
-                ))}
-              </MenuGroup>
-            </Fragment>
-          ))}
-        </MenuRadioGroup>
-      </MenuPopup>
-    </Menu>
-  );
+  return <ListFilterMenu ariaLabel="Filter mail by view" onChange={onView} options={views} tooltip="Filter mail by view" value={view} />;
 }
 
 /**
@@ -63,13 +37,13 @@ function SearchBox({ search, onSearch, searchRef }: Pick<Header, "search" | "onS
   useEffect(() => {
     if (searchRef.current !== document.activeElement) setText(search);
   }, [search, searchRef]);
-  return <Input aria-label="Search drafts" className="control-m" onChange={(e) => { setText(e.target.value); onSearch(e.target.value); }} placeholder="Search" ref={searchRef} type="search" value={text} />;
+  return <Input aria-label="Search drafts" className="control-s" onChange={(e) => { setText(e.target.value); onSearch(e.target.value); }} placeholder="Search" ref={searchRef} type="search" value={text} />;
 }
 
 /** "3 selected · Skip · Hold · Clear": the header line itself while drafts are picked, so nothing below it moves. */
 function SelectionLine({ count, busy, onSkip, onHold, onClear }: Selection) {
   return (
-    <div aria-label="Selected drafts" className="flex h-(--control-m) min-w-0 items-center gap-2" role="toolbar">
+    <div aria-label="Selected drafts" className="flex h-(--control-s) min-w-0 items-center gap-2" role="toolbar">
       <p className="me-auto min-w-0 truncate font-medium text-sm tabular-nums">{count} selected</p>
       <ActionButton disabled={busy} onClick={onSkip} size="s" variant="secondary">
         Skip
@@ -88,9 +62,9 @@ function SelectionLine({ count, busy, onSkip, onHold, onClear }: Selection) {
  * The one line on top of the list (sticky while it scrolls): the View menu, the search and Select. While drafts are picked the
  * same line, at the same height, becomes the selection's actions: the rows below never shift (P48 W4).
  */
-export function ListHeader({ views, view, onView, search, onSearch, searchRef, selecting, onSelecting, selection }: Header) {
+export function ListHeader({ views, view, onView, search, onSearch, searchRef, selecting, onSelecting, selection, refreshing }: Header) {
   return (
-    <div className="sticky top-0 z-10 border-b bg-background px-3 py-2" data-testid="list-header">
+    <ListToolbar ariaLabel="Mail filters and actions" role={selection.count > 0 ? null : "toolbar"} testId="list-header">
       {/* Always mounted, so a screen reader hears the count change (a region that appears with its text is often not read). */}
       <p className="sr-only" role="status">
         {selection.count > 0 ? `${selection.count} selected` : ""}
@@ -98,16 +72,17 @@ export function ListHeader({ views, view, onView, search, onSearch, searchRef, s
       {selection.count > 0 ? (
         <SelectionLine {...selection} />
       ) : (
-        <div className="flex h-(--control-m) min-w-0 items-center gap-2">
+        <ListToolbarRow>
           <ViewMenu onView={onView} view={view} views={views} />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
             <SearchBox onSearch={onSearch} search={search} searchRef={searchRef} />
           </div>
-          <ActionButton aria-label="Select drafts" aria-pressed={selecting} icon onClick={() => onSelecting(!selecting)} size="m" variant="secondary">
+          <ActionButton aria-label={selecting ? "Exit draft selection" : "Select drafts"} aria-pressed={selecting} icon onClick={() => onSelecting(!selecting)} size="s" tooltip={selecting ? "Exit draft selection" : "Select drafts"} variant="secondary">
             <ListChecksIcon aria-hidden="true" />
           </ActionButton>
-        </div>
+          {refreshing && <Refreshing />}
+        </ListToolbarRow>
       )}
-    </div>
+    </ListToolbar>
   );
 }

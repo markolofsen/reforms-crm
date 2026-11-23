@@ -123,6 +123,15 @@ export function useLive(): void {
   useEffect(() => {
     if (typeof EventSource === "undefined") return;
     const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(NAME);
+    let channelOpen = true;
+    const broadcast = (message: Message) => {
+      if (!channel || !channelOpen) return;
+      try {
+        channel.postMessage(message);
+      } catch {
+        channelOpen = false;
+      }
+    };
     let leading = false;
     const apply = (text: string) => {
       const e = parseLiveEvent(text);
@@ -134,11 +143,11 @@ export function useLive(): void {
       return openStream(
         (text) => {
           apply(text);
-          channel?.postMessage({ kind: "event", data: text } satisfies Message);
+          broadcast({ kind: "event", data: text });
         },
         (s) => {
           setState(s);
-          channel?.postMessage({ kind: "state", state: s } satisfies Message);
+          broadcast({ kind: "state", state: s });
         },
       );
     };
@@ -148,9 +157,9 @@ export function useLive(): void {
         if (!msg) return;
         if (msg.kind === "event" && !leading) apply(msg.data);
         else if (msg.kind === "state" && !leading) setState(msg.state);
-        else if (msg.kind === "ask" && leading) channel.postMessage({ kind: "state", state } satisfies Message);
+        else if (msg.kind === "ask" && leading) broadcast({ kind: "state", state });
       };
-      channel.postMessage({ kind: "ask" } satisfies Message);
+      broadcast({ kind: "ask" });
     }
     const stop = new AbortController();
     let close = () => {};
@@ -167,6 +176,7 @@ export function useLive(): void {
       close = lead();
     }
     return () => {
+      channelOpen = false;
       stop.abort();
       close();
       channel?.close();

@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
-import type { SendPreviewDto } from "@hub/contract/responses";
+import type { SendPreviewDto } from "@hub/contract/sending";
 import { useSendDoor, type SendFlow as DoorFlow } from "@/components/send/send-flow";
 import { refreshData } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";

@@ -34,7 +34,7 @@ export function CreateClient({ project, r, onDone }: { project: string; r: Recen
         <label className="sr-only" htmlFor={`${id}-name`}>
           Name
         </label>
-        <Input className="control-m sm:w-56" id={`${id}-name`} onChange={(e) => setName(e.target.value)} placeholder="Name" required value={name} />
+        <Input autoFocus className="control-m sm:w-56" id={`${id}-name`} onChange={(e) => setName(e.target.value)} placeholder="Name" required value={name} />
         <label className="sr-only" htmlFor={`${id}-email`}>
           Email
         </label>
@@ -58,7 +58,7 @@ export function CreateClient({ project, r, onDone }: { project: string; r: Recen
  * asks its copy of Notion and Notion itself, so a page made a minute ago shows. Each hit shows its email under the name. Nothing
  * found, or only a namesake: Create client «name» in Notion.
  */
-export function RecordSearch({ project, r, onPick, onLinked, onCancel }: { project: string; r?: RecentDialogDto; onPick: (rec: AutolinkRecordDto) => void; onLinked?: (res: AutolinkLinkedDto) => void; onCancel?: () => void }) {
+export function RecordSearch({ project, r, onPick, onLinked, onCancel, autoFocus = false }: { project: string; r?: RecentDialogDto; onPick: (rec: AutolinkRecordDto) => void; onLinked?: (res: AutolinkLinkedDto) => void; onCancel?: () => void; autoFocus?: boolean }) {
   const id = useId();
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
@@ -69,7 +69,20 @@ export function RecordSearch({ project, r, onPick, onLinked, onCancel }: { proje
       <label className="sr-only" htmlFor={id}>
         A client in Notion: name, email, Telegram username or phone
       </label>
-      <Input className="control-m sm:w-72" id={id} onChange={(e) => setQ(e.target.value)} placeholder={RECORD_SEARCH_PLACEHOLDER} type="search" value={q} />
+      <Input
+        autoFocus={autoFocus}
+        className="control-m sm:w-72"
+        id={id}
+        onChange={(e) => setQ(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Escape" || !onCancel) return;
+          e.preventDefault();
+          onCancel();
+        }}
+        placeholder={RECORD_SEARCH_PLACEHOLDER}
+        type="search"
+        value={q}
+      />
       {found.isFetching && !found.data && <p className="text-muted-foreground text-sm">Searching Notion…</p>}
       {found.data && found.data.records.length > 0 && (
         <ul aria-label="Matching clients in Notion" className="flex flex-wrap gap-2">

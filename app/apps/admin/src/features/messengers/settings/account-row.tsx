@@ -11,8 +11,14 @@ export const STATE_WORD: Record<TelegramUserAccountDto["state"], { word: string;
   running: { word: "Connected", badge: "success" },
   starting: { word: "Connecting", badge: "outline" },
   error: { word: "Failing, retries", badge: "warning" },
-  parked: { word: "Parked", badge: "error" },
+  parked: { word: "Needs attention", badge: "error" },
   stopped: { word: "Stopped", badge: "outline" },
+};
+
+const PARKED_REASON: Record<NonNullable<TelegramUserAccountDto["parked"]>, string> = {
+  logged_out: "Needs reconnect",
+  banned: "Restricted",
+  flood_wait: "Rate limited",
 };
 
 /**
@@ -25,14 +31,12 @@ export function AccountRow({ a, channel, label, note, disconnect, statusKey, lin
   const off = useMutation({ mutationFn: () => disconnect(a.account), onSettled: () => qc.invalidateQueries({ queryKey: statusKey }) });
   const look = STATE_WORD[a.state];
   return (
-    <li className="flex flex-col gap-2 py-3" data-account={a.account}>
-      <div className="flex flex-wrap items-center gap-2">
+    <li className="flex flex-col gap-1.5 py-2.5" data-account={a.account}>
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <ChannelIcon channel={channel} />
-        <span className="font-medium text-sm">{label}</span>
-        <Badge variant={look.badge}>{a.parked ? `${look.word} (${a.parked.replace("_", " ")})` : look.word}</Badge>
-        {a.state === "running" && linked !== undefined && <span className="text-sm">{readsLine(linked)}</span>}
-        <span className="text-muted-foreground text-xs">{a.stored === 1 ? "1 message stored" : `${a.stored} messages stored`} since the server started</span>
-        <span className="ms-auto flex gap-2">
+        <span className="min-w-0 flex-1 font-medium text-sm">{label}</span>
+        <Badge variant={look.badge}>{a.parked ? `${look.word} · ${PARKED_REASON[a.parked]}` : look.word}</Badge>
+        <span className="ms-auto flex shrink-0 gap-2">
           {asking ? (
             <>
               <ActionButton disabled={off.isPending} onClick={() => off.mutate()} size="s" variant="danger">
@@ -48,6 +52,10 @@ export function AccountRow({ a, channel, label, note, disconnect, statusKey, lin
             </ActionButton>
           )}
         </span>
+      </div>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+        {a.state === "running" && linked !== undefined && <span>{readsLine(linked)}</span>}
+        <span>{a.stored === 1 ? "1 message stored" : `${a.stored} messages stored`} since the server started</span>
       </div>
       {asking && <p className="measure text-muted-foreground text-sm">{note}</p>}
       {a.fix && <p className="measure text-sm text-warning-foreground">{a.fix}</p>}

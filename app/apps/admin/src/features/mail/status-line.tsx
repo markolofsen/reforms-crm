@@ -4,6 +4,7 @@ import { ChevronRightIcon } from "lucide-react";
 import type { StatusDto, StatusLevel } from "@hub/contract/overview";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Skeleton } from "@hub/ui/skeleton";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@hub/ui/tooltip";
 import { cn } from "@hub/ui/cn";
 import { AppLink } from "@/components/app-link";
 import { useClock } from "@/lib/clock";
@@ -114,9 +115,10 @@ export function StatusLine({ project }: { project: string }) {
         </span>
       )}
       {live !== "connecting" && (
-        <span className="ms-auto shrink-0 text-xs text-muted-foreground" data-state={live} data-testid="live-state" title={live === "live" ? "Updates arrive as the agent writes" : "Live updates stopped; the page checks the server every 10 s"}>
-          {LIVE_WORD[live]}
-        </span>
+        <Tooltip>
+          <TooltipTrigger aria-label={live === "live" ? "Updates arrive as the agent writes" : "Live updates stopped; the page checks the server every 10 seconds"} render={<span className="ms-auto shrink-0 text-xs text-muted-foreground" data-state={live} data-testid="live-state">{LIVE_WORD[live]}</span>} />
+          <TooltipPopup>{live === "live" ? "Updates arrive as the agent writes" : "Live updates stopped; the page checks the server every 10 seconds"}</TooltipPopup>
+        </Tooltip>
       )}
     </div>
   );

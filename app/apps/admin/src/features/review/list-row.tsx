@@ -1,12 +1,14 @@
 import { CheckCircle2Icon, CircleDotIcon, CircleIcon, ClockIcon, MailIcon, PauseCircleIcon, type LucideIcon } from "lucide-react";
 import { CONVERSATION_STATE_LABELS } from "@hub/contract/conversations";
 import { refOf } from "@hub/contract/focus";
-import { agentRef } from "@/lib/focus";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Badge } from "@hub/ui/badge";
 import { Checkbox } from "@hub/ui/checkbox";
+import { ConversationListIdentity, ConversationListItem } from "@hub/ui/product/conversation";
+import { IntegrationStatus } from "@hub/ui/product/integration-status";
 import { ago } from "@/lib/format";
 import { cn } from "@hub/ui/cn";
+import { notionIdentityLine, notionIndicatorState } from "@/lib/notion";
 import { isClosed, openResults, rowId, type ConversationRow, type ReviewDraft } from "./source";
 
 type Status = { Icon: LucideIcon; label: string; tone: string };
@@ -58,35 +60,39 @@ export function ListRow({ r, now, open, selecting, selected, onOpen, onToggle }:
   const { Icon, label, tone } = statusOf(r);
   const chips = chipsOf(r);
   const id = rowId(r);
+  const notionState = notionIndicatorState(r.notion);
+  const notionDetail = notionIdentityLine(r.notion, r.client.name);
   return (
-    <li className={cn("group/row relative flex min-w-0 items-stretch border-b", open ? "bg-accent" : selected && "bg-info/8")} data-open={open} data-selected={selected} data-state={r.state} id={`person-${id}`} {...agentRef(refOf("client", id))}>
-      {open && <span aria-hidden="true" className="absolute inset-y-0 start-0 w-[3px] bg-primary" />}
+    <ConversationListItem className="flex items-stretch" dataAgentRef={refOf("client", id)} dataAttributes={{ "data-state": r.state }} id={`person-${id}`} open={open} selected={selected}>
       <span className="relative grid h-(--control-m) w-(--control-m) shrink-0 place-items-center self-start ms-1 mt-1.5" data-hit="">
-        <Icon aria-label={label} className={cn("size-5", tone, selecting ? "opacity-0" : "group-hover/row:opacity-0")} role="img" />
+        <Icon aria-label={label} className={cn("size-5", tone, selecting ? "opacity-0" : "group-hover/list-item:opacity-0")} role="img" />
         <Checkbox
           aria-label={`Select ${r.client.name}`}
           checked={selected}
           // Not a Tab stop until a selection is under way: `x` selects, `j`/`k` move, and 120 invisible stops stand between Tab and the pane.
           tabIndex={selecting ? 0 : -1}
-          className={cn("absolute inset-0 m-auto after:absolute after:-inset-3.5 after:content-['']", !selecting && "opacity-0 focus-visible:opacity-100 group-hover/row:opacity-100")}
+          className={cn("absolute inset-0 m-auto after:absolute after:-inset-3.5 after:content-['']", !selecting && "opacity-0 focus-visible:opacity-100 group-hover/list-item:opacity-100")}
           onCheckedChange={onToggle}
         />
       </span>
       <ActionButton
         aria-current={open ? "true" : undefined}
-        className="h-auto min-h-16 min-w-0 sm:h-auto flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-none py-2 ps-1 pe-3 text-start font-normal outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="min-h-16 min-w-0 flex-1 flex-col items-stretch justify-start gap-0.5 whitespace-normal rounded-none py-2.5 ps-1 pe-3 text-start font-normal outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        data-slot="conversation-list-focus"
         data-testid="person-row"
         onClick={onOpen}
         size="m"
         variant="quiet"
       >
-        <span className="flex w-full min-w-0 items-baseline gap-2">
-          <span className={cn("min-w-0 flex-1 truncate", r.state === "wrote" || r.state === "draft" ? "font-semibold" : "font-medium")} data-agent-label="">{r.client.name || r.client.email}</span>
-          <span className="shrink-0 text-muted-foreground text-xs tabular-nums">{ago(r.at, now)}</span>
-        </span>
-        <span className="w-full min-w-0 truncate text-sm" data-testid="person-subject">
-          <span className={cn(r.state === "wrote" || r.state === "draft" ? "font-medium text-foreground" : "text-muted-foreground")} data-testid="person-state">{CONVERSATION_STATE_LABELS[r.state]}</span>
-          {` · ${r.subject || "(no subject)"}`}
+        <ConversationListIdentity
+          marker={<IntegrationStatus compact className="shrink-0" detail={notionDetail} label="Notion" state={notionState} />}
+          name={<span data-agent-label="">{r.client.name || r.client.email}</span>}
+          nameClassName={r.state === "wrote" || r.state === "draft" ? "font-semibold" : undefined}
+          time={ago(r.at, now)}
+        />
+        <span className="flex w-full min-w-0 items-baseline gap-1 text-sm">
+          <span className={cn("shrink-0", r.state === "wrote" || r.state === "draft" ? "font-medium text-foreground" : "text-muted-foreground")} data-testid="person-state">{CONVERSATION_STATE_LABELS[r.state]}</span>
+          <span className="min-w-0 truncate" data-testid="person-subject">· {r.subject || "(no subject)"}</span>
         </span>
         {(r.preview || chips.length > 0) && (
           <span className="flex w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
@@ -99,6 +105,6 @@ export function ListRow({ r, now, open, selecting, selected, onOpen, onToggle }:
           </span>
         )}
       </ActionButton>
-    </li>
+    </ConversationListItem>
   );
 }

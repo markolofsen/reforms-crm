@@ -2,6 +2,7 @@ import { ChevronDownIcon } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 import type { ActivityRowDto } from "@hub/contract/activity";
 import { cn } from "@hub/ui/cn";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@hub/ui/tooltip";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { AppLink } from "@/components/app-link";
@@ -18,20 +19,29 @@ import { reasonParts } from "./labels";
  */
 const WHO = "inline [overflow-wrap:anywhere] sm:block sm:w-full sm:truncate";
 function Who({ clientId, name }: { clientId: number | null; name: string }) {
-  if (clientId === null) return <span className={WHO} title={name}>{name}</span>;
-  return (
-    <AppLink className={cn(WHO, "text-foreground text-sm")} title={name} to={paths.mail.conversation(clientId)}>
+  const trigger = clientId === null ? (
+    <span className={WHO}>{name}</span>
+  ) : (
+    <AppLink className={cn(WHO, "text-foreground text-sm")} to={paths.mail.conversation(clientId)}>
       {name}
       <span className="sr-only"> (open the conversation)</span>
     </AppLink>
   );
+  return (
+    <Tooltip>
+      <TooltipTrigger aria-label={name} render={trigger} />
+      <TooltipPopup>{name}</TooltipPopup>
+    </Tooltip>
+  );
 }
 
 /** The phrase, the skill when the event named one, and under it the agent's own words, muted. */
-function Why({ why, detail, skill }: { why: string; detail: string | null; skill: string | null }) {
+function Why({ why, detail, skill, provider }: { why: string; detail: string | null; skill: string | null; provider?: ActivityRowDto["provider"] }) {
+  const providerLabel = provider === "hub_llm" ? "Hub LLM" : provider === "runtime_agent" ? "Runtime agent" : null;
   return (
     <>
       {why}
+      {providerLabel && <span className="text-muted-foreground">{why ? ` · ${providerLabel}` : providerLabel}</span>}
       {skill && <span className="text-muted-foreground">{why ? ` · ${skill}` : skill}</span>}
       {detail && <span className="block break-words text-muted-foreground text-xs">{detail}</span>}
     </>
@@ -59,7 +69,7 @@ function Entry({ r, c, id }: { r: ActivityRowDto; c: GroupCells; id: string | un
       <span className="sr-only"> (open the conversation)</span>
     </AppLink>
   );
-  const why = <Why detail={c.detail === null ? p.detail : null} skill={c.skill === null ? r.skill : null} why={c.why === "" ? p.why : ""} />;
+  const why = <Why detail={c.detail === null ? p.detail : null} provider={r.provider} skill={c.skill === null ? r.skill : null} why={c.why === "" ? p.why : ""} />;
   return (
     <TableRow data-entry="" id={id}>
       <TableCell className="ps-6 text-muted-foreground tabular-nums max-sm:hidden">{time}</TableCell>
@@ -86,7 +96,8 @@ function Line({ g }: { g: RowGroup }) {
   const c = groupCells(g);
   const ref = lineRef(c, g.rows[0]);
   const count = <Count c={c} id={id} onToggle={() => setOpen((v) => !v)} open={open} />;
-  const why: ReactNode = <Why detail={c.detail} skill={c.skill} why={c.why} />;
+  const provider = g.rows.length === 1 ? g.rows[0]?.provider : null;
+  const why: ReactNode = <Why detail={c.detail} provider={provider} skill={c.skill} why={c.why} />;
   return (
     <>
       <TableRow data-count={c.count > 1 ? c.count : undefined} data-row="" {...(ref ? agentRef(ref) : {})}>

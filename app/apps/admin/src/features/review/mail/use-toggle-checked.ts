@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import type { DraftMailDto } from "@hub/contract/responses";
+import type { DraftMailDto } from "@hub/contract/mail";
 import { tickBlock } from "./tick-guard";
 import type { ReviewDraft } from "../source";
 import type { ReviewActions } from "../use-review-actions";

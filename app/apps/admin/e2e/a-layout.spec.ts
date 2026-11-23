@@ -52,6 +52,10 @@ const tabStopsInView = (page: Page) =>
       }).length,
   );
 const firstRowTop = (page: Page) => page.evaluate(() => document.querySelector('ul[aria-label="People"] > li')?.getBoundingClientRect().top ?? null);
+const openMessengerDraft = async (page: Page) => {
+  if (await page.getByTestId("messenger-draft").count() === 0) await page.getByRole("list", { name: "Chats" }).getByRole("listitem").first().getByRole("button").click();
+  await page.getByTestId("messenger-draft").waitFor();
+};
 
 const SCREENS: Screen[] = [
   { name: "drafts", path: at(P, "/mail"), ready: async (p) => void (await p.locator('ul[aria-label="People"] > li').first().waitFor()) },
@@ -110,11 +114,12 @@ const SCREENS: Screen[] = [
   { name: "settings: agent", path: at(P, "/settings/agent"), ready: async (p) => void (await p.getByTestId("agent-tools-status").waitFor()) },
   { name: "settings: this mac", path: "/settings/mac", ready: async (p) => void (await p.getByTestId("core-block").or(p.getByText("Could not load the core update check")).first().waitFor()) },
   // P71 M3: the Messengers panel (the seeded chat of Rita with the agent's draft) and Messengers ▸ Settings.
-  { name: "messengers: chats", path: at(P, "/messengers"), ready: async (p) => void (await p.getByRole("list", { name: "Chats" }).getByTestId("messenger-draft").first().waitFor()) },
+  { name: "messengers: chats", path: at(P, "/messengers"), ready: async (p) => void (await openMessengerDraft(p)) },
   {
     name: "messengers: chats, a draft in Edit",
     path: at(P, "/messengers"),
     ready: async (p) => {
+      await openMessengerDraft(p);
       await p.getByRole("button", { name: /^Edit the draft for / }).first().click();
       await p.getByLabel(/^Your words for this reply/).waitFor();
     },

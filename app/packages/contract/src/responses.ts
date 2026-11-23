@@ -22,6 +22,8 @@ import {
   TONES,
 } from "@hub/config";
 
+export * from "./sending";
+
 // What the API answers, once. The server parses its own reply with these (so a column added to a table never leaks
 // to the browser), and the admin parses what arrives (so a stale server fails with a sentence, not a render crash).
 
@@ -255,6 +257,13 @@ const section = <T extends z.ZodRawShape>(shape: T) =>
 export const projectOverviewDto = z.object({
   project: z.object({ slug: z.string(), name: z.string(), status: z.string(), kind: z.string(), archived: z.boolean(), syncedAt: z.string() }).nullable(),
   question: z.object({ question: z.string(), options: z.array(z.string()) }).nullable(),
+  messengerPolicy: z
+    .object({
+      language: z.string().nullable(),
+      instruction: z.string().nullable(),
+    })
+    .nullable()
+    .optional(),
   knowledge: section({
     indexed: z.number(),
     approved: z.number(),
@@ -270,35 +279,23 @@ export const projectOverviewDto = z.object({
 });
 export type ProjectOverviewDto = z.infer<typeof projectOverviewDto>;
 
-// Sending. One row of the audit (`send_log`) as the Project screen shows it; the text is the full text that went out. Since P71 M4
-// a row is Mail's (`channel: "mail"`, `draftId`) or a messenger's (`messengerDraftId`; `toAddr` is `<channel>:<chat id>`, `subject`
-// who it went to).
-export const sendRowDto = z.object({
-  id: z.number(),
-  draftId: z.number().nullable(),
-  /** P99: the client of the draft, whose conversation the row links; null for a messenger send or a draft gone. */
-  clientId: z.number().nullable(),
-  channel: z.enum(["mail", "telegram_user", "telegram_bot", "whatsapp"]),
-  messengerDraftId: z.number().nullable(),
-  mode: z.enum(["manual", "auto"]),
-  status: z.enum(["queued", "sending", "sent", "failed", "cancelled"]),
-  actor: z.string(),
-  createdAt: iso,
-  dueAt: nullableIso,
-  doneAt: nullableIso,
-  toAddr: z.string(),
-  ccAddr: z.string().nullable(),
-  subject: z.string(),
-  body: z.string(),
-  error: z.string().nullable(),
+/** P101: the project's declared Quick Links, with Notion role targets resolved to safe local-opening hrefs when possible. */
+export const projectLinkDto = z.object({
+  group: z.string(),
+  label: z.string(),
+  target: z.string(),
+  under: z.string().nullable(),
+  kind: z.enum(["notion", "https"]),
+  href: z.string().nullable(),
 });
-export type SendRowDto = z.infer<typeof sendRowDto>;
-/** `stopped` lists the scopes with Stop all on: `*` (every project) and/or project slugs. */
-export const sendsDto = z.object({ sends: z.array(sendRowDto), stopped: z.array(z.string()) });
-export type SendsDto = z.infer<typeof sendsDto>;
-/** The dry run: exactly what Mail would send, for the confirm panel. */
-export const sendPreviewDto = z.object({ ok: z.literal(true), dryRun: z.literal(true), from: z.string().nullable(), to: z.array(z.string()), cc: z.array(z.string()), subject: z.string(), body: z.string() });
-export type SendPreviewDto = z.infer<typeof sendPreviewDto>;
+export type ProjectLinkDto = z.infer<typeof projectLinkDto>;
+export const projectLinksDto = z.object({
+  project: z.string(),
+  notion: z.object({ state: z.enum(["ready", "missing_token", "unresolved", "error"]), message: z.string().nullable() }),
+  links: z.array(projectLinkDto),
+});
+export type ProjectLinksDto = z.infer<typeof projectLinksDto>;
+
 /**
  * The Mail draft as it is right now, read on demand by its Message-ID and never stored (decision 0013, P27 M2). `hash` is
  * what Checked binds to; `safetyResults` are the checks run on this live text, so the card shows what would really go out.
@@ -336,30 +333,6 @@ export const draftMailDto = z.object({
   readAt: z.string(),
 });
 export type DraftMailDto = z.infer<typeof draftMailDto>;
-
-export const sentDto = z.object({ ok: z.literal(true), sendId: z.number() });
-/** A single-use ticket for one apply (P49 S12): minted only for the admin's exact origin, valid for seconds. */
-export const sendTicketDto = z.object({ ticket: z.string(), expiresAt: z.string() });
-/** P85b: the dry run of Send all Checked of one batch: who would get what (recipients, subject, the text's hash), who is held and why. */
-const batchItemDto = z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), cc: z.array(z.string()), subject: z.string(), hash: z.string() });
-const batchHeldDto = z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), subject: z.string(), reasons: z.array(z.string()) });
-export const batchSendPlanDto = z.object({ ok: z.literal(true), dryRun: z.literal(true), batchId: z.number(), items: z.array(batchItemDto), held: z.array(batchHeldDto), cap: z.object({ limit: z.number(), used: z.number(), room: z.number() }), spacingSeconds: z.number() });
-export type BatchSendPlanDto = z.infer<typeof batchSendPlanDto>;
-export const BATCH_ITEM_STATUSES = ["waiting", "sending", "sent", "refused", "failed", "stopped"] as const;
-/** P85b: one batch run as the server runs it (in its memory: a restart ends the run; the `send_log` rows stay). */
-export const batchRunDto = z.object({
-  project: z.string(),
-  batchId: z.number(),
-  state: z.enum(["running", "finished", "stopped"]),
-  startedAt: z.string(),
-  finishedAt: z.string().nullable(),
-  spacingSeconds: z.number(),
-  items: z.array(z.object({ draftId: z.number(), name: z.string(), to: z.array(z.string()), subject: z.string(), status: z.enum(BATCH_ITEM_STATUSES), reasons: z.array(z.string()), sendId: z.number().nullable(), at: z.string().nullable() })),
-});
-export type BatchRunDto = z.infer<typeof batchRunDto>;
-export const batchRunStateDto = z.object({ run: batchRunDto.nullable() });
-export const sendCancelledDto = z.object({ ok: z.literal(true), sendId: z.number() });
-export const stopDto = z.object({ ok: z.literal(true), cancelled: z.number(), stopped: z.array(z.string()) });
 
 // The project doctor (`hub project doctor`) as the Project screen's health view. Checks that need Mail or Notion are
 // not run by the server and show as skipped.

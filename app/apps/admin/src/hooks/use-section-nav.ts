@@ -5,7 +5,8 @@ import { routeDest, sectionList, type Dest } from "@/routes/paths";
 import { childrenOf, SECTIONS, type IconKey, type SectionId } from "@/routes/sections";
 import { ROUTE_TABLE } from "@/routes/table";
 import type { RouteId } from "@/routes/table";
-import { shortcutsOn, useHotkeys, type KeyMap } from "./use-hotkeys";
+import { useHotkeys, type KeyMap } from "@hub/ui/use-hotkey";
+import { shortcutsOn } from "./use-hotkeys";
 import { useGo } from "./use-go";
 import { useRoute } from "./use-route";
 

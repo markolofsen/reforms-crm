@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { ADMIN_PORT } from "@hub/config";
+import { apiFamily, generatedOperations, rawPaths } from "@hub/api/ledger";
 
 // Executable half of `app/@rules` (see its Enforcement sections). Hard gates: every count is zero, nothing is ratcheted.
 const admin = path.resolve(import.meta.dirname, "..");
@@ -13,6 +14,7 @@ const PAGE_LINE_CAP = 40;
 
 function* walk(dir: string): Generator<string> {
   for (const e of readdirSync(dir)) {
+    if (e === "node_modules") continue;
     const p = path.join(dir, e);
     if (statSync(p).isDirectory()) yield* walk(p);
     else yield p;
@@ -44,6 +46,49 @@ describe("one key factory, one live stream", () => {
   });
   it("new EventSource and BroadcastChannel only in lib/cache/live.ts", () => {
     expect(offenders(appFiles.filter((p) => rel(p) !== "lib/cache/live.ts"), /new (EventSource|BroadcastChannel)\b/)).toEqual([]);
+  });
+});
+
+describe("the generated API boundary", () => {
+  it("features, components and hooks do not write raw JSON API paths", () => {
+    const consumers = [...inDir("features"), ...inDir("components"), ...inDir("hooks")].filter((p) => rel(p) !== "features/shell/shell-frame.tsx");
+    expect(offenders(consumers, /["'`]\/api\//)).toEqual([]);
+  });
+  it("generated client imports stay behind lib/api facades", () => {
+    const deep = /from ["']@hub\/api\/(?:generated|src|zod)\b/;
+    expect(offenders(appFiles, deep)).toEqual([]);
+    expect(offenders(appFiles.filter((p) => !rel(p).startsWith("lib/api/")), /from ["']@hub\/api["']/)).toEqual([]);
+  });
+  it("every OpenAPI operation is public and recorded in the endpoint ledger", () => {
+    const api = path.resolve(repo, "app/packages/api");
+    const spec = read(path.join(api, "openapi.yaml"));
+    const barrel = read(path.join(api, "src/index.ts"));
+    const operations = [...spec.matchAll(/^\s+operationId:\s+([A-Za-z][A-Za-z0-9]+)\s*$/gm)].map((match) => match[1] ?? "");
+    const ledger: readonly string[] = generatedOperations();
+    expect(operations.length).toBeGreaterThan(0);
+    expect(operations.filter((operation) => !new RegExp(`\\b${operation}\\b`).test(barrel))).toEqual([]);
+    expect(operations.filter((operation) => !ledger.includes(operation))).toEqual([]);
+    expect(ledger.filter((operation) => !operations.includes(operation))).toEqual([]);
+  });
+  it("every raw facade path belongs to a ledger-owned API family", () => {
+    const facades = [...walk(path.join(src, "lib/api"))].filter((p) => /\.tsx?$/.test(p));
+    const paths = facades.flatMap((p) => [...read(p).matchAll(/["'`](\/api\/[^"'`]+)["'`]/g)].map((match) => ({ file: rel(p), value: match[1] ?? "" })));
+    const families = new Set(rawPaths().map(apiFamily));
+    expect(paths.filter(({ value }) => !families.has(apiFamily(value)))).toEqual([]);
+  });
+  it("the ledger names the sensitive project seams at endpoint level", () => {
+    const required = [
+      "/api/projects/:slug/drafts/:id/mail",
+      "/api/projects/:slug/drafts/:id/mail/restore",
+      "/api/projects/:slug/drafts/:id/send",
+      "/api/projects/:slug/batches/:id/send",
+      "/api/projects/:slug/batches/:id/send/stop",
+      "/api/projects/:slug/messengers/drafts/:id/send",
+      "/api/projects/:slug/messengers/autolink/*",
+      "/api/projects/:slug/messengers/chats/*",
+    ];
+    const ledger: readonly string[] = rawPaths();
+    expect(required.filter((endpoint) => !ledger.includes(endpoint))).toEqual([]);
   });
 });
 
@@ -134,6 +179,60 @@ describe("the server boundary (decision 0015 section 4 and 5)", () => {
   });
 });
 
+describe("shared UI ownership", () => {
+  it("Mail and Messenger writing surfaces use the visual Markdown editor", () => {
+    const composers = [...inDir("features/mail"), ...inDir("features/messengers")];
+    expect(offenders(composers, /<Textarea\b|from ["']@hub\/ui\/textarea["']/)).toEqual([]);
+    expect(composers.filter((p) => /(?:conversation\/pane|draft-block|chat-rules|draft-editor)\.tsx$/.test(rel(p)) && /<MarkdownEditor\b|<ConversationEditorSurface\b|<ConversationComposerEditor\b/.test(read(p))).length).toBeGreaterThan(0);
+  });
+
+  it("copied UI primitives do not import product behavior or domain packages", () => {
+    const ui = path.resolve(repo, "app/packages/ui/src/ui");
+    const files = [...walk(ui)].filter((p) => /\.tsx?$/.test(p));
+    const forbidden = /from ["'](?:\.\.\/(?:product|use-hotkey|sound)|@hub\/(?:api|agent|config|contract|messengers|projects|send|server|terminal))/;
+    expect(files.filter((p) => forbidden.test(read(p))).map((p) => path.relative(repo, p))).toEqual([]);
+  });
+
+  it("Storybook consumes public UI only and does not import admin runtime seams", () => {
+    const storybook = path.resolve(repo, "app/apps/storybook");
+    const files = [...walk(path.join(storybook, ".storybook")), ...walk(path.join(storybook, "src"))].filter((p) => /\.tsx?$/.test(p));
+    const forbidden = /from ["'](?:@\/|@hub\/(?:agent|api|contract|messengers|projects|send|server)|\.\.\/\.\.\/admin)/;
+    expect(files.filter((p) => forbidden.test(read(p))).map((p) => path.relative(repo, p))).toEqual([]);
+  });
+
+  it("conversation editors keep the mail toolbar contract in production and Storybook", () => {
+    const composer = read(path.resolve(repo, "app/packages/ui/src/product/composer-editor.tsx"));
+    expect(composer).toContain('toolbarPreset="mail"');
+    expect(composer).not.toContain("toolbarPreset?:");
+    const story = read(path.resolve(repo, "app/apps/storybook/src/stories/conversation-frame.stories.tsx"));
+    const usages = story.split("<MarkdownEditor").slice(1).map((part) => part.split("/>", 1)[0] ?? "");
+    expect(usages.length).toBeGreaterThan(0);
+    expect(usages.every((usage) => usage.includes('toolbarPreset="mail"'))).toBe(true);
+  });
+});
+
+describe("bounded contract ownership", () => {
+  it("Mail and review features do not reach the compatibility response barrel", () => {
+    const bounded = [...inDir("features/review"), path.join(admin, "src/lib/api/review.ts"), path.join(admin, "src/lib/api/send.ts")];
+    expect(offenders(bounded, /from ["']@hub\/contract\/responses["']/)).toEqual([]);
+  });
+
+  it("Mail and review contract subpaths remain public", () => {
+    const contract = JSON.parse(read(path.resolve(repo, "app/packages/contract/package.json"))) as { exports?: Record<string, string> };
+    expect(contract.exports?.["./mail"]).toBe("./src/mail.ts");
+    expect(contract.exports?.["./review"]).toBe("./src/review.ts");
+  });
+
+  it("Messenger send doors do not import panel-only contracts", () => {
+    const sendFiles = [
+      path.join(admin, "src/lib/api/messengers/send.ts"),
+      path.join(admin, "src/features/messengers/send-bar.tsx"),
+      path.resolve(repo, "app/apps/server/src/routes/sends.ts"),
+    ];
+    expect(offenders(sendFiles, /from ["']@hub\/contract\/messenger-panel["']/)).toEqual([]);
+  });
+});
+
 describe("the Next shell of the app", () => {
   const config = read(path.join(admin, "next.config.ts"));
   const pkg = JSON.parse(read(path.join(admin, "package.json"))) as { scripts: Record<string, string>; dependencies: Record<string, string>; devDependencies: Record<string, string> };
@@ -220,6 +319,21 @@ describe("directory size", () => {
   });
   it("no dead barrel: an index.ts that only re-exports", () => {
     expect(appFiles.filter((p) => /\/index\.tsx?$/.test(p) && /^\s*export\s+(\*|\{)/m.test(read(p))).map(rel)).toEqual([]);
+  });
+});
+
+describe("test isolation", () => {
+  const testRoots = [path.join(repo, "app", "apps"), path.join(repo, "app", "packages"), path.join(repo, "app", "test-support")];
+  const testFiles = testRoots.flatMap((root) => [...walk(root)]).filter((p) => /\.test\.tsx?$/.test(p));
+
+  it("every Vitest config installs the shared temporary root first", () => {
+    const configs = testRoots.flatMap((root) => [...walk(root)]).filter((p) => p.endsWith("vitest.config.ts"));
+    expect(configs.length).toBeGreaterThan(0);
+    expect(configs.filter((p) => !read(p).match(/setupFiles:\s*\[\s*[\"'][^\"']*temp-root\.ts/)).map((p) => path.relative(repo, p))).toEqual([]);
+  });
+
+  it("every test that creates a temporary directory uses the process temp directory", () => {
+    expect(testFiles.filter((p) => /mkdtempSync\(/.test(read(p)) && !/\btmpdir\(\)/.test(read(p))).map((p) => path.relative(repo, p))).toEqual([]);
   });
 });
 

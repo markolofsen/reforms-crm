@@ -29,16 +29,16 @@ export function LinkChat({ project, accounts, moves, onClose }: { project: strin
     })),
   });
   return (
-    <section aria-label="Link a chat" className="flex flex-col gap-3 rounded-xl border p-4" data-testid="link-chat">
+    <section aria-label="Link a chat" className="flex flex-col gap-2 border-b bg-muted/20 px-3 py-2.5 sm:px-4" data-testid="link-chat">
       {rec === null ? (
         <>
           <p className="text-sm">Which client is the chat of?</p>
-          <RecordSearch onCancel={onClose} onPick={setRec} project={project} />
+          <RecordSearch autoFocus onCancel={onClose} onPick={setRec} project={project} />
         </>
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm">
+            <p className="min-w-0 text-sm">
               Chats to link to <span className="font-medium">{recordName(rec)}</span>
             </p>
             <ActionButton onClick={() => setRec(null)} size="s" variant="quiet">
@@ -65,7 +65,7 @@ export function LinkChat({ project, accounts, moves, onClose }: { project: strin
                         {d.suggested && <Badge variant="outline">Matches {recordName(rec)}</Badge>}
                         <span className="ms-auto">
                           {d.linked ? (
-                            <Badge variant="outline">Linked</Badge>
+                            <Badge variant="outline">Already linked</Badge>
                           ) : (
                             <ActionButton disabled={moves.pending} onClick={() => moves.link.mutate({ channel: a.channel, account: a.account, chatId: d.chatId, title: d.title, rec }, { onSuccess: onClose })} size="s" variant={d.suggested ? "primary" : "secondary"}>
                               Link<span className="sr-only"> {d.title} to {recordName(rec)}</span>

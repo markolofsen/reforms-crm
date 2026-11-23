@@ -60,6 +60,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   const list = useMemo(() => projects.data?.projects ?? [], [projects.data]);
   const { place, pending } = useEnsureAddress(route, list);
   const project = place?.project ?? null;
+  const links = useQuery({ queryKey: keys.links(project ?? ""), queryFn: () => metaApi.links(project ?? ""), enabled: project !== null, staleTime: 60_000 });
   useFocusPublisher(project);
   const multi = place?.multi ?? false;
   const heading = route.section ? sectionTitle(route.section) : "Not found";
@@ -70,7 +71,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
   const scoped = route.route !== "notFound" && PROJECTLESS.has(route.route) ? null : project;
   return (
     <PlaceContext value={place}>
-      <Shell brand={brand} dotsProject={project} onProject={(p) => void onProject(p)} project={scoped} projects={list} route={route} terminalProject={terminalProjectOf({ loaded: projects.isSuccess, pending, project, multi, scoped })}>
+      <Shell brand={brand} dotsProject={project} links={links.data ?? null} onProject={(p) => void onProject(p)} project={scoped} projects={list} route={route} terminalProject={terminalProjectOf({ loaded: projects.isSuccess, pending, project, multi, scoped })}>
         <h2 className="sr-only">{heading}</h2>
         {/* P72: the agent's pointer, drawn over the rows of `#main`; it changes nothing on the page. */}
         <PointerLayer project={project} />

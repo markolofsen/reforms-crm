@@ -3,7 +3,7 @@ import type { AutolinkLinkedDto, AutolinkRecordDto } from "@hub/contract/messeng
 import { toastManager } from "@hub/ui/toast";
 import { sentence } from "@/lib/api/client";
 import { messengersApi } from "@/lib/api/messengers/panel";
-import { keys } from "@/lib/cache/keys";
+import { keys, messengerMutationKeys } from "@/lib/cache/keys";
 import { linkedLine, movedLine } from "../labels";
 
 type UserChannel = "telegram_user" | "whatsapp";
@@ -15,26 +15,29 @@ type Linkable = { channel: UserChannel; account: string; chatId: string; title: 
  * back and brings back the draft that was set aside), Unhide (Undo hides it again); Unlink deletes, so it asks first on the row and
  * has no Undo. After a move both the panel and the autolink's memory are read again.
  */
-export function useChatMoves(project: string) {
+export function useChatMoves(project: string, activeChatId: number | null = null) {
   const qc = useQueryClient();
-  const settle = () => Promise.all([qc.invalidateQueries({ queryKey: keys.messengerChatsOf(project) }), qc.invalidateQueries({ queryKey: keys.autolink(project) })]);
+  const settle = (chatId: number | null = activeChatId) => Promise.all([
+    ...messengerMutationKeys(project, chatId).map((queryKey) => qc.invalidateQueries({ queryKey })),
+    qc.invalidateQueries({ queryKey: keys.autolink(project) }),
+  ]);
   const fail = (e: unknown) => toastManager.add({ title: "Not changed", description: sentence(e), type: "error" });
 
   const unlink = useMutation({
     mutationFn: ({ id, never }: { id: number; never: boolean; name: string }) => messengersApi.unlinkChat(project, id, never),
     onSuccess: (_r, v) => {
       toastManager.add({ title: v.never ? `Unlinked ${v.name} and hid it: not a client` : `Unlinked ${v.name}`, type: "success" });
-      return settle();
+      return settle(v.id);
     },
     onError: fail,
   });
 
   // Undo of Link: the chat's row id is only known once it is linked, so the panel is read for it.
   const unlinkAgain = async (c: Pick<Linkable, "channel" | "chatId">) => {
-    const linked = await messengersApi.chats(project, "linked");
+    const linked = await messengersApi.chats(project, { filter: "linked" });
     const row = linked.chats.find((x) => x.chatId === c.chatId && (x.channel === c.channel));
     if (row) await messengersApi.unlinkChat(project, row.id, false);
-    await settle();
+    await settle(row?.id ?? null);
   };
   /** The toast after a link or a Create and link: what was loaded, what was written to Notion, and the way back. */
   const announce = (res: AutolinkLinkedDto, c: Pick<Linkable, "channel" | "chatId">) => {
@@ -44,7 +47,7 @@ export function useChatMoves(project: string) {
       type: res.importError ? "warning" : "success",
       actionProps: { children: "Unlink again", onClick: () => void unlinkAgain(c).catch(fail) },
     });
-    return settle();
+    return settle(null);
   };
   const link = useMutation({
     mutationFn: ({ rec, ...c }: Linkable & { rec: Pick<AutolinkRecordDto, "key"> }) => messengersApi.linkRecord(project, { channel: c.channel, account: c.account, chatId: c.chatId, key: rec.key, title: c.title }),
@@ -54,7 +57,7 @@ export function useChatMoves(project: string) {
 
   const undoChange = useMutation({
     mutationFn: ({ id, clientId, draftId }: { id: number; clientId: number; draftId: number | null }) => messengersApi.undoChange(project, id, { clientId, draftId }),
-    onSuccess: () => settle(),
+    onSuccess: (_r, v) => settle(v.id),
     onError: fail,
   });
   const change = useMutation({
@@ -67,7 +70,7 @@ export function useChatMoves(project: string) {
         type: "success",
         actionProps: { children: "Undo", onClick: () => undoChange.mutate({ id: v.id, clientId: r.fromClientId, draftId: r.skippedDraftId }) },
       });
-      return settle();
+      return settle(v.id);
     },
     onError: fail,
   });

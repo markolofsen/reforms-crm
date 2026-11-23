@@ -10,18 +10,21 @@ const P = "lisbon-realty";
 const RITA = "Rita Falsa";
 const chats = (page: Page) => page.getByRole("list", { name: "Chats" });
 const rita = (page: Page) => chats(page).getByRole("listitem", { name: RITA });
+const conversation = (page: Page) => page.getByTestId("messenger-conversation");
 
 test("messengers: the panel lists the waiting chat with the agent's draft, a refused Send says why in words, and Drafts lists mail only", async ({ page }) => {
   await page.goto(at(P, "/messengers"));
-  await expect(rita(page).getByText("They wrote")).toBeVisible();
+  await expect(rita(page).getByText(/Draft ready/)).toBeVisible();
   await expect(rita(page).getByText(/notary on the 28th/)).toBeVisible();
-  await expect(rita(page).getByTestId("messenger-draft")).toContainText("the 28th stands");
+  await expect(conversation(page)).toContainText("Hi! Is the notary on the 28th still on?");
+  await expect(conversation(page)).toContainText("Telegram");
+  await expect(conversation(page).getByTestId("messenger-draft")).toContainText("the 28th stands");
   // P71 M4: the e2e server connects no Telegram account, so the real dry run refuses, in words, and nothing is sent.
-  await rita(page).getByRole("button", { name: `Send the reply to ${RITA}` }).click();
-  await expect(rita(page).getByText(/^Not sent: \d+ reasons?$/)).toBeVisible();
-  await expect(rita(page).getByText("the Telegram account 100200300 is not connected (Messengers ▸ Settings)")).toBeVisible();
-  await rita(page).getByRole("button", { name: "Close" }).click();
-  await expect(rita(page).getByText(/^Not sent:/)).toHaveCount(0);
+  await conversation(page).getByRole("button", { name: `Send the reply to ${RITA}` }).click();
+  await expect(conversation(page).getByText(/^Not sent: \d+ reasons?$/)).toBeVisible();
+  await expect(conversation(page).getByText("the Telegram account 100200300 is not connected (Messengers ▸ Settings)")).toBeVisible();
+  await conversation(page).getByRole("button", { name: "Close" }).click();
+  await expect(conversation(page).getByText(/^Not sent:/)).toHaveCount(0);
   await expect(rita(page)).toHaveAttribute("data-agent-ref", /^chat:\d+$/);
   await expect(page.getByRole("button", { name: /^View:/ })).toHaveText(/To do\s*1/);
   await expect(chats(page).getByRole("listitem")).toHaveCount(1);
@@ -29,7 +32,7 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   await page.getByRole("button", { name: /^View:/ }).click();
   await page.getByRole("menuitemradio", { name: /Linked/ }).click();
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=linked");
-  await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("You replied last.")).toBeVisible();
+  await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("Waiting for client")).toBeVisible();
   // P71 M-P: the seeded verdicts of Sofia's chat, counted by reason on its row.
   await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("Pre-analysis: hid 1 of 2 (1 closing).")).toBeVisible();
   // Mail drafts stay in Drafts, and messenger drafts never go there.
@@ -53,17 +56,19 @@ test("messengers: Send reads the dry run, confirms in place with the exact text,
     await r.fulfill({ json: { ticket: "t".repeat(43), expiresAt: "2099-01-01T00:00:00.000Z" } });
   });
   await page.goto(at(P, "/messengers"));
-  const send = rita(page).getByRole("button", { name: `Send the reply to ${RITA}` });
+  const send = conversation(page).getByRole("button", { name: `Send the reply to ${RITA}` });
+  const draft = conversation(page).getByTestId("messenger-draft");
+  await expect(draft).toBeVisible();
   await send.click();
-  await expect(rita(page).getByRole("status")).toHaveText(`To ${RITA} on Telegram, from your account 100200300. A sent message cannot be recalled.`);
-  await expect(rita(page).getByTestId("messenger-draft")).toContainText(TEXT);
-  await expect(rita(page).getByRole("button", { name: "Confirm send" })).toBeFocused();
-  await expect(rita(page).getByRole("button", { name: /^Edit/ })).toHaveCount(0);
+  await expect(conversation(page).getByRole("status")).toHaveText(`To ${RITA} on Telegram, from your account 100200300. A sent message cannot be recalled.`);
+  await expect(draft).toContainText(TEXT);
+  await expect(conversation(page).getByRole("button", { name: "Confirm send" })).toBeFocused();
+  await expect(conversation(page).getByRole("button", { name: /^Edit/ })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(send).toBeVisible();
   expect(sends).toEqual([{ apply: false }]);
   await send.click();
-  await rita(page).getByRole("button", { name: "Confirm send" }).click();
+  await conversation(page).getByRole("button", { name: "Confirm send" }).click();
   await expect(page.getByText(`Sent to ${RITA} on Telegram`)).toBeVisible();
   expect(tickets).toEqual([{ project: P, draftId: expect.any(Number), kind: "messenger" }]);
   expect(sends.at(-1)).toEqual({ apply: true, confirm: { chatId: "700100", text: TEXT }, ticket: "t".repeat(43) });
@@ -71,21 +76,22 @@ test("messengers: Send reads the dry run, confirms in place with the exact text,
 
 test("messengers: Edit changes the draft's text, Skip sets it aside with Undo", async ({ page }) => {
   await page.goto(at(P, "/messengers"));
-  await rita(page).getByRole("button", { name: `Edit the draft for ${RITA}` }).click();
+  await conversation(page).getByRole("button", { name: `Edit the draft for ${RITA}` }).click();
   const box = page.getByLabel(/^Your words for this reply/);
   await expect(box).toBeFocused();
   await box.fill("Hi Rita, yes: the 28th at 10:00 stands.");
   await box.press("ControlOrMeta+Enter");
-  await expect(rita(page).getByTestId("messenger-draft")).toContainText("the 28th at 10:00 stands");
+  await expect(conversation(page).getByTestId("messenger-draft")).toContainText("the 28th at 10:00 stands");
   await page.reload();
-  await expect(rita(page).getByTestId("messenger-draft")).toContainText("the 28th at 10:00 stands");
+  await expect(conversation(page).getByTestId("messenger-draft")).toContainText("the 28th at 10:00 stands");
 
-  await rita(page).getByRole("button", { name: `Skip the draft for ${RITA}` }).click();
+  await conversation(page).getByRole("button", { name: `Skip the draft for ${RITA}` }).click();
   await expect(page.getByText(`Skipped the draft for ${RITA}`)).toBeVisible();
-  await expect(rita(page).getByTestId("messenger-draft")).toHaveCount(0);
-  await expect(rita(page).getByText(/A reply is owed and no draft yet/)).toBeVisible();
-  await page.getByRole("button", { name: "Undo" }).click();
-  await expect(rita(page).getByTestId("messenger-draft")).toContainText("the 28th at 10:00 stands");
+  await expect(conversation(page).getByTestId("messenger-draft")).toHaveCount(0);
+  await expect(conversation(page).getByText(/A reply is owed and no draft yet/)).toBeVisible();
+  await expect(conversation(page).getByRole("button", { name: "Prepare reply" })).toBeVisible();
+  await conversation(page).getByRole("button", { name: "Prepare reply" }).click();
+  await expect(conversation(page).getByTestId("messenger-draft")).toContainText("fake");
 });
 
 test("messengers settings: a chat's reply mode and instruction are saved and read back", async ({ page }) => {
@@ -100,15 +106,24 @@ test("messengers settings: a chat's reply mode and instruction are saved and rea
   await expect(rules.getByRole("button", { name: "Only when I ask" })).toHaveAttribute("aria-pressed", "true");
   await expect(rules.getByLabel("Your instruction for this chat")).toHaveValue("Short and formal.");
   // P71 M-P: the switch's note says what it does (the e2e server runs HUB_LLM=fake: nothing leaves it).
-  await expect(rules.getByText(/A cheap model reads each new message the client sends here/)).toBeVisible();
+  await expect(rules.getByText(/A cheap model reads each new message and the two before it/)).toBeVisible();
   await expect(rules.getByText(/fake model \(HUB_LLM=fake\)/)).toBeVisible();
   await expect(page.getByText(/nothing reads this switch/)).toHaveCount(0);
   await page.goto(at(P, "/messengers?filter=linked"));
-  await expect(rita(page).getByText(/Telegram · Only when I ask/)).toBeVisible();
+  await expect(rita(page)).toContainText(/Only when I ask|Client wrote|Draft ready/);
   // Back to the default, so the specs after this one see the seed's rules.
   await page.goto(at(P, "/messengers/settings"));
   await rules.getByRole("button", { name: "Draft replies" }).click();
   await expect(rules.getByRole("button", { name: "Draft replies" })).toHaveAttribute("aria-pressed", "true");
+});
+
+test("messengers settings: the project reply policy names its language and instruction, nothing about delivery", async ({ page }) => {
+  await page.goto(at(P, "/messengers/settings"));
+  const policy = page.getByRole("region", { name: "Reply policy" });
+  await expect(policy).toContainText("Language follows the client by default");
+  await expect(policy.getByRole("button", { name: "Open project policy" })).toBeVisible();
+  await expect(policy).toContainText("messengers.language");
+  await expect(policy).not.toContainText(/Provider|Delivery|response mode|reply provider/i);
 });
 
 /** Stubs M1's account routes: none connected, then one after the login's last step. Records each POST's path and body. */

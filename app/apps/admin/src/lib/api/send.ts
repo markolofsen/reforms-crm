@@ -1,5 +1,8 @@
-import { batchRunStateDto, batchSendPlanDto, doctorDto, draftChangedDto, draftMailDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto, type BatchSendPlanDto } from "@hub/contract/responses";
-import { read } from "./client";
+import { getDraftMail, getProjectDoctor, listSends } from "@hub/api";
+import { draftMailDto } from "@hub/contract/mail";
+import { doctorDto, draftChangedDto } from "@hub/contract/responses";
+import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto, type BatchSendPlanDto } from "@hub/contract/sending";
+import { read, readGenerated } from "./client";
 
 const base = (project: string) => `/api/projects/${encodeURIComponent(project)}`;
 
@@ -15,18 +18,18 @@ export const sendApi = {
     return read(sentDto, { method: "POST", path: `${base(project)}/drafts/${draftId}/send`, body: { apply: true, confirm, ticket } });
   },
   /** The draft as Mail holds it now; read-only, never stored. */
-  mail: (project: string, draftId: number) => read(draftMailDto, { method: "GET", path: `${base(project)}/drafts/${draftId}/mail` }),
+  mail: (project: string, draftId: number) => readGenerated(getDraftMail(project, draftId), draftMailDto),
   /** A person's Save (P56 S1): the whole text, written over the read whose hash it carries; Checked turns off. */
   save: (project: string, draftId: number, text: string, hash: string) => read(draftChangedDto, { method: "PUT", path: `${base(project)}/drafts/${draftId}/mail`, body: { text, hash } }),
   /** Restore (P56 S0): Mail holds no draft for it; the Hub's last copy in Trash is written again. */
   restore: (project: string, draftId: number) => read(draftChangedDto, { method: "POST", path: `${base(project)}/drafts/${draftId}/mail/restore` }),
   /** The last five messages of the conversation, read from Mail on demand; read-only, never stored. */
-  list: (project: string) => read(sendsDto, { method: "GET", path: `${base(project)}/sends` }),
+  list: (project: string) => readGenerated(listSends(project), sendsDto),
   cancel: (project: string, sendId: number) => read(sendCancelledDto, { method: "POST", path: `/api/sends/${sendId}/cancel`, query: { project } }),
   /** `scope` is a project slug, or `*` for every project. */
   stop: (scope: string) => read(stopDto, { method: "POST", path: `${base(scope)}/sends/stop` }),
   resume: (scope: string) => read(stopDto, { method: "POST", path: `${base(scope)}/sends/resume` }),
-  doctor: (project: string) => read(doctorDto, { method: "GET", path: "/api/project/doctor", query: { project } }),
+  doctor: (project: string) => readGenerated(getProjectDoctor({ project }), doctorDto),
 };
 
 const batchBase = (project: string, batchId: number) => `/api/projects/${encodeURIComponent(project)}/batches/${batchId}/send`;

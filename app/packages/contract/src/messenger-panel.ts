@@ -1,14 +1,15 @@
 import { CHAT_INSTRUCTION_MAX, HIDDEN_LABELS, MESSENGER_TEXT_MAX, NUDGE_DAYS_MAX, NUDGE_DAYS_MIN, REPLY_MODES } from "@hub/config/chat-rules";
 import { z } from "zod";
+import { notionIdentityDto, type NotionIdentityDto } from "./notion";
+import { MESSENGER_CHANNELS, type MessengerChannelDto } from "./messenger";
+export { MESSENGER_CHANNELS, messengerSendBody, messengerSendPreviewDto } from "./messenger";
+export type { MessengerChannelDto, MessengerSendBody, MessengerSendPreviewDto } from "./messenger";
 
 /**
  * The Messengers section (P71 M3, decision 0036 point 6): the panel's linked chats with what is owed and the agent's open draft of
  * each, and the rules the owner sets per chat. It reads only `messenger_drafts` and `messenger_chats` (with their stored messages
  * and the client a chat is linked to); Mail drafts never appear here. Every reply is a `strictObject`.
  */
-
-export const MESSENGER_CHANNELS = ["telegram_bot", "telegram_user", "whatsapp"] as const;
-export type MessengerChannelDto = (typeof MESSENGER_CHANNELS)[number];
 
 /**
  * The panel's View menu (P84c, owner 2026-11-20): `todo`, the linked chats with an open draft or whose newest stored message is the
@@ -25,6 +26,14 @@ export type MessengerChannelFilter = (typeof MESSENGER_CHANNEL_FILTERS)[number];
 /** A chat's channel under a filter: the Telegram bot's chats are Telegram's. */
 export const inChannel = (channel: MessengerChannelDto, f: MessengerChannelFilter): boolean => f === "all" || (f === "whatsapp" ? channel === "whatsapp" : channel !== "whatsapp");
 
+/** The list projection's URL inputs. Defaults keep a bare `/messengers` request on the owner's Todo view. */
+export const messengerChatsQuery = z.object({
+  filter: z.enum(MESSENGER_VIEWS).default("todo"),
+  channel: z.enum(MESSENGER_CHANNEL_FILTERS).default("all"),
+  q: z.string().trim().max(200).default(""),
+});
+export type MessengerChatsQuery = z.infer<typeof messengerChatsQuery>;
+
 export const chatRulesDto = z.strictObject({
   replyMode: z.enum(REPLY_MODES),
   mayNudge: z.boolean(),
@@ -39,6 +48,7 @@ export type ChatRulesDto = z.infer<typeof chatRulesDto>;
 export const messengerDraftDto = z.strictObject({
   id: z.number().int(),
   text: z.string(),
+  createdBy: z.string(),
   /** A follow-up after our own last message (the chat's `may_nudge`). */
   nudge: z.boolean(),
   /** The owner's words that admitted it in an `on_request` chat, else null. */
@@ -75,6 +85,9 @@ export const PREANALYSIS_STATES = ["ready", "fake", "no_key"] as const;
 export const preanalysisDto = z.strictObject({ state: z.enum(PREANALYSIS_STATES), fix: z.string().nullable() });
 export type PreanalysisDto = z.infer<typeof preanalysisDto>;
 
+export const messengerNotionIdentityDto = notionIdentityDto;
+export type MessengerNotionIdentityDto = NotionIdentityDto;
+
 export const messengerChatDto = z.strictObject({
   /** `messenger_chats.id`: the `chat:<id>` ref. */
   id: z.number().int(),
@@ -82,7 +95,16 @@ export const messengerChatDto = z.strictObject({
   chatId: z.string(),
   title: z.string().nullable(),
   /** The client the chat is linked to (by `client_identifiers`), else null. */
-  client: z.strictObject({ id: z.number().int(), name: z.string(), email: z.string() }).nullable(),
+  client: z
+    .strictObject({
+      id: z.number().int(),
+      name: z.string(),
+      email: z.string(),
+      notionPageId: z.string().nullable(),
+      notionUrl: z.string().nullable(),
+      notion: messengerNotionIdentityDto,
+    })
+    .nullable(),
   rules: chatRulesDto,
   inbound: z.number().int(),
   /** P102: every stored message of the chat, either side: what Unlink deletes, said in its sentence. */
@@ -97,6 +119,25 @@ export const messengerChatDto = z.strictObject({
 });
 export type MessengerChatDto = z.infer<typeof messengerChatDto>;
 
+/** The selected linked chat's full stored conversation, oldest first. Hidden triage messages remain visible to the owner and are marked. */
+export const messengerConversationMessageDto = z.strictObject({
+  id: z.number().int(),
+  direction: z.enum(["in", "out"]),
+  kind: z.string(),
+  text: z.string(),
+  format: z.enum(["plain", "markdown"]).default("plain"),
+  at: z.string(),
+  hidden: z.enum(HIDDEN_LABELS).nullable(),
+});
+export type MessengerConversationMessageDto = z.infer<typeof messengerConversationMessageDto>;
+
+export const messengerConversationDto = z.strictObject({
+  chat: messengerChatDto,
+  messages: z.array(messengerConversationMessageDto),
+  earlier: z.number().int().min(0),
+});
+export type MessengerConversationDto = z.infer<typeof messengerConversationDto>;
+
 export const messengerChatsDto = z.strictObject({
   chats: z.array(messengerChatDto),
   /** The View menu's counts over the linked chats of the project in the channel asked: `todo` those that wait, `linked` all of them. */
@@ -108,8 +149,12 @@ export type MessengerChatsDto = z.infer<typeof messengerChatsDto>;
 /** Skip: the draft is set aside (status `discarded`); its Undo is the restore route. */
 export const messengerSkippedDto = z.strictObject({ ok: z.literal(true), id: z.number().int() });
 
-/** Edit: the owner's own words for a draft that still waits (Telegram's message limit). */
+/** Owner-authored text for editing or creating an unsent draft (the Messenger provider's message limit). */
 export const messengerDraftTextBody = z.strictObject({ text: z.string().trim().min(1, "the text is empty").max(MESSENGER_TEXT_MAX) });
+
+/** Owner-triggered preparation of one unsent reply. The server creates the draft; it never sends it. */
+export const messengerPrepareBody = z.strictObject({ ownerRequest: z.string().trim().max(CHAT_INSTRUCTION_MAX).optional() });
+export type MessengerPrepareBody = z.infer<typeof messengerPrepareBody>;
 
 /** A change of one chat's rules: only the fields he changed. Bounds as in `@hub/config/chat-rules`; the server checks them again. */
 export const chatRulesBody = z
@@ -123,29 +168,3 @@ export const chatRulesBody = z
   })
   .refine((b) => Object.keys(b).length > 0, "no rule given");
 export type ChatRulesBody = z.infer<typeof chatRulesBody>;
-
-/**
- * The send door for one messenger draft (P71 M4, decision 0036 point 7), `POST /api/projects/:slug/messengers/drafts/:id/send`.
- * The dry run sends nothing and answers exactly what would go out: the chat, the account it goes from, who it is and the text. The
- * apply carries the chat and the text the person saw and a single-use ticket (`POST /api/sends/tickets` with `kind: "messenger"`);
- * the server refuses it when the draft's text changed since. Refusals are the 409 `wrong_state` reply with `refused`, in words.
- */
-export const messengerSendPreviewDto = z.strictObject({
-  ok: z.literal(true),
-  dryRun: z.literal(true),
-  channel: z.enum(MESSENGER_CHANNELS),
-  chatId: z.string(),
-  /** The account it goes from (its id, never a secret). */
-  account: z.string(),
-  /** Who it goes to: the linked client, else the chat's title. */
-  to: z.string(),
-  text: z.string(),
-});
-export type MessengerSendPreviewDto = z.infer<typeof messengerSendPreviewDto>;
-
-export const messengerSendBody = z.discriminatedUnion("apply", [
-  z.strictObject({ apply: z.literal(false) }),
-  // Not trimmed: the text must equal the draft's, character for character. `ticket` optional so a missing one is the route's 403.
-  z.strictObject({ apply: z.literal(true), confirm: z.strictObject({ chatId: z.string().min(1).max(64), text: z.string().min(1).max(MESSENGER_TEXT_MAX) }), ticket: z.string().min(1).max(200).optional() }),
-]);
-export type MessengerSendBody = z.infer<typeof messengerSendBody>;

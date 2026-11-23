@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SendIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { BatchRunDto, BatchSendPlanDto } from "@hub/contract/responses";
+import type { BatchRunDto, BatchSendPlanDto } from "@hub/contract/sending";
 import { Alert, AlertDescription, AlertTitle } from "@hub/ui/alert";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ApiFailure, refreshData, sentence } from "@/lib/api/client";

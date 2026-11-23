@@ -1,5 +1,6 @@
+import { getTelegramUserStatus } from "@hub/api";
 import { telegramUserStatusDto, userLoginCancelledDto, userDisconnectedDto, userLoginStepDto, type UserLoginStartBody } from "@hub/contract/messengers";
-import { read } from "../client";
+import { read, readGenerated } from "../client";
 
 /**
  * The owner's Telegram user account (P71 M1's routes, decision 0036 point 4), driven by Messengers ▸ Settings: its state, the
@@ -7,7 +8,7 @@ import { read } from "../client";
  * not into a query key, a mutation's variables or the address; no reply carries one (the contract has no field for it).
  */
 export const telegramUserApi = {
-  status: () => read(telegramUserStatusDto, { method: "GET", path: "/api/messengers/telegram-user" }),
+  status: () => readGenerated(getTelegramUserStatus(), telegramUserStatusDto),
   start: (body: UserLoginStartBody) => read(userLoginStepDto, { method: "POST", path: "/api/messengers/telegram-user/login/start", body }),
   code: (flow: string, code: string) => read(userLoginStepDto, { method: "POST", path: "/api/messengers/telegram-user/login/code", body: { flow, code } }),
   password: (flow: string, password: string) => read(userLoginStepDto, { method: "POST", path: "/api/messengers/telegram-user/login/password", body: { flow, password } }),

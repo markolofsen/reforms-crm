@@ -1,10 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
+import { ConversationList } from "@hub/ui/product/conversation";
+import { ConversationEmptyState } from "@hub/ui/product/conversation-frame";
+import { Page } from "@hub/ui/product/page";
+import { EmptyState, ListSkeleton, ListState, LoadFailed, StaleNote } from "@/components/state-views";
 import { toastManager } from "@hub/ui/toast";
-import { ListDetail } from "@hub/ui/product/list-detail";
+import { ListDetail, ListScrollArea } from "@hub/ui/product/list-detail";
 import { shortcutsOn } from "@/hooks/use-hotkeys";
 import { refreshData, sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
@@ -88,29 +91,41 @@ function PeopleRows(p: { query: RowsQuery; rows: ConversationRow[]; total: numbe
   if (query.isPending) return <ListSkeleton label="Loading the people" />;
   if (query.isError && rows.length === 0)
     return (
-      <div className="p-3">
+      <ListState>
         <LoadFailed error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} what="the people" />
-      </div>
+      </ListState>
     );
   return (
     <>
       {query.isError && (
-        <div className="p-3">
+        <ListState>
           <StaleNote error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} />
-        </div>
+        </ListState>
       )}
       {rows.length === 0 ? (
-        <EmptyState action={p.onAll ? <ActionButton onClick={p.onAll} size="s" variant="secondary">Show all</ActionButton> : undefined} title={p.emptyTitle}>{p.searched ? "Nobody in this view matches the search." : p.empty}</EmptyState>
+        <EmptyState action={p.onAll ? <ActionButton onClick={p.onAll} size="s" variant="secondary">Show all</ActionButton> : undefined} compact title={p.emptyTitle}>{p.searched ? "Nobody in this view matches the search." : p.empty}</EmptyState>
       ) : (
-        <ul aria-label="People" className="flex flex-col">
+        <ConversationList ariaLabel="People">
           {rows.map((r) => (
             <ListRow key={rowId(r)} now={p.now} onOpen={() => p.onOpen(rowId(r))} onToggle={() => sel.toggle(rowId(r))} open={rowId(r) === p.openId} r={r} selected={sel.has(rowId(r))} selecting={sel.selecting} />
           ))}
-        </ul>
+        </ConversationList>
       )}
       <LoadedFooter fetching={query.isFetchingNextPage} loaded={rows.length} more={query.hasNextPage} onMore={() => void query.fetchNextPage()} total={p.total} />
     </>
   );
+}
+
+/** Reply all + copy (owner 2026-11-14): the text goes to the clipboard first, then the registry's compose window opens. Nothing is sent. */
+async function replyAllInMail(d: ReviewDraft, say: (text: string) => void): Promise<void> {
+  if (!d.checked) {
+    say(openResults(d).length > 0 ? "Understand the checks, then turn on I read the checks (key C)." : "Turn on I read the checks first (key C).");
+    return;
+  }
+  const copied = await copyText(d.body); // blocked: the compose window still opens
+  if (!(await runLocalAction("mail.compose", { to: d.toAddr, cc: d.ccAddr, subject: d.subject }, { post: metaApi.localOpen, open: openExternal, say }))) return;
+  if (copied) say("Copied. Paste it into the Mail window and press Send there, then mark it done.");
+  else say("The compose window opened; the clipboard was blocked, so copy the text from the draft.");
 }
 
 /**
@@ -122,7 +137,6 @@ export function ReviewWorkspace({ source, views, onView, search, selection, poin
   const now = useClock()();
   const actions = useReviewActions(source.project);
   const [q, setQ] = search;
-  const [thread, setThread] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const { query, rows, total, counts } = useReviewRows(source);
   const sel = useSelection(rows);
@@ -169,20 +183,6 @@ export function ReviewWorkspace({ source, views, onView, search, selection, poin
     },
     [rows, go],
   );
-  const replyAll = useCallback(
-    async (d: ReviewDraft) => {
-      if (!d.checked) {
-        say(openResults(d).length > 0 ? "Understand the checks, then turn on I read the checks (key C)." : "Turn on I read the checks first (key C).");
-        return;
-      }
-      // Reply all + copy (owner 2026-11-14): the text goes to the clipboard first, then the registry's compose window opens. Nothing is sent.
-      const copied = await copyText(d.body); // blocked: the compose window still opens
-      if (!(await runLocalAction("mail.compose", { to: d.toAddr, cc: d.ccAddr, subject: d.subject }, { post: metaApi.localOpen, open: openExternal, say }))) return;
-      if (copied) say("Copied. Paste it into the Mail window and press Send there, then mark it done.");
-      else say("The compose window opened; the clipboard was blocked, so copy the text from the draft.");
-    },
-    [say],
-  );
   const undoBatch = source.undoLast;
   const undoLast = undoBatch
     ? () => {
@@ -201,10 +201,9 @@ export function ReviewWorkspace({ source, views, onView, search, selection, poin
     actions,
     go,
     advance,
-    replyAll: (d) => void replyAll(d),
+    replyAll: (d) => void replyAllInMail(d, say),
     undoLast,
     toggleSelect: sel.toggle,
-    toggleThread: () => setThread((t) => !t),
     selectAll: sel.all,
     selected: sel.picked.length,
     clearSelection: sel.clear,
@@ -240,17 +239,17 @@ export function ReviewWorkspace({ source, views, onView, search, selection, poin
   );
   const list = (
     // P98 item 2: every block of the scrolling list keeps its own height; a `min-h-*` on a child would else let it shrink under its content and paint over the next one.
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto *:shrink-0" data-pane="list">
-      <ListHeader onSearch={setQ} onSelecting={sel.setMode} onView={onView} search={q} searchRef={searchRef} selecting={sel.selecting} selection={header} view={source.filter} views={views(counts)} />
+    <ListScrollArea ariaBusy={query.isFetching && !query.isPending}>
+      <ListHeader onSearch={setQ} onSelecting={sel.setMode} onView={onView} refreshing={query.isFetching && !query.isPending} search={q} searchRef={searchRef} selecting={sel.selecting} selection={header} view={source.filter} views={views(counts)} />
       {status}
       {body ?? rowsView}
       {listBottom}
-    </div>
+    </ListScrollArea>
   );
 
   const detail = (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto" data-pane="detail">
-      {mobile && (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden" data-pane="detail">
+      {mobile && aside?.open && (
         <div className="border-b p-2">
           <ActionButton onClick={() => selection.onChange(null)} size="m" variant="quiet">
             <ArrowLeftIcon aria-hidden="true" />
@@ -258,25 +257,35 @@ export function ReviewWorkspace({ source, views, onView, search, selection, poin
           </ActionButton>
         </div>
       )}
-      <Notices notice={actions.notice} />
-      {aside?.open ? aside.node : openId !== null ? (
+      {aside?.open && <Notices notice={actions.notice} />}
+      {aside?.open ? <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]" data-pane="aside">{aside.node}</div> : openId !== null ? (
         <ConversationPane
           actions={actions}
           advance={() => current?.draft && advance(current.draft)}
           clientId={openId}
           key={openId}
           listRow={current}
+          notice={actions.notice}
           now={now}
-          onThread={() => setThread((t) => !t)}
           pointed={pointed}
           project={source.project}
           say={say}
-          thread={thread}
+          onBack={() => selection.onChange(null)}
         />
       ) : (
-        <EmptyState title="Nothing to open">{body ? "This view lists clients by channel, not conversations." : query.isPending ? "Loading." : "Pick a person from the list."}</EmptyState>
+        <ConversationEmptyState subtitle="Choose a person from the list"><EmptyState compact title="Nothing to open">{body ? "This view lists clients by channel, not conversations." : query.isPending ? "Loading." : "Pick a person from the list."}</EmptyState></ConversationEmptyState>
       )}
     </div>
   );
-  return <ListDetail detail={detail} detailLabel={aside?.open ? "Lead" : "Conversation"} list={list} listLabel={noun.list} showDetail={aside?.open ? true : present} />;
+  return (
+    <Page flush scroll={false}>
+      <ListDetail
+        detail={detail}
+        detailLabel={aside?.open ? "Lead" : "Conversation"}
+        list={list}
+        listLabel={noun.list}
+        showDetail={aside?.open ? true : present}
+      />
+    </Page>
+  );
 }

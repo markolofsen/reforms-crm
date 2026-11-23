@@ -1,10 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
 import { Page } from "@hub/ui/product/page";
-import { LoadFailed } from "@/components/state-views";
+import { LoadFailed, Loading } from "@/components/state-views";
+import { AppLink } from "@/components/app-link";
 import { SubNav } from "@/components/sub-nav";
+import { LocalActionButton } from "@/components/local-action";
 import { messengersApi } from "@/lib/api/messengers/panel";
+import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
+import { paths } from "@/routes/paths";
 import { ConnectionsView } from "../../settings/connections/connections-view";
 import { SettingsGroup as Group } from "../../settings/group";
 import { ChatRules } from "./chat-rules";
@@ -19,21 +23,32 @@ export const GUARDS: readonly string[] = [
   "Stop sending (Settings ▸ Sending) stops every channel.",
 ];
 
-/** The linked chats with their rules. Linking, changing the client and unlinking are on Chats (P102): one place, the row's state menu. */
-function LinkedChats({ project }: { project: string }) {
-  const q = useQuery({ queryKey: keys.messengerChats(project, "linked"), queryFn: () => messengersApi.chats(project, "linked") });
+/** The chats with their rules. Linking, changing the client and unlinking are on Chats (P102): one place, the row's state menu. */
+type LinkedChatsData = Awaited<ReturnType<typeof messengersApi.chats>>;
+type LinkedChatsQuery = UseQueryResult<LinkedChatsData, unknown>;
+
+function LinkedChats({ project, query }: { project: string; query: LinkedChatsQuery }) {
+  const q = query;
   return (
     <div className="flex flex-col gap-4">
-      {q.isPending ? null : !q.data ? (
-        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the linked chats" />
+      {q.isPending ? <Loading what="chats" /> : !q.data ? (
+        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the chats" />
       ) : q.data.chats.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No chat is linked yet. Link one on Chats (Link a chat…, or the menu of a chat in Not linked). Nothing of an unlinked chat is stored.</p>
+        <div className="flex flex-col gap-1 text-sm">
+          <p>No linked chats yet. <AppLink to={paths.messengers.chats()}>Link a chat from Chats.</AppLink></p>
+          <p className="text-muted-foreground text-xs">Unlinked chats are not stored.</p>
+        </div>
       ) : (
-        <ul aria-label="Linked chats" className="flex flex-col divide-y border-y">
-          {q.data.chats.map((c) => (
-            <ChatRules c={c} key={c.id} preanalysis={q.data.preanalysis} project={project} />
-          ))}
-        </ul>
+        <>
+          <p className="text-muted-foreground text-xs">
+            Change the client, unlink or hide a chat from its status menu on <AppLink to={paths.messengers.chats()}>Messengers ▸ Chats</AppLink>.
+          </p>
+          <ul aria-label="Chats" className="flex flex-col divide-y border-y">
+            {q.data.chats.map((c) => (
+              <ChatRules c={c} key={c.id} preanalysis={q.data.preanalysis} project={project} />
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );
@@ -47,11 +62,29 @@ function LinkedChats({ project }: { project: string }) {
  */
 export function MessengerSettings({ project }: { project: string }) {
   // P84: the account rows say how many chats the Hub reads (the linked ones), from the same list as Linked chats below.
-  const chats = useQuery({ queryKey: keys.messengerChats(project, "linked"), queryFn: () => messengersApi.chats(project, "linked") });
+  const chats = useQuery({ queryKey: keys.messengerChats(project, "linked"), queryFn: () => messengersApi.chats(project, { filter: "linked" }) });
+  const overview = useQuery({ queryKey: keys.project(project), queryFn: () => metaApi.overview(project) });
+  const policy = overview.data?.messengerPolicy;
+  const languageLine = `Language follows the client by default${policy?.language ? ` · project: ${policy.language}` : ""}`;
+  const policyUnavailable = overview.isError ? "Project policy could not be loaded." : null;
+  const policyLoading = overview.isPending ? "Loading project policy…" : null;
   const linkedOf = (ch: "telegram_user" | "whatsapp") => chats.data?.chats.filter((c) => c.channel === ch).length;
   return (
     <Page nav={<SubNav section="messengers" />}>
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-4">
+        <Group id="reply-policy" title="Reply policy">
+          <div className="measure flex flex-col gap-2 text-sm">
+            <dl className="grid gap-x-4 gap-y-1.5 sm:grid-cols-[max-content_1fr]">
+              <dt className="text-muted-foreground">Language</dt>
+              <dd>{policyLoading ?? policyUnavailable ?? languageLine}</dd>
+            </dl>
+            {policy?.instruction && <p className="text-muted-foreground text-xs">A project instruction is active; chat-specific overrides are listed below.</p>}
+            <div className="flex flex-wrap items-center gap-2">
+              <LocalActionButton action="file.open" args={{ project, key: "project.md" }} size="s" variant="secondary">Open project policy</LocalActionButton>
+              <span className="text-muted-foreground text-xs">Set messengers.language and messengers.instruction there.</span>
+            </div>
+          </div>
+        </Group>
         <Group id="telegram-account" title="Telegram account">
           <TelegramAccount linked={linkedOf("telegram_user")} />
         </Group>
@@ -60,8 +93,8 @@ export function MessengerSettings({ project }: { project: string }) {
         </Group>
         {/* No heading: the row's own label says "Telegram bot" (a heading over it said it twice, `admin-principles.md` rule 9). */}
         <ConnectionsView kinds={["telegram"]} label="Telegram bot" />
-        <Group id="linked-chats" title="Linked chats">
-          <LinkedChats project={project} />
+        <Group id="chats" title="Chats">
+          <LinkedChats project={project} query={chats} />
         </Group>
         <Group id="guards" title="Send guards">
           <ul className="measure flex list-disc flex-col gap-1 ps-5 text-sm">

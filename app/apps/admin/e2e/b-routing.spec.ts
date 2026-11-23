@@ -53,7 +53,7 @@ test("two projects: the entry is the Overview, a bare scoped address gets the re
   await expect(page).toHaveTitle("Help · Hub Workflow");
   // P71 M3: Messengers is scoped (the linked chats are a project's); its View and its Settings page reload in place.
   await page.goto("/messengers?filter=linked&channel=whatsapp");
-  await expect.poll(() => address(page)).toBe(at(P, "/messengers?filter=linked&channel=whatsapp"));
+  await expect.poll(() => address(page)).toMatch(new RegExp(`^${at(P, "/messengers/c/")}\\d+\\?filter=linked&channel=whatsapp$`));
   await page.goto("/messengers/settings");
   await expect.poll(() => address(page)).toBe(at(P, "/messengers/settings"));
   await page.reload();

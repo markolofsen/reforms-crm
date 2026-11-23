@@ -43,6 +43,7 @@ export const keys = {
   activity: (project: string, view: string, client: number | null) => ["activity", project, view, client ?? "every"] as const,
   timeline: (project: string, clientId: number) => ["timeline", project, clientId] as const,
   project: (project: string) => ["project", project] as const,
+  links: (project: string) => ["links", project] as const,
   rules: (project: string) => ["rules", project] as const,
   /** P55: the project's agent model and advisor (Settings ▸ Agent); the same live topic as the safety rules. */
   agentSettings: (project: string) => ["agent-settings", project] as const,
@@ -50,9 +51,11 @@ export const keys = {
   knowledge: (project: string, view: string, q: string) => ["knowledge", project, view, q] as const,
   sends: (project: string) => ["sends", project] as const,
   /** P71 M3: the Messengers panel's linked chats per view, and the owner's Telegram account (instance-wide, rides in health). */
-  messengerChats: (project: string, view: string) => ["messenger-chats", project, view] as const,
-  /** Every view of one project's panel: what an Edit, a Skip or a rules change reads again. */
-  messengerChatsOf: (project: string) => ["messenger-chats", project] as const,
+  messengerChats: (project: string, view: string, channel = "all", search = "") => ["messenger-chats", project, "list", view, channel, search] as const,
+  /** Every list view of one project's panel; conversations and autolink have separate prefixes. */
+  messengerChatsOf: (project: string) => ["messenger-chats", project, "list"] as const,
+  messengerConversations: (project: string) => ["messenger-chats", project, "conversation"] as const,
+  messengerConversation: (project: string, chatId: number) => ["messenger-chats", project, "conversation", chatId] as const,
   /** P84: the autolink's state (in memory on the server): under the panel's prefix, so a link or an unlink reads it again. */
   autolink: (project: string) => ["messenger-chats", project, "autolink"] as const,
   /** P102: one account's dialogs marked against a picked record (Link a chat…); under the autolink's prefix, so a link reads them again. */
@@ -73,6 +76,12 @@ export const keys = {
   lead: (project: string, pageId: string) => ["lead", project, pageId] as const,
 };
 
+/** Keys that an owner-authored Messenger mutation may refresh; the detail is optional for mutations without a persisted chat id. */
+export const messengerMutationKeys = (project: string, chatId: number | null = null): QueryKey[] => [
+  keys.messengerChatsOf(project),
+  ...(chatId === null ? [] : [keys.messengerConversation(project, chatId)]),
+];
+
 /**
  * The first part of the Mail keys: read on open and on focus (decision 0013). The one live event that reads Mail again is
  * `mail` (P53): the hub itself wrote a Mail draft of that project (`draft_write`), so the open card shows the new text.
@@ -89,6 +98,7 @@ const enrollments = of("enrollments");
 const activity = of("activity");
 const timeline = of("timeline");
 const project = of("project");
+const links = of("links");
 const rules = of("rules");
 const agentSettings = of("agent-settings");
 const knowledge = of("knowledge");
@@ -102,6 +112,7 @@ const scheme = () => keys.scheme();
 const draftMail = of("draft-mail");
 const thread = of("thread");
 const conversationMail = of("conversation-mail");
+const conversationText = of("conversation-text");
 
 /**
  * What each live topic invalidates (P50). `tsc` fails when a topic is added without its keys. Only `mail` names a Mail key
@@ -118,12 +129,12 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   "follow-ups": (p) => [enrollments(p), drafts(p)],
   batches: (p) => [batches(p), drafts(p)],
   rules: (p) => [rules(p), agentSettings(p), drafts(p), project(p)],
-  projects: (p) => [keys.projects(), project(p), knowledge(p), agentTools(p), keys.connections(), overview(), scheme()],
+  projects: (p) => [keys.projects(), project(p), links(p), knowledge(p), agentTools(p), keys.connections(), overview(), scheme()],
   knowledge: (p) => [project(p), knowledge(p), scheme()],
   messengers: (p) => [messengerChats(p), drafts(p), notByEmail(p), project(p), keys.connections()],
   connections: () => [keys.connections(), agentTools(null), overview(), scheme()],
   health: (p) => [keys.pulse(), project(p), keys.connections(), keys.telegramUser(), keys.whatsapp(), overview(), scheme(), inbound(p)],
-  mail: (p) => [draftMail(p), thread(p), conversationMail(p)],
+  mail: (p) => [draftMail(p), thread(p), conversationMail(p), conversationText(p)],
   "agent-log": (p) => [agentFeed(p)],
   autostart: () => [keys.autostart()],
   core: () => [keys.core(), scheme()],

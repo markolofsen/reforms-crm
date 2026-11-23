@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { BATCH_SEND_ACTOR } from "@hub/config";
-import type { SendRowDto } from "@hub/contract/responses";
+import type { SendRowDto } from "@hub/contract/sending";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { AppLink } from "@/components/app-link";

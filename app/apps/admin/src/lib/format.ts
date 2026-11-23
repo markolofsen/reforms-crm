@@ -13,6 +13,8 @@ export const isOld = (updatedAt: string, now: number) => now - new Date(updatedA
 
 export const formatTime = (iso: string) => new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 
+export const formatDay = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
 export const usd = (n: number) => (n > 0 ? `$${n.toFixed(2)}` : "-");
 export const tokens = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n));
 

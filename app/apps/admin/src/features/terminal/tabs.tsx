@@ -10,6 +10,7 @@ import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@hub/ui/pop
 import { ActionButton } from "@hub/ui/product/action-button";
 import { DesktopHandoffButton } from "@/components/local-action";
 import { CopyFix } from "@/components/copy-fix";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@hub/ui/tooltip";
 import { agentSeesLine, useSharedFocus } from "@/lib/focus";
 import { AgentPoints } from "./agent-points";
 import { panelId, tabId } from "./session";
@@ -36,7 +37,7 @@ function NewMenu() {
   const t = useTerminal();
   return (
     <Menu>
-      <MenuTrigger render={<ActionButton aria-label="New terminal" disabled={t.creating} icon size="s" variant="quiet" />}>
+      <MenuTrigger render={<ActionButton aria-label="New terminal" className="shrink-0" disabled={t.creating || t.problem !== null} icon size="s" tooltip="New terminal" variant="quiet" />}>
         <PlusIcon aria-hidden="true" />
       </MenuTrigger>
       <MenuPopup align="end">
@@ -81,7 +82,7 @@ function TipsButton({ preset }: { preset: string }) {
   const name = preset === "claude" || preset === "codex" ? TIP_GROUPS[preset] : "the terminal";
   return (
     <Popover>
-      <PopoverTrigger render={<ActionButton aria-label={`Tips for ${name}`} icon size="s" variant="quiet" />}>
+      <PopoverTrigger render={<ActionButton aria-label={`Tips for ${name}`} className="shrink-0" icon size="s" tooltip={`Tips for ${name}`} variant="quiet" />}>
         <InfoIcon aria-hidden="true" />
       </PopoverTrigger>
       <PopoverPopup align="end" className="w-96 max-w-[calc(100vw-2rem)]" side="bottom">
@@ -129,7 +130,10 @@ function WhyLine({ why }: { why: string }) {
   const fix = why.includes(" · ") ? (why.split(" · ").at(-1) ?? null) : null;
   return (
     <div className="flex min-h-8 items-center gap-1 px-3 pb-1.5 text-muted-foreground text-xs" data-testid="terminal-why">
-      <p className="min-w-0 flex-1 truncate" title={why}>{why}</p>
+      <Tooltip>
+        <TooltipTrigger aria-label={why} render={<p className="min-w-0 flex-1 truncate">{why}</p>} />
+        <TooltipPopup>{why}</TooltipPopup>
+      </Tooltip>
       {fix && <CopyFix fix={fix} />}
     </div>
   );
@@ -176,8 +180,8 @@ export function TerminalHeader({ layer }: { layer: boolean }) {
   const sessions = t.state?.sessions ?? [];
   const current = sessions.find((s) => s.id === t.active);
   return (
-    <div className="flex shrink-0 flex-col border-b">
-      <div className="flex min-h-11 items-center gap-1 ps-2 pe-1">
+    <div className="flex min-w-0 shrink-0 flex-col border-b">
+      <div className="flex min-h-11 min-w-0 items-center gap-1 ps-2 pe-1">
         {layer && <h2 className="shrink-0 pe-2 font-heading font-semibold text-base">Terminal</h2>}
         <div aria-label="Terminal sessions" className="scroll-strip flex min-w-0 flex-1 items-center gap-0.5" onKeyDown={(e) => onTabKeys(e, sessions.map((s) => s.id), t.active, t.setActive)} role="tablist">
           {sessions.map((s) => {
@@ -191,12 +195,12 @@ export function TerminalHeader({ layer }: { layer: boolean }) {
         </div>
         {current && <TipsButton preset={current.preset} />}
         {current && (
-          <ActionButton aria-label={`Close ${tabTitle(current)}`} disabled={t.closing === current.id} icon onClick={() => t.close(current.id)} size="s" variant="quiet">
+              <ActionButton aria-label={`Close ${tabTitle(current)}`} className="shrink-0" disabled={t.closing === current.id} icon onClick={() => t.close(current.id)} size="s" tooltip={`Close ${tabTitle(current)}`} variant="quiet">
             <XIcon aria-hidden="true" />
           </ActionButton>
         )}
         <NewMenu />
-        <ActionButton aria-label="Hide the terminal" icon={!layer} onClick={() => t.setOpen(false)} size="s" variant="quiet">
+        <ActionButton aria-label="Hide the terminal" className="shrink-0" icon={!layer} onClick={() => t.setOpen(false)} size="s" tooltip={{ content: "Hide the terminal", hotkey: "Meta/Ctrl + J" }} variant="quiet">
           {layer ? "Hide" : <PanelRightCloseIcon aria-hidden="true" />}
         </ActionButton>
       </div>

@@ -54,14 +54,14 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
   if (q.isPending) return <EmptyState title="Reading the lead">The Hub asks Notion for the lead’s page.</EmptyState>;
   if (!q.data)
     return (
-      <div className="p-4">
+      <div className="p-3 lg:p-4">
         <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the lead" />
       </div>
     );
   const { row, lead, note, drafts } = q.data;
   const email = row.email;
   return (
-    <article aria-label={`Lead ${row.name}`} className="flex flex-col gap-4 p-4 sm:p-6" data-testid="lead-card">
+    <article aria-label={`Lead ${row.name}`} className="flex flex-col gap-3 p-3 lg:p-4" data-testid="lead-card">
       <header className="flex flex-col gap-1">
         <h2 className="font-semibold text-lg">{row.name}</h2>
         <p className="text-muted-foreground text-sm">

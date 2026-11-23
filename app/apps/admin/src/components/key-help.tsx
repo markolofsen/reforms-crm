@@ -3,7 +3,7 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { Kbd } from "@hub/ui/kbd";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "@hub/ui/popover";
 import { Switch } from "@hub/ui/switch";
-import { liveKeys } from "@/hooks/use-hotkeys";
+import { liveKeys } from "@hub/ui/use-hotkey";
 
 /**
  * The `?` popover: every shortcut live on this screen (the keys register themselves, so the list is never a second
@@ -12,7 +12,7 @@ import { liveKeys } from "@/hooks/use-hotkeys";
 export function KeyHelp({ open, onOpenChange, enabled, onEnabled }: { open: boolean; onOpenChange: (open: boolean) => void; enabled: boolean; onEnabled: (on: boolean) => void }) {
   return (
     <Popover onOpenChange={onOpenChange} open={open}>
-      <PopoverTrigger render={<ActionButton aria-label="Keyboard shortcuts" icon size="s" variant="quiet" />}>
+      <PopoverTrigger render={<ActionButton aria-label="Keyboard shortcuts" icon size="s" tooltip="Keyboard shortcuts" variant="quiet" />}>
         <KeyboardIcon aria-hidden="true" />
       </PopoverTrigger>
       <PopoverPopup align="start" className="w-80 max-w-[calc(100vw-2rem)]" side="top">

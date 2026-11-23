@@ -1,5 +1,5 @@
 import { defineConfig } from "@playwright/test";
-import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { writeSendPolicy } from "./e2e/send-policy";
@@ -8,6 +8,8 @@ import { writeSendPolicy } from "./e2e/send-policy";
 // admin served by `next start` from its own `distDir`, so a running `next dev` is never disturbed (decision 0015, P32 N6).
 const API_PORT = 4499;
 const UI_PORT = 5199;
+const E2E_TMP = (process.env.HUB_E2E_TMPDIR ??= mkdtempSync(join(tmpdir(), "hub-e2e-t-")));
+process.env.TMPDIR = E2E_TMP;
 // The config is loaded again inside every worker (another pid), so the main process names the files once and workers inherit them.
 const DB = (process.env.HUB_E2E_DB ??= join(tmpdir(), `hub-e2e-${process.pid}.db`));
 // The throw-away instance every `hub` command of the stack needs (`HUB_HOME`); projects and the database are redirected below.
@@ -35,6 +37,7 @@ process.env.HUB_E2E_UI_PORT = String(UI_PORT);
 process.env.HUB_E2E_API_PORT = String(API_PORT);
 
 export default defineConfig({
+  globalTeardown: "./e2e/temp-teardown.ts",
   testDir: "./e2e",
   workers: 1, // the flows share one seeded database
   retries: 0,
