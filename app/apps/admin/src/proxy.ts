@@ -1,4 +1,4 @@
-import { ALLOWED_HOSTNAMES } from "@hub/config";
+import { ALLOWED_HOSTNAMES, HOST } from "@hub/config";
 import { NextResponse, type NextRequest } from "next/server";
 import { NO_PROJECT, PROJECTLESS_PATHS, SCOPED_HEADS } from "./routes/table";
 
@@ -10,6 +10,10 @@ import { NO_PROJECT, PROJECTLESS_PATHS, SCOPED_HEADS } from "./routes/table";
 // `_` (`NO_PROJECT`) is the `[project]` of an address that names none. The shell then picks the project as before.
 
 const MUTATING = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+// P121 T4: the e2e run serves one production build from one `next start` per worker, each with its own API; the build's `/api`
+// rewrite names one port, so with `HUB_E2E_RUNTIME_API=1` (set only by `e2e/stacks.ts`) `/api` goes to this process's `HUB_PORT`,
+// read at request time. Unset (every instance), the rewrite of `next.config.ts` serves `/api` as before.
+const runtimeApi = (): string | null => (process.env.HUB_E2E_RUNTIME_API === "1" && process.env.HUB_PORT ? `http://${HOST}:${process.env.HUB_PORT}` : null);
 
 const allowed = (hostname: string): boolean => ALLOWED_HOSTNAMES.some((h) => h === hostname);
 
@@ -35,6 +39,8 @@ export function proxy(request: NextRequest) {
   if (!allowed(hostnameOf(request.headers.get("host") ?? ""))) return forbidden("forbidden host");
   const origin = request.headers.get("origin");
   if (origin !== null && MUTATING.has(request.method) && !originAllowed(origin)) return forbidden("forbidden origin");
+  const api = request.nextUrl.pathname.startsWith("/api/") ? runtimeApi() : null;
+  if (api) return NextResponse.rewrite(new URL(`${request.nextUrl.pathname}${request.nextUrl.search}`, api));
   // The project is in the path (P48), so nothing is added here: the shell frame writes the canonical address.
   const bare = bareScoped(request.nextUrl.pathname);
   if (bare === null) return NextResponse.next();

@@ -1,105 +1,56 @@
 import { defineConfig } from "@playwright/test";
-import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { writeSendPolicy } from "./e2e/send-policy";
+import { apiServer, exportStack, prepareStack, stackOf, uiServer } from "./e2e/stacks";
 
 // The flows run against their own Hono API on a throwaway instance (`HUB_HOME`) and database (never a real instance) and a PRODUCTION build of the
 // admin served by `next start` from its own `distDir`, so a running `next dev` is never disturbed (decision 0015, P32 N6).
-const API_PORT = 4499;
-const UI_PORT = 5199;
+// P121 T4: one stack (instance, database, API, `next start`) per worker, `e2e/stacks.ts`. Workers: `HUB_E2E_WORKERS` (default 2,
+// to keep the owner's Mac usable; P121 question 1), the same number of stacks; `HUB_E2E_WORKERS=1` is the old serial run.
+const WORKERS = Math.max(1, Number(process.env.HUB_E2E_WORKERS ?? 2));
 const E2E_TMP = (process.env.HUB_E2E_TMPDIR ??= mkdtempSync(join(tmpdir(), "hub-e2e-t-")));
 process.env.TMPDIR = E2E_TMP;
-// The config is loaded again inside every worker (another pid), so the main process names the files once and workers inherit them.
-const DB = (process.env.HUB_E2E_DB ??= join(tmpdir(), `hub-e2e-${process.pid}.db`));
-// The throw-away instance every `hub` command of the stack needs (`HUB_HOME`); projects and the database are redirected below.
-const HOME = (process.env.HUB_E2E_HOME ??= join(tmpdir(), `hub-e2e-home-${process.pid}`));
-mkdirSync(HOME, { recursive: true });
-// The server's project folders (project.md): Send reads the project's accounts and sender from here. Seeded projects only.
-// `context.required` is warn: the flows record drafts without a context block, which a project that sets nothing refuses since
-// 2026-11-22 (CONTEXT_BLOCK_FROM); the block rule is @hub/agent's records-context test.
-const PROJECTS = (process.env.HUB_E2E_PROJECTS ??= join(tmpdir(), `hub-e2e-projects-${process.pid}`));
-for (const slug of ["lisbon-realty", "demo-shop"]) {
-  mkdirSync(join(PROJECTS, slug), { recursive: true });
-  writeFileSync(
-    join(PROJECTS, slug, "project.md"),
-    ["# E2E project", "", "## Settings", "", "| Field | Value | Answered | By |", "|---|---|---|---|", "| schema | 1 | 2026-11-14 | agent |", "| status | active | 2026-11-15 | agent |", `| mail.accounts | ${slug}@example.test | 2026-11-14 | agent |`, `| mail.addresses | ${slug}@example.test | 2026-11-14 | owner |`, `| mail.sender | ${slug}@example.test | 2026-11-14 | owner |`, "| context.required | warn | 2026-11-15 | owner |", "| tone | brief | 2026-11-14 | owner |", "", "## Notion databases", "", "- clients: 00000000-0000-4000-8000-000000000001", "- reports: 00000000-0000-4000-8000-000000000002", ""].join("\n"),
-  );
-}
-// P49 S11: the send policy is the server's file, not a row of project.md (recipients = any, drafts only, as the seeded flows expect).
-for (const slug of ["lisbon-realty", "demo-shop"]) writeSendPolicy(HOME, slug);
-// The instance config: agent sessions unattended. The embedded terminal is always on (decision 0032; the server runs the fake shell below).
-mkdirSync(join(HOME, "config"), { recursive: true });
-writeFileSync(join(HOME, "config", "config.json"), JSON.stringify({ agent: { default: "claude", unattended: true } }, null, 2));
-// P47: lisbon-realty gets the core's starter sequence, so its seeded follow-ups (Tiago due, Ines a candidate) have a definition.
-mkdirSync(join(PROJECTS, "lisbon-realty", "sequences"), { recursive: true });
-copyFileSync(join(import.meta.dirname, "..", "..", "projects", "_template", "sequences", "answered-enquiry-no-reply.md"), join(PROJECTS, "lisbon-realty", "sequences", "answered-enquiry-no-reply.md"));
-// the specs read the ports from here (the loopback test, the Host and Origin test)
-process.env.HUB_E2E_UI_PORT = String(UI_PORT);
-process.env.HUB_E2E_API_PORT = String(API_PORT);
+const STARTER = join(import.meta.dirname, "..", "..", "projects", "_template", "sequences", "answered-enquiry-no-reply.md");
+const STACKS = Array.from({ length: WORKERS }, (_, i) => stackOf(E2E_TMP, i));
+// The config is loaded again inside every worker (another pid, with its TEST_PARALLEL_INDEX): the main process writes every
+// stack once, a worker only names its own, so a spec's `process.env.HUB_E2E_*` is that worker's stack.
+const worker = process.env.TEST_PARALLEL_INDEX;
+if (worker === undefined) for (const s of STACKS) prepareStack(s, STARTER);
+const index = Number(worker ?? 0);
+const mine = STACKS[index];
+if (!mine) throw new Error(`worker ${index} has no stack: run with HUB_E2E_WORKERS=${index + 1} or more instead of --workers`);
+exportStack(mine);
+
+// The projects run in dependency order on every worker's own stack. The data a spec sees still depends on what ran before it
+// on that stack: the read-only flows (`a-` to `y-`, smoke) see the seed as it was, so `guards` finishes on every worker before any
+// `z-` flow (which creates data) starts; the 768 and 360 px passes of layout and console are read-only; `live` stops and restarts
+// its stack's API, so it runs after everything else.
+const AT_1280 = { viewport: { width: 1280, height: 800 } };
+const READ_ONLY = /[/\\](?:[a-y]-[^/\\]*|smoke)\.spec\.ts$/;
+const FLOWS = /[/\\]z-[^/\\]*\.spec\.ts$/;
 
 export default defineConfig({
   globalTeardown: "./e2e/temp-teardown.ts",
   testDir: "./e2e",
-  workers: 1, // the flows share one seeded database
+  workers: WORKERS,
   retries: 0,
   reporter: "list",
   // Every screen is looked at at three widths (rules: ui-specifications 4). The flows that change data run once, at 1280;
   // the layout and console specs run at all three.
   projects: [
-    { name: "w1280", use: { viewport: { width: 1280, height: 800 } }, testIgnore: /zz-live/ },
-    { name: "w768", use: { viewport: { width: 768, height: 1024 } }, testMatch: /(a-layout|c-console)/ },
-    { name: "w360", use: { viewport: { width: 360, height: 740 }, hasTouch: true }, testMatch: /(a-layout|c-console)/ },
-    // P50: the live flow stops and restarts the API, so it is the last project (one worker runs the projects in this order).
-    { name: "live", use: { viewport: { width: 1280, height: 800 } }, testMatch: /zz-live/ },
+    { name: "guards", use: AT_1280, testMatch: READ_ONLY },
+    { name: "flows", use: AT_1280, testMatch: FLOWS, dependencies: ["guards"] },
+    { name: "w768", use: { viewport: { width: 768, height: 1024 } }, testMatch: /(a-layout|c-console)/, dependencies: ["guards"] },
+    { name: "w360", use: { viewport: { width: 360, height: 740 }, hasTouch: true }, testMatch: /(a-layout|c-console)/, dependencies: ["guards"] },
+    // P50: the live flow stops and restarts its stack's API, so it waits for every other project.
+    { name: "live", use: AT_1280, testMatch: /zz-live/, dependencies: ["flows", "w768", "w360"] },
   ],
   use: {
-    baseURL: `http://127.0.0.1:${UI_PORT}`,
+    baseURL: `http://127.0.0.1:${mine.uiPort}`,
     channel: "chrome", // the installed Chrome: no browser download
     trace: "retain-on-failure",
   },
-  webServer: [
-    {
-      // Fresh seeded database, `hub project sync` so the registry lists the seeded projects, then the API.
-      command: `rm -f ${DB} ${DB}-wal ${DB}-shm && pnpm --filter @hub/db seed && pnpm hub project sync && pnpm --filter @hub/server start`,
-      cwd: "../..",
-      // HUB_CONFIG_DIR pins the secrets folder inside the throwaway home, so a Connections flow can never write a real instance's keys; HUB_CONNECTIONS_PROBE=fake
-      // makes every Test a stub that never leaves the process. HUB_MAILER=fake is the only way the e2e run sends: the fake Mailer never leaves the process (the server refuses it without HUB_DB).
-      // P49: HUB_ADMIN_PORT is the one Origin the terminal socket and its tickets accept; HUB_TERMINAL_SHELL=fake runs `test-support/fake-shell.mjs`
-      // instead of a login shell, and HUB_AGENT_TOOLS=fake answers the Agent tools checks with fixed rows (a red one among them), never a real CLI.
-      // P61: HUB_OPENER=fake records each Open's argv in <HOME>/state/opener.jsonl and opens nothing (z-local-actions.spec.ts reads it).
-      // P67: HUB_LAUNCHCTL=fake records each launchctl argv in <HOME>/state/autostart/launchctl.jsonl, reaches no launchd, and keeps its
-      // LaunchAgents folder in <HOME>/state/autostart/LaunchAgents (z-autostart.spec.ts writes the plist there).
-      env: {
-        HUB_HOME: HOME,
-        HUB_CONFIG_DIR: join(HOME, "secrets"),
-        HUB_CONNECTIONS_PROBE: "fake",
-        HUB_DB: DB,
-        HUB_PORT: String(API_PORT),
-        HUB_ADMIN_PORT: String(UI_PORT),
-        HUB_MAILER: "fake",
-        // P71 M-P: the pre-analysis' model is the fake transport of `@hub/llm`: no request leaves the process.
-        HUB_LLM: "fake",
-        // P85b: the batch send's spacing (20 s) shortened to 1 s; the server honours it with the fake Mailer only.
-        HUB_BATCH_SPACING_SECONDS: "1",
-        HUB_PROJECTS: PROJECTS,
-        HUB_TERMINAL_SHELL: "fake",
-        HUB_AGENT_TOOLS: "fake",
-        HUB_OPENER: "fake",
-        HUB_LAUNCHCTL: "fake",
-      },
-      url: `http://127.0.0.1:${API_PORT}/api/health`,
-      reuseExistingServer: false,
-      timeout: 180_000, // seed + project sync + tsx start take over 60 s on a loaded machine
-    },
-    {
-      // One production build into `.next-e2e`, then `next start` on loopback only. The `/api` rewrite target is fixed at build time.
-      command: "pnpm --filter @hub/admin build && pnpm --filter @hub/admin start",
-      cwd: "../..",
-      env: { HUB_PORT: String(API_PORT), HUB_ADMIN_PORT: String(UI_PORT), HUB_NEXT_DIST: ".next-e2e" },
-      url: `http://127.0.0.1:${UI_PORT}`,
-      reuseExistingServer: false,
-      timeout: 300_000,
-    },
-  ],
+  // In order: every stack's API, then stack 0's admin (which builds once), then the other admins on the same build.
+  webServer: [...STACKS.map(apiServer), ...STACKS.map(uiServer)],
 });

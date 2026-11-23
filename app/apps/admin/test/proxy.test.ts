@@ -65,3 +65,34 @@ describe("proxy (Host and Origin guard)", () => {
     expect(call("evil.test", { path: "/mail" }).status).toBe(403);
   });
 });
+
+// P121 T4: one e2e build, one `next start` per worker; only `HUB_E2E_RUNTIME_API=1` moves `/api` to the process's own port.
+describe("the e2e runtime API (HUB_E2E_RUNTIME_API)", () => {
+  const withEnv = (env: Record<string, string | undefined>, run: () => void) => {
+    const before = { flag: process.env.HUB_E2E_RUNTIME_API, port: process.env.HUB_PORT };
+    Object.assign(process.env, env);
+    for (const [k, v] of Object.entries(env)) if (v === undefined) delete process.env[k];
+    try {
+      run();
+    } finally {
+      for (const [k, v] of Object.entries({ HUB_E2E_RUNTIME_API: before.flag, HUB_PORT: before.port })) {
+        if (v === undefined) delete process.env[k];
+        else process.env[k] = v;
+      }
+    }
+  };
+  it("is off by default: /api passes to the next.config rewrite", () => {
+    withEnv({ HUB_E2E_RUNTIME_API: undefined, HUB_PORT: "4500" }, () => expect(passes(call("127.0.0.1:5199", { path: "/api/x?a=1" }))).toBe(true));
+  });
+  it("sends /api to HUB_PORT, keeping the path and query", () => {
+    withEnv({ HUB_E2E_RUNTIME_API: "1", HUB_PORT: "4500" }, () => {
+      expect(call("127.0.0.1:5200", { path: "/api/x?a=1" }).headers.get("x-middleware-rewrite")).toBe("http://127.0.0.1:4500/api/x?a=1");
+    });
+  });
+  it("leaves pages alone and still guards the Host first", () => {
+    withEnv({ HUB_E2E_RUNTIME_API: "1", HUB_PORT: "4500" }, () => {
+      expect(call("127.0.0.1:5200", { path: "/" }).headers.get("x-middleware-rewrite")).toBeNull();
+      expect(call("evil.test", { path: "/api/x" }).status).toBe(403);
+    });
+  });
+});
