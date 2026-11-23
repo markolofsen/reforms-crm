@@ -231,13 +231,16 @@
   max-inline-size: 70ch;
 }
 
-/* The list column of a list and its detail (`product/list-detail`): 360px, 400px from 1440px. */
+/* The list column of a list and its detail (`product/list-detail`): 360px, 400px from 1440px. The section menu column
+   (`product/section-layout`, P125): 220px, 240px from 1440px. */
 :root {
   --list-width: 22.5rem;
+  --section-nav-width: 13.75rem;
 }
 @media (min-width: 90rem) {
   :root {
     --list-width: 25rem;
+    --section-nav-width: 15rem;
   }
 }
 
