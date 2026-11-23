@@ -1,31 +1,17 @@
 import { Hono } from "hono";
-import { answeringDraft, type InboundRow, type LeadItem, type LeadRow } from "@hub/db";
-import { inboundCheckedDto, inboundDetailDto, inboundTextDto, inboundDismissedDto, inboundListDto, inboundUndismissBody, leadActionDto, leadDetailDto, type InboundRowDto, type LeadRowDto } from "@hub/contract/inbound";
+import { inboundCheckedDto, inboundDetailDto, inboundTextDto, inboundDismissedDto, inboundListDto, inboundUndismissBody, leadActionDto, leadDetailDto } from "@hub/contract/inbound";
 import { notFound, v } from "../http/http";
 import { INBOUND_OFF, projectReadOf } from "./inbound";
-import { ownText } from "@hub/mail-app/read";
+import { ownText } from "@hub/mail-app/own-text";
 import { LEADS_OFF, projectLeadsOf } from "../clients/leads-reader";
 import type { MailContext } from "./context";
+import { leadDto, answerCard, rowDto } from "./inbound-view";
 
 /** How the card reads a message's text from Mail (P96 verdict 6): null with the reason when Mail cannot show it. */
 
 /** The most rows the Inbox view lists (the bulk limit, verdict 7: Prepare all names at most this many). */
 export const INBOX_LIST_MAX = 30;
 
-const rowDto = (r: InboundRow & { messages?: number }): InboundRowDto => ({
-  id: r.id,
-  email: r.email,
-  name: r.name,
-  subject: r.subject,
-  receivedAt: r.receivedAt,
-  read: r.read,
-  why: r.why,
-  preview: r.preview,
-  messages: r.messages ?? 1,
-  threadDraftId: r.threadDraftId,
-});
-
-const leadDto = (r: LeadRow & { requests?: number }): LeadRowDto => ({ pageId: r.pageId, name: r.name, email: r.email, accountEmail: r.accountEmail, brand: r.brand, receivedAt: r.receivedAt, preview: r.preview, requests: r.requests ?? 1 });
 /** A Notion page id in an address: 32 hex, dashes allowed. */
 const pageIdOf = (raw: string): string | null => {
   const k = raw.replace(/-/g, "").toLowerCase();
@@ -33,8 +19,6 @@ const pageIdOf = (raw: string): string | null => {
 };
 const DAY = 86_400_000;
 
-/** How much of the answering draft's text the card shows (the stored body; Mail holds the full draft). */
-const ANSWER_EXCERPT = 600;
 
 const id = (raw: string): number | null => (/^[1-9]\d*$/.test(raw) ? Number(raw) : null);
 
@@ -50,7 +34,7 @@ export function inboundRoutes({ repos, projects, reader, readText, leads }: Mail
   /** P97 S2: the Leads group (verdicts 2 and 9 as answered): New leads of the last `leads.window_days`, one row per person. */
   const leadsGroup = async (slug: string) => {
     const windowDays = projects.find(slug)?.leads.windowDays ?? 14;
-    const items: LeadItem[] = await repos.leadRows.open(slug, new Date(Date.now() - windowDays * DAY).toISOString());
+    const items = await repos.leadRows.open(slug, new Date(Date.now() - windowDays * DAY).toISOString());
     return { rows: items.slice(0, INBOX_LIST_MAX).map(leadDto), total: items.length, read: projectLeadsOf(leads?.status() ?? LEADS_OFF, slug, windowDays) };
   };
   return new Hono()
@@ -90,12 +74,11 @@ export function inboundRoutes({ repos, projects, reader, readText, leads }: Mail
       const all = clientId === undefined ? [] : (await repos.drafts.ofClient(slug, clientId)).sort((a, b) => b.id - a.id);
       const others = (await repos.inboundMail.openOf(slug, row.email)).filter((r) => r.id !== row.id).slice(0, 10).map((r) => ({ id: r.id, subject: r.subject, receivedAt: r.receivedAt }));
       const notionUrl = (await repos.inbox.list(slug, "all")).find((r) => r.email === row.email)?.notionUrl ?? null;
-      const answer = answeringDraft(row, all);
       return c.json(
         inboundDetailDto.parse({
           row: { ...rowDto(row), account: row.account, mailbox: row.mailbox, messageId: row.messageId, open: row.open, dismissedAt: row.dismissedAt },
           drafts: all.slice(0, 10).map((d) => ({ id: d.id, subject: d.subject, status: d.status, createdAt: d.createdAt })),
-          answer: answer ? { id: answer.id, subject: answer.subject, status: answer.status, createdAt: answer.createdAt, excerpt: answer.body.replace(/\s+/g, " ").trim().slice(0, ANSWER_EXCERPT) } : null,
+          answer: answerCard(row, all),
           others,
           notionUrl,
         }),

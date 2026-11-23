@@ -1,10 +1,11 @@
 import { Hono, type Context } from "hono";
 import { join } from "node:path";
-import type { EnrollmentItem } from "@hub/db";
 import { findSequence, isUsable, loadSequences, type LoadedSequence } from "@hub/sequences";
 import { enrollmentChangedDto, enrollmentParam, enrollmentsDto, enrollmentsQuery, sequencesDto, slugOnlyParam, stopBody, type EnrollmentDto } from "@hub/contract/sequences";
 import { v } from "../http/http";
 import type { ProjectsContext } from "./context";
+
+type EnrollmentItem = Awaited<ReturnType<ProjectsContext["repos"]["enrollments"]["list"]>>[number];
 
 /**
  * Follow-ups (P47, P48 D1): the project's sequences and enrollments, read-only, and the owner's Stop. Enrolling is a phrase

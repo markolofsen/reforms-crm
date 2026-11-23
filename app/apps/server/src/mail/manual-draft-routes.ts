@@ -3,7 +3,7 @@ import { personBrand, signAsPerson } from "@hub/agent/drafts/person";
 import { writeFirstMailDraft } from "@hub/agent/drafts/write";
 import { writeLogOf, type Revision } from "@hub/agent/mail";
 import { newThreadKey } from "@hub/config";
-import { versionHashOf } from "@hub/db";
+import { recordVersion } from "./versions";
 import { DraftWriteError } from "@hub/mail-app/writer/types";
 import { displayNameFor, headersFromText, resolveBrand, type BrandResolution } from "@hub/projects/brands";
 import { manualReplyBody, sendParam } from "@hub/contract/requests";
@@ -79,7 +79,7 @@ export function manualDraftRoutes(services: MailContext) {
       throw e;
     }
 
-    await repos.mailVersions.add({ project: slug, mailRef: writeKey, account: revision.account, mailId: revision.draftId, messageId: revision.messageId, hash: versionHashOf(revision.text), source: "save", signatureFallback: revision.signatureFallback ?? null });
+    await recordVersion(repos, { project: slug, mailRef: writeKey, account: revision.account, mailId: revision.draftId, messageId: revision.messageId, text: revision.text, source: "save", signatureFallback: revision.signatureFallback ?? null });
     const rec = await repos.drafts.record({
       project: slug,
       email: row.client.email,

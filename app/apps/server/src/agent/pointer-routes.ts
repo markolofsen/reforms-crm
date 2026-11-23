@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { livePointer, resolveRef } from "@hub/agent/focus";
 import { parseRef } from "@hub/contract/focus";
 import { pointerDto } from "@hub/contract/pointer";
-import type { Repos } from "@hub/db";
 import type { AgentContext } from "./context";
 
 /**
@@ -13,7 +12,7 @@ import type { AgentContext } from "./context";
  * writes the pointer. Without a file path the route answers "no pointer".
  */
 /** P99: a draft and a message of theirs are shown in their client's conversation; the ref of that screen, else null. */
-async function whereOf(repos: Repos, slug: string, ref: string): Promise<string | null> {
+async function whereOf(repos: AgentContext["repos"], slug: string, ref: string): Promise<string | null> {
   const p = parseRef(ref);
   const id = p ? Number(p.id) : NaN;
   if (!p || !Number.isInteger(id)) return null;

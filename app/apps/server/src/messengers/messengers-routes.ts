@@ -1,59 +1,15 @@
 import { Hono, type Context } from "hono";
 import { chatRulesProblem, isHiddenLabel } from "@hub/config/chat-rules";
 import { sentenceOf } from "@hub/contract/errors";
-import {
-  chatRulesBody,
-  inChannel,
-  messengerChatDto,
-  messengerChatsQuery,
-  messengerConversationDto,
-  messengerChatsDto,
-  messengerDraftDto,
-  messengerDraftTextBody,
-  messengerPrepareBody,
-  messengerSkippedDto,
-  type MessengerChatDto,
-} from "@hub/contract/messenger-panel";
-import { rulesOf, type MessengerChatRow, type MessengerDraftRow, type MessengerProjectionRow, type Repos } from "@hub/db";
+import { chatRulesBody, inChannel, messengerChatsQuery, messengerConversationDto, messengerChatsDto, messengerDraftTextBody, messengerPrepareBody, messengerSkippedDto, type MessengerChatDto } from "@hub/contract/messenger-panel";
 import { z, type ZodType } from "zod";
 import { gateRefusal } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
 import { preanalysisStanding } from "./preanalysis";
 import { prepareMessengerReply } from "./reply";
-import { createMessengerIdentityResolver, type MessengerIdentityResolver } from "./identity";
+import { createMessengerIdentityResolver } from "./identity";
 import type { MessengersContext } from "./context";
-
-const draftOf = (d: MessengerDraftRow) => messengerDraftDto.parse({ id: d.id, text: d.text, createdBy: d.createdBy, nudge: d.nudge, ownerRequest: d.ownerRequest, createdAt: d.createdAt, updatedAt: d.updatedAt });
-const waits = (c: MessengerChatDto): boolean => c.draft !== null || c.owed;
-/** Waiting for them (P123 U3b): nothing owed, and the newest message is ours (the admin's `chatState` "waiting"). */
-const waitsForThem = (c: MessengerChatDto): boolean => !waits(c) && c.last !== null && c.last.direction === "out";
-
-/** Maps the bounded DB projection into the same DTO as the detail route without per-chat repository calls. */
-function projectedChatRow(projected: MessengerProjectionRow, identity: MessengerIdentityResolver, slug: string): MessengerChatDto {
-  const { row, client, notion, activity, last, lastVerdict } = projected;
-  const hidden = isHiddenLabel(lastVerdict) ? lastVerdict : null;
-  return messengerChatDto.parse({
-    id: row.id,
-    channel: row.channel,
-    chatId: row.chatId,
-    title: row.title,
-    client: identity.client(slug, client, notion),
-    rules: rulesOf(row),
-    inbound: activity.inbound,
-    stored: projected.stored,
-    last: last ? { direction: last.direction, kind: last.kind, text: last.text, at: last.sentAt, hidden } : null,
-    owed: last?.direction === "in" && hidden === null,
-    draft: projected.draft ? draftOf(projected.draft) : null,
-    autolinked: row.autolinked ?? null,
-    triage: projected.triage,
-    contact: identity.contact(slug, { email: client?.email ?? null, pageId: notion?.notionPageId ?? null, chat: { channel: row.channel, chatId: row.chatId, own: { username: row.username, phone: row.phone } } }),
-  });
-}
-
-async function projectedChatOf(repos: Repos, slug: string, row: MessengerChatRow, identity: MessengerIdentityResolver): Promise<MessengerChatDto | null> {
-  const projected = (await repos.messengers.list(slug)).find((item) => item.row.id === row.id);
-  return projected ? projectedChatRow(projected, identity, slug) : null;
-}
+import { draftOf, projectedChatOf, projectedChatRow, waits, waitsForThem } from "./chat-view";
 
 /** Waiting first (a draft, then a reply owed), then by the newest message, newest first. */
 const order = (a: MessengerChatDto, b: MessengerChatDto): number =>

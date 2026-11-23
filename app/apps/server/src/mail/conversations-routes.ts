@@ -1,71 +1,18 @@
 import { clientKey, parseClientKey, type ClientKeyDto } from "@hub/contract/client-key";
 import { Hono } from "hono";
-import { bareRef, type ConversationItem, type Repos } from "@hub/db";
-import type { NotionKind } from "@hub/config";
-import { CONVERSATION_MAX, conversationDto, conversationMailDto, conversationsDto, conversationsListQuery, conversationTextDto, conversationTextQuery, type ConversationMessageDto, type ConversationThreadDto } from "@hub/contract/conversations";
+import { conversationDto, conversationMailDto, conversationsDto, conversationsListQuery, conversationTextDto, conversationTextQuery } from "@hub/contract/conversations";
 import { notionIdentityDto, type NotionIdentityDto } from "@hub/contract/notion";
 import { errFields, ops } from "@hub/log/ops";
-import { displayNameFor, headersFromText, mailComposerContext, resolveBrand, visibleFrom } from "@hub/projects/brands";
+import { headersFromText, mailComposerContext, resolveBrand } from "@hub/projects/brands";
 import { toDraft } from "../http/dto";
 import { notFound, v } from "../http/http";
-import { ownText } from "@hub/mail-app/read";
-import { threadsOf } from "./conversation";
+import { ownText } from "@hub/mail-app/own-text";
 import { LABEL_MAILBOXES } from "./inbound";
 import type { MailContext } from "./context";
 import { createMessengerIdentityResolver } from "../messengers/identity";
+import { hubMessages, messageKey, threadsDto, type ConversationItem, type NotionRef } from "./conversation-view";
 
 const id = (raw: string): number | null => (/^[1-9]\d*$/.test(raw) ? Number(raw) : null);
-
-type Facts = NonNullable<Awaited<ReturnType<Repos["conversations"]["facts"]>>>;
-type Msg = Omit<ConversationMessageDto, "draftId" | "preview"> & { inReplyTo: string | null; references: readonly string[] };
-type NotionRef = { notionKind: NotionKind | null; notionPageId: string | null; notionUrl: string | null };
-
-/** The Hub's own copy of the history when Mail cannot be read: their stored messages and our sends, headers only. */
-function hubMessages(f: Facts): Msg[] {
-  const theirs: Msg[] = f.inbound.map((r) => ({ messageId: r.messageId, ours: false, fromName: r.name, fromEmail: r.email, date: r.receivedAt, subject: r.subject, inReplyTo: r.threadRef, references: [] }));
-  const ours: Msg[] = f.sends
-    .filter((s) => s.status === "sent")
-    .map((s) => ({ messageId: bareRef(s.sentMessageId) || `send-${s.id}`, ours: true, fromName: "", fromEmail: (/<([^>]+)>/.exec(s.sender ?? "")?.[1] ?? s.sender ?? "").toLowerCase(), date: s.doneAt ?? s.createdAt, subject: s.subject, inReplyTo: bareRef(s.mailRef) || null, references: [] }));
-  return [...theirs, ...ours];
-}
-
-/** Which draft of this person a message is (ours: sent or written by the Hub) or answers (theirs: a draft's mailRef). */
-function draftOf(m: Msg, f: Facts, versions: ReadonlyMap<string, number>): number | null {
-  if (m.ours) return versions.get(m.messageId) ?? f.sends.find((s) => bareRef(s.sentMessageId) === m.messageId)?.draftId ?? f.drafts.find((d) => bareRef(d.sentMessageId) === m.messageId)?.id ?? null;
-  return f.drafts.find((d) => bareRef(d.mailRef) === m.messageId)?.id ?? null;
-}
-
-function threadsDto(msgs: Msg[], f: Facts, versions: ReadonlyMap<string, number>, brands: Parameters<typeof displayNameFor>[0]["brands"]): { threads: ConversationThreadDto[]; earlier: number } {
-  const preview = new Map(f.inbound.map((r) => [r.messageId, r.preview]));
-  const all = threadsOf(msgs).map((t) => t.map((m) => ({ ...m, draftId: draftOf(m, f, versions) })));
-  const total = all.reduce((n, t) => n + t.length, 0);
-  // The last CONVERSATION_MAX messages show; whole older threads are cut first, then the oldest messages of the oldest thread kept.
-  let skip = Math.max(0, total - CONVERSATION_MAX);
-  const earlier = skip;
-  const kept = all.flatMap((t) => {
-    if (skip >= t.length) {
-      skip -= t.length;
-      return [];
-    }
-    const rest = t.slice(skip);
-    skip = 0;
-    return [rest];
-  });
-  const threads = kept.map((t) => {
-    const ids = new Set(t.map((m) => m.draftId).filter((x): x is number => x !== null));
-    const own = f.drafts.filter((d) => ids.has(d.id) || t.some((m) => m.messageId === bareRef(d.mailRef))).sort((a, b) => b.id - a.id)[0];
-    const technicalFrom = [...t].reverse().find((m) => m.ours)?.fromEmail || own?.wroteTo || null;
-    const ourFrom = visibleFrom(technicalFrom, displayNameFor({ brands }, own?.brand));
-    return {
-      key: t[0]!.messageId,
-      subject: t.at(-1)!.subject || t[0]!.subject,
-      brand: own?.brand ?? null,
-      ourFrom,
-      messages: t.map((m) => ({ messageId: m.messageId, ours: m.ours, fromName: m.fromName, fromEmail: m.fromEmail, date: m.date, subject: m.subject, draftId: m.draftId, preview: preview.get(m.messageId) ?? "" })),
-    };
-  });
-  return { threads, earlier };
-}
 
 /**
  * P99: Mail lists people. `GET /api/projects/:slug/conversations` (one row per client, the state word, the views), `GET
@@ -161,7 +108,7 @@ export function conversationRoutes({ repos, projects, mail, directory }: MailCon
       const f = n === null || !project ? null : await repos.conversations.facts(slug, n);
       if (!f || !project) return notFound(c, "client");
       const versions = new Map<string, number>();
-      for (const d of f.drafts) for (const ver of await repos.mailVersions.ofDraft(d.id)) versions.set(bareRef(ver.messageId), d.id);
+      for (const d of f.drafts) for (const ver of await repos.mailVersions.ofDraft(d.id)) versions.set(messageKey(ver.messageId), d.id);
       const projectConfig = projects.find(slug);
       if (!projectConfig) return notFound(c, "project");
       const cfg = projectConfig.mail;
@@ -178,7 +125,7 @@ export function conversationRoutes({ repos, projects, mail, directory }: MailCon
       const n = id(c.req.param("id"));
       const f = n === null ? null : await repos.conversations.facts(slug, n);
       if (!f) return notFound(c, "client");
-      const m = bareRef(c.req.valid("query").m);
+      const m = messageKey(c.req.valid("query").m);
       const at = where.get(`${slug}|${m}`) ?? (() => {
         const r = f.inbound.find((x) => x.messageId === m);
         return r ? { account: r.account, messageId: r.messageId } : null;

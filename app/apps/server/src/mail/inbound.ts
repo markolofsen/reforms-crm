@@ -11,7 +11,8 @@ import type { ProjectConfig } from "@hub/projects/model";
 import { osaFor, type OsaRun } from "@hub/mail-app/osa";
 import { bareId } from "@hub/mail-app/records";
 import { errFields, ops } from "@hub/log/ops";
-import { mailRunning, previewOf, readInbound, readMessageText, readSent, type ReceivedMessage } from "@hub/mail-app/read";
+import { previewOf } from "@hub/mail-app/own-text";
+import { mailRunning, readInbound, readMessageText, readSent, type ReceivedMessage } from "@hub/mail-app/read";
 
 /**
  * The Mail reader (P96 S1, verdicts 1 to 4, 12, 13). The server reads each active project's inbound mailboxes in Apple Mail,

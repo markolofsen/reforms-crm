@@ -2,7 +2,6 @@ import { Hono, type Context } from "hono";
 import { DraftRefused, reviseMailDraft } from "@hub/agent/drafts/write";
 import { signAsPerson } from "@hub/agent/drafts/person";
 import { writeLogOf } from "@hub/agent/mail";
-import { versionHashOf, type DraftRow, type MailVersionRow } from "@hub/db";
 import { DraftWriteError } from "@hub/mail-app/writer/types";
 import type { MailDraft } from "@hub/mail-app/drafts";
 import { bareId } from "@hub/mail-app/records";
@@ -13,6 +12,7 @@ import { draftMailDto, mailTidyDto } from "@hub/contract/mail";
 import { notFound, v } from "../http/http";
 import type { MailContext } from "./context";
 import { draftMailKit } from "./draft-mail-kit";
+import { recordVersion } from "./versions";
 
 /**
  * The open draft's Mail text (decision 0013: read live, never stored) and the two writes a person makes to it (P56):
@@ -23,6 +23,9 @@ import { draftMailKit } from "./draft-mail-kit";
  * thread the Hub crowded itself (P65 S5, `settleThread`): its own late saves are adopted, its older versions go to Trash.
  * Nothing here sends.
  */
+type DraftRow = NonNullable<Awaited<ReturnType<MailContext["repos"]["drafts"]["get"]>>>;
+type MailVersionRow = Awaited<ReturnType<MailContext["repos"]["mailVersions"]["ofDraft"]>>[number];
+
 export function draftMailRoutes({ repos, sender }: MailContext) {
   const mailer = sender?.mailer;
   const { projectMail, own, refuse, door } = draftMailKit({ repos, sender });
@@ -52,7 +55,7 @@ export function draftMailRoutes({ repos, sender }: MailContext) {
     const signText = signAsPerson(pm, resolution, "the draft has no recorded brand context");
     try {
       const { r, mailRef } = await reviseMailDraft({ actor: "person", draft: d, body, writer: sender.writer, mail: pm, brands: pm, live, quote: "keep", signNew: signText, signReply: async (_inbound, text) => signText(text), log: (ref) => writeLogOf((fn) => fn(repos), d.project, d.id, ref) });
-      await repos.mailVersions.add({ project: d.project, mailRef, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, hash: versionHashOf(r.text), source });
+      await recordVersion(repos, { project: d.project, mailRef, draftId: d.id, account: r.account, mailId: r.draftId, messageId: r.messageId, text: r.text, source });
       const moved = new Set(r.replaced.map(bareId));
       await repos.mailVersions.markTrashed(live.filter((v) => moved.has(bareId(v.messageId))).map((v) => v.id));
     } catch (e) {

@@ -7,7 +7,6 @@ import { cliDetector, detectClis, type CliDetector } from "@hub/agent/detect";
 import { AGENT_CLIS, instanceFeatures, type HubPaths } from "@hub/config/paths";
 import { agentToolsDto, type AgentCapability, type AgentToolsDto } from "@hub/contract/agent-tools";
 import type { CliFactDto } from "@hub/contract/terminal";
-import type { Repos } from "@hub/db";
 import { notFound } from "../http/http";
 import type { AgentContext } from "./context";
 
@@ -17,7 +16,7 @@ import type { AgentContext } from "./context";
 
 export interface AgentToolsOptions {
   paths: HubPaths;
-  repos: Repos;
+  repos: AgentContext["repos"];
   fake?: boolean;
   probe?: AgentProbe;
   now?: () => Date;
