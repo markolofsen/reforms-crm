@@ -1,7 +1,7 @@
 "use client";
 
 import { Page } from "@hub/ui/product/page";
-import { SubNav } from "@/components/sub-nav";
+import { SectionMenu } from "@/components/section-menu";
 import { useProjectScope } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
 import { AgentTools } from "./agent/agent-tools";
@@ -15,16 +15,18 @@ import { SendingPane } from "./sending/sending-pane";
 
 /**
  * Settings (P70): what is set rarely and changes how the Hub behaves, one place, grouped by what each pane governs, as on a Mac.
- * Every pane is one page with the sub-nav (Sending, Checks, Mail, Agent, Connections, This Mac) in its header line, the one door
- * to a pane (P75: the sidebar draws no children), and nothing on a pane is folded. Sending, Checks, Mail and Agent are the
+ * Every pane is one page with the section menu (Sending, Checks, Mail, Agent, Connections, This Mac) as its second column
+ * (P125 L4), the one door to a pane (P75: the sidebar draws no children), and nothing on a pane is folded. Sending, Checks, Mail and Agent are the
  * address's project's; Connections and This Mac are the instance's and name no project (`routes-and-url-state.md` rule 10).
  */
 export function SendingScreen() {
   const { project } = useProjectScope();
   return (
-    <Page nav={<SubNav section="settings" />}>
+    <SectionMenu section="settings">
+      <Page>
       <SendingPane project={project} />
-    </Page>
+      </Page>
+    </SectionMenu>
   );
 }
 
@@ -32,9 +34,11 @@ export function SendingScreen() {
 export function ChecksScreen() {
   const { project } = useProjectScope();
   return (
-    <Page nav={<SubNav section="settings" />}>
+    <SectionMenu section="settings">
+      <Page>
       <ChecksPane project={project} />
-    </Page>
+      </Page>
+    </SectionMenu>
   );
 }
 
@@ -42,9 +46,11 @@ export function ChecksScreen() {
 export function MailScreen() {
   const { project } = useProjectScope();
   return (
-    <Page nav={<SubNav section="settings" />}>
+    <SectionMenu section="settings">
+      <Page>
       <MailPane project={project} />
-    </Page>
+      </Page>
+    </SectionMenu>
   );
 }
 
@@ -52,9 +58,11 @@ export function MailScreen() {
 export function AgentScreen() {
   const { project } = useProjectScope();
   return (
-    <Page nav={<SubNav section="settings" />}>
+    <SectionMenu section="settings">
+      <Page>
       <AgentTools slug={project} />
-    </Page>
+      </Page>
+    </SectionMenu>
   );
 }
 
@@ -62,9 +70,11 @@ export function AgentScreen() {
 export function ConnectionsScreen() {
   if (!useRoute("settings.connections")) return null;
   return (
-    <Page nav={<SubNav section="settings" />}>
+    <SectionMenu section="settings">
+      <Page>
       <ConnectionsView kinds={["notion"]} />
-    </Page>
+      </Page>
+    </SectionMenu>
   );
 }
 
@@ -72,10 +82,12 @@ export function ConnectionsScreen() {
 export function MacScreen() {
   if (!useRoute("settings.mac")) return null;
   return (
-    <Page nav={<SubNav section="settings" />}>
+    <SectionMenu section="settings">
+      <Page>
       <AutostartRow />
       <AppsRow />
       <CoreBlock />
-    </Page>
+      </Page>
+    </SectionMenu>
   );
 }
