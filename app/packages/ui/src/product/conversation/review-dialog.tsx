@@ -70,7 +70,11 @@ type Props = {
  * Built from Base UI's alert dialog with the coss sheet's backdrop, title and footer (the same dialog parts; no coss
  * `alert-dialog` copy is in the package yet).
  */
-export function ReviewDialog({ open, onOpenChange, title, lead, summary, items, loading = null, confirmLabel, pendingLabel, onConfirm, pending = false, error, cancelLabel = "Cancel", tone = "primary", confirmIcon, now = () => performance.now() }: Props) {
+// One function for the default clock: an inline default is a new function every render, so the effect below restarted the
+// dwell on each render while the dialog was open, and a confirm after the dwell was ignored (found at the P130 gate).
+const performanceNow = () => performance.now();
+
+export function ReviewDialog({ open, onOpenChange, title, lead, summary, items, loading = null, confirmLabel, pendingLabel, onConfirm, pending = false, error, cancelLabel = "Cancel", tone = "primary", confirmIcon, now = performanceNow }: Props) {
   const ordered = orderItems(items);
   const gate = reviewGate(items, { loading: loading !== null, pending });
   const cancelRef = useRef<HTMLButtonElement>(null);
