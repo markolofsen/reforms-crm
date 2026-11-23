@@ -4,7 +4,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync,
 import path from "node:path";
 import type { Ctx } from "../../context";
 import { readCoreVersion } from "@hub/config/core-version";
-import { BackupError, CONFIG_IN_SNAPSHOT, DAY, DUMP_TIMEOUT_MS, KEEP, MANIFEST, MAX_AGE_DAYS, type Manifest, type ManifestFile, type Target, ageDays, dateOf, gitGuard, kb, listSnapshots, resolveTarget, sha256File, stampOf, walk } from "./manifest";
+import { BackupError, CONFIG_IN_SNAPSHOT, DAY, DUMP_TIMEOUT_MS, KEEP, MANIFEST, MAX_AGE_DAYS, type Manifest, type ManifestFile, type Target, dateOf, gitGuard, kb, listSnapshots, resolveTarget, sha256File, stampOf, walk } from "./manifest";
 // `hub backup` (decision 0023): a manual, dated snapshot of what the instance cannot get back from git.
 // Dry run unless --apply. Never reads or copies a secret: only the NAMES in state/secrets/ go into the manifest (a directory listing),
 // and the Notion dump is a child process that loads its own token. Restore is never run here; a snapshot is verified, not applied.

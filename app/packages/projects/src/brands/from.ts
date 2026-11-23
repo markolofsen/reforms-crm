@@ -1,6 +1,5 @@
 // P58, P126 P1: who a reply goes from, and the brand's display name on it.
 import type { Brand, ProjectConfig } from "../schema";
-import { accountAddresses } from "../addresses";
 import { EMAIL, normalizeAddress } from "../values";
 import { normalizedDisplayName } from "./table";
 

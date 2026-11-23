@@ -1,10 +1,10 @@
-import { checkDraftRecipients } from "@hub/projects/guard";
+import { checkDraftRecipients, readAllowList } from "@hub/projects/guard";
 import { projectStore } from "@hub/projects/store";
 import { headersFromText } from "@hub/projects/brands";
 import { normalizeAddress } from "@hub/projects/parse";
 import type { InboundMessage } from "@hub/mail-app/writer/types";
 import { ToolError } from "../mcp/result";
-import { addressesOf, allowList } from "../records/checks";
+import { addressesOf } from "../records/checks";
 import { recordDraftCall, type DraftRecordOutcome } from "../records/draft";
 import type { DraftRecord } from "../records/schema";
 import type { DraftScope } from "./sign";
@@ -42,7 +42,7 @@ export async function precheckRecord(s: DraftScope, email: string, record: Draft
   if (!env) throw new ToolError("unavailable", "This hub MCP server cannot record drafts (no database to write). Nothing was written.");
   if (!env.projectsDir) return;
   const cfg = projectStore({ projects: env.projectsDir, ...(env.policyDir ? { stateProjects: env.policyDir } : {}) }).config(s.slug);
-  const g = checkDraftRecipients(cfg, addressesOf(record.to ?? email, record.cc), allowList(env.configFile));
+  const g = checkDraftRecipients(cfg, addressesOf(record.to ?? email, record.cc), env.configFile ? readAllowList(env.configFile) : []);
   if (!g.ok) throw new ToolError("recipient_not_allowed", `draft.recipients of ${s.slug} does not permit ${g.blocked.join(", ")}. Nothing was written.`, { blocked: g.blocked });
 }
 

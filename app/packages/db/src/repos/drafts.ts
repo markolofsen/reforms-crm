@@ -3,7 +3,7 @@ import { type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type Fin
 import type { Db } from "../client";
 import { write, type WriteTx } from "../tx";
 import { RepoError } from "../errors";
-import { clients, drafts, marks } from "../schema";
+import { clients, drafts } from "../schema";
 import { blocksChecked, isSafetyKind } from "../safety";
 import { loadSafety, logDraftEvent, now, nowIso, parseJson, type DraftRow } from "./bulk-shared";
 import { recordDraft } from "./drafts-record";

@@ -23,7 +23,7 @@ import { runSetup } from "../setup/wizard";
 import { clackUi, quietUi } from "../setup/ui";
 import { selectSteps, STEPS } from "../steps/index";
 import { uninstall } from "../uninstall";
-import { ctxOf, pick, projectOptions, projectsDir, done } from "./shared";
+import { ctxOf, done, mailAccounts, pick, projectOptions, projectsDir } from "./shared";
 import type { Command } from "commander";
 
 /** P126 C1: the instance commands: new-instance, status, core, workspace, link, install, doctor, setup, uninstall, guide, docs, backup. */

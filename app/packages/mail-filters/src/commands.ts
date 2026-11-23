@@ -7,7 +7,7 @@ import { kindOf } from "@hub/projects/kinds";
 import { projectStore } from "@hub/projects/store";
 import { colorTable } from "./colors";
 import { propose, type SenderSample } from "./analyze";
-import { exportApi, exportXml, UnsafeRulesError } from "./export";
+import { exportApi, exportXml } from "./export";
 import { buildFilters } from "./filters";
 import { classesOf, DEFAULT_CLASSES, emptyRulesFile, formatIssue, hasErrors, matchText, type Issue, type RulesFile } from "./model";
 import { normalizeRules, parseRulesFile, writeRulesFile } from "./rules-file";

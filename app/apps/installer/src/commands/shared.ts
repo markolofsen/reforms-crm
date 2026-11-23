@@ -19,7 +19,7 @@ export const pick = (ids?: string[], automation = false, audit = false): Step[] 
 
 // P7: `hub project sync|show|doctor`; account names come from the mail-mcp daemon (read-only).
 // `undefined`: Mail could not be asked (Mail.app closed, mail-mcp down): the check is skipped. An empty list means Mail answered and has none.
-async function mailAccounts(ctx: Ctx): Promise<string[] | undefined> {
+export async function mailAccounts(ctx: Ctx): Promise<string[] | undefined> {
   const r = await mcpCall(ctx, ctx.mailUrl, "list_accounts", { enabled: true });
   if (!r.ok) return undefined;
   try {

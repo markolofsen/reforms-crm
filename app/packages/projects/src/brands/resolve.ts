@@ -1,6 +1,6 @@
 // P60 B2, P126 P1: the one resolver from an inbound's headers to the brand the client wrote to. Pure.
 import type { Brand } from "../schema";
-import { isOwnAddress, type OwnMail } from "../addresses";
+import { accountAddresses, domainOf, isOwnAddress, type OwnMail } from "../addresses";
 import { EMAIL, normalizeAddress } from "../values";
 
 

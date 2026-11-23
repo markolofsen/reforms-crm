@@ -1,4 +1,4 @@
-import { CLIENTS, DRAFTED, FIXTURE_PROJECT, replyBody, type FixtureClient } from "./fixture";
+import { CLIENTS, DRAFTED, replyBody, type FixtureClient } from "./fixture";
 
 // Builds the tool-call sequences of a session over the fixture, as Claude Code writes them to a transcript (assistant
 // `tool_use` lines, user `tool_result` lines). Offline and deterministic: nothing here talks to mail or Notion. The five

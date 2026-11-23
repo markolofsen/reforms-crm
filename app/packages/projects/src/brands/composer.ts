@@ -1,11 +1,10 @@
 // P110, P126 P1: what the Mail composer shows for a conversation: the brand options, the From and the signature.
 import { replyLanguage, type ReplyLanguage } from "@hub/contract/language";
 import type { Brand, ProjectConfig } from "../schema";
-import { accountAddresses } from "../addresses";
 import { EMAIL, normalizeAddress } from "../values";
 import { displayNameFor, replyFrom } from "./from";
 import { brandResolutionFor, type BrandResolution } from "./resolve";
-import { signatureFor, signatureLines } from "./signature";
+import { signatureFor } from "./signature";
 
 export const MAIL_COMPOSER_STATUSES = ["resolved", "needs_brand", "needs_mail", "missing_signature"] as const;
 export type MailComposerStatus = (typeof MAIL_COMPOSER_STATUSES)[number];
