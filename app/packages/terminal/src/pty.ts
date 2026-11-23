@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import { ensureSpawnHelper, nodePtyRoot } from "./readiness";
+import type * as NodePty from "node-pty";
 
 // The PTY behind an interface, so tests run on a fake (like the fake Mailer). Node has no PTY of its own and
 // `child_process` pipes break every TUI (no size, no raw mode): node-pty 1.1.0 is the one native dependency (P49).
@@ -28,7 +29,7 @@ export type PtySpawn = (file: string, args: string[], o: PtyOptions) => PtyProce
 export function nodePty(root: string | null = nodePtyRoot()): PtySpawn {
   if (!root) throw new Error("node-pty is not installed in the core");
   ensureSpawnHelper(root);
-  const pty = createRequire(path.join(root, "package.json"))(root) as typeof import("node-pty");
+  const pty = createRequire(path.join(root, "package.json"))(root) as typeof NodePty;
   return (file, args, o) => {
     const p = pty.spawn(file, args, { name: "xterm-256color", cols: o.cols, rows: o.rows, cwd: o.cwd, env: o.env as Record<string, string> });
     return {

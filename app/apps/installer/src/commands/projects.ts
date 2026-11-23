@@ -1,6 +1,7 @@
 // P126 C1: `hub project …` and `hub dev …`, registered by the installer; the work is @hub/projects/commands (no commander there).
 import type { Command } from "commander";
 import { runAddresses, runDevIndex, runDevInit, runKinds, runProjectDoctor, runProjectSetup, runRename, runShow, runSync, runWorkflowsCheck, runWorkflowsList, type Ask, type ProjectCommandOptions, type SetupFlags } from "@hub/projects/commands";
+import type { Interface as ReadlineInterface } from "node:readline/promises";
 
 /** Adds `dev index` and `dev init`: the development kanban of each project (`projects/<slug>/@dev/`) and of the Hub (`--path`). */
 export function registerDevCommands(program: Command, o: ProjectCommandOptions = {}): Command {
@@ -69,7 +70,7 @@ export function registerProjectCommands(program: Command, o: ProjectCommandOptio
     .option("--brand-display-name <brand=name>", "the visible From name of a brand row; the technical sender address is unchanged; repeatable", (v: string, a: string[] = []) => [...a, v])
     .option("--languages <tags>", "BCP-47 tags, comma separated")
     .action(async (slug: string, opts: SetupFlags) => {
-      let rl: import("node:readline/promises").Interface | undefined;
+      let rl: ReadlineInterface | undefined;
       let ask: Ask | undefined;
       if (process.stdin.isTTY && process.stdout.isTTY) {
         const { createInterface } = await import("node:readline/promises");

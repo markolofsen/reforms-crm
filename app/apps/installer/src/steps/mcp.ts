@@ -1,7 +1,7 @@
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { readJson } from "../context";
+import { readJson, type McpFile } from "../context";
 import type { Step } from "../types";
 import { fail, pass } from "./helpers";
 
@@ -15,7 +15,7 @@ export const mcpSteps: Step[] = [
     verifies: "The `hub` command of `.mcp.json` is started exactly as a session starts it (`node` is the hub's own Node) and answers an MCP `initialize`. It opens a throw-away empty database, read-only, so the real `data/app.db` is never opened; the process is closed at once.",
     manual: { steps: ["Run `hub install --only files.mcp-json` (writes the server with absolute paths), then `pnpm install` in the core's `app/` if the program is missing."] },
     async check(ctx) {
-      const server = readJson(ctx.paths.mcpFile)?.mcpServers?.hub as { type?: string; command?: string; args?: string[]; env?: Record<string, string> } | undefined;
+      const server = readJson<McpFile>(ctx.paths.mcpFile)?.mcpServers?.hub as { type?: string; command?: string; args?: string[]; env?: Record<string, string> } | undefined;
       if (!server || server.type !== "stdio" || !server.command) return fail("`hub` is not a stdio server in .mcp.json: `hub install --only files.mcp-json`");
       // A session starts `node` as the hub's own Node (`instanceMcpServers`), never the one on PATH.
       const cmd = server.command === "node" ? process.execPath : path.resolve(ctx.paths.home, server.command);

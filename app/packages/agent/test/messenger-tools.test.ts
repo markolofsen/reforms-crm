@@ -58,6 +58,9 @@ const withRepos: WithRepos = async (fn) => {
   }
 };
 
+/** A messenger tool's reply as these tests read it: the chats of messenger_history, a draft id, a refusal code; the rest by key. */
+type HistoryChat = Record<string, unknown> & { chat_id: string; messages: Array<{ direction: string; text: string; hidden?: string }>; prefilter: Record<string, unknown>; can_draft: unknown };
+type ToolReply = Record<string, unknown> & { chats: [HistoryChat, ...HistoryChat[]]; draft: number; error?: string };
 async function connect(hubProject: string | undefined, write = true, policy?: { language: string | null; instruction: string | null }) {
   const server = createHubMcpServer(repos, {
     hubProject,
@@ -73,7 +76,7 @@ async function connect(hubProject: string | undefined, write = true, policy?: { 
   return async (name: string, args: Record<string, unknown> = {}) => {
     const res = await client.callTool({ name, arguments: args });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
-    return { isError: res.isError === true, json: JSON.parse(text) as Record<string, any> };
+    return { isError: res.isError === true, json: JSON.parse(text) as ToolReply };
   };
 }
 

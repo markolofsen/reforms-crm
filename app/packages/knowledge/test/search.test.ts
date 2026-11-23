@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DbHandle, Repos } from "@hub/db";
 import { indexProject } from "../src/indexer";
-import { knowledgeGet, knowledgeSearch, KnowledgeError, type SearchArgs } from "../src/search";
+import { knowledgeGet, knowledgeSearch, KnowledgeError, type GetResult, type SearchArgs, type SearchResult } from "../src/search";
 import { cleanup, copyRoot, openRegistered } from "./helpers";
 
 let handle: DbHandle;
@@ -19,14 +19,16 @@ afterEach(() => {
 
 // The tool contract of doc 16 section 5 as plain functions (P129 A4: the tools are `hub mcp`'s now, bound to the session's
 // project; their MCP side is tested in @hub/agent's knowledge-tools test). `call` answers like a tool: the value, or the refusal.
+/** A knowledge tool's answer as these tests read it: the search results, or the read document, or the refusal; the rest by key. */
+type Reply = SearchResult & GetResult & { error?: string; message?: string };
 async function connect(env: { hubProject?: string | undefined; today?: string }) {
   const e = { today: "2026-11-14", ...env };
   const call = async (name: string, args: Record<string, unknown>) => {
     try {
-      const json: Record<string, any> = name === "knowledge_search" ? await knowledgeSearch(repos, args as unknown as SearchArgs, e) : await knowledgeGet(repos, args as { project: string; path: string }, e);
+      const json = (name === "knowledge_search" ? await knowledgeSearch(repos, args as unknown as SearchArgs, e) : await knowledgeGet(repos, args as { project: string; path: string }, e)) as Reply;
       return { isError: false, json, structured: json };
     } catch (err) {
-      if (err instanceof KnowledgeError) return { isError: true, json: { error: err.code, message: err.message } as Record<string, any>, structured: undefined };
+      if (err instanceof KnowledgeError) return { isError: true, json: { error: err.code, message: err.message } as Partial<Reply> as Reply, structured: undefined };
       throw err;
     }
   };
@@ -41,8 +43,8 @@ describe("knowledge_search", () => {
     expect(Object.keys(r.json).sort()).toEqual(["project", "query", "results", "total", "truncated"]);
     expect(r.json.project).toBe("acme-travel");
     expect(r.json.results[0]).toMatchObject({ path: "knowledge/files/terms/cancel.md", title: "Cancellation policy", use: "STATE", approved: true, expired: false, audiences: ["ANY"], category: "TERMS", valid_until: null });
-    expect(Object.keys(r.json.results[0]).sort()).toEqual(["approved", "audiences", "brands", "category", "expired", "path", "score", "snippet", "title", "use", "valid_until"]);
-    expect(r.json.results[0].snippet.length).toBeLessThanOrEqual(400);
+    expect(Object.keys(r.json.results[0] ?? {}).sort()).toEqual(["approved", "audiences", "brands", "category", "expired", "path", "score", "snippet", "title", "use", "valid_until"]);
+    expect(r.json.results[0]?.snippet.length).toBeLessThanOrEqual(400);
   });
 
   it("limits to 5 by default, honours limit, and flags truncation", async () => {
@@ -82,7 +84,7 @@ describe("knowledge_search", () => {
     const def = await call("knowledge_search", { project: "acme-travel", query: "loyalty programme spring sale" });
     expect(def.json.results.map((x: { path: string }) => x.path)).toEqual([]);
     const all = await call("knowledge_search", { project: "acme-travel", query: "loyalty programme spring sale", include: "all" });
-    const by = Object.fromEntries(all.json.results.map((x: any) => [x.path, x]));
+    const by = Object.fromEntries(all.json.results.map((x) => [x.path, x]));
     expect(by["knowledge/files/services/loyalty.md"]).toMatchObject({ approved: false, expired: false });
     expect(by["knowledge/files/prices/springsale.md"]).toMatchObject({ approved: true, expired: true, valid_until: "2025-05-31" });
   });
@@ -105,7 +107,7 @@ describe("knowledge_search", () => {
     const unfiltered = await call("knowledge_search", { project: "acme-travel", query: "quokka" });
     expect(unfiltered.json.total).toBe(2);
     const client = await call("knowledge_search", { project: "acme-travel", query: "quokka", audience: "CLIENT" });
-    expect(client.json.results.map((x: any) => x.path)).toEqual(["knowledge/files/client.md"]);
+    expect(client.json.results.map((x) => x.path)).toEqual(["knowledge/files/client.md"]);
     const lead = await call("knowledge_search", { project: "acme-travel", query: "quokka", audience: "LEAD" });
     expect(lead.json.total).toBe(0);
   });

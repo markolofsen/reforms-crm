@@ -24,7 +24,7 @@ describe("notion databases and project table", () => {
   it("names the teamspace page to share when a database is unreachable", async () => {
     const f = fake();
     storeToken(f.ctx.configDir, "notion-token", "ntn\u005fTESTTOKENVALUE123456");
-    f.ctx.fetch = (async () => new Response("{}", { status: 404 })) as any;
+    f.ctx.fetch = async () => new Response("{}", { status: 404 });
     const v = await verifyProjectDatabases(f.ctx, projectStore({ projects: projectsDir(f, [["acme", "active"]]) }).list());
     expect(v.ok).toBe(false);
     expect(v.detail).toContain('share the teamspace page "Acme teamspace"');

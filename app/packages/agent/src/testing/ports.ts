@@ -133,7 +133,7 @@ export function fakePorts(o: FakePortsOptions = {}): FakePorts {
 export interface Connected {
   client: Client;
   /** One tool call: the parsed JSON of its reply (a refusal's `error`, `retry` and `next` included) and whether it refused. */
-  call: (name: string, args?: Record<string, unknown>) => Promise<{ isError: boolean; json: Record<string, any> }>;
+  call: (name: string, args?: Record<string, unknown>) => Promise<{ isError: boolean; json: Record<string, unknown> }>;
   /** The tool names the server lists. */
   tools: () => Promise<string[]>;
 }
@@ -148,9 +148,9 @@ export async function connect(p: Pick<FakePorts, "repos" | "env">): Promise<Conn
   const call: Connected["call"] = async (name, args = {}) => {
     const res = await client.callTool({ name, arguments: args });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
-    let json: Record<string, any>;
+    let json: Record<string, unknown>;
     try {
-      json = JSON.parse(text) as Record<string, any>;
+      json = JSON.parse(text) as Record<string, unknown>;
     } catch {
       json = { error: "invalid_input", message: text }; // the SDK's own refusal of the input schema is plain text
     }

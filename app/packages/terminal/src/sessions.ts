@@ -3,14 +3,16 @@ import { randomBytes } from "node:crypto";
 import { createRequire } from "node:module";
 import { CLOSE, clampSize, MAX_SESSIONS, type ServerFrame, type TerminalPreset, type TerminalSessionDto } from "@hub/contract/terminal";
 import type { PtyProcess, PtySpawn } from "./pty";
+import type * as XtermHeadless from "@xterm/headless";
+import type * as XtermSerialize from "@xterm/addon-serialize";
 
 // Sessions of the embedded terminal (P49 section 4). A session lives until its process exits, its tab is closed, or the
 // server stops; closing the column or the page only detaches. Each feeds a headless xterm (5 000 lines), so an attach gets
 // the screen as it is (a raw byte replay could start mid escape sequence), then the live stream. One viewer at a time.
 
 const require = createRequire(import.meta.url);
-const { Terminal } = require("@xterm/headless") as typeof import("@xterm/headless");
-const { SerializeAddon } = require("@xterm/addon-serialize") as typeof import("@xterm/addon-serialize");
+const { Terminal } = require("@xterm/headless") as typeof XtermHeadless;
+const { SerializeAddon } = require("@xterm/addon-serialize") as typeof XtermSerialize;
 
 /** What a socket must offer a session; the server adapts `ws` to it, tests pass a fake. */
 export interface Viewer {

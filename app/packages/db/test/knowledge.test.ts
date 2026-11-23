@@ -47,7 +47,7 @@ describe("knowledge_fts stays in sync", () => {
     // delete (deleteMissing)
     expect(await repos.knowledge.deleteMissing("a", [])).toBe(1);
     expect(paths(await repos.knowledge.search("a", "passport"))).toEqual([]);
-    const ftsRows = (handle.db as any).$client.prepare("select count(*) as n from knowledge_fts_docsize").get() as { n: number };
+    const ftsRows = handle.db.$client.prepare("select count(*) as n from knowledge_fts_docsize").get() as { n: number };
     expect(ftsRows.n).toBe(0);
   });
 
@@ -261,7 +261,7 @@ describe("migrations", () => {
     const file = join(dir, "fresh.db");
     openDb(file).close();
     const again = openDb(file);
-    const tables = (again.db as any).$client
+    const tables = again.db.$client
       .prepare("select name from sqlite_master where name in ('projects','project_addresses','project_questions','knowledge_docs','knowledge_fts') order by name")
       .all();
     again.close();

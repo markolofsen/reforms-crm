@@ -3,9 +3,12 @@ import type { Ctx } from "./context";
 const H = { "content-type": "application/json", accept: "application/json, text/event-stream" };
 
 /** Parse a JSON-RPC reply that may arrive as plain JSON or as one SSE "data:" line. */
-export function parseRpc(text: string): any {
+/** A JSON-RPC reply of an MCP tools/call, its fields as far as the probe reads them. */
+export type RpcReply = { error?: { message?: unknown }; result?: { isError?: boolean; content?: Array<{ text?: string }> } };
+
+export function parseRpc(text: string): RpcReply {
   const line = text.split("\n").find((l) => l.startsWith("data:"));
-  return JSON.parse(line ? line.slice(5) : text);
+  return JSON.parse(line ? line.slice(5) : text) as RpcReply;
 }
 
 /** Minimal streamable-HTTP MCP client: initialize, then one tools/call. Read-only use only. */
@@ -24,7 +27,7 @@ export async function mcpCall(ctx: Ctx, url: string, tool: string, args: Record<
     await post({ jsonrpc: "2.0", method: "notifications/initialized" }, i.sid);
     const r = parseRpc((await post({ jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: tool, arguments: args } }, i.sid)).text);
     if (r.error) return { ok: false, text: String(r.error.message ?? "error") };
-    const text = (r.result?.content ?? []).map((c: any) => c.text ?? "").join("\n");
+    const text = (r.result?.content ?? []).map((c) => c.text ?? "").join("\n");
     return { ok: !r.result?.isError, text };
   } catch (e) {
     return { ok: false, text: `${(e as Error).message}` };

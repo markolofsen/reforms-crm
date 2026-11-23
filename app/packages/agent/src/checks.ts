@@ -42,8 +42,17 @@ export interface AgentCheckInput {
   defaultCli?: AgentCli;
 }
 
-const json = (p: string): Record<string, any> | null => {
-  try { return JSON.parse(readFileSync(p, "utf8")) as Record<string, any>; } catch { return null; }
+/** The fields of a session's settings.json the checks read; JSON is trusted to this shape, every field optional. */
+type SessionSettings = {
+  permissions?: { deny?: string[] };
+  sandbox?: { enabled?: unknown; allowUnsandboxedCommands?: unknown; network?: { allowedDomains?: unknown } };
+  hooks?: { PreToolUse?: unknown };
+};
+type McpConfig = { mcpServers?: Record<string, Record<string, unknown>> };
+type SendPolicyFile = { schema?: unknown; mode?: unknown; recipients?: unknown };
+type RpcReply = { id?: unknown; result?: { tools?: Array<{ name: string }> } };
+const json = <T>(p: string): T | null => {
+  try { return JSON.parse(readFileSync(p, "utf8")) as T; } catch { return null; }
 };
 const text = (p: string): string | null => {
   try { return readFileSync(p, "utf8"); } catch { return null; }
@@ -78,8 +87,8 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   }
 
   // 3. The generated session files.
-  const settings = json(path.join(sessionDir, "settings.json"));
-  const mcp = json(path.join(sessionDir, "mcp.json"));
+  const settings = json<SessionSettings>(path.join(sessionDir, "settings.json"));
+  const mcp = json<McpConfig>(path.join(sessionDir, "mcp.json"));
   const toml = cli === "codex" ? text(path.join(cHome, "config.toml")) : null;
   const section = (n: string): string => {
     const lines = (toml ?? "").split("\n");
@@ -136,8 +145,9 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
 
   // 7. The mode: prompts on, or the OS sandbox with no network and no bypass.
   if (cli === "claude") {
-    const sb = settings?.sandbox as Record<string, any> | undefined;
-    const good = !!sb && sb.enabled === true && sb.allowUnsandboxedCommands === false && Array.isArray(sb.network?.allowedDomains) && sb.network.allowedDomains.length === 0;
+    const sb = settings?.sandbox;
+    const domains = sb?.network?.allowedDomains;
+    const good = !!sb && sb.enabled === true && sb.allowUnsandboxedCommands === false && Array.isArray(domains) && domains.length === 0;
     if (!i.unattended) row("mode", "Mode", settings ? "pass" : "fail", "attended: Claude Code asks before each action", prepare);
     else row("mode", "Mode", good ? "pass" : "fail", good ? "unattended: OS sandbox on, no network, no unsandboxed commands" : "unattended without the OS sandbox block", prepare);
   } else if (toml === null) row("mode", "Mode", "fail", "no Codex config", prepare);
@@ -159,7 +169,7 @@ export async function agentChecks(i: AgentCheckInput): Promise<AgentCheckRow[]> 
   else row("approval.policy", "MCP approval", "skip", "Claude Code uses its attended permission flow");
 
   // 8. The send pipeline: the policy file is the server's, not the project's.
-  const pol = json(path.join(paths.stateProjects, slug, "send-policy.json"));
+  const pol = json<SendPolicyFile>(path.join(paths.stateProjects, slug, "send-policy.json"));
   if (!existsSync(path.join(paths.stateProjects, slug, "send-policy.json"))) row("send.pipeline", "Send pipeline", "pass", "no policy file: drafts only, test recipients");
   else if (!pol || pol.schema !== 1) row("send.pipeline", "Send pipeline", "fail", "send-policy.json does not parse", `hub send policy ${slug}`);
   else row("send.pipeline", "Send pipeline", "pass", `${pol.mode}, recipients ${Array.isArray(pol.recipients) ? pol.recipients.length + " listed" : pol.recipients}`);
@@ -183,7 +193,7 @@ export function defaultProbe(o: { timeoutMs?: number; fetch?: typeof fetch } = {
   const ms = o.timeoutMs ?? 10_000;
   const init = { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "hub-agent-tools", version: "0" } } };
   const list = { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} };
-  const names = (r: any): string[] => ((r?.result?.tools ?? []) as Array<{ name: string }>).map((t) => t.name);
+  const names = (r: unknown): string[] => ((r as RpcReply | null)?.result?.tools ?? []).map((t) => t.name);
   return {
     run: (cmd, args, env) => new Promise((resolve) => {
       const c = spawn(cmd, args, { env: env ?? process.env, stdio: ["ignore", "pipe", "pipe"] });
@@ -224,8 +234,8 @@ export function defaultProbe(o: { timeoutMs?: number; fetch?: typeof fetch } = {
         c.stdout.on("data", (d) => {
           buf += d;
           for (const l of buf.split("\n").slice(0, -1)) {
-            let m: any;
-            try { m = JSON.parse(l); } catch { continue; }
+            let m: RpcReply;
+            try { m = JSON.parse(l) as RpcReply; } catch { continue; }
             if (m.id === 1) { c.stdin.write(JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) + "\n" + JSON.stringify(list) + "\n"); }
             if (m.id === 2) { const tools = names(m); done({ ok: true, tools, detail: `${tools.length} tools` }); }
           }

@@ -216,15 +216,15 @@ async function connect(hubProject: string | undefined, o: { pointer?: boolean; b
   await server.connect(b);
   const client = new Client({ name: "test", version: "0" });
   await client.connect(a);
-  const call = async (name: string, args: Record<string, unknown> = {}) => {
+  const call = async <T = Record<string, unknown>>(name: string, args: Record<string, unknown> = {}) => {
     const res = await client.callTool({ name, arguments: args });
     const text = (res.content as Array<{ text: string }>)[0]?.text ?? "";
     // A refusal by the input schema (more than 5 refs) is the SDK's plain text, not the tools' JSON.
     const json = (() => {
       try {
-        return JSON.parse(text) as Record<string, any>;
+        return JSON.parse(text) as T;
       } catch {
-        return { error: "invalid_input", message: text };
+        return { error: "invalid_input", message: text } as T;
       }
     })();
     return { isError: res.isError === true, json };
@@ -236,12 +236,12 @@ describe("hub mcp", () => {
   it("project_show returns the bound project's resolved settings: Mail, brands, its Notion databases by id (P82), Quick Links as data (P101), test mode (P92) and its kind's skills", async () => {
     const cfg = fixtureConfig();
     const { call } = await connect("acme", { config: cfg, tests: ["owner+test@example.com"] });
-    const r = await call("project_show");
+    const r = await call<Record<string, unknown> & { mail: { addresses: string[] }; brands: Array<{ name: string }>; notion: { databases: Array<{ url: string }> } }>("project_show");
     expect(r.isError).toBe(false);
     expect(r.json).toMatchObject({ project: "acme", name: cfg.name, kind: cfg.kind, status: cfg.status, mail: { accounts: cfg.mail.accounts, domains: cfg.mail.domains, sender: cfg.mail.sender }, languages: cfg.languages, knowledge: { scope: cfg.knowledge.scope }, draft: { recipients: cfg.draft.recipients }, skills: kindOf(cfg.kind)?.skills ?? [] });
     expect(r.json.mail.addresses).toEqual([...new Set([...cfg.mail.addresses, ...cfg.mail.aliases])]);
-    expect(r.json.brands.map((b: { name: string }) => b.name)).toEqual(cfg.brands.map((b) => b.name));
-    expect(r.json.notion.databases.map((d: { url: string }) => d.url)).toEqual(cfg.notion.databases.map((d) => `collection://${d.dataSourceId}`));
+    expect(r.json.brands.map((b) => b.name)).toEqual(cfg.brands.map((b) => b.name));
+    expect(r.json.notion.databases.map((d) => d.url)).toEqual(cfg.notion.databases.map((d) => `collection://${d.dataSourceId}`));
     expect(r.json.links).toEqual(cfg.links.map(({ group, label, target, under, answered, by }) => ({ group, label, target, under, answered, by })));
     expect(r.json.testMode).toEqual({ on: cfg.draft.recipients === "test", addresses: ["owner+test@example.com"] });
     expect(r.json).not.toHaveProperty("notion.project");
@@ -287,7 +287,7 @@ describe("hub mcp", () => {
     put({ route: "drafts.item", title: "Draft", subject: `draft:${ids.mark}` });
     const { call } = await connect("acme");
     expect((await call("focus")).json).toMatchObject({ state: "fresh", subject: { ref: `draft:${ids.mark}` } });
-    const d = await call("draft_show", { draft: ids.mark });
+    const d = await call<Record<string, unknown> & { activity: unknown[] }>("draft_show", { draft: ids.mark });
     expect(d.isError).toBe(false);
     expect(d.json).toMatchObject({ id: ids.mark, mailRef: "<m1@example.com>", to: "mark@example.com", excerpt: "I'm well", client: { email: "mark@example.com" } });
     expect(d.json.body).toMatch(/^In Mail, not here/);
@@ -303,11 +303,11 @@ describe("hub mcp", () => {
     const byId = await call("client_show", { id: byEmail.json.id });
     expect(byId.json.email).toBe("ann@example.com");
     expect((await call("client_show", { email: "zed@example.com" })).isError).toBe(true);
-    const list = await call("mail_list", { view: "all" });
+    const list = await call<Record<string, unknown> & { rows: Array<{ client: { email: string }; draft: unknown }> }>("mail_list", { view: "all" });
     expect(list.isError).toBe(false);
     expect(list.json).toMatchObject({ project: "acme", view: "all" });
-    expect(list.json.rows.map((r: { client: { email: string } }) => r.client.email).sort()).toEqual(["ann@example.com", "mark@example.com"]);
-    expect(list.json.rows.find((r: { client: { email: string } }) => r.client.email === "ann@example.com").draft).toMatchObject({ id: ids.ann, status: "ready" });
+    expect(list.json.rows.map((r) => r.client.email).sort()).toEqual(["ann@example.com", "mark@example.com"]);
+    expect(list.json.rows.find((r) => r.client.email === "ann@example.com")?.draft).toMatchObject({ id: ids.ann, status: "ready" });
     expect(JSON.stringify(list.json)).not.toContain("Zed Secret");
     const unbound = await connect(undefined);
     expect((await unbound.call("focus")).json.error).toBe("unbound");

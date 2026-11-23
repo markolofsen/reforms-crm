@@ -88,14 +88,17 @@ export interface SkillScope {
 }
 
 /** Every tool call in a JSONL log, in order, with its result when a later `tool_result` block carries one. Lines that are not JSON, or carry no tool call, are ignored. */
+/** One line of a Claude Code transcript, as far as the audit reads it; every field is checked before use. */
+type TranscriptBlock = { type?: unknown; name?: unknown; id?: unknown; input?: unknown; tool_use_id?: unknown; content?: unknown } | null;
+type TranscriptLine = { type?: unknown; message?: { content?: unknown } };
 export function toolCallsFromLog(text: string): ToolCall[] {
   const calls: ToolCall[] = [];
   const byId = new Map<string, ToolCall>();
   for (const line of text.split("\n")) {
     if (!line.trim()) continue;
-    let j: any;
-    try { j = JSON.parse(line); } catch { continue; }
-    const content = Array.isArray(j?.message?.content) ? j.message.content : [];
+    let j: TranscriptLine | null;
+    try { j = JSON.parse(line) as TranscriptLine | null; } catch { continue; }
+    const content: TranscriptBlock[] = Array.isArray(j?.message?.content) ? j.message.content : [];
     if (j?.type === "assistant") {
       for (const b of content) {
         if (b?.type === "tool_use" && typeof b.name === "string") {

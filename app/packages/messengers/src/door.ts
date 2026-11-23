@@ -1,4 +1,4 @@
-import { AGENT_WORD_SEND_ACTOR } from "@hub/config";
+import { type AGENT_WORD_SEND_ACTOR } from "@hub/config";
 import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat-rules";
 import { RepoError, usageRefusal, type MessengerChannel, type Repos } from "@hub/db";
 import { errFields, ops } from "@hub/log/ops";

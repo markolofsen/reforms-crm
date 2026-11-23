@@ -1,5 +1,5 @@
 import { projectStore } from "@hub/projects/store";
-import { readJson } from "../context";
+import { readJson, type McpFile } from "../context";
 import { verifyProjectDatabases } from "../notion-check";
 import path from "node:path";
 import type { Step } from "../types";
@@ -57,7 +57,7 @@ export const notionSteps: Step[] = [
     verifies: "`.mcp.json` lists the `notion` server (hint only: whether you have signed in to it is seen inside a session, with `/mcp`).",
     manual: { steps: ["In Claude Code run `/mcp` once and sign in to `notion`; in Claude Desktop enable the Notion connector in Settings > Connectors."] },
     async check(ctx) {
-      const have = readJson(ctx.paths.mcpFile)?.mcpServers ?? {};
+      const have = readJson<McpFile>(ctx.paths.mcpFile)?.mcpServers ?? {};
       return "notion" in have
         ? pass("`notion` is in .mcp.json; sign in once with `/mcp` (Claude Code) or Settings > Connectors (Claude Desktop)")
         : warn("no `notion` server in .mcp.json yet (the install step adds it); Claude Desktop needs its Notion connector switched on");

@@ -1,5 +1,5 @@
 import type { MessengerChannel } from "@hub/db";
-import { AdapterError, type InboundMessage, type MessengerAdapter, type PollBatch, type PollOptions, type SendingAdapter, type SentReceipt } from "./adapter";
+import { type AdapterError, type InboundMessage, type MessengerAdapter, type PollBatch, type PollOptions, type SendingAdapter, type SentReceipt } from "./adapter";
 import { isConfirmed, type ConfirmedDraft } from "./confirmed";
 
 type Pushed = Omit<InboundMessage, "channel" | "account" | "kind" | "sentAt"> & { kind?: string; sentAt?: string };

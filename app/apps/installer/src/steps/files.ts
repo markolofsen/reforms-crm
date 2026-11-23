@@ -2,7 +2,7 @@ import { INSTANCE_KEYS, readInstanceConfig } from "@hub/config/instance";
 import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { instanceBrand } from "@hub/config/paths";
-import { readJson, type Ctx } from "../context";
+import { readJson, type McpFile, type PackageJson, type Ctx } from "../context";
 import { brokenStdioCommands, instanceServer, RETIRED_MCP_SERVERS } from "../mcp-servers";
 import type { Step } from "../types";
 import { fail, pass, warn } from "./helpers";
@@ -123,10 +123,10 @@ export const fileSteps: Step[] = [
     verifies: "`.mcp.json` contains every server of `config/mcp.json` (stdio programs as absolute paths under the core), every stdio server command in it exists, and it holds no server the core no longer ships (`knowledge-mcp`, whose tools are the `hub` server's since P129).",
     does: "Merges the servers of `config/mcp.json` into `.mcp.json` with stdio paths made absolute under the core, drops the servers the core no longer ships, keeps your other servers, saves a one-time `.mcp.json.bak`.",
     async check(ctx) {
-      const cfg = readJson(path.join(ctx.paths.configDir, "mcp.json"))?.mcpServers;
+      const cfg = readJson<McpFile>(path.join(ctx.paths.configDir, "mcp.json"))?.mcpServers;
       if (!cfg) return fail("config/mcp.json has no mcpServers");
       const want = wanted(ctx, cfg);
-      const have = readJson(ctx.paths.mcpFile)?.mcpServers ?? {};
+      const have = readJson<McpFile>(ctx.paths.mcpFile)?.mcpServers ?? {};
       const retired = RETIRED_MCP_SERVERS.filter((k) => k in have);
       if (retired.length) return fail(`.mcp.json still starts ${retired.join(", ")}, which the core no longer ships (its tools are the hub server's). Fix: \`hub install --only files.mcp-json\` drops it`);
       const broken = brokenStdioCommands(have, ctx);
@@ -135,9 +135,11 @@ export const fileSteps: Step[] = [
       return off.length ? fail(`out of date: ${off.join(", ")}`) : pass(`${Object.keys(want).length} servers`);
     },
     async apply(ctx) {
-      const want = wanted(ctx, readJson(path.join(ctx.paths.configDir, "mcp.json"))!.mcpServers);
+      const shipped = readJson<McpFile>(path.join(ctx.paths.configDir, "mcp.json"))?.mcpServers;
+      if (!shipped) throw new Error("config/mcp.json has no mcpServers: `hub install --only files.config` first");
+      const want = wanted(ctx, shipped);
       const f = ctx.paths.mcpFile;
-      const cur = readJson(f) ?? {};
+      const cur = readJson<McpFile>(f) ?? {};
       if (existsSync(f) && !existsSync(`${f}.bak`)) copyFileSync(f, `${f}.bak`);
       const kept = Object.fromEntries(Object.entries(cur.mcpServers ?? {}).filter(([k]) => !RETIRED_MCP_SERVERS.includes(k)));
       const next = { ...cur, mcpServers: { ...kept, ...want } };
@@ -154,7 +156,7 @@ export const fileSteps: Step[] = [
     does: "Runs the app's `db:migrate` script (`pnpm --dir app run db:migrate`).",
     async check(ctx) {
       if (existsSync(ctx.paths.db)) return pass(path.relative(ctx.paths.home, ctx.paths.db) || ctx.paths.db);
-      const pkg = readJson(path.join(ctx.paths.core, "app", "package.json"));
+      const pkg = readJson<PackageJson>(path.join(ctx.paths.core, "app", "package.json"));
       if (!pkg?.scripts?.["db:migrate"]) return warn("app/ has no db:migrate script yet (app track not delivered)");
       return fail(`${path.relative(ctx.paths.home, ctx.paths.db) || ctx.paths.db} missing`);
     },

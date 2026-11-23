@@ -32,11 +32,11 @@ describe("notion and mail checks", () => {
     expect((await s.check(f.ctx)).level).toBe("fail");
     storeToken(f.ctx.configDir, "notion-token", "ntn\u005fTESTTOKENVALUE123456");
     for (const [status, level] of [[500, "fail"], [200, "pass"], [401, "fail"]] as const) {
-      f.ctx.fetch = (async (url: string, init: any) => {
+      f.ctx.fetch = async (url, init) => {
         expect(String(url)).toContain("/v1/users/me");
-        expect(init.headers.authorization).toContain("Bearer");
+        expect(new Headers(init?.headers).get("authorization")).toContain("Bearer");
         return new Response("{}", { status });
-      }) as any;
+      };
       const r = await s.check(f.ctx);
       expect(r.level).toBe(level);
       expect(r.detail).not.toContain("ntn\u005f");
@@ -49,12 +49,12 @@ describe("notion and mail checks", () => {
     expect((await s.check(f.ctx)).detail).toContain("account");
     writeFileSync(`${f.root}/config/config.json`, JSON.stringify({ account: "me@x.example", mailboxes: ["INBOX"] }));
     const rpc = (id: number, text: string) => `event: message\ndata: ${JSON.stringify({ jsonrpc: "2.0", id, result: { content: [{ type: "text", text }] } })}\n\n`;
-    f.ctx.fetch = (async (_u: string, init: any) => {
-      const b = JSON.parse(init.body);
+    f.ctx.fetch = async (_u, init) => {
+      const b = JSON.parse(String(init?.body)) as { method?: string; id?: number; params: { name?: string } };
       if (b.method === "initialize") return new Response(rpc(1, ""), { headers: { "mcp-session-id": "s" } });
       if (!b.id) return new Response("", { status: 202 });
       return new Response(rpc(b.id, b.params.name === "list_accounts" ? "me@x.example" : "[{id:1}]"));
-    }) as any;
+    };
     expect((await s.check(f.ctx)).level).toBe("pass");
   });
   it("parses SSE and plain JSON-RPC", () => {

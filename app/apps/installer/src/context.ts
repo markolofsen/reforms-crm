@@ -63,7 +63,14 @@ export function makeCtx(over: Partial<Ctx> = {}): Ctx {
   };
 }
 
-export const readJson = <T = any>(p: string): T | undefined => {
+/** A parsed JSON object whose fields are not yet checked. */
+export type JsonObject = Record<string, unknown>;
+/** `.mcp.json` and `config/mcp.json`: the servers by name, each read field by field. */
+export type McpFile = JsonObject & { mcpServers?: Record<string, Record<string, unknown>> };
+/** The fields of a `package.json` the installer reads. */
+export type PackageJson = JsonObject & { version?: string; scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+
+export const readJson = <T = JsonObject>(p: string): T | undefined => {
   try { return JSON.parse(readFileSync(p, "utf8")) as T; } catch { return undefined; }
 };
 

@@ -1,7 +1,7 @@
 import { inArray, sql } from "drizzle-orm";
 import { type EnrollmentState, type EvidenceFinding, type EvidenceLevel, type EvidenceSource, type Mark, type SafetyResult, type ToneBodies } from "@hub/config";
 import { blocksChecked } from "../safety";
-import { clients, drafts, enrollments, marks } from "../schema";
+import { type clients, drafts, enrollments, marks } from "../schema";
 import { loadSafety, parseJson, type DraftRow, type Tx } from "./bulk-shared";
 
 type ClientRaw = typeof clients.$inferSelect;

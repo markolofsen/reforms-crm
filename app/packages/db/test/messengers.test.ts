@@ -32,10 +32,10 @@ const msg = (o: Partial<NewMessengerMessage> = {}): NewMessengerMessage => ({
 
 describe("migration 0003 tables", () => {
   it("exist after openDb", () => {
-    const names = (handle.db as any).$client
+    const names = (handle.db.$client
       .prepare("select name from sqlite_master where type='table' and (name like 'messenger_%' or name = 'client_identifiers')")
-      .all()
-      .map((r: { name: string }) => r.name)
+      .all() as Array<{ name: string }>)
+      .map((r) => r.name)
       .sort();
     // `messenger_link_refusals` since 0028 (P84): "never link this chat", a hash per row. `messenger_triage` since 0029 (P71 M-P).
     expect(names).toEqual(["client_identifiers", "messenger_accounts", "messenger_chats", "messenger_drafts", "messenger_link_refusals", "messenger_messages", "messenger_triage"]);
@@ -126,7 +126,7 @@ describe("client identifiers", () => {
 
   it("go with the client", async () => {
     await repos.messengers.addIdentifier("a", a, "telegram", "100");
-    (handle.db as any).$client.prepare("delete from clients where id = ?").run(a);
+    handle.db.$client.prepare("delete from clients where id = ?").run(a);
     expect(await repos.messengers.clientByIdentifier("a", "telegram", "100")).toBeNull();
   });
 });

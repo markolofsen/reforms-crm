@@ -345,6 +345,8 @@ const recordVersionIn = (repos: ReturnType<typeof createRepos>): NonNullable<Hub
   await repos.mailVersions.markTrashed(v.trashed);
 };
 
+/** draft_write's reply as these tests read it: the record it made, the thread, the ids it replaced; the rest by key. */
+type WriteReply = Record<string, unknown> & { record: { draftId: number }; thread?: string; messageId?: string; replaced?: string[] };
 async function connect(writer: FakeDraftWriter | undefined, mailWritten?: (slug: string) => void, extra: Partial<HubMcpEnv> = {}) {
   const repos = createRepos(db.db);
   const server = createHubMcpServer(repos, {
@@ -363,7 +365,7 @@ async function connect(writer: FakeDraftWriter | undefined, mailWritten?: (slug:
   await client.connect(a);
   return async (args: Record<string, unknown>) => {
     const res = await client.callTool({ name: "draft_write", arguments: args });
-    return { isError: res.isError === true, json: JSON.parse((res.content as Array<{ text: string }>)[0]!.text) as Record<string, any> };
+    return { isError: res.isError === true, json: JSON.parse((res.content as Array<{ text: string }>)[0]!.text) as WriteReply };
   };
 }
 
@@ -386,7 +388,7 @@ describe("draft_write (hub mcp)", () => {
     expect(first).toMatchObject({ isError: false, json: { thread: "m42@example.com", replaced: [], sent: false, recorded: true, record: { action: "created", evidence: "missing" } } });
     expect(first.json.text).toBeUndefined();
     expect(mail.drafts.map((d) => d.text)).toEqual(["Hi Ann, first."]);
-    const draftId = first.json.record.draftId as number;
+    const draftId = first.json.record.draftId;
     expect(first.json.next).toMatch(new RegExp(`^Recorded: draft ${draftId} \\(created`));
     expect(first.json.next).not.toMatch(/run\.sh|JSON on stdin/);
     // The record: the client from the answered message's From, the reply's subject and the thread; the version is the draft's.
@@ -471,7 +473,7 @@ describe("draft_write (hub mcp)", () => {
     expect(w).toMatchObject({ isError: false, json: { thread: "m42@example.com", ownerRequest: words, sent: false, recorded: true, record: { action: "created" } } });
     expect(w.json.next).toMatch(/^Recorded: draft /);
     // Recorded with the words: a new draft beside the sent one, and the client's follow-ups are not finished as a reply.
-    const again = w.json.record.draftId as number;
+    const again = w.json.record.draftId;
     expect(again).not.toBe(rec.draftId);
     expect(JSON.parse((await repos.drafts.get(again))!.context ?? "{}")).toMatchObject({ ownerRequest: words });
     // A rerun with the same words is the open draft it made: refused, it names that draft.
@@ -496,7 +498,7 @@ describe("draft_write (hub mcp)", () => {
     expect(mail.newTo).toEqual(["bob@client.example"]);
     expect(mail.drafts[0]).toMatchObject({ subject: "New prices", from: "hello@acme.example", thread: "" });
     expect(w.json.next).toMatch(/^Recorded: draft /);
-    const draftId = w.json.record.draftId as number;
+    const draftId = w.json.record.draftId;
     const row = await repos.drafts.get(draftId);
     expect(row?.mailRef).toBeNull();
     expect(JSON.parse(row?.context ?? "{}")).toMatchObject({ ownerRequest: words, newThread: true });
