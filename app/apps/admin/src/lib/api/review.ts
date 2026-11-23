@@ -1,8 +1,7 @@
 import type { Mark, SafetyKind, SettableStatus, Tone } from "@hub/config";
 import { createManualMailDraft, getClientHistory, getClientTimeline, getConversation, getConversationMail, getConversationText, listBatches, listConversations, listDrafts, setClientMarks, type GetConversationTextParams } from "@hub/api";
 import type { StatusBody } from "@hub/contract/requests";
-import { batchesDto, draftChangedDto, draftsDto, historyDto, timelineDto, warningsAckedDto } from "@hub/contract/review";
-import { okDto } from "@hub/contract/responses";
+import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto, warningsAckedDto } from "@hub/contract/review";
 import { conversationDto, conversationMailDto, conversationTextDto, conversationsDto, type ConversationViewDto } from "@hub/contract/conversations";
 import { read, readGenerated } from "./client";
 

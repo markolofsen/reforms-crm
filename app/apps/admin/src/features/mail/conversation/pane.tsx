@@ -10,7 +10,7 @@ import { ConversationBackButton, ConversationFrame, ConversationHeader, Conversa
 import type { ConversationScrollState } from "@hub/ui/product/conversation-scroll";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
 import { toastManager } from "@hub/ui/toast";
-import { ConversationHeaderActions } from "@/components/conversation-header-actions";
+import { ConversationHeaderActions } from "@/components/conversation/header-actions";
 import { EmptyState, LoadFailed } from "@/components/state-views";
 import { DraftCard } from "@/features/review/card/draft-card";
 import type { ConversationRow } from "@/features/review/source";

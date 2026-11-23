@@ -334,20 +334,3 @@ export const draftMailDto = z.object({
 });
 export type DraftMailDto = z.infer<typeof draftMailDto>;
 
-// The project doctor (`hub project doctor`) as the Project screen's health view. Checks that need Mail or Notion are
-// not run by the server and show as skipped.
-export const doctorCheckDto = z.object({ name: z.string(), outcome: z.enum(["pass", "warn", "fail", "skipped"]), detail: z.string() });
-/**
- * What Settings ▸ Sending and Overview's setup part show about the project: the status, the Mail accounts, who a draft may go to
- * (`draft.recipients`; a list is said as its size, never its addresses: decision 0013) and autosend (P70: `send.mode`, the classes
- * it may send, the daily cap). The last two are the send policy (P49 S11), changed only by `hub send policy set` in a person's shell.
- */
-export const doctorFactsDto = z.object({
-  status: z.string(),
-  accounts: z.array(z.string()),
-  recipients: z.enum(["test", "any", "list"]),
-  listed: z.number().int(),
-  autosend: z.object({ mode: z.string(), classes: z.array(z.string()), dailyCap: z.number().int() }),
-});
-export const doctorDto = z.object({ state: z.enum(["ok", "absent"]), checks: z.array(doctorCheckDto), facts: doctorFactsDto.nullable() });
-export type DoctorDto = z.infer<typeof doctorDto>;

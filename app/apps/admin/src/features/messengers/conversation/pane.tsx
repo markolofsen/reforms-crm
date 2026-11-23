@@ -12,7 +12,7 @@ import { ConversationBackButton, ConversationComposerFooter, ConversationFrame, 
 import { ConversationComposerEditor } from "@hub/ui/product/composer-editor";
 import { IntegrationStatus } from "@hub/ui/product/integration-status";
 import { useConversationScroll } from "@hub/ui/product/conversation-scroll";
-import { ConversationHeaderActions } from "@/components/conversation-header-actions";
+import { ConversationHeaderActions } from "@/components/conversation/header-actions";
 import { EmptyState, LoadFailed, Loading } from "@/components/state-views";
 import { notionPageIdOf } from "@/lib/notion";
 import { keys, messengerMutationKeys } from "@/lib/cache/keys";

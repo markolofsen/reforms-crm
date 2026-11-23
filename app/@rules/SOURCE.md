@@ -8,7 +8,7 @@ What changed in the adaptation, per page: the admin is a local Next.js app (App 
 generated-client, provider and store material was adapted rather than dropped; layers became `app` / `routes` / `hooks` / `lib` / `components` /
 `features`; `next.config.ts`, `proxy.ts`, the loopback bind and the API boundary are local; Radix became Base UI (coss);
 workbench and stories were replaced by Playwright and Vitest; verification is `pnpm check` and `pnpm e2e` (a `next start`
-build on its own `distDir`). `README.md`, `admin-principles.md`, `live-edit.md` and `skills.md` are originals of this project.
+build on its own `distDir`). `README.md`, `admin-principles.md`, `approval-and-capabilities.md`, `live-edit.md` and `skills.md` are originals of this project.
 
 Where the general set and these pages differ, these pages state what the shipped code shows: loopback bind, `proxy.ts`,
 no Server Actions, an API behind a rewrite, generated JSON operations through `@hub/api`, hooks and links under one typed layer, and protocol-specific adapters outside codegen.

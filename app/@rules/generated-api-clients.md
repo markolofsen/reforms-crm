@@ -17,9 +17,9 @@ contract. `orval.config.ts` produces two artifacts from that contract:
 The generated folders are build artifacts. They are committed for review but are
 never hand-edited. A route, operation id, parameter, status or response change
 starts at the server contract and is regenerated with the pinned Orval version.
-The public barrel in `src/index.ts` is the only generated-client surface that an
-admin facade may expose to the rest of the app. A feature never imports a
-generated deep path merely because it is available on disk.
+The public barrel in `packages/api/src/index.ts` is the only generated-client
+surface that an admin facade may expose to the rest of the app. A feature never
+imports a generated deep path merely because it is available on disk.
 
 ## Rules
 

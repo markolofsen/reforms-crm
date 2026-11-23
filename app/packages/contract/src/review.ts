@@ -6,6 +6,7 @@ export {
   draftChangedDto,
   draftsDto,
   historyDto,
+  okDto,
   reviewDraftDto,
   safetyResultDto,
   timelineDto,

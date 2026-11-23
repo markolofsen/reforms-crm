@@ -14,7 +14,7 @@ import { SoundToggle } from "@/features/agent-feed/sound-toggle";
 import { CoreLine } from "@/features/settings/mac/core-line";
 import { NavIcon } from "./nav-icon";
 import { ProjectSwitcher } from "./project-switcher";
-import { hasQuickLinks, QuickLinksMenu } from "./quick-links";
+import { hasQuickLinks, QuickLinksMenu } from "@/features/quick-links/menu";
 import type { ShellNavItem } from "./shell";
 
 type Keys = { open: boolean; onOpenChange: (open: boolean) => void; enabled: boolean; onEnabled: (on: boolean) => void };

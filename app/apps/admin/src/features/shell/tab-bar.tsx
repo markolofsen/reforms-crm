@@ -5,7 +5,7 @@ import { cn } from "@hub/ui/cn";
 import { AppLink } from "@/components/app-link";
 import { NavIcon } from "./nav-icon";
 import type { ShellNavItem } from "./shell";
-import { hasQuickLinks, QuickLinksMenuItems } from "./quick-links";
+import { hasQuickLinks, QuickLinksMenuItems } from "@/features/quick-links/menu";
 
 const TAB = "relative flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 text-[11px] tracking-tighter outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&>svg]:size-5";
 const tone = (active: boolean) => (active ? "font-medium text-foreground" : "text-muted-foreground");

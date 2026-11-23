@@ -1,7 +1,7 @@
 import { getDraftMail, getProjectDoctor, listSends } from "@hub/api";
 import { draftMailDto } from "@hub/contract/mail";
-import { doctorDto, draftChangedDto } from "@hub/contract/responses";
-import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto, type BatchSendPlanDto } from "@hub/contract/sending";
+import { draftChangedDto } from "@hub/contract/review";
+import { batchRunStateDto, batchSendPlanDto, doctorDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto, type BatchSendPlanDto } from "@hub/contract/sending";
 import { read, readGenerated } from "./client";
 
 const base = (project: string) => `/api/projects/${encodeURIComponent(project)}`;
