@@ -3,6 +3,7 @@
 // import it, and the hub MCP server, the draft writer and doctor all call the same functions.
 import type { Brand, ProjectConfig } from "./schema";
 import { replyLanguage, type ReplyLanguage } from "@hub/contract/language";
+import { headerLine, SECTIONS, type SpecRow } from "./md/sections";
 import { EMAIL, isIsoDate, normalizeAddress } from "./values";
 
 export { replyLanguage } from "@hub/contract/language";
@@ -10,10 +11,8 @@ export type { ReplyLanguage } from "@hub/contract/language";
 
 export type BrandIssue = { severity: "error" | "warning"; code: "bad_table" | "duplicate_row" | "bad_value" | "bad_date" | "bad_by"; line: number; field: "brands"; message: string };
 
-export const LEGACY_BRANDS_COLUMNS = ["brand", "receives at", "signature", "answered", "by"] as const;
-export const BRANDS_COLUMNS = [...LEGACY_BRANDS_COLUMNS, "display name"] as const;
-export const BRANDS_HEADER = "| Brand | Receives at | Signature | Answered | By | Display name |";
-export const LEGACY_BRANDS_HEADER = "| Brand | Receives at | Signature | Answered | By |";
+/** The header line the writer puts down: every column of the Brands spec (P126 P2: Display name is optional on read). */
+export const BRANDS_HEADER = headerLine(SECTIONS.brands);
 const BYS = ["owner", "default", "agent"] as const;
 const DOMAIN = /^(?=.{1,253}$)([a-z0-9-]+\.)+[a-z]{2,}$/i;
 /** `<br>` (or `<br/>`, `<br />`) separates the lines of a Signature cell: a table cell holds one line. */
@@ -51,29 +50,19 @@ export function isOwnAddress(address: string, m: Own): boolean {
 }
 
 /**
- * Reads the rows of `## Brands` (header and data rows as `tableOf` returns them). Each `Receives at` entry must be the
- * project's own (an account, address or alias, or an address or domain on `mail.domains`); no entry may sit in two rows;
- * brand names are unique (case-insensitive). Issues carry the 1-based line.
+ * Reads the rows of `## Brands`, as `readTable(lines, scan, SECTIONS.brands)` returns them (header checked, cells padded,
+ * so a row without Display name reads it as ""). Each `Receives at` entry must be the project's own (an account,
+ * address or alias, or an address or domain on `mail.domains`); no entry may sit in two rows; brand names are unique
+ * (case-insensitive). Issues carry the 1-based line.
  */
-export function parseBrands(t: { header: string[] | null; headerIdx: number; rows: Array<{ cells: string[]; idx: number }> }, sectionLine: number, m: Own): { brands: Brand[]; issues: BrandIssue[] } {
+export function parseBrands(rows: readonly SpecRow[], m: Own): { brands: Brand[]; issues: BrandIssue[] } {
   const issues: BrandIssue[] = [];
   const brands: Brand[] = [];
   const err = (line: number, code: BrandIssue["code"], message: string) => issues.push({ severity: "error", code, line, field: "brands", message });
-  const header = t.header?.map((c) => c.toLowerCase());
-  const legacy = header?.length === LEGACY_BRANDS_COLUMNS.length && header.every((c, i) => c === LEGACY_BRANDS_COLUMNS[i]);
-  const current = header?.length === BRANDS_COLUMNS.length && header.every((c, i) => c === BRANDS_COLUMNS[i]);
-  if (!legacy && !current) {
-    err(t.headerIdx >= 0 ? t.headerIdx + 1 : sectionLine, "bad_table", "## Brands needs a table with the columns Brand | Receives at | Signature | Answered | By, with optional Display name");
-    return { brands, issues };
-  }
   const names = new Map<string, number>();
   const claimed = new Map<string, string>();
-  for (const r of t.rows) {
-    const line = r.idx + 1;
-    if (r.cells.length !== (current ? BRANDS_COLUMNS.length : LEGACY_BRANDS_COLUMNS.length)) {
-      err(line, "bad_table", `a Brands row has ${r.cells.length} cells, expected ${current ? BRANDS_COLUMNS.length : LEGACY_BRANDS_COLUMNS.length} (escape "|" in a value as "\\|")`);
-      continue;
-    }
+  for (const r of rows) {
+    const line = r.line;
     const [name = "", receives = "", signature = "", answered = "", by = "", displayName = ""] = r.cells;
     if (!name) {
       err(line, "bad_value", "a Brands row has no Brand name");
@@ -106,7 +95,7 @@ export function parseBrands(t: { header: string[] | null; headerIdx: number; row
       if (!receivesAt.includes(v)) receivesAt.push(v);
     }
     if (receivesAt.length === 0) err(line, "bad_value", `brand ${name} receives at nothing: list its addresses or domains`);
-    const normalizedName = normalizedDisplayName(current ? displayName : null);
+    const normalizedName = normalizedDisplayName(displayName);
     if (normalizedName) {
       const problem = displayNameIssue(normalizedName);
       if (problem) err(line, "bad_value", `display name of brand ${name}: ${problem}`);

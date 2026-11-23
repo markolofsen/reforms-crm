@@ -3,11 +3,14 @@ import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { BRANDS_HEADER, joinSignature, normalizedDisplayName } from "./brand";
 import { isPolicyField } from "./fields";
-import { BYS, checkValue, FIELDS, isIsoDate, parseProjectMd, ProjectError, scan, tableOf, type By, type Issue } from "./parse";
+import { ProjectError, type Issue } from "./md/issues";
+import { scan, tableOf } from "./md/scan";
+import { headerLine, SECTIONS } from "./md/sections";
+import { BYS, checkValue, FIELDS, isIsoDate, parseProjectMd, type By } from "./parse";
 
-const SETTINGS_HEADER = "| Field | Value | Answered | By |";
-const ANSWERS_HEADER = "| Date | Field | Question | Answer |";
-const LINKS_HEADER = "| Group | Label | Target | Under | Answered | By |";
+const SETTINGS_HEADER = headerLine(SECTIONS.settings);
+const ANSWERS_HEADER = headerLine(SECTIONS.answers);
+const LINKS_HEADER = headerLine(SECTIONS.links);
 
 /** Lines with their terminators, so joining them gives the original bytes back. */
 const rawLines = (text: string): string[] => text.match(/[^\n]*\n|[^\n]+$/g) ?? [];

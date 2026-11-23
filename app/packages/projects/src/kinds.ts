@@ -2,6 +2,7 @@
 // it is no longer a draft, its mail classes, Notion modules, allowed skills and a starting knowledge taxonomy.
 // Kinds are neutral by rule (`@docs/LAYERS.md`): no owner, product or region names. Add a kind only when a second
 // project needs it. Everything is validated against the `Kind` schema when this module loads.
+import type { Issue } from "./md/issues";
 import { Kind, type ProjectConfig } from "./schema";
 
 const MAIL_CLASSES = [
@@ -101,4 +102,23 @@ export function hasValue(config: ProjectConfig, path: string): boolean {
   if (Array.isArray(cur)) return cur.length > 0;
   if (typeof cur === "string") return cur.trim() !== "";
   return true;
+}
+
+/**
+ * The missing required fields of a resolved config (P126 P2: the kind's list, read here, not in the parser). `schema`
+ * is structural, so the caller says whether its row has a value. Each issue is a warning for a `draft` project (setup
+ * fills it row by row) and an error otherwise.
+ */
+export function requiredIssues(config: ProjectConfig, kind: Kind, schemaSet: boolean): Issue[] {
+  const severity: Issue["severity"] = config.status === "draft" ? "warning" : "error";
+  const out: Issue[] = [];
+  const missing = (field: string, message: string) => out.push({ severity, code: "missing_required", line: null, field, message });
+  if (!schemaSet) missing("schema", 'required field "schema" has no value');
+  for (const path of kind.required) {
+    if (hasValue(config, path)) continue;
+    if (path.startsWith("notion.databases.")) missing("notion.databases", `required: "## Notion databases" must list "${path.slice("notion.databases.".length)}" (kind ${kind.id})`);
+    else if (path === "mail.sender") missing(path, 'required: set "mail.sender" or list "mail.addresses" (the first becomes the sender)');
+    else missing(path, `required field "${path}" has no value (kind ${kind.id})`);
+  }
+  return out;
 }

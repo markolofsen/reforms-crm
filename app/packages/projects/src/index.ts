@@ -1,4 +1,7 @@
 export * from "./parse";
+export * from "./md/issues";
+export * from "./md/scan";
+export * from "./md/sections";
 export * from "./write";
 export * from "./route";
 export * from "./registry";

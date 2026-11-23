@@ -4,7 +4,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { entryBrandProblem, frontMatterBrands } from "./brand";
-import { formatIssue, hasErrors } from "./parse";
+import { formatIssue, hasErrors } from "./md/issues";
 import { kindOf } from "./kinds";
 import type { ProjectConfig } from "./schema";
 import { loadWorkflows, workflowErrors } from "./workflows";
