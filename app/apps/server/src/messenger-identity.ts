@@ -1,3 +1,4 @@
+import { NO_CONTACT, phoneDigits, type ContactLinksDto } from "@hub/contract/local";
 import type { MessengerChatDto, MessengerNotionIdentityDto } from "@hub/contract/messenger-panel";
 import type { ClientDirectory } from "./client-directory";
 
@@ -31,5 +32,27 @@ export function createMessengerIdentityResolver(source: IdentitySource | undefin
     return { ...value, notionPageId: notion.pageId, notionUrl: notion.url, notion };
   };
 
-  return { client, index, resolve };
+  /**
+   * P131 O5: the Telegram username or phone and the WhatsApp number to open a chat with: the chat's own identity first (a
+   * WhatsApp chat id is the number), then the client's Notion card (the directory's `Telegram`, `WhatsApp` and phone fields).
+   * Memory only, never a Notion read here; nulls when nothing is known.
+   */
+  const contact = (slug: string, o: { email?: string | null; pageId?: string | null; chat?: { channel: string; chatId: string } }): ContactLinksDto => {
+    const all = source?.project === slug ? (source.directory.current()?.all ?? []) : [];
+    const key = o.pageId?.replaceAll("-", "").toLowerCase() ?? (o.email ? index(slug).get(o.email.trim().toLowerCase()) : undefined);
+    const entry = key ? all.find((e) => e.key.replaceAll("-", "").toLowerCase() === key.replaceAll("-", "").toLowerCase()) : undefined;
+    const phones = (channel: "telegram" | "whatsapp") => (entry?.identifiers ?? []).flatMap((i) => (i.kind === "phone" && (i.channel === channel || i.channel === undefined) ? [{ value: i.value, exact: i.channel === channel }] : []));
+    const best = (channel: "telegram" | "whatsapp") => {
+      const list = phones(channel);
+      return phoneDigits((list.find((p) => p.exact) ?? list[0])?.value);
+    };
+    const card: ContactLinksDto = entry
+      ? { telegramUsername: entry.identifiers.find((i) => i.kind === "username")?.value ?? null, telegramPhone: best("telegram"), whatsappPhone: best("whatsapp") }
+      : NO_CONTACT;
+    // A WhatsApp chat id is its number; anything else (a group's id) gives no link by id.
+    if (o.chat?.channel === "whatsapp") return { ...card, whatsappPhone: /^\+?\d{7,15}$/.test(o.chat.chatId) ? phoneDigits(o.chat.chatId) : null };
+    return card;
+  };
+
+  return { client, contact, index, resolve };
 }

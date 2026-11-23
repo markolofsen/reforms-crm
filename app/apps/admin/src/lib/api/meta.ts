@@ -5,7 +5,7 @@ import { agentFeedDto } from "@hub/contract/agent-feed";
 import { pulseDto } from "@hub/contract/health";
 import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
 import { knowledgeListDto, type KnowledgeView } from "@hub/contract/knowledge";
-import { localOpenedDto, type ServerActionId } from "@hub/contract/local";
+import { appsDto, localOpenedDto, type ServerActionId } from "@hub/contract/local";
 import type { AgentSettingsBody, SafetyRuleBody } from "@hub/contract/requests";
 import { agentSettingsDto, projectLinksDto, projectOverviewDto, projectsDto, safetyRuleSavedDto, safetyRulesDto } from "@hub/contract/responses";
 import { read, readGenerated } from "./client";
@@ -16,6 +16,8 @@ export const metaApi = {
   /** P68: the server's cached answer; `checkCore` runs one check now (429 within a minute). */
   core: () => readGenerated(getCoreUpdate(), coreUpdateDto),
   checkCore: () => read(coreUpdateDto, { method: "POST", path: "/api/instance/core/check" }),
+  /** P131 O2: Settings ▸ This Mac's Check again: which destination apps this Mac has, probed now (nothing opens). */
+  checkApps: () => read(appsDto, { method: "POST", path: "/api/instance/apps/check" }),
   projects: () => readGenerated(listProjects(), projectsDto),
   overview: (project: string) => readGenerated(getProjectOverview({ project }), projectOverviewDto),
   links: (project: string) => readGenerated(getProjectLinks(project), projectLinksDto),

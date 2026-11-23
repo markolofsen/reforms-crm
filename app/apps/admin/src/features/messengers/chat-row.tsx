@@ -44,7 +44,7 @@ export function ChatRow({ c, project, now, moves, to, open = false }: { c: Messe
         </AppLink>
         {c.channel !== "telegram_bot" && (
           <div className="absolute end-2 top-2 z-10">
-            <StatusMenu compact disabled={moves.pending} name={name} onAction={on} s={{ state: "linked", client: clientName(c) }} />
+            <StatusMenu compact contact={c.contact} disabled={moves.pending} name={name} onAction={on} s={{ state: "linked", client: clientName(c) }} />
           </div>
         )}
       </div>

@@ -8,7 +8,7 @@ import { pasteLine, TerminalView, type Dropped, type TerminalHandle, type Termin
 import { useResolvedTheme } from "@hub/ui/product/theme";
 import { sentence } from "@/lib/api/client";
 import { terminalApi } from "@/lib/api/terminal";
-import { openWebLink } from "@/lib/external";
+import { openLink, webLink } from "@/lib/external";
 import { connectTerminal, type Link, type LinkState } from "./socket";
 import { useTerminal } from "./use-terminal";
 
@@ -147,7 +147,7 @@ export function SessionPane({ session, active, onActiveScreen }: { session: Term
       <TerminalView
         onInput={(bytes) => link.current?.input(bytes)}
         onDrop={session.state === "running" ? drop.onDrop : undefined}
-        onLink={(uri) => void openWebLink(uri)}
+        onLink={(uri) => void openLink(webLink(uri))}
         onReady={onReady}
         onSize={(s) => {
           size.current = s;

@@ -1,9 +1,9 @@
-import { mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { entryKey } from "@hub/contract/local";
-import { argvOf, chooseOpener, targetRefusal, fakeOpener, isRefusal, localOpenAvailable, OPEN_BIN, openTarget, resolveTarget, type ResolveDeps, type Target } from "../src/local-open";
+import { argvOf, bundleProbe, chooseOpener, fakeAppProbe, targetRefusal, fakeOpener, isRefusal, localOpenAvailable, OPEN_BIN, openTarget, resolveTarget, type ResolveDeps, type Target } from "../src/local-open";
 
 // P61: keys to paths inside each key's own root; never a raw path, never a link, never a program. A throw-away instance.
 
@@ -143,5 +143,24 @@ describe("the runner", () => {
     expect(chooseOpener({ HUB_OPENER: "fake" }, paths, true).kind).toBe("fake");
     expect(() => chooseOpener({ HUB_OPENER: "fake" }, paths, false)).toThrow(/HUB_DB/);
     expect(() => chooseOpener({ HUB_OPENER: "yes" }, paths, true)).toThrow(/HUB_OPENER/);
+  });
+});
+
+describe("P131 O2: the app probe opens nothing", () => {
+  it("finds a bundle in /Applications or ~/Applications, Telegram Desktop counting as Telegram", () => {
+    const have = new Set(["/Applications/WhatsApp.app", "/Users/o/Applications/Telegram Desktop.app"]);
+    expect(bundleProbe({ exists: (p) => have.has(p), home: "/Users/o" })()).toEqual({ notion: false, telegram: true, whatsapp: true });
+    expect(bundleProbe({ exists: () => false, home: "/Users/o" })()).toEqual({ notion: false, telegram: false, whatsapp: false });
+  });
+  it("the fake probe reads its file at every probe, so a test switches an app on and off; none without the file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "hub-fake-apps-"));
+    const file = join(dir, "opener-apps.json");
+    const probe = fakeAppProbe(file);
+    expect(probe()).toEqual({ notion: false, telegram: false, whatsapp: false });
+    writeFileSync(file, JSON.stringify({ notion: true }));
+    expect(probe()).toEqual({ notion: true, telegram: false, whatsapp: false });
+    writeFileSync(file, "not json");
+    expect(probe()).toEqual({ notion: false, telegram: false, whatsapp: false });
+    rmSync(dir, { recursive: true, force: true });
   });
 });

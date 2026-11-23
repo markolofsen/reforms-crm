@@ -1,25 +1,37 @@
-// The one module that hands addresses outside the app to the browser, and the other place that may touch `location`. The
-// links themselves are built by the registry (`@hub/contract/local`, P61); `openWebLink` stays outside it on purpose: a
-// terminal prints arbitrary hosts, which a fixed table cannot list, and it opens a browser tab, not an OS program.
+// The one module that hands addresses outside the app to the browser, and the other place that may touch `location` (P131
+// verdict 5: no `notion.so`, `t.me`, `wa.me`, `tg:`, `notion:` or `whatsapp:` literal and no `target="_blank"` anywhere else in
+// the admin; `test/rules.test.ts`). The links themselves come from the registry's destinations table (`@hub/contract/local`):
+// `openLinkOf` decides app or web from this Mac's apps (`components/links/open-link.tsx` is its hook and its component).
+import type { OpenLink } from "@hub/contract/local";
 
-/** Hands an `href` action of the registry (a `mailto:` compose window) to the system, for an open made from code rather than an anchor. */
-export function openExternal(href: string): void {
-  window.location.href = href;
-}
+/** A link the app hands to the system in the same tab (`mailto:`, `message:`, an app's own scheme). */
+export const sameTab = (href: string): OpenLink => ({ href, newTab: false, inApp: true, label: "" });
 
 /**
- * Opens a web link from the terminal in a new tab with `noopener` (the page it opens cannot reach this one). Only http and
- * https: a terminal prints whatever a program writes, so `javascript:`, `file:` and the rest are refused. False when refused.
+ * A web page a terminal printed: any http(s) host, opened in a new tab. A terminal prints whatever a program writes, so
+ * `javascript:`, `file:` and the rest are refused (null); a fixed table cannot list its hosts, so it stays outside the registry.
  */
-export function openWebLink(uri: string): boolean {
+export function webLink(uri: string): OpenLink | null {
   let url: URL;
   try {
     url = new URL(uri);
   } catch {
-    return false;
+    return null;
   }
-  if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-  window.open(url.href, "_blank", "noopener,noreferrer");
+  if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+  return { href: url.href, newTab: true, inApp: false, label: "Open in browser" };
+}
+
+/** An anchor's attributes for a link: a web page opens in a new tab with `noopener` (the page cannot reach this one). */
+export function anchorProps(link: OpenLink): { href: string; target?: "_blank"; rel?: string } {
+  return link.newTab ? { href: link.href, target: "_blank", rel: "noopener noreferrer" } : { href: link.href };
+}
+
+/** Opens a link from code rather than an anchor (Reply in Mail's compose window, a terminal's link). False when there is none. */
+export function openLink(link: OpenLink | null): boolean {
+  if (!link) return false;
+  if (link.newTab) window.open(link.href, "_blank", "noopener,noreferrer");
+  else window.location.href = link.href;
   return true;
 }
 

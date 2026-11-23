@@ -44,6 +44,7 @@ function projectedChatRow(projected: MessengerProjectionRow, identity: Messenger
     draft: projected.draft ? draftOf(projected.draft) : null,
     autolinked: row.autolinked ?? null,
     triage: projected.triage,
+    contact: identity.contact(slug, { email: client?.email ?? null, pageId: notion?.notionPageId ?? null, chat: { channel: row.channel, chatId: row.chatId } }),
   });
 }
 

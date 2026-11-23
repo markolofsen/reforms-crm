@@ -41,6 +41,12 @@ describe("one key factory, one live stream", () => {
   it("no message:, mailto: or notion: link and no /usr/bin/open is written in the admin: the registry builds them", () => {
     expect(offenders(appFiles, /["'`](message|mailto|notion):|\/usr\/bin\/open/)).toEqual([]);
   });
+  // P131 verdict 5: one destinations table (`@hub/contract/local`) and one opener (`lib/external.ts`, `components/open-link.tsx`):
+  // no Notion, Telegram or WhatsApp host or scheme and no `target="_blank"` anywhere else, so no link guesses app or web on its own.
+  it("no notion.so, notion.site, notion.com, t.me, wa.me, tg:, notion: or whatsapp: literal and no _blank target outside lib/external.ts", () => {
+    const hosts = /notion\.so\b|notion\.site\b|notion\.com\b|\bt\.me\/|\bwa\.me\/|["'`](tg|notion|whatsapp):|_blank/;
+    expect(offenders(appFiles.filter((p) => rel(p) !== "lib/external.ts"), hosts)).toEqual([]);
+  });
   it("only lib/api/meta.ts posts to /api/local (lib/api holds eight files: the one call sits with the instance's)", () => {
     expect(offenders(appFiles.filter((p) => rel(p) !== "lib/api/meta.ts"), /["'`]\/api\/local/)).toEqual([]);
   });
@@ -200,14 +206,14 @@ describe("shared UI ownership", () => {
     expect(files.filter((p) => forbidden.test(read(p))).map((p) => path.relative(repo, p))).toEqual([]);
   });
 
-  it("conversation editors keep the mail toolbar contract in production and Storybook", () => {
+  // P123 U0 (`ui-composition.md` rule 8): the conversation composers are plain text until P93's RTF path lands.
+  it("conversation editors are the plain-text editor in production and Storybook: no Markdown toolbar", () => {
     const composer = read(path.resolve(repo, "app/packages/ui/src/product/composer-editor.tsx"));
-    expect(composer).toContain('toolbarPreset="mail"');
-    expect(composer).not.toContain("toolbarPreset?:");
+    expect(composer).toContain("<PlainTextEditor");
+    expect(composer).not.toMatch(/MarkdownEditor|toolbarPreset/);
     const story = read(path.resolve(repo, "app/apps/storybook/src/stories/conversation-frame.stories.tsx"));
-    const usages = story.split("<MarkdownEditor").slice(1).map((part) => part.split("/>", 1)[0] ?? "");
-    expect(usages.length).toBeGreaterThan(0);
-    expect(usages.every((usage) => usage.includes('toolbarPreset="mail"'))).toBe(true);
+    expect(story).toContain("<PlainTextEditor");
+    expect(story).not.toMatch(/<MarkdownEditor|toolbarPreset/);
   });
 });
 

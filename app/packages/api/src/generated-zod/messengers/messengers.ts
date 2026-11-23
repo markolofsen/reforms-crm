@@ -127,6 +127,11 @@ export const ListMessengerChatsResponse = zod.object({
   "personal": zod.int()
 }),
   "unjudged": zod.int()
+}),
+  "contact": zod.object({
+  "telegramUsername": zod.string().nullable(),
+  "telegramPhone": zod.string().nullable(),
+  "whatsappPhone": zod.string().nullable()
 })
 })),
   "counts": zod.object({
@@ -211,6 +216,11 @@ export const GetMessengerConversationResponse = zod.object({
   "personal": zod.int()
 }),
   "unjudged": zod.int()
+}),
+  "contact": zod.object({
+  "telegramUsername": zod.string().nullable(),
+  "telegramPhone": zod.string().nullable(),
+  "whatsappPhone": zod.string().nullable()
 })
 }),
   "messages": zod.array(zod.object({
@@ -300,6 +310,11 @@ export const CreateMessengerDraftResponse = zod.object({
   "personal": zod.int()
 }),
   "unjudged": zod.int()
+}),
+  "contact": zod.object({
+  "telegramUsername": zod.string().nullable(),
+  "telegramPhone": zod.string().nullable(),
+  "whatsappPhone": zod.string().nullable()
 })
 })
 
@@ -453,6 +468,11 @@ export const PrepareMessengerReplyResponse = zod.object({
   "personal": zod.int()
 }),
   "unjudged": zod.int()
+}),
+  "contact": zod.object({
+  "telegramUsername": zod.string().nullable(),
+  "telegramPhone": zod.string().nullable(),
+  "whatsappPhone": zod.string().nullable()
 })
 })
 
@@ -540,6 +560,11 @@ export const SetMessengerChatRulesResponse = zod.object({
   "personal": zod.int()
 }),
   "unjudged": zod.int()
+}),
+  "contact": zod.object({
+  "telegramUsername": zod.string().nullable(),
+  "telegramPhone": zod.string().nullable(),
+  "whatsappPhone": zod.string().nullable()
 })
 })
 

@@ -770,7 +770,12 @@ export const ListConversationsResponse = zod.object({
 }),zod.null()])
 }),zod.null()]),
   "theirLastAt": zod.string().nullable(),
-  "ourLastAt": zod.string().nullable()
+  "ourLastAt": zod.string().nullable(),
+  "contact": zod.object({
+  "telegramUsername": zod.string().nullable(),
+  "telegramPhone": zod.string().nullable(),
+  "whatsappPhone": zod.string().nullable()
+})
 })),
   "total": zod.int(),
   "nextOffset": zod.int().nullable(),
@@ -902,7 +907,12 @@ export const GetConversationResponse = zod.object({
 }),zod.null()])
 }),zod.null()]),
   "theirLastAt": zod.string().nullable(),
-  "ourLastAt": zod.string().nullable()
+  "ourLastAt": zod.string().nullable(),
+  "contact": zod.object({
+  "telegramUsername": zod.string().nullable(),
+  "telegramPhone": zod.string().nullable(),
+  "whatsappPhone": zod.string().nullable()
+})
 }),
   "composer": zod.object({
   "brand": zod.string().nullable(),

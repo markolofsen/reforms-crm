@@ -8,7 +8,8 @@ import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/colla
 import { ActionButton } from "@hub/ui/product/action-button";
 import { toastManager } from "@hub/ui/toast";
 import { AppLink } from "@/components/app-link";
-import { LocalActionButton } from "@/components/local-action";
+import { notionPageDestination } from "@hub/contract/local";
+import { OpenLinkButton } from "@/components/links/open-link";
 import { EmptyState, LoadFailed } from "@/components/state-views";
 import { useTerminal } from "@/features/terminal/use-terminal";
 import { refreshData, sentence } from "@/lib/api/client";
@@ -86,7 +87,7 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
             Spam
           </ActionButton>
         )}
-        <LocalActionButton action="notion.openPage" args={{ pageId: row.pageId, app: true }} size="m" variant="quiet" />
+        <OpenLinkButton size="m" to={notionPageDestination(row.pageId)} variant="quiet" />
       </div>
       {!email && <p className="text-sm" data-testid="lead-no-email">No email: reply on {lead?.otherContact ?? (lead?.phone ? `the phone ${lead.phone}` : "the channel they gave")}.</p>}
       {!row.open && (

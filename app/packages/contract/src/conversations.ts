@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { reviewDraftDto } from "./responses";
+import { contactLinksDto } from "./local";
 import { notionIdentityDto } from "./notion";
 
 // P99 (one conversation per client): Mail lists people, not drafts. The list and its state words come from the Hub's own rows
@@ -38,6 +39,8 @@ export const conversationRowDto = z.strictObject({
   draft: reviewDraftDto.nullable(),
   theirLastAt: z.string().nullable(),
   ourLastAt: z.string().nullable(),
+  /** P131 O5: the client's Telegram and WhatsApp from their Notion card, for Open in Telegram / Open in WhatsApp. */
+  contact: contactLinksDto,
 });
 export type ConversationRowDto = z.infer<typeof conversationRowDto>;
 

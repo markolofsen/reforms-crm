@@ -102,3 +102,32 @@ describe("POST /api/local/:action", () => {
     expect((await (await setup({ available: false }).app.request(`${API}/api/instance`)).json()).localOpen).toBe(false);
   });
 });
+
+describe("P131 O2: the destination apps on the instance and Check again", () => {
+  function withApps(answer: { notion: boolean; telegram: boolean; whatsapp: boolean }, available = true) {
+    let probes = 0;
+    const apps = { status: () => answer, check: () => { probes += 1; return answer; } };
+    const deps: ResolveDeps = { projectsRoot: join(root, "projects"), logRoot: join(root, "state", "log"), isProject: async () => true, knowledgeHas: async () => false };
+    const local = { deps, run: async (bin: string, args: string[]) => void calls.push([bin, ...args]), available, now: () => t, apps };
+    const app = createApp(repos, { adminPort: ADMIN_PORT, instance: { configFile: join(root, "config.json"), configDir: root }, local });
+    return { app, probes: () => probes };
+  }
+  it("the instance says which apps this Mac has; Check again probes now behind the local door and opens nothing", async () => {
+    const answer = { notion: false, telegram: true, whatsapp: true };
+    const { app, probes } = withApps(answer);
+    expect(((await (await app.request(`${API}/api/instance`)).json()) as { apps: unknown }).apps).toEqual(answer);
+    const check = (headers: Record<string, string>) => app.request(`${API}/api/instance/apps/check`, { method: "POST", headers });
+    expect((await check({ ...ADMIN, origin: "http://127.0.0.1:3000" })).status).toBe(403);
+    expect(probes()).toBe(0);
+    const r = await check(ADMIN);
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual(answer);
+    expect(probes()).toBe(1);
+    expect(calls).toEqual([]);
+  });
+  it("without local open every app is false (every link is the web page) and Check again is 404", async () => {
+    const { app } = withApps({ notion: true, telegram: true, whatsapp: true }, false);
+    expect(((await (await app.request(`${API}/api/instance`)).json()) as { apps: unknown }).apps).toEqual({ notion: false, telegram: false, whatsapp: false });
+    expect((await app.request(`${API}/api/instance/apps/check`, { method: "POST", headers: ADMIN })).status).toBe(404);
+  });
+});

@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronRightIcon, ExternalLinkIcon, Link2Icon } from "lucide-react";
+import type { OpenLink } from "@hub/contract/local";
 import type { ProjectLinksDto } from "@hub/contract/responses";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@hub/ui/collapsible";
 import { Menu, MenuGroup, MenuGroupLabel, MenuItem, MenuLinkItem, MenuPopup, MenuSeparator, MenuSub, MenuSubPopup, MenuSubTrigger, MenuTrigger } from "@hub/ui/menu";
@@ -9,6 +10,8 @@ import { cn } from "@hub/ui/cn";
 import { Link } from "@hub/ui/link";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@hub/ui/tooltip";
 import { save, useStored } from "@/lib/storage";
+import { anchorProps, webLink } from "@/lib/external";
+import { useOpenLink } from "@/components/links/open-link";
 
 type Props = { links: ProjectLinksDto };
 
@@ -21,11 +24,21 @@ function linkIcon(link: ProjectLinksDto["links"][number]) {
   return link.kind === "https" ? <ExternalLinkIcon aria-hidden="true" /> : <Link2Icon aria-hidden="true" />;
 }
 
+/**
+ * P131 verdict 4: `project.md` holds the web address; how it opens is decided here, on this Mac: a Notion page in the app when
+ * it is installed (else the browser), any other page in a new tab. Null for a link the project could not resolve.
+ */
+function useQuickLink(link: ProjectLinksDto["links"][number]): OpenLink | null {
+  const known = useOpenLink(link.href);
+  return link.href ? (known ?? webLink(link.href)) : null;
+}
+
 function LinkItem({ link }: { link: ProjectLinksDto["links"][number] }) {
   const icon = linkIcon(link);
-  if (!link.href) return <MenuItem disabled>{icon}<span className="truncate">{link.label}</span></MenuItem>;
+  const open = useQuickLink(link);
+  if (!open) return <MenuItem disabled>{icon}<span className="truncate">{link.label}</span></MenuItem>;
   return (
-    <MenuLinkItem render={<Link bare href={link.href} target={link.kind === "https" ? "_blank" : undefined} />}>
+    <MenuLinkItem render={<Link bare {...anchorProps(open)} />}>
       {icon}
       <Tooltip>
         <TooltipTrigger render={<span className="min-w-0 truncate">{link.label}</span>} />
@@ -37,11 +50,12 @@ function LinkItem({ link }: { link: ProjectLinksDto["links"][number] }) {
 
 function SidebarLinkItem({ link, nested = false }: { link: ProjectLinksDto["links"][number]; nested?: boolean }) {
   const icon = linkIcon(link);
-  if (!link.href) return <SidebarMenuButton className={cn(nested && "ps-8")} disabled tooltip={link.target}>{icon}<span className="truncate">{link.label}</span></SidebarMenuButton>;
+  const open = useQuickLink(link);
+  if (!open) return <SidebarMenuButton className={cn(nested && "ps-8")} disabled tooltip={link.target}>{icon}<span className="truncate">{link.label}</span></SidebarMenuButton>;
   return (
     <SidebarMenuButton
       className={cn(nested && "ps-8")}
-      render={<Link bare href={link.href} target={link.kind === "https" ? "_blank" : undefined} />}
+      render={<Link bare {...anchorProps(open)} />}
       tooltip={link.target}
     >
       {icon}

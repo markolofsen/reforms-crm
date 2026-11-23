@@ -5,6 +5,7 @@
  * The first checked OpenAPI slice of the Hub REST contract. The document is expanded by domain; streams, terminal sessions and local bridges stay out of ordinary generated JSON operations.
  * OpenAPI spec version: 0.1.0
  */
+import type { ContactLinks } from './contactLinks';
 import type { ConversationClient } from './conversationClient';
 import type { ConversationRowState } from './conversationRowState';
 import type { NotionIdentity } from './notionIdentity';
@@ -25,4 +26,5 @@ export interface ConversationRow {
   theirLastAt: string | null;
   /** @nullable */
   ourLastAt: string | null;
+  contact: ContactLinks;
 }

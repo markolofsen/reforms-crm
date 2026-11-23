@@ -27,6 +27,7 @@ import { pointerRoutes } from "./routes/pointer";
 import { agentFeedRoutes } from "./routes/agent-feed";
 import { knowledgeRoutes } from "./routes/knowledge";
 import { localRoutes } from "./routes/local";
+import { NO_APPS } from "@hub/contract/local";
 import { autostartRoutes } from "./routes/autostart";
 import type { AutostartService } from "./autostart";
 import type { LogStore } from "@hub/log/store";
@@ -213,7 +214,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", healthRoutes(healthServicesOf(health, () => opts.dataVersion?.() ?? 0, now)))
     .route("/", liveRoutes(liveServicesOf(opts.live)))
     .route("/", projectCatalogRoutes(projectCatalogServicesOf(repos)))
-    .route("/", instanceRoutes(instanceServicesOf(opts.instance, () => opts.local?.available ?? false)))
+    .route("/", instanceRoutes(instanceServicesOf(opts.instance, () => opts.local?.available ?? false, opts.local?.apps ? () => opts.local?.apps?.status() ?? NO_APPS : undefined)))
     .route("/", coreRoutes(coreServicesOf(opts.coreUpdates)))
     .route("/", draftRoutes(reviewServicesOf(repos, opts.sender)))
     .route("/", sendRoutes(sendServicesOf(repos, opts.sender, messengerSenders(opts.telegramUser, opts.whatsapp))))
@@ -222,7 +223,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", projectLinksRoutes(projectLinksServicesOf(repos, projectsDir, { ...(opts.projectLinks?.reader ? { reader: opts.projectLinks.reader } : {}) })))
     .route("/", inboxRoutes(inboxServicesOf(repos)))
     .route("/", inboundRoutes(inboundServicesOf(repos, opts.inbound, opts.inboundText, opts.leads)))
-    .route("/", conversationRoutes(conversationServicesOf(repos, opts.conversationMail)))
+    .route("/", conversationRoutes(conversationServicesOf(repos, opts.conversationMail, opts.autolink ? { project: opts.autolink.project, directory: opts.autolink.directory } : undefined)))
     .route("/", sequenceRoutes(sequenceServicesOf(repos, projectsDir, now)))
     .route("/", bulkRoutes(bulkServicesOf(repos)))
     .route("/", overviewRoutes(overviewServicesOf(overview)))

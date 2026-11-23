@@ -1,7 +1,10 @@
 import { ChevronDownIcon, EllipsisIcon } from "lucide-react";
 import { Menu, MenuItem, MenuLinkItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
+import type { ContactLinksDto } from "@hub/contract/local";
 import { AppLink } from "@/components/app-link";
+import { chatDestinations } from "@/components/conversation/header-actions";
+import { OpenLinkItem } from "@/components/links/open-link";
 import { paths } from "@/routes/paths";
 
 /** What the menu can ask of its row: the row decides what each does (a search box, a confirmation, a move). */
@@ -18,7 +21,8 @@ export type StatusState = { state: "linked"; client: string } | { state: "unlink
  */
 // Compact is the icon-only trigger, named "Chat actions for <name>"; the full one is named by its content, "Status of <name>: Not linked",
 // so the name always holds the visible state (WCAG 2.5.3).
-export function StatusMenu({ s, name, disabled, onAction, compact = false }: { s: StatusState; name: string; disabled: boolean; onAction: (a: StatusAction) => void; compact?: boolean }) {
+export function StatusMenu({ s, name, disabled, onAction, compact = false, contact = null }: { s: StatusState; name: string; disabled: boolean; onAction: (a: StatusAction) => void; compact?: boolean; /** P131 O5: Open in Telegram / WhatsApp, linked chats only. */ contact?: ContactLinksDto | null }) {
+  const chats = chatDestinations(contact);
   const label = s.state === "linked" ? s.client : s.state === "unlinked" ? "Not linked" : "Hidden";
   const tooltip = compact ? `Chat actions for ${name}` : undefined;
   const item = (a: StatusAction, text: string, destructive = false) => (
@@ -34,6 +38,8 @@ export function StatusMenu({ s, name, disabled, onAction, compact = false }: { s
       <MenuPopup align="start">
         {s.state === "linked" && (
           <>
+            <OpenLinkItem to={chats.telegram} />
+            <OpenLinkItem to={chats.whatsapp} />
             {item("change", "Change client…")}
             <MenuLinkItem render={<AppLink to={paths.messengers.settings()} />}>Rules of this chat</MenuLinkItem>
             <MenuSeparator />

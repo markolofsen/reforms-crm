@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { CORE_LEVELS } from "@hub/config";
+import { appsDto } from "./local";
 
 /**
  * The instance's brand (P48 W0): `name` and `logo` of `config/config.json`, optional. Without a name the admin says "Hub";
@@ -13,6 +14,8 @@ export const instanceDto = z.strictObject({
   hasLogo: z.boolean(),
   /** P61: the server can run `server` Open actions (macOS with `/usr/bin/open`, or the fake opener). False: those buttons are not rendered. */
   localOpen: z.boolean(),
+  /** P131 O2: which destination apps this Mac has (the server's probe); all false without `localOpen`. A link opens the app when true, else the web page. */
+  apps: appsDto,
 });
 export type InstanceDto = z.infer<typeof instanceDto>;
 

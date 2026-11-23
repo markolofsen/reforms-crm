@@ -5,6 +5,7 @@
  * The first checked OpenAPI slice of the Hub REST contract. The document is expanded by domain; streams, terminal sessions and local bridges stay out of ordinary generated JSON operations.
  * OpenAPI spec version: 0.1.0
  */
+import type { ContactLinks } from './contactLinks';
 import type { MessengerChatChannel } from './messengerChatChannel';
 import type { MessengerClient } from './messengerClient';
 import type { MessengerDraft } from './messengerDraft';
@@ -28,4 +29,5 @@ export interface MessengerChat {
   /** @nullable */
   autolinked: string | null;
   triage: MessengerTriage;
+  contact: ContactLinks;
 }

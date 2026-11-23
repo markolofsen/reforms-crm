@@ -1,4 +1,5 @@
 import { Badge } from "@hub/ui/badge";
+import type { ContactLinksDto } from "@hub/contract/local";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { MARK_LABELS } from "@hub/config";
 import { AppLink } from "@/components/app-link";
@@ -12,11 +13,11 @@ import type { ReviewActions } from "../use-review-actions";
 import { ClientMenu } from "./client-menu";
 import { sentLine, teammateLine } from "./card-state";
 
-type Props = { d: ReviewDraft; actions: ReviewActions; now: number; ready: boolean };
+type Props = { d: ReviewDraft; actions: ReviewActions; now: number; ready: boolean; contact?: ContactLinksDto | null };
 
 
 /** Name and email, the Client menu at the far side, at most two chips plus the read-only flags, the age line. */
-export function CardHeader({ d, actions, now, ready }: Props) {
+export function CardHeader({ d, actions, now, ready, contact = null }: Props) {
   const age = wrote(d.client.lastContactAt, now);
   const old = d.status === "ready" && isOld(d.updatedAt, now);
   const notion = notionOf(d);
@@ -32,7 +33,7 @@ export function CardHeader({ d, actions, now, ready }: Props) {
           <h3 className="truncate font-semibold text-base">{d.client.name}</h3>
           <p className="truncate text-muted-foreground text-sm">{d.client.email}</p>
         </div>
-        <ClientMenu actions={actions} d={d} />
+        <ClientMenu actions={actions} contact={contact} d={d} />
       </div>
       {(chips.length > 0 || ready || flags.length > 0 || notion.kind !== null) && (
         <p className="flex flex-wrap items-center gap-1.5">

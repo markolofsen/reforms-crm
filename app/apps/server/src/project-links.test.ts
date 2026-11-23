@@ -22,7 +22,7 @@ describe("project Quick Links", () => {
     writeFileSync(join(project, "project.md"), `${source}\n## Links\n\n| Group | Label | Target | Under | Answered | By |\n|---|---|---|---|---|---|\n| Notion | Clients | notion:clients |  | 2026-11-20 | agent |\n| Sites | Website | https://example.com/ |  | 2026-11-20 | owner |\n`);
     const result = await projectLinks(repos(), "acme-travel", root, { reader: { retrieveDataSource: async () => ({ id: "ds", pageId: ID, title: "Clients", properties: {} }), listPages: async function* () {}, retrieveMarkdown: async () => ({ markdown: "", truncated: false, unknownBlockIds: [] }) } });
     expect(result.notion.state).toBe("ready");
-    expect(result.links[0]).toMatchObject({ target: "notion:clients", href: `notion://www.notion.so/${ID}` });
+    expect(result.links[0]).toMatchObject({ target: "notion:clients", href: `https://www.notion.so/${ID}` });
     expect(result.links[1]).toMatchObject({ target: "https://example.com/", href: "https://example.com/" });
   });
 

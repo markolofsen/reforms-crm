@@ -40,3 +40,24 @@ describe("MessengerIdentityResolver", () => {
     });
   });
 });
+
+describe("P131 O5: the contact a chat or a Mail conversation opens Telegram and WhatsApp with", () => {
+  const card: DirectoryEntry = {
+    key: "notion-page-2",
+    name: "Anna",
+    email: "anna@example.com",
+    relationship: "Client",
+    identifiers: [{ kind: "username", value: "anna_k" }, { kind: "phone", value: "+351 912 345 678", channel: "whatsapp" }, { kind: "phone", value: "+44 7700 900123" }],
+  };
+  const resolver = createMessengerIdentityResolver({ project: "p", directory: { current: () => buildDirectory([card]) } });
+  it("reads the Notion card by email or page id: its Telegram username, its WhatsApp number, its phone for Telegram", () => {
+    expect(resolver.contact("p", { email: "anna@example.com" })).toEqual({ telegramUsername: "anna_k", telegramPhone: "447700900123", whatsappPhone: "351912345678" });
+    expect(resolver.contact("p", { pageId: "notion-page-2" })).toMatchObject({ telegramUsername: "anna_k" });
+    expect(resolver.contact("other", { email: "anna@example.com" })).toEqual({ telegramUsername: null, telegramPhone: null, whatsappPhone: null });
+  });
+  it("a WhatsApp chat's own number comes first; a group's id gives no WhatsApp link", () => {
+    expect(resolver.contact("p", { email: "anna@example.com", chat: { channel: "whatsapp", chatId: "351911111111" } }).whatsappPhone).toBe("351911111111");
+    expect(resolver.contact("p", { email: "anna@example.com", chat: { channel: "whatsapp", chatId: "120363025246125486@g.us" } }).whatsappPhone).toBeNull();
+    expect(resolver.contact("p", { email: "anna@example.com", chat: { channel: "whatsapp", chatId: "351912345678-1608000000" } }).whatsappPhone).toBeNull();
+  });
+});

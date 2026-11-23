@@ -24,8 +24,11 @@ export const dotOf = (s: StatusDto | undefined): StatusDto["next"] => (s && s.le
 /** One project's sends and which scopes are stopped (`GET .../sends`): one key for Settings ▸ Sending's Stop and Activity ▸ Sends. */
 export const useSends = (project: string) => useQuery({ queryKey: keys.sends(project), queryFn: () => sendApi.list(project) });
 
-/** The instance's brand (name, and whether a logo is served). Cached for the session: it changes only with the config file. */
-export const useInstance = () => useQuery({ queryKey: keys.instance(), queryFn: metaApi.instance, staleTime: Infinity });
+/**
+ * The instance's brand (name, and whether a logo is served), its local Open and its destination apps (P131 O2). Read again
+ * after the server's own probe interval (10 minutes), so an app installed meanwhile is used without a reload; Check again sets it.
+ */
+export const useInstance = () => useQuery({ queryKey: keys.instance(), queryFn: metaApi.instance, staleTime: 10 * 60_000 });
 
 /** One project's Agent tools (P49 section 5B): the last result of the server's checks. One key for Settings ▸ Agent and the nav dot. */
 export const useAgentTools = (slug: string | null) => useQuery({ queryKey: keys.agentTools(slug ?? ""), queryFn: () => connectionsApi.agentTools(slug ?? ""), enabled: slug !== null, staleTime: 60_000 });

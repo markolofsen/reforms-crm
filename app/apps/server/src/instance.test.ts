@@ -24,16 +24,16 @@ afterEach(() => handle.close());
 
 describe("GET /api/instance", () => {
   it("is Hub with no logo when the config names neither, or does not exist", async () => {
-    expect(instanceDto.parse(await (await app().request(`${BASE}/api/instance`)).json())).toEqual({ name: "Hub", hasLogo: false, localOpen: false });
+    expect(instanceDto.parse(await (await app().request(`${BASE}/api/instance`)).json())).toEqual({ name: "Hub", hasLogo: false, localOpen: false, apps: { notion: false, telegram: false, whatsapp: false } });
     config({ name: "  ", account: "x" });
-    expect(await (await app().request(`${BASE}/api/instance`)).json()).toEqual({ name: "Hub", hasLogo: false, localOpen: false });
+    expect(await (await app().request(`${BASE}/api/instance`)).json()).toEqual({ name: "Hub", hasLogo: false, localOpen: false, apps: { notion: false, telegram: false, whatsapp: false } });
     expect((await app().request(`${BASE}/api/instance/logo`)).status).toBe(404);
   });
 
   it("names the instance and serves its logo (a relative path is read from config/) with its type", async () => {
     writeFileSync(join(configDir, "logo.svg"), SVG);
     config({ name: "Reforms SaaS", logo: "logo.svg" });
-    expect(await (await app().request(`${BASE}/api/instance`)).json()).toEqual({ name: "Reforms SaaS", hasLogo: true, localOpen: false });
+    expect(await (await app().request(`${BASE}/api/instance`)).json()).toEqual({ name: "Reforms SaaS", hasLogo: true, localOpen: false, apps: { notion: false, telegram: false, whatsapp: false } });
     const r = await app().request(`${BASE}/api/instance/logo`);
     expect(r.status).toBe(200);
     expect(r.headers.get("content-type")).toBe("image/svg+xml");
@@ -48,12 +48,12 @@ describe("GET /api/instance", () => {
   it("a logo that is missing or not an image type is 404 and hasLogo false; the reply never holds a path", async () => {
     config({ name: "R", logo: "gone.png" });
     const body = await (await app().request(`${BASE}/api/instance`)).text();
-    expect(JSON.parse(body)).toEqual({ name: "R", hasLogo: false, localOpen: false });
+    expect(JSON.parse(body)).toEqual({ name: "R", hasLogo: false, localOpen: false, apps: { notion: false, telegram: false, whatsapp: false } });
     expect(body).not.toContain("gone.png");
     expect((await app().request(`${BASE}/api/instance/logo`)).status).toBe(404);
     writeFileSync(join(configDir, "notes.txt"), "x");
     config({ name: "R", logo: "notes.txt" });
-    expect(await (await app().request(`${BASE}/api/instance`)).json()).toEqual({ name: "R", hasLogo: false, localOpen: false });
+    expect(await (await app().request(`${BASE}/api/instance`)).json()).toEqual({ name: "R", hasLogo: false, localOpen: false, apps: { notion: false, telegram: false, whatsapp: false } });
     expect((await app().request(`${BASE}/api/instance/logo`)).status).toBe(404);
   });
 

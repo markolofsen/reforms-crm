@@ -1241,7 +1241,7 @@ components:
     Instance:
       type: object
       additionalProperties: false
-      required: [name, hasLogo, localOpen]
+      required: [name, hasLogo, localOpen, apps]
       properties:
         name:
           type: string
@@ -1249,6 +1249,19 @@ components:
         hasLogo:
           type: boolean
         localOpen:
+          type: boolean
+        apps:
+          $ref: '#/components/schemas/InstanceApps'
+    InstanceApps:
+      type: object
+      additionalProperties: false
+      required: [notion, telegram, whatsapp]
+      properties:
+        notion:
+          type: boolean
+        telegram:
+          type: boolean
+        whatsapp:
           type: boolean
     Autostart:
       type: object
@@ -3333,7 +3346,7 @@ components:
     ConversationRow:
       type: object
       additionalProperties: false
-      required: [client, notion, state, at, subject, preview, brands, inboundId, draft, theirLastAt, ourLastAt]
+      required: [client, notion, state, at, subject, preview, brands, inboundId, draft, theirLastAt, ourLastAt, contact]
       properties:
         client:
           $ref: '#/components/schemas/ConversationClient'
@@ -3361,6 +3374,19 @@ components:
         theirLastAt:
           type: [string, 'null']
         ourLastAt:
+          type: [string, 'null']
+        contact:
+          $ref: '#/components/schemas/ContactLinks'
+    ContactLinks:
+      type: object
+      additionalProperties: false
+      required: [telegramUsername, telegramPhone, whatsappPhone]
+      properties:
+        telegramUsername:
+          type: [string, 'null']
+        telegramPhone:
+          type: [string, 'null']
+        whatsappPhone:
           type: [string, 'null']
     Conversations:
       type: object
@@ -3616,7 +3642,7 @@ components:
     MessengerChat:
       type: object
       additionalProperties: false
-      required: [id, channel, chatId, title, client, rules, inbound, stored, last, owed, draft, autolinked, triage]
+      required: [id, channel, chatId, title, client, rules, inbound, stored, last, owed, draft, autolinked, triage, contact]
       properties:
         id:
           type: integer
@@ -3651,6 +3677,8 @@ components:
           type: [string, 'null']
         triage:
           $ref: '#/components/schemas/MessengerTriage'
+        contact:
+          $ref: '#/components/schemas/ContactLinks'
     MessengerChats:
       type: object
       additionalProperties: false

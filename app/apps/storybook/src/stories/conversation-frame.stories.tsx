@@ -6,7 +6,7 @@ import { ConversationDayDivider, ConversationLabel, ConversationMessage, Convers
 import { ConversationBackButton, ConversationComposer, ConversationComposerFooter, ConversationEmptyState, ConversationFrame, ConversationHeader, ConversationHeaderFacts, ConversationHistoryContent, ConversationHistoryNotice, ConversationHistoryState, ConversationHistorySummary, ConversationRefreshing, ConversationScrollToLatest, ConversationStaleNotice } from "@hub/ui/product/conversation-frame";
 import { useConversationScroll } from "@hub/ui/product/conversation-scroll";
 import { ConversationEditorSurface } from "@hub/ui/product/composer-editor";
-import { MarkdownEditor } from "@hub/ui/product/markdown-editor";
+import { PlainTextEditor } from "@hub/ui/product/plain-text-editor";
 
 function ConversationDemo() {
   const [draft, setDraft] = useState("");
@@ -21,12 +21,12 @@ function ConversationDemo() {
             ariaLabel="Reply composer"
             footer={<ConversationComposerFooter><ActionButton onClick={() => setSent(true)} size="s" variant="primary">Save draft</ActionButton><span className="text-muted-foreground text-xs">Nothing is sent from this editor.</span></ConversationComposerFooter>}
           >
-            <MarkdownEditor
-              ariaLabel="Reply in Markdown"
+            <PlainTextEditor
+              ariaLabel="Reply"
               onChange={setDraft}
               onSubmit={() => setSent(true)}
-              placeholder="Write a reply in Markdown…"
-              toolbarPreset="mail"
+              placeholder="Write a reply…"
+             
               value={draft}
             />
           </ConversationComposer>
@@ -111,7 +111,7 @@ function NoInboundDemo() {
             footer={<ConversationComposerFooter feedback={<span className="text-muted-foreground text-xs">Nothing is sent from this editor.</span>}><ActionButton disabled={!draft.trim()} onClick={() => setSaved(true)} size="s" variant="primary">{saved ? "Saved" : "Save draft"}</ActionButton></ConversationComposerFooter>}
             state={saved ? "saved" : draft.trim() ? "editing" : "idle"}
           >
-            <MarkdownEditor ariaLabel="Write a new message" onChange={(next) => { setDraft(next); setSaved(false); }} onSubmit={() => setSaved(true)} placeholder="Write a new message…" toolbarPreset="mail" value={draft} />
+            <PlainTextEditor ariaLabel="Write a new message" onChange={(next) => { setDraft(next); setSaved(false); }} onSubmit={() => setSaved(true)} placeholder="Write a new message…" value={draft} />
           </ConversationComposer>
         }
         header={<ConversationHeader subtitle="Telegram · no reply pending" title="Евгений" />}
@@ -227,7 +227,7 @@ function NarrowDemo() {
         ariaLabel="Narrow conversation"
         composer={
           <ConversationComposer ariaLabel="Narrow reply composer" footer={<ConversationComposerFooter feedback={<span className="text-muted-foreground text-xs">Meta/Ctrl + Enter saves</span>}><ActionButton onClick={() => undefined} size="s" variant="primary">Save draft</ActionButton></ConversationComposerFooter>}>
-            <MarkdownEditor ariaLabel="Narrow Markdown reply" onChange={setDraft} onSubmit={() => undefined} toolbarPreset="mail" value={draft} />
+            <PlainTextEditor ariaLabel="Narrow reply" onChange={setDraft} onSubmit={() => undefined} value={draft} />
           </ConversationComposer>
         }
         header={<ConversationHeader actions={<><ActionButton aria-label="Open Notion" icon size="s" tooltip="Open Notion" variant="quiet"><ExternalLinkIcon aria-hidden="true" /></ActionButton><ActionButton aria-label="Open source message" icon size="s" tooltip="Open source message" variant="quiet"><ExternalLinkIcon aria-hidden="true" /></ActionButton></>} back={<ConversationBackButton label="Back to conversations" onClick={() => undefined} />} subtitle={<ConversationHeaderFacts><span>WhatsApp</span><span>Draft ready</span><ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value="very.long.client.address+support@example.com" /></ConversationHeaderFacts>} title="A very long client name" />}
@@ -346,7 +346,7 @@ export const StaleHistory: Story = {
 
 export const DraftEditingFooter: Story = {
   render: () => <DraftEditingDemo />,
-  parameters: { docs: { description: { story: "Long draft editing keeps the Markdown editor scrollable while Save and Cancel remain pinned below the conversation." } } },
+  parameters: { docs: { description: { story: "Long draft editing keeps the plain-text editor scrollable while Save and Cancel remain pinned below the conversation." } } },
 };
 
 export const NarrowWidth: Story = {
@@ -365,5 +365,5 @@ export const ContinuousHistory: Story = {
 
 export const KeyboardOwnedByEditor: Story = {
   render: () => <ConversationDemo />,
-  parameters: { docs: { description: { story: "Focus the Markdown editor: Meta/Ctrl + Enter saves and Escape cancels without invoking shell hotkeys." } } },
+  parameters: { docs: { description: { story: "Focus the plain-text editor: Meta/Ctrl + Enter saves and Escape cancels without invoking shell hotkeys." } } },
 };

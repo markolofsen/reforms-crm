@@ -3,6 +3,7 @@ import { extname } from "node:path";
 import { Hono } from "hono";
 import { hubPaths, instanceBrand } from "@hub/config/paths";
 import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
+import { NO_APPS } from "@hub/contract/local";
 import { CheckTooSoon } from "../core-updates";
 import type { CoreServices, InstanceServices } from "../composition/capabilities";
 import { notFound } from "../http";
@@ -13,14 +14,15 @@ const LOGO_TYPES: Record<string, string> = { ".svg": "image/svg+xml", ".png": "i
 /**
  * The instance's brand (P48 W0): `name` and whether a logo exists, then the logo itself. The config is read per request,
  * so an edit shows on reload. The browser never learns the logo's path. Read only. `localOpen` (P61): whether the server can run
- * the Open actions on this machine; the admin renders no Open button when it is false.
+ * the Open actions on this machine; the admin renders no Open button when it is false. `apps` (P131 O2): which destination apps
+ * this Mac has (the probe of `apps-probe.ts`); all false without local open, so every link is the web page.
  */
-export function instanceRoutes({ paths, localOpen = () => false }: InstanceServices) {
+export function instanceRoutes({ paths, localOpen = () => false, apps = () => NO_APPS }: InstanceServices) {
   const brand = () => instanceBrand(paths ?? hubPaths());
   return new Hono()
     .get("/api/instance", (c) => {
       const b = brand();
-      return c.json(instanceDto.parse({ name: b.name, hasLogo: b.logoFound && extname(b.logo ?? "").toLowerCase() in LOGO_TYPES, localOpen: localOpen() }));
+      return c.json(instanceDto.parse({ name: b.name, hasLogo: b.logoFound && extname(b.logo ?? "").toLowerCase() in LOGO_TYPES, localOpen: localOpen(), apps: localOpen() ? apps() : NO_APPS }));
     })
     .get("/api/instance/logo", (c) => {
       const b = brand();

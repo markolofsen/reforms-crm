@@ -7,6 +7,8 @@ import type { OpsStore } from "@hub/log/ops";
 import type { LogStore } from "@hub/log/store";
 import type { Llm } from "@hub/llm";
 import type { ClientDirectory } from "../client-directory";
+import type { AppsProbe } from "../apps-probe";
+import type { AppsDto } from "@hub/contract/local";
 import type { ConnectionsService } from "../connections";
 import type { HistoryMessage, ReadInput } from "../conversation";
 import type { FocusStore } from "../focus";
@@ -170,11 +172,14 @@ export interface ConversationMail {
 export type ConversationServices = {
   repos: Repos;
   mail?: ConversationMail;
+  /** P131 O5: the Notion Clients records in memory, for the client's Telegram and WhatsApp. */
+  directory?: MessengerDirectory;
 };
 
-export const conversationServicesOf = (repos: Repos, mail?: ConversationMail): ConversationServices => ({
+export const conversationServicesOf = (repos: Repos, mail?: ConversationMail, directory?: MessengerDirectory): ConversationServices => ({
   repos,
   ...(mail ? { mail } : {}),
+  ...(directory ? { directory } : {}),
 });
 
 export type InboundTextReader = (account: string, messageId: string) => Promise<{ text: string } | { note: string }>;
@@ -312,6 +317,8 @@ export interface LocalService {
   run: OpenRun;
   available: boolean;
   now?: () => number;
+  /** P131 O2: which destination apps this Mac has (`apps` on the instance), and Check again. */
+  apps?: Pick<AppsProbe, "status" | "check">;
 }
 
 export type LocalServices = {
@@ -327,11 +334,14 @@ export const localServicesOf = (local: LocalService | undefined, adminPort: numb
 export type InstanceServices = {
   paths?: Pick<HubPaths, "configFile" | "configDir">;
   localOpen?: () => boolean;
+  /** P131 O2: the destination apps of this Mac; none when the server cannot open locally. */
+  apps?: () => AppsDto;
 };
 
-export const instanceServicesOf = (paths?: Pick<HubPaths, "configFile" | "configDir">, localOpen?: () => boolean): InstanceServices => ({
+export const instanceServicesOf = (paths?: Pick<HubPaths, "configFile" | "configDir">, localOpen?: () => boolean, apps?: () => AppsDto): InstanceServices => ({
   ...(paths ? { paths } : {}),
   ...(localOpen ? { localOpen } : {}),
+  ...(apps ? { apps } : {}),
 });
 
 export type CoreServices = {

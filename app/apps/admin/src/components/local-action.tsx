@@ -10,10 +10,10 @@ import { ActionButton, type ActionButtonProps, type ActionSize, type ActionVaria
 import { toastManager } from "@hub/ui/toast";
 import { sentence } from "@/lib/api/client";
 import { metaApi } from "@/lib/api/meta";
-import { openExternal } from "@/lib/external";
+import { openLink, sameTab } from "@/lib/external";
 import { useInstance } from "@/lib/status";
 
-// P61: the one way the admin opens something on the owner's Mac. `href` actions (Mail, Notion) are real links built by the
+// P61: the one way the admin opens something on the owner's Mac. `href` actions (Mail) are real links built by the
 // registry (`@hub/contract/local`); `server` actions (Finder, a project file) post a project and a KEY to
 // `POST /api/local/:action` and the server resolves the path. An Open changes nothing in the Hub and asks no agent anything
 // (`admin-principles.md` rule 1). Not in `@hub/ui`: it knows the API.
@@ -45,7 +45,7 @@ const sayRefusal = (text: string) => toastManager.add({ title: "Not opened", des
 /** `run(args)`, whether it is running, and whether this machine can run server actions (`localOpen` of the instance). */
 export function useLocalAction(action: LocalActionId) {
   const instance = useInstance();
-  const m = useMutation({ mutationFn: (args: unknown) => runLocalAction(action, args, { post: metaApi.localOpen, open: openExternal, say: sayRefusal }) });
+  const m = useMutation({ mutationFn: (args: unknown) => runLocalAction(action, args, { post: metaApi.localOpen, open: (href) => void openLink(sameTab(href)), say: sayRefusal }) });
   return { run: (args: unknown) => m.mutate(args), pending: m.isPending, available: !isServerAction(action) || instance.data?.localOpen === true };
 }
 
@@ -91,12 +91,12 @@ function ServerItem({ action, args, children }: { action: ServerActionId; args: 
 }
 
 /** The menu form: a `MenuLinkItem` for an `href` action, a `MenuItem` that posts for a `server` one; the same rules for rendering nothing. */
-export function LocalActionItem<A extends LocalActionId>({ action, args, children, newTab = false }: { action: A; args: LocalArgs<A>; children?: ReactNode; /** A web page (Notion on the web) opens in a new tab. */ newTab?: boolean }) {
+export function LocalActionItem<A extends LocalActionId>({ action, args, children }: { action: A; args: LocalArgs<A>; children?: ReactNode }) {
   if (isServerAction(action)) return <ServerItem action={action} args={args}>{children}</ServerItem>;
   const href = linkOf(action, args);
   if (!href) return null;
   return (
-    <MenuLinkItem href={href} {...(newTab ? { rel: "noopener noreferrer", target: "_blank" } : {})}>
+    <MenuLinkItem href={href}>
       {children ?? LOCAL_ACTIONS[action].label}
     </MenuLinkItem>
   );

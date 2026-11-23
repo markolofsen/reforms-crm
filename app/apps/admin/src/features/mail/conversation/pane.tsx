@@ -105,7 +105,7 @@ export function ConversationPane({ project, clientId, listRow, pointed, actions,
     focusAgentRow(refOf("client", row?.client.id ?? clientId));
   };
   const composer = row && row.draft ? (
-    <DraftCard actions={actions} advance={advance} composerNotice={notice || historyNote ? <MailComposerNotice historyNote={historyNote} notice={notice} /> : undefined} d={row.draft} embedded key={row.draft.id} now={now} project={project} say={say} />
+    <DraftCard actions={actions} advance={advance} contact={row.contact} composerNotice={notice || historyNote ? <MailComposerNotice historyNote={historyNote} notice={notice} /> : undefined} d={row.draft} embedded key={row.draft.id} now={now} project={project} say={say} />
   ) : row ? (
     <MailManualReply
       composer={q.data?.composer ?? { brand: null, wroteTo: null, from: null, technicalAddress: null, language: "en", signatureLines: [], signatureFallback: null, signatureLinesByLanguage: { en: [], ru: [] }, signatureFallbackByLanguage: { en: null, ru: null }, status: "needs_mail", reason: "Mail context is still loading", brands: [] }}
@@ -134,7 +134,7 @@ export function ConversationPane({ project, clientId, listRow, pointed, actions,
       dataAgentRef={refOf("client", row?.client.id ?? clientId)}
       dataState={row?.state}
       historyActions={scrollState && !scrollState.atLatest ? <ConversationScrollToLatest onClick={scrollState.scrollToLatest} /> : undefined}
-      header={<ConversationHeader back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} actions={<ConversationHeaderActions mailMessageId={newest} notionPageId={pageId} />} subtitle={row ? <ConversationHeaderFacts><ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={row.client.email} /><span data-testid="conversation-state">{CONVERSATION_STATE_LABELS[row.state]}</span>{notionState && <span data-testid="conversation-notion"><IntegrationStatus detail={notionDetail} label="Notion" state={notionState} /></span>}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={row?.client.name || row?.client.email || "Conversation"} />}
+      header={<ConversationHeader back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} actions={<ConversationHeaderActions contact={row?.contact} mailMessageId={newest} notionPageId={pageId} />} subtitle={row ? <ConversationHeaderFacts><ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={row.client.email} /><span data-testid="conversation-state">{CONVERSATION_STATE_LABELS[row.state]}</span>{notionState && <span data-testid="conversation-notion"><IntegrationStatus detail={notionDetail} label="Notion" state={notionState} /></span>}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={row?.client.name || row?.client.email || "Conversation"} />}
       testId="conversation"
     >
       {history}

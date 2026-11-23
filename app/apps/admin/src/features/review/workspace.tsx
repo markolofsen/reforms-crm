@@ -13,7 +13,7 @@ import { refreshData, sentence } from "@/lib/api/client";
 import { useClock } from "@/lib/clock";
 import { runLocalAction } from "@/components/local-action";
 import { metaApi } from "@/lib/api/meta";
-import { copyText, openExternal } from "@/lib/external";
+import { copyText, openLink, sameTab } from "@/lib/external";
 import { ConversationPane } from "@/features/mail/conversation/pane";
 import { useToggleChecked } from "./mail/use-toggle-checked";
 import { ListHeader, type View } from "./list-controls";
@@ -123,7 +123,7 @@ async function replyAllInMail(d: ReviewDraft, say: (text: string) => void): Prom
     return;
   }
   const copied = await copyText(d.body); // blocked: the compose window still opens
-  if (!(await runLocalAction("mail.compose", { to: d.toAddr, cc: d.ccAddr, subject: d.subject }, { post: metaApi.localOpen, open: openExternal, say }))) return;
+  if (!(await runLocalAction("mail.compose", { to: d.toAddr, cc: d.ccAddr, subject: d.subject }, { post: metaApi.localOpen, open: (href) => void openLink(sameTab(href)), say }))) return;
   if (copied) say("Copied. Paste it into the Mail window and press Send there, then mark it done.");
   else say("The compose window opened; the clipboard was blocked, so copy the text from the draft.");
 }

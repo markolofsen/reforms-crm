@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
-import { isLocalAction, isServerAction, LOCAL_ACTIONS, localOpenedDto } from "@hub/contract/local";
+import { appsDto, isLocalAction, isServerAction, LOCAL_ACTIONS, localOpenedDto, NO_APPS } from "@hub/contract/local";
 import { isRefusal, LOCAL_OPEN_UNAVAILABLE, openTarget, resolveTarget } from "@hub/projects/local-open";
 import { gateRefusal } from "../admin-gate";
 import type { LocalServices } from "../composition/capabilities";
@@ -17,7 +17,16 @@ const REPEAT_MS = 500;
  */
 export function localRoutes({ local, adminPort }: LocalServices) {
   const last = new Map<string, number>();
-  return new Hono().post("/api/local/:action", async (c) => {
+  return new Hono()
+    // P131 O2: Settings ▸ This Mac's Check again: the app probe now. It opens, launches and reveals nothing, but it is the
+    // local door's (the exact admin Origin), like an Open. 404 without local open: every link is the web page there.
+    .post("/api/instance/apps/check", (c) => {
+      const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
+      if (why) return c.json({ error: `Refused: ${why}.`, code: "forbidden" as const }, 403);
+      if (!local?.available || !local.apps) return c.json({ error: "This server does not open apps on this machine.", code: "not_found" as const }, 404);
+      return c.json(appsDto.parse(local.apps.check() ?? NO_APPS));
+    })
+    .post("/api/local/:action", async (c) => {
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
     if (why) return c.json({ error: `Refused: ${why}.`, code: "forbidden" as const }, 403);
     const id = c.req.param("action");

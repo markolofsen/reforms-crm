@@ -70,7 +70,7 @@ export async function projectLinks(repos: Repos, slug: string, root: string, opt
     const target = notionTarget(link.target);
     const isNotion = target !== null;
     const pageId = target ? (databasePages.get(target.toLowerCase()) ?? (/^[0-9a-f]{32}$/.test(target) ? target : null)) : null;
-    const href = isNotion ? (pageId ? hrefOf("notion.openPage", { pageId, app: true }) : null) : link.target;
+    const href = isNotion ? (pageId ? hrefOf("notion.openPage", { pageId }) : null) : link.target;
     return { group: link.group, label: link.label, target: link.target, under: link.under, kind: isNotion ? "notion" as const : "https" as const, href };
   });
 

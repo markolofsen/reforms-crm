@@ -12,6 +12,7 @@ import { threadsOf } from "../conversation";
 import { LABEL_MAILBOXES } from "../inbound";
 import { configOf } from "../overview-facts";
 import type { ConversationServices } from "../composition/capabilities";
+import { createMessengerIdentityResolver } from "../messenger-identity";
 
 const id = (raw: string): number | null => (/^[1-9]\d*$/.test(raw) ? Number(raw) : null);
 
@@ -72,7 +73,8 @@ function threadsDto(msgs: Msg[], f: Facts, versions: ReadonlyMap<string, number>
  * from Mail now and never stored, decision 0013) and `.../conversation/text?m=` (one body, fetched as its bubble renders and kept in the server's
  * memory). Read only toward Mail: no route here writes Mail, Notion or the database except the idempotent clients rows of verdict 1.
  */
-export function conversationRoutes({ repos, mail }: ConversationServices) {
+export function conversationRoutes({ repos, mail, directory }: ConversationServices) {
+  const identity = createMessengerIdentityResolver(directory);
   /** Where the last history read found each message, by project and Message-ID (for its body). Memory only. */
   const where = new Map<string, { account: string; mailbox: string; mailId: number }>();
   const notionFor = (email: string, refs: readonly NotionRef[], inboxRefs: ReadonlyMap<string, NotionRef | null>): NotionIdentityDto => {
@@ -86,11 +88,16 @@ export function conversationRoutes({ repos, mail }: ConversationServices) {
       url: ref?.notionUrl ?? null,
     });
   };
-  const rowDto = async (r: ConversationItem, inboxRefs: ReadonlyMap<string, NotionRef | null>, refs: readonly NotionRef[] = r.draft ? [r.draft] : []) => ({
+  const rowDto = async (slug: string, r: ConversationItem, inboxRefs: ReadonlyMap<string, NotionRef | null>, refs: readonly NotionRef[] = r.draft ? [r.draft] : []) => {
+    const notion = notionFor(r.client.email, refs, inboxRefs);
+    return {
     ...r,
-    notion: notionFor(r.client.email, refs, inboxRefs),
+    notion,
+    // P131 O5: the client's Telegram and WhatsApp from the Notion card in memory (the directory), never a Notion read here.
+    contact: identity.contact(slug, { email: r.client.email, pageId: notion.pageId }),
     draft: r.draft ? toDraft(r.draft, await repos.sends.forDraft(r.draft.id)) : null,
-  });
+    };
+  };
   return new Hono()
     .get("/api/projects/:slug/conversations", v("query", conversationsListQuery), async (c) => {
       const slug = c.req.param("slug");
@@ -99,7 +106,7 @@ export function conversationRoutes({ repos, mail }: ConversationServices) {
       const r = await repos.conversations.list(slug, q.view, { batch: q.batch ?? null, search: q.search, limit: q.limit, offset: q.offset });
       const inboxRefs = await repos.inbox.notionByEmails(slug, r.rows.map((item) => item.client.email));
       const next = q.offset + r.rows.length < r.total ? q.offset + r.rows.length : null;
-      return c.json(conversationsDto.parse({ rows: await Promise.all(r.rows.map((item) => rowDto(item, inboxRefs))), total: r.total, nextOffset: next, counts: r.counts }));
+      return c.json(conversationsDto.parse({ rows: await Promise.all(r.rows.map((item) => rowDto(slug, item, inboxRefs))), total: r.total, nextOffset: next, counts: r.counts }));
     })
     .get("/api/projects/:slug/clients/:id/conversation", async (c) => {
       const slug = c.req.param("slug");
@@ -131,7 +138,7 @@ export function conversationRoutes({ repos, mail }: ConversationServices) {
         resolution = brand ? { brand, wroteTo: contextDraft?.brand === brand ? contextDraft.wroteTo ?? null : null, via: "address" as const, reason: "the conversation's recorded Mail context" } : null;
       }
       const composer = mailComposerContext({ mail: cfg.mail, brands: cfg.brands, signoff: cfg.signoff, languages: cfg.languages }, { account: composerAccount, accountAddresses: composerAccountAddresses, resolution }, contextDraft?.body ?? "");
-      return c.json(conversationDto.parse({ row: await rowDto(row, inboxRefs, f?.drafts ?? []), composer }));
+      return c.json(conversationDto.parse({ row: await rowDto(slug, row, inboxRefs, f?.drafts ?? []), composer }));
     })
     .get("/api/projects/:slug/clients/:id/conversation/mail", async (c) => {
       const slug = c.req.param("slug");

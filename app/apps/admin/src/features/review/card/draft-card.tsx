@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import type { ContactLinksDto } from "@hub/contract/local";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { refOf } from "@hub/contract/focus";
 import { ConversationComposer, ConversationComposerFooter } from "@hub/ui/product/conversation-frame";
@@ -38,13 +39,15 @@ export type CardProps = {
   say: (text: string) => void;
   embedded?: boolean;
   composerNotice?: ReactNode;
+  /** P131 O5: the client's Telegram and WhatsApp (their Notion card), for the Client menu. */
+  contact?: ContactLinksDto | null;
 };
 
 /**
  * One draft, designed once: header, about, checks (only when present), the draft, the action bar. The bar is a pure
  * function of the card's state (`card-state.ts`), so there is never a second primary and never a dead button.
  */
-export function DraftCard({ d, project, actions, now, advance, say, embedded = false, composerNotice }: CardProps) {
+export function DraftCard({ d, project, actions, now, advance, say, embedded = false, composerNotice, contact = null }: CardProps) {
   const qc = useQueryClient();
   const go = useGo();
   const { flow, read, send, close } = useSendFlow(project, d.id);
@@ -122,7 +125,7 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
   };
   const content = (
     <div className="flex min-w-0 flex-1 flex-col gap-3">
-        <CardHeader actions={actions} d={d} now={now} ready={state === "acknowledged"} />
+        <CardHeader actions={actions} contact={contact} d={d} now={now} ready={state === "acknowledged"} />
         {d.reason && (
           <p className="break-words text-sm">
             <span className="text-muted-foreground">Why this email: </span>

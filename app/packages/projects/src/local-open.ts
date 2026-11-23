@@ -2,10 +2,11 @@
 // absolute path here, inside that key's own root, and only `/usr/bin/open` is run, with an argv array and no shell.
 // Used by the server (`POST /api/local/:action`), `hub open` and `hub up`. Node only.
 import { execFile } from "node:child_process";
-import { appendFileSync, existsSync, lstatSync, mkdirSync, realpathSync } from "node:fs";
+import { appendFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, extname, isAbsolute, join, sep } from "node:path";
 import type { HubPaths } from "@hub/config/paths";
-import { hrefOf, LOCAL_ACTIONS, urlRefusal, type HrefActionId, type LocalActionId, type LocalArgs, type ServerActionId } from "@hub/contract/local";
+import { APP_KINDS, appsDto, hrefOf, LOCAL_ACTIONS, NO_APPS, urlRefusal, type AppKind, type AppsDto, type HrefActionId, type LocalActionId, type LocalArgs, type ServerActionId } from "@hub/contract/local";
 import type { Repos } from "@hub/db";
 
 /** The only program an Open runs. Absolute, so PATH cannot swap it. */
@@ -179,12 +180,12 @@ export type OpenerKind = "open" | "fake";
  * `HUB_OPENER`: unset is the real `open`, `fake` the recorder, refused unless the database is a throw-away one (`throwaway`:
  * the caller's `throwawayDbNamed` of `@hub/send`, as for `HUB_MAILER=fake`); anything else throws.
  */
-export function chooseOpener(env: { HUB_OPENER?: string | undefined }, paths: Pick<HubPaths, "state">, throwaway: boolean): { kind: OpenerKind; run: OpenRun } {
+export function chooseOpener(env: { HUB_OPENER?: string | undefined }, paths: Pick<HubPaths, "state">, throwaway: boolean): { kind: OpenerKind; run: OpenRun; probe: AppProbe } {
   const v = env.HUB_OPENER;
-  if (v === undefined || v === "") return { kind: "open", run: execFileOpen };
+  if (v === undefined || v === "") return { kind: "open", run: execFileOpen, probe: bundleProbe() };
   if (v !== "fake") throw new Error(`HUB_OPENER must be "fake" or unset, not "${v}"`);
   if (!throwaway) throw new Error("HUB_OPENER=fake needs HUB_DB (a throw-away database): it is for tests and demos only");
-  return { kind: "fake", run: fakeOpener(openerLog(paths)) };
+  return { kind: "fake", run: fakeOpener(openerLog(paths)), probe: fakeAppProbe(fakeAppsFile(paths)) };
 }
 
 /** The server can run `server` actions: macOS with `/usr/bin/open`, or the fake opener. */
@@ -195,3 +196,35 @@ export function localOpenAvailable(kind: OpenerKind = "open", o: { platform?: No
 
 /** The reason when Open is unavailable: one line for the route (501), `hub open` (exit 2) and the doctor. */
 export const LOCAL_OPEN_UNAVAILABLE = "Open needs macOS (open(1)): the Open buttons are hidden";
+
+// ---- P131 O2: which destination apps this Mac has. The probe opens, launches and reveals nothing: it looks for the app
+// bundle in the folders macOS installs apps into. (`open -Ra <App>` was the plan's first idea; `-R` reveals the app in a
+// Finder window, which a probe every 10 minutes must never do.)
+
+/** The bundle names each kind may be installed as (Telegram's macOS app, or Telegram Desktop; both take `tg:`). */
+export const APP_BUNDLES: Record<AppKind, readonly string[]> = { notion: ["Notion"], telegram: ["Telegram", "Telegram Desktop"], whatsapp: ["WhatsApp"] };
+
+/** Asks whether the apps are installed; never throws (an unreadable answer is "not installed", so the web link is used). */
+export type AppProbe = () => AppsDto;
+
+/** The real probe: `<name>.app` under `/Applications`, `~/Applications` or `/System/Applications`. */
+export function bundleProbe(o: { exists?: (p: string) => boolean; home?: string } = {}): AppProbe {
+  const exists = o.exists ?? existsSync;
+  const roots = ["/Applications", join(o.home ?? homedir(), "Applications"), "/System/Applications"];
+  return () => Object.fromEntries(APP_KINDS.map((k) => [k, APP_BUNDLES[k].some((name) => roots.some((r) => exists(join(r, `${name}.app`))))])) as AppsDto;
+}
+
+/** Where the fake probe reads its answer (`HUB_OPENER=fake`, e2e): `state/opener-apps.json`, `{"notion": true, ...}`. */
+export const fakeAppsFile = (paths: Pick<HubPaths, "state">): string => join(paths.state, "opener-apps.json");
+
+/** The fake probe: the file's answer, read at every probe so a test switches apps on and off; none without the file. */
+export function fakeAppProbe(file: string): AppProbe {
+  return () => {
+    try {
+      const parsed = appsDto.partial().safeParse(JSON.parse(readFileSync(file, "utf8")));
+      return parsed.success ? { ...NO_APPS, ...parsed.data } : NO_APPS;
+    } catch {
+      return NO_APPS;
+    }
+  };
+}

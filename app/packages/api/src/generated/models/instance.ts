@@ -5,10 +5,12 @@
  * The first checked OpenAPI slice of the Hub REST contract. The document is expanded by domain; streams, terminal sessions and local bridges stay out of ordinary generated JSON operations.
  * OpenAPI spec version: 0.1.0
  */
+import type { InstanceApps } from './instanceApps';
 
 export interface Instance {
   /** @minLength 1 */
   name: string;
   hasLogo: boolean;
   localOpen: boolean;
+  apps: InstanceApps;
 }

@@ -1,10 +1,13 @@
 import { ChevronDownIcon, ExternalLinkIcon } from "lucide-react";
+import type { ContactLinksDto } from "@hub/contract/local";
 import { useRef, useState } from "react";
 import { MARK_LABELS, type Mark } from "@hub/config";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { Menu, MenuCheckboxItem, MenuGroup, MenuGroupLabel, MenuItem, MenuLinkItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
+import { Menu, MenuCheckboxItem, MenuGroup, MenuGroupLabel, MenuItem, MenuPopup, MenuSeparator, MenuTrigger } from "@hub/ui/menu";
 import { Popover, PopoverClose, PopoverDescription, PopoverPopup, PopoverTitle } from "@hub/ui/popover";
 import { toastManager } from "@hub/ui/toast";
+import { chatDestinations } from "@/components/conversation/header-actions";
+import { OpenLinkItem } from "@/components/links/open-link";
 import { notionOf } from "@/lib/notion";
 import type { ReviewActions } from "../use-review-actions";
 import type { ReviewDraft } from "../source";
@@ -13,7 +16,7 @@ import type { ReviewDraft } from "../source";
  * The only place a client flag can change (never a control in a list row, never next to Send). Follow up and VIP apply
  * at once with an Undo toast; "Do not contact..." asks first, in a popover anchored to the button, and Undo follows.
  */
-export function ClientMenu({ d, actions }: { d: ReviewDraft; actions: ReviewActions }) {
+export function ClientMenu({ d, actions, contact = null }: { d: ReviewDraft; actions: ReviewActions; contact?: ContactLinksDto | null }) {
   const [confirm, setConfirm] = useState(false);
   const anchor = useRef<HTMLButtonElement>(null);
   const marks = d.client.marks;
@@ -28,6 +31,7 @@ export function ClientMenu({ d, actions }: { d: ReviewDraft; actions: ReviewActi
     });
   };
   const notion = notionOf(d);
+  const chats = chatDestinations(contact);
   const blocked = marks.includes("do_not_contact");
   return (
     <>
@@ -43,20 +47,24 @@ export function ClientMenu({ d, actions }: { d: ReviewDraft; actions: ReviewActi
               <span className="block font-normal text-muted-foreground">{d.client.email}</span>
             </MenuGroupLabel>
           </MenuGroup>
+          {/* P131 verdict 4: one item per intent. The app when this Mac has it, else the web page; "Open in browser" only beside the app. */}
           {notion.web ? (
-            <MenuLinkItem href={notion.web} rel="noopener noreferrer" target="_blank">
-              {notion.label}
-              <ExternalLinkIcon aria-hidden="true" className="ms-auto" />
-            </MenuLinkItem>
+            <>
+              <OpenLinkItem to={notion.web}>
+                {(l) => (
+                  <>
+                    {l.inApp ? notion.label : `${notion.label} (browser)`}
+                    <ExternalLinkIcon aria-hidden="true" className="ms-auto" />
+                  </>
+                )}
+              </OpenLinkItem>
+              <OpenLinkItem to={notion.web} web />
+            </>
           ) : (
             <MenuItem disabled>{notion.label}</MenuItem>
           )}
-          {notion.app && (
-            <MenuLinkItem href={notion.app}>
-              Open in the Notion app
-              <ExternalLinkIcon aria-hidden="true" className="ms-auto" />
-            </MenuLinkItem>
-          )}
+          <OpenLinkItem to={chats.telegram} />
+          <OpenLinkItem to={chats.whatsapp} />
           <MenuCheckboxItem checked={marks.includes("follow_up")} disabled={actions.pending} onCheckedChange={(on) => change("follow_up", on)}>
             {MARK_LABELS.follow_up}
           </MenuCheckboxItem>

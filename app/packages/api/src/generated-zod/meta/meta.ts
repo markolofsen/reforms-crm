@@ -17,7 +17,12 @@ import * as zod from 'zod';
 export const GetInstanceResponse = zod.object({
   "name": zod.string().min(1),
   "hasLogo": zod.boolean(),
-  "localOpen": zod.boolean()
+  "localOpen": zod.boolean(),
+  "apps": zod.object({
+  "notion": zod.boolean(),
+  "telegram": zod.boolean(),
+  "whatsapp": zod.boolean()
+})
 })
 
 /**

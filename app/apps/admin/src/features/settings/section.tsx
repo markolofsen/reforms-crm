@@ -7,6 +7,7 @@ import { useRoute } from "@/hooks/use-route";
 import { AgentTools } from "./agent/agent-tools";
 import { ChecksPane } from "./checks/checks-pane";
 import { ConnectionsView } from "./connections/connections-view";
+import { AppsRow } from "./mac/apps-row";
 import { AutostartRow } from "./mac/autostart-row";
 import { CoreBlock } from "./mac/core-block";
 import { MailPane } from "./mail/mail-pane";
@@ -68,13 +69,14 @@ export function ConnectionsScreen() {
   );
 }
 
-/** Settings ▸ This Mac: how this install runs on this Mac (start after a restart, P67) and its core version (P68). */
+/** Settings ▸ This Mac: how this install runs on this Mac (start after a restart, P67), the apps its links open in (P131) and its core version (P68). */
 export function MacScreen() {
   const route = useRoute();
   if (route.route !== "settings.mac") return null;
   return (
     <Page nav={<SubNav section="settings" />}>
       <AutostartRow />
+      <AppsRow />
       <CoreBlock />
     </Page>
   );

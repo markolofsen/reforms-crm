@@ -172,7 +172,7 @@ export function MessengerConversationPane({ chatId, project, actions, onBack }: 
     <ConversationFrame
       ariaLabel={`Conversation with ${name}`}
       composer={composer}
-      header={<ConversationHeader actions={<ConversationHeaderActions notionPageId={pageId} />} back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} subtitle={chat ? <ConversationHeaderFacts><span>{CHANNEL_LABEL[chat.channel]}</span><span>{chatStateLine(chat)}</span>{chat.client?.email && <ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={chat.client.email} />}{notionState && <IntegrationStatus detail={notionIdentityLine(chat) ?? undefined} label="Notion" state={notionState} />}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={name} />}
+      header={<ConversationHeader actions={<ConversationHeaderActions contact={chat?.contact} notionPageId={pageId} />} back={<ConversationBackButton onClick={onBack} onRestoreFocus={restoreListFocus} />} subtitle={chat ? <ConversationHeaderFacts><span>{CHANNEL_LABEL[chat.channel]}</span><span>{chatStateLine(chat)}</span>{chat.client?.email && <ConversationLabel className="min-w-0 max-w-[min(24rem,45vw)] truncate" value={chat.client.email} />}{notionState && <IntegrationStatus detail={notionIdentityLine(chat) ?? undefined} label="Notion" state={notionState} />}</ConversationHeaderFacts> : q.isPending ? "Loading conversation…" : "Conversation unavailable"} title={name} />}
       testId="messenger-conversation"
       dataAgentRef={refOf("chat", chat?.id ?? chatId)}
       historyActions={!scrollState.atLatest ? <ConversationScrollToLatest onClick={scrollState.scrollToLatest} /> : undefined}

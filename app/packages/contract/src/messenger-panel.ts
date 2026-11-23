@@ -1,5 +1,6 @@
 import { CHAT_INSTRUCTION_MAX, HIDDEN_LABELS, MESSENGER_TEXT_MAX, NUDGE_DAYS_MAX, NUDGE_DAYS_MIN, REPLY_MODES } from "@hub/config/chat-rules";
 import { z } from "zod";
+import { contactLinksDto } from "./local";
 import { notionIdentityDto, type NotionIdentityDto } from "./notion";
 import { MESSENGER_CHANNELS, type MessengerChannelDto } from "./messenger";
 export { MESSENGER_CHANNELS, messengerSendBody, messengerSendPreviewDto } from "./messenger";
@@ -119,6 +120,8 @@ export const messengerChatDto = z.strictObject({
   /** P84: why the Hub linked the chat by itself ("phone matches the client"), or null when the owner linked it. */
   autolinked: z.string().nullable(),
   triage: chatTriageDto,
+  /** P131 O5: what Open in Telegram / Open in WhatsApp opens: the chat's own number, else the client's Notion card. */
+  contact: contactLinksDto,
 });
 export type MessengerChatDto = z.infer<typeof messengerChatDto>;
 

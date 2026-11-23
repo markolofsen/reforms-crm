@@ -5,6 +5,7 @@ import { bumpTopic, createRepos, dataVersion, openDb } from "@hub/db";
 import { FakeDraftWriter, mailAppDraftWriter } from "@hub/agent/mail-drafts";
 import { createApp } from "./app";
 import { holdIdleSockets, listenErrorLine, onShutdown } from "./lifecycle";
+import { startAppsProbe } from "./apps-probe";
 import { appleMailAccounts, chooseProbeKind, fakeMailAccounts, fakeProbeDeps } from "./connections";
 import { configOf } from "./overview-facts";
 import { projectsRoot } from "./project-overview";
@@ -217,8 +218,11 @@ const focus = createFocusStore({ file: paths.focus });
 // P61: the local Open actions (Finder, a project file). HUB_OPENER=fake records each argv in state/opener.jsonl and opens nothing (refused without HUB_DB); a bad value stops the server here.
 const opener = chooseOpener(process.env, paths, throwawayDbNamed(process.env));
 const local = { deps: localOpenDeps(repos, paths), run: opener.run, available: localOpenAvailable(opener.kind) };
+// P131 O2: the destination apps this Mac has, at start and every 10 minutes (the probe opens nothing).
+const appsProbe = startAppsProbe(opener.probe);
+const localService = { ...local, apps: appsProbe };
 log.info(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens, each argv goes to state/opener.jsonl" : `open: ${local.available ? "on (/usr/bin/open, the admin page only)" : "off (not macOS): the Open buttons are hidden"}`);
-const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project) } });
+const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local: localService, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: allowListOf(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project) } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   log.info(`hub server on http://${info.address}:${info.port}`, { pid: process.pid });
@@ -241,6 +245,7 @@ onShutdown({
   exit: (code) => process.exit(code),
   stop: async () => {
     live.stop();
+    appsProbe.stop();
     purge.stop();
     linker.stop();
     coreUpdates.stop();
