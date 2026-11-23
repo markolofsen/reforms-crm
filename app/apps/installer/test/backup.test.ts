@@ -6,7 +6,9 @@ import { openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
 import { INSTANCE_TEMPLATE } from "../src/init";
 import { CORE_ROOT } from "@hub/config/paths";
-import { backup, checkManifest, KEEP, listSnapshots, MANIFEST, readManifest, resolveTarget, sha256File, staleDriveMount, verify } from "../src/backup";
+import { backup } from "../src/commands/backup/snapshot";
+import { checkManifest, KEEP, listSnapshots, MANIFEST, readManifest, resolveTarget, sha256File, staleDriveMount } from "../src/commands/backup/manifest";
+import { verify } from "../src/commands/backup/verify";
 import { STEPS } from "../src/steps/index";
 import { fake, type Call } from "./helpers";
 
