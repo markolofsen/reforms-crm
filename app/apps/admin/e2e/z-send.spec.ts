@@ -37,7 +37,7 @@ test("Send needs the checks read, shows the exact mail to confirm, can be cancel
   // The confirm line (role status); the card's From line (P58) also names the To.
   await expect(card.getByRole("status").filter({ hasText: /To sofia@example\.com/ })).toBeVisible();
   await expect(card.getByText(/Re: Any news on the offer\?/).first()).toBeVisible();
-  await expect(card.locator("pre")).toContainText("Thank you for your message");
+  await expect(card.getByRole("region", { name: "Draft", exact: true })).toContainText("Thank you for your message");
   await expect(page.getByRole("dialog")).toHaveCount(0);
 
   // Cancel: nothing happened

@@ -72,7 +72,7 @@ test("chats: Hide takes a chat off To do with Undo; Hidden lists it with Unhide 
   await pick(fresh(page).getByRole("listitem", { name: "Joana" }), "Hide: not a client");
   await expect(page.getByText("Hid Joana: not a client")).toBeVisible();
   await expect(fresh(page).getByRole("listitem", { name: "Joana" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("region", { name: "Notifications" }).getByRole("button", { name: "Undo" }).click();
   await expect(fresh(page).getByRole("listitem", { name: "Joana" })).toBeVisible();
   expect(s.posts.map((p) => p.path)).toEqual([`/api/projects/${P}/messengers/autolink/hide`, `/api/projects/${P}/messengers/autolink/unhide`]);
   expect(s.posts[0]?.body).toEqual({ channel: "whatsapp", chatId: "+351911000111" });
@@ -105,7 +105,7 @@ test("chats: the link box finds the card made a minute ago by name or email, sho
   await box.fill("suenot@");
   await expect(found.getByRole("button")).toHaveText([/^Евгений\s*suenot@example\.test$/]);
   await found.getByRole("button").click();
-  await expect(page.getByText("Linked · 7 messages of the last 30 days loaded")).toBeVisible();
+  await expect(page.getByText("7 messages from the last 30 days loaded")).toBeVisible();
   await expect(page.getByText("Telegram set to suenot in Notion")).toBeVisible();
   await expect(fresh(page).getByRole("listitem", { name: "Delivery bot fan" })).toHaveCount(0);
   expect(s.posts.filter((p) => p.path.endsWith("/autolink/link")).map((p) => p.body)).toEqual([{ channel: "telegram_user", account: "42", chatId: "9002", key: "n-evg", title: "Delivery bot fan" }]);
@@ -126,7 +126,7 @@ test("chats: nothing matches, so Create client makes the card with the chat's us
   await form.getByRole("textbox", { name: "Name" }).fill("Evgeniy");
   await form.getByRole("textbox", { name: "Email" }).fill("suenot@example.test");
   await form.getByRole("button", { name: "Create and link" }).click();
-  await expect(page.getByText("Linked · 7 messages of the last 30 days loaded")).toBeVisible();
+  await expect(page.getByText("7 messages from the last 30 days loaded")).toBeVisible();
   await expect(page.getByText("Created Evgeniy in Notion with Telegram suenot")).toBeVisible();
   expect(s.posts.filter((p) => p.path.endsWith("/autolink/create")).map((p) => p.body)).toEqual([{ channel: "telegram_user", account: "42", chatId: "9002", title: "Delivery bot fan", name: "Evgeniy", email: "suenot@example.test" }]);
 });
@@ -142,7 +142,7 @@ test("chats: Change client moves the chat with its messages (Undo moves it back)
   await rita(page).getByRole("list", { name: "Matching clients in Notion" }).getByRole("button").click();
   await expect(page.getByText("Moved Rita F. to Евгений")).toBeVisible();
   await expect(page.getByText(/Its messages stayed with the chat\. The draft for Rita Falsa was skipped; Undo brings it back\./)).toBeVisible();
-  await page.getByRole("button", { name: "Undo" }).click();
+  await page.getByRole("region", { name: "Notifications" }).getByRole("button", { name: "Undo" }).click();
   const writes = s.posts.filter((p) => !p.path.endsWith("/autolink/records"));
   expect(writes.map((p) => p.path.replace(/\/\d+\//, "/:id/"))).toEqual([`/api/projects/${P}/messengers/chats/:id/client`, `/api/projects/${P}/messengers/chats/:id/client/undo`]);
   expect(writes[0]?.body).toEqual({ key: "n-evg" });
@@ -165,16 +165,16 @@ test("chats: a hidden chat can be linked, and Link a chat… starts from the cli
   await pick(spam, "Link to a client…");
   await spam.getByRole("searchbox", { name: /A client in Notion/ }).fill("suenot@");
   await spam.getByRole("list", { name: "Matching clients in Notion" }).getByRole("button").click();
-  await expect(page.getByText("Linked · 7 messages of the last 30 days loaded")).toBeVisible();
+  await expect(page.getByText("7 messages from the last 30 days loaded")).toBeVisible();
   expect(s.posts.find((p) => p.path.endsWith("/autolink/link"))?.body).toEqual({ channel: "whatsapp", account: "351900000001", chatId: "+351922000222", key: "n-evg", title: "Spam Sender" });
 
   await page.goto(at(P, "/messengers"));
-  await page.getByRole("button", { name: "Link a chat…" }).click();
+  await page.getByRole("button", { name: "Link a chat", exact: true }).click();
   const box = page.getByRole("region", { name: "Link a chat" });
   await box.getByRole("searchbox", { name: /A client in Notion/ }).fill("suenot@");
   await box.getByRole("list", { name: "Matching clients in Notion" }).getByRole("button").click();
   const chats = box.getByRole("list", { name: "Chats of 42" });
-  await expect(chats.getByRole("listitem")).toHaveText([/Delivery bot fan.*@suenot.*Matches Евгений/, /Rita F\..*Linked/]);
+  await expect(chats.getByRole("listitem")).toHaveText([/Delivery bot fan.*@suenot.*Matches Евгений/, /Rita F\..*Already linked/]);
   await chats.getByRole("button", { name: "Link Delivery bot fan to Евгений" }).click();
-  await expect(page.getByText("Linked · 7 messages of the last 30 days loaded")).toBeVisible();
+  await expect(page.getByText("7 messages from the last 30 days loaded")).toBeVisible();
 });

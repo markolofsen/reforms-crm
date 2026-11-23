@@ -33,8 +33,10 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   await page.getByRole("menuitemradio", { name: /Linked/ }).click();
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=linked");
   await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("Waiting for client")).toBeVisible();
-  // P71 M-P: the seeded verdicts of Sofia's chat, counted by reason on its row.
-  await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("Pre-analysis: hid 1 of 2 (1 closing).")).toBeVisible();
+  // P71 M-P: the seeded verdicts of Sofia's chat, counted by reason under its Pre-analysis switch (P115: the compact row shows
+  // identity and state only).
+  await page.goto(at(P, "/messengers/settings"));
+  await expect(page.getByRole("listitem", { name: "Rules for Sofia Teste" }).getByText("Pre-analysis: hid 1 of 2 (1 closing).")).toBeVisible();
   // Mail drafts stay in Drafts, and messenger drafts never go there.
   await page.goto(at(P, "/mail?filter=all"));
   await page.locator('ul[aria-label="People"] > li').first().waitFor();
@@ -105,10 +107,11 @@ test("messengers settings: a chat's reply mode and instruction are saved and rea
   await expect(rules.getByRole("button", { name: "Save instruction" })).toBeDisabled();
   await page.reload();
   await expect(rules.getByRole("button", { name: "Only when I ask" })).toHaveAttribute("aria-pressed", "true");
-  await expect(rules.getByLabel("Your instruction for this chat")).toHaveValue("Short and formal.");
+  // P93: the instruction is a Markdown editor, so its text is read, not a value.
+  await expect(rules.getByLabel("Your instruction for this chat")).toHaveText("Short and formal.");
   // P71 M-P: the switch's note says what it does (the e2e server runs HUB_LLM=fake: nothing leaves it).
   await expect(rules.getByText(/A cheap model reads each new message and the two before it/)).toBeVisible();
-  await expect(rules.getByText(/fake model \(HUB_LLM=fake\)/)).toBeVisible();
+  await expect(rules.getByText(/local test model; no request leaves this computer/)).toBeVisible();
   await expect(page.getByText(/nothing reads this switch/)).toHaveCount(0);
   await page.goto(at(P, "/messengers?filter=linked"));
   await expect(rita(page)).toContainText(/Only when I ask|Client wrote|Draft ready/);

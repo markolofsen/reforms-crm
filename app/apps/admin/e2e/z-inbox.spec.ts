@@ -82,7 +82,8 @@ test("inbox: No reply needed closes the client, and Undo brings them back", asyn
   await person(page, "Omar Test").getByRole("button").first().click();
   await pane(page).getByRole("button", { name: "No reply needed" }).click();
   await expect(person(page, "Omar Test")).toHaveCount(0);
-  await page.getByRole("button", { name: "Undo" }).click();
+  // The toast's Undo; the reply composer of the next person has its own (text) Undo.
+  await page.getByRole("region", { name: "Notifications" }).getByRole("button", { name: "Undo" }).click();
   await expect(person(page, "Omar Test")).toHaveCount(1);
 });
 
