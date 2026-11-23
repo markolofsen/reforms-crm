@@ -2,6 +2,8 @@
 // Works on a `claude -p --output-format stream-json` log and on a Claude Code session transcript (both are JSONL
 // with `assistant` messages carrying `tool_use` blocks). Read only; nothing here talks to Mail or Notion.
 
+import { notionDenial } from "./notion-denied";
+
 export interface ToolCall {
   name: string;
   input: unknown;
@@ -133,7 +135,9 @@ export function auditToolCalls(calls: ReadonlyArray<ToolCall>, slug: string, acc
     if (c.name.startsWith(KNOWLEDGE) && typeof input.project === "string" && input.project !== slug) {
       out.push(`${short} named project "${input.project}" in a ${slug} run`);
     }
-    if (SEND_CAPABLE.test(c.name) || SEND_CAPABLE.test(short)) out.push(`${short} is a send-capable tool (drafts only, nothing may be sent)`);
+    const denied = notionDenial(c.name);
+    if (denied) out.push(denied);
+    else if (SEND_CAPABLE.test(c.name) || SEND_CAPABLE.test(short)) out.push(`${short} is a send-capable tool (drafts only, nothing may be sent)`);
     if (typeof input.command === "string" && HUB_SEND.test(input.command)) out.push(`${short} runs hub send (only a person or the hub's own runner sends; the agent never does)`);
     const seq = typeof input.command === "string" ? sequenceRefusal(input.command) : null;
     if (seq) out.push(`${short} runs ${seq}`);

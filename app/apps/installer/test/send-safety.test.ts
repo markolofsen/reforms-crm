@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context";
 import { makeInstance } from "./instance-fixture";
 import { auditLayout, guardDecision, writeSessionFiles } from "../src/safety";
-import { DENIED_TOOLS, deniedToolsOf, denyRules, HUB_API_COMMANDS, HUB_MCP_SERVERS, NOTION_DENIED } from "@hub/agent/deny";
+import { DENIED_TOOLS, deniedToolsOf, denyRules, HUB_API_COMMANDS, HUB_MCP_SERVERS } from "@hub/agent/deny";
+import { NOTION_DENIED } from "@hub/projects/notion-denied";
 import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 
 // Decision 0011: the agent gets NO send tool, in any mode. Sending is a hub command. If a rule below is removed or a

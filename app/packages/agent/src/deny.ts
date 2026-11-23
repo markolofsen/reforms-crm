@@ -1,44 +1,17 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { dropFolder, pathsAt, SHELL_DROPS, type HubPaths } from "@hub/config/paths";
+import { NOTION_DENIED, NOTION_PREFIX } from "@hub/projects/notion-denied";
 
 // What a hub agent session may never do, in both CLIs (plan p17, P49 S10). These match tool names and command text, so
 // they are a belt, not the boundary: a decimal IP or a script defeats a text rule. In unattended mode the OS sandbox is
 // the boundary (`session.ts`); these stay on in every mode.
 
 /**
- * The hosted Notion MCP's tools a hub session may never call, with why: one declarative list (P129 A0, P131 verdict 6).
- * Claude's deny rules and `--disallowedTools`, Codex's `disabled_tools` and the guard hook all read it; the guard refuses
- * each in every mode, warn included (`apps/installer/src/safety.ts`). P112 S3 later turns Notion to an allow-list here.
- */
-export const NOTION_DENIED: ReadonlyArray<{ readonly tool: string; readonly why: string }> = [
-  { tool: "notion-delete-pages", why: "it deletes pages" },
-  { tool: "notion-delete-databases", why: "it deletes databases" },
-  { tool: "notion-delete-comment", why: "it deletes a comment" },
-  { tool: "notion-move-pages", why: "it moves pages out of the project's databases" },
-  { tool: "notion-calendar-cancel-events", why: "it cancels events and mails their attendees" },
-  // Creating or updating an event can invite its attendees by mail.
-  { tool: "notion-calendar-create-events", why: "an event can invite its attendees by mail" },
-  { tool: "notion-calendar-update-events", why: "an event can invite its attendees by mail" },
-  // They start or message a Notion agent, which then acts outside this session's rules.
-  { tool: "notion-send-message-to-session", why: "it messages a Notion agent, which acts outside this session's rules" },
-  { tool: "notion-spawn-session", why: "it starts a Notion agent, which acts outside this session's rules" },
-];
-
-const NOTION_PREFIX = "mcp__notion__";
-
-/** Why a Notion tool is refused (from {@link NOTION_DENIED}), or null when the list does not name it. */
-export function notionDenial(name: string): string | null {
-  if (!name.startsWith(NOTION_PREFIX)) return null;
-  const d = NOTION_DENIED.find((e) => e.tool === name.slice(NOTION_PREFIX.length));
-  return d ? `${d.tool} is denied in every mode: ${d.why}` : null;
-}
-
-/**
  * Tools that send, forward, delete or cancel. Denied outright: drafts only, nothing is ever sent or removed. mail-mcp's
  * `create_reply` too (P52, decision 0030): it pastes through a compose window that needs Mail in front and leaves an empty
  * reply when the owner's browser is; drafts are written by the hub MCP server's `draft_write`. The Notion part is
- * {@link NOTION_DENIED}.
+ * `NOTION_DENIED` of `@hub/projects/notion-denied`.
  */
 export const DENIED_TOOLS: readonly string[] = [
   "mcp__mail-mcp__create_reply",

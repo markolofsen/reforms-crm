@@ -11,7 +11,8 @@
     "./parse": "./src/parse.ts",
     "./dev": "./src/dev.ts",
     "./hub-commands": "./src/hub-commands.ts",
-    "./local-open": "./src/local-open.ts"
+    "./local-open": "./src/local-open.ts",
+    "./notion-denied": "./src/notion-denied.ts"
   },
   "scripts": {
     "project": "tsx src/cli.ts",
