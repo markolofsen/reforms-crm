@@ -11,7 +11,7 @@ import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 import { buildClaudeArgs } from "../src/agent";
 import { auditLayout } from "../src/safety";
 import { readEvents, logStoreOf } from "@hub/log/store";
-import { makeInstance } from "./instance-fixture";
+import { beforeContextBlock, makeInstance } from "./instance-fixture";
 
 const PROJECTS = path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures", "projects");
 const tmp = () => makeInstance().home;
@@ -225,7 +225,7 @@ describe("record-draft enforces draft.recipients", () => {
   const cfg = () => { const f = path.join(tmp(), "config.json"); writeFileSync(f, JSON.stringify({ allow_list: ["me@mine.example"] })); return f; };
   const run = (over: Record<string, unknown>, project = "acme-travel") => {
     const db = path.join(tmp(), "app.db");
-    return recordDraft({ project, payload: JSON.stringify({ email: "me@mine.example", subject: "s", mailRef: "<1@x>", ...over }), dbPath: db, attempts: 1, projectsDir: PROJECTS, configFile: cfg() }).then(async (r) => ({ r, db }));
+    return recordDraft({ project, payload: JSON.stringify({ email: "me@mine.example", subject: "s", mailRef: "<1@x>", ...over }), dbPath: db, attempts: 1, projectsDir: PROJECTS, configFile: cfg(), now: beforeContextBlock }).then(async (r) => ({ r, db }));
   };
   it("test mode: allow-list address passes", async () => {
     expect((await run({})).r.code).toBe(0);

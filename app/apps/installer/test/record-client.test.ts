@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb } from "@hub/db";
 import { recordClient } from "../src/record-client";
 import { recordDraft } from "../src/record-draft";
+import { beforeContextBlock } from "./instance-fixture";
 
 let dir: string;
 let dbPath: string;
@@ -44,11 +45,11 @@ describe("hub record-client", () => {
   });
 
   it("record-draft states the notion kind and lists the drafted client in the inbox", async () => {
-    const r = await recordDraft({ project: "acme", dbPath, payload: JSON.stringify({ email: "c@x.example", name: "Cy", subject: "Re", mailRef: "<c@x>", notion: { kind: "client", url: "https://www.notion.so/Cy-" + ID } }) });
+    const r = await recordDraft({ project: "acme", dbPath, payload: JSON.stringify({ email: "c@x.example", name: "Cy", subject: "Re", mailRef: "<c@x>", notion: { kind: "client", url: "https://www.notion.so/Cy-" + ID } }), now: beforeContextBlock });
     expect(r.code).toBe(0);
     expect(JSON.parse(r.line).notice).toBeUndefined();
     expect(await rows()).toMatchObject([{ email: "c@x.example", action: "drafted", notionKind: "client", owed: false }]);
-    const noted = await recordDraft({ project: "acme", dbPath, payload: JSON.stringify({ email: "d@x.example", subject: "Re", mailRef: "<d@x>" }) });
+    const noted = await recordDraft({ project: "acme", dbPath, payload: JSON.stringify({ email: "d@x.example", subject: "Re", mailRef: "<d@x>" }), now: beforeContextBlock });
     expect(JSON.parse(noted.line).notice).toMatch(/notion not stated/);
   });
 
@@ -62,7 +63,7 @@ describe("record-draft stores what the draft was based on", () => {
   it("a complete context lands as basedOn with its own evidence level; none lands as missing and red", async () => {
     const ctx = { batchKey: "k1", thread: { firstContact: false, found: 1, read: 1, readIds: [7], cited: [7], newest: "2026-11-10", rows: [{ date: "2026-11-10", who: "Cy", subject: "Terms", excerpt: "Can you confirm the terms?" }] }, profile: { read: true, state: "filled", editedAt: "2026-11-01" }, facts: { queries: 1, used: ["k-1"], missing: [] }, anchors: ["asked to confirm the terms of the second unit"], personalization: "Cy asked about the terms of the second unit in Lisbon, not the first." };
     await recordDraft({ project: "acme", dbPath, payload: JSON.stringify({ email: "cy@x.example", name: "Cy", subject: "Re", mailRef: "<cy@x>", notion: { kind: "client", pageId: ID }, lastContactAt: "2026-11-10T09:00:00Z", repliesOwed: true, context: ctx }) });
-    await recordDraft({ project: "acme", dbPath, payload: JSON.stringify({ email: "no@x.example", name: "No", subject: "Re", mailRef: "<no@x>" }) });
+    await recordDraft({ project: "acme", dbPath, payload: JSON.stringify({ email: "no@x.example", name: "No", subject: "Re", mailRef: "<no@x>" }), now: beforeContextBlock });
     const h = openDb(dbPath);
     try {
       const all = await createRepos(h.db).clients.review("acme", "all");

@@ -6,7 +6,7 @@ import path from "node:path";
 import { createRepos, openDb } from "@hub/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import { defaultRoot } from "../src/context";
-import { anyRecipients } from "./instance-fixture";
+import { anyRecipients, beforeContextBlock, contextWarn } from "./instance-fixture";
 import { recordDraft } from "../src/record-draft";
 
 let db: string;
@@ -16,7 +16,7 @@ beforeEach(() => {
 
 const payload = (over: Record<string, unknown> = {}) => JSON.stringify({ email: "Client@Example.com", name: "Cli Ent", subject: "Re: hello", mailRef: "<m1@example.com>", ...over });
 const run = (over: Record<string, unknown> = {}, o: { project?: string; raw?: string; attempts?: number } = {}) =>
-  recordDraft({ project: o.project ?? "acme", payload: o.raw ?? payload(over), dbPath: db, attempts: o.attempts ?? 1, retryMs: 5 });
+  recordDraft({ project: o.project ?? "acme", payload: o.raw ?? payload(over), dbPath: db, attempts: o.attempts ?? 1, retryMs: 5, now: beforeContextBlock });
 const rowsOf = () => {
   const h = openDb(db);
   const out = createRepos(h.db).clients.list("acme");
@@ -74,7 +74,7 @@ describe("hub record-draft", () => {
     const blocker = spawn("node", ["-e", `const {DatabaseSync}=require("node:sqlite");const d=new DatabaseSync(${JSON.stringify(db)});d.exec("pragma busy_timeout=0; begin immediate");console.log("locked");setTimeout(()=>{},60000)`], { stdio: ["ignore", "pipe", "inherit"] });
     await new Promise((r) => blocker.stdout.once("data", r));
     const t0 = Date.now();
-    const busy = await recordDraft({ project: "acme", payload: payload(), dbPath: db, attempts: 2, retryMs: 5 });
+    const busy = await recordDraft({ project: "acme", payload: payload(), dbPath: db, attempts: 2, retryMs: 5, now: beforeContextBlock });
     expect(Date.now() - t0).toBeGreaterThanOrEqual(5000); // the 5 s busy timeout of openDb, at least once
     expect(busy.code).toBe(1);
     expect(JSON.parse(busy.line)).toMatchObject({ ok: false, code: "busy" });
@@ -88,6 +88,7 @@ describe("hub record-draft", () => {
     // the CLI now loads the project (draft.recipients): a copy of the fixture with recipients = any
     const projects = mkdtempSync(path.join(tmpdir(), "hub-rec-proj-"));
     cpSync(path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures", "projects", "acme-travel"), path.join(projects, "acme"), { recursive: true });
+    contextWarn(path.join(projects, "acme", "project.md"));
     const hubHome = mkdtempSync(path.join(tmpdir(), "hub-rec-home-"));
     anyRecipients(path.join(hubHome, "state", "projects"), "acme"); // the CLI reads the instance's send policy (P49 S11)
     const r = await execa("node", [bin, "record-draft", "--project", "acme"], { input: payload(), reject: false, env: { ...process.env, HUB_HOME: hubHome, HUB_DB: db, HUB_PROJECTS: projects, HUB_LEDGER_ROOT: mkdtempSync(path.join(tmpdir(), "hub-led-")), NO_COLOR: "1" }, timeout: 60_000 });

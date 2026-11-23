@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { createRepos, openDb } from "@hub/db";
 import { describe, expect, it } from "vitest";
-import { anyRecipients } from "./instance-fixture";
+import { anyRecipients, beforeContextBlock } from "./instance-fixture";
 import { defaultRoot } from "../src/context";
 import { recordDraft } from "../src/record-draft";
 
@@ -14,7 +14,7 @@ cpSync(path.join(defaultRoot(), "app", "packages", "projects", "test", "fixtures
 const POLICY = anyRecipients(path.join(projects, "..", `policy-${path.basename(projects)}`), "acme");
 
 const run = (db: string, over: Record<string, unknown>) =>
-  recordDraft({ project: "acme", payload: JSON.stringify({ email: "c@example.com", subject: "Re: x", mailRef: "<m@x>", ...over }), dbPath: db, attempts: 1, projectsDir: projects, policyDir: POLICY });
+  recordDraft({ project: "acme", payload: JSON.stringify({ email: "c@example.com", subject: "Re: x", mailRef: "<m@x>", ...over }), dbPath: db, attempts: 1, projectsDir: projects, policyDir: POLICY, now: beforeContextBlock });
 
 describe("record-draft: send facts", () => {
   it("stores mailClass and injectionSuspected", async () => {
