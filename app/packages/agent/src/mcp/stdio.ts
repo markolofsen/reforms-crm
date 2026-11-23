@@ -3,7 +3,7 @@ import { hubPaths, instanceFeatures, instancePorts } from "@hub/config/paths";
 import { bumpTopicIn, createRepos, openDb, openDbReadOnly } from "@hub/db";
 import { createNotionReader, findClientByEmail, findLeadByEmail, loadToken, NoTokenError, secretsDir } from "@hub/notion";
 import { join } from "node:path";
-import { loadProject, readAllowList, testRecipientsOf } from "@hub/projects";
+import { projectStore, readAllowList, testRecipientsOf } from "@hub/projects";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
 import { mailAppDraftWriter } from "@hub/mail-app/writer";
 import type { NotionClientCheck, RevisionRecord, VersionRecord } from "./ports";
@@ -24,11 +24,11 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   const paths = hubPaths({ env });
   const handle = openDbReadOnly(paths.db);
   const projectMail = (slug: string) => {
-    const c = loadProject(paths.projects, slug).parsed.config;
+    const c = projectStore({ projects: paths.projects }).config(slug);
     return { accounts: c.mail.accounts, sender: c.mail.sender, identity: { addresses: c.mail.addresses, domains: c.mail.domains, signoff: c.signoff, brands: c.brands, languages: c.languages }, messengers: c.messengers };
   };
   // P129 verdict 5: what `project_show` returns a slice of, with the send policy applied (read per call: it may change).
-  const projectConfig = (slug: string) => loadProject(paths.projects, slug, { policyDir: paths.stateProjects }).parsed.config;
+  const projectConfig = (slug: string) => projectStore({ projects: paths.projects, stateProjects: paths.stateProjects }).config(slug);
   // A revision the writer saved is recorded in place on a short write connection, closed at once (the tools' handle stays read-only).
   const recordRevision = async (slug: string, draftId: number, r: RevisionRecord) => {
     const w = openDb(paths.db);
@@ -61,7 +61,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
   const leadRepos = createRepos(handle.db);
   // P87: a new thread's address is checked against the project's Notion Clients (read only, the project's token file).
   const clientInNotion = async (slug: string, email: string): Promise<NotionClientCheck> => {
-    const cfg = loadProject(paths.projects, slug).parsed.config;
+    const cfg = projectStore({ projects: paths.projects }).config(slug);
     const ds = cfg.notion.databases.find((d) => d.slug === "clients")?.dataSourceId;
     if (!ds) return { state: "unavailable", reason: "project.md lists no clients database (## Notion databases); fix it with the phrase of project-setup" };
     const file = cfg.notion.tokenFile;
@@ -83,7 +83,7 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
     return lead.state === "lead" ? { state: "lead", pageId: lead.pageId } : { state: "not_client" };
   };
   // P92: the owner's test addresses while the project's send policy is test mode (read per call: the policy may change).
-  const testRecipients = (slug: string) => testRecipientsOf(loadProject(paths.projects, slug, { policyDir: paths.stateProjects }).parsed.config, readAllowList(paths.configFile));
+  const testRecipients = (slug: string) => testRecipientsOf(projectStore({ projects: paths.projects, stateProjects: paths.stateProjects }).config(slug), readAllowList(paths.configFile));
   // Decision 0046: `messenger_send` exists only in an attended instance (read at start; the server refuses an unattended one anyway).
   const attended = !instanceFeatures(paths).agent.unattended;
   const agentSend = attended ? { agentSend: httpAgentSend({ port: () => instancePorts(paths, env).api, token: () => readAgentSendToken(paths) }) } : {};

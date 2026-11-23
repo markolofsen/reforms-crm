@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { isExpired, type Repos } from "@hub/db";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { entryBrandProblem } from "@hub/projects/brand";
 import type { ProjectConfig } from "@hub/projects/model";
 import { EntryError, parseEntry } from "./entry";
@@ -51,7 +51,7 @@ export async function checkProject(repos: Repos, root: string, slug: string, tod
   }
   let config: Pick<ProjectConfig, "knowledge" | "brands"> = { knowledge: { source: "files", scope: "shared" }, brands: [] };
   try {
-    config = loadProject(root, slug).parsed.config;
+    config = projectStore({ projects: root }).config(slug);
   } catch {
     /* no readable project.md: shared, as the indexer */
   }

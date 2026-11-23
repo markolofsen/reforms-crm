@@ -504,8 +504,8 @@ program.command("open").description("Open a project's folder or file in Finder o
           const repos = createRepos(h.db);
           const row = await repos.drafts.get(id);
           if (!row || (project && row.project !== project)) return { mailRef: null, draft: null, why: `no draft ${id}${project ? ` in project ${project}` : ""}` };
-          const [{ findMail, mailAppDraftsCleaner }, { loadProject }] = await Promise.all([import("@hub/send"), import("@hub/projects")]);
-          const accounts = loadProject(paths.projects, row.project).parsed.config.mail.accounts;
+          const [{ findMail, mailAppDraftsCleaner }, { projectStore }] = await Promise.all([import("@hub/send"), import("@hub/projects")]);
+          const accounts = projectStore({ projects: paths.projects }).config(row.project).mail.accounts;
           const f = await findMail({ mailer: mailAppDraftsCleaner() }, row, "strict", { accounts, versions: await repos.mailVersions.ofDraft(row.id) });
           return { mailRef: row.mailRef, draft: f.mail?.messageId ?? null, why: f.mail ? null : (f.reason ?? null) };
         } finally {

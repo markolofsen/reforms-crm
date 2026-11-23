@@ -1,4 +1,4 @@
-import { loadProjects } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { readJson } from "../context";
 import { verifyProjectDatabases } from "../notion-check";
 import path from "node:path";
@@ -42,7 +42,7 @@ export const notionSteps: Step[] = [
       ],
     },
     async check(ctx) {
-      const projects = loadProjects(ctx.paths.projects);
+      const projects = projectStore({ projects: ctx.paths.projects }).list();
       const needs = projects.filter((p) => p.parsed.config.notion.databases.length > 0);
       if (!needs.length) return pass("no project lists Notion databases yet");
       const sharedOnly = needs.every((p) => p.parsed.config.notion.tokenFile === NOTION_FILE);

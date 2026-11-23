@@ -1,7 +1,7 @@
 import { unresolvedMarkers } from "@hub/config";
 import { withoutLeadingBlankLines, type DraftRow, type Repos, type SendRow } from "@hub/db";
 import { isOwnAddress } from "@hub/projects/brand";
-import { checkDraftRecipients, loadProject, normalizeAddress } from "@hub/projects";
+import { checkDraftRecipients, projectStore, normalizeAddress } from "@hub/projects";
 import type { ProjectConfig } from "@hub/projects/model";
 import type { MailDraft } from "@hub/mail-app/drafts";
 import type { Mailer } from "./mailer";
@@ -85,7 +85,7 @@ export async function assess(deps: SendDeps, draftId: number, o: AssessOptions):
 
   let config: ProjectConfig | undefined;
   try {
-    config = loadProject(deps.projectsDir, project, { policyDir: deps.policyDir }).parsed.config;
+    config = projectStore({ projects: deps.projectsDir, stateProjects: deps.policyDir }).config(project);
   } catch (e) {
     reasons.push(`project ${project} cannot be loaded: ${(e as Error).message}`);
   }

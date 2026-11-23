@@ -1,6 +1,6 @@
 import { join } from "node:path";
-import { doctorProject, loadProjects } from "@hub/projects";
-import { ProjectBase, type ProjectConfig } from "@hub/projects/model";
+import { doctorProject, type ProjectStore } from "@hub/projects";
+import { ProjectBase } from "@hub/projects/model";
 import type { ProjectRow, Repos } from "@hub/db";
 import { countMarkdown } from "./project-doctor";
 
@@ -37,17 +37,8 @@ export function localDate(now: Date, tz: string): string {
 
 export const hostTimeZone = (): string => Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-const DEFAULT_CONFIG = ProjectBase.parse({ schema: 1, slug: "x", kind: "x", name: "x" });
-
-/** The parsed settings of a registry row; a row whose JSON no longer parses gets the defaults (and shows as it is). */
-export function configOf(row: ProjectRow): ProjectConfig {
-  try {
-    const r = ProjectBase.safeParse(JSON.parse(row.settingsJson));
-    return r.success ? r.data : DEFAULT_CONFIG;
-  } catch {
-    return DEFAULT_CONFIG;
-  }
-}
+/** What a registered project without its folder shows (the doctor names the missing file); never a config to act on. */
+const UNREAD_CONFIG = ProjectBase.parse({ schema: 1, slug: "x", kind: "x", name: "x" });
 
 /** What one project's status is judged from: SQLite and its folder, read inside the request. Counts only, never a client fact. */
 export interface ProjectFacts {
@@ -80,9 +71,8 @@ export interface ProjectFacts {
 
 export interface FactsInput {
   repos: Repos;
-  root: string;
-  /** Where send-policy.json lives; without it the safe defaults show (drafts only, the test list). */
-  policyDir?: string;
+  /** Each project's folder and config with its send policy; a store without `stateProjects` shows the safe defaults. */
+  projects: ProjectStore;
   now: Date;
   hostZone: string;
   rows: ProjectRow[];
@@ -90,18 +80,18 @@ export interface FactsInput {
 
 /** Facts for every registered project that is not a scratch one (`_` prefix). */
 export async function gatherFacts(i: FactsInput): Promise<ProjectFacts[]> {
-  const folders = loadProjects(i.root, i.policyDir ? { policyDir: i.policyDir } : {});
+  const folders = i.projects.list();
   const out: ProjectFacts[] = [];
   for (const row of i.rows) {
     if (row.slug.startsWith("_")) continue;
-    const c = configOf(row);
+    const loaded = folders.find((f) => f.slug === row.slug);
+    // P126 P3: read from project.md with its send policy (P49 S11), never from the registry's snapshot.
+    const c = loaded?.parsed.config ?? i.projects.find(row.slug) ?? UNREAD_CONFIG;
     const tz = c.timezone ?? i.hostZone;
     const day = new Date(i.now.getTime() - 24 * HOUR);
     const stuckBefore = new Date(i.now.getTime() - STUCK_MINUTES * 60_000);
     const s = await i.repos.sends.summarySince(row.slug, { today: startOfLocalDay(i.now, tz).toISOString(), day: day.toISOString(), stuckBefore: stuckBefore.toISOString() });
-    const loaded = folders.find((f) => f.slug === row.slug);
-    // send.* and draft.recipients come from the policy file (P49 S11), never from the registry's copy of project.md.
-    const policy = loaded?.policy ? loaded.parsed.config : c;
+    const policy = c;
     let doctorFailed: string[] = [];
     if (loaded) {
       try {
@@ -120,7 +110,7 @@ export async function gatherFacts(i: FactsInput): Promise<ProjectFacts[]> {
       sentToday: s.sentToday,
       owed: (await i.repos.inbox.counts(row.slug)).owed,
       wrote: (await i.repos.inboundMail.openEmails(row.slug)).length,
-      leads: await i.repos.leadRows.openCount(row.slug, new Date(i.now.getTime() - (loaded?.parsed.config ?? c).leads.windowDays * 86_400_000).toISOString()),
+      leads: await i.repos.leadRows.openCount(row.slug, new Date(i.now.getTime() - c.leads.windowDays * 86_400_000).toISOString()),
       lastTriageAt: await i.repos.inbox.lastTriageAt(row.slug),
       setupQuestion: (await i.repos.projects.questions(row.slug, "open")).length > 0,
       injectionHeld: await i.repos.drafts.injectionHeld(row.slug),

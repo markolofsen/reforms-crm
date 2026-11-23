@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import type { Repos } from "@hub/db";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { canonicalBrands, entryBrandProblem } from "@hub/projects/brand";
 import type { ProjectConfig } from "@hub/projects/model";
 import { EntryError, parseEntry, sha256 } from "./entry";
@@ -57,7 +57,7 @@ export async function indexProject(repos: Repos, root: string, slug: string, at?
   // P60: the project's brands and scope. A project.md that cannot be read leaves the scope `shared` (nothing filtered, nothing refused).
   let config: Pick<ProjectConfig, "knowledge" | "brands"> = { knowledge: { source: "files", scope: "shared" }, brands: [] };
   try {
-    config = loadProject(root, slug).parsed.config;
+    config = projectStore({ projects: root }).config(slug);
   } catch {
     /* no readable project.md: shared */
   }

@@ -3,7 +3,7 @@ import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { draftCountsReadOnly } from "@hub/db";
 import { CORE_ROOT, findInstanceHome, hubPaths, INSTANCE_MARKER, instancePorts } from "@hub/config/paths";
-import { loadProjects } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { portBusy } from "./net";
 import { readPinFile } from "@hub/config/core-version";
 
@@ -67,7 +67,7 @@ export async function instanceStatus(home: string, deps: Partial<StatusDeps> = {
   let ports: InstanceStatus["ports"] = null;
   try { paths = hubPaths({ env: {}, home }); ports = instancePorts(paths, {}); } catch { /* a malformed config: shown as no ports */ }
   let projects: InstanceStatus["projects"] = [];
-  try { projects = loadProjects(path.join(home, "projects")).map((p) => ({ slug: p.slug, status: p.parsed.config.status })); } catch { /* unreadable project.md: doctor says why */ }
+  try { projects = projectStore({ projects: path.join(home, "projects") }).list().map((p) => ({ slug: p.slug, status: p.parsed.config.status })); } catch { /* unreadable project.md: doctor says why */ }
   return {
     name: path.basename(home), home, pin: pin.length > 12 ? pin.slice(0, 9) : pin, follows, core, drift, projects,
     drafts: paths ? draftCountsReadOnly(paths.db) : null,

@@ -1,6 +1,6 @@
 import { hubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
-import { loadProject, normalizeAddress } from "@hub/projects";
+import { projectStore, normalizeAddress } from "@hub/projects";
 import type { MailerKind } from "@hub/config/modes";
 import type { DraftQuery, MailDraft } from "@hub/mail-app/drafts";
 import { osaFor } from "@hub/mail-app/osa";
@@ -32,7 +32,7 @@ export function databaseBackedFake(repos: Repos, projectsDir: string): Mailer & 
       for (const project of await repos.projects.list()) {
         let config;
         try {
-          config = loadProject(projectsDir, project).parsed.config;
+          config = projectStore({ projects: projectsDir }).config(project);
         } catch {
           continue;
         }

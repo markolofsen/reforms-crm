@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { entryKey } from "@hub/contract/local";
 import { entryStatus, inView, KNOWLEDGE_MAX_ROWS, KNOWLEDGE_TEXT_CAP, KNOWLEDGE_VIEWS, knowledgeListDto, knowledgeTextDto, type KnowledgeEntryDto, type KnowledgeView } from "@hub/contract/knowledge";
 import { notFound } from "../http";
-import { configOf, hostTimeZone, localDate } from "../overview-facts";
+import { hostTimeZone, localDate } from "../overview-facts";
 import type { KnowledgeServices } from "../composition/capabilities";
 
 const list = (json: string): string[] => {
@@ -21,7 +21,7 @@ const viewOf = (v: string | undefined): KnowledgeView => KNOWLEDGE_VIEWS.find((x
  * `consistent`). `status` is computed on the project's local day; `q` matches the title or the indexed text (P128 X6), case-insensitive; the counts are every
  * view's size for that search. Read only, behind the general guard; an unknown project is 404.
  */
-export function knowledgeRoutes({ repos, now, timeZone }: KnowledgeServices) {
+export function knowledgeRoutes({ repos, projects, now, timeZone }: KnowledgeServices) {
   const app = new Hono();
   /**
    * `GET /api/projects/:slug/knowledge/text?key=knowledge:<path>` (P128 X6): one entry's indexed text, read only, cut at
@@ -40,7 +40,8 @@ export function knowledgeRoutes({ repos, now, timeZone }: KnowledgeServices) {
     const slug = c.req.param("slug");
     const row = await repos.projects.get(slug);
     if (row === null) return notFound(c, "project");
-    const config = configOf(row);
+    const config = projects.find(slug);
+    if (config === null) return notFound(c, "project");
     const today = localDate(now(), config.timezone ?? timeZone ?? hostTimeZone());
     const q = (c.req.query("q") ?? "").trim().toLowerCase();
     const view = viewOf(c.req.query("filter"));

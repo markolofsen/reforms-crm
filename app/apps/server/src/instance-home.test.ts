@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CORE_ROOT, hubPaths } from "@hub/config/paths";
 import { createRepos, openDb } from "@hub/db";
-import { loadProjects, syncProjects } from "@hub/projects";
+import { projectStore, syncProjects } from "@hub/projects";
 import { readAllowList } from "@hub/projects";
 import { configFile } from "./send/mailer";
 import { projectOverview, projectsRoot } from "./project-overview";
@@ -37,7 +37,7 @@ describe("the server under HUB_HOME", () => {
     const handle = openDb(":memory:");
     try {
       const repos = createRepos(handle.db);
-      const r = await syncProjects(repos, loadProjects(projectsRoot()));
+      const r = await syncProjects(repos, projectStore({ projects: projectsRoot() }).list());
       expect(r.ok).toBe(true);
       const mine = await projectOverview(repos, "acme-travel");
       expect(mine.project?.slug).toBe("acme-travel");

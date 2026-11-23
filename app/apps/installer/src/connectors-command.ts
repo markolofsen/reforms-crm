@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, readFileSync, renameSync, writeFileSync } fro
 import path from "node:path";
 import type { HubPaths } from "@hub/config/paths";
 import { CONNECTOR_KINDS, connectorKindOf, instanceConnectors, KINDS, readConnectorAccounts, writeConnectorAccount, type ConnectorKind } from "@hub/agent/connectors";
-import { loadProjects } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { instanceServer } from "./mcp-servers";
 
 // `hub connectors` (P62): the instance's Google connectors. `list` reads; `add` and `account` are the owner's (a session is denied
@@ -54,7 +54,7 @@ export function stateAccount(paths: HubPaths, name: string, address: string): st
 /** `hub connectors list`: one line each: name, service, account and how it is known, the projects that attach it. */
 export function listConnectors(paths: HubPaths): string {
   const accounts = readConnectorAccounts(paths);
-  const projects = loadProjects(paths.projects);
+  const projects = projectStore({ projects: paths.projects }).list();
   const lines = instanceConnectors(paths).map((c) => {
     const users = projects.filter((p) => [...p.parsed.config.calendar.connector, ...p.parsed.config.drive.connector].includes(c.name)).map((p) => p.slug);
     const a = accounts[c.name];

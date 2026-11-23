@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { notionCapability, notionNote, notionViolations, projectNotion, type NotionScope } from "../src/notion-scope";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { loadProject, setSendPolicy } from "@hub/projects";
+import { projectStore, setSendPolicy } from "@hub/projects";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { hubPaths } from "@hub/config/paths";
@@ -63,7 +63,7 @@ describe("the capabilities line names the project's databases (P82 S2)", () => {
     // P98: a test address is answered as a client, never remarked on (P129 verdict 7: "do it at once" is the work-order rule now).
     expect(l).toContain("without remarking that it is a test address");
     expect(l.endsWith(NOTION_RULE)).toBe(true);
-    setSendPolicy(paths.stateProjects, "acme-travel", loadProject(fixtures, "acme-travel").parsed.config.kind, { "draft.recipients": "any" }, "test");
+    setSendPolicy(paths.stateProjects, "acme-travel", projectStore({ projects: fixtures }).config("acme-travel").kind, { "draft.recipients": "any" }, "test");
     expect(capabilitiesOf(paths, fixtures, "acme-travel", "claude") ?? "").not.toContain("Test mode");
   });
   it("P92, P129 verdict 7: the session rules make the owner the authority: his request is the work order, a Notion row on his request is done, the tools decide what is allowed, only sends and deletes are forbidden", () => {

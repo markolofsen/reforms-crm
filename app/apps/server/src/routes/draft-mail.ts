@@ -6,7 +6,7 @@ import { versionHashOf } from "@hub/db";
 import { DraftWriteError, type InboundMessage } from "@hub/mail-app/writer/types";
 import type { DraftRow, MailVersionRow } from "@hub/db";
 import { brandResolutionFor, displayNameFor, headersFromText, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, visibleFrom } from "@hub/projects/brand";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import type { MailDraft } from "@hub/mail-app/drafts";
 import { bareId } from "@hub/mail-app/records";
 import { findMail, mailHash, runSweep, settleThread } from "@hub/send";
@@ -30,7 +30,7 @@ export function draftMailRoutes({ repos, sender }: MailServices) {
   const projectMail = (slug: string) => {
     if (!sender) return null;
     try {
-      const config = loadProject(sender.projectsDir, slug, { policyDir: sender.policyDir }).parsed.config;
+      const config = projectStore({ projects: sender.projectsDir, stateProjects: sender.policyDir }).config(slug);
       return { ...config.mail, sender: config.mail.sender ?? null, brands: config.brands, signoff: config.signoff, languages: config.languages };
     } catch {
       return null;

@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { AgentCli, HubPaths } from "@hub/config/paths";
 import { phrase } from "@hub/contract/help";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { connectorDeniedTools, instanceConnectors, KINDS, readConnectorAccounts, resolveConnectors, type AttachedConnector } from "./connectors";
 
 // P62 K2: the connector rows of Agent tools (Settings ▸ Agent, `hub doctor --only Agent`). Read only. A row that needs the owner
@@ -34,7 +34,7 @@ function listedAnywhere(paths: HubPaths): Set<string> {
   for (const e of readdirSync(paths.projects, { withFileTypes: true })) {
     if (!e.isDirectory() || e.name.startsWith("_") || e.name.startsWith(".")) continue;
     try {
-      const c = loadProject(paths.projects, e.name).parsed.config;
+      const c = projectStore({ projects: paths.projects }).config(e.name);
       for (const n of [...c.calendar.connector, ...c.drive.connector]) out.add(n);
     } catch { /* a project that does not load lists nothing */ }
   }
@@ -54,7 +54,7 @@ export async function connectorRows(i: ConnectorCheckInput): Promise<ConnectorRo
   const row = (id: string, title: string, state: State, detail: string, fix: string | null = null) => rows.push({ id, title, state, detail, fix: state === "pass" || state === "skip" ? null : fix });
   let attached: AttachedConnector[] = [];
   try {
-    const r = resolveConnectors(i.paths, loadProject(i.paths.projects, i.slug).parsed.config);
+    const r = resolveConnectors(i.paths, projectStore({ projects: i.paths.projects }).config(i.slug));
     attached = r.attached;
     for (const p of r.problems) row(`connector.attach.${p.name}`, `${p.name} attached`, "fail", `listed in project.md, not used: ${p.why}`, p.why.startsWith("not in") ? addLine(p.kind, p.name) : setupPhrase(i.slug));
   } catch { return rows; }

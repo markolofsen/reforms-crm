@@ -7,7 +7,7 @@ import type { SetSecretBody } from "@hub/contract/requests";
 import type { Repos } from "@hub/db";
 import { MAIL_NOT_ANSWERING_FIX, MailNotAnswering, osaWithin, type OsaRun } from "@hub/mail-app/osa";
 import { readAccounts } from "@hub/mail-app/read";
-import { configOf } from "./overview-facts";
+import { projectStore, type ProjectStore } from "@hub/projects/store";
 import type { MessengersStatus } from "./messengers";
 
 /**
@@ -57,7 +57,9 @@ export interface ConnectionsOptions {
   messengers?: () => MessengersStatus;
   now?: () => Date;
   minIntervalMs?: number;
-  /** Project settings, mapped to what a connection cares about. Default: the registry. */
+  /** P126 P3: where a registered project's config is read (project.md). Default: this instance's projects folder. */
+  store?: ProjectStore;
+  /** Project settings, mapped to what a connection cares about. Default: the registered projects, read through `store`. */
   projects?: () => Promise<ProjectUse[]>;
   /** What Apple Mail answered about its accounts. Default: not running, so no test reaches Mail; `main.ts` passes `appleMailAccounts()`. */
   mailAccounts?: () => Promise<MailAccountsRead>;
@@ -151,7 +153,12 @@ export function createConnections(o: ConnectionsOptions): ConnectionsService {
   const cache = new Map<string, Cached>();
   const inflight = new Map<string, Promise<void>>();
 
-  const registry = async () => (await o.repos.projects.registry()).projects.map((p) => ({ slug: p.slug, config: configOf(p) }));
+  const store = o.store ?? projectStore({ projects: hubPaths().projects });
+  const registry = async () =>
+    (await o.repos.projects.registry()).projects.flatMap((p) => {
+      const config = store.find(p.slug);
+      return config ? [{ slug: p.slug, config }] : [];
+    });
   const projects = o.projects ?? (async (): Promise<ProjectUse[]> => (await registry()).map((p) => ({ slug: p.slug, notionTokenFile: p.config.notion.tokenFile })));
   const known = o.mailAccounts ?? (async (): Promise<MailAccountsRead> => ({ state: "not-running" }));
 

@@ -1,10 +1,10 @@
 import { inspect, isTelegramToken, notionShapeProblem, NOTION_FILE, storeToken, TELEGRAM_FILE, testConnection, type ConnectionRow, type ProbeDeps, type ProjectUse, type Verdict } from "@hub/connections";
-import { loadProjects } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import type { Ctx } from "./context";
 
 /** What each project says about connections, read from the instance's project.md files. */
 export const projectUses = (ctx: Ctx): ProjectUse[] =>
-  loadProjects(ctx.paths.projects).map((p) => ({ slug: p.slug, notionTokenFile: p.parsed.config.notion.tokenFile }));
+  projectStore({ projects: ctx.paths.projects }).list().map((p) => ({ slug: p.slug, notionTokenFile: p.parsed.config.notion.tokenFile }));
 
 export interface ConnectionsReport { rows: ConnectionRow[]; verdicts: Map<string, Verdict>; exitCode: number }
 

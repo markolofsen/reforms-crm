@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { loadProjects, registryFromDb, renameProject, rewriteProjectMd, rewriteSlugTokens, syncProjects } from "../src/index";
+import { projectStore, registryFromDb, renameProject, rewriteProjectMd, rewriteSlugTokens, syncProjects } from "../src/index";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const Database = function (file: string, _o?: unknown) { return openDb(file).db.$client; } as unknown as new (file: string, o?: unknown) => ReturnType<typeof openDb>["db"]["$client"];
@@ -36,7 +36,7 @@ beforeEach(async () => {
   writeFileSync(join(state, "projects", "binding.json"), '{"project":"acme-travel","at":"x"}\n');
   const h = openDb(dbPath);
   const repos = createRepos(h.db);
-  expect((await syncProjects(repos, loadProjects(projects))).ok).toBe(true);
+  expect((await syncProjects(repos, projectStore({ projects: projects }).list())).ok).toBe(true);
   h.db.$client.exec(`insert into clients (project, email, name) values ('acme-travel','a@example.com','A'), ('nordhaus','n@example.com','N');
     insert into knowledge_docs (project, path, title, body, content_hash) values ('acme-travel','k.md','Visa rules','the visa takes ten days','h1');
     insert into project_questions (project, field, question, asked_at) values ('acme-travel','tone','How?','2026-11-15');`);
@@ -86,7 +86,7 @@ describe("project rename", () => {
     h.close();
     expect(reg.map((p) => p.slug)).toContain("travel-desk");
     expect(reg.map((p) => p.slug)).not.toContain("acme-travel");
-    expect(loadProjects(projects).map((p) => p.slug)).toContain("travel-desk");
+    expect(projectStore({ projects: projects }).list().map((p) => p.slug)).toContain("travel-desk");
     // FTS follows the update
     expect(rowsOf("select count(*) n from knowledge_fts where knowledge_fts match 'visa'")[0]!.n).toBe(1);
   });
@@ -132,7 +132,7 @@ describe("project rename", () => {
 describe("PROJECT.json", () => {
   it("is written per project on sync: kind, modules, skills, mail classes, resolved config, missing required fields", async () => {
     const { writeProjectJson, projectJson } = await import("../src/index");
-    const all = loadProjects(projects);
+    const all = projectStore({ projects: projects }).list();
     const files = writeProjectJson(all);
     expect(files.length).toBe(all.length);
     const acme = JSON.parse(readFileSync(join(projects, "acme-travel", ".generated", "PROJECT.json"), "utf8"));

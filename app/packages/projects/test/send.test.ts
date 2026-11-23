@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { applySetting, checkValue, doctorProject, FIELDS, KINDS, loadProject, migrateSendPolicy, parseProjectMd, policyFile, projectJson, readSendPolicy, setSendPolicy, writeSendPolicy, defaultPolicy, POLICY_FIELDS } from "../src/index";
+import { applySetting, checkValue, doctorProject, FIELDS, KINDS, projectStore, migrateSendPolicy, parseProjectMd, policyFile, projectJson, readSendPolicy, setSendPolicy, writeSendPolicy, defaultPolicy, POLICY_FIELDS } from "../src/index";
 
 const ID = "00000000-0000-4000-8000-000000000001";
 const ID2 = ID.replace(/1$/, "2");
@@ -29,7 +29,7 @@ function instance(rows: string[] = [], kind?: string) {
   const policyDir = path.join(d, "state", "projects");
   mkdirSync(path.join(projects, "t"), { recursive: true });
   writeFileSync(path.join(projects, "t", "project.md"), doc(rows, kind));
-  return { projects, policyDir, load: () => loadProject(projects, "t", { policyDir }) };
+  return { projects, policyDir, load: () => projectStore({ projects: projects, stateProjects: policyDir }).file("t") };
 }
 
 describe("send settings (decision 0011, P49 S11: a server-owned policy file)", () => {
@@ -55,7 +55,7 @@ describe("send settings (decision 0011, P49 S11: a server-owned policy file)", (
     expect(l.parsed.config.draft.recipients).toEqual(["a@x.example"]);
     expect(l.policy).toMatchObject({ source: "file", policy: { by: "owner" } });
     // without policyDir: the safe defaults, never project.md
-    expect(loadProject(i.projects, "t").parsed.config.send.mode).toBe("draft");
+    expect(projectStore({ projects: i.projects }).config("t").send.mode).toBe("draft");
   });
   it("an unreadable policy file falls back to the defaults and says why", () => {
     const i = instance();
@@ -90,7 +90,7 @@ describe("send settings (decision 0011, P49 S11: a server-owned policy file)", (
     expect(Object.keys(FIELDS)).toEqual(expect.arrayContaining([...POLICY_FIELDS]));
   });
   it("PROJECT.json carries the send block", () => {
-    const loaded = loadProject(path.resolve(import.meta.dirname, "fixtures/projects"), "acme-travel");
+    const loaded = projectStore({ projects: path.resolve(import.meta.dirname, "fixtures/projects") }).file("acme-travel");
     expect((projectJson(loaded).config as { send: unknown }).send).toMatchObject({ mode: "draft" });
     expect(projectJson(loaded).send).toMatchObject({ mode: "draft", classes: [] });
   });

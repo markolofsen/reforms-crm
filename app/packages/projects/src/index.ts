@@ -5,6 +5,7 @@ export * from "./md/sections";
 export * from "./write";
 export * from "./route";
 export * from "./registry";
+export * from "./store";
 export * from "./guard";
 export * from "./doctor";
 export * from "./audit";

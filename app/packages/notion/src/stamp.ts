@@ -8,7 +8,7 @@ import { join } from "node:path";
 import notionhq from "@notionhq/client";
 import { readPerson } from "@hub/config/person";
 import { ops } from "@hub/log/ops";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { findClientByEmail, findClientPage, textOf } from "./client-lookup";
 import { createNotionReader } from "./notion";
 import type { NotionReader } from "./types";
@@ -88,7 +88,7 @@ export async function readClientStamp(reader: NotionReader, clientsDataSource: s
  */
 export async function teamStampOf(env: StampEnv, project: string, email: string): Promise<{ at: string; by: string } | null> {
   try {
-    const p = loadProject(env.projectsDir, project).parsed.config;
+    const p = projectStore({ projects: env.projectsDir }).config(project);
     const ds = p.notion.databases.find((d) => d.slug === "clients")?.dataSourceId;
     if (!ds) return null;
     let token = "";
@@ -114,7 +114,7 @@ export type SentStampResult = StampOutcome | { state: "off" | "no_database" | "n
 export async function stampSentMail(env: StampEnv, n: { project: string; to: readonly string[]; at: string; draftId: number; via: string }): Promise<SentStampResult> {
   const log = ops("notion");
   try {
-    const p = loadProject(env.projectsDir, n.project).parsed.config;
+    const p = projectStore({ projects: env.projectsDir }).config(n.project);
     if (p.notion.stampSends === "off") return { state: "off", detail: "notion.stamp_sends is off" };
     const ds = p.notion.databases.find((d) => d.slug === "clients")?.dataSourceId;
     if (!ds) { log.info("send not stamped in Notion: the project lists no clients database", { project: n.project, draft: n.draftId }); return { state: "no_database", detail: "no clients database in project.md" }; }

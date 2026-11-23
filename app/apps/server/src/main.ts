@@ -6,7 +6,7 @@ import { createApp } from "./app";
 import { holdIdleSockets, listenErrorLine, onShutdown } from "./lifecycle";
 import { startAppsProbe } from "./apps-probe";
 import { appleMailAccounts, fakeMailAccounts, fakeProbeDeps } from "./connections";
-import { configOf } from "./overview-facts";
+import { projectStore } from "@hub/projects/store";
 import { projectsRoot } from "./project-overview";
 import { configFile, createServerMailer } from "./send/mailer";
 import { startMessengers } from "./messengers";
@@ -117,6 +117,8 @@ log.info(`whatsapp linked devices: ${waStatus.state === "on" ? `${waStatus.accou
 
 // The Mailer behind Send: Mail.app, or the fake when HUB_MAILER=fake (read with the other switches above).
 const projectsDir = projectsRoot();
+// P126 P3: the one reader of project.md with its send policy; every server module reads a project's config through it.
+const projects = projectStore({ projects: projectsDir, stateProjects: hubPaths().stateProjects });
 const { kind, mailer } = createServerMailer(repos, projectsDir, modes.mailer);
 log.info(kind === "fake" ? "SEND IS FAKE (HUB_MAILER=fake): nothing leaves this process" : "send: Mail.app (a person confirms every send in the admin)");
 // P89: after a confirmed send (the send door or Sent detection) the client's Notion page gets Last sent at / Last sent by. In the
@@ -132,7 +134,7 @@ const onSent = kind === "fake" ? undefined : (n: SentNotice) => {
 // Sent detection reads Apple Mail's Sent mailbox while a draft waits (decision 0026); with the fake Mailer it never asks Mail.
 // P90: each pass also reads the clients' Notion Last sent stamps written by other people (the open card's teammate line).
 const teamStamp = kind === "fake" ? undefined : (project: string, email: string) => teamStampOf({ projectsDir, secretsDir: paths.secrets, stateDir: paths.state }, project, email);
-const sent = startSentReconciler({ repos, ...(onSent ? { onSent } : {}), ...(teamStamp ? { teamStamp } : {}), ...(kind === "fake" ? { offReason: "HUB_MAILER=fake: Mail is not read" } : {}) });
+const sent = startSentReconciler({ repos, projects, ...(onSent ? { onSent } : {}), ...(teamStamp ? { teamStamp } : {}), ...(kind === "fake" ? { offReason: "HUB_MAILER=fake: Mail is not read" } : {}) });
 log.info(`sent: ${sent.status().state}${sent.status().reason ? ` (${sent.status().reason})` : ""}`);
 // P96: the Mail reader reads the projects' inbound mailboxes read-only (every 2 min while the admin is open or a session runs,
 // else every 15); with the fake Mailer it never asks Mail. Its `busy` is bound below, once the live stream and the terminal exist.
@@ -198,7 +200,7 @@ const conversationMail: ConversationMail =
 const probe = modes.probe;
 if (probe === "fake") log.info("CONNECTION TESTS ARE FAKE (HUB_CONNECTIONS_PROBE=fake): nothing is sent to Notion or Telegram, Mail is not asked");
 // Either fake (a demo or e2e run) keeps the server from asking the owner's Mail which accounts it has.
-const listed = async () => (await repos.projects.registry()).projects.flatMap((p) => configOf(p).mail.accounts);
+const listed = async () => (await repos.projects.registry()).projects.flatMap((p) => projects.find(p.slug)?.mail.accounts ?? []);
 const mailAccounts = probe === "fake" || kind === "fake" ? fakeMailAccounts(listed) : appleMailAccounts();
 const connections = probe === "fake" ? { deps: fakeProbeDeps(), mailAccounts } : { mailAccounts };
 // The embedded terminal (P49): always on (decision 0032).
@@ -242,7 +244,7 @@ log.info(opener.kind === "fake" ? "OPEN IS FAKE (HUB_OPENER=fake): nothing opens
 // mode and the session log are read per call.
 const agentStore = logStoreOf(paths);
 const agentSend = { token: ensureAgentSendToken(paths), unattended: () => instanceFeatures(paths).agent.unattended, events: (project: string, since: string) => readEvents(agentStore, { project, kinds: ["prompt", "focus"], since }) };
-const app = createApp(repos, { live, focus, pointerFile: paths.pointer, local: localService, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: readAllowList(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project), agent: agentSend } });
+const app = createApp(repos, { projects, live, focus, pointerFile: paths.pointer, local: localService, autostart, coreUpdates, agentLog: logStoreOf(paths), opsLog: opsStoreOf(paths), terminal, agentTools, adminPort: ports.admin, connections, messengers: messengers.status, telegramUser, whatsapp, autolink: linker, preanalysis, reply: { llm }, sent: sent.status, inbound, leads, inboundText, conversationMail, dataVersion: () => dataVersion(db), sender: { kind, mailer, projectsDir, policyDir: paths.stateProjects, ...(onSent ? { onSent } : {}), allowList: readAllowList(configFile()), adminPort: ports.admin, writer: mailWriter, mailWritten: (project) => void bumpTopic(db, "mail", project), agent: agentSend } });
 
 const server = serve({ fetch: app.fetch, hostname: HOST, port }, (info) => {
   log.info(`hub server on http://${info.address}:${info.port}`, { pid: process.pid });

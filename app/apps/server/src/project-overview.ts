@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import { checkProject } from "@hub/knowledge";
 import { parseRulesFile } from "@hub/mail-filters";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import type { Repos } from "@hub/db";
 import { projectOverviewDto, type ProjectOverviewDto } from "@hub/contract/responses";
 
@@ -56,7 +56,7 @@ export async function projectOverview(repos: Repos, slug: string, root: string =
   let messengerPolicy: ProjectOverviewDto["messengerPolicy"] = null;
   if (row) {
     try {
-      const config = loadProject(root, slug, policyDir ? { policyDir } : {}).parsed.config;
+      const config = projectStore({ projects: root, ...(policyDir ? { stateProjects: policyDir } : {}) }).config(slug);
       messengerPolicy = { language: config.messengers.language, instruction: config.messengers.instruction };
     } catch {
       messengerPolicy = null;

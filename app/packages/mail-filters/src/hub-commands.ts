@@ -2,7 +2,7 @@
 // Files only: this code never talks to Gmail or Mail.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
-import { defaultProjectsRoot, kindOf, loadProject } from "@hub/projects";
+import { defaultProjectsRoot, kindOf, projectStore } from "@hub/projects";
 import type { Command } from "commander";
 import { colorTable } from "./colors";
 import { propose, type SenderSample } from "./analyze";
@@ -35,7 +35,7 @@ interface Loaded {
 }
 
 function load(slug: string, o: MailFiltersOptions): Loaded {
-  const project = loadProject(o.projectsRoot ?? defaultProjectsRoot(), slug);
+  const project = projectStore({ projects: o.projectsRoot ?? defaultProjectsRoot() }).file(slug);
   const path = join(project.folder, RULES_FILE);
   const exists = existsSync(path);
   // the classes come from the project's kind (an unknown kind is reported by project doctor; here the generic set applies)

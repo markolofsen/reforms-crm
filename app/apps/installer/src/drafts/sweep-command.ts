@@ -1,5 +1,5 @@
 import { createRepos, defaultDbPath, openDb } from "@hub/db";
-import { loadProjects } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { bareId } from "@hub/mail-app/records";
 import { closedDrafts, mailAppDraftsCleaner, planSweep, type DraftsCleaner, type SweepRow } from "@hub/send";
 
@@ -20,7 +20,7 @@ const row = (r: SweepRow) => `${r.kind.padEnd(10)} ${r.account.padEnd(34)} ${r.r
 /** Exit code: 0 ok (dry run or every listed draft moved), 1 Mail refused some or could not be read, 2 bad input. */
 export async function runDraftsSweep(o: { project?: string; apply?: boolean }, env: SweepCommandEnv): Promise<number> {
   const out = env.out ?? console.log;
-  const projects = loadProjects(env.projectsDir, { policyDir: env.policyDir }).filter((p) => !o.project || p.slug === o.project);
+  const projects = projectStore({ projects: env.projectsDir, stateProjects: env.policyDir }).list().filter((p) => !o.project || p.slug === o.project);
   if (projects.length === 0) {
     out(JSON.stringify({ ok: false, error: o.project ? `no project ${o.project}` : "no projects" }));
     return 2;

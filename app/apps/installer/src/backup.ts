@@ -3,7 +3,7 @@ import { readInstanceConfig } from "@hub/config/instance";
 // Dry run unless --apply. Never reads or copies a secret: only the NAMES in state/secrets/ go into the manifest (a directory listing),
 // and the Notion dump is a child process that loads its own token. Restore is never run here; a snapshot is verified, not applied.
 import { copyAndVerify, restoreCheck } from "@hub/db";
-import { loadProjects } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { createHash } from "node:crypto";
 import { closeSync, copyFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, realpathSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -169,7 +169,7 @@ export function checkManifest(dir: string): { manifest?: Manifest; problems: str
 export interface BackupResult { ok: boolean; lines: string[]; dir?: string; bytes?: number }
 
 function notionProjects(ctx: Ctx) {
-  return loadProjects(ctx.paths.projects).filter((p) => p.parsed.config.status !== "archived" && p.parsed.config.notion.databases.length > 0);
+  return projectStore({ projects: ctx.paths.projects }).list().filter((p) => p.parsed.config.status !== "archived" && p.parsed.config.notion.databases.length > 0);
 }
 /** Names of the secret files the instance expects. A directory listing: no file is opened. */
 export function secretNames(ctx: Ctx): string[] {

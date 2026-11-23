@@ -1,6 +1,6 @@
 import { slimMessageContent } from "./slim-headers";
 import { codexSessionPaths, instanceFeatures, pathsAt, type HubPaths } from "@hub/config/paths";
-import { auditToolCalls, HUB_MESSENGER_SEND, defaultProjectsRoot, type AuditLayout, kindOf, loadProject, type SkillScope, type ToolCall } from "@hub/projects";
+import { auditToolCalls, HUB_MESSENGER_SEND, defaultProjectsRoot, type AuditLayout, kindOf, projectStore, type SkillScope, type ToolCall } from "@hub/projects";
 import { HUB_MESSENGER_DRAFT_WRITE, isDraftWrite, preDraftCheck, type LedgerEntry } from "@hub/agent/evidence/ledger";
 import { chatDraftViolations } from "@hub/agent/evidence/chat-ledger";
 import { instanceServer } from "./mcp-servers";
@@ -61,7 +61,7 @@ export function projectConnectors(paths: HubPaths, projectsDir: string, slug: st
   const none = { attached: [], scope: { attached: [], calendarId: null, driveFolders: [] } };
   if (!slug) return none;
   try {
-    const cfg = loadProject(projectsDir, slug).parsed.config;
+    const cfg = projectStore({ projects: projectsDir }).config(slug);
     const { attached } = resolveConnectors(paths, cfg);
     return { attached, scope: { attached, calendarId: cfg.calendar.id, driveFolders: cfg.drive.folder, notion: notionScopeOf(slug, cfg) } };
   } catch { return none; }
@@ -204,7 +204,7 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   const projectsDir = g.projectsDir ?? defaultProjectsRoot();
   if (slug) {
     try {
-      const cfg = loadProject(projectsDir, slug).parsed.config;
+      const cfg = projectStore({ projects: projectsDir }).config(slug);
       accounts = [...cfg.mail.accounts];
       skills = skillScope(cfg.kind, paths.skills);
     }

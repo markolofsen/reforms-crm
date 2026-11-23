@@ -4,7 +4,7 @@ import { readInstanceConfig } from "@hub/config/instance";
 //   mailbox:      the newest notification mail in a Mail account, by sender and subject, through mail-mcp (the Apple Mail read path).
 // Only dates are read and printed: never a name, an address or a message.
 import { fileState, readValue } from "@hub/connections";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import type { Ctx } from "../context";
 import { mcpCall } from "../mcp-probe";
 import type { CheckResult } from "../types";
@@ -36,7 +36,7 @@ export function measuredDays(dates: number[]): number | undefined {
 
 async function readNotion(ctx: Ctx, s: Extract<Silence, { source: "notion-leads" }>, since: number): Promise<Read> {
   let notion;
-  try { notion = loadProject(ctx.paths.projects, s.project).parsed.config.notion; } catch (e) { return { ok: false, why: errText(e) }; }
+  try { notion = projectStore({ projects: ctx.paths.projects }).config(s.project).notion; } catch (e) { return { ok: false, why: errText(e) }; }
   const db = notion.databases.find((d) => d.slug === "leads");
   if (!db) return { ok: false, why: `project ${s.project} lists no leads database under ## Notion databases` };
   const st = fileState(ctx.configDir, notion.tokenFile);

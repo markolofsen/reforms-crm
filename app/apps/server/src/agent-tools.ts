@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { agentChecks, defaultProbe, fakeAgentRows, NOTION_EVIDENCE_DAYS, notionEvidenceOf, type AgentProbe } from "@hub/agent/checks";
 import { logStoreOf, readEvents } from "@hub/log/store";
 import { resolveConnectors } from "@hub/agent/connectors";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { cliDetector, detectClis, type CliDetector } from "@hub/agent/detect";
 import { AGENT_CLIS, instanceFeatures, type HubPaths } from "@hub/config/paths";
 import { agentToolsDto, type AgentCapability, type AgentToolsDto } from "@hub/contract/agent-tools";
@@ -30,7 +30,7 @@ export interface AgentToolsOptions {
 /** P62: the connectors attached to the project (none when its project.md does not load: the rows say why). */
 function capabilitiesOf(paths: HubPaths, slug: string): AgentCapability[] {
   try {
-    return resolveConnectors(paths, loadProject(paths.projects, slug).parsed.config).attached.map((c) => ({ kind: c.kind, name: c.name, account: c.account?.account ?? null }));
+    return resolveConnectors(paths, projectStore({ projects: paths.projects }).config(slug)).attached.map((c) => ({ kind: c.kind, name: c.name, account: c.account?.account ?? null }));
   } catch { return []; }
 }
 

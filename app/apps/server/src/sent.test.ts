@@ -6,6 +6,7 @@ import { parseSent } from "@hub/mail-app/read";
 import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT, SENT_SCRIPT } from "@hub/mail-app/scripts/read";
 import { appleScriptCompileError, canCompileAppleScript } from "../../../test-support/osacompile";
 import { matchSent, startSentReconciler } from "./sent";
+import { projectStoreOf } from "@hub/projects/testing";
 
 // Sent detection reads Apple Mail through a fake `OsaRun`: no test reaches Mail.
 const ANNA = "anna@example.test";
@@ -35,12 +36,17 @@ function sentRecord(m: { id: string; to?: string; subject?: string; irt?: string
   return [m.id, m.irt ?? "", stamp, `${m.to ?? ANNA}${LS}`, "", m.subject ?? "Re: Hello", m.refs ?? "", m.from ?? "Team <me@example.test>"].join(FS) + RS;
 }
 
-const settings = (accounts = ["Google"]) => JSON.stringify({ schema: 1, slug: "p", kind: "x", name: "P", mail: { accounts, addresses: ["me@example.test"], sentMailbox: "Sent Mail" } });
-const register = (o: { accounts?: string[]; status?: string } = {}) =>
-  repos.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: (o.status ?? "active") as "active", settingsJson: settings(o.accounts), hash: "h" }], addresses: [] });
+const settings = (accounts = ["Google"]) => ({ name: "P", mail: { accounts, addresses: ["me@example.test"], sentMailbox: "Sent Mail" } });
+// P126 P3: the reconciler reads each project's accounts from project.md through the store, not the registry's snapshot.
+const configs: Record<string, Record<string, unknown>> = {};
+const projects = projectStoreOf(configs);
+const register = (o: { accounts?: string[]; status?: string } = {}) => {
+  configs.p = settings(o.accounts);
+  return repos.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: (o.status ?? "active") as "active", settingsJson: "{}", hash: "h" }], addresses: [] });
+};
 const record = (subject = "Re: Hello", mailRef = "<thread1@x>") => repos.drafts.record({ project: "p", email: ANNA, name: "Anna", subject, mailRef });
 const statusOf = async (id: number) => (await repos.drafts.get(id))!;
-const reconciler = (osa: OsaRun) => startSentReconciler({ repos, osa, env: {}, timer: false });
+const reconciler = (osa: OsaRun) => startSentReconciler({ repos, projects, osa, env: {}, timer: false });
 
 beforeEach(() => {
   handle = openDb(":memory:");
@@ -82,7 +88,7 @@ describe("Sent detection through Apple Mail", () => {
     await repos.mailVersions.add({ project: "p", mailRef: "<thread1@x>", draftId: r.draftId, account: "Google", mailId: 9, messageId: "Version1@x", hash: "h", source: "agent" });
     const mail = fakeMail({ sent: { Google: [sentRecord({ id: "<version1@x>", subject: "Another subject" })] } });
     const heard: unknown[] = [];
-    const h = startSentReconciler({ repos, osa: mail.osa, env: {}, timer: false, onSent: (n) => { heard.push(n); throw new Error("notion down"); } });
+    const h = startSentReconciler({ repos, projects, osa: mail.osa, env: {}, timer: false, onSent: (n) => { heard.push(n); throw new Error("notion down"); } });
     await h.tick();
     expect(await statusOf(r.draftId)).toMatchObject({ status: "sent" });
     expect(heard).toEqual([expect.objectContaining({ project: "p", draftId: r.draftId, via: "message-id", to: [expect.stringContaining("@")] })]);
@@ -190,10 +196,10 @@ describe("Sent detection through Apple Mail", () => {
     await register({ accounts: [] });
     await reconciler(mail.osa).tick();
     expect(mail.calls).toEqual([]);
-    const off = startSentReconciler({ repos, osa: mail.osa, env: { HUB_SENT: "off" }, timer: false });
+    const off = startSentReconciler({ repos, projects, osa: mail.osa, env: { HUB_SENT: "off" }, timer: false });
     await off.tick();
     expect(off.status()).toMatchObject({ state: "off", reason: "HUB_SENT=off" });
-    const demo = startSentReconciler({ repos, osa: mail.osa, env: {}, offReason: "demo mode", timer: false });
+    const demo = startSentReconciler({ repos, projects, osa: mail.osa, env: {}, offReason: "demo mode", timer: false });
     await demo.tick();
     expect(demo.status()).toMatchObject({ state: "off", reason: "demo mode" });
     expect(mail.calls).toEqual([]);
@@ -203,7 +209,7 @@ describe("Sent detection through Apple Mail", () => {
     await register();
     await record();
     const bad = fakeMail({ fail: "Mail got an error: Can't get mailbox" });
-    const h = startSentReconciler({ repos, osa: bad.osa, env: {}, timer: false });
+    const h = startSentReconciler({ repos, projects, osa: bad.osa, env: {}, timer: false });
     await h.tick();
     expect(h.status()).toMatchObject({ state: "error", failures: 1 });
     expect(h.status().lastError).toContain("p / Google");
@@ -246,7 +252,7 @@ describe("P90 a shared mailbox: two Hubs, one Sent", () => {
   });
   afterEach(() => other.close());
 
-  const registerIn = (r: Repos) => r.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: "active", settingsJson: settings(), hash: "h" }], addresses: [] });
+  const registerIn = (r: Repos) => r.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: "active", settingsJson: "{}", hash: "h" }], addresses: [] }).then(() => { configs.p = settings(); });
 
   it("a teammate's send never marks my draft; it is noted with their name; my own send is matched by its Message-ID", async () => {
     await registerIn(repos);
@@ -259,7 +265,7 @@ describe("P90 a shared mailbox: two Hubs, one Sent", () => {
     // They send first (same thread, same recipient, same subject: what the old thread and subject tiers matched).
     const shared = { Google: [sentRecord({ id: "<theirs-1@x>", irt: "<t1@x>", from: "Reforms <me@example.test>", at: new Date(Date.now() + 60_000) })] };
     await reconciler(fakeMail({ sent: shared }).osa).tick();
-    await startSentReconciler({ repos: theirs, osa: fakeMail({ sent: shared }).osa, env: {}, timer: false }).tick();
+    await startSentReconciler({ repos: theirs, projects, osa: fakeMail({ sent: shared }).osa, env: {}, timer: false }).tick();
     expect(await statusOf(mine.draftId)).toMatchObject({ status: "ready", sentAt: null, elsewhereMessageId: "theirs-1@x" });
     expect(await theirs.drafts.get(their.draftId)).toMatchObject({ status: "sent", sentVia: "message-id", elsewhereAt: null });
     // Their Hub stamped Notion "Igor" at the send: my card names Igor, not the shared address.
@@ -277,7 +283,7 @@ describe("P90 a shared mailbox: two Hubs, one Sent", () => {
     const asked: string[] = [];
     let stamp: { at: string; by: string } | null = { at: new Date(Date.now() + 30_000).toISOString(), by: "Olga" };
     let at = Date.now();
-    const h = startSentReconciler({ repos, osa: fakeMail({ running: false }).osa, env: {}, timer: false, now: () => new Date(at), teamStamp: async (_p, email) => { asked.push(email); return stamp; } });
+    const h = startSentReconciler({ repos, projects, osa: fakeMail({ running: false }).osa, env: {}, timer: false, now: () => new Date(at), teamStamp: async (_p, email) => { asked.push(email); return stamp; } });
     await h.tick();
     // Mail is closed: Sent is not read, Notion is.
     expect(h.status()).toMatchObject({ state: "off", reason: "Mail is not running" });

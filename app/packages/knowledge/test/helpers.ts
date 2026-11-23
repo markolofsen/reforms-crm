@@ -1,5 +1,5 @@
 import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
-import { loadProjects, syncProjects } from "@hub/projects";
+import { projectStore, syncProjects } from "@hub/projects";
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -27,7 +27,7 @@ export function copyRoot(): string {
 export async function openRegistered(root: string): Promise<{ handle: DbHandle; repos: Repos }> {
   const handle = openDb(":memory:");
   const repos = createRepos(handle.db);
-  const r = await syncProjects(repos, loadProjects(root));
+  const r = await syncProjects(repos, projectStore({ projects: root }).list());
   if (!r.ok) throw new Error(r.errors.join("\n"));
   return { handle, repos };
 }

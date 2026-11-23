@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { LEAD_PREVIEW_CHARS, type NewLead, type Repos } from "@hub/db";
 import { createNotionReader, loadToken, NoTokenError, parseLeadDetail, secretsDir, type LeadDetail, type NotionReader } from "@hub/notion";
 import { convertLead, createLeadWriter, notionFailure, writeLeadStatus, type LeadWriter, type LeadWriteStatus } from "@hub/notion/leads-write";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import type { ProjectConfig } from "@hub/projects/model";
 import { errFields, ops } from "@hub/log/ops";
 
@@ -111,7 +111,7 @@ export function startLeadsReader(o: LeadsOptions): LeadsHandle {
     for (const row of (await o.repos.projects.registry()).projects) {
       if (row.status !== "active" || row.archived || row.slug.startsWith("_")) continue;
       try {
-        const config = loadProject(o.projectsDir, row.slug).parsed.config;
+        const config = projectStore({ projects: o.projectsDir }).config(row.slug);
         const leads = config.notion.databases.find((d) => d.slug === "leads")?.dataSourceId;
         if (leads) out.push({ slug: row.slug, config, leads });
       } catch {
@@ -249,7 +249,7 @@ export async function convertSentLead(c: ConvertEnv, n: { project: string; to: r
     const rows = (await c.repos.leadRows.ofEmail(n.project, email)).filter((r) => !r.convertedAt && r.dismissedReason !== "spam");
     const lead = rows[0];
     if (!lead) return { state: "none" };
-    const config = loadProject(c.projectsDir, n.project).parsed.config;
+    const config = projectStore({ projects: c.projectsDir }).config(n.project);
     if (config.notion.convertLeads === "off") return { state: "off" };
     const leads = config.notion.databases.find((d) => d.slug === "leads")?.dataSourceId;
     const clients = config.notion.databases.find((d) => d.slug === "clients")?.dataSourceId;

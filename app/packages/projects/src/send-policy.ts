@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import { z } from "zod";
 import { FIELDS, POLICY_FIELDS, type PolicyField } from "./fields";
 import { kindOf } from "./kinds";
-import type { LoadedProject } from "./registry";
+import type { LoadedProject } from "./store";
 import { SEND_MODES, type ProjectConfig } from "./schema";
 import { removeSettings, rewrite } from "./write";
 

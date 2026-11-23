@@ -3,7 +3,7 @@ import { isHiddenLabel, MESSENGER_TEXT_MAX, type ChatRules } from "@hub/config/c
 import type { MessengerPrepareBody } from "@hub/contract/messenger-panel";
 import { rulesOf, type MessengerChatRow, type Repos } from "@hub/db";
 import { LlmError, type Llm } from "@hub/llm";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { draftVerdict } from "@hub/agent/messenger-rules";
 import { z } from "zod";
 
@@ -22,7 +22,7 @@ export class MessengerReplyError extends HubError {
 }
 
 const effectiveRules = (row: MessengerChatRow, projectsDir: string, project: string, policyDir?: string): ChatRules => {
-  const projectRules = loadProject(projectsDir, project, policyDir ? { policyDir } : {}).parsed.config.messengers;
+  const projectRules = projectStore({ projects: projectsDir, ...(policyDir ? { stateProjects: policyDir } : {}) }).config(project).messengers;
   const chatRules = rulesOf(row);
   return { ...chatRules, language: chatRules.language ?? projectRules.language, instruction: chatRules.instruction ?? projectRules.instruction };
 };

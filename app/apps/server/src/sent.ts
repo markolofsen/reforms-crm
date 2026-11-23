@@ -4,7 +4,7 @@ import { osaFor, type OsaRun } from "@hub/mail-app/osa";
 import { mailRunning, readSent, type SentMessage } from "@hub/mail-app/read";
 import { bareId } from "@hub/mail-app/records";
 import type { SentNotice } from "@hub/send";
-import { configOf } from "./overview-facts";
+import type { ProjectStore } from "@hub/projects/store";
 import { errFields, ops } from "@hub/log/ops";
 
 /**
@@ -38,6 +38,8 @@ export interface SentHandle {
 
 export interface SentOptions {
   repos: Repos;
+  /** P126 P3: each project's Mail accounts and Sent mailbox, read from project.md. */
+  projects: ProjectStore;
   /** Default: the real `osascript`. Tests pass a fake; nothing in a test reaches Mail. */
   osa?: OsaRun;
   env?: NodeJS.ProcessEnv;
@@ -163,12 +165,12 @@ export async function reconcileProject(osa: OsaRun, repos: Repos, p: ProjectPlan
 }
 
 /** Active projects that list a Mail account and have drafts waiting. Reads SQLite only. */
-async function plans(repos: Repos, since: string): Promise<ProjectPlan[]> {
+async function plans(repos: Repos, projects: ProjectStore, since: string): Promise<ProjectPlan[]> {
   const out: ProjectPlan[] = [];
   for (const row of (await repos.projects.registry()).projects) {
     if (row.status !== "active" || row.archived) continue;
-    const c = configOf(row);
-    if (c.mail.accounts.length === 0) continue;
+    const c = projects.find(row.slug);
+    if (!c || c.mail.accounts.length === 0) continue;
     const drafts = await repos.drafts.awaitingSent(row.slug, since);
     if (!drafts.length) continue;
     const all = await repos.mailVersions.ofProject(row.slug);
@@ -221,7 +223,7 @@ export function startSentReconciler(o: SentOptions): SentHandle {
 
   async function pass(): Promise<void> {
     if (disabled) return;
-    const todo = await plans(o.repos, new Date(now().getTime() - (o.lookbackDays ?? 30) * DAY).toISOString());
+    const todo = await plans(o.repos, o.projects, new Date(now().getTime() - (o.lookbackDays ?? 30) * DAY).toISOString());
     // No draft waits: Mail is not asked anything.
     if (todo.length === 0) return off("no draft waits to be seen in Sent");
     if (o.teamStamp) await refreshTeamStamps(o.repos, todo, o.teamStamp, teamSeen, now().getTime()).catch((e: unknown) => ops("notion").warn("refreshing the clients' Last sent stamps failed", errFields(e)));

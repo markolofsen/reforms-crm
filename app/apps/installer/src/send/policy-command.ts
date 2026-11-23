@@ -1,4 +1,4 @@
-import { isPolicyField, loadProjects, migrateSendPolicy, POLICY_FIELDS, setSendPolicy, type LoadedProject, type PolicyField, type SendPolicy } from "@hub/projects";
+import { isPolicyField, projectStore, migrateSendPolicy, POLICY_FIELDS, setSendPolicy, type LoadedProject, type PolicyField, type SendPolicy } from "@hub/projects";
 
 // `hub send policy`: the one command that writes a project's send policy (P49 S11). A person runs it in their own
 // shell; an agent's session cannot (deny rules on `hub send`, and the sandbox cannot write state/projects).
@@ -20,7 +20,7 @@ const line = (slug: string, p: SendPolicy, source: string): string =>
 /** Exit codes: 0 ok, 2 refused or bad input. */
 export function runPolicyCommand(args: string[], env: PolicyCommandEnv): number {
   const out = env.out ?? console.log;
-  const all = (): LoadedProject[] => loadProjects(env.projectsDir, { policyDir: env.policyDir });
+  const all = (): LoadedProject[] => projectStore({ projects: env.projectsDir, stateProjects: env.policyDir }).list();
   const find = (slug: string | undefined): LoadedProject | undefined => all().find((p) => p.slug === slug);
   const [verb, ...rest] = args;
 

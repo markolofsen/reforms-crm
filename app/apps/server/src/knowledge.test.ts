@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { knowledgeListDto, knowledgeTextDto } from "@hub/contract/knowledge";
 import type { Repos } from "@hub/db";
 import { createApp } from "./app";
+import { projectStoreOf } from "@hub/projects/testing";
 
 // P70 S2: `GET /api/projects/:slug/knowledge` lists the index of the project only, with a status per entry on the project's day.
 const doc = (path: string, title: string, o: Record<string, unknown> = {}) => ({ id: 1, project: "acme", path, title, use: "STATE", approved: true, audiences: '["client"]', brands: "[]", category: null, kind: null, validUntil: null, body: "the body stays on the server", phrasings: "", frontMatter: "{}", contentHash: "h", updatedAt: "", ...o });
@@ -18,7 +19,7 @@ const repos = {
   projects: { get: async (s: string) => (s === "acme" ? { slug: "acme", settingsJson: settings } : null) },
   knowledge: { list: async (p: string) => (asked.push(p), p === "acme" ? docs : []), get: async (p: string, path: string) => (p === "acme" ? (docs.find((d) => d.path === path) ?? null) : null) },
 } as unknown as Repos;
-const app = createApp(repos, { now: () => new Date("2026-11-19T12:00:00.000Z") });
+const app = createApp(repos, { projects: projectStoreOf({ acme: JSON.parse(settings) as Record<string, unknown> }), now: () => new Date("2026-11-19T12:00:00.000Z") });
 const get = async (q = "") => {
   const res = await app.request(`http://127.0.0.1:4317/api/projects/acme/knowledge${q}`);
   expect(res.status).toBe(200);

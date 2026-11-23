@@ -9,7 +9,8 @@ import { kindOf } from "./kinds";
 import type { ProjectConfig } from "./schema";
 import { loadWorkflows, workflowErrors } from "./workflows";
 import { isUsable, loadSequences, sequenceErrors } from "@hub/sequences";
-import { duplicateClaims, duplicateDomains, type LoadedProject } from "./registry";
+import { duplicateClaims, duplicateDomains } from "./registry";
+import type { LoadedProject } from "./store";
 import { policyProblems } from "./send-policy";
 
 /** `warn`: a gap that a `draft` project may still have (it becomes `fail` once the project is `active`). */

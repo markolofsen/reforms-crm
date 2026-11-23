@@ -1,6 +1,6 @@
 import { newThreadKey, SEQUENCE_SKILL, type EvidenceLevel } from "@hub/config";
 import { createRepos, openDb, RepoError, type RecordDraftInput, type RecordDraftResult } from "@hub/db";
-import { checkContext, checkDraftRecipients, contextMode, judgeSimilarity, kindOf, loadProject, measureAgainstSet, readAllowList, SIM_AMBER, type ContextMode, type PriorRecord, type Violation } from "@hub/projects";
+import { checkContext, checkDraftRecipients, contextMode, judgeSimilarity, kindOf, projectStore, measureAgainstSet, readAllowList, SIM_AMBER, type ContextMode, type PriorRecord, type Violation } from "@hub/projects";
 import { appendLine, readLines, recordsFile } from "../evidence/store";
 import { addressesOf, crossCheck, otherBrandFacts, previousRevision, type RecordLine } from "./checks";
 import type { DraftRecord } from "./schema";
@@ -94,7 +94,7 @@ export async function recordDraftCall(c: DraftRecordCall, o: DraftRecordEnv): Pr
   let brandScope = false;
   if (o.projectsDir) {
     let loaded;
-    try { loaded = loadProject(o.projectsDir, c.project, o.policyDir ? { policyDir: o.policyDir } : {}); }
+    try { loaded = projectStore({ projects: o.projectsDir, ...(o.policyDir ? { stateProjects: o.policyDir } : {}) }).file(c.project); }
     catch (e) { return { ok: false, code: "not_allowed", error: e instanceof Error ? e.message : String(e) }; }
     const kind = kindOf(loaded.parsed.config.kind);
     if (mailClass && kind && !kind.mailClasses.some((m) => m.id === mailClass)) {

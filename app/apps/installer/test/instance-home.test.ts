@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CORE_ROOT, hubPaths } from "@hub/config/paths";
-import { defaultProjectsRoot, loadProjects } from "@hub/projects";
+import { defaultProjectsRoot, projectStore } from "@hub/projects";
 import { defaultDbPath, openDb } from "@hub/db";
 import { listProjects, makeCtx } from "../src/context";
 import { evidenceDir } from "@hub/agent/evidence/store";
@@ -45,11 +45,11 @@ describe("an instance folder outside the checkout", () => {
     expect(makeCtx().paths.home).toBe(home);
     expect(listProjects(makeCtx())).toEqual(["acme-travel", "nordhaus"]);
     expect(defaultProjectsRoot()).toBe(path.join(home, "projects"));
-    expect(loadProjects(defaultProjectsRoot()).map((p) => p.slug)).toEqual(["acme-travel", "nordhaus"]);
+    expect(projectStore({ projects: defaultProjectsRoot() }).list().map((p) => p.slug)).toEqual(["acme-travel", "nordhaus"]);
     expect(defaultDbPath()).toBe(path.join(home, "data", "app.db"));
   });
   it("lists none of the checkout's own projects", () => {
-    const seen = [...listProjects(makeCtx()), ...loadProjects(defaultProjectsRoot()).map((p) => p.slug)];
+    const seen = [...listProjects(makeCtx()), ...projectStore({ projects: defaultProjectsRoot() }).list().map((p) => p.slug)];
     for (const own of coreProjects()) expect(seen, `${own} leaked from the checkout`).not.toContain(own);
   });
   it("opens the default database inside the instance, never the checkout's", () => {

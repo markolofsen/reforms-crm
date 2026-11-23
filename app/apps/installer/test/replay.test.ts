@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { pathsAt } from "@hub/config/paths";
 import { appendEvents, logStoreOf } from "@hub/log/store";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { recordPost } from "@hub/agent/evidence/store";
 import { fakePorts, REPLAY_CASES, replay, type FakePorts, type ReplayGuard, type ReplayObserver } from "@hub/agent/testing";
 import { auditLayout, guardDecision, preDraftViolations } from "../src/safety";
@@ -19,7 +19,7 @@ afterEach(() => {
 const guard: ReplayGuard = (call, p) => {
   const paths = pathsAt(p.dir);
   const payload = { session_id: call.sessionId, tool_name: call.name, tool_input: call.input };
-  const accounts = loadProject(p.projectsDir, p.slug).parsed.config.mail.accounts;
+  const accounts = projectStore({ projects: p.projectsDir }).config(p.slug).mail.accounts;
   const g = guardDecision(payload, { slug: p.slug, accounts, mode: "block", layout: auditLayout(paths), unattended: false });
   return [...g.violations, ...preDraftViolations(payload, p.dir, p.slug, p.dbPath, paths)];
 };

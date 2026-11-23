@@ -9,6 +9,8 @@
     "./model": "./src/schema.ts",
     "./brand": "./src/brand.ts",
     "./parse": "./src/parse.ts",
+    "./store": "./src/store.ts",
+    "./testing": "./src/testing.ts",
     "./dev": "./src/dev.ts",
     "./hub-commands": "./src/hub-commands.ts",
     "./local-open": "./src/local-open.ts",

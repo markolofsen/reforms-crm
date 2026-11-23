@@ -4,6 +4,7 @@ import { overviewDto, type OverviewDto } from "@hub/contract/overview";
 import { gatherFacts, hostTimeZone } from "./overview-facts";
 import { overviewSentence, statusOf } from "./overview-status";
 import { projectReadOf } from "./inbound";
+import type { ProjectStore } from "@hub/projects/store";
 
 /**
  * The Overview (contract v5): one row per registered project, from local facts only (SQLite, the project folders, the
@@ -16,9 +17,8 @@ export interface OverviewService {
 
 export interface OverviewOptions {
   repos: Repos;
-  projectsDir: string;
-  /** `hubPaths().stateProjects`: the send policy each project's row reports (P49 S11). */
-  policyDir?: string;
+  /** P126 P3: each project's config with its send policy (P49 S11), from project.md. */
+  projects: ProjectStore;
   health: () => HealthDto;
   dataVersion: () => number;
   now: () => Date;
@@ -32,7 +32,7 @@ export function createOverview(o: OverviewOptions): OverviewService {
       const now = o.now();
       const system = o.health();
       const { projects } = await o.repos.projects.registry();
-      const facts = await gatherFacts({ repos: o.repos, root: o.projectsDir, ...(o.policyDir ? { policyDir: o.policyDir } : {}), now, hostZone: zone, rows: projects });
+      const facts = await gatherFacts({ repos: o.repos, projects: o.projects, now, hostZone: zone, rows: projects });
       const rows = facts.map((f) => {
         const sys = { sentError: system.sent.state === "error" && system.sent.projects.includes(f.slug), fakeMailer: system.mailer === "fake", mailRead: projectReadOf(system.inbound, f.slug) };
         return { slug: f.slug, name: f.name, projectStatus: f.status, archived: f.archived, toReview: f.toReview, sentToday: f.sentToday, status: statusOf(f, sys, now) };

@@ -7,6 +7,7 @@ import { createRepos, openDb, type DbHandle, type Repos } from "@hub/db";
 import { overviewDto, type OverviewDto } from "@hub/contract/overview";
 import type { SenderOptions } from "./routes/sends";
 import { createApp } from "./app";
+import { projectStoreOf } from "@hub/projects/testing";
 
 // GET /api/overview (contract v5): one row per project from local facts. No Mail, no Notion, no network.
 const T0 = new Date("2026-11-15T12:00:00Z");
@@ -18,8 +19,13 @@ let root: string;
 
 const settings = (over: Record<string, unknown> = {}) =>
   JSON.stringify({ schema: 1, slug: "x", kind: "generic", name: "x", mail: { accounts: ["Google"], addresses: ["me@example.test"] }, draft: { recipients: ["a@example.com"] }, context: { required: "warn" }, ...over });
-const register = (...p: { slug: string; status?: string; archived?: boolean; settingsJson?: string }[]) =>
-  repos.projects.replaceRegistry({ projects: p.map((x) => ({ slug: x.slug, name: x.slug.toUpperCase(), status: x.status ?? "active", archived: x.archived ?? false, settingsJson: x.settingsJson ?? settings(), hash: "h" })), addresses: [] });
+// P126 P3: the overview reads each project's config from project.md through the store; the registry row only lists it.
+const configs: Record<string, Record<string, unknown>> = {};
+const projects = projectStoreOf(configs);
+const register = (...p: { slug: string; status?: string; archived?: boolean; settingsJson?: string }[]) => {
+  for (const x of p) configs[x.slug] = JSON.parse(x.settingsJson ?? settings()) as Record<string, unknown>;
+  return repos.projects.replaceRegistry({ projects: p.map((x) => ({ slug: x.slug, name: x.slug.toUpperCase(), status: x.status ?? "active", archived: x.archived ?? false, settingsJson: x.settingsJson ?? settings(), hash: "h" })), addresses: [] });
+};
 const triaged = (project: string, action: "skipped" | "escalated" = "skipped") => repos.inbox.record({ project, email: "seen@example.com", name: "Seen", action }, now);
 
 beforeEach(() => {
@@ -27,11 +33,12 @@ beforeEach(() => {
   repos = createRepos(handle.db);
   now = T0;
   root = mkdtempSync(join(tmpdir(), "hub-ov-projects-"));
+  for (const k of Object.keys(configs)) delete configs[k];
 });
 afterEach(() => handle.close());
 
 const app = (o: { fake?: boolean } = {}) =>
-  createApp(repos, { now: () => now, overview: { projectsDir: root, timeZone: "UTC" }, ...(o.fake ? { sender: { kind: "fake", projectsDir: root, policyDir: join(root, ".policy"), allowList: [], adminPort: 5173, mailer: {} as SenderOptions["mailer"] } } : {}) });
+  createApp(repos, { projects, now: () => now, overview: { projectsDir: root, timeZone: "UTC" }, ...(o.fake ? { sender: { kind: "fake", projectsDir: root, policyDir: join(root, ".policy"), allowList: [], adminPort: 5173, mailer: {} as SenderOptions["mailer"] } } : {}) });
 const get = async (a = app()) => {
   const r = await a.request(`${BASE}/api/overview`);
   return { status: r.status, text: await r.clone().text(), body: overviewDto.parse(await r.json()) };

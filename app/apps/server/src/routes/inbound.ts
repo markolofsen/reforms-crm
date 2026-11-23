@@ -5,7 +5,6 @@ import { notFound, v } from "../http";
 import { INBOUND_OFF, projectReadOf } from "../inbound";
 import { ownText } from "@hub/mail-app/read";
 import { LEADS_OFF, projectLeadsOf } from "../leads-reader";
-import { configOf } from "../overview-facts";
 import type { InboundServices } from "../composition/capabilities";
 
 /** How the card reads a message's text from Mail (P96 verdict 6): null with the reason when Mail cannot show it. */
@@ -45,13 +44,12 @@ const id = (raw: string): number | null => (/^[1-9]\d*$/.test(raw) ? Number(raw)
  * read pass, waited for), and No reply needed with its Undo (`POST .../inbound/:id/dismiss`, `POST .../inbound/undismiss`).
  * Read-only toward Mail, so the general loopback guard is enough (rules README 7); nothing here writes Mail or starts an agent.
  */
-export function inboundRoutes({ repos, reader, readText, leads }: InboundServices) {
+export function inboundRoutes({ repos, projects, reader, readText, leads }: InboundServices) {
   const status = () => reader?.status() ?? INBOUND_OFF;
   const project = async (slug: string) => (await repos.projects.get(slug)) !== null;
   /** P97 S2: the Leads group (verdicts 2 and 9 as answered): New leads of the last `leads.window_days`, one row per person. */
   const leadsGroup = async (slug: string) => {
-    const row = await repos.projects.get(slug);
-    const windowDays = row ? configOf(row).leads.windowDays : 14;
+    const windowDays = projects.find(slug)?.leads.windowDays ?? 14;
     const items: LeadItem[] = await repos.leadRows.open(slug, new Date(Date.now() - windowDays * DAY).toISOString());
     return { rows: items.slice(0, INBOX_LIST_MAX).map(leadDto), total: items.length, read: projectLeadsOf(leads?.status() ?? LEADS_OFF, slug, windowDays) };
   };

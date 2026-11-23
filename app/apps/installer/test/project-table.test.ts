@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { storeToken } from "@hub/connections";
 import { projectRows, projectTable } from "../src/project-table";
 import { verifyProjectDatabases } from "../src/notion-check";
-import { loadProjects } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { fake } from "./helpers";
 
 const ID = "00000000-0000-4000-8000-000000000001";
@@ -25,7 +25,7 @@ describe("notion databases and project table", () => {
     const f = fake();
     storeToken(f.ctx.configDir, "notion-token", "ntn\u005fTESTTOKENVALUE123456");
     f.ctx.fetch = (async () => new Response("{}", { status: 404 })) as any;
-    const v = await verifyProjectDatabases(f.ctx, loadProjects(projectsDir(f, [["acme", "active"]])));
+    const v = await verifyProjectDatabases(f.ctx, projectStore({ projects: projectsDir(f, [["acme", "active"]]) }).list());
     expect(v.ok).toBe(false);
     expect(v.detail).toContain('share the teamspace page "Acme teamspace"');
   });

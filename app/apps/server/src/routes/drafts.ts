@@ -5,7 +5,7 @@ import { draftChangedDto, draftsDto, historyDto, timelineDto } from "@hub/contra
 import { toDraft } from "../dto";
 import { notFound, v } from "../http";
 import { findMail, mailHash, trashThread } from "@hub/send";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { errFields, ops } from "@hub/log/ops";
 import type { ReviewServices } from "../composition/capabilities";
 
@@ -38,7 +38,7 @@ export function draftRoutes({ repos, sender }: ReviewServices) {
         const own = await repos.drafts.get(id);
         const accounts = own ? (() => {
           try {
-            return loadProject(sender.projectsDir, own.project, { policyDir: sender.policyDir }).parsed.config.mail.accounts;
+            return projectStore({ projects: sender.projectsDir, stateProjects: sender.policyDir }).config(own.project).mail.accounts;
           } catch {
             return null;
           }

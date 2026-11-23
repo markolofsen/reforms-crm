@@ -1,6 +1,6 @@
 import { STOP_REASONS, type StopReason } from "@hub/config";
 import { createRepos, defaultDbPath, openDb, RepoError, type EnrollmentItem, type Repos } from "@hub/db";
-import { kindOf, loadProject } from "@hub/projects";
+import { kindOf, projectStore } from "@hub/projects";
 import { CORE_STOP_ON, decideStop, findSequence, isUsable, loadSequences, pickSequence, scheduleOf, sequenceErrors, type LoadedSequence, type StopFacts } from "@hub/sequences";
 import type { Command } from "commander";
 import { readFileSync } from "node:fs";
@@ -28,7 +28,7 @@ export const inAgentSession = (env: NodeJS.ProcessEnv): boolean => env.CLAUDECOD
 const json = (o: unknown) => JSON.stringify(o);
 
 function folderOf(d: SequencesDeps, slug: string): string {
-  return loadProject(d.projectsDir, slug).folder;
+  return projectStore({ projects: d.projectsDir }).file(slug).folder;
 }
 
 async function withRepos<T>(d: SequencesDeps, fn: (r: Repos) => Promise<T>): Promise<T> {
@@ -81,7 +81,7 @@ export function runSequencesList(slug: string, asJson: boolean, d: SequencesDeps
 /** Every file parses, and its mail classes are classes of the project's kind. Exit 1 on an error; warnings do not fail. */
 export function runSequencesCheck(slug: string, d: SequencesDeps): number {
   const out = d.out ?? console.log;
-  const p = loadProject(d.projectsDir, slug);
+  const p = projectStore({ projects: d.projectsDir }).file(slug);
   const all = loadSequences(p.folder);
   const kind = kindOf(p.parsed.config.kind);
   let extra = 0;

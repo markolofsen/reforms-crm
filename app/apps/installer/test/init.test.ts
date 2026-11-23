@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { ghCreateLine, githubOwner, initInstance, INSTANCE_TEMPLATE, InitError, instanceDir, kindFromAnswer, kindQuestion, pinFile, renderTemplate, templateFiles } from "../src/init";
 import { situationOf } from "../src/setup/situation";
 import { KIND_IDS } from "@hub/projects";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { readCoreVersion } from "@hub/config/core-version";
 import { CORE_ROOT } from "@hub/config/paths";
 
@@ -150,7 +150,7 @@ describe("hub new-instance (P89)", () => {
     const md = readFileSync(path.join(dir, "projects", "acme", "project.md"), "utf8");
     expect(md).toContain("| kind | software-support | 2026-11-20 | owner |");
     expect(md).toContain("| status | draft |");
-    const parsed = loadProject(path.join(dir, "projects"), "acme").parsed;
+    const parsed = projectStore({ projects: path.join(dir, "projects") }).file("acme").parsed;
     expect(parsed.config).toMatchObject({ kind: "software-support", status: "draft" });
     expect(parsed.issues.filter((i) => i.severity === "error")).toEqual([]);
     expect(readFileSync(path.join(dir, "projects", "acme", "knowledge", "taxonomy.md"), "utf8")).toContain("PRICING, API, BILLING");

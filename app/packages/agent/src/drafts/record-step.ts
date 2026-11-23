@@ -1,4 +1,4 @@
-import { checkDraftRecipients, loadProject } from "@hub/projects";
+import { checkDraftRecipients, projectStore } from "@hub/projects";
 import { headersFromText } from "@hub/projects/brand";
 import { normalizeAddress } from "@hub/projects/parse";
 import type { InboundMessage } from "@hub/mail-app/writer/types";
@@ -40,7 +40,7 @@ export async function precheckRecord(s: DraftScope, email: string, record: Draft
   const env = s.ctx.env.records;
   if (!env) throw new ToolError("unavailable", "This hub MCP server cannot record drafts (no database to write). Nothing was written.");
   if (!env.projectsDir) return;
-  const cfg = loadProject(env.projectsDir, s.slug, env.policyDir ? { policyDir: env.policyDir } : {}).parsed.config;
+  const cfg = projectStore({ projects: env.projectsDir, ...(env.policyDir ? { stateProjects: env.policyDir } : {}) }).config(s.slug);
   const g = checkDraftRecipients(cfg, addressesOf(record.to ?? email, record.cc), allowList(env.configFile));
   if (!g.ok) throw new ToolError("recipient_not_allowed", `draft.recipients of ${s.slug} does not permit ${g.blocked.join(", ")}. Nothing was written.`, { blocked: g.blocked });
 }

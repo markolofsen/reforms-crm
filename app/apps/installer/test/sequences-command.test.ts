@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb } from "@hub/db";
-import { doctorProject, loadProject, loadProjects } from "@hub/projects";
+import { doctorProject, projectStore } from "@hub/projects";
 import { FakeMailer } from "@hub/send";
 import { defaultRoot } from "../src/context";
 import { anyRecipients, beforeContextBlock } from "./instance-fixture";
@@ -66,8 +66,8 @@ describe("hub sequences check", () => {
     expect(lines.join("\n")).toMatch(/mail class "invoices" is not a class of kind generic/);
   });
   it("the project doctor has the sequences parse row", async () => {
-    const p = loadProject(projects, "alpha");
-    const checks = await doctorProject({ project: p, all: loadProjects(projects) });
+    const p = projectStore({ projects: projects }).file("alpha");
+    const checks = await doctorProject({ project: p, all: projectStore({ projects: projects }).list() });
     expect(checks.find((c) => c.name === "sequences parse")).toMatchObject({ outcome: "pass", detail: "2 sequence(s), 0 active" });
   });
 });

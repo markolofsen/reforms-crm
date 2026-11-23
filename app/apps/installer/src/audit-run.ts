@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import { auditToolCalls, defaultProjectsRoot, loadProject, toolCallsFromLog, type ToolCall } from "@hub/projects";
+import { auditToolCalls, defaultProjectsRoot, projectStore, toolCallsFromLog, type ToolCall } from "@hub/projects";
 import { auditEvidence, replayCalls, type ClaimedRecord, type EvidenceRow, type LedgerEntry } from "@hub/agent/evidence/ledger";
 import { hubPaths, instanceFeatures } from "@hub/config/paths";
 import { auditLayout, skillScope } from "./safety";
@@ -21,7 +21,7 @@ function readLogs(target: string): Array<{ aid?: string; calls: ToolCall[] }> {
  * project's mail accounts and folder, and tabulate the evidence behind every reply (P28 B4). Read only.
  */
 export function auditRun(logFile: string, slug: string, projectsRoot?: string): AuditResult {
-  const p = loadProject(projectsRoot ?? defaultProjectsRoot(), slug);
+  const p = projectStore({ projects: projectsRoot ?? defaultProjectsRoot() }).file(slug);
   const logs = readLogs(logFile);
   const calls = logs.flatMap((l) => l.calls);
   const entries: LedgerEntry[] = [];

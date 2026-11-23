@@ -5,7 +5,7 @@ import { MAIL_NOT_RUNNING, MAIL_UNREADABLE } from "@hub/contract/inbound";
 import { PREVIEW_CHARS, type InboundKnown, type NewInbound, type Repos } from "@hub/db";
 import { classifyMessage, parseRulesFile, type RulesFile } from "@hub/mail-filters";
 import { isOwnAddress } from "@hub/projects/brand";
-import { loadProject, readAllowList, testRecipientsOf } from "@hub/projects";
+import { projectStore, readAllowList, testRecipientsOf } from "@hub/projects";
 import type { ProjectConfig } from "@hub/projects/model";
 import { osaFor, type OsaRun } from "@hub/mail-app/osa";
 import { bareId } from "@hub/mail-app/records";
@@ -197,7 +197,7 @@ export function startInboundReader(o: InboundOptions): InboundHandle {
       if (row.status !== "active" || row.archived || row.slug.startsWith("_")) continue;
       let config: ProjectConfig;
       try {
-        config = loadProject(o.projectsDir, row.slug, o.policyDir ? { policyDir: o.policyDir } : {}).parsed.config;
+        config = projectStore({ projects: o.projectsDir, ...(o.policyDir ? { stateProjects: o.policyDir } : {}) }).config(row.slug);
       } catch {
         continue;
       }

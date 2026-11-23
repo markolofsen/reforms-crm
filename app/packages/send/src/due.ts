@@ -1,5 +1,5 @@
 import { RepoError } from "@hub/db";
-import { loadProjects } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { assess, type SendDeps } from "./assess";
 import { deliver } from "./deliver";
 import { DAY_MS } from "./recipients";
@@ -55,7 +55,7 @@ export async function runDue(deps: SendDeps, o: { apply: boolean; project?: stri
   }
 
   // Phase 2: queue new ones.
-  for (const p of loadProjects(deps.projectsDir, { policyDir: deps.policyDir })) {
+  for (const p of projectStore({ projects: deps.projectsDir, stateProjects: deps.policyDir }).list()) {
     const c = p.parsed.config;
     if (o.project && p.slug !== o.project) continue;
     if (c.send.mode !== "auto" || c.status !== "active" || c.send.classes.length === 0) continue;

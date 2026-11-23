@@ -3,7 +3,7 @@ import { readInstanceConfig } from "@hub/config/instance";
 // Each step PROVES something a backup needs and names the fix; none of them makes a backup (`git push` and `notion-dump dump` do).
 import { copyAndVerify } from "@hub/db";
 import { fileState, readValue } from "@hub/connections";
-import { loadProjects, type LoadedProject } from "@hub/projects";
+import { projectStore, type LoadedProject } from "@hub/projects";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -93,7 +93,7 @@ function newestDump(folder: string): Newest | undefined {
 }
 
 export async function backupNotionCheck(ctx: Ctx): Promise<CheckResult> {
-  const projects = loadProjects(ctx.paths.projects).filter((p) => p.parsed.config.status !== "archived" && p.parsed.config.notion.databases.length > 0);
+  const projects = projectStore({ projects: ctx.paths.projects }).list().filter((p) => p.parsed.config.status !== "archived" && p.parsed.config.notion.databases.length > 0);
   if (!projects.length) return pass("no project lists Notion databases: nothing to dump");
   const problems: string[] = [];
   const fresh: { p: LoadedProject; d: Newest }[] = [];
@@ -136,7 +136,7 @@ export async function backupSecretsCheck(ctx: Ctx): Promise<CheckResult> {
   const loose = names.filter((n) => (statSync(path.join(dir, n)).mode & 0o077) !== 0);
   if (loose.length) problems.push(`readable by others, must be 600: ${loose.join(", ")} (\`chmod 600 <file>\` in ${dir})`);
   // A project that names its own token file needs it (the shared token is optional: manual sessions use the connector).
-  const own = [...new Set(loadProjects(ctx.paths.projects).filter((p) => p.parsed.config.notion.databases.length > 0).map((p) => p.parsed.config.notion.tokenFile).filter((f) => f !== "notion-token"))];
+  const own = [...new Set(projectStore({ projects: ctx.paths.projects }).list().filter((p) => p.parsed.config.notion.databases.length > 0).map((p) => p.parsed.config.notion.tokenFile).filter((f) => f !== "notion-token"))];
   const missing = own.filter((f) => fileState(dir, f).state === "missing");
   if (missing.length) problems.push(`named by a project but missing: ${missing.join(", ")}`);
   if (problems.length) return fail(problems.join("; "));

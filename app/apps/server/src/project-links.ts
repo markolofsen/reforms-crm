@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { hrefOf } from "@hub/contract/local";
 import { projectLinksDto, type ProjectLinksDto } from "@hub/contract/responses";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { createNotionReader, loadToken, secretsDir, type NotionReader } from "@hub/notion";
 import type { Repos } from "@hub/db";
 
@@ -26,7 +26,7 @@ export interface ProjectLinksOptions {
 export async function projectLinks(repos: Repos, slug: string, root: string, options: ProjectLinksOptions = {}): Promise<ProjectLinksDto> {
   const row = await repos.projects.get(slug);
   if (row === null) throw new Error(`no such project "${slug}"`);
-  const project = loadProject(root, slug);
+  const project = projectStore({ projects: root }).file(slug);
   const declared = project.parsed.config.links;
   const roles = [
     ...new Set(

@@ -18,7 +18,8 @@ import { splitSignature } from "./brand";
 import { proposeAddresses, type RoutingSnapshot } from "./addresses";
 import { agentIndex, loadWorkflows, workflowErrors } from "./workflows";
 import { devFolder, indexDev, initDev } from "./dev";
-import { defaultProjectsRoot, loadProject, loadProjects, syncProjects, type LoadedProject } from "./registry";
+import { defaultProjectsRoot, syncProjects } from "./registry";
+import { projectStore, type LoadedProject } from "./store";
 
 export interface ProjectCommandOptions {
   /** Default: `<app>/projects` (or HUB_PROJECTS). */
@@ -57,7 +58,7 @@ export async function runSync(o: ProjectCommandOptions = {}): Promise<number> {
   const out = o.out ?? console.log;
   const handle = openDb(o.dbPath);
   try {
-    const loaded = loadProjects(o.projectsRoot ?? defaultProjectsRoot());
+    const loaded = projectStore({ projects: o.projectsRoot ?? defaultProjectsRoot() }).list();
     const r = await syncProjects(createRepos(handle.db), loaded);
     for (const w of r.warnings) out(`warning ${w}`);
     if (!r.ok) {
@@ -75,7 +76,7 @@ export async function runSync(o: ProjectCommandOptions = {}): Promise<number> {
 
 export function runShow(slug: string, o: ProjectCommandOptions = {}, json = false): number {
   const out = o.out ?? console.log;
-  const loaded = loadProject(o.projectsRoot ?? defaultProjectsRoot(), slug);
+  const loaded = projectStore({ projects: o.projectsRoot ?? defaultProjectsRoot() }).file(slug);
   if (json) {
     out(JSON.stringify(projectJson(loaded), null, 2));
     return loaded.parsed.issues.some((i) => i.severity === "error") ? 1 : 0;
@@ -136,7 +137,7 @@ export async function runProjectDoctor(slug: string, o: ProjectCommandOptions = 
   const out = o.out ?? console.log;
   const root = o.projectsRoot ?? defaultProjectsRoot();
   const policyDir = o.policyDir ?? (o.projectsRoot ? undefined : hubPaths().stateProjects);
-  const all = loadProjects(root, policyDir ? { policyDir } : {});
+  const all = projectStore({ projects: root, ...(policyDir ? { stateProjects: policyDir } : {}) }).list();
   const project = all.find((p) => p.slug === slug);
   if (!project) {
     out(`FAIL    project exists  no ${join(root, slug, "project.md")}`);
@@ -180,7 +181,7 @@ export type Ask = (question: string, suggestion?: string) => Promise<string>;
 export async function runProjectSetup(slug: string, flags: SetupFlags, o: ProjectCommandOptions = {}, ask?: Ask): Promise<number> {
   const out = o.out ?? console.log;
   const root = o.projectsRoot ?? defaultProjectsRoot();
-  const before = loadProject(root, slug);
+  const before = projectStore({ projects: root }).file(slug);
   const c = before.parsed.config;
   const kind = KINDS[c.kind];
   const plan = [
@@ -209,7 +210,7 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
   for (const raw of flags.brand ?? []) {
     const p = pair(raw);
     if (!p) { out(`error brand: expected <Brand>=<addresses and domains>, got "${raw}"`); return 1; }
-    const old = loadProject(root, slug).parsed.config.brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
+    const old = projectStore({ projects: root }).config(slug).brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
     try {
       writeBrandRow(before.folder, slug, { name: old?.name ?? p[0], receivesAt: p[1].split(",").map((x) => x.trim()).filter(Boolean), signature: old?.signature ?? [], displayName: old?.displayName, by: "owner" });
       out(`brand ${p[0]} receives at ${p[1]}`);
@@ -222,7 +223,7 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
   for (const raw of flags.brandSignature ?? []) {
     const p = pair(raw);
     if (!p) { out(`error brand-signature: expected <Brand>=<line><br><line>, got "${raw}"`); return 1; }
-    const old = loadProject(root, slug).parsed.config.brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
+    const old = projectStore({ projects: root }).config(slug).brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
     if (!old) { out(`error brand-signature: no ## Brands row named ${p[0]} (add it with --brand ${p[0]}=<addresses and domains>)`); return 1; }
     try {
       writeBrandRow(before.folder, slug, { name: old.name, receivesAt: old.receivesAt, signature: splitSignature(p[1].replace(/\\n/g, "<br>")), displayName: old.displayName, by: "owner" });
@@ -236,7 +237,7 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
   for (const raw of flags.brandDisplayName ?? []) {
     const p = pair(raw);
     if (!p) { out(`error brand-display-name: expected <Brand>=<display name>, got "${raw}"`); return 1; }
-    const old = loadProject(root, slug).parsed.config.brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
+    const old = projectStore({ projects: root }).config(slug).brands.find((b) => b.name.toLowerCase() === p[0].toLowerCase());
     if (!old) { out(`error brand-display-name: no ## Brands row named ${p[0]} (add it with --brand ${p[0]}=<addresses and domains>)`); return 1; }
     try {
       writeBrandRow(before.folder, slug, { name: old.name, receivesAt: old.receivesAt, signature: old.signature, displayName: p[1], by: "owner" });
@@ -247,7 +248,7 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
       throw e;
     }
   }
-  const after = loadProject(root, slug);
+  const after = projectStore({ projects: root }).file(slug);
   for (const i of after.parsed.issues) out(formatIssue(i));
   out(wrote ? `wrote ${wrote} setting(s) to ${slug}/project.md; run \`hub project sync\` to refresh the registry` : "nothing to change");
   return after.parsed.issues.some((i) => i.severity === "error") ? 1 : 0;
@@ -260,7 +261,7 @@ export async function runProjectSetup(slug: string, flags: SetupFlags, o: Projec
 export function runAddresses(slug: string, routesFile: string, apply: boolean, o: ProjectCommandOptions = {}): number {
   const out = o.out ?? console.log;
   const root = o.projectsRoot ?? defaultProjectsRoot();
-  const loaded = loadProject(root, slug);
+  const loaded = projectStore({ projects: root }).file(slug);
   const m = loaded.parsed.config.mail;
   let snapshot: RoutingSnapshot;
   try {
@@ -285,7 +286,7 @@ export function runAddresses(slug: string, routesFile: string, apply: boolean, o
 /** `workflows list <slug>`: the project's workflows with how an agent may use each; `--json` is the index an agent reads (only what it may pick). */
 export function runWorkflowsList(slug: string, json: boolean, o: ProjectCommandOptions = {}): number {
   const out = o.out ?? console.log;
-  const loaded = loadProject(o.projectsRoot ?? defaultProjectsRoot(), slug);
+  const loaded = projectStore({ projects: o.projectsRoot ?? defaultProjectsRoot() }).file(slug);
   const all = loadWorkflows(loaded.folder);
   if (json) {
     out(JSON.stringify({ project: slug, workflows: agentIndex(all) }, null, 2));
@@ -308,7 +309,7 @@ export function runWorkflowsList(slug: string, json: boolean, o: ProjectCommandO
 /** `workflows check <slug>`: every file parses; exit 1 on an error, warnings do not fail. */
 export function runWorkflowsCheck(slug: string, o: ProjectCommandOptions = {}): number {
   const out = o.out ?? console.log;
-  const loaded = loadProject(o.projectsRoot ?? defaultProjectsRoot(), slug);
+  const loaded = projectStore({ projects: o.projectsRoot ?? defaultProjectsRoot() }).file(slug);
   const all = loadWorkflows(loaded.folder);
   for (const x of all) for (const i of x.issues) out(`${i.severity} workflows/${x.file}: ${i.message}`);
   const errors = workflowErrors(all);
@@ -326,7 +327,7 @@ export function runDevIndex(slug: string | undefined, path: string | undefined, 
     return r.ok ? 0 : 1;
   }
   const root = o.projectsRoot ?? defaultProjectsRoot();
-  const slugs = slug ? [slug] : loadProjects(root).map((p) => p.slug).filter((s) => existsSync(devFolder(join(root, s))));
+  const slugs = slug ? [slug] : projectStore({ projects: root }).list().map((p) => p.slug).filter((s) => existsSync(devFolder(join(root, s))));
   if (!slugs.length) { out("no project has an @dev folder: hub dev init <project> --apply"); return 0; }
   let code = 0;
   for (const s of slugs) {

@@ -1,6 +1,6 @@
 import { fileState, notionShapeProblem, NOTION_FILE, readValue, redact, storeToken, TELEGRAM_FILE, type Verdict } from "@hub/connections";
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync } from "node:fs";
-import { loadProject } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import path from "node:path";
 import { listProjects, type Ctx } from "../context";
 import { doctor, install, table } from "../runner";
@@ -37,7 +37,7 @@ export interface SetupOutcome { stages: StageResult[]; reports: StepReport[]; ow
 export async function personalFacts(ctx: Ctx, d: Pick<SetupDeps, "mailAccounts">, reports: readonly StepReport[], situation: Situation): Promise<PersonalFacts> {
   const projects = projectsOf(ctx.paths.projects);
   const projectAccounts = projects.map((p) => {
-    try { return { slug: p.slug, accounts: loadProject(ctx.paths.projects, p.slug).parsed.config.mail.accounts }; } catch { return { slug: p.slug, accounts: [] }; }
+    try { return { slug: p.slug, accounts: projectStore({ projects: ctx.paths.projects }).config(p.slug).mail.accounts }; } catch { return { slug: p.slug, accounts: [] }; }
   });
   const row = (id: string) => reports.find((r) => r.step.id === id);
   const okOf = (id: string) => { const r = row(id); return r ? { ok: r.outcome === "ok" || r.outcome === "changed", detail: r.detail } : undefined; };

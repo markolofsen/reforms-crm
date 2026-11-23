@@ -52,6 +52,7 @@ import { SENT_OFF, type SentStatus } from "./sent";
 import { createOverview, type OverviewService } from "./overview";
 import { STUCK_MINUTES } from "./overview-facts";
 import { projectOverview, projectsRoot } from "./project-overview";
+import { projectStore, type ProjectStore } from "@hub/projects/store";
 import { projectDoctor } from "./project-doctor";
 import { projectLinksRoutes } from "./routes/project-links";
 import type { NotionReader } from "@hub/notion";
@@ -95,6 +96,8 @@ export type AppOptions = {
   /** P99: one person's history and one body read from Mail for the conversation pane; without it the pane shows the Hub's own rows. */
   conversationMail?: ConversationMail;
   /** Tests: the Overview with its own project folder and zone. */
+  /** P126 P3: the project store; default: over the sender's projects and policy folders. */
+  projects?: ProjectStore;
   overview?: { projectsDir?: string; service?: OverviewService; timeZone?: string };
   /** Tests: the instance's config folder (brand); default `hubPaths()`. */
   instance?: { configFile: string; configDir: string };
@@ -159,12 +162,12 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
   const now = opts.now ?? (() => new Date());
   const ov = opts.overview;
   const projectsDir = ov?.projectsDir ?? opts.sender?.projectsDir ?? projectsRoot();
+  const projects = opts.projects ?? projectStore({ projects: projectsDir, ...(opts.sender?.policyDir ? { stateProjects: opts.sender.policyDir } : {}) });
   const overview =
     ov?.service ??
     createOverview({
       repos,
-      projectsDir,
-      ...(opts.sender?.policyDir ? { policyDir: opts.sender.policyDir } : {}),
+      projects,
       health,
       dataVersion: () => opts.dataVersion?.() ?? 0,
       now,
@@ -172,7 +175,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     });
   const connections =
     opts.connections?.service ??
-    createConnections({ messengers: opts.messengers ?? (() => OFF), now, ...opts.connections, repos });
+    createConnections({ messengers: opts.messengers ?? (() => OFF), now, ...opts.connections, repos, store: projects });
   /** How long the Overview's parts wait for Mail's account list before saying "not checked here" (the read goes on and fills the cache). */
   const SCHEME_MAIL_MS = 400;
   const scheme: SchemeSources = {
@@ -228,8 +231,8 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", projectRoutes(projectServicesOf(repos, projectsDir, opts.sender?.policyDir)))
     .route("/", projectLinksRoutes(projectLinksServicesOf(repos, projectsDir, { ...(opts.projectLinks?.reader ? { reader: opts.projectLinks.reader } : {}) })))
     .route("/", inboxRoutes(inboxServicesOf(repos)))
-    .route("/", inboundRoutes(inboundServicesOf(repos, opts.inbound, opts.inboundText, opts.leads)))
-    .route("/", conversationRoutes(conversationServicesOf(repos, opts.conversationMail, opts.autolink ? { project: opts.autolink.project, directory: opts.autolink.directory, identityOf: opts.autolink.autolink.identityOf } : undefined)))
+    .route("/", inboundRoutes(inboundServicesOf(repos, projects, opts.inbound, opts.inboundText, opts.leads)))
+    .route("/", conversationRoutes(conversationServicesOf(repos, projects, opts.conversationMail, opts.autolink ? { project: opts.autolink.project, directory: opts.autolink.directory, identityOf: opts.autolink.autolink.identityOf } : undefined)))
     .route("/", sequenceRoutes(sequenceServicesOf(repos, projectsDir, now)))
     .route("/", bulkRoutes(bulkServicesOf(repos)))
     .route("/", overviewRoutes(overviewServicesOf(overview)))
@@ -238,7 +241,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", agentToolRoutes(agentServicesOf(repos, opts.agentTools)))
     .route("/", agentFeedRoutes(agentFeedServicesOf(repos, opts.agentLog, now)))
     .route("/", opsLogRoutes(opsLogServicesOf(opts.opsLog, now)))
-    .route("/", knowledgeRoutes(knowledgeServicesOf(repos, now, opts.overview?.timeZone)))
+    .route("/", knowledgeRoutes(knowledgeServicesOf(repos, projects, now, opts.overview?.timeZone)))
     .route("/", terminalRoutes(terminalServicesOf(opts.terminal, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
     .route("/", focusRoutes(focusServicesOf(opts.focus, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
     .route("/", pointerRoutes(pointerServicesOf(repos, opts.pointerFile, now)))

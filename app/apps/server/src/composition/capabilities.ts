@@ -1,4 +1,5 @@
 import type { Repos } from "@hub/db";
+import type { ProjectStore } from "@hub/projects/store";
 import type { HubPaths } from "@hub/config/paths";
 import type { AgentToolsDto } from "@hub/contract/agent-tools";
 import type { HealthDto } from "@hub/contract/health";
@@ -177,13 +178,16 @@ export interface ConversationMail {
 
 export type ConversationServices = {
   repos: Repos;
+  /** P126 P3: the project's config, read from project.md (never the registry's snapshot). */
+  projects: ProjectStore;
   mail?: ConversationMail;
   /** P131 O5: the Notion Clients records in memory, for the client's Telegram and WhatsApp. */
   directory?: MessengerDirectory;
 };
 
-export const conversationServicesOf = (repos: Repos, mail?: ConversationMail, directory?: MessengerDirectory): ConversationServices => ({
+export const conversationServicesOf = (repos: Repos, projects: ProjectStore, mail?: ConversationMail, directory?: MessengerDirectory): ConversationServices => ({
   repos,
+  projects,
   ...(mail ? { mail } : {}),
   ...(directory ? { directory } : {}),
 });
@@ -192,13 +196,15 @@ export type InboundTextReader = (account: string, messageId: string) => Promise<
 
 export type InboundServices = {
   repos: Repos;
+  projects: ProjectStore;
   reader?: InboundHandle;
   readText?: InboundTextReader;
   leads?: LeadsHandle;
 };
 
-export const inboundServicesOf = (repos: Repos, reader?: InboundHandle, readText?: InboundTextReader, leads?: LeadsHandle): InboundServices => ({
+export const inboundServicesOf = (repos: Repos, projects: ProjectStore, reader?: InboundHandle, readText?: InboundTextReader, leads?: LeadsHandle): InboundServices => ({
   repos,
+  projects,
   ...(reader ? { reader } : {}),
   ...(readText ? { readText } : {}),
   ...(leads ? { leads } : {}),
@@ -218,12 +224,14 @@ export const sequenceServicesOf = (repos: Repos, projectsDir: string, now: () =>
 
 export type KnowledgeServices = {
   repos: Repos;
+  projects: ProjectStore;
   now: () => Date;
   timeZone?: string;
 };
 
-export const knowledgeServicesOf = (repos: Repos, now: () => Date, timeZone?: string): KnowledgeServices => ({
+export const knowledgeServicesOf = (repos: Repos, projects: ProjectStore, now: () => Date, timeZone?: string): KnowledgeServices => ({
   repos,
+  projects,
   now,
   ...(timeZone ? { timeZone } : {}),
 });

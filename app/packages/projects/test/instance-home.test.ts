@@ -5,7 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CORE_ROOT } from "@hub/config/paths";
 import { defaultDbPath } from "@hub/db";
 import { runRename, runSync } from "../src/hub-commands";
-import { defaultProjectsRoot, loadProjects } from "../src/registry";
+import { defaultProjectsRoot } from "../src/registry";
+import { projectStore } from "../src/store";
 
 // Decision 0016, S1: with HUB_HOME naming a folder outside the checkout, the registry reads and writes there and nowhere else.
 const home = mkdtempSync(join(tmpdir(), "hub-projects-instance-"));
@@ -24,7 +25,7 @@ afterAll(() => {
 describe("@hub/projects under HUB_HOME", () => {
   it("reads the instance's projects folder, not the checkout's", () => {
     expect(defaultProjectsRoot()).toBe(join(home, "projects"));
-    const slugs = loadProjects(defaultProjectsRoot()).map((p) => p.slug);
+    const slugs = projectStore({ projects: defaultProjectsRoot() }).list().map((p) => p.slug);
     expect(slugs).toEqual(["acme-travel"]);
     const own = join(CORE_ROOT, "app", "projects");
     if (existsSync(own)) for (const n of readdirSync(own).filter((x) => !x.startsWith("_") && !x.startsWith("."))) expect(slugs).not.toContain(n);

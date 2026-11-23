@@ -11,7 +11,6 @@ import { notFound, v } from "../http";
 import { ownText } from "@hub/mail-app/read";
 import { threadsOf } from "../conversation";
 import { LABEL_MAILBOXES } from "../inbound";
-import { configOf } from "../overview-facts";
 import type { ConversationServices } from "../composition/capabilities";
 import { createMessengerIdentityResolver } from "../messenger-identity";
 
@@ -74,7 +73,7 @@ function threadsDto(msgs: Msg[], f: Facts, versions: ReadonlyMap<string, number>
  * from Mail now and never stored, decision 0013) and `.../conversation/text?m=` (one body, fetched as its bubble renders and kept in the server's
  * memory). Read only toward Mail: no route here writes Mail, Notion or the database except the idempotent clients rows of verdict 1.
  */
-export function conversationRoutes({ repos, mail, directory }: ConversationServices) {
+export function conversationRoutes({ repos, projects, mail, directory }: ConversationServices) {
   const identity = createMessengerIdentityResolver(directory);
   /** Where the last history read found each message, by project and Message-ID (for its body). Memory only. */
   const where = new Map<string, { account: string; mailbox: string; mailId: number }>();
@@ -130,7 +129,8 @@ export function conversationRoutes({ repos, mail, directory }: ConversationServi
       if (!row || !project) return notFound(c, "client");
       const inboxRefs = await repos.inbox.notionByEmails(slug, [row.client.email]);
       const f = await repos.conversations.facts(slug, row.client.id);
-      const cfg = configOf(project);
+      const cfg = projects.find(slug);
+      if (!cfg) return notFound(c, "project");
       const contextDraft = [...(f?.drafts ?? [])].sort((a, b) => b.id - a.id).find((d) => d.brand || d.wroteTo) ?? null;
       const inbound = row.inboundId === null ? null : f?.inbound.find((message) => message.id === row.inboundId) ?? null;
       let composerAccount = inbound?.account ?? cfg.mail.accounts[0] ?? "";
@@ -162,7 +162,8 @@ export function conversationRoutes({ repos, mail, directory }: ConversationServi
       if (!f || !project) return notFound(c, "client");
       const versions = new Map<string, number>();
       for (const d of f.drafts) for (const ver of await repos.mailVersions.ofDraft(d.id)) versions.set(bareRef(ver.messageId), d.id);
-      const projectConfig = configOf(project);
+      const projectConfig = projects.find(slug);
+      if (!projectConfig) return notFound(c, "project");
       const cfg = projectConfig.mail;
       const read = mail ? await mail.history({ accounts: cfg.accounts, inboundBoxes: [...cfg.mailboxes, ...LABEL_MAILBOXES], sentMailbox: cfg.sentMailbox, address: f.client.email, subjects: f.drafts.map((d) => d.subject) }).catch((e: unknown) => {
         ops("mail").warn("a conversation's history was not read from Mail", { project: slug, ...errFields(e) });

@@ -8,7 +8,7 @@ import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "
 import { SEND_LIKE_TOOL } from "../src/deny";
 import { focusLine, livePointer, readFocus, RESOLVERS, thisOf } from "../src/focus";
 import { createHubMcpServer, HUB_MCP_TOOLS } from "../src/mcp/server";
-import { kindOf, loadProject } from "@hub/projects";
+import { kindOf, projectStore } from "@hub/projects";
 import type { ProjectConfig } from "@hub/projects/model";
 
 // The shared focus reader, its resolvers per ref kind, the pointer and the hub MCP server (P51 F1, F2; P72), on a throwaway
@@ -206,7 +206,7 @@ describe("readFocus", () => {
 
 // P129 A4: `project_show` reads the project's resolved config; the fixture project stands in for "acme".
 const FIXTURES = path.join(import.meta.dirname, "..", "..", "projects", "test", "fixtures", "projects");
-const fixtureConfig = (): ProjectConfig => loadProject(FIXTURES, "acme-travel").parsed.config;
+const fixtureConfig = (): ProjectConfig => projectStore({ projects: FIXTURES }).config("acme-travel");
 
 async function connect(hubProject: string | undefined, o: { pointer?: boolean; bumps?: string[]; config?: ProjectConfig; tests?: string[] } = {}) {
   const config = o.config;

@@ -8,8 +8,7 @@ import {
   checkDraftRecipients,
   doctorFailed,
   doctorProject,
-  loadProject,
-  loadProjects,
+  projectStore,
   parseProjectMd,
   registryFromDb,
   registryFromLoaded,
@@ -41,13 +40,13 @@ const copyRoot = () => {
 
 describe("loadProjects", () => {
   it("skips the archive and reads folder names as slugs", () => {
-    expect(loadProjects(fixtureRoot).map((p) => p.slug)).toEqual(["acme-travel", "nordhaus"]);
+    expect(projectStore({ projects: fixtureRoot }).list().map((p) => p.slug)).toEqual(["acme-travel", "nordhaus"]);
   });
 });
 
 describe("syncProjects", () => {
   it("writes projects and addresses in one go; a shared account is allowed", async () => {
-    const r = await syncProjects(repos, loadProjects(fixtureRoot), "2026-11-20T10:00:00.000Z");
+    const r = await syncProjects(repos, projectStore({ projects: fixtureRoot }).list(), "2026-11-20T10:00:00.000Z");
     expect(r).toMatchObject({ ok: true, projects: 2 });
     const reg = await repos.projects.registry();
     expect(reg.projects.map((p) => [p.slug, p.status, p.syncedAt])).toEqual([
@@ -64,10 +63,10 @@ describe("syncProjects", () => {
 
   it("stores the kind and the archived flag, derived from the files", async () => {
     const root = copyRoot();
-    const nord = loadProject(root, "nordhaus");
+    const nord = projectStore({ projects: root }).file("nordhaus");
     const fs = await import("node:fs");
     fs.writeFileSync(nord.file, fs.readFileSync(nord.file, "utf8").replace("| status | active |", "| status | archived |").replace("| schema | 1 | 2026-11-14 | agent |", "| schema | 1 | 2026-11-14 | agent |\n| kind | shop | 2026-11-15 | agent |"));
-    const r = await syncProjects(repos, loadProjects(root));
+    const r = await syncProjects(repos, projectStore({ projects: root }).list());
     expect(r.ok).toBe(true);
     const reg = (await repos.projects.registry()).projects;
     expect(reg.map((p) => [p.slug, p.kind, p.archived])).toEqual([["acme-travel", "generic", false], ["nordhaus", "shop", true]]);
@@ -81,7 +80,7 @@ describe("syncProjects", () => {
   });
 
   it("is idempotent and the router reads the same answer from files and from the index", async () => {
-    const loaded = loadProjects(fixtureRoot);
+    const loaded = projectStore({ projects: fixtureRoot }).list();
     await syncProjects(repos, loaded);
     await syncProjects(repos, loaded);
     expect((await repos.projects.registry()).projects).toHaveLength(2);
@@ -91,13 +90,13 @@ describe("syncProjects", () => {
   });
 
   it("a duplicate address claim fails the whole sync and keeps the old index", async () => {
-    await syncProjects(repos, loadProjects(fixtureRoot));
+    await syncProjects(repos, projectStore({ projects: fixtureRoot }).list());
     const root = copyRoot();
-    const nord = loadProject(root, "nordhaus");
+    const nord = projectStore({ projects: root }).file("nordhaus");
     // make nordhaus also claim hello@acme.example
     const text = (await import("node:fs")).readFileSync(nord.file, "utf8").replace("office@nordhaus.example", "office@nordhaus.example, hello@acme.example");
     (await import("node:fs")).writeFileSync(nord.file, text);
-    const r = await syncProjects(repos, loadProjects(root));
+    const r = await syncProjects(repos, projectStore({ projects: root }).list());
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors.join("\n")).toMatch(/duplicate_claim: address hello@acme.example is claimed by acme-travel and nordhaus/);
     expect((await repos.projects.registry()).projects).toHaveLength(2);
@@ -107,7 +106,7 @@ describe("syncProjects", () => {
     const root = copyRoot();
     mkdirSync(join(root, "broken"));
     (await import("node:fs")).writeFileSync(join(root, "broken", "project.md"), "# broken\n\n## Settings\n\n| Field | Value | Answered | By |\n|---|---|---|---|\n| schema | 7 | 2026-11-14 | agent |\n");
-    const r = await syncProjects(repos, loadProjects(root));
+    const r = await syncProjects(repos, projectStore({ projects: root }).list());
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.errors[0]).toMatch(/broken: error: unknown_schema/);
     expect(await repos.projects.get("acme-travel")).toBeNull();
@@ -128,7 +127,7 @@ describe("checkDraftRecipients", () => {
 });
 
 describe("doctorProject", () => {
-  const all = () => loadProjects(fixtureRoot);
+  const all = () => projectStore({ projects: fixtureRoot }).list();
   const acme = () => all().find((p) => p.slug === "acme-travel")!;
   const names = (cs: { name: string; outcome: string }[]) => Object.fromEntries(cs.map((c) => [c.name, c.outcome]));
 
@@ -193,7 +192,7 @@ describe("doctorProject", () => {
     fs.writeFileSync(f, fs.readFileSync(f, "utf8").replace("| mail.sender | hello@acme.example |", "| mail.sender | ceo@acme.example |"));
     const nf = join(root, "nordhaus", "project.md");
     fs.writeFileSync(nf, fs.readFileSync(nf, "utf8").replace("office@nordhaus.example", "hello@acme.example"));
-    const loaded = loadProjects(root);
+    const loaded = projectStore({ projects: root }).list();
     const cs = await doctorProject({ project: loaded.find((p) => p.slug === "acme-travel")!, all: loaded });
     expect(names(cs)).toMatchObject({ "sender is one of the addresses": "fail", "no address claimed twice": "fail", "mail accounts exist": "skipped" });
   });

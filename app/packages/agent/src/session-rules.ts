@@ -6,7 +6,7 @@
 import path from "node:path";
 import { pathsAt, type AgentCli, type HubPaths } from "@hub/config/paths";
 import { isOwnAddress } from "@hub/projects/brand";
-import { loadProject, readAllowList, testRecipientsOf } from "@hub/projects";
+import { projectStore, readAllowList, testRecipientsOf } from "@hub/projects";
 import { resolveConnectors, sessionCapabilities } from "./connectors";
 import { NOTION_RULE, notionScopeOf } from "./notion-scope";
 
@@ -67,7 +67,7 @@ export function bindingPrompt(project: string, projectsRel = "projects", identit
 export function capabilitiesOf(paths: HubPaths, projectsDir: string, slug: string, cli: AgentCli): string | undefined {
   try {
     // The send policy (state/projects/<slug>/send-policy.json) decides test mode; project.md never carries it (P49 S11).
-    const cfg = loadProject(projectsDir, slug, { policyDir: paths.stateProjects }).parsed.config;
+    const cfg = projectStore({ projects: projectsDir, stateProjects: paths.stateProjects }).config(slug);
     const { attached } = resolveConnectors(paths, cfg);
     // P82: the notion part names the project's databases by id, and the rule follows when it has any (setup has none yet).
     const notion = notionScopeOf(slug, cfg);
@@ -92,7 +92,7 @@ export const UNBOUND_INSTRUCTIONS = "This hub session is not bound to a project:
 /** The bound project's identity paragraph from its project.md; undefined when it cannot be read (the session says so itself). */
 export function identityOf(projectsDir: string, slug: string): string | undefined {
   try {
-    const c = loadProject(projectsDir, slug).parsed.config;
+    const c = projectStore({ projects: projectsDir }).config(slug);
     return projectIdentity(slug, { ...c.mail, brands: c.brands.map((b) => b.name) });
   } catch {
     return undefined;

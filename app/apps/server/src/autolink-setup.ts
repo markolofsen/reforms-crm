@@ -2,7 +2,7 @@ import { offMode } from "@hub/config/modes";
 import { join } from "node:path";
 import { hubPaths } from "@hub/config/paths";
 import type { Repos } from "@hub/db";
-import { loadProjects } from "@hub/projects";
+import { projectStore } from "@hub/projects";
 import { startAutolink, type Autolink, type AutolinkAdapter, type UserChannel } from "./autolink";
 import { startClientDirectory, type ClientDirectory } from "./client-directory";
 import { messengersProject } from "./messengers";
@@ -37,7 +37,7 @@ export async function startProjectAutolink(o: {
   const project = pick?.project ?? null;
   const root = o.root ?? projectsRoot();
   const configOf = () => {
-    const p = project ? loadProjects(root).find((x) => x.slug === project) : undefined;
+    const p = project ? projectStore({ projects: root }).list().find((x) => x.slug === project) : undefined;
     return p && !p.parsed.issues.some((i) => i.severity === "error") ? p.parsed : null;
   };
   const first = configOf();

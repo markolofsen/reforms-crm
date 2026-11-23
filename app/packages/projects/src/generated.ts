@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { KINDS, hasValue } from "./kinds";
-import type { LoadedProject } from "./registry";
+import type { LoadedProject } from "./store";
 
 // `<project>/.generated/PROJECT.json`: the resolved project for skills and tools to read instead of its prose.
 // Derived on every sync from project.md and the kind; never edited by hand (the folder is git-ignored).

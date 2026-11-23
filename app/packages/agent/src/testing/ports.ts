@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { createRepos, openDb, openDbReadOnly, type Repos } from "@hub/db";
-import { CONTEXT_BLOCK_FROM, loadProject, readAllowList, setSendPolicy, testRecipientsOf } from "@hub/projects";
+import { CONTEXT_BLOCK_FROM, projectStore, readAllowList, setSendPolicy, testRecipientsOf } from "@hub/projects";
 import { FakeDraftWriter } from "@hub/mail-app/writer/fake";
 import { ownerWordsFound } from "../messenger/owner-word";
 import type { HubMcpEnv, NotionClientCheck, RevisionRecord, VersionRecord } from "../mcp/ports";
@@ -66,7 +66,7 @@ export function fakePorts(o: FakePortsOptions = {}): FakePorts {
   mkdirSync(path.dirname(configFile), { recursive: true });
   const test = o.recipients && o.recipients !== "any" ? o.recipients.test : null;
   writeFileSync(configFile, JSON.stringify({ allow_list: test ?? [] }));
-  const kind = loadProject(projectsDir, slug).parsed.config.kind;
+  const kind = projectStore({ projects: projectsDir }).config(slug).kind;
   setSendPolicy(policyDir, slug, kind, { "draft.recipients": test ? "test" : "any" }, "test", now);
   openDb(dbPath).close(); // migrated once; the tools then read it read-only
   const ro = openDbReadOnly(dbPath);
@@ -79,7 +79,7 @@ export function fakePorts(o: FakePortsOptions = {}): FakePorts {
       w.close();
     }
   };
-  const config = () => loadProject(projectsDir, slug, { policyDir }).parsed.config;
+  const config = () => projectStore({ projects: projectsDir, stateProjects: policyDir }).config(slug);
   const prompts: Array<{ ts: string; session: string; kind: "prompt"; data: Record<string, unknown> }> = [];
   const mail = new FakeDraftWriter();
   const env: HubMcpEnv = {

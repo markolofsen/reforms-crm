@@ -1,4 +1,4 @@
-import { doctorProject, loadProjects } from "@hub/projects";
+import { doctorProject, projectStore } from "@hub/projects";
 import { loadToken, secretsDir } from "@hub/notion";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -17,7 +17,7 @@ export const countMarkdown = (dir: string): number => {
  * any network call. A present token leaves the databases check skipped: reading them is the Overview's Refresh.
  */
 export async function projectDoctor(repos: Repos, slug: string, root: string, env: NodeJS.ProcessEnv = process.env, policyDir?: string): Promise<DoctorDto> {
-  const all = loadProjects(root, policyDir ? { policyDir } : {});
+  const all = projectStore({ projects: root, ...(policyDir ? { stateProjects: policyDir } : {}) }).list();
   const project = all.find((p) => p.slug === slug);
   if (!project) return doctorDto.parse({ state: "absent", checks: [], facts: null });
   const tokenFile = project.parsed.config.notion.tokenFile;

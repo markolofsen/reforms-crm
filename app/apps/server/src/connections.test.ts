@@ -10,6 +10,7 @@ import { MailNotAnswering } from "@hub/mail-app/osa";
 import { appleMailAccounts, fakeProbeDeps, type MailAccountsRead } from "./connections";
 import { ACCOUNTS_SCRIPT, RUNNING_SCRIPT } from "@hub/mail-app/scripts/read";
 import { captureOps } from "@hub/log/ops";
+import { projectStoreOf } from "@hub/projects/testing";
 
 // Fake secrets in a throwaway folder; the probes are stubs. Nothing here touches a real instance or the network.
 const NOTION = "ntn_FAKENOTIONSECRET1234567890";
@@ -26,15 +27,21 @@ let calls: string[];
 
 const settings = (over: Record<string, unknown> = {}) =>
   JSON.stringify({ schema: 1, slug: "x", kind: "generic", name: "x", mail: { accounts: ["Work"], addresses: [] }, ...over });
-const register = (...p: { slug: string; settingsJson?: string }[]) =>
-  repos.projects.replaceRegistry({ projects: p.map((x) => ({ slug: x.slug, name: x.slug, status: "active", archived: false, settingsJson: x.settingsJson ?? settings(), hash: "h" })), addresses: [] });
+// P126 P3: a project's config is read from project.md through the store; the registry row only lists it.
+const configs: Record<string, Record<string, unknown>> = {};
+const projects = projectStoreOf(configs);
+const register = (...p: { slug: string; settingsJson?: string }[]) => {
+  for (const k of Object.keys(configs)) delete configs[k];
+  for (const x of p) configs[x.slug] = JSON.parse(x.settingsJson ?? settings()) as Record<string, unknown>;
+  return repos.projects.replaceRegistry({ projects: p.map((x) => ({ slug: x.slug, name: x.slug, status: "active", archived: false, settingsJson: x.settingsJson ?? settings(), hash: "h" })), addresses: [] });
+};
 const put = (name: string, text: string, mode = 0o600) => { writeFileSync(join(dir, name), text, { mode }); chmodSync(join(dir, name), mode); };
 
 const stub = (status = 200) => ({
   fetch: (async (url: string) => { calls.push(String(url)); return new Response(JSON.stringify({ name: "Hub bot", result: { username: "hubbot" } }), { status }); }) as unknown as typeof fetch,
 });
 const app = (o: { status?: number; env?: NodeJS.ProcessEnv; minIntervalMs?: number; mail?: () => Promise<MailAccountsRead> } = {}) =>
-  createApp(repos, { now: () => now, messengers: () => ({ state: "off", reason: "no bot token file", failures: 0, stored: 0 }), connections: { dir: () => dir, env: o.env ?? {}, deps: stub(o.status), ...(o.mail ? { mailAccounts: o.mail } : {}), ...(o.minIntervalMs !== undefined ? { minIntervalMs: o.minIntervalMs } : {}) } });
+  createApp(repos, { projects, now: () => now, messengers: () => ({ state: "off", reason: "no bot token file", failures: 0, stored: 0 }), connections: { dir: () => dir, env: o.env ?? {}, deps: stub(o.status), ...(o.mail ? { mailAccounts: o.mail } : {}), ...(o.minIntervalMs !== undefined ? { minIntervalMs: o.minIntervalMs } : {}) } });
 type App = ReturnType<typeof app>;
 const list = async (a: App) => { const r = await a.request(`${BASE}/api/connections`); return { status: r.status, text: await r.clone().text(), body: connectionsDto.parse(await r.json()) }; };
 const test = async (a: App, id: string) => { const r = await a.request(`${BASE}/api/connections/${id}/test`, { method: "POST" }); return { status: r.status, text: await r.clone().text(), json: await r.json() as unknown }; };
@@ -167,7 +174,7 @@ describe("POST /api/connections/:id/test", () => {
   });
 
   it("unreachable is its own code and asks for a retry", async () => {
-    const a = createApp(repos, { now: () => now, connections: { dir: () => dir, env: {}, deps: { fetch: (async () => { throw new TypeError(`boom ${NOTION}`); }) as unknown as typeof fetch } } });
+    const a = createApp(repos, { projects, now: () => now, connections: { dir: () => dir, env: {}, deps: { fetch: (async () => { throw new TypeError(`boom ${NOTION}`); }) as unknown as typeof fetch } } });
     const r = await test(a, "notion:notion-token");
     expect(r.text).not.toContain(NOTION);
     expect(connectionDto.parse(r.json).check).toMatchObject({ state: "error", code: "unreachable", fix: "Check the network, then Test again." });
@@ -232,7 +239,7 @@ describe("POST /api/connections/:id/test", () => {
 
 describe("HUB_CONNECTIONS_PROBE=fake", () => {
   it("the stubs accept a key, and refuse one that contains REJECT, through the real probe code", async () => {
-    const a = createApp(repos, { now: () => now, connections: { dir: () => dir, env: {}, deps: fakeProbeDeps() } });
+    const a = createApp(repos, { projects, now: () => now, connections: { dir: () => dir, env: {}, deps: fakeProbeDeps() } });
     expect(connectionDto.parse((await test(a, "notion:notion-token")).json).check.state).toBe("fresh");
     put("notion-token", "ntn_REJECTEDFAKEVALUE1234567");
     const future = new Date(Date.now() + 5000);
