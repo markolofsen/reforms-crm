@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
-import { bareScoped, proxy } from "../src/proxy";
+import { BARE_HEADER, bareScoped, proxy } from "../src/proxy";
 
 const call = (host: string, init: { method?: string; origin?: string; path?: string; cookie?: string } = {}) => {
   const headers = new Headers({ host });
@@ -39,19 +39,23 @@ describe("proxy (Host and Origin guard)", () => {
     for (const path of ["/lisbon/mail", "/lisbon/mail/c/id-42?filter=all", "/overview", "/help", "/settings/connections", "/settings/mac", "/"]) expect(passes(go(path, "hub_project=lisbon")), path).toBe(true);
   });
 
-  it("serves a bare scoped address from the one tree: a rewrite to the `_` segment, never a redirect (P127 A2)", () => {
-    for (const [path, inside] of [
-      ["/mail", "/_/mail"],
-      ["/mail/c/id-42?filter=all", "/_/mail/c/id-42?filter=all"],
-      ["/mail?project=lisbon", "/_/mail?project=lisbon"],
-      ["/settings", "/_/settings"],
-      ["/settings/agent", "/_/settings/agent"],
-      ["/settings/messengers", "/_/settings/messengers"],
-    ] as const) {
+  it("marks a bare scoped address for the next.config rewrite to the `_` segment: never a redirect, never its own rewrite (P127 A2)", () => {
+    for (const path of ["/mail", "/mail/c/id-42?filter=all", "/mail?project=lisbon", "/settings", "/settings/agent", "/settings/messengers"]) {
       const res = call("127.0.0.1:5173", { path, cookie: "hub_project=lisbon" });
-      expect(res.status, path).toBe(200);
+      expect(passes(res), path).toBe(true);
       expect(res.headers.get("location"), path).toBeNull();
-      expect(new URL(res.headers.get("x-middleware-rewrite") ?? "").pathname + new URL(res.headers.get("x-middleware-rewrite") ?? "").search, path).toBe(inside);
+      // A rewrite from the proxy is re-read as `localhost` and proxied out under `-H 127.0.0.1` (a 500, found at the P130 gate).
+      expect(res.headers.get("x-middleware-rewrite"), path).toBeNull();
+      expect(res.headers.get(`x-middleware-request-${BARE_HEADER}`), path).toBe("1");
+    }
+  });
+
+  it("drops a mark the client sent, so only a bare scoped address reaches the `_` segment", () => {
+    for (const path of ["/lisbon/mail", "/overview", "/"]) {
+      const headers = new Headers({ host: "127.0.0.1:5173", [BARE_HEADER]: "1" });
+      const res = proxy(new NextRequest(`http://127.0.0.1:5173${path}`, { headers }));
+      expect(passes(res), path).toBe(true);
+      expect(res.headers.get(`x-middleware-request-${BARE_HEADER}`), path).toBeNull();
     }
   });
 

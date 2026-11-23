@@ -23,8 +23,14 @@ const config: NextConfig = {
   // The slowest server call (Notion plus mail) takes about 40 s; the 30 s default answers 500 "socket hang up".
   // P76: a terminal drop is up to 20 MiB (`DROP_LIMITS`) plus its multipart framing; Next buffers a proxied body up to 10 MiB by default.
   experimental: { proxyTimeout: 120_000, proxyClientMaxBodySize: "21mb" },
+  // P127 A2: a bare scoped address (`/mail`) is served from `/_/mail`. `src/proxy.ts` decides and marks the request (`x-hub-bare`,
+  // its BARE_HEADER, which it drops when a client sends it); this rule performs the rewrite inside the server.
   async rewrites() {
-    return [{ source: "/api/:path*", destination: `${API}/api/:path*` }];
+    return {
+      beforeFiles: [{ source: "/:path*", has: [{ type: "header", key: "x-hub-bare", value: "1" }], destination: "/_/:path*" }],
+      afterFiles: [{ source: "/api/:path*", destination: `${API}/api/:path*` }],
+      fallback: [],
+    };
   },
 };
 
