@@ -11,7 +11,13 @@ import { MEASURED_VERSIONS } from "../src/session";
 
 // The Agent tools rows (P49 5B) on a written instance and a fake probe: no CLI runs, no MCP server is reached.
 
-const servers = { "mail-mcp": { type: "http", url: "http://127.0.0.1:8787/mcp" }, notion: { type: "http", url: "https://mcp.notion.com/mcp" } };
+// A prepared instance always has the hub server (`instanceMcpServers` falls back to the core's): its draft writer is the one
+// unattended approval override the Codex config may carry.
+const servers = {
+  "mail-mcp": { type: "http", url: "http://127.0.0.1:8787/mcp" },
+  notion: { type: "http", url: "https://mcp.notion.com/mcp" },
+  hub: { type: "stdio", command: "/n/node", args: ["/core/app/packages/agent/src/mcp-stdio.ts"], env: { HUB_PROJECT: "acme" } },
+};
 
 function instance(o: { unattended: boolean; codex?: boolean; skills?: boolean; claudeSandbox?: boolean }) {
   const home = mkdtempSync(path.join(tmpdir(), "hub-agent-checks-"));
@@ -154,7 +160,8 @@ describe("agentChecks", () => {
   });
   it("the fake rows hold one of each state and a fix on each red row; Codex's Notion row is quiet", () => {
     const rows = fakeAgentRows("acme", "claude");
-    expect(new Set(rows.map((r) => r.state))).toEqual(new Set(["pass", "fail", "warn"]));
+    // skip: Claude Code has no MCP approval override (its attended permission flow), so that row is skipped.
+    expect(new Set(rows.map((r) => r.state))).toEqual(new Set(["pass", "fail", "warn", "skip"]));
     expect(rows.filter((r) => r.state === "fail" || r.state === "warn").every((r) => r.fix)).toBe(true);
     expect(rows.find((r) => r.id === "notion.signin")).toMatchObject({ state: "warn", fix: "/mcp" });
     expect(fakeAgentRows("acme", "codex").find((r) => r.id === "notion.signin")).toMatchObject({ state: "skip", fix: null });
