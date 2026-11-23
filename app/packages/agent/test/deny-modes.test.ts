@@ -8,7 +8,7 @@ import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { claudeDisallowed, claudeSettings } from "../src/claude";
 import { codexConfigToml } from "../src/codex";
 import { ATTENDED_SEND_TOOLS, DENIED_TOOLS, deniedTools, deniedToolsOf, denyRules, SEND_LIKE_TOOL } from "../src/deny";
-import { createHubMcpServer, HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "../src/mcp";
+import { createHubMcpServer, HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "../src/mcp/server";
 import { httpAgentSend, MESSENGER_SEND_TOOL, sentLine, type AgentSendPort } from "../src/messenger/send-tool";
 
 // Decision 0046 (P132 B1-3): `messenger_send` exists only in an attended session. Unattended it is absent from `hub mcp`, on

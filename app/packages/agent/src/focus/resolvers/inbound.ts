@@ -1,5 +1,5 @@
 import { answeringDraft } from "@hub/db";
-import { cut } from "../../mcp-result";
+import { cut } from "../../mcp/result";
 import type { Resolver } from "./types";
 
 /**

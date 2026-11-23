@@ -8,25 +8,6 @@
 // Identity: such a draft answers no message, so its `mailRef` stays null (decision 0031 point 2). Its Mail versions and write
 // records are keyed by `newThreadKey(<client address>)`: one open new-thread draft per client, found again by a rerun.
 
-export { isNewThreadKey, newThreadKey } from "@hub/config";
-
-/** What the new-thread writer needs: the account to write from, its From, the client, the subject and the plain text. */
-export interface NewDraftInput {
-  /** One of the project's Mail accounts (as Mail names it): its addresses decide the From when `sender` is empty. */
-  account: string;
-  /** The From: the project's sender or brand address; "" or null: the account's first address with its full name. */
-  sender: string | null;
-  /** The client's address (one); never one of ours. */
-  to: string;
-  subject: string;
-  body: string;
-  /** The Hub's older versions of this new thread (from `mail_versions`): moved to Trash after the save. */
-  replace?: readonly { account: string; messageId: string }[];
-  /** The accounts Mail may save the draft in (the project's `mail.accounts`). */
-  landIn?: readonly string[];
-  waitSeconds?: number;
-}
-
 // argv: 1 account, 2 From or "", 3 the client's address, 4 subject, 5 body, 6 probe (the body's first 40 characters), 7 the
 // versions to replace (LS-joined "account PS Message-ID"), 8 the accounts Mail may save the draft in (LS-joined), 9 seconds to
 // wait for the saved draft. Output as WRITE_REPLY_SCRIPT's (the thread field empty, no shell): ok FS draftId FS subject FS "" FS
@@ -158,14 +139,3 @@ on parts(s, d)
   set AppleScript's text item delimiters to ""
   return r
 end parts`;
-
-/** A hub draft that is a new thread (P85b): it answers no message and its recorded context says so (`newThread`). */
-export const isNewThreadDraft = (d: { mailRef: string | null; context: string | null }): boolean => {
-  if (d.mailRef) return false;
-  try {
-    const c = JSON.parse(d.context ?? "null") as { newThread?: unknown } | null;
-    return c !== null && typeof c === "object" && c.newThread === true;
-  } catch {
-    return false;
-  }
-};

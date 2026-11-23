@@ -16,7 +16,7 @@ import { MEASURED_VERSIONS } from "../src/session";
 const servers = {
   "mail-mcp": { type: "http", url: "http://127.0.0.1:8787/mcp" },
   notion: { type: "http", url: "https://mcp.notion.com/mcp" },
-  hub: { type: "stdio", command: "/n/node", args: ["/core/app/packages/agent/src/mcp-stdio.ts"], env: { HUB_PROJECT: "acme" } },
+  hub: { type: "stdio", command: "/n/node", args: ["/core/app/packages/agent/src/mcp/stdio.ts"], env: { HUB_PROJECT: "acme" } },
 };
 
 function instance(o: { unattended: boolean; codex?: boolean; skills?: boolean; claudeSandbox?: boolean }) {

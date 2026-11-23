@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { FOCUS_FRESH_MS, FOCUS_SELECTED_SHOWN, focusRecord, type FocusDto, type FocusItem, type FocusRecord } from "@hub/contract/focus";
 import type { Repos } from "@hub/db";
-import { cut } from "../mcp-result";
+import { cut } from "../mcp/result";
 import { resolveRef, type ResolveCtx } from "./resolvers";
 
 // The one reader of the shared focus (P51, decision 0029; P72, decision 0038). The hook line (`hub focus --hook`), the

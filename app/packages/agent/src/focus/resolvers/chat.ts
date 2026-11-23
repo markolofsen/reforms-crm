@@ -1,5 +1,5 @@
 import { REPLY_MODE_LABELS } from "@hub/config/chat-rules";
-import { cut } from "../../mcp-result";
+import { cut } from "../../mcp/result";
 import type { Resolver } from "./types";
 
 const KIND = { telegram_bot: "telegram", telegram_user: "telegram", whatsapp: "whatsapp" } as const;

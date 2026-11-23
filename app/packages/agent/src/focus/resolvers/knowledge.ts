@@ -1,5 +1,5 @@
 import { entryStatus } from "@hub/contract/knowledge";
-import { cut } from "../../mcp-result";
+import { cut } from "../../mcp/result";
 import type { Resolver } from "./types";
 
 /** `knowledge:<index path>`: the entry's title and status; read with knowledge-mcp `knowledge_get` by the same path. */

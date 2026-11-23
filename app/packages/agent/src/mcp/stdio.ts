@@ -4,12 +4,13 @@ import { createNotionReader, findClientByEmail, findLeadByEmail, loadToken, NoTo
 import { join } from "node:path";
 import { loadProject, readAllowList, testRecipientsOf } from "@hub/projects";
 import { StdioServerTransport } from "@modelcontextprotocol/server/stdio";
-import { mailAppDraftWriter } from "./mail-drafts";
-import { createHubMcpServer, type NotionClientCheck, type RevisionRecord, type VersionRecord } from "./mcp";
-import type { WithRepos } from "./write-record";
-import { notionScopeOf } from "./notion-scope";
-import { httpAgentSend } from "./messenger/send-tool";
-import { readAgentSendToken } from "./messenger/send-token";
+import { mailAppDraftWriter } from "../mail";
+import type { NotionClientCheck, RevisionRecord, VersionRecord } from "./ports";
+import { createHubMcpServer } from "./server";
+import type { WithRepos } from "../mail/write-log";
+import { notionScopeOf } from "../notion-scope";
+import { httpAgentSend } from "../messenger/send-tool";
+import { readAgentSendToken } from "../messenger/send-token";
 
 /**
  * `hub mcp`: the hub's MCP server on stdio (P51, P52). Env: `HUB_HOME`, `HUB_PROJECT` (every tool refuses without it),

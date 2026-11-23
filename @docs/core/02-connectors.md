@@ -43,7 +43,7 @@ Installed mail-mcp, from its local schemas and README:
   through Accessibility. With another app in front macOS keeps Mail in the background: the paste never lands and an
   empty reply is left (P51 live check, 2026-11-18). No release or flag changes it (0.5.0 is the latest). So the agent's
   mail-mcp is read only: `create_reply`, `replace_reply`, the outgoing-message tools and `delete_draft` are denied.
-- Drafts are written by `hub mcp` `draft_write` (`@hub/agent/mail-drafts`): Mail's own `reply ... opening window false`,
+- Drafts are written by `hub mcp` `draft_write` (`@hub/agent/mail`): Mail's own `reply ... opening window false`,
   `content`, `save`, from the hub's process (outside the agent's sandbox), Mail in the background, the thread headers
   kept, plain text: the reply and the signature, nothing of the hub's (decision 0031: Mail's scripting has no HTML
   channel and no header element, and a line in the body reaches the client the moment anyone presses Mail.app's Send).

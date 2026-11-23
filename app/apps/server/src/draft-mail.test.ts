@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FakeDraftWriter } from "@hub/agent/mail-drafts";
+import { FakeDraftWriter } from "@hub/agent/mail/fake";
 import { createRepos, openDb, versionHashOf, type DbHandle, type Repos } from "@hub/db";
 import { FakeMailer, mailHash, type MailDraft } from "@hub/send";
 import { setSendPolicy } from "@hub/projects";

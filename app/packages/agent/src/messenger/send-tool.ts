@@ -1,6 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { run, ToolError } from "../mcp-result";
+import { run, ToolError } from "../mcp/result";
 import { AGENT_SEND_HEADER } from "./send-token";
 
 // `messenger_send` (decision 0046, P132 B1-2): in an ATTENDED session only, the agent sends one messenger draft after the owner

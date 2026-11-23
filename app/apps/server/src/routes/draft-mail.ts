@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
-import { alreadySentText, DraftWriteError, isNewThreadDraft, newThreadKey, reviseDraft, type InboundMessage, versionHash } from "@hub/agent/mail-drafts";
-import { writeLogOf } from "@hub/agent/write-record";
+import { newThreadKey } from "@hub/config";
+import { alreadySentText, DraftWriteError, isNewThreadDraft, reviseDraft, type InboundMessage, versionHash, writeLogOf } from "@hub/agent/mail";
 import type { DraftRow, MailVersionRow } from "@hub/db";
 import { brandResolutionFor, displayNameFor, headersFromText, replyLanguage, resolveBrand, signatureFor, signatureLines, signBody, visibleFrom } from "@hub/projects/brand";
 import { loadProject } from "@hub/projects";

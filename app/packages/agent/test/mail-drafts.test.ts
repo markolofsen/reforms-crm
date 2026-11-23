@@ -6,9 +6,17 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createRepos, openDb, type DbHandle } from "@hub/db";
 import { parseProjectMd } from "@hub/projects";
 import { DENIED_TOOLS } from "../src/deny";
-import { ACCOUNT_ADDRESSES_SCRIPT, adviceOf, DraftWriteError, isNotAllowed, FakeDraftWriter, READ_CONTENT_SCRIPT, FIND_INBOUND_SCRIPT, MAIL_SLOW_TEXT, mailAppDraftWriter, MESSAGE_ID_SCRIPT, OsaTimeout, parseInboundOutput, parseThreadDrafts, parseWriteOutput, probeOf, READ_HEADERS_SCRIPT, reviseDraft, THREAD_DRAFTS_SCRIPT, versionHash, WRITE_NEW_SCRIPT, WRITE_REPLY_SCRIPT, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail-drafts";
+import { adviceOf } from "../src/mcp/refusals";
+import { FakeDraftWriter } from "../src/mail/fake";
+import { parseInboundOutput, parseThreadDrafts, parseWriteOutput } from "../src/mail/protocol";
+import { ACCOUNT_ADDRESSES_SCRIPT, FIND_INBOUND_SCRIPT, MESSAGE_ID_SCRIPT, READ_CONTENT_SCRIPT, READ_HEADERS_SCRIPT, THREAD_DRAFTS_SCRIPT } from "../src/mail/scripts/read";
+import { WRITE_NEW_SCRIPT } from "../src/mail/scripts/write-new";
+import { WRITE_REPLY_SCRIPT } from "../src/mail/scripts/write-reply";
+import { DraftWriteError, isNotAllowed, MAIL_SLOW_TEXT, mailAppDraftWriter, OsaTimeout, probeOf, reviseDraft, versionHash, WRITE_WAIT_SECONDS, writeRecorded, type OsaRun, type WriteLog } from "../src/mail";
 import { appleScriptCompileError, canCompileAppleScript, deleteOfLoopItem } from "../../../test-support/osacompile";
-import { createHubMcpServer, excerptOf, type HubMcpEnv } from "../src/mcp";
+import { excerptOf } from "../src/drafts/after-write";
+import type { HubMcpEnv } from "../src/mcp/ports";
+import { createHubMcpServer } from "../src/mcp/server";
 
 // The hub's draft writer (P52): the script's contract, its parser and the `draft_write` tool, on a fake Mail. No test touches Mail.
 

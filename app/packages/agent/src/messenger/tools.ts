@@ -2,8 +2,8 @@ import { HIDDEN_LABELS, isHiddenLabel, MESSENGER_TEXT_MAX, OWNER_REQUEST_MAX, ty
 import { RepoError, rulesOf, type MessengerChatRow, type Repos } from "@hub/db";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { cut, READ_ONLY, run, ToolError } from "../mcp-result";
-import type { WithRepos } from "../write-record";
+import { cut, READ_ONLY, run, ToolError } from "../mcp/result";
+import type { WithRepos } from "../mail/write-log";
 import { draftVerdict } from "./rules";
 
 // The agent's two messenger tools (P71 M2 and M2b, decision 0036 point 8): `messenger_history` reads one linked chat (or a

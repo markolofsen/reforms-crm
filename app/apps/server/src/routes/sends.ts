@@ -4,7 +4,7 @@ import { assess, BATCH_LIMITS, batchTicketKey, planBatch, sendDraft, type BatchL
 import { batchSendBody, batchSendParam, batchTicketBody, idParam, projectQuery, sendBody, sendParam, sendTicketBody, slugParam } from "@hub/contract/requests";
 import { batchRunStateDto, batchSendPlanDto, sendCancelledDto, sendPreviewDto, sendsDto, sendTicketDto, sentDto, stopDto } from "@hub/contract/sending";
 import { messengerSendBody, messengerSendPreviewDto } from "@hub/contract/messenger";
-import type { DraftWriter } from "@hub/agent/mail-drafts";
+import type { DraftWriter } from "@hub/agent/mail";
 import { gateRefusal, ticketStore, type TicketStore } from "../admin-gate";
 import { notFound, v } from "../http";
 import { batchRuns, type BatchRuns } from "../send/batch-door";

@@ -1,4 +1,4 @@
-import { cut } from "../../mcp-result";
+import { cut } from "../../mcp/result";
 import type { Resolver } from "./types";
 
 /** `draft:42`: the client and the subject, its status; read with `draft_show`. Another project's draft names nothing. */

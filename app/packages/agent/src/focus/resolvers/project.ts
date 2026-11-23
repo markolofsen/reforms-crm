@@ -1,4 +1,4 @@
-import { cut } from "../../mcp-result";
+import { cut } from "../../mcp/result";
 import type { Resolver } from "./types";
 
 /** `project:<slug>` (Overview's rows): the bound project only; another project's row names nothing (isolation). */

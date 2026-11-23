@@ -5,9 +5,9 @@ import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CHAT_RULES } from "@hub/config/chat-rules";
 import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "@hub/db";
-import { createHubMcpServer } from "../src/mcp";
+import { createHubMcpServer } from "../src/mcp/server";
 import { draftVerdict } from "../src/messenger/rules";
-import type { WithRepos } from "../src/write-record";
+import type { WithRepos } from "../src/mail/write-log";
 
 // P71 M2 and M2b: the agent's two messenger tools driven over MCP against a throwaway database (the fake store): no Telegram,
 // no WhatsApp, no network. The tools read through a read-only handle and write on a short connection, as `hub mcp` does.

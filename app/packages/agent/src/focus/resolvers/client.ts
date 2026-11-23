@@ -1,4 +1,4 @@
-import { cut } from "../../mcp-result";
+import { cut } from "../../mcp/result";
 import type { Resolver } from "./types";
 
 const hhmm = (iso: string): string => iso.slice(11, 16);

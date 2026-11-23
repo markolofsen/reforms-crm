@@ -1,5 +1,5 @@
 import { versionHashOf, type Adoption, type Repos } from "@hub/db";
-import type { ThreadMailDraft, WriteLog } from "./mail-drafts";
+import type { ThreadMailDraft, WriteLog } from "./types";
 
 // P65 S5 (decision 0031 addendum points 1 and 2): the Hub's record of the Mail writes it starts and of the late saves it
 // adopts, over whatever write handle the caller has: `hub mcp` opens a short write connection per call (its tools' handle

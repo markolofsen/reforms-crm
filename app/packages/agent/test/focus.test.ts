@@ -7,7 +7,7 @@ import { FOCUS_LINE_MAX, REF_KINDS } from "@hub/contract/focus";
 import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "@hub/db";
 import { SEND_LIKE_TOOL } from "../src/deny";
 import { focusLine, livePointer, readFocus, RESOLVERS } from "../src/focus";
-import { createHubMcpServer, HUB_MCP_TOOLS } from "../src/mcp";
+import { createHubMcpServer, HUB_MCP_TOOLS } from "../src/mcp/server";
 import type { NotionScope } from "../src/notion-scope";
 
 // The shared focus reader, its resolvers per ref kind, the pointer and the hub MCP server (P51 F1, F2; P72), on a throwaway
