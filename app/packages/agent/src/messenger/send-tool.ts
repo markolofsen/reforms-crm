@@ -1,9 +1,6 @@
-import type { McpServer } from "@modelcontextprotocol/server";
-import { z } from "zod";
-import { run, ToolError } from "../mcp/result";
 import { AGENT_SEND_HEADER } from "./send-token";
 
-// `messenger_send` (decision 0046, P132 B1-2): in an ATTENDED session only, the agent sends one messenger draft after the owner
+// `messenger_send`'s port (decision 0046, P132 B1-2; the tool is `../mcp/tools/messengers.ts`): in an ATTENDED session only, the agent sends one messenger draft after the owner
 // told it to in this session ("отправь", "send it"). The tool names the chat and the draft, nothing else: the server finds the
 // owner's word in the session log and sends through the same door as the owner's Send (inbound first, Stop sending, cap and
 // spacing, `draft.recipients`, `send_log` with `actor: agent_on_owner_word`). `hub mcp` registers it only when the instance is
@@ -28,29 +25,6 @@ const hhmm = (iso: string): string => iso.slice(11, 16);
 
 /** The one line the agent says in the dock after a send: what, to whom, where and when. */
 export const sentLine = (a: { to: string; channel: string; text: string; at: string }): string => `Sent to ${a.to} on ${WORD[a.channel] ?? a.channel} at ${hhmm(a.at)} UTC: "${excerpt(a.text)}"`;
-
-export function registerMessengerSend(server: McpServer, env: { project: () => string; send: AgentSendPort }): void {
-  server.registerTool(
-    MESSENGER_SEND_TOOL,
-    {
-      title: "Send one messenger draft on the owner's word",
-      description:
-        "Sends ONE open messenger draft (Telegram, WhatsApp) only after the owner told you to in this session (\"отправь\", \"send it\") for this chat, after the draft was written. Pass `chat` (chat:<id> from focus or messenger_history) and `draft` (its open_draft id). The Hub checks his word in the session log and sends through the same checks as his Send button; one send per word. Never call it on your own initiative, never twice for one word, never for Mail (no tool sends Mail). A refusal has a code and a next step: follow it, never retry.",
-      inputSchema: z.object({
-        chat: z.number().int().positive().describe("The internal messenger chat id, for example 3 for chat:3."),
-        draft: z.number().int().positive().describe("The open draft's id in that chat (messenger_history's open_draft.id)."),
-      }),
-      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true },
-    },
-    ({ chat, draft }) =>
-      run(async () => {
-        const slug = env.project();
-        const a = await env.send(slug, draft, chat);
-        if (!a.ok) throw new ToolError(a.reason, `${a.error} Next: ${a.next}`);
-        return { project: slug, sent: true, send_id: a.sendId, channel: a.channel, chat, draft, to: a.to, at: a.at, next: `Tell the owner exactly this one line: ${sentLine(a)}. Activity lists it as Agent (your word).` };
-      }),
-  );
-}
 
 /** `hub mcp`'s port: a loopback POST to the server's agent send route with the token from `state/secrets`. */
 export function httpAgentSend(o: { port: () => number; token: () => string | null; fetch?: typeof fetch }): AgentSendPort {

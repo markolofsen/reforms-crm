@@ -1,45 +1,124 @@
-import { ToolError } from "./result";
+// P129 A2 (verdict 2): one refusal registry for every tool of `hub mcp`. A tool's description says what it does; the
+// refusal says what to do next. `retry`: `now` after changing what `next` says, `after_owner` only once the owner did what
+// `next` says, `no` never in this turn (P83: the dock agent repeated an identical failing call five times). `fix` is set
+// when only the owner can fix it (P129 verdict 11). `run` (`./result.ts`) attaches `retry` and `next` to every refusal.
 
-// The advice every refusal of `draft_write` carries (P83): whether another call can help (`retry`) and what to tell the owner (`next`).
+export const REFUSAL_CODES = [
+  // every tool
+  "unbound",
+  "invalid",
+  "unavailable",
+  "not_found",
+  "not_this_project",
+  // focus, highlight
+  "not_looking",
+  "unknown_ref",
+  // draft_write and the Mail writer
+  "own_signoff",
+  "empty",
+  "mail_not_running",
+  "mail_not_allowed",
+  "content_refused",
+  "mail_slow",
+  "already_sent",
+  "draft_finished",
+  "already_drafted",
+  "no_recipient",
+  "no_message",
+  "no_account",
+  "no_thread",
+  "mail_error",
+  "has_thread",
+  "do_not_contact",
+  "wrong_message_id",
+  "not_a_client",
+  "notion_unavailable",
+  "owner_request_needed",
+  // messenger_history, messenger_draft_write (the chat's rules, `messenger/rules.ts`)
+  "not_linked",
+  "empty_text",
+  "reply_off",
+  "no_inbound",
+  "not_requested",
+  "no_nudge",
+  "too_soon",
+  // messenger_send (decision 0046: the server's agent send route and `messenger/owner-word.ts`)
+  "forbidden",
+  "unattended",
+  "other_chat",
+  "no_owner_word",
+  "word_before_draft",
+  "word_superseded",
+  "word_used",
+  "chat_unclear",
+  "refused",
+  "failed",
+] as const;
 
-/**
- * What a refusal of a draft write lets the caller do next (P83: the dock agent repeated an identical failing call five
- * times and named a permission nobody had measured). `retry`: `now` after changing what `next` says, `after_owner` only
- * once the owner did what `next` says, `no` never in this turn. Only `mail_not_allowed` speaks of a permission.
- */
-export type RetryAdvice = { retry: "now" | "after_owner" | "no"; next: string };
-const NO_RETRY = "Do not call draft_write again for this draft in this turn.";
-export const WRITE_ADVICE: Readonly<Record<string, RetryAdvice>> = {
-  own_signoff: { retry: "now", next: "Remove your closing as the message says, then call draft_write once with the new text." },
+export type RefusalCode = (typeof REFUSAL_CODES)[number];
+
+export interface Refusal {
+  retry: "now" | "after_owner" | "no";
+  /** At most {@link NEXT_MAX} characters: the next step, never a rule restated. */
+  next: string;
+  /** Only the owner can fix it: the line to show him and where (Overview's Needs you, P129 verdict 11). */
+  fix?: { line: string; place: string };
+}
+
+export const NEXT_MAX = 200;
+
+const ONE_LINE = "Tell the owner in one line";
+
+export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
+  unbound: { retry: "no", next: "Ask the owner to start this session with hub agent <project>." },
   invalid: { retry: "now", next: "Fix the arguments as the message says." },
+  unavailable: { retry: "no", next: `${ONE_LINE} that this session cannot do it (the message says why).`, fix: { line: "Restart the agent session with hub agent <project>.", place: "the dock" } },
+  not_found: { retry: "now", next: "Use an id that focus or a read tool of this project gives." },
+  not_this_project: { retry: "now", next: "Use only this project's accounts and addresses (the message lists them)." },
+  not_looking: { retry: "no", next: "Say it in words: the owner is not looking at this project's admin." },
+  unknown_ref: { retry: "now", next: "Use a ref that focus gives." },
+  own_signoff: { retry: "now", next: "Remove your closing as the message says, then call draft_write once with the new text." },
   empty: { retry: "now", next: "Give the reply's text." },
-  mail_not_running: { retry: "after_owner", next: "Ask the owner in one line to open Mail (it may stay in the background), then call draft_write once more. The Hub does not open Mail itself: opening Mail sends whatever waits in its Outbox." },
-  mail_not_allowed: { retry: "after_owner", next: "Tell the owner in one line: System Settings ▸ Privacy & Security ▸ Automation, allow the Hub's process to control Mail; then call draft_write once more." },
-  content_refused: { retry: "no", next: `Another call, with this text or another, gives the same result. ${NO_RETRY} Tell the owner in one line: the Hub's Mail writer refused the reply, nothing was saved, it is a Hub fault (in the session log), not a macOS permission.` },
-  mail_slow: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that Mail is slow and the new text shows on the card when Mail saves it.` },
-  already_sent: { retry: "now", next: "A sent draft is not revised. When the owner asked for a new message: one draft_write as a new reply to the newest message of the client's thread (our sent copy in Sent, or the client's newer one), with owner_request = his words; else tell the owner in one line what the message says." },
-  draft_finished: { retry: "now", next: "A finished draft (done or skipped) is not revised and record-draft does not bring it back. When the owner asked for a new message: one draft_write as a new reply to the newest message of the client's thread (ours in Sent, or theirs), with owner_request = his words, then record-draft with ownerRequest; else tell the owner in one line that the draft is finished." },
-  already_drafted: { retry: "no", next: "Revise the draft the message names, with draft = its id, when the owner asks. A finished draft and the owner asked for a new message: reply to the newest message of the thread with owner_request = his words." },
-  no_recipient: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that the message answered is ours and names nobody else; reply to the client's own newest message instead.` },
-  no_message: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that the client's message is no longer in Mail.` },
-  no_account: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that Mail has no such account (Settings ▸ Mail).` },
-  mail_error: { retry: "no", next: `${NO_RETRY} Tell the owner in one line what Mail answered.` },
-  has_thread: { retry: "now", next: "A thread with this client exists: one draft_write as a new reply to the newest message of that thread (ours in Sent, or theirs), with owner_request = his words." },
-  do_not_contact: { retry: "no", next: `${NO_RETRY} Tell the owner in one line that this client is marked do not contact.` },
-  wrong_message_id: { retry: "now", next: "Use the field the message names: draft = the hub draft's id to revise it, or message_id = mail-mcp's integer id of the message answered (from find_messages or list_messages)." },
-  not_a_client: { retry: "after_owner", next: "Tell the owner in one line that this address is not a client of the project (not in its Notion Clients and not recorded); a new thread goes only to a client. If he wants to write anyway, the client is added to Notion first (by him, or by you on his words)." },
-  notion_unavailable: { retry: "after_owner", next: "Tell the owner in one line why the Notion check could not run (the message says) and the fix; nothing was written." },
-  owner_request_needed: { retry: "after_owner", next: "A new thread is written only when the owner asked for it in this session: pass his own words as owner_request, or ask him in one line." },
+  mail_not_running: { retry: "after_owner", next: "Ask the owner to open Mail (it may stay in the background), then call once more. The Hub does not open Mail itself: that sends its Outbox.", fix: { line: "Open Mail; it may stay in the background.", place: "Mail" } },
+  mail_not_allowed: { retry: "after_owner", next: "Tell the owner: System Settings ▸ Privacy & Security ▸ Automation, allow the Hub to control Mail; then call once more.", fix: { line: "System Settings ▸ Privacy & Security ▸ Automation: allow the Hub to control Mail.", place: "System Settings" } },
+  content_refused: { retry: "no", next: `Do not call again. ${ONE_LINE}: the Hub's Mail writer refused the reply, nothing was saved; a Hub fault, not a macOS permission.` },
+  mail_slow: { retry: "no", next: `Do not call again for this draft now. ${ONE_LINE} that Mail is slow and the new text shows on the card when Mail saves it.` },
+  already_sent: { retry: "now", next: "A new message on the owner's words: draft_write as a new reply to the newest message of the thread with owner_request; else say what the message says." },
+  draft_finished: { retry: "now", next: "A new message on the owner's words: draft_write as a new reply to the newest message of the thread with owner_request; else say the draft is finished." },
+  already_drafted: { retry: "no", next: "Revise the draft the message names (draft = its id) when the owner asks; this is the skip of a rerun, not an error." },
+  no_recipient: { retry: "no", next: `${ONE_LINE} that the message answered is ours and names nobody else; reply to the client's own newest message.` },
+  no_message: { retry: "no", next: `${ONE_LINE} that the client's message is no longer in Mail.` },
+  no_account: { retry: "no", next: `${ONE_LINE} that Mail has no such account (Settings ▸ Mail).` },
+  no_thread: { retry: "no", next: `${ONE_LINE} that this draft answers no Mail message, so it cannot be revised here.` },
+  mail_error: { retry: "no", next: `Do not call again for this draft. ${ONE_LINE} what Mail answered.` },
+  has_thread: { retry: "now", next: "Write a new reply to the newest message of that thread (ours in Sent, or theirs) with owner_request = his words." },
+  do_not_contact: { retry: "no", next: `${ONE_LINE} that this client is marked do not contact.` },
+  wrong_message_id: { retry: "now", next: "Use draft = the hub draft's id to revise it, or message_id = mail-mcp's integer id of the message answered." },
+  not_a_client: { retry: "after_owner", next: `${ONE_LINE} that this address is not a client of the project; he adds it to Notion first if he wants to write.` },
+  notion_unavailable: { retry: "after_owner", next: `${ONE_LINE} why the Notion check could not run and its fix (the message says); nothing was written.`, fix: { line: "Check the Notion token and the project's Clients database.", place: "Settings ▸ Connections" } },
+  owner_request_needed: { retry: "after_owner", next: "Pass the owner's own words from this session as owner_request, or ask him in one line." },
+  not_linked: { retry: "no", next: "Only chats the owner linked exist here; say so in one line." },
+  empty_text: { retry: "now", next: "Give the reply's text." },
+  reply_off: { retry: "no", next: "The owner set this chat to never draft: write nothing and say so in one line." },
+  no_inbound: { retry: "no", next: "The hub never makes first contact: write nothing and say so in one line." },
+  not_requested: { retry: "after_owner", next: "Draft here only when the owner asks for this chat; pass his words as owner_request." },
+  no_nudge: { retry: "no", next: "Nothing is owed in this chat (follow-ups are off); say so in one line." },
+  too_soon: { retry: "no", next: "A follow-up is not due yet (the message says when); say so in one line." },
+  forbidden: { retry: "no", next: "Leave the draft for the owner on the Messengers panel; never retry." },
+  unattended: { retry: "no", next: "Unattended sessions never send: leave the draft for the owner." },
+  other_chat: { retry: "now", next: "Use the open_draft id messenger_history gives for this chat." },
+  no_owner_word: { retry: "after_owner", next: "Send only after the owner tells you to in this session; the draft waits." },
+  word_before_draft: { retry: "after_owner", next: "His word came before the draft's last change: ask him again in one line." },
+  word_superseded: { retry: "after_owner", next: "He wrote again after that word: ask him in one line whether to send." },
+  word_used: { retry: "no", next: "That word already sent one draft: ask him in one line before another send." },
+  chat_unclear: { retry: "after_owner", next: "Ask him in one line which chat he means." },
+  refused: { retry: "no", next: "Leave the draft for the owner and say why in his words; never retry." },
+  failed: { retry: "no", next: `${ONE_LINE} that the send failed and why; never retry.` },
 };
 
-export const adviceOf = (code: string): RetryAdvice => WRITE_ADVICE[code] ?? { retry: "no", next: NO_RETRY };
+export const isRefusalCode = (code: string): code is RefusalCode => (REFUSAL_CODES as readonly string[]).includes(code);
 
-/** P83: every refusal of `draft_write` says whether another call can help (`retry`) and what to tell the owner (`next`). */
-export const advised = (fn: () => Promise<Record<string, unknown>>) => async (): Promise<Record<string, unknown>> => {
-  try {
-    return await fn();
-  } catch (e) {
-    if (e instanceof ToolError) throw new ToolError(e.code, e.message, { ...adviceOf(e.code), ...e.detail });
-    throw e;
-  }
-};
+const UNKNOWN: Refusal = { retry: "no", next: "Do not call again in this turn; tell the owner in one line what the message says." };
+
+/** The advice of a code; a code from outside the registry (a Mail script's own) gets the do-not-retry advice. */
+export const adviceOf = (code: string): Refusal => (isRefusalCode(code) ? REFUSALS[code] : UNKNOWN);

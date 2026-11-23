@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { displayNameFor } from "@hub/projects/brand";
 import { normalizeAddress } from "@hub/projects/parse";
 import { versionHash } from "../mail";
@@ -19,6 +20,36 @@ export const excerptOf = (body: string): string => {
   return `${(at > 160 ? head.slice(0, at) : head).trimEnd()}…`;
 };
 
+/** What `draft_write` returns (P129 A2: registered as its output schema). */
+export const draftWriteOutput = z.object({
+  draftId: z.number().describe("Mail's id of the saved draft."),
+  messageId: z.string(),
+  subject: z.string(),
+  thread: z.string().describe("The answered message's Message-ID: the mailRef to record."),
+  replaced: z.array(z.string()),
+  left: z.array(z.string()),
+  savedIn: z.string(),
+  replyTo: z.number(),
+  account: z.string(),
+  fromSeenByClient: z.string().describe("Exactly the From the client sees."),
+  clientWroteTo: z.string().nullable(),
+  fromReason: z.string().nullable(),
+  brand: z.string().nullable(),
+  brandDisplayName: z.string().nullable(),
+  brandReason: z.string().optional(),
+  signature: z.enum(["signed", "placeholder", "none"]).optional(),
+  signatureFallback: z.string().optional(),
+  project: z.string(),
+  sent: z.literal(false),
+  draft: z.number().optional(),
+  ownerRequest: z.string().optional(),
+  newThread: z.literal(true).optional(),
+  recorded: z.boolean(),
+  live: z.boolean(),
+  warning: z.string().optional(),
+  next: z.string(),
+});
+
 export interface WriteRequest {
   draft: number | undefined;
   content: string;
@@ -27,7 +58,7 @@ export interface WriteRequest {
   reason: string | undefined;
 }
 
-export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Written, q: WriteRequest): Promise<Record<string, unknown>> {
+export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Written, q: WriteRequest): Promise<z.input<typeof draftWriteOutput>> {
   const { ctx, slug, cfg } = s;
   const { env, repos } = ctx;
   const { draft, owner_request, to, reason } = q;
@@ -76,5 +107,5 @@ export async function afterWrite(s: DraftScope, { r, versionRows, mailRef }: Wri
         : `Record it, one Bash call from the instance folder: \`echo '{"email":"<client>","subject":"${r.subject.replace(/["'\\]/g, "")}","mailRef":"${r.thread}","skill":"${owner_request ? "bulk-drafts" : "triage-mail"}",${owner_request ? `"ownerRequest":"${owner_request.replace(/["'\\]/g, "")}",` : ""}"excerpt":"<first 240 chars of your reply>","context":{${owner_request ? `"batchKey":"<one key for every client of this run>","batchTitle":"<short English title>",` : ""}...}}' | ./run.sh record-draft --project ${slug}\` (JSON on stdin; skill ${owner_request ? "bulk-drafts" : "triage-mail step 5"}). Then tell the owner in one line what you changed. Nothing was sent.${notes}`;
   // P58 live finding: unambiguous names for the agent. `fromSeenByClient` is Mail's own read of the saved draft's From.
   const { text: _text, shell: _shell, from, wroteTo: _wroteTo, ...shown } = r;
-  return { ...shown, fromSeenByClient: from, clientWroteTo: r.clientWroteTo, brand: r.brand ?? null, brandDisplayName: displayNameFor(cfg, r.brand), fromReason: r.fromReason, project: slug, sent: false, ...(draft !== undefined ? { draft } : {}), ...(owner_request ? { ownerRequest: owner_request } : {}), ...(to !== undefined ? { newThread: true } : {}), recorded: recorded !== null, live, ...(warning ? { warning } : {}), next };
+  return { ...shown, sent: false as const, fromSeenByClient: from, clientWroteTo: r.clientWroteTo, brand: r.brand ?? null, brandDisplayName: displayNameFor(cfg, r.brand), fromReason: r.fromReason, project: slug, ...(draft !== undefined ? { draft } : {}), ...(owner_request ? { ownerRequest: owner_request } : {}), ...(to !== undefined ? { newThread: true as const } : {}), recorded: recorded !== null, live, ...(warning ? { warning } : {}), next };
 }
