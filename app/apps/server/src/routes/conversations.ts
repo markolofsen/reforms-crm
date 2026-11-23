@@ -109,13 +109,14 @@ export function conversationRoutes({ repos, mail, directory }: ConversationServi
       const next = q.offset + r.rows.length < r.total ? q.offset + r.rows.length : null;
       return c.json(conversationsDto.parse({ rows: await Promise.all(r.rows.map((item) => rowDto(slug, item, inboxRefs))), total: r.total, nextOffset: next, counts: r.counts }));
     })
-    // P103: the client a key names (his email, or `id-<n>`), with the canonical key the admin's address replaces to. Only the
-    // primary address is looked up; another of his addresses is Not found until P100's identity table is read here.
+    // P103: the client a key names (his email, or `id-<n>`), with the canonical key the admin's address replaces to. Verdict 4:
+    // his primary address first, then any other address of his in P100's identity table (`client_identifiers`, kind `email`),
+    // so a secondary email answers with the primary key and the admin replaces the address (one history entry).
     .get("/api/projects/:slug/clients/key/:key", async (c) => {
       const slug = c.req.param("slug");
       const ref = parseClientKey(c.req.param("key"));
       if (ref === null || (await repos.projects.get(slug)) === null) return notFound(c, "client");
-      const n = "id" in ref ? ref.id : await repos.clients.idByEmail(slug, ref.email);
+      const n = "id" in ref ? ref.id : ((await repos.clients.idByEmail(slug, ref.email)) ?? (await repos.messengers.clientByIdentifier(slug, "email", ref.email.toLowerCase())) ?? undefined);
       const row = n === undefined ? null : await repos.clients.get(slug, n);
       if (!row) return notFound(c, "client");
       const dto: ClientKeyDto = { id: row.id, email: row.email, key: clientKey(row) };
