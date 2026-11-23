@@ -16,6 +16,8 @@ export type StatusState = { state: "linked"; client: string } | { state: "unlink
  * client, and the rules; Not linked: Link to a client, Create client, Hide; Hidden: Link to a client (a hidden chat can be linked),
  * Unhide. Every item that deletes or searches opens in the row, never in a dialog (`ui-specifications.md` rule 5d).
  */
+// Compact is the icon-only trigger, named "Chat actions for <name>"; the full one is named by its content, "Status of <name>: Not linked",
+// so the name always holds the visible state (WCAG 2.5.3).
 export function StatusMenu({ s, name, disabled, onAction, compact = false }: { s: StatusState; name: string; disabled: boolean; onAction: (a: StatusAction) => void; compact?: boolean }) {
   const label = s.state === "linked" ? s.client : s.state === "unlinked" ? "Not linked" : "Hidden";
   const tooltip = compact ? `Chat actions for ${name}` : undefined;
@@ -26,7 +28,7 @@ export function StatusMenu({ s, name, disabled, onAction, compact = false }: { s
   );
   return (
     <Menu>
-      <MenuTrigger render={<ActionButton aria-label={compact ? `Chat actions for ${name}` : `Client link and actions for ${name}`} className={compact ? "shrink-0" : "max-w-full"} icon={compact} size="s" tooltip={tooltip} variant="quiet" />}>
+      <MenuTrigger render={<ActionButton aria-label={compact ? `Chat actions for ${name}` : undefined} className={compact ? "shrink-0" : "max-w-full"} icon={compact} size="s" tooltip={tooltip} variant="quiet" />}>
         {compact ? <EllipsisIcon aria-hidden="true" /> : <><span className="sr-only">Status of {name}: </span><span className="truncate">{label}</span><ChevronDownIcon aria-hidden="true" /></>}
       </MenuTrigger>
       <MenuPopup align="start">

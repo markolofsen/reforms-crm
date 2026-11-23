@@ -49,6 +49,7 @@ export function useLocalAction(action: LocalActionId) {
   return { run: (args: unknown) => m.mutate(args), pending: m.isPending, available: !isServerAction(action) || instance.data?.localOpen === true };
 }
 
+/** `ariaLabel` only for an icon-only button: otherwise the content names it, so the name holds its visible text (WCAG 2.5.3). */
 type Look = { size?: ActionSize; variant?: ActionVariant; children?: ReactNode; className?: string; tooltip?: ActionButtonProps["tooltip"]; ariaLabel?: string };
 type Untyped<A> = Look & { action: A; args: unknown };
 
@@ -57,7 +58,7 @@ function HrefButton({ action, args, size = "s", variant = "quiet", children, cla
   const href = linkOf(action, args);
   if (!href) return null;
   return (
-    <ActionButton aria-label={ariaLabel ?? LOCAL_ACTIONS[action].label} className={className} render={<Link bare href={href} />} size={size} tooltip={tooltip ?? LOCAL_ACTIONS[action].label} variant={variant}>
+    <ActionButton aria-label={ariaLabel} className={className} render={<Link bare href={href} />} size={size} tooltip={tooltip ?? LOCAL_ACTIONS[action].label} variant={variant}>
       {children ?? LOCAL_ACTIONS[action].label}
     </ActionButton>
   );
@@ -67,7 +68,7 @@ function ServerButton({ action, args, size = "s", variant = "quiet", children, c
   const a = useLocalAction(action);
   if (!a.available) return null;
   return (
-    <ActionButton aria-label={ariaLabel ?? LOCAL_ACTIONS[action].label} className={className} disabled={a.pending} onClick={() => a.run(args)} size={size} tooltip={tooltip ?? LOCAL_ACTIONS[action].label} variant={variant}>
+    <ActionButton aria-label={ariaLabel} className={className} disabled={a.pending} onClick={() => a.run(args)} size={size} tooltip={tooltip ?? LOCAL_ACTIONS[action].label} variant={variant}>
       {children ?? LOCAL_ACTIONS[action].label}
     </ActionButton>
   );

@@ -24,7 +24,7 @@ type Header = {
 
 /** The view as ONE menu with counts, at every width: the views, Follow-ups, Not by email, then the batches (read-only). */
 function ViewMenu({ views, view, onView }: Pick<Header, "views" | "view" | "onView">) {
-  return <ListFilterMenu ariaLabel="Filter mail by view" onChange={onView} options={views} tooltip="Filter mail by view" value={view} />;
+  return <ListFilterMenu name="View" onChange={onView} options={views} tooltip="Filter mail by view" value={view} />;
 }
 
 /**
@@ -70,7 +70,11 @@ export function ListHeader({ views, view, onView, search, onSearch, searchRef, s
         {selection.count > 0 ? `${selection.count} selected` : ""}
       </p>
       {selection.count > 0 ? (
-        <SelectionLine {...selection} />
+        <>
+          <SelectionLine {...selection} />
+          {/* Below 48rem the search wraps to a second row; its place stays while drafts are picked, so the rows below never move. */}
+          <div aria-hidden="true" className="hidden h-(--control-s) @max-3xl:block" />
+        </>
       ) : (
         <ListToolbarRow>
           <ViewMenu onView={onView} view={view} views={views} />

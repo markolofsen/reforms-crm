@@ -10,5 +10,5 @@ import { ChannelIcon } from "./channel-icon";
  * the numbers (`admin-principles.md` rule 10). The selected channel keeps its icon and readable label in the trigger (P102).
  */
 export function ChannelFilter({ value, options, onChange }: { value: MessengerChannelFilter; options: readonly MessengerChannelFilter[]; onChange: (v: MessengerChannelFilter) => void }) {
-  return <ListFilterMenu ariaLabel="Filter chats by channel" onChange={(next) => onChange(oneOf(MESSENGER_CHANNEL_FILTERS, next, "all"))} options={options.map((o) => ({ value: o, label: o === "all" ? CHANNEL_FILTER_LABEL[o] : <ChannelIcon channel={o} word />, triggerLabel: o === "all" ? CHANNEL_FILTER_LABEL[o] : <ChannelIcon channel={o} word /> }))} tooltip="Filter by channel" value={value} />;
+  return <ListFilterMenu name="Channel" onChange={(next) => onChange(oneOf(MESSENGER_CHANNEL_FILTERS, next, "all"))} options={options.map((o) => ({ value: o, label: o === "all" ? CHANNEL_FILTER_LABEL[o] : <ChannelIcon channel={o} word />, triggerLabel: o === "all" ? CHANNEL_FILTER_LABEL[o] : <ChannelIcon channel={o} word /> }))} tooltip="Filter by channel" value={value} />;
 }

@@ -177,13 +177,14 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
   const actionBar = embedded ? actionBarContent : <div className="shrink-0 border-t bg-background px-4 py-3 lg:px-6">{actionBarContent}</div>;
   // The open draft carries its ref too (P72): beside the terminal dock the list pane is hidden, and a pointer at `draft:<id>`
   // that Show opened must still find a row to ring.
+  // The article is the draft with its actions (Send, Skip, More actions): the composer pins the actions under the body, inside it.
   if (embedded) {
     return (
-      <ConversationComposer ariaLabel="Mail draft and actions" footer={actionBar} notice={composerNotice}>
-        <article aria-label={`Draft for ${d.client.name}`} className="flex h-full min-h-0 min-w-0 flex-1 flex-col" {...agentRef(refOf("draft", d.id))}>
+      <article aria-label={`Draft for ${d.client.name}`} className="flex h-full min-h-0 min-w-0 flex-1 flex-col" {...agentRef(refOf("draft", d.id))}>
+        <ConversationComposer ariaLabel="Mail draft and actions" footer={actionBar} notice={composerNotice}>
           {content}
-        </article>
-      </ConversationComposer>
+        </ConversationComposer>
+      </article>
     );
   }
   return (

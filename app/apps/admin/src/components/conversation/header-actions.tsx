@@ -22,7 +22,7 @@ export function ConversationHeaderActions({ mailMessageId, notionPageId }: Conve
       {mailMessageId && (
         <LocalActionButton action="mail.openMessage" ariaLabel="Open client's message in Mail" args={{ messageId: mailMessageId }} className="max-sm:size-(--control-s) max-sm:px-0 @max-3xl:size-(--control-s) @max-3xl:px-0" size="s" tooltip={{ content: "Open client's message in Mail" }} variant="quiet">
           <MailIcon aria-hidden="true" />
-          <span className="hidden sm:inline @max-3xl:hidden">Open in Mail</span>
+          <span className="hidden sm:inline @max-3xl:hidden">Mail</span>
         </LocalActionButton>
       )}
     </div>

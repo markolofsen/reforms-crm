@@ -23,7 +23,7 @@ export const GUARDS: readonly string[] = [
   "Stop sending (Settings ▸ Sending) stops every channel.",
 ];
 
-/** The chats with their rules. Linking, changing the client and unlinking are on Chats (P102): one place, the row's state menu. */
+/** The linked chats with their rules. Linking, changing the client and unlinking are on Chats (P102): one place, the row's state menu. */
 type LinkedChatsData = Awaited<ReturnType<typeof messengersApi.chats>>;
 type LinkedChatsQuery = UseQueryResult<LinkedChatsData, unknown>;
 
@@ -32,7 +32,7 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
   return (
     <div className="flex flex-col gap-4">
       {q.isPending ? <Loading what="chats" /> : !q.data ? (
-        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the chats" />
+        <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the linked chats" />
       ) : q.data.chats.length === 0 ? (
         <div className="flex flex-col gap-1 text-sm">
           <p>No linked chats yet. <AppLink to={paths.messengers.chats()}>Link a chat from Chats.</AppLink></p>
@@ -43,7 +43,7 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
           <p className="text-muted-foreground text-xs">
             Change the client, unlink or hide a chat from its status menu on <AppLink to={paths.messengers.chats()}>Messengers ▸ Chats</AppLink>.
           </p>
-          <ul aria-label="Chats" className="flex flex-col divide-y border-y">
+          <ul aria-label="Linked chats" className="flex flex-col divide-y border-y">
             {q.data.chats.map((c) => (
               <ChatRules c={c} key={c.id} preanalysis={q.data.preanalysis} project={project} />
             ))}
@@ -93,7 +93,7 @@ export function MessengerSettings({ project }: { project: string }) {
         </Group>
         {/* No heading: the row's own label says "Telegram bot" (a heading over it said it twice, `admin-principles.md` rule 9). */}
         <ConnectionsView kinds={["telegram"]} label="Telegram bot" />
-        <Group id="chats" title="Chats">
+        <Group id="linked-chats" title="Linked chats">
           <LinkedChats project={project} query={chats} />
         </Group>
         <Group id="guards" title="Send guards">

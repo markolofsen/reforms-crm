@@ -148,7 +148,8 @@ export function MarkdownEditor({ value, onChange, onSubmit, onCancel, placeholde
   });
 
   const extensions = useMemo<AnyExtension[]>(() => [
-    StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
+    // StarterKit 3 bundles Link; it is off there so the one Link below (no open on click) is not registered twice (tiptap warns).
+    StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false }),
     Link.configure({ openOnClick: false }),
     Placeholder.configure({ placeholder }),
     Markdown,

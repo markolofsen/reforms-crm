@@ -100,13 +100,13 @@ function FilterMenuDemo() {
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <ListFilterMenu
-          ariaLabel="Choose list view"
+          name="View"
           onChange={setView}
           options={[{ value: "needs-you", label: "Needs you", count: 2, group: "Views" }, { value: "all", label: "All conversations", group: "Views" }, { value: "follow-ups", label: "Follow-ups", count: 1, group: "Filters" }]}
           tooltip="Choose list view"
           value={view}
         />
-        <ListFilterMenu ariaLabel="Choose channel" onChange={setChannel} options={[{ value: "all", label: "All" }, { value: "telegram", label: "Telegram" }, { value: "whatsapp", label: "WhatsApp" }]} value={channel} />
+        <ListFilterMenu name="Channel" onChange={setChannel} tooltip="Choose channel" options={[{ value: "all", label: "All" }, { value: "telegram", label: "Telegram" }, { value: "whatsapp", label: "WhatsApp" }]} value={channel} />
       </div>
       <p className="text-muted-foreground text-xs" role="status">Selected view: {view} · channel: {channel}</p>
     </div>

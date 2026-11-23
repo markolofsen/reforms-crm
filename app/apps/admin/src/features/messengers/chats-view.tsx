@@ -39,7 +39,7 @@ const POLL_MS = 15_000;
 /** The View menu (To do, Linked, Not linked, Hidden), each with its count (`admin-principles.md` rule 11). */
 function ViewMenu({ value, counts, onChange }: { value: View; counts: Record<View, number> | undefined; onChange: (v: string) => void }) {
   const count = (v: View) => counts?.[v];
-  return <ListFilterMenu ariaLabel="Filter chats by view" onChange={onChange} options={VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v], count: count(v) }))} tooltip="Filter chats by view" value={value} />;
+  return <ListFilterMenu name="View" onChange={onChange} options={VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v], count: count(v) }))} tooltip="Filter chats by view" value={value} />;
 }
 
 /**

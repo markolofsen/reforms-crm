@@ -10,7 +10,8 @@ import { coreLine } from "./core-labels";
 
 /**
  * The core version in the sidebar's footer (P68): one quiet line on every page, an `AppLink` to Settings ▸ This Mac where the detail
- * and the update command are (P70). Nothing while it loads or when the server does not answer; hidden in the icon rail.
+ * and the update command are (P70). Nothing while it loads or when the server does not answer; hidden in the icon rail. Its name is
+ * its visible text (WCAG 2.5.3); the reason is the tooltip and the page it opens.
  */
 export function CoreLine() {
   const q = useQuery({ queryKey: keys.core(), queryFn: metaApi.core, retry: false });
@@ -18,7 +19,7 @@ export function CoreLine() {
   const l = coreLine(q.data);
   return (
     <Tooltip>
-      <TooltipTrigger aria-label={q.data.reason} render={
+      <TooltipTrigger render={
         <AppLink className="gap-2 px-2 text-xs group-data-[collapsible=icon]:hidden" data-testid="core-line" to={paths.settings.mac()}>
           <span className="truncate">{l.text}</span>
           {l.note && <span className={l.dot ? "text-foreground" : undefined}>{l.note}</span>}
