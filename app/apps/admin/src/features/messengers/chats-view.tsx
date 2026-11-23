@@ -21,7 +21,7 @@ import { useClock } from "@/lib/clock";
 import { dest } from "@/routes/paths";
 import { MESSENGERS_SEARCH } from "@/routes/search";
 import { ChatRow } from "./chat-row";
-import { emptyLine, VIEW_LABEL, VIEW_ORDER } from "./labels";
+import { CHANNEL_FILTER_LABEL, emptyLine, VIEW_LABEL, VIEW_ORDER } from "./labels";
 import { useTelegramUser } from "./settings/use-telegram";
 import { useWhatsApp } from "./settings/whatsapp/use-whatsapp";
 import { LinkChat } from "./status/link-chat";
@@ -36,9 +36,10 @@ import { MessengerConversationPane } from "./conversation/pane";
 const POLL_MS = 15_000;
 
 /** The View menu (To do, Linked, Not linked, Hidden), each with its count (`admin-principles.md` rule 11). */
-function ViewMenu({ value, counts, onChange }: { value: View; counts: Record<View, number> | undefined; onChange: (v: string) => void }) {
+/** The View menu; its trigger is the list's title (P128 X4): "Messengers · To do 3", or the channel chosen in the sidebar, "WhatsApp · To do 1". */
+function ViewMenu({ value, counts, onChange, where }: { value: View; counts: Record<View, number> | undefined; onChange: (v: string) => void; where: string }) {
   const count = (v: View) => counts?.[v];
-  return <ListFilterMenu name="View" onChange={onChange} options={VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v], count: count(v) }))} tooltip="Filter chats by view" value={value} />;
+  return <ListFilterMenu name="View" onChange={onChange} options={VIEW_ORDER.map((v) => ({ value: v, label: VIEW_LABEL[v], count: count(v) }))} tooltip="Filter chats by view" value={value} where={where} />;
 }
 
 /**
@@ -137,7 +138,7 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
     <ListScrollArea ariaBusy={Boolean(d && q.isFetching)}>
       <ListToolbar ariaLabel="Chat filters and actions">
         <ListToolbarRow>
-          <ViewMenu counts={viewCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ filter: v })} value={filter} />
+          <ViewMenu counts={viewCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ filter: v })} value={filter} where={channel === "all" ? "Messengers" : CHANNEL_FILTER_LABEL[channel]} />
           <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
             <Input aria-label="Search chats" className="control-s w-full" onChange={(event) => setSearch({ q: event.target.value })} placeholder="Search people or messages" type="search" value={search} />
           </div>

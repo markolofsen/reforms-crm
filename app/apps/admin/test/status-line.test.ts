@@ -10,11 +10,15 @@ const status = (o: Partial<StatusDto> = {}): StatusDto => ({ level: "clear", kin
 describe("the Mail status line (P48 W3, P96)", () => {
   it("says the worst fact once and when Mail was read; never who wrote or the replies owed (P99 verdict 14: the Needs you count), nor triage", () => {
     expect(lineOf(status(), NOW, ok)).toMatchObject({ level: "clear", sentence: "All clear", numbers: [], wrote: null, read: "Mail read 2 min ago", to: null });
-    const l = lineOf(status({ level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "sending", numbers: { owed: 3, wrote: 1, lastTriageAt: null, mailRead: read() } }), NOW, ok);
+    const l = lineOf(status({ level: "attention", kind: "send-failed", sentence: "1 send failed in the last 24 hours", next: "sending", numbers: { owed: 3, wrote: 1, lastTriageAt: null, mailRead: read() } }), NOW, ok);
     expect(l.wrote).toBeNull();
     expect(l.numbers).toEqual([]);
     expect(l.to?.route).toBe("settings.page");
     expect(JSON.stringify(lineOf(status(), NOW, ok))).not.toMatch(/triage/);
+  });
+  it("never says test mode: the send dialog and Settings ▸ Sending do (P128 X4, decision 0045 point 17)", () => {
+    const l = lineOf(status({ level: "clear", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "sending" }), NOW, ok);
+    expect(l).toMatchObject({ level: "clear", kind: "clear", sentence: "All clear", to: null });
   });
   it("the reader says why it did not read, or that it is reading", () => {
     expect(lineOf(status({ numbers: { owed: 0, wrote: 0, lastTriageAt: null, mailRead: read({ reason: "Mail is not running" }) } }), NOW, ok).read).toBe("Mail is not running");

@@ -22,9 +22,14 @@ type Header = {
   refreshing: boolean;
 };
 
-/** The view as ONE menu with counts, at every width: the views, Follow-ups, Not by email, then the batches (read-only). */
+/**
+ * The view as ONE menu with counts, at every width: the views, Follow-ups, Not by email, then the batches (read-only). Its trigger
+ * is the list's title, "Mail · Needs you 2" (P128 X4); a filter or a batch with nothing in it is left out unless it is the one
+ * on screen (the three views always show, so the owner sees an empty Needs you as such).
+ */
 function ViewMenu({ views, view, onView }: Pick<Header, "views" | "view" | "onView">) {
-  return <ListFilterMenu name="View" onChange={onView} options={views} tooltip="Filter mail by view" value={view} />;
+  const shown = views.filter((v) => v.group === undefined || v.value === view || v.count !== 0);
+  return <ListFilterMenu name="View" onChange={onView} options={shown} tooltip="Filter mail by view" value={view} where="Mail" />;
 }
 
 /**

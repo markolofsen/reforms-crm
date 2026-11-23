@@ -74,7 +74,9 @@ test("a draft recorded by another process appears within 1 s, Activity and the s
   });
 
   await page.goto(at("demo-shop", "/mail?filter=all"));
-  await expect(liveState(page)).toHaveText("Live");
+  // P128 X4: "Live" is not said while true; the stream is open once the page asked for it.
+  await expect.poll(() => streams.length).toBe(1);
+  await expect(liveState(page)).toHaveCount(0);
   const line = page.getByTestId("status-line");
   const before = await line.innerText();
 
@@ -97,7 +99,7 @@ test("a draft recorded by another process appears within 1 s, Activity and the s
   record("Dora Down");
   restarted = startApi();
   await expect.poll(apiUp, { timeout: 30_000 }).toBe(true);
-  await expect(liveState(page)).toHaveText("Live", { timeout: 15_000 });
+  await expect(liveState(page)).toHaveCount(0, { timeout: 15_000 });
   await expect(cards(page).filter({ hasText: "Dora Down" })).toHaveCount(1, { timeout: 5_000 });
   expect(page.url()).toContain("/mail");
 });

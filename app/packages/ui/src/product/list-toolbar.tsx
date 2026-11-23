@@ -30,14 +30,17 @@ export type ListFilterOption = {
  * One compact filter menu for list chrome. Domain features provide labels and counts; the trigger and grouped menu stay consistent.
  * `name` is the control's name, read (not shown) before the choice: the trigger's accessible name is "View: Needs you 8", its own
  * content, so it always holds the visible text (WCAG 2.5.3; axe label-content-name-mismatch). `tooltip` says what it filters.
+ * `where` (P128 X4, decision 0045 point 21) names the section before the choice, so the trigger is the list's title and its
+ * switch at once: "Mail · Needs you 2" (its name "View: Mail · Needs you 2").
  */
-export function ListFilterMenu({ name, options, value, onChange, tooltip }: { name: string; options: readonly ListFilterOption[]; value: string; onChange: (value: string) => void; tooltip?: string }) {
+export function ListFilterMenu({ name, options, value, onChange, tooltip, where }: { name: string; options: readonly ListFilterOption[]; value: string; onChange: (value: string) => void; tooltip?: string; where?: string }) {
   const selected = options.find((option) => option.value === value);
   const groups = [...new Set(options.map((option) => option.group ?? ""))];
   return (
     <Menu>
       <MenuTrigger render={<ActionButton className="min-w-0 max-w-full shrink-0" size="s" tooltip={tooltip ?? name} variant="secondary" />}>
         <span className="sr-only">{name}: </span>
+        {where && <span className="shrink-0 font-semibold" data-slot="list-where">{where} ·</span>}
         <span className="truncate">{selected?.triggerLabel ?? selected?.label ?? value}</span>
         {selected?.count !== undefined && selected.count !== null && <span className="font-normal tabular-nums">{selected.count}</span>}
         <ChevronDownIcon aria-hidden="true" />

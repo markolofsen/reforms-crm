@@ -9,7 +9,6 @@ import { cn } from "@hub/ui/cn";
 import { AppLink } from "@/components/app-link";
 import { useClock } from "@/lib/clock";
 import { MAIL_READ_RETRYABLE } from "@hub/contract/inbound";
-import { plural } from "@/lib/format";
 import { useLiveState, type LiveState } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
 import { useProjectRow } from "@/lib/status";
@@ -19,7 +18,7 @@ import { CheckNow, mailReadText } from "./inbox/mail-read";
 
 const LIVE_WORD: Record<Exclude<LiveState, "connecting">, string> = { live: "Live", reconnecting: "Reconnecting, data may be old" };
 
-type Line = { level: StatusLevel; sentence: string; numbers: string[]; to: Dest | null; kind: string; /** P96: "1 client wrote" (a link to Inbox), or null. */ wrote: string | null; /** P97: "2 new leads" (a link to Inbox), or null. */ leads: string | null; /** P96: the Mail reader's words, or null when the page itself is in doubt. */ read: string | null; /** P96: Check now belongs on the line (Mail closed, a failed read or a late one, and the line has no link of its own). */ check: boolean };
+type Line = { level: StatusLevel; sentence: string; numbers: string[]; to: Dest | null; kind: string; /** P96: "1 client wrote" (a link to Inbox), or null. */ wrote: string | null; /** P96: the Mail reader's words, or null when the page itself is in doubt. */ read: string | null; /** P96: Check now belongs on the line (Mail closed, a failed read or a late one, and the line has no link of its own). */ check: boolean };
 
 const DOT: Record<StatusLevel, string> = { clear: "bg-success", attention: "bg-warning", blocked: "bg-destructive" };
 /** The page that fixes the fact (P70: Overview, Knowledge or a Settings pane). */
@@ -34,17 +33,19 @@ const nextDest = (next: NonNullable<StatusDto["next"]>): Dest => dest(NEXT_ROUTE
 export function lineOf(s: StatusDto, now: number, shell: { stale: boolean; serverOlder: boolean; serverNewer: boolean }): Line {
   const n = s.numbers;
   const wrote = null;
-  const leads = n.leads ? plural(n.leads, "new lead") : null;
   const numbers: string[] = [];
   // What only the page can know outranks the server's own sentence: its data may be old, or the two do not match.
-  const doubt = { numbers: [], to: null, wrote: null, leads: null, read: null, check: false };
+  const doubt = { numbers: [], to: null, wrote: null, read: null, check: false };
   if (shell.stale) return { level: "blocked", kind: "server-silent", sentence: "Server not answering: data may be old", ...doubt };
   if (shell.serverOlder) return { level: "attention", kind: "server-older", sentence: "Server older than this page: restart it with hub up", ...doubt };
   if (shell.serverNewer) return { level: "attention", kind: "server-newer", sentence: "Server newer than this page: reload it", ...doubt };
   const r = n.mailRead;
   // A reason no pass can cure (demo mode, the reader off) gets no Check now.
   const cures = r.reason === null || MAIL_READ_RETRYABLE.includes(r.reason);
-  return { level: s.level, kind: s.kind, sentence: s.sentence, numbers, to: s.next ? nextDest(s.next) : null, wrote, leads, read: mailReadText(r, now), check: cures && !s.next };
+  // P128 X4 (decision 0045 point 17): test mode is a setting he chose, said by the send dialog and Settings ▸ Sending, never here;
+  // The new leads are the New leads heading's count only (admin-principles rule 10: no number twice), so the line has no leads.
+  if (s.kind === "recipients-test") return { level: "clear", kind: "clear", sentence: "All clear", numbers, to: null, wrote, read: mailReadText(r, now), check: cures };
+  return { level: s.level, kind: s.kind, sentence: s.sentence, numbers, to: s.next ? nextDest(s.next) : null, wrote, read: mailReadText(r, now), check: cures && !s.next };
 }
 
 /**
@@ -98,14 +99,6 @@ export function StatusLine({ project }: { project: string }) {
           </AppLink>
         </span>
       )}
-      {l.leads && (
-        <span className="text-muted-foreground">
-          {"· "}
-          <AppLink className="font-medium text-foreground" data-testid="status-leads" to={dest("mail.list", { filter: "needs_you" })}>
-            {l.leads}
-          </AppLink>
-        </span>
-      )}
       {l.numbers.length > 0 && <span className="text-muted-foreground">· {l.numbers.join(" · ")}</span>}
       {/* Show less (ui-specifications 4a): on a phone the reader's words live in Inbox; Check now comes here only when the read is late or failed and the line has no link of its own. Inbox always has both. */}
       {l.read && (
@@ -114,7 +107,8 @@ export function StatusLine({ project }: { project: string }) {
           {l.check && <CheckNow project={project} />}
         </span>
       )}
-      {live !== "connecting" && (
+      {/* P128 X4: "Live" is not said while it is true; only its loss is ("Reconnecting, data may be old", state-and-data 10). */}
+      {live === "reconnecting" && (
         <Tooltip>
           <TooltipTrigger aria-label={live === "live" ? "Updates arrive as the agent writes" : "Live updates stopped; the page checks the server every 10 seconds"} render={<span className="ms-auto shrink-0 text-xs text-muted-foreground" data-state={live} data-testid="live-state">{LIVE_WORD[live]}</span>} />
           <TooltipPopup>{live === "live" ? "Updates arrive as the agent writes" : "Live updates stopped; the page checks the server every 10 seconds"}</TooltipPopup>

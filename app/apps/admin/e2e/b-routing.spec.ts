@@ -245,3 +245,13 @@ test("one project: no project in the address, no switcher, Overview in the nav b
   await page.goto(at(P, "/log?kind=skipped"));
   await expect.poll(() => address(page)).toBe("/log?kind=skipped");
 });
+
+// P128 X4 (decision 0045 point 21): the list header's View trigger is the list's title, naming the section and the view.
+test("the list header says where he is: Mail · <view> and Messengers · <view>", async ({ page }) => {
+  await page.goto(at(P, "/mail"));
+  await expect(page.getByRole("button", { name: /^View: Mail · Needs you/ })).toBeVisible();
+  await page.goto(at(P, "/messengers"));
+  await expect(page.getByRole("button", { name: /^View: Messengers · To do/ })).toBeVisible();
+  // "Live" is not said while it is true (only its loss is).
+  await expect(page.getByTestId("live-state")).toHaveCount(0);
+});
