@@ -1,7 +1,7 @@
 import { AlertTriangleIcon, CheckCircle2Icon, CircleHelpIcon, CircleXIcon, OctagonAlertIcon, type LucideIcon } from "lucide-react";
 import type { ProjectRowDto, StatusDto, StatusLevel, StatusNext } from "@hub/contract/overview";
 import { SCHEME_WORDS, type SchemeState } from "@hub/contract/scheme";
-import { routeDest, type Dest } from "@/routes/paths";
+import { dest, type Dest } from "@/routes/paths";
 import { NEXT_ROUTE } from "@/routes/sections";
 
 type Look = { word: string; Icon: LucideIcon; tone: string };
@@ -21,7 +21,7 @@ export const needsYou = (s: StatusDto): string => (s.level === "clear" ? "-" : s
 export const statusWord = (p: ProjectRowDto): string => (p.archived ? "archived" : p.projectStatus);
 
 /** The page a place names (`statusDto.next`, a part's `place`): total over the contract's places through `NEXT_ROUTE`. */
-export const placeDest = (place: StatusNext): Dest => routeDest(NEXT_ROUTE[place]);
+export const placeDest = (place: StatusNext): Dest => dest(NEXT_ROUTE[place]);
 
 /** Where the worst fact is fixed (the server names the place, never a URL), or null when the project is clear or the fix is the list itself. */
 export function nextDest(s: StatusDto): Dest | null {

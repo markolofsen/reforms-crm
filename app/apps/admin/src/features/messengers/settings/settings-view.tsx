@@ -8,7 +8,7 @@ import { LocalActionButton } from "@/components/local-action";
 import { messengersApi } from "@/lib/api/messengers/panel";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 import { ConnectionsView } from "../../settings/connections/connections-view";
 import { SettingsGroup as Group } from "../../settings/group";
 import { ChatRules } from "./chat-rules";
@@ -35,13 +35,13 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
         <LoadFailed error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} what="the linked chats" />
       ) : q.data.chats.length === 0 ? (
         <div className="flex flex-col gap-1 text-sm">
-          <p>No linked chats yet. <AppLink to={paths.messengers.chats()}>Link a chat from Chats.</AppLink></p>
+          <p>No linked chats yet. <AppLink to={dest("messengers.page")}>Link a chat from Chats.</AppLink></p>
           <p className="text-muted-foreground text-xs">Unlinked chats are not stored.</p>
         </div>
       ) : (
         <>
           <p className="text-muted-foreground text-xs">
-            Change the client, unlink or hide a chat from its status menu on <AppLink to={paths.messengers.chats()}>Messengers ▸ Chats</AppLink>.
+            Change the client, unlink or hide a chat from its status menu on <AppLink to={dest("messengers.page")}>Messengers ▸ Chats</AppLink>.
           </p>
           <ul aria-label="Linked chats" className="flex flex-col divide-y border-y">
             {q.data.chats.map((c) => (

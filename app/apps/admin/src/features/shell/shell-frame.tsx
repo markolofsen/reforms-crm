@@ -23,7 +23,7 @@ import { metaApi } from "@/lib/api/meta";
 import { useLive } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
 import { useInstance } from "@/lib/status";
-import { paths, sectionList } from "@/routes/paths";
+import { dest, sectionList } from "@/routes/paths";
 import { PROJECTLESS } from "@/routes/table";
 import { sectionTitle } from "@/routes/sections";
 
@@ -84,7 +84,7 @@ export function ShellFrame({ children }: { children: ReactNode }) {
           </Page>
         ) : !scope ? (
           <Page>
-            <EmptyState action={<AppLink to={paths.settings.connections()}>Open Connections</AppLink>} title="No projects yet">Ask the agent to set up your project: say “{phrase("project-setup")}” in a session.</EmptyState>
+            <EmptyState action={<AppLink to={dest("settings.connections")}>Open Connections</AppLink>} title="No projects yet">Ask the agent to set up your project: say “{phrase("project-setup")}” in a session.</EmptyState>
           </Page>
         ) : (
           <ProjectScopeContext value={scope}>{children}</ProjectScopeContext>

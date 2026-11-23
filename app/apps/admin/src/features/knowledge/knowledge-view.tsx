@@ -1,7 +1,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { phrase } from "@hub/contract/help";
 import { ChevronDownIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { KnowledgeListDto, KnowledgeView as View } from "@hub/contract/knowledge";
 import { Input } from "@hub/ui/input";
 import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "@hub/ui/menu";
@@ -10,10 +10,11 @@ import { Page } from "@hub/ui/product/page";
 import { LocalActionButton } from "@/components/local-action";
 import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
 import { useDebounced } from "@/hooks/use-debounced";
-import { useSearchState } from "@/hooks/use-search-state";
+import { useSearch } from "@/hooks/use-search-state";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
 import { plural } from "@/lib/format";
+import { KNOWLEDGE_SEARCH } from "@/routes/search";
 import { EntryTable } from "./entry-table";
 import { facetsOf, sharedLine, VIEW_LABEL, VIEW_ORDER } from "./labels";
 
@@ -61,8 +62,8 @@ function SearchBox({ q, onSearch }: { q: string; onSearch: (v: string) => void }
  * menu's counts, said once (rule 10). Read from the index only; a change is a phrase to the agent.
  */
 export function KnowledgeView({ project, filter, q }: { project: string; filter: View; q: string }) {
-  const setFilter = useSearchState("filter")[1];
-  const setQ = useSearchState("q")[1];
+  const [, setSearch] = useSearch(KNOWLEDGE_SEARCH);
+  const setQ = useCallback((v: string) => setSearch({ q: v }), [setSearch]);
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
   const list = useQuery({ queryKey: keys.knowledge(project, filter, search), queryFn: () => metaApi.knowledge(project, filter, search), placeholderData: keepPreviousData });
   // What every entry shares is read over the whole base (the All view, unsearched: the same key as the default view), so a
@@ -76,7 +77,7 @@ export function KnowledgeView({ project, filter, q }: { project: string; filter:
   const header = (
     <>
       <SearchBox onSearch={setQ} q={q} />
-      <ViewMenu counts={d?.counts} onChange={setFilter} value={filter} />
+      <ViewMenu counts={d?.counts} onChange={(v) => setSearch({ filter: v })} value={filter} />
       <LocalActionButton action="finder.open" args={{ project, key: "knowledge" }} variant="secondary" />
     </>
   );
@@ -97,7 +98,7 @@ export function KnowledgeView({ project, filter, q }: { project: string; filter:
           </p>
         )}
         {d.entries.length === 0 ? (
-          <EmptyState action={<ActionButton onClick={() => { setFilter("all"); setQ(""); }} size="s" variant="secondary">Show all</ActionButton>} title="No entry in this view" />
+          <EmptyState action={<ActionButton onClick={() => setSearch({ filter: "all", q: "" })} size="s" variant="secondary">Show all</ActionButton>} title="No entry in this view" />
         ) : (
           <EntryTable entries={d.entries} facets={facets} project={project} />
         )}

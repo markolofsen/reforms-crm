@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { canonicalAddress, pickProject, REDIRECTS } from "../src/routes/guards";
-import { formatDest, paths, routeDest, sectionList, type Dest, type Place } from "../src/routes/paths";
+import { formatDest, dest, sectionList, type Dest, type Place } from "../src/routes/paths";
 import { formatQuery, parseQuery, positiveInt } from "../src/routes/search";
 import { childrenOf, NEXT_ROUTE, SECTIONS } from "../src/routes/sections";
 import { STATUS_NEXT } from "@hub/contract/overview";
@@ -76,25 +76,25 @@ describe("resolveRoute", () => {
 
 describe("paths and places", () => {
   const cases: [string, Dest, string, string][] = [
-    ["drafts list", paths.mail.list(), "/mail", "/lisbon/mail"],
-    ["waiting", paths.mail.list({ filter: "waiting" }), "/mail?filter=waiting", "/lisbon/mail?filter=waiting"],
-    ["a conversation", paths.mail.conversation(42, { filter: "all" }), "/mail/c/42?filter=all", "/lisbon/mail/c/42?filter=all"],
-    ["a conversation of a batch", paths.mail.conversation(42, { batch: 3 }), "/mail/c/42?batch=3", "/lisbon/mail/c/42?batch=3"],
-    ["a conversation at one message", paths.mail.conversation(7, { m: "a@b" }), "/mail/c/7?m=a%40b", "/lisbon/mail/c/7?m=a%40b"],
-    ["drafts search", paths.mail.list({ q: "ana" }), "/mail?q=ana", "/lisbon/mail?q=ana"],
-    ["needs you is the default", paths.mail.list({ filter: "needs_you" }), "/mail", "/lisbon/mail"],
-    ["log client", paths.log.list({ filter: "drafts", client: 5 }), "/log?filter=drafts&client=5", "/lisbon/log?filter=drafts&client=5"],
-    ["knowledge", paths.knowledge.page(), "/knowledge", "/lisbon/knowledge"],
-    ["knowledge: a view and a search", paths.knowledge.page({ filter: "expired", q: "price" }), "/knowledge?filter=expired&q=price", "/lisbon/knowledge?filter=expired&q=price"],
-    ["settings: sending", paths.settings.sending(), "/settings", "/lisbon/settings"],
-    ["settings: mail", paths.settings.mail(), "/settings/mail", "/lisbon/settings/mail"],
-    ["settings: checks", paths.settings.checks(), "/settings/checks", "/lisbon/settings/checks"],
-    ["settings: agent", paths.settings.agent(), "/settings/agent", "/lisbon/settings/agent"],
-    ["settings: agent, every tool row", paths.settings.agent({ filter: "all" }), "/settings/agent?filter=all", "/lisbon/settings/agent?filter=all"],
-    ["settings: connections", paths.settings.connections(), "/settings/connections", "/settings/connections"],
-    ["settings: this mac", paths.settings.mac(), "/settings/mac", "/settings/mac"],
-    ["help", paths.help.page(), "/help", "/help"],
-    ["overview", paths.overview(), "/overview", "/overview"],
+    ["drafts list", dest("mail.list"), "/mail", "/lisbon/mail"],
+    ["waiting", dest("mail.list", { filter: "waiting" }), "/mail?filter=waiting", "/lisbon/mail?filter=waiting"],
+    ["a conversation", dest("mail.conversation", { id: 42 }, { filter: "all" }), "/mail/c/42?filter=all", "/lisbon/mail/c/42?filter=all"],
+    ["a conversation of a batch", dest("mail.conversation", { id: 42 }, { batch: 3 }), "/mail/c/42?batch=3", "/lisbon/mail/c/42?batch=3"],
+    ["a conversation at one message", dest("mail.conversation", { id: 7 }, { m: "a@b" }), "/mail/c/7?m=a%40b", "/lisbon/mail/c/7?m=a%40b"],
+    ["drafts search", dest("mail.list", { q: "ana" }), "/mail?q=ana", "/lisbon/mail?q=ana"],
+    ["needs you is the default", dest("mail.list", { filter: "needs_you" }), "/mail", "/lisbon/mail"],
+    ["log client", dest("log.list", { filter: "drafts", client: 5 }), "/log?filter=drafts&client=5", "/lisbon/log?filter=drafts&client=5"],
+    ["knowledge", dest("knowledge.page"), "/knowledge", "/lisbon/knowledge"],
+    ["knowledge: a view and a search", dest("knowledge.page", { filter: "expired", q: "price" }), "/knowledge?filter=expired&q=price", "/lisbon/knowledge?filter=expired&q=price"],
+    ["settings: sending", dest("settings.page"), "/settings", "/lisbon/settings"],
+    ["settings: mail", dest("settings.mail"), "/settings/mail", "/lisbon/settings/mail"],
+    ["settings: checks", dest("settings.checks"), "/settings/checks", "/lisbon/settings/checks"],
+    ["settings: agent", dest("settings.agent"), "/settings/agent", "/lisbon/settings/agent"],
+    ["settings: agent, every tool row", dest("settings.agent", { filter: "all" }), "/settings/agent?filter=all", "/lisbon/settings/agent?filter=all"],
+    ["settings: connections", dest("settings.connections"), "/settings/connections", "/settings/connections"],
+    ["settings: this mac", dest("settings.mac"), "/settings/mac", "/settings/mac"],
+    ["help", dest("help.page"), "/help", "/help"],
+    ["overview", dest("overview.page"), "/overview", "/overview"],
   ];
   for (const [name, d, one, many] of cases) {
     it(`${name}: ${one} with one project, ${many} with several, and both re-parse to the same destination`, () => {
@@ -108,7 +108,7 @@ describe("paths and places", () => {
 
   it("no address ever carries `?project=`, and a project with a space survives", () => {
     for (const [, d] of cases) for (const place of [ONE, MANY]) expect(formatDest(d, place)).not.toContain("project=");
-    expect(roundTrip(paths.mail.list(), { project: "demo shop", multi: true }).project).toBe("demo shop");
+    expect(roundTrip(dest("mail.list"), { project: "demo shop", multi: true }).project).toBe("demo shop");
   });
 
   it("every section has a list destination that resolves to that section; every instance has every section (P70: six parents; P71 M3: Messengers)", () => {
@@ -121,19 +121,19 @@ describe("paths and places", () => {
   it("child pages (P70): Settings' Mail, Agent, Connections, This Mac in order; Messengers' Settings (P71 M3); no other section has one; `g s` lands on Sending", () => {
     expect(childrenOf("settings").map((c) => c.route)).toEqual(["settings.checks", "settings.mail", "settings.agent", "settings.connections", "settings.mac"]);
     expect(childrenOf("messengers").map((c) => c.route)).toEqual(["messengers.settings"]);
-    expect(roundTrip(paths.messengers.chats({ filter: "linked" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "linked", channel: "all" } });
-    expect(roundTrip(paths.messengers.conversation(7, { filter: "linked", channel: "whatsapp" }), MANY)).toMatchObject({ route: "messengers.conversation", params: { id: 7 }, search: { filter: "linked", channel: "whatsapp" } });
+    expect(roundTrip(dest("messengers.page", { filter: "linked" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "linked", channel: "all" } });
+    expect(roundTrip(dest("messengers.conversation", { id: 7 }, { filter: "linked", channel: "whatsapp" }), MANY)).toMatchObject({ route: "messengers.conversation", params: { id: 7 }, search: { filter: "linked", channel: "whatsapp" } });
     // P84c: the channel is a filter of the same page; an unknown view or channel resets to its default, the default drops its key.
-    expect(roundTrip(paths.messengers.chats({ filter: "hidden", channel: "whatsapp" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "hidden", channel: "whatsapp" } });
-    expect(roundTrip(paths.messengers.chats({ filter: "linked", q: "Anna Field" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "linked", channel: "all", q: "Anna Field" } });
-    expect(paths.messengers.chats({ filter: "todo", channel: "all" }).search).toEqual({});
+    expect(roundTrip(dest("messengers.page", { filter: "hidden", channel: "whatsapp" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "hidden", channel: "whatsapp" } });
+    expect(roundTrip(dest("messengers.page", { filter: "linked", q: "Anna Field" }), MANY)).toMatchObject({ route: "messengers.page", search: { filter: "linked", channel: "all", q: "Anna Field" } });
+    expect(dest("messengers.page", { filter: "todo", channel: "all" }).search).toEqual({});
     for (const s of SECTIONS.filter((x) => x.id !== "settings" && x.id !== "messengers")) expect(childrenOf(s.id), s.id).toEqual([]);
     expect(sectionList("settings").route).toBe("settings.page");
   });
 
   it("every place a dot can name maps to a page that resolves (the map is total over the contract)", () => {
     expect(Object.keys(NEXT_ROUTE).sort()).toEqual([...STATUS_NEXT].sort());
-    for (const place of STATUS_NEXT) expect(roundTrip(routeDest(NEXT_ROUTE[place]), MANY).route, place).toBe(NEXT_ROUTE[place]);
+    for (const place of STATUS_NEXT) expect(roundTrip(dest(NEXT_ROUTE[place]), MANY).route, place).toBe(NEXT_ROUTE[place]);
   });
 });
 

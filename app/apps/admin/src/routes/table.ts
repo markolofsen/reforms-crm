@@ -1,4 +1,5 @@
 import type { Route } from "next";
+import { AGENT_SEARCH, KNOWLEDGE_SEARCH, LOG_SEARCH, MAIL_SEARCH, MESSENGERS_SEARCH, notionPage, positiveId, type ParamSpec, type SearchOf, type SearchSpec } from "./search";
 
 // `/mail/[id]` read as the number it matches, so `Route<...>` (the union of the pages in `src/app`, plus a string that fits a
 // dynamic page) can judge it; a path that is not a page makes the parameter `never` and `tsc` refuses the row (decision 0021).
@@ -30,11 +31,16 @@ export type RouteMeta = {
   readonly crumb?: string;
   /** Only on a section's list route. */
   readonly nav?: NavMeta;
+  /** One parser per `[name]` segment of the path (checked below): a value it refuses makes the address Not found. */
+  readonly params?: Readonly<Record<string, ParamSpec<unknown>>>;
+  /** The query keys the page reads (`routes/search.ts`); a page with none has no search. */
+  readonly search?: SearchSpec;
 };
 
 /**
  * One row of the route table: the file-tree pattern (checked against `src/app` by `typedRoutes`) and the metadata the shell,
- * the titles and the guard read. The same idea as `defineRoute` of `@djangocfg/nextjs/navigation` (the carapis catalogue
+ * the titles and the guard read, with its params and search (P127 A1: `resolve.ts` derives the typed route, `resolveRoute`, `dest`
+ * and `useSearch` from them). The same idea as `defineRoute` of `@djangocfg/nextjs/navigation` (the carapis catalogue
  * routes), written here in a few lines: that package also ships sitemap, health, OG and config server utilities with their
  * own dependencies (chalk, conf, consola, semver) and its metadata has no project placement and no typed-route check, so
  * importing it would add weight for an identity function (`architecture-and-ownership.md` rule 14).
@@ -44,33 +50,34 @@ export function defineRoute<const P extends string, const M extends RouteMeta>(p
 }
 
 /**
- * The one declaration of which pages exist (decision 0021). Every internal address is built from it (`paths.ts`), the nav and
- * the chords derive from its `nav` metadata (`sections.ts`), and nothing concatenates a path at a call site. A scoped row has a
- * twin page under `src/app/(shell)/[project]/` (checked below and by `test/route-files.test.ts`). No imports but a type.
+ * The one declaration of which pages exist (decision 0021). Every internal address is built from it (`dest` in `paths.ts`), the
+ * nav and the chords derive from its `nav` metadata (`sections.ts`), and nothing concatenates a path at a call site. A scoped row
+ * has a twin page under `src/app/(shell)/[project]/` (checked below and by `test/route-files.test.ts`). It imports the specs of
+ * `search.ts` and a type only.
  */
 export const ROUTE_TABLE = {
   "overview.page": defineRoute("/overview", { section: "overview", scoped: false, title: "Overview", nav: { label: "Overview", icon: "overview", order: 0, chord: "o", phone: "bar" } }),
   // P96 S3: Drafts became Mail (one section per channel, beside Messengers); its first view is Inbox, the clients who wrote.
   // Chord `e` (`m` is Messengers). The old Drafts addresses are gone, with no redirect (no legacy aliases).
-  "mail.list": defineRoute("/mail", { section: "mail", scoped: true, title: "Mail", nav: { label: "Mail", icon: "inbox", order: 1, chord: "e", phone: "bar" } }),
+  "mail.list": defineRoute("/mail", { section: "mail", scoped: true, title: "Mail", search: MAIL_SEARCH, nav: { label: "Mail", icon: "inbox", order: 1, chord: "e", phone: "bar" } }),
   // P99 S3: one conversation, the whole correspondence with one client (a `clients` id: stable, an email in a path is not), its
   // unsent draft at the bottom. `/mail/<draft id>` and `/mail/in/<id>` are gone, with no redirect (no legacy aliases).
-  "mail.conversation": defineRoute("/mail/c/[id]", { section: "mail", scoped: true, title: "Mail", crumb: "Conversation" }),
+  "mail.conversation": defineRoute("/mail/c/[id]", { section: "mail", scoped: true, title: "Mail", crumb: "Conversation", params: { id: positiveId }, search: MAIL_SEARCH }),
   // P97 S2: one lead of the Inbox's Leads group, by its Notion page id (32 hex), read from Notion Leads.
-  "mail.lead": defineRoute("/mail/lead/[page]", { section: "mail", scoped: true, title: "Mail", crumb: "Lead" }),
+  "mail.lead": defineRoute("/mail/lead/[page]", { section: "mail", scoped: true, title: "Mail", crumb: "Lead", params: { page: notionPage }, search: MAIL_SEARCH }),
   // P71 M3 (decision 0036 point 6): what the messengers owe, an analogue of Mail for the linked chats; its landing is the panel
   // (Chats), its child the logins, the bot, each chat's rules and the guards. Mail drafts stay in Mail.
-  "messengers.page": defineRoute("/messengers", { section: "messengers", scoped: true, title: "Chats", nav: { label: "Messengers", icon: "messengers", order: 2, chord: "m", phone: "more" } }),
-  "messengers.conversation": defineRoute("/messengers/c/[id]", { section: "messengers", scoped: true, title: "Chats", crumb: "Conversation" }),
+  "messengers.page": defineRoute("/messengers", { section: "messengers", scoped: true, title: "Chats", search: MESSENGERS_SEARCH, nav: { label: "Messengers", icon: "messengers", order: 2, chord: "m", phone: "more" } }),
+  "messengers.conversation": defineRoute("/messengers/c/[id]", { section: "messengers", scoped: true, title: "Chats", crumb: "Conversation", params: { id: positiveId }, search: MESSENGERS_SEARCH }),
   "messengers.settings": defineRoute("/messengers/settings", { section: "messengers", scoped: true, title: "Messenger settings", nav: { label: "Settings", icon: "settings", order: 1, parent: "messengers.page" } }),
-  "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", nav: { label: "Activity", icon: "activity", order: 3, chord: "a", phone: "bar" } }),
-  "knowledge.page": defineRoute("/knowledge", { section: "knowledge", scoped: true, title: "Knowledge", nav: { label: "Knowledge", icon: "knowledge", order: 4, chord: "k", phone: "more" } }),
+  "log.list": defineRoute("/log", { section: "log", scoped: true, title: "Activity", search: LOG_SEARCH, nav: { label: "Activity", icon: "activity", order: 3, chord: "a", phone: "bar" } }),
+  "knowledge.page": defineRoute("/knowledge", { section: "knowledge", scoped: true, title: "Knowledge", search: KNOWLEDGE_SEARCH, nav: { label: "Knowledge", icon: "knowledge", order: 4, chord: "k", phone: "more" } }),
   // P70: Settings opens on its first pane, Sending (the row's title); the nav names the section, the sub-nav the pane.
   "settings.page": defineRoute("/settings", { section: "settings", scoped: true, title: "Sending", nav: { label: "Settings", icon: "settings", order: 5, chord: "s", phone: "bar" } }),
   // P75: the checks before sending are their own pane, next to Sending (guards on each draft, a different kind of setting).
   "settings.checks": defineRoute("/settings/checks", { section: "settings", scoped: true, title: "Checks", nav: { label: "Checks", icon: "checks", order: 1, parent: "settings.page" } }),
   "settings.mail": defineRoute("/settings/mail", { section: "settings", scoped: true, title: "Mail", nav: { label: "Mail", icon: "mail", order: 2, parent: "settings.page" } }),
-  "settings.agent": defineRoute("/settings/agent", { section: "settings", scoped: true, title: "Agent", nav: { label: "Agent", icon: "agents", order: 3, parent: "settings.page" } }),
+  "settings.agent": defineRoute("/settings/agent", { section: "settings", scoped: true, title: "Agent", search: AGENT_SEARCH, nav: { label: "Agent", icon: "agents", order: 3, parent: "settings.page" } }),
   "settings.connections": defineRoute("/settings/connections", { section: "settings", scoped: false, title: "Connections", nav: { label: "Connections", icon: "connections", order: 4, parent: "settings.page" } }),
   "settings.mac": defineRoute("/settings/mac", { section: "settings", scoped: false, title: "This Mac", nav: { label: "This Mac", icon: "mac", order: 5, parent: "settings.page" } }),
   "help.page": defineRoute("/help", { section: "help", scoped: false, title: "Help", nav: { label: "Help", icon: "help", order: 6, chord: "h", phone: "more" } }),
@@ -78,67 +85,50 @@ export const ROUTE_TABLE = {
 
 export type RouteId = keyof typeof ROUTE_TABLE;
 type Row = (typeof ROUTE_TABLE)[RouteId];
+export type RowOf<K extends RouteId> = (typeof ROUTE_TABLE)[K];
+/** No params, no search: the keys of a page without them (`"id" in r.params` narrows the rest). */
+export type NoParams = Record<string, never>;
+export type NoSearch = Record<string, never>;
+/** A route's typed params and search, derived from its row (P127 A1). */
+export type ParamsOf<K extends RouteId> = RowOf<K> extends { params: infer P } ? { -readonly [N in keyof P]: P[N] extends ParamSpec<infer T> ? T : never } : NoParams;
+export type SearchFor<K extends RouteId> = RowOf<K> extends { search: infer S } ? SearchOf<S> : NoSearch;
+/** The routes whose path takes a parameter (`/mail/c/[id]`): they have no bare destination. */
+export type ParamRouteId = { [K in RouteId]: RowOf<K> extends { params: object } ? K : never }[RouteId];
 
-// A scoped row without its `[project]` twin page makes the property `never`, and `true` fails `tsc`. So does a projectless child
-// of a scoped parent (P70) without its fold page (see `PROJECTLESS`).
+// A scoped row without its `[project]` twin page fails here, naming the row; so does a projectless child of a scoped parent
+// (P70) without its fold page (see `PROJECTLESS`).
 type Twin<R> = R extends { path: infer P extends string; scoped: true } ? Checked<`/[project]${P}`> : R extends { path: infer P extends string; nav: { parent: string } } ? Checked<`/[project]${P}`> : string;
-export const TWINS: { readonly [K in RouteId]: [Twin<(typeof ROUTE_TABLE)[K]>] extends [never] ? never : true } = {
-  "overview.page": true,
-  "mail.list": true,
-  "mail.conversation": true,
-  "mail.lead": true,
-  "messengers.page": true,
-  "messengers.conversation": true,
-  "messengers.settings": true,
-  "log.list": true,
-  "knowledge.page": true,
-  "settings.page": true,
-  "settings.checks": true,
-  "settings.mail": true,
-  "settings.agent": true,
-  "settings.connections": true,
-  "settings.mac": true,
-  "help.page": true,
-};
+type NoTwin = { [K in RouteId]: [Twin<RowOf<K>>] extends [never] ? K : never }[RouteId];
+export const TWINS: [NoTwin] extends [never] ? true : { missingTwin: NoTwin } = true;
 
 // A nav row is a parent (a chord and a phone place, no `parent`) or a child (a `parent` that is a parent row, no chord, no phone
-// place); anything else makes the property `never`, and `true` fails `tsc`. Scope (P70): a child has its parent's scope, or is
-// projectless under a scoped parent (Settings ▸ Connections, This Mac: the instance's panes beside the project's); a scoped child
-// under a projectless parent is refused, since the parent's address could not carry the project its child needs.
+// place); anything else fails here, naming the row. Scope (P70): a child has its parent's scope, or is projectless under a scoped
+// parent (Settings ▸ Connections, This Mac: the instance's panes beside the project's); a scoped child under a projectless parent
+// is refused, since the parent's address could not carry the project its child needs.
 type Parent<R> = R extends { nav: { parent: string } } ? never : R extends { nav: { chord: string; phone: string } } ? R : never;
 export type NavCheck<R> = R extends { nav: infer N }
   ? N extends { parent: infer P }
     ? P extends RouteId
-      ? [Parent<(typeof ROUTE_TABLE)[P]>] extends [never]
+      ? [Parent<RowOf<P>>] extends [never]
         ? never
         : N extends { chord: string } | { phone: string }
           ? never
           : R extends { scoped: false }
             ? true
-            : R extends { scoped: (typeof ROUTE_TABLE)[P]["scoped"] }
+            : R extends { scoped: RowOf<P>["scoped"] }
               ? true
               : never
       : never
     : [Parent<R>] extends [never] ? never : true
   : true;
-export const NAV_SHAPE: { readonly [K in RouteId]: NavCheck<(typeof ROUTE_TABLE)[K]> } = {
-  "overview.page": true,
-  "mail.list": true,
-  "mail.conversation": true,
-  "mail.lead": true,
-  "messengers.page": true,
-  "messengers.conversation": true,
-  "messengers.settings": true,
-  "log.list": true,
-  "knowledge.page": true,
-  "settings.page": true,
-  "settings.checks": true,
-  "settings.mail": true,
-  "settings.agent": true,
-  "settings.connections": true,
-  "settings.mac": true,
-  "help.page": true,
-};
+type BadNav = { [K in RouteId]: [NavCheck<RowOf<K>>] extends [never] ? K : never }[RouteId];
+export const NAV_SHAPE: [BadNav] extends [never] ? true : { badNav: BadNav } = true;
+
+// The params of a row are exactly the `[name]` segments of its path: a missing or an extra parser fails here, naming the row.
+type ParamNames<P extends string> = P extends `${string}[${infer N}]${infer Rest}` ? N | ParamNames<Rest> : never;
+type ParamsMatch<R> = R extends { path: infer P extends string } ? (R extends { params: infer Q } ? ([keyof Q] extends [ParamNames<P>] ? ([ParamNames<P>] extends [keyof Q] ? true : never) : never) : [ParamNames<P>] extends [never] ? true : never) : never;
+type BadParams = { [K in RouteId]: [ParamsMatch<RowOf<K>>] extends [never] ? K : never }[RouteId];
+export const PARAMS_MATCH: [BadParams] extends [never] ? true : { badParams: BadParams } = true;
 
 const ID = String.raw`[1-9]\d*`;
 /** One project segment of a multi-project address: anything but a slash, a query or a fragment (the slug is URL-encoded). */

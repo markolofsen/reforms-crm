@@ -5,7 +5,7 @@ import { LoadFailed } from "@/components/state-views";
 import { refreshData, sentence } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";
 import { useProjectRow, useSends } from "@/lib/status";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 import { SendPolicyLines } from "./send-to";
 import { StopSending } from "./stop-sending";
 
@@ -49,7 +49,7 @@ export function SendingPane({ project }: { project: string }) {
             {said.sends && (
               <>
                 {" · "}
-                <AppLink className="font-normal text-sm" to={paths.log.list({ filter: "sends" })}>
+                <AppLink className="font-normal text-sm" to={dest("log.list", { filter: "sends" })}>
                   See the sends
                 </AppLink>
               </>

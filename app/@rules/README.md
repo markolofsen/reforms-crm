@@ -10,7 +10,7 @@ Index. Read the page that owns your question before you edit `app/apps/admin`, t
 | Queries, mutations, loading/empty/error states, storage, the cookie, stable first render (hydration) | `state-and-data.md` |
 | Generated OpenAPI/Orval clients, Zod validation, runtime adapters, facades, provider/context boundaries, and migration seams | `generated-api-clients.md` |
 | `any`, casts, `!`, unions, `import type` | `typing.md` |
-| Screens, real paths, `paths.*` and `AppLink`, filters and keys, the project guard, titles, Not found | `routes-and-url-state.md` (read before touching navigation) |
+| Screens, real paths, `dest` and `AppLink`, filters and keys, the project guard, titles, Not found | `routes-and-url-state.md` (read before touching navigation) |
 | Primitive/product/feature layers, connected views, shared conversation frame, provider ownership and editor shortcut scopes | `ui-composition.md` |
 | Scenarios, determinism, viewport and keyboard contracts | `ui-specifications.md` |
 | coss, tokens, colors, light and dark | `design-system-and-tokens.md` |

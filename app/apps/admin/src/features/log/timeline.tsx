@@ -8,7 +8,7 @@ import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } fro
 import { AppLink } from "@/components/app-link";
 import { agentRef } from "@/lib/focus";
 import { hhmm } from "@/lib/format";
-import { paths, type Dest } from "@/routes/paths";
+import { dest, type Dest } from "@/routes/paths";
 import { daySections, groupCells, lineRef, type GroupCells, type RowGroup } from "./groups";
 import { reasonParts } from "./labels";
 
@@ -21,7 +21,7 @@ const WHO = "inline [overflow-wrap:anywhere] sm:block sm:w-full sm:truncate";
 /** Where a row leads (P128 X0, F30): a messenger row to its chat, a Mail draft's row to the client's conversation, else nowhere. */
 type RowTarget = { chatId: number | null; draftId: number | null; clientId: number | null };
 const targetOf = (t: RowTarget): Dest | null =>
-  t.chatId !== null ? paths.messengers.conversation(t.chatId) : t.draftId !== null && t.clientId !== null ? paths.mail.conversation(t.clientId) : null;
+  t.chatId !== null ? dest("messengers.conversation", { id: t.chatId }) : t.draftId !== null && t.clientId !== null ? dest("mail.conversation", { id: t.clientId }) : null;
 function Who({ target, name }: { target: RowTarget; name: string }) {
   const to = targetOf(target);
   const trigger = to === null ? (

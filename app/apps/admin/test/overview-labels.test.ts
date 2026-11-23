@@ -3,7 +3,7 @@ import { STATUS_LEVELS, type ProjectRowDto, type StatusDto } from "@hub/contract
 import { SCHEME_STATES } from "@hub/contract/scheme";
 import { LEVEL, needsYou, nextDest, ordered, SCHEME_LOOK, statusWord } from "../src/features/overview/labels";
 import { mailReadText } from "../src/features/mail/inbox/mail-read";
-import { formatDest, paths } from "../src/routes/paths";
+import { formatDest, dest } from "../src/routes/paths";
 
 const status = (over: Partial<StatusDto> = {}): StatusDto => ({ level: "attention", kind: "recipients-test", sentence: "Test mode: sends go to the test list only", next: "sending", numbers: { owed: 1, wrote: 0, lastTriageAt: null, mailRead: { at: null, reason: null, reading: false, unknown: 0 } }, ...over });
 const row = (slug: string, over: Partial<ProjectRowDto> = {}): ProjectRowDto => ({ slug, name: slug, projectStatus: "active", archived: false, toReview: 0, sentToday: 0, status: status(), ...over });
@@ -26,7 +26,7 @@ describe("overview labels", () => {
   });
 
   it("a row leads into its own project: Mail by its name, the fix by Needs you; an instance pane names no project", () => {
-    expect(formatDest(paths.mail.list(), multi)).toBe("/alpha/mail");
+    expect(formatDest(dest("mail.list"), multi)).toBe("/alpha/mail");
     const sending = nextDest(status());
     expect(sending && formatDest(sending, multi)).toBe("/alpha/settings");
     const connections = nextDest(status({ next: "connections" }));

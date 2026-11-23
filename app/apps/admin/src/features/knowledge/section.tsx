@@ -7,7 +7,7 @@ import { KnowledgeView } from "./knowledge-view";
 /** The Knowledge screen (P70, `/knowledge`, `g k`): the facts the agent cites in the owner's name, content he reads and corrects. */
 export function KnowledgeScreen() {
   const { project } = useProjectScope();
-  const route = useRoute();
-  if (route.route !== "knowledge.page") return null;
+  const route = useRoute("knowledge.page");
+  if (!route) return null;
   return <KnowledgeView filter={route.search.filter} project={project} q={route.search.q} />;
 }

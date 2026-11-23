@@ -3,7 +3,7 @@
 import { AppLink } from "@/components/app-link";
 import { EmptyState } from "@/components/state-views";
 import { usePath } from "@/hooks/use-route";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 
 /** An address that matches no screen, or a subject id that is not a number. Never another screen in disguise. */
 export function NotFound() {
@@ -14,7 +14,7 @@ export function NotFound() {
         <span>
           Nothing lives at <code>{path}</code>.
         </span>
-        <AppLink to={paths.mail.list()}>Go to Mail</AppLink>
+        <AppLink to={dest("mail.list")}>Go to Mail</AppLink>
       </span>
     </EmptyState>
   );

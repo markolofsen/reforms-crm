@@ -1,5 +1,5 @@
 import type { StatusNext } from "@hub/contract/overview";
-import { ROUTE_IDS, ROUTE_TABLE, type NavMeta, type RouteId } from "./table";
+import { ROUTE_IDS, ROUTE_TABLE, type NavMeta, type ParamRouteId, type RouteId } from "./table";
 
 type AnyRow = (typeof ROUTE_TABLE)[RouteId];
 type WithNav = Extract<AnyRow, { nav: NavMeta }>;
@@ -45,7 +45,7 @@ export const sectionTitle = (id: SectionId): string => sectionById(id)?.title ??
  * The page each place of `statusDto.next` is fixed on (the server names a place, never a URL). Total over the contract's union,
  * so a new place fails `tsc` here. A child's dot also lights its parent, and a parent in the phone's More lights More.
  */
-export const NEXT_ROUTE: Readonly<Record<StatusNext, Exclude<RouteId, "mail.conversation" | "mail.lead" | "messengers.conversation">>> = {
+export const NEXT_ROUTE: Readonly<Record<StatusNext, Exclude<RouteId, ParamRouteId>>> = {
   overview: "overview.page",
   knowledge: "knowledge.page",
   sending: "settings.page",

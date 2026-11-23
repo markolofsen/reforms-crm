@@ -20,7 +20,6 @@ export function ChatsScreen() {
 /** Messengers ▸ Settings. */
 export function MessengerSettingsScreen() {
   const { project } = useProjectScope();
-  const route = useRoute();
-  if (route.route !== "messengers.settings") return null;
+  if (!useRoute("messengers.settings")) return null;
   return <MessengerSettings project={project} />;
 }

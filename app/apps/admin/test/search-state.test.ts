@@ -1,42 +1,51 @@
 import { describe, expect, it } from "vitest";
-import { searchValue, withSearch } from "../src/hooks/use-search-state";
-import { formatDest, paths } from "../src/routes/paths";
-import { resolveRoute } from "../src/routes/resolve";
+import { dest, formatDest } from "../src/routes/paths";
+import { resolveRoute, searchDest } from "../src/routes/resolve";
 
 // What the retired hash router's test also held (push adds an entry, replace does not, Back lands on the list) is the
-// framework's history now; those rules are asserted in a real browser (`e2e/b-routing.spec.ts`, N6). The pure half stays here.
+// framework's history now; those rules are asserted in a real browser (`e2e/b-routing.spec.ts`, N6). The pure half stays here:
+// `searchDest` is what `useSearch`'s set writes (P127 A1).
 describe("search state", () => {
   it("a filter is a destination on the same route: it keeps the subject and the other key, and the default drops its key", () => {
     const multi = { project: "x", multi: true };
-    const filter = withSearch(resolveRoute("/x/mail", ""), "filter", "waiting");
+    const filter = searchDest(resolveRoute("/x/mail", ""), { filter: "waiting" });
     expect(filter && formatDest(filter, multi)).toBe("/x/mail?filter=waiting");
-    const back = withSearch(resolveRoute("/x/mail", "filter=waiting"), "filter", "needs_you");
+    const back = searchDest(resolveRoute("/x/mail", "filter=waiting"), { filter: "needs_you" });
     expect(back && formatDest(back, multi)).toBe("/x/mail");
     expect(back && formatDest(back, { project: "x", multi: false })).toBe("/mail");
-    expect(searchValue(resolveRoute("/mail/c/42", "filter=waiting"), "filter")).toBe("waiting");
-    expect(paths.mail.conversation(42, { filter: "waiting" }).search).toEqual({ filter: "waiting" });
+    const conversation = resolveRoute("/mail/c/42", "filter=waiting");
+    expect(conversation.route === "mail.conversation" && conversation.search.filter).toBe("waiting");
+    expect(dest("mail.conversation", { id: 42 }, { filter: "waiting" }).search).toEqual({ filter: "waiting" });
   });
 
-  it("withSearch keeps the subject and the other key, drops an invalid value to the default, and has no key on other routes", () => {
+  it("keeps the subject and the other key, drops an invalid value to the default, and has no key on other routes", () => {
     const item = resolveRoute("/mail/c/3", "filter=all&batch=2");
-    expect(withSearch(item, "filter", "zzz")).toEqual(paths.mail.conversation(3, { batch: 2 }));
-    expect(withSearch(item, "q", "ana")).toEqual(paths.mail.conversation(3, { filter: "all", batch: 2, q: "ana" }));
+    expect(searchDest(item, { filter: "zzz" })).toEqual(dest("mail.conversation", { id: 3 }, { batch: 2 }));
+    expect(searchDest(item, { q: "ana" })).toEqual(dest("mail.conversation", { id: 3 }, { filter: "all", batch: 2, q: "ana" }));
     const log = resolveRoute("/log", "filter=skipped&client=4");
-    expect(withSearch(log, "client", null)).toEqual(paths.log.list({ filter: "skipped" }));
-    expect(withSearch(log, "filter", "drafts")).toEqual(paths.log.list({ filter: "drafts", client: 4 }));
-    expect(withSearch(log, "filter", "sends")).toEqual(paths.log.list({ filter: "sends" }));
-    expect(withSearch(resolveRoute("/project", ""), "filter", "ready")).toBeNull();
-    expect(withSearch(resolveRoute("/mail", ""), "client", 3)).toBeNull();
-    expect(withSearch(resolveRoute("/nope", ""), "filter", "ready")).toBeNull();
+    expect(searchDest(log, { client: null })).toEqual(dest("log.list", { filter: "skipped" }));
+    expect(searchDest(log, { filter: "drafts" })).toEqual(dest("log.list", { filter: "drafts", client: 4 }));
+    expect(searchDest(resolveRoute("/project", ""), { filter: "ready" })).toBeNull();
+    expect(searchDest(resolveRoute("/mail", ""), { client: 3 })).toBeNull();
+    expect(searchDest(resolveRoute("/nope", ""), { filter: "ready" })).toBeNull();
+    expect(searchDest(resolveRoute("/settings", ""), { filter: "all" })).toBeNull();
+  });
+
+  it("the two behaviours that are more than setting a key: a lead's view change returns to the list; Sends drops the client", () => {
+    const lead = resolveRoute("/mail/lead/0123456789abcdef0123456789abcdef", "q=ana");
+    expect(searchDest(lead, { filter: "waiting" })).toEqual(dest("mail.list", { filter: "waiting", q: "ana" }));
+    expect(searchDest(lead, { q: "bo" })).toEqual(dest("mail.lead", { page: "0123456789abcdef0123456789abcdef" }, { q: "bo" }));
+    expect(searchDest(resolveRoute("/log", "filter=skipped&client=4"), { filter: "sends" })).toEqual(dest("log.list", { filter: "sends" }));
   });
 
   it("P84c: the Messengers channel and view keep each other; an unknown channel resets to All; no other route has a channel", () => {
     const chats = resolveRoute("/messengers", "filter=hidden&channel=telegram");
-    expect(searchValue(chats, "channel")).toBe("telegram");
-    expect(withSearch(chats, "channel", "whatsapp")).toEqual(paths.messengers.chats({ filter: "hidden", channel: "whatsapp" }));
-    expect(withSearch(chats, "filter", "linked")).toEqual(paths.messengers.chats({ filter: "linked", channel: "telegram" }));
-    expect(withSearch(chats, "channel", "fax")).toEqual(paths.messengers.chats({ filter: "hidden" }));
-    expect(searchValue(resolveRoute("/messengers", "filter=all"), "filter")).toBe("todo");
-    expect(withSearch(resolveRoute("/mail", ""), "channel", "telegram")).toBeNull();
+    expect(chats.route === "messengers.page" && chats.search.channel).toBe("telegram");
+    expect(searchDest(chats, { channel: "whatsapp" })).toEqual(dest("messengers.page", { filter: "hidden", channel: "whatsapp" }));
+    expect(searchDest(chats, { filter: "linked" })).toEqual(dest("messengers.page", { filter: "linked", channel: "telegram" }));
+    expect(searchDest(chats, { channel: "fax" })).toEqual(dest("messengers.page", { filter: "hidden" }));
+    const old = resolveRoute("/messengers", "filter=all");
+    expect(old.route === "messengers.page" && old.search.filter).toBe("todo");
+    expect(searchDest(resolveRoute("/mail", ""), { channel: "telegram" })).toBeNull();
   });
 });

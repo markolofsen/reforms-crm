@@ -16,7 +16,7 @@ const inPlace = (e: React.MouseEvent<HTMLAnchorElement>, target: string | undefi
 /**
  * The one internal link: a real `<a href="/mail/c/42">` (`/lisbon/mail/c/42` with several projects), so open-in-new-tab, copy-link and modifier clicks work,
  * and a plain click moves through the framework router (no reload, the shell stays mounted). `to` is a destination from
- * `paths.*`, never a string, so a typo fails `tsc`; the framework's own `href` takes any `UrlObject`, which is why this is
+ * `dest(…)`, never a string, so a typo fails `tsc`; the framework's own `href` takes any `UrlObject`, which is why this is
  * the only module that builds an address for a link (P32 N0 q1). The place (project and whether there are several) is applied here.
  */
 export function AppLink({ to, inProject, onClick, ...props }: Props): React.ReactElement {

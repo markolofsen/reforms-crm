@@ -11,7 +11,7 @@ import { useClock } from "@/lib/clock";
 import { agentRef } from "@/lib/focus";
 import { copyText } from "@/lib/external";
 import { sendApi } from "@/lib/api/send";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 import { firstName, type ReviewDraft } from "../source";
 import type { ReviewActions } from "../use-review-actions";
 import { BasedOnStrip } from "../based-on/based-on-strip";
@@ -102,7 +102,7 @@ export function DraftCard({ d, project, actions, now, advance, say, embedded = f
     copySubject: () => {
       void copyText(d.subject).then((ok) => say(ok ? "Copied. In Mail press Option+Command+F and paste." : "The clipboard was blocked: copy the subject from the draft."));
     },
-    history: () => go(paths.log.list({ client: d.clientId })),
+    history: () => go(dest("log.list", { client: d.clientId })),
     blocked: say,
   };
   // Shift+Enter: read Mail and show the confirmation, then send what was shown. Nothing else sends by key.

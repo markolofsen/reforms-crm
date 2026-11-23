@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { routeDest, sectionList, type Dest } from "@/routes/paths";
+import { dest, sectionList, type Dest } from "@/routes/paths";
 import { childrenOf, SECTIONS, type IconKey, type SectionId } from "@/routes/sections";
 import { ROUTE_TABLE } from "@/routes/table";
 import type { RouteId } from "@/routes/table";
@@ -22,7 +22,7 @@ export type NavItem = { id: SectionId; route: RouteId; title: string; icon: Icon
 function pagesOf(landing: RouteId, id: SectionId, current: string): NavChild[] {
   const kids = childrenOf(id);
   if (kids.length === 0) return [];
-  return [{ route: landing, title: ROUTE_TABLE[landing].title, to: sectionList(id), active: current === landing }, ...kids.map((c) => ({ route: c.route, title: c.title, to: routeDest(c.route), active: current === c.route }))];
+  return [{ route: landing, title: ROUTE_TABLE[landing].title, to: sectionList(id), active: current === landing }, ...kids.map((c) => ({ route: c.route, title: c.title, to: dest(c.route), active: current === c.route }))];
 }
 
 const CHORD_HELP = SECTIONS.map((s) => [`${s.chord[0]} ${s.chord[1]}`.toUpperCase(), `go to ${s.title}`] as const);

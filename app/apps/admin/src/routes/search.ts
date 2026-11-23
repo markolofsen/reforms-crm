@@ -44,7 +44,7 @@ export function parseQuery(query: string): Raw {
   return out;
 }
 
-/** The query string (with its `?`, or empty). Empty, false and absent values are left out; a default is dropped by the caller (`unlessDefault`). */
+/** The query string (with its `?`, or empty). Empty, false and absent values are left out; a default is dropped by `searchEntries`. */
 export function formatQuery(entries: Readonly<Record<string, string | number | boolean | null | undefined>>): string {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(entries)) {
@@ -60,34 +60,66 @@ export function oneOf<T extends string>(all: readonly T[], v: string | undefined
   return all.find((x) => x === v) ?? fallback;
 }
 
-/** `undefined` when the value is the screen's default, so its key leaves the address. */
-export const unlessDefault = <T extends string>(v: T | undefined, fallback: T): T | undefined => (v === fallback ? undefined : v);
-
 /** A positive integer from the address, or null. `abc`, `0`, `-1`, `1.5` and `007` are not ids. */
 export function positiveInt(v: string | undefined): number | null {
   return v !== undefined && /^[1-9]\d*$/.test(v) ? Number(v) : null;
 }
 
-/** `batch` limits the list to the drafts one batch wrote (one queue: a batch is a read-only view, not a second place). */
-export type DraftsSearch = { filter: DraftView; q: string; batch: number | null; m?: string | null };
+// ---- P127 A1 (V1): a route row states its params and search with these specs; `resolve.ts` derives the parsers, the typed
+// value and `dest` from them, so no route's search or params are written twice.
+
+/** One path parameter of a route (`[id]`, `[page]`): its text into the value, or null when the address is Not found. */
+export type ParamSpec<T> = (raw: string) => T | null;
+/** A client or chat id: a canonical positive integer (`abc`, `0`, `007` are Not found). */
+export const positiveId: ParamSpec<number> = (v) => positiveInt(v);
+/** A Notion page id: 32 hex, read with or without its dashes and in any case (P97). */
+export const notionPage: ParamSpec<string> = (v) => {
+  const p = v.replace(/-/g, "").toLowerCase();
+  return /^[0-9a-f]{32}$/.test(p) ? p : null;
+};
+
+/** One search key of a route: how its text reads (a value outside the enum resets, rule 8) and the default, whose key the address leaves out. */
+export type SearchKeySpec<T> = { readonly read: (raw: string | undefined) => T; readonly fallback: T };
+export type SearchSpec = Readonly<Record<string, SearchKeySpec<unknown>>>;
+/** The typed value of a search spec. */
+export type SearchOf<S> = { -readonly [K in keyof S]: S[K] extends SearchKeySpec<infer T> ? T : never };
+
+/** A view: one of the enum's values, else the default. */
+export const view = <T extends string>(all: readonly T[], fallback: T): SearchKeySpec<T> => ({ read: (v) => oneOf(all, v, fallback), fallback });
+/** A free text (`?q=`), empty by default. */
+export const text: SearchKeySpec<string> = { read: (v) => v ?? "", fallback: "" };
+/** An id in the query (`?batch=`, `?client=`), none by default. */
+export const queryId: SearchKeySpec<number | null> = { read: (v) => positiveInt(v), fallback: null };
+/** A Message-ID in the address (`?m=`, P99: the conversation scrolls to that message), none by default. */
+const messageRef: SearchKeySpec<string | null> = { read: (v) => (v !== undefined && v.length >= 3 && v.length <= 998 && !/\s/.test(v) ? v : null), fallback: null };
+
+/** Mail's three routes share one search, so a person opened from the list keeps its view, search and batch. `batch` limits the list to the drafts one batch wrote. An old view value (`ready`, `inbox`, `hold`, ...) resets to Needs you; no alias. */
+export const MAIL_SEARCH = { filter: view(DRAFT_VIEWS, DEFAULT_DRAFT_VIEW), q: text, batch: queryId, m: messageRef } as const;
 /** Activity (P73): the view, and `client` narrows the timeline to one client (the draft card's history opens it). */
-export type LogSearch = { filter: ActivityView; client: number | null };
+export const LOG_SEARCH = { filter: view(ACTIVITY_VIEWS, "all"), client: queryId } as const;
 /** P70: the Knowledge table's view (the same enum the API validates) and its title search. */
-export type KnowledgeSearch = { filter: KnowledgeView; q: string };
-export { KNOWLEDGE_VIEWS, type KnowledgeView };
-export type AgentSearch = { filter: AgentView };
+export const KNOWLEDGE_SEARCH = { filter: view(KNOWLEDGE_VIEWS, "all"), q: text } as const;
+export const AGENT_SEARCH = { filter: view(AGENT_VIEWS, "attention") } as const;
 /** The Messengers panel's view (P84c: To do, the default, Linked, Hidden) and its channel (All, the default, Telegram, WhatsApp); the enums the API validates. */
-export type MessengersSearch = { filter: MessengerView; channel: MessengerChannelFilter; q: string };
+export const MESSENGERS_SEARCH = { filter: view(MESSENGER_VIEWS, "todo"), channel: view(MESSENGER_CHANNEL_FILTERS, "all"), q: text } as const;
+
+export { KNOWLEDGE_VIEWS, type KnowledgeView };
 export { MESSENGER_CHANNEL_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerView };
-export type NoSearch = Record<string, never>;
 
-/** A Message-ID in the address (`?m=`, P99: the conversation scrolls to that message), or null. */
-const messageRef = (v: string | undefined): string | null => (v !== undefined && v.length >= 3 && v.length <= 998 && !/\s/.test(v) ? v : null);
+/** The address's query read by a spec: every key of the spec, each parsed (a key the spec does not know is dropped, rule 8). */
+export function readSearch<S extends SearchSpec>(spec: S, raw: Raw): SearchOf<S> {
+  const out: Record<string, unknown> = {};
+  for (const [k, key] of Object.entries(spec)) out[k] = key.read(raw[k]);
+  return out as SearchOf<S>;
+}
 
-/** An old view value (`ready`, `inbox`, `hold`, ...) is not one of these and resets to Needs you (rule 8); no alias. */
-export const draftsSearch = (raw: Raw): DraftsSearch => ({ filter: oneOf(DRAFT_VIEWS, raw.filter, DEFAULT_DRAFT_VIEW), q: raw.q ?? "", batch: positiveInt(raw.batch), m: messageRef(raw.m) });
-export const logSearch = (raw: Raw): LogSearch => ({ filter: oneOf(ACTIVITY_VIEWS, raw.filter, "all"), client: positiveInt(raw.client) });
-export const knowledgeSearch = (raw: Raw): KnowledgeSearch => ({ filter: oneOf(KNOWLEDGE_VIEWS, raw.filter, "all"), q: raw.q ?? "" });
-export const agentSearch = (raw: Raw): AgentSearch => ({ filter: oneOf(AGENT_VIEWS, raw.filter, "attention") });
-export const messengersSearch = (raw: Raw): MessengersSearch => ({ filter: oneOf(MESSENGER_VIEWS, raw.filter, "todo"), channel: oneOf(MESSENGER_CHANNEL_FILTERS, raw.channel, "all"), q: raw.q ?? "" });
-export const noSearch = (): NoSearch => ({});
+/** The query entries of a search value, in the spec's order, each default left out (so its key leaves the address). */
+export function searchEntries(spec: SearchSpec, value: Readonly<Record<string, unknown>>): Record<string, string | number | null | undefined> {
+  const out: Record<string, string | number | null | undefined> = {};
+  for (const [k, key] of Object.entries(spec)) {
+    const v = value[k];
+    if (v === undefined || v === key.fallback) continue;
+    if (typeof v === "string" || typeof v === "number" || v === null) out[k] = v;
+  }
+  return out;
+}

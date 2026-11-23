@@ -4,12 +4,12 @@ import type { ActivityDto } from "@hub/contract/activity";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { Page } from "@hub/ui/product/page";
 import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
-import { useSearchState } from "@/hooks/use-search-state";
+import { useSearch } from "@/hooks/use-search-state";
 import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
 import { useSends } from "@/lib/status";
-import type { ActivityView, TimelineView } from "@/routes/search";
+import { LOG_SEARCH, type ActivityView, type TimelineView } from "@/routes/search";
 import { FilterMenu } from "./filter-menu";
 import { SendsView } from "./sends-table";
 import { Timeline } from "./timeline";
@@ -37,18 +37,18 @@ function useTimeline(project: string, view: TimelineView, client: number | null)
 
 /** "Mark Effect only · Show all": the one-client narrowing (`?client=`), said once under the header line. */
 function ClientLine({ name }: { name: string }) {
-  const setClient = useSearchState("client")[1];
+  const [, setSearch] = useSearch(LOG_SEARCH);
   return (
     <p className="flex flex-wrap items-center gap-2 text-sm" data-testid="activity-client">
       <span>{name} only</span>
-      <ActionButton onClick={() => setClient(null)} size="s" variant="quiet">Show all</ActionButton>
+      <ActionButton onClick={() => setSearch({ client: null })} size="s" variant="quiet">Show all</ActionButton>
     </p>
   );
 }
 
 /** The timeline of a view, in each of the four states of a list, and its last page's Show older. */
 function TimelineView({ project, view, client }: { project: string; view: TimelineView; client: number | null }) {
-  const setFilter = useSearchState("filter")[1];
+  const [, setSearch] = useSearch(LOG_SEARCH);
   const now = useClock()();
   const { q, rows, ids, head } = useTimeline(project, view, client);
   const fresh = useNewRows(`${project}/${view}/${client ?? ""}`, ids);
@@ -60,7 +60,7 @@ function TimelineView({ project, view, client }: { project: string; view: Timeli
     view === "all" && client === null ? (
       <EmptyState title="Nothing yet">It fills in when the agent works in a session: what it decided for every client appears here, newest first.</EmptyState>
     ) : (
-      <EmptyState action={<ActionButton onClick={() => setFilter("all")} size="s" variant="secondary">Show all</ActionButton>} title="Nothing in this view" />
+      <EmptyState action={<ActionButton onClick={() => setSearch({ filter: "all" })} size="s" variant="secondary">Show all</ActionButton>} title="Nothing in this view" />
     )
   ) : (
     <>
@@ -90,12 +90,12 @@ function TimelineView({ project, view, client }: { project: string; view: Timeli
  * decided, newest first, or the send history. The view and the one client live in the address (`?filter=`, `?client=`).
  */
 export function ActivityPage({ project, filter, client }: Props) {
-  const setFilter = useSearchState("filter")[1];
+  const [, setSearch] = useSearch(LOG_SEARCH);
   // The counts come with any view's reply; on Sends the All reply carries them (the same key as the All view, cached).
   const counts = useTimeline(project, filter === "sends" ? "all" : filter, filter === "sends" ? null : client).head?.counts;
   const sends = useSends(project);
   return (
-    <Page actions={<FilterMenu counts={counts} onChange={setFilter} sends={sends.data?.sends.length} value={filter} />}>
+    <Page actions={<FilterMenu counts={counts} onChange={(v) => setSearch({ filter: v })} sends={sends.data?.sends.length} value={filter} />}>
       {filter === "sends" ? <SendsView project={project} /> : <TimelineView client={client} project={project} view={filter} />}
     </Page>
   );

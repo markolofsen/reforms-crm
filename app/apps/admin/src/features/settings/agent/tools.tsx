@@ -4,8 +4,8 @@ import { ChevronDownIcon } from "lucide-react";
 import type { AgentToolRow } from "@hub/contract/agent-tools";
 import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
-import { useSearchState } from "@/hooks/use-search-state";
-import { AGENT_VIEWS, oneOf, type AgentView } from "@/routes/search";
+import { useSearch } from "@/hooks/use-search-state";
+import { AGENT_SEARCH, AGENT_VIEWS, type AgentView } from "@/routes/search";
 import { SettingsGroup } from "../group";
 import { needsAttention } from "./labels";
 import { ToolTable } from "./tool-table";
@@ -42,14 +42,13 @@ function ViewMenu({ value, counts, onChange }: { value: AgentView; counts: Recor
  * with nothing to look at its one line, is always drawn. It replaces the two "All checks" folds of P70.
  */
 export function Tools({ rows, onCopy }: { rows: readonly AgentToolRow[]; onCopy: (fix: string) => void }) {
-  const [raw, setView] = useSearchState("filter");
-  const view = oneOf(AGENT_VIEWS, raw, "attention");
+  const [{ filter: view }, setSearch] = useSearch(AGENT_SEARCH);
   const attention = rows.filter(needsAttention);
   const shown = view === "all" ? rows : attention;
   return (
     <SettingsGroup id="agent-tools" title="Tools">
       <div className="flex min-w-0 justify-end">
-        <ViewMenu counts={{ attention: attention.length, all: rows.length }} onChange={setView} value={view} />
+        <ViewMenu counts={{ attention: attention.length, all: rows.length }} onChange={(v) => setSearch({ filter: v })} value={view} />
       </div>
       {shown.length > 0 ? (
         <ToolTable onCopy={onCopy} rows={shown} title={view === "all" ? "Agent tools: all checks" : "Agent tools: needs a fix or a look"} />

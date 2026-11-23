@@ -13,7 +13,7 @@ import { plural } from "@/lib/format";
 import { useLiveState, type LiveState } from "@/lib/cache/live";
 import { usePulse } from "@/lib/cache/pulse";
 import { useProjectRow } from "@/lib/status";
-import { paths, routeDest, type Dest } from "@/routes/paths";
+import { dest, type Dest } from "@/routes/paths";
 import { NEXT_ROUTE } from "@/routes/sections";
 import { CheckNow, mailReadText } from "./inbox/mail-read";
 
@@ -23,7 +23,7 @@ type Line = { level: StatusLevel; sentence: string; numbers: string[]; to: Dest 
 
 const DOT: Record<StatusLevel, string> = { clear: "bg-success", attention: "bg-warning", blocked: "bg-destructive" };
 /** The page that fixes the fact (P70: Overview, Knowledge or a Settings pane). */
-const nextDest = (next: NonNullable<StatusDto["next"]>): Dest => routeDest(NEXT_ROUTE[next]);
+const nextDest = (next: NonNullable<StatusDto["next"]>): Dest => dest(NEXT_ROUTE[next]);
 
 /**
  * The words of the line: the worst fact once, then what the list does not show. P99 verdict 14: who wrote and the replies owed
@@ -93,7 +93,7 @@ export function StatusLine({ project }: { project: string }) {
       {l.wrote && (
         <span className="text-muted-foreground">
           {"· "}
-          <AppLink className="font-medium text-foreground" data-testid="status-wrote" to={paths.mail.list({ filter: "needs_you" })}>
+          <AppLink className="font-medium text-foreground" data-testid="status-wrote" to={dest("mail.list", { filter: "needs_you" })}>
             {l.wrote}
           </AppLink>
         </span>
@@ -101,7 +101,7 @@ export function StatusLine({ project }: { project: string }) {
       {l.leads && (
         <span className="text-muted-foreground">
           {"· "}
-          <AppLink className="font-medium text-foreground" data-testid="status-leads" to={paths.mail.list({ filter: "needs_you" })}>
+          <AppLink className="font-medium text-foreground" data-testid="status-leads" to={dest("mail.list", { filter: "needs_you" })}>
             {l.leads}
           </AppLink>
         </span>

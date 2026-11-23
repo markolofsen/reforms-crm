@@ -6,7 +6,7 @@ import { Menu, MenuLinkItem, MenuPopup, MenuTrigger } from "@hub/ui/menu";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { usePlace } from "@/hooks/use-project";
 import { useRoute } from "@/hooks/use-route";
-import { routeDest, sectionList } from "@/routes/paths";
+import { dest, sectionList } from "@/routes/paths";
 import { childrenOf, sectionById, type SectionId } from "@/routes/sections";
 import { ROUTE_TABLE } from "@/routes/table";
 import { AppLink } from "./app-link";
@@ -27,7 +27,7 @@ export function SubNav({ section }: { section: SectionId }) {
   const lit = useLitRoutes(usePlace().project);
   const parent = sectionById(section);
   if (!parent) return null;
-  const pages = [{ key: parent.route, title: ROUTE_TABLE[parent.route].title, to: sectionList(section) }, ...childrenOf(section).map((c) => ({ key: c.route, title: c.title, to: routeDest(c.route) }))];
+  const pages = [{ key: parent.route, title: ROUTE_TABLE[parent.route].title, to: sectionList(section) }, ...childrenOf(section).map((c) => ({ key: c.route, title: c.title, to: dest(c.route) }))];
   const here = pages.find((p) => p.key === route.route) ?? pages[0];
   return (
     <nav aria-label={`${parent.title} pages`} className="flex min-w-0">

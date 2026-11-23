@@ -9,7 +9,7 @@ import { inboundApi } from "@/lib/api/inbox";
 import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
 import { ago, plural } from "@/lib/format";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 
 /** The Mail reader's reply (P96): the people who wrote are conversations now (P99); its Leads group and its counts stay here. */
 export function useInbound(project: string) {
@@ -31,7 +31,7 @@ function LeadRow({ r, open, now }: { r: LeadRowDto; open: boolean; now: number }
         aria-current={open ? "true" : undefined}
         bare
         className="flex min-h-16 min-w-0 flex-col gap-0.5 px-3 py-2 text-sm outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-        to={paths.mail.lead(r.pageId)}
+        to={dest("mail.lead", { page: r.pageId })}
       >
         <span className="flex w-full min-w-0 items-baseline gap-2">
           <span className="min-w-0 flex-1 truncate font-semibold">{r.name}</span>

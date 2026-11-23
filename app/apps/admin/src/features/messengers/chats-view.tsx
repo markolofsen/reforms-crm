@@ -12,14 +12,15 @@ import { ListFilterMenu, ListToolbar, ListToolbarRow } from "@hub/ui/product/lis
 import { AppLink } from "@/components/app-link";
 import { EmptyState, ListSkeleton, ListState, LoadFailed, Refreshing, StaleNote } from "@/components/state-views";
 import { SubNav } from "@/components/sub-nav";
-import { useSearchState } from "@/hooks/use-search-state";
+import { useSearch } from "@/hooks/use-search-state";
 import { useDebounced } from "@/hooks/use-debounced";
 import { usePaneNarrow } from "@/hooks/use-pane";
 import { useGo } from "@/hooks/use-go";
 import { messengersApi } from "@/lib/api/messengers/panel";
 import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
+import { MESSENGERS_SEARCH } from "@/routes/search";
 import { ChatRow } from "./chat-row";
 import { emptyLine, VIEW_LABEL, VIEW_ORDER } from "./labels";
 import { useTelegramUser } from "./settings/use-telegram";
@@ -54,9 +55,7 @@ function ViewMenu({ value, counts, onChange }: { value: View; counts: Record<Vie
 export function ChatsView({ project, filter, channel: asked, chatId = null }: { project: string; filter: View; channel: MessengerChannelFilter; chatId?: number | null }) {
   const go = useGo();
   const narrow = usePaneNarrow();
-  const setFilter = useSearchState("filter")[1];
-  const setChannel = useSearchState("channel")[1];
-  const [search, setSearch] = useSearchState("q");
+  const [{ q: search }, setSearch] = useSearch(MESSENGERS_SEARCH);
   const now = useClock()();
   const tg = useTelegramUser();
   const wa = useWhatsApp();
@@ -66,8 +65,8 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
   const channel = effectiveChannel(asked, options);
   useEffect(() => {
     if (!tg.isSuccess || !wa.isSuccess || asked === channel) return;
-    setChannel(channel);
-  }, [asked, channel, setChannel, tg.isSuccess, wa.isSuccess]);
+    setSearch({ channel });
+  }, [asked, channel, setSearch, tg.isSuccess, wa.isSuccess]);
   const searchQuery = useDebounced(search.trim(), 200);
   const q = useQuery({ queryKey: keys.messengerChats(project, filter, channel, searchQuery), queryFn: () => messengersApi.chats(project, { filter, channel, q: searchQuery }), placeholderData: keepPreviousData });
   const al = useQuery({ queryKey: keys.autolink(project), queryFn: () => messengersApi.autolinkState(project), refetchInterval: POLL_MS, gcTime: 0, retry: false });
@@ -83,13 +82,13 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
   const unlinked = unlinkedRows(st, channel).filter((row) => matchesRecentSearch(row, searchQuery));
   const notLinked = notLinkedRows(st, channel).filter((row) => matchesRecentSearch(row, searchQuery));
   const hidden = hiddenRows(st, channel).filter((row) => matchesHiddenSearch(row, searchQuery));
-  const searchEmpty = search.trim() ? <EmptyState action={<ActionButton onClick={() => setSearch("")} size="s" variant="secondary">Clear search</ActionButton>} compact title="No chats match your search">Try a name, username, email, chat ID or message text.</EmptyState> : null;
+  const searchEmpty = search.trim() ? <EmptyState action={<ActionButton onClick={() => setSearch({ q: "" })} size="s" variant="secondary">Clear search</ActionButton>} compact title="No chats match your search">Try a name, username, email, chat ID or message text.</EmptyState> : null;
   const accountsLine = emptyLine({ telegram, whatsapp, enabled: st?.enabled ?? false, withIdentifier: st?.directory.withIdentifier ?? 0, directoryReady: st?.directory.state === "ready" });
   const linkedList =
     d && d.chats.length > 0 ? (
       <ConversationList ariaLabel="Chats">
         {d.chats.map((c) => (
-          <ChatRow c={c} key={c.id} moves={moves} now={now} open={c.id === chatId} project={project} to={paths.messengers.conversation(c.id, { filter, channel, q: search })} />
+          <ChatRow c={c} key={c.id} moves={moves} now={now} open={c.id === chatId} project={project} to={dest("messengers.conversation", { id: c.id }, { filter, channel, q: search })} />
         ))}
       </ConversationList>
     ) : null;
@@ -112,16 +111,16 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
   else if (filter === "linked")
     body = linkedList ?? searchEmpty ?? (
       <EmptyState compact title="No linked chats yet">
-        {accountsLine} The rules of each linked chat are on <AppLink to={paths.messengers.settings()}>Messengers ▸ Settings</AppLink>.
+        {accountsLine} The rules of each linked chat are on <AppLink to={dest("messengers.settings")}>Messengers ▸ Settings</AppLink>.
       </EmptyState>
     );
   else if (!linkedList && unlinked.length === 0)
     body = searchEmpty ?? (d.counts.linked === 0 ? (
         <EmptyState compact title="No linked chats yet">
-          {accountsLine} The accounts and the rules of each linked chat are on <AppLink to={paths.messengers.settings()}>Messengers ▸ Settings</AppLink>.
+          {accountsLine} The accounts and the rules of each linked chat are on <AppLink to={dest("messengers.settings")}>Messengers ▸ Settings</AppLink>.
         </EmptyState>
       ) : (
-        <EmptyState action={<ActionButton onClick={() => setFilter("linked")} size="s" variant="secondary">Show linked chats</ActionButton>} compact title="Nothing to do">
+        <EmptyState action={<ActionButton onClick={() => setSearch({ filter: "linked" })} size="s" variant="secondary">Show linked chats</ActionButton>} compact title="Nothing to do">
           No draft to read, no chat where the client wrote last, and no new chat to decide on.
         </EmptyState>
       ));
@@ -134,16 +133,16 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
       </>
     );
   useEffect(() => {
-    if (!narrow && chatId === null && !q.isFetching && d?.chats[0]) go(paths.messengers.conversation(d.chats[0].id, { filter, channel, q: search }), { replace: true });
+    if (!narrow && chatId === null && !q.isFetching && d?.chats[0]) go(dest("messengers.conversation", { id: d.chats[0].id }, { filter, channel, q: search }), { replace: true });
   }, [channel, chatId, d?.chats, filter, go, narrow, q.isFetching, search]);
   const list = (
     <ListScrollArea ariaBusy={Boolean(d && q.isFetching)}>
       <ListToolbar ariaLabel="Chat filters and actions">
         <ListToolbarRow>
-          <ViewMenu counts={viewCounts(d?.counts, st, channel)} onChange={setFilter} value={filter} />
-          {options.length > 0 && <ChannelFilter onChange={setChannel} options={options} value={channel} />}
+          <ViewMenu counts={viewCounts(d?.counts, st, channel)} onChange={(v) => setSearch({ filter: v })} value={filter} />
+          {options.length > 0 && <ChannelFilter onChange={(v) => setSearch({ channel: v })} options={options} value={channel} />}
           <div className="min-w-0 flex-1 @max-3xl:order-last @max-3xl:basis-full">
-            <Input aria-label="Search chats" className="control-s w-full" onChange={(event) => setSearch(event.target.value)} placeholder="Search people or messages" type="search" value={search} />
+            <Input aria-label="Search chats" className="control-s w-full" onChange={(event) => setSearch({ q: event.target.value })} placeholder="Search people or messages" type="search" value={search} />
           </div>
           {accounts.length > 0 && (
             <ActionButton aria-expanded={linking} aria-label={linking ? "Close link a chat" : "Link a chat"} className="ms-auto" icon onClick={() => setLinking((v) => !v)} size="s" tooltip={linking ? "Close link a chat" : "Link a chat"} variant="secondary">
@@ -160,6 +159,6 @@ export function ChatsView({ project, filter, channel: asked, chatId = null }: { 
       {al.isError && st && filter !== "linked" && <ListState><StaleNote error={al.error} onRetry={() => void al.refetch()} retrying={al.isFetching} /></ListState>}
     </ListScrollArea>
   );
-  const detail = chatId === null ? <ConversationEmptyState subtitle="Choose a chat from the list"><EmptyState compact title="Nothing to open">Pick a person from the list.</EmptyState></ConversationEmptyState> : <MessengerConversationPane actions={actions} chatId={chatId} onBack={() => go(paths.messengers.chats({ filter, channel, q: search }))} project={project} />;
+  const detail = chatId === null ? <ConversationEmptyState subtitle="Choose a chat from the list"><EmptyState compact title="Nothing to open">Pick a person from the list.</EmptyState></ConversationEmptyState> : <MessengerConversationPane actions={actions} chatId={chatId} onBack={() => go(dest("messengers.page", { filter, channel, q: search }))} project={project} />;
   return <Page flush nav={<SubNav section="messengers" />} scroll={false}><ListDetail detail={detail} detailLabel="Conversation" list={list} listLabel="Chats" showDetail={chatId !== null} /></Page>;
 }

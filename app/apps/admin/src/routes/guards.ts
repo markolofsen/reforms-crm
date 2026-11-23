@@ -1,4 +1,4 @@
-import { formatDest, paths, type Place } from "./paths";
+import { dest, formatDest, type Place } from "./paths";
 import { destOf, type Resolved } from "./resolve";
 
 /** The cookie that remembers the project (`hub_project`) of a multi-project instance: written and read by `lib/storage.ts`. */
@@ -24,7 +24,7 @@ export function pickProject(addressed: string | null, stored: string | null, pro
  */
 export function canonicalAddress(r: Resolved, place: Place, current: string): string | null {
   if (!place.project) return null;
-  const d = r.entry ? (place.multi ? paths.overview() : paths.mail.list()) : destOf(r);
+  const d = r.entry ? (place.multi ? dest("overview.page") : dest("mail.list")) : destOf(r);
   if (!d) return null;
   const wanted = formatDest(d, place);
   return wanted === current ? null : wanted;

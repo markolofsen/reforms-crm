@@ -1,40 +1,22 @@
 import { parseRef } from "@hub/contract/focus";
-import { paths, type Dest } from "./paths";
-import { agentSearch, draftsSearch, knowledgeSearch, logSearch, messengersSearch, noSearch, parseQuery, positiveInt, type AgentSearch, type DraftsSearch, type KnowledgeSearch, type LogSearch, type MessengersSearch, type NoSearch } from "./search";
+import { dest, destFrom, type Dest } from "./paths";
+import { parseQuery, readSearch, type SearchSpec } from "./search";
 import type { SectionId } from "./sections";
-import { PROJECTLESS, RESERVED_SEGMENTS, ROUTE_TABLE } from "./table";
-
-/**
- * The first segments of the projectless sections (`overview`, `help`): a project segment before one is Not found. A projectless
- * child under a scoped parent (`settings/connections`, P70) is not one: `/<project>/settings/connections` resolves, and the guard
- * folds it to `/settings/connections`, since the sub-nav of a scoped pane may be followed with the project in mind.
- */
-const PROJECTLESS_HEADS: ReadonlySet<string> = new Set([...PROJECTLESS].map((id) => ROUTE_TABLE[id].path.split("/")).filter((p) => p.length === 2).map((p) => p[1] ?? ""));
+import { RESERVED_SEGMENTS, ROUTE_IDS, ROUTE_TABLE, type ParamsOf, type RouteId, type RowOf, type SearchFor } from "./table";
 
 /**
  * `project`: the project the address names, from its first path segment (`/lisbon/mail`). `inPath` says it came from the
  * path. `entry`: the bare `/`, decided by the guard (Mail, or Overview with two or more projects).
  */
 type Base = { project: string | null; inPath: boolean; entry: boolean };
+/** One route as a value: its params and search typed from its row (P127 A1: derived, never written per route). */
+export type RouteOf<K extends RouteId> = Base & { route: K; section: RowOf<K>["section"]; params: ParamsOf<K>; search: SearchFor<K> };
+type NotFound = Base & { route: "notFound"; section: null; path: string };
 /** The address as a value. `notFound` is a real state: an unknown path or a non-numeric id never shows another screen. */
-export type Resolved =
-  | (Base & { route: "overview.page"; section: "overview"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "mail.list"; section: "mail"; params: NoSearch; search: DraftsSearch })
-  | (Base & { route: "mail.conversation"; section: "mail"; params: { id: number }; search: DraftsSearch })
-  | (Base & { route: "mail.lead"; section: "mail"; params: { pageId: string }; search: DraftsSearch })
-  | (Base & { route: "messengers.page"; section: "messengers"; params: NoSearch; search: MessengersSearch })
-  | (Base & { route: "messengers.conversation"; section: "messengers"; params: { id: number }; search: MessengersSearch })
-  | (Base & { route: "messengers.settings"; section: "messengers"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "log.list"; section: "log"; params: NoSearch; search: LogSearch })
-  | (Base & { route: "knowledge.page"; section: "knowledge"; params: NoSearch; search: KnowledgeSearch })
-  | (Base & { route: "settings.page"; section: "settings"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "settings.checks"; section: "settings"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "settings.mail"; section: "settings"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "settings.agent"; section: "settings"; params: NoSearch; search: AgentSearch })
-  | (Base & { route: "settings.connections"; section: "settings"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "settings.mac"; section: "settings"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "help.page"; section: "help"; params: NoSearch; search: NoSearch })
-  | (Base & { route: "notFound"; section: null; path: string });
+export type Resolved = { [K in RouteId]: RouteOf<K> }[RouteId] | NotFound;
+
+/** The empty address resolves as Mail's list; the guard decides where it really opens (Mail, or Overview with several projects). */
+const ENTRY: RouteId = "mail.list";
 
 const decode = (s: string): string | null => {
   try {
@@ -44,10 +26,37 @@ const decode = (s: string): string | null => {
   }
 };
 
+const segmentsOf = (id: RouteId): readonly string[] => ROUTE_TABLE[id].path.split("/").filter(Boolean);
+
+/** The row whose pattern the segments fit (literal segments equal, `[name]` segments taken raw), or null. */
+function match(segs: readonly string[]): { id: RouteId; raw: Record<string, string> } | null {
+  for (const id of ROUTE_IDS) {
+    const pattern = segmentsOf(id);
+    if (pattern.length !== segs.length) continue;
+    const raw: Record<string, string> = {};
+    const fits = pattern.every((p, i) => {
+      const seg = segs[i] ?? "";
+      const name = /^\[(.+)\]$/.exec(p)?.[1];
+      if (name === undefined) return p === seg;
+      raw[name] = seg;
+      return true;
+    });
+    if (fits) return { id, raw };
+  }
+  return null;
+}
+
+/** A value built by `resolveRoute` is one of the routes: its row exists, and it carries exactly its row's section, params and search keys. */
+function isResolved(v: { route: RouteId; section: string; params: Readonly<Record<string, unknown>>; search: Readonly<Record<string, unknown>> } & Base): v is Exclude<Resolved, NotFound> {
+  const row = ROUTE_TABLE[v.route];
+  const same = (keys: readonly string[], spec: object | undefined) => keys.length === Object.keys(spec ?? {}).length && keys.every((k) => k in (spec ?? {}));
+  return row.section === v.section && same(Object.keys(v.params), "params" in row ? row.params : undefined) && same(Object.keys(v.search), "search" in row ? row.search : undefined);
+}
+
 /**
- * `path` and `search` of the address into a typed route. Pure: the hooks hand it the two strings and nothing else. The file
- * tree decides what renders; this decides what the shell and the hooks read of the address, and `test/route-files.test.ts`
- * fails when the two disagree about which pages exist.
+ * `path` and `search` of the address into a typed route. Pure: the hooks hand it the two strings and nothing else. One generic
+ * reading of the table: the row whose pattern fits, its params through the row's parsers (a refused one is Not found), its
+ * search through the row's spec. The file tree decides what renders; `test/route-files.test.ts` fails when the two disagree.
  */
 export function resolveRoute(path: string, searchString: string): Resolved {
   const raw = parseQuery(searchString);
@@ -59,91 +68,53 @@ export function resolveRoute(path: string, searchString: string): Resolved {
   const project = inPath ? decode(all[0] ?? "") : legacy;
   const segs = inPath ? all.slice(1) : all;
   const base: Base = { project, inPath, entry: all.length === 0 };
-  const [head, tail] = segs;
-  const notFound: Resolved = { ...base, route: "notFound", section: null, path };
-  const one = segs.length === 1;
-  // P99: a conversation is a three-segment address (`/mail/c/7`, a client id).
-  if (head === "mail" && tail === "c" && segs.length === 3 && !(inPath && project === null)) {
-    const clientId = positiveInt(segs[2]);
-    return clientId === null ? notFound : { ...base, route: "mail.conversation", section: "mail", params: { id: clientId }, search: draftsSearch(raw) };
+  const notFound: NotFound = { ...base, route: "notFound", section: null, path };
+  // A project segment heads a scoped section only; `/lisbon` and an undecodable slug are Not found.
+  if (inPath && (project === null || segs.length === 0)) return notFound;
+  const found = segs.length === 0 ? { id: ENTRY, raw: {} } : match(segs);
+  if (!found) return notFound;
+  const row = ROUTE_TABLE[found.id];
+  // `/lisbon/overview`, `/lisbon/help`: a project before a projectless section. A projectless child of a scoped parent
+  // (`/lisbon/settings/connections`, P70) resolves, and the guard folds it to the bare address.
+  if (inPath && !row.scoped && segmentsOf(found.id).length === 1) return notFound;
+  const params: Record<string, unknown> = {};
+  if ("params" in row) {
+    for (const [name, parse] of Object.entries(row.params)) {
+      const v = parse(found.raw[name] ?? "");
+      if (v === null) return notFound;
+      params[name] = v;
+    }
   }
-  // P97: a lead of the Leads group is the other three-segment address (`/mail/lead/<32 hex>`).
-  if (head === "mail" && tail === "lead" && segs.length === 3 && !(inPath && project === null)) {
-    const pageId = (segs[2] ?? "").replace(/-/g, "").toLowerCase();
-    return /^[0-9a-f]{32}$/.test(pageId) ? { ...base, route: "mail.lead", section: "mail", params: { pageId }, search: draftsSearch(raw) } : notFound;
-  }
-  if (head === "messengers" && tail === "c" && segs.length === 3 && !(inPath && project === null)) {
-    const chatId = positiveInt(segs[2]);
-    return chatId === null ? notFound : { ...base, route: "messengers.conversation", section: "messengers", params: { id: chatId }, search: messengersSearch(raw) };
-  }
-  // A project segment heads a scoped section only; `/lisbon`, `/lisbon/overview` and an undecodable slug are Not found.
-  if (segs.length > 2 || (inPath && (project === null || head === undefined || PROJECTLESS_HEADS.has(head)))) return notFound;
-  switch (head) {
-    case "overview":
-      return one ? { ...base, route: "overview.page", section: "overview", params: {}, search: noSearch() } : notFound;
-    case "help":
-      return one ? { ...base, route: "help.page", section: "help", params: {}, search: noSearch() } : notFound;
-    case "knowledge":
-      return one ? { ...base, route: "knowledge.page", section: "knowledge", params: {}, search: knowledgeSearch(raw) } : notFound;
-    case undefined: // the empty address is the entry
-    case "mail":
-      return segs.length <= 1 ? { ...base, route: "mail.list", section: "mail", params: {}, search: draftsSearch(raw) } : notFound;
-    case "messengers":
-      if (one) return { ...base, route: "messengers.page", section: "messengers", params: {}, search: messengersSearch(raw) };
-      return tail === "settings" ? { ...base, route: "messengers.settings", section: "messengers", params: {}, search: noSearch() } : notFound;
-    case "log":
-      return one ? { ...base, route: "log.list", section: "log", params: {}, search: logSearch(raw) } : notFound;
-    case "settings":
-      if (one) return { ...base, route: "settings.page", section: "settings", params: {}, search: noSearch() };
-      if (tail === "checks") return { ...base, route: "settings.checks", section: "settings", params: {}, search: noSearch() };
-      if (tail === "mail") return { ...base, route: "settings.mail", section: "settings", params: {}, search: noSearch() };
-      if (tail === "agent") return { ...base, route: "settings.agent", section: "settings", params: {}, search: agentSearch(raw) };
-      if (tail === "connections") return { ...base, route: "settings.connections", section: "settings", params: {}, search: noSearch() };
-      if (tail === "mac") return { ...base, route: "settings.mac", section: "settings", params: {}, search: noSearch() };
-      return notFound;
-    default:
-      return notFound;
-  }
+  const value = { ...base, route: found.id, section: row.section, params, search: "search" in row ? readSearch(row.search, raw) : {} };
+  return isResolved(value) ? value : notFound;
 }
 
 /** A route back into the destination that addresses it (the canonical form). Null for not-found. */
 export function destOf(r: Resolved): Dest | null {
-  switch (r.route) {
-    case "overview.page":
-      return paths.overview();
-    case "mail.list":
-      return paths.mail.list(r.search);
-    case "mail.conversation":
-      return paths.mail.conversation(r.params.id, r.search);
-    case "mail.lead":
-      return paths.mail.lead(r.params.pageId, r.search);
-    case "messengers.page":
-      return paths.messengers.chats(r.search);
-    case "messengers.conversation":
-      return paths.messengers.conversation(r.params.id, r.search);
-    case "messengers.settings":
-      return paths.messengers.settings();
-    case "log.list":
-      return paths.log.list(r.search);
-    case "knowledge.page":
-      return paths.knowledge.page(r.search);
-    case "settings.page":
-      return paths.settings.sending();
-    case "settings.checks":
-      return paths.settings.checks();
-    case "settings.mail":
-      return paths.settings.mail();
-    case "settings.agent":
-      return paths.settings.agent(r.search);
-    case "settings.connections":
-      return paths.settings.connections();
-    case "settings.mac":
-      return paths.settings.mac();
-    case "help.page":
-      return paths.help.page();
-    case "notFound":
-      return null;
+  return r.route === "notFound" ? null : destFrom(r.route, r.params, r.search);
+}
+
+/**
+ * The destination that sets search keys on the current route and keeps the rest; each value is read through the row's spec,
+ * so one outside its enum resets to the default. Null when the route has no such key. Two behaviours are more than "set a
+ * key", and stay explicit here (and in `test/search-state.test.ts`): a view change on a lead returns to Mail's list, whose
+ * first row then opens; Activity's Sends view (the send history) drops `?client=`.
+ */
+export function searchDest(r: Resolved, patch: Readonly<Record<string, string | number | null>>): Dest | null {
+  if (r.route === "notFound") return null;
+  const row = ROUTE_TABLE[r.route];
+  if (!("search" in row)) return null;
+  const spec: SearchSpec = row.search;
+  const keys = Object.keys(patch);
+  if (keys.length === 0 || !keys.every((k) => k in spec)) return null;
+  const next: Record<string, unknown> = { ...r.search };
+  for (const k of keys) {
+    const v = patch[k];
+    next[k] = spec[k]?.read(v === null || v === undefined ? undefined : String(v));
   }
+  if (r.route === "mail.lead" && "filter" in patch) return destFrom("mail.list", {}, next);
+  if (r.route === "log.list" && "filter" in patch && next.filter === "sends") next.client = null;
+  return destFrom(r.route, r.params, next);
 }
 
 /**
@@ -157,20 +128,20 @@ export function destOfRef(ref: string, title: string | null = null): Dest | null
   switch (p.kind) {
     case "draft":
     case "inbound":
-      return paths.mail.list({ filter: "all" });
+      return dest("mail.list", { filter: "all" });
     case "run":
       // P73: Activity shows no runs; a run's decisions are on the one timeline.
-      return paths.log.list();
+      return dest("log.list");
     case "knowledge":
-      return paths.knowledge.page(title ? { q: title } : {});
+      return dest("knowledge.page", title ? { q: title } : {});
     case "project":
-      return paths.overview();
+      return dest("overview.page");
     case "client":
-      return paths.mail.conversation(Number(p.id));
+      return dest("mail.conversation", { id: Number(p.id) });
     case "chat":
     case "mdraft":
       // P108: a chat opens the selected conversation; a draft still opens the linked list until its client ref is available.
-      return p.kind === "chat" ? paths.messengers.conversation(Number(p.id), { filter: "linked" }) : paths.messengers.chats({ filter: "linked" });
+      return p.kind === "chat" ? dest("messengers.conversation", { id: Number(p.id) }, { filter: "linked" }) : dest("messengers.page", { filter: "linked" });
   }
 }
 

@@ -7,7 +7,7 @@ import { AppLink } from "@/components/app-link";
 import { refreshData, sentence } from "@/lib/api/client";
 import { sendApi } from "@/lib/api/send";
 import { formatTime } from "@/lib/format";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 import { EmptyState, ListSkeleton, LoadFailed, StaleNote } from "@/components/state-views";
 import { useSends } from "@/lib/status";
 
@@ -35,7 +35,7 @@ function Subject({ r }: { r: SendRowDto }) {
   const title = r.channel === "mail" ? r.subject : r.body;
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      {r.clientId === null || r.channel !== "mail" ? <span className="line-clamp-2 break-words">{title}</span> : <AppLink className="text-foreground text-sm" to={paths.mail.conversation(r.clientId)}>{r.subject}</AppLink>}
+      {r.clientId === null || r.channel !== "mail" ? <span className="line-clamp-2 break-words">{title}</span> : <AppLink className="text-foreground text-sm" to={dest("mail.conversation", { id: r.clientId })}>{r.subject}</AppLink>}
       {r.error && <span className="text-warning-foreground text-xs">{r.error}</span>}
     </span>
   );

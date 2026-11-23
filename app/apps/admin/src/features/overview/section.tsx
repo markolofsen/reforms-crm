@@ -6,8 +6,7 @@ import { OverviewView } from "./overview-view";
 
 /** The Overview screen: one full-width page about the whole Hub and every project (its address names none), on every instance (P63). */
 export function OverviewScreen() {
-  const route = useRoute();
-  if (route.route !== "overview.page") return null;
+  if (!useRoute("overview.page")) return null;
   return (
     <Page>
       <OverviewView />

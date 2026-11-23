@@ -1,28 +1,32 @@
 // Type test: `pnpm typecheck` fails if one of these lines stops being an error (an unused @ts-expect-error is an error).
 // Each line is a mistake a component could make; the builders and the typed-route door must refuse it at compile time.
 import type { LinkProps } from "next/link";
-import { paths } from "../src/routes/paths";
+import { dest } from "../src/routes/paths";
 import type { NavCheck } from "../src/routes/table";
 import { route } from "../src/routes/typed";
 
 // @ts-expect-error a conversation's client id is a number, not a string
-paths.mail.conversation("abc");
+dest("mail.conversation", { id: "abc" });
+// @ts-expect-error a conversation needs its client id
+dest("mail.conversation");
 // @ts-expect-error P99: a draft has no address of its own; it is the unsent message of its client's conversation
-paths.mail.item(4);
+dest("mail.item", { id: 4 });
 // @ts-expect-error P99: a client's message is a part of the conversation, not a card (`/mail/in/<id>` is gone)
-paths.mail.inbound(10);
+dest("mail.inbound", { id: 10 });
 // @ts-expect-error a batch is a number, not its name
-paths.mail.list({ batch: "June" });
+dest("mail.list", { batch: "June" });
 // @ts-expect-error there is no Bulk screen: a batch is a filter of Mail
-paths.bulk.list();
-// @ts-expect-error the batch builder is gone (P48): a batch is prepared by a phrase in a session
-paths.mail.newBatch();
+dest("bulk.list");
 // @ts-expect-error not a route of the tree
-paths.drafz.list();
+dest("drafz.list");
 // @ts-expect-error a filter outside its enum
-paths.mail.list({ filter: "readyy" });
-// @ts-expect-error `run` belongs to the log, not to Mail
-paths.mail.list({ run: 3 });
+dest("mail.list", { filter: "readyy" });
+// @ts-expect-error `run` belongs to no route's search (the log's is `client`)
+dest("mail.list", { run: 3 });
+// @ts-expect-error a page without params takes none
+dest("settings.page", { id: 3 }, {});
+// @ts-expect-error a lead is a Notion page id, under `page`
+dest("mail.lead", { id: 3 });
 
 const id = 42;
 // @ts-expect-error a path that is not a page of the file tree (typedRoutes, P32 N0)
@@ -33,7 +37,7 @@ export const badLiteral = route("/nope");
 // The valid forms compile.
 export const ok = [route("/settings"), route(`/mail/c/${id}?x=1`), route("/settings/mac?x=1")];
 // @ts-expect-error the Project section is gone (P70): its parts moved to Settings, Knowledge and Overview
-paths.project.page();
+dest("project.page");
 
 // What `route` returns is a `Route`, so a link or a redirect accepts it.
 export const href: LinkProps<string>["href"] = route("/settings");

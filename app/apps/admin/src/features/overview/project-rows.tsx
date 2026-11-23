@@ -3,7 +3,7 @@ import { refOf } from "@hub/contract/focus";
 import { agentRef } from "@/lib/focus";
 import { DataTable, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@hub/ui/product/data-table";
 import { AppLink } from "@/components/app-link";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 import { mailReadText } from "@/features/mail/inbox/mail-read";
 import { LEVEL, needsYou, nextDest, statusWord } from "./labels";
 
@@ -12,7 +12,7 @@ type Props = { rows: readonly ProjectRowDto[]; now: number };
 /** The project's name, leading into its own Mail. */
 function Name({ p }: { p: ProjectRowDto }) {
   return (
-    <AppLink className="font-medium text-foreground text-sm" inProject={p.slug} to={paths.mail.list()}>
+    <AppLink className="font-medium text-foreground text-sm" inProject={p.slug} to={dest("mail.list")}>
       {p.name}
     </AppLink>
   );

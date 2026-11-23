@@ -13,7 +13,7 @@ import { ListSkeleton, ListState, LoadFailed } from "@/components/state-views";
 import { refreshData, sentence } from "@/lib/api/client";
 import { sequencesApi } from "@/lib/api/inbox";
 import { formatTime } from "@/lib/format";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 import { keys } from "@/lib/cache/keys";
 
 /** Stop follow-ups for one client: it only reduces mail, but the admin cannot restart it (resume is the owner's, in his terminal), so it asks in place. */
@@ -41,7 +41,7 @@ function Row({ project, e }: { project: string; e: EnrollmentDto }) {
       {e.enrolledPhrase && <p className="measure text-muted-foreground text-xs">Enrolled on your words: “{e.enrolledPhrase}”</p>}
       <div className="flex flex-wrap items-center gap-x-3 text-muted-foreground text-xs">
         {e.nextDueAt && <span>Due {formatTime(e.nextDueAt)}</span>}
-        {e.openDraftId !== null && <AppLink to={paths.mail.conversation(e.client.id, { filter: "sequences" })}>Open the step draft</AppLink>}
+        {e.openDraftId !== null && <AppLink to={dest("mail.conversation", { id: e.client.id }, { filter: "sequences" })}>Open the step draft</AppLink>}
         {e.state !== "finished" && <span className="ms-auto"><StopControl e={e} project={project} /></span>}
       </div>
     </ConversationListItem>

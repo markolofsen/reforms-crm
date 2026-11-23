@@ -8,7 +8,7 @@ import { AppLink } from "@/components/app-link";
 import { LoadFailed } from "@/components/state-views";
 import { overviewApi } from "@/lib/api/overview";
 import { keys } from "@/lib/cache/keys";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 import { Cuts } from "./cuts";
 import { LanesList } from "./scheme-list";
 import { SchemeSvg } from "./scheme-svg";
@@ -36,7 +36,7 @@ export function HowItWorks() {
           <>
             <SchemeSvg labelledBy="help-scheme" list={<LanesList nodes={nodes} />} testId="scheme-general" texts={texts} />
             <p className="measure" data-testid="scheme-state">
-              {line ?? "Every checked part works."} Every part and its fix are on <AppLink to={paths.overview()}>Overview</AppLink>.
+              {line ?? "Every checked part works."} Every part and its fix are on <AppLink to={dest("overview.page")}>Overview</AppLink>.
             </p>
           </>
         ) : q.isPending ? (

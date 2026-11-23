@@ -4,7 +4,7 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { MARK_LABELS } from "@hub/config";
 import { AppLink } from "@/components/app-link";
 import { isOld, wrote } from "@/lib/format";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 import { notionOf } from "@/lib/notion";
 import { cn } from "@hub/ui/cn";
 import { draftChipsOf } from "../list-row";
@@ -68,7 +68,7 @@ export function CardHeader({ d, actions, now, ready, contact = null }: Props) {
         // P87 (B3): the client's earlier drafts are history, listed in Finished and in the client's own Activity.
         <p className="text-muted-foreground text-sm" data-testid="other-drafts">
           {d.otherDrafts === 1 ? "1 other draft" : `${d.otherDrafts} other drafts`} to this client ·{" "}
-          <AppLink className="text-sm" to={paths.log.list({ client: d.clientId })}>
+          <AppLink className="text-sm" to={dest("log.list", { client: d.clientId })}>
             History
           </AppLink>
         </p>

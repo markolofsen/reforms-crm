@@ -17,7 +17,7 @@ import { leadsApi } from "@/lib/api/inbox";
 import { keys } from "@/lib/cache/keys";
 import { useClock } from "@/lib/clock";
 import { ago, formatTime } from "@/lib/format";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 
 type Action = "notNow" | "spam";
 const DONE: Record<Action, string> = { notNow: "Not now", spam: "Marked as spam" };
@@ -128,7 +128,7 @@ export function LeadCard({ project, pageId, onClosed }: { project: string; pageI
       {drafts.length > 0 && (
         <section aria-label="Drafts" className="flex flex-col gap-1 text-sm">
           {drafts.map((d) => (
-            <AppLink key={d.id} to={paths.mail.conversation(d.clientId, { filter: "all" })}>
+            <AppLink key={d.id} to={dest("mail.conversation", { id: d.clientId }, { filter: "all" })}>
               Draft {d.id}: {d.subject || "(no subject)"} · {d.status}
             </AppLink>
           ))}

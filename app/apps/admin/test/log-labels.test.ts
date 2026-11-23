@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ACTIVITY_VIEWS as TIMELINE_VIEWS } from "@hub/contract/activity";
-import { ACTIVITY_VIEWS, logSearch } from "../src/routes/search";
+import { ACTIVITY_VIEWS, LOG_SEARCH, readSearch } from "../src/routes/search";
 import { VIEW_LABELS, VIEW_ORDER } from "../src/features/log/labels";
 
 describe("activity labels (P73)", () => {
@@ -12,9 +12,9 @@ describe("activity labels (P73)", () => {
   });
 
   it("the address holds the view and the one client; the run views and `?run=` are gone", () => {
-    expect(logSearch({ filter: "sends" }).filter).toBe("sends");
-    expect(logSearch({ filter: "needs_you", client: "1" })).toEqual({ filter: "needs_you", client: 1 });
-    expect(logSearch({ filter: "failed", run: "3" })).toEqual({ filter: "all", client: null });
+    expect(readSearch(LOG_SEARCH, { filter: "sends" }).filter).toBe("sends");
+    expect(readSearch(LOG_SEARCH, { filter: "needs_you", client: "1" })).toEqual({ filter: "needs_you", client: 1 });
+    expect(readSearch(LOG_SEARCH, { filter: "failed", run: "3" })).toEqual({ filter: "all", client: null });
     expect(TIMELINE_VIEWS).not.toContain("sends");
   });
 });

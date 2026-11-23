@@ -60,8 +60,7 @@ export function AgentScreen() {
 
 /** Settings ▸ Connections: the instance's Notion token (the Telegram bot's is on Messengers ▸ Settings, P71 M3). Its address names no project. */
 export function ConnectionsScreen() {
-  const route = useRoute();
-  if (route.route !== "settings.connections") return null;
+  if (!useRoute("settings.connections")) return null;
   return (
     <Page nav={<SubNav section="settings" />}>
       <ConnectionsView kinds={["notion"]} />
@@ -71,8 +70,7 @@ export function ConnectionsScreen() {
 
 /** Settings ▸ This Mac: how this install runs on this Mac (start after a restart, P67), the apps its links open in (P131) and its core version (P68). */
 export function MacScreen() {
-  const route = useRoute();
-  if (route.route !== "settings.mac") return null;
+  if (!useRoute("settings.mac")) return null;
   return (
     <Page nav={<SubNav section="settings" />}>
       <AutostartRow />

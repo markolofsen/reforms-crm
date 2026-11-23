@@ -5,7 +5,7 @@ import { metaApi } from "@/lib/api/meta";
 import { keys } from "@/lib/cache/keys";
 import { AppLink } from "@/components/app-link";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@hub/ui/tooltip";
-import { paths } from "@/routes/paths";
+import { dest } from "@/routes/paths";
 import { coreLine } from "./core-labels";
 
 /**
@@ -20,7 +20,7 @@ export function CoreLine() {
   return (
     <Tooltip>
       <TooltipTrigger render={
-        <AppLink className="gap-2 px-2 text-xs group-data-[collapsible=icon]:hidden" data-testid="core-line" to={paths.settings.mac()}>
+        <AppLink className="gap-2 px-2 text-xs group-data-[collapsible=icon]:hidden" data-testid="core-line" to={dest("settings.mac")}>
           <span className="truncate">{l.text}</span>
           {l.note && <span className={l.dot ? "text-foreground" : undefined}>{l.note}</span>}
           {l.dot && <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-warning" data-testid="core-dot" />}
