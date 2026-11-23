@@ -1,4 +1,5 @@
 import { HIDDEN_LABEL_WORDS, HIDDEN_LABELS, IMPORT_DAYS, PREANALYSIS_LOOKBACK_DAYS, REPLY_MODE_LABELS } from "@hub/config/chat-rules";
+import { CONVERSATION_STATE_LABELS, type ConversationState } from "@hub/contract/conversations";
 import type { MessengerChannelFilter, MessengerChatDto, MessengerView, PreanalysisDto } from "@hub/contract/messenger-panel";
 import type { MessengerChannelDto, MessengerSendPreviewDto } from "@hub/contract/messenger";
 import type { AutolinkLinkedDto, RecentDialogDto } from "@hub/contract/messengers";
@@ -9,7 +10,7 @@ import { notionIdentityLine as notionLine, notionIndicatorState as notionStateOf
 export const CHANNEL_LABEL: Record<MessengerChannelDto, string> = { telegram_user: "Telegram", telegram_bot: "Telegram bot", whatsapp: "WhatsApp" };
 
 /** P84c (owner, 2026-11-20): the states of a chat in one View menu; no "postponed" state, since Hide covers it and is undone. P102 adds Not linked: every remembered unlinked chat, of any age. */
-export const VIEW_LABEL: Record<MessengerView, string> = { todo: "To do", linked: "Linked", unlinked: "Not linked", hidden: "Hidden" };
+export const VIEW_LABEL: Record<MessengerView, string> = { todo: "Needs you", linked: "Linked", unlinked: "Not linked", hidden: "Hidden" };
 export const VIEW_ORDER: readonly MessengerView[] = ["todo", "linked", "unlinked", "hidden"];
 export const CHANNEL_FILTER_LABEL: Record<MessengerChannelFilter, string> = { all: "All", telegram: "Telegram", whatsapp: "WhatsApp" };
 
@@ -50,11 +51,22 @@ export function noDraftLine(c: MessengerChatDto): string | null {
 }
 
 /** The single state phrase shown on a linked chat, so the owner can tell the next step without reading the row's details. */
+/**
+ * P123 U3, P127 V6: a chat's state in the contract's vocabulary, the same words as Mail's rows (an open draft `draft`, a reply
+ * owed `wrote`, a last message the pre-analysis hid `done`, our message last `waiting`); null with no stored message (the empty
+ * history, not a row state). Until the server derives it on `messengerChatDto` (C3).
+ */
+export function chatState(c: Pick<MessengerChatDto, "last" | "owed" | "draft">): ConversationState | null {
+  if (c.draft) return "draft";
+  if (!c.last) return null;
+  if (c.last.direction === "in" && c.last.hidden) return "done";
+  return c.owed ? "wrote" : "waiting";
+}
+
+/** The state word a row and the header say: `CONVERSATION_STATE_LABELS`, "No messages yet" without a message. */
 export function chatStateLine(c: Pick<MessengerChatDto, "last" | "owed" | "draft">): string {
-  if (c.draft) return "Draft ready — review";
-  if (!c.last) return "No messages yet";
-  if (c.last.direction === "in" && c.last.hidden) return "No reply needed";
-  return c.owed ? "Client wrote — reply needed" : "Waiting for client";
+  const state = chatState(c);
+  return state === null ? "No messages yet" : CONVERSATION_STATE_LABELS[state];
 }
 
 // ---- P71 M-P: the pre-analysis of a linked chat

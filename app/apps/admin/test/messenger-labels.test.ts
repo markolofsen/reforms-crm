@@ -49,9 +49,9 @@ describe("messenger labels", () => {
   });
 
   it("states the next decision explicitly", () => {
-    expect(chatStateLine(chat())).toBe("Client wrote — reply needed");
-    expect(chatStateLine(chat({ draft: { id: 9, text: "Yes", createdBy: "agent", nudge: false, ownerRequest: null, createdAt: "", updatedAt: "" } }))).toBe("Draft ready — review");
-    expect(chatStateLine(chat({ owed: false, last: { direction: "out", kind: "text", text: "Done", at: "2026-11-20T08:00:00.000Z", hidden: null } }))).toBe("Waiting for client");
+    expect(chatStateLine(chat())).toBe("Wrote you");
+    expect(chatStateLine(chat({ draft: { id: 9, text: "Yes", createdBy: "agent", nudge: false, ownerRequest: null, createdAt: "", updatedAt: "" } }))).toBe("Draft ready");
+    expect(chatStateLine(chat({ owed: false, last: { direction: "out", kind: "text", text: "Done", at: "2026-11-20T08:00:00.000Z", hidden: null } }))).toBe("Waiting for them");
     expect(chatStateLine(chat({ owed: false, last: { direction: "in", kind: "text", text: "thanks", at: "2026-11-20T08:00:00.000Z", hidden: "closing" } }))).toBe("No reply needed");
   });
 

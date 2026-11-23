@@ -26,7 +26,7 @@ export function DraftBlock({ d, name, project, chatId, actions, embedded = false
   const [editSaved, setEditSaved] = useState(false);
   const door = useMessengerSend(project, d, chatId);
   const shown = d.text;
-  const author = d.createdBy === "hub_llm" ? "Hub LLM" : d.createdBy === "runtime_agent" ? "runtime agent" : "agent";
+  const author = d.createdBy === "hub_llm" ? "Hub LLM" : d.createdBy === "runtime_agent" ? "the agent" : "agent";
   const editOk = editValue.trim().length > 0 && editValue.length <= MESSENGER_TEXT_MAX && editValue !== d.text;
   const composerState: ComposerState = composerStateOf({ body: editing ? editValue : shown, draftId: editing ? undefined : d.id, editing, error: actions.error });
   const closeEditor = () => {

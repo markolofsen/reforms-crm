@@ -26,13 +26,13 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   await conversation(page).getByRole("button", { name: "Close" }).click();
   await expect(conversation(page).getByText(/^Not sent:/)).toHaveCount(0);
   await expect(rita(page)).toHaveAttribute("data-agent-ref", /^chat:\d+$/);
-  await expect(page.getByRole("button", { name: /^View:/ })).toHaveText(/To do\s*1/);
+  await expect(page.getByRole("button", { name: /^View:/ })).toHaveText(/Needs you\s*1/);
   await expect(chats(page).getByRole("listitem")).toHaveCount(1);
   // Linked (P84c): Sofia's chat, where we replied last, says whose turn it is.
   await page.getByRole("button", { name: /^View:/ }).click();
   await page.getByRole("menuitemradio", { name: /Linked/ }).click();
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=linked");
-  await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("Waiting for client")).toBeVisible();
+  await expect(chats(page).getByRole("listitem", { name: "Sofia Teste" }).getByText("Waiting for them")).toBeVisible();
   // P71 M-P: the seeded verdicts of Sofia's chat, counted by reason under its Pre-analysis switch (P115: the compact row shows
   // identity and state only).
   await page.goto(at(P, "/settings/messengers"));
@@ -99,7 +99,7 @@ test("messengers: Edit changes the draft's text, Skip sets it aside with Undo", 
   await expect(page.getByText(`Skipped the draft for ${RITA}`)).toBeVisible();
   await expect(conversation(page).getByTestId("messenger-draft")).toHaveCount(0);
   // P115: with no draft the pane is the reply composer, and its header says a reply is owed.
-  await expect(conversation(page).getByText(/Client wrote — reply needed/)).toBeVisible();
+  await expect(conversation(page).getByText(/Wrote you/)).toBeVisible();
   await expect(conversation(page).getByRole("button", { name: "Prepare reply" })).toBeVisible();
   await conversation(page).getByRole("button", { name: "Prepare reply" }).click();
   await expect(conversation(page).getByTestId("messenger-draft")).toContainText("fake");

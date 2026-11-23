@@ -29,9 +29,9 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
   await expect(tomas.getByRole("button", { name: "Link Tomas Viera to Tomas Viera" })).toBeVisible();
   await expect(page.getByText("2 unlinked chats have written since the server started (counted in memory, never stored).")).toBeVisible();
   // 1 linked chat waits + 3 unlinked; Linked is the two seeded chats; Not linked adds the old chat; Hidden names one.
-  await expect(view(page)).toHaveText(/To do\s*4/);
+  await expect(view(page)).toHaveText(/Needs you\s*4/);
   await view(page).click();
-  await expect(page.getByRole("menuitemradio")).toHaveText([/To do\s*4/, /Linked\s*2/, /Not linked\s*4/, /Hidden\s*1/]);
+  await expect(page.getByRole("menuitemradio")).toHaveText([/Needs you\s*4/, /Linked\s*2/, /Not linked\s*4/, /Hidden\s*1/]);
   await page.getByRole("menuitemradio", { name: /Not linked/ }).click();
   await expect.poll(() => new URL(page.url()).search).toBe("?filter=unlinked");
   // Not linked keeps the chat of any age, which To do dropped.
@@ -50,7 +50,7 @@ test("chats: the channel is a sidebar child of Messengers (P125 L5), kept in the
   await expect(channels.getByRole("link", { name: /^WhatsApp/ })).toHaveAttribute("aria-current", "page");
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Joana/]);
   await expect(page.getByRole("list", { name: "Chats", exact: true })).toHaveCount(0);
-  await expect(view(page)).toHaveText(/To do\s*1/);
+  await expect(view(page)).toHaveText(/Needs you\s*1/);
   await view(page).click();
   await page.getByRole("menuitemradio", { name: /Linked/ }).click();
   await page.keyboard.press("Escape");
@@ -63,7 +63,7 @@ test("chats: the channel is a sidebar child of Messengers (P125 L5), kept in the
   await expect(channels.getByRole("link", { name: /^Telegram/ })).toHaveAttribute("aria-current", "page");
   // The old "All chats" address reads as the default view.
   await page.goto(at(P, "/messengers?filter=all"));
-  await expect(view(page)).toHaveText(/To do/);
+  await expect(view(page)).toHaveText(/Needs you/);
 });
 
 test("chats: Hide takes a chat off To do with Undo; Hidden lists it with Unhide and says how many it cannot name", async ({ page }) => {
