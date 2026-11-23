@@ -14,7 +14,9 @@ import type { AgentSettings } from "@hub/config";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { parsePayload, toolCallEvents, toolResultEvent } from "@hub/log/hooks";
-import { appendEvents, logStoreOf } from "@hub/log/store";
+import { appendEvents, logStoreOf, readEvents } from "@hub/log/store";
+import { ownerWordsFound } from "@hub/agent/owner-word";
+import { OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
 
 // Tool-level safety of `hub agent` (plans p17 and P49). What each CLI gets is built in `@hub/agent` (one source for the launcher,
 // the doctor and the server); this file writes it. Layers: (1) deny rules and disallowed tools, (2) the hub's MCP servers only
@@ -213,7 +215,7 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   try { unattended = instanceFeatures(paths).agent.unattended; } catch { /* unreadable config: the stricter answer */ }
   const r = guardDecision(payload, { slug, accounts, mode, skills, layout: auditLayout(paths), connectors: projectConnectors(paths, projectsDir, slug).scope, notionRead, unattended });
   // P28 B3: before a reply is drafted, this session must have read the client's thread and profile, and the reply must not copy an earlier one.
-  if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug, paths.db));
+  if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug, paths.db, paths));
   r.block = r.always === true || (r.violations.length > 0 && mode === "block");
   // P54: the call, and what the guard saw, go to the session log (the writer never throws).
   appendEvents(logStoreOf(paths), toolCallEvents(parsePayload(stdin) ?? {}, "claude", slug ?? null, { mode, violations: r.violations }));
@@ -223,13 +225,16 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
 }
 
 /** The pre-draft rule (research 15 section 3.2): only a draft write (`create_reply`, the hub's `draft_write`, and P71's `messenger_draft_write` by its own rule) is judged, against the ledger of this session and subagent. Never throws. */
-export function preDraftViolations(payload: GuardInput, root: string, slug: string, db?: string): string[] {
+export function preDraftViolations(payload: GuardInput, root: string, slug: string, db?: string, paths: HubPaths = pathsAt(root)): string[] {
   try {
     const name = String(payload.tool_name ?? "");
     const messenger = name === HUB_MESSENGER_DRAFT_WRITE;
     if (!isDraftWrite(name) && !messenger) return [];
     const sid = typeof payload.session_id === "string" ? payload.session_id : "";
     if (!sid) return [];
+    // P129 verdict 7 (decision 0045 point 9): a Mail draft on the owner's own words (a poem, "переведи", a test to his address)
+    // rests on them, not on the thread: when this project's session log holds them, the chain is not asked for.
+    if (!messenger && ownerWordsVerified(payload.tool_input, slug, paths)) return [];
     const aid = typeof payload.agent_id === "string" && payload.agent_id ? payload.agent_id : undefined;
     // P71 M2: a messenger reply is judged by its own rule (its chat's history read first), never by the mail chain.
     if (messenger) return chatDraftViolations(readSession(root, slug, sid), { name, input: payload.tool_input }, aid);
@@ -238,6 +243,15 @@ export function preDraftViolations(payload: GuardInput, root: string, slug: stri
     if (replyFrom === NEW_THREAD) return [];
     return preDraftCheck(readSession(root, slug, sid), { name: String(payload.tool_name), input: payload.tool_input }, { ...(aid ? { aid } : {}), ...(replyFrom ? { replyFrom } : {}) }).violations;
   } catch { return []; }
+}
+
+/** True when the draft write carries `owner_request` and this project's session log of the last 12 hours holds those words. */
+export function ownerWordsVerified(input: unknown, slug: string, paths: HubPaths, now: Date = new Date()): boolean {
+  const words = input && typeof input === "object" && "owner_request" in input ? input.owner_request : undefined;
+  if (typeof words !== "string" || !words.trim()) return false;
+  const since = new Date(now.getTime() - OWNER_WORD_MAX_AGE_HOURS * 3_600_000).toISOString();
+  const events = readEvents(logStoreOf(paths), { project: slug, kinds: ["prompt"], since });
+  return ownerWordsFound({ events, words, now }).ok;
 }
 
 /** `draft_write {draft}` (P53): the address of the client that hub draft of this project answers, so the read of their message counts as the target. */

@@ -113,3 +113,42 @@ export function ownerWordFor(i: OwnerWordInput): OwnerWordVerdict {
   if (changed.length === 1 && changed[0]!.id === i.draft.id) return { ok: true, ref, text: word.text, at: word.ts };
   return no("chat_unclear", "The owner's word does not say which chat: no chat open in the admin, and not exactly this one draft written since his previous message. Nothing was sent.", "Ask him which chat, in one line (he can open it in the admin or name it).");
 }
+
+// P129 verdict 7 (decision 0045 point 9): the owner's words as the basis of a Mail draft. The same session log as the send word
+// above: `owner_request` must be what the owner typed in one of this project's prompts of the last `OWNER_WORD_MAX_AGE_HOURS`,
+// compared case- and whitespace-folded (a quote of part of his prompt counts; the agent's own summary or translation does not).
+
+/** Case, whitespace and the log's cut marker folded; quotes and end punctuation dropped (an agent wraps his words in them). */
+export const foldWords = (s: string): string =>
+  s
+    .replace(/… \[cut, \d+ chars\]$/u, "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[«»"“”'‘’`]/gu, "")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .replace(/[.!?…,;:]+$/u, "")
+    .trim();
+
+/** The shortest folded `owner_request` that can be checked: shorter is no sentence of his (a "да" matches anything). */
+export const OWNER_WORDS_MIN = 3;
+
+export type OwnerWordsVerdict = { ok: true; ref: string; at: string } | { ok: false; code: "owner_words_not_found"; next: string };
+
+/** The owner's prompt that holds `words`, newest first, or the refusal `owner_words_not_found` (retry now with his words as typed). */
+export function ownerWordsFound(i: { events: readonly Pick<LogEvent, "ts" | "session" | "kind" | "data">[]; words: string; now: Date }): OwnerWordsVerdict {
+  const want = foldWords(i.words);
+  const since = new Date(i.now.getTime() - OWNER_WORD_MAX_AGE_HOURS * 3_600_000).toISOString();
+  const until = i.now.toISOString();
+  const hit = i.events
+    .filter((e) => e.kind === "prompt" && typeof e.data.text === "string" && e.ts >= since && e.ts <= until)
+    .sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0))
+    .find((e) => {
+      const raw = String(e.data.text);
+      const have = foldWords(raw);
+      // A prompt cut by the log matches when what is left of it starts the words.
+      return want.length >= OWNER_WORDS_MIN && (have.includes(want) || (/… \[cut, \d+ chars\]$/u.test(raw) && want.startsWith(have)));
+    });
+  if (hit) return { ok: true, ref: ownerWordRef(hit), at: hit.ts };
+  return { ok: false, code: "owner_words_not_found", next: "Pass the owner's words exactly as he typed them in this session (his language, not a summary) as owner_request, or leave owner_request out and read the client's thread first." };
+}

@@ -6,6 +6,7 @@ import { pathsAt } from "@hub/config/paths";
 import { createRepos, openDb } from "@hub/db";
 import { runGuard, runGuardPost, writeSessionFiles } from "../src/safety";
 import { sessionFile } from "../src/evidence-store";
+import { appendEvents, logStoreOf } from "@hub/log/store";
 import { CLIENTS } from "../eval/per-client/fixture";
 import { carefulSteps, lazySteps, replyFor } from "../eval/per-client/scenario";
 
@@ -51,6 +52,18 @@ describe("hub guard evidence ledger and pre-draft check (B3)", () => {
     const b = replies(block.feed(lazySteps(cs)));
     expect(b.every((x) => x.code === 2)).toBe(true);
     expect(b[0]!.stderr).toContain("(d)");
+  });
+
+  it("P129 verdict 7: a draft on the owner's own words, found in this project's session log, is not asked for the thread first", () => {
+    const g = mk("block");
+    const draft = (owner_request?: string) => ({ name: "mcp__hub__draft_write", input: { account: "desk@fixture-pc.example", mailbox_path: ["INBOX"], message_id: 1, content: "Парус", ...(owner_request ? { owner_request } : {}) }, result: {} });
+    // No words in the log yet: the evidence rule asks for the chain, and block mode refuses.
+    expect(g.feed([draft("Подготовь какой-нибудь ответ в виде стишка")])[0]?.code).toBe(2);
+    appendEvents(logStoreOf(pathsAt(g.root)), [{ project: "fixture-pc", session: "S1", cli: "claude", kind: "prompt", data: { text: "Подготовь какой-нибудь ответ в виде стишка" } }]);
+    expect(g.feed([draft("Подготовь какой-нибудь ответ в виде стишка")])[0]).toMatchObject({ code: 0, stderr: "" });
+    // His words, but not as he typed them (a translation): the chain is asked for again.
+    expect(g.feed([draft("prepare a reply as a poem")])[0]?.code).toBe(2);
+    expect(g.feed([draft()])[0]?.code).toBe(2);
   });
 
   it("the careful sequence passes in block mode, for three clients one after the other", () => {
