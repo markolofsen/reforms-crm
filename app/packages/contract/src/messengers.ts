@@ -145,6 +145,9 @@ export const directoryStatusDto = z.strictObject({
   readAt: z.string().nullable(),
 });
 
+/** P128 X5 ("sort the chats"): one unlinked chat the agent proposes to hide ("Hide: not a client"), with its reason. */
+export const hideProposalDto = z.strictObject({ channel: userChannel, account: z.string(), chatId: z.string(), title: z.string(), reason: z.string(), at: z.string() });
+export type HideProposalDto = z.infer<typeof hideProposalDto>;
 /** `POST /api/projects/:slug/messengers/autolink/state`: the setting, the directory, the in-memory suggestions and the count. */
 export const autolinkStateDto = z.strictObject({
   enabled: z.boolean(),
@@ -159,6 +162,8 @@ export const autolinkStateDto = z.strictObject({
   /** P84c: the hidden chats the memory can name, and how many more are hidden by a fingerprint the Hub cannot name back. */
   hidden: z.array(hiddenDialogDto),
   hiddenUnnamed: z.number().int(),
+  /** P128 X5: the agent's proposed hides of unlinked chats, each with its reason (memory only); the owner confirms them in one dialog. */
+  proposals: z.array(hideProposalDto),
 });
 export type AutolinkStateDto = z.infer<typeof autolinkStateDto>;
 
@@ -235,3 +240,16 @@ export const chatMoveUndoBody = z.strictObject({ clientId: z.number().int().posi
 export const chatMoveUndoneDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), draftRestored: z.boolean() });
 /** Unlink and Never link answer which chat went and how many of its stored messages. */
 export const chatUnlinkedDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), never: z.boolean() });
+
+const proposalChat = z.strictObject({ channel: userChannel, chatId: z.string().regex(/^\+?\d{1,20}$/) });
+/** The agent's proposal (`hub mcp`'s loopback call with its token): at most 200 chats, a reason each. */
+export const autolinkProposeBody = z.strictObject({ items: z.array(proposalChat.extend({ reason: z.string().trim().min(1).max(200) })).min(1).max(200) });
+export const autolinkProposedDto = z.strictObject({ ok: z.literal(true), kept: z.number().int(), skipped: z.number().int() });
+/** The owner's Keep of proposed chats (or the end of a confirmed hide): their proposals are dropped. */
+export const autolinkProposalsDropBody = z.strictObject({ items: z.array(proposalChat).min(1).max(200) });
+export const autolinkProposalsDroppedDto = z.strictObject({ ok: z.literal(true) });
+/** What the agent reads to sort the chats: the unlinked chats the memory holds (identity, why, the newest message's time; never text). */
+export const agentUnlinkedDto = z.strictObject({
+  chats: z.array(z.strictObject({ channel: userChannel, chatId: z.string(), title: z.string(), why: z.string(), lastAt: z.string().nullable(), inbound: z.boolean().nullable(), proposed: z.boolean() })),
+});
+export type AgentUnlinkedDto = z.infer<typeof agentUnlinkedDto>;

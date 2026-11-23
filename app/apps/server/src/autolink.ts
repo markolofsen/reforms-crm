@@ -84,7 +84,22 @@ export interface AutolinkState {
   /** P84c: the hidden chats the memory can name, newest first, and how many more refusals it cannot name (a fingerprint only). */
   hidden: HiddenDialog[];
   hiddenUnnamed: number;
+  /** P128 X5: the agent's proposed hides ("Hide: not a client"), each with its reason; memory only, like the chats they name. */
+  proposals: HideProposal[];
 }
+
+/** P128 X5: one chat the agent proposes to hide, for the owner's one review; nothing is hidden until he confirms. */
+export interface HideProposal {
+  channel: UserChannel;
+  account: string;
+  chatId: string;
+  title: string;
+  reason: string;
+  at: string;
+}
+
+/** The longest reason a proposal keeps: one sentence on the row. */
+export const PROPOSAL_REASON_MAX = 200;
 
 export interface PreviewCounts {
   channel: UserChannel;
@@ -110,6 +125,13 @@ export interface Autolink {
   refuse(channel: UserChannel, chatId: string, title?: string | null): Promise<void>;
   /** Unhide (P84c): the refusal is deleted and the chat, when its identity is in memory, is considered again. Returns whether one went. */
   unrefuse(channel: UserChannel, chatId: string): Promise<boolean>;
+  /**
+   * P128 X5 ("sort the chats"): the agent's proposed hides, kept in memory beside the unlinked chats they name (a chat the memory
+   * does not hold is skipped). Returns how many were kept. Proposing hides nothing: the owner confirms the list in one dialog.
+   */
+  proposeHide(items: readonly { channel: UserChannel; chatId: string; reason: string }[]): number;
+  /** The owner's Keep (or a hide that went): the proposals for these chats are dropped. */
+  dropProposals(items: readonly { channel: UserChannel; chatId: string }[]): void;
   /** P102: a manual Link of a hidden chat takes its refusal back in the same call (the HMAC row and the name in Hidden); the matcher is not re-run. */
   forget(channel: UserChannel, chatId: string): Promise<void>;
   /** A directory record by its key, for the owner's Link from the Chats screen. */
@@ -168,6 +190,7 @@ function keyOf(file: string): string {
 export function startAutolink(o: StartAutolink): Autolink {
   const now = o.now ?? (() => new Date());
   const recent = new Map<string, RecentDialog>();
+  const proposals = new Map<string, { reason: string; at: string }>();
   const hidden = new Map<string, HiddenDialog>();
   const active = new Set<string>();
   const inflight = new Map<string, Promise<void>>();
@@ -269,7 +292,26 @@ export function startAutolink(o: StartAutolink): Autolink {
       const live = unlinked.filter((r) => r.last !== null && Date.parse(r.last.at) >= since);
       const named = [...hidden.values()].reverse();
       const total = o.project ? (await refusals()).size : 0;
-      return { project: o.project, enabled, recent: live, unlinked, unlinkedActive: active.size, freshDays: UNLINKED_FRESH_DAYS, hidden: named, hiddenUnnamed: Math.max(0, total - named.length) };
+      const proposed: HideProposal[] = [];
+      for (const r of unlinked) {
+        const p = proposals.get(`${r.channel}:${r.chatId}`);
+        if (p) proposed.push({ channel: r.channel, account: r.account, chatId: r.chatId, title: r.title, reason: p.reason, at: p.at });
+      }
+      return { project: o.project, enabled, recent: live, unlinked, unlinkedActive: active.size, freshDays: UNLINKED_FRESH_DAYS, hidden: named, hiddenUnnamed: Math.max(0, total - named.length), proposals: proposed };
+    },
+    proposeHide(items) {
+      let kept = 0;
+      for (const i of items) {
+        const k = `${i.channel}:${i.chatId}`;
+        const reason = i.reason.trim().slice(0, PROPOSAL_REASON_MAX);
+        if (!recent.has(k) || !reason) continue;
+        proposals.set(k, { reason, at: now().toISOString() });
+        kept++;
+      }
+      return kept;
+    },
+    dropProposals(items) {
+      for (const i of items) proposals.delete(`${i.channel}:${i.chatId}`);
     },
     async preview() {
       const out: PreviewCounts[] = [];
@@ -306,6 +348,7 @@ export function startAutolink(o: StartAutolink): Autolink {
       (await refusals()).add(`${channel}:${h}`);
       const r = recent.get(`${channel}:${chatId}`);
       recent.delete(`${channel}:${chatId}`);
+      proposals.delete(`${channel}:${chatId}`);
       // A linked chat hidden by Never link has no remembered account: with exactly one account on the channel, it is that one (Link on Hidden needs it).
       const sole = o.accounts().filter((a) => a.channel === channel);
       keepHidden(channel, r?.account ?? (sole.length === 1 ? (sole[0]?.account ?? null) : null), chatId, title ?? r?.title ?? chatId, null, r?.last ?? null);

@@ -2,6 +2,7 @@ import type { Repos } from "@hub/db";
 import type { Brand, ProjectConfig } from "@hub/projects/model";
 import type { DraftWriter } from "../mail";
 import type { WithRepos } from "../mail/write-log";
+import type { ChatSortPort } from "../messenger/chat-sort-port";
 import type { AgentSendPort } from "../messenger/send-tool";
 import type { DraftRecordEnv } from "../records/draft";
 import { ToolError } from "./result";
@@ -76,6 +77,8 @@ export interface HubMcpEnv {
    * not exist in this server (unattended sessions never see it).
    */
   agentSend?: AgentSendPort;
+  /** P128 X5: the server's unlinked chats and the agent's proposed hides (loopback, the agent token); absent, both tools refuse `unavailable`. */
+  chatSort?: ChatSortPort;
   /**
    * P129 A3 (decision 0045 point 10): where `draft_write` records a first draft and `client_record` a client handled without
    * one: the database, the project folders, the send policy and the ledger. Absent: both refuse `unavailable`.

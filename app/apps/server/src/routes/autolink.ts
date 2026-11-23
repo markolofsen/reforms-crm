@@ -1,7 +1,8 @@
 import { Hono, type Context } from "hono";
 import { sentenceOf } from "@hub/contract/errors";
-import { autolinkCreateBody, autolinkDialogsBody, autolinkHiddenDto, autolinkHideBody, autolinkLinkBody, autolinkLinkedDto, autolinkMoveBody, autolinkPreviewDto, autolinkRecordsBody, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoBody, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
+import { agentUnlinkedDto, autolinkProposalsDropBody, autolinkProposalsDroppedDto, autolinkProposeBody, autolinkProposedDto, autolinkCreateBody, autolinkDialogsBody, autolinkHiddenDto, autolinkHideBody, autolinkLinkBody, autolinkLinkedDto, autolinkMoveBody, autolinkPreviewDto, autolinkRecordsBody, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoBody, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
 import { IMPORT_DAYS } from "@hub/config/chat-rules";
+import { AGENT_SEND_HEADER, tokenMatches } from "@hub/agent/send-token";
 import { humanActor, linkUserChatToRecord, moveChatToRecord, undoMoveChat, unlinkIdentifier } from "@hub/messengers/human";
 import { findClientPages } from "@hub/notion";
 import { createChatClient, fillChatIdentity, type ChatIdentity, type FillOutcome } from "@hub/notion/chat-client";
@@ -23,7 +24,7 @@ const DIALOGS_LIMIT = 200;
  * the records come from his Notion, and Link, Unlink and Never link change what the Hub reads. The preview is the dry run: counts
  * only, no name, number or text, and nothing written. Nothing here sends.
  */
-export function autolinkRoutes({ repos, autolink: al, adminPort }: AutolinkServices) {
+export function autolinkRoutes({ repos, autolink: al, adminPort, agentToken }: AutolinkServices) {
   async function guarded<T>(c: Context, schema: ZodType<T>, then: (body: T, slug: string, al: ProjectAutolink) => Promise<Response>): Promise<Response> {
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
     if (why) return c.json({ error: `Refused: ${why}.`, code: "forbidden" as const }, 403);
@@ -33,6 +34,20 @@ export function autolinkRoutes({ repos, autolink: al, adminPort }: AutolinkServi
     if (!parsed.success) return c.json({ error: sentenceOf(parsed.error), code: "invalid" as const }, 400);
     if (!al) return c.json({ error: "The autolink is not set up on this server.", code: "not_found" as const }, 404);
     // A refusal (MessengersError, RepoError, AdapterError) is the server's onError's: its kind gives the status (P126 E1).
+    return then(parsed.data, slug, al);
+  }
+  /**
+   * P128 X5: the two doors of `hub mcp`'s chat sorting (a loopback call with the token of decision 0046's agent send, never the
+   * admin's Origin). They read the unlinked chats' identities and keep proposals in memory; neither hides, links or sends.
+   */
+  async function agentGuarded<T>(c: Context, schema: ZodType<T>, then: (body: T, slug: string, al: ProjectAutolink) => Promise<Response>): Promise<Response> {
+    if (!agentToken || !tokenMatches(c.req.header(AGENT_SEND_HEADER), agentToken)) return c.json({ error: "Refused: only the hub's own MCP server may ask this.", code: "forbidden" as const }, 403);
+    const slug = c.req.param("slug") ?? "";
+    if ((await repos.projects.get(slug)) === null) return notFound(c, "project");
+    const parsed = schema.safeParse(await c.req.json().catch(() => ({})));
+    if (!parsed.success) return c.json({ error: sentenceOf(parsed.error), code: "invalid" as const }, 400);
+    if (!al) return c.json({ error: "The autolink is not set up on this server.", code: "not_found" as const }, 404);
+    if ((await al.autolink.state()).project !== slug) return c.json({ error: "The autolink serves another project.", code: "wrong_state" as const }, 409);
     return then(parsed.data, slug, al);
   }
   const idOf = (c: Context): number | null => {
@@ -87,9 +102,9 @@ export function autolinkRoutes({ repos, autolink: al, adminPort }: AutolinkServi
     .post("/api/projects/:slug/messengers/autolink/state", (c) =>
       guarded(c, empty, async (_b, slug, al) => {
         const st = await al.autolink.state();
-        if (st.project !== slug) return c.json(autolinkStateDto.parse({ enabled: false, directory: al.directory.status(), unlinkedActive: 0, recent: [], unlinked: [], freshDays: st.freshDays, hidden: [], hiddenUnnamed: 0 }));
+        if (st.project !== slug) return c.json(autolinkStateDto.parse({ enabled: false, directory: al.directory.status(), unlinkedActive: 0, recent: [], unlinked: [], freshDays: st.freshDays, hidden: [], hiddenUnnamed: 0, proposals: [] }));
         const hidden = st.hidden.map((h) => ({ channel: h.channel, account: h.account, chatId: h.chatId, title: h.title, hiddenAt: h.hiddenAt }));
-        return c.json(autolinkStateDto.parse({ enabled: st.enabled, directory: al.directory.status(), unlinkedActive: st.unlinkedActive, recent: st.recent, unlinked: st.unlinked, freshDays: st.freshDays, hidden, hiddenUnnamed: st.hiddenUnnamed }));
+        return c.json(autolinkStateDto.parse({ enabled: st.enabled, directory: al.directory.status(), unlinkedActive: st.unlinkedActive, recent: st.recent, unlinked: st.unlinked, freshDays: st.freshDays, hidden, hiddenUnnamed: st.hiddenUnnamed, proposals: st.proposals }));
       }),
     )
     .post("/api/projects/:slug/messengers/autolink/preview", (c) =>
@@ -153,6 +168,28 @@ export function autolinkRoutes({ repos, autolink: al, adminPort }: AutolinkServi
         if (await repos.messengers.isAllowed(slug, b.channel, b.chatId)) return c.json({ error: "That chat is linked: unlink it on its rules row first.", code: "wrong_state" as const }, 409);
         await al.autolink.refuse(b.channel, b.chatId);
         return c.json(autolinkHiddenDto.parse({ ok: true, channel: b.channel, chatId: b.chatId, hidden: true }));
+      }),
+    )
+    // P128 X5: the agent reads the unlinked chats to sort them, and proposes hides; the owner's Keep drops proposals.
+    .post("/api/projects/:slug/messengers/autolink/agent-unlinked", (c) =>
+      agentGuarded(c, empty, async (_b, _slug, al) => {
+        const st = await al.autolink.state();
+        const proposed = new Set(st.proposals.map((p) => `${p.channel}:${p.chatId}`));
+        const chats = st.unlinked.map((r) => ({ channel: r.channel, chatId: r.chatId, title: r.title, why: r.why, lastAt: r.last?.at ?? null, inbound: r.last?.inbound ?? null, proposed: proposed.has(`${r.channel}:${r.chatId}`) }));
+        return c.json(agentUnlinkedDto.parse({ chats }));
+      }),
+    )
+    .post("/api/projects/:slug/messengers/autolink/agent-proposals", (c) =>
+      agentGuarded(c, autolinkProposeBody, async (b, _slug, al) => {
+        const kept = al.autolink.proposeHide(b.items);
+        return c.json(autolinkProposedDto.parse({ ok: true, kept, skipped: b.items.length - kept }));
+      }),
+    )
+    .post("/api/projects/:slug/messengers/autolink/proposals/drop", (c) =>
+      guarded(c, autolinkProposalsDropBody, async (b, slug, al) => {
+        if ((await al.autolink.state()).project !== slug) return c.json({ error: "The autolink serves another project.", code: "wrong_state" as const }, 409);
+        al.autolink.dropProposals(b.items);
+        return c.json(autolinkProposalsDroppedDto.parse({ ok: true }));
       }),
     )
     .post("/api/projects/:slug/messengers/autolink/unhide", (c) =>

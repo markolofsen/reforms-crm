@@ -16,7 +16,8 @@ const LABEL = "text-sm";
 const HINT = "text-muted-foreground text-xs";
 
 /**
- * One linked chat's rules (P71 M2b), every one in view and written by the owner only, through the gated rules route: when the
+ * One linked chat's rules (P71 M2b) as one line with its values (P128 X5: "<name> · Telegram · Draft replies · no instruction ·
+ * Edit"); Edit opens them in place. Written by the owner only, through the gated rules route: when the
  * agent may draft (`reply_mode`; no automatic value: Send stays his click), whether it may propose a follow-up and after how many
  * quiet days, the reply language, the pre-analysis switch with what it does (or "needs an OpenRouter key") and the chat's counts
  * by reason, and his own instruction (at most 4 000
@@ -26,6 +27,8 @@ export function ChatRules({ project, c, preanalysis }: { project: string; c: Mes
   const save = useSaveChatRules(project, c.id);
   const ids = { mode: useId(), nudge: useId(), days: useId(), lang: useId(), pre: useId(), text: useId() };
   const [instruction, setInstruction] = useState(c.rules.instruction ?? "");
+  // P128 X5: one line per chat with its values in view; Edit opens the rules in place (an action's own form, admin-principles 9).
+  const [editing, setEditing] = useState(false);
   const r = c.rules;
   const busy = save.isPending;
   const name = chatName(c);
@@ -36,15 +39,21 @@ export function ChatRules({ project, c, preanalysis }: { project: string; c: Mes
   };
   return (
     <li aria-label={`Rules for ${name}`} className="flex flex-col gap-2.5 py-2.5" data-chat-rules={c.id} {...agentRef(`chat:${c.id}`)}>
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5" data-testid="chat-rules-line">
         <span className="min-w-0 truncate font-medium text-sm" data-agent-label="">
           {name}
         </span>
-        <span className={cn("min-w-0 truncate", HINT)}>
-          {CHANNEL_LABEL[c.channel]}
-          {c.title && c.title !== name ? ` · ${c.title}` : ""}
+        <span className={cn("min-w-0 flex-1 truncate", HINT)}>
+          {CHANNEL_LABEL[c.channel]} · {REPLY_MODE_LABELS[r.replyMode]} · {r.instruction ? "own instruction" : "no instruction"}
+          {r.mayNudge ? ` · follow-up after ${r.nudgeAfterDays} days` : ""}
+          {r.language ? ` · ${r.language}` : ""}
         </span>
+        <ActionButton aria-expanded={editing} onClick={() => setEditing((v) => !v)} size="s" variant="quiet">
+          {editing ? "Done" : "Edit"}
+          <span className="sr-only"> the rules for {name}</span>
+        </ActionButton>
       </div>
+      {editing && (
       <div className="flex min-w-0 flex-col gap-2.5">
         <fieldset className="flex min-w-0 flex-col gap-1">
           <legend className={LABEL} id={ids.mode}>Reply mode</legend>
@@ -93,7 +102,7 @@ export function ChatRules({ project, c, preanalysis }: { project: string; c: Mes
               Pre-analysis
             </span>
             <span className={cn("measure", HINT)} id={`${ids.pre}-note`}>
-              {prefilterNote(preanalysis)}
+              {preanalysis.state === "no_key" ? "Off: needs an OpenRouter key (see above the chats)." : prefilterNote(preanalysis)}
             </span>
             {triageLine(c) && <span className={cn("measure", HINT)}>{triageLine(c)}</span>}
           </div>
@@ -114,6 +123,7 @@ export function ChatRules({ project, c, preanalysis }: { project: string; c: Mes
           </div>
         </div>
       </div>
+      )}
       {save.isError && (
         <p className="text-destructive-foreground text-sm" role="alert">
           {sentence(save.error)}

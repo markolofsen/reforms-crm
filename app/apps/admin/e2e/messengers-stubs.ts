@@ -19,13 +19,23 @@ export const RECENT: Recent[] = [
 export const OLD: Recent = { channel: "telegram_user", account: "42", chatId: "9003", title: "Old Olga", seenAt: ago(60 * 24 * 20), why: "none", by: null, candidates: [], last: { at: ago(60 * 24 * 20), inbound: true }, username: null, phone: null };
 
 /** Both accounts connected and the autolink's state, with Hide and Unhide moving a chat between the lists. Returns the POSTs. */
-export async function stubChats(page: Page) {
+/** P128 X5: an agent's proposed hide of a remembered chat, as the server's state lists it. */
+export type Proposal = { channel: "telegram_user" | "whatsapp"; account: string; chatId: string; title: string; reason: string; at: string };
+
+export async function stubChats(page: Page, o: { proposals?: Proposal[] } = {}) {
+  let proposals = [...(o.proposals ?? [])];
   const posts: { path: string; body: unknown }[] = [];
   let recent = [...RECENT];
   let hidden: { channel: "telegram_user" | "whatsapp"; account: string | null; chatId: string; title: string; hiddenAt: string }[] = [{ channel: "whatsapp", account: "351900000001", chatId: "+351922000222", title: "Spam Sender", hiddenAt: ago(60 * 50) }];
   await page.route(/\/api\/messengers\/telegram-user$/, (r) => r.fulfill({ json: { state: "on", project: P, accounts: [{ account: "42", state: "running", parked: null, fix: null, failures: 0, stored: 0 }] } }));
   await page.route(/\/api\/messengers\/whatsapp$/, (r) => r.fulfill({ json: { state: "on", project: P, accounts: [{ account: "351900000001", state: "running", parked: null, fix: null, failures: 0, stored: 0 }] } }));
-  await page.route(/\/messengers\/autolink\/state$/, (r) => r.fulfill({ json: { enabled: true, directory: dir, unlinkedActive: 2, recent, unlinked: [...recent, OLD], freshDays: 14, hidden, hiddenUnnamed: 1 } }));
+  await page.route(/\/messengers\/autolink\/state$/, (r) => r.fulfill({ json: { enabled: true, directory: dir, unlinkedActive: 2, recent, unlinked: [...recent, OLD], freshDays: 14, hidden, hiddenUnnamed: 1, proposals: proposals.filter((p) => recent.some((x) => x.chatId === p.chatId)) } }));
+  await page.route(/\/messengers\/autolink\/proposals\/drop$/, async (r) => {
+    const body = r.request().postDataJSON() as { items: { chatId: string }[] };
+    posts.push({ path: new URL(r.request().url()).pathname, body });
+    proposals = proposals.filter((p) => !body.items.some((i) => i.chatId === p.chatId));
+    await r.fulfill({ json: { ok: true } });
+  });
   const move = (to: "hidden" | "recent") => async (r: Route) => {
     const body = r.request().postDataJSON() as { channel: "telegram_user" | "whatsapp"; chatId: string };
     posts.push({ path: new URL(r.request().url()).pathname, body });

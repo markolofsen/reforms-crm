@@ -2,10 +2,8 @@ import { MESSENGER_DAILY_CAP, MESSENGER_SPACING_SECONDS } from "@hub/config/chat
 import { Page } from "@hub/ui/product/page";
 import { Loading, QueryView } from "@/components/state-views";
 import { AppLink } from "@/components/app-link";
-import { LocalActionButton } from "@/components/local-action";
 import type { ViewQuery } from "@/components/state-views";
 import { useMessengerChats } from "@/lib/data/messengers";
-import { useProjectFacts } from "@/lib/data/project";
 import { dest } from "@/routes/paths";
 import { ConnectionsView } from "../../settings/connections/connections-view";
 import { SettingsGroup as Group } from "../../settings/group";
@@ -40,6 +38,8 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
           <p className="text-muted-foreground text-xs">
             Change the client, unlink or hide a chat from its status menu on <AppLink to={dest("messengers.page")}>Messengers ▸ Chats</AppLink>.
           </p>
+          {/* P128 X5: the OpenRouter notice once, with where the key is set, instead of on every chat. */}
+          {d.preanalysis.state === "no_key" && <p className="measure text-muted-foreground text-xs" role="note">Pre-analysis is off on every chat until the Hub has an OpenRouter key.{d.preanalysis.fix ? ` ${d.preanalysis.fix}` : " Set it in Settings ▸ Connections."}</p>}
           <ul aria-label="Linked chats" className="flex flex-col divide-y border-y">
             {d.chats.map((c) => (
               <ChatRules c={c} key={c.id} preanalysis={d.preanalysis} project={project} />
@@ -62,28 +62,10 @@ function LinkedChats({ project, query }: { project: string; query: LinkedChatsQu
 export function MessengerSettings({ project }: { project: string }) {
   // P84: the account rows say how many chats the Hub reads (the linked ones), from the same list as Linked chats below.
   const chats = useMessengerChats(project, { filter: "all", link: "linked", channel: "all", q: "" });
-  const overview = useProjectFacts(project);
-  const policy = overview.data?.messengerPolicy;
-  const languageLine = `Language follows the client by default${policy?.language ? ` · project: ${policy.language}` : ""}`;
-  const policyUnavailable = overview.isError ? "Project policy could not be loaded." : null;
-  const policyLoading = overview.isPending ? "Loading project policy…" : null;
   const linkedOf = (ch: "telegram_user" | "whatsapp") => chats.data?.chats.filter((c) => c.channel === ch).length;
   return (
     <Page>
       <div className="flex flex-col gap-4">
-        <Group id="reply-policy" title="Reply policy">
-          <div className="measure flex flex-col gap-2 text-sm">
-            <dl className="grid gap-x-4 gap-y-1.5 sm:grid-cols-[max-content_1fr]">
-              <dt className="text-muted-foreground">Language</dt>
-              <dd>{policyLoading ?? policyUnavailable ?? languageLine}</dd>
-            </dl>
-            {policy?.instruction && <p className="text-muted-foreground text-xs">A project instruction is active; chat-specific overrides are listed below.</p>}
-            <div className="flex flex-wrap items-center gap-2">
-              <LocalActionButton action="file.open" args={{ project, key: "project.md" }} size="s" variant="secondary">Open project policy</LocalActionButton>
-              <span className="text-muted-foreground text-xs">Set messengers.language and messengers.instruction there.</span>
-            </div>
-          </div>
-        </Group>
         <Group id="telegram-account" title="Telegram account">
           <TelegramAccount linked={linkedOf("telegram_user")} />
         </Group>
@@ -101,7 +83,7 @@ export function MessengerSettings({ project }: { project: string }) {
               <li key={g}>{g}</li>
             ))}
           </ul>
-          <p className="text-muted-foreground text-xs">They apply to every Send, on Telegram and on WhatsApp.</p>
+          <p className="text-muted-foreground text-xs">They apply to every send on Telegram and WhatsApp: your Send and the agent&apos;s send on your word go through the same door.</p>
         </Group>
       </div>
     </Page>

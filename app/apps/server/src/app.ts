@@ -246,7 +246,7 @@ export function createApp(repos: Repos, opts: AppOptions = {}) {
     .route("/", autostartRoutes(autostartServicesOf(opts.autostart, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
     .route("/", telegramUserRoutes(telegramUserServicesOf(opts.telegramUser, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
     .route("/", whatsappRoutes(whatsappServicesOf(opts.whatsapp, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
-    .route("/", autolinkRoutes(autolinkServicesOf(repos, opts.autolink, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT)))
+    .route("/", autolinkRoutes(autolinkServicesOf(repos, opts.autolink, opts.adminPort ?? opts.sender?.adminPort ?? ADMIN_PORT, opts.sender?.agent?.token)))
     .route(
       "/",
       messengerRoutes(

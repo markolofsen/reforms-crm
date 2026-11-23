@@ -105,12 +105,15 @@ export type AutolinkServices = {
   repos: Repos;
   autolink?: ProjectAutolink;
   adminPort: number;
+  /** P128 X5: the token `hub mcp` presents (the agent send's, decision 0046); absent, the agent's chat-sorting doors refuse. */
+  agentToken?: string;
 };
 
-export const autolinkServicesOf = (repos: Repos, autolink: ProjectAutolink | undefined, adminPort: number): AutolinkServices => ({
+export const autolinkServicesOf = (repos: Repos, autolink: ProjectAutolink | undefined, adminPort: number, agentToken?: string): AutolinkServices => ({
   repos,
   ...(autolink ? { autolink } : {}),
   adminPort,
+  ...(agentToken ? { agentToken } : {}),
 });
 
 export type AgentToolsCapability = {

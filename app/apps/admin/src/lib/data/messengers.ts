@@ -245,6 +245,10 @@ export function useHideCommands(project: string, on: { onError: (e: unknown) => 
   };
 }
 
+/** P128 X5: the owner's Keep of chats the agent proposed to hide: their proposals are dropped (the chats stay unlinked). */
+export const useProposalDrop = (project: string) =>
+  useCommand({ project, touches: MESSENGERS, run: (items: { channel: UserChannel; chatId: string }[]) => messengersApi.dropProposals(project, items) });
+
 /** P102: each account's dialogs marked against the picked record (Link a chat…), read on demand and never stored. */
 export const useDialogsOf = (project: string, accounts: readonly { channel: UserChannel; account: string }[], key: string | null) =>
   useQueries({

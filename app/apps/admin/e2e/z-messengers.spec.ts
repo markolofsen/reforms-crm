@@ -36,7 +36,9 @@ test("messengers: the panel lists the waiting chat with the agent's draft, a ref
   // P71 M-P: the seeded verdicts of Sofia's chat, counted by reason under its Pre-analysis switch (P115: the compact row shows
   // identity and state only).
   await page.goto(at(P, "/settings/messengers"));
-  await expect(page.getByRole("listitem", { name: "Rules for Sofia Teste" }).getByText("Pre-analysis: hid 1 of 2 (1 closing).")).toBeVisible();
+  const sofia = page.getByRole("listitem", { name: "Rules for Sofia Teste" });
+  await sofia.getByRole("button", { name: "Edit the rules for Sofia Teste" }).click();
+  await expect(sofia.getByText("Pre-analysis: hid 1 of 2 (1 closing).")).toBeVisible();
   // Mail drafts stay in Drafts, and messenger drafts never go there.
   await page.goto(at(P, "/mail?filter=all"));
   await page.locator('ul[aria-label="People"] > li').first().waitFor();
@@ -141,12 +143,19 @@ test("P128 X0 (F30): Activity's row of a messenger draft opens its chat, never M
 test("messengers settings: a chat's reply mode and instruction are saved and read back", async ({ page }) => {
   await page.goto(at(P, "/settings/messengers"));
   const rules = page.getByRole("listitem", { name: `Rules for ${RITA}` });
+  // P128 X5: one line per chat with its values; Edit opens the rules in place.
+  await expect(rules.getByTestId("chat-rules-line")).toContainText(/Telegram · Draft replies · no instruction/);
+  const edit = rules.getByRole("button", { name: `Edit the rules for ${RITA}` });
+  await edit.click();
+  await expect(edit).toHaveAttribute("aria-expanded", "true");
   await rules.getByRole("button", { name: "Only when I ask" }).click();
   await expect(rules.getByRole("button", { name: "Only when I ask" })).toHaveAttribute("aria-pressed", "true");
   await rules.getByLabel("Your instruction for this chat").fill("Short and formal.");
   await rules.getByRole("button", { name: "Save instruction" }).click();
   await expect(rules.getByRole("button", { name: "Save instruction" })).toBeDisabled();
   await page.reload();
+  await expect(rules.getByTestId("chat-rules-line")).toContainText("Only when I ask · own instruction");
+  await rules.getByRole("button", { name: `Edit the rules for ${RITA}` }).click();
   await expect(rules.getByRole("button", { name: "Only when I ask" })).toHaveAttribute("aria-pressed", "true");
   // P93: the instruction is a Markdown editor, so its text is read, not a value.
   await expect(rules.getByLabel("Your instruction for this chat")).toHaveText("Short and formal.");
@@ -158,17 +167,18 @@ test("messengers settings: a chat's reply mode and instruction are saved and rea
   await expect(rita(page)).toContainText(/Only when I ask|Client wrote|Draft ready/);
   // Back to the default, so the specs after this one see the seed's rules.
   await page.goto(at(P, "/settings/messengers"));
+  await rules.getByRole("button", { name: `Edit the rules for ${RITA}` }).click();
   await rules.getByRole("button", { name: "Draft replies" }).click();
   await expect(rules.getByRole("button", { name: "Draft replies" })).toHaveAttribute("aria-pressed", "true");
 });
 
-test("messengers settings: the project reply policy names its language and instruction, nothing about delivery", async ({ page }) => {
+// P128 X5: the Reply policy block went (project.md says it; a chat's own rules are on its line), and so did the
+// "since the server started" count.
+test("messengers settings: no Reply policy block and no since-start count", async ({ page }) => {
   await page.goto(at(P, "/settings/messengers"));
-  const policy = page.getByRole("region", { name: "Reply policy" });
-  await expect(policy).toContainText("Language follows the client by default");
-  await expect(policy.getByRole("button", { name: "Open project policy" })).toBeVisible();
-  await expect(policy).toContainText("messengers.language");
-  await expect(policy).not.toContainText(/Provider|Delivery|response mode|reply provider/i);
+  await expect(page.getByRole("listitem", { name: `Rules for ${RITA}` })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Reply policy" })).toHaveCount(0);
+  await expect(page.getByText(/since the server started/)).toHaveCount(0);
 });
 
 /** Stubs M1's account routes: none connected, then one after the login's last step. Records each POST's path and body. */

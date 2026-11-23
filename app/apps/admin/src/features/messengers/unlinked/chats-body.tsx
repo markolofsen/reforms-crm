@@ -12,6 +12,7 @@ import { ChatRow } from "../chat-row";
 import type { useChatMoves } from "../status/use-moves";
 import { foldOlder, hiddenRows, matchesHiddenSearch, matchesRecentSearch, NOT_LINKED_DAYS, notLinkedRows, unlinkedRows } from "./chats-model";
 import { HiddenChats } from "./hidden-chats";
+import { ProposedHides } from "./proposed-hides";
 import { UnlinkedChats } from "./unlinked-chats";
 
 type Moves = ReturnType<typeof useChatMoves>;
@@ -89,17 +90,25 @@ function Lists(p: ChatsBodyProps & { d: MessengerChatsDto; st: AutolinkStateDto 
 function UnlinkedPart(p: ChatsBodyProps & { d: MessengerChatsDto; st: AutolinkStateDto | undefined; linkedShown: boolean }) {
   const { st, channel, now, moves, project, searchQuery } = p;
   if (!st) return null;
+  // P128 X5: the agent's proposed hides, said once above the chats they name, on this channel only.
+  const proposed = <ProposedHides project={project} proposals={st.proposals.filter((x) => channel === "all" || (channel === "whatsapp") === (x.channel === "whatsapp"))} />;
   if (p.view === "needs_you") {
     const fresh = unlinkedRows(st, channel).filter((row) => matchesRecentSearch(row, searchQuery));
     if (fresh.length === 0) return null;
-    return <UnlinkedChats active={st.unlinkedActive} freshDays={st.freshDays} moves={moves} noLinked={!p.linkedShown && p.d.counts.all === 0} now={now} project={project} rows={fresh} />;
+    return (
+      <>
+        {proposed}
+        <UnlinkedChats freshDays={st.freshDays} moves={moves} noLinked={!p.linkedShown && p.d.counts.all === 0} now={now} project={project} rows={fresh} />
+      </>
+    );
   }
   const all = notLinkedRows(st, channel).filter((row) => matchesRecentSearch(row, searchQuery));
   const { shown, older } = foldOlder(all, now, searchQuery !== "");
   if (shown.length === 0 && older === 0) return null;
   return (
     <>
-      {shown.length > 0 && <UnlinkedChats active={0} freshDays={searchQuery !== "" ? null : NOT_LINKED_DAYS} moves={moves} noLinked={false} now={now} project={project} rows={shown} />}
+      {proposed}
+      {shown.length > 0 && <UnlinkedChats freshDays={searchQuery !== "" ? null : NOT_LINKED_DAYS} moves={moves} noLinked={false} now={now} project={project} rows={shown} />}
       {older > 0 && (
         <p className="px-3 py-2 text-muted-foreground text-sm" data-testid="not-linked-older">
           {shown.length > 0 ? "and " : ""}

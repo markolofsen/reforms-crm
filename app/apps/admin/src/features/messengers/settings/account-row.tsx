@@ -54,7 +54,6 @@ export function AccountRow({ a, channel, label, note, linked }: { a: TelegramUse
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
         {a.state === "running" && linked !== undefined && <span>{readsLine(linked)}</span>}
-        <span>{a.stored === 1 ? "1 message stored" : `${a.stored} messages stored`} since the server started</span>
       </div>
       {asking && <p className="measure text-muted-foreground text-sm">{note}</p>}
       {a.fix && <p className="measure text-sm text-warning-foreground">{a.fix}</p>}

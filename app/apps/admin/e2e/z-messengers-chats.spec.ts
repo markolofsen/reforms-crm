@@ -34,7 +34,8 @@ test("chats: To do holds the waiting linked chat and the fresh unlinked ones, th
   const tomas = fresh(page).getByRole("listitem", { name: "Tomas Viera" });
   await expect(tomas.getByText(/Suggested: Tomas Viera/)).toBeVisible();
   await expect(tomas.getByRole("button", { name: "Link Tomas Viera to Tomas Viera" })).toBeVisible();
-  await expect(page.getByText("2 unlinked chats have written since the server started (counted in memory, never stored).")).toBeVisible();
+  // P128 X5: the "since the server started" count is gone.
+  await expect(page.getByText(/since the server started/)).toHaveCount(0);
   // 1 linked chat waits + 3 unlinked; All is the two seeded chats and the four remembered unlinked ones (P123 U3b); the link
   // filter counts Linked 2, Not linked 4 (with the old chat), Hidden 1.
   await expect(view(page)).toHaveText(/Needs you\s*4/);
@@ -78,6 +79,34 @@ test("chats: the channel is a sidebar child of Messengers (P125 L5), kept in the
   // The old "All chats" address reads as the default view.
   await page.goto(at(P, "/messengers?filter=all"));
   await expect(view(page)).toHaveText(/Needs you/);
+});
+
+// P128 X5 ("sort the chats"): the agent's proposed hides are said once and reviewed in ONE dialog naming every chat with its
+// reason; Keep drops one proposal, Hide hides the rest, and one toast's Undo brings them back.
+test("chats: the agent's proposed hides, one dialog naming each chat, Keep one, Hide the rest with one Undo", async ({ page }) => {
+  const at0 = new Date().toISOString();
+  const { posts } = await stubChats(page, {
+    proposals: [
+      { channel: "telegram_user", account: "42", chatId: "9002", title: "Delivery bot fan", reason: "A delivery service's notices.", at: at0 },
+      { channel: "whatsapp", account: "351900000001", chatId: "+351911000111", title: "Joana", reason: "A private contact.", at: at0 },
+    ],
+  });
+  await page.goto(at(P, "/messengers"));
+  const line = page.getByTestId("proposed-hides");
+  await expect(line).toContainText("The agent proposes hiding 2 chats as not clients.");
+  await line.getByRole("button", { name: /^Review/ }).click();
+  const dialog = page.getByTestId("review-dialog");
+  await expect(dialog.getByRole("heading", { name: "Hide 2 chats: not clients?" })).toBeVisible();
+  await expect(dialog).toContainText("Delivery bot fan (Telegram): A delivery service's notices.");
+  await expect(dialog).toContainText("Joana (WhatsApp): A private contact.");
+  await dialog.getByRole("button", { name: "Keep Joana" }).click();
+  await expect(dialog.getByRole("heading", { name: "Hide 1 chat: not clients?" })).toBeVisible();
+  await dialog.getByTestId("review-confirm").click();
+  await expect(page.getByText("Hid 1 chat: not clients")).toBeVisible();
+  expect(posts.map((p) => p.path.replace(/^.*\/autolink\//, ""))).toEqual(["proposals/drop", "hide"]);
+  await expect(page.getByTestId("proposed-hides")).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect.poll(() => posts.map((p) => p.path.replace(/^.*\/autolink\//, ""))).toContain("unhide");
 });
 
 test("chats: Hide takes a chat off To do with Undo; Hidden lists it with Unhide and says how many it cannot name", async ({ page }) => {

@@ -18,6 +18,7 @@ export interface SayDto {
 export const SAY = [
   { skill: "triage-mail", example: "triage mail for X", what: "Reads new client mail and leaves one unsent reply draft per waiting client" },
   { skill: "triage-messages", example: "triage messages for X", what: "Reads the chats you linked and leaves one unsent draft per chat that waits, bound by the chat's rules" },
+  { skill: "sort-chats", example: "sort the chats of X", what: "Proposes hiding the unlinked chats that are not clients, each with its reason; you confirm the list once" },
   { skill: "triage-mail", example: "handle the mail from <address> in project X", what: "One client: the whole history, one draft, the Notion profile" },
   { skill: "owner-inbox", example: "what do you need from me on X", what: "One ranked list of what waits for you, each with what to say next" },
   { skill: "status", example: "does everything work in X", what: "Runs the project's checks and says what to fix; changes nothing" },

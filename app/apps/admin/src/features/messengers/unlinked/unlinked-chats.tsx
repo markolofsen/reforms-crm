@@ -67,10 +67,9 @@ function UnlinkedRow({ project, r, now, moves }: { project: string; r: RecentDia
 /**
  * The unlinked chats (P84, P84c, P102; decision 0036 point 3 as amended): on To do the fresh private chats nobody decided on, on
  * Not linked every chat the autolink remembers, of any age; from the server's memory only (nothing of an unlinked chat is stored; a
- * restart empties the list). Said once above them: why they are here; then, on To do, the muted count of unlinked chats that wrote
- * since the server started.
+ * restart empties the list). Said once above them: why they are here (P128 X5 dropped the "since the server started" count).
  */
-export function UnlinkedChats({ project, rows, freshDays, active, now, noLinked, moves }: { project: string; rows: RecentDialogDto[]; freshDays: number | null; active: number; now: number; /** No linked chat at all: the line says so (P88). */ noLinked: boolean; moves: Moves }) {
+export function UnlinkedChats({ project, rows, freshDays, now, noLinked, moves }: { project: string; rows: RecentDialogDto[]; freshDays: number | null; now: number; /** No linked chat at all: the line says so (P88). */ noLinked: boolean; moves: Moves }) {
   if (rows.length === 0) return null;
   return (
     <section aria-label="Chats not linked" className="flex flex-col gap-2" data-testid="unlinked-chats">
@@ -80,11 +79,6 @@ export function UnlinkedChats({ project, rows, freshDays, active, now, noLinked,
           <UnlinkedRow key={`${r.channel}:${r.chatId}`} moves={moves} now={now} project={project} r={r} />
         ))}
       </ConversationList>
-      {active > 0 && (
-        <p className="text-muted-foreground text-xs">
-          {active === 1 ? "1 unlinked chat has" : `${active} unlinked chats have`} written since the server started (counted in memory, never stored).
-        </p>
-      )}
     </section>
   );
 }

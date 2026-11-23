@@ -1,6 +1,6 @@
 import { createMessengerDraft, editMessengerDraft, getMessengerConversation, listMessengerChats, prepareMessengerReply, restoreMessengerDraft, setMessengerChatRules, skipMessengerDraft } from "@hub/api";
 import { messengerChatDto, messengerChatsDto, messengerConversationDto, messengerDraftDto, messengerSkippedDto, type ChatRulesBody, type MessengerChatsQuery } from "@hub/contract/messenger-panel";
-import { autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
+import { autolinkProposalsDroppedDto, autolinkHiddenDto, autolinkLinkedDto, autolinkRecordsDto, autolinkStateDto, chatMovedDto, chatMoveUndoneDto, chatUnlinkedDto, userDialogsDto } from "@hub/contract/messengers";
 import { read, readGenerated } from "../client";
 
 const at = (project: string) => `/api/projects/${encodeURIComponent(project)}/messengers`;
@@ -38,5 +38,6 @@ export const messengersApi = {
   // P84c: Hide ("not a client") and Unhide of an unlinked chat; the server keeps a keyed hash, never the chat.
   hideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => read(autolinkHiddenDto, { method: "POST", path: `${at(project)}/autolink/hide`, body }),
   unhideChat: (project: string, body: { channel: "telegram_user" | "whatsapp"; chatId: string }) => read(autolinkHiddenDto, { method: "POST", path: `${at(project)}/autolink/unhide`, body }),
+  dropProposals: (project: string, items: { channel: "telegram_user" | "whatsapp"; chatId: string }[]) => read(autolinkProposalsDroppedDto, { method: "POST", path: `${at(project)}/autolink/proposals/drop`, body: { items } }),
   unlinkChat: (project: string, id: number, never: boolean) => read(chatUnlinkedDto, { method: "POST", path: `${at(project)}/chats/${id}/${never ? "never" : "unlink"}`, body: {} }),
 };
