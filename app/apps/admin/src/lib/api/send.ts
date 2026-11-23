@@ -43,7 +43,8 @@ export const batchSendApi = {
   start: async (project: string, batchId: number, plan: BatchSendPlanDto) => {
     const items = plan.items.map((i) => ({ draftId: i.draftId, hash: i.hash }));
     const { ticket } = await readGenerated(createBatchSendTicket({ project, batchId, items }), sendTicketDto);
-    return readGenerated(runBatchSend(project, batchId, { apply: true, items, ticket }), batchRunStateDto);
+    // The server answers a started run with 202 (Accepted: it sends in the background), never 200.
+    return readGenerated(runBatchSend(project, batchId, { apply: true, items, ticket }), batchRunStateDto, [202]);
   },
   run: (project: string, batchId: number) => readGenerated(getBatchSend(project, batchId), batchRunStateDto),
   stop: (project: string, batchId: number) => readGenerated(stopBatchSend(project, batchId), batchRunStateDto),
