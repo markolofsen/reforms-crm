@@ -10,6 +10,7 @@ import { ago } from "@/lib/format";
 import { cn } from "@hub/ui/cn";
 import { notionIdentityLine, notionIndicatorState } from "@/lib/notion";
 import { isClosed, openResults, rowId, type ConversationRow, type ReviewDraft } from "./source";
+import { agentLine } from "@/lib/agent-reasons";
 
 type Status = { Icon: LucideIcon; label: string; tone: string };
 
@@ -96,9 +97,10 @@ export function ListRow({ r, now, open, selecting, selected, onOpen, onToggle }:
           <span className={cn("shrink-0", r.state === "wrote" || r.state === "draft" ? "font-medium text-foreground" : "text-muted-foreground")} data-testid="person-state">{CONVERSATION_STATE_LABELS[r.state]}</span>
           <span className="min-w-0 truncate" data-testid="person-subject">· {r.subject || "(no subject)"}</span>
         </span>
-        {(r.preview || chips.length > 0) && (
+        {(r.agent || r.preview || chips.length > 0) && (
           <span className="flex w-full min-w-0 items-center gap-1.5 text-muted-foreground text-xs">
-            {r.preview && <span className="min-w-0 flex-1 truncate" data-testid="person-preview">{r.preview}</span>}
+            {/* P128 X2: the agent's judgement replaces their words on the third line, so a junk sender is read without Activity. */}
+            {r.agent ? <span className="min-w-0 flex-1 truncate text-foreground" data-testid="person-agent">{agentLine(r.agent)}</span> : r.preview && <span className="min-w-0 flex-1 truncate" data-testid="person-preview">{r.preview}</span>}
             {chips.map((c) => (
               <Badge className="shrink-0" key={c.id} variant={c.variant}>
                 {c.text}

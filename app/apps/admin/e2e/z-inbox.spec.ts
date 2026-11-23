@@ -145,8 +145,11 @@ test("P123 U0: Mail's composer is plain text: no formatting buttons, Markdown ty
   const edit = pane(page).getByRole("button", { name: "Edit", exact: true });
   const editing = await edit.isVisible();
   if (editing) await edit.click();
+  // P128 X1: without a draft the composer rests closed; Write it myself (or Write again) opens it with focus in the body.
+  else await pane(page).getByTestId("write-myself").click();
   const box = pane(page).getByRole("textbox", { name: /^((Reply|New message) composer|Edit the Mail draft)$/ });
   await expect(box).toBeVisible();
+  if (!editing) await expect(box).toBeFocused();
   await expect(box).toHaveJSProperty("tagName", "TEXTAREA");
   await expect(pane(page).getByRole("toolbar")).toHaveCount(0);
   for (const name of ["Bold", "Italic", "Link", "Quote", "Bulleted list"]) await expect(pane(page).getByRole("button", { name, exact: true })).toHaveCount(0);
@@ -167,3 +170,17 @@ test("P128 X0 (F5): the rail's Mail badge is Mail's Needs you count, and says ne
   await expect(mail).toContainText(`${n} need you`);
   await expect(viewMenu(page)).toContainText(String(n));
 });
+
+test("P128 X1: a person with no draft shows one action row and no open composer; Close folds the composer again", async ({ page }) => {
+  await page.goto(at(P, "/mail"));
+  await person(page, "Omar Test").getByRole("button").first().click();
+  const start = pane(page).getByTestId("reply-start");
+  if ((await start.count()) === 0) return; // a full run has given Omar a draft: its card is the composer
+  await expect(pane(page).getByRole("textbox", { name: /composer$/ })).toHaveCount(0);
+  expect(await start.locator('[data-variant="primary"]').count()).toBeLessThanOrEqual(1);
+  await pane(page).getByTestId("write-myself").click();
+  await expect(pane(page).getByRole("textbox", { name: /composer$/ })).toBeFocused();
+  await pane(page).getByRole("button", { name: "Close", exact: true }).click();
+  await expect(pane(page).getByRole("textbox", { name: /composer$/ })).toHaveCount(0);
+});
+

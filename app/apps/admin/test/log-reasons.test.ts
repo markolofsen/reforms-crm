@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { humanise, readReason, REASON_LABELS } from "../src/features/log/labels";
+import { agentLine, humanise, readReason, REASON_LABELS } from "../src/lib/agent-reasons";
 
 describe("activity reasons", () => {
   it("a known code reads as a short phrase; the agent's words stay as the detail and the code stays in the data", () => {
@@ -45,5 +45,14 @@ describe("activity reasons", () => {
       expect(code).toMatch(/^[a-z]+(-[a-z]+)*$/);
       expect(phrase).toMatch(/^[A-Z][^.]{2,30}$/);
     }
+  });
+});
+
+describe("P128 X2: the agent's line on a Mail row", () => {
+  it("says whose judgement it is, in the agent's words or the code's phrase", () => {
+    expect(agentLine({ action: "escalated", reason: "looks like phishing, owner to confirm" })).toBe("Agent: looks like phishing, owner to confirm");
+    expect(agentLine({ action: "skipped", reason: "out-of-office" })).toBe("Agent: no reply needed (Out of office)");
+    expect(agentLine({ action: "skipped", reason: null })).toBe("Agent: no reply needed");
+    expect(agentLine({ action: "escalated", reason: "" })).toBe("Agent: asks you to decide");
   });
 });

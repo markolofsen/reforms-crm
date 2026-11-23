@@ -2,7 +2,7 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronDownIcon } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { composerStateOf } from "@hub/contract/composer";
 import type { MailComposerContextDto } from "@hub/contract/conversations";
 import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "@hub/ui/menu";
@@ -31,7 +31,11 @@ function languageLabel(language: MailComposerContextDto["language"]): string {
   return language === "ru" ? "Russian" : "English";
 }
 
-export function MailManualReply({ composer, project, clientId, hasOpenIncoming, notice, historyNote, extra }: { composer: MailComposerContextDto; project: string; clientId: number; hasOpenIncoming: boolean; notice: Notice | null; historyNote: string | null; extra?: ReactNode }) {
+/**
+ * The owner's own message (P99, P110), opened by "Write it myself" or "Write again" (P128 X1: the composer rests closed), with focus
+ * in the body. It saves one unsent draft and never sends; Close folds it again.
+ */
+export function MailManualReply({ composer, project, clientId, hasOpenIncoming, notice, historyNote, onClose }: { composer: MailComposerContextDto; project: string; clientId: number; hasOpenIncoming: boolean; notice: Notice | null; historyNote: string | null; onClose: () => void }) {
   const qc = useQueryClient();
   const [saved, setSaved] = useState(false);
   const { value, setValue, selected, selectedBrand, chooseBrand, body, language: detectedLanguage, signature: visibleSignature, signatureFallback: visibleSignatureFallback, brandSelectionRequired, pending: pendingSignature, applyPending: applyPendingSignature } = useMailSignature(composer);
@@ -63,7 +67,7 @@ export function MailManualReply({ composer, project, clientId, hasOpenIncoming, 
     create.mutate(text);
   };
   const composerState = composerStateOf({
-    blocked: brandSelectionRequired ? "Choose a brand before writing this message." : signatureUnavailable ? "Configure a signature for the selected brand before saving." : pendingSignature ? "Apply the selected signature before saving." : null,
+    blocked: brandSelectionRequired ? "Choose a brand before saving this message." : signatureUnavailable ? "Configure a signature for the selected brand before saving." : pendingSignature ? "Apply the selected signature before saving." : null,
     body: value,
     error: create.isError ? sentence(create.error) : null,
     unavailable: composer.status === "needs_mail" ? composer.reason : null,
@@ -112,7 +116,7 @@ export function MailManualReply({ composer, project, clientId, hasOpenIncoming, 
             </ConversationContextRow>
             {(brandSelectionRequired || visibleSignatureFallback || pendingSignature || visibleStatus !== "resolved") && (
               <ConversationContextActions data-testid="manual-reply-context-actions" tone="warning">
-                  {brandSelectionRequired && <span data-testid="brand-selection-note" role="status">Choose a brand before writing this message.</span>}
+                  {brandSelectionRequired && <span data-testid="brand-selection-note" role="status">Choose a brand before saving.</span>}
                   {visibleSignatureFallback && <span data-testid="signature-fallback" role="status">No {languageLabel(visibleSignatureFallback)} signature; using English.</span>}
                   {pendingSignature && (
                     <ActionButton disabled={create.isPending} onClick={applyPendingSignature} size="s" variant="secondary">
@@ -128,12 +132,14 @@ export function MailManualReply({ composer, project, clientId, hasOpenIncoming, 
       disabled={create.isPending}
       footer={
         <ConversationComposerFooter feedback={create.isError ? <p className="text-destructive-foreground text-sm" role="alert">{sentence(create.error)}</p> : saved ? <p className="text-muted-foreground text-sm" role="status">Draft saved. It remains unsent.</p> : undefined}>
-          {extra && <div className="me-auto flex min-w-0 flex-wrap items-center gap-2">{extra}</div>}
           <ActionButton disabled={!body || create.isPending || pendingSignature !== null || saveBlocked || (composer.status === "needs_brand" && !selectedBrand)} onClick={submit} size="s" tooltip={{ content: "Save unsent draft", hotkey: "Meta/Ctrl + Enter" }} variant="primary">
             {create.isPending ? "Saving draft" : "Save draft"}
           </ActionButton>
           <ActionButton disabled={!value || create.isPending} onClick={() => changeValue("")} size="s" variant="quiet">
             Clear
+          </ActionButton>
+          <ActionButton disabled={create.isPending} onClick={onClose} size="s" variant="quiet">
+            Close
           </ActionButton>
         </ConversationComposerFooter>
       }
@@ -141,7 +147,8 @@ export function MailManualReply({ composer, project, clientId, hasOpenIncoming, 
       notice={composerNotice}
       onChange={changeValue}
       onSubmit={submit}
-      placeholder={brandSelectionRequired ? "Choose a brand to start…" : hasOpenIncoming ? "Write your reply…" : "Write your message…"}
+      autoFocus
+      placeholder={hasOpenIncoming ? "Write your reply…" : "Write your message…"}
       state={composerState.state}
       testId="manual-reply"
       title={hasOpenIncoming ? "Write a reply" : "Write a new message"}

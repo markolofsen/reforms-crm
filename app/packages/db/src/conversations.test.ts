@@ -84,6 +84,18 @@ describe("P99 the list of people", () => {
     expect(await repos.clients.idByEmail(P, "new@x.example")).toBe(id);
   });
 
+  it("P128 X2: the agent's escalation or skip travels with a Wrote you row, its reason in its words; a draft after it, or a draft open, drops it", async () => {
+    await wrote("phish@x.example", "ph@x", "2026-11-16T00:00:00.000Z", "Access Renewal");
+    await repos.inbox.record({ project: P, email: "phish@x.example", name: "Sender", subject: "Access Renewal", action: "escalated", reason: "looks like phishing, owner to confirm" });
+    await wrote("quiet@x.example", "q@x", "2026-11-16T00:00:00.000Z");
+    const rows = (await repos.conversations.list(P, "needs_you")).rows;
+    expect(rows.find((r) => r.client.email === "phish@x.example")?.agent).toMatchObject({ action: "escalated", reason: "looks like phishing, owner to confirm" });
+    expect(rows.find((r) => r.client.email === "quiet@x.example")?.agent).toBeNull();
+    await tick();
+    await record("phish@x.example", "ph@x", "Access Renewal");
+    expect((await repos.conversations.list(P, "all")).rows.find((r) => r.client.email === "phish@x.example")?.agent).toBeNull();
+  });
+
   it("stateOf: our send after their message is Waiting; theirs after ours is Done (nothing open); nothing at all is Done", () => {
     expect(stateOf({ wrote: false, open: null, theirLastAt: "2026-11-01", ourLastAt: "2026-11-02" })).toBe("waiting");
     expect(stateOf({ wrote: false, open: null, theirLastAt: "2026-11-03", ourLastAt: "2026-11-02" })).toBe("done");

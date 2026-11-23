@@ -3346,7 +3346,7 @@ components:
     ConversationRow:
       type: object
       additionalProperties: false
-      required: [client, notion, state, at, subject, preview, brands, inboundId, draft, theirLastAt, ourLastAt, contact]
+      required: [client, notion, state, at, subject, preview, brands, inboundId, draft, theirLastAt, ourLastAt, contact, agent]
       properties:
         client:
           $ref: '#/components/schemas/ConversationClient'
@@ -3377,6 +3377,22 @@ components:
           type: [string, 'null']
         contact:
           $ref: '#/components/schemas/ContactLinks'
+        agent:
+          oneOf:
+            - $ref: '#/components/schemas/ConversationAgentVerdict'
+            - type: 'null'
+    ConversationAgentVerdict:
+      type: object
+      additionalProperties: false
+      required: [action, reason, at]
+      properties:
+        action:
+          type: string
+          enum: [escalated, skipped]
+        reason:
+          type: [string, 'null']
+        at:
+          type: string
     ContactLinks:
       type: object
       additionalProperties: false

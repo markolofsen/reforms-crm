@@ -41,6 +41,8 @@ export const conversationRowDto = z.strictObject({
   ourLastAt: z.string().nullable(),
   /** P131 O5: the client's Telegram and WhatsApp from their Notion card, for Open in Telegram / Open in WhatsApp. */
   contact: contactLinksDto,
+  /** P128 X2: the agent's judgement of a Wrote you person with no draft (it escalated or skipped their mail), in its words; else null. */
+  agent: z.strictObject({ action: z.enum(["escalated", "skipped"]), reason: z.string().nullable(), at: z.string() }).nullable(),
 });
 export type ConversationRowDto = z.infer<typeof conversationRowDto>;
 

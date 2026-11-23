@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { Db } from "../client";
 import { write } from "../tx";
 import { clients, drafts, inboundMail, inboxRows, sendLog } from "../schema";
@@ -35,6 +35,11 @@ export interface ConversationItem {
   draft: ReviewDraft | null;
   theirLastAt: string | null;
   ourLastAt: string | null;
+  /**
+   * P128 X2: the agent's own judgement of this person, when it escalated or skipped their mail and wrote no draft after it (the
+   * triage row of `inbox_rows`, its `reason` in the agent's words), and only while they wrote and nothing is open. Null otherwise.
+   */
+  agent: { action: "escalated" | "skipped"; reason: string | null; at: string } | null;
 }
 
 export type ConversationCounts = Record<ConversationView, number>;
@@ -77,6 +82,7 @@ export function conversationsRepo(db: Db) {
     const all = db.select().from(drafts).where(eq(drafts.project, project)).all();
     const inbound = db.select({ row: inboundMail, open: sql<number>`(case when ${sql.raw(OPEN_INBOUND)} then 1 else 0 end)` }).from(inboundMail).where(eq(inboundMail.project, project)).all();
     const owed = db.select().from(inboxRows).where(and(eq(inboxRows.project, project), eq(inboxRows.action, "escalated"), eq(inboxRows.repliesOwed, true))).all();
+    const judged = db.select().from(inboxRows).where(and(eq(inboxRows.project, project), inArray(inboxRows.action, ["escalated", "skipped"]), isNull(inboxRows.kind))).all();
     const sends = db.select({ draftId: sendLog.draftId, to: sendLog.toAddr, at: sendLog.doneAt, created: sendLog.createdAt }).from(sendLog).where(and(eq(sendLog.project, project), eq(sendLog.channel, "mail"), eq(sendLog.status, "sent"))).all();
     const openDrafts = all.filter((d) => d.status === "ready" || d.status === "hold");
     const reviewed = new Map(toReviewDrafts(db, project, openDrafts.flatMap((d) => { const c = people.find((p) => p.id === d.clientId); return c ? [{ d, c }] : []; }), now).map((r) => [r.clientId, r]));
@@ -97,6 +103,7 @@ export function conversationsRepo(db: Db) {
       const newest = [theirs[0] ? { at: theirs[0].row.receivedAt, subject: theirs[0].row.subject } : null, mine[0] ? { at: mine[0].updatedAt, subject: mine[0].subject } : null, escalated ? { at: escalated.lastInboundAt ?? escalated.recordedAt, subject: escalated.subject ?? "" } : null]
         .filter((x): x is { at: string; subject: string } => x !== null)
         .sort((a, b) => b.at.localeCompare(a.at))[0];
+      const verdict = state === "wrote" && !draft ? (judged.find((r) => r.email === c.email && !mine.some((d) => d.createdAt > r.recordedAt)) ?? null) : null;
       const preview = draft && state !== "wrote" ? draft.body.replace(/\s+/g, " ").trim().slice(0, 120) : (openIn ?? theirs[0]?.row)?.preview ?? "";
       return {
         client: { id: c.id, name: c.name, email: c.email },
@@ -109,6 +116,7 @@ export function conversationsRepo(db: Db) {
         draft,
         theirLastAt,
         ourLastAt,
+        agent: verdict && (verdict.action === "escalated" || verdict.action === "skipped") ? { action: verdict.action, reason: verdict.reason, at: verdict.recordedAt } : null,
       };
     });
   };

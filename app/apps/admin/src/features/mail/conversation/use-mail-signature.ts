@@ -28,6 +28,10 @@ function replaceSignature(value: string, previous: readonly string[], next: read
 
 const sameLines = (a: readonly string[], b: readonly string[]) => a.join("\n") === b.join("\n");
 
+/** P128 X1: a placeholder signature line ("[Owner: signature for unknown brand]") never goes into the body; the context line says it is missing. */
+const PLACEHOLDER = /^\[Owner: signature for [^\]]*\]$/i;
+const real = (lines: readonly string[]): readonly string[] => lines.filter((line) => !PLACEHOLDER.test(line.trim()));
+
 /**
  * The text of a manual Mail message and the signature it carries (P110). The brand is the one the conversation resolved, else
  * the owner's pick, else the project's only brand. The signature follows the brand and the language of what he wrote; while
@@ -36,18 +40,19 @@ const sameLines = (a: readonly string[], b: readonly string[]) => a.join("\n") =
  * copies state.
  */
 export function useMailSignature(composer: MailComposerContextDto) {
-  const [value, setValue] = useState(() => composer.signatureLines.join("\n"));
+  const [value, setValue] = useState(() => real(composer.signatureLines).join("\n"));
   // The signature lines the text holds now.
-  const [applied, setApplied] = useState<readonly string[]>(composer.signatureLines);
+  const [applied, setApplied] = useState<readonly string[]>(() => real(composer.signatureLines));
   const [pickedBrand, setPickedBrand] = useState<string | null>(null);
   // A new composer context (another brand resolved, the project's signature edited) re-signs the text in this render.
   const contextKey = composer.signatureLines.join("\n");
   const [seenContextKey, setSeenContextKey] = useState(contextKey);
   if (seenContextKey !== contextKey) {
     setSeenContextKey(contextKey);
-    if (!sameLines(applied, composer.signatureLines)) {
-      setValue((previous) => replaceSignature(previous, applied, composer.signatureLines));
-      setApplied(composer.signatureLines);
+    const next = real(composer.signatureLines);
+    if (!sameLines(applied, next)) {
+      setValue((previous) => replaceSignature(previous, applied, next));
+      setApplied(next);
     }
   }
   const known = (name: string | null): name is string => name !== null && composer.brands.some((brand) => brand.name === name);
@@ -59,13 +64,13 @@ export function useMailSignature(composer: MailComposerContextDto) {
   const signature = signatureOf(selected, language);
   const signatureFallback = selected?.signatureFallbackByLanguage[language] ?? composer.signatureFallbackByLanguage[language] ?? composer.signatureFallback;
   const brandSelectionRequired = composer.status === "needs_brand" && selected === null;
-  const pending: PendingSignature | null = !body || brandSelectionRequired || sameLines(signature, applied) ? null : { brand: selected?.name ?? composer.brand ?? "selected brand", language, signatureFallback, signatureLines: signature };
+  const pending: PendingSignature | null = !body || brandSelectionRequired || sameLines(real(signature), applied) ? null : { brand: selected?.name ?? composer.brand ?? "selected brand", language, signatureFallback, signatureLines: real(signature) };
   const chooseBrand = (name: string) => {
     const option = composer.brands.find((brand) => brand.name === name);
     if (!option) return;
     setPickedBrand(option.name);
     if (body) return;
-    const next = signatureOf(option, language);
+    const next = real(signatureOf(option, language));
     setValue(replaceSignature(value, applied, next));
     setApplied(next);
   };
