@@ -2,8 +2,8 @@ import { OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
 import type { LogEvent } from "@hub/log/event";
 
 // The owner's word that lets the agent send one messenger draft (decision 0046, P132 B1-2). Pure: the server reads the project's
-// session log (P54) and calls this; the tool's caller never hands in words or a session id as proof (`@rules/approval-and-
-// capabilities.md` rule 9). The word is an owner `prompt` that tells it to send, written after the draft's last change, the newest
+// session log (P54) and calls this; the tool's caller never hands in words or a session id as proof
+// (`@rules/approval-and-capabilities.md` rule 9). The word is an owner `prompt` that tells it to send, written after the draft's last change, the newest
 // prompt of its session, at most `OWNER_WORD_MAX_AGE_HOURS` old, not negated, not yet used, and naming the chat unambiguously.
 
 export type OwnerWordRefusalCode = "no_owner_word" | "word_before_draft" | "word_superseded" | "word_used" | "other_chat" | "chat_unclear";
