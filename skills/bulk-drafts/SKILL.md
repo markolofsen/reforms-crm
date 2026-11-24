@@ -21,7 +21,7 @@ and the run as one session in Activity.
 3. **The brief.** His phrase gives purpose and tone; it is never a body: do not paste, fill in or lightly edit it. His words,
    verbatim, are `owner_request` on every `draft_write` of the run (the hub finds them in the session log). One `batchKey`
    (`bulk-<date>-<time>-<3 random chars>`) and one `batchTitle` (a short English campaign name, at most 60 characters) in the
-   `context` of every record: the run is one batch in Mail (View menu, Batches) and one session in Activity. Every client then
+   `context` of every record: the run is one batch in Mail (a line on top of Needs you while its drafts wait) and one session in Activity. Every client then
    goes through `skills/triage-mail/references/per-client.md` P1 to P7 in full, with the brief as the purpose: profile read,
    history (newest 3 both directions plus the message answered), facts (`knowledge_search` in that client's words, then a
    placeholder; `skills/triage-mail/references/kb-gaps.md`), a body with an anchor only that client has. No body before P1 to
