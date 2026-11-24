@@ -79,7 +79,8 @@ flowchart TD
 
 ## Code
 
-`packages/diagram` (`./map` the check, the outline and the Notion copy; `./render` the browser renderer, also Help's scheme),
+`packages/diagram` (`./map` the check, the sources, the diff, the outline and the Notion copy; `./map-status` the counts, the stuck
+nodes and the next step; `./render` the browser renderer, also Help's scheme),
 `packages/db/src/repos/client-maps.ts`, `packages/agent/src/mcp/tools/client-map.ts`, `apps/server/src/mail/client-map-routes.ts`
 (`GET /api/projects/:slug/clients/:id/map`, `GET /api/projects/:slug/client-maps/stuck`),
 `apps/admin/src/components/conversation/client-map*.tsx`, `apps/admin/src/features/overview/stuck.tsx`,
