@@ -146,12 +146,14 @@ describe("the server boundary (decision 0015 section 4 and 5)", () => {
     const files = [...appFiles, ...[...walk(ui)].filter((p) => /\.tsx?$/.test(p))];
     expect(files.filter((p) => /dangerouslySetInnerHTML/.test(code(p))).map((p) => path.relative(admin, p))).toEqual([]);
   });
-  // P63 O2, decision 0035: the one exception. Mermaid's SVG is parsed and adopted in one file, loaded there by `import()` only.
-  it("mermaid is imported only by features/help/scheme-svg.tsx, only through import(), and it is the one file that inserts parsed markup", () => {
-    expect(offenders(appFiles, /from ["']mermaid["']|require\(["']mermaid["']\)/)).toEqual([]);
-    expect(offenders(appFiles, /import\(["']mermaid["']\)/)).toEqual(["features/help/scheme-svg.tsx"]);
-    expect(offenders(appFiles, /\.replaceChildren\(|DOMParser|insertAdjacentHTML|\.innerHTML\s*=|\.outerHTML\s*=/)).toEqual(["features/help/scheme-svg.tsx"]);
-    const one = code(path.join(src, "features/help/scheme-svg.tsx"));
+  // P63 O2, decision 0035; P135 verdict 7: the one exception. Mermaid's SVG is parsed and adopted in one module of `@hub/diagram`,
+  // loaded there by `import()` only; the admin imports no `mermaid` and inserts no parsed markup itself.
+  it("mermaid is imported only by @hub/diagram/render, only through import(), and it is the one module that inserts parsed markup", () => {
+    expect(offenders(appFiles, /from ["']mermaid["']|require\(["']mermaid["']\)|import\(["']mermaid["']\)/)).toEqual([]);
+    expect(offenders(appFiles, /\.replaceChildren\(|DOMParser|insertAdjacentHTML|\.innerHTML\s*=|\.outerHTML\s*=/)).toEqual([]);
+    const one = code(path.join(repo, "app/packages/diagram/src/render.ts"));
+    expect(one).toContain('await import("mermaid")');
+    expect(one).not.toMatch(/from ["']mermaid["']/);
     expect(one).toContain('securityLevel: "strict"');
     expect(one).toContain('"image/svg+xml"');
     expect(one).not.toMatch(/innerHTML|insertAdjacentHTML|text\/html/);

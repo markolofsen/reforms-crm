@@ -6,7 +6,7 @@ Scope: the admin's layers and config. Why: decision 0015; history: decision 0047
 
 1. MUST: one owner per concern: a route name and path, a storage key, a query key, a status vocabulary or a label map has one definition, and every other file imports it.
 2. MUST: the admin's layers are `app/`, `routes/` (no React), `lib/`, `hooks/`, `components/` (app-level UI; `app-link.tsx` the one link, `local-action.tsx` the one Open) and `features/<job>/`. Imports go downward only and no feature imports another's internals. `@hub/ui` is below all of them: it imports no app, no other `@hub/*`, no `next/*` and no `@/`.
-3. MUST: the admin is a client of the Hono API only: it calls `/api` on its own origin, imports no Node-only `@hub/*` package and no `@hub/server` value, and has no Server Action. No `dangerouslySetInnerHTML`; the one parsed-markup exception is `features/help/scheme-svg.tsx` (decision 0035).
+3. MUST: the admin is a client of the Hono API only: it calls `/api` on its own origin, imports no Node-only `@hub/*` package and no `@hub/server` value, and has no Server Action. No `dangerouslySetInnerHTML`; the one parsed-markup exception is `@hub/diagram/render` (decision 0035, P135: Help's scheme and the client map draw through it, and no admin file imports `mermaid` or adopts markup).
 3a. MUST: an operation in the `@hub/api` OpenAPI document is called through its generated function inside `lib/api/*`; no admin module writes an `/api/` path (streams and files use `URL_HELPERS` of `@hub/api/ledger`).
 3b. MUST: a package exposes one subject through exact public subpaths; no compatibility barrel: a split moves its callers and deletes the old path in the same change.
 3c. MUST: dependencies run one way: contract and config → domain packages → protocol adapters → server composition → API facades → features. A server route module gets its domain's context (`<domain>/context.ts`) and builds no adapter or send capability.
@@ -33,7 +33,7 @@ Scope: the admin's layers and config. Why: decision 0015; history: decision 0047
 |---|---|
 | 1, 4, 10 | review |
 | 2 | eslint `no-restricted-imports`; `test/route-files.test.ts`; `packages/ui/test/ui.test.ts` and its eslint |
-| 3 | eslint `no-restricted-imports` and `no-restricted-syntax`; rules test "no dangerouslySetInnerHTML" and "mermaid is imported only by features/help/scheme-svg.tsx"; `e2e/y-help.spec.ts` |
+| 3 | eslint `no-restricted-imports` and `no-restricted-syntax`; rules test "no dangerouslySetInnerHTML" and "mermaid is imported only by @hub/diagram/render"; `app/test/boundaries.test.ts`; `e2e/y-help.spec.ts`, `e2e/z-client-map.spec.ts` |
 | 3a | `test/api-client.test.ts`; `generated-api-clients.md` |
 | 3b-3c, 19 | `app/test/boundaries.test.ts` |
 | 5 | rules test "one alias source" |

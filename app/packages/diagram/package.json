@@ -1,0 +1,25 @@
+{
+  "name": "@hub/diagram",
+  "private": true,
+  "description": "P135: the Hub's one Mermaid entry. ./map checks a client map (a strict subset of Mermaid's flowchart, pure, Node and browser) and builds its Notion copy; ./render draws Mermaid text in the browser into a cleaned SVG (Help's scheme, the client map).",
+  "type": "module",
+  "exports": {
+    "./map": "./src/map.ts",
+    "./render": "./src/render.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "mermaid": "12.3.0"
+  },
+  "devDependencies": {
+    "@hub/config": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -48,6 +48,9 @@ describe("the P113 matrix: who may import whom", () => {
   it("@hub/ui imports no Hub package and no next/*", () => {
     expect(breaking(sources("packages/ui/src"), /^(@hub\/|next(\/|$))/)).toEqual([]);
   });
+  it("@hub/diagram (P135) imports no Hub package: the map check is pure, the renderer browser-only", () => {
+    expect(breaking(sources("packages/diagram/src"), /^(@hub\/|next(\/|$)|react(\/|$)|node:)/)).toEqual([]);
+  });
   it("@hub/mail-app is an adapter: it imports @hub/config, @hub/log and @hub/db only", () => {
     expect(breaking(sources("packages/mail-app/src"), /^@hub\//, /^@hub\/(config|log|db)(\/|$)/)).toEqual([]);
   });
