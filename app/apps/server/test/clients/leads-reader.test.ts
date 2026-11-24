@@ -128,6 +128,20 @@ describe("P138 E1: the row's facts and the card's form, read, and notes", () => 
     ]);
     expect(body.row.facts).toMatchObject({ country: "United Arab Emirates" });
   });
+
+  it("GET /leads/:id answers no message when the Message only lists the sites, and a real message whole", async () => {
+    projectFolder();
+    const sites = "alqaryahauction.com, copartmea.com, dubicars.com, uae.yallamotor.com, dubizzle.com";
+    const said = "We need listings from dubicars.com every day.";
+    const leads = reader(fakeNotion([page("a".repeat(32), { message: sites }), page("b".repeat(32), { email: "b@x.test", message: said })]));
+    await leads.read();
+    const app = testApp(repos, { leads });
+    const card = async (id: string) => (await (await app.request(`/api/projects/p/leads/${id}`)).json()) as { lead: { message: string; sheet: { sites: Array<{ name: string }> } } };
+    const listed = await card("a".repeat(32));
+    expect(listed.lead.message).toBe("");
+    expect(listed.lead.sheet.sites).toHaveLength(5);
+    expect((await card("b".repeat(32))).lead.message).toBe(said);
+  });
 });
 
 describe("the Leads reader and the Inbox's Leads group", () => {

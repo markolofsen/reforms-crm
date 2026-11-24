@@ -116,6 +116,21 @@ export function domainsIn(text: string): string[] {
   return out;
 }
 
+const siteKey = (v: string): string => v.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/[/.,;:!?]+$/, "");
+
+/**
+ * True when a message is only the list of sites the card already shows as chips (the carapis form puts its sites list in Message):
+ * every piece of it, split on commas, semicolons, new lines, ` and `, ` & ` (and whitespace within a piece), is one of `sites`. Then the card shows the
+ * chips once and no message; any other word keeps the message whole. Pure.
+ */
+export function messageIsSitesList(message: string, sites: readonly { name: string }[]): boolean {
+  const known = new Set(sites.map((s) => siteKey(s.name)).filter(Boolean));
+  if (known.size === 0) return false;
+  const pieces = message.split(/[,;\n]+|\s+(?:and|&)\s+/i).map((p) => p.trim()).filter(Boolean);
+  if (pieces.length === 0) return false;
+  return pieces.every((p) => known.has(siteKey(p)) || p.split(/\s+/).every((w) => known.has(siteKey(w))));
+}
+
 /** The form of one lead: its Details lines sorted into what they want, the channel, the sites and the technical lines. */
 export function leadFormOf(l: { details: string; company?: string | null; message?: string; form?: string | null; pageUrl?: string | null }): LeadForm {
   const fields: LeadFormField[] = [];

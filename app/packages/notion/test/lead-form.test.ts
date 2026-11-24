@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addressTypo } from "../src/address-typo";
-import { channelOf, countryName, detailLines, domainsIn, hostOf, leadFactsOf, leadFormOf } from "../src/lead-form";
+import { channelOf, countryName, detailLines, domainsIn, hostOf, leadFactsOf, leadFormOf, messageIsSitesList } from "../src/lead-form";
 import { parseLeadDetail } from "../src/leads";
 import type { PageObject } from "../src/types";
 
@@ -70,6 +70,26 @@ describe("a lead's form (P138 E1)", () => {
     expect(l.read).toBe("Dealer in the UAE: offer the Pro trial");
     expect(l.sheet.channel?.kind).toBe("whatsapp");
     expect(parseLeadDetail({ ...page, properties: { Name: page.properties.Name! } }).read).toBeNull();
+  });
+});
+
+describe("a message that only lists the sites (the card shows them once)", () => {
+  it("is the sites list when its text is just the chips, separators and whitespace aside", () => {
+    const message = "alqaryahauction.com, copartmea.com, dubicars.com,\n uae.yallamotor.com, dubizzle.com";
+    const f = leadFormOf({ details: "", message });
+    expect(f.sites.map((s) => s.name)).toEqual(["alqaryahauction.com", "copartmea.com", "dubicars.com", "uae.yallamotor.com", "dubizzle.com"]);
+    expect(messageIsSitesList(message, f.sites)).toBe(true);
+    expect(messageIsSitesList("autoscout24_de; mobile_de", leadFormOf({ details: "Wanted sources: autoscout24_de, mobile_de" }).sites)).toBe(true);
+    expect(messageIsSitesList("https://www.mobile.de/ and autoscout24.com.", [{ name: "mobile.de" }, { name: "autoscout24.com" }])).toBe(true);
+  });
+  it("is a real message when any other word is in it", () => {
+    const message = "We need listings from mobile.de and autoscout24.com every day.";
+    const f = leadFormOf({ details: "", message });
+    expect(f.sites.map((s) => s.name)).toEqual(["mobile.de", "autoscout24.com"]);
+    expect(messageIsSitesList(message, f.sites)).toBe(false);
+    expect(messageIsSitesList("mobile.de, copart.com", [{ name: "mobile.de" }])).toBe(false);
+    expect(messageIsSitesList("", [{ name: "mobile.de" }])).toBe(false);
+    expect(messageIsSitesList("mobile.de", [])).toBe(false);
   });
 });
 

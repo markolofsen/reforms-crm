@@ -7,6 +7,7 @@ import { LEADS_OFF, projectLeadsOf } from "../clients/leads-reader";
 import type { MailContext } from "./context";
 import { leadDto, answerCard, rowDto } from "./inbound-view";
 import { leadNotes } from "./lead-notes";
+import { messageIsSitesList } from "@hub/notion";
 
 /** How the card reads a message's text from Mail (P96 verdict 6): null with the reason when Mail cannot show it. */
 
@@ -122,7 +123,8 @@ export function inboundRoutes({ repos, projects, reader, readText, leads }: Mail
       return c.json(
         leadDetailDto.parse({
           row: { ...leadDto(row), open: row.open, notionStatus: row.notionStatus, dismissedAt: row.dismissedAt, dismissedReason: row.dismissedReason ?? null, convertedAt: row.convertedAt, clientPageId: row.clientPageId, convertNote: row.convertNote },
-          lead: l ? { company: l.company, message: l.message, form: l.form, sheet: l.sheet, read: l.read, pageUrl: l.pageUrl, phone: l.phone, brands: l.brands, otherContact: l.otherContact } : null,
+          // A Message that only lists the sites is the chips again (the carapis form writes them there): the card shows them once.
+          lead: l ? { company: l.company, message: messageIsSitesList(l.message, l.sheet.sites) ? "" : l.message, form: l.form, sheet: l.sheet, read: l.read, pageUrl: l.pageUrl, phone: l.phone, brands: l.brands, otherContact: l.otherContact } : null,
           note: "note" in read ? read.note : null,
           // P138 verdict 4: the checks before a reply, from the Hub's record (the typo, a client match, the forms of this address).
           notes: await leadNotes(repos, slug, row, l?.sheet ?? null),
