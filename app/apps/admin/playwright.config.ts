@@ -44,7 +44,7 @@ export default defineConfig({
     { name: "w768", use: { viewport: { width: 768, height: 1024 } }, testMatch: /(a-layout|c-console)/, dependencies: ["guards"] },
     { name: "w360", use: { viewport: { width: 360, height: 740 }, hasTouch: true }, testMatch: /(a-layout|c-console)/, dependencies: ["guards"] },
     // P50: the live flow stops and restarts its stack's API, so it waits for every other project.
-    { name: "live", use: AT_1280, testMatch: /zz-live/, dependencies: ["flows", "w768", "w360"] },
+    { name: "live", use: AT_1280, testMatch: /zz-(live|log-privacy)/, dependencies: ["flows", "w768", "w360"] },
   ],
   use: {
     baseURL: `http://127.0.0.1:${mine.uiPort}`,
