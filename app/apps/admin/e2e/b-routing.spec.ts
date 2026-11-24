@@ -264,7 +264,7 @@ test("the list header says where he is: Needs you · <n> on Mail, Messengers · 
   await expect(listTitle(page)).toHaveText(/^Needs you · \d+$/);
   await expect(page.getByRole("button", { name: /^View:/ })).toHaveCount(0);
   await page.goto(at(P, "/messengers"));
-  await expect(page.getByRole("button", { name: /^View: Messengers · Needs you/ })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^View: Needs you/ })).toBeVisible();
   // "Live" is not said while it is true (only its loss is).
   await expect(page.getByTestId("live-state")).toHaveCount(0);
 });

@@ -63,7 +63,7 @@ test("P138 verdicts 1-3, 8: the form is the card: what they want in body size, t
   const want = card.getByTestId("lead-want");
   await expect(want.getByRole("heading", { name: "What they want" })).toBeVisible();
   await expect(want.getByTestId("lead-field")).toHaveText([/Company\s*Harbor Bikes/, /Website\s*harbor-bikes\.test/, /Country\s*United Arab Emirates/, /Segment\s*Dealer/, /Expected volume\s*Under 10k\/month/, /Fleet size\s*40/, /Contact channel\s*WhatsApp \+971 50 123 4567/]);
-  await expect(want.getByRole("link", { name: /harbor-bikes\.test/ })).toHaveAttribute("href", "https://harbor-bikes.test");
+  await expect(want.getByRole("link", { name: /harbor-bikes\.test/ })).toHaveAttribute("href", /^https:\/\/harbor-bikes\.test\/?$/);
   await expect(want.getByRole("list", { name: "Sites they named" }).getByRole("link")).toHaveText([/mobile\.de/, /autoscout24\.com/]);
   await expect(want.getByTestId("lead-text")).toHaveText("We want listings from mobile.de and autoscout24.com.");
   // No disclosure anywhere: the technical lines are on screen, after the form.
@@ -72,7 +72,7 @@ test("P138 verdicts 1-3, 8: the form is the card: what they want in body size, t
   const order = await card.evaluate((el) => [...el.querySelectorAll("[data-testid]")].map((n) => n.getAttribute("data-testid")));
   expect(order.indexOf("lead-want")).toBeLessThan(order.indexOf("lead-technical"));
   // Verdict 8: the values are body size; the technical lines are smaller.
-  const size = (testId: string) => card.getByTestId(testId).first().evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  const size = (testId: string) => card.getByTestId(testId).locator("dd").first().evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
   expect(await size("lead-field")).toBeGreaterThan(await size("lead-technical"));
 });
 
