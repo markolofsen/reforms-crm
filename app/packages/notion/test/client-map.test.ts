@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMapWriter, MAP_DATE_FIELD, MAP_HEADING, richTextChunks, writeClientMap, type MapBlock, type MapWriter } from "../src/client-map";
+import { createMapWriter, MAP_DATE_FIELD, MAP_HEADING, NEXT_STEP_FIELD, richTextChunks, writeClientMap, type MapBlock, type MapWriter } from "../src/client-map";
 import type { NotionReader, PageObject, PropertyConfig } from "../src/types";
 
 // P135 K5: the client map's Notion copy. The Hub's section (a "Client map" heading and one mermaid code block) is edited in place,
@@ -15,7 +15,7 @@ function reader(props: Record<string, PropertyConfig>, pages: PageObject[]): Not
 }
 function writer(blocks: MapBlock[]): MapWriter & { calls: unknown[][] } {
   const calls: unknown[][] = [];
-  return { calls, blocks: async () => blocks, updateCode: async (...a) => void calls.push(["update", ...a]), append: async (...a) => void calls.push(["append", ...a]), setDate: async (...a) => void calls.push(["date", ...a]) };
+  return { calls, blocks: async () => blocks, updateCode: async (...a) => void calls.push(["update", ...a]), append: async (...a) => void calls.push(["append", ...a]), setDate: async (...a) => void calls.push(["date", ...a]), setNextStep: async (...a) => void calls.push(["next", ...a]) };
 }
 const DATE = { [MAP_DATE_FIELD]: { type: "date" } };
 const AT = "2026-11-24T10:00:00.000Z";
@@ -25,7 +25,7 @@ describe("writeClientMap", () => {
   it("edits the Hub's code block in place and sets Map updated", async () => {
     const w = writer([NOTES, { id: "h1", type: "heading_2", text: MAP_HEADING }, { id: "c1", type: "code", text: "old", language: "mermaid" }]);
     const r = await writeClientMap({ reader: reader(DATE, [page("p1", "ann@x.example")]), writer: w }, { clientsDataSource: "ds", email: "ann@x.example", text: "flowchart TD", at: AT });
-    expect(r).toEqual({ state: "synced", pageId: "p1", block: "updated" });
+    expect(r).toEqual({ state: "synced", pageId: "p1", block: "updated", nextStep: "no_field" });
     expect(w.calls).toEqual([["update", "c1", "flowchart TD"], ["date", "p1", AT]]);
   });
   it("appends the section when the page has none, the code alone after a lone heading; no date without the property", async () => {
@@ -35,6 +35,19 @@ describe("writeClientMap", () => {
     const lone = writer([{ id: "h1", type: "heading_2", text: MAP_HEADING }, NOTES]);
     await writeClientMap({ reader: reader(DATE, [page("p1", "ann@x.example")]), writer: lone }, { clientsDataSource: "ds", email: "ann@x.example", text: "m", at: AT });
     expect(lone.calls).toEqual([["append", "p1", "m", "h1"], ["date", "p1", AT]]);
+  });
+  it("sets Next step from the map when the database has it as text, and leaves it when the map has nothing open (P136)", async () => {
+    const props = { ...DATE, [NEXT_STEP_FIELD]: { type: "rich_text" } };
+    const w = writer([]);
+    const r = await writeClientMap({ reader: reader(props, [page("p1", "ann@x.example")]), writer: w }, { clientsDataSource: "ds", email: "ann@x.example", text: "m", at: AT, nextStep: "Sign by 2026-11-30" });
+    expect(r).toMatchObject({ nextStep: "set" });
+    expect(w.calls).toContainEqual(["next", "p1", "Sign by 2026-11-30"]);
+    const idle = writer([]);
+    expect(await writeClientMap({ reader: reader(props, [page("p1", "ann@x.example")]), writer: idle }, { clientsDataSource: "ds", email: "ann@x.example", text: "m", at: AT, nextStep: null })).toMatchObject({ nextStep: "none" });
+    expect(idle.calls.some((c) => c[0] === "next")).toBe(false);
+    const dated = writer([]);
+    await writeClientMap({ reader: reader({ [NEXT_STEP_FIELD]: { type: "date" } }, [page("p1", "ann@x.example")]), writer: dated }, { clientsDataSource: "ds", email: "ann@x.example", text: "m", at: AT, nextStep: "Call" });
+    expect(dated.calls.some((c) => c[0] === "next")).toBe(false);
   });
   it("writes nothing for an address that is no client", async () => {
     const w = writer([]);

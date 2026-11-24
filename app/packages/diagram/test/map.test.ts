@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkClientMap, diffMaps, MAP_LIMITS, mapCounts, mapOutline, notionMapSource, parseSourceRef, stuckNodes, whyNeeded } from "../src/map";
+import { checkClientMap, diffMaps, MAP_LIMITS, mapCounts, mapOutline, nextStepOf, notionMapSource, parseSourceRef, stuckNodes, whyNeeded } from "../src/map";
 
 // P135 verdicts 5 and 6: the server's check of a client map (a strict subset of Mermaid's flowchart plus the shape rules).
 const GOOD = `flowchart TD
@@ -113,6 +113,18 @@ describe("checkClientMap", () => {
     expect(checkClientMap(goals, { sources: "optional" })).toMatchObject({ ok: false, error: expect.stringContaining("open goals") });
     const done = `${goals}\n  class g6 done`;
     expect(checkClientMap(done, { sources: "optional" }).ok).toBe(true);
+  });
+  it("the next step is the open leaf with the nearest date, else the first open leaf, else the first waiting one (P136 verdict 5)", () => {
+    const g = (src: string) => {
+      const r = checkClientMap(src, { sources: "optional" });
+      if (!r.ok) throw new Error(r.error);
+      return r;
+    };
+    expect(nextStepOf(g(GOOD))).toBe("Import service (Pro plan)");
+    const dated = "flowchart TD\n  c[C] --> p1[Goal]\n  p1 --> a[Call them]:::open\n  p1 --> b[Visit on 2026-12-03]:::open\n  p1 --> d[Sign by 2026-11-30]:::open\n";
+    expect(nextStepOf(g(dated))).toBe("Sign by 2026-11-30");
+    expect(nextStepOf(g("flowchart TD\n  c[C] --> p1[Goal]\n  p1 --> a[Bank answer awaited]:::waiting\n  p1 --> b[Done]:::done\n"))).toBe("Bank answer awaited");
+    expect(nextStepOf(g("flowchart TD\n  c[C] --> p1[Goal]:::done\n"))).toBeNull();
   });
   it("the Notion copy drops the source lines and adds one classDef per state", () => {
     const n = notionMapSource(GOOD);

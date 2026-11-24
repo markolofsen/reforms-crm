@@ -379,3 +379,25 @@ export function stuckNodes(versions: ReadonlyArray<{ source: string; at: string 
   }
   return out;
 }
+
+const ISO_DAY = /\b(\d{4}-\d{2}-\d{2})\b/;
+
+/**
+ * P136 verdict 5: the client's next step as the map says it, for the Notion profile's `Next step`: the open leaf whose label holds
+ * the nearest (earliest) ISO date, else the first open leaf in outline order, else the first waiting one; null when nothing is
+ * open. Pure.
+ */
+export function nextStepOf(g: MapGraph): string | null {
+  const parents = new Set(g.edges.map((e) => e.from));
+  const byLabel = new Map(g.nodes.map((n) => [n.id, n]));
+  const order = mapOutline(g).map((l) => l.label);
+  const leaves = g.nodes.filter((n) => n.id !== g.root && !parents.has(n.id) && byLabel.has(n.id));
+  const inOrder = (list: MapNode[]) => [...list].sort((a, b) => order.indexOf(a.label) - order.indexOf(b.label));
+  const open = inOrder(leaves.filter((n) => n.cls === "open"));
+  const dated = open.flatMap((n) => {
+    const d = ISO_DAY.exec(n.label)?.[1];
+    return d ? [{ n, d }] : [];
+  });
+  dated.sort((a, b) => a.d.localeCompare(b.d));
+  return dated[0]?.n.label ?? open[0]?.label ?? inOrder(leaves.filter((n) => n.cls === "waiting"))[0]?.label ?? null;
+}

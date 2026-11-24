@@ -184,7 +184,7 @@
   },
   "Next step": {
    "type": "text",
-   "writer": "read back"
+   "writer": "Hub"
   },
   "Conversation summary": {
    "type": "text",

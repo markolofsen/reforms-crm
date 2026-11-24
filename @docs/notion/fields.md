@@ -81,7 +81,7 @@ Pack file: `schema/clients.json`.
 | Do not contact | checkbox | CRM |  |
 | Do not follow up | checkbox | people |  |
 | Do not follow up reason | text | people |  |
-| Next step | text | read back |  |
+| Next step | text | Hub |  |
 | Conversation summary | text | Hub |  |
 | Synthetic | checkbox | people |  |
 | Owner note | text | read back | Flags: vertical. |

@@ -3,7 +3,7 @@ import { hubPaths, instanceFeatures, instancePorts } from "@hub/config/paths";
 import { bumpTopicIn, createRepos, openDb, openDbReadOnly } from "@hub/db";
 import { createNotionReader, findClientByEmail, findLeadByEmail, loadToken, NoTokenError, secretsDir } from "@hub/notion";
 import { join } from "node:path";
-import { notionMapSource } from "@hub/diagram/map";
+import { checkClientMap, nextStepOf, notionMapSource } from "@hub/diagram/map";
 import { syncClientMap } from "@hub/notion/client-map";
 import { projectStore } from "@hub/projects/store";
 import { readAllowList, testRecipientsOf } from "@hub/projects/guard";
@@ -101,7 +101,11 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
     return ownerWordsFound({ events: readEvents(logStoreOf(paths), { project: slug, kinds: ["prompt"], since }), words, now }).ok;
   };
   // P135 K5: a new client map goes to the client's Notion page (its own section and "Map updated"), with the states' classDefs.
-  const syncMap = (slug: string, m: { email: string; source: string; at: string }) => syncClientMap({ projectsDir: paths.projects, secretsDir: paths.secrets }, { project: slug, email: m.email, text: notionMapSource(m.source), at: m.at });
+  // P136 verdict 5: the profile's Next step comes from the same map (its open leaf with the nearest date, else the first one).
+  const syncMap = (slug: string, m: { email: string; source: string; at: string }) => {
+    const g = checkClientMap(m.source, { sources: "optional" });
+    return syncClientMap({ projectsDir: paths.projects, secretsDir: paths.secrets }, { project: slug, email: m.email, text: notionMapSource(m.source), at: m.at, nextStep: g.ok ? nextStepOf(g) : null });
+  };
   const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, chatSort, records, ownerWords, clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
