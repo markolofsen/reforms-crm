@@ -176,7 +176,11 @@ export function startClientDirectory(o: StartDirectory): ClientDirectory {
     cardReadAt.set(pageId, t);
     try {
       const { writer } = await notion();
-      const e = entryOf((await writer.retrievePage(pageId)) as { id: string; properties: Record<string, Prop> });
+      const page = (await writer.retrievePage(pageId)) as { id: string; properties: Record<string, Prop>; parent?: { data_source_id?: unknown }; in_trash?: unknown; archived?: unknown };
+      // Only a live card of this project's Clients data source (a page id the agent passes may be any page the token reads).
+      const parent = page.parent?.data_source_id;
+      if ((typeof parent === "string" && parent.replace(/-/g, "") !== o.dataSourceId.replace(/-/g, "")) || page.in_trash === true || page.archived === true) return;
+      const e = entryOf(page);
       if (!e) return;
       put(e);
       await o.onRead?.([e]);

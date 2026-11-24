@@ -2,7 +2,7 @@ import { AUTOPILOT_VERDICTS, type AutopilotVerdict } from "@hub/config/autopilot
 
 // The `stream-json --verbose` output of one autopilot turn (Claude Code 2.1.220, A0), read line by line. Pure, so a test feeds it
 // recorded lines. What the brain needs from it:
-// - the `init` event: the `hub` server's status and the tools the turn really has (rule 4: exactly the five, else no turn);
+// - the `init` event: the `hub` server's status and the tools the turn really has (rule 4: exactly the six, else no turn);
 // - each `messenger_draft_write` call (the `tool_use` block's input: the text and the verdict) and its answer (the `tool_result`:
 //   the draft id, or a refusal), so the draft a send goes out on is the one this turn wrote, never a row read back;
 // - the `result` event: `is_error` (rule 5: never `subtype`), the notional cost and the permission denials.

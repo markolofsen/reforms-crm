@@ -60,7 +60,7 @@ export const AUTOPILOT_SKILL = "autopilot-reply";
 export const AUTOPILOT_CHAT_ENV = "HUB_AUTOPILOT_CHAT";
 /**
  * The hub MCP tools of a turn, and nothing else (verdict 28 as built): read the chat, the client's card (it carries the map),
- * the project's knowledge, and write one draft. `client_map` is left out: it writes the map and its Notion copy, and verdict 20
+ * the project's knowledge, and write one draft, or (P143 D3) close the chat as no reply needed. `client_map` is left out: it writes the map and its Notion copy, and verdict 20
  * keeps the map read-only for autopilot (`client_show` returns it).
  */
 export const AUTOPILOT_HUB_TOOLS = ["messenger_history", "client_show", "knowledge_search", "knowledge_get", "messenger_draft_write", "conversation_done"] as const;

@@ -17,5 +17,6 @@ export function useDoneChat(project: string) {
       }),
     onError: (e) => toastManager.add({ title: "Not changed", description: sentence(e), type: "error" }),
   });
-  return { mark: (id: number, name: string) => done.mutate({ id, name }), pending: done.isPending || undo.isPending };
+  // Reopen: a chat the agent (or he, earlier) closed goes back to Needs you; the same Undo route.
+  return { mark: (id: number, name: string) => done.mutate({ id, name }), reopen: (id: number) => undo.mutate(id), pending: done.isPending || undo.isPending };
 }

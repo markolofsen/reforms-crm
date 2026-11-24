@@ -8,8 +8,9 @@ import { attended, chatAccess } from "./messengers";
 
 // P143 (decision 0049 as amended 2026-11-25): three tools over one conversation.
 // - `conversation_done`: "no reply needed" on a chat (or on a client's open Mail, Mail's own No reply needed): it leaves Needs you
-//   until their next message reopens it, and the reason is one Activity line. Attended sessions and an autopilot turn (its own chat
-//   only); never a send, never a delete. It removes attention, not the follow-up (P142).
+//   until their next message reopens it, and the reason is one Activity line ("Skipped", the reason in the agent's words). Any
+//   session for a linked chat, an unlinked one only attended, an autopilot turn its own chat only; never a send, never a delete.
+//   It removes attention, not the follow-up (P142).
 // - `client_create` and `chat_link`: the owner's Create and Link of the admin, for the chat in focus, through the server's own path
 //   (a loopback door with the agent token, attended only): a lookup by the person's identities first, so no duplicate is made.
 // A capability, not a duty (L3): the owner's WhatsApp and Telegram are personal too.
@@ -38,7 +39,7 @@ export const conversationDoneTool = defineTool({
     const at = now().toISOString();
     const activity = async (w: Parameters<Parameters<typeof withRepos>[0]>[0], name: string, clientId: number | null, detail: Record<string, unknown>) => {
       const runId = await w.runs.start({ project: slug, startedAt: at, finishedAt: at, trigger: "agent", skill: ctx.env.autopilotChat !== undefined ? "autopilot" : "conversation-done", status: "ok" });
-      await w.runs.addEvent({ project: slug, runId, at, kind: "decision", tool: "conversation_done", summary: `No reply needed: ${name}`, detail: JSON.stringify({ action: "done", reason: why, ...detail }), clientId });
+      await w.runs.addEvent({ project: slug, runId, at, kind: "decision", tool: "conversation_done", summary: `No reply needed: ${name}`, detail: JSON.stringify({ action: "skipped", reason: why, noReplyNeeded: true, ...detail }), clientId });
     };
     if (chat !== undefined) {
       const row = await chatAccess(repos, ctx.env).target(slug, { chat });
@@ -63,7 +64,7 @@ export const conversationDoneTool = defineTool({
       await w.inboundMail.dismiss(slug, inbound, now());
       await activity(w, conv.client.name, id, { inboundId: inbound });
     });
-    return { project: slug, done: true as const, chat: null, client: id, name: conv.client.name, next: "Tell the owner in one line: the mail left Needs you as No reply needed (Undo is on Mail ▸ Activity). Nothing was sent." };
+    return { project: slug, done: true as const, chat: null, client: id, name: conv.client.name, next: "Tell the owner in one line: their mail left Needs you as No reply needed; their next message brings it back. Nothing was sent." };
   },
 });
 

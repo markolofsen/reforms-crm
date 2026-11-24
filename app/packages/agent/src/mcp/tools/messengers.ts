@@ -15,7 +15,7 @@ import { cut, ToolError } from "../result";
 // only: a chat no client identifier names, or another project's, is `not_linked` and named nowhere (0036 point 3). P143 L1
 // (decision 0049 as amended 2026-11-25): in a session the owner started (attended), every known chat of the bound project, linked or
 // not, is read and drafted on his request; the chat in focus is named by being in focus, so no `owner_request` naming is asked.
-// Background runs, triage and autopilot turns never pass. Through `@hub/db` only (research 26 section 4): no `@hub/messengers` import, so `hub mcp` loads no Telegram client.
+// Unattended runs and autopilot turns never pass; the triage-messages skill keeps to linked chats by its own rule. Through `@hub/db` only (research 26 section 4): no `@hub/messengers` import, so `hub mcp` loads no Telegram client.
 // Neither sends. Decision 0046: `messenger_send`, registered only in an attended instance, hands one draft to the server's
 // send door on the owner's word (`../../messenger/send-tool.ts` holds its port).
 

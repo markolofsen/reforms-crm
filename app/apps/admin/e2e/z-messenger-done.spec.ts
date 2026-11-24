@@ -28,15 +28,24 @@ test("messengers: No reply needed closes an owed chat with Undo, from the header
   await expect(conversation(page).getByTestId("chat-done-line")).toHaveText("Marked done");
   await expect(noReply(page)).toHaveCount(0);
   await expect(chats(page).getByRole("listitem", { name: RITA })).toHaveCount(0);
-  await page.getByRole("button", { name: "Undo" }).click();
+  // Undo on the Done toast (the Skip's toast may still be up with its own Undo).
+  await page.locator("[data-slot=toast-viewport] > *").filter({ hasText: `No reply needed: ${RITA}` }).getByRole("button", { name: "Undo" }).click();
   await expect(conversation(page).getByText(/Wrote you/)).toBeVisible();
+  // A key typed into the reply composer is text, never Done.
+  const composer = conversation(page).getByRole("textbox").first();
+  await composer.click();
+  await composer.pressSequentially("d");
+  await expect(composer).toHaveValue("d");
+  await expect(conversation(page).getByText(/Wrote you/)).toBeVisible();
+  await composer.fill("");
 
   // D does the same; Undo again.
   await page.locator("body").click({ position: { x: 1, y: 1 } });
   await page.keyboard.press("d");
   await expect(page.getByText(`No reply needed: ${RITA}`)).toBeVisible();
   await expect(conversation(page).getByText(/^Done$/)).toBeVisible();
-  await page.getByRole("button", { name: "Undo" }).last().click();
+  // Reopen in the header does what the toast's Undo does.
+  await conversation(page).getByTestId("chat-reopen").click();
   await expect(conversation(page).getByText(/Wrote you/)).toBeVisible();
 
   // The row's menu offers it too while a reply is owed and no draft waits.

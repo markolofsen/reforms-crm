@@ -17,7 +17,7 @@ Exactly as `skills/triage-mail/SKILL.md` section 0 (the slug, `project.md`, one 
 
 ## 1. Which chats
 - The linked chats are the work: a chat the hub does not know is `not_linked`, never searched for. An unlinked chat the Hub knows is read only in this attended session, and its client is created or linked (`client_create`, `chat_link`) only on the owner's word or when the chat is plainly business; never a card for a personal chat (decision 0049 as amended by P143).
-- A client's newest message that is a short non-question ("yes", "thanks", an emoji) owes no draft: `conversation_done` with the chat and a one-line reason, reported as `done:<reason>`.
+- A client's newest message that is a short non-question ("yes", "thanks", an emoji) owes no draft: `conversation_done` with the chat and a one-line reason, reported as `done:<reason>`. A chat `messenger_history` shows `done` (closed by him or by the agent) gets no draft until they write again, unless he asks for that chat: `skipped:done`.
 - The whole project: the clients come from the owner's words, the focus (`focus`: "этот клиент" is the focused client) or the clients he names; for each, `messenger_history` with `client` = its id. One chat: use `chat` with the numeric id from a focused `chat:<id>` ref; otherwise use `channel` and the external `chat_id` from focus.
 - Owner names no one and the focus shows no client: ask in one line which clients (there is no list of every chat to read).
 - A chat on autopilot (decision 0048: its `open_draft.autopilot` is true, or the owner says so) is the server's: skip it (`skipped:autopilot`) unless the owner names that chat.
