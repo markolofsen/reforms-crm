@@ -6,6 +6,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import notionhq from "@notionhq/client";
+import { notionSdkLog } from "./sdk-log";
 import { ops } from "@hub/log/ops";
 import { projectStore } from "@hub/projects/store";
 import { findClientByEmail } from "./client-lookup";
@@ -52,7 +53,7 @@ export function richTextChunks(text: string): Array<{ type: "text"; text: { cont
 const plain = (rt: unknown): string => (Array.isArray(rt) ? rt.map((r: unknown) => (r && typeof r === "object" ? String(Reflect.get(r, "plain_text") ?? "") : "")).join("") : "");
 
 export function createMapWriter(token: string, options: { fetch?: typeof fetch } = {}): MapWriter {
-  const client = new notionhq.Client({ auth: token, timeoutMs: 30_000, retry: { maxRetries: 2, initialRetryDelayMs: 1000, maxRetryDelayMs: 10_000 }, ...(options.fetch ? { fetch: options.fetch as never } : {}) });
+  const client = new notionhq.Client({ auth: token, timeoutMs: 30_000, retry: { maxRetries: 2, initialRetryDelayMs: 1000, maxRetryDelayMs: 10_000 }, ...notionSdkLog, ...(options.fetch ? { fetch: options.fetch as never } : {}) });
   const code = (text: string) => ({ object: "block", type: "code", code: { language: "mermaid", rich_text: richTextChunks(text) } });
   return {
     async blocks(pageId) {

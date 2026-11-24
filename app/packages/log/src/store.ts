@@ -1,8 +1,9 @@
-import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
 import { instanceLogRetention, type HubPaths } from "@hub/config/paths";
 import { logEvent, type LogCli, type LogEvent, type LogKind, type NewLogEvent } from "./event";
 import { LINE_CAP, redactData } from "./privacy";
+import { readDayFile } from "./day-file";
 
 // Where the log lives and how it is written and read (P54 section 3, points 8 and 9). `<state>/log/<slug>/<YYYY-MM-DD>.jsonl`
 // (UTC day), folder 700, file 600, one JSON line per event, append only. The writer never throws: a hook must never stop
@@ -23,7 +24,7 @@ export const logStoreOf = (paths: Pick<HubPaths, "log" | "secrets" | "configFile
 export const UNBOUND = "_unbound";
 const safe = (s: string): string => s.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120) || "_";
 export const projectDir = (store: LogStore, project: string | null): string => path.join(store.dir, safe(project ?? UNBOUND));
-const DAY_FILE = /^(\d{4}-\d{2}-\d{2})\.jsonl$/;
+const DAY_FILE = /^(\d{4}-\d{2}-\d{2})\.jsonl(?:\.gz)?$/;
 export const dayOf = (iso: string): string => iso.slice(0, 10);
 
 function ensureDir(dir: string): void {
@@ -51,6 +52,7 @@ export function lineOf(store: LogStore, e: NewLogEvent, now: Date): LogEvent {
   if (e.turn) base.turn = e.turn;
   if (e.corr) base.corr = e.corr;
   if (e.agent) base.agent = e.agent;
+  if (e.action) base.action = e.action;
   const bytes = Buffer.byteLength(JSON.stringify(base));
   return bytes > LINE_CAP ? { ...base, data: { truncated: true, bytes } } : base;
 }
@@ -108,7 +110,7 @@ export function readEvents(store: LogStore, f: LogFilter = {}): LogEvent[] {
     try { files = readdirSync(dir).filter((x) => { const d = DAY_FILE.exec(x)?.[1]; return !!d && d >= fromDay && d <= toDay; }).sort(); } catch { continue; }
     for (const file of files) {
       let text = "";
-      try { text = readFileSync(path.join(dir, file), "utf8"); } catch { continue; }
+      try { text = readDayFile(path.join(dir, file)); } catch { continue; }
       for (const l of text.split("\n")) {
         if (!l.trim()) continue;
         let raw: unknown;

@@ -4,6 +4,7 @@ import { isBusy } from "@hub/db";
 import { HubError, STATUS_OF, type ErrorKind } from "@hub/config/errors";
 import type { ApiErrorCode } from "@hub/contract/errors";
 import { errFields, ops } from "@hub/log/ops";
+import { actionOfRequest } from "./http/request-action";
 import type { Runtime } from "./composition/runtime";
 import { contexts } from "./composition/contexts";
 import { routes as overview } from "./overview/routes";
@@ -50,6 +51,7 @@ export function createApp(rt: Runtime) {
       if (!allowed(new URL(c.req.url).hostname) || (origin && (!originHost || !allowed(originHost)))) return c.json({ error: "forbidden host", code: "forbidden" as const }, 403);
       await next();
     })
+    .use("*", actionOfRequest)
     .route("/", overview(ctx.overview))
     .route("/", liveRoutes(ctx.live))
     .route("/", projects(ctx.projects))

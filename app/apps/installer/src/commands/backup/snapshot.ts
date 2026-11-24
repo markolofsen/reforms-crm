@@ -4,6 +4,7 @@ import { copyFileSync, cpSync, existsSync, mkdirSync, readdirSync, readFileSync,
 import path from "node:path";
 import type { Ctx } from "../../context";
 import { readCoreVersion } from "@hub/config/core-version";
+import { ops } from "@hub/log/ops";
 import { BackupError, CONFIG_IN_SNAPSHOT, DAY, DUMP_TIMEOUT_MS, KEEP, MANIFEST, MAX_AGE_DAYS, type Manifest, type ManifestFile, type Target, dateOf, gitGuard, kb, listSnapshots, resolveTarget, sha256File, stampOf, walk } from "./manifest";
 // `hub backup` (decision 0023): a manual, dated snapshot of what the instance cannot get back from git.
 // Dry run unless --apply. Never reads or copies a secret: only the NAMES in state/secrets/ go into the manifest (a directory listing),
@@ -47,7 +48,19 @@ export function newestDump(projectFolder: string, now = Date.now()): DumpFound |
 }
 const fixLine = (p: { slug: string; folder: string }) => `fix: \`pnpm --filter @hub/notion notion-dump dump ${p.folder}\`, or \`hub backup --apply --notion-dump\``;
 
+/** P137 L2: a backup run that wrote (`--apply`) is one line at its outcome; a dry run says nothing. */
 export async function backup(ctx: Ctx, opts: BackupOptions): Promise<BackupResult> {
+  const t0 = Date.now();
+  const r = await snapshot(ctx, opts);
+  if (opts.apply) {
+    const log = ops("installer", { fileOnly: true });
+    if (r.ok) log.info("backup snapshot made", { bytes: r.bytes ?? null, ms: Date.now() - t0 });
+    else log.error("backup failed: no snapshot made", { reason: r.lines.at(-1)?.slice(0, 300) ?? null, ms: Date.now() - t0 });
+  }
+  return r;
+}
+
+async function snapshot(ctx: Ctx, opts: BackupOptions): Promise<BackupResult> {
   let t: Target;
   try { t = resolveTarget(ctx); } catch (e) { if (e instanceof BackupError) return { ok: false, lines: [e.message] }; throw e; }
   const unsafe = await gitGuard(ctx, t.root);

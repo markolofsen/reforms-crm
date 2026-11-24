@@ -14,6 +14,7 @@ export const keys = {
   scheme: () => ["scheme"] as const,
   /** P86: Overview's Recent errors, the newest error lines of the ops log. */
   opsErrors: () => ["ops-errors"] as const,
+  opsLines: () => ["ops-lines"] as const,
   connections: () => ["connections"] as const,
   /** P67: the instance's LaunchAgent (Connections, "This Mac"). */
   autostart: () => ["autostart"] as const,
@@ -140,5 +141,5 @@ export const TOPIC_KEYS: Record<LiveTopic, (project: string | null) => QueryKey[
   autostart: () => [keys.autostart()],
   core: () => [keys.core(), scheme()],
   pointer: () => [keys.pointer()],
-  "ops-log": () => [keys.opsErrors()],
+  "ops-log": () => [keys.opsErrors(), keys.opsLines()],
 };

@@ -2,11 +2,12 @@ import { hubPaths } from "@hub/config/paths";
 import { isOpsLevel, isOpsSource, OPS_LEVELS, OPS_SOURCES, opsStoreOf, readOps, type OpsFilter, type OpsLevel, type OpsLine, type OpsSource } from "@hub/log/ops";
 import { localStamp, sinceOf } from "./log-command";
 import { c, UsageError } from "./term";
+import { isActionId } from "@hub/config/action-id";
 
 // `hub logs` (P86): read the ops log, what failed or happened in the server and every package (`state/log/ops-<day>.jsonl`).
 // Not `hub log`, which reads the agent session log. Read only.
 
-export interface LogsOptions { level?: string; source?: string; since?: string; limit?: string; json?: boolean; follow?: boolean }
+export interface LogsOptions { level?: string; source?: string; since?: string; limit?: string; json?: boolean; follow?: boolean; action?: string }
 
 export function opsFilterOf(o: LogsOptions, now: Date = new Date()): OpsFilter {
   if (o.level !== undefined && !isOpsLevel(o.level)) throw new UsageError(`--level takes ${OPS_LEVELS.join(", ")}, got "${o.level}"`);
@@ -16,7 +17,9 @@ export function opsFilterOf(o: LogsOptions, now: Date = new Date()): OpsFilter {
     sources.push(s);
   }
   const level: OpsLevel | undefined = o.level !== undefined && isOpsLevel(o.level) ? o.level : undefined;
+  if (o.action !== undefined && !isActionId(o.action)) throw new UsageError(`--action takes an action id as a line shows it (w-kqzhtrvmab), got "${o.action}"`);
   return {
+    ...(o.action ? { action: o.action } : {}),
     ...(level ? { level } : {}),
     ...(sources.length ? { sources } : {}),
     since: sinceOf(o.since ?? "1d", now),
@@ -29,7 +32,7 @@ const flat = (v: unknown): string => (typeof v === "string" ? (/\s/.test(v) ? JS
 /** `2026-11-20 18:07:12  error  whatsapp      socket closed status=401 reason=...` (local time; the file keeps UTC). */
 export function opsLineText(l: OpsLine): string {
   const fields = l.fields ? Object.entries(l.fields).filter(([k]) => k !== "stack").map(([k, v]) => `${k}=${flat(v)}`).join(" ") : "";
-  return `${c.dim(localStamp(l.time))}  ${LEVEL_COLOR[l.level](l.level.padEnd(5))}  ${l.source.padEnd(12)}  ${l.message}${fields ? c.dim(` ${fields}`) : ""}`;
+  return `${c.dim(localStamp(l.time))}  ${LEVEL_COLOR[l.level](l.level.padEnd(5))}  ${l.source.padEnd(12)}  ${l.message}${fields ? c.dim(` ${fields}`) : ""}${l.action ? c.dim(` action=${l.action}`) : ""}`;
 }
 
 /** Prints the matching lines (the newest `--limit`, 200 by default); `--follow` then prints new ones until the process stops. */

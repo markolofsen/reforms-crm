@@ -15,7 +15,9 @@
     "./feed": "./src/feed.ts",
     "./resume": "./src/resume.ts",
     "./ops": "./src/ops/index.ts",
-    "./ops-line": "./src/ops/line.ts"
+    "./ops-line": "./src/ops/line.ts",
+    "./retention": "./src/retention.ts",
+    "./leak-scan": "./src/leak-scan.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

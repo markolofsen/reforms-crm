@@ -15,8 +15,11 @@ import { MESSENGER_CHANNEL_FILTERS, MESSENGER_LINK_FILTERS, MESSENGER_VIEWS, typ
  * never reaches the activity API.
  */
 export { TIMELINE_VIEWS, type TimelineView };
-export const ACTIVITY_VIEWS = [...TIMELINE_VIEWS, "sends"] as const;
-export type ActivityView = TimelineView | "sends";
+export const ACTIVITY_VIEWS = [...TIMELINE_VIEWS, "sends", "errors"] as const;
+/** `errors` (P137 L3): the ops log's warn and error lines of the last day, the admin's own view like `sends`. */
+export type ActivityView = TimelineView | "sends" | "errors";
+/** The admin's own views: neither reaches the activity API, and neither is per client. */
+export const isLogView = (v: ActivityView): v is "sends" | "errors" => v === "sends" || v === "errors";
 
 /**
  * The views of the Mail list (P99 verdict 3), in their menu order: Needs you (the default: they wrote, or a draft is ready),

@@ -6,7 +6,8 @@ import { hubPaths, type HubPaths } from "@hub/config/paths";
 import { importQueued } from "@hub/log/claude-transcript";
 import { importRollout } from "@hub/log/codex-rollout";
 import type { LogCli, NewLogEvent } from "@hub/log/event";
-import { hookEvents, parsePayload, promptEvents } from "@hub/log/hooks";
+import { hookEvents, parsePayload, promptEvents, stampAction } from "@hub/log/hooks";
+import { ACTION_ENV } from "@hub/config/action-id";
 import { appendEvents, logStoreOf } from "@hub/log/store";
 import { configureOps, errFields, ops } from "@hub/log/ops";
 
@@ -20,7 +21,7 @@ const project = (env: NodeJS.ProcessEnv): string | null => env.HUB_PROJECT?.trim
 export function logPrompt(stdin: string, cli: LogCli, focusLine: string | null, env: NodeJS.ProcessEnv = process.env): boolean {
   const p = parsePayload(stdin);
   if (!p) return false;
-  return appendEvents(logStoreOf(hubPaths({ env })), promptEvents(p, cli, project(env), focusLine));
+  return appendEvents(logStoreOf(hubPaths({ env })), stampAction(promptEvents(p, cli, project(env), focusLine), env[ACTION_ENV]));
 }
 
 /** P129 verdict 9: an 8-hex hash of each linked skill's `SKILL.md`, so `hub log` says which text ran (no `version:` key). */
@@ -56,7 +57,7 @@ export function logHook(stdin: string, cli: LogCli, env: NodeJS.ProcessEnv = pro
   if (cli === "claude" && p.hook_event_name === "Stop" && transcript && session) {
     importQueued(store, { file: transcript, project: project(env), session, ...(typeof p.prompt_id === "string" ? { turn: p.prompt_id } : {}) });
   }
-  return appendEvents(store, withSessionFacts(hookEvents(p, cli, project(env)), paths));
+  return appendEvents(store, stampAction(withSessionFacts(hookEvents(p, cli, project(env)), paths), env[ACTION_ENV]));
 }
 
 export function runLogHook(argv: readonly string[], env: NodeJS.ProcessEnv = process.env): void {

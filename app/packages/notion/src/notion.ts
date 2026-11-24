@@ -1,6 +1,7 @@
 // The package is CommonJS: Node ESM cannot see its named exports, so take them from the default (module.exports).
 import notionhq from "@notionhq/client";
 import { ops } from "@hub/log/ops";
+import { notionSdkLog } from "./sdk-log";
 import { createThrottle, type Sleep } from "./throttle";
 import type { DataSourceInfo, NotionReader, PageMarkdown, PageObject, PropertyConfig } from "./types";
 
@@ -59,6 +60,7 @@ export function createNotionReader(token: string, options: ReaderOptions = {}): 
     auth: token,
     timeoutMs: 60_000,
     retry: { maxRetries: 5, initialRetryDelayMs: 1000, maxRetryDelayMs: 60_000 },
+    ...notionSdkLog,
     ...(options.fetch ? { fetch: options.fetch as never } : {}),
   });
 

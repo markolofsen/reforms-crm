@@ -1,9 +1,10 @@
 import { serve } from "@hono/node-server";
 import { HOST, SERVER_PORT } from "@hub/config";
-import { HubHomeMissingError, hubPaths } from "@hub/config/paths";
+import { HubHomeMissingError, hubPaths, instanceLogRetention } from "@hub/config/paths";
 import { modesLine, runtimeModes } from "@hub/config/modes";
 import { openDb } from "@hub/db";
 import { errFields, ops } from "@hub/log/ops";
+import { scheduleRetention } from "@hub/log/retention";
 import { createApp } from "./app";
 import { startRuntime } from "./composition/start";
 import { holdIdleSockets, listenErrorLine, onShutdown } from "./composition/lifecycle";
@@ -40,6 +41,9 @@ const modes = (() => {
 })();
 const modeLine = modesLine(modes);
 if (modeLine) log.info(`switches: ${modeLine}`);
+
+// P137 L4: both logs keep 30 days, gzipped after 2; applied now and every night (the timer never holds the process).
+scheduleRetention(paths.opsLog, { sessionKeepDays: instanceLogRetention(paths) });
 
 const { db, close } = openDb();
 const port = Number(process.env.HUB_PORT ?? SERVER_PORT);

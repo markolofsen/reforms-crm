@@ -18,7 +18,8 @@ import { openDbReadOnly, readAgentSettings } from "@hub/db";
 import type { AgentSettings } from "@hub/config";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { parsePayload, toolCallEvents, toolResultEvent } from "@hub/log/hooks";
+import { parsePayload, stampAction, toolCallEvents, toolResultEvent } from "@hub/log/hooks";
+import { ACTION_ENV, isActionId } from "@hub/config/action-id";
 import { appendEvents, logStoreOf, readEvents } from "@hub/log/store";
 import { ownerWordsFound } from "@hub/agent/owner-word";
 import { OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
@@ -51,6 +52,9 @@ export function instanceMcpServers(paths: HubPaths, slug: string | undefined, no
     if (!spec) continue;
     const s = instanceServer(spec, paths);
     if (name === "hub" && slug) s.env = { ...(s.env as object), HUB_PROJECT: slug };
+    // P137 L1: the session's action, so `hub mcp`'s lines carry it even when the CLI passes the server a bare environment.
+    const action = process.env[ACTION_ENV];
+    if (name === "hub" && isActionId(action)) s.env = { ...(s.env as object), [ACTION_ENV]: action };
     if (name === "hub" && s.type === "stdio" && s.command === "node") s.command = nodeBin;
     servers[name] = s;
   }
@@ -223,7 +227,7 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
   if (slug) r.violations.push(...preDraftViolations(payload, g.root, slug, paths.db, paths));
   r.block = r.always === true || (r.violations.length > 0 && mode === "block");
   // P54: the call, and what the guard saw, go to the session log (the writer never throws).
-  appendEvents(logStoreOf(paths), toolCallEvents(parsePayload(stdin) ?? {}, "claude", slug ?? null, { mode, violations: r.violations }));
+  appendEvents(logStoreOf(paths), stampAction(toolCallEvents(parsePayload(stdin) ?? {}, "claude", slug ?? null, { mode, violations: r.violations }), env[ACTION_ENV]));
   if (!r.violations.length) return { code: 0, stderr: "" };
   const text = `hub guard (${r.always ? "block" : mode}): ${r.violations.join("; ")}`;
   return r.block ? { code: 2, stderr: text } : { code: 0, stderr: text };
@@ -288,7 +292,7 @@ export function runGuardPost(stdin: string, g: GuardEnv): { code: 0; stderr: str
       recordConnectorRead(paths, projectConnectors(paths, g.projectsDir ?? defaultProjectsRoot(), slug).attached, String(payload.tool_name), payload.tool_response);
     }
     const result = toolResultEvent(parsePayload(stdin) ?? {}, "claude", slug || null);
-    if (result) appendEvents(logStoreOf(g.paths ?? pathsAt(g.root, env)), [result]);
+    if (result) appendEvents(logStoreOf(g.paths ?? pathsAt(g.root, env)), stampAction([result], env[ACTION_ENV]));
     if (String(payload.tool_name ?? "").endsWith("__get_message_content")) {
       const slim = slimMessageContent(payload.tool_response);
       if (slim != null) stdout = JSON.stringify({ hookSpecificOutput: { hookEventName: "PostToolUse", updatedMCPToolOutput: slim } });

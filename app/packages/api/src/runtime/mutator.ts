@@ -1,4 +1,5 @@
 import { parseApiError, type ApiErrorCode } from "@hub/contract/errors";
+import { ACTION_HEADER, newActionId } from "@hub/config/action-id";
 
 export class HubApiError extends Error {
   readonly code: ApiErrorCode;
@@ -17,10 +18,23 @@ export class HubApiError extends Error {
 const BUSY_RETRY_MS = 400;
 const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/**
+ * P137 L1: a write is the owner's action; it names itself (`x-hub-action`), so the server's lines, the session it may start and
+ * the Notion and Mail writes it makes carry one id. The busy retry sends the same id. A read carries none: the server gives it one.
+ */
+function withAction(options: RequestInit): RequestInit {
+  const method = (options.method ?? "GET").toUpperCase();
+  if (method === "GET" || method === "HEAD") return options;
+  const headers = new Headers(options.headers);
+  if (!headers.has(ACTION_HEADER)) headers.set(ACTION_HEADER, newActionId("w"));
+  return { ...options, headers };
+}
+
 type GeneratedEnvelope = { data: unknown; status: number; headers: Headers };
 
 /** Orval's fetch client expects the response envelope so `readGenerated` can enforce status and Zod shape. */
 export async function hubMutator<T extends GeneratedEnvelope>(url: string, options: RequestInit): Promise<T> {
+  options = withAction(options);
   let response: Response;
   try {
     response = await fetch(url, { ...options, credentials: "same-origin" });

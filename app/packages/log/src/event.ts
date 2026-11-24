@@ -36,6 +36,8 @@ export const logEvent = z.object({
   corr: z.string().optional(),
   /** A subagent's `agent_id`. */
   agent: z.string().optional(),
+  /** P137 L1: the action (`@hub/config/action-id`): the session's, and for a tool call the call's own, as `hub mcp` logs it. */
+  action: z.string().max(48).optional(),
   data: z.record(z.string(), z.unknown()),
 });
 export type LogEvent = z.infer<typeof logEvent>;

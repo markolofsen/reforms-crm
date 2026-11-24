@@ -4,7 +4,9 @@
 // overwrite, never another property, never a delete. Like `stamp.ts` and `lead-convert.ts` there is no generic page update here.
 // It also builds the read-only live search the link box runs (one data source query, `contains` over the identity properties).
 import notionhq from "@notionhq/client";
+import { notionSdkLog } from "./sdk-log";
 import { newClientProperties, notionFailure } from "./lead-convert";
+import { ops } from "@hub/log/ops";
 import type { DataSourceInfo, NotionReader, PageObject, PropertyValue } from "./types";
 
 /** The chat's two identity properties of the pack's Clients (`schema/clients.json`). */
@@ -20,7 +22,7 @@ export interface ChatClientWriter {
 }
 
 export function createChatClientWriter(token: string, options: { fetch?: typeof fetch } = {}): ChatClientWriter {
-  const client = new notionhq.Client({ auth: token, timeoutMs: 30_000, retry: { maxRetries: 2, initialRetryDelayMs: 1000, maxRetryDelayMs: 10_000 }, ...(options.fetch ? { fetch: options.fetch as never } : {}) });
+  const client = new notionhq.Client({ auth: token, timeoutMs: 30_000, retry: { maxRetries: 2, initialRetryDelayMs: 1000, maxRetryDelayMs: 10_000 }, ...notionSdkLog, ...(options.fetch ? { fetch: options.fetch as never } : {}) });
   return {
     async createClient(clientsDataSource, properties) {
       const r = (await client.pages.create({ parent: { data_source_id: clientsDataSource }, properties: properties as never })) as { id: string };
@@ -110,6 +112,12 @@ const refused = (e: unknown) => {
   return f.status === 403 || f.status === 401 || f.code === "restricted_resource";
 };
 
+/** A refusal's Notion status and code for a line: the code goes in `kind` (a field named `code` is masked as a secret). */
+const failed = (e: unknown): { status: number | null; kind: string | null } => {
+  const f = notionFailure(e);
+  return { status: f.status, kind: f.code };
+};
+
 export type CreateChatClientOutcome = { state: "created"; pageId: string; page: PageObject } | { state: "refused"; note: string } | { state: "no_schema"; note: string };
 
 /** The owner's Create from a chat: one Clients card (Name, Email, Relationship Lead, the chat's field). A 403 is the fix sentence. */
@@ -134,9 +142,13 @@ export async function createChatClient(
       const asRead = Array.isArray(val) ? (val as Array<{ text?: { content?: string } }>).map((x) => ({ plain_text: x.text?.content ?? "" })) : val;
       properties[k] = { type: c.type, [c.type]: asRead };
     }
+    ops("notion").info("client card created in Notion from a chat", { property: chat?.name ?? null });
     return { state: "created", pageId, page: { id: pageId, last_edited_time: new Date().toISOString(), properties } };
   } catch (e) {
-    if (refused(e)) return { state: "refused", note: INSERT_FIX };
+    if (refused(e)) {
+      ops("notion").warn("client card not created in Notion: the integration may not insert", failed(e));
+      return { state: "refused", note: INSERT_FIX };
+    }
     throw e;
   }
 }
@@ -156,9 +168,13 @@ export async function fillChatIdentity(deps: { reader: NotionReader; writer: Cha
   if (chat.name === "WhatsApp" && digitsOf(textOf(page.properties["Phone"])) === digitsOf(chat.value)) return { state: "kept", reason: "Phone already holds this number" };
   try {
     await deps.writer.fillEmpty(o.pageId, { name: chat.name, type: chat.type }, chat.value);
+    ops("notion").info("client card's chat field filled in Notion", { property: chat.name });
     return { state: "written", property: chat.name, value: chat.value };
   } catch (e) {
-    if (refused(e)) return { state: "refused", note: UPDATE_FIX };
+    if (refused(e)) {
+      ops("notion").warn("client card's chat field not filled: the integration may not update", { property: chat.name, ...failed(e) });
+      return { state: "refused", note: UPDATE_FIX };
+    }
     throw e;
   }
 }

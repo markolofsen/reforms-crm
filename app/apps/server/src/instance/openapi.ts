@@ -1,7 +1,7 @@
 import { autostartDto, setAutostartBody } from "@hub/contract/autostart";
 import { connectionDto, connectionsDto } from "@hub/contract/connections";
 import { coreUpdateDto, instanceDto } from "@hub/contract/instance";
-import { opsErrorsDto } from "@hub/contract/ops-log";
+import { opsErrorsDto, opsLinesDto } from "@hub/contract/ops-log";
 import { connectionIdParam, setSecretBody } from "@hub/contract/requests";
 import type { Operation } from "../http/openapi";
 
@@ -19,4 +19,5 @@ export const operations: Operation[] = [
   { method: "put", path: "/api/connections/:id/secret", operationId: "setConnectionSecret", summary: "Store one connection's token", tags: ["connections"], params: connectionIdParam, body: { name: "SetSecretBody", schema: setSecretBody }, reply: { name: "Connection", schema: connectionDto }, errors: [400, 403, 404] },
   { method: "post", path: "/api/connections/:id/remove", operationId: "removeConnectionSecret", summary: "Remove one connection's token", tags: ["connections"], params: connectionIdParam, reply: { name: "Connection", schema: connectionDto }, errors: [403, 404] },
   { method: "get", path: "/api/ops/errors", operationId: "getOpsErrors", summary: "Read the recent operational errors", tags: ["meta"], reply: { name: "OpsErrors", schema: opsErrorsDto }, errors: [503] },
+  { method: "get", path: "/api/ops/lines", operationId: "getOpsLines", summary: "Read the last day's operational warnings and errors", tags: ["meta"], reply: { name: "OpsLines", schema: opsLinesDto }, errors: [503] },
 ];

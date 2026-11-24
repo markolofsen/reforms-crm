@@ -54,7 +54,9 @@ A session keeps the hooks it started with: a session opened before a core update
 
 ## Retention
 
-Rotation is by day. The first write of a day deletes that project's day files older than `log.retention_days` in `config/config.json` (a whole number from 1 to 3650; default 90). Nothing is scheduled. To keep a session longer, copy its day files.
+Rotation is by day. The first write of a day deletes that project's day files older than `log.retention_days` in `config/config.json` (a whole number from 1 to 3650; default 90). Since P137 L4 the server also applies one retention rule to both logs at start and every night (`@hub/log/retention`): a day file is gzipped after 2 days (`<day>.jsonl.gz`, which the readers read as a plain one) and deleted after 30, or after `log.retention_days` when that is shorter. To keep a session longer, copy its day files.
+
+Each event carries `action` (P137 L1) when its session had one (`HUB_ACTION`, set by the terminal tab or by `hub agent`): the session's id, and on a tool call's events the call's own (the session's id and five letters of the call id), the same id `hub mcp` runs that call under, so `./run.sh logs --action <id>` shows the ops lines of that call.
 
 ## Reading it: `hub log`
 

@@ -15,7 +15,8 @@ import { HubError } from "@hub/config/errors";
 import { fakeMode } from "@hub/config/modes";
 import { gateRefusal, ticketStore, type TicketStore } from "../http/admin-gate";
 import { clearDrops, dropRefusal, removeDrop, writeDrop, type DroppedFile } from "./drops";
-import { errFields, ops } from "@hub/log/ops";
+import { errFields, ops, currentAction } from "@hub/log/ops";
+import { ACTION_ENV, newActionId } from "@hub/config/action-id";
 
 // The embedded terminal's server side (P49 section 4, guards S1 to S7). Always on (decision 0032): no switch; the guards
 // make it safe, not a switch. When no tab can start (P66, `terminalReadiness`), the state carries `problem` and a start is
@@ -112,6 +113,7 @@ export function createTerminal(o: TerminalOptions) {
   const sessions = (): SessionManager => (manager ??= sessionManager({ spawn: o.spawn ?? nodePty(nodePtyRoot(app)), onExit: (d) => {
     // P86: a session that ended with an error code is a line (Claude Code or Codex failed to start or died); a clean exit says nothing.
     if (d.exitCode !== null && d.exitCode !== 0) ops("agent").warn("a terminal session ended with an error", { project: d.project, preset: d.preset, status: d.exitCode });
+    else ops("agent").info("agent session stopped", { project: d.project, preset: d.preset, status: d.exitCode });
     void detector.refresh();
   } }));
 
@@ -126,15 +128,19 @@ export function createTerminal(o: TerminalOptions) {
     const shell = fake
       ? { file: nodeBin, args: [path.join(o.paths.core, "app", "test-support", "fake-shell.mjs"), ...(argv ? ["--exec", ...argv] : [])] }
       : spawnLine(env.SHELL?.trim() || "/bin/zsh", argv);
+    // P137 L1: the session carries the click that opened it (`HUB_ACTION`): its hooks and `hub mcp` tool calls log under it.
+    const action = currentAction() ?? newActionId("s");
     try {
-      return sessions().create({
+      const created = sessions().create({
         preset,
         project: slug,
         title: sessionTitle(preset, slug, !!resume),
         ...shell,
         cwd: o.paths.home,
-        env: terminalEnv({ base: env, home: o.paths.home, project: slug, nodeBin, theme }),
+        env: { ...terminalEnv({ base: env, home: o.paths.home, project: slug, nodeBin, theme }), [ACTION_ENV]: action },
       });
+      ops("agent").info("agent session started", { project: slug, preset, resumed: !!resume });
+      return created;
     } catch (e) {
       if (e instanceof SessionLimitError) throw new TerminalRefusal(409, e.message);
       ops("agent").error("a terminal session did not start", { project: slug, preset, ...errFields(e, true) });
