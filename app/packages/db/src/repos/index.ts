@@ -1,6 +1,7 @@
 import type { Db } from "../client";
 import { agentSettingsRepo } from "./agent-settings";
 import { batchesRepo } from "./batches";
+import { clientMapsRepo } from "./client-maps";
 import { clientsRepo } from "./clients";
 import { conversationsRepo } from "./conversations";
 import { draftsRepo } from "./drafts";
@@ -20,6 +21,7 @@ import { sendsRepo } from "./sends";
 export function createRepos(db: Db) {
   return {
     clients: clientsRepo(db),
+    clientMaps: clientMapsRepo(db),
     conversations: conversationsRepo(db),
     drafts: draftsRepo(db),
     runs: runsRepo(db),
@@ -41,6 +43,7 @@ export function createRepos(db: Db) {
 }
 export type Repos = ReturnType<typeof createRepos>;
 export type { ClientRow, DraftRow, NewClient } from "./clients";
+export type { ClientMap, ClientMapSaved } from "./client-maps";
 export type { NewDraft, RecordDraftInput, RecordDraftResult } from "./drafts";
 export type { EventRow, NewEvent, NewRun } from "./runs";
 export type { Activity, ActivityOutcome, ActivityRow, ActivityView, TimelineQuery } from "./activity";

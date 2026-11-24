@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { MailContext } from "./context";
 import { bulkRoutes } from "./bulk-routes";
+import { clientMapRoutes } from "./client-map-routes";
 import { conversationRoutes } from "./conversations-routes";
 import { draftMailRoutes } from "./draft-mail-routes";
 import { draftRoutes } from "./drafts-routes";
@@ -17,4 +18,5 @@ export const routes = (ctx: MailContext) =>
     .route("/", inboxRoutes(ctx))
     .route("/", inboundRoutes(ctx))
     .route("/", conversationRoutes(ctx))
+    .route("/", clientMapRoutes(ctx))
     .route("/", bulkRoutes(ctx));

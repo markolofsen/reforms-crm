@@ -253,6 +253,13 @@
       "when": 1795300000018,
       "tag": "0035_chat_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1795300000019,
+      "tag": "0036_client_map",
+      "breakpoints": true
     }
   ]
 }

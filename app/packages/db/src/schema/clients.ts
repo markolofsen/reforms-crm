@@ -17,12 +17,30 @@ export const clients = sqliteTable(
     // person wrote it (never this Mac's own name). The open card says so when it is newer than the client's last message.
     teamSentAt: text("team_sent_at"),
     teamSentBy: text("team_sent_by"),
+    // P135: the client map, Mermaid text the agent redraws after a draft (`client_map`), and when; every version is a `client_maps` row.
+    map: text("map"),
+    mapUpdatedAt: text("map_updated_at"),
     createdAt: text("created_at").notNull().default(sql`(strftime('%Y-%m-%dT%H:%M:%fZ','now'))`),
     // Last time the agent (or a test) refreshed this row: repliesOwed and lastContactAt are "as of" this moment.
     // The migration gives existing rows a constant default; every insert fills it in code.
     updatedAt: text("updated_at").notNull().$defaultFn(() => new Date().toISOString()),
   },
   (t) => [uniqueIndex("clients_project_email").on(t.project, t.email)],
+);
+
+/** P135 verdict 1: every version of a client's map, newest last; the open sheet's "Previous" is the one before the newest. */
+export const clientMaps = sqliteTable(
+  "client_maps",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    project: text("project").notNull(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    source: text("source").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("client_maps_client").on(t.clientId, t.id)],
 );
 
 export const marks = sqliteTable(

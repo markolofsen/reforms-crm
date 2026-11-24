@@ -163,6 +163,12 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
   const base4 = daysAgo(now, 0.5);
   await ev("demo-shop", run4, t(base4, 0), "tool_call", "Listed clients silent for more than 3 days", { tool: "profile_get" });
   await ev("demo-shop", run4, t(base4, 8), "draft_created", "3 drafts prepared", { tool: "mail_draft", clientId: demo.get("anna@example.com") });
+  // P135: Anna's client map, two versions (the sheet's Updated line and its Previous toggle); every other client has none (the empty state).
+  const anna = demo.get("anna@example.com");
+  if (anna) {
+    await repos.clientMaps.save("demo-shop", anna, 'flowchart TD\n  c["Anna Fake"] --> p1[Order arrives before Friday]\n  p1 --> p1a[Express shipping offered]:::waiting\n', new Date(now.getTime() - 2 * 86_400_000));
+    await repos.clientMaps.save("demo-shop", anna, 'flowchart TD\n  c["Anna Fake"] --> p1[Order arrives before Friday]\n  c --> p2[Jacket in a larger size]\n  p1 --> p1a[Express shipping booked]:::done\n  p2 --> p2a[Size L restock asked]:::open\n', new Date(now.getTime() - 3_600_000));
+  }
   // The triage list of the first project: two clients the agent left to the owner and one it skipped. No mail text.
   const seen = (email: string, name: string, action: "skipped" | "escalated", reason: string, notion: NotionRef, hours: number, subject: string) =>
     repos.inbox.record({ project: "lisbon-realty", email, name, action, reason, subject, lastInboundAt: daysAgo(now, hours / 24), mailClass: "client", notion, skill: "triage-mail", runId: run1 }, new Date(daysAgo(now, 0.09)));

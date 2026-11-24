@@ -18,6 +18,8 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   agent_runs: "activity",
   batches: "batches",
   client_identifiers: "clients",
+  // P135: a new version of a client's map (its `clients` row moves in the same write).
+  client_maps: "clients",
   clients: "clients",
   drafts: "drafts",
   enrollments: "follow-ups",
