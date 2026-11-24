@@ -106,7 +106,9 @@ test("P134 M4: Mail lists people only; Leads is its own page under Mail, and the
   const leads = mailViews(page).getByRole("link", { name: /^Leads/ });
   await leads.click();
   await expect.poll(() => address(page)).toBe(at(P, "/mail/leads"));
-  await expect(page.getByRole("navigation", { name: "Lead views" }).getByRole("link", { name: /^New/ })).toHaveAttribute("aria-current", "page");
+  // P138 verdict 7: the views are a segmented control in the list header, not a menu column.
+  await expect(page.getByRole("radiogroup", { name: "Lead views" }).getByRole("radio", { name: /^New/ })).toBeChecked();
+  await expect(page.getByRole("navigation", { name: "Lead views" })).toHaveCount(0);
   await expect(page.getByTestId("lead-row").first()).toBeVisible();
   // The old address is gone, with no redirect (no legacy aliases).
   const old = await page.goto(at(P, "/mail/lead/0123456789abcdef0123456789abcdef"));

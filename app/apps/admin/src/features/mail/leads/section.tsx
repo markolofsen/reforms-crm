@@ -1,13 +1,11 @@
 "use client";
 
 import { ArrowLeftIcon } from "lucide-react";
-import type { ReactNode } from "react";
 import { LEAD_VIEW_LABELS, type LeadsListDto } from "@hub/contract/inbound";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { ListDetail, ListScrollArea } from "@hub/ui/product/list/detail";
 import { ListToolbar, ListToolbarRow } from "@hub/ui/product/list/toolbar";
-import { SectionLayout } from "@hub/ui/product/shell/section-layout";
-import { SectionNav, type SectionNavItem } from "@hub/ui/product/shell/section-nav";
+import { FilterChips, type Chip } from "@hub/ui/product/list/filter-chips";
 import { AppLink } from "@/components/app-link";
 import { EmptyState, ListSkeleton, ListState, QueryView, Refreshing } from "@/components/state-views";
 import { ListFilterButton } from "@/features/mail/list/filter-menu";
@@ -18,43 +16,39 @@ import { useClock } from "@/lib/clock";
 import { useLeads } from "@/lib/data/inbound";
 import { dest } from "@/routes/paths";
 import { LEAD_VIEWS, type LeadView } from "@/routes/search";
+import { newestOf } from "./groups";
+import { useLeadListKeys } from "./keys";
 import { LeadCard } from "./lead-card";
 import { LeadRows, LeadsReadLine } from "./rows";
+import { useLeadsSeen } from "./use-seen";
 
 const EMPTY: Record<LeadView, string> = { new: "No new lead", not_now: "Nothing put aside", spam: "No spam", replied: "No lead answered yet" };
 
 /**
- * The views of Leads as a menu column (P134 verdict 7, like Activity's kinds): New, Not now, Spam and Replied with their counts.
- * Replied stays hidden while no lead was answered (until P97's first sends), unless it is on screen. Each is a link (`?view=`).
+ * P138 verdict 7: the views of Leads as one segmented control in the list header (New, Not now, Spam, Replied with their counts),
+ * not a menu column: the sidebar's Leads stays the one door to the page. Replied stays hidden while no lead was answered, unless
+ * it is on screen. A choice replaces the history entry (`?view=`), like any filter.
  */
-function ViewNav({ view, brand, counts }: { view: LeadView; brand: string | null; counts: LeadsListDto["counts"] | undefined }) {
-  const items: SectionNavItem[] = LEAD_VIEWS.filter((v) => v !== "replied" || v === view || (counts?.replied ?? 0) > 0).map((v) => ({
-    id: `lead-view-${v}`,
-    label: LEAD_VIEW_LABELS[v],
-    count: counts?.[v] ?? null,
-    current: v === view,
-    render: (content: ReactNode, className: string) => (
-      <AppLink aria-current={v === view ? "page" : undefined} bare className={className} to={dest("mail.leads", { view: v, brand })}>
-        {content}
-      </AppLink>
-    ),
-  }));
-  return <SectionNav items={items} label="Lead views" />;
+function ViewChips({ view, counts, onView }: { view: LeadView; counts: LeadsListDto["counts"] | undefined; onView: (v: LeadView) => void }) {
+  const chips: Chip<LeadView>[] = LEAD_VIEWS.filter((v) => v !== "replied" || v === view || (counts?.replied ?? 0) > 0).map((v) => ({ value: v, label: LEAD_VIEW_LABELS[v], count: counts?.[v] }));
+  return <FilterChips chips={chips} label="Lead views" onChange={onView} value={view} />;
 }
 
 type Props = { project: string; view: LeadView; brand: string | null; pageId: string | null };
 
 /**
- * Mail ▸ Leads (P134 verdicts 6-8): a page of its own under Mail, not mixed with the conversations. The views in the menu column,
- * then every lead of the view (paged) beside the open lead's card (Prepare reply, Not now, Spam, Open in Notion: P97). The view,
- * the brand and the lead live in the address. A lead becomes a Mail conversation on its first reply.
+ * Mail ▸ Leads (P134 verdicts 6-8, P138): a page of its own under Mail, not mixed with the conversations. The views as a segmented
+ * control in the list header, every lead of the view (paged, by day) beside the open lead's card, which takes the width the views
+ * column had. The view, the brand and the lead live in the address. A lead becomes a Mail conversation on its first reply.
  */
 function LeadsPage({ project, view, brand, pageId }: Props) {
   const go = useGo();
   const now = useClock()();
   const { query, rows, head } = useLeads(project, view, brand);
   const list = dest("mail.leads", { view, brand });
-  const title = `${LEAD_VIEW_LABELS[view]}${head ? ` · ${head.total}` : ""}`;
+  const seen = useLeadsSeen(project, newestOf(rows));
+  useLeadListKeys({ ids: rows.map((r) => r.pageId), currentId: pageId, open: (page) => go(dest("mail.lead", { page }, { view, brand })) });
+  const title = `Leads${head ? ` · ${head.total}` : ""}`;
   const toolbar = (
     <ListToolbar ariaLabel="Lead filters">
       <ListToolbarRow className="flex-nowrap">
@@ -63,6 +57,9 @@ function LeadsPage({ project, view, brand, pageId }: Props) {
         </h3>
         <ListFilterButton brand={brand} brands={head?.brands ?? []} filter={null} filters={[]} onBrand={(b) => go(dest("mail.leads", { view, brand: b }), { replace: true })} onFilter={() => undefined} what="leads" />
         {query.isFetching && !query.isPending && <Refreshing />}
+      </ListToolbarRow>
+      <ListToolbarRow>
+        <ViewChips counts={head?.counts} onView={(v) => go(dest("mail.leads", { view: v, brand }), { replace: true })} view={view} />
       </ListToolbarRow>
     </ListToolbar>
   );
@@ -77,7 +74,7 @@ function LeadsPage({ project, view, brand, pageId }: Props) {
                 {brand ? `No lead of ${brand} in this view.` : view === "new" ? "A lead a site’s form sent appears here once Notion Leads are read." : undefined}
               </EmptyState>
             ) : (
-              <LeadRows now={now} openPageId={pageId} rowTo={(page) => dest("mail.lead", { page }, { view, brand })} rows={rows} />
+              <LeadRows now={now} openPageId={pageId} rowTo={(page) => dest("mail.lead", { page }, { view, brand })} rows={rows} seen={seen} />
             )}
             {query.hasNextPage && (
               <div className="flex flex-wrap items-center gap-3 border-t p-3">
@@ -114,11 +111,7 @@ function LeadsPage({ project, view, brand, pageId }: Props) {
         <LeadCard key={pageId} onClosed={() => go(list, { replace: true })} pageId={pageId} project={project} />
       </div>
     );
-  return (
-    <SectionLayout nav={<ViewNav brand={brand} counts={head?.counts} view={view} />} navButton="Views" navLabel="Lead views">
-      <ListDetail detail={detail} detailLabel="Lead" list={listColumn} listLabel="Leads" showDetail={pageId !== null} />
-    </SectionLayout>
-  );
+  return <ListDetail detail={detail} detailLabel="Lead" list={listColumn} listLabel="Leads" showDetail={pageId !== null} />;
 }
 
 /** The Leads screen, mounted by `mail/leads/layout.tsx`: the view, the brand and the open lead from the address. */
