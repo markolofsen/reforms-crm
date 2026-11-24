@@ -51,6 +51,7 @@ export function lineOf(store: LogStore, e: NewLogEvent, now: Date): LogEvent {
   if (e.turn) base.turn = e.turn;
   if (e.corr) base.corr = e.corr;
   if (e.agent) base.agent = e.agent;
+  if (e.action) base.action = e.action;
   const bytes = Buffer.byteLength(JSON.stringify(base));
   return bytes > LINE_CAP ? { ...base, data: { truncated: true, bytes } } : base;
 }

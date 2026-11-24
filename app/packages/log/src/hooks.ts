@@ -1,3 +1,4 @@
+import { isActionId, toolActionOf } from "@hub/config/action-id";
 import type { LogCli, NewLogEvent } from "./event";
 import { capStrings, cut, TEXT_CAP, toolInput, toolOutput } from "./privacy";
 
@@ -115,4 +116,15 @@ function pick(p: HookPayload, keys: readonly string[]): Record<string, string> {
     if (v !== undefined) out[k] = v;
   }
   return out;
+}
+
+const TOOL_KINDS = new Set(["tool_call", "tool_result", "tool_error", "guard"]);
+
+/**
+ * P137 L1: every event carries the session's action (`HUB_ACTION`); a tool call's events the call's own (the session's id and the
+ * call id's five letters), the same id `hub mcp` runs that call under, so its ops lines and the session log meet on one id.
+ */
+export function stampAction(events: NewLogEvent[], action: string | undefined): NewLogEvent[] {
+  if (!isActionId(action)) return events;
+  return events.map((e) => ({ ...e, action: TOOL_KINDS.has(e.kind) ? toolActionOf(action, e.corr) : action }));
 }

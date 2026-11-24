@@ -1,4 +1,5 @@
 import { readInstanceConfig } from "@hub/config/instance";
+import { ACTION_ENV, isActionId, newActionId } from "@hub/config/action-id";
 import { spawn } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -170,6 +171,8 @@ export interface AgentEnv { root: string; home: string; projectsDir: string; pat
  * caller does not matter. `--prepare` writes the session files and starts nothing (the Agent tools fix line).
  */
 export async function runAgent(env: AgentEnv, argv: string[]): Promise<number> {
+  // P137 L1: the session is one action: the admin's (the terminal tab carries it), else its own; its hooks and `hub mcp` inherit it.
+  if (!isActionId(process.env[ACTION_ENV])) process.env[ACTION_ENV] = newActionId("s");
   const parsed = parseAgentArgs(argv, listProjects(env.projectsDir));
   let bound: { project?: string; sticky: boolean };
   try { bound = resolveBinding({ mode: parsed.mode, requested: parsed.project, stored: readBinding(env.root), envProject: process.env.HUB_PROJECT }); }

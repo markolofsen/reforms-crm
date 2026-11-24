@@ -2,6 +2,7 @@ import { hubPaths } from "@hub/config/paths";
 import { errorFields, redactOps } from "./redact";
 import { appendOps, opsStoreOf, type OpsStore } from "./store";
 import { LEVEL_RANK, type OpsLevel, type OpsLine, type OpsSource } from "./line";
+import { currentAction } from "./action";
 
 // The ops logger (P86): `ops("whatsapp").error("socket closed", { status: 401, reason })`. One call writes one redacted JSON
 // line to `<state>/log/ops-<day>.jsonl` and a one-line human copy to stderr (what `state/autostart/launchd.log` keeps). It
@@ -75,31 +76,33 @@ export function humanLine(l: OpsLine): string {
   const d = new Date(l.time);
   const t = Number.isNaN(d.getTime()) ? l.time : `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   const f = l.fields ? Object.entries(l.fields).filter(([k]) => k !== "stack").map(([k, v]) => `${k}=${flat(v)}`).join(" ") : "";
-  return `${t} ${l.level} ${l.source}: ${l.message}${f ? ` ${f}` : ""}`;
+  return `${t} ${l.level} ${l.source}: ${l.message}${f ? ` ${f}` : ""}${l.action ? ` action=${l.action}` : ""}`;
 }
 
 /** Builds, redacts and writes one line. Exported for the CLI's own lines and the tests. Never throws. */
-export function writeOps(level: OpsLevel, source: OpsSource, message: string, fields?: OpsFields): void {
+export function writeOps(level: OpsLevel, source: OpsSource, message: string, fields?: OpsFields, quiet = false): void {
   try {
     if (level === "debug" && !config.debug && !config.sink) return;
     const store = config.sink ? false : storeNow();
     const red = redactOps(message, fields, store ? store.secrets : undefined);
-    const line: OpsLine = { time: config.now().toISOString(), level, source, message: red.message, ...(red.fields ? { fields: red.fields } : {}) };
+    const action = currentAction();
+    const line: OpsLine = { time: config.now().toISOString(), level, source, message: red.message, ...(action ? { action } : {}), ...(red.fields ? { fields: red.fields } : {}) };
     if (config.sink) return void config.sink(line);
     if (store) appendOps(store, line, config.now());
-    if (config.stderr && LEVEL_RANK[level] >= LEVEL_RANK.info) process.stderr.write(humanLine(line) + "\n");
+    if (config.stderr && !quiet && LEVEL_RANK[level] >= LEVEL_RANK.info) process.stderr.write(humanLine(line) + "\n");
   } catch {
     // A log line never breaks its caller.
   }
 }
 
-/** The logger of one source. */
-export function ops(source: OpsSource): OpsLogger {
+/** The logger of one source. `fileOnly`: no stderr copy (the CLI, which prints its own words to the person who ran it). */
+export function ops(source: OpsSource, o: { fileOnly?: boolean } = {}): OpsLogger {
+  const q = o.fileOnly === true;
   return {
-    error: (m, f) => writeOps("error", source, m, f),
-    warn: (m, f) => writeOps("warn", source, m, f),
-    info: (m, f) => writeOps("info", source, m, f),
-    debug: (m, f) => writeOps("debug", source, m, f),
+    error: (m, f) => writeOps("error", source, m, f, q),
+    warn: (m, f) => writeOps("warn", source, m, f, q),
+    info: (m, f) => writeOps("info", source, m, f, q),
+    debug: (m, f) => writeOps("debug", source, m, f, q),
   };
 }
 

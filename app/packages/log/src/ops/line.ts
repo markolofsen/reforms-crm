@@ -25,6 +25,7 @@ export const OPS_SOURCES = [
   "knowledge",
   "db", // migrations, the retention purge
   "core", // the core update check
+  "installer", // P137: `hub install` and `hub doctor` runs, backups
 ] as const;
 export type OpsSource = (typeof OPS_SOURCES)[number];
 export const isOpsSource = (v: unknown): v is OpsSource => typeof v === "string" && (OPS_SOURCES as readonly string[]).includes(v);
@@ -35,6 +36,8 @@ export interface OpsLine {
   level: OpsLevel;
   source: OpsSource;
   message: string;
+  /** P137: the action the line belongs to (`@hub/config/action-id`): one click, request, session or tool call. */
+  action?: string;
   /** Structured detail, redacted (`redactOps`); never a message or mail body. */
   fields?: Record<string, unknown>;
 }

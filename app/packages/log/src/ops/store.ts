@@ -1,6 +1,7 @@
 import { appendFileSync, chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import path from "node:path";
 import type { HubPaths } from "@hub/config/paths";
+import { baseActionOf, isActionId } from "@hub/config/action-id";
 import { isOpsLevel, isOpsSource, LEVEL_RANK, type OpsLevel, type OpsLine, type OpsSource } from "./line";
 
 // Where the ops log lives and how it is written and read (P86). `<state>/log/ops-<YYYY-MM-DD>.jsonl` (UTC day), folder 700,
@@ -86,6 +87,8 @@ export interface OpsFilter {
   since?: string;
   /** The newest this many, still oldest first. */
   limit?: number;
+  /** P137: one action's lines; a session's id also matches its tool calls (`s-abc` matches `s-abc.fjdkq`). */
+  action?: string;
 }
 
 /** Every line that matches, oldest first. A torn or foreign line is skipped. */
@@ -107,6 +110,7 @@ export function readOps(store: Pick<OpsStore, "dir">, f: OpsFilter = {}): OpsLin
       if (LEVEL_RANK[line.level] < min) continue;
       if (f.sources?.length && !f.sources.includes(line.source)) continue;
       if (f.since && line.time < f.since) continue;
+      if (f.action && line.action !== f.action && (!line.action || baseActionOf(line.action) !== f.action)) continue;
       out.push(line);
     }
   }
@@ -122,8 +126,10 @@ export function opsLineOf(raw: unknown): OpsLine | null {
   const source: unknown = Reflect.get(raw, "source");
   const message: unknown = Reflect.get(raw, "message");
   const fields: unknown = Reflect.get(raw, "fields");
+  const action: unknown = Reflect.get(raw, "action");
   if (typeof time !== "string" || !isOpsLevel(level) || !isOpsSource(source) || typeof message !== "string") return null;
   const line: OpsLine = { time, level, source, message };
+  if (isActionId(action)) line.action = action;
   if (fields && typeof fields === "object" && !Array.isArray(fields)) line.fields = fields as Record<string, unknown>;
   return line;
 }

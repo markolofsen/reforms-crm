@@ -552,6 +552,9 @@ importers:
 
   packages/api:
     dependencies:
+      '@hub/config':
+        specifier: workspace:*
+        version: link:../config
       '@hub/contract':
         specifier: workspace:*
         version: link:../contract
@@ -559,9 +562,6 @@ importers:
         specifier: 4.6.7
         version: 4.6.7
     devDependencies:
-      '@hub/config':
-        specifier: workspace:*
-        version: link:../config
       eslint:
         specifier: 'catalog:'
         version: 10.15.0(jiti@2.7.0)

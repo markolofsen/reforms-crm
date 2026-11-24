@@ -8,6 +8,7 @@ import type { InstanceContext } from "./context";
 export const OPS_PLACE: Readonly<Record<OpsSource, StatusNext | null>> = {
   server: "mac",
   core: "mac",
+  installer: "mac",
   db: "mac",
   whatsapp: "messengers",
   telegram: "messengers",
