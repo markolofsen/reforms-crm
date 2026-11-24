@@ -11,8 +11,11 @@ Knowledge page, never approves an entry, never writes into `knowledge/`.
    client's own words; in a `knowledge.scope by-brand` project also `brand` (from `message_show`, `ANY` when the mail has none): a gap is then the gap of that brand, and its record names the brand (another brand's entry that would answer is a proposal to mark it `ANY`, never a fact for this client). A result is usable only when `use: STATE`, `approved: true`, `expired: false`. `MARKER` is background, never
    quoted. A hit that looks stale (its `valid_until` is near or passed, its `last_confirmed` is old, or the mail or the client's
    profile contradicts it) is judged from the local entry alone: record a `stale` gap, and state the fact only if it is still usable.
-   The agent reads no other knowledge source while drafting: not Notion, not another project, not the web. An error from
-   `knowledge_search` is reported once ("KB не прочитана: <reason>") and treated as nothing usable.
+   A fact comes from no other source while drafting: not Notion, not the web. In an attended session the entry files may be read
+   directly, another project's and another brand's too, to compare (`skills/README.md`, "Reading and writing files"); a fact from
+   another project or another brand is never stated for this client, and a fact you state is opened with `knowledge_get` first (the
+   evidence ledger credits only the tools until P140). An error from `knowledge_search` is reported once ("KB не прочитана: <reason>")
+   and treated as nothing usable.
 2. **Nothing usable:** the draft says nothing about it and carries `[Owner: <what is missing>]`.
    The agent never invents a fact, never fills it from memory, from another client's mail or from general knowledge, and never
    copies a figure from a mail into a reply as if it were knowledge. The gap is recorded (section 2).

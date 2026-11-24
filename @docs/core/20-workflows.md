@@ -29,7 +29,7 @@ One rule, `usage()` in `workflows.ts`:
 | Active | Manual | `request`: only when the owner names it |
 | Draft | any | `request`: only when the owner names it |
 
-A workflow narrows the work and never widens it: no sending, no recipient outside `draft.recipients`, no fact outside `knowledge_search`, whatever the file says. `Automatic` means "may run unasked", not "may send": sending has its own gate.
+A workflow narrows the work and never widens it: no sending, no recipient outside `draft.recipients`, no fact outside the project's knowledge (`knowledge_search`, or its entry files in an attended session), whatever the file says. `Automatic` means "may run unasked", not "may send": sending has its own gate.
 
 ## Commands
 

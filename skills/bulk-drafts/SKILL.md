@@ -23,7 +23,7 @@ and the run as one session in Activity.
    (`bulk-<date>-<time>-<3 random chars>`) and one `batchTitle` (a short English campaign name, at most 60 characters) in the
    `context` of every record: the run is one batch in Mail (a line on top of Needs you while its drafts wait) and one session in Activity. Every client then
    goes through `skills/triage-mail/references/per-client.md` P1 to P7 in full, with the brief as the purpose: profile read,
-   history (newest 3 both directions plus the message answered), facts (`knowledge_search` in that client's words, then a
+   history (newest 3 both directions plus the message answered), facts (`knowledge_search` in that client's words, or the entry files in an attended session, each stated fact opened with `knowledge_get`; then a
    placeholder; `skills/triage-mail/references/kb-gaps.md`), a body with an anchor only that client has. No body before P1 to
    P3. An empty or absent profile is still drafted from the thread, and listed as P3 and a `profile-empty` gap.
 4. **One draft per client**, never a sign-off of yours (the hub signs): where it goes (a reply to the newest message, a new

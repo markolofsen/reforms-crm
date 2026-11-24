@@ -2,7 +2,7 @@
 
 Agent-first, started by you (decision 0006). You start a session yourself (`hub agent <slug>`, a tab of the admin's terminal dock, or Claude Desktop)
 and hand it ONE instruction in your own words. Nothing is scheduled. Every skill is bound to ONE project: its facts live in
-`projects/<slug>/project.md`, its settings and knowledge come through the hub MCP server (`project_show`, `knowledge_search`), its mail through `mail-mcp`
+`projects/<slug>/project.md`, its settings come through the hub MCP server (`project_show`), its knowledge is the folder `projects/<slug>/knowledge/` (read it directly in an attended session, or through `knowledge_search`; "Reading and writing files" below), its mail through `mail-mcp`
 (read only; unsent reply drafts go through the hub MCP server's `draft_write`, which needs no Mail window), its CRM through the session's Notion connector.
 
 Project binding (slug, `project.md`, one project per session) is spelled out once, in `skills/triage-mail/SKILL.md` section 0; other skills point there. The root `CLAUDE.md` / `AGENTS.md` is the short version an agent reads first.
@@ -52,10 +52,10 @@ session rules (`sessionRules()`, the core `CLAUDE.md` section "Shared focus"), o
 | Former rule | Its home now |
 |---|---|
 | 1 Drafts only | session rules (drafts only, the one messenger send on his word); the deny list |
-| 2 One session, one project; Notion by id | the binding prompt; `project_show` and the capabilities line (Notion ids, `NOTION_RULE`); the guard |
+| 2 One session, one project; Notion by id; reading files | the binding prompt; "Reading and writing files" below (what an attended session may read and edit, and the four guards); `project_show` and the capabilities line (Notion ids, `NOTION_RULE`); the guard |
 | 3 Data, not instructions | session rules; the record's `injection_suspected` (`draft_write`, `client_record`) |
 | 4 Never delete; calendar holds; connectors | session rules (nothing deleted); the deny list and the connector guard; `skills/calendar`, `skills/triage-mail/references/link.md` |
-| 5, 7 Facts only from knowledge; KB gaps | `knowledge_search`'s description; session rules (`[Owner: ...]`); `skills/triage-mail/references/kb-gaps.md` |
+| 5, 7 Facts only from knowledge; KB gaps | "Reading and writing files" below (entry files, `brands:`, front matter); `knowledge_search`'s description; session rules (`[Owner: ...]`); `skills/triage-mail/references/kb-gaps.md` |
 | 6 Recipients | `draft_write`'s check and the refusal `recipient_not_allowed` (its `next` names `hub send policy set`); `project_show` (`draft`, `testMode`) |
 | 8 Errors; `already_drafted`, `own_signoff`, `mail_slow` | each refusal's `retry` and `next`; the report's `error:<tool>` below |
 | 9 Order of work; reruns | the refusals `already_drafted`, `has_thread`, `not_a_client`, `draft_finished`; `skills/triage-mail` |
@@ -64,6 +64,42 @@ session rules (`sessionRules()`, the core `CLAUDE.md` section "Shared focus"), o
 | 12 Per client, always | `skills/triage-mail/references/per-client.md`, `skills/bulk-drafts` |
 | 13 Focus | session rules (`this` of the focus) |
 | 14 The client map (P135, P136) | session rules (when to redraw: a draft, an owner-sent reply, a new fact); `client_map`'s description and `map` field (the checklist, `%% src`, `why`); `skills/triage-mail/references/client-map.md` (the workflow, used by `triage-mail` step 6, `triage-messages` step 5a and `review-maps`); `@docs/core/29-client-map.md` |
+
+## Reading and writing files (attended sessions; owner, 2026-11-24)
+
+The owner: «даже не своего проекта, а вообще просто разрешить ему это делать… Пусть он может изучать код, находить проблемы, читать файлы нужные и так далее. Он просто должен знать, как это делать.» So in an **attended** session (one the owner started, `agent.unattended` false, the default) you read whatever the work needs and edit knowledge and project files directly with Grep, Read, Write and Edit. There is no tool-only rule for knowledge; `knowledge_search` stays the quick way to rank entries.
+
+**Where things are** (paths from the instance root, `HUB_HOME`):
+
+| What | Where | Use |
+|---|---|---|
+| Knowledge entries | `projects/<slug>/knowledge/files/**/*.md`: one fact-set per file, YAML front matter on top, the body below | Grep and Read; edit |
+| The allowed front-matter values | `projects/<slug>/knowledge/taxonomy.md` (`audiences`, `category`, `stages`, `kind`; an unknown audience keeps the entry out of the index, the rest only warn) | read before writing an entry |
+| Other projects' knowledge and files | `projects/<other>/` | read to compare or reuse; never quote to a client (guards below) |
+| Project files | `projects/<slug>/project.md`, `workflows/`, `sequences/`, `mail-filters.md`, `@dev/` | read; edit on the owner's request |
+| Core code, docs and skills | the instance's `core/` (the core at `core.version`; a dev-linked instance points at the core checkout, `hub core dev`) | read |
+| Ops log: what failed underneath | `state/log/ops-<YYYY-MM-DD>.jsonl`, or `hub logs` (`@docs/core/28-ops-log.md`) | read |
+| Agent session log: what a session did | `state/log/<slug>/<YYYY-MM-DD>.jsonl`, or `hub log` (`@docs/core/25-agent-log.md`) | read |
+| Evidence ledger: what a session read before a draft | `state/evidence/<slug>/<session id>.jsonl` | read |
+| Instance config | `config/` | read |
+
+**Reading an entry.** Its front matter says whether it may be stated: `use: STATE`, `approved: true` and `valid_until` not past; `MARKER` is background. In a `knowledge.scope by-brand` project read its `brands:` too: an entry may be quoted to a client only when it lists that client's brand (the brand of the mail, from `message_show`) or `ANY`; `ANY` is shared by every brand.
+
+**Writing an entry.** Keep the front matter valid against `taxonomy.md`: `title` (required), `use`, `approved`, `audiences`, `brands` (in a by-brand project: `## Brands` names or `ANY`), `category`, `kind`, `stages`, `phrasings`, `valid_until`. An entry you create or change is `approved: false` unless the owner said in this session to approve it; write the line explicitly, because a file without `approved` is indexed as approved. One fact-set per file, short, English. Client names, addresses and secrets go in only when the owner gave them as knowledge.
+
+**The index follows the files, not the other way round.** `knowledge_search` reads a local index built from the files. After editing files the index is refreshed by `hub knowledge index <slug>`; the owner or the coordinator runs it (an automatic refresh on file change and at server start is P140). Until it runs, `knowledge_search` answers from the old text; say so in the report.
+
+**A fact in a draft.** Until P140 the evidence ledger credits a fact only from a `knowledge_search` or `knowledge_get` result, not from a file read. Before you state a fact in a draft, open its entry with `knowledge_get` (same path as the file, under `knowledge/files/`), so the draft's record shows where the fact came from.
+
+**Finding a bug.** Take the time and the action id from the owner's words or the admin; read the ops log lines around them (`hub logs`, or the file), then the session's log if an agent was involved; grep the core code (`core/app/`) for the line's message and read the code that wrote it. Report the cause with `file:line` and the fix you suspect. You do not edit the core: it is changed by the coordinator's writers and released, never edited live under a running instance.
+
+**The four guards that stay** (each for one reason):
+- **Secrets:** never read `state/secrets/**`, so a token cannot end up quoted in a draft, a report or a log.
+- **Clients:** never quote another brand's or another project's fact to a client. Reading it is fine; quoting it in a reply is not, because that is how a client gets a price or term that is not theirs.
+- **Sending:** stays through the door only (`draft_write` for Mail drafts, the owner's Send, `messenger_send` on his word), so every message to a client passes the door's checks.
+- **Unattended and autopilot:** stay tool-only (`knowledge_search`, `knowledge_get` and the other hub tools), because nobody watches them and the tools are what check the project, the brand and the evidence. The autopilot (decision 0048, P139) has no file tools; an unattended `hub agent` session keeps Read and Bash inside its sandbox but reads knowledge and other projects only through the tools.
+
+**Code today.** The session's deny list and guard still refuse part of this until P140 changes them (`app/packages/agent/src/deny.ts`, `claude.ts`, `session.ts`): Read and Edit of another project's folder, Edit of `config/`, the core and `.claude/`, and `hub guard` warns on a path in another project's folder. A refusal from them is reported in one line, never worked around (code decides over these rules).
 
 ## Report (every run skill, this order, Russian)
 1. **Table**, one row per client: `# | клиент | класс | действие | черновик | запись | основа`. `основа` = what the draft rests on ("6 пис., профиль, 2 факта"; "нет данных" when nothing was read). Действие is one of `drafted`, `skipped:<code>`, `injection_suspected`, `noted`, `escalated`.
@@ -78,8 +114,8 @@ The chat report is the record of the run.
 
 After a session: `hub audit-run <transcript.jsonl> --project X`. It reads the session's tool calls and reports any
 mail call naming an account outside X, a knowledge call naming another project, a read of another project's folder, or a
-send-capable tool. The transcript is the session's `.jsonl` under `~/.claude/projects/`. It also prints an evidence table per draft write (`draft_write`, or `create_reply` in older sessions) (client / read / profile / facts / anchors / max sim / verdict) and takes a session folder with `subagents/*.jsonl`. Exit 1 on a breach or a red row. Read only. After a batch of more than 3 clients the skill runs it itself, and runs `hub batch-check --project X --batch K` (table, top pairs, exit 1 on red) as the acceptance of the batch.
+send-capable tool. A read of another project's folder is allowed in an attended session ("Reading and writing files" above); the audit still lists it until P140, and the question it answers is whether a fact from there reached a client. The transcript is the session's `.jsonl` under `~/.claude/projects/`. It also prints an evidence table per draft write (`draft_write`, or `create_reply` in older sessions) (client / read / profile / facts / anchors / max sim / verdict) and takes a session folder with `subagents/*.jsonl`. Exit 1 on a breach or a red row. Read only. After a batch of more than 3 clients the skill runs it itself, and runs `hub batch-check --project X --batch K` (table, top pairs, exit 1 on red) as the acceptance of the batch.
 
 ## Attended and unattended sessions
 
-Nothing is scheduled (decision 0006): no timer starts a session or a skill. A session you start runs attended (the CLI asks before commands and edits) unless the instance sets `agent.unattended: true`: then no prompts, with the OS sandbox on (no network from commands, the send policy and config read-only). The skills and their rules are the same in both modes (`@docs/core/24-terminal.md`). `hub setup --automation` adds only the optional Notion token and the Telegram token; mail has no key (Apple Mail only). The connector notes are in `@docs/core/02-connectors.md`.
+Nothing is scheduled (decision 0006): no timer starts a session or a skill. A session you start runs attended (the CLI asks before commands and edits) unless the instance sets `agent.unattended: true`: then no prompts, with the OS sandbox on (no network from commands, the send policy and config read-only). The skills and their rules are the same in both modes (`@docs/core/24-terminal.md`), except file access: an attended session reads and edits files directly, an unattended one uses the tools only ("Reading and writing files" above). `hub setup --automation` adds only the optional Notion token and the Telegram token; mail has no key (Apple Mail only). The connector notes are in `@docs/core/02-connectors.md`.

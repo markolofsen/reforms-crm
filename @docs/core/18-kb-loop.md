@@ -7,7 +7,7 @@ report), `kb-review` (merge and propose), `knowledge-import` (index; one-time mi
 ## 1. The loop
 
 The knowledge base is the folder `projects/<slug>/knowledge/files/`: Markdown entries edited by hand, indexed locally and searched with
-`knowledge_search`. The agent answers only from it. It never reads Notion or any other source for a fact.
+`knowledge_search`. The agent answers only from it. It never reads Notion or any other source for a fact. In an attended session it reads and edits the entry files directly too (owner, 2026-11-24; `skills/README.md`, "Reading and writing files"): it checks `brands:` itself, and opens a fact it states with `knowledge_get`, because the evidence ledger credits only the tools until P140.
 
 ```
 client mail -> draft needs a fact
@@ -20,10 +20,10 @@ client mail -> draft needs a fact
         v  "что улучшить в базе знаний X"  (kb-review)
    merged, ranked list + draft entries   (owner supplies the facts)
         |
-        v  the owner adds or fixes the entry files (approval is his), reindex
+        v  the owner, or the agent on his word, adds or fixes the entry files (approval is his), reindex
    the next run finds the fact
 ```
-The loop closes with the owner, not with the agent: the agent never edits or approves a knowledge entry.
+The loop closes with the owner: the agent writes or edits an entry only on his word and always as `approved: false` unless he approved it in that session; it never approves one. After the edit the index is refreshed by `hub knowledge index <slug>` (the owner or the coordinator runs it until P140).
 
 ## 2. Order of sources for a fact
 
