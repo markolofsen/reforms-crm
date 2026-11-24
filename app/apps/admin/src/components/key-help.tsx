@@ -19,10 +19,14 @@ export function KeyHelp({ open, onOpenChange, enabled, onEnabled, controls }: { 
       <PopoverTrigger render={<ActionButton aria-label={NAME} icon size="s" tooltip={NAME} variant="quiet" />}>
         <EllipsisIcon aria-hidden="true" />
       </PopoverTrigger>
-      <PopoverPopup align="start" className="w-80 max-w-[calc(100vw-2rem)]" side="top">
+      {/* Focus starts on the title, not on the first control: the theme's segments are tooltip triggers, and a focused one opens its
+          tooltip, which takes the first Esc, so `?` then Esc left the popover open (P134 e2e). From the title, Tab reaches the rest. */}
+      <PopoverPopup align="start" className="w-80 max-w-[calc(100vw-2rem)]" initialFocus={() => document.querySelector<HTMLElement>("[data-key-help-title]")} side="top">
         <div className="flex min-w-0 flex-col gap-3">
           {controls}
-          <PopoverTitle className="text-base">Keyboard shortcuts</PopoverTitle>
+          <PopoverTitle className="text-base outline-none" data-key-help-title="" tabIndex={-1}>
+            Keyboard shortcuts
+          </PopoverTitle>
           <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-1.5 text-sm">
             {liveKeys().map(([k, what]) => (
               <div className="contents" key={`${k}:${what}`}>

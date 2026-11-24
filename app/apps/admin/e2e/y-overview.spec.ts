@@ -10,6 +10,11 @@ const API = () => `http://127.0.0.1:${process.env.HUB_E2E_API_PORT}`;
 test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
+// The patched reads (`route.fetch`, then `.json()`) can still be running for a page the last step opened (Settings reads the
+// scheme too) when a test ends; the closing context then disposes that answer and fails a test whose checks all passed.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
 
 test("overview: the empty address is the Overview with two projects, and it names no project", async ({ page }) => {
   await page.goto("/");

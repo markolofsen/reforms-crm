@@ -80,6 +80,18 @@ export function ReviewDialog({ open, onOpenChange, title, lead, summary, items, 
   const cancelRef = useRef<HTMLButtonElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const openedAt = useRef(0);
+  // What held focus when the dialog opened (read in `initialFocus`, before focus moves in). Base UI returns focus to that
+  // element's first TABBABLE child when it is not tabbable itself, so a dialog opened by a key from `#main` (tabIndex -1) gave
+  // focus to the first control of the screen; since P134 that is Mail's search, and the next key typed into it. Esc, Cancel or
+  // the confirm put focus back on the very element, when it is still on the page.
+  const opener = useRef<Element | null>(null);
+  const restoreFocus = () => {
+    const el = opener.current;
+    opener.current = null;
+    if (!(el instanceof HTMLElement) || !el.isConnected || el === el.ownerDocument.body) return true;
+    el.focus({ preventScroll: true });
+    return false;
+  };
   useEffect(() => {
     if (open) openedAt.current = now();
   }, [open, now]);
@@ -95,7 +107,11 @@ export function ReviewDialog({ open, onOpenChange, title, lead, summary, items, 
           <AlertDialog.Popup
             className="flex max-h-[calc(100dvh-2rem)] w-full max-w-lg min-w-0 flex-col overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-lg/5 outline-none transition-[opacity,scale] duration-200 data-ending-style:scale-98 data-ending-style:opacity-0 data-starting-style:scale-98 data-starting-style:opacity-0 motion-reduce:transition-none"
             data-testid="review-dialog"
-            initialFocus={() => (gate.canConfirm ? confirmRef.current : cancelRef.current)}
+            finalFocus={restoreFocus}
+            initialFocus={() => {
+              opener.current = document.activeElement;
+              return gate.canConfirm ? confirmRef.current : cancelRef.current;
+            }}
           >
             <div className="flex flex-col gap-2 px-6 pt-6 pb-3">
               <SheetTitle className="text-lg">{title}</SheetTitle>
