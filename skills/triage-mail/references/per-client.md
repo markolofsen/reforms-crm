@@ -10,7 +10,7 @@ Shared by `triage-mail` and `bulk-drafts`. Owner rule: every reply is written fo
 | P4 Write | Purpose and tone are the brief. The body states at least one anchor, a concrete item that exists only in this client's thread or profile, and answers what the client asked or fits where the thread stands. | none |
 | P5 Draft | One unsent `draft_write` (hub) on the client's newest message; it adds the marker line (`triage-mail` section 2 step 5). | `draft_write` |
 | P6 Record | `draft_write`'s `record` (or `client_record`) with honest counts (what you opened, not what you meant to). Say "recorded" only on `recorded: true`. | `draft_write` |
-| P7 Profile and log | Notion profile and the one log line (`triage-mail` section 2 step 7). Last, append-only. | `notion-update-page` |
+| P7 Profile refresh | Everything this client's messages taught you, on their Notion page: Name (a real name and the company instead of a phone or an address), Email, Phone, chat fields, Relationship, the summary rewritten to stay current, the map, and one dated `## Log` line (`profile.md`). Never invented, never a worse value over a good one. Last. | `notion-update-page` |
 
 The evidence you must be able to state for every draft: messages found and opened (ids), first contact yes or no, profile state, facts used and missing, the anchors, and which opened messages the body relies on.
 
@@ -21,7 +21,8 @@ Forbidden shortcuts, each a defect even if the draft looks fine:
 - opening only the newest message because the batch is large;
 - treating a tone, a greeting or the signoff as the personal part;
 - a first-contact claim without the empty search;
-- skipping the profile read because it was empty last time.
+- skipping the profile read because it was empty last time;
+- leaving the profile as it was when the thread told you a name, a company, an address or a decision.
 - a follow-up that only says "just checking in" or "following up on my last email" (P47: every follow-up step brings something new from the thread or the knowledge).
 
 Counts honesty: the hub compares your counts with what the session observed; a count above what you opened is reported to the owner as a mismatch.

@@ -37,7 +37,9 @@ keeps it with its evidence, shows it, and copies it to the client's Notion page.
   cross-database formula, and this needs neither. The `%% src` lines stay in the Hub (the Notion copy drops them).
 - **Next step** (P136 verdict 5): with each new version the Hub sets the Clients page's text property `Next step` (when the
   database has it as text) from the map: the open leaf whose label holds the nearest date (ISO `YYYY-MM-DD`), else the first
-  open leaf, else the first waiting one; so the map and the profile never disagree. The agent never writes `Next step` itself.
+  open leaf, else the first waiting one; so the map and the profile never disagree. The agent keeps it right through the map; it writes `Next step` itself only in a
+  run that does not redraw the map, or when the map has no open leaf, and the next map version replaces it
+  (`skills/triage-mail/references/profile.md`).
 
 ## The shape (what `client_map` accepts)
 

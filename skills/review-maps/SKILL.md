@@ -1,7 +1,7 @@
 ---
 name: review-maps
-description: Use when the owner wants the client maps of one project brought up to date, typically once a week: every client active in the last 30 days whose map is older than 7 days or missing gets its map redrawn from its whole history, each node with its source. It writes only the Hub's maps (and their Notion copy); it never writes or sends a reply, and it never touches a client the list does not name. Unlike triage-mail, which drafts replies and redraws one map per draft, this only redraws maps.
-allowed-tools: Read mcp__hub__focus mcp__hub__project_show mcp__hub__maps_due mcp__hub__client_show mcp__hub__client_map mcp__hub__message_show mcp__hub__messenger_history mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content
+description: Use when the owner wants the client maps of one project brought up to date, typically once a week: every client active in the last 30 days whose map is older than 7 days or missing gets its map redrawn from its whole history, each node with its source. It writes the Hub's maps (and their Notion copy) and refreshes each client's Notion profile from the history it read; it never writes or sends a reply, and it never touches a client the list does not name. Unlike triage-mail, which drafts replies and redraws one map per draft, this only redraws maps.
+allowed-tools: Read mcp__hub__focus mcp__hub__project_show mcp__hub__maps_due mcp__hub__client_show mcp__hub__client_map mcp__hub__message_show mcp__hub__messenger_history mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__notion__notion-update-page
 ---
 
 # Review the client maps (manual run, one project)
@@ -9,7 +9,7 @@ allowed-tools: Read mcp__hub__focus mcp__hub__project_show mcp__hub__maps_due mc
 > Layer: **core** (universal). Names in this file are examples; one owner's facts live in `projects/<slug>/` (custom). Rule: `@docs/LAYERS.md`.
 
 The owner started this session and said the instruction (P136 verdict 6). Replies to the owner in Russian, briefly. Draft-only:
-this run writes no draft and sends nothing; a map is the Hub's state and its Notion copy.
+this run writes no draft and sends nothing; a map is the Hub's state and its Notion copy, the profile is the client's Notion page.
 
 ## 0. Bind the session
 Exactly as `skills/triage-mail/SKILL.md` section 0 (the slug, `project.md`, one project per session).
@@ -30,9 +30,13 @@ one line and stop.
 4. `client_map` with `client` and `map` (and `why`). `map_invalid` or `map_why_missing`: fix what the message names and call
    once more; a second refusal is the row's `error:client_map`, then go on with the next client.
 
-Never write a reply, a Notion profile line or `Next step` here (the Hub sets `Next step` from the map).
+5. Refresh the client's profile by `skills/triage-mail/references/profile.md` from the same history: a real name and company
+   instead of a phone or an address, Email, Relationship, the summary rewritten, one dated `## Log` line. `Next step` comes
+   from the map. Only what the messages state.
+
+Never write a reply here.
 
 ## 3. Report
-One row per client: `# | клиент | было | стало | изменения` (`было` = the old map's date or "нет", `изменения` = the answer's
-`diff` in a few words: "+2, −1 (причина), p2a → done"). Then the clients that failed, with the reason. Then "Ничего не
+One row per client: `# | клиент | было | стало | изменения | профиль` (`было` = the old map's date or "нет", `изменения` = the answer's
+`diff` in a few words: "+2, −1 (причина), p2a → done"), `профиль` = the fields changed or "без изменений". Then the clients that failed, with the reason. Then "Ничего не
 отправлено, черновиков нет."

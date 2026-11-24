@@ -1,7 +1,7 @@
 ---
 name: bulk-drafts
 description: Use when the owner wants to write to clients of one project on his own initiative, one client or a group (a follow-up, a notice, a campaign to all clients, "write to him again", a first message to a client never written to), even when the client has not answered or our last mail was sent. Produces one reviewable unsent draft per client in that client's latest thread (a new thread when there is none), plus a table, only for recipients the project admits; a group is one batch in Drafts. Never sends and never invents facts. Unlike triage-mail, which answers whatever clients wrote, this starts from the owner's own purpose.
-allowed-tools: Read Write Bash mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content mcp__mail-mcp__list_drafts mcp__hub__project_show mcp__hub__mail_list mcp__hub__message_show mcp__hub__client_show mcp__hub__draft_show mcp__hub__draft_write mcp__hub__client_record mcp__hub__focus mcp__hub__knowledge_search mcp__hub__knowledge_get
+allowed-tools: Read Write Bash mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__notion__notion-update-page mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content mcp__mail-mcp__list_drafts mcp__hub__project_show mcp__hub__mail_list mcp__hub__message_show mcp__hub__client_show mcp__hub__draft_show mcp__hub__draft_write mcp__hub__client_record mcp__hub__focus mcp__hub__knowledge_search mcp__hub__knowledge_get
 ---
 
 # Bulk drafts: writing on the owner's initiative (draft-only, one batch, one project)
@@ -25,7 +25,9 @@ and the run as one session in Activity.
    goes through `skills/triage-mail/references/per-client.md` P1 to P7 in full, with the brief as the purpose: profile read,
    history (newest 3 both directions plus the message answered), facts (`knowledge_search` in that client's words, or the entry files in an attended session, each stated fact opened with `knowledge_get`; then a
    placeholder; `skills/triage-mail/references/kb-gaps.md`), a body with an anchor only that client has. No body before P1 to
-   P3. An empty or absent profile is still drafted from the thread, and listed as P3 and a `profile-empty` gap.
+   P3. An empty or absent profile is still drafted from the thread, and listed as P3 and a `profile-empty` gap. P7 is the
+   profile refresh (`skills/triage-mail/references/profile.md`): whatever the thread taught you about the client (a real name
+   and company instead of an address, Email, stage, the summary rewritten, a dated `## Log` line) goes on their page.
 4. **One draft per client**, never a sign-off of yours (the hub signs): where it goes (a reply to the newest message, a new
    thread, a Notion lead), reruns, a teammate's reply, and the record: `references/where-to-write.md`.
 5. **KB gaps** across the batch (`kb-gaps.md` sections 2 and 3); the same missing fact for several clients is one

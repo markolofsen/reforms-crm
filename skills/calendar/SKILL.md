@@ -70,7 +70,7 @@ plus `client: <Notion page URL>` when the client row exists. Steps, always in th
 6. Recurring ("каждый вторник"): create one hold with the recurrence rule only after the dry-run shows the next 4 dates; end date required (default 8 weeks).
 7. Link to the client: the dated line `Next call: <date> <zone>, <event url>` appended to the client's Notion page body, as
    `skills/triage-mail/references/link.md` ("A calendar event") says, only if Notion is readable and writable in this session; a `Tasks` row
-   for the follow-up only when the owner asked. Never `Follow-up on` (CRM-synced). Otherwise skip and say "в Notion не записано".
+   for the follow-up only when the owner asked. Never `Follow-up on` (machine-written). What the scheduling taught you (time zone, a name) goes on the page by `skills/triage-mail/references/profile.md`. Otherwise skip and say "в Notion не записано".
 8. Follow-up reminder: offer, do not make unasked: a second hold `Follow-up: <client>` (15 min, marker) the day after the call at the start of `work_hours`.
 9. Deadlines and follow-ups from mail or sequences (P62): `triage-mail` and `sequence-drafts` only OFFER a hold ("поставить напоминание в календарь?");
    it is created here, by these steps, after his "да": `Deadline: <what> (<client>)` on the stated date at the start of `work_hours`, or

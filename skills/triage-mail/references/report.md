@@ -3,6 +3,6 @@ Table: `# | клиент | класс | действие | черновик | з
 "Нужно от тебя": every client with `evidence != ok` is a P1 line (`[P1] клиент c3 | основа не подтверждена | скажи: прочитай заново c3`); every empty or absent profile is a P3 line (`[P3] профиль c5 пуст | Notion clients | заполни профиль <клиент> в Notion`).
 
 # Log line
-Appended to the client page under `## Log` (one per inbound message; `msg` makes a rerun idempotent):
+Appended to the client page under `## Log` (one per inbound message; `msg` makes a rerun idempotent; a chat uses `chat=<chat id>`):
 `- YYYY-MM-DD | msg=<thread-id> | <n> msgs | class: <class> | action: <action> | profile: <field old->new or none>`
-Client schema: read it from the project's `clients` source at the start of step 6 (`notion-fetch`); the names differ between CRM templates (`Conversation summary` or `Summary`, `Relationship` or `Stage`). Fields described "Filled by CRM" are never written by the assistant.
+Client schema and what to write: `profile.md` (the profile refresh). Machine fields (dates, the send stamp, ids, rollups) are never written by the assistant; `Name`, `Email`, `Relationship` and the summary are, from what the messages state.

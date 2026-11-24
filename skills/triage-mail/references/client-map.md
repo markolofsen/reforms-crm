@@ -29,4 +29,4 @@ Not for spam, a notice, "thanks", "ok" or a message that changes nothing: the ma
 5. Read its answer: `diff` (added, removed, renamed, states) is what changed; when it shows a change you did not mean, redraw.
    `map_invalid` names the line to fix: redraw and call once more.
 
-The Notion `Next step` follows the map (the open leaf with the nearest date, else the first open leaf): never write it yourself.
+The Notion `Next step` follows the map (the open leaf with the nearest date, else the first open leaf): the Hub writes it on every `client_map` call, so keep it right through the map. The rest of the profile is refreshed by `profile.md`.
