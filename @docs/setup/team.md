@@ -4,7 +4,7 @@ How a Hub instance is made, shared with a team and installed on each person's Ma
 
 ## The layout
 
-- **The core** (`reforms-crm`) is public: code, skills, `@docs/core`, the project template. It never holds a client, an address or a token (`app/apps/installer/test/public-core.test.ts` fails if it does).
+- **The core** (`reforms-hub`) is public: code, skills, `@docs/core`, the project template. It never holds a client, an address or a token (`app/apps/installer/test/public-core.test.ts` fails if it does).
 - **An instance** is one PRIVATE git repository per business, named `hub-<name>` (for example `hub-saas`, `hub-realty`). It holds `projects/<slug>/` (project.md, knowledge, workflows, sequences, mail filters), its own `@dev`, `@docs/custom`, `@refs` and config. `core/` inside it is a git submodule pinned by `core.version`.
 - **No branches.** One branch of a public repo cannot be made private, access on GitHub is per repo, and a branch per instance would need the core merged into every branch forever. One instance, one repo.
 - **Two ways in, nothing else:** start a new instance from a core checkout (`hub new-instance`), or join one by cloning its private repo. There are no template or starter repositories (decision 0043, amended 2026-11-20).
@@ -28,7 +28,7 @@ When a reply is sent (the admin's Send, `hub send`, or a send Sent detection see
 From any core checkout (`./hub.sh` in it) or an existing instance (`./run.sh`). Run inside a git checkout, the new folder goes next to it (`../hub-acme`), never inside it; elsewhere it goes in the current folder; a path is used as given. Until the next core tag, add `--pin main` to get a core with this setup:
 
 ```sh
-git clone https://github.com/markolofsen/reforms-crm.git && cd reforms-crm
+git clone https://github.com/markolofsen/reforms-hub.git && cd reforms-hub
 ./hub.sh new-instance acme                                 # makes ../hub-acme, core pinned at the newest tag; asks the kind of its first project
 cd ../hub-acme && ./run.sh setup                           # your Mac: tools, folders, skills, checks, your name, the personal list
 gh repo create <you>/hub-acme --private --source . --remote origin --push   # printed by new-instance; you run it

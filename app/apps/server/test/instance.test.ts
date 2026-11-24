@@ -32,8 +32,8 @@ describe("GET /api/instance", () => {
 
   it("names the instance and serves its logo (a relative path is read from config/) with its type", async () => {
     writeFileSync(join(configDir, "logo.svg"), SVG);
-    config({ name: "Reforms SaaS", logo: "logo.svg" });
-    expect(await (await app().request(`${BASE}/api/instance`)).json()).toEqual({ name: "Reforms SaaS", hasLogo: true, localOpen: false, apps: { notion: false, telegram: false, whatsapp: false } });
+    config({ name: "Hub SaaS", logo: "logo.svg" });
+    expect(await (await app().request(`${BASE}/api/instance`)).json()).toEqual({ name: "Hub SaaS", hasLogo: true, localOpen: false, apps: { notion: false, telegram: false, whatsapp: false } });
     const r = await app().request(`${BASE}/api/instance/logo`);
     expect(r.status).toBe(200);
     expect(r.headers.get("content-type")).toBe("image/svg+xml");

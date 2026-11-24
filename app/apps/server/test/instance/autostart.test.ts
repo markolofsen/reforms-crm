@@ -20,8 +20,8 @@ let paths: HubPaths;
 let calls: string[][];
 beforeEach(() => {
   base = mkdtempSync(join(tmpdir(), "hub-autostart-route-"));
-  mkdirSync(join(base, "reforms-crm-saas"));
-  paths = hubPaths({ home: join(base, "reforms-crm-saas"), env: {} });
+  mkdirSync(join(base, "hub-saas"));
+  paths = hubPaths({ home: join(base, "hub-saas"), env: {} });
   calls = [];
 });
 afterEach(() => rmSync(base, { recursive: true, force: true }));
@@ -53,23 +53,23 @@ const verbs = () => calls.filter((c) => !c[0]?.startsWith("print"));
 describe("/api/instance/autostart", () => {
   it("reads the state; the label is the instance's", async () => {
     const { get } = setup();
-    expect(await get()).toMatchObject({ supported: true, label: "com.reforms.hub.reforms-crm-saas", installed: true, enabled: true, running: true, startedBy: "hand", guard: null, mailMcp: false, fix: null });
+    expect(await get()).toMatchObject({ supported: true, label: "com.reforms.hub.hub-saas", installed: true, enabled: true, running: true, startedBy: "hand", guard: null, mailMcp: false, fix: null });
   });
   it("off runs exactly launchctl disable gui/<uid>/<label> and writes the off file; never bootout, kill or kickstart", async () => {
     const { post, files } = setup();
     const r = await post({ enabled: false });
     expect(r.status).toBe(200);
     expect(await r.json()).toMatchObject({ enabled: false, running: true });
-    expect(verbs()).toEqual([["disable", "gui/501/com.reforms.hub.reforms-crm-saas"]]);
+    expect(verbs()).toEqual([["disable", "gui/501/com.reforms.hub.hub-saas"]]);
     expect(existsSync(files.off)).toBe(true);
   });
   it("on runs enable, and bootstrap only when the agent is not loaded", async () => {
     await setup().post({ enabled: true });
-    expect(verbs()).toEqual([["enable", "gui/501/com.reforms.hub.reforms-crm-saas"]]);
+    expect(verbs()).toEqual([["enable", "gui/501/com.reforms.hub.hub-saas"]]);
     calls = [];
     const { post, files } = setup({ loaded: false });
     await post({ enabled: true });
-    expect(verbs()).toEqual([["enable", "gui/501/com.reforms.hub.reforms-crm-saas"], ["bootstrap", "gui/501", files.plist]]);
+    expect(verbs()).toEqual([["enable", "gui/501/com.reforms.hub.hub-saas"], ["bootstrap", "gui/501", files.plist]]);
   });
   it("refuses a label in the body (strict), a foreign origin, and a missing plist with the fix line", async () => {
     const { post, files } = setup();

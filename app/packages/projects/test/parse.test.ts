@@ -187,7 +187,7 @@ describe("precise errors", () => {
     expect(codes(base(["| run.max_messages | 0 | 2026-11-14 | owner |"]))).toContain("bad_value");
     expect(codes(base(["| draft.recipients | everyone | 2026-11-14 | owner |"]))).toContain("bad_value");
     expect(codes(base(["| notion.token_file | /var/secrets/token | 2026-11-14 | owner |"]))).toContain("bad_value");
-    expect(codes(base(["| notion.parent_page | reforms-crm deploy scratch | 2026-11-14 | owner |"]))).toContain("bad_value");
+    expect(codes(base(["| notion.parent_page | reforms-hub deploy scratch | 2026-11-14 | owner |"]))).toContain("bad_value");
     expect(codes(base(["| setup.doctor | pass | 2026-11-14 | agent |"]))).toContain("bad_value");
     expect(codes(base().replace("| status | active |", "| status | live |"))).toContain("bad_value");
   });

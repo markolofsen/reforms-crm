@@ -1,11 +1,11 @@
-# reforms-crm: an agent-first mail and CRM workflow
+# reforms-hub: an agent-first mail and CRM workflow
 
 > This repository is the **core**: universal code, skills and docs, free of any owner's data. One owner's projects live in an
 > **instance** outside it. Rule and steps: [`@docs/LAYERS.md`](@docs/LAYERS.md).
 
 ## Start
 ```sh
-git clone https://github.com/markolofsen/reforms-crm.git && cd reforms-crm
+git clone https://github.com/markolofsen/reforms-hub.git && cd reforms-hub
 ./hub.sh new-instance <name>             # makes ../hub-<name>, asks the kind of its first project
 cd ../hub-<name> && ./run.sh setup
 ```

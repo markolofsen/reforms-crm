@@ -12,7 +12,7 @@ set -eu
 app=$(cd "$(dirname "$0")/.." && pwd -P)
 top=$(git -C "$app" rev-parse --show-toplevel)
 app_rel=${app#"$top"/}
-wt=${HUB_LIVE_DIR:-$HOME/.reforms-crm/app-live}
+wt=${HUB_LIVE_DIR:-$HOME/.reforms-hub/app-live}
 wt_app=$wt/$app_rel
 port=${HUB_LIVE_PORT:-5273}
 api_port=${HUB_PORT:-4317}

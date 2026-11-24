@@ -4,7 +4,7 @@ The agent edits `apps/admin` in a worktree on branch `app-live`; Next's dev serv
 
 ## How it is wired
 
-- `pnpm live` (from `app/`, main checkout; `scripts/live.sh`) cuts `app-live` from main into a sparse worktree (default `~/.reforms-crm/app-live`), links main's `node_modules`, starts the API if needed and serves the worktree's admin with `next dev -H 127.0.0.1 -p 5273`. It refuses while main has uncommitted admin changes.
+- `pnpm live` (from `app/`, main checkout; `scripts/live.sh`) cuts `app-live` from main into a sparse worktree (default `~/.reforms-hub/app-live`), links main's `node_modules`, starts the API if needed and serves the worktree's admin with `next dev -H 127.0.0.1 -p 5273`. It refuses while main has uncommitted admin changes.
 - `.claude/settings.json` runs `scripts/live-commit.sh` after every edit tool: only on `app-live`, only the edited file (`git commit --only`), refusing a file outside `app/apps/admin`, with `Live-Edit` and `Session` trailers.
 - No `next build` or e2e inside the worktree while its dev server runs.
 
@@ -12,9 +12,9 @@ The agent edits `apps/admin` in a worktree on branch `app-live`; Next's dev serv
 
 ```
 cd app && pnpm live                                              # terminal 1
-cd ~/.reforms-crm/app-live/@projects/reforms-crm/app && claude   # terminal 2: the agent
-git -C ~/.reforms-crm/app-live log --oneline main..app-live      # what it did
-git -C ~/.reforms-crm/app-live revert <sha>                      # undo one edit
+cd ~/.reforms-hub/app-live/app && claude   # terminal 2: the agent
+git -C ~/.reforms-hub/app-live log --oneline main..app-live      # what it did
+git -C ~/.reforms-hub/app-live revert <sha>                      # undo one edit
 git merge app-live                                               # keep, from main
 ```
 

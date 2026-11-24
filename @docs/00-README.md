@@ -1,4 +1,4 @@
-# reforms-crm @docs
+# reforms-hub @docs
 
 An agent-first mail and CRM workflow on the owner's Mac. The agent does the work, the admin shows it, the owner decides. He starts an agent
 session (Claude Code or Codex: `hub agent <project>`, or a tab of the admin's terminal dock) and hands it one instruction. The agent reads a project's

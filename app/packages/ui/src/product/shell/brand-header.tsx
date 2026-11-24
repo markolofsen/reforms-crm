@@ -1,6 +1,6 @@
 import { cn } from "../../cn";
 
-/** The monogram of a name: the first letters of its first two words (`Reforms SaaS` -> `RS`, `Hub` -> `H`). */
+/** The monogram of a name: the first letters of its first two words (`Hub SaaS` -> `HS`, `Hub` -> `H`). */
 export function monogram(name: string): string {
   const words = name.trim().split(/\s+/).filter(Boolean);
   return words.slice(0, 2).map((w) => [...w][0]?.toUpperCase() ?? "").join("") || "H";

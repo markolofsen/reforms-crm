@@ -1,5 +1,5 @@
 {
-  "name": "reforms-crm-app",
+  "name": "reforms-hub-app",
   "private": true,
   "packageManager": "pnpm@12.18.0",
   "engines": {

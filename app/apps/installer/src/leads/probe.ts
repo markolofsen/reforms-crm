@@ -8,7 +8,7 @@ export { errText } from "./net";
 /** A page with more same-origin scripts than this is read up to here; the endpoint is usually referenced by the first chunks. */
 const MAX_SCRIPTS = 60;
 export const TURNSTILE_HOST = "https://challenges.cloudflare.com/turnstile/v0/api.js";
-const UA = "hub-doctor-leads/1 (read-only check; https://github.com/markolofsen/reforms-crm)";
+const UA = "hub-doctor-leads/1 (read-only check; https://github.com/markolofsen/reforms-hub)";
 
 export interface Probe { ok: boolean; notes: string[]; problem?: string; level?: CheckResult["level"] }
 

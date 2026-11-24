@@ -42,8 +42,8 @@ for a in "$@"; do [ "$a" = "--dry-run" ] && DRY=1; done
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 APP="$ROOT/app"
-[ -f "$APP/package.json" ] || die "$APP/package.json not found: run this from a reforms-crm checkout"
-say "reforms-crm in $ROOT"
+[ -f "$APP/package.json" ] || die "$APP/package.json not found: run this from a reforms-hub checkout"
+say "reforms-hub in $ROOT"
 
 # ---- 1. Node ---------------------------------------------------------------
 # Minimum = the higher of app/ and the installer's engines (">=X.Y.Z").

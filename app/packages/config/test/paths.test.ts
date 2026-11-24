@@ -80,8 +80,8 @@ describe("instanceBrand (P48 W0)", () => {
     for (const cfg of [undefined, "{not json", {}, { name: "  " }, { name: 7 }]) expect(instanceBrand(withConfig(cfg))).toEqual({ name: DEFAULT_BRAND_NAME, logo: null, logoFound: false });
   });
   it("reads the name, and a relative logo from the config folder; a logo that is not there is said, not fatal", () => {
-    const p = withConfig({ name: " Reforms SaaS ", logo: "logo.svg" });
-    expect(instanceBrand(p)).toEqual({ name: "Reforms SaaS", logo: join(p.configDir, "logo.svg"), logoFound: false });
+    const p = withConfig({ name: " Hub SaaS ", logo: "logo.svg" });
+    expect(instanceBrand(p)).toEqual({ name: "Hub SaaS", logo: join(p.configDir, "logo.svg"), logoFound: false });
     writeFileSync(join(p.configDir, "logo.svg"), "<svg/>");
     expect(instanceBrand(p).logoFound).toBe(true);
   });

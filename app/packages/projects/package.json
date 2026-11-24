@@ -2,7 +2,7 @@
   "name": "@hub/projects",
   "version": "0.1.0",
   "private": true,
-  "description": "project.md schema v1: parser, validator, in-place writer, registry sync and mail routing for reforms-crm",
+  "description": "project.md schema v1: parser, validator, in-place writer, registry sync and mail routing for reforms-hub",
   "type": "module",
   "exports": {
     "./model": "./src/schema.ts",

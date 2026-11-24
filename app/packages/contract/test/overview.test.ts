@@ -65,7 +65,7 @@ describe("connections and instance (P48 W0)", () => {
     expect(mailReadDto.safeParse({ state: "hung", fix: null }).success).toBe(false);
   });
   it("the brand has a name, and says only whether a logo exists", () => {
-    expect(instanceDto.safeParse({ name: "Reforms SaaS", hasLogo: false, localOpen: true, apps: { notion: false, telegram: false, whatsapp: false } }).success).toBe(true);
+    expect(instanceDto.safeParse({ name: "Hub SaaS", hasLogo: false, localOpen: true, apps: { notion: false, telegram: false, whatsapp: false } }).success).toBe(true);
     expect(instanceDto.safeParse({ name: "", hasLogo: false, localOpen: true }).success).toBe(false);
     expect(instanceDto.safeParse({ name: "x", hasLogo: true, localOpen: true, logo: "/Users/x/logo.png" }).success).toBe(false);
   });

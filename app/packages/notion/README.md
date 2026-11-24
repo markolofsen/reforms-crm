@@ -1,6 +1,6 @@
 # notion-dump
 
-A read-only Notion backup for reforms-crm (package `@hub/notion`, `app/packages/notion`). A deterministic job:
+A read-only Notion backup for reforms-hub (package `@hub/notion`, `app/packages/notion`). A deterministic job:
 no model, no Hub, no OAuth session. It uses `@notionhq/client` with an internal integration token and has no code path
 that writes to Notion: the reader interface (`src/types.ts`) holds three read methods and nothing else.
 

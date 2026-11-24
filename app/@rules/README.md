@@ -44,7 +44,7 @@ Then by area:
 8. MUST: locations come only from `@hub/config/paths` (`hubPaths`); no `join(root, "projects"|…)`, no direct read of `HUB_HOME`, `HUB_PROJECTS`, `HUB_DB`, `HUB_CONFIG_DIR` or `HUB_CONFIG_FILE` outside `packages/config` (decision 0016). Checked by `apps/installer/test/home-seams.test.ts`.
 8a. MUST: one screen per job; a new section needs a written reason here (`admin-principles.md` rule 2). Sections: `src/routes/sections.ts`; what each shows: `@docs/core/06-local-admin-app.md`. Checked by `test/route-files.test.ts`; the reason by review.
 9. MUST: a screen is done by `verification.md` rule 3.
-10. MUST: dev-time skills are referenced in `skills.md`, not copied; run-time skills live in `reforms-crm/skills/`. Review.
+10. MUST: dev-time skills are referenced in `skills.md`, not copied; run-time skills live in `reforms-hub/skills/`. Review.
 11. MUST: `app/` is one pnpm + Turborepo monorepo (decision 0004), each package owning one subject; no package lockfile; tsconfig, Vitest and Node eslint configs are one call of `@hub/config`; `FILE_RATCHET` counts only go down. Every table has a `project` column and every query filters by it. Checked by `app/test/boundaries.test.ts` and `packages/config/test/lint-ratchet.test.ts`.
 11a. MUST: `@hub/api` is transport only (the emitted OpenAPI document, Orval output, the runtime envelope; replies are parsed with `@hub/contract` schemas, there is no generated Zod); it imports no React, Query, feature code or policy. Checked by `app/test/boundaries.test.ts`.
 11b. MUST: `apps/storybook` uses local fixtures only and never imports admin features, generated clients or runtime sessions; new shared product UI gets a story in the same change. Checked by `packages/ui/test/stories.test.ts`.

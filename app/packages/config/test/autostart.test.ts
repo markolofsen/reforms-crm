@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { appendStart, autostartFiles, autostartLabel, failuresSince, GUARD, guardOf, lastStartOf, parseBootTime, parseDisabled, parsePrint, readStarts, rotateLog, switchAutostart, type LaunchctlRun, type StartLine } from "../src/autostart";
 import { hubPaths } from "../src/paths";
 
-const instance = (name = "reforms-crm-saas") => {
+const instance = (name = "hub-saas") => {
   const base = mkdtempSync(join(tmpdir(), "hub-autostart-"));
   const home = join(base, name);
   mkdirSync(home);
@@ -16,13 +16,13 @@ const T0 = Date.parse("2026-11-19T09:00:00Z");
 
 describe("the label and the files come from the instance", () => {
   it("is com.reforms.hub.<folder name>; odd characters become -", () => {
-    expect(autostartLabel({ home: "/x/reforms-crm-saas" })).toBe("com.reforms.hub.reforms-crm-saas");
+    expect(autostartLabel({ home: "/x/hub-saas" })).toBe("com.reforms.hub.hub-saas");
     expect(autostartLabel({ home: "/x/my hub@2" })).toBe("com.reforms.hub.my-hub-2");
   });
   it("puts the plist in the agents folder and the rest in state/autostart", () => {
     const { paths } = instance();
     const f = autostartFiles(paths, "/u/Library/LaunchAgents");
-    expect(f.plist).toBe("/u/Library/LaunchAgents/com.reforms.hub.reforms-crm-saas.plist");
+    expect(f.plist).toBe("/u/Library/LaunchAgents/com.reforms.hub.hub-saas.plist");
     expect(f.log).toBe(join(paths.state, "autostart", "launchd.log"));
     expect(f.off).toBe(join(paths.state, "autostart", "off"));
   });

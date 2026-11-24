@@ -2,7 +2,7 @@
 
 | Kind | Who uses it | Where it lives |
 |---|---|---|
-| Run-time (triage, reply, profiles, reports) | the workflow agent | `reforms-crm/skills/`; index [`skills/README.md`](../../skills/README.md) |
+| Run-time (triage, reply, profiles, reports) | the workflow agent | `reforms-hub/skills/`; index [`skills/README.md`](../../skills/README.md) |
 | Dev-time (`coss`, `coss-particles`) | an agent changing `app/` | installed globally from `cosscom/ui` with the `skills` CLI; referenced here, never copied |
 
 - A copy of a dev-time skill goes stale; reinstall with the `skills` CLI on a new machine. Pin one only by vendoring a snapshot into `app/@rules/vendor/<name>/` with its upstream commit.

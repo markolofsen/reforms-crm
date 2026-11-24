@@ -62,14 +62,14 @@ const started = (s: ReturnType<typeof setup>, at = BOOT + 60_000) => appendStart
 
 describe("autostartPlist", () => {
   it("is the exact plist for an instance", () => {
-    expect(autostartPlist({ label: "com.reforms.hub.reforms-crm-saas", home: "/Users/o/crm/reforms-crm-saas", nodeDir: "/Users/o/.nvm/versions/node/v22.22.0/bin", log: "/Users/o/crm/reforms-crm-saas/state/autostart/launchd.log" })).toBe(`<?xml version="1.0" encoding="UTF-8"?>
+    expect(autostartPlist({ label: "com.reforms.hub.hub-saas", home: "/Users/o/crm/hub-saas", nodeDir: "/Users/o/.nvm/versions/node/v22.22.0/bin", log: "/Users/o/crm/hub-saas/state/autostart/launchd.log" })).toBe(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>Label</key><string>com.reforms.hub.reforms-crm-saas</string>
+  <key>Label</key><string>com.reforms.hub.hub-saas</string>
   <key>ProgramArguments</key>
-  <array><string>/bin/bash</string><string>/Users/o/crm/reforms-crm-saas/run.sh</string><string>up</string><string>--service</string></array>
-  <key>WorkingDirectory</key><string>/Users/o/crm/reforms-crm-saas</string>
+  <array><string>/bin/bash</string><string>/Users/o/crm/hub-saas/run.sh</string><string>up</string><string>--service</string></array>
+  <key>WorkingDirectory</key><string>/Users/o/crm/hub-saas</string>
   <key>EnvironmentVariables</key>
   <dict>
     <key>HUB_AUTOSTART</key><string>1</string>
@@ -86,8 +86,8 @@ describe("autostartPlist", () => {
   <key>ExitTimeOut</key><integer>30</integer>
   <key>ProcessType</key><string>Interactive</string>
   <key>LimitLoadToSessionType</key><string>Aqua</string>
-  <key>StandardOutPath</key><string>/Users/o/crm/reforms-crm-saas/state/autostart/launchd.log</string>
-  <key>StandardErrorPath</key><string>/Users/o/crm/reforms-crm-saas/state/autostart/launchd.log</string>
+  <key>StandardOutPath</key><string>/Users/o/crm/hub-saas/state/autostart/launchd.log</string>
+  <key>StandardErrorPath</key><string>/Users/o/crm/hub-saas/state/autostart/launchd.log</string>
 </dict>
 </plist>
 `);

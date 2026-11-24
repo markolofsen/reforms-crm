@@ -134,11 +134,11 @@ describe("hub new-instance (P89)", () => {
     expect(instanceDir("hub-saas", "/w")).toBe("/w/hub-saas");
     expect(instanceDir("./x/y", "/w")).toBe("/w/x/y");
     // inside a checkout (the core, an instance) the new folder goes next to it, never inside it
-    expect(instanceDir("acme", "/w/reforms-crm/app", "/w/reforms-crm")).toBe("/w/hub-acme");
-    expect(instanceDir("./here", "/w/reforms-crm", "/w/reforms-crm")).toBe("/w/reforms-crm/here");
-    expect(githubOwner("https://github.com/acme/reforms-crm.git")).toBe("acme");
-    expect(githubOwner("git@github.com:acme/reforms-crm.git")).toBe("acme");
-    expect(ghCreateLine("https://github.com/acme/reforms-crm.git", "/w/hub-saas")).toBe('gh repo create acme/hub-saas --private --source "/w/hub-saas" --remote origin --push');
+    expect(instanceDir("acme", "/w/reforms-hub/app", "/w/reforms-hub")).toBe("/w/hub-acme");
+    expect(instanceDir("./here", "/w/reforms-hub", "/w/reforms-hub")).toBe("/w/reforms-hub/here");
+    expect(githubOwner("https://github.com/acme/reforms-hub.git")).toBe("acme");
+    expect(githubOwner("git@github.com:acme/reforms-hub.git")).toBe("acme");
+    expect(ghCreateLine("https://github.com/acme/reforms-hub.git", "/w/hub-saas")).toBe('gh repo create acme/hub-saas --private --source "/w/hub-saas" --remote origin --push');
     expect(ghCreateLine("/local/core", "/w/hub-x")).toContain("<your-github-user>/hub-x --private");
   });
 
