@@ -16,7 +16,8 @@ import { postLocalOpen } from "@/lib/data/instance";
 import { copyText, openLink, sameTab } from "@/lib/external";
 import { ConversationPane } from "@/features/mail/conversation/pane";
 import { useToggleChecked } from "@/features/mail/draft/mail-read/use-toggle-checked";
-import { ListHeader, type View } from "./list/header";
+import { ListHeader, type Filters, type View } from "./list/header";
+import type { BrandCount } from "./list/filter-menu";
 import { ListRow } from "./list/row";
 import { useMailKeys } from "./list/keys";
 import type { Channel } from "@/components/conversation/adapter";
@@ -33,8 +34,8 @@ const NOTICE_MS = 8000;
 
 type Props = {
   source: ReviewSource;
-  /** The View menu: every view with its count (the host knows the counts the list does not), then the batches. */
-  views: (counts: Partial<Record<string, number>>) => View[];
+  /** The header line (P134): the views with their counts (the title, and a phone's View menu) and the filter button's content. The host knows the counts the list does not. */
+  header: (counts: Partial<Record<string, number>>, brands: readonly BrandCount[]) => { views: View[]; filters: Filters };
   onView: (value: string) => void;
   /** The search text and its setter: in the address. The host sends it to the server through its source. */
   search: [string, (value: string) => void];
@@ -128,14 +129,14 @@ async function replyAllInMail(d: ReviewDraft, say: (text: string) => void): Prom
  * action keys (D S H U C R 1 2 3) and its multi-select, drawn by the one `ConversationWorkspace`. It never sends mail by itself:
  * Send is the unsent message's, and a batch draft opens a compose window you send from.
  */
-export function MailWorkspace({ source, views, onView, search, clientId, pending = false, place, pointed = null, empty, emptyTitle, status, body, aside, listBottom }: Props) {
+export function MailWorkspace({ source, header: headerOf, onView, search, clientId, pending = false, place, pointed = null, empty, emptyTitle, status, body, aside, listBottom }: Props) {
   const refresh = useRefreshTopics(source.project);
   const now = useClock()();
   const narrow = usePaneNarrow();
   const actions = useReviewActions(source.project);
   const [q, setQ] = search;
   const searchRef = useRef<HTMLInputElement>(null);
-  const { query, rows, total, counts } = useReviewRows(source);
+  const { query, rows, total, counts, brands } = useReviewRows(source);
   const sel = useSelection(rows);
   const { filter, batch } = place;
   const emailOf = (id: number) => rows.find((r) => rowId(r) === id)?.client.email ?? null;
@@ -184,6 +185,7 @@ export function MailWorkspace({ source, views, onView, search, clientId, pending
   };
 
   const filtered = source.filter !== "all";
+  const line = headerOf(counts, brands);
   const header = { count: sel.picked.length, busy: actions.pending, onClear: sel.clear, onHold: () => bulk("hold", "Held"), onSkip: () => bulk("skipped", "Skipped") };
   const channel: Channel = {
     noun: { list: "Mail", detail: "Conversation", back: "Mail" },
@@ -237,7 +239,7 @@ export function MailWorkspace({ source, views, onView, search, clientId, pending
         />
       }
       searchRef={searchRef}
-      toolbar={<ListHeader onSearch={setQ} onSelecting={sel.setMode} onView={onView} refreshing={query.isFetching && !query.isPending} search={q} searchRef={searchRef} selecting={sel.selecting} selection={header} view={source.filter} views={views(counts)} />}
+      toolbar={<ListHeader filters={line.filters} onSearch={setQ} onSelecting={sel.setMode} onView={onView} refreshing={query.isFetching && !query.isPending} search={q} searchRef={searchRef} selecting={sel.selecting} selection={header} view={source.filter} views={line.views} />}
     />
   );
 }

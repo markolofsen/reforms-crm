@@ -2,17 +2,22 @@ import { ListChecksIcon } from "lucide-react";
 import type { RefObject } from "react";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { SearchField } from "@hub/ui/product/list/search-field";
-import { ListFilterMenu, ListToolbar, ListToolbarRow } from "@hub/ui/product/list/toolbar";
+import { ListToolbar, ListToolbarRow } from "@hub/ui/product/list/toolbar";
+import { ListViewTitle } from "@/components/conversation/list-title";
 import { Refreshing } from "@/components/state-views";
+import { ListFilterButton, type BrandCount, type FilterOption } from "./filter-menu";
 
-/** One entry of the View menu. `group` starts a labelled block (the batches). */
-export type View = { value: string; label: string; count: number | undefined; group?: string };
+/** One view of the list: its title, and on a phone an entry of the View menu. */
+export type View = { value: string; label: string; count: number | undefined };
+/** The filter button's content (P134 verdicts 1 and 4): the filters of All and the brands of the list. */
+export type Filters = { options: readonly FilterOption[]; value: string | null; onChange: (v: string | null) => void; brands: readonly BrandCount[]; brand: string | null; onBrand: (b: string | null) => void };
 
 type Selection = { count: number; busy: boolean; onSkip: () => void; onHold: () => void; onClear: () => void };
 type Header = {
   views: View[];
   view: string;
   onView: (v: string) => void;
+  filters: Filters;
   search: string;
   onSearch: (v: string) => void;
   searchRef: RefObject<HTMLInputElement | null>;
@@ -21,16 +26,6 @@ type Header = {
   selection: Selection;
   refreshing: boolean;
 };
-
-/**
- * The view as ONE menu with counts, at every width: the views, Follow-ups, Not by email, then the batches (read-only). Its trigger
- * is the list's title, "Mail · Needs you 2" (P128 X4); a filter or a batch with nothing in it is left out unless it is the one
- * on screen (the three views always show, so the owner sees an empty Needs you as such).
- */
-function MailViewMenu({ views, view, onView }: Pick<Header, "views" | "view" | "onView">) {
-  const shown = views.filter((v) => v.group === undefined || v.value === view || v.count !== 0);
-  return <ListFilterMenu name="View" onChange={onView} options={shown} tooltip="Filter mail by view" value={view} where="Mail" />;
-}
 
 /**
  * "3 selected · Skip · Hold · Clear": the header line itself while drafts are picked, so nothing below it moves. Its height is
@@ -54,10 +49,11 @@ function SelectionLine({ count, busy, onSkip, onHold, onClear }: Selection) {
 }
 
 /**
- * The one line on top of the list (sticky while it scrolls): the View menu, the search and Select. While drafts are picked the
+ * The one line on top of the list (sticky while it scrolls): the title (P134: the view is chosen in the sidebar), the search, the
+ * filter button and Select. While drafts are picked the
  * same line, at the same height, becomes the selection's actions: the rows below never shift (P48 W4).
  */
-export function ListHeader({ views, view, onView, search, onSearch, searchRef, selecting, onSelecting, selection, refreshing }: Header) {
+export function ListHeader({ views, view, onView, filters, search, onSearch, searchRef, selecting, onSelecting, selection, refreshing }: Header) {
   return (
     <ListToolbar ariaLabel="Mail filters and actions" role={selection.count > 0 ? null : "toolbar"} testId="list-header">
       {/* Always mounted, so a screen reader hears the count change (a region that appears with its text is often not read). */}
@@ -67,13 +63,14 @@ export function ListHeader({ views, view, onView, search, onSearch, searchRef, s
       {selection.count > 0 ? (
         <SelectionLine {...selection} />
       ) : (
-        // One line at every width, the search between the View and Select: a second line pushed the first draft past 200px on a
+        // One line at every width, the search between the title and Select: a second line pushed the first draft past 200px on a
         // phone (admin-principles 3) and made the rows jump when a selection replaced both lines (ui-specifications 4a).
         <ListToolbarRow className="flex-nowrap">
-          <MailViewMenu onView={onView} view={view} views={views} />
+          <ListViewTitle name="View" onChange={onView} options={views} tooltip="Choose the view" value={view} />
           <div className="min-w-0 flex-1">
             <SearchField inputRef={searchRef} label="Search drafts" onChange={onSearch} value={search} />
           </div>
+          <ListFilterButton brand={filters.brand} brands={filters.brands} filter={filters.value} filters={filters.options} onBrand={filters.onBrand} onFilter={filters.onChange} what="mail" />
           <ActionButton aria-label={selecting ? "Exit draft selection" : "Select drafts"} aria-pressed={selecting} icon onClick={() => onSelecting(!selecting)} size="s" tooltip={selecting ? "Exit draft selection" : "Select drafts"} variant="secondary">
             <ListChecksIcon aria-hidden="true" />
           </ActionButton>

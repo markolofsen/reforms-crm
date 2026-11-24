@@ -6,9 +6,9 @@ import { useClientKey } from "./use-client-key";
 import { phrase } from "@hub/contract/help";
 import { useCallback, useMemo } from "react";
 import { MailWorkspace } from "./adapter";
-import { batchListed, shortBatchName } from "./model";
-import { useClock } from "@/lib/clock";
-import type { View } from "@/features/mail/list/header";
+import { shortBatchName } from "./model";
+import type { Filters, View } from "@/features/mail/list/header";
+import type { BrandCount } from "@/features/mail/list/filter-menu";
 import { useDebounced } from "@/hooks/use-debounced";
 import { useGo } from "@/hooks/use-go";
 import { useProjectScope } from "@/hooks/use-project";
@@ -30,8 +30,10 @@ import { StatusLine } from "./status-line";
 // are state words and chips on a row.
 const EMPTY: Record<DraftView, string> = { needs_you: "Nobody needs you", waiting: "Nobody to wait for", all: "No conversation yet", sequences: "No follow-up step to review", not_by_email: "Nobody" };
 const SEARCH_PAUSE_MS = 250;
-/** A batch is chosen from the View menu like a view; its value carries the id. */
+/** A batch on screen (`?batch=`) is the list's title like a view; its value carries the id. */
 const BATCH = "batch:";
+/** The sidebar's three views (P134 verdict 1): a phone's View menu offers the same three. */
+const SIDEBAR_VIEWS = ["needs_you", "waiting", "all"] as const;
 
 
 /**
@@ -43,8 +45,8 @@ export type MailViewItem = { id: "needs_you" | "waiting" | "all"; title: string;
 
 /**
  * Mail's sidebar submenu (P104's scope, P125 verdict 12): Needs you · Waiting · All with the counts of the Needs you reply (it
- * carries every view's count), the one on screen marked. The filters (Follow-ups, Not by email) and batches stay in the list
- * header's View menu, which is also the list's title (P128 X4): sidebar = where, header = which subset.
+ * carries every view's count), the one on screen marked. P134 verdict 1: it is the one door to a view; the list's header only
+ * names the view on screen, and the filters of All (Follow-ups, Not by email) sit in its filter button.
  */
 export function useMailViews(project: string | null): MailViewItem[] {
   const route = useRoute();
@@ -60,28 +62,36 @@ export function useMailNeedsYou(project: string | null): number {
 
 type Props = { project: string; filter: DraftView; q: string; batch: number | null; clientId: number | null; pending: boolean; pointed: string | null; leadPageId: string | null };
 
-/** Mail: the list column (View menu, status line, people) and the open conversation. The view, the search, the batch and the person live in the address. */
+/** Mail: the list column (title, status line, people) and the open conversation. The view, the search, the batch and the person live in the address. */
 function MailSection({ project, filter, q, batch, clientId, pending, pointed, leadPageId }: Props) {
   const go = useGo();
   const [, setSearch] = useSearch(MAIL_SEARCH);
   const setQ = useCallback((v: string) => setSearch({ q: v }), [setSearch]);
   const search = useDebounced(q.trim(), SEARCH_PAUSE_MS);
   const batches = useBatches(project);
-  const now = useClock()();
   const notByEmail = useNotByEmailTotal(project);
   const inbound = useInbound(project);
   const known = batch === null || (batches.data?.batches.some((b) => b.id === batch) ?? true);
   const current = batch === null ? undefined : batches.data?.batches.find((b) => b.id === batch);
   // Not by email lists client rows, not conversations: the list query still runs (as All) so the View menu keeps every count.
   const source = useMemo(() => mailSource(project, filter, filter === "not_by_email" ? "all" : filter, { search, batch }), [project, filter, batch, search]);
-  const views = (counts: ReviewPage["counts"]): View[] => [
-    ...DRAFT_VIEWS.map((v) => ({ value: v, label: DRAFT_VIEW_LABELS[v], count: v === "not_by_email" ? notByEmail : countOf(counts, v), ...(DRAFT_FILTERS.has(v) ? { group: "Filters" } : {}) })),
-    // P128 X4: a batch shows its short name and leaves the menu 7 days after its last draft was sent or done.
-    ...(batches.data?.batches ?? []).filter((b) => batchListed(b, now, batch)).map((b) => ({ value: `${BATCH}${b.id}`, label: shortBatchName(b.name), count: b.total, group: "Batches" })),
-  ];
-  // The View menu's value is the batch when one is open, else the view.
-  const onView = (v: string) =>
-    v.startsWith(BATCH) ? go(dest("mail.list", { filter: "all", batch: Number(v.slice(BATCH.length)) }), { replace: true }) : go(dest("mail.list", { filter: DRAFT_VIEWS.find((x) => x === v) ?? "needs_you", q }), { replace: true });
+  const countFor = (counts: ReviewPage["counts"], v: DraftView) => (v === "not_by_email" ? notByEmail : countOf(counts, v));
+  // The title names the view on screen: one of the sidebar's three, a filter of All, or the batch a link opened (P134 verdict 2: no batch list).
+  const header = (counts: ReviewPage["counts"], brands: readonly BrandCount[]): { views: View[]; filters: Filters } => ({
+    views: [
+      ...DRAFT_VIEWS.filter((v) => !DRAFT_FILTERS.has(v) || v === filter).map((v) => ({ value: v, label: DRAFT_VIEW_LABELS[v], count: countFor(counts, v) })),
+      ...(current ? [{ value: `${BATCH}${current.id}`, label: shortBatchName(current.name), count: current.total }] : []),
+    ],
+    filters: {
+      options: DRAFT_VIEWS.filter((v) => DRAFT_FILTERS.has(v)).map((v) => ({ value: v, label: DRAFT_VIEW_LABELS[v], count: countFor(counts, v) })),
+      value: DRAFT_FILTERS.has(filter) && batch === null ? filter : null,
+      onChange: (v) => go(dest("mail.list", { filter: DRAFT_VIEWS.find((x) => x === v) ?? "all", q }), { replace: true }),
+      brands,
+      brand: null,
+      onBrand: () => undefined,
+    },
+  });
+  const onView = (v: string) => go(dest("mail.list", { filter: SIDEBAR_VIEWS.find((x) => x === v) ?? "needs_you", q }), { replace: true });
   // P97, P99 verdict 8: a lead is not a conversation until the first reply is sent: New leads stay a group below the people.
   const leads = batch === null && (filter === "needs_you" || filter === "all") && inbound.data?.leads ? <LeadsGroup group={inbound.data.leads} openPageId={leadPageId} /> : undefined;
   return (
@@ -116,7 +126,7 @@ function MailSection({ project, filter, q, batch, clientId, pending, pointed, le
       place={{ filter, q, batch }}
       source={{ ...source, filter: batch === null ? filter : `${BATCH}${batch}` }}
       status={<StatusLine project={project} />}
-      views={views}
+      header={header}
     />
   );
 }
