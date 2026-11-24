@@ -78,8 +78,11 @@ test("chats: the channel is a sidebar child of Messengers (P125 L5), kept in the
   await expect(fresh(page).getByRole("listitem")).toHaveText([/Joana/]);
   await expect(page.getByRole("list", { name: "Chats", exact: true })).toHaveCount(0);
   await expect(view(page)).toHaveText(/Needs you\s*1/);
-  await pickIn(page, link, /^Linked/);
-  await expect.poll(() => new URL(page.url()).search).toBe("?link=linked&channel=whatsapp");
+  // P138 verdict 10: the filter button lists only a state with chats (WhatsApp has no linked one); the address still opens it.
+  await link(page).click();
+  await expect(page.getByRole("menuitemradio", { name: /^Linked/ })).toHaveCount(0);
+  await closeMenu(page, link(page));
+  await page.goto(at(P, "/messengers?link=linked&channel=whatsapp"));
   await expect(page.getByText("No linked chats yet")).toBeVisible();
   // A deep link opens on its channel.
   await page.goto(at(P, "/messengers?channel=telegram"));
@@ -105,7 +108,7 @@ test("chats: the agent's proposed hides, one dialog naming each chat, Keep one, 
   const line = page.getByTestId("proposed-hides");
   // P138 verdict 9: the proposed hides are one Hide all… on the Not linked heading's line.
   await expect(page.getByTestId("unlinked-heading").getByTestId("proposed-hides")).toHaveCount(1);
-  await line.getByRole("button", { name: "Hide all the 2 chats the agent proposes to hide…" }).click();
+  await line.getByRole("button", { name: /^Hide all the 2 chats the agent proposes to hide\s*…$/ }).click();
   const dialog = page.getByTestId("review-dialog");
   await expect(dialog.getByRole("heading", { name: "Hide 2 chats: not clients?" })).toBeVisible();
   await expect(dialog).toContainText("Delivery bot fan (Telegram): A delivery service's notices.");

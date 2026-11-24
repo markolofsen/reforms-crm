@@ -49,13 +49,17 @@ test("P131 O3: a lead's Notion page opens in the app when it is installed, else 
   };
   await setApps(page, { notion: true, telegram: false, whatsapp: false });
   await openLead();
-  const inApp = page.locator('[data-pane="aside"]').getByRole("link", { name: "Open in Notion" });
+  // P138 E3: the Open in links sit in the card's one ⋯ menu.
+  const more = async () => page.locator('[data-pane="aside"]').getByTestId("lead-more").click();
+  await more();
+  const inApp = page.getByRole("menuitem", { name: "Open in Notion" });
   await expect(inApp).toHaveAttribute("href", /^notion:\/\/www\.notion\.so\/[0-9a-f]{32}$/);
   await expect(inApp).not.toHaveAttribute("target", "_blank");
 
   await setApps(page, { notion: false, telegram: false, whatsapp: false });
   await openLead();
-  const web = page.locator('[data-pane="aside"]').getByRole("link", { name: /Open in browser/ });
+  await more();
+  const web = page.getByRole("menuitem", { name: /Open in browser/ });
   await expect(web).toHaveAttribute("href", /^https:\/\/www\.notion\.so\/[0-9a-f]{32}$/);
   await expect(web).toHaveAttribute("target", "_blank");
 });
