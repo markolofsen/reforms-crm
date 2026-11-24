@@ -11,7 +11,9 @@ import type { RouteId } from "@/routes/table";
  */
 export function useLitRoutes(project: string | null): ReadonlySet<RouteId> {
   const { row } = useProjectRow(project ?? "");
-  const next = dotOf(row?.status);
+  // P134 verdict 12: a worst fact whose place is Overview is Overview's body, not a rail dot (the Settings pane that fixes it has one).
+  const worst = dotOf(row?.status);
+  const next = worst === "overview" ? null : worst;
   const tools = useAgentToolsNeedYou(project);
   const places = useNeedsYouPlaces(project);
   return useMemo(() => new Set<RouteId>([...(next ? [NEXT_ROUTE[next]] : []), ...(tools ? (["settings.agent"] as const) : []), ...places.map((p) => NEXT_ROUTE[p])]), [next, tools, places]);

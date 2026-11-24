@@ -8,7 +8,7 @@ import { PROJECT_COOKIE } from "@/routes/guards";
 // The terminal's three (P49) are a viewing preference, not screen state: open or closed, the column's width, the active tab.
 // Quick Links keeps its shell disclosure and each expanded group separately; `sound` (P59) is the agent feed's mute switch,
 // "off" when muted; the sound is on by default.
-const KEYS = { shortcuts: "hub.shortcuts", rail: "hub.rail", terminal: "hub.terminal", "terminal-width": "hub.terminal-width", "terminal-tab": "hub.terminal-tab", "quick-links": "hub.quick-links", "quick-links-groups": "hub.quick-links-groups", sound: "hub.sound" } as const;
+const KEYS = { shortcuts: "hub.shortcuts", rail: "hub.rail", terminal: "hub.terminal", "terminal-width": "hub.terminal-width", "terminal-tab": "hub.terminal-tab", sound: "hub.sound" } as const;
 type Key = keyof typeof KEYS;
 
 const listeners = new Set<() => void>();

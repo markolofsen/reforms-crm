@@ -39,7 +39,7 @@ export const useOpsErrors = () => useQuery({ queryKey: keys.opsErrors(), queryFn
 /**
  * The places Overview's "Needs you" names for this project and the instance (UX pass 2026-11-20: one source of attention). Every
  * part that is broken or needs a look lights the page that fixes it, and the agent's open question lights Overview, so a dot
- * never lacks its item on Overview and an item never lacks its dot. The same queries Overview reads (one key each).
+ * never lacks its item on Overview. A part placed on Overview lights nothing (P134 verdict 12: Overview lists it, Settings owns the dot). The same queries Overview reads (one key each).
  */
 export function useNeedsYouPlaces(project: string | null): StatusNext[] {
   const qc = useQueryClient();
@@ -54,7 +54,9 @@ export function useNeedsYouPlaces(project: string | null): StatusNext[] {
   const nodes = scheme.data?.nodes;
   const asks = !!files.data?.question;
   return useMemo(() => {
-    const places = (nodes ?? []).flatMap((n) => ((n.state === "fail" || n.state === "warn") && n.place !== null && (n.project === null || n.project === project) ? [n.place] : []));
+    // P134 verdict 12: one owner per dot. A part whose place is Overview itself is shown in Overview's body and lights no rail dot
+    // (its fix page, a Settings pane, carries the dot); only the agent's open question, which nothing else shows, lights Overview.
+    const places = (nodes ?? []).flatMap((n) => ((n.state === "fail" || n.state === "warn") && n.place !== null && n.place !== "overview" && (n.project === null || n.project === project) ? [n.place] : []));
     return asks ? [...places, "overview"] : places;
   }, [nodes, asks, project]);
 }

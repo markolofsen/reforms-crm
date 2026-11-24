@@ -13,16 +13,23 @@ export const CORE_LEVEL_WORDS: Record<CoreLevel, string> = {
 };
 
 /**
- * The sidebar's one quiet line: `core v0.12.11`, then a dot for recommended and required (the nav's dot, not a second system), a
- * plain "update available" for a patch, nothing more otherwise.
+ * The sidebar's one quiet line (P134 verdict 10): "Core v0.14.0+174 · dev" for a local checkout (its own version without the
+ * commit, which the tooltip names), else "Core v0.12.11", then a dot for recommended and required (the nav's dot, not a second
+ * system), a plain "update available" for a patch, nothing more otherwise.
  */
 export function coreLine(d: CoreUpdateDto): { text: string; note: string | null; dot: boolean } {
   // P98 item 6: a local checkout names its own version (nearest tag, commits after it, sha), not the pin it no longer runs.
-  if (d.local) return { text: `core ${d.inUse ?? d.pin ?? "unknown"}`, note: "local checkout", dot: false };
-  const text = `core ${d.pin ?? d.inUse ?? "unknown"}`;
+  if (d.local) return { text: `Core ${(d.inUse ?? d.pin ?? "unknown").replace(/\s*\(.*\)\s*$/, "")}`, note: "dev", dot: false };
+  const text = `Core ${d.pin ?? d.inUse ?? "unknown"}`;
   if (d.level === "recommended" || d.level === "required") return { text, note: CORE_LEVEL_WORDS[d.level], dot: true };
   if (d.level === "available") return { text, note: CORE_LEVEL_WORDS.available, dot: false };
   return { text, note: null, dot: false };
+}
+
+/** The line's tooltip: what runs (the version with its commit, a followed branch) and why this level. */
+export function coreLineDetail(d: CoreUpdateDto): string {
+  const what = [d.inUse ?? d.pin, d.follows ? `branch ${d.follows.branch}` : null].filter(Boolean).join(" · ");
+  return what ? `${what}. ${d.reason}` : d.reason;
 }
 
 /** "Last checked 3 h ago", and when the last try failed, when and why: the block keeps the last answer, never an error page. */

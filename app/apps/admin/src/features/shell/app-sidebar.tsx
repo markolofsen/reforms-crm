@@ -4,13 +4,13 @@ import { PanelLeftIcon } from "lucide-react";
 import type { ProjectLinksDto } from "@hub/contract/project";
 import { ActionButton } from "@hub/ui/product/action-button";
 import { BrandHeader } from "@hub/ui/product/shell/brand-header";
-import { ThemeSegmented, ThemeToggle } from "@hub/ui/product/shell/theme";
+import { ThemeSegmented } from "@hub/ui/product/shell/theme";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, useSidebar } from "@hub/ui/sidebar";
 import { useHotkey } from "@hub/ui/use-hotkey";
 import { AppLink } from "@/components/app-link";
 import { KeyHelp } from "@/components/key-help";
 import { NavDot } from "@/components/nav-dot";
-import { SoundToggle } from "@/features/agent-feed/sound-toggle";
+import { SoundSwitch } from "@/features/agent-feed/sound-switch";
 import { CoreLine } from "@/features/settings/mac/core-line";
 import { NavIcon } from "./nav-icon";
 import { ProjectSwitcher } from "./project-switcher";
@@ -24,9 +24,9 @@ type Props = { items: ShellNavItem[]; projects: string[]; project: string | null
 /**
  * The left column: the instance's brand on top, the project switcher under it only with two or more projects, the sections
  * (a dot on each that needs the owner; parents only, P75: a section's child pages are its sub-nav's, in the page's header line),
- * and in the footer the agent's last five rows (P59), the core version line
- * (P68, a link to /health), the theme switcher, the agent sounds' switch and the sidebar toggle (the terminal is the strip on the right edge). Wide
- * screens show it open; 640-1279 it is a 56px rail (labels as tooltips, the theme as one toggle) unless pinned open.
+ * Quick links as one row (P134 verdict 9), and in the footer (verdict 11) the core version line (P68, a link to Settings ▸ This
+ * Mac), the "⋯" popover (the theme, the agent sounds, the shortcuts) and the sidebar toggle (the terminal is the strip on the
+ * right edge). Wide screens show it open; 640-1279 it is a 56px rail (labels as tooltips) unless pinned open.
  */
 export function AppSidebar({ items, projects, project, onProject, brand, keys, links }: Props) {
   const { toggleSidebar, state } = useSidebar();
@@ -65,7 +65,7 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys, l
                               {c.count > 0 && (
                                 <span className="ms-auto shrink-0 text-muted-foreground text-xs tabular-nums" data-testid={`nav-count-${i.id}-${c.id}`}>
                                   {c.count}
-                                  {c.id !== "waiting" && c.id !== "all" && <span className="sr-only"> need you</span>}
+                                  {c.id === "leads" ? <span className="sr-only"> new</span> : c.id !== "waiting" && c.id !== "all" && <span className="sr-only"> need you</span>}
                                 </span>
                               )}
                             </SidebarMenuSubButton>
@@ -93,14 +93,19 @@ export function AppSidebar({ items, projects, project, onProject, brand, keys, l
       </SidebarContent>
       <SidebarFooter>
         <CoreLine />
-        <ThemeSegmented className="group-data-[collapsible=icon]:hidden" />
         <div className="flex items-center gap-1 group-data-[collapsible=icon]:flex-col">
-          <ThemeToggle className="hidden group-data-[collapsible=icon]:inline-flex" />
-          <SoundToggle />
-          <ActionButton aria-keyshortcuts="Meta+B Control+B" aria-label={state === "expanded" ? "Collapse the sidebar" : "Expand the sidebar"} icon onClick={toggleSidebar} size="s" tooltip={{ content: state === "expanded" ? "Collapse the sidebar" : "Expand the sidebar", hotkey: "Meta/Ctrl + B" }} variant="quiet">
+          <KeyHelp
+            {...keys}
+            controls={
+              <>
+                <ThemeSegmented />
+                <SoundSwitch />
+              </>
+            }
+          />
+          <ActionButton aria-keyshortcuts="Meta+B Control+B" aria-label={state === "expanded" ? "Collapse the sidebar" : "Expand the sidebar"} className="ms-auto group-data-[collapsible=icon]:ms-0" icon onClick={toggleSidebar} size="s" tooltip={{ content: state === "expanded" ? "Collapse the sidebar" : "Expand the sidebar", hotkey: "Meta/Ctrl + B" }} variant="quiet">
             <PanelLeftIcon aria-hidden="true" />
           </ActionButton>
-          <KeyHelp {...keys} />
         </div>
       </SidebarFooter>
     </Sidebar>

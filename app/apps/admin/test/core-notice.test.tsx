@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { coreUpdateDto, type CoreUpdateDto } from "@hub/contract/instance";
-import { checkedLine, commandText, coreLine, factsLine } from "../src/features/settings/mac/core-labels";
+import { checkedLine, commandText, coreLine, coreLineDetail, factsLine } from "../src/features/settings/mac/core-labels";
 import { CoreLine } from "../src/features/settings/mac/core-line";
 import { CoreView } from "../src/features/settings/mac/core-view";
 import { keys } from "../src/lib/cache/keys";
@@ -29,14 +29,14 @@ describe("the sidebar's core line", () => {
   it("current and unknown: the version only, no dot, a link to Settings ▸ This Mac", () => {
     for (const d of [base, at("unknown", { reason: "not checked yet", command: [] })]) {
       const html = line(d);
-      expect(html).toContain("core v0.12.11");
+      expect(html).toContain("Core v0.12.11");
       expect(html).toContain('href="/settings/mac"');
       expect(html).not.toContain("core-dot");
       expect(html).not.toContain("update");
     }
   });
   it("available: the plain words, no dot; recommended and required: the words and the dot", () => {
-    expect(coreLine(avail)).toEqual({ text: "core v0.12.11", note: "update available", dot: false });
+    expect(coreLine(avail)).toEqual({ text: "Core v0.12.11", note: "update available", dot: false });
     expect(line(avail)).not.toContain("core-dot");
     for (const level of ["recommended", "required"] as const) {
       const html = line(at(level));
@@ -79,9 +79,10 @@ describe("the block on Settings ▸ This Mac", () => {
     expect(html).not.toContain("Newest tag");
   });
 
-  it("P98: a local checkout names its own dev version, not the stale pin", () => {
+  it("P98, P134 verdict 10: a local checkout names its own dev version, not the stale pin: one line, the commit in the tooltip", () => {
     const d = at("unknown", { local: true, pin: "v0.13.0", inUse: "v0.14.0+13 (086c4e6)", reason: "core/ is a link to a local checkout (hub core dev): no update check" });
-    expect(coreLine(d)).toEqual({ text: "core v0.14.0+13 (086c4e6)", note: "local checkout", dot: false });
+    expect(coreLine(d)).toEqual({ text: "Core v0.14.0+13", note: "dev", dot: false });
+    expect(coreLineDetail(d)).toContain("v0.14.0+13 (086c4e6)");
     expect(view(d)).toContain("Running a local checkout (development), v0.14.0+13 (086c4e6): no update check.");
   });
 
