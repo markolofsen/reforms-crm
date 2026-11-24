@@ -104,9 +104,9 @@ export function channelOf(value: string): { kind: LeadChannelKind; value: string
   return { kind: "other", value: v.slice(0, 120) };
 }
 
-const DOMAIN_IN_TEXT = /\b(?:https?:\/\/)?((?:[a-z0-9-]+\.)+(?:com|net|org|de|fr|it|es|nl|be|pl|uk|ie|pt|ch|at|se|no|dk|fi|cz|ro|hu|gr|bg|hr|si|sk|lt|lv|ee|ua|tr|ae|sa|ma|jp|kr|cn|vn|au|nz|ca|us|mx|br|ar|cl|co|in|id|ph|th|my|sg|za|ru|io|ai|app|auto|cars|eu)(?:\.[a-z]{2})?)\b/gi;
+const DOMAIN_IN_TEXT = /(?<![@\w.-])(?:https?:\/\/)?((?:[a-z0-9-]+\.)+(?:com|net|org|de|fr|it|es|nl|be|pl|uk|ie|pt|ch|at|se|no|dk|fi|cz|ro|hu|gr|bg|hr|si|sk|lt|lv|ee|ua|tr|ae|sa|ma|jp|kr|cn|vn|au|nz|ca|us|mx|br|ar|cl|co|in|id|ph|th|my|sg|za|ru|io|ai|app|auto|cars|eu)(?:\.[a-z]{2})?)\b/gi;
 
-/** The sites a message names, as domains (`mobile.de`, `www.autoscout24.com`), in order, once each. */
+/** The sites a message names, as domains (`mobile.de`, `www.autoscout24.com`), in order, once each; never an email's domain. */
 export function domainsIn(text: string): string[] {
   const out: string[] = [];
   for (const m of text.matchAll(DOMAIN_IN_TEXT)) {
