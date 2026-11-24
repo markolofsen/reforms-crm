@@ -88,7 +88,7 @@ for (const dock of [false, true]) {
     await page.setViewportSize({ width: 1280, height: 800 });
     await page.goto(LOG);
     if (dock) {
-      await page.getByRole("button", { name: "Terminal", exact: true }).click();
+      await page.getByRole("button", { name: /^Terminal(, .+)?$/ }).click();
       await expect(page.locator('[data-slot="side-dock"]')).toBeVisible();
     }
     const nav = page.getByRole("navigation", { name: "Activity kinds" });

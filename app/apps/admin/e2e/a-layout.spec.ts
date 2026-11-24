@@ -220,7 +220,7 @@ const SCREENS: Screen[] = [
       for (const s of ((await (await p.request.get("/api/terminal")).json()) as { sessions: { id: string }[] }).sessions) await p.request.delete(`/api/terminal/sessions/${s.id}`);
       // The page loaded before those were ended; a fresh load does not ask for a socket of a session that is gone (a console 404).
       await p.reload();
-      await p.getByRole("button", { name: "Terminal", exact: true }).click();
+      await p.getByRole("button", { name: /^Terminal(, .+)?$/ }).click();
       await expect(p.getByRole("tabpanel").locator(".xterm-rows")).toContainText("fake$", { timeout: 15_000 });
     },
   },
