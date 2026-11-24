@@ -90,10 +90,12 @@ export function createAutopilot(d: AutopilotDeps): AutopilotHandle {
       const items: Array<{ chat: AutopilotChat; newestAt: number }> = [];
       for (const { slug } of (await repos.projects.registry()).projects) {
         for (const row of await switches.listed(slug)) {
-          const c = await switches.chat(slug, row);
-          if (!c || (c.state.state !== "on" && c.state.state !== "dry_run")) continue;
+          const chat = switches.chatOf(slug, row);
+          // The precheck's own reads: a chat off or paused, a newest message not the client's or one the pre-analysis hid, and a
+          // draft that already waits (a dry run's, the owner's) are not "missed": nothing is queued and nothing pauses.
+          if ("skip" in (await precheck(repos, switches, chat))) continue;
           const [newest] = await repos.messengers.messagesOf(slug, [{ channel: row.channel, chatId: row.chatId }], { limit: 1 });
-          if (newest?.direction === "in") items.push({ chat: switches.chatOf(slug, row), newestAt: Date.parse(newest.sentAt) });
+          if (newest) items.push({ chat, newestAt: Date.parse(newest.sentAt) });
         }
       }
       scheduler.resume(items);

@@ -262,6 +262,25 @@ describe("cancelling (verdicts 9, 16) and the wall clock (verdict 19)", () => {
     ]);
   });
 
+  it("a switch turned off or the owner's message during the precheck is kept: the turn does not run", async () => {
+    for (const [act, want] of [
+      [(s: AutopilotScheduler) => s.cancel(() => true), ["skipped", "switched_off"]],
+      [(s: AutopilotScheduler) => s.outbound(chat(1)), ["handed_back", "owner_replied"]],
+    ] as const) {
+      outcomes = [];
+      let release: (v: { mode: "dry_run" }) => void = () => undefined;
+      const m = manualRuns();
+      const s = scheduler({ run: m.run, precheck: () => new Promise((r) => (release = r)) });
+      s.inbound(chat(1));
+      await clock.advance(8_000);
+      act(s);
+      release({ mode: "dry_run" });
+      await s.idle();
+      expect(m.started).toHaveLength(0);
+      expect(outcomes.map((o) => [o.outcome, o.reason])).toEqual([want]);
+    }
+  });
+
   it("a turn over two minutes is aborted and refused", async () => {
     const m = manualRuns();
     const s = scheduler({ run: m.run });

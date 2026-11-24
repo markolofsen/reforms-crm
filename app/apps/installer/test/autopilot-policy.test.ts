@@ -3,7 +3,9 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CODEX_FORBIDDEN_PREFIXES, HUB_SEND_COMMANDS } from "@hub/agent/deny";
 import { HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "@hub/agent/mcp";
-import { claudeProtectedPaths, protectedPaths } from "@hub/agent/session";
+import { protectedEditRules } from "@hub/agent/claude";
+import { codexConfigToml } from "@hub/agent/codex";
+import { claudeProtectedPaths, claudeSandbox, protectedPaths } from "@hub/agent/session";
 import { policyFile, readSendPolicy } from "@hub/projects/send-policy";
 import { runPolicyCommand } from "../src/send/policy-command";
 import { anyRecipients, makeInstance } from "./instance-fixture";
@@ -62,6 +64,18 @@ describe("no agent path reaches the autopilot's switches (pinned)", () => {
       expect(list).toContain(paths.autopilot);
       expect(list).toContain(paths.stateProjects);
     }
+  });
+
+  it("the generated session files carry it: Claude's Edit deny rules and sandbox denyWrite, Codex's read-only profile entry", () => {
+    const { paths } = makeInstance();
+    // A deny on the file's own path covers creating it while it is absent; that the sandbox refuses the create was measured for an
+    // existing file only (docs 24), so the absent case is A3's to measure in a scratch instance.
+    expect(protectedEditRules(paths)).toEqual(expect.arrayContaining(["Edit(./state/autopilot.json)", "Edit(./state/projects)", "Edit(./state/projects/**)"]));
+    const sandbox = claudeSandbox(paths) as { filesystem: { denyWrite: string[] } };
+    expect(sandbox.filesystem.denyWrite).toEqual(expect.arrayContaining([paths.autopilot, paths.stateProjects]));
+    const toml = codexConfigToml({ paths, projectsDir: paths.projects, slug: "t", unattended: true, servers: {}, instructions: "x" });
+    expect(toml).toContain(`${JSON.stringify(paths.autopilot)} = "read"`);
+    expect(toml).toContain(`${JSON.stringify(paths.stateProjects)} = "read"`);
   });
 
   it("hub mcp has no tool that names the autopilot", () => {

@@ -91,8 +91,8 @@ interface Entry {
   messages: number;
   timer: unknown;
   reruns: number;
-  /** Why the running turn was aborted, when it was. */
-  abort: { ctl: AbortController; why: AutopilotReason | null } | null;
+  /** Why the running turn was aborted, when it was. Set from the precheck on, so a cancel then is kept; `live` once the run started. */
+  abort: { ctl: AbortController; why: AutopilotReason | null; live: boolean } | null;
   sending: boolean;
 }
 
@@ -136,7 +136,7 @@ export class AutopilotScheduler {
     e.messages += n;
     e.lastAt = now;
     if (e.phase === "waiting") return this.arm(e);
-    if (e.phase === "running" && e.abort && !e.abort.why && !e.sending) {
+    if (e.phase === "running" && e.abort?.live && !e.abort.why && !e.sending) {
       // Verdict 9: the turn answered an older burst; it stops, and runs again (once) for the whole burst.
       e.abort.why = e.reruns === 0 ? "interrupted" : "still_writing";
       e.abort.ctl.abort();
@@ -241,6 +241,9 @@ export class AutopilotScheduler {
       if (e.messages > counted && r.outcome !== "handed_back" && r.reason !== "switched_off") this.inbound(e.chat, e.messages - counted);
       return this.finish({ chat: e.chat, actionId: e.actionId, messages: counted, ...r, ms });
     };
+    // The controller exists before the precheck: a switch turned off or the owner's message during it is kept, not dropped.
+    const ctl = new AbortController();
+    e.abort = { ctl, why: null, live: false };
     let pre: Awaited<ReturnType<SchedulerDeps["precheck"]>>;
     try {
       pre = await withAction(e.actionId, () => this.d.precheck(e.chat));
@@ -248,12 +251,16 @@ export class AutopilotScheduler {
       this.log.error("the autopilot precheck failed", { project: e.chat.project, chat: e.chat.chat, ...errFields(err) });
       return end({ outcome: "refused", reason: "brain_failed" }, null);
     }
+    const early = e.abort.why;
+    if (early) {
+      e.abort = null;
+      return end({ outcome: OUTCOME_OF[early] ?? "skipped", reason: early }, null);
+    }
     if ("skip" in pre) return end({ outcome: "skipped", reason: pre.skip }, null);
     const over = budgetRefusal(this.ledger, e.key, t0, this.l.budget);
     if (over) return end({ outcome: "handed_back", reason: over }, null);
     this.ledger.recordTurn(e.key, t0);
-    const ctl = new AbortController();
-    e.abort = { ctl, why: null };
+    e.abort.live = true;
     const timer = this.clock.setTimeout(() => {
       if (e.abort && !e.abort.why) {
         e.abort.why = "timeout";

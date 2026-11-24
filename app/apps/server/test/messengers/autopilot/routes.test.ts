@@ -209,4 +209,21 @@ describe("the wake from the ingest (P139 A2)", () => {
     await ap.idle();
     expect((await repos.messengers.chat("p", "telegram_user", "1001"))?.autopilotPausedReason).toBe("missed_while_off");
   });
+
+  it("the restart scan leaves alone a chat whose newest message was hidden or whose draft already waits", async () => {
+    const clock = stepClock();
+    const ap = autopilot({ brain: fakeBrain({ kind: "no_draft", reason: "x", costUsd: null }), clock });
+    await switchedOn(ap);
+    await repos.messengers.insertMessage({ project: "p", channel: "telegram_user", account: "42", chatId: "1001", remoteMessageId: "old", direction: "in", kind: "text", text: "thanks!", sentAt: new Date(clock.now() - 3_600_000).toISOString(), retainUntil: "2027-01-01T00:00:00.000Z" });
+    const [msg] = await repos.messengers.messagesOf("p", [{ channel: "telegram_user", chatId: "1001" }], { limit: 1 });
+    await repos.messengers.recordTriage("p", [{ messageId: msg?.id ?? 0, verdict: "closing", model: "m", promptVersion: 1 }]);
+    await ap.scan();
+    await ap.idle();
+    expect((await repos.messengers.chat("p", "telegram_user", "1001"))?.autopilotPausedAt).toBeNull();
+    await repos.messengers.insertMessage({ project: "p", channel: "telegram_user", account: "42", chatId: "1001", remoteMessageId: "old2", direction: "in", kind: "text", text: "and the price?", sentAt: new Date(clock.now() - 3_000_000).toISOString(), retainUntil: "2027-01-01T00:00:00.000Z" });
+    await repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId: "1001", text: "A dry run's reply", createdBy: "agent" });
+    await ap.scan();
+    await ap.idle();
+    expect((await repos.messengers.chat("p", "telegram_user", "1001"))?.autopilotPausedAt).toBeNull();
+  });
 });
