@@ -125,4 +125,23 @@ describe("client_map", () => {
       close();
     }
   });
+  it("maps_due lists this project's clients active in 30 days whose map is missing or a week old, and nothing else (P136 Q4)", async () => {
+    const h = openDb(dbPath);
+    try {
+      h.db.$client.prepare("UPDATE clients SET last_contact_at = '2026-11-20T00:00:00.000Z'").run();
+      h.db.$client.prepare("INSERT INTO clients (project, email, name, updated_at, last_contact_at) VALUES ('acme', 'quiet@x.example', 'Quiet', '2026-11-24T00:00:00.000Z', '2026-09-01T00:00:00.000Z')").run();
+    } finally {
+      h.close();
+    }
+    const { call, close } = await connect();
+    try {
+      const due = JSON.parse((await call("maps_due", {})).text);
+      expect(due).toMatchObject({ project: "acme", activeDays: 30, staleDays: 7, clients: [{ id: anaId, email: "ana@x.example", mapUpdatedAt: null }] });
+      await call("client_map", { client: anaId, map: V1 });
+      expect(JSON.parse((await call("maps_due", {})).text).clients).toEqual([]);
+      expect(JSON.parse((await call("maps_due", { stale_days: 1, active_days: 90 })).text).clients.map((c: { email: string }) => c.email)).toEqual(["quiet@x.example"]);
+    } finally {
+      close();
+    }
+  });
 });

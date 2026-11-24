@@ -53,8 +53,8 @@ test("the focused draft is what the agent revises: same id, updated, nothing sen
   const agent = JSON.parse(run([fakeAgent, "I'm well, thanks — and the revised answer."])) as { tools: string[]; focused: number; recorded: { ok: boolean; action: string; draftId: number } };
   // P129 A3 client_record; A4 project_show (was project_notion, project_links), message_show (was inbound_show, mail_brand),
   // mail_list (was drafts_list) and the knowledge tools (were knowledge-mcp's).
-  // P128 X5: chats_unlinked and chats_propose_hide (the agent's proposed hides).
-  expect(agent.tools).toEqual(["chats_propose_hide", "chats_unlinked", "client_map", "client_record", "client_show", "draft_show", "draft_write", "focus", "highlight", "knowledge_get", "knowledge_search", "mail_list", "message_show", "messenger_draft_write", "messenger_history", "project_show"]);
+  // P128 X5: chats_unlinked and chats_propose_hide (the agent's proposed hides). P136: maps_due (the weekly map review).
+  expect(agent.tools).toEqual(["chats_propose_hide", "chats_unlinked", "client_map", "client_record", "client_show", "draft_show", "draft_write", "focus", "highlight", "knowledge_get", "knowledge_search", "mail_list", "maps_due", "message_show", "messenger_draft_write", "messenger_history", "project_show"]);
   expect(agent.focused).toBe(fiona.draftId);
   expect(agent.recorded).toMatchObject({ ok: true, action: "updated", draftId: fiona.draftId });
   // The open card says so by itself (P50), and the list still has one Fiona.

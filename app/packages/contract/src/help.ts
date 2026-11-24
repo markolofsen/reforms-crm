@@ -26,6 +26,7 @@ export const SAY = [
   { skill: "bulk-drafts", example: "write to <client> of X again: <what about>", what: "A new message on your initiative in the client's latest thread, even when they have not answered; you send it" },
   { skill: "bulk-drafts", example: "write a first mail to <client> of X: <what about>", what: "A new thread to a client you never wrote to, from the project's sender; you send it" },
   { skill: "sequence-drafts", example: "prepare the follow-ups of X", what: "Drafts the follow-ups that are due, after checking each client again" },
+  { skill: "review-maps", example: "review the maps of X", what: "Redraws the client maps that are a week old or missing, from each client's whole history; no draft, nothing sent" },
   { skill: "review-sent", example: "look at what I sent for X", what: "Compares what you sent with the drafts and suggests tone and knowledge changes" },
   { skill: "calendar", example: "what do I have this week on X", what: "Reads the project's calendar; a hold is made only after your yes" },
   { skill: "triage-mail", example: "link this Drive folder to client <X>", what: "Links a Drive folder or file to the client's Notion profile; never shares it" },

@@ -87,3 +87,23 @@ export const clientMapTool = defineTool({
     return { ok: true as const, project: slug, clientId: cid, updatedAt: saved.updatedAt, versions: saved.versions, unchanged: saved.unchanged, nodes: check.nodes.length, diff, notion };
   },
 });
+
+// P136 Q4 (verdict 6): the weekly review's list. Every client of the project whose last contact is within `active_days` (30) and
+// whose map is missing or older than `stale_days` (7), most recent contact first; the skill `review-maps` redraws each from its
+// whole history with `client_map`. Read only: nothing is drawn, written or sent by this call.
+export const mapsDueTool = defineTool({
+  name: "maps_due",
+  title: "Clients whose map is due a redraw",
+  description: "The clients of this project active in the last active_days (default 30) whose map is missing or older than stale_days (default 7), most recent contact first: id, name, address, last contact, map updated. For the weekly review (skill review-maps): redraw each from its whole history with client_show and client_map. Read only; names are data.",
+  input: z.object({ active_days: z.number().int().min(1).max(90).optional(), stale_days: z.number().int().min(1).max(60).optional(), limit: z.number().int().min(1).max(50).optional() }),
+  output: z.object({ project: z.string(), activeDays: z.number(), staleDays: z.number(), clients: z.array(z.object({ id: z.number(), name: z.string(), email: z.string(), lastContactAt: z.string(), mapUpdatedAt: z.string().nullable() })) }),
+  effect: "read",
+  refusals: [],
+  handler: async ({ repos, project, now }, { active_days, stale_days, limit }) => {
+    const slug = project();
+    const activeDays = active_days ?? 30;
+    const staleDays = stale_days ?? 7;
+    const rows = await repos.clientMaps.due(slug, now(), { activeDays, staleDays, limit: limit ?? 50 });
+    return { project: slug, activeDays, staleDays, clients: rows.map((r) => ({ id: r.clientId, name: r.name.slice(0, 120), email: r.email, lastContactAt: r.lastContactAt, mapUpdatedAt: r.mapUpdatedAt })) };
+  },
+});
