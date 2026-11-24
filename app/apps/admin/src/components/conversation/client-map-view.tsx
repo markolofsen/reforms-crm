@@ -69,6 +69,7 @@ export function MapOutline({ source, sources, onShow }: { source: string; source
       <ul className="flex flex-col gap-0.5 text-sm" data-testid="client-map-outline">
         {mapOutline(g).map((l, i) => {
           const refs = sources[l.id] ?? g.sources[l.id] ?? [];
+          const count = refs.length === 1 ? "1 source" : `${refs.length} sources`;
           return (
             <li className={cn("flex flex-wrap items-center gap-x-2", INDENT[Math.min(l.depth, INDENT.length - 1)])} key={`${i}:${l.id}`}>
               <span>
@@ -77,8 +78,9 @@ export function MapOutline({ source, sources, onShow }: { source: string; source
                 {l.state && <span className="text-muted-foreground"> ({MAP_STATE_WORDS[l.state]})</span>}
               </span>
               {onShow && refs.length > 0 && (
-                <ActionButton aria-label={`Show the source of ${l.label} in the thread`} data-testid="client-map-source" onClick={() => onShow(l.id, l.label)} size="s" variant="quiet">
-                  {refs.length === 1 ? "1 source" : `${refs.length} sources`}
+                // The name holds the words on the button ("1 source"), so a voice command that says them reaches it (WCAG 2.5.3).
+                <ActionButton aria-label={`Show ${count} of ${l.label} in the thread`} data-testid="client-map-source" onClick={() => onShow(l.id, l.label)} size="s" variant="quiet">
+                  {count}
                 </ActionButton>
               )}
             </li>

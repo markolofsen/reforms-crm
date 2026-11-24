@@ -1,6 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { openRow, remember, reviewDialog, sendButton } from "./support";
 
+// A patched read (`route.fetch`, then `.json()`) can still be running for the page when a test ends; the closing context then
+// disposes that answer and fails a test whose checks all passed (y-overview, P134; x-sequences, P136). Unroute first.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // The send keys (decision 0013; P105): Shift+Enter opens the review dialog, as does Enter on the focused Send button (never a
 // send); in the dialog, Enter on its focused Send sends after the dwell; Esc closes it and nothing is called. The real send call is
 // stopped in the browser, so the fake mailer is never asked and nothing is written; the Checked tick is switched back off.

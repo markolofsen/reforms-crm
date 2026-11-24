@@ -1,7 +1,7 @@
 "use client";
 
 import { WorkflowIcon } from "lucide-react";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { checkClientMap } from "@hub/diagram/map";
 import { mapCorrectPhrase, mapDrawPhrase } from "@hub/contract/help";
 import { notionPageDestination } from "@hub/contract/local";
@@ -33,6 +33,7 @@ export function ClientMapLine({ subject, onShowSources }: { subject: MapSubject;
   const q = useClientMap(subject.project, subject.clientId, true);
   const { pasteToAgent } = useTerminal();
   const [open, setOpen] = useState(false);
+  const title = useRef<HTMLHeadingElement>(null);
   const m = q.data;
   const client = { name: subject.name, email: subject.email };
   if (m && m.source === null) {
@@ -59,9 +60,13 @@ export function ClientMapLine({ subject, onShowSources }: { subject: MapSubject;
         <WorkflowIcon aria-hidden="true" />
         {label}
       </SheetTrigger>
-      <SheetPopup className="max-w-3xl" data-testid="client-map-sheet" side="right">
+      {/* Focus starts on the title, not on Correct: Correct is a tooltip trigger, a focused one opens its tooltip, and that tooltip
+          took the first Esc, so the sheet opened from the keyboard stayed open (P134's lesson, P136 e2e). Tab reaches the rest. */}
+      <SheetPopup className="max-w-3xl" data-testid="client-map-sheet" initialFocus={title} side="right">
         <SheetHeader>
-          <SheetTitle>Client map</SheetTitle>
+          <SheetTitle className="outline-none" ref={title} tabIndex={-1}>
+            Client map
+          </SheetTitle>
           <SheetDescription>{subject.name}: the goals, what is open and what we did, as the agent last drew it.</SheetDescription>
         </SheetHeader>
         <SheetPanel>{open && <ClientMapBody onCorrect={correct} onShow={onShowSources ? show : undefined} subject={subject} />}</SheetPanel>

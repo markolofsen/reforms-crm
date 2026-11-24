@@ -1,6 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { address, at, remember, statusIs } from "./support";
 
+// A patched read (`route.fetch`, then `.json()`) can still be running for the page when a test ends; the closing context then
+// disposes that answer and fails a test whose checks all passed (y-overview, P134; x-sequences, P136). Unroute first.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // The Mail status line (P48 W3, P96): the project's worst fact said once, at most one link to where it is fixed, the clients who
 // wrote, the replies owed and when Mail was read (Check now); and the screens honour prefers-reduced-motion. Nothing here writes; every state is the server's own
 // answer patched in the browser.

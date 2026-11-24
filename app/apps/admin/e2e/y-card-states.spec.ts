@@ -1,6 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { confirmReview, firstDraftIs, mailIs, remember, reviewDialog } from "./support";
 
+// A patched read (`route.fetch`, then `.json()`) can still be running for the page when a test ends; the closing context then
+// disposes that answer and fails a test whose checks all passed (y-overview, P134; x-sequences, P136). Unroute first.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // Acceptance 1 and 4 of P29, in a browser: every state of the review card (research 16 section 7) shows the number of
 // `primary` buttons its row of the table says (`primaryFor`), never two, and the permanent controls stay away from Send.
 // The first draft of the real list is patched per case and nothing is written (the send answers from routes).

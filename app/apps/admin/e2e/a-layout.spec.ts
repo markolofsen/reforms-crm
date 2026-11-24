@@ -3,6 +3,12 @@ import { expect, test, type Page } from "@playwright/test";
 import { stubChats } from "./messengers-stubs";
 import { at, confirmReview, firstDraftIs, mailIs, remember } from "./support";
 
+// A patched read (`route.fetch`, then `.json()`) can still be running for the page when a test ends; the closing context then
+// disposes that answer and fails a test whose checks all passed (y-overview, P134; x-sequences, P136). Unroute first.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // Executable form of `app/@rules` ui-specifications 4 and accessibility 4, 6, 9: every screen, in both themes, at
 // 360, 768 and 1280 px (the Playwright projects), has no axe violation, no sideways scroll, and 44px touch targets
 // below 1024px. Named a-* so it runs first; nothing here writes (the Send states answer from mocked routes: the first

@@ -3,6 +3,12 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { address, at, remember } from "./support";
 
+// A patched read (`route.fetch`, then `.json()`) can still be running for the page when a test ends; the closing context then
+// disposes that answer and fails a test whose checks all passed (y-overview, P134; x-sequences, P136). Unroute first.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // Settings ▸ Connections (P37, P48, P70: `/settings/connections`; the mail accounts are on Settings ▸ Mail, how this instance starts on This Mac). The server runs with HUB_CONNECTIONS_PROBE=fake (every Test is a stub, nothing leaves the process; Mail "has" every
 // account a project lists) and HUB_CONFIG_DIR inside the throwaway home, so a key written here can only land in a folder this run made. The keys are
 // fakes; the one named REJECT is refused by the stub. Mail has no key (decision 0026): its rows are read-only.

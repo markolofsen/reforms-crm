@@ -2,6 +2,12 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { at, firstDraftIs, remember } from "./support";
 
+// A patched read (`route.fetch`, then `.json()`) can still be running for the page when a test ends; the closing context then
+// disposes that answer and fails a test whose checks all passed (y-overview, P134; x-sequences, P136). Unroute first.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // Follow-ups (P47 W2, read-only since P48 D1) as a View of Drafts. Seeded for lisbon-realty: Tiago enrolled and due, and the
 // core's starter sequence copied into the project (playwright.config). A session enrols on the owner's phrase; the admin shows
 // the enrolments and offers Stop only. One write: Stop Tiago (from a card). Nothing here enrols, drafts or sends.

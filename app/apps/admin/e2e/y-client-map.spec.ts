@@ -50,7 +50,7 @@ test("client map: changes, the sheet shows what changed since the previous versi
 test("client map: sources, a node's button closes the sheet and rings its messages in the thread", async ({ page }) => {
   await page.goto(ANNA);
   await mapButton(page).click();
-  await page.getByTestId("client-map-sheet").getByRole("button", { name: "Show the source of Size L restock asked in the thread" }).click();
+  await page.getByTestId("client-map-sheet").getByRole("button", { name: "Show 1 source of Size L restock asked in the thread" }).click();
   await expect(page.getByTestId("client-map-sheet")).toBeHidden();
   await expect(page.getByTestId("map-marks")).toContainText("Size L restock asked");
   await page.getByTestId("map-marks").getByRole("button", { name: "Clear" }).click();

@@ -3,6 +3,12 @@ import type { ActivityDto } from "@hub/contract/activity";
 import { daySections, groupCells } from "../src/features/log/groups";
 import { address, remember } from "./support";
 
+// A patched read (`route.fetch`, then `.json()`) can still be running for the page when a test ends; the closing context then
+// disposes that answer and fails a test whose checks all passed (y-overview, P134; x-sequences, P136). Unroute first.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // Activity (P73, decision 0037), read flows only: one timeline of what the agent decided, newest first, a heading per local
 // day, no session and no detail pane. The e2e instance has two projects, so a scoped address names its project first
 // (`/lisbon-realty/log`). The expected lines are computed from the server's own answer, so the spec follows the seed.

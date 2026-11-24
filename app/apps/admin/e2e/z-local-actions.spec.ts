@@ -4,6 +4,12 @@ import { join } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { remember } from "./support";
 
+// A patched read (`route.fetch`, then `.json()`) can still be running for the page when a test ends; the closing context then
+// disposes that answer and fails a test whose checks all passed (y-overview, P134; x-sequences, P136). Unroute first.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // P61 L2: the Open buttons (Knowledge's folder and each entry's Open, P70 `/knowledge`; Help's "Where things live", the Files
 // menu's items until P70) against the real API, whose opener is the FAKE one (HUB_OPENER=fake in playwright.config.ts): each
 // argv is appended to `state/opener.jsonl` of the e2e instance and nothing opens. The spec gives lisbon-realty one expired

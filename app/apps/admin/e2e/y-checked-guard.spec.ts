@@ -1,6 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
 import { confirmReview, mailIs, openRow, remember, reviewDialog } from "./support";
 
+// A patched read (`route.fetch`, then `.json()`) can still be running for the page when a test ends; the closing context then
+// disposes that answer and fails a test whose checks all passed (y-overview, P134; x-sequences, P136). Unroute first.
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});
+
 // Checked fails closed (decision 0013; P105): the review dialog and the C key refuse a draft Mail cannot show and a draft whose text
 // has no hash. The Mail read is patched per test (the rest of the answer is the fake mailer's own); nothing is written.
 test.beforeEach(async ({ page }) => {
