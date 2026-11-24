@@ -21,6 +21,7 @@
     "@hub/connections": "workspace:*",
     "@hub/contract": "workspace:*",
     "@hub/db": "workspace:*",
+    "@hub/diagram": "workspace:*",
     "@hub/knowledge": "workspace:*",
     "@hub/llm": "workspace:*",
     "@hub/log": "workspace:*",

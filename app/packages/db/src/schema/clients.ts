@@ -39,6 +39,9 @@ export const clientMaps = sqliteTable(
       .references(() => clients.id, { onDelete: "cascade" }),
     source: text("source").notNull(),
     createdAt: text("created_at").notNull(),
+    // P136 (migration 0037): the version's evidence (node id -> source refs) and the reasons for removed or renamed nodes, JSON.
+    sources: text("sources"),
+    reasons: text("reasons"),
   },
   (t) => [index("client_maps_client").on(t.clientId, t.id)],
 );

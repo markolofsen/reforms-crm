@@ -43,7 +43,7 @@ export function createRepos(db: Db) {
 }
 export type Repos = ReturnType<typeof createRepos>;
 export type { ClientRow, DraftRow, NewClient } from "./clients";
-export type { ClientMap, ClientMapSaved } from "./client-maps";
+export type { ClientMap, ClientMapHistory, ClientMapSaved, MapDue, MapReasons, MapSources } from "./client-maps";
 export type { NewDraft, RecordDraftInput, RecordDraftResult } from "./drafts";
 export type { EventRow, NewEvent, NewRun } from "./runs";
 export type { Activity, ActivityOutcome, ActivityRow, ActivityView, TimelineQuery } from "./activity";

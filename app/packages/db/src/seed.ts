@@ -163,11 +163,19 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
   const base4 = daysAgo(now, 0.5);
   await ev("demo-shop", run4, t(base4, 0), "tool_call", "Listed clients silent for more than 3 days", { tool: "profile_get" });
   await ev("demo-shop", run4, t(base4, 8), "draft_created", "3 drafts prepared", { tool: "mail_draft", clientId: demo.get("anna@example.com") });
-  // P135: Anna's client map, two versions (the sheet's Updated line and its Previous toggle); every other client has none (the empty state).
+  // P135: Anna's client map, two versions (the sheet's Updated line and its diff); every other client has none (the empty state).
+  // P136: the newer one names its sources and the reason for its rename; her size question has waited 9 days (Overview's stuck list).
   const anna = demo.get("anna@example.com");
   if (anna) {
-    await repos.clientMaps.save("demo-shop", anna, 'flowchart TD\n  c["Anna Fake"] --> p1[Order arrives before Friday]\n  p1 --> p1a[Express shipping offered]:::waiting\n', new Date(now.getTime() - 2 * 86_400_000));
-    await repos.clientMaps.save("demo-shop", anna, 'flowchart TD\n  c["Anna Fake"] --> p1[Order arrives before Friday]\n  c --> p2[Jacket in a larger size]\n  p1 --> p1a[Express shipping booked]:::done\n  p2 --> p2a[Size L restock asked]:::open\n', new Date(now.getTime() - 3_600_000));
+    await repos.clientMaps.save("demo-shop", anna, 'flowchart TD\n  c["Anna Fake"] --> p1[Order arrives before Friday]\n  c --> p2[Jacket in a larger size]\n  p1 --> p1a[Express shipping offered]:::waiting\n  p2 --> p2a[Size L restock asked]:::waiting\n', new Date(now.getTime() - 9 * 86_400_000));
+    const day = (d: number) => new Date(now.getTime() - d * 86_400_000).toISOString().slice(0, 10);
+    await repos.clientMaps.save(
+      "demo-shop",
+      anna,
+      `flowchart TD\n  c["Anna Fake"] --> p1[Order arrives before Friday]\n  c --> p2[Jacket in a larger size]\n  p1 --> p1a[Express shipping booked]:::done\n  p2 --> p2a[Size L restock asked]:::waiting\n  %% src p1: ${day(9)} mail\n  %% src p2: ${day(9)} mail\n  %% src p1a: ${day(0)} mail\n  %% src p2a: ${day(9)} mail\n`,
+      new Date(now.getTime() - 3_600_000),
+      { sources: { p1: [`${day(9)} mail`], p2: [`${day(9)} mail`], p1a: [`${day(0)} mail`], p2a: [`${day(9)} mail`] }, reasons: { p1a: "she accepted the offer: shipping is booked" } },
+    );
   }
   // The triage list of the first project: two clients the agent left to the owner and one it skipped. No mail text.
   const seen = (email: string, name: string, action: "skipped" | "escalated", reason: string, notion: NotionRef, hours: number, subject: string) =>

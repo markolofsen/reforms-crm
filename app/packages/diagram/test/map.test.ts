@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkClientMap, MAP_LIMITS, mapOutline, notionMapSource } from "../src/map";
+import { checkClientMap, diffMaps, MAP_LIMITS, mapCounts, mapOutline, notionMapSource, parseSourceRef, stuckNodes, whyNeeded } from "../src/map";
 
 // P135 verdicts 5 and 6: the server's check of a client map (a strict subset of Mermaid's flowchart plus the shape rules).
 const GOOD = `flowchart TD
@@ -14,7 +14,15 @@ const GOOD = `flowchart TD
   subgraph mail[Mail]
     p1b
   end
+  %% src p1: <CAF1@mail.example>
+  %% src p2: 2026-11-18 telegram
+  %% src p1a: CAF1@mail.example
+  %% src p1b: CAF1@mail.example, 2026-11-20 mail
+  %% src p1b1: 2026-11-20 mail
+  %% src p2a: 2026-11-19 call
 `;
+/** A map of the shape with no source lines: what P135 stored. */
+const OLD = GOOD.split("\n").filter((l) => !l.includes("%% src")).join("\n");
 
 describe("checkClientMap", () => {
   it("accepts a map of the shape: one root, states on the leaves", () => {
@@ -24,6 +32,7 @@ describe("checkClientMap", () => {
     expect(r.root).toBe("c");
     expect(r.nodes).toHaveLength(7);
     expect(r.depth).toBe(3);
+    expect(r.sources.p1b).toEqual(["CAF1@mail.example", "2026-11-20 mail"]);
     expect(mapOutline(r).map((l) => `${l.depth}:${l.label}:${l.state ?? "-"}`)).toEqual(["0:Acme Ltd:-", "1:Launch the shop in May:-", "2:Pick a template:done", "2:Import 400 products:-", "3:Import service (Pro plan):open", "1:Lower card fees:-", "2:Waiting for their bank:waiting"]);
   });
   it.each([
@@ -44,25 +53,71 @@ describe("checkClientMap", () => {
     ["flowchart TD\n a[A] --> b[B]:::open\n a --> b[Other]", 3, "two labels"],
     ["flowchart TD\n end[A] --> b[B]:::open", 2, "keyword"],
   ])("refuses %j at line %s (%s)", (source, line, word) => {
-    const r = checkClientMap(source);
+    const r = checkClientMap(source, { sources: "optional" });
     expect(r.ok).toBe(false);
     if (r.ok) return;
     expect(r.line).toBe(line);
     expect(r.error).toContain(word);
   });
+  it("refuses a node below the client with no source (P136 verdict 1), and reads an old version when asked to", () => {
+    expect(checkClientMap(OLD)).toMatchObject({ ok: false, error: expect.stringContaining("p1, p2, p1a, p1b have no source") });
+    const one = GOOD.replace("  %% src p2a: 2026-11-19 call\n", "");
+    expect(checkClientMap(one)).toMatchObject({ ok: false, line: 7, error: "p2a has no source: add a line %% src <id>: <message id or YYYY-MM-DD channel> for each" });
+    expect(checkClientMap(OLD, { sources: "optional" })).toMatchObject({ ok: true, sources: {} });
+    expect(checkClientMap(`${GOOD}  %% src zz: 2026-11-20 mail\n`)).toMatchObject({ ok: false, error: expect.stringContaining("which is no node") });
+    expect(checkClientMap(GOOD.replace("2026-11-19 call", "last week"))).toMatchObject({ ok: false, error: expect.stringContaining("neither a message id") });
+  });
+  it("reads a source ref as a message id or a day and a channel", () => {
+    expect(parseSourceRef("<abc@x.example>")).toEqual({ kind: "message", id: "abc@x.example" });
+    expect(parseSourceRef("2026-11-20 Telegram")).toEqual({ kind: "day", day: "2026-11-20", channel: "telegram" });
+    expect(parseSourceRef("2026-11-20")).toBeNull();
+    expect(parseSourceRef("two words")).toBeNull();
+  });
+  it("diffs two versions by id: added, removed, renamed, state changes; removed and renamed need a reason", () => {
+    const a = checkClientMap(GOOD);
+    const b = checkClientMap(GOOD.replace("[Lower card fees]", "[Lower the card fees]").replace("p1b1 open", "p1b1 done").replace("  p2 -.-> p2a[Waiting for their bank]\n", "  p2 --> p2b[Bank answered]:::done\n").replace("class p2a waiting\n", "").replace("%% src p2a: 2026-11-19 call", "%% src p2b: 2026-11-21 call"));
+    if (!a.ok || !b.ok) throw new Error(a.ok ? (b.ok ? "" : b.error) : a.error);
+    const d = diffMaps(a, b);
+    expect(d).toEqual({
+      added: [{ id: "p2b", label: "Bank answered", state: "done" }],
+      removed: [{ id: "p2a", label: "Waiting for their bank" }],
+      renamed: [{ id: "p2", from: "Lower card fees", to: "Lower the card fees" }],
+      states: [{ id: "p1b1", label: "Import service (Pro plan)", from: "open", to: "done" }],
+    });
+    expect(whyNeeded(d)).toEqual(["p2a", "p2"]);
+    expect(diffMaps(null, a).added).toHaveLength(7);
+    expect(mapCounts(a)).toEqual({ open: 1, waiting: 1, done: 1, blocked: 0 });
+  });
+  it("finds the blocked nodes and the ones waiting 7 days or more, since the oldest version of the run", () => {
+    const now = Date.parse("2026-11-24T00:00:00.000Z");
+    const blocked = GOOD.replace("class p1b1 open", "class p1b1 blocked");
+    const v = [
+      { source: blocked, at: "2026-11-23T00:00:00.000Z" },
+      { source: GOOD, at: "2026-11-15T00:00:00.000Z" },
+      { source: GOOD, at: "2026-11-10T00:00:00.000Z" },
+      { source: GOOD.replace("class p2a waiting", "class p2a open"), at: "2026-11-01T00:00:00.000Z" },
+    ];
+    expect(stuckNodes(v, now)).toEqual([
+      { id: "p1b1", label: "Import service (Pro plan)", state: "blocked", since: "2026-11-23T00:00:00.000Z" },
+      { id: "p2a", label: "Waiting for their bank", state: "waiting", since: "2026-11-10T00:00:00.000Z" },
+    ]);
+    expect(stuckNodes(v.slice(0, 2), now).map((n) => n.id)).toEqual(["p1b1", "p2a"]);
+    expect(stuckNodes([{ source: GOOD, at: "2026-11-20T00:00:00.000Z" }], now)).toEqual([]);
+  });
   it("caps the depth, the nodes and the goals", () => {
     const deep = `flowchart TD\n${["c[C]", "a[A]", "b[B]", "d[D]", "e[E]", "f[F]:::open"].map((n, i, all) => (i ? `  ${all[i - 1]!} --> ${n}` : "")).join("\n")}`;
-    expect(checkClientMap(deep)).toMatchObject({ ok: false, error: expect.stringContaining("levels deep") });
+    expect(checkClientMap(deep, { sources: "optional" })).toMatchObject({ ok: false, error: expect.stringContaining("levels deep") });
     const wide = `flowchart TD\n${Array.from({ length: MAP_LIMITS.nodes }, (_, i) => `  c[C] --> n${i}[N]:::open`).join("\n")}`;
-    expect(checkClientMap(wide)).toMatchObject({ ok: false, error: expect.stringContaining("nodes") });
+    expect(checkClientMap(wide, { sources: "optional" })).toMatchObject({ ok: false, error: expect.stringContaining("nodes") });
     const goals = `flowchart TD\n${Array.from({ length: 7 }, (_, i) => `  c[C] --> g${i}[G]:::open`).join("\n")}`;
-    expect(checkClientMap(goals)).toMatchObject({ ok: false, error: expect.stringContaining("open goals") });
+    expect(checkClientMap(goals, { sources: "optional" })).toMatchObject({ ok: false, error: expect.stringContaining("open goals") });
     const done = `${goals}\n  class g6 done`;
-    expect(checkClientMap(done).ok).toBe(true);
+    expect(checkClientMap(done, { sources: "optional" }).ok).toBe(true);
   });
-  it("the Notion copy adds one classDef per state", () => {
+  it("the Notion copy drops the source lines and adds one classDef per state", () => {
     const n = notionMapSource(GOOD);
-    expect(n.startsWith(GOOD.trimEnd())).toBe(true);
+    expect(n.startsWith(OLD.trimEnd())).toBe(true);
+    expect(n).not.toContain("%% src");
     expect(n.match(/^classDef (open|waiting|done|blocked) /gm)).toHaveLength(4);
   });
 });

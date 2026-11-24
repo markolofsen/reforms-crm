@@ -12,7 +12,9 @@ export const MAP_LIMITS = { nodes: 30, depth: 4, goals: 6, words: 6, labelChars:
 
 export interface MapNode { id: string; label: string; cls: MapClass | null; group: string | null }
 export interface MapEdge { from: string; to: string; label: string | null }
-export interface MapGraph { root: string; nodes: MapNode[]; edges: MapEdge[]; depth: number }
+/** P136 verdict 1: each node's sources (`%% src <id>: <ref>, <ref>`), by node id, in the order written. */
+export type MapSources = Record<string, string[]>;
+export interface MapGraph { root: string; nodes: MapNode[]; edges: MapEdge[]; depth: number; sources: MapSources }
 export type MapCheck = ({ ok: true } & MapGraph) | { ok: false; line: number | null; error: string };
 
 const ID = /^[A-Za-z][A-Za-z0-9_]{0,39}/;
@@ -32,7 +34,29 @@ class MapError extends Error {
   }
 }
 
-type Draft = { nodes: Map<string, { label: string | null; cls: MapClass | null; group: string | null; line: number }>; edges: MapEdge[]; groups: Set<string> };
+type Draft = { nodes: Map<string, { label: string | null; cls: MapClass | null; group: string | null; line: number }>; edges: MapEdge[]; groups: Set<string>; sources: Map<string, { refs: string[]; line: number }> };
+
+/**
+ * P136 verdict 1: where a node came from. A line of its own, `%% src <node-id>: <ref>[, <ref>]`, a Mermaid comment (Mermaid and
+ * Notion draw nothing of it). A ref is a message id (Mail's Message-ID, as `message_show` gives it) or a day and a channel
+ * (`2026-11-20 telegram`, the way a chat message, a call or a meeting is named).
+ */
+export type SourceRef = { kind: "message"; id: string } | { kind: "day"; day: string; channel: string };
+const SRC = /^%%\s*src\s+([A-Za-z][A-Za-z0-9_]{0,39})\s*:\s*(.*)$/;
+const DAY_REF = /^(\d{4}-\d{2}-\d{2})\s+([a-z]{2,20})$/i;
+const MESSAGE_REF = /^[^\s,]{3,250}$/;
+
+/** One source ref read, or null when it is neither a message id nor "YYYY-MM-DD channel". */
+export function parseSourceRef(ref: string): SourceRef | null {
+  const t = ref.trim();
+  const day = DAY_REF.exec(t);
+  if (day) return { kind: "day", day: day[1] ?? "", channel: (day[2] ?? "").toLowerCase() };
+  const id = t.replace(/^<(.*)>$/, "$1");
+  return MESSAGE_REF.test(id) && !/^\d{4}-\d{2}-\d{2}$/.test(id) ? { kind: "message", id } : null;
+}
+
+/** Whether a check asks every node below the client for its source (the agent's redraw), or only reads them (an old version). */
+export type CheckOptions = { sources?: "required" | "optional" };
 
 const isClass = (v: string): v is MapClass => (MAP_CLASSES as readonly string[]).includes(v);
 
@@ -139,13 +163,25 @@ function readLines(source: string): Draft {
   if (source.length > MAP_LIMITS.chars) throw new MapError(null, `the map has ${source.length} characters, at most ${MAP_LIMITS.chars}: redraw it smaller`);
   const lines = source.split(/\r?\n/);
   if (lines.length > MAP_LIMITS.lines) throw new MapError(null, `the map has ${lines.length} lines, at most ${MAP_LIMITS.lines}`);
-  const d: Draft = { nodes: new Map(), edges: [], groups: new Set() };
+  const d: Draft = { nodes: new Map(), edges: [], groups: new Set(), sources: new Map() };
   let header = false;
   let group: string | null = null;
   const classes: Array<{ ids: string[]; cls: string; line: number }> = [];
   lines.forEach((raw, k) => {
     const n = k + 1;
     const s = raw.trim();
+    const src = SRC.exec(s);
+    if (src) {
+      const id = src[1] ?? "";
+      const refs = (src[2] ?? "").split(",").map((r) => r.trim()).filter(Boolean);
+      if (!refs.length) throw new MapError(n, `src ${id}: name the message id or "YYYY-MM-DD channel" after the colon`);
+      const bad = refs.find((r) => !parseSourceRef(r));
+      if (bad !== undefined) throw new MapError(n, `src ${id}: "${bad.slice(0, 40)}" is neither a message id nor "YYYY-MM-DD channel"`);
+      const known = d.sources.get(id);
+      if (known) known.refs.push(...refs);
+      else d.sources.set(id, { refs, line: n });
+      return;
+    }
     if (!s || (s.startsWith("%%") && !s.startsWith("%%{"))) return;
     if (!header) {
       if (!/^flowchart\s+TD;?$/.test(s)) throw new MapError(n, 'the map starts with "flowchart TD"');
@@ -190,8 +226,8 @@ function readLines(source: string): Draft {
   return d;
 }
 
-/** The shape rules over the parsed text: labels, one root, everything under it, depth, goals, a state on every leaf. */
-function shapeOf(d: Draft): MapGraph {
+/** The shape rules over the parsed text: labels, one root, everything under it, depth, goals, a state on every leaf, sources. */
+function shapeOf(d: Draft, o: CheckOptions): MapGraph {
   const nodes: MapNode[] = [...d.nodes].map(([id, v]) => {
     if (v.label === null) throw new MapError(v.line, `node ${id} has no label: write ${id}[...] once`);
     return { id, label: v.label, cls: v.cls, group: v.group };
@@ -217,13 +253,26 @@ function shapeOf(d: Draft): MapGraph {
   if (goals.length > MAP_LIMITS.goals) throw new MapError(null, `the client has ${goals.length} open goals, at most ${MAP_LIMITS.goals}: merge them`);
   const bare = nodes.filter((n) => n.id !== root && !out.has(n.id) && n.cls === null);
   if (bare.length) throw new MapError(null, `leaf ${bare.slice(0, 4).map((n) => n.id).join(", ")} has no state: add class <id> ${MAP_CLASSES.join("|")}`);
-  return { root, nodes, edges: d.edges, depth: deepest };
+  for (const [id, s] of d.sources) if (!d.nodes.has(id)) throw new MapError(s.line, `src names ${id}, which is no node`);
+  if ((o.sources ?? "required") === "required") {
+    const unsourced = nodes.filter((n) => n.id !== root && !d.sources.has(n.id));
+    if (unsourced.length) {
+      const ids = unsourced.slice(0, 4).map((n) => n.id).join(", ");
+      throw new MapError(d.nodes.get(unsourced[0]!.id)?.line ?? null, `${ids} ${unsourced.length === 1 ? "has" : "have"} no source: add a line %% src <id>: <message id or YYYY-MM-DD channel> for each`);
+    }
+  }
+  const sources: MapSources = {};
+  for (const [id, s] of d.sources) sources[id] = s.refs;
+  return { root, nodes, edges: d.edges, depth: deepest, sources };
 }
 
-/** Checks a client map: valid Mermaid of the subset above and the shape of verdict 5. Never throws. */
-export function checkClientMap(source: string): MapCheck {
+/**
+ * Checks a client map: valid Mermaid of the subset above and the shape of verdict 5; every node below the client names its source
+ * (P136 verdict 1) unless `sources: "optional"` (reading a version drawn before P136). Never throws.
+ */
+export function checkClientMap(source: string, o: CheckOptions = {}): MapCheck {
   try {
-    return { ok: true, ...shapeOf(readLines(source)) };
+    return { ok: true, ...shapeOf(readLines(source), o) };
   } catch (e) {
     if (e instanceof MapError) return { ok: false, line: e.line, error: e.message };
     return { ok: false, line: null, error: e instanceof Error ? e.message : String(e) };
@@ -257,7 +306,76 @@ const NOTION_CLASSES: Record<MapClass, string> = {
   blocked: "fill:#fde8e8,stroke:#c0392b,color:#5c1111",
 };
 
-/** The Notion copy of a checked map: its text plus one `classDef` per state, so a Notion page shows the states in colour. */
+/**
+ * The Notion copy of a checked map: its text without the `%% src` lines (a message id is the Hub's evidence, not the profile's),
+ * plus one `classDef` per state, so a Notion page shows the states in colour.
+ */
 export function notionMapSource(source: string): string {
-  return `${source.trimEnd()}\n${MAP_CLASSES.map((c) => `classDef ${c} ${NOTION_CLASSES[c]}`).join("\n")}\n`;
+  const text = source.split(/\r?\n/).filter((l) => !SRC.test(l.trim())).join("\n").trimEnd();
+  return `${text}\n${MAP_CLASSES.map((c) => `classDef ${c} ${NOTION_CLASSES[c]}`).join("\n")}\n`;
+}
+
+/** How many nodes hold each state (the conversation header's "Map · 3 open · 1 waiting"). */
+export function mapCounts(g: Pick<MapGraph, "nodes">): Record<MapClass, number> {
+  const out: Record<MapClass, number> = { open: 0, waiting: 0, done: 0, blocked: 0 };
+  for (const n of g.nodes) if (n.cls) out[n.cls] += 1;
+  return out;
+}
+
+/**
+ * P136 verdict 4: what a redraw changed against the version before it, by node id (ids stay stable across redraws): nodes added,
+ * removed, renamed (same id, another label) and state changes. A removed or renamed node needs a reason (`whyNeeded`).
+ */
+export interface MapDiff {
+  added: Array<{ id: string; label: string; state: MapClass | null }>;
+  removed: Array<{ id: string; label: string }>;
+  renamed: Array<{ id: string; from: string; to: string }>;
+  states: Array<{ id: string; label: string; from: MapClass | null; to: MapClass | null }>;
+}
+
+export function diffMaps(prev: Pick<MapGraph, "nodes"> | null, next: Pick<MapGraph, "nodes">): MapDiff {
+  const old = new Map((prev?.nodes ?? []).map((n) => [n.id, n]));
+  const now = new Map(next.nodes.map((n) => [n.id, n]));
+  const d: MapDiff = { added: [], removed: [], renamed: [], states: [] };
+  for (const n of next.nodes) {
+    const o = old.get(n.id);
+    if (!o) d.added.push({ id: n.id, label: n.label, state: n.cls });
+    else {
+      if (o.label !== n.label) d.renamed.push({ id: n.id, from: o.label, to: n.label });
+      if (o.cls !== n.cls) d.states.push({ id: n.id, label: n.label, from: o.cls, to: n.cls });
+    }
+  }
+  for (const o of prev?.nodes ?? []) if (!now.has(o.id)) d.removed.push({ id: o.id, label: o.label });
+  return d;
+}
+
+/** The ids a redraw must explain: every removed or renamed node. */
+export const whyNeeded = (d: MapDiff): string[] => [...d.removed.map((r) => r.id), ...d.renamed.map((r) => r.id)];
+
+export const isEmptyDiff = (d: MapDiff): boolean => !d.added.length && !d.removed.length && !d.renamed.length && !d.states.length;
+
+/** A node that holds the client up (P136 verdict 7f): `blocked`, or `waiting` since `since` (the oldest version it waited in). */
+export interface StuckNode { id: string; label: string; state: "blocked" | "waiting"; since: string }
+
+/**
+ * The blocked nodes of the newest version, and its waiting nodes that have waited at least `days` (P136 verdict 7f). `versions`
+ * newest first; a node's `since` is the drawing time of the oldest version, in the unbroken run back from the newest, in which it
+ * held the same state. Versions that do not read are skipped. Pure: `now` is the caller's.
+ */
+export function stuckNodes(versions: ReadonlyArray<{ source: string; at: string }>, now: number, days = 7): StuckNode[] {
+  const graphs = versions.map((v) => ({ at: v.at, g: checkClientMap(v.source, { sources: "optional" }) })).flatMap((v) => (v.g.ok ? [{ at: v.at, g: v.g }] : []));
+  const head = graphs[0];
+  if (!head) return [];
+  const out: StuckNode[] = [];
+  for (const n of head.g.nodes) {
+    if (n.cls !== "blocked" && n.cls !== "waiting") continue;
+    let since = head.at;
+    for (const v of graphs.slice(1)) {
+      if (v.g.nodes.find((m) => m.id === n.id)?.cls !== n.cls) break;
+      since = v.at;
+    }
+    const age = now - Date.parse(since);
+    if (n.cls === "blocked" || age >= days * 86_400_000) out.push({ id: n.id, label: n.label, state: n.cls, since });
+  }
+  return out;
 }
