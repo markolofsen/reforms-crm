@@ -1,7 +1,7 @@
 ---
 name: triage-messages
 description: Use when the owner wants the linked Telegram and WhatsApp chats of one project answered: read each linked chat with its rules, and leave one unsent reply draft where the client's newest message has none, within that chat's rules. Ends with a report table. Draft only: never sends on its own (one draft only on the owner's word, through messenger_send, decision 0046), never writes first, never touches a chat the owner did not link. Unlike triage-mail, which works on Mail and the Notion profile, this works only on the hub's stored chat messages.
-allowed-tools: Read Bash mcp__hub__focus mcp__hub__client_show mcp__hub__messenger_history mcp__hub__messenger_draft_write mcp__hub__messenger_send mcp__hub__knowledge_search mcp__hub__knowledge_get mcp__notion__notion-search mcp__notion__notion-fetch mcp__notion__notion-query-data-sources
+allowed-tools: Read Bash mcp__hub__focus mcp__hub__client_show mcp__hub__messenger_history mcp__hub__messenger_draft_write mcp__hub__client_map mcp__hub__messenger_send mcp__hub__knowledge_search mcp__hub__knowledge_get mcp__notion__notion-search mcp__notion__notion-fetch mcp__notion__notion-query-data-sources
 ---
 
 # Triage messages (manual run, one project; also one chat)

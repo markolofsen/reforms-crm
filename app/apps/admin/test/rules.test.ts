@@ -399,8 +399,9 @@ describe("layout", () => {
   it("no max-w- on a page or pane container", () => {
     // A named width (`max-w-4xl`, `max-w-screen-lg`, `max-w-prose`) is a page container; a percent on a control is not.
     const ui = path.resolve(admin, "../../packages/ui/src/product");
-    // A modal is neither a page nor a pane: its popup has a width (P105 S1's ReviewDialog, composed from the sheet's parts).
-    const MODALS = new Set([path.join(ui, "conversation/review-dialog.tsx")]);
+    // A modal is neither a page nor a pane: its popup has a width (P105 S1's ReviewDialog, composed from the sheet's parts; P135's
+    // client map sheet, a wide right sheet over the pane).
+    const MODALS = new Set([path.join(ui, "conversation/review-dialog.tsx"), path.join(src, "components/conversation/client-map.tsx")]);
     const files = [...appFiles, ...walk(ui)].filter((p) => !MODALS.has(p));
     expect(files.filter((p) => /\bmax-w-(\d?xl|xs|sm|md|lg|screen|prose|\d)/.test(code(p))).map((p) => path.relative(admin, p))).toEqual([]);
   });

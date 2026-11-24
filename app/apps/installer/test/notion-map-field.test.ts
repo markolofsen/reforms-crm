@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { addMapField, mapFieldRows } from "../src/notion-map-field";
@@ -10,6 +10,7 @@ const project = (slug: string, tokenFile = "notion-token"): NotionProject => ({ 
 
 function withNotion(props: Record<string, Record<string, { type: string }>>) {
   const f = fake();
+  mkdirSync(f.ctx.configDir, { recursive: true });
   writeFileSync(path.join(f.ctx.configDir, "notion-token"), "secret", { mode: 0o600 });
   const seen: Array<{ method: string; url: string; body: unknown }> = [];
   const fetcher = (async (url: string, init: RequestInit = {}) => {

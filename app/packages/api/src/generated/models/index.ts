@@ -141,6 +141,8 @@ export * from './chatMoveUndone';
 export * from './chatUnlinked';
 export * from './checkedBody';
 export * from './clientKey';
+export * from './clientMap';
+export * from './clientMapPrevious';
 export * from './clientMarksBody';
 export * from './clientMarksBodyMarksItem';
 export * from './connection';

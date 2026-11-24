@@ -13,6 +13,7 @@ import type {
   Batches,
   CheckedBody,
   ClientKey,
+  ClientMap,
   ClientMarksBody,
   Conversation,
   ConversationMail,
@@ -1181,6 +1182,50 @@ export const getConversationText = async (slug: string,
     params: GetConversationTextParams, options?: Parameters<typeof hubMutator>[1]): Promise<getConversationTextResponse> => {
 
   return hubMutator<getConversationTextResponse>(getGetConversationTextUrl(slug,id,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+export type getClientMapResponse200 = {
+  data: ClientMap
+  status: 200
+}
+
+export type getClientMapResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type getClientMapResponseSuccess = (getClientMapResponse200) & {
+  headers: Headers;
+};
+export type getClientMapResponseError = (getClientMapResponse404) & {
+  headers: Headers;
+};
+
+export type getClientMapResponse = (getClientMapResponseSuccess | getClientMapResponseError)
+
+export const getGetClientMapUrl = (slug: string,
+    id: number,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/clients/${encodeURIComponent(String(id))}/map`
+}
+
+/**
+ * @summary Read the client map the agent drew, with the version before it
+ */
+export const getClientMap = async (slug: string,
+    id: number, options?: Parameters<typeof hubMutator>[1]): Promise<getClientMapResponse> => {
+
+  return hubMutator<getClientMapResponse>(getGetClientMapUrl(slug,id),
   {
     ...options,
     method: 'GET'

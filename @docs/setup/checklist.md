@@ -47,8 +47,8 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
   - Proves: `state/secrets/` holds no `mail-*.json`. One is a WARN naming the files; nothing is deleted.
   - You: Delete the `mail-*.json` files the row names from `state/secrets/`.
 - [ ] **Project .mcp.json** (`files.mcp-json`)
-  - Proves: `.mcp.json` contains every server of `config/mcp.json` (stdio programs as absolute paths under the core), every stdio server command in it exists, and it holds no server the core no longer ships (`knowledge-mcp`, whose tools are the `hub` server's since P129).
-  - `hub install` fixes it: Merges the servers of `config/mcp.json` into `.mcp.json` with stdio paths made absolute under the core, drops the servers the core no longer ships, keeps your other servers, saves a one-time `.mcp.json.bak`.
+  - Proves: `.mcp.json` contains every server of `config/mcp.json` and the core's `hub` server (stdio programs as absolute paths under the core, `hub` on the hub's own Node), every stdio server command in it exists, and it holds no server the core no longer ships (`knowledge-mcp`, whose tools are the `hub` server's since P129).
+  - `hub install` fixes it: Merges the servers of `config/mcp.json` and the core's `hub` server into `.mcp.json` with stdio paths made absolute under the core, drops the servers the core no longer ships, keeps your other servers, saves a one-time `.mcp.json.bak`.
 - [ ] **App database** (`files.app-db`)
   - Proves: The database file exists (`data/app.db` of the instance).
   - `hub install` fixes it: Runs the app's `db:migrate` script (`pnpm --dir app run db:migrate`).
@@ -116,6 +116,9 @@ Work top to bottom. `hub doctor` runs every box below that is not an optional ex
 - [ ] **The integration reaches every database of every project** (`notion.access`; optional extra, `--automation`)
   - Proves: For every project that lists Notion databases: each database in project.md answers to the integration (shared, readable, capability Read content), is not archived and not in the trash, and every database its relations point at (Leads, People, ...) is reachable and live too. A failure names the database and says to share it with the integration under Connections. Read only: GET requests. WARN when there is no token to test with.
   - You: In Notion open the project's teamspace root page, choose `...` > Connections and add the integration. Sub-pages and databases inherit it; a database that was moved out loses it, so share again after a move. The integration needs the capability Read content (Notion > Settings > Integrations > your integration > Capabilities). It never writes. An archived database is not a grant problem: point project.md at the live database (`## Notion databases`) or restore it in Notion.
+- [ ] **Clients carry the client map's date** (`notion.client-map`)
+  - Proves: Each project's Clients database (project.md, `clients`) has the property "Map updated" of type date. Read only: one GET per project. WARN when there is no token to read with, or the name is taken by another type.
+  - `hub install` fixes it: Adds the date property "Map updated" to each Clients database that lacks it (one PATCH of the data source; no other property is touched, nothing is deleted). The integration needs Update content.
 - [ ] **Notion connector in the session** (`notion.connector`)
   - Proves: `.mcp.json` lists the `notion` server (hint only: whether you have signed in to it is seen inside a session, with `/mcp`).
   - You: In Claude Code run `/mcp` once and sign in to `notion`; in Claude Desktop enable the Notion connector in Settings > Connectors.

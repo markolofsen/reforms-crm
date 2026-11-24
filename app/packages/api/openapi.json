@@ -2191,6 +2191,52 @@
         }
       }
     },
+    "/api/projects/{slug}/clients/{id}/map": {
+      "get": {
+        "operationId": "getClientMap",
+        "summary": "Read the client map the agent drew, with the version before it",
+        "tags": [
+          "mail"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Read the client map the agent drew, with the version before it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClientMap"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
     "/api/projects/{slug}/clients/{id}/draft": {
       "post": {
         "operationId": "createManualMailDraft",
@@ -14155,6 +14201,68 @@
           "text",
           "quoted",
           "note"
+        ],
+        "additionalProperties": false
+      },
+      "ClientMap": {
+        "type": "object",
+        "properties": {
+          "clientId": {
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 9007199254740991
+          },
+          "name": {
+            "type": "string"
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "updatedAt": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string"
+                  },
+                  "at": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source",
+                  "at"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "versions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "clientId",
+          "name",
+          "source",
+          "updatedAt",
+          "previous",
+          "versions"
         ],
         "additionalProperties": false
       },

@@ -1,7 +1,7 @@
 ---
 name: triage-mail
 description: Use when the owner wants the client mail of one project handled: read the new messages, update each client's Notion profile, and leave an unsent reply draft for each client who is waiting. Works on the whole project or on one client's thread, and ends with a report table. Draft only: never sends and never deletes. Unlike bulk-drafts, which starts from a purpose the owner states, this starts from what clients wrote; it is also the home of the project-binding rules.
-allowed-tools: Read Write Bash mcp__mail-mcp__list_accounts mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content mcp__mail-mcp__list_drafts mcp__mail-mcp__list_outgoing_messages mcp__hub__project_show mcp__hub__mail_list mcp__hub__message_show mcp__hub__client_show mcp__hub__draft_show mcp__hub__draft_write mcp__hub__client_record mcp__hub__focus mcp__hub__knowledge_search mcp__hub__knowledge_get mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__notion__notion-create-pages mcp__notion__notion-update-page
+allowed-tools: Read Write Bash mcp__mail-mcp__list_accounts mcp__mail-mcp__list_mailboxes mcp__mail-mcp__find_messages mcp__mail-mcp__get_message_content mcp__mail-mcp__list_drafts mcp__mail-mcp__list_outgoing_messages mcp__hub__project_show mcp__hub__mail_list mcp__hub__message_show mcp__hub__client_show mcp__hub__draft_show mcp__hub__draft_write mcp__hub__client_record mcp__hub__client_map mcp__hub__focus mcp__hub__knowledge_search mcp__hub__knowledge_get mcp__notion__notion-fetch mcp__notion__notion-query-data-sources mcp__notion__notion-create-pages mcp__notion__notion-update-page
 ---
 
 # Triage mail (manual run, one project; also one client)
