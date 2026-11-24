@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { clientHistory } from "../src/history";
-import { allowChat, humanActor, linkIdentifier } from "../src/human";
+import { knowChat, humanActor, linkIdentifier } from "../src/human";
 import { setup, type Env } from "./helpers";
 
 let env: Env;
@@ -55,7 +55,7 @@ describe("clientHistory", () => {
 
   it("shows only this client's chats, in this project", async () => {
     await link();
-    await allowChat(env.repos, owner, { project: "p", channel: "telegram_bot", chatId: "200" });
+    await knowChat(env.repos, owner, { project: "p", channel: "telegram_bot", chatId: "200" });
     await say("1", "2026-11-11T10:00:00.000Z", "mine");
     await say("2", "2026-11-11T11:00:00.000Z", "someone else", "200");
     const h = await clientHistory({ repos: env.repos }, "p", env.clientId);

@@ -24,8 +24,9 @@ export type MessengerView = (typeof MESSENGER_VIEWS)[number];
 /**
  * P123 U3b: the link state is a filter beside the view (`?link=`), not a view of its own. `any` is the linked and the unlinked
  * chats; `linked` only those linked to a client; `unlinked` (P102) every unlinked chat the autolink's memory holds, of any age;
- * `hidden` the chats the owner said are not clients, shown only when asked. The server lists linked chats only, so for `unlinked`
- * and `hidden` its list is empty and the admin reads the autolink's memory.
+ * `hidden` the chats the owner said are not clients, shown only when asked. P141 U2 (decision 0049): the server lists every known
+ * chat, so `unlinked` is its known chats that no client identifier names; `hidden` stays the autolink's memory (a hidden chat has no
+ * row).
  */
 export const MESSENGER_LINK_FILTERS = ["any", "linked", "unlinked", "hidden"] as const;
 export type MessengerLinkFilter = (typeof MESSENGER_LINK_FILTERS)[number];
@@ -100,18 +101,38 @@ export type PreanalysisDto = z.infer<typeof preanalysisDto>;
 export const messengerNotionIdentityDto = notionIdentityDto;
 export type MessengerNotionIdentityDto = NotionIdentityDto;
 
+/** One client record the autolink suggests for a chat (P84): its Notion card key, name, email (null when the card has none) and Relationship. */
+export const chatSuggestionDto = z.strictObject({ key: z.string(), name: z.string(), email: z.string().nullable(), relationship: z.string().nullable() });
+export type ChatSuggestionDto = z.infer<typeof chatSuggestionDto>;
+
+/**
+ * P141 U3: who the person of a chat is: their number (`+E.164`, null when WhatsApp hides it), their Telegram username, the name they
+ * set themselves (WhatsApp push name, Telegram display name; shown as theirs), when the Hub first saw the chat, the account that reads
+ * it, and the autolink's suggestions (in memory; an exact match links by itself when the autolink is on).
+ */
+export const chatIdentityDto = z.strictObject({
+  phone: z.string().nullable(),
+  username: z.string().nullable(),
+  profileName: z.string().nullable(),
+  firstSeen: z.string(),
+  account: z.string().nullable(),
+  suggestions: z.array(chatSuggestionDto),
+});
+export type ChatIdentityDto = z.infer<typeof chatIdentityDto>;
+
 export const messengerChatDto = z.strictObject({
   /** `messenger_chats.id`: the `chat:<id>` ref. */
   id: z.number().int(),
   channel: z.enum(MESSENGER_CHANNELS),
   chatId: z.string(),
   title: z.string().nullable(),
-  /** The client the chat is linked to (by `client_identifiers`), else null. */
+  /** The client the chat is linked to (by `client_identifiers`), else null: a known chat that is not linked (decision 0049). */
   client: z
     .strictObject({
       id: z.number().int(),
       name: z.string(),
-      email: z.string(),
+      /** Null for a client known only by a chat (P141 C1). */
+      email: z.string().nullable(),
       notionPageId: z.string().nullable(),
       notionUrl: z.string().nullable(),
       notion: messengerNotionIdentityDto,
@@ -130,6 +151,8 @@ export const messengerChatDto = z.strictObject({
   triage: chatTriageDto,
   /** P131 O5: what Open in Telegram / Open in WhatsApp opens: the chat's own number, else the client's Notion card. */
   contact: contactLinksDto,
+  /** P141 U3 (verdict 11): who the person is, as the messenger shows it, and the autolink's suggested client records. */
+  identity: chatIdentityDto,
 });
 export type MessengerChatDto = z.infer<typeof messengerChatDto>;
 
@@ -151,13 +174,15 @@ export const messengerConversationDto = z.strictObject({
   chat: messengerChatDto,
   messages: z.array(messengerConversationMessageDto),
   earlier: z.number().int().min(0),
+  /** P141 U1: `live` when opening read the chat through from the messenger in time, `saved` when the cache answered (the pane says "Showing the saved copy"), null when the channel has no read-through. */
+  copy: z.enum(["live", "saved"]).nullable().default(null),
 });
 export type MessengerConversationDto = z.infer<typeof messengerConversationDto>;
 
 export const messengerChatsDto = z.strictObject({
   chats: z.array(messengerChatDto),
-  /** The View menu's counts over the linked chats of the project in the channel asked: those that need the owner, those that wait for the client, all of them. */
-  counts: z.strictObject({ needs_you: z.number().int(), waiting: z.number().int(), all: z.number().int() }),
+  /** The View menu's counts over the linked chats of the project in the channel asked: those that need the owner, those that wait for the client, all of them; and the known chats that are not linked (P141 U2). */
+  counts: z.strictObject({ needs_you: z.number().int(), waiting: z.number().int(), all: z.number().int(), unlinked: z.number().int() }),
   preanalysis: preanalysisDto,
 });
 export type MessengerChatsDto = z.infer<typeof messengerChatsDto>;

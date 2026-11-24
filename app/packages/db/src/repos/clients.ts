@@ -1,10 +1,10 @@
-import { and, asc, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { type ClientCounts, type ClientFilter, type Mark } from "@hub/config";
 import { betterValue, isRealName } from "@hub/config/profile";
 import { toReviewDrafts, type ReviewDraft } from "./review";
 import type { Db } from "../client";
 import { write } from "../tx";
-import { clients, drafts, marks } from "../schema";
+import { clientIdentifiers, clients, drafts, marks, type IdentifierKind } from "../schema";
 import { onClientWrote } from "./enrollments";
 
 export type DraftRow = typeof drafts.$inferSelect;
@@ -75,6 +75,26 @@ export function touchClient(tx: Pick<Db, "select" | "insert" | "update">, input:
     .returning({ id: clients.id })
     .get();
   return { id: row.id, created: true };
+}
+
+/** P141 C4: the client a merged one was merged into, followed to the end of the chain (at most 8 steps; a loop stops there). */
+/** An identity as `client_identifiers` stores it: an address lower-case, a username without `@`, a number `+` and its digits. Pure. */
+function identityValue(kind: IdentifierKind, value: string): string {
+  const raw = value.trim();
+  const digits = raw.replace(/\D/g, "");
+  if (kind === "email") return raw.toLowerCase();
+  if (kind === "telegram_username") return raw.replace(/^@/, "").toLowerCase();
+  return (kind === "phone" || kind === "whatsapp") && !raw.startsWith("lid:") && digits ? `+${digits}` : raw;
+}
+
+export function resolveMerged(db: Pick<Db, "select">, project: string, id: number): number {
+  let cur = id;
+  for (let i = 0; i < 8; i++) {
+    const next = db.select({ to: clients.mergedInto }).from(clients).where(and(eq(clients.project, project), eq(clients.id, cur))).get()?.to;
+    if (next === null || next === undefined || next === cur) return cur;
+    cur = next;
+  }
+  return cur;
 }
 
 export function clientsRepo(db: Db) {
@@ -178,35 +198,48 @@ export function clientsRepo(db: Db) {
     },
 
     /**
-     * P140 P1b: the Hub's own name of a client follows its Notion card when the card's title is better by the one rule
-     * (`betterValue("title", …)`): a phone number, an address or a chat id gives way to a real name, a real name never to anything.
-     * `cards` are the directory's records; a card matches a client by its address. Returns how many names changed.
+     * The directory's records against the Hub's own clients (P140 P1b, P141 C1). A card matches a client by its Notion page, else by
+     * its address. A matched client without a card takes it (the one backfill of `notion_page_id`, repeated harmlessly on each
+     * read); its name follows the card's title when that is better by the one rule (`betterValue("title", …)`: a phone number, an
+     * address or a chat id gives way to a real name, a real name never to anything). Returns how many rows changed.
      */
-    async adoptCardNames(project: string, cards: readonly { email: string | null; name: string }[]): Promise<number> {
-      const byEmail = new Map(cards.flatMap((c) => (c.email ? [[c.email.trim().toLowerCase(), c.name] as const] : [])));
-      if (!byEmail.size) return 0;
+    async adoptCards(project: string, cards: readonly { key: string; email: string | null; name: string }[]): Promise<number> {
+      if (!cards.length) return 0;
+      const byPage = new Map(cards.map((c) => [c.key, c]));
+      const byEmail = new Map(cards.flatMap((c) => (c.email ? [[c.email.trim().toLowerCase(), c] as const] : [])));
       return write(db, (tx) => {
         let changed = 0;
-        for (const c of tx.select({ id: clients.id, email: clients.email, name: clients.name }).from(clients).where(eq(clients.project, project)).all()) {
-          const next = betterValue("title", c.name, byEmail.get(c.email.toLowerCase()));
-          if (next) changed += tx.update(clients).set({ name: next, updatedAt: new Date().toISOString() }).where(eq(clients.id, c.id)).run().changes;
+        const rows = tx.select({ id: clients.id, email: clients.email, name: clients.name, page: clients.notionPageId }).from(clients).where(and(eq(clients.project, project), isNull(clients.mergedInto))).all();
+        const taken = new Set(rows.flatMap((r) => (r.page ? [r.page] : [])));
+        for (const c of rows) {
+          const card = (c.page ? byPage.get(c.page) : undefined) ?? (c.email ? byEmail.get(c.email.toLowerCase()) : undefined);
+          if (!card) continue;
+          const page = !c.page && !taken.has(card.key) ? card.key : null;
+          if (page) taken.add(page);
+          const name = betterValue("title", c.name, card.name);
+          if (page || name) changed += tx.update(clients).set({ ...(page ? { notionPageId: page } : {}), ...(name ? { name } : {}), updatedAt: new Date().toISOString() }).where(eq(clients.id, c.id)).run().changes;
         }
         return changed;
       });
     },
 
-    /** The client id for an address in a project (the gate ties log events to it), or undefined. */
-    async idByEmail(project: string, email: string): Promise<number | undefined> {
-      return db
-        .select({ id: clients.id })
-        .from(clients)
-        .where(and(eq(clients.project, project), eq(clients.email, email.toLowerCase())))
-        .get()?.id;
+    /**
+     * P141 C2 (decision 0049): the one lookup of a client by any one identity, or undefined. `email` matches the client's primary
+     * address or an `email` identifier; every other kind (`phone`, `whatsapp`, `telegram`, `telegram_username`) its identifier. The
+     * value is normalised here (an address lower-case, a username without `@`, a number `+` and its digits). A merged client resolves to the one it was merged
+     * into (C4), so an old link still finds the person.
+     */
+    async findByIdentity(project: string, kind: IdentifierKind, value: string): Promise<number | undefined> {
+      const v = identityValue(kind, value);
+      if (!v) return undefined;
+      const primary = kind === "email" ? db.select({ id: clients.id }).from(clients).where(and(eq(clients.project, project), eq(clients.email, v))).get()?.id : undefined;
+      const id = primary ?? db.select({ id: clientIdentifiers.clientId }).from(clientIdentifiers).where(and(eq(clientIdentifiers.project, project), eq(clientIdentifiers.kind, kind), eq(clientIdentifiers.value, v))).get()?.id;
+      return id === undefined ? undefined : resolveMerged(db, project, id);
     },
 
     /** One client of a project (id, name, primary address), or null: the id of another project is not found. */
     /** P138 verdict 4: the project's clients with an address at this domain (a lead's company website), at most `limit`. */
-    async atDomain(project: string, domain: string, limit = 3): Promise<{ id: number; name: string; email: string }[]> {
+    async atDomain(project: string, domain: string, limit = 3): Promise<{ id: number; name: string; email: string | null }[]> {
       const d = domain.trim().toLowerCase().replace(/^@/, "");
       if (!d) return [];
       return db
@@ -218,7 +251,18 @@ export function clientsRepo(db: Db) {
         .all();
     },
 
-    async get(project: string, id: number): Promise<{ id: number; name: string; email: string } | null> {
+    /** P141 C3: the client whose Notion card this is (merged clients resolve to the one they went into), or undefined. */
+    async findByNotionPage(project: string, pageId: string): Promise<number | undefined> {
+      const id = db.select({ id: clients.id }).from(clients).where(and(eq(clients.project, project), eq(clients.notionPageId, pageId))).get()?.id;
+      return id === undefined ? undefined : resolveMerged(db, project, id);
+    },
+
+    /** P141 C1: the client's Notion card, set once (a card already set is kept). Returns whether the row changed. */
+    async setNotionPage(project: string, id: number, pageId: string): Promise<boolean> {
+      return db.update(clients).set({ notionPageId: pageId }).where(and(eq(clients.project, project), eq(clients.id, id), sql`${clients.notionPageId} is null`)).run().changes > 0;
+    },
+
+    async get(project: string, id: number): Promise<{ id: number; name: string; email: string | null } | null> {
       return (
         db
           .select({ id: clients.id, name: clients.name, email: clients.email })
@@ -229,7 +273,7 @@ export function clientsRepo(db: Db) {
     },
 
     /** One client of a project with its marks and reply state, or null (P51: `hub mcp` `client_show`). Read only. */
-    async card(project: string, id: number): Promise<{ id: number; name: string; email: string; repliesOwed: boolean; lastContactAt: string | null; marks: Mark[] } | null> {
+    async card(project: string, id: number): Promise<{ id: number; name: string; email: string | null; repliesOwed: boolean; lastContactAt: string | null; marks: Mark[] } | null> {
       const c = db.select().from(clients).where(and(eq(clients.project, project), eq(clients.id, id))).get();
       if (!c) return null;
       const m = db.select({ mark: marks.mark }).from(marks).where(eq(marks.clientId, id)).all().map((r) => r.mark);

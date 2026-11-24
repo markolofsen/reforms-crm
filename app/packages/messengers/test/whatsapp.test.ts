@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdapterError, parkedOf, pollOnly } from "../src/adapter";
 import { mintConfirmed } from "../src/confirmed";
 import { FakeBoom, FakeWaSocket } from "../src/fake-wa";
-import { allowChat, createWaPairing, humanActor, linkUserChat, qrRows } from "../src/human";
+import { createWaPairing, humanActor, linkIdentifier, linkUserChat, qrRows } from "../src/human";
 import { confirmDraft, sendConfirmed } from "../src/send-confirmed";
 import { pollOnce, runPoller } from "../src/poller";
 import { createWhatsAppAdapter, type WhatsAppOptions } from "../src/whatsapp";
@@ -35,12 +35,13 @@ const adapterOf = (extra: Partial<WhatsAppOptions> = {}) =>
       return sock;
     },
     account: ACCOUNT,
-    allowedChats: async () => (await env.repos.messengers.allowedChats("p")).filter((c) => c.channel === "whatsapp").map((c) => ({ chatId: c.chatId, jid: c.jid })),
+    knownChats: async () => (await env.repos.messengers.knownChats("p")).filter((c) => c.channel === "whatsapp").map((c) => ({ chatId: c.chatId, jid: c.jid, linked: c.linked })),
     historyMs: 200,
     ...extra,
   });
 const deps = (adapter: ReturnType<typeof adapterOf>) => ({ project: "p", repos: env.repos, adapter, now: () => NOW, timeoutSec: 0 });
-const allow = (chatId: string) => allowChat(env.repos, human, { project: "p", channel: "whatsapp", chatId });
+// A chat the owner linked (decision 0049).
+const allow = (chatId: string) => linkIdentifier(env.repos, human, { project: "p", clientId: env.clientId, kind: "whatsapp", value: chatId });
 const rowsOf = (chatId: string) => env.repos.messengers.messagesOf("p", [{ channel: "whatsapp", chatId }], { limit: 50 });
 const count = (table: string) => env.handle.db.$client.prepare(`select count(*) as n from ${table}`).get() as { n: number };
 const msg = (chatId: string, id: string, text: string, at: string, fromMe = false): WaMessage => ({ id, chatId, fromMe, at: new Date(at), text, kind: "text" });
@@ -72,7 +73,7 @@ describe("whatsapp: receive", () => {
     expect(await rowsOf(STRANGER)).toEqual([]);
     expect(count("messenger_messages").n).toBe(2);
     expect(count("messenger_chats").n).toBe(1);
-    expect(count("client_identifiers").n).toBe(0);
+    expect(count("client_identifiers").n).toBe(1);
     expect(count("clients").n).toBe(1);
     const acc = await env.repos.messengers.account("p", "whatsapp", ACCOUNT);
     expect(JSON.stringify(acc)).not.toMatch(/9999999|Stranger/);
@@ -154,7 +155,7 @@ describe("whatsapp: receive", () => {
         return sock;
       },
       account: ACCOUNT,
-      allowedChats: async () => [],
+      knownChats: async () => [],
     });
     await expect(qrFirst.start?.()).rejects.toMatchObject({ code: "logged_out" });
     const other = createWhatsAppAdapter({
@@ -164,7 +165,7 @@ describe("whatsapp: receive", () => {
         return sock;
       },
       account: ACCOUNT,
-      allowedChats: async () => [],
+      knownChats: async () => [],
     });
     await expect(other.start?.()).rejects.toMatchObject({ code: "logged_out" });
   });
@@ -251,7 +252,7 @@ describe("whatsapp: the picker and the import", () => {
     await a.start?.();
     expect(await linkUserChat({ repos: env.repos, adapter: a, now: () => NOW }, human, { project: "p", clientId: env.clientId, chatId: ANNA })).toMatchObject({ imported: 0, importError: null });
     expect(sock.historyRequests).toEqual([]);
-    expect(await env.repos.messengers.isAllowed("p", "whatsapp", ANNA)).toBe(true);
+    expect(await env.repos.messengers.isKnown("p", "whatsapp", ANNA)).toBe(true);
     await a.close();
   });
 });
@@ -264,7 +265,7 @@ describe("whatsapp: send", () => {
     const d = await env.repos.messengers.createDraft({ project: "p", channel: "whatsapp", chatId: ANNA, text: "Hallo Anna", createdBy: "agent" });
     const lookalike = { state: "confirmed", id: d.id, project: "p", channel: "whatsapp", chatId: ANNA, text: "x", confirmedBy: "agent", confirmedAt: "" };
     await expect(a.send(lookalike as never)).rejects.toThrow("not_confirmed");
-    await expect(a.send(mintConfirmed({ ...lookalike, chatId: STRANGER } as never))).rejects.toThrow("chat_not_allowed");
+    await expect(a.send(mintConfirmed({ ...lookalike, chatId: STRANGER } as never))).rejects.toThrow("chat_not_known");
     await confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {});
     const receipt = await sendConfirmed({ repos: env.repos, adapter: a, now: () => NOW }, await authorized(env.repos, "p", d.id));
     expect(sock.sent).toEqual([{ chatId: ANNA, jid: null, text: "Hallo Anna", id: receipt.remoteMessageId }]);

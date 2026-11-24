@@ -83,7 +83,7 @@ export function inboundMailRepo(db: Db) {
       for (const r of db.select({ ref: inboxRows.mailRef }).from(inboxRows).where(eq(inboxRows.project, project)).all()) put(r.ref, null);
       const known = db.select({ email: clients.email }).from(clients).where(eq(clients.project, project)).all();
       const dnc = db.select({ email: clients.email }).from(marks).innerJoin(clients, eq(clients.id, marks.clientId)).where(and(eq(marks.project, project), eq(marks.mark, "do_not_contact"))).all();
-      return { ours, clients: new Set(known.map((r) => r.email.trim().toLowerCase())), doNotContact: new Set(dnc.map((r) => r.email.trim().toLowerCase())) };
+      return { ours, clients: new Set(known.flatMap((r) => (r.email ? [r.email.trim().toLowerCase()] : []))), doNotContact: new Set(dnc.flatMap((r) => (r.email ? [r.email.trim().toLowerCase()] : []))) };
     },
 
     /** Which of these Message-IDs are stored for the project already (the reader reads no text for them again). */

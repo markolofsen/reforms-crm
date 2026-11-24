@@ -27,7 +27,7 @@ export async function writeNewThread(s: DraftScope, a: NewThreadArgs): Promise<W
   if (brandName !== undefined && !cfg.brands.some((b) => b.name.toLowerCase() === brandName.toLowerCase())) throw new ToolError("invalid", `"${brandName}" is not a row of project ${slug}'s ## Brands (${cfg.brands.map((b) => b.name).join(", ") || "none"}). Nothing was written.`);
   const email = normalizeAddress(a.to);
   if (s.isOurs(email)) throw new ToolError("not_this_project", `${email} is one of this project's own addresses: a new message goes to the client, never to us. Nothing was written.`);
-  const clientId = await ctx.repos.clients.idByEmail(slug, email);
+  const clientId = await ctx.repos.clients.findByIdentity(slug, "email", email);
   if (clientId !== undefined) {
     const card = await ctx.repos.clients.card(slug, clientId);
     if (card?.marks.includes("do_not_contact")) throw new ToolError("do_not_contact", `${email} is marked do not contact in this project: no message is written. Nothing was written.`);

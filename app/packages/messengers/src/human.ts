@@ -52,8 +52,8 @@ export interface LinkInput {
 }
 
 /**
- * Links a chat, number or address to a client. The only writer of `client_identifiers`: nothing matches
- * automatically. For a chat kind it also puts the chat on the inbound allow-list, since the owner just named it.
+ * Links a chat, number or address to a client. The owner's writer of `client_identifiers` (the autolink is the other, on an exact
+ * match). For a chat kind it also makes the chat known, since the owner just named it, and gives its waiting draft the client.
  */
 export async function linkIdentifier(repos: Repos, actor: HumanActor, input: LinkInput) {
   assertHuman(actor);
@@ -64,34 +64,37 @@ export async function linkIdentifier(repos: Repos, actor: HumanActor, input: Lin
   if (input.kind === "telegram" || input.kind === "whatsapp") {
     channel = input.channel ?? channelsOf(input.kind)[0]!;
     if (!channelsOf(input.kind).includes(channel)) throw new MessengersError("bad_identifier", `bad_identifier: ${input.kind} does not use channel ${channel}`);
-    await repos.messengers.allowChat(input.project, channel, value, input.title ?? null);
+    await repos.messengers.knowChat(input.project, channel, value, { title: input.title ?? null });
+    await repos.messengers.adoptChatDrafts(input.project, channel, value, input.clientId);
   }
   return { identifierId, value, allowedChannel: channel };
 }
 
-/** Removes the link and takes the chat off the allow-list; its stored messages and drafts go with it, in one transaction (P71 M2b). */
+/**
+ * Removes the link (decision 0049 point 10): only the identifier goes, so a chat goes back to "Not linked" with its cached messages
+ * under the cache's TTL. Forgetting a chat (its row, messages and drafts) is Hide's and Never link's (`forgetChat`).
+ */
 export async function unlinkIdentifier(repos: Repos, actor: HumanActor, input: { project: string; kind: IdentifierKind; value: string }) {
   assertHuman(actor);
   const value = normalizeIdentifier(input.kind, input.value);
   const removed = await repos.messengers.removeIdentifier(input.project, input.kind, value);
-  let disallowed = 0;
-  for (const ch of channelsOf(input.kind)) if (await repos.messengers.disallowChat(input.project, ch, value)) disallowed++;
-  return { removed: removed !== null, disallowed };
+  return { removed: removed !== null };
 }
 
-/** Lists a chat without linking it to a client (a first message from a new chat, before the client exists). */
-export async function allowChat(repos: Repos, actor: HumanActor, input: { project: string; channel: MessengerChannel; chatId: string; title?: string }) {
+/** Makes a chat known without linking it to a client (the CLI's `allow`: a first message from a new chat, before the client exists). */
+export async function knowChat(repos: Repos, actor: HumanActor, input: { project: string; channel: MessengerChannel; chatId: string; title?: string }) {
   assertHuman(actor);
   await repos.projects.requireProject(input.project);
   const chatId = normalizeIdentifier(CHANNEL_KIND[input.channel], input.chatId);
-  await repos.messengers.allowChat(input.project, input.channel, chatId, input.title ?? null);
+  await repos.messengers.knowChat(input.project, input.channel, chatId, { title: input.title ?? null });
   return chatId;
 }
 
-export async function disallowChat(repos: Repos, actor: HumanActor, input: { project: string; channel: MessengerChannel; chatId: string }) {
+/** Forgets a chat: its row, its cached messages and its drafts, in one transaction (Hide, Never link, the CLI's `remove`). */
+export async function forgetChat(repos: Repos, actor: HumanActor, input: { project: string; channel: MessengerChannel; chatId: string }) {
   assertHuman(actor);
   const chatId = normalizeIdentifier(CHANNEL_KIND[input.channel], input.chatId);
-  return repos.messengers.disallowChat(input.project, input.channel, chatId);
+  return (await repos.messengers.forgetChat(input.project, input.channel, chatId)).removed;
 }
 
 const CHANNEL_KIND: Record<MessengerChannel, IdentifierKind> = { telegram_bot: "telegram", telegram_user: "telegram", whatsapp: "whatsapp" };
@@ -113,7 +116,7 @@ export interface LinkableAdapter {
   readonly channel: "telegram_user" | "whatsapp";
   /** The cache's TTL of this channel's rows (decision 0049); absent, `RETENTION_DAYS`. */
   readonly cacheDays?: number;
-  refreshAllowed(): Promise<void>;
+  refreshKnown(): Promise<void>;
   /** `before`: the chat's oldest cached message, the anchor WhatsApp's on-demand history needs (P141 verdict 1). */
   history(chatId: string, o: { since: Date; before?: { id: string; fromMe: boolean; at: Date } | null }): Promise<InboundMessage[]>;
 }
@@ -138,7 +141,7 @@ export async function linkUserChat(
 /** P131 O5: a chat's own Telegram username and phone as the account saw them (either may be unknown). */
 export type ChatOwnIdentity = { username: string | null; phone: string | null };
 
-/** The link itself, shared by the owner's Link and the Hub's autolink: the identifier, the allow-list, then the import. */
+/** The link itself, shared by the owner's Link and the Hub's autolink: the identifier, the known row, the waiting draft's client, then the import. */
 async function linkAndImport(
   deps: { repos: Repos; adapter: LinkableAdapter; now?: () => Date },
   input: { project: string; clientId: number; chatId: string; title?: string; days?: number; autolinked?: string; identity?: ChatOwnIdentity },
@@ -146,14 +149,15 @@ async function linkAndImport(
   const kind = KIND_OF[deps.adapter.channel];
   const value = normalizeIdentifier(kind, input.chatId);
   const identifierId = await deps.repos.messengers.addIdentifier(input.project, input.clientId, kind, value);
-  await deps.repos.messengers.allowChat(input.project, deps.adapter.channel, value, input.title ?? null, input.autolinked ?? null);
   // P131 O5: the chat keeps its own username and phone, so it opens in Telegram without the client's Notion card.
-  if (input.identity) await deps.repos.messengers.setChatIdentity(input.project, deps.adapter.channel, value, input.identity);
-  await deps.adapter.refreshAllowed();
+  await deps.repos.messengers.knowChat(input.project, deps.adapter.channel, value, { title: input.title ?? null, autolinked: input.autolinked ?? null, username: input.identity?.username ?? null, phone: input.identity?.phone ?? null });
+  // P141 U4: a draft written before the link (the owner's reply in a chat that was not linked) now belongs to the client.
+  await deps.repos.messengers.adoptChatDrafts(input.project, deps.adapter.channel, value, input.clientId);
+  await deps.adapter.refreshKnown();
   const now = (deps.now ?? (() => new Date()))();
   // The link stands even when the import fails: new messages arrive anyway, and the poller's catch-up reads from its cursor.
   try {
-    // The messages cached before the link are adopted by `allowChat`; the import asks for what came before the oldest of them.
+    // The messages cached before the link stay (decision 0049 point 10); the import asks for what came before the oldest of them.
     const oldest = await deps.repos.messengers.oldestMessage(input.project, deps.adapter.channel, value);
     const before = oldest ? { id: oldest.remoteMessageId, fromMe: oldest.direction === "out", at: new Date(oldest.sentAt) } : null;
     const rows = await deps.adapter.history(value, { since: new Date(now.getTime() - (input.days ?? IMPORT_DAYS) * 86_400_000), before });
@@ -172,10 +176,31 @@ async function refuseTaken(repos: Repos, project: string, channel: LinkableAdapt
   }
 }
 
-/** A client record the autolink found (P84): exactly one record carries the chat's identifier, and it has an email. */
+/**
+ * A client record the autolink or the owner picked (P84, P141 C3): its Notion card, its name and its email when it has one. The
+ * card is the client's key in Notion; the email is not required (decision 0049: a client is reachable by any one identity).
+ */
 export interface AutolinkClient {
-  email: string;
+  pageId: string | null;
+  email: string | null;
   name: string;
+}
+
+/**
+ * The Hub's client row for a record (decision 0009 as amended: a row from a link, never a bulk copy): found by its Notion card,
+ * else by its email, else made, with the name, the email when there is one and the card. A row found by its email that has no card
+ * yet takes it. P141 C3.
+ */
+export async function ensureClient(repos: Repos, project: string, client: AutolinkClient): Promise<{ id: number; created: boolean }> {
+  const email = client.email ? normalizeIdentifier("email", client.email) : null;
+  const byPage = client.pageId ? await repos.clients.findByNotionPage(project, client.pageId) : undefined;
+  const found = byPage ?? (email ? await repos.clients.findByIdentity(project, "email", email) : undefined);
+  if (found !== undefined) {
+    if (client.pageId && byPage === undefined) await repos.clients.setNotionPage(project, found, client.pageId);
+    return { id: found, created: false };
+  }
+  const name = client.name.trim() || email || "Unnamed client";
+  return { id: await repos.clients.create({ project, email, name, notionPageId: client.pageId }), created: true };
 }
 
 /**
@@ -191,11 +216,9 @@ export async function autoLinkUserChat(
 ): Promise<{ clientId: number; clientCreated: boolean; identifierId: number; imported: number; importError: string | null }> {
   await deps.repos.projects.requireProject(input.project);
   await refuseTaken(deps.repos, input.project, deps.adapter.channel, input.chatId);
-  const email = normalizeIdentifier("email", input.client.email);
-  const found = await deps.repos.clients.idByEmail(input.project, email);
-  const clientId = found ?? (await deps.repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
+  const { id: clientId, created } = await ensureClient(deps.repos, input.project, input.client);
   const r = await linkAndImport(deps, { project: input.project, clientId, chatId: input.chatId, autolinked: input.reason, ...(input.title ? { title: input.title } : {}), ...(input.days ? { days: input.days } : {}), ...(input.identity ? { identity: input.identity } : {}) });
-  return { clientId, clientCreated: found === undefined, ...r };
+  return { clientId, clientCreated: created, ...r };
 }
 
 /**
@@ -210,8 +233,7 @@ export async function linkUserChatToRecord(
   assertHuman(actor);
   await deps.repos.projects.requireProject(input.project);
   await refuseTaken(deps.repos, input.project, deps.adapter.channel, input.chatId);
-  const email = normalizeIdentifier("email", input.client.email);
-  const clientId = (await deps.repos.clients.idByEmail(input.project, email)) ?? (await deps.repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
+  const { id: clientId } = await ensureClient(deps.repos, input.project, input.client);
   const r = await linkAndImport(deps, { project: input.project, clientId, chatId: input.chatId, ...(input.title ? { title: input.title } : {}), ...(input.identity ? { identity: input.identity } : {}) });
   return { clientId, ...r };
 }
@@ -231,12 +253,12 @@ export async function moveChatToRecord(
   await repos.projects.requireProject(input.project);
   const kind = KIND_OF[input.channel];
   const value = normalizeIdentifier(kind, input.chatId);
-  const email = normalizeIdentifier("email", input.client.email);
   const from = await repos.messengers.clientByIdentifier(input.project, kind, value);
   if (from === null) throw new MessengersError("bad_identifier", `bad_identifier: this ${kind} chat is not linked to a client in "${input.project}"`);
-  const found = await repos.clients.idByEmail(input.project, email);
+  const byPage = input.client.pageId ? await repos.clients.findByNotionPage(input.project, input.client.pageId) : undefined;
+  const found = byPage ?? (input.client.email ? await repos.clients.findByIdentity(input.project, "email", input.client.email) : undefined);
   if (found === from) throw new MessengersError("bad_identifier", "bad_identifier: this chat is already linked to that client");
-  const to = found ?? (await repos.clients.create({ project: input.project, email, name: input.client.name.trim() || email }));
+  const to = found ?? (await ensureClient(repos, input.project, input.client)).id;
   await repos.messengers.moveIdentifier(input.project, kind, value, to);
   const open = (await repos.messengers.listDrafts(input.project, ["draft"])).find((d) => d.channel === input.channel && d.chatId === value);
   if (open) await repos.messengers.discardDraft(input.project, open.id);
@@ -263,3 +285,4 @@ export async function undoMoveChat(
     throw e;
   }
 }
+export { addClientEmail } from "./client-email";

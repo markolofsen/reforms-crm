@@ -149,8 +149,9 @@ export function inboxRepo(db: Db) {
     },
 
     /** The Notion links recorded for a bounded set of addresses, read in one query for list projections. */
-    async notionByEmails(project: string, emails: readonly string[]): Promise<ReadonlyMap<string, Pick<InboxRow, "notionKind" | "notionPageId" | "notionUrl">>> {
-      const normalized = [...new Set(emails.map((email) => email.trim().toLowerCase()).filter(Boolean))];
+    async notionByEmails(project: string, emails: readonly (string | null)[]): Promise<ReadonlyMap<string, Pick<InboxRow, "notionKind" | "notionPageId" | "notionUrl">>> {
+      // A client known only by a chat has no address (P141 C1): it has no inbox row to name.
+      const normalized = [...new Set(emails.flatMap((email) => (email ? [email.trim().toLowerCase()] : [])).filter(Boolean))];
       if (normalized.length === 0) return new Map();
       const rows = db
         .select({ email: inboxRows.email, notionKind: inboxRows.notionKind, notionPageId: inboxRows.notionPageId, notionUrl: inboxRows.notionUrl })

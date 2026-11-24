@@ -14,7 +14,7 @@ describe("a HubError's status", () => {
   it("is the route's old answer for every class whose catch went", () => {
     expect(status(new RepoError("not_found", "x"))).toBe(404);
     for (const code of ["empty_query", "duplicate_claim", "duplicate_identifier", "wrong_state"] as const) expect(status(new RepoError(code, "x")), code).toBe(409);
-    expect(status(new MessengersError("chat_not_allowed", "x"))).toBe(409);
+    expect(status(new MessengersError("chat_not_known", "x"))).toBe(409);
     expect(status(new AdapterError("network", "x"))).toBe(502);
     expect(status(new NotTestable("Notion"))).toBe(409);
     expect(status(new Refusal("x", 400))).toBe(400);

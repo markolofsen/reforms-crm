@@ -392,7 +392,7 @@ describe("draft_write (hub mcp)", () => {
     expect(first.json.next).toMatch(new RegExp(`^Recorded: draft ${draftId} \\(created`));
     expect(first.json.next).not.toMatch(/run\.sh|JSON on stdin/);
     // The record: the client from the answered message's From, the reply's subject and the thread; the version is the draft's.
-    const ann = await repos.clients.idByEmail("acme", "ann@x.example");
+    const ann = await repos.clients.findByIdentity("acme", "email", "ann@x.example");
     expect((await repos.drafts.ofClient("acme", ann!)).map((d) => [d.id, d.subject, d.status])).toEqual([[draftId, "Re: message 42", "ready"]]);
     const [v] = await repos.mailVersions.ofThread("acme", "<M42@example.com>");
     expect(v).toMatchObject({ draftId, account: "desk@acme.example", messageId: first.json.messageId, mailId: first.json.draftId, source: "agent", trashedAt: null });
@@ -502,7 +502,7 @@ describe("draft_write (hub mcp)", () => {
     const row = await repos.drafts.get(draftId);
     expect(row?.mailRef).toBeNull();
     expect(JSON.parse(row?.context ?? "{}")).toMatchObject({ ownerRequest: words, newThread: true });
-    expect(await repos.clients.idByEmail("acme", "bob@client.example")).toBeDefined();
+    expect(await repos.clients.findByIdentity("acme", "email", "bob@client.example")).toBeDefined();
     const [v] = await repos.mailVersions.ofThread("acme", "new:bob@client.example");
     expect(v).toMatchObject({ draftId, messageId: w.json.messageId });
     // Recorded: a rerun is refused and names the draft, never a second message.
@@ -563,7 +563,7 @@ describe("draft_write (hub mcp)", () => {
     heard(mail, 77, "desk@acme.example", "Марк <markolofsen@gmail.com>");
     const reply = await call({ kind: "reply", message: { account: "desk@acme.example", mailbox_path: ["Sent Mail"], message_id: 77 }, content: "Ещё одна строфа.", owner_request: "напиши ему ещё раз", record: { skill: "bulk-drafts", notion: { kind: "none" } } });
     expect(reply).toMatchObject({ isError: false, json: { thread: "m77@example.com", sent: false, recorded: true, record: { action: "created" } } });
-    const mark = await repos.clients.idByEmail("acme", "markolofsen@gmail.com");
+    const mark = await repos.clients.findByIdentity("acme", "email", "markolofsen@gmail.com");
     expect((await repos.drafts.ofClient("acme", mark!)).map((d) => d.id)).toContain(reply.json.record.draftId);
   });
 
@@ -720,7 +720,7 @@ describe("draft_write (hub mcp)", () => {
     expect(again).toMatchObject({ isError: false, json: { adopted: true, recorded: true, sent: false, thread: "m43@example.com", record: { action: "created" } } });
     expect(again.json.next).toMatch(/nothing new was written/);
     expect(mail.drafts.filter((d) => d.text === "Hi Bob.")).toHaveLength(1);
-    const bob = await repos.clients.idByEmail("acme", "bob@x.example");
+    const bob = await repos.clients.findByIdentity("acme", "email", "bob@x.example");
     expect((await repos.drafts.ofClient("acme", bob!)).map((d) => d.id)).toEqual([again.json.record.draftId]);
     expect((await repos.mailVersions.ofDraft(again.json.record.draftId)).map((v) => v.source)).toEqual(["adopted"]);
   });

@@ -12,7 +12,6 @@ export type AutolinkStateUnlinkedItemWhy = typeof AutolinkStateUnlinkedItemWhy[k
 export const AutolinkStateUnlinkedItemWhy = {
   none: 'none',
   ambiguous: 'ambiguous',
-  no_email: 'no_email',
   off: 'off',
   failed: 'failed',
 } as const;

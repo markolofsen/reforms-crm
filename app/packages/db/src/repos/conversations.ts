@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import type { Db } from "../client";
 import { write } from "../tx";
 import { clients, drafts, inboundMail, inboxRows, sendLog } from "../schema";
@@ -87,7 +87,8 @@ export function conversationsRepo(db: Db) {
   // `ensure` writes, so only the list runs it: `one` is read by `hub mcp` and the prompt hook on a read-only connection.
   const build = (project: string, now?: Date, opts: { ensure?: boolean } = {}): ConversationItem[] => {
     if (opts.ensure) ensure(project);
-    const people = db.select().from(clients).where(eq(clients.project, project)).all();
+    // P141 C1: a Mail conversation is a client with an address; a client known only by a chat stays in Messengers.
+    const people = db.select().from(clients).where(and(eq(clients.project, project), isNotNull(clients.email))).all().map((c) => ({ ...c, email: c.email ?? "" }));
     const all = db.select().from(drafts).where(eq(drafts.project, project)).all();
     const inbound = db.select({ row: inboundMail, open: sql<number>`(case when ${sql.raw(OPEN_INBOUND)} then 1 else 0 end)` }).from(inboundMail).where(eq(inboundMail.project, project)).all();
     const owed = db.select().from(inboxRows).where(and(eq(inboxRows.project, project), eq(inboxRows.action, "escalated"), eq(inboxRows.repliesOwed, true))).all();
@@ -134,7 +135,7 @@ export function conversationsRepo(db: Db) {
   const matches = (project: string, needle: string): Set<number> => {
     const n = needle.trim().toLowerCase();
     const hit = new Set<number>();
-    for (const c of db.select().from(clients).where(eq(clients.project, project)).all()) if (c.name.toLowerCase().includes(n) || c.email.includes(n)) hit.add(c.id);
+    for (const c of db.select().from(clients).where(eq(clients.project, project)).all()) if (c.name.toLowerCase().includes(n) || (c.email ?? "").includes(n)) hit.add(c.id);
     for (const d of db.select({ id: drafts.clientId, s: drafts.subject }).from(drafts).where(eq(drafts.project, project)).all()) if (d.s.toLowerCase().includes(n)) hit.add(d.id);
     return hit;
   };
@@ -175,7 +176,7 @@ export function conversationsRepo(db: Db) {
       const c = db.select().from(clients).where(and(eq(clients.project, project), eq(clients.id, clientId))).get();
       if (!c) return null;
       const mine = db.select().from(drafts).where(and(eq(drafts.project, project), eq(drafts.clientId, clientId))).all().sort((a, b) => b.id - a.id);
-      const theirs = db.select().from(inboundMail).where(and(eq(inboundMail.project, project), eq(inboundMail.email, c.email))).all().filter((r) => r.dismissedReason !== "lead_notice").sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
+      const theirs = (c.email ? db.select().from(inboundMail).where(and(eq(inboundMail.project, project), eq(inboundMail.email, c.email))).all() : []).filter((r) => r.dismissedReason !== "lead_notice").sort((a, b) => b.receivedAt.localeCompare(a.receivedAt));
       const ids = mine.map((d) => d.id);
       const sends = ids.length ? db.select().from(sendLog).where(and(eq(sendLog.project, project), eq(sendLog.channel, "mail"), inArray(sendLog.draftId, ids))).all() : [];
       return { client: c, drafts: mine, inbound: theirs, sends };

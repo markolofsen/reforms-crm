@@ -55,7 +55,7 @@ describe("whatsapp pairing: the socket lives until WhatsApp's 515", () => {
         return socks[socks.length - 1]!;
       },
       account: ACCOUNT,
-      allowedChats: async () => [],
+      knownChats: async () => [],
     });
     await a.start?.();
     expect(read.auth.get(CREDS)).toBe(pairedCreds);
@@ -94,7 +94,7 @@ describe("whatsapp: one socket at a time", () => {
         return s;
       },
       account: ACCOUNT,
-      allowedChats: async () => [],
+      knownChats: async () => [],
     });
     const first = a.start?.();
     const second = a.start?.();
@@ -110,7 +110,7 @@ describe("whatsapp: one socket at a time", () => {
     const socks: FakeWaSocket[] = [];
     const auth = new WaAuthFiles(null);
     auth.set(CREDS, "{}");
-    const a = createWhatsAppAdapter({ socket: () => (socks.push(new FakeWaSocket(auth)), socks[socks.length - 1]!), account: ACCOUNT, allowedChats: async () => [] });
+    const a = createWhatsAppAdapter({ socket: () => (socks.push(new FakeWaSocket(auth)), socks[socks.length - 1]!), account: ACCOUNT, knownChats: async () => [] });
     await a.start?.();
     const old = socks[0]!;
     // Keep the old socket's listener (a real Baileys socket can report its close late).
@@ -136,7 +136,7 @@ describe("whatsapp: why a socket closed", () => {
         return sock;
       },
       account: ACCOUNT,
-      allowedChats: async () => [],
+      knownChats: async () => [],
     });
     const ac = new AbortController();
     const run = runPoller({ project: "p", repos: env.repos, adapter: pollOnly(a), signal: ac.signal, timeoutSec: 0, sleep: async () => undefined });

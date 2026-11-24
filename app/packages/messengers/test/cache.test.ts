@@ -3,7 +3,7 @@ import type { InboundMessage } from "../src/adapter";
 import { assessMessenger, type MessengerProjectPolicy } from "../src/door";
 import { FakeSendingAdapter } from "../src/fake";
 import { FakeWaSocket } from "../src/fake-wa";
-import { allowChat, humanActor, linkUserChat } from "../src/human";
+import { forgetChat, humanActor, linkUserChat } from "../src/human";
 import { ingest, type UnlinkedCache } from "../src/ingest";
 import { normalizeIdentifier } from "../src/normalize";
 import { pollOnce } from "../src/poller";
@@ -33,11 +33,12 @@ beforeEach(async () => {
 afterEach(() => env.close());
 
 describe("the cache on arrival (P141 W2)", () => {
-  it("a message of an unknown chat is cached with retain_until 30 days out, and makes no chat row (P141 U2 makes it)", async () => {
+  it("a message of an unknown chat is cached with retain_until 30 days out, and makes the chat known, not linked (P141 U2)", async () => {
     const r = await ingest({ project: "p", repos: env.repos, now: () => NOW, retentionDays: 30, cache }, [wa(QIMMA, "Q1", "2026-11-24T13:01:16.000Z")]);
     expect(r).toMatchObject({ stored: 1, dropped: [], chats: [{ channel: "whatsapp", chatId: QIMMA, inbound: 1, outbound: 0, linked: false }] });
     expect((await rowsOf(QIMMA)).map((m) => [m.remoteMessageId, m.retainUntil])).toEqual([["Q1", "2026-12-24T13:05:00.000Z"]]);
-    expect(count("messenger_chats")).toBe(0);
+    expect(count("messenger_chats")).toBe(1);
+    expect(await env.repos.messengers.isLinked("p", "whatsapp", QIMMA)).toBe(false);
   });
 
   it("a hidden chat's message leaves no row", async () => {
@@ -79,7 +80,7 @@ describe("the cache on arrival (P141 W2)", () => {
     const a = createWhatsAppAdapter({
       socket: () => ((sock = new FakeWaSocket(new WaAuthFiles(null), { account: ACCOUNT, name: "Owner" })), (sock.autoOpen = true), sock),
       account: ACCOUNT,
-      allowedChats: async () => [],
+      knownChats: async () => [],
       cacheUnlinked: true,
       cacheDays: 30,
     });
@@ -91,13 +92,13 @@ describe("the cache on arrival (P141 W2)", () => {
     await a.close();
   });
 
-  it("Hide deletes what the cache holds of an unlinked chat, and never a linked chat's", async () => {
+  it("a chat that writes becomes known, and forgetting it (Hide) deletes its row and what the cache holds", async () => {
     await ingest({ project: "p", repos: env.repos, now: () => NOW, cache }, [wa(QIMMA, "Q1", "2026-11-24T13:01:16.000Z")]);
-    expect(await env.repos.messengers.dropCachedChat("p", "whatsapp", QIMMA)).toBe(1);
-    await allowChat(env.repos, humanActor("owner"), { project: "p", channel: "whatsapp", chatId: QIMMA });
-    await ingest({ project: "p", repos: env.repos, now: () => NOW, cache }, [wa(QIMMA, "Q2", "2026-11-24T13:02:00.000Z")]);
-    expect(await env.repos.messengers.dropCachedChat("p", "whatsapp", QIMMA)).toBe(0);
-    expect(await rowsOf(QIMMA)).toHaveLength(1);
+    expect(await env.repos.messengers.isKnown("p", "whatsapp", QIMMA)).toBe(true);
+    expect(await env.repos.messengers.isLinked("p", "whatsapp", QIMMA)).toBe(false);
+    expect(await forgetChat(env.repos, humanActor("owner"), { project: "p", channel: "whatsapp", chatId: QIMMA })).toBe(true);
+    expect(await rowsOf(QIMMA)).toHaveLength(0);
+    expect(await env.repos.messengers.isKnown("p", "whatsapp", QIMMA)).toBe(false);
   });
 
   it("a hidden number's chat is named lid:<digits> and can be linked by it", () => {
@@ -114,7 +115,7 @@ describe("first contact is a stored fact that outlives the cache (P141 W4)", () 
   it("chat 4's shape: the person wrote before the link; the link adopts the cache, so a draft is allowed and the door has no reason", async () => {
     await ingest({ project: "p", repos: env.repos, now: () => NOW, retentionDays: 30, cache }, [wa(QIMMA, "Q1", "2026-11-24T13:01:16.000Z")]);
     let sock!: FakeWaSocket;
-    const a = createWhatsAppAdapter({ socket: () => ((sock = new FakeWaSocket(new WaAuthFiles(null), { account: ACCOUNT, name: "Owner" })), (sock.autoOpen = true), sock), account: ACCOUNT, allowedChats: async () => [], cacheUnlinked: true, cacheDays: 30 });
+    const a = createWhatsAppAdapter({ socket: () => ((sock = new FakeWaSocket(new WaAuthFiles(null), { account: ACCOUNT, name: "Owner" })), (sock.autoOpen = true), sock), account: ACCOUNT, knownChats: async () => [], cacheUnlinked: true, cacheDays: 30 });
     await a.start?.();
     await linkUserChat({ repos: env.repos, adapter: a, now: () => NOW }, humanActor("owner"), { project: "p", clientId: env.clientId, chatId: QIMMA, title: QIMMA });
     const row = await env.repos.messengers.chat("p", "whatsapp", QIMMA);
@@ -128,7 +129,7 @@ describe("first contact is a stored fact that outlives the cache (P141 W4)", () 
   });
 
   it("an inbound message pruned after 30 days: last_inbound_at and account still let the draft and the send pass", async () => {
-    await env.repos.messengers.allowChat("p", "whatsapp", QIMMA, QIMMA);
+    await env.repos.messengers.knowChat("p", "whatsapp", QIMMA, { title: QIMMA });
     await ingest({ project: "p", repos: env.repos, now: () => NOW, retentionDays: 30, cache }, [wa(QIMMA, "Q1", "2026-11-24T13:01:16.000Z")]);
     expect(await env.repos.messengers.purgeExpired("2026-12-30T00:00:00.000Z")).toBe(1);
     expect(await rowsOf(QIMMA)).toEqual([]);
@@ -140,7 +141,7 @@ describe("first contact is a stored fact that outlives the cache (P141 W4)", () 
   });
 
   it("zero rows and no fact: the door says first contact", async () => {
-    await env.repos.messengers.allowChat("p", "whatsapp", QIMMA, QIMMA);
+    await env.repos.messengers.knowChat("p", "whatsapp", QIMMA, { title: QIMMA });
     expect((await env.repos.messengers.activity("p", "whatsapp", QIMMA)).lastInAt).toBeNull();
     const d = await env.repos.messengers.createDraft({ project: "p", channel: "whatsapp", chatId: QIMMA, text: "Hello", createdBy: "owner" });
     expect(await reasons(d.id)).toContain("nobody wrote in this chat yet: the hub never makes the first contact");

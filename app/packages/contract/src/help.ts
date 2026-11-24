@@ -93,8 +93,10 @@ export function messengerPhrase(project: string, chat: { channel: string; chatId
 
 /** One line, no control character: what reaches the dock terminal never holds a line break (so nothing is entered by itself). */
 const oneLine = (s: string, max: number): string => s.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ").replace(/\s+/g, " ").trim().slice(0, max);
-const clientOf = (c: { name: string; email: string }): string => {
+const clientOf = (c: { name: string; email: string | null }): string => {
   const name = oneLine(c.name, 80);
+  // P141 C1: a client known only by a chat is named by its name alone.
+  if (!c.email) return name;
   const email = oneLine(c.email, 320);
   return name && name !== email ? `${name} <${email}>` : email;
 };
@@ -103,7 +105,7 @@ const clientOf = (c: { name: string; email: string }): string => {
  * P136 verdict 7d: the request the client map sheet's Correct puts into the dock, without Enter: "redraw the map of <client>: ",
  * for the owner to finish with what is wrong and press Enter himself. It ends in a space; nothing after it is ours.
  */
-export const mapCorrectPhrase = (client: { name: string; email: string }): string => `redraw the map of ${clientOf(client)}: `;
+export const mapCorrectPhrase = (client: { name: string; email: string | null }): string => `redraw the map of ${clientOf(client)}: `;
 
 /** P136 verdict 7a: "Draw map" (a client with none) puts this into the dock, without Enter; the owner presses Enter. */
-export const mapDrawPhrase = (client: { name: string; email: string }): string => `draw the map of ${clientOf(client)} from their whole history`;
+export const mapDrawPhrase = (client: { name: string; email: string | null }): string => `draw the map of ${clientOf(client)} from their whole history`;

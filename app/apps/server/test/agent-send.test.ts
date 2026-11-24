@@ -51,7 +51,7 @@ function say(text: string, ms: number, shown?: number) {
 }
 const draft = async (chatId = "1001", text = TEXT) => (await repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId, text, createdBy: "agent" })).id;
 async function link(chatId: string) {
-  await repos.messengers.allowChat("p", "telegram_user", chatId, `Chat ${chatId}`);
+  await repos.messengers.knowChat("p", "telegram_user", chatId, { title: `Chat ${chatId}` });
   await repos.messengers.insertMessage({ project: "p", channel: "telegram_user", account: "42", chatId, remoteMessageId: `in-${chatId}`, direction: "in", kind: "text", text: "Is the 28th still on?", sentAt: new Date(Date.now() - 3_600_000).toISOString(), retainUntil: "2099-01-01T00:00:00.000Z" });
   return (await repos.messengers.chat("p", "telegram_user", chatId))!.id;
 }

@@ -8,7 +8,7 @@ export {
   listBatches, listConversations, listDrafts, listEnrollments, listInbound, listInbox, listLeads, listNotByEmail, listSequences, listStuckClients, notNowLead, refreshConversation, restoreDraftMail, saveDraftMail, setClientMarks, setDraftChecked, setDraftStatus, setDraftTone, spamLead, stopEnrollment, tidyDraftMail, undismissInbound, undoBatch, undoDraftStatus, undoLead,
 } from "./generated/mail/mail";
 export {
-  cancelTelegramUserLogin, cancelWhatsAppConnect, changeChatClient, createChatRecord, createMessengerDraft, disconnectTelegramUser, disconnectWhatsApp, dropHideProposals, editMessengerDraft, findAutolinkRecords, getAutolinkState, getMessengerConversation, getTelegramUserStatus, getWhatsAppStatus, hideChat,
+  addChatClientEmail, cancelTelegramUserLogin, cancelWhatsAppConnect, changeChatClient, createChatRecord, createMessengerDraft, disconnectTelegramUser, disconnectWhatsApp, dropHideProposals, editMessengerDraft, findAutolinkRecords, getAutolinkState, getMessengerConversation, getTelegramUserStatus, getWhatsAppStatus, hideChat,
   linkChatRecord, listAccountDialogs, listMessengerChats, neverLinkChat, prepareMessengerReply, previewAutolink, readWhatsAppConnect, restoreMessengerDraft, sendTelegramUserCode, sendTelegramUserPassword, setMessengerChatRules, skipMessengerDraft, startTelegramUserLogin, startWhatsAppConnect, undoChatClient, unhideChat, unlinkChat,
   createAutopilotTicket, getAutopilot, getProjectAutopilot, setAutopilot, setProjectAutopilot,
 } from "./generated/messengers/messengers";

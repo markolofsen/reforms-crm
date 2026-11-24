@@ -283,7 +283,7 @@ describe("migrations", () => {
     raw.prepare("insert into clients (project, email, name) values ('acme', 'old@x.example', 'Old')").run();
     raw.close();
 
-    const upgraded = openDb(file);
+    const upgraded = openDb(file, { migrate: true });
     const r = createRepos(upgraded.db);
     expect(await r.clients.get("acme", 1)).toMatchObject({ email: "old@x.example" });
     await r.projects.replaceRegistry({ projects: [reg("acme")], addresses: [] });

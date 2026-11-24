@@ -61,7 +61,7 @@ export function register(program: Command): void {
       const handle = openDbReadOnly(ctxOf().paths.db);
       try {
         const repos = createRepos(handle.db);
-        const id = "id" in ref ? ref.id : await repos.clients.idByEmail(o.project, ref.email);
+        const id = "id" in ref ? ref.id : await repos.clients.findByIdentity(o.project, "email", ref.email);
         const m = id === undefined ? null : await repos.clientMaps.get(o.project, id);
         if (!m) { console.log(`no client ${key} in project ${o.project}`); return done(1); }
         const text = o.previous ? m.previous?.source : m.source;

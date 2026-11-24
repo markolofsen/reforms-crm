@@ -23,7 +23,7 @@ export const draftShowOutput = z.object({
   reason: z.string().nullable(),
   checked: z.boolean(),
   injectionSuspected: z.boolean(),
-  client: z.object({ id: z.number(), name: z.string(), email: z.string(), marks: z.array(z.enum(MARKS)), repliesOwed: z.boolean(), lastContactAt: z.string().nullable() }).nullable(),
+  client: z.object({ id: z.number(), name: z.string(), email: z.string().nullable(), marks: z.array(z.enum(MARKS)), repliesOwed: z.boolean(), lastContactAt: z.string().nullable() }).nullable(),
   basedOn: z.object({ findings: z.array(z.unknown()), context: z.record(z.string(), z.unknown()) }).nullable(),
   notion: z.object({ kind: z.enum(NOTION_KINDS).nullable(), url: z.string() }).nullable(),
   followUp: z.object({ enrollmentId: z.number(), step: z.number().nullable() }).nullable(),

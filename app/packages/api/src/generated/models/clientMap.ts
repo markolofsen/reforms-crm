@@ -16,7 +16,8 @@ export interface ClientMap {
      */
   clientId: number;
   name: string;
-  email: string;
+  /** @nullable */
+  email: string | null;
   /** @nullable */
   source: string | null;
   /** @nullable */

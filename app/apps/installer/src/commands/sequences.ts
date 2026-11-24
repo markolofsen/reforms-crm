@@ -172,7 +172,7 @@ export async function runSequencesEnrol(slug: string, o: { client: string; seque
   }
   const all = loadSequences(folderOf(d, slug));
   return move(d, async (r) => {
-    const c = await r.clients.idByEmail(slug, o.client.trim().toLowerCase());
+    const c = await r.clients.findByIdentity(slug, "email", o.client.trim().toLowerCase());
     if (c === undefined) throw new RepoError("not_found", `${o.client} has no draft in ${slug}, so there is nothing to follow up`);
     const last = await r.enrollments.lastOutbound(slug, c);
     const def = o.sequence ? findSequence(all, o.sequence) : pickSequence(all, { mailClass: last?.mailClass ?? null, notionKind: last?.notionKind ?? null });

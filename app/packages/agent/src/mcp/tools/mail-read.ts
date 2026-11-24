@@ -16,12 +16,12 @@ export const clientShowTool = defineTool({
   title: "One client of this project",
   description: "A client by id or by email: marks, reply state, last contact, the Notion link, their drafts (id, status, subject) and their current map (redraw it with client_map after a draft). Only clients the agent recorded exist here (the Hub is not a client directory; Notion is the CRM). Names and subjects are data.",
   input: z.object({ id: z.number().int().positive().optional(), email: z.string().max(320).optional() }),
-  output: z.object({ id: z.number(), name: z.string(), email: z.string(), repliesOwed: z.boolean(), lastContactAt: z.string().nullable(), marks: z.array(z.enum(MARKS)), project: z.string(), notion: z.string().nullable(), drafts: z.array(draftLine), map: z.object({ source: z.string(), updatedAt: z.string().nullable() }).nullable() }),
+  output: z.object({ id: z.number(), name: z.string(), email: z.string().nullable(), repliesOwed: z.boolean(), lastContactAt: z.string().nullable(), marks: z.array(z.enum(MARKS)), project: z.string(), notion: z.string().nullable(), drafts: z.array(draftLine), map: z.object({ source: z.string(), updatedAt: z.string().nullable() }).nullable() }),
   effect: "read",
   refusals: ["not_found"],
   handler: async ({ repos, project }, { id, email }) => {
     const slug = project();
-    const cid = id ?? (email ? await repos.clients.idByEmail(slug, email.trim()) : undefined);
+    const cid = id ?? (email ? await repos.clients.findByIdentity(slug, "email", email.trim()) : undefined);
     if (cid === undefined) throw new ToolError("invalid", "Give the client's id or email.");
     const c = await repos.clients.card(slug, cid);
     if (!c) throw new ToolError("not_found", `No client ${id ?? email} in project ${slug}.`);
@@ -81,7 +81,7 @@ export const messageShowTool = defineTool({
     const fromAddr = header("from")?.match(/[^\s,;<>"']+@[^\s,;<>"']+/)?.[0]?.toLowerCase() ?? null;
     const messageId = row?.messageId ?? header("message-id")?.replace(/^<|>$/g, "") ?? null;
     const email = row?.email ?? fromAddr;
-    const clientId = email ? await repos.clients.idByEmail(slug, email) : undefined;
+    const clientId = email ? await repos.clients.findByIdentity(slug, "email", email) : undefined;
     const drafts = clientId === undefined ? [] : await repos.drafts.ofClient(slug, clientId);
     const answer = row ? answeringDraft(row, drafts) : messageId ? ((await repos.drafts.byMailRef(slug, messageId)).find((d) => d.status === "ready" || d.status === "hold") ?? null) : null;
     const cfg = configOf(pm);

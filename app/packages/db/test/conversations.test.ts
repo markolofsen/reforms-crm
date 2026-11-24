@@ -74,14 +74,14 @@ describe("P99 the list of people", () => {
     await wrote("new@x.example", "n@x", "2026-11-21T00:00:00.000Z");
     await repos.inboundMail.store([{ project: P, account: "a", mailbox: "INBOX", messageId: "lead@x", email: "robot@site.example", name: "Robot", subject: "lead", receivedAt: "2026-11-21T00:00:00.000Z", read: false, why: "client", preview: "" }]);
     await repos.inboundMail.dismissWhere(P, (e) => e.startsWith("robot@"), "lead_notice");
-    expect(await repos.clients.idByEmail(P, "new@x.example")).toBeUndefined();
+    expect(await repos.clients.findByIdentity(P, "email", "new@x.example")).toBeUndefined();
     const first = await repos.conversations.list(P, "needs_you");
     expect(first.rows.map((r) => r.client.email)).toEqual(["new@x.example"]);
-    const id = await repos.clients.idByEmail(P, "new@x.example");
+    const id = await repos.clients.findByIdentity(P, "email", "new@x.example");
     expect(id).toBeDefined();
-    expect(await repos.clients.idByEmail(P, "robot@site.example")).toBeUndefined();
+    expect(await repos.clients.findByIdentity(P, "email", "robot@site.example")).toBeUndefined();
     await repos.conversations.list(P, "needs_you");
-    expect(await repos.clients.idByEmail(P, "new@x.example")).toBe(id);
+    expect(await repos.clients.findByIdentity(P, "email", "new@x.example")).toBe(id);
   });
 
   it("P128 X2: the agent's escalation or skip travels with a Wrote you row, its reason in its words; a draft after it, or a draft open, drops it", async () => {

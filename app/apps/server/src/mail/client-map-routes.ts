@@ -39,7 +39,7 @@ export function clientMapRoutes({ repos }: MailContext) {
       const now = Date.now();
       const rows = (await repos.clientMaps.histories(slug)).flatMap((h) => {
         const nodes = stuckNodes(h.versions, now, STUCK_WAITING_DAYS);
-        return nodes.length ? [{ clientId: h.clientId, name: h.name || h.email, email: h.email, nodes }] : [];
+        return nodes.length ? [{ clientId: h.clientId, name: h.name || h.email || `Client ${h.clientId}`, email: h.email, nodes }] : [];
       });
       return c.json(stuckClientsDto.parse({ project: slug, waitingDays: STUCK_WAITING_DAYS, clients: rankStuck(rows) }));
     });

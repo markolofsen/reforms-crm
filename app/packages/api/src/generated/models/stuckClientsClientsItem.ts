@@ -14,7 +14,8 @@ export type StuckClientsClientsItem = {
      */
   clientId: number;
   name: string;
-  email: string;
+  /** @nullable */
+  email: string | null;
   /** @minItems 1 */
   nodes: StuckClientsClientsItemNodesItem[];
 };

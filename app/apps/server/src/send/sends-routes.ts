@@ -72,7 +72,7 @@ function agentSendRoute({ repos, sender, messengers }: SendContext) {
     if (row.channel !== d.channel || row.chatId !== d.chatId) return c.json(agentRefusal("other_chat", `draft ${id} is not a draft of chat:${chat}.`, "Use the open_draft id messenger_history gives for this chat."), 409);
     const now = (sender.now ?? (() => new Date()))();
     const since = new Date(now.getTime() - OWNER_WORD_MAX_AGE_HOURS * 3_600_000).toISOString();
-    const chatIds = new Map((await repos.messengers.allowedChats(slug)).map((r) => [`${r.channel}|${r.chatId}`, r.id]));
+    const chatIds = new Map((await repos.messengers.knownChats(slug)).map((r) => [`${r.channel}|${r.chatId}`, r.id]));
     const openDrafts = (await repos.messengers.listDrafts(slug, ["draft"])).flatMap((x) => {
       const cid = chatIds.get(`${x.channel}|${x.chatId}`);
       return cid === undefined ? [] : [{ id: x.id, chat: cid, updatedAt: x.updatedAt }];

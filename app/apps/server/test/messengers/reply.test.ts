@@ -35,7 +35,7 @@ beforeEach(async () => {
   writeFileSync(join(projectsDir, "p", "project.md"), projectFile);
   await repos.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: "active", settingsJson: "{}", hash: "p" }], addresses: [] });
   clientId = await repos.clients.create({ project: "p", email: "anna@example.test", name: "Anna" });
-  await repos.messengers.allowChat("p", "telegram_user", "1001", "Anna");
+  await repos.messengers.knowChat("p", "telegram_user", "1001", { title: "Anna" });
   await repos.messengers.addIdentifier("p", clientId, "telegram", "1001");
   chatId = (await repos.messengers.chat("p", "telegram_user", "1001"))?.id ?? 0;
   await repos.messengers.insertMessage({ project: "p", channel: "telegram_user", account: "1", chatId: "1001", remoteMessageId: "m1", direction: "in", text: "Can we meet tomorrow?", sentAt: "2026-11-21T09:00:00.000Z", retainUntil: "2099-01-01T00:00:00Z" });

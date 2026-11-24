@@ -22,7 +22,7 @@ export const GENERATED_OPERATIONS = {
   ],
   messengers: [
     "getTelegramUserStatus", "startTelegramUserLogin", "sendTelegramUserCode", "sendTelegramUserPassword", "cancelTelegramUserLogin", "disconnectTelegramUser", "getWhatsAppStatus", "startWhatsAppConnect", "readWhatsAppConnect", "cancelWhatsAppConnect", "disconnectWhatsApp",
-    "getAutolinkState", "previewAutolink", "findAutolinkRecords", "linkChatRecord", "createChatRecord", "hideChat", "unhideChat", "dropHideProposals", "listAccountDialogs", "changeChatClient", "undoChatClient", "unlinkChat", "neverLinkChat",
+    "getAutolinkState", "previewAutolink", "findAutolinkRecords", "linkChatRecord", "createChatRecord", "hideChat", "unhideChat", "dropHideProposals", "listAccountDialogs", "changeChatClient", "undoChatClient", "addChatClientEmail", "unlinkChat", "neverLinkChat",
     "listMessengerChats", "getMessengerConversation", "createMessengerDraft", "editMessengerDraft", "skipMessengerDraft", "restoreMessengerDraft", "prepareMessengerReply", "setMessengerChatRules",
     "createAutopilotTicket", "getAutopilot", "setAutopilot", "getProjectAutopilot", "setProjectAutopilot",
   ],

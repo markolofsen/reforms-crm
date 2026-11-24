@@ -4344,6 +4344,71 @@
         }
       }
     },
+    "/api/projects/{slug}/messengers/chats/{id}/email": {
+      "post": {
+        "operationId": "addChatClientEmail",
+        "summary": "Add an email to a chat's client (merges when another client has it)",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatEmailBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Add an email to a chat's client (merges when another client has it)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatEmail"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
     "/api/projects/{slug}/messengers/chats/{id}/unlink": {
       "post": {
         "operationId": "unlinkChat",
@@ -13339,7 +13404,10 @@
             "maximum": 9007199254740991
           },
           "email": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "key": {
             "type": "string",
@@ -14617,7 +14685,10 @@
             "type": "string"
           },
           "email": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "source": {
             "type": [
@@ -14733,7 +14804,10 @@
                   "type": "string"
                 },
                 "email": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "nodes": {
                   "minItems": 1,
@@ -17274,7 +17348,6 @@
                   "enum": [
                     "none",
                     "ambiguous",
-                    "no_email",
                     "off",
                     "failed"
                   ]
@@ -17407,7 +17480,6 @@
                   "enum": [
                     "none",
                     "ambiguous",
-                    "no_email",
                     "off",
                     "failed"
                   ]
@@ -17706,11 +17778,6 @@
                   "minimum": -9007199254740991,
                   "maximum": 9007199254740991
                 },
-                "noEmail": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
-                },
                 "byRelationship": {
                   "type": "object",
                   "propertyNames": {
@@ -17729,7 +17796,6 @@
                 "linked",
                 "unique",
                 "ambiguous",
-                "noEmail",
                 "byRelationship"
               ],
               "additionalProperties": false
@@ -17925,8 +17991,7 @@
           "channel",
           "account",
           "chatId",
-          "name",
-          "email"
+          "name"
         ],
         "additionalProperties": false
       },
@@ -18222,6 +18287,50 @@
         ],
         "additionalProperties": false
       },
+      "ChatEmailBody": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "format": "email",
+            "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "additionalProperties": false
+      },
+      "ChatEmail": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "id": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "clientId": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "merged": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "id",
+          "clientId",
+          "merged"
+        ],
+        "additionalProperties": false
+      },
       "ChatUnlinked": {
         "type": "object",
         "properties": {
@@ -18289,7 +18398,10 @@
                           "type": "string"
                         },
                         "email": {
-                          "type": "string"
+                          "type": [
+                            "string",
+                            "null"
+                          ]
                         },
                         "notionPageId": {
                           "type": [
@@ -18578,6 +18690,80 @@
                     "whatsappPhone"
                   ],
                   "additionalProperties": false
+                },
+                "identity": {
+                  "type": "object",
+                  "properties": {
+                    "phone": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "username": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "profileName": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "firstSeen": {
+                      "type": "string"
+                    },
+                    "account": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "suggestions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "relationship": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "name",
+                          "email",
+                          "relationship"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "phone",
+                    "username",
+                    "profileName",
+                    "firstSeen",
+                    "account",
+                    "suggestions"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -18594,7 +18780,8 @@
                 "draft",
                 "autolinked",
                 "triage",
-                "contact"
+                "contact",
+                "identity"
               ],
               "additionalProperties": false
             }
@@ -18616,12 +18803,18 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "unlinked": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
               "needs_you",
               "waiting",
-              "all"
+              "all",
+              "unlinked"
             ],
             "additionalProperties": false
           },
@@ -18699,7 +18892,10 @@
                         "type": "string"
                       },
                       "email": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "notionPageId": {
                         "type": [
@@ -18988,6 +19184,80 @@
                   "whatsappPhone"
                 ],
                 "additionalProperties": false
+              },
+              "identity": {
+                "type": "object",
+                "properties": {
+                  "phone": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "username": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "profileName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "firstSeen": {
+                    "type": "string"
+                  },
+                  "account": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "suggestions": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "email": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "relationship": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "name",
+                        "email",
+                        "relationship"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "phone",
+                  "username",
+                  "profileName",
+                  "firstSeen",
+                  "account",
+                  "suggestions"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -19004,7 +19274,8 @@
               "draft",
               "autolinked",
               "triage",
-              "contact"
+              "contact",
+              "identity"
             ],
             "additionalProperties": false
           },
@@ -19089,12 +19360,28 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "copy": {
+            "default": null,
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "live",
+                  "saved"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "chat",
           "messages",
-          "earlier"
+          "earlier",
+          "copy"
         ],
         "additionalProperties": false
       },
@@ -19151,7 +19438,10 @@
                     "type": "string"
                   },
                   "email": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "notionPageId": {
                     "type": [
@@ -19440,6 +19730,80 @@
               "whatsappPhone"
             ],
             "additionalProperties": false
+          },
+          "identity": {
+            "type": "object",
+            "properties": {
+              "phone": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "username": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "profileName": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "firstSeen": {
+                "type": "string"
+              },
+              "account": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "suggestions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "relationship": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "name",
+                    "email",
+                    "relationship"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "phone",
+              "username",
+              "profileName",
+              "firstSeen",
+              "account",
+              "suggestions"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -19456,7 +19820,8 @@
           "draft",
           "autolinked",
           "triage",
-          "contact"
+          "contact",
+          "identity"
         ],
         "additionalProperties": false
       },

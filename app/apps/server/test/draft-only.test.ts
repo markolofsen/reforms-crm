@@ -42,7 +42,7 @@ async function seedBatch(clientIds: number[]) {
   for (const id of clientIds) {
     const c = (await repos.clients.get("p", id))!;
     const first = c.name.split(" ")[0]!;
-    await repos.drafts.create({ project: "p", clientId: id, runId, batchId, subject: "Checking in", toAddr: c.email, body: `Hi ${first}, about the commission.`, reason: "Silent.", status: "ready" });
+    await repos.drafts.create({ project: "p", clientId: id, runId, batchId, subject: "Checking in", toAddr: c.email ?? "", body: `Hi ${first}, about the commission.`, reason: "Silent.", status: "ready" });
   }
   return batchId;
 }

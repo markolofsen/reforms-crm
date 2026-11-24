@@ -1,14 +1,15 @@
-import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { HIDDEN_LABELS, isHiddenLabel, type HiddenLabel, type TriageVerdict } from "@hub/config/chat-rules";
 import type { Db } from "../client";
 import { clientIdentifiers, clients, inboxRows, messengerChats, messengerDrafts, messengerMessages, messengerTriage, type MessengerChannel } from "../schema";
-import type { ChatActivity, MessengerChatRow } from "./messenger-chats";
+import { linkKindOf, type ChatActivity, type MessengerChatRow } from "./messenger-chats";
 import type { MessengerDraftRow, MessengerMessageRow } from "./messengers";
 import type { TriageCounts } from "./messenger-triage";
 
 export interface MessengerProjectionRow {
   row: MessengerChatRow;
-  client: { id: number; name: string; email: string } | null;
+  /** The client the chat is linked to; null for a known chat that is not linked (decision 0049). */
+  client: { id: number; name: string; email: string | null } | null;
   notion: { notionPageId: string | null; notionUrl: string | null } | null;
   activity: ChatActivity;
   stored: number;
@@ -24,13 +25,16 @@ const emptyTriage = (): TriageCounts => ({ judged: 0, hidden: zeroHidden(), unju
 
 /** Reads the Messenger list projection with a fixed number of project-scoped queries. */
 export function messengerProjectionRepo(db: Db) {
-  return {
-    async list(project: string): Promise<MessengerProjectionRow[]> {
-      const rows = db.select().from(messengerChats).where(eq(messengerChats.project, project)).orderBy(asc(messengerChats.id)).all();
-      if (rows.length === 0) return [];
-
-      const chatPredicate = or(...rows.map((chat) => and(eq(messengerMessages.channel, chat.channel), eq(messengerMessages.chatId, chat.chatId))));
-      const messageWhere = and(eq(messengerMessages.project, project), chatPredicate);
+  /**
+   * The projection of the project's known chats, or of one (`only`, a row id). A fixed number of queries whatever the count: the
+   * messages are scoped by a correlated EXISTS on `messenger_chats`, never one OR term per chat (P141 U2: hundreds of known chats).
+   */
+  const projectRows = (project: string, only?: number): MessengerProjectionRow[] => {
+    const rows = db.select().from(messengerChats).where(and(eq(messengerChats.project, project), only === undefined ? undefined : eq(messengerChats.id, only))).orderBy(asc(messengerChats.id)).all();
+    if (rows.length === 0) return [];
+    const onlyChat = only === undefined ? sql`` : sql` and c.id = ${only}`;
+    const chatPredicate = sql`exists (select 1 from messenger_chats c where c.project = messenger_messages.project and c.channel = messenger_messages.channel and c.chat_id = messenger_messages.chat_id${onlyChat})`;
+    const messageWhere = and(eq(messengerMessages.project, project), chatPredicate);
       const aggregates = db
         .select({
           channel: messengerMessages.channel,
@@ -47,10 +51,10 @@ export function messengerProjectionRepo(db: Db) {
       const latest = db.$client
         .prepare(
           `select m.id, m.project, m.channel, m.account, m.chat_id as chatId, m.remote_message_id as remoteMessageId,
-             m.direction, m.kind, m.text, m.sent_at as sentAt, m.retain_until as retainUntil, m.created_at as createdAt
+             m.direction, m.kind, m.text, m.sent_at as sentAt, m.retain_until as retainUntil, m.source, m.created_at as createdAt
            from messenger_messages m
            join messenger_chats c on c.project = m.project and c.channel = m.channel and c.chat_id = m.chat_id
-           where c.project = ?
+           where c.project = ? and (? is null or c.id = ?)
              and not exists (
                select 1 from messenger_messages newer
                where newer.project = m.project
@@ -59,7 +63,7 @@ export function messengerProjectionRepo(db: Db) {
                  and (newer.sent_at > m.sent_at or (newer.sent_at = m.sent_at and newer.id > m.id))
              )`,
         )
-        .all(project) as MessengerMessageRow[];
+        .all(project, only ?? null, only ?? null) as MessengerMessageRow[];
       const drafts = db
         .select()
         .from(messengerDrafts)
@@ -67,7 +71,7 @@ export function messengerProjectionRepo(db: Db) {
         .orderBy(desc(messengerDrafts.id))
         .all();
       const identities = db
-        .select({ clientId: clientIdentifiers.clientId, kind: clientIdentifiers.kind, value: clientIdentifiers.value, id: clients.id, name: clients.name, email: clients.email })
+        .select({ clientId: clientIdentifiers.clientId, kind: clientIdentifiers.kind, value: clientIdentifiers.value, id: clients.id, name: clients.name, email: clients.email, notionPageId: clients.notionPageId })
         .from(clientIdentifiers)
         .innerJoin(clients, eq(clients.id, clientIdentifiers.clientId))
         .where(and(eq(clientIdentifiers.project, project), eq(clients.project, project)))
@@ -100,11 +104,10 @@ export function messengerProjectionRepo(db: Db) {
         const key = chatKey(draft.channel, draft.chatId);
         if (!draftByChat.has(key)) draftByChat.set(key, draft);
       }
-      const clientByIdentifier = new Map(identities.map((identity) => [`${identity.kind}:${identity.value}`, { id: identity.id, name: identity.name, email: identity.email }]));
+      const clientByIdentifier = new Map(identities.map((identity) => [`${identity.kind}:${identity.value}`, { id: identity.id, name: identity.name, email: identity.email, notionPageId: identity.notionPageId }]));
       const clientByChat = new Map(
         rows.flatMap((chat) => {
-          const kind = chat.channel === "whatsapp" ? "whatsapp" : "telegram";
-          const client = clientByIdentifier.get(`${kind}:${chat.chatId}`);
+          const client = clientByIdentifier.get(`${linkKindOf(chat.channel)}:${chat.chatId}`);
           return client ? [[chatKey(chat.channel, chat.chatId), client] as const] : [];
         }),
       );
@@ -122,11 +125,13 @@ export function messengerProjectionRepo(db: Db) {
 
       return rows.map((row) => {
         const key = chatKey(row.channel, row.chatId);
-        const client = clientByChat.get(key) ?? null;
+        const linked = clientByChat.get(key) ?? null;
+        const client = linked ? { id: linked.id, name: linked.name, email: linked.email } : null;
         return {
           row,
           client,
-          notion: client ? notionByEmail.get(client.email.trim().toLowerCase()) ?? null : null,
+          // The card the client row names (P141 C1), else the inbox's record of its address.
+          notion: linked ? (linked.email ? notionByEmail.get(linked.email.trim().toLowerCase()) : undefined) ?? (linked.notionPageId ? { notionPageId: linked.notionPageId, notionUrl: null } : null) : null,
           activity: activityByChat.get(key) ?? { inbound: 0, lastInAt: null, lastOutAt: null },
           stored: activityByChat.get(key)?.stored ?? 0,
           last: lastByChat.get(key) ?? null,
@@ -135,6 +140,15 @@ export function messengerProjectionRepo(db: Db) {
           triage: triageByChat.get(key) ?? emptyTriage(),
         };
       });
+  };
+  return {
+    /** Every known chat of the project, linked or not (`client` null when not). */
+    async list(slug: string): Promise<MessengerProjectionRow[]> {
+      return projectRows(slug);
+    },
+    /** One known chat by its row id (a pane opening one chat reads one, not the whole list), or null when it is not this project's. */
+    async projectChat(slug: string, id: number): Promise<MessengerProjectionRow | null> {
+      return projectRows(slug, id)[0] ?? null;
     },
   };
 }

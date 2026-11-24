@@ -92,6 +92,8 @@ export function autopilotRoutes(ctx: MessengersContext) {
       if (!tickets.take(body.ticket, `autopilot:project:${slug}`)) return forbidden(c, "the switch needs a fresh ticket from the admin page");
       const row = body.kind === "chat" ? await ctx.repos.messengers.chatById(slug, body.chat) : null;
       if (body.kind === "chat" && !row) return notFound(c, "chat");
+      // P141 U6: an unlinked chat has no autopilot; it is linked to a client first.
+      if (row && !(await ctx.repos.messengers.isLinked(slug, row.channel, row.chatId))) return c.json({ error: "Not switched: this chat is not linked to a client, and the autopilot runs in linked chats only.", code: "wrong_state" as const }, 409);
       const change = changeOf(body, row ? autopilotChatKey(row.channel, row.chatId) : null);
       if (!change) return notFound(c, "chat");
       try {

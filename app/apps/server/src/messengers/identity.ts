@@ -2,7 +2,7 @@ import { NO_CONTACT, phoneDigits, type ContactLinksDto } from "@hub/contract/loc
 import type { MessengerChatDto, MessengerNotionIdentityDto } from "@hub/contract/messenger-panel";
 import type { ClientDirectory } from "../clients/directory";
 
-type ClientSource = { id: number; name: string; email: string };
+type ClientSource = { id: number; name: string; email: string | null };
 type NotionSource = { notionPageId: string | null; notionUrl: string | null } | null;
 /** A chat's own identity as the autolink memory saw it (Telegram username and phone), when the server runs one. */
 export type ChatIdentityOf = (channel: "telegram_user" | "whatsapp", chatId: string) => { username: string | null; phone: string | null } | null;

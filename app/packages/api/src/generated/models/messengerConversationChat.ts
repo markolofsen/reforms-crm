@@ -9,6 +9,7 @@ import type { MessengerConversationChatChannel } from './messengerConversationCh
 import type { MessengerConversationChatClient } from './messengerConversationChatClient';
 import type { MessengerConversationChatContact } from './messengerConversationChatContact';
 import type { MessengerConversationChatDraft } from './messengerConversationChatDraft';
+import type { MessengerConversationChatIdentity } from './messengerConversationChatIdentity';
 import type { MessengerConversationChatLast } from './messengerConversationChatLast';
 import type { MessengerConversationChatRules } from './messengerConversationChatRules';
 import type { MessengerConversationChatTriage } from './messengerConversationChatTriage';
@@ -42,4 +43,5 @@ export type MessengerConversationChat = {
   autolinked: string | null;
   triage: MessengerConversationChatTriage;
   contact: MessengerConversationChatContact;
+  identity: MessengerConversationChatIdentity;
 };

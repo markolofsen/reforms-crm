@@ -28,7 +28,7 @@ export async function previousRevision(dbPath: string, project: string, email: s
   try {
     handle = openDb(dbPath);
     const repos = createRepos(handle.db);
-    const clientId = await repos.clients.idByEmail(project, email.trim());
+    const clientId = await repos.clients.findByIdentity(project, "email", email.trim());
     if (clientId === undefined) return null;
     const client = await repos.clients.get(project, clientId);
     const hit = (await repos.drafts.ofClient(project, clientId)).find((d) => (d.status === "ready" || d.status === "hold") && bare(d.mailRef ?? (d.context?.includes('"newThread":true') ? newThreadKey(email) : "")) === bare(mailRef));

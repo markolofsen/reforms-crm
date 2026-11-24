@@ -9,6 +9,7 @@ import type { MessengerChatChannel } from './messengerChatChannel';
 import type { MessengerChatClient } from './messengerChatClient';
 import type { MessengerChatContact } from './messengerChatContact';
 import type { MessengerChatDraft } from './messengerChatDraft';
+import type { MessengerChatIdentity } from './messengerChatIdentity';
 import type { MessengerChatLast } from './messengerChatLast';
 import type { MessengerChatRules } from './messengerChatRules';
 import type { MessengerChatTriage } from './messengerChatTriage';
@@ -42,4 +43,5 @@ export interface MessengerChat {
   autolinked: string | null;
   triage: MessengerChatTriage;
   contact: MessengerChatContact;
+  identity: MessengerChatIdentity;
 }

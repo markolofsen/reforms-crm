@@ -38,7 +38,7 @@ export type ChatRef = { channel: MessengerChannel; chatId: string };
 
 const now = () => new Date().toISOString();
 
-/** Messengers: allow-list, stored messages, polling state, client identifiers, outbound drafts. Every query filters by `project`. */
+/** Messengers: the known chats, cached messages, polling state, client identifiers, outbound drafts. Every query filters by `project`. */
 export function messengersRepo(db: Db) {
   const requireClient = (project: string, clientId: number) => {
     const row = db
@@ -72,9 +72,9 @@ export function messengersRepo(db: Db) {
     ...messengerCacheRepo(db),
     // ---- the pre-analysis' verdicts (P71 M-P)
     ...messengerTriageRepo(db),
-    // ---- allow-list
+    // ---- the known chats
     /**
-     * P131 O5: the chat's own Telegram username (stored without `@`) and phone (digits only), on a linked chat only. A null or empty
+     * P131 O5: the chat's own Telegram username (stored without `@`) and phone (digits only), on a known chat only. A null or empty
      * value leaves what is stored: a later scan that does not see the phone never erases it. Returns whether a row changed.
      */
     async setChatIdentity(project: string, channel: MessengerChannel, chatId: string, id: { username?: string | null; phone?: string | null }): Promise<boolean> {
@@ -83,10 +83,6 @@ export function messengersRepo(db: Db) {
       const set = { ...(username ? { username } : {}), ...(digits && digits.length >= 7 ? { phone: digits } : {}) };
       if (!Object.keys(set).length) return false;
       return db.update(messengerChats).set(set).where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId))).run().changes > 0;
-    },
-    /** Takes the chat off the allow-list with its stored messages and drafts, in one transaction (`unlinkChat`). Returns whether it was listed. */
-    async disallowChat(project: string, channel: MessengerChannel, chatId: string): Promise<boolean> {
-      return (await chats.unlinkChat(project, channel, chatId)).removed;
     },
     // ---- "never link this chat" (P84): hashes only, made by the server's autolink from a key under state/secrets
     async refuseLink(project: string, channel: MessengerChannel, hash: string): Promise<void> {
@@ -100,17 +96,6 @@ export function messengersRepo(db: Db) {
     async linkRefusals(project: string): Promise<{ channel: MessengerChannel; hash: string }[]> {
       return db.select({ channel: messengerLinkRefusals.channel, hash: messengerLinkRefusals.hash }).from(messengerLinkRefusals).where(eq(messengerLinkRefusals.project, project)).all();
     },
-    async isAllowed(project: string, channel: MessengerChannel, chatId: string): Promise<boolean> {
-      return !!db
-        .select({ id: messengerChats.id })
-        .from(messengerChats)
-        .where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId)))
-        .get();
-    },
-    async allowedChats(project: string) {
-      return db.select().from(messengerChats).where(eq(messengerChats.project, project)).orderBy(asc(messengerChats.id)).all();
-    },
-
     // ---- messages
     /** Idempotent on (project, channel, chat, remote id): returns false for a repeat. */
     async insertMessage(m: NewMessengerMessage): Promise<boolean> {
@@ -259,6 +244,15 @@ export function messengersRepo(db: Db) {
         .values({ project: input.project, channel: input.channel, chatId: input.chatId, text: input.text, createdBy: input.createdBy, clientId: input.clientId ?? null, ownerRequest: input.ownerRequest ?? null, nudge: input.nudge ?? false })
         .returning()
         .get();
+    },
+    /** P141 U4: a chat just linked gives its waiting drafts (written while it was not linked) the client. Returns how many. */
+    async adoptChatDrafts(project: string, channel: MessengerChannel, chatId: string, clientId: number): Promise<number> {
+      requireClient(project, clientId);
+      return db
+        .update(messengerDrafts)
+        .set({ clientId, updatedAt: now() })
+        .where(and(eq(messengerDrafts.project, project), eq(messengerDrafts.channel, channel), eq(messengerDrafts.chatId, chatId), sql`${messengerDrafts.clientId} is null`, inArray(messengerDrafts.status, ["draft", "confirmed"])))
+        .run().changes;
     },
     async getDraft(project: string, id: number): Promise<MessengerDraftRow | null> {
       return db.select().from(messengerDrafts).where(and(eq(messengerDrafts.project, project), eq(messengerDrafts.id, id))).get() ?? null;

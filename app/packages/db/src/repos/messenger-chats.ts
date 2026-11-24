@@ -1,11 +1,20 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { chatRulesProblem, type ChatRules } from "@hub/config/chat-rules";
 import type { Db } from "../client";
 import { RepoError } from "../errors";
-import { messengerChats, messengerDrafts, messengerMessages, type MessengerChannel } from "../schema";
+import { clientIdentifiers, messengerChats, messengerDrafts, messengerMessages, type MessengerChannel } from "../schema";
 import { write } from "../tx";
 
 export type MessengerChatRow = typeof messengerChats.$inferSelect;
+
+/** The identifier kind that links a chat of this channel to a client (decision 0049: linking names the client). */
+export const linkKindOf = (channel: MessengerChannel): "whatsapp" | "telegram" => (channel === "whatsapp" ? "whatsapp" : "telegram");
+
+/**
+ * Decision 0049 (P141 U2): a `messenger_chats` row is a KNOWN chat; it is LINKED when a client identifier names it. The one SQL
+ * definition of "linked", for a query over `messenger_chats` (literal table names: rule 15).
+ */
+export const linkedSql = sql<boolean>`exists (select 1 from client_identifiers ci where ci.project = messenger_chats.project and ci.kind = (case when messenger_chats.channel = 'whatsapp' then 'whatsapp' else 'telegram' end) and ci.value = messenger_chats.chat_id)`;
 
 /** What a chat holds that its rules are judged against (P71 M2b): the newest inbound and outbound row, and the count of inbound. */
 export interface ChatActivity {
@@ -22,8 +31,8 @@ const now = () => new Date().toISOString();
 export const rulesOf = (r: MessengerChatRow): ChatRules => ({ replyMode: r.replyMode, instruction: r.instruction, language: r.language, prefilter: r.prefilter });
 
 /**
- * The linked chats themselves (P71 M2b): their rules, what they hold, and unlinking. Every query names the project, so a chat
- * of another project reads as no chat at all (decision 0036 point 3: nothing of it is named).
+ * The known chats themselves (P71 M2b, decision 0049): their rules, what they hold, and forgetting one. Every query names the
+ * project, so a chat of another project reads as no chat at all.
  */
 export function messengerChatsRepo(db: Db) {
   const key = (project: string, channel: MessengerChannel, chatId: string) => and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId));
@@ -31,19 +40,46 @@ export function messengerChatsRepo(db: Db) {
   const draftsOf = (project: string, channel: MessengerChannel, chatId: string) => and(eq(messengerDrafts.project, project), eq(messengerDrafts.channel, channel), eq(messengerDrafts.chatId, chatId));
 
   return {
-    /** The linked chat, or null when it is not on this project's allow-list. */
+    /** Decision 0049 (P141 U2): the project knows the chat (it wrote, or the owner linked it): its messages are cached, it opens. */
+    async isKnown(project: string, channel: MessengerChannel, chatId: string): Promise<boolean> {
+      return !!db
+        .select({ id: messengerChats.id })
+        .from(messengerChats)
+        .where(and(eq(messengerChats.project, project), eq(messengerChats.channel, channel), eq(messengerChats.chatId, chatId)))
+        .get();
+    },
+    /** Decision 0049: the chat is linked: a client identifier names it (the autolink's "already linked", the autopilot, background runs). */
+    async isLinked(project: string, channel: MessengerChannel, chatId: string): Promise<boolean> {
+      return !!db
+        .select({ id: clientIdentifiers.id })
+        .from(clientIdentifiers)
+        .where(and(eq(clientIdentifiers.project, project), eq(clientIdentifiers.kind, linkKindOf(channel)), eq(clientIdentifiers.value, chatId)))
+        .get();
+    },
+    /** Every known chat of the project with whether it is linked, oldest row first. */
+    async knownChats(project: string): Promise<(typeof messengerChats.$inferSelect & { linked: boolean })[]> {
+      return db
+        .select({ row: messengerChats, linked: linkedSql })
+        .from(messengerChats)
+        .where(eq(messengerChats.project, project))
+        .orderBy(asc(messengerChats.id))
+        .all()
+        .map((r) => ({ ...r.row, linked: Boolean(r.linked) }));
+    },
+
+    /** The known chat (linked or not), or null when this project does not know it. */
     async chat(project: string, channel: MessengerChannel, chatId: string): Promise<MessengerChatRow | null> {
       return db.select().from(messengerChats).where(key(project, channel, chatId)).get() ?? null;
     },
 
-    /** The linked chat by its row id (the `chat:<id>` ref, P71 M3), or null when it is not this project's. */
+    /** The known chat by its row id (the `chat:<id>` ref, P71 M3), or null when it is not this project's. */
     async chatById(project: string, id: number): Promise<MessengerChatRow | null> {
       return db.select().from(messengerChats).where(and(eq(messengerChats.project, project), eq(messengerChats.id, id))).get() ?? null;
     },
 
     /**
      * The owner's rules for one linked chat (Settings ▸ Messengers in M3; tests). `invalid` when a value is out of bounds (the
-     * migration's CHECKs say the same), `not_found` when the chat is not linked: a rule never creates a chat row.
+     * migration's CHECKs say the same), `not_found` when the chat is not known: a rule never creates a chat row.
      */
     async setChatRules(project: string, channel: MessengerChannel, chatId: string, patch: Partial<ChatRules>, at: string = now()): Promise<MessengerChatRow> {
       const problem = chatRulesProblem(patch);
@@ -63,7 +99,7 @@ export function messengerChatsRepo(db: Db) {
     /**
      * Decision 0048 point 5 (P139): pauses the chat's autopilot with a reason code (`PAUSING_REASONS`), or clears the pause
      * (`reason` null: the owner switched the chat on again). A pause only stops autopilot; nothing here can start it. Returns
-     * the row, or null when the chat is not linked in this project.
+     * the row, or null when the chat is not known in this project.
      */
     async setAutopilotPause(project: string, channel: MessengerChannel, chatId: string, reason: string | null, at: string = now()): Promise<MessengerChatRow | null> {
       const set = reason === null ? { autopilotPausedAt: null, autopilotPausedReason: null } : { autopilotPausedAt: at, autopilotPausedReason: reason };
@@ -112,10 +148,11 @@ export function messengerChatsRepo(db: Db) {
     },
 
     /**
-     * Unlinking (research 26 gap 1): the chat row, its stored messages and its drafts go in ONE transaction, so an unlinked chat
-     * leaves no row, as one never linked (0036 point 3). Returns whether the chat was linked.
+     * Forgetting a chat (Hide "not a client", Never link, the CLI's remove; research 26 gap 1): the chat row, its cached messages and
+     * its drafts go in ONE transaction, so the chat leaves no row. Unlink does not forget: it drops only the identifier (decision 0049
+     * point 10). Returns whether the chat was known.
      */
-    async unlinkChat(project: string, channel: MessengerChannel, chatId: string): Promise<{ removed: boolean; messages: number; drafts: number }> {
+    async forgetChat(project: string, channel: MessengerChannel, chatId: string): Promise<{ removed: boolean; messages: number; drafts: number }> {
       return write(db, (tx) => {
         const messages = tx.delete(messengerMessages).where(msgsOf(project, channel, chatId)).run().changes;
         const drafts = tx.delete(messengerDrafts).where(draftsOf(project, channel, chatId)).run().changes;

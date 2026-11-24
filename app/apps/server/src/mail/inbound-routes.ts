@@ -85,7 +85,7 @@ export function inboundRoutes({ repos, projects, reader, readText, leads }: Mail
       const n = id(c.req.param("id"));
       const row = n === null ? null : await repos.inboundMail.get(slug, n);
       if (!row) return notFound(c, "message");
-      const clientId = await repos.clients.idByEmail(slug, row.email);
+      const clientId = await repos.clients.findByIdentity(slug, "email", row.email);
       const all = clientId === undefined ? [] : (await repos.drafts.ofClient(slug, clientId)).sort((a, b) => b.id - a.id);
       const others = (await repos.inboundMail.openOf(slug, row.email)).filter((r) => r.id !== row.id).slice(0, 10).map((r) => ({ id: r.id, subject: r.subject, receivedAt: r.receivedAt }));
       const notionUrl = (await repos.inbox.list(slug, "all")).find((r) => r.email === row.email)?.notionUrl ?? null;
@@ -119,7 +119,7 @@ export function inboundRoutes({ repos, projects, reader, readText, leads }: Mail
       const emails = [...new Set([row.email, row.accountEmail].filter((e): e is string => !!e))];
       const drafts = [];
       for (const e of emails) {
-        const clientId = await repos.clients.idByEmail(slug, e);
+        const clientId = await repos.clients.findByIdentity(slug, "email", e);
         if (clientId !== undefined) drafts.push(...(await repos.drafts.ofClient(slug, clientId)));
       }
       const l = "lead" in read ? read.lead : null;

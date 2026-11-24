@@ -21,10 +21,10 @@ export async function leadNotes(repos: Repos, slug: string, row: { email: string
   const emails = [...new Set([row.email, row.accountEmail].filter((e): e is string => !!e))];
   let client: LeadNoteDto | null = null;
   for (const e of emails) {
-    const id = await repos.clients.idByEmail(slug, e);
+    const id = await repos.clients.findByIdentity(slug, "email", e);
     const c = id === undefined ? null : await repos.clients.get(slug, id);
     if (c) {
-      client = { kind: "client", by: "address", clientId: c.id, name: c.name, email: c.email };
+      client = { kind: "client", by: "address", clientId: c.id, name: c.name, email: c.email ?? e };
       break;
     }
   }
@@ -33,7 +33,7 @@ export async function leadNotes(repos: Repos, slug: string, row: { email: string
     const domains = [website, ...emails.map(domainOf)].filter((d): d is string => !!d && !FREE_MAIL.has(d) && d !== typo?.domain);
     for (const d of [...new Set(domains)]) {
       const c = (await repos.clients.atDomain(slug, d, 1))[0];
-      if (c) {
+      if (c?.email) {
         client = { kind: "client", by: "company", clientId: c.id, name: c.name, email: c.email };
         break;
       }

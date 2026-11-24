@@ -109,11 +109,12 @@ export type ConvertOutcome = {
 const titleOf = (ds: DataSourceInfo): string | null => Object.entries(ds.properties).find(([, c]) => c.type === "title")?.[0] ?? null;
 
 /** The properties of a new Clients page: only those the data source has, with their own types (verdict 5 case d). Pure. */
-export function newClientProperties(ds: DataSourceInfo, l: { name: string; email: string; phone?: string | null; brand?: string | null }): Record<string, unknown> | null {
+export function newClientProperties(ds: DataSourceInfo, l: { name: string; email?: string | null; phone?: string | null; brand?: string | null }): Record<string, unknown> | null {
   const title = titleOf(ds);
   if (!title) return null;
-  const props: Record<string, unknown> = { [title]: { title: [{ type: "text", text: { content: (l.name.trim() || l.email).slice(0, 200) } }] } };
-  if (ds.properties["Email"]?.type === "email") props["Email"] = { email: l.email };
+  // P141 C3: a chat-only client has no Email; its title is the caller's (a real name, else the channel placeholder), never empty.
+  const props: Record<string, unknown> = { [title]: { title: [{ type: "text", text: { content: (l.name.trim() || l.email || "").slice(0, 200) } }] } };
+  if (l.email && ds.properties["Email"]?.type === "email") props["Email"] = { email: l.email };
   if (l.phone && ds.properties["Phone"]?.type === "phone_number") props["Phone"] = { phone_number: l.phone.slice(0, 60) };
   const rel = ds.properties["Relationship"];
   if (rel && (rel.type === "select" || rel.type === "status") && optionNames(rel).includes("Lead")) props["Relationship"] = rel.type === "status" ? { status: { name: "Lead" } } : { select: { name: "Lead" } };

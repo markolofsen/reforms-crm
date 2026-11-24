@@ -5,7 +5,8 @@ import { normalizeIdentifier } from "./normalize";
  * project's client records (Notion, read only, kept in memory) and asks `matchDialog` about each private dialog a connected account
  * sees. Only an exact identifier counts: a phone in E.164, or a Telegram username. A contact's saved name never matches. One client
  * is `unique` (the Hub may link it when `messengers.autolink` is on); two or more are `ambiguous` (a suggestion, never linked by
- * itself); a matching record without an email cannot become a client row, so it is a suggestion too (`no_email`).
+ * itself). P141 verdict 20: a record without an email links too: the phone or username match is the identity, and the client row
+ * is keyed by the record's Notion card.
  */
 
 /** The two messengers a dialog can come from. */
@@ -47,7 +48,6 @@ export interface DialogIdentity {
 export type DialogMatch =
   | { kind: "unique"; entry: DirectoryEntry; by: DirectoryKey["kind"] }
   | { kind: "ambiguous"; entries: DirectoryEntry[]; by: DirectoryKey["kind"] }
-  | { kind: "no_email"; entry: DirectoryEntry; by: DirectoryKey["kind"] }
   | { kind: "none" };
 
 const keyOf = (k: DirectoryKey) => (k.kind === "phone" ? `${k.channel ?? "phone"}:${k.value}` : `username:${k.value}`);
@@ -101,7 +101,7 @@ export function matchDialog(dir: Directory, d: DialogIdentity, channel?: DialogC
     if (hits.length === 0) continue;
     if (hits.length > 1) return { kind: "ambiguous", entries: hits, by };
     const entry = hits[0]!;
-    return entry.email ? { kind: "unique", entry, by } : { kind: "no_email", entry, by };
+    return { kind: "unique", entry, by };
   }
   return { kind: "none" };
 }

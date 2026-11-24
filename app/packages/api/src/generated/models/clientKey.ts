@@ -12,7 +12,8 @@ export interface ClientKey {
      * @exclusiveMinimum 0
      */
   id: number;
-  email: string;
+  /** @nullable */
+  email: string | null;
   /** @minLength 1 */
   key: string;
 }

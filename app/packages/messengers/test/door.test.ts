@@ -18,7 +18,7 @@ const CLICK = { kind: "owner_click", actor: "admin" } as const;
 beforeEach(async () => {
   env = await setup();
   adapter = new FakeSendingAdapter();
-  await env.repos.messengers.allowChat("p", "telegram_bot", "100", "Anna");
+  await env.repos.messengers.knowChat("p", "telegram_bot", "100", { title: "Anna" });
   await env.repos.messengers.insertMessage({ project: "p", channel: "telegram_bot", account: "bot", chatId: "100", remoteMessageId: "1", direction: "in", kind: "text", text: "Is the 28th on?", sentAt: new Date(NOW.getTime() - 3_600_000).toISOString(), retainUntil: "2027-01-01T00:00:00.000Z" });
 });
 afterEach(() => env.close());

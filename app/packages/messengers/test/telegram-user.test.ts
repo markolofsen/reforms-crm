@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdapterError, mtcuteClients, parkedOf } from "../src/adapter";
 import { FakeLoginClient, FakeMtClient, FakeRpcError, fakePerson } from "../src/fake-user";
-import { allowChat, createLoginFlows, humanActor, linkUserChat, removeSession, writeSession } from "../src/human";
+import { createLoginFlows, humanActor, linkIdentifier, linkUserChat, removeSession, writeSession } from "../src/human";
 import { confirmDraft, sendConfirmed } from "../src/send-confirmed";
 import { mintConfirmed } from "../src/confirmed";
 import { pollOnly } from "../src/adapter";
@@ -25,11 +25,12 @@ const adapterOf = (o: { queueMax?: number } = {}) =>
   createTelegramUserAdapter({
     client,
     account: "42",
-    allowedChats: async () => (await env.repos.messengers.allowedChats("p")).filter((c) => c.channel === "telegram_user").map((c) => c.chatId),
+    knownChats: async () => (await env.repos.messengers.knownChats("p")).filter((c) => c.channel === "telegram_user").map((c) => ({ chatId: c.chatId, linked: c.linked })),
     ...o,
   });
 const deps = (adapter: ReturnType<typeof adapterOf>) => ({ project: "p", repos: env.repos, adapter, now: () => NOW, timeoutSec: 0 });
-const allow = (chatId: string) => allowChat(env.repos, human, { project: "p", channel: "telegram_user", chatId });
+// A chat the owner linked (decision 0049: the catch-up and the agent read linked chats only).
+const allow = (chatId: string) => linkIdentifier(env.repos, human, { project: "p", clientId: env.clientId, kind: "telegram", value: chatId, channel: "telegram_user" });
 const rowsOf = (chatId: string) => env.repos.messengers.messagesOf("p", [{ channel: "telegram_user", chatId }], { limit: 50 });
 const count = (table: string) => env.handle.db.$client.prepare(`select count(*) as n from ${table}`).get() as { n: number };
 
@@ -62,7 +63,7 @@ describe("telegram user account: receive", () => {
     expect(await rowsOf("2002")).toEqual([]);
     expect(count("messenger_messages").n).toBe(2);
     expect(count("messenger_chats").n).toBe(1);
-    expect(count("client_identifiers").n).toBe(0);
+    expect(count("client_identifiers").n).toBe(1);
     expect(count("clients").n).toBe(1);
     const acc = await env.repos.messengers.account("p", "telegram_user", "42");
     expect(JSON.stringify(acc)).not.toMatch(/2002|Stranger/);
@@ -87,7 +88,7 @@ describe("telegram user account: receive", () => {
     const a = adapterOf();
     await a.start?.();
     client.emit(anna, "queued while linked");
-    await env.repos.messengers.disallowChat("p", "telegram_user", "1001");
+    await env.repos.messengers.forgetChat("p", "telegram_user", "1001");
     const r = await pollOnce(deps(a));
     expect(r).toMatchObject({ fetched: 0, stored: 0, dropped: [] });
   });
@@ -166,7 +167,7 @@ describe("telegram user account: send (P71 M4)", () => {
     const base = { id: 1, project: "p", chatId: "1001", text: "x", confirmedBy: "owner", confirmedAt: "" };
     await expect(adapter.send({ ...base, channel: "telegram_user", state: "confirmed" } as never)).rejects.toThrow(/not_confirmed/);
     await expect(adapter.send(mintConfirmed({ ...base, channel: "telegram_bot" }))).rejects.toThrow(/adapter_mismatch/);
-    await expect(adapter.send(mintConfirmed({ ...base, channel: "telegram_user", chatId: "2002" }))).rejects.toThrow(/chat_not_allowed/);
+    await expect(adapter.send(mintConfirmed({ ...base, channel: "telegram_user", chatId: "2002" }))).rejects.toThrow(/chat_not_known/);
     client.sendError = new FakeRpcError(420, "FLOOD_WAIT_7200", 7200);
     await expect(adapter.send(mintConfirmed({ ...base, channel: "telegram_user" }))).rejects.toMatchObject({ code: "flood_wait" });
     expect(client.sent).toEqual([]);
@@ -186,7 +187,7 @@ describe("telegram user account: link and import", () => {
     const r = await linkUserChat({ repos: env.repos, adapter: a, now: () => NOW }, human, { project: "p", clientId: env.clientId, chatId: "1001", title: "Anna" });
     expect(r).toMatchObject({ imported: 2, importError: null });
     expect(await env.repos.messengers.clientByIdentifier("p", "telegram", "1001")).toBe(env.clientId);
-    expect(await env.repos.messengers.isAllowed("p", "telegram_user", "1001")).toBe(true);
+    expect(await env.repos.messengers.isKnown("p", "telegram_user", "1001")).toBe(true);
     expect((await rowsOf("1001")).map((m) => m.text)).toEqual(["recent", "older, mine"]);
   });
 

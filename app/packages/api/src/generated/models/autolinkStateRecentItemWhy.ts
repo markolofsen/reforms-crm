@@ -12,7 +12,6 @@ export type AutolinkStateRecentItemWhy = typeof AutolinkStateRecentItemWhy[keyof
 export const AutolinkStateRecentItemWhy = {
   none: 'none',
   ambiguous: 'ambiguous',
-  no_email: 'no_email',
   off: 'off',
   failed: 'failed',
 } as const;

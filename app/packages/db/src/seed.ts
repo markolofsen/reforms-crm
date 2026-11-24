@@ -212,7 +212,7 @@ export async function seed(repos: Repos, opts: { fixturesDir?: string; now?: Dat
   const rita = lisbon.get("rita@example.net");
   const sofia = lisbon.get("sofia@example.com");
   const tg = async (clientId: number, chatId: string, title: string, rows: { dir: "in" | "out"; hours: number; text: string }[]) => {
-    await repos.messengers.allowChat("lisbon-realty", "telegram_user", chatId, title);
+    await repos.messengers.knowChat("lisbon-realty", "telegram_user", chatId, { title });
     await repos.messengers.addIdentifier("lisbon-realty", clientId, "telegram", chatId);
     for (const [i, r] of rows.entries()) {
       await repos.messengers.insertMessage({ project: "lisbon-realty", channel: "telegram_user", account: "100200300", chatId, remoteMessageId: `${chatId}-${i}`, direction: r.dir, text: r.text, sentAt: daysAgo(now, r.hours / 24), retainUntil: daysAgo(now, -90) });

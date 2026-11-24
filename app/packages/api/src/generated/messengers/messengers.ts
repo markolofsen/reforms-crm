@@ -23,6 +23,8 @@ import type {
   AutopilotInstance,
   AutopilotProject,
   AutopilotTicketBody,
+  ChatEmail,
+  ChatEmailBody,
   ChatMoveUndoBody,
   ChatMoveUndone,
   ChatMoved,
@@ -1254,6 +1256,66 @@ export const undoChatClient = async (slug: string,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(chatMoveUndoBody)
+  }
+);}
+
+
+export type addChatClientEmailResponse200 = {
+  data: ChatEmail
+  status: 200
+}
+
+export type addChatClientEmailResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type addChatClientEmailResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type addChatClientEmailResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type addChatClientEmailResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type addChatClientEmailResponseSuccess = (addChatClientEmailResponse200) & {
+  headers: Headers;
+};
+export type addChatClientEmailResponseError = (addChatClientEmailResponse400 | addChatClientEmailResponse403 | addChatClientEmailResponse404 | addChatClientEmailResponse409) & {
+  headers: Headers;
+};
+
+export type addChatClientEmailResponse = (addChatClientEmailResponseSuccess | addChatClientEmailResponseError)
+
+export const getAddChatClientEmailUrl = (slug: string,
+    id: number,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/messengers/chats/${encodeURIComponent(String(id))}/email`
+}
+
+/**
+ * @summary Add an email to a chat's client (merges when another client has it)
+ */
+export const addChatClientEmail = async (slug: string,
+    id: number,
+    chatEmailBody: ChatEmailBody, options?: Parameters<typeof hubMutator>[1]): Promise<addChatClientEmailResponse> => {
+
+  return hubMutator<addChatClientEmailResponse>(getAddChatClientEmailUrl(slug,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(chatEmailBody)
   }
 );}
 

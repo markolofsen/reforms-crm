@@ -44,7 +44,7 @@ async function newBatch(o: { clientIds: number[]; project?: string; body?: (firs
     const c = (await repos.clients.get(project, id))!;
     const first = c.name.split(" ")[0]!;
     const body = o.body?.(first) ?? `Hi ${first},\n\nIt has been a while. Anything I can help with?`;
-    await repos.drafts.create({ project, clientId: c.id, runId, batchId, subject: o.subject ?? `Checking in, ${first}`, toAddr: c.email, body, tone: "standard", tones: JSON.stringify({ standard: body }), reason: `Silent for a while; ${first} asked about the commission last time.`, status: "ready" });
+    await repos.drafts.create({ project, clientId: c.id, runId, batchId, subject: o.subject ?? `Checking in, ${first}`, toAddr: c.email ?? "", body, tone: "standard", tones: JSON.stringify({ standard: body }), reason: `Silent for a while; ${first} asked about the commission last time.`, status: "ready" });
   }
   return { batchId, runId, created: o.clientIds.length };
 }
@@ -365,7 +365,7 @@ describe("P87: a campaign is a batch whatever the agent remembered, and its hist
     const first = await repos.drafts.record({ project: "p", email: "mark@x.example", name: "Mark Effect", subject: "Re: Hello", mailRef: "<m0@x>", skill: "triage-mail" });
     await repos.drafts.setStatus(first.draftId, "done");
     await rec("mark@x.example", "<m1@x>");
-    const id = await repos.clients.idByEmail("p", "mark@x.example");
+    const id = await repos.clients.findByIdentity("p", "email", "mark@x.example");
     expect((await repos.clients.get("p", id!))?.name).toBe("Mark Effect");
     await repos.clients.touch({ project: "p", email: "mark@x.example", name: "  " });
     expect((await repos.clients.get("p", id!))?.name).toBe("Mark Effect");

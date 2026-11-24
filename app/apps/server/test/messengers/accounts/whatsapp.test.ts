@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createRepos, liveSeq, openDb, type DbHandle, type Repos } from "@hub/db";
 import { FakeWaSocket, type WaAuthFiles } from "@hub/messengers";
-import { allowChat, humanActor, linkUserChat } from "@hub/messengers/human";
+import { knowChat, humanActor, linkUserChat } from "@hub/messengers/human";
 import { testApp } from "../../support/runtime";
 import { composeScheme } from "../../../src/overview/scheme";
 import { startWhatsApp, type WhatsAppHandle } from "../../../src/messengers/accounts/whatsapp";
@@ -128,7 +128,7 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
     expect(await repos.messengers.messagesOf("p", [{ channel: "whatsapp", chatId: HIDDEN }], { limit: 5 })).toEqual([]);
     expect(count("messenger_messages").n).toBe(3);
     // The stranger is cached, not linked: no chat row until P141 U2, no identifier.
-    expect((await repos.messengers.allowedChats("p")).map((c) => c.chatId)).toEqual([ANNA]);
+    expect((await repos.messengers.knownChats("p")).filter((c) => c.linked).map((c) => c.chatId)).toEqual([ANNA]);
     expect((await repos.messengers.chat("p", "whatsapp", ANNA))?.lastInboundAt).toBe("2026-11-20T10:05:00.000Z");
     expect(await repos.messengers.identifiersOf("p", clientId)).toEqual([expect.objectContaining({ kind: "whatsapp", value: ANNA })]);
     expect(JSON.stringify(wa?.status())).not.toMatch(/9999999|7777777|Stranger/);
@@ -142,10 +142,10 @@ describe("WhatsApp linked device in the server (P71 M5)", () => {
     await wa?.stop();
     const appRows = [{ channel: "whatsapp" as const, account: ACCOUNT, chatId: ANNA, remoteMessageId: "APP1", kind: "text", text: "from the Mac's app", sentAt: "2026-11-24T11:50:40.000Z", direction: "in" as const, source: "wa_app" as const }];
     let reads = 0;
-    const reader = { state: () => ({ state: "on" as const }), read: (chat: { chatId: string }) => ((reads += 1), chat.chatId === ANNA ? appRows : []) };
+    const reader = { state: () => ({ state: "on" as const }), recent: () => [], read: (chat: { chatId: string }) => ((reads += 1), chat.chatId === ANNA ? appRows : []) };
     wa = await startWhatsApp({ repos, env: {}, dir, sockets: (auth: WaAuthFiles) => ((socks.push(new FakeWaSocket(auth)), last())), appReader: () => reader });
     expect(wa.appHistory()).toMatchObject({ state: "on", cacheDays: 30 });
-    await allowChat(repos, humanActor("test"), { project: "p", channel: "whatsapp", chatId: ANNA });
+    await knowChat(repos, humanActor("test"), { project: "p", channel: "whatsapp", chatId: ANNA });
     expect(await wa.refill("p", { chatId: ANNA, jid: null })).toBe(1);
     // Within a minute the app is not read again: a conversation read per live change must not loop (2026-11-24, saas).
     const readsAfterFirst = reads;

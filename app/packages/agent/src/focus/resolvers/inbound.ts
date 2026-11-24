@@ -10,7 +10,7 @@ import type { Resolver } from "./types";
 export const inbound: Resolver = async ({ repos, slug }, id) => {
   const row = await repos.inboundMail.get(slug, Number(id));
   if (!row) return null;
-  const clientId = await repos.clients.idByEmail(slug, row.email);
+  const clientId = await repos.clients.findByIdentity(slug, "email", row.email);
   const answer = clientId === undefined ? null : answeringDraft(row, await repos.drafts.ofClient(slug, clientId));
   const status = row.open ? "waiting for a reply" : answer ? `answered by draft ${answer.id} (${answer.status})` : row.dismissedAt ? "no reply needed" : "closed";
   return { title: cut(`${row.name} <${row.email}> · ${row.subject || "(no subject)"} · received ${row.receivedAt}`), status, read: { server: "hub", tool: "message_show", args: { inbound: row.id } } };

@@ -37,15 +37,19 @@ export function toWaInbound(m: WaMessage, account: string, backfill = false): In
     sentAt: m.at.toISOString(),
     direction: m.fromMe ? "out" : "in",
     ...(m.jid ? { chatJid: m.jid } : {}),
+    // Who the chat is (P141 U3), for its known row: its number (a `lid:` chat hides it) and the name the person set. Never logged.
+    ...(m.chatId.startsWith("lid:") ? {} : { chatPhone: m.chatId }),
+    ...(m.pushName && !m.fromMe ? { profileName: m.pushName } : {}),
     ...(m.editOf ? { editOf: m.editOf } : {}),
     ...(backfill ? { backfill: true } : {}),
   };
 }
 
-/** A linked chat as the adapter reads it before each poll: its chat id and the real address stored on its row. */
+/** A known chat as the adapter reads it before each poll: its chat id, the real address stored on its row, and whether it is linked. */
 export interface WaKnownChat {
   chatId: string;
   jid: string | null;
+  linked: boolean;
 }
 
 export interface WhatsAppOptions {
@@ -53,8 +57,8 @@ export interface WhatsAppOptions {
   socket: () => WaSocket;
   /** The number's digits (the session folder's name): `start` refuses a session that belongs to another number. */
   account: string;
-  /** The linked chats of this channel, read before each poll so a link or unlink applies within one poll. */
-  allowedChats: () => Promise<WaKnownChat[]>;
+  /** The known chats of this channel, read before each poll so a link or a hide applies within one poll. */
+  knownChats: () => Promise<WaKnownChat[]>;
   /** P84: told the identity (number, name; never the text) of each private chat seen that is not linked, and whether the message was the client's. See `TelegramUserOptions`. */
   onUnlinked?: (d: DialogIdentity, inbound: boolean) => void;
   /**
@@ -82,7 +86,7 @@ export interface WhatsAppAdapter extends MessengerAdapter {
    * for what came before `before` (the chat's oldest cached message, P141 verdict 1), whose answer reaches ingest through `poll`.
    */
   history(chatId: string, o: { since: Date; limit?: number; before?: WaAnchor | null }): Promise<InboundMessage[]>;
-  refreshAllowed(): Promise<void>;
+  refreshKnown(): Promise<void>;
   /** Unlinks the device on WhatsApp's side (Disconnect); nothing when not connected. */
   logout(): Promise<void>;
   close(): Promise<void>;
@@ -104,11 +108,21 @@ const wait = (ms: number, wake: { fn: (() => void) | null }, signal?: AbortSigna
     signal?.addEventListener("abort", done, { once: true });
   });
 
+/** A callback whose failure must never stop the receiver. */
+const safely = (fn: () => void): void => {
+  try {
+    fn();
+  } catch {
+    // ignored
+  }
+};
+
 export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapter {
   const { account } = o;
   const self = `+${account}`;
   const max = o.queueMax ?? QUEUE_MAX;
-  let allowed = new Map<string, string | null>();
+  let known = new Map<string, string | null>();
+  let linked = new Set<string>();
   let queue: InboundMessage[] = [];
   let failure: AdapterError | null = null;
   let sock: WaSocket | null = null;
@@ -119,15 +133,14 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
   const directory = createWaDirectory();
   /** The history requests still open, by chat: a timer that leaves one ops line when the phone never answers. */
   const pending = new Map<string, ReturnType<typeof setTimeout>>();
-  const settle = (chatId: string) => {
-    clearTimeout(pending.get(chatId));
-    pending.delete(chatId);
-  };
+  const settle = (chatId: string) => (clearTimeout(pending.get(chatId)), pending.delete(chatId));
 
-  const refreshAllowed = async () => {
-    allowed = new Map((await o.allowedChats()).map((c) => [c.chatId, c.jid]));
+  const refreshKnown = async () => {
+    const rows = await o.knownChats();
+    known = new Map(rows.map((c) => [c.chatId, c.jid]));
+    linked = new Set(rows.filter((c) => c.linked).map((c) => c.chatId));
   };
-  const addressOf = (chatId: string): WaAddress => ({ chatId, jid: directory.get(chatId)?.jid ?? allowed.get(chatId) ?? null });
+  const addressOf = (chatId: string): WaAddress => ({ chatId, jid: directory.get(chatId)?.jid ?? known.get(chatId) ?? null });
 
   const onMessages = (ms: WaMessage[], source: "live" | "history") => {
     const oldest = o.cacheDays ? Date.now() - o.cacheDays * 86_400_000 : null;
@@ -138,17 +151,14 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       if (m.chatId === self) continue;
       if (source === "history") settle(m.chatId);
       directory.note(m.chatId, { newest: { id: m.editOf ?? m.id, fromMe: m.fromMe, at: m.at }, ...(m.jid ? { jid: m.jid } : {}), ...(m.pushName ? { pushName: m.pushName } : {}) });
-      const msg = toWaInbound(m, account, source === "history");
-      const linked = allowed.has(m.chatId);
-      try {
-        // P84: the chat's number and name (never its text) go to the autolink matcher. Its failure never stops the receiver.
-        if (msg && !linked) o.onUnlinked?.({ chatId: m.chatId, title: directory.titleOf(m.chatId), phone: m.chatId.startsWith("lid:") ? null : m.chatId, username: null }, !m.fromMe);
-      } catch {
-        // ignored
-      }
+      const mapped = toWaInbound(m, account, source === "history");
+      const title = directory.titleOf(m.chatId);
+      const msg = mapped && title && title !== m.chatId ? { ...mapped, chatTitle: title } : mapped;
+      // P84: the chat's number and name (never its text) go to the autolink matcher. Its failure never stops the receiver.
+      if (msg && !linked.has(m.chatId)) safely(() => o.onUnlinked?.({ chatId: m.chatId, title, phone: m.chatId.startsWith("lid:") ? null : m.chatId, username: null }, !m.fromMe));
       if (!msg) continue;
-      // Without the cache an unlinked chat stops here (0036 point 3); with it, ingest decides (decision 0049).
-      if (!linked && !o.cacheUnlinked) continue;
+      // Without the cache an unknown chat stops here; with it, ingest decides (decision 0049).
+      if (!known.has(m.chatId) && !o.cacheUnlinked) continue;
       if (source === "history" && oldest !== null && m.at.getTime() < oldest) continue;
       // Bounded: past the cap the oldest queued message goes (the Mac's app or the phone has it).
       if (queue.length >= max) queue.shift();
@@ -236,7 +246,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
 
     async start() {
       try {
-        await refreshAllowed();
+        await refreshKnown();
         if (!sock) await connect();
       } catch (err) {
         throw toWaAdapterError(err);
@@ -245,7 +255,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
 
     async poll(p: PollOptions): Promise<PollBatch> {
       try {
-        await refreshAllowed();
+        await refreshKnown();
         if (failure) {
           const f = failure;
           failure = null;
@@ -260,7 +270,7 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
         }
         // Drained against the allow-list read above: without the cache, a chat unlinked since its message was queued never reaches
         // ingest; with it, ingest decides by the stored rows.
-        const out = queue.splice(0, p.limit).filter((m) => o.cacheUnlinked || allowed.has(m.chatId));
+        const out = queue.splice(0, p.limit).filter((m) => o.cacheUnlinked || known.has(m.chatId));
         // WhatsApp ids are not ordered: the cursor is the newest message time (seconds). After a restart WhatsApp itself delivers
         // what arrived while the device was offline; the hub does not read history from it.
         const top = out.reduce((n, m) => Math.max(n, Math.floor(Date.parse(m.sentAt) / 1000)), Number(p.cursor ?? 0));
@@ -305,15 +315,15 @@ export function createWhatsAppAdapter(o: WhatsAppOptions): WhatsAppSendingAdapte
       }
     },
 
-    refreshAllowed,
+    refreshKnown,
 
     // Once, no retry (decision 0036 point 7): a failure is the door's to record; the owner presses Send again if he wants.
     async send(draft: ConfirmedDraft): Promise<SentReceipt> {
       if (!isConfirmed(draft)) throw new AdapterError("unknown", "not_confirmed: send accepts only a ConfirmedDraft");
       if (draft.channel !== "whatsapp") throw new AdapterError("unknown", `adapter_mismatch: the draft is ${draft.channel}`);
       try {
-        await refreshAllowed();
-        if (!allowed.has(draft.chatId)) throw new AdapterError("unknown", "chat_not_allowed: the chat is not linked");
+        await refreshKnown();
+        if (!known.has(draft.chatId)) throw new AdapterError("unknown", "chat_not_known: the chat is not known to the Hub");
         if (!sock) throw new AdapterError("network", "whatsapp: not connected right now");
         const m = await sock.sendText(addressOf(draft.chatId), draft.text);
         return { remoteMessageId: m.id, at: m.at.toISOString() };

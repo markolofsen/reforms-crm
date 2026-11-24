@@ -3,7 +3,7 @@ import { isSending, type MessengerAdapter, type SentReceipt } from "./adapter";
 import { actorOf, assertAuthorized, type SendAuthorization } from "./authorization";
 import { mintConfirmed, type ConfirmedDraft } from "./confirmed";
 import { MessengersError } from "./errors";
-import { RETENTION_DAYS } from "./types";
+import { CACHE_DAYS, RETENTION_DAYS } from "./types";
 
 // P126 D1, P112 S2: the approval and the one messenger send of a draft, reachable only through the door (`./door.ts`): this module
 // is not in the package's exports, so no other caller can skip the door's guards (lifecycle, first contact, Stop sending, cap,
@@ -26,8 +26,8 @@ export async function confirmDraft(repos: Repos, auth: SendAuthorization, input:
   const cur = await repos.messengers.getDraft(auth.project, auth.draftId);
   if (!cur) throw new MessengersError("not_confirmed", `not_confirmed: draft ${auth.draftId} not found`);
   assertAuthorized(auth, cur);
-  if (!(await repos.messengers.isAllowed(cur.project, cur.channel, cur.chatId))) {
-    throw new MessengersError("chat_not_allowed", `chat_not_allowed: ${cur.channel} chat ${cur.chatId} is no longer on the allow-list`);
+  if (!(await repos.messengers.isKnown(cur.project, cur.channel, cur.chatId))) {
+    throw new MessengersError("chat_not_known", `chat_not_known: ${cur.channel} chat ${cur.chatId} is no longer known (hidden or forgotten)`);
   }
   const row = await repos.messengers.confirmDraft(auth.project, auth.draftId, actorOf(auth.authority), input.at);
   // The text that was confirmed is the text the door judged (a write between the read above and the confirm would show here).
@@ -46,8 +46,8 @@ export async function sendConfirmed(deps: SendDeps, auth: SendAuthorization): Pr
   assertAuthorized(auth, row);
   if (!isSending(adapter)) throw new MessengersError("no_send_channel", `no_send_channel: ${row.channel} cannot send`);
   if (adapter.channel !== row.channel) throw new MessengersError("adapter_mismatch", `adapter_mismatch: draft is ${row.channel}, adapter is ${adapter.channel}`);
-  if (!(await repos.messengers.isAllowed(row.project, row.channel, row.chatId))) {
-    throw new MessengersError("chat_not_allowed", `chat_not_allowed: chat ${row.chatId} is no longer on the allow-list`);
+  if (!(await repos.messengers.isKnown(row.project, row.channel, row.chatId))) {
+    throw new MessengersError("chat_not_known", `chat_not_known: chat ${row.chatId} is no longer known (hidden or forgotten)`);
   }
   const receipt = await adapter.send(confirmedFrom(row));
   await repos.messengers.markDraftSent(row.project, row.id, receipt.remoteMessageId, receipt.at);
@@ -62,7 +62,8 @@ export async function sendConfirmed(deps: SendDeps, auth: SendAuthorization): Pr
     kind: "text",
     text: row.text,
     sentAt: receipt.at,
-    retainUntil: new Date(now.getTime() + RETENTION_DAYS * 86_400_000).toISOString(),
+    // The channel's cache TTL (decision 0049): the account's own, else 30 days where opening the chat reads through, else 90.
+    retainUntil: new Date(now.getTime() + (adapter.cacheDays ?? (row.channel === "telegram_bot" ? RETENTION_DAYS : CACHE_DAYS)) * 86_400_000).toISOString(),
   });
   return receipt;
 }

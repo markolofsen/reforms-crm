@@ -47,7 +47,8 @@ export function autopilotSwitches(o: AutopilotFiles & { repos: Repos }) {
     /** One chat's autopilot now, or null when the chat is not linked in this project. */
     async chat(slug: string, chat: Pick<AutopilotChat, "channel" | "chatId">): Promise<{ row: MessengerChatRow; state: ChatAutopilot } | null> {
       const row = await o.repos.messengers.chat(slug, chat.channel, chat.chatId);
-      if (!row) return null;
+      // P141 U6 (decision 0049 point 9): an unlinked chat has no autopilot at all, whatever the project's block lists.
+      if (!row || !(await o.repos.messengers.isLinked(slug, chat.channel, chat.chatId))) return null;
       let p: ProjectAutopilot;
       try {
         p = project(slug);
@@ -66,7 +67,7 @@ export function autopilotSwitches(o: AutopilotFiles & { repos: Repos }) {
       }
       if (p.policy.mode === "off" || p.policy.chats.length === 0) return [];
       const keys = new Set(p.policy.chats);
-      return (await o.repos.messengers.allowedChats(slug)).filter((r) => keys.has(autopilotChatKey(r.channel, r.chatId)));
+      return (await o.repos.messengers.knownChats(slug)).filter((r) => r.linked && keys.has(autopilotChatKey(r.channel, r.chatId)));
     },
     /** The project's block and every linked chat's state, for the owner's route. */
     async view(slug: string): Promise<AutopilotProjectDto> {
@@ -74,7 +75,7 @@ export function autopilotSwitches(o: AutopilotFiles & { repos: Repos }) {
       const on = instance().value.on;
       const stopped = await o.repos.sends.isStopped(slug);
       const chats: AutopilotChatDto[] = [];
-      for (const r of await o.repos.messengers.allowedChats(slug)) {
+      for (const r of (await o.repos.messengers.knownChats(slug)).filter((x) => x.linked)) {
         const s = stateOf(r, p, on, stopped);
         const reason = s.state === "paused" ? s.reason : null;
         chats.push({

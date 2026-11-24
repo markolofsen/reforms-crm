@@ -17,8 +17,8 @@ export async function statusLines(repos: Repos, project: string, now: Date = new
     out.push(`${a.channel} bot ${a.account}: ${health}, cursor ${a.cursor ?? "-"}`);
     if (a.lastError) out.push(`  last error ${a.lastErrorAt}: ${a.lastError}`);
   }
-  const chats = await repos.messengers.allowedChats(project);
-  out.push(`allow-list: ${chats.length} chat(s)${chats.length ? " - " + chats.map((c) => `${c.channel}:${c.chatId}${c.title ? ` (${c.title})` : ""}`).join(", ") : ""}`);
+  const chats = await repos.messengers.knownChats(project);
+  out.push(`known chats: ${chats.length} (${chats.filter((c) => c.linked).length} linked)${chats.length ? " - " + chats.map((c) => `${c.channel}:${c.chatId}${c.title ? ` (${c.title})` : ""}${c.linked ? "" : " not linked"}`).join(", ") : ""}`);
   const counts = await repos.messengers.messageCounts(project);
   out.push(counts.length ? `messages: ${counts.map((c) => `${c.channel} ${c.n} (newest ${c.newest})`).join(", ")}` : "messages: none stored");
   const open = await repos.messengers.listDrafts(project, ["draft", "confirmed"]);
@@ -30,7 +30,7 @@ export async function statusLines(repos: Repos, project: string, now: Date = new
 export function pollLine(e: PollEvent): string {
   switch (e.type) {
     case "poll":
-      return `poll: fetched ${e.result.fetched}, stored ${e.result.stored}, duplicate ${e.result.duplicates}${e.result.dropped.map((d) => `; dropped ${d.count} from unlisted ${d.channel} chat ${d.chatId}${d.title ? ` (${d.title})` : ""}`).join("")}`;
+      return `poll: fetched ${e.result.fetched}, stored ${e.result.stored}, duplicate ${e.result.duplicates}${e.result.dropped.map((d) => `; dropped ${d.count} from unknown ${d.channel} chat ${d.chatId}${d.title ? ` (${d.title})` : ""}`).join("")}`;
     case "error":
       return `poll error (${e.failures}): ${e.error.message}; retry in ${Math.round(e.retryInMs / 1000)} s`;
     case "purged":

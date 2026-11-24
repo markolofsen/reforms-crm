@@ -14,8 +14,10 @@ beforeEach(async () => {
   handle = openDb(":memory:");
   repos = createRepos(handle.db);
   ann = await repos.clients.create({ project: "a", email: "ann@a.test", name: "Ann" });
-  await repos.messengers.allowChat("a", "telegram_user", "42", "Ann");
-  await repos.messengers.allowChat("a", "telegram_user", "43", "Other");
+  await repos.messengers.knowChat("a", "telegram_user", "42", { title: "Ann" });
+  await repos.messengers.addIdentifier("a", ann, "telegram", "42");
+  // Decision 0049: 43 is known (it wrote) and linked to nobody.
+  await repos.messengers.knowChat("a", "telegram_user", "43", { title: "Other" });
 });
 afterEach(() => handle.close());
 
@@ -63,33 +65,33 @@ describe("chat activity and the open draft", () => {
   });
 });
 
-describe("unlink (research 26 gap 1)", () => {
+describe("forgetting a chat (research 26 gap 1, decision 0049: Hide and Never link)", () => {
   it("deletes the chat's messages and drafts with its row, in one transaction, and leaves other chats alone (M2b done-when)", async () => {
     await repos.messengers.insertMessage(msg({ remoteMessageId: "1" }));
     await repos.messengers.insertMessage(msg({ remoteMessageId: "2", direction: "out" }));
     await repos.messengers.insertMessage(msg({ chatId: "43", remoteMessageId: "1" }));
     await repos.messengers.createDraft({ project: "a", channel: "telegram_user", chatId: "42", text: "x", createdBy: "agent", clientId: ann });
     await repos.messengers.createDraft({ project: "a", channel: "telegram_user", chatId: "43", text: "y", createdBy: "agent" });
-    expect(await repos.messengers.unlinkChat("a", "telegram_user", "42")).toEqual({ removed: true, messages: 2, drafts: 1 });
+    expect(await repos.messengers.forgetChat("a", "telegram_user", "42")).toEqual({ removed: true, messages: 2, drafts: 1 });
     expect(await repos.messengers.messagesOf("a", [{ channel: "telegram_user", chatId: "42" }], { limit: 10 })).toEqual([]);
     expect((await repos.messengers.listDrafts("a")).map((d) => d.chatId)).toEqual(["43"]);
-    expect(await repos.messengers.isAllowed("a", "telegram_user", "42")).toBe(false);
+    expect(await repos.messengers.isKnown("a", "telegram_user", "42")).toBe(false);
     expect(count("messenger_messages")).toBe(1);
   });
 
-  it("disallowChat, the path of the CLI and the human module, takes the rows too", async () => {
+  it("forgetChat, the path of the CLI and the human module, takes the rows too", async () => {
     await repos.messengers.insertMessage(msg());
-    expect(await repos.messengers.disallowChat("a", "telegram_user", "42")).toBe(true);
+    expect((await repos.messengers.forgetChat("a", "telegram_user", "42")).removed).toBe(true);
     expect(count("messenger_messages")).toBe(0);
-    expect(await repos.messengers.disallowChat("a", "telegram_user", "42")).toBe(false);
+    expect((await repos.messengers.forgetChat("a", "telegram_user", "42")).removed).toBe(false);
   });
 
-  it("a failing delete rolls the whole unlink back", async () => {
+  it("a failing delete rolls the whole forget back", async () => {
     await repos.messengers.insertMessage(msg());
     handle.db.$client.exec("CREATE TRIGGER no_chat_delete BEFORE DELETE ON messenger_chats BEGIN SELECT RAISE(ABORT, 'refused'); END;");
-    await expect(repos.messengers.unlinkChat("a", "telegram_user", "42")).rejects.toThrow(/refused/);
+    await expect(repos.messengers.forgetChat("a", "telegram_user", "42")).rejects.toThrow(/refused/);
     expect(count("messenger_messages")).toBe(1);
-    expect(await repos.messengers.isAllowed("a", "telegram_user", "42")).toBe(true);
+    expect(await repos.messengers.isKnown("a", "telegram_user", "42")).toBe(true);
   });
 });
 
@@ -107,6 +109,10 @@ describe("pre-analysis verdicts (P71 M-P, migration 0029)", () => {
     expect(await repos.messengers.pendingTriage("a", { since, limit: 10 })).toEqual([]);
     await repos.messengers.setChatRules("a", "telegram_user", "42", { prefilter: true });
     expect((await repos.messengers.pendingTriage("a", { since, limit: 10 })).map((m) => m.text)).toEqual(["thanks"]);
+    // P141 U5: a known chat no client is linked to is never pre-analysed, whatever its switch says.
+    await repos.messengers.setChatRules("a", "telegram_user", "43", { prefilter: true });
+    expect((await repos.messengers.pendingTriage("a", { since, limit: 10 })).map((m) => m.text)).toEqual(["thanks"]);
+    await repos.messengers.setChatRules("a", "telegram_user", "43", { prefilter: false });
 
     expect(await repos.messengers.recordTriage("a", [{ messageId: idOf("1"), verdict: "closing", model: "m", promptVersion: 1 }, { messageId: idOf("6"), verdict: "closing", model: "m", promptVersion: 1 }])).toBe(1);
     expect(await repos.messengers.pendingTriage("a", { since, limit: 10 })).toEqual([]);
@@ -122,7 +128,7 @@ describe("pre-analysis verdicts (P71 M-P, migration 0029)", () => {
     await repos.messengers.recordTriage("a", [{ messageId: idOf("1"), verdict: "fyi", model: "m", promptVersion: 1 }, { messageId: idOf("2"), verdict: "unjudged", model: null, promptVersion: 1 }]);
     expect(await repos.messengers.purgeExpired("2026-11-16T00:00:00.000Z")).toBe(1);
     expect(count("messenger_triage")).toBe(1);
-    await repos.messengers.unlinkChat("a", "telegram_user", "42");
+    await repos.messengers.forgetChat("a", "telegram_user", "42");
     expect(count("messenger_triage")).toBe(0);
   });
 });
@@ -130,7 +136,6 @@ describe("pre-analysis verdicts (P71 M-P, migration 0029)", () => {
 describe("P102 moving an identifier", () => {
   it("moveIdentifier gives the chat to another client of the project and returns the old one; messageCount keeps counting", async () => {
     const bob = await repos.clients.create({ project: "a", email: "bob@a.test", name: "Bob" });
-    await repos.messengers.addIdentifier("a", ann, "telegram", "42");
     await repos.messengers.insertMessage(msg());
     expect(await repos.messengers.moveIdentifier("a", "telegram", "42", bob)).toBe(ann);
     expect(await repos.messengers.clientByIdentifier("a", "telegram", "42")).toBe(bob);

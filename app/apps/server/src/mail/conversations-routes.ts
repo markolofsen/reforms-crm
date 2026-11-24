@@ -66,7 +66,7 @@ export function conversationRoutes({ repos, projects, mail, directory, reader, s
       const slug = c.req.param("slug");
       const ref = parseClientKey(c.req.param("key"));
       if (ref === null || (await repos.projects.get(slug)) === null) return notFound(c, "client");
-      const n = "id" in ref ? ref.id : ((await repos.clients.idByEmail(slug, ref.email)) ?? (await repos.messengers.clientByIdentifier(slug, "email", ref.email.toLowerCase())) ?? undefined);
+      const n = "id" in ref ? ref.id : await repos.clients.findByIdentity(slug, "email", ref.email);
       const row = n === undefined ? null : await repos.clients.get(slug, n);
       if (!row) return notFound(c, "client");
       const dto: ClientKeyDto = { id: row.id, email: row.email, key: clientKey(row) };
@@ -116,7 +116,9 @@ export function conversationRoutes({ repos, projects, mail, directory, reader, s
       const projectConfig = projects.find(slug);
       if (!projectConfig) return notFound(c, "project");
       const cfg = projectConfig.mail;
-      const read = mail ? await mail.history({ accounts: cfg.accounts, inboundBoxes: [...cfg.mailboxes, ...LABEL_MAILBOXES], sentMailbox: cfg.sentMailbox, address: f.client.email, subjects: f.drafts.map((d) => d.subject) }).catch((e: unknown) => {
+      // P141 C2: a client known only by a chat has no address for Mail to search: its conversation is the Hub's own record.
+      const address = f.client.email;
+      const read = !address ? { note: "This client has no email yet: Mail has nothing to show." } : mail ? await mail.history({ accounts: cfg.accounts, inboundBoxes: [...cfg.mailboxes, ...LABEL_MAILBOXES], sentMailbox: cfg.sentMailbox, address, subjects: f.drafts.map((d) => d.subject) }).catch((e: unknown) => {
         ops("mail").warn("a conversation's history was not read from Mail", { project: slug, ...errFields(e) });
         return { note: e instanceof Error && e.name === "MailNotAnswering" ? e.message : "Mail could not be read." };
       }) : { note: "Mail is not read here." };
@@ -148,7 +150,7 @@ export function conversationRoutes({ repos, projects, mail, directory, reader, s
       let stored = 0;
       if (refillWhatsApp) {
         const numbers = new Set((await repos.messengers.identifiersOf(slug, f.client.id)).filter((x) => x.kind === "whatsapp").map((x) => x.value));
-        for (const row of (await repos.messengers.allowedChats(slug)).filter((r) => r.channel === "whatsapp" && numbers.has(r.chatId))) {
+        for (const row of (await repos.messengers.knownChats(slug)).filter((r) => r.channel === "whatsapp" && numbers.has(r.chatId))) {
           chats++;
           stored += await refillWhatsApp(slug, { chatId: row.chatId, jid: row.jid }, { force: true }).catch(() => 0);
         }

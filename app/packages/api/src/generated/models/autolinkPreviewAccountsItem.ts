@@ -30,10 +30,5 @@ export type AutolinkPreviewAccountsItem = {
      * @maximum 9007199254740991
      */
   ambiguous: number;
-  /**
-     * @minimum -9007199254740991
-     * @maximum 9007199254740991
-     */
-  noEmail: number;
   byRelationship: AutolinkPreviewAccountsItemByRelationship;
 };

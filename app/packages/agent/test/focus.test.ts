@@ -55,11 +55,11 @@ beforeEach(async () => {
   ids.run = await w.runs.start({ project: "acme", startedAt: "2026-11-18T09:00:00Z", trigger: "owner", skill: "triage-mail" });
   ids.otherRun = await w.runs.start({ project: "beta", startedAt: "2026-11-18T09:00:00Z", trigger: "owner", skill: "triage-mail" });
   // P71 M3: a linked chat and its draft in each project (the `chat:` and `mdraft:` refs).
-  await w.messengers.allowChat("acme", "telegram_user", "4242", "Mark");
+  await w.messengers.knowChat("acme", "telegram_user", "4242", { title: "Mark" });
   await w.messengers.addIdentifier("acme", ids.markClient, "telegram", "4242");
   ids.chat = (await w.messengers.chat("acme", "telegram_user", "4242"))?.id ?? 0;
   ids.mdraft = (await w.messengers.createDraft({ project: "acme", channel: "telegram_user", chatId: "4242", text: "See you Tuesday", createdBy: "agent", clientId: ids.markClient })).id;
-  await w.messengers.allowChat("beta", "telegram_user", "777", "Zed");
+  await w.messengers.knowChat("beta", "telegram_user", "777", { title: "Zed" });
   ids.otherChat = (await w.messengers.chat("beta", "telegram_user", "777"))?.id ?? 0;
   ids.otherMdraft = (await w.messengers.createDraft({ project: "beta", channel: "telegram_user", chatId: "777", text: "Beta secret", createdBy: "agent" })).id;
   ro = openDbReadOnly(path.join(dir, "app.db"));

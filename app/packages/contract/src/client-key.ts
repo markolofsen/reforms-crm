@@ -31,7 +31,7 @@ export function parseClientKey(raw: string): ClientRef | null {
 }
 
 /** `GET /api/projects/:slug/clients/key/:key`: the client a key names, with his canonical key (the address replaces to it). */
-export const clientKeyDto = z.strictObject({ id: z.number().int().positive(), email: z.string(), key: z.string().min(1) });
+export const clientKeyDto = z.strictObject({ id: z.number().int().positive(), email: z.string().nullable(), key: z.string().min(1) });
 export type ClientKeyDto = z.infer<typeof clientKeyDto>;
 
 /** The canonical text of a key the parser accepted (`Ana@Example.com` → `ana@example.com`). */

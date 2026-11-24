@@ -29,12 +29,13 @@ beforeEach(async () => {
   await repos.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: "active", settingsJson: "{}", hash: "p" }, { slug: "q", name: "Q", status: "active", settingsJson: "{}", hash: "q" }], addresses: [] });
   anna = await repos.clients.create({ project: "p", email: "anna@example.test", name: "Anna Field" });
   await repos.clients.create({ project: "q", email: "anna@other.test", name: "Anna Other" });
-  await repos.messengers.allowChat("p", "telegram_user", "1001", "Anna");
+  await repos.messengers.knowChat("p", "telegram_user", "1001", { title: "Anna" });
   await repos.messengers.addIdentifier("p", anna, "telegram", "1001");
   await msg("1001", "in", "2026-11-20T09:00:00.000Z", "Is the flat still free?");
   draftId = (await repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId: "1001", text: "Yes, it is.", createdBy: "agent", clientId: anna })).id;
   // A second chat where we replied last: nothing owed.
-  await repos.messengers.allowChat("p", "telegram_user", "2002", "Bob");
+  await repos.messengers.knowChat("p", "telegram_user", "2002", { title: "Bob" });
+  await repos.messengers.addIdentifier("p", await repos.clients.create({ project: "p", email: "bob@example.test", name: "Bob" }), "telegram", "2002");
   await msg("2002", "out", "2026-11-19T09:00:00.000Z", "Thanks!");
   chatRowId = (await repos.messengers.chat("p", "telegram_user", "1001"))?.id ?? 0;
   app = testApp(repos, { adminPort: ADMIN });
@@ -44,24 +45,26 @@ afterEach(() => handle.close());
 describe("the Messengers panel", () => {
   it("lists the chat that needs you with its client, its newest message and the agent's draft; Waiting has the other, All both, counts over both (P123 U3b)", async () => {
     const w = await chats();
-    expect(w.counts).toEqual({ needs_you: 1, waiting: 1, all: 2 });
+    expect(w.counts).toEqual({ needs_you: 1, waiting: 1, all: 2, unlinked: 0 });
     expect(w.chats).toHaveLength(1);
     expect(w.chats[0]).toMatchObject({ id: chatRowId, channel: "telegram_user", client: { id: anna, name: "Anna Field" }, owed: true, inbound: 1, last: { direction: "in", text: "Is the flat still free?" }, draft: { id: draftId, text: "Yes, it is." }, rules: { replyMode: "draft", prefilter: false } });
     expect((await chats("waiting")).chats.map((c) => c.title)).toEqual(["Bob"]);
     const all = await chats("all");
     expect(all.chats.map((c) => c.title)).toEqual(["Anna", "Bob"]);
     expect((await chats("all", "all", "", "linked")).chats.map((c) => c.title)).toEqual(["Anna", "Bob"]);
-    expect(all.chats[1]).toMatchObject({ owed: false, draft: null, client: null });
+    expect(all.chats[1]).toMatchObject({ owed: false, draft: null, client: { name: "Bob", email: "bob@example.test" } });
     // P84c: Hidden lists no linked chat (a hidden chat is never linked), and the channel filters the list and its counts.
     expect((await chats("all", "all", "", "hidden")).chats).toEqual([]);
     expect((await chats("all", "all", "", "unlinked")).chats).toEqual([]);
     // An unknown view or link state lists as Needs you over every link state, never a 400.
     expect((await chats("todo", "all", "", "nope")).chats.map((c) => c.title)).toEqual(["Anna"]);
-    await repos.messengers.allowChat("p", "whatsapp", "+6281300001111", "Wati");
+    await repos.messengers.knowChat("p", "whatsapp", "+6281300001111", { title: "Wati" });
     expect((await chats("all", "whatsapp")).chats.map((c) => c.title)).toEqual(["Wati"]);
-    expect((await chats("all", "whatsapp")).counts).toEqual({ needs_you: 0, waiting: 0, all: 1 });
-    expect((await chats("all", "telegram")).counts).toEqual({ needs_you: 1, waiting: 1, all: 2 });
-    expect((await chats("all", "nope")).counts).toEqual({ needs_you: 1, waiting: 1, all: 3 });
+    // Decision 0049: a known chat no client is linked to is listed, and counted apart from the linked ones.
+    expect((await chats("all", "whatsapp")).counts).toEqual({ needs_you: 0, waiting: 0, all: 0, unlinked: 1 });
+    expect((await chats("all", "all", "", "unlinked")).chats.map((c) => [c.title, c.client])).toEqual([["Wati", null]]);
+    expect((await chats("all", "telegram")).counts).toEqual({ needs_you: 1, waiting: 1, all: 2, unlinked: 0 });
+    expect((await chats("all", "nope")).counts).toEqual({ needs_you: 1, waiting: 1, all: 2, unlinked: 1 });
     expect((await chats("all", "all", "Anna")).chats.map((c) => c.title)).toEqual(["Anna"]);
     expect((await chats("all", "all", "flat still")).chats.map((c) => c.title)).toEqual(["Anna"]);
     expect((await chats("all", "all", "missing")).chats).toEqual([]);

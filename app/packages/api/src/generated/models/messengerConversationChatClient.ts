@@ -14,7 +14,8 @@ export type MessengerConversationChatClient = {
      */
   id: number;
   name: string;
-  email: string;
+  /** @nullable */
+  email: string | null;
   /** @nullable */
   notionPageId: string | null;
   /** @nullable */

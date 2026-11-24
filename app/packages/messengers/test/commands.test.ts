@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { pollCommand, pollLine, statusLines } from "../src/commands";
 import { FakeAdapter } from "../src/fake";
-import { allowChat, humanActor } from "../src/human";
+import { knowChat, humanActor } from "../src/human";
 import { pollOnce } from "../src/poller";
 import { setup, type Env } from "./helpers";
 
@@ -33,14 +33,14 @@ describe("status", () => {
 
 describe("poll --once", () => {
   it("starts the adapter, polls one batch and prints the dropped chat ids", async () => {
-    await allowChat(env.repos, humanActor("owner"), { project: "p", channel: "telegram_bot", chatId: "100" });
+    await knowChat(env.repos, humanActor("owner"), { project: "p", channel: "telegram_bot", chatId: "100" });
     const adapter = new FakeAdapter();
     adapter.push({ chatId: "100", remoteMessageId: "1", text: "ok" });
     adapter.push({ chatId: "999", chatTitle: "Stranger", remoteMessageId: "2", text: "no" });
     const log: string[] = [];
     await pollCommand({ repos: env.repos, project: "p", adapter, once: true, log: (l) => log.push(l) });
     expect(adapter.started).toBe(1);
-    expect(log).toEqual(["poll: fetched 2, stored 1, duplicate 0; dropped 1 from unlisted telegram_bot chat 999 (Stranger)"]);
+    expect(log).toEqual(["poll: fetched 2, stored 1, duplicate 0; dropped 1 from unknown telegram_bot chat 999 (Stranger)"]);
     expect(await pollOnce({ project: "p", repos: env.repos, adapter })).toMatchObject({ fetched: 0 });
   });
 

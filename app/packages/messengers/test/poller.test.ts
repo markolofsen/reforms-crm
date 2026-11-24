@@ -3,7 +3,7 @@ import { AdapterError } from "../src/adapter";
 import { FakeAdapter } from "../src/fake";
 import { ingest } from "../src/ingest";
 import { backoffMs, pollOnce, redact, runPoller, type PollEvent } from "../src/poller";
-import { linkIdentifier, allowChat, humanActor } from "../src/human";
+import { linkIdentifier, knowChat, humanActor } from "../src/human";
 import { setup, type Env } from "./helpers";
 
 let env: Env;
@@ -20,9 +20,9 @@ afterEach(() => env.close());
 const deps = () => ({ project: "p", repos: env.repos, adapter, now: () => NOW });
 const stored = () => env.repos.messengers.messagesOf("p", [{ channel: "telegram_bot", chatId: "100" }], { limit: 50 });
 
-describe("allow-list inbound", () => {
-  it("stores only listed chats and reports the others without storing them", async () => {
-    await allowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
+describe("known-chat inbound (decision 0049)", () => {
+  it("stores only known chats and reports the others without storing them", async () => {
+    await linkIdentifier(env.repos, human, { project: "p", clientId: env.clientId, kind: "telegram", value: "100" });
     adapter.push({ chatId: "100", remoteMessageId: "1", text: "from a listed chat" });
     adapter.push({ chatId: "555", chatTitle: "Stranger", remoteMessageId: "2", text: "from nobody" });
     adapter.push({ chatId: "555", remoteMessageId: "3", text: "again" });
@@ -37,7 +37,7 @@ describe("allow-list inbound", () => {
   });
 
   it("never creates a client link on its own", async () => {
-    await allowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
+    await knowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
     adapter.push({ chatId: "100", chatTitle: "Anna", remoteMessageId: "1", text: "hi, I am anna@example.test" });
     await pollOnce(deps());
     expect(await env.repos.messengers.identifiersOf("p", env.clientId)).toEqual([]);
@@ -45,7 +45,7 @@ describe("allow-list inbound", () => {
   });
 
   it("marks every row with a 90-day retention and keeps the text", async () => {
-    await allowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
+    await knowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
     adapter.push({ chatId: "100", remoteMessageId: "1", text: "full text kept locally" });
     await pollOnce(deps());
     const [m] = await stored();
@@ -54,7 +54,7 @@ describe("allow-list inbound", () => {
   });
 
   it("is idempotent on the remote id", async () => {
-    await allowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
+    await knowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
     const m = { channel: "telegram_bot" as const, account: "fake-bot", chatId: "100", remoteMessageId: "1", kind: "text", text: "x", sentAt: NOW.toISOString() };
     expect(await ingest({ project: "p", repos: env.repos, now: () => NOW }, [m, m])).toMatchObject({ stored: 1, duplicates: 1 });
   });
@@ -62,7 +62,7 @@ describe("allow-list inbound", () => {
 
 describe("offset persistence", () => {
   it("resumes from the stored cursor and does not re-deliver", async () => {
-    await allowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
+    await knowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
     adapter.push({ chatId: "100", remoteMessageId: "1", text: "one" });
     adapter.push({ chatId: "100", remoteMessageId: "2", text: "two" });
     await pollOnce(deps());
@@ -74,7 +74,7 @@ describe("offset persistence", () => {
   });
 
   it("keeps the position when a poll fails, and survives a restart (new adapter, same database)", async () => {
-    await allowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
+    await knowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
     adapter.push({ chatId: "100", remoteMessageId: "1", text: "one" });
     await pollOnce(deps());
     adapter.failures.push(new AdapterError("network", "down"));
@@ -87,7 +87,7 @@ describe("offset persistence", () => {
   });
 
   it("does not move the position when storing fails (a crash re-delivers, dedupe absorbs it)", async () => {
-    await allowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
+    await knowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
     adapter.push({ chatId: "100", remoteMessageId: "1", text: "one" });
     const broken = { ...env.repos, messengers: { ...env.repos.messengers, insertMessage: async () => { throw new Error("disk full"); } } };
     await expect(pollOnce({ ...deps(), repos: broken as typeof env.repos })).rejects.toThrow("disk full");
@@ -120,7 +120,7 @@ describe("runPoller", () => {
   };
 
   it("starts the adapter once, then polls", async () => {
-    await allowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
+    await knowChat(env.repos, human, { project: "p", channel: "telegram_bot", chatId: "100" });
     adapter.push({ chatId: "100", remoteMessageId: "1", text: "one" });
     const { events } = await run({ until: (ev) => ev.filter((e) => e.type === "poll").length >= 3 });
     expect(adapter.started).toBe(1);

@@ -19,10 +19,10 @@ describe("autolink matcher", () => {
     entry("carl", { email: null, identifiers: [{ kind: "phone", value: "+6281300003333" }] }),
   ]);
 
-  it("one record is unique, two are ambiguous, one without an email is a suggestion, nothing is none", () => {
+  it("one record is unique (P141 C1: with or without an email), two are ambiguous, nothing is none", () => {
     expect(matchDialog(dir, { chatId: "1", title: "x", phone: "+62 813-0000-1111", username: null })).toMatchObject({ kind: "unique", entry: { key: "anna" }, by: "phone" });
     expect(matchDialog(dir, { chatId: "2", title: "x", phone: "+6281300002222", username: null })).toMatchObject({ kind: "ambiguous", by: "phone" });
-    expect(matchDialog(dir, { chatId: "3", title: "x", phone: "+6281300003333", username: null })).toMatchObject({ kind: "no_email" });
+    expect(matchDialog(dir, { chatId: "3", title: "x", phone: "+6281300003333", username: null })).toMatchObject({ kind: "unique", entry: { key: "carl" }, by: "phone" });
     expect(matchDialog(dir, { chatId: "4", title: "x", phone: null, username: "@Anna_S" })).toMatchObject({ kind: "unique", by: "username" });
     expect(matchDialog(dir, { chatId: "5", title: "x", phone: "+15550000000", username: null })).toEqual({ kind: "none" });
   });
@@ -75,7 +75,7 @@ describe("the adapters tell the matcher who wrote, never what", () => {
   it("Telegram: an unlinked inbound message gives the chat's id, name, phone and username, and is still dropped", async () => {
     const client = new FakeMtClient();
     const seen: unknown[] = [];
-    const a = createTelegramUserAdapter({ client, account: "42", allowedChats: async () => ["9"], onUnlinked: (d, inbound) => seen.push({ ...d, inbound }) });
+    const a = createTelegramUserAdapter({ client, account: "42", knownChats: async () => [{ chatId: "9", linked: true }], onUnlinked: (d, inbound) => seen.push({ ...d, inbound }) });
     await a.start?.();
     client.emit(fakePerson(7, "Anna", { phone: "6281300001111", username: "anna_s" }), "secret text");
     client.emit(fakePerson(7, "Anna", { phone: "6281300001111" }), "my own reply", { out: true });
@@ -97,7 +97,7 @@ describe("the adapters tell the matcher who wrote, never what", () => {
         return s;
       },
       account: "4915100000001",
-      allowedChats: async () => [],
+      knownChats: async () => [],
       onUnlinked: (d, inbound) => seen.push({ ...d, inbound }),
     });
     await a.start?.();

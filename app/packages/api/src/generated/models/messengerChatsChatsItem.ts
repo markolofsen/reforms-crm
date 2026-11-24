@@ -9,6 +9,7 @@ import type { MessengerChatsChatsItemChannel } from './messengerChatsChatsItemCh
 import type { MessengerChatsChatsItemClient } from './messengerChatsChatsItemClient';
 import type { MessengerChatsChatsItemContact } from './messengerChatsChatsItemContact';
 import type { MessengerChatsChatsItemDraft } from './messengerChatsChatsItemDraft';
+import type { MessengerChatsChatsItemIdentity } from './messengerChatsChatsItemIdentity';
 import type { MessengerChatsChatsItemLast } from './messengerChatsChatsItemLast';
 import type { MessengerChatsChatsItemRules } from './messengerChatsChatsItemRules';
 import type { MessengerChatsChatsItemTriage } from './messengerChatsChatsItemTriage';
@@ -42,4 +43,5 @@ export type MessengerChatsChatsItem = {
   autolinked: string | null;
   triage: MessengerChatsChatsItemTriage;
   contact: MessengerChatsChatsItemContact;
+  identity: MessengerChatsChatsItemIdentity;
 };

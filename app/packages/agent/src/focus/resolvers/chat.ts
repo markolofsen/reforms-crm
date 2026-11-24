@@ -6,8 +6,9 @@ const KIND = { telegram_bot: "telegram", telegram_user: "telegram", whatsapp: "w
 const CHANNEL = { telegram_bot: "Telegram bot", telegram_user: "Telegram", whatsapp: "WhatsApp" } as const;
 
 /**
- * `chat:7` (P71 M3): a linked messenger chat, by its row id, as the Messengers panel names it: the client and the channel, its
- * reply mode as the status; read with `messenger_history`. Another project's chat, or an unlinked one, names nothing.
+ * `chat:7` (P71 M3): a messenger chat, by its row id, as the Messengers panel names it: the client and the channel, its reply mode
+ * as the status; read with `messenger_history`. Another project's chat names nothing. P141 U4: a known chat that is not linked is
+ * one the owner pointed at himself; it is named with the status "not linked" (the history then needs his words, decision 0049).
  */
 export const chat: Resolver = async ({ repos, slug }, id) => {
   const row = await repos.messengers.chatById(slug, Number(id));
@@ -15,7 +16,7 @@ export const chat: Resolver = async ({ repos, slug }, id) => {
   const clientId = await repos.messengers.clientByIdentifier(slug, KIND[row.channel], row.chatId);
   const c = clientId === null ? null : await repos.clients.get(slug, clientId);
   const who = c ? c.name || c.email : (row.title ?? `chat ${row.chatId}`);
-  return { title: cut(`${who} · ${CHANNEL[row.channel]}`), status: REPLY_MODE_LABELS[row.replyMode], read: { server: "hub", tool: "messenger_history", args: { channel: row.channel, chat_id: row.chatId } } };
+  return { title: cut(`${who} · ${CHANNEL[row.channel]}`), status: clientId === null ? "not linked" : REPLY_MODE_LABELS[row.replyMode], read: { server: "hub", tool: "messenger_history", args: { channel: row.channel, chat_id: row.chatId } } };
 };
 
 /** `mdraft:12` (P71 M3): a messenger draft, by its row id: the client, the channel and the start of its text; read with `messenger_history` of its chat. */

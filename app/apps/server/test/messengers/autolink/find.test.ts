@@ -206,10 +206,24 @@ describe("Create client from a chat", () => {
     expect(rows("select chat_id from messenger_chats")).toEqual([{ chat_id: "2002" }]);
   });
 
+  it("P141 C3: makes a card without an Email when the owner gives none, and the client row is keyed by that card", async () => {
+    const r = await post("/api/projects/p/messengers/autolink/create", { channel: "telegram_user", account: "42", chatId: "2002", title: "Nobody Known", name: "Telegram @nobody_k" });
+    expect(r.status).toBe(200);
+    expect(writes).toEqual([{ op: "create", args: ["ds", { Name: { title: [{ type: "text", text: { content: "Telegram @nobody_k" } }] }, Relationship: { select: { name: "Lead" } }, Telegram: { rich_text: [{ type: "text", text: { content: "nobody_k" } }] } }] }]);
+    expect(rows("select c.email, c.name, i.value from clients c join client_identifiers i on i.client_id = c.id")).toEqual([{ email: null, name: "Telegram @nobody_k", value: "2002" }]);
+  });
+
+  it("P141 C3: with no email, links the card that already holds the chat's username instead of making a second one", async () => {
+    pages.push(page("n-nk", "Nadia K", { telegram: "@nobody_k" }));
+    const r = await post("/api/projects/p/messengers/autolink/create", { channel: "telegram_user", account: "42", chatId: "2002", title: "Nobody Known", name: "Nobody Known" });
+    expect(((await r.json()) as { notion: string }).notion).toMatch(/^Linked to the existing card of Nadia K/);
+    expect(writes.filter((w) => w.op === "create")).toEqual([]);
+  });
+
   it("links to the card that already has the email instead of making a second one", async () => {
     pages.push(page("n-evg", "Евгений", { email: "suenot@example.test" }));
     const r = await post("/api/projects/p/messengers/autolink/create", { channel: "telegram_user", account: "42", chatId: "2001", name: "Evgeniy", email: "suenot@example.test" });
-    expect(((await r.json()) as { notion: string }).notion).toBe("Linked to the existing card of suenot@example.test; Telegram set to suenot in Notion");
+    expect(((await r.json()) as { notion: string }).notion).toBe("Linked to the existing card of Евгений; Telegram set to suenot in Notion");
     expect(writes.map((w) => w.op)).toEqual(["fill"]);
   });
 

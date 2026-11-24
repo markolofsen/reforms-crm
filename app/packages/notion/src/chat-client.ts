@@ -76,6 +76,24 @@ export async function searchClientPages(reader: NotionReader, dataSourceId: stri
   return filter ? reader.findPages(dataSourceId, filter, limit) : [];
 }
 
+/**
+ * P141 C3: the Clients cards that hold exactly this chat's identity (its Telegram username, or its number in Phone, WhatsApp or
+ * Telegram), so Create links an existing card instead of making a second one when there is no email to look it up by. Read only;
+ * a `Synthetic` card does not count.
+ */
+export async function findChatClientPages(reader: NotionReader, dataSourceId: string, id: ChatIdentity): Promise<PageObject[]> {
+  const user = (id.username ?? "").replace(/^@/, "").toLowerCase();
+  const digits = digitsOf(id.phone ?? "");
+  const seen = new Map<string, PageObject>();
+  for (const q of [user, digits.length >= 7 ? digits : ""].filter((x) => x.length >= 2)) for (const p of await searchClientPages(reader, dataSourceId, q, 10)) seen.set(p.id, p);
+  return [...seen.values()].filter((p) => {
+    if (p.properties["Synthetic"]?.type === "checkbox" && p.properties["Synthetic"].checkbox === true) return false;
+    const tg = textOf(p.properties["Telegram"]).trim().replace(/^@/, "").toLowerCase();
+    if (user && tg === user) return true;
+    return digits.length >= 7 && ["Phone", "WhatsApp", "Telegram"].some((k) => digitsOf(textOf(p.properties[k])) === digits);
+  });
+}
+
 const textOf = (p: PropertyValue | undefined): string => {
   if (!p) return "";
   if (p.type === "phone_number") return typeof p.phone_number === "string" ? p.phone_number : "";
@@ -120,10 +138,10 @@ const failed = (e: unknown): { status: number | null; kind: string | null } => {
 
 export type CreateChatClientOutcome = { state: "created"; pageId: string; page: PageObject } | { state: "refused"; note: string } | { state: "no_schema"; note: string };
 
-/** The owner's Create from a chat: one Clients card (Name, Email, Relationship Lead, the chat's field). A 403 is the fix sentence. */
+/** The owner's Create from a chat: one Clients card (Name, Email when known, Relationship Lead, the chat's field). A 403 is the fix sentence. */
 export async function createChatClient(
   deps: { reader: NotionReader; writer: ChatClientWriter },
-  o: { clientsDataSource: string; name: string; email: string; identity: ChatIdentity },
+  o: { clientsDataSource: string; name: string; email?: string | null; identity: ChatIdentity },
 ): Promise<CreateChatClientOutcome> {
   const ds = await deps.reader.retrieveDataSource(o.clientsDataSource);
   const props = newClientProperties(ds, { name: o.name, email: o.email });

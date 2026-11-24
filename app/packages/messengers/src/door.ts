@@ -98,7 +98,8 @@ export async function assessMessenger(deps: MessengerDoorDeps, project: string, 
   if (d.status !== "draft") reasons.push(`the draft does not wait any more: ${STATE_WORDS[d.status] ?? d.status}`);
   if (!d.text.trim()) reasons.push("the draft text is empty");
   const chat = await repos.messengers.chat(project, d.channel, d.chatId);
-  if (!chat) reasons.push("the chat is no longer linked to a client");
+  // Decision 0049 point 7: the door needs a known chat, not a linked one; a hidden or forgotten chat has no row.
+  if (!chat) reasons.push("the chat is no longer known to the Hub (hidden or forgotten)");
   // Decision 0049 (P141 W4): the chat row's `last_inbound_at` is the proof, so a pruned cache does not turn a reply into first contact.
   else if ((await repos.messengers.activity(project, d.channel, d.chatId)).lastInAt === null) reasons.push("nobody wrote in this chat yet: the hub never makes the first contact");
   // Provenance: a draft written for one client never goes to a chat that now belongs to another (Change client, P102).
@@ -116,7 +117,7 @@ export async function assessMessenger(deps: MessengerDoorDeps, project: string, 
     const refused = usageRefusal(await repos.sends.messengerUsage(d.channel, account, at), LIMITS, at);
     if (refused) reasons.push(refused);
   }
-  const to = await nameOf(repos, project, linked ?? d.clientId, d.chatId, chat?.title ?? null);
+  const to = await nameOf(repos, project, linked ?? d.clientId, d.chatId, chat?.title ?? chat?.profileName ?? null);
   return {
     reasons,
     preview: account ? { channel: d.channel, chatId: d.chatId, account, to, text: d.text } : null,

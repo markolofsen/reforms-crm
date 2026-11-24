@@ -22,7 +22,7 @@ async function whereOf(repos: AgentContext["repos"], slug: string, ref: string):
   }
   if (p.kind === "inbound") {
     const r = await repos.inboundMail.get(slug, id);
-    const clientId = r ? await repos.clients.idByEmail(slug, r.email) : undefined;
+    const clientId = r ? await repos.clients.findByIdentity(slug, "email", r.email) : undefined;
     return clientId === undefined ? null : `client:${clientId}`;
   }
   return null;

@@ -75,6 +75,6 @@ export async function replay(c: ReplayCase, p: FakePorts, o: { guard?: ReplayGua
     if (o.observe) await o.observe({ name: s.name, input, result: reply, sessionId: REPLAY_SESSION }, p);
   }
   await hub.client.close();
-  out.drafts = (await p.repos.clients.list(p.slug)).filter((r) => r.draft).map((r) => ({ email: r.email, status: String(r.draft?.status) })).sort((a, b) => a.email.localeCompare(b.email));
+  out.drafts = (await p.repos.clients.list(p.slug)).filter((r) => r.draft).map((r) => ({ email: r.email ?? "", status: String(r.draft?.status) })).sort((a, b) => a.email.localeCompare(b.email));
   return out;
 }

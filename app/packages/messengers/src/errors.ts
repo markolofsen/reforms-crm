@@ -2,7 +2,7 @@ import { HubError } from "@hub/config/errors";
 export type MessengersErrorCode =
   | "bad_identifier"
   | "bad_text"
-  | "chat_not_allowed"
+  | "chat_not_known"
   | "not_human"
   | "not_authorized"
   | "not_confirmed"

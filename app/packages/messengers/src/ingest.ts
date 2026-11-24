@@ -3,9 +3,9 @@ import type { InboundMessage } from "./adapter";
 import { RETENTION_DAYS } from "./types";
 
 /**
- * Decision 0049 (P141 W2): the channel whose chats are cached before they are linked. A message of a chat the owner hid ("not a
- * client") is never kept; a chat where only the owner wrote stays uncached until the person answers. Until P141 U2 such a chat has
- * no `messenger_chats` row: its cached messages are adopted by `chat_id` when it is linked.
+ * Decision 0049 (P141 W2, U1, U2): a channel whose chats become known when they write. A message of a chat the owner hid ("not a
+ * client") is never kept; a chat where only the owner wrote stays unknown until the person answers. The first inbound message of a
+ * new chat makes its `messenger_chats` row (known, not linked).
  */
 export interface UnlinkedCache {
   channel: MessengerChannel;
@@ -19,7 +19,7 @@ export interface IngestDeps {
   now?: () => Date;
   /** The cache's TTL in days (decision 0049 point 1): `retain_until` is now plus this. Default `RETENTION_DAYS`. */
   retentionDays?: number;
-  /** Cache the unlinked chats of this channel (decision 0049); absent, they are dropped as before. */
+  /** Make the chats of this channel that write known (decision 0049); absent, a message of an unknown chat is dropped. */
   cache?: UnlinkedCache;
 }
 
@@ -36,7 +36,7 @@ export interface StoredChat {
   chatId: string;
   inbound: number;
   outbound: number;
-  /** False for a chat cached before it is linked (decision 0049): no row, so no autopilot and no pre-analysis. */
+  /** False for a known chat no client identifier names (decision 0049): no autopilot and no pre-analysis there. */
   linked: boolean;
 }
 
@@ -45,25 +45,31 @@ export interface IngestResult {
   /** The chats this ingest stored new messages in (duplicates and history not counted), in the order they were first stored. */
   chats: StoredChat[];
   duplicates: number;
-  /** Messages from chats the owner has not listed (and, with a cache, hidden ones). Not stored. */
+  /** Messages of chats that are not known and cannot become known here (no cache for the channel, a hidden chat). Not stored. */
   dropped: Dropped[];
   /** Edits that replaced the text of a stored message. */
   edited: number;
 }
 
 /**
- * Stores inbound messages from linked chats, and with `cache` the chats of that channel that wrote but are not linked (decision
- * 0049). Idempotent: a repeated remote id is counted, not stored. On a linked chat it writes the fact that the person wrote (the
- * newest inbound time), the account that reads it and its WhatsApp address, which outlive the cache. Ingest never creates a client,
- * an identifier or a chat row: linking a chat to a client is the owner's act (`human.ts`).
+ * Stores the messages of known chats, and with `cache` makes a chat of that channel known on its first inbound message (decision
+ * 0049 point 6: its row, with who it is, never a text). Idempotent: a repeated remote id is counted, not stored. On a known chat it
+ * writes the fact that the person wrote (the newest inbound time), the account that reads it and its WhatsApp address, which outlive
+ * the cache. Ingest never creates a client or an identifier: linking a chat to a client is the owner's act (`human.ts`) or the
+ * autolink's.
  */
+/** What a message says of its chat's identity, for the known row (never its text). */
+const identityOf = (m: InboundMessage) => ({ title: m.chatTitle ?? null, username: m.chatUsername ?? null, phone: m.chatPhone ?? null, profileName: m.profileName ?? null });
+
 export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Promise<IngestResult> {
   const now = (deps.now ?? (() => new Date()))();
   const days = deps.retentionDays ?? RETENTION_DAYS;
   const retainUntil = new Date(now.getTime() + days * 86_400_000).toISOString();
   const cacheSince = now.getTime() - days * 86_400_000;
   const { messengers } = deps.repos;
+  const known = new Map<string, boolean>();
   const linked = new Map<string, boolean>();
+  const refreshed = new Set<string>();
   const hidden = new Map<string, boolean>();
   const wrote = new Map<string, boolean>();
   const dropped = new Map<string, Dropped>();
@@ -86,10 +92,10 @@ export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Prom
     const key = keyOf(m);
     // History older than the cache's window would get a fresh TTL: the Mac's app or the messenger has it (decision 0049 point 1).
     if ((m.backfill || m.source) && Date.parse(m.sentAt) < cacheSince) continue;
-    let ok = linked.get(key);
+    let ok = known.get(key);
     if (ok === undefined) {
-      ok = await messengers.isAllowed(deps.project, m.channel, m.chatId);
-      linked.set(key, ok);
+      ok = await messengers.isKnown(deps.project, m.channel, m.chatId);
+      known.set(key, ok);
     }
     if (!ok) {
       const cache = deps.cache && deps.cache.channel === m.channel ? deps.cache : null;
@@ -116,12 +122,23 @@ export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Prom
         }
         if (!w) continue;
       }
+      // Decision 0049 point 6: the person wrote (here, earlier in the cache or later in this batch), so the chat is known from now on
+      // (its row; never a client).
+      if (!m.editOf) {
+        await messengers.knowChat(deps.project, m.channel, m.chatId, identityOf(m));
+        known.set(key, true);
+        ok = true;
+      }
+    } else if ((m.direction ?? "in") === "in" && (m.profileName || m.chatUsername || m.chatPhone || m.chatTitle) && !refreshed.has(key)) {
+      // Who the chat is may be new (a push name the person changed, a phone first seen): filled where empty, never a text.
+      refreshed.add(key);
+      await messengers.knowChat(deps.project, m.channel, m.chatId, identityOf(m));
     }
     if (m.editOf) {
       if (await messengers.editMessageText(deps.project, m.channel, m.chatId, m.editOf, m.text)) edited++;
       continue;
     }
-    if (ok) {
+    {
       const f = facts.get(key) ?? { channel: m.channel, chatId: m.chatId, inboundAt: null, account: m.account, jid: null };
       if ((m.direction ?? "in") === "in") {
         if (!f.inboundAt || m.sentAt > f.inboundAt) f.inboundAt = m.sentAt;
@@ -147,7 +164,12 @@ export async function ingest(deps: IngestDeps, messages: InboundMessage[]): Prom
       stored++;
       // History (a sync, an import, the Mac's app) is stored but is not news: only a new message wakes the autopilot.
       if (m.backfill || m.source) continue;
-      const c = chats.get(key) ?? { channel: m.channel, chatId: m.chatId, inbound: 0, outbound: 0, linked: ok };
+      let l = linked.get(key);
+      if (l === undefined) {
+        l = await messengers.isLinked(deps.project, m.channel, m.chatId);
+        linked.set(key, l);
+      }
+      const c = chats.get(key) ?? { channel: m.channel, chatId: m.chatId, inbound: 0, outbound: 0, linked: l };
       if ((m.direction ?? "in") === "in") c.inbound++;
       else c.outbound++;
       chats.set(key, c);

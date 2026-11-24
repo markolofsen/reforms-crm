@@ -1,6 +1,6 @@
 // Agent-facing entry. Everything here is read, store or draft: nothing links a chat, approves a reply or sends.
 // Those live in `@hub/messengers/human` and need a HumanActor (see human.ts).
-export { CHANNELS, MAX_TEXT, RETENTION_DAYS, WA_CACHE_DAYS, channelsOf } from "./types";
+export { CACHE_DAYS, CHANNELS, MAX_TEXT, RETENTION_DAYS, channelsOf } from "./types";
 export type { Draft, IdentifierKind, MessengerChannel } from "./types";
 export { MessengersError, type MessengersErrorCode } from "./errors";
 export { normalizeIdentifier } from "./normalize";
@@ -76,4 +76,4 @@ export {
 } from "./whatsapp-socket";
 export { CREDS as WA_CREDS, readWaAuth, waFolderOf, WaAuthFiles, type WaAuthRead } from "./whatsapp-auth";
 export { FakeBoom, FakeWaSocket } from "./fake-wa";
-export { openWaAppReader, WA_APP_DB, WA_APP_FIX, type WaAppReader, type WaAppState } from "./wa-app-reader";
+export { openWaAppReader, WA_APP_DB, WA_APP_FIX, type WaAppReader, type WaAppSession, type WaAppState } from "./wa-app-reader";

@@ -75,7 +75,9 @@ beforeEach(async () => {
   handle = openDb(join(root, "app.db"));
   repos = createRepos(handle.db);
   await repos.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: "active", settingsJson: "{}", hash: "p" }], addresses: [] });
-  await repos.messengers.allowChat("p", "telegram_user", "1001", "Anna");
+  await repos.messengers.knowChat("p", "telegram_user", "1001", { title: "Anna" });
+  // P141 U6: the autopilot runs in linked chats only.
+  await repos.messengers.addIdentifier("p", await repos.clients.create({ project: "p", email: "anna@example.test", name: "Anna" }), "telegram", "1001");
   chatRow = (await repos.messengers.chat("p", "telegram_user", "1001"))?.id ?? 0;
 });
 afterEach(() => handle.close());

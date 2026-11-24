@@ -58,7 +58,7 @@ const apply = async (app: App, id: number, confirm: { chatId: string; text: stri
   app.request(url(id), { method: "POST", headers: H, body: JSON.stringify({ apply: true, confirm, ticket: t ?? (await ticket(app, id)) }) });
 
 async function link(chatId: string, inbound: boolean) {
-  await repos.messengers.allowChat("p", "telegram_user", chatId, `Chat ${chatId}`);
+  await repos.messengers.knowChat("p", "telegram_user", chatId, { title: `Chat ${chatId}` });
   if (chatId === "1001") await repos.messengers.addIdentifier("p", clientId, "telegram", chatId);
   if (inbound) {
     const sentAt = new Date(T0 - 3_600_000).toISOString();

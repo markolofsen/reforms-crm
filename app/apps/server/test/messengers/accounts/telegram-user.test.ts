@@ -89,7 +89,7 @@ describe("Telegram user account in the server", () => {
     expect(login.sentTo).toEqual([]);
   });
 
-  it("stores a linked chat's message and leaves no row of an unlinked one", async () => {
+  it("stores a linked chat's message, and an unlinked one's only as the 30-day cache of a known, unlinked chat (decision 0049)", async () => {
     await connect();
     const adapter = tg?.adapter("42");
     if (!adapter) throw new Error("the account is not running");
@@ -97,8 +97,8 @@ describe("Telegram user account in the server", () => {
     fake.emit(anna, "hello");
     fake.emit(stranger, "not for the hub");
     await vi.waitFor(async () => expect((await repos.messengers.messagesOf("p", [{ channel: "telegram_user", chatId: "1001" }], { limit: 5 })).map((m) => m.text)).toEqual(["hello"]));
-    expect(await repos.messengers.messagesOf("p", [{ channel: "telegram_user", chatId: "2002" }], { limit: 5 })).toEqual([]);
-    expect((await repos.messengers.allowedChats("p")).map((c) => c.chatId)).toEqual(["1001"]);
+    await vi.waitFor(async () => expect((await repos.messengers.messagesOf("p", [{ channel: "telegram_user", chatId: "2002" }], { limit: 5 })).map((m) => m.text)).toEqual(["not for the hub"]));
+    expect((await repos.messengers.knownChats("p")).map((c) => [c.chatId, c.linked])).toEqual([["1001", true], ["2002", false]]);
     expect(JSON.stringify(tg?.status())).not.toMatch(/2002|Stranger/);
     // P71 M-P: the poll that stored the message told the pre-analysis hook (and only for this project).
     await vi.waitFor(() => expect(stored).toContain("p"));

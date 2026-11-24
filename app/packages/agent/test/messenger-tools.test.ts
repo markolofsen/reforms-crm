@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_CHAT_RULES } from "@hub/config/chat-rules";
 import { createRepos, openDb, openDbReadOnly, type DbHandle, type Repos } from "@hub/db";
 import { createHubMcpServer } from "../src/mcp/server";
+import { wordsNameChat } from "../src/mcp/tools/messengers";
 import { draftVerdict, NO_INBOUND } from "../src/messenger/rules";
 import type { WithRepos } from "../src/mail/write-log";
 
@@ -19,7 +20,7 @@ let ro: DbHandle;
 let w: Repos;
 let repos: Repos;
 const NOW = new Date("2026-11-20T12:00:00Z");
-const ids = { ann: 0, zed: 0 };
+const ids = { ann: 0, zed: 0, silent: 0 };
 
 const msg = (chatId: string, remote: string, direction: "in" | "out", sentAt: string, project = "acme") => ({ project, channel: "telegram_user" as const, account: "1", chatId, remoteMessageId: remote, direction, kind: "text", text: direction === "in" ? `client says ${remote}` : `we said ${remote}`, sentAt, retainUntil: "2027-02-18T00:00:00.000Z" });
 
@@ -30,15 +31,19 @@ beforeEach(async () => {
   w = createRepos(rw.db);
   ids.ann = await w.clients.create({ project: "acme", email: "ann@example.com", name: "Ann" });
   ids.zed = await w.clients.create({ project: "beta", email: "zed@example.com", name: "Zed Secret" });
-  // acme: chat 42 linked to Ann (her last message is the newest); chat 43 linked with no message at all.
+  // acme: chat 42 linked to Ann (her last message is the newest); chat 43 linked with no message at all; chat 44 known, not linked.
+  ids.silent = await w.clients.create({ project: "acme", email: null, name: "Silent" });
   await w.messengers.addIdentifier("acme", ids.ann, "telegram", "42");
-  await w.messengers.allowChat("acme", "telegram_user", "42", "Ann");
-  await w.messengers.allowChat("acme", "telegram_user", "43", "Silent");
+  await w.messengers.knowChat("acme", "telegram_user", "42", { title: "Ann" });
+  await w.messengers.addIdentifier("acme", ids.silent, "telegram", "43");
+  await w.messengers.knowChat("acme", "telegram_user", "43", { title: "Silent" });
+  await w.messengers.knowChat("acme", "telegram_user", "44", { title: "Qimma", username: "qimma_k" });
+  await w.messengers.insertMessage(msg("44", "1", "in", "2026-11-19T08:00:00.000Z"));
   await w.messengers.insertMessage(msg("42", "1", "out", "2026-11-18T09:00:00.000Z"));
   await w.messengers.insertMessage(msg("42", "2", "in", "2026-11-19T09:00:00.000Z"));
   // beta: its own chat 77, never visible from acme.
   await w.messengers.addIdentifier("beta", ids.zed, "telegram", "77");
-  await w.messengers.allowChat("beta", "telegram_user", "77", "Zed Secret");
+  await w.messengers.knowChat("beta", "telegram_user", "77", { title: "Zed Secret" });
   await w.messengers.insertMessage(msg("77", "1", "in", "2026-11-19T09:00:00.000Z", "beta"));
   ro = openDbReadOnly(db);
   repos = createRepos(ro.db);
@@ -61,9 +66,10 @@ const withRepos: WithRepos = async (fn) => {
 /** A messenger tool's reply as these tests read it: the chats of messenger_history, a draft id, a refusal code; the rest by key. */
 type HistoryChat = Record<string, unknown> & { chat_id: string; messages: Array<{ direction: string; text: string; hidden?: string }>; prefilter: Record<string, unknown>; can_draft: unknown };
 type ToolReply = Record<string, unknown> & { chats: [HistoryChat, ...HistoryChat[]]; draft: number; error?: string };
-async function connect(hubProject: string | undefined, write = true, policy?: { language: string | null; instruction: string | null }) {
+async function connect(hubProject: string | undefined, write = true, policy?: { language: string | null; instruction: string | null }, attended?: { ownerWords: (slug: string, words: string) => boolean }) {
   const server = createHubMcpServer(repos, {
     hubProject,
+    ...(attended ? { ownerWords: attended.ownerWords, agentSend: async () => ({ ok: false as const, reason: "refused", error: "test", next: "test" }) as never } : {}),
     focusFile: path.join(dir, "focus.json"),
     now: () => NOW,
     ...(write ? { withRepos } : {}),
@@ -257,5 +263,42 @@ describe("draftVerdict", () => {
     expect(draftVerdict({ rules: DEFAULT_CHAT_RULES, activity: act({ inbound: 0, lastInAt: null }) }).refusal).toEqual({ code: "no_inbound", message: NO_INBOUND });
     expect(NO_INBOUND).toMatch(/^No message from this person is stored yet; if they wrote, the Hub has not received it\. Refresh the chat/);
     expect(NO_INBOUND).toMatch(/the owner's word that they wrote does not change that/);
+  });
+});
+
+describe("P141 U5: an unlinked chat reaches the agent only on the owner's words in an attended session", () => {
+  const chat44 = { channel: "telegram_user", chat_id: "44" };
+  const said = (words: string) => ({ ownerWords: (_slug: string, w: string) => w === words });
+
+  it("is not_linked in an unattended session, whatever owner_request says", async () => {
+    const call = await connect("acme");
+    expect((await call("messenger_history", { ...chat44, owner_request: "ответь Qimma" })).json.error).toBe("not_linked");
+    expect((await call("messenger_draft_write", { ...chat44, text: "Hello", owner_request: "ответь Qimma" })).json.error).toBe("not_linked");
+  });
+
+  it("is read and drafted in an attended session when the owner's own words name the chat", async () => {
+    const call = await connect("acme", true, undefined, said("ответь Qimma, что мы на связи"));
+    const h = await call("messenger_history", { ...chat44, owner_request: "ответь Qimma, что мы на связи" });
+    expect(h.isError).toBe(false);
+    expect(h.json.chats[0]).toMatchObject({ chat_id: "44", client: null });
+    const d = await call("messenger_draft_write", { ...chat44, text: "Мы на связи.", owner_request: "ответь Qimma, что мы на связи" });
+    expect(d.isError).toBe(false);
+    expect((await drafts()).find((x) => x.chatId === "44")).toMatchObject({ clientId: null, status: "draft" });
+  });
+
+  it("stays not_linked when the words are not the owner's, or do not name this chat", async () => {
+    const call = await connect("acme", true, undefined, said("ответь Анне"));
+    expect((await call("messenger_history", { ...chat44, owner_request: "ответь Qimma" })).json.error).toBe("not_linked");
+    expect((await call("messenger_history", { ...chat44, owner_request: "ответь Анне" })).json.error).toBe("not_linked");
+    expect((await call("messenger_history", chat44)).json.error).toBe("not_linked");
+  });
+
+  it("wordsNameChat matches the title, the username or the number, never a fragment", () => {
+    const row = { title: "Qimma", username: "qimma_k", phone: "966544555430", chatId: "44", profileName: null };
+    expect(wordsNameChat("Answer qimma please", row)).toBe(true);
+    expect(wordsNameChat("write to @qimma_k", row)).toBe(true);
+    expect(wordsNameChat("call +966 54 455 5430", row)).toBe(true);
+    expect(wordsNameChat("answer him", row)).toBe(false);
+    expect(wordsNameChat("chat 44", row)).toBe(false);
   });
 });

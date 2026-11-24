@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chatProperty, chatSearchFilter, fillChatIdentity, searchTerms, type ChatClientWriter } from "../src/chat-client";
+import { chatProperty, chatSearchFilter, createChatClient, fillChatIdentity, findChatClientPages, searchTerms, type ChatClientWriter } from "../src/chat-client";
 import type { DataSourceInfo, NotionReader, PageObject } from "../src/types";
 
 // P100: the live search's filter, and the chat writer's one rule: fill Telegram or WhatsApp only when it is empty.
@@ -67,5 +67,29 @@ describe("the chat's field", () => {
   it("a refused write is the fix sentence, not a throw", async () => {
     const writer: ChatClientWriter = { ...writerFor(card(), []), fillEmpty: async () => Promise.reject(Object.assign(new Error("x"), { status: 403 })) };
     expect(await fillChatIdentity({ reader, writer }, { clientsDataSource: "ds", pageId: "c1", identity: { channel: "telegram", username: "suenot", phone: null } })).toMatchObject({ state: "refused", note: expect.stringMatching(/Update content/) });
+  });
+});
+
+describe("P141 C3: a chat's client without an email", () => {
+  it("is created with no Email property, and its title is the name given", async () => {
+    const made: Record<string, unknown>[] = [];
+    const writer: ChatClientWriter = { createClient: async (_ds, props) => (made.push(props), "new"), retrievePage: async () => card(), fillEmpty: async () => undefined };
+    const r = await createChatClient({ reader, writer }, { clientsDataSource: "ds", name: "WhatsApp +966544555430", email: null, identity: { channel: "whatsapp", username: null, phone: "+966544555430" } });
+    expect(r.state).toBe("created");
+    expect(made[0]).not.toHaveProperty("Email");
+    expect(made[0]).toMatchObject({ Name: { title: [{ text: { content: "WhatsApp +966544555430" } }] }, WhatsApp: { phone_number: "+966544555430" } });
+  });
+
+  it("finds the cards that hold exactly the chat's username or number, never a namesake or a Synthetic card", async () => {
+    const page = (id: string, p: Record<string, unknown>): PageObject => ({ id, last_edited_time: "x", properties: p as never });
+    const pages = [
+      page("tg", { Telegram: { type: "rich_text", rich_text: [{ plain_text: "@Qimma_K" }] } }),
+      page("ph", { Phone: { type: "phone_number", phone_number: "+966 54 455 5430" } }),
+      page("near", { Telegram: { type: "rich_text", rich_text: [{ plain_text: "qimma_k2" }] } }),
+      page("syn", { Phone: { type: "phone_number", phone_number: "+966544555430" }, Synthetic: { type: "checkbox", checkbox: true } }),
+    ];
+    const live: NotionReader = { ...reader, findPages: async () => pages };
+    const found = await findChatClientPages(live, "ds", { channel: "telegram", username: "qimma_k", phone: "966544555430" });
+    expect(found.map((p) => p.id).sort()).toEqual(["ph", "tg"]);
   });
 });

@@ -52,11 +52,11 @@ beforeEach(async () => {
   repos = createRepos(handle.db);
   await repos.projects.replaceRegistry({ projects: [{ slug: "p", name: "P", status: "active", settingsJson: "{}", hash: "p" }], addresses: [] });
   const anna = await repos.clients.create({ project: "p", email: "anna@example.test", name: "Anna Field" });
-  await repos.messengers.allowChat("p", "telegram_user", "1001", "Anna's flat chat");
+  await repos.messengers.knowChat("p", "telegram_user", "1001", { title: "Anna's flat chat" });
   await repos.messengers.addIdentifier("p", anna, "telegram", "1001");
   await repos.messengers.setChatRules("p", "telegram_user", "1001", { prefilter: true });
   // A second linked chat with the switch off: never judged.
-  await repos.messengers.allowChat("p", "telegram_user", "2002", "Bob");
+  await repos.messengers.knowChat("p", "telegram_user", "2002", { title: "Bob" });
   await msg("2002", "in", 1, "thanks a lot");
 });
 afterEach(() => handle.close());
@@ -190,7 +190,7 @@ describe("the pre-analysis (P71 M-P)", () => {
     await createPreanalysis({ repos, llm, now: () => NOW }).run("p");
     expect(ledger.rows.map((r) => r.task)).toEqual([PREANALYSIS_TASK]);
     expect(handle.db.$client.prepare("select count(*) n from messenger_triage").get()).toEqual({ n: 1 });
-    await repos.messengers.unlinkChat("p", "telegram_user", "1001");
+    await repos.messengers.forgetChat("p", "telegram_user", "1001");
     expect(handle.db.$client.prepare("select count(*) n from messenger_triage").get()).toEqual({ n: 0 });
   });
 });

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as agentApi from "../src/index";
 import { createDraft, isConfirmed, listOpenDrafts, type Draft } from "../src/index";
 import * as human from "../src/human";
-import { allowChat, humanActor, linkIdentifier, moveChatToRecord, undoMoveChat, unlinkIdentifier } from "../src/human";
+import { knowChat, humanActor, linkIdentifier, moveChatToRecord, undoMoveChat, unlinkIdentifier } from "../src/human";
 import { confirmDraft, sendConfirmed } from "../src/send-confirmed";
 import { mintAuthorization, textHash } from "../src/authorization";
 import { FakeAdapter, FakeSendingAdapter } from "../src/fake";
@@ -15,7 +15,7 @@ let env: Env;
 const owner = humanActor("owner");
 beforeEach(async () => {
   env = await setup();
-  await allowChat(env.repos, owner, { project: "p", channel: "telegram_bot", chatId: "100" });
+  await knowChat(env.repos, owner, { project: "p", channel: "telegram_bot", chatId: "100" });
 });
 afterEach(() => env.close());
 
@@ -32,7 +32,7 @@ describe("the agent can only make drafts", () => {
 
   it("the agent entry exports no approve, send, link or allow function", () => {
     const names = Object.keys(agentApi);
-    for (const forbidden of ["confirmDraft", "sendConfirmed", "linkIdentifier", "unlinkIdentifier", "allowChat", "disallowChat", "humanActor", "mintConfirmed", "discardDraft"]) {
+    for (const forbidden of ["confirmDraft", "sendConfirmed", "linkIdentifier", "unlinkIdentifier", "knowChat", "forgetChat", "addClientEmail", "humanActor", "mintConfirmed", "discardDraft"]) {
       expect(names).not.toContain(forbidden);
     }
     expect(Object.keys(human)).toEqual(expect.arrayContaining(["linkIdentifier", "humanActor"]));
@@ -51,7 +51,7 @@ describe("the agent can only make drafts", () => {
   });
 
   it("refuses a chat the owner has not listed", async () => {
-    await expect(draftFor("hi", "telegram_bot", "999")).rejects.toMatchObject({ code: "chat_not_allowed" });
+    await expect(draftFor("hi", "telegram_bot", "999")).rejects.toMatchObject({ code: "chat_not_known" });
   });
 
   it("refuses empty and oversized text", async () => {
@@ -119,15 +119,15 @@ describe("only the door's authorization confirms and sends (P112 S2)", () => {
     expect(adapter.sent).toHaveLength(1);
   });
 
-  it("send stops if the chat was taken off the allow-list after approval", async () => {
+  it("send stops if the chat was forgotten (hidden) after approval", async () => {
     const adapter = new FakeSendingAdapter();
     const d = await draftFor();
     const auth = await authorized(env.repos, "p", d.id);
     await confirmDraft(env.repos, auth, {});
-    await env.repos.messengers.allowChat("p", "telegram_bot", "200");
+    await env.repos.messengers.knowChat("p", "telegram_bot", "200");
     await env.repos.messengers.createDraft({ project: "p", channel: "telegram_bot", chatId: "200", text: "kept", createdBy: "agent" });
-    // P71 M2b: unlinking deletes the chat's drafts with it (one transaction), so the approved draft is gone, not only blocked.
-    await unlinkIdentifier(env.repos, owner, { project: "p", kind: "telegram", value: "100" });
+    // Decision 0049: forgetting a chat (Hide) deletes its drafts with it (one transaction), so the approved draft is gone, not only blocked.
+    await human.forgetChat(env.repos, owner, { project: "p", channel: "telegram_bot", chatId: "100" });
     await expect(sendConfirmed({ repos: env.repos, adapter }, auth)).rejects.toMatchObject({ code: "not_confirmed" });
     expect(await env.repos.messengers.getDraft("p", d.id)).toBeNull();
     expect((await env.repos.messengers.listDrafts("p")).map((x) => x.chatId)).toEqual(["200"]);
@@ -139,7 +139,7 @@ describe("only the door's authorization confirms and sends (P112 S2)", () => {
     const d = await draftFor();
     await confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {});
     env.handle.db.$client.prepare("delete from messenger_chats where chat_id = '100'").run();
-    await expect(sendConfirmed({ repos: env.repos, adapter }, await authorized(env.repos, "p", d.id))).rejects.toMatchObject({ code: "chat_not_allowed" });
+    await expect(sendConfirmed({ repos: env.repos, adapter }, await authorized(env.repos, "p", d.id))).rejects.toMatchObject({ code: "chat_not_known" });
     expect(adapter.sent).toHaveLength(0);
   });
 
@@ -162,7 +162,7 @@ describe("user accounts send through the door (Telegram since P71 M4, WhatsApp s
     await linkIdentifier(env.repos, owner, { project: "p", clientId: env.clientId, kind: "whatsapp", value: "+49 151 000 0001" });
     const w = await draftFor("Hallo", "whatsapp", "+491510000001");
     await expect(confirmDraft(env.repos, await authorized(env.repos, "p", w.id), {})).resolves.toMatchObject({ channel: "whatsapp", chatId: "+491510000001", text: "Hallo" });
-    await allowChat(env.repos, owner, { project: "p", channel: "telegram_user", chatId: "42" });
+    await knowChat(env.repos, owner, { project: "p", channel: "telegram_user", chatId: "42" });
     const d = await draftFor("hi", "telegram_user", "42");
     await expect(confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {})).resolves.toMatchObject({ channel: "telegram_user", chatId: "42", text: "hi" });
   });
@@ -183,11 +183,12 @@ describe("linking", () => {
     await expect(linkIdentifier(env.repos, owner, { project: "p", clientId: env.clientId, kind: "email", value: "anna@example.test" })).rejects.toMatchObject({ code: "duplicate_identifier" });
   });
 
-  it("unlink removes the link and the allow-list entry", async () => {
+  it("unlink removes the link only: the chat stays known, not linked (decision 0049)", async () => {
     await linkIdentifier(env.repos, owner, { project: "p", clientId: env.clientId, kind: "telegram", value: "777" });
-    expect(await env.repos.messengers.isAllowed("p", "telegram_bot", "777")).toBe(true);
-    expect(await unlinkIdentifier(env.repos, owner, { project: "p", kind: "telegram", value: "777" })).toEqual({ removed: true, disallowed: 1 });
-    expect(await env.repos.messengers.isAllowed("p", "telegram_bot", "777")).toBe(false);
+    expect(await env.repos.messengers.isLinked("p", "telegram_bot", "777")).toBe(true);
+    expect(await unlinkIdentifier(env.repos, owner, { project: "p", kind: "telegram", value: "777" })).toEqual({ removed: true });
+    expect(await env.repos.messengers.isKnown("p", "telegram_bot", "777")).toBe(true);
+    expect(await env.repos.messengers.isLinked("p", "telegram_bot", "777")).toBe(false);
   });
 
   it("rejects a channel that does not match the kind", async () => {
@@ -213,7 +214,7 @@ describe("P102 Change client", () => {
   it("moves a linked chat to another client, sets its open draft aside, refuses the same client or an unlinked chat, and undoes", async () => {
     await linkIdentifier(env.repos, owner, { project: "p", clientId: env.clientId, kind: "whatsapp", value: "+49 151 000 0001" });
     const d = await draftFor("Hi", "whatsapp", "+491510000001");
-    const input = { project: "p", channel: "whatsapp" as const, chatId: "+491510000001", client: { email: "new@x.test", name: "New" } };
+    const input = { project: "p", channel: "whatsapp" as const, chatId: "+491510000001", client: { pageId: null, email: "new@x.test", name: "New" } };
     const r = await moveChatToRecord(env.repos, owner, input);
     expect(r.fromClientId).toBe(env.clientId);
     expect(r.skippedDraftId).toBe(d.id);
@@ -223,5 +224,20 @@ describe("P102 Change client", () => {
     expect(await undoMoveChat(env.repos, owner, { project: "p", channel: "whatsapp", chatId: "+491510000001", clientId: r.fromClientId, draftId: r.skippedDraftId })).toEqual({ draftRestored: true });
     expect(await env.repos.messengers.clientByIdentifier("p", "whatsapp", "+491510000001")).toBe(env.clientId);
     expect((await env.repos.messengers.getDraft("p", d.id))?.status).toBe("draft");
+  });
+});
+
+describe("P141 C3/C4: a client known only by a chat", () => {
+  it("is made from a record without an email, and its email later merges it into the client that has the address", async () => {
+    const { id: chatOnly, created } = await human.ensureClient(env.repos, "p", { pageId: "page-q", email: null, name: "Qimma" });
+    expect(created).toBe(true);
+    expect(await human.ensureClient(env.repos, "p", { pageId: "page-q", email: null, name: "Qimma" })).toEqual({ id: chatOnly, created: false });
+    const withMail = await env.repos.clients.create({ project: "p", email: "q@example.test", name: "q@example.test" });
+    expect(await human.addClientEmail(env.repos, owner, { project: "p", clientId: chatOnly, email: "Q@Example.test" })).toEqual({ clientId: withMail, merged: true });
+    expect((await env.repos.clients.get("p", withMail))?.name).toBe("Qimma");
+    // An address nobody has is simply its Email; an Email is never replaced.
+    const lone = await env.repos.clients.create({ project: "p", email: null, name: "Lone" });
+    expect(await human.addClientEmail(env.repos, owner, { project: "p", clientId: lone, email: "lone@example.test" })).toEqual({ clientId: lone, merged: false });
+    await expect(human.addClientEmail(env.repos, owner, { project: "p", clientId: lone, email: "other@example.test" })).rejects.toMatchObject({ code: "wrong_state" });
   });
 });

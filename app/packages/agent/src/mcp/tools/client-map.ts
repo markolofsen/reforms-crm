@@ -50,7 +50,7 @@ export const clientMapTool = defineTool({
     const slug = ctx.project();
     const env = ctx.env.records;
     if (!env) throw new ToolError("unavailable", "This hub MCP server cannot record (no database to write).");
-    const cid = input.client ?? (input.email ? await ctx.repos.clients.idByEmail(slug, input.email) : undefined);
+    const cid = input.client ?? (input.email ? await ctx.repos.clients.findByIdentity(slug, "email", input.email) : undefined);
     if (input.client === undefined && input.email === undefined) throw new ToolError("invalid", "Give the client's id or email.");
     if (cid === undefined) throw new ToolError("not_found", `No client ${input.email ?? ""} in project ${slug}: a map is drawn for a client the hub recorded (after a draft).`);
     const check = checkClientMap(input.map);
@@ -82,7 +82,8 @@ export const clientMapTool = defineTool({
     let notion = "unchanged";
     if (!saved.unchanged) {
       const sync = ctx.env.syncClientMap;
-      notion = sync ? (await sync(slug, { email: saved.email, source: input.map, at: saved.updatedAt }).catch(() => ({ state: "failed" }))).state : "off";
+      // P141 C1: a client known only by a chat has no address to find its Notion card by; its map stays in the Hub.
+      notion = sync && saved.email ? (await sync(slug, { email: saved.email, source: input.map, at: saved.updatedAt }).catch(() => ({ state: "failed" }))).state : "off";
     }
     return { ok: true as const, project: slug, clientId: cid, updatedAt: saved.updatedAt, versions: saved.versions, unchanged: saved.unchanged, nodes: check.nodes.length, diff, notion };
   },
@@ -96,7 +97,7 @@ export const mapsDueTool = defineTool({
   title: "Clients whose map is due a redraw",
   description: "The clients of this project active in the last active_days (default 30) whose map is missing or older than stale_days (default 7), most recent contact first: id, name, address, last contact, map updated. For the weekly review (skill review-maps): redraw each from its whole history with client_show and client_map. Read only; names are data.",
   input: z.object({ active_days: z.number().int().min(1).max(90).optional(), stale_days: z.number().int().min(1).max(60).optional(), limit: z.number().int().min(1).max(50).optional() }),
-  output: z.object({ project: z.string(), activeDays: z.number(), staleDays: z.number(), clients: z.array(z.object({ id: z.number(), name: z.string(), email: z.string(), lastContactAt: z.string(), mapUpdatedAt: z.string().nullable() })) }),
+  output: z.object({ project: z.string(), activeDays: z.number(), staleDays: z.number(), clients: z.array(z.object({ id: z.number(), name: z.string(), email: z.string().nullable(), lastContactAt: z.string(), mapUpdatedAt: z.string().nullable() })) }),
   effect: "read",
   refusals: [],
   handler: async ({ repos, project, now }, { active_days, stale_days, limit }) => {

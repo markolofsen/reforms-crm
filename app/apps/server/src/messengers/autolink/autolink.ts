@@ -12,9 +12,9 @@ import { errFields, ops } from "@hub/log/ops";
 /**
  * The autolink coordinator (P84, decision 0036 point 3 as amended 2026-11-20 on the owner's delegated word). The adapters tell it the
  * identity of each private chat they see that is not linked (chat id, name, phone, username: never a text), and Telegram's dialog
- * list once an account connects. For each it asks the client directory (Notion, in memory): exactly one record with an email and
- * `messengers.autolink on` links the chat (the client row, the identifier, the allow-list, 30 days imported) and writes one Activity
- * line; anything else (two or more records, no email, autolink off, no match) stays in memory only, for the Chats screen. A chat the
+ * list once an account connects. For each it asks the client directory (Notion, in memory): exactly one record (P141 verdict 20:
+ * with or without an email) and `messengers.autolink on` links the chat (the client row, the identifier, the allow-list, 30 days imported) and writes one Activity
+ * line; anything else (two or more records, autolink off, no match) stays in memory only, for the Chats screen. A chat the
  * owner refused ("never link") is skipped by an HMAC of it, keyed by `state/secrets/autolink-key`. Nothing here sends. Decision 0049:
  * a WhatsApp chat's messages are cached by ingest before it is linked; this module never writes them, and Hide deletes them.
  */
@@ -44,8 +44,8 @@ export interface RecentDialog {
   chatId: string;
   title: string;
   seenAt: string;
-  /** `none`: no record matched; `ambiguous`: two or more; `no_email`: one, without an email; `off`: one, autolink is off; `failed`: the link was refused. */
-  why: "none" | "ambiguous" | "no_email" | "off" | "failed";
+  /** `none`: no record matched; `ambiguous`: two or more; `off`: one, autolink is off; `failed`: the link was refused. */
+  why: "none" | "ambiguous" | "off" | "failed";
   by: "phone" | "username" | null;
   candidates: Candidate[];
   /** P84c: the newest message's time and side (never its text): a message seen live, or the dialog list's; null when unknown. */
@@ -108,7 +108,6 @@ export interface PreviewCounts {
   linked: number;
   unique: number;
   ambiguous: number;
-  noEmail: number;
   /** The unique matches by the record's Relationship. */
   byRelationship: Record<string, number>;
 }
@@ -145,6 +144,8 @@ export interface Autolink {
    * characters; `@` and a number's spacing ignored), then a live Notion query for the same term, merged by page id.
    */
   findRecords(q: string): Promise<{ records: Candidate[]; live: boolean; liveError: string | null }>;
+  /** P141 U3: the records the memory suggests for an unlinked chat (an ambiguous match, or one while the autolink is off). */
+  suggestionsOf(channel: UserChannel, chatId: string): Candidate[];
   /** P100: the identity of an unlinked or hidden chat the memory knows (username, phone), for Create and the fill on Link. */
   identityOf(channel: UserChannel, chatId: string): { username: string | null; phone: string | null } | null;
   /** The live adapter of a connected account (the owner's Link reads through it). */
@@ -233,7 +234,7 @@ export function startAutolink(o: StartAutolink): Autolink {
   async function consider(channel: UserChannel, account: string, d: DialogIdentity, last: LastMessage | null = null): Promise<void> {
     const project = o.project;
     if (!project) return;
-    if (await o.repos.messengers.isAllowed(project, channel, d.chatId)) {
+    if (await o.repos.messengers.isLinked(project, channel, d.chatId)) {
       recent.delete(`${channel}:${d.chatId}`);
       // P131 O5: a chat linked before it kept its own identity gets it on the next dialog scan (only what is seen; never erased).
       await o.repos.messengers.setChatIdentity(project, channel, d.chatId, { username: d.username ?? null, phone: d.phone ?? null });
@@ -245,13 +246,12 @@ export function startAutolink(o: StartAutolink): Autolink {
     const m = dir ? matchDialog(dir, d, MATCH_CHANNEL[channel]) : ({ kind: "none" } as const);
     if (m.kind === "none") return remember({ ...base, why: "none", by: null, candidates: [] });
     if (m.kind === "ambiguous") return remember({ ...base, why: "ambiguous", by: m.by, candidates: m.entries.map(candidateOf) });
-    if (m.kind === "no_email") return remember({ ...base, why: "no_email", by: m.by, candidates: [candidateOf(m.entry)] });
     if (!(await o.enabled())) return remember({ ...base, why: "off", by: m.by, candidates: [candidateOf(m.entry)] });
     const adapter = o.adapterOf(channel, account);
     if (!adapter) return remember({ ...base, why: "off", by: m.by, candidates: [candidateOf(m.entry)] });
     const reason = MATCH_REASON[m.by];
     try {
-      const r = await autoLinkUserChat({ repos: o.repos, adapter, now }, { project, client: { email: m.entry.email ?? "", name: m.entry.name }, chatId: d.chatId, reason, title: d.title, identity: { username: d.username ?? null, phone: d.phone ?? null } });
+      const r = await autoLinkUserChat({ repos: o.repos, adapter, now }, { project, client: { pageId: m.entry.key, email: m.entry.email, name: m.entry.name }, chatId: d.chatId, reason, title: d.title, identity: { username: d.username ?? null, phone: d.phone ?? null } });
       recent.delete(`${channel}:${d.chatId}`);
       await activity(project, r.clientId, m.entry.name || (m.entry.email ?? d.title), channel, reason, r.imported);
     } catch {
@@ -294,7 +294,7 @@ export function startAutolink(o: StartAutolink): Autolink {
       // A chat linked since it was remembered (by the owner or a later match) leaves the list.
       const rows = [...recent.values()].reverse();
       const unlinked: RecentDialog[] = [];
-      for (const r of rows) if (o.project && !(await o.repos.messengers.isAllowed(o.project, r.channel, r.chatId))) unlinked.push(r);
+      for (const r of rows) if (o.project && !(await o.repos.messengers.isLinked(o.project, r.channel, r.chatId))) unlinked.push(r);
       // P84c: To do holds only the fresh ones (the newest message at most `freshDays` old); P102: Not linked holds every one.
       const since = now().getTime() - UNLINKED_FRESH_DAYS * 86_400_000;
       const live = unlinked.filter((r) => r.last !== null && Date.parse(r.last.at) >= since);
@@ -331,9 +331,9 @@ export function startAutolink(o: StartAutolink): Autolink {
           ops("autolink").warn("reading the dialogs for a preview failed", { channel, account, ...errFields(e) });
           return [] as UserDialog[];
         });
-        const c: PreviewCounts = { channel, account, dialogs: ds.length, linked: 0, unique: 0, ambiguous: 0, noEmail: 0, byRelationship: {} };
+        const c: PreviewCounts = { channel, account, dialogs: ds.length, linked: 0, unique: 0, ambiguous: 0, byRelationship: {} };
         for (const d of ds) {
-          if (o.project && (await o.repos.messengers.isAllowed(o.project, channel, d.chatId))) {
+          if (o.project && (await o.repos.messengers.isLinked(o.project, channel, d.chatId))) {
             c.linked++;
             continue;
           }
@@ -343,7 +343,6 @@ export function startAutolink(o: StartAutolink): Autolink {
             const rel = m.entry.relationship ?? "none";
             c.byRelationship[rel] = (c.byRelationship[rel] ?? 0) + 1;
           } else if (m.kind === "ambiguous") c.ambiguous++;
-          else if (m.kind === "no_email") c.noEmail++;
         }
         out.push(c);
       }
@@ -388,14 +387,15 @@ export function startAutolink(o: StartAutolink): Autolink {
     },
     async findRecords(q) {
       if (q.trim().replace(/^@/, "").length < 2) return { records: [], live: false, liveError: null };
-      const local = (o.directory.current()?.all ?? []).filter((e) => e.email && recordMatches(e, q));
+      const local = (o.directory.current()?.all ?? []).filter((e) => recordMatches(e, q));
       // Always Notion too: a page made a minute ago is not in the copy read at start and every 6 h (P100).
       const live = await o.directory.search(q);
       // Merged by page id, the copy in memory first.
       const seen = new Set<string>();
-      const records = [...local, ...live.entries.filter((x) => x.email)].filter((e) => !seen.has(e.key) && seen.add(e.key)).map(candidateOf);
+      const records = [...local, ...live.entries].filter((e) => !seen.has(e.key) && seen.add(e.key)).map(candidateOf);
       return { records: records.slice(0, FIND_MAX), live: live.error === null, liveError: live.error };
     },
+    suggestionsOf: (channel, chatId) => recent.get(`${channel}:${chatId}`)?.candidates ?? [],
     identityOf(channel, chatId) {
       const r = recent.get(`${channel}:${chatId}`);
       if (r) return { username: r.username, phone: r.phone ?? (channel === "whatsapp" && !chatId.startsWith("lid:") ? chatId : null) };

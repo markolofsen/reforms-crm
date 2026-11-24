@@ -14,7 +14,8 @@ export type MapReasons = Record<string, string>;
 
 export interface ClientMap {
   clientId: number;
-  email: string;
+  /** Null for a client known only by a chat (P141 C1). */
+  email: string | null;
   name: string;
   source: string | null;
   updatedAt: string | null;
@@ -26,13 +27,13 @@ export interface ClientMap {
   reasons: MapReasons | null;
 }
 
-export interface ClientMapSaved { clientId: number; email: string; updatedAt: string; versions: number; unchanged: boolean }
+export interface ClientMapSaved { clientId: number; email: string | null; updatedAt: string; versions: number; unchanged: boolean }
 
 /** P136 Q7: one client's map history for the stuck list: the newest versions first. */
-export interface ClientMapHistory { clientId: number; email: string; name: string; versions: Array<{ source: string; at: string }> }
+export interface ClientMapHistory { clientId: number; email: string | null; name: string; versions: Array<{ source: string; at: string }> }
 
 /** P136 Q4: a client active lately whose map is missing or old (skill `review-maps`). */
-export interface MapDue { clientId: number; email: string; name: string; lastContactAt: string; mapUpdatedAt: string | null }
+export interface MapDue { clientId: number; email: string | null; name: string; lastContactAt: string; mapUpdatedAt: string | null }
 
 const countOf = (q: Pick<Db, "select">, project: string, clientId: number): number =>
   q.select({ n: sql<number>`count(*)` }).from(clientMaps).where(and(eq(clientMaps.project, project), eq(clientMaps.clientId, clientId))).get()?.n ?? 0;

@@ -123,7 +123,7 @@ export const REFUSALS: Readonly<Record<RefusalCode, Refusal>> = {
   empty_query: { retry: "now", next: "Search with the client's own words (letters, not only punctuation)." },
   brand_required: { retry: "now", next: "Pass brand = the brand message_show gave for this mail, or ANY for a mail with no brand." },
   unknown_brand: { retry: "now", next: "Use one of the brands the message lists (project_show names them too), or ANY." },
-  not_linked: { retry: "no", next: "Only chats the owner linked exist here; say so in one line." },
+  not_linked: { retry: "no", next: "Only chats the owner linked exist here, or, in a session he attends, a chat his own words name (pass them as owner_request); else say so in one line." },
   empty_text: { retry: "now", next: "Give the reply's text." },
   reply_off: { retry: "no", next: "The owner set this chat to never draft: write nothing and say so in one line." },
   no_inbound: { retry: "no", next: "No message from this person is stored yet: tell the owner in one line to Refresh the chat or check the receiver; his word that they wrote does not count. Write nothing." },

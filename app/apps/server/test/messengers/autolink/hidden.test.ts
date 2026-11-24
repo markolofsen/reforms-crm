@@ -121,7 +121,8 @@ describe("Hide and Unhide", () => {
   });
 
   it("refuses to hide a linked chat (its rules row unlinks it first) and a body that is not a chat", async () => {
-    await repos.messengers.allowChat("p", "telegram_user", "2001", "Fay");
+    await repos.messengers.knowChat("p", "telegram_user", "2001", { title: "Fay" });
+    await repos.messengers.addIdentifier("p", await repos.clients.create({ project: "p", email: "fay@example.test", name: "Fay" }), "telegram", "2001");
     expect((await post("hide", { channel: "telegram_user", chatId: "2001" })).status).toBe(409);
     expect((await post("hide", { channel: "telegram_bot", chatId: "2001" })).status).toBe(400);
     expect((await post("hide", { channel: "telegram_user", chatId: "abc" })).status).toBe(400);

@@ -338,7 +338,7 @@ export function sendsRepo(db: Db) {
       const c = db.select().from(clients).where(eq(clients.id, d.clientId)).get();
       if (!c) return null;
       const m = db.select({ mark: marks.mark }).from(marks).where(eq(marks.clientId, c.id)).all().map((r) => r.mark);
-      return { draft: d, client: { id: c.id, email: c.email, repliesOwed: c.repliesOwed, marks: m.filter((x): x is Mark => (MARKS as readonly string[]).includes(x)) } };
+      return { draft: d, client: { id: c.id, email: c.email ?? "", repliesOwed: c.repliesOwed, marks: m.filter((x): x is Mark => (MARKS as readonly string[]).includes(x)) } };
     },
 
     /**

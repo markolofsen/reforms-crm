@@ -60,7 +60,7 @@ export function loadSafety(tx: Tx, project: string, rows: DraftRow[], now: Date 
       evaluateSafety(
         {
           draft: d,
-          client: { email: c.email, repliesOwed: c.repliesOwed, marks: marksBy.get(c.id) ?? [] },
+          client: { email: c.email ?? "", repliesOwed: c.repliesOwed, marks: marksBy.get(c.id) ?? [] },
           lastClosedAt: closed.get(c.id) ?? null,
           now,
           findings: findingsOf(d),

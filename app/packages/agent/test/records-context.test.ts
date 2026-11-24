@@ -31,7 +31,7 @@ const card = async (email: string) => {
   const h = openDb(db);
   try {
     const r = createRepos(h.db);
-    const id = (await r.clients.idByEmail("acme", email))!;
+    const id = (await r.clients.findByIdentity("acme", "email", email))!;
     const d = (await r.drafts.ofClient("acme", id))[0]!;
     return { name: (await r.clients.get("acme", id))!.name, context: d.context, findings: JSON.parse(d.findings ?? "[]") as Array<{ code: string }>, batchKey: d.batchKey, checked: d.checked, id: d.id };
   } finally {

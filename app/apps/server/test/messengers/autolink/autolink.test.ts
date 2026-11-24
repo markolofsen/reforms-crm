@@ -127,12 +127,14 @@ describe("autolink on the connect scan", () => {
   it("P131 O5: a linked chat keeps its own phone from the link, and a chat linked before gets it on the next scan, never erased", async () => {
     await al.scan("telegram_user", "42");
     await al.idle();
-    expect(rows("select chat_id, username, phone from messenger_chats")).toEqual([{ chat_id: "1001", username: null, phone: "6281300001111" }]);
+    // Decision 0049: the first poll may also make the recent dialogs known (not linked); this reads the linked ones. Carl links without an email (C1).
+    expect(rows("select chat_id, username, phone from messenger_chats where chat_id in (select value from client_identifiers) order by chat_id")).toEqual([{ chat_id: "1001", username: null, phone: "6281300001111" }, { chat_id: "1003", username: null, phone: "6281300003333" }]);
     // A chat the owner linked before this column existed: the scan fills what it sees, and a null never erases a stored value.
-    await repos.messengers.allowChat("p", "telegram_user", "1002", "Bob B");
+    await repos.messengers.knowChat("p", "telegram_user", "1002", { title: "Bob B" });
+    await repos.messengers.addIdentifier("p", await repos.clients.create({ project: "p", email: "bob@example.test", name: "Bob" }), "telegram", "1002");
     await al.scan("telegram_user", "42");
     await al.idle();
-    expect(rows("select chat_id, phone from messenger_chats order by chat_id")).toEqual([{ chat_id: "1001", phone: "6281300001111" }, { chat_id: "1002", phone: "6281300002222" }]);
+    expect(rows("select chat_id, phone from messenger_chats where chat_id in ('1001', '1002') order by chat_id")).toEqual([{ chat_id: "1001", phone: "6281300001111" }, { chat_id: "1002", phone: "6281300002222" }]);
     expect(await repos.messengers.setChatIdentity("p", "telegram_user", "1002", { username: null, phone: null })).toBe(false);
     expect(await repos.messengers.setChatIdentity("p", "telegram_user", "1002", { username: "@Bob_B", phone: "" })).toBe(true);
     expect(rows("select username, phone from messenger_chats where chat_id = '1002'")).toEqual([{ username: "Bob_B", phone: "6281300002222" }]);
@@ -142,20 +144,21 @@ describe("autolink on the connect scan", () => {
   it("links the one dialog whose phone equals exactly one record: client row, identifier, chat, 30 days imported, one Activity line", async () => {
     await al.scan("telegram_user", "42");
     await al.idle();
-    expect(rows("select email, name from clients")).toEqual([{ email: "anna@example.test", name: "Anna" }]);
-    expect(rows("select kind, value from client_identifiers")).toEqual([{ kind: "telegram", value: "1001" }]);
-    expect(rows("select channel, chat_id, autolinked from messenger_chats")).toEqual([{ channel: "telegram_user", chat_id: "1001", autolinked: "phone matches the client" }]);
-    expect(rows("select text from messenger_messages")).toEqual([{ text: "hello from Anna" }]);
+    // P141 C1: Carl's record has no email and links all the same, keyed by its card.
+    expect(rows("select email, name, notion_page_id from clients order by name")).toEqual([{ email: "anna@example.test", name: "Anna", notion_page_id: "n-anna" }, { email: null, name: "Carl", notion_page_id: "n-noemail" }]);
+    expect(rows("select kind, value from client_identifiers order by value")).toEqual([{ kind: "telegram", value: "1001" }, { kind: "telegram", value: "1003" }]);
+    expect(rows("select channel, chat_id, autolinked from messenger_chats where chat_id in (select value from client_identifiers) order by chat_id")).toEqual([{ channel: "telegram_user", chat_id: "1001", autolinked: "phone matches the client" }, { channel: "telegram_user", chat_id: "1003", autolinked: "phone matches the client" }]);
+    expect(rows("select text from messenger_messages where chat_id = '1001'")).toEqual([{ text: "hello from Anna" }]);
     const act = await repos.runs.activity("p");
-    expect(act.rows).toHaveLength(1);
-    expect(act.rows[0]).toMatchObject({ outcome: "linked", who: "Anna", client: { name: "Anna" } });
-    expect(act.rows[0]!.why).toMatch(/Telegram chat, phone matches the client; 1 message of the last 30 days imported\. Next: say "triage messages for Anna"/);
-    // Bob's number belongs to two records, Carl's record has no email, Sam is Synthetic, "Anna" matches by name only, the group is never read.
+    expect(act.rows).toHaveLength(2);
+    const annaLine = act.rows.find((r) => r.client?.name === "Anna");
+    expect(annaLine).toMatchObject({ outcome: "linked", who: "Anna", client: { name: "Anna" } });
+    expect(annaLine!.why).toMatch(/Telegram chat, phone matches the client; 1 message of the last 30 days imported\. Next: say "triage messages for Anna"/);
+    // Bob's number belongs to two records, Sam is Synthetic, "Anna" matches by name only, the group is never read.
     const st = await al.state();
     expect(st.recent.map((r) => [r.chatId, r.why, r.candidates.length])).toEqual(
       expect.arrayContaining([
         ["1002", "ambiguous", 2],
-        ["1003", "no_email", 1],
         ["1004", "none", 0],
         ["1005", "none", 0],
       ]),
@@ -167,21 +170,21 @@ describe("autolink on the connect scan", () => {
     on = false;
     await al.scan("telegram_user", "42");
     await al.idle();
-    expect(rows("select count(*) n from messenger_chats")).toEqual([{ n: 0 }]);
+    expect(rows("select count(*) n from client_identifiers")).toEqual([{ n: 0 }]);
     expect(rows("select count(*) n from clients")).toEqual([{ n: 0 }]);
     expect((await al.state()).recent.find((r) => r.chatId === "1001")).toMatchObject({ why: "off", candidates: [{ key: "n-anna" }] });
   });
 
   it("the preview counts only and writes nothing", async () => {
-    const before = rows("select (select count(*) from clients) c, (select count(*) from messenger_chats) m, (select count(*) from agent_events) e");
+    const before = rows("select (select count(*) from clients) c, (select count(*) from client_identifiers) m, (select count(*) from agent_events) e");
     const p = await al.preview();
-    expect(p).toEqual([{ channel: "telegram_user", account: "42", dialogs: 5, linked: 0, unique: 1, ambiguous: 1, noEmail: 1, byRelationship: { Lead: 1 } }]);
-    expect(rows("select (select count(*) from clients) c, (select count(*) from messenger_chats) m, (select count(*) from agent_events) e")).toEqual(before);
+    expect(p).toEqual([{ channel: "telegram_user", account: "42", dialogs: 5, linked: 0, unique: 2, ambiguous: 1, byRelationship: { Lead: 1, none: 1 } }]);
+    expect(rows("select (select count(*) from clients) c, (select count(*) from client_identifiers) m, (select count(*) from agent_events) e")).toEqual(before);
   });
 });
 
 describe("autolink on a new inbound message", () => {
-  it("an unlinked chat's message leaves no row, and only its identity reaches the matcher", async () => {
+  it("an unlinked chat's message is only the 30-day cache of a known, unlinked chat, and only its identity reaches the matcher (decision 0049)", async () => {
     const seen: unknown[] = [];
     const orig = al.seen;
     al = { ...al, seen: (...a) => (seen.push(a[2]), orig(...a)) };
@@ -189,14 +192,15 @@ describe("autolink on a new inbound message", () => {
     await al.idle();
     expect(seen).toEqual([{ chatId: "1004", title: "Sam", phone: "+6281300004444", username: null }]);
     expect(JSON.stringify(seen)).not.toMatch(/private text/);
-    expect(rows("select count(*) n from messenger_messages")).toEqual([{ n: 0 }]);
+    await vi.waitFor(() => expect(rows("select count(*) n from messenger_messages where chat_id = '1004'")).toEqual([{ n: 1 }]));
+    expect(await repos.messengers.isLinked("p", "telegram_user", "1004")).toBe(false);
     expect((await al.state()).unlinkedActive).toBe(1);
   });
 
   it("links a matching chat that writes, then stores its next message", async () => {
     fake.emit(anna, "first message");
     await al.idle();
-    expect(rows("select chat_id from messenger_chats")).toEqual([{ chat_id: "1001" }]);
+    expect(rows("select chat_id from messenger_chats where chat_id in (select value from client_identifiers)")).toEqual([{ chat_id: "1001" }]);
     fake.emit(anna, "second message");
     await vi.waitFor(() => expect(rows("select text from messenger_messages where text = 'second message'")).toHaveLength(1));
   });
@@ -220,14 +224,15 @@ describe("Unlink and Never link", () => {
   it("Never link unlinks, keeps only a keyed hash, and holds after a restart", async () => {
     await al.scan("telegram_user", "42");
     await al.idle();
-    const chat = rows("select id from messenger_chats")[0] as { id: number };
+    const chat = rows("select id from messenger_chats where chat_id = '1001'")[0] as { id: number };
     const linker: ProjectAutolink = { project: null, autolink: al, directory, stop: () => undefined };
     const app = testApp(repos, { telegramUser: tg ?? undefined, autolink: linker, adminPort: ADMIN });
     expect((await post(app, `/api/projects/p/messengers/chats/${chat.id}/never`, {}, { "content-type": "application/json" })).status).toBe(403);
     expect((await post(app, `/api/projects/p/messengers/chats/${chat.id}/never`)).status).toBe(200);
-    expect(rows("select count(*) n from messenger_chats")).toEqual([{ n: 0 }]);
-    expect(rows("select count(*) n from messenger_messages")).toEqual([{ n: 0 }]);
-    expect(rows("select count(*) n from client_identifiers")).toEqual([{ n: 0 }]);
+    // Never link forgets the chat (decision 0049): its row, its messages and its identifier.
+    expect(rows("select count(*) n from messenger_chats where chat_id = '1001'")).toEqual([{ n: 0 }]);
+    expect(rows("select count(*) n from messenger_messages where chat_id = '1001'")).toEqual([{ n: 0 }]);
+    expect(rows("select count(*) n from client_identifiers where value = '1001'")).toEqual([{ n: 0 }]);
     const refusals = rows("select channel, hash from messenger_link_refusals") as { channel: string; hash: string }[];
     expect(refusals).toHaveLength(1);
     expect(refusals[0]!.hash).toMatch(/^[0-9a-f]{64}$/);
@@ -237,13 +242,13 @@ describe("Unlink and Never link", () => {
     al = makeAutolink();
     await al.scan("telegram_user", "42");
     await al.idle();
-    expect(rows("select count(*) n from messenger_chats")).toEqual([{ n: 0 }]);
+    expect(rows("select count(*) n from client_identifiers where value = '1001'")).toEqual([{ n: 0 }]);
   });
 
-  it("Unlink removes the chat and its messages; the state and preview routes need the admin gate", async () => {
+  it("Unlink removes the link only (the chat stays known with its copy); the state and preview routes need the admin gate", async () => {
     await al.scan("telegram_user", "42");
     await al.idle();
-    const chat = rows("select id from messenger_chats")[0] as { id: number };
+    const chat = rows("select id from messenger_chats where chat_id = '1001'")[0] as { id: number };
     const app = testApp(repos, { telegramUser: tg ?? undefined, autolink: { project: null, autolink: al, directory, stop: () => undefined }, adminPort: ADMIN });
     for (const path of ["/api/projects/p/messengers/autolink/state", "/api/projects/p/messengers/autolink/preview"]) {
       expect((await post(app, path, {}, { "content-type": "application/json" })).status).toBe(403);
@@ -252,7 +257,9 @@ describe("Unlink and Never link", () => {
     const preview = await (await post(app, "/api/projects/p/messengers/autolink/preview")).json();
     expect(JSON.stringify(preview)).not.toMatch(/Anna|1001|6281/);
     expect((await post(app, `/api/projects/p/messengers/chats/${chat.id}/unlink`)).status).toBe(200);
-    expect(rows("select count(*) n from messenger_messages")).toEqual([{ n: 0 }]);
+    expect(rows("select count(*) n from messenger_messages where chat_id = '1001'")).toEqual([{ n: 1 }]);
+    expect(await repos.messengers.isKnown("p", "telegram_user", "1001")).toBe(true);
+    expect(await repos.messengers.isLinked("p", "telegram_user", "1001")).toBe(false);
     expect(rows("select count(*) n from messenger_link_refusals")).toEqual([{ n: 0 }]);
   });
 

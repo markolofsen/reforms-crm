@@ -24,12 +24,12 @@ function fixture(o: { dropColumn?: string; noMetadata?: boolean } = {}): string 
   const path = join(mkdtempSync(join(tmpdir(), "hub-wa-app-")), "ChatStorage.sqlite");
   const db = new DatabaseSync(path);
   if (!o.noMetadata) db.exec("CREATE TABLE Z_METADATA (Z_VERSION INTEGER PRIMARY KEY, Z_UUID VARCHAR(255), Z_PLIST BLOB); INSERT INTO Z_METADATA VALUES (1, 'uuid', NULL);");
-  const session = ["Z_PK INTEGER PRIMARY KEY", "ZSESSIONTYPE INTEGER", "ZCONTACTJID VARCHAR", "ZCONTACTIDENTIFIER VARCHAR", "ZPARTNERNAME VARCHAR"].filter((c) => !c.startsWith(`${o.dropColumn} `));
+  const session = ["Z_PK INTEGER PRIMARY KEY", "ZSESSIONTYPE INTEGER", "ZCONTACTJID VARCHAR", "ZCONTACTIDENTIFIER VARCHAR", "ZPARTNERNAME VARCHAR", "ZLASTMESSAGEDATE TIMESTAMP"].filter((c) => !c.startsWith(`${o.dropColumn} `));
   const message = ["Z_PK INTEGER PRIMARY KEY", "ZCHATSESSION INTEGER", "ZISFROMME INTEGER", "ZMESSAGETYPE INTEGER", "ZMESSAGEDATE TIMESTAMP", "ZTEXT VARCHAR", "ZSTANZAID VARCHAR", "ZPUSHNAME VARCHAR"].filter((c) => !c.startsWith(`${o.dropColumn} `));
   db.exec(`CREATE TABLE ZWACHATSESSION (${session.join(", ")}); CREATE TABLE ZWAMESSAGE (${message.join(", ")});`);
   if (!o.dropColumn) {
     // 1: the LID chat filed under its @lid, its phone in ZCONTACTIDENTIFIER; 2: a phone chat; 3: a group (never read).
-    db.exec(`INSERT INTO ZWACHATSESSION VALUES (1, 0, '${LID}', '966500000001@s.whatsapp.net', 'Example'), (2, 0, '491510000002@s.whatsapp.net', '999@lid', 'Anna'), (3, 1, '1203630@g.us', NULL, 'Group');`);
+    db.exec(`INSERT INTO ZWACHATSESSION VALUES (1, 0, '${LID}', '966500000001@s.whatsapp.net', 'Example', ${cd("2026-11-24T13:04:00.000Z")}), (2, 0, '491510000002@s.whatsapp.net', '999@lid', 'Anna', ${cd("2026-11-24T09:00:00.000Z")}), (3, 1, '1203630@g.us', NULL, 'Group', ${cd("2026-11-24T09:00:00.000Z")}), (4, 0, '222@lid', NULL, NULL, ${cd("2026-09-01T10:00:00.000Z")});`);
     const ins = db.prepare("INSERT INTO ZWAMESSAGE (ZCHATSESSION, ZISFROMME, ZMESSAGETYPE, ZMESSAGEDATE, ZTEXT, ZSTANZAID) VALUES (?, ?, ?, ?, ?, ?)");
     ins.run(1, 0, 0, cd("2026-11-24T11:50:40.000Z"), "first, before the Hub ran", "3EB0APP00001");
     ins.run(1, 1, 0, cd("2026-11-24T12:10:00.000Z"), "our answer from the phone", "3EB0APP00002");
@@ -102,7 +102,7 @@ describe("wa-app-reader: through the one ingest", () => {
   afterEach(() => env.close());
 
   it("a row Baileys already cached is not stored twice, and only the rows the app alone supplied say so", async () => {
-    await env.repos.messengers.allowChat("p", "whatsapp", PHONE, PHONE);
+    await env.repos.messengers.knowChat("p", "whatsapp", PHONE, { title: PHONE });
     const now = new Date("2026-11-24T14:00:00.000Z");
     await ingest({ project: "p", repos: env.repos, now: () => now, retentionDays: 30 }, [{ channel: "whatsapp", account: ACCOUNT, chatId: PHONE, remoteMessageId: "3EB0APP00003", kind: "text", text: "a link: https://example.com", sentAt: "2026-11-24T13:01:16.000Z", direction: "in" }]);
     const rows = openWaAppReader({ path: fixture() }).read({ chatId: PHONE, jid: null }, SINCE, ACCOUNT);
@@ -118,5 +118,16 @@ describe("wa-app-reader: through the one ingest", () => {
     expect(stored.every((m) => m.retainUntil === "2026-12-24T14:00:00.000Z")).toBe(true);
     // The person wrote: the chat row says so, beyond the cache.
     expect((await env.repos.messengers.chat("p", "whatsapp", PHONE))?.lastInboundAt).toBe("2026-11-24T13:02:00.000Z");
+  });
+});
+
+describe("wa-app-reader: the recent private chats seed the known ones (P141 U2)", () => {
+  it("lists private chats with a message since the time, newest first, by phone when either address names it, never a group", () => {
+    const r = openWaAppReader({ path: fixture() });
+    expect(r.recent(new Date("2026-11-10T00:00:00.000Z"), 50)).toEqual([
+      { chatId: PHONE, jid: LID, name: "Example" },
+      { chatId: OTHER, jid: "491510000002@s.whatsapp.net", name: "Anna" },
+    ]);
+    expect(r.recent(new Date("2026-08-01T00:00:00.000Z"), 50).map((x) => x.chatId)).toEqual([PHONE, OTHER, "lid:222"]);
   });
 });

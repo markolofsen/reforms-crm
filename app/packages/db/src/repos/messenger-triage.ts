@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { HIDDEN_LABELS, isHiddenLabel, type HiddenLabel, type TriageVerdict } from "@hub/config/chat-rules";
 import type { Db } from "../client";
 import { messengerChats, messengerMessages, messengerTriage, type MessengerChannel } from "../schema";
+import { linkedSql } from "./messenger-chats";
 import { write } from "../tx";
 
 export type MessengerMessageOf = typeof messengerMessages.$inferSelect;
@@ -22,7 +23,7 @@ const zeroHidden = (): Record<HiddenLabel, number> => Object.fromEntries(HIDDEN_
 
 /**
  * The pre-analysis' rows (P71 M-P, decision 0039). A verdict exists only for an inbound text message of a linked chat whose
- * `prefilter` is on; it is deleted with its message (the FK cascades, so the purge and `unlinkChat` take it along). Every query
+ * `prefilter` is on; it is deleted with its message (the FK cascades, so the purge and `forgetChat` take it along); decision 0049 point 10: an unlinked known chat is never judged. Every query
  * names the project.
  */
 export function messengerTriageRepo(db: Db) {
@@ -38,7 +39,7 @@ export function messengerTriageRepo(db: Db) {
         .from(m)
         .innerJoin(messengerChats, and(eq(messengerChats.project, m.project), eq(messengerChats.channel, m.channel), eq(messengerChats.chatId, m.chatId)))
         .leftJoin(messengerTriage, eq(messengerTriage.messageId, m.id))
-        .where(and(eq(m.project, project), eq(messengerChats.prefilter, true), eq(m.direction, "in"), eq(m.kind, "text"), sql`trim(${m.text}) <> ''`, gte(m.sentAt, o.since), isNull(messengerTriage.id)))
+        .where(and(eq(m.project, project), eq(messengerChats.prefilter, true), linkedSql, eq(m.direction, "in"), eq(m.kind, "text"), sql`trim(${m.text}) <> ''`, gte(m.sentAt, o.since), isNull(messengerTriage.id)))
         .orderBy(m.sentAt, m.id)
         .limit(o.limit)
         .all()

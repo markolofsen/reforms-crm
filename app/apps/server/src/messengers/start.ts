@@ -59,6 +59,7 @@ export async function start({ repos, autopilotFiles, waAppReader }: { repos: Rep
     repos,
     onStored,
     onUnlinked: (account, d, inbound) => linker.autolink.seen("telegram_user", account, d, inbound),
+    hidden: (chatId) => linker.autolink.hidden("telegram_user", chatId),
     onConnected: (account) => void linker.autolink.scan("telegram_user", account).catch((e: unknown) => ops("autolink").warn("the scan of a connected Telegram account failed", { account, ...errFields(e) })),
   });
   handles.tg = telegramUser;

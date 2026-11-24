@@ -119,7 +119,7 @@ export const autolinkRecordDto = z.strictObject({ key: z.string(), name: z.strin
 export type AutolinkRecordDto = z.infer<typeof autolinkRecordDto>;
 
 /** Why an unlinked dialog was not linked by itself. */
-export const AUTOLINK_WHY = ["none", "ambiguous", "no_email", "off", "failed"] as const;
+export const AUTOLINK_WHY = ["none", "ambiguous", "off", "failed"] as const;
 
 /** An unlinked private dialog the Hub saw since the server started, in memory only (its name and the records it matched; never a text). */
 export const recentDialogDto = z.strictObject({
@@ -192,7 +192,6 @@ export const autolinkPreviewDto = z.strictObject({
       linked: z.number().int(),
       unique: z.number().int(),
       ambiguous: z.number().int(),
-      noEmail: z.number().int(),
       byRelationship: z.record(z.string(), z.number().int()),
     }),
   ),
@@ -210,14 +209,14 @@ export const autolinkRecordsDto = z.strictObject({
   live: z.boolean(),
   liveError: z.string().nullable(),
 });
-/** P100: Create a client in Notion from an unlinked chat (Name, Email, its Telegram username or WhatsApp number), then link the chat. */
+/** P100: Create a client in Notion from an unlinked chat (Name, its Telegram username or WhatsApp number, and an Email when known; P141 C3), then link the chat. */
 export const autolinkCreateBody = z.strictObject({
   channel: userChannel,
   account: z.string().regex(/^\d{1,20}$/),
   chatId: userChatId,
   title: z.string().trim().max(200).optional(),
   name: z.string().trim().min(1).max(200),
-  email: z.email().max(254),
+  email: z.email().max(254).optional(),
 });
 /** P100: a link from the Chats screen: the import's count and what the Hub did to the client's Notion field (null: nothing to say). */
 export const autolinkLinkedDto = z.strictObject({
@@ -254,6 +253,10 @@ export type ChatMovedDto = z.infer<typeof chatMovedDto>;
 /** P102: the Undo of a move: the chat goes back to the client row it left and the draft that was set aside waits again. */
 export const chatMoveUndoBody = z.strictObject({ clientId: z.number().int().positive(), draftId: z.number().int().positive().nullable() });
 export const chatMoveUndoneDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), draftRestored: z.boolean() });
+/** P141 C4: "Add email…" on a linked chat's client known only by the chat: the address becomes its Email, or merges it into the client that has it. */
+export const chatEmailBody = z.strictObject({ email: z.email().max(254) });
+export const chatEmailDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), clientId: z.number().int(), merged: z.boolean() });
+export type ChatEmailDto = z.infer<typeof chatEmailDto>;
 /** Unlink and Never link answer which chat went and how many of its stored messages. */
 export const chatUnlinkedDto = z.strictObject({ ok: z.literal(true), id: z.number().int(), never: z.boolean() });
 

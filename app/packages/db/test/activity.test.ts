@@ -117,7 +117,7 @@ describe("one timeline", () => {
 
   it("labels a manually confirmed Messenger send as By hand", async () => {
     const clientId = await repos.clients.create({ project: "p", email: "anna@x.example", name: "Anna" });
-    await repos.messengers.allowChat("p", "telegram_user", "1001", "Anna");
+    await repos.messengers.knowChat("p", "telegram_user", "1001", { title: "Anna" });
     await repos.messengers.addIdentifier("p", clientId, "telegram", "1001");
     const draft = await repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId: "1001", text: "Hi", createdBy: "hub_llm", clientId });
     await repos.messengers.confirmDraft("p", draft.id, "admin", "2026-11-20T12:00:00.000Z");
@@ -130,7 +130,7 @@ describe("one timeline", () => {
 
   it("P128 X0 (F30): a messenger draft's row opens its chat: chatId is the chat row, draftId is not read as a Mail draft", async () => {
     const clientId = await repos.clients.create({ project: "p", email: "anna@x.example", name: "Anna" });
-    await repos.messengers.allowChat("p", "telegram_user", "1001", "Anna");
+    await repos.messengers.knowChat("p", "telegram_user", "1001", { title: "Anna" });
     const draft = await repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId: "1001", text: "Hi", createdBy: "hub_llm", clientId });
     const t = "2026-11-21T09:00:00.000Z";
     const runId = await repos.runs.start({ project: "p", startedAt: t, finishedAt: t, trigger: "owner", skill: "messenger-reply", status: "ok" });

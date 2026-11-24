@@ -34,7 +34,7 @@ export const CORE_DATA_EPOCH_S = 978_307_200;
 
 /** The columns this reader reads; the probe refuses a database that lacks one. */
 export const WA_APP_COLUMNS = {
-  ZWACHATSESSION: ["Z_PK", "ZSESSIONTYPE", "ZCONTACTJID", "ZCONTACTIDENTIFIER"],
+  ZWACHATSESSION: ["Z_PK", "ZSESSIONTYPE", "ZCONTACTJID", "ZCONTACTIDENTIFIER", "ZPARTNERNAME", "ZLASTMESSAGEDATE"],
   ZWAMESSAGE: ["Z_PK", "ZCHATSESSION", "ZISFROMME", "ZMESSAGETYPE", "ZMESSAGEDATE", "ZTEXT", "ZSTANZAID"],
 } as const;
 
@@ -56,8 +56,17 @@ export type WaAppState =
       fix: string | null;
     };
 
+/** A private chat the app holds, for the seed of the known chats (P141 U2): its chat id, its real address and the name the app shows. */
+export interface WaAppSession {
+  chatId: string;
+  jid: string;
+  name: string | null;
+}
+
 export interface WaAppReader {
   state(): WaAppState;
+  /** The private chats with a message since `since`, newest first, at most `limit` (never a text); none when off. */
+  recent(since: Date, limit: number): WaAppSession[];
   /** One chat's messages since `since`, oldest first, as ingest takes them (`source: "wa_app"`); none when off or not found. */
   read(chat: WaAddress, since: Date, account: string): InboundMessage[];
 }
@@ -117,6 +126,30 @@ export function openWaAppReader(o: { path?: string; execPath?: string } = {}): W
 
   return {
     state: () => state,
+    recent(since, limit) {
+      if (state.state !== "on") return [];
+      const db = open();
+      try {
+        const sinceCd = since.getTime() / 1000 - CORE_DATA_EPOCH_S;
+        const rows = db
+          .prepare(`select ZCONTACTJID as jid, ZCONTACTIDENTIFIER as other, ZPARTNERNAME as name from ZWACHATSESSION where ZSESSIONTYPE = 0 and ZLASTMESSAGEDATE >= ? order by ZLASTMESSAGEDATE desc limit ${Math.max(1, Math.min(500, Math.floor(limit)))}`)
+          .all(sinceCd) as Row[];
+        const out: WaAppSession[] = [];
+        for (const r of rows) {
+          const jid = typeof r.jid === "string" ? r.jid : "";
+          const other = typeof r.other === "string" ? r.other : "";
+          // The chat id is the phone when either address names it, else the LID (P141 verdict 5: never a guessed number).
+          const phone = /^(\d{7,15})@s\.whatsapp\.net$/.exec(jid)?.[1] ?? /^(\d{7,15})@s\.whatsapp\.net$/.exec(other)?.[1] ?? null;
+          const lid = /^(\d{1,20})@lid$/.exec(jid)?.[1] ?? null;
+          const chatId = phone ? `+${phone}` : lid ? `lid:${lid}` : null;
+          if (!chatId) continue;
+          out.push({ chatId, jid, name: typeof r.name === "string" && r.name.trim() ? r.name.trim() : null });
+        }
+        return out;
+      } finally {
+        db.close();
+      }
+    },
     read(chat, since, account) {
       if (state.state !== "on") return [];
       const addresses = addressesOf(chat);

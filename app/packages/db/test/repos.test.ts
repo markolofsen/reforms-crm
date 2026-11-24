@@ -466,8 +466,11 @@ describe("the Hub's client name follows a better Notion title (P140 P1b)", () =>
   it("a phone-number name gives way to the card's real name; a real name is kept against a worse one", async () => {
     const a = await repos.clients.create({ project: "p", email: "info@qemah.com", name: "+966544555430" });
     const b = await repos.clients.create({ project: "p", email: "b@x.example", name: "Bea" });
-    expect(await repos.clients.adoptCardNames("p", [{ email: "info@qemah.com", name: "Ahmed, Qimma Auctions" }, { email: "b@x.example", name: "+15550100" }, { email: null, name: "Nobody" }])).toBe(1);
+    expect(await repos.clients.adoptCards("p", [{ key: "pg-a", email: "info@qemah.com", name: "Ahmed, Qimma Auctions" }, { key: "pg-b", email: "b@x.example", name: "+15550100" }, { key: "pg-n", email: null, name: "Nobody" }])).toBe(2);
     expect((await repos.clients.get("p", a))?.name).toBe("Ahmed, Qimma Auctions");
     expect((await repos.clients.get("p", b))?.name).toBe("Bea");
+    // P141 C1: the card's page id is backfilled by the address, and a later read matches by the page.
+    expect(await repos.clients.findByNotionPage("p", "pg-b")).toBe(b);
+    expect(await repos.clients.adoptCards("p", [{ key: "pg-a", email: null, name: "Ahmed" }])).toBe(0);
   });
 });

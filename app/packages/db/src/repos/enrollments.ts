@@ -124,7 +124,7 @@ export function enrollmentsRepo(db: Db) {
   const items = (rows: EnrollmentRow[], now: Date): EnrollmentItem[] => {
     if (rows.length === 0) return [];
     const ids = [...new Set(rows.map((r) => r.clientId))];
-    const cs = new Map(db.select({ id: clients.id, name: clients.name, email: clients.email }).from(clients).where(inArray(clients.id, ids)).all().map((c) => [c.id, c]));
+    const cs = new Map(db.select({ id: clients.id, name: clients.name, email: clients.email }).from(clients).where(inArray(clients.id, ids)).all().map((c) => [c.id, { ...c, email: c.email ?? "" }]));
     const open = new Map(db.select({ clientId: drafts.clientId, id: drafts.id }).from(drafts).where(and(inArray(drafts.clientId, ids), inArray(drafts.status, ["ready", "hold"]))).all().map((d) => [d.clientId, d.id]));
     return rows.flatMap((r) => {
       const c = cs.get(r.clientId);
@@ -254,6 +254,7 @@ export function enrollmentsRepo(db: Db) {
         if (Date.parse(addDays(last.at, o.afterDays, o.businessDays)) > now.getTime()) continue;
         const cov = covered.get(c.id);
         if (cov && Date.parse(cov) >= Date.parse(last.at)) continue;
+        if (!c.email) continue;
         out.push({ client: { id: c.id, name: c.name, email: c.email }, last, lastInboundAt: c.lastContactAt });
       }
       return out.sort((a, b) => a.last.at.localeCompare(b.last.at));

@@ -18,7 +18,7 @@ beforeEach(async () => {
   h = openDb(path.join(dir, "app.db"));
   w = createRepos(h.db);
   ann = await w.clients.create({ project: "acme", email: "ann@example.com", name: "Ann" });
-  await w.messengers.allowChat("acme", "telegram_user", "42", "Ann");
+  await w.messengers.knowChat("acme", "telegram_user", "42", { title: "Ann" });
 });
 afterEach(() => {
   h.close();

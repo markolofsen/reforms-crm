@@ -5,9 +5,10 @@ import type { Command } from "commander";
 import { userInfo } from "node:os";
 import { createRepos, openDb, type IdentifierKind, type MessengerChannel } from "@hub/db";
 import { MessengersError, pollCommand, purgeNow, readBotToken, statusLines, telegramAdapterFromToken } from "@hub/messengers";
-import { allowChat, disallowChat, humanActor, linkIdentifier, unlinkIdentifier, type HumanActor } from "@hub/messengers/human";
+import { forgetChat, humanActor, knowChat, linkIdentifier, unlinkIdentifier, type HumanActor } from "@hub/messengers/human";
+import { betterValue } from "@hub/config/profile";
 
-const KINDS = ["email", "telegram", "phone", "whatsapp"] as const;
+const KINDS = ["email", "telegram", "telegram_username", "phone", "whatsapp"] as const;
 const CHANNELS = ["telegram_bot", "telegram_user", "whatsapp"] as const;
 
 function person(): HumanActor {
@@ -63,26 +64,50 @@ export function registerMessengersCommands(parent: Command): Command {
     );
 
   program
-    .command("allow <channel> <chatId>")
-    .description("list a chat for inbound without linking it to a client (poll shows the ids of unlisted chats)")
+    .command("know <channel> <chatId>")
+    .description("make a chat known without linking it to a client (poll shows the ids of unknown chats)")
     .option("--title <text>")
     .action((channel: string, chatId: string, o: { title?: string }) =>
       withRepos(async (repos, project) => {
-        const id = await allowChat(repos, person(), { project, channel: channel as MessengerChannel, chatId, ...(o.title ? { title: o.title } : {}) });
-        console.log(`listed ${channel} chat ${id}`);
+        const id = await knowChat(repos, person(), { project, channel: channel as MessengerChannel, chatId, ...(o.title ? { title: o.title } : {}) });
+        console.log(`known ${channel} chat ${id}`);
       }),
     );
 
   program
-    .command("disallow <channel> <chatId>")
-    .description("take a chat off the allow-list")
+    .command("forget <channel> <chatId>")
+    .description("forget a chat: its row, cached messages and drafts")
     .action((channel: string, chatId: string) =>
       withRepos(async (repos, project) => {
-        console.log((await disallowChat(repos, person(), { project, channel: channel as MessengerChannel, chatId })) ? "removed" : "was not listed");
+        console.log((await forgetChat(repos, person(), { project, channel: channel as MessengerChannel, chatId })) ? "forgotten" : "was not known");
       }),
     );
 
-  program.command("status").description("polling health, allow-list, counts, drafts").action(() =>
+  // P141 C5: a client the Hub named by a number or a chat id ("+966…", "lid:…") takes the person's own name from its linked chat
+  // (the Telegram display name, the WhatsApp profile name, the chat title) when that is a real name. A dry run unless --apply.
+  program
+    .command("heal-names")
+    .description("rename clients named by a number to the real name their linked chat shows (dry run unless --apply)")
+    .option("--apply", "write the renames")
+    .action((o: { apply?: boolean }) =>
+      withRepos(async (repos, project) => {
+        const actor = o.apply ? person() : null;
+        let n = 0;
+        for (const chat of (await repos.messengers.knownChats(project)).filter((r) => r.linked)) {
+          const id = await repos.messengers.clientByIdentifier(project, chat.channel === "whatsapp" ? "whatsapp" : "telegram", chat.chatId);
+          const client = id === null ? null : await repos.clients.get(project, id);
+          if (!client) continue;
+          const next = [chat.profileName, chat.title].map((x) => betterValue("title", client.name, x)).find((x) => x !== null);
+          if (!next) continue;
+          n++;
+          if (actor) await repos.clients.renameIfBetter(project, client.id, next);
+          console.log(`${actor ? "renamed" : "would rename"} client ${client.id} "${client.name}" -> "${next}" (chat:${chat.id})`);
+        }
+        console.log(n ? (actor ? `${n} renamed` : `${n} to rename; run again with --apply`) : "nothing to rename");
+      }),
+    );
+
+  program.command("status").description("polling health, known chats, counts, drafts").action(() =>
     withRepos(async (repos, project) => {
       for (const l of await statusLines(repos, project)) console.log(l);
     }),

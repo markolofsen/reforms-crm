@@ -10,7 +10,8 @@ import { z } from "zod";
 export const clientMapDto = z.object({
   clientId: z.number().int().positive(),
   name: z.string(),
-  email: z.string(),
+  /** Null for a client known only by a chat (P141 C1). */
+  email: z.string().nullable(),
   source: z.string().nullable(),
   updatedAt: z.string().nullable(),
   previous: z.object({ source: z.string(), at: z.string() }).nullable(),
@@ -26,7 +27,7 @@ export type ClientMapDto = z.infer<typeof clientMapDto>;
  * unbroken run). Most stuck first: blocked, then the longest wait.
  */
 export const stuckNodeDto = z.object({ id: z.string(), label: z.string(), state: z.enum(["blocked", "waiting"]), since: z.string() });
-export const stuckClientDto = z.object({ clientId: z.number().int().positive(), name: z.string(), email: z.string(), nodes: z.array(stuckNodeDto).min(1) });
+export const stuckClientDto = z.object({ clientId: z.number().int().positive(), name: z.string(), email: z.string().nullable(), nodes: z.array(stuckNodeDto).min(1) });
 export const stuckClientsDto = z.object({ project: z.string(), waitingDays: z.number().int().positive(), clients: z.array(stuckClientDto) });
 export type StuckClientsDto = z.infer<typeof stuckClientsDto>;
 export type StuckClientDto = z.infer<typeof stuckClientDto>;

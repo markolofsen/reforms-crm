@@ -9,24 +9,27 @@ import { preanalysisStanding } from "./preanalysis";
 import { prepareMessengerReply } from "./reply";
 import { createMessengerIdentityResolver } from "./identity";
 import type { MessengersContext } from "./context";
-import { draftOf, projectedChatOf, projectedChatRow, waits, waitsForThem } from "./chat-view";
+import { draftOf, projectedChatOf, projectedChatRow, waits, waitsForThem, type ChatSuggestions } from "./chat-view";
 
 /** Waiting first (a draft, then a reply owed), then by the newest message, newest first. */
 const order = (a: MessengerChatDto, b: MessengerChatDto): number =>
   Number(b.draft !== null) - Number(a.draft !== null) || Number(b.owed) - Number(a.owed) || (b.last?.at ?? "").localeCompare(a.last?.at ?? "") || a.id - b.id;
 
 /**
- * The Messengers section (P71 M3, decision 0036 point 6). Reads: the linked chats of a project with what is owed and the agent's
- * open draft (`GET .../messengers/chats?filter=needs_you|waiting|all&link=any|linked|unlinked|hidden&channel=all|telegram|whatsapp`; P84c, P102, P123 U3b: `unlinked` and `hidden` list no linked
- * chat, since such a chat is not linked: the admin reads them from the autolink's memory). Writes, each behind the admin gate (the exact admin Origin,
+ * The Messengers section (P71 M3, decision 0036 point 6, 0049). Reads: the known chats of a project (P141 U2: every chat that wrote,
+ * linked or not) with what is owed and the agent's open draft (`GET .../messengers/chats?filter=needs_you|waiting|all&link=any|linked|unlinked|hidden&channel=all|telegram|whatsapp`;
+ * `hidden` lists nothing here: a hidden chat has no row, the admin reads the autolink's memory), and one chat's conversation, which
+ * reads through to the messenger first (WhatsApp from the Mac's app, Telegram from the account). Writes, each behind the admin gate (the exact admin Origin,
  * a loopback Host, `Sec-Fetch-Site: same-origin`), since a chat's instruction steers the agent and a draft's text is what Send
  * will carry: the owner's Edit of a draft that still waits, Skip and its Undo, and one chat's rules (`setChatRules`). Nothing
  * here sends: Send is the door of P71 M4. The owner may also create an unsent manual draft without an inbound message. P71 M-P: each chat carries its pre-analysis counts by reason, the reply says whether a
  * pass can run (`preanalysis`), and turning a chat's switch on starts one pass.
  */
-export function messengerRoutes({ repos, adminPort, preanalysis, reply, directory, wa }: MessengersContext) {
+export function messengerRoutes({ repos, adminPort, preanalysis, reply, directory, wa, tg, autolink }: MessengersContext) {
   const standing = () => preanalysis?.standing() ?? preanalysisStanding();
   const identity = createMessengerIdentityResolver(directory);
+  // P141 U3: the autolink's suggestions for a chat that is not linked (memory only; a bot chat has none).
+  const suggest: ChatSuggestions = (channel, chatId) => (autolink && channel !== "telegram_bot" ? autolink.autolink.suggestionsOf(channel, chatId) : []);
   const gated = async <T>(c: Context, schema: ZodType<T>, then: (body: T, slug: string) => Promise<Response>): Promise<Response> => {
     const why = gateRefusal({ origin: c.req.header("origin"), host: c.req.header("host") ?? new URL(c.req.url).host, secFetchSite: c.req.header("sec-fetch-site") }, adminPort, { sameSite: true });
     if (why) return c.json({ error: `Refused: ${why}.`, code: "forbidden" as const }, 403);
@@ -48,16 +51,20 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
       const slug = c.req.param("slug");
       if ((await repos.projects.get(slug)) === null) return notFound(c, "project");
       const { channel, filter: view, link, q } = c.req.valid("query");
-      const rows = (await repos.messengers.list(slug)).filter((projection) => inChannel(projection.row.channel, channel)).map((projection) => projectedChatRow(projection, identity, slug));
-      const all = rows.sort(order);
+      const rows = (await repos.messengers.list(slug)).filter((projection) => inChannel(projection.row.channel, channel)).map((projection) => projectedChatRow(projection, identity, slug, suggest));
+      // Decision 0049 (P141 U2): every known chat is stored; the link filter splits them by a client identifier. The views' counts
+      // stay over the linked chats (what needs the owner and what waits for the client); the unlinked ones are counted beside them.
+      const sorted = rows.sort(order);
+      const all = sorted.filter((r) => r.client !== null);
+      const unlinked = sorted.filter((r) => r.client === null);
       const search = q.toLocaleLowerCase();
+      const pool = link === "linked" ? all : link === "unlinked" ? unlinked : link === "hidden" ? [] : sorted;
       const matching = search
-        ? all.filter((r) => [r.title, r.chatId, r.client?.name, r.client?.email, r.last?.text].some((value) => value?.toLocaleLowerCase().includes(search)))
-        : all;
-      // Only linked chats are stored here: the unlinked and hidden ones are the autolink's memory, read by the admin.
-      const linkedShown = link === "any" || link === "linked";
-      const shown = !linkedShown ? [] : view === "all" ? matching : matching.filter(view === "waiting" ? waitsForThem : waits);
-      return c.json(messengerChatsDto.parse({ chats: shown, counts: { needs_you: all.filter(waits).length, waiting: all.filter(waitsForThem).length, all: all.length }, preanalysis: standing() }));
+        ? pool.filter((r) => [r.title, r.chatId, r.client?.name, r.client?.email, r.last?.text, r.identity.profileName, r.identity.username, r.identity.phone].some((value) => value?.toLocaleLowerCase().includes(search)))
+        : pool;
+      // An unlinked chat shows under every view of `unlinked`; under `any` it follows the view like a linked one. Hidden chats have no row: the autolink's memory names them.
+      const shown = view === "all" || link === "unlinked" ? matching : matching.filter(view === "waiting" ? waitsForThem : waits);
+      return c.json(messengerChatsDto.parse({ chats: shown, counts: { needs_you: all.filter(waits).length, waiting: all.filter(waitsForThem).length, all: all.length, unlinked: unlinked.length }, preanalysis: standing() }));
     })
     .get("/api/projects/:slug/messengers/chats/:id/conversation", async (c) => {
       const slug = c.req.param("slug");
@@ -68,8 +75,10 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
       // P141 W3 (decision 0049 point 3): a WhatsApp chat is refilled from the Mac's WhatsApp app (read only, local) before it is read,
       // so a message that arrived while the Hub was off, or that the cache let go, shows. A failed refill answers from the cache.
       if (row.channel === "whatsapp" && wa) await wa.refill(slug, { chatId: row.chatId, jid: row.jid }).catch(() => 0);
+      // P141 U1 (decision 0049 point 2): a Telegram user chat reads through from Telegram, 5 s at most, else the saved copy.
+      const copy = row.channel === "telegram_user" && tg ? await tg.readThrough(slug, row.chatId).catch(() => "saved" as const) : null;
       const [chat, messages] = await Promise.all([
-        projectedChatOf(repos, slug, row, identity),
+        projectedChatOf(repos, slug, row, identity, suggest),
         repos.messengers.messagesOf(slug, [{ channel: row.channel, chatId: row.chatId }], { limit: 101 }),
       ]);
       if (!chat) return notFound(c, "chat");
@@ -78,7 +87,7 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
         .slice()
         .reverse()
         .map((m) => ({ id: m.id, direction: m.direction, kind: m.kind, text: m.text, format: "plain" as const, at: m.sentAt, hidden: isHiddenLabel(verdicts.get(m.id)) ? verdicts.get(m.id) : null, source: m.source ?? null }));
-      return c.json(messengerConversationDto.parse({ chat, messages: ordered.slice(-100), earlier: Math.max(0, messages.length - 100) }));
+      return c.json(messengerConversationDto.parse({ chat, messages: ordered.slice(-100), earlier: Math.max(0, messages.length - 100), copy }));
     })
     .put("/api/projects/:slug/messengers/drafts/:id/text", (c) =>
       gated(c, messengerDraftTextBody, async (b, slug) => {
@@ -111,7 +120,7 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
         await prepareMessengerReply({ repos, llm: reply.llm, projectsDir: reply.projectsDir, ...(reply.policyDir ? { policyDir: reply.policyDir } : {}), project: slug, chatId: id, body: b });
         const row = await repos.messengers.chatById(slug, id);
         if (!row) return notFound(c, "chat");
-        const chat = await projectedChatOf(repos, slug, row, identity);
+        const chat = await projectedChatOf(repos, slug, row, identity, suggest);
         return chat ? c.json(chat) : notFound(c, "chat");
       }),
     )
@@ -125,7 +134,7 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
         if (open) return c.json({ error: `Draft ${open.id} already waits for review.`, code: "wrong_state" as const }, 409);
         const clientId = await repos.messengers.clientByIdentifier(slug, row.channel === "whatsapp" ? "whatsapp" : "telegram", row.chatId);
         await repos.messengers.createDraft({ project: slug, channel: row.channel, chatId: row.chatId, text: b.text, createdBy: "owner", clientId });
-        const next = await projectedChatOf(repos, slug, row, identity);
+        const next = await projectedChatOf(repos, slug, row, identity, suggest);
         return next ? c.json(next) : notFound(c, "chat");
       }),
     )
@@ -137,10 +146,12 @@ export function messengerRoutes({ repos, adminPort, preanalysis, reply, director
         if (problem) return c.json({ error: `Refused: ${problem}.`, code: "invalid" as const }, 400);
         const row = await repos.messengers.chatById(slug, id);
         if (!row) return notFound(c, "chat");
+        // Decision 0049 point 10: the pre-analysis never runs on a chat that is not linked.
+        if (b.prefilter === true && !(await repos.messengers.isLinked(slug, row.channel, row.chatId))) return c.json({ error: "Link the chat to a client first: the pre-analysis runs only in linked chats.", code: "wrong_state" as const }, 409);
         const next = await repos.messengers.setChatRules(slug, row.channel, row.chatId, b);
         // P71 M-P: the owner turned the pre-analysis on: one pass now over the chat's recent messages (none without a key).
         if (b.prefilter === true && !row.prefilter) preanalysis?.after(slug);
-        const chat = await projectedChatOf(repos, slug, next, identity);
+        const chat = await projectedChatOf(repos, slug, next, identity, suggest);
         return chat ? c.json(chat) : notFound(c, "chat");
       }),
     );

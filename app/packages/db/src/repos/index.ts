@@ -3,6 +3,7 @@ import { agentSettingsRepo } from "./agent-settings";
 import { batchesRepo } from "./batches";
 import { clientMapsRepo } from "./client-maps";
 import { clientsRepo } from "./clients";
+import { clientMergeRepo } from "./client-merge";
 import { conversationsRepo } from "./conversations";
 import { draftsRepo } from "./drafts";
 import { enrollmentsRepo } from "./enrollments";
@@ -21,7 +22,7 @@ import { sendsRepo } from "./sends";
 
 export function createRepos(db: Db) {
   return {
-    clients: clientsRepo(db),
+    clients: { ...clientsRepo(db), ...clientMergeRepo(db) },
     clientMaps: clientMapsRepo(db),
     conversations: conversationsRepo(db),
     drafts: draftsRepo(db),

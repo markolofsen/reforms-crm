@@ -89,7 +89,8 @@ export function toReviewDrafts(tx: Tx, project: string, rows: Array<{ d: DraftRo
       safetyResults: results,
       blocked: blocksChecked(results, d.batchId != null),
       basedOn: d.context == null && d.findings == null ? null : { findings: parseJson<DraftFinding[]>(d.findings, []), context: parseJson<Record<string, unknown>>(d.context, {}) },
-      client: { id: c.id, name: c.name, email: c.email, repliesOwed: c.repliesOwed, lastContactAt: c.lastContactAt, marks: marksBy.get(c.id) ?? [] },
+      // A Mail draft's client has an address (P141 C1: a chat-only client has no Mail drafts).
+      client: { id: c.id, name: c.name, email: c.email ?? "", repliesOwed: c.repliesOwed, lastContactAt: c.lastContactAt, marks: marksBy.get(c.id) ?? [] },
       sequence: stepOf(d),
       otherDrafts: Math.max(0, (perClient.get(c.id) ?? 1) - 1),
       ...teamNoticeOf(d, c, lastSent.get(c.id) ?? null),

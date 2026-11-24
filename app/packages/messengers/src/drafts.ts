@@ -31,13 +31,13 @@ export interface NewDraftInput {
 
 /**
  * The agent-facing way to answer a chat. It can only make a `Draft`: no state, status or approval argument exists,
- * and a `Draft` is not accepted by any adapter's `send`. The chat must be on the owner's allow-list.
+ * and a `Draft` is not accepted by any adapter's `send`. The chat must be known to the project (decision 0049: linked or not).
  */
 export async function createDraft(repos: Repos, input: NewDraftInput): Promise<Draft> {
   await repos.projects.requireProject(input.project);
   const text = checkText(input.text);
-  if (!(await repos.messengers.isAllowed(input.project, input.channel, input.chatId))) {
-    throw new MessengersError("chat_not_allowed", `chat_not_allowed: ${input.channel} chat ${input.chatId} is not on the allow-list`);
+  if (!(await repos.messengers.isKnown(input.project, input.channel, input.chatId))) {
+    throw new MessengersError("chat_not_known", `chat_not_known: ${input.channel} chat ${input.chatId} is not known to the project`);
   }
   const row = await repos.messengers.createDraft({
     project: input.project,

@@ -18,6 +18,12 @@ export function normalizeIdentifier(kind: IdentifierKind, raw: string): string {
     case "telegram":
       if (!/^-?\d{1,20}$/.test(v)) throw bad();
       return String(BigInt(v));
+    case "telegram_username": {
+      // P141 C1: lower-case, without `@` or a t.me link (Telegram usernames are 5 to 32 letters, digits and underscores).
+      const u = v.replace(/^(https?:\/\/)?t\.me\//i, "").replace(/^@/, "").toLowerCase();
+      if (!/^[a-z0-9_]{4,32}$/.test(u)) throw bad();
+      return u;
+    }
     case "phone":
     case "whatsapp": {
       // A WhatsApp chat whose number is hidden is named by its LID (P141 verdict 5).

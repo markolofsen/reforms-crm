@@ -11,6 +11,7 @@ import {
   parkedOf,
   pollOnly,
   readWaAuth,
+  CACHE_DAYS,
   RETENTION_DAYS,
   runPoller,
   sessionAccounts,
@@ -20,7 +21,6 @@ import {
   type ParkedCode,
   type PollEvent,
   type StoredChat,
-  WA_CACHE_DAYS,
   type WaAddress,
   type WaAppReader,
   type WaSocketFactory,
@@ -29,6 +29,7 @@ import {
 } from "@hub/messengers";
 import { createWaPairing, removeSession, type WaPairing } from "@hub/messengers/human";
 import { messengersProject } from "../bot";
+import { seedWhatsApp } from "./seed";
 import { errFields, ops } from "@hub/log/ops";
 
 const log = ops("whatsapp");
@@ -120,7 +121,7 @@ export const REFILL_EVERY_MS = 60_000;
  */
 function appSource(reader: WaAppReader | null) {
   const app = reader?.state() ?? { state: "off" as const, reason: "missing" as const, detail: "The Mac's WhatsApp app is not read by this server.", fix: null };
-  const cacheDays = app.state === "on" ? WA_CACHE_DAYS : RETENTION_DAYS;
+  const cacheDays = app.state === "on" ? CACHE_DAYS : RETENTION_DAYS;
   if (reader && app.state === "on") log.info("the Mac's WhatsApp app refills chats (read only)", { cacheDays });
   else if (reader && app.state === "off") log.warn("the Mac's WhatsApp app cannot refill chats", { reason: app.reason, detail: app.detail, ...(app.fix ? { fix: app.fix } : {}) });
   const appHistory = (): WaAppHistoryDto => (app.state === "on" ? { state: "on", reason: null, detail: null, fix: null, cacheDays } : { state: "off", reason: app.reason, detail: app.detail, fix: app.fix, cacheDays });
@@ -152,7 +153,7 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
   const reason = off ?? pick?.reason ?? "no project";
 
   const blank = (account: string): TelegramUserAccountDto => ({ account, state: "starting", parked: null, fix: null, failures: 0, stored: 0 });
-  const allowedChats = async (p: string) => (await o.repos.messengers.allowedChats(p)).filter((c) => c.channel === CHANNEL).map((c) => ({ chatId: c.chatId, jid: c.jid }));
+  const knownChats = async (p: string) => (await o.repos.messengers.knownChats(p)).filter((c) => c.channel === CHANNEL).map((c) => ({ chatId: c.chatId, jid: c.jid, linked: c.linked }));
 
   const { reader, cacheDays, appHistory, fromApp } = appSource(project && o.appReader ? o.appReader() : null);
   const isHidden = o.hidden ?? (async () => false);
@@ -186,7 +187,7 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
         adapter = createWhatsAppAdapter({
           socket: () => make(read.auth),
           account,
-          allowedChats: () => allowedChats(p),
+          knownChats: () => knownChats(p),
           // Decision 0049 (P141 W2): every private chat that writes is cached, unless the owner hid it.
           cacheUnlinked: true,
           cacheDays,
@@ -219,6 +220,9 @@ export async function startWhatsApp(o: StartWhatsApp): Promise<WhatsAppHandle> {
   }
 
   if (project) for (const a of sessionAccounts(dir, CHANNEL)) await open(a, project);
+  // P141 U2: the known chats start from the Mac app's recent private chats (read only), and chats cached before their row get it.
+  const first = project ? sessionAccounts(dir, CHANNEL)[0] : undefined;
+  if (project && first) void seedWhatsApp({ repos: o.repos, project, account: first, hidden: isHidden, recent: (since, limit) => reader?.recent(since, limit) ?? [], read: fromApp, cacheDays, now });
 
   const pairing = createWaPairing({
     socketFor: (auth) => {

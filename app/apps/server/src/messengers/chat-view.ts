@@ -1,5 +1,5 @@
 import { isHiddenLabel } from "@hub/config/chat-rules";
-import { messengerChatDto, messengerDraftDto, type MessengerChatDto } from "@hub/contract/messenger-panel";
+import { messengerChatDto, messengerDraftDto, type ChatSuggestionDto, type MessengerChatDto } from "@hub/contract/messenger-panel";
 import { rulesOf, type MessengerChatRow, type MessengerDraftRow, type MessengerProjectionRow, type Repos } from "@hub/db";
 import { type MessengerIdentityResolver } from "./identity";
 
@@ -9,9 +9,13 @@ export const waits = (c: MessengerChatDto): boolean => c.draft !== null || c.owe
 /** Waiting for them (P123 U3b): nothing owed, and the newest message is ours (the admin's `chatState` "waiting"). */
 export const waitsForThem = (c: MessengerChatDto): boolean => !waits(c) && c.last !== null && c.last.direction === "out";
 
+/** P141 U3: the autolink's suggested client records for a chat that is not linked (memory only); none when it runs no autolink. */
+export type ChatSuggestions = (channel: MessengerChatRow["channel"], chatId: string) => ChatSuggestionDto[];
+
 /** Maps the bounded DB projection into the same DTO as the detail route without per-chat repository calls. */
-export function projectedChatRow(projected: MessengerProjectionRow, identity: MessengerIdentityResolver, slug: string): MessengerChatDto {
+export function projectedChatRow(projected: MessengerProjectionRow, identity: MessengerIdentityResolver, slug: string, suggest?: ChatSuggestions): MessengerChatDto {
   const { row, client, notion, activity, last, lastVerdict } = projected;
+  const digits = row.phone ?? (row.channel === "whatsapp" && /^\+\d{7,15}$/.test(row.chatId) ? row.chatId.slice(1) : null);
   const hidden = isHiddenLabel(lastVerdict) ? lastVerdict : null;
   return messengerChatDto.parse({
     id: row.id,
@@ -28,10 +32,18 @@ export function projectedChatRow(projected: MessengerProjectionRow, identity: Me
     autolinked: row.autolinked ?? null,
     triage: projected.triage,
     contact: identity.contact(slug, { email: client?.email ?? null, pageId: notion?.notionPageId ?? null, chat: { channel: row.channel, chatId: row.chatId, own: { username: row.username, phone: row.phone } } }),
+    identity: {
+      phone: digits ? `+${digits.replace(/\D/g, "")}` : null,
+      username: row.username,
+      profileName: row.profileName,
+      firstSeen: row.createdAt,
+      account: row.account,
+      suggestions: client ? [] : (suggest?.(row.channel, row.chatId) ?? []),
+    },
   });
 }
 
-export async function projectedChatOf(repos: Repos, slug: string, row: MessengerChatRow, identity: MessengerIdentityResolver): Promise<MessengerChatDto | null> {
-  const projected = (await repos.messengers.list(slug)).find((item) => item.row.id === row.id);
-  return projected ? projectedChatRow(projected, identity, slug) : null;
+export async function projectedChatOf(repos: Repos, slug: string, row: MessengerChatRow, identity: MessengerIdentityResolver, suggest?: ChatSuggestions): Promise<MessengerChatDto | null> {
+  const projected = await repos.messengers.projectChat(slug, row.id);
+  return projected ? projectedChatRow(projected, identity, slug, suggest) : null;
 }

@@ -42,16 +42,16 @@ describe("migration 0003 tables", () => {
   });
 });
 
-describe("allow-list", () => {
-  it("is per project and channel; allow is idempotent", async () => {
-    await repos.messengers.allowChat("a", "telegram_bot", "100", "Anna");
-    await repos.messengers.allowChat("a", "telegram_bot", "100");
-    expect(await repos.messengers.isAllowed("a", "telegram_bot", "100")).toBe(true);
-    expect(await repos.messengers.isAllowed("b", "telegram_bot", "100")).toBe(false);
-    expect(await repos.messengers.isAllowed("a", "whatsapp", "100")).toBe(false);
-    expect((await repos.messengers.allowedChats("a"))[0]?.title).toBe("Anna");
-    expect(await repos.messengers.disallowChat("a", "telegram_bot", "100")).toBe(true);
-    expect(await repos.messengers.disallowChat("a", "telegram_bot", "100")).toBe(false);
+describe("known chats (decision 0049)", () => {
+  it("is per project and channel; knowChat is idempotent", async () => {
+    await repos.messengers.knowChat("a", "telegram_bot", "100", { title: "Anna" });
+    await repos.messengers.knowChat("a", "telegram_bot", "100");
+    expect(await repos.messengers.isKnown("a", "telegram_bot", "100")).toBe(true);
+    expect(await repos.messengers.isKnown("b", "telegram_bot", "100")).toBe(false);
+    expect(await repos.messengers.isKnown("a", "whatsapp", "100")).toBe(false);
+    expect((await repos.messengers.knownChats("a"))[0]).toMatchObject({ title: "Anna", linked: false });
+    expect((await repos.messengers.forgetChat("a", "telegram_bot", "100")).removed).toBe(true);
+    expect((await repos.messengers.forgetChat("a", "telegram_bot", "100")).removed).toBe(false);
   });
 });
 

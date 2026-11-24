@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.2.0
  */
 import type { MessengerConversationChat } from './messengerConversationChat';
+import type { MessengerConversationCopy } from './messengerConversationCopy';
 import type { MessengerConversationMessagesItem } from './messengerConversationMessagesItem';
 
 export interface MessengerConversation {
@@ -16,4 +17,5 @@ export interface MessengerConversation {
      * @maximum 9007199254740991
      */
   earlier: number;
+  copy: MessengerConversationCopy;
 }

@@ -14,8 +14,12 @@ export interface InboundMessage {
   /** `out` for a message the account itself wrote (a user account sees both sides; a bot only `in`). Default `in`. */
   direction?: "in" | "out";
   sentAt: string; // ISO-8601 UTC
-  /** WhatsApp: the chat's real address (`…@lid` when WhatsApp gives one), kept on a linked chat's row for the history request and the send. */
+  /** WhatsApp: the chat's real address (`…@lid` when WhatsApp gives one), kept on the chat's row for the history request and the send. */
   chatJid?: string;
+  /** Who the chat is, as the messenger shows it (P141 U3; never a text): its username (Telegram) and phone, and the name the person set. */
+  chatUsername?: string | null;
+  chatPhone?: string | null;
+  profileName?: string | null;
   /** Decision 0049 point 5: `wa_app` when only the Mac's WhatsApp app supplied the row. */
   source?: MessageSource;
   /** An edit of the stored message with this remote id: its text replaces the stored one; nothing new is stored. */
@@ -47,6 +51,8 @@ export interface MessengerAdapter {
   readonly channel: MessengerChannel;
   /** Account id, never a secret (Telegram: the bot id). */
   readonly account: string;
+  /** The cache's TTL of this account's rows (decision 0049), when the server set one; absent, `RETENTION_DAYS`. */
+  readonly cacheDays?: number;
   /** Once before polling: verify credentials, clear a webhook. */
   start?(): Promise<void>;
   poll(opts: PollOptions): Promise<PollBatch>;
