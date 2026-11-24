@@ -30,7 +30,7 @@ test("Open the draft in Mail links the Mail draft by its own Message-ID; the cli
 });
 
 test("A project with no conversation says what to ask the agent", async ({ page }) => {
-  await page.route(/\/api\/projects\/[^/]+\/conversations\?/, (route) => route.fulfill({ json: { rows: [], counts: { needs_you: 0, waiting: 0, all: 0, sequences: 0 }, total: 0, nextOffset: null } }));
+  await page.route(/\/api\/projects\/[^/]+\/conversations\?/, (route) => route.fulfill({ json: { rows: [], counts: { needs_you: 0, waiting: 0, all: 0, sequences: 0 }, total: 0, nextOffset: null, brands: [] } }));
   await page.goto("/mail?filter=all");
   await expect(page.getByText("Say to the agent: “triage mail for lisbon-realty”")).toBeVisible();
 });
