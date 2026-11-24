@@ -7,7 +7,7 @@ import type { ProjectOverviewDto } from "@hub/contract/project";
 import { phrase } from "@hub/contract/help";
 import { schemeDto, type SchemeDto, type SchemeNode, type SchemeState } from "@hub/contract/scheme";
 import type { CliFactDto } from "@hub/contract/terminal";
-import type { LlmMonth } from "@hub/db";
+import type { LlmMonth, OwnerFixRow } from "@hub/db";
 
 /**
  * The Hub's parts and how each stands (P63 O1): a pure function over readers the server already has, so its test needs no Mail,
@@ -34,6 +34,8 @@ export interface SchemeSources {
   core: () => CoreUpdateDto | null;
   /** P78: the month of `llm_calls`, the cap and whether a key is there; absent: no LLM part. */
   llm?: () => Promise<LlmStanding>;
+  /** P133 (P129 verdict 11): the refusals of `hub mcp` only the owner can fix, of the last 24 hours; absent: none. */
+  ownerFixes?: (slug: string) => Promise<OwnerFixRow[]>;
 }
 
 /** What the LLM part is judged from (P78): the ledger's month, the cap, the key's presence (never its value) and the fix lines of `@hub/llm`. */
@@ -188,8 +190,29 @@ export function llmNode(s: LlmStanding): SchemeNode[] {
   return [node({ ...base, state: "ok", okDetail: `${spend}, ${calls(m.calls)}` })];
 }
 
+/** What each owner-fix refusal stopped, in fixed words (the refusal's own message may quote a source error, so it is not shown). */
+const OWNER_FIX_WHAT: Record<string, string> = {
+  mail_not_running: "Apple Mail was not running.",
+  mail_not_allowed: "The Hub is not allowed to control Apple Mail.",
+  notion_unavailable: "The Notion check could not run.",
+  unavailable: "The session could not do it.",
+};
+/** The registry's `fix.place` as a page of the admin; a place outside the admin (System Settings, the dock) is named in the line. */
+const OWNER_FIX_PLACE: Record<string, SchemeNode["place"]> = { "Settings ▸ Connections": "connections" };
+
+/**
+ * P133 (P129 verdict 11): an agent's tool refused for a reason only the owner can fix, one item per code, until the tool's next
+ * successful call or 24 hours. Kind `session` (the agent session's own part); the fix line is the refusal registry's.
+ */
+export function ownerFixNodes(slug: string, rows: readonly OwnerFixRow[]): SchemeNode[] {
+  return rows.map((r) => {
+    const base = node({ id: `${slug}:refusal:${r.code}`, kind: "session", project: slug, label: "Agent stopped", state: "fail", detail: `${r.tool} at ${r.at.slice(11, 16)} UTC: ${OWNER_FIX_WHAT[r.code] ?? "Refused."}`, fix: r.line, place: OWNER_FIX_PLACE[r.place] ?? null });
+    return r.code === "mail_not_running" ? { ...base, action: "mail.openApp" as const } : base;
+  });
+}
+
 async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto | null): Promise<SchemeNode[]> {
-  const [doctor, files, stopped, trouble] = await Promise.all([s.doctor(slug), s.files(slug), s.stopped(slug), s.sendTrouble?.(slug) ?? { failed: 0, stuck: 0 }]);
+  const [doctor, files, stopped, trouble, refusals] = await Promise.all([s.doctor(slug), s.files(slug), s.stopped(slug), s.sendTrouble?.(slug) ?? { failed: 0, stuck: 0 }, s.ownerFixes?.(slug) ?? []]);
   const tools = s.agentTools(slug);
   const p = (kind: SchemeNode["kind"], key: string) => ({ id: `${slug}:${key}`, kind, project: slug });
   const out: SchemeNode[] = [];
@@ -204,6 +227,7 @@ async function projectNodes(slug: string, s: SchemeSources, mail: ConnectionsDto
   out.push(node({ ...p("hub-tools", "hub-tools"), label: "Hub tools", ...fromRows(tools, (id) => id === "mcp.present.hub" || id === "mcp.answers.hub"), place: "agent" }));
   out.push(node({ ...p("guard", "guard"), label: "Guard", ...fromRows(tools, (id) => id === "guard.hook" || id === "send-tools.off"), place: "agent" }));
   out.push(node({ ...p("session", "session"), label: "Agent sessions", ...sessionPart(tools), place: "agent" }));
+  out.push(...ownerFixNodes(slug, refusals));
   out.push(...connectorParts(slug, tools));
 
   const k = files.knowledge;

@@ -4,6 +4,7 @@ import type { MessengerPrepareBody } from "@hub/contract/messenger-panel";
 import { rulesOf, type MessengerChatRow, type Repos } from "@hub/db";
 import { LlmError, type Llm } from "@hub/llm";
 import { projectStore } from "@hub/projects/store";
+import { recordAgentDraft } from "@hub/agent/messenger-record";
 import { draftVerdict } from "@hub/agent/messenger-rules";
 import { z } from "zod";
 
@@ -70,19 +71,8 @@ export async function prepareMessengerReply(d: {
     throw e;
   }
   const clientId = await d.repos.messengers.clientByIdentifier(d.project, row.channel === "whatsapp" ? "whatsapp" : "telegram", row.chatId);
-  const draft = await d.repos.messengers.createDraft({ project: d.project, channel: row.channel, chatId: row.chatId, text: answer.value.text, createdBy: "hub_llm", clientId, ownerRequest: ownerRequest ?? null, nudge: verdict.nudge });
-  const at = now().toISOString();
   const client = clientId === null ? null : await d.repos.clients.get(d.project, clientId);
-  const runId = await d.repos.runs.start({ project: d.project, startedAt: at, finishedAt: at, trigger: "owner", skill: "messenger-reply", status: "ok" });
-  await d.repos.runs.addEvent({
-    project: d.project,
-    runId,
-    at,
-    kind: "draft_created",
-    tool: "messenger_prepare",
-    summary: `Drafted reply for ${client?.name ?? row.title ?? row.chatId}`,
-    detail: JSON.stringify({ action: "drafted", draftId: draft.id, reason: "Hub LLM prepared an unsent draft.", skill: "messenger-reply", provider: "hub_llm", model: answer.model }),
-    clientId,
-  });
+  // P129 verdict 14: the one recorder of a machine-written messenger draft (the agent's messenger_draft_write uses it too).
+  const draft = await recordAgentDraft(d.repos, { project: d.project, chat: row, client: clientId === null ? null : { id: clientId, name: client?.name ?? null }, text: answer.value.text, provider: "hub_llm", model: answer.model, ownerRequest: ownerRequest ?? null, nudge: verdict.nudge, at: now().toISOString() });
   return { draftId: draft.id, provider: "hub_llm", model: answer.model };
 }

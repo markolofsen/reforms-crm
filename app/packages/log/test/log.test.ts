@@ -6,7 +6,8 @@ import { importRollout, rolloutEvents } from "../src/codex-rollout";
 import { hookEvents, promptEvents, toolCallEvents, toolResultEvent } from "../src/hooks";
 import { hashed, toolInput, toolOutput } from "../src/privacy";
 import { appendEvent, appendEvents, readEvents, type LogStore } from "../src/store";
-import { endsInQuestion, summarize } from "../src/summary";
+import type { LogEvent } from "../src/event";
+import { endsInQuestion, frictionTotal, summarize } from "../src/summary";
 
 const storeOf = (retentionDays = 90): LogStore => {
   const root = mkdtempSync(path.join(tmpdir(), "hub-log-"));
@@ -161,5 +162,27 @@ describe("the summary", () => {
   it("a question ends a text even after markup", () => {
     expect(endsInQuestion("Which client do you mean?**")).toBe(true);
     expect(endsInQuestion("Done. Anything else? No.")).toBe(false);
+  });
+});
+
+// P133 (P129 section 6): the friction counters the agent layer is measured by.
+describe("friction", () => {
+  const ev = (kind: LogEvent["kind"], turn: string, ts: string, data: Record<string, unknown> = {}): LogEvent => ({ v: 1, project: "a", session: "f", cli: "claude", kind, turn, data, ts });
+  it("counts shell writers, evidence warnings on the owner's words, ToolSearch and AskUserQuestion turns, and the median turn", () => {
+    const [sum] = summarize([
+      ev("prompt", "p1", "2026-11-24T10:00:00.000Z", { text: "напиши ей стих" }),
+      ev("tool_call", "p1", "2026-11-24T10:00:05.000Z", { tool: "ToolSearch", input: { query: "hub" } }),
+      ev("tool_call", "p1", "2026-11-24T10:00:10.000Z", { tool: "mcp__hub__draft_write", input: { owner_request: "напиши ей стих" } }),
+      ev("guard", "p1", "2026-11-24T10:00:10.000Z", { violations: ["read this client's thread and profile first: missing the thread"] }),
+      ev("answer", "p1", "2026-11-24T10:00:20.000Z", { text: "Done." }),
+      ev("prompt", "p2", "2026-11-24T10:01:00.000Z", { text: "record it" }),
+      ev("tool_call", "p2", "2026-11-24T10:01:02.000Z", { tool: "Bash", input: { command: "pnpm hub record-draft --project a" } }),
+      ev("tool_call", "p2", "2026-11-24T10:01:03.000Z", { tool: "AskUserQuestion", input: {} }),
+      ev("guard", "p2", "2026-11-24T10:01:03.000Z", { violations: ["read this client's thread and profile first: missing the profile"] }),
+      ev("answer", "p2", "2026-11-24T10:01:40.000Z", { text: "Which one?" }),
+    ]);
+    // The second turn's warning is not on the owner's words; its question came after a tool, so it did not ask instead of acting.
+    expect(sum?.friction).toEqual({ shellWriters: 1, evidenceOnOwnerWords: 1, toolSearchTurns: 1, askUserTurns: 1, askedWithoutActing: 0, medianTurnSeconds: 30 });
+    expect(frictionTotal(sum ? [sum, sum] : [])).toMatchObject({ shellWriters: 2, evidenceOnOwnerWords: 2, medianTurnSeconds: 30 });
   });
 });

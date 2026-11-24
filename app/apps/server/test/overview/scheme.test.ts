@@ -8,7 +8,7 @@ import type { ProjectOverviewDto } from "@hub/contract/project";
 import { schemeDto, worstFirst, type SchemeDto } from "@hub/contract/scheme";
 import type { AgentToolsService } from "../../src/agent/tools";
 import { testApp } from "../support/runtime";
-import { composeScheme, llmNode, type SchemeSources } from "../../src/overview/scheme";
+import { composeScheme, llmNode, ownerFixNodes, type SchemeSources } from "../../src/overview/scheme";
 
 // P63 O1: the Overview's parts from local state, with fake readers (no Mail, no Notion, no CLI). Plan section 4a's mapping.
 const HEALTH: HealthDto = { ok: true, apiVersion: API_VERSION, messengers: { state: "off", failures: 0, stored: 0 }, telegramUser: { state: "off", accounts: [] }, whatsapp: { state: "off", accounts: [] }, sent: { state: "running", projects: [], failures: 0, marked: 0 }, inbound: { state: "off", projects: [], failures: 0, stored: 0, reading: false }, mailer: "mail-app" };
@@ -238,5 +238,19 @@ describe("P78: the LLM part", () => {
       handle.close();
       if (saved !== undefined) process.env.OPENROUTER_API_KEY = saved;
     }
+  });
+});
+
+// P133 (P129 verdict 11): a refusal only the owner can fix is a broken item of the project with the registry's fix line.
+describe("ownerFixNodes", () => {
+  const row = (code: string, place: string) => ({ id: 1, project: "acme", code, tool: "draft_write", line: `fix ${code}`, place, at: "2026-11-24T09:15:00.000Z" });
+  it("one failing session item per code, with the fix line, the page when the place is one, Open Mail for Mail not running", () => {
+    const nodes = ownerFixNodes("acme", [row("mail_not_running", "Mail"), row("notion_unavailable", "Settings ▸ Connections")]);
+    expect(nodes).toMatchObject([
+      { id: "acme:refusal:mail_not_running", kind: "session", project: "acme", state: "fail", fix: "fix mail_not_running", place: null, action: "mail.openApp", detail: "draft_write at 09:15 UTC: Apple Mail was not running." },
+      { id: "acme:refusal:notion_unavailable", state: "fail", fix: "fix notion_unavailable", place: "connections" },
+    ]);
+    expect(nodes[1]).not.toHaveProperty("action");
+    for (const n of nodes) expect(() => schemeDto.parse({ nodes: [n] })).not.toThrow();
   });
 });

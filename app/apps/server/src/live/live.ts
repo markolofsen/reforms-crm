@@ -36,6 +36,8 @@ export const TABLE_TOPIC: Record<LiveTable, LiveTopic> = {
   // P65 S5: a write the Hub started or settled. Not `mail`: a start must not make the open card read a slow Mail mid-write.
   mail_writes: "drafts",
   marks: "clients",
+  // P133 (P129 verdict 11): a refusal only the owner can fix moves Overview's Needs you (its parts are `health`'s keys).
+  owner_fixes: "health",
   messenger_accounts: "messengers",
   messenger_chats: "messengers",
   messenger_drafts: "messengers",

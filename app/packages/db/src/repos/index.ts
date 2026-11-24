@@ -13,6 +13,7 @@ import { leadRowsRepo } from "./lead-rows";
 import { llmCallsRepo } from "./llm-calls";
 import { mailVersionsRepo, mailWritesRepo } from "./mail-versions";
 import { messengersRepo } from "./messengers";
+import { ownerFixesRepo } from "./owner-fixes";
 import { projectsRepo } from "./projects";
 import { runsRepo } from "./runs";
 import { safetyRulesRepo } from "./safety-rules";
@@ -39,6 +40,7 @@ export function createRepos(db: Db) {
     mailVersions: mailVersionsRepo(db),
     mailWrites: mailWritesRepo(db),
     llmCalls: llmCallsRepo(db),
+    ownerFixes: ownerFixesRepo(db),
   };
 }
 export type Repos = ReturnType<typeof createRepos>;
@@ -46,6 +48,7 @@ export type { ClientRow, DraftRow, NewClient } from "./clients";
 export type { ClientMap, ClientMapHistory, ClientMapSaved, MapDue, MapReasons, MapSources } from "./client-maps";
 export type { NewDraft, RecordDraftInput, RecordDraftResult } from "./drafts";
 export type { EventRow, NewEvent, NewRun } from "./runs";
+export type { NewOwnerFix, OwnerFixRow } from "./owner-fixes";
 export type { Activity, ActivityOutcome, ActivityRow, ActivityView, TimelineQuery } from "./activity";
 export type { AddressRow, NewProjectRow, NewQuestion, ProjectRow, QuestionRow } from "./projects";
 export type { KnowledgeDocRow, NewKnowledgeDoc, SearchHit, SearchOptions } from "./knowledge";

@@ -73,6 +73,8 @@ export function contexts(rt: Runtime): Contexts {
       const s = await repos.sends.summarySince(slug, { today: day, day, stuckBefore: new Date(t - STUCK_MINUTES * 60_000).toISOString() });
       return { failed: s.failed, stuck: s.stuck };
     },
+    // P133 (P129 verdict 11): the refusals of hub mcp only the owner can fix, the last 24 hours.
+    ownerFixes: (slug) => repos.ownerFixes.active(slug, now()),
     clis: () => tools?.clis() ?? null,
     core: () => rt.instance.core?.read() ?? null,
     // P78: read per request (the key and config.json may change while the server runs); the key's value is dropped in hasKey.

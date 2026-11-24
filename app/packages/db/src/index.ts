@@ -74,6 +74,8 @@ export type {
   NewProjectRow,
   NewQuestion,
   NewRun,
+  NewOwnerFix,
+  OwnerFixRow,
   MessengerUsage,
   NewMessengerSend,
   NewTriage,

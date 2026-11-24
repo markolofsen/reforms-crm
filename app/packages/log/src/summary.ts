@@ -21,6 +21,10 @@ export const TURN_FLAG_LABELS: Record<TurnFlag, string> = {
 
 export interface Turn {
   at: string;
+  /** The turn's last event (P133: its time, for the median turn time). */
+  end: string;
+  /** P133: a tool call of the turn carried the owner's words (`owner_request`). */
+  ownerWords: boolean;
   prompt: string | null;
   /** Messages the owner typed while the turn ran (Claude queues them mid-turn; they open no turn of their own). */
   queued: string[];
@@ -49,6 +53,74 @@ export interface SessionSummary {
   guard: number;
   turns: Turn[];
   flags: Record<TurnFlag, number>;
+  friction: Friction;
+}
+
+/**
+ * P133 (P129 section 6): the counters the agent layer is measured by, one week of use after A8 against the baseline of
+ * 2026-11-19 to 2026-11-23 (32 shell writer calls, 20 of 23 evidence warnings on the owner's words, ToolSearch in 13 of 75 turns).
+ */
+export interface Friction {
+  /** Shell calls of a deleted hub writer (`hub record-draft`, `hub record-client`): target 0. */
+  shellWriters: number;
+  /** Guard evidence warnings (thread and profile not read) in turns that carried the owner's words: target 0. */
+  evidenceOnOwnerWords: number;
+  /** Turns with a ToolSearch call: recorded. */
+  toolSearchTurns: number;
+  /** Turns with an AskUserQuestion call after the owner's prompt: target 0. */
+  askUserTurns: number;
+  /** Turns that asked instead of acting (`asked_without_acting`): target 0. */
+  askedWithoutActing: number;
+  /** The median seconds from a prompt to its turn's last event, over turns with a prompt; null with none. Recorded. */
+  medianTurnSeconds: number | null;
+}
+
+/** A shell command that runs a hub writer (the agent records through the hub tools since P129 A3). */
+const SHELL_WRITER = /\bhub\s+record-(draft|client)\b/;
+/** The guard's evidence rule (`@hub/agent/evidence/ledger`): the thread and profile, or the Notion record, not read. */
+const EVIDENCE_WARNING = /thread and profile|read this client's record/;
+const BASH_TOOLS = new Set(["Bash", "exec_command", "shell"]);
+
+const commandOf = (input: unknown): string => {
+  if (!input || typeof input !== "object") return "";
+  const v = "command" in input ? input.command : "cmd" in input ? input.cmd : undefined;
+  return typeof v === "string" ? v : Array.isArray(v) ? v.map(String).join(" ") : "";
+};
+
+const median = (xs: number[]): number | null => {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? (s[m] ?? 0) : ((s[m - 1] ?? 0) + (s[m] ?? 0)) / 2;
+};
+
+/** The friction counters of one session's events and turns. */
+export function frictionOf(events: readonly LogEvent[], turns: readonly Turn[]): Friction {
+  const shellWriters = events.filter((e) => e.kind === "tool_call" && BASH_TOOLS.has(text(e.data.tool) ?? "") && SHELL_WRITER.test(commandOf(e.data.input))).length;
+  const asked = turns.filter((t) => t.prompt !== null);
+  return {
+    shellWriters,
+    evidenceOnOwnerWords: turns.filter((t) => t.ownerWords).reduce((n, t) => n + t.guard.filter((g) => EVIDENCE_WARNING.test(g)).length, 0),
+    toolSearchTurns: turns.filter((t) => t.tools.includes("ToolSearch")).length,
+    askUserTurns: asked.filter((t) => t.tools.includes("AskUserQuestion")).length,
+    askedWithoutActing: turns.filter((t) => t.flags.includes("asked_without_acting")).length,
+    medianTurnSeconds: medianTurn(asked),
+  };
+}
+
+const medianTurn = (asked: readonly Turn[]): number | null => median(asked.map((t) => (Date.parse(t.end) - Date.parse(t.at)) / 1000).filter((x) => Number.isFinite(x) && x >= 0));
+
+/** The counters over several sessions (a week of use): sums, and the median over all their turns. */
+export function frictionTotal(sums: readonly SessionSummary[]): Friction {
+  const add = (k: Exclude<keyof Friction, "medianTurnSeconds">) => sums.reduce((n, s) => n + s.friction[k], 0);
+  return {
+    shellWriters: add("shellWriters"),
+    evidenceOnOwnerWords: add("evidenceOnOwnerWords"),
+    toolSearchTurns: add("toolSearchTurns"),
+    askUserTurns: add("askUserTurns"),
+    askedWithoutActing: add("askedWithoutActing"),
+    medianTurnSeconds: medianTurn(sums.flatMap((s) => s.turns).filter((t) => t.prompt !== null)),
+  };
 }
 
 const text = (v: unknown): string | null => (typeof v === "string" ? v : null);
@@ -71,13 +143,15 @@ function flagsOf(t: Omit<Turn, "flags">): TurnFlag[] {
   return out;
 }
 
+const hasOwnerWords = (input: unknown): boolean => !!input && typeof input === "object" && "owner_request" in input && typeof input.owner_request === "string" && input.owner_request.trim() !== "";
+
 /** The turns of one session's events (oldest first). Events before the first prompt form a turn with no prompt. */
 export function turnsOf(events: readonly LogEvent[]): Turn[] {
   const turns: Array<Omit<Turn, "flags">> = [];
   let cur: Omit<Turn, "flags"> | null = null;
   const byId = new Map<string, Omit<Turn, "flags">>();
   const open = (at: string): Omit<Turn, "flags"> => {
-    const t = { at, prompt: null, queued: [], focus: null, answer: null, tools: [], errors: [], asked: [], guard: [] };
+    const t = { at, end: at, ownerWords: false, prompt: null, queued: [], focus: null, answer: null, tools: [], errors: [], asked: [], guard: [] };
     turns.push(t);
     return t;
   };
@@ -96,6 +170,8 @@ export function turnsOf(events: readonly LogEvent[]): Turn[] {
     }
     // A late answer may arrive after the next prompt was typed; its turn id finds it. Without one, the current turn.
     const t: Omit<Turn, "flags"> = (e.turn ? byId.get(e.turn) : undefined) ?? cur ?? (cur = open(e.ts));
+    if (e.ts > t.end) t.end = e.ts;
+    if (e.kind === "tool_call" && hasOwnerWords(e.data.input)) t.ownerWords = true;
     if (e.kind === "focus") t.focus = text(e.data.line);
     else if (e.kind === "answer") t.answer = text(e.data.text) ?? "";
     else if (e.kind === "tool_call") t.tools.push(text(e.data.tool) ?? "?");
@@ -130,6 +206,7 @@ export function summarize(events: readonly LogEvent[]): SessionSummary[] {
       errors: list.filter((e) => e.kind === "tool_error" || e.kind === "error").length,
       guard: list.filter((e) => e.kind === "guard").length,
       turns, flags,
+      friction: frictionOf(list, turns),
     });
   }
   return out.sort((a, b) => (a.start < b.start ? 1 : -1));

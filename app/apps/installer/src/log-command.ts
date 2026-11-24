@@ -1,7 +1,7 @@
 import { hubPaths } from "@hub/config/paths";
 import { isLogCli, isLogKind, LOG_KINDS, type LogEvent, type LogKind } from "@hub/log/event";
 import { readEvents, logStoreOf, type LogFilter } from "@hub/log/store";
-import { summarize, TURN_FLAG_LABELS, TURN_FLAGS, type SessionSummary } from "@hub/log/summary";
+import { frictionTotal, summarize, TURN_FLAG_LABELS, TURN_FLAGS, type Friction, type SessionSummary } from "@hub/log/summary";
 import { c, UsageError } from "./term";
 
 // `hub log` (P54): read the agent session log. Views: events (default), tail (follow), sessions, summary (where the agent
@@ -81,6 +81,10 @@ export function localStamp(iso: string): string {
 export const eventLine = (e: LogEvent): string =>
   `${c.dim(localStamp(e.ts))}  ${e.session.slice(0, 8)}  ${e.cli.padEnd(6)} ${KIND_COLOR[e.kind](e.kind.padEnd(11))} ${eventText(e)}`;
 
+/** P133 (P129 section 6): the friction counters in one line. */
+export const frictionLine = (fr: Friction): string =>
+  `friction: shell writers ${fr.shellWriters}, evidence warnings on the owner's words ${fr.evidenceOnOwnerWords}, ToolSearch turns ${fr.toolSearchTurns}, AskUserQuestion turns ${fr.askUserTurns}, asked instead of acting ${fr.askedWithoutActing}, median turn ${fr.medianTurnSeconds === null ? "-" : `${Math.round(fr.medianTurnSeconds)} s`}`;
+
 export function summaryLines(s: SessionSummary): string[] {
   const out = [
     `${c.bold(`session ${s.session.slice(0, 8)}`)}  ${s.cli}  ${s.project ?? "(unbound)"}  ${localStamp(s.start).slice(0, 16)} to ${localStamp(s.end).slice(11, 16)}`,
@@ -89,6 +93,8 @@ export function summaryLines(s: SessionSummary): string[] {
   if (s.transcript) out.push(c.dim(`  transcript ${s.transcript}`));
   const flagged = TURN_FLAGS.filter((f) => s.flags[f] > 0);
   out.push(`  ${flagged.length ? flagged.map((f) => `${TURN_FLAG_LABELS[f]} ${s.flags[f]}`).join(", ") : "every turn acted and answered"}`);
+  // P133 (P129 section 6): the friction counters the agent layer is measured by.
+  out.push(`  ${frictionLine(s.friction)}`);
   for (const turn of s.turns.filter((x) => x.flags.length)) {
     out.push(`  ${c.yellow(localStamp(turn.at).slice(11, 19))} ${turn.flags.map((f) => TURN_FLAG_LABELS[f]).join(", ")}${turn.tools.length ? c.dim(` (${turn.tools.length} tool calls)`) : ""}`);
     if (turn.prompt !== null) out.push(`    Q: ${one(turn.prompt, 220)}`);
@@ -116,7 +122,11 @@ export async function runLogCommand(view: string, o: LogOptions, out: (s: string
     if (o.json) { out(JSON.stringify(view === "summary" ? sums : sums.map(({ turns: _t, ...rest }) => rest))); return 0; }
     if (!sums.length) { out(c.dim("no sessions in the log for this filter")); return 0; }
     if (view === "sessions") for (const s of sums) out(`${s.session.slice(0, 8)}  ${s.cli.padEnd(6)} ${(s.project ?? "(unbound)").padEnd(16)} ${localStamp(s.start).slice(0, 16)}  ${s.prompts} prompts  ${s.toolCalls} tools  ${s.errors} errors  ${(Object.values(s.flags).reduce((a, b) => a + b, 0))} flagged`);
-    else for (const [k, s] of sums.entries()) { if (k) out(""); for (const l of summaryLines(s)) out(l); }
+    else {
+      for (const [k, s] of sums.entries()) { if (k) out(""); for (const l of summaryLines(s)) out(l); }
+      out("");
+      out(c.bold(`${sums.length} ${sums.length === 1 ? "session" : "sessions"}, ${frictionLine(frictionTotal(sums))}`));
+    }
     return 0;
   }
   const last = events.slice(-limitOf(o, view === "tail" ? 20 : 200));

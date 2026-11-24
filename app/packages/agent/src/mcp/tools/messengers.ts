@@ -1,6 +1,7 @@
 import { HIDDEN_LABELS, isHiddenLabel, MESSENGER_TEXT_MAX, OWNER_REQUEST_MAX, REPLY_MODES, type ChatRules } from "@hub/config/chat-rules";
 import { RepoError, rulesOf, type MessengerChatRow, type Repos } from "@hub/db";
 import { z } from "zod";
+import { recordAgentDraft } from "../../messenger/record";
 import { draftVerdict } from "../../messenger/rules";
 import { MESSENGER_SEND_TOOL, sentLine } from "../../messenger/send-tool";
 import { defineTool } from "../define";
@@ -194,41 +195,13 @@ export const messengerDraftWriteTool = defineTool({
     const v = draftVerdict({ rules: effectiveRules(row, policyOf(ctx)), activity, ownerRequest, now: now() });
     if (v.refusal) throw new ToolError(v.refusal.code, v.refusal.message);
     const open = await repos.messengers.openDraft(slug, row.channel, row.chatId);
-    const extra = { ownerRequest: ownerRequest ?? null, nudge: v.nudge };
     const client = await clientOf(slug, row);
-    const recordActivity = async (w: Repos, draftId: number, action: "drafted" | "updated") => {
-      const at = now().toISOString();
-      const runId = await w.runs.start({ project: slug, startedAt: at, finishedAt: at, trigger: "agent", skill: "messenger-reply", status: "ok" });
-      await w.runs.addEvent({
-        project: slug,
-        runId,
-        at,
-        kind: action === "drafted" ? "draft_created" : "decision",
-        tool: "messenger_draft_write",
-        summary: `Drafted reply for ${client?.name ?? row.title ?? row.chatId}`,
-        detail: JSON.stringify({ action, draftId, reason: "Runtime agent prepared an unsent draft.", skill: "messenger-reply", provider: "runtime_agent" }),
-        clientId: client?.id ?? null,
-      });
-    };
-    let id: number;
-    let action: "created" | "revised";
-    if (draft !== undefined) {
-      if (!open || open.id !== draft) throw new ToolError("not_found", `Draft ${draft} is not the open draft of this chat${open ? ` (that is ${open.id})` : " (it has none)"}. Nothing was written.`);
-      id = (await withRepos(async (w) => {
-        const revised = await w.messengers.reviseDraft(slug, draft, body, extra);
-        await recordActivity(w, revised.id, "updated");
-        return revised;
-      })).id;
-      action = "revised";
-    } else {
-      if (open) throw new ToolError("already_drafted", `Draft ${open.id} already waits in this chat: revise it with draft=${open.id} when the owner asks. Nothing was written.`);
-      id = (await withRepos(async (w) => {
-        const created = await w.messengers.createDraft({ project: slug, channel: row.channel, chatId: row.chatId, text: body, createdBy: "agent", clientId: client?.id ?? null, ...extra });
-        await recordActivity(w, created.id, "drafted");
-        return created;
-      })).id;
-      action = "created";
-    }
+    if (draft !== undefined && (!open || open.id !== draft)) throw new ToolError("not_found", `Draft ${draft} is not the open draft of this chat${open ? ` (that is ${open.id})` : " (it has none)"}. Nothing was written.`);
+    if (draft === undefined && open) throw new ToolError("already_drafted", `Draft ${open.id} already waits in this chat: revise it with draft=${open.id} when the owner asks. Nothing was written.`);
+    // P129 verdict 14: the one recorder of a machine-written messenger draft (the server's Prepare uses it too).
+    const { id, action } = await withRepos((w) =>
+      recordAgentDraft(w, { project: slug, chat: row, client: client ? { id: client.id, name: client.name ?? null } : null, text: body, provider: "runtime_agent", ownerRequest: ownerRequest ?? null, nudge: v.nudge, revise: draft, at: now().toISOString() }),
+    );
     return { project: slug, draft: id, action, channel: row.channel, chat_id: row.chatId, nudge: v.nudge, sent: false as const, next: "Tell the owner in one line: the draft waits on the Messengers panel, where he reads and sends it (or he tells you to send it). Nothing was sent." };
   },
 });

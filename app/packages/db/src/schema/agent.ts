@@ -42,6 +42,23 @@ export const agentEvents = sqliteTable(
   (t) => [uniqueIndex("agent_events_run_seq").on(t.runId, t.seq), index("agent_events_project").on(t.project)],
 );
 
+// P129 verdict 11 (P133): a refusal of `hub mcp` only the owner can fix (the registry's `fix`: Mail not running, Mail not
+// allowed, Notion unavailable, the session unable). One row per project and code, the newest; Overview's Needs you shows it
+// until the next successful call of that tool deletes it, or for 24 hours. The line and place are the registry's words.
+export const ownerFixes = sqliteTable(
+  "owner_fixes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    project: text("project").notNull(),
+    code: text("code").notNull(),
+    tool: text("tool").notNull(),
+    line: text("line").notNull(),
+    place: text("place").notNull(),
+    at: text("at").notNull(),
+  },
+  (t) => [uniqueIndex("owner_fixes_key").on(t.project, t.code)],
+);
+
 // ---- Projects and knowledge (P7, doc 16). The files under <instance>/projects/<slug>/ are the source of truth; these
 // tables are an index rebuilt from them (`pnpm hub project sync`, `knowledge index`). Nothing edits them by hand.
 

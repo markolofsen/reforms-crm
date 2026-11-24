@@ -22,6 +22,9 @@ describe("hub log", () => {
     await runLogCommand("summary", { session: "sess-a" }, (l) => sum.push(l), env);
     expect(sum.join("\n")).toMatch(/asked instead of acting 1/);
     expect(sum.join("\n")).toMatch(/Q: ответь этому клиенту/);
+    // P133: the friction counters, per session and over the sessions shown.
+    expect(sum.join("\n")).toMatch(/friction: shell writers 0, evidence warnings on the owner's words 0, ToolSearch turns 0, AskUserQuestion turns 0, asked instead of acting 1, median turn \d+ s/);
+    expect(sum.at(-1)).toMatch(/^1 session, friction: /);
     const json: string[] = [];
     await runLogCommand("sessions", { json: true }, (l) => json.push(l), env);
     expect(JSON.parse(json[0] ?? "[]")).toMatchObject([{ session: "sess-abc", prompts: 1, answers: 1, transcript: "/t/sess-abc.jsonl" }]);

@@ -23,14 +23,24 @@ const refusal = (code: string, message: string, detail: Record<string, unknown> 
 /**
  * Runs a tool body: its value as the reply, a {@link ToolError} as a refusal with its advice, and any other refusal the Hub
  * states (a `HubError`, P126 E1: a repo's, Mail's) under its own code when the registry has it, else under its kind. Anything
- * else is thrown to the MCP layer.
+ * else is thrown to the MCP layer. `after` hears the outcome (the refusal's code, or null for a reply) once the reply is built.
  */
-export async function run(fn: () => Promise<Record<string, unknown>>) {
+export async function run(fn: () => Promise<Record<string, unknown>>, after?: (refused: string | null) => Promise<void>) {
+  const reply = await settle(fn);
+  // P133 (P129 verdict 11): the outcome, for the owner-fix record (`./owner-fixes.ts`); it never changes the reply.
+  await after?.(reply.refused);
+  return reply.result;
+}
+
+async function settle(fn: () => Promise<Record<string, unknown>>) {
   try {
-    return ok(await fn());
+    return { result: ok(await fn()), refused: null };
   } catch (e) {
-    if (e instanceof ToolError) return refusal(e.code, e.message, e.detail);
-    if (e instanceof HubError) return refusal(isRefusalCode(e.code) ? e.code : e.kind, e.message, e.detail);
+    if (e instanceof ToolError) return { result: refusal(e.code, e.message, e.detail), refused: e.code };
+    if (e instanceof HubError) {
+      const code = isRefusalCode(e.code) ? e.code : e.kind;
+      return { result: refusal(code, e.message, e.detail), refused: code };
+    }
     throw e;
   }
 }
