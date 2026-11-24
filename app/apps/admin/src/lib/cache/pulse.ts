@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { API_VERSION } from "@hub/contract/health";
 import { refreshData } from "../api/client";
-import { metaApi } from "../api/meta";
+import { instanceApi } from "../api/instance";
 import { keys } from "./keys";
 import { useLiveState } from "./live";
 
@@ -17,7 +17,7 @@ const PULSE_MS = 10_000;
 export function usePulse() {
   const qc = useQueryClient();
   const live = useLiveState() === "live";
-  const query = useQuery({ queryKey: keys.pulse(), queryFn: metaApi.pulse, refetchInterval: live ? false : PULSE_MS, staleTime: 0, retry: false });
+  const query = useQuery({ queryKey: keys.pulse(), queryFn: instanceApi.pulse, refetchInterval: live ? false : PULSE_MS, staleTime: 0, retry: false });
   const seen = useRef<number | null>(null);
   const version = query.data?.dataVersion ?? null;
   useEffect(() => {

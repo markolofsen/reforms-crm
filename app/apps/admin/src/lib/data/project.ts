@@ -7,7 +7,9 @@ import type { ActivityDto, ActivityView } from "@hub/contract/activity";
 import type { KnowledgeView } from "@hub/contract/knowledge";
 import type { AgentSettingsBody, SafetyRuleBody } from "@hub/contract/requests";
 import { connectionsApi } from "@/lib/api/connections";
-import { metaApi } from "@/lib/api/meta";
+import { projectApi } from "@/lib/api/project/facts";
+import { knowledgeApi } from "@/lib/api/project/knowledge";
+import { projectSettingsApi } from "@/lib/api/project/settings";
 import { sendApi } from "@/lib/api/send";
 import { keys } from "@/lib/cache/keys";
 import { useCommand } from "@/lib/cache/topics";
@@ -19,37 +21,37 @@ import type { CommandEvents } from "./instance";
  */
 
 /** The project's facts (`project.md`, its files, its open question): Settings ▸ Mail's filters, Knowledge's files, the dots. */
-export const useProjectFacts = (project: string | null) => useQuery({ queryKey: keys.projectFacts(project ?? ""), queryFn: () => metaApi.overview(project ?? ""), enabled: project !== null });
+export const useProjectFacts = (project: string | null) => useQuery({ queryKey: keys.projectFacts(project ?? ""), queryFn: () => projectApi.overview(project ?? ""), enabled: project !== null });
 
 /** The facts of several projects, one read each (Overview's open questions). */
-export const useProjectsFacts = (projects: readonly string[]) => useQueries({ queries: projects.map((p) => ({ queryKey: keys.projectFacts(p), queryFn: () => metaApi.overview(p) })) });
+export const useProjectsFacts = (projects: readonly string[]) => useQueries({ queries: projects.map((p) => ({ queryKey: keys.projectFacts(p), queryFn: () => projectApi.overview(p) })) });
 
 /** The project's Quick Links (the shell's), read again after a minute at most. */
-export const useLinks = (project: string | null) => useQuery({ queryKey: keys.links(project ?? ""), queryFn: () => metaApi.links(project ?? ""), enabled: project !== null, staleTime: 60_000 });
+export const useLinks = (project: string | null) => useQuery({ queryKey: keys.links(project ?? ""), queryFn: () => projectApi.links(project ?? ""), enabled: project !== null, staleTime: 60_000 });
 
 /** The knowledge base of one view and search; `keep` keeps the last list while the next one loads (typing in the search). */
 export const useKnowledge = (project: string, filter: KnowledgeView, search: string, keep = false) =>
-  useQuery({ queryKey: keys.knowledge(project, filter, search), queryFn: () => metaApi.knowledge(project, filter, search), ...(keep ? { placeholderData: keepPreviousData } : {}) });
+  useQuery({ queryKey: keys.knowledge(project, filter, search), queryFn: () => knowledgeApi.list(project, filter, search), ...(keep ? { placeholderData: keepPreviousData } : {}) });
 
 /** One entry's text, from the index (P128 X6). */
-export const useKnowledgeText = (project: string, entryKey: string) => useQuery({ queryKey: keys.knowledgeText(project, entryKey), queryFn: () => metaApi.knowledgeText(project, entryKey) });
+export const useKnowledgeText = (project: string, entryKey: string) => useQuery({ queryKey: keys.knowledgeText(project, entryKey), queryFn: () => knowledgeApi.text(project, entryKey) });
 
 /** The project's safety rules (Settings ▸ Checks). */
-export const useRules = (project: string) => useQuery({ queryKey: keys.rules(project), queryFn: () => metaApi.rules(project) });
+export const useRules = (project: string) => useQuery({ queryKey: keys.rules(project), queryFn: () => projectSettingsApi.rules(project) });
 
 /** One rule's switch, words or days. */
-export const useSaveRule = (project: string, kind: SafetyKind) => useCommand({ project, touches: ["rules"], run: (patch: Omit<SafetyRuleBody, "project">) => metaApi.setRule(project, kind, patch) });
+export const useSaveRule = (project: string, kind: SafetyKind) => useCommand({ project, touches: ["rules"], run: (patch: Omit<SafetyRuleBody, "project">) => projectSettingsApi.setRule(project, kind, patch) });
 
 /** The model and advisor of the project's Claude Code sessions (P55). */
-export const useAgentSettings = (project: string) => useQuery({ queryKey: keys.agentSettings(project), queryFn: () => metaApi.agentSettings(project) });
+export const useAgentSettings = (project: string) => useQuery({ queryKey: keys.agentSettings(project), queryFn: () => projectSettingsApi.agentSettings(project) });
 
 /** Save one agent setting: the answer is the new settings; the rules topic covers the rest. */
-export function useSaveAgentSettings(project: string, on: CommandEvents<Awaited<ReturnType<typeof metaApi.setAgentSettings>>>) {
+export function useSaveAgentSettings(project: string, on: CommandEvents<Awaited<ReturnType<typeof projectSettingsApi.setAgentSettings>>>) {
   const qc = useQueryClient();
   return useCommand({
     project,
     touches: ["rules"],
-    run: (patch: Omit<AgentSettingsBody, "project">) => metaApi.setAgentSettings(project, patch),
+    run: (patch: Omit<AgentSettingsBody, "project">) => projectSettingsApi.setAgentSettings(project, patch),
     onSuccess: (d) => {
       qc.setQueryData(keys.agentSettings(project), d);
       on.onSuccess?.(d);
@@ -93,7 +95,7 @@ const FIRST_PAGE: string | null = null;
 export function useTimeline(project: string, view: ActivityView, client: number | null) {
   const q = useInfiniteQuery({
     queryKey: keys.activity(project, view, client),
-    queryFn: ({ pageParam }) => metaApi.activity(project, view, client, pageParam),
+    queryFn: ({ pageParam }) => projectApi.activity(project, view, client, pageParam),
     initialPageParam: FIRST_PAGE,
     getNextPageParam: (last: ActivityDto) => last.next ?? undefined,
     placeholderData: keepPreviousData,
@@ -122,4 +124,4 @@ export function useStopSending() {
 export const useDoctor = (project: string, enabled = true) => useQuery({ queryKey: keys.doctor(project), queryFn: () => sendApi.doctor(project), enabled });
 
 /** The agent's feed of one project (P59), when a project is open. */
-export const useAgentFeed = (project: string | null) => useQuery({ queryKey: keys.agentFeed(project ?? ""), queryFn: () => metaApi.agentFeed(project ?? ""), enabled: project !== null });
+export const useAgentFeed = (project: string | null) => useQuery({ queryKey: keys.agentFeed(project ?? ""), queryFn: () => projectApi.agentFeed(project ?? ""), enabled: project !== null });

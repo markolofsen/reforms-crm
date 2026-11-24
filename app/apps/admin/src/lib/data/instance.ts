@@ -7,7 +7,7 @@ import type { InstanceDto } from "@hub/contract/instance";
 import type { AppsDto, ServerActionId } from "@hub/contract/local";
 import type { SetSecretBody } from "@hub/contract/requests";
 import { connectionsApi } from "@/lib/api/connections";
-import { metaApi } from "@/lib/api/meta";
+import { instanceApi } from "@/lib/api/instance";
 import { pointerApi } from "@/lib/api/terminal";
 import { keys } from "@/lib/cache/keys";
 
@@ -25,15 +25,15 @@ export type CommandEvents<R> = { onMutate?: () => void; onSuccess?: (r: R) => vo
  * after the server's own probe interval (10 minutes), so an app installed meanwhile is used without a reload; Check again sets it.
  */
 /** The brand's logo, an <img> source (the file is the server's; the URL is the generated operation's). */
-export const instanceLogoUrl = (): string => metaApi.logoUrl();
+export const instanceLogoUrl = (): string => instanceApi.logoUrl();
 
-export const useInstance = () => useQuery({ queryKey: keys.instance(), queryFn: metaApi.instance, staleTime: 10 * 60_000 });
+export const useInstance = () => useQuery({ queryKey: keys.instance(), queryFn: instanceApi.instance, staleTime: 10 * 60_000 });
 
 /** Settings ▸ This Mac's Check again: the server probes the apps now, and its answer replaces the instance's `apps`. */
 export function useCheckApps(on: CommandEvents<AppsDto>) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: metaApi.checkApps,
+    mutationFn: instanceApi.checkApps,
     onMutate: on.onMutate,
     onSuccess: (apps: AppsDto) => {
       qc.setQueryData<InstanceDto>(keys.instance(), (old) => (old ? { ...old, apps } : old));
@@ -44,7 +44,7 @@ export function useCheckApps(on: CommandEvents<AppsDto>) {
 }
 
 /** Every project of the instance (the shell's switcher and its scope). */
-export const useProjects = () => useQuery({ queryKey: keys.projects(), queryFn: metaApi.projects });
+export const useProjects = () => useQuery({ queryKey: keys.projects(), queryFn: instanceApi.projects });
 
 /** Every connection and the mail accounts Apple Mail knows (Settings ▸ Connections, Mail, Agent). */
 export const useConnections = () => useQuery({ queryKey: keys.connections(), queryFn: connectionsApi.list });
@@ -87,13 +87,13 @@ export function useSetAutostart(on: CommandEvents<Awaited<ReturnType<typeof conn
 }
 
 /** The core update check (P68): never retried, the server answers from its own cache. */
-export const useCore = () => useQuery({ queryKey: keys.core(), queryFn: metaApi.core, retry: false });
+export const useCore = () => useQuery({ queryKey: keys.core(), queryFn: instanceApi.core, retry: false });
 
 /** Check now: one check at the origin; its answer is put in the cache (the check bumps no live topic). */
-export function useCheckCore(on: CommandEvents<Awaited<ReturnType<typeof metaApi.checkCore>>>) {
+export function useCheckCore(on: CommandEvents<Awaited<ReturnType<typeof instanceApi.checkCore>>>) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: metaApi.checkCore,
+    mutationFn: instanceApi.checkCore,
     onMutate: on.onMutate,
     onSuccess: (d) => {
       qc.setQueryData(keys.core(), d);
@@ -104,13 +104,13 @@ export function useCheckCore(on: CommandEvents<Awaited<ReturnType<typeof metaApi
 }
 
 /** The server's pulse (the health panel): never retried, a missed beat is the answer. */
-export const usePulse = () => useQuery({ queryKey: keys.pulse(), queryFn: metaApi.pulse, retry: false });
+export const usePulse = () => useQuery({ queryKey: keys.pulse(), queryFn: instanceApi.pulse, retry: false });
 
 /** The agent's pointer (P72): the rows it rings on the owner's screen. */
 export const usePointer = () => useQuery({ queryKey: keys.pointer(), queryFn: pointerApi.get });
 
-/** P61: the one local Open (`metaApi.localOpen`: an action and its project and key; the server resolves the path). An Open changes nothing in the Hub. */
-export const postLocalOpen = (action: ServerActionId, args: unknown) => metaApi.localOpen(action, args);
+/** P61: the one local Open (`instanceApi.localOpen`: an action and its project and key; the server resolves the path). An Open changes nothing in the Hub. */
+export const postLocalOpen = (action: ServerActionId, args: unknown) => instanceApi.localOpen(action, args);
 
 /** One Open as a mutation (P61, `components/local-action.tsx`): `run(args)` and whether it is running. It invalidates nothing. */
 export function useLocalOpen(run: (args: unknown) => Promise<boolean>) {

@@ -34,8 +34,8 @@ export type GeneratedOperation = (typeof GENERATED_OPERATIONS)[keyof typeof GENE
 
 /** Operations reached only through their URL helper, with the reason and the one admin module that uses it. */
 export const URL_HELPERS: Readonly<Partial<Record<GeneratedOperation, { file: string; why: string }>>> = {
-  streamLive: { file: "lib/api/meta.ts", why: "server-sent events, opened with EventSource (architecture rule 16)" },
-  getInstanceLogo: { file: "lib/api/meta.ts", why: "an image file, the brand's <img> source" },
+  streamLive: { file: "lib/api/instance.ts", why: "server-sent events, opened with EventSource (architecture rule 16)" },
+  getInstanceLogo: { file: "lib/api/instance.ts", why: "an image file, the brand's <img> source" },
   dropTerminalFiles: { file: "lib/api/terminal.ts", why: "a multipart form of files (P76)" },
   postFocus: { file: "lib/api/terminal.ts", why: "the clear at page close, a keepalive beacon that outlives the page" },
 };
@@ -47,7 +47,7 @@ export const DOORS: Readonly<Record<string, readonly GeneratedOperation[]>> = {
   "lib/api/connections.ts": ["setConnectionSecret", "removeConnectionSecret"],
   "lib/api/messengers/telegram-user.ts": ["startTelegramUserLogin", "sendTelegramUserCode", "sendTelegramUserPassword", "cancelTelegramUserLogin", "disconnectTelegramUser"],
   "lib/api/messengers/whatsapp.ts": ["startWhatsAppConnect", "readWhatsAppConnect", "cancelWhatsAppConnect", "disconnectWhatsApp"],
-  "lib/api/meta.ts": ["openLocal"],
+  "lib/api/instance.ts": ["openLocal"],
   "lib/api/terminal.ts": ["createTerminalTicket", "postFocus"],
 };
 

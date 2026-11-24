@@ -46,18 +46,18 @@ describe("the review dialog's dwell (P105: a held Shift+Enter must not press the
 describe("refreshData re-reads Mail only when asked", () => {
   const seed = () => {
     const qc = new QueryClient();
-    for (const key of ["drafts", "draft-mail", "thread", "timeline", "pulse"]) qc.setQueryData([key, "p"], 1);
+    for (const key of ["drafts", "draft-mail", "conversation-mail", "activity", "pulse"]) qc.setQueryData([key, "p"], 1);
     return qc;
   };
-  const stale = (qc: QueryClient) => ["drafts", "draft-mail", "thread", "timeline", "pulse"].filter((k) => qc.getQueryState([k, "p"])?.isInvalidated);
+  const stale = (qc: QueryClient) => ["drafts", "draft-mail", "conversation-mail", "activity", "pulse"].filter((k) => qc.getQueryState([k, "p"])?.isInvalidated);
   it("a tone, switch or mark change leaves the Mail reads alone", async () => {
     const qc = seed();
     await refreshData(qc);
-    expect(stale(qc)).toEqual(["drafts", "timeline"]);
+    expect(stale(qc)).toEqual(["drafts", "activity"]);
   });
   it("a status change or a send reads Mail again", async () => {
     const qc = seed();
     await refreshData(qc, { mail: true });
-    expect(stale(qc)).toEqual(["drafts", "draft-mail", "thread", "timeline"]);
+    expect(stale(qc)).toEqual(["drafts", "draft-mail", "conversation-mail", "activity"]);
   });
 });

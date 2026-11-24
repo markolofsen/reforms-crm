@@ -7,7 +7,7 @@ import { keys, MAIL_KEYS, TOPIC_KEYS } from "../src/lib/cache/keys";
 // P50 L3: a live frame invalidates only the prefixes of its topic and project, never a Mail read.
 const seed = () => {
   const qc = new QueryClient();
-  const all = [keys.conversations("p", "ready", null, ""), keys.conversations("q", "ready", null, ""), keys.activity("p", "all", null), keys.draftMail("p", 1), keys.thread("p", 2), keys.connections(), keys.pulse(), keys.overview(), keys.doctor("p")];
+  const all = [keys.conversations("p", "ready", null, ""), keys.conversations("q", "ready", null, ""), keys.activity("p", "all", null), keys.draftMail("p", 1), keys.conversationMail("p", 2), keys.connections(), keys.pulse(), keys.overview(), keys.doctor("p")];
   for (const k of all) qc.setQueryData(k, 1);
   return qc;
 };
@@ -40,7 +40,7 @@ describe("applyLive", () => {
   it("mail re-reads only that project's Mail (P53: the hub wrote a draft)", () => {
     const qc = seed();
     applyLive(qc, { type: "change", seq: 1, changes: [{ topic: "mail", project: "p" }] }, false);
-    expect(stale(qc).sort()).toEqual(["draft-mail/p/1", "thread/p/2"]);
+    expect(stale(qc).sort()).toEqual(["conversation-mail/p/2", "draft-mail/p/1"]);
   });
   it("an instance change reaches every project; Mail and the doctor stay", () => {
     const qc = seed();
