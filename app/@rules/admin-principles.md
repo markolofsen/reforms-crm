@@ -14,7 +14,7 @@ Scope: what a screen may show and ask; read it before designing or changing a sc
 8. MUST: the brand is the instance config's `name` and `logo` (fallback "Hub"); no per-instance code or style.
 9. MUST: settings by frequency: what is set rarely lives in Settings, grouped by what it governs, nothing folded; Settings opens on Sending.
 10. MUST: one status sentence per screen, the worst fact with at most one link to its fix; no number appears twice on a screen.
-11. MUST: a Mail row is a person in three lines; views are one View menu with counts; selecting turns the header line into "N selected · …" in place and never moves the first row.
+11. MUST: a Mail row is a person in three lines; a view has one door, the sidebar's children with counts, and the header line only names the view on screen (a phone, with no sidebar, keeps it as the View menu); what the sidebar does not choose (filters, brands) is the filter button beside the search, shown only when it has a choice (P134); selecting turns the header line into "N selected · …" in place and never moves the first row.
 12. MUST: correspondence: an Open lives on the thing it opens, a setting with what it governs; files no screen lists are on Help.
 13. MUST: a section with a menu of its own uses `SectionLayout` and `SectionNav` of `@hub/ui/product`; its selection is the address.
 

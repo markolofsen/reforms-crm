@@ -25,18 +25,15 @@ export function undoTarget(last: { draft: ReviewDraft; at: number } | null, open
   return open?.canUndo ? open : null;
 }
 
-/** P128 X4: a batch leaves the View menu this many days after its last draft was sent or done, once nothing in it is open. */
-export const BATCH_KEEP_DAYS = 7;
-const BATCH_SHORT_MAX = 28;
-
-/** Whether the View menu still lists a batch: one with an open draft, a closed one for 7 days after its last send or done, or the one on screen. */
-export function batchListed(b: { id: number; lastClosedAt: string | null; counts: { review: number; checked: number; hold: number } }, now: number, onScreen: number | null): boolean {
-  if (b.id === onScreen) return true;
-  if (b.counts.review + b.counts.checked + b.counts.hold > 0 || b.lastClosedAt === null) return true;
-  return now - Date.parse(b.lastClosedAt) < BATCH_KEEP_DAYS * 86_400_000;
+/**
+ * P134 verdict 2: a batch is shown only while drafts of it still wait for the owner's review (To review or Checked; a held draft
+ * waits for nobody), as one line on top of Needs you; the number is how many. Zero: the line is gone. Hold is the owner's own word.
+ */
+export function batchAwaiting(b: { counts: { review: number; checked: number } }): number {
+  return b.counts.review + b.counts.checked;
 }
 
-/** The batch chip's short name (P128 X4): the name cut at a word to 28 characters; the asking prompt stays its "Asked for" line. */
+/** A batch's short name (P128 X4): the name cut at a word to 28 characters; the asking prompt stays its "Asked for" line. */
 export function shortBatchName(name: string): string {
   const t = name.replace(/\s+/g, " ").trim();
   if (t.length <= BATCH_SHORT_MAX) return t;

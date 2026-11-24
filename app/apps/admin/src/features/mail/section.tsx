@@ -6,7 +6,7 @@ import { useClientKey } from "./use-client-key";
 import { phrase } from "@hub/contract/help";
 import { useCallback, useMemo } from "react";
 import { MailWorkspace } from "./adapter";
-import { shortBatchName } from "./model";
+import { batchAwaiting, shortBatchName } from "./model";
 import type { Filters, View } from "@/features/mail/list/header";
 import type { BrandCount } from "@/features/mail/list/filter-menu";
 import { useDebounced } from "@/hooks/use-debounced";
@@ -17,7 +17,7 @@ import { useSearch } from "@/hooks/use-search-state";
 import { countOf, mailSource, useBatches, useMailCounts, type ReviewPage } from "@/lib/data/conversations";
 import { dest, type Dest } from "@/routes/paths";
 import { DRAFT_FILTERS, DRAFT_VIEW_LABELS, DRAFT_VIEWS, MAIL_SEARCH, type DraftView } from "@/routes/search";
-import { BatchSend } from "./batch-send";
+import { BatchLine, BatchSend } from "./batch-send";
 import { LeadCard } from "./inbox/lead-card";
 import { LeadsGroup } from "./inbox/leads-group";
 import { useInbound } from "@/lib/data/inbound";
@@ -92,6 +92,11 @@ function MailSection({ project, filter, q, batch, clientId, pending, pointed, le
     },
   });
   const onView = (v: string) => go(dest("mail.list", { filter: SIDEBAR_VIEWS.find((x) => x === v) ?? "needs_you", q }), { replace: true });
+  // P134 verdict 2: on Needs you, one line per batch whose drafts wait for review; the batch's own list stays a link (`?batch=`).
+  const waiting = filter === "needs_you" && batch === null ? (batches.data?.batches ?? []).filter((b) => batchAwaiting(b) > 0) : [];
+  const batchLines = waiting.map((b) => (
+    <BatchLine awaiting={batchAwaiting(b)} batchId={b.id} checked={b.counts.checked} key={b.id} project={project} request={shortBatchName(b.brief ?? b.name)} to={dest("mail.list", { filter: "all", batch: b.id })} />
+  ));
   // P97, P99 verdict 8: a lead is not a conversation until the first reply is sent: New leads stay a group below the people.
   const leads = batch === null && (filter === "needs_you" || filter === "all") && inbound.data?.leads ? <LeadsGroup group={inbound.data.leads} openPageId={leadPageId} /> : undefined;
   return (
@@ -125,7 +130,12 @@ function MailSection({ project, filter, q, batch, clientId, pending, pointed, le
       search={[q, setQ]}
       place={{ filter, q, batch }}
       source={{ ...source, filter: batch === null ? filter : `${BATCH}${batch}` }}
-      status={<StatusLine project={project} />}
+      status={
+        <>
+          <StatusLine project={project} />
+          {batchLines}
+        </>
+      }
       header={header}
     />
   );

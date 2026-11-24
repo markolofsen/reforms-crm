@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import type { BatchRunDto, BatchSendPlanDto } from "@hub/contract/sending";
 import { ReviewDialog, type ReviewItem } from "@hub/ui/product/conversation/review-dialog";
 import { ActionButton } from "@hub/ui/product/action-button";
+import { AppLink } from "@/components/app-link";
 import { ApiFailure, sentence } from "@/lib/api/client";
+import type { Dest } from "@/routes/paths";
 import { useBatchRun, useBatchSend } from "@/lib/data/drafts";
 
 // Send all Checked of one batch (P85b, decision 0011 amendment of 2026-11-20 point 4). Never automatic: a click reads every
@@ -21,7 +23,8 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const minutes = (n: number, spacing: number) => Math.max(1, Math.round(((n - 1) * spacing) / 60));
 const STATUS: Record<BatchRunDto["items"][number]["status"], string> = { waiting: "Waiting", sending: "Sending", sent: "Sent", refused: "Not sent", failed: "Failed", stopped: "Stopped" };
 
-export function BatchSend({ project, batchId, checked, brief }: { project: string; batchId: number; checked: number; /** The owner's words that asked for the batch, shown in full (P87). */ brief: string | null }) {
+/** The run and the review of one batch's Send all Checked, shared by its line on Needs you and its own list (`?batch=`). */
+function useBatchFlow(project: string, batchId: number) {
   const [step, setStep] = useState<Step>({ k: "idle" });
   // While a run is going, its progress is read every BATCH_RUN_POLL_MS (the `sends` live topic also moves on each mail).
   const run = useBatchRun(project, batchId);
@@ -36,8 +39,13 @@ export function BatchSend({ project, batchId, checked, brief }: { project: strin
     if (seen.current !== -1 && seen.current !== done) void moved();
     seen.current = done;
   }, [done, moved]);
+  const review = <BatchReview onClose={() => !start.isPending && setStep({ k: "idle" })} onSend={(p) => start.mutate(p)} pending={start.isPending} step={step} />;
+  const progress = r && <RunView onStop={() => stop.mutate()} run={r} stopping={stop.isPending} />;
+  return { step, running: r?.state === "running", review, progress, open: () => step.k !== "reading" && plan.mutate() };
+}
 
-  const running = r?.state === "running";
+export function BatchSend({ project, batchId, checked, brief }: { project: string; batchId: number; checked: number; /** The owner's words that asked for the batch, shown in full (P87). */ brief: string | null }) {
+  const f = useBatchFlow(project, batchId);
   return (
     <section aria-label="Send all Checked" className="flex flex-col gap-3 border-t p-3">
       {brief && (
@@ -46,17 +54,46 @@ export function BatchSend({ project, batchId, checked, brief }: { project: strin
           {brief}
         </p>
       )}
-      {r && <RunView onStop={() => stop.mutate()} run={r} stopping={stop.isPending} />}
-      <BatchReview onClose={() => !start.isPending && setStep({ k: "idle" })} onSend={(p) => start.mutate(p)} pending={start.isPending} step={step} />
-      {!running && (
+      {f.progress}
+      {f.review}
+      {!f.running && (
         <div className="flex flex-wrap items-center gap-3">
-          <ActionButton aria-disabled={checked === 0 || step.k === "reading"} className="aria-disabled:opacity-64" onClick={() => checked > 0 && step.k !== "reading" && plan.mutate()} size="m" variant="secondary">
+          <ActionButton aria-disabled={checked === 0 || f.step.k === "reading"} className="aria-disabled:opacity-64" onClick={() => checked > 0 && f.open()} size="m" variant="secondary">
             <SendIcon aria-hidden="true" />
-            {step.k === "reading" ? "Reading Mail" : "Send all Checked"}
+            {f.step.k === "reading" ? "Reading Mail" : "Send all Checked"}
           </ActionButton>
           <p className="text-muted-foreground text-sm">{checked === 0 ? "No draft of this batch is Checked yet (More ▸ Check for Send all Checked, or C, on its card)." : `${plural(checked, "Checked draft")} in this batch; you review the list once before anything is sent.`}</p>
         </div>
       )}
+    </section>
+  );
+}
+
+/**
+ * P134 verdict 2: a batch on top of Needs you while drafts of it wait for review, one line: "3 drafts from „<request>“ · Review
+ * all", which reads the Checked drafts through the send door's checks and opens the one review (nothing is sent before its
+ * Send). The request links to the batch's own list (`?batch=`). None Checked yet: the line says how to check them instead.
+ */
+export function BatchLine({ project, batchId, awaiting, checked, request, to }: { project: string; batchId: number; awaiting: number; checked: number; request: string; to: Dest }) {
+  const f = useBatchFlow(project, batchId);
+  return (
+    <section aria-label={`Batch ${request}`} className="flex flex-col gap-2 border-b px-3 py-2" data-testid="batch-line">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+        <p className="min-w-0 flex-1 truncate">
+          {plural(awaiting, "draft")} from{" "}
+          <AppLink className="font-medium" to={to}>
+            „{request}“
+          </AppLink>
+          {checked > 0 && checked < awaiting && <span className="text-muted-foreground"> · {checked} Checked</span>}
+        </p>
+        {!f.running && (
+          <ActionButton aria-disabled={checked === 0 || f.step.k === "reading"} className="aria-disabled:opacity-64" onClick={() => checked > 0 && f.open()} size="s" tooltip={checked === 0 ? "Check each draft first (C on its card)" : "Read the Checked drafts' checks, then send them once"} variant="secondary">
+            {f.step.k === "reading" ? "Reading Mail" : "Review all"}
+          </ActionButton>
+        )}
+      </div>
+      {f.progress}
+      {f.review}
     </section>
   );
 }
