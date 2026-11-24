@@ -402,3 +402,40 @@ describe("only a migrating opener applies migrations to an existing database (P1
     openDb(join(tmp, "fresh.db")).close(); // a new database migrates by itself
   });
 });
+
+describe("migration 0044 (a client needs no email, P141 C1)", () => {
+  it("makes email nullable without a rebuild, keeps every client with its marks, drafts, maps and identifiers, the live triggers and a partial unique email", () => {
+    const sqlite = new Database(":memory:");
+    sqlite.pragma("foreign_keys = ON");
+    const db = drizzle(sqlite);
+    migrate(db, { migrationsFolder: folderUpTo(44) }); // 0000 .. 0043
+    sqlite.prepare("insert into clients (project, email, name) values ('p','a@x.example','A'), ('p','b@x.example','+966544555430')").run();
+    sqlite.prepare("insert into marks (project, client_id, mark) values ('p',1,'vip')").run();
+    sqlite.prepare("insert into drafts (project, client_id, subject, to_addr, body) values ('p',1,'s','a@x.example','b')").run();
+    sqlite.prepare("insert into client_maps (project, client_id, source, created_at) values ('p',1,'graph TD','2026-11-24T00:00:00.000Z')").run();
+    sqlite.prepare("insert into client_identifiers (project, client_id, kind, value) values ('p',2,'whatsapp','+966544555430')").run();
+
+    migrate(db, { migrationsFolder: source }); // + 0044, inside the migrator's one transaction with foreign keys on
+
+    expect(sqlite.prepare("select id, email, name from clients order by id").all()).toEqual([
+      { id: 1, email: "a@x.example", name: "A" },
+      { id: 2, email: "b@x.example", name: "+966544555430" },
+    ]);
+    for (const t of ["marks", "drafts", "client_maps", "client_identifiers"]) expect(sqlite.prepare(`select count(*) as n from ${t}`).get()).toEqual({ n: 1 });
+    // Two chat-only clients coexist; a set email stays unique; a Notion card belongs to one client.
+    sqlite.prepare("insert into clients (project, email, name) values ('p', null, 'WhatsApp +1'), ('p', null, 'Telegram @t')").run();
+    expect(() => sqlite.prepare("insert into clients (project, email, name) values ('p','a@x.example','dup')").run()).toThrow(/UNIQUE/);
+    sqlite.prepare("update clients set notion_page_id = 'pg-1' where id = 1").run();
+    expect(() => sqlite.prepare("update clients set notion_page_id = 'pg-1' where id = 2").run()).toThrow(/UNIQUE/);
+    expect(() => sqlite.prepare("insert into client_identifiers (project, client_id, kind, value) values ('p',1,'whatsapp','+966544555430')").run()).toThrow(/UNIQUE/);
+    const cols = (t: string) => (sqlite.prepare(`pragma table_info(${t})`).all() as { name: string }[]).map((c) => c.name);
+    expect(cols("clients")).toEqual(expect.arrayContaining(["email", "notion_page_id", "merged_into"]));
+    expect(cols("clients")).not.toContain("email_new");
+    expect(cols("messenger_chats")).toContain("profile_name");
+    const triggers = (sqlite.prepare("select name from sqlite_master where type = 'trigger' and name like 'live_clients_%'").all() as { name: string }[]).map((t) => t.name).sort();
+    expect(triggers).toEqual(["live_clients_ad", "live_clients_ai", "live_clients_au"]);
+    expect(sqlite.pragma("foreign_key_check")).toEqual([]);
+    expect(sqlite.pragma("integrity_check")).toEqual([{ integrity_check: "ok" }]);
+    sqlite.close();
+  });
+});

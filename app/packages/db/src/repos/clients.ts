@@ -98,7 +98,8 @@ export function clientsRepo(db: Db) {
       return db
         .insert(clients)
         .values(input)
-        .onConflictDoUpdate({ target: [clients.project, clients.email], set: { ...rest, updatedAt: new Date().toISOString() } })
+        // The unique index is partial (migration 0044: only a set email is unique), so the target names its WHERE.
+        .onConflictDoUpdate({ target: [clients.project, clients.email], targetWhere: sql`${clients.email} is not null`, set: { ...rest, updatedAt: new Date().toISOString() } })
         .returning({ id: clients.id })
         .get();
     },

@@ -12,7 +12,8 @@ export type MessageSource = "wa_app";
 
 export type MessengerDraftStatus = "draft" | "confirmed" | "sent" | "copied" | "discarded";
 
-export type IdentifierKind = "email" | "telegram" | "phone" | "whatsapp";
+/** P141 C1: `telegram` is a Telegram user id, `telegram_username` its username (lower-case, no `@`), `phone` and `whatsapp` +E.164. */
+export type IdentifierKind = "email" | "telegram" | "telegram_username" | "phone" | "whatsapp";
 
 // One polled account (one bot). `cursor` is the adapter's opaque position (Telegram: next update offset), written
 // only after the batch it covers is stored. `last_*` feed `status` and the stale-poll warning.
@@ -32,8 +33,8 @@ export const messengerAccounts = sqliteTable(
   (t) => [uniqueIndex("messenger_accounts_key").on(t.project, t.channel, t.account)],
 );
 
-// The linked chats (decision 0036 point 3; 0049 makes a chat that wrote known, in P141 U2). A WhatsApp chat's messages are cached
-// before it is linked (P141 W2) and adopted here by `chat_id` when it is.
+// The known chats (decision 0049 point 6, P141 U2): a private chat that wrote, and every chat the owner linked. A row is "known";
+// the chat is "linked" when a `client_identifiers` row names it (`isLinked`). Ingest makes the row of a chat that wrote.
 export const messengerChats = sqliteTable(
   "messenger_chats",
   {
@@ -65,6 +66,9 @@ export const messengerChats = sqliteTable(
     jid: text("jid"),
     lastInboundAt: text("last_inbound_at"),
     account: text("account"),
+    // P141 U3 (migration 0044): the name the person gave themselves (WhatsApp's push name, Telegram's display name), shown as theirs;
+    // never written to Notion without the owner's click.
+    profileName: text("profile_name"),
   },
   (t) => [uniqueIndex("messenger_chats_key").on(t.project, t.channel, t.chatId)],
 );
