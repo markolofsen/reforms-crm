@@ -6,6 +6,7 @@ import { ActionButton } from "@hub/ui/product/action-button";
 import { AppLink } from "@/components/app-link";
 import { ago } from "@/lib/format";
 import { placeDest } from "./labels";
+import { dest } from "@/routes/paths";
 
 /** Where the error is fixed: its source as a link to that page, or plain text when the page is Overview itself. */
 function Where({ r }: { r: OpsErrorRowDto }) {
@@ -20,7 +21,7 @@ function Where({ r }: { r: OpsErrorRowDto }) {
 /**
  * Recent errors (P86): the newest `error` lines of the ops log of the last 24 h (`GET /api/ops/errors`), folded like All parts:
  * each its source (a link to the page that fixes it), when, and the redacted message. Nothing in view when there is none; no
- * control, the full log is `./run.sh logs --level error`. Refetched on the live topic `ops-log`. `now` comes from the clock.
+ * control but the link to Activity ▸ Errors (P137 L3), every warn and error line of the day. Refetched on the live topic `ops-log`. `now` comes from the clock.
  */
 export function RecentErrors({ now }: { now: number }) {
   const q = useOpsErrors();
@@ -50,7 +51,10 @@ export function RecentErrors({ now }: { now: number }) {
         </ul>
         <p className="pt-2 text-muted-foreground text-xs">
           {d.total > d.rows.length ? `The newest ${d.rows.length} of ${d.total} in the last ${d.hours} h. ` : `The last ${d.hours} h. `}
-          Every line: <code className="rounded-sm bg-muted px-1 py-0.5">./run.sh logs --level error</code>
+          {/* P137 L3: every error and warning of the day, with its action, is Activity ▸ Errors. */}
+          <AppLink className="text-foreground" data-testid="recent-errors-all" to={dest("log.list", { kind: "errors" })}>
+            {d.total} {d.total === 1 ? "error" : "errors"} in {d.hours} h in Activity
+          </AppLink>
         </p>
       </CollapsiblePanel>
     </Collapsible>

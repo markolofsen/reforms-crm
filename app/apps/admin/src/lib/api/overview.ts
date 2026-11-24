@@ -1,6 +1,6 @@
-import { getOpsErrors, getOverview, getScheme } from "@hub/api";
+import { getOpsErrors, getOpsLines, getOverview, getScheme } from "@hub/api";
 import { overviewDto } from "@hub/contract/overview";
-import { opsErrorsDto } from "@hub/contract/ops-log";
+import { opsErrorsDto, opsLinesDto } from "@hub/contract/ops-log";
 import { schemeDto } from "@hub/contract/scheme";
 import { readGenerated } from "./client";
 
@@ -11,4 +11,6 @@ export const overviewApi = {
   scheme: () => readGenerated(getScheme(), schemeDto),
   /** P86: the newest error lines of the ops log (Recent errors). */
   opsErrors: () => readGenerated(getOpsErrors(), opsErrorsDto),
+  /** P137 L3: the last day's warn and error lines (Activity ▸ Errors). */
+  opsLines: () => readGenerated(getOpsLines(), opsLinesDto),
 };

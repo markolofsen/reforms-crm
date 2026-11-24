@@ -6,6 +6,7 @@ import { backupSteps } from "./backup";
 import { fileSteps } from "./files";
 import { instanceSteps } from "./instance";
 import { leadSteps } from "./leads";
+import { logSteps } from "./log";
 import { mailSteps } from "./mail";
 import { mcpSteps } from "./mcp";
 import { messengerSteps } from "./messengers";
@@ -44,6 +45,8 @@ export const STEPS: Step[] = [
   // row and the CLIs row (P66: one login-shell detection, cached per run) are the install workflow's: setup and install run them.
   ...agentSteps.map((s): Step => (s.id === "agent.tools" ? { ...s, audit: true } : s)),
   ...backupSteps.map((s): Step => ({ ...s, audit: true })),
+  // P137 L3: the day's ops-log errors, a health check the doctor judges (setup and install skip it).
+  ...logSteps.map((s): Step => ({ ...s, audit: true })),
 ];
 
 /** What a manual session needs. `--automation` adds the optional extras; dev steps run only by `--only`; `audit` (doctor only) adds the backup checks. */

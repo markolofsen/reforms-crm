@@ -12,7 +12,7 @@
  * a facade, and list it here. `apps/admin/test/rules.test.ts` fails when the spec, the barrel and this ledger disagree.
  */
 export const GENERATED_OPERATIONS = {
-  instance: ["getInstance", "getInstanceLogo", "getCoreUpdate", "checkCoreUpdate", "getAutostart", "setAutostart", "listConnections", "testConnection", "setConnectionSecret", "removeConnectionSecret", "getOpsErrors", "checkApps", "openLocal", "streamLive"],
+  instance: ["getInstance", "getInstanceLogo", "getCoreUpdate", "checkCoreUpdate", "getAutostart", "setAutostart", "listConnections", "testConnection", "setConnectionSecret", "removeConnectionSecret", "getOpsErrors", "getOpsLines", "checkApps", "openLocal", "streamLive"],
   overview: ["getHealth", "getPulse", "getOverview", "getScheme"],
   projects: ["listProjects", "getProjectOverview", "getProjectDoctor", "getActivity", "getProjectLinks", "listKnowledge", "getKnowledgeText", "listSequences", "listEnrollments", "stopEnrollment"],
   mail: [

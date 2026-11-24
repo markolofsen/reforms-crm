@@ -36,6 +36,9 @@ export function useRereadScheme(): (ms: number) => void {
 /** The server's recent errors (Overview's last block). */
 export const useOpsErrors = () => useQuery({ queryKey: keys.opsErrors(), queryFn: overviewApi.opsErrors });
 
+/** P137 L3: the last day's warn and error lines of the ops log (Activity ▸ Errors, its count in the menu). */
+export const useOpsLines = () => useQuery({ queryKey: keys.opsLines(), queryFn: overviewApi.opsLines });
+
 /**
  * The places Overview's "Needs you" names for this project and the instance (UX pass 2026-11-20: one source of attention). Every
  * part that is broken or needs a look lights the page that fixes it, and the agent's open question lights Overview, so a dot

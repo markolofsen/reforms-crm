@@ -2,7 +2,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { opsErrorsDto } from "@hub/contract/ops-log";
+import { opsErrorsDto, opsLinesDto } from "@hub/contract/ops-log";
 import { OPS_SOURCES, appendOps, type OpsStore } from "@hub/log/ops";
 import type { InstanceContext } from "../src/instance/context";
 import { OPS_PLACE, opsLogRoutes } from "../src/instance/ops-log-routes";
@@ -32,5 +32,22 @@ describe("GET /api/ops/errors", () => {
     const d = opsErrorsDto.parse(await (await opsLogRoutes(ctx()).request("/api/ops/errors")).json());
     expect(d).toEqual({ rows: [], total: 0, hours: 24 });
     for (const s of OPS_SOURCES) expect(s in OPS_PLACE).toBe(true);
+  });
+});
+
+describe("GET /api/ops/lines (P137 L3)", () => {
+  it("every warn and error line of the last 24 h, newest first, with its level and action; info lines are not shown", async () => {
+    const s = store();
+    appendOps(s, { time: "2026-11-19T10:00:00.000Z", level: "error", source: "mail", message: "too old" }, NOW);
+    appendOps(s, { time: "2026-11-20T10:00:00.000Z", level: "info", source: "server", message: "started" }, NOW);
+    appendOps(s, { time: "2026-11-20T11:00:00.000Z", level: "warn", source: "send", message: "a confirmed send was refused", action: "w-kqzhtrvmab" }, NOW);
+    appendOps(s, { time: "2026-11-20T12:00:00.000Z", level: "error", source: "notion", message: "Notion page update failed", action: "w-kqzhtrvmab.fjdkq" }, NOW);
+    const d = opsLinesDto.parse(await (await opsLogRoutes(ctx(s)).request("/api/ops/lines")).json());
+    expect(d).toMatchObject({ errors: 1, warnings: 1, hours: 24 });
+    expect(d.rows.map((r) => [r.level, r.message, r.action])).toEqual([
+      ["error", "Notion page update failed", "w-kqzhtrvmab.fjdkq"],
+      ["warn", "a confirmed send was refused", "w-kqzhtrvmab"],
+    ]);
+    expect(d.rows[1]).toMatchObject({ place: "sending", project: null });
   });
 });

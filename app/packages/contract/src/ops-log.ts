@@ -27,3 +27,27 @@ export const opsErrorsDto = z.strictObject({
   hours: z.number().int().positive(),
 });
 export type OpsErrorsDto = z.infer<typeof opsErrorsDto>;
+
+// P137 L3: Activity ▸ Errors, the ops log's `warn` and `error` lines of the last 24 h, newest first, for every part of the Hub
+// (the ops log is the instance's, not a project's). Each row says where it is fixed, as Recent errors does, and the action it
+// belongs to (`@hub/config/action-id`), so one click's lines can be read together (`./run.sh logs --action <id>`).
+
+export const OPS_LINES_HOURS = 24;
+export const OPS_LINES_LIMIT = 200;
+
+export const opsLineRow = opsErrorRow.extend({
+  level: z.enum(["error", "warn"]),
+  /** The action id of the line, or null for a line written outside one (a timer, the start). */
+  action: z.string().min(1).max(48).nullable(),
+});
+export type OpsLineRowDto = z.infer<typeof opsLineRow>;
+
+export const opsLinesDto = z.strictObject({
+  /** Newest first, at most `OPS_LINES_LIMIT`. */
+  rows: z.array(opsLineRow).max(OPS_LINES_LIMIT),
+  /** Every `error` line of the window, and every `warn` line, shown or not. */
+  errors: z.number().int().nonnegative(),
+  warnings: z.number().int().nonnegative(),
+  hours: z.number().int().positive(),
+});
+export type OpsLinesDto = z.infer<typeof opsLinesDto>;
