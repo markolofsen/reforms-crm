@@ -70,6 +70,34 @@ export type LeadsReadDto = z.infer<typeof leadsReadDto>;
 export const leadsGroupDto = z.strictObject({ rows: z.array(leadRowDto), total: z.number().int(), read: leadsReadDto });
 export type LeadsGroupDto = z.infer<typeof leadsGroupDto>;
 
+/**
+ * P134 verdicts 6-7: Mail ▸ Leads, its views. New: the open leads of the window (the Leads group's rows, all of them, paged);
+ * Not now and Spam: the owner's two asides; Replied: the leads a first send answered (they became a client, P97 S4).
+ */
+export const LEAD_VIEWS = ["new", "not_now", "spam", "replied"] as const;
+export type LeadView = (typeof LEAD_VIEWS)[number];
+export const LEAD_VIEW_LABELS: Readonly<Record<LeadView, string>> = { new: "New", not_now: "Not now", spam: "Spam", replied: "Replied" };
+
+/** `GET /api/projects/:slug/leads`: one view of the project's leads, one row per person, newest first. */
+export const leadsListQuery = z.object({
+  view: z.enum(LEAD_VIEWS).default("new"),
+  brand: z.string().trim().min(1).max(100).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export const leadsListDto = z.strictObject({
+  rows: z.array(leadRowDto),
+  total: z.number().int(),
+  nextOffset: z.number().int().nullable(),
+  /** Every view's count (never narrowed by the brand). */
+  counts: z.strictObject({ new: z.number().int(), not_now: z.number().int(), spam: z.number().int(), replied: z.number().int() }),
+  /** The brands of the view's leads with how many people each, most first; the filter shows them only with two or more. */
+  brands: z.array(z.strictObject({ name: z.string(), count: z.number().int() })),
+  read: leadsReadDto,
+});
+export type LeadsListDto = z.infer<typeof leadsListDto>;
+
 /** `GET /api/projects/:slug/inbound`: the Inbox view. `unknown` is the muted line, the messages from senders the Hub does not know. */
 export const inboundListDto = z.strictObject({
   rows: z.array(inboundRowDto),

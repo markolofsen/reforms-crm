@@ -31,10 +31,11 @@ describe("search state", () => {
     expect(searchDest(resolveRoute("/settings", ""), { filter: "all" })).toBeNull();
   });
 
-  it("the two behaviours that are more than setting a key: a lead's view change returns to the list; Sends drops the client", () => {
-    const lead = resolveRoute("/mail/lead/0123456789abcdef0123456789abcdef", "q=ana");
-    expect(searchDest(lead, { filter: "waiting" })).toEqual(dest("mail.list", { filter: "waiting", q: "ana" }));
-    expect(searchDest(lead, { q: "bo" })).toEqual(dest("mail.lead", { page: "0123456789abcdef0123456789abcdef" }, { q: "bo" }));
+  it("the two behaviours that are more than setting a key: a lead's view or brand change returns to the Leads list; Sends drops the client", () => {
+    const lead = resolveRoute("/mail/leads/0123456789abcdef0123456789abcdef", "view=spam");
+    expect(searchDest(lead, { view: "not_now" })).toEqual(dest("mail.leads", { view: "not_now" }));
+    expect(searchDest(lead, { brand: "Carapis" })).toEqual(dest("mail.leads", { view: "spam", brand: "Carapis" }));
+    expect(searchDest(lead, { q: "bo" })).toBeNull();
     expect(searchDest(resolveRoute("/log", "kind=skipped&client=4"), { kind: "sends" })).toEqual(dest("log.list", { kind: "sends" }));
   });
 

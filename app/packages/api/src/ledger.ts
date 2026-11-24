@@ -18,7 +18,7 @@ export const GENERATED_OPERATIONS = {
   mail: [
     "listDrafts", "setDraftChecked", "setDraftStatus", "setDraftTone", "ackDraftCheck", "undoDraftStatus", "setClientMarks", "getClientTimeline", "getClientHistory", "listBatches", "getBatch", "undoBatch", "acknowledgeBatchWarnings", "getSafetyRules", "setSafetyRule", "getAgentSettings", "setAgentSettings",
     "listConversations", "getClientByKey", "getConversation", "getConversationMail", "getConversationText", "createManualMailDraft", "getDraftMail", "saveDraftMail", "restoreDraftMail", "tidyDraftMail", "listInbox", "listNotByEmail", "listInbound", "checkInbound", "undismissInbound", "dismissInbound",
-    "getInboundDetail", "getInboundText", "getLeadDetail", "notNowLead", "spamLead", "undoLead",
+    "getInboundDetail", "getInboundText", "listLeads", "getLeadDetail", "notNowLead", "spamLead", "undoLead",
   ],
   messengers: [
     "getTelegramUserStatus", "startTelegramUserLogin", "sendTelegramUserCode", "sendTelegramUserPassword", "cancelTelegramUserLogin", "disconnectTelegramUser", "getWhatsAppStatus", "startWhatsAppConnect", "readWhatsAppConnect", "cancelWhatsAppConnect", "disconnectWhatsApp",

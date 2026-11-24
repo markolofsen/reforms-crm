@@ -1,6 +1,7 @@
 import { DRAFT_VIEWS, type DraftView } from "@hub/config";
 import { ACTIVITY_VIEWS as TIMELINE_VIEWS, type ActivityView as TimelineView } from "@hub/contract/activity";
 import { keyText, parseClientKey } from "@hub/contract/client-key";
+import { LEAD_VIEWS, type LeadView } from "@hub/contract/inbound";
 import { KNOWLEDGE_VIEWS, type KnowledgeView } from "@hub/contract/knowledge";
 import { MESSENGER_CHANNEL_FILTERS, MESSENGER_LINK_FILTERS, MESSENGER_VIEWS, type MessengerChannelFilter, type MessengerLinkFilter, type MessengerView } from "@hub/contract/messenger-panel";
 
@@ -104,6 +105,9 @@ export const brandParam: SearchKeySpec<string | null> = { read: (v) => (v !== un
 
 /** Mail's three routes share one search, so a person opened from the list keeps its view, search and batch. `batch` limits the list to the drafts one batch wrote. An old view value (`ready`, `inbox`, `hold`, ...) resets to Needs you; no alias. */
 export const MAIL_SEARCH = { filter: view(DRAFT_VIEWS, DEFAULT_DRAFT_VIEW), q: text, batch: queryId, brand: brandParam, m: messageRef } as const;
+/** P134 verdicts 6-7: Mail ▸ Leads, its view (New, the default; Not now; Spam; Replied) and a brand. */
+export const LEADS_SEARCH = { view: view(LEAD_VIEWS, "new"), brand: brandParam } as const;
+export { LEAD_VIEWS, type LeadView };
 /** Activity (P73): the kind (P125 L3: `?kind=`, the menu column's; it was `?filter=`, no alias), and `client` narrows the timeline to one client (the draft card's history opens it). */
 export const LOG_SEARCH = { kind: view(ACTIVITY_VIEWS, "all"), client: queryId } as const;
 /**

@@ -100,8 +100,8 @@ export function destOf(r: Resolved): Dest | null {
 /**
  * The destination that sets search keys on the current route and keeps the rest; each value is read through the row's spec,
  * so one outside its enum resets to the default. Null when the route has no such key. Two behaviours are more than "set a
- * key", and stay explicit here (and in `test/search-state.test.ts`): a view change on a lead returns to Mail's list, whose
- * first row then opens; Activity's Sends view (the send history) drops `?client=`.
+ * key", and stay explicit here (and in `test/search-state.test.ts`): a view or brand change on a lead returns to the Leads list
+ * (P134); Activity's Sends view (the send history) drops `?client=`.
  */
 export function searchDest(r: Resolved, patch: Readonly<Record<string, string | number | null>>): Dest | null {
   if (r.route === "notFound") return null;
@@ -115,7 +115,7 @@ export function searchDest(r: Resolved, patch: Readonly<Record<string, string | 
     const v = patch[k];
     next[k] = spec[k]?.read(v === null || v === undefined ? undefined : String(v));
   }
-  if (r.route === "mail.lead" && "filter" in patch) return destFrom("mail.list", {}, next);
+  if (r.route === "mail.lead" && ("view" in patch || "brand" in patch)) return destFrom("mail.leads", {}, next);
   if (r.route === "log.list" && "kind" in patch && next.kind === "sends") next.client = null;
   return destFrom(r.route, r.params, next);
 }

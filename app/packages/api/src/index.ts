@@ -5,7 +5,7 @@ export { getGetInstanceLogoUrl } from "./generated/meta/meta";
 export { getAgentTools, getAutostart, listConnections, refreshAgentTools, removeConnectionSecret, setAutostart, setConnectionSecret, testConnection } from "./generated/connections/connections";
 export {
   ackDraftCheck, acknowledgeBatchWarnings, checkInbound, createManualMailDraft, dismissInbound, getBatch, getClientByKey, getClientHistory, getClientTimeline, getConversation, getConversationMail, getConversationText, getDraftMail, getInboundDetail, getInboundText, getLeadDetail,
-  listBatches, listConversations, listDrafts, listEnrollments, listInbound, listInbox, listNotByEmail, listSequences, notNowLead, restoreDraftMail, saveDraftMail, setClientMarks, setDraftChecked, setDraftStatus, setDraftTone, spamLead, stopEnrollment, tidyDraftMail, undismissInbound, undoBatch, undoDraftStatus, undoLead,
+  listBatches, listConversations, listDrafts, listEnrollments, listInbound, listInbox, listLeads, listNotByEmail, listSequences, notNowLead, restoreDraftMail, saveDraftMail, setClientMarks, setDraftChecked, setDraftStatus, setDraftTone, spamLead, stopEnrollment, tidyDraftMail, undismissInbound, undoBatch, undoDraftStatus, undoLead,
 } from "./generated/mail/mail";
 export {
   cancelTelegramUserLogin, cancelWhatsAppConnect, changeChatClient, createChatRecord, createMessengerDraft, disconnectTelegramUser, disconnectWhatsApp, dropHideProposals, editMessengerDraft, findAutolinkRecords, getAutolinkState, getMessengerConversation, getTelegramUserStatus, getWhatsAppStatus, hideChat,

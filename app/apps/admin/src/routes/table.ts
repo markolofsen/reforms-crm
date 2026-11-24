@@ -1,5 +1,5 @@
 import type { Route } from "next";
-import { AGENT_SEARCH, clientKeyParam, KNOWLEDGE_SEARCH, LOG_SEARCH, MAIL_SEARCH, MESSENGERS_SEARCH, notionPage, positiveId, type ParamSpec, type SearchOf, type SearchSpec } from "./search";
+import { AGENT_SEARCH, clientKeyParam, KNOWLEDGE_SEARCH, LEADS_SEARCH, LOG_SEARCH, MAIL_SEARCH, MESSENGERS_SEARCH, notionPage, positiveId, type ParamSpec, type SearchOf, type SearchSpec } from "./search";
 
 // `/mail/[id]` read as the number it matches, so `Route<...>` (the union of the pages in `src/app`, plus a string that fits a
 // dynamic page) can judge it (decision 0021). P127 A2 (owner remark 2026-11-23): there is ONE route tree. A scoped row's page
@@ -76,8 +76,11 @@ export const ROUTE_TABLE = {
   // unsent draft at the bottom. `/mail/<draft id>` and `/mail/in/<id>` are gone, with no redirect (no legacy aliases).
   // P103: a person by his email (`/mail/c/ana%40example.com`), `id-<n>` without one; the bare number is Not found.
   "mail.conversation": defineRoute("/mail/c/[key]", { section: "mail", scoped: true, title: "Mail", crumb: "Conversation", params: { key: clientKeyParam }, search: MAIL_SEARCH }),
-  // P97 S2: one lead of the Inbox's Leads group, by its Notion page id (32 hex), read from Notion Leads.
-  "mail.lead": defineRoute("/mail/lead/[page]", { section: "mail", scoped: true, title: "Mail", crumb: "Lead", params: { page: notionPage }, search: MAIL_SEARCH }),
+  // P134 verdicts 6-8: Mail ▸ Leads, a page of its own nested under Mail (a sidebar child, not a section): every lead of a view,
+  // and one lead by its Notion page id (32 hex), read from Notion Leads. `/mail/lead/<page>` is gone, with no redirect (no legacy
+  // aliases, owner 2026-11-08; its only door was the Leads group, which left Mail's list in the same change).
+  "mail.leads": defineRoute("/mail/leads", { section: "mail", scoped: true, title: "Leads", search: LEADS_SEARCH }),
+  "mail.lead": defineRoute("/mail/leads/[page]", { section: "mail", scoped: true, title: "Leads", crumb: "Lead", params: { page: notionPage }, search: LEADS_SEARCH }),
   // P71 M3 (decision 0036 point 6): what the messengers owe, an analogue of Mail for the linked chats; its landing is the panel
   // (Chats), its child the logins, the bot, each chat's rules and the guards. Mail drafts stay in Mail.
   "messengers.page": defineRoute("/messengers", { section: "messengers", scoped: true, title: "Chats", search: MESSENGERS_SEARCH, nav: { label: "Messengers", icon: "messengers", order: 2, chord: "m", phone: "more" } }),

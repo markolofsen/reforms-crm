@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { inboundCheckedDto, inboundDetailDto, inboundTextDto, inboundDismissedDto, inboundListDto, inboundUndismissBody, leadActionDto, leadDetailDto } from "@hub/contract/inbound";
+import { inboundCheckedDto, inboundDetailDto, inboundTextDto, inboundDismissedDto, inboundListDto, inboundUndismissBody, leadActionDto, leadDetailDto, leadsListDto, leadsListQuery } from "@hub/contract/inbound";
 import { notFound, v } from "../http/http";
 import { INBOUND_OFF, projectReadOf } from "./inbound";
 import { ownText } from "@hub/mail-app/own-text";
@@ -38,6 +38,16 @@ export function inboundRoutes({ repos, projects, reader, readText, leads }: Mail
     return { rows: items.slice(0, INBOX_LIST_MAX).map(leadDto), total: items.length, read: projectLeadsOf(leads?.status() ?? LEADS_OFF, slug, windowDays) };
   };
   return new Hono()
+    // P134 verdicts 6-7: Mail ▸ Leads, one view of every lead (no cut: paged), each view's count and the view's brands.
+    .get("/api/projects/:slug/leads", v("query", leadsListQuery), async (c) => {
+      const slug = c.req.param("slug");
+      if (!(await project(slug))) return notFound(c, "project");
+      const q = c.req.valid("query");
+      const windowDays = projects.find(slug)?.leads.windowDays ?? 14;
+      const r = await repos.leadRows.views(slug, q.view, new Date(Date.now() - windowDays * DAY).toISOString(), { brand: q.brand ?? null, limit: q.limit, offset: q.offset });
+      const next = q.offset + r.rows.length < r.total ? q.offset + r.rows.length : null;
+      return c.json(leadsListDto.parse({ rows: r.rows.map(leadDto), total: r.total, nextOffset: next, counts: r.counts, brands: r.brands, read: projectLeadsOf(leads?.status() ?? LEADS_OFF, slug, windowDays) }));
+    })
     .get("/api/projects/:slug/inbound", async (c) => {
       const slug = c.req.param("slug");
       if (!(await project(slug))) return notFound(c, "project");

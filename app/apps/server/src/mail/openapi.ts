@@ -1,6 +1,6 @@
 import { clientKeyDto } from "@hub/contract/client-key";
 import { conversationDto, conversationMailDto, conversationsDto, conversationsListQuery, conversationTextDto, conversationTextQuery } from "@hub/contract/conversations";
-import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, inboundTextDto, inboundUndismissBody, leadActionDto, leadDetailDto } from "@hub/contract/inbound";
+import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, inboundTextDto, inboundUndismissBody, leadActionDto, leadDetailDto, leadsListDto, leadsListQuery } from "@hub/contract/inbound";
 import { ackBody, agentSettingsBody, batchQuery, checkedBody, clientKeyParam, draftEditBody, draftsQuery, historyQuery, idParam, inboxQuery, leadParam, manualReplyBody, marksBody, notByEmailQuery, projectQuery, safetyKindParam, safetyRuleBody, sendParam, slugParam, statusBody, toneBody } from "@hub/contract/requests";
 import { agentSettingsDto, safetyRulesDto, safetyRuleSavedDto } from "@hub/contract/settings";
 import { batchDto, batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto, warningsAckedDto } from "@hub/contract/review";
@@ -50,6 +50,7 @@ export const operations: Operation[] = [
   { method: "post", path: "/api/projects/:slug/inbound/:id/dismiss", operationId: "dismissInbound", summary: "Mark one inbound message No reply needed", tags: ["mail"], params: sendParam, reply: { name: "InboundDismissed", schema: inboundDismissedDto }, errors: [403, 404] },
   { method: "get", path: "/api/projects/:slug/inbound/:id", operationId: "getInboundDetail", summary: "Read one inbound card's state", tags: ["mail"], params: sendParam, reply: { name: "InboundDetail", schema: inboundDetailDto }, errors: [404] },
   { method: "get", path: "/api/projects/:slug/inbound/:id/text", operationId: "getInboundText", summary: "Read the client's words from Mail", tags: ["mail"], params: sendParam, reply: { name: "InboundText", schema: inboundTextDto }, errors: [404] },
+  { method: "get", path: "/api/projects/:slug/leads", operationId: "listLeads", summary: "List one view of the project's leads", tags: ["mail"], params: slugParam, query: leadsListQuery, reply: { name: "LeadsList", schema: leadsListDto }, errors: [400, 404] },
   { method: "get", path: "/api/projects/:slug/leads/:pageId", operationId: "getLeadDetail", summary: "Read one lead from Notion Leads", tags: ["mail"], params: leadParam, reply: { name: "LeadDetail", schema: leadDetailDto }, errors: [404, 503] },
   { method: "post", path: "/api/projects/:slug/leads/:pageId/not-now", operationId: "notNowLead", summary: "Put one lead aside (local)", tags: ["mail"], params: leadParam, reply: { name: "LeadAction", schema: leadActionDto }, errors: [403, 404] },
   { method: "post", path: "/api/projects/:slug/leads/:pageId/spam", operationId: "spamLead", summary: "Set one lead's Notion Status to Spam (the owner's click)", tags: ["mail"], params: leadParam, reply: { name: "LeadAction", schema: leadActionDto }, errors: [403, 404, 503] },

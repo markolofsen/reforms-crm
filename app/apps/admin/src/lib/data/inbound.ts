@@ -1,8 +1,9 @@
 "use client";
 
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import type { EnrollmentView, InboxKind } from "@hub/config";
-import type { LeadActionDto } from "@hub/contract/inbound";
+import type { LeadActionDto, LeadView } from "@hub/contract/inbound";
 import type { LiveTopic } from "@hub/contract/live";
 import { inboundApi, inboxApi, leadsApi, sequencesApi } from "@/lib/api/inbox";
 import { keys } from "@/lib/cache/keys";
@@ -36,6 +37,29 @@ export function useDismissInbound(project: string, on: { onSuccess: (r: { ids: n
 
 /** P97: one lead's card (its Notion page read now). */
 export const useLead = (project: string, pageId: string) => useQuery({ queryKey: keys.lead(project, pageId), queryFn: () => leadsApi.get(project, pageId) });
+
+/**
+ * P134 verdicts 6-7: one view of Mail ▸ Leads, every lead in it (paged, no cut), the view's brands and every view's count. The
+ * last list is kept while another view loads.
+ */
+export function useLeads(project: string | null, view: LeadView, brand: string | null) {
+  const query = useInfiniteQuery({
+    queryKey: keys.leads(project ?? "", view, brand),
+    queryFn: ({ pageParam }) => leadsApi.list(project ?? "", view, pageParam, brand),
+    initialPageParam: 0,
+    getNextPageParam: (last) => last.nextOffset ?? undefined,
+    placeholderData: keepPreviousData,
+    enabled: project !== null,
+  });
+  const rows = useMemo(() => query.data?.pages.flatMap((p) => p.rows) ?? [], [query.data]);
+  const head = query.data?.pages[0];
+  return { query, rows, head };
+}
+
+/** The sidebar's Leads count (P134 verdict 6): New of the very query Leads' default view reads, so the two never disagree. */
+export function useNewLeads(project: string | null): number {
+  return useLeads(project, "new", null).head?.counts.new ?? 0;
+}
 
 export type LeadAction = "notNow" | "spam";
 

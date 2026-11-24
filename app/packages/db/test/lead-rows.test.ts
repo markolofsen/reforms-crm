@@ -52,3 +52,27 @@ describe("leadRows", () => {
     expect((await repos.leadRows.ofEmail("p", "KOBO@x.test")).map((r) => r.pageId)).toEqual(["a".repeat(32)]);
   });
 });
+
+// P134 verdicts 6-7: Mail ▸ Leads, its four views with their counts and a brand.
+describe("leadRows.views", () => {
+  it("puts every lead in one view, counts each, and narrows by brand without narrowing the counts", async () => {
+    await repos.leadRows.sync(
+      [
+        lead("a".repeat(32)),
+        lead("b".repeat(32), { email: "b@x.test", accountEmail: null, brand: "Reforms" }),
+        lead("c".repeat(32), { email: "c@x.test", accountEmail: null }),
+        lead("d".repeat(32), { email: "d@x.test", accountEmail: null, notionStatus: "Spam" }),
+        lead("e".repeat(32), { email: "e@x.test", accountEmail: null, receivedAt: "2026-10-01T10:00:00.000Z" }),
+      ],
+      NOW,
+    );
+    await repos.leadRows.dismiss("p", "c".repeat(32), "not_now", NOW);
+    const v = await repos.leadRows.views("p", "new", FROM);
+    expect(v.counts).toEqual({ new: 2, not_now: 1, spam: 1, replied: 0 });
+    expect(v.brands).toEqual([{ name: "Carapis", count: 1 }, { name: "Reforms", count: 1 }]);
+    const reforms = await repos.leadRows.views("p", "new", FROM, { brand: "reforms" });
+    expect(reforms.rows.map((r) => r.email)).toEqual(["b@x.test"]);
+    expect(reforms.counts.new).toBe(2);
+    expect((await repos.leadRows.views("p", "new", FROM, { limit: 1, offset: 1 })).rows).toHaveLength(1);
+  });
+});

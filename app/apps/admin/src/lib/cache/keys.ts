@@ -79,6 +79,8 @@ export const keys = {
   inboundText: (project: string, id: number) => ["inbound-text", project, id] as const,
   /** P97: one lead's card (its Notion page read now). */
   lead: (project: string, pageId: string) => ["lead", project, pageId] as const,
+  /** P134: one view of Mail ▸ Leads: under `inbound`, so every topic that moves the Leads group moves it. */
+  leads: (project: string, view: string, brand: string | null) => ["inbound", project, "leads", view, brand] as const,
 };
 
 /**

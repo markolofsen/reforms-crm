@@ -1,6 +1,6 @@
 import type { EnrollmentView, InboxKind } from "@hub/config";
-import { checkInbound, dismissInbound, getInboundDetail, getInboundText, getLeadDetail, listEnrollments, listInbound, listNotByEmail, listSequences, notNowLead, spamLead, stopEnrollment, undismissInbound, undoLead } from "@hub/api";
-import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, inboundTextDto, leadActionDto, leadDetailDto } from "@hub/contract/inbound";
+import { checkInbound, dismissInbound, getInboundDetail, getInboundText, getLeadDetail, listEnrollments, listInbound, listLeads, listNotByEmail, listSequences, notNowLead, spamLead, stopEnrollment, undismissInbound, undoLead } from "@hub/api";
+import { inboundCheckedDto, inboundDetailDto, inboundDismissedDto, inboundListDto, inboundTextDto, leadActionDto, leadDetailDto, leadsListDto, type LeadView } from "@hub/contract/inbound";
 import { notByEmailDto } from "@hub/contract/inbox";
 import { enrollmentChangedDto, enrollmentsDto, sequencesDto } from "@hub/contract/sequences";
 import { readGenerated } from "./client";
@@ -40,6 +40,8 @@ export const inboundApi = {
  * the owner's click) and their Undo. Nothing here drafts or sends: Prepare reply pastes the request into the dock.
  */
 export const leadsApi = {
+  /** P134: one view of Mail ▸ Leads, paged, with every view's count and the view's brands. */
+  list: (project: string, view: LeadView, offset: number, brand: string | null) => readGenerated(listLeads(project, { view, offset, ...(brand ? { brand } : {}) }), leadsListDto),
   get: (project: string, pageId: string) => readGenerated(getLeadDetail(project, pageId), leadDetailDto),
   notNow: (project: string, pageId: string) => readGenerated(notNowLead(project, pageId), leadActionDto),
   spam: (project: string, pageId: string) => readGenerated(spamLead(project, pageId), leadActionDto),

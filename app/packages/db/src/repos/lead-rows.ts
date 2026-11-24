@@ -29,6 +29,32 @@ export interface NewLead {
 }
 
 export const LEAD_PREVIEW_CHARS = 120;
+/** P134 verdict 7: the views of Mail ▸ Leads (the contract's `LEAD_VIEWS`). */
+export type LeadsView = "new" | "not_now" | "spam" | "replied";
+export type LeadsCounts = Record<LeadsView, number>;
+
+/**
+ * The view a lead row is in, or null (a lead its Status closed in Notion, or a draft to it is the work): New while open and in
+ * the window; Replied once a first send converted it; Spam and Not now the owner's asides (a Spam Status set in Notion too).
+ */
+export function leadViewOf(r: Pick<LeadRow, "convertedAt" | "dismissedReason" | "notionStatus">, open: boolean, inWindow: boolean): LeadsView | null {
+  if (r.convertedAt) return "replied";
+  if (r.dismissedReason === "spam" || r.notionStatus === "Spam") return "spam";
+  if (r.dismissedReason === "not_now") return "not_now";
+  return open && inWindow ? "new" : null;
+}
+
+/** One row per person (their newest request first), how many requests share the address. Rows come newest first. */
+function byPerson(rows: readonly LeadRow[]): LeadItem[] {
+  const out = new Map<string, LeadItem>();
+  for (const r of rows) {
+    const key = r.email ?? r.accountEmail ?? `page:${r.pageId}`;
+    const seen = out.get(key);
+    if (seen) seen.requests++;
+    else out.set(key, { ...r, requests: 1 });
+  }
+  return [...out.values()];
+}
 const norm = (id: string) => id.replace(/-/g, "").toLowerCase();
 const lower = (s: string | null) => (s ? s.trim().toLowerCase() || null : null);
 
@@ -46,14 +72,30 @@ export function leadRowsRepo(db: Db) {
   /** The Leads group: one row per person (their newest open request), the newest first; only rows received at or after `from`. */
   async function open(project: string, from: string): Promise<LeadItem[]> {
     const rows = db.select().from(leadRows).where(and(eq(leadRows.project, project), since(from), SQL_OPEN)).orderBy(sql`${leadRows.receivedAt} desc`, sql`${leadRows.id} desc`).all();
-    const byPerson = new Map<string, LeadItem>();
-    for (const r of rows) {
-      const key = r.email ?? r.accountEmail ?? `page:${r.pageId}`;
-      const seen = byPerson.get(key);
-      if (seen) seen.requests++;
-      else byPerson.set(key, { ...r, requests: 1 });
-    }
-    return [...byPerson.values()];
+    return byPerson(rows);
+  }
+
+  /**
+   * P134 verdicts 6-7: one view of Mail ▸ Leads, one row per person, newest first, paged; every view's count and the brands of this
+   * view (neither narrowed by `brand`). New is exactly the Leads group (open, received at or after `from`).
+   */
+  async function views(project: string, view: LeadsView, from: string, opts: { brand?: string | null; limit?: number; offset?: number } = {}): Promise<{ rows: LeadItem[]; total: number; counts: LeadsCounts; brands: { name: string; count: number }[] }> {
+    const all = db
+      .select({ row: leadRows, open: sql<number>`(case when ${SQL_OPEN} then 1 else 0 end)` })
+      .from(leadRows)
+      .where(eq(leadRows.project, project))
+      .orderBy(sql`${leadRows.receivedAt} desc`, sql`${leadRows.id} desc`)
+      .all();
+    const of = (v: LeadsView) => byPerson(all.filter((r) => leadViewOf(r.row, r.open === 1, r.row.receivedAt >= from) === v).map((r) => r.row));
+    const counts: LeadsCounts = { new: of("new").length, not_now: of("not_now").length, spam: of("spam").length, replied: of("replied").length };
+    const inView = of(view);
+    const n = new Map<string, number>();
+    for (const r of inView) if (r.brand) n.set(r.brand, (n.get(r.brand) ?? 0) + 1);
+    const brands = [...n].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    const brand = opts.brand?.trim().toLowerCase() || null;
+    const shown = brand === null ? inView : inView.filter((r) => r.brand?.toLowerCase() === brand);
+    const offset = opts.offset ?? 0;
+    return { rows: shown.slice(offset, opts.limit === undefined ? undefined : offset + opts.limit), total: shown.length, counts, brands };
   }
 
   return {
@@ -92,6 +134,7 @@ export function leadRowsRepo(db: Db) {
     },
 
     open,
+    views,
 
     async get(project: string, pageId: string): Promise<(LeadRow & { open: boolean }) | null> {
       const r = db
