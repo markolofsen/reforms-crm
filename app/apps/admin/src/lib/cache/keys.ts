@@ -29,6 +29,8 @@ export const keys = {
   conversation: (project: string, clientId: number) => ["drafts", project, "conversation", clientId] as const,
   /** P135: one client's map (the `clients` topic invalidates `drafts`, and a new map moves the client row). */
   clientMap: (project: string, clientId: number) => ["drafts", project, "client-map", clientId] as const,
+  /** P136 Q7: Overview's "Where we are stuck" of one project, under `drafts` too (a new map version moves the client row). */
+  stuckClients: (project: string) => ["drafts", project, "client-maps-stuck"] as const,
   /** P103: a client's key in the address to his row (under `drafts`, so a topic that moves a client refreshes it too). */
   clientKey: (project: string, key: string) => ["drafts", project, "client-key", key] as const,
   /** P99: one person's history read from Mail, and one body: Mail keys (read on open, on focus and on the `mail` topic). */

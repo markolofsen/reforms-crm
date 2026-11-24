@@ -1,6 +1,6 @@
 "use client";
 
-import { keepPreviousData, useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { ConversationRowDto, ConversationsDto, ConversationViewDto } from "@hub/contract/conversations";
 import { reviewApi } from "@/lib/api/review";
@@ -108,7 +108,13 @@ export function useClientByKey(project: string, key: string | null, enabled: boo
 /** One conversation's header and its unsent message, from the Hub's rows (refreshed by the live topics). */
 export const useConversation = (project: string, clientId: number) => useQuery({ queryKey: keys.conversation(project, clientId), queryFn: () => reviewApi.conversation(project, clientId) });
 
-/** P135: one client's map (read when the Map sheet opens; a new version moves the client row, so the live `clients` topic reads it again). */
+/**
+ * P136 Q7: Overview's "Where we are stuck", one read per project (the clients whose map has a blocked node or one waiting a week).
+ * Each project's answer stands alone: one that fails says so in its own block.
+ */
+export const useStuckClients = (projects: readonly string[]) => useQueries({ queries: projects.map((p) => ({ queryKey: keys.stuckClients(p), queryFn: () => reviewApi.stuckClients(p) })) });
+
+/** P135: one client's map (P136: read with the conversation header, for its summary line; a new version moves the client row, so the live `clients` topic reads it again). */
 export const useClientMap = (project: string, clientId: number, enabled: boolean) => useQuery({ queryKey: keys.clientMap(project, clientId), queryFn: () => reviewApi.clientMap(project, clientId), enabled });
 
 /** The history with this person read from Mail now (a Mail key: on open, focus and the `mail` topic only; never stored). */

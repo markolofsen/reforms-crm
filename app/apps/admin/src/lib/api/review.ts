@@ -1,11 +1,11 @@
 import type { Mark, SafetyKind, SettableStatus, Tone } from "@hub/config";
-import { ackDraftCheck, createManualMailDraft, getClientByKey, getClientHistory, getClientMap, getClientTimeline, getConversation, getConversationMail, getConversationText, listBatches, listConversations, listDrafts, setClientMarks, setDraftChecked, setDraftStatus, setDraftTone, undoBatch, undoDraftStatus, type GetConversationTextParams } from "@hub/api";
+import { ackDraftCheck, createManualMailDraft, getClientByKey, getClientHistory, getClientMap, getClientTimeline, getConversation, getConversationMail, getConversationText, listBatches, listConversations, listDrafts, listStuckClients, setClientMarks, setDraftChecked, setDraftStatus, setDraftTone, undoBatch, undoDraftStatus, type GetConversationTextParams } from "@hub/api";
 import type { StatusBody } from "@hub/contract/requests";
 import { batchesDto, draftChangedDto, draftsDto, historyDto, okDto, timelineDto } from "@hub/contract/review";
 import { conversationDto, conversationMailDto, conversationTextDto, conversationsDto, type ConversationViewDto } from "@hub/contract/conversations";
 import { readGenerated } from "./client";
 import { clientKeyDto } from "@hub/contract/client-key";
-import { clientMapDto } from "@hub/contract/client-map";
+import { clientMapDto, stuckClientsDto } from "@hub/contract/client-map";
 
 /** Everything a person can do to a draft and a client. None of it sends mail. */
 export const reviewApi = {
@@ -16,6 +16,8 @@ export const reviewApi = {
   conversation: (project: string, clientId: number) => readGenerated(getConversation(project, clientId), conversationDto),
   /** P135: the client's map as the agent last drew it, with the version before it. */
   clientMap: (project: string, clientId: number) => readGenerated(getClientMap(project, clientId), clientMapDto),
+  /** P136 Q7: the clients whose map has a blocked node or one waiting a week (Overview's "Where we are stuck"). */
+  stuckClients: (project: string) => readGenerated(listStuckClients(project), stuckClientsDto),
   /** P103: the client a key of the address names, and his canonical key. */
   clientByKey: (project: string, key: string) => readGenerated(getClientByKey(project, key), clientKeyDto),
   /** The owner's manual reply: creates one unsent Mail draft and never sends it. */

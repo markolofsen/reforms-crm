@@ -6,13 +6,15 @@ import { useOverview } from "@/lib/data/overview";
 import { ordered } from "./labels";
 import { ProjectList, ProjectTable } from "./project-rows";
 import { RecentErrors } from "./recent-errors";
+import { WhereStuck } from "./stuck/where-stuck";
 import { SchemeBlock } from "./scheme";
 
 /**
  * What needs you, on every instance (P63, P70). With two or more projects first one sentence that counts the projects that need
  * the owner and one row per project leading into its Mail (list first); with one project neither (they would repeat the Mail
  * status line). Then "Needs you" or "Everything works", every part folded under "All parts", and the ops log's Recent errors folded
- * under it (P86, only when there is one). Reads `GET /api/overview`, `GET /api/ops/errors`,
+ * under it (P86, only when there is one). P136: "Where we are stuck", the clients whose map has a blocked node or one waiting a
+ * week, per project, after the parts. Reads `GET /api/overview`, `GET /api/ops/errors`,
  * `GET /api/scheme` and each project's files (local state only); nothing here reads Notion or runs a check, so there is nothing
  * to refresh by hand: Settings ▸ Agent and ▸ Connections hold Refresh and Test.
  */
@@ -42,6 +44,7 @@ export function OverviewView() {
         </>
       )}
       <SchemeBlock multi={multi} projects={rows.filter((p) => !p.archived).map((p) => p.slug)} />
+      <WhereStuck multi={multi} now={now} projects={rows.filter((p) => !p.archived).map((p) => p.slug)} />
       <RecentErrors now={now} />
     </>
         );
