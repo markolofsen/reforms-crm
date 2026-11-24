@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import type { HubPaths } from "@hub/config/paths";
 import { which, type Ctx } from "./context";
@@ -24,6 +24,27 @@ export function instanceServer(server: Server, paths: HubPaths): Server {
   if (Array.isArray(s.args)) s.args = s.args.map(abs);
   s.env = { ...(s.env as object), HUB_HOME: paths.home };
   return s;
+}
+
+/**
+ * The servers an instance's root `.mcp.json` must hold: those of its `config/mcp.json` (retired ones dropped) plus the core's own `hub`
+ * server, taken from the core's defaults when the instance file predates it. Each is made absolute for the instance; `hub`'s `node` is
+ * the hub's own Node, as a session's `instanceMcpServers` writes it, so plain `claude` in the instance folder starts the same program.
+ */
+export function rootMcpServers(cfg: Record<string, Server>, paths: HubPaths, nodeBin: string = process.execPath): Record<string, Server> {
+  const out: Record<string, Server> = {};
+  const hub = cfg.hub ?? readCoreServers(paths).hub;
+  for (const [k, v] of Object.entries(hub ? { ...cfg, hub } : cfg)) {
+    if (RETIRED_MCP_SERVERS.includes(k)) continue;
+    const s = instanceServer(v, paths);
+    if (k === "hub" && s.type === "stdio" && s.command === "node") s.command = nodeBin;
+    out[k] = s;
+  }
+  return out;
+}
+
+function readCoreServers(paths: HubPaths): Record<string, Server> {
+  try { return (JSON.parse(readFileSync(paths.mcpDefaults, "utf8")) as { mcpServers?: Record<string, Server> }).mcpServers ?? {}; } catch { return {}; }
 }
 
 /**

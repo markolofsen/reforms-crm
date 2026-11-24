@@ -50,7 +50,22 @@ describe("files.mcp-json: stdio commands of the instance .mcp.json exist", () =>
     expect(r.detail).toContain("knowledge-mcp");
     await step.apply!(f.ctx);
     const servers = JSON.parse(readFileSync(f.ctx.paths.mcpFile, "utf8")).mcpServers;
-    expect(Object.keys(servers).sort()).toEqual(["mail-mcp", "mine"]);
+    expect(Object.keys(servers).sort()).toEqual(["hub", "mail-mcp", "mine"]);
+    expect((await step.check(f.ctx)).level).toBe("pass");
+  });
+  it("writes the core's hub server when config/mcp.json predates it, on the hub's own Node, so the mcp.hub check finds it", async () => {
+    const f = fake();
+    put(path.join(f.root, "config", "mcp.json"), { mcpServers: { "mail-mcp": { type: "http", url: "http://localhost:8787" } } });
+    put(f.ctx.paths.mcpFile, { mcpServers: { "mail-mcp": { type: "http", url: "http://localhost:8787" } } });
+    const before = await step.check(f.ctx);
+    expect(before.level).toBe("fail");
+    expect(before.detail).toContain("hub");
+    await step.apply!(f.ctx);
+    const hub = JSON.parse(readFileSync(f.ctx.paths.mcpFile, "utf8")).mcpServers.hub;
+    expect(hub.type).toBe("stdio");
+    expect(hub.command).toBe(process.execPath);
+    expect(hub.args).toEqual([path.join(f.ctx.paths.core, "app/apps/installer/bin/hub.mjs"), "mcp"]);
+    expect(hub.env.HUB_HOME).toBe(f.root);
     expect((await step.check(f.ctx)).level).toBe("pass");
   });
   it("an http server is returned unchanged", () => {

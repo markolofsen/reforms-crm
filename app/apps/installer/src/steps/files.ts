@@ -3,7 +3,7 @@ import { chmodSync, copyFileSync, existsSync, mkdirSync, readdirSync, renameSync
 import path from "node:path";
 import { instanceBrand } from "@hub/config/paths";
 import { readJson, type McpFile, type PackageJson, type Ctx } from "../context";
-import { brokenStdioCommands, instanceServer, RETIRED_MCP_SERVERS } from "../mcp-servers";
+import { brokenStdioCommands, RETIRED_MCP_SERVERS, rootMcpServers } from "../mcp-servers";
 import type { Step } from "../types";
 import { fail, pass, warn } from "./helpers";
 
@@ -28,9 +28,8 @@ function copyDefaults(ctx: Ctx, files: string[]): string {
   return made.length ? `wrote defaults: ${made.join(", ")}` : "nothing to write (existing files kept)";
 }
 
-/** The servers as `.mcp.json` of the instance must hold them. */
-const wanted = (ctx: Ctx, cfg: Record<string, Record<string, unknown>>): Record<string, Record<string, unknown>> =>
-  Object.fromEntries(Object.entries(cfg).filter(([k]) => !RETIRED_MCP_SERVERS.includes(k)).map(([k, v]) => [k, instanceServer(v, ctx.paths)]));
+/** The servers as `.mcp.json` of the instance must hold them (with the core's `hub` server, `rootMcpServers`). */
+const wanted = (ctx: Ctx, cfg: Record<string, Record<string, unknown>>): Record<string, Record<string, unknown>> => rootMcpServers(cfg, ctx.paths);
 
 export const fileSteps: Step[] = [
   {
@@ -119,9 +118,9 @@ export const fileSteps: Step[] = [
   },
   {
     id: "files.mcp-json", group: "Files", title: "Project .mcp.json",
-    why: "Your Claude Code in this folder sees the servers of `config/mcp.json` (mail, Notion, knowledge). Claude starts in the instance folder, so a server program of the core must be named by an absolute path: a relative `app/...` path does not exist there and the server never starts.",
-    verifies: "`.mcp.json` contains every server of `config/mcp.json` (stdio programs as absolute paths under the core), every stdio server command in it exists, and it holds no server the core no longer ships (`knowledge-mcp`, whose tools are the `hub` server's since P129).",
-    does: "Merges the servers of `config/mcp.json` into `.mcp.json` with stdio paths made absolute under the core, drops the servers the core no longer ships, keeps your other servers, saves a one-time `.mcp.json.bak`.",
+    why: "Your Claude Code in this folder sees the servers of `config/mcp.json` (mail, Notion) and the core's `hub` server (focus, project, knowledge, drafts). Claude starts in the instance folder, so a server program of the core must be named by an absolute path: a relative `app/...` path does not exist there and the server never starts.",
+    verifies: "`.mcp.json` contains every server of `config/mcp.json` and the core's `hub` server (stdio programs as absolute paths under the core, `hub` on the hub's own Node), every stdio server command in it exists, and it holds no server the core no longer ships (`knowledge-mcp`, whose tools are the `hub` server's since P129).",
+    does: "Merges the servers of `config/mcp.json` and the core's `hub` server into `.mcp.json` with stdio paths made absolute under the core, drops the servers the core no longer ships, keeps your other servers, saves a one-time `.mcp.json.bak`.",
     async check(ctx) {
       const cfg = readJson<McpFile>(path.join(ctx.paths.configDir, "mcp.json"))?.mcpServers;
       if (!cfg) return fail("config/mcp.json has no mcpServers");
