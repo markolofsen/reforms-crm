@@ -2,7 +2,7 @@
   "name": "@hub/notion",
   "version": "0.1.0",
   "private": true,
-  "description": "Notion dump and restore dry-run for reforms-hub: read only, except the two Last sent fields of ./stamp (P89), the lead Status, Client and new Clients card of ./leads-write (P97), and a chat's new Clients card and its empty Telegram or WhatsApp field of ./chat-client (P100)",
+  "description": "Notion dump and restore dry-run for reforms-hub: read only, except the two Last sent fields of ./stamp (P89), the lead Status, Client and new Clients card of ./leads-write (P97), a chat's new Clients card and its empty Telegram or WhatsApp field of ./chat-client (P100), and the client map's own section and Map updated date of ./client-map (P135)",
   "type": "module",
   "bin": {
     "notion-dump": "./src/cli.ts"
@@ -30,6 +30,7 @@
     ".": "./src/read.ts",
     "./stamp": "./src/stamp.ts",
     "./leads-write": "./src/lead-convert.ts",
-    "./chat-client": "./src/chat-client.ts"
+    "./chat-client": "./src/chat-client.ts",
+    "./client-map": "./src/client-map.ts"
   }
 }

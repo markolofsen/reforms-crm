@@ -1,6 +1,7 @@
 import { projectStore } from "@hub/projects/store";
 import { readJson, type McpFile } from "../context";
 import { verifyProjectDatabases } from "../notion-check";
+import { addMapField, mapFieldRows } from "../notion-map-field";
 import path from "node:path";
 import type { Step } from "../types";
 import { fileState, NOTION_FILE, probeNotion, readValue } from "@hub/connections";
@@ -49,6 +50,23 @@ export const notionSteps: Step[] = [
       if (sharedOnly && fileState(ctx.configDir, NOTION_FILE).state !== "stored") return warn("not tested: no usable Notion token (see notion.token)");
       const v = await verifyProjectDatabases(ctx, projects);
       return v.ok ? pass(v.detail) : fail(v.detail);
+    },
+  },
+  {
+    id: "notion.client-map", group: "Notion", title: "Clients carry the client map's date",
+    why: "P135: the Hub copies each client's map to their Clients page (a \"Client map\" section with a Mermaid code block) and sets the date \"Map updated\", so a Notion view can sort clients by their newest map. A database without the date still gets the map; only the date is skipped.",
+    verifies: "Each project's Clients database (project.md, `clients`) has the property \"Map updated\" of type date. Read only: one GET per project. WARN when there is no token to read with, or the name is taken by another type.",
+    does: "Adds the date property \"Map updated\" to each Clients database that lacks it (one PATCH of the data source; no other property is touched, nothing is deleted). The integration needs Update content.",
+    async check(ctx) {
+      const rows = await mapFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list());
+      if (!rows.length) return pass("no project lists a Clients database");
+      const missing = rows.filter((r) => r.state === "missing");
+      if (missing.length) return fail(`${missing.map((r) => r.detail).join("; ")}: \`hub install --only notion.client-map\` adds it`);
+      const other = rows.filter((r) => r.state !== "ok");
+      return other.length ? warn(other.map((r) => r.detail).join("; ")) : pass(`${rows.length} Clients database(s) have "Map updated"`);
+    },
+    async apply(ctx) {
+      return addMapField(ctx, await mapFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list()));
     },
   },
   {
