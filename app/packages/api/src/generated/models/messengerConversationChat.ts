@@ -8,6 +8,7 @@
 import type { MessengerConversationChatChannel } from './messengerConversationChatChannel';
 import type { MessengerConversationChatClient } from './messengerConversationChatClient';
 import type { MessengerConversationChatContact } from './messengerConversationChatContact';
+import type { MessengerConversationChatDone } from './messengerConversationChatDone';
 import type { MessengerConversationChatDraft } from './messengerConversationChatDraft';
 import type { MessengerConversationChatIdentity } from './messengerConversationChatIdentity';
 import type { MessengerConversationChatLast } from './messengerConversationChatLast';
@@ -38,6 +39,7 @@ export type MessengerConversationChat = {
   stored: number;
   last: MessengerConversationChatLast;
   owed: boolean;
+  done: MessengerConversationChatDone;
   draft: MessengerConversationChatDraft;
   /** @nullable */
   autolinked: string | null;

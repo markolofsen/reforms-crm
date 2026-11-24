@@ -184,7 +184,7 @@ export const messengerHistoryTool = defineTool({
 export const messengerDraftWriteTool = defineTool({
   name: "messenger_draft_write",
   title: "Leave one unsent reply draft in a linked chat",
-  description: `Saves ONE unsent reply in a linked chat (in a session the owner attends, any chat of this project, on his request) for the owner (Messengers panel); never sends (only messenger_send, on his word, does). Pass \`chat\` (chat:<id> from focus, the Hub's row id) or \`channel\` + \`chat_id\`; read it with messenger_history first. The chat's rules are enforced in code. An open draft is revised with \`draft\` = its id. Plain text, at most ${MESSENGER_TEXT_MAX} characters, in the chat's language; in an on_request chat pass the owner's words as \`owner_request\`. A draft after our own last message is admitted like any other (\`nudge\`: true).`,
+  description: `Saves ONE unsent reply in a linked chat (attended: any chat of this project, on his request) for the owner (Messengers panel); never sends (only messenger_send, on his word, does). Pass \`chat\` (chat:<id> from focus, the Hub's row id) or \`channel\` + \`chat_id\`; read it with messenger_history first. The chat's rules are enforced in code. An open draft is revised with \`draft\` = its id. Plain text, at most ${MESSENGER_TEXT_MAX} characters, in the chat's language; in an on_request chat pass the owner's words as \`owner_request\`. A draft after our own last message is admitted like any other (\`nudge\`: true).`,
   input: z.object({
     chat: z.number().int().positive().optional().describe("The internal messenger chat id from focus, for example chat:3; do not pass it as chat_id."),
     channel: z.enum(CHANNELS).optional(),

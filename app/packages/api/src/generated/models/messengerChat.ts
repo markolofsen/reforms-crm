@@ -8,6 +8,7 @@
 import type { MessengerChatChannel } from './messengerChatChannel';
 import type { MessengerChatClient } from './messengerChatClient';
 import type { MessengerChatContact } from './messengerChatContact';
+import type { MessengerChatDoneProperty } from './messengerChatDoneProperty';
 import type { MessengerChatDraft } from './messengerChatDraft';
 import type { MessengerChatIdentity } from './messengerChatIdentity';
 import type { MessengerChatLast } from './messengerChatLast';
@@ -38,6 +39,7 @@ export interface MessengerChat {
   stored: number;
   last: MessengerChatLast;
   owed: boolean;
+  done: MessengerChatDoneProperty;
   draft: MessengerChatDraft;
   /** @nullable */
   autolinked: string | null;

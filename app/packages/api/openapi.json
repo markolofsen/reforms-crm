@@ -4962,6 +4962,113 @@
         }
       }
     },
+    "/api/projects/{slug}/messengers/chats/{id}/done": {
+      "post": {
+        "operationId": "markMessengerChatDone",
+        "summary": "Mark a chat No reply needed",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Mark a chat No reply needed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerChatDone"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "409": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
+    "/api/projects/{slug}/messengers/chats/{id}/done/undo": {
+      "post": {
+        "operationId": "undoMessengerChatDone",
+        "summary": "Undo No reply needed on a chat",
+        "tags": [
+          "messengers"
+        ],
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Undo No reply needed on a chat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessengerChatDone"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ApiError"
+          },
+          "404": {
+            "$ref": "#/components/responses/ApiError"
+          }
+        }
+      }
+    },
     "/api/projects/{slug}/messengers/chats/{id}/rules": {
       "put": {
         "operationId": "setMessengerChatRules",
@@ -18561,6 +18668,40 @@
                 "owed": {
                   "type": "boolean"
                 },
+                "done": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "at": {
+                          "type": "string"
+                        },
+                        "by": {
+                          "type": "string",
+                          "enum": [
+                            "owner",
+                            "agent"
+                          ]
+                        },
+                        "reason": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "at",
+                        "by",
+                        "reason"
+                      ],
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "draft": {
                   "anyOf": [
                     {
@@ -18777,6 +18918,7 @@
                 "stored",
                 "last",
                 "owed",
+                "done",
                 "draft",
                 "autolinked",
                 "triage",
@@ -19055,6 +19197,40 @@
               "owed": {
                 "type": "boolean"
               },
+              "done": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "at": {
+                        "type": "string"
+                      },
+                      "by": {
+                        "type": "string",
+                        "enum": [
+                          "owner",
+                          "agent"
+                        ]
+                      },
+                      "reason": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "at",
+                      "by",
+                      "reason"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "draft": {
                 "anyOf": [
                   {
@@ -19271,6 +19447,7 @@
               "stored",
               "last",
               "owed",
+              "done",
               "draft",
               "autolinked",
               "triage",
@@ -19601,6 +19778,40 @@
           "owed": {
             "type": "boolean"
           },
+          "done": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "at": {
+                    "type": "string"
+                  },
+                  "by": {
+                    "type": "string",
+                    "enum": [
+                      "owner",
+                      "agent"
+                    ]
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "at",
+                  "by",
+                  "reason"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "draft": {
             "anyOf": [
               {
@@ -19817,6 +20028,7 @@
           "stored",
           "last",
           "owed",
+          "done",
           "draft",
           "autolinked",
           "triage",
@@ -19893,6 +20105,29 @@
             "maxLength": 4000
           }
         },
+        "additionalProperties": false
+      },
+      "MessengerChatDone": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "id": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "done": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "id",
+          "done"
+        ],
         "additionalProperties": false
       },
       "MessengerChatRulesBody": {

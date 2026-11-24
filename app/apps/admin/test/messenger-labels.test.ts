@@ -23,6 +23,7 @@ const chat = (patch: Partial<MessengerChatDto> = {}): MessengerChatDto => ({
   stored: 3,
   last: { direction: "in", kind: "text", text: "Hi!", at: "2026-11-20T08:00:00.000Z", hidden: null },
   owed: true,
+  done: null,
   draft: null,
   autolinked: null,
   triage: { judged: 0, hidden: { closing: 0, automated: 0, personal: 0 }, unjudged: 0 },

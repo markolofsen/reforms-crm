@@ -31,6 +31,7 @@ import type {
   ChatUnlinked,
   ListMessengerChatsParams,
   MessengerChat,
+  MessengerChatDone,
   MessengerChatRulesBody,
   MessengerChats,
   MessengerConversation,
@@ -1832,6 +1833,119 @@ export const prepareMessengerReply = async (slug: string,
     method: 'POST',
     headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
     body: JSON.stringify(messengerPrepareBody)
+  }
+);}
+
+
+export type markMessengerChatDoneResponse200 = {
+  data: MessengerChatDone
+  status: 200
+}
+
+export type markMessengerChatDoneResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type markMessengerChatDoneResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type markMessengerChatDoneResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type markMessengerChatDoneResponse409 = {
+  data: ApiErrorResponse
+  status: 409
+}
+
+export type markMessengerChatDoneResponseSuccess = (markMessengerChatDoneResponse200) & {
+  headers: Headers;
+};
+export type markMessengerChatDoneResponseError = (markMessengerChatDoneResponse400 | markMessengerChatDoneResponse403 | markMessengerChatDoneResponse404 | markMessengerChatDoneResponse409) & {
+  headers: Headers;
+};
+
+export type markMessengerChatDoneResponse = (markMessengerChatDoneResponseSuccess | markMessengerChatDoneResponseError)
+
+export const getMarkMessengerChatDoneUrl = (slug: string,
+    id: number,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/messengers/chats/${encodeURIComponent(String(id))}/done`
+}
+
+/**
+ * @summary Mark a chat No reply needed
+ */
+export const markMessengerChatDone = async (slug: string,
+    id: number, options?: Parameters<typeof hubMutator>[1]): Promise<markMessengerChatDoneResponse> => {
+
+  return hubMutator<markMessengerChatDoneResponse>(getMarkMessengerChatDoneUrl(slug,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+export type undoMessengerChatDoneResponse200 = {
+  data: MessengerChatDone
+  status: 200
+}
+
+export type undoMessengerChatDoneResponse400 = {
+  data: ApiErrorResponse
+  status: 400
+}
+
+export type undoMessengerChatDoneResponse403 = {
+  data: ApiErrorResponse
+  status: 403
+}
+
+export type undoMessengerChatDoneResponse404 = {
+  data: ApiErrorResponse
+  status: 404
+}
+
+export type undoMessengerChatDoneResponseSuccess = (undoMessengerChatDoneResponse200) & {
+  headers: Headers;
+};
+export type undoMessengerChatDoneResponseError = (undoMessengerChatDoneResponse400 | undoMessengerChatDoneResponse403 | undoMessengerChatDoneResponse404) & {
+  headers: Headers;
+};
+
+export type undoMessengerChatDoneResponse = (undoMessengerChatDoneResponseSuccess | undoMessengerChatDoneResponseError)
+
+export const getUndoMessengerChatDoneUrl = (slug: string,
+    id: number,) => {
+
+
+
+
+  return `/api/projects/${encodeURIComponent(String(slug))}/messengers/chats/${encodeURIComponent(String(id))}/done/undo`
+}
+
+/**
+ * @summary Undo No reply needed on a chat
+ */
+export const undoMessengerChatDone = async (slug: string,
+    id: number, options?: Parameters<typeof hubMutator>[1]): Promise<undoMessengerChatDoneResponse> => {
+
+  return hubMutator<undoMessengerChatDoneResponse>(getUndoMessengerChatDoneUrl(slug,id),
+  {
+    ...options,
+    method: 'POST'
+
+
   }
 );}
 

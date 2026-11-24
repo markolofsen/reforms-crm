@@ -48,7 +48,7 @@ async function connect(env: Partial<HubMcpEnv> = {}) {
 
 describe("client_map", () => {
   it("replaces the whole map on a redraw, keeps the previous version, and client_show reads it back", async () => {
-    const synced: Array<{ slug: string; email: string; source: string }> = [];
+    const synced: Array<{ slug: string; email: string | null; source: string }> = [];
     const { call, close } = await connect({ syncClientMap: async (slug, m) => (synced.push({ slug, email: m.email, source: m.source }), { state: "synced" }) });
     try {
       expect(JSON.parse((await call("client_show", { id: anaId })).text).map).toBeNull();
