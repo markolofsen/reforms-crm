@@ -10,7 +10,6 @@ Messengers in the local CRM (track P8, decision 0003; track P71, decision 0036).
 |---|---|---|
 | `@hub/messengers` | the agent, the server, tests | adapters, ingest, poller, `clientHistory`, `createDraft`, `normalizeIdentifier`, types. Nothing here links, approves or sends. |
 | `@hub/messengers/human` | an entry point that knows a person is present (and the server's autolink, P84) | `humanActor`, `linkIdentifier`, `unlinkIdentifier`, `allowChat`, `linkUserChat`, `linkUserChatToRecord`, `discardDraft` (each needs a `HumanActor`); and a user account's login (`createLoginFlows`), WhatsApp's pairing (`createWaPairing`, `qrRows`) and session writes (`writeSession`, `removeSession`): only a person logs in or scans a QR code. One export needs no `HumanActor`: `autoLinkUserChat` (P84), the Hub's own link on an exact match, called only by `apps/server/src/messengers/autolink/autolink.ts` after it checked `messengers.autolink`, the refusals and the match. |
-
 | `@hub/messengers/door` | the server's send routes only | `assessMessenger`, `applyMessenger` and the types `MessengerAuthority`, `MessengerDoorDeps`, `MessengerProjectPolicy` (P112 S2, below). |
 
 Draft-first is enforced by types and by what can be imported, not by a prompt:

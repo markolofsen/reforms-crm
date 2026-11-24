@@ -17,7 +17,7 @@ Scope: what "done" means for core work. History: decision 0047.
 7. MUST: every route is dynamic: the root layout keeps `dynamic = "force-dynamic"` (`architecture-and-ownership.md` rule 9), and the build needs no API.
 8. SHOULD: a new screen adds a flow to `apps/admin/e2e`; a flow that creates data is named `z-*.spec.ts`.
 9. SHOULD: a failure in an unrelated area is reported, not fixed in passing.
-10. MUST: the final gate shows that inbound messenger events and agent sessions can create unsent drafts but cannot call an adapter, mint a background `HumanActor` or write a messenger `send_log` row.
+10. MUST: the final gate shows that inbound messenger events and agent sessions can create unsent drafts but cannot call an adapter, mint a background `HumanActor` or `SendAuthorization` (P112 S2) or write a messenger `send_log` row.
 
 ## Enforcement
 
