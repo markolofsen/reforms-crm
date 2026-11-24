@@ -1,4 +1,4 @@
-import { openSync, closeSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -88,20 +88,23 @@ function addressesOf(chat: WaAddress): string[] {
   return [...out];
 }
 
+/** The child's plain open: exit 2 when the file is missing, 3 when macOS refuses it, 1 on anything else. */
+const PROBE = `const fs=require("node:fs");const p=process.argv[1];if(!fs.existsSync(p))process.exit(2);try{fs.closeSync(fs.openSync(p,"r"))}catch(e){process.exit(e&&(e.code==="EPERM"||e.code==="EACCES")?3:1)}`;
+const PROBE_MS = 5000;
+
 export function openWaAppReader(o: { path?: string; execPath?: string } = {}): WaAppReader {
   const path = o.path ?? WA_APP_DB;
   const fix = WA_APP_FIX(o.execPath ?? process.execPath);
   const open = () => new (sqlite().DatabaseSync)(path, { readOnly: true });
 
   const probe = (): WaAppState => {
-    if (!existsSync(path)) return { state: "off", reason: "missing", detail: "The WhatsApp app for Mac is not installed or not linked on this Mac: history comes only from messages received while the Hub runs.", fix: null };
-    try {
-      // A plain open tells a macOS refusal (EPERM) from anything SQLite says.
-      closeSync(openSync(path, "r"));
-    } catch (e) {
-      if (refusedCode(e)) return { state: "off", reason: "refused", detail: "macOS refused the Hub's server access to the WhatsApp app's database: history comes only from messages received while the Hub runs.", fix };
-      return { state: "off", reason: "error", detail: `The WhatsApp app's database cannot be opened (${e instanceof Error ? e.name : "error"}).`, fix: null };
-    }
+    // A macOS consent prompt ("access data from other apps") blocks open(2) until the owner answers; a blocked open on the
+    // server's thread stops the whole Hub (2026-11-25). So the plain open runs in a child with a deadline first.
+    const child = spawnSync(process.execPath, ["-e", PROBE, path], { timeout: PROBE_MS, stdio: "ignore" });
+    if (child.error || child.signal) return { state: "off", reason: "refused", detail: "macOS is waiting for the owner to allow the Hub's server into the WhatsApp app's data (or refused it): history comes only from messages received while the Hub runs.", fix };
+    if (child.status === 2) return { state: "off", reason: "missing", detail: "The WhatsApp app for Mac is not installed or not linked on this Mac: history comes only from messages received while the Hub runs.", fix: null };
+    if (child.status === 3) return { state: "off", reason: "refused", detail: "macOS refused the Hub's server access to the WhatsApp app's database: history comes only from messages received while the Hub runs.", fix };
+    if (child.status !== 0) return { state: "off", reason: "error", detail: "The WhatsApp app's database cannot be opened.", fix: null };
     let db: InstanceType<Sqlite["DatabaseSync"]> | null = null;
     try {
       db = open();
