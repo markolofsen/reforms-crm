@@ -33,7 +33,7 @@ Scope: the admin's layers and config. Why: decision 0015; history: decision 0047
 |---|---|
 | 1, 4, 10 | review |
 | 2 | eslint `no-restricted-imports`; `test/route-files.test.ts`; `packages/ui/test/ui.test.ts` and its eslint |
-| 3 | eslint `no-restricted-imports` and `no-restricted-syntax`; rules test "no dangerouslySetInnerHTML" and "mermaid is imported only by @hub/diagram/render"; `app/test/boundaries.test.ts`; `e2e/y-help.spec.ts`, `e2e/z-client-map.spec.ts` |
+| 3 | eslint `no-restricted-imports` and `no-restricted-syntax`; rules test "no dangerouslySetInnerHTML" and "mermaid is imported only by @hub/diagram/render"; `app/test/boundaries.test.ts`; `e2e/y-help.spec.ts`, `e2e/y-client-map.spec.ts` |
 | 3a | `test/api-client.test.ts`; `generated-api-clients.md` |
 | 3b-3c, 19 | `app/test/boundaries.test.ts` |
 | 5 | rules test "one alias source" |

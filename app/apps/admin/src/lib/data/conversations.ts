@@ -8,7 +8,7 @@ import { keys } from "@/lib/cache/keys";
 
 /**
  * P127 C2's data half (V3): Mail's people, one module (state rule 4b): the list of a view or a batch, the Needs you count the rail
- * and the sidebar read, the batches, a client's key, one conversation and its Mail history and texts. Features read them here and
+ * and the sidebar read, the batches, a client's key, one conversation and its Mail history and texts, and a client's map (P135). Features read them here and
  * never name a key, a facade or the Query client.
  */
 
@@ -107,6 +107,9 @@ export function useClientByKey(project: string, key: string | null, enabled: boo
 
 /** One conversation's header and its unsent message, from the Hub's rows (refreshed by the live topics). */
 export const useConversation = (project: string, clientId: number) => useQuery({ queryKey: keys.conversation(project, clientId), queryFn: () => reviewApi.conversation(project, clientId) });
+
+/** P135: one client's map (read when the Map sheet opens; a new version moves the client row, so the live `clients` topic reads it again). */
+export const useClientMap = (project: string, clientId: number, enabled: boolean) => useQuery({ queryKey: keys.clientMap(project, clientId), queryFn: () => reviewApi.clientMap(project, clientId), enabled });
 
 /** The history with this person read from Mail now (a Mail key: on open, focus and the `mail` topic only; never stored). */
 export const useConversationMail = (project: string, clientId: number) => useQuery({ queryKey: keys.conversationMail(project, clientId), queryFn: () => reviewApi.conversationMail(project, clientId) });

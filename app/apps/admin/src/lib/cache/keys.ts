@@ -27,6 +27,8 @@ export const keys = {
   conversations: (project: string, view: string, batch: number | null, search: string, brand: string | null = null) => ["drafts", project, view, batch, search, brand] as const,
   /** P99: one conversation's header and unsent message (the Hub's rows): under `drafts`, so every topic that moves a row moves it. */
   conversation: (project: string, clientId: number) => ["drafts", project, "conversation", clientId] as const,
+  /** P135: one client's map (the `clients` topic invalidates `drafts`, and a new map moves the client row). */
+  clientMap: (project: string, clientId: number) => ["drafts", project, "client-map", clientId] as const,
   /** P103: a client's key in the address to his row (under `drafts`, so a topic that moves a client refreshes it too). */
   clientKey: (project: string, key: string) => ["drafts", project, "client-key", key] as const,
   /** P99: one person's history read from Mail, and one body: Mail keys (read on open, on focus and on the `mail` topic). */

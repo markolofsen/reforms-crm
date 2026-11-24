@@ -366,6 +366,28 @@
   fill: var(--muted-foreground);
 }
 
+/* P135: the client map draws with the scheme's look (`scheme-graph client-map`); a node's state class colours its border, and the
+   outline under the drawing says each state in words, never a colour alone. "Actual size" lets a wide map scroll instead of shrink. */
+.client-map .node.open :is(rect, path, polygon, circle, ellipse):not(.label *) {
+  stroke: var(--info);
+  stroke-width: 1.5px;
+}
+.client-map .node.waiting :is(rect, path, polygon, circle, ellipse):not(.label *) {
+  stroke: var(--warning);
+  stroke-width: 1.5px;
+}
+.client-map .node.done :is(rect, path, polygon, circle, ellipse):not(.label *) {
+  stroke: var(--success);
+  stroke-width: 1.5px;
+}
+.client-map .node.blocked :is(rect, path, polygon, circle, ellipse):not(.label *) {
+  stroke: var(--destructive);
+  stroke-width: 1.5px;
+}
+.client-map[data-size="actual"] svg {
+  max-width: none;
+}
+
 .markdown-editor-content.ProseMirror {
   color: var(--foreground);
   overflow-wrap: anywhere;
