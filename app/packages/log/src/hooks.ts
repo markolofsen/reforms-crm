@@ -1,4 +1,5 @@
 import type { LogCli, NewLogEvent } from "./event";
+import { notionWriteOf } from "./notion-writes";
 import { capStrings, cut, TEXT_CAP, toolInput, toolOutput } from "./privacy";
 
 // Hook input of Claude Code 2.1.220 and Codex 0.146 into log events (P54 section 3b). Fields read: `session_id`,
@@ -54,7 +55,8 @@ export function toolCallEvents(p: HookPayload, cli: LogCli, project: string | nu
   const env = envelope(p, cli, project);
   if (!env) return [];
   const name = tool(p);
-  const out: NewLogEvent[] = [{ ...env, ...corrOf(p), kind: "tool_call", data: { tool: name, input: toolInput(name, p.tool_input) } }];
+  const notion = notionWriteOf(name, p.tool_input);
+  const out: NewLogEvent[] = [{ ...env, ...corrOf(p), kind: "tool_call", data: { tool: name, input: toolInput(name, p.tool_input), ...(notion ? { notion } : {}) } }];
   if (guard?.violations.length) out.push({ ...env, ...corrOf(p), kind: "guard", data: { mode: guard.mode, tool: name, violations: [...guard.violations] } });
   return out;
 }

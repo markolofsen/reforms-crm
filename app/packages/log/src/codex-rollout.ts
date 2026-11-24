@@ -1,6 +1,7 @@
 import { closeSync, existsSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { NewLogEvent } from "./event";
+import { notionWriteOf } from "./notion-writes";
 import { hashed, isMailBodyResult, toolInput, toolOutput } from "./privacy";
 import { appendEvents, projectDir, type LogStore } from "./store";
 
@@ -80,7 +81,8 @@ export function rolloutEvents(text: string, base: { project: string | null; sess
       const mail = carriesMail(via);
       if (corr) names.set(corr, { name, mail });
       const input = mail && typeof args === "string" ? { code: hashed(args) } : toolInput(name, args);
-      out.push({ ...env, kind: "tool_call", data: { tool: name, input, ...(via.length ? { via } : {}) } });
+      const notion = notionWriteOf(name, args);
+      out.push({ ...env, kind: "tool_call", data: { tool: name, input, ...(via.length ? { via } : {}), ...(notion ? { notion } : {}) } });
     } else if (type === "function_call_output" || type === "custom_tool_call_output") {
       const seen = corr ? names.get(corr) : undefined;
       const name = seen?.name ?? "?";

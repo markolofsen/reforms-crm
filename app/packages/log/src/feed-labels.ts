@@ -2,6 +2,8 @@
 // command, a query, an address, a subject or a path. Only `labelOfTool` reads a tool's input or output, and only for the
 // one id field it names (`draft_show.draft` and `draft_write.draft`, P83, and the hub draft id `draft_write` recorded, P129 A3).
 
+import { NOTION_WRITE, notionTool } from "./notion-writes";
+
 export interface Labelled {
   label: string;
   /** The hub draft the call names, so the row links to its card. */
@@ -45,8 +47,6 @@ function scriptId(code: string, key: string): number | null {
   return m?.[1] ? Number(m[1]) : null;
 }
 
-const notionWrite = /(create|update|append|move|delete|duplicate|comment|insert|restore)/i;
-
 /**
  * The label of one tool call, or null when it is hidden. `output` is the paired result's logged output (undefined while it
  * runs); `done` says the call finished without an error, so a draft written or recorded counts as ready.
@@ -66,8 +66,8 @@ export function labelOfTool(tool: string, input: unknown, output: unknown, done:
   const hub = HUB_LABELS[tool];
   if (hub) return plain(hub);
   if (tool.startsWith(MAIL)) return plain(MAIL_LABELS[tool.slice(MAIL.length)] ?? tool);
-  const [, server = "", ...action] = tool.split("__");
-  if (tool.startsWith("mcp__") && /notion/i.test(server)) return plain(notionWrite.test(action.join("__")) ? "updates Notion" : "reads Notion");
+  const notion = notionTool(tool);
+  if (notion) return plain(NOTION_WRITE.test(notion.action) ? "updates Notion" : "reads Notion");
   if (COMMAND_TOOLS.has(tool)) return plain("runs a command");
   if (READ_TOOLS.has(tool)) return plain("reads a file");
   if (EDIT_TOOLS.has(tool)) return plain("edits a file");

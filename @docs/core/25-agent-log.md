@@ -11,7 +11,7 @@ The sources are the CLIs' own hooks, never the terminal's byte stream: a session
 | `prompt` | what the owner typed | the prompt hook `hub focus --hook` (already ran for the shared focus); a message typed while a turn runs is queued and runs no prompt hook, so the `Stop` hook imports it from the transcript (`queued_command`) with `queued: true` (P59) | the same hook |
 | `focus` | the `[Hub focus, data]` line that hook added to the prompt | the same hook, same turn | the same |
 | `answer` | the agent's final message of a turn (`last_assistant_message`) | `hub log --hook` on `Stop`, in line (after the answer is shown) | `hub log --hook` on `Stop` |
-| `tool_call` | the tool and its input | `hub guard` (`PreToolUse`, already ran) | imported at `Stop` from the Codex rollout |
+| `tool_call` | the tool and its input; a Notion write also its action and the page ids its input names (`data.notion`, P133, P131 verdict 6: `hub log` prints "Notion write <action> <ids>" and `hub log summary` counts them) | `hub guard` (`PreToolUse`, already ran) | imported at `Stop` from the Codex rollout |
 | `tool_result` | the result (an excerpt, or a hash for mail), with its duration | `hub guard --post` (`PostToolUse`, already ran) | imported at `Stop` from the rollout |
 | `tool_error` | a call that failed or was refused | `PostToolUseFailure`, `PermissionDenied` | (in the rollout output) |
 | `asked` | the CLI waited on the owner: a permission prompt, an idle wait, a permission request | `Notification` (`permission_prompt`, `idle_prompt`, `elicitation_dialog`, `agent_needs_input`) | `PermissionRequest` |

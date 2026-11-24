@@ -7,6 +7,7 @@ import { hookEvents, promptEvents, toolCallEvents, toolResultEvent } from "../sr
 import { hashed, toolInput, toolOutput } from "../src/privacy";
 import { appendEvent, appendEvents, readEvents, type LogStore } from "../src/store";
 import type { LogEvent } from "../src/event";
+import { notionWriteOf } from "../src/notion-writes";
 import { endsInQuestion, frictionTotal, summarize } from "../src/summary";
 
 const storeOf = (retentionDays = 90): LogStore => {
@@ -184,5 +185,22 @@ describe("friction", () => {
     // The second turn's warning is not on the owner's words; its question came after a tool, so it did not ask instead of acting.
     expect(sum?.friction).toEqual({ shellWriters: 1, evidenceOnOwnerWords: 1, toolSearchTurns: 1, askUserTurns: 1, askedWithoutActing: 0, medianTurnSeconds: 30 });
     expect(frictionTotal(sum ? [sum, sum] : [])).toMatchObject({ shellWriters: 2, evidenceOnOwnerWords: 2, medianTurnSeconds: 30 });
+  });
+});
+
+// P133 (P131 verdict 6): a Notion write is a line of the session log with the ids it touched.
+describe("Notion writes in the session log", () => {
+  const page = "1f2e3d4c-5b6a-4789-8a9b-0c1d2e3f4a5b";
+  it("a write names its action and the page ids of its input; a read and another tool carry nothing", () => {
+    expect(notionWriteOf("mcp__notion__notion-update-page", { page_id: page, properties: { Status: "Won" } })).toEqual({ action: "notion-update-page", ids: ["1f2e3d4c5b6a47898a9b0c1d2e3f4a5b"] });
+    expect(notionWriteOf("mcp__claude_ai_Notion__notion-create-pages", JSON.stringify({ parent: { data_source_id: page } }))?.ids).toEqual(["1f2e3d4c5b6a47898a9b0c1d2e3f4a5b"]);
+    expect(notionWriteOf("mcp__notion__notion-fetch", { id: page })).toBeNull();
+    expect(notionWriteOf("mcp__hub__draft_write", { page_id: page })).toBeNull();
+  });
+  it("the hook's tool call carries it, so hub log shows it", () => {
+    const [call] = toolCallEvents({ session_id: "s", tool_name: "mcp__notion__notion-update-page", tool_input: { page_id: page } }, "claude", "a");
+    expect(call?.data.notion).toEqual({ action: "notion-update-page", ids: ["1f2e3d4c5b6a47898a9b0c1d2e3f4a5b"] });
+    const [read] = toolCallEvents({ session_id: "s", tool_name: "mcp__notion__notion-search", tool_input: { query: "x" } }, "claude", "a");
+    expect(read?.data).not.toHaveProperty("notion");
   });
 });

@@ -51,6 +51,8 @@ export interface SessionSummary {
   topTools: Array<[string, number]>;
   errors: number;
   guard: number;
+  /** P133 (P131 verdict 6): tool calls that wrote to Notion (`data.notion` of the call). */
+  notionWrites: number;
   turns: Turn[];
   flags: Record<TurnFlag, number>;
   friction: Friction;
@@ -205,6 +207,7 @@ export function summarize(events: readonly LogEvent[]): SessionSummary[] {
       topTools: [...counts].sort((a, b) => b[1] - a[1]),
       errors: list.filter((e) => e.kind === "tool_error" || e.kind === "error").length,
       guard: list.filter((e) => e.kind === "guard").length,
+      notionWrites: list.filter((e) => e.kind === "tool_call" && e.data.notion !== undefined).length,
       turns, flags,
       friction: frictionOf(list, turns),
     });

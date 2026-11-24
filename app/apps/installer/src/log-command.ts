@@ -50,13 +50,21 @@ const one = (s: string, n: number): string => {
 const t = (v: unknown): string => (typeof v === "string" ? v : v === undefined || v === null ? "" : JSON.stringify(v));
 
 /** One line of text for an event's data. */
+/** `Notion write notion-update-page 1f2e…, 9a8b…`, from a tool call's `notion` field (`@hub/log`), else null. */
+function notionLine(v: unknown): string | null {
+  if (!v || typeof v !== "object" || !("action" in v) || typeof v.action !== "string") return null;
+  const ids = "ids" in v && Array.isArray(v.ids) ? v.ids.map(String) : [];
+  return `Notion write ${v.action}${ids.length ? ` ${ids.join(", ")}` : " (no page id in the call)"}`;
+}
+
 export function eventText(e: LogEvent): string {
   const d = e.data;
   switch (e.kind) {
     case "prompt": return `${d.queued === true ? "(queued) " : ""}${one(t(d.text), 200)}`;
     case "focus": return one(t(d.line), 200);
     case "answer": return one(t(d.text), 200);
-    case "tool_call": return `${t(d.tool)} ${one(t(d.input), 140)}`;
+    // P133 (P131 verdict 6): a Notion write names its action and the pages it touched.
+    case "tool_call": return notionLine(d.notion) ?? `${t(d.tool)} ${one(t(d.input), 140)}`;
     case "tool_result": return `${t(d.tool)}${typeof d.ms === "number" ? ` ${d.ms} ms` : ""} ${one(t(d.output), 140)}`;
     case "tool_error": return `${t(d.tool)}${d.denied === true ? " (refused)" : ""}: ${one(t(d.error), 160)}`;
     case "asked": return `${t(d.why)}${d.tool ? ` ${t(d.tool)}` : ""}${d.message ? `: ${one(t(d.message), 140)}` : ""}`;
@@ -88,7 +96,7 @@ export const frictionLine = (fr: Friction): string =>
 export function summaryLines(s: SessionSummary): string[] {
   const out = [
     `${c.bold(`session ${s.session.slice(0, 8)}`)}  ${s.cli}  ${s.project ?? "(unbound)"}  ${localStamp(s.start).slice(0, 16)} to ${localStamp(s.end).slice(11, 16)}`,
-    `  ${s.prompts} prompts, ${s.answers} answers, ${s.toolCalls} tool calls${s.topTools.length ? ` (${s.topTools.slice(0, 5).map(([n, k]) => `${n} ${k}`).join(", ")})` : ""}, ${s.errors} errors, ${s.guard} guard`,
+    `  ${s.prompts} prompts, ${s.answers} answers, ${s.toolCalls} tool calls${s.topTools.length ? ` (${s.topTools.slice(0, 5).map(([n, k]) => `${n} ${k}`).join(", ")})` : ""}, ${s.errors} errors, ${s.guard} guard, ${s.notionWrites} Notion writes`,
   ];
   if (s.transcript) out.push(c.dim(`  transcript ${s.transcript}`));
   const flagged = TURN_FLAGS.filter((f) => s.flags[f] > 0);
