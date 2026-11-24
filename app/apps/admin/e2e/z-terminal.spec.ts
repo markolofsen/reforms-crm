@@ -110,7 +110,8 @@ test("terminal: a reload shows the tab he had open, not the project's first sess
 });
 
 test("terminal: a press on the column while a page menu is open closes the menu and the keys go to the terminal (P88, research 27 B7)", async ({ page }) => {
-  await page.goto(at(P, "/mail"));
+  // P134: Mail's header has no View menu from 640px; Messengers' View menu is the page menu here.
+  await page.goto(at(P, "/messengers"));
   await openTerminal(page);
   await page.getByRole("button", { name: /^View:/ }).click();
   await expect(page.getByRole("menu")).toBeVisible();
@@ -278,13 +279,19 @@ async function terminalColours(page: Page) {
 test("terminal: its background follows the theme, light and dark, live when the owner switches", async ({ page }) => {
   await page.goto(at(P, "/mail"));
   await page.locator('ul[aria-label="People"] > li').first().waitFor();
+  // P134 verdict 11: the theme is in the footer's "⋯" popover, open sidebar and rail alike.
+  const controls = page.getByRole("button", { name: "Theme, sounds and shortcuts" });
   const theme = page.getByRole("radiogroup", { name: "Theme" });
+  await controls.click();
   await theme.getByRole("radio", { name: "Light" }).click();
+  await page.keyboard.press("Escape");
   await openTerminal(page);
   const light = await terminalColours(page);
   expect(light.screen).toBe(light.token);
-  // The column folds the sidebar to its rail, whose one theme button steps Light, Dark, System.
-  await page.getByRole("button", { name: /^Theme: Light\. Switch to Dark/ }).first().click();
+  // The column folds the sidebar to its rail; its "⋯" holds the same theme switch.
+  await controls.click();
+  await theme.getByRole("radio", { name: "Dark" }).click();
+  await page.keyboard.press("Escape");
   await expect.poll(async () => (await terminalColours(page)).screen).not.toBe(light.screen);
   const dark = await terminalColours(page);
   expect(dark.screen).toBe(dark.token);

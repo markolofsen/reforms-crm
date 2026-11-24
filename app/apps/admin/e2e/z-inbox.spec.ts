@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { writeSendPolicy } from "./send-policy";
-import { address, at, cardOf, cards, contextWarn, remember, viewMenu } from "./support";
+import { address, at, cardOf, cards, contextWarn, listTitle, mailViews, remember } from "./support";
 
 // P96, P99: the clients who wrote and have no draft yet, as the server's Mail reader stored them (the seed holds two for demo-shop:
 // the e2e run reads no Mail, its Mailer is fake). Since P99 they are people in Mail's Needs you, the word Wrote you on their row;
@@ -46,7 +46,7 @@ test("inbox: the arrival is Needs you, the clients who wrote are its people with
   await page.goto(at(P, "/mail"));
   // The default view carries no filter; the wide pane opens the first person in the address.
   await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/[^/?]+$`));
-  await expect(viewMenu(page)).toContainText("Needs you");
+  await expect(listTitle(page)).toContainText("Needs you");
   const lea = person(page, "Lea Sample");
   await expect(lea.getByTestId("person-state")).toHaveText("Wrote you");
   await expect(lea.getByTestId("person-subject")).toContainText("Re: Your order");
@@ -58,11 +58,9 @@ test("inbox: the arrival is Needs you, the clients who wrote are its people with
   // P128 X0 (F5): Mail's Needs you count, not who wrote (its own test below checks the number). P103/P104: with the sidebar open
   // it is the Needs you child's; the parent's badge is the collapsed rail's only.
   const sections = page.getByRole("navigation", { name: "Sections" }).first();
-  await expect(sections.getByRole("list", { name: "Mail views" }).getByRole("link")).toHaveText([/^Needs you/, /^Waiting/, /^All/]);
+  await expect(sections.getByRole("list", { name: "Mail views" }).getByRole("link")).toHaveText([/^Needs you/, /^Waiting/, /^All/, /^Leads/]);
   await expect(sections.getByTestId("nav-count-mail-needs_you")).toContainText("need you");
-  await viewMenu(page).click();
-  await expect(page.getByRole("menuitemradio", { name: /^Needs you/ })).toContainText(String(await cards(page).count()));
-  await page.keyboard.press("Escape");
+  await expect(listTitle(page)).toHaveText(`Needs you · ${await cards(page).count()}`);
 });
 
 test("inbox: a row opens the conversation; Prepare reply pastes the request into the dock, and nothing runs before Enter", async ({ page }) => {
@@ -92,21 +90,27 @@ test("inbox: No reply needed closes the client, and Undo brings them back", asyn
   await expect(person(page, "Omar Test")).toHaveCount(1);
 });
 
-test("P98: the people come before New leads, and the status line keeps its height at 360, 768 and 1280", async ({ page }) => {
+test("P134 M4: Mail lists people only; Leads is its own page under Mail, and the status line keeps its height at 360, 768 and 1280", async ({ page }) => {
   for (const width of [360, 768, 1280]) {
     await page.setViewportSize({ width, height: 800 });
     await page.goto(at(P, "/mail"));
     await expect(person(page, "Lea Sample")).toHaveCount(1);
-    const leads = page.getByTestId("leads-group");
-    await expect(leads).toBeVisible();
-    const firstRow = await cards(page).first().boundingBox();
-    const group = await leads.boundingBox();
-    expect(firstRow && group && firstRow.y < group.y, `${width}: people above leads`).toBe(true);
-    // Item 2: the line is never squeezed under its own content (it painted over "New leads" at 1280 with the dock open).
+    await expect(page.getByTestId("lead-row")).toHaveCount(0);
+    // Item 2: the line is never squeezed under its own content.
     const line = page.getByTestId("status-line");
     const fit = await line.evaluate((el) => el.scrollHeight - el.clientHeight);
     expect(fit, `${width}: status line fits its content`).toBeLessThanOrEqual(1);
   }
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(at(P, "/mail"));
+  const leads = mailViews(page).getByRole("link", { name: /^Leads/ });
+  await leads.click();
+  await expect.poll(() => address(page)).toBe(at(P, "/mail/leads"));
+  await expect(page.getByRole("navigation", { name: "Lead views" }).getByRole("link", { name: /^New/ })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByTestId("lead-row").first()).toBeVisible();
+  // The old address is gone, with no redirect (no legacy aliases).
+  const old = await page.goto(at(P, "/mail/lead/0123456789abcdef0123456789abcdef"));
+  expect(old?.status()).toBe(404);
 });
 
 test("P98: a draft recorded for their message turns the conversation into Draft ready live, its unsent message at the bottom", async ({ page }) => {
@@ -124,14 +128,12 @@ test("P98: a draft recorded for their message turns the conversation into Draft 
   expect(await address(page)).toBe(at0);
 });
 
-test("P128 X0 (F16): a New lead opens at a split width and stays open; a cold load of its address stays too", async ({ page }) => {
+test("P128 X0 (F16), P134: a New lead opens beside the Leads list at a split width and stays open; a cold load of its address stays too", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto(at(P, "/mail"));
-  // The list settles and opens its first person by itself (P53); a lead's click must not be replaced by that.
-  await expect(page).toHaveURL(/\/mail\/c\/[^/?]+/);
+  await page.goto(at(P, "/mail/leads"));
   const lead = page.getByTestId("lead-row").first();
   await lead.getByRole("link").click();
-  await expect(page).toHaveURL(/\/mail\/lead\/[0-9a-f]{32}/);
+  await expect(page).toHaveURL(/\/mail\/leads\/[0-9a-f]{32}/);
   const leadUrl = page.url();
   await page.waitForTimeout(1500);
   expect(page.url()).toBe(leadUrl);
@@ -172,7 +174,7 @@ test("P128 X0 (F5): the rail's Mail badge is Mail's Needs you count, and says ne
   expect(n).toBeGreaterThan(0);
   const mail = page.getByRole("navigation", { name: "Sections" }).locator('a[href*="/mail"]').first();
   await expect(mail).toContainText(`${n} need you`);
-  await expect(viewMenu(page)).toContainText(String(n));
+  await expect(listTitle(page)).toContainText(String(n));
 });
 
 test("P128 X1: a person with no draft shows one action row and no open composer; Close folds the composer again", async ({ page }) => {

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test, type Page } from "@playwright/test";
 import { writeSendPolicy } from "./send-policy";
-import { at, cardOf, cards, contextWarn, remember, viewMenu } from "./support";
+import { at, cardOf, cards, contextWarn, listTitle, remember } from "./support";
 
 // P99 S2 and S3: Mail lists people. A Mark-Effect-like client (two threads, "Re: Hello" finished and "Re: Wow" with an open draft,
 // recorded the way the agent records them, the seeder of draft_write's writer) is ONE row; opening it shows both threads with a divider each, his
@@ -107,7 +107,7 @@ test("opening the row shows both threads with dividers, his messages and ours in
 test("the state word follows each view: Needs you holds Wrote you and Draft ready, Waiting holds Waiting for them, All every word", async ({ page }) => {
   const words = async () => cards(page).getByTestId("person-state").allTextContents();
   await page.goto(at(P, "/mail"));
-  await expect(viewMenu(page)).toContainText("Needs you");
+  await expect(listTitle(page)).toContainText("Needs you");
   await expect(row(page)).toHaveCount(1);
   for (const w of await words()) expect(["Wrote you", "Draft ready"]).toContain(w);
   // The seeded client who wrote and has no draft (the Mail reader's row) is Wrote you.

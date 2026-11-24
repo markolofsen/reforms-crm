@@ -7,9 +7,9 @@ test.beforeEach(async ({ page }) => {
   await remember(page, "lisbon-realty");
 });
 
-test("Not by email is a View of Drafts: its count in the menu, a phone as plain text, the phrase that fills an empty group", async ({ page }) => {
+test("Not by email is a filter of Mail: its count in the filter button, a phone as plain text, the phrase that fills an empty group", async ({ page }) => {
   await page.goto(at("lisbon-realty", "/mail"));
-  await page.getByRole("button", { name: /^View:/ }).click();
+  await page.getByRole("button", { name: /^Filter mail/ }).click();
   await page.getByRole("menuitemradio", { name: /^Not by email\s*4$/ }).click();
   await expect.poll(() => address(page)).toBe(at("lisbon-realty", "/mail?filter=not_by_email"));
   const block = page.getByTestId("not-by-email");

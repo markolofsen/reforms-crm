@@ -12,8 +12,14 @@ export const remember = (page: Page, slug: string) => page.context().addCookies(
 
 /** The people of the Mail list, in order (P99: a row is a person; since P130 a link to the conversation, and a checkbox for the bulk mode). */
 export const cards = (page: Page) => page.locator('ul[aria-label="People"] > li');
-/** The one View menu of the Drafts list (its trigger reads "View: <view> <count>"). */
-export const viewMenu = (page: Page) => page.getByRole("button", { name: /^View:/ });
+/** P134 verdict 1: the list's title from 640px ("Needs you · 2"), plain text; the view is chosen in the sidebar. */
+export const listTitle = (page: Page) => page.getByTestId("list-title").locator("visible=true");
+/** Mail's views in the sidebar (Needs you, Waiting, All, Leads), each a link with its count. */
+export const mailViews = (page: Page) => page.getByRole("navigation", { name: "Sections" }).first().getByRole("list", { name: "Mail views" });
+/** Chooses a Mail view by its sidebar child (the one door, P134). */
+export const openMailView = (page: Page, name: string) => mailViews(page).getByRole("link", { name: new RegExp(`^${name}`) }).click();
+/** The filter button beside Mail's search (Follow-ups, Not by email, the brands), only when it has a choice. */
+export const filterMenu = (page: Page) => page.getByRole("button", { name: /^Filter mail/ });
 /** The unsent message of one client (today's card body at the bottom of the conversation), once its row is open. */
 export const cardOf = (page: Page, name: string): Locator => page.getByRole("article", { name: `Draft for ${name}` });
 

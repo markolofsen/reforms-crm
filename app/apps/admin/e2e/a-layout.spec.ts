@@ -38,8 +38,10 @@ const SEND_ROWS = [
 // button; the error states (Send refused, Mail unreadable) measured 39 and 37 at 1280 against 36. Raised to 40 for that reason; the list, not a control, grew.
 // P125 (2026-11-23, measured at the P130 gate): the nav grew, not a control. Settings' pages became a menu column with Messengers among
 // them (L4, L5: Checks 41), and the sidebar draws Mail's three views as children (L2: two selected 45). Raised by one each for that reason.
-const CONTROL_CAP = 41;
-const SELECTING_CAP = 45;
+// P134 (2026-11-24, P133 item 8): the sidebar's footer is the version line and two icons (the theme's three radios, the sound
+// and the shortcuts went into one "⋯"), and Quick links is one row: three stops fewer, Leads one more. Back to 40 and 44.
+const CONTROL_CAP = 40;
+const SELECTING_CAP = 44;
 const FIRST_ROW_MAX_PHONE = 200;
 const P = "lisbon-realty";
 // The docked terminal's own stops (tabs, +, tips, Close, Hide, the separator, its input) are not counted: the dock is not a screen

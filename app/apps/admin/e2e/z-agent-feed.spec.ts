@@ -39,9 +39,21 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(FAKE_AUDIO);
 });
 
+/** P134 verdict 11: the agent sounds' switch lives in the footer's "⋯" popover; opening it shows whether the feed has a project. */
+async function soundSwitch(p: Page) {
+  await p.getByRole("button", { name: "Theme, sounds and shortcuts" }).click();
+  const sw = p.getByRole("switch", { name: "Agent sounds" });
+  await expect(sw).toBeVisible();
+  return sw;
+}
+async function feedReady(p: Page) {
+  await soundSwitch(p);
+  await p.keyboard.press("Escape");
+}
+
 test("agent feed: the sidebar footer holds no feed rows (P73), and a line in the log adds none", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await expect(page.getByRole("button", { name: "Mute the agent sounds" })).toBeVisible();
+  await feedReady(page);
   const read = fed(page);
   append({ kind: "tool_call", corr: "c1", data: { tool: "mcp__hub__draft_show", input: { draft: 1 } } }, { kind: "tool_result", corr: "c1", data: { tool: "mcp__hub__draft_show", output: "{}" } });
   await read;
@@ -52,7 +64,7 @@ test("agent feed: the sidebar footer holds no feed rows (P73), and a line in the
 
 test("agent feed: a question turn sounds the attention tone once and turns the strip's dot; opening the column clears it", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await expect(page.getByRole("button", { name: "Mute the agent sounds" })).toBeVisible();
+  await feedReady(page);
   await page.locator("#main").click({ position: { x: 5, y: 5 } }); // the gesture that lets audio start
   const routine = fed(page);
   append({ kind: "tool_call", corr: "c2", data: { tool: "Read", input: { file_path: "/x" } } }, { kind: "answer", data: { text: "Routine: draft 1 says hello." } });
@@ -69,17 +81,18 @@ test("agent feed: a question turn sounds the attention tone once and turns the s
 
 test("agent feed: muted, a question turn plays nothing and the strip's dot still turns", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  const mute = page.getByRole("button", { name: "Mute the agent sounds" });
-  await mute.click();
-  await expect(mute).toHaveAttribute("aria-pressed", "true");
+  const sound = await soundSwitch(page);
+  await sound.click();
+  await expect(sound).not.toBeChecked();
+  await page.keyboard.press("Escape");
   const asked = fed(page);
   append({ kind: "answer", data: { text: "Shall I send the price list?" } });
   await asked;
   await expect(page.locator('[data-testid="terminal-strip-dot"][data-attention]')).toBeVisible({ timeout: 1_500 });
   await page.waitForTimeout(2_500);
   expect(await tones(page)).toEqual([]);
-  await mute.click();
-  await expect(mute).toHaveAttribute("aria-pressed", "false");
+  await (await soundSwitch(page)).click();
+  await expect(page.getByRole("switch", { name: "Agent sounds" })).toBeChecked();
 });
 
 test("agent feed: of two tabs only one plays", async ({ page, context }) => {
@@ -87,7 +100,7 @@ test("agent feed: of two tabs only one plays", async ({ page, context }) => {
   await other.addInitScript(FAKE_AUDIO);
   for (const p of [page, other]) {
     await p.goto(at(P, "/mail"));
-    await expect(p.getByRole("button", { name: "Mute the agent sounds" })).toBeVisible();
+    await feedReady(p);
     await p.locator("#main").click({ position: { x: 5, y: 5 } });
   }
   const failed = fed(page);

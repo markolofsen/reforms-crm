@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { writeSendPolicy } from "./send-policy";
-import { checkForBatch, confirmReview, contextWarn, openRow, remember, reviewDialog, viewMenu } from "./support";
+import { checkForBatch, confirmReview, contextWarn, openRow, remember, reviewDialog } from "./support";
 
 // P85b: Send all Checked of one batch, against the FAKE mailer (HUB_MAILER=fake: nothing leaves the process; the batch spacing is
 // shortened by HUB_BATCH_SPACING_SECONDS, honoured with the fake only). Named z-* because it writes (two drafts, two send rows).
@@ -42,9 +42,12 @@ test("Send all Checked: one review dialog names the count and every recipient, t
   expect(record("ana.batch@example.com", "Ana Batch")).toMatchObject({ ok: true });
   expect(record("rui.batch@example.com", "Rui Batch")).toMatchObject({ ok: true });
   await remember(page, "demo-shop");
-  await page.goto("/mail?filter=all");
-  await viewMenu(page).click();
-  await page.getByRole("menuitemradio", { name: new RegExp(`^${TITLE}`) }).click();
+  // P134 verdict 2: no batch list; a batch whose drafts wait is one line on top of Needs you, its request a link to its own list.
+  await page.goto("/mail");
+  const line = page.getByTestId("batch-line").filter({ hasText: new RegExp(`${TITLE}|${WORDS.slice(0, 20)}`) });
+  await expect(line).toContainText("2 drafts from");
+  await expect(line.getByRole("button", { name: "Review all" })).toHaveAttribute("aria-disabled", "true"); // none Checked yet
+  await line.getByRole("link").click();
   await expect(page).toHaveURL(/batch=\d+/);
 
   const panel = page.getByRole("region", { name: "Send all Checked" });

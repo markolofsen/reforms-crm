@@ -58,11 +58,14 @@ test("theme: a choice made in the sidebar survives a reload", async ({ page }) =
   test.skip((page.viewportSize()?.width ?? 0) < 1024, "the open sidebar, with its Theme control, is a desktop surface");
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto(at(P, "/mail"));
+  // P134 verdict 11: the theme is in the footer's "⋯" popover.
+  await page.getByRole("button", { name: "Theme, sounds and shortcuts" }).click();
   await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" }).click();
   await expect.poll(() => isDark(page)).toBe(true);
   await page.reload();
   await page.waitForLoadState("networkidle");
   expect(await isDark(page)).toBe(true);
+  await page.getByRole("button", { name: "Theme, sounds and shortcuts" }).click();
   await expect(page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
 });
 

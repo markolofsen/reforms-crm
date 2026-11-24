@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { address, at, openRow, remember, viewMenu } from "./support";
+import { address, at, listTitle, openMailView, openRow, remember } from "./support";
 
 // Named y-* so it runs after smoke.spec.ts and before the z-* flows that change the data. Nothing here writes:
 // keys only move, and the failures are mocked.
@@ -18,11 +18,10 @@ test("the project and the view live in the address", async ({ page }) => {
   expect(needs.nextOffset).toBeNull();
   expect(needs.rows.length).toBeGreaterThan(0);
   await page.goto(at("lisbon-realty", "/mail"));
-  await expect(viewMenu(page)).toContainText("Needs you");
+  await expect(listTitle(page)).toContainText("Needs you");
   await expect(cards(page)).toHaveCount(needs.rows.length);
   expect((await cards(page).evaluateAll((rows) => rows.map((r) => r.id))).sort()).toEqual(needs.rows.map((r) => `person-${r.client.id}`).sort());
-  await viewMenu(page).click();
-  await page.getByRole("menuitemradio", { name: /^Waiting/ }).click();
+  await openMailView(page, "Waiting");
   await expect.poll(() => address(page)).toMatch(/^\/lisbon-realty\/mail(\/c\/[^/?]+)?\?filter=waiting$/); // P53: the first person opens in the address
 });
 

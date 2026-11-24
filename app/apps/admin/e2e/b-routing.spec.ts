@@ -11,7 +11,7 @@ test.beforeEach(async ({ page }) => {
 
 const P = "lisbon-realty";
 const cards = (page: Page) => page.locator('ul[aria-label="People"] > li');
-const viewMenu = (page: Page) => page.getByRole("button", { name: /^View:/ });
+const listTitle = (page: Page) => page.getByTestId("list-title").locator("visible=true");
 /** P53, P99: at 1280 Mail opens its first person and the address names them (`/mail/c/42`); a bare `/mail` only while loading or empty. */
 const listed = (project: string | null, query = "") => new RegExp(`^${project ? `/${project}` : ""}/mail(/c/[^/?]+)?${query.replace(/[?]/g, "\\?")}$`);
 
@@ -82,11 +82,11 @@ test("a Mail deep link with an open conversation survives a reload", async ({ pa
 
 test("a view in the address survives a reload, and a bad one resets", async ({ page }) => {
   await page.goto(at(P, "/mail?filter=waiting"));
-  await expect(viewMenu(page)).toContainText("Waiting");
+  await expect(listTitle(page)).toContainText("Waiting");
   await page.reload();
-  await expect(viewMenu(page)).toContainText("Waiting");
+  await expect(listTitle(page)).toContainText("Waiting");
   await page.goto(at(P, "/mail?filter=zzz"));
-  await expect(viewMenu(page)).toContainText("Needs you");
+  await expect(listTitle(page)).toContainText("Needs you");
   await expect.poll(() => address(page)).toMatch(listed(P));
 });
 
@@ -100,10 +100,10 @@ test("the first person opens in the address without a history entry; moving betw
   const entries = await page.evaluate(() => window.history.length);
   await page.keyboard.press("j");
   await expect.poll(() => address(page)).toMatch(new RegExp(`^/${P}/mail/c/(?!${firstPath.slice("/mail/c/".length)}$)[^/?]+$`));
-  await viewMenu(page).click();
-  await page.getByRole("menuitemradio", { name: /^Waiting/ }).click();
+  // P134: a view is the sidebar's child, a link (a push); the auto-open and a move are not pages.
+  expect(await page.evaluate(() => window.history.length)).toBe(entries);
+  await page.getByRole("navigation", { name: "Sections" }).first().getByRole("list", { name: "Mail views" }).getByRole("link", { name: /^Waiting/ }).click();
   await expect.poll(() => address(page)).toMatch(listed(P, "?filter=waiting"));
-  expect(await page.evaluate(() => window.history.length)).toBe(entries); // neither the auto-open, a move nor a view is a page
 });
 
 test("the Activity deep link keeps its view and its one client", async ({ page }) => {
@@ -258,10 +258,11 @@ test("one project: no project in the address, no switcher, Overview in the nav b
   await expect.poll(() => address(page)).toBe("/log?kind=skipped");
 });
 
-// P128 X4 (decision 0045 point 21): the list header's View trigger is the list's title, naming the section and the view.
-test("the list header says where he is: Mail · <view> and Messengers · <view>", async ({ page }) => {
+// P134 verdict 1: Mail's header only names the view (the sidebar chooses it); Messengers keeps its View menu (its sidebar holds channels).
+test("the list header says where he is: Needs you · <n> on Mail, Messengers · <view> on Messengers", async ({ page }) => {
   await page.goto(at(P, "/mail"));
-  await expect(page.getByRole("button", { name: /^View: Mail · Needs you/ })).toBeVisible();
+  await expect(listTitle(page)).toHaveText(/^Needs you · \d+$/);
+  await expect(page.getByRole("button", { name: /^View:/ })).toHaveCount(0);
   await page.goto(at(P, "/messengers"));
   await expect(page.getByRole("button", { name: /^View: Messengers · Needs you/ })).toBeVisible();
   // "Live" is not said while it is true (only its loss is).

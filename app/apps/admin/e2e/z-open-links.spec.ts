@@ -43,7 +43,7 @@ test("P131 O2: This Mac lists the three apps as the probe saw them; Check again 
 test("P131 O3: a lead's Notion page opens in the app when it is installed, else in a new browser tab", async ({ page }) => {
   await remember(page, SHOP);
   const openLead = async () => {
-    await page.goto(at(SHOP, "/mail"));
+    await page.goto(at(SHOP, "/mail/leads"));
     await page.getByTestId("lead-row").first().getByRole("link").click();
     await expect(page.locator('[data-pane="aside"]')).toBeVisible();
   };

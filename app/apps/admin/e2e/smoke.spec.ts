@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { at, cards, remember, viewMenu } from "./support";
+import { at, cards, listTitle, mailViews, remember } from "./support";
 
 // The seeded project `lisbon-realty` is invented data (packages/db/src/seed.ts): 11 clients with a draft, and two the agent left
 // to the owner (Marta Gomes, Joao Pires: an owed Inbox row, no draft). P99: Mail lists people, so All has 13 rows, one per person
@@ -14,11 +14,9 @@ test("Mail list loads with counts and only people with mail", async ({ page }) =
   await expect(cards(page)).toHaveCount(13);
   await expect(cards(page).filter({ hasText: "Joao Pires" }).getByTestId("person-state")).toHaveText("Wrote you");
   await expect(cards(page).filter({ hasText: "Rita Falsa" })).toHaveCount(0);
-  // The counts live in the one View menu (P48 W4); Replies owed and High value are not views.
-  await viewMenu(page).click();
-  await expect(page.getByRole("menuitemradio", { name: /^All\s*13$/ })).toBeVisible();
-  await expect(page.getByRole("menuitemradio", { name: /^Needs you\s*\d+$/ })).toBeVisible();
-  await expect(page.getByRole("menuitemradio", { name: /^Replies owed|High value/ })).toHaveCount(0);
+  // P134: the counts live in the sidebar's Mail views and the title names the view; Replies owed and High value are not views.
+  await expect(listTitle(page)).toHaveText(/^All · 13$/);
+  await expect(mailViews(page).getByRole("link")).toHaveText([/^Needs you\s*\d+/, /^Waiting/, /^All\s*13/, /^Leads/]);
 });
 
 test("Open the draft in Mail links the Mail draft by its own Message-ID; the client's mail is in the More menu (P58 R1)", async ({ page }) => {
