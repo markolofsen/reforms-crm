@@ -38,7 +38,7 @@ artifact. A new reusable product surface is not complete until its named
 light/dark, narrow and interaction states are represented there; Storybook is
 an adopter and contract, not a second place to implement UI.
 
-Messenger settings have one compact project-level Response policy (provider, legacy draft/auto preparation mode, language and global instruction). Per-chat reply mode, follow-up, language, pre-analysis and instruction controls are advanced exceptions under linked chats; background delivery is disabled and every Messenger response remains an unsent draft until the owner uses the existing guarded send door.
+Messenger settings have one compact project-level policy (language and global instruction; the response mode and provider were deleted, P119 C2). Per-chat reply mode, language, pre-analysis and instruction controls are advanced exceptions under linked chats (the follow-up rule is gone since migration 0040); nothing delivers in the background, and every Messenger response is an unsent draft until the owner's Send, or decision 0046's owner word, passes the guarded send door (P112 S2). Decision 0048's per-chat autopilot (P139) is not built.
 
 ## Shape
 - `reforms-hub/app/`: Next.js (App Router) + React + coss; real paths, with the project as the first segment when the instance has two or more (`/<project>/mail/42`; one project: `/mail/42`), declared in `src/routes` (one table of `defineRoute` rows) and typed by the framework's typed routes. The pages are a client of a thin local
