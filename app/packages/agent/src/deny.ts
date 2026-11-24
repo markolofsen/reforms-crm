@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { dropFolder, pathsAt, SHELL_DROPS, type HubPaths } from "@hub/config/paths";
-import { NOTION_DENIED, NOTION_PREFIX } from "@hub/projects/notion-denied";
+import { NOTION_DENIED, NOTION_PREFIX } from "@hub/projects/notion-tools";
 
 // What a hub agent session may never do, in both CLIs (plan p17, P49 S10). These match tool names and command text, so
 // they are a belt, not the boundary: a decimal IP or a script defeats a text rule. In unattended mode the OS sandbox is
@@ -11,7 +11,7 @@ import { NOTION_DENIED, NOTION_PREFIX } from "@hub/projects/notion-denied";
  * Tools that send, forward, delete or cancel. Denied outright: drafts only, nothing is ever sent or removed. mail-mcp's
  * `create_reply` too (P52, decision 0030): it pastes through a compose window that needs Mail in front and leaves an empty
  * reply when the owner's browser is; drafts are written by the hub MCP server's `draft_write`. The Notion part is
- * `NOTION_DENIED` of `@hub/projects/notion-denied`.
+ * `NOTION_DENIED` of `@hub/projects/notion-tools`.
  */
 export const DENIED_TOOLS: readonly string[] = [
   "mcp__mail-mcp__create_reply",
@@ -27,23 +27,6 @@ export const DENIED_TOOLS: readonly string[] = [
 export const MAIL_MCP_READ_TOOLS: readonly string[] = ["list_accounts", "list_mailboxes", "find_messages", "get_message_content", "list_drafts", "list_outgoing_messages"];
 
 /**
- * P129 verdict 12: the hosted Notion tools the skills call, plus the owner-request set among them (fetch, search, query,
- * create pages, update page). P112 S3 enforces it (default-deny); until then the skill lint keeps the skills inside it.
- */
-export const NOTION_ALLOWED: readonly string[] = [
-  "notion-search",
-  "notion-fetch",
-  "notion-query-data-sources",
-  "notion-create-pages",
-  "notion-update-page",
-  "notion-get-teams",
-  "notion-create-database",
-  "notion-create-view",
-  "notion-update-data-source",
-  "notion-update-view",
-];
-
-/**
  * Decision 0046: the one send tool an ATTENDED session has: `hub`'s `messenger_send`, one messenger draft on the owner's word,
  * verified and sent by the server through the owner's send door. The Agent tools check passes it only in attended mode.
  */
@@ -52,6 +35,9 @@ export const ATTENDED_SEND_TOOLS: readonly string[] = ["mcp__hub__messenger_send
 /**
  * The denied tools of a mode: {@link DENIED_TOOLS} in every mode, and in an unattended one also {@link ATTENDED_SEND_TOOLS}
  * (decision 0046 point 3: background and unattended sessions never send). Default unattended: the stricter list.
+ * Every list in this file binds the MODEL's processes (the CLI, its shell and its MCP servers), never the server: the send door
+ * (`@hub/messengers/door`) reads no session mode, so a server-side sender behind its own code guard (decision 0048's autopilot,
+ * P139) is not reached by them; it still passes every stage of that door.
  */
 export const deniedTools = (unattended = true): readonly string[] => (unattended ? [...DENIED_TOOLS, ...ATTENDED_SEND_TOOLS] : DENIED_TOOLS);
 
@@ -137,7 +123,8 @@ export function denyRules(projectsDir: string, root: string, slug: string | unde
   const rel = (p: string) => (path.relative(root, p) || ".").split(path.sep).join("/");
   const rules: string[] = [];
   const denied = [`./${rel(paths.secrets)}/**`, `./${rel(path.dirname(paths.db))}/**`];
-  for (const o of otherProjects(projectsDir, slug)) denied.push(`./${rel(path.join(projectsDir, o))}/**`);
+  // P112 S3: another project's session files (its MCP config holds its project capability) and Codex home, beside its folder.
+  for (const o of otherProjects(projectsDir, slug)) denied.push(`./${rel(path.join(projectsDir, o))}/**`, `./${rel(path.join(paths.stateProjects, o))}/**`, `./${rel(path.join(paths.codexHomes, o))}/**`);
   // P76: a file dropped on another project's tab, or on a Shell tab, is that tab's only.
   for (const d of otherDrops(paths, projectsDir, slug)) denied.push(`./${rel(d)}/**`);
   for (const p of denied) for (const tool of ["Read", "Edit"]) rules.push(`${tool}(${p})`);

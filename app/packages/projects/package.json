@@ -14,7 +14,7 @@
     "./dev": "./src/dev.ts",
     "./commands": "./src/commands.ts",
     "./local-open": "./src/local-open.ts",
-    "./notion-denied": "./src/notion-denied.ts",
+    "./notion-tools": "./src/notion-tools.ts",
     "./registry": "./src/registry.ts",
     "./send-policy": "./src/send-policy.ts",
     "./kinds": "./src/kinds.ts",

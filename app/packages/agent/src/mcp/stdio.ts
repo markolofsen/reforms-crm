@@ -18,9 +18,12 @@ import { readAgentSendToken } from "../messenger/send-token";
 import { ownerWordsFound } from "../messenger/owner-word";
 import { OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
 import { logStoreOf, readEvents } from "@hub/log/store";
+import { ops } from "@hub/log/ops";
+import { bindProject } from "./binding";
 
 /**
- * `hub mcp`: the hub's MCP server on stdio (P51, P52). Env: `HUB_HOME`, `HUB_PROJECT` (every tool refuses without it),
+ * `hub mcp`: the hub's MCP server on stdio (P51, P52). Env: `HUB_HOME`, `HUB_PROJECT` with `HUB_PROJECT_CAPABILITY` (P112 S3: the
+ * launcher's capability for that slug, checked once here; without it every tool refuses as unbound),
  * `HUB_DB` optional. The database is opened read-only (the knowledge index too, P129 A4) (a `draft_write` bumps the live counter, P53, records the Mail version it saved, P65, and records a revision of an open hub draft in place, each on its own short connection); the one Mail write is `draft_write` (an unsent draft, through Mail's
  * scripting from this process, outside the agent's sandbox). Nothing but the protocol may reach stdout.
  */
@@ -107,7 +110,10 @@ export async function serveHubMcp(env: NodeJS.ProcessEnv = process.env): Promise
     const g = checkClientMap(m.source, { sources: "optional" });
     return syncClientMap({ projectsDir: paths.projects, secretsDir: paths.secrets }, { project: slug, email: m.email, text: notionMapSource(m.source), at: m.at, nextStep: g.ok ? nextStepOf(g) : null });
   };
-  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, chatSort, records, ownerWords, clientInNotion, testRecipients, hubProject: env.HUB_PROJECT?.trim() || undefined, focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
+  // P112 S3: the slug binds only with its capability, once, for this process's life.
+  const binding = bindProject(paths, env);
+  if (binding.refusal) ops("agent").warn("hub mcp started unbound: HUB_PROJECT came without a valid project capability", { reason: binding.refusal });
+  const server = createHubMcpServer(leadRepos, { syncClientMap: syncMap, ...agentSend, chatSort, records, ownerWords, clientInNotion, testRecipients, hubProject: binding.project, ...(binding.refusal ? { bindingRefusal: binding.refusal } : {}), focusFile: paths.focus, pointerFile: paths.pointer, pointerWritten: (slug) => void bumpTopicIn(paths.db, "pointer", slug), drafts: mailAppDraftWriter(), projectMail, projectConfig, mailWritten: (slug) => void bumpTopicIn(paths.db, "mail", slug), recordRevision, recordVersion, withRepos });
   process.on("SIGINT", () => handle.close());
   await server.connect(new StdioServerTransport());
 }

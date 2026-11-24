@@ -1,8 +1,8 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { MAIL_MCP_READ_TOOLS, NOTION_ALLOWED } from "@hub/agent/deny";
-import { NOTION_PREFIX } from "@hub/projects/notion-denied";
+import { MAIL_MCP_READ_TOOLS } from "@hub/agent/deny";
+import { NOTION_ALLOWED, NOTION_PREFIX } from "@hub/projects/notion-tools";
 import { HUB_MCP_ATTENDED_TOOLS, HUB_MCP_TOOLS } from "@hub/agent/mcp";
 import { KINDS } from "@hub/projects/kinds";
 import { defaultRoot } from "../src/context";

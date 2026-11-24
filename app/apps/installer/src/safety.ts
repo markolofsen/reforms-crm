@@ -10,7 +10,8 @@ import { instanceServer } from "./mcp-servers";
 import { claudeDisallowed, claudeSettings, type ClaudeFiles } from "@hub/agent/claude";
 import { codexConfigToml, codexHome, codexRules } from "@hub/agent/codex";
 import { HUB_MCP_SERVERS } from "@hub/agent/deny";
-import { notionDenial } from "@hub/projects/notion-denied";
+import { PROJECT_CAPABILITY_ENV, projectCapability } from "@hub/agent/mcp-binding";
+import { notionDenial } from "@hub/projects/notion-tools";
 import { resolveConnectors, type AttachedConnector } from "@hub/agent/connectors";
 import { connectorViolations, notionNote, notionScopeOf, notionViolations, recordConnectorRead, type ConnectorScope, type NotionRead } from "@hub/agent/connector-guard";
 import { readSession, recordPost, type PostPayload } from "@hub/agent/evidence/store";
@@ -51,7 +52,8 @@ export function instanceMcpServers(paths: HubPaths, slug: string | undefined, no
     const spec = all[name] ?? (name === "hub" ? core[name] : undefined);
     if (!spec) continue;
     const s = instanceServer(spec, paths);
-    if (name === "hub" && slug) s.env = { ...(s.env as object), HUB_PROJECT: slug };
+    // P112 S3: the slug and the launcher's capability for it; `hub mcp` binds to the slug only when they match.
+    if (name === "hub" && slug) s.env = { ...(s.env as object), HUB_PROJECT: slug, [PROJECT_CAPABILITY_ENV]: projectCapability(paths, slug) };
     // P137 L1: the session's action, so `hub mcp`'s lines carry it even when the CLI passes the server a bare environment.
     const action = process.env[ACTION_ENV];
     if (name === "hub" && isActionId(action)) s.env = { ...(s.env as object), [ACTION_ENV]: action };
@@ -181,8 +183,8 @@ export function skillScope(kindId: string, dir: string): SkillScope | undefined 
 export function guardDecision(payload: GuardInput, o: { slug?: string; accounts: readonly string[]; mode: string; skills?: SkillScope | undefined; layout: AuditLayout; connectors?: ConnectorScope; /** P82: this session's earlier Notion reads (the ledger). */ notionRead?: readonly NotionRead[]; /** Decision 0046: the instance's `agent.unattended` (default true: the stricter answer). */ unattended?: boolean }): GuardResult {
   const call: ToolCall = { name: String(payload.tool_name ?? ""), input: payload.tool_input };
   // Unbound session (project-setup, `hub agent new`): no project to compare with, but sends and secrets still count.
-  // P129 A0, P131 verdict 6: a Notion tool of the one deny list is refused in every mode. The audit names it in the same
-  // words (`@hub/projects/notion-denied`); here it moves from the mode-bound violations to the outward ones.
+  // P129 A0, P131 verdict 6, P112 S3: a Notion tool off the allow-list (default-deny) is refused in every mode. The audit names it
+  // in the same words (`@hub/projects/notion-tools`); here it moves from the mode-bound violations to the outward ones.
   const denied = notionDenial(call.name);
   // Decision 0046 point 3: an unattended session never sends, so `messenger_send` is refused there in every guard mode.
   const unattendedSend = call.name === HUB_MESSENGER_SEND && (o.unattended ?? true) ? `messenger_send is denied in an unattended session (decision 0046: the agent sends only in an attended one, on the owner's word)` : null;
@@ -215,7 +217,12 @@ export function runGuard(stdin: string, g: GuardEnv): { code: 0 | 2; stderr: str
       accounts = [...cfg.mail.accounts];
       skills = skillScope(cfg.kind, paths.skills);
     }
-    catch { return mode === "block" ? { code: 2, stderr: `hub guard: project "${slug}" cannot be loaded; blocked` } : { code: 0, stderr: "" }; }
+    catch {
+      // P112 S3: a Notion tool off the allow-list is refused in every mode, even when the project cannot be loaded.
+      const denied = notionDenial(String(payload.tool_name ?? ""));
+      if (denied) return { code: 2, stderr: `hub guard (block): ${denied}` };
+      return mode === "block" ? { code: 2, stderr: `hub guard: project "${slug}" cannot be loaded; blocked` } : { code: 0, stderr: "" };
+    }
   }
   const sid = typeof payload.session_id === "string" ? payload.session_id : "";
   let notionRead: LedgerEntry[] = [];

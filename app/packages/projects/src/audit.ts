@@ -2,7 +2,7 @@
 // Works on a `claude -p --output-format stream-json` log and on a Claude Code session transcript (both are JSONL
 // with `assistant` messages carrying `tool_use` blocks). Read only; nothing here talks to Mail or Notion.
 
-import { notionDenial } from "./notion-denied";
+import { notionDenial } from "./notion-tools";
 
 export interface ToolCall {
   name: string;

@@ -5,7 +5,8 @@ import { defaultRoot } from "../src/context";
 import { makeInstance } from "./instance-fixture";
 import { auditLayout, guardDecision, writeSessionFiles } from "../src/safety";
 import { DENIED_TOOLS, deniedToolsOf, denyRules, HUB_API_COMMANDS, HUB_MCP_SERVERS } from "@hub/agent/deny";
-import { NOTION_DENIED } from "@hub/projects/notion-denied";
+import { NOTION_ALLOWED, NOTION_DENIED } from "@hub/projects/notion-tools";
+import { codexConfigToml } from "@hub/agent/codex";
 import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 
 // Decision 0011: the agent gets NO send tool, in any mode. Sending is a hub command. If a rule below is removed or a
@@ -67,6 +68,18 @@ describe("the agent has no send path", () => {
 
   it("Codex disables the same Notion tools: its `disabled_tools` come from the one list", () => {
     expect(deniedToolsOf("notion").sort()).toEqual(NOTION_DENIED.map((d) => d.tool).sort());
+  });
+
+  it("P112 S3: Notion is default-deny: the guard refuses an unlisted tool in both modes, bound or not, and Codex enables only the allow-list", () => {
+    for (const mode of ["warn", "block"]) {
+      for (const slug of ["acme-travel", undefined]) {
+        const g = guardDecision({ tool_name: "mcp__notion__notion-get-users", tool_input: {} }, { slug, accounts: [], mode, layout: LAYOUT });
+        expect(g).toMatchObject({ block: true, always: true });
+        expect(g.violations.join("; ")).toMatch(/not on the Notion allow-list/);
+      }
+    }
+    const toml = codexConfigToml({ paths: INSTANCE.paths, projectsDir: PROJECTS, slug: "acme-travel", unattended: true, servers: { notion: { type: "http", url: "https://mcp.notion.com/mcp" } }, instructions: "x" });
+    expect(toml).toContain(`enabled_tools = [${NOTION_ALLOWED.map((t) => `"${t}"`).join(", ")}]`);
   });
 
   it("the mail programs and osascript stay denied in the agent's shell", () => {

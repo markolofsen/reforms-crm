@@ -7,6 +7,7 @@ import { defaultRoot } from "../src/context";
 import { recordFlat } from "./support/seed-draft-impl";
 import { guardDecision, readBinding, resolveBinding, runGuard, runGuardPost, skillScope, writeBinding, writeCodexHome, writeSessionFiles } from "../src/safety";
 import { CODEX_FORBIDDEN_PREFIXES, DENIED_TOOLS } from "@hub/agent/deny";
+import { bindProject, PROJECT_CAPABILITY_ENV } from "@hub/agent/mcp-binding";
 import { claudeEnforcementArgs as enforcementArgs } from "@hub/agent/claude";
 import { buildClaudeArgs } from "../src/agent";
 import { auditLayout } from "../src/safety";
@@ -92,6 +93,15 @@ describe("hub guard", () => {
     // Any other send-like tool of the hub stays a violation attended too.
     expect(guardDecision(call("mcp__hub__mail_send"), { slug: "acme-travel", accounts: [], mode: "block", layout: LAYOUT, unattended: false }).violations).toEqual([expect.stringMatching(/send-capable/)]);
   });
+  it("P112 S3: an unknown Notion tool is refused in warn mode, unbound, and when the project cannot be loaded; an allowed one passes", () => {
+    const unknown = call("mcp__notion__notion-duplicate-page", { page_id: "x" });
+    for (const env of [{ HUB_PROJECT: "acme-travel" }, {}, { HUB_PROJECT: "no-such-project" }] as Record<string, string>[]) {
+      const r = guard(unknown, env);
+      expect(r.code).toBe(2);
+      expect(r.stderr).toMatch(/notion-duplicate-page is not on the Notion allow-list/);
+    }
+    expect(guard(call("mcp__notion__notion-get-teams", {}), {}).code).toBe(0);
+  });
   it("an unbound session still blocks sends and secrets, not project reads", () => {
     const env = { HUB_GUARD: "block" };
     expect(guard(call("Read", { file_path: "projects/acme-travel/project.md" }), env).code).toBe(0);
@@ -137,6 +147,13 @@ describe("generated session files", () => {
     // `hub` (P51) is the core's own server: there even when the instance's file predates it.
     expect(Object.keys(m).sort()).toEqual(["hub", "mail-mcp"]);
     expect(m.hub.env.HUB_PROJECT).toBe("acme-travel");
+    // P112 S3: the launcher's capability binds `hub mcp` to the slug; the slug alone, or another project's slug with it, binds nothing.
+    expect(bindProject(pathsAt(root), m.hub.env)).toEqual({ project: "acme-travel" });
+    expect(bindProject(pathsAt(root), { HUB_PROJECT: "nordhaus", [PROJECT_CAPABILITY_ENV]: m.hub.env[PROJECT_CAPABILITY_ENV] })).toMatchObject({ refusal: expect.stringMatching(/does not match HUB_PROJECT=nordhaus/) });
+    expect(bindProject(pathsAt(root), { HUB_PROJECT: "acme-travel" })).toMatchObject({ refusal: expect.stringMatching(/without the launcher's project capability/) });
+    expect(bindProject(pathsAt(root), {})).toEqual({ refusal: null });
+    // Another project's session files, where its capability is written, are out of this session's reach.
+    expect(settings.permissions.deny).toEqual(expect.arrayContaining(["Read(./state/projects/nordhaus/**)", "Read(./state/codex/nordhaus/**)"]));
   });
   it("claude gets the enforcement flags in = form, and send tools are denied", () => {
     const a = buildClaudeArgs({ mode: "new", project: "acme-travel", extra: [] }, [], files);

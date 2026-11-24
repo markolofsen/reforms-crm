@@ -29,8 +29,10 @@ export interface RevisionRecord {
 }
 
 export interface HubMcpEnv {
-  /** The bound project; every tool refuses without it. */
+  /** The bound project (P112 S3: `HUB_PROJECT` with the launcher's capability, checked once at start); every tool refuses without it. */
   hubProject: string | undefined;
+  /** Why `HUB_PROJECT` bound nothing (no capability, or another project's); absent: no project was named. */
+  bindingRefusal?: string;
   /** `state/focus.json` of the instance. */
   focusFile: string;
   /** `state/pointer.json` of the instance (P72); absent, `highlight` refuses `unavailable`. */
@@ -121,7 +123,7 @@ export interface ToolCtx {
 
 export function toolCtx(repos: Repos, env: HubMcpEnv): ToolCtx {
   const project = (): string => {
-    if (!env.hubProject) throw new ToolError("unbound", "This session is not bound to a project (HUB_PROJECT): start it with `hub agent <project>`.");
+    if (!env.hubProject) throw new ToolError("unbound", env.bindingRefusal ? `This session is not bound to a project: ${env.bindingRefusal}.` : "This session is not bound to a project (HUB_PROJECT): start it with `hub agent <project>`.");
     return env.hubProject;
   };
   const ownDraft = async (id: number) => {

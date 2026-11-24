@@ -3,6 +3,7 @@ import { codexSessionPaths, type HubPaths } from "@hub/config/paths";
 import { CODEX_FORBIDDEN_PREFIXES, deniedToolsOf, HUB_MCP_SERVERS, otherDrops, otherProjects } from "./deny";
 import { focusHookCommand, logHookCommand } from "./claude";
 import { CODEX_BYPASS, codexModeArgs, protectedPaths } from "./session";
+import { NOTION_ALLOWED } from "@hub/projects/notion-tools";
 
 // A Codex session of `hub agent --cli codex` (P49 S9, S10), built without writing. Codex has no strict-MCP flag and its
 // `-c` overrides merge into the owner's tables, so a hub session gets its own `CODEX_HOME` (research 21 section 6):
@@ -52,7 +53,9 @@ export function codexConfigToml(i: CodexSessionInput): string {
   out.push(`[permissions.${CODEX_PROFILE}.filesystem]`, `":root" = "read"`, `":workspace_roots" = "write"`);
   // One entry per path (TOML refuses a key twice): unreadable wins over read-only.
   const access = new Map<string, "read" | "none">(protectedPaths(i.paths).map((p) => [p, "read"]));
-  for (const p of [i.paths.secrets, ...otherProjects(i.projectsDir, i.slug).map((o) => path.join(i.projectsDir, o)), ...otherDrops(i.paths, i.projectsDir, i.slug)]) access.set(p, "none");
+  // P112 S3: another project's session files (its project capability) and Codex home are as closed as its folder.
+  const others = otherProjects(i.projectsDir, i.slug);
+  for (const p of [i.paths.secrets, ...others.flatMap((o) => [path.join(i.projectsDir, o), path.join(i.paths.stateProjects, o), path.join(i.paths.codexHomes, o)]), ...otherDrops(i.paths, i.projectsDir, i.slug)]) access.set(p, "none");
   for (const [p, a] of access) out.push(`${str(p)} = ${str(a)}`);
   out.push("", `[permissions.${CODEX_PROFILE}.network]`, "enabled = false", "");
   out.push(`[projects.${str(i.paths.home)}]`, `trust_level = "trusted"`, "");
@@ -74,6 +77,8 @@ export function codexConfigToml(i: CodexSessionInput): string {
     } else out.push(`url = ${str(String(s.url))}`);
     // Decision 0046: an unattended session also has `hub.messenger_send` disabled (hub mcp does not register it there either).
     const off = deniedToolsOf(name, i.unattended);
+    // P112 S3: Notion is default-deny; Codex has no guard hook to refuse an unknown tool, so its allow-list is the server's own.
+    if (name === "notion") out.push(`enabled_tools = ${arr([...NOTION_ALLOWED])}`);
     if (off.length) out.push(`disabled_tools = ${arr(off)}`);
     // P65 S5: `draft_write` waits up to 45 s for a slow Mail, then reads and replaces (one call took 53 s on 2026-11-19).
     // Codex cuts a tool call at 60 s by default; cut, the agent would see a generic error and write again (a second draft).
