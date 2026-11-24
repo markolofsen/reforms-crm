@@ -1,16 +1,15 @@
 /**
- * The human path. Everything that links a chat to a client, lists a chat, approves a reply or sends one lives here
- * and needs a `HumanActor`. This module is a separate package entry (`@hub/messengers/human`): the agent-facing
- * entry (`@hub/messengers`) does not export it. A `HumanActor` is minted only by `humanActor()`, which an entry
- * point calls once it knows a person is present (the CLI checks for a terminal; the server mints one behind the admin
- * gate for a Telegram user account's link, and in its send door for the one send a person confirmed: decision 0036 point 7,
- * P71 M4). Do not import this file from anything an agent can call.
+ * The human path. Everything that links a chat to a client, lists a chat or sets a draft aside lives here and needs a
+ * `HumanActor`. This module is a separate package entry (`@hub/messengers/human`): the agent-facing entry (`@hub/messengers`)
+ * does not export it. A `HumanActor` is minted only by `humanActor()`, which an entry point calls once it knows a person is
+ * present (the CLI checks for a terminal; the server mints one behind the admin gate for a link). Approving and sending a draft
+ * are not here: they take the send door's `SendAuthorization` (`./door.ts`, P112 S2), never a `HumanActor`.
+ * Do not import this file from anything an agent can call.
  * The login of a user account, the WhatsApp pairing and their session writes are exported here too, for the same reason: only a
  * person logs in or scans a QR code.
  */
 import { RepoError, type IdentifierKind, type MessengerChannel, type Repos } from "@hub/db";
 import type { InboundMessage } from "./adapter";
-import { mintConfirmed, type ConfirmedDraft } from "./confirmed";
 import { MessengersError } from "./errors";
 import { normalizeIdentifier } from "./normalize";
 import { channelsOf } from "./types";
@@ -97,23 +96,7 @@ export async function disallowChat(repos: Repos, actor: HumanActor, input: { pro
 
 const CHANNEL_KIND: Record<MessengerChannel, IdentifierKind> = { telegram_bot: "telegram", telegram_user: "telegram", whatsapp: "whatsapp" };
 
-// ---- drafts: approve, send, copy
-
-export function confirmedFrom(d: { id: number; project: string; channel: MessengerChannel; chatId: string; text: string; confirmedBy: string | null; confirmedAt: string | null }): ConfirmedDraft {
-  return mintConfirmed({ id: d.id, project: d.project, channel: d.channel, chatId: d.chatId, text: d.text, confirmedBy: d.confirmedBy ?? "unknown", confirmedAt: d.confirmedAt ?? "" });
-}
-
-/** The owner approves a draft (the send door does, right before the one send). */
-export async function confirmDraft(repos: Repos, actor: HumanActor, input: { project: string; draftId: number; at?: string }): Promise<ConfirmedDraft> {
-  assertHuman(actor);
-  const cur = await repos.messengers.getDraft(input.project, input.draftId);
-  if (!cur) throw new MessengersError("not_confirmed", `not_confirmed: draft ${input.draftId} not found`);
-  if (!(await repos.messengers.isAllowed(cur.project, cur.channel, cur.chatId))) {
-    throw new MessengersError("chat_not_allowed", `chat_not_allowed: ${cur.channel} chat ${cur.chatId} is no longer on the allow-list`);
-  }
-  const row = await repos.messengers.confirmDraft(input.project, input.draftId, actor.name, input.at);
-  return confirmedFrom(row);
-}
+// ---- drafts: set one aside (approving and sending one is the door's, `./door.ts`, P112 S2)
 
 export async function discardDraft(repos: Repos, actor: HumanActor, input: { project: string; draftId: number }): Promise<void> {
   assertHuman(actor);

@@ -67,6 +67,11 @@ function usage(db: Reader, channel: MessengerChannel, account: string, at: strin
   return { sentLastDay: Number(n?.n ?? 0), lastAttemptAt: last?.at ?? null };
 }
 
+/** Throws `wrong_state` with `words` when Stop sending is on for this project or every project: read inside a send row's own write. */
+function refuseWhenStopped(tx: WriteTx, project: string, words: string): void {
+  if (tx.select().from(sendControl).where(and(inArray(sendControl.project, ["*", project]), eq(sendControl.stopped, true))).get()) throw new RepoError("wrong_state", words);
+}
+
 /**
  * Why one more messenger send on this account is refused now, in the owner's words, or null. The cap counts sending and sent rows of
  * the last 24 h; the spacing counts every attempt, a failed one too, since it reached Telegram.
@@ -119,6 +124,8 @@ export function sendsRepo(db: Db) {
     async begin(input: NewSend): Promise<SendRow> {
       if (input.status === "queued" && !input.dueAt) throw new RepoError("wrong_state", "A queued send needs a due time");
       return write(db, (tx) => {
+        // P112 S2: Stop sending is read again in the row's own write, as `beginMessage` does: no new work starts once it is on.
+        refuseWhenStopped(tx, input.project, "Stop all is on");
         try {
           return tx
             .insert(sendLog)
@@ -159,8 +166,7 @@ export function sendsRepo(db: Db) {
      */
     async beginMessage(input: NewMessengerSend): Promise<SendRow> {
       return write(db, (tx) => {
-        const stopped = tx.select().from(sendControl).where(and(inArray(sendControl.project, ["*", input.project]), eq(sendControl.stopped, true))).get();
-        if (stopped) throw new RepoError("wrong_state", "Stop sending is on");
+        refuseWhenStopped(tx, input.project, "Stop sending is on");
         const u = usage(tx, input.channel, input.account, input.at);
         const refused = usageRefusal(u, input.limits, input.at);
         if (refused) throw new RepoError("wrong_state", refused);

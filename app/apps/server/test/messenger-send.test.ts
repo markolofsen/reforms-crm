@@ -180,6 +180,29 @@ describe("the messenger send door (P71 M4)", () => {
     expect(await repos.sends.list("p")).toEqual([]);
   });
 
+  it("P112 S2: refuses while the project is paused or archived, read from project.md on every call", async () => {
+    const app = appWith(["telegram:1001"]);
+    const id = await draft();
+    for (const status of ["paused", "archived"]) {
+      writeFileSync(join(root, "projects", "p", "project.md"), projectMd.replace("| status | active |", `| status | ${status} |`));
+      expect(await refusedOf(await dry(app, id))).toMatch(new RegExp(`project p is ${status}, not active`));
+      expect(await refusedOf(await apply(app, id, { chatId: "1001", text: "Yes, the 28th stands." }))).toMatch(/not active/);
+    }
+    writeFileSync(join(root, "projects", "p", "project.md"), projectMd);
+    expect((await apply(app, id, { chatId: "1001", text: "Yes, the 28th stands." })).status).toBe(200);
+    expect(fake.sent).toHaveLength(1);
+  });
+
+  it("P112 S2: a draft written for one client is refused once its chat belongs to another (Change client)", async () => {
+    const app = appWith(["telegram:1001"]);
+    const id = (await repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId: "1001", text: "Yes, the 28th stands.", createdBy: "agent", clientId })).id;
+    const other = await repos.clients.create({ project: "p", email: "bo@example.test", name: "Bo" });
+    await repos.messengers.moveIdentifier("p", "telegram", "1001", other);
+    expect(await refusedOf(await apply(app, id, { chatId: "1001", text: "Yes, the 28th stands." }))).toMatch(/moved to another client after this draft was written/);
+    expect(fake.sent).toEqual([]);
+    expect(await repos.sends.list("p")).toEqual([]);
+  });
+
   it("needs the admin's messenger ticket: none, a forged one or a mail ticket for the same id is 403", async () => {
     const app = appWith(["telegram:1001"]);
     const id = await draft();

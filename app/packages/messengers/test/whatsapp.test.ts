@@ -5,12 +5,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdapterError, parkedOf, pollOnly } from "../src/adapter";
 import { mintConfirmed } from "../src/confirmed";
 import { FakeBoom, FakeWaSocket } from "../src/fake-wa";
-import { allowChat, confirmDraft, createWaPairing, humanActor, linkUserChat, qrRows } from "../src/human";
-import { sendConfirmed } from "../src/send-confirmed";
+import { allowChat, createWaPairing, humanActor, linkUserChat, qrRows } from "../src/human";
+import { confirmDraft, sendConfirmed } from "../src/send-confirmed";
 import { pollOnce, runPoller } from "../src/poller";
 import { createWhatsAppAdapter, toWaAdapterError, type WaMessage } from "../src/whatsapp";
 import { CREDS, readWaAuth, WaAuthFiles, waFolderOf } from "../src/whatsapp-auth";
-import { setup, type Env } from "./helpers";
+import { authorized, setup, type Env } from "./helpers";
 import { captureOps } from "@hub/log/ops";
 
 // P71 M5: WhatsApp as a linked device, on a FAKE Baileys socket. Nothing here opens a WebSocket or reaches WhatsApp: the one test
@@ -217,8 +217,8 @@ describe("whatsapp: send", () => {
     const lookalike = { state: "confirmed", id: d.id, project: "p", channel: "whatsapp", chatId: ANNA, text: "x", confirmedBy: "agent", confirmedAt: "" };
     await expect(a.send(lookalike as never)).rejects.toThrow("not_confirmed");
     await expect(a.send(mintConfirmed({ ...lookalike, chatId: STRANGER } as never))).rejects.toThrow("chat_not_allowed");
-    await confirmDraft(env.repos, human, { project: "p", draftId: d.id });
-    const receipt = await sendConfirmed({ repos: env.repos, adapter: a, now: () => NOW }, human, { project: "p", draftId: d.id });
+    await confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {});
+    const receipt = await sendConfirmed({ repos: env.repos, adapter: a, now: () => NOW }, await authorized(env.repos, "p", d.id));
     expect(sock.sent).toEqual([{ chatId: ANNA, text: "Hallo Anna", id: receipt.remoteMessageId }]);
     // WhatsApp echoes the sent message back; it is the same row.
     sock.message(ANNA, "Hallo Anna", { fromMe: true, id: receipt.remoteMessageId, at: new Date(receipt.at) });

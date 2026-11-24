@@ -9,7 +9,7 @@ import { gateRefusal, ticketStore } from "../http/admin-gate";
 import { notFound, v } from "../http/http";
 import { batchRuns } from "./batch-door";
 import { applyMessenger, assessMessenger } from "@hub/messengers/door";
-import { messengerRecipients } from "./messenger-recipients";
+import { messengerPolicy } from "./messenger-policy";
 import { ops } from "@hub/log/ops";
 import type { SendContext, SenderOptions } from "./context";
 import { AGENT_WORD_SEND_ACTOR, OWNER_WORD_MAX_AGE_HOURS } from "@hub/config";
@@ -79,18 +79,18 @@ function agentSendRoute({ repos, sender, messengers }: SendContext) {
     });
     const word = ownerWordFor({ events: agent.events(slug, since), draft: { id, chat, updatedAt: d.updatedAt }, openDrafts, used: await repos.sends.ownerWordsUsed(slug), now });
     if (!word.ok) return c.json(agentRefusal(word.refusal.code, word.refusal.message, word.refusal.next), 409);
-    const door = { repos, recipients: messengerRecipients(sender), senders: messengers, ...(sender.now ? { now: sender.now } : {}) };
+    const door = { repos, policy: messengerPolicy(sender), senders: messengers, ...(sender.now ? { now: sender.now } : {}) };
     const a = await assessMessenger(door, slug, id);
     if (!a?.preview) return c.json(agentRefusal("refused", a?.reasons.join("; ") || "nothing to send", LEAVE, a?.reasons), 409);
-    const r = await applyMessenger(door, slug, id, { chatId: d.chatId, text: d.text }, { actor: AGENT_WORD_SEND_ACTOR, ownerWord: word.ref });
+    // The draft's own chat and text: the door binds the send to them (their hash) and refuses when they changed meanwhile.
+    const r = await applyMessenger(door, slug, id, { chatId: d.chatId, text: d.text }, { kind: "owner_word", actor: AGENT_WORD_SEND_ACTOR, ownerWord: word.ref });
     if (!r) return c.json(agentRefusal("not_found", `draft ${id} is gone.`, LEAVE), 404);
+    // The door wrote the outcome's ops line (refused with its stage, sent, or failed).
     if ("refused" in r) {
-      log.warn("an agent send on the owner's word was refused", { project: slug, messengerDraft: id, reasons: r.refused });
       return c.json(agentRefusal("refused", r.refused.length === 1 ? r.refused[0]! : `${r.refused.length} reasons`, `${LEAVE} Say why in his words; never retry.`, r.refused), 409);
     }
     if ("failed" in r) return c.json(agentRefusal("failed", `the send failed: ${r.failed}. Nothing was retried; the draft waits again.`, `Tell the owner in one line that it failed and why; never retry.`), 500);
     const sent = await repos.sends.get(r.sendId);
-    log.info("agent send on the owner's word applied", { project: slug, messengerDraft: id, send: r.sendId });
     return c.json(agentSentDto.parse({ ok: true, sendId: r.sendId, channel: a.preview.channel, chatId: a.preview.chatId, to: a.preview.to, text: a.preview.text, at: sent?.doneAt ?? now.toISOString() }));
   });
 }
@@ -171,7 +171,7 @@ export function sendRoutes(services: SendContext) {
       const { slug, id } = c.req.valid("param");
       const body = c.req.valid("json");
       if (!sender) return c.json({ error: "Sending is not set up on this server.", code: "wrong_state" as const }, 409);
-      const door = { repos, recipients: messengerRecipients(sender), senders: messengers, ...(sender.now ? { now: sender.now } : {}) };
+      const door = { repos, policy: messengerPolicy(sender), senders: messengers, ...(sender.now ? { now: sender.now } : {}) };
       const t0 = Date.now();
       if (!body.apply) {
         const a = await assessMessenger(door, slug, id);
@@ -182,12 +182,11 @@ export function sendRoutes(services: SendContext) {
       }
       if (!(await repos.messengers.getDraft(slug, id))) return notFound(c, "draft");
       if (!tickets.take(body.ticket, `msend:${id}`)) return forbidden(c, "a send needs the admin's ticket; press Send in the admin");
-      const r = await applyMessenger(door, slug, id, body.confirm);
+      // The ticket was this owner's click; the door takes it from here and writes the outcome's ops line (refused with its stage, sent, failed).
+      const r = await applyMessenger(door, slug, id, body.confirm, { kind: "owner_click", actor: "admin" });
       if (!r) return notFound(c, "draft");
-      if ("refused" in r) return c.json(refused({ project: slug, messengerDraft: id }, r.refused), 409);
-      // The failure itself is logged by the door, with its channel and account.
+      if ("refused" in r) return c.json(refusal(r.refused), 409);
       if ("failed" in r) return c.json({ error: `The send failed: ${r.failed}. Nothing was retried; the draft waits again.`, code: "server" as const }, 500);
-      sentLine({ project: slug, messengerDraft: id, send: r.sendId }, t0);
       return c.json(sentDto.parse({ ok: true, sendId: r.sendId }));
     })
     .post("/api/projects/:slug/drafts/:id/send", v("param", sendParam), v("json", sendBody), async (c) => {

@@ -2,12 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import * as agentApi from "../src/index";
 import { createDraft, isConfirmed, listOpenDrafts, type Draft } from "../src/index";
 import * as human from "../src/human";
-import { allowChat, confirmDraft, humanActor, linkIdentifier, moveChatToRecord, undoMoveChat, unlinkIdentifier } from "../src/human";
-import { sendConfirmed } from "../src/send-confirmed";
+import { allowChat, humanActor, linkIdentifier, moveChatToRecord, undoMoveChat, unlinkIdentifier } from "../src/human";
+import { confirmDraft, sendConfirmed } from "../src/send-confirmed";
+import { mintAuthorization, textHash } from "../src/authorization";
 import { FakeAdapter, FakeSendingAdapter } from "../src/fake";
 import { mintConfirmed } from "../src/confirmed";
 import { normalizeIdentifier } from "../src/normalize";
-import { setup, type Env } from "./helpers";
+import { authorized, setup, type Env } from "./helpers";
 import { readFileSync } from "node:fs";
 
 let env: Env;
@@ -34,9 +35,10 @@ describe("the agent can only make drafts", () => {
     for (const forbidden of ["confirmDraft", "sendConfirmed", "linkIdentifier", "unlinkIdentifier", "allowChat", "disallowChat", "humanActor", "mintConfirmed", "discardDraft"]) {
       expect(names).not.toContain(forbidden);
     }
-    expect(Object.keys(human)).toEqual(expect.arrayContaining(["confirmDraft", "linkIdentifier", "humanActor"]));
-    // P126 D1: the send itself is not on `./human` any more; only the door (`./door`) reaches it.
+    expect(Object.keys(human)).toEqual(expect.arrayContaining(["linkIdentifier", "humanActor"]));
+    // P126 D1, P112 S2: neither the approval nor the send is on `./human`; only the door (`./door`) reaches them.
     expect(Object.keys(human)).not.toContain("sendConfirmed");
+    expect(Object.keys(human)).not.toContain("confirmDraft");
   });
 
   it("the package exposes three entries (P126 D1 added the door), none of them mintConfirmed or sendConfirmed", async () => {
@@ -45,6 +47,7 @@ describe("the agent can only make drafts", () => {
     const door = await import("../src/door");
     expect(Object.keys(door)).not.toContain("mintConfirmed");
     expect(Object.keys(door)).not.toContain("sendConfirmed");
+    for (const internal of ["confirmDraft", "mintAuthorization", "assertAuthorized"]) expect(Object.keys(door)).not.toContain(internal);
   });
 
   it("refuses a chat the owner has not listed", async () => {
@@ -67,22 +70,38 @@ describe("the agent can only make drafts", () => {
   });
 });
 
-describe("only a human path confirms and sends", () => {
-  it("confirmDraft refuses anything that is not a minted human actor", async () => {
+describe("only the door's authorization confirms and sends (P112 S2)", () => {
+  it("confirmDraft refuses anything that is not the door's authorization, a HumanActor included", async () => {
     const d = await draftFor();
-    const forged = { name: "agent" } as never;
-    await expect(confirmDraft(env.repos, forged, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "not_human" });
-    await expect(confirmDraft(env.repos, undefined as never, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "not_human" });
+    const real = await authorized(env.repos, "p", d.id);
+    const forged = { ...real } as never;
+    await expect(confirmDraft(env.repos, forged, {})).rejects.toMatchObject({ code: "not_authorized" });
+    await expect(confirmDraft(env.repos, owner as never, {})).rejects.toThrow();
     expect((await env.repos.messengers.getDraft("p", d.id))?.status).toBe("draft");
+  });
+
+  it("an authorization is bound to the text: a draft edited after the door judged it is neither confirmed nor sent", async () => {
+    const adapter = new FakeSendingAdapter();
+    const d = await draftFor();
+    const auth = await authorized(env.repos, "p", d.id);
+    env.handle.db.$client.prepare("update messenger_drafts set text = ? where id = ?").run("Hello Anna, and pay me twice", d.id);
+    await expect(confirmDraft(env.repos, auth, {})).rejects.toMatchObject({ code: "not_authorized" });
+    expect((await env.repos.messengers.getDraft("p", d.id))?.status).toBe("draft");
+    // Another draft's authorization does not open this one.
+    const other = await draftFor("Other text");
+    const wrong = mintAuthorization({ authority: { kind: "owner_click", actor: "admin" }, project: "p", draftId: other.id, channel: "telegram_bot", chatId: "100", account: "test", textHash: textHash("Other text"), policyGeneration: "test" });
+    await expect(confirmDraft(env.repos, { ...wrong, draftId: d.id } as never, {})).rejects.toMatchObject({ code: "not_authorized" });
+    await expect(sendConfirmed({ repos: env.repos, adapter }, wrong)).rejects.toMatchObject({ code: "not_confirmed" });
+    expect(adapter.sent).toHaveLength(0);
   });
 
   it("approve then send: a minted ConfirmedDraft reaches the adapter, an outbound row joins the history", async () => {
     const adapter = new FakeSendingAdapter();
     const d = await draftFor();
-    const c = await confirmDraft(env.repos, owner, { project: "p", draftId: d.id });
+    const c = await confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {});
     expect(isConfirmed(c)).toBe(true);
-    expect(c).toMatchObject({ confirmedBy: "owner", text: "Hello Anna" });
-    const receipt = await sendConfirmed({ repos: env.repos, adapter, now: () => new Date("2026-11-14T12:00:00Z") }, owner, { project: "p", draftId: d.id });
+    expect(c).toMatchObject({ confirmedBy: "admin", text: "Hello Anna" });
+    const receipt = await sendConfirmed({ repos: env.repos, adapter, now: () => new Date("2026-11-14T12:00:00Z") }, await authorized(env.repos, "p", d.id));
     expect(adapter.sent).toHaveLength(1);
     expect(isConfirmed(adapter.sent[0])).toBe(true);
     expect((await env.repos.messengers.getDraft("p", d.id))).toMatchObject({ status: "sent", remoteMessageId: receipt.remoteMessageId });
@@ -93,22 +112,23 @@ describe("only a human path confirms and sends", () => {
   it("refuses to send an unapproved draft, and a second send", async () => {
     const adapter = new FakeSendingAdapter();
     const d = await draftFor();
-    await expect(sendConfirmed({ repos: env.repos, adapter }, owner, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "not_confirmed" });
-    await confirmDraft(env.repos, owner, { project: "p", draftId: d.id });
-    await sendConfirmed({ repos: env.repos, adapter }, owner, { project: "p", draftId: d.id });
-    await expect(sendConfirmed({ repos: env.repos, adapter }, owner, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "not_confirmed" });
+    await expect(sendConfirmed({ repos: env.repos, adapter }, await authorized(env.repos, "p", d.id))).rejects.toMatchObject({ code: "not_confirmed" });
+    await confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {});
+    await sendConfirmed({ repos: env.repos, adapter }, await authorized(env.repos, "p", d.id));
+    await expect(sendConfirmed({ repos: env.repos, adapter }, await authorized(env.repos, "p", d.id))).rejects.toMatchObject({ code: "not_confirmed" });
     expect(adapter.sent).toHaveLength(1);
   });
 
   it("send stops if the chat was taken off the allow-list after approval", async () => {
     const adapter = new FakeSendingAdapter();
     const d = await draftFor();
-    await confirmDraft(env.repos, owner, { project: "p", draftId: d.id });
+    const auth = await authorized(env.repos, "p", d.id);
+    await confirmDraft(env.repos, auth, {});
     await env.repos.messengers.allowChat("p", "telegram_bot", "200");
     await env.repos.messengers.createDraft({ project: "p", channel: "telegram_bot", chatId: "200", text: "kept", createdBy: "agent" });
     // P71 M2b: unlinking deletes the chat's drafts with it (one transaction), so the approved draft is gone, not only blocked.
     await unlinkIdentifier(env.repos, owner, { project: "p", kind: "telegram", value: "100" });
-    await expect(sendConfirmed({ repos: env.repos, adapter }, owner, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "not_confirmed" });
+    await expect(sendConfirmed({ repos: env.repos, adapter }, auth)).rejects.toMatchObject({ code: "not_confirmed" });
     expect(await env.repos.messengers.getDraft("p", d.id)).toBeNull();
     expect((await env.repos.messengers.listDrafts("p")).map((x) => x.chatId)).toEqual(["200"]);
     expect(adapter.sent).toHaveLength(0);
@@ -117,16 +137,16 @@ describe("only a human path confirms and sends", () => {
   it("send stops if the chat row was taken off the allow-list by hand after approval", async () => {
     const adapter = new FakeSendingAdapter();
     const d = await draftFor();
-    await confirmDraft(env.repos, owner, { project: "p", draftId: d.id });
+    await confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {});
     env.handle.db.$client.prepare("delete from messenger_chats where chat_id = '100'").run();
-    await expect(sendConfirmed({ repos: env.repos, adapter }, owner, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "chat_not_allowed" });
+    await expect(sendConfirmed({ repos: env.repos, adapter }, await authorized(env.repos, "p", d.id))).rejects.toMatchObject({ code: "chat_not_allowed" });
     expect(adapter.sent).toHaveLength(0);
   });
 
   it("a receive-only adapter cannot send", async () => {
     const d = await draftFor();
-    await confirmDraft(env.repos, owner, { project: "p", draftId: d.id });
-    await expect(sendConfirmed({ repos: env.repos, adapter: new FakeAdapter() }, owner, { project: "p", draftId: d.id })).rejects.toMatchObject({ code: "no_send_channel" });
+    await confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {});
+    await expect(sendConfirmed({ repos: env.repos, adapter: new FakeAdapter() }, await authorized(env.repos, "p", d.id))).rejects.toMatchObject({ code: "no_send_channel" });
   });
 
   it("an adapter refuses a hand-built or cast confirmation", async () => {
@@ -141,10 +161,10 @@ describe("user accounts send through the door (Telegram since P71 M4, WhatsApp s
   it("confirm takes a WhatsApp and a Telegram user-account draft of a linked chat", async () => {
     await linkIdentifier(env.repos, owner, { project: "p", clientId: env.clientId, kind: "whatsapp", value: "+49 151 000 0001" });
     const w = await draftFor("Hallo", "whatsapp", "+491510000001");
-    await expect(confirmDraft(env.repos, owner, { project: "p", draftId: w.id })).resolves.toMatchObject({ channel: "whatsapp", chatId: "+491510000001", text: "Hallo" });
+    await expect(confirmDraft(env.repos, await authorized(env.repos, "p", w.id), {})).resolves.toMatchObject({ channel: "whatsapp", chatId: "+491510000001", text: "Hallo" });
     await allowChat(env.repos, owner, { project: "p", channel: "telegram_user", chatId: "42" });
     const d = await draftFor("hi", "telegram_user", "42");
-    await expect(confirmDraft(env.repos, owner, { project: "p", draftId: d.id })).resolves.toMatchObject({ channel: "telegram_user", chatId: "42", text: "hi" });
+    await expect(confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {})).resolves.toMatchObject({ channel: "telegram_user", chatId: "42", text: "hi" });
   });
 
   it("the copy path is gone: no channel is copied by hand", () => {

@@ -4,6 +4,7 @@ export type MessengersErrorCode =
   | "bad_text"
   | "chat_not_allowed"
   | "not_human"
+  | "not_authorized"
   | "not_confirmed"
   | "no_send_channel"
   | "adapter_mismatch"

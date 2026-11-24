@@ -53,6 +53,8 @@ describe("send_log and Stop all", () => {
     expect(await repos.sends.stop()).toBe(1);
     expect(await repos.sends.isStopped("p")).toBe(true);
     expect((await repos.sends.forDraft(draftId))[0]).toMatchObject({ status: "cancelled", error: "Stop all" });
+    // P112 S2: the row's own write reads Stop again, so no send starts while it is on, whatever the caller checked before.
+    await expect(repos.sends.begin(base(draftId))).rejects.toMatchObject({ code: "wrong_state", message: "Stop all is on" });
     await repos.sends.resume();
     expect(await repos.sends.isStopped("p")).toBe(false);
     expect(await repos.sends.stoppedScopes()).toEqual(["other"]);

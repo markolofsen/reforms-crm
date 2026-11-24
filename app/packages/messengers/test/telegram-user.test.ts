@@ -4,14 +4,14 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdapterError, mtcuteClients, parkedOf } from "../src/adapter";
 import { FakeLoginClient, FakeMtClient, FakeRpcError, fakePerson } from "../src/fake-user";
-import { allowChat, confirmDraft, createLoginFlows, humanActor, linkUserChat, removeSession, writeSession } from "../src/human";
-import { sendConfirmed } from "../src/send-confirmed";
+import { allowChat, createLoginFlows, humanActor, linkUserChat, removeSession, writeSession } from "../src/human";
+import { confirmDraft, sendConfirmed } from "../src/send-confirmed";
 import { mintConfirmed } from "../src/confirmed";
 import { pollOnly } from "../src/adapter";
 import { pollOnce, runPoller } from "../src/poller";
 import { readSession, redactSessions, sessionAccounts } from "../src/sessions";
 import { createTelegramUserAdapter, toUserAdapterError, toUserInbound } from "../src/telegram-user";
-import { setup, type Env } from "./helpers";
+import { authorized, setup, type Env } from "./helpers";
 import { captureOps } from "@hub/log/ops";
 
 let env: Env;
@@ -151,8 +151,8 @@ describe("telegram user account: send (P71 M4)", () => {
     const adapter = adapterOf();
     await adapter.start!();
     const d = await env.repos.messengers.createDraft({ project: "p", channel: "telegram_user", chatId: "1001", text: "Hi Anna", createdBy: "agent" });
-    await confirmDraft(env.repos, human, { project: "p", draftId: d.id });
-    const r = await sendConfirmed({ repos: env.repos, adapter, now: () => NOW }, human, { project: "p", draftId: d.id });
+    await confirmDraft(env.repos, await authorized(env.repos, "p", d.id), {});
+    const r = await sendConfirmed({ repos: env.repos, adapter, now: () => NOW }, await authorized(env.repos, "p", d.id));
     expect(client.sent).toEqual([{ chatId: 1001, text: "Hi Anna", id: Number(r.remoteMessageId) }]);
     expect((await env.repos.messengers.getDraft("p", d.id))?.status).toBe("sent");
     expect((await rowsOf("1001")).map((m) => [m.direction, m.text])).toEqual([["out", "Hi Anna"]]);

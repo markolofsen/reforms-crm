@@ -3,9 +3,9 @@ import type { MessengerChannel } from "@hub/db";
 declare const confirmedBrand: unique symbol;
 
 /**
- * A reply a human approved. The only value an adapter's `send` accepts. The brand makes it unforgeable in types; the
- * WeakSet makes it unforgeable at run time (a hand-built object, or one cast with `as`, is refused by `isConfirmed`).
- * `mintConfirmed` is not re-exported from the package index: only `human.ts` calls it.
+ * A reply the send door approved (`./door.ts`). The only value an adapter's `send` accepts. The brand makes it unforgeable in
+ * types; the WeakSet makes it unforgeable at run time (a hand-built object, or one cast with `as`, is refused by `isConfirmed`).
+ * `mintConfirmed` is not re-exported from any package entry: only `send-confirmed.ts` calls it.
  */
 export interface ConfirmedDraft {
   readonly [confirmedBrand]: true;

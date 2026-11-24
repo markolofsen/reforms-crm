@@ -5,12 +5,26 @@ import { assess, type SendDeps, type SendMode } from "./assess";
 import { trashThread } from "./find";
 import { addresses, norm, same } from "./recipients";
 
-// `hub send <draftId>` and the one place a mail goes out (`deliver`, also the due run's): the audit row first, then Mail.
+// `hub send <draftId>` and the one place a mail goes out. P112 S2: the stages are functions of their own, in this order, each on
+// fresh reads: the assessment (`assess`, every reason in words: the project's lifecycle, Stop sending, Checked bound to the text's
+// hash, the recipients policy), the authorization (`authorizeMail`: what the person confirmed is what Mail holds now), the audit
+// (`auditMail`: the `send_log` row first, Stop sending re-checked in its write), and the delivery (`transmit`: one Mailer send, no
+// retry). The ticket proves the person's click and is taken by the server's route before `sendDraft`; the CLI is the owner at his
+// terminal. Mail has no other authority: the agent never sends an email, in any mode (decision 0046 point 4), and no server
+// runner does (decision 0048 point 12).
 
 export type SendOutcome = { code: 0 | 1 | 2; line: string };
 const line = (o: Record<string, unknown>) => JSON.stringify(o);
 const refuse = (draftId: number, reasons: string[]): SendOutcome => ({ code: 2, line: line({ ok: false, draftId, refused: reasons }) });
 const fields = (m: MailDraft) => ({ from: m.sender, to: m.to, cc: m.cc, subject: m.subject });
+
+/** The authorization: the recipients and subject the person saw (the server's Send) must be what Mail holds now. Every reason, or none. */
+export function authorizeMail(m: MailDraft, confirm?: { to: string[]; subject: string }): string[] {
+  if (confirm && (confirm.subject !== m.subject || !same(norm(confirm.to.flatMap(addresses)), norm(m.to)))) {
+    return ["the draft in Mail changed since you looked at it (recipient or subject): read it again before sending"];
+  }
+  return [];
+}
 
 /**
  * `hub send <draftId>`. `confirm` (the server's Send) is the recipient and subject the person saw; a mismatch refuses. Dry run unless `apply`: it reads Mail and prints what it would send (full text included). With
@@ -22,23 +36,30 @@ export async function sendDraft(deps: SendDeps, o: { draftId: number; apply: boo
   if (!a.ok || !a.mail || !a.project) return refuse(o.draftId, a.reasons);
   const m = a.mail;
   // What a person confirmed on screen must be what Mail holds now: the draft may have been edited since the dry run.
-  if (o.confirm && (o.confirm.subject !== m.subject || !same(norm(o.confirm.to.flatMap(addresses)), norm(m.to)))) {
-    return refuse(o.draftId, ["the draft in Mail changed since you looked at it (recipient or subject): read it again before sending"]);
-  }
+  const changed = authorizeMail(m, o.confirm);
+  if (changed.length) return refuse(o.draftId, changed);
   if (!o.apply) return { code: 0, line: line({ ok: true, dryRun: true, draftId: o.draftId, project: a.project, ...fields(m), body: m.body, note: "nothing sent; add --apply to send" }) };
   const draft = await deps.repos.drafts.get(o.draftId);
   return deliver(deps, { draftId: o.draftId, project: a.project, mode: "manual", actor: o.actor, mail: m, mailRef: draft?.mailRef ?? null });
 }
-export async function deliver(deps: SendDeps, o: { draftId: number; project: string; mode: SendMode; actor: string; mail: MailDraft; queued?: SendRow; mailRef?: string | null }): Promise<SendOutcome> {
-  // Exactly the Mail text goes out, and the audit row holds it (decision 0031: nothing of the Hub's is in it).
+
+type DeliverInput = { draftId: number; project: string; mode: SendMode; actor: string; mail: MailDraft; queued?: SendRow; mailRef?: string | null };
+
+/** The audit: the `send_log` row first (a queued row the due run claimed is already that row). Exactly the Mail text, as it goes out (decision 0031). */
+export async function auditMail(deps: SendDeps, o: DeliverInput): Promise<{ row: SendRow } | { outcome: SendOutcome }> {
+  if (o.queued) return { row: o.queued };
   const m = o.mail;
-  let row: SendRow;
   try {
-    row = o.queued ?? (await deps.repos.sends.begin({ project: o.project, draftId: o.draftId, mode: o.mode, status: "sending", actor: o.actor, at: (deps.now?.() ?? new Date()).toISOString(), sender: m.sender, to: m.to.join(", "), cc: m.cc.join(", ") || null, bcc: m.bcc.join(", ") || null, subject: m.subject, body: m.body, mailRef: m.messageId }));
+    return { row: await deps.repos.sends.begin({ project: o.project, draftId: o.draftId, mode: o.mode, status: "sending", actor: o.actor, at: (deps.now?.() ?? new Date()).toISOString(), sender: m.sender, to: m.to.join(", "), cc: m.cc.join(", ") || null, bcc: m.bcc.join(", ") || null, subject: m.subject, body: m.body, mailRef: m.messageId }) };
   } catch (e) {
-    if (e instanceof RepoError) return refuse(o.draftId, [e.message]);
-    return { code: 1, line: line({ ok: false, draftId: o.draftId, error: (e as Error).message }) };
+    if (e instanceof RepoError) return { outcome: refuse(o.draftId, [e.message]) };
+    return { outcome: { code: 1, line: line({ ok: false, draftId: o.draftId, error: (e as Error).message }) } };
   }
+}
+
+/** The delivery: one Mailer send of the audited row, the row finished, the sent notice, the Hub's other versions to Trash. Never retried. */
+async function transmit(deps: SendDeps, row: SendRow, o: DeliverInput): Promise<SendOutcome> {
+  const m = o.mail;
   let sent: { messageId: string | null };
   try {
     sent = await deps.mailer.send(m, o.mailRef ?? null);
@@ -62,4 +83,11 @@ export async function deliver(deps: SendDeps, o: { draftId: number; project: str
     await trashThread(deps, o.draftId, m.messageId);
   })().catch(() => undefined);
   return { code: 0, line: line({ ok: true, sent: true, draftId: o.draftId, sendId: row.id, ...fields(m) }) };
+}
+
+/** The audit, then the delivery: the one place a mail goes out (the manual send's and the due run's). */
+export async function deliver(deps: SendDeps, o: DeliverInput): Promise<SendOutcome> {
+  const audited = await auditMail(deps, o);
+  if ("outcome" in audited) return audited.outcome;
+  return transmit(deps, audited.row, o);
 }
