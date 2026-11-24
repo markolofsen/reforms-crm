@@ -46,6 +46,8 @@ export async function startProjectAutolink(o: {
     tokenFile: first?.config.notion.tokenFile ?? "notion-token",
     env,
     auto: project !== null,
+    // P140 P1b: a name the agent or the owner fixed in Notion reaches the Hub's own row on the next read (every 6 h, at start).
+    ...(project ? { onRead: (entries) => o.repos.clients.adoptCardNames(project, entries) } : {}),
   });
   let cached: { at: number; on: boolean } | null = null;
   const enabled = async () => {

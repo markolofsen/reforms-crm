@@ -72,7 +72,8 @@ describe("the capabilities line names the project's databases (P82 S2)", () => {
     expect(r).toContain("The owner is the authority.");
     expect(r).toContain("His request in this session is the work order");
     expect(r).toContain("Never decide yourself that an address, client or recipient is not allowed: the tool checks it.");
-    expect(r).toContain("is created or edited on his request; Notion deletes and moves are forbidden.");
+    expect(r).toContain("is created or edited on his request, except the client profile: you refresh it yourself after every conversation or new fact");
+    expect(r).toContain("Notion deletes and moves are forbidden.");
   });
   it("a project with no list says so, with the phrase", () => {
     expect(notionCapability({ ...SAAS, databases: [] })).toBe("notion: no databases listed in project.md (say: настрой проект saas-support)");

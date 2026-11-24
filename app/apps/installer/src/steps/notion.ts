@@ -2,6 +2,7 @@ import { projectStore } from "@hub/projects/store";
 import { readJson, type McpFile } from "../context";
 import { verifyProjectDatabases } from "../notion-check";
 import { addMapField, mapFieldRows } from "../notion-map-field";
+import { descriptionRows, syncDescriptions } from "../notion-descriptions";
 import path from "node:path";
 import type { Step } from "../types";
 import { fileState, NOTION_FILE, probeNotion, readValue } from "@hub/connections";
@@ -67,6 +68,23 @@ export const notionSteps: Step[] = [
     },
     async apply(ctx) {
       return addMapField(ctx, await mapFieldRows(ctx, projectStore({ projects: ctx.paths.projects }).list()));
+    },
+  },
+  {
+    id: "notion.descriptions", group: "Notion", title: "Live property descriptions match the pack",
+    why: "P140 P1a: a property's description is the rule a person and an agent read in Notion. The client profile (Clients' Name, Email, Phone, Relationship, Type, Lead source, Next step) reads \"Kept current by the agent from what the client says (never invented); the owner may edit.\" An old \"Filled by CRM, do not edit\" there stops the agent's profile refresh.",
+    verifies: "Each project database that has descriptions in the pack (`schema/<db>.json`, `description`) holds the same text live. Read only: one GET per database. WARN when there is no token to read with.",
+    does: "Sets the pack's description on each property that differs: one PATCH per data source, a select's options sent back exactly as Notion holds them (no option, colour or type changes), nothing deleted. The integration needs Update content.",
+    async check(ctx) {
+      const rows = await descriptionRows(ctx, projectStore({ projects: ctx.paths.projects }).list(), ctx.paths.notionPack);
+      if (!rows.length) return pass("no project lists a database the pack describes");
+      const differs = rows.filter((r) => r.state === "differs");
+      if (differs.length) return fail(`${differs.map((r) => r.detail).join("; ")}: \`hub install --only notion.descriptions\` sets them`);
+      const other = rows.filter((r) => r.state !== "ok");
+      return other.length ? warn(other.map((r) => r.detail).join("; ")) : pass(`${rows.length} database(s) carry the pack's descriptions`);
+    },
+    async apply(ctx) {
+      return syncDescriptions(ctx, await descriptionRows(ctx, projectStore({ projects: ctx.paths.projects }).list(), ctx.paths.notionPack));
     },
   },
   {

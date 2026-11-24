@@ -106,6 +106,8 @@ export interface StartDirectory {
   now?: () => Date;
   /** false: no first read and no timer (tests call `refresh`). */
   auto?: boolean;
+  /** P140 P1b: told every full read's records, so the Hub's own client names follow a better Notion title. Its failure is logged, never thrown. */
+  onRead?: (entries: readonly DirectoryEntry[]) => Promise<unknown>;
 }
 
 export function startClientDirectory(o: StartDirectory): ClientDirectory {
@@ -138,6 +140,7 @@ export function startClientDirectory(o: StartDirectory): ClientDirectory {
       for (const e of entries) if (e.identifiers.length) byRelationship[e.relationship ?? "none"] = (byRelationship[e.relationship ?? "none"] ?? 0) + 1;
       dir = buildDirectory(entries);
       st = { state: "ready", reason: null, entries: entries.length, withIdentifier: entries.filter((e) => e.identifiers.length > 0).length, byRelationship, readAt: now().toISOString() };
+      await o.onRead?.(entries).catch((e: unknown) => ops("notion").warn("taking the client names from Notion failed", { kind: e instanceof Error ? e.name : "error" }));
     } catch (e) {
       // The message names the failure's class only: a Notion error can quote a property value.
       st = { ...st, state: dir ? "ready" : "error", reason: why(e) };

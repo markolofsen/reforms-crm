@@ -15,6 +15,7 @@
     "./autopilot": "./src/autopilot.ts",
     "./llm": "./src/llm.ts",
     "./person": "./src/person.ts",
+    "./profile": "./src/profile.ts",
     "./lint-limits": "./src/lint-limits.mjs",
     "./instance": "./src/instance.ts",
     "./errors": "./src/errors.ts",

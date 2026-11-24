@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import { type ClientCounts, type ClientFilter, type Mark } from "@hub/config";
+import { betterValue, isRealName } from "@hub/config/profile";
 import { toReviewDrafts, type ReviewDraft } from "./review";
 import type { Db } from "../client";
 import { write } from "../tx";
@@ -48,15 +49,11 @@ function searchSql(text: string | undefined): SQL | undefined {
 /** What `touch` may set. Only these columns; a client row is never deleted (marks, identifiers and the log hang on it). */
 export type ClientTouch = { project: string; email: string; name: string; lastContactAt?: string | null; repliesOwed?: boolean };
 
-/** A name that is a person's or a company's, not empty and not an address (P87, B5: a record without a name gave the address). */
-export const isRealName = (name: string, email: string): boolean => {
-  const n = name.trim();
-  return n !== "" && !n.includes("@") && n.toLowerCase() !== email.trim().toLowerCase();
-};
 
 /**
  * The shared body of `touch`, sync so `drafts.record` can run it inside its own transaction. A new row takes the name, else the
- * address; an existing row's name is replaced only by a real name (`isRealName`), never by an empty one or an address (P87, B5).
+ * address; an existing row's name is replaced only by a real name (`isRealName` of `@hub/config/profile`), never by an empty one, an
+ * address, a phone number or a chat id (P87 B5, P140 P1b).
  */
 export function touchClient(tx: Pick<Db, "select" | "insert" | "update">, input: ClientTouch): { id: number; created: boolean } {
   const email = input.email.trim().toLowerCase();
@@ -176,6 +173,24 @@ export function clientsRepo(db: Db) {
         // P47: Do not contact ends the client's follow-ups (opted out) and skips the open step draft, in this transaction.
         if (!had && next.includes("do_not_contact")) onClientWrote(tx, { project: c.project, clientId, reason: "opted_out", at: new Date().toISOString() });
         return true;
+      });
+    },
+
+    /**
+     * P140 P1b: the Hub's own name of a client follows its Notion card when the card's title is better by the one rule
+     * (`betterValue("title", …)`): a phone number, an address or a chat id gives way to a real name, a real name never to anything.
+     * `cards` are the directory's records; a card matches a client by its address. Returns how many names changed.
+     */
+    async adoptCardNames(project: string, cards: readonly { email: string | null; name: string }[]): Promise<number> {
+      const byEmail = new Map(cards.flatMap((c) => (c.email ? [[c.email.trim().toLowerCase(), c.name] as const] : [])));
+      if (!byEmail.size) return 0;
+      return write(db, (tx) => {
+        let changed = 0;
+        for (const c of tx.select({ id: clients.id, email: clients.email, name: clients.name }).from(clients).where(eq(clients.project, project)).all()) {
+          const next = betterValue("title", c.name, byEmail.get(c.email.toLowerCase()));
+          if (next) changed += tx.update(clients).set({ name: next, updatedAt: new Date().toISOString() }).where(eq(clients.id, c.id)).run().changes;
+        }
+        return changed;
       });
     },
 

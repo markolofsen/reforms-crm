@@ -24,6 +24,7 @@ Checklist for a new module: purpose in one sentence and the daily user; source o
   - `Filled by CRM, do not edit`
   - `Written by the integration` (or by name: `Written by Hub`)
   - `Edited by people` (or `Edited by <name>`)
+  - `Kept current by the agent from what the client says (never invented); the owner may edit.` (the client profile: Clients' Name, Email, Phone, Relationship, Type, Lead source and Next step)
   - `Calculated in Notion. Not synced.`
   Notion-only fields also say `Not synced`.
 - Names: English, short, sentence case, no emojis; name the thing, not the type (`Due`, not `Due date field`).
@@ -69,8 +70,9 @@ How to adapt a project (from Help):
 
 - Create tasks only in Tasks, with `Area` set (and Client or Deal for client work).
 - Draft messages; never send without a person's OK.
-- Never edit fields marked `Filled by CRM`.
-- Never create rows in Clients, Deals or Organizations: they come from the CRM.
+- Never edit the machine fields (`Filled by CRM`, `Written by Hub`): their writer owns them.
+- Keep the client profile current: after every conversation or new fact, refresh the fields described `Kept current by the agent` from what the client said, never from a guess (`skills/triage-mail/references/profile.md`). A real name is never replaced by a phone number or an address, and an Email is never cleared.
+- Create a Clients row only through the Hub (Create client from a chat, a lead's first send); never create Deals or Organizations rows: they come from the CRM.
 - Propose changes first, write after confirmation, unless the workflow says otherwise.
 - End with a short report of what changed.
 - Integrations write idempotently: every row they create carries its own key (`CRM id`, `Hub run id`, `External id`).

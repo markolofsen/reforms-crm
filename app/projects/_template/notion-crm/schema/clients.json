@@ -5,11 +5,15 @@
  "properties": {
   "Name": {
    "type": "title",
-   "writer": "CRM"
+   "writer": "agent and people",
+   "description": "Kept current by the agent from what the client says (never invented); the owner may edit.",
+   "note": "The person's real name, plus the company (Ahmed, Qimma Auctions). A Hub write replaces only an empty title, an address, a phone number or a chat id, never a real name (P140 P1b)."
   },
   "Email": {
    "type": "email",
-   "writer": "CRM"
+   "writer": "agent and people",
+   "description": "Kept current by the agent from what the client says (never invented); the owner may edit.",
+   "note": "The Hub's link key: filled when empty, never cleared or replaced; a second address goes to Other emails (P140 P1b)."
   },
   "Other emails": {
    "type": "text",
@@ -17,7 +21,8 @@
   },
   "Phone": {
    "type": "phone_number",
-   "writer": "CRM"
+   "writer": "agent and people",
+   "description": "Kept current by the agent from what the client says (never invented); the owner may edit."
   },
   "Telegram": {
    "type": "text",
@@ -46,7 +51,8 @@
     "Partner",
     "Other"
    ],
-   "writer": "CRM"
+   "writer": "agent and people",
+   "description": "Kept current by the agent from what the client says (never invented); the owner may edit."
   },
   "Activity": {
    "type": "select",
@@ -81,8 +87,9 @@
     "Colleague",
     "Other"
    ],
-   "writer": "CRM",
-   "note": "generic: drop Agent/Broker, CBI agent"
+   "writer": "agent and people",
+   "note": "generic: drop Agent/Broker, CBI agent",
+   "description": "Kept current by the agent from what the client says (never invented); the owner may edit."
   },
   "Lead source": {
    "type": "select",
@@ -98,8 +105,9 @@
     "Outbound",
     "Other"
    ],
-   "writer": "CRM",
-   "note": "generic: Referral, Past client, Event, Outbound, Other"
+   "writer": "agent and people",
+   "note": "generic: Referral, Past client, Event, Outbound, Other",
+   "description": "Kept current by the agent from what the client says (never invented); the owner may edit."
   },
   "Islands": {
    "type": "multi_select",
@@ -184,7 +192,9 @@
   },
   "Next step": {
    "type": "text",
-   "writer": "Hub"
+   "writer": "agent and people",
+   "description": "Kept current by the agent from what the client says (never invented); the owner may edit.",
+   "note": "The Hub also writes it from the client map's nearest open step (`client_map`); the agent and the owner may edit it."
   },
   "Conversation summary": {
    "type": "text",

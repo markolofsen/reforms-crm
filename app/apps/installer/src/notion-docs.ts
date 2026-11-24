@@ -6,7 +6,7 @@ export const NOTION_PACK = "app/projects/_template/notion-crm";
 
 interface Prop {
   type: string; writer?: string; options?: string[]; target?: string; reverse?: string; limit?: number; via?: string; formula?: string;
-  trap?: number; skip?: string; note?: string; flag?: string; optional?: boolean; vertical?: boolean; ads?: boolean; createAs?: string;
+  trap?: number; skip?: string; note?: string; description?: string; flag?: string; optional?: boolean; vertical?: boolean; ads?: boolean; createAs?: string;
 }
 interface Schema { database: string; title: string; properties: Record<string, Prop> }
 
@@ -40,7 +40,7 @@ export function renderNotionFields(root: string): string {
     "",
     "Every property of every database the Notion CRM deploys, with its type, who writes it and the select options. Names are exactly as Notion shows them: Hub and the CRM sync look fields up by name, so never rename one. The meaning and the rules behind a module are in the pack's markdown (`02` to `07`); how to set Notion up is in [`README.md`](README.md).",
     "",
-    "**Writer** says who may change the field: `Hub` (the local app), `CRM` or `sync` (the Django CRM), `people` (a person by hand), `agent` (a workflow, after the owner's OK). One owner per field.",
+    "**Writer** says who may change the field: `Hub` (the local app), `CRM` or `sync` (the Django CRM), `people` (a person by hand), `agent` (a workflow, after the owner's OK), `agent and people` (the client profile: the agent keeps it current from what the client says, the owner may edit). One owner per field. A field with a `Description` has it synced to the live database by `hub install --only notion.descriptions`.",
     "",
     "## Databases",
     "",
@@ -50,7 +50,7 @@ export function renderNotionFields(root: string): string {
   for (const d of dbs) {
     out.push(`## ${d.title}`, "", `Pack file: \`schema/${d.database}.json\`.`, "", "| Field | Type | Writer | Options and notes |", "|---|---|---|---|");
     for (const [name, p] of Object.entries(d.properties)) {
-      const bits = [p.options?.length ? `Options: ${p.options.join(", ")}.` : "", p.formula ? `Formula: ${p.formula}.` : "", p.note ?? "", flags(p) ? `Flags: ${flags(p)}.` : ""].filter(Boolean).join(" ");
+      const bits = [p.description ? `Description: "${p.description}"` : "", p.options?.length ? `Options: ${p.options.join(", ")}.` : "", p.formula ? `Formula: ${p.formula}.` : "", p.note ?? "", flags(p) ? `Flags: ${flags(p)}.` : ""].filter(Boolean).join(" ");
       out.push(`| ${cell(name)} | ${cell(typeOf(p))} | ${cell(p.writer ?? "")} | ${cell(bits)} |`);
     }
     out.push("");
